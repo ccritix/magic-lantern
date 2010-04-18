@@ -150,9 +150,10 @@ getoffsets(
 	unsigned int		b = 0xFF803FE1;
 
 	// Get high 32 bits of multiplication
-	unsigned int		highbits = ((long long) a * b) >> 32;
+	unsigned int		highbits = ((unsigned long long) a * b) >> 32;
 	
-	*o1 = (base<<23) >> 23; // base&0x100?
+	//*o1 = (base<<23) >> 23; // base&0x100?
+	*o1 = base & 0xFF;
 	*o2 = base - ((highbits>>9)+(highbits&0xFFFFFE00));
 }
 
