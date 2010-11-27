@@ -47,11 +47,13 @@
 #define UNUSED(x) __attribute__((unused)) x
 
 
+#ifdef __ARM__
 /** We don't have free yet */
 static inline void free( const void * x ) { x = 0; }
 
 //extern void * malloc( unsigned len );
 #define malloc( len ) debug_malloc( len, __func__ )
+#endif
 
 /** Compute the number of entries in a static array */
 #define COUNT(x)	(sizeof(x)/sizeof((x)[0]))
