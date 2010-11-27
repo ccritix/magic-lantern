@@ -5,7 +5,7 @@ AR=$(ARM_PATH)/arm-elf-ar
 LD=$(CC)
 HOST_CC=gcc
 HOST_CFLAGS=-g -O3 -W -Wall
-VERSION=0.1.8
+VERSION=0.1.9
 
 CONFIG_PYMITE		= n
 CONFIG_RELOC		= n
@@ -81,6 +81,7 @@ CFLAGS=\
 	-Wall \
 	-W \
 	-Wno-unused-parameter \
+	-mlong-calls \
 	-D__ARM__ \
 
 ifeq ($(CONFIG_PYMITE),y)
@@ -92,8 +93,6 @@ CFLAGS += $(LUA_CFLAGS)
 endif
 
 NOT_USED_FLAGS=\
-	-march=armv5te \
-	-mthumb-interwork \
 	-msoft-float \
 
 AFLAGS=\
@@ -117,8 +116,6 @@ dumper: dumper_entry.o dumper.o
 	$(call build,LD,$(LD) \
 		-o $@ \
 		-nostdlib \
-		-mthumb-interwork \
-		-march=armv5te \
 		-e _start \
 		$^ \
 	)
@@ -149,7 +146,7 @@ ML_OBJS-y = \
 	magiclantern.lds \
 	entry.o \
 	5d-hack.o \
-	stubs-5d2.204.o \
+	stubs-5d2.208.o \
 	version.o \
 	stdio.o \
 	config.o \
@@ -216,8 +213,6 @@ magiclantern: $(ML_OBJS-y) libstdio.a
 		-o $@ \
 		-N \
 		-nostdlib \
-		-mthumb-interwork \
-		-march=armv5te \
 		-T \
 		$^ \
 		-lm \
@@ -345,6 +340,8 @@ FORCE:
 #
 eos5d2107.exe:
 	wget http://web.canon.jp/imaging/eosd/firm-e/eos5dmk2/data/eos5d2107.exe
+eos7d109.exe:
+	wget http://aux1.jp.canon.com/eosd/firm-e/eos7d/data/eos7d109.exe
 
 5d200107.fir: eos5d2107.exe
 	-unzip -o $< $@

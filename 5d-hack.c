@@ -1,8 +1,7 @@
 /** \file
  * Code to run on the 5D once it has been relocated.
  *
- * This has been updated to work with the 2.0.3 firmware.
- * IT DOES NOT WORK WITH 1.1.0 NOR 1.0.7 ANY MORE!
+ * This has been updated to work with the 2.0.8 firmware.
  */
 /*
  * Copyright (C) 2009 Trammell Hudson <hudson+ml@osresearch.net>
@@ -142,6 +141,8 @@ copy_and_restart( void )
 		;
 }
 
+struct config * global_config;
+
 
 #ifndef CONFIG_EARLY_PORT
 
@@ -219,8 +220,6 @@ my_dump_task( void )
 	dmstop();
 }
 
-
-struct config * global_config;
 
 static volatile int init_funcs_done;
 
