@@ -62,7 +62,6 @@ magiclantern-$(VERSION).zip: \
 	cropmarks.bmp \
 	autoexec.bin \
 	README \
-	LICENSE \
 
 	-rm $@
 	zip -z $@ < $^

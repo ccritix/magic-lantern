@@ -11,7 +11,7 @@ It works on my camera, with my version of arm-linux-gcc, and with
 my version of perl to build the firmware file, but that is no
 guarantee that it will work for you.
 
-Please see the LICENSE file for additional terms that cover
+Please see the COPYING file for additional terms that cover
 distribution of this software.
 
 To repeat this important point:
@@ -32,24 +32,6 @@ IMPORTANT NOTES
 * When in doubt, remove the battery and reboot.
 
 * And, remember that this software can damage or destroy your camera.
-
-
-TODO LIST:
-
-* Palette for bitmap vram (done)
-* Figure out how to create a custom menu
-	* hijack factory or photostudio menu?
-* Find routine to trigger shutter
-* Linker script to fix off by 0x120 error in reboot.c
-* Linker script to create data segment in hacked code
-* Reduce amount of DryOS copied (64 KB is more than necessary)
-* Re-arrange to have 64 KB of DryOS below 5d-hack.bin
-* Audio device is shut off after movie; keep it enabled
-* Better interaction with powersave and LCD disabled modes
-* Configurable fixed audio gain
-* Configurable crop marks
-* Use inclinometer to measure angle
-* Record meta data about video into separate file
 
 
 BOOT PROCESS OVERVIEW
