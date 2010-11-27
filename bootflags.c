@@ -96,8 +96,6 @@ void
 bootflag_write_bootblock( void )
 {
 	gui_stop_menu();
-	void * (*AllocateUncacheableMemory)( size_t ) = (void*) 0xff99b3a8;
-	void (*FreeUncacheableMemory)( const void * ) = (void*) 0xff99b3dc;
 
 	uint8_t *block = AllocateUncacheableMemory( 0x200 );
 	bmp_printf( FONT_MED, 0, 40, "mem=%08x read=%08x", block, cf_device->read_block );

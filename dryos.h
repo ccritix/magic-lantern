@@ -672,7 +672,17 @@ AllocateMemory(
 
 extern void
 FreeMemory(
-	void *			buf
+	const void *		buf
+);
+
+extern void *
+AllocateUncacheableMemory(
+	size_t			len
+);
+
+extern void
+FreeUncacheableMemory(
+	const void *		buf
 );
 
 
