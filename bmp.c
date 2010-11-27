@@ -368,7 +368,7 @@ bmp_load(
 		size
 	);
 
-	uint8_t * buf = AllocateUncacheableMemory( size );
+	uint8_t * buf = alloc_dma_memory( size );
 	if( !buf )
 	{
 		DebugMsg( DM_MAGIC, 3, "%s: malloc failed", filename );
@@ -418,7 +418,7 @@ bmp_load(
 	memcpy(fast_buf, buf, size);
 	bmp = (struct bmp_file_t *) fast_buf;
 	bmp->image = fast_buf + image_offset;
-	FreeUncacheableMemory( buf );
+	free_dma_memory( buf );
 
 	return bmp;
 
@@ -426,7 +426,7 @@ fail_buf_copy:
 offsetsize_fail:
 signature_fail:
 read_fail:
-	FreeUncacheableMemory( buf );
+	free_dma_memory( buf );
 malloc_fail:
 getfilesize_fail:
 	return NULL;

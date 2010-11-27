@@ -650,40 +650,30 @@ extern void StopErrBatteryApp( void );
 extern void * err_battery_ptr;
 
 
-extern void * _malloc( size_t len );
-
-static inline void *
-debug_malloc( unsigned long len, const char * func )
+/** Memory allocation */
+struct dryos_meminfo
 {
-	void * rc = _malloc(len);
-	if(1) DebugMsg( DM_MAGIC, 3, "%s: malloc(%d) = %x",
-		func,
-		len,
-		(unsigned) rc
-	);
-	return rc;
-}
+	void * next; // off_0x00;
+	void * prev; // off_0x04;
+	uint32_t size; //!< Allocated size or if bit 1 is set already free
+};
+SIZE_CHECK_STRUCT( dryos_meminfo, 0xC );
 
-/** DryOS allocate / Free.  Not sure how they differ from malloc */
+extern void * malloc( size_t len );
+extern void free( void * buf );
+
+extern void * realloc( void * buf, size_t newlen );
+
+
+/** Allocate DMA memory for writing to the CF card */
 extern void *
-AllocateMemory(
+alloc_dma_memory(
 	size_t			len
 );
 
 extern void
-FreeMemory(
-	const void *		buf
+free_dma_memory(
+	const void *		len
 );
-
-extern void *
-AllocateUncacheableMemory(
-	size_t			len
-);
-
-extern void
-FreeUncacheableMemory(
-	const void *		buf
-);
-
 
 #endif
