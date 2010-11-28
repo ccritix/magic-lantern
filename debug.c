@@ -59,6 +59,7 @@ display_full_hd(
 
 void enable_full_hd( void * priv )
 {
+	call("mvrSetPrintMovieLog");
 #if 0
 	if( mvr_struct->fps == 0 )
 		mvr_struct->fps = 30;
@@ -101,6 +102,123 @@ void enable_full_hd( void * priv )
 void call_dispcheck( void * priv )
 {
 	call( "dispcheck" );
+}
+
+static uint8_t * const mvr_config_struct = (uint8_t*) 0x86b0;
+static uint32_t * const jpcore_struct = (void*) 0x8fbc;
+
+static int16_t qscale = -8;
+
+void set_vbr( void * priv )
+{
+	void (*mvrFixQScale)(uint16_t *) = (void*) 0xff9905d4; // 2.0.8
+	void (*mvrSetDefQScale)(int16_t *) = (void*) 0xff990188; // 2.0.8
+
+	uint16_t param=1; // select fixed rate
+	mvrFixQScale(&param);
+
+	qscale -= 1;
+	if (qscale < -16)
+		qscale = 16;
+
+	mvrSetDefQScale(&qscale);
+}
+
+static void
+print_vbr(
+	void *			priv,
+	int			x,
+	int			y,
+	int			selected
+)
+{
+	bmp_printf(
+		selected ? MENU_FONT_SEL : MENU_FONT,
+		x, y,
+		//23456789012
+		"QScale:     %s%3d",
+		qscale < 0 ? "-" : "+",
+		qscale < 0 ? -qscale : qscale
+	);
+}
+
+
+
+void call_setprintmovielog( void * priv )
+{
+	gui_stop_menu();
+
+	//int i = 1;
+	//void (*mvrSetPrintMovieLog)(int *val) = (void*) 0xFF9905f4; // 2.0.8;
+	//mvrSetPrintMovieLog(&i);
+
+	uint8_t bps = 100;
+	void (*mvrSetBitRate)(uint8_t *val) = (void*) 0xFF852FAC; // 2.0.8;
+	void (*mvrFixQScale)(uint8_t *val) = (void*) 0xFF9905D4; // 2.0.8;
+	void (*mvrSetQScale)(uint8_t *val) = (void*) 0xFF9900B8; // 2.0.8;
+	uint32_t (*div)(uint32_t x, uint32_t y) = (void*) 0xFFC47ABC; // 2.0.8
+	
+	uint8_t * mvr_struct = ((uint8_t**) 0x1eec)[1];
+
+	int y = 40;
+	bmp_printf( FONT_MED, 0, y += 17,
+		"mvr.bitrate=%d mvr.fps=%d frame=%d",
+		*(int16_t*)(mvr_struct + 0x1d8),
+		*(int16_t*)(mvr_struct + 0x178),
+		*(int32_t*)(mvr_struct + 0x150)
+	);
+	bmp_printf( FONT_MED, 0, y += 17,
+		"LimitQScale(L=%d, H=%d)",
+		*(int16_t*)(mvr_config_struct + 0xc),
+		*(int16_t*)(mvr_config_struct + 0xe)
+	);
+	bmp_printf( FONT_MED, 0, y += 17,
+		"DefQscale(%d)",
+		*(int16_t*)(mvr_config_struct + 0x8)
+	);
+	bmp_printf( FONT_MED, 0, y += 17,
+		"TimeConst(%d)",
+		*(int16_t*)(mvr_config_struct + 0x10)
+	);
+	bmp_printf( FONT_MED, 0, y += 17,
+		"FullHDOptSize(I_OPT=%d, P_OPT=%d)",
+		*(int32_t*)(mvr_struct + 0x14),
+		*(int32_t*)(mvr_struct + 0x18)
+	);
+	uint8_t * gop_struct = (uint8_t*) 0x875c;
+	bmp_printf( FONT_MED, 0, y += 17,
+		"GopOpt(%d, %d, %d, %d, %d)",
+		*(int32_t*)(gop_struct + 0x0),
+		*(int32_t*)(gop_struct + 0x4),
+		*(int32_t*)(gop_struct + 0x8),
+		*(int32_t*)(gop_struct + 0xc),
+		*(int32_t*)(gop_struct + 0x10)
+	);
+	bmp_printf( FONT_MED, 0, y += 17,
+		"D_FULLHD(H=%d, L=%d)",
+		*(int32_t*)(mvr_struct + 0x1c),
+		*(int32_t*)(mvr_struct + 0x20)
+	);
+	bmp_printf( FONT_MED, 0, y += 17,
+		"DefDB(A=%d, B=%d)",
+		*(int32_t*)(mvr_config_struct + 0x1c),
+		*(int32_t*)(mvr_config_struct + 0x20)
+	);
+	bmp_printf( FONT_MED, 0, y += 17,
+		"FixQscale(%s)",
+		*(int16_t*)(mvr_config_struct + 0x2) ? "FIX" : "VBR"
+	);
+
+	return;
+
+/*
+	mvrSetBitRate(&bps);
+
+	bmp_hexdump( FONT_SMALL, 10, 300,
+		(void*) mvr_struct[1],
+		0x200
+	);
+*/
 }
 
 
@@ -217,6 +335,15 @@ struct menu_entry debug_menus[] = {
 		.display	= menu_print,
 	},
 	{
+		.select		= set_vbr,
+		.display	= print_vbr,
+	},
+	{
+		.priv		= "Print mvr_config",
+		.select		= call_setprintmovielog,
+		.display	= menu_print,
+	},
+	{
 		.priv		= "Draw palette",
 		.select		= bmp_draw_palette,
 		.display	= menu_print,
@@ -238,11 +365,6 @@ struct menu_entry debug_menus[] = {
 	},
 
 #if 0
-	{
-		.priv		= "Enable full HD",
-		.select		= enable_full_hd,
-		.display	= display_full_hd,
-	},
 	{
 		.display	= mvr_time_const_display,
 		.select		= mvr_time_const_select,
@@ -426,6 +548,15 @@ dump_task( void )
 	}
 
 	DebugMsg( DM_MAGIC, 3, "%s: calling dumpf", __func__ );
+
+	unsigned long *adr = (unsigned long*)0x7cfc; // 0x5bb4 on 550d 108;
+	unsigned long *adr2 = (unsigned long*)*(adr + 2);
+	unsigned char *pa =( unsigned char *)adr2;
+
+	int i;
+	for (i=0; i<35; i++)
+		DebugMsg( DM_MAGIC, 3, "@ 0x%08X = %08X", adr2+i, *(adr2+i) );
+
 	dumpf();
 }
 
