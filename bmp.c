@@ -223,7 +223,7 @@ bmp_hexdump(
 			fontspec,
 			x,
 			y,
-			"%08x: %08x %08x %08x %08x",
+			"%08x:%08x%08x %08x%08x",
 			(unsigned) d,
 			len >  0 ? (unsigned) d[ 0/4] : 0,
 			len >  4 ? (unsigned) d[ 4/4] : 0,
