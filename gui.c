@@ -26,26 +26,29 @@
 #include "dryos.h"
 #include "property.h"
 #include "bmp.h"
+#include "consts-60d.108.h"
+
+int gui_menu_shown( void );
 
 struct semaphore * gui_sem;
 
 struct gui_main_struct {
-	void *			obj;		// off_0x00;
-	uint32_t		counter;	// off_0x04;
-	uint32_t		off_0x08;
-	uint32_t		off_0x0c;
-	uint32_t		off_0x10;
-	uint32_t		off_0x14;
-	uint32_t		off_0x18;
-	uint32_t		off_0x1c;
-	uint32_t		off_0x20;
-	uint32_t		off_0x24;
-	uint32_t		off_0x28;
-	uint32_t		off_0x2c;
-	uint32_t		off_0x30;
-	struct msg_queue *	msg_queue;	// off_0x34;
-	struct msg_queue *	msg_queue_550d;	// off_0x38;
-	uint32_t		off_0x3c;
+  void *			obj;		// off_0x00;
+  uint32_t		counter;	// off_0x04;
+  uint32_t		off_0x08;
+  uint32_t		counter_60d;    //off_0x0c;
+  uint32_t		off_0x10;
+  uint32_t		off_0x14;
+  uint32_t		off_0x18;
+  uint32_t		off_0x1c;
+  uint32_t		off_0x20;
+  uint32_t		off_0x24;
+  uint32_t		off_0x28;
+  uint32_t		off_0x2c;
+  struct msg_queue *	msg_queue_60d;	// off_0x30;
+  struct msg_queue *	msg_queue;	// off_0x34;
+  struct msg_queue *	msg_queue_550d;	// off_0x38;
+  uint32_t		off_0x3c;
 };
 
 extern struct gui_main_struct gui_main_struct;
@@ -67,23 +70,29 @@ PROP_HANDLER( PROP_GUI_STATE )
 	return prop_cleanup( token, property );
 }
 
-extern void* gui_main_task_functbl;
-
+#ifdef CONFIG_60D
+#define NFUNCS 7
+#else
 #define NFUNCS 8
-#define gui_main_task_functable 0xFF453E14
+#endif
 
-static void gui_main_task_550d()
+static void gui_main_task()
 {
 	int kev = 0;
 	struct event * event = NULL;
 	int index = 0;
 	void* funcs[NFUNCS];
-	memcpy(funcs, gui_main_task_functable, 4*NFUNCS);  // copy 8 functions in an array
+	memcpy(funcs, (void*)gui_main_task_functable, 4*NFUNCS);  // copy 8 functions in an array
 	gui_init_end();
 	while(1)
 	{
+#ifdef CONFIG_60D
+		msg_queue_receive(gui_main_struct.msg_queue_60d, &event, 0);
+		gui_main_struct.counter_60d--;
+#else
 		msg_queue_receive(gui_main_struct.msg_queue_550d, &event, 0);
 		gui_main_struct.counter--;
+#endif
 		if (event == NULL) continue;
 		index = event->type;
 		if ((index >= NFUNCS) || (index < 0))
@@ -138,4 +147,4 @@ static void gui_main_task_550d()
 
 // 5D2 has a different version for gui_main_task
 
-TASK_OVERRIDE( gui_main_task, gui_main_task_550d );
+TASK_OVERRIDE( gui_main_task, gui_main_task );

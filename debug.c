@@ -236,10 +236,11 @@ int16_t qscale = 0;
 #define QSCALE_MIN MIN(-(int)qscale_min_neg, -(int)qscale_max_neg)
 #define QSCALE_OFF (QSCALE_MAX + 1)
 
+void mvrFixQScale(uint16_t *);
+void mvrSetDefQScale(int16_t *);
+
 void set_vbr( void * priv )
 {
-	void (*mvrFixQScale)(uint16_t *) = (void*) 0xFF1AA9C4; // 1.0.8
-	void (*mvrSetDefQScale)(int16_t *) = (void*) 0xFF1AA4A0; // 1.0.8
 
 	qscale = MIN(qscale, QSCALE_OFF);
 	qscale -= 1;
@@ -644,16 +645,26 @@ dump_task( void )
 	  bmp_printf( FONT_SMALL, x, y, "**disable_bootdiskf**%s","" );
 	  bootdisk_disable();
 	}
-
+	/*	
 	if( timed_dump == 0 )
 		return;
-
-	int sec = timed_dump;
+	int sec =  timed_dump;
+	*/
+	int sec =  3;
 
 	DebugMsg( DM_MAGIC, 3, "%s: Will do debug dump in %d sec",
 		__func__,
 		sec
 	);
+
+	unsigned long *adr = (unsigned long*)0x5AE8; // 0x5bb4 on 550d 108, 0x7cfc on 5d2 208;
+	unsigned long *adr2 = (unsigned long*)*(adr + 2);
+	unsigned char *pa =( unsigned char *)adr2;
+
+	int i;
+	for (i=0; i<35; i++)
+		DebugMsg( DM_MAGIC, 3, "@ 0x%08X = %08X", adr2+i, *(adr2+i) );
+
 
 	while( sec-- )
 	{

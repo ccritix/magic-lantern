@@ -28,6 +28,7 @@ HOST_CFLAGS=-g -O3 -W -Wall
 
 BUILDVER=PRERELEASE.$(shell whoami)
 VERSION:=$(shell date +'%Y%b%d' | tr [A-Z] [a-z]).550d.fw109.$(BUILDVER)
+VERSION:=0.2alex-try2-60d_fw108
 
 #MacOS
 #UMOUNT=hdiutil unmount
@@ -94,8 +95,6 @@ magiclantern-$(VERSION).zip: \
 	magiclantern.fir \
 	autoexec.bin \
 	README \
-	INSTALL.pdf \
-	UserGuide.pdf \
 	hd_ta.bmp\
 	CineScop.bmp\
 	fish8r.bmp\
@@ -115,6 +114,7 @@ FLAGS=\
 	-fno-strict-aliasing \
 	-DCONFIG_MAGICLANTERN=1 \
 	-DCONFIG_550D=1 \
+	-DCONFIG_60D=1 \
 	-DRESTARTSTART=$(RESTARTSTART) \
 	-DROMBASEADDR=$(ROMBASEADDR) \
 	-DVERSION=\"$(VERSION)\" \
@@ -194,8 +194,8 @@ magiclantern.lds: magiclantern.lds.S
 ML_OBJS-y = \
 	magiclantern.lds \
 	entry.o \
-	5d-hack.o \
-	stubs-550d.109.o \
+	60d-hack.o \
+	stubs-60d.108.o \
 	version.o \
 	bmp.o \
 	font-huge.o \
@@ -442,7 +442,7 @@ magiclantern-5d.fir: autoexec.bin
 	dd if=/dev/zero bs=9538232 count=1 \
 	) > $@
 
-magiclantern.fir: autoexec.bin
+magiclantern.fir: ../dumper/60d00108.fir autoexec.bin
 	@if [ -f ../dumper/build_fir.py ]; then \
 		python ../dumper/build_fir.py -r $^ $@ ; \
 	else \
