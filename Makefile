@@ -159,8 +159,6 @@ ML_OBJS-y = \
 	menu.o \
 	property.o \
 	bmp.o \
-	font-huge.o \
-	font-large.o \
 	font-med.o \
 	font-small.o \
 	gui.o \
