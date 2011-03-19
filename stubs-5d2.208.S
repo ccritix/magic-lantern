@@ -129,3 +129,12 @@ NSTUB( 0xFF8901A4, gui_massive_event_loop )
 NSTUB( 0xFF9B3A5C, gui_timer_something )
 NSTUB( 0xFFCB4A64, audio_thresholds )
 NSTUB( 0xFF85B454, sounddev_active_in )
+
+
+/** Fonts are in ROM1.bin; search for the names
+ * "HCanonGothic" and "CanonMonoSpace"
+ */
+NSTUB( 0xf005e99c, font_gothic_24)
+NSTUB( 0xf00cdf54, font_gothic_30)
+NSTUB( 0xf00d1110, font_gothic_36)
+NSTUB( 0xf00d585c, font_mono_24)

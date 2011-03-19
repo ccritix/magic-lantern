@@ -651,7 +651,7 @@ PROP_HANDLER( PROP_REC_TIME )
 	value /= 200; // why? it seems to work out
 	bmp_printf(
 		value < timecode_warning ? timecode_font : FONT_MED,
-		timecode_x + 5 * fontspec_font(timecode_font)->width,
+		timecode_x + 5 * fontspec_width(timecode_font),
 		timecode_y,
 		"%4d:%02d",
 		value / 60,

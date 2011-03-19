@@ -23,7 +23,9 @@ GetOptions(
 	"height=i"		=> \$font_height,
 ) or die "$0: Bad argument\n";
 
-my $font_bitmap_size = (($font_width + 7) & ~7) * $font_height / 8;
+# Round the bitmap size up since we might have a partial byte
+my $font_bytes = int(($font_width + 7) / 8);
+my $font_bitmap_size = $font_bytes * $font_height;
 
 
 # Paragraph mode
@@ -54,12 +56,19 @@ while(<>)
 		# Fix $pos for special chars
 		$pos = "\\$pos" if $pos eq '\\' or $pos eq '\'';
 
-		my $word = pack( "B*", $bits );
+		my @array;
+		for my $i (1..$font_bytes)
+		{
+			my $b = substr($bits, 0, 8);
+			substr($bits, 0, 8, '');
+
+			push @array, sprintf "0x%02x", ord(pack("B*",$b));
+		}
 
 		# Strip trailing spaces for display
 		$row =~ s/ *$//;
 
-		$bytes .= sprintf "0x%02x, // %s\n", ord($word), $row;
+		$bytes .= join (", ", @array) . ", // $row\n";
 	}
 
 	$cmaps{$pos} = <<"";

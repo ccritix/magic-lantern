@@ -31,58 +31,138 @@
 
 
 static void
-_draw_char(
+canon_char_draw(
+	const canon_font_t * const font,
+	const canon_char_t * const c,
 	unsigned	fontspec,
-	uint8_t *	bmp_vram_row,
-	char		c
+	uint8_t *	bmp_vram_row
 )
 {
-	unsigned i,j;
-	const struct font * const font = fontspec_font( fontspec );
+	if (!font)
+		return;
 
-	uint32_t	fg_color	= fontspec_fg( fontspec ) << 24;
-	uint32_t	bg_color	= fontspec_bg( fontspec ) << 24;
+	uint32_t	fg_color	= fontspec_fg( fontspec );
+	uint32_t	bg_color	= fontspec_bg( fontspec );
 
 	// Special case -- fg=bg=0 => white on transparent
 	if( fg_color == 0 && bg_color == 0 )
 	{
-		fg_color = COLOR_WHITE << 24;
-		bg_color = COLOR_BG << 24;
+		fg_color = COLOR_WHITE;
+		bg_color = COLOR_BG;
 	}
 
-	const uint32_t	pitch		= bmp_pitch() / 4;
-	uint32_t *	front_row	= (uint32_t *) bmp_vram_row;
+	const uint32_t	pitch		= bmp_pitch();
+	uint8_t *	draw_row	= bmp_vram_row;
 
 	//uint32_t flags = cli();
-	for( i=0 ; i<font->height ; i++ )
+	unsigned i, j;
+
+	// Fill in the background entirely
+	// \todo: Do this right; it causes flashing
+	for( i=0 ; i < font->height ; i++)
+	{
+		uint8_t * row = draw_row;
+		for( j=0 ; j < c->display_width ; j++)
+			*row++ = bg_color;
+		draw_row += pitch;
+	}
+
+	// Adjust by the offsets in the character
+	// and draw it over the now-cleared background.
+	draw_row = bmp_vram_row + c->xoff + c->yoff * pitch;
+
+	const uint8_t * font_row = c->bitmap;
+	const uint8_t font_width = (c->width + 7) / 8;
+
+	for( i=0 ; i < c->height ; i++)
 	{
 		// Start this scanline
-		uint32_t * row = front_row;
+		uint8_t * row = draw_row;
 
-		// move to the next scanline
-		front_row += pitch;
-
-		uint32_t pixels = font->bitmap[ c + (i << 7) ];
-		uint8_t pixel;
-
-		for( j=0 ; j<font->width/4 ; j++ )
+		// Need to account for other width
+		for( j=0 ; j < c->width ; j++)
 		{
-			uint32_t bmp_pixels = 0;
-			for( pixel=0 ; pixel<4 ; pixel++, pixels <<=1 )
-			{
-				bmp_pixels >>= 8;
-				bmp_pixels |= (pixels & 0x80000000) ? fg_color : bg_color;
-			}
+			uint8_t pixel = font_row[j / 8];
+			pixel &= 0x80 >> (j % 8);
+			
+			*row++ = pixel ? fg_color : bg_color;
+		}
 
-			*(row++) = bmp_pixels;
+		font_row += font_width;
+		draw_row += pitch;
+	}
+}
 
-			// handle characters wider than 32 bits
-			if( j == 28/4 )
-				pixels = font->bitmap[ c + ((i+128) << 7) ];
+
+static const canon_char_t *
+canon_char_lookup(
+	const canon_font_t * const font,
+	uint32_t c
+)
+{
+	if (font->magic != CANON_FONT_MAGIC)
+	{
+		bmp_printf(FONT_SMALL, 0, 4, "%lx => %lx",
+			(uint32_t) font,
+			font->magic
+		);
+
+		return NULL;
+	}
+
+	const uint8_t * const hdr_end
+		= font->charmap_offset + (const uint8_t*) font;
+	const uint32_t * const charmap
+		= (const void*)(hdr_end);
+	const uint32_t * const offsets
+		= (const void*)(hdr_end + font->charmap_size);
+	const uint8_t * const chars
+		= (const void*)(hdr_end + 2 * font->charmap_size);
+
+	uint32_t offset = -1;
+
+	if (0x20 <= c && c <= 0x7F && charmap[c - 0x20] == c)
+	{
+		// Fast ASCII lookup
+		offset = offsets[c - 0x20];
+	} else
+	{
+		// Slow linear search
+		const uint32_t char_count = font->charmap_size / 4;
+		uint32_t i;
+
+		for( i=0 ; i < char_count ; i++)
+		{
+			if (charmap[i] != c)
+				continue;
+			offset = offsets[i];
+			break;
 		}
 	}
 
-	//sei( flags );
+	if (offset > font->bitmap_size)
+		return NULL;
+
+	const canon_char_t * const cc = (const void*)(chars + offset);
+
+	return cc;
+}
+
+
+unsigned
+fontspec_width(
+	unsigned		fontspec
+)
+{
+	const canon_font_t * const font = fontspec_font(fontspec);
+	if (!font)
+		return 12;
+
+	const canon_char_t * const em = canon_char_lookup(font, 'm');
+	if (!em)
+		return 12;
+
+	return em->display_width;
 }
 
 
@@ -98,27 +178,33 @@ bmp_puts(
 	uint8_t * vram = bmp_vram();
 	if( !vram || ((uintptr_t)vram & 1) == 1 )
 		return;
+
 	const unsigned initial_x = *x;
 	uint8_t * first_row = vram + (*y) * pitch + (*x);
 	uint8_t * row = first_row;
 
+	const canon_font_t * const font = fontspec_font( fontspec );
+	const canon_char_t * const space = canon_char_lookup(font, ' ');
+
+	// \todo: Handle UTF8 correctly
 	char c;
-
-	const struct font * const font = fontspec_font( fontspec );
-
 	while( (c = *s++) )
 	{
 		if( c == '\n' )
 		{
-			row = first_row += pitch * font->height;
-			(*y) += font->height;
+			row = first_row += pitch * space->height;
+			(*y) += space->height;
 			(*x) = initial_x;
 			continue;
 		}
 
-		_draw_char( fontspec, row, c );
-		row += font->width;
-		(*x) += font->width;
+		const canon_char_t * const cc = canon_char_lookup(font, c);
+		if (!cc)
+			continue;
+
+		canon_char_draw(font, cc, fontspec, row);
+		row += cc->display_width;
+		(*x) += cc->display_width;
 	}
 
 }
@@ -143,6 +229,7 @@ bmp_printf(
 	bmp_puts( fontspec, &x, &y, buf );
 }
 
+
 void
 con_printf(
 	unsigned		fontspec,
@@ -150,6 +237,10 @@ con_printf(
 	...
 )
 {
+#if 1
+	(void) fontspec;
+	(void) fmt;
+#else
 	va_list			ap;
 	char			buf[ 256 ];
 	static int		x = 0;
@@ -158,6 +249,7 @@ con_printf(
 	va_start( ap, fmt );
 	int len = vsnprintf( buf, sizeof(buf), fmt, ap );
 	va_end( ap );
+	(void) len; // avoid warnings
 
 	const uint32_t		pitch = bmp_pitch();
 	uint8_t * vram = bmp_vram();
@@ -168,8 +260,9 @@ con_printf(
 
 	char * s = buf;
 	char c;
-	const struct font * const font = fontspec_font( fontspec );
+	const canon_font_t * const font = &font_small;
 
+	// \todo: Fix this
 	while( (c = *s++) )
 	{
 		if( c == '\n' )
@@ -198,6 +291,7 @@ con_printf(
 			bmp_fill( 0, 0, y, 720, font->height );
 		}
 	}
+#endif
 }
 
 

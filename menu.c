@@ -41,35 +41,6 @@ static int menu_timeout;
 CONFIG_INT( "debug.draw-event", draw_event, 0 );
 CONFIG_INT( "debug.menu-timeout", menu_timeout_time, 15 );
 
-static void
-draw_version( void )
-{
-	bmp_printf(
-		FONT( FONT_SMALL, COLOR_WHITE, COLOR_BLUE ),
-		0, 32,
-		"Magic Lantern Firmware version %s (%s)\nBuilt on%s by %s\n%s",
-		build_version,
-		build_id,
-		build_date,
-		build_user,
-		"http://magiclantern.wikia.com/"
-	);
-
-/*
-	int y = 200;
-	struct config * config = global_config;
-	bmp_printf( FONT_SMALL, 0, y, "Config: %x", (unsigned) global_config );
-	y += font_small.height;
-
-	while( config )
-	{
-		bmp_printf( FONT_SMALL, 0, y, "'%s' => '%s'", config->name, config->value );
-		config = config->next;
-		y += font_small.height;
-	}
-*/
-}
-
 
 struct gui_task * gui_menu_task;
 static struct menu * menus;
@@ -241,7 +212,7 @@ menu_display(
 			menu->selected
 		);
 
-		y += font_large.height;
+		y += font_mono_24.height;
 		menu = menu->next;
 	}
 }
@@ -266,7 +237,7 @@ menus_display(
 			menu->selected ? 0x7F : COLOR_BG
 		);
 		bmp_printf( fontspec, x, y, "%6s", menu->name );
-		x += fontspec_font( fontspec )->width * 6;
+		x += fontspec_width(fontspec) * 6;
 
 		if( menu->selected )
 			menu_display(
@@ -663,7 +634,6 @@ static struct menu_entry draw_prop_menus[] = {
 static void
 menu_task( void )
 {
-	int x, y;
 	DebugMsg( DM_MAGIC, 3, "%s: Starting up\n", __func__ );
 
 	// Add the draw_prop menu

@@ -48,7 +48,8 @@ static inline uint32_t bmp_pitch(void) { return 960; }
 static inline uint32_t bmp_height(void) { return 480; }
 
 /** Font specifiers include the font, the fg color and bg color */
-#define FONT_MASK		0x000F0000
+#define FONT_MASK		0x00FF0000
+#define FONT_MONO		0x00100000
 #define FONT_HUGE		0x00080000
 #define FONT_LARGE		0x00030000
 #define FONT_MED		0x00020000
@@ -60,20 +61,28 @@ static inline uint32_t bmp_height(void) { return 480; }
 	| ((fg) & 0xFF) << 0 \
 )
 
-static inline struct font *
+static inline const canon_font_t *
 fontspec_font(
 	unsigned		fontspec
 )
 {
 	switch( fontspec & FONT_MASK )
 	{
+	case FONT_MED:		return &font_med;
+	case FONT_LARGE:	return &font_gothic_30;
+	case FONT_HUGE:		return &font_gothic_36;
+	case FONT_MONO:		return &font_mono_24;
 	default:
 	case FONT_SMALL:	return &font_small;
-	case FONT_MED:		return &font_med;
-	case FONT_LARGE:	return &font_large;
-	case FONT_HUGE:		return &font_huge;
 	}
 }
+
+
+/** Return the approximate width of an m in the font. */
+extern unsigned
+fontspec_width(
+	unsigned		fontspec
+);
 
 
 static inline unsigned
