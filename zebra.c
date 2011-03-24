@@ -573,6 +573,17 @@ waveform_display( void * priv, int x, int y, int selected )
 	);
 }
 
+static void
+liveview_display( void * priv, int x, int y, int selected )
+{
+	bmp_printf(
+		selected ? MENU_FONT_SEL : MENU_FONT,
+		x, y,
+		//23456789012
+		"LiveView:   %s",
+		*(unsigned*) priv ? "ON " : "OFF"
+	);
+}
 
 struct menu_entry zebra_menus[] = {
 	{
@@ -604,6 +615,11 @@ struct menu_entry zebra_menus[] = {
 		.priv		= &waveform_draw,
 		.select		= menu_binary_toggle,
 		.display	= waveform_display,
+	},
+	{
+		.priv		= &enable_liveview,
+		.select		= menu_binary_toggle,
+		.display	= liveview_display,
 	},
 };
 
@@ -712,6 +728,7 @@ zebra_task( void * unused )
 		} else {
 			// Don't display the zebras over the menu.
 			// wait a while and then try again
+			// Should sleep until we go into lv mode?
 			msleep( 500 );
 		}
 	}

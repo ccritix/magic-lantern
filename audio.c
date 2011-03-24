@@ -817,6 +817,7 @@ enable_meters(
 
 PROP_HANDLER( PROP_LV_ACTION )
 {
+	// Should we create the task instead?
 	const unsigned mode = buf[0];
 	enable_meters( mode );
 	return prop_cleanup( token, property );
