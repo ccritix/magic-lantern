@@ -84,7 +84,7 @@ reloc_dlgliveviewapp( void )
 	msleep( 4000 );
 
 	// Search the gui task list for the DlgLiveViewApp
-	while(1)
+	while(!shutdown_requested)
 	{
 		msleep( 1000 );
 		struct gui_task * current = gui_task_list.current;

@@ -63,7 +63,7 @@ my_gui_main_task( void )
 	gui_init_end();
 	uint32_t * obj = 0;
 
-	while(1)
+	while(!shutdown_requested)
 	{
 		struct event * event;
 		msg_queue_receive(

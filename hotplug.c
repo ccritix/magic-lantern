@@ -40,7 +40,7 @@ my_hotplug_task( void )
 
 	return;
 
-	while(1)
+	while(!shutdown_requested)
 	{
 		// \todo THIS DOES NOT WORK!
 		uint32_t video_state = camera_engine[0x70/4];

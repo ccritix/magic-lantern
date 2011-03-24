@@ -5,6 +5,7 @@
 #include "bmp.h"
 #include "menu.h"
 #include "config.h"
+#include "property.h"
 
 /* CF device structure */
 struct cf_device
@@ -93,12 +94,17 @@ my_memcpy(
 
 
 void
-bootflag_write_bootblock( void )
+bootflag_write_bootblock( void * unused )
 {
 	gui_stop_menu();
 
 	uint8_t *block = alloc_dma_memory( 0x200 );
-	bmp_printf( FONT_MED, 0, 40, "mem=%08x read=%08x", block, cf_device->read_block );
+	bmp_printf( FONT_MED, 0, 40,
+		"mem=%08x read=%08x",
+		(unsigned) block,
+		(unsigned) cf_device->read_block
+	);
+
 	int rc = cf_device->read_block( cf_device, 0x0, 1, block );
 	msleep( 100 );
 
@@ -164,12 +170,27 @@ powersave_display(
 
 
 static void
-powersave_toggle( void )
+powersave_toggle( void * unused )
 {
 	disable_powersave = !disable_powersave;
 
 	prop_request_icu_auto_poweroff(
 		disable_powersave ? EM_PROHIBIT : EM_ALLOW
+	);
+}
+
+
+static void
+poweroff( void * unused )
+{
+	uint32_t buf[] = { 0 };
+
+	bmp_printf( FONT_SMALL, 0, 300, "SHUTDOWN");
+
+	prop_request_change(
+		PROP_TERMINATE_SHUT_REQ,
+		buf,
+		sizeof(buf)
 	);
 }
 
@@ -192,6 +213,12 @@ struct menu_entry boot_menus[] = {
 		.select		= powersave_toggle,
 	},
 
+	{
+		.display	= menu_print,
+		.priv		= "Power off now",
+		.select		= poweroff,
+	},
+
 #if 0
 	{
 		.display	= bootflag_display_all,
@@ -201,7 +228,7 @@ struct menu_entry boot_menus[] = {
 
 
 static void
-bootflags_init( void )
+bootflags_init( void * unused )
 {
 	menu_add( "Boot", boot_menus, COUNT(boot_menus) );
 

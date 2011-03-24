@@ -288,13 +288,13 @@ compute_audio_levels(
  * before drawing.
  */
 static void
-meter_task( void )
+meter_task( void * unused )
 {
 	DebugMsg( DM_MAGIC, 3, "!!!!! User task is running" );
 
 	msleep( 4000 );
 
-	while(1)
+	while(!shutdown_requested)
 	{
 		msleep( 50 );
 
@@ -311,13 +311,13 @@ TASK_CREATE( "meter_task", meter_task, 0, 0x18, 0x1000 );
 
 /** Monitor the audio levels very quickly */
 static void
-compute_audio_level_task( void )
+compute_audio_level_task( void * unused )
 {
 	msleep( 4000 );
 	audio_levels[0].peak = audio_levels[1].peak = 0;
-	audio_levels[1].avg = audio_levels[1].avg = 0;
+	audio_levels[0].avg = audio_levels[1].avg = 0;
 
-	while(1)
+	while(!shutdown_requested)
 	{
 		msleep( 16 );
 		compute_audio_levels( 0 );
@@ -862,7 +862,7 @@ my_sounddev_task( void )
 	reg_file = FIO_CreateFile( "A:/audioregs.txt" );
 #endif
 
-	while(1)
+	while(!shutdown_requested)
 	{
 		// will be unlocked by the property handler
 		int rc = take_semaphore( gain.sem, 1000 );

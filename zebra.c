@@ -662,7 +662,7 @@ PROP_HANDLER( PROP_REC_TIME )
 
 
 static void
-zebra_task( void )
+zebra_task( void * unused )
 {
 	lv_drawn = 0;
 	cropmarks = bmp_load( crop_file );
@@ -703,7 +703,7 @@ zebra_task( void )
 
 	menu_add( "Video", zebra_menus, COUNT(zebra_menus) );
 
-	while(1)
+	while(!shutdown_requested)
 	{
 		if( !gui_menu_task && lv_drawn )
 		{

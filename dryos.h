@@ -53,6 +53,10 @@ DryosPanic(
 );
 
 
+/** Set when dryos has requested that we shutdown */
+extern volatile int shutdown_requested;
+
+
 /** Call registered functions by name. */
 extern void
 call(

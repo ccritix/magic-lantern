@@ -249,6 +249,7 @@ efic_temp_display(
 	);
 }
 
+#if 0
 static void
 mvr_time_const_display(
 	void *			priv,
@@ -276,6 +277,8 @@ mvr_time_const_display(
 		now.tm_sec
 	);
 }
+#endif
+
 
 #if 0
 static void
@@ -504,7 +507,7 @@ thats_all:
 		actual_num_properties,
 		debug_property_handler,
 		(void*) 0xdeadbeef,
-		debug_token_handler
+		(void*) debug_token_handler // wrong signature
 	);
 
 	menu_add( "Debug", debug_menus, COUNT(debug_menus) );
@@ -513,7 +516,7 @@ thats_all:
 CONFIG_INT( "debug.timed-dump",		timed_dump, 0 );
 
 static void
-dump_task( void )
+dump_task( void * unused )
 {
 	//lua_State * L = lua_open();
 
@@ -551,7 +554,7 @@ dump_task( void )
 
 	unsigned long *adr = (unsigned long*)0x7cfc; // 0x5bb4 on 550d 108;
 	unsigned long *adr2 = (unsigned long*)*(adr + 2);
-	unsigned char *pa =( unsigned char *)adr2;
+	//unsigned char *pa =( unsigned char *)adr2;
 
 	int i;
 	for (i=0; i<35; i++)

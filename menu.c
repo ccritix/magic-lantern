@@ -632,14 +632,14 @@ static struct menu_entry draw_prop_menus[] = {
 
 
 static void
-menu_task( void )
+menu_task( void * unused )
 {
 	DebugMsg( DM_MAGIC, 3, "%s: Starting up\n", __func__ );
 
 	// Add the draw_prop menu
 	menu_add( "Debug", draw_prop_menus, COUNT(draw_prop_menus) );
 
-	while(1)
+	while(!shutdown_requested)
 	{
 		int rc = take_semaphore( gui_sem, 500 );
 		if( rc != 0 )

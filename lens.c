@@ -593,9 +593,11 @@ PROP_HANDLER( PROP_LAST_JOB_STATE )
 static void
 lens_task( void * priv )
 {
-	while(1)
+	while(!shutdown_requested)
 	{
-		take_semaphore( lens_sem, 0 );
+		if( take_semaphore( lens_sem, 1000 ) )
+			continue;
+
 		calc_dof( &lens_info );
 		update_lens_display( &lens_info );
 		mvr_update_logfile( &lens_info, 0 ); // do not force it
@@ -608,7 +610,7 @@ TASK_CREATE( "dof_task", lens_task, 0, 0x1f, 0x1000 );
 
 
 static void
-lens_init( void )
+lens_init( void * unused )
 {
 	lens_sem = create_named_semaphore( "lens_info", 1 );
 	focus_done_sem = create_named_semaphore( "focus_sem", 1 );

@@ -107,11 +107,13 @@ focus_stack(
 
 
 static void
-focus_stack_task( void )
+focus_stack_task( void * unused )
 {
-	while(1)
+	while(!shutdown_requested)
 	{
-		take_semaphore( focus_stack_sem, 0 );
+		if( take_semaphore( focus_stack_sem, 1000 ) )
+			continue;
+
 		DebugMsg( DM_MAGIC, 3, "%s: Awake", __func__ );
 		bmp_printf( FONT_SMALL, 400, 30, "Focus stack" );
 
@@ -264,11 +266,12 @@ rack_focus(
 
 
 static void
-focus_task( void )
+focus_task( void * unused )
 {
-	while(1)
+	while(!shutdown_requested)
 	{
-		take_semaphore( focus_task_sem, 0 );
+		if ( take_semaphore( focus_task_sem, 1000 ))
+			continue;
 
 		if( focus_rack_delta )
 		{
@@ -340,7 +343,7 @@ static struct menu_entry focus_menu[] = {
 
 
 static void
-focus_init( void )
+focus_init( void * unused )
 {
 	focus_stack_sem = create_named_semaphore( "focus_stack_sem", 0 );
 	focus_task_sem = create_named_semaphore( "focus_task_sem", 1 );

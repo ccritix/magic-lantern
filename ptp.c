@@ -26,7 +26,11 @@ PTP_HANDLER( 0x9999, 0 )
 	};
 
 	//call( "FA_StartLiveView" );
-	bmp_printf( FONT_MED, 0, 30, "usb %08x %08x", context, context->handle );
+	bmp_printf( FONT_MED, 0, 30, "usb %08x %08x",
+		(unsigned) context,
+		(unsigned) context->handle
+	);
+
 	bmp_printf( FONT_MED, 0, 50, "%08x %08x %08x %08x %08x",
 		(unsigned) param1,
 		(unsigned) param2,
@@ -134,7 +138,7 @@ PTP_HANDLER( 0x9996, 0 )
 PTP_HANDLER( 0x9995, 0 )
 {
 	uint32_t * const buf = (void*) param1;
-	const uint32_t val = (void*) param2;
+	const uint32_t val = (uint32_t) param2;
 
 	const uint32_t old = *buf;
 	*buf = val;
@@ -171,8 +175,8 @@ ptp_state_display(
 		x, y,
 		//23456789012
 		"PTP State:  %x %08x",
-		hotplug_struct.usb_state,
-		*(uint32_t*)( 0xC0220000 + 0x34 )
+		(unsigned) hotplug_struct.usb_state,
+		*(unsigned*)( 0xC0220000 + 0x34 )
 	);
 }
 
@@ -198,7 +202,7 @@ static struct menu_entry ptp_menus[] = {
 
 
 static void
-ptp_init( void )
+ptp_init( void * unused )
 {
 	extern struct ptp_handler _ptp_handlers_start[];
 	extern struct ptp_handler _ptp_handlers_end[];

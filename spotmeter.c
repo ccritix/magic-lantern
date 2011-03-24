@@ -79,7 +79,7 @@ spotmeter_task( void * priv )
 	menu_add( "Video", spotmeter_menus, COUNT(spotmeter_menus) );
 
 	msleep( 1000 );
-	while(1)
+	while(!shutdown_requested)
 	{
 		// Draw a few pixels to indicate the center
 		if( !spotmeter_draw )

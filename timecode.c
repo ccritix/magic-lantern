@@ -338,7 +338,7 @@ tc_task( void )
 	timecode_sem = create_named_semaphore( "timecode", 0 );
 	menu_add( "Debug", timecode_menu, COUNT(timecode_menu) );
 
-	while(1)
+	while(!shutdown_requested)
 	{
 		take_semaphore( timecode_sem, 0 );
 		process_timecode();
