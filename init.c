@@ -29,6 +29,7 @@
 #include "bmp.h"
 #include "menu.h"
 #include "version.h"
+#include "property.h"
 
 /** If CONFIG_EARLY_PORT is defined, only a few things will be enabled */
 #undef CONFIG_EARLY_PORT
@@ -254,6 +255,104 @@ void menu_init( void ) __attribute__((weak,alias("nop")));
 void debug_init( void ) __attribute__((weak,alias("nop")));
 
 
+#ifndef CONFIG_EARLY_PORT
+volatile int shutdown_requested;
+
+static void *
+prop_startup_handler(
+	unsigned property,
+	void * token,
+	void * arg,
+	unsigned len
+)
+{
+	uint32_t * const buf = arg;
+
+	if (buf[0] != 0xFF)
+	{
+		// Time to shutdown.  Let everyone else know
+		bmp_printf( FONT_SMALL, 0, 40, "shutdown requested");
+		shutdown_requested = 1;
+		return prop_cleanup( token, property );
+	}
+
+	// We are finally ready to startup!  Bring up the monitor
+	call("TurnOnDisplay");
+
+	menu_init();
+	debug_init();
+
+	// Parse our config file
+	const char * config_filename = "A:/magiclantern.cfg";
+	global_config = config_parse_file( config_filename );
+	bmp_printf( FONT_SMALL, 0, 40,
+		"Magic Lantern version %s (%s)\n"
+		"Built on %s by %s\n",
+		build_version,
+		build_id,
+		build_date,
+		build_user
+	);
+	bmp_printf( FONT_SMALL, 0, 64,
+		"Config file %s: %s  arg=%d %d %d %d",
+		config_filename,
+		global_config ? "YES" : "NO",
+		(int) buf[0],
+		(int) buf[1],
+		(int) buf[2],
+		(int) buf[3]
+	);
+
+	init_funcs_done = 0;
+	//task_create( "init_func", 0x1f, 0x1000, call_init_funcs, 0 );
+	//while( !init_funcs_done )
+		//msleep(10);
+	call_init_funcs( 0 );
+
+	// Create all of our auto-create tasks
+	extern struct task_create _tasks_start[];
+	extern struct task_create _tasks_end[];
+	struct task_create * task = _tasks_start;
+	unsigned y = 64;
+
+	for( ; task < _tasks_end ; task++ )
+	{
+		DebugMsg( DM_MAGIC, 3,
+			"Creating task %s(%d) pri=%02x flags=%08x",
+			task->name,
+			task->arg,
+			task->priority,
+			task->flags
+		);
+
+		bmp_printf( FONT_SMALL, 0, y += 12,
+			"Starting %s pri=%02x",
+			task->name,
+			task->priority
+		);
+
+		task_create(
+			task->name,
+			task->priority,
+			task->flags,
+			task->entry,
+			task->arg
+		);
+	}
+
+	DebugMsg( DM_MAGIC, 3, "magic lantern init done" );
+
+	return prop_cleanup( token, property );
+}
+
+static struct prop_handler prop_startup = {
+	.handler	= prop_startup_handler,
+	.property	= PROP_TERMINATE_SHUT_REQ,
+};
+
+#endif // !CONFIG_EARLY_PORT
+
+
 /** Initial task setup.
  *
  * This is called instead of the task at 0xFF811DBC.
@@ -298,65 +397,9 @@ my_init_task(void)
 	additional_version[9] = '\0';
 
 #ifndef CONFIG_EARLY_PORT
-
-	msleep( 750 );
-
-	menu_init();
-	debug_init();
-
-	msleep( 500 );
-
-	// Parse our config file
-	const char * config_filename = "A:/magiclantern.cfg";
-	global_config = config_parse_file( config_filename );
-	bmp_printf( FONT_MED, 0, 40,
-		"Magic Lantern version %s (%s)\n"
-		"Built on %s by %s\n",
-		build_version,
-		build_id,
-		build_date,
-		build_user
-	);
-	bmp_printf( FONT_MED, 0, 400,
-		"Config file %s: %s",
-		config_filename,
-		global_config ? "YES" : "NO"
-	);
-
-	msleep( 500 );
-
-	init_funcs_done = 0;
-	//task_create( "init_func", 0x1f, 0x1000, call_init_funcs, 0 );
-	//while( !init_funcs_done )
-		//msleep(10);
-	call_init_funcs( 0 );
-
+	// Once we are past the early port phase, we can register
+	// our shutdown/startup property handler
 	msleep( 1000 );
-
-	// Create all of our auto-create tasks
-	extern struct task_create _tasks_start[];
-	extern struct task_create _tasks_end[];
-	struct task_create * task = _tasks_start;
-
-	for( ; task < _tasks_end ; task++ )
-	{
-		DebugMsg( DM_MAGIC, 3,
-			"Creating task %s(%d) pri=%02x flags=%08x",
-			task->name,
-			task->arg,
-			task->priority,
-			task->flags
-		);
-
-		task_create(
-			task->name,
-			task->priority,
-			task->flags,
-			task->entry,
-			task->arg
-		);
-	}
-
-	DebugMsg( DM_MAGIC, 3, "magic lantern init done" );
-#endif // !CONFIG_EARLY_PORT
+	prop_handler_init( &prop_startup );
+#endif
 }

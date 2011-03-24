@@ -1,5 +1,5 @@
 ARM_PATH=/opt/local/bin
-CC=$(ARM_PATH)/arm-elf-gcc-4.3.2
+CC=$(ARM_PATH)/arm-elf-gcc-4.5
 OBJCOPY=$(ARM_PATH)/arm-elf-objcopy
 AR=$(ARM_PATH)/arm-elf-ar
 RANLIB=$(ARM_PATH)/arm-elf-ranlib
@@ -139,8 +139,6 @@ dumper_entry.o: flasher-stubs.S
 
 reboot.o: reboot.c magiclantern.bin
 
-5d-hack.bin: 5d-hack
-
 magiclantern.lds: magiclantern.lds.S
 	$(call build,CPP,$(CPP) $(CFLAGS) $< | grep -v '^#' > $@)
 
@@ -150,7 +148,7 @@ magiclantern.lds: magiclantern.lds.S
 ML_OBJS-y = \
 	magiclantern.lds \
 	entry.o \
-	5d-hack.o \
+	init.o \
 	stubs-5d2.208.o \
 	version.o \
 	stdio.o \
@@ -158,17 +156,17 @@ ML_OBJS-y = \
 	debug.o \
 	menu.o \
 	property.o \
-	bmp.o \
 	font-med.o \
 	font-small.o \
 	gui.o \
+	bootflags.o \
+	bmp.o \
 	focus.o \
 	lens.o \
 	spotmeter.o \
 	audio.o \
 	zebra.o \
 	hotplug.o \
-	bootflags.o \
 	ptp.o \
 	bracket.o \
 
