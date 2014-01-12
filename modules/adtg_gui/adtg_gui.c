@@ -80,6 +80,8 @@ struct reg_entry
     uint16_t prev_val;
     int override;
     unsigned is_nrzi:1;
+    uint32_t caller_task;
+    uint32_t caller_pc;
 };
 
 static struct reg_entry regs[512] = {{0}};
@@ -127,7 +129,7 @@ static uint32_t nrzi_encode( uint32_t in_val )
     return out_val;
 }
 
-static void reg_update_unique(uint32_t dst, void* addr, uint32_t data, uint32_t reg_shift, uint32_t is_nrzi)
+static void reg_update_unique(uint32_t dst, void* addr, uint32_t data, uint32_t reg_shift, uint32_t is_nrzi, uint32_t caller_task, uint32_t caller_pc)
 {
     uint32_t reg = data >> reg_shift;
     uint32_t val = data & ((1 << reg_shift) - 1);
@@ -169,6 +171,8 @@ found:
 
     re->addr = addr;
     re->val = val;
+    re->caller_task = caller_task;
+    re->caller_pc = caller_pc;
 }
 
 static void adtg_log(breakpoint_t *bkpt)
@@ -176,12 +180,15 @@ static void adtg_log(breakpoint_t *bkpt)
     unsigned int cs = bkpt->ctx[0];
     unsigned int *data_buf = (unsigned int *) bkpt->ctx[1];
     int dst = cs & 0xF;
+
+    uint32_t caller_task = get_current_task();
+    uint32_t caller_pc = bkpt->ctx[15];
     
     /* log all ADTG writes */
     while(*data_buf != 0xFFFFFFFF)
     {
         /* ADTG4 registers seem to use NRZI */
-        reg_update_unique(dst, data_buf, *data_buf, 16, dst == 4);
+        reg_update_unique(dst, data_buf, *data_buf, 16, dst == 4, caller_task, caller_pc);
         data_buf++;
     }
 }
@@ -190,10 +197,13 @@ static void cmos_log(breakpoint_t *bkpt)
 {
     unsigned short *data_buf = (unsigned short *) bkpt->ctx[0];
     
+    uint32_t caller_task = get_current_task();
+    uint32_t caller_pc = bkpt->ctx[15];
+    
     /* log all CMOS writes */
     while(*data_buf != 0xFFFF)
     {
-        reg_update_unique(DST_CMOS, data_buf, *data_buf, 12, 0);
+        reg_update_unique(DST_CMOS, data_buf, *data_buf, 12, 0, caller_task, caller_pc);
         data_buf++;
     }
 }
@@ -202,10 +212,13 @@ static void cmos16_log(breakpoint_t *bkpt)
 {
     unsigned short *data_buf = (unsigned short *) bkpt->ctx[0];
     
+    uint32_t caller_task = get_current_task();
+    uint32_t caller_pc = bkpt->ctx[15];
+
     /* log all CMOS writes */
     while(*data_buf != 0xFFFF)
     {
-        reg_update_unique(DST_CMOS16, data_buf, *data_buf, 12, 0);
+        reg_update_unique(DST_CMOS16, data_buf, *data_buf, 12, 0, caller_task, caller_pc);
         data_buf++;
     }
 }
@@ -278,7 +291,7 @@ static MENU_UPDATE_FUNC(reg_update)
         );
     }
     
-    MENU_SET_HELP("Addr=%x, value=%d (0x%x), nrzi=%d (0x%x).", regs[reg].addr, regs[reg].val, regs[reg].val, nrzi_decode(regs[reg].val), nrzi_decode(regs[reg].val));
+    MENU_SET_HELP("%s:%x:%x v=%d(0x%x) nrzi=%d(0x%x).", get_task_name_from_id(regs[reg].caller_task), regs[reg].caller_pc, regs[reg].addr, regs[reg].val, regs[reg].val, nrzi_decode(regs[reg].val), nrzi_decode(regs[reg].val));
     
     if (reg_num >= COUNT(regs)-1)
         MENU_SET_WARNING(MENU_WARN_ADVICE, "Too many registers.");
