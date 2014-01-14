@@ -64,7 +64,7 @@ static struct known_reg known_regs[] = {
     
     {DST_C0F0, 0x8030, 0, "Digital gain for ISO (SHAD_GAIN)"},
     {DST_C0F0, 0x8034, 0, "Black level used for developing the image (SHAD_PRESETUP)"},
-    {DST_C0F0, 0x819c, 0, "Digital gain for ISO on DIGIC V photo mode?"},
+    {DST_C0F0, 0x819c, 0, "ISO offset (5D3 photo mode)"},
     
     {DST_C0F1, 0x6008, 0, "FPS register A"},
     {DST_C0F1, 0x6014, 0, "FPS register B"},
@@ -80,6 +80,16 @@ static struct known_reg known_regs[] = {
     {DST_C0F1, 0x4140, 0, "Display filter (EnableFilter, DIGIC peaking)"},
     {DST_C0F1, 0x4164, 0, "Display position (vertical shift)"},
     {DST_C0F1, 0x40cc, 0, "Display zebras (used for fast zebras in ML)"},
+    
+    {DST_C0F3, 0x7ae4, 0, "ISO digital gain (5D3 photo mode)"},
+    {DST_C0F3, 0x7af0, 0, "ISO digital gain (5D3 photo mode)"},
+    {DST_C0F3, 0x7afc, 0, "ISO digital gain (5D3 photo mode)"},
+    {DST_C0F3, 0x7b08, 0, "ISO digital gain (5D3 photo mode)"},
+
+    {DST_C0F3, 0x7ae0, 0, "ISO black offset 2 (5D3 photo mode)"},
+    {DST_C0F3, 0x7aec, 0, "ISO black offset 2 (5D3 photo mode)"},
+    {DST_C0F3, 0x7af8, 0, "ISO black offset 2 (5D3 photo mode)"},
+    {DST_C0F3, 0x7b04, 0, "ISO black offset 2 (5D3 photo mode)"},
 };
 
 static int adtg_enabled = 0;
