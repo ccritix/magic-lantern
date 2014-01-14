@@ -17,6 +17,11 @@
 #define DST_ADTG    0x000000FF      /* any ADTG */
 #define DST_ANY     0xFFFFFFFF
 
+#define DST_C0F0    0xC0F00000
+#define DST_C0F1    0xC0F10000
+#define DST_C0F2    0xC0F20000
+#define DST_C0F3    0xC0F30000
+
 struct known_reg
 {
     uint32_t dst;
@@ -45,7 +50,7 @@ static struct known_reg known_regs[] = {
     {DST_ADTG, 0x82F3, 1, "Line count that gets darker (top optical black related)"},
     {DST_ADTG, 0x82F8, 1, "Line count"},
     {DST_ADTG, 0x8830, 0, "Only slightly changes the color of the image (g3gg0)"},
-    {DST_ADTG, 0x8880, 0, "Some weird black value (value 0x0800 means normal) (g3gg0)"},
+    {DST_ADTG, 0x8880, 0, "Black level (reference value for the feedback loop?)"},
     {DST_ADTG, 0x8882, 0, "Digital gain (per column maybe)"}, /* I believe it's digital, not 100% sure */
     {DST_ADTG, 0x8884, 0, "Digital gain (per column maybe)"},
     {DST_ADTG, 0x8886, 0, "Digital gain (per column maybe)"},
@@ -56,6 +61,25 @@ static struct known_reg known_regs[] = {
 
     {DST_ADTG,   0x14, 1, "ISO related"},
     {DST_ADTG,   0x15, 1, "ISO related"},
+    
+    {DST_C0F0, 0x8030, 0, "Digital gain for ISO (SHAD_GAIN)"},
+    {DST_C0F0, 0x8034, 0, "Black level used for developing the image (SHAD_PRESETUP)"},
+    {DST_C0F0, 0x819c, 0, "Digital gain for ISO on DIGIC V photo mode?"},
+    
+    {DST_C0F1, 0x6008, 0, "FPS register A"},
+    {DST_C0F1, 0x6014, 0, "FPS register B"},
+    {DST_C0F1, 0x6000, 0, "FPS register for confirming changes"},
+    
+    {DST_C0F0, 0x8D1C, 0, "Vignetting correction data (DIGIC V)"},
+    {DST_C0F0, 0x8D24, 0, "Vignetting correction data (DIGIC V)"},
+    {DST_C0F0, 0x8578, 0, "Vignetting correction data (DIGIC IV)"},
+    {DST_C0F0, 0x857C, 0, "Vignetting correction data (DIGIC IV)"},
+    
+    {DST_C0F1, 0x40c4, 0, "Display saturation"},
+    {DST_C0F1, 0x41B8, 0, "Display brightness and contrast"},
+    {DST_C0F1, 0x4140, 0, "Display filter (EnableFilter, DIGIC peaking)"},
+    {DST_C0F1, 0x4164, 0, "Display position (vertical shift)"},
+    {DST_C0F1, 0x40cc, 0, "Display zebras (used for fast zebras in ML)"},
 };
 
 static int adtg_enabled = 0;
@@ -65,11 +89,23 @@ static int show_what = 0;
 #define SHOW_ALL 0
 #define SHOW_KNOWN_ONLY 1
 #define SHOW_MODIFIED 2
+#define SHOW_OVERRIDEN 3
+
+static int digic_intercept = 0;
+#define DIGIC_NONE 0
+#define DIGIC_C0F0_ENGIO 1
+#define DIGIC_C0F0_ENGDRV 2
+#define DIGIC_C0F0 3
+#define DIGIC_C0F1 4
+#define DIGIC_C0F2 5
+#define DIGIC_C0F3 6
 
 static uint32_t ADTG_WRITE_FUNC = 0;
 static uint32_t CMOS_WRITE_FUNC = 0;
 static uint32_t CMOS2_WRITE_FUNC = 0;
 static uint32_t CMOS16_WRITE_FUNC = 0;
+static uint32_t ENGIO_WRITE_FUNC = 0;
+static uint32_t ENG_DRV_OUT_FUNC = 0;
 
 struct reg_entry
 {
@@ -84,7 +120,7 @@ struct reg_entry
     uint32_t caller_pc;
 };
 
-static struct reg_entry regs[512] = {{0}};
+static struct reg_entry regs[1024] = {{0}};
 static int reg_num = 0;
 
 static int known_match(int i, int reg)
@@ -175,6 +211,48 @@ found:
     re->caller_pc = caller_pc;
 }
 
+static void reg_update_unique_32(uint32_t dst, uint32_t reg, uint32_t* pval, uint32_t caller_task, uint32_t caller_pc)
+{
+    uint32_t val = *pval;
+    struct reg_entry * re = 0;
+    
+    for (int i = 0; i < reg_num; i++)
+    {
+        re = &regs[i];
+        
+        if (re->dst == dst && re->reg == reg)
+        {
+            /* overwrite existing entry */
+            goto found;
+        }
+    }
+    
+    /* new entry */
+    re = &regs[reg_num];
+    re->dst = dst;
+    re->reg = reg;
+    re->override = INT_MIN;
+    re->is_nrzi = 0;
+    re->prev_val = val;
+
+    if (reg_num + 1 < COUNT(regs))
+        reg_num++;
+
+    /* fill the data */
+found:
+
+    if (re->override != INT_MIN)
+    {
+        uint32_t ovr = re->override;
+        *pval = ovr;
+    }
+
+    re->addr = pval;
+    re->val = val;
+    re->caller_task = caller_task;
+    re->caller_pc = caller_pc;
+}
+
 static void adtg_log(breakpoint_t *bkpt)
 {
     unsigned int cs = bkpt->ctx[0];
@@ -182,7 +260,7 @@ static void adtg_log(breakpoint_t *bkpt)
     int dst = cs & 0xF;
 
     uint32_t caller_task = get_current_task();
-    uint32_t caller_pc = bkpt->ctx[15];
+    uint32_t caller_pc = bkpt->ctx[14];
     
     /* log all ADTG writes */
     while(*data_buf != 0xFFFFFFFF)
@@ -198,7 +276,7 @@ static void cmos_log(breakpoint_t *bkpt)
     unsigned short *data_buf = (unsigned short *) bkpt->ctx[0];
     
     uint32_t caller_task = get_current_task();
-    uint32_t caller_pc = bkpt->ctx[15];
+    uint32_t caller_pc = bkpt->ctx[14];
     
     /* log all CMOS writes */
     while(*data_buf != 0xFFFF)
@@ -213,13 +291,80 @@ static void cmos16_log(breakpoint_t *bkpt)
     unsigned short *data_buf = (unsigned short *) bkpt->ctx[0];
     
     uint32_t caller_task = get_current_task();
-    uint32_t caller_pc = bkpt->ctx[15];
+    uint32_t caller_pc = bkpt->ctx[14];
 
     /* log all CMOS writes */
     while(*data_buf != 0xFFFF)
     {
         reg_update_unique(DST_CMOS16, data_buf, *data_buf, 12, 0, caller_task, caller_pc);
         data_buf++;
+    }
+}
+
+static uint32_t digic_target_dst()
+{
+    switch (digic_intercept)
+    {
+        case DIGIC_C0F0:
+        case DIGIC_C0F0_ENGDRV:
+        case DIGIC_C0F0_ENGIO:
+            return DST_C0F0;
+        case DIGIC_C0F1:
+            return DST_C0F1;
+        case DIGIC_C0F2:
+            return DST_C0F2;
+        case DIGIC_C0F3:
+            return DST_C0F3;
+    }
+    return 0xFFFFFFFF;
+}
+
+static void engio_write_log(breakpoint_t *bkpt)
+{
+    if (digic_intercept == DIGIC_NONE) return;
+    if (digic_intercept == DIGIC_C0F0_ENGDRV) return;
+    uint32_t target_dst = digic_target_dst();
+    
+    uint32_t* data_buf = (uint32_t*) bkpt->ctx[0];
+
+    uint32_t caller_task = get_current_task();
+    uint32_t caller_pc = bkpt->ctx[14];
+    
+    /* log all ENGIO register writes */
+    while(*data_buf != 0xFFFFFFFF)
+    {
+        uint32_t dst = (*data_buf) & 0xFFFF0000;
+        uint32_t reg = (*data_buf) & 0x0000FFFF;
+        data_buf++;
+        
+        /* there are too many registers; handling all of them will cause timing issues and corrupted images (boo) */
+        if (dst == target_dst)
+        {
+            reg_update_unique_32(dst, reg, data_buf, caller_task, caller_pc);
+        }
+        data_buf++;
+    }
+}
+
+static void EngDrvOut_log(breakpoint_t *bkpt)
+{
+    if (digic_intercept == DIGIC_NONE) return;
+    if (digic_intercept == DIGIC_C0F0_ENGIO) return;
+    uint32_t target_dst = digic_target_dst();
+
+    uint32_t data = (uint32_t) bkpt->ctx[0];
+    uint32_t dst = data & 0xFFFF0000;
+    uint32_t reg = data & 0x0000FFFF;
+    uint32_t val = (uint32_t) bkpt->ctx[1];
+
+    uint32_t caller_task = get_current_task();
+    uint32_t caller_pc = bkpt->ctx[14];
+    
+    /* there are too many registers; handling all of them will cause timing issues and corrupted images (boo) */
+    if (dst == target_dst)
+    {
+        reg_update_unique_32(dst, reg, &val, caller_task, caller_pc);
+        bkpt->ctx[1] = val;
     }
 }
 
@@ -231,6 +376,8 @@ static MENU_SELECT_FUNC(adtg_toggle)
     static breakpoint_t * bkpt2 = 0;
     static breakpoint_t * bkpt3 = 0;
     static breakpoint_t * bkpt4 = 0;
+    static breakpoint_t * bkpt5 = 0;
+    static breakpoint_t * bkpt6 = 0;
     
     if (adtg_enabled)
     {
@@ -240,6 +387,8 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (CMOS_WRITE_FUNC)   bkpt2 = gdb_add_watchpoint(CMOS_WRITE_FUNC, 0, &cmos_log);
         if (CMOS2_WRITE_FUNC)  bkpt3 = gdb_add_watchpoint(CMOS2_WRITE_FUNC, 0, &cmos_log);
         if (CMOS16_WRITE_FUNC) bkpt4 = gdb_add_watchpoint(CMOS16_WRITE_FUNC, 0, &cmos16_log);
+        if (ENGIO_WRITE_FUNC)  bkpt5 = gdb_add_watchpoint(ENGIO_WRITE_FUNC, 0, &engio_write_log);
+        if (ENG_DRV_OUT_FUNC)  bkpt6 = gdb_add_watchpoint(ENG_DRV_OUT_FUNC, 0, &EngDrvOut_log);
     }
     else
     {
@@ -248,6 +397,8 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (bkpt2) gdb_delete_bkpt(bkpt2);
         if (bkpt3) gdb_delete_bkpt(bkpt3);
         if (bkpt4) gdb_delete_bkpt(bkpt4);
+        if (bkpt5) gdb_delete_bkpt(bkpt5);
+        if (bkpt6) gdb_delete_bkpt(bkpt6);
     }
 }
 
@@ -262,6 +413,8 @@ static MENU_UPDATE_FUNC(reg_update)
         snprintf(dst_name, sizeof(dst_name), "CMOS");
     else if (regs[reg].dst == DST_CMOS16)
         snprintf(dst_name, sizeof(dst_name), "CMOS16");
+    else if (regs[reg].dst & 0xFFFF0000)
+        snprintf(dst_name, sizeof(dst_name), "%X", regs[reg].dst >> 16);
     else
         snprintf(dst_name, sizeof(dst_name), "ADTG%d", regs[reg].dst);
 
@@ -411,11 +564,19 @@ static struct menu_entry adtg_gui_menu[] =
                 .name = "Show",
                 .priv = &show_what,
                 .update = show_update,
-                .max = 2,
-                .choices = CHOICES("Everything", "Known regs only", "Modified regs only"),
+                .max = 3,
+                .choices = CHOICES("Everything", "Known regs only", "Modified regs only", "Overriden regs only"),
                 .help2 =    "Everything: show all registers as soon as they are written.\n"
                             "Known: show only the registers with a known description.\n"
                             "Modified: show only regs that have changed their values.\n"
+                            "Overriden: show only regs where you have changed the value.\n"
+            },
+            {
+                .name = "DIGIC registers",
+                .priv = &digic_intercept,
+                .max = 6,
+                .choices = CHOICES("OFF", "C0F0 engio_write", "C0F0 EngDrvOut", "C0F0", "C0F1", "C0F2", "C0F3"),
+                .help = "Also intercept DIGIC registers (EngDrvOut and engio_write).\n"
             },
             // for i in range(512): print "            REG_ENTRY(%d)," % i
             REG_ENTRY(0),
@@ -930,6 +1091,518 @@ static struct menu_entry adtg_gui_menu[] =
             REG_ENTRY(509),
             REG_ENTRY(510),
             REG_ENTRY(511),
+            REG_ENTRY(512),
+            REG_ENTRY(513),
+            REG_ENTRY(514),
+            REG_ENTRY(515),
+            REG_ENTRY(516),
+            REG_ENTRY(517),
+            REG_ENTRY(518),
+            REG_ENTRY(519),
+            REG_ENTRY(520),
+            REG_ENTRY(521),
+            REG_ENTRY(522),
+            REG_ENTRY(523),
+            REG_ENTRY(524),
+            REG_ENTRY(525),
+            REG_ENTRY(526),
+            REG_ENTRY(527),
+            REG_ENTRY(528),
+            REG_ENTRY(529),
+            REG_ENTRY(530),
+            REG_ENTRY(531),
+            REG_ENTRY(532),
+            REG_ENTRY(533),
+            REG_ENTRY(534),
+            REG_ENTRY(535),
+            REG_ENTRY(536),
+            REG_ENTRY(537),
+            REG_ENTRY(538),
+            REG_ENTRY(539),
+            REG_ENTRY(540),
+            REG_ENTRY(541),
+            REG_ENTRY(542),
+            REG_ENTRY(543),
+            REG_ENTRY(544),
+            REG_ENTRY(545),
+            REG_ENTRY(546),
+            REG_ENTRY(547),
+            REG_ENTRY(548),
+            REG_ENTRY(549),
+            REG_ENTRY(550),
+            REG_ENTRY(551),
+            REG_ENTRY(552),
+            REG_ENTRY(553),
+            REG_ENTRY(554),
+            REG_ENTRY(555),
+            REG_ENTRY(556),
+            REG_ENTRY(557),
+            REG_ENTRY(558),
+            REG_ENTRY(559),
+            REG_ENTRY(560),
+            REG_ENTRY(561),
+            REG_ENTRY(562),
+            REG_ENTRY(563),
+            REG_ENTRY(564),
+            REG_ENTRY(565),
+            REG_ENTRY(566),
+            REG_ENTRY(567),
+            REG_ENTRY(568),
+            REG_ENTRY(569),
+            REG_ENTRY(570),
+            REG_ENTRY(571),
+            REG_ENTRY(572),
+            REG_ENTRY(573),
+            REG_ENTRY(574),
+            REG_ENTRY(575),
+            REG_ENTRY(576),
+            REG_ENTRY(577),
+            REG_ENTRY(578),
+            REG_ENTRY(579),
+            REG_ENTRY(580),
+            REG_ENTRY(581),
+            REG_ENTRY(582),
+            REG_ENTRY(583),
+            REG_ENTRY(584),
+            REG_ENTRY(585),
+            REG_ENTRY(586),
+            REG_ENTRY(587),
+            REG_ENTRY(588),
+            REG_ENTRY(589),
+            REG_ENTRY(590),
+            REG_ENTRY(591),
+            REG_ENTRY(592),
+            REG_ENTRY(593),
+            REG_ENTRY(594),
+            REG_ENTRY(595),
+            REG_ENTRY(596),
+            REG_ENTRY(597),
+            REG_ENTRY(598),
+            REG_ENTRY(599),
+            REG_ENTRY(600),
+            REG_ENTRY(601),
+            REG_ENTRY(602),
+            REG_ENTRY(603),
+            REG_ENTRY(604),
+            REG_ENTRY(605),
+            REG_ENTRY(606),
+            REG_ENTRY(607),
+            REG_ENTRY(608),
+            REG_ENTRY(609),
+            REG_ENTRY(610),
+            REG_ENTRY(611),
+            REG_ENTRY(612),
+            REG_ENTRY(613),
+            REG_ENTRY(614),
+            REG_ENTRY(615),
+            REG_ENTRY(616),
+            REG_ENTRY(617),
+            REG_ENTRY(618),
+            REG_ENTRY(619),
+            REG_ENTRY(620),
+            REG_ENTRY(621),
+            REG_ENTRY(622),
+            REG_ENTRY(623),
+            REG_ENTRY(624),
+            REG_ENTRY(625),
+            REG_ENTRY(626),
+            REG_ENTRY(627),
+            REG_ENTRY(628),
+            REG_ENTRY(629),
+            REG_ENTRY(630),
+            REG_ENTRY(631),
+            REG_ENTRY(632),
+            REG_ENTRY(633),
+            REG_ENTRY(634),
+            REG_ENTRY(635),
+            REG_ENTRY(636),
+            REG_ENTRY(637),
+            REG_ENTRY(638),
+            REG_ENTRY(639),
+            REG_ENTRY(640),
+            REG_ENTRY(641),
+            REG_ENTRY(642),
+            REG_ENTRY(643),
+            REG_ENTRY(644),
+            REG_ENTRY(645),
+            REG_ENTRY(646),
+            REG_ENTRY(647),
+            REG_ENTRY(648),
+            REG_ENTRY(649),
+            REG_ENTRY(650),
+            REG_ENTRY(651),
+            REG_ENTRY(652),
+            REG_ENTRY(653),
+            REG_ENTRY(654),
+            REG_ENTRY(655),
+            REG_ENTRY(656),
+            REG_ENTRY(657),
+            REG_ENTRY(658),
+            REG_ENTRY(659),
+            REG_ENTRY(660),
+            REG_ENTRY(661),
+            REG_ENTRY(662),
+            REG_ENTRY(663),
+            REG_ENTRY(664),
+            REG_ENTRY(665),
+            REG_ENTRY(666),
+            REG_ENTRY(667),
+            REG_ENTRY(668),
+            REG_ENTRY(669),
+            REG_ENTRY(670),
+            REG_ENTRY(671),
+            REG_ENTRY(672),
+            REG_ENTRY(673),
+            REG_ENTRY(674),
+            REG_ENTRY(675),
+            REG_ENTRY(676),
+            REG_ENTRY(677),
+            REG_ENTRY(678),
+            REG_ENTRY(679),
+            REG_ENTRY(680),
+            REG_ENTRY(681),
+            REG_ENTRY(682),
+            REG_ENTRY(683),
+            REG_ENTRY(684),
+            REG_ENTRY(685),
+            REG_ENTRY(686),
+            REG_ENTRY(687),
+            REG_ENTRY(688),
+            REG_ENTRY(689),
+            REG_ENTRY(690),
+            REG_ENTRY(691),
+            REG_ENTRY(692),
+            REG_ENTRY(693),
+            REG_ENTRY(694),
+            REG_ENTRY(695),
+            REG_ENTRY(696),
+            REG_ENTRY(697),
+            REG_ENTRY(698),
+            REG_ENTRY(699),
+            REG_ENTRY(700),
+            REG_ENTRY(701),
+            REG_ENTRY(702),
+            REG_ENTRY(703),
+            REG_ENTRY(704),
+            REG_ENTRY(705),
+            REG_ENTRY(706),
+            REG_ENTRY(707),
+            REG_ENTRY(708),
+            REG_ENTRY(709),
+            REG_ENTRY(710),
+            REG_ENTRY(711),
+            REG_ENTRY(712),
+            REG_ENTRY(713),
+            REG_ENTRY(714),
+            REG_ENTRY(715),
+            REG_ENTRY(716),
+            REG_ENTRY(717),
+            REG_ENTRY(718),
+            REG_ENTRY(719),
+            REG_ENTRY(720),
+            REG_ENTRY(721),
+            REG_ENTRY(722),
+            REG_ENTRY(723),
+            REG_ENTRY(724),
+            REG_ENTRY(725),
+            REG_ENTRY(726),
+            REG_ENTRY(727),
+            REG_ENTRY(728),
+            REG_ENTRY(729),
+            REG_ENTRY(730),
+            REG_ENTRY(731),
+            REG_ENTRY(732),
+            REG_ENTRY(733),
+            REG_ENTRY(734),
+            REG_ENTRY(735),
+            REG_ENTRY(736),
+            REG_ENTRY(737),
+            REG_ENTRY(738),
+            REG_ENTRY(739),
+            REG_ENTRY(740),
+            REG_ENTRY(741),
+            REG_ENTRY(742),
+            REG_ENTRY(743),
+            REG_ENTRY(744),
+            REG_ENTRY(745),
+            REG_ENTRY(746),
+            REG_ENTRY(747),
+            REG_ENTRY(748),
+            REG_ENTRY(749),
+            REG_ENTRY(750),
+            REG_ENTRY(751),
+            REG_ENTRY(752),
+            REG_ENTRY(753),
+            REG_ENTRY(754),
+            REG_ENTRY(755),
+            REG_ENTRY(756),
+            REG_ENTRY(757),
+            REG_ENTRY(758),
+            REG_ENTRY(759),
+            REG_ENTRY(760),
+            REG_ENTRY(761),
+            REG_ENTRY(762),
+            REG_ENTRY(763),
+            REG_ENTRY(764),
+            REG_ENTRY(765),
+            REG_ENTRY(766),
+            REG_ENTRY(767),
+            REG_ENTRY(768),
+            REG_ENTRY(769),
+            REG_ENTRY(770),
+            REG_ENTRY(771),
+            REG_ENTRY(772),
+            REG_ENTRY(773),
+            REG_ENTRY(774),
+            REG_ENTRY(775),
+            REG_ENTRY(776),
+            REG_ENTRY(777),
+            REG_ENTRY(778),
+            REG_ENTRY(779),
+            REG_ENTRY(780),
+            REG_ENTRY(781),
+            REG_ENTRY(782),
+            REG_ENTRY(783),
+            REG_ENTRY(784),
+            REG_ENTRY(785),
+            REG_ENTRY(786),
+            REG_ENTRY(787),
+            REG_ENTRY(788),
+            REG_ENTRY(789),
+            REG_ENTRY(790),
+            REG_ENTRY(791),
+            REG_ENTRY(792),
+            REG_ENTRY(793),
+            REG_ENTRY(794),
+            REG_ENTRY(795),
+            REG_ENTRY(796),
+            REG_ENTRY(797),
+            REG_ENTRY(798),
+            REG_ENTRY(799),
+            REG_ENTRY(800),
+            REG_ENTRY(801),
+            REG_ENTRY(802),
+            REG_ENTRY(803),
+            REG_ENTRY(804),
+            REG_ENTRY(805),
+            REG_ENTRY(806),
+            REG_ENTRY(807),
+            REG_ENTRY(808),
+            REG_ENTRY(809),
+            REG_ENTRY(810),
+            REG_ENTRY(811),
+            REG_ENTRY(812),
+            REG_ENTRY(813),
+            REG_ENTRY(814),
+            REG_ENTRY(815),
+            REG_ENTRY(816),
+            REG_ENTRY(817),
+            REG_ENTRY(818),
+            REG_ENTRY(819),
+            REG_ENTRY(820),
+            REG_ENTRY(821),
+            REG_ENTRY(822),
+            REG_ENTRY(823),
+            REG_ENTRY(824),
+            REG_ENTRY(825),
+            REG_ENTRY(826),
+            REG_ENTRY(827),
+            REG_ENTRY(828),
+            REG_ENTRY(829),
+            REG_ENTRY(830),
+            REG_ENTRY(831),
+            REG_ENTRY(832),
+            REG_ENTRY(833),
+            REG_ENTRY(834),
+            REG_ENTRY(835),
+            REG_ENTRY(836),
+            REG_ENTRY(837),
+            REG_ENTRY(838),
+            REG_ENTRY(839),
+            REG_ENTRY(840),
+            REG_ENTRY(841),
+            REG_ENTRY(842),
+            REG_ENTRY(843),
+            REG_ENTRY(844),
+            REG_ENTRY(845),
+            REG_ENTRY(846),
+            REG_ENTRY(847),
+            REG_ENTRY(848),
+            REG_ENTRY(849),
+            REG_ENTRY(850),
+            REG_ENTRY(851),
+            REG_ENTRY(852),
+            REG_ENTRY(853),
+            REG_ENTRY(854),
+            REG_ENTRY(855),
+            REG_ENTRY(856),
+            REG_ENTRY(857),
+            REG_ENTRY(858),
+            REG_ENTRY(859),
+            REG_ENTRY(860),
+            REG_ENTRY(861),
+            REG_ENTRY(862),
+            REG_ENTRY(863),
+            REG_ENTRY(864),
+            REG_ENTRY(865),
+            REG_ENTRY(866),
+            REG_ENTRY(867),
+            REG_ENTRY(868),
+            REG_ENTRY(869),
+            REG_ENTRY(870),
+            REG_ENTRY(871),
+            REG_ENTRY(872),
+            REG_ENTRY(873),
+            REG_ENTRY(874),
+            REG_ENTRY(875),
+            REG_ENTRY(876),
+            REG_ENTRY(877),
+            REG_ENTRY(878),
+            REG_ENTRY(879),
+            REG_ENTRY(880),
+            REG_ENTRY(881),
+            REG_ENTRY(882),
+            REG_ENTRY(883),
+            REG_ENTRY(884),
+            REG_ENTRY(885),
+            REG_ENTRY(886),
+            REG_ENTRY(887),
+            REG_ENTRY(888),
+            REG_ENTRY(889),
+            REG_ENTRY(890),
+            REG_ENTRY(891),
+            REG_ENTRY(892),
+            REG_ENTRY(893),
+            REG_ENTRY(894),
+            REG_ENTRY(895),
+            REG_ENTRY(896),
+            REG_ENTRY(897),
+            REG_ENTRY(898),
+            REG_ENTRY(899),
+            REG_ENTRY(900),
+            REG_ENTRY(901),
+            REG_ENTRY(902),
+            REG_ENTRY(903),
+            REG_ENTRY(904),
+            REG_ENTRY(905),
+            REG_ENTRY(906),
+            REG_ENTRY(907),
+            REG_ENTRY(908),
+            REG_ENTRY(909),
+            REG_ENTRY(910),
+            REG_ENTRY(911),
+            REG_ENTRY(912),
+            REG_ENTRY(913),
+            REG_ENTRY(914),
+            REG_ENTRY(915),
+            REG_ENTRY(916),
+            REG_ENTRY(917),
+            REG_ENTRY(918),
+            REG_ENTRY(919),
+            REG_ENTRY(920),
+            REG_ENTRY(921),
+            REG_ENTRY(922),
+            REG_ENTRY(923),
+            REG_ENTRY(924),
+            REG_ENTRY(925),
+            REG_ENTRY(926),
+            REG_ENTRY(927),
+            REG_ENTRY(928),
+            REG_ENTRY(929),
+            REG_ENTRY(930),
+            REG_ENTRY(931),
+            REG_ENTRY(932),
+            REG_ENTRY(933),
+            REG_ENTRY(934),
+            REG_ENTRY(935),
+            REG_ENTRY(936),
+            REG_ENTRY(937),
+            REG_ENTRY(938),
+            REG_ENTRY(939),
+            REG_ENTRY(940),
+            REG_ENTRY(941),
+            REG_ENTRY(942),
+            REG_ENTRY(943),
+            REG_ENTRY(944),
+            REG_ENTRY(945),
+            REG_ENTRY(946),
+            REG_ENTRY(947),
+            REG_ENTRY(948),
+            REG_ENTRY(949),
+            REG_ENTRY(950),
+            REG_ENTRY(951),
+            REG_ENTRY(952),
+            REG_ENTRY(953),
+            REG_ENTRY(954),
+            REG_ENTRY(955),
+            REG_ENTRY(956),
+            REG_ENTRY(957),
+            REG_ENTRY(958),
+            REG_ENTRY(959),
+            REG_ENTRY(960),
+            REG_ENTRY(961),
+            REG_ENTRY(962),
+            REG_ENTRY(963),
+            REG_ENTRY(964),
+            REG_ENTRY(965),
+            REG_ENTRY(966),
+            REG_ENTRY(967),
+            REG_ENTRY(968),
+            REG_ENTRY(969),
+            REG_ENTRY(970),
+            REG_ENTRY(971),
+            REG_ENTRY(972),
+            REG_ENTRY(973),
+            REG_ENTRY(974),
+            REG_ENTRY(975),
+            REG_ENTRY(976),
+            REG_ENTRY(977),
+            REG_ENTRY(978),
+            REG_ENTRY(979),
+            REG_ENTRY(980),
+            REG_ENTRY(981),
+            REG_ENTRY(982),
+            REG_ENTRY(983),
+            REG_ENTRY(984),
+            REG_ENTRY(985),
+            REG_ENTRY(986),
+            REG_ENTRY(987),
+            REG_ENTRY(988),
+            REG_ENTRY(989),
+            REG_ENTRY(990),
+            REG_ENTRY(991),
+            REG_ENTRY(992),
+            REG_ENTRY(993),
+            REG_ENTRY(994),
+            REG_ENTRY(995),
+            REG_ENTRY(996),
+            REG_ENTRY(997),
+            REG_ENTRY(998),
+            REG_ENTRY(999),
+            REG_ENTRY(1000),
+            REG_ENTRY(1001),
+            REG_ENTRY(1002),
+            REG_ENTRY(1003),
+            REG_ENTRY(1004),
+            REG_ENTRY(1005),
+            REG_ENTRY(1006),
+            REG_ENTRY(1007),
+            REG_ENTRY(1008),
+            REG_ENTRY(1009),
+            REG_ENTRY(1010),
+            REG_ENTRY(1011),
+            REG_ENTRY(1012),
+            REG_ENTRY(1013),
+            REG_ENTRY(1014),
+            REG_ENTRY(1015),
+            REG_ENTRY(1016),
+            REG_ENTRY(1017),
+            REG_ENTRY(1018),
+            REG_ENTRY(1019),
+            REG_ENTRY(1020),
+            REG_ENTRY(1021),
+            REG_ENTRY(1022),
+            REG_ENTRY(1023),
             /* sorry for this; but since it's a hacker module, it shouldn't be that bad */
             /* 256 is not enough... */
             MENU_EOL,
@@ -949,7 +1622,8 @@ static MENU_UPDATE_FUNC(show_update)
     
     for (int reg = 0; reg < reg_num; reg++)
     {
-        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 2]);
+        /* XXX: change this if you ever add or remove menu entries */
+        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 3]);
         
         if ((int)entry->priv != reg)
             break;
@@ -980,6 +1654,16 @@ static MENU_UPDATE_FUNC(show_update)
                 if (entry->shidden != !modified)
                 {
                     entry->shidden = !modified;
+                    changed = 1;
+                }
+                break;
+            }
+            case SHOW_OVERRIDEN:
+            {
+                int overriden = regs[reg].override != INT_MIN;
+                if (entry->shidden != !overriden)
+                {
+                    entry->shidden = !overriden;
                     changed = 1;
                 }
                 break;
@@ -1018,6 +1702,8 @@ static unsigned int adtg_gui_init()
         CMOS_WRITE_FUNC = 0x119CC;
         CMOS2_WRITE_FUNC = 0x11784;
         CMOS16_WRITE_FUNC = 0x11AB8;
+        ENGIO_WRITE_FUNC = 0xff28cc3c;
+        ENG_DRV_OUT_FUNC = 0xff28c92c;
     }
     else if (is_camera("5D3", "1.2.3"))
     {
