@@ -1726,6 +1726,8 @@ static unsigned int adtg_gui_init()
     {
         ADTG_WRITE_FUNC = 0xffa35cbc;
         CMOS_WRITE_FUNC = 0xffa35e70;
+        ENGIO_WRITE_FUNC = 0xFF9A5618;  // from stubs
+        //~ ENG_DRV_OUT_FUNC = 0xff9a54a8;  /* this causes ADTG hook to stop working (why?) */
     }
     else if (is_camera("500D", "1.1.1")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg70325#msg70325
     {
@@ -1741,6 +1743,8 @@ static unsigned int adtg_gui_init()
     {
         ADTG_WRITE_FUNC = 0xFF2C9788; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0xFF2C997C; //"[REG] ############ Start CMOS"
+        ENGIO_WRITE_FUNC = 0xFF1C5A68;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF1C56A4;
     }
     else if (is_camera("50D", "1.0.9")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg63322#msg63322
     {
