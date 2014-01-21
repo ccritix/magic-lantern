@@ -12,6 +12,9 @@
 #include <gdb.h>
 #include <cache_hacks.h>
 
+#include "avl.h"
+#include "avl.c"    /* unusual include in order to avoid exporting the AVL symbols (keep the namespace clean) */
+
 #define DST_CMOS16  0xF000
 #define DST_CMOS    0x0F00
 #define DST_ADTG    0x000F      /* any ADTG */
@@ -116,8 +119,16 @@ static uint32_t ENG_DRV_OUTS_FUNC = 0;
 
 struct reg_entry
 {
-    uint16_t dst;
-    uint16_t reg;
+    struct avl avl;
+    union
+    {
+        struct
+        {
+            uint16_t dst;       /* register "class" */
+            uint16_t reg;       /* register offset */
+        };
+        uint32_t key;           /* key in the AVL tree */
+    };
     uint16_t val;
     uint16_t prev_val;
     int override;
@@ -127,8 +138,16 @@ struct reg_entry
     uint32_t caller_pc;
 };
 
-static struct reg_entry regs[2048] = {{0}};
+static int cmp_reg(void* a,void* b){
+    return ((struct reg_entry*)a)->key - ((struct reg_entry*)b)->key;
+}
+
+static struct reg_entry regs[2048];
 static int reg_num = 0;
+
+/* we need very fast insertion */
+/* tiny delays in ADTG or ENGIO may result in broken images */
+static struct avl_tree regs_tree;
 
 static int known_match(int i, int reg)
 {
@@ -172,37 +191,46 @@ static uint32_t nrzi_encode( uint32_t in_val )
     return out_val;
 }
 
+static int reg_iter(struct avl * a)
+{
+    /* assume 32-bit pointer */
+    return (int) a;
+}
+
+static struct reg_entry * reg_find(uint16_t dst, uint16_t reg)
+{
+    struct reg_entry ref = {{0}};
+    ref.dst = dst;
+    ref.reg = reg;
+    return (struct reg_entry *) avl_search(&regs_tree, (struct avl *) &ref, reg_iter);
+}
+
 static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint32_t reg_shift, uint32_t is_nrzi, uint32_t caller_task, uint32_t caller_pc)
 {
-    uint32_t reg = data >> reg_shift;
-    uint32_t val = data & ((1 << reg_shift) - 1);
-    struct reg_entry * re = 0;
-    
-    for (int i = 0; i < reg_num; i++)
+    if (reg_num + 1 >= COUNT(regs))
     {
-        re = &regs[i];
-        
-        if (re->dst == dst && re->reg == reg)
-        {
-            /* overwrite existing entry */
-            goto found;
-        }
+        return;
     }
     
-    /* new entry */
-    re = &regs[reg_num];
-    re->dst = dst;
-    re->reg = reg;
-    re->override = INT_MIN;
-    re->is_nrzi = is_nrzi; /* initial guess; may be overriden */
-    re->prev_val = val;
+    uint32_t reg = data >> reg_shift;
+    uint32_t val = data & ((1 << reg_shift) - 1);
+    
+    struct reg_entry * re = reg_find(dst, reg);
 
-    if (reg_num + 1 < COUNT(regs))
+    if (!re)
+    {
+        /* new entry */
+        re = &regs[reg_num];
+        re->dst = dst;
+        re->reg = reg;
+        re->override = INT_MIN;
+        re->is_nrzi = is_nrzi; /* initial guess; may be overriden */
+        re->prev_val = val;
         reg_num++;
+        avl_insert(&regs_tree, (struct avl *) re);
+    }
 
     /* fill the data */
-found:
-
     if (re->override != INT_MIN)
     {
         int ovr = re->is_nrzi ? (int)nrzi_encode(re->override) : re->override;
@@ -220,33 +248,27 @@ found:
 
 static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uint32_t caller_task, uint32_t caller_pc)
 {
-    uint32_t val = *pval;
-    struct reg_entry * re = 0;
-    
-    for (int i = 0; i < reg_num; i++)
+    if (reg_num + 1 >= COUNT(regs))
     {
-        re = &regs[i];
-        
-        if (re->dst == dst && re->reg == reg)
-        {
-            /* overwrite existing entry */
-            goto found;
-        }
+        return;
     }
-    
-    /* new entry */
-    re = &regs[reg_num];
-    re->dst = dst;
-    re->reg = reg;
-    re->override = INT_MIN;
-    re->is_nrzi = 0;
-    re->prev_val = val;
 
-    if (reg_num + 1 < COUNT(regs))
+    uint32_t val = *pval;
+
+    struct reg_entry * re = reg_find(dst, reg);
+
+    if (!re)
+    {
+        /* new entry */
+        re = &regs[reg_num];
+        re->dst = dst;
+        re->reg = reg;
+        re->override = INT_MIN;
+        re->is_nrzi = 0;
+        re->prev_val = val;
         reg_num++;
-
-    /* fill the data */
-found:
+        avl_insert(&regs_tree, (struct avl *) re);
+    }
 
     if (re->override != INT_MIN)
     {
@@ -2792,7 +2814,9 @@ static unsigned int adtg_gui_init()
     }    
     else return CBR_RET_ERROR;
 
-    
+    regs_tree.compar = cmp_reg;
+    regs_tree.root = 0;
+
     menu_add("Debug", adtg_gui_menu, COUNT(adtg_gui_menu));
     return 0;
 }
