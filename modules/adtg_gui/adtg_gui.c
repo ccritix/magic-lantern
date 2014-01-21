@@ -64,12 +64,20 @@ static struct known_reg known_regs[] = {
     
     {DST_C0F0, 0x8030, 0, "Digital gain for ISO (SHAD_GAIN)"},
     {DST_C0F0, 0x8034, 0, "Black level used for developing the image (SHAD_PRESETUP)"},
-    {DST_C0F0, 0x819c, 0, "ISO offset (5D3 photo mode)"},
+    {DST_C0F0, 0x819c, 0, "Saturate Offset (photo mode)"},
     
-    {DST_C0F1, 0x6008, 0, "FPS register A"},
-    {DST_C0F1, 0x6014, 0, "FPS register B"},
-    {DST_C0F1, 0x6000, 0, "FPS register for confirming changes"},
-    
+    {DST_C0F0, 0x6000, 0, "FPS register for confirming changes"},
+    {DST_C0F0, 0x6004, 0, "FPS related, SetHeadForReadout"},
+    {DST_C0F0, 0x6008, 0, "FPS register A"},
+    {DST_C0F0, 0x600C, 0, "FPS related"},
+    {DST_C0F0, 0x6010, 0, "FPS related"},
+    {DST_C0F0, 0x6014, 0, "FPS register B"},
+    {DST_C0F0, 0x6018, 0, "FPS related"},
+    {DST_C0F0, 0x601C, 0, "FPS related"},
+    {DST_C0F0, 0x6020, 0, "FPS related"},
+
+    {DST_C0F0, 0x6088, 0, "Video Y-Res related? 600D: FHD 1182|1070, 3x 1048|1102, HD 720|1070"},
+
     {DST_C0F0, 0x8D1C, 0, "Vignetting correction data (DIGIC V)"},
     {DST_C0F0, 0x8D24, 0, "Vignetting correction data (DIGIC V)"},
     {DST_C0F0, 0x8578, 0, "Vignetting correction data (DIGIC IV)"},
@@ -86,10 +94,10 @@ static struct known_reg known_regs[] = {
     {DST_C0F3, 0x7afc, 0, "ISO digital gain (5D3 photo mode)"},
     {DST_C0F3, 0x7b08, 0, "ISO digital gain (5D3 photo mode)"},
 
-    {DST_C0F3, 0x7ae0, 0, "ISO black offset 2 (5D3 photo mode)"},
-    {DST_C0F3, 0x7aec, 0, "ISO black offset 2 (5D3 photo mode)"},
-    {DST_C0F3, 0x7af8, 0, "ISO black offset 2 (5D3 photo mode)"},
-    {DST_C0F3, 0x7b04, 0, "ISO black offset 2 (5D3 photo mode)"},
+    {DST_C0F3, 0x7ae0, 0, "ISO black/white offset (5D3 photo mode)"},
+    {DST_C0F3, 0x7aec, 0, "ISO black/white offset (5D3 photo mode)"},
+    {DST_C0F3, 0x7af8, 0, "ISO black/white offset (5D3 photo mode)"},
+    {DST_C0F3, 0x7b04, 0, "ISO black/white offset (5D3 photo mode)"},
 };
 
 static int adtg_enabled = 0;
@@ -116,6 +124,7 @@ static uint32_t CMOS2_WRITE_FUNC = 0;
 static uint32_t CMOS16_WRITE_FUNC = 0;
 static uint32_t ENGIO_WRITE_FUNC = 0;
 static uint32_t ENG_DRV_OUT_FUNC = 0;
+static uint32_t ENG_DRV_OUTS_FUNC = 0;
 
 struct reg_entry
 {
@@ -378,6 +387,31 @@ static void EngDrvOut_log(breakpoint_t *bkpt)
     }
 }
 
+static void EngDrvOuts_log(breakpoint_t *bkpt)
+{
+    if (digic_intercept == DIGIC_NONE) return;
+    if (digic_intercept == DIGIC_C0F0_ENGIO) return;
+    uint32_t target_dst = digic_target_dst();
+
+    uint32_t data = (uint32_t) bkpt->ctx[0];
+    uint32_t dst = data & 0xFFFF0000;
+    uint32_t reg = data & 0x0000FFFF;
+    uint32_t * values = (uint32_t) bkpt->ctx[1];
+    uint32_t num = (uint32_t) bkpt->ctx[2];
+
+    uint32_t caller_task = get_current_task();
+    uint32_t caller_pc = bkpt->ctx[14];
+    
+    for (uint32_t i = 0; i < num; i++)
+    {
+        /* there are too many registers; handling all of them will cause timing issues and corrupted images (boo) */
+        if (dst == target_dst)
+        {
+            reg_update_unique_32(dst, reg + 4*i, &values[i], caller_task, caller_pc);
+        }
+    }
+}
+
 static MENU_SELECT_FUNC(adtg_toggle)
 {
     adtg_enabled = !adtg_enabled;
@@ -388,6 +422,7 @@ static MENU_SELECT_FUNC(adtg_toggle)
     static breakpoint_t * bkpt4 = 0;
     static breakpoint_t * bkpt5 = 0;
     static breakpoint_t * bkpt6 = 0;
+    static breakpoint_t * bkpt7 = 0;
     
     if (adtg_enabled)
     {
@@ -399,6 +434,7 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (CMOS16_WRITE_FUNC) bkpt4 = gdb_add_watchpoint(CMOS16_WRITE_FUNC, 0, &cmos16_log);
         if (ENGIO_WRITE_FUNC)  bkpt5 = gdb_add_watchpoint(ENGIO_WRITE_FUNC, 0, &engio_write_log);
         if (ENG_DRV_OUT_FUNC)  bkpt6 = gdb_add_watchpoint(ENG_DRV_OUT_FUNC, 0, &EngDrvOut_log);
+        if (ENG_DRV_OUTS_FUNC)  bkpt7 = gdb_add_watchpoint(ENG_DRV_OUTS_FUNC, 0, &EngDrvOuts_log);
     }
     else
     {
@@ -409,6 +445,7 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (bkpt4) gdb_delete_bkpt(bkpt4);
         if (bkpt5) gdb_delete_bkpt(bkpt5);
         if (bkpt6) gdb_delete_bkpt(bkpt6);
+        if (bkpt7) gdb_delete_bkpt(bkpt7);
     }
 }
 
@@ -1728,6 +1765,7 @@ static unsigned int adtg_gui_init()
         CMOS_WRITE_FUNC = 0xffa35e70;
         ENGIO_WRITE_FUNC = 0xFF9A5618;  // from stubs
         //~ ENG_DRV_OUT_FUNC = 0xff9a54a8;  /* this causes ADTG hook to stop working (why?) */
+        ENG_DRV_OUTS_FUNC = 0xff9a5554;
     }
     else if (is_camera("500D", "1.1.1")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg70325#msg70325
     {
