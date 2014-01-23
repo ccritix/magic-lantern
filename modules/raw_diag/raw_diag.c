@@ -22,11 +22,12 @@ static CONFIG_INT("screenshot", auto_screenshot, 0);
 static volatile int raw_diag_running = 0;
 
 #define ANALYSIS_OPTICAL_BLACK 0
-#define ANALYSIS_DARKFRAME 1
-#define ANALYSIS_SNR_CURVE 2
+#define ANALYSIS_DARKFRAME_NOISE 1
+#define ANALYSIS_DARKFRAME_FPN 2
+#define ANALYSIS_SNR_CURVE 3
 
 /* a float version of the routine from raw.c (should be more accurate) */
-static void autodetect_black_level_calc(int x1, int x2, int y1, int y2, int dx, int dy, float* out_mean, float* out_stdev)
+static void FAST autodetect_black_level_calc(int x1, int x2, int y1, int y2, int dx, int dy, float* out_mean, float* out_stdev)
 {
     int64_t black = 0;
     int num = 0;
@@ -106,7 +107,7 @@ static int autodetect_white_level()
     return white;
 }
 
-static void ob_mean_stdev(float* mean, float* stdev)
+static void FAST ob_mean_stdev(float* mean, float* stdev)
 {
     int x1 = 16;
     int x2 = raw_info.active_area.x1 - 24;
@@ -117,7 +118,7 @@ static void ob_mean_stdev(float* mean, float* stdev)
 }
 
 /* large histogram of the left optical black area */
-static void black_histogram(int ob)
+static void FAST black_histogram(int ob)
 {
     int x1 = ob ? 16                            : raw_info.active_area.x1;
     int x2 = ob ? raw_info.active_area.x1 - 24  : raw_info.active_area.x2;
@@ -311,6 +312,136 @@ static void snr_graph()
     }
 }
 
+/* like octave mean(x) */
+static float FAST mean(float* X, int N)
+{
+    float sum = 0;
+
+    for (int i = 0; i < N; i++)
+    {
+        sum += X[i];
+    }
+    
+    return sum / N;
+}
+
+/* like octave std(x) */
+static float FAST std(float* X, int N)
+{
+    float m = mean(X, N);
+    float stdev = 0;
+    for (int i = 0; i < N; i++)
+    {
+        float dif = X[i] - m;
+        stdev += dif * dif;
+    }
+    
+    return sqrtf(stdev / N);
+}
+
+/* somewhat similar to octave plot(y) */
+/* X assummed to be 1:n */
+/* data stretched to fit the bounding box */
+static void plot(float* Y, int n, int x0, int y0, int w, int h)
+{
+    bmp_draw_rect(COLOR_GRAY(50), x0, y0, w, h);
+    
+    float max = -INFINITY;
+    float min = INFINITY;
+    for (int i = 0; i < n; i++)
+    {
+        min = MIN(min, Y[i]);
+        max = MAX(max, Y[i]);
+    }
+    
+    if (min < 0 && max > 0)
+    {
+        draw_line(x0, y0+h/2, x0+w, y0+h/2, COLOR_GRAY(50));
+    }
+    
+    int prev_x = 0;
+    int prev_y = 0;
+    for (int i = 0; i < n; i++)
+    {
+        int x = x0 + i * w / n;
+        int y = y0 + h - (Y[i] - min) * h / (max - min);
+        
+        if (i > 0)
+        {
+            draw_line(prev_x, prev_y-1, x, y-1, COLOR_BLACK);
+            draw_line(prev_x, prev_y+1, x, y+1, COLOR_BLACK);
+            draw_line(prev_x, prev_y, x, y, COLOR_WHITE);
+        }
+        
+        prev_x = x;
+        prev_y = y;
+    }
+}
+
+static void darkframe_fpn()
+{
+    clrscr();
+    bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 200, "Please wait...\n(crunching numbers)");
+
+    /* any 100-megapixel cameras out there? */
+    float* fpn; int fpn_size = 10000 * sizeof(fpn[0]);
+    fpn = malloc(fpn_size);
+    memset(fpn, 0, fpn_size);
+
+    for (int x = raw_info.active_area.x1; x < raw_info.active_area.x2; x++)
+    {
+        int sum = 0;
+        int num = raw_info.active_area.y2 - raw_info.active_area.y1;
+        for (int y = raw_info.active_area.y1; y < raw_info.active_area.y2; y++)
+        {
+            int p = raw_get_pixel(x, y);
+            sum += p;
+        }
+        fpn[x] = (float) sum / num;
+    }
+    
+    bmp_fill(COLOR_BG_DARK, 0, 0, 720, 230+20);
+    float* fpn_x1 = fpn + raw_info.active_area.x1;
+    int fpn_N = raw_info.active_area.x2 - raw_info.active_area.x1;
+    plot(fpn_x1, fpn_N, 10, 25, 700, 220);
+    int s = (int) roundf(std(fpn_x1, fpn_N) * 100.0);
+    bmp_printf(FONT_MED, 15, 30, "Vertical FPN: stdev=%s%d.%02d", FMT_FIXEDPOINT2(s));
+
+    bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 300, "Please wait...\n(crunching numbers)");
+
+    memset(fpn, 0, fpn_size);
+
+    for (int y = raw_info.active_area.y1; y < raw_info.active_area.y2; y++)
+    {
+        int sum = 0;
+        int num = raw_info.active_area.x2 - raw_info.active_area.x1;
+        for (int x = raw_info.active_area.x1; x < raw_info.active_area.x2; x++)
+        {
+            int p = raw_get_pixel(x, y);
+            sum += p;
+        }
+        fpn[y] = (float) sum / num;
+    }
+
+    bmp_fill(COLOR_BG_DARK, 0, 250, 720, 230);
+    float* fpn_y1 = fpn + raw_info.active_area.y1;
+    fpn_N = raw_info.active_area.y2 - raw_info.active_area.y1;
+    plot(fpn_y1, fpn_N, 10, 255, 700, 220);
+    s = (int) roundf(std(fpn_y1, fpn_N) * 100.0);
+    bmp_printf(FONT_MED, 15, 260, "Horizontal FPN: stdev=%s%d.%02d", FMT_FIXEDPOINT2(s));
+
+    bmp_printf(FONT_MED, 0, 0, 
+        "Fixed-pattern noise"
+    );
+
+    bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, 
+        "%s\n"
+        "  ISO %d %s "SYM_F_SLASH"%s%d.%d", camera_model, lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
+    );
+
+    free(fpn);
+}
+
 /* main raw diagnostic task */
 static void raw_diag_task(int corr)
 {
@@ -332,17 +463,20 @@ static void raw_diag_task(int corr)
         goto end;
     }
     
-    if (analysis_type == ANALYSIS_OPTICAL_BLACK)
+    switch (analysis_type)
     {
-        black_histogram(1);
-    }
-    else if (analysis_type == ANALYSIS_DARKFRAME)
-    {
-        black_histogram(0);
-    }
-    else if (analysis_type == ANALYSIS_SNR_CURVE)
-    {
-        snr_graph();
+        case ANALYSIS_OPTICAL_BLACK:
+            black_histogram(1);
+            break;
+        case ANALYSIS_DARKFRAME_NOISE:
+            black_histogram(0);
+            break;
+        case ANALYSIS_DARKFRAME_FPN:
+            darkframe_fpn();
+            break;
+        case ANALYSIS_SNR_CURVE:
+            snr_graph();
+            break;
     }
     
     if (auto_screenshot)
@@ -406,11 +540,12 @@ static struct menu_entry raw_diag_menu[] =
             {
                 .name = "Analysis",
                 .priv = &analysis_type,
-                .max = 2,
-                .choices = CHOICES("Optical black", "Dark frame", "SNR curve"),
+                .max = 3,
+                .choices = CHOICES("Optical black noise", "Dark frame noise", "Dark frame FPN", "SNR curve"),
                 .help  = "Choose the type of analysis you wish to run:",
-                .help2 = "Optical black: mean, stdev, histogram.\n"
-                         "Dark frame: same as optical black, but from the entire image.\n"
+                .help2 = "Optical black noise: mean, stdev, histogram.\n"
+                         "Dark frame noise: same as OB noise, but from the entire image.\n"
+                         "Dark frame FPN: fixed-pattern noise (banding) analysis.\n"
                          "SNR curve: take a defocused picture to see the noise profile.\n"
             },
             {
