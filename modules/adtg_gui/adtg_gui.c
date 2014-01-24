@@ -104,8 +104,9 @@ static int show_what = 0;
 
 #define SHOW_ALL 0
 #define SHOW_KNOWN_ONLY 1
-#define SHOW_MODIFIED 2
-#define SHOW_OVERRIDEN 3
+#define SHOW_MODIFIED_AT_LEAST_TWICE 2
+#define SHOW_MODIFIED_SINCE_TIMESTAMP 3
+#define SHOW_OVERRIDEN 4
 
 static int digic_intercept = 0;
 
@@ -486,7 +487,7 @@ static MENU_UPDATE_FUNC(reg_update)
     
     MENU_SET_NAME("%s[%x]%s", dst_name, regs[reg].reg, regs[reg].is_nrzi ? " N" : "");
     
-    if (show_what == SHOW_MODIFIED && regs[reg].override == INT_MIN)
+    if (show_what == SHOW_MODIFIED_SINCE_TIMESTAMP && regs[reg].override == INT_MIN)
     {
         MENU_SET_VALUE(
             "0x%x (was 0x%x)",
@@ -523,7 +524,7 @@ static MENU_UPDATE_FUNC(reg_update)
             {
                 MENU_SET_WARNING(MENU_WARN_INFO, "%s.", known_regs[i].description);
                 
-                if (show_what != SHOW_MODIFIED) /* do we have enough space to show a shortened description? */
+                if (show_what != SHOW_MODIFIED_SINCE_TIMESTAMP) /* do we have enough space to show a shortened description? */
                 {
                     char msg[12];
                     snprintf(msg, sizeof(msg), "%s", known_regs[i].description);
@@ -627,11 +628,12 @@ static struct menu_entry adtg_gui_menu[] =
                 .name = "Show",
                 .priv = &show_what,
                 .update = show_update,
-                .max = 3,
-                .choices = CHOICES("Everything", "Known regs only", "Modified regs only", "Overriden regs only"),
+                .max = 4,
+                .choices = CHOICES("Everything", "Known regs only", "Modified at least twice", "Modified from now on", "Overriden regs only"),
                 .help2 =    "Everything: show all registers as soon as they are written.\n"
                             "Known: show only the registers with a known description.\n"
-                            "Modified: show only regs that have changed their values.\n"
+                            "Modified at least twice: only regs that were changed more than once.\n"
+                            "Modified from now on: only regs where final value was modified.\n"
                             "Overriden: show only regs where you have changed the value.\n"
             },
             {
@@ -4747,7 +4749,7 @@ static struct menu_entry adtg_gui_menu[] =
 static MENU_UPDATE_FUNC(show_update)
 {
     static struct tm tm;
-    if (show_what == SHOW_MODIFIED)
+    if (show_what == SHOW_MODIFIED_SINCE_TIMESTAMP)
         MENU_SET_VALUE("Modified since %02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
     else
         LoadCalendarFromRTC(&tm);
@@ -4765,58 +4767,51 @@ static MENU_UPDATE_FUNC(show_update)
         if ((int)entry->priv != reg)
             break;
 
+        int visible = 0;
+
         switch (show_what)
         {
             case SHOW_KNOWN_ONLY:
             {
-                int found = 0;
                 for (int i = 0; i < COUNT(known_regs); i++)
                 {
                     if (known_match(i, reg))
                     {
-                        found = 1;
+                        visible = 1;
+                        break;
                     }
-                }
-             
-                if (entry->shidden != !found)
-                {
-                    entry->shidden = !found;
-                    changed = 1;
                 }
                 break;
             }
-            case SHOW_MODIFIED:
+            case SHOW_MODIFIED_SINCE_TIMESTAMP:
             {
-                int modified = regs[reg].val != regs[reg].prev_val;
-                if (entry->shidden != !modified)
-                {
-                    entry->shidden = !modified;
-                    changed = 1;
-                }
+                visible = regs[reg].val != regs[reg].prev_val;
+                break;
+            }
+            case SHOW_MODIFIED_AT_LEAST_TWICE:
+            {
+                visible = regs[reg].num_changes > 1;
                 break;
             }
             case SHOW_OVERRIDEN:
             {
-                int overriden = regs[reg].override != INT_MIN;
-                if (entry->shidden != !overriden)
-                {
-                    entry->shidden = !overriden;
-                    changed = 1;
-                }
+                visible = regs[reg].override != INT_MIN;
                 break;
             }
             case SHOW_ALL:
             {
-                if (entry->shidden)
-                {
-                    entry->shidden = 0;
-                    changed = 1;
-                }
+                visible = 1;
                 break;
             }
         }
-        
-        if (show_what != SHOW_MODIFIED)
+
+        if (entry->shidden != !visible)
+        {
+            entry->shidden = !visible;
+            changed = 1;
+        }
+
+        if (show_what != SHOW_MODIFIED_SINCE_TIMESTAMP)
         {
             regs[reg].prev_val = regs[reg].val;
         }
