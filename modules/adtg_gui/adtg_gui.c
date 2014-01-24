@@ -100,6 +100,10 @@ static struct known_reg known_regs[] = {
     
     {DST_DFE,  0x180e, 0, "Blue LED"},
     {DST_DFE,  0x1810, 0, "LightMeasure"},
+    {DST_DFE,  0x1d02, 0, "DFE gain (similar to ADTG 888x)"},
+    {DST_DFE,  0x1d04, 0, "DFE gain (similar to ADTG 888x)"},
+    {DST_DFE,  0x1d06, 0, "DFE gain (similar to ADTG 888x)"},
+    {DST_DFE,  0x1d08, 0, "DFE gain (similar to ADTG 888x)"},
 };
 
 static int adtg_enabled = 0;
