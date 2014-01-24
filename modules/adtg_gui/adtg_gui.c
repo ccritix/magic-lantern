@@ -15,6 +15,7 @@
 #include "avl.h"
 #include "avl.c"    /* unusual include in order to avoid exporting the AVL symbols (keep the namespace clean) */
 
+#define DST_DFE     0xF000
 #define DST_CMOS16  0x0F00
 #define DST_CMOS    0x00F0
 #define DST_ADTG    0x000F      /* any ADTG */
@@ -96,6 +97,9 @@ static struct known_reg known_regs[] = {
     {0xC0F3,   0x7aec, 0, "ISO black/white offset (5D3 photo mode)"},
     {0xC0F3,   0x7af8, 0, "ISO black/white offset (5D3 photo mode)"},
     {0xC0F3,   0x7b04, 0, "ISO black/white offset (5D3 photo mode)"},
+    
+    {DST_DFE,  0x180e, 0, "Blue LED"},
+    {DST_DFE,  0x1810, 0, "LightMeasure"},
 };
 
 static int adtg_enabled = 0;
@@ -122,6 +126,7 @@ static uint32_t CMOS16_WRITE_FUNC = 0;
 static uint32_t ENGIO_WRITE_FUNC = 0;
 static uint32_t ENG_DRV_OUT_FUNC = 0;
 static uint32_t ENG_DRV_OUTS_FUNC = 0;
+static uint32_t SEND_DATA_TO_DFE_FUNC = 0;
 
 struct reg_entry
 {
@@ -134,7 +139,7 @@ struct reg_entry
             uint16_t reg;       /* register offset */
             uint16_t dst;       /* register "class" */
         };
-        int64_t key;           /* key in the AVL tree (make sure MSB is 0) */
+        int64_t key;           /* key in the AVL tree */
     };
     int32_t val;
     int32_t prev_val;
@@ -442,6 +447,22 @@ static void EngDrvOuts_log(breakpoint_t *bkpt)
     }
 }
 
+static void SendDataToDfe_log(breakpoint_t *bkpt)
+{
+    unsigned int *data_buf = (unsigned int *) bkpt->ctx[0];
+
+    uint32_t caller_task = get_current_task();
+    uint32_t caller_pc = bkpt->ctx[14];
+    
+    /* log all DFE writes */
+    while(*data_buf != 0xFFFFFFFF)
+    {
+        reg_update_unique(DST_DFE, data_buf, *data_buf, 16, 0, caller_task, caller_pc);
+        data_buf++;
+    }
+}
+
+
 static MENU_SELECT_FUNC(adtg_toggle)
 {
     adtg_enabled = !adtg_enabled;
@@ -453,6 +474,7 @@ static MENU_SELECT_FUNC(adtg_toggle)
     static breakpoint_t * bkpt5 = 0;
     static breakpoint_t * bkpt6 = 0;
     static breakpoint_t * bkpt7 = 0;
+    static breakpoint_t * bkpt8 = 0;
     
     if (adtg_enabled)
     {
@@ -465,6 +487,7 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (ENGIO_WRITE_FUNC)  bkpt5 = gdb_add_watchpoint(ENGIO_WRITE_FUNC, 0, &engio_write_log);
         if (ENG_DRV_OUT_FUNC)  bkpt6 = gdb_add_watchpoint(ENG_DRV_OUT_FUNC, 0, &EngDrvOut_log);
         if (ENG_DRV_OUTS_FUNC) bkpt7 = gdb_add_watchpoint(ENG_DRV_OUTS_FUNC, 0, &EngDrvOuts_log);
+        if (SEND_DATA_TO_DFE_FUNC) bkpt8 = gdb_add_watchpoint(SEND_DATA_TO_DFE_FUNC, 0, &SendDataToDfe_log);
     }
     else
     {
@@ -476,6 +499,7 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (bkpt5) gdb_delete_bkpt(bkpt5);
         if (bkpt6) gdb_delete_bkpt(bkpt6);
         if (bkpt7) gdb_delete_bkpt(bkpt7);
+        if (bkpt8) gdb_delete_bkpt(bkpt8);
     }
 }
 
@@ -486,7 +510,9 @@ static MENU_UPDATE_FUNC(reg_update)
         return;
     
     char dst_name[10];
-    if (regs[reg].dst == DST_CMOS)
+    if (regs[reg].dst == DST_DFE)
+        snprintf(dst_name, sizeof(dst_name), "DFE");
+    else if (regs[reg].dst == DST_CMOS)
         snprintf(dst_name, sizeof(dst_name), "CMOS");
     else if (regs[reg].dst == DST_CMOS16)
         snprintf(dst_name, sizeof(dst_name), "CMOS16");
@@ -4903,6 +4929,7 @@ static unsigned int adtg_gui_init()
         ENGIO_WRITE_FUNC = 0xFF9A5618;  // from stubs
         //~ ENG_DRV_OUT_FUNC = 0xff9a54a8;  /* this causes ADTG hook to stop working (why?) */
         ENG_DRV_OUTS_FUNC = 0xff9a5554;
+        SEND_DATA_TO_DFE_FUNC = 0xff9b1d94;
     }
     else if (is_camera("500D", "1.1.1")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg70325#msg70325
     {
