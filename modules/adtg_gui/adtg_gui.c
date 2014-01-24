@@ -110,6 +110,11 @@ static int show_what = 0;
 
 static int digic_intercept = 0;
 
+static int unique_key = 0;
+#define UNIQUE_REG 0
+#define UNIQUE_REG_AND_CALLER_TASK 1
+#define UNIQUE_REG_AND_CALLER_PC 2
+
 static uint32_t ADTG_WRITE_FUNC = 0;
 static uint32_t CMOS_WRITE_FUNC = 0;
 static uint32_t CMOS2_WRITE_FUNC = 0;
@@ -125,10 +130,11 @@ struct reg_entry
     {
         struct
         {
+            uint32_t context;   /* optional, place where this register was changed from (PC, task, whatever) */
             uint16_t reg;       /* register offset */
             uint16_t dst;       /* register "class" */
         };
-        int32_t key;           /* key in the AVL tree (make sure MSB is 0) */
+        int64_t key;           /* key in the AVL tree (make sure MSB is 0) */
     };
     int32_t val;
     int32_t prev_val;
@@ -141,7 +147,10 @@ struct reg_entry
 };
 
 static int cmp_reg(void* a,void* b){
-    return ((struct reg_entry*)a)->key - ((struct reg_entry*)b)->key;
+    /* simply returning the difference will overflow */
+    if (((struct reg_entry*)a)->key > ((struct reg_entry*)b)->key) return 1;
+    if (((struct reg_entry*)a)->key < ((struct reg_entry*)b)->key) return -1;
+    return 0;
 }
 
 static struct reg_entry regs[4096];
@@ -202,12 +211,13 @@ static int reg_iter(avl * a)
 }
 
 static int reg_total = 0;
-static struct reg_entry * reg_find(uint16_t dst, uint16_t reg)
+static struct reg_entry * reg_find(uint16_t dst, uint16_t reg, uint32_t context)
 {
     reg_total++;
     struct reg_entry ref = {{0}};
     ref.dst = dst;
     ref.reg = reg;
+    ref.context = context;
     found_reg = 0;
     avl_search(&regs_tree, (struct avl *) &ref, reg_iter);
     
@@ -243,9 +253,12 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint32_t 
     
     uint32_t reg = data >> reg_shift;
     int32_t val = data & ((1 << reg_shift) - 1);
+    uint32_t context = 
+        unique_key == UNIQUE_REG_AND_CALLER_PC ? caller_pc :
+        unique_key == UNIQUE_REG_AND_CALLER_TASK ? caller_task : 0;
     
     uint32_t old = cli();
-    struct reg_entry * re = reg_find(dst, reg);
+    struct reg_entry * re = reg_find(dst, reg, context);
 
     if (!re)
     {
@@ -258,6 +271,7 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint32_t 
         re->val = INT_MIN;
         re->prev_val = val;
         re->num_changes = 0;
+        re->context = context;
         avl_insert(&regs_tree, (struct avl *) re);
         reg_num++;
     }
@@ -288,9 +302,12 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uin
     }
 
     int32_t val = *(int32_t*)pval;
+    uint32_t context = 
+        unique_key == UNIQUE_REG_AND_CALLER_PC ? caller_pc :
+        unique_key == UNIQUE_REG_AND_CALLER_TASK ? caller_task : 0;
 
     uint32_t old = cli();
-    struct reg_entry * re = reg_find(dst, reg);
+    struct reg_entry * re = reg_find(dst, reg, context);
 
     if (!re)
     {
@@ -303,6 +320,7 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uin
         re->val = INT_MIN;
         re->prev_val = val;
         re->num_changes = 0;
+        re->context = context;
         avl_insert(&regs_tree, (struct avl *) re);
         reg_num++;
     }
@@ -607,6 +625,27 @@ static MENU_SELECT_FUNC(adtg_main)
     }
 }
 
+static int unique_change_attempt = 0;
+static MENU_SELECT_FUNC(unique_key_toggle)
+{
+    if (reg_num == 0)
+    {
+        menu_numeric_toggle(priv, delta, 0, 2);
+    }
+    else
+    {
+        unique_change_attempt = 5;
+    }
+}
+
+static MENU_UPDATE_FUNC(unique_key_update)
+{
+    if (reg_num > 0 && unique_change_attempt)
+    {
+        MENU_SET_WARNING(MENU_WARN_ADVICE, "You can no longer change this, sorry. Restart the camera.");
+        unique_change_attempt--;
+    }
+}
 static struct menu_entry adtg_gui_menu[] =
 {
     {
@@ -641,6 +680,19 @@ static struct menu_entry adtg_gui_menu[] =
                 .priv = &digic_intercept,
                 .max = 1,
                 .help = "Also intercept DIGIC registers (EngDrvOut and engio_write).\n"
+            },
+            {
+                .name = "Unique key",
+                .priv = &unique_key,
+                .select = unique_key_toggle,
+                .update = unique_key_update,
+                .max = 2,
+                .icon_type = IT_DICE_OFF,
+                .choices = CHOICES("Register", "Register + caller task", "Register + caller PC"),
+                .help  = "When two register operations are identical? (for grouping)",
+                .help2 = "When register number and type (family, class) are equal.\n"
+                         "When reg num/type are equal AND changed from the same task.\n"
+                         "When reg num/type equal AND changed from same prog counter.\n"
             },
             // for i in range(512): print "            REG_ENTRY(%d)," % i
             REG_ENTRY(0),
@@ -4762,7 +4814,7 @@ static MENU_UPDATE_FUNC(show_update)
     for (int reg = 0; reg < reg_num; reg++)
     {
         /* XXX: change this if you ever add or remove menu entries */
-        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 3]);
+        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 4]);
         
         if ((int)entry->priv != reg)
             break;
