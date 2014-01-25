@@ -4958,6 +4958,7 @@ static unsigned int adtg_gui_init()
         CMOS_WRITE_FUNC = 0xFFA12190;
         ENGIO_WRITE_FUNC = 0xFF97D904;  // from stubs
         ENG_DRV_OUT_FUNC = 0xff97d794;
+        SEND_DATA_TO_DFE_FUNC = 0xffa71598;
     }
     else if (is_camera("6D", "1.1.3")) // from 1%
     {
