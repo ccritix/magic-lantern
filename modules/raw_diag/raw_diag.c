@@ -25,6 +25,7 @@ static volatile int raw_diag_running = 0;
 #define ANALYSIS_DARKFRAME_NOISE 1
 #define ANALYSIS_DARKFRAME_FPN 2
 #define ANALYSIS_SNR_CURVE 3
+#define ANALYSIS_JPG_CURVE 4
 
 /* a float version of the routine from raw.c (should be more accurate) */
 static void FAST autodetect_black_level_calc(int x1, int x2, int y1, int y2, int dx, int dy, float* out_mean, float* out_stdev)
@@ -312,6 +313,78 @@ static void snr_graph()
     }
 }
 
+/* estimate the picture style curve */
+static void jpg_curve()
+{
+    float black, noise;
+    ob_mean_stdev(&black, &noise);
+
+    clrscr();
+    bmp_fill(COLOR_BG_DARK, 0, 00, 720, 480);
+
+    float full_well = 14;
+    
+    /* horizontal grid */
+    for (int luma = 0; luma <= 256; luma += 32)
+    {
+        int y = 455 - luma * 455 / 256;
+        draw_line(0, y, 720, y, COLOR_WHITE);
+        bmp_printf(FONT_SMALL | FONT_ALIGN_RIGHT, 700, MAX(y-12, 0), "%d", luma);
+    }
+    
+    /* vertical grid */
+    for (int signal = 0; signal < full_well; signal++)
+    {
+        int bx = COERCE(signal * 720 / full_well, 0, 719);
+        draw_line(bx, 0, bx, 480/35*35, COLOR_WHITE);
+        bmp_printf(FONT_SMALL | FONT_ALIGN_CENTER, bx, 480-font_small.height, "%dEV", signal);
+    }
+
+    bmp_fill(COLOR_BG_DARK, 0, 0, 308, 113);
+    int i = lens_info.picstyle;
+    bmp_printf(FONT_MED, 0, 0, 
+        "JPEG curve\n"
+        "%s %d,%d,%d,%d\n"
+        "%s\n"
+        "ISO %d %s "SYM_F_SLASH"%s%d.%d",
+        get_picstyle_name(lens_info.raw_picstyle),
+        lens_get_from_other_picstyle_sharpness(i),
+        lens_get_from_other_picstyle_contrast(i),
+        ABS(lens_get_from_other_picstyle_saturation(i)) < 10 ? lens_get_from_other_picstyle_saturation(i) : 0,
+        ABS(lens_get_from_other_picstyle_color_tone(i)) < 10 ? lens_get_from_other_picstyle_color_tone(i) : 0,
+        camera_model, lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
+    );
+
+    int x1 = raw_info.active_area.x1;
+    int y1 = raw_info.active_area.y1;
+    int x2 = raw_info.active_area.x2;
+    int y2 = raw_info.active_area.y2;
+
+    uint32_t* lv = (uint32_t*) get_yuv422_vram()->vram;
+
+    int colors[4] = {COLOR_RED, COLOR_GREEN1, COLOR_GREEN1, COLOR_LIGHT_BLUE};
+    for (int k = 0; k < 100000 && gui_state == GUISTATE_QR; k++)
+    {
+        /* choose random points in the image */
+        int x = ((uint32_t) rand() % (x2 - x1 - 100)) + x1 + 50;
+        int y = ((uint32_t) rand() % (y2 - y1 - 100)) + y1 + 50;
+        
+        /* raw value */
+        int p = raw_get_pixel(x, y);
+        float signal = log2f(MAX(1, p - black));
+
+        /* jpeg value */
+        uint32_t uyvy = lv[RAW2LV(x,y)/4];
+        uint32_t luma_x2 = ((uyvy >> 24) & 0xFF) + ((uyvy >> 8) & 0xFF);
+        
+        /* draw the data point */
+        int bx = COERCE(signal * 720 / full_well, 0, 719);
+        int by = 455 - luma_x2 * 455 / 512;
+        int color = colors[x%2 + (y%2)*2];
+        bmp_putpixel(bx, by, color);
+    }
+}
+
 /* like octave mean(x) */
 static float FAST mean(float* X, int N)
 {
@@ -477,6 +550,9 @@ static void raw_diag_task(int corr)
         case ANALYSIS_SNR_CURVE:
             snr_graph();
             break;
+        case ANALYSIS_JPG_CURVE:
+            jpg_curve();
+            break;
     }
     
     if (auto_screenshot)
@@ -540,13 +616,14 @@ static struct menu_entry raw_diag_menu[] =
             {
                 .name = "Analysis",
                 .priv = &analysis_type,
-                .max = 3,
-                .choices = CHOICES("Optical black noise", "Dark frame noise", "Dark frame FPN", "SNR curve"),
+                .max = 4,
+                .choices = CHOICES("Optical black noise", "Dark frame noise", "Dark frame FPN", "SNR curve", "JPEG curve"),
                 .help  = "Choose the type of analysis you wish to run:",
                 .help2 = "Optical black noise: mean, stdev, histogram.\n"
                          "Dark frame noise: same as OB noise, but from the entire image.\n"
                          "Dark frame FPN: fixed-pattern noise (banding) analysis.\n"
                          "SNR curve: take a defocused picture to see the noise profile.\n"
+                         "JPEG curve: plot the RAW to JPEG curve used by current PicStyle.\n"
             },
             {
                 .name = "Auto screenshot",
