@@ -451,16 +451,8 @@ static void plot(float* Y, int n, int x0, int y0, int w, int h)
     }
 }
 
-static void darkframe_fpn()
+static void FAST compute_fpn_v(float* fpn)
 {
-    clrscr();
-    bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 200, "Please wait...\n(crunching numbers)");
-
-    /* any 100-megapixel cameras out there? */
-    float* fpn; int fpn_size = 10000 * sizeof(fpn[0]);
-    fpn = malloc(fpn_size);
-    memset(fpn, 0, fpn_size);
-
     for (int x = raw_info.active_area.x1; x < raw_info.active_area.x2; x++)
     {
         int sum = 0;
@@ -472,18 +464,10 @@ static void darkframe_fpn()
         }
         fpn[x] = (float) sum / num;
     }
-    
-    bmp_fill(COLOR_BG_DARK, 0, 0, 720, 230+20);
-    float* fpn_x1 = fpn + raw_info.active_area.x1;
-    int fpn_N = raw_info.active_area.x2 - raw_info.active_area.x1;
-    plot(fpn_x1, fpn_N, 10, 25, 700, 220);
-    int s = (int) roundf(std(fpn_x1, fpn_N) * 100.0);
-    bmp_printf(FONT_MED, 15, 30, "Vertical FPN: stdev=%s%d.%02d", FMT_FIXEDPOINT2(s));
+}
 
-    bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 300, "Please wait...\n(crunching numbers)");
-
-    memset(fpn, 0, fpn_size);
-
+static void FAST compute_fpn_h(float* fpn)
+{
     for (int y = raw_info.active_area.y1; y < raw_info.active_area.y2; y++)
     {
         int sum = 0;
@@ -495,6 +479,31 @@ static void darkframe_fpn()
         }
         fpn[y] = (float) sum / num;
     }
+}
+
+static void darkframe_fpn()
+{
+    clrscr();
+    bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 200, "Please wait...\n(crunching numbers)");
+
+    /* any 100-megapixel cameras out there? */
+    float* fpn; int fpn_size = 10000 * sizeof(fpn[0]);
+    fpn = malloc(fpn_size);
+    memset(fpn, 0, fpn_size);
+    
+    compute_fpn_v(fpn);
+    
+    bmp_fill(COLOR_BG_DARK, 0, 0, 720, 230+20);
+    float* fpn_x1 = fpn + raw_info.active_area.x1;
+    int fpn_N = raw_info.active_area.x2 - raw_info.active_area.x1;
+    plot(fpn_x1, fpn_N, 10, 25, 700, 220);
+    int s = (int) roundf(std(fpn_x1, fpn_N) * 100.0);
+    bmp_printf(FONT_MED, 15, 30, "Vertical FPN: stdev=%s%d.%02d", FMT_FIXEDPOINT2(s));
+
+    bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 300, "Please wait...\n(crunching numbers)");
+
+    memset(fpn, 0, fpn_size);
+    compute_fpn_h(fpn);
 
     bmp_fill(COLOR_BG_DARK, 0, 250, 720, 230);
     float* fpn_y1 = fpn + raw_info.active_area.y1;
