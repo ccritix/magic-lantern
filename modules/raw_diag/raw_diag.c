@@ -24,8 +24,9 @@ static volatile int raw_diag_running = 0;
 #define ANALYSIS_OPTICAL_BLACK 0
 #define ANALYSIS_DARKFRAME_NOISE 1
 #define ANALYSIS_DARKFRAME_FPN 2
-#define ANALYSIS_SNR_CURVE 3
-#define ANALYSIS_JPG_CURVE 4
+#define ANALYSIS_DARKFRAME_FPN_XCOV 3
+#define ANALYSIS_SNR_CURVE 4
+#define ANALYSIS_JPG_CURVE 5
 
 /* a float version of the routine from raw.c (should be more accurate) */
 static void FAST autodetect_black_level_calc(int x1, int x2, int y1, int y2, int dx, int dy, float* out_mean, float* out_stdev)
@@ -429,7 +430,8 @@ static void plot(float* Y, int n, int x0, int y0, int w, int h)
     
     if (min < 0 && max > 0)
     {
-        draw_line(x0, y0+h/2, x0+w, y0+h/2, COLOR_GRAY(50));
+        int yc = y0 + h - (0 - min) * h / (max - min);
+        draw_line(x0, yc, x0+w, yc, COLOR_GRAY(50));
     }
     
     int prev_x = 0;
@@ -524,6 +526,103 @@ static void darkframe_fpn()
     free(fpn);
 }
 
+static void plot_xcov(float* X, float* Y, int n, int x0, int y0, int w, int h)
+{
+    bmp_draw_rect(COLOR_GRAY(50), x0, y0, w, h);
+    draw_line(x0+w, y0, x0, y0+h, COLOR_GRAY(10));
+
+    float max = -INFINITY;
+    float min = INFINITY;
+    for (int i = 0; i < n; i++)
+    {
+        min = MIN(min, X[i]);
+        max = MAX(max, X[i]);
+        min = MIN(min, Y[i]);
+        max = MAX(max, Y[i]);
+    }
+
+    if (min < 0 && max > 0)
+    {
+        int xc = x0 + (0 - min) * w / (max - min);
+        int yc = y0 + h - (0 - min) * h / (max - min);
+        draw_line(x0, yc, x0+w, yc, COLOR_GRAY(50));
+        draw_line(xc, y0, xc, y0+h, COLOR_GRAY(50));
+    }
+    
+    for (int i = 0; i < n; i++)
+    {
+        int px = x0 + (X[i] - min) * w / (max - min);
+        int py = y0 + h - (Y[i] - min) * h / (max - min);
+        bmp_putpixel(px, py, COLOR_LIGHT_BLUE);
+    }
+    
+    /* todo: compute the cross-covariance and print it */
+}
+
+static void darkframe_fpn_xcov()
+{
+    clrscr();
+    bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 200, "Please wait...\n(crunching numbers)");
+
+    /* any 100-megapixel cameras out there? */
+    int fpn_size = 10000 * sizeof(float);
+    float* fpnv = malloc(2*fpn_size);
+    float* fpnh = fpnv + 10000;
+    memset(fpnv, 0, fpn_size);
+    memset(fpnh, 0, fpn_size);
+
+    /* data from previous picture is taken from a file */
+    static char prev_filename[100];
+    snprintf(prev_filename, sizeof(prev_filename), "%sFPN.DAT", MODULE_CARD_DRIVE);
+    float* prev_fpnv = malloc(2*fpn_size);
+    float* prev_fpnh = prev_fpnv + 10000;
+    int read_size = read_file(prev_filename, prev_fpnv, 2*fpn_size);
+    int ok = (read_size == 2*fpn_size);
+    
+    compute_fpn_v(fpnv);
+    if (ok)
+    {
+        bmp_fill(COLOR_BG_DARK, 0, 0, 360, 480);
+        bmp_printf(FONT_MED, 15, 90, "Vertical FPN");
+
+        int x1 = raw_info.active_area.x1;
+        int N = raw_info.active_area.x2 - raw_info.active_area.x1;
+        plot_xcov(prev_fpnv+x1, fpnv+x1, N, 0, 120, 360, 360);
+    }
+
+    compute_fpn_h(fpnh);
+    if (ok)
+    {
+        bmp_fill(COLOR_BG_DARK, 360, 0, 360, 480);
+        bmp_printf(FONT_MED, 360, 90, "Horizontal FPN");
+
+        int y1 = raw_info.active_area.y1;
+        int N = raw_info.active_area.y2 - raw_info.active_area.y1;
+        plot_xcov(prev_fpnh+y1, fpnh+y1, N, 360, 120, 360, 360);
+    }
+    else
+    {
+        clrscr();
+        bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 200, "Please take one more dark frame.");
+    }
+
+    bmp_printf(FONT_MED, 0, 0, 
+        "FPN cross-covariance"
+    );
+
+    bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, 
+        "%s\n"
+        "  ISO %d %s "SYM_F_SLASH"%s%d.%d", camera_model, lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
+    );
+
+    /* save data from this picture, to be used with the next one */
+    dump_seg(fpnv, 2*fpn_size, prev_filename);
+    
+    /* cleanup */
+    free(fpnv);
+    free(prev_fpnv);
+}
+
 /* main raw diagnostic task */
 static void raw_diag_task(int corr)
 {
@@ -555,6 +654,9 @@ static void raw_diag_task(int corr)
             break;
         case ANALYSIS_DARKFRAME_FPN:
             darkframe_fpn();
+            break;
+        case ANALYSIS_DARKFRAME_FPN_XCOV:
+            darkframe_fpn_xcov();
             break;
         case ANALYSIS_SNR_CURVE:
             snr_graph();
@@ -625,12 +727,13 @@ static struct menu_entry raw_diag_menu[] =
             {
                 .name = "Analysis",
                 .priv = &analysis_type,
-                .max = 4,
-                .choices = CHOICES("Optical black noise", "Dark frame noise", "Dark frame FPN", "SNR curve", "JPEG curve"),
+                .max = 5,
+                .choices = CHOICES("Optical black noise", "Dark frame noise", "Dark frame FPN", "Dark frame FPN xcov", "SNR curve", "JPEG curve"),
                 .help  = "Choose the type of analysis you wish to run:",
                 .help2 = "Optical black noise: mean, stdev, histogram.\n"
                          "Dark frame noise: same as OB noise, but from the entire image.\n"
                          "Dark frame FPN: fixed-pattern noise (banding) analysis.\n"
+                         "Dark frame FPN xcov: how much FPN changes between 2 shots?\n"
                          "SNR curve: take a defocused picture to see the noise profile.\n"
                          "JPEG curve: plot the RAW to JPEG curve used by current PicStyle.\n"
             },
