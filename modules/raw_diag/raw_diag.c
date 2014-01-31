@@ -19,6 +19,7 @@
 static CONFIG_INT("enabled", raw_diag_enabled, 0);
 static CONFIG_INT("analysis", analysis_type, 0);
 static CONFIG_INT("screenshot", auto_screenshot, 0);
+static CONFIG_INT("dump_raw", dump_raw, 0);
 static volatile int raw_diag_running = 0;
 
 #define ANALYSIS_OPTICAL_BLACK 0
@@ -670,6 +671,15 @@ static void raw_diag_task(int corr)
     {
         take_screenshot(0);
     }
+    
+    if (dump_raw)
+    {
+        char filename[100];
+        snprintf(filename, sizeof(filename), "%sML/LOGS/raw_diag.dng", MODULE_CARD_DRIVE);
+        bmp_printf(FONT_MED, 0, 50, "Saving %s...", filename);
+        save_dng(filename, &raw_info);
+        bmp_printf(FONT_MED, 0, 50, "Saved %s.   ", filename);
+    }
 
 end:
     raw_diag_running = 0;
@@ -743,6 +753,12 @@ static struct menu_entry raw_diag_menu[] =
                 .max = 1,
                 .help = "Auto-save a screenshot for every test image."
             },
+            {
+                .name = "Dump RAW buffer",
+                .priv = &dump_raw,
+                .max = 1,
+                .help = "Save a DNG file (ML/LOGS/raw_diag.dng) after analysis."
+            },
             MENU_EOL,
         },
     },
@@ -772,6 +788,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(raw_diag_enabled)
     MODULE_CONFIG(analysis_type)
     MODULE_CONFIG(auto_screenshot)
+    MODULE_CONFIG(dump_raw)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
