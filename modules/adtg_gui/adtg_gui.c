@@ -34,6 +34,7 @@ static struct known_reg known_regs[] = {
     {DST_CMOS,      1, 0, "Vertical offset"},
     {DST_CMOS,      2, 0, "Horizontal offset / column skipping"},
     {DST_CMOS,      3, 0, "Analog ISO on 6D"},
+    {DST_CMOS,      4, 0, "ISO-related?"},
     {DST_CMOS,      5, 0, "Fine vertical offset, black area maybe"},
     {DST_CMOS,      6, 0, "ISO 50 or timing related: FFF => darker image"},
     {DST_CMOS,      7, 0, "Looks like the cmos is dieing (g3gg0)"},
@@ -4966,6 +4967,8 @@ static unsigned int adtg_gui_init()
         CMOS2_WRITE_FUNC = 0x2420C; //"[REG] ############ Start CMOS"
         ADTG_WRITE_FUNC = 0x24108; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS16_WRITE_FUNC = 0x24548; //"[REG] ############ Start CMOS16 OC_KICK"
+        ENGIO_WRITE_FUNC = 0xFF2AE148;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF2ADE30;
     }
     else if (is_camera("EOSM", "2.0.2")) // from 1%
     {
