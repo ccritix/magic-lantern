@@ -677,6 +677,52 @@ static MENU_UPDATE_FUNC(unique_key_update)
         unique_change_attempt--;
     }
 }
+
+#include <lens.h>
+static volatile int log_iso_regs_running = 0;
+
+static void log_iso_regs()
+{
+    msleep(1000);
+    int size = 1024*1024;
+    char* msg = fio_malloc(size);
+    if (!msg) return;
+    msg[0] = 0;
+    int len = 0;
+
+    len += snprintf(msg+len, size-len, "%s %s\n", camera_model, firmware_version);
+    for (int i = 0; i < reg_num; i++)
+    {
+       len += snprintf(msg+len, size-len, "%04x%04x:%x ", regs[i].dst, regs[i].reg, regs[i].val);
+        len += snprintf(msg+len, size-len, "ISO=%d Tv=%d Av=%d ", raw2iso(lens_info.raw_iso), lens_info.shutter, lens_info.aperture);
+        len += snprintf(msg+len, size-len, "task=%s pc=%x addr=%x ", get_task_name_from_id(regs[i].caller_task), regs[i].caller_pc, regs[i].addr);
+        len += snprintf(msg+len, size-len, "\n");
+    }
+
+    len += snprintf(msg+len, size-len, "==================================================================\n");
+
+    FILE * f = FIO_CreateFileOrAppend("A:/iso.log");
+    if (f == INVALID_PTR) f = FIO_CreateFileOrAppend("B:/iso.log");
+    FIO_WriteFile(f, msg, len);
+    FIO_CloseFile(f);
+    fio_free(msg);
+    NotifyBox(2000, "Saved %d regs, %d bytes", reg_num, len);
+    log_iso_regs_running = 0;
+}
+
+PROP_HANDLER(PROP_GUI_STATE)
+{
+    int* data = buf;
+    if (data[0] == GUISTATE_QR)
+    {
+        if (adtg_enabled && !log_iso_regs_running)
+        {
+            log_iso_regs_running = 1;
+            task_create("log_iso_regs", 0x1c, 0x1000, log_iso_regs, 0);
+        }
+    }
+}
+
 static struct menu_entry adtg_gui_menu[] =
 {
     {
@@ -5010,3 +5056,7 @@ MODULE_INFO_START()
     MODULE_INIT(adtg_gui_init)
     MODULE_DEINIT(adtg_gui_deinit)
 MODULE_INFO_END()
+
+MODULE_PROPHANDLERS_START()
+    MODULE_PROPHANDLER(PROP_GUI_STATE)
+MODULE_PROPHANDLERS_END()
