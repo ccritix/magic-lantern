@@ -62,9 +62,15 @@ static struct known_reg known_regs[] = {
     {DST_ADTG,   0x14, 1, "ISO related"},
     {DST_ADTG,   0x15, 1, "ISO related"},
     
+    {0xC0F0,   0x8024, 0, "ISO related? (5D2: used for ISO 25600)"},
     {0xC0F0,   0x8030, 0, "Digital gain for ISO (SHAD_GAIN)"},
     {0xC0F0,   0x8034, 0, "Black level used for developing the image (SHAD_PRESETUP)"},
+    {0xC0F0,   0x8038, 0, "ISO related?"},
+    {0xC0F0,   0x8050, 0, "ISO related?"},
+    {0xC0F0,   0x814c, 0, "ISO related?"},
     {0xC0F0,   0x819c, 0, "Saturate Offset (photo mode)"},
+    {0xC0F1,   0x2054, 0, "White level?"},
+    
     
     {0xC0F0,   0x6000, 0, "FPS register for confirming changes"},
     {0xC0F0,   0x6004, 0, "FPS related, SetHeadForReadout"},
@@ -605,7 +611,8 @@ static MENU_SELECT_FUNC(reg_toggle)
     if (regs[reg].override == INT_MIN)
         regs[reg].override = regs[reg].is_nrzi ? nrzi_decode(regs[reg].val) : regs[reg].val;
  
-    static int multipliers[] = {1, 16, 256, 10, 100, 1000};
+    /* this must match the menu entry */
+    static int multipliers[] = {1, 16, 256, 4096, 2, 4, 8, 10, 100, 1000};
     regs[reg].override += delta * multipliers[edit_multiplier];
 }
 
@@ -679,6 +686,7 @@ static MENU_UPDATE_FUNC(unique_key_update)
 }
 
 #include <lens.h>
+static int log_all_regs = 0;
 static volatile int log_iso_regs_running = 0;
 
 static void log_iso_regs()
@@ -701,8 +709,8 @@ static void log_iso_regs()
 
     len += snprintf(msg+len, size-len, "==================================================================\n");
 
-    FILE * f = FIO_CreateFileOrAppend("A:/iso.log");
-    if (f == INVALID_PTR) f = FIO_CreateFileOrAppend("B:/iso.log");
+    FILE * f = FIO_CreateFileOrAppend("A:/adtg.log");
+    if (f == INVALID_PTR) f = FIO_CreateFileOrAppend("B:/adtg.log");
     FIO_WriteFile(f, msg, len);
     FIO_CloseFile(f);
     fio_free(msg);
@@ -715,7 +723,7 @@ PROP_HANDLER(PROP_GUI_STATE)
     int* data = buf;
     if (data[0] == GUISTATE_QR)
     {
-        if (adtg_enabled && !log_iso_regs_running)
+        if (log_all_regs && adtg_enabled && !log_iso_regs_running)
         {
             log_iso_regs_running = 1;
             task_create("log_iso_regs", 0x1c, 0x1000, log_iso_regs, 0);
@@ -736,8 +744,9 @@ static struct menu_entry adtg_gui_menu[] =
             {
                 .name = "Editing step", 
                 .priv = &edit_multiplier,
-                .max = 5,
-                .choices = CHOICES("1", "16 (x << 4)", "256 (x << 8)", "10", "100", "1000"),
+                .max = 9,
+                /* 1, 16, 256, 4096, 2, 4, 8, 10, 100, 1000 */
+                .choices = CHOICES("1", "16 (x << 4)", "256 (x << 8)", "4096", "2", "4", "8", "10", "100", "1000"),
                 .help = "Step used when editing register values."
             },
             {
@@ -757,6 +766,13 @@ static struct menu_entry adtg_gui_menu[] =
                 .priv = &digic_intercept,
                 .max = 1,
                 .help = "Also intercept DIGIC registers (EngDrvOut and engio_write).\n"
+            },
+            {
+                .name = "Log registers",
+                .priv = &log_all_regs,
+                .max = 1,
+                .choices = CHOICES("OFF", "After taking a pic"),
+                .help = "Save all registers to a log file (adtg.log)\n"
             },
             {
                 .name = "Unique key",
@@ -4891,7 +4907,7 @@ static MENU_UPDATE_FUNC(show_update)
     for (int reg = 0; reg < reg_num; reg++)
     {
         /* XXX: change this if you ever add or remove menu entries */
-        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 4]);
+        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 5]);
         
         if ((int)entry->priv != reg)
             break;
