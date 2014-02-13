@@ -450,64 +450,44 @@ void lut_init()
 
 #include "bmp.h"
 
+#ifndef CONFIG_5D3
+#define MAX_YUV_422_BUFFERS 3
+#else
+#define MAX_YUV_422_BUFFERS 4
+#endif
 
-static inline void * get_yuv422buffer(int offset)
+static void* yuv_422_buffers[MAX_YUV_422_BUFFERS];
+
+void update_422_buffers()
 {
-    #if defined(CONFIG_1100D) || defined(CONFIG_6D)
-    return (void*)CACHEABLE(YUV422_LV_BUFFER_DISPLAY_ADDR); // Good enough
-    #else
-    if (YUV422_LV_BUFFER_DISPLAY_ADDR == YUV422_LV_BUFFER_1)
-       offset += 0;
-    else if (YUV422_LV_BUFFER_DISPLAY_ADDR == YUV422_LV_BUFFER_2)
-       offset += 1;
-    else
-       offset += 2;
-
-    switch (offset)
+    // This one is atomic, i guess
+    uint32_t old_int = cli();
+    int idx = MAX_YUV_422_BUFFERS-1;
+    for(idx = (MAX_YUV_422_BUFFERS - 1); idx > 0; --idx)
     {
-        case 0:
-        case 3:
-        default:
-           return (void*)CACHEABLE(YUV422_LV_BUFFER_1);
-
-        case 1:
-        case 4:
-           return (void*)CACHEABLE(YUV422_LV_BUFFER_2);
-        case 2:
-        case 5:
-           return (void*)CACHEABLE(YUV422_LV_BUFFER_3);
+        // 3 <-- 2 ; 2 <-- 1 ; 1 <-- 0
+        yuv_422_buffers[idx] = yuv_422_buffers[idx-1];
     }
-    #endif
+    yuv_422_buffers[0] = CACHEABLE(YUV422_LV_BUFFER_DISPLAY_ADDR);
+    sei(old_int);
 }
-
-
-void* get_lcd_422_buf()
-{
-    return get_yuv422buffer(0);
-}
-
-static int fastrefresh_direction = 0;
-
-static unsigned old_buffer_pos = 0;
-
-void guess_fastrefresh_direction() {
-    if (old_buffer_pos == YUV422_LV_BUFFER_DISPLAY_ADDR) return;
-    if (old_buffer_pos == YUV422_LV_BUFFER_1 && YUV422_LV_BUFFER_DISPLAY_ADDR == YUV422_LV_BUFFER_2) fastrefresh_direction = 1;
-    if (old_buffer_pos == YUV422_LV_BUFFER_1 && YUV422_LV_BUFFER_DISPLAY_ADDR == YUV422_LV_BUFFER_3) fastrefresh_direction = 0;
-    old_buffer_pos = YUV422_LV_BUFFER_DISPLAY_ADDR;
-}
-
 
 void* get_fastrefresh_422_buf()
 {
-    return get_yuv422buffer(fastrefresh_direction ? 1 : 2);
+    return yuv_422_buffers[1];
 }
 
 // Unfortunately this doesn't work on every 1100D model yet :(
-static void* get_fastrefresh_422_other_buf()
+void* get_fastrefresh_422_other_buf()
 {
-    return get_yuv422buffer(fastrefresh_direction ? 2 : 1);
+    return yuv_422_buffers[MAX_YUV_422_BUFFERS - 1];
 }
+
+void* get_lcd_422_buf()
+{
+    return yuv_422_buffers[0];
+}
+
 
 #ifdef CONFIG_500D
 int first_video_clip = 1;
@@ -520,7 +500,7 @@ struct vram_info * get_yuv422_vram()
     
     if (digic_zoom_overlay_enabled()) // compute histograms and such on full-screen image
     {
-        vram_lv.vram = (void*)CACHEABLE(YUV422_LV_BUFFER_1);
+        vram_lv.vram = (void*)CACHEABLE(get_fastrefresh_422_buf());
         return &vram_lv;
     }
 

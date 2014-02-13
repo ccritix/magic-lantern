@@ -4,6 +4,7 @@
  **/
 
 #include "dryos.h"
+#include "vram.h"
 
 static struct msg_queue * vsync_msg_queue = 0;
 
@@ -22,11 +23,13 @@ void lv_vsync(int mz)
     static int k = 0; k++;
     msleep(mz ? (k % 50 == 0 ? MIN_MSLEEP : 10) : MIN_MSLEEP);
     #endif
+    update_422_buffers();
 }
 
 static void vsync_init()
 {
     vsync_msg_queue = (void*)msg_queue_create("vsync_mq", 1);
+    //RegisterVDInterruptHigherPriCBR(lv_vsync_signal, 0);
 }
 
 INIT_FUNC("vsync", vsync_init);

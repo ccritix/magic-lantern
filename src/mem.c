@@ -918,9 +918,9 @@ static struct { uint32_t addr; char* name; } common_addresses[] = {
     { RESTARTSTART,         "RST"},
     { YUV422_HD_BUFFER_1,   "HD1"},
     { YUV422_HD_BUFFER_1,   "HD2"},
-    { YUV422_LV_BUFFER_1,   "LV1"},
-    { YUV422_LV_BUFFER_2,   "LV2"},
-    { YUV422_LV_BUFFER_3,   "LV3"},
+//    { YUV422_LV_BUFFER_1,   "LV1"},
+//    { YUV422_LV_BUFFER_2,   "LV2"},
+//    { YUV422_LV_BUFFER_3,   "LV3"},
 };
 
 static MENU_UPDATE_FUNC(meminfo_display)

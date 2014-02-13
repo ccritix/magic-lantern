@@ -466,7 +466,7 @@ static void card_benchmark_wr(int bufsize, int K, int N)
         int i;
         for (i = 0; i < n; i++)
         {
-            uint32_t start = (int)UNCACHEABLE(YUV422_LV_BUFFER_1);
+            uint32_t start = (int)UNCACHEABLE(YUV422_HD_BUFFER_1);
             bmp_printf(FONT_LARGE, 0, 0, "[%d/%d] Writing: %d/100 (buf=%dK)... ", K, N, i * 100 / n, bufsize/1024);
             FIO_WriteFile( f, (const void *) start, bufsize );
         }
@@ -686,7 +686,7 @@ static void card_bufsize_benchmark_task()
         int total = 0;
         for (uint32_t i = 0; i < n; i++)
         {
-            uint32_t start = (int)UNCACHEABLE(YUV422_LV_BUFFER_1);
+            uint32_t start = (int)UNCACHEABLE(YUV422_HD_BUFFER_1);
             bmp_printf(FONT_LARGE, 0, 0, "Writing: %d/100 (buf=%dK)... ", i * 100 / n, bufsize/1024);
             uint32_t r = FIO_WriteFile( f, (const void *) start, bufsize );
             total += r;
