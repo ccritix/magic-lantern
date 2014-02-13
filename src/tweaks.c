@@ -2662,7 +2662,7 @@ void display_shake_step()
     if (hdmi_code == 5) return;
     static int k; k++;
     if (k%2) return;
-    if ((MEM(REG_EDMAC_WRITE_LV_ADDR) & 0xFFFF) != (YUV422_LV_BUFFER_1 & 0xFFFF)) return;
+    if ((MEM(REG_EDMAC_WRITE_LV_ADDR) & 0xFFFF) != (get_lcd_422_buf() & 0xFFFF)) return;
     MEM(REG_EDMAC_WRITE_LV_ADDR) += (vram_lv.pitch * vram_lv.height);
 }
 #endif
@@ -3051,8 +3051,8 @@ void display_filter_get_buffers(uint32_t** src_buf, uint32_t** dst_buf)
     *src_buf = buff;
     *dst_buf = CACHEABLE(display_filter_buffer);
 #else // just use some reasonable defaults that won't crash the camera
-    *src_buf = CACHEABLE(YUV422_LV_BUFFER_1);
-    *dst_buf = CACHEABLE(YUV422_LV_BUFFER_2);
+    *src_buf = CACHEABLE(get_lcd_422_buf());
+    *dst_buf = CACHEABLE(get_fastrefresh_422_buf());
 #endif
 }
 

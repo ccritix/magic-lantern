@@ -678,7 +678,6 @@ static struct menu_entry vram_menus[] = {
 void vram_init()
 {
     menu_add("VRAM", vram_menus, COUNT(vram_menus));
-    old_buffer_pos = YUV422_LV_BUFFER_1;
 }
 
 INIT_FUNC(__FILE__, vram_init);

@@ -57,7 +57,7 @@ static void card_test(int type)
             char msg[50];
             snprintf(msg, sizeof(msg), "%s card test (%d%%)...", type ? "SD" : "CF", i+1);
             bmp_printf(FONT_CANON, 0, 0, msg);
-            int r = FIO_WriteFile(f, (void*)YUV422_LV_BUFFER_1, 1025);
+            int r = FIO_WriteFile(f, (void*)YUV422_HD_BUFFER_1, 1025);
             if (r != 1025) { fail = 1; break; }
         }
         FIO_CloseFile(f);

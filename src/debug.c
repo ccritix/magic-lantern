@@ -600,7 +600,7 @@ static void twocard_write_task(char* filename)
     {
         while (msg_queue_receive(twocard_mq, (struct event **) &msg, 1000) == 0)
         {
-            uint32_t start = (int)UNCACHEABLE(YUV422_LV_BUFFER_1);
+            uint32_t start = (int)UNCACHEABLE(YUV422_HD_BUFFER_1);
             bmp_printf(FONT_MED, 0, cf*20, "[%s] Writing chunk %d [total=%d MB] (buf=%dK)... ", cf ? "CF" : "SD", msg, filesize, bufsize/1024);
             int r = FIO_WriteFile( f, (const void *) start, bufsize );
             if (r != bufsize) break; // card full?
