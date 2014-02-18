@@ -76,8 +76,8 @@ inp = "\n".join(used_lines)
 inp = inp.split("\n\n")
 
 # extract user metadata from RST meta tags
-tags = {}
-tags["Name"] = title
+fields = {}
+fields["Name"] = title
 add_string("Name", title, fp_header)
 for l in lines[2:]:
     l = l.strip()
@@ -88,19 +88,19 @@ for l in lines[2:]:
         if value.startswith("<") and value.endswith(">"):
             continue
         add_string(name, value, fp_header)
-        tags[name] = value
+        fields[name] = value
 
 if(args.json is not None):
     fp_json = open(args.json, 'w')
-    print >> fp_json, "%s" % (json.dumps(tags, indent=4))
+    print >> fp_json, "%s" % (json.dumps(fields, indent=4))
 
-if "Author" not in tags and "Authors" not in tags:
+if "Author" not in fields and "Authors" not in fields:
     print >> sys.stderr, "Warning: 'Author/Authors' tag is missing. You should tell the world who wrote your module ;)"
 
-if "License" not in tags:
+if "License" not in fields:
     print >> sys.stderr, "Warning: 'License' tag is missing. Under what conditions we can use your module? Can we publish modified versions?"
 
-if "Summary" not in tags:
+if "Summary" not in fields:
     print >> sys.stderr, "Warning: 'Summary' tag is missing. It should be displayed as help in the Modules tab."
 
 # extract readme body:
