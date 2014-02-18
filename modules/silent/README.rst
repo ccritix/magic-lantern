@@ -18,3 +18,5 @@ Modes:
 :License: GPL
 :Summary: Take pictures in LiveView without shutter actuation
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=5240.0
+:Tags: raw photo
+:Usable: 5D2 5D3 6D 550D 700D

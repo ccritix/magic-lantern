@@ -11,3 +11,5 @@ For details, please see the "Raw Video" section on the Magic Lantern forum.
 :License: GPL
 :Summary: Records 14-bit RAW video
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=7122.0
+:Tags: raw video
+:Usable: 5D3 5D2 7D 50D 60D

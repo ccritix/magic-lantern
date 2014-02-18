@@ -10,3 +10,5 @@ http://youtu.be/7zE50jCUPhM
 :Credits: Horshack (Dot-Tune method), YMP (algorithm tweaks)
 :Summary: Autofocus fine-tuning.
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=4648.0
+:Tags: photo focus
+:Usable: 5D2 5D3 6D 7D 50D

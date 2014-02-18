@@ -10,3 +10,5 @@ http://www.magiclantern.fm/forum/?topic=7208
 :Credits: ML devs
 :Summary: Auto exposure algorithm
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=7208.0
+:Tags: photo exposure
+:Usable: 5D2 5D3

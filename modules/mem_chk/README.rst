@@ -10,3 +10,4 @@ This module appears in menu under Debug -> Burn-in tests.
 :License: GPL
 :Summary: malloc reliability checks
 :Authors: g3gg0
+:Tags: diagnostics

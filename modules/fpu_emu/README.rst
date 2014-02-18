@@ -9,5 +9,4 @@ With this emulation, you will be able to use floating point in TCC scripts.
 :Summary: Adds FPU emulation support
 :License: GPL
 :Website: http://www.magiclantern.fm/
-
-
+:Tags: scripting experiments

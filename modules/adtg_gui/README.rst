@@ -12,6 +12,7 @@ This is a tool for reverse engineering the meaning of ADTG/CMOS registers (low-l
 :Credits: g3gg0 (adtg_log)
 :Summary: ADTG/CMOS register editing GUI (reverse engineering tool)
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=6751.msg71720#msg71720
+:Tags: experiments
 
 Usage 1/3
 ---------

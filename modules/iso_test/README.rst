@@ -1,8 +1,9 @@
 iso_tests
-========
+=========
 
-Runs some tests to infer ISO response curve
+Runs some tests to infer ISO response curve.
 
-:Summary: FOR DEVELOPERS ONLY - Runs some tests to infer ISO response curve
-:Author: a1ex, nanomad (module)
+:Summary: Runs some tests to infer ISO response curve
+:Authors: a1ex, nanomad (module)
 :License: GPL
+:Tags: experiments

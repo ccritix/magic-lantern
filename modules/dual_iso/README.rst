@@ -1,4 +1,3 @@
-
 Dual ISO
 ========
 
@@ -6,6 +5,9 @@ Dual ISO
 :License: GPL
 :Summary: Dynamic range improvement by using two ISOs in one picture
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=7139.0
+:Tags: photo raw exposure
+:Stable: 5D3 5D2 50D
+:Usable: 6D 7D 500D 550D 60D 600D 650D 700D 1100D EOSM
 
 Increases dynamic range by sampling the sensor at two different ISOs, switching ISO for every other line pair.
 This trick cleans up shadow noise, resulting in a dynamic range improvement of around 3 stops,

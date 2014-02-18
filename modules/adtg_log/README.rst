@@ -1,12 +1,9 @@
 adtg_log
 ========
 
-Please write a one-page description for your module here.
+Log ADTG registers.
 
-You may also add some metadata:
-
-:Author: <your name here>
-:License: <your license here>
-:Website: <your website here>
-
+:Author: g3gg0
+:License: GPL
+:Tags: experiments
 

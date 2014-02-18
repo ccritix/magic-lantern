@@ -1,7 +1,9 @@
 Memory spy
 ==========
 
-Spy your memory.
+Scan memory for values changing according to some pattern.
 
 :License: GPL
-:Summary: Spy your memory
+:Authors: a1ex, pravdomil
+:Summary: Scan memory for values changing according to some pattern.
+:Tags: experiments

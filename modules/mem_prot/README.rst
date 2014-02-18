@@ -9,3 +9,5 @@ this will happen quite often - especially in LV mode.
 :License: GPL
 :Summary: Protect from NULL pointer accesses
 :Authors: g3gg0
+:Tags: diagnostics
+:Not working: 5D2

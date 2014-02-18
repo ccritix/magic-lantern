@@ -5,7 +5,8 @@ Expose To The Right
 :License: GPL
 :Summary: Expose To The Right - auto exposure that minimizes noise
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=5693.0
-
+:Tags: raw exposure photo video
+:Usable: 5D2 5D3 6D 7D 50D 60D 500D 550D 600D 650D 700D 1100D EOSM
 
 ETTR is a techinque that optimizes your exposure for raw shooting, with the goal of minimizing noise without blowing the highlights. 
 

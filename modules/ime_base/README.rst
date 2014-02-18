@@ -5,6 +5,7 @@ Base module for input modules.
 
 
 
-:Authors: g3gg0
+:Author: g3gg0
 :License: GPL
 :Summary: IME Base Module
+:Tags: text-input

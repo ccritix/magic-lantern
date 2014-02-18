@@ -15,3 +15,5 @@ Supported file types:
 :Author: a1ex
 :License: GPL
 :Summary: Image viewer that integrates with the file manager.
+:Tags: photo filesystem
+:Usable: 5D3 5D2 7D 60D 550D 500D

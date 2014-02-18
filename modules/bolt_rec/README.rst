@@ -8,3 +8,4 @@ Start video on lightning.
 :Credits: a1ex (raw_rec)
 :Summary: Start video on lightning
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=6303.0
+:Tags: video experiments

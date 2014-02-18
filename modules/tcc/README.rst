@@ -1,13 +1,11 @@
-tcc
-========
+TCC
+===
 
-Please write a one-page description for your module here.
+Very small and fast C compiler, to be used as scripting backend (work in progress)
 
-You may also add some metadata:
-
-.. meta::
-    :Author: <your name here>
-    :License: <your license here>
-    :Website: <your website here>
-
-
+:Author: Fabrice Bellard & co.
+:Ported by: a1ex
+:License: GPL
+:Website: http://bellard.org/tcc/
+:Summary: Scripting backend (work in progress)
+:Tags: scripting experiments
