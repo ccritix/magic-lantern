@@ -14,3 +14,4 @@ For details, please see the "Raw Video" section on the Magic Lantern forum.
 :Tags: raw video
 :Stable: 5D3
 :Usable: 5D2 60D 7D 50D 60D 550D 600D 650D 700D
+:Known issues: some cameras are just too slow for high-resolution recording; pink frames on certain cameras (raw backend issue, not raw_rec's fault)

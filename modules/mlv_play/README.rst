@@ -11,3 +11,4 @@ You may also play the files from the file_man module.
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=9062.0
 :Tags: raw video filesystem
 :Usable: 5D3 5D2 7D
+:Known issues: small quirks, especially with external monitors

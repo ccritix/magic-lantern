@@ -8,6 +8,7 @@ Dual ISO
 :Tags: photo raw exposure
 :Stable: 5D3 5D2 50D
 :Usable: 6D 7D 500D 550D 60D 600D 650D 700D 1100D EOSM
+:Known issues: may needs repeated restarts on some cameras; minor camera-specific quirks in postprocessing (more sample pictures needed); DUAL_ file prefix may not sync when pressing buttons quickly.
 
 Increases dynamic range by sampling the sensor at two different ISOs, switching ISO for every other line pair.
 This trick cleans up shadow noise, resulting in a dynamic range improvement of around 3 stops,

@@ -17,3 +17,4 @@ Supported file types:
 :Summary: Image viewer that integrates with the file manager.
 :Tags: photo filesystem
 :Usable: 5D3 5D2 7D 60D 550D 500D
+:Known issues: none, but it's not a popular module, so the testing coverage was likely poor

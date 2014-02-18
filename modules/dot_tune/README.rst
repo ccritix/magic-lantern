@@ -12,3 +12,4 @@ http://youtu.be/7zE50jCUPhM
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=4648.0
 :Tags: photo focus
 :Usable: 5D2 5D3 6D 7D 50D
+:Known issues: sometimes the AF value doesn't register properly

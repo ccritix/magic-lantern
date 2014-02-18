@@ -9,3 +9,4 @@ With this module, mlv_rec is extended by sound recording support.
 :Website: http://www.magiclantern.fm/
 :Tags: raw video audio
 :Usable: 5D2 5D3 7D
+:Known issues: conflicts with core audio API

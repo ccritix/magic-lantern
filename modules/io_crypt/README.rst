@@ -10,3 +10,4 @@ Works on 5D3 and may work on 600D and 7D.
 :Website: http://www.magiclantern.fm/forum/index.php?topic=9963.0
 :Tags: photo filesystem
 :Usable: 5D3 7D 60D 600D 650D
+:Known issues: reported crashes and/or unable to decrypt the files

@@ -7,6 +7,7 @@ File Manager
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=5522.0
 :Tags: filesystem
 :Usable: 5D2 5D3 6D 7D 50D 60D 500D 550D 600D 650D 700D 1100D EOSM
+:Known issues: some features like multiple file copy/move might cause surprises (not enough feedback to draw a conclusion).
 
 Browse the card filesystem from ML menu.
 

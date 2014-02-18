@@ -13,3 +13,4 @@ Tip: with an actor in the scene on hard difficulty (for example whilst playing d
 :Forum: http://www.magiclantern.fm/forum/index.php?topic=7847.0
 :Tags: games
 :Usable: 5D2 5D3 7D 60D
+:Known issues: random crashes, hard to reproduce
