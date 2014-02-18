@@ -27,3 +27,5 @@ raw2dng.exe: $(SRC_DIR)/chdk-dng.c ../lv_rec/raw2dng.c
 
 clean::
 	$(call rm_files, raw2dng)
+
+.PHONY: module_strings.h module_tags.json
