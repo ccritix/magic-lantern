@@ -36,12 +36,94 @@ static TCCState *module_state = NULL;
 static struct menu_entry module_submenu[];
 static struct menu_entry module_menu[];
 
-CONFIG_INT("module.autoload", module_autoload_disabled, 0);
+static CONFIG_INT("module.autoload", module_autoload_disabled, 0);
 #define module_autoload_enabled (!module_autoload_disabled)
-CONFIG_INT("module.console", module_console_enabled, 0);
-CONFIG_INT("module.ignore_crashes", module_ignore_crashes, 0);
-char *module_lockfile = MODULE_PATH"LOADING.LCK";
+static CONFIG_INT("module.console", module_console_enabled, 0);
+static CONFIG_INT("module.ignore_crashes", module_ignore_crashes, 0);
+static char *module_lockfile = MODULE_PATH"LOADING.LCK";
 
+/* stability ratings */
+#define RATING_STABLE 0
+#define RATING_USABLE 1
+#define RATING_UNTESTED 2
+#define RATING_DIAGNOSTIC 3
+#define RATING_EXPERIMENT 4
+#define RATING_NOT_WORKING 5
+
+/* note: I'm not using a structure to group all these things in order to make it easier to reuse these items in the menu */
+static const char * rating_filter_choices[] = {
+    "Stable",
+    "Usable (or better)",
+    "Untested (or better)",
+    "Diagnostics",
+    "Experiments",
+    "Known not to work",
+};
+
+static const char rating_filter_help[] =
+    "Stable: developer has this model and it shows no misbehavior.\n"
+    "Usable: seems to work on this model, hiccups may happen.\n"
+    "Untested: might work, might crash the camera, expect anything.\n"
+    "Diagnostics: modules designed for troubleshooting (safe).\n"
+    "Experiments: your camera may turn into a 1Dx or it may explode.\n"
+    "Known not to work: reported as not working on your camera.\n"
+;
+
+static int rating_filter_colors[] = {
+    COLOR_GREEN1,
+    COLOR_CYAN,
+    COLOR_YELLOW,
+    COLOR_GRAY(50),
+    COLOR_RED,
+    COLOR_RED,
+};
+
+static const char* rating_filter_markers[] = {
+    "++",
+    "+",
+    "?",
+    "DBG",
+    "EXP",
+    "NOT",
+};
+
+/* we don't have many modules confirmed as stable, so, for now, show the ones known to work by default */
+static CONFIG_INT("module.rating_filter", rating_filter, RATING_USABLE);
+
+/* filter modules by tags */
+static const char * tag_filter_choices[] = {
+    "All",
+    "Photo",
+    "Video",
+    "RAW",
+    "Exposure",
+    "Focus",
+    "Filesystem",
+    "Text Input",
+    "Audio",
+    "Games",
+    "Scripting",
+    "Other",
+};
+
+static const char tag_filter_help[] =
+    "All: show all modules regardless of their tags.\n"
+    "Photo: show modules focused on stills shooting.\n"
+    "Video: show modules focused on video shooting.\n"
+    "RAW: show modules focused on RAW shooting (photo or video).\n"
+    "Exposure: show modules that help with exposure (photo or video).\n"
+    "Focus: show modules that help with focusing (photo or video).\n"
+    "Filesystem: show modules related to file input/output.\n"
+    "Text Input: input method modules for entering text values.\n"
+    "Audio: modules for sound recording or playback.\n"
+    "Games: let's have some fun :)\n"
+    "Scripting: write your own simple programs on your camera.\n"
+    "Other: modules tagged by something not in this list.\n"
+;
+
+static CONFIG_INT("module.tag_filter", tag_filter, 0);
+
+/* message queue for the module task */
 static struct msg_queue * module_mq = 0;
 #define MSG_MODULE_LOAD_ALL 1
 #define MSG_MODULE_UNLOAD_ALL 2
@@ -56,6 +138,10 @@ void module_unload_all(void)
 {
     msg_queue_post(module_mq, MSG_MODULE_UNLOAD_ALL); 
 }
+
+static int module_check_rating_startup(int mod_number);
+static void module_load_offline_strings(int mod_number);
+static void module_unload_offline_strings(int mod_number);
 
 static void _module_load_all(uint32_t);
 static void _module_unload_all(void);
@@ -274,6 +360,17 @@ static void _module_load_all(uint32_t list_only)
                 snprintf(module_list[module_cnt].long_status, sizeof(module_list[module_cnt].long_status), "Module disabled");
                 //console_printf("  [i] %s\n", module_list[module_cnt].long_status);
             }
+            else if (!module_check_rating_startup(module_cnt))
+            {
+                /* it is enabled in menu, but its rating is too low */
+                /* we want to remember the selection and just load it when user chooses a lower threshold */
+                /* (path of least surprise) */
+                module_list[module_cnt].enabled = 1;
+                module_list[module_cnt].error = 1;
+                snprintf(module_list[module_cnt].status, sizeof(module_list[module_cnt].status), "OFF");
+                snprintf(module_list[module_cnt].long_status, sizeof(module_list[module_cnt].long_status), "Rating mismatch.");
+                //console_printf("  [i] %s\n", module_list[module_cnt].long_status);
+            }
             else
             {
                 module_list[module_cnt].enabled = 1;
@@ -305,10 +402,12 @@ static void _module_load_all(uint32_t list_only)
     {
         for (int j = i+1; j < (int) module_cnt; j++)
         {
+            /* loaded modules first, then enabled but not loaded, then alphabetically */
+            int eei = module_list[i].enabled + (module_list[i].error ? 0 : 1);
+            int eej = module_list[j].enabled + (module_list[j].error ? 0 : 1);
             if (
-                    /* loaded modules first, then alphabetically */
-                    (module_list[i].enabled == 0 && module_list[j].enabled) || 
-                    (module_list[i].enabled == module_list[j].enabled && strcmp(module_list[i].name, module_list[j].name) > 0)
+                    (eei < eej) || 
+                    (eei == eej && strcmp(module_list[i].name, module_list[j].name) > 0)
                )
             {
                 module_entry_t aux = module_list[i];
@@ -330,7 +429,7 @@ static void _module_load_all(uint32_t list_only)
     console_printf("Load modules...\n");
     for (uint32_t mod = 0; mod < module_cnt; mod++)
     {
-        if(module_list[mod].enabled)
+        if(module_list[mod].enabled && !module_list[mod].error)
         {
             console_printf("  [i] load: %s\n", module_list[mod].filename);
             int32_t ret = tcc_add_file(state, module_list[mod].long_filename);
@@ -985,6 +1084,145 @@ static MENU_SELECT_FUNC(module_menu_update_select)
 
 static const char* module_get_string(int mod_number, const char* name);
 
+/* lookup a tag (a word) in a space or comma-separated list and return 1 if present */
+/* it's not case-sensitive */
+/* spaces in tag are replaced by '-' */
+static int tag_matches(const char * tag, const char * tags_list)
+{
+    if (!tags_list || !tag)
+    {
+        return 0;
+    }
+
+    /* in tag, replace space with - and convert to lower-case (e.g. Text Input => text-input) */
+    char tag_filtered[100];
+    snprintf(tag_filtered, sizeof(tag_filtered), "%s", tag);
+    for (char* c = tag_filtered; *c; c++)
+    {
+        *c = (*c == ' ') ? '-' : tolower(*c);
+    }
+
+    /* in tags_list, split by space or comma, and convert to lower-case */
+    char tag_token[100];
+    char* tok = tag_token;
+    char* end = tag_token + sizeof(tag_token) - 1;
+    for (const char* c = tags_list; *c && tok < end; c++)
+    {
+        if (*c == ' ' || *c == ',') /* is separator? */
+        {
+            /* found a token, let's check it */
+            if (streq(tag_token, tag_filtered))
+            {
+                /* match found */
+                return 1;
+            }
+            
+            /* nope, let's try again */
+            tok = tag_token;
+        }
+        else
+        {
+            /* regular character, fill the token */
+            *tok++ = tolower(*c); *tok = 0;
+        }
+    }
+    
+    /* last token */
+    return streq(tag_token, tag_filtered);
+}
+
+static int module_get_rating(int mod_number)
+{
+    const char* tags = module_get_string(mod_number, "Tags");
+    const char* stable = module_get_string(mod_number, "Stable");
+    const char* usable = module_get_string(mod_number, "Usable");
+    const char* not_working = module_get_string(mod_number, "Not working");
+    const char* cam = camera_model_short;
+    
+    int rating = 
+        tag_matches(cam, not_working) ? RATING_NOT_WORKING :
+        tag_matches("experiments", tags) ? RATING_EXPERIMENT :
+        tag_matches("diagnostics", tags) ? RATING_DIAGNOSTIC :
+        tag_matches(cam, usable) ? RATING_USABLE :
+        tag_matches(cam, stable) ? RATING_STABLE :
+        RATING_UNTESTED;
+    
+    return rating;
+}
+
+static int module_check_rating_filter(int mod_number)
+{
+    int module_rating = module_get_rating(mod_number);
+    
+    if (rating_filter == RATING_NOT_WORKING || rating_filter == RATING_EXPERIMENT || rating_filter == RATING_DIAGNOSTIC)
+    {
+        /* special cases: show only these items */
+        return rating_filter == module_rating;
+    }
+    else
+    {
+        /* normal case: show modules rated as X or better */
+        return rating_filter >= module_rating;
+    }
+}
+static int module_check_rating_for_load(int mod_number)
+{
+    /* only load modules with rating equal or better than menu selection */
+    int module_rating = module_get_rating(mod_number);
+    int ans = rating_filter >= module_rating;
+    return ans;
+}
+
+/* TODO: this will cause reading each module twice (two FIO_Open calls), might slow down loading time */
+static int module_check_rating_startup(int mod_number)
+{
+    ASSERT(module_list[mod_number].strings == 0);
+    
+    /* load the module strings to check the metadata */
+    module_load_offline_strings(mod_number);
+    
+    /* check whether we should load it or not */
+    int ans = module_check_rating_for_load(mod_number);
+    
+    /* cleanup */
+    module_unload_offline_strings(mod_number);
+    
+    return ans;
+}
+
+static int module_check_tag_filter(int mod_number)
+{
+    if (tag_filter == COUNT(tag_filter_choices)-1)
+    {
+        /* show modules tagged only with something not on the list (other) */
+        const char* tags = module_get_string(mod_number, "Tags");
+        for (int tag_index = 0; tag_index < COUNT(tag_filter_choices); tag_index++)
+        {
+            const char* selected_tag = tag_filter_choices[tag_index];
+            if (tag_matches(selected_tag, tags))
+            {
+                /* this module matches some other tag, don't show it here */
+                return 0;
+            }
+        }
+        
+        return 1;
+    }
+    else if (tag_filter)
+    {
+        /* check if selected tag matches the module tags */
+        const char* tags = module_get_string(mod_number, "Tags");
+        int tag_index = tag_filter % COUNT(tag_filter_choices);
+        const char* selected_tag = tag_filter_choices[tag_index];
+        return tag_matches(selected_tag, tags);
+    }
+    else
+    {
+        /* no filter, show all */
+        return 1;
+    }
+}
+
 static int startswith(const char* str, const char* prefix)
 {
     const char* s = str;
@@ -1019,6 +1257,13 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
             MENU_SET_ICON(MNI_NEUTRAL, 0);
             MENU_SET_ENABLED(0);
             MENU_SET_VALUE("OFF, will not load");
+            MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This module will no longer be loaded at next reboot.");
+        }
+        else if (!module_check_rating_for_load(mod_number))
+        {
+            MENU_SET_ICON(MNI_NEUTRAL, 0);
+            MENU_SET_ENABLED(0);
+            MENU_SET_VALUE("LowRating, will not load");
             MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This module will no longer be loaded at next reboot.");
         }
         else
@@ -1079,7 +1324,7 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
         prev_selected = entry;
     }
 
-    if (entry->selected)
+    if (1) /* require module strings for rating & stuff */
     {
         if (!module_list[mod_number].valid && !module_list[mod_number].strings)
         {
@@ -1088,9 +1333,15 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
             {
                 msg_queue_post(module_mq, MSG_MODULE_LOAD_OFFLINE_STRINGS | (mod_number << 16));
             }
+            
+            /* do not display it for now; we don't know yet whether it will end up displayed or not */
+            info->custom_drawing = CUSTOM_DRAW_THIS_ENTRY;
+            return;
         }
     }
 
+    /* TODO: do we really need 50K or so to optimize this? */
+    #if 0
     /* clean up offline strings if the module menu is no longer used */
     if (!entry->selected && get_ms_clock_value() > 3000 + last_menu_activity_time)
     {
@@ -1104,6 +1355,7 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
             msg_queue_post(module_mq, MSG_MODULE_UNLOAD_OFFLINE_STRINGS | (mod_number << 16));
         }
     }
+    #endif
 
     /* show info based on module strings metadata */
     if (module_list[mod_number].strings)
@@ -1115,24 +1367,30 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
             MENU_SET_HELP("%s%s", summary, has_dot ? "" : ".");
         }
 
-        if (module_list[mod_number].valid == module_list[mod_number].enabled)
+        if (strlen(info->value) < 5)    /* do we have space to print more stuff? */
         {
             const char* name = module_get_string(mod_number, "Name");
             if (name)
             {
+                /* show the user-friendly name */
                 int fg = COLOR_GRAY(40);
                 int bg = COLOR_BLACK;
                 int fnt = SHADOW_FONT(FONT(FONT_MED_LARGE, fg, bg));
-                bmp_printf(fnt | FONT_ALIGN_RIGHT | FONT_TEXT_WIDTH(320), 680, info->y+2, "%s", name);
+                bmp_printf(fnt | FONT_ALIGN_RIGHT | FONT_TEXT_WIDTH(340), 640, info->y+2, "%s", name);
             }
         }
+
+        /* show the rating */
+        int rating = module_get_rating(mod_number);
+        int rating_color = rating_filter_colors[rating];
+        const char* rating_marker = rating_filter_markers[rating];
+        bmp_printf(FONT(FONT_MED, rating_color, COLOR_BLACK) | FONT_ALIGN_CENTER, 665, info->y+5, "%s", rating_marker);
     }
 }
 
 static MENU_SELECT_FUNC(module_menu_select_empty)
 {
 }
-
 
 /* check which modules are loaded and hide others */
 static void module_menu_update()
@@ -1145,17 +1403,34 @@ static void module_menu_update()
         /* only update those which display module information */
         if(entry->update == module_menu_update_entry)
         {
-            if(module_list[mod_number].valid)
+            if (module_list[mod_number].valid || strlen(module_list[mod_number].filename))
             {
-                MENU_SET_SHIDDEN(0);
-            }
-            else if(strlen(module_list[mod_number].filename))
-            {
-                MENU_SET_SHIDDEN(0);
+                if (module_list[mod_number].valid)
+                {
+                    /* loaded module, always show */
+                    entry->shidden = 0;
+                }
+                else if (!module_list[mod_number].strings)
+                {
+                    /* unloaded module, request offline strings */
+                    msg_queue_post(module_mq, MSG_MODULE_LOAD_OFFLINE_STRINGS | (mod_number << 16));
+                    entry->shidden = 0;
+                }
+                else if (module_check_rating_filter(mod_number) && module_check_tag_filter(mod_number))
+                {
+                    /* unloaded module, filter matches OK */
+                    entry->shidden = 0;
+                }
+                else
+                {
+                    /* unloaded module, does not match the filters */
+                    entry->shidden = 1;
+                }
             }
             else
             {
-                MENU_SET_SHIDDEN(1);
+                /* unused slot */
+                entry->shidden = 1;
             }
             mod_number++;
         }
@@ -1210,6 +1485,10 @@ static int module_is_special_string(const char* name)
             streq(name, "Summary") ||
             streq(name, "Forum") ||
             startswith(name, "Help page") ||
+            streq(name, "Tags") ||
+            streq(name, "Stable") ||
+            streq(name, "Usable") ||
+            streq(name, "Not working") ||
         0)
             return 1;
     return 0;
@@ -1445,6 +1724,50 @@ static struct menu_entry module_submenu[] = {
         MENU_EOL
 };
 
+static MENU_SELECT_FUNC(rating_filter_select)
+{
+    menu_numeric_toggle(&rating_filter, delta, RATING_STABLE, RATING_NOT_WORKING);
+}
+
+static MENU_UPDATE_FUNC(rating_filter_update)
+{
+    if (info->can_custom_draw)
+    {
+        /* just print the default message with specified color */
+        int color_index = CURRENT_VALUE % COUNT(rating_filter_colors);
+        bmp_printf(
+            FONT(FONT_LARGE, rating_filter_colors[color_index], COLOR_BLACK),
+            info->x_val, info->y,
+            "%s", info->value
+        );
+        
+        /* do not re-print the entry value with default color */
+        MENU_SET_VALUE("");
+    }
+
+    module_menu_update();
+}
+
+static MENU_SELECT_FUNC(tag_filter_select)
+{
+    menu_numeric_toggle(&tag_filter, delta, 0, COUNT(tag_filter_choices)-1);
+}
+
+static MENU_UPDATE_FUNC(tag_filter_update)
+{
+    int tag_index = tag_filter % COUNT(tag_filter_choices);
+    const char* selected_tag = tag_filter_choices[tag_index];
+    
+    if (tag_matches("Experiments", selected_tag))
+    {
+        bmp_printf(
+            FONT(FONT_LARGE, COLOR_RED, COLOR_BLACK),
+            info->x_val, info->y,
+            "%s", info->value
+        );
+    }
+}
+
 #define MODULE_ENTRY(i) \
         { \
             .name = "Module", \
@@ -1458,6 +1781,28 @@ static struct menu_entry module_submenu[] = {
         },
 
 static struct menu_entry module_menu[] = {
+    {
+        .name = "Rating",
+        .priv = &rating_filter,
+        .select = rating_filter_select,
+        .update = rating_filter_update,
+        .min = RATING_STABLE,
+        .max = RATING_NOT_WORKING,
+        .help = "Choose what modules to display, by stability rating:",
+        .choices = rating_filter_choices,
+        .help2 = rating_filter_help,
+    },
+    {
+        .name = "Filter by tags",
+        .priv = &tag_filter,
+        .icon_type = IT_DICE_OFF,
+        .select = tag_filter_select,
+        .update = tag_filter_update,
+        .max = COUNT(tag_filter_choices)-1,
+        .help = "Choose what modules to display, by tags.",
+        .choices = tag_filter_choices,
+        .help2 = tag_filter_help,
+    },
     MODULE_ENTRY(0)
     MODULE_ENTRY(1)
     MODULE_ENTRY(2)
@@ -1559,7 +1904,6 @@ static void module_init()
     module_mq = (struct msg_queue *) msg_queue_create("module_mq", 10);
     menu_add("Modules", module_menu, COUNT(module_menu));
     menu_add("Debug", module_debug_menu, COUNT(module_debug_menu));
-    module_menu_update();
 }
 
 static void module_load_offline_strings(int mod_number)
@@ -1573,7 +1917,7 @@ static void module_load_offline_strings(int mod_number)
         
         /* we should free this one after we are done with it */
         module_strpair_t * strings = (void*) tcc_load_offline_section(fn, ".module_strings");
- 
+
         if (strings)
         {
             int looks_ok = 1;
@@ -1633,14 +1977,12 @@ static void module_load_task(void* unused)
             
             /* now load modules */
             _module_load_all(0);
-            module_menu_update();
         }
     }
     else
     {
         /* only list modules */
         _module_load_all(1);
-        module_menu_update();
     }
 
     /* main loop, also wait until clean shutdown */
@@ -1654,13 +1996,11 @@ static void module_load_task(void* unused)
         {
             case MSG_MODULE_LOAD_ALL:
                 _module_load_all(0);
-                module_menu_update();
                 break;
 
             case MSG_MODULE_UNLOAD_ALL:
                 _module_unload_all();
                 _module_load_all(1);
-                module_menu_update();
                 beep();
                 break;
             
