@@ -121,7 +121,8 @@ static const char tag_filter_help[] =
     "Other: modules tagged by something not in this list.\n"
 ;
 
-static CONFIG_INT("module.tag_filter", tag_filter, 0);
+//~ static CONFIG_INT("module.tag_filter", tag_filter, 0);
+static int tag_filter = 0; /* reset this one on startup, so the first screen would show what modules you have loaded */
 
 /* message queue for the module task */
 static struct msg_queue * module_mq = 0;
@@ -1405,25 +1406,30 @@ static void module_menu_update()
         {
             if (module_list[mod_number].valid || strlen(module_list[mod_number].filename))
             {
-                if (module_list[mod_number].valid)
-                {
-                    /* loaded module, always show */
-                    entry->shidden = 0;
-                }
-                else if (!module_list[mod_number].strings)
+                if (!module_list[mod_number].strings)
                 {
                     /* unloaded module, request offline strings */
                     msg_queue_post(module_mq, MSG_MODULE_LOAD_OFFLINE_STRINGS | (mod_number << 16));
                     entry->shidden = 0;
                 }
-                else if (module_check_rating_filter(mod_number) && module_check_tag_filter(mod_number))
+                else if (module_check_tag_filter(mod_number))
                 {
-                    /* unloaded module, filter matches OK */
-                    entry->shidden = 0;
+                    /* tag filter has high priority on the interface */
+                    if (module_list[mod_number].valid || module_check_rating_filter(mod_number))
+                    {
+                        /* loaded module, always show (even if it doesn't match the rating) */
+                        /* unloaded module, only show if it matches the rating */
+                        entry->shidden = 0;
+                    }
+                    else
+                    {
+                        /* rating mismatch, module not loaded => hide */
+                        entry->shidden = 1;
+                    }
                 }
                 else
                 {
-                    /* unloaded module, does not match the filters */
+                    /* does not match the filters */
                     entry->shidden = 1;
                 }
             }
