@@ -2,6 +2,7 @@
 #include "lvinfo.h"
 #include "module.h"
 #include "raw.h"
+#include "bmp.h"
 
 int sound_recording_enabled_canon()
 {
@@ -868,14 +869,10 @@ int mic_inserted = -1;
 PROP_HANDLER( PROP_MIC_INSERTED )
 {
     if (mic_inserted != -1)
-        {
-            NotifyBox(2000,
-                      "Microphone %s", 
-                      buf[0] ? 
-                      "connected" :
-                      "disconnected");
-        }
-    
+    {
+        NotifyBoxIcon(2000, BMP_ICON_MIC, "Microphone %s",  buf[0] ?  "connected" : "disconnected");
+    }
+
     mic_inserted = buf[0];
     
 #ifdef CONFIG_600D
@@ -984,11 +981,8 @@ static void audio_monitoring_force_display(int x)
 
 void audio_monitoring_display_headphones_connected_or_not()
 {
-    NotifyBox(2000,
-              "Headphones %s", 
-              AUDIO_MONITORING_HEADPHONES_CONNECTED ? 
-              "connected" :
-              "disconnected");
+    NotifyBoxIcon(2000, BMP_ICON_HEADPHNE, "Headphones %s", 
+        AUDIO_MONITORING_HEADPHONES_CONNECTED ? "connected" : "disconnected");
 #ifdef CONFIG_600D
     audio_configure(1);
 #endif
