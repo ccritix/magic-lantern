@@ -127,7 +127,7 @@ uint8_t* bmp_vram_real();
 uint8_t* bmp_vram_idle();
 #endif
 
-
+/* GPL: http://www.softicons.com/free-icons/system-icons/human-o2-grunge-icons-by-aleksandra-wolska/devices-audio-input-microphone-icon */
 #define BMP_ICON_MIC      CARD_DRIVE"ML/ICONS/MIC.BMP"
 #define BMP_ICON_HEADPHNE CARD_DRIVE"ML/ICONS/HEADPHON.BMP"
 
