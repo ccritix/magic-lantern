@@ -1334,10 +1334,6 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
             {
                 msg_queue_post(module_mq, MSG_MODULE_LOAD_OFFLINE_STRINGS | (mod_number << 16));
             }
-            
-            /* do not display it for now; we don't know yet whether it will end up displayed or not */
-            info->custom_drawing = CUSTOM_DRAW_THIS_ENTRY;
-            return;
         }
     }
 
@@ -1408,9 +1404,9 @@ static void module_menu_update()
             {
                 if (!module_list[mod_number].strings)
                 {
-                    /* unloaded module, request offline strings */
+                    /* unloaded module, request offline strings and hide it for now */
                     msg_queue_post(module_mq, MSG_MODULE_LOAD_OFFLINE_STRINGS | (mod_number << 16));
-                    entry->shidden = 0;
+                    entry->shidden = 1;
                 }
                 else if (module_check_tag_filter(mod_number))
                 {
