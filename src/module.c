@@ -53,8 +53,8 @@ static char *module_lockfile = MODULE_PATH"LOADING.LCK";
 /* note: I'm not using a structure to group all these things in order to make it easier to reuse these items in the menu */
 static const char * rating_filter_choices[] = {
     "Stable",
-    "Usable (or better)",
-    "Untested (or better)",
+    "Usable",
+    "Untested",
     "Diagnostics",
     "Experiments",
     "Known not to work",
@@ -1734,15 +1734,34 @@ static MENU_UPDATE_FUNC(rating_filter_update)
     if (info->can_custom_draw)
     {
         /* just print the default message with specified color */
-        int color_index = CURRENT_VALUE % COUNT(rating_filter_colors);
+        int rating_index = CURRENT_VALUE % COUNT(rating_filter_colors);
+        int or_better = rating_filter > RATING_STABLE && rating_filter <= RATING_UNTESTED;
         bmp_printf(
-            FONT(FONT_LARGE, rating_filter_colors[color_index], COLOR_BLACK),
+            SHADOW_FONT(FONT(FONT_LARGE, rating_filter_colors[rating_index], COLOR_BLACK)),
             info->x_val, info->y,
-            "%s", info->value
+            "%s%s", info->value, or_better ? " (or better)" : ""
         );
-        
+
         /* do not re-print the entry value with default color */
         MENU_SET_VALUE("");
+
+        if (is_submenu_or_edit_mode_active())   /* well, we are only interested in edit mode, but we are not in a submenu, so it will work */
+        {
+            for (int rating_index = 0; rating_index < COUNT(rating_filter_colors); rating_index++)
+            {
+                bmp_printf(
+                    FONT(FONT_MED | FONT_ALIGN_CENTER, rating_filter_colors[rating_index], COLOR_BLACK),
+                    665, 270 + font_med.height * rating_index,
+                    "%s", rating_filter_markers[rating_index]
+                );
+
+                bmp_printf(
+                    FONT(FONT_MED | FONT_ALIGN_RIGHT, rating_filter_colors[rating_index], COLOR_BLACK),
+                    620, 270 + font_med.height * rating_index,
+                    "%s", rating_filter_choices[rating_index]
+                );
+            }
+        }
     }
 
     module_menu_update();
