@@ -12,180 +12,189 @@
 #include "gui.h"
 #include "lens.h"
 
-static struct semaphore * notify_box_show_sem = 0;
-static struct semaphore * notify_box_main_sem = 0;
+#include "notify_box.h"
 
-static int notify_box_timeout = 0;
-static int notify_box_stop_request = 0;
-static int notify_box_dirty = 0;
-static char notify_box_icon[100];
-static char notify_box_msg[100];
-static char notify_box_msg_tmp[100];
+#include <string.h>
 
-/*int handle_notifybox_bgmt(struct event * event)
-{
-    if (event->param == MLEV_NOTIFY_BOX_OPEN)
-    {
-        //~ BMP_LOCK ( bfnt_puts(notify_box_msg, 50, 50, COLOR_WHITE, COLOR_BLACK); )
-        BMP_LOCK ( bmp_printf(FONT_LARGE, 50, 50, notify_box_msg); )
-    }
-    else if (event->param == MLEV_NOTIFY_BOX_CLOSE)
-    {
-        redraw();
-        give_semaphore(notify_box_sem);
-    }
-    return 0;
-}*/
 
-static void NotifyBox_task(void* priv)
+static struct msg_queue *notify_box_queue = NULL;
+
+static void notify_box_task(void* priv)
 {
     uint32_t delay = 250;
+    uint32_t timeout = 500;
     
     TASK_LOOP
     {
-        // wait until some other task asks for a notification
-        if(!notify_box_dirty)
-        {
-            int err = take_semaphore(notify_box_show_sem, 500);
-            if (err)
-            {
-                continue;
-            }
-        }
-        notify_box_dirty = 0;
-        
-        if (!notify_box_timeout) 
+        notify_job_t *job = NULL;
+
+        /* fetch a new encryption job */
+        if(msg_queue_receive(notify_box_queue, &job, timeout))
         {
             continue;
         }
         
-        struct bmp_file_t *icon = NULL;
         uint32_t font_height = 50;
-        uint32_t msg_width = bmp_string_width(FONT_CANON, notify_box_msg);
+        uint32_t msg_width = bmp_string_width(FONT_CANON, job->message);
         uint32_t msg_height = font_height;
         uint32_t width = 20 + msg_width;
         uint32_t height = 20 + msg_height;
         
+        /* when there was an icon filename specified, open the bitmap */
+        if(job->icon_file)
+        {
+            job->icon_data = bmp_load(job->icon_file, 0);
+        }
+        
+        /* when the icon was successfully opened or passed, render it */
+        if(job->icon_data)
+        {
+            width += job->icon_data->width + 10;
+            height = MAX(job->icon_data->height + 20, msg_height + 20);
+        }
+        
         /* ToDo: detect number of lines and increase size */
         
-        /* try to load an icon */
-        if(strlen(notify_box_icon))
-        {
-            icon = bmp_load(notify_box_icon, 0);
-            if(icon)
-            {
-                width += icon->width + 10;
-                height = MAX(icon->height + 20, msg_height + 20);
-            }
-        }
         
         uint32_t pos_y = (480 - height) / 2;
         uint32_t pos_x = (720 - width) / 2;
         
-        // show notification for a while, then redraw to erase it
-        notify_box_stop_request = 0;
-        
         /* make sure we reach zero */
-        notify_box_timeout -= notify_box_timeout % delay;
+        job->timeout -= job->timeout % delay;
         
-        for ( ; notify_box_timeout > 0; notify_box_timeout -= delay)
+        while(job->timeout > 0)
         {
+            job->timeout -= delay;
+            
             bmp_fill(COLOR_BG, pos_x, pos_y, width, height);
 
-            if(icon)
+            if(job->icon_data)
             {
-                bmp_draw_scaled_ex(icon, pos_x + 10, pos_y + 10, 128, 128, 0);
-                bmp_printf(FONT_CANON, pos_x + 128 + 20, pos_y + 10 + icon->height / 2 - msg_height / 2, notify_box_msg);
+                bmp_draw_scaled_ex(job->icon_data, pos_x + 10, pos_y + 10, 128, 128, 0);
+                bmp_printf(FONT_CANON, pos_x + 128 + 20, pos_y + 10 + job->icon_data->height / 2 - msg_height / 2, job->message);
             }
             else
             {
-                bmp_printf(FONT_CANON, pos_x + 10, pos_y + 10, notify_box_msg);
+                bmp_printf(FONT_CANON, pos_x + 10, pos_y + 10, job->message);
             }
             
-            msleep(delay);
+            /* already another message arrived? if so, cancel loop */
+            uint32_t msg_count = 0;
+            msg_queue_count(notify_box_queue, &msg_count);
             
-            if(notify_box_stop_request || notify_box_dirty)
+            if(msg_count)
             {
                 break;
             }
+            
+            msleep(delay);
         }
         
-        if(icon)
-        {
-            free(icon);
-            icon = NULL;
-        }
-        
+        /* clean up the areas we printed on */
         bmp_fill(COLOR_EMPTY, pos_x, pos_y, width, height);
         redraw();
+        
+        /* free all elements in the job */
+        if(job->icon_file)
+        {
+            free(job->icon_file);
+            
+            /* dont free icon_data if it was not allocated by us, so put it under filename check */
+            if(job->icon_data)
+            {
+                free(job->icon_data);
+            }
+        }
+        
+        if(job->message)
+        {
+            free(job->message);
+        }
+        
+        /* free job, it was allocated from the calling thread */
+        free(job);
     }
 }
 
-TASK_CREATE( "notifybox_task", NotifyBox_task, 0, 0x1b, 0x1000 );
+TASK_CREATE("notifybox_task", notify_box_task, 0, 0x1b, 0x1000);
 
 void NotifyBoxHide()
 {
-    notify_box_stop_request = 1;
+    /* displaying happens in other thread, so send a mesage with all information */
+    notify_job_t *job = malloc(sizeof(notify_job_t));
+    if(!job)
+    {
+        return;
+    }
+    
+    /* fill the job for notify_box_task */
+    job->timeout = 0;
+    job->message = strdup("");
+    job->icon_file = NULL;
+    job->icon_data = NULL;
+    
+    msg_queue_post(notify_box_queue, job);
 }
 
-void NotifyBox(int timeout, char* fmt, ...) 
+void NotifyBox(uint32_t timeout, char *fmt, ...) 
 {
-    // make sure this is thread safe
-    take_semaphore(notify_box_main_sem, 0);
+    char *tmp_msg = malloc(NOTIFY_BOX_TEXT_LENGTH);
     
     va_list ap;
-    va_start( ap, fmt );
-    vsnprintf( notify_box_msg_tmp, sizeof(notify_box_msg_tmp)-1, fmt, ap );
-    va_end( ap );
+    va_start(ap, fmt);
+    vsnprintf(tmp_msg, NOTIFY_BOX_TEXT_LENGTH - 1, fmt, ap);
+    va_end(ap);
     
-    if (notify_box_timeout && streq(notify_box_msg_tmp, notify_box_msg)) 
-        goto end; // same message: do not redraw, just increase the timeout
+    /* displaying happens in other thread, so send a mesage with all information */
+    notify_job_t *job = malloc(sizeof(notify_job_t));
+    if(!job)
+    {
+        return;
+    }
+    
+    /* fill the job for notify_box_task */
+    job->timeout = timeout;
+    job->message = strdup(tmp_msg);
+    job->icon_file = NULL;
+    job->icon_data = NULL;
+    
+    msg_queue_post(notify_box_queue, job);
 
-    // new message
-    memcpy(notify_box_msg, notify_box_msg_tmp, sizeof(notify_box_msg));
-    notify_box_msg[sizeof(notify_box_msg)-1] = '\0';
-    notify_box_timeout = MAX(timeout, 100);
-    strncpy(notify_box_icon, "", sizeof(notify_box_icon));
-    if (notify_box_timeout) notify_box_dirty = 1; // ask for a redraw, message changed
-
-    give_semaphore(notify_box_show_sem); // request displaying the notification box
-
-end:
-    give_semaphore(notify_box_main_sem); // done, other call can be made now
+    /* this buffer was only used for vsnprintf */
+    free(tmp_msg);
 }
 
-void NotifyBoxIcon(int timeout, char *icon, char* fmt, ...) 
+void NotifyBoxIcon(uint32_t timeout, char *icon, char *fmt, ...) 
 {
-    // make sure this is thread safe
-    take_semaphore(notify_box_main_sem, 0);
+    char *tmp_msg = malloc(NOTIFY_BOX_TEXT_LENGTH);
     
     va_list ap;
-    va_start( ap, fmt );
-    vsnprintf( notify_box_msg_tmp, sizeof(notify_box_msg_tmp)-1, fmt, ap );
-    va_end( ap );
+    va_start(ap, fmt);
+    vsnprintf(tmp_msg, NOTIFY_BOX_TEXT_LENGTH - 1, fmt, ap);
+    va_end(ap);
     
-    if (notify_box_timeout && streq(notify_box_msg_tmp, notify_box_msg)) 
-        goto end; // same message: do not redraw, just increase the timeout
-
-    // new message
-    memcpy(notify_box_msg, notify_box_msg_tmp, sizeof(notify_box_msg));
-    notify_box_msg[sizeof(notify_box_msg)-1] = '\0';
-    notify_box_timeout = MAX(timeout, 100);
+    /* displaying happens in other thread, so send a mesage with all information */
+    notify_job_t *job = malloc(sizeof(notify_job_t));
+    if(!job)
+    {
+        return;
+    }
     
-    strncpy(notify_box_icon, icon, sizeof(notify_box_icon));
+    /* fill the job for notify_box_task */
+    job->timeout = timeout;
+    job->message = strdup(tmp_msg);
+    job->icon_file = strdup(icon);
+    job->icon_data = NULL;
     
-    if (notify_box_timeout) notify_box_dirty = 1; // ask for a redraw, message changed
+    msg_queue_post(notify_box_queue, job);
 
-    give_semaphore(notify_box_show_sem); // request displaying the notification box
-
-end:
-    give_semaphore(notify_box_main_sem); // done, other call can be made now
+    /* this buffer was only used for vsnprintf */
+    free(tmp_msg);
 }
 
 static void dlg_init()
 {
-    notify_box_show_sem = create_named_semaphore("nbox_show_sem", 0);
-    notify_box_main_sem = create_named_semaphore("nbox_done_sem", 1);
+    notify_box_queue = (struct msg_queue *) msg_queue_create("notify_box_queue", 100);
 }
 
 INIT_FUNC(__FILE__, dlg_init);
