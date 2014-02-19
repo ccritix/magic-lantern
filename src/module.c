@@ -1491,6 +1491,7 @@ static int module_is_special_string(const char* name)
             streq(name, "Stable") ||
             streq(name, "Usable") ||
             streq(name, "Not working") ||
+            streq(name, "Known issues") ||
         0)
             return 1;
     return 0;
