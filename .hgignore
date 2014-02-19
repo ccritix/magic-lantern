@@ -85,6 +85,7 @@ modules/*/*.mo
 modules/*/*.sym
 modules/*/hgstamp
 modules/*/module_strings.h
+modules/*/module_tags.json
 modules/raw_rec/raw2dng
 modules/raw_rec/raw2dng.exe
 tcc/localsyms

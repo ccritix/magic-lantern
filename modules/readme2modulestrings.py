@@ -3,10 +3,17 @@
 import sys, re
 import commands
 from datetime import datetime
+import json
+import argparse
 
 from align_string_proportional import word_wrap
 from rbf_read import extent_func, rbf_init_font
 rbf_init_font("../../data/fonts/argnor23.rbf")
+
+class NullIO():
+    def write(self, s):
+        pass
+
 
 def run(cmd):
     return commands.getstatusoutput(cmd)[1]
@@ -24,20 +31,35 @@ def c_repr(name):
         return '"%s"' % name.replace('"', r'\"')
 
 strings = []
-def add_string(name, value):
+def add_string(name, value, fp):
     a = chr(ord('a') + len(strings))
-    print "static char __module_string_%s_name [] MODULE_STRINGS_SECTION = %s;" % (a, c_repr(name))
-    print "static char __module_string_%s_value[] MODULE_STRINGS_SECTION = %s;" % (a, c_repr(value))
+    print >> fp, "static char __module_string_%s_name [] MODULE_STRINGS_SECTION = %s;" % (a, c_repr(name))
+    print >> fp, "static char __module_string_%s_value[] MODULE_STRINGS_SECTION = %s;" % (a, c_repr(value))
 
     strings.append((name, value))
 
-def declare_string_section():
-    print
-    print('MODULE_STRINGS_START()')
+def declare_string_section(fp):
+    print >> fp, ''
+    print >> fp, 'MODULE_STRINGS_START()'
     for i, s in enumerate(strings):
         a = chr(ord('a') + i)
-        print "    MODULE_STRING(__module_string_%s_name, __module_string_%s_value)" % (a, a)
-    print('MODULE_STRINGS_END()')
+        print >> fp, "    MODULE_STRING(__module_string_%s_name, __module_string_%s_value)" % (a, a)
+    print >> fp, 'MODULE_STRINGS_END()'
+
+def setup_argparse():
+    parser = argparse.ArgumentParser(description='Post process README.rst file')
+    parser.add_argument('--json', help='Produce json output', nargs='?')
+    parser.add_argument('--header', help='Produce C header output', nargs='?')
+    return parser
+
+
+parser = setup_argparse()
+args   = parser.parse_args()
+
+if(args.header is not None):
+    fp_header = open(args.header, 'w')
+else:
+    fp_header = NullIO()
 
 inp = open("README.rst").read().replace("\r\n", "\n")
 lines = inp.strip("\n").split("\n")
@@ -53,10 +75,10 @@ for l in lines[2:]:
 inp = "\n".join(used_lines)
 inp = inp.split("\n\n")
 
-add_string("Name", title)
-
 # extract user metadata from RST meta tags
-tags = {}
+fields = {}
+fields["Name"] = title
+add_string("Name", title, fp_header)
 for l in lines[2:]:
     l = l.strip()
     m = re.match("^:([^:]+):(.+)$", l)
@@ -65,16 +87,20 @@ for l in lines[2:]:
         value = m.groups()[1].strip()
         if value.startswith("<") and value.endswith(">"):
             continue
-        add_string(name, value)
-        tags[name] = value
+        add_string(name, value, fp_header)
+        fields[name] = value
 
-if "Author" not in tags and "Authors" not in tags:
+if(args.json is not None):
+    fp_json = open(args.json, 'w')
+    print >> fp_json, "%s" % (json.dumps(fields, indent=4))
+
+if "Author" not in fields and "Authors" not in fields:
     print >> sys.stderr, "Warning: 'Author/Authors' tag is missing. You should tell the world who wrote your module ;)"
 
-if "License" not in tags:
+if "License" not in fields:
     print >> sys.stderr, "Warning: 'License' tag is missing. Under what conditions we can use your module? Can we publish modified versions?"
 
-if "Summary" not in tags:
+if "Summary" not in fields:
     print >> sys.stderr, "Warning: 'Summary' tag is missing. It should be displayed as help in the Modules tab."
 
 # extract readme body:
@@ -91,7 +117,7 @@ lines_per_page = 0
 for p in txt.strip("\n").split("\n")[2:]:
     if p.startswith("# "): # new section
         help_page_num += 1
-        add_string(last_str, desc)
+        add_string(last_str, desc, fp_header)
         desc = ""
         last_str = "Help page %d" % help_page_num
         lines_per_page = 0
@@ -102,7 +128,7 @@ for p in txt.strip("\n").split("\n")[2:]:
         print >> sys.stderr, "Too many lines per page\n"
         exit(1)
 
-add_string(last_str, desc)
+add_string(last_str, desc, fp_header)
 
 # extract version info
 # (prints the latest changeset that affected this module)
@@ -128,12 +154,12 @@ if len(last_change_info):
             new_msg += c
         commit_msg = new_msg + "..."
         
-    add_string("Last update", "%s on %s by %s:\n%s" % (last_changeset, last_change_date, author, commit_msg))
+    add_string("Last update", "%s on %s by %s:\n%s" % (last_changeset, last_change_date, author, commit_msg), fp_header)
 
 build_date = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 build_user = run("echo `whoami`@`hostname`")
 
-add_string("Build date", build_date)
-add_string("Build user", build_user)
+add_string("Build date", build_date, fp_header)
+add_string("Build user", build_user, fp_header)
 
-declare_string_section()
+declare_string_section(fp_header)
