@@ -1753,17 +1753,23 @@ static MENU_UPDATE_FUNC(rating_filter_update)
             for (int rating_index = 0; rating_index < COUNT(rating_filter_colors); rating_index++)
             {
                 bmp_printf(
-                    FONT(FONT_MED | FONT_ALIGN_CENTER, rating_filter_colors[rating_index], COLOR_BLACK),
-                    665, 270 + font_med.height * rating_index,
+                    FONT(FONT_MED, rating_filter_colors[rating_index], COLOR_BLACK) | FONT_ALIGN_CENTER,
+                    665, 260 + font_med.height * rating_index,
                     "%s", rating_filter_markers[rating_index]
                 );
 
                 bmp_printf(
-                    FONT(FONT_MED | FONT_ALIGN_RIGHT, rating_filter_colors[rating_index], COLOR_BLACK),
-                    620, 270 + font_med.height * rating_index,
+                    FONT(FONT_MED, rating_filter_colors[rating_index], COLOR_BLACK) | FONT_ALIGN_RIGHT,
+                    620, 260 + font_med.height * rating_index,
                     "%s", rating_filter_choices[rating_index]
                 );
             }
+
+            bmp_printf(
+                FONT(FONT_MED, COLOR_GRAY(40), COLOR_BLACK) | FONT_ALIGN_RIGHT,
+                690, 260 + font_med.height * COUNT(rating_filter_colors),
+                "Loaded modules are always displayed."
+            );
         }
     }
 
