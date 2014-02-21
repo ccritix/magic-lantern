@@ -27,22 +27,21 @@ static void notify_box_task(void* priv)
     TASK_LOOP
     {
         notify_job_t *job_msg = NULL;
-        notify_job_t job;
 
-        /* fetch a new encryption job */
-        if(msg_queue_receive(notify_box_queue, &job, timeout))
+        /* fetch a new notification job */
+        if(msg_queue_receive(notify_box_queue, &job_msg, timeout))
         {
             continue;
         }
         
         /* free job, it was allocated from the calling thread. we are keeping it local */
-        job = *job_msg;
+        notify_job_t job = *job_msg;
         free(job_msg);
         
+        uint32_t msg_height = bmp_string_height(FONT_CANON, job.message);
         uint32_t border_width = 10;
         uint32_t font_height = 50;
         uint32_t msg_width = bmp_string_width(FONT_CANON, job.message);
-        uint32_t msg_height = font_height;
         uint32_t width = 2 * border_width + msg_width;
         uint32_t height = 2 * border_width + msg_height;
         
@@ -72,8 +71,6 @@ static void notify_box_task(void* priv)
             job.pos_x = 10;
             job.pos_y = 10;
         }
-        
-        /* ToDo: detect number of lines and increase size */
         
         /* make sure we reach zero */
         job.timeout -= job.timeout % delay;
@@ -129,8 +126,6 @@ static void notify_box_task(void* priv)
         }
     }
 }
-
-TASK_CREATE("notifybox_task", notify_box_task, 0, 0x1b, 0x1000);
 
 void NotifyBoxHide()
 {
@@ -194,6 +189,14 @@ void NotifyBox(uint32_t timeout, char *fmt, ...)
     va_end(ap);
 }
 
+void NotifyBoxAdv(notify_job_t job, char *fmt, ...) 
+{
+    va_list ap;
+    va_start(ap, fmt);
+    notify_box_process(job, fmt, ap);
+    va_end(ap);
+}
+
 void NotifyBoxIcon(uint32_t timeout, char *icon, char *fmt, ...) 
 {
     notify_job_t job;
@@ -213,47 +216,10 @@ void NotifyBoxIcon(uint32_t timeout, char *icon, char *fmt, ...)
     va_end(ap);
 }
 
-void NotifyBoxIconFileAdv(uint32_t timeout, char *icon, int32_t icon_width, uint32_t icon_height, uint32_t pos_x, uint32_t pos_y, char *fmt, ...) 
-{
-    notify_job_t job;
-    
-    /* fill the job for notify_box_task */
-    job.timeout = timeout;
-    job.icon_file = strdup(icon);
-    job.icon_data = NULL;
-    job.icon_width = 0;
-    job.icon_height = 0;
-    job.pos_x = -1;
-    job.pos_y = -1;
-    
-    va_list ap;
-    va_start(ap, fmt);
-    notify_box_process(job, fmt, ap);
-    va_end(ap);
-}
-
-void NotifyBoxIconDataAdv(uint32_t timeout, struct bmp_file_t *icon, int32_t icon_width, uint32_t icon_height, uint32_t pos_x, uint32_t pos_y, char *fmt, ...) 
-{
-    notify_job_t job;
-    
-    /* fill the job for notify_box_task */
-    job.timeout = timeout;
-    job.icon_file = NULL;
-    job.icon_data = icon;
-    job.icon_width = icon_width;
-    job.icon_height = icon_height;
-    job.pos_x = pos_x;
-    job.pos_y = pos_y;
-    
-    va_list ap;
-    va_start(ap, fmt);
-    notify_box_process(job, fmt, ap);
-    va_end(ap);
-}
-
 static void dlg_init()
 {
     notify_box_queue = (struct msg_queue *) msg_queue_create("notify_box_queue", 100);
 }
 
+TASK_CREATE("notifybox_task", notify_box_task, 0, 0x1b, 0x1000);
 INIT_FUNC(__FILE__, dlg_init);

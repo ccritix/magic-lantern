@@ -20,8 +20,7 @@ typedef struct
 } notify_job_t;
 
 void NotifyBoxHide();
-void NotifyBox(uint32_t timeout, char* fmt, ...) ;
+void NotifyBox(uint32_t timeout, char* fmt, ...);
 void NotifyBoxIcon(uint32_t timeout, char *icon, char *fmt, ...);
-void NotifyBoxIconFileAdv(uint32_t timeout, char *icon, int32_t icon_width, uint32_t icon_height, uint32_t pos_x, uint32_t pos_y, char *fmt, ...);
-void NotifyBoxIconDataAdv(uint32_t timeout, struct bmp_file_t *icon, int32_t icon_width, uint32_t icon_height, uint32_t pos_x, uint32_t pos_y, char *fmt, ...);
+void NotifyBoxAdv(notify_job_t job, char *fmt, ...);
 #endif
