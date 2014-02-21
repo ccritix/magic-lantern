@@ -290,6 +290,11 @@ int bmp_string_width(int fontspec, const char* str)
     return rbf_str_width((void*)font_dynamic[FONT_ID(fontspec)].bitmap, str);
 }
 
+int bmp_string_height(int fontspec, const char* str)
+{
+    return rbf_str_height((void*)font_dynamic[FONT_ID(fontspec)].bitmap, str);
+}
+
 int bmp_strlen_clipped(int fontspec, const char* str, int maxwidth)
 {
     return rbf_strlen_clipped((void*)font_dynamic[FONT_ID(fontspec)].bitmap, str, maxwidth);

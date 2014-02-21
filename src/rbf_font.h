@@ -62,6 +62,7 @@ typedef struct _font {
 //-------------------------------------------------------------------
 // private functions for bmp.c; for user code, please use BMP and fontspec API (bmp_printf, bmp_string_width, FONT_MED...)
 extern int rbf_str_width(font *rbf_font, const char *str);
+extern int rbf_str_height(font *rbf_font, const char *str);
 extern int rbf_str_clipped_width(font *rbf_font, const char *str, int maxlen);
 extern int rbf_strlen_clipped(font *rbf_font, const char *str, int maxlen);
 extern int rbf_draw_string(font *rbf_font, int x, int y, const char *str, int cl);

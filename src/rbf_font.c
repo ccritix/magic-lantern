@@ -256,6 +256,24 @@ int rbf_str_width(font *rbf_font, const char *str) {
     return maxl;
 }
 
+int rbf_str_height(font *rbf_font, const char *str) {
+    int maxh = 0;
+
+    // Calculate how high the string is in pixels
+    // and return the sum of the highest characters
+    while (*str)
+    {
+        if(*str == '\n')
+        {
+            maxh += rbf_font_height(rbf_font);
+        }
+        str++;
+    }
+    maxh += rbf_font_height(rbf_font);
+
+    return maxh;
+}
+
 int rbf_str_clipped_width(font *rbf_font, const char *str, int maxlen) {
     int l = 0;
     // Calculate how long the string is in pixels (possibly clipped to 'maxlen')
