@@ -4973,6 +4973,12 @@ static MENU_UPDATE_FUNC(show_update)
             /* das ist noise */
             visible = 0;
         }
+        
+        if (!digic_intercept && (regs[reg].dst & 0xF000) == 0xC000)
+        {
+            /* hide previously-intercepted DIGIC registers if we disabled the option */
+            visible = 0;
+        }
 
         if (entry->shidden != !visible)
         {
