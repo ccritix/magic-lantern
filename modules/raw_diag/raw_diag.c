@@ -574,8 +574,7 @@ static void darkframe_fpn_xcov()
     memset(fpnh, 0, fpn_size);
 
     /* data from previous picture is taken from a file */
-    static char prev_filename[100];
-    snprintf(prev_filename, sizeof(prev_filename), "%sFPN.DAT", MODULE_CARD_DRIVE);
+    char* prev_filename = "FPN.DAT";
     float* prev_fpnv = malloc(2*fpn_size);
     float* prev_fpnh = prev_fpnv + 10000;
     int read_size = read_file(prev_filename, prev_fpnv, 2*fpn_size);
@@ -675,8 +674,7 @@ static void raw_diag_task(int corr)
     
     if (dump_raw)
     {
-        char filename[100];
-        snprintf(filename, sizeof(filename), "%sML/LOGS/raw_diag.dng", MODULE_CARD_DRIVE);
+        char* filename = "ML/LOGS/raw_diag.dng";
         bmp_printf(FONT_MED, 0, 50, "Saving %s...", filename);
         save_dng(filename, &raw_info);
         bmp_printf(FONT_MED, 0, 50, "Saved %s.   ", filename);
