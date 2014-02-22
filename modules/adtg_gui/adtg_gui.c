@@ -4911,6 +4911,12 @@ static MENU_UPDATE_FUNC(show_update)
     //~ int err = checktree(regs_tree.root, regs_tree.compar);
     //~ MENU_SET_WARNING(MENU_WARN_ADVICE, "AVL tree %x", err);
     
+    int current_time = get_ms_clock_value();
+    static int last_update = 0;
+    static int prev_show_what = 0;
+    int show_what_changed = show_what != prev_show_what;
+    prev_show_what = show_what;
+    
     for (int reg = 0; reg < reg_num; reg++)
     {
         /* XXX: change this if you ever add or remove menu entries */
@@ -4959,6 +4965,13 @@ static MENU_UPDATE_FUNC(show_update)
 
         if (entry->shidden != !visible)
         {
+            if (current_time - last_update < 3000 && !show_what_changed)
+            {
+                /* prevent update flood in menu */
+                MENU_SET_RINFO("Wait");
+                return;
+            }
+
             entry->shidden = !visible;
             changed = 1;
         }
@@ -4975,6 +4988,7 @@ static MENU_UPDATE_FUNC(show_update)
         /* todo: better backend support for dynamic menus? */
         info->custom_drawing = CUSTOM_DRAW_THIS_MENU;
         bmp_printf(FONT_LARGE, info->x, info->y, "Updating...");
+        last_update = current_time;
     }
 }
 
