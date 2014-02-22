@@ -28,6 +28,8 @@ static volatile int raw_diag_running = 0;
 #define ANALYSIS_DARKFRAME_FPN_XCOV 3
 #define ANALYSIS_SNR_CURVE 4
 #define ANALYSIS_JPG_CURVE 5
+#define ANALYSIS_COMPARE_2_SHOTS 6
+#define ANALYSIS_COMPARE_2_SHOTS_HIGHLIGHTS 7
 
 /* a float version of the routine from raw.c (should be more accurate) */
 static void FAST autodetect_black_level_calc(int x1, int x2, int y1, int y2, int dx, int dy, float* out_mean, float* out_stdev)
@@ -223,7 +225,7 @@ static void FAST black_histogram(int ob)
  * - compensate for low-frequency variations (instead of just subtracting the mean)
  * - use full-res sampling for green channel?
  */
- static void patch_mean_stdev(int x, int y, float* out_mean, float* out_stdev)
+static void patch_mean_stdev(int x, int y, float* out_mean, float* out_stdev)
 {
     autodetect_black_level_calc(
         x - 8, x + 8,
@@ -528,7 +530,22 @@ static void darkframe_fpn()
     free(fpn);
 }
 
-static void plot_xcov(float* X, float* Y, int n, int x0, int y0, int w, int h)
+/* should use the same scaling as plot_dots */
+static void plot_dots_grid(float min, float max, float step, int x0, int y0, int w, int h)
+{
+    for (float a = min; a < max; a += step)
+    {
+        int x = a;
+        int px = x0 + (x - min) * w / (max - min);
+        draw_line(px, y0, px, y0 + h, COLOR_GRAY(10));
+        
+        int y = a;
+        int py = y0 + h - (y - min) * h / (max - min);
+        draw_line(x0, py, x0 + w, py, COLOR_GRAY(10));
+    }
+}
+
+static void plot_dots(float* X, float* Y, int n, int x0, int y0, int w, int h, int color)
 {
     bmp_draw_rect(COLOR_GRAY(50), x0, y0, w, h);
     draw_line(x0+w, y0, x0, y0+h, COLOR_GRAY(10));
@@ -555,7 +572,7 @@ static void plot_xcov(float* X, float* Y, int n, int x0, int y0, int w, int h)
     {
         int px = x0 + (X[i] - min) * w / (max - min);
         int py = y0 + h - (Y[i] - min) * h / (max - min);
-        bmp_putpixel(px, py, COLOR_LIGHT_BLUE);
+        bmp_putpixel(px, py, color);
     }
     
     /* todo: compute the cross-covariance and print it */
@@ -588,7 +605,7 @@ static void darkframe_fpn_xcov()
 
         int x1 = raw_info.active_area.x1;
         int N = raw_info.active_area.x2 - raw_info.active_area.x1;
-        plot_xcov(prev_fpnv+x1, fpnv+x1, N, 0, 120, 360, 360);
+        plot_dots(prev_fpnv+x1, fpnv+x1, N, 0, 120, 360, 360, COLOR_LIGHT_BLUE);
     }
 
     compute_fpn_h(fpnh);
@@ -599,7 +616,7 @@ static void darkframe_fpn_xcov()
 
         int y1 = raw_info.active_area.y1;
         int N = raw_info.active_area.y2 - raw_info.active_area.y1;
-        plot_xcov(prev_fpnh+y1, fpnh+y1, N, 360, 120, 360, 360);
+        plot_dots(prev_fpnh+y1, fpnh+y1, N, 360, 120, 360, 360, COLOR_LIGHT_BLUE);
     }
     else
     {
@@ -622,6 +639,220 @@ static void darkframe_fpn_xcov()
     /* cleanup */
     free(fpnv);
     free(prev_fpnv);
+}
+
+struct test_pixel
+{
+    int16_t x;
+    int16_t y;
+    int16_t pixel;
+} __attribute__((packed));
+
+static const char * get_numbered_file_name(char* pattern)
+{
+    static char filename[100];
+    for (int num = 0; num < 10000; num++)
+    {
+        snprintf(filename, sizeof(filename), pattern, num);
+        uint32_t size;
+        if( FIO_GetFileSize( filename, &size ) != 0 ) return filename;
+        if (size == 0) return filename;
+    }
+
+    snprintf(filename, sizeof(filename), pattern, 0);
+    return filename;
+}
+
+static void compare_2_shots(int min_adu)
+{
+    clrscr();
+    bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 200, "Please wait...\n(crunching numbers)");
+
+    float black, noise;
+    ob_mean_stdev(&black, &noise);
+
+    int N = 30000;
+    int data_size = N * sizeof(struct test_pixel);
+    struct test_pixel * this = malloc(data_size);
+
+    /* data from previous picture is taken from a file */
+    char* prev_filename = "RAWSAMPL.DAT";
+    struct test_pixel * prev = malloc(data_size);
+    int read_size = read_file(prev_filename, prev, data_size);
+    int ok = (read_size == data_size);
+
+    /* save graph data for offline processing */
+    const char* mfile = 0;
+
+    /* initialize some random sampling points */
+    int x1 = raw_info.active_area.x1;
+    int y1 = raw_info.active_area.y1;
+    int x2 = raw_info.active_area.x2;
+    int y2 = raw_info.active_area.y2;
+    for (int k = 0; k < N; k++)
+    {
+        if (ok)
+        {
+            /* if a previous image is loaded, keep the sampling points from there */
+            this[k].x = prev[k].x;
+            this[k].y = prev[k].y;
+        }
+        else
+        {
+            /* choose random points in the image */
+            int x = ((uint32_t) rand() % (x2 - x1 - 100)) + x1 + 50;
+            int y = ((uint32_t) rand() % (y2 - y1 - 100)) + y1 + 50;
+            
+            /* force color channel */
+            if (k < N/3)
+            {
+                /* force red */
+                x &= ~1;
+                y &= ~1;
+            }
+            else if (k < 2*N/3)
+            {
+                /* force green */
+                x &= ~1;
+                y &= ~1;
+                if (k%2) x++; else y++;
+            }
+            else
+            {
+                /* force blue */
+                x |= 1;
+                y |= 1;
+            }
+            
+            this[k].x = x;
+            this[k].y = y;
+        }
+    }
+
+    /* sample current image */
+    for (int k = 0; k < N; k++)
+    {
+        int x = this[k].x;
+        int y = this[k].y;
+        this[k].pixel = raw_get_pixel(x, y) - black;
+    }
+    
+    if (ok)
+    {
+        /* plot the graph */
+        bmp_fill(COLOR_BG_DARK, 0, 0, 480, 480);
+        bmp_fill(COLOR_BLACK, 480, 0, 720-480, 480);
+        
+        float* X = malloc(N * sizeof(float));
+        float* Y = malloc(N * sizeof(float));
+
+        /* enforce min/max limits to trick auto-scaling */
+        X[0] = log2f(min_adu); X[1] = 14;
+        Y[0] = log2f(min_adu); Y[1] = 14;
+        X[N/3] = log2f(min_adu); X[N/3+1] = 14;
+        Y[N/3] = log2f(min_adu); Y[N/3+1] = 14;
+        X[2*N/3] = log2f(min_adu); X[2*N/3+1] = 14;
+        Y[2*N/3] = log2f(min_adu); Y[2*N/3+1] = 14;
+        
+        plot_dots_grid(X[0], X[1], 1, 0, 0, 480, 480);
+        
+        for (int i = 2; i < N; i++)
+        {
+            X[i] = log2f(MAX(prev[i].pixel, min_adu));
+            Y[i] = log2f(MAX(this[i].pixel, min_adu));
+        }
+        
+        plot_dots(X, Y, N/3, 0, 0, 480, 480, COLOR_RED);
+        plot_dots(X+N/3, Y+N/3, N/3, 0, 0, 480, 480, COLOR_GREEN1);
+        plot_dots(X+2*N/3, Y+2*N/3, N/3, 0, 0, 480, 480, COLOR_BLUE);
+
+        /* save the data to a Octave script */
+        /* run it with: octave --persist RCURVEnn.M */
+        int size = 1024*1024;
+        char* msg = fio_malloc(size);
+        if (!msg) return;
+        msg[0] = 0;
+        int len = 0;
+
+        len += snprintf(msg+len, size-len, "a = [");
+        for (int i = 0; i < N; i++)
+            len += snprintf(msg+len, size-len, "%d ", prev[i].pixel);
+        len += snprintf(msg+len, size-len, "];\n");
+
+        len += snprintf(msg+len, size-len, "b = [");
+        for (int i = 0; i < N; i++)
+            len += snprintf(msg+len, size-len, "%d ", this[i].pixel);
+        len += snprintf(msg+len, size-len, "];\n");
+
+        len += snprintf(msg+len, size-len, "x = [");
+        for (int i = 0; i < N; i++)
+            len += snprintf(msg+len, size-len, "%d ", this[i].x);
+        len += snprintf(msg+len, size-len, "];\n");
+
+        len += snprintf(msg+len, size-len, "y = [");
+        for (int i = 0; i < N; i++)
+            len += snprintf(msg+len, size-len, "%d ", this[i].y);
+        len += snprintf(msg+len, size-len, "];\n");
+
+        len += snprintf(msg+len, size-len, 
+            "R = mod(x,2) == 0 & mod(y,2) == 0;\n"
+            "G = mod(x,2) ~= mod(y,2);\n"
+            "B = mod(x,2) == 1 & mod(y,2) == 1;\n"
+            "plot(log2(a(R)), log2(b(R)), '.r'); hold on;\n"
+            "plot(log2(a(B)), log2(b(B)), '.b')\n"
+            "plot(log2(a(G)), log2(b(G)), '.g')\n"
+        );
+
+        mfile = get_numbered_file_name("rcurve%02d.m");
+        FILE* f = FIO_CreateFileEx(mfile);
+        FIO_WriteFile(f, msg, len);
+        FIO_CloseFile(f);
+        fio_free(msg);
+
+        for (int i = 2; i < N; i++)
+        {
+            X[i] = log2f(MAX(prev[i].pixel, min_adu));
+            Y[i] = log2f(MAX(this[i].pixel, min_adu));
+        }
+        
+        free(X);
+        free(Y);
+    }
+    else
+    {
+        clrscr();
+        bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 200, 
+            "Please take one more test picture of the same static scene.\n"
+            "Use different settings, a solid tripod, and 10-second timer."
+        );
+    }
+
+    static char prev_info[200];
+    char info[200];
+
+    snprintf(info, sizeof(info),
+        "ISO %d %s "SYM_F_SLASH"%s%d.%d",
+        lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
+    );
+    
+    if (ok)
+    {
+        big_bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, 
+            "2-shot comparison\n%s\nX: %s\nY: %s\nGrid from %d to %d EV.\nSaved %s.",
+            camera_model, prev_info, info,
+            (int)roundf(log2f(min_adu)), 14,
+            mfile
+        );
+    }
+
+    snprintf(prev_info, sizeof(prev_info), "%s", info);
+
+    /* save data from this picture, to be used with the next one */
+    dump_seg(this, data_size, prev_filename);
+    
+    /* cleanup */
+    free(this);
+    free(prev);
 }
 
 /* main raw diagnostic task */
@@ -664,6 +895,12 @@ static void raw_diag_task(int corr)
             break;
         case ANALYSIS_JPG_CURVE:
             jpg_curve();
+            break;
+        case ANALYSIS_COMPARE_2_SHOTS:
+            compare_2_shots(1);          /* show full shadow detail */
+            break;
+        case ANALYSIS_COMPARE_2_SHOTS_HIGHLIGHTS:
+            compare_2_shots(1024);       /* trim the bottom 10 stops and zoom on highlight detail */
             break;
     }
     
@@ -724,6 +961,24 @@ static unsigned int raw_diag_poll(unsigned int unused)
     return CBR_RET_CONTINUE;
 }
 
+static void test_bracket()
+{
+    beep();
+    msleep(5000);
+    FIO_RemoveFile("RAWSAMPL.DAT");
+    menu_set_value_from_script("Expo", "Mini ISO", 0);
+    menu_set_value_from_script("Debug", "ISO registers", 0);
+    lens_set_rawshutter(SHUTTER_1_200);
+    call("Release");
+    msleep(10000);
+
+    menu_set_value_from_script("Expo", "Mini ISO", 1);
+    menu_set_value_from_script("Debug", "ISO registers", 1);
+    lens_set_rawshutter(SHUTTER_1_50);
+    call("Release");
+    msleep(5000);
+}
+
 static struct menu_entry raw_diag_menu[] =
 {
     {
@@ -736,8 +991,17 @@ static struct menu_entry raw_diag_menu[] =
             {
                 .name = "Analysis",
                 .priv = &analysis_type,
-                .max = 5,
-                .choices = CHOICES("Optical black noise", "Dark frame noise", "Dark frame FPN", "Dark frame FPN xcov", "SNR curve", "JPEG curve"),
+                .max = 7,
+                .choices = CHOICES(
+                    "Optical black noise",
+                    "Dark frame noise",
+                    "Dark frame FPN",
+                    "Dark frame FPN xcov",
+                    "SNR curve",
+                    "JPEG curve",
+                    "Compare 2 shots",
+                    "Compare 2 shots HL"
+                ),
                 .help  = "Choose the type of analysis you wish to run:",
                 .help2 = "Optical black noise: mean, stdev, histogram.\n"
                          "Dark frame noise: same as OB noise, but from the entire image.\n"
@@ -745,6 +1009,8 @@ static struct menu_entry raw_diag_menu[] =
                          "Dark frame FPN xcov: how much FPN changes between 2 shots?\n"
                          "SNR curve: take a defocused picture to see the noise profile.\n"
                          "JPEG curve: plot the RAW to JPEG curve used by current PicStyle.\n"
+                         "Compare 2 shots: compare the same static scene at 2 exposures.\n"
+                         "Compare 2 shots HL: same curve zoomed on highlights (top 4 EV).\n"
             },
             {
                 .name = "Auto screenshot",
@@ -757,6 +1023,13 @@ static struct menu_entry raw_diag_menu[] =
                 .priv = &dump_raw,
                 .max = 1,
                 .help = "Save a DNG file (ML/LOGS/raw_diag.dng) after analysis."
+            },
+            {
+                .name = "Test bracket",
+                .priv = &test_bracket,
+                .select = (void (*)(void*,int))run_in_separate_task,
+                .help = "Shot 1: 1/200 with iso_regs and mini_iso turned off.",
+                .help2 = "Shot 2: 1/50 with iso_regs and mini_iso turned on, if loaded."
             },
             MENU_EOL,
         },
