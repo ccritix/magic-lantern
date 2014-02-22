@@ -620,7 +620,7 @@ static struct menu_entry iso_regs_menu[] =
 
 static unsigned int iso_regs_init()
 {
-    if (!streq(camera_model_short, "5D3"))
+    if (!is_camera("5D3", "1.1.3") && !is_camera("5D3", "1.2.3"))
     {
         return CBR_RET_ERROR;
     }
