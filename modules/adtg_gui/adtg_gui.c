@@ -762,30 +762,37 @@ static struct menu_entry adtg_gui_menu[] =
                             "Overriden: show only regs where you have changed the value.\n"
             },
             {
-                .name = "DIGIC registers",
-                .priv = &digic_intercept,
-                .max = 1,
-                .help = "Also intercept DIGIC registers (EngDrvOut and engio_write).\n"
-            },
-            {
-                .name = "Log registers",
-                .priv = &log_all_regs,
-                .max = 1,
-                .choices = CHOICES("OFF", "After taking a pic"),
-                .help = "Save all registers to a log file (adtg.log)\n"
-            },
-            {
-                .name = "Unique key",
-                .priv = &unique_key,
-                .select = unique_key_toggle,
-                .update = unique_key_update,
-                .max = 2,
-                .icon_type = IT_DICE_OFF,
-                .choices = CHOICES("Register", "Register + caller task", "Register + caller PC"),
-                .help  = "When two register operations are identical? (for grouping)",
-                .help2 = "When register number and type (family, class) are equal.\n"
-                         "When reg num/type are equal AND changed from the same task.\n"
-                         "When reg num/type equal AND changed from same prog counter.\n"
+                .name = "Advanced",
+                .select = menu_open_submenu,
+                .children = (struct menu_entry[]) {
+                    {
+                        .name = "DIGIC registers",
+                        .priv = &digic_intercept,
+                        .max = 1,
+                        .help = "Also intercept DIGIC registers (EngDrvOut and engio_write).\n"
+                    },
+                    {
+                        .name = "Unique key",
+                        .priv = &unique_key,
+                        .select = unique_key_toggle,
+                        .update = unique_key_update,
+                        .max = 2,
+                        .icon_type = IT_DICE_OFF,
+                        .choices = CHOICES("Register", "Register + caller task", "Register + caller PC"),
+                        .help  = "When two register operations are identical? (for grouping)",
+                        .help2 = "When register number and type (family, class) are equal.\n"
+                                 "When reg num/type are equal AND changed from the same task.\n"
+                                 "When reg num/type equal AND changed from same prog counter.\n"
+                    },
+                    {
+                        .name = "Log registers",
+                        .priv = &log_all_regs,
+                        .max = 1,
+                        .choices = CHOICES("OFF", "After taking a pic"),
+                        .help = "Save all registers to a log file (adtg.log)\n"
+                    },
+                    MENU_EOL,
+                },
             },
             // for i in range(512): print "            REG_ENTRY(%d)," % i
             REG_ENTRY(0),
@@ -4907,7 +4914,7 @@ static MENU_UPDATE_FUNC(show_update)
     for (int reg = 0; reg < reg_num; reg++)
     {
         /* XXX: change this if you ever add or remove menu entries */
-        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 5]);
+        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 3]);
         
         if ((int)entry->priv != reg)
             break;
