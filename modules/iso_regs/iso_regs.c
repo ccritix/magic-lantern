@@ -25,7 +25,7 @@ static CONFIG_INT("gain.digital", digital_gain, 0);
 static CONFIG_INT("saturate.offset", saturate_offset, 0);
 static CONFIG_INT("black.offset", black_white_offset, 0);
 static CONFIG_INT("black.ref", black_reference, 0);
-static CONFIG_INT("black.adtg", adtg_black, 0);
+static CONFIG_INT("black.adtg", adtg_black, -1);
 static int default_cmos_gain = 0;
 static int default_adtg_gain = 0;
 static int default_digital_gain = 0;
@@ -165,7 +165,7 @@ static void adtg_log(breakpoint_t *bkpt)
         if ((reg == 0x8 || reg == 0x9 || reg == 0xA || reg == 0xB) && (dst == 2 || dst == 4))
         {
             if (reg == 0x8 && dst == 2) default_adtg_black = val;
-            if (adtg_black) val = adtg_black;
+            if (adtg_black >= 0) val = adtg_black;
             *data_buf = (reg << 16) | (val & 0xFFFF);
         }
         if ((reg == 0x8880) && (dst == 6))
@@ -310,18 +310,6 @@ static MENU_UPDATE_FUNC(resulting_iso_update)
     }
 }
 
-static MENU_SELECT_FUNC(cmos_gain_toggle)
-{
-    if (!cmos_gain)
-    {
-        cmos_gain = default_cmos_gain;
-        return;
-    }
-    int i = get_extended_cmos_iso_index(cmos_gain);
-    menu_numeric_toggle(&i, delta, 0, COUNT(extended_cmos_gains)-1);
-    cmos_gain = extended_cmos_gains[i];
-}
-
 static MENU_UPDATE_FUNC(cmos_gain_update)
 {
     if (CURRENT_VALUE == 0)
@@ -356,26 +344,6 @@ static MENU_UPDATE_FUNC(adtg_gain_update)
     check_warnings(entry, info);
 }
 
-static MENU_SELECT_FUNC(adtg_gain_toggle)
-{
-    if (!adtg_gain)
-    {
-        adtg_gain = default_adtg_gain;
-        return;
-    }
-    menu_numeric_toggle(priv, delta*5, 0, 5000);
-}
-
-static MENU_SELECT_FUNC(digital_gain_toggle)
-{
-    if (!digital_gain)
-    {
-        digital_gain = default_digital_gain;
-        return;
-    }
-    menu_numeric_toggle(priv, delta, 0, 2000);
-}
-
 static MENU_UPDATE_FUNC(digital_gain_update)
 {
     if (CURRENT_VALUE == 0)
@@ -389,16 +357,6 @@ static MENU_UPDATE_FUNC(digital_gain_update)
     }
 
     check_warnings(entry, info);
-}
-
-static MENU_SELECT_FUNC(saturate_offset_toggle)
-{
-    if (!saturate_offset)
-    {
-        saturate_offset = default_saturate_offset;
-        return;
-    }
-    menu_numeric_toggle(priv, delta*10, 0, 5000);
 }
 
 static MENU_UPDATE_FUNC(saturate_offset_update)
@@ -416,16 +374,6 @@ static MENU_UPDATE_FUNC(saturate_offset_update)
     check_warnings(entry, info);
 }
 
-static MENU_SELECT_FUNC(black_white_offset_toggle)
-{
-    if (!black_white_offset)
-    {
-        black_white_offset = default_black_white_offset;
-        return;
-    }
-    menu_numeric_toggle(priv, delta*10, 0, 5000);
-}
-
 static MENU_UPDATE_FUNC(black_white_offset_update)
 {
     if (CURRENT_VALUE == 0)
@@ -439,16 +387,6 @@ static MENU_UPDATE_FUNC(black_white_offset_update)
     }
 
     check_warnings(entry, info);
-}
-
-static MENU_SELECT_FUNC(black_reference_toggle)
-{
-    if (!black_reference)
-    {
-        black_reference = default_black_reference;
-        return;
-    }
-    menu_numeric_toggle(priv, delta*10, 0, 8192);
 }
 
 static MENU_UPDATE_FUNC(black_reference_update)
@@ -466,9 +404,14 @@ static MENU_UPDATE_FUNC(black_reference_update)
 
 static MENU_UPDATE_FUNC(adtg_black_update)
 {
-    if (CURRENT_VALUE == 0)
+    if (CURRENT_VALUE < 0)
     {
         MENU_SET_VALUE("OFF");
+        MENU_SET_ENABLED(0);
+    }
+    else
+    {
+        MENU_SET_ENABLED(1);
     }
     
     if (default_adtg_gain)
@@ -477,16 +420,6 @@ static MENU_UPDATE_FUNC(adtg_black_update)
     }
 
     check_warnings(entry, info);
-}
-
-static MENU_SELECT_FUNC(adtg_black_toggle)
-{
-    if (!adtg_black)
-    {
-        adtg_black = default_adtg_black;
-        return;
-    }
-    menu_numeric_toggle(priv, delta, 0, 0x100);
 }
 
 /* copy Canon settings from last picture */
@@ -527,7 +460,6 @@ static struct menu_entry iso_regs_menu[] =
             {
                 .name = "CMOS Gain",
                 .priv = &cmos_gain,
-                .select = cmos_gain_toggle,
                 .update = cmos_gain_update,
                 .min = 0,
                 .max = 0xFFF,
@@ -537,60 +469,60 @@ static struct menu_entry iso_regs_menu[] =
             {
                 .name = "ADTG Gain",
                 .priv = &adtg_gain,
-                .select = adtg_gain_toggle,
                 .update = adtg_gain_update,
                 .min = 0,
                 .max = 5000,
+                .unit = UNIT_DEC,
                 .help  = "Analog gain in fine steps. Decrease to get more highlight details.",
                 .help2 = "Watch out RAW zebras; should be solid and clean in highlights.",
             },
             {
                 .name = "Saturate Offset",
                 .priv = &saturate_offset,
-                .select = saturate_offset_toggle,
                 .update = saturate_offset_update,
                 .min = 0,
                 .max = 2000,
+                .unit = UNIT_DEC,
                 .help  = "Alters black level and stretches the range, keeping white fixed.",
                 .help2 = "Decrease to get more highlight details, but watch out RAW zebras.",
             },
             {
                 .name = "Digital Gain",
                 .priv = &digital_gain,
-                .select = digital_gain_toggle,
                 .update = digital_gain_update,
                 .min = 0,
-                .max = 2000,
+                .max = 5000,
+                .unit = UNIT_DEC,
                 .help  = "Digital scaling factor. It gets burned into the RAW data (sadly).",
                 .help2 = "Adjust so OB histogram has no gaps/spikes, or fill the 14bit range.",
             },
             {
                 .name = "Black/White Offset ",
                 .priv = &black_white_offset,
-                .select = black_white_offset_toggle,
                 .update = black_white_offset_update,
                 .min = 0,
                 .max = 5000,
+                .unit = UNIT_DEC,
                 .help  = "Digital offset for both black and white levels.",
                 .help2 = "(may interfere with Canon's nonlinear adjustments, visible at high ISO)",
             },
             {
                 .name = "Black Reference",
                 .priv = &black_reference,
-                .select = black_reference_toggle,
                 .update = black_reference_update,
                 .min = 0,
                 .max = 8192,
+                .unit = UNIT_DEC,
                 .help  = "Reference value for the black feedback loop?",
                 .help2 = "(I believe this is analog correction of the black level)",
             },
             {
                 .name = "ADTG black",
                 .priv = &adtg_black,
-                .select = adtg_black_toggle,
                 .update = adtg_black_update,
-                .min = 0,
+                .min = -1,
                 .max = 0x100,
+                .unit = UNIT_DEC,
                 .help  = "Some black offset related to ADTG gains.",
             },
             {
