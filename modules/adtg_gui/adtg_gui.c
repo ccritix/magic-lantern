@@ -51,10 +51,15 @@ static struct known_reg known_regs[] = {
     {DST_ADTG, 0x82F8, 1, "Line count"},
     {DST_ADTG, 0x8830, 0, "Only slightly changes the color of the image (g3gg0)"},
     {DST_ADTG, 0x8880, 0, "Black level (reference value for the feedback loop?)"},
-    {DST_ADTG, 0x8882, 0, "Digital gain (per column maybe)"}, /* I believe it's digital, not 100% sure */
-    {DST_ADTG, 0x8884, 0, "Digital gain (per column maybe)"},
-    {DST_ADTG, 0x8886, 0, "Digital gain (per column maybe)"},
-    {DST_ADTG, 0x8888, 0, "Digital gain (per column maybe)"},
+
+    {DST_ADTG, 0x8882, 0, "ISO ADTG gain (per column, mod 4 or mod 8)"},
+    {DST_ADTG, 0x8884, 0, "ISO ADTG gain (per column, mod 4 or mod 8)"},
+    {DST_ADTG, 0x8886, 0, "ISO ADTG gain (per column, mod 4 or mod 8)"},
+    {DST_ADTG, 0x8888, 0, "ISO ADTG gain (per column, mod 4 or mod 8)"},
+    {DST_ADTG,    0x8, 0, "ADTG black offset (per column, mod 4 or mod 8)"},
+    {DST_ADTG,    0x9, 0, "ADTG black offset (per column, mod 4 or mod 8)"},
+    {DST_ADTG,    0xA, 0, "ADTG black offset (per column, mod 4 or mod 8)"},
+    {DST_ADTG,    0xB, 0, "ADTG black offset (per column, mod 4 or mod 8)"},
 
     {DST_ADTG, 0x105F, 1, "Shutter blanking for x5/x10 zoom"},
     {DST_ADTG, 0x106E, 1, "Shutter blanking for LiveView 1x"},
