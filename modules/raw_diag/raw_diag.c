@@ -147,12 +147,13 @@ static void FAST black_histogram(int ob)
     int mean_r = (int)roundf(mean);
     int stdev_r = (int)roundf(stdev * 100);
     int white = autodetect_white_level();
+    int canon_white = shamem_read(0xC0F12054) >> 16;
     
     if (ob)
     {
         bmp_printf(FONT_MED, 0, 0, "Optical black: mean %d, stdev %s%d.%02d ", mean_r, FMT_FIXEDPOINT2(stdev_r));
         int dr = (int)roundf((log2f(white - mean) - log2f(stdev)) * 1000.0);
-        bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, "White level: %d ", white);
+        bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, "White level: %d (%d) ", white, canon_white);
         bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, font_med.height, "Dyn. range: %s%d.%03d EV ", FMT_FIXEDPOINT3(dr));
         bmp_printf(FONT_MED, 0, font_med.height, "%s, ISO %d %s "SYM_F_SLASH"%s%d.%d", camera_model, lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture));
     }
