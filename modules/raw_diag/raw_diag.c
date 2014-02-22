@@ -530,17 +530,24 @@ static void darkframe_fpn()
     free(fpn);
 }
 
-/* should use the same scaling as plot_dots */
+static int scale_for_plot_dots_x(float x, float min, float max, int x0, int w)
+{
+    return x0 + (x - min) * w / (max - min);
+}
+
+static int scale_for_plot_dots_y(float y, float min, float max, int y0, int h)
+{
+    return y0 + h - (y - min) * h / (max - min);;
+}
+
 static void plot_dots_grid(float min, float max, float step, int x0, int y0, int w, int h)
 {
     for (float a = min; a < max; a += step)
     {
-        int x = a;
-        int px = x0 + (x - min) * w / (max - min);
+        int px = scale_for_plot_dots_x(a, min, max, x0, w);
         draw_line(px, y0, px, y0 + h, COLOR_GRAY(10));
         
-        int y = a;
-        int py = y0 + h - (y - min) * h / (max - min);
+        int py = scale_for_plot_dots_y(a, min, max, y0, h);
         draw_line(x0, py, x0 + w, py, COLOR_GRAY(10));
     }
 }
@@ -562,16 +569,16 @@ static void plot_dots(float* X, float* Y, int n, int x0, int y0, int w, int h, i
 
     if (min < 0 && max > 0)
     {
-        int xc = x0 + (0 - min) * w / (max - min);
-        int yc = y0 + h - (0 - min) * h / (max - min);
+        int xc = scale_for_plot_dots_x(0, min, max, x0, w);
+        int yc = scale_for_plot_dots_y(0, min, max, y0, h);
         draw_line(x0, yc, x0+w, yc, COLOR_GRAY(50));
         draw_line(xc, y0, xc, y0+h, COLOR_GRAY(50));
     }
     
     for (int i = 0; i < n; i++)
     {
-        int px = x0 + (X[i] - min) * w / (max - min);
-        int py = y0 + h - (Y[i] - min) * h / (max - min);
+        int px = scale_for_plot_dots_x(X[i], min, max, x0, w);
+        int py = scale_for_plot_dots_y(Y[i], min, max, y0, h);
         bmp_putpixel(px, py, color);
     }
     
@@ -746,6 +753,13 @@ static void compare_2_shots(int min_adu)
         float* X = malloc(N * sizeof(float));
         float* Y = malloc(N * sizeof(float));
 
+        /* extract the data and convert to EV */
+        for (int i = 0; i < N; i++)
+        {
+            X[i] = log2f(MAX(prev[i].pixel, min_adu));
+            Y[i] = log2f(MAX(this[i].pixel, min_adu));
+        }
+
         /* enforce min/max limits to trick auto-scaling */
         X[0] = log2f(min_adu); X[1] = 14;
         Y[0] = log2f(min_adu); Y[1] = 14;
@@ -754,17 +768,17 @@ static void compare_2_shots(int min_adu)
         X[2*N/3] = log2f(min_adu); X[2*N/3+1] = 14;
         Y[2*N/3] = log2f(min_adu); Y[2*N/3+1] = 14;
         
+        /* plot the grid */
         plot_dots_grid(X[0], X[1], 1, 0, 0, 480, 480);
         
-        for (int i = 2; i < N; i++)
-        {
-            X[i] = log2f(MAX(prev[i].pixel, min_adu));
-            Y[i] = log2f(MAX(this[i].pixel, min_adu));
-        }
-        
+        /* plot the curves */
         plot_dots(X, Y, N/3, 0, 0, 480, 480, COLOR_RED);
         plot_dots(X+N/3, Y+N/3, N/3, 0, 0, 480, 480, COLOR_GREEN1);
         plot_dots(X+2*N/3, Y+2*N/3, N/3, 0, 0, 480, 480, COLOR_BLUE);
+
+        /* show white level */
+        int white = autodetect_white_level();
+        int yw = scale_for_plot_dots_y(log2f(white - black), Y[0], Y[1], 0, 480); draw_line(0, yw, 480, yw, COLOR_GRAY(50));
 
         /* save the data to a Octave script */
         /* run it with: octave --persist RCURVEnn.M */
