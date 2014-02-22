@@ -1007,7 +1007,7 @@ static struct menu_entry raw_diag_menu[] =
                 .priv = &analysis_type,
                 .max = 7,
                 .choices = CHOICES(
-                    "Optical black noise",
+                    "Optical black + DR",
                     "Dark frame noise",
                     "Dark frame FPN",
                     "Dark frame FPN xcov",
@@ -1017,7 +1017,7 @@ static struct menu_entry raw_diag_menu[] =
                     "Compare 2 shots HL"
                 ),
                 .help  = "Choose the type of analysis you wish to run:",
-                .help2 = "Optical black noise: mean, stdev, histogram.\n"
+                .help2 = "Optical black + DR: mean, stdev, histogram, white levels, DR.\n"
                          "Dark frame noise: same as OB noise, but from the entire image.\n"
                          "Dark frame FPN: fixed-pattern noise (banding) analysis.\n"
                          "Dark frame FPN xcov: how much FPN changes between 2 shots?\n"
