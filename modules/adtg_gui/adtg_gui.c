@@ -4962,6 +4962,12 @@ static MENU_UPDATE_FUNC(show_update)
                 break;
             }
         }
+        
+        if (regs[reg].num_changes > 100)
+        {
+            /* das ist noise */
+            visible = 0;
+        }
 
         if (entry->shidden != !visible)
         {
