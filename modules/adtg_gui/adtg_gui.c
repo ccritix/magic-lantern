@@ -4922,10 +4922,12 @@ static unsigned int adtg_gui_init()
     }
     else if (is_camera("5D3", "1.2.3"))
     {
-        ADTG_WRITE_FUNC = 0x11644;    // 0xFFA01E04 - RAM_OFFSET
-        CMOS_WRITE_FUNC = 0x119CC;    // 0xFFA0218C - RAM_OFFSET
-        CMOS2_WRITE_FUNC = 0x11784;   // 0xFFA01F44 - RAM_OFFSET
-        CMOS16_WRITE_FUNC = 0x11AB8;  // 0xFFA02278 - RAM_OFFSET
+        ADTG_WRITE_FUNC = 0x11640;
+        CMOS_WRITE_FUNC = 0x119CC;
+        CMOS2_WRITE_FUNC = 0x11784;
+        CMOS16_WRITE_FUNC = 0x11AB8;
+        ENGIO_WRITE_FUNC = 0xFF290F98+8;    /* was ist das? */
+        ENG_DRV_OUT_FUNC = 0xFF290C80;
     }
     else if (is_camera("5D2", "2.1.2"))
     {
