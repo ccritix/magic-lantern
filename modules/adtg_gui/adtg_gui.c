@@ -5080,6 +5080,13 @@ static unsigned int adtg_gui_init()
         ADTG_WRITE_FUNC = 0x178FC; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0x17A1C; //"[REG] ############ Start CMOS"
     }    
+    else if (is_camera("1100D", "1.0.5"))
+    {
+        ADTG_WRITE_FUNC = 0xFF2DBB28;
+        CMOS_WRITE_FUNC = 0xFF2DBD1C;
+        ENGIO_WRITE_FUNC = 0xFF1D4C8C;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF1D48C8;
+    }
     else return CBR_RET_ERROR;
 
     regs_tree.compar = cmp_reg;
