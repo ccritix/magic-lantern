@@ -649,22 +649,9 @@ static MENU_UPDATE_FUNC(adtg_update)
 {
     MENU_SET_ICON(MNI_BOOL(adtg_enabled), 0);
     if (adtg_enabled)
-        MENU_SET_WARNING(MENU_WARN_INFO, "ADTG hooks enabled, press PLAY to disable.");
-    MENU_SET_RINFO("%d uniq / %d", reg_num, reg_total);
-}
-
-static MENU_SELECT_FUNC(adtg_main)
-{
-    if (delta > 0)
     {
-        if (!adtg_enabled)
-            adtg_toggle(priv, delta);
-        menu_open_submenu();
-    }
-    else
-    {
-        if (adtg_enabled)
-            adtg_toggle(priv, delta);
+        MENU_SET_WARNING(MENU_WARN_INFO, "ADTG hooks enabled. Press Q to start researching.");
+        MENU_SET_RINFO("%d uniq / %d", reg_num, reg_total);
     }
 }
 
@@ -740,9 +727,10 @@ static struct menu_entry adtg_gui_menu[] =
 {
     {
         .name = "ADTG registers",
+        .priv = &adtg_enabled,
+        .select = &adtg_toggle,
+        .max = 1,
         .update = adtg_update,
-        .select = &adtg_main,
-        .icon_type = IT_SUBMENU,
         .help = "Edit ADTG/CMOS register values.",
         .submenu_width = 710,
         .children =  (struct menu_entry[]) {
