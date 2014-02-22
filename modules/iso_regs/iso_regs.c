@@ -25,12 +25,14 @@ static CONFIG_INT("gain.digital", digital_gain, 0);
 static CONFIG_INT("saturate.offset", saturate_offset, 0);
 static CONFIG_INT("black.offset", black_white_offset, 0);
 static CONFIG_INT("black.ref", black_reference, 0);
+static CONFIG_INT("black.adtg", adtg_black, 0);
 static int default_cmos_gain = 0;
 static int default_adtg_gain = 0;
 static int default_digital_gain = 0;
 static int default_saturate_offset = 0;
 static int default_black_white_offset = 0;
 static int default_black_reference = 0;
+static int default_adtg_black = 0;
 
 /* default settings used for full-stop ISOs */
 static int default_white_level_fullstop = 15283;        /* my 5D3 only */
@@ -158,6 +160,12 @@ static void adtg_log(breakpoint_t *bkpt)
         {
             if (reg == 0x8882 && dst == 2) default_adtg_gain = val;
             if (adtg_gain) val = adtg_gain;
+            *data_buf = (reg << 16) | (val & 0xFFFF);
+        }
+        if ((reg == 0x8 || reg == 0x9 || reg == 0xA || reg == 0xB) && (dst == 2 || dst == 4))
+        {
+            if (reg == 0x8 && dst == 2) default_adtg_black = val;
+            if (adtg_black) val = adtg_black;
             *data_buf = (reg << 16) | (val & 0xFFFF);
         }
         if ((reg == 0x8880) && (dst == 6))
@@ -456,6 +464,31 @@ static MENU_UPDATE_FUNC(black_reference_update)
     }
 }
 
+static MENU_UPDATE_FUNC(adtg_black_update)
+{
+    if (CURRENT_VALUE == 0)
+    {
+        MENU_SET_VALUE("OFF");
+    }
+    
+    if (default_adtg_gain)
+    {
+        MENU_SET_RINFO("Default %d", default_adtg_black);
+    }
+
+    check_warnings(entry, info);
+}
+
+static MENU_SELECT_FUNC(adtg_black_toggle)
+{
+    if (!adtg_black)
+    {
+        adtg_black = default_adtg_black;
+        return;
+    }
+    menu_numeric_toggle(priv, delta, 0, 0x100);
+}
+
 /* copy Canon settings from last picture */
 static MENU_SELECT_FUNC(copy_canon_settings)
 {
@@ -552,6 +585,15 @@ static struct menu_entry iso_regs_menu[] =
                 .help2 = "(I believe this is analog correction of the black level)",
             },
             {
+                .name = "ADTG black",
+                .priv = &adtg_black,
+                .select = adtg_black_toggle,
+                .update = adtg_black_update,
+                .min = 0,
+                .max = 0x100,
+                .help  = "Some black offset related to ADTG gains.",
+            },
+            {
                 .name = "Resulting ISO",
                 .update = resulting_iso_update,
                 .help = "ISO (by DxO definition) obtained with current parameters,",
@@ -614,4 +656,5 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(saturate_offset)
     MODULE_CONFIG(black_white_offset)
     MODULE_CONFIG(black_reference)
+    MODULE_CONFIG(adtg_black)
 MODULE_CONFIGS_END()
