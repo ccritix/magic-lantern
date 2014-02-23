@@ -743,7 +743,14 @@ static void compare_2_shots(int min_adu)
         int y = this[k].y;
         this[k].pixel = raw_get_pixel(x, y) - black;
     }
-    
+
+    /* get white level */
+    int white = autodetect_white_level();
+
+    /* values from previous shot */
+    static float black_prev;
+    static int white_prev;
+
     if (ok)
     {
         /* plot the graph */
@@ -776,9 +783,11 @@ static void compare_2_shots(int min_adu)
         plot_dots(X+N/3, Y+N/3, N/3, 0, 0, 480, 480, COLOR_GREEN1);
         plot_dots(X+2*N/3, Y+2*N/3, N/3, 0, 0, 480, 480, COLOR_BLUE);
 
-        /* show white level */
-        int white = autodetect_white_level();
-        int yw = scale_for_plot_dots_y(log2f(white - black), Y[0], Y[1], 0, 480); draw_line(0, yw, 480, yw, COLOR_GRAY(50));
+        /* show white levels */
+        int xw = scale_for_plot_dots_x(log2f(white_prev - black_prev), X[0], X[1], 0, 480);
+        draw_line(xw, 0, xw, 480, COLOR_GRAY(50));
+        int yw = scale_for_plot_dots_y(log2f(white - black), Y[0], Y[1], 0, 480);
+        draw_line(0, yw, 480, yw, COLOR_GRAY(50));
 
         /* save the data to a Octave script */
         /* run it with: octave --persist RCURVEnn.M */
@@ -815,6 +824,7 @@ static void compare_2_shots(int min_adu)
             "plot(log2(a(R)), log2(b(R)), '.r'); hold on;\n"
             "plot(log2(a(B)), log2(b(B)), '.b')\n"
             "plot(log2(a(G)), log2(b(G)), '.g')\n"
+            "disp(sprintf('ISO difference: %.2f EV', median(real(log2(b)-log2(a)))))\n"
         );
 
         mfile = get_numbered_file_name("rcurve%02d.m");
@@ -852,14 +862,18 @@ static void compare_2_shots(int min_adu)
     if (ok)
     {
         big_bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, 
-            "2-shot comparison\n%s\nX: %s\nY: %s\nGrid from %d to %d EV.\nSaved %s.",
+            "2-shot comparison\n%s\nX: %s\nY: %s\nBlack level X: %d\nWhite level X: %d\nBlack level Y: %d\nWhite level Y: %d\nGrid from %d to %d EV.\nSaved %s.",
             camera_model, prev_info, info,
+            (int)roundf(black_prev), white_prev,
+            (int)roundf(black), white,
             (int)roundf(log2f(min_adu)), 14,
             mfile
         );
     }
 
     snprintf(prev_info, sizeof(prev_info), "%s", info);
+    black_prev = black;
+    white_prev = white;
 
     /* save data from this picture, to be used with the next one */
     dump_seg(this, data_size, prev_filename);
@@ -993,6 +1007,66 @@ static void test_bracket()
     msleep(5000);
 }
 
+static void reference_shot()
+{
+    beep();
+    msleep(5000);
+    FIO_RemoveFile("RAWSAMPL.DAT");
+    menu_set_value_from_script("Expo", "Mini ISO", 0);
+    menu_set_value_from_script("Debug", "ISO registers", 0);
+    lens_set_rawshutter(SHUTTER_1_200);
+    call("Release");
+    msleep(5000);
+}
+
+static void iso_experiment()
+{
+    /* shot 1: Canon 1/50 vs Canon 1/200 */
+    reference_shot();
+    menu_set_value_from_script("Expo", "Mini ISO", 0);
+    menu_set_value_from_script("Mini ISO", "CMOS tweak", 0);
+    menu_set_value_from_script("Debug", "ISO registers", 0);
+    lens_set_rawshutter(SHUTTER_1_50);
+    call("Release");
+    msleep(5000);
+
+    /* shot 2: enable ADTG gain, but not CMOS tweak */
+    reference_shot();
+    menu_set_value_from_script("Expo", "Mini ISO", 1);
+    menu_set_value_from_script("Mini ISO", "CMOS tweak", 0);
+    menu_set_value_from_script("Debug", "ISO registers", 0);
+    lens_set_rawshutter(SHUTTER_1_50);
+    call("Release");
+    msleep(5000);
+
+    /* shot 3: enable ADTG gain and CMOS tweak too */
+    reference_shot();
+    menu_set_value_from_script("Expo", "Mini ISO", 1);
+    menu_set_value_from_script("Mini ISO", "CMOS tweak", 1);
+    menu_set_value_from_script("Debug", "ISO registers", 0);
+    lens_set_rawshutter(SHUTTER_1_50);
+    call("Release");
+    msleep(5000);
+
+    /* shot 4: enable ADTG gain, nonlinear gain, but disable CMOS tweak */
+    reference_shot();
+    menu_set_value_from_script("Expo", "Mini ISO", 1);
+    menu_set_value_from_script("Mini ISO", "CMOS tweak", 0);
+    menu_set_value_from_script("Debug", "ISO registers", 1);
+    lens_set_rawshutter(SHUTTER_1_50);
+    call("Release");
+    msleep(5000);
+
+    /* shot 5: enable ADTG gain, nonlinear gain and CMOS tweak */
+    reference_shot();
+    menu_set_value_from_script("Expo", "Mini ISO", 1);
+    menu_set_value_from_script("Mini ISO", "CMOS tweak", 1);
+    menu_set_value_from_script("Debug", "ISO registers", 1);
+    lens_set_rawshutter(SHUTTER_1_50);
+    call("Release");
+    msleep(5000);
+}
+
 static struct menu_entry raw_diag_menu[] =
 {
     {
@@ -1044,6 +1118,13 @@ static struct menu_entry raw_diag_menu[] =
                 .select = (void (*)(void*,int))run_in_separate_task,
                 .help = "Shot 1: 1/200 with iso_regs and mini_iso turned off.",
                 .help2 = "Shot 2: 1/50 with iso_regs and mini_iso turned on, if loaded."
+            },
+            {
+                .name = "ISO experiment",
+                .priv = &iso_experiment,
+                .select = (void (*)(void*,int))run_in_separate_task,
+                .help = "1: Canon 1/50 vs 1/200. 2: mini_iso ADTG gain; 3: also CMOS tweak.",
+                .help2 = "4: enable iso_regs, disable CMOS tweak. 5: re-enable CMOS tweak."
             },
             MENU_EOL,
         },
