@@ -1000,13 +1000,13 @@ static void test_bracket()
     FIO_RemoveFile("RAWSAMPL.DAT");
     menu_set_value_from_script("Expo", "Mini ISO", 0);
     menu_set_value_from_script("Debug", "ISO registers", 0);
-    lens_set_rawshutter(SHUTTER_1_200);
+    lens_set_rawshutter(SHUTTER_1_50);
     call("Release");
     msleep(10000);
 
     menu_set_value_from_script("Expo", "Mini ISO", 1);
     menu_set_value_from_script("Debug", "ISO registers", 1);
-    lens_set_rawshutter(SHUTTER_1_50);
+    lens_set_rawshutter(SHUTTER_1_25);
     call("Release");
     msleep(5000);
 }
@@ -1018,7 +1018,7 @@ static void reference_shot()
     FIO_RemoveFile("RAWSAMPL.DAT");
     menu_set_value_from_script("Expo", "Mini ISO", 0);
     menu_set_value_from_script("Debug", "ISO registers", 0);
-    lens_set_rawshutter(SHUTTER_1_200);
+    lens_set_rawshutter(SHUTTER_1_50);
     call("Release");
     msleep(5000);
 }
@@ -1030,7 +1030,7 @@ static void iso_experiment()
     menu_set_value_from_script("Expo", "Mini ISO", 0);
     menu_set_value_from_script("Mini ISO", "CMOS tweak", 0);
     menu_set_value_from_script("Debug", "ISO registers", 0);
-    lens_set_rawshutter(SHUTTER_1_50);
+    lens_set_rawshutter(SHUTTER_1_25);
     call("Release");
     msleep(5000);
 
@@ -1039,7 +1039,7 @@ static void iso_experiment()
     menu_set_value_from_script("Expo", "Mini ISO", 1);
     menu_set_value_from_script("Mini ISO", "CMOS tweak", 0);
     menu_set_value_from_script("Debug", "ISO registers", 0);
-    lens_set_rawshutter(SHUTTER_1_50);
+    lens_set_rawshutter(SHUTTER_1_25);
     call("Release");
     msleep(5000);
 
@@ -1048,7 +1048,7 @@ static void iso_experiment()
     menu_set_value_from_script("Expo", "Mini ISO", 1);
     menu_set_value_from_script("Mini ISO", "CMOS tweak", 1);
     menu_set_value_from_script("Debug", "ISO registers", 0);
-    lens_set_rawshutter(SHUTTER_1_50);
+    lens_set_rawshutter(SHUTTER_1_25);
     call("Release");
     msleep(5000);
 
@@ -1057,7 +1057,7 @@ static void iso_experiment()
     menu_set_value_from_script("Expo", "Mini ISO", 1);
     menu_set_value_from_script("Mini ISO", "CMOS tweak", 0);
     menu_set_value_from_script("Debug", "ISO registers", 1);
-    lens_set_rawshutter(SHUTTER_1_50);
+    lens_set_rawshutter(SHUTTER_1_25);
     call("Release");
     msleep(5000);
 
@@ -1066,7 +1066,7 @@ static void iso_experiment()
     menu_set_value_from_script("Expo", "Mini ISO", 1);
     menu_set_value_from_script("Mini ISO", "CMOS tweak", 1);
     menu_set_value_from_script("Debug", "ISO registers", 1);
-    lens_set_rawshutter(SHUTTER_1_50);
+    lens_set_rawshutter(SHUTTER_1_25);
     call("Release");
     msleep(5000);
 }
@@ -1120,14 +1120,14 @@ static struct menu_entry raw_diag_menu[] =
                 .name = "Test bracket",
                 .priv = &test_bracket,
                 .select = (void (*)(void*,int))run_in_separate_task,
-                .help = "Shot 1: 1/200 with iso_regs and mini_iso turned off.",
-                .help2 = "Shot 2: 1/50 with iso_regs and mini_iso turned on, if loaded."
+                .help = "Shot 1: 1/50 with iso_regs and mini_iso turned off.",
+                .help2 = "Shot 2: 1/25 with iso_regs and mini_iso turned on, if loaded."
             },
             {
                 .name = "ISO experiment",
                 .priv = &iso_experiment,
                 .select = (void (*)(void*,int))run_in_separate_task,
-                .help = "1: Canon 1/50 vs 1/200. 2: mini_iso ADTG gain; 3: also CMOS tweak.",
+                .help = "1: Canon 1/25 vs 1/50. 2: mini_iso ADTG gain; 3: also CMOS tweak.",
                 .help2 = "4: enable iso_regs, disable CMOS tweak. 5: re-enable CMOS tweak."
             },
             MENU_EOL,
