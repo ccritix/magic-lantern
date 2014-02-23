@@ -88,7 +88,7 @@
  #define CONFIG_EXPSIM
 
 /** Asif ADC may crash after 2min **/
-#define CONFIG_BEEP
+//~ #define CONFIG_BEEP
 
 /** This camera has no trouble saving Kelvin and/or WBShift in movie mode **/
 //~ #define CONFIG_WB_WORKAROUND
@@ -96,8 +96,8 @@
 /** We can restore ML files after formatting the card in the camera **/
 #define CONFIG_RESTORE_AFTER_FORMAT
 
-/** We know how to use DMA_MEMCPY **/
-#define CONFIG_DMA_MEMCPY
+/** We know how to use DMA_MEMCPY, but we prefer not to **/
+//~ #define CONFIG_DMA_MEMCPY
 
 /** We know how to use edmac_memcpy. This one is really fast (600MB/s!) */
 #define CONFIG_EDMAC_MEMCPY
@@ -125,6 +125,8 @@
 
 /** FPS override: change timers from EVF state */
 #define CONFIG_FPS_UPDATE_FROM_EVF_STATE
+/** Aggressive FPS update **/
+#define CONFIG_FPS_AGGRESSIVE_UPDATE
 
 /** Use the new Rec.709 for YUV-RGB conversion (undefine for Rec.601) */
 #define CONFIG_REC709

@@ -2,6 +2,9 @@
  * Camera internals for 7D 2.0.3
  */
 
+/** This camera has a CF slot **/
+#define CONFIG_CF_SLOT
+
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
 /** The 7D port is young, but for development we can enable properties safely. **/
 #define CONFIG_PROP_REQUEST_CHANGE
@@ -58,18 +61,18 @@
 /** There is a separate bulb mode on the mode dial (other cameras have BULB = M + shutter speed beyond 30s) **/
 #define CONFIG_SEPARATE_BULB_MODE
 
-/** We can't control audio settings from ML **/
-//~ #define CONFIG_AUDIO_CONTROLS
+/** We can control audio settings from ML **/
+#define CONFIG_AUDIO_CONTROLS
 
 /** Zoom button can't be used while recording (for Magic Zoom) **/
 #define CONFIG_ZOOM_BTN_NOT_WORKING_WHILE_RECORDING
 
-/** We can't redirect the display buffer **/
+/** We can redirect the display buffer but not easily **/
 //~ #define CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY
-//~ #define CONFIG_CAN_REDIRECT_DISPLAY_BUFFER
+#define CONFIG_CAN_REDIRECT_DISPLAY_BUFFER
 
-/** Therefore, we can't implement display filters (features that alter the LiveView image in real-time) **/
-//~ #define CONFIG_DISPLAY_FILTERS
+/** So we can implement 5DII style display filters. **/
+#define CONFIG_DISPLAY_FILTERS
 
 /** Not sure whether we can override ISO on a per-frame basis, by changing FRAME_ISO (e.g. for HDR video or gradual exposure) **/
 /** Will leave it off for now **/

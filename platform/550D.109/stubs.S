@@ -70,14 +70,14 @@ NSTUB( 0xFF1D6638, vsnprintf )
 
 NSTUB( 0xFF06a344, msleep ) // called from EV_GETDONE_CACHE param 0x64
 NSTUB( 0xFF06A3F8, task_create )
-NSTUB( 0xFF1C658C, FIO_Open)
-NSTUB( 0xFF1C6648, FIO_CreateFile )
+NSTUB( 0xFF1C658C, _FIO_Open)
+NSTUB( 0xFF1C6648, _FIO_CreateFile )
 NSTUB( 0xFF1C69EC, FIO_CloseFile )
-NSTUB( 0xFF1C6B68, FIO_GetFileSize )
+NSTUB( 0xFF1C6B68, _FIO_GetFileSize )
 NSTUB( 0xFF1C693C, FIO_WriteFile )
 NSTUB( 0xFF1C679C, FIO_ReadFile )
-NSTUB( 0xFF1C66F4, FIO_RemoveFile )
-NSTUB( 0xFF1C71A0, FIO_CreateDirectory)
+NSTUB( 0xFF1C66F4, _FIO_RemoveFile )
+NSTUB( 0xFF1C71A0, _FIO_CreateDirectory)
 NSTUB( 0xFF1C7060, _FIO_RenameFile ) // doesn't work; 600D has debug strings for this, match.py finds it
 NSTUB( 0xFF1C691C, FIO_SeekFile)
 
@@ -179,7 +179,7 @@ NSTUB( 0xFF1AA74C, mvrSetGopOptSizeHD )
 NSTUB( 0xFF1AA7C4, mvrSetGopOptSizeVGA )
 NSTUB( 0xFF1AA430, mvrSetDeblockingFilter )
 
-NSTUB( 0xFF1C7760, FIO_FindFirstEx )
+NSTUB( 0xFF1C7760, _FIO_FindFirstEx )
 NSTUB( 0xFF1C7854, FIO_FindNextEx )
 NSTUB( 0xff1c7934, FIO_FindClose) // called with ret_FIO_FindFirstEx after finishing the dir scanning loop
 
@@ -251,6 +251,8 @@ NSTUB(0xFF13FA00, ptpPropButtonSW2)
 NSTUB(0xFF13F7B4, RemoteRelease)
 
 NSTUB(0xFF06B014, GetMemoryInformation) // called from AllocateMemory
+NSTUB(0xFF06AFC0, GetSizeOfMaxRegion)
+
 NSTUB(0xFF204C8C, GUI_SetElectricShutter)
 
 NSTUB(0xFF2045E0, GUI_SetRollingPitchingLevelStatus)

@@ -20,6 +20,8 @@
 #define MLEV_MENU_REDRAW -15
 #define MLEV_AV_SHORT -16
 #define MLEV_AV_LONG -17
+
+#define MLEV_TRIGGER_ZEBRAS_FOR_PLAYBACK -18
  
 
 /** \file
@@ -212,5 +214,8 @@ int handle_other_events(struct event * event);
  */
 void gui_uilock(int what);
 
+/* prevent Canon code from drawing on the screen */
+void canon_gui_disable_front_buffer();
+void canon_gui_enable_front_buffer(int also_redraw);
 
 #endif

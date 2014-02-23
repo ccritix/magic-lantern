@@ -293,8 +293,10 @@ audio_configure( int force )
     // nothing here yet.
 #else
 
-#ifndef CONFIG_550D // no sound with external mic?!
+#ifdef FEATURE_WIND_FILTER // no sound with external mic?!
     audio_ic_write( AUDIO_IC_FIL1 | (enable_filters ? 0x1 : 0));
+#else //Turn it off
+    audio_ic_write( AUDIO_IC_FIL1 | 0);
 #endif
         
     // Enable loop mode and output digital volume2
@@ -594,7 +596,7 @@ static struct menu_entry audio_menus[] = {
     #endif
 };
 
-#ifdef CONFIG_AUDIO_CONTROLS
+#if defined(CONFIG_AUDIO_CONTROLS) && !defined(CONFIG_7D)
 
 void sounddev_task();
 
@@ -634,7 +636,7 @@ my_sounddev_task()
     
 #ifdef CONFIG_AUDIO_REG_LOG
     // Create the logging file
-    reg_file = FIO_CreateFileEx(CARD_DRIVE "ML/audioreg.txt" );
+    reg_file = FIO_CreateFileEx("ML/audioreg.txt" );
 #endif
     
     msleep(500);
@@ -653,6 +655,7 @@ my_sounddev_task()
 }
 
 TASK_OVERRIDE( sounddev_task, my_sounddev_task );
+
 #endif
 
 static void volume_display()
