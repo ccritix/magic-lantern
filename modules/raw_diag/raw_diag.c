@@ -824,7 +824,11 @@ static void compare_2_shots(int min_adu)
             "plot(log2(a(R)), log2(b(R)), '.r'); hold on;\n"
             "plot(log2(a(B)), log2(b(B)), '.b')\n"
             "plot(log2(a(G)), log2(b(G)), '.g')\n"
-            "disp(sprintf('ISO difference: %.2f EV', median(real(log2(b)-log2(a)))))\n"
+            "disp(sprintf('ISO difference (median): %%.2f EV', median(real(log2(b)-log2(a)))))\n"
+            "wb = prctile(b(:), 99);\n"
+            "clip = median(a(b>wb-200 & b<wb-100));\n"
+            "plot(log2(clip), log2(wb),'or', 'MarkerSize', 20);\n"
+            "disp(sprintf('ISO difference (clip): %%.2f EV', log2(wb)-log2(clip)))\n"
         );
 
         mfile = get_numbered_file_name("rcurve%02d.m");
