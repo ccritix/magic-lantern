@@ -795,7 +795,7 @@ static void compare_2_shots(int min_adu)
             }
         }
         int clipping_point = nclip ? median_int_wirth(clipping_points, nclip) : 0;
-        expo_delta_clip = clipping_point ? log2f(white_prev - black) - log2f(clipping_point) : 0;
+        expo_delta_clip = clipping_point ? log2f(white_prev - black_prev) - log2f(clipping_point) : 0;
         free(clipping_points); clipping_points = 0;
 
         /* enforce min/max limits to trick auto-scaling */
