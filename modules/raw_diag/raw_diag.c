@@ -679,6 +679,17 @@ static void compare_2_shots(int min_adu)
     float black, noise;
     ob_mean_stdev(&black, &noise);
 
+    /* get white level */
+    int white = autodetect_white_level();
+
+    /* values from previous shot */
+    static float black_prev;
+    static int white_prev;
+    
+    /* exposure difference */
+    float expo_delta_median = 0;
+    float expo_delta_clip = 0;
+
     int N = 30000;
     int data_size = N * sizeof(struct test_pixel);
     struct test_pixel * this = malloc(data_size); if (!this) return;
@@ -745,17 +756,6 @@ static void compare_2_shots(int min_adu)
         this[k].pixel = raw_get_pixel(x, y) - black;
     }
 
-    /* get white level */
-    int white = autodetect_white_level();
-
-    /* values from previous shot */
-    static float black_prev;
-    static int white_prev;
-    
-    /* exposure difference */
-    float expo_delta_median = 0;
-    float expo_delta_clip = 0;
-
     if (ok)
     {
         /* plot the graph */
@@ -776,7 +776,7 @@ static void compare_2_shots(int min_adu)
         int* deltas = malloc(N * sizeof(int)); if (!deltas) return;
         for (int i = 0; i < N; i++)
         {
-            float delta = log2f(MAX(this[i].pixel, 1)) - log2f(MAX(prev[i].pixel, 1));
+            float delta = log2f(MAX(this[i].pixel, 1)) - log2f(MAX(prev[i].pixel, 1)) - log2f(white - black) + log2f(white_prev - black_prev);
             deltas[i] = (int)roundf(1000.0f * delta);
         }
         expo_delta_median = median_int_wirth(deltas, N) / 1000.0f;
@@ -861,9 +861,9 @@ static void compare_2_shots(int min_adu)
             "plot(log2(a(R)), log2(b(R)), '.r'); hold on;\n"
             "plot(log2(a(B)), log2(b(B)), '.b')\n"
             "plot(log2(a(G)), log2(b(G)), '.g')\n"
-            "disp(sprintf('Exposure difference (median): %%.2f EV', median(real(log2(b)-log2(a)))))\n"
             "wa = prctile(a(:), 99);\n"
             "wb = prctile(b(:), 99);\n"
+            "disp(sprintf('Exposure difference (median): %%.2f EV', median(real(log2(b/wb)-log2(a/wa)))))\n"
             "clip = median(a(b>wb-200 & b<wb-100));\n"
             "plot(log2(clip), log2(wb),'or', 'MarkerSize', 20);\n"
             "disp(sprintf('Exposure difference (clip): %%.2f EV', log2(wa)-log2(clip)))\n"
