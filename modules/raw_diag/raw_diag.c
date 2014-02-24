@@ -15,6 +15,7 @@
 #include <raw.h>
 #include <lens.h>
 #include <math.h>
+#include <wirth.h>
 
 static CONFIG_INT("enabled", raw_diag_enabled, 0);
 static CONFIG_INT("analysis", analysis_type, 0);
@@ -750,6 +751,10 @@ static void compare_2_shots(int min_adu)
     /* values from previous shot */
     static float black_prev;
     static int white_prev;
+    
+    /* exposure difference */
+    float expo_delta_median = 0;
+    float expo_delta_clip = 0;
 
     if (ok)
     {
@@ -766,6 +771,32 @@ static void compare_2_shots(int min_adu)
             X[i] = log2f(MAX(prev[i].pixel, min_adu));
             Y[i] = log2f(MAX(this[i].pixel, min_adu));
         }
+        
+        /* estimate median exposure difference */
+        int* deltas = malloc(N * sizeof(int)); if (!deltas) return;
+        for (int i = 0; i < N; i++)
+        {
+            float delta = log2f(MAX(this[i].pixel, 1)) - log2f(MAX(prev[i].pixel, 1));
+            deltas[i] = (int)roundf(1000.0f * delta);
+        }
+        expo_delta_median = median_int_wirth(deltas, N) / 1000.0f;
+        free(deltas); deltas = 0;
+        
+        /* estimate exposure difference from clipping point */
+        int* clipping_points = malloc(N * sizeof(int)); if (!clipping_points) return;
+        int nclip = 0;
+        
+        for (int i = 0; i < N; i++)
+        {
+            /* if the point is nearly saturated, check its horizontal position */
+            if (this[i].pixel > white - black - 200 && this[i].pixel < white - black - 100)
+            {
+                clipping_points[nclip++] = prev[i].pixel;
+            }
+        }
+        int clipping_point = nclip ? median_int_wirth(clipping_points, nclip) : 0;
+        expo_delta_clip = clipping_point ? log2f(white_prev - black) - log2f(clipping_point) : 0;
+        free(clipping_points); clipping_points = 0;
 
         /* enforce min/max limits to trick auto-scaling */
         X[0] = log2f(min_adu); X[1] = 14;
@@ -788,6 +819,13 @@ static void compare_2_shots(int min_adu)
         draw_line(xw, 0, xw, 480, COLOR_GRAY(50));
         int yw = scale_for_plot_dots_y(log2f(white - black), Y[0], Y[1], 0, 480);
         draw_line(0, yw, 480, yw, COLOR_GRAY(50));
+        
+        /* show clipping point */
+        if (clipping_point)
+        {
+            int xclip = scale_for_plot_dots_x(log2f(clipping_point), X[0], X[1], 0, 480);
+            draw_circle(xclip, yw, 10, COLOR_WHITE);
+        }
 
         /* save the data to a Octave script */
         /* run it with: octave --persist RCURVEnn.M */
@@ -823,11 +861,11 @@ static void compare_2_shots(int min_adu)
             "plot(log2(a(R)), log2(b(R)), '.r'); hold on;\n"
             "plot(log2(a(B)), log2(b(B)), '.b')\n"
             "plot(log2(a(G)), log2(b(G)), '.g')\n"
-            "disp(sprintf('ISO difference (median): %%.2f EV', median(real(log2(b)-log2(a)))))\n"
+            "disp(sprintf('Exposure difference (median): %%.2f EV', median(real(log2(b)-log2(a)))))\n"
             "wb = prctile(b(:), 99);\n"
             "clip = median(a(b>wb-200 & b<wb-100));\n"
             "plot(log2(clip), log2(wb),'or', 'MarkerSize', 20);\n"
-            "disp(sprintf('ISO difference (clip): %%.2f EV', log2(wb)-log2(clip)))\n"
+            "disp(sprintf('Exposure difference (clip): %%.2f EV', log2(wa)-log2(clip)))\n"
         );
 
         mfile = get_numbered_file_name("rcurve%02d.m");
@@ -864,11 +902,25 @@ static void compare_2_shots(int min_adu)
     
     if (ok)
     {
+        int exp_med = (int)roundf(expo_delta_median * 100);
+        int exp_clip = (int)roundf(expo_delta_clip * 100);
         big_bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, 
-            "2-shot comparison\n%s\nX: %s\nY: %s\nBlack level X: %d\nWhite level X: %d\nBlack level Y: %d\nWhite level Y: %d\nGrid from %d to %d EV.\nSaved %s.",
+            "2-shot comparison\n"
+            "%s\n"
+            "X: %s\n"
+            "Y: %s\n"
+            "Black level X: %d\n"
+            "White level X: %d\n"
+            "Black level Y: %d\n"
+            "White level Y: %d\n"
+            "Expo diff (med): %s%d.%02dEV\n"
+            "Expo diff (clip): %s%d.%02dEV\n"
+            "Grid from %d to %d EV.\n"
+            "Saved %s.",
             camera_model, prev_info, info,
             (int)roundf(black_prev), white_prev,
             (int)roundf(black), white,
+            FMT_FIXEDPOINT2(exp_med), FMT_FIXEDPOINT2(exp_clip),
             (int)roundf(log2f(min_adu)), 14,
             mfile
         );
