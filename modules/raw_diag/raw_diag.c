@@ -862,6 +862,7 @@ static void compare_2_shots(int min_adu)
             "plot(log2(a(B)), log2(b(B)), '.b')\n"
             "plot(log2(a(G)), log2(b(G)), '.g')\n"
             "disp(sprintf('Exposure difference (median): %%.2f EV', median(real(log2(b)-log2(a)))))\n"
+            "wa = prctile(a(:), 99);\n"
             "wb = prctile(b(:), 99);\n"
             "clip = median(a(b>wb-200 & b<wb-100));\n"
             "plot(log2(clip), log2(wb),'or', 'MarkerSize', 20);\n"
