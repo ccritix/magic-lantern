@@ -122,7 +122,6 @@ static struct known_reg known_regs[] = {
 };
 
 static int adtg_enabled = 0;
-static int edit_multiplier = 0;
 static int show_what = 0;
 
 #define SHOW_ALL 0
@@ -163,11 +162,12 @@ struct reg_entry
     int32_t val;
     int32_t prev_val;
     int override;
-    unsigned is_nrzi:1;
     void* addr;
     uint32_t caller_task;
     uint32_t caller_pc;
     uint32_t num_changes;
+    unsigned is_nrzi:1;
+    unsigned override_enabled:1;
 };
 
 static int cmp_reg(void* a,void* b){
@@ -291,6 +291,7 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint32_t 
         re->dst = dst;
         re->reg = reg;
         re->override = INT_MIN;
+        re->override_enabled = 0;
         re->is_nrzi = is_nrzi; /* initial guess; may be overriden */
         re->val = INT_MIN;
         re->prev_val = val;
@@ -302,7 +303,7 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint32_t 
     sei(old);
 
     /* fill the data */
-    if (re->override != INT_MIN)
+    if (re->override_enabled)
     {
         int ovr = re->is_nrzi ? (int)nrzi_encode(re->override) : re->override;
         uint16_t* val_ptr = addr;
@@ -311,9 +312,19 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint32_t 
         *val_ptr |= ovr;
     }
 
+    if (re->val != val)
+    {
+        int old = cli();
+        re->num_changes++;
+        re->val = val;
+        if (!re->override_enabled)
+        {
+            re->override = val;
+        }
+        sei(old);
+    }
+
     re->addr = addr;
-    if (re->val != val) re->num_changes++;
-    re->val = val;
     re->caller_task = caller_task;
     re->caller_pc = caller_pc;
 }
@@ -340,6 +351,7 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uin
         re->dst = dst;
         re->reg = reg;
         re->override = INT_MIN;
+        re->override_enabled = 0;
         re->is_nrzi = 0;
         re->val = INT_MIN;
         re->prev_val = val;
@@ -350,15 +362,25 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uin
     }
     sei(old);
 
-    if (re->override != INT_MIN)
+    if (re->override_enabled)
     {
         uint32_t ovr = re->override;
         *pval = ovr;
     }
 
+    if (re->val != val)
+    {
+        int old = cli();
+        re->num_changes++;
+        re->val = val;
+        if (!re->override_enabled)
+        {
+            re->override = val;
+        }
+        sei(old);
+    }
+    
     re->addr = pval;
-    if (re->val != val) re->num_changes++;
-    re->val = val;
     re->caller_task = caller_task;
     re->caller_pc = caller_pc;
 }
@@ -522,23 +544,56 @@ static MENU_SELECT_FUNC(adtg_toggle)
     }
 }
 
+static int get_reg_from_priv(void* priv)
+{
+    /* in order to use menu caret editing, entry->priv points to regs[reg].override */
+    return ((intptr_t) priv - (intptr_t) &regs[0].override) / sizeof(regs[0]);
+}
+
 static MENU_UPDATE_FUNC(reg_update)
 {
-    int reg = (int) entry->priv;
+    int reg = get_reg_from_priv(entry->priv);
     if (reg < 0 || reg >= COUNT(regs))
         return;
     
+    if (entry->selected && regs[reg].override != regs[reg].val)
+    {
+        /* this assummes override and val are always kept in sync by the log functions (atomic updates) */
+        /* so, in order to make sure they are identical, we need to check their equality in an atomic operation too */
+        int old = cli();
+        if (regs[reg].override != regs[reg].val)
+        {
+            regs[reg].override_enabled = 1;
+        }
+        sei(old);
+    }
+    
     char dst_name[10];
     if (regs[reg].dst == DST_DFE)
+    {
         snprintf(dst_name, sizeof(dst_name), "DFE");
+        entry->max = 0xFFFF;
+    }
     else if (regs[reg].dst == DST_CMOS)
+    {
         snprintf(dst_name, sizeof(dst_name), "CMOS");
+        entry->max = 0xFFF;
+    }
     else if (regs[reg].dst == DST_CMOS16)
+    {
         snprintf(dst_name, sizeof(dst_name), "CMOS16");
+        entry->max = 0xFFF;
+    }
     else if (regs[reg].dst & 0xFFF0)
+    {
         snprintf(dst_name, sizeof(dst_name), "%X", regs[reg].dst);
+        entry->max = 0x40000000; /* fixme: menu backend freezes at higher values */
+    }
     else
+    {
         snprintf(dst_name, sizeof(dst_name), "ADTG%d", regs[reg].dst);
+        entry->max = 0xFFFF;
+    }
 
     for (int i = 0; i < COUNT(known_regs); i++)
     {
@@ -550,7 +605,7 @@ static MENU_UPDATE_FUNC(reg_update)
     
     MENU_SET_NAME("%s[%x]%s", dst_name, regs[reg].reg, regs[reg].is_nrzi ? " N" : "");
     
-    if (show_what == SHOW_MODIFIED_SINCE_TIMESTAMP && regs[reg].override == INT_MIN)
+    if (show_what == SHOW_MODIFIED_SINCE_TIMESTAMP && !regs[reg].override_enabled)
     {
         MENU_SET_VALUE(
             "0x%x (was 0x%x)",
@@ -571,9 +626,10 @@ static MENU_UPDATE_FUNC(reg_update)
     if (reg_num >= COUNT(regs)-1)
         MENU_SET_WARNING(MENU_WARN_ADVICE, "Too many registers.");
 
-    MENU_SET_ICON(MNI_BOOL(regs[reg].override != INT_MIN), 0);
+    MENU_SET_ICON(MNI_BOOL(regs[reg].override_enabled), 0);
+    MENU_SET_ENABLED(1);
 
-    if (regs[reg].override != INT_MIN)
+    if (regs[reg].override_enabled)
     {
         MENU_SET_RINFO("-> 0x%x", regs[reg].override);
         if (menu_active_and_not_hidden())
@@ -610,39 +666,30 @@ static MENU_UPDATE_FUNC(reg_update)
     }
 }
 
-static MENU_SELECT_FUNC(reg_toggle)
+static MENU_SELECT_FUNC(reg_toggle_override)
 {
-    int reg = (int) priv;
+    int reg = get_reg_from_priv(priv);
     if (reg < 0 || reg >= COUNT(regs))
         return;
     
-    if (regs[reg].override == INT_MIN)
-        regs[reg].override = regs[reg].is_nrzi ? nrzi_decode(regs[reg].val) : regs[reg].val;
- 
-    /* this must match the menu entry */
-    static int multipliers[] = {1, 16, 256, 4096, 2, 4, 8, 10, 100, 1000};
-    regs[reg].override += delta * multipliers[edit_multiplier];
-}
-
-static MENU_SELECT_FUNC(reg_clear_override)
-{
-    int reg = (int) priv;
-    if (reg < 0 || reg >= COUNT(regs))
-        return;
-    
-    if (regs[reg].override != INT_MIN)
-        regs[reg].override = INT_MIN;
+    if (regs[reg].override_enabled)
+    {
+        regs[reg].override = regs[reg].val;
+        regs[reg].override_enabled = 0;
+    }
     else
+    {
         menu_close_submenu(); 
+    }
 }
 
 #define REG_ENTRY(i) \
         { \
-            .priv = (void*)i, \
-            .select = reg_toggle, \
-            .select_Q = reg_clear_override, \
+            .priv = &regs[i].override, \
+            .select_Q = reg_toggle_override, \
             .update = reg_update, \
-            .edit_mode = EM_MANY_VALUES_LV, \
+            .unit = UNIT_HEX, \
+            .max = 0xFFFF, \
             .shidden = 1, \
         }
 
@@ -737,14 +784,6 @@ static struct menu_entry adtg_gui_menu[] =
         .help = "Edit ADTG/CMOS register values.",
         .submenu_width = 710,
         .children =  (struct menu_entry[]) {
-            {
-                .name = "Editing step", 
-                .priv = &edit_multiplier,
-                .max = 9,
-                /* 1, 16, 256, 4096, 2, 4, 8, 10, 100, 1000 */
-                .choices = CHOICES("1", "16 (x << 4)", "256 (x << 8)", "4096", "2", "4", "8", "10", "100", "1000"),
-                .help = "Step used when editing register values."
-            },
             {
                 .name = "Show",
                 .priv = &show_what,
@@ -4916,9 +4955,9 @@ static MENU_UPDATE_FUNC(show_update)
     for (int reg = 0; reg < reg_num; reg++)
     {
         /* XXX: change this if you ever add or remove menu entries */
-        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 3]);
+        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 2]);
         
-        if ((int)entry->priv != reg)
+        if (get_reg_from_priv(entry->priv) != reg)
             break;
 
         int visible = 0;
@@ -4949,7 +4988,7 @@ static MENU_UPDATE_FUNC(show_update)
             }
             case SHOW_OVERRIDEN:
             {
-                visible = regs[reg].override != INT_MIN;
+                visible = regs[reg].override_enabled;
                 break;
             }
             case SHOW_ALL:
