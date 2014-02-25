@@ -61,6 +61,8 @@ static struct known_reg known_regs[] = {
     {DST_ADTG,    0xA, 0, "ADTG preamp (per column, mod 4 or mod 8)"},
     {DST_ADTG,    0xB, 0, "ADTG preamp (per column, mod 4 or mod 8)"},
 
+    {DST_ADTG,   0xFE, 0, "Yet another ADTG gain"},
+
     {DST_ADTG, 0x105F, 1, "Shutter blanking for x5/x10 zoom"},
     {DST_ADTG, 0x106E, 1, "Shutter blanking for LiveView 1x"},
 
