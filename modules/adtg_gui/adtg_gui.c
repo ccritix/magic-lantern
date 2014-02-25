@@ -66,7 +66,10 @@ static struct known_reg known_regs[] = {
 
     {DST_ADTG,   0x14, 1, "ISO related"},
     {DST_ADTG,   0x15, 1, "ISO related"},
-    
+
+    {0xC0F0,   0x3074, 0, "Playback: horizontal banding (500D only?)"},
+    {0xC0F0,   0x3050, 0, "Playback: vertical banding / darken?"},
+
     {0xC0F0,   0x8024, 0, "ISO related? (5D2: used for ISO 25600)"},
     {0xC0F0,   0x8030, 0, "Digital gain for ISO (SHAD_GAIN)"},
     {0xC0F0,   0x8034, 0, "Black level used for developing the image (SHAD_PRESETUP)"},
