@@ -128,9 +128,9 @@ uint8_t* bmp_vram_idle();
 #endif
 
 /* GPL: http://www.softicons.com/free-icons/system-icons/human-o2-grunge-icons-by-aleksandra-wolska/devices-audio-input-microphone-icon */
-#define BMP_ICON_MIC      CARD_DRIVE"ML/ICONS/MIC.BMP"
+#define BMP_ICON_MIC      "ML/ICONS/MIC.BMP"
 /* CC BY-NC-SA 3.0: http://www.softicons.com/free-icons/computer-icons/tools-hardware-pack-4-by-exhumed/sennheiser-pxc-450-headphones-icon */
-#define BMP_ICON_HEADPHNE CARD_DRIVE"ML/ICONS/HEADPHON.BMP"
+#define BMP_ICON_HEADPHNE "ML/ICONS/HEADPHON.BMP"
 
 #define BMP_TOTAL_WIDTH (BMP_W_PLUS - BMP_W_MINUS)
 #define BMP_TOTAL_HEIGHT (BMP_H_PLUS - BMP_H_MINUS)
