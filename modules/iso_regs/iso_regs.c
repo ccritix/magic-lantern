@@ -25,14 +25,14 @@ static CONFIG_INT("gain.digital", digital_gain, 0);
 static CONFIG_INT("saturate.offset", saturate_offset, 0);
 static CONFIG_INT("black.offset", black_white_offset, 0);
 static CONFIG_INT("black.ref", black_reference, 0);
-static CONFIG_INT("black.adtg", adtg_black, -1);
+static CONFIG_INT("adtg.preamp", adtg_preamp, -1);
 static int default_cmos_gain = 0;
 static int default_adtg_gain = 0;
 static int default_digital_gain = 0;
 static int default_saturate_offset = 0;
 static int default_black_white_offset = 0;
 static int default_black_reference = 0;
-static int default_adtg_black = 0;
+static int default_adtg_preamp = 0;
 
 /* default settings used for full-stop ISOs */
 static int default_white_level_fullstop = 15283;        /* my 5D3 only */
@@ -164,8 +164,8 @@ static void adtg_log(breakpoint_t *bkpt)
         }
         if ((reg == 0x8 || reg == 0x9 || reg == 0xA || reg == 0xB) && (dst == 2 || dst == 4))
         {
-            if (reg == 0x8 && dst == 2) default_adtg_black = val;
-            if (adtg_black >= 0) val = adtg_black;
+            if (reg == 0x8 && dst == 2) default_adtg_preamp = val;
+            if (adtg_preamp >= 0) val = adtg_preamp;
             *data_buf = (reg << 16) | (val & 0xFFFF);
         }
         if ((reg == 0x8880) && (dst == 6))
@@ -402,7 +402,7 @@ static MENU_UPDATE_FUNC(black_reference_update)
     }
 }
 
-static MENU_UPDATE_FUNC(adtg_black_update)
+static MENU_UPDATE_FUNC(adtg_preamp_update)
 {
     if (CURRENT_VALUE < 0)
     {
@@ -416,7 +416,7 @@ static MENU_UPDATE_FUNC(adtg_black_update)
     
     if (default_adtg_gain)
     {
-        MENU_SET_RINFO("Default %d", default_adtg_black);
+        MENU_SET_RINFO("Default %d", default_adtg_preamp);
     }
 
     check_warnings(entry, info);
@@ -517,13 +517,14 @@ static struct menu_entry iso_regs_menu[] =
                 .help2 = "(I believe this is analog correction of the black level)",
             },
             {
-                .name = "ADTG black",
-                .priv = &adtg_black,
-                .update = adtg_black_update,
+                .name = "ADTG preamp",
+                .priv = &adtg_preamp,
+                .update = adtg_preamp_update,
                 .min = -1,
                 .max = 0x100,
                 .unit = UNIT_DEC,
-                .help  = "Some black offset related to ADTG gains.",
+                .help  = "Gain applied before the ADTG gain and before black clamping.",
+                .help2 = "Units: EV (1 unit = 0.006 EV)"
             },
             {
                 .name = "Resulting ISO",
@@ -588,5 +589,5 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(saturate_offset)
     MODULE_CONFIG(black_white_offset)
     MODULE_CONFIG(black_reference)
-    MODULE_CONFIG(adtg_black)
+    MODULE_CONFIG(adtg_preamp)
 MODULE_CONFIGS_END()
