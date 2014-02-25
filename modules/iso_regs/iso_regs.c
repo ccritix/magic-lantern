@@ -26,6 +26,7 @@ static CONFIG_INT("saturate.offset", saturate_offset, 0);
 static CONFIG_INT("black.offset", black_white_offset, 0);
 static CONFIG_INT("black.ref", black_reference, 0);
 static CONFIG_INT("adtg.preamp", adtg_preamp, -1);
+static CONFIG_INT("adtg.fe", adtg_fe, -1);
 static int default_cmos_gain = 0;
 static int default_adtg_gain = 0;
 static int default_digital_gain = 0;
@@ -33,6 +34,7 @@ static int default_saturate_offset = 0;
 static int default_black_white_offset = 0;
 static int default_black_reference = 0;
 static int default_adtg_preamp = 0;
+static int default_adtg_fe = 0;
 
 /* default settings used for full-stop ISOs */
 static int default_white_level_fullstop = 15283;        /* my 5D3 only */
@@ -166,6 +168,12 @@ static void adtg_log(breakpoint_t *bkpt)
         {
             if (reg == 0x8 && dst == 2) default_adtg_preamp = val;
             if (adtg_preamp >= 0) val = adtg_preamp;
+            *data_buf = (reg << 16) | (val & 0xFFFF);
+        }
+        if ((reg == 0xFE) && (dst == 2 || dst == 4))
+        {
+            if (dst == 2) default_adtg_fe = val;
+            if (adtg_fe >= 0) val = adtg_fe;
             *data_buf = (reg << 16) | (val & 0xFFFF);
         }
         if ((reg == 0x8880) && (dst == 6))
@@ -414,9 +422,29 @@ static MENU_UPDATE_FUNC(adtg_preamp_update)
         MENU_SET_ENABLED(1);
     }
     
-    if (default_adtg_gain)
+    if (default_adtg_preamp)
     {
         MENU_SET_RINFO("Default %d", default_adtg_preamp);
+    }
+
+    check_warnings(entry, info);
+}
+
+static MENU_UPDATE_FUNC(adtg_fe_update)
+{
+    if (CURRENT_VALUE < 0)
+    {
+        MENU_SET_VALUE("OFF");
+        MENU_SET_ENABLED(0);
+    }
+    else
+    {
+        MENU_SET_ENABLED(1);
+    }
+    
+    if (default_adtg_fe)
+    {
+        MENU_SET_RINFO("Default %d", default_adtg_fe);
     }
 
     check_warnings(entry, info);
@@ -431,6 +459,8 @@ static MENU_SELECT_FUNC(copy_canon_settings)
     saturate_offset = default_saturate_offset;
     black_white_offset = default_black_white_offset;
     black_reference = default_black_reference;
+    adtg_preamp = default_adtg_preamp;
+    adtg_fe = default_adtg_fe;
 }
 
 static MENU_SELECT_FUNC(disable_overrides)
@@ -445,6 +475,8 @@ static MENU_SELECT_FUNC(disable_overrides)
     saturate_offset = 0;
     black_white_offset = 0;
     black_reference = 0;
+    adtg_preamp = -1;
+    adtg_fe = -1;
 }
 
 static struct menu_entry iso_regs_menu[] =
@@ -527,6 +559,15 @@ static struct menu_entry iso_regs_menu[] =
                 .help2 = "Units: EV (1 unit = 0.006 EV)"
             },
             {
+                .name = "ADTG 0xFE",
+                .priv = &adtg_fe,
+                .update = adtg_fe_update,
+                .min = -1,
+                .max = 0x100,
+                .unit = UNIT_DEC,
+                .help  = "Yet another ADTG gain.",
+            },
+            {
                 .name = "Resulting ISO",
                 .update = resulting_iso_update,
                 .help = "ISO (by DxO definition) obtained with current parameters,",
@@ -590,4 +631,5 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(black_white_offset)
     MODULE_CONFIG(black_reference)
     MODULE_CONFIG(adtg_preamp)
+    MODULE_CONFIG(adtg_fe)
 MODULE_CONFIGS_END()
