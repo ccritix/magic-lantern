@@ -685,6 +685,7 @@ static void compare_2_shots(int min_adu)
     /* values from previous shot */
     static float black_prev;
     static int white_prev;
+    static float noise_prev;
     
     /* exposure difference */
     float expo_delta_median = 0;
@@ -905,6 +906,8 @@ static void compare_2_shots(int min_adu)
     {
         int exp_med = (int)roundf(expo_delta_median * 100);
         int exp_clip = (int)roundf(expo_delta_clip * 100);
+        int noi = (int)roundf(noise * 100);
+        int noi_prev = (int)roundf(noise_prev * 100);
         big_bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, 
             "2-shot comparison\n"
             "%s\n"
@@ -912,15 +915,19 @@ static void compare_2_shots(int min_adu)
             "Y: %s\n"
             "Black level X: %d\n"
             "White level X: %d\n"
+            "Noise stdev X: %s%d.%02dEV\n"
             "Black level Y: %d\n"
             "White level Y: %d\n"
+            "Noise stdev Y: %s%d.%02dEV\n"
             "Expo diff (med): %s%d.%02dEV\n"
             "Expo diff (clip): %s%d.%02dEV\n"
             "Grid from %d to %d EV.\n"
             "Saved %s.",
             camera_model, prev_info, info,
             (int)roundf(black_prev), white_prev,
+            FMT_FIXEDPOINT2(noi_prev),
             (int)roundf(black), white,
+            FMT_FIXEDPOINT2(noi),
             FMT_FIXEDPOINT2(exp_med), FMT_FIXEDPOINT2(exp_clip),
             (int)roundf(log2f(min_adu)), 14,
             mfile
@@ -930,6 +937,7 @@ static void compare_2_shots(int min_adu)
     snprintf(prev_info, sizeof(prev_info), "%s", info);
     black_prev = black;
     white_prev = white;
+    noise_prev = noise;
 
     /* save data from this picture, to be used with the next one */
     dump_seg(this, data_size, prev_filename);
