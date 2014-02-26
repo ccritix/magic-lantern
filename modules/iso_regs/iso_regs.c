@@ -72,6 +72,26 @@ static int extended_cmos_gains[16] = {
     0xFF3,  /* ISO 12800 */
 };
 
+/* todo: double-check these with raw_diag */
+static int extended_cmos_isos[16] = {
+    100,
+    200,
+    400,
+    800,
+    1600,
+    3200,
+    600,
+    6000,
+    200,
+    400,
+    800,
+    1600,
+    3000,
+    6400,
+    1100,
+    12800,
+};
+
 /* only used to do the math on equivalent ISOs and so on */
 /* these vary from camera to camera slightly (say 2-3 units) */
 static int fullstop_adtg_gains[8] = {
@@ -273,17 +293,31 @@ static int get_resulting_iso()
     highlights_pulled += (black_reference ? default_black_reference - black_reference : 0);
     int old_range = default_white_level_fullstop - default_black_level_fullstop;
     int new_range = old_range + highlights_pulled;
+    float saturate_offset_scaling = (float) old_range / new_range;
     
     /* consider Canon full-stop ISOs accurate (ISO 100, 200, 400...) */
     /* that means, default register configuration at these ISOs is used as reference */
     int current_cmos_gain = cmos_gain ? cmos_gain : default_cmos_gain;
-    int iso_index = get_cmos_iso_index(current_cmos_gain);
-    int base_iso = 100 * (1 << iso_index);
+    int base_iso = extended_cmos_isos[(current_cmos_gain >> 4) & 0xF];
+    int iso_index = (int)roundf(log2f(base_iso / 100.0f));
     
     /* note that we may get some differences because ADTG default gains are not constant (continuously calibrated?) */
-    /* also, the formula is no longer valid when the white level starts to drop */
     int current_adtg_gain = adtg_gain ? adtg_gain : default_adtg_gain;
-    int equivalent_iso = (int)roundf((float)base_iso * current_adtg_gain / fullstop_adtg_gains[iso_index] * old_range / new_range);
+    float adtg_gain_scaling = (float) current_adtg_gain / fullstop_adtg_gains[iso_index];
+    
+    /* ADTG preamp is a gain configured in EV, where 1 unit = roughly 0.0059 EV */
+    int adtg_preamp_delta = adtg_preamp >= 0 ? adtg_preamp - default_adtg_preamp : 0;
+    float adtg_preamp_scaling = powf(2, adtg_preamp_delta * 0.0059f);
+    
+    /* register 0xFE is irregular (seems to control 3 amplifiers triggered by bits, but the measured gains don't fully match this hypothesis) */
+    float gains_fe[8] = {-0.54, -0.46, -0.43, -0.37, 0, 0.11, 0.18, 0.32};
+    int current_fe = adtg_fe >= 0 ? adtg_fe : default_adtg_fe;
+    float adtg_fe_scaling = powf(2, gains_fe[current_fe & 7]);
+
+    /* combine all these gains */
+    /* assumming the white level did not drop, and the response curve is still linear, the result should be fine */
+    int equivalent_iso = (int)roundf(base_iso * saturate_offset_scaling * adtg_gain_scaling * adtg_preamp_scaling * adtg_fe_scaling);
+    
     return equivalent_iso;
 }
 
@@ -563,14 +597,14 @@ static struct menu_entry iso_regs_menu[] =
                 .priv = &adtg_fe,
                 .update = adtg_fe_update,
                 .min = -1,
-                .max = 0x100,
+                .max = 7,
                 .unit = UNIT_DEC,
                 .help  = "Yet another ADTG gain.",
             },
             {
                 .name = "Resulting ISO",
                 .update = resulting_iso_update,
-                .help = "ISO (by DxO definition) obtained with current parameters,",
+                .help = "ISO (by average brightness) obtained with current parameters,",
                 .help2 = "assuming ISO 100, 200 ... 12800 are real, and no over/underflows."
             },
             {
