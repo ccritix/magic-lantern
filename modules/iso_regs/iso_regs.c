@@ -310,7 +310,7 @@ static int get_resulting_iso()
     float adtg_preamp_scaling = powf(2, adtg_preamp_delta * 0.0059f);
     
     /* register 0xFE is irregular (seems to control 3 amplifiers triggered by bits, but the measured gains don't fully match this hypothesis) */
-    float gains_fe[8] = {-0.54, -0.46, -0.43, -0.37, 0, 0.11, 0.18, 0.32};
+    float gains_fe[8] = {-0.55, -0.47, -0.43, -0.35, 0, 0.11, 0.17, 0.32};
     int current_fe = adtg_fe >= 0 ? adtg_fe : default_adtg_fe;
     float adtg_fe_scaling = powf(2, gains_fe[current_fe & 7]);
 
@@ -547,7 +547,7 @@ static struct menu_entry iso_regs_menu[] =
                 .priv = &saturate_offset,
                 .update = saturate_offset_update,
                 .min = 0,
-                .max = 2000,
+                .max = 5000,
                 .unit = UNIT_DEC,
                 .help  = "Alters black level and stretches the range, keeping white fixed.",
                 .help2 = "Decrease to get more highlight details, but watch out RAW zebras.",
