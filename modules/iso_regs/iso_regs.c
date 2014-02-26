@@ -187,7 +187,8 @@ static void adtg_log(breakpoint_t *bkpt)
         if ((reg == 0x8 || reg == 0x9 || reg == 0xA || reg == 0xB) && (dst == 2 || dst == 4))
         {
             if (reg == 0x8 && dst == 2) default_adtg_preamp = val;
-            if (adtg_preamp >= 0) val = adtg_preamp;
+            int delta = adtg_preamp - default_adtg_preamp;
+            if (adtg_preamp >= 0) val += delta;
             *data_buf = (reg << 16) | (val & 0xFFFF);
         }
         if ((reg == 0xFE) && (dst == 2 || dst == 4))
