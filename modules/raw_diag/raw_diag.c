@@ -689,6 +689,7 @@ static void compare_2_shots(int min_adu)
     
     /* exposure difference */
     float expo_delta_median = 0;
+    float expo_delta_median_normalized = 0;
     float expo_delta_clip = 0;
 
     int N = 30000;
@@ -777,10 +778,16 @@ static void compare_2_shots(int min_adu)
         int* deltas = malloc(N * sizeof(int)); if (!deltas) return;
         for (int i = 0; i < N; i++)
         {
-            float delta = log2f(MAX(this[i].pixel, 1)) - log2f(MAX(prev[i].pixel, 1)) - log2f(white - black) + log2f(white_prev - black_prev);
+            float delta = log2f(MAX(this[i].pixel, 1)) - log2f(MAX(prev[i].pixel, 1));
             deltas[i] = (int)roundf(1000.0f * delta);
         }
+        
+        /* raw median, assumming identical black and white levels */
         expo_delta_median = median_int_wirth(deltas, N) / 1000.0f;
+        
+        /* normalized, considering the difference in black and white levels */
+        expo_delta_median_normalized = expo_delta_median - log2f(white - black) + log2f(white_prev - black_prev);
+        
         free(deltas); deltas = 0;
         
         /* estimate exposure difference from clipping point */
@@ -905,6 +912,7 @@ static void compare_2_shots(int min_adu)
     if (ok)
     {
         int exp_med = (int)roundf(expo_delta_median * 100);
+        int exp_med_nor = (int)roundf(expo_delta_median_normalized * 100);
         int exp_clip = (int)roundf(expo_delta_clip * 100);
         int noi = (int)roundf(noise * 100);
         int noi_prev = (int)roundf(noise_prev * 100);
@@ -920,6 +928,7 @@ static void compare_2_shots(int min_adu)
             "White level Y: %d\n"
             "Noise stdev Y: %s%d.%02dEV\n"
             "Expo diff (med): %s%d.%02dEV\n"
+            "Normalized: %s%d.%02dEV\n"
             "Expo diff (clip): %s%d.%02dEV\n"
             "Grid from %d to %d EV.\n"
             "Saved %s.",
@@ -928,7 +937,7 @@ static void compare_2_shots(int min_adu)
             FMT_FIXEDPOINT2(noi_prev),
             (int)roundf(black), white,
             FMT_FIXEDPOINT2(noi),
-            FMT_FIXEDPOINT2(exp_med), FMT_FIXEDPOINT2(exp_clip),
+            FMT_FIXEDPOINT2(exp_med), FMT_FIXEDPOINT2(exp_med_nor), FMT_FIXEDPOINT2(exp_clip),
             (int)roundf(log2f(min_adu)), 14,
             mfile
         );
