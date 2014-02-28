@@ -533,12 +533,12 @@ static void darkframe_fpn()
 
 static int scale_for_plot_dots_x(float x, float min, float max, int x0, int w)
 {
-    return x0 + (x - min) * w / (max - min);
+    return COERCE(x0 + (x - min) * w / (max - min), x0, x0+w);
 }
 
 static int scale_for_plot_dots_y(float y, float min, float max, int y0, int h)
 {
-    return y0 + h - (y - min) * h / (max - min);;
+    return COERCE(y0 + h - (y - min) * h / (max - min), y0, y0+h);
 }
 
 static void plot_dots_grid(float min, float max, float step, int x0, int y0, int w, int h)
@@ -894,7 +894,7 @@ static void compare_2_shots(int min_adu)
         );
     }
 
-    static char prev_info[200];
+    static char prev_info[200] = "";
     char info[200];
 
     snprintf(info, sizeof(info),
@@ -1197,6 +1197,7 @@ static struct menu_entry raw_diag_menu[] =
 
 static unsigned int raw_diag_init()
 {
+    FIO_RemoveFile("RAWSAMPL.DAT");
     menu_add("Debug", raw_diag_menu, COUNT(raw_diag_menu));
     return 0;
 }
