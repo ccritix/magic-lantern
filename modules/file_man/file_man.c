@@ -1254,6 +1254,9 @@ static unsigned int fileman_deinit()
     if(mfile_root->next) return -1;
 
     //FUTURE TODO: release semaphore here.
+    //delete_semaphore(scandir_sem);
+    //delete_semaphore(mfile_sem);
+    
     clear_file_menu();
     mfile_clean_all();
     FreeMemory(mfile_root);
@@ -1264,5 +1267,5 @@ static unsigned int fileman_deinit()
 
 MODULE_INFO_START()
     MODULE_INIT(fileman_init)
-    MODULE_DEINIT(fileman_deinit)
+    //MODULE_DEINIT(fileman_deinit)
 MODULE_INFO_END()

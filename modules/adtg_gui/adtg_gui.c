@@ -85,6 +85,12 @@ struct reg_entry
 static struct reg_entry regs[512] = {{0}};
 static int reg_num = 0;
 
+    
+static breakpoint_t * bkpt1 = 0;
+static breakpoint_t * bkpt2 = 0;
+static breakpoint_t * bkpt3 = 0;
+static breakpoint_t * bkpt4 = 0;
+
 static int known_match(int i, int reg)
 {
     return
@@ -210,31 +216,45 @@ static void cmos16_log(breakpoint_t *bkpt)
     }
 }
 
+static void adtg_install_bkpt()
+{
+    if(!gdb_setup())
+    {
+        return;
+    }
+    
+    if (ADTG_WRITE_FUNC)   bkpt1 = gdb_add_watchpoint(ADTG_WRITE_FUNC, 0, &adtg_log);
+    if (CMOS_WRITE_FUNC)   bkpt2 = gdb_add_watchpoint(CMOS_WRITE_FUNC, 0, &cmos_log);
+    if (CMOS2_WRITE_FUNC)  bkpt3 = gdb_add_watchpoint(CMOS2_WRITE_FUNC, 0, &cmos_log);
+    if (CMOS16_WRITE_FUNC) bkpt4 = gdb_add_watchpoint(CMOS16_WRITE_FUNC, 0, &cmos16_log);
+}
+
+static void adtg_uninstall_bkpt()
+{
+    if (bkpt1) gdb_delete_bkpt(bkpt1);
+    if (bkpt2) gdb_delete_bkpt(bkpt2);
+    if (bkpt3) gdb_delete_bkpt(bkpt3);
+    if (bkpt4) gdb_delete_bkpt(bkpt4);
+    
+    bkpt1 = NULL;
+    bkpt2 = NULL;
+    bkpt3 = NULL;
+    bkpt4 = NULL;
+}
+
 static MENU_SELECT_FUNC(adtg_toggle)
 {
     adtg_enabled = !adtg_enabled;
     
-    static breakpoint_t * bkpt1 = 0;
-    static breakpoint_t * bkpt2 = 0;
-    static breakpoint_t * bkpt3 = 0;
-    static breakpoint_t * bkpt4 = 0;
-    
     if (adtg_enabled)
     {
         /* set watchpoints at ADTG and CMOS writes */
-        gdb_setup();
-        if (ADTG_WRITE_FUNC)   bkpt1 = gdb_add_watchpoint(ADTG_WRITE_FUNC, 0, &adtg_log);
-        if (CMOS_WRITE_FUNC)   bkpt2 = gdb_add_watchpoint(CMOS_WRITE_FUNC, 0, &cmos_log);
-        if (CMOS2_WRITE_FUNC)  bkpt3 = gdb_add_watchpoint(CMOS2_WRITE_FUNC, 0, &cmos_log);
-        if (CMOS16_WRITE_FUNC) bkpt4 = gdb_add_watchpoint(CMOS16_WRITE_FUNC, 0, &cmos16_log);
+        adtg_install_bkpt();
     }
     else
     {
         /* uninstall watchpoints */
-        if (bkpt1) gdb_delete_bkpt(bkpt1);
-        if (bkpt2) gdb_delete_bkpt(bkpt2);
-        if (bkpt3) gdb_delete_bkpt(bkpt3);
-        if (bkpt4) gdb_delete_bkpt(bkpt4);
+        adtg_uninstall_bkpt();
     }
 }
 
@@ -1074,7 +1094,10 @@ static unsigned int adtg_gui_init()
 
 static unsigned int adtg_gui_deinit()
 {
-    return 0;
+    menu_remove("Debug", adtg_gui_menu, COUNT(adtg_gui_menu));
+    adtg_uninstall_bkpt();
+    
+    return MODULE_UNLOADED;
 }
 
 MODULE_INFO_START()

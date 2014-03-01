@@ -1,12 +1,14 @@
-adtg_log
-========
+ADTG logger
+===========
 
-Please write a one-page description for your module here.
+This module is for logging ADTG and CMOS writes.
+Hacker's toolbox, probably not what you want.
 
-You may also add some metadata:
+adtg_gui is the successor.
 
-:Author: <your name here>
-:License: <your license here>
-:Website: <your website here>
+:Author: a1ex/g3gg0
+:License: GPL
+:Website: http://www.magiclantern.fm/forum/index.php?topic=6751.0
+:Summary: Hackers toolbox for ADTG
 
 

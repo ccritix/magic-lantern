@@ -4203,7 +4203,7 @@ static unsigned int raw_rec_deinit()
 
 MODULE_INFO_START()
     MODULE_INIT(raw_rec_init)
-    MODULE_DEINIT(raw_rec_deinit)
+    //MODULE_DEINIT(raw_rec_deinit)
 MODULE_INFO_END()
 
 MODULE_CBRS_START()

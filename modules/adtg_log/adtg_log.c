@@ -1,10 +1,6 @@
 /**
- * 
+ * ADTG logging toolbox
  */
-
-#define ADTG_WRITE_FUNC   0x11644
-#define CMOS_WRITE_FUNC   0x119CC
-#define CMOS16_WRITE_FUNC 0x11AB8
 
 #include <module.h>
 #include <dryos.h>
@@ -16,13 +12,20 @@
 #include <gdb.h>
 #include <cache_hacks.h>
 
-unsigned int hook_calls = 0;
+static unsigned int log_abort = 0;
+static unsigned int log_running = 0;
 
-unsigned int *adtg_buf = NULL;
-unsigned int adtg_buf_pos = 0;
-unsigned int adtg_buf_pos_max = 0;
-unsigned int adtg_current_vsync_pos = 0;
-unsigned int adtg_last_vsync_pos = 0;
+static unsigned int hook_calls = 0;
+static unsigned int *adtg_buf = NULL;
+static unsigned int adtg_buf_pos = 0;
+static unsigned int adtg_buf_pos_max = 0;
+static unsigned int adtg_current_vsync_pos = 0;
+static unsigned int adtg_last_vsync_pos = 0;
+
+static uint32_t ADTG_WRITE_FUNC = 0;
+static uint32_t CMOS_WRITE_FUNC = 0;
+static uint32_t CMOS2_WRITE_FUNC = 0;
+static uint32_t CMOS16_WRITE_FUNC = 0;
 
 static uint32_t nrzi_decode( uint32_t in_val )
 {
@@ -191,6 +194,8 @@ void adtg_log_task()
         return;
     }
     
+    log_running++;
+    
     /* set watchpoints at ADTG and CMOS writes */
     gdb_setup();
     breakpoint_t *bkpt1 = gdb_add_watchpoint(ADTG_WRITE_FUNC, 0, &adtg_log);
@@ -234,6 +239,11 @@ void adtg_log_task()
             }
         }
         msleep(100);
+        
+        if(log_abort)
+        {
+            break;
+        }
     }
     
     beep();
@@ -254,6 +264,8 @@ void adtg_log_task()
     void *buf = adtg_buf;
     adtg_buf = NULL;
     shoot_free(buf);
+    
+    log_running--;
 }
 
 static MENU_SELECT_FUNC(adtg_log_toggle)
@@ -341,12 +353,89 @@ static struct menu_entry adtg_log_menu[] =
 
 static unsigned int adtg_log_init()
 {
+    if (is_camera("5D3", "1.1.3"))
+    {
+        ADTG_WRITE_FUNC = 0x11644;
+        CMOS_WRITE_FUNC = 0x119CC;
+        CMOS2_WRITE_FUNC = 0x11784;
+        CMOS16_WRITE_FUNC = 0x11AB8;
+    }
+    else if (is_camera("5D3", "1.2.3"))
+    {
+        ADTG_WRITE_FUNC = 0x11644;    // 0xFFA01E04 - RAM_OFFSET
+        CMOS_WRITE_FUNC = 0x119CC;    // 0xFFA0218C - RAM_OFFSET
+        CMOS2_WRITE_FUNC = 0x11784;   // 0xFFA01F44 - RAM_OFFSET
+        CMOS16_WRITE_FUNC = 0x11AB8;  // 0xFFA02278 - RAM_OFFSET
+    }
+    else if (is_camera("5D2", "2.1.2"))
+    {
+        ADTG_WRITE_FUNC = 0xffa35cbc;
+        CMOS_WRITE_FUNC = 0xffa35e70;
+    }
+    else if (is_camera("500D", "1.1.1")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg70325#msg70325
+    {
+        ADTG_WRITE_FUNC = 0xFF22F8F4; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
+        CMOS_WRITE_FUNC = 0xFF22F9DC; //"[REG] ############ Start CMOS"
+    }
+    else if (is_camera("550D", "1.0.9")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg61551#msg61551
+    {
+        ADTG_WRITE_FUNC = 0xff27ee34;
+        CMOS_WRITE_FUNC = 0xff27f028;
+    }
+    else if (is_camera("60D", "1.1.1")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg69719#msg69719
+    {
+        ADTG_WRITE_FUNC = 0xFF2C9788; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
+        CMOS_WRITE_FUNC = 0xFF2C997C; //"[REG] ############ Start CMOS"
+    }
+    else if (is_camera("50D", "1.0.9")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg63322#msg63322
+    {
+        ADTG_WRITE_FUNC = 0xFFA11FDC;
+        CMOS_WRITE_FUNC = 0xFFA12190;
+    }
+    else if (is_camera("6D", "1.1.3")) // from 1%
+    {
+        CMOS_WRITE_FUNC = 0x2445C; //"[REG] ############ Start CMOS OC_KICK"
+        CMOS2_WRITE_FUNC = 0x2420C; //"[REG] ############ Start CMOS"
+        ADTG_WRITE_FUNC = 0x24108; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
+        CMOS16_WRITE_FUNC = 0x24548; //"[REG] ############ Start CMOS16 OC_KICK"
+    }
+    else if (is_camera("EOSM", "2.0.2")) // from 1%
+    {
+        ADTG_WRITE_FUNC = 0x2986C;
+        CMOS_WRITE_FUNC = 0x2998C;
+    }
+    else if (is_camera("600D", "1.0.2")) // from 1% TL 2.0
+    {
+        ADTG_WRITE_FUNC = 0xFF2DCEF4; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
+        CMOS_WRITE_FUNC = 0xFF2DD0E8; //"[REG] ############ Start CMOS"
+    }
+    else if (is_camera("650D", "1.0.4"))
+    {
+        ADTG_WRITE_FUNC = 0x178FC; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
+        CMOS_WRITE_FUNC = 0x17A1C; //"[REG] ############ Start CMOS"
+    }
+    else if (is_camera("700D", "1.1.1"))
+    {
+        ADTG_WRITE_FUNC = 0x178FC; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
+        CMOS_WRITE_FUNC = 0x17A1C; //"[REG] ############ Start CMOS"
+    }    
+    else return CBR_RET_ERROR;
+
+    
     menu_add("Movie", adtg_log_menu, COUNT(adtg_log_menu));
     return 0;
 }
 
 static unsigned int adtg_log_deinit()
 {
+    menu_remove("Movie", adtg_log_menu, COUNT(adtg_log_menu));
+    
+    while(log_running)
+    {
+        log_abort = 1;
+        msleep(100);
+    }
+    
     return 0;
 }
 
@@ -356,12 +445,6 @@ MODULE_INFO_START()
     MODULE_INIT(adtg_log_init)
     MODULE_DEINIT(adtg_log_deinit)
 MODULE_INFO_END()
-
-MODULE_STRINGS_START()
-    MODULE_STRING("Description", "ADTG Logging")
-    MODULE_STRING("License", "GPL")
-    MODULE_STRING("Author", "g3gg0")
-MODULE_STRINGS_END()
 
 MODULE_CBRS_START()
     MODULE_CBR(CBR_VSYNC, adtg_log_vsync_cbr, 0)

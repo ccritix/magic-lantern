@@ -546,6 +546,14 @@ unsigned int arkanoid_init() {
 
 unsigned int arkanoid_deinit()
 {
+    menu_remove("Games", arkanoid_menu, COUNT(arkanoid_menu));
+    
+    while(arkanoid_running)
+    {
+        game_quit = 1;
+        msleep(100);
+    }
+    
     return 0;
 }
 

@@ -2234,7 +2234,7 @@ static unsigned int mlv_play_deinit()
 
 MODULE_INFO_START()
     MODULE_INIT(mlv_play_init)
-    MODULE_DEINIT(mlv_play_deinit)
+    //MODULE_DEINIT(mlv_play_deinit)
 MODULE_INFO_END()
 
 MODULE_CBRS_START()

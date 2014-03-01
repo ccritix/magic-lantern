@@ -571,6 +571,7 @@ static unsigned int autoexpo_init()
 
 static unsigned int autoexpo_deinit()
 {
+    menu_remove("Expo", autoexpo_menu, COUNT(autoexpo_menu));
     return 0;
 }
 
