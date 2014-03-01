@@ -24,11 +24,7 @@ extern int sscanf(const char *str, const char *format, ...);
 
 static module_entry_t module_list[MODULE_COUNT_MAX];
 
-#ifdef CONFIG_TCC_UNLOAD
-static void* module_code = NULL;
-#else
-static TCCState *module_state = NULL;
-#endif
+static void *module_allocated_memory = NULL;
 
 static struct menu_entry module_submenu[];
 static struct menu_entry module_menu[];
@@ -44,10 +40,158 @@ static struct msg_queue * module_mq = 0;
 #define MSG_MODULE_LOAD_OFFLINE_STRINGS 3 /* argument: module index in high half (FFFF0000) */
 #define MSG_MODULE_UNLOAD_OFFLINE_STRINGS 4 /* same argument */
 
+
+static uint32_t module_mgmt_running = 0;
+static uint32_t module_cbrs_running = 0;
+static uint32_t module_tasks_running = 0;
+static uint32_t module_prophandlers_running = 0;
+
+static module_taskinfo_t module_task_map[0x100];
+
+
+static void module_set_task_entry(uint32_t task_id, char *function)
+{
+    module_task_map[task_id & 0xFF].function = function;
+}
+
+static void module_set_task_module(uint32_t task_id, uint32_t module)
+{
+    if(module < MODULE_COUNT_MAX)
+    {
+        module_task_map[task_id & 0xFF].module = module;
+    }
+    else
+    {
+        module_task_map[task_id & 0xFF].module = MODULE_COUNT_MAX;
+    }
+}
+
+static uint32_t module_get_task_module(uint32_t task_id)
+{
+    uint32_t mod = module_task_map[task_id & 0xFF].module;
+    
+    if(mod < MODULE_COUNT_MAX)
+    {
+        return mod;
+    }
+    
+    return MODULE_COUNT_MAX;
+}
+
+static module_entry_t *module_get_task_module_entry(uint32_t task_id)
+{
+    uint32_t mod = module_get_task_module(task_id);
+    
+    if(mod < MODULE_COUNT_MAX)
+    {
+        return &module_list[mod];
+    }
+    
+    return NULL;
+}
+
+static uint32_t module_get_current_module()
+{
+    return module_get_task_module(get_current_task());
+}
+
+static void module_set_current_module(uint32_t module)
+{
+    return module_set_task_module(get_current_task(), module);
+}
+
+static char *module_get_function_name(void *func)
+{
+    char *func_name = "";
+    
+    /* get function name from function pointer, requires -mpoke-function-name */
+    uint32_t func_len_pos = (uint32_t)func - 4;
+    uint32_t func_len = MEM(func_len_pos);
+    
+    /* assume strings are not longer than 64k.... */
+    if((func_len & 0xFFFF0000) == 0xFF000000)
+    {
+        func_len &= 0x0000FFFF;
+        func_name = (char *)(func_len_pos - func_len);
+    }
+    
+    return func_name;
+}
+
+/* module wrapper functions */
+static void module_task_hook(uint32_t *wrap_arg)
+{
+    uint32_t mod = wrap_arg[0];
+    void (*entry)(void *) = (void (*)(void *))wrap_arg[1];
+    void *arg = (void *)wrap_arg[2];
+    
+    /* update the map with our module number */
+    module_set_current_module(mod);
+    module_set_task_entry(get_current_task(), module_get_function_name(entry));
+    
+    free(wrap_arg);
+    
+    util_atomic_inc(&module_tasks_running);
+    util_atomic_inc(&module_list[mod].tasks);
+    entry(arg);
+    util_atomic_dec(&module_list[mod].tasks);
+    util_atomic_dec(&module_tasks_running);
+
+    /* task is exiting into OS, so delete that assignment */
+    module_set_current_module(MODULE_COUNT_MAX);
+}
+
+
+static struct task *module_task_create(const char *name, uint32_t priority, uint32_t stack_size, void (*entry)(void *), void *arg)
+{
+    uint32_t *wrap_arg = (uint32_t*) malloc(3 * sizeof(uint32_t));
+    
+    wrap_arg[0] = module_get_current_module();
+    wrap_arg[1] = (uint32_t)entry;
+    wrap_arg[2] = (uint32_t)arg;
+    
+    NotifyBox(3000, "Create task by: #%d '%s'\n'entry: %s()'", wrap_arg[0], module_list[wrap_arg[0]].info->name, module_get_function_name(entry));
+
+    return task_create(name, priority, stack_size, &module_task_hook, wrap_arg);
+}
+
+
+static void module_prop_handler(uint32_t property, void *priv, void *buf, uint32_t len)
+{
+    for(uint32_t mod = 0; mod < MODULE_COUNT_MAX; mod++)
+    {
+        if(module_list[mod].valid && module_list[mod].prop_handlers)
+        {
+            module_prophandler_t **props = module_list[mod].prop_handlers;
+            while(*props != NULL)
+            {
+                /* did this module request the property? */
+                if(property == (*props)->property)
+                {
+                    /* we are leaving ML code, update everything to keep track which module is being executed */
+                    uint32_t prev_module = module_get_current_module();
+                    
+                    module_set_current_module(mod);
+                    util_atomic_inc(&module_prophandlers_running);
+
+                    /* call the requested property handler. we could also pass a priv property here, but there is most likely no use for */
+                    (*props)->handler(property, NULL, buf, len);
+                    
+                    /* module execution has finished, we are in ML core again */
+                    util_atomic_dec(&module_prophandlers_running);
+                    module_set_current_module(prev_module);
+                }
+                props++;
+            }
+        }
+    }
+}
+
 void module_load_all(void)
 { 
     msg_queue_post(module_mq, MSG_MODULE_LOAD_ALL); 
 }
+
 void module_unload_all(void)
 {
     msg_queue_post(module_mq, MSG_MODULE_UNLOAD_ALL); 
@@ -117,12 +261,18 @@ static int module_load_symbols(TCCState *s, char *filename)
         {
             pos++;
         }
-        //~ sscanf(address_buf, "%x", &address);
+        
         address = strtoul(address_buf, NULL, 16);
 
-        tcc_add_symbol(s, symbol_buf, (void*)address);
+        if(strcmp(symbol_buf, "task_create"))
+        {
+            tcc_add_symbol(s, symbol_buf, (void*)address);
+        }
         count++;
     }
+    
+    /* override task creation */
+    tcc_add_symbol(s, "task_create", &module_task_create);
     
     free_dma_memory(buf);
     return 0;
@@ -184,11 +334,7 @@ static void _module_load_all(uint32_t list_only)
     _module_unload_all();
 #endif
 
-#ifdef CONFIG_TCC_UNLOAD
-    if (module_code)
-#else
-    if (module_state)
-#endif
+    if (module_allocated_memory)
     {
         console_printf("Modules already loaded.\n");
         beep();
@@ -334,7 +480,8 @@ static void _module_load_all(uint32_t list_only)
     }
 
     console_printf("Linking..\n");
-#ifdef CONFIG_TCC_UNLOAD
+
+    /* get the required memory size for linking */
     int32_t size = tcc_relocate(state, NULL);
     int32_t reloc_status = -1;
     
@@ -343,13 +490,10 @@ static void _module_load_all(uint32_t list_only)
         void* buf = (void*) malloc(size);
         
         reloc_status = tcc_relocate(state, buf);
-        module_code = buf;
+        module_allocated_memory = buf;
     }
-    if(size < 0 || reloc_status < 0)
-#else
-    int32_t ret = tcc_relocate(state, TCC_RELOCATE_AUTO);
-    if(ret < 0)
-#endif
+    
+    if (size < 0 || reloc_status < 0)
     {
         console_printf("  [E] failed to link modules\n");
         for (uint32_t mod = 0; mod < module_cnt; mod++)
@@ -361,7 +505,10 @@ static void _module_load_all(uint32_t list_only)
                 snprintf(module_list[mod].long_status, sizeof(module_list[mod].long_status), "Linking failed");
             }
         }
-        tcc_delete(state); console_show();
+        free(module_allocated_memory);
+        module_allocated_memory = NULL;
+        tcc_delete(state);
+        console_show();
         return;
     }
     
@@ -371,21 +518,21 @@ static void _module_load_all(uint32_t list_only)
     {
         if(module_list[mod].valid && module_list[mod].enabled && !module_list[mod].error)
         {
-            char module_info_name[32];
+            char tmp_str[32];
 
             /* now check for info structure */
-            snprintf(module_info_name, sizeof(module_info_name), "%s%s", STR(MODULE_INFO_PREFIX), module_list[mod].name);
-            module_list[mod].info = tcc_get_symbol(state, module_info_name);
-            snprintf(module_info_name, sizeof(module_info_name), "%s%s", STR(MODULE_STRINGS_PREFIX), module_list[mod].name);
-            module_list[mod].strings = tcc_get_symbol(state, module_info_name);
-            snprintf(module_info_name, sizeof(module_info_name), "%s%s", STR(MODULE_PARAMS_PREFIX), module_list[mod].name);
-            module_list[mod].params = tcc_get_symbol(state, module_info_name);
-            snprintf(module_info_name, sizeof(module_info_name), "%s%s", STR(MODULE_PROPHANDLERS_PREFIX), module_list[mod].name);
-            module_list[mod].prop_handlers = tcc_get_symbol(state, module_info_name);
-            snprintf(module_info_name, sizeof(module_info_name), "%s%s", STR(MODULE_CBR_PREFIX), module_list[mod].name);
-            module_list[mod].cbr = tcc_get_symbol(state, module_info_name);
-            snprintf(module_info_name, sizeof(module_info_name), "%s%s", STR(MODULE_CONFIG_PREFIX), module_list[mod].name);
-            module_list[mod].config = tcc_get_symbol(state, module_info_name);
+            snprintf(tmp_str, sizeof(tmp_str), "%s%s", STR(MODULE_INFO_PREFIX), module_list[mod].name);
+            module_list[mod].info = tcc_get_symbol(state, tmp_str);
+            snprintf(tmp_str, sizeof(tmp_str), "%s%s", STR(MODULE_STRINGS_PREFIX), module_list[mod].name);
+            module_list[mod].strings = tcc_get_symbol(state, tmp_str);
+            snprintf(tmp_str, sizeof(tmp_str), "%s%s", STR(MODULE_PARAMS_PREFIX), module_list[mod].name);
+            module_list[mod].params = tcc_get_symbol(state, tmp_str);
+            snprintf(tmp_str, sizeof(tmp_str), "%s%s", STR(MODULE_PROPHANDLERS_PREFIX), module_list[mod].name);
+            module_list[mod].prop_handlers = tcc_get_symbol(state, tmp_str);
+            snprintf(tmp_str, sizeof(tmp_str), "%s%s", STR(MODULE_CBR_PREFIX), module_list[mod].name);
+            module_list[mod].cbr = tcc_get_symbol(state, tmp_str);
+            snprintf(tmp_str, sizeof(tmp_str), "%s%s", STR(MODULE_CONFIG_PREFIX), module_list[mod].name);
+            module_list[mod].config = tcc_get_symbol(state, tmp_str);
 
             /* check if the module symbol is defined. simple check for valid memory address just in case. */
             if((uint32_t)module_list[mod].info > 0x1000)
@@ -461,8 +608,18 @@ static void _module_load_all(uint32_t list_only)
             /* initialize module */
             if(module_list[mod].info->init)
             {
+                uint32_t prev_module = module_get_current_module();
+                
+                module_set_current_module(mod);
+                util_atomic_inc(&module_mgmt_running);
+
+                /* call the module init function */
                 int err = module_list[mod].info->init();
                 
+                /* module execution has finished, we are in ML core again */
+                util_atomic_dec(&module_mgmt_running);
+                module_set_current_module(prev_module);
+            
                 if (err)
                 {
                     module_list[mod].error = err;
@@ -471,36 +628,36 @@ static void _module_load_all(uint32_t list_only)
                     snprintf(module_list[mod].long_status, sizeof(module_list[mod].long_status), "Module init failed");
 
                     /* disable active stuff, since the results are unpredictable */
-                    module_list[mod].cbr = 0;
-                    module_list[mod].prop_handlers = 0;
+                    module_list[mod].cbr = NULL;
+                    module_list[mod].prop_handlers = NULL;
                 }
             }
             
-            /* register property handlers */
-            if(module_list[mod].prop_handlers && !module_list[mod].error)
+            if(!module_list[mod].error)
             {
-                module_prophandler_t **props = module_list[mod].prop_handlers;
-                while(*props != NULL)
+                /* register property handlers */
+                if(module_list[mod].prop_handlers)
                 {
-                    update_properties = 1;
-                    console_printf("  [i] prop %s\n", (*props)->name);
-                    prop_add_handler((*props)->property, (*props)->handler);
-                    props++;
+                    module_prophandler_t **props = module_list[mod].prop_handlers;
+                    while(*props != NULL)
+                    {
+                        update_properties = 1;
+                        console_printf("  [i] prop %s\n", (*props)->name);
+                        prop_add_handler((*props)->property, module_prop_handler);
+                        props++;
+                    }
                 }
+                
+                snprintf(module_list[mod].status, sizeof(module_list[mod].status), "OK");
+                snprintf(module_list[mod].long_status, sizeof(module_list[mod].long_status), "Module loaded successfully");
             }
             
             if(0)
             {
                 console_printf("-----------------------------\n");
             }
-            if (!module_list[mod].error)
-            {
-                snprintf(module_list[mod].status, sizeof(module_list[mod].status), "OK");
-                snprintf(module_list[mod].long_status, sizeof(module_list[mod].long_status), "Module loaded successfully");
-            }
         }
     }
-    
     
     if(update_properties)
     {
@@ -508,12 +665,7 @@ static void _module_load_all(uint32_t list_only)
     }
 
     module_update_core_symbols(state);
-    
-    #ifdef CONFIG_TCC_UNLOAD
     tcc_delete(state);
-    #else
-    module_state = state;
-    #endif
     
     console_printf("Modules loaded\n");
     
@@ -527,10 +679,12 @@ static void _module_unload_all(void)
 {
 /* unloading is not yet clean, we can end up with tasks running from freed memory or stuff like that */
 #ifdef CONFIG_MODULE_UNLOAD
-    if(module_state)
+    if(module_allocated_memory)
     {
-        TCCState *state = module_state;
-        module_state = NULL;
+        char failed_modules[128];
+        uint32_t unloading_failed = 0;
+
+        strcpy(failed_modules, "");
         
         /* unregister all property handlers */
         prop_reset_registration();
@@ -540,11 +694,34 @@ static void _module_unload_all(void)
         {
             if(module_list[mod].valid && module_list[mod].enabled && !module_list[mod].error)
             {
+                uint32_t ret = MODULE_ERROR;
+                
+                /* only modules with deinit functions can be deinitialized */
                 if(module_list[mod].info && module_list[mod].info->deinit)
                 {
-                    module_list[mod].info->deinit();
+                    uint32_t prev_module = module_get_current_module();
+                    
+                    module_set_current_module(mod);
+                    util_atomic_inc(&module_mgmt_running);
+
+                    /* call the module deinit function */
+                    ret = module_list[mod].info->deinit();
+                    
+                    /* module execution has finished, we are in ML core again */
+                    util_atomic_dec(&module_mgmt_running);
+                    module_set_current_module(prev_module);
+                }
+                
+                /* deinit function has to return MODULE_UNLOADED to signal that it had deregistered everything */
+                if(ret != MODULE_UNLOADED)
+                {
+                    strlcat(failed_modules, "\n  ", sizeof(failed_modules));
+                    strlcat(failed_modules, module_list[mod].info->name, sizeof(failed_modules));
+                    
+                    unloading_failed = 1;
                 }
             }
+            
             module_list[mod].valid = 0;
             module_list[mod].enabled = 0;
             module_list[mod].error = 0;
@@ -557,8 +734,16 @@ static void _module_unload_all(void)
             strcpy(module_list[mod].filename, "");
         }
 
-        /* release the global module state */
-        tcc_delete(state);
+        /* release the global module memory only if all modules could be unloaded */
+        if(!unloading_failed)
+        {
+            free(module_allocated_memory);
+            module_allocated_memory = NULL;
+        }
+        else
+        {
+            NotifyBox(10000, "Modules failed to unload: %s", failed_modules);
+        }
     }
 #endif
 }
@@ -597,10 +782,10 @@ void* module_load(char *filename)
 
 unsigned int module_get_symbol(void *module, char *symbol)
 {
-#ifndef CONFIG_TCC_UNLOAD
-    if (module == NULL) module = module_state;
-#endif
-    if (module == NULL) return 0;
+    if(!module)
+    {
+        return 0;
+    }
     
     TCCState *state = (TCCState *)module;
     
@@ -610,10 +795,11 @@ unsigned int module_get_symbol(void *module, char *symbol)
 int module_exec(void *module, char *symbol, int count, ...)
 {
     int ret = -1;
-#ifndef CONFIG_TCC_UNLOAD
-    if (module == NULL) module = module_state;
-#endif
-    if (module == NULL) return ret;
+    
+    if(!module)
+    {
+        return ret;
+    }
     
     TCCState *state = (TCCState *)module;
     void *start_symbol = NULL;
@@ -699,7 +885,18 @@ int FAST module_exec_cbr(unsigned int type)
             {
                 if(cbr->type == type)
                 {
+                    /* we are leaving ML code, update everything to keep track which module is being executed */
+                    uint32_t prev_module = module_get_current_module();
+                    
+                    module_set_current_module(mod);
+                    util_atomic_inc(&module_cbrs_running);
+
+                    /* call the requested CBR */
                     int ret = cbr->handler(cbr->ctx);
+                    
+                    /* module execution has finished, we are in ML core again */
+                    util_atomic_dec(&module_cbrs_running);
+                    module_set_current_module(prev_module);
                     
                     if (ret != CBR_RET_CONTINUE)
                     {
@@ -880,16 +1077,42 @@ int handle_module_keys(struct event * event)
             {
                 if(cbr->type == CBR_KEYPRESS)
                 {
+                    /* we are leaving ML code, update everything to keep track which module is being executed */
+                    uint32_t prev_module = module_get_current_module();
+                    
+                    module_set_current_module(mod);
+                    util_atomic_inc(&module_cbrs_running);
+
+                    /* call the requested CBR */
+                    int ret = cbr->handler(module_translate_key(event->param, MODULE_KEY_PORTABLE));
+                    
+                    /* module execution has finished, we are in ML core again */
+                    util_atomic_dec(&module_cbrs_running);
+                    module_set_current_module(prev_module);
+                    
                     /* key got handled? */
-                    if(!cbr->handler(module_translate_key(event->param, MODULE_KEY_PORTABLE)))
+                    if(!ret)
                     {
                         return 0;
                     }
                 }
                 if(cbr->type == CBR_KEYPRESS_RAW)
                 {
+                    /* we are leaving ML code, update everything to keep track which module is being executed */
+                    uint32_t prev_module = module_get_current_module();
+                    
+                    module_set_current_module(mod);
+                    util_atomic_inc(&module_cbrs_running);
+
+                    /* call the requested CBR */
+                    int ret = cbr->handler((int)event);
+                    
+                    /* module execution has finished, we are in ML core again */
+                    util_atomic_dec(&module_cbrs_running);
+                    module_set_current_module(prev_module);
+                    
                     /* key got handled? */
-                    if(!cbr->handler((int)event))
+                    if(!ret)
                     {
                         return 0;
                     }
@@ -915,10 +1138,23 @@ int module_display_filter_enabled()
             {
                 if(cbr->type == CBR_DISPLAY_FILTER)
                 {
+                    /* we are leaving ML code, update everything to keep track which module is being executed */
+                    uint32_t prev_module = module_get_current_module();
+                    
+                    module_set_current_module(mod);
+                    util_atomic_inc(&module_cbrs_running);
+
                     /* arg=0: should this display filter run? */
                     cbr->ctx = cbr->handler(0);
+                    
+                    /* module execution has finished, we are in ML core again */
+                    util_atomic_dec(&module_cbrs_running);
+                    module_set_current_module(prev_module);
+                    
                     if (cbr->ctx)
+                    {
                         return 1;
+                    }
                 }
                 cbr++;
             }
@@ -946,7 +1182,18 @@ int module_display_filter_update()
                     
                     if (buffers.src_buf && buffers.dst_buf) /* do not call the CBR with invalid arguments */
                     {
+                        /* we are leaving ML code, update everything to keep track which module is being executed */
+                        uint32_t prev_module = module_get_current_module();
+                        
+                        module_set_current_module(mod);
+                        util_atomic_inc(&module_cbrs_running);
+
                         cbr->handler((intptr_t) &buffers);
+                        
+                        /* module execution has finished, we are in ML core again */
+                        util_atomic_dec(&module_cbrs_running);
+                        module_set_current_module(prev_module);
+                        
                     }
                     break;
                 }
@@ -1382,6 +1629,22 @@ static MENU_UPDATE_FUNC(module_menu_info_update)
                 bmp_printf(FONT_MED, x, y, "%s", cbr->name);
                 bmp_printf(FONT_MED, x_val, y, "%s", cbr->symbol);
                 y += font_med.height;
+            }
+        }
+        
+        if (module_list[mod_number].tasks)
+        {
+            y += 10;
+            bmp_printf(FONT_MED, x - 32, y, "Tasks: %d", module_list[mod_number].tasks);
+            y += font_med.height;
+            
+            for (int task = 0; task < COUNT(module_task_map); task++)
+            {
+                if(module_task_map[task].module == mod_number)
+                {
+                    bmp_printf(FONT_MED, x, y, "%s", module_task_map[task].function);
+                    y += font_med.height;
+                }
             }
         }
     }

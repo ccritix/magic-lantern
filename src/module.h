@@ -56,6 +56,11 @@
 #define CBR_RET_STOP                  1             /* stop calling other CBRs */
 #define CBR_RET_ERROR                 0xFFFFFFFF    /* something's wong */
 
+
+/* deinit function return code */
+#define MODULE_UNLOADED               0xD1CE55AA
+#define MODULE_ERROR                  0xFFFFFFFF
+
 /* portable key codes. intentionally defines to make numbers hardcoded so changed order wont change the integer number */
 #define MODULE_KEY_PRESS_HALFSHUTTER       ( 1)
 #define MODULE_KEY_UNPRESS_HALFSHUTTER     ( 2)
@@ -187,7 +192,15 @@ typedef struct
     int valid;
     int enabled;
     int error;
+    int tasks;
 } module_entry_t;
+
+
+typedef struct
+{
+    uint32_t module;
+    char *function;
+} module_taskinfo_t;
 
 
 #define MODULE_INFO_START()                                     MODULE_INFO_START_(MODULE_INFO_PREFIX,MODULE_NAME)
