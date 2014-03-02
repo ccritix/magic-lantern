@@ -32,6 +32,25 @@ static volatile int raw_diag_running = 0;
 #define ANALYSIS_COMPARE_2_SHOTS 6
 #define ANALYSIS_COMPARE_2_SHOTS_HIGHLIGHTS 7
 
+/* todo: move this functionality in core's take_screenshot and refactor it without dispcheck? */
+static void custom_screenshot(char* filename)
+{
+    /* screenshots will be saved in one of these files (camera-specific) */
+    FIO_RemoveFile("A:/VRAM0.BMP");
+    FIO_RemoveFile("B:/VRAM0.BMP");
+    FIO_RemoveFile("A:/TEST.BMP");
+    FIO_RemoveFile("B:/TEST.BMP");
+    
+    /* this uses dispcheck, and the output file is not known (it's one from the above list) */
+    take_screenshot(0);
+    
+    /* only one of these calls will succeed (of course, assuming no race conditions) */
+    FIO_MoveFile("A:/VRAM0.BMP", filename);
+    FIO_MoveFile("B:/VRAM0.BMP", filename);
+    FIO_MoveFile("A:/TEST.BMP", filename);
+    FIO_MoveFile("B:/TEST.BMP", filename);
+}
+
 /* a float version of the routine from raw.c (should be more accurate) */
 static void FAST autodetect_black_level_calc(int x1, int x2, int y1, int y2, int dx, int dy, float* out_mean, float* out_stdev)
 {
@@ -1007,12 +1026,15 @@ static void raw_diag_task(int corr)
     
     if (auto_screenshot)
     {
-        take_screenshot(0);
+        char filename[100];
+        snprintf(filename, sizeof(filename), "raw_diag/%s%04d.bmp", get_file_prefix(), get_shooting_card()->file_number);
+        custom_screenshot(filename);
     }
     
     if (dump_raw)
     {
-        char* filename = "ML/LOGS/raw_diag.dng";
+        char filename[100];
+        snprintf(filename, sizeof(filename), "raw_diag/%s%04d.dng", get_file_prefix(), get_shooting_card()->file_number);
         bmp_printf(FONT_MED, 0, 50, "Saving %s...", filename);
         save_dng(filename, &raw_info);
         bmp_printf(FONT_MED, 0, 50, "Saved %s.   ", filename);
