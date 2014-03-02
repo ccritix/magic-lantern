@@ -18,19 +18,19 @@
 #include <wirth.h>
 
 static CONFIG_INT("enabled", raw_diag_enabled, 0);
-static CONFIG_INT("analysis", analysis_type, 0);
-static CONFIG_INT("screenshot", auto_screenshot, 0);
+static CONFIG_INT("screenshot", auto_screenshot, 1);
 static CONFIG_INT("dump_raw", dump_raw, 0);
 static volatile int raw_diag_running = 0;
 
-#define ANALYSIS_OPTICAL_BLACK 0
-#define ANALYSIS_DARKFRAME_NOISE 1
-#define ANALYSIS_DARKFRAME_FPN 2
-#define ANALYSIS_DARKFRAME_FPN_XCOV 3
-#define ANALYSIS_SNR_CURVE 4
-#define ANALYSIS_JPG_CURVE 5
-#define ANALYSIS_COMPARE_2_SHOTS 6
-#define ANALYSIS_COMPARE_2_SHOTS_HIGHLIGHTS 7
+/* analysis types */
+static CONFIG_INT("analysis.ob_dr", analysis_ob_dr, 1);   /* optical black and dynamic range */
+static CONFIG_INT("analysis.dark.noise", analysis_darkframe_noise, 0);
+static CONFIG_INT("analysis.dark.fpn", analysis_darkframe_fpn, 0);
+static CONFIG_INT("analysis.dark.fpn.xcov", analysis_darkframe_fpn_xcov, 0);
+static CONFIG_INT("analysis.snr", analysis_snr_curve, 0);
+static CONFIG_INT("analysis.jpg", analysis_jpg_curve, 0);
+static CONFIG_INT("analysis.cmp", analysis_compare_2_shots, 0);
+static CONFIG_INT("analysis.cmp.hl", analysis_compare_2_shots_highlights, 0);
 
 /* todo: move this functionality in core's take_screenshot and refactor it without dispcheck? */
 static void custom_screenshot(char* filename)
@@ -975,6 +975,17 @@ static void compare_2_shots(int min_adu)
     free(prev);
 }
 
+/* name: 8 chars please */
+static void screenshot_if_needed(const char* name)
+{
+    if (auto_screenshot)
+    {
+        char filename[100];
+        snprintf(filename, sizeof(filename), "raw_diag/%s%04d/%s.bmp", get_file_prefix(), get_shooting_card()->file_number, name);
+        custom_screenshot(filename);
+    }
+}
+
 /* main raw diagnostic task */
 static void raw_diag_task(int corr)
 {
@@ -996,45 +1007,58 @@ static void raw_diag_task(int corr)
         goto end;
     }
     
-    switch (analysis_type)
+    if (analysis_ob_dr)
     {
-        case ANALYSIS_OPTICAL_BLACK:
-            black_histogram(1);
-            break;
-        case ANALYSIS_DARKFRAME_NOISE:
-            black_histogram(0);
-            break;
-        case ANALYSIS_DARKFRAME_FPN:
-            darkframe_fpn();
-            break;
-        case ANALYSIS_DARKFRAME_FPN_XCOV:
-            darkframe_fpn_xcov();
-            break;
-        case ANALYSIS_SNR_CURVE:
-            snr_graph();
-            break;
-        case ANALYSIS_JPG_CURVE:
-            jpg_curve();
-            break;
-        case ANALYSIS_COMPARE_2_SHOTS:
-            compare_2_shots(1);          /* show full shadow detail */
-            break;
-        case ANALYSIS_COMPARE_2_SHOTS_HIGHLIGHTS:
-            compare_2_shots(1024);       /* trim the bottom 10 stops and zoom on highlight detail */
-            break;
+        black_histogram(1);
+        screenshot_if_needed("ob-dr");
     }
-    
-    if (auto_screenshot)
+
+    if (analysis_darkframe_noise)
     {
-        char filename[100];
-        snprintf(filename, sizeof(filename), "raw_diag/%s%04d.bmp", get_file_prefix(), get_shooting_card()->file_number);
-        custom_screenshot(filename);
+        black_histogram(0);
+        screenshot_if_needed("darkhist");
+    }
+
+    if (analysis_darkframe_fpn)
+    {
+        darkframe_fpn();
+        screenshot_if_needed("darkfpn");
+    }
+
+    if (analysis_darkframe_fpn_xcov)
+    {
+        darkframe_fpn_xcov();
+        screenshot_if_needed("darkfpnx");
+    }
+
+    if (analysis_snr_curve)
+    {
+        snr_graph();
+        screenshot_if_needed("snr");
+    }
+
+    if (analysis_jpg_curve)
+    {
+        jpg_curve();
+        screenshot_if_needed("jpg");
+    }
+
+    if (analysis_compare_2_shots)
+    {
+        compare_2_shots(1);          /* show full shadow detail */
+        screenshot_if_needed("cmp");
+    }
+
+    if (analysis_compare_2_shots_highlights)
+    {
+        compare_2_shots(1024);       /* trim the bottom 10 stops and zoom on highlight detail */
+        screenshot_if_needed("cmp-hl");
     }
     
     if (dump_raw)
     {
         char filename[100];
-        snprintf(filename, sizeof(filename), "raw_diag/%s%04d.dng", get_file_prefix(), get_shooting_card()->file_number);
+        snprintf(filename, sizeof(filename), "raw_diag/%s%04d/raw.dng", get_file_prefix(), get_shooting_card()->file_number);
         bmp_printf(FONT_MED, 0, 50, "Saving %s...", filename);
         save_dng(filename, &raw_info);
         bmp_printf(FONT_MED, 0, 50, "Saved %s.   ", filename);
@@ -1168,44 +1192,77 @@ static struct menu_entry raw_diag_menu[] =
         .name = "RAW Diagnostics", 
         .priv = &raw_diag_enabled, 
         .max = 1,
+        .submenu_width = 710,
         .help  = "Show technical analysis of raw image data.",
-        .help2 = "Enable this and take a picture with RAW image quality.\n",
+        .help2 = "Enable this and take a picture with RAW image quality.",
         .children =  (struct menu_entry[]) {
-            {
-                .name = "Analysis",
-                .priv = &analysis_type,
-                .max = 7,
-                .choices = CHOICES(
-                    "Optical black + DR",
-                    "Dark frame noise",
-                    "Dark frame FPN",
-                    "Dark frame FPN xcov",
-                    "SNR curve",
-                    "JPEG curve",
-                    "Compare 2 shots",
-                    "Compare 2 shots HL"
-                ),
-                .help  = "Choose the type of analysis you wish to run:",
-                .help2 = "Optical black + DR: mean, stdev, histogram, white levels, DR.\n"
-                         "Dark frame noise: same as OB noise, but from the entire image.\n"
-                         "Dark frame FPN: fixed-pattern noise (banding) analysis.\n"
-                         "Dark frame FPN xcov: how much FPN changes between 2 shots?\n"
-                         "SNR curve: take a defocused picture to see the noise profile.\n"
-                         "JPEG curve: plot the RAW to JPEG curve used by current PicStyle.\n"
-                         "Compare 2 shots: compare the same static scene at 2 exposures.\n"
-                         "Compare 2 shots HL: same curve zoomed on highlights (top 4 EV).\n"
-            },
             {
                 .name = "Auto screenshot",
                 .priv = &auto_screenshot,
                 .max = 1,
-                .help = "Auto-save a screenshot for every test image."
+                .help = "Auto-save a screenshot for every analysis."
+            },
+            {
+                .name  = "Optical black + DR",
+                .priv  = &analysis_ob_dr,
+                .max   = 1,
+                .help  = "From OB: mean, stdev, histogram. Also white levels and DR.",
+                .help2 = "You need something overexposed in the image (e.g. a light bulb).",
+            },
+            {
+                .name  = "Dark frame noise",
+                .priv  = &analysis_darkframe_noise,
+                .max   = 1,
+                .help  = "Compute mean, stdev and histogram from the entire image.",
+                .help2 = "Make sure you take a dark frame (with lens cap on).",
+            },
+            {
+                .name  = "Dark frame FPN",
+                .priv  = &analysis_darkframe_fpn,
+                .max   = 1,
+                .help  = "Fixed-pattern noise (banding) analysis.",
+                .help2 = "Make sure you take a dark frame (with lens cap on).",
+            },
+            {
+                .name  = "Dark frame FPN xcov",
+                .priv  = &analysis_darkframe_fpn_xcov,
+                .max   = 1,
+                .help  = "Compare FPN between two successive dark frames.",
+                .help2 = "You will have to take two dark frames (with lens cap on).",
+            },
+            {
+                .name  = "SNR curve",
+                .priv  = &analysis_snr_curve,
+                .max   = 1,
+                .help  = "Estimate the SNR curve (noise profile) from a defocused image.",
+                .help2 = "If the image is focused, detail will be misinterpreted as noise.",
+            },
+            {
+                .name  = "JPEG curve",
+                .priv  = &analysis_jpg_curve,
+                .max   = 1,
+                .help  = "Plot the RAW to JPEG curves (R,G,B) used by current picture style.",
+                .help2 = "Color in input image should not change (e.g. lamp on a white wall).",
+            },
+            {
+                .name  = "Compare 2 shots",
+                .priv  = &analysis_compare_2_shots,
+                .max   = 1,
+                .help  = "Compare 2 test images of the same static scene (solid tripod!)",
+                .help2 = "=> exposure difference (median brightness, or from clipping point).",
+            },
+            {
+                .name  = "Compare 2 shots HL",
+                .priv  = &analysis_compare_2_shots_highlights,
+                .max   = 1,
+                .help  = "Same analysis, but zoom on the highlights when plotting (top 4 EV).",
+                .help2 = "You need something overexposed in the image (e.g. a light bulb).",
             },
             {
                 .name = "Dump RAW buffer",
                 .priv = &dump_raw,
                 .max = 1,
-                .help = "Save a DNG file (ML/LOGS/raw_diag.dng) after analysis."
+                .help = "Save a DNG file (raw_diag/IMG_nnnn/raw.dng) after analysis."
             },
             {
                 .name = "Test bracket",
@@ -1249,9 +1306,17 @@ MODULE_PROPHANDLERS_END()
 
 MODULE_CONFIGS_START()
     MODULE_CONFIG(raw_diag_enabled)
-    MODULE_CONFIG(analysis_type)
     MODULE_CONFIG(auto_screenshot)
     MODULE_CONFIG(dump_raw)
+
+    MODULE_CONFIG(analysis_ob_dr)
+    MODULE_CONFIG(analysis_darkframe_noise)
+    MODULE_CONFIG(analysis_darkframe_fpn)
+    MODULE_CONFIG(analysis_darkframe_fpn_xcov)
+    MODULE_CONFIG(analysis_snr_curve)
+    MODULE_CONFIG(analysis_jpg_curve)
+    MODULE_CONFIG(analysis_compare_2_shots)
+    MODULE_CONFIG(analysis_compare_2_shots_highlights)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
