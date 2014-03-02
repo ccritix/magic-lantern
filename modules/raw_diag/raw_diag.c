@@ -31,6 +31,7 @@ static CONFIG_INT("analysis.snr", analysis_snr_curve, 0);
 static CONFIG_INT("analysis.jpg", analysis_jpg_curve, 0);
 static CONFIG_INT("analysis.cmp", analysis_compare_2_shots, 0);
 static CONFIG_INT("analysis.cmp.hl", analysis_compare_2_shots_highlights, 0);
+static CONFIG_INT("analysis.ob_zones", analysis_ob_zones, 0);
 
 /* todo: move this functionality in core's take_screenshot and refactor it without dispcheck? */
 static void custom_screenshot(char* filename)
@@ -971,6 +972,43 @@ static void compare_2_shots(int min_adu)
     free(prev);
 }
 
+static void analyze_ob_zones()
+{
+    float black, noise;
+    ob_mean_stdev(&black, &noise);
+    int min = black - 2 * noise;
+    int max = black + 2 * noise;
+
+    for (int x = 0; x < 360; x++)
+    {
+        for (int y = 0; y < 240; y++)
+        {
+            /* draw without demosaicing */
+            int p = raw_get_pixel(x, y);
+            p = COERCE(p, min, max);
+            int g = 100 * (p - min) / (max - min);
+            int c = COLOR_GRAY(g);
+            
+            /* zoom 2x to keep things simple */
+            bmp_putpixel(x*2, y*2, c);
+            bmp_putpixel(x*2+1, y*2, c);
+            bmp_putpixel(x*2, y*2+1, c);
+            bmp_putpixel(x*2+1, y*2+1, c);
+        }
+    }
+    
+    /* show raw_info.active_area */
+    int x1 = raw_info.active_area.x1*2;
+    int y1 = raw_info.active_area.y1*2;
+    bmp_draw_rect(COLOR_CYAN, x1, y1, 720-x1, 480-y1);
+    
+    /* todo: define zones (camera-specific) and print some info about each zone */
+
+    bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 480 - font_med.height, 
+        "OB zones (WIP)"
+    );
+}
+
 /* name: 8 chars please */
 static void screenshot_if_needed(const char* name)
 {
@@ -1049,6 +1087,12 @@ static void raw_diag_task(int corr)
     {
         compare_2_shots(1024);       /* trim the bottom 10 stops and zoom on highlight detail */
         screenshot_if_needed("cmp-hl");
+    }
+    
+    if (analysis_ob_zones)
+    {
+        analyze_ob_zones();
+        screenshot_if_needed("ob-zones");
     }
     
     if (dump_raw)
@@ -1255,6 +1299,11 @@ static struct menu_entry raw_diag_menu[] =
                 .help2 = "You need something overexposed in the image (e.g. a light bulb).",
             },
             {
+                .name = "Optical Black zones",
+                .priv = &analysis_ob_zones,
+                .max = 1,
+            },
+            {
                 .name = "Dump RAW buffer",
                 .priv = &dump_raw,
                 .max = 1,
@@ -1313,6 +1362,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(analysis_jpg_curve)
     MODULE_CONFIG(analysis_compare_2_shots)
     MODULE_CONFIG(analysis_compare_2_shots_highlights)
+    MODULE_CONFIG(analysis_ob_zones)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
