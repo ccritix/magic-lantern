@@ -1066,8 +1066,14 @@ static void analyze_ob_zones()
     
     /* todo: define zones (camera-specific) and print some info about each zone */
 
-    bmp_printf(FONT_MED | FONT_ALIGN_FILL, x1 + 50, y1 + 50, "OB zones (WIP)\n ");
-    bmp_printf(FONT(FONT_MED, COLOR_CYAN, COLOR_BLACK), x1 + 50, y1 + 50 + font_med.height, "Active area");
+    bmp_printf(FONT_MED | FONT_ALIGN_FILL, x1 + 50, y1 + 50,
+        "OB zones (WIP)\n"
+        "%s\n"
+        "ISO %d %s "SYM_F_SLASH"%s%d.%d\n ",
+        camera_model,
+        lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
+    );
+    bmp_printf(FONT(FONT_MED, COLOR_CYAN, COLOR_BLACK), x1 + 50, y1 + 50 + font_med.height*3, "Active area");
 }
 
 /* name: 8 chars please */
