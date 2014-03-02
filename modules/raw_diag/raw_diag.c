@@ -721,9 +721,6 @@ static void compare_2_shots(int min_adu)
     int read_size = read_file(prev_filename, prev, data_size);
     int ok = (read_size == data_size);
 
-    /* save graph data for offline processing */
-    const char* mfile = 0;
-
     /* initialize some random sampling points */
     int x1 = raw_info.active_area.x1;
     int y1 = raw_info.active_area.y1;
@@ -896,7 +893,8 @@ static void compare_2_shots(int min_adu)
             "disp(sprintf('Exposure difference (clip): %%.2f EV', log2(wa)-log2(clip)))\n"
         );
 
-        mfile = get_numbered_file_name("rcurve%02d.m");
+        char mfile[100];
+        snprintf(mfile, sizeof(mfile), "raw_diag/%s%04d/rcurve.m", get_file_prefix(), get_shooting_card()->file_number);
         FILE* f = FIO_CreateFileEx(mfile);
         FIO_WriteFile(f, msg, len);
         FIO_CloseFile(f);
@@ -949,16 +947,14 @@ static void compare_2_shots(int min_adu)
             "Expo diff (med): %s%d.%02dEV\n"
             "Normalized: %s%d.%02dEV\n"
             "Expo diff (clip): %s%d.%02dEV\n"
-            "Grid from %d to %d EV.\n"
-            "Saved %s.",
+            "Grid from %d to %d EV.\n",
             camera_model, prev_info, info,
             (int)roundf(black_prev), white_prev,
             FMT_FIXEDPOINT2(noi_prev),
             (int)roundf(black), white,
             FMT_FIXEDPOINT2(noi),
             FMT_FIXEDPOINT2(exp_med), FMT_FIXEDPOINT2(exp_med_nor), FMT_FIXEDPOINT2(exp_clip),
-            (int)roundf(log2f(min_adu)), 14,
-            mfile
+            (int)roundf(log2f(min_adu)), 14
         );
     }
 
