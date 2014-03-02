@@ -972,6 +972,48 @@ static void compare_2_shots(int min_adu)
     free(prev);
 }
 
+static int ob_zones_raw2bm_x(int x)
+{
+    /* 0...300: left OB, displayed on 0...600 */
+    /* 300:end-50: active area, squashed on 600...620 */
+    /* end-50...end: right OB, displayed on 620...720 */
+    /* assume zoom 2x */
+    
+    if (x < 300)
+    {
+        return x * 2;
+    }
+    else if (x > raw_info.width - 50)
+    {
+        return 720 - (raw_info.width - x) * 2;
+    }
+    else
+    {
+        return 600 + (x - 300) * 20 / (raw_info.width - 50 - 300);
+    }
+}
+
+static int ob_zones_raw2bm_y(int y)
+{
+    /* 0...190: top OB, displayed on 0...380 */
+    /* 190:end-40: active area, squashed on 380...400 */
+    /* end-40...end: bottom OB, displayed on 400...480 */
+    /* assume zoom 2x */
+    
+    if (y < 190)
+    {
+        return y * 2;
+    }
+    else if (y > raw_info.height - 40)
+    {
+        return 480 - (raw_info.height - y) * 2;
+    }
+    else
+    {
+        return 380 + (y - 190) * 20 / (raw_info.height - 40 - 190);
+    }
+}
+
 static void analyze_ob_zones()
 {
     float black, noise;
@@ -979,34 +1021,53 @@ static void analyze_ob_zones()
     int min = black - 2 * noise;
     int max = black + 2 * noise;
 
-    for (int x = 0; x < 360; x++)
+    int prev_bx = INT_MIN;
+    int prev_by = INT_MIN;
+    for (int y = 0; y < raw_info.height; y++)
     {
-        for (int y = 0; y < 240; y++)
+        int by = ob_zones_raw2bm_y(y);
+        if (by == prev_by) continue;
+
+        for (int x = 0; x < raw_info.width; x++)
         {
+            int bx = ob_zones_raw2bm_x(x);
+            if (bx == prev_bx) continue;
+
             /* draw without demosaicing */
             int p = raw_get_pixel(x, y);
             p = COERCE(p, min, max);
             int g = 100 * (p - min) / (max - min);
             int c = COLOR_GRAY(g);
             
+            /* skip squashed areas */
+            if (bx == prev_bx + 1 || by == prev_by + 1)
+            {
+                /* any nice and easy way to get a zig-zag pattern? */
+                c = (bx/2 + by/2) % 10 == 0 ? COLOR_BLACK : COLOR_WHITE;
+            }
+            
             /* zoom 2x to keep things simple */
-            bmp_putpixel(x*2, y*2, c);
-            bmp_putpixel(x*2+1, y*2, c);
-            bmp_putpixel(x*2, y*2+1, c);
-            bmp_putpixel(x*2+1, y*2+1, c);
+            bmp_putpixel(bx,   by,   c);
+            bmp_putpixel(bx+1, by,   c);
+            bmp_putpixel(bx,   by+1, c);
+            bmp_putpixel(bx+1, by+1, c);
+            
+            prev_bx = bx;
         }
+        prev_by = by;
     }
     
     /* show raw_info.active_area */
-    int x1 = raw_info.active_area.x1*2;
-    int y1 = raw_info.active_area.y1*2;
-    bmp_draw_rect(COLOR_CYAN, x1, y1, 720-x1, 480-y1);
+    int x1 = ob_zones_raw2bm_x(raw_info.active_area.x1);
+    int x2 = ob_zones_raw2bm_x(raw_info.active_area.x2);
+    int y1 = ob_zones_raw2bm_y(raw_info.active_area.y1);
+    int y2 = ob_zones_raw2bm_y(raw_info.active_area.y2);
+    bmp_draw_rect(COLOR_CYAN, x1, y1, x2-x1, y2-y1);
     
     /* todo: define zones (camera-specific) and print some info about each zone */
 
-    bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 480 - font_med.height, 
-        "OB zones (WIP)"
-    );
+    bmp_printf(FONT_MED | FONT_ALIGN_FILL, x1 + 50, y1 + 50, "OB zones (WIP)\n ");
+    bmp_printf(FONT(FONT_MED, COLOR_CYAN, COLOR_BLACK), x1 + 50, y1 + 50 + font_med.height, "Active area");
 }
 
 /* name: 8 chars please */
