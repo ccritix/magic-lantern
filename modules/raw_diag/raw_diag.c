@@ -16,6 +16,7 @@
 #include <lens.h>
 #include <math.h>
 #include <wirth.h>
+#include <screenshot.h>
 
 static CONFIG_INT("enabled", raw_diag_enabled, 0);
 static CONFIG_INT("screenshot", auto_screenshot, 1);
@@ -32,25 +33,6 @@ static CONFIG_INT("analysis.jpg", analysis_jpg_curve, 0);
 static CONFIG_INT("analysis.cmp", analysis_compare_2_shots, 0);
 static CONFIG_INT("analysis.cmp.hl", analysis_compare_2_shots_highlights, 0);
 static CONFIG_INT("analysis.ob_zones", analysis_ob_zones, 0);
-
-/* todo: move this functionality in core's take_screenshot and refactor it without dispcheck? */
-static void custom_screenshot(char* filename)
-{
-    /* screenshots will be saved in one of these files (camera-specific) */
-    FIO_RemoveFile("A:/VRAM0.BMP");
-    FIO_RemoveFile("B:/VRAM0.BMP");
-    FIO_RemoveFile("A:/TEST.BMP");
-    FIO_RemoveFile("B:/TEST.BMP");
-    
-    /* this uses dispcheck, and the output file is not known (it's one from the above list) */
-    take_screenshot(0);
-    
-    /* only one of these calls will succeed (of course, assuming no race conditions) */
-    FIO_MoveFile("A:/VRAM0.BMP", filename);
-    FIO_MoveFile("B:/VRAM0.BMP", filename);
-    FIO_MoveFile("A:/TEST.BMP", filename);
-    FIO_MoveFile("B:/TEST.BMP", filename);
-}
 
 /* a float version of the routine from raw.c (should be more accurate) */
 static void FAST autodetect_black_level_calc(int x1, int x2, int y1, int y2, int dx, int dy, float* out_mean, float* out_stdev)
@@ -1067,8 +1049,8 @@ static void screenshot_if_needed(const char* name)
     if (auto_screenshot)
     {
         char filename[100];
-        snprintf(filename, sizeof(filename), "raw_diag/%s%04d/%s.bmp", get_file_prefix(), get_shooting_card()->file_number, name);
-        custom_screenshot(filename);
+        snprintf(filename, sizeof(filename), "raw_diag/%s%04d/%s.ppm", get_file_prefix(), get_shooting_card()->file_number, name);
+        take_screenshot(filename, SCREENSHOT_BMP);
     }
 }
 
