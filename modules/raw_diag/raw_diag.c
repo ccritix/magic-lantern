@@ -676,21 +676,6 @@ struct test_pixel
     int16_t pixel;
 } __attribute__((packed));
 
-static const char * get_numbered_file_name(char* pattern)
-{
-    static char filename[100];
-    for (int num = 0; num < 10000; num++)
-    {
-        snprintf(filename, sizeof(filename), pattern, num);
-        uint32_t size;
-        if( FIO_GetFileSize( filename, &size ) != 0 ) return filename;
-        if (size == 0) return filename;
-    }
-
-    snprintf(filename, sizeof(filename), pattern, 0);
-    return filename;
-}
-
 static void compare_2_shots(int min_adu)
 {
     clrscr();
