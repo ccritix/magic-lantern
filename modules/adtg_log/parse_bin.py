@@ -13,6 +13,17 @@ def nrzi_decode( in_val ):
 		val |= old_bit ^ (in_val & 1<<(30-num))
 	return val
 
+def nrzi_encode( in_val ):
+	out_val = 0;
+	old_bit = 0;
+	for num in range(31):
+		bit = 1 if in_val & 1<<(30-num) else 0;
+		if bit != old_bit:
+			out_val |= (1 << (30-num))
+		old_bit = bit
+	return out_val
+
+
 opts,args = getopt.getopt(sys.argv[1:],'f:b:')
 for o,a in opts:
 	if o == '-f':
