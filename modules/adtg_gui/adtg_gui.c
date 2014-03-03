@@ -218,7 +218,7 @@ static uint32_t nrzi_encode( uint32_t in_val )
 {
     uint32_t out_val = 0;
     uint32_t old_bit = 0;
-    for (int num = 0; num < 32; num++)
+    for (int num = 0; num < 31; num++)
     {
         uint32_t bit = in_val & 1<<(30-num) ? 1 : 0;
         if (bit != old_bit)
