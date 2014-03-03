@@ -307,7 +307,7 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint32_t 
     /* fill the data */
     if (re->override_enabled)
     {
-        int ovr = re->is_nrzi ? (int)nrzi_encode(re->override) : re->override;
+        int ovr = re->override;
         uint16_t* val_ptr = addr;
         ovr &= ((1 << reg_shift) - 1);
         *val_ptr &= ~((1 << reg_shift) - 1);
@@ -623,7 +623,7 @@ static MENU_UPDATE_FUNC(reg_update)
         );
     }
     
-    MENU_SET_HELP("%s:%x:%x v=%d(0x%x) nrzi=%d(0x%x).", get_task_name_from_id(regs[reg].caller_task), regs[reg].caller_pc, regs[reg].addr, regs[reg].val, regs[reg].val, nrzi_decode(regs[reg].val), nrzi_decode(regs[reg].val));
+    MENU_SET_HELP("%s:%x:%x v=%d(0x%x) nrzi_dec=%d(0x%x).", get_task_name_from_id(regs[reg].caller_task), regs[reg].caller_pc, regs[reg].addr, regs[reg].val, regs[reg].val, nrzi_decode(regs[reg].val), nrzi_decode(regs[reg].val));
     
     if (reg_num >= COUNT(regs)-1)
         MENU_SET_WARNING(MENU_WARN_ADVICE, "Too many registers.");
@@ -633,7 +633,7 @@ static MENU_UPDATE_FUNC(reg_update)
 
     if (regs[reg].override_enabled)
     {
-        MENU_SET_RINFO("-> 0x%x", regs[reg].override);
+        MENU_SET_RINFO("-> 0x%x", regs[reg].is_nrzi ? nrzi_decode(regs[reg].override) : regs[reg].override);
         if (menu_active_and_not_hidden())
             MENU_SET_WARNING(MENU_WARN_INFO, "Press Q to stop overriding this register.");
     }
