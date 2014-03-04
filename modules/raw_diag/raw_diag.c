@@ -1142,6 +1142,13 @@ static void raw_diag_task(int corr)
         if (gui_state != GUISTATE_QR) goto end;
     }
 
+    if (analysis_ob_zones)
+    {
+        analyze_ob_zones();
+        screenshot_if_needed("ob-zones");
+        if (gui_state != GUISTATE_QR) goto end;
+    }
+
     if (analysis_darkframe_noise)
     {
         black_histogram(0);
@@ -1195,13 +1202,6 @@ static void raw_diag_task(int corr)
     {
         compare_2_shots(1024);       /* trim the bottom 10 stops and zoom on highlight detail */
         screenshot_if_needed("cmp-hl");
-        if (gui_state != GUISTATE_QR) goto end;
-    }
-    
-    if (analysis_ob_zones)
-    {
-        analyze_ob_zones();
-        screenshot_if_needed("ob-zones");
         if (gui_state != GUISTATE_QR) goto end;
     }
     
