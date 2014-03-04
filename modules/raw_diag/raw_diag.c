@@ -26,6 +26,7 @@ static volatile int raw_diag_running = 0;
 /* analysis types */
 static CONFIG_INT("analysis.ob_dr", analysis_ob_dr, 1);   /* optical black and dynamic range */
 static CONFIG_INT("analysis.dark.noise", analysis_darkframe_noise, 0);
+static CONFIG_INT("analysis.dark.gray", analysis_darkframe_grayscale, 0);
 static CONFIG_INT("analysis.dark.fpn", analysis_darkframe_fpn, 0);
 static CONFIG_INT("analysis.dark.fpn.xcov", analysis_darkframe_fpn_xcov, 0);
 static CONFIG_INT("analysis.snr", analysis_snr_curve, 0);
@@ -1043,6 +1044,60 @@ static void analyze_ob_zones()
     bmp_printf(FONT(FONT_MED, COLOR_CYAN, COLOR_BLACK), x1 + 50, y1 + 50 + font_med.height*3, "Active area");
 }
 
+/* todo: print stdev for overall dark frame and FPN components? */
+static void FAST darkframe_grayscale()
+{
+    /* will downsample the entire raw buffer, line by line, and plot it progressively */
+    
+    /* assumming it's a dark frame, the stdev of a downsampled 22MPix to 720x480 would be 1/8 the stdev of the original image */
+    /* for 18MPix, it's 1/7.2 */
+    /* let's show around +/- 2*sigma; we'll compute the min and max in advance from OB because it's quick */
+    float black, noise;
+    ob_mean_stdev(&black, &noise);
+    float min = black - noise/4;
+    float max = black + noise/4;
+
+    /* accumulators for each line */
+    float* line = malloc(720 * sizeof(line[0]));
+    int* num = malloc(720 * sizeof(num[0]));
+    memset(line, 0, 720 * sizeof(line[0]));
+    memset(num, 0, 720 * sizeof(num[0]));
+    
+    /* scan the raw buffer, stop if you get out of QR mode */
+    int current_by = 0;
+    for (int y = 0; y < raw_info.height && gui_state == GUISTATE_QR; y++)
+    {
+        int by = RAW2BM_Y(y);
+        
+        if (by != current_by)
+        {
+            /* plot previous line (completed) and reset the accumulators */
+            for (int bx = 0; bx < 720; bx++)
+            {
+                float p = line[bx] / num[bx];
+                p = COERCE(p, min, max);
+                int g = 100 * (p - min) / (max - min);
+                int c = COLOR_GRAY(g);
+                bmp_putpixel(bx, current_by, c);
+            }
+            current_by = by;
+            memset(line, 0, 720 * sizeof(line[0]));
+            memset(num, 0, 720 * sizeof(num[0]));
+        }
+
+        /* average a few raw lines */
+        for (int x = 0; x < raw_info.width; x++)
+        {
+            int bx = RAW2BM_X(x);
+            int p = raw_get_pixel(x, y);
+            line[bx] += p;
+            num[bx]++;
+        }
+    }
+    free(line);
+    free(num);
+}
+
 /* name: 8 chars please */
 static void screenshot_if_needed(const char* name)
 {
@@ -1085,6 +1140,12 @@ static void raw_diag_task(int corr)
     {
         black_histogram(0);
         screenshot_if_needed("darkhist");
+    }
+    
+    if (analysis_darkframe_grayscale)
+    {
+        darkframe_grayscale();
+        screenshot_if_needed("darkgray");
     }
 
     if (analysis_darkframe_fpn)
@@ -1291,6 +1352,13 @@ static struct menu_entry raw_diag_menu[] =
                 .help2 = "Make sure you take a dark frame (with lens cap on).",
             },
             {
+                .name  = "Dark frame grayscale",
+                .priv = &analysis_darkframe_grayscale,
+                .max = 1,
+                .help  = "Render the raw image as downsampled grayscale (reveals FPN).",
+                .help2 = "Make sure you take a dark frame (with lens cap on).",
+            },
+            {
                 .name  = "Dark frame FPN",
                 .priv  = &analysis_darkframe_fpn,
                 .max   = 1,
@@ -1390,6 +1458,7 @@ MODULE_CONFIGS_START()
 
     MODULE_CONFIG(analysis_ob_dr)
     MODULE_CONFIG(analysis_darkframe_noise)
+    MODULE_CONFIG(analysis_darkframe_grayscale)
     MODULE_CONFIG(analysis_darkframe_fpn)
     MODULE_CONFIG(analysis_darkframe_fpn_xcov)
     MODULE_CONFIG(analysis_snr_curve)
