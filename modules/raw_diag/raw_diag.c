@@ -1068,6 +1068,7 @@ static void FAST darkframe_grayscale()
     for (int y = 0; y < raw_info.height && gui_state == GUISTATE_QR; y++)
     {
         int by = RAW2BM_Y(y);
+        if (by < 0 || by >= 480) continue;
         
         if (by != current_by)
         {
@@ -1089,6 +1090,7 @@ static void FAST darkframe_grayscale()
         for (int x = 0; x < raw_info.width; x++)
         {
             int bx = RAW2BM_X(x);
+            if (bx < 0 || bx >= 720) continue;
             int p = raw_get_pixel(x, y);
             line[bx] += p;
             num[bx]++;
