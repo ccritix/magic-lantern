@@ -18,6 +18,9 @@
 #include <wirth.h>
 #include <screenshot.h>
 
+extern WEAK_FUNC(ret_0) void raw_lv_request();
+extern WEAK_FUNC(ret_0) void raw_lv_release();
+
 static CONFIG_INT("enabled", raw_diag_enabled, 0);
 static CONFIG_INT("screenshot", auto_screenshot, 1);
 static CONFIG_INT("dump_raw", dump_raw, 0);
@@ -1235,6 +1238,12 @@ PROP_HANDLER(PROP_GUI_STATE)
 
 static unsigned int raw_diag_poll(unsigned int unused)
 {
+    if ((void*)&raw_lv_request == (void*)&ret_0)
+    {
+        /* no backend support for LiveView */
+        return 0;
+    }
+    
     if (raw_diag_enabled && lv && get_halfshutter_pressed())
     {
         beep();
