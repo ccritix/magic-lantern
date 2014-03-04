@@ -1136,60 +1136,70 @@ static void raw_diag_task(int corr)
     {
         black_histogram(1);
         screenshot_if_needed("ob-dr");
+        if (gui_state != GUISTATE_QR) goto end;
     }
 
     if (analysis_darkframe_noise)
     {
         black_histogram(0);
         screenshot_if_needed("darkhist");
+        if (gui_state != GUISTATE_QR) goto end;
     }
     
     if (analysis_darkframe_grayscale)
     {
         darkframe_grayscale();
         screenshot_if_needed("darkgray");
+        if (gui_state != GUISTATE_QR) goto end;
     }
 
     if (analysis_darkframe_fpn)
     {
         darkframe_fpn();
         screenshot_if_needed("darkfpn");
+        if (gui_state != GUISTATE_QR) goto end;
     }
 
     if (analysis_darkframe_fpn_xcov)
     {
         darkframe_fpn_xcov();
         screenshot_if_needed("darkfpnx");
+        if (gui_state != GUISTATE_QR) goto end;
     }
 
     if (analysis_snr_curve)
     {
         snr_graph();
         screenshot_if_needed("snr");
+        if (gui_state != GUISTATE_QR) goto end;
     }
 
     if (analysis_jpg_curve)
     {
         jpg_curve();
         screenshot_if_needed("jpg");
+        if (gui_state != GUISTATE_QR) goto end;
     }
 
     if (analysis_compare_2_shots)
     {
         compare_2_shots(1);          /* show full shadow detail */
         screenshot_if_needed("cmp");
+        if (gui_state != GUISTATE_QR) goto end;
     }
 
     if (analysis_compare_2_shots_highlights)
     {
         compare_2_shots(1024);       /* trim the bottom 10 stops and zoom on highlight detail */
         screenshot_if_needed("cmp-hl");
+        if (gui_state != GUISTATE_QR) goto end;
     }
     
     if (analysis_ob_zones)
     {
         analyze_ob_zones();
         screenshot_if_needed("ob-zones");
+        if (gui_state != GUISTATE_QR) goto end;
     }
     
     if (dump_raw)
