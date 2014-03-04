@@ -863,7 +863,7 @@ static void compare_2_shots(int min_adu)
 
         char mfile[100];
         snprintf(mfile, sizeof(mfile), "raw_diag/%s%04d/rcurve.m", get_file_prefix(), get_shooting_card()->file_number);
-        FILE* f = FIO_CreateFileEx(mfile);
+        FILE* f = FIO_CreateFile(mfile);
         FIO_WriteFile(f, msg, len);
         FIO_CloseFile(f);
         fio_free(msg);
