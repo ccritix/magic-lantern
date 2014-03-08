@@ -132,7 +132,7 @@ static struct known_reg known_regs[] = {
     {0xC0F0,   0x8108, 0, "OBWB_ISEL (0-7)"},
     {0xC0F0,   0x810C, 0, "PROC24_ISEL (0-7)"},
     {0xC0F0,   0x8110, 0, "DPCME_ISEL (0-15)"},
-    {0xC0F0,   0x8114, 0, "PACK32_ISEL (0-15)"},
+    //{0xC0F0,   0x8114, 0, "PACK32_ISEL (0-15)"},
     {0xC0F0,   0x82D0, 0, "PACK16_ISEL (0-15)"},
     {0xC0F0,   0x82D4, 0, "WDMAC32_ISEL (0-7)"},
     {0xC0F0,   0x82D8, 0, "WDMAC16_ISEL (0-1)"},
@@ -207,7 +207,7 @@ static struct known_reg known_regs[] = {
     {0xC0F0,   0x82AC, 0, "TWOA_KZMK_SAV_A"},
     {0xC0F0,   0x82B0, 0, "TWOA_KZMK_SAV_B"},
     
-    {0xc0f0,   0x8114, 0, "LV raw type (see lv_af_raw, lv_set_raw) - DIGIC IV"},
+    {0xc0f0,   0x8114, 0, "LV raw type (see lv_af_raw, lv_set_raw) - DIGIC IV (PACK32_ISEL)"},
     {0xc0f3,   0x7014, 0, "LV raw type (see lv_af_raw, lv_set_raw) - DIGIC V"},
     
     {DST_DFE,  0x180e, 0, "Blue LED"},
@@ -5232,6 +5232,21 @@ static unsigned int adtg_gui_init()
     regs_tree.root = 0;
 
     menu_add("Debug", adtg_gui_menu, COUNT(adtg_gui_menu));
+
+    /* check known registers for duplicates */
+    for (int i = 0; i < COUNT(known_regs); i++)
+    {
+        for (int j = 0; j < i; j++)
+        {
+            if ((known_regs[i].dst == known_regs[j].dst) &&
+                (known_regs[i].reg == known_regs[j].reg))
+            {
+                NotifyBox(2000, "Duplicate reg: %x %x\n", known_regs[i].dst, known_regs[i].reg);
+                return CBR_RET_ERROR;
+            }
+        }
+    }
+
     return 0;
 }
 
