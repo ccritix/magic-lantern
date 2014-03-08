@@ -27,6 +27,7 @@ static CONFIG_INT("black.offset", black_white_offset, 0);
 static CONFIG_INT("black.ref", black_reference, 0);
 static CONFIG_INT("adtg.preamp", adtg_preamp, -1);
 static CONFIG_INT("adtg.fe", adtg_fe, -1);
+static CONFIG_INT("adtg.top_ob", top_ob, -1);
 static int default_cmos_gain = 0;
 static int default_adtg_gain = 0;
 static int default_digital_gain = 0;
@@ -35,6 +36,7 @@ static int default_black_white_offset = 0;
 static int default_black_reference = 0;
 static int default_adtg_preamp = 0;
 static int default_adtg_fe = 0;
+static int default_top_ob = 0;
 
 /* default settings used for full-stop ISOs */
 static int default_white_level_fullstop = 15283;        /* my 5D3 only */
@@ -166,6 +168,33 @@ static void engio_write_log(breakpoint_t *bkpt)
     }
 }
 
+static int32_t nrzi_decode( uint32_t in_val )
+{
+    uint32_t val = 0;
+    if (in_val & 0x8000)
+        val |= 0x8000;
+    for (int num = 0; num < 31; num++)
+    {
+        uint32_t old_bit = (val & 1<<(30-num+1)) >> 1;
+        val |= old_bit ^ (in_val & 1<<(30-num));
+    }
+    return val;
+}
+
+static uint32_t nrzi_encode( uint32_t in_val )
+{
+    uint32_t out_val = 0;
+    uint32_t old_bit = 0;
+    for (int num = 0; num < 31; num++)
+    {
+        uint32_t bit = in_val & 1<<(30-num) ? 1 : 0;
+        if (bit != old_bit)
+            out_val |= (1 << (30-num));
+        old_bit = bit;
+    }
+    return out_val;
+}
+
 /* intercept adtg_write calls to override ADTG gain */
 static void adtg_log(breakpoint_t *bkpt)
 {
@@ -201,6 +230,12 @@ static void adtg_log(breakpoint_t *bkpt)
         {
             if (!default_black_reference) default_black_reference = val;    // this only works on first test picture
             if (black_reference) val = black_reference;
+            *data_buf = (reg << 16) | (val & 0xFFFF);
+        }
+        if (reg == 0x82F3)
+        {
+            default_top_ob = nrzi_decode(val);
+            if (top_ob >= 0) val = nrzi_encode(top_ob);
             *data_buf = (reg << 16) | (val & 0xFFFF);
         }
         data_buf++;
@@ -485,6 +520,26 @@ static MENU_UPDATE_FUNC(adtg_fe_update)
     check_warnings(entry, info);
 }
 
+static MENU_UPDATE_FUNC(top_ob_update)
+{
+    if (CURRENT_VALUE < 0)
+    {
+        MENU_SET_VALUE("OFF");
+        MENU_SET_ENABLED(0);
+    }
+    else
+    {
+        MENU_SET_ENABLED(1);
+    }
+    
+    if (default_top_ob)
+    {
+        MENU_SET_RINFO("Default %d", default_top_ob);
+    }
+
+    check_warnings(entry, info);
+}
+
 /* copy Canon settings from last picture */
 static MENU_SELECT_FUNC(copy_canon_settings)
 {
@@ -496,6 +551,7 @@ static MENU_SELECT_FUNC(copy_canon_settings)
     black_reference = default_black_reference;
     adtg_preamp = default_adtg_preamp;
     adtg_fe = default_adtg_fe;
+    top_ob = default_top_ob;
 }
 
 static MENU_SELECT_FUNC(disable_overrides)
@@ -512,6 +568,7 @@ static MENU_SELECT_FUNC(disable_overrides)
     black_reference = 0;
     adtg_preamp = -1;
     adtg_fe = -1;
+    top_ob = -1;
 }
 
 static struct menu_entry iso_regs_menu[] =
@@ -603,6 +660,15 @@ static struct menu_entry iso_regs_menu[] =
                 .help  = "Yet another ADTG gain.",
             },
             {
+                .name = "Top OB size",
+                .priv = &top_ob,
+                .update = top_ob_update,
+                .min = -1,
+                .max = 2000,
+                .unit = UNIT_DEC,
+                .help  = "Size of top optical black area (ADTG 0x82F3).",
+            },
+            {
                 .name = "Resulting ISO",
                 .update = resulting_iso_update,
                 .help = "ISO (by average brightness) obtained with current parameters,",
@@ -667,4 +733,5 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(black_reference)
     MODULE_CONFIG(adtg_preamp)
     MODULE_CONFIG(adtg_fe)
+    MODULE_CONFIG(top_ob)
 MODULE_CONFIGS_END()
