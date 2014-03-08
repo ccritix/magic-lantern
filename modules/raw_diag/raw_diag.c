@@ -499,6 +499,9 @@ static void darkframe_fpn()
     clrscr();
     bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 200, "Please wait...\n(crunching numbers)");
 
+    float black, ob_noise;
+    ob_mean_stdev(&black, &ob_noise);
+
     /* any 100-megapixel cameras out there? */
     float* fpn; int fpn_size = 10000 * sizeof(fpn[0]);
     fpn = malloc(fpn_size); if (!fpn) return;
@@ -510,8 +513,10 @@ static void darkframe_fpn()
     float* fpn_x1 = fpn + raw_info.active_area.x1;
     int fpn_N = raw_info.active_area.x2 - raw_info.active_area.x1;
     plot(fpn_x1, fpn_N, 10, 25, 700, 220);
-    int s = (int) roundf(std(fpn_x1, fpn_N) * 100.0);
-    bmp_printf(FONT_MED, 15, 30, "Vertical FPN: stdev=%s%d.%02d", FMT_FIXEDPOINT2(s));
+    float s = std(fpn_x1, fpn_N);
+    int s_rounded = (int) roundf(s * 100.0);
+    int s_ratio = (int) roundf(s / ob_noise * 100.0);
+    bmp_printf(FONT_MED, 15, 30, "Vertical FPN: stdev=%s%d.%02d ratio=%s%d.%02d", FMT_FIXEDPOINT2(s_rounded), FMT_FIXEDPOINT2(s_ratio));
 
     bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 300, "Please wait...\n(crunching numbers)");
 
@@ -522,8 +527,10 @@ static void darkframe_fpn()
     float* fpn_y1 = fpn + raw_info.active_area.y1;
     fpn_N = raw_info.active_area.y2 - raw_info.active_area.y1;
     plot(fpn_y1, fpn_N, 10, 255, 700, 220);
-    s = (int) roundf(std(fpn_y1, fpn_N) * 100.0);
-    bmp_printf(FONT_MED, 15, 260, "Horizontal FPN: stdev=%s%d.%02d", FMT_FIXEDPOINT2(s));
+    s = std(fpn_y1, fpn_N);
+    s_rounded = (int) roundf(s * 100.0);
+    s_ratio = (int) roundf(s / ob_noise * 100.0);
+    bmp_printf(FONT_MED, 15, 260, "Horizontal FPN: stdev=%s%d.%02d ratio=%s%d.%02d", FMT_FIXEDPOINT2(s_rounded), FMT_FIXEDPOINT2(s_ratio));
 
     bmp_printf(FONT_MED, 0, 0, 
         "Fixed-pattern noise"
