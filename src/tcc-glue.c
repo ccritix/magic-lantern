@@ -172,3 +172,21 @@ void __cyg_profile_func_exit(void *this_fn, void *call_site) {
 }
 
 */
+
+#ifdef MODULE_INSTRUMENT_FUNCTIONS
+/* for debugging modules: compile your module with CFLAGS+=-finstrument-functions */
+/* and make sure TCC state is up and running alongside your module (not unloaded) */
+
+void __cyg_profile_func_enter(void *this_fn, void *call_site)
+                              __attribute__((no_instrument_function));
+
+void __cyg_profile_func_enter(void *this_fn, void *call_site) {
+  printf("ENTER: %x %s, from %s\n", this_fn, tcc_get_symbol_name(this_fn), tcc_get_symbol_name_with_offset(call_site));
+}
+
+void __cyg_profile_func_exit(void *this_fn, void *call_site)
+                             __attribute__((no_instrument_function));
+void __cyg_profile_func_exit(void *this_fn, void *call_site) {
+  printf("EXIT:  %x %s, from %s\n", this_fn, tcc_get_symbol_name(this_fn), tcc_get_symbol_name_with_offset(call_site));
+}
+#endif

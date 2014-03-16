@@ -156,6 +156,51 @@ ST_FUNC int find_elf_sym(Section *s, const char *name)
     return 0;
 }
 
+#ifdef MODULE_INSTRUMENT_FUNCTIONS
+ST_FUNC const char * tcc_get_symbol_name(int addr)
+{
+    ElfW(Sym) *sym, *sym_end;
+    const char *name;
+
+    sym_end = (ElfW(Sym) *)(symtab_section->data + symtab_section->data_offset);
+    for(sym = (ElfW(Sym) *)symtab_section->data + 1; 
+        sym < sym_end;
+        sym++) {
+            name = symtab_section->link->data + sym->st_name;
+            if (addr == sym->st_value)
+                return name;
+    }
+    return 0;
+}
+
+ST_FUNC const char * tcc_get_symbol_name_with_offset(int addr)
+{
+    static char ans[100];
+    ElfW(Sym) *sym, *sym_end, *closest_sym;
+    const char *name;
+    int closest_addr = 0;
+    
+    sym_end = (ElfW(Sym) *)(symtab_section->data + symtab_section->data_offset);
+    closest_sym = sym_end;
+    for(sym = (ElfW(Sym) *)symtab_section->data + 1; 
+        sym < sym_end;
+        sym++) {
+            if (sym->st_value <= addr)
+            {
+                if (sym->st_value > closest_addr)
+                {
+                    closest_addr = sym->st_value;
+                    closest_sym = sym;
+                }
+            }
+    }
+
+    name = symtab_section->link->data + closest_sym->st_name;
+    snprintf(ans, sizeof(ans), "%s+0x%x", name, addr - closest_sym->st_value);
+    return ans;
+}
+#endif
+
 /* return elf symbol value, signal error if 'err' is nonzero */
 ST_FUNC addr_t get_elf_sym_addr(TCCState *s, const char *name, int err)
 {

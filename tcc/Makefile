@@ -204,6 +204,8 @@ localsyms: libtcctmp.o
 		| grep -v "^tcc_add_symbol$$" \
 		| grep -v "^tcc_set_options$$" \
 		| grep -v "^tcc_load_offline_section$$" \
+		| grep -v "^tcc_get_symbol_name$$" \
+		| grep -v "^tcc_get_symbol_name_with_offset$$" \
 		> $@
 
 #~ libtcc.a: libtcctmp.a localsyms
