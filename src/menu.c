@@ -31,6 +31,12 @@
 #include "font.h"
 #include "menu.h"
 #include "beep.h"
+#include "zebra.h"
+#include "focus.h"
+#include "menuhelp.h"
+#include "console.h"
+#include "debug.h"
+#include "lvinfo.h"
 
 #define CONFIG_MENU_ICONS
 //~ #define CONFIG_MENU_DIM_HACKS
@@ -524,7 +530,7 @@ static void menu_numeric_toggle_R20(int* val, int delta, int min, int max)
         v = COERCE(round_to_R20(v), min, max);
     }
     
-    *val = v;
+    set_config_var_ptr(val, v);
 }
 
 static void menu_numeric_toggle_long_range(int* val, int delta, int min, int max)
@@ -557,35 +563,7 @@ static void menu_numeric_toggle_long_range(int* val, int delta, int min, int max
         }
     }
     
-    *val = v;
-}
-
-/* TODO: move these to a math library */
-int powi(int base, int power)
-{
-    int result = 1;
-    while (power)
-    {
-        if (power & 1)
-            result *= base;
-        power >>= 1;
-        base *= base;
-    }
-    return result;
-}
-
-int log2i(int x)
-{
-    int result = 0;
-    while (x >>= 1) result++;
-    return result;
-}
-
-int log10i(int x)
-{
-    int result = 0;
-    while(x /= 10) result++;
-    return result;
+    set_config_var_ptr(val, v);
 }
 
 /* for editing with caret */
@@ -617,8 +595,8 @@ static int uses_caret_editing(struct menu_entry * entry)
 
 static void caret_move(struct menu_entry * entry, int delta)
 {
-    int max = (entry->unit == UNIT_HEX)  ? log2i(MAX(abs(entry->max),abs(entry->min)))/4 :
-              (entry->unit == UNIT_DEC)  ? log10i(MAX(abs(entry->max),abs(entry->min))/2)  :
+    int max = (entry->unit == UNIT_HEX)  ? log2i(MAX(ABS(entry->max),ABS(entry->min)))/4 :
+              (entry->unit == UNIT_DEC)  ? log10i(MAX(ABS(entry->max),ABS(entry->min))/2)  :
               (entry->unit == UNIT_TIME) ? 7 : 0;
 
     menu_numeric_toggle(&caret_position, delta, 0, max);
@@ -634,7 +612,7 @@ void menu_numeric_toggle(int* val, int delta, int min, int max)
 {
     ASSERT(IS_ML_PTR(val));
 
-    *val = mod(*val - min + delta, max - min + 1) + min;
+    set_config_var_ptr(val, MOD(*val - min + delta, max - min + 1) + min);
 }
 
 void menu_numeric_toggle_time(int * val, int delta, int min, int max)
@@ -645,9 +623,11 @@ void menu_numeric_toggle_time(int * val, int delta, int min, int max)
         if(deltas[i] * 4 <= (delta < 0 ? *val - 1 : *val)) break;
     delta *= deltas[i];
     
-    *val = (*val + delta) / delta * delta;
-    if(*val > max) *val = min;
-    if(*val < min) *val = max;
+    int new_val = (*val + delta) / delta * delta;
+    if(new_val > max) new_val = min;
+    if(new_val < min) new_val = max;
+    
+    set_config_var_ptr(val, new_val);
 }
 
 static void menu_numeric_toggle_fast(int* val, int delta, int min, int max, int is_time)
@@ -669,7 +649,7 @@ static void menu_numeric_toggle_fast(int* val, int delta, int min, int max, int 
     }
     else
     {
-        *val = mod(*val - min + delta, max - min + 1) + min;
+        set_config_var_ptr(val, MOD(*val - min + delta, max - min + 1) + min);
     }
     
     prev_delta = t - prev_t;
@@ -931,7 +911,7 @@ menu_find_by_name(
     }
 
     // Not found; create it
-    struct menu * new_menu = SmallAlloc( sizeof(*new_menu) );
+    struct menu * new_menu = malloc( sizeof(*new_menu) );
     if( !new_menu )
     {
         give_semaphore( menu_sem );
@@ -1325,7 +1305,7 @@ menu_remove(
     }
 }
 
-void dot(int x, int y, int color, int radius)
+static void dot(int x, int y, int color, int radius)
 {
     fill_circle(x+16, y+16, radius, color);
 }
@@ -4054,7 +4034,7 @@ menu_redraw_do()
         
         if (menu_help_active)
         {
-            BMP_LOCK( menu_help_redraw(); )
+            menu_help_redraw();
             menu_damage = 0;
         }
         else
@@ -4062,106 +4042,103 @@ menu_redraw_do()
             if (!lv) menu_lv_transparent_mode = 0;
             if (menu_lv_transparent_mode && edit_mode) edit_mode = 0;
 
-            //~ menu_damage = 0;
-            BMP_LOCK (
-                if (DOUBLE_BUFFERING)
-                {
-                    // draw to mirror buffer to avoid flicker
-                    //~ bmp_idle_copy(0); // no need, drawing is fullscreen anyway
-                    bmp_draw_to_idle(1);
-                }
+            if (DOUBLE_BUFFERING)
+            {
+                // draw to mirror buffer to avoid flicker
+                //~ bmp_idle_copy(0); // no need, drawing is fullscreen anyway
+                bmp_draw_to_idle(1);
+            }
+            
+            /*
+            int z = zebra_should_run();
+            if (menu_zebras_mirror_dirty && !z)
+            {
+                clear_zebras_from_mirror();
+                menu_zebras_mirror_dirty = 0;
+            }*/
+
+            if (menu_lv_transparent_mode)
+            {
+                bmp_fill( 0, 0, 0, 720, 480 );
                 
                 /*
-                int z = zebra_should_run();
-                if (menu_zebras_mirror_dirty && !z)
+                if (z)
                 {
-                    clear_zebras_from_mirror();
-                    menu_zebras_mirror_dirty = 0;
-                }*/
+                    if (prev_z) copy_zebras_from_mirror();
+                    else cropmark_clear_cache(); // will clear BVRAM mirror and reset cropmarks
+                    menu_zebras_mirror_dirty = 1;
+                }
+                */
+                
+                if (hist_countdown == 0 && !should_draw_zoom_overlay())
+                    draw_histogram_and_waveform(0); // too slow
+                else
+                    hist_countdown--;
+            }
+            else
+            {
+                bmp_fill(COLOR_BLACK, 0, 40, 720, 400 );
+            }
+            //~ prev_z = z;
 
-                if (menu_lv_transparent_mode)
+            menu_make_sure_selection_is_valid();
+            
+            menus_display( menus, 0, 0 ); 
+
+            if (!menu_lv_transparent_mode && !SUBMENU_OR_EDIT && !junkie_mode)
+            {
+                if (is_menu_active("Help")) menu_show_version();
+                if (is_menu_active("Focus")) display_lens_hyperfocal();
+            }
+            
+            if (menu_lv_transparent_mode) 
+            {
+                draw_ml_topbar();
+                draw_ml_bottombar();
+                bfnt_draw_char(ICON_ML_Q_BACK, 680, -5, COLOR_WHITE, COLOR_BLACK);
+            }
+
+            if (beta_should_warn()) draw_beta_warning();
+            
+            #ifdef CONFIG_CONSOLE
+            console_draw_from_menu();
+            #endif
+
+            if (DOUBLE_BUFFERING)
+            {
+                // copy image to main buffer
+                bmp_draw_to_idle(0);
+
+                if (menu_redraw_cancel)
                 {
-                    bmp_fill( 0, 0, 0, 720, 480 );
-                    
-                    /*
-                    if (z)
-                    {
-                        if (prev_z) copy_zebras_from_mirror();
-                        else cropmark_clear_cache(); // will clear BVRAM mirror and reset cropmarks
-                        menu_zebras_mirror_dirty = 1;
-                    }
-                    */
-                    
-                    if (hist_countdown == 0 && !should_draw_zoom_overlay())
-                        draw_histogram_and_waveform(); // too slow
-                    else
-                        hist_countdown--;
+                    /* maybe next time */
+                    menu_redraw_cancel = 0;
                 }
                 else
                 {
-                    bmp_fill(COLOR_BLACK, 0, 40, 720, 400 );
-                }
-                //~ prev_z = z;
-
-                menu_make_sure_selection_is_valid();
-                
-                menus_display( menus, 0, 0 ); 
-
-                if (!menu_lv_transparent_mode && !SUBMENU_OR_EDIT && !junkie_mode)
-                {
-                    if (is_menu_active("Help")) menu_show_version();
-                    if (is_menu_active("Focus")) display_lens_hyperfocal();
-                }
-                
-                if (menu_lv_transparent_mode) 
-                {
-                    draw_ml_topbar();
-                    draw_ml_bottombar();
-                    bfnt_draw_char(ICON_ML_Q_BACK, 680, -5, COLOR_WHITE, COLOR_BLACK);
-                }
-
-                if (beta_should_warn()) draw_beta_warning();
-                
-                #ifdef CONFIG_CONSOLE
-                console_draw_from_menu();
-                #endif
-
-                if (DOUBLE_BUFFERING)
-                {
-                    // copy image to main buffer
-                    bmp_draw_to_idle(0);
-
-                    if (menu_redraw_cancel)
+                    int screen_layout = get_screen_layout();
+                    if (hdmi_code == 2) // copy at a smaller scale to fit the screen
                     {
-                        /* maybe next time */
-                        menu_redraw_cancel = 0;
-                    }
-                    else
-                    {
-                        int screen_layout = get_screen_layout();
-                        if (hdmi_code == 2) // copy at a smaller scale to fit the screen
-                        {
-                            if (screen_layout == SCREENLAYOUT_16_10)
-                                bmp_zoom(bmp_vram(), bmp_vram_idle(),  360,  150, /* 128 div */ 143, /* 128 div */ 169);
-                            else if (screen_layout == SCREENLAYOUT_16_9)
-                                bmp_zoom(bmp_vram(), bmp_vram_idle(),  360,  165, /* 128 div */ 143, /* 128 div */ 185);
-                            else
-                            {
-                                if (menu_upside_down) bmp_flip(bmp_vram(), bmp_vram_idle(), 0);
-                                else bmp_idle_copy(1,0);
-                            }
-                        }
-                        else if (EXT_MONITOR_RCA)
-                            bmp_zoom(bmp_vram(), bmp_vram_idle(),  360,  200, /* 128 div */ 135, /* 128 div */ 135);
+                        if (screen_layout == SCREENLAYOUT_16_10)
+                            bmp_zoom(bmp_vram(), bmp_vram_idle(),  360,  150, /* 128 div */ 143, /* 128 div */ 169);
+                        else if (screen_layout == SCREENLAYOUT_16_9)
+                            bmp_zoom(bmp_vram(), bmp_vram_idle(),  360,  165, /* 128 div */ 143, /* 128 div */ 185);
                         else
                         {
                             if (menu_upside_down) bmp_flip(bmp_vram(), bmp_vram_idle(), 0);
                             else bmp_idle_copy(1,0);
                         }
                     }
-                    //~ bmp_idle_clear();
+                    else if (EXT_MONITOR_RCA)
+                        bmp_zoom(bmp_vram(), bmp_vram_idle(),  360,  200, /* 128 div */ 135, /* 128 div */ 135);
+                    else
+                    {
+                        if (menu_upside_down) bmp_flip(bmp_vram(), bmp_vram_idle(), 0);
+                        else bmp_idle_copy(1,0);
+                    }
                 }
-            )
+                //~ bmp_idle_clear();
+            }
             //~ update_stuff();
             lens_display_set_dirty();
         }
@@ -4585,10 +4562,10 @@ handle_ml_menu_keys(struct event * event)
         //~ menu_hidden_should_display_help = 0;
         break;
 #ifdef CONFIG_TOUCHSCREEN
-    case TOUCH_1_FINGER:
-    case TOUCH_2_FINGER:
-    case UNTOUCH_1_FINGER:
-    case UNTOUCH_2_FINGER:
+    case BGMT_TOUCH_1_FINGER:
+    case BGMT_TOUCH_2_FINGER:
+    case BGMT_UNTOUCH_1_FINGER:
+    case BGMT_UNTOUCH_2_FINGER:
         return handle_ml_menu_touch(event);
 #endif
 #ifdef BGMT_RATE
@@ -4656,12 +4633,14 @@ int handle_ml_menu_touch(struct event * event)
 {
     int button_code = event->param;
     switch (button_code) {
-        case TOUCH_1_FINGER:
+        case BGMT_TOUCH_1_FINGER:
             fake_simple_button(BGMT_Q);
             return 0;
-        case TOUCH_2_FINGER:
-        case UNTOUCH_1_FINGER:
-        case UNTOUCH_2_FINGER:
+        case BGMT_TOUCH_2_FINGER:
+            fake_simple_button(BGMT_TRASH);
+            return 0;
+        case BGMT_UNTOUCH_1_FINGER:
+        case BGMT_UNTOUCH_2_FINGER:
             return 0;
         default:
             return 1;
@@ -4787,7 +4766,7 @@ static void piggyback_canon_menu()
     NotifyBoxHide();
     int new_gui_mode = GUIMODE_ML_MENU;
     if (new_gui_mode) start_redraw_flood();
-    if (new_gui_mode != CURRENT_DIALOG_MAYBE) 
+    if (new_gui_mode != (int)CURRENT_DIALOG_MAYBE) 
     { 
         if (lv) bmp_off(); // mask out the underlying Canon menu :)
         SetGUIRequestMode(new_gui_mode); msleep(200); 
@@ -4894,6 +4873,7 @@ menu_task( void* unused )
 {
     extern int ml_started;
     while (!ml_started) msleep(100);
+    
     debug_menu_init();
     
     int initial_mode = 0; // shooting mode when menu was opened (if changed, menu should close)
@@ -5182,7 +5162,7 @@ menu_help_go_to_selected_entry(
 
     struct menu_entry * entry = get_selected_entry(menu);
     if (!entry) return;
-    menu_help_go_to_label(entry->name);
+    menu_help_go_to_label((char*) entry->name, 0);
     give_semaphore(menu_sem);
 }
 
@@ -5204,7 +5184,11 @@ int handle_ml_menu_erase(struct event * event)
 {
     if (dofpreview) return 1; // don't open menu when DOF preview is locked
     
+#ifdef CONFIG_TOUCHSCREEN
+    if (event->param == BGMT_TRASH || event->param == BGMT_TOUCH_2_FINGER)
+#else
     if (event->param == BGMT_TRASH)
+#endif
     {
         if (gui_menu_shown() || gui_state == GUISTATE_IDLE)
         {
@@ -5261,17 +5245,21 @@ int handle_quick_access_menu_items(struct event * event)
     if (event->param == BGMT_Q && !gui_menu_shown())
     #endif
     {
+        #ifdef ISO_ADJUSTMENT_ACTIVE
         if (ISO_ADJUSTMENT_ACTIVE)
+        #else
+        if (0)
+        #endif
         {
             select_menu("Expo", 0);
             give_semaphore( gui_sem ); 
             return 0;
         }
-#ifdef CURRENT_DIALOG_MAYBE_2
+        #ifdef CURRENT_DIALOG_MAYBE_2
         else if (CURRENT_DIALOG_MAYBE_2 == DLG2_FOCUS_MODE)
-#else
+        #else
         else if (CURRENT_DIALOG_MAYBE == DLG_FOCUS_MODE)
-#endif
+        #endif
         {
             select_menu("Focus", 0);
             give_semaphore( gui_sem ); 
@@ -5302,7 +5290,7 @@ static void menu_set_flags(char* menu_name, char* entry_name, int flags)
 
 static void menu_save_flags(char* filename)
 {
-    char* cfg = alloc_dma_memory(CFG_SIZE);
+    char* cfg = fio_malloc(CFG_SIZE);
     cfg[0] = '\0';
     int cfglen = 0;
     int lastlen = 0;
@@ -5329,7 +5317,7 @@ static void menu_save_flags(char* filename)
         }
     }
     
-    FILE * file = FIO_CreateFileEx(filename);
+    FILE * file = FIO_CreateFile(filename);
     if( file == INVALID_PTR )
         goto end;
     
@@ -5338,7 +5326,7 @@ static void menu_save_flags(char* filename)
     FIO_CloseFile( file );
 
 end:
-    free_dma_memory(cfg);
+    fio_free(cfg);
 }
 
 static void menu_load_flags(char* filename)
@@ -5369,7 +5357,7 @@ static void menu_load_flags(char* filename)
             prev = i;
         }
     }
-    free_dma_memory(buf);
+    fio_free(buf);
 }
 
 
@@ -5392,7 +5380,7 @@ void config_menu_save_flags()
 
 /*void menu_save_all_items_dbg()
 {
-    char* cfg = alloc_dma_memory(CFG_SIZE);
+    char* cfg = fio_malloc(CFG_SIZE);
     cfg[0] = '\0';
 
     int unnamed = 0;
@@ -5409,7 +5397,7 @@ void config_menu_save_flags()
         }
     }
     
-    FILE * file = FIO_CreateFileEx( CARD_DRIVE "ML/LOGS/MENUS.LOG" );
+    FILE * file = FIO_CreateFile( "ML/LOGS/MENUS.LOG" );
     if( file == INVALID_PTR )
         return;
     
@@ -5419,7 +5407,7 @@ void config_menu_save_flags()
     
     NotifyBox(5000, "Menu items: %d unnamed.", unnamed);
 end:
-    free_dma_memory(cfg);
+    fio_free(cfg);
 }*/
 
 int menu_get_value_from_script(const char* name, const char* entry_name)
@@ -5529,7 +5517,7 @@ void menu_save_current_config_as_picoc_preset(char* filename)
     // we will need exclusive access to menu_display_info
     take_semaphore(menu_sem, 0);
 
-    char* cfg = alloc_dma_memory(CFG_SIZE);
+    char* cfg = fio_malloc(CFG_SIZE);
     cfg[0] = '\0';
     int cfglen = 0;
     int lastlen = 0;
@@ -5610,7 +5598,7 @@ void menu_save_current_config_as_picoc_preset(char* filename)
     
     //~ ASSERT(cfglen == strlen(cfg)); // seems OK
     
-    FILE * file = FIO_CreateFileEx(filename);
+    FILE * file = FIO_CreateFile(filename);
     if( file == INVALID_PTR )
         goto end;
     
@@ -5619,7 +5607,7 @@ void menu_save_current_config_as_picoc_preset(char* filename)
     FIO_CloseFile( file );
 
 end:
-    free_dma_memory(cfg);
+    fio_free(cfg);
     give_semaphore(menu_sem);
 }
 
@@ -5740,15 +5728,33 @@ void menu_self_test()
 #endif // CONFIG_STRESS_TEST
 #endif // CONFIG_PICOC
 
+/* returns 1 if the backend is ready to use, 0 if caller should call this one again to re-check */
 int menu_request_image_backend()
 {
+    static int last_guimode_request = 0;
+    int t = get_ms_clock_value();
+    
     if (CURRENT_DIALOG_MAYBE != DLG_PLAY)
     {
-        SetGUIRequestMode(DLG_PLAY);
+        if (t > last_guimode_request + 1000)
+        {
+            SetGUIRequestMode(DLG_PLAY);
+            last_guimode_request = t;
+        }
+        
+        /* not ready, please retry */
         return 0;
     }
-    clrscr();
-    return 1;
+
+    if (t > last_guimode_request + 500 && DISPLAY_IS_ON && get_yuv422_vram()->vram)
+    {
+        /* ready to draw on the YUV buffer! */
+        clrscr();
+        return 1;
+    }
+    
+    /* not yet ready, please retry */
+    return 0;
 }
 
 

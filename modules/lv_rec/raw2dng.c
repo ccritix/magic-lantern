@@ -208,14 +208,17 @@ int raw_set_pixel(int x, int y, int value)
 static int stripes_coeffs[8] = {0};
 static int stripes_correction_needed = 0;
 
+/* do not use typeof in macros, use __typeof__ instead.
+   see: http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Alternate-Keywords.html#Alternate-Keywords
+*/
 #define MIN(a,b) \
-   ({ typeof ((a)+(b)) _a = (a); \
-      typeof ((a)+(b)) _b = (b); \
+   ({ __typeof__ ((a)+(b)) _a = (a); \
+      __typeof__ ((a)+(b)) _b = (b); \
      _a < _b ? _a : _b; })
 
 #define MAX(a,b) \
-   ({ typeof ((a)+(b)) _a = (a); \
-       typeof ((a)+(b)) _b = (b); \
+   ({ __typeof__ ((a)+(b)) _a = (a); \
+       __typeof__ ((a)+(b)) _b = (b); \
      _a > _b ? _a : _b; })
 
 #define ABS(a) \
@@ -539,13 +542,14 @@ static inline int FC(int row, int col)
     }
 }
 
-void find_and_fix_cold_pixels(fix, framenumber)
+
+void find_and_fix_cold_pixels(int fix, int framenumber)
 {
-    int const max_cold_pixels = 2000; /*max.number of cold pixels, that can be repaired*/
+    #define MAX_COLD_PIXELS 5000
   
     struct xy { int x; int y; };
-    struct xy cold_pixel_list[max_cold_pixels];
     
+    static struct xy cold_pixel_list[MAX_COLD_PIXELS];
     static int cold_pixels = 0;
     
     int w = raw_info.width;
@@ -569,7 +573,7 @@ void find_and_fix_cold_pixels(fix, framenumber)
                 int p = raw_get_pixel(x, y);
                 int is_cold = (p == 0);
 
-                if (is_cold && cold_pixels < max_cold_pixels) /*generate a list containing the cold pixels*/
+                if (is_cold && cold_pixels < MAX_COLD_PIXELS) /*generate a list containing the cold pixels*/
                 {
                     cold_pixel_list[cold_pixels].x = x;
                     cold_pixel_list[cold_pixels].y = y;

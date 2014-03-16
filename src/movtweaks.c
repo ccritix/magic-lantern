@@ -12,6 +12,10 @@
 #include "gui.h"
 #include "lens.h"
 #include "math.h"
+#include "shoot.h"
+#include "zebra.h"
+#include "fps.h"
+#include "beep.h"
 
 #ifdef FEATURE_REC_NOTIFY
 
@@ -160,7 +164,7 @@ static void movie_cliplen_toggle(void* priv, int sign)
 {
     int* t = (int*)priv;
     int i = current_cliplen_index(*t);
-    i = mod(i + sign, COUNT(movie_cliplen_values));
+    i = MOD(i + sign, COUNT(movie_cliplen_values));
     *(int*)priv = movie_cliplen_values[i];
 }
 
@@ -263,7 +267,7 @@ void close_liveview()
 }
 
 static CONFIG_INT("shutter.lock", shutter_lock, 0);
-static CONFIG_UNSIGNED("shutter.lock.value", shutter_lock_value, 0);
+static CONFIG_INT("shutter.lock.value", shutter_lock_value, 0);
 
 #ifdef FEATURE_SHUTTER_LOCK
 static void
@@ -286,7 +290,7 @@ static void shutter_lock_step()
 {
     if (is_movie_mode()) // no effect in photo mode
     {
-        unsigned shutter = lens_info.raw_shutter;
+        int shutter = lens_info.raw_shutter;
         if (shutter_lock_value == 0) shutter_lock_value = shutter; // make sure it's some valid value
         if (!gui_menu_shown()) // lock shutter
         {
@@ -702,6 +706,7 @@ void bv_disable()
     if (!lv) goto end;
     
     iso_auto_restore_hack();
+    set_photo_digital_iso_gain_for_bv(1024);
 
     //~ bmp_printf(FONT_LARGE, 50, 50, "DISable");
 

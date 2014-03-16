@@ -29,6 +29,8 @@
 #include "menu.h"
 #include "property.h"
 #include "beep.h"
+#include "shoot.h"
+#include "zebra.h"
 
 static int config_selected = 0;
 static char config_selected_by_key[9] = "";
@@ -187,7 +189,7 @@ int config_save_file(const char *filename)
     DebugMsg( DM_MAGIC, 3, "%s: saving to %s", __func__, filename );
     
     #define MAX_SIZE 10240
-    char* msg = alloc_dma_memory(MAX_SIZE);
+    char* msg = fio_malloc(MAX_SIZE);
     msg[0] = '\0';
   
     snprintf( msg, MAX_SIZE,
@@ -226,10 +228,10 @@ int config_save_file(const char *filename)
         count++;
     }
     
-    FILE * file = FIO_CreateFileEx( filename );
+    FILE * file = FIO_CreateFile( filename );
     if( file == INVALID_PTR )
     {
-        free_dma_memory(msg);
+        fio_free(msg);
         return -1;
     }
     
@@ -237,7 +239,7 @@ int config_save_file(const char *filename)
 
     FIO_CloseFile( file );
     
-    free_dma_memory(msg);
+    fio_free(msg);
     
     return count;
 }
@@ -289,7 +291,7 @@ void config_flag_file_setting_save(char* file, int setting)
     FIO_RemoveFile(file);
     if (setting)
     {
-        FILE* f = FIO_CreateFileEx(file);
+        FILE* f = FIO_CreateFile(file);
         FIO_CloseFile(f);
     }
 }
@@ -314,7 +316,7 @@ int config_parse_file(const char *filename)
     config_file_buf = (void*)read_entire_file(filename, &config_file_size);
     config_file_pos = 0;
     config_parse();
-    free_dma_memory(config_file_buf);
+    fio_free(config_file_buf);
     config_file_buf = 0;
     return 1;
 }
@@ -335,6 +337,82 @@ static struct config_var* config_var_lookup(int* ptr)
     return 0;
 #endif
 }
+
+static struct config_var * get_config_var_struct(const char * name)
+{
+    for(struct config_var *  var = _config_vars_start ; var < _config_vars_end ; var++ )
+    {
+        if (streq(var->name, name))
+        {
+            return var;
+        }
+    }
+    
+#ifdef CONFIG_MODULES
+    return module_get_config_var(name);
+#else
+    return 0;
+#endif
+}
+
+int get_config_var(const char * name)
+{
+    struct config_var * var = get_config_var_struct(name);
+    
+    if(var && var->value)
+    {
+        return *(var->value);
+    }
+    
+    return 0;
+}
+
+static int set_config_var_struct(struct config_var * var, int new_value)
+{
+    if(var && var->value)
+    {
+        //check if the callback routine exists
+        if(var->update)
+        {
+            //run the callback routine
+            int cbr_result = var->update(var, *(var->value), new_value);
+            //if the cbr returns false, it means we are not allowed to change the value
+            if(cbr_result)
+            {
+                *(var->value) = new_value;
+                return cbr_result;
+            }
+        }
+        else
+        {
+            //no cbr so just set the value
+            *(var->value) = new_value;
+            return 1;
+        }
+    }
+    
+    return 0;
+}
+
+int set_config_var(const char * name, int new_value)
+{
+    return set_config_var_struct(get_config_var_struct(name), new_value);
+}
+
+int set_config_var_ptr(int* ptr, int new_value)
+{
+    struct config_var * var = config_var_lookup(ptr);
+    
+    if(ptr && !var)
+    {
+        //this is not actually a config var, so just set the value
+        *ptr = new_value;
+        return 1;
+    }
+    
+    return set_config_var_struct(var, new_value);
+}
+
 
 int config_var_was_changed(int* ptr)
 {
@@ -389,7 +467,7 @@ unsigned int module_config_load(char *filename, module_entry_t *module)
         return -1;
     config_file_pos = 0;
     module_config_parse(module);
-    free_dma_memory(config_file_buf);
+    fio_free(config_file_buf);
     config_file_buf = 0;
     return 0;
 }
@@ -399,7 +477,7 @@ unsigned int module_config_save(char *filename, module_entry_t *module)
     if (!module->config)
         return -1;
 
-    char* msg = alloc_dma_memory(MAX_SIZE);
+    char* msg = fio_malloc(MAX_SIZE);
     msg[0] = '\0';
 
     snprintf( msg, MAX_SIZE,
@@ -429,10 +507,10 @@ unsigned int module_config_save(char *filename, module_entry_t *module)
         goto finish;
     }
     
-    FILE * file = FIO_CreateFileEx( filename );
+    FILE * file = FIO_CreateFile( filename );
     if( file == INVALID_PTR )
     {
-        free_dma_memory(msg);
+        fio_free(msg);
         return -1;
     }
     
@@ -440,7 +518,7 @@ unsigned int module_config_save(char *filename, module_entry_t *module)
 
     FIO_CloseFile( file );
 finish:
-    free_dma_memory(msg);
+    fio_free(msg);
     return 0;
 }
 
@@ -457,7 +535,7 @@ static char *find_picoc_config_filename()
 {
     for (int i = 0; i < 10; i++)
     {
-        snprintf(last_preset_file, sizeof(last_preset_file), CARD_DRIVE"ML/SCRIPTS/PRESET%d.C", i);
+        snprintf(last_preset_file, sizeof(last_preset_file), "ML/SCRIPTS/PRESET%d.C", i);
 
         if (GetFileSize(last_preset_file) == 0xFFFFFFFF) // this file does not exist
             return last_preset_file;
@@ -506,7 +584,7 @@ static MENU_UPDATE_FUNC(config_save_as_picoc_update)
 
     if (preset_just_saved)
     {
-        MENU_SET_NAME(last_preset_file + strlen(CARD_DRIVE"ML/SCRIPTS/"));
+        MENU_SET_NAME(last_preset_file + strlen("ML/SCRIPTS/"));
         if (preset_user_angry)
             MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Change some settings before saving a new preset.");
         last_displayed = t;
@@ -572,7 +650,7 @@ static void delete_config( void * priv, int delta )
 /* config presets */
 
 static const char* config_preset_file = 
-    CARD_DRIVE"ML/SETTINGS/CURRENT.SET";    /* contains the name of current preset */
+    "ML/SETTINGS/CURRENT.SET";    /* contains the name of current preset */
 static int config_preset_index = 0;         /* preset being used right now */
 static int config_new_preset_index = 0;     /* preset that will be used after restart */
 static int config_preset_num = 3;           /* total presets available */
@@ -613,7 +691,7 @@ static struct menu_entry cfg_menus[];
 
 static void config_preset_scan()
 {
-    char* path = CARD_DRIVE "ML/SETTINGS/";
+    char* path = "ML/SETTINGS/";
     struct fio_file file;
     struct fio_dirent * dirent = FIO_FindFirstEx( path, &file );
     if(!IS_ERROR(dirent))
@@ -666,7 +744,7 @@ static MENU_SELECT_FUNC(config_preset_toggle)
     }
     else
     {
-        FILE* f = FIO_CreateFileEx(config_preset_file);
+        FILE* f = FIO_CreateFile(config_preset_file);
         if (config_new_preset_index == 1)
             my_fprintf(f, "Startup mode");
         else if (config_new_preset_index == 2)
@@ -751,7 +829,7 @@ static char* config_choose_startup_preset()
     int size = 0;
 
     /* by default, work in ML/SETTINGS dir */
-    snprintf(config_dir, sizeof(config_dir), CARD_DRIVE "ML/SETTINGS/");
+    snprintf(config_dir, sizeof(config_dir), "ML/SETTINGS/");
 
     /* check for a preset file selected in menu */
     char* preset_name = (char*) read_entire_file(config_preset_file, &size);
@@ -771,14 +849,14 @@ static char* config_choose_startup_preset()
         {
             snprintf(config_selected_by_name, sizeof(config_selected_by_name), preset_name);
             char preset_dir[0x80];
-            snprintf(preset_dir, sizeof(preset_dir), CARD_DRIVE"ML/SETTINGS/%s", preset_name);
+            snprintf(preset_dir, sizeof(preset_dir), "ML/SETTINGS/%s", preset_name);
             if (!is_dir(preset_dir)) { FIO_CreateDirectory(preset_dir); }
             if (is_dir(preset_dir))
             {
                 snprintf(config_dir, sizeof(config_dir), "%s/", preset_dir);
             }
         }
-        free_dma_memory(preset_name);
+        fio_free(preset_name);
     }
 
     /* scan the preset files and populate the menu */
@@ -792,7 +870,7 @@ static char* config_choose_startup_preset()
         if (config_selected_by_key[0])
         {
             char preset_dir[0x80];
-            snprintf(preset_dir, sizeof(preset_dir), CARD_DRIVE"ML/SETTINGS/%s.KEY", config_selected_by_key);
+            snprintf(preset_dir, sizeof(preset_dir), "ML/SETTINGS/%s.KEY", config_selected_by_key);
             if (!is_dir(preset_dir)) { FIO_CreateDirectory(preset_dir); }
             if (is_dir(preset_dir))
             {
@@ -811,7 +889,7 @@ static char* config_choose_startup_preset()
     {
         snprintf(config_selected_by_mode, sizeof(config_selected_by_mode), "%s", get_shootmode_name(shooting_mode_custom));
         char preset_dir[0x80];
-        snprintf(preset_dir, sizeof(preset_dir), CARD_DRIVE"ML/SETTINGS/%s.MOD", config_selected_by_mode);
+        snprintf(preset_dir, sizeof(preset_dir), "ML/SETTINGS/%s.MOD", config_selected_by_mode);
         if (!is_dir(preset_dir)) { FIO_CreateDirectory(preset_dir); }
         if (is_dir(preset_dir))
         {

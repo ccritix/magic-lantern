@@ -2,6 +2,9 @@
  * Camera internals for 50D 1.0.9
  */
 
+/** This camera has a CF slot */
+#define CONFIG_CF_SLOT
+
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
 /** The 50D port is pretty stable, so I think we can enable properties safely. **/
 #define CONFIG_PROP_REQUEST_CHANGE
@@ -130,3 +133,6 @@
 
 /** We know how to use engine resource locks */
 #define CONFIG_ENGINE_RESLOCK
+
+/** There are no manual exposure controls in movie mode => we need expo override */
+#define CONFIG_NO_MANUAL_EXPOSURE_MOVIE

@@ -2,6 +2,7 @@
 #include "lvinfo.h"
 #include "module.h"
 #include "raw.h"
+#include "zebra.h"
 
 int sound_recording_enabled_canon()
 {
@@ -45,9 +46,6 @@ static void volume_display();
 
 static void audio_monitoring_display_headphones_connected_or_not();
 static void audio_menus_init();
-#ifdef FEATURE_HEADPHONE_MONITORING
-static void audio_monitoring_update();
-#endif
 static void audio_input_toggle( void * priv, int delta );
 
 #ifdef CONFIG_600D
@@ -82,7 +80,7 @@ static CONFIG_INT( "audio.lovl",       lovl,           0 );
 static CONFIG_INT( "audio.alc-enable", alc_enable,     0 );
 static int loopback = 1;
 static CONFIG_INT( "audio.input-choice",       input_choice,           4 ); //0=internal; 1=L int, R ext; 2 = stereo ext; 3 = L int, R ext balanced, 4 = auto (0 or 1)
-static CONFIG_INT( "audio.filters",    enable_filters,        1 ); //disable the HPF, LPF and pre-emphasis filters
+static CONFIG_INT( "audio.filters",    enable_filters,        0 ); //disable the HPF, LPF and pre-emphasis filters
 #define cfg_draw_meters 1
 static CONFIG_INT("audio.monitoring", audio_monitoring, 1);
 static int do_draw_meters = 0;
@@ -841,13 +839,13 @@ audio_reg_dump_once()
     int log_number = 0;
     for (log_number = 0; log_number < 100; log_number++)
         {
-            snprintf(log_filename, sizeof(log_filename), CARD_DRIVE "ML/audio%02d.LOG", log_number);
+            snprintf(log_filename, sizeof(log_filename), "ML/audio%02d.LOG", log_number);
             unsigned size;
             if( FIO_GetFileSize( log_filename, &size ) != 0 ) break;
             if (size == 0) break;
         }
     
-    FILE* f = FIO_CreateFileEx(log_filename);
+    FILE* f = FIO_CreateFile(log_filename);
 
 	unsigned i;
 	for( i=0 ; i<COUNT(audio_regs_once) ; i++ )
@@ -996,14 +994,16 @@ void audio_monitoring_display_headphones_connected_or_not()
 
 PROP_INT(PROP_USBRCA_MONITOR, rca_monitor);
 
+#ifdef FEATURE_HEADPHONE_MONITORING
+static void audio_monitoring_update();
 
 static void
 audio_monitoring_toggle( void * priv, int delta )
 {
     audio_monitoring = !audio_monitoring;
     audio_monitoring_update(); //call audio_monitoring_force_display()
-
 }
+#endif
 
 static void
 enable_recording(int mode)

@@ -83,6 +83,7 @@ doxygen-doc/*
 modules/*/*.dep
 modules/*/*.mo
 modules/*/*.sym
+modules/*/*.rsc
 modules/*/hgstamp
 modules/*/module_strings.h
 modules/*/module_tags.json

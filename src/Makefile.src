@@ -63,7 +63,7 @@ endif
 ifeq ($(ML_ENTRY_OBJ), n)
 ML_ENTRY_OBJ =
 else ifndef ML_ENTRY_OBJ
-ML_ENTRY_OBJ = $(SRC_DIR)/entry.o
+ML_ENTRY_OBJ = entry.o
 endif
 
 ifeq ($(ML_SRC_PROFILE),minimal)
@@ -78,19 +78,22 @@ ML_INSTALLER_OBJS = \
 	magiclantern.lds \
 	$(ML_ENTRY_OBJ) \
 	$(PLATFORM_DIR)/stubs.o \
-	version.o \
 	installer.o \
+	version.o \
+	fio-ml.o \
 	ico.o \
 	bmp.o \
 	rbf_font.o \
 	stdio.o \
-	property.o \
-	propvalues.o \
 	dialog_test.o \
 	bootflags.o \
-	vram.o
+	mem.o \
+	exmem.o \
+	util.o \
 
 ML_OBJS-y += $(ML_INSTALLER_OBJS)
+
+CFLAGS += -DCONFIG_INSTALLER
 
 else ifeq ($(ML_SRC_PROFILE),generic)
 
@@ -102,6 +105,7 @@ ML_OBJS-y += \
 
 ML_SRC_OBJS = \
 	$(ML_BOOT_HACK_OBJ) \
+	fio-ml.o \
 	mem.o \
 	ico.o \
 	edmac.o \
@@ -110,6 +114,7 @@ ML_SRC_OBJS = \
 	rand.o \
 	posix.o \
 	util.o \
+	imath.o \
 	electronic_level.o \
 	cfn.o \
 	gui.o \
@@ -156,6 +161,7 @@ ML_SRC_OBJS = \
 	crop-mode-hack.o \
 	ph_info_disp.o \
 	flexinfo.o \
+	screenshot.o \
 	fileprefix.o \
 	lvinfo.o \
 	ml-cbr.o 
@@ -178,8 +184,6 @@ include $(TOP_DIR)/Makefile.filerules
 
 # Magic Lantern rules
 
-ML_LIBC ?= dietlibc.a newlib-libc.a
-
 magiclantern: $(ML_OBJS-y) $(ML_LIBC)
 	$(call build,LD,$(LD) \
 		-o $@ \
@@ -187,9 +191,7 @@ magiclantern: $(ML_OBJS-y) $(ML_LIBC)
 		$(LFLAGS) \
 		-T \
 		$^ \
-		-lm \
-		-lgcc \
-        -Xlinker -Map=location.map \
+        -Map=location.map \
 	)
 
 reboot.o: $(SRC_DIR)/reboot.c $(PLATFORM_DIR)/version.bin magiclantern.bin
@@ -204,20 +206,22 @@ clean::
 autoexec: $(ML_SRC_REBOOT_OBJ)
 	$(call build,LD,$(LD) \
 		-o $@ \
-		-nostdlib \
 		-e _start \
 		-Ttext $(AUTOEXEC_BASE) \
-		$^ -Xlinker --cref -Xlinker -Map=autoexec.map \
+		$^ \
+		--cref \
+		-Map=autoexec.map \
 	); \
 	$(READELF) -l magiclantern | $(GREP) -C 2 MemSiz
 
 autoexec-fir: $(ML_SRC_REBOOT_OBJ)
 	$(call build,LD,$(LD) \
 		-o $@ \
-		-nostdlib \
 		-e _start \
 		-Ttext $(FIR_BASE) \
-		$^ -Xlinker --cref -Xlinker -Map=autoexec.map \
+		$^ \
+		--cref \
+		-Map=autoexec.map \
 	);
 
 clean::
@@ -240,6 +244,7 @@ DIET_OBJ = \
 	strncmp.o \
 	strcpy.o \
 	strcmp.o \
+	strcasecmp.o \
 	errno.o \
 	errno_location.o \
 	strtoull.o \
@@ -247,10 +252,9 @@ DIET_OBJ = \
 	strtoul.o \
 	strchr.o \
 	memcmp.o \
+	memmove.o \
 	atoi.o \
 	atol.o \
-
-DIETLIBC_A = $(SRC_DIR)/libs/dietlib-0.33-none-eabi-Os/dietlibc.a
 
 $(DIET_OBJ): $(DIETLIBC_A)
 	$(call build,AR,$(AR) x $? $(DIET_OBJ))
@@ -266,8 +270,7 @@ NEWLIB_OBJ = \
 	lib_a-memcpy-stub.o \
 	lib_a-memccpy.o \
 	lib_a-memset.o \
-
-NEWLIB_LIBC_A = $(SRC_DIR)/libs/arm-none-eabi-O3/libc.a
+	lib_a-memmove.o \
 
 $(NEWLIB_OBJ): $(NEWLIB_LIBC_A)
 	$(call build,AR,$(AR) x $? $(NEWLIB_OBJ))
@@ -275,8 +278,14 @@ $(NEWLIB_OBJ): $(NEWLIB_LIBC_A)
 newlib-libc.a: $(NEWLIB_OBJ)
 	$(call build,AR,$(AR) cr $@ $^)
 
+newlib-libm.a: $(NEWLIB_LIBM_A)
+	$(call build,CP,$(CP) $^ $@)
+
+gcc-libgcc.a: $(ARM_LIBGCC_A)
+	$(call build,CP,$(CP) $^ $@)
+
 clean::
-	$(call rm_files, newlib-libc.a $(NEWLIB_OBJ) dietlibc.a)
+	$(call rm_files, $(ML_LIBC))
 
 $(PLATFORM_DIR)/version.c: FORCE
 	$(call build,"VERSION",echo "const char build_version[] = \"$(VERSION)\";") > $@

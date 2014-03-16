@@ -42,8 +42,6 @@ This notice must always be retained in any copy.
 
 #include "../trace/trace.h"
 
-extern char *module_card_drive;
-
 #else
 
 #include <stdio.h>
@@ -68,11 +66,11 @@ extern char *module_card_drive;
 #define msleep(x) usleep((x)*1000)
 #define task_create(a,b,c,d,e) do { d(e); } while(0)
 
-#define FIO_CreateFileEx(file) fopen(file, "w+")
+#define FIO_CreateFile(file) fopen(file, "w+")
 #define FIO_WriteFile(f,data,len) fwrite(data, 1, len, f)
 #define FIO_ReadFile(f,data,len) fread(data, 1, len, f)
 #define FIO_CloseFile(x) fclose(f)
-#define FIO_Open(file,mode) fopen(file, "r")
+#define FIO_OpenFile(file,mode) fopen(file, "r")
 #define FIO_GetFileSize(f,ret) getFileSize(f,ret)
 
 #define INVALID_PTR 0
@@ -88,7 +86,6 @@ size_t getFileSize(const char * filename, int *ret)
     return 0;
 }
 
-char *module_card_drive = "";
 #endif
 
 /* common includes */
@@ -620,11 +617,7 @@ static void crypt_rsa_reset(crypt_priv_t *priv)
 
 static uint32_t crypt_rsa_save(char *file, t_crypt_key *key)
 {
-    char filename[32];
-
-    snprintf(filename, sizeof(filename), "%s%s", module_card_drive, file);
-
-    FILE* f = FIO_CreateFileEx(filename);
+    FILE* f = FIO_CreateFile(file);
     if(f == INVALID_PTR)
     {
         return 0;
@@ -643,17 +636,14 @@ static uint32_t crypt_rsa_save(char *file, t_crypt_key *key)
 uint32_t crypt_rsa_load(char *file, t_crypt_key *key)
 {
     uint32_t size = 0;
-    char filename[32];
 
-    snprintf(filename, sizeof(filename), "%s%s", module_card_drive, file);
-
-    if(FIO_GetFileSize(filename, &size))
+    if(FIO_GetFileSize(file, &size))
     {
-        trace_write(iocrypt_trace_ctx, "io_crypt: crypt_rsa_load: file not found: '%s'", filename);
+        trace_write(iocrypt_trace_ctx, "io_crypt: crypt_rsa_load: file not found: '%s'", file);
         return 0;
     }
 
-    FILE* f = FIO_Open(filename, O_RDONLY | O_SYNC);
+    FILE* f = FIO_OpenFile(file, O_RDONLY | O_SYNC);
     if(f == INVALID_PTR)
     {
         return 0;
@@ -689,7 +679,7 @@ uint32_t crypt_rsa_load(char *file, t_crypt_key *key)
     }
 
     /* now fill key */
-    key->name = strdup(filename);
+    key->name = strdup(file);
     key->primefac = strdup(buffer);
     key->key = strdup(sep);
 

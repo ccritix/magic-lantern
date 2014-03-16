@@ -1,7 +1,6 @@
 /** \file
  * Tweaks to default UI behavior
  */
-#include "zebra.h"
 #include "dryos.h"
 #include "bmp.h"
 #include "tasks.h"
@@ -15,6 +14,13 @@
 #include "math.h"
 #include "beep.h"
 #include "module.h"
+#include "shoot.h"
+#include "focus.h"
+#include "imgconv.h"
+#include "zebra.h"
+#include "cropmarks.h"
+#include "hdr.h"
+#include "lvinfo.h"
 
 static void lcd_adjust_position_step();
 static void arrow_key_step();
@@ -104,7 +110,7 @@ dofp_update()
 
 int get_expsim()
 {
-    //bmp_printf(FONT_MED, 50, 50, "mov: %d expsim:%d lv_mov: %d", is_movie_mode(), expsim, lv_movie_select);
+    //bmp_printf(FONT_MED, 50, 50, "mov: %d expsim:%d lv_mov: %d", is_movie_mode(), _expsim, lv_movie_select);
     
 #if defined(CONFIG_7D)
     /* 7D has expsim in video mode, but expsim is for photo mode only. so return 2 if in video mode */
@@ -113,8 +119,8 @@ int get_expsim()
         return 2;
     }
 #endif
-    if (expsim == 3) return 0; /* on 5D3, this means "off" and 0 means "when pressing DOF" */
-    return expsim;
+    if (_expsim == 3) return 0; /* on 5D3, this means "off" and 0 means "when pressing DOF" */
+    return _expsim;
 }
 #ifdef CONFIG_EXPSIM
 
@@ -143,7 +149,7 @@ static void
 expsim_toggle( void * priv, int delta)
 {
     #ifdef CONFIG_EXPSIM_MOVIE
-    int e = mod(get_expsim() + delta, 3);
+    int e = MOD(get_expsim() + delta, 3);
     #else
     if (is_movie_mode()) return;
     int e = !get_expsim();
@@ -180,7 +186,7 @@ static MENU_UPDATE_FUNC(expsim_display)
         MENU_SET_ICON(MNI_DICE, 0);
         #endif
     }
-    else if (expsim == 3)
+    else if (_expsim == 3)
     {
         MENU_SET_VALUE("OFF");
         MENU_SET_ICON(MNI_OFF, 0);
@@ -189,7 +195,15 @@ static MENU_UPDATE_FUNC(expsim_display)
     {
         if (CONTROL_BV)
         {
-            MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Exposure override is active.");
+            if (get_expsim())
+            {
+                MENU_SET_RINFO("via Expo.Override");
+                MENU_SET_WARNING(MENU_WARN_INFO, "Usable in complete darkness; try with FPS Override or Bulb Timer.");
+            }
+            else
+            {
+                MENU_SET_WARNING(MENU_WARN_ADVICE, "Expo Override is active, LiveView exposure may be incorrect.");
+            }
         }
         else if (shooting_mode == SHOOTMODE_M && !lens_info.name[0])  /* Canon's LiveView underexposure bug with manual lenses */
         {
@@ -199,8 +213,8 @@ static MENU_UPDATE_FUNC(expsim_display)
 }
 #endif
 
-#else // no expsim, use some dummy stubs
-void set_expsim(){};
+#else // no _expsim, use some dummy stubs
+void set_expsim(int expsim){};
 #endif
 
 /*
@@ -357,7 +371,11 @@ static CONFIG_INT("play.quick.zoom", quickzoom, 0);
 static CONFIG_INT("play.quick.zoom", quickzoom, 2);
 #endif
 
-static CONFIG_INT("play.set.wheel", play_set_wheel_action, 3);
+#define PLAY_ACTION_TRIGGER_WHEEL 0
+#define PLAY_ACTION_TRIGGER_LR 1
+#define PLAY_ACTION_TRIGGER_WHEEL_OR_LR 2
+static CONFIG_INT("play.set.trigger", play_set_wheel_trigger, 0);
+static CONFIG_INT("play.set.wheel", play_set_wheel_action, 4);
 
 static CONFIG_INT("quick.delete", quick_delete, 0);
 
@@ -368,19 +386,19 @@ int timelapse_playback = 0;
 static void playback_set_wheel_action(int dir)
 {
     #ifdef CONFIG_5DC
-    play_set_wheel_action = COERCE(play_set_wheel_action, 2, 3);
+    play_set_wheel_action = COERCE(play_set_wheel_action, 3, 4);
     #endif
     #ifdef FEATURE_PLAY_EXPOSURE_FUSION
-    if (play_set_wheel_action == 0) expfuse_preview_update(dir); else
+    if (play_set_wheel_action == 1) expfuse_preview_update(dir); else
     #endif
     #ifdef FEATURE_PLAY_COMPARE_IMAGES
-    if (play_set_wheel_action == 1) playback_compare_images(dir); else
+    if (play_set_wheel_action == 2) playback_compare_images(dir); else
     #endif
     #ifdef FEATURE_PLAY_TIMELAPSE
-    if (play_set_wheel_action == 2) timelapse_playback = COERCE(timelapse_playback + dir, -1, 1); else
+    if (play_set_wheel_action == 3) timelapse_playback = COERCE(timelapse_playback + dir, -1, 1); else
     #endif
     #ifdef FEATURE_PLAY_EXPOSURE_ADJUST
-    if (play_set_wheel_action == 3) expo_adjust_playback(dir); else
+    if (play_set_wheel_action == 4) expo_adjust_playback(dir); else
     #endif
     {};
 }
@@ -429,10 +447,10 @@ static void print_set_maindial_hint(int set)
                 SHADOW_FONT(FONT_LARGE),
                 os.x0, os.y_max - font_large.height,
                 "Scrollwheel: %s", 
-                play_set_wheel_action == 0 ? "Exposure Fusion" : 
-                play_set_wheel_action == 1 ? "Compare Images" : 
-                play_set_wheel_action == 2 ? "Timelapse Play" : 
-                play_set_wheel_action == 3 ? "Exposure Adjust" : 
+                play_set_wheel_action == 1 ? "Exposure Fusion" : 
+                play_set_wheel_action == 2 ? "Compare Images" : 
+                play_set_wheel_action == 3 ? "Timelapse Play" : 
+                play_set_wheel_action == 4 ? "Exposure Adjust" : 
                 "err"
             );
         }
@@ -496,6 +514,7 @@ int handle_set_wheel_play(struct event * event)
 {
     #ifdef FEATURE_SET_MAINDIAL
     static int set_maindial_action_enabled = 0;
+    static int play_set_wheel_hot = 0;
 
     if (!is_pure_play_photo_mode()) 
     {
@@ -508,25 +527,30 @@ int handle_set_wheel_play(struct event * event)
         return 1;
     }
 
-    if (event->param == BGMT_PRESS_SET)
+    if (play_set_wheel_action &&
+       (play_set_wheel_trigger == PLAY_ACTION_TRIGGER_WHEEL || 
+        play_set_wheel_trigger == PLAY_ACTION_TRIGGER_WHEEL_OR_LR))
     {
-        // for cameras where SET does not send an unpress event, pressing SET again should do the trick
-        set_maindial_action_enabled = !set_maindial_action_enabled;
-        #if !defined(CONFIG_50D) && !defined(CONFIG_5DC)
-        ASSERT(set_maindial_action_enabled); // most cameras are expected to send Unpress SET event (if they don't, one needs to fix the quick erase feature)
-        #endif
-        print_set_maindial_hint(set_maindial_action_enabled);
-    }
-    else if (event->param == BGMT_UNPRESS_SET)
-    {
-        set_maindial_action_enabled = 0;
-        print_set_maindial_hint(0);
-    }
+        if (event->param == BGMT_PRESS_SET)
+        {
+            // for cameras where SET does not send an unpress event, pressing SET again should do the trick
+            set_maindial_action_enabled = !set_maindial_action_enabled;
+            #if !defined(CONFIG_50D) && !defined(CONFIG_5DC)
+            ASSERT(set_maindial_action_enabled); // most cameras are expected to send Unpress SET event (if they don't, one needs to fix the quick erase feature)
+            #endif
+            print_set_maindial_hint(set_maindial_action_enabled);
+        }
+        else if (event->param == BGMT_UNPRESS_SET)
+        {
+            set_maindial_action_enabled = 0;
+            print_set_maindial_hint(0);
+        }
     
-    // make sure the display is updated, just in case
-    if (PLAY_MODE && set_maindial_action_enabled)
-    {
-        print_set_maindial_hint(1);
+        // make sure the display is updated, just in case
+        if (PLAY_MODE && set_maindial_action_enabled)
+        {
+            print_set_maindial_hint(1);
+        }
     }
 
     // SET+Wheel action in PLAY mode
@@ -556,12 +580,27 @@ int handle_set_wheel_play(struct event * event)
         #endif
     }
 
-    // some other key pressed without maindial action being active, cleanup things
-    if (!set_maindial_action_enabled && event->param != BGMT_PRESS_SET && event->param != BGMT_UNPRESS_SET)
+    // Left/Right action in PLAY mode
+    if (play_set_wheel_trigger && (int32_t)MEM(IMGPLAY_ZOOM_LEVEL_ADDR) < 0)
     {
+        if (event->param == BGMT_PRESS_LEFT || event->param == BGMT_PRESS_RIGHT)
+        {
+            int dir = event->param == BGMT_PRESS_RIGHT ? 1 : -1;
+            play_set_wheel_hot = 1;
+            playback_set_wheel_action(dir);
+            return 0;
+        }
+    }
+
+    // some other key pressed without maindial action being active, cleanup things
+    if ((!set_maindial_action_enabled && event->param != BGMT_PRESS_SET && event->param != BGMT_UNPRESS_SET) ||
+        (play_set_wheel_trigger && play_set_wheel_hot &&
+         event->param != BGMT_PRESS_LEFT && event->param != BGMT_PRESS_RIGHT))
+    {
+        play_set_wheel_hot = 0;
         set_maindial_cleanup();
     }
-    
+
     #endif
     
     #ifdef FEATURE_QUICK_ERASE
@@ -960,6 +999,8 @@ static void
 tweak_task( void* unused)
 {
     //~ do_movie_mode_remap();
+    
+    extern void movtweak_task_init();
     movtweak_task_init();
     
     TASK_LOOP
@@ -972,6 +1013,7 @@ tweak_task( void* unused)
         
         msleep(display_countdown || RECORDING || halfshutter_sticky || dofpreview_sticky ? 50 : 500);
         
+        extern void movtweak_step();
         movtweak_step();
 
         #ifdef FEATURE_ZOOM_TRICK_5D3 // not reliable
@@ -1166,8 +1208,20 @@ tweak_task( void* unused)
         }
         #endif
         
-        if ((lv_disp_mode == 0 && LV_BOTTOM_BAR_DISPLAYED) || ISO_ADJUSTMENT_ACTIVE)
-            idle_wakeup_reset_counters();
+        /* reset powersave counters for those events don't send a button code, e.g. shutter/aperture change 
+         * (GMT_OLC_INFO_CHANGED doesn't reset them, because it's also sent by auto exposure changes)
+         * => we use heuristics like Canon bottom bar or popping up to detect these events */
+        if (lv_disp_mode == 0 && LV_BOTTOM_BAR_DISPLAYED)
+        {
+            idle_wakeup_reset_counters(0);
+        }
+        
+        #ifdef ISO_ADJUSTMENT_ACTIVE
+        if (ISO_ADJUSTMENT_ACTIVE)
+        {
+            idle_wakeup_reset_counters(0);
+        }
+        #endif
     }
 }
 
@@ -1251,7 +1305,7 @@ void display_orientation_toggle(void* priv, int dir)
 {
     int o = DISPLAY_ORIENTATION;
     if (o < 0 || o > 2) return;
-    o = mod(o + dir, 3);
+    o = MOD(o + dir, 3);
     if (o == 0) NormalDisplay();
     else if (o == 1) ReverseDisplay();
     else MirrorDisplay();
@@ -1322,7 +1376,7 @@ static void arrow_key_mode_toggle()
     
     do
     {
-        arrow_keys_mode = mod(arrow_keys_mode + 1, 5);
+        arrow_keys_mode = MOD(arrow_keys_mode + 1, 5);
     }
     while (!is_arrow_mode_ok(arrow_keys_mode));
     NotifyBoxHide();
@@ -1504,7 +1558,7 @@ int handle_arrow_keys(struct event * event)
                 case 1: out_volume_up(); break;
                 #endif
                 #ifdef FEATURE_WHITE_BALANCE
-                case 2: kelvin_toggle(-1, 1); break;
+                case 2: kelvin_toggle((void*)-1, 1); break;
                 #endif
                 #ifdef FEATURE_EXPO_APERTURE
                 case 3: aperture_toggle((void*)-1, 1); break;
@@ -1524,7 +1578,7 @@ int handle_arrow_keys(struct event * event)
                 case 1: out_volume_down(); break;
                 #endif
                 #ifdef FEATURE_WHITE_BALANCE
-                case 2: kelvin_toggle(-1, -1); break;
+                case 2: kelvin_toggle((void*)-1, -1); break;
                 #endif
                 #ifdef FEATURE_EXPO_APERTURE
                 case 3: aperture_toggle((void*)-1, -1); break;
@@ -2179,7 +2233,7 @@ static void upside_down_step()
         {
             get_yuv422_vram();
             bmp_draw_to_idle(1);
-            canon_gui_disable_front_buffer();
+            canon_gui_disable_front_buffer(0);
             int voffset = (lv || PLAY_MODE || QR_MODE) ? (os.y0 + os.y_ex/2 - (BMP_H_PLUS+BMP_H_MINUS)/2) * 2 : 0;
             BMP_LOCK(
                 if (zebra_should_run())
@@ -2209,7 +2263,7 @@ struct menu_entry expo_tweak_menus[] = {
         .max = 1,
         .help = "Exposure simulation.",
         #endif
-        .priv = &expsim,
+        .priv = &_expsim,
         .select = expsim_toggle,
         .update = expsim_display,
         .depends_on = DEP_LIVEVIEW,
@@ -2589,7 +2643,7 @@ static void alter_bitmap_palette(int dim_factor, int grayscale, int u_shift, int
 #endif
 }
 
-void grayscale_menus_step()
+static void grayscale_menus_step()
 {
     /*
 #ifndef CONFIG_VXWORKS
@@ -2620,7 +2674,7 @@ void grayscale_menus_step()
     int guimode = CURRENT_DIALOG_MAYBE;
     int d = DISPLAY_IS_ON;
     int b = bmp_color_scheme;
-    int sig = get_current_dialog_handler() + d + guimode + b*31415 + get_seconds_clock();
+    int sig = (int)get_current_dialog_handler() + d + guimode + b*31415 + get_seconds_clock();
     int transition = (sig != prev_sig);
     
     if (ml_shutdown_requested) return;
@@ -2824,13 +2878,13 @@ static void FAST anamorphic_squeeze()
     );
 }*/
 
-//~ CONFIG_STR("defish.lut", defish_lut_file, CARD_DRIVE "ML/SETTINGS/recti.lut");
+//~ CONFIG_STR("defish.lut", defish_lut_file, "ML/SETTINGS/recti.lut");
 #if defined(CONFIG_FULLFRAME)
-#define defish_lut_file_rectilin CARD_DRIVE "ML/DATA/ff8r.lut"
-#define defish_lut_file_panini CARD_DRIVE "ML/DATA/ff8p.lut"
+#define defish_lut_file_rectilin "ML/DATA/ff8r.lut"
+#define defish_lut_file_panini "ML/DATA/ff8p.lut"
 #else
-#define defish_lut_file_rectilin CARD_DRIVE "ML/DATA/apsc8r.lut"
-#define defish_lut_file_panini CARD_DRIVE "ML/DATA/apsc8p.lut"
+#define defish_lut_file_rectilin "ML/DATA/apsc8r.lut"
+#define defish_lut_file_panini "ML/DATA/apsc8p.lut"
 #endif
 
 static uint16_t* defish_lut_load()
@@ -2839,18 +2893,6 @@ static uint16_t* defish_lut_load()
     int size = 0;
     uint16_t* defish_lut = (uint16_t*) read_entire_file(defish_lut_file, &size);
     return defish_lut;
-}
-
-
-static uint32_t get_yuv_pixel(uint32_t* buf, int pixoff)
-{
-    uint32_t* src = &buf[pixoff / 2];
-    
-    uint32_t chroma = (*src)  & 0x00FF00FF;
-    uint32_t luma1 = (*src >>  8) & 0xFF;
-    uint32_t luma2 = (*src >> 24) & 0xFF;
-    uint32_t luma = pixoff % 2 ? luma2 : luma1;
-    return (chroma | (luma << 8) | (luma << 24));
 }
 
 static void FAST defish_draw_lv_color_loop(uint64_t* src_buf, uint64_t* dst_buf, int* ind)
@@ -3032,7 +3074,7 @@ void defish_draw_play()
                 //~ uint32_t new_color = get_yuv_pixel_averaged(aux_buf, Id, Jd);
 
                 int pixoff_src = N2LV(Jd,Id) / 2;
-                uint32_t new_color = get_yuv_pixel(aux_buf, pixoff_src);
+                uint32_t new_color = yuv422_get_pixel(aux_buf, pixoff_src);
 
                 int pixoff_dst = LV(X,Y) / 2;
                 uint32_t* dst = &lvram[pixoff_dst / 2];
@@ -3049,8 +3091,11 @@ void defish_draw_play()
 
 #ifdef CONFIG_DISPLAY_FILTERS
 
+#ifdef CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY
 static void* display_filter_buffer_unaligned = 0;
 static void* display_filter_buffer = 0;
+#endif
+
 static int display_filter_valid_image = 0;
 
 void display_filter_get_buffers(uint32_t** src_buf, uint32_t** dst_buf)
@@ -3111,7 +3156,7 @@ int display_filter_enabled()
     return fp ? 2 : 1;
 }
 
-#if defined(CONFIG_5D2) || defined(CONFIG_50D)
+#if defined(CONFIG_5D2) || defined(CONFIG_50D) || defined(CONFIG_7D)
 static int display_broken = 0;
 int display_broken_for_mz() 
 {
@@ -3135,6 +3180,7 @@ int display_filter_lv_vsync(int old_state, int x, int input, int z, int t)
         {
             MEM(0x44fc+0xBC) = 0;
             YUV422_LV_BUFFER_DISPLAY_ADDR = YUV422_LV_BUFFER_2; // update buffer 1, display buffer 2
+            extern void EnableImagePhysicalScreenParameter();
             EnableImagePhysicalScreenParameter();
         }
     }
@@ -3156,6 +3202,29 @@ int display_filter_lv_vsync(int old_state, int x, int input, int z, int t)
         {
             MEM(0x455c+0xA4) = 0;
             YUV422_LV_BUFFER_DISPLAY_ADDR = YUV422_LV_BUFFER_2; // update buffer 1, display buffer 2
+            extern void EnableImagePhysicalScreenParameter();
+            EnableImagePhysicalScreenParameter();
+        }
+    }
+#elif defined(CONFIG_7D)
+//4430 - Debug Flag
+//445C + E8 - Current LV or 0
+//455C + F0 - Current Lv or 0
+//x + F4 = LV buffer.. print x, look around
+    int sync = (MEM(x+0xF4) == YUV422_LV_BUFFER_1);
+    int hacked = ( MEM(0x4430+0xE8) == MEM(0x4430+0xF0) && MEM(0x4430+0xF0) == MEM(x+0xF4));
+    display_broken = hacked;
+
+    if (!display_filter_valid_image) return CBR_RET_CONTINUE;
+    if (!display_filter_enabled()) { display_filter_valid_image = 0;  return CBR_RET_CONTINUE; }
+
+    if (display_filter_enabled())
+    {
+        if (sync || hacked)
+        {
+            MEM(0x4430+0xE8) = 0;
+            YUV422_LV_BUFFER_DISPLAY_ADDR = YUV422_LV_BUFFER_2; // update buffer 1, display buffer 2
+            extern void EnableImagePhysicalScreenParameter();
             EnableImagePhysicalScreenParameter();
         }
     }
@@ -3556,12 +3625,30 @@ static struct menu_entry play_menus[] = {
         .children =  (struct menu_entry[]) {
             #ifdef FEATURE_SET_MAINDIAL
             {
-                .name = "SET+MainDial",
-                .priv = &play_set_wheel_action, 
-                .max = 3,
-                .choices = (const char *[]) {"Exposure Fusion", "Compare Images", "Timelapse Play", "Exposure Adjust"},
-                .help = "What to do when you press SET and turn the scrollwheel.",
-                .icon_type = IT_DICE,
+                .name = "Play mode actions",
+                .help = "Several helpful image actions you can trigger in PLAY mode.",
+                .select = menu_open_submenu,
+                .submenu_width = 660,
+                .children =  (struct menu_entry[])
+                {
+                    {
+                        .name = "Action type",
+                        .priv = &play_set_wheel_action, 
+                        .max = 4,
+                        .choices = (const char *[]) {"OFF", "Exposure Fusion", "Compare Images", "Timelapse Play", "Exposure Adjust"},
+                        .help = "Chose the action type to perform when triggered.",
+                        .icon_type = IT_PERCENT_OFF,
+                    },
+                    {
+                        .name = "Trigger key(s)",
+                        .priv = &play_set_wheel_trigger,
+                        .max = 2,
+                        .choices = (const char *[]) {"Set+MainDial", "Left/Right", "L/R & Set+Dial"},
+                        .help = "Either use a key combination and/or just an easier single keystroke.",
+                        .icon_type = IT_DICE,
+                    },
+                    MENU_EOL
+                }
             },
             #endif
             #ifdef FEATURE_IMAGE_REVIEW_PLAY

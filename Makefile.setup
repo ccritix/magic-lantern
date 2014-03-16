@@ -49,8 +49,6 @@ CFLAGS =
 ifeq ($(TARGET_COMPILER), arm-gcc)
 	CFLAGS += -Os -mthumb-interwork -march=armv5te \
 				-D__ARM__
-
-	LFLAGS += -nostdlib
 endif
 
 #
@@ -65,13 +63,13 @@ CFLAGS +=\
 	-Wextra \
 	-Wno-unused-parameter \
 	-Wno-unused-function \
-	-Wno-implicit-function-declaration \
 	-Wno-missing-field-initializers \
 	-Wno-format \
 	-Wdouble-promotion \
 	-ffast-math \
 	-fsingle-precision-constant \
 	-fshort-double \
+	-fno-builtin-printf \
 	-std=gnu99 \
 	-Winline \
 	-I$(PLATFORM_INC) \

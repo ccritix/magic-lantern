@@ -11,6 +11,8 @@
 #include "gui.h"
 #include "lens.h"
 #include "mvr.h"
+#include "zebra.h"
+#include "lvinfo.h"
 
 //----------------begin qscale-----------------
 static CONFIG_INT( "h264.qscale", qscale_neg, 8 );
@@ -87,7 +89,7 @@ static void cbr_init()
 {
 #if defined(CONFIG_7D)
     /* we must do all transfers via uncached memory. prepare that buffer */
-    bulk_transfer_buf = alloc_dma_memory(0x1000);
+    bulk_transfer_buf = fio_malloc(0x1000);
     /* now load master's mvr_config into local */
     bitrate_read_mvr_config();
 #endif
@@ -303,9 +305,9 @@ bitrate_factor_toggle(void* priv, int delta)
     if (RECORDING_H264) return;
  
 #if defined(FEATURE_VIDEO_HACKS)
-    bitrate_factor = mod(bitrate_factor + delta - 1, 200) + 1;
+    bitrate_factor = MOD(bitrate_factor + delta - 1, 200) + 1;
 #else
-    bitrate_factor = mod(bitrate_factor + delta - 1, 30) + 1;
+    bitrate_factor = MOD(bitrate_factor + delta - 1, 30) + 1;
 #endif
 }
 
@@ -333,10 +335,6 @@ bitrate_toggle(void* priv, int delta)
 
 static int movie_elapsed_time_01s = 0;   // seconds since starting the current movie * 10
 
-PROP_INT(PROP_CLUSTER_SIZE, cluster_size);
-PROP_INT(PROP_FREE_SPACE, free_space_raw);
-#define free_space_32k (free_space_raw * (cluster_size>>10) / (32768>>10))
-
 void time_indicator_show()
 {
     if (!get_global_draw()) return;
@@ -347,7 +345,7 @@ void time_indicator_show()
 
     // time until filling the card
     // in "movie_elapsed_time_01s" seconds, the camera saved "movie_bytes_written_32k"x32kbytes, and there are left "free_space_32k"x32kbytes
-    int time_cardfill = movie_elapsed_time_01s * free_space_32k / movie_bytes_written_32k / 10;
+    int time_cardfill = movie_elapsed_time_01s * get_free_space_32k(get_shooting_card()) / movie_bytes_written_32k / 10;
     
     // time until 4 GB
     int time_4gb = movie_elapsed_time_01s * (4 * 1024 * 1024 / 32 - movie_bytes_written_32k) / movie_bytes_written_32k / 10;
@@ -454,7 +452,7 @@ void show_mvr_buffer_status()
 static void load_h264_ini()
 {
     gui_stop_menu();
-    call("IVAParamMode", CARD_DRIVE "ML/H264.ini");
+    call("IVAParamMode", "ML/H264.ini");
     NotifyBox(2000, "%s", 0x4da10);
 }
 

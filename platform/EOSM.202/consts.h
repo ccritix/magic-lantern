@@ -2,7 +2,6 @@
  *  EOS M 2.0.2 consts
  */
 
-#define CARD_DRIVE "B:/"
 #define CARD_LED_ADDRESS 0xC022C188 // http://magiclantern.wikia.com/wiki/Led_addresses
 #define LEDON 0x138800
 #define LEDOFF 0x838C00
@@ -13,12 +12,15 @@
 
 #define HIJACK_CACHE_HACK
 #define HIJACK_CACHE_HACK_INITTASK_ADDR 0xFF0C1CC8
-/* Intaller */
+
+/* Installer */
+#ifdef CONFIG_INSTALLER
 #define HIJACK_INSTR_BL_CSTART  0xff0c0d80
-//~ #define HIJACK_INSTR_BSS_END 0xff0c1cbc
+#define HIJACK_INSTR_BSS_END 0xff0c1cbc
 #define HIJACK_FIXBR_BZERO32 0xff0c1c20
 #define HIJACK_FIXBR_CREATE_ITASK 0xff0c1cac
 #define HIJACK_INSTR_MY_ITASK 0xFF0C1CC8
+#endif
 
 #define HIJACK_TASK_ADDR 0x3DE78
 
@@ -97,7 +99,7 @@
 
 #define LV_BOTTOM_BAR_DISPLAYED UNAVI_FEEDBACK_TIMER_ACTIVE
 
-#define ISO_ADJUSTMENT_ACTIVE 0 // dec ptpNotifyOlcInfoChanged and look for: if arg1 == 1: MEM(0x79B8) = *(arg2)
+//~ #define ISO_ADJUSTMENT_ACTIVE 0 // dec ptpNotifyOlcInfoChanged and look for: if arg1 == 1: MEM(0x79B8) = *(arg2)
 
     // from a screenshot
     #define COLOR_FG_NONLV 1
