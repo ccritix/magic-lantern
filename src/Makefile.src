@@ -250,6 +250,8 @@ DIET_OBJ = \
 	strtoull.o \
 	strtol.o \
 	strtoul.o \
+	strtof.o \
+	strtod.o \
 	strchr.o \
 	memcmp.o \
 	memmove.o \
