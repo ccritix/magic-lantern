@@ -97,6 +97,9 @@
 #include "stab.h"
 #include "libtcc.h"
 
+/* our sprintf doesn't work for some reason */
+#define sprintf(buf,fmt,...) (snprintf(buf, 1000, fmt, ## __VA_ARGS__ ))
+
 /* parser debug */
 //#define PARSE_DEBUG
 /* preprocessor debug */

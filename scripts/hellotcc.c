@@ -2,4 +2,7 @@
 @title Hello, World!
 */
 
-printf("Hello from TCC!\n");
+void main()
+{
+    printf("Hello from TCC!\n");
+}

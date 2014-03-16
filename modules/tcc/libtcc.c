@@ -960,8 +960,10 @@ LIBTCCAPI TCCState *tcc_new(void)
     define_push(TOK___TIME__, MACRO_OBJ, NULL, NULL);
 
     /* define __TINYC__ 92X  */
-    sscanf(TCC_VERSION, "%d.%d.%d", &a, &b, &c);
-    sprintf(buffer, "%d", a*10000 + b*100 + c);
+    //sscanf(TCC_VERSION, "%d.%d.%d", &a, &b, &c);
+    /* #define TCC_VERSION "0.9.26" */
+    a = 0; b = 9; c = 26;
+    snprintf(buffer, sizeof(buffer), "%d", a*10000 + b*100 + c);
     tcc_define_symbol(s, "__TINYC__", buffer);
 
     /* standard defines */

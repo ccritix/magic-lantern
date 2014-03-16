@@ -70,15 +70,12 @@ static int script_load_symbols(void* tcc, void* script_state, char *filename)
         {
             pos++;
         }
-        sscanf(address_buf, "%x", &address);
+        //~ sscanf(address_buf, "%x", &address);
+        address = strtoul(address_buf, NULL, 16);
 
         module_exec(tcc, "tcc_add_symbol", 3, script_state, symbol_buf, (void*)address);
         count++;
     }
-
-    /* ToDo: parse the old plugin sections as all needed OS stubs are already described there */
-    module_exec(tcc, "tcc_add_symbol", 3, script_state, "strcpy", &strcpy);
-    module_exec(tcc, "tcc_add_symbol", 3, script_state, "strlen", &strlen);
 
     fio_free(buf);
     return 0;
