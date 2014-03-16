@@ -5,6 +5,7 @@
 #include <bmp.h>
 #include <string.h>
 #include <../tcc/libtcc.h>
+#include <beep.h>
 
 static void script_define_param_variables(void* tcc, void* script_state);
 
@@ -126,7 +127,7 @@ static int tcc_compile_and_run(char* filename)
         goto err;
     }
 
-    script_buf = (void*) tcc_malloc(size);
+    script_buf = (void*) malloc(size);
     if (!script_buf)
     {
         console_printf("Malloc error.\n");
@@ -159,11 +160,11 @@ static int tcc_compile_and_run(char* filename)
 
     script_main();
 
-    tcc_free(script_buf); script_buf = NULL;
+    free(script_buf); script_buf = NULL;
     return 0;
 
 err:
-    if (script_buf) tcc_free(script_buf);
+    if (script_buf) free(script_buf);
     if (script_state) module_exec(tcc, "tcc_delete", 1, script_state);
     if (tcc) module_unload(tcc);
     return 1;

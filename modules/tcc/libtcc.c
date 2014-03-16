@@ -202,20 +202,26 @@ ST_DATA int mem_max_size;
 unsigned malloc_usable_size(void*);
 #endif
 
+/* redirect memory allocation calls */
+#define MEM_TEMPORARY 2 /* this will allocate TCC temporary memory from shoot_malloc, because it will be freed quickly at startup */
+/* without it, the backend will allocate TCC memory from main buffers => it may end up with the module code in shoot_malloc (not exactly a good idea) */
+#define AllocateMemory(len)         (void*)__mem_malloc(len, MEM_TEMPORARY, __FILE__, __LINE__)
+#define FreeMemory(buf)           __mem_free(buf)
+
 PUB_FUNC void tcc_free(void *ptr)
 {
 #ifdef MEM_DEBUG
     mem_cur_size -= malloc_usable_size(ptr);
 #endif
-    //~ printf("tcc_free %x\n ", ptr);
-    if (ptr) tmp_free(ptr);
+    //~ printf("tcc_free %x [%d]\n ", ptr, GetFreeMemForAllocateMemory());
+    if (ptr) FreeMemory(ptr);
 }
 
 PUB_FUNC void *tcc_malloc(unsigned long size)
 {
     void *ptr;
-    //~ printf("tcc_malloc %d\n ", size);
-    ptr = tmp_malloc(size);
+    //~ printf("tcc_malloc %d [%d]\n ", size, GetFreeMemForAllocateMemory());
+    ptr = AllocateMemory(size);
     if (!ptr && size)
         tcc_error("memory full");
 #ifdef MEM_DEBUG
