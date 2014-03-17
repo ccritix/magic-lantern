@@ -32,7 +32,7 @@ void draw_clock_face()
         int y = 240 - 200 * c;
         
         if (angle % 30 == 0)
-            bmp_printf(SHADOW_FONT(FONT_LARGE) | FONT_ALIGN_CENTER, x+2, y, "%d", angle/30);
+            bmp_printf(SHADOW_FONT(FONT_LARGE) | FONT_ALIGN_CENTER, x+2, y-12, "%d", angle/30);
         else
             fill_circle(x, y, 1, COLOR_GRAY(50));
     }
@@ -68,14 +68,16 @@ void main()
         struct time * t = get_time();
         
         double_buffering_start();
-        bmp_printf(FONT_LARGE, 520, 420, "%02d/%02d/%02d\n", t->year, t->month, t->day);
+        bmp_printf(FONT_LARGE, 520, 420, "%04d/%02d/%02d\n", t->year, t->month, t->day);
         draw_clock_face();
         draw_clock_hands(t);
         double_buffering_end();
         
         int s = t->second;
         while (get_time()->second == s)
+        {
             sleep(0.1);
+        }
     }
 
     // restore Global Draw
