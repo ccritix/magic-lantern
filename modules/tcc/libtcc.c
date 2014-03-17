@@ -965,6 +965,8 @@ LIBTCCAPI TCCState *tcc_new(void)
     a = 0; b = 9; c = 26;
     snprintf(buffer, sizeof(buffer), "%d", a*10000 + b*100 + c);
     tcc_define_symbol(s, "__TINYC__", buffer);
+    
+    tcc_define_symbol(s, "ML_SCRIPT", NULL);
 
     /* standard defines */
     tcc_define_symbol(s, "__STDC__", NULL);

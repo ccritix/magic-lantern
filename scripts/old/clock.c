@@ -3,8 +3,6 @@
 // This demo shows how to use double buffering for flicker-free graphics.
 // And, of course, date/time functions.
 
-#include "magic.h"
-
 void thick_line_polar(int x, int y, int radius, float angle, int thickness, int color)
 {
     float s = sin(angle * M_PI / 180);
@@ -32,17 +30,17 @@ void draw_clock_face()
         int y = 240 - 200 * c;
         
         if (angle % 30 == 0)
-            bmp_printf(SHADOW_FONT(FONT_LARGE) | FONT_ALIGN_CENTER, x+2, y, "%d", angle/30);
+            bmp_printf_center(SHADOW_FONT(FONT_LARGE), x+2, y, "%d", angle/30);
         else
             fill_circle(x, y, 1, COLOR_GRAY(50));
     }
 }
 
-void draw_clock_hands(struct time * t)
+void draw_clock_hands(struct tm * t)
 {
-    int ang_h = -90 + t->hour   * 360.0f / 12 + t->minute / 2 ;
-    int ang_m = -90 + t->minute * 360.0f / 60 + t->second / 10;
-    int ang_s = -90 + t->second * 360.0f / 60;
+    int ang_h = -90 + t->hour   * 360.0 / 12 + t->minute / 2 ;
+    int ang_m = -90 + t->minute * 360.0 / 60 + t->second / 10;
+    int ang_s = -90 + t->second * 360.0 / 60;
 
     thick_line_polar(360, 240, 120, ang_h, 10, COLOR_WHITE);
     thick_line_polar(360, 240, 170, ang_m,  6, COLOR_WHITE);
@@ -65,7 +63,7 @@ void main()
     // show the clock until we open some menu
     while (get_gui_mode() <= 1)
     {
-        struct time * t = get_time();
+        struct tm * t = get_time();
         
         double_buffering_start();
         bmp_printf(FONT_LARGE, 520, 420, "%02d/%02d/%02d\n", t->year, t->month, t->day);

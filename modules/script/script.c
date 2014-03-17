@@ -105,8 +105,17 @@ static int tcc_compile_and_run(char* filename)
 
     module_exec(tcc, "tcc_set_options", 2, script_state, "-nostdlib");
     module_exec(tcc, "tcc_set_options", 2, script_state, "-Wall");
+    module_exec(tcc, "tcc_set_options", 2, script_state, "-IML/scripts/include");
+    module_exec(tcc, "tcc_set_options", 2, script_state, "-IML/scripts/lib");
     module_exec(tcc, "tcc_set_options", 2, script_state, "-IML/scripts");
     module_exec(tcc, "tcc_set_output_type", 2, script_state, TCC_OUTPUT_MEMORY);
+
+    int ret_compile_lib = module_exec(tcc, "tcc_add_file", 2, script_state, "ML/scripts/lib/magic.c");
+    if (ret_compile_lib < 0)
+    {
+        printf("Scripting library compilation error.\n");
+        goto err;
+    }
 
     int ret_compile = module_exec(tcc, "tcc_add_file", 2, script_state, filename);
     if (ret_compile < 0)
@@ -137,7 +146,15 @@ static int tcc_compile_and_run(char* filename)
         printf("Relocate error.\n");
         goto err;
     }
-        
+    
+    if (0)
+    {
+        /* dump compiled script code to a file */
+        char dumpfile[100];
+        snprintf(dumpfile, sizeof(dumpfile), "%x.bin", script_buf);
+        dump_seg(script_buf, size, dumpfile);
+    }
+    
     void (*script_main)() = (void*) module_exec(tcc, "tcc_get_symbol", 2, script_state, "main");
     if (!script_main)
     {
@@ -417,7 +434,7 @@ static void run_script(const char *script)
     msleep(500);
     redraw();
     msleep(500);
-    for (int i = 0; i < 100; i++)
+    for (int i = 0; i < 600; i++)
     {
         msleep(100);
         if (gui_menu_shown()) break;
@@ -438,7 +455,7 @@ static void script_run_fun(void* priv, int delta)
     {
         script_stop_requested = 0;
         gui_stop_menu();
-        task_create("run_script", 0x1c, 0x4000, run_script, 0);
+        task_create("run_script", 0x1c, 0x8000, run_script, 0);
     }
 }
 

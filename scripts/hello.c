@@ -1,18 +1,27 @@
 /*
 @title Hello, World!
-@param n Pics to take
-@range n 0 5
 */
 
-printf("Hello from PicoC!\n");
+#include "magic.h"
 
-sleep(2);
-
-for (int i = 0; i < n; i++)
+void main()
 {
-    printf("Taking pic %d of %d...\n", i+1, n);
+    printf("Hello from TCC!\n");
     sleep(1);
-    takepic();
+    
+    printf("\n");
+    printf("Let's try some floating point numbers!\n");
+    for (int i = 1; i < 10; i++)
+    {
+        printf("%d ", (int)((10.0 / i) * 10.0));
+    }
+    for (int i = 1; i < 10; i++)
+    {
+        printf("%d ", (int)(i * 3.14f));
+    }
+    for (int i = 1; i < 10; i++)
+    {
+        printf("%d ", (int)(100 * sin(i)));
+    }
+    printf("\n");
 }
-
-printf("Done :)\n");
