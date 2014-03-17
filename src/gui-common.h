@@ -289,4 +289,8 @@ char* get_info_button_name();
 /* to be moved from debug.c */
 int get_zoom_out_pressed();
 
+/* Canon GUI modes */
+int get_gui_mode();
+void set_gui_mode(int mode);
+
 #endif

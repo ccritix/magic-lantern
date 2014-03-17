@@ -659,3 +659,14 @@ void redraw_after(int msec)
 {
     task_create("redraw", 0x1d, 0, redraw_after_task, (void*)msec);
 }
+
+
+int get_gui_mode()
+{
+    return CURRENT_DIALOG_MAYBE;
+}
+
+void set_gui_mode(int mode)
+{
+    SetGUIRequestMode(mode);
+}
