@@ -135,4 +135,10 @@ extern unsigned int DoubleCPDO(struct roundingData *roundData,
 extern unsigned int ExtendedCPDO(struct roundingData *roundData,
 				 const unsigned int opcode, FPREG * rFd);
 
+
+/* the libraries were designed for linux with MMU systems where user memory maps differently
+   and is not directly accessible from kernel context. not needed for our MMU-less system */
+#define put_user(val, addr) do { MEM(addr) = val; } while(0)
+#define get_user(val, addr) do { val = MEM(addr); } while(0)
+
 #endif

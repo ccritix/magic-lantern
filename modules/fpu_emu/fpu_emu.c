@@ -310,19 +310,6 @@ FPA11 *fpu_emu_get_fpa11()
     return fpu_emu_fp_ctx[fpu_emu_trap_task];
 }
 
-
-/* the libraries were designed for linux with MMU systems where user memory maps differently
-   and is not directly accessible from kernel context. not needed for our MMU-less system */
-void put_user(uint32_t val, void *addr) 
-{
-    MEM(addr) = val;
-}
-
-void get_user(uint32_t *val, void *addr) 
-{
-    *val = MEM(addr);
-}
-
 /* just count the signals, but dont handle yet. do we need signalling? */
 void float_raise(signed char flags)
 {
