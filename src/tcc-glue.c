@@ -65,7 +65,7 @@ int open(const char *pathname, int flags)
     
     if( FIO_GetFileSize( pathname, &size ) != 0 )
     {
-        printf("Error loading '%s': File does not exist\n", pathname);
+        //~ printf("Error loading '%s': File does not exist\n", pathname);
         return -1;
     }
     handle = fio_malloc(sizeof(filehandle_t) + size);
