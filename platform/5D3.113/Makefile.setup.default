@@ -11,7 +11,6 @@ ML_SRC_EXTRA_OBJS = \
 	misc.o \
 	afma.o \
 	raw.o \
-	chdk-dng.o \
 	edmac-memcpy.o \
 	asm.o
 

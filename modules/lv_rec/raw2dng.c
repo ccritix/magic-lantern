@@ -25,7 +25,7 @@
 #include "math.h"
 #include "lv_rec.h"
 #include <raw.h>
-#include <chdk-dng.h>
+#include <ml_dng.h>
 #include "qsort.h"  /* much faster than standard C qsort */
 #include "../dual_iso/optmed.h"
 #include "../dual_iso/wirth.h"

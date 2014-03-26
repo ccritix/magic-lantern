@@ -38,13 +38,14 @@ LZMA_OBJS=$(LZMA_DIR)7zAlloc.host.o $(LZMA_DIR)7zBuf.host.o $(LZMA_DIR)7zBuf2.ho
 LZMA_OBJS_MINGW=$(LZMA_DIR)Threads.w32.o $(LZMA_DIR)LzFindMt.w32.o $(LZMA_DIR)MtCoder.w32.o $(LZMA_DIR)7zAlloc.w32.o $(LZMA_DIR)7zBuf.w32.o $(LZMA_DIR)7zBuf2.w32.o $(LZMA_DIR)7zCrc.w32.o $(LZMA_DIR)7zCrcOpt.w32.o $(LZMA_DIR)7zDec.w32.o $(LZMA_DIR)7zFile.w32.o $(LZMA_DIR)7zIn.w32.o $(LZMA_DIR)7zStream.w32.o $(LZMA_DIR)Alloc.w32.o $(LZMA_DIR)Bcj2.w32.o $(LZMA_DIR)Bra.w32.o $(LZMA_DIR)Bra86.w32.o $(LZMA_DIR)BraIA64.w32.o $(LZMA_DIR)CpuArch.w32.o $(LZMA_DIR)Delta.w32.o $(LZMA_DIR)LzFind.w32.o $(LZMA_DIR)Lzma2Dec.w32.o $(LZMA_DIR)Lzma2Enc.w32.o $(LZMA_DIR)Lzma86Dec.w32.o $(LZMA_DIR)Lzma86Enc.w32.o $(LZMA_DIR)LzmaDec.w32.o $(LZMA_DIR)LzmaEnc.w32.o $(LZMA_DIR)LzmaLib.w32.o $(LZMA_DIR)Ppmd7.w32.o $(LZMA_DIR)Ppmd7Dec.w32.o $(LZMA_DIR)Ppmd7Enc.w32.o $(LZMA_DIR)Sha256.w32.o $(LZMA_DIR)Xz.w32.o $(LZMA_DIR)XzCrc64.w32.o
 
 
-MLV_CFLAGS += $(LZMA_INC)
+ML_DNG_DIR = ../ml_dng
+MLV_CFLAGS += $(LZMA_INC) -I$(ML_DNG_DIR)
 MLV_LFLAGS += 
 MLV_LIBS += $(LZMA_LIB)
 MLV_LIBS_MINGW += $(LZMA_LIB_MINGW)
 
-MLV_DUMP_OBJS=mlv_dump.host.o $(SRC_DIR)/chdk-dng.host.o ../lv_rec/raw2dng.host.o $(LZMA_LIB) 
-MLV_DUMP_OBJS_MINGW=mlv_dump.w32.o $(SRC_DIR)/chdk-dng.w32.o ../lv_rec/raw2dng.w32.o $(LZMA_LIB_MINGW) 
+MLV_DUMP_OBJS=mlv_dump.host.o $(ML_DNG_DIR)/ml_dng.host.o ../lv_rec/raw2dng.host.o $(LZMA_LIB) 
+MLV_DUMP_OBJS_MINGW=mlv_dump.w32.o $(ML_DNG_DIR)/ml_dng.w32.o ../lv_rec/raw2dng.w32.o $(LZMA_LIB_MINGW) 
 
 
 clean::

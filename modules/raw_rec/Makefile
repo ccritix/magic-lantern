@@ -3,16 +3,18 @@
 MODULE_NAME=raw_rec
 MODULE_OBJS=raw_rec.o
 
+ML_DNG_DIR=../ml_dng
+
 # include modules environment
 include ../Makefile.modules
 
 all:: raw2dng
 
 # RAW to DNG converter for PC
-raw2dng: $(SRC_DIR)/chdk-dng.c ../lv_rec/raw2dng.c
-	$(call build,GCC,gcc -c $(SRC_DIR)/chdk-dng.c -m32 -O2 -Wall -I$(SRC_DIR))
-	$(call build,GCC,gcc -c ../lv_rec/raw2dng.c -m32 -O2 -Wall -I$(SRC_DIR) -D_FILE_OFFSET_BITS=64)
-	$(call build,GCC,gcc raw2dng.o chdk-dng.o -o raw2dng -lm -m32)
+raw2dng: $(ML_DNG_DIR)/ml_dng.c ../lv_rec/raw2dng.c
+	$(call build,GCC,gcc -c $(ML_DNG_DIR)/ml_dng.c -m32 -O2 -Wall -I$(SRC_DIR) -I$(ML_DNG_DIR))
+	$(call build,GCC,gcc -c ../lv_rec/raw2dng.c -m32 -O2 -Wall -I$(SRC_DIR) -I$(ML_DNG_DIR) -D_FILE_OFFSET_BITS=64)
+	$(call build,GCC,gcc raw2dng.o ml_dng.o -o raw2dng -lm -m32)
 
 # debug tool
 dng2raw: dng2raw.c
@@ -20,10 +22,10 @@ dng2raw: dng2raw.c
 
 MINGW=~/mingw-w32/bin/i686-w64-mingw32-gcc
 
-raw2dng.exe: $(SRC_DIR)/chdk-dng.c ../lv_rec/raw2dng.c
-	$(call build,MINGW,$(MINGW) -c $(SRC_DIR)/chdk-dng.c -m32 -mno-ms-bitfields -O2 -Wall -I$(SRC_DIR))
-	$(call build,MINGW,$(MINGW) -c ../lv_rec/raw2dng.c -m32 -mno-ms-bitfields -O2 -Wall -I$(SRC_DIR) -D_FILE_OFFSET_BITS=64)
-	$(call build,MINGW,$(MINGW) raw2dng.o chdk-dng.o -o raw2dng.exe -lm -m32)
+raw2dng.exe: $(ML_DNG_DIR)/ml_dng.c ../lv_rec/raw2dng.c
+	$(call build,MINGW,$(MINGW) -c $(ML_DNG_DIR)/ml_dng.c -m32 -mno-ms-bitfields -O2 -Wall -I$(SRC_DIR) -I$(ML_DNG_DIR))
+	$(call build,MINGW,$(MINGW) -c ../lv_rec/raw2dng.c -m32 -mno-ms-bitfields -O2 -Wall -I$(SRC_DIR) -I$(ML_DNG_DIR) -D_FILE_OFFSET_BITS=64)
+	$(call build,MINGW,$(MINGW) raw2dng.o ml_dng.o -o raw2dng.exe -lm -m32)
 
 clean::
 	$(call rm_files, raw2dng)

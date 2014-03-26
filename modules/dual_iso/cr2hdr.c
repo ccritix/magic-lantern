@@ -39,7 +39,7 @@ static int is_bright[4];
 #include <fcntl.h>
 #include <limits.h>
 #include "../../src/raw.h"
-#include "../../src/chdk-dng.h"
+#include <ml_dng.h>
 #include "qsort.h"  /* much faster than standard C qsort */
 
 #include "wirth.h"  /* fast median, generic implementation (also kth_smallest) */

@@ -29,40 +29,13 @@
 #undef RAW_DEBUG_BLACK
 
 #ifdef CONFIG_MAGICLANTERN
-#include "dryos.h"
-#include "property.h"
-#include "math.h"
-#include "string.h"
-#define umalloc fio_malloc
-#define ufree fio_free
-#define pow powf
-
-static int get_tick_count() { return get_ms_clock_value_fast(); }
-
+#include "ml_support.h"
 #else // if we compile it for desktop
-#include "stdint.h"
-#include "stdio.h"
-#include "stdlib.h"
-#include "string.h"
-#include "math.h"
-#include <sys/types.h>
-#define FAST
-#define UNCACHEABLE(x) (x)
-#define umalloc malloc
-#define ufree free
-
-#define FIO_CreateFile(name) fopen(name, "wb")
-#define FIO_WriteFile(f, ptr, count) fwrite(ptr, 1, count, f)
-#define FIO_CloseFile(f) fclose(f)
-
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
-#define COERCE(x,lo,hi) MAX(MIN((x),(hi)),(lo))
-
+#include "desktop_support.h"
 #endif
 
-#include "raw.h"
-#include "chdk-dng.h"
+#include <raw.h>
+#include "ml_dng.h"
 
 /* adaptations from CHDK to ML */
 #define camera_sensor (*raw_info)
@@ -730,12 +703,6 @@ static void write_dng(FILE* fd, struct raw_info * raw_info)
     }
 }
 
-#ifdef CONFIG_MAGICLANTERN
-PROP_HANDLER(PROP_CAM_MODEL)
-{
-    snprintf(cam_name, sizeof(cam_name), (const char *)buf);
-}
-#endif
 
 int save_dng(char* filename, struct raw_info * raw_info)
 {
@@ -756,3 +723,14 @@ int save_dng(char* filename, struct raw_info * raw_info)
     FIO_CloseFile(f);
     return 1;
 }
+
+#ifdef CONFIG_MAGICLANTERN
+PROP_HANDLER(PROP_CAM_MODEL)
+{
+    snprintf(cam_name, sizeof(cam_name), (const char *)buf);
+}
+
+MODULE_PROPHANDLERS_START()
+    MODULE_PROPHANDLER(PROP_CAM_MODEL)
+MODULE_PROPHANDLERS_END()
+#endif
