@@ -10,7 +10,9 @@
 #include <shoot.h>
 #include <zebra.h>
 #include <beep.h>
+#include "../ml_dng/ml_dng.h"
 
+extern int save_dng(char* filename, struct raw_info * raw_info);
 extern WEAK_FUNC(ret_0) void display_filter_get_buffers(uint32_t** src_buf, uint32_t** dst_buf);
 
 #define FEATURE_SILENT_PIC_RAW_BURST

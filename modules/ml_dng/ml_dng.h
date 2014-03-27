@@ -16,4 +16,6 @@ void dng_set_iso(int value);
 void dng_set_wbgain(float gain_r_n, float gain_r_d, float gain_g_n, float gain_g_d, float gain_b_n, float gain_b_d);
 void dng_set_datetime(char *datetime, char *subsectime);
 
+/* save a DNG file; all parameters are taken from raw_info */
+int save_dng(char* filename, struct raw_info * raw_info);
 #endif // __CHDK_DNG_H_
