@@ -280,8 +280,8 @@ static int stateobj_sss_spy(struct state_object * self, int x, int input, int z,
         raw_buffer_intercept_from_stateobj();
     #endif
 
-    #if defined(CONFIG_650D) || defined(CONFIG_EOSM) || defined(CONFIG_700D) || defined(CONIFG_100D) //TODO: Check 700D and 100D
-    if (old_state == 10 && input == 11 && new_state == 2) // delayCompleteRawtoSraw
+    #if defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONIFG_100D) //TODO: Check 700D and 100D
+    if (old_state == 10 && input == 11) // delayCompleteRawtoSraw
         raw_buffer_intercept_from_stateobj();
     #endif
 
