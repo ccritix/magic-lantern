@@ -111,6 +111,8 @@ ML_SRC_OBJS = \
 	edmac.o \
 	menu.o \
 	debug.o \
+	sound.o \
+	ak4646.o \
 	rand.o \
 	posix.o \
 	util.o \
