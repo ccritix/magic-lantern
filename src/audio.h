@@ -128,28 +128,8 @@ _audio_ic_write(
         unsigned                cmd
 );
 
-static inline uint8_t
-audio_ic_read(
-        unsigned                cmd
-)
-{
-        unsigned                value = 0;
-        //uint32_t flags = cli();
-        _audio_ic_read( cmd, &value );
-        //sei( flags );
-        return value;
-}
-
-static inline void
-audio_ic_write(
-        unsigned                cmd
-)
-{
-        //uint32_t flags = cli();
-        _audio_ic_write( cmd );
-        //sei( flags );
-}
-
+uint8_t audio_ic_read(uint32_t cmd);
+void audio_ic_write(uint32_t cmd);
 
 extern void
 audio_ic_sweep_message_queue( void );

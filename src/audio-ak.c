@@ -36,10 +36,23 @@ static CONFIG_INT( "audio.mgain",      mgain,          4 );
 static CONFIG_INT( "audio.mic-power",  mic_power,      1 );
 static CONFIG_INT( "audio.o2gain",     o2gain,         0 );
 
+void audio_ic_write(uint32_t cmd)
+{
+    _audio_ic_write(cmd);
+}
+
+uint8_t audio_ic_read(uint32_t cmd)
+{
+    unsigned int value = 0;
+    _audio_ic_read(cmd, &value);
+    return value;
+}
+
 int audio_meters_are_drawn()
 {
     return audio_meters_are_drawn_common();
 }
+
 
 #ifdef FEATURE_ANALOG_GAIN
 #if defined(CONFIG_500D)
@@ -202,6 +215,7 @@ static void audio_monitoring_update()
 void
 audio_configure( int force )
 {
+    return;
     extern int beep_playing;
     if (beep_playing && !(audio_monitoring && AUDIO_MONITORING_HEADPHONES_CONNECTED))
         return; // don't redirect wav playing to headphones if they are not connected
