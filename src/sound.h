@@ -118,16 +118,17 @@ struct sound_mixer
     
     /* amp in db, range depends on audio chip */
     enum agc_status headphone_agc;
-    uint32_t headphone_gain;
-    
-    enum power_status mic_power;
     enum agc_status mic_agc;
+    
+    /* all gains are 0-100, scaling t.b.d */
+    uint32_t headphone_gain;
     uint32_t mic_gain;
-    
     uint32_t speaker_gain;
-    
-    /* output amp, also depends on audio chip */
+    /* output amp, also depends on audio chip if that is available */
     uint32_t out_gain;
+    
+    /* to enable/disable power supply for microphones */
+    enum power_status mic_power;
 };
 
 enum sound_mode

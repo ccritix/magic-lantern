@@ -159,7 +159,7 @@ static void ak4646_power_speaker()
     AK4646_SET(AK4646_PAR_PMDAC, 1);
     ak4646_write_changed();
     
-    msleep(10);
+    msleep(50);
     
     AK4646_SET(AK4646_PAR_SPPSN, 1);
     ak4646_write_changed();
@@ -184,16 +184,20 @@ static void ak4646_power_lineout()
 {
     ak4646_power_line();
     
+#if defined(CONFIG_5D3)
     /* 5D3 uses this line to select headphone/AV */
     MEM(0xC0220160) |= 2;
+#endif
 }
 
 static void ak4646_power_avline()
 {
     ak4646_power_line();
     
+#if defined(CONFIG_5D3)
     /* 5D3 uses this line to select headphone/AV */
     MEM(0xC0220160) &= ~2;
+#endif
 }
 
 
@@ -271,8 +275,10 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
                 AK4646_SET(AK4646_PAR_INL, 0);
                 ak4646_write_changed();
                 
+#if defined(CONFIG_5D3)
                 /* 5D3 uses this line to select mic or power ext mic? */
                 MEM(0xC0220188) |= 2;
+#endif
                 break;
                 
             case SOUND_SOURCE_EXT_MIC:
@@ -283,8 +289,10 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
                 AK4646_SET(AK4646_PAR_INL, 1);
                 ak4646_write_changed();
                 
+#if defined(CONFIG_5D3)
                 /* 5D3 uses this line to select mic or power ext mic? */
                 MEM(0xC0220188) &= ~2;
+#endif
                 break;
                 
             case SOUND_SOURCE_EXTENDED_1:
