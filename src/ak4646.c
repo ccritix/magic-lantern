@@ -15,8 +15,8 @@ static struct ak4646_cache_entry ak4646_cached_registers[AK4646_REGS];
 static uint32_t ak4646_need_rewrite = 0;
 
 
-static const char *ak4646_src_names[] = { "Off", "Default", "Int.Mic", "Ext.Mic", "HDMI", "Auto", "L.int R.ext", "L.int R.bal" };
-static const char *ak4646_dst_names[] = { "Off", "Default", "Speaker", "Line Out", "A/V", "HDMI", "Spk+LineOut", "Spk+A/V" };
+static const char *ak4646_src_names[] = { "Default", "Off", "Int.Mic", "Ext.Mic", "HDMI", "Auto", "L.int R.ext", "L.int R.bal" };
+static const char *ak4646_dst_names[] = { "Default", "Off", "Speaker", "Line Out", "A/V", "HDMI", "Spk+LineOut", "Spk+A/V" };
 
 struct codec_ops default_codec_ops =
 {
