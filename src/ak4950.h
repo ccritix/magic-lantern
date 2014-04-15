@@ -36,9 +36,8 @@ enum ak4950_regs
     AK4950_REG_DVOL   = 0x2A,
     AK4950_REG_MGAIN2 = 0x2B,
     AK4950_REG_FIL1   = 0x2C,
-    AK4950_REG_FIL1   = 0x2D,
-    AK4950_REG_FIL1   = 0x2E,
-    
+    AK4950_REG_FIL2   = 0x2D,
+    AK4950_REG_FIL3   = 0x2E,
     AK4950_REG_END    = 0xFF,
 };
 
@@ -51,57 +50,57 @@ enum ak4950_regs
 #define AK4950_PAR_PMADL    {{ .name = "PMADL", .reg = AK4950_REG_PM1, .pos = 16, .width = 1 }, REG_END }
 #define AK4950_PAR_PMADR    {{ .name = "PMADR", .reg = AK4950_REG_PM1, .pos = 17, .width = 1 }, REG_END }
 #define AK4950_PAR_PMDAC    {{ .name = "PMDAC", .reg = AK4950_REG_PM1, .pos = 18, .width = 1 }, REG_END }
-#define AK4950_PAR_PMLO     {{ .name = "PMLO", .reg = AK4950_REG_PM1, .pos = 19, .width = 1 }, REG_END }
+#define AK4950_PAR_PMLO     {{ .name = "PMLO",  .reg = AK4950_REG_PM1, .pos = 19, .width = 1 }, REG_END }
 #define AK4950_PAR_PMSPK    {{ .name = "PMSPK", .reg = AK4950_REG_PM1, .pos = 20, .width = 1 }, REG_END }
-#define AK4950_PAR_PMBP     {{ .name = "PMBP", .reg = AK4950_REG_PM1, .pos = 21, .width = 1 }, REG_END }
+#define AK4950_PAR_PMBP     {{ .name = "PMBP",  .reg = AK4950_REG_PM1, .pos = 21, .width = 1 }, REG_END }
 #define AK4950_PAR_PMFIL    {{ .name = "PMFIL", .reg = AK4950_REG_PM1, .pos = 23, .width = 1 }, REG_END }
 
 
 /* 01H  Power Management 2 */
 #define AK4950_PAR_PMPLL    {{ .name = "PMPLL", .reg = AK4950_REG_PM2, .pos = 16, .width = 1 }, REG_END }
-#define AK4950_PAR_MCKO     {{ .name = "MCKO", .reg = AK4950_REG_PM2, .pos = 17, .width = 1 }, REG_END }
-#define AK4950_PAR_PMMP     {{ .name = "PMMP", .reg = AK4950_REG_PM2, .pos = 18, .width = 1 }, REG_END }
-#define AK4950_PAR_MS       {{ .name = "MS", .reg = AK4950_REG_PM2, .pos = 19, .width = 1 }, REG_END }
-#define AK4950_PAR_ADRST    {{ .name = "ADRST", .reg = AK4950_REG_PM2, .pos = 19, .width = 1 }, REG_END }
+#define AK4950_PAR_MCKO     {{ .name = "MCKO",  .reg = AK4950_REG_PM2, .pos = 17, .width = 1 }, REG_END }
+#define AK4950_PAR_PMMP     {{ .name = "PMMP",  .reg = AK4950_REG_PM2, .pos = 18, .width = 1 }, REG_END }
+#define AK4950_PAR_MS       {{ .name = "MS",    .reg = AK4950_REG_PM2, .pos = 19, .width = 1 }, REG_END }
+#define AK4950_PAR_ADRST    {{ .name = "ADRST", .reg = AK4950_REG_PM2, .pos = 23, .width = 1 }, REG_END }
 
 /* 02H  MIC Gain Control */
 #define AK4950_PAR_MGAIN    {{ .name = "MGAIN", .reg = AK4950_REG_MGAIN1, .pos = 16, .width = 4 }, REG_END }
 
-/* 02H  Gain Control */
+/* 03H  Gain Control */
 #define AK4950_PAR_LOVL     {{ .name = "LOVL", .reg = AK4950_REG_GAIN, .pos = 16, .width = 2 }, REG_END }
 #define AK4950_PAR_SPKG     {{ .name = "SPKG", .reg = AK4950_REG_GAIN, .pos = 20, .width = 2 }, REG_END }
 #define AK4950_PAR_MICL     {{ .name = "MICL", .reg = AK4950_REG_GAIN, .pos = 23, .width = 1 }, REG_END }
 
-/* 03H  Mode Control 1 */
-#define AK4950_PAR_DACL     {{ .name = "DACL", .reg = AK4950_REG_MODE1, .pos = 16, .width = 1 }, REG_END }
-#define AK4950_PAR_DACS     {{ .name = "DACS", .reg = AK4950_REG_MODE1, .pos = 17, .width = 1 }, REG_END }
+/* 04H  Mode Control 1 */
+#define AK4950_PAR_DACL     {{ .name = "DACL",  .reg = AK4950_REG_MODE1, .pos = 16, .width = 1 }, REG_END }
+#define AK4950_PAR_DACS     {{ .name = "DACS",  .reg = AK4950_REG_MODE1, .pos = 17, .width = 1 }, REG_END }
 #define AK4950_PAR_BEEPL    {{ .name = "BEEPL", .reg = AK4950_REG_MODE1, .pos = 18, .width = 1 }, REG_END }
 #define AK4950_PAR_BEEPS    {{ .name = "BEEPS", .reg = AK4950_REG_MODE1, .pos = 19, .width = 1 }, REG_END }
-#define AK4950_PAR_LOPS     {{ .name = "LOPS", .reg = AK4950_REG_MODE1, .pos = 22, .width = 1 }, REG_END }
+#define AK4950_PAR_LOPS     {{ .name = "LOPS",  .reg = AK4950_REG_MODE1, .pos = 22, .width = 1 }, REG_END }
 #define AK4950_PAR_SPPSN    {{ .name = "SPPSN", .reg = AK4950_REG_MODE1, .pos = 23, .width = 1 }, REG_END }
 
 /* 05H  Mode Control 2 */
-#define AK4950_PAR_INL      {{ .name = "INL", .reg = AK4950_REG_MODE2, .pos = 16, .width = 1 }, REG_END }
-#define AK4950_PAR_INR      {{ .name = "INR", .reg = AK4950_REG_MODE2, .pos = 17, .width = 1 }, REG_END }
+#define AK4950_PAR_INL      {{ .name = "INL",   .reg = AK4950_REG_MODE2, .pos = 16, .width = 1 }, REG_END }
+#define AK4950_PAR_INR      {{ .name = "INR",   .reg = AK4950_REG_MODE2, .pos = 17, .width = 1 }, REG_END }
 #define AK4950_PAR_MLOUT    {{ .name = "MLOUT", .reg = AK4950_REG_MODE2, .pos = 22, .width = 1 }, REG_END }
-#define AK4950_PAR_READ     {{ .name = "READ", .reg = AK4950_REG_MODE2, .pos = 22, .width = 1 }, REG_END }
+#define AK4950_PAR_READ     {{ .name = "READ",  .reg = AK4950_REG_MODE2, .pos = 23, .width = 1 }, REG_END }
 
 /* 06H  Mode Control 3 */
-#define AK4950_PAR_DEM      {{ .name = "DEM", .reg = AK4950_REG_MODE3, .pos = 16, .width = 2 }, REG_END }
+#define AK4950_PAR_DEM      {{ .name = "DEM",  .reg = AK4950_REG_MODE3, .pos = 16, .width = 2 }, REG_END }
 #define AK4950_PAR_MONO     {{ .name = "MONO", .reg = AK4950_REG_MODE3, .pos = 18, .width = 2 }, REG_END }
 #define AK4950_PAR_EXTC     {{ .name = "EXTC", .reg = AK4950_REG_MODE3, .pos = 21, .width = 1 }, REG_END }
 
 /* 07H  PLL Control 1 */
-#define AK4950_PAR_DIF      {{ .name = "DIF", .reg = AK4950_REG_PLL1, .pos = 16, .width = 2 }, REG_END }
+#define AK4950_PAR_DIF      {{ .name = "DIF",  .reg = AK4950_REG_PLL1, .pos = 16, .width = 2 }, REG_END }
 #define AK4950_PAR_BCKO     {{ .name = "BCKO", .reg = AK4950_REG_PLL1, .pos = 19, .width = 1 }, REG_END }
-#define AK4950_PAR_PLL      {{ .name = "PLL", .reg = AK4950_REG_PLL1, .pos = 20, .width = 4 }, REG_END }
+#define AK4950_PAR_PLL      {{ .name = "PLL",  .reg = AK4950_REG_PLL1, .pos = 20, .width = 4 }, REG_END }
 
 /* 08H  PLL Control 2 */
 #define AK4950_PAR_FS       {{ .name = "FS", .reg = AK4950_REG_PLL2, .pos = 16, .width = 4 }, REG_END }
 #define AK4950_PAR_PS       {{ .name = "PS", .reg = AK4950_REG_PLL2, .pos = 22, .width = 2 }, REG_END }
 
 /* 09H  Digital MIC */
-#define AK4950_PAR_DMIC     {{ .name = "DMIC", .reg = AK4950_REG_DMIC, .pos = 16, .width = 1 }, REG_END }
+#define AK4950_PAR_DMIC     {{ .name = "DMIC",  .reg = AK4950_REG_DMIC, .pos = 16, .width = 1 }, REG_END }
 #define AK4950_PAR_DCLKP    {{ .name = "DCLKP", .reg = AK4950_REG_DMIC, .pos = 17, .width = 1 }, REG_END }
 #define AK4950_PAR_DCLKE    {{ .name = "DCLKE", .reg = AK4950_REG_DMIC, .pos = 18, .width = 1 }, REG_END }
 #define AK4950_PAR_PMDML    {{ .name = "PMDML", .reg = AK4950_REG_DMIC, .pos = 20, .width = 1 }, REG_END }
@@ -110,19 +109,19 @@ enum ak4950_regs
 /* 0AH  BEEP Control */
 #define AK4950_PAR_BPLVL    {{ .name = "BPLVL", .reg = AK4950_REG_BEEP, .pos = 16, .width = 3 }, REG_END }
 #define AK4950_PAR_BPVCM    {{ .name = "BPVCM", .reg = AK4950_REG_BEEP, .pos = 20, .width = 1 }, REG_END }
-#define AK4950_PAR_BPM      {{ .name = "BPM", .reg = AK4950_REG_BEEP, .pos = 23, .width = 1 }, REG_END }
+#define AK4950_PAR_BPM      {{ .name = "BPM",   .reg = AK4950_REG_BEEP, .pos = 23, .width = 1 }, REG_END }
 
 /* 0BH  HPF Control */
 #define AK4950_PAR_HPFAD    {{ .name = "HPFAD", .reg = AK4950_REG_HPF, .pos = 16, .width = 1 }, REG_END }
-#define AK4950_PAR_HPFC     {{ .name = "HPFC", .reg = AK4950_REG_HPF, .pos = 17, .width = 2 }, REG_END }
+#define AK4950_PAR_HPFC     {{ .name = "HPFC",  .reg = AK4950_REG_HPF, .pos = 17, .width = 2 }, REG_END }
 
 /* 0CH  Video Control */
-#define AK4950_PAR_PMV      {{ .name = "PMV", .reg = AK4950_REG_VID, .pos = 16, .width = 1 }, REG_END }
+#define AK4950_PAR_PMV      {{ .name = "PMV",  .reg = AK4950_REG_VID, .pos = 16, .width = 1 }, REG_END }
 #define AK4950_PAR_PMCP     {{ .name = "PMCP", .reg = AK4950_REG_VID, .pos = 17, .width = 1 }, REG_END }
-#define AK4950_PAR_VG       {{ .name = "VG", .reg = AK4950_REG_VID, .pos = 18, .width = 2 }, REG_END }
+#define AK4950_PAR_VG       {{ .name = "VG",   .reg = AK4950_REG_VID, .pos = 18, .width = 2 }, REG_END }
 
 /* 0DH  Mode Control 4 */
-#define AK4950_PAR_COEW     {{ .name = "COEW", .reg = AK4950_REG_MODE4, .pos = 16, .width = 1 }, REG_END }
+#define AK4950_PAR_COEW     {{ .name = "COEW",  .reg = AK4950_REG_MODE4, .pos = 16, .width = 1 }, REG_END }
 #define AK4950_PAR_THDET    {{ .name = "THDET", .reg = AK4950_REG_MODE4, .pos = 23, .width = 1 }, REG_END }
   
 /* 0EH  Mode Control 5 */
@@ -132,31 +131,50 @@ enum ak4950_regs
 #define AK4950_PAR_VOL      {{ .name = "VOL", .reg = AK4950_REG_ALCLVL, .pos = 16, .width = 8 }, REG_END }
 
 /* 20H-23H  Volume Control */
-#define AK4950_PAR_LIVL     {{ .name = "LIVL", .reg = AK4950_REG_LIVC, .pos = 16, .width = 8 }, REG_END }
-#define AK4950_PAR_RIVL     {{ .name = "RIVL", .reg = AK4950_REG_RIVC, .pos = 16, .width = 8 }, REG_END }
-#define AK4950_PAR_LOVL     {{ .name = "LOVL", .reg = AK4950_REG_LOVC, .pos = 16, .width = 8 }, REG_END }
-#define AK4950_PAR_ROVL     {{ .name = "ROVL", .reg = AK4950_REG_ROVC, .pos = 16, .width = 8 }, REG_END }
+#define AK4950_PAR_IVL      {{ .name = "IVL", .reg = AK4950_REG_LIVC, .pos = 16, .width = 8 }, REG_END }
+#define AK4950_PAR_IVR      {{ .name = "IVR", .reg = AK4950_REG_RIVC, .pos = 16, .width = 8 }, REG_END }
+#define AK4950_PAR_OVL     {{ .name = "OVL",  .reg = AK4950_REG_LOVC, .pos = 16, .width = 8 }, REG_END }
+#define AK4950_PAR_OVR     {{ .name = "OVR",  .reg = AK4950_REG_ROVC, .pos = 16, .width = 8 }, REG_END }
 
 /* 24H/25H  ALC Mode Control 1/2 */
 #define AK4950_PAR_IREF      {{ .name = "IREF", .reg = AK4950_REG_ALC1, .pos = 16, .width = 8 }, REG_END }
 #define AK4950_PAR_OREF      {{ .name = "OREF", .reg = AK4950_REG_ALC2, .pos = 16, .width = 8 }, REG_END }
 
 /* 26H  ALC Mode Control 3 */
-#define AK4950_PAR_LMTH      {{ .name = "LMTH", .reg = AK4950_REG_ALC3, .pos = 16, .width = 2 }, REG_END }
-#define AK4950_PAR_RGAIN     {{ .name = "RGAIN", .reg = AK4950_REG_ALC3, .pos = 19, .width = 3 }, REG_END }
-#define AK4950_PAR_ALC       {{ .name = "ALC", .reg = AK4950_REG_ALC3, .pos = 22, .width = 1 }, REG_END }
-#define AK4950_PAR_SMUTE     {{ .name = "SMUTE", .reg = AK4950_REG_ALC3, .pos = 23, .width = 1 }, REG_END }
+#define AK4950_PAR_RFST      {{ .name = "RFST", .reg = AK4950_REG_ALC3, .pos = 16, .width = 2 }, REG_END }
+#define AK4950_PAR_WTM       {{ .name = "WTM",  .reg = AK4950_REG_ALC3, .pos = 20, .width = 3 }, REG_END }
+
+/* 27H  ALC Mode Control 4 */
+#define AK4950_PAR_LMTH      {{ .name = "LMTH",  .reg = AK4950_REG_ALC4, .pos = 16, .width = 2 }, REG_END }
+#define AK4950_PAR_RGAIN     {{ .name = "RGAIN", .reg = AK4950_REG_ALC4, .pos = 19, .width = 3 }, REG_END }
+#define AK4950_PAR_ALC       {{ .name = "ALC",   .reg = AK4950_REG_ALC4, .pos = 22, .width = 1 }, REG_END }
+#define AK4950_PAR_SMUTE     {{ .name = "SMUTE", .reg = AK4950_REG_ALC4, .pos = 23, .width = 1 }, REG_END }
 
 /* 2AH  Digital Volume Control */
 #define AK4950_PAR_DVOL      {{ .name = "DVOL", .reg = AK4950_REG_DVOL, .pos = 16, .width = 8 }, REG_END }
 
 /* 2BH  MIC Gain Control 2 */
-#define AK4950_PAR_MSGAINL   {{ .name = "MSGAINL", .reg = AK4950_REG_MGAIN2, .pos = 16, .width = 8 }, REG_END }
+#define AK4950_PAR_MSGAINL   {{ .name = "MSGAINL", .reg = AK4950_REG_MGAIN2, .pos = 16, .width = 4 }, REG_END }
+#define AK4950_PAR_MSGAINR   {{ .name = "MSGAINR", .reg = AK4950_REG_MGAIN2, .pos = 20, .width = 4 }, REG_END }
 
-/* 2CH  Digital Filter Control */
+/* 2CH  Digital Filter Control 1 */
 #define AK4950_PAR_IVOLC     {{ .name = "IVOLC", .reg = AK4950_REG_FIL1, .pos = 16, .width = 1 }, REG_END }
 #define AK4950_PAR_OVOLC     {{ .name = "OVOLC", .reg = AK4950_REG_FIL1, .pos = 17, .width = 1 }, REG_END }
+#define AK4950_PAR_ADCPF     {{ .name = "ADCPF", .reg = AK4950_REG_FIL1, .pos = 18, .width = 1 }, REG_END }
+#define AK4950_PAR_PFDAC     {{ .name = "PFDAC", .reg = AK4950_REG_FIL1, .pos = 19, .width = 1 }, REG_END }
+#define AK4950_PAR_PFSDO     {{ .name = "PFSDO", .reg = AK4950_REG_FIL1, .pos = 20, .width = 1 }, REG_END }
 
+/* 2DH  Digital Filter Control 2 */
+#define AK4950_PAR_FIL3      {{ .name = "FIL3", .reg = AK4950_REG_FIL2, .pos = 16, .width = 1 }, REG_END }
+#define AK4950_PAR_GN        {{ .name = "GN",   .reg = AK4950_REG_FIL2, .pos = 17, .width = 2 }, REG_END }
+#define AK4950_PAR_EQ0       {{ .name = "EQ0",  .reg = AK4950_REG_FIL2, .pos = 19, .width = 1 }, REG_END }
+#define AK4950_PAR_HPF       {{ .name = "HPF",  .reg = AK4950_REG_FIL2, .pos = 20, .width = 1 }, REG_END }
+#define AK4950_PAR_LPF       {{ .name = "LPF",  .reg = AK4950_REG_FIL2, .pos = 21, .width = 1 }, REG_END }
+
+/* 2EH  Digital Filter Control 3 */
+#define AK4950_PAR_EQ0       {{ .name = "EQ2", .reg = AK4950_REG_FIL3, .pos = 17, .width = 1 }, REG_END }
+#define AK4950_PAR_EQ0       {{ .name = "EQ3", .reg = AK4950_REG_FIL3, .pos = 18, .width = 1 }, REG_END }
+#define AK4950_PAR_EQ0       {{ .name = "EQ4", .reg = AK4950_REG_FIL3, .pos = 19, .width = 1 }, REG_END }
 
 #define AK4950_SET(par, val) do { struct ak4950_parameter par_loc[] = par; ak4950_write(par_loc, val); } while(0)
 
@@ -167,7 +185,7 @@ struct ak4950_cache_entry
     /* set if it was changed */
     uint8_t dirty;
     /* current value */
-    uint8_t value;
+    uint32_t value;
 };
 
 
@@ -177,7 +195,7 @@ struct ak4950_parameter
     const char *name;
     /* register in which this parameter is */
     enum ak4950_regs reg;
-    /* bit position 0..7 */
+    /* bit position 0..23 */
     uint8_t pos;
     /* number of bits */
     uint8_t width;
