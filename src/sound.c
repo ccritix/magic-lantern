@@ -8,7 +8,6 @@
 #include <console.h>
 
 #include "sound.h"
-#include "ak4646.h"
 
 static struct sound_dev sound_device;
 
@@ -609,8 +608,9 @@ void sound_init()
     sound_device.max_queue_size = 3;
     sound_device.mixer_defaults = default_mixer_options;
     sound_device.mixer_current = default_mixer_options;
-    
-    ak4646_init(&sound_device.codec_ops);
+
+    extern void codec_init(struct codec_ops *ops);
+    codec_init(&sound_device.codec_ops);
 }
 
 

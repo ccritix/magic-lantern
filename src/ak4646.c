@@ -400,7 +400,7 @@ static enum sound_result ak4646_op_poweroff()
 }
 
 
-void ak4646_init(struct codec_ops *ops)
+void codec_init(struct codec_ops *ops)
 {
     ak4646_readall();
     *ops = default_codec_ops;

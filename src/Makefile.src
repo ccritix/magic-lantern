@@ -66,6 +66,10 @@ else ifndef ML_ENTRY_OBJ
 ML_ENTRY_OBJ = entry.o
 endif
 
+ifdef ML_SOUND_CODEC_OBJ
+ML_SOUND_CODEC_OBJ += sound.o
+endif
+
 ifeq ($(ML_SRC_PROFILE),minimal)
 ML_OBJS-y = \
 	magiclantern.lds \
@@ -111,8 +115,7 @@ ML_SRC_OBJS = \
 	edmac.o \
 	menu.o \
 	debug.o \
-	sound.o \
-	ak4646.o \
+	$(ML_SOUND_CODEC_OBJ) \
 	rand.o \
 	posix.o \
 	util.o \
