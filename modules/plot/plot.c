@@ -152,14 +152,7 @@ static plot_data_t plot_get_scaled(plot_coll_t *coll, plot_graph_t *plot, uint32
 
     if(get_y_field)
     {
-        if(plot->type == PLOT_XY)
-        {
-            src_field = plot->y_field;
-        }
-        else
-        {
-            src_field = 0;
-        }
+        src_field = (plot->type == PLOT_LINEAR) ? 0 : plot->y_field;
         max_value = plot->h;
         win = plot->y_win;
     }
@@ -170,28 +163,16 @@ static plot_data_t plot_get_scaled(plot_coll_t *coll, plot_graph_t *plot, uint32
         win = plot->x_win;
     }
 
-    for(uint32_t field = 0; field < coll->fields; field++)
+    /* the selected range in source data */
+    plot_data_t range = win.max - win.min;
+    plot_data_t value = coll->entries[entry * coll->fields + src_field];
+    
+    if(fabs(range) > 0.000001)
     {
-        if(field == src_field)
-        {
-            /* the selected range in source data */
-            uint32_t scale = 0;
-
-            plot_data_t range = win.max - win.min;
-            scale = (range > 0.00001) || (range < -0.00001);
-
-            plot_data_t value = coll->entries[entry * coll->fields + field];
-            if(scale)
-            {
-                value = ((value - win.min) * max_value) / range;
-            }
-
-            plot_data_t scaled = COERCE(value, 0, max_value);
-            return scaled;
-        }
+        value = ((value - win.min) * max_value) / range;
     }
-
-    return 0;
+    
+    return COERCE(value, 0, max_value);
 }
 
 /* mark the graph for whole repainting */
@@ -221,6 +202,8 @@ void plot_graph_paint_range(plot_coll_t *coll, plot_graph_t *plot)
     {
         char line[64];
         char buf[32];
+        uint32_t pos_x = plot->x + 2;
+        uint32_t pos_y = plot->y + plot->h - 2 * fontspec_height(FONT_SMALL) - 2;
 
         strcpy(line, "x: ");
         plot_fmt_float(buf, sizeof(buf), plot->x_win.min);
@@ -228,7 +211,9 @@ void plot_graph_paint_range(plot_coll_t *coll, plot_graph_t *plot)
         strcat(line, " - ");
         plot_fmt_float(buf, sizeof(buf), plot->x_win.max);
         strcat(line, buf);
-        bmp_printf(FONT(FONT_SMALL,plot->color_range,plot->color_bg), plot->x + 2, plot->y + 2, line);
+        bmp_printf(FONT(FONT_SMALL,plot->color_range,plot->color_bg), pos_x, pos_y, line);
+        
+        pos_y += fontspec_height(FONT_SMALL);
 
         strcpy(line, "y: ");
         plot_fmt_float(buf, sizeof(buf), plot->y_win.min);
@@ -236,7 +221,7 @@ void plot_graph_paint_range(plot_coll_t *coll, plot_graph_t *plot)
         strcat(line, " - ");
         plot_fmt_float(buf, sizeof(buf), plot->y_win.max);
         strcat(line, buf);
-        bmp_printf(FONT(FONT_SMALL,plot->color_range,plot->color_bg), plot->x + 2, plot->y + 2 + fontspec_height(FONT_SMALL), line);
+        bmp_printf(FONT(FONT_SMALL,plot->color_range,plot->color_bg), pos_x, pos_y, line);
     }
 }
 
@@ -306,7 +291,7 @@ void plot_graph_update(plot_coll_t *coll, plot_graph_t *plot)
         }
         if(plot->color_border != PLOT_COLOR_NONE)
         {
-            bmp_draw_rect_chamfer(plot->color_border, plot->x, plot->y, plot->w, plot->h, 0, 0);
+            bmp_draw_rect(plot->color_border, plot->x, plot->y, plot->w, plot->h);
         }
         
         plot_graph_paint_grid(coll, plot);
@@ -315,7 +300,6 @@ void plot_graph_update(plot_coll_t *coll, plot_graph_t *plot)
     /* these are the base coordinates for that plot */
     uint32_t start_x = plot->x;
     uint32_t start_y = plot->y + plot->h;
-
 
     /* for every data entry in the collection that has not been drawn yet */
     for(uint32_t entry = plot->points_drawn; entry < coll->used; entry++)
@@ -345,7 +329,7 @@ void plot_graph_update(plot_coll_t *coll, plot_graph_t *plot)
             draw_line(plot->last_dot_x, plot->last_dot_y, x, y, plot->color_lines);
         }
 
-        if(plot->dot_size > 1 && plot->color_dots != PLOT_COLOR_NONE)
+        if(plot->dot_size >= 1 && plot->color_dots != PLOT_COLOR_NONE)
         {
             uint32_t size = plot->dot_size;
             
@@ -426,6 +410,12 @@ void plot_autorange(plot_coll_t *coll, plot_graph_t *plot)
         y_min = MIN(y_min, value);
         y_max = MAX(y_max, value);
     }
+    
+    /* increase range by one percent */
+    x_min -= x_min / 100.0f;
+    y_min -= y_min / 100.0f;
+    x_max += x_max / 100.0f;
+    y_max += y_max / 100.0f;
 
     plot_set_range(plot, x_min, x_max, y_min, y_max);
 }
@@ -433,7 +423,7 @@ void plot_autorange(plot_coll_t *coll, plot_graph_t *plot)
 
 static unsigned int plot_init()
 {
-#if DEMO_CODE
+#if 0
     uint32_t width = 700;
     uint32_t height = 220;
 
@@ -464,7 +454,7 @@ static unsigned int plot_init()
 
         /* add some data for every plot */
         plot_add(coll_1, (y * 1000));
-        plot_add(coll_2, x, y);
+        plot_add(coll_2, 10000 + rand() / 100000.0f, 10000 + rand() / 100000.0f);
         plot_add(coll_3, z, x);
 
         /* override displayed range and autoscale */
