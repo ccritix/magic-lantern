@@ -35,6 +35,7 @@ static struct sound_mixer default_mixer_options =
     .mic_agc = SOUND_AGC_DEFAULT,
     .mic_gain = SOUND_GAIN_DEFAULT,
     .speaker_gain = SOUND_GAIN_DEFAULT,
+    .loop_mode = SOUND_LOOP_DEFAULT,
     .out_gain = SOUND_GAIN_DEFAULT
 };
 

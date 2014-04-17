@@ -103,7 +103,8 @@ enum loop_status
     SOUND_LOOP_ENABLED  = 2
 };
 
-#define SOUND_GAIN_DEFAULT 0xFFFFFFFF
+#define SOUND_GAIN_DISABLED 0xFFFFFFFF
+#define SOUND_GAIN_DEFAULT  0
 
 struct sound_mixer
 {
