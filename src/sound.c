@@ -6,17 +6,21 @@
 #include <float.h>
 #include <string.h>
 #include <console.h>
+#include <module.h>
 
 #include "sound.h"
+#include "../modules/trace/trace.h"
 
 static struct sound_dev sound_device;
 
-extern int StartASIFDMAADC(void *, uint32_t, void *, uint32_t, void (*)(), uint32_t);
+extern int StartASIFDMAADC(void *, uint32_t, void *, uint32_t, void (*)());
 extern int StartASIFDMADAC(void *, uint32_t, void *, uint32_t, void (*)(), uint32_t);
 extern int SetNextASIFADCBuffer(void *, uint32_t);
 extern int SetNextASIFDACBuffer(void *, uint32_t);
 extern int StopASIFDMAADC(void *, void *);
 extern int StopASIFDMADAC(void *, void *);
+
+uint32_t sound_trace_ctx = TRACE_ERROR;
 
 
 static struct sound_mixer default_mixer_options =
@@ -50,7 +54,7 @@ static struct sound_ops default_sound_ops =
 /* called when stopping ASIF transfers */
 static void sound_asif_stop_cbr(uint32_t priv)
 {
-    struct sound_ctx *ctx = (struct sound_ctx *)priv;
+    struct sound_ctx *ctx = sound_device.current_ctx;
     struct sound_dev *dev = ctx->device;
     uint32_t msg_count = 0;
 
@@ -82,8 +86,10 @@ static void sound_asif_stop_cbr(uint32_t priv)
 /* called whenever a audio black has been trasferred */
 static void sound_asif_cbr(uint32_t priv)
 {
-    struct sound_ctx *ctx = (struct sound_ctx *)priv;
+    struct sound_ctx *ctx = sound_device.current_ctx;
     struct sound_dev *dev = ctx->device;
+    
+    trace_write(sound_trace_ctx, "sound_asif_cbr: entered (0x%08X, %d)", priv, dev->state);
 
     switch(dev->state)
     {
@@ -101,7 +107,9 @@ static void sound_asif_cbr(uint32_t priv)
             struct sound_buffer *next_buffer = NULL;
             uint32_t msg_count = 0;
 
-            msg_queue_count(ctx->buffer_queue, &msg_count);
+            msg_queue_count(ctx->buffer_queue, &msg_count);     
+            trace_write(sound_trace_ctx, "sound_asif_cbr: have %d msgs", msg_count);
+
 
             /* if there is no new buffer to fill/play, requeue the current one */
             if((msg_count == 0) || (msg_queue_receive(ctx->buffer_queue, &next_buffer, 50)))
@@ -109,11 +117,13 @@ static void sound_asif_cbr(uint32_t priv)
                 /* call the buffer cbr for notifying about requeueing */
                 next_buffer = dev->current_buffer;
                 flow = sound_buf_requeued(next_buffer);
+                trace_write(sound_trace_ctx, "sound_asif_cbr: requeue");
             }
             else
             {
                 /* call the buffer cbr */
                 flow = sound_buf_processed(dev->current_buffer);
+                trace_write(sound_trace_ctx, "sound_asif_cbr: processed");
             }
 
             dev->current_buffer = dev->next_buffer;
@@ -122,10 +132,13 @@ static void sound_asif_cbr(uint32_t priv)
             
             if(flow == SOUND_FLOW_STOP && dev->state != SOUND_STATE_STOPPING)
             {
+                trace_write(sound_trace_ctx, "sound_asif_cbr: sound_stop_asif");
                 sound_stop_asif(ctx);
             }
             else
             {
+                trace_write(sound_trace_ctx, "sound_asif_cbr: enqueue next buffer");
+                
                 /* depending on operation mode, call the right queue function */
                 if(dev->current_ctx->mode == SOUND_MODE_PLAYBACK)
                 {
@@ -159,8 +172,10 @@ static enum sound_flow sound_buf_requeued(struct sound_buffer *buf)
 {
     enum sound_flow ret = SOUND_FLOW_CONTINUE;
     
+    trace_write(sound_trace_ctx, "sound_buf_requeued: check (0x%08X, 0x%08X)", buf, buf->requeued);
     if(buf && buf->requeued)
     {
+        trace_write(sound_trace_ctx, "sound_buf_requeued: calling");
         ret = buf->requeued(buf);
     }
     
@@ -172,8 +187,10 @@ static enum sound_flow sound_buf_processed(struct sound_buffer *buf)
 {
     enum sound_flow ret = SOUND_FLOW_CONTINUE;
     
+    trace_write(sound_trace_ctx, "sound_buf_processed: check (0x%08X, 0x%08X)", buf, buf->processed);
     if(buf && buf->processed)
     {
+        trace_write(sound_trace_ctx, "sound_buf_processed: calling");
         ret = buf->processed(buf);
     }
     
@@ -260,6 +277,8 @@ static void sound_set_asif(struct sound_ctx *ctx)
 
 static void sound_try_start(struct sound_ctx *ctx)
 {
+    trace_write(sound_trace_ctx, "sound_try_start: enter");
+        
     /* audio wasnt started yet, but now we have enough data to start */
     if(ctx->device->state == SOUND_STATE_STARTED)
     {
@@ -283,12 +302,14 @@ static void sound_try_start(struct sound_ctx *ctx)
 
             /* start operation */
             if(ctx->mode == SOUND_MODE_PLAYBACK)
-            {
+            {  
+                trace_write(sound_trace_ctx, "sound_try_start: StartASIFDMADAC (%d)", ctx->device->state);
                 StartASIFDMADAC(buffer_1->data, buffer_1->size, buffer_2->data, buffer_2->size, sound_asif_cbr, (uint32_t)ctx);
             }
             else
             {
-                StartASIFDMAADC(buffer_1->data, buffer_1->size, buffer_2->data, buffer_2->size, sound_asif_cbr, (uint32_t)ctx);
+                trace_write(sound_trace_ctx, "sound_try_start: StartASIFDMAADC (%d)", ctx->device->state);
+                StartASIFDMAADC(buffer_1->data, buffer_1->size, buffer_2->data, buffer_2->size, sound_asif_cbr);
             }
         }
     }
@@ -298,16 +319,22 @@ static void sound_stop_asif(struct sound_ctx *ctx)
 {
     if(ctx->mode == SOUND_MODE_PLAYBACK)
     {
+        trace_write(sound_trace_ctx, "sound_stop_asif: StopASIFDMADAC");
         StopASIFDMADAC(&sound_asif_stop_cbr, ctx);
     }
     else
     {
+        trace_write(sound_trace_ctx, "sound_stop_asif: StopASIFDMAADC");
         StopASIFDMAADC(&sound_asif_stop_cbr, ctx);
     }
 }
 
 static enum sound_result sound_op_lock (struct sound_ctx *ctx, enum sound_lock type)
 {
+    sound_trace_ctx = trace_start("snd_test", "B:/snd_test.txt");
+    trace_set_flushrate(sound_trace_ctx, 1000);
+    trace_format(sound_trace_ctx, TRACE_FMT_TIME_REL | TRACE_FMT_COMMENT, ' ');
+    
     if(!ctx || !ctx->device)
     {
         return SOUND_RESULT_ERROR;
@@ -426,25 +453,19 @@ static enum sound_result sound_op_start (struct sound_ctx *ctx)
 
 static enum sound_result sound_op_enqueue (struct sound_ctx *ctx, struct sound_buffer *buffer)
 {
-    if(ctx->paused)
-    {
-        return SOUND_RESULT_TRYAGAIN;
-    }
-    
+    trace_write(sound_trace_ctx, "sound_op_enqueue: enter");
+
     if(sound_check_ctx(ctx) != SOUND_RESULT_OK)
     {
-        return SOUND_RESULT_ERROR;
-    }
-
-    if(ctx->device->state != SOUND_STATE_STARTED && ctx->device->state != SOUND_STATE_RUNNING)
-    {
+        trace_write(sound_trace_ctx, "sound_op_enqueue: ctx fail");
         return SOUND_RESULT_ERROR;
     }
 
     uint32_t msg_count = 0;
 
     msg_queue_count(ctx->buffer_queue, &msg_count);
-
+    trace_write(sound_trace_ctx, "sound_op_enqueue: have %d msgs", msg_count);
+    
     /* if just started, we are allowed to queue one buffer more */
     if(msg_count < ctx->device->max_queue_size || ctx->device->state == SOUND_STATE_STARTED)
     {
@@ -455,9 +476,11 @@ static enum sound_result sound_op_enqueue (struct sound_ctx *ctx, struct sound_b
 
         sound_try_start(ctx);
 
+        trace_write(sound_trace_ctx, "sound_op_enqueue: added");
         return SOUND_RESULT_OK;
     }
 
+    trace_write(sound_trace_ctx, "sound_op_enqueue: too many messages");
     return SOUND_RESULT_TRYAGAIN;
 }
 
@@ -557,7 +580,6 @@ struct sound_buffer *sound_alloc_buffer()
 /* allocate a context for the default device */
 struct sound_ctx *sound_alloc()
 {
-    //console_printf("sound_alloc()\n");
     struct sound_ctx *ctx = malloc(sizeof(struct sound_ctx));
 
     if(!ctx)
@@ -586,6 +608,7 @@ struct sound_ctx *sound_alloc()
     /* mixer settings to default */
     ctx->mixer = default_mixer_options;
 
+
     return ctx;
 }
 
@@ -600,12 +623,13 @@ void sound_free(struct sound_ctx *ctx)
 
 void sound_init()
 {
+     
     sound_device.current_ctx = NULL;
     sound_device.current_buffer = NULL;
     sound_device.next_buffer = NULL;
     sound_device.state = SOUND_STATE_IDLE;
     sound_device.lock_type = SOUND_LOCK_UNLOCKED;
-    sound_device.max_queue_size = 3;
+    sound_device.max_queue_size = 5;
     sound_device.mixer_defaults = default_mixer_options;
     sound_device.mixer_current = default_mixer_options;
 
