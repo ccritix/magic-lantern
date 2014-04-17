@@ -98,6 +98,7 @@ static void FAST vsync_func() // called once per frame.. in theory :)
 
     #ifdef FEATURE_FPS_OVERRIDE
     #ifdef CONFIG_FPS_UPDATE_FROM_EVF_STATE
+    extern void fps_update_timers_from_evfstate();
     fps_update_timers_from_evfstate();
     #endif
     #endif
@@ -171,7 +172,7 @@ static int FAST stateobj_lv_spy(struct state_object * self, int x, int input, in
     }
 #endif
 
-// sync display filters (for these, we need to redirect display buffers
+    // sync display filters (for these, we need to redirect display buffers
     #ifdef DISPLAY_STATE
     #ifdef CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY
     if (self == DISPLAY_STATE && input == INPUT_ENABLE_IMAGE_PHYSICAL_SCREEN_PARAMETER)
@@ -222,8 +223,10 @@ static int FAST stateobj_lv_spy(struct state_object * self, int x, int input, in
     }
     
     #if defined(CONFIG_7D_MASTER) || defined(CONFIG_7D)
-    if (self == LV_STATE && input==3 && old_state == 3)
+    if (self == LV_STATE && input==3 && old_state == 3) {
+        extern void vignetting_correction_apply_lvmgr(int);
         vignetting_correction_apply_lvmgr(x);
+    }
     #endif
     
     #if !defined(CONFIG_7D_MASTER) && defined(CONFIG_7D)

@@ -47,6 +47,10 @@
 /* todo: move battery stuff in battery.c */
 #include "battery.h"
 
+#ifdef FEATURE_LCD_SENSOR_SHORTCUTS
+#include "lcdsensor.h"
+#endif
+
 #if defined(FEATURE_RAW_HISTOGRAM) || defined(FEATURE_RAW_ZEBRAS) || defined(FEATURE_RAW_SPOTMETER)
 #define FEATURE_RAW_OVERLAYS
 #endif
@@ -1011,8 +1015,6 @@ void bvram_mirror_init()
         #if defined(RSCMGR_MEMORY_PATCH_END)
         extern unsigned int ml_reserved_mem;
         bvram_mirror_start = (uint8_t*) (RESTARTSTART + ml_reserved_mem);
-        #elif defined(CONFIG_EOSM)
-        bvram_mirror_start = (void*)malloc(BMP_VRAM_SIZE); // malloc is big!    
         #else
         bvram_mirror_start = (void*)malloc(BMP_VRAM_SIZE);
         #endif
@@ -3689,7 +3691,6 @@ int liveview_display_idle()
     struct gui_task * current = gui_task_list.current;
     struct dialog * dialog = current->priv;
     extern thunk LiveViewApp_handler;
-    extern uintptr_t new_LiveViewApp_handler;
 
     #if defined(CONFIG_5D3)
     extern thunk LiveViewLevelApp_handler;
@@ -3701,13 +3702,20 @@ int liveview_display_idle()
     extern thunk LiveViewWifiApp_handler;
     #endif
 
+    #if defined(CONFIG_RELOC)
+    extern uintptr_t new_LiveViewApp_handler;
+    #endif
+
     return
         LV_NON_PAUSED && 
         DISPLAY_IS_ON &&
         !menu_active_and_not_hidden() && 
         (// gui_menu_shown() || // force LiveView when menu is active, but hidden
             ( gui_state == GUISTATE_IDLE && 
-              (dialog->handler == (dialog_handler_t) &LiveViewApp_handler || dialog->handler == (dialog_handler_t) new_LiveViewApp_handler
+              (dialog->handler == (dialog_handler_t) &LiveViewApp_handler 
+                  #if defined(CONFIG_RELOC)
+                  || dialog->handler == (dialog_handler_t) new_LiveViewApp_handler
+                  #endif
                   #if defined(CONFIG_5D3)
                   || dialog->handler == (dialog_handler_t) &LiveViewLevelApp_handler
                   #endif
