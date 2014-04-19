@@ -86,12 +86,12 @@ NSTUB(0xFF10B0D8,  SoundDevShutDownIn)
 NSTUB(0xFF108764,  StartASIFDMAADC)
 NSTUB(0xFF10891C,  StartASIFDMADAC)
 NSTUB(0xFF1089F4,  StopASIFDMADAC)
-// NSTUB(    ???,  StopASIFDMAADC)                          /* present on 7D.203, 6D.113, EOSM.202 */
+NSTUB(0xFF1088E0,  StopASIFDMAADC)                          /* present on 7D.203, 6D.113, EOSM.202 */
 
 /** Audio **/
 NSTUB(   0x239E4,  sounddev)
 NSTUB(0xFF3359E0, _audio_ic_read)
-NSTUB(0xFF335394, _audio_ic_write)
+NSTUB(0xFF335394, _audio_ic_write_bulk)
 NSTUB(0xFF7F27F4,  audio_thresholds)
 NSTUB(0xFF10AEBC,  sounddev_active_in)
 NSTUB(0xFF10A9D0,  sounddev_task)
