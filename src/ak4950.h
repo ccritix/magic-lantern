@@ -172,9 +172,9 @@ enum ak4950_regs
 #define AK4950_PAR_LPF       {{ .name = "LPF",  .reg = AK4950_REG_FIL2, .pos = 21, .width = 1 }, REG_END }
 
 /* 2EH  Digital Filter Control 3 */
-#define AK4950_PAR_EQ0       {{ .name = "EQ2", .reg = AK4950_REG_FIL3, .pos = 17, .width = 1 }, REG_END }
-#define AK4950_PAR_EQ0       {{ .name = "EQ3", .reg = AK4950_REG_FIL3, .pos = 18, .width = 1 }, REG_END }
-#define AK4950_PAR_EQ0       {{ .name = "EQ4", .reg = AK4950_REG_FIL3, .pos = 19, .width = 1 }, REG_END }
+#define AK4950_PAR_EQ2       {{ .name = "EQ2", .reg = AK4950_REG_FIL3, .pos = 17, .width = 1 }, REG_END }
+#define AK4950_PAR_EQ3       {{ .name = "EQ3", .reg = AK4950_REG_FIL3, .pos = 18, .width = 1 }, REG_END }
+#define AK4950_PAR_EQ4       {{ .name = "EQ4", .reg = AK4950_REG_FIL3, .pos = 19, .width = 1 }, REG_END }
 
 #define AK4950_SET(par, val) do { struct ak4950_parameter par_loc[] = par; ak4950_write(par_loc, val); } while(0)
 
