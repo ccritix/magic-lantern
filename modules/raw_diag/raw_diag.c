@@ -17,6 +17,10 @@
 #include <math.h>
 #include <wirth.h>
 #include <screenshot.h>
+#include <picstyle.h>
+#include <zebra.h>
+#include <beep.h>
+#include <fileprefix.h>
 
 extern WEAK_FUNC(ret_0) void raw_lv_request();
 extern WEAK_FUNC(ret_0) void raw_lv_release();
