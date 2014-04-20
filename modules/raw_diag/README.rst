@@ -13,6 +13,7 @@ Technical analysis of the raw image data:
   the entire tone range (from dark shadows to overexposed highlights).
 
 TODO:
+
 * noise autocorrelation, trend
 * detailed raw histogram, zoom on shadow and highlight areas.
 * SNR colors; option to reference the SNR graphs to the scene:
