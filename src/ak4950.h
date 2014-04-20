@@ -38,7 +38,7 @@ enum ak4950_regs
     AK4950_REG_FIL1   = 0x2C,
     AK4950_REG_FIL2   = 0x2D,
     AK4950_REG_FIL3   = 0x2E,
-    AK4950_REG_END    = 0xFF,
+    AK4950_REG_END    = 0x2F,
 };
 
 /* number of registers */

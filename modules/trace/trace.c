@@ -4,6 +4,7 @@
 #include <module.h>
 #include <dryos.h>
 #include <bmp.h>
+#include <string.h>
 
 #include "trace.h"
 
@@ -252,7 +253,7 @@ unsigned int trace_flush(unsigned int context)
         return TRACE_ERROR;
     }
 
-    msg_queue_post(ctx->queue, ctx);
+    msg_queue_post(ctx->queue, (uint32_t) ctx);
     
     return TRACE_OK;
 }
@@ -448,7 +449,7 @@ unsigned int trace_vwrite(unsigned int context, tsc_t tsc, char *string, va_list
     if(ctx->buffer_written > ctx->buffer_size / 2)
     {
         ctx->buffer_written = 0;
-        msg_queue_post(ctx->queue, ctx);
+        msg_queue_post(ctx->queue, (uint32_t) ctx);
     }
     
     /* reached the maximum allowed number of entries? */
@@ -457,7 +458,7 @@ unsigned int trace_vwrite(unsigned int context, tsc_t tsc, char *string, va_list
     {
         /* finish trace */
         ctx->task_state = TRACE_TASK_STATE_SHUTDOWN;
-        msg_queue_post(ctx->queue, ctx);
+        msg_queue_post(ctx->queue, (uint32_t) ctx);
     }
 
     free(linebuffer);
@@ -589,7 +590,7 @@ static unsigned int trace_init()
         trace_write(ctx, "%s", "Tack");
         sei(old_stat);
         trace_stop(ctx, 1);
-        beep();
+        //beep();
     }
     return 0;
 }
