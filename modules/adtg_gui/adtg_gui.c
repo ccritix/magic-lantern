@@ -234,6 +234,8 @@ static int unique_key = 0;
 #define UNIQUE_REG_AND_CALLER_TASK 1
 #define UNIQUE_REG_AND_CALLER_PC 2
 
+static int random_pokes = 0;
+
 static uint32_t ADTG_WRITE_FUNC = 0;
 static uint32_t CMOS_WRITE_FUNC = 0;
 static uint32_t CMOS2_WRITE_FUNC = 0;
@@ -403,6 +405,7 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint32_t 
     if (re->override_enabled)
     {
         int ovr = re->override;
+        if (random_pokes) ovr = rand();
         uint16_t* val_ptr = addr;
         ovr &= ((1 << reg_shift) - 1);
         *val_ptr &= ~((1 << reg_shift) - 1);
@@ -462,6 +465,7 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uin
     if (re->override_enabled)
     {
         uint32_t ovr = re->override;
+        if (random_pokes) ovr = rand();
         *pval = ovr;
     }
 
@@ -923,6 +927,12 @@ static struct menu_entry adtg_gui_menu[] =
                         .max = 1,
                         .choices = CHOICES("OFF", "After taking a pic"),
                         .help = "Save all registers to a log file (adtg.log)\n"
+                    },
+                    {
+                        .name = "Random pokes",
+                        .priv = &random_pokes,
+                        .max = 1,
+                        .help = "Use a random value when overriding the registers.\n"
                     },
                     MENU_EOL,
                 },
