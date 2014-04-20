@@ -1229,11 +1229,16 @@ end:
     raw_diag_running = 0;
 }
 
-static void raw_diag_run()
+static void raw_diag_run(int wait)
 {
     if (raw_diag_running) return;
     raw_diag_running = 1;
     task_create("raw_diag_task", 0x1c, 0x1000, raw_diag_task, 0);
+    if (wait)
+    {
+        while (raw_diag_running)
+            msleep(100);
+    }
 }
 
 /* trigger raw diagnostics after taking a picture */
@@ -1243,7 +1248,7 @@ PROP_HANDLER(PROP_GUI_STATE)
     if (data[0] == GUISTATE_QR)
     {
         if (raw_diag_enabled)
-            raw_diag_run();
+            raw_diag_run(0);
     }
 }
 
@@ -1252,11 +1257,16 @@ static unsigned int raw_diag_poll(unsigned int unused)
     if ((void*)&raw_lv_request == (void*)&ret_0)
     {
         /* no backend support for LiveView */
-        return 0;
+        return CBR_RET_CONTINUE;
     }
     
     if (raw_diag_enabled && lv && get_halfshutter_pressed())
     {
+        msleep(500);
+        if (!get_halfshutter_pressed())
+        {
+            return CBR_RET_CONTINUE;
+        }
         beep();
         NotifyBox(5000, "Raw diag...");
         while (get_halfshutter_pressed()) msleep(100);
@@ -1264,15 +1274,31 @@ static unsigned int raw_diag_poll(unsigned int unused)
         NotifyBoxHide();
         msleep(1000);
         raw_lv_request();
-        raw_diag_run();
+        raw_diag_run(1);
+        for (int i = 0; i < 200 && !get_halfshutter_pressed(); i++)
+            msleep(100);
         raw_lv_release();
-        msleep(5000);
         beep();
         clrscr();
         idle_globaldraw_en();
         redraw();
     }
     return CBR_RET_CONTINUE;
+}
+
+static void test_shot()
+{
+    if (is_movie_mode())
+    {
+        msleep(1000);
+        raw_diag_run(1);
+        msleep(1000);
+    }
+    else
+    {
+        call("Release");
+        msleep(10000);
+    }
 }
 
 static void test_bracket()
@@ -1283,14 +1309,12 @@ static void test_bracket()
     menu_set_value_from_script("Expo", "Mini ISO", 0);
     menu_set_value_from_script("Debug", "ISO registers", 0);
     lens_set_rawshutter(SHUTTER_1_50);
-    call("Release");
-    msleep(10000);
+    test_shot();
 
     menu_set_value_from_script("Expo", "Mini ISO", 1);
     menu_set_value_from_script("Debug", "ISO registers", 1);
     lens_set_rawshutter(SHUTTER_1_25);
-    call("Release");
-    msleep(5000);
+    test_shot();
 }
 
 static void reference_shot()
@@ -1301,8 +1325,7 @@ static void reference_shot()
     menu_set_value_from_script("Expo", "Mini ISO", 0);
     menu_set_value_from_script("Debug", "ISO registers", 0);
     lens_set_rawshutter(SHUTTER_1_50);
-    call("Release");
-    msleep(5000);
+    test_shot();
 }
 
 static void iso_experiment()
@@ -1313,8 +1336,7 @@ static void iso_experiment()
     menu_set_value_from_script("Mini ISO", "CMOS tweak", 0);
     menu_set_value_from_script("Debug", "ISO registers", 0);
     lens_set_rawshutter(SHUTTER_1_25);
-    call("Release");
-    msleep(5000);
+    test_shot();
 
     /* shot 2: enable ADTG gain, but not CMOS tweak */
     reference_shot();
@@ -1322,8 +1344,7 @@ static void iso_experiment()
     menu_set_value_from_script("Mini ISO", "CMOS tweak", 0);
     menu_set_value_from_script("Debug", "ISO registers", 0);
     lens_set_rawshutter(SHUTTER_1_25);
-    call("Release");
-    msleep(5000);
+    test_shot();
 
     /* shot 3: enable ADTG gain and CMOS tweak too */
     reference_shot();
@@ -1331,8 +1352,7 @@ static void iso_experiment()
     menu_set_value_from_script("Mini ISO", "CMOS tweak", 1);
     menu_set_value_from_script("Debug", "ISO registers", 0);
     lens_set_rawshutter(SHUTTER_1_25);
-    call("Release");
-    msleep(5000);
+    test_shot();
 
     /* shot 4: enable ADTG gain, nonlinear gain, but disable CMOS tweak */
     reference_shot();
@@ -1340,8 +1360,7 @@ static void iso_experiment()
     menu_set_value_from_script("Mini ISO", "CMOS tweak", 0);
     menu_set_value_from_script("Debug", "ISO registers", 1);
     lens_set_rawshutter(SHUTTER_1_25);
-    call("Release");
-    msleep(5000);
+    test_shot();
 
     /* shot 5: enable ADTG gain, nonlinear gain and CMOS tweak */
     reference_shot();
@@ -1349,8 +1368,7 @@ static void iso_experiment()
     menu_set_value_from_script("Mini ISO", "CMOS tweak", 1);
     menu_set_value_from_script("Debug", "ISO registers", 1);
     lens_set_rawshutter(SHUTTER_1_25);
-    call("Release");
-    msleep(5000);
+    test_shot();
 }
 
 static struct menu_entry raw_diag_menu[] =
