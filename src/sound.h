@@ -30,9 +30,7 @@ struct sound_buffer
 enum sound_sampletype
 {
     SOUND_SAMPLETYPE_UINT8  = 0,
-    SOUND_SAMPLETYPE_UINT16 = 1,
-    SOUND_SAMPLETYPE_SINT8  = 2,
-    SOUND_SAMPLETYPE_SINT16 = 3,
+    SOUND_SAMPLETYPE_SINT16 = 1,
 };
 
 struct sound_format

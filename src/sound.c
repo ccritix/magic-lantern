@@ -19,6 +19,7 @@ extern int SetNextASIFADCBuffer(void *, uint32_t);
 extern int SetNextASIFDACBuffer(void *, uint32_t);
 extern int StopASIFDMAADC(void *, void *);
 extern int StopASIFDMADAC(void *, void *);
+extern void SetASIFMode(int rate, signed int bits, int channels, int output);
 
 uint32_t sound_trace_ctx = TRACE_ERROR;
 
@@ -224,9 +225,7 @@ static void sound_set_mixer(struct sound_ctx *ctx)
     */
     
     ctx->device->codec_ops.apply_mixer(&prev_mixer, &mixer);
-    
     ctx->device->mixer_current = mixer;
-    
 }
 
 /* set up audio IC for current audio mode */
@@ -238,40 +237,7 @@ static void sound_set_codec(struct sound_ctx *ctx)
 /* set up all ASIF related bits. this is exclusive for the current sound ctx (either play or rec) */
 static void sound_set_asif(struct sound_ctx *ctx)
 {
-    uint32_t value = 0;
-  
-    if(ctx->format.channels == 2)
-    {
-        value |= 0x02;
-    }
-    
-    switch(ctx->format.sampletype)
-    {
-        case SOUND_SAMPLETYPE_UINT8:
-        case SOUND_SAMPLETYPE_SINT8:
-            value |= 0x01;
-            break;
-        case SOUND_SAMPLETYPE_UINT16:
-        case SOUND_SAMPLETYPE_SINT16:
-            value |= 0x04;
-            break;
-    }
-    
-    /* as seen in 5D3 */
-    if(ctx->mixer.destination_line == SOUND_DESTINATION_HDMI)
-    {
-        value |= 0x10;
-    }
-    
-    /* set the correct ASIF DAC or ADC register */
-    if(ctx->mode == SOUND_MODE_PLAYBACK)
-    {
-        MEM(0xC0920210) = value;
-    }
-    else
-    {
-        MEM(0xC092011C) = value;
-    }
+    SetASIFMode(ctx->format.rate, (ctx->format.sampletype == SOUND_SAMPLETYPE_SINT16)?16:8, ctx->format.channels, (ctx->mode == SOUND_MODE_PLAYBACK));
 }
 
 static void sound_try_start(struct sound_ctx *ctx)
