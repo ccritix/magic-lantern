@@ -459,6 +459,12 @@ static enum sound_result sound_op_enqueue (struct sound_ctx *ctx, struct sound_b
 
     if(sound_check_ctx(ctx) != SOUND_RESULT_OK)
     {
+        /* if the context was paused, then its no failure to call enqueue */
+        if(ctx->paused)
+        {
+            return SOUND_RESULT_TRYAGAIN;
+        }
+        
         trace_write(sound_trace_ctx, "sound_op_enqueue: ctx fail");
         return SOUND_RESULT_ERROR;
     }
