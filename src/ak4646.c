@@ -358,7 +358,7 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
 
 static enum sound_result ak4646_op_set_rate(uint32_t rate)
 {
-    const uint32_t ak4646_rates[] = { 8000, 12000, 16000, 24000, 7350, 10025, 14700, 22050, 0, 0, 32000, 48000, 0, 0, 29400, 44100 };
+    const uint32_t ak4646_rates[] = { 8000, 12000, 16000, 24000, 7350, 11025, 14700, 22050, 0, 0, 32000, 48000, 0, 0, 29400, 44100 };
     
     for(uint32_t mode = 0; mode < 16; mode++)
     {
