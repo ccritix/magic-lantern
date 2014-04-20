@@ -788,6 +788,7 @@ static MENU_SELECT_FUNC(reg_toggle_override)
             .unit = UNIT_HEX, \
             .max = 0xFFFF, \
             .shidden = 1, \
+            .edit_mode = EM_MANY_VALUES_LV, \
         }
 
 static MENU_UPDATE_FUNC(show_update);
