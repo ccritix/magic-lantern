@@ -28,14 +28,13 @@ static struct sound_mixer default_mixer_options =
     .windcut_mode = SOUND_WINDCUT_DEFAULT,
     .source_line = SOUND_SOURCE_DEFAULT,
     .destination_line = SOUND_DESTINATION_DEFAULT,
-    .loop_mode = SOUND_LOOP_DISABLED,
+    .loop_mode = SOUND_LOOP_DEFAULT,
     .headphone_agc = SOUND_AGC_DEFAULT,
     .headphone_gain = SOUND_GAIN_DEFAULT,
     .mic_power = SOUND_POWER_DEFAULT,
     .mic_agc = SOUND_AGC_DEFAULT,
     .mic_gain = SOUND_GAIN_DEFAULT,
     .speaker_gain = SOUND_GAIN_DEFAULT,
-    .loop_mode = SOUND_LOOP_DEFAULT,
     .out_gain = SOUND_GAIN_DEFAULT
 };
 
@@ -129,7 +128,6 @@ static void sound_asif_cbr(uint32_t priv)
 
             dev->current_buffer = dev->next_buffer;
             dev->next_buffer = next_buffer;
-
             
             if(flow == SOUND_FLOW_STOP && dev->state != SOUND_STATE_STOPPING)
             {
@@ -279,7 +277,7 @@ static void sound_set_asif(struct sound_ctx *ctx)
 static void sound_try_start(struct sound_ctx *ctx)
 {
     trace_write(sound_trace_ctx, "sound_try_start: enter");
-        
+    
     /* audio wasnt started yet, but now we have enough data to start */
     if(ctx->device->state == SOUND_STATE_STARTED)
     {
@@ -332,9 +330,12 @@ static void sound_stop_asif(struct sound_ctx *ctx)
 
 static enum sound_result sound_op_lock (struct sound_ctx *ctx, enum sound_lock type)
 {
-    sound_trace_ctx = trace_start("snd_test", "B:/snd_test.txt");
-    trace_set_flushrate(sound_trace_ctx, 1000);
-    trace_format(sound_trace_ctx, TRACE_FMT_TIME_REL | TRACE_FMT_COMMENT, ' ');
+    if(sound_trace_ctx == TRACE_ERROR)
+    {
+        sound_trace_ctx = trace_start("snd_test", "B:/snd_test.txt");
+        trace_set_flushrate(sound_trace_ctx, 1000);
+        trace_format(sound_trace_ctx, TRACE_FMT_TIME_REL | TRACE_FMT_COMMENT, ' ');
+    }
     
     if(!ctx || !ctx->device)
     {
