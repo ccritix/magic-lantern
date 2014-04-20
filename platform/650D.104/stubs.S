@@ -87,6 +87,7 @@ NSTUB(0xFF108764,  StartASIFDMAADC)
 NSTUB(0xFF10891C,  StartASIFDMADAC)
 NSTUB(0xFF1089F4,  StopASIFDMADAC)
 NSTUB(0xFF1088E0,  StopASIFDMAADC)                          /* present on 7D.203, 6D.113, EOSM.202 */
+NSTUB(0xFF108CB8,  SetASIFMode)
 
 /** Audio **/
 NSTUB(   0x239E4,  sounddev)
