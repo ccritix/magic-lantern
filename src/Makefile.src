@@ -164,6 +164,7 @@ ML_SRC_OBJS = \
 	$(ML_AUDIO_OBJ) \
 	$(ML_ZEBRA_OBJ) \
 	beep.o \
+	wav.o \
 	crop-mode-hack.o \
 	ph_info_disp.o \
 	flexinfo.o \
