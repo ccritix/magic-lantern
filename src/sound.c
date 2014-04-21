@@ -214,6 +214,18 @@ static enum sound_result sound_check_ctx (struct sound_ctx *ctx)
 }
 
 
+enum sound_state sound_get_state (struct sound_ctx *ctx)
+{
+    /* our context isnt the one that uses the device */
+    if(sound_check_ctx(ctx) != SOUND_RESULT_OK)
+    {
+        return SOUND_STATE_IDLE;
+    }
+    
+    return ctx->device->state;
+}
+
+
 static void sound_set_mixer(struct sound_ctx *ctx)
 {
     struct sound_mixer mixer = ctx->mixer;
@@ -591,13 +603,18 @@ void sound_free(struct sound_ctx *ctx)
 {
     ctx->ops.stop(ctx);
     
-    /* delete message queue */
+    /* ToDo: delete message queue */
     free(ctx);
+
+}
+
+void sound_free_buffer(struct sound_buffer *buffer)
+{
+    free(buffer);
 }
 
 void sound_init()
 {
-     
     sound_device.current_ctx = NULL;
     sound_device.current_buffer = NULL;
     sound_device.next_buffer = NULL;

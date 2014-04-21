@@ -220,6 +220,9 @@ struct sound_ctx
     void (*device_lost_cbr) (struct sound_ctx *ctx);
 
     struct sound_ops ops;
+    
+    /* whatever an allocator wants to store... */
+    void *priv;
 };
 
 struct sound_dev
@@ -252,6 +255,11 @@ struct sound_dev
 /* allocate a context for the default device */
 struct sound_ctx *sound_alloc();
 struct sound_buffer *sound_alloc_buffer();
+void sound_free(struct sound_ctx *ctx);
+void sound_free_buffer(struct sound_buffer *buffer);
+
+/* get the current device state from view of context */
+enum sound_state sound_get_state(struct sound_ctx *ctx);
 
 /* free a previously allocated context */
 void sound_free(struct sound_ctx *ctx);
@@ -265,7 +273,6 @@ static enum sound_flow sound_buf_requeued(struct sound_buffer *buf);
 static enum sound_flow sound_buf_processed(struct sound_buffer *buf);
 /* stop ASIF DMA transfer */
 static void sound_stop_asif(struct sound_ctx *ctx);
-
 
 static enum sound_result sound_op_lock (struct sound_ctx *ctx, enum sound_lock type);
 static enum sound_result sound_op_unlock (struct sound_ctx *ctx);
