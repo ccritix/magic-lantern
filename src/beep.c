@@ -8,27 +8,13 @@
 #include "property.h"
 
 #include "sound.h"
+#include "beep.h"
 
 
 volatile int beep_playing = 0;
 
 #ifdef CONFIG_BEEP
 
-enum beep_type
-{
-    BEEP_CUSTOM_LEN_FREQ = 0,
-    BEEP_WAV = 1,
-};
-
-struct beep_msg
-{
-    enum beep_type type;
-    uint32_t frequency;
-    uint32_t duration;
-    uint32_t times;
-    uint32_t wait;
-    uint32_t waveform;
-};
 
 static struct sound_ctx *beep_ctx = NULL;
 static struct msg_queue *beep_queue = NULL;
@@ -41,19 +27,19 @@ static CONFIG_INT("beep.wavetype", beep_wavetype, 0); // square, sine, white noi
 static int beep_freq_values[] = {55, 110, 220, 262, 294, 330, 349, 392, 440, 494, 880, 1000, 1760, 2000, 3520, 5000, 12000};
 
 
-static int is_safe_to_beep()
+static int beep_is_possible()
 {
-    /* no restrictions */
+    /* no restrictions? sound system should take care. */
     return 1;
 }
 
-static void beep_generate(int16_t* buf, uint32_t samples, uint32_t freq, uint32_t rate, uint32_t wavetype)
+static void beep_generate(int16_t* buf, uint32_t samples, uint32_t freq, uint32_t rate, enum wave_type wavetype)
 {
     const uint32_t scaling = 16384;
 
     switch(wavetype)
     {
-        case 0: // square
+        case BEEP_WAVEFORM_SQUARE: // square
         {
             uint32_t factor = rate / freq / 2;
             
@@ -64,7 +50,7 @@ static void beep_generate(int16_t* buf, uint32_t samples, uint32_t freq, uint32_
             break;
         }
         
-        case 1: // sine
+        case BEEP_WAVEFORM_SINE: // sine
         {
             float factor = roundf(2.0f * M_PI * scaling / (float)rate * (float)freq);
             uint32_t mod_ang = (uint32_t)(2.0f * M_PI * scaling);
@@ -80,7 +66,7 @@ static void beep_generate(int16_t* buf, uint32_t samples, uint32_t freq, uint32_
             break;
         }
         
-        case 2: // white noise
+        case BEEP_WAVEFORM_NOISE: // white noise
         {
             for(uint32_t i = 0; i < samples; i++)
             {
@@ -91,45 +77,54 @@ static void beep_generate(int16_t* buf, uint32_t samples, uint32_t freq, uint32_
     }
 }
 
-void beep_times(int times)
-{
-    struct beep_msg *msg = malloc(sizeof(struct beep_msg));
-    
-    msg->type = BEEP_CUSTOM_LEN_FREQ;
-    msg->frequency = 1000;
-    msg->duration = 200;
-    msg->times = times;
-    msg->wait = 50;
-    msg->waveform = 0;
-    
-    msg_queue_post(beep_queue, (uint32_t)msg);
-}
-
 void beep()
 {
     struct beep_msg *msg = malloc(sizeof(struct beep_msg));
     
-    msg->type = BEEP_CUSTOM_LEN_FREQ;
+    msg->type = BEEP_CUSTOM;
     msg->frequency = 2000;
     msg->duration = 200;
     msg->times = 1;
-    msg->waveform = 0;
+    msg->wait = NULL;
+    msg->waveform = BEEP_WAVEFORM_SQUARE;
     
     msg_queue_post(beep_queue, (uint32_t)msg);
 }
 
-void beep_custom(int duration, int frequency, int wait)
+void beep_times(uint32_t times)
 {
     struct beep_msg *msg = malloc(sizeof(struct beep_msg));
     
-    msg->type = BEEP_CUSTOM_LEN_FREQ;
+    msg->type = BEEP_CUSTOM;
+    msg->frequency = 1000;
+    msg->duration = 200;
+    msg->times = times;
+    msg->sleep = 50;
+    msg->wait = NULL;
+    msg->waveform = BEEP_WAVEFORM_SQUARE;
+    
+    msg_queue_post(beep_queue, (uint32_t)msg);
+}
+
+void beep_custom(uint32_t duration, uint32_t frequency, uint32_t wait)
+{
+    volatile uint32_t wait_local = wait;
+    struct beep_msg *msg = malloc(sizeof(struct beep_msg));
+    
+    msg->type = BEEP_CUSTOM;
     msg->frequency = frequency;
     msg->duration = duration;
     msg->times = 1;
-    msg->wait = wait;
-    msg->waveform = 0;
+    msg->wait = (uint32_t *)&wait_local;
+    msg->waveform = BEEP_WAVEFORM_SQUARE;
     
     msg_queue_post(beep_queue, (uint32_t)msg);
+    
+    /* wait until tone is played */
+    while(wait_local)
+    {
+        msleep(50);
+    }
 }
 
 enum sound_flow beep_cbr (struct sound_buffer *buffer)
@@ -176,7 +171,7 @@ static void beep_task()
             continue;
         }
         
-        if(!beep_enabled || !is_safe_to_beep())
+        if(!beep_enabled || !beep_is_possible())
         {
             free(msg);
             info_led_blink(1, 100, 10); // silent warning
@@ -186,9 +181,10 @@ static void beep_task()
         switch(msg->type)
         {
             case BEEP_WAV:
+                /* do we need that? playing a *ding* wave? */
                 break;
                 
-            case BEEP_CUSTOM_LEN_FREQ:
+            case BEEP_CUSTOM:
             {
                 uint32_t samples = msg->duration * beep_ctx->format.rate / 1000;
                 int16_t *beep_buf = malloc(samples * 2);
@@ -203,6 +199,12 @@ static void beep_task()
             }
         }
         
+        /* poor man's semaphore, needs no alloc/free of semaphores */
+        if(msg->wait)
+        {
+            *msg->wait = 0;
+        }
+        
         free(msg);
     }
 }
@@ -211,7 +213,7 @@ static void play_test_tone()
 {
     struct beep_msg *msg = malloc(sizeof(struct beep_msg));
     
-    msg->type = BEEP_CUSTOM_LEN_FREQ;
+    msg->type = BEEP_CUSTOM;
     msg->frequency = beep_freq_values[beep_freq_idx];
     msg->duration = 5000;
     msg->times = 1;
@@ -225,7 +227,7 @@ static MENU_UPDATE_FUNC(beep_update)
 {
     MENU_SET_ENABLED(beep_enabled);
     
-    if (!is_safe_to_beep())
+    if (!beep_is_possible())
     {
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Beeps disabled to prevent interference with audio recording.");
     }
@@ -294,12 +296,14 @@ static void beep_init()
     beep_ctx->format.rate = 48000;
     beep_ctx->format.channels = 1;
     beep_ctx->format.sampletype = SOUND_SAMPLETYPE_SINT16;
+    
+    /* make this configurable? */
     beep_ctx->mixer.speaker_gain = 30;
     beep_ctx->mixer.headphone_gain = 30;
     beep_ctx->mixer.destination_line = SOUND_DESTINATION_SPK;
     
-    beep_queue = (struct msg_queue *) msg_queue_create("beep_queue", 500);
-    menu_add( "Audio", beep_menus, COUNT(beep_menus) );
+    beep_queue = (struct msg_queue *) msg_queue_create("beep_queue", 2);
+    menu_add("Audio", beep_menus, COUNT(beep_menus) );
 }
 
 INIT_FUNC("beep.init", beep_init);
