@@ -221,6 +221,12 @@ static void ak4646_set_lineout_vol(uint32_t volume)
     ak4646_write_changed();
 }
 
+static void ak4646_set_mic_gain(uint32_t gain)
+{
+    AK4646_SET(AK4646_PAR_MGAIN, gain);
+    ak4646_write_changed();
+}
+
 static const char *ak4646_op_get_destination_name(enum sound_destination line)
 {
     if(line >= COUNT(ak4646_dst_names))
@@ -251,6 +257,11 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
     if(prev->headphone_gain != next->headphone_gain || ak4646_need_rewrite)
     {
         ak4646_set_lineout_vol(COERCE(next->headphone_gain / 33, 0, 3));
+    }
+    
+    if(prev->mic_gain != next->mic_gain || ak4646_need_rewrite)
+    {
+        ak4646_set_mic_gain(COERCE(next->mic_gain / 12, 0, 7));
     }
     
     if(prev->loop_mode != next->loop_mode || ak4646_need_rewrite)
