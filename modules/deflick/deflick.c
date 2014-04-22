@@ -14,6 +14,7 @@
 #include "histogram.h"
 #include "fileprefix.h"
 #include "module.h"
+#include "console.h"
 
 static CONFIG_INT("post.deflicker", post_deflicker, 0);
 static CONFIG_INT("post.deflicker.sidecar", post_deflicker_sidecar_type, 1);
@@ -79,7 +80,7 @@ static void post_deflicker_save_sidecar_file(int type, char* photo_filename, flo
     char sidecar[100];
     snprintf(sidecar, sizeof(sidecar), "%s/%s.%s", dir, basename, type ? "UFR" : "XMP");
 
-    FILE* f = FIO_CreateFileEx(sidecar);
+    FILE* f = FIO_CreateFile(sidecar);
     if (f == INVALID_PTR) return;
     if (type == 0)
     {

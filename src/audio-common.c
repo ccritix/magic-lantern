@@ -2,6 +2,7 @@
 #include "lvinfo.h"
 #include "module.h"
 #include "raw.h"
+#include "zebra.h"
 
 int sound_recording_enabled_canon()
 {
@@ -45,9 +46,6 @@ static void volume_display();
 
 static void audio_monitoring_display_headphones_connected_or_not();
 static void audio_menus_init();
-#ifdef FEATURE_HEADPHONE_MONITORING
-static void audio_monitoring_update();
-#endif
 static void audio_input_toggle( void * priv, int delta );
 
 #ifdef CONFIG_600D
@@ -441,76 +439,82 @@ compute_audio_levels(
  * \todo Check that we have live-view enabled and the TFT is on
  * before drawing.
  */
-static void
-meter_task( void* unused )
+static int audio_meters_step( int reconfig_audio )
 {
-    /* some models require the audio to be enabled using audio_configure() */
-    int reconfig_audio = 1;
 
-    TASK_LOOP
+    if(audio_meters_are_drawn())
     {
-        msleep(DISPLAY_IS_ON ? 50 : 500);
-        
-        if(audio_meters_are_drawn())
+        if(!is_mvr_buffer_almost_full())
         {
-            if(!is_mvr_buffer_almost_full())
-            {
-                BMP_LOCK( draw_meters(); )
-            }
-            
-            if(RECORDING)
-            {
-                reconfig_audio = 0;
-            }
-            else if(!reconfig_audio)
-            {
-#if defined(CONFIG_600D) || defined(CONFIG_7D)
-                audio_configure(1);
-#endif
-                reconfig_audio = 1;
-            }
+            BMP_LOCK( draw_meters(); );
         }
-        else if(PLAY_OR_QR_MODE || MENU_MODE)
+
+        if(RECORDING)
         {
             reconfig_audio = 0;
         }
-        
-        if(audio_monitoring)
+        else if(!reconfig_audio)
         {
-            static int hp = 0;
-            int h = AUDIO_MONITORING_HEADPHONES_CONNECTED;
-                
-            if (h != hp)
-            {
-                audio_monitoring_display_headphones_connected_or_not();
-            }
-            hp = h;
+            #if defined(CONFIG_600D) || defined(CONFIG_7D)
+            audio_configure(1);
+            #elif defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM)
+            void PowerMicAmp();
+            PowerMicAmp(0);
+            #endif
+            reconfig_audio = 1;
         }
     }
+    else if(PLAY_OR_QR_MODE || MENU_MODE)
+    {
+        reconfig_audio = 0;
+    }
+
+    if(audio_monitoring)
+    {
+        static int hp = 0;
+        int h = AUDIO_MONITORING_HEADPHONES_CONNECTED;
+
+        if (h != hp)
+        {
+            audio_monitoring_display_headphones_connected_or_not();
+        }
+        hp = h;
+    }
+
+    return reconfig_audio;
 }
 
-
-TASK_CREATE( "audio_meter_task", meter_task, 0, 0x18, 0x1000 );
-
-
-/** Monitor the audio levels very quickly */
-static void
-compute_audio_level_task( void* unused )
+static void audio_common_task(void * unused)
 {
+    /* Reset audio levels */
     audio_levels[0].peak = audio_levels[1].peak = 0;
     audio_levels[0].avg = audio_levels[1].avg = 0;
-    
+
+    /* some models require the audio to be enabled using audio_configure() */
+    #if defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM)
+    int reconfig_audio = 0; // Needed to turn on Audio IC at boot, maybe neeed for 100D
+    #else
+    int reconfig_audio = 1;
+    #endif
+
+    int meters_slept_times = 0;
+
     TASK_LOOP
-        {
-            msleep(MIN_MSLEEP);
-            compute_audio_levels( 0 );
-            compute_audio_levels( 1 );
+    {
+        msleep(MIN_MSLEEP);
+        int meters_sleep_cycles = (DISPLAY_IS_ON ? (50/MIN_MSLEEP) : (500/MIN_MSLEEP));
+        meters_slept_times++;
+        compute_audio_levels(0);
+        compute_audio_levels(1);
+        if(meters_slept_times >= meters_sleep_cycles) {
+            reconfig_audio = audio_meters_step(reconfig_audio);
+            meters_slept_times = 0;
         }
+    }
+
 }
 
-TASK_CREATE( "audio_level_task", compute_audio_level_task, 0, 0x18, 0x1000 );
-
-
+TASK_CREATE( "audio_common_task", audio_common_task , 0, 0x18, 0x1000 );
 /** Write the MGAIN2-0 bits.
  * Table 19 for the gain values (variable "bits"):
  *
@@ -847,7 +851,7 @@ audio_reg_dump_once()
             if (size == 0) break;
         }
     
-    FILE* f = FIO_CreateFileEx(log_filename);
+    FILE* f = FIO_CreateFile(log_filename);
 
 	unsigned i;
 	for( i=0 ; i<COUNT(audio_regs_once) ; i++ )
@@ -996,14 +1000,16 @@ void audio_monitoring_display_headphones_connected_or_not()
 
 PROP_INT(PROP_USBRCA_MONITOR, rca_monitor);
 
+#ifdef FEATURE_HEADPHONE_MONITORING
+static void audio_monitoring_update();
 
 static void
 audio_monitoring_toggle( void * priv, int delta )
 {
     audio_monitoring = !audio_monitoring;
     audio_monitoring_update(); //call audio_monitoring_force_display()
-
 }
+#endif
 
 static void
 enable_recording(int mode)

@@ -30,7 +30,7 @@ PROP_HANDLER(PROP_FIRMWARE_VER)
 }
 
 volatile PROP_INT(PROP_LV_DISPSIZE, lv_dispsize);
-volatile PROP_INT(PROP_LIVE_VIEW_VIEWTYPE, expsim);
+volatile PROP_INT(PROP_LIVE_VIEW_VIEWTYPE, _expsim);
 volatile PROP_INT(PROP_EFIC_TEMP, efic_temp);
 volatile PROP_INT(PROP_GUI_STATE, gui_state);
 volatile PROP_INT(PROP_PIC_QUALITY, pic_quality);
@@ -78,6 +78,8 @@ PROP_HANDLER(PROP_DOF_PREVIEW_MAYBE) // len=2
 
 volatile int lv = 0;
 volatile int lv_paused = 0; // not a property, but related
+
+int get_expsim();
 
 bool FAST is_native_movie_mode()
 {

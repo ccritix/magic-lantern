@@ -3,6 +3,9 @@
 #include "bmp.h"
 #include "propvalues.h"
 #include "menu.h"
+#include "zebra.h"
+#include "imgconv.h"
+#include "greenscreen.h"
 
 CONFIG_INT( "falsecolor.draw", falsecolor_draw, 0);
 CONFIG_INT( "falsecolor.palette", falsecolor_palette, 0);
@@ -45,7 +48,7 @@ void draw_false_downsampled( void )
     // exception: green screen palette is not fixed
     if (falsecolor_palette == 5)
     {
-        aj_green_screen();
+        green_screen_step();
         return;
     }
 

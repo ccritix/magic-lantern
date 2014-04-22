@@ -31,6 +31,12 @@
 #include "font.h"
 #include "menu.h"
 #include "beep.h"
+#include "zebra.h"
+#include "focus.h"
+#include "menuhelp.h"
+#include "console.h"
+#include "debug.h"
+#include "lvinfo.h"
 
 #define CONFIG_MENU_ICONS
 //~ #define CONFIG_MENU_DIM_HACKS
@@ -109,6 +115,7 @@ static int advanced_mode = 0;       /* cached value; only for submenus for now *
 static int caret_position = 0;
 
 #define SUBMENU_OR_EDIT (submenu_level || edit_mode)
+#define EDIT_OR_TRANSPARENT (edit_mode || menu_lv_transparent_mode)
 
 static CONFIG_INT("menu.junkie", junkie_mode, 0);
 //~ static CONFIG_INT("menu.set", set_action, 2);
@@ -560,38 +567,10 @@ static void menu_numeric_toggle_long_range(int* val, int delta, int min, int max
     set_config_var_ptr(val, v);
 }
 
-/* TODO: move these to a math library */
-int powi(int base, int power)
-{
-    int result = 1;
-    while (power)
-    {
-        if (power & 1)
-            result *= base;
-        power >>= 1;
-        base *= base;
-    }
-    return result;
-}
-
-int log2i(int x)
-{
-    int result = 0;
-    while (x >>= 1) result++;
-    return result;
-}
-
-int log10i(int x)
-{
-    int result = 0;
-    while(x /= 10) result++;
-    return result;
-}
-
 /* for editing with caret */
 static int get_delta(struct menu_entry * entry, int sign)
 {
-    if(!edit_mode)
+    if(!EDIT_OR_TRANSPARENT)
         return sign;
     else if(entry->unit == UNIT_DEC)
         return sign * powi(10, caret_position);
@@ -615,10 +594,15 @@ static int uses_caret_editing(struct menu_entry * entry)
         (entry->unit == UNIT_DEC || entry->unit == UNIT_HEX  || entry->unit == UNIT_TIME);  /* only these caret edit modes are supported */
 }
 
+static int editing_with_caret(struct menu_entry * entry)
+{
+    return EDIT_OR_TRANSPARENT && uses_caret_editing(entry);
+}
+
 static void caret_move(struct menu_entry * entry, int delta)
 {
-    int max = (entry->unit == UNIT_HEX)  ? log2i(MAX(abs(entry->max),abs(entry->min)))/4 :
-              (entry->unit == UNIT_DEC)  ? log10i(MAX(abs(entry->max),abs(entry->min))/2)  :
+    int max = (entry->unit == UNIT_HEX)  ? log2i(MAX(ABS(entry->max),ABS(entry->min)))/4 :
+              (entry->unit == UNIT_DEC)  ? log10i(MAX(ABS(entry->max),ABS(entry->min))/2)  :
               (entry->unit == UNIT_TIME) ? 7 : 0;
 
     menu_numeric_toggle(&caret_position, delta, 0, max);
@@ -634,7 +618,7 @@ void menu_numeric_toggle(int* val, int delta, int min, int max)
 {
     ASSERT(IS_ML_PTR(val));
 
-    set_config_var_ptr(val, mod(*val - min + delta, max - min + 1) + min);
+    set_config_var_ptr(val, MOD(*val - min + delta, max - min + 1) + min);
 }
 
 void menu_numeric_toggle_time(int * val, int delta, int min, int max)
@@ -671,7 +655,7 @@ static void menu_numeric_toggle_fast(int* val, int delta, int min, int max, int 
     }
     else
     {
-        set_config_var_ptr(val, mod(*val - min + delta, max - min + 1) + min);
+        set_config_var_ptr(val, MOD(*val - min + delta, max - min + 1) + min);
     }
     
     prev_delta = t - prev_t;
@@ -933,7 +917,7 @@ menu_find_by_name(
     }
 
     // Not found; create it
-    struct menu * new_menu = SmallAlloc( sizeof(*new_menu) );
+    struct menu * new_menu = malloc( sizeof(*new_menu) );
     if( !new_menu )
     {
         give_semaphore( menu_sem );
@@ -1327,7 +1311,7 @@ menu_remove(
     }
 }
 
-void dot(int x, int y, int color, int radius)
+static void dot(int x, int y, int color, int radius)
 {
     fill_circle(x+16, y+16, radius, color);
 }
@@ -2385,9 +2369,8 @@ skip_name:
     
     int xval = x + w;
     
-    if (edit_mode && 
-        entry->selected && 
-        uses_caret_editing(entry) && 
+    if (entry->selected && 
+        editing_with_caret(entry) && 
         caret_position >= (int)strlen(info->value))
     {
         bmp_fill(COLOR_WHITE, xval, y + fontspec_font(fnt)->height - 4, char_width, 2);
@@ -2402,9 +2385,8 @@ skip_name:
         info->value
     );
     
-    if(edit_mode &&
-       entry->selected &&
-       uses_caret_editing(entry) &&
+    if(entry->selected &&
+       editing_with_caret(entry) &&
        caret_position < (int)strlen(info->value) &&
        strlen(info->value) > 0)
     {
@@ -2626,12 +2608,12 @@ menu_entry_process(
         {
             /* in edit mode with caret, we will not allow the update function to override the entry value */
             char default_value[MENU_MAX_VALUE_LEN];
-            if (edit_mode && uses_caret_editing(entry))
+            if (editing_with_caret(entry))
                 snprintf(default_value, MENU_MAX_VALUE_LEN, "%s", info.value);
             
             entry->update(entry, &info);
             
-            if (edit_mode && uses_caret_editing(entry))
+            if (editing_with_caret(entry))
                 snprintf(info.value, MENU_MAX_VALUE_LEN, "%s", default_value);
         }
 
@@ -3769,7 +3751,7 @@ menu_entry_select(
         {
             /* .priv is a variable? in edit mode, increment according to caret_position, otherwise use exponential R20 toggle */
             /* exception: hex fields are never fast-toggled */
-            if ((edit_mode && uses_caret_editing(entry)) || (entry->unit == UNIT_HEX))
+            if (editing_with_caret(entry) || (entry->unit == UNIT_HEX))
                 menu_numeric_toggle(entry->priv, get_delta(entry,-1), entry->min, entry->max);
             else
                 menu_numeric_toggle_fast(entry->priv, -1, entry->min, entry->max, entry->unit == UNIT_TIME);
@@ -3832,7 +3814,7 @@ menu_entry_select(
         }
         else if (IS_ML_PTR(entry->priv))
         {
-            if ((edit_mode && uses_caret_editing(entry)) || (entry->unit == UNIT_HEX))
+            if (editing_with_caret(entry) || (entry->unit == UNIT_HEX))
                 menu_numeric_toggle(entry->priv, get_delta(entry,1), entry->min, entry->max);
             else
                 menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit == UNIT_TIME);
@@ -3959,8 +3941,12 @@ menu_entry_move(
     // Select the new one, which might be the same as the old one
     entry->selected = 1;
     
-    //reset caret_position
-    caret_position = entry->unit == UNIT_TIME ? 1 : 0;
+    if (!menu_lv_transparent_mode)
+    {
+        /* reset caret_position */
+        /* don't reset it when LV is behind our menu, since in this case we usually want to edit many similar fields */
+        caret_position = entry->unit == UNIT_TIME ? 1 : 0;
+    }
     
     give_semaphore( menu_sem );
 
@@ -4093,7 +4079,7 @@ menu_redraw_do()
                 */
                 
                 if (hist_countdown == 0 && !should_draw_zoom_overlay())
-                    draw_histogram_and_waveform(); // too slow
+                    draw_histogram_and_waveform(0); // too slow
                 else
                     hist_countdown--;
             }
@@ -4347,6 +4333,27 @@ void keyrepeat_ack(int button_code) // also for arrow shortcuts
     keyrep_ack = (button_code == keyrepeat);
 }
 
+#ifdef CONFIG_TOUCHSCREEN
+int handle_ml_menu_touch(struct event * event)
+{
+    int button_code = event->param;
+    switch (button_code) {
+        case BGMT_TOUCH_1_FINGER:
+            fake_simple_button(BGMT_Q);
+            return 0;
+        case BGMT_TOUCH_2_FINGER:
+            fake_simple_button(BGMT_TRASH);
+            return 0;
+        case BGMT_UNTOUCH_1_FINGER:
+        case BGMT_UNTOUCH_2_FINGER:
+            return 0;
+        default:
+            return 1;
+    }
+    return 1;
+}
+#endif
+
 int
 handle_ml_menu_keys(struct event * event) 
 {
@@ -4505,7 +4512,7 @@ handle_ml_menu_keys(struct event * event)
         break;
 
     case BGMT_PRESS_RIGHT:
-        if(edit_mode)
+        if(EDIT_OR_TRANSPARENT)
         {
             struct menu_entry * entry = get_selected_entry(menu);
             if(entry && uses_caret_editing(entry))
@@ -4524,7 +4531,7 @@ handle_ml_menu_keys(struct event * event)
         break;
 
     case BGMT_PRESS_LEFT:
-        if(edit_mode)
+        if(EDIT_OR_TRANSPARENT)
         {
             struct menu_entry * entry = get_selected_entry(menu);
             if(entry && uses_caret_editing(entry))
@@ -4584,10 +4591,10 @@ handle_ml_menu_keys(struct event * event)
         //~ menu_hidden_should_display_help = 0;
         break;
 #ifdef CONFIG_TOUCHSCREEN
-    case TOUCH_1_FINGER:
-    case TOUCH_2_FINGER:
-    case UNTOUCH_1_FINGER:
-    case UNTOUCH_2_FINGER:
+    case BGMT_TOUCH_1_FINGER:
+    case BGMT_TOUCH_2_FINGER:
+    case BGMT_UNTOUCH_1_FINGER:
+    case BGMT_UNTOUCH_2_FINGER:
         return handle_ml_menu_touch(event);
 #endif
 #ifdef BGMT_RATE
@@ -4650,24 +4657,6 @@ handle_ml_menu_keys(struct event * event)
     return 0;
 }
 
-#ifdef CONFIG_TOUCHSCREEN
-int handle_ml_menu_touch(struct event * event)
-{
-    int button_code = event->param;
-    switch (button_code) {
-        case TOUCH_1_FINGER:
-            fake_simple_button(BGMT_Q);
-            return 0;
-        case TOUCH_2_FINGER:
-        case UNTOUCH_1_FINGER:
-        case UNTOUCH_2_FINGER:
-            return 0;
-        default:
-            return 1;
-    }
-    return 1;
-}
-#endif
 
 
 void
@@ -4786,7 +4775,7 @@ static void piggyback_canon_menu()
     NotifyBoxHide();
     int new_gui_mode = GUIMODE_ML_MENU;
     if (new_gui_mode) start_redraw_flood();
-    if (new_gui_mode != CURRENT_DIALOG_MAYBE) 
+    if (new_gui_mode != (int)CURRENT_DIALOG_MAYBE) 
     { 
         if (lv) bmp_off(); // mask out the underlying Canon menu :)
         SetGUIRequestMode(new_gui_mode); msleep(200); 
@@ -4893,6 +4882,7 @@ menu_task( void* unused )
 {
     extern int ml_started;
     while (!ml_started) msleep(100);
+    
     debug_menu_init();
     
     int initial_mode = 0; // shooting mode when menu was opened (if changed, menu should close)
@@ -5181,7 +5171,7 @@ menu_help_go_to_selected_entry(
 
     struct menu_entry * entry = get_selected_entry(menu);
     if (!entry) return;
-    menu_help_go_to_label(entry->name);
+    menu_help_go_to_label((char*) entry->name, 0);
     give_semaphore(menu_sem);
 }
 
@@ -5203,7 +5193,11 @@ int handle_ml_menu_erase(struct event * event)
 {
     if (dofpreview) return 1; // don't open menu when DOF preview is locked
     
+#ifdef CONFIG_TOUCHSCREEN
+    if (event->param == BGMT_TRASH || event->param == BGMT_TOUCH_2_FINGER)
+#else
     if (event->param == BGMT_TRASH)
+#endif
     {
         if (gui_menu_shown() || gui_state == GUISTATE_IDLE)
         {
@@ -5260,17 +5254,21 @@ int handle_quick_access_menu_items(struct event * event)
     if (event->param == BGMT_Q && !gui_menu_shown())
     #endif
     {
+        #ifdef ISO_ADJUSTMENT_ACTIVE
         if (ISO_ADJUSTMENT_ACTIVE)
+        #else
+        if (0)
+        #endif
         {
             select_menu("Expo", 0);
             give_semaphore( gui_sem ); 
             return 0;
         }
-#ifdef CURRENT_DIALOG_MAYBE_2
+        #ifdef CURRENT_DIALOG_MAYBE_2
         else if (CURRENT_DIALOG_MAYBE_2 == DLG2_FOCUS_MODE)
-#else
+        #else
         else if (CURRENT_DIALOG_MAYBE == DLG_FOCUS_MODE)
-#endif
+        #endif
         {
             select_menu("Focus", 0);
             give_semaphore( gui_sem ); 
@@ -5301,7 +5299,7 @@ static void menu_set_flags(char* menu_name, char* entry_name, int flags)
 
 static void menu_save_flags(char* filename)
 {
-    char* cfg = alloc_dma_memory(CFG_SIZE);
+    char* cfg = fio_malloc(CFG_SIZE);
     cfg[0] = '\0';
     int cfglen = 0;
     int lastlen = 0;
@@ -5328,7 +5326,7 @@ static void menu_save_flags(char* filename)
         }
     }
     
-    FILE * file = FIO_CreateFileEx(filename);
+    FILE * file = FIO_CreateFile(filename);
     if( file == INVALID_PTR )
         goto end;
     
@@ -5337,7 +5335,7 @@ static void menu_save_flags(char* filename)
     FIO_CloseFile( file );
 
 end:
-    free_dma_memory(cfg);
+    fio_free(cfg);
 }
 
 static void menu_load_flags(char* filename)
@@ -5368,7 +5366,7 @@ static void menu_load_flags(char* filename)
             prev = i;
         }
     }
-    free_dma_memory(buf);
+    fio_free(buf);
 }
 
 
@@ -5391,7 +5389,7 @@ void config_menu_save_flags()
 
 /*void menu_save_all_items_dbg()
 {
-    char* cfg = alloc_dma_memory(CFG_SIZE);
+    char* cfg = fio_malloc(CFG_SIZE);
     cfg[0] = '\0';
 
     int unnamed = 0;
@@ -5408,7 +5406,7 @@ void config_menu_save_flags()
         }
     }
     
-    FILE * file = FIO_CreateFileEx( "ML/LOGS/MENUS.LOG" );
+    FILE * file = FIO_CreateFile( "ML/LOGS/MENUS.LOG" );
     if( file == INVALID_PTR )
         return;
     
@@ -5418,7 +5416,7 @@ void config_menu_save_flags()
     
     NotifyBox(5000, "Menu items: %d unnamed.", unnamed);
 end:
-    free_dma_memory(cfg);
+    fio_free(cfg);
 }*/
 
 int menu_get_value_from_script(const char* name, const char* entry_name)
@@ -5528,7 +5526,7 @@ void menu_save_current_config_as_picoc_preset(char* filename)
     // we will need exclusive access to menu_display_info
     take_semaphore(menu_sem, 0);
 
-    char* cfg = alloc_dma_memory(CFG_SIZE);
+    char* cfg = fio_malloc(CFG_SIZE);
     cfg[0] = '\0';
     int cfglen = 0;
     int lastlen = 0;
@@ -5609,7 +5607,7 @@ void menu_save_current_config_as_picoc_preset(char* filename)
     
     //~ ASSERT(cfglen == strlen(cfg)); // seems OK
     
-    FILE * file = FIO_CreateFileEx(filename);
+    FILE * file = FIO_CreateFile(filename);
     if( file == INVALID_PTR )
         goto end;
     
@@ -5618,7 +5616,7 @@ void menu_save_current_config_as_picoc_preset(char* filename)
     FIO_CloseFile( file );
 
 end:
-    free_dma_memory(cfg);
+    fio_free(cfg);
     give_semaphore(menu_sem);
 }
 

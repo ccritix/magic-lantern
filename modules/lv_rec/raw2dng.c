@@ -208,14 +208,17 @@ int raw_set_pixel(int x, int y, int value)
 static int stripes_coeffs[8] = {0};
 static int stripes_correction_needed = 0;
 
+/* do not use typeof in macros, use __typeof__ instead.
+   see: http://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Alternate-Keywords.html#Alternate-Keywords
+*/
 #define MIN(a,b) \
-   ({ typeof ((a)+(b)) _a = (a); \
-      typeof ((a)+(b)) _b = (b); \
+   ({ __typeof__ ((a)+(b)) _a = (a); \
+      __typeof__ ((a)+(b)) _b = (b); \
      _a < _b ? _a : _b; })
 
 #define MAX(a,b) \
-   ({ typeof ((a)+(b)) _a = (a); \
-       typeof ((a)+(b)) _b = (b); \
+   ({ __typeof__ ((a)+(b)) _a = (a); \
+       __typeof__ ((a)+(b)) _b = (b); \
      _a > _b ? _a : _b; })
 
 #define ABS(a) \
@@ -568,7 +571,7 @@ void find_and_fix_cold_pixels(int fix, int framenumber)
             for (x = 6; x < w-6; x ++)
             {
                 int p = raw_get_pixel(x, y);
-                int is_cold = (p == 0);
+                int is_cold = (p < raw_info.black_level - 500);
 
                 if (is_cold && cold_pixels < MAX_COLD_PIXELS) /*generate a list containing the cold pixels*/
                 {

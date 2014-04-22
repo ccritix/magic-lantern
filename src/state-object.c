@@ -12,9 +12,21 @@
 #include "state-object.h"
 #include <platform/state-object.h>
 #include "property.h"
+#include "fps.h"
+
 #if defined(CONFIG_MODULES)
 #include "module.h"
 #endif
+
+/* to refactor with CBR */
+extern void lv_vsync_signal();
+extern void hdr_step();
+extern void raw_lv_vsync();
+extern int hdr_kill_flicker();
+extern void digic_zoom_overlay_step(int force_off);
+extern void vignetting_correction_apply_regs();
+extern void raw_buffer_intercept_from_stateobj();
+extern int display_filter_lv_vsync(int old_state, int x, int input, int z, int t);
 
 #ifdef CONFIG_STATE_OBJECT_HOOKS
 
@@ -22,7 +34,7 @@
 static void stateobj_matrix_copy_for_patching(struct state_object * stateobj)
 {
     int size = stateobj->max_inputs * stateobj->max_states * sizeof(struct state_transition);
-    struct state_transition * new_matrix = (struct state_transition *)AllocateMemory(size);
+    struct state_transition * new_matrix = (struct state_transition *)malloc(size);
     memcpy(new_matrix, stateobj->state_matrix, size);
     stateobj->state_matrix = new_matrix;
 }
@@ -86,11 +98,15 @@ static void FAST vsync_func() // called once per frame.. in theory :)
 
     #ifdef FEATURE_FPS_OVERRIDE
     #ifdef CONFIG_FPS_UPDATE_FROM_EVF_STATE
+    extern void fps_update_timers_from_evfstate();
     fps_update_timers_from_evfstate();
     #endif
     #endif
 
+    extern void digic_iso_step();
     digic_iso_step();
+    
+    extern void image_effects_step();
     image_effects_step();
 
     #ifdef FEATURE_DISPLAY_SHAKE
@@ -101,10 +117,6 @@ static void FAST vsync_func() // called once per frame.. in theory :)
 #ifdef CONFIG_550D
 int display_is_on_550D = 0;
 int get_display_is_on_550D() { return display_is_on_550D; }
-#endif
-
-#ifndef CONFIG_7D_MASTER
-int display_is_on() { return DISPLAY_IS_ON; }
 #endif
 
 #ifdef FEATURE_SHOW_STATE_FPS
@@ -156,7 +168,7 @@ static int FAST stateobj_lv_spy(struct state_object * self, int x, int input, in
     }
 #endif
 
-// sync display filters (for these, we need to redirect display buffers
+    // sync display filters (for these, we need to redirect display buffers
     #ifdef DISPLAY_STATE
     #ifdef CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY
     if (self == DISPLAY_STATE && input == INPUT_ENABLE_IMAGE_PHYSICAL_SCREEN_PARAMETER)
@@ -207,8 +219,10 @@ static int FAST stateobj_lv_spy(struct state_object * self, int x, int input, in
     }
     
     #if defined(CONFIG_7D_MASTER) || defined(CONFIG_7D)
-    if (self == LV_STATE && input==3 && old_state == 3)
+    if (self == LV_STATE && input==3 && old_state == 3) {
+        extern void vignetting_correction_apply_lvmgr(int);
         vignetting_correction_apply_lvmgr(x);
+    }
     #endif
     
     #if !defined(CONFIG_7D_MASTER) && defined(CONFIG_7D)
@@ -363,7 +377,7 @@ INIT_FUNC("state_init", state_init);
 void update_state_fps() {
     NotifyBox(1000,"Logging");
     FILE* state_log_file = 0;
-    state_log_file = FIO_CreateFileEx("state.log");
+    state_log_file = FIO_CreateFile("state.log");
     if(state_log_file) {
         for(int i=0;i<num_states;++i) {
             for(int j=0;j<num_inputs;++j) {

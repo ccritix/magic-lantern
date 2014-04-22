@@ -7,6 +7,10 @@
 #include <lens.h>
 #include <version.h>
 #include <flexinfo.h>
+#include <shoot.h>
+#include <battery.h>
+#include <fps.h>
+#include <focus.h>
 
 #ifdef FEATURE_FLEXINFO
 
@@ -263,6 +267,9 @@ info_elem_t info_config_photo[] =
 
     /* entry 10, HDR bracketing status */
     { .string = { { INFO_TYPE_STRING, { HDR_STATUS_POS_X, HDR_STATUS_POS_Y, 2, .name = "HDR" }}, INFO_STRING_HDR, COLOR_YELLOW, INFO_COL_BG, INFO_FONT_MEDIUM } },
+
+    /* entry 11: Time */
+    { .string = { { INFO_TYPE_STRING, { DISPLAY_CLOCK_POS_X, DISPLAY_CLOCK_POS_Y, 2, .name = "Time" }}, INFO_STRING_TIME, COLOR_FG_NONLV, INFO_COL_PEEK, INFO_FONT_LARGE } },
 #endif
 
 #if defined(CONFIG_60D)
@@ -287,6 +294,9 @@ info_elem_t info_config_photo[] =
 
     /* entry 10, HDR bracketing status */
     { .string = { { INFO_TYPE_STRING, { HDR_STATUS_POS_X, HDR_STATUS_POS_Y, 2, .name = "HDR" }}, INFO_STRING_HDR, COLOR_YELLOW, INFO_COL_BG, INFO_FONT_MEDIUM } },
+
+    /* entry 11: Time */
+    { .string = { { INFO_TYPE_STRING, { DISPLAY_CLOCK_POS_X, DISPLAY_CLOCK_POS_Y, 2, .name = "Time" }}, INFO_STRING_TIME, COLOR_FG_NONLV, INFO_COL_PEEK, INFO_FONT_LARGE } },
 #endif
 
 #if defined(CONFIG_500D)
@@ -372,6 +382,7 @@ info_elem_t info_config_photo[] =
     { .string = { { INFO_TYPE_STRING, { 28, 2, 2, .name = "Lens", .user_disable = 0 }}, INFO_STRING_LENS, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM } },
     { .string = { { INFO_TYPE_STRING, { 710, 2, 2, .name = "Date", .user_disable = 0, .anchor_flags_self = INFO_ANCHOR_RIGHT }}, INFO_STRING_CAM_DATE, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM } },
     /* entry 11, footer (optional) */
+    { .string = { { INFO_TYPE_STRING, { DISPLAY_CLOCK_POS_X, DISPLAY_CLOCK_POS_Y, 2, .name = "Time" }}, INFO_STRING_TIME, COLOR_FG_NONLV, INFO_COL_PEEK, INFO_FONT_LARGE } },
     { .string = { { INFO_TYPE_STRING, { 28, 459, 2, .name = "Build", .user_disable = 0 }}, INFO_STRING_BUILD, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM_SHADOW } },
     { .string = { { INFO_TYPE_STRING, { 693, 459, 2, .name = "Copyright", .user_disable = 0, .anchor_flags_self = INFO_ANCHOR_RIGHT }}, INFO_STRING_COPYRIGHT, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM_SHADOW } },
 #endif
@@ -865,7 +876,7 @@ uint32_t info_load_config(char *filename)
         return 1;
 	}
 
-	char *xml_config = alloc_dma_memory(size + 1);
+	char *xml_config = fio_malloc(size + 1);
     xml_config[size] = '\0';
 	if (!xml_config)
 	{
@@ -874,21 +885,21 @@ uint32_t info_load_config(char *filename)
 
 	if ((unsigned)read_file(filename, xml_config, size)!=size)
 	{
-        free_dma_memory(xml_config);
+        fio_free(xml_config);
         return 1;
 	}
 
     /* read first xml token */
     if(info_xml_get_element(xml_config, &config_string_pos, xml_element, sizeof(xml_element)))
     {
-        free_dma_memory(xml_config);
+        fio_free(xml_config);
         return 1;
     }
 
     /* should be a flexinfo */
     if(strncmp(xml_element, "flexinfo", 8))
     {
-        free_dma_memory(xml_config);
+        fio_free(xml_config);
         return 1;
     }
 
@@ -899,7 +910,7 @@ uint32_t info_load_config(char *filename)
     }
 
     /* allocate the new config */
-    info_elem_t *new_config = (info_elem_t *)alloc_dma_memory(allocated_elements*sizeof(info_elem_t));
+    info_elem_t *new_config = (info_elem_t *)fio_malloc(allocated_elements*sizeof(info_elem_t));
     memset(new_config, 0, allocated_elements*sizeof(info_elem_t));
 
     /* first is config header */
@@ -921,8 +932,8 @@ uint32_t info_load_config(char *filename)
         /* read next element */
         if(info_xml_get_element(xml_config, &config_string_pos, xml_element, sizeof(xml_element)))
         {
-            free_dma_memory(new_config);
-            free_dma_memory(xml_config);
+            fio_free(new_config);
+            fio_free(xml_config);
             return 1;
         }
 
@@ -960,15 +971,15 @@ uint32_t info_load_config(char *filename)
         config_element_pos++;
         if(ret || allocated_elements < config_element_pos)
         {
-            free_dma_memory(new_config);
-            free_dma_memory(xml_config);
+            fio_free(new_config);
+            fio_free(xml_config);
             return ret;
         }
 
     } while (!done);
 
-    free_dma_memory(xml_config);
-    free_dma_memory(new_config);
+    fio_free(xml_config);
+    fio_free(new_config);
     memcpy(info_config, new_config, config_element_pos * sizeof(info_elem_t));
     return 0;
 }
@@ -983,7 +994,7 @@ uint32_t info_save_config(info_elem_t *config, char *file)
         elements++;
     }
 
-    FILE* f = FIO_CreateFileEx(file);
+    FILE* f = FIO_CreateFile(file);
     if(!f)
     {
         return 1;
