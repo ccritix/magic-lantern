@@ -44,6 +44,18 @@ CONFIG_INT( "audio.dgain.r",        dgain_r,              8 );
 CONFIG_INT( "audio.effect.mode",    cfg_effect_mode,      0 );
 
 
+void audio_ic_write(uint32_t cmd)
+{
+    _audio_ic_write(cmd);
+}
+
+uint8_t audio_ic_read(uint32_t cmd)
+{
+    unsigned int value = 0;
+    _audio_ic_read(cmd, &value);
+    return value;
+}
+
 int audio_meters_are_drawn()
 {
     if(!cfg_override_audio){
