@@ -81,6 +81,7 @@ NSTUB(0xFF061A88,  StartASIFDMAADC)
 NSTUB(0xFF061C44,  StartASIFDMADAC)
 NSTUB(0xFF061C08,  StopASIFDMAADC)                          // Called by SoundDevStopIn
 NSTUB(0xFF061D20,  StopASIFDMADAC)
+NSTUB(0xFF061FE4,  SetASIFMode)
 NSTUB(0xFF237A90,  SetAudioVolumeIn)                        // WRONG NAME: it should be SetAudioVolume
 
 /** Audio **/
