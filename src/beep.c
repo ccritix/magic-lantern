@@ -314,11 +314,11 @@ TASK_CREATE("beep_task", beep_task, 0, 0x18, 0x1000 );
 
 void unsafe_beep(){}
 void beep(){}
-void beep_times(int times){};
+void beep_times(uint32_t times){};
 int beep_enabled = 0;
 void WAV_StartRecord(char* filename){};
 void WAV_StopRecord(){};
-void beep_custom(int duration, int frequency, int wait) {}
+void beep_custom(uint32_t duration, uint32_t frequency, uint32_t wait) {}
 
 #endif
 
