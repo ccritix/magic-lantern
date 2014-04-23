@@ -28,6 +28,25 @@ struct codec_ops default_codec_ops =
     .get_destination_name = &ak4646_op_get_destination_name,
 };
 
+#if defined(CONFIG_AUDIO_IC_QUEUED)
+
+void _audio_ic_write(unsigned cmd)
+{
+    extern void _audio_ic_write_bulk(uint32_t spell[]);
+    uint32_t spell[] = { cmd << 16, 0xFFFFFFFF };
+    _audio_ic_write_bulk(spell);
+}
+
+static uint32_t ak4646_build_cmd(enum ak4646_regs reg, enum ak4646_op op)
+{
+    if (op == AK4646_OP_READ)
+        return(reg);
+
+    return((reg & 0xFF) << 8);
+}
+
+#else
+
 static uint32_t ak4646_build_cmd(enum ak4646_regs reg, enum ak4646_op op)
 {
     uint32_t cmd = 0;
@@ -42,6 +61,8 @@ static uint32_t ak4646_build_cmd(enum ak4646_regs reg, enum ak4646_op op)
     
     return cmd;
 }
+
+#endif
 
 /* refresh register in cache */
 static void ak4646_cache(enum ak4646_regs reg)

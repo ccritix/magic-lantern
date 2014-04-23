@@ -88,11 +88,12 @@ NSTUB(0xFF11C5D0,  StartASIFDMAADC)                         // warning: looks di
 NSTUB(0xFF11C9A4,  StartASIFDMADAC)                         // warning: looks different
 NSTUB(0xFF11C87C,  StopASIFDMAADC)                          // warning: looks different
 NSTUB(0xFF11CC24,  StopASIFDMADAC)                          // warning: looks different
+NSTUB(0xFF11CD4C,  SetASIFMode)                             // SetSamplingRateToAsif
 
 /** Audio **/
 NSTUB(   0x752E0,  sounddev)                                // Maybe 0x752e0 or 0x753f4
-NSTUB(0xFF1424F4, _audio_ic_read)                           // Correct
-NSTUB(0xFF1422B0, _audio_ic_write)                          // SerialCommanSend(int *array)
+NSTUB(0xFF142610, _audio_ic_read)                           // Correct
+NSTUB(0xFF1422B0, _audio_ic_write_bulk)                     // SerialCommand_Send
 NSTUB(0xFF9D031C,  audio_thresholds)
 NSTUB(0xFF11E24C,  sounddev_task)
 // NSTUB(    ???,  sounddev_active_in)                      /* present on 7D.203, 500D.111, 60D.111, 5D2.212, 600D.102, 650D.104, 550D.109, 1100D.105, 700D.113 */
