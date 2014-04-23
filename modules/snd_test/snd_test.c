@@ -190,12 +190,15 @@ static void rec_start()
     rec_data = plot_alloc_data(1);
     rec_plot = plot_alloc_graph(60, 60, 600, 400);
     
-    rec_plot->dot_size = 1;
-    rec_plot->color_dots = COLOR_GREEN1;
-    rec_plot->color_lines = PLOT_COLOR_NONE;
-    rec_plot->color_bg = COLOR_GRAY(10);
-    rec_plot->color_border = COLOR_WHITE;
-    rec_plot->color_axis = COLOR_YELLOW;
+    if(rec_plot)
+    {
+        rec_plot->dot_size = 1;
+        rec_plot->color_dots = COLOR_GREEN1;
+        rec_plot->color_lines = PLOT_COLOR_NONE;
+        rec_plot->color_bg = COLOR_GRAY(10);
+        rec_plot->color_border = COLOR_WHITE;
+        rec_plot->color_axis = COLOR_YELLOW;
+    }
     
     /* setup buffers for beeping */
     for(uint32_t buf = 0; buf < REC_BUFFERS; buf++)
