@@ -378,7 +378,7 @@ static unsigned int snd_test_init()
 {
     beep_init();
 
-    menu_add("Games", snd_test_menu, COUNT(snd_test_menu));
+    menu_add("Audio", snd_test_menu, COUNT(snd_test_menu));
     return 0;
 }
 
