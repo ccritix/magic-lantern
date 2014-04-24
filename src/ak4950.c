@@ -29,7 +29,7 @@ struct codec_ops default_codec_ops =
     .get_destination_name = &ak4950_op_get_destination_name,
 };
 
-static inline int ak4950_is_valid_reg(enum ak4950_regs reg)
+static int ak4950_is_valid_reg(enum ak4950_regs reg)
 {
     return ( 
             // reg >= 0x00 && // Warning: comparison is always true due to limited range of data type
@@ -63,10 +63,14 @@ static void ak4950_cache(enum ak4950_regs reg)
     trace_write(sound_trace_ctx, "ak4950_cache: OP 0x%x RES 0x%x", cmd, ak4950_cached_registers[reg].value);
 }
 
-void _audio_ic_write(unsigned cmd)
+void _audio_ic_write(unsigned cmd) 
 {
-    extern void _audio_ic_write_bulk(uint32_t spell[]);
-    uint32_t spell[] = { cmd, 0xFFFFFFFF };
+    extern void _audio_ic_write_bulk(uint32_t *spell);
+    uint32_t spell[2];
+
+    spell[0] = cmd;
+    spell[1] = 0xFFFFFFFF;
+
     _audio_ic_write_bulk(spell);
 }
 
