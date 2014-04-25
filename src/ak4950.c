@@ -41,8 +41,10 @@ static int ak4950_is_valid_reg(enum ak4950_regs reg)
 
 static uint32_t ak4950_build_cmd(enum ak4950_regs reg, enum ak4950_op op)
 {
-    (void)op;
-    return reg << 0x18;
+    if (op == AK4950_OP_READ)
+        return(reg);
+
+    return ((reg & 0xFF) << 0x18);
 }
 
 /* refresh register in cache */
