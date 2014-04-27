@@ -13,6 +13,7 @@
 #include "gdb.h"
 #include "patch.h"
 #include "state-object.h"
+#include "asm.h"
 
 static void generic_log(breakpoint_t *bkpt);
 static void state_transition_log(breakpoint_t *bkpt);
@@ -49,46 +50,6 @@ static struct logged_func logged_functions[] = {
 
     #endif
 };
-
-/* returns true if the machine will not lock up when dereferencing ptr */
-static int is_sane_ptr(uint32_t ptr)
-{
-    switch (ptr & 0xF0000000)
-    {
-        case 0x00000000:
-        case 0x10000000:
-        case 0x40000000:
-        case 0x50000000:
-        case 0xF0000000:
-            return 1;
-    }
-    return 0;
-}
-
-static int looks_like_string(uint32_t addr)
-{
-    if (!is_sane_ptr(addr))
-    {
-        return 0;
-    }
-    
-    int min_len = 4;
-    int max_len = 100;
-    
-    for (uint32_t p = addr; p < addr + max_len; p++)
-    {
-        char c = *(char*)p;
-        if (c == 0 && p > addr + min_len)
-        {
-            return 1;
-        }
-        if (c < 32 || c > 127)
-        {
-            return 0;
-        }
-    }
-    return 0;
-}
 
 static void generic_log(breakpoint_t *bkpt)
 {
