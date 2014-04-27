@@ -1,17 +1,7 @@
 /** 
  * Attempt to intercept all Canon debug messages by overriding DebugMsg call with cache hacks
  * 
- * Usage: 
- * 
- * 1) Make sure the cache hack is working.
- * For example, add this in boot-hack.c:
- *     // Make sure that our self-modifying code clears the cache
- *     clean_d_cache();
- *     flush_caches();
- *     + cache_lock();
- *
- * 
- * 2) call "debug_intercept" from "don't click me"
+ * Usage: call "debug_intercept" from "don't click me"
  * 
  **/
 
@@ -19,10 +9,7 @@
 #include "dryos.h"
 #include "bmp.h"
 #include "beep.h"
-
-#if !(defined(CONFIG_DIGIC_V)) // Digic V have this stuff in RAM already
-#include "cache_hacks.h"
-#endif
+#include "patch.h"
 
 unsigned int BUF_SIZE = (1024*1024);
 static char* buf = 0;
@@ -60,25 +47,35 @@ void my_DebugMsg(int class, int level, char* fmt, ...)
 // call this from "don't click me"
 void debug_intercept()
 {
+    uint32_t DebugMsg_addr = (uint32_t)&DryosDebugMsg;
+    
     if (!buf) // first call, intercept debug messages
     {
         buf = fio_malloc(BUF_SIZE);
-        
-        #if defined(CONFIG_DIGIC_V)
-        uint32_t d = (uint32_t)&DryosDebugMsg;
-        *(uint32_t*)(d) = B_INSTR((uint32_t)&DryosDebugMsg, my_DebugMsg);
-        #else
-        cache_fake((uint32_t)&DryosDebugMsg, B_INSTR((uint32_t)&DryosDebugMsg, my_DebugMsg), TYPE_ICACHE);
-        #endif
-        NotifyBox(2000, "Now logging... ALL DebugMsg's :)", len);
+        int err = patch_memory(
+            DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
+            MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
+            B_INSTR(DebugMsg_addr, my_DebugMsg),        /* replace all calls to DebugMsg with our own function (no need to call the original) */
+            "dm-spy: log all DebugMsg calls"
+        );
+        if (err)
+        {
+            NotifyBox(2000, "Could not hack DebugMsg (%x)", err);
+        }
+        else
+        {
+            NotifyBox(2000, "Now logging... ALL DebugMsg's :)");
+        }
     }
     else // subsequent call, save log to file
     {
+        unpatch_memory(DebugMsg_addr);
         buf[len] = 0;
         dump_seg(buf, len, "dm.log");
         NotifyBox(2000, "Saved %d bytes.", len);
         len = 0;
     }
+    
     beep();
 }
 
