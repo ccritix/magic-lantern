@@ -11,6 +11,9 @@
 #include "beep.h"
 #include "patch.h"
 
+extern WEAK_FUNC(ret_0) void dm_spy_extra_install();
+extern WEAK_FUNC(ret_0) void dm_spy_extra_uninstall();
+
 unsigned int BUF_SIZE = (1024*1024);
 static char* buf = 0;
 static volatile int len = 0;
@@ -59,6 +62,8 @@ void debug_intercept()
     {
         buf = fio_malloc(BUF_SIZE);                     /* allocate memory for our logs (it's huge) */
         
+        dm_spy_extra_install();
+        
         int err = patch_memory(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
             MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
@@ -77,6 +82,7 @@ void debug_intercept()
     }
     else // subsequent call, uninstall the hook and save log to file
     {
+        dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
         buf[len] = 0;
         dump_seg(buf, len, "dm.log");
