@@ -430,7 +430,7 @@ static int raw_lv_get_resolution(int* width, int* height)
 static int raw_update_params_work()
 {
     //~ static int k = 0;
-    //~ bmp_printf(FONT_MED, 250, 100, "raw update %d called from %s ", k++, get_task_name_from_id(get_current_task()));
+    //~ bmp_printf(FONT_MED, 250, 100, "raw update %d called from %s ", k++, get_current_task_name());
 
     #ifdef RAW_DEBUG
     console_show();

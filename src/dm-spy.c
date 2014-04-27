@@ -33,7 +33,7 @@ void my_DebugMsg(int class, int level, char* fmt, ...)
     
     //~ char* classname = dm_names[class]; /* not working, some names are gibberish; todo: check for printable characters? */
     
-    char* task_name = get_task_name_from_id(get_current_task());
+    char* task_name = get_current_task_name();
     
     /* Canon's vsnprintf doesn't know %20s */
     char task_name_padded[] = "                ";
