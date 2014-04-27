@@ -18,7 +18,34 @@
 extern int is_taskid_valid(int, int, void*);
 extern int get_obj_attr(void*, unsigned char*, int, int);
 
+/* id_x2 is get_current_task() * 2 */
+/* returns 0 on success and puts the output in *task_name_ptr */
+extern int GetTaskName(int id_x2, char** task_name_ptr);
+
 int ml_shutdown_requested = 0;
+
+/* fixme: for some reason it doesn't seem to work for other task names */
+char* get_current_task_name()
+{
+    int task_id = get_current_task();
+    if (task_id >= 0)
+    {
+        char* task_name;
+        int err = GetTaskName(task_id * 2, &task_name);
+        if (!err)
+        {
+            return task_name;
+        }
+        else
+        {
+            return "**ERROR**";
+        }
+    }
+    else
+    {
+        return "**INTERRUPT**";
+    }
+}
 
 char* get_task_name_from_id(int id)
 {

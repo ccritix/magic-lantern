@@ -169,6 +169,8 @@ extern int ml_shutdown_requested;
 
 char * get_task_name_from_id(int id);
 
+char * get_current_task_name();
+
 /* to refactor with CBR */
 void task_update_loads(); // called every second from clock_task
 
