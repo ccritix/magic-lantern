@@ -51,13 +51,15 @@ void debug_intercept()
     
     if (!buf) // first call, intercept debug messages
     {
-        buf = fio_malloc(BUF_SIZE);
+        buf = fio_malloc(BUF_SIZE);                     /* allocate memory for our logs (it's huge) */
+        
         int err = patch_memory(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
             MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
             B_INSTR(DebugMsg_addr, my_DebugMsg),        /* replace all calls to DebugMsg with our own function (no need to call the original) */
             "dm-spy: log all DebugMsg calls"
         );
+        
         if (err)
         {
             NotifyBox(2000, "Could not hack DebugMsg (%x)", err);
@@ -67,13 +69,15 @@ void debug_intercept()
             NotifyBox(2000, "Now logging... ALL DebugMsg's :)");
         }
     }
-    else // subsequent call, save log to file
+    else // subsequent call, uninstall the hook and save log to file
     {
         unpatch_memory(DebugMsg_addr);
         buf[len] = 0;
         dump_seg(buf, len, "dm.log");
-        NotifyBox(2000, "Saved %d bytes.", len);
+        NotifyBox(2000, "DebugMsg log: saved %d bytes.", len);
         len = 0;
+        fio_free(buf);
+        buf = 0;
     }
     
     beep();
