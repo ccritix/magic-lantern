@@ -143,7 +143,11 @@ static void state_transition_log(breakpoint_t *bkpt)
     int input = bkpt->ctx[2];
     int next_state = state->state_matrix[old_state + state->max_states * input].next_state;
 
-    DryosDebugMsg(0, 0, "*** %s: (%d) --%d--> (%d) ", state_name, old_state, input, next_state);
+    DryosDebugMsg(0, 0, 
+        "*** %s: (%d) --%d--> (%d)                              "
+        "x=%x z=%x t=%x", state_name, old_state, input, next_state,
+        bkpt->ctx[1], bkpt->ctx[3], bkpt->ctx[4]
+    );
 }
 
 void dm_spy_extra_install()
