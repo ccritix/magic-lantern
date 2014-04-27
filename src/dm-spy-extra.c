@@ -93,7 +93,30 @@ static void generic_log(breakpoint_t *bkpt)
         }
         else
         {
-            len += snprintf(msg + len, sizeof(msg) - len, "0x%x", arg);
+            char* guessed_name = 0;
+            if ((arg & 0xF0000000) == 0xF0000000)
+            {
+                guessed_name = asm_guess_func_name_from_string(arg);
+            }
+            
+            if (guessed_name && guessed_name[0])
+            {
+                int len0 = len;
+                len += snprintf(msg + len, sizeof(msg) - len, "0x%x \"%s\"", arg, guessed_name);
+                
+                /* fixup %d's, if any */
+                for (int l = len0; l < len; l++)
+                {
+                    if (msg[l] == '%')
+                    {
+                        msg[l] = '$';
+                    }
+                }
+            }
+            else
+            {
+                len += snprintf(msg + len, sizeof(msg) - len, "0x%x", arg);
+            }
         }
         
         if (i < num_args -1)
