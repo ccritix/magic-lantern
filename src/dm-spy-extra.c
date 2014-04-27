@@ -4,7 +4,9 @@
  * 
  * Includes a generic logging function => simply plug the addresses into logged_functions[] and should be ready to go.
  * 
- * TODO: move to module? (I also need it as core functionality, for researching the startup process)
+ * TODO:
+ * - move to module? (I also need it as core functionality, for researching the startup process)
+ * - import the patched addresses from stubs
  */
 
 #include "dryos.h"

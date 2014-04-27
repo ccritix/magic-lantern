@@ -24,7 +24,6 @@
 
 #ifdef CONFIG_DEBUG_INTERCEPT
 #include "dm-spy.h"
-#include "tp-spy.h"
 #endif
 
 #ifdef CONFIG_MODULES
@@ -67,7 +66,6 @@ void fake_halfshutter_step();
 
 #ifdef CONFIG_DEBUG_INTERCEPT
 void j_debug_intercept() { debug_intercept(); }
-void j_tp_intercept() { tp_intercept(); }
 #endif
 
 #if CONFIG_DEBUGMSG
@@ -2464,12 +2462,6 @@ static struct menu_entry debug_menus[] = {
         .priv        = j_debug_intercept,
         .select      = (void(*)(void*,int))run_in_separate_task,
         .help = "Log DebugMessages"
-    },
-    {
-        .name        = "TryPostEvent Log",
-        .priv        = j_tp_intercept,
-        .select      = (void(*)(void*,int))run_in_separate_task,
-        .help = "Log TryPostEvents"
     },
 #endif
 #ifdef CONFIG_STRESS_TEST

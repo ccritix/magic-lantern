@@ -1,7 +1,9 @@
 /** 
  * Attempt to intercept all Canon debug messages by overriding DebugMsg call with cache hacks
  * 
- * Usage: call "debug_intercept" from "don't click me"
+ * Usage:
+ * - add dm-spy.o to platform/camera/Makefile.setup.default
+ * - call "debug_intercept" from "don't click me", or define CONFIG_DEBUG_INTERCEPT in features.h
  * 
  **/
 
