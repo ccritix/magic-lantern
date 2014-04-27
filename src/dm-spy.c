@@ -18,6 +18,7 @@
 #include "dm-spy.h"
 #include "dryos.h"
 #include "bmp.h"
+#include "beep.h"
 
 #if !(defined(CONFIG_DIGIC_V)) // Digic V have this stuff in RAM already
 #include "cache_hacks.h"
@@ -25,7 +26,7 @@
 
 unsigned int BUF_SIZE = (1024*1024);
 static char* buf = 0;
-static int len = 0;
+static volatile int len = 0;
 
 void my_DebugMsg(int class, int level, char* fmt, ...)
 {
@@ -36,20 +37,19 @@ void my_DebugMsg(int class, int level, char* fmt, ...)
     
     va_list            ap;
 
-    // not quite working due to concurrency issues
-    // semaphores don't help, camera locks
-    // same thing happens with recursive locks
-    // cli/sei don't lock the camera, but didn't seem to help
+    uint32_t old = cli();
     
-    //~ len += snprintf( buf+len, MIN(10, BUF_SIZE-len), "%s%d ", dm_names[class], level );
-
-    // char* msg = buf+len;
+    //~ char* classname = dm_names[class]; /* not working, some names are gibberish; todo: check for printable characters? */
+    
+    len += snprintf( buf+len, MIN(50, BUF_SIZE-len), "%s:%d:%d: ", get_task_name_from_id(get_current_task()), class, level );
 
     va_start( ap, fmt );
     len += vsnprintf( buf+len, BUF_SIZE-len-1, fmt, ap );
     va_end( ap );
 
     len += snprintf( buf+len, BUF_SIZE-len, "\n" );
+    
+    sei(old);
     
     //~ static int y = 0;
     //~ bmp_printf(FONT_SMALL, 0, y, "%s\n                                                               ", msg);
