@@ -158,7 +158,7 @@ static struct known_reg known_regs[] = {
     {0xC0F0,   0x8130, 0, "DEFM_ENABLE?"},
     {0xC0F0,   0x8138, 0, "DEFM_MODE"},
     {0xC0F0,   0x8140, 0, "DEFM_INTR_NUM"},
-    {0xC0F0,   0x814C, 0, "DEFM_GRADE"},
+    {0xC0F0,   0x814C, 0, "DEFM_GRADE"},        // RealtimeDefectsGrade
     {0xC0F0,   0x8150, 0, "DEFM_DAT_TH"},
     {0xC0F0,   0x8154, 0, "DEFM_INTR_CLR"},
     {0xC0F0,   0x8158, 0, "DEFM_INTR_EN"},
