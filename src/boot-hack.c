@@ -37,6 +37,10 @@
 #include "cache_hacks.h"
 #endif
 
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+#include "dm-spy.h"
+#endif
+
 #include "boot-hack.h"
 #include "reloc.h"
 
@@ -155,6 +159,10 @@ copy_and_restart( )
     // Make sure that our self-modifying code clears the cache
     clean_d_cache();
     flush_caches();
+
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+    debug_intercept();
+#endif
 
     // We enter after the signature, avoiding the
     // relocation jump that is at the head of the data
@@ -557,6 +565,12 @@ static void my_big_init_task()
     ml_started = 1;
 
     //~ stress_test_menu_dlg_api_task(0);
+
+
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+    info_led_blink(5,500,500);
+    debug_intercept();
+#endif
 }
 
 /*void logo_task(void* unused)

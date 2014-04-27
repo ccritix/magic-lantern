@@ -65,7 +65,7 @@ void display_off();
 void fake_halfshutter_step();
 
 #ifdef CONFIG_DEBUG_INTERCEPT
-void j_debug_intercept() { debug_intercept(); }
+void j_debug_intercept() { msleep(1000); debug_intercept(); }
 #endif
 
 #if CONFIG_DEBUGMSG
@@ -2458,10 +2458,10 @@ static struct menu_entry debug_menus[] = {
 #endif
 #ifdef CONFIG_DEBUG_INTERCEPT
     {
-        .name        = "DM Log",
+        .name        = "DebugMsg Log",
         .priv        = j_debug_intercept,
         .select      = (void(*)(void*,int))run_in_separate_task,
-        .help = "Log DebugMessages"
+        .help = "Log all DebugMsg calls (dm-spy)."
     },
 #endif
 #ifdef CONFIG_STRESS_TEST

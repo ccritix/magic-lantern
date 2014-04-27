@@ -1,9 +1,7 @@
 /** 
  * Attempt to intercept all Canon debug messages by overriding DebugMsg call with cache hacks
  * 
- * Usage:
- * - add dm-spy.o to platform/camera/Makefile.setup.default
- * - call "debug_intercept" from "don't click me", or define CONFIG_DEBUG_INTERCEPT in features.h
+ * Usage: define CONFIG_DEBUG_INTERCEPT or CONFIG_DEBUG_INTERCEPT_STARTUP in Makefile.user.
  * 
  **/
 
@@ -13,10 +11,10 @@
 #include "beep.h"
 #include "patch.h"
 
-extern WEAK_FUNC(ret_0) void dm_spy_extra_install();
-extern WEAK_FUNC(ret_0) void dm_spy_extra_uninstall();
+extern void dm_spy_extra_install();
+extern void dm_spy_extra_uninstall();
 
-unsigned int BUF_SIZE = (1024*1024);
+#define BUF_SIZE (1024*1024)
 static char* buf = 0;
 static volatile int len = 0;
 
@@ -54,6 +52,41 @@ void my_DebugMsg(int class, int level, char* fmt, ...)
     //~ y += font_small.height;
     //~ if (y > 450) y = 0;
 }
+
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
+
+/* careful, 1MB may be too much for your camera */
+static char staticbuf[BUF_SIZE];
+
+// call this from boot-hack.c
+void debug_intercept()
+{
+    uint32_t DebugMsg_addr = (uint32_t)&DryosDebugMsg;
+    
+    if (!buf) // first call, intercept debug messages
+    {
+        buf = staticbuf;
+        //~ dm_spy_extra_install();                     /* not exactly working, figure out why */
+        patch_memory(
+            DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
+            MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
+            B_INSTR(DebugMsg_addr, my_DebugMsg),        /* replace all calls to DebugMsg with our own function (no need to call the original) */
+            "dm-spy: log all DebugMsg calls"
+        );
+    }
+    else // subsequent call, uninstall the hook and save log to file
+    {
+        //~ dm_spy_extra_uninstall();
+        buf = 0;
+        unpatch_memory(DebugMsg_addr);
+        staticbuf[len] = 0;
+        dump_seg(staticbuf, len, "dm.log");
+        NotifyBox(2000, "DebugMsg log: saved %d bytes.", len);
+        len = 0;
+    }
+}
+
+#else /* for regular use */
 
 // call this from "don't click me"
 void debug_intercept()
@@ -97,3 +130,4 @@ void debug_intercept()
     beep();
 }
 
+#endif
