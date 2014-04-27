@@ -130,7 +130,7 @@ static void generic_log(breakpoint_t *bkpt)
             len += snprintf(msg + len, sizeof(msg) - len, ", ");
         }
     }
-    len += snprintf(msg + len, sizeof(msg) - len, ")");
+    len += snprintf(msg + len, sizeof(msg) - len, "), from %x", bkpt->ctx[14]-4);
     
     DryosDebugMsg(0, 0, msg);
 }
