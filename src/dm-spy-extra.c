@@ -51,6 +51,51 @@ static struct logged_func logged_functions[] = {
     #endif
 };
 
+/* format arg to string and try to guess its type, with snprintf-like usage */
+/* (string, ROM function name or regular number) */
+static int snprintf_guess_arg(char* buf, int maxlen, uint32_t arg)
+{
+    if (looks_like_string(arg))
+    {
+        return snprintf(buf, maxlen, "\"%s\"", arg);
+    }
+    else if (is_sane_ptr(arg) && looks_like_string(MEM(arg)))
+    {
+        return snprintf(buf, maxlen, "&\"%s\"", MEM(arg));
+    }
+    else
+    {
+        char* guessed_name = 0;
+        
+        /* ROM function? try to guess its name */
+        /* todo: also for RAM functions (how to recognize them quickly?) */
+        if ((arg & 0xF0000000) == 0xF0000000)
+        {
+            guessed_name = asm_guess_func_name_from_string(arg);
+        }
+        
+        if (guessed_name && guessed_name[0])
+        {
+            int len = snprintf(buf, maxlen, "0x%x \"%s\"", arg, guessed_name);
+            
+            /* fixup %d's, if any */
+            for (int l = 0; l < len; l++)
+            {
+                if (buf[l] == '%')
+                {
+                    buf[l] = '$';
+                }
+            }
+            
+            return len;
+        }
+        else
+        {
+            return snprintf(buf, maxlen, "0x%x", arg);
+        }
+    }
+}
+
 static void generic_log(breakpoint_t *bkpt)
 {
     uint32_t pc = bkpt->ctx[15];
@@ -83,41 +128,8 @@ static void generic_log(breakpoint_t *bkpt)
     for (int i = 0; i < num_args; i++)
     {
         uint32_t arg = bkpt->ctx[i];
-        if (looks_like_string(arg))
-        {
-            len += snprintf(msg + len, sizeof(msg) - len, "\"%s\"", arg);
-        }
-        else if (is_sane_ptr(arg) && looks_like_string(MEM(arg)))
-        {
-            len += snprintf(msg + len, sizeof(msg) - len, "&\"%s\"", MEM(arg));
-        }
-        else
-        {
-            char* guessed_name = 0;
-            if ((arg & 0xF0000000) == 0xF0000000)
-            {
-                guessed_name = asm_guess_func_name_from_string(arg);
-            }
-            
-            if (guessed_name && guessed_name[0])
-            {
-                int len0 = len;
-                len += snprintf(msg + len, sizeof(msg) - len, "0x%x \"%s\"", arg, guessed_name);
-                
-                /* fixup %d's, if any */
-                for (int l = len0; l < len; l++)
-                {
-                    if (msg[l] == '%')
-                    {
-                        msg[l] = '$';
-                    }
-                }
-            }
-            else
-            {
-                len += snprintf(msg + len, sizeof(msg) - len, "0x%x", arg);
-            }
-        }
+
+        len += snprintf_guess_arg(msg + len, sizeof(msg) - len, arg);
         
         if (i < num_args -1)
         {
