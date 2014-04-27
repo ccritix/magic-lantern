@@ -28,7 +28,13 @@ void my_DebugMsg(int class, int level, char* fmt, ...)
     
     //~ char* classname = dm_names[class]; /* not working, some names are gibberish; todo: check for printable characters? */
     
-    len += snprintf( buf+len, MIN(50, BUF_SIZE-len), "%s:%d:%d: ", get_task_name_from_id(get_current_task()), class, level );
+    char* task_name = get_task_name_from_id(get_current_task());
+    
+    /* Canon's vsnprintf doesn't know %20s */
+    char task_name_padded[] = "                ";
+    snprintf(task_name_padded + sizeof(task_name_padded) - strlen(task_name), sizeof(task_name_padded), "%s", task_name);
+    
+    len += snprintf( buf+len, MIN(50, BUF_SIZE-len), "%s:%02x:%02x: ", task_name_padded, class, level );
 
     va_start( ap, fmt );
     len += vsnprintf( buf+len, BUF_SIZE-len-1, fmt, ap );
