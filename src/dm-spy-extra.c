@@ -46,7 +46,12 @@ static struct logged_func logged_functions[] = {
     { 0xffaf686c, "set_saturate_offset_2", 1 },
     { 0xff987200, "set_fps_maybe", 1 },
     { 0xffa38114, "set_fps_maybe_2", 1 },
-    { 0xffa366c8, "AJ_FixedPoint_aglrw_related", 4},
+    { 0xffa366c8, "AJ_FixedPoint_aglrw_related", 4 },
+    { 0xffa37de4, "RegisterHead1InterruptHandler", 3 },
+    //~ { 0xff986d9c, "RegisterHead2InterruptHandler", 3 },
+    //~ { 0xff986ebc, "RegisterHead3InterruptHandler", 3 },
+    //~ { 0xff986f74, "RegisterHead4InterruptHandler", 3 },
+    { 0xff86c720, "SetHPTimerAfter", 4 },
 
     #endif
 };
