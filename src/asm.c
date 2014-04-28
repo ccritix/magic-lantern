@@ -6,6 +6,8 @@
 #include "compiler.h"
 #include "string.h"
 
+#define STMFD 0xe92d0000
+
 static uint32_t ror(uint32_t word, uint32_t count)
 {
     return word >> count | word << (32 - count);
@@ -63,6 +65,13 @@ char* asm_guess_func_name_from_string(uint32_t addr)
     for (uint32_t i = addr; i < addr + 4 * 20; i += 4 )
     {
         uint32_t insn = *(uint32_t*)i;
+
+        if (i > addr + 4 * 3 && (insn & 0xFFFF0000) == (STMFD & 0xFFFF0000))
+        {
+            /* start of a new function? stop searching */
+            break;
+        }
+
         if( (insn & 0xFFFFF000) == 0xe28f2000 ) // add R2, pc, #offset - should catch strings passed to DebugMsg
         {
             int offset = decode_immediate_shifter_operand(insn);
