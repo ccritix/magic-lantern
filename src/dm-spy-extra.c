@@ -155,11 +155,13 @@ static void state_transition_log(breakpoint_t *bkpt)
     char* state_name = (char*) state->name;
     int input = bkpt->ctx[2];
     int next_state = state->state_matrix[old_state + state->max_states * input].next_state;
+    uint32_t next_function = (uint32_t) state->state_matrix[old_state + state->max_states * input].state_transition_function;
+    /* function name is on the next line, no need to print it here */
 
     DryosDebugMsg(0, 0, 
-        "*** %s: (%d) --%d--> (%d)                              "
-        "x=%x z=%x t=%x", state_name, old_state, input, next_state,
-        bkpt->ctx[1], bkpt->ctx[3], bkpt->ctx[4]
+        "*** %s: (%d) --%d--> (%d)          "
+        "%x (x=%x z=%x t=%x)", state_name, old_state, input, next_state,
+        next_function, bkpt->ctx[1], bkpt->ctx[3], bkpt->ctx[4]
     );
 }
 
