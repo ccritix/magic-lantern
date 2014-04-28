@@ -83,18 +83,7 @@ static int snprintf_guess_arg(char* buf, int maxlen, uint32_t arg)
         
         if (guessed_name && guessed_name[0])
         {
-            int len = snprintf(buf, maxlen, "0x%x \"%s\"", arg, guessed_name);
-            
-            /* fixup %d's, if any */
-            for (int l = 0; l < len; l++)
-            {
-                if (buf[l] == '%')
-                {
-                    buf[l] = '$';
-                }
-            }
-            
-            return len;
+            return snprintf(buf, maxlen, "0x%x \"%s\"", arg, guessed_name);
         }
         else
         {
@@ -145,7 +134,7 @@ static void generic_log(breakpoint_t *bkpt)
     }
     len += snprintf(msg + len, sizeof(msg) - len, "), from %x", bkpt->ctx[14]-4);
     
-    DryosDebugMsg(0, 0, msg);
+    DryosDebugMsg(0, 0, "%s", msg);
 }
 
 static void state_transition_log(breakpoint_t *bkpt)
