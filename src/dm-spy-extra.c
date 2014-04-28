@@ -14,6 +14,8 @@
 #include "patch.h"
 #include "state-object.h"
 #include "asm.h"
+#include "cache_hacks.h"
+#include "console.h"
 
 static void generic_log(breakpoint_t *bkpt);
 static void state_transition_log(breakpoint_t *bkpt);
@@ -31,12 +33,12 @@ static struct logged_func logged_functions[] = {
     #ifdef CONFIG_5D2
     { 0xff9b9198, "StateTransition", 4 , state_transition_log },
     { 0xff9b989c, "TryPostEvent", 4 },
-    { 0xff9b8f24, "TryPostStageEvent", 4 },
+    //~ { 0xff9b8f24, "TryPostStageEvent", 4 },
 
     { 0xFF9A462C, "ConnectReadEDmac", 2 },
     { 0xFF9A4604, "ConnectWriteEDmac", 2 },
     { 0xFF9A4798, "RegisterEDmacCompleteCBR", 3 },
-    { 0xFF9A45E8, "SetEDmac", 4 },
+    //~ { 0xFF9A45E8, "SetEDmac", 4 },
     { 0xFF9A464C, "StartEDmac", 2 },
     
     { 0xff9b3cb4, "register_interrupt", 4 },
@@ -165,14 +167,48 @@ void dm_spy_extra_install()
 {
     gdb_setup();
 
+    printf("ICache: %db, idx=%x tag=%x word=%x seg=%x\n",
+        1<<CACHE_SIZE_BITS(TYPE_ICACHE),
+        CACHE_INDEX_ADDRMASK(TYPE_ICACHE),
+        CACHE_TAG_ADDRMASK(TYPE_ICACHE),
+        CACHE_WORD_ADDRMASK(TYPE_ICACHE),
+        CACHE_SEGMENT_ADDRMASK(TYPE_ICACHE)
+    );
+
     for (int i = 0; i < COUNT(logged_functions); i++)
     {
         if (logged_functions[i].addr)
         {
-            logged_functions[i].bkpt = gdb_add_watchpoint(
-                logged_functions[i].addr, 0,
-                logged_functions[i].log_func ? logged_functions[i].log_func : generic_log
-            );
+            if (cache_is_patchable(logged_functions[i].addr,   TYPE_ICACHE) && 
+                cache_is_patchable(logged_functions[i].addr+4, TYPE_ICACHE))
+            {
+                logged_functions[i].bkpt = gdb_add_watchpoint(
+                    logged_functions[i].addr, 0,
+                    logged_functions[i].log_func ? logged_functions[i].log_func : generic_log
+                );
+            }
+            else
+            {
+                console_show();
+                int index_mask = CACHE_INDEX_ADDRMASK(TYPE_ICACHE);
+                int found = 0;
+                for (int j = 0; j < i; j++)
+                {
+                    if ((logged_functions[i].addr & index_mask) == (logged_functions[j].addr & index_mask))
+                    {
+                        printf("Birthday paradox: %x %s\n"
+                               "  conflicts with: %x %s.\n", 
+                            logged_functions[i].addr, logged_functions[i].name,
+                            logged_functions[j].addr, logged_functions[j].name
+                        );
+                        found = 1;
+                    }
+                }
+                if (!found)
+                {
+                    printf("%x %s not patcheable.\n", logged_functions[i].addr, logged_functions[i].name);
+                }
+            }
         }
     }
 }
