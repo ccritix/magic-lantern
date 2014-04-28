@@ -47,7 +47,6 @@ struct patch_info
 
 static struct patch_info patches[MAX_PATCHES] = {{0}};
 static int num_patches = 0;
-static struct semaphore * patch_sem = 0;
 
 static char last_error[70];
 
@@ -68,66 +67,6 @@ static void cache_require(int lock)
     {
         cache_unlock();
     }
-}
-
-int cache_lock_request(const char* description)
-{
-    int err = E_PATCH_OK;
-    take_semaphore(patch_sem, 0);
-
-    /* is this address already patched? refuse to patch it twice */
-    for (int i = 0; i < num_patches; i++)
-    {
-        if (patches[i].description == description)
-        {
-            err = E_PATCH_ALREADY_PATCHED;
-            goto end;
-        }
-    }
-
-    patches[num_patches].addr = (void*) 0xFFFFFFFF;  /* custom ROM patch */
-    patches[num_patches].description = description;
-    num_patches++;
-    cache_require(1);
-end:
-    give_semaphore(patch_sem);
-    return err;
-}
-
-int cache_lock_release(const char* description)
-{
-    int err = E_UNPATCH_OK;
-
-    take_semaphore(patch_sem, 0);
-
-    int p = -1;
-    for (int i = 0; i < num_patches; i++)
-    {
-        if (patches[i].description == description)
-        {
-            p = i;
-            break;
-        }
-    }
-    
-    if (p < 0)
-    {
-        err = E_UNPATCH_FAILED;
-        goto end;
-    }
-
-    /* remove from our data structure (shift the other array items) */
-    for (int i = p + 1; i < num_patches; i++)
-    {
-        patches[i-1] = patches[i];
-    }
-    num_patches--;
-
-    check_cache_lock_still_needed();
-
-end:
-    give_semaphore(patch_sem);
-    return err;
 }
 
 /* low-level routines */
@@ -276,7 +215,7 @@ int patch_memory_matrix(
     int err = E_PATCH_OK;
     
     /* ensure thread safety */
-    take_semaphore(patch_sem, 0);
+    uint32_t old_int = cli();
     
     /* is this address already patched? refuse to patch it twice */
     for (int i = 0; i < num_patches; i++)
@@ -343,7 +282,7 @@ end:
     {
         snprintf(last_error, sizeof(last_error), "Patch error at %x (err %x)", addr, err);
     }
-    give_semaphore(patch_sem);
+    sei(old_int);
     return err;
 }
 
@@ -386,7 +325,7 @@ int unpatch_memory(uintptr_t _addr)
 {
     uint32_t* addr = (uint32_t*) _addr;
     int err = E_UNPATCH_OK;
-    take_semaphore(patch_sem, 0);
+    uint32_t old_int = cli();
 
     int p = -1;
     for (int i = 0; i < num_patches; i++)
@@ -441,7 +380,7 @@ end:
     {
         snprintf(last_error, sizeof(last_error), "Unpatch error at %x (err %x)", addr, err);
     }
-    give_semaphore(patch_sem);
+    sei(old_int);
     return err;
 }
 
@@ -546,11 +485,6 @@ static MENU_UPDATE_FUNC(patch_update)
 
     /* ROM patches are considered invasive, display them with red icon */
     MENU_SET_ICON(IS_ROM_PTR(patches[p].addr) ? MNI_RECORD : MNI_ON, 0);
-    if (patches[p].addr == (void*) 0xFFFFFFFF)
-    {
-        MENU_SET_NAME("Custom");
-        return;
-    }
 
     char name[20];
     snprintf(name, sizeof(name), "%X", patches[p].addr);
@@ -619,6 +553,7 @@ static MENU_UPDATE_FUNC(patches_update)
 {
     int ram_patches = 0;
     int rom_patches = 0;
+    int errors = 0;
 
     for (int i = 0; i < MAX_PATCHES; i++)
     {
@@ -637,6 +572,7 @@ static MENU_UPDATE_FUNC(patches_update)
             if (!is_patch_still_applied(i))
             {
                 snprintf(last_error, sizeof(last_error), "Patch %x overwritten, probably by Maxwell's demon.");
+                errors++;
             }
         }
         else
@@ -653,8 +589,9 @@ static MENU_UPDATE_FUNC(patches_update)
     else
     {
         MENU_SET_ICON(MNI_SUBMENU, 1);
-        if (rom_patches) MENU_SET_RINFO("%d ROM", rom_patches);
-        if (ram_patches) MENU_APPEND_RINFO("%s%d RAM", rom_patches ? ", " : "", ram_patches);
+        if (errors) MENU_SET_RINFO("%d ERR", errors);
+        if (rom_patches) MENU_APPEND_RINFO("%s%d ROM", info->rinfo[0] ? ", " : "", rom_patches);
+        if (ram_patches) MENU_APPEND_RINFO("%s%d RAM", info->rinfo[0] ? ", " : "", ram_patches);
     }
     
     if (cache_locked())
@@ -728,7 +665,6 @@ static struct menu_entry patch_menu[] =
 
 static void patch_init()
 {
-    patch_sem = create_named_semaphore("patch_sem", 1);
     menu_add("Debug", patch_menu, COUNT(patch_menu));
 }
 
