@@ -14,7 +14,7 @@
  *
  * A cache line is 32 bytes / 8 words / 8 instructions.
  * 	byte address 	(Addr[1:0] = 2 bits)
- * 	word address 	(Addr[4:2] = 2 bits)
+ * 	word address 	(Addr[4:2] = 3 bits)
  * 	index 			(Addr[i+4:5] = i bits)
  * 	address TAG 	(Addr[31:i+5] = 27 - i bits)
  * Where 'i' is the size of the cache index in bits.
