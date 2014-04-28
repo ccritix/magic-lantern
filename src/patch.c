@@ -73,7 +73,7 @@ static void cache_require(int lock)
 int cache_lock_request(const char* description)
 {
     int err = E_PATCH_OK;
-    if (patch_sem) take_semaphore(patch_sem, 0);
+    take_semaphore(patch_sem, 0);
 
     /* is this address already patched? refuse to patch it twice */
     for (int i = 0; i < num_patches; i++)
@@ -90,7 +90,7 @@ int cache_lock_request(const char* description)
     num_patches++;
     cache_require(1);
 end:
-    if (patch_sem) give_semaphore(patch_sem);
+    give_semaphore(patch_sem);
     return err;
 }
 
@@ -98,7 +98,7 @@ int cache_lock_release(const char* description)
 {
     int err = E_UNPATCH_OK;
 
-    if (patch_sem) take_semaphore(patch_sem, 0);
+    take_semaphore(patch_sem, 0);
 
     int p = -1;
     for (int i = 0; i < num_patches; i++)
@@ -126,7 +126,7 @@ int cache_lock_release(const char* description)
     check_cache_lock_still_needed();
 
 end:
-    if (patch_sem) give_semaphore(patch_sem);
+    give_semaphore(patch_sem);
     return err;
 }
 
@@ -276,7 +276,7 @@ int patch_memory_matrix(
     int err = E_PATCH_OK;
     
     /* ensure thread safety */
-    if (patch_sem) take_semaphore(patch_sem, 0);
+    take_semaphore(patch_sem, 0);
     
     /* is this address already patched? refuse to patch it twice */
     for (int i = 0; i < num_patches; i++)
@@ -343,7 +343,7 @@ end:
     {
         snprintf(last_error, sizeof(last_error), "Patch error at %x (err %x)", addr, err);
     }
-    if (patch_sem) give_semaphore(patch_sem);
+    give_semaphore(patch_sem);
     return err;
 }
 
@@ -386,7 +386,7 @@ int unpatch_memory(uintptr_t _addr)
 {
     uint32_t* addr = (uint32_t*) _addr;
     int err = E_UNPATCH_OK;
-    if (patch_sem) take_semaphore(patch_sem, 0);
+    take_semaphore(patch_sem, 0);
 
     int p = -1;
     for (int i = 0; i < num_patches; i++)
@@ -441,7 +441,7 @@ end:
     {
         snprintf(last_error, sizeof(last_error), "Unpatch error at %x (err %x)", addr, err);
     }
-    if (patch_sem) give_semaphore(patch_sem);
+    give_semaphore(patch_sem);
     return err;
 }
 
