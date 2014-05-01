@@ -261,6 +261,9 @@ void sound_free_buffer(struct sound_buffer *buffer);
 /* get the current device state from view of context */
 enum sound_state sound_get_state(struct sound_ctx *ctx);
 
+/* merge mixer settings, where <settings> has defaults, use config from <base> */
+void sound_mixer_merge(struct sound_mixer *merged, struct sound_mixer *base, struct sound_mixer *settings);
+
 /* free a previously allocated context */
 void sound_free(struct sound_ctx *ctx);
 void sound_init();

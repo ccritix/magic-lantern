@@ -27,21 +27,22 @@ extern int StopASIFDMADAC(void *, void *);
 extern void SetASIFMode(int rate, signed int bits, int channels, int output);
 
 uint32_t sound_trace_ctx = TRACE_ERROR;
+static struct sound_ctx *sound_settings_ctx = NULL;
 
 
 static struct sound_mixer default_mixer_options =
 {
-    .windcut_mode = SOUND_WINDCUT_DEFAULT,
-    .source_line = SOUND_SOURCE_DEFAULT,
-    .destination_line = SOUND_DESTINATION_DEFAULT,
-    .loop_mode = SOUND_LOOP_DEFAULT,
-    .headphone_agc = SOUND_AGC_DEFAULT,
-    .headphone_gain = SOUND_GAIN_DEFAULT,
-    .mic_power = SOUND_POWER_DEFAULT,
-    .mic_agc = SOUND_AGC_DEFAULT,
-    .mic_gain = SOUND_GAIN_DEFAULT,
-    .speaker_gain = SOUND_GAIN_DEFAULT,
-    .out_gain = SOUND_GAIN_DEFAULT
+    .windcut_mode = SOUND_WINDCUT_OFF,
+    .source_line = SOUND_SOURCE_INT_MIC,
+    .destination_line = SOUND_DESTINATION_SPK,
+    .loop_mode = SOUND_LOOP_DISABLED,
+    .headphone_agc = SOUND_AGC_DISABLED,
+    .headphone_gain = 100,
+    .mic_power = SOUND_POWER_ENABLED,
+    .mic_agc = SOUND_AGC_DISABLED,
+    .mic_gain = 100,
+    .speaker_gain = 100,
+    .out_gain = 100
 };
 
 static struct sound_ops default_sound_ops = 
@@ -240,9 +241,9 @@ static void sound_set_mixer(struct sound_ctx *ctx)
         get sound_ctx.mixer and place in sound_dev.mixer_current.
         replace all default settings of sound_ctx with sound_dev.mixer_defaults values.
     */
-    
-    ctx->device->codec_ops.apply_mixer(&prev_mixer, &mixer);
-    ctx->device->mixer_current = mixer;
+    sound_mixer_merge(&ctx->device->mixer_current, &ctx->device->mixer_defaults, &mixer);
+
+    ctx->device->codec_ops.apply_mixer(&prev_mixer, &ctx->device->mixer_current);
 }
 
 /* set up audio IC for current audio mode */
@@ -620,6 +621,185 @@ void sound_free_buffer(struct sound_buffer *buffer)
     free(buffer);
 }
 
+void sound_mixer_merge(struct sound_mixer *merged, struct sound_mixer *base, struct sound_mixer *settings)
+{
+    *merged = *settings;
+    
+    if(merged->windcut_mode == SOUND_WINDCUT_DEFAULT)
+    {
+        merged->windcut_mode = base->windcut_mode;
+    }
+    if(merged->source_line == SOUND_SOURCE_DEFAULT)
+    {
+        merged->source_line = base->source_line;
+    }
+    if(merged->destination_line == SOUND_DESTINATION_DEFAULT)
+    {
+        merged->destination_line = base->destination_line;
+    }
+    if(merged->headphone_agc == SOUND_AGC_DEFAULT)
+    {
+        merged->headphone_agc = base->headphone_agc;
+    }
+    if(merged->mic_agc == SOUND_AGC_DEFAULT)
+    {
+        merged->mic_agc = base->mic_agc;
+    }
+    if(merged->mic_power == SOUND_POWER_DEFAULT)
+    {
+        merged->mic_power = base->mic_power;
+    }
+    if(merged->loop_mode == SOUND_LOOP_DEFAULT)
+    {
+        merged->loop_mode = base->loop_mode;
+    }
+    if(merged->headphone_gain == SOUND_GAIN_DEFAULT)
+    {
+        merged->headphone_gain = base->headphone_gain;
+    }
+    if(merged->mic_gain == SOUND_GAIN_DEFAULT)
+    {
+        merged->mic_gain = base->mic_gain;
+    }
+    if(merged->speaker_gain == SOUND_GAIN_DEFAULT)
+    {
+        merged->speaker_gain = base->speaker_gain;
+    }
+    if(merged->out_gain == SOUND_GAIN_DEFAULT)
+    {
+        merged->out_gain = base->out_gain;
+    }
+}
+
+
+void sound_defaults_update()
+{
+    sound_device.mixer_defaults = default_mixer_options;
+    
+    if(sound_device.current_ctx)
+    {
+        struct sound_mixer current = sound_device.current_ctx->mixer;
+        struct sound_mixer merged;
+        
+        sound_mixer_merge(&merged, &sound_device.mixer_defaults, &current);
+        
+        sound_device.mixer_current = merged;
+    }
+    
+    /* apply new default settings */
+    sound_settings_ctx->mixer = sound_device.mixer_current;
+    sound_settings_ctx->ops.apply(sound_settings_ctx);
+}
+
+
+static MENU_UPDATE_FUNC(sound_menu_spk_vol_update)
+{
+    MENU_SET_VALUE("%d %%", default_mixer_options.speaker_gain);
+}
+
+static MENU_UPDATE_FUNC(sound_menu_hdp_vol_update)
+{
+    MENU_SET_VALUE("%d %%", default_mixer_options.headphone_gain);
+}
+
+static MENU_UPDATE_FUNC(sound_in_line_update)
+{
+    enum sound_source line = default_mixer_options.source_line;
+    const char *name = sound_device.codec_ops.get_source_name(line);
+    
+    MENU_SET_VALUE("%s (#%d)", name, line);
+}
+
+static MENU_UPDATE_FUNC(sound_out_line_update)
+{
+    enum sound_destination line = default_mixer_options.destination_line;
+    const char *name = sound_device.codec_ops.get_destination_name(line);
+    
+    MENU_SET_VALUE("%s (#%d)", name, line);
+}
+
+static MENU_UPDATE_FUNC(sound_loop_update)
+{
+    MENU_SET_VALUE("%s", default_mixer_options.loop_mode?"ON":"OFF");
+}
+
+static MENU_SELECT_FUNC(sound_menu_spk_vol_select)
+{
+    default_mixer_options.speaker_gain = COERCE(default_mixer_options.speaker_gain + delta, 0, 100);
+    sound_defaults_update();
+}
+
+static MENU_SELECT_FUNC(sound_menu_hdp_vol_select)
+{
+    default_mixer_options.headphone_gain = COERCE(default_mixer_options.headphone_gain + delta, 0, 100);
+    sound_defaults_update();
+}
+
+static MENU_SELECT_FUNC(sound_in_line_select)
+{
+    default_mixer_options.source_line = (enum sound_source)COERCE(default_mixer_options.source_line + delta, 0, SOUND_DESTINATION_EXTENDED_6);
+    sound_defaults_update();
+}
+
+static MENU_SELECT_FUNC(sound_out_line_select)
+{
+    default_mixer_options.destination_line = (enum sound_destination)COERCE(default_mixer_options.destination_line + delta, 0, SOUND_DESTINATION_EXTENDED_6);
+    sound_defaults_update();
+}
+
+static MENU_SELECT_FUNC(sound_loop_select)
+{
+    default_mixer_options.loop_mode = !default_mixer_options.loop_mode;
+    sound_defaults_update();
+}
+
+static struct menu_entry sound_menu[] =
+{
+    {
+        .name = "Sound defaults",
+        .help = "",
+        .submenu_width = 710,
+        .children = (struct menu_entry[])
+        {
+            {
+                .name = "Speaker volume",
+                .update = &sound_menu_spk_vol_update,
+                .select = &sound_menu_spk_vol_select,
+                .help = "Audio output volume (0-100).",
+            },
+            {
+                .name = "Headphone volume",
+                .update = &sound_menu_hdp_vol_update,
+                .select = &sound_menu_hdp_vol_select,
+                .help = "Audio output volume (0-100).",
+            },
+            {
+                .name = "Output line",
+                .update = &sound_out_line_update,
+                .select = &sound_out_line_select,
+                .max = SOUND_DESTINATION_EXTENDED_6,
+                .help = "Audio output line (0-3).",
+            },
+            {
+                .name = "Input line",
+                .update = &sound_in_line_update,
+                .select = &sound_in_line_select,
+                .max = SOUND_SOURCE_EXTENDED_6,
+                .help = "Audio input line (0-3).",
+            },
+            {
+                .name = "Loopback",
+                .update = &sound_loop_update,
+                .select = &sound_loop_select,
+                .max = 1,
+                .help = "Enable loopback (no effect)",
+            },
+            MENU_EOL,
+        },
+    },
+};
+
+
 void sound_init()
 {
     sound_device.current_ctx = NULL;
@@ -631,8 +811,12 @@ void sound_init()
     sound_device.mixer_defaults = default_mixer_options;
     sound_device.mixer_current = default_mixer_options;
 
+    /* depending on which camera we have, the correct codec should be linked */
     extern void codec_init(struct codec_ops *ops);
     codec_init(&sound_device.codec_ops);
+    
+    sound_settings_ctx = sound_alloc();
+    menu_add("Audio", sound_menu, COUNT(sound_menu) );
 }
 
 
