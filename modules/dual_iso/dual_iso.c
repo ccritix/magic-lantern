@@ -4,15 +4,9 @@
  * 
  * Technical details: https://dl.dropboxusercontent.com/u/4124919/bleeding-edge/dual_iso/dual_iso.pdf
  * 
- * 5D3 and 7D only.
- * Requires a camera with two analog amplifiers (cameras with 8-channel readout seem to have this).
- * 
  * Samples half of sensor lines at ISO 100 and the other half at ISO 1600 (or other user-defined values)
  * This trick cleans up shadow noise, resulting in a dynamic range improvement of around 3 stops on 5D3,
  * at the cost of reduced vertical resolution, aliasing and moire.
- * 
- * Requires a camera with two separate analog amplifiers that can be configured separately.
- * At the time of writing, the only two cameras known to have this are 5D Mark III and 7D.
  * 
  * Works for both raw photos (CR2 - postprocess with cr2hdr) and raw videos (raw2dng).
  * 
@@ -80,10 +74,9 @@ static CONFIG_INT("dual_iso.prefix", dual_iso_file_prefix, 0);
 static CONFIG_INT("dual_iso.threshold", dual_iso_ev_threshold, 0);
 static CONFIG_INT("dual_iso.ae_pref_iso", preferred_iso, 0);
 
-#define AUTO_EXPO_TRIGGER_MINUS_2EV -3
 #define AUTO_EXPO_TRIGGER_NEGATIVE_EV -2
 #define AUTO_EXPO_SAFETY_SHIFT -1
-#define AUTO_EXPO_FOR_RECOVERY_ISO (dual_iso_recovery_iso >= -3 && dual_iso_recovery_iso <= -1)
+#define AUTO_EXPO_FOR_RECOVERY_ISO (dual_iso_recovery_iso >= -2 && dual_iso_recovery_iso <= -1)
 
 extern WEAK_FUNC(ret_0) int raw_lv_is_enabled();
 extern WEAK_FUNC(ret_0) int get_dxo_dynamic_range();
@@ -163,13 +156,6 @@ static int dual_iso_relative_delta_ev_auto()
             /* same as before, but only for negative EC */
             return ec < 0 ? (ABS(ec) * 2 + EXPO_1_3_STOP) / EXPO_FULL_STOP : 0;
         
-        case AUTO_EXPO_TRIGGER_MINUS_2EV:
-            /* ISO 100/800 for -2 EV and 100/1600 for -3 */
-            return 
-                ec <= -3 * EXPO_FULL_STOP ? 4 :
-                ec <= -2 * EXPO_FULL_STOP ? 3 : 
-                0;
-
         default:
             return 0;
     }
@@ -878,9 +864,6 @@ static MENU_UPDATE_FUNC(dual_iso_recovery_update)
             ) : dual_iso_recovery_iso == AUTO_EXPO_TRIGGER_NEGATIVE_EV ? (
                 (shooting_mode == SHOOTMODE_M) ? "Enable only when expo meter EM < 0. Will shift Tv/ISO." :
                                                  "Enable only when expo compensation EC < 0. Will shift ISO."
-            ) : dual_iso_recovery_iso == AUTO_EXPO_TRIGGER_MINUS_2EV ? (
-                (shooting_mode == SHOOTMODE_M) ? "Trigger when EM <= -2EV, starting from +3EV (100/800). Shifts Tv/ISO." :
-                                                 "Trigger when EC <= -2EV, starting from +3EV (100/800). Shifts ISO."
             ) : ""
         );
         
@@ -995,7 +978,7 @@ static struct menu_entry dual_iso_menu[] =
                 .max = 6,
                 .unit = UNIT_ISO,
                 .icon_type = IT_DICE,
-                .choices = CHOICES("-4 EV", "-3 EV", "-2 EV", "+2 EV", "+3 EV", "+4 EV", "Auto, when EC=-2", "Auto, when EC<0", "Auto safety shift", "100", "200", "400", "800", "1600", "3200", "6400"),
+                .choices = CHOICES("-4 EV", "-3 EV", "-2 EV", "+2 EV", "+3 EV", "+4 EV", "Auto, when EC<0", "Auto safety shift", "100", "200", "400", "800", "1600", "3200", "6400"),
                 .help  = "ISO for half of the scanlines (usually to recover shadows).",
                 .help2 = "Can be absolute or relative to primary ISO from Canon menu.",
             },
@@ -1017,8 +1000,8 @@ static struct menu_entry dual_iso_menu[] =
                 .name = "Min. DR improvement",
                 .priv = &dual_iso_ev_threshold,
                 .update = dual_iso_check,
-                .max = 4,
-                .choices = CHOICES("OFF", "0.5 EV", "1 EV", "1.5 EV", "2 EV"),
+                .max = 5,
+                .choices = CHOICES("OFF", "0.5 EV", "1 EV", "1.5 EV", "2 EV", "3 EV",),
                 .help  = "Minimum dynamic range you want to gain, for enabling Dual ISO.",
                 .help2 = "(if the improvement is smaller than that, Dual ISO will be disabled)",
             },
