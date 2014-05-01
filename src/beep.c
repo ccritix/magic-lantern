@@ -20,6 +20,7 @@ static struct sound_ctx *beep_ctx = NULL;
 static struct msg_queue *beep_queue = NULL;
 
 CONFIG_INT("beep.enabled", beep_enabled, 1);
+static CONFIG_INT("beep.out_line", beep_out_line, SOUND_DESTINATION_SPK);
 static CONFIG_INT("beep.volume", beep_volume, 3);
 static CONFIG_INT("beep.freq.idx", beep_freq_idx, 11); // 1 KHz
 static CONFIG_INT("beep.wavetype", beep_wavetype, 0); // square, sine, white noise
@@ -186,6 +187,11 @@ static void beep_task()
                 }
                 beep_generate(beep_buf, samples, msg->frequency, beep_ctx->format.rate, msg->waveform);
                 
+                /* apply volume setting */
+                beep_ctx->mixer.speaker_gain = 10 * beep_volume;
+                beep_ctx->mixer.headphone_gain = 10 * beep_volume;
+                beep_ctx->mixer.destination_line = (enum sound_destination)beep_out_line;
+                
                 /* backup old mixer settings and apply custom ones if necessary */
                 struct sound_mixer old_mixer = beep_ctx->mixer;
                 if(msg->mixer_settings)
@@ -240,14 +246,34 @@ static MENU_UPDATE_FUNC(beep_update)
     }
 }
 
+static MENU_UPDATE_FUNC(beep_out_line_update)
+{
+    const char *name = beep_ctx->device->codec_ops.get_destination_name(beep_out_line);
+    
+    MENU_SET_VALUE("%s (#%d)", name, beep_out_line);
+}
+
+static MENU_SELECT_FUNC(beep_out_line_select)
+{
+    beep_out_line = COERCE(beep_out_line + delta, 0, SOUND_DESTINATION_EXTENDED_6);
+}
+
 static struct menu_entry beep_menus[] = {
     {
-        .name = "Speaker Volume",
+        .name = "Beep Volume",
         .priv = &beep_volume,
         .min = 1,
-        .max = ASIF_MAX_VOL,
+        .max = 10,
         .icon_type = IT_PERCENT,
-        .help = "Volume for ML beeps and WAV playback (1-5).",
+        .help = "Volume for ML beeps (1-10).",
+    },
+    {
+        .name = "Beep output line",
+        .priv = &beep_out_line,
+        .update = &beep_out_line_update,
+        .select = &beep_out_line_select,
+        .max = SOUND_DESTINATION_EXTENDED_6,
+        .help = "Output line for beeps (0-n).",
     },
     {
         .name = "Beep, test tones",
