@@ -593,8 +593,8 @@ void rec_notify_trigger(int rec)
     if (RECNOTIFY_BEEP)
     {
         extern int ml_started;
-        if (rec != 2 && ml_started) { unsafe_beep(); }
-        if (!rec) { msleep(200); unsafe_beep(); }
+        if (rec != 2 && ml_started) { beep_unsafe(); }
+        if (!rec) { msleep(200); beep_unsafe(); }
     }
 
     if (RECNOTIFY_LED)

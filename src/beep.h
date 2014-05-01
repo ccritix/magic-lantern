@@ -27,6 +27,8 @@ struct beep_msg
     uint32_t times;
     /* sleep time between two beeps */
     uint32_t sleep;
+    /* custom output settings if non-NULL */
+    struct sound_mixer *mixer_settings;
     
     /* internal signalling that beep has finished */
     uint32_t *wait;
@@ -34,10 +36,11 @@ struct beep_msg
 
 
 /* beep playing */
-void beep();
+void beep_advanced(uint32_t duration, uint32_t frequency, uint32_t wait, uint32_t times, struct sound_mixer *mixer_settings);
 void beep_custom(uint32_t duration, uint32_t frequency, uint32_t wait);
 void beep_times(uint32_t times);
-void unsafe_beep(); /* also beeps while recording */
+void beep();
+void beep_unsafe();
 
 #endif
 

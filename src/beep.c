@@ -77,46 +77,18 @@ static void beep_generate(int16_t* buf, uint32_t samples, uint32_t freq, uint32_
     }
 }
 
-void beep()
-{
-    struct beep_msg *msg = malloc(sizeof(struct beep_msg));
-    
-    msg->type = BEEP_CUSTOM;
-    msg->frequency = 2000;
-    msg->duration = 200;
-    msg->times = 1;
-    msg->wait = NULL;
-    msg->waveform = BEEP_WAVEFORM_SQUARE;
-    
-    msg_queue_post(beep_queue, (uint32_t)msg);
-}
-
-void beep_times(uint32_t times)
-{
-    struct beep_msg *msg = malloc(sizeof(struct beep_msg));
-    
-    msg->type = BEEP_CUSTOM;
-    msg->frequency = 1000;
-    msg->duration = 200;
-    msg->times = times;
-    msg->sleep = 50;
-    msg->wait = NULL;
-    msg->waveform = BEEP_WAVEFORM_SQUARE;
-    
-    msg_queue_post(beep_queue, (uint32_t)msg);
-}
-
-void beep_custom(uint32_t duration, uint32_t frequency, uint32_t wait)
+void beep_advanced(uint32_t duration, uint32_t frequency, uint32_t wait, uint32_t times, struct sound_mixer *mixer_settings)
 {
     volatile uint32_t wait_local = wait;
     struct beep_msg *msg = malloc(sizeof(struct beep_msg));
     
     msg->type = BEEP_CUSTOM;
     msg->frequency = frequency;
-    msg->duration = duration;
-    msg->times = 1;
-    msg->wait = (uint32_t *)&wait_local;
     msg->waveform = BEEP_WAVEFORM_SQUARE;
+    msg->duration = duration;
+    msg->times = times;
+    msg->wait = (uint32_t *)&wait_local;
+    msg->mixer_settings = mixer_settings;
     
     msg_queue_post(beep_queue, (uint32_t)msg);
     
@@ -125,6 +97,26 @@ void beep_custom(uint32_t duration, uint32_t frequency, uint32_t wait)
     {
         msleep(50);
     }
+}
+
+void beep_custom(uint32_t duration, uint32_t frequency, uint32_t wait)
+{
+    beep_advanced(duration, frequency, wait, 1, NULL);
+}
+
+void beep_times(uint32_t times)
+{
+    beep_advanced(200, 1000, 0, times, NULL);
+}
+
+void beep()
+{
+    beep_advanced(200, 1000, 0, 1, NULL);
+}
+
+void beep_unsafe()
+{
+    beep_advanced(200, 1000, 0, 1, NULL);
 }
 
 enum sound_flow beep_cbr (struct sound_buffer *buffer)
@@ -193,8 +185,23 @@ static void beep_task()
                     break;
                 }
                 beep_generate(beep_buf, samples, msg->frequency, beep_ctx->format.rate, msg->waveform);
-                beep_play(beep_buf, samples);
+                
+                /* backup old mixer settings and apply custom ones if necessary */
+                struct sound_mixer old_mixer = beep_ctx->mixer;
+                if(msg->mixer_settings)
+                {
+                    beep_ctx->mixer = *msg->mixer_settings;
+                }
+                
+                for(uint32_t loop = 0; loop < msg->times; loop++)
+                {
+                    beep_play(beep_buf, samples);
+                    msleep(20);
+                }
                 free(beep_buf);
+                
+                /* restore old settings */
+                beep_ctx->mixer = old_mixer;
                 break;
             }
         }
