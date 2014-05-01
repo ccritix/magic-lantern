@@ -11,6 +11,11 @@
 #include "sound.h"
 #include "../modules/trace/trace.h"
 
+/*
+ * Define this to 1 to trace sound API calls
+ */
+#define SOUND_DEBUG_TRACE 0
+
 static struct sound_dev sound_device;
 
 extern int StartASIFDMAADC(void *, uint32_t, void *, uint32_t, void (*)());
@@ -310,7 +315,9 @@ static enum sound_result sound_op_lock (struct sound_ctx *ctx, enum sound_lock t
 {
     if(sound_trace_ctx == TRACE_ERROR)
     {
-        //sound_trace_ctx = trace_start("snd_test", "B:/snd_test.txt");
+        #if SOUND_DEBUG_TRACE
+        sound_trace_ctx = trace_start("snd_test", "B:/snd_test.txt");
+        #endif
         trace_set_flushrate(sound_trace_ctx, 1000);
         trace_format(sound_trace_ctx, TRACE_FMT_TIME_REL | TRACE_FMT_COMMENT, ' ');
     }
