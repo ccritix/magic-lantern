@@ -156,7 +156,6 @@ static int dual_iso_relative_delta_ev_auto()
             /* same as before, but only for negative EC */
             return ec < 0 ? (ABS(ec) * 2 + EXPO_1_3_STOP) / EXPO_FULL_STOP : 0;
         
-        default:
             return 0;
     }
 }
@@ -974,7 +973,7 @@ static struct menu_entry dual_iso_menu[] =
                 .name = "Recovery ISO",
                 .priv = &dual_iso_recovery_iso,
                 .update = dual_iso_recovery_update,
-                .min = -9,
+                .min = -8,
                 .max = 6,
                 .unit = UNIT_ISO,
                 .icon_type = IT_DICE,
@@ -1001,7 +1000,7 @@ static struct menu_entry dual_iso_menu[] =
                 .priv = &dual_iso_ev_threshold,
                 .update = dual_iso_check,
                 .max = 5,
-                .choices = CHOICES("OFF", "0.5 EV", "1 EV", "1.5 EV", "2 EV", "3 EV",),
+                .choices = CHOICES("OFF", "0.5 EV", "1 EV", "1.5 EV", "2 EV", "2.5 EV",),
                 .help  = "Minimum dynamic range you want to gain, for enabling Dual ISO.",
                 .help2 = "(if the improvement is smaller than that, Dual ISO will be disabled)",
             },
