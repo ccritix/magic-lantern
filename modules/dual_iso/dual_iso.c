@@ -155,7 +155,8 @@ static int dual_iso_relative_delta_ev_auto()
         case AUTO_EXPO_TRIGGER_NEGATIVE_EV:
             /* same as before, but only for negative EC */
             return ec < 0 ? (ABS(ec) * 2 + EXPO_1_3_STOP) / EXPO_FULL_STOP : 0;
-        
+
+        default:        
             return 0;
     }
 }
