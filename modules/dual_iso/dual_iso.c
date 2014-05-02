@@ -66,11 +66,13 @@
 #include <beep.h>
 #include <zebra.h>
 #include <shoot.h>
+#include <picstyle.h>
 
 static CONFIG_INT("dual_iso.enabled", dual_iso_enabled, 0);
 static CONFIG_INT("dual_iso.iso", dual_iso_recovery_iso, 3);
 static CONFIG_INT("dual_iso.alt", dual_iso_alternate, 0);
 static CONFIG_INT("dual_iso.prefix", dual_iso_file_prefix, 0);
+static CONFIG_INT("dual_iso.picstyle", dual_iso_picstyle, 0);
 static CONFIG_INT("dual_iso.threshold", dual_iso_ev_threshold, 0);
 static CONFIG_INT("dual_iso.ae_pref_iso", preferred_iso, 0);
 
@@ -565,7 +567,7 @@ static unsigned int dual_iso_refresh(unsigned int ctx)
         dual_iso_ev_threshold + 
         (lvi << 16) + (raw_mv << 17) + (raw_ph << 18) + 
         (dual_iso_enabled << 24) + (dual_iso_alternate << 25) + 
-        (dual_iso_file_prefix << 26) + 
+        (dual_iso_file_prefix << 26) + (dual_iso_picstyle << 27) +
         (dual_iso_alternate ? get_shooting_card()->file_number : 0) +
         lens_info.raw_iso * 1234 + lens_info.raw_iso_auto * 1234 + 
         (AUTO_EXPO_FOR_RECOVERY_ISO ? lens_info.ae + get_ae_value() + get_ae_state() : 0);
@@ -633,6 +635,36 @@ static unsigned int dual_iso_refresh(unsigned int ctx)
             {
                 //~ NotifyBox(1000, "IMG_");
                 prefix_key = 0;
+            }
+        }
+        
+        /* custom picture style for dual iso photos */
+        /* todo: how to handle user changing picture style while a custom one is active? */
+        static int old_picstyle = -1;
+        if (dual_iso_picstyle && enabled_ph && iso1 != iso2)
+        {
+            if (old_picstyle == -1)
+            {
+                int new_picstyle = dual_iso_picstyle == 1 ? 0x86   /* monochrome */
+                                                          : 0x21 ; /* user defined 1 */
+                
+                if (new_picstyle != (int)lens_info.picstyle)
+                {
+                    old_picstyle = lens_info.picstyle;
+                    lens_wait_readytotakepic(64);
+                    prop_request_change(PROP_PICTURE_STYLE, &new_picstyle, 4);
+                    /* todo: need a setter for this */
+                }
+            }
+        }
+        else
+        {
+            if (old_picstyle != -1)
+            {
+                old_picstyle = get_prop_picstyle_from_index(old_picstyle);
+                lens_wait_readytotakepic(64);
+                prop_request_change(PROP_PICTURE_STYLE, &old_picstyle, 4);
+                old_picstyle = -1;
             }
         }
     }
@@ -1133,6 +1165,15 @@ static struct menu_entry dual_iso_menu[] =
                 .help  = "Change file prefix for dual ISO photos (e.g. DUAL0001.CR2).",
                 .help2 = "Will not sync properly in burst mode or when taking pics quickly."
             },
+            {
+                .name = "Custom picture style",
+                .priv = &dual_iso_picstyle,
+                .update = dual_iso_check,
+                .max = 2,
+                .choices = CHOICES("OFF", "Monochrome", "User Defined 1"),
+                .help  = "Change the picture style for dual ISO photos.",
+                .help2 = "Recommended: monochrome with low sharpness and low contrast."
+            },
             MENU_EOL,
         },
     },
@@ -1421,6 +1462,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(dual_iso_recovery_iso)
     MODULE_CONFIG(dual_iso_alternate)
     MODULE_CONFIG(dual_iso_file_prefix)
+    MODULE_CONFIG(dual_iso_picstyle)
     MODULE_CONFIG(dual_iso_ev_threshold)
     MODULE_CONFIG(preferred_iso)
 MODULE_CONFIGS_END()
