@@ -136,11 +136,12 @@ static int auto_ettr_get_correction()
     float ev_median_lo = raw_to_ev(raw_median_lo);
     float ev_shadow_lo = raw_to_ev(raw_shadow_lo);
     
-    int dual_iso = auto_ettr_dual_iso_link && dual_iso_is_active();
+    int dual_iso_metering = auto_ettr_dual_iso_link && dual_iso_is_active();
+    int dual_iso_action = auto_ettr_dual_iso_link && dual_iso_is_enabled();
     float ev_median_hi = ev_median_lo;
     float ev_shadow_hi = ev_shadow_lo; /* for dual ISO: for the bright exposure */
     
-    if (dual_iso)
+    if (dual_iso_metering)
     {
         /* for dual ISO only:*/
         /* we have metered the dark exposure (since ETTR is pushing that to the right), now meter the bright one too */
@@ -305,7 +306,7 @@ static int auto_ettr_get_correction()
             float corr = - log2f(1 + overexposed*overexposed);
             
             /* with dual ISO, the cost of underexposing is not that high, so prefer it to improve convergence */
-            if (dual_iso)
+            if (dual_iso_action)
                 corr *= 3;
             
             correction = MIN(correction, corr);
@@ -317,7 +318,11 @@ static int auto_ettr_get_correction()
 
     int iso1 = lens_info.iso_analog_raw;
     int iso2 = iso1;
-    if (dual_iso) iso2 = dual_iso_get_recovery_iso();
+    if (dual_iso_metering)
+    {
+        iso2 = dual_iso_get_recovery_iso();
+        ASSERT(iso2);
+    }
     int iso_hi = MAX(iso1, iso2);
     int iso_lo = MIN(iso1, iso2);
     float dr_lo = get_dxo_dynamic_range(iso_lo) / 100.0;
@@ -325,7 +330,7 @@ static int auto_ettr_get_correction()
 
     if (debug_info)
     {
-        if (dual_iso)
+        if (dual_iso_metering)
         {
             float midtone_snr_lo = dr_lo + ev_median_lo;
             float shadow_snr_lo = dr_lo + ev_shadow_lo;
@@ -392,7 +397,7 @@ static int auto_ettr_get_correction()
     /* exposure correction so it doesn't clip anything more than allowed by highlight ignore */
     int corr_without_clipping = (int)(correction * 100) - expo_delta_snr;
 
-    if (dual_iso)
+    if (dual_iso_action)
     {
         /* with dual ISO: expose without clipping */
         /* auto_ettr_work will have to do something and recover the SNR */
@@ -432,7 +437,7 @@ static int auto_ettr_work_m(int corr)
     //~ int old_expo = tv - iso;
 
     /* note: expo compensation will not clip with dual ISO, but will clip highlights without it */
-    int dual_iso = auto_ettr_dual_iso_link && dual_iso_is_active();
+    int dual_iso_action = auto_ettr_dual_iso_link && dual_iso_is_enabled();
     int delta = -corr * 8 / 100;
     
     int expected_expo = tv - iso + delta;               /* will clip without dual ISO */
@@ -488,7 +493,7 @@ static int auto_ettr_work_m(int corr)
     int isor = COERCE(iso / 8 * 8, MIN_ISO, max_auto_iso);
     
     /* can we use dual ISO to recover the highlights? (HR = highlight recovery) */
-    if (dual_iso)
+    if (dual_iso_action)
     {
         int base_iso = isor;
         int recovery_iso = base_iso;
@@ -520,6 +525,8 @@ static int auto_ettr_work_m(int corr)
         isor = base_iso;
         dual_iso_set_recovery_iso(recovery_iso);
         extra_snr_needed = -snr_delta;
+        
+        #warning FIXME: handle the min DR setting in dual ISO somehow
     }
 
     /* apply the new settings */
@@ -548,7 +555,7 @@ static int auto_ettr_work_m(int corr)
     int iso_after = lens_info.raw_iso;
     int new_expo = lens_info.raw_shutter - lens_info.raw_iso;
 
-    if (dual_iso)
+    if (dual_iso_action)
     {
         int iso2_after = dual_iso_get_recovery_iso();
         int dr2_before = dual_iso_calc_dr_improvement(iso_before, iso2_before);
