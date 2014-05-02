@@ -73,6 +73,7 @@ static CONFIG_INT("dual_iso.iso", dual_iso_recovery_iso, 3);
 static CONFIG_INT("dual_iso.alt", dual_iso_alternate, 0);
 static CONFIG_INT("dual_iso.prefix", dual_iso_file_prefix, 0);
 static CONFIG_INT("dual_iso.picstyle", dual_iso_picstyle, 0);
+static CONFIG_INT("dual_iso.old_picstyle", old_picstyle, -1);
 static CONFIG_INT("dual_iso.threshold", dual_iso_ev_threshold, 0);
 static CONFIG_INT("dual_iso.ae_pref_iso", preferred_iso, 0);
 
@@ -640,15 +641,16 @@ static unsigned int dual_iso_refresh(unsigned int ctx)
         
         /* custom picture style for dual iso photos */
         /* todo: how to handle user changing picture style while a custom one is active? */
-        static int old_picstyle = -1;
+
+        int current_picstyle = get_prop_picstyle_from_index(lens_info.picstyle);
+        int new_picstyle = dual_iso_picstyle == 1 ? 0x86   /* monochrome */
+                                                  : 0x21 ; /* user defined 1 */
+        
         if (dual_iso_picstyle && enabled_ph && iso1 != iso2)
         {
             if (old_picstyle == -1)
             {
-                int new_picstyle = dual_iso_picstyle == 1 ? 0x86   /* monochrome */
-                                                          : 0x21 ; /* user defined 1 */
-                
-                if (new_picstyle != (int)lens_info.picstyle)
+                if (current_picstyle != new_picstyle)
                 {
                     old_picstyle = lens_info.picstyle;
                     lens_wait_readytotakepic(64);
@@ -661,9 +663,13 @@ static unsigned int dual_iso_refresh(unsigned int ctx)
         {
             if (old_picstyle != -1)
             {
-                old_picstyle = get_prop_picstyle_from_index(old_picstyle);
-                lens_wait_readytotakepic(64);
-                prop_request_change(PROP_PICTURE_STYLE, &old_picstyle, 4);
+                if (current_picstyle == new_picstyle)
+                {
+                    /* only restore if user did not change the picture style meanwhile */
+                    lens_wait_readytotakepic(64);
+                    int restored_picstyle = get_prop_picstyle_from_index(old_picstyle);
+                    prop_request_change(PROP_PICTURE_STYLE, &restored_picstyle, 4);
+                }
                 old_picstyle = -1;
             }
         }
@@ -1463,6 +1469,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(dual_iso_alternate)
     MODULE_CONFIG(dual_iso_file_prefix)
     MODULE_CONFIG(dual_iso_picstyle)
+    MODULE_CONFIG(old_picstyle)
     MODULE_CONFIG(dual_iso_ev_threshold)
     MODULE_CONFIG(preferred_iso)
 MODULE_CONFIGS_END()
