@@ -156,7 +156,7 @@ static int dual_iso_relative_delta_ev_auto()
             /* same as before, but only for negative EC */
             return ec < 0 ? (ABS(ec) * 2 + EXPO_1_3_STOP) / EXPO_FULL_STOP : 0;
 
-        default:        
+        default:
             return 0;
     }
 }
@@ -171,7 +171,7 @@ static int dual_iso_relative_delta_ev()
     else
     {
         /* Fixed delta, relative to Canon ISO (should match the menu) */
-        return dual_iso_recovery_iso < -6 ? dual_iso_recovery_iso + 5 : dual_iso_recovery_iso + 8;
+        return dual_iso_recovery_iso < -5 ? dual_iso_recovery_iso + 4 : dual_iso_recovery_iso + 7;
     }
 }
 
