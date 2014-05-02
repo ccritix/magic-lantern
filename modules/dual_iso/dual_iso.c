@@ -683,7 +683,137 @@ int dual_iso_set_recovery_iso(int iso)
     return 1;
 }
 
-static unsigned int dual_iso_playback_fix(unsigned int ctx)
+/* Nx1 box blur on the YUV LV buffer */
+static void FAST yuv_vertical_box_blur(uint8_t* dst, uint8_t* src, int N)
+{
+    int x1 = BM2LV_X(os.x0);
+    int x2 = BM2LV_X(os.x_max);
+    int y1 = BM2LV_Y(os.y0);
+    int y2 = BM2LV_Y(os.y_max);
+    int pitch = vram_lv.pitch;
+    
+    /* copy border lines */ 
+    memcpy(dst+y1*pitch, src+y1*pitch, 2*pitch);
+    memcpy(dst+(y2-2)*pitch, src+(y2-2)*pitch, 2*pitch);
+    
+    /* filter the others */
+    for(int y = y1+2; y < y2-2; y++)
+    {
+        uint8_t* luma_dst   = &dst[y * pitch + 1];
+        int8_t*  chroma_dst = (int8_t*) &dst[y * pitch];
+        uint8_t* luma_src   = &src[y * pitch + 1];
+        int8_t*  chroma_src = (int8_t*) &src[y * pitch];
+        
+        switch (N)
+        {
+            case 2:
+                for (int x = x1; x < x2; x++)
+                {
+                    {
+                        int p1 = luma_src[2*x -   pitch];
+                        int p2 = luma_src[2*x          ];
+                        luma_dst[2*x] = (p1 + p2) / 2;
+                    }
+                    {
+                        int p1 = chroma_src[2*x -   pitch];
+                        int p2 = chroma_src[2*x          ];
+                        chroma_dst[2*x] = (p1 + p2) / 2;
+                    }
+                }
+                break;
+            case 3:
+                for (int x = x1; x < x2; x++)
+                {
+                    {
+                        int p1 = luma_src[2*x -   pitch];
+                        int p2 = luma_src[2*x          ];
+                        int p3 = luma_src[2*x +   pitch];
+                        luma_dst[2*x] = (p1 + p2 + p3) / 3;
+                    }
+                    {
+                        int p1 = chroma_src[2*x -   pitch];
+                        int p2 = chroma_src[2*x          ];
+                        int p3 = chroma_src[2*x +   pitch];
+                        chroma_dst[2*x] = (p1 + p2 + p3) / 3;
+                    }
+                }
+                break;
+            case 4:
+            {
+                for (int x = x1; x < x2; x++)
+                {
+                    {
+                        int p1 = luma_src[2*x - 2*pitch];
+                        int p2 = luma_src[2*x -   pitch];
+                        int p3 = luma_src[2*x          ];
+                        int p4 = luma_src[2*x +   pitch];
+                        luma_dst[2*x] = (p1 + p2 + p3 + p4) / 4;
+                    }
+                    {
+                        int p1 = chroma_src[2*x - 2*pitch];
+                        int p2 = chroma_src[2*x -   pitch];
+                        int p3 = chroma_src[2*x          ];
+                        int p4 = chroma_src[2*x +   pitch];
+                        chroma_dst[2*x] = (p1 + p2 + p3 + p4) / 4;
+                    }
+                }
+                break;
+            }
+            case 5:
+            {
+                for (int x = x1; x < x2; x++)
+                {
+                    {
+                        int p1 = luma_src[2*x - 2*pitch];
+                        int p2 = luma_src[2*x -   pitch];
+                        int p3 = luma_src[2*x          ];
+                        int p4 = luma_src[2*x +   pitch];
+                        int p5 = luma_src[2*x + 2*pitch];
+                        luma_dst[2*x] = (p1 + p2 + p3 + p4 + p5) / 5;
+                    }
+                    {
+                        int p1 = chroma_src[2*x - 2*pitch];
+                        int p2 = chroma_src[2*x -   pitch];
+                        int p3 = chroma_src[2*x          ];
+                        int p4 = chroma_src[2*x +   pitch];
+                        int p5 = chroma_src[2*x + 2*pitch];
+                        chroma_dst[2*x] = (p1 + p2 + p3 + p4 + p5) / 5;
+                    }
+                }
+                break;
+            }
+        }
+    }
+}
+
+/* filter applied: [0;1;0] + [-1;2;-1] * intensity, on luma */
+static void FAST yuv_vertical_sharpen(uint8_t* dst, uint8_t* src, int intensity)
+{
+    int x1 = BM2LV_X(os.x0);
+    int x2 = BM2LV_X(os.x_max);
+    int y1 = BM2LV_Y(os.y0);
+    int y2 = BM2LV_Y(os.y_max);
+    int pitch = vram_lv.pitch;
+    
+    int f0 = 1 + 2 * intensity;
+    int f1 = -intensity;
+    
+    for(int y = y1+5; y < y2-5; y++)
+    {
+        uint8_t* luma_dst   = &dst[y * pitch + 1];
+        uint8_t* luma_src   = &src[y * pitch + 1];
+        
+        for (int x = x1; x < x2; x++)
+        {
+            int p1 = luma_src[2*x -   pitch];
+            int p2 = luma_src[2*x          ];
+            int p3 = luma_src[2*x +   pitch];
+            luma_dst[2*x] = COERCE(p1 * f1 + p2 * f0 + p3 * f1, 0, 255);
+        }
+    }
+}
+
+static unsigned int FAST dual_iso_playback_fix(unsigned int ctx)
 {
     if (is_7d || is_1100d)
         return 0; /* seems to cause problems, figure out why */
@@ -697,15 +827,12 @@ static unsigned int dual_iso_playback_fix(unsigned int ctx)
 
     uint32_t* lv = (uint32_t*)get_yuv422_vram()->vram;
     if (!lv) return 0;
+    if (*lv == 0xC0FFEFEE) return 0;
 
     /* try to guess the period of alternating lines */
     int avg[5];
     int best_score = 0;
     int period = 0;
-    int max_i = 0;
-    int min_i = 0;
-    int max_b = 0;
-    int min_b = 0;
     for (int rep = 2; rep <= 5; rep++)
     {
         /* compute average brightness for each line group */
@@ -713,9 +840,9 @@ static unsigned int dual_iso_playback_fix(unsigned int ctx)
             avg[i] = 0;
         
         int num = 0;
-        for(int y = os.y0; y < os.y_max; y ++ )
+        for(int y = os.y0+2; y < os.y_max-2; y ++ )
         {
-            for (int x = os.x0; x < os.x_max; x += 32)
+            for (int x = os.x0; x < os.x_max; x += 16)
             {
                 uint32_t uyvy = lv[BM2LV(x,y)/4];
                 int luma = (((((uyvy) >> 24) & 0xFF) + (((uyvy) >> 8) & 0xFF)) >> 1);
@@ -727,20 +854,16 @@ static unsigned int dual_iso_playback_fix(unsigned int ctx)
         /* choose the group with max contrast */
         int min = INT_MAX;
         int max = INT_MIN;
-        int mini = 0;
-        int maxi = 0;
         for (int i = 0; i < rep; i++)
         {
             avg[i] = avg[i] * rep / num;
             if (avg[i] < min)
             {
                 min = avg[i];
-                mini = i;
             }
             if (avg[i] > max)
             {
                 max = avg[i];
-                maxi = i;
             }
         }
 
@@ -749,39 +872,34 @@ static unsigned int dual_iso_playback_fix(unsigned int ctx)
         {
             period = rep;
             best_score = score;
-            min_i = mini;
-            max_i = maxi;
-            max_b = max;
-            min_b = min;
         }
     }
-    
+
+    bmp_printf(FONT_SMALL, 0, 0, "%d %d ", period, best_score);
+
     if (best_score < 5)
         return 0;
 
-    /* alternate between bright and dark exposures */
-    static int show_bright = 0;
-    show_bright = !show_bright;
+    uint8_t* tmp = malloc(vram_lv.width * vram_lv.height * 2);
+    if (!tmp) return 0;
+
+    bmp_printf(FONT_SMALL, 0, 0, "%d %d ok ", period, best_score);
+
+    /* apply a Nx1 box blur twice to remove the interlacing (N = the guessed period) */
+    yuv_vertical_box_blur((void*)tmp, (void*)lv, period);
+    yuv_vertical_box_blur((void*)lv, (void*)tmp, period);
     
-    /* one exposure too bright or too dark? no point in showing it */
-    int forced = 0;
-    if (min_b < 10)
-        show_bright = 1, forced = 1;
-    if (max_b > 245)
-        show_bright = 0, forced = 1;
-
-    bmp_printf(FONT_MED, 0, 0, "%s%s", show_bright ? "Bright" : "Dark", forced ? " only" : "");
-
-    /* only keep one line from each group (not optimal for resolution, but doesn't have banding) */
-    for(int y = os.y0; y < os.y_max; y ++ )
-    {
-        uint32_t* bright = &(lv[BM2LV_R(y)/4]);
-        int dark_y = y/period*period + (show_bright ? max_i : min_i);
-        if (dark_y < 0) continue;
-        if (y == dark_y) continue;
-        uint32_t* dark = &(lv[BM2LV_R(dark_y)/4]);
-        memcpy(bright, dark, vram_lv.pitch);
-    }
+    //~ msleep(1000);
+    
+    /* apply a 3x1 Laplacian sharpen to bring back some details */
+    yuv_vertical_sharpen((void*)tmp, (void*)lv, 4);
+    memcpy(lv, tmp, vram_lv.width * vram_lv.height * 2);
+    
+    free(tmp);
+    
+    /* mark this buffer as "processed" to save CPU cycles and avoid false detections */
+    *lv = 0xC0FFEFEE;
+    
     return 0;
 }
 
