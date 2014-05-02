@@ -875,21 +875,15 @@ static unsigned int FAST dual_iso_playback_fix(unsigned int ctx)
         }
     }
 
-    bmp_printf(FONT_SMALL, 0, 0, "%d %d ", period, best_score);
-
     if (best_score < 5)
         return 0;
 
     uint8_t* tmp = malloc(vram_lv.width * vram_lv.height * 2);
     if (!tmp) return 0;
 
-    bmp_printf(FONT_SMALL, 0, 0, "%d %d ok ", period, best_score);
-
     /* apply a Nx1 box blur twice to remove the interlacing (N = the guessed period) */
     yuv_vertical_box_blur((void*)tmp, (void*)lv, period);
     yuv_vertical_box_blur((void*)lv, (void*)tmp, period);
-    
-    //~ msleep(1000);
     
     /* apply a 3x1 Laplacian sharpen to bring back some details */
     yuv_vertical_sharpen((void*)tmp, (void*)lv, 4);
