@@ -146,6 +146,9 @@ CONFIG_TINYPY       = n
 # so, for now, we'll just hack the source code to work around the limitations of the emulator
 CONFIG_QEMU         = n
 
+# Work in progress - load ML as position-independent code (PIC)
+CONFIG_PIC          = n
+
 # Intercept all DebugMsg's
 CONFIG_DEBUG_INTERCEPT = n
 CONFIG_DEBUG_INTERCEPT_STARTUP = n
