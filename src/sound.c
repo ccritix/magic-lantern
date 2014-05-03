@@ -5,7 +5,6 @@
 #include <math.h>
 #include <float.h>
 #include <string.h>
-#include <console.h>
 #include <module.h>
 
 #include "sound.h"
@@ -90,7 +89,7 @@ static void sound_asif_stop_cbr(uint32_t priv)
     ctx->device->state = SOUND_STATE_CLEANUP;
 }
 
-/* called whenever a audio black has been trasferred */
+/* called whenever a audio black has been transferred */
 static void sound_asif_cbr(uint32_t priv)
 {
     struct sound_ctx *ctx = sound_device.current_ctx;
@@ -103,7 +102,6 @@ static void sound_asif_cbr(uint32_t priv)
         /* these are unexpected */
         case SOUND_STATE_IDLE:
         case SOUND_STATE_CLEANUP:
-            console_printf("state: %d - UNEXPECTED CALL", dev->state);
             break;
 
         case SOUND_STATE_STARTED:
@@ -116,7 +114,6 @@ static void sound_asif_cbr(uint32_t priv)
 
             msg_queue_count(ctx->buffer_queue, &msg_count);     
             trace_write(sound_trace_ctx, "sound_asif_cbr: have %d msgs", msg_count);
-
 
             /* if there is no new buffer to fill/play, requeue the current one */
             if((msg_count == 0) || (msg_queue_receive(ctx->buffer_queue, &next_buffer, 50)))
@@ -133,6 +130,7 @@ static void sound_asif_cbr(uint32_t priv)
                 trace_write(sound_trace_ctx, "sound_asif_cbr: processed");
             }
 
+            /* forget about filled/played buffer, set current and next ones */
             dev->current_buffer = dev->next_buffer;
             dev->next_buffer = next_buffer;
             
@@ -219,7 +217,6 @@ static enum sound_result sound_check_ctx (struct sound_ctx *ctx)
     return SOUND_RESULT_OK;
 }
 
-
 enum sound_state sound_get_state (struct sound_ctx *ctx)
 {
     /* our context isnt the one that uses the device */
@@ -231,18 +228,17 @@ enum sound_state sound_get_state (struct sound_ctx *ctx)
     return ctx->device->state;
 }
 
-
 static void sound_set_mixer(struct sound_ctx *ctx)
 {
     struct sound_mixer mixer = ctx->mixer;
     struct sound_mixer prev_mixer = ctx->device->mixer_current;
     
-    /* plan: 
-        get sound_ctx.mixer and place in sound_dev.mixer_current.
+    /*  get sound_ctx.mixer and place in sound_dev.mixer_current.
         replace all default settings of sound_ctx with sound_dev.mixer_defaults values.
     */
     sound_mixer_merge(&ctx->device->mixer_current, &ctx->device->mixer_defaults, &mixer);
 
+    /* settings merged, apply now */
     ctx->device->codec_ops.apply_mixer(&prev_mixer, &ctx->device->mixer_current);
 }
 
@@ -262,13 +258,14 @@ static void sound_try_start(struct sound_ctx *ctx)
 {
     trace_write(sound_trace_ctx, "sound_try_start: enter");
     
-    /* audio wasnt started yet, but now we have enough data to start */
+    /* audio wasnt started yet, check if we have enough data to start */
     if(ctx->device->state == SOUND_STATE_STARTED)
     {
         uint32_t msg_count = 0;
         
         msg_queue_count(ctx->buffer_queue, &msg_count);
         
+        /* two buffers are okay, so lets start */
         if(msg_count >= 2)
         {
             struct sound_buffer *buffer_1;
@@ -480,7 +477,6 @@ static enum sound_result sound_op_enqueue (struct sound_ctx *ctx, struct sound_b
 
 static enum sound_result sound_op_flush (struct sound_ctx *ctx)
 {
-    //console_printf("sound_op_flush()\n");
     if(sound_check_ctx(ctx) != SOUND_RESULT_OK)
     {
         return SOUND_RESULT_ERROR;
@@ -503,7 +499,6 @@ static enum sound_result sound_op_flush (struct sound_ctx *ctx)
 
 static enum sound_result sound_op_pause (struct sound_ctx *ctx)
 {
-    //console_printf("sound_op_pause()\n");
     if(sound_check_ctx(ctx) != SOUND_RESULT_OK)
     {
         return SOUND_RESULT_ERROR;
@@ -602,7 +597,6 @@ struct sound_ctx *sound_alloc()
     /* mixer settings to default */
     ctx->mixer = default_mixer_options;
 
-
     return ctx;
 }
 
@@ -613,7 +607,6 @@ void sound_free(struct sound_ctx *ctx)
     
     /* ToDo: delete message queue */
     free(ctx);
-
 }
 
 void sound_free_buffer(struct sound_buffer *buffer)
