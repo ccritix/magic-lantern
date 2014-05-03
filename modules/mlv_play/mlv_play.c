@@ -35,6 +35,8 @@
 #include <zebra.h>
 #include <util.h>
 
+#include <string.h>
+
 #include "../ime_base/ime_base.h"
 #include "../trace/trace.h"
 #include "../mlv_rec/mlv.h"
@@ -47,7 +49,6 @@
 /* icon from: http://www.softicons.com/free-icons/system-icons/touch-of-gold-icons-by-skingcito/video-black-icon */
 EXTLD(video_bmp);
 
-char *strncpy(char *dest, const char *src, size_t n);
 
 /* only works if the raw_rec/mlv_rec module has its config variable non-static */
 static int video_enabled_dummy = 0;
@@ -144,33 +145,26 @@ static char mlv_play_current_filename[MAX_PATH];
 static playlist_entry_t mlv_playlist_next(playlist_entry_t current);
 static playlist_entry_t mlv_playlist_prev(playlist_entry_t current);
 static void mlv_playlist_delete(playlist_entry_t current);
-static void mlv_build_playlist(uint32_t priv);
+static void mlv_playlist_build(uint32_t priv);
 
-static uint32_t FIO_SeekFileWrapper(FILE* stream, size_t position, int whence)
+/* as soon all cameras provide FIO_SeekSkipFile, we can remove that temporary code */
+static uint64_t FIO_SeekSkipFile_emulate(FILE* stream, uint64_t position, int whence)
 {
-    uint32_t maxOffset = 0x7FFFFFFF;
+    const uint32_t maxOffset = 0x7FFFFFFF;
     
-    /* the OS routine only accepts signed integers as position, so work around to position absolutely up to 4 GiB */
+    /* the OS routine FIO_SeekFile only accepts signed integers as position, so work around to position absolutely */
     if(whence == SEEK_SET && position > maxOffset)
     {
-        uint32_t delta = (uint32_t)position - maxOffset;
-        FIO_SeekFile(stream, maxOffset, SEEK_SET);
-        return FIO_SeekFile(stream, delta, SEEK_CUR);
+        FIO_SeekFile(stream, 0, SEEK_SET);
+        
+        while(position > maxOffset)
+        {
+            FIO_SeekFile(stream, maxOffset, SEEK_CUR);
+            position -= maxOffset;
+        }
+        return FIO_SeekFile(stream, (uint32_t)position, SEEK_CUR);
     }
-    return FIO_SeekFile(stream, position, whence);
-}
-
-static char *strdup(const char *s)
-{
-    char *ret = malloc(strlen(s) + 1);
-    strcpy(ret, s);
-    
-    return ret;
-}
-
-static char *strcat(char *dest, const char *src)
-{
-    return strcpy(&dest[strlen(dest)], src);
+    return FIO_SeekFile(stream, (uint32_t)position, whence);
 }
 
 static void mlv_play_next()
@@ -264,7 +258,7 @@ static void mlv_play_show_dlg(uint32_t duration, char *string)
     bmp_fill(COLOR_EMPTY, pos_x, pos_y, width, height);
 }
 
-static void mlv_del_task(char *parm)
+static void mlv_play_del_task(char *parm)
 {
     uint32_t size = 0;
     uint32_t loops = 0;
@@ -391,7 +385,7 @@ static void mlv_play_delete()
     
     char *msg = strdup(current.fullPath);
     
-    task_create("mlv_del_task", 0x1e, 0x800, mlv_del_task, (void*)msg);
+    task_create("mlv_play_del_task", 0x1e, 0x800, mlv_play_del_task, (void*)msg);
     mlv_play_show_dlg(1000, "Deleting...");
 }
 
@@ -757,7 +751,7 @@ static void mlv_play_osd_task(void *priv)
 }
 
 
-static void xref_resize(frame_xref_t **table, uint32_t entries, uint32_t *allocated)
+static void mlv_play_xref_resize(frame_xref_t **table, uint32_t entries, uint32_t *allocated)
 {
     /* make sure there is no crappy pointer before using */
     if(*allocated == 0)
@@ -773,7 +767,7 @@ static void xref_resize(frame_xref_t **table, uint32_t entries, uint32_t *alloca
     }
 }
 
-static void xref_sort(frame_xref_t *table, uint32_t entries)
+static void mlv_play_xref_sort(frame_xref_t *table, uint32_t entries)
 {
     uint32_t n = entries;
     do
@@ -793,7 +787,7 @@ static void xref_sort(frame_xref_t *table, uint32_t entries)
     } while (n > 1);
 }
 
-static mlv_xref_hdr_t *load_index(char *base_filename)
+static mlv_xref_hdr_t *mlv_play_load_index(char *base_filename)
 {
     mlv_xref_hdr_t *block_hdr = NULL;
     char filename[128];
@@ -814,7 +808,7 @@ static mlv_xref_hdr_t *load_index(char *base_filename)
         mlv_hdr_t buf;
         uint32_t position = 0;
         
-        position = FIO_SeekFileWrapper(in_file, 0, SEEK_CUR);
+        position = FIO_SeekSkipFile_emulate(in_file, 0, SEEK_CUR);
         
         if(FIO_ReadFile(in_file, &buf, sizeof(mlv_hdr_t)) != sizeof(mlv_hdr_t))
         {
@@ -822,9 +816,9 @@ static mlv_xref_hdr_t *load_index(char *base_filename)
         }
         
         /* jump back to the beginning of the block just read */
-        FIO_SeekFileWrapper(in_file, position, SEEK_SET);
+        FIO_SeekSkipFile_emulate(in_file, position, SEEK_SET);
 
-        position = FIO_SeekFileWrapper(in_file, 0, SEEK_CUR);
+        position = FIO_SeekSkipFile_emulate(in_file, 0, SEEK_CUR);
         
         /* we should check the MLVI header for matching UID value to make sure its the right index... */
         if(!memcmp(buf.blockType, "XREF", 4))
@@ -839,11 +833,11 @@ static mlv_xref_hdr_t *load_index(char *base_filename)
         }
         else
         {
-            FIO_SeekFileWrapper(in_file, position + buf.blockSize, SEEK_SET);
+            FIO_SeekSkipFile_emulate(in_file, position + buf.blockSize, SEEK_SET);
         }
         
         /* we are at the same position as before, so abort */
-        if(position == FIO_SeekFileWrapper(in_file, 0, SEEK_CUR))
+        if(position == FIO_SeekSkipFile_emulate(in_file, 0, SEEK_CUR))
         {
             break;
         }
@@ -854,7 +848,7 @@ static mlv_xref_hdr_t *load_index(char *base_filename)
     return block_hdr;
 }
 
-static void save_index(char *base_filename, mlv_file_hdr_t *ref_file_hdr, int fileCount, frame_xref_t *index, int entries)
+static void mlv_play_save_index(char *base_filename, mlv_file_hdr_t *ref_file_hdr, int fileCount, frame_xref_t *index, int entries)
 {
     char filename[128];
     FILE *out_file = NULL;
@@ -926,7 +920,7 @@ static void save_index(char *base_filename, mlv_file_hdr_t *ref_file_hdr, int fi
     FIO_CloseFile(out_file);
 }
 
-static void build_index(char *filename, FILE **chunk_files, uint32_t chunk_count)
+static void mlv_play_build_index(char *filename, FILE **chunk_files, uint32_t chunk_count)
 {
     frame_xref_t *frame_xref_table = NULL;
     uint32_t frame_xref_entries = 0;
@@ -936,9 +930,13 @@ static void build_index(char *filename, FILE **chunk_files, uint32_t chunk_count
     for(uint32_t chunk = 0; chunk < chunk_count; chunk++)
     {
         uint32_t last_pct = 0;
-        uint32_t size = FIO_SeekFileWrapper(chunk_files[chunk], 0, SEEK_END);
+        uint64_t size = 0;
+        uint64_t position = 0;
         
-        FIO_SeekFileWrapper(chunk_files[chunk], 0, SEEK_SET);
+        FIO_SeekSkipFile_emulate(chunk_files[chunk], 0, SEEK_END);
+        size = FIO_SeekSkipFile_emulate(chunk_files[chunk], 0, SEEK_CUR);
+        FIO_SeekSkipFile_emulate(chunk_files[chunk], 0, SEEK_SET);
+        
         mlv_play_progressbar(0, "");
         
         while(1)
@@ -950,7 +948,6 @@ static void build_index(char *filename, FILE **chunk_files, uint32_t chunk_count
             
             mlv_hdr_t buf;
             uint64_t timestamp = 0;
-            uint32_t position = FIO_SeekFileWrapper(chunk_files[chunk], 0, SEEK_CUR);
             
             uint32_t pct = ((position / 10) / (size / 1000));
             
@@ -995,7 +992,7 @@ static void build_index(char *filename, FILE **chunk_files, uint32_t chunk_count
                 mlv_file_hdr_t file_hdr;
                 uint32_t hdr_size = MIN(sizeof(mlv_file_hdr_t), buf.blockSize);
                 
-                FIO_SeekFileWrapper(chunk_files[chunk], position, SEEK_SET);
+                FIO_SeekSkipFile_emulate(chunk_files[chunk], position, SEEK_SET);
                 
                 /* read the whole header block, but limit size to either our local type size or the written block size */
                 if(FIO_ReadFile(chunk_files[chunk], &file_hdr, hdr_size) != (int32_t)hdr_size)
@@ -1035,7 +1032,7 @@ static void build_index(char *filename, FILE **chunk_files, uint32_t chunk_count
             /* dont index NULL blocks */
             if(memcmp(buf.blockType, "NULL", 4))
             {
-                xref_resize(&frame_xref_table, frame_xref_entries + 1, &frame_xref_allocated);
+                mlv_play_xref_resize(&frame_xref_table, frame_xref_entries + 1, &frame_xref_allocated);
                 
                 /* add xref data */
                 frame_xref_table[frame_xref_entries].frameTime = timestamp;
@@ -1045,19 +1042,20 @@ static void build_index(char *filename, FILE **chunk_files, uint32_t chunk_count
                 frame_xref_entries++;
             }
             
-            FIO_SeekFileWrapper(chunk_files[chunk], position + buf.blockSize, SEEK_SET);
+            position += buf.blockSize;
+            FIO_SeekSkipFile_emulate(chunk_files[chunk], position, SEEK_SET);
         }
     }
     
-    xref_sort(frame_xref_table, frame_xref_entries);
-    save_index(filename, &main_header, chunk_count, frame_xref_table, frame_xref_entries);
+    mlv_play_xref_sort(frame_xref_table, frame_xref_entries);
+    mlv_play_save_index(filename, &main_header, chunk_count, frame_xref_table, frame_xref_entries);
 }
 
 static mlv_xref_hdr_t *mlv_play_get_index(char *filename, FILE **chunk_files, uint32_t chunk_count)
 {
     mlv_xref_hdr_t *table = NULL;
     
-    table = load_index(filename);
+    table = mlv_play_load_index(filename);
     if(table)
     {
         return table;
@@ -1065,9 +1063,9 @@ static mlv_xref_hdr_t *mlv_play_get_index(char *filename, FILE **chunk_files, ui
     
     bmp_printf(FONT_LARGE, 30, 100, "Preparing:", filename);
     bmp_printf(FONT_MED, 40, 100 + font_large.height + 1, filename);
-    build_index(filename, chunk_files, chunk_count);
+    mlv_play_build_index(filename, chunk_files, chunk_count);
     
-    return load_index(filename);
+    return mlv_play_load_index(filename);
 }
 
 static unsigned int mlv_play_is_raw(FILE *f)
@@ -1075,10 +1073,10 @@ static unsigned int mlv_play_is_raw(FILE *f)
     lv_rec_file_footer_t footer;
 
     /* get current position in file, seek to footer, read and go back where we were */
-    unsigned int old_pos = FIO_SeekFileWrapper(f, 0, 1);
-    FIO_SeekFileWrapper(f, -sizeof(lv_rec_file_footer_t), SEEK_END);
+    unsigned int old_pos = FIO_SeekSkipFile_emulate(f, 0, 1);
+    FIO_SeekSkipFile_emulate(f, -sizeof(lv_rec_file_footer_t), SEEK_END);
     int read = FIO_ReadFile(f, &footer, sizeof(lv_rec_file_footer_t));
-    FIO_SeekFileWrapper(f, old_pos, SEEK_SET);
+    FIO_SeekSkipFile_emulate(f, old_pos, SEEK_SET);
 
     /* check if the footer was read */
     if(read != sizeof(lv_rec_file_footer_t))
@@ -1100,10 +1098,10 @@ static unsigned int mlv_play_is_mlv(FILE *f)
     mlv_file_hdr_t header;
 
     /* get current position in file, seek to footer, read and go back where we were */
-    unsigned int old_pos = FIO_SeekFileWrapper(f, 0, 1);
-    FIO_SeekFileWrapper(f, 0, SEEK_SET);
+    unsigned int old_pos = FIO_SeekSkipFile_emulate(f, 0, 1);
+    FIO_SeekSkipFile_emulate(f, 0, SEEK_SET);
     int read = FIO_ReadFile(f, &header, sizeof(mlv_file_hdr_t));
-    FIO_SeekFileWrapper(f, old_pos, SEEK_SET);
+    FIO_SeekSkipFile_emulate(f, old_pos, SEEK_SET);
 
     /* check if the footer was read */
     if(read != sizeof(mlv_file_hdr_t))
@@ -1120,15 +1118,15 @@ static unsigned int mlv_play_is_mlv(FILE *f)
     return 1;
 }
 
-static unsigned int lv_rec_read_footer(FILE *f)
+static unsigned int mlv_play_read_footer(FILE *f)
 {
     lv_rec_file_footer_t footer;
 
     /* get current position in file, seek to footer, read and go back where we were */
-    unsigned int old_pos = FIO_SeekFileWrapper(f, 0, 1);
-    FIO_SeekFileWrapper(f, -sizeof(lv_rec_file_footer_t), SEEK_END);
+    unsigned int old_pos = FIO_SeekSkipFile_emulate(f, 0, 1);
+    FIO_SeekSkipFile_emulate(f, -sizeof(lv_rec_file_footer_t), SEEK_END);
     int read = FIO_ReadFile(f, &footer, sizeof(lv_rec_file_footer_t));
-    FIO_SeekFileWrapper(f, old_pos, SEEK_SET);
+    FIO_SeekSkipFile_emulate(f, old_pos, SEEK_SET);
 
     /* check if the footer was read */
     if(read != sizeof(lv_rec_file_footer_t))
@@ -1159,7 +1157,7 @@ static unsigned int lv_rec_read_footer(FILE *f)
 }
 
 
-static FILE **load_all_chunks(char *base_filename, uint32_t *entries)
+static FILE **mlv_play_load_chunks(char *base_filename, uint32_t *entries)
 {
     uint32_t seq_number = 0;
     char filename[128];
@@ -1212,11 +1210,11 @@ static FILE **load_all_chunks(char *base_filename, uint32_t *entries)
     return files;
 }
 
-static void close_all_chunks(FILE **chunk_files, uint32_t chunk_count)
+static void mlv_play_close_chunks(FILE **chunk_files, uint32_t chunk_count)
 {
     if(!chunk_files || !chunk_count || chunk_count > 100)
     {
-        bmp_printf(FONT_MED, 30, 400, "close_all_chunks(): faulty parameters");
+        bmp_printf(FONT_MED, 30, 400, "mlv_play_close_chunks(): faulty parameters");
         beep();
         return;
     }
@@ -1400,7 +1398,7 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
         
         /* get the file and position of the next block */
         uint32_t in_file_num = xrefs[block_xref_pos].fileNumber;
-        uint32_t position = xrefs[block_xref_pos].frameOffset;
+        uint64_t position = xrefs[block_xref_pos].frameOffset;
         
         /* select file and seek to the right position */
         FILE *in_file = chunk_files[in_file_num];
@@ -1408,7 +1406,7 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
         /* use the common header structure to get file size */
         mlv_hdr_t buf;
         
-        FIO_SeekFileWrapper(in_file, position, SEEK_SET);
+        FIO_SeekSkipFile_emulate(in_file, position, SEEK_SET);
         if(FIO_ReadFile(in_file, &buf, sizeof(mlv_hdr_t)) != sizeof(mlv_hdr_t))
         {
             bmp_printf(FONT_MED, 30, 190, "File ends prematurely during block header");
@@ -1416,7 +1414,7 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
             msleep(1000);
             break;
         }
-        FIO_SeekFileWrapper(in_file, position, SEEK_SET);
+        FIO_SeekSkipFile_emulate(in_file, position, SEEK_SET);
         
         /* special case: if first block read, reset frame count as all MLVI blocks frame count will get accumulated */
         if(block_xref_pos == 0)
@@ -1549,7 +1547,7 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
             }
             
             /* skip frame space */
-            FIO_SeekFileWrapper(in_file, position + sizeof(mlv_vidf_hdr_t) + vidf_block.frameSpace, SEEK_SET);
+            FIO_SeekSkipFile_emulate(in_file, position + sizeof(mlv_vidf_hdr_t) + vidf_block.frameSpace, SEEK_SET);
 
             /* finally read the raw data */
             if(FIO_ReadFile(in_file, buffer->frameBuffer, buffer->frameSize) != (int32_t)buffer->frameSize)
@@ -1612,7 +1610,7 @@ static void mlv_play_raw(char *filename, FILE **chunk_files, uint32_t chunk_coun
         bmp_printf(FONT_MED, 40, 100 + font_large.height + 1, filename);
         return;
     }
-    lv_rec_read_footer(chunk_files[chunk_count-1]);
+    mlv_play_read_footer(chunk_files[chunk_count-1]);
     
     /* update OSD */
     msg_queue_post(mlv_play_queue_osd, (uint32_t) 0);
@@ -1753,7 +1751,7 @@ static void mlv_play_set_mode(int32_t mode)
 }
 
 
-static void mlv_build_playlist_path(char *directory)
+static void mlv_playlist_build_path(char *directory)
 {
     struct fio_file file;
     struct fio_dirent * dirent = NULL;
@@ -1805,7 +1803,7 @@ static void mlv_build_playlist_path(char *directory)
     free(full_path);
 }
 
-static void mlv_free_playlist()
+static void mlv_playlist_free()
 {
     /* clear the playlist */
     mlv_playlist_entries = 0;
@@ -1827,12 +1825,12 @@ static void mlv_free_playlist()
     }
 }
 
-static void mlv_build_playlist(uint32_t priv)
+static void mlv_playlist_build(uint32_t priv)
 {
     playlist_entry_t *entry = NULL;
     
     /* clear the playlist */
-    mlv_free_playlist();
+    mlv_playlist_free();
     
     /* set up initial directories to scan. try to not recurse, but use scan and result queues */
     msg_queue_post(mlv_playlist_scan_queue, (uint32_t) strdup("A:/"));
@@ -1841,7 +1839,7 @@ static void mlv_build_playlist(uint32_t priv)
     char *directory = NULL;
     while(!msg_queue_receive(mlv_playlist_scan_queue, &directory, 50))
     {
-        mlv_build_playlist_path(directory);
+        mlv_playlist_build_path(directory);
         free(directory);
     }
     
@@ -1917,7 +1915,7 @@ static playlist_entry_t mlv_playlist_prev(playlist_entry_t current)
     return ret;
 }
 
-static void mlv_leave_playback()
+static void mlv_play_leave_playback()
 {
     mlv_play_render_abort = 1;
     
@@ -1949,7 +1947,7 @@ static void mlv_leave_playback()
     mlv_play_set_mode(0);
 }
 
-static void mlv_enter_playback()
+static void mlv_play_enter_playback()
 {
     /* prepare display */
     mlv_play_set_mode(1);
@@ -1997,7 +1995,7 @@ static void mlv_play_task(void *priv)
     /* if called with NULL, play first file found when building playlist */
     if(!filename)
     {
-        mlv_build_playlist(0);
+        mlv_playlist_build(0);
         
         if(mlv_playlist_entries <= 0)
         {
@@ -2006,7 +2004,7 @@ static void mlv_play_task(void *priv)
         }
         
         strncpy(mlv_play_current_filename, mlv_playlist[0].fullPath, sizeof(mlv_play_current_filename));
-        mlv_free_playlist();
+        mlv_playlist_free();
     }
     else
     {
@@ -2023,9 +2021,9 @@ static void mlv_play_task(void *priv)
     }
     
     /* create playlist in background to minimize delays */
-    task_create("mlv_build_playlist", 0x1e, 0x1000, mlv_build_playlist, NULL);
+    task_create("mlv_playlist_build", 0x1e, 0x1000, mlv_playlist_build, NULL);
     
-    mlv_enter_playback();
+    mlv_play_enter_playback();
     
     do
     {
@@ -2037,7 +2035,7 @@ static void mlv_play_task(void *priv)
         strcpy(mlv_play_next_filename, "");
         
         /* open all chunks of that movie file */
-        chunk_files = load_all_chunks(mlv_play_current_filename, &chunk_count);
+        chunk_files = mlv_play_load_chunks(mlv_play_current_filename, &chunk_count);
 
         if(!chunk_files || !chunk_count)
         {
@@ -2052,7 +2050,7 @@ static void mlv_play_task(void *priv)
         
         /* ok now start real playback routines */
         mlv_play(mlv_play_current_filename, chunk_files, chunk_count);
-        close_all_chunks(chunk_files, chunk_count);
+        mlv_play_close_chunks(chunk_files, chunk_count);
         
         /* playback finished. wait until... hmm.. something happens */
         while(!strlen(mlv_play_next_filename) && !mlv_play_should_stop())
@@ -2064,8 +2062,8 @@ static void mlv_play_task(void *priv)
     } while(1);
     
 cleanup:
-    mlv_free_playlist();
-    mlv_leave_playback();
+    mlv_playlist_free();
+    mlv_play_leave_playback();
 }
 
 
