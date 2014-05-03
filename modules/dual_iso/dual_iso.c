@@ -2,7 +2,7 @@
  * Dual ISO trick
  * Codenames: ISO-less mode, Nikon mode.
  * 
- * Technical details: https://dl.dropboxusercontent.com/u/4124919/bleeding-edge/dual_iso/dual_iso.pdf
+ * Technical details: https://dl.dropboxusercontent.com/u/4124919/bleeding-edge/isoless/dual_iso.pdf
  * 
  * Samples half of sensor lines at ISO 100 and the other half at ISO 1600 (or other user-defined values)
  * This trick cleans up shadow noise, resulting in a dynamic range improvement of around 3 stops on 5D3,
