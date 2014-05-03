@@ -68,7 +68,6 @@
 #include <math.h>
 #include <fileprefix.h>
 #include <raw.h>
-#include <patch.h>
 
 static CONFIG_INT("isoless.hdr", isoless_hdr, 0);
 static CONFIG_INT("isoless.iso", isoless_recovery_iso, 3);
@@ -84,7 +83,9 @@ extern WEAK_FUNC(ret_0) void raw_lv_request();
 extern WEAK_FUNC(ret_0) void raw_lv_release();
 extern WEAK_FUNC(ret_0) float raw_to_ev(int ev);
 
+int dual_iso_set_enabled(bool enabled);
 int dual_iso_is_enabled();
+int dual_iso_is_active();
 
 /* camera-specific constants */
 
@@ -157,7 +158,7 @@ int dual_iso_calc_dr_improvement(int iso1, int iso2)
 
 int dual_iso_get_dr_improvement()
 {
-    if (!dual_iso_is_enabled())
+    if (!dual_iso_is_active())
         return 0;
     
     int iso1 = 72 + isoless_recovery_iso_index() * 8;
@@ -176,7 +177,7 @@ static void bulk_cb(uint32_t *parm, uint32_t address, uint32_t length)
     *parm = 0;
 }
 
-static int isoless_enable(uint32_t start_addr, int size, int count, uint32_t* backup)
+static int isoless_enable(uint32_t start_addr, int size, int count, uint16_t* backup)
 {
         /* for 7D */
         int start_addr_0 = start_addr;
@@ -188,16 +189,13 @@ static int isoless_enable(uint32_t start_addr, int size, int count, uint32_t* ba
             while(wait) msleep(20);
             start_addr = (uint32_t) local_buf + 2; /* our numbers are aligned at 16 bits, but not at 32 */
         }
-        
-        /* dummy call to get Canon values */
-        patch_memory_array(start_addr, count, size, 0, 0, 0, 0, 0, backup, "dual_iso: CMOS[0] gains");
-        unpatch_memory(start_addr);
     
         /* sanity check first */
+        
         int prev_iso = 0;
         for (int i = 0; i < count; i++)
         {
-            uint16_t raw = backup[i];
+            uint16_t raw = *(uint16_t*)(start_addr + i * size);
             uint32_t flag = raw & CMOS_FLAG_MASK;
             int iso1 = (raw >> CMOS_FLAG_BITS) & CMOS_ISO_MASK;
             int iso2 = (raw >> (CMOS_FLAG_BITS + CMOS_ISO_BITS)) & CMOS_ISO_MASK;
@@ -220,32 +218,44 @@ static int isoless_enable(uint32_t start_addr, int size, int count, uint32_t* ba
             
             prev_iso = iso1;
         }
-
-        int my_raw = backup[COERCE(isoless_recovery_iso_index(), 0, count-1)];
-
-        /* take one of the ISO fields from recovery index */
-        uint32_t patch_mask = ((1 << CMOS_ISO_BITS) - 1) << CMOS_FLAG_BITS;
-        uint32_t patch_value = my_raw & patch_mask;
-
-        if (is_5d2)
+        
+        /* backup old values */
+        for (int i = 0; i < count; i++)
         {
-            /* iso2 is 0 by default, let's just patch that one */
-            patch_mask = ((1 << CMOS_ISO_BITS) - 1) << (CMOS_FLAG_BITS + CMOS_ISO_BITS);
-            patch_value = (my_raw << CMOS_ISO_BITS) & patch_mask;
-            
-            /* enable the dual ISO flag */
-            patch_mask  |= 1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS + CMOS_ISO_BITS);
-            patch_value |= 1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS + CMOS_ISO_BITS);
+            uint16_t raw = *(uint16_t*)(start_addr + i * size);
+            backup[i] = raw;
         }
-
-        if (is_eosm || is_650d || is_700d) //TODO: This hack is probably needed on EOSM and 100D
-        {
-            /* Clear the MSB to fix line-skipping. 1 -> 8 lines, 0 -> 4 lines */
-            patch_mask |= 0x800;
-        }  
         
         /* apply our custom amplifier gains */
-        patch_memory_array(start_addr, count, size, 0, 0, patch_mask, 0, patch_value, backup, "dual_iso: CMOS[0] gains");
+        for (int i = 0; i < count; i++)
+        {
+            uint16_t raw = *(uint16_t*)(start_addr + i * size);
+            int my_raw = backup[COERCE(isoless_recovery_iso_index(), 0, count-1)];
+            
+            if (is_5d2)
+            {
+                /* iso2 is 0 by default, but our algorithm expects two identical values => let's mangle them */
+                int iso1 = (raw >> CMOS_FLAG_BITS) & CMOS_ISO_MASK;
+                int my_iso1 = (my_raw >> CMOS_FLAG_BITS) & CMOS_ISO_MASK;
+                raw |= (iso1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS));
+                my_raw |= (my_iso1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS));
+                
+                /* enable the dual ISO flag */
+                raw |= 1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS + CMOS_ISO_BITS);
+            }
+
+
+            int my_iso2 = (my_raw >> (CMOS_FLAG_BITS + CMOS_ISO_BITS)) & CMOS_ISO_MASK;
+            raw &= ~(CMOS_ISO_MASK << (CMOS_FLAG_BITS + CMOS_ISO_BITS));
+            raw |= (my_iso2 << (CMOS_FLAG_BITS + CMOS_ISO_BITS));
+
+            if (is_eosm || is_650d || is_700d) //TODO: This hack is probably needed on EOSM and 100D
+            {
+                raw &= 0x7FF; // Clear the MSB to fix line-skipping. 1 -> 8 lines, 0 -> 4 lines
+            }  
+
+            *(uint16_t*)(start_addr + i * size) = raw;
+        }
 
         if (is_7d) /* commit the changes on master */
         {
@@ -258,7 +268,7 @@ static int isoless_enable(uint32_t start_addr, int size, int count, uint32_t* ba
         return 0;
 }
 
-static int isoless_disable(uint32_t start_addr, int size, int count, uint32_t* backup)
+static int isoless_disable(uint32_t start_addr, int size, int count, uint16_t* backup)
 {
     /* for 7D */
     int start_addr_0 = start_addr;
@@ -271,9 +281,12 @@ static int isoless_disable(uint32_t start_addr, int size, int count, uint32_t* b
         start_addr = (uint32_t) local_buf + 2;
     }
 
-    /* just undo our patch */
-    unpatch_memory(start_addr);
-    
+    /* just restore saved values */
+    for (int i = 0; i < count; i++)
+    {
+        *(uint16_t*)(start_addr + i * size) = backup[i];
+    }
+
     if (is_7d) /* commit the changes on master */
     {
         volatile uint32_t wait = 1;
@@ -301,8 +314,8 @@ static unsigned int isoless_refresh(unsigned int ctx)
 
     take_semaphore(isoless_sem, 0);
 
-    static uint32_t backup_lv[20];
-    static uint32_t backup_ph[20];
+    static uint16_t backup_lv[20];
+    static uint16_t backup_ph[20];
     int mv = is_movie_mode() ? 1 : 0;
     int lvi = lv ? 1 : 0;
     int raw_mv = mv && lv && raw_lv_is_enabled();
@@ -378,14 +391,29 @@ end:
     return 0;
 }
 
+int dual_iso_set_enabled(bool enabled)
+{
+    if (enabled)
+        isoless_hdr = 1; 
+    else
+        isoless_hdr = 0;
+
+    return 1; // module is loaded & responded != ret_0
+}
+
 int dual_iso_is_enabled()
+{
+    return isoless_hdr;
+}
+
+int dual_iso_is_active()
 {
     return is_movie_mode() ? enabled_lv : enabled_ph;
 }
 
 int dual_iso_get_recovery_iso()
 {
-    if (!dual_iso_is_enabled())
+    if (!dual_iso_is_active())
         return 0;
     
     return 72 + isoless_recovery_iso_index() * 8;
@@ -393,7 +421,7 @@ int dual_iso_get_recovery_iso()
 
 int dual_iso_set_recovery_iso(int iso)
 {
-    if (!dual_iso_is_enabled())
+    if (!dual_iso_is_active())
         return 0;
     
     int max_index = MAX(FRAME_CMOS_ISO_COUNT, PHOTO_CMOS_ISO_COUNT) - 1;
