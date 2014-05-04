@@ -143,19 +143,9 @@ static void ak4646_set_loop(uint32_t state)
     ak4646_write_changed();
 }
 
-static void ak4646_unpower_mic()
+static void ak4646_set_mic_pwr(uint32_t state)
 {
-    AK4646_SET(AK4646_PAR_PMMP, 0);
-    AK4646_SET(AK4646_PAR_PMADL, 0);
-    AK4646_SET(AK4646_PAR_PMADR, 0);
-    ak4646_write_changed();
-}
-
-static void ak4646_power_mic()
-{
-    AK4646_SET(AK4646_PAR_PMMP, 1);
-    AK4646_SET(AK4646_PAR_PMADL, 1);
-    AK4646_SET(AK4646_PAR_PMADR, 1);
+    AK4646_SET(AK4646_PAR_PMMP, state);
     ak4646_write_changed();
 }
 
@@ -285,68 +275,70 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
         ak4646_set_mic_gain(COERCE(next->mic_gain * 7 / 100, 0, 7));
     }
     
+    if(prev->mic_power != next->mic_power || ak4646_need_rewrite)
+    {
+        ak4646_set_mic_pwr(next->mic_power == SOUND_POWER_ENABLED);
+#if 0
+        /* these are from canon firmware, what do they do? seem to have no effect */
+        MEM(0xC0220188) |= 2; /* ext not selected */
+        MEM(0xC0220188) &= ~2; /* ext selected */
+#endif
+    }
+    
     if(prev->loop_mode != next->loop_mode || ak4646_need_rewrite)
     {
         ak4646_set_loop(next->loop_mode == SOUND_LOOP_ENABLED);
     }
     
-    if(prev->source_line != next->source_line || ak4646_need_rewrite)
+    /* only update mic settings when playback is disabled */
+    if((prev->source_line != next->source_line || ak4646_need_rewrite))
     {
         switch(next->source_line)
         {
             default:
             case SOUND_SOURCE_OFF:
-                ak4646_unpower_mic();
+                AK4646_SET(AK4646_PAR_PMADL, 0);
+                AK4646_SET(AK4646_PAR_PMADR, 0);
                 break;
                 
             case SOUND_SOURCE_INT_MIC:
-                ak4646_power_mic();
-                AK4646_SET(AK4646_PAR_MDIF2, 0);
+                AK4646_SET(AK4646_PAR_PMADL, 1);
+                AK4646_SET(AK4646_PAR_PMADR, 1);
                 AK4646_SET(AK4646_PAR_MDIF1, 0);
-                AK4646_SET(AK4646_PAR_INR, 0);
+                AK4646_SET(AK4646_PAR_MDIF2, 0);
                 AK4646_SET(AK4646_PAR_INL, 0);
+                AK4646_SET(AK4646_PAR_INR, 0);
                 ak4646_write_changed();
-                
-#if defined(CONFIG_5D3)
-                /* 5D3 uses this line to select mic or power ext mic? */
-                MEM(0xC0220188) |= 2;
-#endif
                 break;
                 
             case SOUND_SOURCE_EXT_MIC:
-                ak4646_power_mic();
-                AK4646_SET(AK4646_PAR_MDIF2, 0);
+                AK4646_SET(AK4646_PAR_PMADL, 1);
+                AK4646_SET(AK4646_PAR_PMADR, 1);
                 AK4646_SET(AK4646_PAR_MDIF1, 0);
-                AK4646_SET(AK4646_PAR_INR, 1);
+                AK4646_SET(AK4646_PAR_MDIF2, 0);
                 AK4646_SET(AK4646_PAR_INL, 1);
+                AK4646_SET(AK4646_PAR_INR, 1);
                 ak4646_write_changed();
-                
-#if defined(CONFIG_5D3)
-                /* 5D3 uses this line to select mic or power ext mic? */
-                MEM(0xC0220188) &= ~2;
-#endif
                 break;
                 
             case SOUND_SOURCE_EXTENDED_1:
-                ak4646_power_mic();
-                AK4646_SET(AK4646_PAR_MDIF2, 0);
+                AK4646_SET(AK4646_PAR_PMADL, 1);
+                AK4646_SET(AK4646_PAR_PMADR, 1);
                 AK4646_SET(AK4646_PAR_MDIF1, 0);
-                AK4646_SET(AK4646_PAR_INR, 1);
+                AK4646_SET(AK4646_PAR_MDIF2, 0);
                 AK4646_SET(AK4646_PAR_INL, 0);
+                AK4646_SET(AK4646_PAR_INR, 1);
                 ak4646_write_changed();
-                
-                MEM(0xC0220188) |= 2;
                 break;
                 
             case SOUND_SOURCE_EXTENDED_2:
-                ak4646_power_mic();
-                AK4646_SET(AK4646_PAR_MDIF2, 1);
+                AK4646_SET(AK4646_PAR_PMADL, 1);
+                AK4646_SET(AK4646_PAR_PMADR, 1);
                 AK4646_SET(AK4646_PAR_MDIF1, 0);
-                AK4646_SET(AK4646_PAR_INR, 0);
+                AK4646_SET(AK4646_PAR_MDIF2, 1);
                 AK4646_SET(AK4646_PAR_INL, 0);
+                AK4646_SET(AK4646_PAR_INR, 0);
                 ak4646_write_changed();
-                
-                MEM(0xC0220188) &= ~2;
                 break;
         }
     }
@@ -405,6 +397,7 @@ static enum sound_result ak4646_op_set_rate(uint32_t rate)
 
 static enum sound_result ak4646_op_poweron()
 {
+    ak4646_need_rewrite = 1;
     AK4646_SET(AK4646_PAR_PMVCM, 1);
     AK4646_SET(AK4646_PAR_DAFIL, 0);
     ak4646_write_changed();
