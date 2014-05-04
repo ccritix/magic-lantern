@@ -1538,7 +1538,7 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
     mlv_xref_hdr_t *block_xref = NULL;
     mlv_lens_hdr_t lens_block;
     mlv_rawi_hdr_t rawi_block;
-    mlv_rtci_hdr_t wavi_block;
+    mlv_wavi_hdr_t wavi_block;
     mlv_rtci_hdr_t rtci_block;
     mlv_file_hdr_t main_header;
     
