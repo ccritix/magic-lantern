@@ -98,6 +98,8 @@ static uint32_t mlv_play_info = 1;
 static uint32_t mlv_play_timer_stop = 1;
 static uint32_t mlv_play_frame_number = 0;
 static uint32_t mlv_play_frames_skipped = 0;
+static struct sound_ctx *mlv_play_sound_ctx = NULL;
+static struct sound_buffer *mlv_play_sound_buffers[10];
 
 static mlv_file_hdr_t mlv_play_main_header;
 
@@ -1320,10 +1322,10 @@ static void mlv_play_render_task(uint32_t priv)
         }
         
         /* if audio is enabled but no audio data ready yet, loop until audio is ready */
-        //while(mlv_play_audio_waiting())
+        if(mlv_play_audio_waiting())
         {
             msleep(20);
-            //continue;
+            continue;
         }
         
         /* is there something to render? */
@@ -1509,7 +1511,7 @@ static void mlv_play_start_fps_timer(uint32_t fps_nom, uint32_t fps_denom)
         /* assuming we always can get an exact match */
         if(mlv_play_frame_dividers[pos] == fps)
         {
-            mlv_play_frame_div_group = pos;
+            mlv_play_frame_div_group = pos + 1;
         }
     }
     
@@ -1536,23 +1538,17 @@ static void mlv_play_start_fps_timer(uint32_t fps_nom, uint32_t fps_denom)
 }
 
 
-
-static struct sound_ctx *sound_ctx = NULL;
-static struct sound_buffer *sound_buffers[10];
-
 static int mlv_play_audio_waiting()
 {
-    if(!sound_ctx)
+    if(sound_get_state(mlv_play_sound_ctx) == SOUND_STATE_IDLE)
     {
         return 0;
     }
-    return sound_get_state(sound_ctx) != SOUND_STATE_RUNNING;
+    return sound_get_state(mlv_play_sound_ctx) != SOUND_STATE_RUNNING;
 }
 
 static enum sound_flow mlv_play_sound_requeued(struct sound_buffer *buffer)
 {
-    bmp_printf(FONT_LARGE, 30, 100, "mlv_play_sound_requeued: %d ", buffer->sequence);
-    
     return SOUND_FLOW_CONTINUE;
 }
 
@@ -1576,58 +1572,68 @@ static void mlv_play_start_audio(mlv_wavi_hdr_t *wavi)
         return;
     }
     
-    sound_ctx = sound_alloc();
-    sound_ctx->mode = SOUND_MODE_PLAYBACK;
-    sound_ctx->min_buffers = 3;
-    sound_ctx->format.rate = wavi->samplingRate;
-    sound_ctx->format.channels = wavi->channels;
-    sound_ctx->format.sampletype = (wavi->bitsPerSample == 16) ? SOUND_SAMPLETYPE_SINT16 : SOUND_SAMPLETYPE_UINT8;
+    mlv_play_sound_ctx->format.rate = wavi->samplingRate;
+    mlv_play_sound_ctx->format.channels = wavi->channels;
+    mlv_play_sound_ctx->format.sampletype = (wavi->bitsPerSample == 16) ? SOUND_SAMPLETYPE_SINT16 : SOUND_SAMPLETYPE_UINT8;
 
     /* create playback audio buffers */
-    for(uint32_t buf = 0; buf < COUNT(sound_buffers); buf++)
+    for(uint32_t buf = 0; buf < COUNT(mlv_play_sound_buffers); buf++)
     {
-        sound_buffers[buf] = sound_alloc_buffer();
-        sound_buffers[buf]->size = 0;
-        sound_buffers[buf]->data = NULL;
-        sound_buffers[buf]->processed = &mlv_play_sound_processed;
-        sound_buffers[buf]->requeued = &mlv_play_sound_requeued;
-        sound_buffers[buf]->cleanup = &mlv_play_sound_cleanup;
+        mlv_play_sound_buffers[buf] = sound_alloc_buffer();
+        mlv_play_sound_buffers[buf]->size = 0;
+        mlv_play_sound_buffers[buf]->data = NULL;
+        mlv_play_sound_buffers[buf]->processed = &mlv_play_sound_processed;
+        mlv_play_sound_buffers[buf]->requeued = &mlv_play_sound_requeued;
+        mlv_play_sound_buffers[buf]->cleanup = &mlv_play_sound_cleanup;
         
-        msg_queue_post(mlv_play_queue_sound_empty, (uint32_t)sound_buffers[buf]);
+        msg_queue_post(mlv_play_queue_sound_empty, (uint32_t)mlv_play_sound_buffers[buf]);
     }
     
-    sound_ctx->ops.lock(sound_ctx, SOUND_LOCK_EXCLUSIVE);
-    sound_ctx->ops.start(sound_ctx);
+    mlv_play_sound_ctx->ops.lock(mlv_play_sound_ctx, SOUND_LOCK_EXCLUSIVE);
+    mlv_play_sound_ctx->ops.start(mlv_play_sound_ctx);
 }
 
 static void mlv_play_stop_audio()
 {
-    if(!sound_ctx)
+    if(sound_get_state(mlv_play_sound_ctx) == SOUND_STATE_IDLE)
     {
         return;
     }
-    sound_ctx->ops.stop(sound_ctx);
     
-    while(sound_get_state(sound_ctx) != SOUND_STATE_IDLE)
+    mlv_play_sound_ctx->ops.stop(mlv_play_sound_ctx);
+    
+    int loops = 1000;
+    while(sound_get_state(mlv_play_sound_ctx) != SOUND_STATE_IDLE)
     {
+        loops--;
+        if(!loops)
+        {
+            bmp_printf(FONT_MED, 30, 190, "failed to stop audio");
+            beep();
+            break;
+        }
         msleep(20);
     }
     
-    sound_ctx->ops.unlock(sound_ctx);
+    mlv_play_sound_ctx->ops.unlock(mlv_play_sound_ctx);
+    
+    mlv_play_flush_queue(mlv_play_queue_sound_ready);
+    mlv_play_flush_queue(mlv_play_queue_sound_empty);
     
     /* free audio buffers */
-    for(uint32_t buf = 0; buf < COUNT(sound_buffers); buf++)
+    for(uint32_t buf = 0; buf < COUNT(mlv_play_sound_buffers); buf++)
     {
-        if(sound_buffers[buf]->data)
+        if(mlv_play_sound_buffers[buf]->data)
         {
-            fio_free(sound_buffers[buf]->data);
-            sound_buffers[buf]->data = NULL;
+            fio_free(mlv_play_sound_buffers[buf]->data);
+            mlv_play_sound_buffers[buf]->data = NULL;
         }
-        free(sound_buffers[buf]);
+        sound_free_buffer(mlv_play_sound_buffers[buf]);
+        mlv_play_sound_buffers[buf] = NULL;
     }
     
-    sound_free(sound_ctx);
-    sound_ctx = NULL;
+    sound_free(mlv_play_sound_ctx);
+    mlv_play_sound_ctx = NULL;
 }
 
 static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_count)
@@ -1639,7 +1645,6 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
     static mlv_rawi_hdr_t rawi_block;
     static mlv_wavi_hdr_t wavi_block;
     static mlv_rtci_hdr_t rtci_block;
-    
     
     /* make sure there is no crap in stack variables */
     memset(&lens_block, 0x00, sizeof(mlv_lens_hdr_t));
@@ -1845,9 +1850,9 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
             }
             
             /* buffer has data now, send to playback task */
-            if(sound_ctx)
+            if(mlv_play_sound_ctx)
             {
-                sound_ctx->ops.enqueue(sound_ctx, buffer);
+                mlv_play_sound_ctx->ops.enqueue(mlv_play_sound_ctx, buffer);
             }
         }
         else if(!memcmp(buf.blockType, "VIDF", 4))
@@ -1863,12 +1868,13 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
                 break;
             }
 
+//                    bmp_printf(FONT_MED, 30, 190, "skip: %d <= %d ", mlv_play_frame_number, vidf_block.frameNumber);
             /* if we have to play at exact fps, drop any frame that is too late */
             if(mlv_play_exact_fps)
             {
                 if(mlv_play_frame_number > vidf_block.frameNumber)
                 {
-                    bmp_printf(FONT_MED, 30, 190, "skip: %d > %d ", mlv_play_frame_number, vidf_block.frameNumber);
+//                    bmp_printf(FONT_MED, 30, 190, "skip: %d > %d ", mlv_play_frame_number, vidf_block.frameNumber);
                     continue;
                 }
             }
@@ -2304,6 +2310,21 @@ static playlist_entry_t mlv_playlist_prev(playlist_entry_t current)
     return ret;
 }
 
+static void mlv_play_flush_frame_queue()
+{
+    while(1)
+    {
+        frame_buf_t *buffer = NULL;
+        
+        if(msg_queue_receive(mlv_play_queue_frame_ready, &buffer, 50))
+        {
+            break;
+        }
+        
+        msg_queue_post(mlv_play_queue_frame_empty, (uint32_t)buffer);
+    }
+}
+
 static void mlv_play_leave_playback()
 {
     /* clean up buffers - free memories and all buffers */
@@ -2427,6 +2448,7 @@ static void mlv_play_task(void *priv)
         /* ok now start real playback routines */
         mlv_play(mlv_play_current_filename, chunk_files, chunk_count);
         mlv_play_close_chunks(chunk_files, chunk_count);
+        mlv_play_flush_frame_queue();
         
         /* playback finished. wait until... hmm.. something happens */
         while(!strlen(mlv_play_next_filename) && !mlv_play_should_stop())
@@ -2580,6 +2602,10 @@ static unsigned int mlv_play_init()
     
     fileman_register_type("RAW", "RAW Video", mlv_play_filehandler);
     fileman_register_type("MLV", "MLV Video", mlv_play_filehandler);
+    
+    mlv_play_sound_ctx = sound_alloc();
+    mlv_play_sound_ctx->mode = SOUND_MODE_PLAYBACK;
+    mlv_play_sound_ctx->min_buffers = 2;
     
     return 0;
 }
