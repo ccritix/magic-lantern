@@ -1,7 +1,5 @@
 #Makefile for EOS 650D
 
-# compile position independent (experimental)
-CONFIG_PIC=n
 ML_AUDIO_OBJ=n
 ML_SOUND_CODEC_OBJ=ak4950.o
 

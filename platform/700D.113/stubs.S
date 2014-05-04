@@ -91,7 +91,7 @@ NSTUB(0xFF10927C,  StopASIFDMADAC)
 /** Audio **/
 NSTUB(   0x239F4,  sounddev)
 NSTUB(0xFF3383A4, _audio_ic_read)
-NSTUB(0xFF337D5C, _audio_ic_write_bulk)
+NSTUB(0xFF337D5C, _audio_ic_write)
 NSTUB(0xFF7FD080,  audio_thresholds)
 NSTUB(0xFF10B740,  sounddev_active_in)
 NSTUB(0xFF10B258,  sounddev_task)
@@ -193,6 +193,11 @@ NSTUB(0xFFA66564 - RAM_OFFSET,  GetNextMemoryChunk)
 // NSTUB(    ???,  gui_post_10000085)                       /* present on 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_timer_something)                     /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_timer_struct)                        /* present on 7D.203, 500D.111, 60D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
+
+/** GUI timers **/
+// NSTUB(    ???,  CancelDateTimer)                         /* present on 7D.203, 6D.113, 5D3.113 */
+// NSTUB(    ???,  SetTimerAfter)                           /* present on 650D.104 */
+// NSTUB(    ???,  TimerCancel)                             /* present on 650D.104 */
 
 /** H264 Encoder **/
 NSTUB(   0x314F4,  mvr_config)

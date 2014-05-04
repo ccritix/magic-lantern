@@ -98,6 +98,7 @@ NSTUB(0xFF05587C,  StartASIFDMADAC)
 NSTUB(0xFF055950,  StopASIFDMADAC)
 NSTUB(0xFF055840,  StopASIFDMAADC)
 NSTUB(0xFF055C34,  SetASIFMode)
+// NSTUB(    ???,  PowerMicAmp)                             /* present on 650D.104, EOSM.202, 700D.113 */
 // NSTUB(    ???,  SetAudioVolumeIn)                        /* present on 6D.113 */
 // NSTUB(    ???,  SoundDevActiveIn)                        /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
 // NSTUB(    ???,  SoundDevShutDownIn)                      /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
@@ -207,6 +208,14 @@ NSTUB(0xFF0AAB3C,  gui_other_post)
 // NSTUB(    ???,  gui_init_event)                          /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_post_10000085)                       /* present on 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_timer_something)                     /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
+
+/** GUI timers **/
+// NSTUB(    ???,  CancelDateTimer)                         /* present on 7D.203, 6D.113, 5D3.113 */
+// NSTUB(    ???,  SetTimerAfter)                           /* present on 650D.104 */
+// NSTUB(    ???,  TimerCancel)                             /* present on 650D.104 */
+NSTUB(0xFF06FCE4, SetHPTimerAfterNow)
+NSTUB(0xFF06FB60, SetHPTimerAfterTimeout)
+NSTUB(0xFF06FDD8, SetHPTimerNextTick)
 
 /** H264 Encoder **/
 NSTUB(    0x6290,  mvr_config)
