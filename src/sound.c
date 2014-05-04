@@ -677,6 +677,11 @@ static MENU_UPDATE_FUNC(sound_out_line_update)
     MENU_SET_VALUE("%s (#%d)", name, line);
 }
 
+static MENU_UPDATE_FUNC(sound_micpwr_update)
+{
+    MENU_SET_VALUE("%s", (sound_device.mixer_defaults.mic_power == SOUND_POWER_ENABLED)?"ON":"OFF");
+}
+
 static MENU_UPDATE_FUNC(sound_loop_update)
 {
     MENU_SET_VALUE("%s", (sound_device.mixer_defaults.loop_mode == SOUND_LOOP_ENABLED)?"ON":"OFF");
@@ -709,6 +714,23 @@ static MENU_SELECT_FUNC(sound_out_line_select)
 static MENU_SELECT_FUNC(sound_loop_select)
 {
     sound_device.mixer_defaults.loop_mode = (sound_device.mixer_defaults.loop_mode == SOUND_LOOP_DISABLED) ? SOUND_LOOP_ENABLED : SOUND_LOOP_DISABLED;
+    sound_defaults_update();
+}
+
+static MENU_SELECT_FUNC(sound_audio_pwroff_select)
+{
+    sound_device.codec_ops.poweroff();
+}
+
+static MENU_SELECT_FUNC(sound_audio_pwron_select)
+{
+    sound_device.codec_ops.poweron();
+    sound_defaults_update();
+}
+
+static MENU_SELECT_FUNC(sound_micpwr_select)
+{
+    sound_device.mixer_defaults.mic_power = (sound_device.mixer_defaults.mic_power == SOUND_POWER_DISABLED) ? SOUND_POWER_ENABLED : SOUND_POWER_DISABLED;
     sound_defaults_update();
 }
 
@@ -750,8 +772,25 @@ static struct menu_entry sound_menu[] =
                 .name = "Loopback",
                 .update = &sound_loop_update,
                 .select = &sound_loop_select,
-                .max = 1,
-                .help = "Enable loopback (no effect)",
+                .help = "Enable loopback",
+            },
+            {
+                .name = "Mic power",
+                .update = &sound_micpwr_update,
+                .select = &sound_micpwr_select,
+                .help = "Enable microphone power supply",
+            },
+            {
+                .name = "Power audio",
+                .icon_type = IT_ACTION,
+                .select = &sound_audio_pwron_select,
+                .help = "Enable audio chips power lines",
+            },
+            {
+                .name = "Unpower Audio",
+                .icon_type = IT_ACTION,
+                .select = &sound_audio_pwroff_select,
+                .help = "Disable audio chips power lines",
             },
             MENU_EOL,
         },
