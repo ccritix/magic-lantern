@@ -139,7 +139,7 @@ static void ak4646_readall()
 
 static void ak4646_set_loop(uint32_t state)
 {
-    AK4646_SET(AK4646_PAR_LOOP, state == SOUND_LOOP_ENABLED);
+    AK4646_SET(AK4646_PAR_LOOP, state);
     ak4646_write_changed();
 }
 
@@ -272,22 +272,22 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
 {
     if(prev->speaker_gain != next->speaker_gain || ak4646_need_rewrite)
     {
-        ak4646_set_out_vol(COERCE(next->speaker_gain * 5 / 2, 0, 0xF1));
+        ak4646_set_out_vol(COERCE(next->speaker_gain * 0xF1 / 100, 0, 0xF1));
     }
     
     if(prev->headphone_gain != next->headphone_gain || ak4646_need_rewrite)
     {
-        ak4646_set_lineout_vol(COERCE(next->headphone_gain / 33, 0, 3));
+        ak4646_set_lineout_vol(COERCE(next->headphone_gain * 3 / 100, 0, 3));
     }
     
     if(prev->mic_gain != next->mic_gain || ak4646_need_rewrite)
     {
-        ak4646_set_mic_gain(COERCE(next->mic_gain / 12, 0, 7));
+        ak4646_set_mic_gain(COERCE(next->mic_gain * 7 / 100, 0, 7));
     }
     
     if(prev->loop_mode != next->loop_mode || ak4646_need_rewrite)
     {
-        ak4646_set_loop(next->loop_mode);
+        ak4646_set_loop(next->loop_mode == SOUND_LOOP_ENABLED);
     }
     
     if(prev->source_line != next->source_line || ak4646_need_rewrite)

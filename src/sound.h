@@ -276,6 +276,8 @@ static enum sound_flow sound_buf_requeued(struct sound_buffer *buf);
 static enum sound_flow sound_buf_processed(struct sound_buffer *buf);
 /* stop ASIF DMA transfer */
 static void sound_stop_asif(struct sound_ctx *ctx);
+/* apply default sound settings or update current ctx settings */
+static void sound_defaults_update();
 
 static enum sound_result sound_op_lock (struct sound_ctx *ctx, enum sound_lock type);
 static enum sound_result sound_op_unlock (struct sound_ctx *ctx);

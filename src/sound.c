@@ -230,13 +230,12 @@ enum sound_state sound_get_state (struct sound_ctx *ctx)
 
 static void sound_set_mixer(struct sound_ctx *ctx)
 {
-    struct sound_mixer mixer = ctx->mixer;
     struct sound_mixer prev_mixer = ctx->device->mixer_current;
     
     /*  get sound_ctx.mixer and place in sound_dev.mixer_current.
         replace all default settings of sound_ctx with sound_dev.mixer_defaults values.
     */
-    sound_mixer_merge(&ctx->device->mixer_current, &ctx->device->mixer_defaults, &mixer);
+    sound_mixer_merge(&ctx->device->mixer_current, &ctx->device->mixer_defaults, &ctx->mixer);
 
     /* settings merged, apply now */
     ctx->device->codec_ops.apply_mixer(&prev_mixer, &ctx->device->mixer_current);
@@ -379,7 +378,7 @@ static enum sound_result sound_op_unlock (struct sound_ctx *ctx)
 
     ctx->device->current_ctx = new_ctx;
     ctx->device->lock_type = new_lock_type;
-    ctx->device->mixer_current = default_mixer_options;
+    sound_defaults_update();
     
     /* some previously interrupted context gets its control back now */
     if(new_ctx && new_ctx->paused)
@@ -595,7 +594,7 @@ struct sound_ctx *sound_alloc()
     ctx->format.sampletype = SOUND_SAMPLETYPE_SINT16;
 
     /* mixer settings to default */
-    ctx->mixer = default_mixer_options;
+    memset(&ctx->mixer, 0x00, sizeof(struct sound_mixer));
 
     return ctx;
 }
@@ -616,88 +615,55 @@ void sound_free_buffer(struct sound_buffer *buffer)
 
 void sound_mixer_merge(struct sound_mixer *merged, struct sound_mixer *base, struct sound_mixer *settings)
 {
+    /* priority has the context setting, only override where the setting is "default" */
     *merged = *settings;
     
-    if(merged->windcut_mode == SOUND_WINDCUT_DEFAULT)
-    {
-        merged->windcut_mode = base->windcut_mode;
-    }
-    if(merged->source_line == SOUND_SOURCE_DEFAULT)
-    {
-        merged->source_line = base->source_line;
-    }
-    if(merged->destination_line == SOUND_DESTINATION_DEFAULT)
-    {
-        merged->destination_line = base->destination_line;
-    }
-    if(merged->headphone_agc == SOUND_AGC_DEFAULT)
-    {
-        merged->headphone_agc = base->headphone_agc;
-    }
-    if(merged->mic_agc == SOUND_AGC_DEFAULT)
-    {
-        merged->mic_agc = base->mic_agc;
-    }
-    if(merged->mic_power == SOUND_POWER_DEFAULT)
-    {
-        merged->mic_power = base->mic_power;
-    }
-    if(merged->loop_mode == SOUND_LOOP_DEFAULT)
-    {
-        merged->loop_mode = base->loop_mode;
-    }
-    if(merged->headphone_gain == SOUND_GAIN_DEFAULT)
-    {
-        merged->headphone_gain = base->headphone_gain;
-    }
-    if(merged->mic_gain == SOUND_GAIN_DEFAULT)
-    {
-        merged->mic_gain = base->mic_gain;
-    }
-    if(merged->speaker_gain == SOUND_GAIN_DEFAULT)
-    {
-        merged->speaker_gain = base->speaker_gain;
-    }
-    if(merged->out_gain == SOUND_GAIN_DEFAULT)
-    {
-        merged->out_gain = base->out_gain;
-    }
+    /* helper macro to prevent human errors. all default enums evaluate to zero, check for that */
+    #define SOUND_MIXER_MERGE(var)  if((int)merged->var == 0) { merged->var = base->var; }
+    
+    SOUND_MIXER_MERGE(windcut_mode);
+    SOUND_MIXER_MERGE(source_line);
+    SOUND_MIXER_MERGE(destination_line);
+    SOUND_MIXER_MERGE(headphone_agc);
+    SOUND_MIXER_MERGE(mic_agc);
+    SOUND_MIXER_MERGE(mic_power);
+    SOUND_MIXER_MERGE(loop_mode);
+    SOUND_MIXER_MERGE(headphone_gain);
+    SOUND_MIXER_MERGE(mic_gain);
+    SOUND_MIXER_MERGE(speaker_gain);
+    SOUND_MIXER_MERGE(out_gain);
+    
+    #undef SOUND_MIXER_MERGE
 }
 
 
-void sound_defaults_update()
+static void sound_defaults_update()
 {
-    sound_device.mixer_defaults = default_mixer_options;
-    
     if(sound_device.current_ctx)
     {
-        struct sound_mixer current = sound_device.current_ctx->mixer;
-        struct sound_mixer merged;
-        
-        sound_mixer_merge(&merged, &sound_device.mixer_defaults, &current);
-        
-        sound_device.mixer_current = merged;
+        /* if some context is active, it will fetch the new defaults when calling apply */
+        sound_device.current_ctx->ops.apply(sound_device.current_ctx);
     }
-    
-    /* apply new default settings */
-    sound_settings_ctx->mixer = sound_device.mixer_current;
-    sound_settings_ctx->ops.apply(sound_settings_ctx);
+    else
+    {
+        sound_settings_ctx->mixer = sound_device.mixer_defaults;
+        sound_settings_ctx->ops.apply(sound_settings_ctx);
+    }
 }
-
 
 static MENU_UPDATE_FUNC(sound_menu_spk_vol_update)
 {
-    MENU_SET_VALUE("%d %%", default_mixer_options.speaker_gain);
+    MENU_SET_VALUE("%d %%", sound_device.mixer_defaults.speaker_gain);
 }
 
 static MENU_UPDATE_FUNC(sound_menu_hdp_vol_update)
 {
-    MENU_SET_VALUE("%d %%", default_mixer_options.headphone_gain);
+    MENU_SET_VALUE("%d %%", sound_device.mixer_defaults.headphone_gain);
 }
 
 static MENU_UPDATE_FUNC(sound_in_line_update)
 {
-    enum sound_source line = default_mixer_options.source_line;
+    enum sound_source line = sound_device.mixer_defaults.source_line;
     const char *name = sound_device.codec_ops.get_source_name(line);
     
     MENU_SET_VALUE("%s (#%d)", name, line);
@@ -705,7 +671,7 @@ static MENU_UPDATE_FUNC(sound_in_line_update)
 
 static MENU_UPDATE_FUNC(sound_out_line_update)
 {
-    enum sound_destination line = default_mixer_options.destination_line;
+    enum sound_destination line = sound_device.mixer_defaults.destination_line;
     const char *name = sound_device.codec_ops.get_destination_name(line);
     
     MENU_SET_VALUE("%s (#%d)", name, line);
@@ -713,36 +679,36 @@ static MENU_UPDATE_FUNC(sound_out_line_update)
 
 static MENU_UPDATE_FUNC(sound_loop_update)
 {
-    MENU_SET_VALUE("%s", default_mixer_options.loop_mode?"ON":"OFF");
+    MENU_SET_VALUE("%s", (sound_device.mixer_defaults.loop_mode == SOUND_LOOP_ENABLED)?"ON":"OFF");
 }
 
 static MENU_SELECT_FUNC(sound_menu_spk_vol_select)
 {
-    default_mixer_options.speaker_gain = COERCE(default_mixer_options.speaker_gain + delta, 0, 100);
+    sound_device.mixer_defaults.speaker_gain = COERCE(sound_device.mixer_defaults.speaker_gain + delta, 0, 100);
     sound_defaults_update();
 }
 
 static MENU_SELECT_FUNC(sound_menu_hdp_vol_select)
 {
-    default_mixer_options.headphone_gain = COERCE(default_mixer_options.headphone_gain + delta, 0, 100);
+    sound_device.mixer_defaults.headphone_gain = COERCE(sound_device.mixer_defaults.headphone_gain + delta, 0, 100);
     sound_defaults_update();
 }
 
 static MENU_SELECT_FUNC(sound_in_line_select)
 {
-    default_mixer_options.source_line = (enum sound_source)COERCE(default_mixer_options.source_line + delta, 0, SOUND_DESTINATION_EXTENDED_6);
+    sound_device.mixer_defaults.source_line = (enum sound_source)COERCE(sound_device.mixer_defaults.source_line + delta, 0, SOUND_DESTINATION_EXTENDED_6);
     sound_defaults_update();
 }
 
 static MENU_SELECT_FUNC(sound_out_line_select)
 {
-    default_mixer_options.destination_line = (enum sound_destination)COERCE(default_mixer_options.destination_line + delta, 0, SOUND_DESTINATION_EXTENDED_6);
+    sound_device.mixer_defaults.destination_line = (enum sound_destination)COERCE(sound_device.mixer_defaults.destination_line + delta, 0, SOUND_DESTINATION_EXTENDED_6);
     sound_defaults_update();
 }
 
 static MENU_SELECT_FUNC(sound_loop_select)
 {
-    default_mixer_options.loop_mode = !default_mixer_options.loop_mode;
+    sound_device.mixer_defaults.loop_mode = (sound_device.mixer_defaults.loop_mode == SOUND_LOOP_DISABLED) ? SOUND_LOOP_ENABLED : SOUND_LOOP_DISABLED;
     sound_defaults_update();
 }
 
