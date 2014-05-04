@@ -139,7 +139,7 @@ static void ak4646_readall()
 
 static void ak4646_set_loop(uint32_t state)
 {
-    AK4646_SET(AK4646_PAR_LOOP, state != 0);
+    AK4646_SET(AK4646_PAR_LOOP, state == SOUND_LOOP_ENABLED);
     ak4646_write_changed();
 }
 
