@@ -223,6 +223,8 @@ struct sound_ctx
     
     /* whatever an allocator wants to store... */
     void *priv;
+    
+    uint32_t min_buffers;
 };
 
 struct sound_dev

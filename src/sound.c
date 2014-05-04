@@ -264,8 +264,8 @@ static void sound_try_start(struct sound_ctx *ctx)
         
         msg_queue_count(ctx->buffer_queue, &msg_count);
         
-        /* two buffers are okay, so lets start */
-        if(msg_count >= 2)
+        /* a few buffers are ready, so lets start */
+        if(msg_count >= ctx->min_buffers)
         {
             struct sound_buffer *buffer_1;
             struct sound_buffer *buffer_2;
@@ -581,6 +581,7 @@ struct sound_ctx *sound_alloc()
     ctx->previous_ctx = NULL;
     ctx->buffer_queue = msg_queue_create("sound_queue", sound_device.max_queue_size + 5);
     
+    ctx->min_buffers = 2;
     ctx->buffers_played = 0;
     ctx->paused = 0;
     ctx->ops = default_sound_ops;
