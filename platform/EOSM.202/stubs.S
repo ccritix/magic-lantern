@@ -282,6 +282,7 @@ NSTUB(   0x3F14C,  task_max)
 NSTUB(0xFFA6BABC - RAM_OFFSET,  get_current_task)
 NSTUB(0xFFA783FC - RAM_OFFSET,  get_obj_attr)               // AJ_checks_if_Process_id_created_by_Dryos
 NSTUB(0xFFA96530 - RAM_OFFSET,  is_taskid_valid)            // AJ_task_trampoline_related_p10
+NSTUB(0xFFA707A8, GetTaskName)
 
 /** Task sleep **/
 NSTUB(0xFFA70524 - RAM_OFFSET,  msleep)                     // 6F94
