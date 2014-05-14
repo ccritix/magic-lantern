@@ -276,6 +276,7 @@ NSTUB(    0x31DC,  task_max)
 NSTUB(0xFF016930,  get_current_task)
 NSTUB(0xFF018180,  get_obj_attr)                            // AJ_checks_if_Process_id_created_by_Dryos
 NSTUB(0xFF018338,  is_taskid_valid)                         // AJ_task_trampoline_related_p10
+NSTUB(0xff06a00c, GetTaskName)
 
 /** Task sleep **/
 NSTUB(0xFF069D74,  msleep)                                  // called from EV_GETDONE_CACHE param 0x64
