@@ -1,15 +1,25 @@
 /** 
  * Attempt to intercept all Canon debug messages by overriding DebugMsg call with cache hacks
  * 
- * Usage: define CONFIG_DEBUG_INTERCEPT or CONFIG_DEBUG_INTERCEPT_STARTUP in Makefile.user.
+ * Usage: in Makefile.user, define one of those:
+ * - CONFIG_DEBUG_INTERCEPT=y                     : from ML menu: Debug -> DebugMsg Log
+ * - CONFIG_DEBUG_INTERCEPT_STARTUP=y             : intercept startup messages and save a log file after boot is complete
+ * - CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK=y       : intercept startup messages and blink the log file via card LED after boot is complete
+ * 
+ * (note: CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK will also enable CONFIG_DEBUG_INTERCEPT_STARTUP)
+ * 
  * 
  **/
+
+/** Some local options */
+//~ #define PRINT_EACH_MESSAGE  /* also print each message as soon as it's received (on the screen or via card LED) */
 
 #include "dm-spy.h"
 #include "dryos.h"
 #include "bmp.h"
 #include "beep.h"
 #include "patch.h"
+#include "blink.h"
 
 extern void dm_spy_extra_install();
 extern void dm_spy_extra_uninstall();
@@ -29,6 +39,8 @@ void my_DebugMsg(int class, int level, char* fmt, ...)
 
     uint32_t old = cli();
     
+    char* msg = buf+len;
+    
     //~ char* classname = dm_names[class]; /* not working, some names are gibberish; todo: check for printable characters? */
     
     char* task_name = get_current_task_name();
@@ -45,12 +57,22 @@ void my_DebugMsg(int class, int level, char* fmt, ...)
 
     len += snprintf( buf+len, BUF_SIZE-len, "\n" );
     
+    #ifdef PRINT_EACH_MESSAGE
+        #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
+            blink_str(msg);
+        #else
+            extern int ml_started;
+            if (ml_started)
+            {
+                static int y = 0;
+                bmp_printf(FONT_SMALL, 0, y, "%s\n                                                               ", msg);
+                y += font_small.height;
+                if (y > 450) y = 0;
+            }
+        #endif
+    #endif
+
     sei(old);
-    
-    //~ static int y = 0;
-    //~ bmp_printf(FONT_SMALL, 0, y, "%s\n                                                               ", msg);
-    //~ y += font_small.height;
-    //~ if (y > 450) y = 0;
 }
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
@@ -80,8 +102,13 @@ void debug_intercept()
         buf = 0;
         unpatch_memory(DebugMsg_addr);
         staticbuf[len] = 0;
-        dump_seg(staticbuf, len, "dm.log");
-        NotifyBox(2000, "DebugMsg log: saved %d bytes.", len);
+        
+        #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
+            blink_str(staticbuf);
+        #else
+            dump_seg(staticbuf, len, "dm.log");
+            NotifyBox(2000, "DebugMsg log: saved %d bytes.", len);
+        #endif
         len = 0;
     }
 }

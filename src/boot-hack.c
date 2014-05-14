@@ -187,7 +187,7 @@ copy_and_restart( )
 
     //~ Canon changed their task starting method in the 6D so our old hook method doesn't work.
 #ifndef CONFIG_6D
-#if !defined(CONFIG_EARLY_PORT) && !defined(CONFIG_HELLO_WORLD)
+#if !defined(CONFIG_EARLY_PORT) && !defined(CONFIG_HELLO_WORLD) && !defined(CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK)
     // Install our task creation hooks
     task_dispatch_hook = my_task_dispatch_hook;
     #ifdef CONFIG_TSKMON
@@ -848,6 +848,16 @@ my_init_task(int a, int b, int c, int d)
         *backup_address = backup_data;
     }
 #endif
+
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
+    msleep(5000);
+    _card_led_on();
+    msleep(1000);
+    _card_led_off();
+    debug_intercept();
+    return;
+#endif
+
 
 #if defined(CONFIG_CRASH_LOG) && defined(DRYOS_ASSERT_HANDLER)
     // decompile TH_assert to find out the location
