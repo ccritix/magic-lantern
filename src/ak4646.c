@@ -309,6 +309,11 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
                 AK4646_SET(AK4646_PAR_INL, 0);
                 AK4646_SET(AK4646_PAR_INR, 0);
                 ak4646_write_changed();
+                
+#if defined(CONFIG_5D3)
+                /* 5D3 uses this line to enable internal mic power? */
+                MEM(0xC0220188) |= 2;
+#endif
                 break;
                 
             case SOUND_SOURCE_EXT_MIC:
@@ -319,6 +324,11 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
                 AK4646_SET(AK4646_PAR_INL, 1);
                 AK4646_SET(AK4646_PAR_INR, 1);
                 ak4646_write_changed();
+                
+#if defined(CONFIG_5D3)
+                /* 5D3 uses this line to select mic */
+                MEM(0xC0220188) &= ~2;
+#endif
                 break;
                 
             case SOUND_SOURCE_EXTENDED_1:
