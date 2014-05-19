@@ -58,7 +58,8 @@ enum snd_viz_mode
 {
     VIZ_MODE_FFT_LINE,
     VIZ_MODE_FFT_BARS,
-    VIZ_MODE_WATERFALL
+    VIZ_MODE_WATERFALL,
+    VIZ_MODE_CORRELATION,
 };
 static uint32_t trace_ctx = TRACE_ERROR;
 
@@ -439,25 +440,63 @@ static void snd_viz_task(int unused)
         
         if(!gui_menu_shown())
         {
-            uint32_t channels = 2;
-            
-            for(uint32_t chan = 0; chan < channels; chan++)
+            switch(snd_viz_mode)
             {
-                /* pepare data for KISS FFT */
-                for(uint32_t pos = 0; pos < fft_size; pos++)
+                case VIZ_MODE_FFT_BARS:
+                case VIZ_MODE_FFT_LINE:
+                case VIZ_MODE_WATERFALL:
                 {
-                    int16_t *data = (int16_t *)buffer->data;
-                    float sample = FIX_TO_FLOAT(data[channels * pos + chan]);
+                    uint32_t channels = 2;
                     
-                    fft_in[pos].r = FLOAT_TO_FIX(sample * windowing_function[pos]);
-                    fft_in[pos].i = 0;
+                    for(uint32_t chan = 0; chan < channels; chan++)
+                    {
+                        /* pepare data for KISS FFT */
+                        for(uint32_t pos = 0; pos < fft_size; pos++)
+                        {
+                            int16_t *data = (int16_t *)buffer->data;
+                            float sample = FIX_TO_FLOAT(data[channels * pos + chan]);
+                            
+                            fft_in[pos].r = FLOAT_TO_FIX(sample * windowing_function[pos]);
+                            fft_in[pos].i = 0;
+                        }
+                        
+                        /* process FFT */
+                        kiss_fft(cfg, fft_in, fft_out);
+                        
+                        /* show */
+                        snd_viz_show_fft(fft_out, fft_size, windowing_constant, 10, 50 + chan * 400 / channels, 700, 400/channels);
+                    }
+                    break;
                 }
                 
-                /* process FFT */
-                kiss_fft(cfg, fft_in, fft_out);
-                
-                /* show */
-                snd_viz_show_fft(fft_out, fft_size, windowing_constant, 10, 50 + chan * 400 / channels, 700, 400/channels);
+                case VIZ_MODE_CORRELATION:
+                {
+                    int16_t *data = (int16_t *)buffer->data;
+                    
+                    bmp_draw_to_idle(1);
+                    
+                    bmp_fill(COLOR_BLACK, 720 / 2 - 200, 480 / 2 - 200, 400, 400);
+                    draw_line(720 / 2 + 200, 480 / 2 + 200, 720 / 2 - 200, 480 / 2 - 200, COLOR_GRAY(10));
+                    
+                    uint32_t samples = buffer->size / 2;
+                    
+                    for(uint32_t pos = 0; pos < samples / 2; pos += 2)
+                    {
+                        int16_t sample_l = data[2 * pos + 0];
+                        int16_t sample_r = data[2 * pos + 1];
+                        
+                        uint32_t x = (sample_l * 200) / 32768;
+                        uint32_t y = (sample_r * 200) / 32768;
+                        
+                        bmp_putpixel(720 / 2 + x, 480 / 2 + y, COLOR_RED);
+                    }
+                    
+                    bmp_draw_rect(COLOR_WHITE, 720 / 2 - 200, 480 / 2 - 200, 400, 400);
+                    
+                    bmp_draw_to_idle(0);
+                    bmp_idle_copy(1,0);
+                    break;
+                }
             }
         }
         
@@ -549,9 +588,9 @@ static struct menu_entry snd_viz_menu[] =
             {
                 .name = "Mode",
                 .priv = &snd_viz_mode,
-                .max = 2,
-                .choices = (const char *[]) {"FFT Lines", "FFT Bars", "Waterfall", "X/Y correlation"},
-                .help = "Select visualization",
+                .max = 3,
+                .choices = (const char *[]) {"FFT Lines", "FFT Bars", "Waterfall", "L/R correlation"},
+                .help = "Select visualization type",
             },
             MENU_EOL,
         },
