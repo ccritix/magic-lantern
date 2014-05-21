@@ -48,6 +48,7 @@ static struct known_reg known_regs[] = {
     {DST_ADTG, 0x8179, 1, "dwSrFstAdtg1[5]"},
     {DST_ADTG, 0x8196, 1, "dwSrFstAdtg1[2], Line count + 1"},
     {DST_ADTG, 0x8197, 1, "dwSrFstAdtg1[3]"},
+    {DST_ADTG, 0x82F9, 1, "dwSrFstAdtg1 and FPS related"},
     {DST_ADTG, 0x82F3, 1, "Line count that gets darker (top optical black related)"},
     {DST_ADTG, 0x82F8, 1, "Line count"},
     {DST_ADTG, 0x8830, 0, "Only slightly changes the color of the image (g3gg0)"},
