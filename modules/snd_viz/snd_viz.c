@@ -41,6 +41,10 @@
 #define FIX_TO_FLOAT(x) ((float)(x) / 32768.0f)
 #define FLOAT_TO_FIX(x) ((int16_t)(x * 32768.0f))
 
+/* use BMP_W_PLUS and BMP_H_PLUS instead? */
+#define BMP_WIDTH  720
+#define BMP_HEIGHT 480
+
 
 enum windowing_function
 {
@@ -53,7 +57,6 @@ enum windowing_function
     WINDOW_Hamming = 6
 };
 
-
 enum snd_viz_mode
 {
     VIZ_MODE_FFT_LINE,
@@ -61,6 +64,7 @@ enum snd_viz_mode
     VIZ_MODE_WATERFALL,
     VIZ_MODE_CORRELATION,
 };
+
 static uint32_t trace_ctx = TRACE_ERROR;
 
 static CONFIG_INT("snd.viz.mode", snd_viz_mode, VIZ_MODE_WATERFALL);
@@ -72,8 +76,9 @@ static CONFIG_INT("snd.viz.enable_tracing", snd_viz_enable_tracing, 0);
 static int32_t snd_viz_running = 0;
 static uint32_t snd_viz_in_active = 0;
 
-static uint32_t snd_viz_buffer_size = (44100 * 2 * 2) / 20;
-static uint32_t snd_viz_in_sample_rate = 44100;
+static uint32_t snd_viz_fps = 20;
+static uint32_t snd_viz_in_sample_rate = 48000;
+static uint32_t snd_viz_correl_size = 400;
 
 static struct sound_ctx *snd_viz_sound_ctx = NULL;
 struct sound_buffer *snd_viz_buffers[10];
@@ -150,6 +155,9 @@ static uint32_t snd_viz_start_audio()
 
 static uint32_t snd_viz_alloc_buffers()
 {
+    /* 16 bit/sample, 2 channels */
+    uint32_t buffer_size = (snd_viz_in_sample_rate * 2 * 2) / snd_viz_fps;
+
     /* prepare empty buffers */
     for(uint32_t pos = 0; pos < COUNT(snd_viz_buffers); pos++)
     {
@@ -160,7 +168,7 @@ static uint32_t snd_viz_alloc_buffers()
             return 0;
         }
         buffer->processed = &snd_viz_buf_processed;
-        buffer->size = snd_viz_buffer_size;
+        buffer->size = buffer_size;
         buffer->data = malloc(buffer->size);
         if(!buffer->data)
         {
@@ -270,6 +278,7 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, float wi
                 float db_val = 10 * logf(squared) / log10_val;
                 uint32_t ampl = (uint32_t)MIN(100, db_val + 100);
                 uint32_t x = pos * snd_viz_waterfall_width / (fft_size / 2);
+                
                 snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = COLOR_GRAY(COERCE(ampl, 0, 100));
                 break;
             }
@@ -475,8 +484,10 @@ static void snd_viz_task(int unused)
                     
                     bmp_draw_to_idle(1);
                     
-                    bmp_fill(COLOR_BLACK, 720 / 2 - 200, 480 / 2 - 200, 400, 400);
-                    draw_line(720 / 2 + 200, 480 / 2 + 200, 720 / 2 - 200, 480 / 2 - 200, COLOR_GRAY(10));
+                    /* align the X/Y plot to the center of the scren */
+                    bmp_fill(COLOR_BLACK, BMP_WIDTH / 2 - snd_viz_correl_size / 2, BMP_HEIGHT / 2 - snd_viz_correl_size / 2, snd_viz_correl_size, snd_viz_correl_size);
+                    /* draw the diagonal on which perfectly corellating signals would be */
+                    draw_line(BMP_WIDTH / 2 + snd_viz_correl_size / 2, BMP_HEIGHT / 2 + snd_viz_correl_size / 2, BMP_WIDTH / 2 - snd_viz_correl_size / 2, BMP_HEIGHT / 2 - snd_viz_correl_size / 2, COLOR_GRAY(10));
                     
                     uint32_t samples = buffer->size / 2;
                     
@@ -485,13 +496,14 @@ static void snd_viz_task(int unused)
                         int16_t sample_l = data[2 * pos + 0];
                         int16_t sample_r = data[2 * pos + 1];
                         
-                        uint32_t x = (sample_l * 200) / 32768;
-                        uint32_t y = (sample_r * 200) / 32768;
+                        /* scale sample values to rect size */
+                        uint32_t x = (sample_l * snd_viz_correl_size / 2) / 32768;
+                        uint32_t y = (sample_r * snd_viz_correl_size / 2) / 32768;
                         
-                        bmp_putpixel(720 / 2 + x, 480 / 2 + y, COLOR_RED);
+                        bmp_putpixel(BMP_WIDTH / 2 + x, BMP_HEIGHT / 2 + y, COLOR_RED);
                     }
                     
-                    bmp_draw_rect(COLOR_WHITE, 720 / 2 - 200, 480 / 2 - 200, 400, 400);
+                    bmp_draw_rect(COLOR_WHITE, BMP_WIDTH / 2 - snd_viz_correl_size / 2, BMP_HEIGHT / 2 - snd_viz_correl_size / 2, snd_viz_correl_size, snd_viz_correl_size);
                     
                     bmp_draw_to_idle(0);
                     bmp_idle_copy(1,0);
@@ -609,7 +621,7 @@ static unsigned int snd_viz_init()
     snd_viz_sound_ctx = sound_alloc();
     snd_viz_sound_ctx->mode = SOUND_MODE_RECORD;
     
-    snd_viz_sound_ctx->format.rate = 48000;
+    snd_viz_sound_ctx->format.rate = snd_viz_in_sample_rate;
     snd_viz_sound_ctx->format.channels = 2;
     snd_viz_sound_ctx->format.sampletype = SOUND_SAMPLETYPE_SINT16;
     
