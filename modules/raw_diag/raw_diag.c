@@ -42,6 +42,11 @@ static CONFIG_INT("analysis.cmp", analysis_compare_2_shots, 0);
 static CONFIG_INT("analysis.cmp.hl", analysis_compare_2_shots_highlights, 0);
 static CONFIG_INT("analysis.ob_zones", analysis_ob_zones, 0);
 
+static int should_keep_going()
+{
+    return lv || gui_state == GUISTATE_QR;
+}
+
 /* a float version of the routine from raw.c (should be more accurate) */
 static void FAST autodetect_black_level_calc(int x1, int x2, int y1, int y2, int dx, int dy, float* out_mean, float* out_stdev)
 {
@@ -291,7 +296,7 @@ static void snr_graph()
     int x2 = raw_info.active_area.x2;
     int y2 = raw_info.active_area.y2;
     
-    for (int k = 0; k < 10000 && gui_state == GUISTATE_QR; k++)
+    for (int k = 0; k < 10000 && should_keep_going(); k++)
     {
         /* choose random points in the image */
         int x = ((uint32_t) rand() % (x2 - x1 - 100)) + x1 + 50;
@@ -379,7 +384,7 @@ static void jpg_curve()
     uint32_t* lv = (uint32_t*) get_yuv422_vram()->vram;
 
     int colors[4] = {COLOR_RED, COLOR_GREEN1, COLOR_GREEN1, COLOR_LIGHT_BLUE};
-    for (int k = 0; k < 100000 && gui_state == GUISTATE_QR; k++)
+    for (int k = 0; k < 100000 && should_keep_going(); k++)
     {
         /* choose random points in the image */
         int x = ((uint32_t) rand() % (x2 - x1 - 100)) + x1 + 50;
@@ -1079,7 +1084,7 @@ static void FAST darkframe_grayscale()
     
     /* scan the raw buffer, stop if you get out of QR mode */
     int current_by = 0;
-    for (int y = 0; y < raw_info.height && gui_state == GUISTATE_QR; y++)
+    for (int y = 0; y < raw_info.height && should_keep_going(); y++)
     {
         int by = RAW2BM_Y(y);
         if (by < 0 || by >= 480) continue;
@@ -1150,70 +1155,70 @@ static void raw_diag_task(int corr)
     {
         black_histogram(1);
         screenshot_if_needed("ob-dr");
-        if (gui_state != GUISTATE_QR) goto end;
+        if (!should_keep_going()) goto end;
     }
 
     if (analysis_ob_zones)
     {
         analyze_ob_zones();
         screenshot_if_needed("ob-zones");
-        if (gui_state != GUISTATE_QR) goto end;
+        if (!should_keep_going()) goto end;
     }
 
     if (analysis_darkframe_noise)
     {
         black_histogram(0);
         screenshot_if_needed("darkhist");
-        if (gui_state != GUISTATE_QR) goto end;
+        if (!should_keep_going()) goto end;
     }
     
     if (analysis_darkframe_grayscale)
     {
         darkframe_grayscale();
         screenshot_if_needed("darkgray");
-        if (gui_state != GUISTATE_QR) goto end;
+        if (!should_keep_going()) goto end;
     }
 
     if (analysis_darkframe_fpn)
     {
         darkframe_fpn();
         screenshot_if_needed("darkfpn");
-        if (gui_state != GUISTATE_QR) goto end;
+        if (!should_keep_going()) goto end;
     }
 
     if (analysis_darkframe_fpn_xcov)
     {
         darkframe_fpn_xcov();
         screenshot_if_needed("darkfpnx");
-        if (gui_state != GUISTATE_QR) goto end;
+        if (!should_keep_going()) goto end;
     }
 
     if (analysis_snr_curve)
     {
         snr_graph();
         screenshot_if_needed("snr");
-        if (gui_state != GUISTATE_QR) goto end;
+        if (!should_keep_going()) goto end;
     }
 
     if (analysis_jpg_curve)
     {
         jpg_curve();
         screenshot_if_needed("jpg");
-        if (gui_state != GUISTATE_QR) goto end;
+        if (!should_keep_going()) goto end;
     }
 
     if (analysis_compare_2_shots)
     {
         compare_2_shots(1);          /* show full shadow detail */
         screenshot_if_needed("cmp");
-        if (gui_state != GUISTATE_QR) goto end;
+        if (!should_keep_going()) goto end;
     }
 
     if (analysis_compare_2_shots_highlights)
     {
         compare_2_shots(1024);       /* trim the bottom 10 stops and zoom on highlight detail */
         screenshot_if_needed("cmp-hl");
-        if (gui_state != GUISTATE_QR) goto end;
+        if (!should_keep_going()) goto end;
     }
     
     if (dump_raw)
