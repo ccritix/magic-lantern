@@ -37,6 +37,7 @@ static CONFIG_INT("analysis.dark.gray", analysis_darkframe_grayscale, 0);
 static CONFIG_INT("analysis.dark.fpn", analysis_darkframe_fpn, 0);
 static CONFIG_INT("analysis.dark.fpn.xcov", analysis_darkframe_fpn_xcov, 0);
 static CONFIG_INT("analysis.snr", analysis_snr_curve, 0);
+static CONFIG_INT("analysis.snr.x2", analysis_snr_curve_2_shots, 0);
 static CONFIG_INT("analysis.jpg", analysis_jpg_curve, 0);
 static CONFIG_INT("analysis.cmp", analysis_compare_2_shots, 0);
 static CONFIG_INT("analysis.cmp.hl", analysis_compare_2_shots_highlights, 0);
@@ -48,18 +49,24 @@ static int should_keep_going()
 }
 
 /* a float version of the routine from raw.c (should be more accurate) */
-static void FAST autodetect_black_level_calc(int x1, int x2, int y1, int y2, int dx, int dy, float* out_mean, float* out_stdev)
+static void FAST autodetect_black_level_calc(
+    int x1, int x2, int y1, int y2,         /* crop window (including x1,x2,y1,y2) */
+    int dx, int dy,                         /* increments (starting from x1 and y1) */
+    float* out_mean, float* out_stdev,      /* output results */
+    void* raw_delta_buffer                  /* optional: a raw buffer to be subtracted from the main one */
+)
 {
     int64_t black = 0;
     int num = 0;
 
     /* compute average level */
-    for (int y = y1; y < y2; y += dy)
+    for (int y = y1; y <= y2; y += dy)
     {
-        for (int x = x1; x < x2; x += dx)
+        for (int x = x1; x <= x2; x += dx)
         {
             int p = raw_get_pixel(x, y);
             if (p == 0) continue;               /* bad pixel */
+            if (raw_delta_buffer) p -= raw_get_pixel_ex(raw_delta_buffer, x, y);
             black += p;
             num++;
         }
@@ -69,12 +76,13 @@ static void FAST autodetect_black_level_calc(int x1, int x2, int y1, int y2, int
 
     /* compute standard deviation */
     float stdev = 0;
-    for (int y = y1; y < y2; y += dy)
+    for (int y = y1; y <= y2; y += dy)
     {
-        for (int x = x1; x < x2; x += dx)
+        for (int x = x1; x <= x2; x += dx)
         {
             int p = raw_get_pixel(x, y);
             if (p == 0) continue;
+            if (raw_delta_buffer) p -= raw_get_pixel_ex(raw_delta_buffer, x, y);
             float dif = p - mean;
             stdev += dif * dif;
         }
@@ -135,7 +143,7 @@ static void FAST ob_mean_stdev(float* mean, float* stdev)
     int y1 = raw_info.active_area.y1 + 20;
     int y2 = raw_info.active_area.y2 - 20;
 
-    autodetect_black_level_calc(x1, x2, y1, y2, 1, 1, mean, stdev);
+    autodetect_black_level_calc(x1, x2, y1, y2, 1, 1, mean, stdev, 0);
 }
 
 /* large histogram of the left optical black area */
@@ -152,7 +160,7 @@ static void FAST black_histogram(int ob)
     bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 240, "Please wait...\n(crunching numbers)");
 
     float mean, stdev;
-    autodetect_black_level_calc(x1, x2, y1, y2, dx, dy, &mean, &stdev);
+    autodetect_black_level_calc(x1, x2, y1, y2, dx, dy, &mean, &stdev, 0);
 
     if (mean == 0 || stdev == 0)
     {
@@ -235,32 +243,30 @@ static void FAST black_histogram(int ob)
 
 /* compute mean and stdev for a random patch in the middle of the image; */
 /* assuming the image is grossly out of focus, this should be a fairly good indication for local SNR */
+/* optionally, pass a second raw buffer to sample the difference between them (ala Roger Clark) */
 
 /* todo:
  * - reject patches that clearly don't look like noise
  * - compensate for low-frequency variations (instead of just subtracting the mean)
  * - use full-res sampling for green channel?
  */
-static void patch_mean_stdev(int x, int y, float* out_mean, float* out_stdev)
+static void patch_mean_stdev(int x, int y, float* out_mean, float* out_stdev, void* raw_delta_buffer)
 {
     autodetect_black_level_calc(
         x - 8, x + 8,
         y - 8, y + 8,
         2, 2,               /* sample from the same color channel */
-        out_mean, out_stdev
+        out_mean, out_stdev,
+        raw_delta_buffer
     );
 }
 
-/* estimate the SNR curve from a defocused image */
-static void snr_graph()
+static void snr_graph_init()
 {
-    float black, noise;
-    ob_mean_stdev(&black, &noise);
-
     clrscr();
     bmp_fill(COLOR_BG_DARK, 0, 00, 720, 480);
 
-    float full_well = 14;
+    const float full_well = 14;
     
     /* horizontal grid */
     const int y_step = 35;
@@ -290,12 +296,25 @@ static void snr_graph()
         "%s\n"
         "ISO %d %s "SYM_F_SLASH"%s%d.%d", camera_model, lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
     );
+}
 
+/* estimate the SNR curve from a defocused image */
+static void snr_graph()
+{
+    float black, noise;
+    ob_mean_stdev(&black, &noise);
+
+    snr_graph_init();
+
+    const float full_well = 14;
+    const int y_step = 35;
+    const int y_origin = 35*9;
+    
     int x1 = raw_info.active_area.x1;
     int y1 = raw_info.active_area.y1;
     int x2 = raw_info.active_area.x2;
     int y2 = raw_info.active_area.y2;
-    
+
     for (int k = 0; k < 10000 && should_keep_going(); k++)
     {
         /* choose random points in the image */
@@ -316,7 +335,7 @@ static void snr_graph()
 
         /* compute local average and stdev */
         float mean, stdev;
-        patch_mean_stdev(x, y, &mean, &stdev);
+        patch_mean_stdev(x, y, &mean, &stdev, 0);
         
         /* assumming the image is grossly out of focus, these numbers are a good estimation of the local SNR */
         float signal = log2f(MAX(1, mean - black));
@@ -331,6 +350,106 @@ static void snr_graph()
         /* relax */
         if (k%128 == 0)
             msleep(10);
+    }
+}
+
+/* estimate the SNR curve from the difference between two identical shots */
+/* method inspired from Roger Clark, http://www.clarkvision.com/articles/evaluation-1d2/ */
+static void snr_graph_2_shots()
+{
+    float black, noise;
+    ob_mean_stdev(&black, &noise);
+
+    snr_graph_init();
+
+    const float full_well = 14;
+    const int y_step = 35;
+    const int y_origin = 35*9;
+
+    int x1 = raw_info.active_area.x1;
+    int y1 = raw_info.active_area.y1;
+    int x2 = raw_info.active_area.x2;
+    int y2 = raw_info.active_area.y2;
+    
+    static void* second_buf = 0;
+
+    /* our buffer can't be larger than 32 MB :( */
+    /* no big deal, we'll trim the analyzed image to fit in 32 M */
+    /* (well, 31, just to be sure it can be allocated on most cameras) */
+    int raw_buffer_size = MIN(raw_info.frame_size, 31*1024*1024);
+
+    if (!second_buf)
+    {
+        second_buf = malloc(raw_buffer_size);
+        if (second_buf)
+        {
+            memcpy(second_buf, raw_info.buffer, raw_buffer_size);
+            
+            bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 200, 
+                "Please take one more test picture of the same static scene.\n"
+                "Use the same settings, a solid tripod, and 10-second timer."
+            );
+        }
+        else
+        {
+            bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 200, 
+                "You may need to solder some RAM chips :("
+            );
+        }
+        return;
+    }
+    
+    for (int k = 0; k < 10000 && should_keep_going(); k++)
+    {
+        /* choose random points in the image */
+        int x = ((uint32_t) rand() % (x2 - x1 - 100)) + x1 + 50;
+        int y = ((uint32_t) rand() % (y2 - y1 - 100)) + y1 + 50;
+        
+        /* make sure we don't get outside the second buffer */
+        if (y*raw_info.pitch + x * 14/8 > raw_buffer_size)
+            continue;
+        
+        /* not overexposed, please */
+        int p = raw_get_pixel(x, y);
+        if (p >= raw_info.white_level) continue;
+        p = raw_get_pixel(x-8, y-8);
+        if (p >= raw_info.white_level) continue;
+        p = raw_get_pixel(x+8, y+8);
+        if (p >= raw_info.white_level) continue;
+        p = raw_get_pixel(x-8, y+8);
+        if (p >= raw_info.white_level) continue;
+        p = raw_get_pixel(x+8, y-8);
+        if (p >= raw_info.white_level) continue;
+
+        /* compute local average (on the test image) and stdev (on the delta image) */
+        float mean, stdev, unused;
+        patch_mean_stdev(x, y, &mean, &unused, 0);
+        patch_mean_stdev(x, y, &unused, &stdev, second_buf);
+        
+        /* when subtracting two test images of the same scene, taken with identical settings, 
+         * the noise increases by sqrt(2); we need to undo this */
+        stdev /= sqrtf(2);
+        
+        /* assumming the two test images represent the same scene, taken with identical settings,
+         * these numbers a good estimation of the local SNR */
+        float signal = log2f(MAX(1, mean - black));
+        float noise = log2f(stdev);
+        float snr = signal - noise;
+        
+        /* draw the data point */
+        int bx = COERCE(signal * 720 / full_well, 0, 719);
+        int by = COERCE(y_origin - snr * y_step, 0, 479);
+        bmp_putpixel(bx, by, COLOR_LIGHT_BLUE);
+
+        /* relax */
+        if (k%128 == 0)
+            msleep(10);
+    }
+    
+    if (second_buf)
+    {
+        free(second_buf);
+        second_buf = 0;
     }
 }
 
@@ -1200,6 +1319,13 @@ static void raw_diag_task(int corr)
         if (!should_keep_going()) goto end;
     }
 
+    if (analysis_snr_curve_2_shots)
+    {
+        snr_graph_2_shots();
+        screenshot_if_needed("snr2");
+        if (!should_keep_going()) goto end;
+    }
+
     if (analysis_jpg_curve)
     {
         jpg_curve();
@@ -1296,7 +1422,9 @@ static void test_shot()
     if (is_movie_mode())
     {
         msleep(1000);
+        raw_lv_request();
         raw_diag_run(1);
+        raw_lv_release();
         msleep(1000);
     }
     else
@@ -1319,6 +1447,15 @@ static void test_bracket()
     menu_set_value_from_script("Expo", "Mini ISO", 1);
     menu_set_value_from_script("Debug", "ISO registers", 1);
     lens_set_rawshutter(SHUTTER_1_25);
+    test_shot();
+}
+
+static void dummy_test_bracket()
+{
+    beep();
+    msleep(5000);
+    FIO_RemoveFile("RAWSAMPL.DAT");
+    test_shot();
     test_shot();
 }
 
@@ -1461,6 +1598,13 @@ static struct menu_entry raw_diag_menu[] =
                         .help2 = "If the image is focused, detail will be misinterpreted as noise.",
                     },
                     {
+                        .name  = "SNR curve (2 shots)",
+                        .priv  = &analysis_snr_curve_2_shots,
+                        .max   = 1,
+                        .help  = "Estimate the SNR curve (noise profile) from the difference between",
+                        .help2 = "two identical test images of the same static scene (tripod required).",
+                    },
+                    {
                         .name  = "JPEG curve",
                         .priv  = &analysis_jpg_curve,
                         .max   = 1,
@@ -1496,6 +1640,13 @@ static struct menu_entry raw_diag_menu[] =
                 .select = (void (*)(void*,int))run_in_separate_task,
                 .help = "Shot 1: 1/50 with iso_regs and mini_iso turned off.",
                 .help2 = "Shot 2: 1/25 with iso_regs and mini_iso turned on, if loaded."
+            },
+            {
+                .name = "Dummy bracket",
+                .priv = &dummy_test_bracket,
+                .select = (void (*)(void*,int))run_in_separate_task,
+                .help   = "Take 2 shots with current settings.",
+                .help2  = "Useful for tools that compare two test images of the same scene.",
             },
             {
                 .name = "ISO experiment",
@@ -1541,6 +1692,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(analysis_darkframe_fpn)
     MODULE_CONFIG(analysis_darkframe_fpn_xcov)
     MODULE_CONFIG(analysis_snr_curve)
+    MODULE_CONFIG(analysis_snr_curve_2_shots)
     MODULE_CONFIG(analysis_jpg_curve)
     MODULE_CONFIG(analysis_compare_2_shots)
     MODULE_CONFIG(analysis_compare_2_shots_highlights)
