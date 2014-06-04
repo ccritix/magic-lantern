@@ -27,7 +27,7 @@ uint64_t rtc_get_us_clock_value()
     return timer_value + correction;
 }
 
-/* return the  */
+/* return the offset to microsecond time */
 uint32_t rtc_calibrate()
 {
     /* determine the RTC read duration and approximate RTC second tick time */
@@ -312,18 +312,21 @@ static struct menu_entry rtc_sync_menu[] =
         {
             {
                 .name = "Cold calibration",
+                .icon_type = IT_ACTION,
                 .priv = &rtc_sync_cold_calib,
                 .select = (void(*)(void*,int))&run_in_separate_task,
                 .help = "Run a clean calibration run (45 min)",
             },
             {
                 .name = "Rerun calibration",
+                .icon_type = IT_ACTION,
                 .priv = &rtc_sync_warm_calib,
                 .select = (void(*)(void*,int))&run_in_separate_task,
                 .help = "Re-run calibration run (45 min)",
             },
             {
                 .name = "Plot clock deviation",
+                .icon_type = IT_ACTION,
                 .priv = &rtc_sync_endless_calib,
                 .select = (void(*)(void*,int))&run_in_separate_task,
                 .help = "Permanently shows clock deviation in a plot",
