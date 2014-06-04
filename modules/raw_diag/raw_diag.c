@@ -353,12 +353,67 @@ static void snr_graph()
     }
 }
 
+/* Model assumes constant additive read noise combined with Poisson shot noise */
+static float check_noise_model(float read_noise, float gain, float* signal_points, float* snr_points, int num_points)
+{
+    float err = 0;
+    for (int i = 0; i < num_points; i++)
+    {
+        float input_signal = signal_points[i];
+        float measured_snr = snr_points[i];
+        if (input_signal != 0 && measured_snr != 0)
+        {
+            float dn = powf(2, input_signal);
+            float electrons = dn * gain;
+            float shot_snr = sqrtf(electrons);
+            float shot_noise = dn / shot_snr;
+            float combined_noise = sqrtf(read_noise*read_noise + shot_noise*shot_noise);
+            float predicted_snr = input_signal - log2f(combined_noise);
+            float delta = measured_snr - predicted_snr;
+            err += delta * delta;
+        }
+    }
+    return err;
+}
+
+/* random numbers between -1 and 1 */
+static float frand()
+{
+    return ((rand() % 1001) - 500) / 500.0;
+}
+
+/* dumb minimization with random advancement step; feel free to implement something like Nelder-Mead ;) */
+static void fit_noise_model(float ob_noise, float initial_gain, float* signal_points, float* snr_points, int num_points, float* out_read_noise, float* out_gain)
+{
+    float read_noise = ob_noise;
+    float gain = initial_gain;
+    
+    float current_err = check_noise_model(read_noise, gain, signal_points, snr_points, num_points);
+    
+    for (int i = 0; i < 5000; i++)
+    {
+        float next_noise = read_noise + frand();
+        float next_gain = gain + frand();
+        
+        float next_err = check_noise_model(next_noise, next_gain, signal_points, snr_points, num_points);
+        if (next_err < current_err)
+        {
+            read_noise = next_noise;
+            gain = next_gain;
+            current_err = next_err;
+        }
+    }
+    
+    *out_read_noise = read_noise;
+    *out_gain = gain;
+}
+
 /* estimate the SNR curve from the difference between two identical shots */
 /* method inspired from Roger Clark, http://www.clarkvision.com/articles/evaluation-1d2/ */
 static void snr_graph_2_shots()
 {
-    float black, noise;
-    ob_mean_stdev(&black, &noise);
+    float black, ob_noise;
+    ob_mean_stdev(&black, &ob_noise);
 
     snr_graph_init();
 
@@ -399,7 +454,20 @@ static void snr_graph_2_shots()
         return;
     }
     
-    for (int k = 0; k < 10000 && should_keep_going(); k++)
+    /* data points for curve fitting */
+    int num_points[28] = {0};
+    int * data_points_x[28];
+    int * data_points_y[28];
+    float medians_x[28];
+    float medians_y[28];
+
+    for (int i = 0; i < COUNT(data_points_x); i++)
+    {
+        data_points_x[i] = malloc(5000 * sizeof(int));
+        data_points_y[i] = malloc(5000 * sizeof(int));
+    }
+    
+    for (int k = 0; k < 20000 && should_keep_going(); k++)
     {
         /* choose random points in the image */
         int x = ((uint32_t) rand() % (x2 - x1 - 100)) + x1 + 50;
@@ -440,12 +508,86 @@ static void snr_graph_2_shots()
         int bx = COERCE(signal * 720 / full_well, 0, 719);
         int by = COERCE(y_origin - snr * y_step, 0, 479);
         bmp_putpixel(bx, by, COLOR_LIGHT_BLUE);
+        
+        /* group the data points every half-stop */
+        int slot = COERCE((int)roundf(signal * 2), 0, COUNT(data_points_x) - 1);
+        if (num_points[slot] < 5000)
+        {
+            data_points_x[slot][num_points[slot]] = (int)(signal * 10000.0f);
+            data_points_y[slot][num_points[slot]] = (int)(snr * 10000.0f);
+            num_points[slot]++;
+        }
 
         /* relax */
         if (k%128 == 0)
             msleep(10);
     }
+
+    bmp_printf(FONT_MED, 0, font_med.height*3, 
+        "Please wait...\n"
+    );
+
+    /* extract the median for each half-stop group */
+    for (int i = 0; i < COUNT(data_points_x); i++)
+    {
+        if (num_points[i] > 100)
+        {
+            medians_x[i] = median_int_wirth(data_points_x[i], num_points[i]) / 10000.0f;
+            medians_y[i] = median_int_wirth(data_points_y[i], num_points[i]) / 10000.0f;
+
+            /* draw the data point */
+            float signal = medians_x[i];
+            float snr = medians_y[i];
+            int bx = COERCE(signal * 720 / full_well, 0, 719);
+            int by = COERCE(y_origin - snr * y_step, 0, 479);
+            fill_circle(bx, by, 3, COLOR_RED);
+        }
+        else
+        {
+            medians_x[i] = 0;
+            medians_y[i] = 0;
+        }
+    }
     
+    /* fit a model for read noise and gain (e/DN) */
+    float read_noise, gain;
+    fit_noise_model(ob_noise, 5, medians_x, medians_y, COUNT(medians_x), &read_noise, &gain);
+
+    /* check the mathematical model */
+    for (float signal = 0; signal < full_well; signal += 0.01)
+    {
+        float dn = powf(2, signal);
+        float electrons = dn * gain;
+        float shot_snr = sqrtf(electrons);
+        float shot_noise = dn / shot_snr;
+        
+        float combined_noise = sqrtf(read_noise*read_noise + shot_noise*shot_noise);
+        float model_snr = signal - log2f(combined_noise);
+        int bx = COERCE(signal * 720 / full_well, 0, 719);
+        int by = COERCE(y_origin - model_snr * y_step, 0, 479);
+        bmp_putpixel(bx, by, COLOR_RED);
+    }
+    
+    int ob_noise_x100 = (int)roundf(ob_noise * 100);
+    int read_noise_x100 = (int)roundf(read_noise * 100);
+    int gain_x100 = (int)roundf(gain * 100);
+    
+    bmp_printf(FONT_MED | FONT_ALIGN_FILL, 0, font_med.height*3, 
+        "Measured OB noise: %s%d.%02d DN\n"
+        "Estimated read noise: %s%d.%02d DN\n"
+        "Estimated gain : %s%d.%02d e/DN",
+        FMT_FIXEDPOINT2(ob_noise_x100),
+        FMT_FIXEDPOINT2(read_noise_x100),
+        FMT_FIXEDPOINT2(gain_x100)
+    );
+
+    /* data points no longer needed */
+    for (int i = 0; i < COUNT(data_points_x); i++)
+    {
+        free(data_points_x[i]);
+        free(data_points_y[i]);
+    }
+
     if (second_buf)
     {
         free(second_buf);
