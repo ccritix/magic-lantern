@@ -463,15 +463,23 @@ static void snr_graph_2_shots(int noise_curve)
     
     /* data points for curve fitting */
     int num_points[28] = {0};
-    int * data_points_x[28];
-    int * data_points_y[28];
-    float medians_x[28];
-    float medians_y[28];
+    int * data_points_x[28] = {0};
+    int * data_points_y[28] = {0};
+    float medians_x[28] = {0};
+    float medians_y[28] = {0};
 
     for (int i = 0; i < COUNT(data_points_x); i++)
     {
         data_points_x[i] = malloc(5000 * sizeof(int));
         data_points_y[i] = malloc(5000 * sizeof(int));
+        
+        if (!data_points_x[i] || !data_points_y[i])
+        {
+            bmp_printf(FONT_MED | FONT_ALIGN_CENTER, 360, 200, 
+                "You may need to solder some RAM chips :("
+            );
+            goto end;
+        }
     }
 
     bmp_printf(FONT_MED, 0, font_med.height*3, 
@@ -630,11 +638,12 @@ static void snr_graph_2_shots(int noise_curve)
         FMT_FIXEDPOINT2(dr_x100)
     );
 
+end:
     /* data points no longer needed */
     for (int i = 0; i < COUNT(data_points_x); i++)
     {
-        free(data_points_x[i]);
-        free(data_points_y[i]);
+        if (data_points_x[i]) free(data_points_x[i]);
+        if (data_points_y[i]) free(data_points_y[i]);
     }
 
     if (second_buf)
