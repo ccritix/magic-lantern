@@ -438,11 +438,16 @@ static void snr_graph_2_shots(int noise_curve)
     {
         /* our buffer can't be larger than 32 MB :( */
         /* no big deal, we'll trim the analyzed image to fit in 32 M */
-        /* (well, 31, just to be sure it can be allocated on most cameras) */
-        raw_buffer_size = MIN(raw_info.frame_size, 31*1024*1024);
 
-        second_buf = malloc(raw_buffer_size);
-        
+        /* if it fails, let's try some smaller buffer sizes */
+        /* todo: update the memory backend to allow allocating the max possible contiguous chunk via malloc? */
+        int buffer_sizes[] = {31, 28, 25, 20, 16, 10, 5 };
+        for  (int buffer_size_index = 0; buffer_size_index < COUNT(buffer_sizes) && !second_buf; buffer_size_index++)
+        {
+            raw_buffer_size = MIN(raw_info.frame_size, buffer_sizes[buffer_size_index] * 1024 * 1024);
+            second_buf = malloc(raw_buffer_size);
+        }
+
         if (second_buf)
         {
             memcpy(second_buf, raw_info.buffer, raw_buffer_size);
