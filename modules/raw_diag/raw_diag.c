@@ -261,16 +261,12 @@ static void patch_mean_stdev(int x, int y, float* out_mean, float* out_stdev, vo
     );
 }
 
-static void snr_graph_init()
+static void snr_graph_init(int clear_lines, float full_well, int y_step, int y_origin)
 {
     clrscr();
     bmp_fill(COLOR_BG_DARK, 0, 00, 720, 480);
 
-    const float full_well = 14;
-    
     /* horizontal grid */
-    const int y_step = 35;
-    const int y_origin = 35*9;
     for (int y = 0; y < 480; y += y_step)
     {
         draw_line(0, y, 720, y, COLOR_WHITE);
@@ -290,7 +286,7 @@ static void snr_graph_init()
         bmp_printf(FONT_SMALL | FONT_ALIGN_CENTER, bx, 480-font_small.height, "%dEV", signal);
     }
 
-    bmp_fill(COLOR_BG_DARK, 0, 0, 308, y_step * 2 - 1);
+    bmp_fill(COLOR_BG_DARK, 0, 0, 308, y_step * clear_lines - 1);
     bmp_printf(FONT_MED, 0, 0, 
         "SNR curve (noise profile)\n"
         "%s\n"
@@ -304,11 +300,11 @@ static void snr_graph()
     float black, noise;
     ob_mean_stdev(&black, &noise);
 
-    snr_graph_init();
-
     const float full_well = 14;
     const int y_step = 35;
     const int y_origin = 35*9;
+
+    snr_graph_init(2, full_well, y_step, y_origin);
     
     int x1 = raw_info.active_area.x1;
     int y1 = raw_info.active_area.y1;
@@ -414,14 +410,14 @@ static void snr_graph_2_shots()
 {
     float black, ob_noise;
     ob_mean_stdev(&black, &ob_noise);
-
+    
     int white = autodetect_white_level();
-
-    snr_graph_init();
 
     const float full_well = 14;
     const int y_step = 35;
     const int y_origin = 35*9;
+
+    snr_graph_init(6, full_well, y_step, y_origin);
 
     int x1 = raw_info.active_area.x1;
     int y1 = raw_info.active_area.y1;
@@ -468,7 +464,11 @@ static void snr_graph_2_shots()
         data_points_x[i] = malloc(5000 * sizeof(int));
         data_points_y[i] = malloc(5000 * sizeof(int));
     }
-    
+
+    bmp_printf(FONT_MED, 0, font_med.height*3, 
+        "Sampling data...\n"
+    );
+
     for (int k = 0; k < 20000 && should_keep_going(); k++)
     {
         /* choose random points in the image */
@@ -526,7 +526,7 @@ static void snr_graph_2_shots()
     }
 
     bmp_printf(FONT_MED, 0, font_med.height*3, 
-        "Please wait...\n"
+        "Fitting SNR curve...\n"
     );
 
     /* extract the median for each half-stop group */
@@ -577,7 +577,7 @@ static void snr_graph_2_shots()
         int by = COERCE(y_origin - model_snr * y_step, 0, 479);
         bmp_putpixel(bx, by, COLOR_RED);
     }
-        
+    
     int full_well_electrons = (int)roundf(gain * (white - black));
     float dr = log2f(white - black) - signal_zerocross;
     int dr_x100 = (int)roundf(dr * 100);
@@ -585,10 +585,10 @@ static void snr_graph_2_shots()
     int read_noise_x100 = (int)roundf(read_noise * 100);
     int gain_x100 = (int)roundf(gain * 100);
 
-    big_bmp_printf(FONT_MED | FONT_ALIGN_FILL, 0, font_med.height*3, 
+    big_bmp_printf(FONT_MED, 0, font_med.height*3, 
         "Measured OB noise: %s%d.%02d DN\n"
-        "Estimated read noise: %s%d.%02d DN\n"
-        "Estimated gain : %s%d.%02d e/DN\n"
+        "Model read noise: %s%d.%02d DN\n"
+        "Model gain : %s%d.%02d e/DN\n"
         "Full well capacity : %d e\n"
         "Dynamic range : %s%d.%02d EV\n",
         FMT_FIXEDPOINT2(ob_noise_x100),
