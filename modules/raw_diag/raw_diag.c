@@ -415,6 +415,8 @@ static void snr_graph_2_shots()
     float black, ob_noise;
     ob_mean_stdev(&black, &ob_noise);
 
+    int white = autodetect_white_level();
+
     snr_graph_init();
 
     const float full_well = 14;
@@ -554,7 +556,8 @@ static void snr_graph_2_shots()
     fit_noise_model(ob_noise, 5, medians_x, medians_y, COUNT(medians_x), &read_noise, &gain);
 
     /* check the mathematical model */
-    for (float signal = 0; signal < full_well; signal += 0.01)
+    static float signal_zerocross = 0;
+    for (float signal = 0; signal < log2f(white-black); signal += 0.01)
     {
         float dn = powf(2, signal);
         float electrons = dn * gain;
@@ -563,22 +566,36 @@ static void snr_graph_2_shots()
         
         float combined_noise = sqrtf(read_noise*read_noise + shot_noise*shot_noise);
         float model_snr = signal - log2f(combined_noise);
+        
+        if (model_snr <= 0)
+        {
+            /* find the intersection point between our model and SNR=0 */
+            signal_zerocross = signal;
+        }
+        
         int bx = COERCE(signal * 720 / full_well, 0, 719);
         int by = COERCE(y_origin - model_snr * y_step, 0, 479);
         bmp_putpixel(bx, by, COLOR_RED);
     }
-    
+        
+    int full_well_electrons = (int)roundf(gain * (white - black));
+    float dr = log2f(white - black) - signal_zerocross;
+    int dr_x100 = (int)roundf(dr * 100);
     int ob_noise_x100 = (int)roundf(ob_noise * 100);
     int read_noise_x100 = (int)roundf(read_noise * 100);
     int gain_x100 = (int)roundf(gain * 100);
-    
-    bmp_printf(FONT_MED | FONT_ALIGN_FILL, 0, font_med.height*3, 
+
+    big_bmp_printf(FONT_MED | FONT_ALIGN_FILL, 0, font_med.height*3, 
         "Measured OB noise: %s%d.%02d DN\n"
         "Estimated read noise: %s%d.%02d DN\n"
-        "Estimated gain : %s%d.%02d e/DN",
+        "Estimated gain : %s%d.%02d e/DN\n"
+        "Full well capacity : %d e\n"
+        "Dynamic range : %s%d.%02d EV\n",
         FMT_FIXEDPOINT2(ob_noise_x100),
         FMT_FIXEDPOINT2(read_noise_x100),
-        FMT_FIXEDPOINT2(gain_x100)
+        FMT_FIXEDPOINT2(gain_x100),
+        full_well_electrons,
+        FMT_FIXEDPOINT2(dr_x100)
     );
 
     /* data points no longer needed */
