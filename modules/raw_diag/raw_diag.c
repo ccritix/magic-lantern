@@ -38,6 +38,7 @@ static CONFIG_INT("analysis.dark.fpn", analysis_darkframe_fpn, 0);
 static CONFIG_INT("analysis.dark.fpn.xcov", analysis_darkframe_fpn_xcov, 0);
 static CONFIG_INT("analysis.snr", analysis_snr_curve, 0);
 static CONFIG_INT("analysis.snr.x2", analysis_snr_curve_2_shots, 0);
+static CONFIG_INT("analysis.noise.x2", analysis_noise_curve_2_shots, 0);
 static CONFIG_INT("analysis.jpg", analysis_jpg_curve, 0);
 static CONFIG_INT("analysis.cmp", analysis_compare_2_shots, 0);
 static CONFIG_INT("analysis.cmp.hl", analysis_compare_2_shots_highlights, 0);
@@ -261,7 +262,7 @@ static void patch_mean_stdev(int x, int y, float* out_mean, float* out_stdev, vo
     );
 }
 
-static void snr_graph_init(int clear_lines, float full_well, int y_step, int y_origin)
+static void snr_graph_init(char* graph_name, int clear_lines, float full_well, int y_step, int y_origin)
 {
     clrscr();
     bmp_fill(COLOR_BG_DARK, 0, 00, 720, 480);
@@ -288,9 +289,12 @@ static void snr_graph_init(int clear_lines, float full_well, int y_step, int y_o
 
     bmp_fill(COLOR_BG_DARK, 0, 0, 308, y_step * clear_lines - 1);
     bmp_printf(FONT_MED, 0, 0, 
-        "SNR curve (noise profile)\n"
         "%s\n"
-        "ISO %d %s "SYM_F_SLASH"%s%d.%d", camera_model, lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
+        "%s\n"
+        "ISO %d %s "SYM_F_SLASH"%s%d.%d %s",
+        graph_name,
+        camera_model, lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture),
+        is_movie_mode() ? "MV" : lv ? "LV" : "PH"
     );
 }
 
@@ -304,7 +308,7 @@ static void snr_graph()
     const int y_step = 35;
     const int y_origin = 35*9;
 
-    snr_graph_init(2, full_well, y_step, y_origin);
+    snr_graph_init("SNR curve (noise profile)", 2, full_well, y_step, y_origin);
     
     int x1 = raw_info.active_area.x1;
     int y1 = raw_info.active_area.y1;
@@ -406,7 +410,7 @@ static void fit_noise_model(float ob_noise, float initial_gain, float* signal_po
 
 /* estimate the SNR curve from the difference between two identical shots */
 /* method inspired from Roger Clark, http://www.clarkvision.com/articles/evaluation-1d2/ */
-static void snr_graph_2_shots()
+static void snr_graph_2_shots(int noise_curve)
 {
     float black, ob_noise;
     ob_mean_stdev(&black, &ob_noise);
@@ -415,9 +419,13 @@ static void snr_graph_2_shots()
 
     const float full_well = 14;
     const int y_step = 35;
-    const int y_origin = 35*9;
+    const int y_origin = 35 * (noise_curve ? 13 : 9);
+    #define SNR_OR_NOISE(snr) (noise_curve ? signal - (snr) : (snr))
 
-    snr_graph_init(6, full_well, y_step, y_origin);
+    snr_graph_init(
+        noise_curve ? "Noise curve (EV)" : "SNR curve (noise profile)",
+        6, full_well, y_step, y_origin
+    );
 
     int x1 = raw_info.active_area.x1;
     int y1 = raw_info.active_area.y1;
@@ -508,7 +516,7 @@ static void snr_graph_2_shots()
         
         /* draw the data point */
         int bx = COERCE(signal * 720 / full_well, 0, 719);
-        int by = COERCE(y_origin - snr * y_step, 0, 479);
+        int by = COERCE(y_origin - SNR_OR_NOISE(snr) * y_step, 0, 479);
         bmp_putpixel(bx, by, COLOR_LIGHT_BLUE);
         
         /* group the data points every half-stop */
@@ -541,7 +549,7 @@ static void snr_graph_2_shots()
             float signal = medians_x[i];
             float snr = medians_y[i];
             int bx = COERCE(signal * 720 / full_well, 0, 719);
-            int by = COERCE(y_origin - snr * y_step, 0, 479);
+            int by = COERCE(y_origin - SNR_OR_NOISE(snr) * y_step, 0, 479);
             fill_circle(bx, by, 3, COLOR_RED);
         }
         else
@@ -578,7 +586,7 @@ static void snr_graph_2_shots()
         /* plot the SNR curve contribution from read noise only*/
         float read_snr = signal - log2f(read_noise);
         bx = COERCE(signal * 720 / full_well, 0, 719);
-        by = COERCE(y_origin - read_snr * y_step, 0, 479);
+        by = COERCE(y_origin - SNR_OR_NOISE(read_snr) * y_step, 0, 479);
         
         if (bx % 3 == 1)
         {
@@ -587,7 +595,7 @@ static void snr_graph_2_shots()
 
         /* plot the SNR curve contribution from shot noise only*/
         bx = COERCE(signal * 720 / full_well, 0, 719);
-        by = COERCE(y_origin - log2f(shot_snr) * y_step, 0, 479);
+        by = COERCE(y_origin - SNR_OR_NOISE(log2f(shot_snr)) * y_step, 0, 479);
         
         if (bx % 3 == 1)
         {
@@ -596,7 +604,7 @@ static void snr_graph_2_shots()
 
         /* plot the ideal curve */
         bx = COERCE(signal * 720 / full_well, 0, 719);
-        by = COERCE(y_origin - model_snr * y_step, 0, 479);
+        by = COERCE(y_origin - SNR_OR_NOISE(model_snr) * y_step, 0, 479);
         bmp_putpixel(bx, by, COLOR_RED);
     }
     
@@ -1502,8 +1510,15 @@ static void raw_diag_task(int corr)
 
     if (analysis_snr_curve_2_shots)
     {
-        snr_graph_2_shots();
+        snr_graph_2_shots(0);
         screenshot_if_needed("snr2");
+        if (!should_keep_going()) goto end;
+    }
+
+    if (analysis_noise_curve_2_shots)
+    {
+        snr_graph_2_shots(1);
+        screenshot_if_needed("noise2");
         if (!should_keep_going()) goto end;
     }
 
@@ -1786,6 +1801,12 @@ static struct menu_entry raw_diag_menu[] =
                         .help2 = "two identical test images of the same static scene (tripod required).",
                     },
                     {
+                        .name  = "Noise curve (2 shots)",
+                        .priv  = &analysis_noise_curve_2_shots,
+                        .max   = 1,
+                        .help  = "Same as SNR curve (2 shots), but plot log2(noise_stdev) instead.",
+                    },
+                    {
                         .name  = "JPEG curve",
                         .priv  = &analysis_jpg_curve,
                         .max   = 1,
@@ -1874,6 +1895,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(analysis_darkframe_fpn_xcov)
     MODULE_CONFIG(analysis_snr_curve)
     MODULE_CONFIG(analysis_snr_curve_2_shots)
+    MODULE_CONFIG(analysis_noise_curve_2_shots)
     MODULE_CONFIG(analysis_jpg_curve)
     MODULE_CONFIG(analysis_compare_2_shots)
     MODULE_CONFIG(analysis_compare_2_shots_highlights)
