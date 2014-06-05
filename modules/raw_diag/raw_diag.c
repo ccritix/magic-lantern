@@ -354,22 +354,21 @@ static void snr_graph()
 }
 
 /* Model assumes constant additive read noise combined with Poisson shot noise */
-static float check_noise_model(float read_noise, float gain, float* signal_points, float* snr_points, int num_points)
+static float check_noise_model(float read_noise, float gain, float* signal_points, float* noise_points, int num_points)
 {
     float err = 0;
     for (int i = 0; i < num_points; i++)
     {
         float input_signal = signal_points[i];
-        float measured_snr = snr_points[i];
-        if (input_signal != 0 && measured_snr != 0)
+        float measured_noise = noise_points[i];
+        if (input_signal != 0 && measured_noise != 0)
         {
             float dn = powf(2, input_signal);
             float electrons = dn * gain;
             float shot_snr = sqrtf(electrons);
             float shot_noise = dn / shot_snr;
             float combined_noise = sqrtf(read_noise*read_noise + shot_noise*shot_noise);
-            float predicted_snr = input_signal - log2f(combined_noise);
-            float delta = measured_snr - predicted_snr;
+            float delta = measured_noise - log2f(combined_noise);
             err += delta * delta;
         }
     }
@@ -383,19 +382,19 @@ static float frand()
 }
 
 /* dumb minimization with random advancement step; feel free to implement something like Nelder-Mead ;) */
-static void fit_noise_model(float ob_noise, float initial_gain, float* signal_points, float* snr_points, int num_points, float* out_read_noise, float* out_gain)
+static void fit_noise_model(float ob_noise, float initial_gain, float* signal_points, float* noise_points, int num_points, float* out_read_noise, float* out_gain)
 {
     float read_noise = ob_noise;
     float gain = initial_gain;
     
-    float current_err = check_noise_model(read_noise, gain, signal_points, snr_points, num_points);
+    float current_err = check_noise_model(read_noise, gain, signal_points, noise_points, num_points);
     
     for (int i = 0; i < 5000; i++)
     {
         float next_noise = read_noise + frand();
         float next_gain = gain + frand();
         
-        float next_err = check_noise_model(next_noise, next_gain, signal_points, snr_points, num_points);
+        float next_err = check_noise_model(next_noise, next_gain, signal_points, noise_points, num_points);
         if (next_err < current_err)
         {
             read_noise = next_noise;
@@ -524,7 +523,7 @@ static void snr_graph_2_shots(int noise_curve)
         if (num_points[slot] < 5000)
         {
             data_points_x[slot][num_points[slot]] = (int)(signal * 10000.0f);
-            data_points_y[slot][num_points[slot]] = (int)(snr * 10000.0f);
+            data_points_y[slot][num_points[slot]] = (int)(noise * 10000.0f);
             num_points[slot]++;
         }
 
@@ -547,7 +546,8 @@ static void snr_graph_2_shots(int noise_curve)
 
             /* draw the data point */
             float signal = medians_x[i];
-            float snr = medians_y[i];
+            float noise = medians_y[i];
+            float snr = signal - noise;
             int bx = COERCE(signal * 720 / full_well, 0, 719);
             int by = COERCE(y_origin - SNR_OR_NOISE(snr) * y_step, 0, 479);
             fill_circle(bx, by, 3, COLOR_RED);
