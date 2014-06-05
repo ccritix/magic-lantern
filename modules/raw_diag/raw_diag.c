@@ -432,15 +432,17 @@ static void snr_graph_2_shots(int noise_curve)
     int y2 = raw_info.active_area.y2;
     
     static void* second_buf = 0;
-
-    /* our buffer can't be larger than 32 MB :( */
-    /* no big deal, we'll trim the analyzed image to fit in 32 M */
-    /* (well, 31, just to be sure it can be allocated on most cameras) */
-    int raw_buffer_size = MIN(raw_info.frame_size, 31*1024*1024);
+    static int raw_buffer_size = 0;
 
     if (!second_buf)
     {
+        /* our buffer can't be larger than 32 MB :( */
+        /* no big deal, we'll trim the analyzed image to fit in 32 M */
+        /* (well, 31, just to be sure it can be allocated on most cameras) */
+        raw_buffer_size = MIN(raw_info.frame_size, 31*1024*1024);
+
         second_buf = malloc(raw_buffer_size);
+        
         if (second_buf)
         {
             memcpy(second_buf, raw_info.buffer, raw_buffer_size);
@@ -483,7 +485,7 @@ static void snr_graph_2_shots(int noise_curve)
         int y = ((uint32_t) rand() % (y2 - y1 - 100)) + y1 + 50;
         
         /* make sure we don't get outside the second buffer */
-        if (y*raw_info.pitch + x * 14/8 > raw_buffer_size)
+        if (y*raw_info.pitch + (x + 50) * 14/8 > raw_buffer_size)
             continue;
         
         /* not overexposed, please */
