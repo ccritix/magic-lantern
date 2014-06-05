@@ -572,9 +572,31 @@ static void snr_graph_2_shots()
             /* find the intersection point between our model and SNR=0 */
             signal_zerocross = signal;
         }
+
+        int bx, by;
+
+        /* plot the SNR curve contribution from read noise only*/
+        float read_snr = signal - log2f(read_noise);
+        bx = COERCE(signal * 720 / full_well, 0, 719);
+        by = COERCE(y_origin - read_snr * y_step, 0, 479);
         
-        int bx = COERCE(signal * 720 / full_well, 0, 719);
-        int by = COERCE(y_origin - model_snr * y_step, 0, 479);
+        if (bx % 3 == 1)
+        {
+            bmp_putpixel(bx, by, COLOR_GRAY(50));
+        }
+
+        /* plot the SNR curve contribution from shot noise only*/
+        bx = COERCE(signal * 720 / full_well, 0, 719);
+        by = COERCE(y_origin - log2f(shot_snr) * y_step, 0, 479);
+        
+        if (bx % 3 == 1)
+        {
+            bmp_putpixel(bx, by, COLOR_YELLOW);
+        }
+
+        /* plot the ideal curve */
+        bx = COERCE(signal * 720 / full_well, 0, 719);
+        by = COERCE(y_origin - model_snr * y_step, 0, 479);
         bmp_putpixel(bx, by, COLOR_RED);
     }
     
