@@ -1450,8 +1450,25 @@ static void screenshot_if_needed(const char* name)
     if (auto_screenshot)
     {
         char filename[100];
-        snprintf(filename, sizeof(filename), "raw_diag/%s%04d/%s.ppm", get_file_prefix(), get_shooting_card()->file_number, name);
+        
+        int filenum = 0;
+        
+        do
+        {
+            char short_name[8+1];
+            char suffix[10];
+            if (filenum) snprintf(suffix, sizeof(suffix), "-%d.ppm", filenum);
+            else snprintf(suffix, sizeof(suffix), ".ppm");
+            /* number the screenshots, but make sure we fit the file name in 8 characters, trimming the original name if needed */
+            snprintf(short_name, sizeof(short_name) - strlen(suffix) + 4, "%s", name);
+            snprintf(filename, sizeof(filename), "raw_diag/%s%04d/%s%s", get_file_prefix(), get_shooting_card()->file_number, short_name, suffix);
+            filenum++;
+        }
+        while (is_file(filename));
+        
         take_screenshot(filename, SCREENSHOT_BMP);
+
+        bmp_printf(FONT_SMALL, 0, 480 - font_small.height, "Saved %s.", filename);
     }
 }
 
