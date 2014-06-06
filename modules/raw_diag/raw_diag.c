@@ -354,6 +354,7 @@ static void snr_graph()
 }
 
 /* Model assumes constant additive read noise combined with Poisson shot noise */
+/* Minimize the sum of absolute errors, similar to median */
 static float check_noise_model(float read_noise, float gain, float* signal_points, float* noise_points, int num_points)
 {
     float err = 0;
@@ -369,7 +370,7 @@ static float check_noise_model(float read_noise, float gain, float* signal_point
             float shot_noise = dn / shot_snr;
             float combined_noise = sqrtf(read_noise*read_noise + shot_noise*shot_noise);
             float delta = measured_noise - log2f(combined_noise);
-            err += delta * delta;
+            err += ABS(delta);
         }
     }
     return err;
