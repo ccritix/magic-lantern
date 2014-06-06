@@ -251,11 +251,11 @@ static void FAST black_histogram(int ob)
  * - compensate for low-frequency variations (instead of just subtracting the mean)
  * - use full-res sampling for green channel?
  */
-static void patch_mean_stdev(int x, int y, float* out_mean, float* out_stdev, void* raw_delta_buffer)
+static void patch_mean_stdev(int x, int y, float* out_mean, float* out_stdev, int radius, void* raw_delta_buffer)
 {
     autodetect_black_level_calc(
-        x - 8, x + 8,
-        y - 8, y + 8,
+        x - radius, x + radius,
+        y - radius, y + radius,
         2, 2,               /* sample from the same color channel */
         out_mean, out_stdev,
         raw_delta_buffer
@@ -335,7 +335,7 @@ static void snr_graph()
 
         /* compute local average and stdev */
         float mean, stdev;
-        patch_mean_stdev(x, y, &mean, &stdev, 0);
+        patch_mean_stdev(x, y, &mean, &stdev, 8, 0);
         
         /* assumming the image is grossly out of focus, these numbers are a good estimation of the local SNR */
         float signal = log2f(MAX(1, mean - black));
@@ -505,19 +505,19 @@ static void snr_graph_2_shots(int noise_curve)
         /* not overexposed, please */
         int p = raw_get_pixel(x, y);
         if (p >= raw_info.white_level) continue;
-        p = raw_get_pixel(x-8, y-8);
+        p = raw_get_pixel(x-16, y-16);
         if (p >= raw_info.white_level) continue;
-        p = raw_get_pixel(x+8, y+8);
+        p = raw_get_pixel(x+16, y+16);
         if (p >= raw_info.white_level) continue;
-        p = raw_get_pixel(x-8, y+8);
+        p = raw_get_pixel(x-16, y+16);
         if (p >= raw_info.white_level) continue;
-        p = raw_get_pixel(x+8, y-8);
+        p = raw_get_pixel(x+16, y-16);
         if (p >= raw_info.white_level) continue;
 
         /* compute local average (on the test image) and stdev (on the delta image) */
         float mean, stdev, unused;
-        patch_mean_stdev(x, y, &mean, &unused, 0);
-        patch_mean_stdev(x, y, &unused, &stdev, second_buf);
+        patch_mean_stdev(x, y, &mean, &unused, 16, 0);
+        patch_mean_stdev(x, y, &unused, &stdev, 16, second_buf);
         
         /* when subtracting two test images of the same scene, taken with identical settings, 
          * the noise increases by sqrt(2); we need to undo this */
