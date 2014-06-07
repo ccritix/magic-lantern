@@ -21,6 +21,7 @@
 #include <zebra.h>
 #include <beep.h>
 #include <fileprefix.h>
+#include <shoot.h>
 
 extern WEAK_FUNC(ret_0) void raw_lv_request();
 extern WEAK_FUNC(ret_0) void raw_lv_release();
@@ -1743,6 +1744,22 @@ static void iso_experiment()
     test_shot();
 }
 
+static void silent_zoom_bracket()
+{
+    if (!lv) return;
+    beep();
+    msleep(5000);
+    set_lv_zoom(1);
+    schedule_remote_shot();
+    msleep(2000);
+    set_lv_zoom(5);
+    msleep(2000);
+    schedule_remote_shot();
+    msleep(2000);
+    set_lv_zoom(1);
+}
+
+
 static struct menu_entry raw_diag_menu[] =
 {
     {
@@ -1881,8 +1898,15 @@ static struct menu_entry raw_diag_menu[] =
                 .name = "Dummy bracket",
                 .priv = &dummy_test_bracket,
                 .select = (void (*)(void*,int))run_in_separate_task,
-                .help   = "Take 2 shots with current settings.",
+                .help   = "Takes 2 shots with current settings.",
                 .help2  = "Useful for tools that compare two test images of the same scene.",
+            },
+            {
+                .name = "Silent zoom bracket",
+                .priv = &silent_zoom_bracket,
+                .select = (void (*)(void*,int))run_in_separate_task,
+                .help   = "Takes 2 silent pictures in LiveView, one normal, one with 5x zoom.",
+                .help2  = "(this will not trigger any raw_diag analysis)",
             },
             {
                 .name = "ISO experiment",
