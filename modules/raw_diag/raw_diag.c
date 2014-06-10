@@ -1749,14 +1749,18 @@ static void silent_zoom_bracket()
     if (!lv) return;
     beep();
     msleep(5000);
+    menu_set_value_from_script("Debug", "RAW Diagnostics", 0);
     set_lv_zoom(1);
-    schedule_remote_shot();
+    SW1(1,300);
+    SW1(0,0);
     msleep(2000);
     set_lv_zoom(5);
     msleep(2000);
-    schedule_remote_shot();
+    SW1(1,300);
+    SW1(0,0);
     msleep(2000);
     set_lv_zoom(1);
+    menu_set_value_from_script("Debug", "RAW Diagnostics", 1);
 }
 
 
