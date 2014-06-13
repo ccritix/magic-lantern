@@ -40,6 +40,12 @@ void my_DebugMsg(int class, int level, char* fmt, ...)
     uint32_t old = cli();
     
     char* msg = buf+len;
+
+    uintptr_t lr;
+    asm __volatile__ (
+        "mov %0, %%lr"
+        : "=&r"(lr)
+    );
     
     //~ char* classname = dm_names[class]; /* not working, some names are gibberish; todo: check for printable characters? */
     
@@ -49,7 +55,7 @@ void my_DebugMsg(int class, int level, char* fmt, ...)
     char task_name_padded[] = "                ";
     snprintf(task_name_padded + sizeof(task_name_padded) - strlen(task_name), sizeof(task_name_padded), "%s", task_name);
     
-    len += snprintf( buf+len, MIN(50, BUF_SIZE-len), "%s:%02x:%02x: ", task_name_padded, class, level );
+    len += snprintf( buf+len, MIN(50, BUF_SIZE-len), "%s:%08x:%02x:%02x: ", task_name_padded, lr-4, class, level );
 
     va_start( ap, fmt );
     len += vsnprintf( buf+len, BUF_SIZE-len-1, fmt, ap );
