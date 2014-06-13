@@ -499,8 +499,9 @@ static void adtg_log(breakpoint_t *bkpt)
     /* log all ADTG writes */
     while(*data_buf != 0xFFFFFFFF)
     {
-        /* ADTG4 registers seem to use NRZI */
-        reg_update_unique(dst, data_buf, *data_buf, 16, dst == 4, caller_task, caller_pc);
+        if (dst & 1) reg_update_unique(1, data_buf, *data_buf, 16, 0, caller_task, caller_pc);
+        if (dst & 2) reg_update_unique(2, data_buf, *data_buf, 16, 0, caller_task, caller_pc);
+        if (dst & 4) reg_update_unique(4, data_buf, *data_buf, 16, 0, caller_task, caller_pc);
         data_buf++;
     }
 }
