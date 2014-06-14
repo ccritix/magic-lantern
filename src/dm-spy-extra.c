@@ -20,6 +20,7 @@
 static void generic_log(breakpoint_t *bkpt);
 static void state_transition_log(breakpoint_t *bkpt);
 static void LockEngineResources_log(breakpoint_t *bkpt);
+static void UnLockEngineResources_log(breakpoint_t *bkpt);
 
 struct logged_func
 {
@@ -43,7 +44,7 @@ static struct logged_func logged_functions[] = {
     { 0xFF9A464C, "StartEDmac", 2 },
     
     { 0xff9b3cb4, "register_interrupt", 4 },
-    { 0xffb277c8, "register_obinteg_cbr", 2 },
+    //~ { 0xffb277c8, "register_obinteg_cbr", 2 },              // conflicts with UnLockEngineResources
     { 0xffaf6930, "set_digital_gain_and_related", 3 },
     //~ { 0xffaf68a4, "set_saturate_offset", 1 },               // conflicts with TryPostEvent
     { 0xffaf686c, "set_saturate_offset_2", 1 },
@@ -56,6 +57,7 @@ static struct logged_func logged_functions[] = {
     //~ { 0xff986f74, "RegisterHead4InterruptHandler", 3 },
     { 0xff86c720, "SetHPTimerAfter", 4 },
     { 0xff9a86e0, "LockEngineResources", 1, LockEngineResources_log },
+    { 0xff9a87d0, "UnLockEngineResources", 1, UnLockEngineResources_log},
 
     #endif
 };
@@ -156,13 +158,13 @@ static void state_transition_log(breakpoint_t *bkpt)
     );
 }
 
-static void LockEngineResources_log(breakpoint_t *bkpt)
+static void LockEngineResources_log_base(breakpoint_t *bkpt, char* name)
 {
     uint32_t* resLock = (void*) bkpt->ctx[0];
     uint32_t* resIds = (void*) resLock[5];
     int resNum = resLock[6];
 
-    DryosDebugMsg(0, 0, "*** LockEngineResources(%x) x%d:", resLock, resNum);
+    DryosDebugMsg(0, 0, "*** %s(%x) x%d:", name, resLock, resNum);
     for (int i = 0; i < resNum; i++)
     {
         uint32_t class = resIds[i] & 0xFFFF0000;
@@ -174,6 +176,16 @@ static void LockEngineResources_log(breakpoint_t *bkpt)
             "?";
         DryosDebugMsg(0, 0, "    %2d) %8x (%s)", (i+1), resIds[i], desc);
     }
+}
+
+static void LockEngineResources_log(breakpoint_t *bkpt)
+{
+    LockEngineResources_log_base(bkpt, "LockEngineResources");
+}
+
+static void UnLockEngineResources_log(breakpoint_t *bkpt)
+{
+    LockEngineResources_log_base(bkpt, "UnLockEngineResources");
 }
 
 static int check_no_conflicts(int i)
