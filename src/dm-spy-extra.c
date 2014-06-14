@@ -164,17 +164,38 @@ static void LockEngineResources_log_base(breakpoint_t *bkpt, char* name)
     uint32_t* resIds = (void*) resLock[5];
     int resNum = resLock[6];
 
-    DryosDebugMsg(0, 0, "*** %s(%x) x%d:", name, resLock, resNum);
+    uint32_t write_edmacs[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x20, 0x21};
+    uint32_t read_edmacs[]  = {0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x28, 0x29, 0x2A, 0x2B};
+
+    DryosDebugMsg(0, 0, "*** %s(%x) x%d from %x:", name, resLock, resNum, bkpt->ctx[14]-4);
     for (int i = 0; i < resNum; i++)
     {
         uint32_t class = resIds[i] & 0xFFFF0000;
+        uint32_t resId = resIds[i] & 0x0000FFFF;
         char* desc = 
-            class == 0x00000000 ? "write channel" :
-            class == 0x00010000 ? "read channel" :
-            class == 0x00020000 ? "write connection" :
-            class == 0x00030000 ? "read connection" :
+            class == 0x00000000 ? "write channel 0x%x" :
+            class == 0x00010000 ? "read channel 0x%x" :
+            class == 0x00020000 ? "write connection 0x%x" :
+            class == 0x00030000 ? "read connection 0x%x" :
+            class == 0x00110000 ? "%sPBAccessHandle" :
             "?";
-        DryosDebugMsg(0, 0, "    %2d) %8x (%s)", (i+1), resIds[i], desc);
+        
+        uint32_t arg =
+            class == 0x00000000 ? write_edmacs[resId] :
+            class == 0x00010000 ? read_edmacs[resId] :
+            class == 0x00110000 ? (uint32_t)(resId ? "Bitmap" : "Image") :
+            resId;
+        
+        if (strchr(desc, '%'))
+        {
+            char msg[100];
+            snprintf(msg, sizeof(msg), desc, arg);
+            DryosDebugMsg(0, 0, "    %2d) %8x (%s)", (i+1), resIds[i], msg);
+        }
+        else
+        {
+            DryosDebugMsg(0, 0, "    %2d) %8x (%s)", (i+1), resIds[i], desc);
+        }
     }
 }
 
