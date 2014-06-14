@@ -33,25 +33,25 @@ static struct logged_func logged_functions[] = {
     #ifdef CONFIG_5D2
     { 0xff9b9198, "StateTransition", 4 , state_transition_log },
     { 0xff9b989c, "TryPostEvent", 4 },
-    //~ { 0xff9b8f24, "TryPostStageEvent", 4 },
+    //~ { 0xff9b8f24, "TryPostStageEvent", 4 },                 // conflicts with SetHPTimerAfter
 
     { 0xFF9A462C, "ConnectReadEDmac", 2 },
     { 0xFF9A4604, "ConnectWriteEDmac", 2 },
     { 0xFF9A4798, "RegisterEDmacCompleteCBR", 3 },
-    //~ { 0xFF9A45E8, "SetEDmac", 4 },
+    //~ { 0xFF9A45E8, "SetEDmac", 4 },                          // conflicts with RegisterHead1InterruptHandler
     { 0xFF9A464C, "StartEDmac", 2 },
     
     { 0xff9b3cb4, "register_interrupt", 4 },
     { 0xffb277c8, "register_obinteg_cbr", 2 },
     { 0xffaf6930, "set_digital_gain_and_related", 3 },
-    //~ { 0xffaf68a4, "set_saturate_offset", 1 },
+    //~ { 0xffaf68a4, "set_saturate_offset", 1 },               // conflicts with TryPostEvent
     { 0xffaf686c, "set_saturate_offset_2", 1 },
     { 0xff987200, "set_fps_maybe", 1 },
     { 0xffa38114, "set_fps_maybe_2", 1 },
     { 0xffa366c8, "AJ_FixedPoint_aglrw_related", 4 },
     { 0xffa37de4, "RegisterHead1InterruptHandler", 3 },
     //~ { 0xff986d9c, "RegisterHead2InterruptHandler", 3 },
-    //~ { 0xff986ebc, "RegisterHead3InterruptHandler", 3 },
+    //~ { 0xff986ebc, "RegisterHead3InterruptHandler", 3 },     // conflicts with AJ_FixedPoint_aglrw_related
     //~ { 0xff986f74, "RegisterHead4InterruptHandler", 3 },
     { 0xff86c720, "SetHPTimerAfter", 4 },
 
