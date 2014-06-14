@@ -19,6 +19,7 @@
 
 static void generic_log(breakpoint_t *bkpt);
 static void state_transition_log(breakpoint_t *bkpt);
+static void LockEngineResources_log(breakpoint_t *bkpt);
 
 struct logged_func
 {
@@ -54,6 +55,7 @@ static struct logged_func logged_functions[] = {
     //~ { 0xff986ebc, "RegisterHead3InterruptHandler", 3 },     // conflicts with AJ_FixedPoint_aglrw_related
     //~ { 0xff986f74, "RegisterHead4InterruptHandler", 3 },
     { 0xff86c720, "SetHPTimerAfter", 4 },
+    { 0xff9a86e0, "LockEngineResources", 1, LockEngineResources_log },
 
     #endif
 };
@@ -152,6 +154,26 @@ static void state_transition_log(breakpoint_t *bkpt)
         "%x (x=%x z=%x t=%x)", state_name, old_state, input, next_state,
         next_function, bkpt->ctx[1], bkpt->ctx[3], bkpt->ctx[4]
     );
+}
+
+static void LockEngineResources_log(breakpoint_t *bkpt)
+{
+    uint32_t* resLock = (void*) bkpt->ctx[0];
+    uint32_t* resIds = (void*) resLock[5];
+    int resNum = resLock[6];
+
+    DryosDebugMsg(0, 0, "*** LockEngineResources(%x) x%d:", resLock, resNum);
+    for (int i = 0; i < resNum; i++)
+    {
+        uint32_t class = resIds[i] & 0xFFFF0000;
+        char* desc = 
+            class == 0x00000000 ? "write channel" :
+            class == 0x00010000 ? "read channel" :
+            class == 0x00020000 ? "write connection" :
+            class == 0x00030000 ? "read connection" :
+            "?";
+        DryosDebugMsg(0, 0, "    %2d) %8x (%s)", (i+1), resIds[i], desc);
+    }
 }
 
 static int check_no_conflicts(int i)
