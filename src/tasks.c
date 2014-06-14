@@ -30,7 +30,23 @@ char* get_current_task_name()
     int task_id = get_current_task();
     if (task_id >= 0)
     {
-        char* task_name;
+        static char* task_name;
+        
+#ifdef CONFIG_DEBUG_INTERCEPT
+        static int prev_task_id = -1234;
+        
+        if (task_id == prev_task_id)
+        {
+            /* if called again from the same task, return the cached name */
+            /* note: there is a small chance of returning wrong result, if called from a new task that reused the same ID */
+            /* with this, it's fast enough for catching DebugMsg calls from LiveView */
+            /* let's use it only with CONFIG_DEBUG_INTERCEPT for now */
+            return task_name;
+        }
+
+        prev_task_id = task_id;
+#endif
+        
         int err = GetTaskName(task_id * 2, &task_name);
         if (!err)
         {
