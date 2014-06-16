@@ -97,7 +97,7 @@
 #define CONFIG_RESTORE_AFTER_FORMAT
 
 /** We don't know how to use DMA_MEMCPY (yet) **/
-#define CONFIG_DMA_MEMCPY
+//~ #define CONFIG_DMA_MEMCPY
 
 /** We know how to use edmac_memcpy. This one is really fast (600MB/s!) */
 #define CONFIG_EDMAC_MEMCPY
@@ -133,9 +133,6 @@
 /** We have access to Raw data */
 #define CONFIG_RAW_LIVEVIEW
 #define CONFIG_RAW_PHOTO
-
-/** We know how to use engine resource locks */
-#define CONFIG_ENGINE_RESLOCK
 
 /** We can control audio settings from ML **/
 //~ #define CONFIG_AUDIO_CONTROLS

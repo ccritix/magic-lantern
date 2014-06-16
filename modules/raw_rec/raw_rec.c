@@ -1756,7 +1756,7 @@ abort_and_check_early_stop:
             if (last_block_size > 2)
             {
                 bmp_printf( FONT_MED, 30, 90, 
-                    "Early stop (%d). This is a bug, please report it.", last_block_size
+                    "Early stop (%d). Didn't make it to estimated record time!.", last_block_size
                 );
                 beep_times(last_block_size);
             }

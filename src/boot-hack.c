@@ -394,6 +394,9 @@ static void backup_task()
 }
 #endif
 
+#ifdef CONFIG_HELLO_WORLD
+    #include "fw-signature.h"
+#endif
 // Only after this task finished, the others are started
 // From here we can do file I/O and maybe other complex stuff
 static void my_big_init_task()
@@ -405,8 +408,7 @@ static void my_big_init_task()
 #endif
 
 #ifdef CONFIG_HELLO_WORLD
-    #include "fw-signature.h"
-    int sig = compute_signature(SIG_START, 0x10000);
+    int sig = compute_signature((int*)SIG_START, 0x10000);
     while(1)
     {
         bmp_printf(FONT_LARGE, 50, 50, "Hello, World!");
@@ -858,12 +860,11 @@ my_init_task(int a, int b, int c, int d)
     return;
 #endif
 
-
-#if defined(CONFIG_CRASH_LOG) && defined(DRYOS_ASSERT_HANDLER)
+#if defined(CONFIG_CRASH_LOG)
     // decompile TH_assert to find out the location
     old_assert_handler = (void*)MEM(DRYOS_ASSERT_HANDLER);
     *(void**)(DRYOS_ASSERT_HANDLER) = (void*)my_assert_handler;
-#endif // (CONFIG_CRASH_LOG) && (DRYOS_ASSERT_HANDLER)
+#endif // (CONFIG_CRASH_LOG)
     
 #ifndef CONFIG_EARLY_PORT
     // Overwrite the PTPCOM message

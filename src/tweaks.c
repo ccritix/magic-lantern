@@ -231,7 +231,6 @@ void set_pic_quality(int q)
 }
 */
 
-void lcd_sensor_shortcuts_print( void * priv, int x, int y, int selected);
 extern unsigned lcd_sensor_shortcuts;
 
 #ifdef FEATURE_ARROW_SHORTCUTS
@@ -1657,6 +1656,32 @@ static void arrow_key_step()
     #endif
 }
 
+static MENU_UPDATE_FUNC(arrow_key_check)
+{
+    #ifdef FEATURE_LCD_SENSOR_SHORTCUTS
+    
+    int lcd_sensor_mandatory = streq(ARROW_MODE_TOGGLE_KEY, "LCD sensor");
+    
+    if (!lcd_sensor_shortcuts)
+    {
+        if (lcd_sensor_mandatory)
+        {
+            MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use this feature, enable LCD Sensor Shortcuts in Misc Key Settings.");
+        }
+        else
+        {
+            MENU_SET_WARNING(MENU_WARN_INFO, "To use LCD sensor, enable LCD Sensor Shortcuts in Misc Key Settings.");
+        }
+    }
+    else if (!get_lcd_sensor_shortcuts())
+    {
+        MENU_SET_WARNING(lcd_sensor_mandatory ? MENU_WARN_NOT_WORKING : MENU_WARN_INFO,
+            "LCD Sensor Shortcuts are disabled in this mode (see Misc Key Settings)."
+        );
+    }
+    #endif
+}
+
 int arrow_keys_shortcuts_active() 
 { 
     return (arrow_keys_mode && arrow_keys_mode < 10 && is_arrow_mode_ok(arrow_keys_mode));
@@ -2011,6 +2036,7 @@ static struct menu_entry key_menus[] = {
     {
         .name       = "Arrow/SET shortcuts",
         .select = menu_open_submenu,
+        .update = arrow_key_check,
         .submenu_width = 650,
         .help = "Choose functions for arrows keys. Toggle w. " ARROW_MODE_TOGGLE_KEY ".",
         .depends_on = DEP_LIVEVIEW,
@@ -2776,8 +2802,8 @@ static CONFIG_INT("anamorphic.preview", anamorphic_preview, 0);
 
 #ifdef FEATURE_ANAMORPHIC_PREVIEW
 
-static int anamorphic_ratio_num[10] = {5, 4, 7, 3, 5, 2};
-static int anamorphic_ratio_den[10] = {4, 3, 5, 2, 3, 1};
+static int anamorphic_ratio_num[10] = {5, 4, 7, 3, 5, 9, 2};
+static int anamorphic_ratio_den[10] = {4, 3, 5, 2, 3, 5, 1};
 
 static MENU_UPDATE_FUNC(anamorphic_preview_display)
 {
@@ -3470,8 +3496,8 @@ static struct menu_entry display_menus[] = {
         .name = "Anamorphic",
         .priv     = &anamorphic_preview,
         .update = anamorphic_preview_display, 
-        .max = 6,
-        .choices = (const char *[]) {"OFF", "5:4 (1.25)", "4:3 (1.33)", "7:5 (1.4)", "3:2 (1.5)", "5:3 (1.66)", "2:1"},
+        .max = 7,
+        .choices = (const char *[]) {"OFF", "5:4 (1.25)", "4:3 (1.33)", "7:5 (1.4)", "3:2 (1.5)", "5:3 (1.66)", "9:5 (1.8)", "2:1"},
         .help = "Stretches LiveView image vertically, for anamorphic lenses.",
         .depends_on = DEP_LIVEVIEW | DEP_GLOBAL_DRAW,
 /*
@@ -3479,8 +3505,8 @@ static struct menu_entry display_menus[] = {
             {
                 .name = "Stretch Ratio",
                 .priv = &anamorphic_ratio_idx, 
-                .max = 5,
-                .choices = (const char *[]) {"5:4 (1.25)", "4:3 (1.33)", "7:5 (1.4)", "3:2 (1.5)", "5:3 (1.66)", "2:1"},
+                .max = 6,
+                .choices = (const char *[]) {"5:4 (1.25)", "4:3 (1.33)", "7:5 (1.4)", "3:2 (1.5)", "5:3 (1.66)", "9:5 (1.8)", "2:1"},
                 .help = "Aspect ratio used for anamorphic preview correction.",
             },
             MENU_EOL
