@@ -756,7 +756,8 @@ static MENU_UPDATE_FUNC(reg_update)
 
     if (regs[reg].override_enabled)
     {
-        MENU_SET_RINFO("-> 0x%x", regs[reg].is_nrzi ? nrzi_decode(regs[reg].override) : regs[reg].override);
+        int ovr = get_override_value(&regs[reg]);
+        MENU_SET_RINFO("-> 0x%x", regs[reg].is_nrzi ? nrzi_decode(ovr) : ovr);
         if (menu_active_and_not_hidden())
             MENU_SET_WARNING(MENU_WARN_INFO, "Press Q to stop overriding this register.");
     }
@@ -5131,7 +5132,7 @@ static MENU_UPDATE_FUNC(show_update)
             }
         }
         
-        if (regs[reg].num_changes > 100)
+        if (regs[reg].num_changes > 100 && !regs[reg].override_enabled)
         {
             /* das ist noise */
             visible = 0;
