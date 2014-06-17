@@ -326,6 +326,30 @@ static uint32_t nrzi_encode( uint32_t in_val )
     return out_val;
 }
 
+static int get_override_value(struct reg_entry * re)
+{
+    if (random_pokes == 1)
+    {
+        return rand();
+    }
+
+    if (random_pokes == 2)
+    {
+        int time = get_seconds_clock();
+        int reg = re->reg;
+        int dst = re->dst;
+        int context = re->context;
+        
+        /* http://www.cs.hmc.edu/~geoff/classes/hmc.cs070.200101/homework10/hashfuncs.html */
+        uint32_t k = time*123 + reg*456 + dst*789 + context * 357;
+        uint32_t s = 2654435769;
+        uint32_t x = k*s;
+        return x >> 16;
+    }
+
+    return re->override;
+}
+
 static volatile struct reg_entry * found_reg = 0;
 
 static int reg_iter(avl * a)
@@ -405,8 +429,7 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint32_t 
     /* fill the data */
     if (re->override_enabled)
     {
-        int ovr = re->override;
-        if (random_pokes) ovr = rand();
+        int ovr = get_override_value(re);
         uint16_t* val_ptr = addr;
         ovr &= ((1 << reg_shift) - 1);
         *val_ptr &= ~((1 << reg_shift) - 1);
@@ -465,8 +488,7 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uin
 
     if (re->override_enabled)
     {
-        uint32_t ovr = re->override;
-        if (random_pokes) ovr = rand();
+        int ovr = get_override_value(re);
         *pval = ovr;
     }
 
@@ -933,7 +955,8 @@ static struct menu_entry adtg_gui_menu[] =
                     {
                         .name = "Random pokes",
                         .priv = &random_pokes,
-                        .max = 1,
+                        .choices = CHOICES("OFF", "Every update", "Every second"),
+                        .max = 2,
                         .help = "Use a random value when overriding the registers.\n"
                     },
                     MENU_EOL,
