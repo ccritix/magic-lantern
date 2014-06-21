@@ -1001,7 +1001,9 @@ void config_save()
     snprintf(config_file, sizeof(config_file), "%smagic.cfg", get_config_dir());
     config_save_file(config_file);
     config_menu_save_flags();
+    #ifdef CONFIG_MODULES
     module_save_configs();
+    #endif
     if (config_deleted) config_autosave = 1; /* this can be improved, because it's not doing a proper "undo" */
     config_deleted = 0;
     give_semaphore(config_save_sem);
