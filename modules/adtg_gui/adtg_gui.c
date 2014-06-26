@@ -97,6 +97,34 @@ static struct known_reg known_regs[] = {
     {0xC0F0,   0x6084, 0, "(0x0001007E, written with regs 08, 0C, 10 and 88, idk what it means)"},
     {0xC0F0,   0x6088, 0, "Video Y-Res related? 600D: FHD 1182|1070, 3x 1048|1102, HD 720|1070"},
 
+    {0xc0f0,   0x7000, 0, "HEAD timers (SSG counter, 0x01 to restart)"},
+    {0xc0f0,   0x7004, 0, "HEAD timers"},
+    {0xc0f0,   0x700C, 0, "HEAD timers, 0x01 to stop/standby"},
+    {0xc0f0,   0x7010, 0, "HEAD timers"},
+    {0xc0f0,   0x7014, 0, "HEAD timers"},
+    {0xc0f0,   0x7018, 0, "HEAD timers"},
+    {0xc0f0,   0x701C, 0, "HEAD timers"},
+    {0xc0f0,   0x7038, 0, "HEAD timers, 0x01 <- stops processing?"},
+    {0xc0f0,   0x707C, 0, "HEAD timers"},
+    {0xc0f0,   0x71AC, 0, "HEAD timers"},
+    {0xc0f0,   0x70C8, 0, "HEAD timers, State 2 Register / VCount?"},
+
+    {0xc0f0,   0x7048, 0, "HEAD1 timer (start?)"},
+    {0xc0f0,   0x704C, 0, "HEAD1 timer"},
+    {0xc0f0,   0x7050, 0, "HEAD1 timer (ticks?)"},
+
+    {0xc0f0,   0x705C, 0, "HEAD2 timer (start?)"},
+    {0xc0f0,   0x7060, 0, "HEAD2 timer"},
+    {0xc0f0,   0x7064, 0, "HEAD2 timer (ticks?)"},
+
+    {0xc0f0,   0x7134, 0, "HEAD3 timer (start?)"},
+    {0xc0f0,   0x7138, 0, "HEAD3 timer"},
+    {0xc0f0,   0x713C, 0, "HEAD3 timer (ticks?)"},
+
+    {0xc0f0,   0x7148, 0, "HEAD4 timer (start?)"},
+    {0xc0f0,   0x714c, 0, "HEAD4 timer"},
+    {0xc0f0,   0x7150, 0, "HEAD4 timer (ticks?)"},
+
     {0xC0F0,   0x8D1C, 0, "Vignetting correction data (DIGIC V)"},
     {0xC0F0,   0x8D24, 0, "Vignetting correction data (DIGIC V)"},
     {0xC0F0,   0x8578, 0, "Vignetting correction data (DIGIC IV)"},
