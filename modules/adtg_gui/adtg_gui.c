@@ -858,22 +858,47 @@ static MENU_UPDATE_FUNC(unique_key_update)
 static int log_all_regs = 0;
 static volatile int log_iso_regs_running = 0;
 
+static struct menu_entry adtg_gui_menu[];
+
 static void log_iso_regs()
 {
+    log_iso_regs_running = 1;
+    
     msleep(1000);
     int size = 1024*1024;
     char* msg = fio_malloc(size);
     if (!msg) return;
     msg[0] = 0;
     int len = 0;
+    int saved_regs = 0;
 
     len += snprintf(msg+len, size-len, "%s %s\n", camera_model, firmware_version);
     for (int i = 0; i < reg_num; i++)
     {
-       len += snprintf(msg+len, size-len, "%04x%04x:%x ", regs[i].dst, regs[i].reg, regs[i].val);
+        /* XXX: change this if you ever add or remove menu entries */
+        /* fixme: duplicate code */
+        struct menu_entry * entry = &(adtg_gui_menu[0].children[i + 2]);
+        
+        if (entry->shidden)
+            continue;
+
+        len += snprintf(msg+len, size-len, "%04x%04x:%8x ", regs[i].dst, regs[i].reg, regs[i].val);
+        if (regs[i].val != regs[i].prev_val)
+        {
+            snprintf(msg+len, size-len, "(was %x)         ", regs[i].prev_val);
+            len += 5 + 8 + 2;
+        }
         len += snprintf(msg+len, size-len, "ISO=%d Tv=%d Av=%d ", raw2iso(lens_info.raw_iso), lens_info.shutter, lens_info.aperture);
+        len += snprintf(msg+len, size-len, "lv=%d zoom=%d mv=%d res=%d crop=%d ", lv, lv_dispsize, is_movie_mode(), is_native_movie_mode() ? video_mode_resolution : -1, is_native_movie_mode() ? video_mode_crop : -1);
         len += snprintf(msg+len, size-len, "task=%s pc=%x addr=%x ", get_task_name_from_id(regs[i].caller_task), regs[i].caller_pc, regs[i].addr);
+
+        for (int j = 0; j < COUNT(known_regs); j++)
+            if (known_match(j, i))
+                len += snprintf(msg+len, size-len, "%s", known_regs[j].description);
+
         len += snprintf(msg+len, size-len, "\n");
+        
+        saved_regs++;
     }
 
     len += snprintf(msg+len, size-len, "==================================================================\n");
@@ -883,7 +908,7 @@ static void log_iso_regs()
     FIO_WriteFile(f, msg, len);
     FIO_CloseFile(f);
     fio_free(msg);
-    NotifyBox(2000, "Saved %d regs, %d bytes", reg_num, len);
+    NotifyBox(2000, "Saved %d regs, %d bytes", saved_regs, len);
     log_iso_regs_running = 0;
 }
 
@@ -947,12 +972,18 @@ static struct menu_entry adtg_gui_menu[] =
                                  "When reg num/type equal AND changed from same prog counter.\n"
                     },
                     {
-                        .name = "Log registers",
+                        .name = "Auto log registers",
                         .priv = &log_all_regs,
                         .max = 1,
                         .choices = CHOICES("OFF", "After taking a pic"),
-                        .help = "Save all registers to a log file (adtg.log)\n"
+                        .help = "Save visible registers to a log file (adtg.log) after taking a picture.\n"
                     },
+                    {
+                        .name = "Log registers now",
+                        .priv = &log_iso_regs,
+                        .select     = (void (*)(void*,int))run_in_separate_task,
+                        .help = "Save visible registers to a log file (adtg.log) right now.\n"
+                    }, 
                     {
                         .name = "Random pokes",
                         .priv = &random_pokes,
