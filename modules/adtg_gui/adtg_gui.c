@@ -168,8 +168,8 @@ static struct known_reg known_regs[] = {
     {0xC0F0,   0x816C, 0, "DEFM_X2MODE"},
 
     {0xC0F0,   0x8180, 0, "HIV_ENB"},
-    {0xC0F0,   0x8184, 0, "HIV_V_SIZE"},
-    {0xC0F0,   0x8188, 0, "HIV_H_SIZE"},
+    //~ {0xC0F0,   0x8184, 0, "HIV_V_SIZE"},
+    //~ {0xC0F0,   0x8188, 0, "HIV_H_SIZE"},
     {0xC0F0,   0x818C, 0, "HIV_POS_V_OFST"},
     {0xC0F0,   0x8190, 0, "HIV_POS_H_OFST"},
     //{0xC0F0,   0x819C, 0, "HIV_POST_SETUP"},
@@ -210,6 +210,46 @@ static struct known_reg known_regs[] = {
     
     {0xc0f0,   0x8114, 0, "LV raw type (see lv_af_raw, lv_set_raw) - DIGIC IV (PACK32_ISEL)"},
     {0xc0f3,   0x7014, 0, "LV raw type (see lv_af_raw, lv_set_raw) - DIGIC V"},
+
+/*
+    550D:
+              1080p     720p        5x          10x
+    c0f10064: 49d075f   2cf075f     45109d7
+    c0f080b0: 49d075f   2cf075f     45109d7
+    c0f08184:     49d   2cf         451
+    c0f08188:     75f   75f         9d7
+    c0f08194:     75f   75f         9d7
+    c0f08198:     75f   75f         9d7
+    c0f0d014: 49d0760   2cf0760     2b30418
+    c0f11394: 47706b7   2ab06b7     2af0407
+    c0f1151c: 47706b7   2ab06b7     2af0407
+    c0f1a00c: 6b70477   6b702ab     40702af
+    c0f25054: 6b7       6b7         407
+    c0f2500c: 6b7       6b7         407
+    c0f1155c: 477041f   2ab03ff     2af03ff
+    c0f112d4: 477035c   2ab035c     2af0408     1df0fff
+    c0f11314: 47702cf   2ab02cf     2af02cf     fff0205
+
+    c0f08548: dd7161d   e0b161d     45109d7
+*/
+    {0xC0F1,   0x0064, 0, "LV resolution (RAW.height | RAW.width)"},     // OK, full raw buffer including optial black
+    {0xC0F0,   0x80B0, 0, "LV resolution (RAW.height | RAW.width)"},     // values matches EDMAC size
+    {0xC0F0,   0x8184, 0, "LV resolution (RAW.height) aka HIV_V_SIZE "}, // however, changing them has either no effect or camera locks up :(
+    {0xC0F0,   0x8188, 0, "LV resolution (RAW.width) aka HIV_H_SIZE "},
+    {0xC0F0,   0x8194, 0, "LV resolution (RAW.width)"},
+    {0xC0F0,   0x8198, 0, "LV resolution (RAW.width)"},
+    
+    {0xC0F1,   0xD014, 0, "LV resolution (raw.j.height? | raw.j.width?)"},  // values a little larger than active area (?)
+    {0xC0F1,   0x1394, 0, "LV resolution (raw.j.height | raw.j.width)"},
+    {0xC0F1,   0x151c, 0, "LV resolution (raw.j.height | raw.j.width)"},
+    {0xC0F1,   0xa00c, 0, "LV resolution (raw.j.width | raw.j.height)"},
+    {0xC0F2,   0x5054, 0, "LV resolution (raw.j.width)"},
+    {0xC0F2,   0x500c, 0, "LV resolution (raw.j.width)"},
+    {0xC0F1,   0x155c, 0, "LV resolution (raw.j.height | hd.width)"},
+    {0xC0F1,   0x12d4, 0, "LV resolution (raw.j.height | ?) before upsampling?"},           // these two also change at 5x->10x zoom
+    {0xC0F1,   0x1314, 0, "LV resolution (raw.j.height | lv.width) before upsampling?"},    // ratio is around 1.4, so maybe some upsampling is applied afterwards
+
+    {0xC0F0,   0x8548, 0, "LV resolution * downsize factor? (RAW.height * D | RAW.width * D)"},
     
     {DST_DFE,  0x180e, 0, "Blue LED"},
     {DST_DFE,  0x1810, 0, "LightMeasure"},
