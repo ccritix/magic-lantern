@@ -5211,6 +5211,8 @@ static unsigned int adtg_gui_init()
     {
         ADTG_WRITE_FUNC = 0xff27ee34;
         CMOS_WRITE_FUNC = 0xff27f028;
+        ENGIO_WRITE_FUNC = 0xFF1C15CC;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF1C1260;
     }
     else if (is_camera("60D", "1.1.1")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg69719#msg69719
     {
