@@ -70,6 +70,34 @@ static struct known_reg known_regs[] = {
 
     {DST_ADTG,   0x14, 1, "ISO related"},
     {DST_ADTG,   0x15, 1, "ISO related"},
+    
+    {0xC021,   0x0000, 0, "Timer 0 (unused)"},
+    {0xC021,   0x0100, 0, "Timer 1 (unused)"},
+    {0xC021,   0x0200, 0, "Timer 2 (10ms system timer)"},
+    {0xC021,   0x0204, 0, "Timer 2 related"},
+    {0xC021,   0x0208, 0, "Timer 2 reload value (microseconds)"},
+    {0xC021,   0x0210, 0, "Timer 2 interrupt enable?"},
+    {0xC021,   0x0214, 0, "Timer 2 related"},
+
+    {0xC024,   0x2010, 0, "Another timer"},
+    {0xC024,   0x2014, 0, "12-bit counter, used for task load measurement"},
+
+    {0xc040,   0x0004, 0, "Clock selection"},
+    {0xc040,   0x0008, 0, "Clock control"},
+    {0xc040,   0x0010, 0, "Timer 0?"},
+    {0xc040,   0x0014, 0, "Timer 1?"},
+    {0xc040,   0x0018, 0, "Timer 2?"},
+
+    {0xc040,   0x0044, 0, "HClk (from 5D classic)"},
+    {0xc040,   0x0048, 0, "LClk (from 5D classic)"},
+    {0xc040,   0x004C, 0, "MClk (from 5D classic)"},
+
+    {0xc040,   0x0088, 0, "USB PHY - written with 0x030101 (\"Xtalless DD\")"},
+    {0xc040,   0x008C, 0, "USB PHY - written with 0x000001"},
+
+    {0xc020,   0x3000, 0, "Timer 0 related?"},
+    {0xc020,   0x3004, 0, "Timer 1 related?"},
+    {0xc020,   0x3008, 0, "Timer 2 related?"},
 
     {0xC0F0,   0x3074, 0, "Playback: horizontal banding (500D only?)"},
     {0xC0F0,   0x3050, 0, "Playback: vertical banding / darken?"},
