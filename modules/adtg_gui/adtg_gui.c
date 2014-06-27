@@ -950,11 +950,55 @@ static MENU_UPDATE_FUNC(unique_key_update)
     }
 }
 
+static struct menu_entry adtg_gui_menu[];
+
+static MENU_SELECT_FUNC(lock_displayed_registers)
+{
+    for (int reg = 0; reg < reg_num; reg++)
+    {
+        /* XXX: change this if you ever add or remove menu entries */
+        /* fixme: duplicate code */
+        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 2]);
+        
+        if (entry->shidden)
+            continue;
+        
+        if (!regs[reg].override_enabled)
+        {
+            regs[reg].override = regs[reg].val;
+            regs[reg].override_enabled = 1;
+        }
+    }
+    
+    menu_toggle_submenu();
+}
+
+static MENU_SELECT_FUNC(lock_fps)
+{
+    int found = 0;
+    for (int reg = 0; reg < reg_num; reg++)
+    {
+        if (regs[reg].dst == 0xC0F0 && (regs[reg].reg == 0x6014 || regs[reg].reg == 0x6008))
+        {
+            regs[reg].override = regs[reg].val;
+            regs[reg].override_enabled = 1;
+            found++;
+        }
+    }
+    
+    if (found == 2)
+    {
+        menu_toggle_submenu();
+    }
+    else
+    {
+        NotifyBox(1000, "FPS registers not found");
+    }
+}
+
 #include <lens.h>
 static int log_all_regs = 0;
 static volatile int log_iso_regs_running = 0;
-
-static struct menu_entry adtg_gui_menu[];
 
 static void log_iso_regs()
 {
@@ -1052,7 +1096,7 @@ static struct menu_entry adtg_gui_menu[] =
                         .name = "DIGIC registers",
                         .priv = &digic_intercept,
                         .max = 1,
-                        .help = "Also intercept DIGIC registers (EngDrvOut and engio_write).\n"
+                        .help = "Also intercept DIGIC registers (EngDrvOut and engio_write)."
                     },
                     {
                         .name = "Unique key",
@@ -1072,20 +1116,32 @@ static struct menu_entry adtg_gui_menu[] =
                         .priv = &log_all_regs,
                         .max = 1,
                         .choices = CHOICES("OFF", "After taking a pic"),
-                        .help = "Save visible registers to a log file (adtg.log) after taking a picture.\n"
+                        .help = "Save visible registers to a log file (adtg.log) after taking a picture."
                     },
                     {
                         .name = "Log registers now",
                         .priv = &log_iso_regs,
                         .select     = (void (*)(void*,int))run_in_separate_task,
-                        .help = "Save visible registers to a log file (adtg.log) right now.\n"
+                        .help = "Save visible registers to a log file (adtg.log) right now."
                     }, 
                     {
                         .name = "Random pokes",
                         .priv = &random_pokes,
                         .choices = CHOICES("OFF", "Every update", "Every second"),
                         .max = 2,
-                        .help = "Use a random value when overriding the registers.\n"
+                        .help = "Use a random value when overriding the registers."
+                    },
+                    {
+                        .name   = "Lock displayed registers",
+                        .select = lock_displayed_registers,
+                        .help   = "Override all displayed registers to their current value.",
+                        .help2  = "Registers already overriden will not be changed."
+                    },
+                    {
+                        .name   = "Lock FPS",
+                        .select = lock_fps,
+                        .help   = "Lock FPS timers to their current value. Enable DIGIC registers first.",
+                        .help2  = "Useful for analyzing video mode changes, at low FPS."
                     },
                     MENU_EOL,
                 },
