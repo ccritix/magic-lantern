@@ -325,6 +325,7 @@ static int show_what = 0;
 #define SHOW_OVERRIDEN 4
 
 static int digic_intercept = 0;
+static int photo_only = 0;
 
 static int unique_key = 0;
 #define UNIQUE_REG 0
@@ -607,6 +608,8 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uin
 
 static void adtg_log(breakpoint_t *bkpt)
 {
+    if (photo_only && lv) return;
+    
     unsigned int cs = bkpt->ctx[0];
     unsigned int *data_buf = (unsigned int *) bkpt->ctx[1];
     int dst = cs & 0xF;
@@ -626,6 +629,8 @@ static void adtg_log(breakpoint_t *bkpt)
 
 static void cmos_log(breakpoint_t *bkpt)
 {
+    if (photo_only && lv) return;
+
     unsigned short *data_buf = (unsigned short *) bkpt->ctx[0];
     
     uint32_t caller_task = get_current_task();
@@ -641,6 +646,8 @@ static void cmos_log(breakpoint_t *bkpt)
 
 static void cmos16_log(breakpoint_t *bkpt)
 {
+    if (photo_only && lv) return;
+
     unsigned short *data_buf = (unsigned short *) bkpt->ctx[0];
     
     uint32_t caller_task = get_current_task();
@@ -656,6 +663,7 @@ static void cmos16_log(breakpoint_t *bkpt)
 
 static void engio_write_log(breakpoint_t *bkpt)
 {
+    if (photo_only && lv) return;
     if (!digic_intercept) return;
     
     uint32_t* data_buf = (uint32_t*) bkpt->ctx[0];
@@ -676,6 +684,7 @@ static void engio_write_log(breakpoint_t *bkpt)
 
 static void EngDrvOut_log(breakpoint_t *bkpt)
 {
+    if (photo_only && lv) return;
     if (!digic_intercept) return;
 
     uint32_t data = (uint32_t) bkpt->ctx[0];
@@ -692,6 +701,7 @@ static void EngDrvOut_log(breakpoint_t *bkpt)
 
 static void EngDrvOuts_log(breakpoint_t *bkpt)
 {
+    if (photo_only && lv) return;
     if (!digic_intercept) return;
 
     uint32_t data = (uint32_t) bkpt->ctx[0];
@@ -711,6 +721,8 @@ static void EngDrvOuts_log(breakpoint_t *bkpt)
 
 static void SendDataToDfe_log(breakpoint_t *bkpt)
 {
+    if (photo_only && lv) return;
+    
     unsigned int *data_buf = (unsigned int *) bkpt->ctx[0];
 
     uint32_t caller_task = get_current_task();
@@ -1110,6 +1122,14 @@ static struct menu_entry adtg_gui_menu[] =
                         .help2 = "When register number and type (family, class) are equal.\n"
                                  "When reg num/type are equal AND changed from the same task.\n"
                                  "When reg num/type equal AND changed from same prog counter.\n"
+                    },
+                    {
+                        .name = "Disable logging",
+                        .priv = &photo_only,
+                        .max = 1,
+                        .icon_type = IT_DICE_OFF,
+                        .choices = CHOICES("OFF", "in LiveView"),
+                        .help = "You may disable logging in LiveView."
                     },
                     {
                         .name = "Auto log registers",
