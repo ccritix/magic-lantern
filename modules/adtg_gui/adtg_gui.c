@@ -343,6 +343,7 @@ static uint32_t ENGIO_WRITE_FUNC = 0;
 static uint32_t ENG_DRV_OUT_FUNC = 0;
 static uint32_t ENG_DRV_OUTS_FUNC = 0;
 static uint32_t SEND_DATA_TO_DFE_FUNC = 0;
+static uint32_t SCS_DUMMY_READOUT_DONE_FUNC = 0;
 
 struct reg_entry
 {
@@ -737,6 +738,13 @@ static void SendDataToDfe_log(breakpoint_t *bkpt)
     }
 }
 
+static void dummy_readout_log(breakpoint_t *bkpt)
+{
+    for (int reg = 0; reg < reg_num; reg++)
+    {
+        regs[reg].prev_val = regs[reg].val;
+    }
+}
 
 static MENU_SELECT_FUNC(adtg_toggle)
 {
@@ -750,6 +758,7 @@ static MENU_SELECT_FUNC(adtg_toggle)
     static breakpoint_t * bkpt6 = 0;
     static breakpoint_t * bkpt7 = 0;
     static breakpoint_t * bkpt8 = 0;
+    static breakpoint_t * bkpt9 = 0;
     
     if (adtg_enabled)
     {
@@ -763,6 +772,7 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (ENG_DRV_OUT_FUNC)  bkpt6 = gdb_add_watchpoint(ENG_DRV_OUT_FUNC, 0, &EngDrvOut_log);
         if (ENG_DRV_OUTS_FUNC) bkpt7 = gdb_add_watchpoint(ENG_DRV_OUTS_FUNC, 0, &EngDrvOuts_log);
         if (SEND_DATA_TO_DFE_FUNC) bkpt8 = gdb_add_watchpoint(SEND_DATA_TO_DFE_FUNC, 0, &SendDataToDfe_log);
+        if (SCS_DUMMY_READOUT_DONE_FUNC) bkpt9 = gdb_add_watchpoint(SCS_DUMMY_READOUT_DONE_FUNC, 0, &dummy_readout_log);
     }
     else
     {
@@ -775,6 +785,7 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (bkpt6) gdb_delete_bkpt(bkpt6);
         if (bkpt7) gdb_delete_bkpt(bkpt7);
         if (bkpt8) gdb_delete_bkpt(bkpt8);
+        if (bkpt9) gdb_delete_bkpt(bkpt9);
     }
 }
 
@@ -5411,6 +5422,7 @@ static unsigned int adtg_gui_init()
         //~ ENG_DRV_OUT_FUNC = 0xff9a54a8;  /* this causes ADTG hook to stop working (why?) */
         ENG_DRV_OUTS_FUNC = 0xff9a5554;
         SEND_DATA_TO_DFE_FUNC = 0xff9b1d94;
+        //~ SCS_DUMMY_READOUT_DONE_FUNC = 0xff880600;
     }
     else if (is_camera("500D", "1.1.1")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg70325#msg70325
     {
