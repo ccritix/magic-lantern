@@ -70,7 +70,9 @@ static struct known_reg known_regs[] = {
 
     {DST_ADTG,   0x14, 1, "ISO related"},
     {DST_ADTG,   0x15, 1, "ISO related"},
-    
+
+    {DST_ADTG, 0x1179, 1, "Top optical black bar size (5D2)"},
+
     {0xC021,   0x0000, 0, "Timer 0 (unused)"},
     {0xC021,   0x0100, 0, "Timer 1 (unused)"},
     {0xC021,   0x0200, 0, "Timer 2 (10ms system timer)"},
