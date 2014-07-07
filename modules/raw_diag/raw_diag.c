@@ -631,16 +631,19 @@ static void snr_graph_2_shots(int noise_curve)
     int ob_noise_x100 = (int)roundf(ob_noise * 100);
     int read_noise_x100 = (int)roundf(read_noise * 100);
     int gain_x100 = (int)roundf(gain * 100);
+    int noise_electrons_x100 = (int)roundf(read_noise * gain * 100);
 
     big_bmp_printf(FONT_MED, 0, font_med.height*3, 
         "Measured OB noise: %s%d.%02d DN\n"
         "Model read noise: %s%d.%02d DN\n"
         "Model gain : %s%d.%02d e/DN\n"
+        "Apparent read noise: %s%d.%02d e\n"
         "Full well capacity : %d e\n"
         "Dynamic range : %s%d.%02d EV\n",
         FMT_FIXEDPOINT2(ob_noise_x100),
         FMT_FIXEDPOINT2(read_noise_x100),
         FMT_FIXEDPOINT2(gain_x100),
+        FMT_FIXEDPOINT2(noise_electrons_x100),
         full_well_electrons,
         FMT_FIXEDPOINT2(dr_x100)
     );
