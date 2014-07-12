@@ -151,10 +151,10 @@ static void FAST ob_mean_stdev(float* mean, float* stdev)
 /* large histogram of the left optical black area */
 static void FAST black_histogram(int ob)
 {
-    int x1 = ob ? 16                            : raw_info.active_area.x1;
-    int x2 = ob ? raw_info.active_area.x1 - 24  : raw_info.active_area.x2;
-    int y1 = ob ? raw_info.active_area.y1 + 20  : raw_info.active_area.y1;
-    int y2 = ob ? raw_info.active_area.y2 - 20  : raw_info.active_area.y2;
+    int x1 = ob ? 16                            : raw_info.active_area.x1 + 20;
+    int x2 = ob ? raw_info.active_area.x1 - 24  : raw_info.active_area.x2 - 20;
+    int y1 = ob ? raw_info.active_area.y1 + 20  : raw_info.active_area.y1 + 20;
+    int y2 = ob ? raw_info.active_area.y2 - 20  : raw_info.active_area.y2 - 20;
     int dx = 1;
     int dy = 1;
 
