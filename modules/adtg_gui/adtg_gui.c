@@ -124,8 +124,20 @@ static struct known_reg known_regs[] = {
     {0xC0F0,   0x601C, 0, "FPS related"},
     {0xC0F0,   0x6020, 0, "FPS related"},
 
-    {0xC0F0,   0x6084, 0, "(0x0001007E, written with regs 08, 0C, 10 and 88, idk what it means)"},
-    {0xC0F0,   0x6088, 0, "Video Y-Res related? 600D: FHD 1182|1070, 3x 1048|1102, HD 720|1070"},
+    /* Resolution
+     * 
+     * 5D2 photo:
+     * 0xC0F06088.hi - 0xC0F06084.hi is the vertical resolution (3804)
+     * 0xC0F06084.hi shifts the image in one-line increments, so it must be the first scanned line
+     * (0xC0F06088.lo - 0xC0F06084.lo) * 2 is the horizontal resolution (5792)
+     * 
+     * 600D movie:
+     * (1070 - 0x7e) * 2 = 1888
+     * (1102 - 0x7e) * 2 = 1952
+     * Bingo :)
+     */
+    {0xC0F0,   0x6084, 0, "RAW first line|column. Column is / 2. 600D: 0x0001007E."},
+    {0xC0F0,   0x6088, 0, "RAW last line|column. 600D: FHD 1182|1070, 3x 1048|1102, HD 720|1070"},
 
     {0xc0f0,   0x7000, 0, "HEAD timers (SSG counter, 0x01 to restart)"},
     {0xc0f0,   0x7004, 0, "HEAD timers"},
