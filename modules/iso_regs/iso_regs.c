@@ -580,7 +580,7 @@ static struct menu_entry iso_regs_menu[] =
         .max             = 1,
         .help            = "Access to ISO-related registers. For research only.",
         .submenu_width   = 710,
-        .children        =  (struct menu_entry[])
+        .children        = (struct menu_entry[])
         {
             {
                 .name            = "CMOS Gain",

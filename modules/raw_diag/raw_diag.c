@@ -1773,7 +1773,7 @@ static struct menu_entry raw_diag_menu[] =
         .submenu_width   = 710,
         .help            = "Show technical analysis of raw image data.",
         .help2           = "Enable this and take a picture with RAW image quality.",
-        .children        =  (struct menu_entry[])
+        .children        = (struct menu_entry[])
         {
             {
                 .name            = "Auto Screenshot",
@@ -1785,7 +1785,7 @@ static struct menu_entry raw_diag_menu[] =
                 .name            = "Optical Black Analyses",
                 .select          = menu_open_submenu,
                 .help            = "Raw analyses based on optical black areas.",
-                .children        =  (struct menu_entry[])
+                .children        = (struct menu_entry[])
                 {
                     {
                         .name            = "Optical Black + DR",
@@ -1806,7 +1806,7 @@ static struct menu_entry raw_diag_menu[] =
                 .name            = "Dark Frame Analyses",
                 .select          = menu_open_submenu,
                 .help            = "Raw analyses based on dark frames (images taken with lens cap on).",
-                .children        =  (struct menu_entry[])
+                .children        = (struct menu_entry[])
                 {
                     {
                         .name            = "Dark Frame Noise",
@@ -1843,7 +1843,7 @@ static struct menu_entry raw_diag_menu[] =
                 .name            = "Curve-based Analyses",
                 .select          = menu_open_submenu,
                 .help            = "Raw analyses that attempts to identify response curves.",
-                .children        =  (struct menu_entry[])
+                .children        = (struct menu_entry[])
                 {
                     {
                         .name            = "SNR Curve",

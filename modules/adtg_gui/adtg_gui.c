@@ -1088,7 +1088,7 @@ static struct menu_entry adtg_gui_menu[] =
         .update          = adtg_update,
         .help            = "Edit ADTG/CMOS register values.",
         .submenu_width   = 710,
-        .children        =  (struct menu_entry[])
+        .children        = (struct menu_entry[])
         {
             {
                 .name            = "Show",
@@ -1096,12 +1096,12 @@ static struct menu_entry adtg_gui_menu[] =
                 .update          = show_update,
                 .max             = 5,
                 .choices         = CHOICES("Everything", "Known regs only", "Modified at least twice", "Modified from now on", "Overriden regs only", "FPS timers only"),
-                .help2           =    "Everything: show all registers as soon as they are written.\n"
-                                      "Known: show only the registers with a known description.\n"
-                                      "Modified at least twice: only regs that were changed more than once.\n"
-                                      "Modified from now on: only regs where final value was modified.\n"
-                                      "Overriden: show only regs where you have changed the value.\n"
-                                      "FPS timers only: show only FPS timer A and B.\n"
+                .help2           = "Everything: show all registers as soon as they are written.\n"
+                                   "Known: show only the registers with a known description.\n"
+                                   "Modified at least twice: only regs that were changed more than once.\n"
+                                   "Modified from now on: only regs where final value was modified.\n"
+                                   "Overriden: show only regs where you have changed the value.\n"
+                                   "FPS timers only: show only FPS timer A and B.\n"
             },
             {
                 .name            = "Advanced",
