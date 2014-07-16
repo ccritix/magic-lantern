@@ -1106,89 +1106,91 @@ PROP_HANDLER(PROP_GUI_STATE)
 static struct menu_entry adtg_gui_menu[] =
 {
     {
-        .name = "ADTG registers",
-        .priv = &adtg_enabled,
-        .select = &adtg_toggle,
-        .max = 1,
-        .update = adtg_update,
-        .help = "Edit ADTG/CMOS register values.",
-        .submenu_width = 710,
-        .children =  (struct menu_entry[]) {
+        .name            = "ADTG Registers",
+        .priv            = &adtg_enabled,
+        .select          = &adtg_toggle,
+        .max             = 1,
+        .update          = adtg_update,
+        .help            = "Edit ADTG/CMOS register values.",
+        .submenu_width   = 710,
+        .children        = (struct menu_entry[])
+        {
             {
-                .name = "Show",
-                .priv = &show_what,
-                .update = show_update,
-                .max = 5,
-                .choices = CHOICES("Everything", "Known regs only", "Modified at least twice", "Modified from now on", "Overriden regs only", "FPS timers only"),
-                .help2 =    "Everything: show all registers as soon as they are written.\n"
-                            "Known: show only the registers with a known description.\n"
-                            "Modified at least twice: only regs that were changed more than once.\n"
-                            "Modified from now on: only regs where final value was modified.\n"
-                            "Overriden: show only regs where you have changed the value.\n"
-                            "FPS timers only: show only FPS timer A and B.\n"
+                .name            = "Show",
+                .priv            = &show_what,
+                .update          = show_update,
+                .max             = 5,
+                .choices         = CHOICES("Everything", "Known regs only", "Modified at least twice", "Modified from now on", "Overriden regs only", "FPS timers only"),
+                .help2           = "Everything: show all registers as soon as they are written.\n"
+                                   "Known: show only the registers with a known description.\n"
+                                   "Modified at least twice: only regs that were changed more than once.\n"
+                                   "Modified from now on: only regs where final value was modified.\n"
+                                   "Overriden: show only regs where you have changed the value.\n"
+                                   "FPS timers only: show only FPS timer A and B.\n"
             },
             {
-                .name = "Advanced",
-                .select = menu_open_submenu,
-                .children = (struct menu_entry[]) {
+                .name            = "Advanced",
+                .select          = menu_open_submenu,
+                .children        = (struct menu_entry[])
+                {
                     {
-                        .name = "DIGIC registers",
-                        .priv = &digic_intercept,
-                        .max = 1,
-                        .help = "Also intercept DIGIC registers (EngDrvOut and engio_write)."
+                        .name            = "DIGIC Registers",
+                        .priv            = &digic_intercept,
+                        .max             = 1,
+                        .help            = "Also intercept DIGIC registers (EngDrvOut and engio_write).",
                     },
                     {
-                        .name = "Unique key",
-                        .priv = &unique_key,
-                        .select = unique_key_toggle,
-                        .update = unique_key_update,
-                        .max = 2,
-                        .icon_type = IT_DICE_OFF,
-                        .choices = CHOICES("Register", "Register + caller task", "Register + caller PC"),
-                        .help  = "When two register operations are identical? (for grouping)",
-                        .help2 = "When register number and type (family, class) are equal.\n"
-                                 "When reg num/type are equal AND changed from the same task.\n"
-                                 "When reg num/type equal AND changed from same prog counter.\n"
+                        .name            = "Unique Key",
+                        .priv            = &unique_key,
+                        .select          = unique_key_toggle,
+                        .update          = unique_key_update,
+                        .max             = 2,
+                        .icon_type       = IT_DICE_OFF,
+                        .choices         = CHOICES("Register", "Register + caller task", "Register + caller PC"),
+                        .help            = "When two register operations are identical? (for grouping).",
+                        .help2           = "When register number and type (family, class) are equal.\n"
+                                           "When reg num/type are equal AND changed from the same task.\n"
+                                           "When reg num/type equal AND changed from same prog counter.\n"
                     },
                     {
-                        .name = "Disable logging",
-                        .priv = &photo_only,
-                        .max = 1,
-                        .icon_type = IT_DICE_OFF,
-                        .choices = CHOICES("OFF", "in LiveView"),
-                        .help = "You may disable logging in LiveView."
+                        .name            = "Disable Logging",
+                        .priv            = &photo_only,
+                        .max             = 1,
+                        .icon_type       = IT_DICE_OFF,
+                        .choices         = CHOICES("OFF", "in LiveView"),
+                        .help            = "You may disable logging in LiveView.",
                     },
                     {
-                        .name = "Auto log registers",
-                        .priv = &log_all_regs,
-                        .max = 1,
-                        .choices = CHOICES("OFF", "After taking a pic"),
-                        .help = "Save visible registers to a log file (adtg.log) after taking a picture."
+                        .name            = "Auto Log Registers",
+                        .priv            = &log_all_regs,
+                        .max             = 1,
+                        .choices         = CHOICES("OFF", "After taking a pic"),
+                        .help            = "Save visible registers to a log file (adtg.log) after taking a picture.",
                     },
                     {
-                        .name = "Log registers now",
-                        .priv = &log_iso_regs,
-                        .select     = (void (*)(void*,int))run_in_separate_task,
-                        .help = "Save visible registers to a log file (adtg.log) right now."
+                        .name            = "Log Registers Now",
+                        .priv            = &log_iso_regs,
+                        .select          = (void (*)(void*,int))run_in_separate_task,
+                        .help            = "Save visible registers to a log file (adtg.log) right now.",
                     }, 
                     {
-                        .name = "Random pokes",
-                        .priv = &random_pokes,
-                        .choices = CHOICES("OFF", "Every update", "Every second"),
-                        .max = 2,
-                        .help = "Use a random value when overriding the registers."
+                        .name            = "Random Pokes",
+                        .priv            = &random_pokes,
+                        .choices         = CHOICES("OFF", "Every update", "Every second"),
+                        .max             = 2,
+                        .help            = "Use a random value when overriding the registers.",
                     },
                     {
-                        .name   = "Lock displayed registers",
-                        .select = lock_displayed_registers,
-                        .help   = "Override all displayed registers to their current value.",
-                        .help2  = "Registers already overriden will not be changed."
+                        .name            = "Lock Displayed Registers",
+                        .select          = lock_displayed_registers,
+                        .help            = "Override all displayed registers to their current value.",
+                        .help2           = "Registers already overriden will not be changed.",
                     },
                     {
-                        .name   = "Lock FPS",
-                        .select = lock_fps,
-                        .help   = "Lock FPS timers to their current value. Enable DIGIC registers first.",
-                        .help2  = "Useful for analyzing video mode changes, at low FPS."
+                        .name            = "Lock FPS",
+                        .select          = lock_fps,
+                        .help            = "Lock FPS timers to their current value. Enable DIGIC registers first.",
+                        .help2           = "Useful for analyzing video mode changes, at low FPS.",
                     },
                     MENU_EOL,
                 },
