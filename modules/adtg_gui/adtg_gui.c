@@ -341,6 +341,7 @@ static int show_what = 0;
 
 static int digic_intercept = 0;
 static int photo_only = 0;
+static int force_low_fps = 0;
 
 static int unique_key = 0;
 #define UNIQUE_REG 0
@@ -598,6 +599,15 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uin
         reg_num++;
     }
     sei(old);
+    
+    if (force_low_fps)
+    {
+        /* override these registers before they get a chance to appear in the menu */
+        if (re->dst == 0xC0F0 && re->reg == 0x6014)
+        {
+            *pval = 8191;
+        }
+    }
 
     if (re->override_enabled)
     {
@@ -1011,29 +1021,6 @@ static MENU_SELECT_FUNC(lock_displayed_registers)
     menu_toggle_submenu();
 }
 
-static MENU_SELECT_FUNC(lock_fps)
-{
-    int found = 0;
-    for (int reg = 0; reg < reg_num; reg++)
-    {
-        if (regs[reg].dst == 0xC0F0 && (regs[reg].reg == 0x6014 || regs[reg].reg == 0x6008))
-        {
-            regs[reg].override = regs[reg].val;
-            regs[reg].override_enabled = 1;
-            found++;
-        }
-    }
-    
-    if (found == 2)
-    {
-        menu_toggle_submenu();
-    }
-    else
-    {
-        NotifyBox(1000, "FPS registers not found");
-    }
-}
-
 #include <lens.h>
 static int log_all_regs = 0;
 static volatile int log_iso_regs_running = 0;
@@ -1153,6 +1140,13 @@ static struct menu_entry adtg_gui_menu[] =
                                            "When reg num/type equal AND changed from same prog counter.\n"
                     },
                     {
+                        .name            = "Force low FPS",
+                        .priv            = &force_low_fps,
+                        .max             = 1,
+                        .help            = "Try enabling this if it locks up in LiveView.",
+                        .help2           = "Also enable 'DIGIC Registers'.",
+                    },
+                    {
                         .name            = "Disable Logging",
                         .priv            = &photo_only,
                         .max             = 1,
@@ -1185,12 +1179,6 @@ static struct menu_entry adtg_gui_menu[] =
                         .select          = lock_displayed_registers,
                         .help            = "Override all displayed registers to their current value.",
                         .help2           = "Registers already overriden will not be changed.",
-                    },
-                    {
-                        .name            = "Lock FPS",
-                        .select          = lock_fps,
-                        .help            = "Lock FPS timers to their current value. Enable DIGIC registers first.",
-                        .help2           = "Useful for analyzing video mode changes, at low FPS.",
                     },
                     MENU_EOL,
                 },
