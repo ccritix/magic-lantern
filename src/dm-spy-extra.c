@@ -22,6 +22,7 @@ static void generic_log(breakpoint_t *bkpt);
 static void state_transition_log(breakpoint_t *bkpt);
 static void LockEngineResources_log(breakpoint_t *bkpt);
 static void UnLockEngineResources_log(breakpoint_t *bkpt);
+static void fps_log(breakpoint_t *bkpt);
 
 struct logged_func
 {
@@ -49,7 +50,7 @@ static struct logged_func logged_functions[] = {
     { 0xffaf6930, "set_digital_gain_and_related", 3 },
     //~ { 0xffaf68a4, "set_saturate_offset", 1 },               // conflicts with TryPostEvent
     { 0xffaf686c, "set_saturate_offset_2", 1 },
-    { 0xff987200, "set_fps_maybe", 1 },
+    { 0xff987200, "set_fps_maybe", 1, fps_log },
     { 0xffa38114, "set_fps_maybe_2", 1 },
     { 0xffa366c8, "AJ_FixedPoint_aglrw_related", 4 },
     { 0xffa37de4, "RegisterHead1InterruptHandler", 3 },
@@ -206,6 +207,15 @@ static void LockEngineResources_log(breakpoint_t *bkpt)
 static void UnLockEngineResources_log(breakpoint_t *bkpt)
 {
     LockEngineResources_log_base(bkpt, "UnLockEngineResources");
+}
+
+static void fps_log(breakpoint_t *bkpt)
+{
+    /* log the original call as usual */
+    generic_log(bkpt);
+
+    /* force very slow FPS to avoid lockup */
+    bkpt->ctx[0] = 8191;
 }
 
 static int check_no_conflicts(int i)
