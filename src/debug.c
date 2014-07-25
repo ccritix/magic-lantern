@@ -22,6 +22,7 @@
 #include "fw-signature.h"
 #include "lvinfo.h"
 #include "timer.h"
+#include "raw.h"
 
 #ifdef CONFIG_DEBUG_INTERCEPT
 #include "dm-spy.h"
@@ -157,10 +158,127 @@ static void dump_rom_task(void* priv, int unused)
     dump_big_seg(4, "ML/LOGS/RAM4.BIN");
 }
 
-static void dump_rom(void* priv, int unused)
+static PROP_INT(PROP_VIDEO_SYSTEM, pal);
+
+static void dump_img_task(void* priv, int unused)
 {
-    gui_stop_menu();
-    task_create("dump_task", 0x1e, 0, dump_rom_task, 0);
+    for (int i = 5; i > 0; i--)
+    {
+        NotifyBox(1000, "Will dump VRAMs in %d s...", i);
+        msleep(1000);
+    }
+    NotifyBox(5000, "Dumping VRAMs...");
+    
+    FILE * f = NULL;
+    char pattern[0x80];
+    char filename[0x80];
+    
+    /* fixme */
+    extern int is_pure_play_photo_mode();
+    
+    char* video_mode = 
+        PLAY_MODE && is_pure_play_photo_mode()          ? "PLAY-PH"  :      /* Playback, reviewing a picture */
+        PLAY_MODE && is_pure_play_movie_mode()          ? "PLAY-MV"  :      /* Playback, reviewing a video */
+        PLAY_MODE                                       ? "PLAY-UNK" :
+        lv && lv_dispsize==5                            ? "ZOOM-X5"  :      /* Zoom x5 (it's the same in all modes) */
+        lv && lv_dispsize==10                           ? "ZOOM-X10" :      /* Zoom x10 (it's the same in all modes) */
+        lv && lv_dispsize==1 && !is_movie_mode() ? "PH-LV"    :      /* Photo LiveView */
+        !is_movie_mode() && QR_MODE              ? "PH-QR"    :      /* Photo QuickReview (right after taking a picture) */
+        !is_movie_mode()                         ? "PH-UNK"   :
+        video_mode_resolution == 0 && !video_mode_crop && !RECORDING_H264 ? "MV-1080"  :    /* Movie 1080p, standby */
+        video_mode_resolution == 1 && !video_mode_crop && !RECORDING_H264 ? "MV-720"   :    /* Movie 720p, standby */
+        video_mode_resolution == 2 && !video_mode_crop && !RECORDING_H264 ? "MV-480"   :    /* Movie 480p, standby */
+        video_mode_resolution == 0 &&  video_mode_crop && !RECORDING_H264 ? "MVC-1080" :    /* Movie 1080p crop (3x zoom as with 600D), standby */
+        video_mode_resolution == 2 &&  video_mode_crop && !RECORDING_H264 ? "MVC-480"  :    /* Movie 480p crop (as with 550D), standby */
+        video_mode_resolution == 0 && !video_mode_crop &&  RECORDING_H264 ? "REC-1080" :    /* Movie 1080p, recording */
+        video_mode_resolution == 1 && !video_mode_crop &&  RECORDING_H264 ? "REC-720"  :    /* Movie 720p, recording */
+        video_mode_resolution == 2 && !video_mode_crop &&  RECORDING_H264 ? "REC-480"  :    /* Movie 480p, recording */
+        video_mode_resolution == 0 &&  video_mode_crop &&  RECORDING_H264 ? "RECC1080" :    /* Movie 1080p crop, recording */
+        video_mode_resolution == 2 &&  video_mode_crop &&  RECORDING_H264 ? "RECC-480" :    /* Movie 480p crop, recording */
+        "MV-UNK";
+    
+    char* display_mode = 
+        !EXT_MONITOR_CONNECTED                          ? "LCD"      :          /* Built-in LCD */
+        ext_monitor_hdmi && hdmi_code == 20             ? "HDMI-MIR" :          /* HDMI with mirroring enabled (5D3 1.2.3) */
+        ext_monitor_hdmi && hdmi_code == 5              ? "HDMI1080" :          /* HDMI 1080p (high resolution) */
+        ext_monitor_hdmi && hdmi_code == 2              ? "HDMI480 " :          /* HDMI 480p aka HDMI-VGA (use Force HDMI-VGA from ML menu, Display->Advanced; most cameras drop to this mode while recording); */
+        _ext_monitor_rca && pal                         ? "SD-PAL"   :          /* SD monitor (RCA cable), PAL selected in Canon menu */
+        _ext_monitor_rca && !pal                        ? "SD-NTSC"  : "UNK";   /* SD monitor (RCA cable), NTSC selected in Canon menu */
+
+    int path_len = snprintf(pattern, sizeof(pattern), "%s/%s/%s/", CAMERA_MODEL, video_mode, display_mode);
+    
+    /* make sure the VRAM parameters are updated */
+    get_yuv422_vram();
+    get_yuv422_hd_vram();
+
+    snprintf(pattern + path_len, sizeof(pattern) - path_len, "LV-%%03d.422", 0);
+    get_numbered_file_name(pattern, 999, filename, sizeof(filename));
+    f = FIO_CreateFile(filename);
+    if (f != INVALID_PTR)
+    {
+        FIO_WriteFile(f, vram_lv.vram, vram_lv.height * vram_lv.pitch);
+        FIO_CloseFile(f);
+    }
+
+    snprintf(pattern + path_len, sizeof(pattern) - path_len, "HD-%%03d.422", 0);
+    get_numbered_file_name(pattern, 999, filename, sizeof(filename));
+    f = FIO_CreateFile(filename);
+    if (f != INVALID_PTR)
+    {
+        FIO_WriteFile(f, vram_hd.vram, vram_hd.height * vram_hd.pitch);
+        FIO_CloseFile(f);
+    }
+
+#ifdef CONFIG_RAW_LIVEVIEW
+    snprintf(pattern + path_len, sizeof(pattern) - path_len, "RAW-%%03d.DNG", 0);
+    get_numbered_file_name(pattern, 999, filename, sizeof(filename));
+    
+    if (lv) raw_lv_request();
+    if (raw_update_params())
+    {
+        /* first frames right after enabling the raw buffer might be corrupted, figure out why */
+        /* todo: fix it in the raw backend */
+        wait_lv_frames(3);
+        raw_set_dirty();
+        raw_update_params();
+        
+        /* make a copy of the raw buffer, because it's being updated while we are saving it */
+        void* buf = malloc(raw_info.frame_size);
+        if (buf)
+        {
+            memcpy(buf, raw_info.buffer, raw_info.frame_size);
+            struct raw_info local_raw_info = raw_info;
+            local_raw_info.buffer = buf;
+            save_dng(filename, &local_raw_info);
+            free(buf);
+        }
+    }
+    if (lv) raw_lv_release();
+    
+    if (!is_file(filename))
+    {
+        /* if we don't have any raw data, create an empty DNG just to keep file numbering consistent */
+        f = FIO_CreateFile(filename);
+        FIO_CloseFile(f);
+    }
+#endif
+
+    /* create a log file with relevant settings */
+    snprintf(pattern + path_len, sizeof(pattern) - path_len, "VRAM-%%03d.LOG", 0);
+    get_numbered_file_name(pattern, 999, filename, sizeof(filename));
+    f = FIO_CreateFile(filename);
+    if (f != INVALID_PTR)
+    {
+        my_fprintf(f, "display=%d (hdmi=%d code=%d rca=%d)\n", EXT_MONITOR_CONNECTED, ext_monitor_hdmi, hdmi_code, _ext_monitor_rca);
+        my_fprintf(f, "lv=%d (zoom=%d dispmode=%d rec=%d)\n", lv, lv_dispsize, lv_disp_mode, RECORDING_H264);
+        my_fprintf(f, "movie=%d (res=%d crop=%d fps=%d)\n", is_movie_mode(), video_mode_resolution, video_mode_crop, video_mode_fps);
+        my_fprintf(f, "play=%d (ph=%d, mv=%d, qr=%d)\n", PLAY_MODE, is_pure_play_photo_mode(), is_pure_play_movie_mode(), QR_MODE);
+        
+        FIO_CloseFile(f);
+    }
+
+    NotifyBox(2000, "Done :)");
+    beep();
 }
 
 #ifdef FEATURE_GUIMODE_TEST
@@ -242,7 +360,104 @@ static void bsod()
 
 static void run_test()
 {
+    msleep(2000);
+
+    console_show();
     msleep(1000);
+    
+    /* let's see how much RAM we can get */
+    struct memSuite * suite = srm_malloc_suite(0);
+    struct memChunk * chunk = GetFirstChunkFromSuite(suite);
+    printf("hSuite %x (%dx%s)\n", suite, suite->num_chunks, format_memory_size(chunk->size));
+    
+    printf("You should not be able to take pictures,\n");
+    printf("but autofocus should work.\n");
+
+    info_led_on();
+    for (int i = 10; i >= 0; i--)
+    {
+        msleep(1000);
+        printf("%d...", i);
+    }
+    printf("\b\b\n");
+    info_led_off();
+    
+    srm_free_suite(suite);
+    msleep(1000);
+
+    printf("Now try taking some pictures during the test.\n");
+    
+    /* we must be able to allocate at least two 25MB buffers on top of what you can get from shoot_malloc */
+    /* 50D/500D have 27M, 5D3 has 40 */
+    for (int i = 0; i < 1000; i++)
+    {
+        void* buf1 = srm_malloc(25*1024*1024);
+        printf("srm_malloc(25M) => %x\n", buf1);
+        
+        void* buf2 = srm_malloc(25*1024*1024);
+        printf("srm_malloc(25M) => %x\n", buf2);
+
+        /* we must be able to free them in any order, even if the backend doesn't allow that */
+        if (rand()%2)
+        {
+            free(buf1);
+            free(buf2);
+        }
+        else
+        {
+            free(buf2);
+            free(buf1);
+        }
+
+        if (i == 0)
+        {
+            /* delay the first iteration, so you can see what's going on */
+            /* also save a screenshot */
+            msleep(5000);
+            take_screenshot(0, SCREENSHOT_BMP);
+        }
+        
+        if (!buf1 || !buf2)
+        {
+            /* allocation failed? wait before retrying */
+            msleep(1000);
+        }
+    }
+    
+    return;
+        
+    /* todo: cleanup the following tests and move them in the mem_chk module */
+    
+    /* allocate up to 50000 small blocks of RAM, 32K each */
+    int N = 50000;
+    int blocksize = 32*1024;
+    void** ptr = malloc(N * sizeof(ptr[0]));
+    if (ptr)
+    {
+        for (int i = 0; i < N; i++)
+        {
+            ptr[i] = 0;
+        }
+
+        for (int i = 0; i < N; i++)
+        {
+            ptr[i] = malloc(blocksize);
+            bmp_printf(FONT_MONO_20, 0, 0, "alloc %d %8x (total %s)", i, ptr[i], format_memory_size(i * blocksize));
+            if (ptr[i]) memset(ptr[i], rand(), blocksize);
+            else break;
+        }
+        
+        for (int i = 0; i < N; i++)
+        {
+            if (ptr[i])
+            {
+                bmp_printf(FONT_MONO_20, 0, 20, "free %x   ", ptr[i]);
+                free(ptr[i]);
+            }
+        }
+    }
+    free(ptr);
+    return;
     
     /* check for memory leaks */
     for (int i = 0; i < 1000; i++)
@@ -2628,8 +2843,15 @@ static struct menu_entry debug_menus[] = {
 #endif
     {
         .name        = "Dump ROM and RAM",
-        .select        = dump_rom,
+        .priv        = dump_rom_task,
+        .select      = (void(*)(void*,int))run_in_separate_task,
         .help = "ROM0.BIN:F0000000, ROM1.BIN:F8000000, RAM4.BIN"
+    },
+    {
+        .name        = "Dump image buffers",
+        .priv        = dump_img_task,
+        .select      = (void(*)(void*,int))run_in_separate_task,
+        .help = "Dump all image buffers (LV, HD, RAW) from current video mode."
     },
 #ifdef FEATURE_DONT_CLICK_ME
     {
@@ -3579,7 +3801,6 @@ bool get_halfshutter_pressed() { return HALFSHUTTER_PRESSED && !dofpreview; }
 static int zoom_in_pressed = 0;
 static int zoom_out_pressed = 0;
 int get_zoom_out_pressed() { return zoom_out_pressed; }
-int joy_center_pressed = 0;
 
 int handle_buttons_being_held(struct event * event)
 {
@@ -3587,10 +3808,6 @@ int handle_buttons_being_held(struct event * event)
     #ifdef CONFIG_5DC
     if (event->param == BGMT_PRESS_HALFSHUTTER) halfshutter_pressed = 1;
     if (event->param == BGMT_UNPRESS_HALFSHUTTER) halfshutter_pressed = 0;
-    #endif
-    #ifdef BGMT_JOY_CENTER
-    if (event->param == BGMT_JOY_CENTER) joy_center_pressed = 1;
-    if (event->param == BGMT_UNPRESS_UDLR) joy_center_pressed = 0;
     #endif
     #ifdef BGMT_UNPRESS_ZOOMIN_MAYBE
     if (event->param == BGMT_PRESS_ZOOMIN_MAYBE) {zoom_in_pressed = 1; zoom_out_pressed = 0; }
