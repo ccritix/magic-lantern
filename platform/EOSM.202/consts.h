@@ -2,6 +2,8 @@
  *  EOS M 2.0.2 consts
  */
 
+#define CANON_SHUTTER_RATING 100000
+
 #define CARD_LED_ADDRESS 0xC022C188 // http://magiclantern.wikia.com/wiki/Led_addresses
 #define LEDON 0x138800
 #define LEDOFF 0x838C00
@@ -46,8 +48,6 @@
 
 //~ look for string "[MC] permit LV instant", it's the struct refrenced in this function.
 #define HALFSHUTTER_PRESSED (*(int*)0x3F224)
-
-#define DISPLAY_SENSOR_POWERED 0
 
 // for gui_main_task
 #define GMT_NFUNCS 7
@@ -189,7 +189,7 @@
 #define FRAME_SHUTTER_BLANKING_ZOOM   (*(uint16_t*)0x40481B20) // ADTG register 805f
 #define FRAME_SHUTTER_BLANKING_NOZOOM (*(uint16_t*)0x40481B24) // ADTG register 8061
 #define FRAME_SHUTTER_BLANKING_READ   (lv_dispsize > 1 ? FRAME_SHUTTER_BLANKING_NOZOOM : FRAME_SHUTTER_BLANKING_ZOOM) /* when reading, use the other mode, as it contains the original value (not overriden) */
-#define FRAME_SHUTTER_BLANKING_WRITE  (lv_dispsize > 1 ? &FRAME_SHUTTER_BLANKING_ZOOM : &FRAME_SHUTTER_BLANKING_NOZOOM)
+//~ #define FRAME_SHUTTER_BLANKING_WRITE  (lv_dispsize > 1 ? &FRAME_SHUTTER_BLANKING_ZOOM : &FRAME_SHUTTER_BLANKING_NOZOOM)
 #define LV_DISP_MODE (MEM(0x89BAC + 0x7C) != 3)
 
 // see "Malloc Information"

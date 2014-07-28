@@ -2,6 +2,8 @@
  *  650D 1.0.1 consts
  */
 
+#define CANON_SHUTTER_RATING 100000
+
 /* 
  * Initial constants as found by Indy 
  */
@@ -217,7 +219,7 @@
 
 #define INFO_BTN_NAME "INFO"
 #define Q_BTN_NAME "[Q]"
-#define ARROW_MODE_TOGGLE_KEY "LCD SENSOR"
+#define ARROW_MODE_TOGGLE_KEY "LCD sensor"
 
 #define DISPLAY_STATEOBJ (*(struct state_object **)0x23D1C)
 #define DISPLAY_IS_ON (DISPLAY_STATEOBJ->current_state != 0)

@@ -167,10 +167,15 @@ static CONFIG_INT( "zoom.halfshutter", zoom_halfshutter, 0);
 static CONFIG_INT( "zoom.focus_ring", zoom_focus_ring, 0);
        CONFIG_INT( "zoom.auto.exposure", zoom_auto_exposure, 0);
 
+#ifdef FEATURE_BULB_TIMER
 static int bulb_duration_change(struct config_var * var, int old_value, int new_value);
-static CONFIG_INT       ( "bulb.timer", bulb_timer, 0);
 static CONFIG_INT_UPDATE( "bulb.duration", bulb_duration, 5, bulb_duration_change);
+static CONFIG_INT       ( "bulb.timer", bulb_timer, 0);
 static CONFIG_INT       ( "bulb.display.mode", bulb_display_mode, 0);
+#else
+static int bulb_duration = 0;
+static int bulb_display_mode = 0;
+#endif
 
 static CONFIG_INT( "mlu.auto", mlu_auto, 0);
 static CONFIG_INT( "mlu.mode", mlu_mode, 1);
@@ -1634,7 +1639,7 @@ static MENU_UPDATE_FUNC(shutter_display)
 
     if (lens_info.raw_shutter)
     {
-        MENU_SET_ICON(MNI_PERCENT, (lens_info.raw_shutter - codes_shutter[1]) * 100 / (codes_shutter[COUNT(codes_shutter)-1] - codes_shutter[1]));
+        MENU_SET_ICON(MNI_PERCENT, (lens_info.raw_shutter - SHUTTER_MIN) * 100 / (SHUTTER_MAX - SHUTTER_MIN));
         MENU_SET_ENABLED(1);
     }
     else 
@@ -1660,6 +1665,7 @@ shutter_toggle(void* priv, int sign)
             break;
         i = new_i;
         if (codes_shutter[i] == 0) continue;
+        if (is_movie_mode() && codes_shutter[i] < SHUTTER_1_25) { k--; continue; }  /* there are many values to skip */
         if (lens_set_rawshutter(codes_shutter[i])) break;
     }
 }
@@ -2764,7 +2770,7 @@ void ensure_bulb_mode()
     #else
         if (shooting_mode != SHOOTMODE_M)
             set_shooting_mode(SHOOTMODE_M);
-        int shutter = 12; // huh?!
+        int shutter = SHUTTER_BULB;
         prop_request_change( PROP_SHUTTER, &shutter, 4 );
         prop_request_change( PROP_SHUTTER_ALSO, &shutter, 4 );
     #endif
@@ -2818,15 +2824,31 @@ bulb_take_pic(int duration)
     
     msleep(100);
     
-    int d0 = set_drive_single();
+    int d0 = -1;
+    int initial_delay = 300;
+    
+    switch (drive_mode)
+    {
+        case DRIVE_SELFTIMER_2SEC:
+            duration += 2000;
+            initial_delay = 2000;
+            break;
+        case DRIVE_SELFTIMER_REMOTE:
+            duration += 10000;
+            initial_delay = 10000;
+            break;
+        default:
+            d0 = set_drive_single();
+            mlu_lock_mirror_if_needed();
+    }
+    
     //~ NotifyBox(3000, "BulbStart (%d)", duration); msleep(1000);
-    mlu_lock_mirror_if_needed();
     
     SW1(1,300);
     
     int t_start = get_ms_clock_value();
     int t_end = t_start + duration;
-    SW2(1,300);
+    SW2(1, initial_delay);
     
 #ifdef FEATURE_BULB_TIMER_SHOW_PREVIOUS_PIC
     int display_forced_on = 0;
@@ -2938,7 +2960,6 @@ bulb_take_pic(int duration)
 }
 
 #ifdef FEATURE_BULB_TIMER
-
 static int bulb_duration_change(struct config_var * var, int old_value, int new_value)
 {
     #ifdef FEATURE_EXPO_OVERRIDE
@@ -3425,7 +3446,7 @@ static void expo_preset_toggle()
     else
         beep();
     
-    if (pre_tv != 12) lens_set_rawshutter(pre_tv); else ensure_bulb_mode();
+    if (pre_tv != SHUTTER_BULB) lens_set_rawshutter(pre_tv); else ensure_bulb_mode();
     lens_set_rawiso(pre_iso);
     lens_set_rawaperture(pre_av);
     if (lens_info.wb_mode == WB_KELVIN)
@@ -3527,9 +3548,13 @@ static struct menu_entry shoot_menus[] = {
                 .name = "Sequence",
                 .priv       = &hdr_sequence,
                 .max = 2,
-                .help = "Bracketing sequence order / type. Zero is always first.",
                 .icon_type = IT_DICE,
                 .choices = CHOICES("0 - --", "0 - + -- ++", "0 + ++"),
+                .help = "Bracketing sequence order / type. Zero is always first.",
+                .help2 =
+                    "Take darker images.\n"
+                    "Take dark, bright, even darker, even brigther images, in that order\n"
+                    "Take brighter images.\n"
             },
             #ifndef CONFIG_5DC
             {
@@ -4461,7 +4486,7 @@ void hdr_create_script(int f0, int focus_stack)
     snprintf(name, sizeof(name), "%s/%s_%04d.%s", get_dcim_dir(), focus_stack ? "FST" : "HDR", f0, hdr_scripts == 3 ? "txt" : "sh");
 
     FILE * f = FIO_CreateFile(name);
-    if ( f == INVALID_PTR )
+    if (!f)
     {
         bmp_printf( FONT_LARGE, 30, 30, "FIO_CreateFile: error for %s", name );
         return;
@@ -4536,7 +4561,7 @@ void interval_create_script(int f0)
     int append_header = !is_file(name);
     FILE * f = FIO_CreateFileOrAppend(name);
     
-    if ( f == INVALID_PTR )
+    if (!f)
     {
         bmp_printf( FONT_LARGE, 30, 30, "FIO_CreateFileOrAppend: error for %s", name );
         return;
@@ -5408,8 +5433,8 @@ int handle_intervalometer(struct event * event)
     // stop intervalometer with MENU or PLAY
     if (!IS_FAKE(event) && (event->param == BGMT_MENU || event->param == BGMT_PLAY) && !gui_menu_shown())
         intervalometer_stop();
-    return 1;
 #endif
+    return 1;
 }
 
 // this syncs with DIGIC clock from clock_task
@@ -6343,10 +6368,8 @@ shoot_task( void* unused )
                 
                 if(audio_release_running)
                 {   
-                    #ifndef CONFIG_7D
                     //Enable Audio IC In Photo Mode if off
                     if (!is_movie_mode())
-                    #endif
                     {
                         SoundDevActiveIn(0);
                     }

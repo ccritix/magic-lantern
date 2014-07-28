@@ -171,7 +171,7 @@ static int rbf_font_load(char *file, font* f, int maxchar)
 
     // open file (can't use fopen here due to potential conflict FsIoNotify crash)
     FILE *fd = FIO_OpenFile(file, O_RDONLY | O_SYNC);
-    if( fd == INVALID_PTR )
+    if (!fd)
     {
         return 0;
     }
@@ -193,11 +193,11 @@ static int rbf_font_load(char *file, font* f, int maxchar)
     alloc_cTable(f);
 
     // read width table (using uncached buffer)
-    FIO_SeekFile(fd, f->hdr._wmapAddr, SEEK_SET);
+    FIO_SeekSkipFile(fd, f->hdr._wmapAddr, SEEK_SET);
     font_read(fd, (unsigned char*)&f->wTable[f->hdr.charFirst], f->charCount);
 
     // read cTable data (using uncached buffer)
-    FIO_SeekFile(fd, f->hdr._cmapAddr, SEEK_SET);
+    FIO_SeekSkipFile(fd, f->hdr._cmapAddr, SEEK_SET);
     font_read(fd, (unsigned char*)f->cTable, f->charCount*f->hdr.charSize);
 
     FIO_CloseFile(fd);
@@ -384,7 +384,7 @@ static int rbf_draw_clipped_string(font *rbf_font, int x, int y, const char *str
         int bins = 0;
         char* c = (char*) str;
         int indent = 1;
-        while (*c)
+        while (*c && *(c+1))    /* note: last char should not be stretched */
         {
             if (*c != ' ' && *c != '*') indent = 0;
             bins += indent ? 0 : space < 0 ? 1 : *c == ' ' ? 10 : 2;

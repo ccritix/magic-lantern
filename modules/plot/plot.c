@@ -10,9 +10,59 @@
 
 #include "plot.h"
 
+/* calculate an average over all sample values. might overflow target datatype range, so be warned. could be prevented with some coding effort  */
+plot_data_t plot_get_average(plot_coll_t *coll, uint32_t field)
+{
+    plot_data_t sum = 0.0f;
+    
+    if(!coll || !coll->used)
+    {
+        return 0.0f;
+    }
+    
+    for(uint32_t entry = 0; entry < coll->used; entry++)
+    {
+        sum += coll->entries[coll->fields * entry + field];
+    }
+    
+    return sum / coll->used;
+}
+
+/* caculate extreme values, ignoring outliers that are outside a given window */
+void plot_get_extremes(plot_coll_t *coll, uint32_t field, plot_data_t win_lo, plot_data_t win_hi, plot_data_t *ret_low, plot_data_t *ret_high)
+{
+    plot_data_t low = PLOT_MAX;
+    plot_data_t high = PLOT_MIN;
+    
+    if(!coll || !coll->used)
+    {
+        return;
+    }
+    
+    for(uint32_t entry = 0; entry < coll->used; entry++)
+    {
+        plot_data_t value = coll->entries[coll->fields * entry + field];
+        
+        /* is it within given window? */
+        if(value >= win_lo && value <= win_hi)
+        {
+            /* if so update extreme values */
+            high = MAX(high, value);
+            low = MIN(low, value);
+        }
+    }
+    
+    *ret_high = high;
+    *ret_low = low;
+}
+
 /* reset the number of entries in a data collection. does not free any memory */
 void plot_clear(plot_coll_t *coll)
 {
+    if(!coll)
+    {
+        return;
+    }
     coll->used = 0;
 }
 
@@ -20,6 +70,11 @@ void plot_clear(plot_coll_t *coll)
 plot_graph_t *plot_alloc_graph(uint32_t x, uint32_t y, uint32_t w, uint32_t h)
 {
     plot_graph_t *graph = malloc(sizeof(plot_graph_t));
+    
+    if(!graph)
+    {
+        return NULL;
+    }
 
     memset(graph, 0x00, sizeof(plot_graph_t));
 
@@ -43,7 +98,14 @@ plot_graph_t *plot_alloc_graph(uint32_t x, uint32_t y, uint32_t w, uint32_t h)
     graph->color_axis = COLOR_WHITE;
     graph->color_range = COLOR_GRAY(60);
     graph->color_bg = COLOR_GRAY(20);
+    
     return graph;
+}
+
+/* free previously allocated graph */
+void plot_free_graph(plot_graph_t *graph)
+{
+    free(graph);
 }
 
 /* allocate an empty structure for data to plot. */
@@ -51,6 +113,11 @@ plot_coll_t *plot_alloc_data(uint32_t fields)
 {
     plot_coll_t *coll = malloc(sizeof(plot_coll_t));
 
+    if(!coll)
+    {
+        return NULL;
+    }
+    
     memset(coll, 0x00, sizeof(plot_coll_t));
 
     if(fields)
@@ -72,11 +139,33 @@ plot_coll_t *plot_alloc_data(uint32_t fields)
     return coll;
 }
 
+/* free previously allocated data */
+void plot_free_data(plot_coll_t *coll)
+{
+    if(coll->entries)
+    {
+        free(coll->entries);
+        coll->entries = NULL;
+    }
+    free(coll);
+}
+
 /* add one data "entry" consisting of "fields" whose amount were specified when calling plot_alloc_data() */
 uint32_t plot_add(plot_coll_t *coll, ...)
 {
     va_list argp;
     va_start(argp, coll);
+    
+    /* can we be defensive here when (coll == NULL)? 
+       returning without going through all va_args will it render stack corrupted?
+       to be checked!
+    */
+    if(!coll)
+    {
+        va_end(argp);
+        return 0;
+    }
+    
 
     if(coll->used + coll->entry_size > coll->allocated)
     {
@@ -111,6 +200,11 @@ uint32_t plot_add(plot_coll_t *coll, ...)
 /* add many data "entry" consisting of "fields" whose amount were specified when calling plot_alloc_data() */
 uint32_t plot_add_array(plot_coll_t *coll, uint32_t entry_count, plot_data_t *entries)
 {
+    if(!coll || !entries)
+    {
+        return 0;
+    }
+    
     if(coll->used + entry_count > coll->allocated)
     {
         uint32_t extent = (entry_count / coll->extent + 1) * coll->extent;
@@ -150,6 +244,11 @@ static plot_data_t plot_get_scaled(plot_coll_t *coll, plot_graph_t *plot, uint32
     uint32_t max_value = 0;
     plot_win_t win;
 
+    if(!coll || !plot)
+    {
+        return 0;
+    }
+    
     if(get_y_field)
     {
         if(plot->type == PLOT_XY)
@@ -197,6 +296,10 @@ static plot_data_t plot_get_scaled(plot_coll_t *coll, plot_graph_t *plot, uint32
 /* mark the graph for whole repainting */
 void plot_graph_reset(plot_graph_t *plot)
 {
+    if(!plot)
+    {
+        return;
+    }
     plot->points_drawn = 0;
     plot->points_last = 0;
 }
@@ -206,6 +309,11 @@ void plot_fmt_float(char *buf, uint32_t buf_len, float value)
     int32_t left = (int32_t)fabs(value);
     int32_t right = ((int32_t)(fabs(value) * 1000.0f)) % 1000;
     char *sign = " ";
+    
+    if(!buf)
+    {
+        return;
+    }
 
     if(value < 0)
     {
@@ -217,6 +325,11 @@ void plot_fmt_float(char *buf, uint32_t buf_len, float value)
 
 void plot_graph_paint_range(plot_coll_t *coll, plot_graph_t *plot)
 {
+    if(!coll || !plot)
+    {
+        return;
+    }
+    
     if(plot->color_range != PLOT_COLOR_NONE)
     {
         char line[64];
@@ -242,6 +355,11 @@ void plot_graph_paint_range(plot_coll_t *coll, plot_graph_t *plot)
 
 void plot_graph_paint_grid(plot_coll_t *coll, plot_graph_t *plot)
 {
+    if(!coll || !plot)
+    {
+        return;
+    }
+    
     /* should we paint the axis? */
     if(plot->color_axis != PLOT_COLOR_NONE)
     {
@@ -270,6 +388,11 @@ void plot_graph_update(plot_coll_t *coll, plot_graph_t *plot)
 {
     uint32_t redraw = 0;
     uint32_t points = 0;
+    
+    if(!coll || !plot)
+    {
+        return;
+    }
 
     if(plot->points_drawn > coll->used)
     {
@@ -349,8 +472,8 @@ void plot_graph_update(plot_coll_t *coll, plot_graph_t *plot)
         {
             uint32_t size = plot->dot_size;
             
-            if( (x - plot->dot_size > plot->x) && (x + plot->dot_size < plot->x + plot->w) && 
-                (y - plot->dot_size > plot->y) && (y + plot->dot_size < plot->y + plot->h))
+            if( (x - size > plot->x) && (x + size < plot->x + plot->w) && 
+                (y - size > plot->y) && (y + size < plot->y + plot->h))
             {
                 fill_circle(x, y, size, plot->color_dots);
             }
@@ -370,6 +493,11 @@ void plot_graph_update(plot_coll_t *coll, plot_graph_t *plot)
 /* repaint the whole graph */
 void plot_graph_draw(plot_coll_t *coll, plot_graph_t *plot)
 {
+    if(!coll || !plot)
+    {
+        return;
+    }
+    
     plot_graph_reset(plot);
     plot_graph_update(coll, plot);
 }
@@ -377,6 +505,11 @@ void plot_graph_draw(plot_coll_t *coll, plot_graph_t *plot)
 /* set the ranges to be drawn */
 void plot_set_range(plot_graph_t *plot, plot_data_t x_min, plot_data_t x_max, plot_data_t y_min, plot_data_t y_max)
 {
+    if(!plot)
+    {
+        return;
+    }
+    
     if( (plot->x_win.min != x_min) ||
         (plot->x_win.max != x_max) ||
         (plot->y_win.min != y_min) ||
@@ -399,6 +532,11 @@ void plot_autorange(plot_coll_t *coll, plot_graph_t *plot)
     plot_data_t y_min = PLOT_MAX;
     plot_data_t y_max = PLOT_MIN;
     uint32_t y_field = 0;
+    
+    if(!coll || !plot)
+    {
+        return;
+    }
 
     if(plot->type == PLOT_LINEAR)
     {

@@ -11,6 +11,7 @@
 #include <lens.h>
 #include <config.h>
 #include <lvinfo.h>
+#include <timer.h>
 
 #if defined(FEATURE_AF_PATTERNS)
 #include <af_patterns.h>
@@ -418,7 +419,7 @@ int handle_common_events_by_feature(struct event * event)
         return 1;
     }
 
-    if (LV_PAUSED && event->param != GMT_OLC_INFO_CHANGED) 
+    if (LV_PAUSED && event->param != GMT_OLC_INFO_CHANGED && event->param >= 0) 
     { 
         int ans = (ml_shutdown_requested || pre_shutdown_requested || sensor_cleaning);
         idle_wakeup_reset_counters(event->param);
@@ -427,8 +428,11 @@ int handle_common_events_by_feature(struct event * event)
     }
 #endif
 
-    if (event->param != GMT_OLC_INFO_CHANGED)
+    if (event->param != GMT_OLC_INFO_CHANGED && event->param >= 0)
+    {
+        /* powersave: ignore internal Canon events and ML events, but wake up on any other key press */
         idle_wakeup_reset_counters(event->param);
+    }
     
     // If we're here, we're dealing with a button press.  Record the timestamp
     // as a record of when the user was last actively pushing buttons.
@@ -462,6 +466,7 @@ int handle_common_events_by_feature(struct event * event)
     if (handle_swap_info_play(event) == 0) return 0;
     #endif
 
+    if (handle_ml_menu_erase(event) == 0) return 0;
     if (handle_ml_menu_keys(event) == 0) return 0;
     
     #ifdef CONFIG_DIGIC_POKE
@@ -478,8 +483,6 @@ int handle_common_events_by_feature(struct event * event)
     
     if (handle_buttons_being_held(event) == 0) return 0;
     //~ if (handle_morse_keys(event) == 0) return 0;
-    
-    if (handle_ml_menu_erase(event) == 0) return 0;
 
     #ifdef FEATURE_ZOOM_TRICK_5D3 // not reliable
     if (handle_zoom_trick_event(event) == 0) return 0;
@@ -636,8 +639,7 @@ void gui_uilock(int what)
     int unlocked = UILOCK_NONE;
     prop_request_change(PROP_ICU_UILOCK, &unlocked, 4);
     msleep(50);
-    prop_request_change(PROP_ICU_UILOCK, &what, 4);
-    msleep(50);
+    prop_request_change_wait(PROP_ICU_UILOCK, &what, 4, 2000);
 }
 
 void ui_lock(int what)
@@ -653,18 +655,28 @@ void fake_simple_button(int bgmt_code)
     GUI_Control(bgmt_code, 0, FAKE_BTN, 0);
 }
 
-static void redraw_after_task(int msec)
+int display_is_on()
 {
-    msleep(msec);
-    redraw();
+    return DISPLAY_IS_ON;
+}
+
+void delayed_call(int delay_ms, void(*function)(void))
+{
+    SetTimerAfter(delay_ms, (timerCbr_t)function, (timerCbr_t)function, 0);
+}
+
+static void redraw_after_cbr()
+{
+    redraw();   /* this one simply posts an event to the GUI task */
 }
 
 void redraw_after(int msec)
 {
-    task_create("redraw", 0x1d, 0, redraw_after_task, (void*)msec);
+    delayed_call(msec, redraw_after_cbr);
 }
 
-int display_is_on()
+int get_gui_mode()
 {
-    return DISPLAY_IS_ON;
+    /* this is GUIMode from SetGUIRequestMode */
+    return CURRENT_DIALOG_MAYBE;
 }

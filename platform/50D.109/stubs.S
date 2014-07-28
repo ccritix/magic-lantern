@@ -54,7 +54,7 @@ NSTUB(0xFF982590,  FIO_CloseFile)                           // d
 NSTUB(0xFF9836A0,  FIO_FindClose)                           // called with ret_FIO_FindFirstEx after finishing the dir scanning loop
 NSTUB(0xFF9835A0,  FIO_FindNextEx)                          // d
 NSTUB(0xFF982820,  FIO_ReadFile)                            // d
-NSTUB(0xFF9829A0,  FIO_SeekFile)                            // mk11174 and Chucho  0xff9829b0
+NSTUB(0xFF9828D0,  FIO_SeekSkipFile)
 NSTUB(0xFF9829D0,  FIO_WriteFile)                           // d
 NSTUB(0xFF982DF4, _FIO_CreateDirectory)
 NSTUB(0xFF9824E8, _FIO_CreateFile)                          // d
@@ -84,6 +84,8 @@ NSTUB(0xFF85460C,  SetAudioVolumeOut)
 NSTUB(0xFF855290,  SetSamplingRate)
 NSTUB(0xFF852494,  StartASIFDMADAC)
 NSTUB(0xFF852A80,  StopASIFDMADAC)
+// NSTUB(    ???,  PowerMicAmp)                             /* present on 650D.104, EOSM.202, 700D.113 */
+// NSTUB(    ???,  SetASIFMode)                             /* present on 700D.113 */
 // NSTUB(    ???,  SetAudioVolumeIn)                        /* present on 6D.113 */
 // NSTUB(    ???,  SetNextASIFADCBuffer)                    /* present on 7D.203, 500D.111, 60D.111, 6D.113, 5D3.113, 5D2.212, 600D.102, 650D.104, 1100D.105, EOSM.202, 700D.113 */
 // NSTUB(    ???,  SetNextASIFDACBuffer)                    /* present on 7D.203, 500D.111, 60D.111, 6D.113, 5D3.113, 5D2.212, 600D.102, 650D.104, 550D.109, 1100D.105, EOSM.202, 700D.113 */
@@ -178,14 +180,18 @@ NSTUB(0xFF86488C,  call)                                    // d
 // NSTUB(    ???,  TryPostStageEvent_end)                   /* present on 6D.113, 650D.104, EOSM.202, 700D.113 */
 
 /** ExMem **/
+NSTUB(0xFF869438,  AddMemoryChunk)                          // called before " 32(Src,bytes,Unit)=(%#lx,%#lx,%#lx)" in many places; see also hAddSuite
 NSTUB(0xFF86BE6C,  AllocateContinuousMemoryResource)        // m_pfContAllocMemoryCBR
 NSTUB(0xFF86BE28,  AllocateMemoryResource)                  // m_pfAllocMemoryCBR
+NSTUB(0xFF868A00,  CreateMemoryChunk)                       // called from CreateMemorySuite
+NSTUB(0xFF86914C,  CreateMemorySuite)                       /* present on 6D.113, 5D3.113, 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xFF868FB8,  DeleteMemorySuite)                       /* present on 6D.113, 5D3.113, 650D.104, EOSM.202, 700D.113 */
 NSTUB(0xFF86BF7C,  FreeMemoryResource)                      // m_pfFreeMemoryCBR
 NSTUB(0xFF869524,  GetFirstChunkFromSuite)                  // AJ_PackMemory_PackMem_p3
 NSTUB(0xFF868F44,  GetMemoryAddressOfMemoryChunk)           // AJ_PackMemory_PackMem.c_IsChunkSignature
 NSTUB(0xFF869C9C,  GetNextMemoryChunk)                      // AJ_PackMemory_PackMem.c_IsChunkSignature_p2
-// NSTUB(    ???,  CreateMemorySuite)                       /* present on 6D.113, 5D3.113, 650D.104, EOSM.202, 700D.113 */
-// NSTUB(    ???,  DeleteMemorySuite)                       /* present on 6D.113, 5D3.113, 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xFF82B254,  SRM_AllocateMemoryResourceFor1stJob)
+NSTUB(0xFF82CCA8,  SRM_FreeMemoryResourceFor1stJob)
 
 /** GUI for old cameras **/
 NSTUB(    0x3960,  gui_timer_struct)                        // in GUI_Control_Post										// d
@@ -197,6 +203,13 @@ NSTUB(0xFF8898CC,  gui_local_post)                          // d
 NSTUB(0xFF889CA8,  gui_other_post)                          // d
 NSTUB(0xFF889DCC,  gui_post_10000085)                       // should be called post 100000a5 no ? <-- not sure what this means..							// d
 NSTUB(0xFF98A990,  gui_timer_something)                     // d
+
+/** GUI timers **/
+NSTUB(0xFF86D6A0,  CancelTimer)
+NSTUB(0xFF8652CC,  SetHPTimerAfterNow)
+NSTUB(0xFF86534C,  SetHPTimerNextTick)
+NSTUB(0xFF86D4A0,  SetTimerAfter)
+// NSTUB(    ???,  CancelDateTimer)                         /* present on 7D.203, 6D.113, 5D3.113 */
 
 /** H264 Encoder **/
 NSTUB(    0x7674,  mvr_config)                              // d
@@ -252,6 +265,7 @@ NSTUB(0xFF85978C,  prop_register_slave)                     // called by"GUI_Reg
 /** RPC (for 7D) **/
 // NSTUB(    ???,  BulkInIPCTransfer)                       /* present on 7D.203 */
 // NSTUB(    ???,  BulkOutIPCTransfer)                      /* present on 7D.203 */
+// NSTUB(    ???,  QuickOutIPCTransfer)                     /* present on 7D.203 */
 // NSTUB(    ???,  RegisterRPCHandler)                      /* present on 7D.203, 7D_MASTER.203 */
 // NSTUB(    ???,  RequestRPC)                              /* present on 7D.203, 7D_MASTER.203 */
 
@@ -302,6 +316,7 @@ NSTUB(0xFF98E1E4,  vsnprintf)                               // d
 ///NSTUB(0xFFA4717C,  CreateDialogBox)
 ///NSTUB(0xFFA46C14,  DeleteDialogBox)
 ///NSTUB(0xFFA850E0,  EndMovieRecSequence)
+///NSTUB(0xFF9829A0,  FIO_SeekFile)                            // mk11174 and Chucho  0xff9829b0
 ///NSTUB(0xFF9ABFF4,  GUI_GetFirmVersion)                      // d
 ///NSTUB(0xFF9A4630,  GUI_SetLvTimer)
 ///NSTUB(0xFF9ADAA4,  GuiEdLedBlink)
