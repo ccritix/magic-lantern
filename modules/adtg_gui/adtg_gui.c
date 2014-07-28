@@ -1054,7 +1054,7 @@ static void log_iso_regs()
             len += 5 + 8 + 2;
         }
         len += snprintf(msg+len, size-len, "ISO=%d Tv=%d Av=%d ", raw2iso(lens_info.raw_iso), lens_info.shutter, lens_info.aperture);
-        len += snprintf(msg+len, size-len, "lv=%d zoom=%d mv=%d res=%d crop=%d ", lv, lv_dispsize, is_movie_mode(), is_native_movie_mode() ? video_mode_resolution : -1, is_native_movie_mode() ? video_mode_crop : -1);
+        len += snprintf(msg+len, size-len, "lv=%d zoom=%d mv=%d res=%d crop=%d ", lv, lv_dispsize, is_movie_mode(), is_movie_mode() ? video_mode_resolution : -1, is_movie_mode() ? video_mode_crop : -1);
         len += snprintf(msg+len, size-len, "task=%s pc=%x addr=%x ", get_task_name_from_id(regs[i].caller_task), regs[i].caller_pc, regs[i].addr);
 
         for (int j = 0; j < COUNT(known_regs); j++)
