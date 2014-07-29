@@ -334,10 +334,6 @@ int get_current_tg_freq()
 #define FPS_x1000_TO_TIMER(fps_x1000) (((fps_x1000)!=0)?(TG_FREQ_FPS/(fps_x1000)):0)
 #define TIMER_TO_FPS_x1000(t) (((t)!=0)?(TG_FREQ_FPS/(t)):0)
 
-#define TG_FREQ_SHUTTER calc_tg_freq(fps_timer_a_orig)
-#define SHUTTER_x1000_TO_TIMER(s_x1000) (TG_FREQ_SHUTTER/(s_x1000))
-#define TIMER_TO_SHUTTER_x1000(t) (TG_FREQ_SHUTTER/(t))
-
 #ifndef FRAME_SHUTTER_BLANKING_WRITE
 
 static int get_shutter_reciprocal_x1000(int shutter_r_x1000, int Ta, int Ta0, int Tb, int Tb0)
@@ -365,14 +361,13 @@ static int get_shutter_reciprocal_x1000(int shutter_r_x1000, int Ta, int Ta0, in
 
 int get_max_shutter_timer()
 {
-    int default_fps = calc_fps_x1000(fps_timer_a_orig, fps_timer_b_orig);
-    return SHUTTER_x1000_TO_TIMER(default_fps);
+    return fps_timer_b - 10;
 }
 
 /* shutter speed in microseconds, from timer value */
 int get_shutter_speed_us_from_timer(int timer)
 {
-    return timer * 1000000 / (TG_FREQ_SHUTTER/1000);
+    return timer * 1000000 / (TG_FREQ_FPS/1000);
 }
 
 #ifdef FRAME_SHUTTER_BLANKING_READ
@@ -443,60 +438,19 @@ void fps_override_shutter_blanking()
 
 int get_current_shutter_reciprocal_x1000()
 {
-#ifdef FRAME_SHUTTER_BLANKING_READ
+#if defined(FRAME_SHUTTER_BLANKING_READ) || defined(FRAME_SHUTTER_TIMER)
     #ifdef FRAME_SHUTTER_BLANKING_WRITE
     int blanking = nrzi_decode(*FRAME_SHUTTER_BLANKING_WRITE);   /* prefer to use the overriden value */
-    #else
+    #elif defined(FRAME_SHUTTER_BLANKING_READ)
     int blanking = nrzi_decode(FRAME_SHUTTER_BLANKING_READ);
+    #else
+    int fps_timer_b_assumed_by_canon = fps_timer_b_method ? fps_timer_b : fps_timer_b_orig;
+    int blanking = fps_timer_b_assumed_by_canon - FRAME_SHUTTER_TIMER;
     #endif
     int max = fps_timer_b;
     float frame_duration = 1000.0 / fps_get_current_x1000();
     float shutter = frame_duration * (max - blanking) / max;
     return (int)(1.0 / shutter * 1000);
-    
-#elif defined(FRAME_SHUTTER_TIMER)
-    int timer = FRAME_SHUTTER_TIMER;
-
-    #ifdef FEATURE_SHUTTER_FINE_TUNING
-    extern int shutter_finetune_get_adjusted_timer(); /* lv-img-engio.c, to be cleaned up somehow */
-    timer = shutter_finetune_get_adjusted_timer();
-    #endif
-    
-    //~ NotifyBox(1000, "%d ", timer);
-    int shutter_r_x1000 = TIMER_TO_SHUTTER_x1000(timer);
-    
-    // shutter speed can't be slower than 1/fps
-    //~ shutter_r_x1000 = MAX(shutter_r_x1000, fps_get_current_x1000());
-    
-    // FPS override will alter shutter speed (exposure time)
-    // FPS "difference" from C0F06014 will be added as a constant term to exposure time
-    // FPS factor from C0F06008 will multiply the exposure time (as scalar gain)
-    
-    // TG = base timer (28.8 MHz on most cams)
-    // Ta = current value from C0F06008
-    // Tb = current value from C0F06014
-    // Ta0, Tb0 = original values
-    //
-    // FC = current fps = TG / Ta / Tb
-    // F0 = factory fps = TG / Ta0 / Tb0
-    //
-    // E0 = exposure time (shutter speed) as indicated by Canon user interface
-    // EA = actual exposure time, after FPS modifications (usually higher)
-    //
-    // If we only change Tb => Fb = TG / Ta0 / Tb
-    //
-    // delta_fps = 1/Fb - 1/F0 => this quantity is added to exposure time
-    //
-    // If we only change Ta => exposure time is multiplied by Ta/Ta0.
-    //
-    // If we change both, Tb "effect" is applied first, then Ta.
-    // 
-    // So...
-    // EA = (E0 + (1/Fb - 1/F0)) * Ta / Ta0
-    //
-    // This function returns 1/EA and does all calculations on integer numbers, so actual computations differ slightly.
-
-    return get_shutter_reciprocal_x1000(shutter_r_x1000, fps_timer_a, fps_timer_a_orig, fps_timer_b, fps_timer_b_orig);
 #else
     // fallback to APEX units
     if (!lens_info.raw_shutter) return 0;
@@ -2066,7 +2020,7 @@ void set_frame_shutter_timer(int timer)
 
 void set_frame_shutter(int shutter_reciprocal)
 {
-    set_frame_shutter_timer(TG_FREQ_SHUTTER / shutter_reciprocal / 1000);
+    set_frame_shutter_timer(TG_FREQ_FPS / shutter_reciprocal / 1000);
 }
 
 int can_set_frame_shutter_timer()
