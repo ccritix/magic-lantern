@@ -385,6 +385,23 @@ static uint32_t nrzi_decode( uint32_t in_val )
 }
 #endif
 
+
+static int fps_timer_b_assumed_by_canon()
+{
+    return fps_timer_b_method ? fps_timer_b : fps_timer_b_orig;
+}
+
+static int get_current_shutter_blanking()
+{
+    #ifdef FRAME_SHUTTER_BLANKING_WRITE
+    return nrzi_decode(*FRAME_SHUTTER_BLANKING_WRITE);   /* prefer to use the overriden value */
+    #elif defined(FRAME_SHUTTER_BLANKING_READ)
+    return nrzi_decode(FRAME_SHUTTER_BLANKING_READ);
+    #else
+    return fps_timer_b_assumed_by_canon() - FRAME_SHUTTER_TIMER;
+    #endif
+}
+
 #ifdef FRAME_SHUTTER_BLANKING_WRITE
 static uint32_t nrzi_encode( uint32_t in_val )
 {
@@ -413,8 +430,7 @@ void fps_override_shutter_blanking()
 
     /* sensor duty cycle: range 0 ... timer B */
     int current_blanking = nrzi_decode(FRAME_SHUTTER_BLANKING_READ);
-    int fps_timer_b_assumed_by_canon = fps_timer_b_method ? fps_timer_b : fps_timer_b_orig;
-    int current_exposure = fps_timer_b_assumed_by_canon - current_blanking;
+    int current_exposure = fps_timer_b_assumed_by_canon() - current_blanking;
     
     /* wrong assumptions? */
     if (current_exposure < 0)
@@ -439,14 +455,7 @@ void fps_override_shutter_blanking()
 int get_current_shutter_reciprocal_x1000()
 {
 #if defined(FRAME_SHUTTER_BLANKING_READ) || defined(FRAME_SHUTTER_TIMER)
-    #ifdef FRAME_SHUTTER_BLANKING_WRITE
-    int blanking = nrzi_decode(*FRAME_SHUTTER_BLANKING_WRITE);   /* prefer to use the overriden value */
-    #elif defined(FRAME_SHUTTER_BLANKING_READ)
-    int blanking = nrzi_decode(FRAME_SHUTTER_BLANKING_READ);
-    #else
-    int fps_timer_b_assumed_by_canon = fps_timer_b_method ? fps_timer_b : fps_timer_b_orig;
-    int blanking = fps_timer_b_assumed_by_canon - FRAME_SHUTTER_TIMER;
-    #endif
+    int blanking = get_current_shutter_blanking();
     int max = fps_timer_b;
     float frame_duration = 1000.0 / fps_get_current_x1000();
     float shutter = frame_duration * (max - blanking) / max;
