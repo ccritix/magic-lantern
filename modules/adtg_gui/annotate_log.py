@@ -28,6 +28,25 @@ for l in lines:
             reg = int(reg,16)
             cmos_regs[reg] = desc
 
+lines = open("regs.txt").readlines()
+for l in lines:
+    m = re.match("(0x[a-fA-F0-9]+) +(.*)", l)
+    if m:
+        reg, desc = m.groups()
+        reg = int(reg, 16)
+            
+        if desc.endswith("_0x%8X" % reg):
+            desc = desc[:-11]
+
+        if desc.endswith("_%8X" % reg):
+            desc = desc[:-9]
+        
+        if reg in engio_regs:
+            if desc.strip() != engio_regs[reg].strip():
+                engio_regs[reg] = desc + "; " + engio_regs[reg]
+        else:
+            engio_regs[reg] = desc
+
 lines = open(sys.argv[1]).readlines()
 lines = [l.strip("\n") for l in lines]
 
