@@ -158,10 +158,6 @@ copy_and_restart( )
     clean_d_cache();
     flush_caches();
 
-#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
-    debug_intercept();
-#endif
-
     // We enter after the signature, avoiding the
     // relocation jump that is at the head of the data
     thunk reloc_entry = (thunk)( RELOCADDR + 0xC );
@@ -836,6 +832,10 @@ my_init_task(int a, int b, int c, int d)
             msleep(1000);
         }
     }
+
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+    debug_intercept();
+#endif
 
     // memory check OK, call Canon's init_task
     int ans = init_task_func(a,b,c,d);
