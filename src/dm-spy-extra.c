@@ -23,6 +23,8 @@ static void state_transition_log(breakpoint_t *bkpt);
 static void LockEngineResources_log(breakpoint_t *bkpt);
 static void UnLockEngineResources_log(breakpoint_t *bkpt);
 static void fps_log(breakpoint_t *bkpt);
+static void LockEngineResources_log_r4(breakpoint_t *bkpt);
+static void UnLockEngineResources_log_r7(breakpoint_t *bkpt);
 
 struct logged_func
 {
@@ -34,7 +36,7 @@ struct logged_func
 };
 
 static struct logged_func logged_functions[] = {
-    #ifdef CONFIG_5D2
+#ifdef CONFIG_5D2
     { 0xff9b9198, "StateTransition", 4 , state_transition_log },
     { 0xff9b989c, "TryPostEvent", 4 },
     //~ { 0xff9b8f24, "TryPostStageEvent", 4 },                 // conflicts with SetHPTimerAfter
@@ -60,8 +62,26 @@ static struct logged_func logged_functions[] = {
     { 0xff86c720, "SetHPTimerAfter", 4 },
     { 0xff9a86e0, "LockEngineResources", 1, LockEngineResources_log },
     { 0xff9a87d0, "UnLockEngineResources", 1, UnLockEngineResources_log},
+#endif
 
-    #endif
+#ifdef CONFIG_550D
+    { 0xff1d84f4, "StateTransition", 4 , state_transition_log },
+    { 0xff1d8c30, "TryPostEvent", 4 },
+    { 0xff1d82b8, "TryPostStageEvent", 4 },
+
+    { 0xff1c00c0, "ConnectReadEDmac", 2 },
+    { 0xff1bfffc, "ConnectWriteEDmac", 2 },
+    { 0xFF1C0418, "RegisterEDmacCompleteCBR", 3 },
+    { 0xff1bff44, "SetEDmac", 4 },
+    { 0xff1c024c, "StartEDmac", 2 },
+    
+    { 0xff1d2944, "register_interrupt", 4 },
+    { 0xff2806f8, "RegisterHead1InterruptHandler", 3 },
+    { 0xFF068BB8, "SetHPTimerAfter", 4 },
+    { 0xff1c4a34, "LockEngineResources", 1, LockEngineResources_log },
+    { 0xff1c4618, "LockEngineResources_0", 1, LockEngineResources_log_r4 },  // note: hooking in the middle of the function to avoid conflict with engio_write
+    { 0xff1c4794, "UnLockEngineResources", 1, UnLockEngineResources_log_r7}, // same here, for RegisterHead1InterruptHandler
+#endif
 };
 
 /* format arg to string and try to guess its type, with snprintf-like usage */
@@ -160,9 +180,9 @@ static void state_transition_log(breakpoint_t *bkpt)
     );
 }
 
-static void LockEngineResources_log_base(breakpoint_t *bkpt, char* name)
+static void LockEngineResources_log_base(breakpoint_t *bkpt, char* name, uint32_t* arg0)
 {
-    uint32_t* resLock = (void*) bkpt->ctx[0];
+    uint32_t* resLock = arg0;
     uint32_t* resIds = (void*) resLock[5];
     int resNum = resLock[6];
 
@@ -201,12 +221,22 @@ static void LockEngineResources_log_base(breakpoint_t *bkpt, char* name)
 
 static void LockEngineResources_log(breakpoint_t *bkpt)
 {
-    LockEngineResources_log_base(bkpt, "LockEngineResources");
+    LockEngineResources_log_base(bkpt, "LockEngineResources", (void*) bkpt->ctx[0]);
 }
 
 static void UnLockEngineResources_log(breakpoint_t *bkpt)
 {
-    LockEngineResources_log_base(bkpt, "UnLockEngineResources");
+    LockEngineResources_log_base(bkpt, "UnLockEngineResources", (void*) bkpt->ctx[0]);
+}
+
+static void LockEngineResources_log_r4(breakpoint_t *bkpt)
+{
+    LockEngineResources_log_base(bkpt, "LockEngineResources", (void*) bkpt->ctx[4]);
+}
+
+static void UnLockEngineResources_log_r7(breakpoint_t *bkpt)
+{
+    LockEngineResources_log_base(bkpt, "UnLockEngineResources", (void*) bkpt->ctx[7]);
 }
 
 static void fps_log(breakpoint_t *bkpt)
