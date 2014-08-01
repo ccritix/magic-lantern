@@ -21,10 +21,18 @@
 #include "patch.h"
 #include "blink.h"
 
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
+    /* we don't have malloc from the beginning, so we'll use a static buffer, which should be small */
+    #define BUF_SIZE (64*1024)
+#else
+    /* we can use a larger buffer, because we have the memory backend up and running */
+    #define BUF_SIZE (1024*1024)
+#endif
+
+
 extern void dm_spy_extra_install();
 extern void dm_spy_extra_uninstall();
 
-#define BUF_SIZE (1024*1024)
 static char* buf = 0;
 static volatile int len = 0;
 
@@ -32,7 +40,7 @@ void my_DebugMsg(int class, int level, char* fmt, ...)
 {
     if (!buf) return;
         
-    if (class == 21) // engio
+    if (class == 21) // engio, lots of messages
         return;
     
     va_list            ap;
@@ -83,7 +91,6 @@ void my_DebugMsg(int class, int level, char* fmt, ...)
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
 
-/* careful, 1MB may be too much for your camera */
 static char staticbuf[BUF_SIZE];
 
 // call this from boot-hack.c
