@@ -362,6 +362,16 @@ static void run_test()
 {
     msleep(2000);
 
+    void debug_intercept();
+    debug_intercept();
+    info_led_on();
+    void* job = (void*) call("FA_CreateTestImage");
+    call("FA_CaptureTestImage", job);
+    call("FA_DeleteTestImage", job);
+    info_led_off();
+    debug_intercept();
+    return;
+
     console_show();
     msleep(1000);
     
