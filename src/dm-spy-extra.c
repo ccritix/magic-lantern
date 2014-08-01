@@ -82,6 +82,35 @@ static struct logged_func logged_functions[] = {
     { 0xff1c4618, "LockEngineResources_0", 1, LockEngineResources_log_r4 },  // note: hooking in the middle of the function to avoid conflict with engio_write
     { 0xff1c4794, "UnLockEngineResources", 1, UnLockEngineResources_log_r7}, // same here, for RegisterHead1InterruptHandler
 #endif
+
+#ifdef CONFIG_500D
+    { 0xff1a62a0, "StateTransition", 4 , state_transition_log },
+    { 0xff1a69a4, "TryPostEvent", 4 },
+    { 0xff1a602c, "TryPostStageEvent", 4 },
+
+    { 0xff18fb90, "ConnectReadEDmac", 2 },
+    { 0xff18fb68, "ConnectWriteEDmac", 2 },
+    { 0xff18fd60, "RegisterEDmacCompleteCBR", 3 },
+    { 0xff18fb4c, "SetEDmac", 4 },
+    { 0xff18fbf0, "StartEDmac", 2 },
+    
+    //~ { 0xff1a0b90, "register_interrupt", 4 },                // conflicts with ConnectReadEDmac
+    //~ { 0xff32646c, "register_obinteg_cbr", 2 },              // conflicts with set_digital_gain_and_related
+    { 0xff2f6c7c, "set_digital_gain_and_related", 3 },
+    //~ { 0xff2f6bf0, "set_saturate_offset", 1 },               // conflicts with ConnectReadEDmac
+    { 0xff2f6bb8, "set_saturate_offset_2", 1 },
+    { 0xff171e94, "set_fps_maybe", 1, fps_log },
+    { 0xff23180c, "set_fps_maybe_2", 1 },
+    //~ { 0xff2302a8, "AJ_FixedPoint_aglrw_related", 4 },       // conflicts with StateTransition
+    { 0xff2314ac, "RegisterHead1InterruptHandler", 3 },
+    //~ { 0xff1719a0, "RegisterHead2InterruptHandler", 3 },     // conflicts with TryPostEvent
+    { 0xff171acc, "RegisterHead3InterruptHandler", 3 },
+    //~ { 0xff171b84, "RegisterHead4InterruptHandler", 3 },     // conflicts with ConnectReadEDmac
+    { 0xFF068268, "SetHPTimerAfter", 4 },
+    { 0xff194190, "LockEngineResources", 1, LockEngineResources_log },
+    { 0xff193ed0, "UnLockEngineResources", 1, UnLockEngineResources_log},
+#endif
+
 };
 
 /* format arg to string and try to guess its type, with snprintf-like usage */
