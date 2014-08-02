@@ -74,7 +74,7 @@ static uint32_t read_value(uint32_t* addr, int is_instruction)
     return *(volatile uint32_t*) addr;
 }
 
-static void do_patch(uint32_t* addr, uint32_t value, int is_instruction)
+static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
 {
     dbg_printf("Patching %x from %x to %x\n", addr, read_value(addr, is_instruction), value);
     
@@ -82,7 +82,16 @@ static void do_patch(uint32_t* addr, uint32_t value, int is_instruction)
     {
         /* todo: check for conflicts (@g3gg0?) */
         cache_require(1);
-        cache_fake((uint32_t)addr, value, is_instruction ? TYPE_ICACHE : TYPE_DCACHE);
+        
+        int cache_type = is_instruction ? TYPE_ICACHE : TYPE_DCACHE;
+        if (cache_is_patchable((uint32_t)addr, cache_type, 0))
+        {
+            cache_fake((uint32_t)addr, value, cache_type);
+        }
+        else
+        {
+            return E_PATCH_CACHE_COLLISION;
+        }
     }
 
     if (is_instruction)
@@ -94,6 +103,8 @@ static void do_patch(uint32_t* addr, uint32_t value, int is_instruction)
 
     /* trick required because we don't have unaligned memory access */
     *(volatile uint32_t*)addr = value;
+    
+    return 0;
 }
 
 static uint32_t get_patch_current_value(struct patch_info * p)
@@ -145,7 +156,8 @@ static int patch_memory_work(
     patches[num_patches].backup = old;
     
     /* checks done, backups saved, now patch */
-    do_patch(patches[num_patches].addr, new_value, is_instruction);
+    err = do_patch(patches[num_patches].addr, new_value, is_instruction);
+    if (err) goto end;
     
     /* RAM instructions are patched in RAM (to minimize collisions and only lock down the cache when needed),
      * but we need to clear the cache and re-apply any existing ROM patches */
@@ -251,7 +263,8 @@ int unpatch_memory(uintptr_t _addr)
     }
     
     /* undo the patch */
-    do_patch(patches[p].addr, patches[p].backup, patches[p].is_instruction);
+    err = do_patch(patches[p].addr, patches[p].backup, patches[p].is_instruction);
+    if (err) goto end;
 
     /* remove from our data structure (shift the other array items) */
     for (int i = p + 1; i < num_patches; i++)
