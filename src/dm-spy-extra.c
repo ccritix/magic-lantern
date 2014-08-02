@@ -25,6 +25,7 @@ static void UnLockEngineResources_log(breakpoint_t *bkpt);
 static void fps_log(breakpoint_t *bkpt);
 static void LockEngineResources_log_r4(breakpoint_t *bkpt);
 static void UnLockEngineResources_log_r7(breakpoint_t *bkpt);
+static void engio_write_log(breakpoint_t *bkpt);
 
 struct logged_func
 {
@@ -109,6 +110,38 @@ static struct logged_func logged_functions[] = {
     { 0xFF068268, "SetHPTimerAfter", 4 },
     { 0xff194190, "LockEngineResources", 1, LockEngineResources_log },
     { 0xff193ed0, "UnLockEngineResources", 1, UnLockEngineResources_log},
+#endif
+
+#ifdef CONFIG_5D3  /* 1.2.3 */
+    { 0x178ec, "StateTransition", 4 , state_transition_log },
+    { 0x17d54, "TryPostEvent", 4 },
+    { 0x17674, "TryPostStageEvent", 4 },
+
+    { 0x12768, "ConnectReadEDmac", 2 },
+    { 0x126a4, "ConnectWriteEDmac", 2 },
+    { 0x12afc, "RegisterEDmacCompleteCBR", 3 },
+    { 0x125f8, "SetEDmac", 4 },
+    { 0x12910, "StartEDmac", 2 },
+    
+    { 0x83b8, "register_interrupt", 4 },
+    { 0xff3aa650, "set_digital_gain_maybe", 3 },
+    { 0xff4fa6ac, "set_fps_maybe", 1, fps_log },
+    { 0xff2170d8, "SetSsgVsize_fps_timer_B", 1 },
+    { 0x4588, "SetTgNextState", 2 },
+    { 0xff216a20, "RegisterHead1InterruptHandler", 3 },
+    { 0xff4fa16c, "RegisterHead2InterruptHandler", 3 },
+    //~ { 0xff4fa224, "RegisterHead3InterruptHandler", 3 }, /* conflicts with RegisterHead1InterruptHandler */
+    { 0xff4fa4ec, "RegisterHead4InterruptHandler", 3 },
+    { 0x7218, "SetHPTimerAfter", 4 },
+    { 0xff2953b8, "LockEngineResources", 1, LockEngineResources_log },
+    { 0xff29555c, "UnLockEngineResources", 1, UnLockEngineResources_log},
+    
+    { 0xff290f98, "engio_write", 1, engio_write_log},   /* on 5D3, Canon's engio_write is silent */
+    { 0xff290c80, "EngDrvOut", 2 },                     /* same here */
+    { 0xff290ca0, "EngDrvIn", 1 },
+    { 0xff290d38, "EngDrvBits", 3 },
+    { 0xff290cd4, "EngDrvIns", 3 },
+    /* only EngDrvOuts is verbose, no need to log it here */
 #endif
 
 };
@@ -275,6 +308,23 @@ static void fps_log(breakpoint_t *bkpt)
 
     /* force very slow FPS to avoid lockup */
     bkpt->ctx[0] = 8191;
+}
+
+static void engio_write_log(breakpoint_t *bkpt)
+{
+    uint32_t* data_buf = (uint32_t*) bkpt->ctx[0];
+
+    DryosDebugMsg(0, 0, "*** engio_write(%x) from %x:", data_buf, bkpt->ctx[14]-4);
+    
+    /* log all ENGIO register writes */
+    while(*data_buf != 0xFFFFFFFF)
+    {
+        uint32_t reg = *data_buf;
+        data_buf++;
+        uint32_t val = *data_buf;
+        data_buf++;
+        DryosDebugMsg(0, 0, "    0x%x: %x", reg, val);
+    }
 }
 
 static int check_no_conflicts(int i)
