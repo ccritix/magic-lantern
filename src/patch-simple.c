@@ -71,6 +71,11 @@ static uint32_t read_value(uint32_t* addr, int is_instruction)
         addr = UNCACHEABLE(addr);
     }
 
+    if (IS_ROM_PTR(addr))
+    {
+        dbg_printf("Read from ROM: %x -> %x\n", addr, MEM(addr));
+    }
+
     return *(volatile uint32_t*) addr;
 }
 
@@ -87,6 +92,12 @@ static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
         if (cache_is_patchable((uint32_t)addr, cache_type, 0))
         {
             cache_fake((uint32_t)addr, value, cache_type);
+            
+            /* did it actually work? */
+            if (read_value(addr, is_instruction) != value)
+            {
+                return E_PATCH_CACHE_ERROR;
+            }
         }
         else
         {
