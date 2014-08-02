@@ -473,7 +473,7 @@ void gdb_arm_bkpt(breakpoint_t *bkpt)
         return;
     }
     
-    patch_memory(bkpt->address, MEM(bkpt->address), GDB_BKPT_OPCODE, "GDB hook");
+    patch_instruction(bkpt->address, MEM(bkpt->address), GDB_BKPT_OPCODE, "GDB hook");
     bkpt->flags |= GDB_BKPT_FLAG_ARMED;
 }
 
