@@ -139,6 +139,9 @@ static struct known_reg known_regs[] = {
     {0xC0F0,   0x6084, 0, "RAW first line|column. Column is / 2. 600D: 0x0001007E."},
     {0xC0F0,   0x6088, 0, "RAW last line|column. 600D: FHD 1182|1070, 3x 1048|1102, HD 720|1070"},
 
+    {0xC0F0,   0x6800, 0, "RAW first line|column. Column is / 8 on 5D3 (parallel readout?)"},
+    {0xC0F0,   0x6804, 0, "RAW last line|column. 5D3: f6e|2fe, first 1|18 => 5936x3950"},
+
     {0xc0f0,   0x7000, 0, "HEAD timers (SSG counter, 0x01 to restart)"},
     {0xc0f0,   0x7004, 0, "HEAD timers"},
     {0xc0f0,   0x700C, 0, "HEAD timers, 0x01 to stop/standby"},
@@ -318,6 +321,8 @@ static struct known_reg known_regs[] = {
     {0xC0F1,   0x155c, 0, "LV resolution (raw.j.height | hd.width)"},
     {0xC0F1,   0x12d4, 0, "LV resolution (raw.j.height | ?) before upsampling?"},           // these two also change at 5x->10x zoom
     {0xC0F1,   0x1314, 0, "LV resolution (raw.j.height | lv.width) before upsampling?"},    // ratio is around 1.4, so maybe some upsampling is applied afterwards
+
+    {0xc0f3,   0x83dc, 0, "Resolution (RAW.height | RAW.width)"},     // 5D3, full raw buffer including optical black
 
     {0xC0F0,   0x8548, 0, "LV resolution * downsize factor? (RAW.height * D | RAW.width * D)"},
     
