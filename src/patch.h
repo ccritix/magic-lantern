@@ -127,6 +127,6 @@ int unpatch_instruction(uintptr_t addr);
 
 /* re-apply the ROM (cache) patches */
 /* call this after you have flushed the caches, for example */
-void reapply_cache_patches();
+int reapply_cache_patches();
 
 #endif

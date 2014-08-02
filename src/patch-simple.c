@@ -176,7 +176,7 @@ static int patch_memory_work(
     {
         dbg_printf("Flushing ICache...\n");
         flush_i_cache();
-        reapply_cache_patches();
+        err = reapply_cache_patches();
     }
     
     num_patches++;
@@ -197,7 +197,7 @@ static int is_patch_still_applied(int p)
     return (current == patched);
 }
 
-static void reapply_cache_patch(int p)
+static int reapply_cache_patch(int p)
 {
     uint32_t current = get_patch_current_value(&patches[p]);
     uint32_t patched = patches[p].patched_value;
@@ -207,11 +207,21 @@ static void reapply_cache_patch(int p)
         uint32_t addr = (uint32_t) patches[p].addr;
         dbg_printf("Re-applying %x -> %x (was changed to %x)\n", addr, patched, current);
         cache_fake(addr, patched, patches[p].is_instruction ? TYPE_ICACHE : TYPE_DCACHE);
+
+        /* did it actually work? */
+        if (read_value(addr, patches[p].is_instruction) != patched)
+        {
+            return E_PATCH_CACHE_ERROR;
+        }
     }
+    
+    return 0;
 }
 
-void reapply_cache_patches()
+int reapply_cache_patches()
 {
+    int err = 0;
+    
     /* this function is also public */
     uint32_t old_int = cli();
     
@@ -219,11 +229,13 @@ void reapply_cache_patches()
     {
         if (IS_ROM_PTR(patches[i].addr))
         {
-            reapply_cache_patch(i);
+            err |= reapply_cache_patch(i);
         }
     }
     
     sei(old_int);
+    
+    return err;
 }
 
 static void check_cache_lock_still_needed()
@@ -287,7 +299,7 @@ int unpatch_memory(uintptr_t _addr)
     if (patches[p].is_instruction && !IS_ROM_PTR(addr))
     {
         flush_i_cache();
-        reapply_cache_patches();
+        err = reapply_cache_patches();
     }
 
     check_cache_lock_still_needed();
