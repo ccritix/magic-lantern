@@ -313,8 +313,8 @@ static int check_no_conflicts(int i)
         /* no conflicts possible */
         return 1;
     }
-    if ((cache_is_patchable(logged_functions[i].addr,   TYPE_ICACHE) && 
-         cache_is_patchable(logged_functions[i].addr+4, TYPE_ICACHE)))
+    if ((cache_is_patchable(logged_functions[i].addr,   TYPE_ICACHE, 0) && 
+         cache_is_patchable(logged_functions[i].addr+4, TYPE_ICACHE, 0)))
     {
         /* seems OK */
         return 1;
