@@ -6,6 +6,7 @@
 #include <cache_hacks.h>
 #include <patch.h>
 #include <bmp.h>
+#include <console.h>
 
 #undef PATCH_DEBUG
 
@@ -43,6 +44,7 @@ struct patch_info
     uint16_t scroll_pos;            /* internal, for menu navigation */
 
     unsigned backup_storage: 1;     /* if 1, use backups (user-supplied storage), else, use backup (built-in storage) */
+    unsigned is_instruction: 1;     /* if 1, we have patched an instruction (needs extra care with the instruction cache) */
 };
 
 static struct patch_info patches[MAX_PATCHES] = {{0}};
@@ -70,59 +72,69 @@ static void cache_require(int lock)
 }
 
 /* low-level routines */
-static uint32_t read_value(uint32_t* addr)
+static uint32_t read_value(uint32_t* addr, int is_instruction)
 {
-    if (IS_ROM_PTR(addr) && cache_locked())
+    uint32_t cached_value;
+    
+    if (is_instruction && IS_ROM_PTR(addr) && cache_locked()
+        && cache_is_patchable((uint32_t)addr, TYPE_ICACHE, &cached_value) == 2)
     {
-        /* fixme: read it directly from cache */
+        /* return the value patched in the instruction cache */
+        dbg_printf("Read from ICache: %x -> %x\n", addr, cached_value);
+        return cached_value;
+    }
+
+    if (is_instruction)
+    {
+        /* when patching RAM instructions, the cached value might be incorrect - get it directly from RAM */
+        addr = UNCACHEABLE(addr);
+    }
+
+    /* trick required because we don't have unaligned memory access */
+    if (((uintptr_t)addr & 3) == 0)
+    {
         return *(volatile uint32_t*) addr;
-        //~ return cache_get_cached((uint32_t)addr, TYPE_ICACHE);
+    }
+    if (((uintptr_t)addr & 1) == 0)
+    {
+        return *(volatile uint16_t*) addr;
     }
     else
     {
-        /* trick required because we don't have unaligned memory access */
-        if (((uintptr_t)addr & 3) == 0)
-        {
-            return *(volatile uint32_t*) addr;
-        }
-        if (((uintptr_t)addr & 1) == 0)
-        {
-            return *(volatile uint16_t*) addr;
-        }
-        else
-        {
-            return *(volatile uint8_t*) addr;
-        }
+        return *(volatile uint8_t*) addr;
     }
 }
 
-static void do_patch(uint32_t* addr, uint32_t value)
+static void do_patch(uint32_t* addr, uint32_t value, int is_instruction)
 {
-    dbg_printf("Patching %x from %x to %x\n", addr, read_value(addr), value);
+    dbg_printf("Patching %x from %x to %x\n", addr, read_value(addr, is_instruction), value);
+    
     if (IS_ROM_PTR(addr))
     {
         /* todo: check for conflicts (@g3gg0?) */
         cache_require(1);
-        cache_fake((uint32_t)addr, value, TYPE_ICACHE);
-        
-        /* fixme: only patch dcache when needed */
-        cache_fake((uint32_t)addr, value, TYPE_DCACHE);
+        cache_fake((uint32_t)addr, value, is_instruction ? TYPE_ICACHE : TYPE_DCACHE);
+    }
+
+    if (is_instruction)
+    {
+        /* when patching RAM instructions, bypass the data cache and write directly to RAM */
+        /* (will flush the instruction cache later) */
+        addr = UNCACHEABLE(addr);
+    }
+
+    /* trick required because we don't have unaligned memory access */
+    if (((uintptr_t)addr & 3) == 0)
+    {
+        *(volatile uint32_t*)addr = value;
+    }
+    if (((uintptr_t)addr & 1) == 0)
+    {
+        *(volatile uint16_t*)addr = value;
     }
     else
     {
-        /* trick required because we don't have unaligned memory access */
-        if (((uintptr_t)addr & 3) == 0)
-        {
-            *(volatile uint32_t*)addr = value;
-        }
-        if (((uintptr_t)addr & 1) == 0)
-        {
-            *(volatile uint16_t*)addr = value;
-        }
-        else
-        {
-            *(volatile uint8_t*)addr = value;
-        }
+        *(volatile uint8_t*)addr = value;
     }
 }
 
@@ -135,13 +147,15 @@ enum masked {NOT_MASKED, MASKED};
 static uint32_t get_patch_current_value(struct patch_info * p, int row_index, int col_index, enum masked masked)
 {
     void* addr = get_patch_addr(p, row_index, col_index);
+    uint32_t raw_value = read_value(addr, p->is_instruction);
+    
     if (masked == MASKED)
     {
-        return read_value(addr) & p->patch_mask;
+        return raw_value & p->patch_mask;
     }
     else
     {
-        return read_value(addr);
+        return raw_value;
     }
 }
 
@@ -208,6 +222,7 @@ int patch_memory_matrix(
     uint32_t patch_scaling,
     uint32_t patch_offset,
     uint32_t* backup_storage,
+    uint32_t is_instruction,
     const char* description
 )
 {
@@ -216,7 +231,7 @@ int patch_memory_matrix(
     
     /* ensure thread safety */
     uint32_t old_int = cli();
-    
+
     /* is this address already patched? refuse to patch it twice */
     for (int i = 0; i < num_patches; i++)
     {
@@ -240,6 +255,7 @@ int patch_memory_matrix(
     patches[num_patches].patch_offset = patch_offset;
     patches[num_patches].backup_storage = backup_storage ? 1 : 0;
     patches[num_patches]._backups = backup_storage;
+    patches[num_patches].is_instruction = is_instruction;
     patches[num_patches].description = description;
 
     /* are we patching the right thing? */
@@ -271,8 +287,17 @@ int patch_memory_matrix(
             uint32_t old = get_patch_current_value(&patches[num_patches], r, c, NOT_MASKED);
             uint32_t patch_value = get_patch_new_value(&patches[num_patches], r, c);
             uint32_t new = (old & ~patch_mask) | (patch_value & patch_mask);
-            do_patch(adr, new);
+            do_patch(adr, new, is_instruction);
         }
+    }
+    
+    /* RAM instructions are patched in RAM (to minimize collisions and only lock down the cache when needed),
+     * but we need to clear the cache and re-apply any existing ROM patches */
+    if (is_instruction && !IS_ROM_PTR(addr))
+    {
+        dbg_printf("Flushing ICache...\n");
+        flush_i_cache();
+        reapply_cache_patches();
     }
     
     num_patches++;
@@ -301,6 +326,43 @@ static int is_patch_still_applied(int p)
     }
     
     return 1;
+}
+
+static void reapply_cache_patch(int p)
+{
+    int num_rows = patches[p].num_rows;
+    int num_columns = patches[p].num_columns;
+    for (int r = 0; r < num_rows; r++)
+    {
+        for (int c = 0; c < num_columns; c++)
+        {
+            uint32_t current = get_patch_current_value(&patches[p], r, c, MASKED);
+            uint32_t patched = get_patch_new_value(&patches[p], r, c);
+            
+            if (current != patched)
+            {
+                uint32_t addr = (uint32_t) get_patch_addr(&patches[p], r, c);
+                dbg_printf("Re-applying %x -> %x (was changed to %x)\n", addr, patched, current);
+                cache_fake(addr, patched, patches[p].is_instruction ? TYPE_ICACHE : TYPE_DCACHE);
+            }
+        }
+    }
+}
+
+void reapply_cache_patches()
+{
+    /* this function is also public */
+    uint32_t old_int = cli();
+    
+    for (int i = 0; i < num_patches; i++)
+    {
+        if (IS_ROM_PTR(patches[i].addr))
+        {
+            reapply_cache_patch(i);
+        }
+    }
+    
+    sei(old_int);
 }
 
 static void check_cache_lock_still_needed()
@@ -362,7 +424,7 @@ int unpatch_memory(uintptr_t _addr)
             uint32_t backup = get_patch_backup_value(&patches[p], r, c, MASKED);
             uint32_t patch_mask = patches[p].patch_mask;
             uint32_t new = (old & ~patch_mask) | backup;
-            do_patch(adr, new);
+            do_patch(adr, new, patches[p].is_instruction);
         }
     }
 
@@ -372,7 +434,13 @@ int unpatch_memory(uintptr_t _addr)
         patches[i-1] = patches[i];
     }
     num_patches--;
-    
+
+    if (patches[p].is_instruction && !IS_ROM_PTR(addr))
+    {
+        flush_i_cache();
+        reapply_cache_patches();
+    }
+
     check_cache_lock_still_needed();
 
 end:
@@ -391,10 +459,11 @@ int patch_memory_ex(
     uint32_t patch_mask,
     uint32_t patch_scaling,
     uint32_t patch_offset,
+    uint32_t is_instruction,
     const char* description
 )
 {
-    return patch_memory_matrix(addr, 1, 0, 1, 0, check_mask, check_value, patch_mask, patch_scaling, patch_offset, 0, description);
+    return patch_memory_matrix(addr, 1, 0, 1, 0, check_mask, check_value, patch_mask, patch_scaling, patch_offset, 0, is_instruction, description);
 }
 
 int patch_memory(
@@ -404,7 +473,17 @@ int patch_memory(
     const char* description
 )
 {
-    return patch_memory_ex(addr, 0xFFFFFFFF, old_value, 0xFFFFFFFF, 0, new_value, description);
+    return patch_memory_ex(addr, 0xFFFFFFFF, old_value, 0xFFFFFFFF, 0, new_value, 0, description);
+}
+
+int patch_instruction(
+    uintptr_t addr,
+    uint32_t old_value,
+    uint32_t new_value,
+    const char* description
+)
+{
+    return patch_memory_ex(addr, 0xFFFFFFFF, old_value, 0xFFFFFFFF, 0, new_value, 1, description);
 }
 
 int patch_memory_array(
@@ -417,10 +496,11 @@ int patch_memory_array(
     uint32_t patch_scaling,
     uint32_t patch_offset,
     uint32_t* backup_storage,
+    uint32_t is_instruction,
     const char* description
 )
 {
-    return patch_memory_matrix(addr, num_items, item_size, 1, 0, check_mask, check_value, patch_mask, patch_scaling, patch_offset, backup_storage, description);
+    return patch_memory_matrix(addr, num_items, item_size, 1, 0, check_mask, check_value, patch_mask, patch_scaling, patch_offset, backup_storage, is_instruction, description);
 }
 
 static MENU_SELECT_FUNC(patch_scroll)
@@ -487,7 +567,7 @@ static MENU_UPDATE_FUNC(patch_update)
     MENU_SET_ICON(IS_ROM_PTR(patches[p].addr) ? MNI_RECORD : MNI_ON, 0);
 
     char name[20];
-    snprintf(name, sizeof(name), "%X", patches[p].addr);
+    snprintf(name, sizeof(name), "%s:%X", patches[p].is_instruction ? "CODE" : "DATA", patches[p].addr);
     
     int row = (patches[p].scroll_pos / patches[p].num_columns) % patches[p].num_rows;
     int col = patches[p].scroll_pos % patches[p].num_columns;

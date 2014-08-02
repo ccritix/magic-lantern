@@ -34,7 +34,7 @@
 #define E_UNPATCH_OVERWRITTEN 0x20
 #define E_UNPATCH_REG_NOT_FOUND 0x80
 
-/* simple patch */
+/* simple data patch */
 int patch_memory(
     uintptr_t addr,             /* patched address (32 bits) */
     uint32_t old_value,         /* old value before patching (if it differs, the patch will fail) */
@@ -42,6 +42,15 @@ int patch_memory(
     const char* description     /* what does this patch do? example: "raw_rec: slowdown dialog timers" */
                                 /* note: you must provide storage for the description string */
                                 /* a string literal will do; a local variable where you sprintf will not work */
+);
+
+/* patch an executable instruction (will clear the instruction cache) */
+/* same arguments as patch_memory */
+int patch_instruction(
+    uintptr_t addr,
+    uint32_t old_value,
+    uint32_t new_value,
+    const char* description
 );
 
 /* a more complex patch (e.g. for 16-bit values, or for flipping only some bits) */
@@ -52,6 +61,7 @@ int patch_memory_ex(
     uint32_t patch_mask,        /* what bits to patch (up to 32) */
     uint32_t patch_scaling,     /* scaling factor for the old value (0x10000 = 1.0; 0 discards the old value, obviously) */
     uint32_t patch_offset,      /* offset added after scaling (this becomes new_value when scaling factor is 0, also obviously) */
+    uint32_t is_instruction,    /* true if patching an ARM instruction */
     const char* description     /* what does this patch do? example: "mini_iso: patch CMOS[4] to reduce shadow noise" */
 );
 
@@ -75,6 +85,7 @@ int patch_memory_array(
     uint32_t patch_scaling,     /* scaling factor for the old value (0x10000 = 1.0; 0 discards the old value, obviously) */
     uint32_t patch_offset,      /* offset added after scaling (this becomes new_value when scaling factor is 0, also obviously) */
     uint32_t* backup_storage,   /* must be an array with "num_items" items */
+    uint32_t is_instruction,    /* true if patching an ARM instruction */
     const char* description     /* what does this patch do? example: "dual_iso: patch CMOS[0] gains" */
 );
 
@@ -91,6 +102,7 @@ int patch_memory_matrix(
     uint32_t patch_scaling,     /* scaling factor for the old value (0x10000 = 1.0; 0 discards the old value, obviously) */
     uint32_t patch_offset,      /* offset added after scaling (this becomes new_value when scaling factor is 0, also obviously) */
     uint32_t* backup_storage,   /* old values; must be a uint32_t[num_items] array; it can be 0 for a 1x1 matrix => internal storage */
+    uint32_t is_instruction,    /* true if patching an ARM instruction */
     const char* description     /* what does this patch do? example: "mini_iso: scale ADTG gains" */
 );
 
@@ -102,5 +114,9 @@ int unpatch_memory(uintptr_t addr);
 /* (*) this will only work for Canon code that looks up the register in a list, sets the value if found, and does no error checking */
 int patch_engio_list(uint32_t * engio_list, uint32_t patched_register, uint32_t patched_value, const char * description);
 int unpatch_engio_list(uint32_t * engio_list, uint32_t patched_register);
+
+/* re-apply the ROM (cache) patches */
+/* call this after you have flushed the caches, for example */
+void reapply_cache_patches();
 
 #endif
