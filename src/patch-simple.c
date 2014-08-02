@@ -204,9 +204,9 @@ static int reapply_cache_patch(int p)
     
     if (current != patched)
     {
-        uint32_t addr = (uint32_t) patches[p].addr;
+        void* addr = patches[p].addr;
         dbg_printf("Re-applying %x -> %x (was changed to %x)\n", addr, patched, current);
-        cache_fake(addr, patched, patches[p].is_instruction ? TYPE_ICACHE : TYPE_DCACHE);
+        cache_fake((uint32_t) addr, patched, patches[p].is_instruction ? TYPE_ICACHE : TYPE_DCACHE);
 
         /* did it actually work? */
         if (read_value(addr, patches[p].is_instruction) != patched)
