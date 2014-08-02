@@ -279,19 +279,34 @@ static void fps_log(breakpoint_t *bkpt)
 
 static int check_no_conflicts(int i)
 {
+    /* two memory addresses can't be patched at the same time if their index bits are the same */
     int index_mask = CACHE_INDEX_ADDRMASK(TYPE_ICACHE);
-    
+
+    /* A GDB watchpoint uses two breakpoints, at addr and addr+4, and only one of them is active (armed). */
+    /* Therefore, it's not enough to call cache_is_patchable, since it may still conflict with inactive breakpoints. */
+    /* so, we inspect the addresses manually for now. */
+    /* TODO: this check should probably be moved in GDB hooks or in the patch library */
+
+    int ai = logged_functions[i].addr;     /* address of the main breakpoint in the GDB watchpoint */
+    int bi = logged_functions[i].addr + 4; /* address of the second breakpoint */
+
+    if (!IS_ROM_PTR(ai))
+    {
+        /* this function is patched in RAM - no cache conflicts possible */
+        return 1;
+    }
+
     for (int j = 0; j < i; j++)
     {
-        /* A GDB watchpoint uses two breakpoints, at addr and addr+4, and only one of them is active (armed). */
-        /* Therefore, it's not enough to call cache_is_patchable, since it may still conflict with inactive breakpoints. */
-        /* so, we inspect the addresses manually for now. */
-        /* TODO: this check should probably be moved in GDB hooks or in the patch library */
-        
-        int ai = logged_functions[i].addr;     /* address of the main breakpoint in the GDB watchpoint */
         int aj = logged_functions[j].addr;
-        int bi = logged_functions[i].addr + 4; /* address of the second breakpoint */
         int bj = logged_functions[j].addr + 4;
+
+        if (!IS_ROM_PTR(aj))
+        {
+            /* this function is patched in RAM - no cache conflicts possible */
+            continue;
+        }
+
         if (((ai & index_mask) == (aj & index_mask)) ||
             ((bi & index_mask) == (bj & index_mask)) ||
             ((ai & index_mask) == (bj & index_mask)) ||
@@ -313,6 +328,7 @@ static int check_no_conflicts(int i)
         /* no conflicts possible */
         return 1;
     }
+    
     if ((cache_is_patchable(logged_functions[i].addr,   TYPE_ICACHE, 0) && 
          cache_is_patchable(logged_functions[i].addr+4, TYPE_ICACHE, 0)))
     {
