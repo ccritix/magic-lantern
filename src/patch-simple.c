@@ -238,8 +238,11 @@ int reapply_cache_patches()
     return err;
 }
 
+/* called from a timer */
 static void check_cache_lock_still_needed()
 {
+    int old_int = cli();
+    
     /* do we still need the cache locked? */
     int rom_patches = 0;
     for (int i = 0; i < num_patches; i++)
@@ -250,10 +253,14 @@ static void check_cache_lock_still_needed()
             break;
         }
     }
+    
     if (!rom_patches)
     {
+        /* nope, we don't */
         cache_require(0);
     }
+    
+    sei(old_int);
 }
 
 int unpatch_memory(uintptr_t _addr)
@@ -302,7 +309,7 @@ int unpatch_memory(uintptr_t _addr)
         err = reapply_cache_patches();
     }
 
-    check_cache_lock_still_needed();
+    delayed_call(500, check_cache_lock_still_needed);
 
 end:
     if (err)
