@@ -22,17 +22,13 @@
  * Boston, MA  02110-1301, USA.
  */
 
-#include <module.h>
-#include <dryos.h>
-#include <menu.h>
-#include <config.h>
-#include <bmp.h>
-#include <beep.h>
-#include <propvalues.h>
-#include <raw.h>
-
-#include "../trace/trace.h"
-#include "../mlv_rec/mlv.h"
+//~ #include <dryos.h>
+//~ #include <menu.h>
+//~ #include <config.h>
+//~ #include <bmp.h>
+//~ #include <beep.h>
+//~ #include <propvalues.h>
+//~ #include <raw.h>
 
 #define MLV_SND_BUFFERS 4
 
@@ -451,8 +447,7 @@ static void mlv_snd_queue_wavi()
     mlv_rec_queue_block((mlv_hdr_t *)hdr);
 }
 
-/* public functions for raw_rec */
-uint32_t raw_rec_cbr_starting()
+static uint32_t mlv_snd_rec_starting()
 {
     if(!mlv_snd_enabled)
     {
@@ -469,7 +464,7 @@ uint32_t raw_rec_cbr_starting()
     return 0;
 }
 
-uint32_t raw_rec_cbr_started()
+static uint32_t mlv_snd_rec_started()
 {
     if(mlv_snd_state == MLV_SND_STATE_PREPARE)
     {
@@ -480,7 +475,7 @@ uint32_t raw_rec_cbr_started()
     return 0;
 }
 
-uint32_t raw_rec_cbr_stopping()
+static uint32_t mlv_snd_rec_stopping()
 {
     if(mlv_snd_state != MLV_SND_STATE_IDLE)
     {
@@ -491,7 +486,7 @@ uint32_t raw_rec_cbr_stopping()
     return 0;
 }
 
-uint32_t raw_rec_cbr_mlv_block(mlv_hdr_t *hdr)
+static uint32_t mlv_snd_mlv_block(mlv_hdr_t *hdr)
 {
     if(!memcmp(hdr->blockType, "MLVI", 4))
     {
@@ -625,17 +620,3 @@ static unsigned int mlv_snd_deinit()
     }
     return 0;
 }
-
-MODULE_INFO_START()
-    MODULE_INIT(mlv_snd_init)
-    MODULE_DEINIT(mlv_snd_deinit)
-MODULE_INFO_END()
-
-MODULE_CBRS_START()
-    MODULE_CBR(CBR_VSYNC, mlv_snd_vsync, 0)
-MODULE_CBRS_END()
-
-MODULE_CONFIGS_START()
-    MODULE_CONFIG(mlv_snd_enabled)
-    MODULE_CONFIG(mlv_snd_enable_tracing)
-MODULE_CONFIGS_END()
