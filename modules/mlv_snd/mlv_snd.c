@@ -569,7 +569,7 @@ static unsigned int mlv_snd_vsync(unsigned int unused)
 static struct menu_entry mlv_snd_menu[] =
 {
     {
-        .name = "MLV Sound",
+        .name = "Sound recording",
         .priv = &mlv_snd_enabled,
         .max = 1,
         .help = "Enable sound recording for MLV.",
@@ -610,7 +610,7 @@ static unsigned int mlv_snd_init()
     mlv_snd_buffers_empty = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_empty", 300);
     mlv_snd_buffers_done = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_done", 300);
     
-    menu_add("Audio", mlv_snd_menu, COUNT(mlv_snd_menu));
+    menu_add("RAW video (MLV)", mlv_snd_menu, COUNT(mlv_snd_menu));
     trace_write(trace_ctx, "mlv_snd_init: done");
     
     return 0;
