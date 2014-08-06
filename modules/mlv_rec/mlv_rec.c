@@ -78,6 +78,7 @@
 
 #include "mlv.h"
 #include "mlv_rec.h"
+#include "mlv_rec_private.h"
 
 /* fixme: cleaner way to merge the two modules? */
 #include "mlv_snd.c"
