@@ -86,8 +86,8 @@ typedef struct
     int32_t mlv_slot_end;
 } audio_data_t;
 
-audio_data_t *mlv_snd_current_buffer = NULL;
-audio_data_t *mlv_snd_next_buffer = NULL;
+static audio_data_t *mlv_snd_current_buffer = NULL;
+static audio_data_t *mlv_snd_next_buffer = NULL;
 
 #define MLV_SND_STATE_IDLE                   0  /* waiting for action, set by writer task upon exit */
 #define MLV_SND_STATE_PREPARE                1  /* recording was started, set by mlv_snd_start() */

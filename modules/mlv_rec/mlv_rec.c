@@ -213,10 +213,10 @@ static uint32_t writer_job_count[MAX_WRITER_THREADS];
 static int32_t current_write_speed[MAX_WRITER_THREADS];
 
 /* mlv information */
-struct msg_queue *mlv_block_queue = NULL;
-struct msg_queue *mlv_mgr_queue = NULL;
-struct msg_queue *mlv_mgr_queue_close = NULL;
-struct msg_queue *mlv_job_alloc_queue = NULL;
+static struct msg_queue *mlv_block_queue = NULL;
+static struct msg_queue *mlv_mgr_queue = NULL;
+static struct msg_queue *mlv_mgr_queue_close = NULL;
+static struct msg_queue *mlv_job_alloc_queue = NULL;
 static uint64_t mlv_start_timestamp = 0;
 static mlv_file_hdr_t mlv_file_hdr;
 
