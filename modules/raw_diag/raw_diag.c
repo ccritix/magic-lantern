@@ -1638,6 +1638,13 @@ static unsigned int raw_diag_poll(unsigned int unused)
         idle_globaldraw_dis();
         NotifyBoxHide();
         msleep(1000);
+        
+        if (!lv)
+        {
+            beep();
+            return CBR_RET_CONTINUE;
+        }
+        
         raw_lv_request();
         raw_diag_run(1);
         for (int i = 0; i < 200 && !get_halfshutter_pressed(); i++)
