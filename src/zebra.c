@@ -338,7 +338,7 @@ int histogram_or_small_waveform_enabled()
         (
             (hist_draw) &&
             #ifdef FEATURE_RAW_OVERLAYS
-            !(/* histobar*/ (raw_histogram_enable == 2) && can_use_raw_overlays_menu()) &&
+            !(/* histobar*/ (raw_histogram_type == 1) && can_use_raw_overlays_menu()) &&
             #endif
             1
         )
@@ -3057,12 +3057,12 @@ struct menu_entry zebra_menus[] = {
             },
             #ifdef FEATURE_RAW_HISTOGRAM
             {
-                .name = "Use RAW histogram",
-                .priv = &raw_histogram_enable,
-                .max = 2,
-                .choices = CHOICES("OFF", "Full Histogram", "Simplified HistoBar"),
-                .update = raw_histo_update,
-                .help = "Use RAW based histogram.",
+                .name = "Appearance",
+                .priv = &raw_histogram_type,
+                .max = 1,
+                .choices = CHOICES("Full Histogram", "Simplified HistoBar"),
+                .help = "How the RAW-based histogram should look like.",
+                .depends_on = DEP_HIDE_IF_NOT_RAW,
             },
             {
                 .name = "RAW EV indicator",
@@ -3073,7 +3073,8 @@ struct menu_entry zebra_menus[] = {
                 .help2 = 
                     " \n"
                     "Display the dynamic range at current ISO, from noise stdev.\n"
-                    "Show how many stops you can push the exposure to the right.\n"
+                    "Show how many stops you can push the exposure to the right.\n",
+                .depends_on = DEP_HIDE_IF_NOT_RAW,
             },
             #endif
             MENU_EOL
@@ -3845,7 +3846,7 @@ void draw_histogram_and_waveform(int allow_play)
     {
         hist_build(); /* also updates waveform and vectorscope */
         #ifdef FEATURE_RAW_HISTOGRAM
-        if (raw_histogram_enable && can_use_raw_overlays())
+        if (can_use_raw_overlays())
             hist_build_raw();
         #endif
     }
@@ -4592,7 +4593,7 @@ livev_hipriority_task( void* unused )
         {
             /* only raw zebras, raw histogram and raw spotmeter are working in LV raw mode */
             if (zebra_draw && raw_zebra_enable == 1) raw_needed = 1;        /* raw zebras: always */
-            if (hist_draw && raw_histogram_enable) raw_needed = 1;          /* raw hisogram (any kind) */
+            if (hist_draw) raw_needed = 1;                                  /* raw hisogram (any kind) */
             if (spotmeter_draw) raw_needed = 1;                             /* spotmeter: it's always raw if you shoot raw */
         }
 

@@ -112,22 +112,9 @@ void FAST hist_build_raw()
     histobar_refresh();
 }
 
-CONFIG_INT("raw.histo", raw_histogram_enable, 2);
-#define HISTOBAR_ENABLED (hist_draw && raw_histogram_enable == 2)
+CONFIG_INT("raw.histo.type", raw_histogram_type, 1);
+#define HISTOBAR_ENABLED (hist_draw && raw_histogram_type == 1)
 
-MENU_UPDATE_FUNC(raw_histo_update)
-{
-    menu_checkdep_raw(entry, info);
-
-    if (HISTOBAR_ENABLED)
-    {
-        MENU_SET_WARNING(MENU_WARN_INFO, "Will use Histobar in LiveView, RAW histogram after taking a pic.");
-    }
-    else if (raw_histogram_enable)
-    {
-        MENU_SET_WARNING(MENU_WARN_INFO, "Will use RAW histogram in LiveView and after taking a pic.");
-    }
-}
 #endif
 
 static int hist_rgb_color(int y, int sizeR, int sizeG, int sizeB)
@@ -370,7 +357,7 @@ MENU_UPDATE_FUNC(hist_print)
     if (hist_draw)
     {
 #ifdef FEATURE_RAW_HISTOGRAM
-        int raw = raw_histogram_enable && can_use_raw_overlays_menu();
+        int raw = can_use_raw_overlays_menu();
         if (raw && HISTOBAR_ENABLED)
         {
             MENU_SET_VALUE("RAW HistoBar");
