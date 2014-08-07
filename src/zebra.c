@@ -158,7 +158,8 @@ static int show_lv_fps = 0; // for debugging
 #define WAVEFORM_FACTOR (1 << waveform_size) // 1, 2 or 4
 #define WAVEFORM_OFFSET (waveform_size <= 1 ? 80 : 0)
 
-#define WAVEFORM_FULLSCREEN (waveform_draw && waveform_size == 2)
+#define WAVEFORM_DRAW (waveform_draw && !can_use_raw_overlays_menu())
+#define WAVEFORM_FULLSCREEN (WAVEFORM_DRAW && waveform_size == 2)
 
 #define BVRAM_MIRROR_SIZE (BMPPITCH*540)
 
@@ -348,7 +349,7 @@ int histogram_or_small_waveform_enabled()
         )
         ||
         #endif
-        (waveform_draw && !waveform_size)
+        (WAVEFORM_DRAW && !waveform_size)
     )
     && get_expsim(); 
 }
@@ -525,9 +526,12 @@ hist_build()
     #ifdef FEATURE_HISTOGRAM
     memset(&histogram, 0, sizeof(histogram));
     #endif
+    
+    int wave_draw = WAVEFORM_DRAW;
+    int vect_draw = vectorscope_should_draw();
 
     #ifdef FEATURE_WAVEFORM
-    if (waveform_draw)
+    if (wave_draw)
     {
         waveform_init();
     }
@@ -583,14 +587,14 @@ hist_build()
             #endif
             
             #ifdef FEATURE_WAVEFORM
-            if (waveform_draw) 
+            if (wave_draw) 
             {
                 waveform_add_pixel(x, Y);
             }
             #endif
             
             #ifdef FEATURE_VECTORSCOPE
-            if (vectorscope_draw)
+            if (vect_draw)
             {
                 int8_t U = (pixel >>  0) & 0xFF;
                 int8_t V = (pixel >> 16) & 0xFF;
@@ -3031,7 +3035,7 @@ struct menu_entry zebra_menus[] = {
         .submenu_width = 700,
         .submenu_height = 160,
         .help = "Exposure aid: each brightness level is color-coded.",
-        .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM,
+        .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM | DEP_YUV_SHOOTING,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Palette      ",
@@ -3112,7 +3116,7 @@ struct menu_entry zebra_menus[] = {
         .update = waveform_print,
         .max = 1,
         .help = "Exposure aid: useful for checking overall brightness.",
-        .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM,
+        .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM | DEP_YUV_SHOOTING,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Waveform Size",
@@ -3721,7 +3725,7 @@ BMP_LOCK(
     draw_histogram_and_waveform(1);
 
     #ifdef FEATURE_FALSE_COLOR
-    if (falsecolor_draw) 
+    if (falsecolor_draw && !can_use_raw_overlays_menu()) 
     {
         draw_false_downsampled();
     }
@@ -3762,7 +3766,7 @@ void draw_histogram_and_waveform(int allow_play)
 #if defined(FEATURE_HISTOGRAM) || defined(FEATURE_WAVEFORM) || defined(FEATURE_VECTORSCOPE)
     if (0
         || hist_draw
-        || waveform_draw
+        || WAVEFORM_DRAW
 #if defined(FEATURE_VECTORSCOPE)
         || vectorscope_should_draw()
 #endif
@@ -3802,7 +3806,7 @@ void draw_histogram_and_waveform(int allow_play)
     if (is_zoom_mode_so_no_zebras()) return;
         
 #ifdef FEATURE_WAVEFORM
-    if( waveform_draw)
+    if( WAVEFORM_DRAW)
     {
         #ifdef CONFIG_4_3_SCREEN
         if (PLAY_OR_QR_MODE && WAVEFORM_FACTOR == 1)
@@ -4170,7 +4174,7 @@ livev_hipriority_task( void* unused )
             #endif
             
             #ifdef FEATURE_FALSE_COLOR
-            if (falsecolor_draw)
+            if (falsecolor_draw && !can_use_raw_overlays_menu())
             {
                 if (k % 4 == 0)
                     BMP_LOCK( if (lv) draw_false_downsampled(); )

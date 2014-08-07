@@ -9,6 +9,7 @@
 #include "vram.h"
 #include "menu.h"
 #include "propvalues.h"
+#include "raw.h"
 
 #ifdef FEATURE_VECTORSCOPE
 
@@ -259,7 +260,7 @@ static MENU_UPDATE_FUNC(vectorscope_update)
 
 int vectorscope_should_draw()
 {
-    return vectorscope_draw;
+    return vectorscope_draw && !can_use_raw_overlays_menu();
 }
 
 void vectorscope_request_draw(int flag)
@@ -275,7 +276,7 @@ void vectorscope_start()
 
 void vectorscope_redraw()
 {
-    if(vectorscope_draw)
+    if (vectorscope_should_draw())
     {
         /* make sure memory address of bvram will be 4 byte aligned */
         BMP_LOCK( vectorscope_draw_image(os.x0 + 32, 64); )
@@ -291,7 +292,7 @@ static struct menu_entry vectorscope_menus[] = {
         .max = 1,
         .update = vectorscope_update,
         .help = "Shows color distribution as U-V plot. For grading & WB.",
-        .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM,
+        .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM | DEP_YUV_SHOOTING,
         .children =  (struct menu_entry[]) {
             {
                 .name = "UV scaling",
