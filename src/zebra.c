@@ -571,8 +571,8 @@ hist_build()
 
 #ifdef FEATURE_RAW_ZEBRAS
 
-static CONFIG_INT("raw.zebra", raw_zebra_enable, 2); /* 1 = always, 2 = photo only */
-#define RAW_ZEBRA_ENABLE (raw_zebra_enable == 1 || (raw_zebra_enable == 2 && !lv))
+static CONFIG_INT("raw.zebra.dis", raw_zebra_disable_lv, 1);
+#define RAW_ZEBRA_ENABLE ((!raw_zebra_disable_lv) || (raw_zebra_disable_lv && !lv))
 
 static void FAST draw_zebras_raw()
 {
@@ -811,12 +811,10 @@ static void FAST draw_zebras_raw_lv()
     }
 }
 
-static MENU_UPDATE_FUNC(raw_zebra_update)
+static MENU_UPDATE_FUNC(raw_zebra_submenu_update)
 {
-    menu_checkdep_raw(entry, info);
-
-    if (raw_zebra_enable)
-        MENU_SET_WARNING(MENU_WARN_INFO, "Will use RAW RGB zebras %safter taking a pic.", raw_zebra_enable == 1 ? "in LiveView and " : "");
+    /* show YUV options if we have enabled both YUV and RAW zebras */
+    entry[2].depends_on = entry[3].depends_on = entry[4].depends_on = raw_zebra_disable_lv ? 0 : DEP_HIDE_IF_RAW;
 }
 #endif
 
@@ -1959,9 +1957,23 @@ static MENU_UPDATE_FUNC(zebra_draw_display)
     #ifdef FEATURE_RAW_ZEBRAS
     if (z && can_use_raw_overlays_menu())
     {
-        raw_zebra_update(entry, info);
-        if (RAW_ZEBRA_ENABLE) MENU_SET_VALUE("RAW RGB");
+        if (RAW_ZEBRA_ENABLE)
+        {
+            MENU_SET_VALUE("RAW RGB");
+        }
+        if (raw_zebra_disable_lv)
+        {
+            MENU_SET_WARNING(MENU_WARN_INFO, "Will use RAW zebras after taking a picture, but not in LiveView.");
+        }
     }
+    #endif
+}
+
+static MENU_UPDATE_FUNC(zebra_param_not_used_for_raw)
+{
+    #ifdef FEATURE_RAW_ZEBRAS
+    if (can_use_raw_overlays_menu())
+        MENU_SET_WARNING(RAW_ZEBRA_ENABLE ? MENU_WARN_NOT_WORKING : MENU_WARN_ADVICE, "Not used for RAW zebras.");
     #endif
 }
 
@@ -1982,6 +1994,8 @@ static MENU_UPDATE_FUNC(zebra_level_display)
             (level * 255 + 50) / 100
         );
     }
+
+    zebra_param_not_used_for_raw(entry, info);
 }
 #endif
 
@@ -2713,7 +2727,28 @@ struct menu_entry zebra_menus[] = {
         .max = 1,
         .help = "Zebra stripes: show overexposed or underexposed areas.",
         .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM,
+        .submenu_width = 650,
         .children =  (struct menu_entry[]) {
+            #ifdef FEATURE_RAW_ZEBRAS
+            {
+                .name = "Use non-RAW zebras in LV",
+                .priv = &raw_zebra_disable_lv,
+                .max = 1,
+                .update = raw_zebra_submenu_update,
+                .help = "Disable RAW zebras in LiveView.",
+                .help2 = "(RAW zebras are very accurate, but they might be slow)",
+                .depends_on = DEP_HIDE_IF_NOT_RAW,
+            },
+            {
+                .name = "Raw underexposure level",
+                .priv = &zebra_raw_underexposure,
+                .max = 5,
+                .choices = (const char *[]) {"OFF", "0 EV", "1 EV", "2 EV", "3 EV", "4 EV"},
+                .help = "RAW zebra underexposure threshold",
+                .help2 = "(in EVs above the noise floor)",
+                .depends_on = DEP_HIDE_IF_NOT_RAW,
+            },
+            #endif
             {
                 .name = "Color Space",
                 .priv = &zebra_colorspace, 
@@ -2724,11 +2759,12 @@ struct menu_entry zebra_menus[] = {
                 #endif
                 .choices = (const char *[]) {"Luma", "RGB", "Luma Fast"},
                 .icon_type = IT_DICE,
+                .update = zebra_param_not_used_for_raw,
                 .help = "Luma: red/blue. RGB: show color of the clipped channel(s).",
                 .depends_on = DEP_HIDE_IF_RAW,
             },
             {
-                .name = "Underexposure",
+                .name = "Underexposure level",
                 .priv = &zebra_level_lo, 
                 .min = 0,
                 .max = 20,
@@ -2738,7 +2774,7 @@ struct menu_entry zebra_menus[] = {
                 .depends_on = DEP_HIDE_IF_RAW,
             },
             {
-                .name = "Overexposure", 
+                .name = "Overexposure level", 
                 .priv = &zebra_level_hi,
                 .min = 70,
                 .max = 101,
@@ -2754,26 +2790,7 @@ struct menu_entry zebra_menus[] = {
                 .max = 1,
                 .choices = (const char *[]) {"Hide", "Show"},
                 .help = "You can hide zebras when recording.",
-                .depends_on = DEP_HIDE_IF_RAW,
-            },
-            #endif
-            #ifdef FEATURE_RAW_ZEBRAS
-            {
-                .name = "Use RAW zebras",
-                .priv = &raw_zebra_enable,
-                .max = 2,
-                .update = raw_zebra_update,
-                .choices = (const char *[]) {"OFF", "Always", "Photo only"},
-                .help = "Use RAW zebras if possible.",
-            },
-            {
-                .name = "Raw zebra underexposure",
-                .priv = &zebra_raw_underexposure,
-                .max = 5,
-                .choices = (const char *[]) {"OFF", "0 EV", "1 EV", "2 EV", "3 EV", "4 EV"},
-                .help = "RAW zebra underexposure threshold",
-                .help2 = "(in EVs above the noise floor)",
-                .depends_on = DEP_HIDE_IF_NOT_RAW,
+                .depends_on = DEP_MOVIE_MODE,
             },
             #endif
             MENU_EOL
@@ -4592,7 +4609,7 @@ livev_hipriority_task( void* unused )
         if (raw && lv_dispsize == 1 && !is_movie_mode())
         {
             /* only raw zebras, raw histogram and raw spotmeter are working in LV raw mode */
-            if (zebra_draw && raw_zebra_enable == 1) raw_needed = 1;        /* raw zebras: always */
+            if (zebra_draw && !raw_zebra_disable_lv) raw_needed = 1;        /* raw zebras: always */
             if (hist_draw) raw_needed = 1;                                  /* raw hisogram (any kind) */
             if (spotmeter_draw) raw_needed = 1;                             /* spotmeter: it's always raw if you shoot raw */
         }
