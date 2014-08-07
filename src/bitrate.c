@@ -587,7 +587,7 @@ static struct menu_entry mov_tweak_menus[] = {
         .priv       = &time_indicator,
         .help = "Time indicator while recording.",
         .max = 3,
-        .depends_on = DEP_MOVIE_MODE | DEP_GLOBAL_DRAW,
+        .depends_on = DEP_MOVIE_MODE_H264| DEP_GLOBAL_DRAW,
         .choices = (const char *[]) {"OFF", "Elapsed", "Remain.Card", "Remain.4GB"}
     },
 #endif
