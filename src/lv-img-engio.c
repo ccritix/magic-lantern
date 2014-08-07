@@ -1021,7 +1021,7 @@ static struct menu_entry lv_img_menu[] = {
         .name = "Creative Effects",
         .select = menu_open_submenu,
         .help = "Experimental image filters found by digging into DIGIC.",
-        .depends_on = DEP_MOVIE_MODE,
+        .depends_on = DEP_MOVIE_MODE_H264,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Desaturate",
@@ -1029,7 +1029,6 @@ static struct menu_entry lv_img_menu[] = {
                 .min = 0,
                 .max = 1,
                 .help = "Grayscale recording. Use WB or pic styles for fine tuning.",
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE_H264,
             },
             {
                 .name = "Negative",
@@ -1037,7 +1036,6 @@ static struct menu_entry lv_img_menu[] = {
                 .min = 0,
                 .max = 1,
                 .help = "Negative image. Inverts all colors :)",
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE_H264,
             },
             {
                 .name = "Swap U-V",
@@ -1045,7 +1043,6 @@ static struct menu_entry lv_img_menu[] = {
                 .min = 0,
                 .max = 1,
                 .help = "Swaps U and V channels (red <--> blue).",
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE_H264,
             },
             {
                 .name = "Cartoon Look",
@@ -1055,7 +1052,6 @@ static struct menu_entry lv_img_menu[] = {
                 .choices = (const char *[]) {"OFF", "Mode 1", "Mode 2", "Mode 3"},
                 .help = "Cartoonish look obtained by emphasizing the edges.",
                 .icon_type = IT_DICE_OFF,
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE_H264,
             },
             MENU_EOL
         }
