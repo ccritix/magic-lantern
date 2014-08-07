@@ -822,7 +822,7 @@ static struct menu_entry mov_menus[] = {
         .choices = CHOICES("Leave unchanged", "Block during REC", "Hold during REC"),
         .help  = "Block shutter button while recording (avoids ERR99)",
         .help2 = "or hold it pressed halfway (enables image stabilization).",
-        .depends_on = DEP_MOVIE_MODE_H264,
+        .depends_on = DEP_MOVIE_MODE_H264 | DEP_HIDE_IF_RAW,
     },
     #endif
 
@@ -865,7 +865,7 @@ static struct menu_entry mov_menus[] = {
         .help   = "Use smooth exposure transitions, by compensating with ISO.",
         .help2  = "=> adjust ISO, shutter speed and aperture without large jumps.",
         .submenu_width = 700,
-        .depends_on = DEP_MOVIE_MODE_H264 | DEP_MANUAL_ISO,
+        .depends_on = DEP_MANUAL_ISO | DEP_MOVIE_MODE_H264 | DEP_HIDE_IF_RAW,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Ramping speed",
@@ -896,7 +896,7 @@ static struct menu_entry movie_tweaks_menus[] = {
                     .priv = &movie_restart,
                     .max        = 1,
                     .help = "Auto-restart movie recording, if it happens to stop.",
-                    .depends_on = DEP_MOVIE_MODE_H264,
+                    .depends_on = DEP_MOVIE_MODE_H264 | DEP_HIDE_IF_RAW,
                 },
                 #endif
                 #ifdef FEATURE_REC_NOTIFY

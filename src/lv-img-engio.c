@@ -898,7 +898,7 @@ static struct menu_entry lv_img_menu[] = {
         .priv = &vignetting_correction_enable,
         .select = vignetting_correction_toggle,
         .help = "Vignetting correction or effects.",
-        .depends_on = DEP_MOVIE_MODE_H264,
+        .depends_on = DEP_MOVIE_MODE_H264 | DEP_HIDE_IF_RAW,
         .submenu_width = 710,
         .submenu_height = 250,
         .children =  (struct menu_entry[]) {
@@ -966,7 +966,7 @@ static struct menu_entry lv_img_menu[] = {
                 .update = digic_black_print,
                 .icon_type = IT_PERCENT_LOG_OFF,
                 .edit_mode = EM_MANY_VALUES_LV,
-                .depends_on = DEP_MOVIE_MODE_H264,
+                .depends_on = DEP_MOVIE_MODE_H264 | DEP_HIDE_IF_RAW,
                 .help = "Adjust dark level, as with 'dcraw -k'. Fixes green shadows.",
             },
             #endif
@@ -991,7 +991,7 @@ static struct menu_entry lv_img_menu[] = {
                 .priv = &zerosharp, 
                 .max = 1,
                 .help = "Disable sharpening completely (below Canon's zero level).",
-                .depends_on = DEP_MOVIE_MODE_H264,
+                .depends_on = DEP_MOVIE_MODE_H264 | DEP_HIDE_IF_RAW,
             },
             #if !(defined(CONFIG_600D) || defined(CONFIG_1100D))
             {
@@ -999,14 +999,14 @@ static struct menu_entry lv_img_menu[] = {
                 .priv = &sharp, 
                 .max = 1,
                 .help = "Darken sharp edges in bright areas.",
-                .depends_on = DEP_MOVIE_MODE_H264,
+                .depends_on = DEP_MOVIE_MODE_H264 | DEP_HIDE_IF_RAW,
             },
             {
                 .name = "Noise Reduction", 
                 .priv = &oilpaint, 
                 .max = 1,
                 .help = "Some sort of movie noise reduction, or smearing.",
-                .depends_on = DEP_MOVIE_MODE_H264,
+                .depends_on = DEP_MOVIE_MODE_H264 | DEP_HIDE_IF_RAW,
             },
             #endif
             #endif
@@ -1021,7 +1021,7 @@ static struct menu_entry lv_img_menu[] = {
         .name = "Creative Effects",
         .select = menu_open_submenu,
         .help = "Experimental image filters found by digging into DIGIC.",
-        .depends_on = DEP_MOVIE_MODE_H264,
+        .depends_on = DEP_MOVIE_MODE_H264 | DEP_HIDE_IF_RAW,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Desaturate",

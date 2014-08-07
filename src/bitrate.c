@@ -501,7 +501,7 @@ static struct menu_entry mov_menus[] = {
         .icon_type  = IT_PERCENT_OFF,
         .help = "Change H.264 bitrate. Be careful, recording may stop!",
         .edit_mode = EM_MANY_VALUES,
-        .depends_on = DEP_MOVIE_MODE_H264,
+        .depends_on = DEP_GLOBAL_DRAW | DEP_MOVIE_MODE_H264 | DEP_HIDE_IF_RAW,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Mode",
@@ -570,7 +570,7 @@ static struct menu_entry mov_tweak_menus[] = {
         .priv       = &time_indicator,
         .help = "Time indicator while recording.",
         .max = 3,
-        .depends_on = DEP_MOVIE_MODE_H264| DEP_GLOBAL_DRAW,
+        .depends_on = DEP_MOVIE_MODE_H264 | DEP_GLOBAL_DRAW | DEP_HIDE_IF_RAW,
         .choices = (const char *[]) {"OFF", "Elapsed", "Remain.Card", "Remain.4GB"}
     },
 #endif
