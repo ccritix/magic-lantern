@@ -897,7 +897,7 @@ static struct menu_entry lv_img_menu[] = {
         .priv = &vignetting_correction_enable,
         .select = vignetting_correction_toggle,
         .help = "Vignetting correction or effects.",
-        .depends_on = DEP_MOVIE_MODE,
+        .depends_on = DEP_MOVIE_MODE_H264,
         .submenu_width = 710,
         .submenu_height = 250,
         .children =  (struct menu_entry[]) {
@@ -965,7 +965,7 @@ static struct menu_entry lv_img_menu[] = {
                 .update = digic_black_print,
                 .icon_type = IT_PERCENT_LOG_OFF,
                 .edit_mode = EM_MANY_VALUES_LV,
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
+                .depends_on = DEP_MOVIE_MODE_H264,
                 .help = "Adjust dark level, as with 'dcraw -k'. Fixes green shadows.",
             },
             #endif
@@ -980,7 +980,7 @@ static struct menu_entry lv_img_menu[] = {
                 .icon_type = IT_PERCENT_LOG_OFF,
                 .edit_mode = EM_MANY_VALUES_LV,
                 .help = "Fine-tune shutter speed in approx 20-microsecond increments.",
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
+                .depends_on = DEP_MOVIE_MODE,
             },
             #endif
 
@@ -990,7 +990,7 @@ static struct menu_entry lv_img_menu[] = {
                 .priv = &zerosharp, 
                 .max = 1,
                 .help = "Disable sharpening completely (below Canon's zero level).",
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
+                .depends_on = DEP_MOVIE_MODE_H264,
             },
             #if !(defined(CONFIG_600D) || defined(CONFIG_1100D))
             {
@@ -998,7 +998,7 @@ static struct menu_entry lv_img_menu[] = {
                 .priv = &sharp, 
                 .max = 1,
                 .help = "Darken sharp edges in bright areas.",
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
+                .depends_on = DEP_MOVIE_MODE_H264,
             },
             #endif
             #endif
@@ -1013,7 +1013,7 @@ static struct menu_entry lv_img_menu[] = {
         .name = "Creative Effects",
         .select = menu_open_submenu,
         .help = "Experimental image filters found by digging into DIGIC.",
-        .depends_on = DEP_MOVIE_MODE,
+        .depends_on = DEP_MOVIE_MODE_H264,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Desaturate",
@@ -1021,7 +1021,6 @@ static struct menu_entry lv_img_menu[] = {
                 .min = 0,
                 .max = 1,
                 .help = "Grayscale recording. Use WB or pic styles for fine tuning.",
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
             },
             {
                 .name = "Negative",
@@ -1029,7 +1028,6 @@ static struct menu_entry lv_img_menu[] = {
                 .min = 0,
                 .max = 1,
                 .help = "Negative image. Inverts all colors :)",
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
             },
             {
                 .name = "Swap U-V",
@@ -1037,7 +1035,6 @@ static struct menu_entry lv_img_menu[] = {
                 .min = 0,
                 .max = 1,
                 .help = "Swaps U and V channels (red <--> blue).",
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
             },
             {
                 .name = "Cartoon Look",
@@ -1047,7 +1044,6 @@ static struct menu_entry lv_img_menu[] = {
                 .choices = (const char *[]) {"OFF", "Mode 1", "Mode 2", "Mode 3"},
                 .help = "Cartoonish look obtained by emphasizing the edges.",
                 .icon_type = IT_DICE_OFF,
-                .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
             },
             MENU_EOL
         }

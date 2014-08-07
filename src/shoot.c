@@ -4275,7 +4275,7 @@ static struct menu_entry expo_menus[] = {
                 "Standard", "Portrait", "Landscape", "Neutral", "Faithful", "Monochrome", "UserDef1", "UserDef2", "UserDef3" },
                 
                 .help = "You can use a different picture style when recording.",
-                .depends_on = DEP_MOVIE_MODE,
+                .depends_on = DEP_MOVIE_MODE_H264,
             },
     #endif
             MENU_EOL
