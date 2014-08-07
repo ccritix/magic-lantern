@@ -164,7 +164,7 @@ static struct menu_entry mov_menus[] = {
         //~ .max = 20,
         .select = load_h264_ini,
         .help = "Bitrate settings",
-        .depends_on = DEP_MOVIE_MODE,
+        .depends_on = DEP_MOVIE_MODE_H264,
     },
 #endif
     {
@@ -174,7 +174,7 @@ static struct menu_entry mov_menus[] = {
         .max = 3,
         .choices = (const char *[]) {"Elapsed Time", "Remaining Time", "Avg Bitrate", "Instant Bitrate"},
         .help = "What to display in top-right corner while recording.",
-        .depends_on = DEP_MOVIE_MODE | DEP_GLOBAL_DRAW,
+        .depends_on = DEP_MOVIE_MODE_H264 | DEP_GLOBAL_DRAW,
     },
 };
 

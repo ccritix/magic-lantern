@@ -501,7 +501,7 @@ static struct menu_entry mov_menus[] = {
         .icon_type  = IT_PERCENT_OFF,
         .help = "Change H.264 bitrate. Be careful, recording may stop!",
         .edit_mode = EM_MANY_VALUES,
-        .depends_on = DEP_MOVIE_MODE,
+        .depends_on = DEP_MOVIE_MODE_H264,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Mode",

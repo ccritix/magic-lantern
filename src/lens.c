@@ -1529,7 +1529,7 @@ static struct menu_entry lens_menus[] = {
         .priv = &movie_log,
         .max = 1,
         .help = "Save metadata for each movie, e.g. MVI_1234.LOG",
-        .depends_on = DEP_MOVIE_MODE,
+        .depends_on = DEP_MOVIE_MODE_H264,
     },
     #endif
 };

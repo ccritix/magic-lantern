@@ -822,7 +822,7 @@ static struct menu_entry mov_menus[] = {
         .choices = CHOICES("Leave unchanged", "Block during REC", "Hold during REC"),
         .help  = "Block shutter button while recording (avoids ERR99)",
         .help2 = "or hold it pressed halfway (enables image stabilization).",
-        .depends_on = DEP_MOVIE_MODE,
+        .depends_on = DEP_MOVIE_MODE_H264,
     },
     #endif
 
@@ -865,7 +865,7 @@ static struct menu_entry mov_menus[] = {
         .help   = "Use smooth exposure transitions, by compensating with ISO.",
         .help2  = "=> adjust ISO, shutter speed and aperture without large jumps.",
         .submenu_width = 700,
-        .depends_on = DEP_MOVIE_MODE | DEP_MANUAL_ISO,
+        .depends_on = DEP_MOVIE_MODE_H264 | DEP_MANUAL_ISO,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Ramping speed",
@@ -896,7 +896,7 @@ static struct menu_entry movie_tweaks_menus[] = {
                     .priv = &movie_restart,
                     .max        = 1,
                     .help = "Auto-restart movie recording, if it happens to stop.",
-                    .depends_on = DEP_MOVIE_MODE,
+                    .depends_on = DEP_MOVIE_MODE_H264,
                 },
                 #endif
                 #ifdef FEATURE_REC_NOTIFY
@@ -937,7 +937,7 @@ static struct menu_entry movie_tweaks_menus[] = {
                     .name = "Force LiveView",
                     .priv = &enable_liveview,
                     .max = 2,
-                    .choices = CHOICES("OFF", "Start & CPUlens", "Always"),
+                    .choices = CHOICES("OFF", "Start & CPU lens", "Always"),
                     .icon_type = IT_DICE_OFF,
                     .help = "Always use LiveView (with manual lens or after lens swap).",
                     .depends_on = DEP_MOVIE_MODE,
