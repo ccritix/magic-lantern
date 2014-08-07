@@ -2121,19 +2121,13 @@ static MENU_UPDATE_FUNC(spotmeter_menu_display)
         MENU_SET_VALUE(
             "%s%s",
             
+            can_use_raw_overlays_menu() ? "RAW" :
             spotmeter_formula == 0 ? "Percent" :
             spotmeter_formula == 1 ? "0..255" :
-            spotmeter_formula == 2 ? "RGB" : "RAW",
+            spotmeter_formula == 2 ? "RGB" : "?",
             
             spotmeter_draw && spotmeter_position ? ", AFbox" : ""
         );
-        
-        #ifdef FEATURE_RAW_SPOTMETER
-        if (spotmeter_formula == 3)
-        {
-            menu_checkdep_raw(entry, info);
-        }
-        #endif
     }
 }
 #endif
@@ -2325,7 +2319,7 @@ spotmeter_erase()
 
     int xcb = spot_prev_xcb;
     int ycb = spot_prev_ycb;
-    int dx = spotmeter_formula == 2 ? 52 : 26;
+    int dx = spotmeter_formula == 2 || can_use_raw_overlays() ? 52 : 26;
     int y0 = -13;
     uint32_t* M = (uint32_t*)get_bvram_mirror();
     uint32_t* B = (uint32_t*)bmp_vram();
@@ -2479,7 +2473,7 @@ static void spotmeter_step()
     uint32_t* M = (uint32_t*)get_bvram_mirror();
     uint32_t* B = (uint32_t*)bmp_vram();
 
-    int dx = spotmeter_formula == 2 ? 52 : 26;
+    int dx = spotmeter_formula == 2 || can_use_raw_overlays() ? 52 : 26;
     int y0 = arrow_keys_shortcuts_active() ? (int)(36 - font_med.height) : (int)(-13);
     for( y = (ycb&~1) + y0 ; y <= (ycb&~1) + 36 ; y++ )
     {
@@ -2513,30 +2507,21 @@ static void spotmeter_step()
     ycb -= font_med.height/2;
 
     #ifdef FEATURE_RAW_SPOTMETER
-    if (spotmeter_formula == 3)
+    if (can_use_raw_overlays())
     {
-        if (can_use_raw_overlays())
-        {
-            bmp_printf(
-                fnt | FONT_ALIGN_CENTER,
-                xcb, ycb, 
-                "-%d.%d EV",
-                -raw_ev/10, 
-                -raw_ev%10
-            );
-        }
-        else // will fall back to percent if no raw data is available
-        {
-            goto fallback_from_raw;
-        }
+        bmp_printf(
+            fnt | FONT_ALIGN_CENTER,
+            xcb, ycb, 
+            "-%d.%d EV",
+            -raw_ev/10, 
+            -raw_ev%10
+        );
+        return;
     }
     #endif
     
     if (spotmeter_formula <= 1)
     {
-#ifdef FEATURE_RAW_SPOTMETER
-fallback_from_raw:
-#endif
         bmp_printf(
             fnt | FONT_ALIGN_CENTER,
             xcb, ycb, 
@@ -2990,19 +2975,16 @@ struct menu_entry zebra_menus[] = {
             {
                 .name = "Spotmeter Unit",
                 .priv = &spotmeter_formula, 
-                #ifdef FEATURE_RAW_SPOTMETER
-                .max = 3,
-                #else
                 .max = 2,
-                #endif
-                .choices = (const char *[]) {"Percent", "0..255", "RGB (HTML)", "RAW (EV)"},
+                .choices = (const char *[]) {"Percent", "0..255", "RGB (HTML)"},
                 .icon_type = IT_DICE,
                 .help = "Measurement unit for brightness level(s).",
                 .help2 =
                     "Percentage of overall brightness level.\n"
                     "8 bit RGB level.\n"
                     "HTML like color codes.\n"
-                    "Negative value from clipping, in EV (RAW).\n"
+                    "Negative value from clipping, in EV (RAW).\n",
+                .depends_on = DEP_HIDE_IF_RAW,
             },
             {
                 .name = "Spot Position",
@@ -4611,7 +4593,7 @@ livev_hipriority_task( void* unused )
             /* only raw zebras, raw histogram and raw spotmeter are working in LV raw mode */
             if (zebra_draw && raw_zebra_enable == 1) raw_needed = 1;        /* raw zebras: always */
             if (hist_draw && raw_histogram_enable) raw_needed = 1;          /* raw hisogram (any kind) */
-            if (spotmeter_draw && spotmeter_formula == 3) raw_needed = 1;   /* spotmeter, units: raw */
+            if (spotmeter_draw) raw_needed = 1;                             /* spotmeter: it's always raw if you shoot raw */
         }
 
         if (!raw_flag && raw_needed)
