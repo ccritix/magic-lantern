@@ -339,31 +339,6 @@ int get_current_tg_freq()
 #define FPS_x1000_TO_TIMER(fps_x1000) (((fps_x1000)!=0)?(TG_FREQ_FPS/(fps_x1000)):0)
 #define TIMER_TO_FPS_x1000(t) (((t)!=0)?(TG_FREQ_FPS/(t)):0)
 
-#ifndef FRAME_SHUTTER_BLANKING_WRITE
-
-static int get_shutter_reciprocal_x1000(int shutter_r_x1000, int Ta, int Ta0, int Tb, int Tb0)
-{
-    int default_fps = calc_fps_x1000(Ta0, Tb0);
-    shutter_r_x1000 = MAX(shutter_r_x1000, default_fps);
-
-    if (Ta == Ta0 && Tb == Tb0) 
-        return shutter_r_x1000; // otherwise there may be small rounding errors
-    
-    int shutter_us = 1000000000 / shutter_r_x1000;
-    //~ int actual_fps = calc_fps_x1000(Ta, Tb);
-    int resulting_fps_if_we_only_change_timer_b = calc_fps_x1000(Ta0, Tb);
-    int fps_timer_delta_us = MAX(1000000000 / resulting_fps_if_we_only_change_timer_b - 1000000000 / default_fps, 0);
-    #ifdef NEW_FPS_METHOD
-    if (fps_timer_b_method == 1) fps_timer_delta_us = 0;
-    #endif
-    int ans_raw = 1000000000 / (shutter_us + fps_timer_delta_us);
-    int ans = ans_raw * (Ta0/10) / (Ta/10);
-    //~ NotifyBox(2000, "shutter_us=%d\ndef_fps=%d res_fps=%d\ntimer_delta_us=%d\nans_raw=%d ans=%d", shutter_us, default_fps, resulting_fps_if_we_only_change_timer_b, fps_timer_delta_us, ans_raw, ans);
-    
-    return ans;
-}
-#endif
-
 int get_max_shutter_timer()
 {
     return fps_timer_b - 10;
@@ -478,21 +453,10 @@ int fps_get_shutter_speed_shift(int raw_shutter)
     if (fps_timer_a == fps_timer_a_orig && fps_timer_b == fps_timer_b_orig)
         return 0;
 
-#ifdef FRAME_SHUTTER_BLANKING_WRITE
-    if (fps_criteria == 0)
-    {
-        int default_fps = calc_fps_x1000(fps_timer_a_orig, fps_timer_b_orig);
-        int current_fps = fps_get_current_x1000();
-        return (int)roundf(8.0f * log2f((float)default_fps / (float)current_fps));
-    }
-    else return 0;
-#else
-    // consider that shutter speed is 1/30, to simplify things (that's true in low light)
-    int unaltered = (int)roundf(1000/raw2shutterf(MAX(raw_shutter, 96)));
-    int altered_by_fps = get_shutter_reciprocal_x1000(unaltered, fps_timer_a, fps_timer_a_orig, fps_timer_b, fps_timer_b_orig);
-    
-    return (int)roundf(8.0f * log2f((float)unaltered / (float)altered_by_fps));
-#endif
+    /* used in photo mode only, which only has the "low light" mode */
+    int default_fps = calc_fps_x1000(fps_timer_a_orig, fps_timer_b_orig);
+    int current_fps = fps_get_current_x1000();
+    return (int)roundf(8.0f * log2f((float)default_fps / (float)current_fps));
 }
 
 //--------------------------------------------------------
@@ -978,31 +942,6 @@ static void fps_toggle_photo(void* priv, int delta)
     if (get_fps_override()) fps_needs_updating = 1;
 }
 
-#ifndef FRAME_SHUTTER_BLANKING_WRITE
-static MENU_UPDATE_FUNC(shutter_range_print_movie)
-{
-    // EA = (E0 + (1/Fb - 1/F0)) * Ta / Ta0
-    // see get_current_shutter_reciprocal_x1000 for details
-    
-    int shutter_r_0_lo_x1000 = video_mode_fps * 1000;
-    int shutter_r_0_hi_x1000 = 4000*1000;
-    int tv_low = get_shutter_reciprocal_x1000(shutter_r_0_lo_x1000, fps_timer_a, fps_timer_a_orig, fps_timer_b, fps_timer_b_orig);
-    int tv_high = get_shutter_reciprocal_x1000(shutter_r_0_hi_x1000, fps_timer_a, fps_timer_a_orig, fps_timer_b, fps_timer_b_orig);
-    int tv_low_r = (tv_low+500)/1000;
-    int tv_low_s_x10 = 100000 / tv_low;
-    int tv_high_r = (tv_high+500)/1000;
-    int tv_high_s_x10 = 100000 / tv_high;
-
-    if (tv_low >= 10000) MENU_SET_VALUE("1/%d", tv_low_r);
-    else MENU_SET_VALUE("%d.%02d\"", tv_low_s_x10/100, tv_low_s_x10%100);
-
-    MENU_APPEND_VALUE("..");
-
-    if (tv_high >= 10000) MENU_APPEND_VALUE("1/%d", tv_high_r);
-    else MENU_APPEND_VALUE("%d.%02d\"", tv_high_s_x10/100, tv_high_s_x10%100);
-}
-#endif
-
 static MENU_UPDATE_FUNC(fps_timer_print_movie)
 {
     int A = (entry->priv == &desired_fps_timer_a_offset_movie);
@@ -1084,57 +1023,6 @@ static int fps_try_to_get_exact_freq(int fps_x1000)
     return best_t;
 }
 
-static int fps_try_to_get_180_360_shutter(int fps_x1000)
-{
-    // EAtarget = (E0 + (1/Fb - 1/F0)) * Ta / Ta0 => solve for Ta
-    // Fb = TG / Ta0 / Tb
-    // Tb = TG / Ta / FPS
-    // 180 degree => EAtarget = 0.5/FPS
-    // and we choose E0 at 1/4000 to get 180 degrees when Canon shutter speed is set to that value
-    // => (symbolic math solver)
-    // Ta = 2000 * Ta0 * TG / FPS / (4000 * Ta0 * Tb0 - TG)
-    // 
-    // approx: TG / FPS / 2 / Tb0 if we assume 4000*Ta0*Tb0 >> TG
-    // correction factor: (4000 * Ta0 * Tb0) / (4000 * Ta0 * Tb0 - TG)
-    // approx correction factor: (Ta0 * Tb0) / (Ta0 * Tb0 - TG/4000)
-    
-    int Ta0 = fps_timer_a_orig;
-    int Tb0 = fps_timer_b_orig;
-    int Ta_approx = TG_FREQ_BASE / fps_x1000 * 1000 / 2 / Tb0;
-    int Ta_corrected = Ta_approx * (Ta0*Tb0 / 100) / (Ta0*Tb0/100 - TG_FREQ_BASE/4000/100);
-    return Ta_corrected;
-}
-
-/**
-
-Timer side effects:
-- timer A: increase jello effect and multiply shutter speed (exposure time)
-- timer B: the difference in FPS, computed as time units, is added to shutter speed (exposure time)
-           for example: 1/500 in Canon menu, 12fps from 24 by doubling timer B. Resulting shutter speed:
-           1/500 + 1/12 - 1/24 = 0.0437 = 1/22.9 
-- with NEW_FPS_METHOD, the side effect of timer B can be cancelled
-
-The algorithm for choosing timer values depends on the optimization setting:
-
-- low light (for low frame rates): try to increase only timer B
-- exact FPS: try to get as close as possible to the exact value; if there are more solutions, 
-  the one with smallest timer A is chosen (that results in lowest jello effect)
-- high FPS (NEW_FPS_METHOD): try to decrease timer B first (no side effect on shutter speed)
-- low jello, 180d (not NEW_FPS_METHOD): at moderately low FPS, make sure you can get 180-degree 
-  shutter speed, and choose the solution with the lowest jello effect. Usually you have to select 
-  1/4000 from Canon menu.
-- high jello: try to increase timer A first, since this is what causes jello effect
-
-At extremes, in all cases the algorithm should hit the hard limits for both timers (at least in theory).
-
-On new cameras (NEW_FPS_METHOD), timer B can be changed either with or without the side effect of altering 
-the shutter speed (you can choose whether you want the side effect, or not). So, low light mode includes 
-the side effect, to get slower shutter speeds, but the other modes will cancel the side effect.
-
-Technical: timer B can be altered via engio (with side effect) or via table patching 
-(without side effect, but requires a video mode change to take effect).
-
-*/
 
 static void fps_setup_timerA(int fps_x1000)
 {
@@ -1165,7 +1053,7 @@ static void fps_setup_timerA(int fps_x1000)
     
     int fps_criteria = is_movie_mode() ? fps_criteria_movie : 0;
     
-    // {"Low light", "Exact FPS", "180deg shutter", "Jello effect"},
+    // {"Low light", "Exact FPS", "High FPS", "High Jello"},
     switch (fps_criteria)
     {
         case 0:
@@ -1184,11 +1072,9 @@ static void fps_setup_timerA(int fps_x1000)
             #endif
             break;
         case 2:
-            #ifdef NEW_FPS_METHOD
             timerA = fps_timer_a_orig;
+            #ifdef NEW_FPS_METHOD
             fps_timer_b_method = 1;
-            #else
-            timerA = fps_try_to_get_180_360_shutter(fps_x1000);
             #endif
             break;
         case 3:
@@ -1211,14 +1097,11 @@ static void fps_setup_timerA(int fps_x1000)
         fps_timer_b_method = 0;
     }
     
-    #ifdef FRAME_SHUTTER_BLANKING_WRITE
-    /* if we can override shutter blanking, table patching will be only needed for overcranking */
-    /* otherwise, the classic method is preferred, because it does not require video mode switching */
+    /* table patching is only needed for overcranking */
     if (fps_x1000 < default_fps + 500)
     {
         fps_timer_b_method = 0;
     }
-    #endif
     #endif
 
     // we need to make sure the requested FPS is in range (we may need to change timer A)
@@ -1299,44 +1182,19 @@ static struct menu_entry fps_menu_movie[] = {
                 .choices = (const char *[]) {
                     "Low light", 
                     "Exact FPS", 
-                    #if defined(NEW_FPS_METHOD) || defined(FRAME_SHUTTER_BLANKING_WRITE)
                     "High FPS",
                     "High Jello",
-                    #else
-                    "Low Jello, 180d", 
-                    "HiJello, FastTv",
-                    #endif
                 },
                 .icon_type = IT_DICE,
                 .max = 3,
                 .select = fps_criteria_change_movie,
                 .help = "Changing FPS has side effects - choose what's best for you:",
                 .help2 =
-                        #ifdef FRAME_SHUTTER_BLANKING_WRITE
                         "Low light: slow shutter speeds. Shutter angle is constant.\n"
-                        #else
-                        "Low light: at low FPS, use 1/FPS (360 deg) shutter speeds.\n"
-                        #endif
                         "Exact FPS: for 24.000 instead of 23.976 and similar.\n"
-                        #if defined(NEW_FPS_METHOD) || defined(FRAME_SHUTTER_BLANKING_WRITE)
                         "High FPS: best for slight overcranking (eg 35fps from 30).\n"
                         "High Jello: slit-scan effect (use 2-5 fps and fast shutter).\n"
-                        #else
-                        "Low Jello, 180d: for 1/2fps shutter speed (1/20 at 10fps).\n" 
-                        "HiJello, FastTv: jello effects and fast shutters (2-5 fps).\n"
-                        #endif
             },
-            #ifndef FRAME_SHUTTER_BLANKING_WRITE
-            {
-                .name = "Shutter range",
-                .update = shutter_range_print_movie,
-                .select = fps_timer_fine_tune_a_big_movie,
-                .icon_type = IT_ALWAYS_ON,
-                .help  = "Shutter speed range, when Canon shows 1/30-1/4000.",
-                .help2 = "You can fine-tune this, but don't expect miracles.",
-                .advanced = 1,
-            },
-            #endif
             {
                 .name = "FPS timer A",
                 .update = fps_timer_print_movie,
