@@ -165,6 +165,8 @@ static int can_be_turned_off(struct menu_entry * entry)
 
 static int is_visible(struct menu_entry * entry)
 {
+    int raw_enabled = can_use_raw_overlays_menu();
+    
     return 
         (
             !(HAS_CURRENT_HIDDEN_FLAG(entry) || IMPLICIT_MY_MENU_HIDING(entry)) ||
@@ -178,6 +180,11 @@ static int is_visible(struct menu_entry * entry)
        &&
        (
             advanced_mode || !entry->advanced || entry->selected || config_var_was_changed(entry->priv)
+       )
+       &&
+       !(
+            (DEPENDS_ON(DEP_HIDE_IF_RAW) && raw_enabled) ||
+            (DEPENDS_ON(DEP_HIDE_IF_NOT_RAW) && !raw_enabled)
        )
        ;
 }

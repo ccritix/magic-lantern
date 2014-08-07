@@ -225,8 +225,8 @@ struct menu_entry
 #define UNIT_DEC 7
 #define UNIT_TIME 8
 
-#define DEPENDS_ON(foo)     ((entry->depends_on     & (foo)) == (foo))
-#define WORKS_BEST_IN(foo)  ((entry->works_best_in  & (foo)) == (foo))
+#define DEPENDS_ON(foo)     ((entry->depends_on     & (foo)) == (uint32_t)(foo))
+#define WORKS_BEST_IN(foo)  ((entry->works_best_in  & (foo)) == (uint32_t)(foo))
 
 #define DEP_GLOBAL_DRAW (1<<0)
 #define DEP_LIVEVIEW (1<<1)
@@ -249,6 +249,9 @@ struct menu_entry
 #define DEP_MOVIE_MODE_H264  (1<<16)    /* for features that only work in H.264 */
 #define DEP_MOVIE_MODE_RAW   (1<<17)    /* for features that only work in RAW movie */
 #define DEP_MOVIE_MODE_MJPEG (1<<18)    /* reserved, who knows */
+
+#define DEP_HIDE_IF_RAW      (1<<30)    /* for features that should be hidden when shooting RAW (photo or movie) */
+#define DEP_HIDE_IF_NOT_RAW  (1<<31)    /* for features that should be hidden when shooting JPEG or H.264 */
 
 struct menu
 {
