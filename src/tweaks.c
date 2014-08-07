@@ -3436,6 +3436,7 @@ static struct menu_entry display_menus[] = {
                 }*/
             },
             #endif
+            MENU_PLACEHOLDER("LV refresh rate"),
             #ifdef FEATURE_LV_DISPLAY_GAIN
             {
                 .name = "LV display gain",
@@ -3445,8 +3446,8 @@ static struct menu_entry display_menus[] = {
                 .max = 6,
                 .choices = CHOICES("OFF", "1 EV", "2 EV", "3 EV", "4 EV", "5 EV", "6 EV"),
                 .icon_type = IT_PERCENT_OFF,
-                .help   = "Makes LiveView usable in complete darkness (photo mode).",
-                .help2  = "Tip: if it gets really dark, also enable FPS override.",
+                .help   = "Makes LiveView usable in darkness by increasing ISO (preview only).",
+                .help2  = "Tip: if it gets really dark, also enable LV refresh rate.",
                 .edit_mode = EM_MANY_VALUES_LV,
                 .depends_on = DEP_LIVEVIEW | DEP_PHOTO_MODE,
             },
