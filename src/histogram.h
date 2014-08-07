@@ -60,6 +60,6 @@ MENU_UPDATE_FUNC(hist_warn_display);
 
 MENU_UPDATE_FUNC(raw_histo_update);
 
-extern int raw_histogram_enable;
+extern int raw_histogram_type;
 
 #endif /* _histogram_h_ */
