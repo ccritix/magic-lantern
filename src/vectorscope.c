@@ -9,6 +9,7 @@
 #include "vram.h"
 #include "menu.h"
 #include "propvalues.h"
+#include "raw.h"
 
 #ifdef FEATURE_VECTORSCOPE
 
@@ -260,7 +261,7 @@ static MENU_UPDATE_FUNC(vectorscope_update)
 
 int vectorscope_should_draw()
 {
-    return vectorscope_draw;
+    return vectorscope_draw && !can_use_raw_overlays_menu();
 }
 
 void vectorscope_request_draw(int flag)
@@ -270,7 +271,7 @@ void vectorscope_request_draw(int flag)
 
 void vectorscope_start()
 {
-    if(vectorscope_draw)
+    if (vectorscope_should_draw())
     {
         vectorscope_init();
         vectorscope_clear();
@@ -287,7 +288,7 @@ void vectorscope_pixel_step(int Y, int U, int V)
 
 void vectorscope_redraw()
 {
-    if(vectorscope_draw)
+    if (vectorscope_should_draw())
     {
         /* make sure memory address of bvram will be 4 byte aligned */
         BMP_LOCK( vectorscope_draw_image(os.x0 + 32, 64); )

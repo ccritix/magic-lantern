@@ -154,7 +154,8 @@ static int show_lv_fps = 0; // for debugging
 #define WAVEFORM_FACTOR (1 << waveform_size) // 1, 2 or 4
 #define WAVEFORM_OFFSET (waveform_size <= 1 ? 80 : 0)
 
-#define WAVEFORM_FULLSCREEN (waveform_draw && waveform_size == 2)
+#define WAVEFORM_DRAW (waveform_draw && !can_use_raw_overlays_menu())
+#define WAVEFORM_FULLSCREEN (WAVEFORM_DRAW && waveform_size == 2)
 
 #define BVRAM_MIRROR_SIZE (BMPPITCH*540)
 
@@ -344,7 +345,7 @@ int histogram_or_small_waveform_enabled()
         )
         ||
         #endif
-        (waveform_draw && !waveform_size)
+        (WAVEFORM_DRAW && !waveform_size)
     )
     && get_expsim(); 
 }
@@ -488,9 +489,12 @@ hist_build()
     #ifdef FEATURE_HISTOGRAM
     memset(&histogram, 0, sizeof(histogram));
     #endif
+    
+    int wave_draw = WAVEFORM_DRAW;
+    int vect_draw = vectorscope_should_draw();
 
     #ifdef FEATURE_WAVEFORM
-    if (waveform_draw)
+    if (wave_draw)
     {
         waveform_init();
     }
@@ -552,7 +556,7 @@ hist_build()
             
             #ifdef FEATURE_WAVEFORM
             // Update the waveform plot
-            if (waveform_draw) 
+            if (wave_draw) 
             {
                 uint8_t* w = &WAVEFORM(((x-os.x0) * WAVEFORM_WIDTH) / os.x_ex, (Y * WAVEFORM_HEIGHT) >> 8);
                 if ((*w) < 250) (*w)++;
@@ -560,9 +564,12 @@ hist_build()
             #endif
             
             #ifdef FEATURE_VECTORSCOPE
-            int8_t U = (pixel >>  0) & 0xFF;
-            int8_t V = (pixel >> 16) & 0xFF;
-            vectorscope_pixel_step(Y, U, V);
+            if (vect_draw)
+            {
+                int8_t U = (pixel >>  0) & 0xFF;
+                int8_t V = (pixel >> 16) & 0xFF;
+                vectorscope_pixel_step(Y, U, V);
+            }
             #endif
         }
     }
@@ -3819,7 +3826,7 @@ void draw_histogram_and_waveform(int allow_play)
 #if defined(FEATURE_HISTOGRAM) || defined(FEATURE_WAVEFORM) || defined(FEATURE_VECTORSCOPE)
     if (0
         || hist_draw
-        || waveform_draw
+        || WAVEFORM_DRAW
 #if defined(FEATURE_VECTORSCOPE)
         || vectorscope_should_draw()
 #endif
@@ -3863,7 +3870,7 @@ void draw_histogram_and_waveform(int allow_play)
     if (is_zoom_mode_so_no_zebras()) return;
         
 #ifdef FEATURE_WAVEFORM
-    if( waveform_draw)
+    if( WAVEFORM_DRAW)
     {
         #ifdef CONFIG_4_3_SCREEN
         if (PLAY_OR_QR_MODE && WAVEFORM_FACTOR == 1)
