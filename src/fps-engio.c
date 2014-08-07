@@ -123,7 +123,7 @@ static int fps_timer_a_orig;
 static int fps_timer_b;        // C0F06014
 static int fps_timer_b_orig; 
 
-static int fps_values_x1000[] = {
+static int fps_values_x1000_movie[] = {
     150, 200, 250, 333, 400, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000,
     5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 12500, 14000, 15000, 16000,
     17000, 18000, 19000, 20000, 21000, 22000, 23000, 23976, 24000, 25000, 26000, 27000,
@@ -134,28 +134,47 @@ static int fps_values_x1000[] = {
     #endif
 };
 
-static CONFIG_INT("fps.override", fps_override, 0);
+/* in photo mode, this helps you frame and focus in low light, no need to record video => no need to fine-tune the FPS */
+static int fps_values_x1000_photo[] = {
+    500, 750, 1000, 1500, 2000, 3000, 5000, 8000, 10000, 15000, 20000, 25000, 30000,
+};
+
+static const char * fps_choices_photo[] = {
+    "0.5 FPS", "0.75 FPS", "1 FPS", "1.5 FPS", "2 FPS", "3 FPS", "5 FPS", "8 FPS", "10 FPS", "15 FPS", "20 FPS", "25 FPS", "30 FPS",
+};
+
+static CONFIG_INT("fps.override.mv", fps_override_movie, 0);
+static CONFIG_INT("fps.override.ph", fps_override_photo, 0);
 
 static inline int get_fps_override()
 {
 #ifdef FEATURE_FPS_OVERRIDE
-    #ifdef CONFIG_7D
-    /* on 7D, FPS override can be used only for RAW and in photo mode */
-    return fps_override && (!is_movie_mode() || raw_lv_is_enabled());
-    #else
-    return fps_override;
-    #endif
+    if (is_movie_mode())
+    {
+        #ifdef CONFIG_7D
+        /* on 7D, FPS override can be used only for RAW and in photo mode */
+        return fps_override_movie && raw_lv_is_enabled();
+        #else
+        return fps_override_movie;
+        #endif
+    }
+    else
+    {
+        /* in photo mode, it can be used on all cameras */
+        return fps_override_photo;
+    }
 #else
     return 0;
 #endif
 }
 
-static CONFIG_INT("fps.override.idx", fps_override_index, 10);
+static CONFIG_INT("fps.override.idx.mv", fps_override_index_movie, 10);
+static CONFIG_INT("fps.override.idx.ph", fps_override_index_photo, 6);
 
-// 1000 = zero, more is positive, less is negative
-static CONFIG_INT("fps.timerA.off", desired_fps_timer_a_offset, 0); // add this to default Canon value
-static CONFIG_INT("fps.timerB.off", desired_fps_timer_b_offset, 0); // add this to computed value (for fine tuning)
-static CONFIG_INT("fps.preset", fps_criteria, 0);
+/* in photo mode, it defaults to Low Light, no timer tweaks */
+static CONFIG_INT("fps.timerA.off", desired_fps_timer_a_offset_movie, 0); // add this to default Canon value
+static CONFIG_INT("fps.timerB.off", desired_fps_timer_b_offset_movie, 0); // add this to computed value (for fine tuning)
+static CONFIG_INT("fps.preset", fps_criteria_movie, 0);
 
 #ifdef FEATURE_FPS_RAMPING
 static CONFIG_INT("fps.ramp", fps_ramp, 0);
@@ -581,7 +600,7 @@ static int fps_get_timer(int fps_x1000)
 
     // in PAL/NTSC, round FPS to match the power supply frequency and avoid flicker
     // if criteria is "exact FPS", or fps ramping is enabled, or we are in photo mode, don't round
-    if (fps_criteria != 1 && !fps_ramp && is_movie_mode())
+    if (fps_criteria_movie != 1 && !fps_ramp && is_movie_mode())
     {
         // NTSC is 29.97, not 30
         // also try to round it in order to avoid flicker
@@ -624,15 +643,17 @@ static void fps_setup_timerB(int fps_x1000)
     if (!fps_x1000) return;
 
     // now we can compute timer B
-    int timerB_off = desired_fps_timer_b_offset;
-    int timerB = 0;
-    timerB = fps_get_timer(fps_x1000);
+    int timerB = fps_get_timer(fps_x1000);
     
     // check hard limits
     timerB = COERCE(timerB, FPS_TIMER_B_MIN, FPS_TIMER_B_MAX);
     
     // apply user fine-tuning offset
-    timerB += timerB_off;
+    if (is_movie_mode())
+    {
+        int timerB_off = desired_fps_timer_b_offset_movie;
+        timerB += timerB_off;
+    }
 
     // check hard limits again
     timerB = COERCE(timerB, FPS_TIMER_B_MIN, FPS_TIMER_B_MAX);
@@ -709,6 +730,8 @@ static MENU_UPDATE_FUNC(fps_print)
     static int last_inactive = 0;
     int t = get_ms_clock_value_fast();
     
+    int fps_override = is_movie_mode() ? fps_override_movie : fps_override_photo;
+    
     if (fps_override)
     {
         int current_fps = fps_get_current_x1000();
@@ -729,7 +752,7 @@ static MENU_UPDATE_FUNC(fps_print)
 #ifdef CONFIG_7D
     if (is_movie_mode() && !raw_lv_is_enabled())
     {
-        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "On 7D, FPS override can be used only with RAW, or in photo mode.");
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "On 7D, FPS override can be used only when recording RAW.");
     }
 #endif
 
@@ -745,9 +768,9 @@ static MENU_UPDATE_FUNC(fps_current_print)
     );
 }
 
-static MENU_UPDATE_FUNC(desired_fps_print)
+static MENU_UPDATE_FUNC(desired_fps_print_movie)
 {
-    int desired_fps = fps_values_x1000[fps_override_index];
+    int desired_fps = fps_values_x1000_movie[fps_override_index_movie];
     int default_fps = lv ? calc_fps_x1000(fps_timer_a_orig, fps_timer_b_orig) : 0;
     if (desired_fps % 1000)
         MENU_SET_VALUE(
@@ -935,24 +958,38 @@ static void fps_reset()
 }
 
 
-static void fps_change_value(void* priv, int delta)
+static void fps_change_value_movie(void* priv, int delta)
 {
-    fps_override_index = MOD(fps_override_index + delta, COUNT(fps_values_x1000));
-    desired_fps_timer_a_offset = 0;
-    desired_fps_timer_b_offset = 0;
+    fps_override_index_movie = MOD(fps_override_index_movie + delta, COUNT(fps_values_x1000_movie));
+    desired_fps_timer_a_offset_movie = 0;
+    desired_fps_timer_b_offset_movie = 0;
     if (get_fps_override()) fps_needs_updating = 1;
 }
 
-static void fps_enable_disable(void* priv, int delta)
+static void fps_enable_disable_movie(void* priv, int delta)
 {
     #ifdef FEATURE_FPS_OVERRIDE
-    fps_override = !fps_override;
+    fps_override_movie = !fps_override_movie;
+    if (get_fps_override()) fps_needs_updating = 1;
     #endif
+}
+
+static void fps_enable_disable_photo(void* priv, int delta)
+{
+    #ifdef FEATURE_FPS_OVERRIDE
+    fps_override_photo = !fps_override_photo;
+    if (get_fps_override()) fps_needs_updating = 1;
+    #endif
+}
+
+static void fps_change_value_photo(void* priv, int delta)
+{
+    fps_override_index_photo = MOD(fps_override_index_photo + delta, COUNT(fps_values_x1000_photo));
     if (get_fps_override()) fps_needs_updating = 1;
 }
 
 #ifndef FRAME_SHUTTER_BLANKING_WRITE
-static MENU_UPDATE_FUNC(shutter_range_print)
+static MENU_UPDATE_FUNC(shutter_range_print_movie)
 {
     // EA = (E0 + (1/Fb - 1/F0)) * Ta / Ta0
     // see get_current_shutter_reciprocal_x1000 for details
@@ -976,15 +1013,15 @@ static MENU_UPDATE_FUNC(shutter_range_print)
 }
 #endif
 
-static MENU_UPDATE_FUNC(fps_timer_print)
+static MENU_UPDATE_FUNC(fps_timer_print_movie)
 {
-    int A = (entry->priv == &desired_fps_timer_a_offset);
+    int A = (entry->priv == &desired_fps_timer_a_offset_movie);
     int t = A ? fps_timer_a : fps_timer_b;
     int t0 = A ? fps_timer_a_orig : fps_timer_b_orig; 
     if (t0 == 0) t0 = 1;
     int t_min = A ? FPS_TIMER_A_MIN : FPS_TIMER_B_MIN;
     int t_max = A ? FPS_TIMER_A_MAX : FPS_TIMER_B_MAX;
-    int finetune_delta = A ? desired_fps_timer_a_offset : desired_fps_timer_b_offset;
+    int finetune_delta = A ? desired_fps_timer_a_offset_movie : desired_fps_timer_b_offset_movie;
     int delta = t - t0;
     char dec[10] = "";
     if (!finetune_delta && ABS(delta) >= 100) 
@@ -1015,21 +1052,21 @@ static MENU_UPDATE_FUNC(tg_freq_print)
     );
 }
 
-static void fps_timer_fine_tune_a(void* priv, int delta)
+static void fps_timer_fine_tune_a_movie(void* priv, int delta)
 {
-    desired_fps_timer_a_offset += delta * 2;
+    desired_fps_timer_a_offset_movie += delta * 2;
     if (get_fps_override()) fps_needs_updating = 1;
 }
 
-static void fps_timer_fine_tune_a_big(void* priv, int delta)
+static void fps_timer_fine_tune_a_big_movie(void* priv, int delta)
 {
-    desired_fps_timer_a_offset += delta * 100;
+    desired_fps_timer_a_offset_movie += delta * 100;
     if (get_fps_override()) fps_needs_updating = 1;
 }
 
-static void fps_timer_fine_tune_b(void* priv, int delta)
+static void fps_timer_fine_tune_b_movie(void* priv, int delta)
 {
-    desired_fps_timer_b_offset += delta;
+    desired_fps_timer_b_offset_movie += delta;
     if (get_fps_override()) fps_needs_updating = 1;
 }
 
@@ -1119,7 +1156,7 @@ static void fps_setup_timerA(int fps_x1000)
     // for NTSC, we probably need FPS * 1000/1001
     int ntsc = is_current_mode_ntsc();
     ntsc += 0; // bypass warning
-    if (fps_criteria == 1) ntsc = 0; // use PAL-like rounding [hack]
+    if (fps_criteria_movie == 1) ntsc = 0; // use PAL-like rounding [hack]
     #if !defined(CONFIG_500D) && !defined(CONFIG_50D) // these cameras use 30.000 fps, not 29.97
     if (ntsc) fps_x1000 = fps_x1000 * 1000/1001;
     #endif
@@ -1135,6 +1172,8 @@ static void fps_setup_timerA(int fps_x1000)
     #ifdef NEW_FPS_METHOD
     int default_fps = calc_fps_x1000(fps_timer_a_orig, fps_timer_b_orig);
     #endif
+    
+    int fps_criteria = is_movie_mode() ? fps_criteria_movie : 0;
     
     // {"Low light", "Exact FPS", "180deg shutter", "Jello effect"},
     switch (fps_criteria)
@@ -1209,8 +1248,11 @@ static void fps_setup_timerA(int fps_x1000)
     timerA = COERCE(timerA, FPS_TIMER_A_MIN, timerA_max);
     
     // apply user fine tuning
-    int timerA_off = desired_fps_timer_a_offset;
-    timerA += timerA_off;
+    if (is_movie_mode())
+    {
+        int timerA_off = desired_fps_timer_a_offset_movie;
+        timerA += timerA_off;
+    }
 
     // check hard limits again
     timerA = COERCE(timerA, FPS_TIMER_A_MIN, timerA_max);
@@ -1225,11 +1267,11 @@ static void fps_setup_timerA(int fps_x1000)
     EngDrvOutFPS(FPS_REGISTER_A, val_a);
 }
 
-static void fps_criteria_change(void* priv, int delta)
+static void fps_criteria_change_movie(void* priv, int delta)
 {
-    desired_fps_timer_a_offset = 0;
-    desired_fps_timer_b_offset = 0;
-    fps_criteria = MOD(fps_criteria + delta, 4);
+    desired_fps_timer_a_offset_movie = 0;
+    desired_fps_timer_b_offset_movie = 0;
+    fps_criteria_movie = MOD(fps_criteria_movie + delta, 4);
     if (get_fps_override()) fps_needs_updating = 1;
 }
 
@@ -1238,32 +1280,32 @@ static MENU_UPDATE_FUNC(fps_ramp_duration_update)
     if (!fps_ramp) MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "FPS ramping disabled.");
 }
 
-static struct menu_entry fps_menu[] = {
+static struct menu_entry fps_menu_movie[] = {
     #ifdef FEATURE_FPS_OVERRIDE
     {
         .name = "FPS override", 
-        .priv = &fps_override,
-        .select = fps_enable_disable,
+        .priv = &fps_override_movie,
+        .select = fps_enable_disable_movie,
         .update = fps_print,
         .max = 1,
-        .help = "Changes FPS. Also disables sound and alters shutter speeds.",
-        .help2 = "Tip: in photo mode, it makes LiveView usable in darkness.",
-        .depends_on = DEP_LIVEVIEW,
+        .help = "Changes FPS. Disables sound in H.264 and may alter shutter speed.",
+        .help2 = "Tip: you may also use it to reduce rolling shutter effects.",
+        .depends_on = DEP_MOVIE_MODE,
         .submenu_width = 650,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Desired FPS", 
-                .priv    = &fps_override_index,
-                .update = desired_fps_print,
+                .priv    = &fps_override_index_movie,
+                .update = desired_fps_print_movie,
                 .min = 0,
-                .max = COUNT(fps_values_x1000) - 1,
-                .select = fps_change_value,
+                .max = COUNT(fps_values_x1000_movie) - 1,
+                .select = fps_change_value_movie,
                 .icon_type = IT_PERCENT,
                 .help = "FPS value for recording. Video will play back at Canon FPS.",
             },
             {
                 .name = "Optimize for",
-                .priv       = &fps_criteria,
+                .priv       = &fps_criteria_movie,
                 .choices = (const char *[]) {
                     "Low light", 
                     "Exact FPS", 
@@ -1277,7 +1319,7 @@ static struct menu_entry fps_menu[] = {
                 },
                 .icon_type = IT_DICE,
                 .max = 3,
-                .select = fps_criteria_change,
+                .select = fps_criteria_change_movie,
                 .help = "Changing FPS has side effects - choose what's best for you:",
                 .help2 =
                         #ifdef FRAME_SHUTTER_BLANKING_WRITE
@@ -1297,8 +1339,8 @@ static struct menu_entry fps_menu[] = {
             #ifndef FRAME_SHUTTER_BLANKING_WRITE
             {
                 .name = "Shutter range",
-                .update = shutter_range_print,
-                .select = fps_timer_fine_tune_a_big,
+                .update = shutter_range_print_movie,
+                .select = fps_timer_fine_tune_a_big_movie,
                 .icon_type = IT_ALWAYS_ON,
                 .help  = "Shutter speed range, when Canon shows 1/30-1/4000.",
                 .help2 = "You can fine-tune this, but don't expect miracles.",
@@ -1307,18 +1349,18 @@ static struct menu_entry fps_menu[] = {
             #endif
             {
                 .name = "FPS timer A",
-                .update = fps_timer_print,
-                .priv = &desired_fps_timer_a_offset,
-                .select = fps_timer_fine_tune_a,
+                .update = fps_timer_print_movie,
+                .priv = &desired_fps_timer_a_offset_movie,
+                .select = fps_timer_fine_tune_a_movie,
                 .icon_type = IT_PERCENT,
                 .help = "High values = lower FPS, more jello effect, faster shutter.",
                 .advanced = 1,
             },
             {
                 .name = "FPS timer B",
-                .update = fps_timer_print,
-                .priv = &desired_fps_timer_b_offset,
-                .select = fps_timer_fine_tune_b,
+                .update = fps_timer_print_movie,
+                .priv = &desired_fps_timer_b_offset_movie,
+                .select = fps_timer_fine_tune_b_movie,
                 .icon_type = IT_PERCENT,
                 .help = "High values = lower FPS, shutter speed converges to 1/fps.",
                 .advanced = 1,
@@ -1374,9 +1416,45 @@ static struct menu_entry fps_menu[] = {
     #endif
 };
 
+static struct menu_entry fps_menu_photo[] = {
+    #ifdef FEATURE_FPS_OVERRIDE
+    {
+        .name = "Low-light FPS", 
+        .priv = &fps_override_photo,
+        .select = fps_enable_disable_photo,
+        .update = fps_print,
+        .max = 1,
+        .help  = "Makes LiveView usable in darkness by lowering the FPS.",
+        .help2 = "Tip: you may also want to enable Expo Override and LV Display Gain.",
+        .depends_on = DEP_LIVEVIEW | DEP_PHOTO_MODE,
+        .submenu_width = 650,
+        .children =  (struct menu_entry[]) {
+            {
+                .name = "Desired FPS", 
+                .priv = &fps_override_index_photo,
+                .min = 0,
+                .max = COUNT(fps_values_x1000_photo) - 1,
+                .choices = fps_choices_photo,
+                .select = fps_change_value_photo,
+                .icon_type = IT_PERCENT,
+                .help = "FPS value for LiveView. Decrease to capture more light.",
+            },
+            {
+                .name = "Actual FPS",
+                .update = fps_current_print,
+                .icon_type = IT_ALWAYS_ON,
+                .help = "Exact FPS (computed, read-only).",
+            },
+            MENU_EOL,
+        },
+    },
+    #endif
+};
+
 static void fps_init()
 {
-    menu_add( "Movie", fps_menu, COUNT(fps_menu) );
+    menu_add( "Movie", fps_menu_movie, COUNT(fps_menu_movie) );
+    menu_add( "Shoot", fps_menu_photo, COUNT(fps_menu_photo) );
 }
 
 INIT_FUNC("fps", fps_init);
@@ -1543,7 +1621,8 @@ static void fps_task()
             continue;
         }
 
-        int f = fps_values_x1000[fps_override_index];
+        int f = is_movie_mode() ? fps_values_x1000_movie[fps_override_index_movie]
+                                : fps_values_x1000_photo[fps_override_index_photo] ;
         
         #ifdef FEATURE_FPS_RAMPING
         if (FPS_RAMP) // artistic effect - http://www.magiclantern.fm/forum/index.php?topic=2963.0
@@ -1664,6 +1743,7 @@ void fps_mvr_log(char* mvr_logfile_buffer)
 // on certain events (PLAY, RECORD) we need to disable FPS override temporarily
 int handle_fps_events(struct event * event)
 {
+    if (!is_movie_mode()) return 1;
     if (!get_fps_override()) return 1;
     
     #ifdef FEATURE_FPS_RAMPING
@@ -1684,7 +1764,7 @@ int handle_fps_events(struct event * event)
     
     // Very low FPS: first few frames will be recorded at normal FPS, to bypass Canon's internal checks
     // and to make the user interface responsive without having to wait for 30 frames
-    int f = fps_values_x1000[fps_override_index];
+    int f = fps_values_x1000_movie[fps_override_index_movie];
     if (f < 5000 && NOT_RECORDING &&
     #if defined(CONFIG_50D) || defined(CONFIG_5D2)
         event->param == BGMT_PRESS_SET
