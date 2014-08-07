@@ -156,7 +156,6 @@ static CONFIG_INT("fps.override.idx", fps_override_index, 10);
 static CONFIG_INT("fps.timerA.off", desired_fps_timer_a_offset, 0); // add this to default Canon value
 static CONFIG_INT("fps.timerB.off", desired_fps_timer_b_offset, 0); // add this to computed value (for fine tuning)
 static CONFIG_INT("fps.preset", fps_criteria, 0);
-static CONFIG_INT("fps.wav.record", fps_wav_record, 0);
 
 static CONFIG_INT("fps.const.expo", fps_const_expo, 0);
 
@@ -171,17 +170,7 @@ static int fps_ramp_up = 0;
 
 #define FPS_RAMP (fps_ramp && is_movie_mode())
 
-#ifdef FEATURE_FPS_WAV_RECORD
-    #ifndef FEATURE_FPS_OVERRIDE
-    #error This requires FEATURE_FPS_OVERRIDE.
-    #endif
-    #ifndef FEATURE_WAV_RECORDING
-    #error This requires FEATURE_WAV_RECORDING.
-    #endif
-int fps_should_record_wav() { return get_fps_override() && fps_wav_record && is_movie_mode() && FPS_SOUND_DISABLE && was_sound_recording_disabled_by_fps_override(); }
-#else
 int fps_should_record_wav() { return 0; }
-#endif
 
 #if defined(CONFIG_50D) || defined(CONFIG_500D)
 PROP_INT(PROP_VIDEO_SYSTEM, pal);
@@ -1246,12 +1235,6 @@ static void fps_criteria_change(void* priv, int delta)
     if (get_fps_override()) fps_needs_updating = 1;
 }
 
-static MENU_UPDATE_FUNC(fps_wav_record_print)
-{
-    MENU_SET_ENABLED(1);
-    MENU_SET_ICON(CURRENT_VALUE ? MNI_ON : MNI_DISABLE, 0);
-}
-
 static MENU_UPDATE_FUNC(fps_ramp_duration_update)
 {
     if (!fps_ramp) MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "FPS ramping disabled.");
@@ -1381,19 +1364,6 @@ static struct menu_entry fps_menu[] = {
             },
             #endif
             #endif
-
-            #ifdef FEATURE_FPS_WAV_RECORD
-            {
-                .name = "Sound Record",
-                .priv = &fps_wav_record,
-                .max = 1,
-                .update = fps_wav_record_print,
-                .choices = (const char *[]) {"Disabled", "Separate WAV"},
-                .help = "Sound goes out of sync, so it has to be recorded separately.",
-                .advanced = 1,
-            },
-            #endif
-
 
             #ifdef FEATURE_FPS_RAMPING
             {
