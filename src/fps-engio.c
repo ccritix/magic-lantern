@@ -735,7 +735,7 @@ static MENU_UPDATE_FUNC(fps_print)
     if (fps_override)
     {
         int current_fps = fps_get_current_x1000();
-        MENU_SET_VALUE("%d.%03d", 
+        MENU_SET_VALUE("%d.%03d FPS", 
             current_fps/1000, current_fps%1000
         );
         
@@ -1419,7 +1419,7 @@ static struct menu_entry fps_menu_movie[] = {
 static struct menu_entry fps_menu_photo[] = {
     #ifdef FEATURE_FPS_OVERRIDE
     {
-        .name = "Low-light FPS", 
+        .name = "LV refresh rate", 
         .priv = &fps_override_photo,
         .select = fps_enable_disable_photo,
         .update = fps_print,
@@ -1454,7 +1454,7 @@ static struct menu_entry fps_menu_photo[] = {
 static void fps_init()
 {
     menu_add( "Movie", fps_menu_movie, COUNT(fps_menu_movie) );
-    menu_add( "Shoot", fps_menu_photo, COUNT(fps_menu_photo) );
+    menu_add( "Display", fps_menu_photo, COUNT(fps_menu_photo) );
 }
 
 INIT_FUNC("fps", fps_init);
