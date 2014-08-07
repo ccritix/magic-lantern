@@ -3785,7 +3785,7 @@ BMP_LOCK(
     draw_histogram_and_waveform(1);
 
     #ifdef FEATURE_FALSE_COLOR
-    if (falsecolor_draw) 
+    if (falsecolor_draw && !can_use_raw_overlays_menu()) 
     {
         draw_false_downsampled();
     }
@@ -4632,7 +4632,7 @@ livev_hipriority_task( void* unused )
             #endif
             
             #ifdef FEATURE_FALSE_COLOR
-            if (falsecolor_draw)
+            if (falsecolor_draw && !can_use_raw_overlays_menu())
             {
                 if (k % 4 == 0)
                     BMP_LOCK( if (lv) draw_false_downsampled(); )
