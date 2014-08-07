@@ -157,8 +157,6 @@ static CONFIG_INT("fps.timerA.off", desired_fps_timer_a_offset, 0); // add this 
 static CONFIG_INT("fps.timerB.off", desired_fps_timer_b_offset, 0); // add this to computed value (for fine tuning)
 static CONFIG_INT("fps.preset", fps_criteria, 0);
 
-static CONFIG_INT("fps.const.expo", fps_const_expo, 0);
-
 #ifdef FEATURE_FPS_RAMPING
 static CONFIG_INT("fps.ramp", fps_ramp, 0);
 static CONFIG_INT("fps.ramp.duration", fps_ramp_duration, 3);
@@ -1239,11 +1237,6 @@ static MENU_UPDATE_FUNC(fps_ramp_duration_update)
 {
     if (!fps_ramp) MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "FPS ramping disabled.");
 }
-static MENU_UPDATE_FUNC(fps_const_expo_update)
-{
-    extern int smooth_iso;
-    if (smooth_iso) MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "You need to disable gradual exposure.");
-}
 
 static struct menu_entry fps_menu[] = {
     #ifdef FEATURE_FPS_OVERRIDE
@@ -1350,20 +1343,6 @@ static struct menu_entry fps_menu[] = {
                 .icon_type = IT_ALWAYS_ON,
                 .help = "Amount of jello effect. Multiply \""SYM_MICRO"s/line\" by vertical resolution.",
             },
-
-            #ifdef CONFIG_FRAME_ISO_OVERRIDE
-            #ifndef FRAME_SHUTTER_BLANKING_WRITE
-            {
-                .name = "Constant expo",
-                .priv = &fps_const_expo,
-                .max = 1,
-                .update = fps_const_expo_update,
-                .help  = "Keep the same exposure (brightness) as with default FPS.",
-                .help2 = "This works by lowering ISO => you may get pink highlights.",
-                .depends_on = DEP_MANUAL_ISO | DEP_MOVIE_MODE,
-            },
-            #endif
-            #endif
 
             #ifdef FEATURE_FPS_RAMPING
             {
@@ -1724,90 +1703,6 @@ int handle_fps_events(struct event * event)
 
 
     return 1;
-}
-
-int fps_get_iso_correction_evx8()
-{
-#ifdef FRAME_SHUTTER_BLANKING_WRITE
-    return 0;
-#else
-    if (!get_fps_override()) return 0;
-    if (!fps_const_expo) return 0;
-    if (!is_movie_mode()) return 0;
-    if (!lens_info.raw_iso) return 0; // no auto iso
-
-    int unaltered = (int)roundf(1000/raw2shutterf(MAX(lens_info.raw_shutter, 96)));
-    int altered_by_fps = get_shutter_reciprocal_x1000(unaltered, fps_timer_a, fps_timer_a_orig, fps_timer_b, fps_timer_b_orig);
-    float gf = 1.0f * altered_by_fps / unaltered;
-    return log2f(gf)*8;
-#endif
-}
-
-void fps_expo_iso_step()
-{
-#ifdef CONFIG_FRAME_ISO_OVERRIDE
-#ifndef FRAME_SHUTTER_BLANKING_WRITE
-    if (!lv) return;
-    if (!lens_info.raw_iso) return; // no auto iso
-    
-    int mv = is_movie_mode();
-    
-    static int dirty = 0;
-    if (mv) /* movie mode: only enable when it's selected from menu */
-    {
-        if (!(fps_const_expo && get_fps_override()))
-        {
-            if (dirty) set_movie_digital_iso_gain_for_gradual_expo(1024);
-            return;
-        }
-    }
-    else /* photo mode: always on if FPS is enabled and expo override is disabled */
-    {
-        if (!get_fps_override())
-            return;
-        
-        if (CONTROL_BV) /* expo override will take care of it */
-            return;
-    }
-
-    int tv = MAX(lens_info.raw_shutter, 96);
-    #ifdef FRAME_SHUTTER
-    tv = FRAME_SHUTTER & 0xFF;
-    #endif
-    int unaltered = (int)roundf(1000/raw2shutterf(tv));
-    int altered_by_fps = get_shutter_reciprocal_x1000(unaltered, fps_timer_a, fps_timer_a_orig, fps_timer_b, fps_timer_b_orig);
-
-    float gf = 1024.0f * altered_by_fps / unaltered;
-
-    // adjust ISO just like in smooth_iso_step (copied from there)
-    int current_iso = FRAME_ISO & 0xFF;
-    int altered_iso = current_iso;
-    
-    int digic_iso_gain_movie = get_digic_iso_gain_movie();
-    #define G_ADJ ((int)roundf(digic_iso_gain_movie ? gf * digic_iso_gain_movie / 1024 : gf))
-    while (G_ADJ > 861*2 && altered_iso < MAX_ANALOG_ISO) 
-    {
-        altered_iso += 8;
-        gf /= 2;
-    }
-    while ((G_ADJ < 861 && altered_iso > 80) || (altered_iso > MAX_ANALOG_ISO))
-    {
-        altered_iso -= 8;
-        gf *= 2;
-    }
-
-    if (altered_iso != current_iso)
-    {
-        FRAME_ISO = altered_iso | (altered_iso << 8);
-    }
-
-    int g = (int)roundf(COERCE(gf, 1, 1<<20));
-    if (g == 1024) g = 1025; // force override 
-
-    if (mv) set_movie_digital_iso_gain_for_gradual_expo(g);
-    dirty = 1;
-#endif
-#endif
 }
 
 #ifdef NEW_FPS_METHOD

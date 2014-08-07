@@ -2421,10 +2421,6 @@ static LVINFO_UPDATE_FUNC(iso_update)
         /* this includes ML ISO digital gains, if any */
         int iso_equiv_raw = lens_info.iso_equiv_raw;
         
-        #ifdef FEATURE_FPS_OVERRIDE
-        iso_equiv_raw += fps_get_iso_correction_evx8();
-        #endif
-        
         int digital_gain = iso_equiv_raw - lens_info.raw_iso;
         
         if (digital_gain > 1)
