@@ -211,7 +211,7 @@ static struct menu_entry * get_selected_entry(struct menu * menu);
 static void submenu_display(struct menu * submenu);
 static void start_redraw_flood();
 static struct menu * menu_find_by_name(const char * name,  int icon);
-void menu_toggle_submenu();
+static int is_grayed_out(struct menu_entry * entry);
 
 extern int gui_state;
 void menu_enable_lv_transparent_mode()
@@ -1005,7 +1005,7 @@ menu_has_visible_items(struct menu * menu)
         if (entry == &customize_menu[0]) // hide the Customize menu if everything else from Prefs is also hidden
             goto next;
 
-        if (is_visible(entry))
+        if (is_visible(entry) && !is_grayed_out(entry))
         {
             return 1;
         }
@@ -2077,6 +2077,18 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
     }
     
     return MENU_WARN_NONE;
+}
+
+/* if all items from a menu are grayed out or hidden, that menu will not be displayed */
+static int is_grayed_out(struct menu_entry * entry)
+{
+    /* fixme: 
+     * - might be slow (the snprintf results are discarded)
+     * - and will not listen to update functions; it just checks the .depends_on tags (important?)
+     */
+    char warning[MENU_MAX_WARNING_LEN];
+    int warning_level = check_default_warnings(entry, warning);
+    return warning_level == MENU_WARN_NOT_WORKING;
 }
 
 static void
