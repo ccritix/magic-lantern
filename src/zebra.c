@@ -66,7 +66,7 @@
 #define MZ_GREEN 0xB68DB69E
 
 // spotmeter_formula modes
-#define SPTMTR_F_RGB_PERCENT 4
+#define SPTMTR_F_RGB_PERCENT 3
 
 #ifdef CONFIG_KILL_FLICKER // this will block all Canon drawing routines when the camera is idle 
 extern int kill_canon_gui_mode;
@@ -2170,20 +2170,14 @@ static MENU_UPDATE_FUNC(spotmeter_menu_display)
         MENU_SET_VALUE(
             "%s%s",
             
+            can_use_raw_overlays_menu() ? "RAW" :
             spotmeter_formula == 0 ? "Percent" :
             spotmeter_formula == 1 ? "0..255" :
-            spotmeter_formula == 2 ? "RGB" :          
-            spotmeter_formula == 3 ? "RAW" : "Percent RGB",
+            spotmeter_formula == 2 ? "RGB (HTML)" :          
+            spotmeter_formula == 3 ? "RGB (0..100)" : "?",
 
             spotmeter_draw && spotmeter_position ? ", AFbox" : ""
         );
-        
-        #ifdef FEATURE_RAW_SPOTMETER
-        if (spotmeter_formula == 3)
-        {
-            menu_checkdep_raw(entry, info);
-        }
-        #endif
     }
 }
 #endif
@@ -2375,7 +2369,10 @@ spotmeter_erase()
 
     int xcb = spot_prev_xcb;
     int ycb = spot_prev_ycb;
-    int dx = spotmeter_formula == 2 ? 52 : (spotmeter_formula == SPTMTR_F_RGB_PERCENT ? 67: 26); 
+    int dx = 
+        (spotmeter_formula == 2 || can_use_raw_overlays()) ? 52 :
+        (spotmeter_formula == SPTMTR_F_RGB_PERCENT)        ? 67 :
+                                                             26 ;
     int y0 = -13;
     uint32_t* M = (uint32_t*)get_bvram_mirror();
     uint32_t* B = (uint32_t*)bmp_vram();
@@ -2529,7 +2526,10 @@ static void spotmeter_step()
     uint32_t* M = (uint32_t*)get_bvram_mirror();
     uint32_t* B = (uint32_t*)bmp_vram();
 
-    int dx = spotmeter_formula == 2 ? 52 : (spotmeter_formula == SPTMTR_F_RGB_PERCENT ? 67: 26); 
+    int dx = 
+        (spotmeter_formula == 2 || can_use_raw_overlays()) ? 52 :
+        (spotmeter_formula == SPTMTR_F_RGB_PERCENT)        ? 67 :
+                                                             26 ;
     int y0 = arrow_keys_shortcuts_active() ? (int)(36 - font_med.height) : (int)(-13);
     for( y = (ycb&~1) + y0 ; y <= (ycb&~1) + 36 ; y++ )
     {
@@ -2563,30 +2563,21 @@ static void spotmeter_step()
     ycb -= font_med.height/2;
 
     #ifdef FEATURE_RAW_SPOTMETER
-    if (spotmeter_formula == 3)
+    if (can_use_raw_overlays())
     {
-        if (can_use_raw_overlays())
-        {
-            bmp_printf(
-                fnt | FONT_ALIGN_CENTER,
-                xcb, ycb, 
-                "-%d.%d EV",
-                -raw_ev/10, 
-                -raw_ev%10
-            );
-        }
-        else // will fall back to percent if no raw data is available
-        {
-            goto fallback_from_raw;
-        }
+        bmp_printf(
+            fnt | FONT_ALIGN_CENTER,
+            xcb, ycb, 
+            "-%d.%d EV",
+            -raw_ev/10, 
+            -raw_ev%10
+        );
+        return;
     }
     #endif
     
     if (spotmeter_formula <= 1)
     {
-#ifdef FEATURE_RAW_SPOTMETER
-fallback_from_raw:
-#endif
         bmp_printf(
             fnt | FONT_ALIGN_CENTER,
             xcb, ycb, 
@@ -2996,20 +2987,16 @@ struct menu_entry zebra_menus[] = {
             {
                 .name = "Spotmeter Unit",
                 .priv = &spotmeter_formula, 
-                #ifdef FEATURE_RAW_SPOTMETER
-                .max = 4,
-                #else
                 .max = 3,
-                #endif
-                .choices = (const char *[]) {"Percent", "0..255", "RGB (HTML)", "RAW (EV)", "RGB (Percent)"},
+                .choices = (const char *[]) {"Percent", "0..255", "RGB (HTML)", "RGB (Percent)"},
                 .icon_type = IT_DICE,
-                .help = "Measurement unit for brightness level(s).",
+                .help = "Measurement unit for the YUV-based spotmeter:",
                 .help2 =
                     "Percentage of overall brightness level.\n"
                     "8 bit RGB level.\n"
                     "HTML like color codes.\n"
-                    "Negative value from clipping, in EV (RAW).\n"
-                    "RGB color in Percentage.\n"
+                    "RGB color in Percentage.\n",
+                .depends_on = DEP_HIDE_IF_RAW,
             },
             {
                 .name = "Spot Position",
@@ -4122,9 +4109,9 @@ livev_hipriority_task( void* unused )
         if (raw && lv_dispsize == 1 && !is_movie_mode())
         {
             /* only raw zebras, raw histogram and raw spotmeter are working in LV raw mode */
-            if (zebra_draw && raw_zebra_enable == 1) raw_needed = 1;        /* raw zebras: always */
-            if (hist_draw && RAW_HISTOGRAM_ENABLED) raw_needed = 1;          /* raw hisogram (any kind) */
-            if (spotmeter_draw && spotmeter_formula == 3) raw_needed = 1;   /* spotmeter, units: raw */
+            if (zebra_draw && raw_zebra_enable == 1) raw_needed = 1;    /* raw zebras: always */
+            if (hist_draw && RAW_HISTOGRAM_ENABLED) raw_needed = 1;     /* raw histogram (any kind) */
+            if (spotmeter_draw) raw_needed = 1;                         /* spotmeter: it's always raw if you shoot raw */
         }
 
         if (!raw_flag && raw_needed)
