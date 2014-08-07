@@ -37,6 +37,7 @@
 #include "console.h"
 #include "debug.h"
 #include "lvinfo.h"
+#include "raw.h"
 
 #define CONFIG_MENU_ICONS
 //~ #define CONFIG_MENU_DIM_HACKS
@@ -1991,6 +1992,10 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
         snprintf(warning, MENU_MAX_WARNING_LEN, GDR_WARNING_MSG);
     else if (DEPENDS_ON(DEP_MOVIE_MODE) && !is_movie_mode())
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature only works in movie mode.");
+    else if (DEPENDS_ON(DEP_MOVIE_MODE_H264) && (!is_movie_mode() || raw_lv_is_enabled()))
+        snprintf(warning, MENU_MAX_WARNING_LEN, "This feature only works in H.264 movie mode.");
+    else if (DEPENDS_ON(DEP_MOVIE_MODE_RAW) && (!is_movie_mode() || !raw_lv_is_enabled()))
+        snprintf(warning, MENU_MAX_WARNING_LEN, "This feature only works in RAW movie mode.");
     else if (DEPENDS_ON(DEP_PHOTO_MODE) && is_movie_mode())
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature only works in photo mode.");
     else if (DEPENDS_ON(DEP_LIVEVIEW) && !lv)
@@ -2034,6 +2039,10 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
             snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best with GlobalDraw enabled.");
         else if (WORKS_BEST_IN(DEP_MOVIE_MODE) && !is_movie_mode())
             snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best in movie mode.");
+        else if (WORKS_BEST_IN(DEP_MOVIE_MODE_H264) && (!is_movie_mode() || raw_lv_is_enabled()))
+            snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best in H.264 movie mode.");
+        else if (WORKS_BEST_IN(DEP_MOVIE_MODE_RAW) && (!is_movie_mode() || !raw_lv_is_enabled()))
+            snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best in RAW movie mode.");
         else if (WORKS_BEST_IN(DEP_PHOTO_MODE) && is_movie_mode())
             snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best in photo mode.");
         else if (WORKS_BEST_IN(DEP_LIVEVIEW) && !lv)
