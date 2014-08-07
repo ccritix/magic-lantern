@@ -303,7 +303,7 @@ static struct menu_entry vectorscope_menus[] = {
         .max = 1,
         .update = vectorscope_update,
         .help = "Shows color distribution as U-V plot. For grading & WB.",
-        .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM,
+        .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM | DEP_HIDE_IF_RAW,
         .children =  (struct menu_entry[]) {
             {
                 .name = "UV scaling",
