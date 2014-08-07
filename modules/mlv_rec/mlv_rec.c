@@ -78,7 +78,10 @@
 
 #include "mlv.h"
 #include "mlv_rec.h"
+#include "mlv_rec_private.h"
 
+/* fixme: cleaner way to merge the two modules? */
+#include "mlv_snd.c"
 
 /* camera-specific tricks */
 /* todo: maybe add generic functions like is_digic_v, is_5d2 or stuff like that? */
@@ -211,10 +214,10 @@ static uint32_t writer_job_count[MAX_WRITER_THREADS];
 static int32_t current_write_speed[MAX_WRITER_THREADS];
 
 /* mlv information */
-struct msg_queue *mlv_block_queue = NULL;
-struct msg_queue *mlv_mgr_queue = NULL;
-struct msg_queue *mlv_mgr_queue_close = NULL;
-struct msg_queue *mlv_job_alloc_queue = NULL;
+static struct msg_queue *mlv_block_queue = NULL;
+static struct msg_queue *mlv_mgr_queue = NULL;
+static struct msg_queue *mlv_mgr_queue_close = NULL;
+static struct msg_queue *mlv_job_alloc_queue = NULL;
 static uint64_t mlv_start_timestamp = 0;
 static mlv_file_hdr_t mlv_file_hdr;
 
@@ -2087,6 +2090,7 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
             edmac_timeouts = 0;
             raw_recording_state = RAW_FINISHING;
             raw_rec_cbr_stopping();
+            mlv_snd_rec_stopping();
         }
         return 0;
     }
@@ -2106,6 +2110,7 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
     {
         raw_recording_state = RAW_FINISHING;
         raw_rec_cbr_stopping();
+        mlv_snd_rec_stopping();
         return 0;
     }
     
@@ -2192,6 +2197,7 @@ static int32_t mlv_rec_get_chunk_filename(char* base_name, char* filename, int32
 static int32_t mlv_write_hdr(FILE* f, mlv_hdr_t *hdr)
 {
     raw_rec_cbr_mlv_block(hdr);
+    mlv_snd_mlv_block(hdr);
 
     uint32_t written = FIO_WriteFile(f, hdr, hdr->blockSize);
 
@@ -2699,6 +2705,7 @@ static void raw_writer_task(uint32_t writer)
 abort:
             raw_recording_state = RAW_FINISHING;
             raw_rec_cbr_stopping();
+            mlv_snd_rec_stopping();
             NotifyBox(5000, "Recording stopped:\n '%s'", error_message);
             /* this is error beep, not audio sync beep */
             beep_times(2);
@@ -2771,6 +2778,7 @@ static void enqueue_buffer(uint32_t writer, write_job_t *write_job)
             else
             {
                 raw_rec_cbr_mlv_block(block);
+                mlv_snd_mlv_block(block);
 
                 /* prepend the given block if possible or requeue it in case of error */
                 int32_t ret = mlv_prepend_block(slot, block);
@@ -3000,6 +3008,7 @@ static void raw_video_rec_task()
 
     /* signal that we are starting, call this before any memory allocation to give CBR the chance to allocate memory */
     raw_rec_cbr_starting();
+    mlv_snd_rec_starting();
 
     /* allocate memory */
     if(!setup_buffers())
@@ -3111,6 +3120,7 @@ static void raw_video_rec_task()
 
         /* some modules may do some specific stuff right when we started recording */
         raw_rec_cbr_started();
+        mlv_snd_rec_started();
 
         while((raw_recording_state == RAW_RECORDING) || (used_slots > 0))
         {
@@ -3146,6 +3156,7 @@ static void raw_video_rec_task()
                 /* stop recording */
                 raw_recording_state = RAW_FINISHING;
                 raw_rec_cbr_stopping();
+                mlv_snd_rec_stopping();
             }
             
             /* on shutdown or writers that aborted, abort even if there are unwritten slots */
@@ -3179,6 +3190,7 @@ static void raw_video_rec_task()
                 trace_write(raw_rec_trace_ctx, "<-- stopped recording, frame was skipped");
                 raw_recording_state = RAW_FINISHING;
                 raw_rec_cbr_stopping();
+                mlv_snd_rec_stopping();
             }
 
             /* how fast are we writing? does this speed match our benchmarks? */
@@ -3402,6 +3414,7 @@ static void raw_video_rec_task()
         /* done, this will stop the vsync CBR and the copying task */
         raw_recording_state = RAW_FINISHING;
         raw_rec_cbr_stopping();
+        mlv_snd_rec_stopping();
 
         /* queue two aborts to cancel tasks */
         msg_queue_receive(mlv_job_alloc_queue, &write_job, 0);
@@ -3439,6 +3452,7 @@ static void raw_video_rec_task()
 cleanup:
     /* signal that we are stopping */
     raw_rec_cbr_stopped();
+    //~ mlv_snd_rec_stopped();
 
     /*
     if(DISPLAY_REC_INFO_DEBUG)
@@ -3473,6 +3487,7 @@ static MENU_SELECT_FUNC(raw_start_stop)
         abort_test = 1;
         raw_recording_state = RAW_FINISHING;
         raw_rec_cbr_stopping();
+        mlv_snd_rec_stopping();
     }
     else
     {
@@ -4055,6 +4070,8 @@ static unsigned int raw_rec_init()
         NotifyBoxHide();
     }
 
+    mlv_snd_init();
+
     return 0;
 }
 
@@ -4065,6 +4082,9 @@ static unsigned int raw_rec_deinit()
         trace_stop(raw_rec_trace_ctx, 0);
         raw_rec_trace_ctx = TRACE_ERROR;
     }
+    
+    mlv_snd_deinit();
+    
     return 0;
 }
 
@@ -4078,6 +4098,7 @@ MODULE_CBRS_START()
     MODULE_CBR(CBR_KEYPRESS, raw_rec_keypress_cbr, 0)
     MODULE_CBR(CBR_SHOOT_TASK, raw_rec_polling_cbr, 0)
     MODULE_CBR(CBR_DISPLAY_FILTER, raw_rec_update_preview, 0)
+    MODULE_CBR(CBR_VSYNC, mlv_snd_vsync, 0)
 MODULE_CBRS_END()
 
 MODULE_PROPHANDLERS_START()
@@ -4127,4 +4148,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(create_dummy)
     MODULE_CONFIG(black_fix)
     MODULE_CONFIG(create_dirs)
+
+    MODULE_CONFIG(mlv_snd_enabled)
+    MODULE_CONFIG(mlv_snd_enable_tracing)
 MODULE_CONFIGS_END()

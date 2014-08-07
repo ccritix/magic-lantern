@@ -22,23 +22,19 @@
  * Boston, MA  02110-1301, USA.
  */
 
-#include <module.h>
-#include <dryos.h>
-#include <menu.h>
-#include <config.h>
-#include <bmp.h>
-#include <beep.h>
-#include <propvalues.h>
-#include <raw.h>
-
-#include "../trace/trace.h"
-#include "../mlv_rec/mlv.h"
+//~ #include <dryos.h>
+//~ #include <menu.h>
+//~ #include <config.h>
+//~ #include <bmp.h>
+//~ #include <beep.h>
+//~ #include <propvalues.h>
+//~ #include <raw.h>
 
 #define MLV_SND_BUFFERS 4
 
 static uint32_t trace_ctx = TRACE_ERROR;
 
-static CONFIG_INT("mlv.snd.enabled", mlv_snd_enabled, 0);
+static CONFIG_INT("mlv.snd.enabled", mlv_snd_enabled, 1);
 static CONFIG_INT("mlv.snd.mlv_snd_enable_tracing", mlv_snd_enable_tracing, 0);
 
 int mlv_snd_is_enabled()
@@ -90,8 +86,8 @@ typedef struct
     int32_t mlv_slot_end;
 } audio_data_t;
 
-audio_data_t *mlv_snd_current_buffer = NULL;
-audio_data_t *mlv_snd_next_buffer = NULL;
+static audio_data_t *mlv_snd_current_buffer = NULL;
+static audio_data_t *mlv_snd_next_buffer = NULL;
 
 #define MLV_SND_STATE_IDLE                   0  /* waiting for action, set by writer task upon exit */
 #define MLV_SND_STATE_PREPARE                1  /* recording was started, set by mlv_snd_start() */
@@ -451,8 +447,7 @@ static void mlv_snd_queue_wavi()
     mlv_rec_queue_block((mlv_hdr_t *)hdr);
 }
 
-/* public functions for raw_rec */
-uint32_t raw_rec_cbr_starting()
+static uint32_t mlv_snd_rec_starting()
 {
     if(!mlv_snd_enabled)
     {
@@ -469,7 +464,7 @@ uint32_t raw_rec_cbr_starting()
     return 0;
 }
 
-uint32_t raw_rec_cbr_started()
+static uint32_t mlv_snd_rec_started()
 {
     if(mlv_snd_state == MLV_SND_STATE_PREPARE)
     {
@@ -480,7 +475,7 @@ uint32_t raw_rec_cbr_started()
     return 0;
 }
 
-uint32_t raw_rec_cbr_stopping()
+static uint32_t mlv_snd_rec_stopping()
 {
     if(mlv_snd_state != MLV_SND_STATE_IDLE)
     {
@@ -491,7 +486,7 @@ uint32_t raw_rec_cbr_stopping()
     return 0;
 }
 
-uint32_t raw_rec_cbr_mlv_block(mlv_hdr_t *hdr)
+static uint32_t mlv_snd_mlv_block(mlv_hdr_t *hdr)
 {
     if(!memcmp(hdr->blockType, "MLVI", 4))
     {
@@ -569,7 +564,7 @@ static unsigned int mlv_snd_vsync(unsigned int unused)
 static struct menu_entry mlv_snd_menu[] =
 {
     {
-        .name = "MLV Sound",
+        .name = "Sound recording",
         .priv = &mlv_snd_enabled,
         .max = 1,
         .help = "Enable sound recording for MLV.",
@@ -610,7 +605,7 @@ static unsigned int mlv_snd_init()
     mlv_snd_buffers_empty = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_empty", 300);
     mlv_snd_buffers_done = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_done", 300);
     
-    menu_add("Audio", mlv_snd_menu, COUNT(mlv_snd_menu));
+    menu_add("RAW video (MLV)", mlv_snd_menu, COUNT(mlv_snd_menu));
     trace_write(trace_ctx, "mlv_snd_init: done");
     
     return 0;
@@ -625,17 +620,3 @@ static unsigned int mlv_snd_deinit()
     }
     return 0;
 }
-
-MODULE_INFO_START()
-    MODULE_INIT(mlv_snd_init)
-    MODULE_DEINIT(mlv_snd_deinit)
-MODULE_INFO_END()
-
-MODULE_CBRS_START()
-    MODULE_CBR(CBR_VSYNC, mlv_snd_vsync, 0)
-MODULE_CBRS_END()
-
-MODULE_CONFIGS_START()
-    MODULE_CONFIG(mlv_snd_enabled)
-    MODULE_CONFIG(mlv_snd_enable_tracing)
-MODULE_CONFIGS_END()
