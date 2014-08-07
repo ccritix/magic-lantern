@@ -1005,7 +1005,8 @@ menu_has_visible_items(struct menu * menu)
         if (entry == &customize_menu[0]) // hide the Customize menu if everything else from Prefs is also hidden
             goto next;
 
-        if (is_visible(entry) && !is_grayed_out(entry))
+        /* in top-level menus, skip grayed out entries */
+        if (is_visible(entry) && (IS_SUBMENU(menu) || !is_grayed_out(entry)))
         {
             return 1;
         }
