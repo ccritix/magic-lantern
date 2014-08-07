@@ -225,13 +225,13 @@ struct menu_entry
 #define UNIT_DEC 7
 #define UNIT_TIME 8
 
-#define DEPENDS_ON(foo) (entry->depends_on & (foo))
-#define WORKS_BEST_IN(foo) (entry->works_best_in & (foo))
+#define DEPENDS_ON(foo)     ((entry->depends_on     & (foo)) == (foo))
+#define WORKS_BEST_IN(foo)  ((entry->works_best_in  & (foo)) == (foo))
 
 #define DEP_GLOBAL_DRAW (1<<0)
 #define DEP_LIVEVIEW (1<<1)
 #define DEP_NOT_LIVEVIEW (1<<2)
-#define DEP_MOVIE_MODE (1<<3)
+#define DEP_MOVIE_MODE (1<<3)   /* any kind of movie mode (H.264, RAW, MJPEG, whatever) */
 #define DEP_PHOTO_MODE (1<<4)
 #define DEP_AUTOFOCUS (1<<5)
 #define DEP_MANUAL_FOCUS (1<<6)
@@ -245,6 +245,10 @@ struct menu_entry
 
 #define DEP_SOUND_RECORDING (1<<14)
 #define DEP_NOT_SOUND_RECORDING (1<<15)
+
+#define DEP_MOVIE_MODE_H264  (1<<16)    /* for features that only work in H.264 */
+#define DEP_MOVIE_MODE_RAW   (1<<17)    /* for features that only work in RAW movie */
+#define DEP_MOVIE_MODE_MJPEG (1<<18)    /* reserved, who knows */
 
 struct menu
 {
