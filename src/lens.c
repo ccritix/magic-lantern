@@ -1525,7 +1525,7 @@ PROP_HANDLER(PROP_HALF_SHUTTER)
 static struct menu_entry lens_menus[] = {
     #ifdef FEATURE_MOVIE_LOGGING
     {
-        .name = "Movie Logging",
+        .name = "Movie logging",
         .priv = &movie_log,
         .max = 1,
         .help = "Save metadata for each movie, e.g. MVI_1234.LOG",
@@ -1536,12 +1536,12 @@ static struct menu_entry lens_menus[] = {
 
 static struct menu_entry tweak_menus[] = {
    {
-        .name = "Lens Info Prefs",
+        .name = "Lens info prefs",
         .select   = menu_open_submenu,
         .children =  (struct menu_entry[]) {
             #ifndef CONFIG_FULLFRAME
             {
-                .name = "Crop Factor Display",
+                .name = "Crop factor display",
                 .priv = &crop_info,
                 .max  = 1,
                 .choices = CHOICES("OFF", "ON, 35mm eq."),
@@ -1550,7 +1550,7 @@ static struct menu_entry tweak_menus[] = {
             },
             #endif
             {
-                .name = "Focus Distance Units",
+                .name = "Focus distance units",
                 .priv = &focus_units,
                 .choices = CHOICES("mm/cm", "ft/in"),
                 .max = 1,
@@ -2617,7 +2617,7 @@ static struct lvinfo_item info_items[] = {
         .update = disp_preset_update,
     },
     {
-        .name = "Pic Quality",
+        .name = "Pic quality",
         .which_bar = LV_TOP_BAR_ONLY,
         .update = picq_update,
     },
@@ -2694,7 +2694,7 @@ static struct lvinfo_item info_items[] = {
         .priority = 1,
     },
     {
-        .name = "White Balance",
+        .name = "White balance",
         .which_bar = LV_BOTTOM_BAR_ONLY,
         .update = wb_update,
         .priority = 1,
@@ -2711,7 +2711,7 @@ static struct lvinfo_item info_items[] = {
         .priority = -1,
     },
     {
-        .name = "Exposure Compensation",
+        .name = "Exposure compensation",
         .which_bar = LV_BOTTOM_BAR_ONLY,
         .update = ae_update,
         .preferred_position = 50,

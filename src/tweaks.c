@@ -2046,7 +2046,7 @@ static struct menu_entry key_menus[] = {
         .children =  (struct menu_entry[]) {
             #ifdef CONFIG_AUDIO_CONTROLS
             {
-                .name = "Audio Gain",
+                .name = "Audio gain",
                 .priv       = &arrow_keys_audio,
                 .max = 1,
                 .help = "LEFT/RIGHT: input gain. UP/DOWN: output gain. SET: Input.",
@@ -2090,7 +2090,7 @@ static struct menu_entry key_menus[] = {
         .children =  (struct menu_entry[]) {
             #ifdef FEATURE_LCD_SENSOR_SHORTCUTS
             {
-                .name = "LCD Sensor Shortcuts",
+                .name = "LCD sensor shortcuts",
                 .priv       = &lcd_sensor_shortcuts,
                 .max        = 2,
                 .choices = (const char *[]) {"OFF", "ON", "Movie"},
@@ -2099,7 +2099,7 @@ static struct menu_entry key_menus[] = {
             #endif
             #ifdef FEATURE_STICKY_DOF
             {
-                .name = "Sticky DOF Preview", 
+                .name = "Sticky DOF preview", 
                 .priv = &dofpreview_sticky, 
                 .max = 1,
                 .help = "Makes the DOF preview button sticky (press to toggle).",
@@ -2131,7 +2131,7 @@ static struct menu_entry key_menus[] = {
             #endif
             #ifdef FEATURE_DIGITAL_ZOOM_SHORTCUT
             {
-                .name = "DigitalZoom Shortcut",
+                .name = "DigitalZoom shortcut",
                 .priv = &digital_zoom_shortcut,
                 .max  = 1,
                 .choices = (const char *[]) {"3x...10x", "1x, 3x"},
@@ -2286,7 +2286,7 @@ void screenshot_start();
 struct menu_entry expo_tweak_menus[] = {
     {
         #ifdef CONFIG_EXPSIM_MOVIE
-        .name = "LV Display",
+        .name = "LV display",
         .max = 2,
         .choices = (const char *[]) {"Photo, no ExpSim", "Photo, ExpSim", "Movie"},
         .icon_type = IT_DICE,
@@ -3366,7 +3366,7 @@ extern int display_gain_menu_index;
 static struct menu_entry lv_menus[] = {
             #ifdef FEATURE_DIGIC_FOCUS_PEAKING
             {
-                .name = "DIGIC Peaking",
+                .name = "DIGIC peaking",
                 .priv = &preview_peaking,
                 .min = 0,
                 #ifdef FEATURE_LV_SATURATION
@@ -3439,7 +3439,7 @@ static struct menu_entry lv_menus[] = {
             MENU_PLACEHOLDER("Frame Rate"),
             #ifdef FEATURE_LV_DISPLAY_GAIN
             {
-                .name = "Display Gain",
+                .name = "Display gain",
                 .priv = &display_gain_menu_index,
                 .update = display_gain_print,
                 .select = display_gain_toggle,
@@ -3454,7 +3454,7 @@ static struct menu_entry lv_menus[] = {
             #endif
     #ifdef FEATURE_CLEAR_OVERLAYS
     {
-        .name = "Clear Overlays",
+        .name = "Clear overlays",
         .priv           = &clearscreen,
         .max            = 4,
         .choices = (const char *[]) {"OFF", "HalfShutter", "WhenIdle", "Always", "Recording"},
@@ -3477,7 +3477,7 @@ static struct menu_entry lv_menus[] = {
 
     #ifdef FEATURE_LV_CRAZY_COLORS
     {
-        .name = "Crazy Colors",
+        .name = "Crazy colors",
         .priv     = &preview_crazy,
         .min = 0,
         .max = 2,
@@ -3496,7 +3496,7 @@ static struct menu_entry lv_menus[] = {
         #define This requires CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY.
         #endif
     {
-        .name = "Display Shake",
+        .name = "Display shake",
         .priv     = &display_shake,
         .max = 1,
         .help = "Emphasizes camera shake on LiveView display.",
@@ -3549,7 +3549,7 @@ static struct menu_entry lv_menus[] = {
 /*
         .children =  (struct menu_entry[]) {
             {
-                .name = "Stretch Ratio",
+                .name = "Stretch ratio",
                 .priv = &anamorphic_ratio_idx, 
                 .max = 6,
                 .choices = (const char *[]) {"5:4 (1.25)", "4:3 (1.33)", "7:5 (1.4)", "3:2 (1.5)", "5:3 (1.66)", "9:5 (1.8)", "2:1"},
@@ -3581,7 +3581,7 @@ static struct menu_entry display_menus[] = {
             #endif
             #ifdef FEATURE_SCREEN_LAYOUT
                 {
-                    .name = "Screen Layout",
+                    .name = "Screen layout",
                     .priv = &screen_layout_menu_index,
                     .max = 4,
                     .update = screen_layout_update, 
@@ -3642,7 +3642,7 @@ static struct menu_entry display_menus[] = {
             #endif
             #ifdef FEATURE_AUTO_MIRRORING_HACK
                 {
-                    .name = "Auto Mirroring",
+                    .name = "Auto mirroring",
                     .priv = &display_dont_mirror,
                     .max  = 1,
                     .choices = (const char *[]) {"Allow", "Don't allow"},
@@ -3704,7 +3704,7 @@ static struct menu_entry play_menus[] = {
             #endif
             #ifdef FEATURE_IMAGE_REVIEW_PLAY
             {
-                .name = "Image Review",
+                .name = "Image review",
                 .priv = &quick_review_allow_zoom, 
                 .max = 1,
                 .choices = (const char *[]) {"QuickReview default", "CanonMnu:Hold->PLAY"},
@@ -3714,7 +3714,7 @@ static struct menu_entry play_menus[] = {
             #endif
             #ifdef FEATURE_QUICK_ZOOM
             {
-                .name = "Quick Zoom",
+                .name = "Quick zoom",
                 .priv = &quickzoom, 
                 .max = 4,
                 .choices = (const char *[]) {"OFF", "ON (fast zoom)", "SinglePress -> 100%", "Full zoom on AF pt.", "Full Z on last pos."},
@@ -3733,7 +3733,7 @@ static struct menu_entry play_menus[] = {
             #endif
             #ifdef FEATURE_REMEMBER_LAST_ZOOM_POS_5D3
             {
-                .name = "Remember last Zoom pos",
+                .name = "Remember last zoom pos",
                 .priv = &quickzoom, 
                 .max = 1,
                 .help = "Remember last Zoom position in playback mode.",
@@ -3764,7 +3764,7 @@ static struct menu_entry play_menus[] = {
         #endif
             #ifdef FEATURE_QUICK_ERASE
             {
-                .name = "Quick Erase",
+                .name = "Quick erase",
                 .priv = &quick_delete, 
                 .max = 1,
                 #ifdef CONFIG_50D // no unpress SET, use the 5Dc method
@@ -3802,7 +3802,7 @@ static struct menu_entry play_menus[] = {
             .icon_type = IT_BOOL,
         },
         {
-            .name = "Image Review",
+            .name = "Image review",
             .priv = &quick_review_allow_zoom, 
             .max = 1,
             .choices = (const char *[]) {"QuickReview default", "CanonMnu:Hold->PLAY"},
@@ -3810,7 +3810,7 @@ static struct menu_entry play_menus[] = {
             .icon_type = IT_BOOL,
         },
         {
-            .name = "Quick Zoom",
+            .name = "Quick zoom",
             .priv = &quickzoom, 
             .max = 2, // don't know how to move the image around
             .choices = (const char *[]) {"OFF", "ON (fast zoom)"},
@@ -3819,7 +3819,7 @@ static struct menu_entry play_menus[] = {
             .icon_type = IT_BOOL,
         },
         {
-            .name = "Quick Erase",
+            .name = "Quick erase",
             .priv = &quick_delete, 
             .max = 1,
             .help = "Delete files quickly with fewer keystrokes (be careful!!!)",

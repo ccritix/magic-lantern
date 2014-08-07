@@ -409,7 +409,7 @@ static MENU_SELECT_FUNC(mem_prot_select)
 static struct menu_entry mem_prot_menu[] =
 {
     {
-        .name = "Mem Protection",
+        .name = "Mem protection",
         .select = menu_open_submenu,
         .children =  (struct menu_entry[]) {
             {

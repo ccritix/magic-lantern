@@ -652,7 +652,7 @@ static struct menu_entry afma_menu[] = {
         .submenu_width = 700,
         .children =  (struct menu_entry[]) {
             {
-                .name = "Start Scan",
+                .name = "Start scan",
                 .priv = afma_auto_tune,
                 .select = (void (*)(void*,int))run_in_separate_task,
                 .update = afma_generic_update,

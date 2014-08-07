@@ -903,7 +903,7 @@ static struct menu_entry lv_img_menu[] = {
         .submenu_height = 250,
         .children =  (struct menu_entry[]) {
             {
-                .name = "Mid-range correction     ",
+                .name = "Mid-range correction",
                 .priv = &vignetting_correction_a,
                 .unit = UNIT_x10,
                 .min = -10,
@@ -914,7 +914,7 @@ static struct menu_entry lv_img_menu[] = {
                 .help2 = "Tip: set this to -1 for a nice vignette effect.",
             },
             {
-                .name = "Corner correction        ",
+                .name = "Corner correction",
                 .priv = &vignetting_correction_b,
                 .min = -10,
                 .max = 10,
@@ -939,7 +939,7 @@ static struct menu_entry lv_img_menu[] = {
 
     #if defined(FEATURE_IMAGE_EFFECTS) || defined(FEATURE_EXPO_ISO_DIGIC) || defined(FEATURE_SHUTTER_FINE_TUNING)
     {
-        .name = "Image Fine-tuning",
+        .name = "Image fine-tuning",
         .select = menu_open_submenu,
         .help = "Subtle image enhancements via DIGIC register tweaks.",
         .depends_on = DEP_MOVIE_MODE,
@@ -949,7 +949,7 @@ static struct menu_entry lv_img_menu[] = {
 
             #ifdef FEATURE_EXPO_ISO_DIGIC
             {
-                .name = "ML Digital ISO",
+                .name = "ML digital ISO",
                 .priv = &digic_iso_gain_movie,
                 .update = digic_iso_print_movie,
                 .select = digic_iso_toggle_movie,
@@ -959,7 +959,7 @@ static struct menu_entry lv_img_menu[] = {
                 .icon_type = IT_DICE_OFF,
             },
             {
-                .name = "Black Level", 
+                .name = "Black level", 
                 .priv = &digic_black_level,
                 .min = -100,
                 .max = 100,
@@ -987,7 +987,7 @@ static struct menu_entry lv_img_menu[] = {
 
             #ifdef FEATURE_IMAGE_EFFECTS
             {
-                .name = "Absolute Zero Sharpness", 
+                .name = "Absolute zero sharpness", 
                 .priv = &zerosharp, 
                 .max = 1,
                 .help = "Disable sharpening completely (below Canon's zero level).",
@@ -995,14 +995,14 @@ static struct menu_entry lv_img_menu[] = {
             },
             #if !(defined(CONFIG_600D) || defined(CONFIG_1100D))
             {
-                .name = "Edge Emphasis", 
+                .name = "Edge emphasis", 
                 .priv = &sharp, 
                 .max = 1,
                 .help = "Darken sharp edges in bright areas.",
                 .depends_on = DEP_MOVIE_MODE_H264,
             },
             {
-                .name = "Noise Reduction", 
+                .name = "Noise reduction", 
                 .priv = &oilpaint, 
                 .max = 1,
                 .help = "Some sort of movie noise reduction, or smearing.",
@@ -1018,7 +1018,7 @@ static struct menu_entry lv_img_menu[] = {
 
     #ifdef FEATURE_IMAGE_EFFECTS
     {
-        .name = "Creative Effects",
+        .name = "Creative effects",
         .select = menu_open_submenu,
         .help = "Experimental image filters found by digging into DIGIC.",
         .depends_on = DEP_MOVIE_MODE_H264,
@@ -1045,7 +1045,7 @@ static struct menu_entry lv_img_menu[] = {
                 .help = "Swaps U and V channels (red <--> blue).",
             },
             {
-                .name = "Cartoon Look",
+                .name = "Cartoon look",
                 .priv       = &cartoon,
                 .min = 0,
                 .max = 3,
@@ -1078,7 +1078,7 @@ static struct menu_entry dbg_menu[] = {
                 .help = "DIGIC register address, mask=FFFF0000.",
             },
             {
-                .name = "Register base  ",
+                .name = "Register base",
                 .priv = &digic_register_mid,
                 .unit = UNIT_HEX,
                 .min = 0x00,
@@ -1095,14 +1095,14 @@ static struct menu_entry dbg_menu[] = {
                 .help = "DIGIC register address, mask=000000FC.",
             },
             {
-                .name = "Value          ",
+                .name = "Value",
                 .priv = &digic_value,
                 .update = digic_value_print,
                 .select = digic_value_toggle,
                 .help = "Current value of selected register. Change w. HalfShutter.",
             },
             {
-                .name = "Altering mode  ",
+                .name = "Altering mode",
                 .priv = &digic_alter_mode,
                 .max = 4,
                 .choices = (const char *[]) {"rand()", "x++", "x += (1<<8)", "x += (1<<16)", "x += (1<<24)"},

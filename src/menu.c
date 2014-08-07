@@ -284,7 +284,7 @@ static void beta_set_warned()
 
 static struct menu_entry customize_menu[] = {
     {
-        .name = "Customize Menus",
+        .name = "Customize menus",
         .priv = &customize_mode,
         .max = 1,
         //~ .choices = CHOICES("OFF", "MyMenu items", "Hide items"),
@@ -328,7 +328,7 @@ static struct menu_entry my_menu_placeholders[] = {
 /*
 static struct menu_entry menu_prefs[] = {
     {
-        .name = "Menu Preferences",
+        .name = "Menu preferences",
         .select     = menu_open_submenu,
         .children =  (struct menu_entry[]) {
             {

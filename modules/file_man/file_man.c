@@ -128,7 +128,7 @@ static struct filetype_handler *fileman_find_filetype(char *extension)
 static struct menu_entry fileman_menu[] =
 {
     {
-        .name = "File Manager",
+        .name = "File manager",
         .select = menu_open_submenu,
         .submenu_width = 710,
         .children =  (struct menu_entry[]) {

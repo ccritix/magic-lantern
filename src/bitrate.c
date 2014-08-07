@@ -494,7 +494,7 @@ void movie_indicators_show()
 #ifdef FEATURE_NITRATE
 static struct menu_entry mov_menus[] = {
     {
-        .name = "Bit Rate",
+        .name = "Bit rate",
         .priv = &bitrate_mode,
         .update     = bitrate_print,
         .select     = bitrate_toggle,
@@ -533,7 +533,7 @@ static struct menu_entry mov_menus[] = {
                 .help = "Quality factor (-16 = best quality). Try not to use it!"
             },
             {
-                .name = "Bitrate Info",
+                .name = "Bitrate info",
                 .priv       = &bitrate_indicator,
                 .max = 1,
                 .help = "A = average, B = instant bitrate, Q = instant QScale."
@@ -553,7 +553,7 @@ static struct menu_entry mov_menus[] = {
 #ifdef FEATURE_NITRATE_WAV_RECORD
 static struct menu_entry wav_menus[] = {
             {
-                .name = "Sound Record",
+                .name = "Sound record",
                 .priv = &cfg_hibr_wav_record,
                 .select = hibr_wav_record_select,
                 .max = 1,
@@ -566,7 +566,7 @@ static struct menu_entry wav_menus[] = {
 static struct menu_entry mov_tweak_menus[] = {
 #ifdef FEATURE_REC_INDICATOR
     {
-        .name = "Time Indicator",
+        .name = "Time indicator",
         .priv       = &time_indicator,
         .help = "Time indicator while recording.",
         .max = 3,

@@ -150,7 +150,7 @@ static void load_h264_ini()
 
 static struct menu_entry mov_menus[] = {
 /*    {
-        .name = "Bit Rate     ",
+        .name = "Bit rate",
         .priv = &bitrate,
         .min = 1,
         .max = 20,
@@ -158,7 +158,7 @@ static struct menu_entry mov_menus[] = {
     },*/
 #ifdef FEATURE_NITRATE
     {
-        .name = "Load H264.ini     ",
+        .name = "Load H264.ini",
         //~ .priv = &bitrate,
         //~ .min = 1,
         //~ .max = 20,

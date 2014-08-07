@@ -1004,7 +1004,7 @@ static struct menu_entry beep_menus[] = {
 #ifdef FEATURE_BEEP
 #if !defined(CONFIG_7D)
     {
-        .name = "Speaker Volume",
+        .name = "Speaker volume",
         .priv       = &beep_volume,
         .min = 1,
         .max = ASIF_MAX_VOL,
@@ -1020,20 +1020,20 @@ static struct menu_entry beep_menus[] = {
         .help = "Configure ML beeps and play test tones (440Hz, 1kHz...)",
         .children =  (struct menu_entry[]) {
             {
-                .name = "Enable Beeps",
+                .name = "Enable beeps",
                 .priv       = &beep_enabled,
                 .max = 1,
                 .help = "Enable beep signal for misc events in ML.",
             },
             {
-                .name = "Tone Waveform", 
+                .name = "Tone waveform", 
                 .priv = &beep_wavetype,
                 .max = 2,
                 .choices = (const char *[]) {"Square", "Sine", "White Noise"},
                 .help = "Type of waveform to be generated: square, sine, white noise.",
             },
             {
-                .name = "Tone Frequency",
+                .name = "Tone frequency",
                 .priv       = &beep_freq_idx,
                 .max = 16,
                 .icon_type = IT_PERCENT,
@@ -1061,7 +1061,7 @@ static struct menu_entry beep_menus[] = {
     #endif
     #ifdef FEATURE_WAV_RECORDING
     {
-        .name = "Sound Recorder",
+        .name = "Sound recorder",
         .select = menu_open_submenu,
         .help = "Record and playback short audio clips (WAV).",
         .children =  (struct menu_entry[]) {

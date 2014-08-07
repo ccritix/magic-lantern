@@ -129,7 +129,7 @@ video_hack_task( void* unused )
 
 static struct menu_entry video_hack_menus[] = {
     {
-        .name = "Video Hacks",
+        .name = "Video hacks",
         .priv = &bitrate_cache_hacks,
         .max  = 1,
         .help = "Experimental hacks: flush rate, GOP size. Be careful!",

@@ -3679,7 +3679,7 @@ static struct menu_entry raw_video_menu[] =
                 .help = "Save video chunks in separate folders",
             },
             {
-                .name = "Global Draw",
+                .name = "Global draw",
                 .priv = &kill_gd,
                 .max = 1,
                 .choices = CHOICES("Allow", "OFF"),
@@ -3748,7 +3748,7 @@ static struct menu_entry raw_video_menu[] =
                 .help = "Allocate memory from SRM job buffers",
             },
             {
-                .name = "Extra Hacks",
+                .name = "Extra hacks",
                 .priv = &small_hacks,
                 .max = 1,
                 .help  = "Slow down Canon GUI, Lock digital expo while recording...",

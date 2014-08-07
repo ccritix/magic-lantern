@@ -1214,7 +1214,7 @@ static struct menu_entry fps_menu_movie[] = {
                 .advanced = 1,
             },
             {
-                .name = "Main Clock",
+                .name = "Main clock",
                 .update = tg_freq_print,
                 .icon_type = IT_ALWAYS_ON,
                 .help = "Timing generator freq. (READ-ONLY). FPS = F/timerA/timerB.",
@@ -1267,7 +1267,7 @@ static struct menu_entry fps_menu_movie[] = {
 static struct menu_entry fps_menu_photo[] = {
     #ifdef FEATURE_FPS_OVERRIDE
     {
-        .name = "Frame Rate", 
+        .name = "Frame rate", 
         .priv = &fps_override_index_photo,
         .select = fps_toggle_photo,
         .choices = fps_choices_photo,
