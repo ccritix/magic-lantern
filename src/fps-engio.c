@@ -136,15 +136,18 @@ static int fps_values_x1000_movie[] = {
 
 /* in photo mode, this helps you frame and focus in low light, no need to record video => no need to fine-tune the FPS */
 static int fps_values_x1000_photo[] = {
-    500, 750, 1000, 1500, 2000, 3000, 5000, 8000, 10000, 15000, 20000, 25000, 30000,
+    0, 30000, 25000, 20000, 15000, 10000, 8000, 5000, 3000, 2000, 1500, 1000, 750, 500,
 };
 
 static const char * fps_choices_photo[] = {
-    "0.5 FPS", "0.75 FPS", "1 FPS", "1.5 FPS", "2 FPS", "3 FPS", "5 FPS", "8 FPS", "10 FPS", "15 FPS", "20 FPS", "25 FPS", "30 FPS",
+    "OFF", "30 FPS", "25 FPS", "20 FPS", "15 FPS", "10 FPS", "8 FPS", "5 FPS", "3 FPS", "2 FPS", "1.5 FPS", "1 FPS", "0.75 FPS", "0.5 FPS", 
 };
 
 static CONFIG_INT("fps.override.mv", fps_override_movie, 0);
-static CONFIG_INT("fps.override.ph", fps_override_photo, 0);
+//static CONFIG_INT("fps.override.ph", fps_override_photo, 0);
+
+static CONFIG_INT("fps.override.idx.mv", fps_override_index_movie, 10);
+static CONFIG_INT("fps.override.idx.ph", fps_override_index_photo, 0);
 
 static inline int get_fps_override()
 {
@@ -160,16 +163,13 @@ static inline int get_fps_override()
     }
     else
     {
-        /* in photo mode, it can be used on all cameras */
-        return fps_override_photo;
+        /* in photo mode, it can be used on all cameras, and it has a simple menu, where the first choice is OFF */
+        return fps_override_index_photo;
     }
 #else
     return 0;
 #endif
 }
-
-static CONFIG_INT("fps.override.idx.mv", fps_override_index_movie, 10);
-static CONFIG_INT("fps.override.idx.ph", fps_override_index_photo, 6);
 
 /* in photo mode, it defaults to Low Light, no timer tweaks */
 static CONFIG_INT("fps.timerA.off", desired_fps_timer_a_offset_movie, 0); // add this to default Canon value
@@ -725,17 +725,15 @@ int fps_get_current_x1000()
     return fps_x1000;
 }
 
-static MENU_UPDATE_FUNC(fps_print)
+static MENU_UPDATE_FUNC(fps_print_movie)
 {
     static int last_inactive = 0;
     int t = get_ms_clock_value_fast();
     
-    int fps_override = is_movie_mode() ? fps_override_movie : fps_override_photo;
-    
-    if (fps_override)
+    if (fps_override_movie)
     {
         int current_fps = fps_get_current_x1000();
-        MENU_SET_VALUE("%d.%03d FPS", 
+        MENU_SET_VALUE("%d.%03d", 
             current_fps/1000, current_fps%1000
         );
         
@@ -974,15 +972,7 @@ static void fps_enable_disable_movie(void* priv, int delta)
     #endif
 }
 
-static void fps_enable_disable_photo(void* priv, int delta)
-{
-    #ifdef FEATURE_FPS_OVERRIDE
-    fps_override_photo = !fps_override_photo;
-    if (get_fps_override()) fps_needs_updating = 1;
-    #endif
-}
-
-static void fps_change_value_photo(void* priv, int delta)
+static void fps_toggle_photo(void* priv, int delta)
 {
     fps_override_index_photo = MOD(fps_override_index_photo + delta, COUNT(fps_values_x1000_photo));
     if (get_fps_override()) fps_needs_updating = 1;
@@ -1286,7 +1276,7 @@ static struct menu_entry fps_menu_movie[] = {
         .name = "FPS override", 
         .priv = &fps_override_movie,
         .select = fps_enable_disable_movie,
-        .update = fps_print,
+        .update = fps_print_movie,
         .max = 1,
         .help = "Changes FPS. Disables sound in H.264 and may alter shutter speed.",
         .help2 = "Tip: you may also use it to reduce rolling shutter effects.",
@@ -1420,33 +1410,15 @@ static struct menu_entry fps_menu_photo[] = {
     #ifdef FEATURE_FPS_OVERRIDE
     {
         .name = "LV refresh rate", 
-        .priv = &fps_override_photo,
-        .select = fps_enable_disable_photo,
-        .update = fps_print,
-        .max = 1,
-        .help  = "Makes LiveView usable in darkness by lowering the FPS.",
+        .priv = &fps_override_index_photo,
+        .select = fps_toggle_photo,
+        .choices = fps_choices_photo,
+        .edit_mode = EM_MANY_VALUES_LV,
+        .max = COUNT(fps_values_x1000_photo) - 1,
+        .help  = "Makes LiveView usable in darkness by lowering the FPS (preview only).",
         .help2 = "Tip: you may also want to enable Expo Override and LV Display Gain.",
         .depends_on = DEP_LIVEVIEW | DEP_PHOTO_MODE,
-        .submenu_width = 650,
-        .children =  (struct menu_entry[]) {
-            {
-                .name = "Desired FPS", 
-                .priv = &fps_override_index_photo,
-                .min = 0,
-                .max = COUNT(fps_values_x1000_photo) - 1,
-                .choices = fps_choices_photo,
-                .select = fps_change_value_photo,
-                .icon_type = IT_PERCENT,
-                .help = "FPS value for LiveView. Decrease to capture more light.",
-            },
-            {
-                .name = "Actual FPS",
-                .update = fps_current_print,
-                .icon_type = IT_ALWAYS_ON,
-                .help = "Exact FPS (computed, read-only).",
-            },
-            MENU_EOL,
-        },
+
     },
     #endif
 };
