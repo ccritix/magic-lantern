@@ -3363,10 +3363,10 @@ extern MENU_UPDATE_FUNC(hdmi_force_display);
 extern MENU_UPDATE_FUNC(display_gain_print);
 extern int display_gain_menu_index;
 
-static struct menu_entry display_menus[] = {
+static struct menu_entry lv_menus[] = {
             #ifdef FEATURE_DIGIC_FOCUS_PEAKING
             {
-                .name = "LV DIGIC peaking",
+                .name = "DIGIC Peaking",
                 .priv = &preview_peaking,
                 .min = 0,
                 #ifdef FEATURE_LV_SATURATION
@@ -3382,7 +3382,7 @@ static struct menu_entry display_menus[] = {
             #endif
             #ifdef FEATURE_LV_BRIGHTNESS_CONTRAST
             {
-                .name = "LV brightness", 
+                .name = "Brightness", 
                 .priv = &preview_brightness, 
                 .max = 2,
                 .help = "For LiveView preview only. Does not affect recording.",
@@ -3393,7 +3393,7 @@ static struct menu_entry display_menus[] = {
                 .icon_type = IT_PERCENT_OFF,
             },
             {
-                .name = "LV contrast",
+                .name = "Contrast",
                 .priv     = &preview_contrast,
                 .min = -3,
                 .max = 3,
@@ -3407,7 +3407,7 @@ static struct menu_entry display_menus[] = {
             #endif
             #ifdef FEATURE_LV_SATURATION
             {
-                .name = "LV saturation",
+                .name = "Saturation",
                 .priv     = &preview_saturation,
                 .min = -2,
                 .max = 3,
@@ -3436,10 +3436,10 @@ static struct menu_entry display_menus[] = {
                 }*/
             },
             #endif
-            MENU_PLACEHOLDER("LV refresh rate"),
+            MENU_PLACEHOLDER("Frame Rate"),
             #ifdef FEATURE_LV_DISPLAY_GAIN
             {
-                .name = "LV display gain",
+                .name = "Display Gain",
                 .priv = &display_gain_menu_index,
                 .update = display_gain_print,
                 .select = display_gain_toggle,
@@ -3447,14 +3447,14 @@ static struct menu_entry display_menus[] = {
                 .choices = CHOICES("OFF", "1 EV", "2 EV", "3 EV", "4 EV", "5 EV", "6 EV"),
                 .icon_type = IT_PERCENT_OFF,
                 .help   = "Makes LiveView usable in darkness by increasing ISO (preview only).",
-                .help2  = "Tip: if it gets really dark, also enable LV refresh rate.",
+                .help2  = "Tip: if it gets really dark, also enable Frame Rate.",
                 .edit_mode = EM_MANY_VALUES_LV,
                 .depends_on = DEP_LIVEVIEW | DEP_PHOTO_MODE,
             },
             #endif
     #ifdef FEATURE_CLEAR_OVERLAYS
     {
-        .name = "Clear overlays",
+        .name = "Clear Overlays",
         .priv           = &clearscreen,
         .max            = 4,
         .choices = (const char *[]) {"OFF", "HalfShutter", "WhenIdle", "Always", "Recording"},
@@ -3474,6 +3474,36 @@ static struct menu_entry display_menus[] = {
         */
     },
     #endif
+
+    #ifdef FEATURE_LV_CRAZY_COLORS
+    {
+        .name = "Crazy Colors",
+        .priv     = &preview_crazy,
+        .min = 0,
+        .max = 2,
+        .edit_mode = EM_MANY_VALUES_LV,
+        .choices = (const char *[]) {"OFF", "Swap U-V", "Extreme Chroma"},
+        .depends_on = DEP_LIVEVIEW,
+        .icon_type = IT_PERCENT_OFF,
+        .help  = "Crazy color effects that may help with white balance.",
+        .help2 = "For LiveView preview only. Does not affect recording.\n"
+                 "Swap U-V: reverses red and blue components\n"
+                 "Extreme Chroma: highly saturated image showing WB direction\n",
+    },
+    #endif
+    #ifdef FEATURE_DISPLAY_SHAKE
+        #ifndef CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY
+        #define This requires CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY.
+        #endif
+    {
+        .name = "Display Shake",
+        .priv     = &display_shake,
+        .max = 1,
+        .help = "Emphasizes camera shake on LiveView display.",
+        .depends_on = DEP_LIVEVIEW,
+    },
+    #endif
+
     #ifdef FEATURE_DEFISHING_PREVIEW
         #ifndef CONFIG_DISPLAY_FILTERS
         #error This requires CONFIG_DISPLAY_FILTERS.
@@ -3486,7 +3516,8 @@ static struct menu_entry display_menus[] = {
         .max    = 2,
         .depends_on = DEP_GLOBAL_DRAW,
         .choices = (const char *[]) {"OFF", "Rectilinear", "Panini"},
-        .help = "Preview straightened images from fisheye lenses. LV+PLAY.",
+        .help = "Preview straightened images from fisheye lenses.",
+        .help2 = "(this one also works outside LiveView)",
         /*
         .children =  (struct menu_entry[]) {
             {
@@ -3528,9 +3559,12 @@ static struct menu_entry display_menus[] = {
         },*/
     },
     #endif
+};
+
+static struct menu_entry display_menus[] = {
     #if defined(CONFIG_KILL_FLICKER) || defined(FEATURE_SCREEN_LAYOUT) || defined(FEATURE_IMAGE_POSITION) || defined(FEATURE_UPSIDE_DOWN) || defined(FEATURE_IMAGE_ORIENTATION) || defined(FEATURE_AUTO_MIRRORING_HACK) || defined(FEATURE_FORCE_HDMI_VGA)
     {
-        .name = "Advanced settings",
+        .name = "Display settings",
         .select         = menu_open_submenu,
         .submenu_width = 710,
         .help = "Screen orientation, position fine-tuning...",
@@ -3615,34 +3649,6 @@ static struct menu_entry display_menus[] = {
                     .help = "Prevents display mirroring, which may reverse ML texts.",
                     .icon_type = IT_DISABLE_SOME_FEATURE,
                 },
-            #endif
-            #ifdef FEATURE_LV_CRAZY_COLORS
-            {
-                .name = "LV crazy colors",
-                .priv     = &preview_crazy,
-                .min = 0,
-                .max = 2,
-                .edit_mode = EM_MANY_VALUES_LV,
-                .choices = (const char *[]) {"OFF", "Swap U-V", "Extreme Chroma"},
-                .depends_on = DEP_LIVEVIEW,
-                .icon_type = IT_PERCENT_OFF,
-                .help  = "Crazy color effects that may help with white balance.",
-                .help2 = "For LiveView preview only. Does not affect recording.\n"
-                         "Swap U-V: reverses red and blue components\n"
-                         "Extreme Chroma: highly saturated image showing WB direction\n",
-            },
-            #endif
-            #ifdef FEATURE_DISPLAY_SHAKE
-                #ifndef CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY
-                #define This requires CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY.
-                #endif
-            {
-                .name = "Display Shake",
-                .priv     = &display_shake,
-                .max = 1,
-                .help = "Emphasizes camera shake on LiveView display.",
-                .depends_on = DEP_LIVEVIEW,
-            },
             #endif
             #ifdef FEATURE_FORCE_HDMI_VGA
                 {
@@ -3843,7 +3849,8 @@ static void tweak_init()
     
     menu_add( "Prefs", key_menus, COUNT(key_menus) );
     menu_add( "Prefs", tweak_menus, COUNT(tweak_menus) );
-    menu_add( "Display", display_menus, COUNT(display_menus) );
+    menu_add( "Prefs", display_menus, COUNT(display_menus) );
+    menu_add( "LiveView", lv_menus, COUNT(lv_menus) );
 
 }
 

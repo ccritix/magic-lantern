@@ -4696,7 +4696,7 @@ menu_init( void )
     m = menu_find_by_name( "Movie",     ICON_ML_MOVIE   );
     m = menu_find_by_name( "Shoot",     ICON_ML_SHOOT   );
     m = menu_find_by_name( "Focus",     ICON_ML_FOCUS   );
-    m = menu_find_by_name( "Display",   ICON_ML_DISPLAY );
+    m = menu_find_by_name( "LiveView",  ICON_ML_DISPLAY );
     m = menu_find_by_name( "Prefs",     ICON_ML_PREFS   );
     m = menu_find_by_name( "Scripts",   ICON_ML_SCRIPT  );
     m = menu_find_by_name( "Games",     ICON_ML_GAMES  );

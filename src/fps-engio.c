@@ -1267,14 +1267,14 @@ static struct menu_entry fps_menu_movie[] = {
 static struct menu_entry fps_menu_photo[] = {
     #ifdef FEATURE_FPS_OVERRIDE
     {
-        .name = "LV refresh rate", 
+        .name = "Frame Rate", 
         .priv = &fps_override_index_photo,
         .select = fps_toggle_photo,
         .choices = fps_choices_photo,
         .edit_mode = EM_MANY_VALUES_LV,
         .max = COUNT(fps_values_x1000_photo) - 1,
         .help  = "Makes LiveView usable in darkness by lowering the FPS (preview only).",
-        .help2 = "Tip: you may also want to enable Expo Override and LV Display Gain.",
+        .help2 = "Tip: you may also want to enable Expo Override and Display Gain.",
         .depends_on = DEP_LIVEVIEW | DEP_PHOTO_MODE,
 
     },
@@ -1284,7 +1284,7 @@ static struct menu_entry fps_menu_photo[] = {
 static void fps_init()
 {
     menu_add( "Movie", fps_menu_movie, COUNT(fps_menu_movie) );
-    menu_add( "Display", fps_menu_photo, COUNT(fps_menu_photo) );
+    menu_add( "LiveView", fps_menu_photo, COUNT(fps_menu_photo) );
 }
 
 INIT_FUNC("fps", fps_init);
