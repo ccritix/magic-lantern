@@ -2714,7 +2714,7 @@ static CONFIG_INT("electronic.level", electronic_level, 0);
 struct menu_entry zebra_menus[] = {
     #ifdef FEATURE_GLOBAL_DRAW
     {
-        .name = "Global draw",
+        .name = "Global Draw",
         .priv       = &global_draw,
         #ifdef FEATURE_OVERLAYS_IN_PLAYBACK_MODE
         .max = 3,
@@ -2740,7 +2740,7 @@ struct menu_entry zebra_menus[] = {
         .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM,
         .children =  (struct menu_entry[]) {
             {
-                .name = "Color space",
+                .name = "Color Space",
                 .priv = &zebra_colorspace, 
                 #ifdef FEATURE_ZEBRA_FAST
                 .max = 2,
@@ -2810,7 +2810,7 @@ struct menu_entry zebra_menus[] = {
 
     #ifdef FEATURE_FOCUS_PEAK
     {
-        .name = "Focus peak",
+        .name = "Focus Peak",
         .priv           = &focus_peaking,
         .update         = focus_peaking_display,
         .max = 1,
@@ -2948,7 +2948,7 @@ struct menu_entry zebra_menus[] = {
             },
             #endif
             /*{
-                .name = "Look-up table", 
+                .name = "Look-up Table", 
                 .priv = &zoom_overlay_lut,
                 .max = 1,
                 .choices = (const char *[]) {"OFF", "CineStyle"},
@@ -2994,7 +2994,7 @@ struct menu_entry zebra_menus[] = {
         .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM,
         .children =  (struct menu_entry[]) {
             {
-                .name = "Spotmeter unit",
+                .name = "Spotmeter Unit",
                 .priv = &spotmeter_formula, 
                 #ifdef FEATURE_RAW_SPOTMETER
                 .max = 3,
@@ -3011,7 +3011,7 @@ struct menu_entry zebra_menus[] = {
                     "Negative value from clipping, in EV (RAW).\n"
             },
             {
-                .name = "Spot position",
+                .name = "Spot Position",
                 .priv = &spotmeter_position, 
                 .max = 1,
                 .choices = (const char *[]) {"Center", "Focus box"},
@@ -3034,7 +3034,7 @@ struct menu_entry zebra_menus[] = {
         .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM,
         .children =  (struct menu_entry[]) {
             {
-                .name = "Palette",
+                .name = "Palette      ",
                 .priv = &falsecolor_palette,
                 .max = 5,
                 .icon_type = IT_DICE,
@@ -3114,7 +3114,7 @@ struct menu_entry zebra_menus[] = {
         .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM,
         .children =  (struct menu_entry[]) {
             {
-                .name = "Waveform size",
+                .name = "Waveform Size",
                 .priv = &waveform_size, 
                 .max = 2,
                 .choices = (const char *[]) {"Small", "Large", "FullScreen"},
@@ -3133,7 +3133,7 @@ static struct menu_entry level_indic_menus[] = {
     #ifdef CONFIG_ELECTRONIC_LEVEL
     #ifdef FEATURE_LEVEL_INDICATOR
     {
-        .name = "Level indicator", 
+        .name = "Level Indicator", 
         .priv = &electronic_level, 
         .max  = 1, 
         .help = "Electronic level indicator in 0.5 degree steps.",
@@ -3145,7 +3145,7 @@ static struct menu_entry level_indic_menus[] = {
 static struct menu_entry livev_dbg_menus[] = {
     #ifdef FEATURE_SHOW_OVERLAY_FPS
     {
-        .name = "Show overlay FPS",
+        .name = "Show Overlay FPS",
         .priv = &show_lv_fps, 
         .max = 1,
         .help = "Show the frame rate of overlay loop (zebras, peaking...)"
@@ -3236,7 +3236,7 @@ static struct menu_entry powersave_menus[] = {
         },
         #ifdef CONFIG_BATTERY_INFO
         {
-            .name = "Battery level",
+            .name = "Battery Level",
             .update  = batt_display,
             .icon_type = IT_PERCENT,
             .help = "Battery remaining. Wait for 2% discharge before reading.",
@@ -3252,7 +3252,7 @@ static struct menu_entry powersave_menus[] = {
 #ifdef FEATURE_LV_DISPLAY_PRESETS
 struct menu_entry livev_cfg_menus[] = {
     {
-        .name = "LV display presets",
+        .name = "LV Display Presets",
         .priv       = &disp_profiles_0,
         .max        = 3,
         .choices    = (const char *[]) {"OFF (1)", "2", "3", "4"},

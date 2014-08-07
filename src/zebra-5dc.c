@@ -1704,7 +1704,7 @@ int handle_transparent_overlay(struct event * event)
 
 struct menu_entry zebra_menus[] = {
     {
-        .name = "Show overlay",
+        .name = "Show Overlay",
         .priv       = &global_draw_mode,
         .max = 1,
         .update    = global_draw_display,
@@ -1748,7 +1748,7 @@ struct menu_entry zebra_menus[] = {
         },
     },
     {
-        .name = "Focus peak",
+        .name = "Focus Peak",
         .priv           = &focus_peaking,
         .update        = focus_peaking_display,
         .max = 1,
@@ -1803,7 +1803,7 @@ struct menu_entry zebra_menus[] = {
         //.essential = FOR_LIVEVIEW | FOR_PLAYBACK,
         .children =  (struct menu_entry[]) {
             {
-                .name = "Spotmeter unit",
+                .name = "Spotmeter Unit",
                 .priv = &spotmeter_formula, 
                 .max = 4,
                 .choices = (const char *[]) {"Percent", "0..255", "IRE -1..101", "IRE 0..108", "RGB (HTML)"},

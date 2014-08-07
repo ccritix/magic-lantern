@@ -816,7 +816,7 @@ static struct menu_entry mov_menus[] = {
     #endif
     #ifdef CONFIG_MOVIE_RECORDING_50D_SHUTTER_HACK
     {
-        .name = "Shutter button",
+        .name = "Shutter Button",
         .priv = &shutter_btn_rec,
         .max  = 2,
         .choices = CHOICES("Leave unchanged", "Block during REC", "Hold during REC"),
@@ -859,7 +859,7 @@ static struct menu_entry mov_menus[] = {
     #endif
     #ifdef FEATURE_GRADUAL_EXPOSURE
     {
-        .name = "Gradual exposure",
+        .name = "Gradual Exposure",
         .priv = &smooth_iso,
         .max = 1,
         .help   = "Use smooth exposure transitions, by compensating with ISO.",
@@ -884,7 +884,7 @@ static struct menu_entry mov_menus[] = {
 
 static struct menu_entry movie_tweaks_menus[] = {
     {
-        .name = "Movie tweaks",
+        .name = "Movie Tweaks",
         .select = menu_open_submenu,
         .help = "Movie Restart, Movie Logging, REC/Standby Notify...",
         .depends_on = DEP_MOVIE_MODE,
@@ -892,7 +892,7 @@ static struct menu_entry movie_tweaks_menus[] = {
         .children =  (struct menu_entry[]) {
                 #ifdef FEATURE_MOVIE_RESTART
                 {
-                    .name = "Movie restart",
+                    .name = "Movie Restart",
                     .priv = &movie_restart,
                     .max        = 1,
                     .help = "Auto-restart movie recording, if it happens to stop.",
@@ -945,7 +945,7 @@ static struct menu_entry movie_tweaks_menus[] = {
                 #endif
                 #ifdef FEATURE_SHUTTER_LOCK
                 {
-                    .name = "Shutter lock",
+                    .name = "Shutter Lock",
                     .priv = &shutter_lock,
                     .max = 1,
                     .help   = "Lock shutter value in movie mode (change from Expo only).",
@@ -962,7 +962,7 @@ static struct menu_entry movie_tweaks_menus[] = {
 #ifdef FEATURE_EXPO_OVERRIDE
 struct menu_entry expo_override_menus[] = {
     {
-        .name = "Expo. override",
+        .name = "Expo. Override",
         .priv = &bv_auto,
         .select     = bv_toggle,
         .update     = bv_display,

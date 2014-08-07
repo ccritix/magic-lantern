@@ -3136,7 +3136,7 @@ MENU_SELECT_FUNC(info_menu_reset_select)
 
 static struct menu_entry info_menus[] = {
     {
-        .name = "FlexInfo settings",
+        .name = "FlexInfo Settings",
         .select = menu_open_submenu,
         .submenu_width = 700,
         .children =  (struct menu_entry[]) {
@@ -3147,7 +3147,7 @@ static struct menu_entry info_menus[] = {
                 .help = "Enable boundary display for all elements.",
             },
             {
-                .name = "Use Canon screen for edit",
+                .name = "Use canon screen for edit",
                 .priv = &info_screen_required,
                 .min = 0,
                 .max = 1,

@@ -917,7 +917,7 @@ static void trap_focus_toggle_from_af_dlg()
 static struct menu_entry trap_focus_menu[] = {
 #ifndef CONFIG_5DC
     {
-        .name = "Trap focus",
+        .name = "Trap Focus",
         .priv       = &trap_focus,
         #ifdef CONFIG_PROP_REQUEST_CHANGE
         .max = 2,
@@ -952,7 +952,7 @@ static struct menu_entry trap_focus_menu[] = {
 static struct menu_entry focus_menu[] = {
     #ifdef FEATURE_FOLLOW_FOCUS
     {
-        .name = "Follow focus",
+        .name = "Follow Focus",
         .priv = &follow_focus,
         .update    = follow_focus_print,
         .max = 1,
@@ -977,7 +977,7 @@ static struct menu_entry focus_menu[] = {
 
     #ifdef FEATURE_RACK_FOCUS
     {
-        .name = "Focus end point",
+        .name = "Focus End Point",
         .update    = focus_show_a,
         .select_Q    = focus_reset_a,
         .icon_type = IT_BOOL,
@@ -986,7 +986,7 @@ static struct menu_entry focus_menu[] = {
         .depends_on = DEP_LIVEVIEW | DEP_AUTOFOCUS,
     },
     {
-        .name = "Rack focus",
+        .name = "Rack Focus",
         .update    = rack_focus_print,
         .select     = rack_focus_start_delayed,
         .icon_type = IT_ACTION,
@@ -997,7 +997,7 @@ static struct menu_entry focus_menu[] = {
     #endif
     #ifdef FEATURE_FOCUS_STACKING
     {
-        .name = "Focus stacking",
+        .name = "Focus Stacking",
         .select = menu_open_submenu,
         .help = "Takes pictures at different focus points.",
         .depends_on = DEP_LIVEVIEW | DEP_AUTOFOCUS | DEP_PHOTO_MODE,
@@ -1033,7 +1033,7 @@ static struct menu_entry focus_menu[] = {
                 .help = "Number of focus steps between two pictures.",
             },
             {
-                .name = "Flash delay",
+                .name = "Flash Delay",
                 .priv    = &focus_flash_delay,
                 .max = 10,
                 .help = "Seconds between stack segments to let flashes recycle.",
@@ -1066,20 +1066,20 @@ static struct menu_entry focus_menu[] = {
     #endif
     #if defined(FEATURE_FOLLOW_FOCUS) || defined(FEATURE_RACK_FOCUS) || defined(FEATURE_FOCUS_STACKING)
     {
-        .name = "Focus settings",
+        .name = "Focus Settings",
         .select     = menu_open_submenu,
         .help = "Tuning parameters and prefs for rack/stack/follow focus.",
         .depends_on = DEP_LIVEVIEW,
         .children =  (struct menu_entry[]) {
             {
-                .name = "Step size",
+                .name = "Step Size",
                 .priv = &lens_focus_stepsize,
                 .min = 1,
                 .max = 3,
                 .help = "Step size for focus commands (same units as in EOS Utility)",
             },
             {
-                .name = "Step delay",
+                .name = "Step Delay",
                 .priv = &lens_focus_delay,
                 .update = focus_delay_update,
                 .min = 1,
@@ -1089,7 +1089,7 @@ static struct menu_entry focus_menu[] = {
                 .help = "Delay between two successive focus commands.",
             },
             {
-                .name = "Step wait",
+                .name = "Step Wait",
                 .priv = &lens_focus_waitflag,
                 .max = 1,
                 .help = "Wait for 'focus done' signal before sending next command.",
@@ -1109,7 +1109,7 @@ static struct menu_entry focus_menu[] = {
                 .help = "Focus direction for Up and Down keys.",
             },
             {
-                .name = "Start delay",
+                .name = "Start Delay",
                 .priv    = &focus_rack_delay,
                 .max = 60,
                 .icon_type = IT_PERCENT_OFF,

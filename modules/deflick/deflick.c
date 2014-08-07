@@ -207,7 +207,7 @@ PROP_HANDLER(PROP_GUI_STATE)
 
 static struct menu_entry post_deflicker_menu[] = {
     {
-        .name = "Post deflicker", 
+        .name = "Post Deflicker", 
         .priv = &post_deflicker, 
         .max = 1,
         .update = post_deflicker_update,

@@ -128,7 +128,7 @@ static MENU_SELECT_FUNC(ime_base_config)
 static struct menu_entry ime_base_menu[] =
 {
     {
-        .name = "IME system",
+        .name = "IME System",
         .submenu_width = 710,
         .help = "Input Method Editor System",
         .children =  (struct menu_entry[]) {

@@ -458,7 +458,7 @@ static MENU_UPDATE_FUNC(audio_micpower_display)
 static struct menu_entry audio_menus[] = {
     #ifdef FEATURE_ANALOG_GAIN
     {
-        .name = "Analog gain",
+        .name = "Analog Gain",
         .priv           = &mgain,
         .select         = audio_mgain_toggle,
         .icon_type = IT_PERCENT_OFF,
@@ -477,13 +477,13 @@ static struct menu_entry audio_menus[] = {
     #endif
     #ifdef FEATURE_DIGITAL_GAIN
     {
-        .name = "Digital gain", 
+        .name = "Digital Gain", 
         .select = menu_open_submenu, 
         .help = "Digital gain (not recommended, use only for headphones!)",
         .depends_on = DEP_SOUND_RECORDING,
         .children =  (struct menu_entry[]) {
             {
-                .name = "Left digital gain",
+                .name = "Left Digital Gain",
                 .priv           = &dgain_l,
                 .max            = 36,
                 .icon_type      = IT_PERCENT_OFF,
@@ -492,7 +492,7 @@ static struct menu_entry audio_menus[] = {
                 .help = "Digital gain (LEFT). Any nonzero value reduces quality.",
             },
             {
-                .name = "Right digital gain",
+                .name = "Right Digital Gain",
                 .priv           = &dgain_r,
                 .max            = 36,
                 .icon_type      = IT_PERCENT_OFF,
@@ -528,7 +528,7 @@ static struct menu_entry audio_menus[] = {
 
     #ifdef FEATURE_WIND_FILTER
     {
-        .name = "Wind filter",
+        .name = "Wind Filter",
         .priv              = &enable_filters,
         .help = "High pass filter for wind noise reduction.",
         .select            = audio_binary_toggle,
@@ -546,7 +546,7 @@ static struct menu_entry audio_menus[] = {
 
     #ifdef FEATURE_MIC_POWER
     {
-        .name = "Mic power",
+        .name = "Mic Power",
         .priv           = &mic_power,
         .select         = audio_binary_toggle,
         .update         = audio_micpower_display,
@@ -559,7 +559,7 @@ static struct menu_entry audio_menus[] = {
 /* any reason to turn these off?
     #ifdef FEATURE_AUDIO_METERS
     {
-        .name = "Audio meters",
+        .name = "Audio Meters",
         .priv           = &cfg_draw_meters,
         .max = 1,
 #ifndef CONFIG_AUDIO_CONTROLS
@@ -574,7 +574,7 @@ static struct menu_entry audio_menus[] = {
 
     #ifdef FEATURE_HEADPHONE_MONITORING
     {
-        .name = "Headphone mon.",
+        .name = "Headphone Mon.",
         .priv = &audio_monitoring,
         .select = audio_monitoring_toggle,
         .max = 1,
@@ -583,7 +583,7 @@ static struct menu_entry audio_menus[] = {
     },
     #ifdef FEATURE_HEADPHONE_OUTPUT_VOLUME
     {
-        .name = "Headphone volume",
+        .name = "Headphone Volume",
         .priv           = &lovl,
         .select         = audio_3bit_toggle,
         .update         = audio_lovl_display,

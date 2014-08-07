@@ -38,7 +38,7 @@ static struct menu_entry help_menus[] = {
         .name = "Press JUMP",
         .choices = CHOICES("Open submenu (Q)"),
         #elif defined(CONFIG_EOSM)
-        .name = "1-finger tap",
+        .name = "1-finger Tap",
         .choices = CHOICES("Open submenu (Q)"),
         #else
         .name = "Press Q",
@@ -101,7 +101,7 @@ static struct menu_entry help_menus[] = {
     },
     #endif
     {
-        .name = "Key shortcuts",
+        .name = "Key Shortcuts",
         .select = menu_help_go_to_label,
     },
     {

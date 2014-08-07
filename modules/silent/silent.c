@@ -700,7 +700,7 @@ static unsigned int silent_pic_polling_cbr(unsigned int ctx)
 
 static struct menu_entry silent_menu[] = {
     {
-        .name = "Silent picture",
+        .name = "Silent Picture",
         .priv = &silent_pic_enabled,
         .update = silent_pic_display,
         .max  = 1,
@@ -712,7 +712,7 @@ static struct menu_entry silent_menu[] = {
         .submenu_width = 650,
         .children =  (struct menu_entry[]) {
             {
-                .name = "Silent mode",
+                .name = "Silent Mode",
                 .priv = &silent_pic_mode,
                 .max = 4,
                 .help = "Choose the silent picture mode:",
@@ -726,7 +726,7 @@ static struct menu_entry silent_menu[] = {
                 .icon_type = IT_DICE,
             },
             {
-                .name = "Slit-Scan mode",
+                .name = "Slit-Scan Mode",
                 .update = silent_pic_slitscan_display,
                 .priv = &silent_pic_slitscan_mode,
                 .max = 4,

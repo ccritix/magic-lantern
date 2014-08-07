@@ -825,7 +825,7 @@ static struct menu_entry iocrypt_menus[] =
                 .help = "When enabled it will ask for the encryption password right after camera powerup.",
             },
             {
-                .name = "Create RSA key",
+                .name = "Create RSA Key",
                 .select = &iocrypt_rsa_key_select,
                 .update = &iocrypt_rsa_key_update,
                 .priv = NULL,
@@ -833,7 +833,7 @@ static struct menu_entry iocrypt_menus[] =
                 .help = "Do this ONCE at HOME and then store /priv.key on your PC safely.",
             },
             {
-                .name = "RSA keysize",
+                .name = "RSA Keysize",
                 .priv = &iocrypt_rsa_key_size,
                 .max = 3,
                 .icon_type = IT_DICE,

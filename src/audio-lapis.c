@@ -572,13 +572,13 @@ static struct menu_entry audio_menus[] = {
         .help = "Analog mic boost.",
     },
     {
-        .name = "Digital gain", 
+        .name = "Digital Gain", 
         .select = menu_open_submenu, 
         .help = "Digital Volume and R-L gain",
         .depends_on = DEP_SOUND_RECORDING,
         .children =  (struct menu_entry[]) {
             {
-                .name = "Record effect mode",
+                .name = "Record Effect Mode",
                 .priv           = &cfg_effect_mode,
                 .select         = audio_effect_mode_toggle,
                 .max            = 5,
@@ -587,7 +587,7 @@ static struct menu_entry audio_menus[] = {
                 .help           = "Choose mode :Notch,EQ,Notch/EQ,Enhance [12],Loudness.",
             },
             {
-                .name = "Record digital volume",
+                .name = "Record Digital Volume ",
                 .priv           = &cfg_recdgain,
                 .max            = 126,
                 .icon_type      = IT_PERCENT,
@@ -596,7 +596,7 @@ static struct menu_entry audio_menus[] = {
                 .edit_mode = EM_MANY_VALUES,
             },
             {
-                .name = "Left digital gain",
+                .name = "Left Digital Gain ",
                 .priv           = &dgain_l,
                 .max            = 15,
                 .icon_type      = IT_PERCENT,
@@ -606,7 +606,7 @@ static struct menu_entry audio_menus[] = {
                 .edit_mode = EM_MANY_VALUES,
             },
             {
-                .name = "Right digital gain",
+                .name = "Right Digital Gain",
                 .priv           = &dgain_r,
                 .max            = 15,
                 .icon_type      = IT_PERCENT,
@@ -638,7 +638,7 @@ static struct menu_entry audio_menus[] = {
         .depends_on        = DEP_SOUND_RECORDING,
     },
     {
-        .name = "Wind filter",
+        .name = "Wind Filter",
         .help = "High pass filter for wind noise reduction. ML26121A.pdf p77",
         .select            =  menu_open_submenu,
         .depends_on        = DEP_SOUND_RECORDING,
@@ -653,14 +653,14 @@ static struct menu_entry audio_menus[] = {
                 .help = "first-order high pass filter for DC cut",
             },
             {
-                .name = "High pass filter",
+                .name = "High Pass filter",
                 .priv              = &cfg_filter_hpf2,
                 .select            = audio_filter_hpf2_toggle,
                 .max                = 1,
                 .help = "second-order high pass filter for noise cut",
             },
             {
-                .name = "HPF2 cutoff Hz",
+                .name = "HPF2 Cutoff Hz",
                 .priv           = &cfg_filter_hpf2config,
                 .select         = audio_hpf2config_toggle,
                 .max            = 7,
@@ -684,7 +684,7 @@ static struct menu_entry audio_menus[] = {
       .update   = audio_loopback_display,
       },*/
     {
-        .name = "Headphone mon.",
+        .name = "Headphone Mon.",
         .priv = &audio_monitoring,
         .max  = 1,
         .select         = audio_monitoring_toggle,
@@ -692,7 +692,7 @@ static struct menu_entry audio_menus[] = {
         .depends_on     = DEP_SOUND_RECORDING,
     },
     {
-        .name = "Headphone volume",
+        .name = "Headphone Volume",
         .priv           = &lovl,
         .select         = audio_lovl_toggle,
         .max            = 6,
@@ -704,7 +704,7 @@ static struct menu_entry audio_menus[] = {
     },
 /* any reason to turn these off?
     {
-        .name = "Audio meters",
+        .name = "Audio Meters",
         .priv           = &cfg_draw_meters,
         .max            = 1,
         .help = "Bar peak decay, -40...0 dB, yellow at -12 dB, red at -3 dB.",

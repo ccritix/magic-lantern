@@ -387,13 +387,13 @@ static struct menu_entry afp_focus_menu[] = {
     {
         .depends_on = DEP_PHOTO_MODE | DEP_CHIPPED_LENS | DEP_NOT_LIVEVIEW,
 #if defined(CONFIG_6D)
-        .name = "Focus shortcuts",
+        .name = "Focus Shortcuts",
         .priv = &af_patterns,
         .max = 1,
         .help = "Choose af points directly, display OFF, arrows+SET.",
         .help2 = "Btw: Real focus patterns aren't working on 6D (yet?).",
 #else
-        .name = "Focus patterns",
+        .name = "Focus Patterns",
         .select = menu_open_submenu,
         .help = "Custom AF patterns (photo mode only). Ported from 400plus.",
         .submenu_height = 280,

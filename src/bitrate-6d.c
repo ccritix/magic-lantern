@@ -478,7 +478,7 @@ static struct menu_entry mov_menus[] = {
         .depends_on = DEP_MOVIE_MODE,
         .children =  (struct menu_entry[]) {
     {
-        .name = "Bit rate",
+        .name = "Bit Rate     ",
         .priv = &bitrate,
 		.update = bit_rated,        
 		.min = 0,
@@ -488,7 +488,7 @@ static struct menu_entry mov_menus[] = {
 		.help2 = "If not loading a config MUST set InitQP"
     },
     {
-        .name = "InitQP",
+        .name = "InitQP     ",
         .priv = &initqp,
 		.update = init_qp_d,        
         .min = 0,
@@ -514,7 +514,7 @@ static struct menu_entry mov_menus[] = {
                 .help = "Set GOP size to n frames."
             },
 	    {
-        .name = "Autoload conf",
+        .name = "Autoload Conf  ",
         .priv = &autoload,
         .min = 0,
         .max = 2,
@@ -523,7 +523,7 @@ static struct menu_entry mov_menus[] = {
     },
 
     {
-        .name = "Config select",
+        .name = "Config Select",
         .priv = &h2config,
         .min = 0,
         .max = 3,
@@ -534,13 +534,13 @@ static struct menu_entry mov_menus[] = {
         },
     },
     {
-        .name = "Load config",
+        .name = "Load Config",
         .select = load_h264_ini,
         .help = "Manual Load Config from selection"
     },
 
     {
-        .name = "Config loaded",
+        .name = "Config Loaded ",
          .priv = &ivaparam,
          .min = 2,
          .max = 3,
@@ -564,7 +564,7 @@ static struct menu_entry mov_menus[] = {
 #ifdef FEATURE_NITRATE_WAV_RECORD
 static struct menu_entry wav_menus[] = {
             {
-                .name = "Sound record",
+                .name = "Sound Record",
                 .priv = &cfg_hibr_wav_record,
                 .select = hibr_wav_record_select,
                 .max = 1,
@@ -572,7 +572,7 @@ static struct menu_entry wav_menus[] = {
                 .help = "Record audio with WAV separately. Source will auto select.",
             },
 /*			{
-                .name = "Input volume",
+                .name = "Input Volume",
                 .priv = &input_vol,
 				.update = input_vol_up,
 				.select = in_vol_toggle,

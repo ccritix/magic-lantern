@@ -1318,14 +1318,14 @@ static MENU_UPDATE_FUNC(mem_total_display)
 static struct menu_entry mem_menus[] = {
 #ifdef CONFIG_VXWORKS
     {
-        .name = "Free memory",
+        .name = "Free Memory",
         .update = meminfo_display,
         .icon_type = IT_ALWAYS_ON,
         .help = "Free memory, shared between ML and Canon firmware.",
     },
 #else // dryos
     {
-        .name = "Free memory",
+        .name = "Free Memory",
         .update = meminfo_display,
         .select = menu_open_submenu,
         .help = "Free memory, shared between ML and Canon firmware.",

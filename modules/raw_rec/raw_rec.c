@@ -2138,7 +2138,7 @@ static unsigned int raw_rec_update_preview(unsigned int ctx)
 static struct lvinfo_item info_items[] = {
     /* Top bar */
     {
-        .name = "Rec. status",
+        .name = "Rec. Status",
         .which_bar = LV_TOP_BAR_ONLY,
         .update = recording_status,
         .preferred_position = 50,

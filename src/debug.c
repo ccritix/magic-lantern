@@ -2843,7 +2843,7 @@ static struct menu_entry debug_menus[] = {
     MENU_PLACEHOLDER("File Manager"),
 #ifdef CONFIG_HEXDUMP
     {
-        .name = "Memory browser",
+        .name = "Memory Browser",
         .priv = &hexdump_enabled,
         .max = 1,
         .help = "Display memory contents in real-time (hexdump).",
@@ -3188,7 +3188,7 @@ static struct menu_entry debug_menus[] = {
 #endif
 #ifdef FEATURE_SHOW_SHUTTER_COUNT
     {
-        .name = "Shutter count",
+        .name = "Shutter Count",
         .update = shuttercount_display,
         .icon_type = IT_ALWAYS_ON,
         .help = "Number of pics taken + number of LiveView actuations",
@@ -3197,7 +3197,7 @@ static struct menu_entry debug_menus[] = {
 #endif
 #ifdef FEATURE_SHOW_CMOS_TEMPERATURE
     {
-        .name = "Internal temp",
+        .name = "Internal Temp",
         .update = efictemp_display,
         .icon_type = IT_ALWAYS_ON,
 	 #ifdef EFIC_CELSIUS
@@ -3227,7 +3227,7 @@ static struct menu_entry debug_menus[] = {
 #endif
 #ifdef FEATURE_DEBUG_PROP_DISPLAY
     {
-        .name = "PROP display",
+        .name = "PROP Display",
         .update = prop_display,
         .select = prop_toggle_k,
         // .select_reverse = prop_toggle_j,

@@ -249,7 +249,7 @@ static MENU_SELECT_FUNC(fpu_emu_select)
 static struct menu_entry fpu_emu_menu[] =
 {
     {
-        .name = "FPU emu",
+        .name = "FPU Emu",
         .select = menu_open_submenu,
         .children = (struct menu_entry[])
         {
