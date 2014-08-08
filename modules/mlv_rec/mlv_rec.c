@@ -131,7 +131,6 @@ static CONFIG_INT("mlv.fast_card_buffers", fast_card_buffers, 1);
 static CONFIG_INT("mlv.tracing", enable_tracing, 0);
 static CONFIG_INT("mlv.display_rec_info", display_rec_info, 1);
 static CONFIG_INT("mlv.show_graph", show_graph, 0);
-static CONFIG_INT("mlv.black_fix", black_fix, 0);
 static CONFIG_INT("mlv.res_x", resolution_index_x, 12);
 static CONFIG_INT("mlv.aspect_ratio", aspect_ratio_index, 10);
 static CONFIG_INT("mlv.write_speed", measured_write_speed, 0);
@@ -462,6 +461,26 @@ static void update_resolution_params()
     update_cropping_offsets();
 }
 
+static int mlv_rec_update_raw(int retries)
+{
+    /* we will fail if that is just a LV mode, but no movie mode */
+    if(!lv || !is_movie_mode())
+    {
+        return 0;
+    }
+    
+    /* this call will retry internally, and if it fails, we can assume it was indeed something bad */
+    if (!raw_update_params_retry_lv(retries))
+    {
+        return 0;
+    }
+    
+    /* update interal parameters res_x, res_y, frame_size, squeeze_factor and crop offsets  */
+    update_resolution_params();
+    
+    return 1;
+}
+
 static char* guess_aspect_ratio(int32_t res_x, int32_t res_y)
 {
     static char msg[20];
@@ -600,10 +619,8 @@ static void refresh_raw_settings(int32_t force)
         static int aux = INT_MIN;
         if (force || should_run_polling_action(250, &aux))
         {
-            if (raw_update_params())
-            {
-                update_resolution_params();
-            }
+            /* this one may be called from menu, so don't retry here, to keep the UI responsive */
+            mlv_rec_update_raw(0);
         }
     }
 }
@@ -918,6 +935,8 @@ static uint32_t add_mem_suite(struct memSuite * mem_suite, uint32_t buf_size)
     }
     return total_size;
 }
+
+
 
 static int32_t setup_buffers()
 {
@@ -2277,19 +2296,6 @@ static int32_t mlv_write_rawi(FILE* f, struct raw_info raw_info)
     rawi.xRes = res_x;
     rawi.yRes = res_y;
     rawi.raw_info = raw_info;
-    
-    /* sometimes black level is a bit off. fix that if enabled. ToDo: do all models have 2048? */
-    if(black_fix)
-    {
-        if(cam_50d || cam_5d2)
-        {
-            rawi.raw_info.black_level = 1024;
-        }
-        else
-        {
-            rawi.raw_info.black_level = 2048;
-        }
-    }
 
     return mlv_write_hdr(f, (mlv_hdr_t *)&rawi);
 }
@@ -2996,13 +3002,11 @@ static void raw_video_rec_task()
 
     /* detect raw parameters (geometry, black level etc) */
     raw_set_dirty();
-    if (!raw_update_params())
+    if (!mlv_rec_update_raw(5))
     {
-        bmp_printf( FONT_MED, 30, 50, "Raw detect error");
+        NotifyBox(5000, "Raw detect error");
         goto cleanup;
     }
-
-    update_resolution_params();
 
     trace_write(raw_rec_trace_ctx, "Resolution: %dx%d @ %d.%03d FPS", res_x, res_y, fps_get_current_x1000()/1000, fps_get_current_x1000()%1000);
 
@@ -3754,13 +3758,6 @@ static struct menu_entry raw_video_menu[] =
                 .help  = "Slow down Canon GUI, Lock digital expo while recording...",
             },
             {
-                .name = "Fix black level",
-                .priv = &black_fix,
-                .max = 1,
-                .help  = "Forces the black level to 2048 (5D3), 1024 (50D/5D2).",
-                .help2  = "Try this to fix green casts.",
-            },
-            {
                 .name = "Debug trace",
                 .priv = &enable_tracing,
                 .max = 1,
@@ -4146,7 +4143,6 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(show_graph)
     MODULE_CONFIG(large_file_support)
     MODULE_CONFIG(create_dummy)
-    MODULE_CONFIG(black_fix)
     MODULE_CONFIG(create_dirs)
 
     MODULE_CONFIG(mlv_snd_enabled)
