@@ -422,6 +422,7 @@ void fps_override_shutter_blanking()
     float frame_duration_orig = 1000.0 / default_fps;
     float frame_duration_current = 1000.0 / current_fps;
     
+    int fps_criteria = is_movie_mode() ? fps_criteria_movie : 0;
     float orig_shutter = frame_duration_orig * current_exposure / fps_timer_b_orig;
     float new_shutter = fps_criteria ? orig_shutter : orig_shutter * default_fps / current_fps;
 
