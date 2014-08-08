@@ -4780,7 +4780,7 @@ void update_disp_mode_bits_from_params()
         (focus_peaking        ? 1<<8 : 0) |
         (zoom_overlay_enabled ? 1<<9 : 0) |
         (transparent_overlay  ? 1<<10: 0) |
-        //~ (electronic_level     ? 1<<11: 0) |
+        (electronic_level     ? 1<<11: 0) |
         //~ (defish_preview       ? 1<<12: 0) |
 #ifdef FEATURE_VECTORSCOPE
         (vectorscope_should_draw() ? 1<<13: 0) |
@@ -4816,7 +4816,7 @@ void update_disp_mode_params_from_bits()
     focus_peaking        = bits & (1<<8) ? 1 : 0;
     zoom_overlay_enabled = bits & (1<<9) ? 1 : 0;
     transparent_overlay  = bits & (1<<10)? 1 : 0;
-    //~ electronic_level     = bits & (1<<11)? 1 : 0;
+    electronic_level     = bits & (1<<11)? 1 : 0;
     //~ defish_preview       = bits & (1<<12)? 1 : 0;
 #ifdef FEATURE_VECTORSCOPE
     vectorscope_request_draw(bits & (1<<13)? 1 : 0);
@@ -4963,7 +4963,7 @@ static void zebra_init()
     //~ menu_add( "Movie", movie_menus, COUNT(movie_menus) );
     //~ menu_add( "Config", cfg_menus, COUNT(cfg_menus) );
     menu_add( "Prefs", powersave_menus, COUNT(powersave_menus) );
-    menu_add( "Display", level_indic_menus, COUNT(level_indic_menus) );
+    menu_add( "Overlay", level_indic_menus, COUNT(level_indic_menus) );
     #ifdef FEATURE_CROPMARKS
     menu_add( "Overlay", cropmarks_menu, COUNT(cropmarks_menu) );
     #endif
