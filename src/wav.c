@@ -4,6 +4,7 @@
 #include "menu.h"
 #include "bmp.h"
 #include "config.h"
+#include "fio-ml.h"
 #include <string.h>
 
 #include "sound.h"
@@ -55,7 +56,7 @@ struct wav_data *wav_record_init(char *filename)
     ctx->filename = strdup(filename);
     ctx->handle = FIO_CreateFile(filename);
     
-    if(ctx->handle == INVALID_PTR)
+    if(!ctx->handle)
     {
         sound_free(ctx->sound);
         free(ctx);
@@ -131,7 +132,7 @@ void wav_record_stop(struct wav_data *ctx)
     memcpy(header, wav_header, sizeof(header));
     wav_set_size(header, ctx->processed);
 
-    FIO_SeekFile(ctx->handle, 0, SEEK_SET);
+    FIO_SeekSkipFile(ctx->handle, 0, SEEK_SET);
     FIO_WriteFile(ctx->handle, header, sizeof(header));
     FIO_CloseFile(ctx->handle);
     
