@@ -5,7 +5,4 @@ ML_SOUND_CODEC_OBJ = ak4646.o
 
 ML_SRC_EXTRA_OBJS = \
 	afma.o \
-	raw.o \
-	chdk-dng.o \
-	edmac-memcpy.o \
 	gps.o

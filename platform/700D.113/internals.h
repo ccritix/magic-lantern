@@ -97,9 +97,6 @@
 /** We know how to use edmac_memcpy. This one is really fast (600MB/s!) */
 #define CONFIG_EDMAC_MEMCPY
 
-/** We know how to use engine resource locks */
-#define CONFIG_ENGINE_RESLOCK
-
 /** We should warn the user if movie exposure is Auto, otherwise he may report it as a bug **/
 #define CONFIG_MOVIE_AE_WARNING
 
@@ -136,3 +133,6 @@
 
 /** this method bypasses Canon's lv_save_raw and slurps the raw data directly from connection #0 */
 //~ #define CONFIG_EDMAC_RAW_SLURP
+
+/** Hide Canon bottom bar by temporarily disabling their front BMP buffer */
+#define CONFIG_LVAPP_HACK_FBUFF

@@ -1,8 +1,5 @@
 #Makefile for 7D
 
-
-CONFIG_GDB=n
-
 ML_PICSTYLE_AUTO=n
 ML_SOUND_CODEC_OBJ = ak4646.o
 
@@ -10,8 +7,5 @@ ML_SRC_EXTRA_OBJS = \
 	ml_rpc.o \
 	video_hacks.o \
 	ptpbuf.o \
-	raw.o \
-	edmac-memcpy.o \
-	chdk-dng.o \
 	afma.o
 

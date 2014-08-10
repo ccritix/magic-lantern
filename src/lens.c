@@ -426,8 +426,33 @@ char* lens_format_shutter_reciprocal(int shutter_reciprocal_x1000)
 // Pretty prints the shutter speed given the raw shutter value as input
 char* lens_format_shutter(int tv)
 {
-    int shutter_reciprocal_x1000 = tv ? (int) roundf(4000000.0f / powf(2.0f, (152 - tv)/8.0f)) : 0;
-    return lens_format_shutter_reciprocal(shutter_reciprocal_x1000);
+    static char shutter[32];
+    if(tv >= 70 && tv - 15 < COUNT(values_shutter))
+    {
+        snprintf(shutter, sizeof(shutter), SYM_1_SLASH"%d", values_shutter[tv-15]);
+    }
+    else if(tv >= 15 && tv < 70)
+    {
+        uint16_t value = values_shutter[tv-15];
+        if(value % 10 != 0)
+        {
+            snprintf(shutter, sizeof(shutter), "%d.%d\"", value / 10, value % 10);
+        }
+        else
+        {
+            snprintf(shutter, sizeof(shutter), "%d\"", value / 10);
+        }
+    }
+    else if (tv == SHUTTER_BULB)
+    {
+        snprintf(shutter, sizeof(shutter), "BULB");
+    }
+    else
+    {
+        //this should never happen, but if it does, just print the raw value
+        snprintf(shutter, sizeof(shutter), "RAW:%d", tv);
+    }
+    return shutter;
 }
 
 int FAST get_ml_topbar_pos()
@@ -859,7 +884,7 @@ mvr_create_logfile(
         snprintf(name, sizeof(name), "%s/MVI_%04d.LOG", get_dcim_dir(), get_shooting_card()->file_number);
 
         FILE * mvr_logfile = mvr_logfile = FIO_CreateFile( name );
-        if( mvr_logfile == INVALID_PTR )
+        if (!mvr_logfile)
         {
             bmp_printf( FONT_MED, 0, 40,
                 "Unable to create movie log! fd=%x\n%s",
@@ -1748,7 +1773,7 @@ void bv_update_lensinfo()
 
 void bv_apply_tv(int tv)
 {
-    if (is_native_movie_mode())
+    if (is_movie_mode())
         CONTROL_BV_TV = COERCE(tv, 0x5C, 0xA0); // try to extend shutter range, 1/24 ... 1/8000
     else
         CONTROL_BV_TV = COERCE(tv, 0x60, 0x98); // 600D: [LV] ERROR >> Tv:0x10, TvMax:0x98, TvMin:0x60
@@ -2161,7 +2186,8 @@ static LVINFO_UPDATE_FUNC(picq_update)
         );
     }
     
-    if (raw_lv_is_enabled())
+    int raw_lv = raw_lv_is_enabled();
+    if (raw_lv)
     {
         /* make it obvious that LiveView is in RAW mode */
         /* (primarily for troubleshooting the raw backend, proper raw_lv_request/release calls and Magic Zoom slowdowns) */
@@ -2170,7 +2196,7 @@ static LVINFO_UPDATE_FUNC(picq_update)
             /* todo: icon? */
             snprintf(buffer, sizeof(buffer), "RAW");
         }
-        item->color_fg = COLOR_GREEN1;
+        item->color_fg = raw_lv == 1 ? COLOR_GREEN1 : COLOR_GRAY(20);
     }
 }
 
@@ -2234,7 +2260,7 @@ static LVINFO_UPDATE_FUNC(mvi_number_update)
 {
     LVINFO_BUFFER(12);
     
-    if (is_native_movie_mode())
+    if (is_movie_mode() && !raw_lv_is_enabled())
     {
         snprintf(buffer, sizeof(buffer), "MVI_%04d", get_shooting_card()->file_number);
     }
