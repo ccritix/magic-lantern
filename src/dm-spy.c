@@ -13,6 +13,7 @@
 
 /** Some local options */
 //~ #define PRINT_EACH_MESSAGE  /* also print each message as soon as it's received (on the screen or via card LED) */
+//~ #define PRINT_STACK /* also print the stack contents for each message */
 
 #include "dm-spy.h"
 #include "dryos.h"
@@ -20,6 +21,7 @@
 #include "beep.h"
 #include "patch.h"
 #include "blink.h"
+#include "asm.h"
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
     /* we don't have malloc from the beginning, so we'll use a static buffer, which should be small */
@@ -48,7 +50,12 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     uint32_t old = cli();
     
     char* msg = buf+len;
-
+    
+    #ifdef PRINT_STACK
+    int len0 = len;
+    uintptr_t sp = read_sp();
+    #endif
+    
     uintptr_t lr = read_lr();
     
     //~ char* classname = dm_names[class]; /* not working, some names are gibberish; todo: check for printable characters? */
@@ -64,6 +71,26 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     va_start( ap, fmt );
     len += vsnprintf( buf+len, BUF_SIZE-len-1, fmt, ap );
     va_end( ap );
+    
+    #ifdef PRINT_STACK
+    {
+        int spaces = COERCE(120 - (len - len0), 0, BUF_SIZE-len-1);
+        memset(buf+len, ' ', spaces);
+        len += spaces;
+        
+        len += snprintf( buf+len, BUF_SIZE-len, "stack: " );
+        for (int i = 0; i < 200; i++)
+        {
+            uint32_t addr = MEM(sp+i*4) - 4;
+
+            /* does it look like a pointer to some ARM instruction? */
+            if (is_sane_ptr(addr) && (MEM(addr) & 0xF0000000) == 0xE0000000)
+            {
+                len += snprintf( buf+len, BUF_SIZE-len, "%x ", addr);
+            }
+        }
+    }
+    #endif
 
     len += snprintf( buf+len, BUF_SIZE-len, "\n" );
     
