@@ -23,6 +23,11 @@ static uint32_t decode_immediate_shifter_operand(uint32_t insn)
 /* returns true if the machine will not lock up when dereferencing ptr */
 int is_sane_ptr(uint32_t ptr)
 {
+    if (ptr < 0x1000)
+    {
+        return 0;
+    }
+
     switch (ptr & 0xF0000000)
     {
         case 0x00000000:
@@ -32,6 +37,7 @@ int is_sane_ptr(uint32_t ptr)
         case 0xF0000000:
             return 1;
     }
+
     return 0;
 }
 
