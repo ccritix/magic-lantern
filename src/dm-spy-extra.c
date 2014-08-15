@@ -36,6 +36,14 @@ struct logged_func
     breakpoint_t * bkpt;                        /* internal */
 };
 
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+static struct logged_func logged_functions[] = {
+    #ifdef CONFIG_5D2
+    //~ { 0xff9b3cb4, "register_interrupt", 4 },    // causes blank screen, figure out why
+    { 0xFF87284C, "dma_memcpy", 3 },
+    #endif
+};
+#else
 static struct logged_func logged_functions[] = {
 #ifdef CONFIG_5D2
     { 0xff9b9198, "StateTransition", 4 , state_transition_log },
@@ -143,8 +151,8 @@ static struct logged_func logged_functions[] = {
     { 0xff290cd4, "EngDrvIns", 3 },
     /* only EngDrvOuts is verbose, no need to log it here */
 #endif
-
 };
+#endif
 
 /* format arg to string and try to guess its type, with snprintf-like usage */
 /* (string, ROM function name or regular number) */
