@@ -49,11 +49,7 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     
     char* msg = buf+len;
 
-    uintptr_t lr;
-    asm __volatile__ (
-        "mov %0, %%lr"
-        : "=&r"(lr)
-    );
+    uintptr_t lr = read_lr();
     
     //~ char* classname = dm_names[class]; /* not working, some names are gibberish; todo: check for printable characters? */
     
