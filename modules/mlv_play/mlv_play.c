@@ -104,6 +104,8 @@ static uint32_t mlv_play_timer_stop = 1;
 static uint32_t mlv_play_frame_number = 0;
 static uint32_t mlv_play_frames_skipped = 0;
 
+static mlv_file_hdr_t mlv_play_main_header;
+
 /* this structure is used to build the mlv_xref_t table */
 typedef struct 
 {
@@ -1018,7 +1020,6 @@ static void mlv_play_build_index(char *filename, FILE **chunk_files, uint32_t ch
     frame_xref_t *frame_xref_table = NULL;
     uint32_t frame_xref_entries = 0;
     uint32_t frame_xref_allocated = 0;
-    mlv_file_hdr_t main_header;
     
     for(uint32_t chunk = 0; chunk < chunk_count; chunk++)
     {
@@ -1098,12 +1099,12 @@ static void mlv_play_build_index(char *filename, FILE **chunk_files, uint32_t ch
                 /* is this the first file? */
                 if(file_hdr.fileNum == 0)
                 {
-                    memcpy(&main_header, &file_hdr, sizeof(mlv_file_hdr_t));
+                    memcpy(&mlv_play_main_header, &file_hdr, sizeof(mlv_file_hdr_t));
                 }
                 else
                 {
                     /* no, its another chunk */
-                    if(main_header.fileGuid != file_hdr.fileGuid)
+                    if(mlv_play_main_header.fileGuid != file_hdr.fileGuid)
                     {
                         bmp_printf(FONT_MED, 30, 190, "Error: GUID within the file chunks mismatch!");
                         beep();
@@ -1140,7 +1141,7 @@ static void mlv_play_build_index(char *filename, FILE **chunk_files, uint32_t ch
     }
     
     mlv_play_xref_sort(frame_xref_table, frame_xref_entries);
-    mlv_play_save_index(filename, &main_header, chunk_count, frame_xref_table, frame_xref_entries);
+    mlv_play_save_index(filename, &mlv_play_main_header, chunk_count, frame_xref_table, frame_xref_entries);
 }
 
 static mlv_xref_hdr_t *mlv_play_get_index(char *filename, FILE **chunk_files, uint32_t chunk_count)
@@ -1540,14 +1541,13 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
     mlv_rawi_hdr_t rawi_block;
     mlv_wavi_hdr_t wavi_block;
     mlv_rtci_hdr_t rtci_block;
-    mlv_file_hdr_t main_header;
     
     /* make sure there is no crap in stack variables */
     memset(&lens_block, 0x00, sizeof(mlv_lens_hdr_t));
     memset(&rawi_block, 0x00, sizeof(mlv_rawi_hdr_t));
     memset(&wavi_block, 0x00, sizeof(mlv_rawi_hdr_t));
     memset(&rtci_block, 0x00, sizeof(mlv_rtci_hdr_t));
-    memset(&main_header, 0x00, sizeof(mlv_file_hdr_t));
+    memset(&mlv_play_main_header, 0x00, sizeof(mlv_file_hdr_t));
     
     /* read footer information and update global variables, will seek automatically */
     if(chunk_count < 1 || !mlv_play_is_mlv(chunk_files[0]))
@@ -1618,12 +1618,12 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
             /* is this the first file? */
             if(file_hdr.fileNum == 0)
             {
-                memcpy(&main_header, &file_hdr, sizeof(mlv_file_hdr_t));
+                memcpy(&mlv_play_main_header, &file_hdr, sizeof(mlv_file_hdr_t));
             }
             else
             {
                 /* no, its another chunk */
-                if(main_header.fileGuid != file_hdr.fileGuid)
+                if(mlv_play_main_header.fileGuid != file_hdr.fileGuid)
                 {
                     bmp_printf(FONT_MED, 30, 190, "Error: GUID within the file chunks mismatch!");
                     beep();
@@ -1801,7 +1801,7 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
                 if (!fps_timer_start_attempted)
                 {
                     /* timer startup may succeed or not; either way, do not retry, because it will keep beeping */
-                    fps_timer_started = mlv_play_start_fps_timer(main_header.sourceFpsNom, main_header.sourceFpsDenom);
+                    fps_timer_started = mlv_play_start_fps_timer(mlv_play_main_header.sourceFpsNom, mlv_play_main_header.sourceFpsDenom);
                     fps_timer_start_attempted = 1;
                 }
                 
