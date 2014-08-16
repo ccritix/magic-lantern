@@ -1377,11 +1377,12 @@ static void mlv_play_render_task(uint32_t priv)
             /* cheap redraw every time, sometimes do a more expensive clearing too */
             if(redraw_loop % 10)
             {
+                int fpsx1000 = mlv_play_main_header.sourceFpsNom * 1000 / mlv_play_main_header.sourceFpsDenom;
                 bmp_printf(FONT(FONT_MED,COLOR_WHITE,COLOR_BG), 0, 0, buffer->messages.topLeft);
                 bmp_printf(FONT(FONT_MED,COLOR_WHITE,COLOR_BG) | FONT_ALIGN_RIGHT, os.x_max, 0, buffer->messages.topRight);
                 bmp_printf(FONT(FONT_MED,COLOR_WHITE,COLOR_BG), 0, font_med.height, buffer->messages.botLeft);
                 bmp_printf(FONT(FONT_MED,COLOR_WHITE,COLOR_BG) | FONT_ALIGN_RIGHT, os.x_max, font_med.height, buffer->messages.botRight);
-                //bmp_printf(FONT(FONT_MED,COLOR_WHITE,COLOR_BG) | FONT_ALIGN_RIGHT, os.x_max, 2 * font_med.height, "pl: %d", mlv_playlist_entries);
+                bmp_printf(FONT(FONT_MED,COLOR_WHITE,COLOR_BG) | FONT_ALIGN_RIGHT, os.x_max, 2 * font_med.height, "fps: %d.%03d", fpsx1000 / 1000, fpsx1000 % 1000);
             }
             else
             {
