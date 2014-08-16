@@ -35,6 +35,7 @@
 #include <zebra.h>
 #include <util.h>
 #include <timer.h>
+#include <sound.h>
 
 #include <string.h>
 
@@ -146,6 +147,8 @@ typedef struct
 /* set up two queues - one with empty buffers and one with buffers to render */
 static struct msg_queue *mlv_play_queue_frame_empty;
 static struct msg_queue *mlv_play_queue_frame_ready;
+static struct msg_queue *mlv_play_queue_sound_empty;
+static struct msg_queue *mlv_play_queue_sound_ready;
 static struct msg_queue *mlv_play_queue_osd;
 static struct msg_queue *mlv_play_queue_fps;
 
@@ -162,6 +165,22 @@ static playlist_entry_t mlv_playlist_prev(playlist_entry_t current);
 static void mlv_playlist_delete(playlist_entry_t current);
 static void mlv_playlist_build(uint32_t priv);
 static uint32_t mlv_play_should_stop();
+
+/* fps timer related */
+static int mlv_play_start_fps_timer(uint32_t fps_nom, uint32_t fps_denom);
+static uint32_t fps_timer_started = 0;
+static uint32_t fps_timer_start_attempted = 0;
+    
+/* sound function declarations */
+static int mlv_play_audio_waiting();
+
+/* sound related variables */
+static struct sound_ctx *sound_ctx = NULL;
+static struct sound_buffer *sound_buffers[10];
+
+
+static uint32_t mlv_play_queue_frame_count = 100;
+static uint32_t mlv_play_queue_sound_count = COUNT(sound_buffers);
 
 /* microsecond durations for one frame */
 static uint32_t mlv_play_frame_div_pos = 0;
@@ -1359,7 +1378,7 @@ static void mlv_play_render_task(uint32_t priv)
         {
             continue;
         }
-
+        
         if(!buffer->frameBuffer)
         {
             bmp_printf(FONT_MED, 30, 400, "buffer empty");
@@ -1368,6 +1387,45 @@ static void mlv_play_render_task(uint32_t priv)
             break;
         }
 
+        if(mlv_play_exact_fps)
+        {
+            /* if audio configured, wait before starting fps timer */
+            if(!fps_timer_start_attempted)
+            {
+                if(sound_ctx)
+                {
+                    uint32_t queue_length = 0;
+                    
+                    /* if audio is configured, wait until it has enough buffers */
+                    while(mlv_play_audio_waiting() && queue_length < 1)
+                    {
+                        bmp_printf(FONT_MED, 30, 300, "Wait for audio        ");
+                        if(mlv_play_should_stop())
+                        {
+                            break;
+                        }
+                        msleep(100);
+                        msg_queue_count(sound_ctx->buffer_queue, &queue_length);
+                    }
+                    bmp_printf(FONT_MED, 30, 300, "Wait for audio done");
+                }
+                
+                fps_timer_started = mlv_play_start_fps_timer(mlv_play_main_header.sourceFpsNom, mlv_play_main_header.sourceFpsDenom);
+                fps_timer_start_attempted = 1;
+            }
+            
+            /* wait till it is time to render */
+            uint32_t temp = 0;
+            while(msg_queue_receive(mlv_play_queue_fps, &temp, 50))
+            {
+                bmp_printf(FONT_MED, 30, 300, "Wait for fps              ");
+                if(mlv_play_should_stop())
+                {
+                    break;
+                }
+            }
+        }
+        
         raw_info.buffer = buffer->frameBuffer;
         raw_set_geometry(buffer->xRes, buffer->yRes, 0, 0, 0, 0);
         raw_force_aspect_ratio_1to1();
@@ -1544,10 +1602,106 @@ static int mlv_play_start_fps_timer(uint32_t fps_nom, uint32_t fps_denom)
     return 1;
 }
 
+static int mlv_play_audio_waiting()
+{
+    if(!sound_ctx)
+    {
+        return 0;
+    }
+    return sound_get_state(sound_ctx) != SOUND_STATE_RUNNING;
+}
+
+static enum sound_flow mlv_play_sound_requeued(struct sound_buffer *buffer)
+{
+    static uint32_t counter = 0;
+    bmp_printf(FONT_LARGE, 30, 100, "mlv_play_sound_requeued: %d, %d times", buffer->sequence, ++counter);
+    
+    return SOUND_FLOW_CONTINUE;
+}
+
+static enum sound_flow mlv_play_sound_cleanup(struct sound_buffer *buffer)
+{
+    msg_queue_post(mlv_play_queue_sound_empty, (uint32_t)buffer);
+    return SOUND_FLOW_CONTINUE;
+}
+
+static enum sound_flow mlv_play_sound_processed(struct sound_buffer *buffer)
+{
+    msg_queue_post(mlv_play_queue_sound_empty, (uint32_t)buffer);
+    return SOUND_FLOW_CONTINUE;
+}
+
+static void mlv_play_start_audio(mlv_wavi_hdr_t *wavi)
+{
+    if(wavi->format != 1)
+    {
+        bmp_printf(FONT_LARGE, 30, 100, "Invalid audio format: %d", wavi->format);
+        return;
+    }
+    
+    if(sound_ctx)
+    {
+        sound_ctx->ops.stop(sound_ctx);
+        sound_free(sound_ctx);
+        sound_ctx = NULL;
+    }
+    
+    sound_ctx = sound_alloc();
+    sound_ctx->mode = SOUND_MODE_PLAYBACK;
+    sound_ctx->min_buffers = 3;
+    sound_ctx->format.rate = wavi->samplingRate;
+    sound_ctx->format.channels = wavi->channels;
+    sound_ctx->format.sampletype = (wavi->bitsPerSample == 16) ? SOUND_SAMPLETYPE_SINT16 : SOUND_SAMPLETYPE_UINT8;
+
+    /* create playback audio buffers */
+    for(uint32_t buf = 0; buf < COUNT(sound_buffers); buf++)
+    {
+        sound_buffers[buf] = sound_alloc_buffer();
+        sound_buffers[buf]->size = 0;
+        sound_buffers[buf]->data = NULL;
+        sound_buffers[buf]->processed = &mlv_play_sound_processed;
+        sound_buffers[buf]->requeued = &mlv_play_sound_requeued;
+        sound_buffers[buf]->cleanup = &mlv_play_sound_cleanup;
+        
+        msg_queue_post(mlv_play_queue_sound_empty, (uint32_t)sound_buffers[buf]);
+    }
+    
+    sound_ctx->ops.lock(sound_ctx, SOUND_LOCK_EXCLUSIVE);
+    sound_ctx->ops.start(sound_ctx);
+}
+
+static void mlv_play_stop_audio()
+{
+    if(!sound_ctx)
+    {
+        return;
+    }
+    sound_ctx->ops.stop(sound_ctx);
+    
+    while(sound_get_state(sound_ctx) != SOUND_STATE_IDLE)
+    {
+        msleep(20);
+    }
+    
+    sound_ctx->ops.unlock(sound_ctx);
+    
+    /* free audio buffers */
+    for(uint32_t buf = 0; buf < COUNT(sound_buffers); buf++)
+    {
+        if(sound_buffers[buf]->data)
+        {
+            fio_free(sound_buffers[buf]->data);
+            sound_buffers[buf]->data = NULL;
+        }
+        free(sound_buffers[buf]);
+    }
+    
+    sound_free(sound_ctx);
+    sound_ctx = NULL;
+}
+
 static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_count)
 {
-    uint32_t fps_timer_started = 0;
-    uint32_t fps_timer_start_attempted = 0;
     uint32_t frame_size = 0;
     uint32_t frame_count = 0;
     mlv_xref_hdr_t *block_xref = NULL;
@@ -1709,10 +1863,84 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
                 msleep(1000);
                 break;
             }
+            
+            /* only playback audio when playing at exact FPS */
+            if(mlv_play_exact_fps)
+            {
+                mlv_play_start_audio(&wavi_block);
+            }
         }
         else if(!memcmp(buf.blockType, "AUDF", 4))
         {
-            /* ToDo: new sound system calls here as soon its merged into unified */
+            struct sound_buffer *buffer = NULL;
+            mlv_audf_hdr_t audf_block;
+            
+            if(FIO_ReadFile(in_file, &audf_block, sizeof(mlv_audf_hdr_t)) != sizeof(mlv_audf_hdr_t))
+            {
+                bmp_printf(FONT_MED, 30, 190, "File ends prematurely during AUDF");
+                beep();
+                msleep(1000);
+                break;
+            }
+            uint32_t buffers_empty = 0;
+            msg_queue_count(mlv_play_queue_sound_empty, &buffers_empty);
+            if(!buffers_empty)
+            {
+                continue;
+            }
+            
+            /* now get a buffer from the queue */
+            retry_dequeue_audf:
+            if(msg_queue_receive(mlv_play_queue_sound_empty, &buffer, 100) && !mlv_play_should_stop())
+            {
+                if(mlv_play_paused)
+                {
+                    goto retry_dequeue_audf;
+                }
+                bmp_printf(FONT_MED, 0, 400, "Failed to get a free audio buffer. If you can reproduce this, please report.");
+                beep();
+                msleep(1000);
+                break;
+            }
+            
+            /* check if the queued buffer has the correct size */
+            if(buffer->size != audf_block.blockSize - audf_block.frameSpace)
+            {
+                /* the first few queued don't have anything allocated, so don't free */
+                if(buffer->data)
+                {
+                    fio_free(buffer->data);
+                }
+                
+                buffer->size = audf_block.blockSize - audf_block.frameSpace - sizeof(mlv_audf_hdr_t);
+                buffer->data = fio_malloc(buffer->size);
+                
+                if(!buffer->data)
+                {
+                    bmp_printf(FONT_MED, 30, 400, "allocation failed");
+                    beep();
+                    msleep(1000);
+                    break;
+                }        
+            }
+            
+            /* skip frame space */
+            FIO_SeekSkipFile(in_file, position + sizeof(mlv_audf_hdr_t) + audf_block.frameSpace, SEEK_SET);
+
+            /* finally read the audio data */
+            if(FIO_ReadFile(in_file, buffer->data, buffer->size) != (int32_t)buffer->size)
+            {
+                bmp_printf(FONT_MED, 30, 190, "File ends prematurely during AUDF data");
+                beep();
+                msleep(1000);
+                break;
+            }
+            
+            /* buffer has data now, send to playback task */
+            if(sound_ctx)
+            {
+                sound_ctx->ops.enqueue(sound_ctx, buffer);
+            }
         }
         else if(!memcmp(buf.blockType, "VIDF", 4))
         {
@@ -1720,7 +1948,18 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
             mlv_vidf_hdr_t vidf_block;
             
             /* now get a buffer from the queue */
-            while (msg_queue_receive(mlv_play_queue_frame_empty, &buffer, 100) && !mlv_play_should_stop());
+            retry_dequeue_vidf:
+            if(msg_queue_receive(mlv_play_queue_frame_empty, &buffer, 100) && !mlv_play_should_stop())
+            {
+                if(mlv_play_paused)
+                {
+                    goto retry_dequeue_vidf;
+                }
+                bmp_printf(FONT_MED, 0, 400, "Failed to get a free video buffer. If you can reproduce this, please report.");
+                beep();
+                msleep(1000);
+                break;
+            }
 
             if (mlv_play_should_stop())
             {
@@ -1815,24 +2054,12 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
             
             if (mlv_play_exact_fps)
             {
-                if (!fps_timer_start_attempted)
+                /* do not start timer here if audio is being used. */
+                if (!fps_timer_start_attempted && !sound_ctx)
                 {
                     /* timer startup may succeed or not; either way, do not retry, because it will keep beeping */
                     fps_timer_started = mlv_play_start_fps_timer(mlv_play_main_header.sourceFpsNom, mlv_play_main_header.sourceFpsDenom);
                     fps_timer_start_attempted = 1;
-                }
-                
-                if (fps_timer_started)
-                {
-                    /* wait till it is time to render */
-                    uint32_t temp = 0;
-                    while(msg_queue_receive(mlv_play_queue_fps, &temp, 50))
-                    {
-                        if(mlv_play_should_stop())
-                        {
-                            break;
-                        }
-                    }
                 }
             }
             else
@@ -1854,6 +2081,8 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
         mlv_play_stop_fps_timer();
     }
     free(block_xref);
+	
+    mlv_play_stop_audio();
 }
 
 static void mlv_play_raw(char *filename, FILE **chunk_files, uint32_t chunk_count)
@@ -1998,10 +2227,8 @@ static void mlv_play_raw(char *filename, FILE **chunk_files, uint32_t chunk_coun
         /* fill strings to display */
         snprintf(buffer->messages.topLeft, SCREEN_MSG_LEN, "");
         snprintf(buffer->messages.topRight, SCREEN_MSG_LEN, "");
-            
         snprintf(buffer->messages.botLeft, SCREEN_MSG_LEN, "%s: %dx%d", filename, res_x, res_y);
         snprintf(buffer->messages.botRight, SCREEN_MSG_LEN, "%d/%d",  i+1, frame_count-1);
-        
         
         /* update dimensions */
         buffer->xRes = res_x;
@@ -2296,7 +2523,7 @@ static void mlv_play_enter_playback()
     task_create("mlv_play_osd_task", 0x15, 0x4000, mlv_play_osd_task, 0);
     
     /* queue a few buffers that are not allocated yet */
-    for(int num = 0; num < 3; num++)
+    for(int num = 0; num < mlv_play_queue_frame_count; num++)
     {
         frame_buf_t *buffer = malloc(sizeof(frame_buf_t));
         if (buffer)
@@ -2576,8 +2803,10 @@ static unsigned int mlv_play_init()
     trace_format(mlv_play_trace_ctx, TRACE_FMT_TIME_REL | TRACE_FMT_COMMENT, ' ');
     
     /* setup queues for frame buffers */
-    mlv_play_queue_frame_empty = (struct msg_queue *) msg_queue_create("mlv_play_queue_frame_empty", 10);
-    mlv_play_queue_frame_ready = (struct msg_queue *) msg_queue_create("mlv_play_queue_frame_ready", 10);
+    mlv_play_queue_frame_empty = (struct msg_queue *) msg_queue_create("mlv_play_queue_frame_empty", mlv_play_queue_frame_count);
+    mlv_play_queue_frame_ready = (struct msg_queue *) msg_queue_create("mlv_play_queue_frame_ready", mlv_play_queue_frame_count);
+    mlv_play_queue_sound_empty = (struct msg_queue *) msg_queue_create("mlv_play_queue_sound_empty", mlv_play_queue_sound_count);
+    mlv_play_queue_sound_ready = (struct msg_queue *) msg_queue_create("mlv_play_queue_sound_ready", mlv_play_queue_sound_count);
     mlv_play_queue_osd = (struct msg_queue *) msg_queue_create("mlv_play_queue_osd", 10);
     mlv_play_queue_fps = (struct msg_queue *) msg_queue_create("mlv_play_queue_fps", 100);
     
