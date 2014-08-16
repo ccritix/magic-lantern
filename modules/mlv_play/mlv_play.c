@@ -101,7 +101,7 @@ static uint32_t mlv_play_osd_item = 0;
 static uint32_t mlv_play_paused = 0;
 static uint32_t mlv_play_info = 1;
 static uint32_t mlv_play_timer_stop = 1;
-static uint32_t mlv_play_fps_ticks = 0;
+static uint32_t mlv_play_frame_number = 0;
 static uint32_t mlv_play_frames_skipped = 0;
 
 /* this structure is used to build the mlv_xref_t table */
@@ -141,8 +141,8 @@ typedef struct
 } frame_buf_t;
 
 /* set up two queues - one with empty buffers and one with buffers to render */
-static struct msg_queue *mlv_play_queue_empty;
-static struct msg_queue *mlv_play_queue_render;
+static struct msg_queue *mlv_play_queue_frame_empty;
+static struct msg_queue *mlv_play_queue_frame_ready;
 static struct msg_queue *mlv_play_queue_osd;
 static struct msg_queue *mlv_play_queue_fps;
 
@@ -1345,7 +1345,7 @@ static void mlv_play_render_task(uint32_t priv)
         }
         
         /* is there something to render? */
-        if(msg_queue_receive(mlv_play_queue_render, &buffer, 50))
+        if(msg_queue_receive(mlv_play_queue_frame_ready, &buffer, 50))
         {
             continue;
         }
@@ -1405,7 +1405,7 @@ static void mlv_play_render_task(uint32_t priv)
         }
         
         /* finished displaying, requeue frame buffer for refilling */
-        msg_queue_post(mlv_play_queue_empty, (uint32_t) buffer);
+        msg_queue_post(mlv_play_queue_frame_empty, (uint32_t) buffer);
     }
     
     mlv_play_rendering = 0;
@@ -1471,7 +1471,7 @@ static void mlv_play_fps_tick(int expiry_value, void *priv)
     }
     msg_queue_post(mlv_play_queue_fps, 0);
     
-    mlv_play_fps_ticks++;
+    mlv_play_frame_number++;
 
     /* use high-precision timer for FPS > 2  */
     if (offset < 500000)
@@ -1519,7 +1519,7 @@ static int mlv_play_start_fps_timer(uint32_t fps_nom, uint32_t fps_denom)
     
     /* reset counters */
     mlv_play_frame_div_pos = 0;
-    mlv_play_fps_ticks = 0;
+    mlv_play_frame_number = 0;
     mlv_play_timer_stop = 0;
     mlv_play_frames_skipped = 0;
     
@@ -1706,7 +1706,7 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
             mlv_vidf_hdr_t vidf_block;
             
             /* now get a buffer from the queue */
-            while (msg_queue_receive(mlv_play_queue_empty, &buffer, 100) && !mlv_play_should_stop());
+            while (msg_queue_receive(mlv_play_queue_frame_empty, &buffer, 100) && !mlv_play_should_stop());
 
             if (mlv_play_should_stop())
             {
@@ -1828,7 +1828,7 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
             }
             
             /* queue frame buffer for rendering */
-            msg_queue_post(mlv_play_queue_render, (uint32_t) buffer);
+            msg_queue_post(mlv_play_queue_frame_ready, (uint32_t) buffer);
         }
     }
     
@@ -1915,7 +1915,7 @@ static void mlv_play_raw(char *filename, FILE **chunk_files, uint32_t chunk_coun
         }
         
         /* now get a buffer from the queue */
-        while (msg_queue_receive(mlv_play_queue_empty, &buffer, 100) && !mlv_play_should_stop());
+        while (msg_queue_receive(mlv_play_queue_frame_empty, &buffer, 100) && !mlv_play_should_stop());
         
         if (mlv_play_should_stop())
         {
@@ -2023,7 +2023,7 @@ static void mlv_play_raw(char *filename, FILE **chunk_files, uint32_t chunk_coun
         }
 
         /* requeue frame buffer for rendering */
-        msg_queue_post(mlv_play_queue_render, (uint32_t) buffer);
+        msg_queue_post(mlv_play_queue_frame_ready, (uint32_t) buffer);
     }
 
     if(fps_timer_started)
@@ -2248,7 +2248,7 @@ static void mlv_play_leave_playback()
     {
         frame_buf_t *buffer = NULL;
         
-        if(msg_queue_receive(mlv_play_queue_render, &buffer, 50) && msg_queue_receive(mlv_play_queue_empty, &buffer, 50))
+        if(msg_queue_receive(mlv_play_queue_frame_ready, &buffer, 50) && msg_queue_receive(mlv_play_queue_frame_empty, &buffer, 50))
         {
             break;
         }
@@ -2287,7 +2287,7 @@ static void mlv_play_enter_playback()
             buffer->frameSize = 0;
             buffer->frameBuffer = NULL;
             
-            msg_queue_post(mlv_play_queue_empty, (uint32_t) buffer);
+            msg_queue_post(mlv_play_queue_frame_empty, (uint32_t) buffer);
         }
     }
     
@@ -2559,8 +2559,8 @@ static unsigned int mlv_play_init()
     trace_format(mlv_play_trace_ctx, TRACE_FMT_TIME_REL | TRACE_FMT_COMMENT, ' ');
     
     /* setup queues for frame buffers */
-    mlv_play_queue_empty = (struct msg_queue *) msg_queue_create("mlv_play_queue_empty", 10);
-    mlv_play_queue_render = (struct msg_queue *) msg_queue_create("mlv_play_queue_render", 10);
+    mlv_play_queue_frame_empty = (struct msg_queue *) msg_queue_create("mlv_play_queue_frame_empty", 10);
+    mlv_play_queue_frame_ready = (struct msg_queue *) msg_queue_create("mlv_play_queue_frame_ready", 10);
     mlv_play_queue_osd = (struct msg_queue *) msg_queue_create("mlv_play_queue_osd", 10);
     mlv_play_queue_fps = (struct msg_queue *) msg_queue_create("mlv_play_queue_fps", 100);
     
