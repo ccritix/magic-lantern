@@ -1538,10 +1538,10 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
     uint32_t frame_size = 0;
     uint32_t frame_count = 0;
     mlv_xref_hdr_t *block_xref = NULL;
-    mlv_lens_hdr_t lens_block;
-    mlv_rawi_hdr_t rawi_block;
-    mlv_wavi_hdr_t wavi_block;
-    mlv_rtci_hdr_t rtci_block;
+    static mlv_lens_hdr_t lens_block;
+    static mlv_rawi_hdr_t rawi_block;
+    static mlv_wavi_hdr_t wavi_block;
+    static mlv_rtci_hdr_t rtci_block;
     
     /* make sure there is no crap in stack variables */
     memset(&lens_block, 0x00, sizeof(mlv_lens_hdr_t));
