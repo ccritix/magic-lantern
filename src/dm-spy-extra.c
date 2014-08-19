@@ -58,8 +58,7 @@ static struct logged_func logged_functions[] = {
     /* message-level SIO3/MREQ communication */
     { 0xFF99F518, "mpu_send", 2, mpu_send_log },
   /*{ 0xFF861840, "mpu_recv", 1 },*/             // can't intercept it from here (too slow) -> see next line
-    { 0xFF99F440, "setup_MREQ_n_SIO3_ISR", 3, setup_MREQ_n_SIO3_ISR_hook }
-    
+    { 0xFF99F440, "setup_MREQ_n_SIO3_ISR", 4, setup_MREQ_n_SIO3_ISR_hook }
     #endif
 };
 #else
