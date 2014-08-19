@@ -28,6 +28,7 @@ static void UnLockEngineResources_log_r7(breakpoint_t *bkpt);
 static void engio_write_log(breakpoint_t *bkpt);
 static void setup_MREQ_n_SIO3_ISR_hook(breakpoint_t *bkpt);
 static void mpu_send_log(breakpoint_t *bkpt);
+static void mpu_recv_log(breakpoint_t *bkpt);
 
 struct logged_func
 {
@@ -57,8 +58,14 @@ static struct logged_func logged_functions[] = {
 
     /* message-level SIO3/MREQ communication */
     { 0xFF99F518, "mpu_send", 2, mpu_send_log },
-  /*{ 0xFF861840, "mpu_recv", 1 },*/             // can't intercept it from here (too slow) -> see next line
+  /*{ 0xFF861840, "mpu_recv", 1 },*/             // can't intercept it from here (camera locks up, figure out why) -> see next line
     { 0xFF99F440, "setup_MREQ_n_SIO3_ISR", 4, setup_MREQ_n_SIO3_ISR_hook }
+    #endif
+
+    #ifdef CONFIG_5D3   /* 1.2.3 */
+    { 0x17d54,    "TryPostEvent", 5 },
+    { 0xFF2E8648, "mpu_send", 2, mpu_send_log }, // here it's OK via GDB hooks
+    { 0xFF1226F0, "mpu_recv", 1, mpu_recv_log},  // fixme: first call may be missed, figure out why (seems to be OK at cold boot)
     #endif
 };
 #else
@@ -378,9 +385,18 @@ static void mpu_send_log(breakpoint_t *bkpt)
     DryosDebugMsg(0, 0, "*** mpu_send(%02x %s), from %x", size_ex, msg, bkpt->ctx[14]-4);
 }
 
+static void mpu_recv_log(breakpoint_t *bkpt)
+{
+    char* buf = (char*) bkpt->ctx[0];
+    int size = buf[-1];
+    char msg[256];
+    mpu_decode(buf, msg, sizeof(msg));
+    DryosDebugMsg(0, 0, "*** mpu_recv(%02x %s), from %x", size, msg, bkpt->ctx[14]-4);
+}
+
 /* this one replaces the original, and calls it after logging */
 static int (*mpu_recv_orig)(char*) = 0;
-static int mpu_recv_log(char* buf)
+static int mpu_recv_log_repl(char* buf)
 {
     int lr = read_lr()-4;
     char msg[256];
@@ -398,7 +414,7 @@ static void setup_MREQ_n_SIO3_ISR_hook(breakpoint_t *bkpt)
     /* replace the MPU receiving routine with our own */
     /* (note: GDB hooks are too slow here) */
     mpu_recv_orig = (void*) bkpt->ctx[3];
-    bkpt->ctx[3] = (uint32_t) &mpu_recv_log;
+    bkpt->ctx[3] = (uint32_t) &mpu_recv_log_repl;
 }
 
 static int check_no_conflicts(int i)
