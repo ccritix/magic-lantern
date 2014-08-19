@@ -245,7 +245,7 @@ static void state_transition_log(breakpoint_t *bkpt)
     DryosDebugMsg(0, 0, 
         "*** %s: (%d) --%d--> (%d)          "
         "%x (x=%x z=%x t=%x)", state_name, old_state, input, next_state,
-        next_function, bkpt->ctx[1], bkpt->ctx[3], bkpt->ctx[4]
+        next_function, bkpt->ctx[1], bkpt->ctx[3], MEM(bkpt->ctx[13])
     );
 }
 
