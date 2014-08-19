@@ -124,7 +124,7 @@ void debug_intercept()
     if (!buf) // first call, intercept debug messages
     {
         buf = staticbuf;
-        dm_spy_extra_install();                     /* not exactly working, figure out why */
+        dm_spy_extra_install();
         patch_instruction(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
             MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
