@@ -135,7 +135,7 @@ void debug_intercept()
     
     if (!buf) // first call, intercept debug messages
     {
-        buf = fio_malloc(BUF_SIZE);                     /* allocate memory for our logs (it's huge) */
+        buf = malloc(BUF_SIZE);                         /* allocate memory for our logs (it's huge) */
         
         dm_spy_extra_install();
         
@@ -160,6 +160,7 @@ void debug_intercept()
         dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
         buf[len] = 0;
+        clean_d_cache();
         dump_seg(buf, len, "dm.log");
         NotifyBox(2000, "DebugMsg log: saved %d bytes.", len);
         len = 0;
