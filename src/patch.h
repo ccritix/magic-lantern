@@ -29,12 +29,19 @@
 #define E_PATCH_FAILED 0x1
 #define E_PATCH_ALREADY_PATCHED 0x2
 #define E_PATCH_REG_NOT_FOUND 0x08
-#define E_UNPATCH_OK 0
-#define E_UNPATCH_FAILED 0x10
-#define E_UNPATCH_OVERWRITTEN 0x20
-#define E_UNPATCH_REG_NOT_FOUND 0x80
+#define E_PATCH_CACHE_COLLISION 0x10
+#define E_PATCH_CACHE_ERROR     0x20
 
-/* simple patch */
+#define E_UNPATCH_OK 0
+#define E_UNPATCH_FAILED 0x10000
+#define E_UNPATCH_OVERWRITTEN 0x20000
+#define E_UNPATCH_REG_NOT_FOUND 0x80000
+
+/****************
+ * Data patches *
+ ****************/
+
+/* simple data patch */
 int patch_memory(
     uintptr_t addr,             /* patched address (32 bits) */
     uint32_t old_value,         /* old value before patching (if it differs, the patch will fail) */
@@ -103,10 +110,23 @@ int unpatch_memory(uintptr_t addr);
 int patch_engio_list(uint32_t * engio_list, uint32_t patched_register, uint32_t patched_value, const char * description);
 int unpatch_engio_list(uint32_t * engio_list, uint32_t patched_register);
 
-/* for special things that require a lot of patching calls (e.g. GDB watchpoints): */
-/* simply request access to cache lock, and release it when you are done with it */
-/* pass the same string pointer for both request and release (that's how your request is identified) */
-int cache_lock_request(const char* description);
-int cache_lock_release(const char* description);
+/******************************
+ * Instruction (code) patches *
+ ******************************/
+
+/* patch an executable instruction (will clear the instruction cache) */
+/* same arguments as patch_memory */
+int patch_instruction(
+    uintptr_t addr,
+    uint32_t old_value,
+    uint32_t new_value,
+    const char* description
+);
+
+int unpatch_instruction(uintptr_t addr);
+
+/* re-apply the ROM (cache) patches */
+/* call this after you have flushed the caches, for example */
+int reapply_cache_patches();
 
 #endif

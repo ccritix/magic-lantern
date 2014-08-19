@@ -168,6 +168,7 @@ ML_SRC_OBJS = \
 	builtin-enforcing.o \
 	ml-cbr.o \
 	patch.o \
+	patch-simple.o \
 
 ML_OBJS-y += $(ML_SRC_OBJS)
 

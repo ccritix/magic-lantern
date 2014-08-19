@@ -6,6 +6,7 @@
 #include <cache_hacks.h>
 #include <patch.h>
 #include <bmp.h>
+#include <console.h>
 
 #undef PATCH_DEBUG
 
@@ -20,7 +21,7 @@
 /* for patching either a single address, an array or a matrix of related memory addresses */
 struct patch_info
 {
-    uint32_t* addr;                 /* first memory address to patch (RAM or ROM) */
+    uint32_t* addr;                 /* first memory address to patch (RAM data only) */
     
     uint16_t num_columns;           /* how many columns in the matrix (1 = a single column) */
     uint16_t col_size;              /* offset until the next memory address, in bytes */
@@ -28,11 +29,7 @@ struct patch_info
     uint16_t num_rows;              /* how many rows do we have? (1 = a single row = a simple array) */
     uint16_t row_size;              /* if patching a matrix of values: offset until the next row, in bytes */
     
-    union
-    {                               /* only use these two from getters/setters */
-        uint32_t _backup;           /* backup value (to undo the patch) */
-        uint32_t* _backups;         /* user-supplied storage for backup (must be uint32_t backup[num_columns*num_rows]) */
-    };
+    uint32_t* backups;             /* user-supplied storage for backup (must be uint32_t backup[num_columns*num_rows]) */
 
     uint32_t patch_mask;            /* what bits are actually used (both when reading original and writing patched value) */
     uint32_t patch_scaling;         /* scaling factor for the old value (0x10000 = 1.0; 0 discards the old value, obviously) */
@@ -41,8 +38,6 @@ struct patch_info
     const char * description;       /* will be displayed in the menu as help text */
 
     uint16_t scroll_pos;            /* internal, for menu navigation */
-
-    unsigned backup_storage: 1;     /* if 1, use backups (user-supplied storage), else, use backup (built-in storage) */
 };
 
 static struct patch_info patches[MAX_PATCHES] = {{0}};
@@ -50,139 +45,41 @@ static int num_patches = 0;
 
 static char last_error[70];
 
-static void check_cache_lock_still_needed();
-
-/* lock or unlock the cache as needed */
-static void cache_require(int lock)
-{
-    if (lock)
-    {
-        if (!cache_locked())
-        {
-            printf("Locking cache\n");
-            cache_lock();
-        }
-    }
-    else
-    {
-        cache_unlock();
-    }
-}
-
-int cache_lock_request(const char* description)
-{
-    int err = E_PATCH_OK;
-    uint32_t old_int = cli();
-
-    /* is this address already patched? refuse to patch it twice */
-    for (int i = 0; i < num_patches; i++)
-    {
-        if (patches[i].description == description)
-        {
-            err = E_PATCH_ALREADY_PATCHED;
-            goto end;
-        }
-    }
-
-    patches[num_patches].addr = (void*) 0xFFFFFFFF;  /* custom ROM patch */
-    patches[num_patches].description = description;
-    num_patches++;
-    cache_require(1);
-end:
-    sei(old_int);
-    return err;
-}
-
-int cache_lock_release(const char* description)
-{
-    int err = E_UNPATCH_OK;
-
-    uint32_t old_int = cli();
-
-    int p = -1;
-    for (int i = 0; i < num_patches; i++)
-    {
-        if (patches[i].description == description)
-        {
-            p = i;
-            break;
-        }
-    }
-    
-    if (p < 0)
-    {
-        err = E_UNPATCH_FAILED;
-        goto end;
-    }
-
-    /* remove from our data structure (shift the other array items) */
-    for (int i = p + 1; i < num_patches; i++)
-    {
-        patches[i-1] = patches[i];
-    }
-    num_patches--;
-
-    check_cache_lock_still_needed();
-
-end:
-    sei(old_int);
-    return err;
-}
 
 /* low-level routines */
 static uint32_t read_value(uint32_t* addr)
 {
-    if (IS_ROM_PTR(addr) && cache_locked())
+    /* trick required because we don't have unaligned memory access */
+    if (((uintptr_t)addr & 3) == 0)
     {
-        /* fixme: read it directly from cache */
         return *(volatile uint32_t*) addr;
-        //~ return cache_get_cached((uint32_t)addr, TYPE_ICACHE);
+    }
+    if (((uintptr_t)addr & 1) == 0)
+    {
+        return *(volatile uint16_t*) addr;
     }
     else
     {
-        /* trick required because we don't have unaligned memory access */
-        if (((uintptr_t)addr & 3) == 0)
-        {
-            return *(volatile uint32_t*) addr;
-        }
-        if (((uintptr_t)addr & 1) == 0)
-        {
-            return *(volatile uint16_t*) addr;
-        }
-        else
-        {
-            return *(volatile uint8_t*) addr;
-        }
+        return *(volatile uint8_t*) addr;
     }
 }
 
 static void do_patch(uint32_t* addr, uint32_t value)
 {
     dbg_printf("Patching %x from %x to %x\n", addr, read_value(addr), value);
-    if (IS_ROM_PTR(addr))
+
+    /* trick required because we don't have unaligned memory access */
+    if (((uintptr_t)addr & 3) == 0)
     {
-        /* todo: check for conflicts (@g3gg0?) */
-        cache_require(1);
-        cache_fake((uint32_t)addr, value, TYPE_ICACHE);
-        
-        /* fixme: only patch dcache when needed */
-        cache_fake((uint32_t)addr, value, TYPE_DCACHE);
+        *(volatile uint32_t*)addr = value;
+    }
+    if (((uintptr_t)addr & 1) == 0)
+    {
+        *(volatile uint16_t*)addr = value;
     }
     else
     {
-        /* trick required because we don't have unaligned memory access */
-        if (((uintptr_t)addr & 3) == 0)
-        {
-            *(volatile uint32_t*)addr = value;
-        }
-        if (((uintptr_t)addr & 1) == 0)
-        {
-            *(volatile uint16_t*)addr = value;
-        }
-        else
-        {
-            *(volatile uint8_t*)addr = value;
-        }
+        *(volatile uint8_t*)addr = value;
     }
 }
 
@@ -195,28 +92,22 @@ enum masked {NOT_MASKED, MASKED};
 static uint32_t get_patch_current_value(struct patch_info * p, int row_index, int col_index, enum masked masked)
 {
     void* addr = get_patch_addr(p, row_index, col_index);
+    uint32_t raw_value = read_value(addr);
+    
     if (masked == MASKED)
     {
-        return read_value(addr) & p->patch_mask;
+        return raw_value & p->patch_mask;
     }
     else
     {
-        return read_value(addr);
+        return raw_value;
     }
 }
 
 static uint32_t get_patch_backup_value(struct patch_info * p, int row_index, int col_index, enum masked masked)
 {
-    uint32_t ans;
-    if (p->backup_storage)
-    {
-        int linear_index = COERCE(row_index * p->num_columns + col_index, 0, p->num_rows * p->num_columns - 1);
-        ans = p->_backups[linear_index];
-    }
-    else
-    {
-        ans = p->_backup;
-    }
+    int linear_index = COERCE(row_index * p->num_columns + col_index, 0, p->num_rows * p->num_columns - 1);
+    uint32_t ans = p->backups[linear_index];
     
     if (masked == MASKED)
     {
@@ -228,17 +119,9 @@ static uint32_t get_patch_backup_value(struct patch_info * p, int row_index, int
 
 static void set_patch_backup_value(struct patch_info * p, int row_index, int col_index, uint32_t value)
 {
-    if (p->backup_storage)
-    {
-        dbg_printf("Backup %x[%d][%d] = %x\n", p->addr, row_index, col_index, value);
-        int linear_index = COERCE(row_index * p->num_columns + col_index, 0, p->num_rows * p->num_columns - 1);
-        p->_backups[linear_index] = value;
-    }
-    else
-    {
-        dbg_printf("Backup %x = %x\n", p->addr, value);
-        p->_backup = value;
-    }
+    dbg_printf("Backup %x[%d][%d] = %x\n", p->addr, row_index, col_index, value);
+    int linear_index = COERCE(row_index * p->num_columns + col_index, 0, p->num_rows * p->num_columns - 1);
+    p->backups[linear_index] = value;
 }
 
 static uint32_t get_patch_new_value(struct patch_info * p, int row_index, int col_index)
@@ -276,7 +159,7 @@ int patch_memory_matrix(
     
     /* ensure thread safety */
     uint32_t old_int = cli();
-    
+
     /* is this address already patched? refuse to patch it twice */
     for (int i = 0; i < num_patches; i++)
     {
@@ -298,8 +181,7 @@ int patch_memory_matrix(
     patches[num_patches].patch_mask = patch_mask;
     patches[num_patches].patch_scaling = patch_scaling;
     patches[num_patches].patch_offset = patch_offset;
-    patches[num_patches].backup_storage = backup_storage ? 1 : 0;
-    patches[num_patches]._backups = backup_storage;
+    patches[num_patches].backups = backup_storage;
     patches[num_patches].description = description;
 
     /* are we patching the right thing? */
@@ -363,25 +245,7 @@ static int is_patch_still_applied(int p)
     return 1;
 }
 
-static void check_cache_lock_still_needed()
-{
-    /* do we still need the cache locked? */
-    int rom_patches = 0;
-    for (int i = 0; i < num_patches; i++)
-    {
-        if (IS_ROM_PTR(patches[i].addr))
-        {
-            rom_patches = 1;
-            break;
-        }
-    }
-    if (!rom_patches)
-    {
-        cache_require(0);
-    }
-}
-
-int unpatch_memory(uintptr_t _addr)
+int unpatch_memory_matrix(uintptr_t _addr)
 {
     uint32_t* addr = (uint32_t*) _addr;
     int err = E_UNPATCH_OK;
@@ -432,8 +296,6 @@ int unpatch_memory(uintptr_t _addr)
         patches[i-1] = patches[i];
     }
     num_patches--;
-    
-    check_cache_lock_still_needed();
 
 end:
     if (err)
@@ -455,16 +317,6 @@ int patch_memory_ex(
 )
 {
     return patch_memory_matrix(addr, 1, 0, 1, 0, check_mask, check_value, patch_mask, patch_scaling, patch_offset, 0, description);
-}
-
-int patch_memory(
-    uintptr_t addr,
-    uint32_t old_value,
-    uint32_t new_value,
-    const char* description
-)
-{
-    return patch_memory_ex(addr, 0xFFFFFFFF, old_value, 0xFFFFFFFF, 0, new_value, description);
 }
 
 int patch_memory_array(
@@ -494,38 +346,6 @@ static MENU_SELECT_FUNC(patch_scroll)
     patches[p].scroll_pos = scroll_pos;
 }
 
-int patch_engio_list(uint32_t * engio_list, uint32_t patched_register, uint32_t patched_value, const char * description)
-{
-    while (*engio_list != 0xFFFFFFFF)
-    {
-        uint32_t reg = *engio_list;
-        if (reg == patched_register)
-        {
-            /* evil hack that relies on unused LSB bits on the register address */
-            /* this will cause Canon code to ignore this register and keep our patched value */
-            *(engio_list) = patched_register + 1;
-            return patch_memory((uintptr_t)(engio_list+1), engio_list[1], patched_value, description);
-        }
-        engio_list += 2;
-    }
-    return E_PATCH_REG_NOT_FOUND;
-}
-
-int unpatch_engio_list(uint32_t * engio_list, uint32_t patched_register)
-{
-    while (*engio_list != 0xFFFFFFFF)
-    {
-        uint32_t reg = *engio_list;
-        if (reg == patched_register + 1)
-        {
-            *(engio_list) = patched_register;
-            return unpatch_memory((uintptr_t)(engio_list+1));
-        }
-        engio_list += 2;
-    }
-    return E_UNPATCH_REG_NOT_FOUND;
-}
-
 static MENU_UPDATE_FUNC(patch_update)
 {
     int p = (int) entry->priv;
@@ -545,14 +365,9 @@ static MENU_UPDATE_FUNC(patch_update)
 
     /* ROM patches are considered invasive, display them with red icon */
     MENU_SET_ICON(IS_ROM_PTR(patches[p].addr) ? MNI_RECORD : MNI_ON, 0);
-    if (patches[p].addr == (void*) 0xFFFFFFFF)
-    {
-        MENU_SET_NAME("Custom");
-        return;
-    }
 
     char name[20];
-    snprintf(name, sizeof(name), "%X", patches[p].addr);
+    snprintf(name, sizeof(name), "Array: %X");
     
     int row = (patches[p].scroll_pos / patches[p].num_columns) % patches[p].num_rows;
     int col = patches[p].scroll_pos % patches[p].num_columns;
