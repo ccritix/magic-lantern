@@ -36,7 +36,7 @@ extern void dm_spy_extra_uninstall();
 static char* buf = 0;
 static volatile int len = 0;
 
-void my_DebugMsg(int class, int level, char* fmt, ...)
+static void my_DebugMsg(int class, int level, char* fmt, ...)
 {
     if (!buf) return;
         
@@ -102,7 +102,7 @@ void debug_intercept()
     {
         buf = staticbuf;
         //~ dm_spy_extra_install();                     /* not exactly working, figure out why */
-        patch_memory(
+        patch_instruction(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
             MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
             B_INSTR(DebugMsg_addr, my_DebugMsg),        /* replace all calls to DebugMsg with our own function (no need to call the original) */
@@ -139,7 +139,7 @@ void debug_intercept()
         
         dm_spy_extra_install();
         
-        int err = patch_memory(
+        int err = patch_instruction(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
             MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
             B_INSTR(DebugMsg_addr, my_DebugMsg),        /* replace all calls to DebugMsg with our own function (no need to call the original) */
