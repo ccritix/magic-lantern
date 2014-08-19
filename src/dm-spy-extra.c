@@ -47,8 +47,8 @@ static struct logged_func logged_functions[] = {
 static struct logged_func logged_functions[] = {
 #ifdef CONFIG_5D2
     { 0xff9b9198, "StateTransition", 4 , state_transition_log },
-    { 0xff9b989c, "TryPostEvent", 4 },
-    //~ { 0xff9b8f24, "TryPostStageEvent", 4 },                 // conflicts with SetHPTimerAfter
+    { 0xff9b989c, "TryPostEvent", 5 },
+    //~ { 0xff9b8f24, "TryPostStageEvent", 5 },                 // conflicts with SetHPTimerAfter
 
     { 0xFF9A462C, "ConnectReadEDmac", 2 },
     { 0xFF9A4604, "ConnectWriteEDmac", 2 },
@@ -75,8 +75,8 @@ static struct logged_func logged_functions[] = {
 
 #ifdef CONFIG_550D
     { 0xff1d84f4, "StateTransition", 4 , state_transition_log },
-    { 0xff1d8c30, "TryPostEvent", 4 },
-    { 0xff1d82b8, "TryPostStageEvent", 4 },
+    { 0xff1d8c30, "TryPostEvent", 5 },
+    { 0xff1d82b8, "TryPostStageEvent", 5 },
 
     { 0xff1c00c0, "ConnectReadEDmac", 2 },
     { 0xff1bfffc, "ConnectWriteEDmac", 2 },
@@ -94,8 +94,8 @@ static struct logged_func logged_functions[] = {
 
 #ifdef CONFIG_500D
     { 0xff1a62a0, "StateTransition", 4 , state_transition_log },
-    { 0xff1a69a4, "TryPostEvent", 4 },
-    { 0xff1a602c, "TryPostStageEvent", 4 },
+    { 0xff1a69a4, "TryPostEvent", 5 },
+    { 0xff1a602c, "TryPostStageEvent", 5 },
 
     { 0xff18fb90, "ConnectReadEDmac", 2 },
     { 0xff18fb68, "ConnectWriteEDmac", 2 },
@@ -122,8 +122,8 @@ static struct logged_func logged_functions[] = {
 
 #ifdef CONFIG_5D3  /* 1.2.3 */
     { 0x178ec, "StateTransition", 4 , state_transition_log },
-    { 0x17d54, "TryPostEvent", 4 },
-    { 0x17674, "TryPostStageEvent", 4 },
+    { 0x17d54, "TryPostEvent", 5 },
+    { 0x17674, "TryPostStageEvent", 5 },
 
     { 0x12768, "ConnectReadEDmac", 2 },
     { 0x126a4, "ConnectWriteEDmac", 2 },
