@@ -216,10 +216,9 @@ static void generic_log(breakpoint_t *bkpt)
         len = snprintf(msg, sizeof(msg), "*** FUNC(%x)(", pc);
     }
 
-    /* only for first 4 args for now */
     for (int i = 0; i < num_args; i++)
     {
-        uint32_t arg = bkpt->ctx[i];
+        uint32_t arg = (i < 4) ? bkpt->ctx[i] : MEM(bkpt->ctx[13] + 4 * (i-4));
 
         len += snprintf_guess_arg(msg + len, sizeof(msg) - len, arg);
         
