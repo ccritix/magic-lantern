@@ -26,7 +26,6 @@ static void fps_log(breakpoint_t *bkpt);
 static void LockEngineResources_log_r4(breakpoint_t *bkpt);
 static void UnLockEngineResources_log_r7(breakpoint_t *bkpt);
 static void engio_write_log(breakpoint_t *bkpt);
-static void setup_MREQ_n_SIO3_ISR_hook(breakpoint_t *bkpt);
 static void mpu_send_log(breakpoint_t *bkpt);
 static void mpu_recv_log(breakpoint_t *bkpt);
 
@@ -43,7 +42,7 @@ struct logged_func
 static struct logged_func logged_functions[] = {
     #ifdef CONFIG_5D2
     //~ { 0xff9b3cb4, "register_interrupt", 4 },    // causes blank screen, figure out why
-    { 0xFF87284C, "dma_memcpy", 3 },
+    //~ { 0xFF87284C, "dma_memcpy", 3 },            // conflicts with mpu_recv
     { 0xff9b989c, "TryPostEvent", 5},
     { 0xff9b8f24, "TryPostStageEvent", 5 },
 
@@ -58,8 +57,7 @@ static struct logged_func logged_functions[] = {
 
     /* message-level SIO3/MREQ communication */
     { 0xFF99F518, "mpu_send", 2, mpu_send_log },
-  /*{ 0xFF861840, "mpu_recv", 1 },*/             // can't intercept it from here (camera locks up, figure out why) -> see next line
-    { 0xFF99F440, "setup_MREQ_n_SIO3_ISR", 4, setup_MREQ_n_SIO3_ISR_hook }
+    { 0xFF861840, "mpu_recv", 1, mpu_recv_log },
     #endif
 
     #ifdef CONFIG_5D3   /* 1.2.3 */
@@ -392,29 +390,6 @@ static void mpu_recv_log(breakpoint_t *bkpt)
     char msg[256];
     mpu_decode(buf, msg, sizeof(msg));
     DryosDebugMsg(0, 0, "*** mpu_recv(%02x %s), from %x", size, msg, bkpt->ctx[14]-4);
-}
-
-/* this one replaces the original, and calls it after logging */
-static int (*mpu_recv_orig)(char*) = 0;
-static int mpu_recv_log_repl(char* buf)
-{
-    int lr = read_lr()-4;
-    char msg[256];
-    mpu_decode(buf, msg, sizeof(msg));
-    int size = buf[-1];
-    DryosDebugMsg(0, 0, "*** mpu_recv(%02x %s), from %x", size, msg, lr);
-    return mpu_recv_orig(buf);
-}
-
-static void setup_MREQ_n_SIO3_ISR_hook(breakpoint_t *bkpt)
-{
-    /* log the original call as usual */
-    generic_log(bkpt);
-
-    /* replace the MPU receiving routine with our own */
-    /* (note: GDB hooks are too slow here) */
-    mpu_recv_orig = (void*) bkpt->ctx[3];
-    bkpt->ctx[3] = (uint32_t) &mpu_recv_log_repl;
 }
 
 static int check_no_conflicts(int i)
