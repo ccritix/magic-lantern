@@ -376,7 +376,10 @@ static MENU_UPDATE_FUNC(patch_update)
 {
     int p = (int) entry->priv;
     if (p < 0 || p >= num_patches)
+    {
+        entry->shidden = 1;
         return;
+    }
 
     /* long description */
     MENU_SET_HELP("%s.", patches[p].description);
