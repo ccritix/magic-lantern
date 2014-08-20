@@ -263,15 +263,12 @@ int reapply_cache_patches()
     return err;
 }
 
-/* called from a timer */
 static void check_cache_lock_still_needed()
 {
     if (!cache_locked())
     {
         return;
     }
-
-    int old_int = cli();
     
     /* do we still need the cache locked? */
     int rom_patches = 0;
@@ -289,8 +286,6 @@ static void check_cache_lock_still_needed()
         /* nope, we don't */
         cache_require(0);
     }
-    
-    sei(old_int);
 }
 
 int unpatch_memory(uintptr_t _addr)
@@ -324,9 +319,13 @@ int unpatch_memory(uintptr_t _addr)
         goto end;
     }
     
-    /* undo the patch */
-    err = do_patch(patches[p].addr, patches[p].backup, patches[p].is_instruction);
-    if (err) goto end;
+    /* not needed for ROM patches - there we will re-apply all the remaining ones from scratch */
+    /* (slower, but old reverted patches should no longer give collisions) */
+    if (!IS_ROM_PTR(addr))
+    {
+        err = do_patch(patches[p].addr, patches[p].backup, patches[p].is_instruction);
+        if (err) goto end;
+    }
 
     /* remove from our data structure (shift the other array items) */
     for (int i = p + 1; i < num_patches; i++)
@@ -335,12 +334,19 @@ int unpatch_memory(uintptr_t _addr)
     }
     num_patches--;
 
-    if (patches[p].is_instruction && !IS_ROM_PTR(addr))
+    if (IS_ROM_PTR(addr))
+    {
+        /* unlock and re-apply only the remaining patches */
+        cache_unlock();
+        cache_lock();
+        err = reapply_cache_patches();
+    }
+    else if (patches[p].is_instruction)
     {
         err = patch_sync_cache();
     }
 
-    delayed_call(500, check_cache_lock_still_needed);
+    check_cache_lock_still_needed();
 
 end:
     if (err)
