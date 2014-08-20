@@ -186,6 +186,7 @@ static CONFIG_INT( "zebra.colorspace",    zebra_colorspace,   0 );// luma/rgb/lu
 static CONFIG_INT( "zebra.thr.hi",    zebra_level_hi, 99 );
 static CONFIG_INT( "zebra.thr.lo",    zebra_level_lo, 0 );
 static CONFIG_INT( "zebra.rec", zebra_rec,  1 );
+static CONFIG_INT( "zebra.raw.under", zebra_raw_underexposure,  1 );
 
 #define MZ_ZOOM_WHILE_RECORDING 1
 #define MZ_ZOOMREC_N_FOCUS_RING 2
@@ -583,7 +584,7 @@ static void FAST draw_zebras_raw()
     if (!bvram) return;
 
     int white = raw_info.white_level;
-    int underexposed = ev_to_raw(- (raw_info.dynamic_range - 100) / 100.0);
+    int underexposed = zebra_raw_underexposure ? ev_to_raw(- (raw_info.dynamic_range - (zebra_raw_underexposure - 1) * 100) / 100.0) : 0;
     
     int zoom0 = (int32_t)MEM(IMGPLAY_ZOOM_LEVEL_ADDR); /* stop when zooming in playback */
 
@@ -764,7 +765,7 @@ static void FAST draw_zebras_raw_lv()
 
     int white = raw_info.white_level;
     if (white > 16383) white = 15000;
-    int underexposed = ev_to_raw(- (raw_info.dynamic_range - 100) / 100.0);
+    int underexposed = zebra_raw_underexposure ? ev_to_raw(- (raw_info.dynamic_range - (zebra_raw_underexposure - 1) * 100) / 100.0) : 0;
 
     int off = get_y_skip_offset_for_overlays();
     for(int i = os.y0 + off; i < os.y_max - off; i += 2 )
@@ -2787,6 +2788,14 @@ struct menu_entry zebra_menus[] = {
                 .choices = (const char *[]) {"OFF", "Always", "Photo only"},
                 .help = "Use RAW zebras if possible.",
             },
+            {
+                .name = "Raw zebra underexposure",
+                .priv = &zebra_raw_underexposure,
+                .max = 5,
+                .choices = (const char *[]) {"OFF", "0 EV", "1 EV", "2 EV", "3 EV", "4 EV"},
+                .help = "RAW zebra underexposure threshold",
+                .help2 = "(in EVs above the noise floor)"
+            },
             #endif
             MENU_EOL
         },
@@ -2995,6 +3004,11 @@ struct menu_entry zebra_menus[] = {
                 .choices = (const char *[]) {"Percent", "0..255", "RGB (HTML)", "RAW (EV)"},
                 .icon_type = IT_DICE,
                 .help = "Measurement unit for brightness level(s).",
+                .help2 =
+                    "Percentage of overall brightness level.\n"
+                    "8 bit RGB level.\n"
+                    "HTML like color codes.\n"
+                    "Negative value from clipping, in EV (RAW).\n"
             },
             {
                 .name = "Spot Position",
@@ -3063,6 +3077,7 @@ struct menu_entry zebra_menus[] = {
                 .priv = &hist_warn, 
                 .max = 1,
                 .help = "Display warning dots when one color channel is clipped.",
+                .help2 = "Numbers represent the percentage of pixels clipped.",
             },
             #ifdef FEATURE_RAW_HISTOGRAM
             {
@@ -3071,7 +3086,7 @@ struct menu_entry zebra_menus[] = {
                 .max = 2,
                 .choices = CHOICES("OFF", "Full Histogram", "Simplified HistoBar"),
                 .update = raw_histo_update,
-                .help = "Use RAW histogram whenever possible.",
+                .help = "Use RAW based histogram.",
             },
             {
                 .name = "RAW EV indicator",
@@ -3702,7 +3717,7 @@ int liveview_display_idle()
     extern thunk LiveViewWifiApp_handler;
     #endif
 
-    #if defined(CONFIG_RELOC)
+    #if defined(CONFIG_LVAPP_HACK_RELOC)
     extern uintptr_t new_LiveViewApp_handler;
     #endif
 
@@ -3713,7 +3728,7 @@ int liveview_display_idle()
         (// gui_menu_shown() || // force LiveView when menu is active, but hidden
             ( gui_state == GUISTATE_IDLE && 
               (dialog->handler == (dialog_handler_t) &LiveViewApp_handler 
-                  #if defined(CONFIG_RELOC)
+                  #if defined(CONFIG_LVAPP_HACK_RELOC)
                   || dialog->handler == (dialog_handler_t) new_LiveViewApp_handler
                   #endif
                   #if defined(CONFIG_5D3)
@@ -5028,10 +5043,16 @@ static void make_overlay()
         }
     }
     FILE* f = FIO_CreateFile("ML/DATA/overlay.dat");
-    FIO_WriteFile( f, (const void *) UNCACHEABLE(bvram_mirror), BVRAM_MIRROR_SIZE);
-    FIO_CloseFile(f);
-    bmp_printf(FONT_MED, 0, 0, "Overlay saved.  ");
-
+    if (f)
+    {
+        FIO_WriteFile( f, (const void *) UNCACHEABLE(bvram_mirror), BVRAM_MIRROR_SIZE);
+        FIO_CloseFile(f);
+        bmp_printf(FONT_MED, 0, 0, "Overlay saved.  ");
+    }
+    else
+    {
+        bmp_printf(FONT_MED, 0, 0, "Overlay error.  ");
+    }
     msleep(1000);
 }
 
@@ -5048,7 +5069,7 @@ static void show_overlay()
     clrscr();
 
     FILE* f = FIO_OpenFile("ML/DATA/overlay.dat", O_RDONLY | O_SYNC);
-    if (f == INVALID_PTR) return;
+    if (!f) return;
     FIO_ReadFile(f, bvram_mirror, 960*480 );
     FIO_CloseFile(f);
 

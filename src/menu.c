@@ -123,7 +123,7 @@ static CONFIG_INT("menu.junkie", junkie_mode, 0);
 
 static int is_customize_selected();
 
-extern WEAK_FUNC(ret_0) void CancelDateTimer();
+extern void CancelDateTimer();
 
 #define CAN_HAVE_PICKBOX(entry) ((entry)->max > (entry)->min && (((entry)->max - (entry)->min < 15) || (entry)->choices) && IS_ML_PTR((entry)->priv))
 #define SHOULD_HAVE_PICKBOX(entry) ((entry)->max > (entry)->min + 1 && (entry)->max - (entry)->min < 10 && IS_ML_PTR((entry)->priv))
@@ -2003,7 +2003,7 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires manual focus.");
     else if (DEPENDS_ON(DEP_CFN_AF_HALFSHUTTER) && cfn_get_af_button_assignment() != AF_BTN_HALFSHUTTER && !is_manual_focus())
         snprintf(warning, MENU_MAX_WARNING_LEN, "Set AF to Half-Shutter from Canon menu (CFn / custom ctrl).");
-    else if (DEPENDS_ON(DEP_CFN_AF_BACK_BUTTON) && cfn_get_af_button_assignment() != AF_BTN_STAR && !is_manual_focus())
+    else if (DEPENDS_ON(DEP_CFN_AF_BACK_BUTTON) && cfn_get_af_button_assignment() == AF_BTN_HALFSHUTTER && !is_manual_focus())
         snprintf(warning, MENU_MAX_WARNING_LEN, "Set AF to back btn (*) from Canon menu (CFn / custom ctrl).");
     else if (DEPENDS_ON(DEP_EXPSIM) && lv && !lv_luma_is_accurate())
         snprintf(warning, MENU_MAX_WARNING_LEN, EXPSIM_WARNING_MSG);
@@ -2046,7 +2046,7 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
             snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best with manual focus.");
         else if (WORKS_BEST_IN(DEP_CFN_AF_HALFSHUTTER) && cfn_get_af_button_assignment() != AF_BTN_HALFSHUTTER && !is_manual_focus())
             snprintf(warning, MENU_MAX_WARNING_LEN, "Set AF to Half-Shutter from Canon menu (CFn / custom ctrl).");
-        else if (WORKS_BEST_IN(DEP_CFN_AF_BACK_BUTTON) && cfn_get_af_button_assignment() != AF_BTN_STAR && !is_manual_focus())
+        else if (WORKS_BEST_IN(DEP_CFN_AF_BACK_BUTTON) && cfn_get_af_button_assignment() == AF_BTN_HALFSHUTTER && !is_manual_focus())
             snprintf(warning, MENU_MAX_WARNING_LEN, "Set AF to back btn (*) from Canon menu (CFn / custom ctrl).");
         //~ else if (WORKS_BEST_IN(DEP_EXPSIM) && lv && !lv_luma_is_accurate())
             //~ snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best with ExpSim enabled.");
@@ -2231,6 +2231,24 @@ static void display_customize_marker(struct menu_entry * entry, int x, int y)
     // hidden marker
     else if (HAS_CURRENT_HIDDEN_FLAG(entry))
         batsu(x+4, y, junkie_mode ? COLOR_ORANGE : COLOR_RED);
+}
+
+static void print_help_line(int color, int x, int y, char* msg)
+{
+    int fnt = FONT(FONT_MED, color, MENU_BG_COLOR_HEADER_FOOTER);
+    int len = bmp_string_width(fnt, msg);
+    
+    if (len > 720 - 2*x)
+    {
+        /* squeeze long lines (if the help text is just a bit too long) */
+        /* TODO: detect if squeezing fails and beep or print the help line in red; requires changes in the font backend */
+        fnt |= FONT_ALIGN_JUSTIFIED | FONT_TEXT_WIDTH(720 - 2*x);
+    }
+    
+    bmp_printf(
+        fnt, x, y,
+        "%s", msg
+    );
 }
 
 static void
@@ -2464,12 +2482,10 @@ skip_name:
         char* help1 = (char*)entry->help;
         if (!help1) help1 = info->help;
         
-        if (help1) bmp_printf(
-            FONT(FONT_MED, help_color, MENU_BG_COLOR_HEADER_FOOTER), 
-             10,  MENU_HELP_Y_POS, 
-            "%s",
-            help1
-        );
+        if (help1)
+        {
+            print_help_line(help_color, 10, MENU_HELP_Y_POS, help1);
+        }
 
         char* help2 = 0;
         if (help1 != info->help) help2 = info->help;
@@ -2497,12 +2513,10 @@ skip_name:
         }
 
         // only show the second help line if there are no audio meters
-        if (!audio_meters_are_drawn()) bmp_printf(
-            FONT(FONT_MED, help_color, MENU_BG_COLOR_HEADER_FOOTER), 
-             10,  MENU_HELP_Y_POS_2, 
-             "%s",
-             help2
-        );
+        if (!audio_meters_are_drawn())
+        {
+            print_help_line(help_color, 10, MENU_HELP_Y_POS_2, help2);
+        }
     }
 
     // if there's a warning message set, display it
@@ -2516,11 +2530,7 @@ skip_name:
         int warn_y = audio_meters_are_drawn() ? MENU_HELP_Y_POS : MENU_WARNING_Y_POS;
         
         bmp_fill(MENU_BG_COLOR_HEADER_FOOTER, 10, warn_y, 720, font_med.height);
-        bmp_printf(
-            FONT(FONT_MED, warn_color, MENU_BG_COLOR_HEADER_FOOTER),
-             10, warn_y, "%s",
-                info->warning
-        );
+        print_help_line(warn_color, 10, warn_y, info->warning);
     }
     
     /* from now on, we'll draw the icon only, which should be shifted */
@@ -4625,8 +4635,9 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_JUMP:
     case BGMT_PRESS_DIRECT_PRINT:
 #endif
+    case MLEV_JOYSTICK_LONG:
         if (menu_help_active) { menu_help_active = 0; /* menu_damage = 1; */ break; }
-        menu_entry_select( menu, 2 ); // auto setting select
+        menu_entry_select( menu, 2 ); // Q action select
         menu_needs_full_redraw = 1;
         //~ menu_damage = 1;
         //~ menu_hidden_should_display_help = 0;
@@ -5192,25 +5203,161 @@ static void menu_show_version(void)
         build_user);
 }
 
+#ifdef CONFIG_JOY_CENTER_ACTIONS
+static int joystick_pressed = 0;
+static int joystick_longpress = 0;
+static int joy_center_action_disabled = 0;
+
+/* called from GUI timers */
+static void joystick_longpress_check()
+{
+    if (joy_center_action_disabled)
+    {
+        return;
+    }
+    
+    if (joystick_pressed)
+    {
+        joystick_longpress++;
+        delayed_call(100, joystick_longpress_check);
+    }
+    
+    //~ bmp_printf(FONT_MED, 50, 50, "%d ", joystick_longpress);
+    
+    if (joystick_longpress == 5)
+    {
+        /* long press opens ML menu or submenus */
+        fake_simple_button(MLEV_JOYSTICK_LONG);
+        
+        /* make sure it won't re-trigger */
+        joystick_longpress++;
+    }
+    else if (joystick_longpress < 2 && !joystick_pressed && gui_menu_shown())
+    {
+        /* short press in menu => do a regular SET */
+        fake_simple_button(BGMT_PRESS_SET);
+        fake_simple_button(BGMT_UNPRESS_UDLR);
+    }
+}
+#endif
+
+#ifdef CONFIG_EOSM
+static int erase_pressed = 0;
+static int erase_longpress = 0;
+
+/* called from GUI timers */
+static void erase_longpress_check()
+{
+    if (erase_pressed)
+    {
+        erase_longpress++;
+        delayed_call(100, erase_longpress_check);
+    }
+    
+    //~ bmp_printf(FONT_MED, 50, 50, "%d ", erase_longpress);
+    
+    if (erase_longpress == 5)
+    {
+        /* long press opens ML menu */
+        fake_simple_button(BGMT_TRASH);
+        
+        /* make sure it won't re-trigger */
+        erase_longpress++;
+    }
+    else if (erase_longpress <= 2 && !erase_pressed)
+    {
+        /* short press => do a regular "down/erase" */
+        fake_simple_button(BGMT_PRESS_DOWN);
+        fake_simple_button(BGMT_UNPRESS_DOWN);
+    }
+}
+#endif
 
 // this should work on most cameras
 int handle_ml_menu_erase(struct event * event)
 {
     if (dofpreview) return 1; // don't open menu when DOF preview is locked
     
-#ifdef CONFIG_TOUCHSCREEN
-    if (event->param == BGMT_TRASH || event->param == BGMT_TOUCH_2_FINGER)
-#else
-    if (event->param == BGMT_TRASH)
-#endif
+    if (event->param == BGMT_TRASH ||
+        #ifdef CONFIG_TOUCHSCREEN
+        event->param == BGMT_TOUCH_2_FINGER ||
+        #endif
+       0)
     {
-        if (gui_menu_shown() || gui_state == GUISTATE_IDLE)
+        if (gui_state == GUISTATE_IDLE || (gui_menu_shown() && !beta_should_warn()))
         {
             give_semaphore( gui_sem );
             return 0;
         }
-        //~ else bmp_printf(FONT_LARGE, 100, 100, "%d ", gui_state);
     }
+
+    if (event->param == MLEV_JOYSTICK_LONG && !gui_menu_shown())
+    {
+        /* some cameras will trigger the Q menu (with photo settings) from a joystick press, others will do nothing */
+        if (gui_state == GUISTATE_IDLE || gui_state == GUISTATE_QMENU)
+        {
+            give_semaphore( gui_sem );
+            return 0;
+        }
+    }
+    
+    
+#ifdef CONFIG_JOY_CENTER_ACTIONS
+    /* also trigger menu by a long joystick press */
+    if (event->param == BGMT_JOY_CENTER)
+    {
+        if (joy_center_action_disabled)
+        {
+            return gui_menu_shown() ? 0 : 1;
+        }
+        
+        if (is_submenu_or_edit_mode_active())
+        {
+            /* in submenus, a short press goes back to main menu (since you can edit with left and right) */
+            fake_simple_button(MLEV_JOYSTICK_LONG);
+            return 0;
+        }
+        else if (gui_state == GUISTATE_IDLE || gui_state == GUISTATE_QMENU || gui_menu_shown())
+        {
+            /* if we can make use of a long joystick press, check it */
+            joystick_pressed = 1;
+            joystick_longpress = 0;
+            delayed_call(100, joystick_longpress_check);
+            if (gui_menu_shown()) return 0;
+        }
+    }
+    else if (event->param == BGMT_UNPRESS_UDLR)
+    {
+        joystick_pressed = 0;
+        joy_center_action_disabled = 0;
+    }
+    else if (event->param == BGMT_PRESS_LEFT      || event->param == BGMT_PRESS_RIGHT        ||
+             event->param == BGMT_PRESS_DOWN      || event->param == BGMT_PRESS_UP           ||
+             event->param == BGMT_PRESS_UP_LEFT   || event->param == BGMT_PRESS_UP_RIGHT     ||
+             event->param == BGMT_PRESS_DOWN_LEFT || event->param == BGMT_PRESS_DOWN_RIGHT)
+    {
+        joy_center_action_disabled = 1;
+    }
+
+#endif
+
+#ifdef CONFIG_EOSM
+    /* also trigger menu by a long press on ERASE (DOWN) */
+    if (event->param == BGMT_PRESS_DOWN)
+    {
+        if (gui_state == GUISTATE_IDLE && !gui_menu_shown() && !IS_FAKE(event))
+        {
+            erase_pressed = 1;
+            erase_longpress = 0;
+            delayed_call(100, erase_longpress_check);
+            return 0;
+        }
+    }
+    else if (event->param == BGMT_UNPRESS_DOWN)
+    {
+        erase_pressed = 0;
+    }
+#endif
 
     return 1;
 }
@@ -5332,7 +5479,7 @@ static void menu_save_flags(char* filename)
     }
     
     FILE * file = FIO_CreateFile(filename);
-    if( file == INVALID_PTR )
+    if (!file)
         goto end;
     
     FIO_WriteFile(file, cfg, strlen(cfg));
@@ -5412,7 +5559,7 @@ void config_menu_save_flags()
     }
     
     FILE * file = FIO_CreateFile( "ML/LOGS/MENUS.LOG" );
-    if( file == INVALID_PTR )
+    if (!file)
         return;
     
     FIO_WriteFile(file, cfg, strlen(cfg));
@@ -5523,224 +5670,6 @@ int menu_set_value_from_script(const char* name, const char* entry_name, int val
         return 0; // boo :(
     }
 }
-
-#ifdef CONFIG_PICOC
-
-void menu_save_current_config_as_picoc_preset(char* filename)
-{
-    // we will need exclusive access to menu_display_info
-    take_semaphore(menu_sem, 0);
-
-    char* cfg = fio_malloc(CFG_SIZE);
-    cfg[0] = '\0';
-    int cfglen = 0;
-    int lastlen = 0;
-    
-    CFG_APPEND(
-        "/** Configuration preset. **/\n"
-        "/** Feel free to edit or rename it. **/\n"
-        "\n"
-    );
-
-    struct menu * menu = menus;
-    for( ; menu ; menu = menu->next )
-    {
-        struct menu_entry * entry = menu->children;
-        if (streq(menu->name, "Scripts")) continue;
-        if (streq(menu->name, "Debug")) continue;
-        if (streq(menu->name, "Help")) continue;
-        if (streq(menu->name, "MyMenu")) continue;
-        if (streq(menu->name, "FlexInfo Settings")) continue;
-        
-        int header_printed = 0;
-        
-        int i;
-        for(i = 0 ; entry ; entry = entry->next, i++ )
-        {
-            // this will also update icon_type
-            char* value = menu_get_str_value_from_script((char*)menu->name, (char*)entry->name);
-            
-            if (strlen(value) == 0)
-                continue;
-            
-            if (entry->icon_type == IT_ACTION)
-                continue;
-            
-            // skip troublesome menus
-            if (streq(entry->name, "Battery Level")) continue;
-            
-            if (!header_printed)
-            {
-                CFG_APPEND("\n/** %s %s**/\n", menu->name, IS_SUBMENU(menu) ? "- submenu " : "");
-                header_printed = 1;
-            }
-            
-            if (!entry->select && IS_ML_PTR(entry->priv))
-                CFG_APPEND("menu_set(\"%s\", \"%s\", %d);", menu->name, entry->name, CURRENT_VALUE);
-            else
-                CFG_APPEND("menu_set_str(\"%s\", \"%s\", \"%s\");", menu->name, entry->name, value);
-            int len = lastlen;
-
-            if ((IS_ML_PTR(entry->priv) && entry->min != entry->max) || (entry->choices)) // we'll have comments
-            {
-                // pad with spaces and add "// "
-                for (i = 0; i < 60-len; i++)
-                    CFG_APPEND(" ");
-                CFG_APPEND("// ");
-            
-                if (IS_ML_PTR(entry->priv) && entry->min != entry->max)
-                {
-                    if (IS_BOOL(entry))
-                        CFG_APPEND("%d or %d. ", entry->min, entry->max);
-                    else
-                        CFG_APPEND("%d...%d. ", entry->min, entry->max);
-                }
-
-                if (entry->choices)
-                {
-                    CFG_APPEND("Choices: ");
-                    for (int i = entry->min; i <= entry->max; i++)
-                    {
-                        CFG_APPEND("\"%s\"%s", pickbox_string(entry, i), i < entry->max ? ", " : ".");
-                    }
-                }
-            }
-            
-            CFG_APPEND("\n");
-        }
-    }
-    
-    //~ ASSERT(cfglen == strlen(cfg)); // seems OK
-    
-    FILE * file = FIO_CreateFile(filename);
-    if( file == INVALID_PTR )
-        goto end;
-    
-    FIO_WriteFile(file, cfg, strlen(cfg));
-
-    FIO_CloseFile( file );
-
-end:
-    fio_free(cfg);
-    give_semaphore(menu_sem);
-}
-
-#ifdef CONFIG_STRESS_TEST
-
-static void menu_duplicate_test()
-{
-    struct menu * menu = menus;
-    for( ; menu ; menu = menu->next )
-    {
-        if (menu == my_menu) continue;
-        if (menu == mod_menu) continue;
-        
-        struct menu_entry * entry = menu->children;
-        for( ; entry ; entry = entry->next )
-        {
-            if (!entry->name) continue;
-            if (entry->shidden) continue;
-            
-            struct menu_entry * e = entry_find_by_name(0, entry->name);
-            
-            if (e != entry)
-            {
-                console_printf("Duplicate: %s->%s\n", menu->name, entry->name);
-            }
-        }
-    }
-}
-
-// for menu entries with custom toggle: check if it wraps around in both directions
-static int entry_check_wrap(const char* name, const char* entry_name, int dir)
-{
-    struct menu_entry * entry = entry_find_by_name(name, entry_name);
-    ASSERT(entry);
-    ASSERT(entry->select);
-
-    // we will need exclusive access to menu_display_info
-    take_semaphore(menu_sem, 0);
-    
-    // if it doesn't seem to cycle, cancel earlier
-    char first[MENU_MAX_VALUE_LEN];
-    char last[MENU_MAX_VALUE_LEN];
-    snprintf(first, sizeof(first), "%s", menu_get_str_value_from_script(name, entry_name));
-    snprintf(last, sizeof(last), "%s", menu_get_str_value_from_script(name, entry_name));
-    
-    if (entry->icon_type == IT_ACTION)
-        goto ok; // don't check actions
-    
-    if (strlen(first)==0)
-        goto ok; // no value field, skip it
-    
-    for (int i = 0; i < 500; i++) // cycle until it returns to initial value
-    {
-        bmp_printf(FONT_MED, 0, 0, "%s->%s: %s (%s)                  ", name, entry_name, last, dir > 0 ? "+" : "-");
-
-        // next value
-        entry->select( entry->priv, dir);
-        msleep(20); // we may need to wait for property handlers to update
-
-        char* current = menu_get_str_value_from_script(name, entry_name);
-        
-        if (streq(current, last)) // value not changing? not good
-        {
-            console_printf("Value not changing: %s, %s -> %s (%s).\n", current, name, entry_name, dir > 0 ? "+" : "-");
-            goto err;
-        }
-        
-        if (streq(current, first)) // back to first value? success!
-            goto ok;
-
-        snprintf(last, sizeof(last), "%s", current);
-    }
-    console_printf("'Infinite' range: %s -> %s (%s)\n", name, entry_name, dir > 0 ? "+" : "-");
-
-err:
-    give_semaphore(menu_sem);
-    return 0; // boo :(
-
-ok:
-    give_semaphore(menu_sem);
-    return 1; // :)
-}
-
-void menu_check_wrap()
-{
-    int ok = 0;
-    int bad = 0;
-    struct menu * menu = menus;
-    for( ; menu ; menu = menu->next )
-    {
-        struct menu_entry * entry = menu->children;
-        for( ; entry ; entry = entry->next )
-        {
-            if (entry->shidden) continue;
-            if (!entry->select) continue;
-            
-            int r = entry_check_wrap(menu->name, entry->name, 1);
-            if (r) ok++; else bad++;
-
-            r = entry_check_wrap(menu->name, entry->name, -1);
-            if (r) ok++; else bad++;
-            
-            msleep(100);
-        }
-    }
-    console_printf("Wrap test: %d OK, %d bad\n", ok, bad);
-}
-
-void menu_self_test()
-{
-    msleep(2000);
-    console_show();
-    menu_duplicate_test();
-    console_printf("\n");
-    menu_check_wrap();
-}
-
-#endif // CONFIG_STRESS_TEST
-#endif // CONFIG_PICOC
 
 /* returns 1 if the backend is ready to use, 0 if caller should call this one again to re-check */
 int menu_request_image_backend()

@@ -20,9 +20,9 @@
 
 #define MODULE_COUNT_MAX              32
 #define MODULE_NAME_LENGTH            8
-#define MODULE_FILENAME_LENGTH        64
-#define MODULE_STATUS_LENGTH          64
-
+#define MODULE_FILENAME_LENGTH        31    /* A:/ML/MODULES/8_3_name.mo */
+#define MODULE_STATUS_LENGTH          7     /* longest is FileErr */
+#define MODULE_LONG_STATUS_LENGTH     63
 
 /* some callbacks that may be needed by modules. more to come. ideas? needs? */
 #define CBR_PRE_SHOOT                 1 /* called before image is taken */
@@ -102,7 +102,7 @@
 
 
 /* update major if older modules will *not* be compatible */
-#define MODULE_MAJOR 5
+#define MODULE_MAJOR 6
 /* update minor if older modules will be compatible, but newer module will not run on older magic lantern versions */
 #define MODULE_MINOR 0
 /* update patch if nothing regarding to compatibility changes */
@@ -181,7 +181,7 @@ typedef struct
     char filename[MODULE_FILENAME_LENGTH+1];
     char long_filename[MODULE_FILENAME_LENGTH+1];
     char status[MODULE_STATUS_LENGTH+1];
-    char long_status[MODULE_STATUS_LENGTH+1];
+    char long_status[MODULE_LONG_STATUS_LENGTH+1];
     module_info_t *info;
     module_strpair_t *strings;
     module_parminfo_t *params;
@@ -307,7 +307,8 @@ struct module_symbol_entry
     void** address;
 };
 
-/* for module routines that may be called from core
+/* 
+ * For module routines that may be called from core:
  *
  * usage:
  * static void(*auto_ettr_intervalometer_wait)(void) = MODULE_FUNCTION(auto_ettr_intervalometer_wait);
@@ -317,6 +318,9 @@ struct module_symbol_entry
  * static void(*foobar)(int, int) = MODULE_SYMBOL(do_foobar, default_function)
  * 
  * All module symbols are updated after modules are loaded.
+ * 
+ * You **MUST** declare these symbols static.
+ * If you don't, the error will only be detected at runtime, if no modules are loaded.
  */
 
 #define MODULE_SYMBOL(NAME, DEFAULT_ADDRESS) \
