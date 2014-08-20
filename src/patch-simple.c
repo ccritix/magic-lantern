@@ -41,6 +41,7 @@ struct logging_hook_code
     uint32_t original_instr;    /*           original ASM instruction (which was patched to jump here) */
     uint32_t b_return;          /*           B      patched_address + 4 */
     uint32_t addr;              /* patched address (for identification) */
+    uint32_t fixup;             /* for relocating instructions that do PC-relative addressing */
 };
 
 static struct patch_info patches[MAX_PATCHES] = {{0}};
@@ -444,6 +445,51 @@ int unpatch_engio_list(uint32_t * engio_list, uint32_t patched_register)
     return E_UNPATCH_REG_NOT_FOUND;
 }
 
+#define REG_PC      15
+#define LOAD_MASK   0x0C000000
+#define LOAD_INSTR  0x04000000
+
+static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc)
+{
+    uint32_t instr = MEM(pc);
+    uint32_t fixup = new_pc + 0xC;
+    uint32_t load = instr & LOAD_MASK;
+
+    // Check for load from %pc
+    if( load == LOAD_INSTR )
+    {
+        uint32_t reg_base   = (instr >> 16) & 0xF;
+        int32_t offset      = (instr >>  0) & 0xFFF;
+
+        if( reg_base != REG_PC )
+            return instr;
+
+        // Check direction bit and flip the sign
+        if( (instr & (1<<23)) == 0 )
+            offset = -offset;
+
+        // Compute the destination, including the change in pc
+        uint32_t dest       = pc + offset + 8;
+
+        // Find the data that is being used and
+        // compute a new offset so that it can be
+        // accessed from the relocated space.
+        uint32_t data = MEM(dest);
+        int32_t new_offset = fixup - new_pc - 8;
+
+        uint32_t new_instr = 0
+            | ( instr & ~0xFFF )
+            | ( new_offset & 0xFFF )
+            ;
+
+        // Copy the data to the offset location
+        MEM(fixup) = data;
+        return new_instr;
+    }
+    
+    return instr;
+}
+
 int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function_cbr logging_function, char* description)
 {
     int err = 0;
@@ -477,7 +523,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     hook->mov_pc          = 0xe59f200c;                                     /* e59f300c: LDR    R2, [PC,#12] */
     hook->call_logger     = BL_INSTR(&hook->call_logger, logging_function); /*           BL     logging_function */
     hook->restore_regs    = 0xe8bd5fff;                                     /* e8bd5fff: LDMFD  SP!, {R0-R12,LR} */
-    hook->original_instr  = orig_instr;                                     /*           original ASM instruction */
+    hook->original_instr  = reloc_instr(addr, (uint32_t)&hook->original_instr); /*       original ASM instruction, relocated */
     hook->b_return        = B_INSTR (&hook->b_return, addr + 4);            /*           B      patched_address + 4 */
     hook->addr            = addr;                                           /*           patched address (for identification) */
 
