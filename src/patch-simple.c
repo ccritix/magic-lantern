@@ -34,6 +34,7 @@ static int num_patches = 0;
 static char last_error[70];
 
 static void check_cache_lock_still_needed();
+static int patch_sync_cache();
 
 /* lock or unlock the cache as needed */
 static void cache_require(int lock)
@@ -51,6 +52,30 @@ static void cache_require(int lock)
         printf("Unlocking cache\n");
         cache_unlock();
     }
+}
+
+static int patch_sync_cache()
+{
+    int err = 0;
+    
+    int locked = cache_locked();
+    if (locked)
+    {
+        /* without this, reading from ROM right away may return the value patched in the I-Cache (5D2) */
+        /* as a result, ROM patches may not be restored */
+        cache_unlock();
+    }
+
+    dbg_printf("Flushing ICache...\n");
+    flush_i_cache();
+    
+    if (locked)
+    {
+        cache_lock();
+        err = reapply_cache_patches();
+    }
+    
+    return err;
 }
 
 /* low-level routines */
@@ -176,9 +201,7 @@ static int patch_memory_work(
      * but we need to clear the cache and re-apply any existing ROM patches */
     if (is_instruction && !IS_ROM_PTR(addr))
     {
-        dbg_printf("Flushing ICache...\n");
-        flush_i_cache();
-        err = reapply_cache_patches();
+        err = patch_sync_cache();
     }
     
     num_patches++;
@@ -314,8 +337,7 @@ int unpatch_memory(uintptr_t _addr)
 
     if (patches[p].is_instruction && !IS_ROM_PTR(addr))
     {
-        flush_i_cache();
-        err = reapply_cache_patches();
+        err = patch_sync_cache();
     }
 
     delayed_call(500, check_cache_lock_still_needed);
