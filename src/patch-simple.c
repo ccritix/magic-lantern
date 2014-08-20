@@ -35,7 +35,7 @@ struct logging_hook_code
     uint32_t save_regs;         /* e92d5fff: STMFD  SP!, {R0-R12,LR} */
     uint32_t mov_regs;          /* e1a0000d: MOV    R0, SP */
     uint32_t mov_stack;         /* e28d1038: ADD    R1, SP, #56 */
-    uint32_t mov_pc;            /* e59f200c: LDR    R3, [PC,#12] */
+    uint32_t mov_pc;            /* e59f200c: LDR    R2, [PC,#12] */
     uint32_t call_logger;       /*           BL     logging_function */
     uint32_t restore_regs;      /* e8bd5fff: LDMFD  SP!, {R0-R12,LR} */
     uint32_t original_instr;    /*           original ASM instruction (which was patched to jump here) */
@@ -520,7 +520,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     hook->save_regs       = 0xe92d5fff;                                     /* e92d5fff: STMFD  SP!, {R0-R12,LR} */
     hook->mov_regs        = 0xe1a0000d;                                     /* e1a0000d: MOV    R0, SP */
     hook->mov_stack       = 0xe28d1038;                                     /* e28d1038: ADD    R1, SP, #56 */
-    hook->mov_pc          = 0xe59f200c;                                     /* e59f300c: LDR    R2, [PC,#12] */
+    hook->mov_pc          = 0xe59f200c;                                     /* e59f200c: LDR    R2, [PC,#12] */
     hook->call_logger     = BL_INSTR(&hook->call_logger, logging_function); /*           BL     logging_function */
     hook->restore_regs    = 0xe8bd5fff;                                     /* e8bd5fff: LDMFD  SP!, {R0-R12,LR} */
     hook->original_instr  = reloc_instr(addr, (uint32_t)&hook->original_instr); /*       original ASM instruction, relocated */

@@ -139,20 +139,21 @@ int reapply_cache_patches();
  * - patches only a single address (slightly lower chances of collision)
  * - does not patch anything when the hook is triggered (self-modifying code runs only once, when set up => faster and less stuff that can break)
  * - uses less black magic (easy to understand by ASM noobs like me)
- * - limitation: it does not save/restore the flags, so it will have problems with conditional or relative jumps
+ * - limitation: it does not save/restore the flags, so it will have problems with conditional jumps
+ * - hooking on instructions that do relative addressing is not fully supported; LDR Rn, [PC, #off] is fine (relocated)
  * - regs contain R0-R12 and LR (be careful)
  * - first 4 args of the inspected function are in regs[0] ... regs[3]
  * - next args are in stack[0], stack[1] and so on
  * - pc is the address where we installed the hook
+ * - orig_instr is just for sanity checking
  * 
  * credits: Maqs
  */
 typedef void (*patch_hook_function_cbr)(uint32_t* regs, uint32_t* stack, uint32_t pc);
 
 /* to be called only from a patch_hook_function_cbr */
-#define PATCH_HOOK_CALLER() (regs[13]-4)
+#define PATCH_HOOK_CALLER() (regs[13]-4)    /* regs[13] contains LR, not SP */
 
-/* orig_instr is just for sanity checking */
 int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function_cbr logging_function, char* description);
 
 /* to undo, use unpatch_memory(addr) */
