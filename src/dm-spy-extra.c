@@ -18,24 +18,23 @@
 #include "console.h"
 #include "edmac.h"
 
-static void generic_log(breakpoint_t *bkpt);
-static void state_transition_log(breakpoint_t *bkpt);
-static void LockEngineResources_log(breakpoint_t *bkpt);
-static void UnLockEngineResources_log(breakpoint_t *bkpt);
-static void fps_log(breakpoint_t *bkpt);
-static void LockEngineResources_log_r4(breakpoint_t *bkpt);
-static void UnLockEngineResources_log_r7(breakpoint_t *bkpt);
-static void engio_write_log(breakpoint_t *bkpt);
-static void mpu_send_log(breakpoint_t *bkpt);
-static void mpu_recv_log(breakpoint_t *bkpt);
+static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void state_transition_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void LockEngineResources_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void UnLockEngineResources_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void fps_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void LockEngineResources_log_r4(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void UnLockEngineResources_log_r7(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 
 struct logged_func
 {
     uint32_t addr;                              /* Logged address (usually at the start of the function; will be passed to gdb_add_watchpoint) */
     char* name;                                 /* Breakpoint (function) name (optional, can be NULL) */
     int num_args;                               /* How many arguments does your function have? (will try to print them) */
-    void (*log_func)(breakpoint_t* bkpt);       /* if generic_log is not enough, you may use a custom logging function */
-    breakpoint_t * bkpt;                        /* internal */
+    patch_hook_function_cbr log_func;           /* if generic_log is not enough, you may use a custom logging function */
 };
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
@@ -211,9 +210,10 @@ static int snprintf_guess_arg(char* buf, int maxlen, uint32_t arg)
     }
 }
 
-static void generic_log(breakpoint_t *bkpt)
+static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    uint32_t pc = bkpt->ctx[15];
+    uint32_t caller = PATCH_HOOK_CALLER();
+    
     int num_args = 0;
     char* func_name = 0;
     
@@ -241,7 +241,7 @@ static void generic_log(breakpoint_t *bkpt)
 
     for (int i = 0; i < num_args; i++)
     {
-        uint32_t arg = (i < 4) ? bkpt->ctx[i] : MEM(bkpt->ctx[13] + 4 * (i-4));
+        uint32_t arg = (i < 4) ? regs[i] : stack[i-4];
 
         len += snprintf_guess_arg(msg + len, sizeof(msg) - len, arg);
         
@@ -250,17 +250,17 @@ static void generic_log(breakpoint_t *bkpt)
             len += snprintf(msg + len, sizeof(msg) - len, ", ");
         }
     }
-    len += snprintf(msg + len, sizeof(msg) - len, "), from %x", bkpt->ctx[14]-4);
+    len += snprintf(msg + len, sizeof(msg) - len, "), from %x", caller);
     
     DryosDebugMsg(0, 0, "%s", msg);
 }
 
-static void state_transition_log(breakpoint_t *bkpt)
+static void state_transition_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    struct state_object * state = (void*) bkpt->ctx[0];
+    struct state_object * state = (void*) regs[0];
     int old_state = state->current_state;
     char* state_name = (char*) state->name;
-    int input = bkpt->ctx[2];
+    int input = regs[2];
     int next_state = state->state_matrix[old_state + state->max_states * input].next_state;
     uint32_t next_function = (uint32_t) state->state_matrix[old_state + state->max_states * input].state_transition_function;
     /* function name is on the next line, no need to print it here */
@@ -268,17 +268,18 @@ static void state_transition_log(breakpoint_t *bkpt)
     DryosDebugMsg(0, 0, 
         "*** %s: (%d) --%d--> (%d)          "
         "%x (x=%x z=%x t=%x)", state_name, old_state, input, next_state,
-        next_function, bkpt->ctx[1], bkpt->ctx[3], MEM(bkpt->ctx[13])
+        next_function, regs[1], regs[3], stack[0]
     );
 }
 
-static void LockEngineResources_log_base(breakpoint_t *bkpt, char* name, uint32_t* arg0)
+static void LockEngineResources_log_base(uint32_t* regs, char* name, uint32_t* arg0)
 {
     uint32_t* resLock = arg0;
     uint32_t* resIds = (void*) resLock[5];
     int resNum = resLock[6];
+    uint32_t caller = PATCH_HOOK_CALLER();
 
-    DryosDebugMsg(0, 0, "*** %s(%x) x%d from %x:", name, resLock, resNum, bkpt->ctx[14]-4);
+    DryosDebugMsg(0, 0, "*** %s(%x) x%d from %x:", name, resLock, resNum, caller);
     for (int i = 0; i < resNum; i++)
     {
         uint32_t class = resIds[i] & 0xFFFF0000;
@@ -311,40 +312,41 @@ static void LockEngineResources_log_base(breakpoint_t *bkpt, char* name, uint32_
     }
 }
 
-static void LockEngineResources_log(breakpoint_t *bkpt)
+static void LockEngineResources_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    LockEngineResources_log_base(bkpt, "LockEngineResources", (void*) bkpt->ctx[0]);
+    LockEngineResources_log_base(regs, "LockEngineResources", (void*) regs[0]);
 }
 
-static void UnLockEngineResources_log(breakpoint_t *bkpt)
+static void UnLockEngineResources_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    LockEngineResources_log_base(bkpt, "UnLockEngineResources", (void*) bkpt->ctx[0]);
+    LockEngineResources_log_base(regs, "UnLockEngineResources", (void*) regs[0]);
 }
 
-static void LockEngineResources_log_r4(breakpoint_t *bkpt)
+static void LockEngineResources_log_r4(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    LockEngineResources_log_base(bkpt, "LockEngineResources", (void*) bkpt->ctx[4]);
+    LockEngineResources_log_base(regs, "LockEngineResources", (void*) regs[4]);
 }
 
-static void UnLockEngineResources_log_r7(breakpoint_t *bkpt)
+static void UnLockEngineResources_log_r7(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    LockEngineResources_log_base(bkpt, "UnLockEngineResources", (void*) bkpt->ctx[7]);
+    LockEngineResources_log_base(regs, "UnLockEngineResources", (void*) regs[7]);
 }
 
-static void fps_log(breakpoint_t *bkpt)
+static void fps_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     /* log the original call as usual */
-    generic_log(bkpt);
+    generic_log(regs, stack, pc);
 
     /* force very slow FPS to avoid lockup */
-    bkpt->ctx[0] = 8191;
+    regs[0] = 8191;
 }
 
-static void engio_write_log(breakpoint_t *bkpt)
+static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    uint32_t* data_buf = (uint32_t*) bkpt->ctx[0];
+    uint32_t* data_buf = (uint32_t*) regs[0];
+    uint32_t caller = PATCH_HOOK_CALLER();
 
-    DryosDebugMsg(0, 0, "*** engio_write(%x) from %x:", data_buf, bkpt->ctx[14]-4);
+    DryosDebugMsg(0, 0, "*** engio_write(%x) from %x:", data_buf, caller);
     
     /* log all ENGIO register writes */
     while(*data_buf != 0xFFFFFFFF)
@@ -372,24 +374,26 @@ static void mpu_decode(char* in, char* out, int max_len)
     if (len) out[len-1] = 0;
 }
 
-static void mpu_send_log(breakpoint_t *bkpt)
+static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    char* buf = (char*) bkpt->ctx[0];
-    int size = bkpt->ctx[1];            /* message size */
+    uint32_t caller = PATCH_HOOK_CALLER();
+    char* buf = (char*) regs[0];
+    int size = regs[1];                 /* message size */
     int size_ex = (size + 2) & 0xFE;    /* packet size, prepended to the message */
                                         /* must be multiple of 2, so it's either size+1 or size+2 */
     char msg[256];
     mpu_decode(buf, msg, sizeof(msg));
-    DryosDebugMsg(0, 0, "*** mpu_send(%02x %s), from %x", size_ex, msg, bkpt->ctx[14]-4);
+    DryosDebugMsg(0, 0, "*** mpu_send(%02x %s), from %x", size_ex, msg, caller);
 }
 
-static void mpu_recv_log(breakpoint_t *bkpt)
+static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    char* buf = (char*) bkpt->ctx[0];
+    uint32_t caller = PATCH_HOOK_CALLER();
+    char* buf = (char*) regs[0];
     int size = buf[-1];
     char msg[256];
     mpu_decode(buf, msg, sizeof(msg));
-    DryosDebugMsg(0, 0, "*** mpu_recv(%02x %s), from %x", size, msg, bkpt->ctx[14]-4);
+    DryosDebugMsg(0, 0, "*** mpu_recv(%02x %s), from %x", size, msg, caller);
 }
 
 static int check_no_conflicts(int i)
@@ -397,15 +401,9 @@ static int check_no_conflicts(int i)
     /* two memory addresses can't be patched at the same time if their index bits are the same */
     int index_mask = CACHE_INDEX_ADDRMASK(TYPE_ICACHE);
 
-    /* A GDB watchpoint uses two breakpoints, at addr and addr+4, and only one of them is active (armed). */
-    /* Therefore, it's not enough to call cache_is_patchable, since it may still conflict with inactive breakpoints. */
-    /* so, we inspect the addresses manually for now. */
-    /* TODO: this check should probably be moved in GDB hooks or in the patch library */
+    int a = logged_functions[i].addr;
 
-    int ai = logged_functions[i].addr;     /* address of the main breakpoint in the GDB watchpoint */
-    int bi = logged_functions[i].addr + 4; /* address of the second breakpoint */
-
-    if (!IS_ROM_PTR(ai))
+    if (!IS_ROM_PTR(a))
     {
         /* this function is patched in RAM - no cache conflicts possible */
         return 1;
@@ -413,19 +411,15 @@ static int check_no_conflicts(int i)
 
     for (int j = 0; j < i; j++)
     {
-        int aj = logged_functions[j].addr;
-        int bj = logged_functions[j].addr + 4;
+        int b = logged_functions[j].addr;
 
-        if (!IS_ROM_PTR(aj))
+        if (!IS_ROM_PTR(b))
         {
             /* this function is patched in RAM - no cache conflicts possible */
             continue;
         }
 
-        if (((ai & index_mask) == (aj & index_mask)) ||
-            ((bi & index_mask) == (bj & index_mask)) ||
-            ((ai & index_mask) == (bj & index_mask)) ||
-            ((bi & index_mask) == (aj & index_mask)))
+        if ((a & index_mask) == (b & index_mask))
         {
             console_show();
             printf("Birthday paradox: %x %s\n"
@@ -444,8 +438,7 @@ static int check_no_conflicts(int i)
         return 1;
     }
     
-    if ((cache_is_patchable(logged_functions[i].addr,   TYPE_ICACHE, 0) && 
-         cache_is_patchable(logged_functions[i].addr+4, TYPE_ICACHE, 0)))
+    if (cache_is_patchable(logged_functions[i].addr,   TYPE_ICACHE, 0))
     {
         /* seems OK */
         return 1;
@@ -459,8 +452,6 @@ static int check_no_conflicts(int i)
 
 void dm_spy_extra_install()
 {
-    gdb_setup();
-
     printf("ICache: %db, idx=%x tag=%x word=%x seg=%x\n",
         1<<CACHE_SIZE_BITS(TYPE_ICACHE),
         CACHE_INDEX_ADDRMASK(TYPE_ICACHE),
@@ -475,9 +466,10 @@ void dm_spy_extra_install()
         {
             if (check_no_conflicts(i))
             {
-                logged_functions[i].bkpt = gdb_add_watchpoint(
-                    logged_functions[i].addr, 0,
-                    logged_functions[i].log_func ? logged_functions[i].log_func : generic_log
+                patch_hook_function(
+                    logged_functions[i].addr, MEM(logged_functions[i].addr),
+                    logged_functions[i].log_func ? logged_functions[i].log_func : generic_log,
+                    logged_functions[i].name
                 );
             }
         }
@@ -488,10 +480,6 @@ void dm_spy_extra_uninstall()
 {
     for (int i = 0; i < COUNT(logged_functions); i++)
     {
-        if (logged_functions[i].bkpt)
-        {
-            gdb_delete_bkpt(logged_functions[i].bkpt);
-            logged_functions[i].bkpt = 0;
-        }
+        unpatch_memory(logged_functions[i].addr);
     }
 }
