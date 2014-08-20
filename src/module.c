@@ -9,6 +9,7 @@
 #include "property.h"
 #include "beep.h"
 #include "bmp.h"
+#include "patch.h"
 
 #ifndef CONFIG_MODULES_MODEL_SYM
 #error Not defined file name with symbols
@@ -77,7 +78,7 @@ static int module_load_symbols(TCCState *s, char *filename)
     }
 
     file = FIO_OpenFile(filename, O_RDONLY | O_SYNC);
-    if(file == INVALID_PTR)
+    if (!file)
     {
         console_printf("Error loading '%s': File does not exist\n", filename);
         fio_free(buf);
@@ -457,7 +458,10 @@ static void _module_load_all(uint32_t list_only)
     }
     
     /* before we execute code, make sure a) data caches are drained and b) instruction caches are clean */
+    int old = cli();
     sync_caches();
+    reapply_cache_patches();
+    sei(old);
     
     /* go through all modules and initialize them */
     console_printf("Init modules...\n");
@@ -1665,8 +1669,11 @@ static void module_load_task(void* unused)
         else
         {
             FILE *handle = FIO_CreateFile(module_lockfile);
-            FIO_WriteFile(handle, lockstr, strlen(lockstr));
-            FIO_CloseFile(handle);
+            if (handle)
+            {
+                FIO_WriteFile(handle, lockstr, strlen(lockstr));
+                FIO_CloseFile(handle);
+            }
             
             /* now load modules */
             _module_load_all(0);

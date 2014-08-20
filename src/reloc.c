@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <patch.h>
 #endif
 
 #include "reloc.h"
@@ -248,7 +249,10 @@ reloc(
     }
 
     /* before we execute code, make sure a) data caches are drained and b) instruction caches are clean */
+    int old = cli();
     sync_caches();
+    reapply_cache_patches();
+    sei(old);
 
     // Return the entry point of the new function
     return entry;

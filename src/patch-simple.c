@@ -17,6 +17,7 @@
 #endif
 
 #define MAX_PATCHES 32
+#define MAX_LOGGING_HOOKS 16
 
 /* for patching a single 32-bit integer (RAM or ROM, data or code) */
 struct patch_info
@@ -28,12 +29,31 @@ struct patch_info
     unsigned is_instruction: 1;     /* if 1, we have patched an instruction (needs extra care with the instruction cache) */
 };
 
+/* ASM code from Maqs */
+struct logging_hook_code
+{
+    uint32_t save_regs;         /* e92d5fff: STMFD  SP!, {R0-R12,LR} */
+    uint32_t mov_regs;          /* e1a0000d: MOV    R0, SP */
+    uint32_t mov_stack;         /* e28d1038: ADD    R1, SP, #56 */
+    uint32_t mov_pc;            /* e59f200c: LDR    R3, [PC,#12] */
+    uint32_t call_logger;       /*           BL     logging_function */
+    uint32_t restore_regs;      /* e8bd5fff: LDMFD  SP!, {R0-R12,LR} */
+    uint32_t original_instr;    /*           original ASM instruction (which was patched to jump here) */
+    uint32_t b_return;          /*           B      patched_address + 4 */
+    uint32_t addr;              /* patched address (for identification) */
+    uint32_t fixup;             /* for relocating instructions that do PC-relative addressing */
+};
+
 static struct patch_info patches[MAX_PATCHES] = {{0}};
 static int num_patches = 0;
+
+/* at startup we don't have malloc, so we allocate it statically */
+static struct logging_hook_code logging_hooks[MAX_LOGGING_HOOKS] = {{0}};
 
 static char last_error[70];
 
 static void check_cache_lock_still_needed();
+static int patch_sync_cache(int also_data);
 
 /* lock or unlock the cache as needed */
 static void cache_require(int lock)
@@ -48,8 +68,41 @@ static void cache_require(int lock)
     }
     else
     {
+        printf("Unlocking cache\n");
         cache_unlock();
     }
+}
+
+static int patch_sync_cache(int also_data)
+{
+    int err = 0;
+    
+    int locked = cache_locked();
+    if (locked)
+    {
+        /* without this, reading from ROM right away may return the value patched in the I-Cache (5D2) */
+        /* as a result, ROM patches may not be restored */
+        cache_unlock();
+    }
+
+    if (also_data)
+    {
+        dbg_printf("Syncing caches...\n");
+        sync_caches();
+    }
+    else
+    {
+        dbg_printf("Flushing ICache...\n");
+        flush_i_cache();
+    }
+    
+    if (locked)
+    {
+        cache_lock();
+        err = reapply_cache_patches();
+    }
+    
+    return err;
 }
 
 /* low-level routines */
@@ -76,7 +129,7 @@ static uint32_t read_value(uint32_t* addr, int is_instruction)
         dbg_printf("Read from ROM: %x -> %x\n", addr, MEM(addr));
     }
 
-    return *(volatile uint32_t*) addr;
+    return MEM(addr);
 }
 
 static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
@@ -112,8 +165,7 @@ static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
         addr = UNCACHEABLE(addr);
     }
 
-    /* trick required because we don't have unaligned memory access */
-    *(volatile uint32_t*)addr = value;
+    MEM(addr) = value;
     
     return 0;
 }
@@ -136,6 +188,8 @@ static int patch_memory_work(
     
     /* ensure thread safety */
     uint32_t old_int = cli();
+
+    dbg_printf("patch_memory_work(%x)\n", addr);
 
     /* is this address already patched? refuse to patch it twice */
     for (int i = 0; i < num_patches; i++)
@@ -174,9 +228,7 @@ static int patch_memory_work(
      * but we need to clear the cache and re-apply any existing ROM patches */
     if (is_instruction && !IS_ROM_PTR(addr))
     {
-        dbg_printf("Flushing ICache...\n");
-        flush_i_cache();
-        err = reapply_cache_patches();
+        err = patch_sync_cache(0);
     }
     
     num_patches++;
@@ -205,7 +257,7 @@ static int reapply_cache_patch(int p)
     if (current != patched)
     {
         void* addr = patches[p].addr;
-        dbg_printf("Re-applying %x -> %x (was changed to %x)\n", addr, patched, current);
+        dbg_printf("Re-applying %x -> %x (changed to %x)\n", addr, patched, current);
         cache_fake((uint32_t) addr, patched, patches[p].is_instruction ? TYPE_ICACHE : TYPE_DCACHE);
 
         /* did it actually work? */
@@ -238,10 +290,12 @@ int reapply_cache_patches()
     return err;
 }
 
-/* called from a timer */
 static void check_cache_lock_still_needed()
 {
-    int old_int = cli();
+    if (!cache_locked())
+    {
+        return;
+    }
     
     /* do we still need the cache locked? */
     int rom_patches = 0;
@@ -259,8 +313,6 @@ static void check_cache_lock_still_needed()
         /* nope, we don't */
         cache_require(0);
     }
-    
-    sei(old_int);
 }
 
 int unpatch_memory(uintptr_t _addr)
@@ -268,6 +320,8 @@ int unpatch_memory(uintptr_t _addr)
     uint32_t* addr = (uint32_t*) _addr;
     int err = E_UNPATCH_OK;
     uint32_t old_int = cli();
+
+    dbg_printf("unpatch_memory(%x)\n", addr);
 
     int p = -1;
     for (int i = 0; i < num_patches; i++)
@@ -292,9 +346,13 @@ int unpatch_memory(uintptr_t _addr)
         goto end;
     }
     
-    /* undo the patch */
-    err = do_patch(patches[p].addr, patches[p].backup, patches[p].is_instruction);
-    if (err) goto end;
+    /* not needed for ROM patches - there we will re-apply all the remaining ones from scratch */
+    /* (slower, but old reverted patches should no longer give collisions) */
+    if (!IS_ROM_PTR(addr))
+    {
+        err = do_patch(patches[p].addr, patches[p].backup, patches[p].is_instruction);
+        if (err) goto end;
+    }
 
     /* remove from our data structure (shift the other array items) */
     for (int i = p + 1; i < num_patches; i++)
@@ -303,13 +361,28 @@ int unpatch_memory(uintptr_t _addr)
     }
     num_patches--;
 
-    if (patches[p].is_instruction && !IS_ROM_PTR(addr))
+    /* also look in up in the logging hooks, and zero it out if found */
+    for (int i = 0; i < MAX_LOGGING_HOOKS; i++)
     {
-        flush_i_cache();
-        err = reapply_cache_patches();
+        if (logging_hooks[i].addr == _addr)
+        {
+            memset(&logging_hooks[i], 0, sizeof(struct logging_hook_code));
+        }
     }
 
-    delayed_call(500, check_cache_lock_still_needed);
+    if (IS_ROM_PTR(addr))
+    {
+        /* unlock and re-apply only the remaining patches */
+        cache_unlock();
+        cache_lock();
+        err = reapply_cache_patches();
+    }
+    else if (patches[p].is_instruction)
+    {
+        err = patch_sync_cache(0);
+    }
+
+    check_cache_lock_still_needed();
 
 end:
     if (err)
@@ -372,11 +445,114 @@ int unpatch_engio_list(uint32_t * engio_list, uint32_t patched_register)
     return E_UNPATCH_REG_NOT_FOUND;
 }
 
+#define REG_PC      15
+#define LOAD_MASK   0x0C000000
+#define LOAD_INSTR  0x04000000
+
+static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc)
+{
+    uint32_t instr = MEM(pc);
+    uint32_t fixup = new_pc + 0xC;
+    uint32_t load = instr & LOAD_MASK;
+
+    // Check for load from %pc
+    if( load == LOAD_INSTR )
+    {
+        uint32_t reg_base   = (instr >> 16) & 0xF;
+        int32_t offset      = (instr >>  0) & 0xFFF;
+
+        if( reg_base != REG_PC )
+            return instr;
+
+        // Check direction bit and flip the sign
+        if( (instr & (1<<23)) == 0 )
+            offset = -offset;
+
+        // Compute the destination, including the change in pc
+        uint32_t dest       = pc + offset + 8;
+
+        // Find the data that is being used and
+        // compute a new offset so that it can be
+        // accessed from the relocated space.
+        uint32_t data = MEM(dest);
+        int32_t new_offset = fixup - new_pc - 8;
+
+        uint32_t new_instr = 0
+            | ( instr & ~0xFFF )
+            | ( new_offset & 0xFFF )
+            ;
+
+        // Copy the data to the offset location
+        MEM(fixup) = data;
+        return new_instr;
+    }
+    
+    return instr;
+}
+
+int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function_cbr logging_function, char* description)
+{
+    int err = 0;
+
+    /* ensure thread safety */
+    uint32_t old_int = cli();
+    
+    /* find a free slot in logging_hooks */
+    int logging_slot = -1;
+    for (int i = 0; i < COUNT(logging_hooks); i++)
+    {
+        if (logging_hooks[i].save_regs == 0)
+        {
+            logging_slot = i;
+            break;
+        }
+    }
+    
+    if (logging_slot < 0)
+    {
+        snprintf(last_error, sizeof(last_error), "No logging slot for %x", addr);
+        err = E_PATCH_FAILED;
+        goto end;
+    }
+    
+    /* create the logging code */
+    struct logging_hook_code * hook = &logging_hooks[logging_slot];
+    hook->save_regs       = 0xe92d5fff;                                     /* e92d5fff: STMFD  SP!, {R0-R12,LR} */
+    hook->mov_regs        = 0xe1a0000d;                                     /* e1a0000d: MOV    R0, SP */
+    hook->mov_stack       = 0xe28d1038;                                     /* e28d1038: ADD    R1, SP, #56 */
+    hook->mov_pc          = 0xe59f200c;                                     /* e59f300c: LDR    R2, [PC,#12] */
+    hook->call_logger     = BL_INSTR(&hook->call_logger, logging_function); /*           BL     logging_function */
+    hook->restore_regs    = 0xe8bd5fff;                                     /* e8bd5fff: LDMFD  SP!, {R0-R12,LR} */
+    hook->original_instr  = reloc_instr(addr, (uint32_t)&hook->original_instr); /*       original ASM instruction, relocated */
+    hook->b_return        = B_INSTR (&hook->b_return, addr + 4);            /*           B      patched_address + 4 */
+    hook->addr            = addr;                                           /*           patched address (for identification) */
+
+    /* since we have modified some code in RAM, sync the caches */
+    patch_sync_cache(1);
+    
+    /* patch the original instruction to jump to the logging code */
+    err = patch_instruction(addr, orig_instr, B_INSTR(addr, hook), description);
+    
+    if (err)
+    {
+        /* something went wrong? */
+        memset(hook, 0, sizeof(struct logging_hook_code));
+        goto end;
+    }
+
+end:
+    sei(old_int);
+    return err;
+}
+
 static MENU_UPDATE_FUNC(patch_update)
 {
     int p = (int) entry->priv;
     if (p < 0 || p >= num_patches)
+    {
+        entry->shidden = 1;
         return;
+    }
 
     /* long description */
     MENU_SET_HELP("%s.", patches[p].description);
