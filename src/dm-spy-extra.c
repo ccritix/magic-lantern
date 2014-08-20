@@ -399,7 +399,11 @@ static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 static int check_no_conflicts(int i)
 {
     /* two memory addresses can't be patched at the same time if their index bits are the same */
-    int index_mask = CACHE_INDEX_ADDRMASK(TYPE_ICACHE);
+    /* fixme: hardcoded masks */
+    int index_mask = 0x7E0;
+    
+    /* but if the higher bits are identical, it's all fine */
+    int high_mask = 0xFFFFF800;
 
     int a = logged_functions[i].addr;
 
@@ -419,7 +423,7 @@ static int check_no_conflicts(int i)
             continue;
         }
 
-        if ((a & index_mask) == (b & index_mask))
+        if (((a & index_mask) == (b & index_mask)) && ((a & high_mask) != (b & high_mask)))
         {
             console_show();
             printf("Birthday paradox: %x %s\n"
