@@ -48,6 +48,7 @@ static void cache_require(int lock)
     }
     else
     {
+        printf("Unlocking cache\n");
         cache_unlock();
     }
 }
@@ -76,7 +77,7 @@ static uint32_t read_value(uint32_t* addr, int is_instruction)
         dbg_printf("Read from ROM: %x -> %x\n", addr, MEM(addr));
     }
 
-    return *(volatile uint32_t*) addr;
+    return MEM(addr);
 }
 
 static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
@@ -112,8 +113,7 @@ static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
         addr = UNCACHEABLE(addr);
     }
 
-    /* trick required because we don't have unaligned memory access */
-    *(volatile uint32_t*)addr = value;
+    MEM(addr) = value;
     
     return 0;
 }
@@ -136,6 +136,8 @@ static int patch_memory_work(
     
     /* ensure thread safety */
     uint32_t old_int = cli();
+
+    dbg_printf("patch_memory_work(%x)\n", addr);
 
     /* is this address already patched? refuse to patch it twice */
     for (int i = 0; i < num_patches; i++)
@@ -205,7 +207,7 @@ static int reapply_cache_patch(int p)
     if (current != patched)
     {
         void* addr = patches[p].addr;
-        dbg_printf("Re-applying %x -> %x (was changed to %x)\n", addr, patched, current);
+        dbg_printf("Re-applying %x -> %x (changed to %x)\n", addr, patched, current);
         cache_fake((uint32_t) addr, patched, patches[p].is_instruction ? TYPE_ICACHE : TYPE_DCACHE);
 
         /* did it actually work? */
@@ -241,6 +243,11 @@ int reapply_cache_patches()
 /* called from a timer */
 static void check_cache_lock_still_needed()
 {
+    if (!cache_locked())
+    {
+        return;
+    }
+
     int old_int = cli();
     
     /* do we still need the cache locked? */
@@ -268,6 +275,8 @@ int unpatch_memory(uintptr_t _addr)
     uint32_t* addr = (uint32_t*) _addr;
     int err = E_UNPATCH_OK;
     uint32_t old_int = cli();
+
+    dbg_printf("unpatch_memory(%x)\n", addr);
 
     int p = -1;
     for (int i = 0; i < num_patches; i++)
