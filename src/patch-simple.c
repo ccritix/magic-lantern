@@ -17,6 +17,7 @@
 #endif
 
 #define MAX_PATCHES 32
+#define MAX_LOGGING_HOOKS 16
 
 /* for patching a single 32-bit integer (RAM or ROM, data or code) */
 struct patch_info
@@ -28,13 +29,30 @@ struct patch_info
     unsigned is_instruction: 1;     /* if 1, we have patched an instruction (needs extra care with the instruction cache) */
 };
 
+/* ASM code from Maqs */
+struct logging_hook_code
+{
+    uint32_t save_regs;         /* e92d5fff: STMFD  SP!, {R0-R12,LR} */
+    uint32_t mov_regs;          /* e1a0000d: MOV    R0, SP */
+    uint32_t mov_stack;         /* e28d1038: ADD    R1, SP, #56 */
+    uint32_t mov_pc;            /* e59f200c: LDR    R3, [PC,#12] */
+    uint32_t call_logger;       /*           BL     logging_function */
+    uint32_t restore_regs;      /* e8bd5fff: LDMFD  SP!, {R0-R12,LR} */
+    uint32_t original_instr;    /*           original ASM instruction (which was patched to jump here) */
+    uint32_t b_return;          /*           B      patched_address + 4 */
+    uint32_t addr;              /* patched address (for identification) */
+};
+
 static struct patch_info patches[MAX_PATCHES] = {{0}};
 static int num_patches = 0;
+
+/* at startup we don't have malloc, so we allocate it statically */
+static struct logging_hook_code logging_hooks[MAX_LOGGING_HOOKS] = {{0}};
 
 static char last_error[70];
 
 static void check_cache_lock_still_needed();
-static int patch_sync_cache();
+static int patch_sync_cache(int also_data);
 
 /* lock or unlock the cache as needed */
 static void cache_require(int lock)
@@ -54,7 +72,7 @@ static void cache_require(int lock)
     }
 }
 
-static int patch_sync_cache()
+static int patch_sync_cache(int also_data)
 {
     int err = 0;
     
@@ -66,8 +84,16 @@ static int patch_sync_cache()
         cache_unlock();
     }
 
-    dbg_printf("Flushing ICache...\n");
-    flush_i_cache();
+    if (also_data)
+    {
+        dbg_printf("Syncing caches...\n");
+        sync_caches();
+    }
+    else
+    {
+        dbg_printf("Flushing ICache...\n");
+        flush_i_cache();
+    }
     
     if (locked)
     {
@@ -201,7 +227,7 @@ static int patch_memory_work(
      * but we need to clear the cache and re-apply any existing ROM patches */
     if (is_instruction && !IS_ROM_PTR(addr))
     {
-        err = patch_sync_cache();
+        err = patch_sync_cache(0);
     }
     
     num_patches++;
@@ -334,6 +360,15 @@ int unpatch_memory(uintptr_t _addr)
     }
     num_patches--;
 
+    /* also look in up in the logging hooks, and zero it out if found */
+    for (int i = 0; i < MAX_LOGGING_HOOKS; i++)
+    {
+        if (logging_hooks[i].addr == _addr)
+        {
+            memset(&logging_hooks[i], 0, sizeof(struct logging_hook_code));
+        }
+    }
+
     if (IS_ROM_PTR(addr))
     {
         /* unlock and re-apply only the remaining patches */
@@ -343,7 +378,7 @@ int unpatch_memory(uintptr_t _addr)
     }
     else if (patches[p].is_instruction)
     {
-        err = patch_sync_cache();
+        err = patch_sync_cache(0);
     }
 
     check_cache_lock_still_needed();
@@ -407,6 +442,61 @@ int unpatch_engio_list(uint32_t * engio_list, uint32_t patched_register)
         engio_list += 2;
     }
     return E_UNPATCH_REG_NOT_FOUND;
+}
+
+int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function_cbr logging_function, char* description)
+{
+    int err = 0;
+
+    /* ensure thread safety */
+    uint32_t old_int = cli();
+    
+    /* find a free slot in logging_hooks */
+    int logging_slot = -1;
+    for (int i = 0; i < COUNT(logging_hooks); i++)
+    {
+        if (logging_hooks[i].save_regs == 0)
+        {
+            logging_slot = i;
+            break;
+        }
+    }
+    
+    if (logging_slot < 0)
+    {
+        snprintf(last_error, sizeof(last_error), "No logging slot for %x", addr);
+        err = E_PATCH_FAILED;
+        goto end;
+    }
+    
+    /* create the logging code */
+    struct logging_hook_code * hook = &logging_hooks[logging_slot];
+    hook->save_regs       = 0xe92d5fff;                                     /* e92d5fff: STMFD  SP!, {R0-R12,LR} */
+    hook->mov_regs        = 0xe1a0000d;                                     /* e1a0000d: MOV    R0, SP */
+    hook->mov_stack       = 0xe28d1038;                                     /* e28d1038: ADD    R1, SP, #56 */
+    hook->mov_pc          = 0xe59f200c;                                     /* e59f300c: LDR    R2, [PC,#12] */
+    hook->call_logger     = BL_INSTR(&hook->call_logger, logging_function); /*           BL     logging_function */
+    hook->restore_regs    = 0xe8bd5fff;                                     /* e8bd5fff: LDMFD  SP!, {R0-R12,LR} */
+    hook->original_instr  = orig_instr;                                     /*           original ASM instruction */
+    hook->b_return        = B_INSTR (&hook->b_return, addr + 4);            /*           B      patched_address + 4 */
+    hook->addr            = addr;                                           /*           patched address (for identification) */
+
+    /* since we have modified some code in RAM, sync the caches */
+    patch_sync_cache(1);
+    
+    /* patch the original instruction to jump to the logging code */
+    err = patch_instruction(addr, orig_instr, B_INSTR(addr, hook), description);
+    
+    if (err)
+    {
+        /* something went wrong? */
+        memset(hook, 0, sizeof(struct logging_hook_code));
+        goto end;
+    }
+
+end:
+    sei(old_int);
+    return err;
 }
 
 static MENU_UPDATE_FUNC(patch_update)
