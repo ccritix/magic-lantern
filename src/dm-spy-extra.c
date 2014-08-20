@@ -40,19 +40,22 @@ struct logged_func
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
 static struct logged_func logged_functions[] = {
     #ifdef CONFIG_5D2
-    //~ { 0xff9b3cb4, "register_interrupt", 4 },    // causes blank screen, figure out why
+    { 0xff9b3cb4, "register_interrupt", 4 },
     //~ { 0xFF87284C, "dma_memcpy", 3 },            // conflicts with mpu_recv
     { 0xff9b989c, "TryPostEvent", 5},
     { 0xff9b8f24, "TryPostStageEvent", 5 },
 
     /* register-level SIO3/MREQ communication */
-    //~ { 0xFF99F318, "MREQ_ISR", 0 },
-    //~ { 0xFF99F348, "MREQ_C022009C", 1 },
-    //~ { 0xFF99F3A8, "SIO3_ISR", 0 },
-    //~ { 0xFF99F3E4, "SIO3_C022009C", 1 },
-    //~ { 0xFF99F658, "SIO3_recv", 1 },
-    //~ { 0xFF99F244, "MREQ_SIO3_get_data_to_send", 2 },
-    //~ { 0xFF99F388, "MREQ_send", 0 },
+    { 0xFF99F318, "MREQ_ISR", 0 },
+    { 0xFF99F348, "MREQ_C022009C", 1 },
+    { 0xFF99F3A8, "SIO3_ISR", 0 },
+    { 0xFF99F3E4, "SIO3_C022009C", 1 },
+    { 0xFF99F658, "SIO3_recv", 1 },
+    { 0xFF99F244, "MREQ_SIO3_get_data_to_send", 2 },
+    { 0xFF99F418, "SIO3_get_data_to_send_ret", 1 },
+    { 0xFF99F424, "SIO3_data_to_send", 1 },
+    { 0xFF99F380, "MREQ_get_data_to_send_ret", 1 },
+    { 0xFF99F38C, "MREQ_data_to_send", 1 },
 
     /* message-level SIO3/MREQ communication */
     { 0xFF99F518, "mpu_send", 2, mpu_send_log },
