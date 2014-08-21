@@ -63,8 +63,10 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     char* task_name = get_current_task_name();
     
     /* Canon's vsnprintf doesn't know %20s */
-    char task_name_padded[] = "                ";
-    snprintf(task_name_padded + sizeof(task_name_padded) - strlen(task_name), sizeof(task_name_padded), "%s", task_name);
+    char task_name_padded[11] = "           ";
+    int spaces = 10 - strlen(task_name);
+    if (spaces < 0) spaces = 0;
+    snprintf(task_name_padded + spaces, 11 - spaces, "%s", task_name);
     
     len += snprintf( buf+len, MIN(50, BUF_SIZE-len), "%s:%08x:%02x:%02x: ", task_name_padded, lr-4, class, level );
 
