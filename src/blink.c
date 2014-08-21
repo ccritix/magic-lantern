@@ -1,11 +1,11 @@
 #include "dryos.h"
 
-/* bit 0:     ........****........ */
-/* bit 1:     ..****************.. */
+/* bit 0:     ****.... */
+/* bit 1:     **********.... */
 
-#define BIT_DURATION 4000000
-#define BIT_ZERO_DURATION (BIT_DURATION/5)
-#define BIT_ONE_DURATION (BIT_DURATION - BIT_ZERO_DURATION)
+#define BIT_DURATION 500000
+#define BIT_ZERO_DURATION BIT_DURATION
+#define BIT_ONE_DURATION (BIT_DURATION * 5/2)
 
 void __attribute__((optimize("-O0"))) busy_wait(int count)
 {
@@ -17,19 +17,17 @@ void blink_bit(int bit)
 {
     if (bit)
     {
-        busy_wait(BIT_ZERO_DURATION/2);
         _card_led_on();
         busy_wait(BIT_ONE_DURATION);
         _card_led_off();
-        busy_wait(BIT_ZERO_DURATION/2);
+        busy_wait(BIT_ZERO_DURATION);
     }
     else
     {
-        busy_wait(BIT_ONE_DURATION/2);
         _card_led_on();
         busy_wait(BIT_ZERO_DURATION);
         _card_led_off();
-        busy_wait(BIT_ONE_DURATION/2);
+        busy_wait(BIT_ZERO_DURATION);
     }
 }
 
@@ -43,10 +41,18 @@ void blink_char(char ch)
 
 void blink_str(char* str)
 {
-    blink_char(0xA5);
     for (char* c = str; *c; c++)
     {
         blink_char(*c);
     }
-    blink_char(0xA5);
+}
+
+void blink_init()
+{ 
+    /* send a sync signal, and give you some time to position the second camera to look at the blinking LED */
+    for (int i = 0; i < 5; i++)
+    {
+        blink_char(0xA5);
+        busy_wait(50000000);
+    }
 }

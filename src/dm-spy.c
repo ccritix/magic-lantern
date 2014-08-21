@@ -125,6 +125,10 @@ void debug_intercept()
     
     if (!buf) // first call, intercept debug messages
     {
+        #if defined(PRINT_EACH_MESSAGE) && defined(CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK)
+        blink_init();
+        #endif
+        
         buf = staticbuf;
         dm_spy_extra_install();
         patch_instruction(
@@ -142,6 +146,7 @@ void debug_intercept()
         staticbuf[len] = 0;
         
         #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
+            blink_init();
             blink_str(staticbuf);
         #else
             dump_seg(staticbuf, len, "dm.log");

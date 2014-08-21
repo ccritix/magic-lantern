@@ -856,7 +856,7 @@ my_init_task(int a, int b, int c, int d)
     msleep(1000);
     _card_led_off();
     debug_intercept();
-    return;
+    return ans;
 #endif
 
 #if defined(CONFIG_CRASH_LOG)
