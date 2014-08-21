@@ -47,9 +47,12 @@ static struct logged_func logged_functions[] = {
 
     /* register-level SIO3/MREQ communication */
     { 0xFF99F318, "MREQ_ISR", 0 },
+    { 0xFF99F330, "MREQ_C020302C", 1 },
     { 0xFF99F348, "MREQ_C022009C", 1 },
+    { 0xFF99F36C, "MREQ_C0820304", 1 },
     { 0xFF99F3A8, "SIO3_ISR", 0 },
     { 0xFF99F3E4, "SIO3_C022009C", 1 },
+    { 0xFF99F404, "SIO3_C0820304", 1 },
     { 0xFF99F658, "SIO3_recv", 1 },
     { 0xFF99F244, "MREQ_SIO3_get_data_to_send", 2 },
     { 0xFF99F418, "SIO3_get_data_to_send_ret", 1 },
