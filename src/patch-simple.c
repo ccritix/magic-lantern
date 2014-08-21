@@ -17,7 +17,7 @@
 #endif
 
 #define MAX_PATCHES 32
-#define MAX_LOGGING_HOOKS 16
+#define MAX_LOGGING_HOOKS 32
 
 /* for patching a single 32-bit integer (RAM or ROM, data or code) */
 struct patch_info
