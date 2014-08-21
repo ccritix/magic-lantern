@@ -13,10 +13,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <patch.h>
 #endif
 
 #include "reloc.h"
+#include <patch.h>
 
 int verbose = 1;
 
