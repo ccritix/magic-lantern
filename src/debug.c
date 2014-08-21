@@ -155,6 +155,12 @@ static void dump_rom_task(void* priv, int unused)
 
     dump_big_seg(4, "ML/LOGS/RAM4.BIN");
     dump_big_seg(5, "ML/LOGS/RAM5.BIN");
+
+    /* you can't write the TCM directly, needs to be copied */
+    void* buf = fio_malloc(0x1000);
+    memcpy(buf, 0, 0x1000);
+    dump_seg(buf, 0x1000, "ML/LOGS/TCM.BIN");
+    free(buf);
 }
 
 static void dump_img_task(void* priv, int unused)
