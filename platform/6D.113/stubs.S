@@ -285,6 +285,7 @@ NSTUB(   0x75F08,  task_max)
 NSTUB(0xFFCC5A80 - RAM_OFFSET,  get_current_task)
 NSTUB(0xFFCD4DD8 - RAM_OFFSET,  get_obj_attr)               // AJ_checks_if_Process_id_created_by_Dryos
 NSTUB(0xFFD0EFA0 - RAM_OFFSET,  is_taskid_valid)            // AJ_task_trampoline_related_p10
+NSTUB(0xFFCCCDF0,  GetTaskName)
 
 /** Task sleep **/
 NSTUB(0xFFCCCB6C - RAM_OFFSET,  msleep)
@@ -317,7 +318,6 @@ NSTUB(0xFFCFB688 - RAM_OFFSET,  vsnprintf)
 ///NSTUB(0xFFCCEC58 - RAM_OFFSET, GetRemainOfMemoryChunk)
 ///NSTUB(0xFFCCEC88 - RAM_OFFSET, GetSizeOfMemoryChunk)
 ///NSTUB(0xFFCCEFC0 - RAM_OFFSET, GetSizeOfMemorySuite)
-///NSTUB(0xFFCCCDF0,  GetTaskName)
 ///NSTUB(0xFF19AB58,  GuiSetAutoBrightness)
 ///NSTUB(0xFF1F2550,  IvaParamMode)
 ///NSTUB(0xFFCF8BE4 - RAM_OFFSET,  MREQ_ISR)

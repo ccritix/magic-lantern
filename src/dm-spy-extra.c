@@ -70,6 +70,14 @@ static struct logged_func logged_functions[] = {
     { 0xFF2E8648, "mpu_send", 2, mpu_send_log }, // here it's OK via GDB hooks
     { 0xFF1226F0, "mpu_recv", 1, mpu_recv_log},  // fixme: first call may be missed, figure out why (seems to be OK at cold boot)
     #endif
+	
+	#ifdef CONFIG_6D	/* 1.1.3 */
+    { 0x39F04,    "TryPostEvent", 5 },
+	
+	/* message-level SIO3/MREQ communication */
+    { 0xFF3A8648, "mpu_send", 2, mpu_send_log }, 
+    { 0xFF1E26F0, "mpu_recv", 1, mpu_recv_log}, 
+    #endif	
 };
 #else
 static struct logged_func logged_functions[] = {
