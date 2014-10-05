@@ -2270,18 +2270,50 @@ static int32_t mlv_write_rawi(FILE* f, struct raw_info raw_info)
     rawi.blockSize = sizeof(mlv_rawi_hdr_t);
     rawi.xRes = res_x;
     rawi.yRes = res_y;
-    rawi.raw_info = raw_info;
+    
+    /* copy over data from raw_info */
+    rawi.black_level = raw_info.black_level;
+    rawi.white_level = raw_info.white_level;
+    
+    /* bit packing mode is hardcoded for canon cameras */
+    rawi.bit_packing = MLV_BITPACK_16BIT_LE;
+    
+    rawi.bits_per_pixel = raw_info.bits_per_pixel;
+    rawi.exposure_bias[0] = raw_info.exposure_bias[0];
+    rawi.exposure_bias[1] = raw_info.exposure_bias[1];
+    rawi.cfa_pattern = raw_info.cfa_pattern;
+    rawi.calibration_illuminant = raw_info.calibration_illuminant1;
+    rawi.dynamic_range = raw_info.dynamic_range;
+    
+    for(int pos = 0; pos < COUNT(rawi.color_matrix); pos++)
+    {
+        rawi.color_matrix[pos] = raw_info.color_matrix1[pos];
+    }
+    
+    /* not sure if we ever would need it */
+    rawi._int_crop_x = raw_info.jpeg.x;
+    rawi._int_crop_y = raw_info.jpeg.y;
+    rawi._int_crop_w = raw_info.jpeg.width;
+    rawi._int_crop_h = raw_info.jpeg.height;
+    
+    /* DNG active sensor area (Y1, X1, Y2, X2) */
+    rawi._int_active_area_y1 = raw_info.active_area.y1;
+    rawi._int_active_area_x1 = raw_info.active_area.x1;
+    rawi._int_active_area_y2 = raw_info.active_area.y2;
+    rawi._int_active_area_x2 = raw_info.active_area.x2;
+    
+    
     
     /* sometimes black level is a bit off. fix that if enabled. ToDo: do all models have 2048? */
     if(black_fix)
     {
         if(cam_50d || cam_5d2)
         {
-            rawi.raw_info.black_level = 1024;
+            rawi.black_level = 1024;
         }
         else
         {
-            rawi.raw_info.black_level = 2048;
+            rawi.black_level = 2048;
         }
     }
 

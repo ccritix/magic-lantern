@@ -1722,7 +1722,7 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
                 break;
             }
             
-            frame_size = rawi_block.xRes * rawi_block.yRes * rawi_block.raw_info.bits_per_pixel / 8;
+            frame_size = rawi_block.xRes * rawi_block.yRes * rawi_block.bits_per_pixel / 8;
         }
         else if(!memcmp(buf.blockType, "WAVI", 4))
         {
@@ -1832,10 +1832,10 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
             /* update dimensions */
             buffer->xRes = rawi_block.xRes;
             buffer->yRes = rawi_block.yRes;
-            buffer->bitDepth = rawi_block.raw_info.bits_per_pixel;
+            buffer->bitDepth = rawi_block.bits_per_pixel;
 
-            raw_info.black_level = rawi_block.raw_info.black_level;
-            raw_info.white_level = rawi_block.raw_info.white_level;
+            raw_info.black_level = rawi_block.black_level;
+            raw_info.white_level = rawi_block.white_level;
             
             if (mlv_play_exact_fps)
             {

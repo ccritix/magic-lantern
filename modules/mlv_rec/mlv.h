@@ -27,7 +27,7 @@
 #define MLV_VIDEO_CLASS_JPEG         0x03
 #define MLV_VIDEO_CLASS_H264         0x04
 
-#define MLV_VIDEO_CLASS_FLAG_LZMA    0x80
+#define MLV_VIDEO_CLASS_FLAG_LJ92    0x80
 #define MLV_VIDEO_CLASS_FLAG_DELTA   0x40
 
 #define MLV_AUDIO_CLASS_FLAG_LZMA    0x80
@@ -35,6 +35,9 @@
 #define MLV_FRAME_UNSPECIFIED 0
 #define MLV_FRAME_VIDF        1
 #define MLV_FRAME_AUDF        2
+
+#define MLV_BITPACK_16BIT_LE  0
+#define MLV_BITPACK_16BIT_BE  1
 
 #pragma pack(push,1)
 
@@ -88,7 +91,40 @@ typedef struct {
     uint64_t    timestamp;    /* hardware counter timestamp for this frame (relative to recording start) */
     uint16_t    xRes;    /* Configured video resolution, may differ from payload resolution */
     uint16_t    yRes;    /* Configured video resolution, may differ from payload resolution */
-    struct raw_info    raw_info;    /* the raw_info structure delivered by raw.c of ML Core */
+
+    uint32_t    api_version;           /* increase this when changing the structure */
+    uint32_t    internal_0;       /* internal buffer pointer */
+    
+    /* internal variables taken from the raw_info struct */
+    uint32_t    _int_height;              /* internal raw driver resolution */
+    uint32_t    _int_width;               /* internal raw driver resolution */
+    uint32_t    _int_pitch;               /* how many bytes per pixel line */
+    uint32_t    _int_frame_size;          /* internal raw frame size before crop */
+    uint8_t     bits_per_pixel;           /* bits per pixel from 1 to 16 */
+    uint8_t     bit_packing;              /* 0 - canon mode (16 bit aligned, stored as LE) */
+    uint16_t    unused_1;
+    
+    uint32_t    black_level;
+    uint32_t    white_level;
+    
+    /* those are from raw_info's .jpeg/.crop, dont use them */
+    uint32_t    _int_crop_x;
+    uint32_t    _int_crop_y;
+    uint32_t    _int_crop_w;
+    uint32_t    _int_crop_h;
+    
+    /* DNG active sensor area (Y1, X1, Y2, X2) */
+    uint32_t    _int_active_area_y1; 
+    uint32_t    _int_active_area_x1;
+    uint32_t    _int_active_area_y2;
+    uint32_t    _int_active_area_x2;
+    
+    uint32_t    exposure_bias[2];        /* DNG Exposure Bias (idk what's that) */
+    uint32_t    cfa_pattern;             /* stick to 0x02010100 (RGBG) if you can */
+    uint32_t    calibration_illuminant;  /* harcoded to 1 in ML */
+    uint32_t    color_matrix[18];        /* DNG Color Matrix */
+    uint32_t    dynamic_range;           /* EV x100, from analyzing black level and noise (very close to DxO) */
+    
 }  mlv_rawi_hdr_t;
 
 typedef struct {
