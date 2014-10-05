@@ -1894,7 +1894,7 @@ read_headers:
                         {
                             if(verbose)
                             {
-                                print_msg(MSG_INFO, "    LJ92: %dx%d %d bpp, original size: %d\n", lj92_width, lj92_height, lj92_bitdepth, out_size);
+                                print_msg(MSG_INFO, "    LJ92: %dx%d %d bpp, original size: %d\n", lj92_width / 2, lj92_height * 2, lj92_bitdepth, out_size);
                             }
                         }
                         else
@@ -2273,7 +2273,7 @@ read_headers:
 #ifdef MLV_USE_LJ92
                                 uint8_t *compressed = NULL;
                                 int compressed_size = 0;
-                                int ret = lj92_encode(frame_buffer, video_xRes, video_yRes, old_depth, video_xRes * video_yRes, 0, NULL, 0, &compressed, &compressed_size);
+                                int ret = lj92_encode(frame_buffer, video_xRes * 2, video_yRes / 2, old_depth, video_xRes * video_yRes, 0, NULL, 0, &compressed, &compressed_size);
 
                                 if(ret == LJ92_ERROR_NONE)
                                 {
