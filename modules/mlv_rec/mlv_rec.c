@@ -765,6 +765,7 @@ static void setup_chunk(uint32_t ptr, uint32_t size)
             mlv_hdr_t *write_align_hdr = (mlv_hdr_t *)((uint32_t)vidf_hdr + vidf_hdr->blockSize);
             memset(write_align_hdr, 0xA5, write_size_align);
             mlv_set_type(write_align_hdr, "NULL");
+            write_align_hdr->timestamp = 0;
             write_align_hdr->blockSize = write_size_align;
         }
 
