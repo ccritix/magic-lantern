@@ -1166,8 +1166,6 @@ int main (int argc, char *argv[])
 
             case 'c':
                 compress_output = 1;
-                bit_depth = 16;
-                print_msg(MSG_INFO, "Enabled compression, enforcing 16bpp mode\n");
                 break;
 
             case 'd':
@@ -1921,8 +1919,8 @@ read_headers:
                             goto abort;
                         }
                         
-                        /* now transform back to old bpp depth */
-                        bit_depth = lj92_bitdepth;
+                        /* set old bpp depth */
+                        lv_rec_footer.raw_info.bits_per_pixel = 16;
 #else
                         print_msg(MSG_INFO, "    LJ92: not compiled into this release, aborting.\n");
                         goto abort;
@@ -1934,6 +1932,27 @@ read_headers:
 
                     /* this value changes in this context */
                     int current_depth = old_depth;
+
+                    if(compress_output)
+                    {
+                        /* first shift data so it is stored as 16bpp data */
+                        new_depth = 16;
+                        
+                        /* then shift right so we only have the bpp the user requested, or, use the old bit depth */
+                        if(!bit_depth)
+                        {
+                            bit_zap = old_depth;
+                        }
+                        else
+                        {
+                            bit_zap = bit_depth;
+                        }
+                        
+                        if(verbose)
+                        {
+                            print_msg(MSG_INFO, "    Comp: %d -> %d bpp (%d used) conversion needed \n", old_depth, new_depth, bit_zap);
+                        }
+                    }
 
                     /* in average mode, sum up all pixel values of a pixel position */
                     if(average_mode)
@@ -1978,7 +1997,7 @@ read_headers:
                             }
                         }
                     }
-
+                    
                     /* now resample bit depth if requested */
                     if(new_depth && (old_depth != new_depth))
                     {
@@ -1987,7 +2006,7 @@ read_headers:
 
                         if(verbose)
                         {
-                            print_msg(MSG_INFO, "   depth: %d -> %d, size: %d -> %d (%2.2f%%)\n", old_depth, new_depth, frame_size, new_size, ((float)new_depth * 100.0f) / (float)old_depth);
+                            print_msg(MSG_INFO, "   Depth: %d -> %d, size: %d -> %d (%2.2f%%)\n", old_depth, new_depth, frame_size, new_size, ((float)new_depth * 100.0f) / (float)old_depth);
                         }
 
                         int calced_size = ((video_xRes * video_yRes * old_depth + 7) / 8);
@@ -2029,8 +2048,23 @@ read_headers:
                     if(bit_zap)
                     {
                         int pitch = video_xRes * current_depth / 8;
-                        uint32_t mask = ~((1 << (16 - bit_zap)) - 1);
+                        uint32_t shift_right = MIN(16,MAX(0,current_depth - bit_zap));
+                        uint32_t shift_left = shift_right;
 
+                        if(verbose)
+                        {
+                            if(compress_output)
+                            {
+                                /* special case. when compressing, right-align the used bits in the 16bpp word */
+                                shift_left = 0;
+                                print_msg(MSG_INFO, "     Zap: (%d >> %d) -> %d\n", current_depth, shift_right, bit_zap);
+                            }
+                            else
+                            {
+                                print_msg(MSG_INFO, "     Zap: %d -> %d -> %d\n", current_depth, bit_zap, current_depth);
+                            }
+                        }
+                        
                         for(int y = 0; y < video_yRes; y++)
                         {
                             uint16_t *src_line = (uint16_t *)&frame_buffer[y * pitch];
@@ -2039,14 +2073,8 @@ read_headers:
                             {
                                 int32_t value = bitextract(src_line, x, current_depth);
 
-                                /* normalize the old value to 16 bits */
-                                value <<= (16-current_depth);
-
-                                value &= mask;
-
-                                /* convert the old value to destination depth */
-                                value >>= (16-current_depth);
-
+                                value >>= (shift_right);
+                                value <<= (shift_left);
 
                                 bitinsert(src_line, x, current_depth, value);
                             }
@@ -2273,13 +2301,23 @@ read_headers:
 #ifdef MLV_USE_LJ92
                                 uint8_t *compressed = NULL;
                                 int compressed_size = 0;
-                                int ret = lj92_encode(frame_buffer, video_xRes * 2, video_yRes / 2, old_depth, video_xRes * video_yRes, 0, NULL, 0, &compressed, &compressed_size);
+                                int lj92_depth = old_depth;
+                                int lj92_xres = video_xRes * 2;
+                                int lj92_yres = video_yRes / 2;
+                                
+                                /* when data is shrunk to some bpp depth, tell this the encoder */
+                                if(bit_zap)
+                                {
+                                    lj92_depth = bit_zap;
+                                }
+                                
+                                int ret = lj92_encode(frame_buffer, lj92_xres, lj92_yres, lj92_depth, lj92_xres * lj92_yres, 0, NULL, 0, &compressed, &compressed_size);
 
                                 if(ret == LJ92_ERROR_NONE)
                                 {
                                     if(verbose)
                                     {
-                                        print_msg(MSG_INFO, "    LJ92: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%%)\n", frame_size, compressed_size, ((float)compressed_size * 100.0f) / (float)frame_size);
+                                        print_msg(MSG_INFO, "    LJ92: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%%) %dx%d %d bpp\n", frame_size, compressed_size, ((float)compressed_size * 100.0f) / (float)frame_size, lj92_xres, lj92_yres, lj92_depth);
                                     }
                                     
                                     /* store original frame size */
