@@ -1865,7 +1865,6 @@ read_headers:
                                 print_msg(MSG_ERROR, "Failed to allocate %d byte\n", frame_buffer_size);
                                 goto abort;
                             }
-
                         }
                     }
                     
@@ -1884,15 +1883,22 @@ read_headers:
                         int lj92_width = 0;
                         int lj92_height = 0;
                         int lj92_bitdepth = 0;
-                        size_t out_size = *(uint32_t *)frame_buffer;
 
                         int ret = lj92_open(&handle, (uint8_t *)&frame_buffer[4], frame_size - 4, &lj92_width, &lj92_height, &lj92_bitdepth);
+                        
+                        size_t out_size_stored = *(uint32_t *)frame_buffer;
+                        size_t out_size = lj92_width * lj92_height * sizeof(uint16_t);
 
+                        if(out_size != out_size_stored)
+                        {
+                            print_msg(MSG_INFO, "    LJ92: non-critical internal error occurred: frame size mismatch (%d != %d)\n", out_size, out_size_stored);
+                        }
+                        
                         if(ret == LJ92_ERROR_NONE)
                         {
                             if(verbose)
                             {
-                                print_msg(MSG_INFO, "    LJ92: %dx%d %d bpp, original size: %d\n", lj92_width / 2, lj92_height * 2, lj92_bitdepth, out_size);
+                                print_msg(MSG_INFO, "    LJ92: %dx%d %d bpp, %d bytes\n", lj92_width / 2, lj92_height * 2, lj92_bitdepth, out_size);
                             }
                         }
                         else
@@ -1900,14 +1906,66 @@ read_headers:
                             print_msg(MSG_INFO, "    LJ92: Failed (%d)\n", ret);
                             goto abort;
                         }
-                        uint8_t *decompressed = malloc(out_size);
                         
-                        ret = lj92_decode(handle, decompressed, out_size, 0, NULL, 0);
+                        /* we need a temporary buffer so we dont overwrite source data */
+                        uint16_t *decompressed = malloc(out_size);
+                        
+                        ret = lj92_decode(handle, decompressed, lj92_width * lj92_height, 0, NULL, 0);
 
                         if(ret == LJ92_ERROR_NONE)
                         {
+                            /* check if there is enough memory for that frame */
+                            if(out_size > frame_buffer_size)
+                            {
+                                /* no, set new size */
+                                frame_buffer_size = out_size;
+                                
+                                /* free the buffers */
+                                free(frame_buffer);
+                                
+                                if(frame_arith_buffer)
+                                {
+                                    free(frame_arith_buffer);
+                                }
+                                
+                                if(prev_frame_buffer)
+                                {
+                                    free(prev_frame_buffer);
+                                }
+                                
+                                /* and allocate them again if they were used before */
+                                frame_buffer = malloc(frame_buffer_size);
+                                
+                                if(!frame_buffer)
+                                {
+                                    print_msg(MSG_ERROR, "Failed to allocate %d byte\n", frame_buffer_size);
+                                    goto abort;
+                                }
+                                
+                                if(frame_arith_buffer)
+                                {
+                                    frame_arith_buffer = malloc(frame_buffer_size);
+                                    if(!frame_arith_buffer)
+                                    {
+                                        print_msg(MSG_ERROR, "Failed to allocate %d byte\n", frame_buffer_size);
+                                        goto abort;
+                                    }
+                                }
+                                
+                                if(prev_frame_buffer)
+                                {
+                                    prev_frame_buffer = malloc(frame_buffer_size);
+                                    if(!prev_frame_buffer)
+                                    {
+                                        print_msg(MSG_ERROR, "Failed to allocate %d byte\n", frame_buffer_size);
+                                        goto abort;
+                                    }
+                                }
+                            }                        
+                        
+                            memcpy(frame_buffer, decompressed, out_size);
                             frame_size = out_size;
-                            memcpy(frame_buffer, decompressed, frame_size);
+                            
                             if(verbose)
                             {
                                 print_msg(MSG_INFO, "    LJ92: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%%)\n", frame_size, out_size, ((float)out_size * 100.0f) / (float)frame_size);
@@ -1919,8 +1977,29 @@ read_headers:
                             goto abort;
                         }
                         
+                        free(decompressed);
+                        
                         /* set old bpp depth */
                         lv_rec_footer.raw_info.bits_per_pixel = 16;
+
+                        /* now shift left to match 16bpp mode */
+                        uint32_t shift_value = 16 - lj92_bitdepth;
+
+                        for(int y = 0; y < video_yRes; y++)
+                        {
+                            uint16_t *src_line = &((uint16_t *)frame_buffer)[y * video_xRes];
+
+                            for(int x = 0; x < video_xRes; x++)
+                            {
+                                src_line[x] = src_line[x] << shift_value;
+                            }
+                        }
+                        
+                        /* now data is true 16bpp, schedule conversion to original bpp if not requested otherwise */        
+                        if(!bit_depth)
+                        {
+                            bit_depth = lj92_bitdepth;
+                        }
 #else
                         print_msg(MSG_INFO, "    LJ92: not compiled into this release, aborting.\n");
                         goto abort;
@@ -1933,24 +2012,21 @@ read_headers:
                     /* this value changes in this context */
                     int current_depth = old_depth;
 
+                    /* when compressing, data has to be stored as 16bpp values */
                     if(compress_output)
                     {
                         /* first shift data so it is stored as 16bpp data */
                         new_depth = 16;
                         
                         /* then shift right so we only have the bpp the user requested, or, use the old bit depth */
-                        if(!bit_depth)
-                        {
-                            bit_zap = old_depth;
-                        }
-                        else
+                        if(bit_depth)
                         {
                             bit_zap = bit_depth;
                         }
                         
                         if(verbose)
                         {
-                            print_msg(MSG_INFO, "    Comp: %d -> %d bpp (%d used) conversion needed \n", old_depth, new_depth, bit_zap);
+                            print_msg(MSG_INFO, "    Comp: %d -> %d bpp (%d used) conversion needed \n", current_depth, new_depth, bit_zap);
                         }
                     }
 
@@ -1999,24 +2075,24 @@ read_headers:
                     }
                     
                     /* now resample bit depth if requested */
-                    if(new_depth && (old_depth != new_depth))
+                    if(new_depth && (current_depth != new_depth))
                     {
                         int new_size = (video_xRes * video_yRes * new_depth + 7) / 8;
                         unsigned char *new_buffer = malloc(new_size);
 
                         if(verbose)
                         {
-                            print_msg(MSG_INFO, "   Depth: %d -> %d, size: %d -> %d (%2.2f%%)\n", old_depth, new_depth, frame_size, new_size, ((float)new_depth * 100.0f) / (float)old_depth);
+                            print_msg(MSG_INFO, "   Depth: %d -> %d, size: %d -> %d (%2.2f%%)\n", current_depth, new_depth, frame_size, new_size, ((float)new_depth * 100.0f) / (float)current_depth);
                         }
 
-                        int calced_size = ((video_xRes * video_yRes * old_depth + 7) / 8);
+                        int calced_size = ((video_xRes * video_yRes * current_depth + 7) / 8);
                         if(calced_size > frame_size)
                         {
-                            print_msg(MSG_INFO, "Error: old frame size is too small for %dx%d at %d bpp. Input data corrupt. (%d < %d)\n", video_xRes, video_yRes, old_depth, frame_size, calced_size);
+                            print_msg(MSG_INFO, "Error: old frame size is too small for %dx%d at %d bpp. Input data corrupt. (%d < %d)\n", video_xRes, video_yRes, current_depth, frame_size, calced_size);
                             break;
                         }
 
-                        int old_pitch = video_xRes * old_depth / 8;
+                        int old_pitch = video_xRes * current_depth / 8;
                         int new_pitch = video_xRes * new_depth / 8;
 
                         for(int y = 0; y < video_yRes; y++)
@@ -2026,10 +2102,10 @@ read_headers:
 
                             for(int x = 0; x < video_xRes; x++)
                             {
-                                uint16_t value = bitextract(src_line, x, old_depth);
+                                uint16_t value = bitextract(src_line, x, current_depth);
 
                                 /* normalize the old value to 16 bits */
-                                value <<= (16-old_depth);
+                                value <<= (16-current_depth);
 
                                 /* convert the old value to destination depth */
                                 value >>= (16-new_depth);
@@ -2048,21 +2124,11 @@ read_headers:
                     if(bit_zap)
                     {
                         int pitch = video_xRes * current_depth / 8;
-                        uint32_t shift_right = MIN(16,MAX(0,current_depth - bit_zap));
-                        uint32_t shift_left = shift_right;
+                        uint32_t shift_value = MIN(16,MAX(0,current_depth - bit_zap));
 
                         if(verbose)
                         {
-                            if(compress_output)
-                            {
-                                /* special case. when compressing, right-align the used bits in the 16bpp word */
-                                shift_left = 0;
-                                print_msg(MSG_INFO, "     Zap: (%d >> %d) -> %d\n", current_depth, shift_right, bit_zap);
-                            }
-                            else
-                            {
-                                print_msg(MSG_INFO, "     Zap: %d -> %d -> %d\n", current_depth, bit_zap, current_depth);
-                            }
+                            print_msg(MSG_INFO, "     Zap: %d -> %d -> %d\n", current_depth, bit_zap, current_depth);
                         }
                         
                         for(int y = 0; y < video_yRes; y++)
@@ -2073,8 +2139,8 @@ read_headers:
                             {
                                 int32_t value = bitextract(src_line, x, current_depth);
 
-                                value >>= (shift_right);
-                                value <<= (shift_left);
+                                value >>= (shift_value);
+                                value <<= (shift_value);
 
                                 bitinsert(src_line, x, current_depth, value);
                             }
@@ -2301,23 +2367,36 @@ read_headers:
 #ifdef MLV_USE_LJ92
                                 uint8_t *compressed = NULL;
                                 int compressed_size = 0;
-                                int lj92_depth = old_depth;
+                                int lj92_bitdepth = old_depth;
                                 int lj92_xres = video_xRes * 2;
                                 int lj92_yres = video_yRes / 2;
                                 
                                 /* when data is shrunk to some bpp depth, tell this the encoder */
                                 if(bit_zap)
                                 {
-                                    lj92_depth = bit_zap;
+                                    lj92_bitdepth = bit_zap;
                                 }
                                 
-                                int ret = lj92_encode(frame_buffer, lj92_xres, lj92_yres, lj92_depth, lj92_xres * lj92_yres, 0, NULL, 0, &compressed, &compressed_size);
+                                /* now shift right to have used data right aligned */
+                                uint32_t shift_value = MIN(16,MAX(0, 16 - lj92_bitdepth));
+
+                                for(int y = 0; y < video_yRes; y++)
+                                {
+                                    uint16_t *src_line = &((uint16_t *)frame_buffer)[y * video_xRes];
+
+                                    for(int x = 0; x < video_xRes; x++)
+                                    {
+                                        src_line[x] = src_line[x] >> shift_value;
+                                    }
+                                }
+                                
+                                int ret = lj92_encode((uint16_t *)frame_buffer, lj92_xres, lj92_yres, lj92_bitdepth, lj92_xres * lj92_yres, 0, NULL, 0, &compressed, &compressed_size);
 
                                 if(ret == LJ92_ERROR_NONE)
                                 {
                                     if(verbose)
                                     {
-                                        print_msg(MSG_INFO, "    LJ92: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%%) %dx%d %d bpp\n", frame_size, compressed_size, ((float)compressed_size * 100.0f) / (float)frame_size, lj92_xres, lj92_yres, lj92_depth);
+                                        print_msg(MSG_INFO, "    LJ92: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%%) %dx%d %d bpp\n", frame_size, compressed_size, ((float)compressed_size * 100.0f) / (float)frame_size, lj92_xres, lj92_yres, lj92_bitdepth);
                                     }
                                     
                                     /* store original frame size */
