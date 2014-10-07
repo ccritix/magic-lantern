@@ -34,6 +34,9 @@
 #include "../dual_iso/wirth.h"  /* fast median, generic implementation (also kth_smallest) */
 #include "../dual_iso/optmed.h" /* fast median for small common array sizes (3, 7, 9...) */
 
+/* split up RGGB channels into four image tiles when compressing */
+#define COMPRESS_BAYER_TILES
+
 #ifdef __WIN32
 #define FMT_SIZE "%u"
 #else
@@ -982,6 +985,60 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, "\n");
 }
 
+/* helper for reallocating frame buffer */
+int realloc_frame_buffer(uint32_t frame_size, uint32_t *frame_buffer_size, uint8_t **frame_buffer, uint32_t **frame_arith_buffer, uint8_t **prev_frame_buffer)
+{
+    /* check if there is enough memory for that frame */
+    if(frame_size > *frame_buffer_size)
+    {
+        /* no, set new size */
+        *frame_buffer_size = frame_size;
+        
+        /* free the buffers */
+        free(*frame_buffer);
+        
+        if(*frame_arith_buffer)
+        {
+            free(*frame_arith_buffer);
+        }
+        
+        if(*prev_frame_buffer)
+        {
+            free(*prev_frame_buffer);
+        }
+        
+        /* and allocate them again if they were used before */
+        *frame_buffer = malloc(*frame_buffer_size);
+        
+        if(!*frame_buffer)
+        {
+            print_msg(MSG_ERROR, "Failed to allocate %d byte\n", *frame_buffer_size);
+                return 0;
+        }
+        
+        if(*frame_arith_buffer)
+        {
+            *frame_arith_buffer = malloc(*frame_buffer_size);
+            if(!*frame_arith_buffer)
+            {
+                print_msg(MSG_ERROR, "Failed to allocate %d byte\n", *frame_buffer_size);
+                return 0;
+            }
+        }
+        
+        if(*prev_frame_buffer)
+        {
+            *prev_frame_buffer = malloc(*frame_buffer_size);
+            if(!*prev_frame_buffer)
+            {
+                print_msg(MSG_ERROR, "Failed to allocate %d byte\n", *frame_buffer_size);
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+    
 int main (int argc, char *argv[])
 {
     char *input_filename = NULL;
@@ -1819,53 +1876,10 @@ read_headers:
                         fix_bug_1_offset = 0;
                     }
                     
-                    /* check if there is enough memory for that frame */
-                    if(frame_size > frame_buffer_size)
+                    /* if necessary resize frame buffer */
+                    if(!realloc_frame_buffer(frame_size, &frame_buffer_size, &frame_buffer, &frame_arith_buffer, &prev_frame_buffer))
                     {
-                        /* no, set new size */
-                        frame_buffer_size = frame_size;
-                        
-                        /* free the buffers */
-                        free(frame_buffer);
-                        
-                        if(frame_arith_buffer)
-                        {
-                            free(frame_arith_buffer);
-                        }
-                        
-                        if(prev_frame_buffer)
-                        {
-                            free(prev_frame_buffer);
-                        }
-                        
-                        /* and allocate them again if they were used before */
-                        frame_buffer = malloc(frame_buffer_size);
-                        
-                        if(!frame_buffer)
-                        {
-                            print_msg(MSG_ERROR, "Failed to allocate %d byte\n", frame_buffer_size);
-                            goto abort;
-                        }
-                        
-                        if(frame_arith_buffer)
-                        {
-                            frame_arith_buffer = malloc(frame_buffer_size);
-                            if(!frame_arith_buffer)
-                            {
-                                print_msg(MSG_ERROR, "Failed to allocate %d byte\n", frame_buffer_size);
-                                goto abort;
-                            }
-                        }
-                        
-                        if(prev_frame_buffer)
-                        {
-                            prev_frame_buffer = malloc(frame_buffer_size);
-                            if(!prev_frame_buffer)
-                            {
-                                print_msg(MSG_ERROR, "Failed to allocate %d byte\n", frame_buffer_size);
-                                goto abort;
-                            }
-                        }
+                        goto abort;
                     }
                     
                     if(fread(frame_buffer, frame_size, 1, in_file) != 1)
@@ -1898,7 +1912,7 @@ read_headers:
                         {
                             if(verbose)
                             {
-                                print_msg(MSG_INFO, "    LJ92: %dx%d %d bpp, %d bytes\n", lj92_width / 2, lj92_height * 2, lj92_bitdepth, out_size);
+                                print_msg(MSG_INFO, "    LJ92: %dx%d %d bpp, %d bytes\n", lj92_width, lj92_height, lj92_bitdepth, out_size);
                             }
                         }
                         else
@@ -1912,88 +1926,60 @@ read_headers:
                         
                         ret = lj92_decode(handle, decompressed, lj92_width * lj92_height, 0, NULL, 0);
 
-                        if(ret == LJ92_ERROR_NONE)
-                        {
-                            /* check if there is enough memory for that frame */
-                            if(out_size > frame_buffer_size)
-                            {
-                                /* no, set new size */
-                                frame_buffer_size = out_size;
-                                
-                                /* free the buffers */
-                                free(frame_buffer);
-                                
-                                if(frame_arith_buffer)
-                                {
-                                    free(frame_arith_buffer);
-                                }
-                                
-                                if(prev_frame_buffer)
-                                {
-                                    free(prev_frame_buffer);
-                                }
-                                
-                                /* and allocate them again if they were used before */
-                                frame_buffer = malloc(frame_buffer_size);
-                                
-                                if(!frame_buffer)
-                                {
-                                    print_msg(MSG_ERROR, "Failed to allocate %d byte\n", frame_buffer_size);
-                                    goto abort;
-                                }
-                                
-                                if(frame_arith_buffer)
-                                {
-                                    frame_arith_buffer = malloc(frame_buffer_size);
-                                    if(!frame_arith_buffer)
-                                    {
-                                        print_msg(MSG_ERROR, "Failed to allocate %d byte\n", frame_buffer_size);
-                                        goto abort;
-                                    }
-                                }
-                                
-                                if(prev_frame_buffer)
-                                {
-                                    prev_frame_buffer = malloc(frame_buffer_size);
-                                    if(!prev_frame_buffer)
-                                    {
-                                        print_msg(MSG_ERROR, "Failed to allocate %d byte\n", frame_buffer_size);
-                                        goto abort;
-                                    }
-                                }
-                            }                        
-                        
-                            memcpy(frame_buffer, decompressed, out_size);
-                            frame_size = out_size;
-                            
-                            if(verbose)
-                            {
-                                print_msg(MSG_INFO, "    LJ92: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%%)\n", frame_size, out_size, ((float)out_size * 100.0f) / (float)frame_size);
-                            }
-                        }
-                        else
+                        if(ret != LJ92_ERROR_NONE)
                         {
                             print_msg(MSG_INFO, "    LJ92: Failed (%d)\n", ret);
                             goto abort;
                         }
                         
-                        free(decompressed);
+                        /* if necessary resize frame buffer */
+                        frame_size = out_size;
+                        if(!realloc_frame_buffer(frame_size, &frame_buffer_size, &frame_buffer, &frame_arith_buffer, &prev_frame_buffer))
+                        {
+                            goto abort;
+                        }
+                        
+                        if(verbose)
+                        {
+                            print_msg(MSG_INFO, "    LJ92: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%%)\n", frame_size, out_size, ((float)out_size * 100.0f) / (float)frame_size);
+                        }
                         
                         /* set old bpp depth */
                         lv_rec_footer.raw_info.bits_per_pixel = 16;
-
-                        /* now shift left to match 16bpp mode */
-                        uint32_t shift_value = 16 - lj92_bitdepth;
-
+                        
+                        /* restore 16bpp pixel data and untile if necessary */
+                        uint32_t shift_value = MIN(16,MAX(0, 16 - lj92_bitdepth));
+                        uint16_t *dst_buf = (uint16_t *)frame_buffer;
+                        uint16_t *src_buf = (uint16_t *)decompressed;
+                        
+#if defined(COMPRESS_BAYER_TILES)
                         for(int y = 0; y < video_yRes; y++)
                         {
-                            uint16_t *src_line = &((uint16_t *)frame_buffer)[y * video_xRes];
+                            int dst_y = ((2 * y) % video_yRes) + ((2 * y) / video_yRes);
+                            
+                            uint16_t *src_line = &src_buf[y * video_xRes];
+                            uint16_t *dst_line = &dst_buf[dst_y * video_xRes];
 
                             for(int x = 0; x < video_xRes; x++)
                             {
-                                src_line[x] = src_line[x] << shift_value;
+                                int dst_x = ((2 * x) % video_xRes) + ((2 * x) / video_xRes);
+                                dst_line[dst_x] = src_line[x] << shift_value;
                             }
                         }
+#else
+                        for(int y = 0; y < video_yRes; y++)
+                        {
+                            uint16_t *src_line = &src_buf[y * video_xRes];
+                            uint16_t *dst_line = &dst_buf[y * video_xRes];
+
+                            for(int x = 0; x < video_xRes; x++)
+                            {
+                                dst_line[x] = src_line[x] << shift_value;
+                            }
+                        }
+#endif
+                        
+                        free(decompressed);
                         
                         /* now data is true 16bpp, schedule conversion to original bpp if not requested otherwise */        
                         if(!bit_depth)
@@ -2019,6 +2005,7 @@ read_headers:
                         new_depth = 16;
                         
                         /* then shift right so we only have the bpp the user requested, or, use the old bit depth */
+                        bit_zap = old_depth;
                         if(bit_depth)
                         {
                             bit_zap = bit_depth;
@@ -2079,17 +2066,23 @@ read_headers:
                     {
                         int new_size = (video_xRes * video_yRes * new_depth + 7) / 8;
                         unsigned char *new_buffer = malloc(new_size);
-
+                        
                         if(verbose)
                         {
                             print_msg(MSG_INFO, "   Depth: %d -> %d, size: %d -> %d (%2.2f%%)\n", current_depth, new_depth, frame_size, new_size, ((float)new_depth * 100.0f) / (float)current_depth);
                         }
-
+                        
                         int calced_size = ((video_xRes * video_yRes * current_depth + 7) / 8);
                         if(calced_size > frame_size)
                         {
                             print_msg(MSG_INFO, "Error: old frame size is too small for %dx%d at %d bpp. Input data corrupt. (%d < %d)\n", video_xRes, video_yRes, current_depth, frame_size, calced_size);
                             break;
+                        }
+
+                        frame_size = new_size;
+                        if(!realloc_frame_buffer(frame_size, &frame_buffer_size, &frame_buffer, &frame_arith_buffer, &prev_frame_buffer))
+                        {
+                            goto abort;
                         }
 
                         int old_pitch = video_xRes * current_depth / 8;
@@ -2368,8 +2361,7 @@ read_headers:
                                 uint8_t *compressed = NULL;
                                 int compressed_size = 0;
                                 int lj92_bitdepth = old_depth;
-                                int lj92_xres = video_xRes * 2;
-                                int lj92_yres = video_yRes / 2;
+                                
                                 
                                 /* when data is shrunk to some bpp depth, tell this the encoder */
                                 if(bit_zap)
@@ -2379,18 +2371,47 @@ read_headers:
                                 
                                 /* now shift right to have used data right aligned */
                                 uint32_t shift_value = MIN(16,MAX(0, 16 - lj92_bitdepth));
+                                
+                                /* split the single channels into image tiles */
+                                uint16_t *dst_buf = malloc(video_yRes * video_xRes * sizeof(uint16_t));
+                                uint16_t *src_buf = (uint16_t *)frame_buffer;
+
+#if defined(COMPRESS_BAYER_TILES)
+                                int lj92_xres = video_xRes;
+                                int lj92_yres = video_yRes;
 
                                 for(int y = 0; y < video_yRes; y++)
                                 {
-                                    uint16_t *src_line = &((uint16_t *)frame_buffer)[y * video_xRes];
+                                    int src_y = ((2 * y) % video_yRes) + ((2 * y) / video_yRes);
+                                    
+                                    uint16_t *src_line = &src_buf[src_y * video_xRes];
+                                    uint16_t *dst_line = &dst_buf[y * video_xRes];
 
                                     for(int x = 0; x < video_xRes; x++)
                                     {
-                                        src_line[x] = src_line[x] >> shift_value;
+                                        int src_x = ((2 * x) % video_xRes) + ((2 * x) / video_xRes);
+                                        dst_line[x] = src_line[src_x] >> shift_value;
                                     }
                                 }
+#else
+                                /* just line up RGRGRG and GBGBGB into one pixel line */
+                                int lj92_xres = video_xRes * 2;
+                                int lj92_yres = video_yRes / 2;
+
+                                for(int y = 0; y < video_yRes; y++)
+                                {
+                                    uint16_t *src_line = &src_buf[y * video_xRes];
+                                    uint16_t *dst_line = &dst_buf[y * video_xRes];
+
+                                    for(int x = 0; x < video_xRes; x++)
+                                    {
+                                        dst_line[x] = src_line[x] >> shift_value;
+                                    }
+                                }
+#endif
                                 
-                                int ret = lj92_encode((uint16_t *)frame_buffer, lj92_xres, lj92_yres, lj92_bitdepth, lj92_xres * lj92_yres, 0, NULL, 0, &compressed, &compressed_size);
+                                int ret = lj92_encode(dst_buf, lj92_xres, lj92_yres, lj92_bitdepth, lj92_xres * lj92_yres, 0, NULL, 0, &compressed, &compressed_size);
+                                free(dst_buf);
 
                                 if(ret == LJ92_ERROR_NONE)
                                 {
