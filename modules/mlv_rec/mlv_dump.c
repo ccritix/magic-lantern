@@ -2151,12 +2151,13 @@ read_headers:
                             /* backup current frame for later */
                             memcpy(current_frame_buffer, frame_buffer, frame_size);
 
+                            int32_t offset = 1 << (current_depth - 1);
+                            int32_t max_val = (1 << current_depth) - 1;
+                            
                             for(int y = 0; y < video_yRes; y++)
                             {
                                 uint16_t *src_line = (uint16_t *)&frame_buffer[y * pitch];
                                 uint16_t *ref_line = (uint16_t *)&prev_frame_buffer[y * pitch];
-                                int32_t offset = 1 << (current_depth - 1);
-                                int32_t max_val = (1 << current_depth) - 1;
 
                                 for(int x = 0; x < video_xRes; x++)
                                 {
