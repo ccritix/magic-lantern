@@ -26,6 +26,7 @@ static void fps_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void LockEngineResources_log_r4(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void UnLockEngineResources_log_r7(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void engdrvbits_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 
@@ -183,7 +184,7 @@ static struct logged_func logged_functions[] = {
     { 0xff290f98, "engio_write", 1, engio_write_log},   /* on 5D3, Canon's engio_write is silent */
     { 0xff290c80, "EngDrvOut", 2 },                     /* same here */
     { 0xff290ca0, "EngDrvIn", 1 },
-    { 0xff290d38, "EngDrvBits", 3 },
+    { 0xff290d38, "EngDrvBits", 3, engdrvbits_log},
     { 0xff290cd4, "EngDrvIns", 3 },
     /* only EngDrvOuts is verbose, no need to log it here */
 #endif
@@ -371,6 +372,13 @@ static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
         data_buf++;
         DryosDebugMsg(0, 0, "    0x%x: %x", reg, val);
     }
+}
+
+static void engdrvbits_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    uint32_t caller = PATCH_HOOK_CALLER();
+
+    DryosDebugMsg(0, 0, "*** EngDrvBits(0x%x, 0x%08x, 0x%x) => 0x%x, from %x", regs[0], regs[1], regs[2], shamem_read(regs[0]), caller);
 }
 
 static void mpu_decode(char* in, char* out, int max_len)
