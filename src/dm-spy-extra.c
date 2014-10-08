@@ -187,6 +187,16 @@ static struct logged_func logged_functions[] = {
     { 0xff290d38, "EngDrvBits", 3, engdrvbits_log},
     { 0xff290cd4, "EngDrvIns", 3 },
     /* only EngDrvOuts is verbose, no need to log it here */
+    
+    { 0xFF694880, "eeko_setup_global_vars", 10 },
+    { 0xFF69518C, "eeko_prepare_dsunpack", 3 },
+    { 0xFF6950BC, "eeko_prepare_adunpack", 3 },
+    { 0xFF695124, "eeko_prepare_unpack24", 3 },
+    //~ { 0xFF695D50, "eeko_setup_shad", 2 },
+    { 0xFF694DE4, "PathDrv_EekoAddRawPathCore.c", 4 },
+    //~ { 0xFF694C88, "eeko_setup_twoadd", 3 },
+    { 0xFF694A04, "PathDrv_EekoAddRawPathCore.c_div8", 4 },
+    
 #endif
 };
 #endif
