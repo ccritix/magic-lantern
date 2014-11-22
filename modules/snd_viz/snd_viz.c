@@ -82,8 +82,8 @@ static uint32_t snd_viz_palette = 0;
 static uint32_t snd_viz_palette_min = 16;
 static uint32_t snd_viz_palette_max = 255;
 
-static float snd_viz_db_scaling = 1.0f;
-static float snd_viz_db_offset = 100;
+static int snd_viz_db_max = 0;
+static int snd_viz_db_min = -96;
 
 static uint32_t snd_viz_fps = 20;
 static uint32_t snd_viz_in_sample_rate = 48000;
@@ -109,7 +109,7 @@ static void snd_viz_palette_set()
 {
     int range = snd_viz_palette_max - snd_viz_palette_min;
     
-    for (uint32_t i = snd_viz_palette_min; i < snd_viz_palette_max; i++)
+    for (uint32_t i = snd_viz_palette_min; i <= snd_viz_palette_max; i++)
     {
         int opacity = 0xFF;
         int y = ((i - snd_viz_palette_min) * 0xFF) / range;
@@ -120,7 +120,13 @@ static void snd_viz_palette_set()
                     ((y       & 0xFF) << 16) |
                     ((u       & 0xFF) <<  8) |
                     ((v       & 0xFF)); 
-            
+
+        if (i == snd_viz_palette_max)
+        {
+            /* show clipped values as red */
+            new_palette_entry = LCD_Palette[COLOR_RED*3 + 2];
+        }
+        
         EngDrvOut(LCD_Palette[i*3], new_palette_entry);
         EngDrvOut(LCD_Palette[i*3+0x300], new_palette_entry);
     }
@@ -415,16 +421,17 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
             
             case VIZ_MODE_WATERFALL:
             {
+                const float db_offset = -90.3; /* 20*log10(2) - 20*log10(65536) */
                 float squared = (QUAD(val_r) + QUAD(val_i)) / QUAD(windowing_constant);
-                float db_val = 10 * logf(squared) / log10_val + 6 - 96.3;
-                
+                float db_val = 10 * logf(squared) / log10_val + db_offset;
+                                
                 #ifdef DEBUG_DECIBELS
                 {
                     static float db_max = -1000;
                     if (db_val >= db_max)
                     {
                         db_max = db_val;
-                        /* this should print 0 dB for our reference sine wave */
+                        /* this should print 0 dB for our reference sine wave (adjust db_offset until it does) */
                         /* which means, it will be printed as white, and all lower signals will be darker */
                         int db_x100 = (int)roundf(db_max*100);
                         bmp_printf(FONT_MED, 0, 0, "%s%d.%02d dB  ", FMT_FIXEDPOINT2(db_x100));
@@ -436,9 +443,9 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
                 uint32_t x = bmp_pos;
                 if (snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] == COLOR_BLACK)
                 {
-                    float pixel_val = snd_viz_palette_min + (db_val + snd_viz_db_offset) * snd_viz_db_scaling;
-                    
-                    snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = COERCE(pixel_val, snd_viz_palette_min, snd_viz_palette_max - snd_viz_palette_min);
+                    /* map db_val from snd_viz_db_min ... snd_viz_db_max to snd_viz_palette_min ... snd_viz_palette_max */
+                    float pixel_val = snd_viz_palette_min + (db_val - snd_viz_db_min) * (snd_viz_palette_max - snd_viz_palette_min) / (snd_viz_db_max - snd_viz_db_min);
+                    snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = COERCE(pixel_val, snd_viz_palette_min, snd_viz_palette_max);
                 }
                 break;
             }
@@ -482,6 +489,22 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
             bmp_draw_rect(COLOR_WHITE, x_start-1, y_start-1, snd_viz_waterfall_width+2, height+2);
             break;
         }
+    }
+    
+    /* show dB colormap */
+    if (chan == 0 && is_play_mode())
+    {
+        int y_end = y_start + height * channels;
+        for (int y = y_start; y < y_end; y++)
+        {
+            float pixel_val = snd_viz_palette_min + (y_end - y) * (snd_viz_palette_max - snd_viz_palette_min) / (height * channels);
+            draw_line(550, y, 560, y, pixel_val);
+        }
+        
+        bmp_printf(FONT_MED, 565, y_start - font_med.height/2, "%ddB   ", snd_viz_db_max);
+        bmp_printf(FONT_MED, 565, y_end - font_med.height/2, "%ddB   ", snd_viz_db_min);
+        bfnt_draw_char(ICON_MAINDIAL, 565, y_start + font_med.height/2 - 10, COLOR_WHITE, COLOR_BLACK);
+        bfnt_draw_char(ICON_SUBDIAL, 565, y_end - font_med.height/2 - 40, COLOR_WHITE, COLOR_BLACK);
     }
 }
 
@@ -777,6 +800,11 @@ static MENU_SELECT_FUNC(snd_viz_test_select)
     }
 }
 
+static void snd_viz_db_coerce()
+{
+    snd_viz_db_max = COERCE(snd_viz_db_max, -96, 0);
+    snd_viz_db_min = COERCE(snd_viz_db_min, -120, snd_viz_db_max - 6);
+}
 
 static unsigned int snd_viz_keypress_cbr(unsigned int key)
 {
@@ -785,57 +813,40 @@ static unsigned int snd_viz_keypress_cbr(unsigned int key)
         return 1;
     }
     
+    if (!is_play_mode())
+    {
+        /* we can only capture the wheels in play mode */
+        return 1;
+    }
+    
     switch(key)
     {
         case MODULE_KEY_WHEEL_UP:
         {
-            snd_viz_db_scaling *= 0.9;
+            snd_viz_db_min -= 6;
+            snd_viz_db_coerce();
             return 0;
         }
 
         case MODULE_KEY_WHEEL_DOWN:
         {
-            snd_viz_db_scaling /= 0.9;
+            snd_viz_db_min += 6;
+            snd_viz_db_coerce();
             return 0;
         }
 
         case MODULE_KEY_WHEEL_RIGHT:
         {
-            snd_viz_db_offset += 2;
-            snd_viz_db_offset = COERCE(snd_viz_db_offset, 60, 130);
+            snd_viz_db_max -= 6;
+            snd_viz_db_coerce();
             return 0;
         }
 
         case MODULE_KEY_WHEEL_LEFT:
         {
-            snd_viz_db_offset -= 2;
-            snd_viz_db_offset = COERCE(snd_viz_db_offset, 60, 130);
+            snd_viz_db_max += 6;
+            snd_viz_db_coerce();
             return 0;
-        }
-
-        case MODULE_KEY_PRESS_SET:
-        case MODULE_KEY_JOY_CENTER:
-        case MODULE_KEY_PRESS_UP:
-        case MODULE_KEY_PRESS_UP_RIGHT:
-        case MODULE_KEY_PRESS_UP_LEFT:
-        case MODULE_KEY_PRESS_RIGHT:
-        case MODULE_KEY_PRESS_LEFT:
-        case MODULE_KEY_PRESS_DOWN_RIGHT:
-        case MODULE_KEY_PRESS_DOWN_LEFT:
-        case MODULE_KEY_PRESS_DOWN:
-        case MODULE_KEY_UNPRESS_UDLR:
-        case MODULE_KEY_INFO:
-        case MODULE_KEY_Q:
-        case MODULE_KEY_PICSTYLE:
-        case MODULE_KEY_PRESS_DP:
-        case MODULE_KEY_UNPRESS_DP:
-        case MODULE_KEY_RATE:
-        case MODULE_KEY_TRASH:
-        case MODULE_KEY_PLAY:
-        case MODULE_KEY_MENU:
-        case MODULE_KEY_PRESS_ZOOMIN:
-        {
-            return 1;
         }
     }
     
