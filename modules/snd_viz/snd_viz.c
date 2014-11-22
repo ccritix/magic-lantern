@@ -79,6 +79,10 @@ static CONFIG_INT("snd.viz.enable_tracing", snd_viz_enable_tracing, 0);
 static int32_t snd_viz_running = 0;
 static uint32_t snd_viz_in_active = 0;
 static uint32_t snd_viz_palette = 0;
+static uint32_t snd_viz_palette_min = 16;
+static uint32_t snd_viz_palette_max = 255;
+
+static float snd_viz_db_scaling = 1.0f;
 
 static uint32_t snd_viz_fps = 20;
 static uint32_t snd_viz_in_sample_rate = 48000;
@@ -429,7 +433,9 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
                 uint32_t x = bmp_pos;
                 if (snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] == COLOR_BLACK)
                 {
-                    snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = 16 + COERCE(db_val + 100, 16, 0x100 - 16);
+                    float pixel_val = snd_viz_palette_min + (db_val + 100) * snd_viz_db_scaling;
+                    
+                    snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = COERCE(pixel_val, snd_viz_palette_min, snd_viz_palette_max - snd_viz_palette_min);
                 }
                 break;
             }
@@ -769,6 +775,69 @@ static MENU_SELECT_FUNC(snd_viz_test_select)
 }
 
 
+static unsigned int snd_viz_keypress_cbr(unsigned int key)
+{
+    if (!snd_viz_running)
+    {
+        return 1;
+    }
+    
+    switch(key)
+    {
+        case MODULE_KEY_UNPRESS_SET:
+        {
+            return 0;
+        }
+
+        case MODULE_KEY_WHEEL_UP:
+        {
+            snd_viz_db_scaling *= 0.9;
+            return 0;
+        }
+
+        case MODULE_KEY_WHEEL_DOWN:
+        {
+            snd_viz_db_scaling /= 0.9;
+            return 0;
+        }
+
+        case MODULE_KEY_PRESS_SET:
+        case MODULE_KEY_WHEEL_RIGHT:
+        case MODULE_KEY_WHEEL_LEFT:
+        case MODULE_KEY_JOY_CENTER:
+        case MODULE_KEY_PRESS_UP:
+        case MODULE_KEY_PRESS_UP_RIGHT:
+        case MODULE_KEY_PRESS_UP_LEFT:
+        case MODULE_KEY_PRESS_RIGHT:
+        case MODULE_KEY_PRESS_LEFT:
+        case MODULE_KEY_PRESS_DOWN_RIGHT:
+        case MODULE_KEY_PRESS_DOWN_LEFT:
+        case MODULE_KEY_PRESS_DOWN:
+        case MODULE_KEY_UNPRESS_UDLR:
+        case MODULE_KEY_INFO:
+        case MODULE_KEY_Q:
+        case MODULE_KEY_PICSTYLE:
+        case MODULE_KEY_PRESS_DP:
+        case MODULE_KEY_UNPRESS_DP:
+        case MODULE_KEY_RATE:
+        case MODULE_KEY_TRASH:
+        case MODULE_KEY_PLAY:
+        case MODULE_KEY_MENU:
+        case MODULE_KEY_PRESS_ZOOMIN:
+        {
+            return 1;
+        }
+
+        /* ignore zero keycodes. pass through or not? */
+        case 0:
+        {
+            return 0;
+        }
+    }
+    
+    return 1;
+}
+
 static struct menu_entry snd_viz_menu[] =
 {
     {
@@ -822,6 +891,10 @@ MODULE_INFO_START()
     MODULE_INIT(snd_viz_init)
     MODULE_DEINIT(snd_viz_deinit)
 MODULE_INFO_END()
+
+MODULE_CBRS_START()
+    MODULE_CBR(CBR_KEYPRESS, snd_viz_keypress_cbr, 0)
+MODULE_CBRS_END()
 
 MODULE_CONFIGS_START()
     MODULE_CONFIG(snd_viz_mode)
