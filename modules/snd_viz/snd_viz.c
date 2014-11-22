@@ -83,6 +83,7 @@ static uint32_t snd_viz_palette_min = 16;
 static uint32_t snd_viz_palette_max = 255;
 
 static float snd_viz_db_scaling = 1.0f;
+static float snd_viz_db_offset = 100;
 
 static uint32_t snd_viz_fps = 20;
 static uint32_t snd_viz_in_sample_rate = 48000;
@@ -435,7 +436,7 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
                 uint32_t x = bmp_pos;
                 if (snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] == COLOR_BLACK)
                 {
-                    float pixel_val = snd_viz_palette_min + (db_val + 100) * snd_viz_db_scaling;
+                    float pixel_val = snd_viz_palette_min + (db_val + snd_viz_db_offset) * snd_viz_db_scaling;
                     
                     snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = COERCE(pixel_val, snd_viz_palette_min, snd_viz_palette_max - snd_viz_palette_min);
                 }
@@ -798,9 +799,21 @@ static unsigned int snd_viz_keypress_cbr(unsigned int key)
             return 0;
         }
 
-        case MODULE_KEY_PRESS_SET:
         case MODULE_KEY_WHEEL_RIGHT:
+        {
+            snd_viz_db_offset += 2;
+            snd_viz_db_offset = COERCE(snd_viz_db_offset, 60, 130);
+            return 0;
+        }
+
         case MODULE_KEY_WHEEL_LEFT:
+        {
+            snd_viz_db_offset -= 2;
+            snd_viz_db_offset = COERCE(snd_viz_db_offset, 60, 130);
+            return 0;
+        }
+
+        case MODULE_KEY_PRESS_SET:
         case MODULE_KEY_JOY_CENTER:
         case MODULE_KEY_PRESS_UP:
         case MODULE_KEY_PRESS_UP_RIGHT:
