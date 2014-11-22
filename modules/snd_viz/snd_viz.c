@@ -205,7 +205,7 @@ static void snd_viz_free_buffers()
 }
 
 
-static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, float windowing_constant, uint32_t x_start, uint32_t y_start, uint32_t width, uint32_t height)
+static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan, int channels, float windowing_constant, uint32_t x_start, uint32_t y_start, uint32_t width, uint32_t height)
 {
     /* print FFT plot */
     float bar_width = COERCE((float)width / ((float)fft_size / 2), 1, 100);
@@ -218,6 +218,12 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, float wi
     {
         log10_val = logf(10.0f);
     }
+    
+    /* make sure snd_viz_waterfall_pos points to current channel */
+    /* if there are multiple channels, they will be interleaved in snd_viz_waterfall, so pos % channels will identify the channel */
+    /* this trick lets us save the history for multiple channels in a single matrix, interleaved, without "cross-talk" */
+    snd_viz_waterfall_pos = snd_viz_waterfall_pos / channels * channels + chan;
+    snd_viz_waterfall_pos = MOD(snd_viz_waterfall_pos, snd_viz_waterfall_height);
     
     /* clear canvas */
     switch(snd_viz_mode)
@@ -305,12 +311,16 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, float wi
             
             for(uint32_t line = 0; line < height; line++)
             {
-                uint32_t waterfall_line = (snd_viz_waterfall_pos + line) % snd_viz_waterfall_height;
+                uint32_t waterfall_line = MOD(snd_viz_waterfall_pos + line * channels, snd_viz_waterfall_height);
                 memcpy(&bvram[(y_start + line) * BMPPITCH + x_start], &snd_viz_waterfall[waterfall_line * snd_viz_waterfall_width], snd_viz_waterfall_width);
             }
             
             /* next time render into previous line to have a waterfall effect */
-            snd_viz_waterfall_pos = (snd_viz_waterfall_pos + snd_viz_waterfall_height - 1) % snd_viz_waterfall_height;
+            /* (only increment after processing all channels - assuming interleaved calls) */
+            if (chan == channels - 1)
+            {
+                snd_viz_waterfall_pos = MOD(snd_viz_waterfall_pos - channels, snd_viz_waterfall_height);
+            }
             
             /* draw a border around the FFT area (around the graph, to prevent flicker) */
             bmp_draw_rect(COLOR_WHITE, x_start-1, y_start-1, snd_viz_waterfall_width+2, height+2);
@@ -468,7 +478,7 @@ static void snd_viz_task(int unused)
                         kiss_fft(cfg, fft_in, fft_out);
                         
                         /* show */
-                        snd_viz_show_fft(fft_out, fft_size, windowing_constant, 10, 50 + chan * 400 / channels, 700, 400/channels - 1);
+                        snd_viz_show_fft(fft_out, fft_size, chan, channels, windowing_constant, 10, 50 + chan * 400 / channels, 700, 400/channels - 1);
                     }
                     break;
                 }
