@@ -29,6 +29,7 @@
 #include <bmp.h>
 #include <sound.h>
 #include <zebra.h>
+#include <shoot.h>
 #include <math.h>
 #include <edmac-memcpy.h>
 #include "../trace/trace.h"
@@ -441,7 +442,7 @@ static void snd_viz_task(int unused)
             continue;
         }
         
-        if(!gui_menu_shown())
+        if (!gui_menu_shown() && (liveview_display_idle() || is_play_mode()))
         {
             switch(snd_viz_mode)
             {
