@@ -114,6 +114,10 @@ static enum sound_flow snd_viz_buf_processed (struct sound_buffer *buffer)
     {
         snd_viz_sound_ctx->ops.enqueue(snd_viz_sound_ctx, buffer);
     }
+    else if(!msg_queue_receive(snd_viz_buffers_done, &buffer, 20))
+    {
+        snd_viz_sound_ctx->ops.enqueue(snd_viz_sound_ctx, buffer);
+    }
     
     return SOUND_FLOW_CONTINUE;
 }
