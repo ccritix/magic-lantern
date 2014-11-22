@@ -91,7 +91,9 @@ static uint32_t snd_viz_waterfall_pos = 0;
 static uint32_t snd_viz_waterfall_height = 400;
 static uint32_t snd_viz_waterfall_width = 512;
 
-
+/* logarithmic frequency scale, cached */
+static uint16_t * snd_viz_fft_freq_scale;
+static float    * snd_viz_real_freq_scale;
 
 static void flush_queue(struct msg_queue *queue)
 {
@@ -208,6 +210,61 @@ static void snd_viz_free_buffers()
     }
 }
 
+static int snd_viz_init_freq_scale(int fft_size)
+{
+    if (snd_viz_fft_freq_scale) return 0;
+    if (snd_viz_real_freq_scale) return 0;
+    
+    snd_viz_fft_freq_scale  = malloc(snd_viz_waterfall_width * sizeof(snd_viz_fft_freq_scale[0]));
+    snd_viz_real_freq_scale = malloc(snd_viz_waterfall_width * sizeof(snd_viz_real_freq_scale[0]));
+    
+    if (!snd_viz_fft_freq_scale) return 0;
+    if (!snd_viz_fft_freq_scale) return 0;
+    
+    /* frequency range */
+    /* display 7 octaves below Nyquist frequency logarithmically */
+    const float log_fmax = log2f(24000);
+    const float log_fmin = log2f(24000 / 128);
+    
+    /* use a linear scale for lower frequencies - we can't display them at high resolution anyway */
+    uint32_t max_flin = 0;
+    for(uint32_t i = 0; i < snd_viz_waterfall_width; i++)
+    {
+        snd_viz_real_freq_scale[i] = i * snd_viz_in_sample_rate / fft_size / 8.0f;
+        snd_viz_fft_freq_scale[i] = (int)roundf(i / 8.0f);
+        
+        float log_freq = log2f(i * snd_viz_in_sample_rate / fft_size / 8);
+        if (log_freq >= log_fmin)
+        {
+            max_flin = i;
+            break;
+        }
+    }
+
+    /* now switch to log scale to display high frequencies properly */
+    for(uint32_t i = 0; i < snd_viz_waterfall_width - max_flin; i++)
+    {
+        float freq = powf(2.0f, i * (log_fmax - log_fmin) / (snd_viz_waterfall_width - max_flin) + log_fmin);
+        
+        /* get the FFT position */
+        /* at fft_size / 2, the frequency is snd_viz_in_sample_rate / 2 */
+        int fft_pos = (int)roundf(freq * fft_size / snd_viz_in_sample_rate);
+        fft_pos = COERCE(fft_pos, 0, fft_size / 2);
+        
+        snd_viz_real_freq_scale[max_flin + i] = freq;
+        snd_viz_fft_freq_scale[max_flin + i] = fft_pos;
+    }
+    
+    return 1;
+}
+
+static void snd_viz_free_freq_scale()
+{
+    free(snd_viz_fft_freq_scale);
+    free(snd_viz_real_freq_scale);
+    snd_viz_fft_freq_scale = 0;
+    snd_viz_real_freq_scale = 0;
+}
 
 static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan, int channels, float windowing_constant, uint32_t x_start, uint32_t y_start, uint32_t width, uint32_t height)
 {
@@ -243,6 +300,37 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
         {
             /* clear current waterfall line */
             memset(&snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width], COLOR_BLACK, snd_viz_waterfall_width);
+            
+            /* display grid at round frequencies (1 kHz, 2 kHz and so on) */
+            if ((snd_viz_waterfall_pos / channels) % 8 == 0)
+            {
+                int bmp_pos = snd_viz_waterfall_width - 1;
+                for(float freq = 16000; freq >= 8; freq /= 2)
+                {
+                    /* note: the frequency scale is neither linear, not log (it's a mixture) */
+                    /* this might be slow, but the sum of all searches is O(n), so it's not that bad */
+                    for ( ; bmp_pos >= 0; bmp_pos--)
+                    {
+                        if (snd_viz_real_freq_scale[bmp_pos] <= freq)
+                        {
+                            break;
+                        }
+                    }
+
+                    snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + bmp_pos] = COLOR_DARK_RED;
+                    
+                    if (chan == 0 && freq > 200)
+                    {
+                        /* also display grid labels */
+                        bmp_printf(
+                            FONT_SMALL | FONT_ALIGN_CENTER,
+                            x_start + bmp_pos, y_start - font_small.height,
+                            freq < 1000 ? "%dHz" : "%dkHz", (int)(freq < 1000 ? freq : freq/1000)
+                        );
+                    }
+                }
+            }
+            
             break;
         }
     }
@@ -250,17 +338,19 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
     /* process FFT result */
     /* note: the DFT of a real-valued sequence x has Hermitian symmetry */
     /* so we can process just half of the values */
-    for(uint32_t pos = 0; pos < fft_size / 2; pos++)
+    for(uint32_t bmp_pos = 0; bmp_pos < snd_viz_waterfall_width; bmp_pos++)
     {
-        float val_r = FIX_TO_FLOAT(fft_data[pos].r);
-        float val_i = FIX_TO_FLOAT(fft_data[pos].i);
+        uint32_t fft_pos = snd_viz_fft_freq_scale[bmp_pos];
+        
+        float val_r = FIX_TO_FLOAT(fft_data[fft_pos].r);
+        float val_i = FIX_TO_FLOAT(fft_data[fft_pos].i);
         
         switch(snd_viz_mode)
         {
             case VIZ_MODE_FFT_BARS:
             {
                 uint32_t ampl = (uint32_t)MIN(height, sqrtf(QUAD(val_r) + QUAD(val_i)) / windowing_constant * height * 8);
-                int x = x_start + pos * bar_width;
+                int x = x_start + bmp_pos * bar_width;
                 int y = y_start + (height - ampl);
                 
                 bmp_fill(COLOR_RED, x, y, bar_width, ampl);
@@ -270,7 +360,7 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
             case VIZ_MODE_FFT_LINE:
             {
                 uint32_t ampl = (uint32_t)MIN(height, sqrtf(QUAD(val_r) + QUAD(val_i)) / windowing_constant * height * 8);
-                int x = x_start + pos * bar_width;
+                int x = x_start + bmp_pos * bar_width;
                 int y = y_start + (height - ampl);
                 
                 if(last_x && last_y)
@@ -287,9 +377,13 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
                 float squared = QUAD(val_r) + QUAD(val_i) / QUAD(windowing_constant);
                 float db_val = 10 * logf(squared) / log10_val;
                 uint32_t ampl = (uint32_t)MIN(100, db_val + 100);
-                uint32_t x = pos * snd_viz_waterfall_width / (fft_size / 2);
+                uint32_t x = bmp_pos;
                 
-                snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = COLOR_GRAY(COERCE(ampl, 0, 100));
+                /* do not overwrite the grid */
+                if (snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] == COLOR_BLACK)
+                {
+                    snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = COLOR_GRAY(COERCE(ampl, 0, 100));
+                }
                 break;
             }
         }
@@ -429,6 +523,13 @@ static void snd_viz_task(int unused)
     /* keep local to make sure menu changes wont cause buffer overflows */
     uint32_t fft_size = snd_viz_fft_size;
     
+    if (!snd_viz_init_freq_scale(fft_size))
+    {
+        snd_viz_free_buffers();
+        snd_viz_in_active = 0;
+        return;
+    }
+    
     kiss_fft_cfg cfg = kiss_fft_alloc(fft_size, 0, 0 ,0);
     kiss_fft_cpx *fft_in = malloc(fft_size * sizeof(kiss_fft_cpx));
     kiss_fft_cpx *fft_out = malloc(fft_size * sizeof(kiss_fft_cpx));
@@ -539,6 +640,7 @@ static void snd_viz_task(int unused)
     free(fft_out);
     free(windowing_function);
     free(snd_viz_waterfall);
+    snd_viz_free_freq_scale();
     
     snd_viz_in_active = 0;
 }
