@@ -377,7 +377,7 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
             case VIZ_MODE_WATERFALL:
             {
                 float squared = (QUAD(val_r) + QUAD(val_i)) / QUAD(windowing_constant);
-                float db_val = 10 * logf(squared) / log10_val + 6;
+                float db_val = 10 * logf(squared) / log10_val + 6 - 96.3;
                 
                 #ifdef DEBUG_DECIBELS
                 {
@@ -591,15 +591,15 @@ static void snd_viz_task(int unused)
                         for(uint32_t pos = 0; pos < fft_size; pos++)
                         {
                             int16_t *data = (int16_t *)buffer->data;
-                            float sample = FIX_TO_FLOAT(data[channels * pos + chan]);
+                            int32_t sample = data[channels * pos + chan] * 65536;
                             
                             #ifdef DEBUG_DECIBELS
                             /* for dB calibration, force the signal to be a undistorted full swing sine wave */
                             /* and adjust the scaling until that shows 0 dB */
-                            sample = sinf(pos);
+                            sample = sinf(pos) * INT_MAX;
                             #endif
                             
-                            fft_in[pos].r = FLOAT_TO_FIX(sample * windowing_function[pos]);
+                            fft_in[pos].r = sample * windowing_function[pos];
                             fft_in[pos].i = 0;
                         }
                         
