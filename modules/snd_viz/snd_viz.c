@@ -210,7 +210,7 @@ static uint32_t snd_viz_start_audio()
 static uint32_t snd_viz_alloc_buffers()
 {
     /* 16 bit/sample, 2 channels */
-    uint32_t buffer_size = (snd_viz_in_sample_rate * 2 * 2) / snd_viz_fps;
+    uint32_t buffer_size = (snd_viz_in_sample_rate * 2 * snd_viz_sound_ctx->format.channels) / snd_viz_fps;
 
     /* prepare empty buffers */
     for(uint32_t pos = 0; pos < COUNT(snd_viz_buffers); pos++)
@@ -655,16 +655,14 @@ static void snd_viz_task(int unused)
                 case VIZ_MODE_FFT_BARS:
                 case VIZ_MODE_FFT_LINE:
                 case VIZ_MODE_WATERFALL:
-                {
-                    uint32_t channels = 2;
-                    
-                    for(uint32_t chan = 0; chan < channels; chan++)
+                {   
+                    for(uint32_t chan = 0; chan < snd_viz_sound_ctx->format.channels; chan++)
                     {
                         /* pepare data for KISS FFT */
                         for(uint32_t pos = 0; pos < fft_size; pos++)
                         {
                             int16_t *data = (int16_t *)buffer->data;
-                            int32_t sample = data[channels * pos + chan] * 65536;
+                            int32_t sample = data[snd_viz_sound_ctx->format.channels * pos + chan] * 65536;
                             
                             #ifdef DEBUG_DECIBELS
                             /* for dB calibration, force the signal to be a undistorted full swing sine wave */
@@ -680,7 +678,7 @@ static void snd_viz_task(int unused)
                         kiss_fft(cfg, fft_in, fft_out);
                         
                         /* show */
-                        snd_viz_show_fft(fft_out, fft_size, chan, channels, windowing_constant, 10, 50 + chan * 400 / channels, 700, 400/channels - 1);
+                        snd_viz_show_fft(fft_out, fft_size, chan, snd_viz_sound_ctx->format.channels, windowing_constant, 10, 50 + chan * 400 / snd_viz_sound_ctx->format.channels, 700, 400/snd_viz_sound_ctx->format.channels - 1);
                     }
                     break;
                 }
