@@ -11,12 +11,14 @@ using System.Runtime.InteropServices;
 
 namespace mlv_view_sharp
 {
-    public class LockBitmap
+    public class LockBitmap : IDisposable
     {
         Bitmap source = null;
         IntPtr Iptr = IntPtr.Zero;
         BitmapData bitmapData = null;
         Rectangle Rect = new Rectangle();
+
+        private bool LockedBits = false;
 
         public byte[] Pixels { get; set; }
         public int Depth { get; private set; }
@@ -60,9 +62,7 @@ namespace mlv_view_sharp
             {
                 bitmapData = source.LockBits(Rect, ImageLockMode.ReadWrite, source.PixelFormat);
                 Iptr = bitmapData.Scan0;
-
-                // Copy data from pointer to array
-                //Marshal.Copy(Iptr, Pixels, 0, Pixels.Length);
+                LockedBits = true;
             }
             catch (Exception ex)
             {
@@ -79,11 +79,21 @@ namespace mlv_view_sharp
             {
                 Marshal.Copy(Pixels, 0, Iptr, Pixels.Length);
                 source.UnlockBits(bitmapData);
+                LockedBits = false;
             }
             catch (Exception ex)
             {
                 throw ex;
             }
+        }
+
+        public void Dispose()
+        {
+            if(LockedBits)
+            {
+                UnlockBits();
+            }
+            Pixels = null;
         }
     }
 }

@@ -109,6 +109,13 @@
     <Compile Include="DebayerBase.cs" />
     <Compile Include="DebayerHalfRes.cs" />
     <Compile Include="DebayerBilinear.cs" />
+    <Compile Include="Log.cs" />
+    <Compile Include="LogWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="LogWindow.Designer.cs">
+      <DependentUpon>LogWindow.cs</DependentUpon>
+    </Compile>
     <Compile Include="Lookup.cs" />
     <Compile Include="Lut3D.cs" />
     <Compile Include="Matrix.cs" />

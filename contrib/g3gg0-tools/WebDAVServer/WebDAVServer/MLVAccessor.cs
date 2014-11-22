@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows;
@@ -217,6 +218,8 @@ namespace WebDAVServer
                 entry.file = mlvFileName;
                 entry.handler = new MLVHandler();
 
+                entry.handler.AccessorMode = true;
+
                 /* for JPG, use medium quality */
                 entry.handler.SelectDebayer(1);
                 entry.handler.DebayeringEnabled = false;
@@ -272,10 +275,19 @@ namespace WebDAVServer
             }
         }
 
-        public static BitmapSource BitmapSourceFromBitmap(Bitmap bmp)
+        [DllImport("gdi32.dll")]
+        public static extern bool DeleteObject(IntPtr hObject);
+
+        private static BitmapFrame BitmapFrameFromBitmap(Bitmap currentFrame)
         {
-            return Imaging.CreateBitmapSourceFromHBitmap(bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            IntPtr hBitmap = currentFrame.GetHbitmap();
+            BitmapSource src = Imaging.CreateBitmapSourceFromHBitmap(hBitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            BitmapFrame frame = BitmapFrame.Create(src);
+
+            DeleteObject(hBitmap);
+            return frame;
         }
+
 
         public static byte[] GetDataStream(string mlvFileName, string content)
         {
@@ -402,11 +414,12 @@ namespace WebDAVServer
                         encoder.QualityLevel = 90;
                         if (currentFrame != null)
                         {
-                            encoder.Frames.Add(BitmapFrame.Create(BitmapSourceFromBitmap(currentFrame)));
+                            encoder.Frames.Add(BitmapFrameFromBitmap(currentFrame));
                             encoder.Save(stream);
 
                             stream.Seek(0, SeekOrigin.Begin);
                         }
+
                         stream.Seek(0, SeekOrigin.Begin);
 
                         byte[] buffer = new byte[stream.Length];
@@ -566,7 +579,6 @@ namespace WebDAVServer
             mem.Read(buffer, 0, buffer.Length);
 
             mem.Close();
-            wr.Close();
 
             return buffer;
         }

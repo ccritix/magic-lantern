@@ -130,7 +130,7 @@ static char * format_datetime(char * datetime, struct frame_headers * frame_head
 	uint32_t hours = frame_headers->rtci_hdr.tm_hour + minutes / 60;
 	uint32_t days = frame_headers->rtci_hdr.tm_mday + hours / 24;
 	//TODO: days could also overflow in the month, but this is no longer simple modulo arithmetic like with hr:min:sec
-	sprintf(datetime, "%04d:%02d:%02d %02d:%02d:%02d",
+	sprintf_s(datetime, 32, "%04d:%02d:%02d %02d:%02d:%02d",
 		1900 + frame_headers->rtci_hdr.tm_year,
 		frame_headers->rtci_hdr.tm_mon,
 		days,
@@ -162,7 +162,7 @@ size_t dng_get_header_data(struct frame_headers * frame_headers, uint8_t * outpu
 		char * model = (char*)frame_headers->idnt_hdr.cameraName;
 		if (!model) model = "???";
 		//make is usually the first word of cameraName
-		strncpy(make, model, 32);
+		strncpy_s(make, 32, model, 32);
 		char * space = strchr(make, ' ');
 		if (space) *space = 0x0;
 

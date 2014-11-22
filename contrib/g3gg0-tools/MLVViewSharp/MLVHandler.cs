@@ -27,6 +27,9 @@ namespace mlv_view_sharp
         public bool DebayeringEnabled = true;
         public bool AudioEnabled = true;
 
+        /* some quirks for being a file accessor only (e.g. no audio) */
+        public bool AccessorMode = false;
+
         private WaveOut DriverOut;
         public BufferedWaveProvider WaveProvider;
 
@@ -58,51 +61,69 @@ namespace mlv_view_sharp
 
         public MLVHandler()
         {
+            Log.AddMessage("Instanciated");
         }
 
         public void HandleBlock(string type, MLVTypes.mlv_file_hdr_t header, byte[] raw_data, int raw_pos, int raw_length)
         {
+            Log.AddMessage("Handle: " + header.fileMagic);
             FileHeader = header;
         }
 
         public void HandleBlock(string type, MLVTypes.mlv_expo_hdr_t header, byte[] raw_data, int raw_pos, int raw_length)
         {
+            Log.AddMessage("Handle: " + header.blockType);
             ExpoHeader = header;
         }
 
         public void HandleBlock(string type, MLVTypes.mlv_lens_hdr_t header, byte[] raw_data, int raw_pos, int raw_length)
         {
+            Log.AddMessage("Handle: " + header.blockType);
             LensHeader = header;
         }
 
         public void HandleBlock(string type, MLVTypes.mlv_idnt_hdr_t header, byte[] raw_data, int raw_pos, int raw_length)
         {
+            Log.AddMessage("Handle: " + header.blockType);
             IdntHeader = header;
         }
 
         public void HandleBlock(string type, MLVTypes.mlv_rtci_hdr_t header, byte[] raw_data, int raw_pos, int raw_length)
         {
+            Log.AddMessage("Handle: " + header.blockType);
             RtciHeader = header;
         }
 
         public void HandleBlock(string type, MLVTypes.mlv_styl_hdr_t header, byte[] raw_data, int raw_pos, int raw_length)
         {
+            Log.AddMessage("Handle: " + header.blockType);
             StylHeader = header;
         }
 
         public void HandleBlock(string type, MLVTypes.mlv_wbal_hdr_t header, byte[] raw_data, int raw_pos, int raw_length)
         {
+            Log.AddMessage("Handle: " + header.blockType);
             WbalHeader = header;
         }
 
         public void HandleBlock(string type, MLVTypes.mlv_info_hdr_t header, byte[] raw_data, int raw_pos, int raw_length)
         {
+            Log.AddMessage("Handle: " + header.blockType);
             InfoString = Encoding.ASCII.GetString(raw_data, raw_pos, raw_length);
         }
 
         public void HandleBlock(string type, MLVTypes.mlv_wavi_hdr_t header, byte[] raw_data, int raw_pos, int raw_length)
         {
+            Log.AddMessage("Handle: " + header.blockType);
             WaviHeader = header;
+
+            /* do not directly play back audio */
+            if(AccessorMode)
+            {
+                DriverOut = null;
+                return;
+            }
+
             if (DriverOut != null)
             {
                 DriverOut.Stop();
@@ -127,6 +148,7 @@ namespace mlv_view_sharp
 
         public void HandleBlock(string type, MLVTypes.mlv_rawi_hdr_t header, byte[] raw_data, int raw_pos, int raw_length)
         {
+            Log.AddMessage("Handle: " + header.blockType);
             RawiHeader = header;
 
             if (FileHeader.videoClass != 0x01)
@@ -158,6 +180,11 @@ namespace mlv_view_sharp
             RGBData = new float[header.yRes, header.xRes, 3];
 
             CurrentFrame = new System.Drawing.Bitmap(RawiHeader.xRes, RawiHeader.yRes, PixelFormat.Format24bppRgb);
+            if (LockBitmap != null)
+            {
+                LockBitmap.Dispose();
+                LockBitmap = null;
+            }
             LockBitmap = new LockBitmap(CurrentFrame);
         }
 
@@ -171,6 +198,7 @@ namespace mlv_view_sharp
 
         public void HandleBlock(string type, MLVTypes.mlv_audf_hdr_t header, byte[] rawData, int rawPos, int rawLength)
         {
+            Log.AddMessage("Handle: " + header.blockType + " " + header.frameNumber);
             AudfHeader = header;
             if (WaveProvider != null)
             {
@@ -184,6 +212,7 @@ namespace mlv_view_sharp
 
         public void HandleBlock(string type, MLVTypes.mlv_vidf_hdr_t header, byte[] rawData, int rawPos, int rawLength)
         {
+            Log.AddMessage("Handle: " + header.blockType + " " + header.frameNumber);
             VidfHeader = header;
 
             if (FileHeader.videoClass != 0x01 || LockBitmap == null)

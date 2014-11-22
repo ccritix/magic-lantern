@@ -16,6 +16,7 @@ using Microsoft.Win32;
 using System.Security;
 using System.Collections;
 using System.Runtime.InteropServices;
+using MLVViewSharp;
 
 namespace WebDAVServer
 {
@@ -72,6 +73,12 @@ namespace WebDAVServer
             chkShowFits.Checked = Server.Settings.ShowFits;
             chkShowDng.Checked = Server.Settings.ShowDng;
             chkShowWav.Checked = Server.Settings.ShowWav;
+            chkVerbose.Checked = Server.Settings.Verbose;
+
+            if (Server.Settings.Verbose)
+            {
+                Log.Init();
+            }
 
             UpdateDriveLetters();
         }
@@ -537,6 +544,16 @@ namespace WebDAVServer
         private void chkShowWav_CheckedChanged(object sender, EventArgs e)
         {
             Server.Settings.ShowWav = chkShowWav.Checked;
+        }
+
+        private void chkVerbose_CheckedChanged(object sender, EventArgs e)
+        {
+            Server.Settings.Verbose = chkVerbose.Checked;
+
+            if(Server.Settings.Verbose)
+            {
+                Log.Init();
+            }
         }
     }
 }

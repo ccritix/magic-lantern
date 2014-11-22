@@ -33,7 +33,7 @@ namespace WebDAVServer
         public long BytesReadData = 0;
         public long BytesWrittenData = 0;
 
-        public static string Version = "2.9";
+        public static string Version = "2.91";
         public string DefaultConfigFileName = "WebDAVServer.cfg";
         public string ConfigFilePath = "";
         public string ConfigFileName = "";
@@ -60,6 +60,7 @@ namespace WebDAVServer
             public bool ShowFits;
             public bool ShowDng;
             public bool ShowWav;
+            public bool Verbose;
         }
         public SettingsContainer Settings = new SettingsContainer();
         public string Statistics
@@ -89,6 +90,7 @@ namespace WebDAVServer
             Settings.ShowFits = true;
             Settings.ShowDng = true;
             Settings.ShowWav = true;
+            Settings.Verbose = false;
 
             /* read default config */
             ReadDefaultConfigFile();
@@ -679,7 +681,6 @@ namespace WebDAVServer
                 if(handler == null)
                 {
                     Log("[E] Empty request in connection from " + sock.RemoteEndPoint + " (HandleContent/HandleRequest)");
-                    handler.KeepAlive = false;
                     return;
                 }
 
