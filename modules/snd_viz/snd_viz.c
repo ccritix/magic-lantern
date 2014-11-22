@@ -244,10 +244,12 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
     }
     
     /* process FFT result */
+    /* note: the DFT of a real-valued sequence x has Hermitian symmetry */
+    /* so we can process just half of the values */
     for(uint32_t pos = 0; pos < fft_size / 2; pos++)
     {
-        float val_r = FIX_TO_FLOAT(fft_data[pos].r) + FIX_TO_FLOAT(fft_data[fft_size - 1 - pos].r);
-        float val_i = FIX_TO_FLOAT(fft_data[pos].i) + FIX_TO_FLOAT(fft_data[fft_size - 1 - pos].i);
+        float val_r = FIX_TO_FLOAT(fft_data[pos].r);
+        float val_i = FIX_TO_FLOAT(fft_data[pos].i);
         
         switch(snd_viz_mode)
         {
