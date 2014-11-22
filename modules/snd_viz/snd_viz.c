@@ -587,16 +587,14 @@ static MENU_SELECT_FUNC(snd_viz_test_select)
 static struct menu_entry snd_viz_menu[] =
 {
     {
-        .name = "Sound Viz",
-        .help = "",
+        .name = "Sound visualization",
+        .priv = &snd_viz_running,
+        .max = 1,
+        .select = &snd_viz_test_select,
+        .help = "Live sound views like FFT spectrogram or scope.",
         .submenu_width = 710,
         .children = (struct menu_entry[])
         {
-            {
-                .name = "Start / Stop",
-                .select = &snd_viz_test_select,
-                .help = "Start / Stop",
-            },
             {
                 .name = "Mode",
                 .priv = &snd_viz_mode,

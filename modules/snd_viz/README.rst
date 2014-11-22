@@ -1,6 +1,6 @@
 
-Sound Viz
-=========
+Sound Visualization
+===================
 
 :Author: g3gg0
 :License: GPL
