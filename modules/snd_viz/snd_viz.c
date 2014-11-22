@@ -218,8 +218,6 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, float wi
         log10_val = logf(10.0f);
     }
     
-    bmp_draw_to_idle(1);
-    
     /* clear canvas */
     switch(snd_viz_mode)
     {
@@ -232,7 +230,6 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, float wi
         
         case VIZ_MODE_WATERFALL:
         {
-            bmp_fill(COLOR_BLACK, x_start, y_start, snd_viz_waterfall_width, height);
             /* clear current waterfall line */
             memset(&snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width], COLOR_BLACK, snd_viz_waterfall_width);
             break;
@@ -303,7 +300,7 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, float wi
         
         case VIZ_MODE_WATERFALL:
         {
-            uint8_t *bvram = bmp_vram_idle();
+            uint8_t *bvram = bmp_vram();
             
             for(uint32_t line = 0; line < height; line++)
             {
@@ -314,14 +311,11 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, float wi
             /* next time render into previous line to have a waterfall effect */
             snd_viz_waterfall_pos = (snd_viz_waterfall_pos + snd_viz_waterfall_height - 1) % snd_viz_waterfall_height;
             
-            /* draw a border around the FFT area */
-            bmp_draw_rect(COLOR_WHITE, x_start, y_start, snd_viz_waterfall_width, height);
+            /* draw a border around the FFT area (around the graph, to prevent flicker) */
+            bmp_draw_rect(COLOR_WHITE, x_start-1, y_start-1, snd_viz_waterfall_width+2, height+2);
             break;
         }
     }
-    
-    bmp_draw_to_idle(0);
-    bmp_idle_copy(1,0);
 }
 
 static void snd_viz_create_window(float *table, uint32_t entries, enum windowing_function function, float *windowing_constant)
@@ -473,7 +467,7 @@ static void snd_viz_task(int unused)
                         kiss_fft(cfg, fft_in, fft_out);
                         
                         /* show */
-                        snd_viz_show_fft(fft_out, fft_size, windowing_constant, 10, 50 + chan * 400 / channels, 700, 400/channels);
+                        snd_viz_show_fft(fft_out, fft_size, windowing_constant, 10, 50 + chan * 400 / channels, 700, 400/channels - 1);
                     }
                     break;
                 }
@@ -481,8 +475,6 @@ static void snd_viz_task(int unused)
                 case VIZ_MODE_CORRELATION:
                 {
                     int16_t *data = (int16_t *)buffer->data;
-                    
-                    bmp_draw_to_idle(1);
                     
                     /* align the X/Y plot to the center of the scren */
                     bmp_fill(COLOR_BLACK, BMP_WIDTH / 2 - snd_viz_correl_size / 2, BMP_HEIGHT / 2 - snd_viz_correl_size / 2, snd_viz_correl_size, snd_viz_correl_size);
@@ -503,10 +495,13 @@ static void snd_viz_task(int unused)
                         bmp_putpixel(BMP_WIDTH / 2 + x, BMP_HEIGHT / 2 + y, COLOR_RED);
                     }
                     
-                    bmp_draw_rect(COLOR_WHITE, BMP_WIDTH / 2 - snd_viz_correl_size / 2, BMP_HEIGHT / 2 - snd_viz_correl_size / 2, snd_viz_correl_size, snd_viz_correl_size);
-                    
-                    bmp_draw_to_idle(0);
-                    bmp_idle_copy(1,0);
+                    /* bounding box is drawn around the graph, to prevent flicker */
+                    bmp_draw_rect(COLOR_WHITE, 
+                        BMP_WIDTH / 2 - snd_viz_correl_size / 2 - 1,
+                        BMP_HEIGHT / 2 - snd_viz_correl_size / 2 - 1,
+                        snd_viz_correl_size + 2,
+                        snd_viz_correl_size + 2
+                    );
                     break;
                 }
             }
