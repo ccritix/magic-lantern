@@ -9,4 +9,4 @@ MODULE_OBJS=snd_viz.o kiss_fft.o
 # include modules environment
 include $(TOP_DIR)/modules/Makefile.modules
 
-CFLAGS += -DFIXED_POINT=16
+CFLAGS += -DFIXED_POINT=32

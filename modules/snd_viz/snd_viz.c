@@ -36,6 +36,8 @@
 
 #include "kiss_fft.h"
 
+#undef DEBUG_DECIBELS  /* this helps with calibrating the dB scale */
+
 #define MLV_SND_BUFFERS 4
 
 #define QUAD(x) ((x)*(x))
@@ -406,15 +408,28 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
             
             case VIZ_MODE_WATERFALL:
             {
-                float squared = QUAD(val_r) + QUAD(val_i) / QUAD(windowing_constant);
-                float db_val = 10 * logf(squared) / log10_val;
-                uint32_t ampl = (uint32_t)MIN(100, db_val + 100);
-                uint32_t x = bmp_pos;
+                float squared = (QUAD(val_r) + QUAD(val_i)) / QUAD(windowing_constant);
+                float db_val = 10 * logf(squared) / log10_val + 6 - 96.3;
+                
+                #ifdef DEBUG_DECIBELS
+                {
+                    static float db_max = -1000;
+                    if (db_val >= db_max)
+                    {
+                        db_max = db_val;
+                        /* this should print 0 dB for our reference sine wave */
+                        /* which means, it will be printed as white, and all lower signals will be darker */
+                        int db_x100 = (int)roundf(db_max*100);
+                        bmp_printf(FONT_MED, 0, 0, "%s%d.%02d dB  ", FMT_FIXEDPOINT2(db_x100));
+                    }
+                }
+                #endif
                 
                 /* do not overwrite the grid */
+                uint32_t x = bmp_pos;
                 if (snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] == COLOR_BLACK)
                 {
-                    snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = 16 + (COERCE(ampl, 0, 256 - 16) );
+                    snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = 16 + COERCE(db_val + 100, 16, 0x100 - 16);
                 }
                 break;
             }
@@ -617,9 +632,15 @@ static void snd_viz_task(int unused)
                         for(uint32_t pos = 0; pos < fft_size; pos++)
                         {
                             int16_t *data = (int16_t *)buffer->data;
-                            float sample = FIX_TO_FLOAT(data[channels * pos + chan]);
+                            int32_t sample = data[channels * pos + chan] * 65536;
                             
-                            fft_in[pos].r = FLOAT_TO_FIX(sample * windowing_function[pos]);
+                            #ifdef DEBUG_DECIBELS
+                            /* for dB calibration, force the signal to be a undistorted full swing sine wave */
+                            /* and adjust the scaling until that shows 0 dB */
+                            sample = sinf(pos) * INT_MAX;
+                            #endif
+                            
+                            fft_in[pos].r = sample * windowing_function[pos];
                             fft_in[pos].i = 0;
                         }
                         
