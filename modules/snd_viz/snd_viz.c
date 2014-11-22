@@ -433,6 +433,7 @@ static void snd_viz_task(int unused)
     
     snd_viz_waterfall_pos = 0;
     snd_viz_waterfall = malloc(snd_viz_waterfall_width * snd_viz_waterfall_height);
+    memset(snd_viz_waterfall, COLOR_BLACK, snd_viz_waterfall_width * snd_viz_waterfall_height);
 
     TASK_LOOP
     {
