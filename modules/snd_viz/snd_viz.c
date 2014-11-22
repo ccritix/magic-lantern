@@ -786,11 +786,6 @@ static unsigned int snd_viz_keypress_cbr(unsigned int key)
     
     switch(key)
     {
-        case MODULE_KEY_UNPRESS_SET:
-        {
-            return 0;
-        }
-
         case MODULE_KEY_WHEEL_UP:
         {
             snd_viz_db_scaling *= 0.9;
@@ -828,12 +823,6 @@ static unsigned int snd_viz_keypress_cbr(unsigned int key)
         case MODULE_KEY_PRESS_ZOOMIN:
         {
             return 1;
-        }
-
-        /* ignore zero keycodes. pass through or not? */
-        case 0:
-        {
-            return 0;
         }
     }
     
