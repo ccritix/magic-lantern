@@ -28,7 +28,6 @@ extern void SetASIFMode(int rate, signed int bits, int channels, int output);
 uint32_t sound_trace_ctx = TRACE_ERROR;
 static struct sound_ctx *sound_settings_ctx = NULL;
 
-
 static struct sound_mixer default_mixer_options =
 {
     .windcut_mode = SOUND_WINDCUT_OFF,
@@ -798,6 +797,16 @@ static struct menu_entry sound_menu[] =
     },
 };
 
+PROP_HANDLER(PROP_MIC_INSERTED)
+{
+    /* reconfigure audio mixer as mic configuration has changed */
+    sound_set_mixer(sound_settings_ctx);
+}
+
+struct sound_dev *sound_get_device()
+{
+    return &sound_device;
+}
 
 void sound_init()
 {

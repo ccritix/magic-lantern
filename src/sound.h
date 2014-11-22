@@ -96,6 +96,7 @@ enum power_status
     SOUND_POWER_DISABLED = 1,
     SOUND_POWER_ENABLED  = 2
 };
+
 enum loop_status
 {
     SOUND_LOOP_DEFAULT  = 0,
@@ -272,6 +273,9 @@ void sound_mixer_merge(struct sound_mixer *merged, struct sound_mixer *base, str
 void sound_free(struct sound_ctx *ctx);
 void sound_init();
 
+/* return the current active sound device */
+struct sound_dev *sound_get_device();
+
 /* helper to call cleanup function of a buffer */
 static enum sound_flow sound_buf_cleanup(struct sound_buffer *buf);
 /* helper to call requeued function of a buffer */
@@ -282,6 +286,8 @@ static enum sound_flow sound_buf_processed(struct sound_buffer *buf);
 static void sound_stop_asif(struct sound_ctx *ctx);
 /* apply default sound settings or update current ctx settings */
 static void sound_defaults_update();
+
+
 
 static enum sound_result sound_op_lock (struct sound_ctx *ctx, enum sound_lock type);
 static enum sound_result sound_op_unlock (struct sound_ctx *ctx);

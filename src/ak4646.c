@@ -8,12 +8,13 @@
 #include <console.h>
 
 #include "sound.h"
+#include "property.h"
 #include "ak4646.h"
 
 /* cached registers */
 static struct ak4646_cache_entry ak4646_cached_registers[AK4646_REGS];
 static uint32_t ak4646_need_rewrite = 0;
-
+static int ak4646_mic_inserted = -1;
 
 static const char *ak4646_src_names[] = { "Default", "Off", "Int.Mic", "Ext.Mic", "HDMI", "Auto", "L.int R.ext", "L.int R.bal" };
 static const char *ak4646_dst_names[] = { "Default", "Off", "Speaker", "Line Out", "A/V", "HDMI", "Spk+LineOut", "Spk+A/V" };
@@ -143,10 +144,19 @@ static void ak4646_set_loop(uint32_t state)
     ak4646_write_changed();
 }
 
-static void ak4646_set_mic_pwr(uint32_t state)
+static void ak4646_set_ext_mic_pwr(uint32_t state)
 {
     AK4646_SET(AK4646_PAR_PMMP, state);
     ak4646_write_changed();
+}
+
+static void ak4646_set_int_mic_pwr(enum power_status state)
+{
+#if defined(CONFIG_5D3)
+    /* 5D3 uses this line to select mic */
+    MEM(0xC0220188) &= ~2;
+    MEM(0xC0220188) |= (state == SOUND_POWER_ENABLED) ? 2 : 0;
+#endif
 }
 
 static void ak4646_unpower_out()
@@ -277,12 +287,7 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
     
     if(prev->mic_power != next->mic_power || ak4646_need_rewrite)
     {
-        ak4646_set_mic_pwr(next->mic_power == SOUND_POWER_ENABLED);
-#if 0
-        /* these are from canon firmware, what do they do? seem to have no effect */
-        MEM(0xC0220188) |= 2; /* ext not selected */
-        MEM(0xC0220188) &= ~2; /* ext selected */
-#endif
+        ak4646_set_ext_mic_pwr(next->mic_power == SOUND_POWER_ENABLED);
     }
     
     if(prev->loop_mode != next->loop_mode || ak4646_need_rewrite)
@@ -291,14 +296,32 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
     }
     
     /* only update mic settings when playback is disabled */
-    if((prev->source_line != next->source_line || ak4646_need_rewrite))
+    if((prev->source_line != next->source_line) || ak4646_need_rewrite || (next->source_line == SOUND_SOURCE_AUTO))
     {
-        switch(next->source_line)
+        enum sound_source source = next->source_line;
+        
+        if(source == SOUND_SOURCE_AUTO)
+        {
+            if(ak4646_mic_inserted == 1)
+            {
+                NotifyBox(2000, "Audio source: External mic");
+                source = SOUND_SOURCE_EXT_MIC;
+            }
+            else
+            {
+                NotifyBox(2000, "Audio source: Internal mic");
+                source = SOUND_SOURCE_INT_MIC;
+            }
+        }
+        
+        switch(source)
         {
             default:
             case SOUND_SOURCE_OFF:
                 AK4646_SET(AK4646_PAR_PMADL, 0);
                 AK4646_SET(AK4646_PAR_PMADR, 0);
+                
+                ak4646_set_int_mic_pwr(SOUND_POWER_DISABLED);
                 break;
                 
             case SOUND_SOURCE_INT_MIC:
@@ -310,10 +333,7 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
                 AK4646_SET(AK4646_PAR_INR, 0);
                 ak4646_write_changed();
                 
-#if defined(CONFIG_5D3)
-                /* 5D3 uses this line to enable internal mic power? */
-                MEM(0xC0220188) |= 2;
-#endif
+                ak4646_set_int_mic_pwr(SOUND_POWER_ENABLED);
                 break;
                 
             case SOUND_SOURCE_EXT_MIC:
@@ -325,10 +345,7 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
                 AK4646_SET(AK4646_PAR_INR, 1);
                 ak4646_write_changed();
                 
-#if defined(CONFIG_5D3)
-                /* 5D3 uses this line to select mic */
-                MEM(0xC0220188) &= ~2;
-#endif
+                ak4646_set_int_mic_pwr(SOUND_POWER_DISABLED);
                 break;
                 
             case SOUND_SOURCE_EXTENDED_1:
@@ -339,10 +356,9 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
                 AK4646_SET(AK4646_PAR_INL, 0);
                 AK4646_SET(AK4646_PAR_INR, 1);
                 ak4646_write_changed();
-#if defined(CONFIG_5D3)
-                /* 5D3 uses this line to enable internal mic power? */
-                MEM(0xC0220188) |= 2;
-#endif
+                
+                ak4646_set_int_mic_pwr(SOUND_POWER_ENABLED);
+
                 break;
                 
             case SOUND_SOURCE_EXTENDED_2:
@@ -353,10 +369,8 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
                 AK4646_SET(AK4646_PAR_INL, 0);
                 AK4646_SET(AK4646_PAR_INR, 0);
                 ak4646_write_changed();
-#if defined(CONFIG_5D3)
-                /* 5D3 uses this line to enable internal mic power? */
-                MEM(0xC0220188) |= 2;
-#endif
+                
+                ak4646_set_int_mic_pwr(SOUND_POWER_ENABLED);
                 break;
         }
     }
@@ -442,6 +456,10 @@ static enum sound_result ak4646_op_poweroff()
     return SOUND_RESULT_OK;
 }
 
+PROP_HANDLER(PROP_MIC_INSERTED)
+{
+    ak4646_mic_inserted = buf[0];
+}
 
 void codec_init(struct codec_ops *ops)
 {
