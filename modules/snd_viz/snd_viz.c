@@ -76,6 +76,7 @@ static CONFIG_INT("snd.viz.enable_tracing", snd_viz_enable_tracing, 0);
 
 static int32_t snd_viz_running = 0;
 static uint32_t snd_viz_in_active = 0;
+static uint32_t snd_viz_palette = 0;
 
 static uint32_t snd_viz_fps = 20;
 static uint32_t snd_viz_in_sample_rate = 48000;
@@ -94,6 +95,37 @@ static uint32_t snd_viz_waterfall_width = 512;
 /* logarithmic frequency scale, cached */
 static uint16_t * snd_viz_fft_freq_scale;
 static float    * snd_viz_real_freq_scale;
+
+
+
+static void snd_viz_palette_set()
+{
+    for (int i = 16; i < 0x100; i++)
+    {
+        int opacity = 0xFF;
+        int y = i;
+        int u = 0;
+        int v = 0;
+        int new_palette_entry =
+                    ((opacity & 0xFF) << 24) |
+                    ((y       & 0xFF) << 16) |
+                    ((u       & 0xFF) <<  8) |
+                    ((v       & 0xFF)); 
+            
+        EngDrvOut(LCD_Palette[i*3], new_palette_entry);
+        EngDrvOut(LCD_Palette[i*3+0x300], new_palette_entry);
+    }
+}
+
+static void snd_viz_palette_reset()
+{
+    for (int i = 16; i < 0x100; i++)
+    {
+        EngDrvOut(LCD_Palette[i*3], LCD_Palette[i*3 + 2]);
+        EngDrvOut(LCD_Palette[i*3+0x300], LCD_Palette[i*3 + 2]);
+    }
+}
+
 
 static void flush_queue(struct msg_queue *queue)
 {
@@ -382,7 +414,7 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
                 /* do not overwrite the grid */
                 if (snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] == COLOR_BLACK)
                 {
-                    snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = COLOR_GRAY(COERCE(ampl, 0, 100));
+                    snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] = 16 + (COERCE(ampl, 0, 256 - 16) );
                 }
                 break;
             }
@@ -506,6 +538,8 @@ static void snd_viz_create_window(float *table, uint32_t entries, enum windowing
 
 static void snd_viz_task(int unused)
 {
+    int loop = 0;
+    
     if(!snd_viz_alloc_buffers())
     {
         snd_viz_free_buffers();
@@ -538,7 +572,6 @@ static void snd_viz_task(int unused)
     float windowing_constant = 1.0f;
     snd_viz_create_window(windowing_function, fft_size, snd_viz_fft_window, &windowing_constant);
     
-    snd_viz_waterfall_pos = 0;
     snd_viz_waterfall = malloc(snd_viz_waterfall_width * snd_viz_waterfall_height);
     memset(snd_viz_waterfall, COLOR_BLACK, snd_viz_waterfall_width * snd_viz_waterfall_height);
 
@@ -562,6 +595,14 @@ static void snd_viz_task(int unused)
         
         if (!gui_menu_shown() && (liveview_display_idle() || is_play_mode()))
         {
+            loop++;
+            
+            if(!snd_viz_palette || (loop % 20) == 0)
+            {
+                snd_viz_palette_set();
+                snd_viz_palette = 1;
+            }
+            
             switch(snd_viz_mode)
             {
                 case VIZ_MODE_FFT_BARS:
@@ -625,6 +666,14 @@ static void snd_viz_task(int unused)
                 }
             }
         }
+        else
+        {
+            if(snd_viz_palette)
+            {
+                snd_viz_palette_reset();
+                snd_viz_palette = 0;
+            }
+        }
         
         msg_queue_post(snd_viz_buffers_empty, (uint32_t)buffer);
 
@@ -685,12 +734,12 @@ static void snd_viz_stop()
 
     snd_viz_in_active = 0;
 }
-
 static MENU_SELECT_FUNC(snd_viz_test_select)
 {
     if(snd_viz_running)
     {
         snd_viz_stop();
+        snd_viz_palette_reset();
     }
     else
     {
