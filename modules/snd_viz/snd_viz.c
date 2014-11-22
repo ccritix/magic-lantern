@@ -497,8 +497,8 @@ static void snd_viz_task(int unused)
                         int16_t sample_r = data[2 * pos + 1];
                         
                         /* scale sample values to rect size */
-                        uint32_t x = (sample_l * snd_viz_correl_size / 2) / 32768;
-                        uint32_t y = (sample_r * snd_viz_correl_size / 2) / 32768;
+                        uint32_t x = ((int64_t)sample_l * snd_viz_correl_size / 2) / 32768;
+                        uint32_t y = ((int64_t)sample_r * snd_viz_correl_size / 2) / 32768;
                         
                         bmp_putpixel(BMP_WIDTH / 2 + x, BMP_HEIGHT / 2 + y, COLOR_RED);
                     }
