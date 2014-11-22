@@ -106,12 +106,14 @@ static float    * snd_viz_real_freq_scale;
 
 static void snd_viz_palette_set()
 {
-    for (int i = 16; i < 0x100; i++)
+    int range = snd_viz_palette_max - snd_viz_palette_min;
+    
+    for (uint32_t i = snd_viz_palette_min; i < snd_viz_palette_max; i++)
     {
         int opacity = 0xFF;
-        int y = i;
-        int u = 0;
-        int v = 0;
+        int y = ((i - snd_viz_palette_min) * 0xFF) / range;
+        int v = MAX(0,MIN(y - 0x40, 0x7F));
+        int u = MAX(0,MIN(y, 0x7F));
         int new_palette_entry =
                     ((opacity & 0xFF) << 24) |
                     ((y       & 0xFF) << 16) |
@@ -125,7 +127,7 @@ static void snd_viz_palette_set()
 
 static void snd_viz_palette_reset()
 {
-    for (int i = 16; i < 0x100; i++)
+    for (uint32_t i = snd_viz_palette_min; i < snd_viz_palette_max; i++)
     {
         EngDrvOut(LCD_Palette[i*3], LCD_Palette[i*3 + 2]);
         EngDrvOut(LCD_Palette[i*3+0x300], LCD_Palette[i*3 + 2]);
