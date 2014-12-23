@@ -236,6 +236,19 @@ static void sound_set_mixer(struct sound_ctx *ctx)
         replace all default settings of sound_ctx with sound_dev.mixer_defaults values.
     */
     sound_mixer_merge(&ctx->device->mixer_current, &ctx->device->mixer_defaults, &ctx->mixer);
+    
+    /* enforce having only one channel active. full duplex is not supported correctly? 
+       hard to tell from the datasheet. and setting output volume while input line was activated
+       had no effect at all. 
+    */
+    if(ctx->mode == SOUND_MODE_PLAYBACK)
+    {
+        ctx->device->mixer_current.source_line = SOUND_SOURCE_OFF;
+    }
+    else
+    {
+        ctx->device->mixer_current.destination_line = SOUND_DESTINATION_OFF;
+    }
 
     /* settings merged, apply now */
     ctx->device->codec_ops.apply_mixer(&prev_mixer, &ctx->device->mixer_current);
