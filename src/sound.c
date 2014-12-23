@@ -323,14 +323,14 @@ static void sound_stop_asif(struct sound_ctx *ctx)
 
 static enum sound_result sound_op_lock (struct sound_ctx *ctx, enum sound_lock type)
 {
+    #if SOUND_DEBUG_TRACE
     if(sound_trace_ctx == TRACE_ERROR)
     {
-        #if SOUND_DEBUG_TRACE
         sound_trace_ctx = trace_start("snd_test", "B:/snd_test.txt");
-        #endif
         trace_set_flushrate(sound_trace_ctx, 1000);
         trace_format(sound_trace_ctx, TRACE_FMT_TIME_REL | TRACE_FMT_COMMENT, ' ');
     }
+    #endif
     
     if(!ctx || !ctx->device)
     {
