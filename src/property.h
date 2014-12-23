@@ -142,6 +142,7 @@
 #define PROP_AVAIL_SHOT         0x80030005
 
 #define PROP_MIC_INSERTED       0x8003002b
+#define PROP_HEADPHONE_PHYSICAL_CONNECT 0x80030055
 
 /** These need to be found */
 #define PROP_LCD_STATE          error_must_be_found
@@ -329,7 +330,6 @@
 #define PROP_GUIGROUND_STATE 0x80020011
 #define PROP_STROBO_SYNC_AV 0x8000004c //Array 0x77C04
 #define PROP_MOVIE_REC_VOLUME 0x2050017 //Len 4, Vol00Vol
-#define PROP_HEADPHONE_PHYSICAL_CONNECT 0x80030055
 #endif
 /** Job progress
  * 0xB == capture end?

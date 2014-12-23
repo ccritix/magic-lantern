@@ -820,7 +820,23 @@ PROP_HANDLER(PROP_MIC_INSERTED)
     sound_device.mic_jack = buf[0];
     
     /* reconfigure audio mixer as mic configuration has changed */
-    sound_set_mixer(sound_settings_ctx);
+    if(sound_device.state != SOUND_STATE_IDLE)
+    {
+        sound_device.codec_ops.poweron();
+        sound_set_mixer(sound_settings_ctx);
+    }
+}
+
+PROP_HANDLER(PROP_HEADPHONE_PHYSICAL_CONNECT)
+{
+    sound_device.headphone_jack = buf[0];
+    
+    /* reconfigure audio mixer as mic configuration has changed */
+    if(sound_device.state != SOUND_STATE_IDLE)
+    {
+        sound_device.codec_ops.poweron();
+        sound_set_mixer(sound_settings_ctx);
+    }
 }
 
 struct sound_dev *sound_get_device()
