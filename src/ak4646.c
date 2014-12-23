@@ -310,11 +310,6 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
                 source = SOUND_SOURCE_INT_MIC;
             }
         }
-        else
-        {
-                NotifyBox(2000, "Audio source: AUTO? %d", source);
-        }
-        
         
         switch(source)
         {
