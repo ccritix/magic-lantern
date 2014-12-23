@@ -822,8 +822,7 @@ PROP_HANDLER(PROP_MIC_INSERTED)
     /* reconfigure audio mixer as mic configuration has changed */
     if(sound_device.state != SOUND_STATE_IDLE)
     {
-        sound_device.codec_ops.poweron();
-        sound_set_mixer(sound_settings_ctx);
+        sound_set_mixer(sound_device.current_ctx);
     }
 }
 
@@ -834,8 +833,7 @@ PROP_HANDLER(PROP_HEADPHONE_PHYSICAL_CONNECT)
     /* reconfigure audio mixer as mic configuration has changed */
     if(sound_device.state != SOUND_STATE_IDLE)
     {
-        sound_device.codec_ops.poweron();
-        sound_set_mixer(sound_settings_ctx);
+        sound_set_mixer(sound_device.current_ctx);
     }
 }
 

@@ -13,6 +13,10 @@
 static struct ak4646_cache_entry ak4646_cached_registers[AK4646_REGS];
 static uint32_t ak4646_need_rewrite = 0;
 
+/* remember the last jack states */
+static enum sound_jack last_mic_jack = -1;
+static enum sound_jack last_headphone_jack = -1;
+
 static const char *ak4646_src_names[] = { "Default", "Off", "Auto", "Int.Mic", "Ext.Mic", "HDMI", "L.int R.ext", "L.int R.bal" };
 static const char *ak4646_dst_names[] = { "Default", "Off", "Auto", "Speaker", "Line Out", "A/V", "HDMI", "Spk+LineOut", "Spk+A/V" };
 
@@ -267,50 +271,58 @@ static const char *ak4646_op_get_source_name(enum sound_source line)
 
 static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct sound_mixer *next)
 {
-    if(prev->speaker_gain != next->speaker_gain || ak4646_need_rewrite)
+    /* prepare autodetection of in/out lines */
+    enum sound_source source = next->source_line;
+    enum sound_destination dest = next->destination_line;
+    enum sound_jack mic_jack = sound_get_device()->mic_jack;
+    enum sound_jack headphone_jack = sound_get_device()->headphone_jack;
+
+    /* detect if input line connections have changed */
+    if(source == SOUND_SOURCE_AUTO)
     {
-        ak4646_set_out_vol(COERCE(next->speaker_gain * 0xF1 / 100, 0, 0xF1));
-    }
-    
-    if(prev->headphone_gain != next->headphone_gain || ak4646_need_rewrite)
-    {
-        ak4646_set_lineout_vol(COERCE(next->headphone_gain * 3 / 100, 0, 3));
-    }
-    
-    if(prev->mic_gain != next->mic_gain || ak4646_need_rewrite)
-    {
-        ak4646_set_mic_gain(COERCE(next->mic_gain * 7 / 100, 0, 7));
-    }
-    
-    if(prev->mic_power != next->mic_power || ak4646_need_rewrite)
-    {
-        ak4646_set_ext_mic_pwr(next->mic_power == SOUND_POWER_ENABLED);
-    }
-    
-    if(prev->loop_mode != next->loop_mode || ak4646_need_rewrite)
-    {
-        ak4646_set_loop(next->loop_mode == SOUND_LOOP_ENABLED);
-    }
-    
-    /* only update mic settings when playback is disabled */
-    if((prev->source_line != next->source_line) || ak4646_need_rewrite || (next->source_line == SOUND_SOURCE_AUTO))
-    {
-        enum sound_source source = next->source_line;
-        
-        if(source == SOUND_SOURCE_AUTO)
+        if(mic_jack == SOUND_JACK_INSERTED)
         {
-            if(sound_get_device()->mic_jack == SOUND_JACK_INSERTED)
-            {
-                NotifyBox(2000, "Audio source: External mic");
-                source = SOUND_SOURCE_EXT_MIC;
-            }
-            else
-            {
-                NotifyBox(2000, "Audio source: Internal mic");
-                source = SOUND_SOURCE_INT_MIC;
-            }
+            source = SOUND_SOURCE_EXT_MIC;
+        }
+        else
+        {
+            source = SOUND_SOURCE_INT_MIC;
         }
         
+        if(last_mic_jack != mic_jack)
+        {
+            NotifyBox(2000, "Audio source: %s", (source == SOUND_SOURCE_EXT_MIC)?"External Mic":"Internal Mic");
+            ak4646_need_rewrite = 1;
+        }
+    }
+    
+    /* detect if input has changed */
+    if(dest == SOUND_DESTINATION_AUTO)
+    {
+        if(headphone_jack == SOUND_JACK_INSERTED)
+        {
+            dest = SOUND_DESTINATION_LINE;
+        }
+        else
+        {
+            dest = SOUND_DESTINATION_SPK;
+        }
+        
+        if(last_headphone_jack != headphone_jack)
+        {
+            NotifyBox(2000, "Audio destination: %s", (dest == SOUND_DESTINATION_LINE)?"Headphone":"Internal speaker");
+            ak4646_need_rewrite = 1;
+        }
+    }
+    
+    /* update last known states */
+    last_mic_jack = mic_jack;
+    last_headphone_jack = headphone_jack;
+    
+    
+    /* now proceed setting the parameters */
+    if((prev->source_line != next->source_line) || ak4646_need_rewrite)
+    {
         switch(source)
         {
             default:
@@ -372,23 +384,8 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
         }
     }
     
-    if(prev->destination_line != next->destination_line || ak4646_need_rewrite || (next->destination_line == SOUND_DESTINATION_AUTO))
+    if(prev->destination_line != next->destination_line || ak4646_need_rewrite)
     {
-        enum sound_destination dest = next->destination_line;
-        
-        if(dest == SOUND_DESTINATION_AUTO)
-        {
-            if(sound_get_device()->headphone_jack == SOUND_JACK_INSERTED)
-            {
-                NotifyBox(2000, "Audio destination: Headphone");
-                dest = SOUND_DESTINATION_LINE;
-            }
-            else
-            {
-                NotifyBox(2000, "Audio destination: Internal speaker");
-                dest = SOUND_DESTINATION_SPK;
-            }
-        }
         switch(dest)
         {
             default:
@@ -417,6 +414,32 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
                 ak4646_power_avline();
                 break;
         }
+    }
+    
+    /* set volumes etc after chosing lines */
+    if(prev->speaker_gain != next->speaker_gain || ak4646_need_rewrite)
+    {
+        ak4646_set_out_vol(COERCE(next->speaker_gain * 0xF1 / 100, 0, 0xF1));
+    }
+    
+    if(prev->headphone_gain != next->headphone_gain || ak4646_need_rewrite)
+    {
+        ak4646_set_lineout_vol(COERCE(next->headphone_gain * 3 / 100, 0, 3));
+    }
+    
+    if(prev->mic_gain != next->mic_gain || ak4646_need_rewrite)
+    {
+        ak4646_set_mic_gain(COERCE(next->mic_gain * 7 / 100, 0, 7));
+    }
+    
+    if(prev->mic_power != next->mic_power || ak4646_need_rewrite)
+    {
+        ak4646_set_ext_mic_pwr(next->mic_power == SOUND_POWER_ENABLED);
+    }
+    
+    if(prev->loop_mode != next->loop_mode || ak4646_need_rewrite)
+    {
+        ak4646_set_loop(next->loop_mode == SOUND_LOOP_ENABLED);
     }
     
     ak4646_need_rewrite = 0;
