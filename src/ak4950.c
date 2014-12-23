@@ -13,8 +13,8 @@
 static struct ak4950_cache_entry ak4950_cached_registers[AK4950_REGS];
 static uint32_t ak4950_need_rewrite = 0;
 
-static const char *ak4950_src_names[] = { "Default", "Off", "Int.Mic", "Ext.Mic", "HDMI", "Auto", "L.int R.ext" };
-static const char *ak4950_dst_names[] = { "Default", "Off", "Speaker", "Line Out", "A/V", "HDMI", "Spk+LineOut", "Spk+A/V" };
+static const char *ak4950_src_names[] = { "Default", "Off", "Auto", "Int.Mic", "Ext.Mic", "HDMI", "L.int R.ext" };
+static const char *ak4950_dst_names[] = { "Default", "Off", "Auto", "Speaker", "Line Out", "A/V", "HDMI", "Spk+LineOut", "Spk+A/V" };
 
 extern uint32_t sound_trace_ctx;
 

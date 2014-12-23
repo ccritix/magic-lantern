@@ -13,8 +13,8 @@
 static struct ak4646_cache_entry ak4646_cached_registers[AK4646_REGS];
 static uint32_t ak4646_need_rewrite = 0;
 
-static const char *ak4646_src_names[] = { "Default", "Off", "Int.Mic", "Ext.Mic", "HDMI", "Auto", "L.int R.ext", "L.int R.bal" };
-static const char *ak4646_dst_names[] = { "Default", "Off", "Speaker", "Line Out", "A/V", "HDMI", "Spk+LineOut", "Spk+A/V" };
+static const char *ak4646_src_names[] = { "Default", "Off", "Auto", "Int.Mic", "Ext.Mic", "HDMI", "L.int R.ext", "L.int R.bal" };
+static const char *ak4646_dst_names[] = { "Default", "Off", "Auto", "Speaker", "Line Out", "A/V", "HDMI", "Spk+LineOut", "Spk+A/V" };
 
 struct codec_ops default_codec_ops =
 {
@@ -372,9 +372,24 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
         }
     }
     
-    if(prev->destination_line != next->destination_line || ak4646_need_rewrite)
+    if(prev->destination_line != next->destination_line || ak4646_need_rewrite || (next->destination_line == SOUND_DESTINATION_AUTO))
     {
-        switch(next->destination_line)
+        enum sound_destination dest = next->destination_line;
+        
+        if(dest == SOUND_DESTINATION_AUTO)
+        {
+            if(sound_get_device()->headphone_jack == SOUND_JACK_INSERTED)
+            {
+                NotifyBox(2000, "Audio destination: Headphone");
+                dest = SOUND_DESTINATION_LINE;
+            }
+            else
+            {
+                NotifyBox(2000, "Audio destination: Internal speaker");
+                dest = SOUND_DESTINATION_SPK;
+            }
+        }
+        switch(dest)
         {
             default:
             case SOUND_DESTINATION_OFF:
