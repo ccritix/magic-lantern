@@ -1,14 +1,13 @@
+
 #include <dryos.h>
 #include <bmp.h>
 #include <math.h>
 #include <float.h>
 #include <string.h>
 #include <console.h>
-
-#include "sound.h"
-#include "ak4950.h"
-#include <module.h>
-#include "../modules/trace/trace.h"
+#include <property.h>
+#include <sound.h>
+#include <ak4950.h>
 
 /* cached registers */
 static struct ak4950_cache_entry ak4950_cached_registers[AK4950_REGS];

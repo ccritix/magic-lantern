@@ -6,8 +6,9 @@
 #include <float.h>
 #include <string.h>
 #include <module.h>
+#include <property.h>
+#include <sound.h>
 
-#include "sound.h"
 #include "../modules/trace/trace.h"
 
 /*

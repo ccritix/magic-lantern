@@ -1,15 +1,13 @@
 
-
 #include <dryos.h>
 #include <bmp.h>
 #include <math.h>
 #include <float.h>
 #include <string.h>
 #include <console.h>
-
-#include "sound.h"
-#include "property.h"
-#include "ak4646.h"
+#include <property.h>
+#include <sound.h>
+#include <ak4646.h>
 
 /* cached registers */
 static struct ak4646_cache_entry ak4646_cached_registers[AK4646_REGS];
