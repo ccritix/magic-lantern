@@ -163,6 +163,12 @@ enum sound_result
     SOUND_RESULT_TRYAGAIN = 2
 };
 
+enum sound_jack
+{
+    SOUND_JACK_OPEN       = 0,
+    SOUND_JACK_INSERTED   = 1
+};
+
 /* declare it before use */
 struct sound_ctx;
 
@@ -251,6 +257,10 @@ struct sound_dev
     struct sound_buffer *current_buffer;
     struct sound_buffer *next_buffer;
 
+    /* status of the headerphone/mic lines */
+    enum sound_jack mic_jack;
+    enum sound_jack headphone_jack;
+    
     struct msg_queue *wdg_queue;
     uint32_t max_queue_size;
     

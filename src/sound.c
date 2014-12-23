@@ -241,13 +241,17 @@ static void sound_set_mixer(struct sound_ctx *ctx)
        hard to tell from the datasheet. and setting output volume while input line was activated
        had no effect at all. 
     */
-    if(ctx->mode == SOUND_MODE_PLAYBACK)
+    struct sound_ctx *current_ctx = sound_device.current_ctx;
+    if(current_ctx)
     {
-        ctx->device->mixer_current.source_line = SOUND_SOURCE_OFF;
-    }
-    else
-    {
-        ctx->device->mixer_current.destination_line = SOUND_DESTINATION_OFF;
+        if(current_ctx->mode == SOUND_MODE_PLAYBACK)
+        {
+            current_ctx->device->mixer_current.source_line = SOUND_SOURCE_OFF;
+        }
+        else
+        {
+            current_ctx->device->mixer_current.destination_line = SOUND_DESTINATION_OFF;
+        }
     }
 
     /* settings merged, apply now */
@@ -813,6 +817,8 @@ static struct menu_entry sound_menu[] =
 
 PROP_HANDLER(PROP_MIC_INSERTED)
 {
+    sound_device.mic_jack = buf[0];
+    
     /* reconfigure audio mixer as mic configuration has changed */
     sound_set_mixer(sound_settings_ctx);
 }

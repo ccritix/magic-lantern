@@ -12,7 +12,6 @@
 /* cached registers */
 static struct ak4646_cache_entry ak4646_cached_registers[AK4646_REGS];
 static uint32_t ak4646_need_rewrite = 0;
-static int ak4646_mic_inserted = -1;
 
 static const char *ak4646_src_names[] = { "Default", "Off", "Int.Mic", "Ext.Mic", "HDMI", "Auto", "L.int R.ext", "L.int R.bal" };
 static const char *ak4646_dst_names[] = { "Default", "Off", "Speaker", "Line Out", "A/V", "HDMI", "Spk+LineOut", "Spk+A/V" };
@@ -300,7 +299,7 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
         
         if(source == SOUND_SOURCE_AUTO)
         {
-            if(ak4646_mic_inserted == 1)
+            if(sound_get_device()->mic_jack == SOUND_JACK_INSERTED)
             {
                 NotifyBox(2000, "Audio source: External mic");
                 source = SOUND_SOURCE_EXT_MIC;
@@ -311,6 +310,11 @@ static enum sound_result ak4646_op_apply_mixer(struct sound_mixer *prev, struct 
                 source = SOUND_SOURCE_INT_MIC;
             }
         }
+        else
+        {
+                NotifyBox(2000, "Audio source: AUTO? %d", source);
+        }
+        
         
         switch(source)
         {
@@ -452,11 +456,6 @@ static enum sound_result ak4646_op_poweroff()
     ak4646_need_rewrite = 1;
     
     return SOUND_RESULT_OK;
-}
-
-PROP_HANDLER(PROP_MIC_INSERTED)
-{
-    ak4646_mic_inserted = buf[0];
 }
 
 void codec_init(struct codec_ops *ops)
