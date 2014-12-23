@@ -238,6 +238,9 @@ struct sound_ctx
 
 struct sound_dev
 {
+    /* functions that the codec provides */
+    struct codec_ops codec_ops;
+    
     /* the device's current lock state, must match to 'current_ctx' content */
     enum sound_lock lock_type;
 
@@ -263,8 +266,6 @@ struct sound_dev
     
     struct msg_queue *wdg_queue;
     uint32_t max_queue_size;
-    
-    struct codec_ops codec_ops;
 };
 
 /* allocate a context for the default device */
