@@ -285,6 +285,9 @@ void sound_mixer_merge(struct sound_mixer *merged, struct sound_mixer *base, str
 void sound_free(struct sound_ctx *ctx);
 void sound_init();
 
+/* set mixer settings if sound device is being used */
+void sound_reconfigure();
+
 /* return the current active sound device */
 struct sound_dev *sound_get_device();
 

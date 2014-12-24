@@ -7,6 +7,7 @@
 #include <string.h>
 #include <module.h>
 #include <property.h>
+#include <timer.h>
 #include <sound.h>
 
 #include "../modules/trace/trace.h"
@@ -28,6 +29,7 @@ extern void SetASIFMode(int rate, signed int bits, int channels, int output);
 
 uint32_t sound_trace_ctx = TRACE_ERROR;
 static struct sound_ctx *sound_settings_ctx = NULL;
+struct msg_queue *sound_queue = NULL;
 
 static struct sound_mixer default_mixer_options =
 {
@@ -815,25 +817,65 @@ static struct menu_entry sound_menu[] =
     },
 };
 
+/* to be called from anywhere to force audio codec re-initialization */
+void sound_reconfigure()
+{
+    msg_queue_post(sound_queue, 1);
+}
+
+/* timer CBR helper for reconfiguring audio codec */
+void sound_reconfigure_cbr(int time, void *ctx)
+{
+    msg_queue_post(sound_queue, 1);
+}
+
 PROP_HANDLER(PROP_MIC_INSERTED)
 {
-    sound_device.mic_jack = buf[0];
-    
     /* reconfigure audio mixer as mic configuration has changed */
-    if(sound_device.state != SOUND_STATE_IDLE)
-    {
-        sound_set_mixer(sound_device.current_ctx);
-    }
+    sound_device.mic_jack = buf[0];
+    SetTimerAfter(500, sound_reconfigure_cbr, sound_reconfigure_cbr, NULL);
 }
 
 PROP_HANDLER(PROP_HEADPHONE_PHYSICAL_CONNECT)
 {
+    /* reconfigure audio mixer as headphone configuration has changed */
     sound_device.headphone_jack = buf[0];
-    
-    /* reconfigure audio mixer as mic configuration has changed */
-    if(sound_device.state != SOUND_STATE_IDLE)
+    SetTimerAfter(500, sound_reconfigure_cbr, sound_reconfigure_cbr, NULL);
+}
+
+void sound_task()
+{
+    TASK_LOOP
     {
-        sound_set_mixer(sound_device.current_ctx);
+        /* yet it is only an integer */
+        uint32_t msg = 0;
+
+        /* wasting a whole task only for overwriting all codec registers in case canon task 
+           has overwritten our settings. cannot call this code from timer CBRs as it seems
+           to use semaphores which are not allowed.
+           can we place that code in the ASIF callbacks?
+           but then there is a delay dependingon the size of the buffers being played.
+           also not very bright...
+        */
+        if(!msg_queue_receive(sound_queue, &msg, 1000))
+        {
+            switch(msg)
+            {
+                /* dummy, do nothing */
+                case 0:
+                    break;
+                    
+                /* reconfigure audio codec */
+                case 1:
+                    if(sound_device.state != SOUND_STATE_IDLE)
+                    {
+                        /* make sure everything gets initialized again */
+                        sound_device.codec_ops.poweron();
+                        sound_set_mixer(sound_device.current_ctx);
+                    }
+                    break;
+            }
+        }
     }
 }
 
@@ -859,6 +901,9 @@ void sound_init()
     
     sound_settings_ctx = sound_alloc();
     menu_add("Audio", sound_menu, COUNT(sound_menu) );
+
+    sound_queue = (struct msg_queue *) msg_queue_create("sound_queue", 10);
+    task_create("sound_task", 0x1A, 0x1000, sound_task, NULL);
 }
 
 
