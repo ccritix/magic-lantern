@@ -5,7 +5,6 @@
 #include <float.h>
 #include <string.h>
 #include <console.h>
-#include <property.h>
 #include <sound.h>
 #include <ak4646.h>
 
