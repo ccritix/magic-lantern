@@ -200,6 +200,7 @@ static uint32_t snd_viz_start_audio()
     
     if(snd_viz_sound_ctx->ops.start(snd_viz_sound_ctx) != SOUND_RESULT_OK)
     {
+        NotifyBox(1000, "Failed to start audio");
         trace_write(trace_ctx, "  start failed");
         return 0;
     }
@@ -392,11 +393,30 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
         float val_r = FIX_TO_FLOAT(fft_data[fft_pos].r);
         float val_i = FIX_TO_FLOAT(fft_data[fft_pos].i);
         
+        const float db_offset = -90.3; /* 20*log10(2) - 20*log10(65536) */
+        float squared = (QUAD(val_r) + QUAD(val_i)) / QUAD(windowing_constant);
+        float db_val = 10 * logf(squared) / log10_val + db_offset;
+        
+        #ifdef DEBUG_DECIBELS
+        {
+            static float db_max = -1000;
+            if (db_val >= db_max)
+            {
+                db_max = db_val;
+                /* this should print 0 dB for our reference sine wave (adjust db_offset until it does) */
+                /* which means, it will be printed as white, and all lower signals will be darker */
+                int db_x100 = (int)roundf(db_max*100);
+                bmp_printf(FONT_MED, 0, 0, "%s%d.%02d dB  ", FMT_FIXEDPOINT2(db_x100));
+            }
+        }
+        #endif
+        
         switch(snd_viz_mode)
         {
             case VIZ_MODE_FFT_BARS:
             {
-                uint32_t ampl = (uint32_t)MIN(height, sqrtf(QUAD(val_r) + QUAD(val_i)) / windowing_constant * height * 8);
+                uint32_t ampl = COERCE((db_val - snd_viz_db_min) * height / (snd_viz_db_max - snd_viz_db_min), 0, height - 1);
+                
                 int x = x_start + bmp_pos * bar_width;
                 int y = y_start + (height - ampl);
                 
@@ -406,7 +426,8 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
             
             case VIZ_MODE_FFT_LINE:
             {
-                uint32_t ampl = (uint32_t)MIN(height, sqrtf(QUAD(val_r) + QUAD(val_i)) / windowing_constant * height * 8);
+                uint32_t ampl = COERCE((db_val - snd_viz_db_min) * height / (snd_viz_db_max - snd_viz_db_min), 0, height - 1);
+                
                 int x = x_start + bmp_pos * bar_width;
                 int y = y_start + (height - ampl);
                 
@@ -421,24 +442,6 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
             
             case VIZ_MODE_WATERFALL:
             {
-                const float db_offset = -90.3; /* 20*log10(2) - 20*log10(65536) */
-                float squared = (QUAD(val_r) + QUAD(val_i)) / QUAD(windowing_constant);
-                float db_val = 10 * logf(squared) / log10_val + db_offset;
-                                
-                #ifdef DEBUG_DECIBELS
-                {
-                    static float db_max = -1000;
-                    if (db_val >= db_max)
-                    {
-                        db_max = db_val;
-                        /* this should print 0 dB for our reference sine wave (adjust db_offset until it does) */
-                        /* which means, it will be printed as white, and all lower signals will be darker */
-                        int db_x100 = (int)roundf(db_max*100);
-                        bmp_printf(FONT_MED, 0, 0, "%s%d.%02d dB  ", FMT_FIXEDPOINT2(db_x100));
-                    }
-                }
-                #endif
-                
                 /* do not overwrite the grid */
                 uint32_t x = bmp_pos;
                 if (snd_viz_waterfall[snd_viz_waterfall_pos * snd_viz_waterfall_width + x] == COLOR_BLACK)
@@ -490,22 +493,26 @@ static void snd_viz_show_fft(kiss_fft_cpx *fft_data, uint32_t fft_size, int chan
             break;
         }
     }
+}
+
+static void snd_viz_colormap(uint32_t x_start, uint32_t y_start, uint32_t width, uint32_t height)
+{
+    uint32_t y_end = y_start + height;
+    uint32_t palette_delta = snd_viz_palette_max - snd_viz_palette_min;
     
-    /* show dB colormap */
-    if (chan == 0 && is_play_mode())
+    for (uint32_t pos = 0; pos < height; pos++)
     {
-        int y_end = y_start + height * channels;
-        for (int y = y_start; y < y_end; y++)
-        {
-            float pixel_val = snd_viz_palette_min + (y_end - y) * (snd_viz_palette_max - snd_viz_palette_min) / (height * channels);
-            draw_line(550, y, 560, y, pixel_val);
-        }
+        uint32_t y = y_start + pos;
         
-        bmp_printf(FONT_MED, 565, y_start - font_med.height/2, "%ddB   ", snd_viz_db_max);
-        bmp_printf(FONT_MED, 565, y_end - font_med.height/2, "%ddB   ", snd_viz_db_min);
-        bfnt_draw_char(ICON_MAINDIAL, 565, y_start + font_med.height/2 - 10, COLOR_WHITE, COLOR_BLACK);
-        bfnt_draw_char(ICON_SUBDIAL, 565, y_end - font_med.height/2 - 40, COLOR_WHITE, COLOR_BLACK);
+        float pixel_val = snd_viz_palette_min + (float)pos * palette_delta / height;
+        draw_line(x_start, y, x_start + width, y, pixel_val);
     }
+    
+    uint32_t x_text = x_start + width + 10;
+    bmp_printf(FONT_MED, x_text, y_start - font_med.height/2, "%ddB   ", snd_viz_db_max);
+    bmp_printf(FONT_MED, x_text, y_end - font_med.height/2, "%ddB   ", snd_viz_db_min);
+    bfnt_draw_char(ICON_MAINDIAL, x_text, y_start + font_med.height/2 - 10, COLOR_WHITE, COLOR_BLACK);
+    bfnt_draw_char(ICON_SUBDIAL, x_text, y_end - font_med.height/2 - 40, COLOR_WHITE, COLOR_BLACK);
 }
 
 static void snd_viz_create_window(float *table, uint32_t entries, enum windowing_function function, float *windowing_constant)
@@ -586,6 +593,8 @@ static void snd_viz_create_window(float *table, uint32_t entries, enum windowing
 static void snd_viz_task(int unused)
 {
     int loop = 0;
+    float dc_filter = 0;
+    float dc_filter_parm = 16;
     
     if(!snd_viz_alloc_buffers())
     {
@@ -646,6 +655,7 @@ static void snd_viz_task(int unused)
             
             if(!snd_viz_palette || (loop % 20) == 0)
             {
+                trace_write(trace_ctx, "   --> snd_viz_task: setting palette");
                 snd_viz_palette_set();
                 snd_viz_palette = 1;
             }
@@ -656,21 +666,40 @@ static void snd_viz_task(int unused)
                 case VIZ_MODE_FFT_LINE:
                 case VIZ_MODE_WATERFALL:
                 {   
+                    uint32_t width = 635;
+                    uint32_t height = 400;
+                    uint32_t x_start = 10;
+                    uint32_t y_start = 50;
+                    
+                    uint32_t single_height = (height / snd_viz_sound_ctx->format.channels) - 1;
+                    
                     for(uint32_t chan = 0; chan < snd_viz_sound_ctx->format.channels; chan++)
                     {
                         /* pepare data for KISS FFT */
                         for(uint32_t pos = 0; pos < fft_size; pos++)
                         {
                             int16_t *data = (int16_t *)buffer->data;
-                            int32_t sample = data[snd_viz_sound_ctx->format.channels * pos + chan] * 65536;
+                            int16_t sample16 = data[snd_viz_sound_ctx->format.channels * pos + chan] - dc_filter;
+                            int32_t sample32 = (int32_t)((uint32_t)sample16 << 16);
+                            
+                            /* random dithering to reduce artefacts intoduced by integer conversion */
+                            if(sample16 != 0)
+                            {
+                                sample32 ^= (uint16_t)rand();
+                            }
+                            
+                            /* low pass filtering to remove DC offset */
+                            dc_filter *= dc_filter_parm;
+                            dc_filter += sample16;
+                            dc_filter /= dc_filter_parm + 1;
                             
                             #ifdef DEBUG_DECIBELS
                             /* for dB calibration, force the signal to be a undistorted full swing sine wave */
                             /* and adjust the scaling until that shows 0 dB */
-                            sample = sinf(pos) * INT_MAX;
+                            sample32 = sinf(pos) * INT_MAX;
                             #endif
                             
-                            fft_in[pos].r = sample * windowing_function[pos];
+                            fft_in[pos].r = sample32 * windowing_function[pos];
                             fft_in[pos].i = 0;
                         }
                         
@@ -678,8 +707,10 @@ static void snd_viz_task(int unused)
                         kiss_fft(cfg, fft_in, fft_out);
                         
                         /* show */
-                        snd_viz_show_fft(fft_out, fft_size, chan, snd_viz_sound_ctx->format.channels, windowing_constant, 10, 50 + chan * 400 / snd_viz_sound_ctx->format.channels, 700, 400/snd_viz_sound_ctx->format.channels - 1);
+                        snd_viz_show_fft(fft_out, fft_size, chan, snd_viz_sound_ctx->format.channels, windowing_constant, x_start, y_start + (chan * single_height), width, single_height);
                     }
+                    
+                    snd_viz_colormap(x_start + width + 5, y_start, 15, height);
                     break;
                 }
                 
@@ -721,6 +752,7 @@ static void snd_viz_task(int unused)
         {
             if(snd_viz_palette)
             {
+                trace_write(trace_ctx, "   --> snd_viz_task: resetting palette");
                 snd_viz_palette_reset();
                 snd_viz_palette = 0;
             }
@@ -785,6 +817,7 @@ static void snd_viz_stop()
 
     snd_viz_in_active = 0;
 }
+
 static MENU_SELECT_FUNC(snd_viz_test_select)
 {
     if(snd_viz_running)
