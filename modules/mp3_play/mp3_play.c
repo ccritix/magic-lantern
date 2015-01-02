@@ -32,24 +32,24 @@ struct mp3_state
     uint32_t flush;
 };
 
-typedef struct
+struct playlist_entry_t
 {
     char fullPath[MAX_PATH];
     uint32_t fileSize;
     uint32_t timestamp;
-} playlist_entry_t;
+};
 
 /* queue for playlist item submits by scanner tasks */
 static struct msg_queue *mp3_play_playlist_queue;
 static struct msg_queue *mp3_play_playlist_scan_queue;
-static playlist_entry_t *mp3_play_playlist = NULL;
+static struct playlist_entry_t *mp3_play_playlist = NULL;
 static uint32_t mp3_play_playlist_entries = 0;
 
 static char mp3_play_next_filename[MAX_PATH];
 static char mp3_play_current_filename[MAX_PATH];
-static playlist_entry_t mp3_play_playlist_next(playlist_entry_t current);
-static playlist_entry_t mp3_play_playlist_prev(playlist_entry_t current);
-static void mp3_play_playlist_delete(playlist_entry_t current);
+static struct playlist_entry_t mp3_play_playlist_next(struct playlist_entry_t current);
+static struct playlist_entry_t mp3_play_playlist_prev(struct playlist_entry_t current);
+static void mp3_play_playlist_delete(struct playlist_entry_t current);
 static void mp3_play_build_playlist(uint32_t priv);
 
 static uint32_t mp3_play_audio_started = 0;
@@ -72,7 +72,7 @@ void *mp3_play_malloc(uint32_t size)
 
 void mp3_play_free(void *ptr)
 {
-    return free(ptr);
+    free(ptr);
 }
 
 /* also used by libmad */
@@ -340,8 +340,8 @@ static void mp3_play_task(char *filename)
         else
         {
             /* try to play the next file */
-            playlist_entry_t current;
-            playlist_entry_t next;
+            struct playlist_entry_t current;
+            struct playlist_entry_t next;
             
             strncpy(current.fullPath, mp3_play_current_filename, sizeof(current.fullPath));
             next = mp3_play_playlist_next(current);
@@ -408,7 +408,7 @@ static void mp3_play_build_playlist_path(char *directory)
             
             if(!strcmp("MP3", suffix))
             {
-                playlist_entry_t *entry = malloc(sizeof(playlist_entry_t));
+                struct playlist_entry_t *entry = malloc(sizeof(struct playlist_entry_t));
                 
                 strncpy(entry->fullPath, full_path, sizeof(entry->fullPath));
                 entry->fileSize = file.size;
@@ -449,7 +449,7 @@ static void mp3_play_free_playlist()
 
 static void mp3_play_build_playlist(uint32_t priv)
 {
-    playlist_entry_t *entry = NULL;
+    struct playlist_entry_t *entry = NULL;
     
     /* clear the playlist */
     mp3_play_free_playlist();
@@ -468,7 +468,7 @@ static void mp3_play_build_playlist(uint32_t priv)
     /* pre-allocate the number of enqueued playlist items */
     uint32_t msg_count = 0;
     msg_queue_count(mp3_play_playlist_queue, &msg_count);
-    playlist_entry_t *playlist = malloc(msg_count * sizeof(playlist_entry_t));
+    struct playlist_entry_t *playlist = malloc(msg_count * sizeof(struct playlist_entry_t));
     
     /* add all items */
     while(!msg_queue_receive(mp3_play_playlist_queue, &entry, 50))
@@ -480,7 +480,7 @@ static void mp3_play_build_playlist(uint32_t priv)
     mp3_play_playlist = playlist;
 }
 
-static int32_t mp3_play_playlist_find(playlist_entry_t current)
+static int32_t mp3_play_playlist_find(struct playlist_entry_t current)
 {
     for(uint32_t pos = 0; pos < mp3_play_playlist_entries; pos++)
     {
@@ -493,21 +493,21 @@ static int32_t mp3_play_playlist_find(playlist_entry_t current)
     return -1;
 }
 
-static void mp3_play_playlist_delete(playlist_entry_t current)
+static void mp3_play_playlist_delete(struct playlist_entry_t current)
 {
     int32_t pos = mp3_play_playlist_find(current);
     
     if(pos >= 0)
     {
         uint32_t remaining = mp3_play_playlist_entries - pos - 1;
-        memcpy(&mp3_play_playlist[pos], &mp3_play_playlist[pos+1], remaining * sizeof(playlist_entry_t));
+        memcpy(&mp3_play_playlist[pos], &mp3_play_playlist[pos+1], remaining * sizeof(struct playlist_entry_t));
         mp3_play_playlist_entries--;
     }
 }
 
-static playlist_entry_t mp3_play_playlist_next(playlist_entry_t current)
+static struct playlist_entry_t mp3_play_playlist_next(struct playlist_entry_t current)
 {
-    playlist_entry_t ret;
+    struct playlist_entry_t ret;
     
     strcpy(ret.fullPath, "");
     int32_t pos = mp3_play_playlist_find(current);
@@ -520,9 +520,9 @@ static playlist_entry_t mp3_play_playlist_next(playlist_entry_t current)
     return ret;
 }
 
-static playlist_entry_t mp3_play_playlist_prev(playlist_entry_t current)
+static struct playlist_entry_t mp3_play_playlist_prev(struct playlist_entry_t current)
 {
-    playlist_entry_t ret;
+    struct playlist_entry_t ret;
     
     strcpy(ret.fullPath, "");
     int32_t pos = mp3_play_playlist_find(current);
@@ -542,8 +542,8 @@ static void mp3_play_start(char *filename)
 
 static void mp3_play_next()
 {
-    playlist_entry_t current;
-    playlist_entry_t next;
+    struct playlist_entry_t current;
+    struct playlist_entry_t next;
     
     strncpy(current.fullPath, mp3_play_current_filename, sizeof(current.fullPath));
     
@@ -558,8 +558,8 @@ static void mp3_play_next()
 
 static void mp3_play_prev()
 {
-    playlist_entry_t current;
-    playlist_entry_t next;
+    struct playlist_entry_t current;
+    struct playlist_entry_t next;
     
     strncpy(current.fullPath, mp3_play_current_filename, sizeof(current.fullPath));
     
