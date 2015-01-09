@@ -10,6 +10,7 @@
 #include <shoot.h>
 #include <zebra.h>
 #include <beep.h>
+#include "../dng/dng.h"
 
 extern WEAK_FUNC(ret_0) void display_filter_get_buffers(uint32_t** src_buf, uint32_t** dst_buf);
 
@@ -90,7 +91,11 @@ static char* silent_pic_get_name()
 
 static void silent_pic_save_dng(char* filename, struct raw_info * raw_info)
 {
-    save_dng(filename, raw_info);
+    struct dng_info * dng_info = dng_get_info(raw_info, 1);
+    int result = dng_save(filename, dng_info);
+    dng_free(dng_info);
+    
+    if(!result) bmp_printf(FONT_MED, 0, 80, "DNG save error");
 }
 
 #ifdef FEATURE_SILENT_PIC_RAW
