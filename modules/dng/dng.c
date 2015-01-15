@@ -30,8 +30,6 @@
 #include <property.h>
 #include <fps.h>
 
-//#include "kelvin.c"
-
 #include "dng_tag_codes.h"
 #include "dng_tag_types.h"
 #include "dng_tag_values.h"
@@ -154,6 +152,219 @@ static const struct cam_matrices cam_matrices[] =
     }
 };
 
+
+/*****************************************************************************************************
+ * Kelvin/Green to RGB Multipliers from UFRAW
+ *****************************************************************************************************/
+
+#define COLORS 3
+
+/* Convert between Temperature and RGB.
+ * Base on information from http://www.brucelindbloom.com/
+ * The fit for D-illuminant between 4000K and 23000K are from CIE
+ * The generalization to 2000K < T < 4000K and the blackbody fits
+ * are my own and should be taken with a grain of salt.
+ */
+static const double XYZ_to_RGB[3][3] = {
+    { 3.24071,	-0.969258,  0.0556352 },
+    { -1.53726,	1.87599,    -0.203996 },
+    { -0.498571,	0.0415557,  1.05707 }
+};
+
+static const double xyz_rgb[3][3] = {
+    { 0.412453, 0.357580, 0.180423 },
+    { 0.212671, 0.715160, 0.072169 },
+    { 0.019334, 0.119193, 0.950227 }
+};
+
+static inline void temperature_to_RGB(double T, double RGB[3])
+{
+    int c;
+    double xD, yD, X, Y, Z, max;
+    // Fit for CIE Daylight illuminant
+    if (T <= 4000)
+    {
+        xD = 0.27475e9 / (T * T * T) - 0.98598e6 / (T * T) + 1.17444e3 / T + 0.145986;
+    }
+    else if (T <= 7000)
+    {
+        xD = -4.6070e9 / (T * T * T) + 2.9678e6 / (T * T) + 0.09911e3 / T + 0.244063;
+    }
+    else
+    {
+        xD = -2.0064e9 / (T * T * T) + 1.9018e6 / (T * T) + 0.24748e3 / T + 0.237040;
+    }
+    yD = -3 * xD * xD + 2.87 * xD - 0.275;
+    
+    // Fit for Blackbody using CIE standard observer function at 2 degrees
+    //xD = -1.8596e9/(T*T*T) + 1.37686e6/(T*T) + 0.360496e3/T + 0.232632;
+    //yD = -2.6046*xD*xD + 2.6106*xD - 0.239156;
+    
+    // Fit for Blackbody using CIE standard observer function at 10 degrees
+    //xD = -1.98883e9/(T*T*T) + 1.45155e6/(T*T) + 0.364774e3/T + 0.231136;
+    //yD = -2.35563*xD*xD + 2.39688*xD - 0.196035;
+    
+    X = xD / yD;
+    Y = 1;
+    Z = (1 - xD - yD) / yD;
+    max = 0;
+    for (c = 0; c < 3; c++) {
+        RGB[c] = X * XYZ_to_RGB[0][c] + Y * XYZ_to_RGB[1][c] + Z * XYZ_to_RGB[2][c];
+        if (RGB[c] > max) max = RGB[c];
+    }
+    for (c = 0; c < 3; c++) RGB[c] = RGB[c] / max;
+}
+
+static inline void pseudoinverse (double (*in)[3], double (*out)[3], int size)
+{
+    double work[3][6], num;
+    int i, j, k;
+    
+    for (i=0; i < 3; i++) {
+        for (j=0; j < 6; j++)
+            work[i][j] = j == i+3;
+        for (j=0; j < 3; j++)
+            for (k=0; k < size; k++)
+                work[i][j] += in[k][i] * in[k][j];
+    }
+    for (i=0; i < 3; i++) {
+        num = work[i][i];
+        for (j=0; j < 6; j++)
+            work[i][j] /= num;
+        for (k=0; k < 3; k++) {
+            if (k==i) continue;
+            num = work[k][i];
+            for (j=0; j < 6; j++)
+                work[k][j] -= work[i][j] * num;
+        }
+    }
+    for (i=0; i < size; i++)
+        for (j=0; j < 3; j++)
+            for (out[i][j]=k=0; k < 3; k++)
+                out[i][j] += work[j][k+3] * in[i][k];
+}
+
+static inline void cam_xyz_coeff (double cam_xyz[4][3], float pre_mul[4], float rgb_cam[3][4])
+{
+    double cam_rgb[4][3], inverse[4][3], num;
+    int i, j, k;
+    
+    for (i=0; i < COLORS; i++)                /* Multiply out XYZ colorspace */
+        for (j=0; j < 3; j++)
+            for (cam_rgb[i][j] = k=0; k < 3; k++)
+                cam_rgb[i][j] += cam_xyz[i][k] * xyz_rgb[k][j];
+    
+    for (i=0; i < COLORS; i++) {                /* Normalize cam_rgb so that */
+        for (num=j=0; j < 3; j++)                /* cam_rgb * (1,1,1) is (1,1,1,1) */
+            num += cam_rgb[i][j];
+        for (j=0; j < 3; j++)
+            cam_rgb[i][j] /= num;
+        pre_mul[i] = 1 / num;
+    }
+    pseudoinverse (cam_rgb, inverse, COLORS);
+    for (i=0; i < 3; i++)
+        for (j=0; j < COLORS; j++)
+            rgb_cam[i][j] = inverse[j][i];
+}
+
+
+static void kelvin_green_to_multipliers(double temperature, double green, double chanMulArray[3], struct cam_matrices * cam_matrices)
+{
+    float pre_mul[4], rgb_cam[3][4];
+    double cam_xyz[4][3];
+    double rgbWB[3];
+    double cam_rgb[3][3];
+    double rgb_cam_transpose[4][3];
+    int c, cc, i, j;
+    
+    for (i = 0; i < 9; i++)
+    {
+        cam_xyz[i/3][i%3] = (double)cam_matrices->ColorMatrix2[i*2] / (double)cam_matrices->ColorMatrix2[i*2 + 1];
+    }
+    
+    for (i = 9; i < 12; i++)
+    {
+        cam_xyz[i/3][i%3] = 0;
+    }
+    
+    cam_xyz_coeff (cam_xyz, pre_mul, rgb_cam);
+    
+    for (i = 0; i < 4; i++) for (j = 0; j < 3; j++)
+    {
+        rgb_cam_transpose[i][j] = rgb_cam[j][i];
+    }
+    
+    pseudoinverse(rgb_cam_transpose, cam_rgb, 3);
+    
+    temperature_to_RGB(temperature, rgbWB);
+    rgbWB[1] = rgbWB[1] / green;
+    
+    for (c = 0; c < 3; c++)
+    {
+        double chanMulInv = 0;
+        for (cc = 0; cc < 3; cc++)
+            chanMulInv += 1 / pre_mul[c] * cam_rgb[c][cc] * rgbWB[cc];
+        chanMulArray[c] = 1 / chanMulInv;
+    }
+    
+    /* normalize green multiplier */
+    chanMulArray[0] /= chanMulArray[1];
+    chanMulArray[2] /= chanMulArray[1];
+    chanMulArray[1] = 1;
+}
+
+static void get_white_balance(struct dng_info * dng_info, int32_t *wbal, struct cam_matrices * cam_matrices)
+{
+    if(dng_info->lens_info->wb_mode == WB_CUSTOM)
+    {
+        wbal[0] = dng_info->lens_info->WBGain_R; wbal[1] = dng_info->lens_info->WBGain_G;
+        wbal[2] = dng_info->lens_info->WBGain_G; wbal[3] = dng_info->lens_info->WBGain_G;
+        wbal[4] = dng_info->lens_info->WBGain_B; wbal[5] = dng_info->lens_info->WBGain_G;
+    }
+    else
+    {
+        double kelvin = 5500;
+        double green = 1.0;
+        
+        //TODO: G/M shift, not sure how this relates to "green" parameter
+        if(dng_info->lens_info->wb_mode == WB_AUTO || dng_info->lens_info->wb_mode == WB_KELVIN)
+        {
+            kelvin = dng_info->lens_info->kelvin;
+        }
+        else if(dng_info->lens_info->wb_mode == WB_SUNNY)
+        {
+            kelvin = 5500;
+        }
+        else if(dng_info->lens_info->wb_mode == WB_SHADE)
+        {
+            kelvin = 7000;
+        }
+        else if(dng_info->lens_info->wb_mode == WB_CLOUDY)
+        {
+            kelvin = 6000;
+        }
+        else if(dng_info->lens_info->wb_mode == WB_TUNGSTEN)
+        {
+            kelvin = 3200;
+        }
+        else if(dng_info->lens_info->wb_mode == WB_FLUORESCENT)
+        {
+            kelvin = 4000;
+        }
+        else if(dng_info->lens_info->wb_mode == WB_FLASH)
+        {
+            kelvin = 5500;
+        }
+        double chanMulArray[3];
+        kelvin_green_to_multipliers(kelvin, green, chanMulArray, cam_matrices);
+        wbal[0] = 1000000; wbal[1] = (int32_t)(chanMulArray[0] * 1000000);
+        wbal[2] = 1000000; wbal[3] = (int32_t)(chanMulArray[1] * 1000000);
+        wbal[4] = 1000000; wbal[5] = (int32_t)(chanMulArray[2] * 1000000);
+    }
+}
+
+/*****************************************************************************************************/
+
 static uint16_t tiff_header[] = { byteOrderII, magicTIFF, 8, 0};
 
 struct directory_entry {
@@ -262,56 +473,6 @@ static char * format_datetime(char * datetime, size_t max_len, struct tm * tm)
     return datetime;
 }
 
-static void get_white_balance(struct dng_info * dng_info, int32_t *wbal)
-{
-    if(dng_info->lens_info->wb_mode == WB_CUSTOM)
-    {
-        wbal[0] = dng_info->lens_info->WBGain_R; wbal[1] = dng_info->lens_info->WBGain_G;
-        wbal[2] = dng_info->lens_info->WBGain_G; wbal[3] = dng_info->lens_info->WBGain_G;
-        wbal[4] = dng_info->lens_info->WBGain_B; wbal[5] = dng_info->lens_info->WBGain_G;
-    }
-    else
-    {
-        double kelvin = 5500;
-        double green = 1.0;
-        
-        //TODO: G/M shift, not sure how this relates to "green" parameter
-        if(dng_info->lens_info->wb_mode == WB_AUTO || dng_info->lens_info->wb_mode == WB_KELVIN)
-        {
-            kelvin = dng_info->lens_info->kelvin;
-        }
-        else if(dng_info->lens_info->wb_mode == WB_SUNNY)
-        {
-            kelvin = 5500;
-        }
-        else if(dng_info->lens_info->wb_mode == WB_SHADE)
-        {
-            kelvin = 7000;
-        }
-        else if(dng_info->lens_info->wb_mode == WB_CLOUDY)
-        {
-            kelvin = 6000;
-        }
-        else if(dng_info->lens_info->wb_mode == WB_TUNGSTEN)
-        {
-            kelvin = 3200;
-        }
-        else if(dng_info->lens_info->wb_mode == WB_FLUORESCENT)
-        {
-            kelvin = 4000;
-        }
-        else if(dng_info->lens_info->wb_mode == WB_FLASH)
-        {
-            kelvin = 5500;
-        }
-        double chanMulArray[3];
-        //ufraw_kelvin_green_to_multipliers(kelvin, green, chanMulArray, dng_info->camera_name);
-        wbal[0] = 1000000; wbal[1] = (int32_t)(chanMulArray[0] * 1000000);
-        wbal[2] = 1000000; wbal[3] = (int32_t)(chanMulArray[1] * 1000000);
-        wbal[4] = 1000000; wbal[5] = (int32_t)(chanMulArray[2] * 1000000);
-    }
-}
-
 size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_t header_size)
 {
     if(!header) return 0;
@@ -344,8 +505,6 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
     //number of frames since midnight
     uint64_t tc_frame = (uint64_t)dng_info->frame_number;
     
-    int32_t wbal[6];
-    get_white_balance(dng_info, wbal);
     
     struct cam_matrices matricies = cam_matrices[0];
     for(int i = 0; i < COUNT(cam_matrices); i++)
@@ -356,6 +515,9 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
             break;
         }
     }
+    
+    int32_t wbal[6];
+    get_white_balance(dng_info, wbal, &matricies);
     
     struct directory_entry IFD0[IFD0_COUNT] =
     {
