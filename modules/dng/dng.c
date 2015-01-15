@@ -604,6 +604,11 @@ int dng_save(char* filename, struct dng_info * dng_info)
     reverse_bytes_order(UNCACHEABLE(rawadr), raw_size);
     FIO_WriteFile(f, UNCACHEABLE(rawadr), raw_size);
     
+    //re-write the TIFF Header
+    //TODO: Why is this necessary? If I don't do this, I always get 0xC949 instead of 0x4949 to start the file
+    FIO_SeekSkipFile(f, 0, SEEK_SET);
+    FIO_WriteFile(f, &tiff_header, 4);
+    
     fio_free(dng_header);
     
     FIO_CloseFile(f);
