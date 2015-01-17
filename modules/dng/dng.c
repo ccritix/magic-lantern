@@ -439,10 +439,10 @@ static uint32_t add_timecode(float framerate, int drop_frame, uint64_t frame, ui
     frame = frame - (minutes * 60 * (int)framerate);
     int seconds = (int)((double)frame / framerate) % 60;
     frame = frame - (seconds * (int)framerate);
-    int frames = frame % (int)roundf(framerate);
+    int frames = frame % MAX(1,(int)roundf(framerate));
     
     buffer[*data_offset] = to_tc_byte(frames) & 0x3F;
-    if(drop_frame) buffer[0] = buffer[0] | (1 << 7); //set the drop frame bit
+    if(drop_frame) buffer[*data_offset] = buffer[*data_offset] | (1 << 7); //set the drop frame bit
     buffer[*data_offset + 1] = to_tc_byte(seconds) & 0x7F;
     buffer[*data_offset + 2] = to_tc_byte(minutes) & 0x7F;
     buffer[*data_offset + 3] = to_tc_byte(hours) & 0x3F;
@@ -765,11 +765,6 @@ int dng_save(char* filename, struct dng_info * dng_info)
     
     reverse_bytes_order(UNCACHEABLE(rawadr), raw_size);
     FIO_WriteFile(f, UNCACHEABLE(rawadr), raw_size);
-    
-    //re-write the TIFF Header
-    //TODO: Why is this necessary? If I don't do this, I always get 0xC949 instead of 0x4949 to start the file
-    FIO_SeekSkipFile(f, 0, SEEK_SET);
-    FIO_WriteFile(f, &tiff_header, 4);
     
     fio_free(dng_header);
     
