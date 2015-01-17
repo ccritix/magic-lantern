@@ -181,18 +181,21 @@ static inline void temperature_to_RGB(double T, double RGB[3])
 {
     int c;
     double xD, yD, X, Y, Z, max;
+    double T1 = T;
+    double T2 = T * T1;
+    double T3 = T1 * T2;
     // Fit for CIE Daylight illuminant
     if (T <= 4000)
     {
-        xD = 0.27475e9 / (T * T * T) - 0.98598e6 / (T * T) + 1.17444e3 / T + 0.145986;
+        xD = 0.27475e9 / (T3) - 0.98598e6 / (T2) + 1.17444e3 / T + 0.145986;
     }
     else if (T <= 7000)
     {
-        xD = -4.6070e9 / (T * T * T) + 2.9678e6 / (T * T) + 0.09911e3 / T + 0.244063;
+        xD = -4.6070e9 / (T3) + 2.9678e6 / (T2) + 0.09911e3 / T + 0.244063;
     }
     else
     {
-        xD = -2.0064e9 / (T * T * T) + 1.9018e6 / (T * T) + 0.24748e3 / T + 0.237040;
+        xD = -2.0064e9 / (T3) + 1.9018e6 / (T2) + 0.24748e3 / T + 0.237040;
     }
     yD = -3 * xD * xD + 2.87 * xD - 0.275;
     
