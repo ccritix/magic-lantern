@@ -566,7 +566,7 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
     
     struct directory_entry EXIF_IFD[EXIF_IFD_COUNT] =
     {
-        {tcExposureTime,                ttRational, RATIONAL_ENTRY2((int32_t)dng_info->shutter, 1000, header, &data_offset)},
+        {tcExposureTime,                ttRational, RATIONAL_ENTRY2((int32_t)dng_info->shutter, 1000000, header, &data_offset)},
         {tcFNumber,                     ttRational, RATIONAL_ENTRY2(dng_info->lens_info->aperture, 10, header, &data_offset)},
         {tcISOSpeedRatings,             ttShort,    1,      dng_info->lens_info->iso ? dng_info->lens_info->iso : dng_info->lens_info->iso_auto},
         {tcSensitivityType,             ttShort,    1,      stISOSpeed},
@@ -731,7 +731,7 @@ struct dng_info * dng_get_info(struct raw_info * raw_info, int use_frame_shutter
             dng_info->frame_number = 0;
             dng_info->fps_numerator = 0;
             dng_info->fps_denominator = 1;
-            dng_info->shutter = use_frame_shutter ? (int32_t)(1000000.0f / (float)get_current_shutter_reciprocal_x1000()) : raw2shutter_ms(lens_info.raw_shutter);
+            dng_info->shutter = use_frame_shutter ? (uint32_t)(1000.0f * (1000000.0f / (float)get_current_shutter_reciprocal_x1000())) : roundf(raw2shutterf(lens_info.raw_shutter) * 1000000.0f);
         }
         else
         {

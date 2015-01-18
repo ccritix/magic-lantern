@@ -26,7 +26,7 @@ struct dng_info
     char camera_name[32];
     char camera_serial[32];
     
-    int32_t shutter;
+    uint32_t shutter; /* microseconds */
     
     int32_t fps_numerator;
     int32_t fps_denominator;
