@@ -30,7 +30,7 @@
 #include <time.h>
 
 /* dng related headers */
-#include <chdk-dng.h>
+#include "../dng/dng.h"
 #include "../dual_iso/wirth.h"  /* fast median, generic implementation (also kth_smallest) */
 #include "../dual_iso/optmed.h" /* fast median for small common array sizes (3, 7, 9...) */
 
@@ -2211,19 +2211,30 @@ read_headers:
 
                             /* this is internal again */
                             chroma_smooth(chroma_smooth_method, &raw_info);
-
+                            
                             /* set MLV metadata into DNG tags */
-                            dng_set_framerate_rational(main_header.sourceFpsNom, main_header.sourceFpsDenom);
-                            dng_set_shutter(1, (int)(1000000.0f/(float)expo_info.shutterValue));
-                            dng_set_aperture(lens_info.aperture, 100);
-                            dng_set_camname((char*)idnt_info.cameraName);
-                            dng_set_description((char*)info_string);
-                            dng_set_lensmodel((char*)lens_info.lensName);
-                            dng_set_focal(lens_info.focalLength, 1);
-                            dng_set_iso(expo_info.isoValue);
-
-                            //dng_set_wbgain(1024, wbal_info.wbgain_r, 1024, wbal_info.wbgain_g, 1024, wbal_info.wbgain_b);
-
+                            struct dng_info dng_info;
+                            struct lens_info dng_lens_info;
+                            dng_info.raw_info = &raw_info;
+                            dng_info.lens_info = &dng_lens_info;
+                            
+                            dng_info.fps_numerator = main_header.sourceFpsNom;
+                            dng_info.fps_denominator = main_header.sourceFpsDenom;
+                            dng_info.shutter = (uint32_t)expo_info.shutterValue;
+                            strncpy(dng_info.camera_name, (char*)idnt_info.cameraName, 32);
+                            dng_lens_info.aperture = lens_info.aperture;
+                            strncpy(dng_lens_info.name, (char*)lens_info.lensName, 32);
+                            dng_lens_info.focal_len = lens_info.focalLength;
+                            dng_lens_info.focus_dist = lens_info.focalDist;
+                            dng_lens_info.iso = expo_info.isoValue;
+                            
+                            dng_lens_info.wb_mode = wbal_info.wb_mode;
+                            dng_lens_info.wbs_ba = wbal_info.wbs_ba;
+                            dng_lens_info.wbs_gm = wbal_info.wbs_gm;
+                            dng_lens_info.WBGain_R = wbal_info.wbgain_r;
+                            dng_lens_info.WBGain_G = wbal_info.wbgain_g;
+                            dng_lens_info.WBGain_B = wbal_info.wbgain_b;
+                            
                             /* calculate the time this frame was taken at, i.e., the start time + the current timestamp. this can be off by a second but it's better than nothing */
                             int ms = 0.5 + buf.timestamp / 1000.0;
                             int sec = ms / 1000;
@@ -2239,36 +2250,12 @@ read_headers:
                             tm.tm_wday = rtci_info.tm_wday;
                             tm.tm_yday = rtci_info.tm_yday;
                             tm.tm_isdst = rtci_info.tm_isdst;
-
-                            if(mktime(&tm) != -1)
-                            {
-                                char datetime_str[32];
-                                char subsec_str[8];
-                                strftime(datetime_str, 20, "%Y:%m:%d %H:%M:%S", &tm);
-                                snprintf(subsec_str, sizeof(subsec_str), "%03d", ms);
-                                dng_set_datetime(datetime_str, subsec_str);
-                            }
-                            else
-                            {
-                                // soemthing went wrong. let's proceed anyway
-                                print_msg(MSG_ERROR, "[W] Failed calculating the DateTime from the timestamp\n");
-                                dng_set_datetime("", "");
-                            }
-
-
-                            uint64_t serial = 0;
-                            char *end;
-                            serial = strtoull((char *)idnt_info.cameraSerial, &end, 16);
-                            if (serial && !*end)
-                            {
-                                char serial_str[64];
-
-                                sprintf(serial_str, "%"PRIu64, serial);
-                                dng_set_camserial((char*)serial_str);
-                            }
+                            dng_info.tm = &tm;
+                            
+                            strncpy(dng_info.camera_serial, (char*)idnt_info.cameraSerial, 32);
 
                             /* finally save the DNG */
-                            save_dng(frame_filename, &raw_info);
+                            dng_save(frame_filename, &dng_info);
 
                             /* callout for a saved dng file */
                             lua_call_va(lua_state, "dng_saved", "si", frame_filename, block_hdr.frameNumber);

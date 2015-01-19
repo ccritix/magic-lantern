@@ -21,6 +21,31 @@
 #ifndef _dng_h_
 #define _dng_h_
 
+#ifndef CONFIG_MAGICLANTERN
+//compile for desktop
+//subset of the ML lens_info struct definition (only fields needed by dng.c code)
+struct lens_info
+{
+    char     name[32];
+    uint32_t focal_len; // in mm
+    uint32_t focus_dist; // in cm
+    uint32_t aperture;
+    uint32_t iso;
+    uint32_t iso_auto;
+    uint32_t hyperfocal; // in mm
+    uint32_t dof_near; // in mm
+    uint32_t dof_far; // in mm
+    
+    uint32_t wb_mode;
+    uint32_t kelvin;
+    uint32_t WBGain_R;
+    uint32_t WBGain_G;
+    uint32_t WBGain_B;
+    int8_t   wbs_gm;
+    int8_t   wbs_ba;
+};
+#endif
+
 struct dng_info
 {
     char camera_name[32];
@@ -37,8 +62,11 @@ struct dng_info
     struct tm * tm;
 };
 
+#ifdef CONFIG_MAGICLANTERN
 struct dng_info * dng_get_info(struct raw_info * raw_info, int use_frame_shutter);
 void dng_free(struct dng_info * dng_info);
+#endif
+
 int dng_save(char* filename, struct dng_info * dng_info);
 
 #endif

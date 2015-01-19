@@ -18,9 +18,8 @@
  * Boston, MA  02110-1301, USA.
  */
 
-#ifndef _dng_c_
-#define _dng_c_
-
+#ifdef CONFIG_MAGICLANTERN
+//compile for in camera
 #include <module.h>
 #include <dryos.h>
 #include <string.h>
@@ -30,13 +29,48 @@
 #include <property.h>
 #include <fps.h>
 
+extern int WEAK_FUNC(ret_1) PROPAD_GetPropertyData(uint32_t property, void** addr, size_t* len);
+
+#else
+//compile for desktop
+#include "stdint.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+#include "math.h"
+#include <sys/types.h>
+#include <raw.h>
+#include <time.h>
+#define FAST
+#define UNCACHEABLE(x) (x)
+#define fio_malloc malloc
+#define fio_free free
+
+#define FIO_CreateFile(name) fopen(name, "wb")
+#define FIO_WriteFile(f, ptr, count) fwrite(ptr, 1, count, f)
+#define FIO_CloseFile(f) fclose(f)
+
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#define COERCE(x,lo,hi) MAX(MIN((x),(hi)),(lo))
+
+#define WB_AUTO 0
+#define WB_SUNNY 1
+#define WB_SHADE 8
+#define WB_CLOUDY 2
+#define WB_TUNGSTEN 3
+#define WB_FLUORESCENT 4
+#define WB_FLASH 5
+#define WB_CUSTOM 6
+#define WB_KELVIN 9
+
+#endif
+
 #include "dng_tag_codes.h"
 #include "dng_tag_types.h"
 #include "dng_tag_values.h"
 
 #include "dng.h"
-
-extern int WEAK_FUNC(ret_1) PROPAD_GetPropertyData(uint32_t property, void** addr, size_t* len);
 
 #define IFD0_COUNT 38
 #define SOFTWARE_NAME "Magic Lantern"
@@ -527,7 +561,7 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
         {tcNewSubFileType,              ttLong,     1,      sfMainImage},
         {tcImageWidth,                  ttLong,     1,      dng_info->raw_info->width},
         {tcImageLength,                 ttLong,     1,      dng_info->raw_info->height},
-        {tcBitsPerSample,               ttShort,    1,      14},
+        {tcBitsPerSample,               ttShort,    1,      dng_info->raw_info->bits_per_pixel},
         {tcCompression,                 ttShort,    1,      ccUncompressed},
         {tcPhotometricInterpretation,   ttShort,    1,      piCFA},
         {tcFillOrder,                   ttShort,    1,      1},
@@ -669,6 +703,8 @@ void FAST reverse_bytes_order(char* buf, int count)
     }
 #endif
 }
+                  
+#ifdef CONFIG_MAGICLANTERN
 
 struct dng_info * dng_get_info(struct raw_info * raw_info, int use_frame_shutter)
 {
@@ -752,6 +788,8 @@ void dng_free(struct dng_info * dng_info)
     free(dng_info);
 }
 
+#endif
+
 int dng_save(char* filename, struct dng_info * dng_info)
 {
     FILE* f = FIO_CreateFile(filename);
@@ -775,6 +813,8 @@ int dng_save(char* filename, struct dng_info * dng_info)
     return 1;
 }
 
+#ifdef CONFIG_MAGICLANTERN
+                  
 static unsigned int dng_init()
 {
     return 0;
@@ -794,3 +834,4 @@ MODULE_CBRS_START()
 MODULE_CBRS_END()
 
 #endif
+
