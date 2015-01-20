@@ -739,7 +739,7 @@ void save_index(char *base_filename, mlv_file_hdr_t *ref_file_hdr, int fileCount
     if(!out_file)
     {
         free(filename);
-        print_msg(MSG_ERROR, "Failed writing into output file\n");
+        print_msg(MSG_ERROR, "Failed writing into .IDX file\n");
         return;
     }
 
@@ -755,8 +755,13 @@ void save_index(char *base_filename, mlv_file_hdr_t *ref_file_hdr, int fileCount
     file_hdr.audioFrameCount = 0;
     file_hdr.fileNum = fileCount + 1;
 
-    fwrite(&file_hdr, sizeof(mlv_file_hdr_t), 1, out_file);
-
+    if(fwrite(&file_hdr, sizeof(mlv_file_hdr_t), 1, out_file) != 1)
+    {
+        free(filename);
+        print_msg(MSG_ERROR, "Failed writing into .IDX file\n");
+        fclose(out_file);
+        return;
+    }
 
     /* now write XREF block */
     mlv_xref_hdr_t hdr;
@@ -769,7 +774,7 @@ void save_index(char *base_filename, mlv_file_hdr_t *ref_file_hdr, int fileCount
     if(fwrite(&hdr, sizeof(mlv_xref_hdr_t), 1, out_file) != 1)
     {
         free(filename);
-        print_msg(MSG_ERROR, "Failed writing into output file\n");
+        print_msg(MSG_ERROR, "Failed writing into .IDX file\n");
         fclose(out_file);
         return;
     }
@@ -788,7 +793,7 @@ void save_index(char *base_filename, mlv_file_hdr_t *ref_file_hdr, int fileCount
         if(fwrite(&field, sizeof(mlv_xref_t), 1, out_file) != 1)
         {
             free(filename);
-            print_msg(MSG_ERROR, "Failed writing into output file\n");
+            print_msg(MSG_ERROR, "Failed writing into .IDX file\n");
             fclose(out_file);
             return;
         }
@@ -962,6 +967,7 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, " -b bits             convert image data to given bit depth per channel (1-16)\n");
     print_msg(MSG_INFO, " -z bits             zero the lowest bits, so we have only specified number of bits containing data (1-16) (improves compression rate)\n");
     print_msg(MSG_INFO, " -f frames           frames to save. e.g. '12' saves the first 12 frames, '12-40' saves frames 12 to 40.\n");
+    print_msg(MSG_INFO, " -A fpsx1000         Alter the video file's FPS metadata\n");
     print_msg(MSG_INFO, " -x                  build xref file (indexing)\n");
     print_msg(MSG_INFO, " -m                  write only metadata, no audio or video frames\n");
     print_msg(MSG_INFO, " -n                  write no metadata, only audio and video frames\n");
@@ -1018,6 +1024,7 @@ int main (int argc, char *argv[])
     int decompress_output = 0;
     int verbose = 0;
     int lzma_level = 5;
+    int alter_fps = 0;
     char opt = ' ';
 
     int video_xRes = 0;
@@ -1070,7 +1077,7 @@ int main (int argc, char *argv[])
     }
 
     int index = 0;
-    while ((opt = getopt_long(argc, argv, "F:B:L:txz:emnas:uvrcdo:l:b:f:", long_options, &index)) != -1)
+    while ((opt = getopt_long(argc, argv, "A:F:B:L:txz:emnas:uvrcdo:l:b:f:", long_options, &index)) != -1)
     {
         switch (opt)
         {
@@ -1096,6 +1103,18 @@ int main (int argc, char *argv[])
                 else
                 {
                     black_fix = MIN(16384, MAX(1, atoi(optarg)));
+                }
+                break;
+                
+            case 'A':
+                if(!optarg)
+                {
+                    print_msg(MSG_ERROR, "Error: Missing parameter FPSx1000\n");
+                    return ERR_PARAM;
+                }
+                else
+                {
+                    alter_fps = MAX(1, atoi(optarg));
                 }
                 break;
                 
@@ -1288,6 +1307,11 @@ int main (int argc, char *argv[])
     if(black_fix)
     {
         print_msg(MSG_INFO, "   - Setting black level to %d\n", black_fix);
+    }
+
+    if(alter_fps)
+    {
+        print_msg(MSG_INFO, "   - altering FPS metadata for %d/1000 fps\n", alter_fps);
     }
 
     /* special case - splitting into frames doesnt require a specific output file */
@@ -1619,6 +1643,12 @@ read_headers:
                 print_msg(MSG_INFO, "    Frames Video: %d\n", file_hdr.videoFrameCount);
                 print_msg(MSG_INFO, "    Frames Audio: %d\n", file_hdr.audioFrameCount);
             }
+            
+            if(alter_fps)
+            {
+                file_hdr.sourceFpsNom = alter_fps;
+                file_hdr.sourceFpsDenom = 1000;
+            }
 
             /* in xref mode, use every block and get its timestamp etc */
             if(xref_mode)
@@ -1673,7 +1703,7 @@ read_headers:
 
                     if(fwrite(&file_hdr, file_hdr.blockSize, 1, out_file) != 1)
                     {
-                        print_msg(MSG_ERROR, "Failed writing into output file\n");
+                        print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                         goto abort;
                     }
                 }
@@ -1683,8 +1713,8 @@ read_headers:
                 /* no, its another chunk */
                 if(main_header.fileGuid != file_hdr.fileGuid)
                 {
-                    print_msg(MSG_INFO, "Error: GUID within the file chunks mismatch!\n");
-                    break;
+                    print_msg(MSG_ERROR, "Error: GUID within the file chunks mismatch!\n");
+                    //break;
                 }
 
                 total_vidf_count += file_hdr.videoFrameCount;
@@ -1750,7 +1780,7 @@ read_headers:
                 lua_handle_hdr(lua_state, buf.blockType, &block_hdr, sizeof(block_hdr));
                 if(verbose)
                 {
-                    print_msg(MSG_INFO, "   Frame: #%d\n", block_hdr.frameNumber);
+                    print_msg(MSG_INFO, "   Frame: #%04d\n", block_hdr.frameNumber);
                     print_msg(MSG_INFO, "   Space: %d\n", block_hdr.frameSpace);
                 }
 
@@ -1787,7 +1817,13 @@ read_headers:
                     {
                         /* assume block size is uniform, this allows random access */
                         file_set_pos(out_file_wav, wav_header_size + frame_size * block_hdr.frameNumber, SEEK_SET);
-                        fwrite(buf, frame_size, 1, out_file_wav);
+                        
+                        if(fwrite(buf, frame_size, 1, out_file_wav) != 1)
+                        {
+                            print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
+                            goto abort;
+                        }
+                        
                         wav_file_size += frame_size;
                     }
                     free(buf);
@@ -1812,10 +1848,15 @@ read_headers:
 
                 if(verbose)
                 {
-                    print_msg(MSG_INFO, "   Frame: #%d\n", block_hdr.frameNumber);
+                    print_msg(MSG_INFO, "   Frame: #%04d\n", block_hdr.frameNumber);
                     print_msg(MSG_INFO, "    Crop: %dx%d\n", block_hdr.cropPosX, block_hdr.cropPosY);
                     print_msg(MSG_INFO, "     Pan: %dx%d\n", block_hdr.panPosX, block_hdr.panPosY);
                     print_msg(MSG_INFO, "   Space: %d\n", block_hdr.frameSpace);
+                }
+                
+                if(alter_fps)
+                {
+                    block_hdr.timestamp = (((uint64_t)block_hdr.frameNumber * 10000000ULL) / alter_fps) * 1000;
                 }
                 
                 uint32_t skip_block = 0;
@@ -2166,7 +2207,11 @@ read_headers:
                             lua_handle_hdr_data(lua_state, buf.blockType, "_data_write_raw", &block_hdr, sizeof(block_hdr), frame_buffer, frame_size);
 
                             file_set_pos(out_file, (uint64_t)block_hdr.frameNumber * (uint64_t)frame_size, SEEK_SET);
-                            fwrite(frame_buffer, frame_size, 1, out_file);
+                            if(fwrite(frame_buffer, frame_size, 1, out_file) != 1)
+                            {
+                                print_msg(MSG_ERROR, "Failed writing into .RAW file\n");
+                                goto abort;
+                            }
                         }
 
                         if(dng_output)
@@ -2255,7 +2300,11 @@ read_headers:
                             strncpy(dng_info.camera_serial, (char*)idnt_info.cameraSerial, 32);
 
                             /* finally save the DNG */
-                            dng_save(frame_filename, &dng_info);
+                            if(!dng_save(frame_filename, &dng_info))
+                            {
+                                print_msg(MSG_ERROR, "Failed writing into .DNG file\n");
+                                goto abort;
+                            }
 
                             /* callout for a saved dng file */
                             lua_call_va(lua_state, "dng_saved", "si", frame_filename, block_hdr.frameNumber);
@@ -2320,12 +2369,12 @@ read_headers:
 
                             if(fwrite(&block_hdr, sizeof(mlv_vidf_hdr_t), 1, out_file) != 1)
                             {
-                                print_msg(MSG_ERROR, "Failed writing into output file\n");
+                                print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                                 goto abort;
                             }
                             if(fwrite(frame_buffer, frame_size, 1, out_file) != 1)
                             {
-                                print_msg(MSG_ERROR, "Failed writing into output file\n");
+                                print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                                 goto abort;
                             }
                         }
@@ -2382,7 +2431,7 @@ read_headers:
                     lens_info.blockSize = sizeof(mlv_lens_hdr_t);
                     if(fwrite(&lens_info, lens_info.blockSize, 1, out_file) != 1)
                     {
-                        print_msg(MSG_ERROR, "Failed writing into output file\n");
+                        print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                         goto abort;
                     }
                 }
@@ -2430,13 +2479,13 @@ read_headers:
                         if(fwrite(&block_hdr, sizeof(mlv_info_hdr_t), 1, out_file) != 1)
                         {
                             free(buf);
-                            print_msg(MSG_ERROR, "Failed writing into output file\n");
+                            print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                             goto abort;
                         }
                         if(fwrite(buf, str_length, 1, out_file) != 1)
                         {
                             free(buf);
-                            print_msg(MSG_ERROR, "Failed writing into output file\n");
+                            print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                             goto abort;
                         }
                     }
@@ -2472,7 +2521,7 @@ read_headers:
                     block_hdr.blockSize = sizeof(mlv_elvl_hdr_t);
                     if(fwrite(&block_hdr, block_hdr.blockSize, 1, out_file) != 1)
                     {
-                        print_msg(MSG_ERROR, "Failed writing into output file\n");
+                        print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                         goto abort;
                     }
                 }
@@ -2508,7 +2557,7 @@ read_headers:
                     block_hdr.blockSize = sizeof(mlv_styl_hdr_t);
                     if(fwrite(&block_hdr, block_hdr.blockSize, 1, out_file) != 1)
                     {
-                        print_msg(MSG_ERROR, "Failed writing into output file\n");
+                        print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                         goto abort;
                     }
                 }
@@ -2545,7 +2594,7 @@ read_headers:
                     wbal_info.blockSize = sizeof(mlv_wbal_hdr_t);
                     if(fwrite(&wbal_info, wbal_info.blockSize, 1, out_file) != 1)
                     {
-                        print_msg(MSG_ERROR, "Failed writing into output file\n");
+                        print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                         goto abort;
                     }
                 }
@@ -2578,7 +2627,7 @@ read_headers:
                     idnt_info.blockSize = sizeof(mlv_idnt_hdr_t);
                     if(fwrite(&idnt_info, idnt_info.blockSize, 1, out_file) != 1)
                     {
-                        print_msg(MSG_ERROR, "Failed writing into output file\n");
+                        print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                         goto abort;
                     }
                 }
@@ -2614,7 +2663,7 @@ read_headers:
                     rtci_info.blockSize = sizeof(mlv_rtci_hdr_t);
                     if(fwrite(&rtci_info, rtci_info.blockSize, 1, out_file) != 1)
                     {
-                        print_msg(MSG_ERROR, "Failed writing into output file\n");
+                        print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                         goto abort;
                     }
                 }
@@ -2646,7 +2695,7 @@ read_headers:
                     block_hdr.blockSize = sizeof(mlv_mark_hdr_t);
                     if(fwrite(&block_hdr, block_hdr.blockSize, 1, out_file) != 1)
                     {
-                        print_msg(MSG_ERROR, "Failed writing into output file\n");
+                        print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                         goto abort;
                     }
                 }
@@ -2672,7 +2721,7 @@ read_headers:
                     print_msg(MSG_INFO, "     ISO:        %d\n", expo_info.isoValue);
                     print_msg(MSG_INFO, "     ISO Analog: %d\n", expo_info.isoAnalog);
                     print_msg(MSG_INFO, "     ISO DGain:  %d/1024 EV\n", expo_info.digitalGain);
-                    print_msg(MSG_INFO, "     Shutter:    %" PRIu64 " µs (1/%.2f)\n", expo_info.shutterValue, 1000000.0f/(float)expo_info.shutterValue);
+                    print_msg(MSG_INFO, "     Shutter:    %" PRIu64 " microseconds (1/%.2f)\n", expo_info.shutterValue, 1000000.0f/(float)expo_info.shutterValue);
                 }
 
                 if(mlv_output && !no_metadata_mode)
@@ -2681,7 +2730,7 @@ read_headers:
                     expo_info.blockSize = sizeof(mlv_expo_hdr_t);
                     if(fwrite(&expo_info, expo_info.blockSize, 1, out_file) != 1)
                     {
-                        print_msg(MSG_ERROR, "Failed writing into output file\n");
+                        print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                         goto abort;
                     }
                 }
@@ -2752,7 +2801,7 @@ read_headers:
 
                     if(fwrite(&block_hdr, block_hdr.blockSize, 1, out_file) != 1)
                     {
-                        print_msg(MSG_ERROR, "Failed writing into output file\n");
+                        print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                         goto abort;
                     }
                 }
@@ -2804,34 +2853,42 @@ read_headers:
                         goto abort;
                     }
 
+                    int error = 1;
+                    
                     /* Write header */
-                    fwrite("RIFF", 4, 1, out_file_wav);
+                    error &= fwrite("RIFF", 4, 1, out_file_wav);
                     tmp_uint32 = 36; // Two headers combined size, will be patched later
-                    fwrite(&tmp_uint32, 4, 1, out_file_wav);
-                    fwrite("WAVE", 4, 1, out_file_wav);
+                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
+                    error &= fwrite("WAVE", 4, 1, out_file_wav);
 
-                    fwrite("fmt ", 4, 1, out_file_wav);
+                    error &= fwrite("fmt ", 4, 1, out_file_wav);
                     tmp_uint32 = 16; // Header size
-                    fwrite(&tmp_uint32, 4, 1, out_file_wav);
+                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
                     tmp_uint16 = wavi_info.format; // PCM
-                    fwrite(&tmp_uint16, 2, 1, out_file_wav);
+                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
                     tmp_uint16 = wavi_info.channels; // Stereo
-                    fwrite(&tmp_uint16, 2, 1, out_file_wav);
+                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
                     tmp_uint32 = wavi_info.samplingRate; // Sample rate
-                    fwrite(&tmp_uint32, 4, 1, out_file_wav);
+                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
                     tmp_uint32 = wavi_info.bytesPerSecond; // Byte rate (16-bit data, stereo)
-                    fwrite(&tmp_uint32, 4, 1, out_file_wav);
+                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
                     tmp_uint16 = wavi_info.blockAlign; // Block align
-                    fwrite(&tmp_uint16, 2, 1, out_file_wav);
+                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
                     tmp_uint16 = wavi_info.bitsPerSample; // Bits per sample
-                    fwrite(&tmp_uint16, 2, 1, out_file_wav);
+                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
 
-                    fwrite("data", 4, 1, out_file_wav);
+                    error &= fwrite("data", 4, 1, out_file_wav);
                     tmp_uint32 = 0; // Audio data length, will be patched later
-                    fwrite(&tmp_uint32, 4, 1, out_file_wav);
+                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
 
                     wav_file_size = 0;
                     wav_header_size = file_get_pos(out_file_wav);
+                    
+                    if(error != 1)
+                    {
+                        print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
+                        goto abort;
+                    }
                 }
             }
             else if(!memcmp(buf.blockType, "NULL", 4))
@@ -2938,8 +2995,16 @@ abort:
         hdr.frameNumber = 0;
         hdr.timestamp = last_vidf.timestamp;
 
-        fwrite(&hdr, sizeof(mlv_vidf_hdr_t), 1, out_file);
-        fwrite(frame_buffer, frame_size, 1, out_file);
+        if(fwrite(&hdr, sizeof(mlv_vidf_hdr_t), 1, out_file) != 1)
+        {
+            print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
+            goto abort;
+        }
+        if(fwrite(frame_buffer, frame_size, 1, out_file) != 1)
+        {
+            print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
+            goto abort;
+        }
     }
 
     if(raw_output)
@@ -2948,7 +3013,11 @@ abort:
         lv_rec_footer.raw_info.bits_per_pixel = 14;
 
         file_set_pos(out_file, 0, SEEK_END);
-        fwrite(&lv_rec_footer, sizeof(lv_rec_file_footer_t), 1, out_file);
+        if(fwrite(&lv_rec_footer, sizeof(lv_rec_file_footer_t), 1, out_file) != 1)
+        {
+            print_msg(MSG_ERROR, "Failed writing into .RAW file\n");
+            goto abort;
+        }
     }
 
     if(xref_mode)
@@ -2958,6 +3027,22 @@ abort:
         save_index(input_filename, &main_header, in_file_count, frame_xref_table, frame_xref_entries);
     }
 
+    /* fix frame count */
+    if(mlv_output)
+    {
+        main_header.videoFrameCount = vidf_frames_processed;
+        main_header.audioFrameCount = audf_frames_processed;
+
+        fseek(out_file, 0L, SEEK_SET);
+        
+        if(fwrite(&main_header, main_header.blockSize, 1, out_file) != 1)
+        {
+            print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
+            goto abort;
+        }
+    }
+    
+    
     /* free list of input files */
     for(in_file_num = 0; in_file_num < in_file_count; in_file_num++)
     {
@@ -2975,11 +3060,19 @@ abort:
         /* Patch the WAV size fields */
         uint32_t tmp_uint32 = wav_file_size + 36; /* + header size */
         file_set_pos(out_file_wav, 4, SEEK_SET);
-        fwrite(&tmp_uint32, 4, 1, out_file_wav);
+        if(fwrite(&tmp_uint32, 4, 1, out_file_wav) != 1)
+        {
+            print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
+            goto abort;
+        }
 
         tmp_uint32 = wav_file_size; /* data size */
         file_set_pos(out_file_wav, 40, SEEK_SET);
-        fwrite(&tmp_uint32, 4, 1, out_file_wav);
+        if(fwrite(&tmp_uint32, 4, 1, out_file_wav) != 1)
+        {
+            print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
+            goto abort;
+        }
         fclose(out_file_wav);
     }
 
