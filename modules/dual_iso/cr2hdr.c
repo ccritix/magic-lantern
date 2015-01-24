@@ -38,8 +38,9 @@ static int is_bright[4];
 #include <unistd.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <time.h>
 #include "../../src/raw.h"
-#include "../../src/chdk-dng.h"
+#include "../dng/dng.h"
 #include "qsort.h"  /* much faster than standard C qsort */
 
 #include "wirth.h"  /* fast median, generic implementation (also kth_smallest) */
@@ -245,7 +246,9 @@ static void show_active_options()
 }
 
 /* here we only have a global raw_info */
-#define save_dng(filename) save_dng(filename, &raw_info)
+#define save_dng(filename) dng_save(filename, &dng_info)
+
+#define WB_CUSTOM 6
 
 #define FAIL(fmt,...) { fprintf(stderr, "Error: "); fprintf(stderr, fmt, ## __VA_ARGS__); fprintf(stderr, "\n"); exit(1); }
 #define CHECK(ok, fmt,...) { if (!(ok)) FAIL(fmt, ## __VA_ARGS__); }
@@ -288,6 +291,41 @@ struct raw_info raw_info = {
     .cfa_pattern = 0x02010100,          // Red  Green  Green  Blue
     .calibration_illuminant1 = 1,       // Daylight
 };
+
+static struct tm tm;
+static struct lens_info lens_info =
+{
+    .name = "",
+    .focal_len = 0,
+    .focus_dist = 0,
+    .aperture = 0,
+    .iso = 0,
+    .iso_auto = 0,
+    .hyperfocal = 0,
+    .dof_near = 0,
+    .dof_far = 0,
+    .wb_mode = 0,
+    .kelvin = 0,
+    .WBGain_R = 0,
+    .WBGain_G = 0,
+    .WBGain_B = 0,
+    .wbs_gm = 0,
+    .wbs_ba = 0,
+};
+
+static struct dng_info dng_info =
+{
+    .camera_name = "",
+    .camera_serial = "",
+    .shutter = 0,
+    .fps_numerator = 0,
+    .fps_denominator = 1,
+    .frame_number = 0,
+    .raw_info = &raw_info,
+    .lens_info = &lens_info,
+    .tm = &tm
+};
+
 
 static int hdr_check();
 static int hdr_interpolate();
@@ -488,8 +526,6 @@ int main(int argc, char** argv)
         raw_info.jpeg.y = 0;
         raw_info.jpeg.width = raw_info.width - left_margin;
         raw_info.jpeg.height = raw_info.height - top_margin;
-        
-        dng_set_thumbnail_size(384, 252);
 
         if (hdr_check())
         {
@@ -519,7 +555,10 @@ int main(int argc, char** argv)
                 read_white_balance(filename, &red_balance, &blue_balance);
                 if ((red_balance > 0) && (blue_balance > 0))
                 {
-                    dng_set_wbgain(1000000, red_balance*1000000, 1, 1, 1000000, blue_balance*1000000);
+                    dng_info.lens_info->wb_mode = WB_CUSTOM;
+                    dng_info.lens_info->WBGain_R = 1000000 / red_balance;
+                    dng_info.lens_info->WBGain_G = 1000000;
+                    dng_info.lens_info->WBGain_B = 1000000 / blue_balance;
                     printf("AsShotNeutral   : %f 1 %f\n", 1/red_balance, 1/blue_balance);
                 }
                 else
