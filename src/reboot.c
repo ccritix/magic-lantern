@@ -26,9 +26,7 @@
 
 #include "compiler.h"
 #include "consts.h"
-#include "fw-signature.h"
 
-#ifdef __ARM__
 asm(
     ".text\n"
     ".globl _start\n"
@@ -47,20 +45,6 @@ asm(
     "MSR     CPSR, R0\n"
     "B       cstart\n"
 );
-
-/** Include the relocatable shim code */
-extern uint8_t blob_start;
-extern uint8_t blob_end;
-
-asm(
-    ".text\n"
-    ".globl blob_start\n"
-    "blob_start:\n"
-    ".incbin \"magiclantern.bin\"\n"
-    "blob_end:\n"
-    ".globl blob_end\n"
-);
-#endif /* __ARM__ */
 
 static void busy_wait(int n)
 {
@@ -89,65 +73,92 @@ static void fail()
     blink(50);
 }
 
-extern int compute_signature(int* start, int num);
+/* file I/O stubs */
+static int (*boot_fileopen)(int drive, char *filename, int mode) = 0; // read=1, write=2
+static int (*boot_filewrite)(int drive, int handle, void* address, unsigned long size) = 0;
+static int (*boot_fileclose)(int drive, int handle) = 0;
+
+enum { DRIVE_CF, DRIVE_SD } boot_drive;
+enum { MODE_READ=1, MODE_WRITE=2 } boot_access_mode;
+
+#define MEM(x) *(volatile uint32_t*)(x)
+
+static void boot_dump(char* filename, uint32_t addr, int size)
+{
+    /* check whether our stubs were initialized */
+    if (!boot_fileopen) fail();
+    if (!boot_filewrite) fail();
+    if (!boot_fileclose) fail();
+    
+    int blockSize = 512;
+    int pos = 0;
+    int drive = DRIVE_SD;
+    
+    /* turn on the LED */
+    MEM(CARD_LED_ADDRESS) = (LEDON);
+
+    /* save the file */
+    int f = boot_fileopen(drive, filename, MODE_WRITE);
+    if (f != -1)
+    {
+        while ( pos < size )
+        {
+            MEM(CARD_LED_ADDRESS) = ((pos >> 16) & 1)?(LEDON):(LEDOFF);
+            
+            if(size - pos < blockSize)
+            {
+                blockSize = size - pos;
+            }
+            if(boot_filewrite(drive, f, (void*)(addr + pos), blockSize) == -1)
+            {
+                break;
+            }
+            pos += blockSize;
+        }
+        boot_fileclose(1, f);
+    }
+    else
+    {
+        fail();
+    }
+
+    /* turn off the LED */
+    MEM(CARD_LED_ADDRESS) = (LEDOFF);
+}
 
 void
 __attribute__((noreturn))
 cstart( void )
 {
+#if 0   
+    /* 550D stubs, all called from "Open file for write: %s\n" */
+    boot_fileopen  = (void*) 0xFFFF9D30;
+    boot_filewrite = (void*) 0xFFFFA140;
+    boot_fileclose = (void*) 0xFFFF9E80;
+    
+    /* 60D check */
+    if (MEM(boot_fileopen)  != 0xe92d41f0) fail();
+    if (MEM(boot_filewrite) != 0xe92d4fff) fail();
+    if (MEM(boot_fileclose) != 0xe92d41f0) fail();
+#endif
 
-    #if !(CURRENT_CAMERA_SIGNATURE)
-    #warning Signature Checking bypassed!! Please use a proper signature
-    #else
-    int s = compute_signature((int*)SIG_START, SIG_LEN);
-    int _signature = (int)CURRENT_CAMERA_SIGNATURE;
-    if (s != _signature)
-        fail();
-    #endif
+    /* 600D v1.0.2 stubs, all called from "Open file for write: %s\n" */
+    boot_fileopen  = (void*) 0xFFFF9D80;
+    boot_filewrite = (void*) 0xFFFFA190;
+    boot_fileclose = (void*) 0xFFFF9ED0;
+    
+    /* 60D check */
+    if (MEM(boot_fileopen)  != 0xe92d41f0) fail();
+    if (MEM(boot_filewrite) != 0xe92d4fff) fail();
+    if (MEM(boot_fileclose) != 0xe92d41f0) fail();
 
-#ifdef __ARM__
-    /* turn on the LED as soon as autoexec.bin is loaded (may happen without powering on) */
-    #if defined(CONFIG_40D) || defined(CONFIG_5DC)
-        *(volatile int*) (LEDBLUE) = (LEDON);
-        *(volatile int*) (LEDRED)  = (LEDON); // do we need the red too ?
-    #elif defined(CARD_LED_ADDRESS) && defined(LEDON) // A more portable way, hopefully
-        *(volatile int*) (CARD_LED_ADDRESS) = (LEDON);
-    #endif
-
-    blob_memcpy(
-        (void*) RESTARTSTART,
-        &blob_start,
-        &blob_end
-    );
-    clean_d_cache();
-    flush_caches();
-
-    #if defined(CONFIG_7D)
-        *(volatile int*)0xC0A00024 = 0x80000010; // send SSTAT for master processor, so it is in right state for rebooting
-    #endif
-
-    /* Jump into the newly relocated code
-       Q: Why target/compiler-specific attribute long_call?
-       A: If in any case the base address passed to linker (-Ttext 0x40800000) doesnt fit because we
-          e.g. run at the cached address 0x00800000, we wont risk jumping into nirvana here.
-          This will not help when the offset is oddly misplaced, like the 0x120 fir offset. Why?
-          Because the code above (blob_memcpy) already made totally wrong assumptions about memory addresses.
-
-       The name is not very inspired: it will not restart the camera, and may not copy anything.
-       Keeping it for historical reasons (to match old docs).
-       
-       This function will patch Canon's startup code from main firmware in order to run ML, reserve memory
-       for ML binary, starting from RESTARTSTART (where we already copied it), and... start it.
-       
-       Note: we can't just leave ML binary here (0x40800000), because the main firmware will reuse this area
-       sooner or later. So, we have copied it to RESTARTSTART, and will tell Canon code not to touch it
-       (usually by resizing some memory allocation pool and choosing RESTARTSTART in the newly created space).
-    */
-    void __attribute__((long_call)) (*copy_and_restart)() = (void*) RESTARTSTART;
-    copy_and_restart();
-
-#endif /* __ARM__ */
-
+    /* ROM dump */
+    boot_dump("DUMMY.BIN", 0xF8000000, 0x01000000);
+    boot_dump("ROM1.BIN", 0xF8000000, 0x01000000);
+    
+    /* signal it's finished */
+    blink(100);
+    
     // Unreachable
     while(1)
         ;
