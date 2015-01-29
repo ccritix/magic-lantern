@@ -248,8 +248,6 @@ static void show_active_options()
 /* here we only have a global raw_info */
 #define save_dng(filename) dng_save(filename, &dng_info)
 
-#define WB_CUSTOM 6
-
 #define FAIL(fmt,...) { fprintf(stderr, "Error: "); fprintf(stderr, fmt, ## __VA_ARGS__); fprintf(stderr, "\n"); exit(1); }
 #define CHECK(ok, fmt,...) { if (!(ok)) FAIL(fmt, ## __VA_ARGS__); }
 
@@ -563,6 +561,7 @@ int main(int argc, char** argv)
                 }
                 else
                 {
+                    dng_info.lens_info->wb_mode = WB_SUNNY;
                     printf("AsShotNeutral   : (using default values)\n");
                 }
 
