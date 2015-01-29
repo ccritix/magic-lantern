@@ -44,6 +44,17 @@ struct lens_info
     int8_t   wbs_gm;
     int8_t   wbs_ba;
 };
+
+#define WB_AUTO 0
+#define WB_SUNNY 1
+#define WB_SHADE 8
+#define WB_CLOUDY 2
+#define WB_TUNGSTEN 3
+#define WB_FLUORESCENT 4
+#define WB_FLASH 5
+#define WB_CUSTOM 6
+#define WB_KELVIN 9
+
 #endif
 
 struct dng_info

@@ -54,16 +54,6 @@ extern int WEAK_FUNC(ret_1) PROPAD_GetPropertyData(uint32_t property, void** add
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #define COERCE(x,lo,hi) MAX(MIN((x),(hi)),(lo))
 
-#define WB_AUTO 0
-#define WB_SUNNY 1
-#define WB_SHADE 8
-#define WB_CLOUDY 2
-#define WB_TUNGSTEN 3
-#define WB_FLUORESCENT 4
-#define WB_FLASH 5
-#define WB_CUSTOM 6
-#define WB_KELVIN 9
-
 #endif
 
 #include "dng_tag_codes.h"
