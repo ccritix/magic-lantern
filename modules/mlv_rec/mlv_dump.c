@@ -2810,7 +2810,24 @@ read_headers:
 
                     if(bit_depth)
                     {
-                        block_hdr.raw_info.bits_per_pixel = bit_depth;
+                        int new_depth = bit_depth;
+                        int old_depth = block_hdr.raw_info.bits_per_pixel;
+                        if(new_depth != old_depth)
+                        {
+                            block_hdr.raw_info.bits_per_pixel = bit_depth;
+                            //changing bit depth changes the black and white levels
+                            if(old_depth > new_depth)
+                            {
+                                block_hdr.raw_info.black_level >>= old_depth - new_depth;
+                                block_hdr.raw_info.white_level >>= old_depth - new_depth;
+                            }
+                            else
+                            {
+                                block_hdr.raw_info.black_level <<= new_depth - old_depth;
+                                block_hdr.raw_info.white_level <<= new_depth - old_depth;
+                            }
+                        }
+                        
                     }
 
                     if(fwrite(&block_hdr, block_hdr.blockSize, 1, out_file) != 1)
