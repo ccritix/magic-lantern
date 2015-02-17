@@ -205,12 +205,29 @@ reboot.o: $(SRC_DIR)/reboot.c $(PLATFORM_DIR)/version.bin magiclantern.bin
 
 ifndef ML_SRC_REBOOT_OBJ
 ML_SRC_REBOOT_OBJ = reboot.o
+ML_SRC_REBOOT_OBJ += led_dump.o
+ML_SRC_REBOOT_OBJ += sd_direct.o
+ML_SRC_REBOOT_OBJ += malloc.o
+ML_SRC_REBOOT_OBJ += ff_blk.o
+ML_SRC_REBOOT_OBJ += ff_crc.o
+ML_SRC_REBOOT_OBJ += ff_dir.o
+ML_SRC_REBOOT_OBJ += ff_error.o
+ML_SRC_REBOOT_OBJ += ff_fat.o
+ML_SRC_REBOOT_OBJ += ff_file.o
+ML_SRC_REBOOT_OBJ += ff_format.o
+ML_SRC_REBOOT_OBJ += ff_hash.o
+ML_SRC_REBOOT_OBJ += ff_ioman.o 
+ML_SRC_REBOOT_OBJ += ff_memory.o
+ML_SRC_REBOOT_OBJ += ff_safety.o
+ML_SRC_REBOOT_OBJ += ff_string.o
+ML_SRC_REBOOT_OBJ += ff_time.o
+ML_SRC_REBOOT_OBJ += ff_unicode.o
 endif
 
 clean::
 	$(call rm_files, magiclantern.bin autoexec autoexec.map location.map)
 
-autoexec: $(ML_SRC_REBOOT_OBJ)
+autoexec: $(ML_SRC_REBOOT_OBJ) $(ML_LIBC)
 	$(call build,LD,$(LD) \
 		-o $@ \
 		-e _start \
@@ -249,6 +266,16 @@ DIET_OBJ = \
 	strncpy.o \
 	strlen.o \
 	strncmp.o \
+	snprintf.o \
+	sprintf.o \
+	vsprintf.o \
+	vsnprintf.o \
+	__v_printf.o \
+	__ltostr.o \
+	isalnum.o \
+	isspace.o \
+	isspace.o \
+	isxdigit.o \
 	strcpy.o \
 	strcmp.o \
 	strcasecmp.o \
