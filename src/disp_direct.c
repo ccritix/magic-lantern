@@ -123,11 +123,14 @@ void disp_progress(uint32_t progress)
     disp_update();
 }
 
-
+/* this is hardcoded for 600D */
 void disp_init()
 {
     disp_framebuf = (uint8_t *)0x44000000;
+
+#if defined(CONFIG_600D)
     void (*fromutil_disp_init)(uint32_t) = 0xFFFF5EC8;
+#endif
     
     /* first clear, then init */
     disp_fill(COLOR_BLACK);
