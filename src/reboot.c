@@ -31,6 +31,8 @@
 
 
 #include "sd_direct.h"
+#include "disp_direct.h"
+#include "font_direct.h"
 #include "led_dump.h"
 
 #include "compiler.h"
@@ -163,20 +165,12 @@ static void boot_dump(char* filename, uint32_t addr, int size)
 
 static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
-    return sdReadBlocks(sector, count, buffer) ? FF_ERRFLAG : 0;
+    return sdReadBlocks(sector, count, buffer) ? FF_ERR_DRIVER_FATAL_ERROR : 0;
 }
 
 static unsigned long FF_blk_write(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
-    /* multi block transfers do not work well for some reason */
-    //return sdWriteBlocks(sector, count, buffer) ? FF_ERRFLAG : 0;
-    
-    uint32_t ret = 0;
-    for(uint32_t num = 0; num < count; num++)
-    {
-        ret |= sdWriteBlocks(sector + num, 1, &buffer[num * 0x200]) ? FF_ERRFLAG : 0;
-    }
-    return ret;
+    return sdWriteBlocks(sector, count, buffer) ? FF_ERR_DRIVER_FATAL_ERROR : 0;
 }
 
 void halt_blink_code(uint32_t speed, uint32_t code)
@@ -191,43 +185,13 @@ void halt_blink_code(uint32_t speed, uint32_t code)
     }
 }
 
-uint8_t *framebuf = (uint8_t *)0x44000000;
-void disp_progress(uint32_t progress)
+
+uint32_t print_line_pos = 2;
+void print_line(uint32_t color, uint32_t scale, char *txt)
 {
-    uint32_t yres = 480;
-    uint32_t xres = 720 / 2;
-    uint32_t height = 20;
+    font_draw(20, print_line_pos * 10, color, scale, txt);
     
-    if(!progress)
-    {
-        height = yres;
-    }
-    
-    for(uint32_t ypos = (yres - height) / 2; ypos < (yres + height) / 2; ypos++)
-    {
-        for(uint32_t xpos = 0; xpos < xres; xpos++)
-        {
-            uint32_t pixnum = ((ypos * xres) + xpos);
-            
-            if(xpos * 255 / xres >= progress)
-            {
-                framebuf[pixnum] = 0;
-            }
-            else
-            {
-                framebuf[pixnum] = 0x22;
-            }
-        }
-    }
-    
-    /* trigger a display update */
-    MEM(0xC0F140D0) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F140D4) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F140E0) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F140E4) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F14110) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F14114) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F14000) = 1;
+    print_line_pos += scale;
 }
 
 void fat_init()
@@ -235,29 +199,40 @@ void fat_init()
 	FF_IOMAN *ioman = NULL;
 	FF_ERROR err = FF_ERR_NONE;
     
+    print_line(COLOR_CYAN, 1, "   Initializing SD card");
+    
 	ioman = FF_CreateIOMAN(NULL, 0x4000, 0x200, &err);
     
 	if(!ioman)
     {
+        print_line(COLOR_RED, 1, "   Failed to init driver");
         halt_blink_code(10, 2);
     }
     
     if(FF_RegisterBlkDevice(ioman, 0x200, (FF_WRITE_BLOCKS) &FF_blk_write, (FF_READ_BLOCKS) &FF_blk_read, NULL))
     {
+        print_line(COLOR_RED, 1, "   Failed to register driver");
         halt_blink_code(10, 3);
     }
     
     if(FF_MountPartition(ioman, 0))
     {
+        print_line(COLOR_RED, 1, "   Failed to mount partition");
         halt_blink_code(10, 4);
     }
+    
+    print_line(COLOR_CYAN, 1, "   Mounted SD card");
+    print_line(COLOR_CYAN, 1, "   Creating dump file");
     
 	FF_FILE *file = FF_Open(ioman, "\\ROM.BIN", FF_GetModeBits("a+"), NULL);
     
 	if(!file)
     {
+        print_line(COLOR_RED, 1, "   Failed to create dump file");
         halt_blink_code(10, 5);
 	}
+    
+    print_line(COLOR_CYAN, 1, "   Dumping...");
     
     uint32_t block_size = 0x2000;
     uint32_t block_count = 0x01000000 / block_size;
@@ -274,95 +249,52 @@ void fat_init()
         
         if(!FF_Write(file, block_size, 1, (FF_T_UINT8 *) (0xF8000000 + block * block_size)))
         {
+            print_line(COLOR_RED, 1, "   Failed to write dump file");
             FF_Close(file);
             FF_UnmountPartition(ioman);
             halt_blink_code(10, 6);
         }
     }
     
+    print_line(COLOR_CYAN, 1, "   Finished, cleaning up");
 	if(FF_Close(file))
     {
+        print_line(COLOR_RED, 1, "   Failed to close dump file");
         halt_blink_code(10, 7);
 	}
     
 	if(FF_UnmountPartition(ioman))
     {
+        print_line(COLOR_RED, 1, "   Failed to unmount partition");
         halt_blink_code(10, 8);
 	}
 	
 	if(FF_DestroyIOMAN(ioman))
     {
+        print_line(COLOR_RED, 1, "   Failed to deinit driver");
         halt_blink_code(10, 9);
 	}
 }
 
 void malloc_init(void *ptr, uint32_t size);
 
-
 void
 __attribute__((noreturn))
 cstart( void )
 {
-    void (*fromutil_disp_init)(uint32_t) = 0xFFFF5EC8;
+    disp_init();
+    print_line(COLOR_CYAN, 3, " Magic Lantern Rescue");
+    print_line(COLOR_CYAN, 3, "----------------------");
     
-    
-    /* startup blink */
-    blink(50);
-    fromutil_disp_init(0);
-    
-    disp_progress(0);
-    
-#if 0
-    blink(50);
-    
-
-    
-    memcpy(framebuf, 0xF0FC0000, 0x00140000);
-    MEM(0xC0F140D0) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F140D4) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F140E0) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F140E4) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F14110) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F14114) = (uint32_t)framebuf & ~0x40000000;
-    MEM(0xC0F14000) = 1;
-
-    blink(50);
-    
-    
-    for(uint32_t variation = 0; variation < 0xFF; variation++)
-    {
-        for(uint32_t ypos = 0; ypos < yres; ypos++)
-        {
-            for(uint32_t xpos = 0; xpos < xres; xpos++)
-            {
-                uint32_t pixnum = ((ypos * xres) + xpos);
-                uint32_t pos = pixnum * 6;
-                
-                framebuf[pos + 0] = 0;
-                framebuf[pos + 1] = 0;
-                framebuf[pos + 2] = 0;
-                framebuf[pos + 3] = 0;
-                framebuf[pos + 4] = variation;
-                framebuf[pos + 5] = variation;
-            }
-        }
-        
-        /* trigger a display update */
-        MEM(0xC0F140D0) = (uint32_t)framebuf & ~0x40000000;
-        MEM(0xC0F140D4) = (uint32_t)framebuf & ~0x40000000;
-        MEM(0xC0F140E0) = (uint32_t)framebuf & ~0x40000000;
-        MEM(0xC0F140E4) = (uint32_t)framebuf & ~0x40000000;
-        MEM(0xC0F14110) = (uint32_t)framebuf & ~0x40000000;
-        MEM(0xC0F14114) = (uint32_t)framebuf & ~0x40000000;
-        MEM(0xC0F14000) = 1;
-        blink(1);
-    }
-#endif
-
-
     malloc_init((void *)0x42000000, 0x02000000);
+    
+    print_line(COLOR_CYAN, 2, "");
+    print_line(COLOR_CYAN, 2, " Action: Dumping ROM");
+    print_line(COLOR_CYAN, 1, "");
+    
     fat_init();
     
+    print_line(COLOR_CYAN, 2, " DONE!");
     
     //led_dump(0xF8000000, 0x01000000);
 
