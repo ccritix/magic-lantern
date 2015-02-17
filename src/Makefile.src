@@ -206,7 +206,9 @@ reboot.o: $(SRC_DIR)/reboot.c $(PLATFORM_DIR)/version.bin magiclantern.bin
 ifndef ML_SRC_REBOOT_OBJ
 ML_SRC_REBOOT_OBJ = reboot.o
 ML_SRC_REBOOT_OBJ += led_dump.o
+ML_SRC_REBOOT_OBJ += font_direct.o
 ML_SRC_REBOOT_OBJ += sd_direct.o
+ML_SRC_REBOOT_OBJ += disp_direct.o
 ML_SRC_REBOOT_OBJ += malloc.o
 ML_SRC_REBOOT_OBJ += ff_blk.o
 ML_SRC_REBOOT_OBJ += ff_crc.o
