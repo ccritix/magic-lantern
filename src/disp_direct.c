@@ -179,6 +179,10 @@ void disp_init()
 
 #if defined(CONFIG_600D)
     fromutil_disp_init = (void (*)(uint32_t))0xFFFF5EC8;
+#elif defined(CONFIG_60D)
+    fromutil_disp_init = (void (*)(uint32_t))0xFFFF5E94;
+#elif defined(CONFIG_5D2)
+    fromutil_disp_init = (void (*)(uint32_t))0xFFFF6AA8;
 #endif
     
     /* first clear, then init */
