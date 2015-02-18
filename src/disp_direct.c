@@ -22,8 +22,11 @@
 uint8_t *disp_framebuf = (uint8_t *)0x44000000;
 uint8_t *disp_yuvbuf = (uint8_t *)0x44800000;
 
-uint32_t disp_yres = 480;
-uint32_t disp_xres = 720;
+int disp_yres = 480;
+int disp_xres = 720;
+
+/* most cameras use YUV422, but some old models (e.g. 5D2) use YUV411 */
+enum { YUV422, YUV411 } yuv_mode;
 
 void disp_set_palette()
 {
@@ -61,6 +64,35 @@ uint32_t rgb2yuv422(int R, int G, int B)
     return UYVY_PACK(U,Y,V,Y);
 }
 
+/* low resolution, only good for smooth gradients */
+uint32_t rgb2yuv411(int R, int G, int B, uint32_t addr)
+{
+    int Y = COERCE(((217) * R + (732) * G + (73) * B) / 1024, 0, 255);
+    int U = COERCE(((-117) * R + (-394) * G + (512) * B) / 1024, -128, 127);
+    int V = COERCE(((512) * R + (-465) * G + (-46) * B) / 1024, -128, 127);
+
+    // 4 6  8 A  0 2 
+    // uYvY yYuY vYyY
+    addr = addr & ~3; // multiple of 4
+        
+    // multiples of 12, offset 0: vYyY u
+    // multiples of 12, offset 4: uYvY
+    // multiples of 12, offset 8: yYuY v
+
+    switch ((addr/4) % 3)
+    {
+        case 0:
+            return UYVY_PACK(V,Y,Y,Y);
+        case 1:
+            return UYVY_PACK(U,Y,V,Y);
+        case 2:
+            return UYVY_PACK(Y,Y,U,Y);
+    }
+    
+    /* unreachable */
+    return 0;
+}
+
 void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color)
 {
     uint32_t pixnum = ((y * disp_xres) + x) / 2;
@@ -72,6 +104,28 @@ void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color)
     else
     {
         disp_framebuf[pixnum] = (disp_framebuf[pixnum] & 0xF0) | (color & 0x0F);
+    }
+}
+
+void disp_set_rgb_pixel(uint32_t x, uint32_t y, uint32_t R, uint32_t G, uint32_t B)
+{
+    /* get linear pixel number */
+    uint32_t pixnum = ((y * disp_xres) + x);
+    
+    /* will update 32 bytes at a time */
+    /* not full resolution, but simpler, and enough for smooth gradients */
+
+    if (yuv_mode == YUV411)
+    {
+        /* 12 bytes per 8 pixels */
+        uint32_t *ptr = (uint32_t *)&disp_yuvbuf[pixnum * 12 / 8];  
+        *ptr = rgb2yuv411(R, G, B, (uint32_t)ptr);
+    }
+    else
+    {
+        /* two bytes per pixel */
+        uint32_t *ptr = (uint32_t *)&disp_yuvbuf[pixnum * 2];
+        *ptr = rgb2yuv422(R, G, B);
     }
 }
 
@@ -93,10 +147,10 @@ void disp_fill(uint32_t color)
     val |= val << 8;
     val |= val << 16;
     
-    for(uint32_t ypos = 0; ypos < disp_yres; ypos++)
+    for(int ypos = 0; ypos < disp_yres; ypos++)
     {
         /* we are writing 8 pixels at once with a 32 bit word */
-        for(uint32_t xpos = 0; xpos < disp_xres; xpos += 8)
+        for(int xpos = 0; xpos < disp_xres; xpos += 8)
         {
             /* get linear pixel number */
             uint32_t pixnum = ((ypos * disp_xres) + xpos);
@@ -108,28 +162,17 @@ void disp_fill(uint32_t color)
     }
 }
 
-void disp_fill_yuv(uint32_t color)
+void disp_fill_yuv_gradient()
 {
-    for(uint32_t ypos = 0; ypos < disp_yres; ypos++)
+    /* use signed int here, because uint32_t doesn't like "-" operator */
+    for(int ypos = 0; ypos < disp_yres; ypos++)
     {
         /* we are writing 2 pixels at once with a 32 bit word */
-        for(uint32_t xpos = 0; xpos < disp_xres; xpos += 2)
+        for(int xpos = 0; xpos < disp_xres; xpos += 2)
         {
-            /* get linear pixel number */
-            uint32_t pixnum = ((ypos * disp_xres) + xpos);
-            /* two byte per pixel */
-            uint32_t *ptr = (uint32_t *)&disp_yuvbuf[pixnum * 2];
-            
             /* ok that is making things slow.... */
-            if(color == 0xFFFFFFFF)
-            {
-                /* but we love funny patterns :) */
-                *ptr = rgb2yuv422(xpos, ypos, ABS(xpos-ypos));
-            }
-            else
-            {
-                *ptr = color;
-            }
+            /* but we love funny patterns :) */
+            disp_set_rgb_pixel(xpos, ypos, xpos/3, ypos/3, ABS(xpos-ypos)/3);
         }
     }
 }
@@ -176,6 +219,9 @@ void disp_init()
 {
     disp_framebuf = (uint8_t *)0x44000000;
     void (*fromutil_disp_init)(uint32_t) = &disp_init_dummy;
+    
+    /* BSS is not zeroed */
+    yuv_mode = YUV422;
 
 #if defined(CONFIG_600D)
     fromutil_disp_init = (void (*)(uint32_t))0xFFFF5EC8;
@@ -183,6 +229,7 @@ void disp_init()
     fromutil_disp_init = (void (*)(uint32_t))0xFFFF5E94;
 #elif defined(CONFIG_5D2)
     fromutil_disp_init = (void (*)(uint32_t))0xFFFF6AA8;
+    yuv_mode = YUV411;
 #endif
     
     /* first clear, then init */
@@ -196,8 +243,9 @@ void disp_init()
     
     /* BMP foreground is transparent */
     disp_fill(COLOR_TRANSPARENT_BLACK);
+    
     /* make a funny pattern in the YUV buffer*/
-    disp_fill_yuv(0xFFFFFFFF);
+    disp_fill_yuv_gradient();
     
     /* present new bitmap data */
     disp_update();
