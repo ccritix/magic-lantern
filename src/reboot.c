@@ -161,16 +161,62 @@ static void boot_dump(char* filename, uint32_t addr, int size)
 
 
 
+uint32_t print_line_pos = 2;
+void print_line(uint32_t color, uint32_t scale, char *txt)
+{
+    font_draw(20, print_line_pos * 10, color, scale, txt);
+    
+    print_line_pos += scale;
+}
+
+void print_err(FF_ERROR err)
+{
+    char *message = FF_GetErrMessage(err);
+    
+    if(message)
+    {
+        print_line(COLOR_RED, 1, "   Error code:");
+        print_line(COLOR_RED, 1, message);
+    }
+    else
+    {
+        char text[32];
+        
+        snprintf(text, 32, "   Error code: 0x%08X", err);
+        print_line(COLOR_RED, 1, text);
+    }
+}
+
 
 
 static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
-    return sdReadBlocks(sector, count, buffer) ? FF_ERR_DRIVER_FATAL_ERROR : 0;
+    uint32_t ret = sdReadBlocks(sector, count, buffer);
+    
+    if(ret)
+    {
+        char text[64];
+        
+        snprintf(text, 64, "   SD read error: 0x%02X, sector: 0x%08X, count: %d", ret, sector, count);
+        print_line(COLOR_RED, 1, text);
+    }
+    
+    return ret ? FF_ERR_DRIVER_FATAL_ERROR : 0;
 }
 
 static unsigned long FF_blk_write(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
-    return sdWriteBlocks(sector, count, buffer) ? FF_ERR_DRIVER_FATAL_ERROR : 0;
+    uint32_t ret = sdWriteBlocks(sector, count, buffer);
+    
+    if(ret)
+    {
+        char text[64];
+        
+        snprintf(text, 64, "   SD write error: 0x%02X, sector: 0x%08X, count: %d", ret, sector, count);
+        print_line(COLOR_RED, 1, text);
+    }
+    
+    return ret ? FF_ERR_DRIVER_FATAL_ERROR : 0;
 }
 
 void halt_blink_code(uint32_t speed, uint32_t code)
@@ -186,14 +232,6 @@ void halt_blink_code(uint32_t speed, uint32_t code)
 }
 
 
-uint32_t print_line_pos = 2;
-void print_line(uint32_t color, uint32_t scale, char *txt)
-{
-    font_draw(20, print_line_pos * 10, color, scale, txt);
-    
-    print_line_pos += scale;
-}
-
 void fat_init()
 {
 	FF_IOMAN *ioman = NULL;
@@ -202,33 +240,37 @@ void fat_init()
     print_line(COLOR_CYAN, 1, "   Initializing SD card");
     
 	ioman = FF_CreateIOMAN(NULL, 0x4000, 0x200, &err);
-    
-	if(!ioman)
+	if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to init driver");
+        print_err(err);
         halt_blink_code(10, 2);
     }
     
-    if(FF_RegisterBlkDevice(ioman, 0x200, (FF_WRITE_BLOCKS) &FF_blk_write, (FF_READ_BLOCKS) &FF_blk_read, NULL))
+    FF_RegisterBlkDevice(ioman, 0x200, (FF_WRITE_BLOCKS) &FF_blk_write, (FF_READ_BLOCKS) &FF_blk_read, &err);
+    if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to register driver");
+        print_err(err);
         halt_blink_code(10, 3);
     }
     
-    if(FF_MountPartition(ioman, 0))
+    err = FF_MountPartition(ioman, 0);
+    if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to mount partition");
+        print_err(err);
         halt_blink_code(10, 4);
     }
     
     print_line(COLOR_CYAN, 1, "   Mounted SD card");
     print_line(COLOR_CYAN, 1, "   Creating dump file");
     
-	FF_FILE *file = FF_Open(ioman, "\\ROM.BIN", FF_GetModeBits("a+"), NULL);
-    
-	if(!file)
+	FF_FILE *file = FF_Open(ioman, "\\ROM.BIN", FF_GetModeBits("w"), &err);
+	if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to create dump file");
+        print_err(err);
         halt_blink_code(10, 5);
 	}
     
@@ -237,6 +279,7 @@ void fat_init()
     uint32_t block_size = 0x2000;
     uint32_t block_count = 0x01000000 / block_size;
     uint32_t last_progress = 0;
+    
     for(uint32_t block = 0; block < block_count; block++)
     {
         uint32_t progress = block * 255 / block_count;
@@ -247,9 +290,11 @@ void fat_init()
             disp_progress(progress);
         }
         
-        if(!FF_Write(file, block_size, 1, (FF_T_UINT8 *) (0xF8000000 + block * block_size)))
+        err = FF_Write(file, block_size, 1, (FF_T_UINT8 *) (0xF8000000 + block * block_size));
+        if(err <= 0)
         {
             print_line(COLOR_RED, 1, "   Failed to write dump file");
+            print_err(err);
             FF_Close(file);
             FF_UnmountPartition(ioman);
             halt_blink_code(10, 6);
@@ -257,21 +302,28 @@ void fat_init()
     }
     
     print_line(COLOR_CYAN, 1, "   Finished, cleaning up");
-	if(FF_Close(file))
+    
+    err = FF_Close(file);
+	if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to close dump file");
+        print_err(err);
         halt_blink_code(10, 7);
 	}
     
-	if(FF_UnmountPartition(ioman))
+    err = FF_UnmountPartition(ioman);
+	if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to unmount partition");
+        print_err(err);
         halt_blink_code(10, 8);
 	}
 	
-	if(FF_DestroyIOMAN(ioman))
+    err = FF_DestroyIOMAN(ioman);
+	if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to deinit driver");
+        print_err(err);
         halt_blink_code(10, 9);
 	}
 }
@@ -294,6 +346,7 @@ cstart( void )
     
     fat_init();
     
+    print_line(COLOR_CYAN, 1, "");
     print_line(COLOR_CYAN, 2, " DONE!");
     
     //led_dump(0xF8000000, 0x01000000);

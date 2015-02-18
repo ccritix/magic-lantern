@@ -27,7 +27,7 @@ void sdWriteCmd(uint32_t cmd, uint32_t param, uint32_t flags)
 /* returns 0 on success */
 uint32_t sdWaitTransfer()
 {
-    uint32_t loops = 50000;
+    volatile uint32_t loops = 200000;
 
     while(!(MEM(0xC0C10010) & 3))
     {
@@ -48,7 +48,7 @@ uint32_t sdWaitTransfer()
 /* returns 0 on success */
 uint32_t sdWaitDmaTransfer()
 {
-    uint32_t loops = 50000;
+    volatile uint32_t loops = 200000;
 
     while(MEM(0xC0510070) & 1)
     {
@@ -77,7 +77,7 @@ void sdDmaSetup(void *buffer, uint32_t size, uint32_t write)
     /* unknown */
     MEM(0xC0510078) = 0;
     /* arm DMA */
-    MEM(0xC0510070) = 0x29 | (write ? 0x04 : 0x00) | ((((uint32_t)buffer) & 3) ? 0x00 : 0x10);
+    MEM(0xC0510070) = 0x29 | (write ? 0x04 : 0x00) | ((((uint32_t)buffer) & 0x0F) ? 0x00 : 0x10);
 }
 
 void sdTransferSetup(uint32_t block_count, uint32_t block_size, uint32_t write)
@@ -141,9 +141,13 @@ uint32_t sdTransmitBlocks(uint32_t sector, uint32_t count, uint8_t *buffer, uint
     *(volatile int*) (CARD_LED_ADDRESS) = (LEDON);
     
     /* get the RCA. could be cached */
-    sdWriteCmdWait(3, 0, 0x12);
-    uint32_t rca = (sdGetResponse() >> 16) & 0xFFFF;
-
+    static uint32_t rca = 0xFFFFFFFF;
+    
+    if(rca == 0xFFFFFFFF)
+    {
+        sdWriteCmdWait(3, 0, 0x12);
+        rca = (sdGetResponse() >> 16) & 0xFFFF;
+    }
 
     sdTransferSetup(count, 0x200, write);
     sdDmaSetup(buffer, 0x200 * count, write);

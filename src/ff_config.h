@@ -89,7 +89,7 @@
 										// However, leaving it enabled guarantees that both FATs will match, and fs checkers
 										// will not complain. (More compliant).
 
-#define FF_MIRROR_FATS_UMOUNT			// This will cause all FAT tables to be duplicated on unmount. 
+//#define FF_MIRROR_FATS_UMOUNT			// This will cause all FAT tables to be duplicated on unmount. 
 										// This is usually expensive in terms of time but will ensure that all FAT copies
 										// are consistent. (If you can guarantee an unmount operation, use this while disabling FF_WRITE_BOTH_FATS).
 
@@ -106,8 +106,8 @@
 
 //---------- FILE SPACE ALLOCATION PERFORMANCE
 										// Uncomment the prefered method. (Can only choose a single method).
-#define FF_ALLOC_DEFAULT				// Only allocate as much as is needed. (Provides good performance, without wasting space).
-//#define FF_ALLOC_DOUBLE				// Doubles the size of a file each time allocation is required. (When high-performance writing is required).
+//#define FF_ALLOC_DEFAULT				// Only allocate as much as is needed. (Provides good performance, without wasting space).
+#define FF_ALLOC_DOUBLE				// Doubles the size of a file each time allocation is required. (When high-performance writing is required).
 
 
 //---------- Use Native STDIO.h
@@ -174,7 +174,7 @@
 
 
 //---------- DEBUGGING FEATURES (HELPFUL ERROR MESSAGES)
-//#define FF_DEBUG						// Enable the Error Code string functions. const FF_T_INT8 *FF_GetErrMessage( FF_T_SINT32 iErrorCode);
+#define FF_DEBUG						// Enable the Error Code string functions. const FF_T_INT8 *FF_GetErrMessage( FF_T_SINT32 iErrorCode);
 										// Uncommenting this just stops FullFAT error strings being compiled.
 										// Further calls to FF_GetErrMessage() are safe, and simply returns a pointer to a NULL string. ("").
 										// This should be disabled to reduce code-size dramatically.
