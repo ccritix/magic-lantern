@@ -58,6 +58,21 @@ asm(
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
     "MSR     CPSR, R0\n"
     "B       cstart\n"
+    
+    /* return */
+    ".globl _vec_data_abort\n"
+    "_vec_data_abort:\n"
+    "STMFD SP!, {R0-R1}\n"
+    "ADR R0, _dat_data_abort\n"
+    "LDR R1, [R0]\n"
+    "ADD R1, R1, #1\n"
+    "STR R1, [R0]\n"
+    "LDMFD SP!, {R0-R1}\n"
+    "SUBS PC, R14, #4\n"
+
+    ".globl _dat_data_abort\n"
+    "_dat_data_abort:\n"
+    ".word 0x00000000\n"
 );
 
 static void busy_wait(int n)
@@ -160,8 +175,10 @@ static void boot_dump(char* filename, uint32_t addr, int size)
 
 
 
-
+struct sd_ctx sd_ctx;
 uint32_t print_line_pos = 2;
+
+
 void print_line(uint32_t color, uint32_t scale, char *txt)
 {
     font_draw(20, print_line_pos * 10, color, scale, txt);
@@ -191,7 +208,7 @@ void print_err(FF_ERROR err)
 
 static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
-    uint32_t ret = sdReadBlocks(sector, count, buffer);
+    uint32_t ret = sd_read(&sd_ctx, sector, count, buffer);
     
     if(ret)
     {
@@ -206,7 +223,7 @@ static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, un
 
 static unsigned long FF_blk_write(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
-    uint32_t ret = sdWriteBlocks(sector, count, buffer);
+    uint32_t ret = sd_write(&sd_ctx, sector, count, buffer);
     
     if(ret)
     {
@@ -329,12 +346,38 @@ void fat_init()
 }
 
 void malloc_init(void *ptr, uint32_t size);
+void _vec_data_abort();
+
+extern uint32_t _dat_data_abort;
+
+uint32_t data_abort_occurred()
+{
+    uint32_t ret = 0;
+    
+    if(_dat_data_abort)
+    {
+        ret = 1;
+    }
+    _dat_data_abort = 0;
+    
+    return ret;
+}
 
 void
 __attribute__((noreturn))
 cstart( void )
 {
+    /* install custom data abort handler */
+    MEM(0x00000024) = &_vec_data_abort;
+    MEM(0x00000028) = &_vec_data_abort;
+    MEM(0x0000002C) = &_vec_data_abort;
+    MEM(0x00000030) = &_vec_data_abort;
+    MEM(0x00000038) = &_vec_data_abort;
+    MEM(0x0000003C) = &_vec_data_abort;
+    
     disp_init();
+    sd_init(&sd_ctx);
+    
     print_line(COLOR_CYAN, 3, " Magic Lantern Rescue");
     print_line(COLOR_CYAN, 3, "----------------------");
     
