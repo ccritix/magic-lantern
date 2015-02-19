@@ -23,7 +23,7 @@ volatile uint32_t *sd_register(struct sd_ctx *ctx, uint32_t offset)
 
 volatile uint32_t *sd_dma_register(struct sd_ctx *ctx, uint32_t offset)
 {
-    return (uint32_t *)(0xC0500000 + (ctx->dma_port * 0x00010000) + offset);
+    return (uint32_t *)(0xC0500060 + (ctx->dma_port * 0x00010000) + offset);
 }
 
 void sd_write_cmd(struct sd_ctx *ctx, uint32_t cmd, uint32_t param, uint32_t flags)
@@ -84,7 +84,7 @@ uint32_t sd_wait_dma_transfer(struct sd_ctx *ctx)
     volatile uint32_t loops = 5000000;
 
     /* wait until DMA is finished. if the card is slow, this might take some time. but do not lock up. */
-    while(*sd_dma_register(ctx, 0x0070) & 1)
+    while(*sd_dma_register(ctx, 0x0010) & 1)
     {
         if(!loops--)
         {
@@ -119,13 +119,13 @@ uint32_t sd_write_cmd_wait(struct sd_ctx *ctx, uint32_t cmd, uint32_t param, uin
 void sd_dma_start(struct sd_ctx *ctx, void *buffer, uint32_t size, uint32_t write)
 {
     /* set DMA memory address */
-    *sd_dma_register(ctx, 0x0060) = ((uint32_t)buffer);
+    *sd_dma_register(ctx, 0x0000) = ((uint32_t)buffer);
     /* set DMA byte count */
-    *sd_dma_register(ctx, 0x0064) = size;
+    *sd_dma_register(ctx, 0x0004) = size;
     /* unknown */
-    *sd_dma_register(ctx, 0x0078) = 0;
+    *sd_dma_register(ctx, 0x0018) = 0;
     /* arm DMA */
-    *sd_dma_register(ctx, 0x0070) = 0x29 | (write ? 0x04 : 0x00) | ((((uint32_t)buffer) & 0x0F) ? 0x00 : 0x00);
+    *sd_dma_register(ctx, 0x0010) = 0x29 | (write ? 0x04 : 0x00) | ((((uint32_t)buffer) & 0x0F) ? 0x00 : 0x10);
 }
 
 void sd_transfer_setup(struct sd_ctx *ctx, uint32_t block_count, uint32_t block_size, uint32_t write)
@@ -186,11 +186,17 @@ uint32_t sd_transmit(struct sd_ctx *ctx, uint32_t sector, uint32_t count, uint8_
     /* get the RCA. could be cached */
     static uint32_t rca = 0xFFFFFFFF;
     
+#if defined(CONFIG_600D)
     rca = MEM(0x10D1B8);
+#endif
+#if defined(CONFIG_5D3)
+    rca = MEM(0x10F394);
+#endif
+    
     if(rca == 0xFFFFFFFF)
     {
-        err = sd_write_cmd_wait(ctx, 3, 0, 0x11);
-        if(err)
+        err = sd_write_cmd_wait(ctx, 3, 0, 0x13);
+        if(0&&err)
         {
             ret |= 0x10;
             ret |= err << 8;
@@ -276,18 +282,30 @@ uint32_t sd_write(struct sd_ctx *ctx, uint32_t sector, uint32_t count, uint8_t *
 
 uint32_t sd_init(struct sd_ctx *ctx)
 {
+#if defined(CONFIG_600D)
     ctx->dma_port = 1;
     ctx->sd_port = 1;
+#endif
+
+#if defined(CONFIG_5D3)
+    ctx->dma_port = 1;
+    ctx->sd_port = 1;
+    
+    /* not clean to call FROM code. but its about rescue operations, so its tolerable */
+    void (*fromutil_card_init)() = (void (*)())0xFFFE34B0;
+    fromutil_card_init();
+#endif
+    
+    /* autodetection doesnt work */    
+    return 0;
+    
+
     char text[32];
-    
-    /* set 8 bit width */
-    *sd_dma_register(ctx, 0x058) = (*sd_dma_register(ctx, 0x058) & ~0x11) | 0x10;
-    *sd_dma_register(ctx, 0x064) = (*sd_dma_register(ctx, 0x064) & ~0x0FF00011) | 0x07000010;
-    
     while(ctx->sd_port < 5)
     {
+        
         /* access either works or it causes an exception that is catched */
-        uint32_t ret = *sd_dma_register(ctx, 0x10);
+        uint32_t ret = *sd_register(ctx, 0x10);
         
         /* no module there... */
         if(data_abort_occurred())
@@ -295,6 +313,7 @@ uint32_t sd_init(struct sd_ctx *ctx)
             snprintf(text, 32, "   #%d: unused", ctx->sd_port);
             print_line(COLOR_RED, 1, text);
             ctx->sd_port++;
+            ctx->dma_port++;
             continue;
         }
         
@@ -306,6 +325,7 @@ uint32_t sd_init(struct sd_ctx *ctx)
             snprintf(text, 32, "   #%d: CMD2 fail 0x%08X", ctx->sd_port, ret);
             print_line(COLOR_RED, 1, text);
             ctx->sd_port++;
+            ctx->dma_port++;
             continue;
         }
         
