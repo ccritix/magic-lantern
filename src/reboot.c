@@ -188,7 +188,7 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
 
 void print_err(FF_ERROR err)
 {
-    char *message = FF_GetErrMessage(err);
+    char *message = (char*)FF_GetErrMessage(err);
     
     if(message)
     {
@@ -203,8 +203,6 @@ void print_err(FF_ERROR err)
         print_line(COLOR_RED, 1, text);
     }
 }
-
-
 
 static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
@@ -248,13 +246,10 @@ void halt_blink_code(uint32_t speed, uint32_t code)
     }
 }
 
-
-void fat_init()
+FF_IOMAN * fat_init()
 {
 	FF_IOMAN *ioman = NULL;
 	FF_ERROR err = FF_ERR_NONE;
-    
-    print_line(COLOR_CYAN, 1, "   Initializing SD card");
     
 	ioman = FF_CreateIOMAN(NULL, 0x4000, 0x200, &err);
 	if(err)
@@ -280,7 +275,34 @@ void fat_init()
         halt_blink_code(10, 4);
     }
     
-    print_line(COLOR_CYAN, 1, "   Mounted SD card");
+    return ioman;
+}
+
+void fat_deinit(FF_IOMAN *ioman)
+{
+	FF_ERROR err = FF_ERR_NONE;
+    
+    err = FF_UnmountPartition(ioman);
+	if(err)
+    {
+        print_line(COLOR_RED, 1, "   Failed to unmount partition");
+        print_err(err);
+        halt_blink_code(10, 8);
+	}
+	
+    err = FF_DestroyIOMAN(ioman);
+	if(err)
+    {
+        print_line(COLOR_RED, 1, "   Failed to deinit driver");
+        print_err(err);
+        halt_blink_code(10, 9);
+	}
+}
+
+void dump_rom(FF_IOMAN *ioman)
+{
+	FF_ERROR err = FF_ERR_NONE;
+    
     print_line(COLOR_CYAN, 1, "   Creating dump file");
     
 	FF_FILE *file = FF_Open(ioman, "\\ROM.BIN", FF_GetModeBits("w"), &err);
@@ -317,6 +339,7 @@ void fat_init()
             halt_blink_code(10, 6);
         }
     }
+    disp_progress(255);
     
     print_line(COLOR_CYAN, 1, "   Finished, cleaning up");
     
@@ -327,27 +350,10 @@ void fat_init()
         print_err(err);
         halt_blink_code(10, 7);
 	}
-    
-    err = FF_UnmountPartition(ioman);
-	if(err)
-    {
-        print_line(COLOR_RED, 1, "   Failed to unmount partition");
-        print_err(err);
-        halt_blink_code(10, 8);
-	}
-	
-    err = FF_DestroyIOMAN(ioman);
-	if(err)
-    {
-        print_line(COLOR_RED, 1, "   Failed to deinit driver");
-        print_err(err);
-        halt_blink_code(10, 9);
-	}
 }
 
 void malloc_init(void *ptr, uint32_t size);
 void _vec_data_abort();
-
 extern uint32_t _dat_data_abort;
 
 uint32_t data_abort_occurred()
@@ -368,29 +374,33 @@ __attribute__((noreturn))
 cstart( void )
 {
     /* install custom data abort handler */
-    MEM(0x00000024) = &_vec_data_abort;
-    MEM(0x00000028) = &_vec_data_abort;
-    MEM(0x0000002C) = &_vec_data_abort;
-    MEM(0x00000030) = &_vec_data_abort;
-    MEM(0x00000038) = &_vec_data_abort;
-    MEM(0x0000003C) = &_vec_data_abort;
+    MEM(0x00000024) = (uint32_t)&_vec_data_abort;
+    MEM(0x00000028) = (uint32_t)&_vec_data_abort;
+    MEM(0x0000002C) = (uint32_t)&_vec_data_abort;
+    MEM(0x00000030) = (uint32_t)&_vec_data_abort;
+    MEM(0x00000038) = (uint32_t)&_vec_data_abort;
+    MEM(0x0000003C) = (uint32_t)&_vec_data_abort;
     
     disp_init();
-    sd_init(&sd_ctx);
     
     print_line(COLOR_CYAN, 3, " Magic Lantern Rescue");
     print_line(COLOR_CYAN, 3, "----------------------");
     
     malloc_init((void *)0x42000000, 0x02000000);
     
-    print_line(COLOR_CYAN, 2, "");
-    print_line(COLOR_CYAN, 2, " Action: Dumping ROM");
-    print_line(COLOR_CYAN, 1, "");
+    print_line(COLOR_CYAN, 2, " - Init SD/CF");
+    sd_init(&sd_ctx);
     
-    fat_init();
+    print_line(COLOR_CYAN, 2, " - Init FAT");
+    FF_IOMAN *ioman = fat_init();
     
-    print_line(COLOR_CYAN, 1, "");
-    print_line(COLOR_CYAN, 2, " DONE!");
+    print_line(COLOR_CYAN, 2, " - Dump ROM");
+    dump_rom(ioman);
+    
+    print_line(COLOR_CYAN, 2, " - Umount FAT");
+    fat_deinit(ioman);
+    
+    print_line(COLOR_CYAN, 2, " - DONE!");
     
     //led_dump(0xF8000000, 0x01000000);
 
