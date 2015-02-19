@@ -231,6 +231,9 @@ void disp_init()
     fromutil_disp_init = (void (*)(uint32_t))0xFFFF6AA8;
     yuv_mode = YUV411;
 #endif
+#if defined(CONFIG_5D3)
+    fromutil_disp_init = (void (*)(uint32_t))0xFFFE7EC0;
+#endif
     
     /* first clear, then init */
     disp_fill(COLOR_BLACK);
