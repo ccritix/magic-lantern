@@ -38,6 +38,7 @@
 #include "compiler.h"
 #include "consts.h"
 #include "fullfat.h"
+#include "md5.h"
 
 #define MEM(x) (*(volatile uint32_t *)(x))
 
@@ -248,11 +249,11 @@ void halt_blink_code(uint32_t speed, uint32_t code)
 
 FF_IOMAN * fat_init()
 {
-	FF_IOMAN *ioman = NULL;
-	FF_ERROR err = FF_ERR_NONE;
+    FF_IOMAN *ioman = NULL;
+    FF_ERROR err = FF_ERR_NONE;
     
-	ioman = FF_CreateIOMAN(NULL, 0x4000, 0x200, &err);
-	if(err)
+    ioman = FF_CreateIOMAN(NULL, 0x4000, 0x200, &err);
+    if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to init driver");
         print_err(err);
@@ -280,38 +281,38 @@ FF_IOMAN * fat_init()
 
 void fat_deinit(FF_IOMAN *ioman)
 {
-	FF_ERROR err = FF_ERR_NONE;
+    FF_ERROR err = FF_ERR_NONE;
     
     err = FF_UnmountPartition(ioman);
-	if(err)
+    if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to unmount partition");
         print_err(err);
         halt_blink_code(10, 8);
-	}
-	
+    }
+    
     err = FF_DestroyIOMAN(ioman);
-	if(err)
+    if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to deinit driver");
         print_err(err);
         halt_blink_code(10, 9);
-	}
+    }
 }
 
 void dump_rom(FF_IOMAN *ioman)
 {
-	FF_ERROR err = FF_ERR_NONE;
+    FF_ERROR err = FF_ERR_NONE;
     
     print_line(COLOR_CYAN, 1, "   Creating dump file");
     
-	FF_FILE *file = FF_Open(ioman, "\\ROM.BIN", FF_GetModeBits("w"), &err);
-	if(err)
+    FF_FILE *file = FF_Open(ioman, "\\ROM.BIN", FF_GetModeBits("w"), &err);
+    if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to create dump file");
         print_err(err);
         halt_blink_code(10, 5);
-	}
+    }
     
     print_line(COLOR_CYAN, 1, "   Dumping...");
     
@@ -341,15 +342,49 @@ void dump_rom(FF_IOMAN *ioman)
     }
     disp_progress(255);
     
-    print_line(COLOR_CYAN, 1, "   Finished, cleaning up");
     
     err = FF_Close(file);
-	if(err)
+    if(err)
     {
         print_line(COLOR_RED, 1, "   Failed to close dump file");
         print_err(err);
         halt_blink_code(10, 7);
-	}
+    }
+    
+    print_line(COLOR_CYAN, 1, "   Building checksum file");
+    
+    unsigned char md5_output[16];
+    md5((void *)0xF8000000, 0x01000000, md5_output);
+    
+    file = FF_Open(ioman, "\\ROM.MD5", FF_GetModeBits("w"), &err);
+    if(err)
+    {
+        print_line(COLOR_RED, 1, "   Failed to create MD5 file");
+        print_err(err);
+        halt_blink_code(10, 5);
+    }
+    
+    err = FF_Write(file, 16, 1, md5_output);
+    if(err <= 0)
+    {
+        print_line(COLOR_RED, 1, "   Failed to write MD5 file");
+        print_err(err);
+        FF_Close(file);
+        FF_UnmountPartition(ioman);
+        halt_blink_code(10, 6);
+    }
+    
+    err = FF_Close(file);
+    if(err)
+    {
+        print_line(COLOR_RED, 1, "   Failed to close MD5 file");
+        print_err(err);
+        halt_blink_code(10, 7);
+    }
+    
+    print_line(COLOR_CYAN, 1, "   Finished, cleaning up");
+    
+    FF_UnmountPartition(ioman);
 }
 
 void malloc_init(void *ptr, uint32_t size);
