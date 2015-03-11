@@ -1479,7 +1479,7 @@ static void screenshot_if_needed(const char* name)
 /* main raw diagnostic task */
 static void raw_diag_task(int corr)
 {
-    if (image_review_time != 0xFF && !is_movie_mode())
+    if (image_review_time != 0xFF && !lv)
     {
         beep();
         NotifyBox(2000, "Set 'Image Review' to 'Hold' from Canon menu");
