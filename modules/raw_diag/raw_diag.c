@@ -1617,7 +1617,7 @@ static void raw_diag_run(int wait)
 /* trigger raw diagnostics after taking a picture */
 PROP_HANDLER(PROP_GUI_STATE)
 {
-    int* data = buf;
+    uint32_t* data = buf;
     if (data[0] == GUISTATE_QR)
     {
         if (raw_diag_enabled)
