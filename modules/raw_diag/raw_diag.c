@@ -47,34 +47,6 @@ static CONFIG_INT("analysis.ob_zones", analysis_ob_zones, 0);
 
 static char* cam_model;
 
-static char* get_video_mode_name()
-{
-    static char zoom_msg[12];
-    snprintf(zoom_msg, sizeof(zoom_msg), "ZOOM-X%d", lv_dispsize);
-    
-    char* video_mode = 
-        is_pure_play_photo_mode()                   ? "PLAY-PH"  :      /* Playback, reviewing a picture */
-        is_pure_play_movie_mode()                   ? "PLAY-MV"  :      /* Playback, reviewing a video */
-        is_play_mode()                              ? "PLAY-UNK" :
-        lv && lv_dispsize!=1                        ? zoom_msg   :      /* Some zoom in LiveView */
-        lv && lv_dispsize==1 && !is_movie_mode()    ? "PH-LV"    :      /* Photo LiveView */
-        !is_movie_mode() && QR_MODE                 ? "PH-QR"    :      /* Photo QuickReview (right after taking a picture) */
-        !is_movie_mode()                            ? "PH-UNK"   :
-        video_mode_resolution == 0 && !video_mode_crop && !RECORDING_H264 ? "MV-1080"  :    /* Movie 1080p, standby */
-        video_mode_resolution == 1 && !video_mode_crop && !RECORDING_H264 ? "MV-720"   :    /* Movie 720p, standby */
-        video_mode_resolution == 2 && !video_mode_crop && !RECORDING_H264 ? "MV-480"   :    /* Movie 480p, standby */
-        video_mode_resolution == 0 &&  video_mode_crop && !RECORDING_H264 ? "MVC-1080" :    /* Movie 1080p crop (3x zoom as with 600D), standby */
-        video_mode_resolution == 2 &&  video_mode_crop && !RECORDING_H264 ? "MVC-480"  :    /* Movie 480p crop (as with 550D), standby */
-        video_mode_resolution == 0 && !video_mode_crop &&  RECORDING_H264 ? "REC-1080" :    /* Movie 1080p, recording */
-        video_mode_resolution == 1 && !video_mode_crop &&  RECORDING_H264 ? "REC-720"  :    /* Movie 720p, recording */
-        video_mode_resolution == 2 && !video_mode_crop &&  RECORDING_H264 ? "REC-480"  :    /* Movie 480p, recording */
-        video_mode_resolution == 0 &&  video_mode_crop &&  RECORDING_H264 ? "RECC1080" :    /* Movie 1080p crop, recording */
-        video_mode_resolution == 2 &&  video_mode_crop &&  RECORDING_H264 ? "RECC-480" :    /* Movie 480p crop, recording */
-        "MV-UNK";
-    
-    return video_mode;
-}
-
 static int should_keep_going()
 {
     return lv || gui_state == GUISTATE_QR;
@@ -213,13 +185,13 @@ static void FAST black_histogram(int ob)
         int dr = (int)roundf((log2f(white - mean) - log2f(stdev)) * 1000.0);
         bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, "White level: %d (%d) ", white, canon_white);
         bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, font_med.height, "Dyn. range: %s%d.%03d EV ", FMT_FIXEDPOINT3(dr));
-        bmp_printf(FONT_MED, 0, font_med.height, "%s, %s, ISO %d %s "SYM_F_SLASH"%s%d.%d", cam_model, get_video_mode_name(), lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture));
+        bmp_printf(FONT_MED, 0, font_med.height, "%s, %s, ISO %d %s "SYM_F_SLASH"%s%d.%d", cam_model, get_video_mode_name(0), lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture));
     }
     else
     {
         bmp_printf(FONT_MED, 0, 0, "Entire image: mean %d, stdev %s%d.%02d ", mean_r, FMT_FIXEDPOINT2(stdev_r));
         bmp_printf(FONT_MED, 0, font_med.height, "(assuming it's a dark frame)");
-        bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, "%s, %s\nISO %d %s "SYM_F_SLASH"%s%d.%d", cam_model, get_video_mode_name(), lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture));
+        bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, "%s, %s\nISO %d %s "SYM_F_SLASH"%s%d.%d", cam_model, get_video_mode_name(0), lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture));
     }
 
     /* build a small histogram of the OB noise around the mean */
@@ -324,7 +296,7 @@ static void snr_graph_init(char* graph_name, int clear_lines, float full_well, i
         "%s, %s\n"
         "ISO %d %s "SYM_F_SLASH"%s%d.%d",
         graph_name,
-        cam_model, get_video_mode_name(),
+        cam_model, get_video_mode_name(0),
         lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
     );
 }
@@ -732,7 +704,7 @@ static void jpg_curve()
         lens_get_from_other_picstyle_contrast(i),
         ABS(lens_get_from_other_picstyle_saturation(i)) < 10 ? lens_get_from_other_picstyle_saturation(i) : 0,
         ABS(lens_get_from_other_picstyle_color_tone(i)) < 10 ? lens_get_from_other_picstyle_color_tone(i) : 0,
-        cam_model, get_video_mode_name(),
+        cam_model, get_video_mode_name(0),
         lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
     );
 
@@ -908,7 +880,7 @@ static void darkframe_fpn()
     bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, 
         "%s, %s\n"
         "  ISO %d %s "SYM_F_SLASH"%s%d.%d",
-        cam_model, get_video_mode_name(),
+        cam_model, get_video_mode_name(0),
         lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
     );
 
@@ -1023,7 +995,7 @@ static void darkframe_fpn_xcov()
     bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, 
         "%s, %s\n"
         "  ISO %d %s "SYM_F_SLASH"%s%d.%d",
-        cam_model, get_video_mode_name(),
+        cam_model, get_video_mode_name(0),
         lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
     );
 
@@ -1300,7 +1272,7 @@ static void compare_2_shots(int min_adu)
             "Normalized: %s%d.%02dEV\n"
             "Expo diff (clip): %s%d.%02dEV\n"
             "Grid from %d to %d EV.\n",
-            cam_model, get_video_mode_name(),
+            cam_model, get_video_mode_name(0),
             prev_info, info,
             (int)roundf(black_prev), white_prev,
             FMT_FIXEDPOINT2(noi_prev),
@@ -1422,7 +1394,7 @@ static void analyze_ob_zones()
         "OB zones\n"
         "%s, %s\n"
         "ISO %d %s "SYM_F_SLASH"%s%d.%d\n",
-        cam_model, get_video_mode_name(),
+        cam_model, get_video_mode_name(0),
         lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
     );
     bmp_printf(FONT(FONT_MED, COLOR_CYAN, COLOR_BLACK), x1 + 50, y1 + 50 + font_med.height*3, "Active area");
