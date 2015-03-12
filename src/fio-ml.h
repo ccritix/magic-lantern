@@ -114,7 +114,7 @@ extern uint32_t FIO_GetFileSize_direct(const char * filename);   /* todo: use ju
 
 /* returns absolute position after seeking */
 /* note: seeking past the end of a file does not work on all cameras */
-extern uint64_t FIO_SeekSkipFile( FILE* stream, uint64_t position, int whence );
+extern int64_t FIO_SeekSkipFile( FILE* stream, int64_t position, int whence );
 
 /* ML wrappers */
 extern FILE* FIO_CreateFile( const char* name );
@@ -133,5 +133,9 @@ void dump_seg(void* start, uint32_t size, char* filename);
 
 /* dump 0x10000000 bytes (256MB) from 0x10000000 * k */
 void dump_big_seg(int k, char* filename);
+
+size_t read_file( const char * filename, void * buf, size_t size);
+
+uint8_t* read_entire_file(const char * filename, int* buf_size);
 
 #endif

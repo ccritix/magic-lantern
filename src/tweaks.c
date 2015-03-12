@@ -3057,6 +3057,7 @@ void defish_draw_play()
 
     uint32_t * lvram = (uint32_t *)vram->vram;
     uint32_t * aux_buf = (void*)YUV422_HD_BUFFER_2;
+    if (!lvram) return;
 
     uint8_t * const bvram = bmp_vram();
     if (!bvram) return;

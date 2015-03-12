@@ -261,7 +261,7 @@ NSTUB(0xFF12018C, _prop_cleanup)
 NSTUB(0xFF11FB04, _prop_request_change)
 NSTUB(0xFF1200C0,  prop_deliver)
 NSTUB(0xFF11F910,  prop_register_slave)
-// NSTUB(    ???,  PROPAD_GetPropertyData)                  /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 50D.109, 5D2.212, 600D.102, 550D.109 */
+NSTUB(0xFF121774,  PROPAD_GetPropertyData)                  /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 50D.109, 5D2.212, 600D.102, 550D.109 */
 // NSTUB(    ???,  prop_unregister_slave)                   /* present on 7D.203 */
 
 /** RPC (for 7D) **/
@@ -272,9 +272,9 @@ NSTUB(0xFF11F910,  prop_register_slave)
 // NSTUB(    ???,  RequestRPC)                              /* present on 7D.203, 7D_MASTER.203 */
 
 /** Recursive locks **/
-NSTUB(0xFFA87CB8 - RAM_OFFSET,  AcquireRecursiveLock)       // AJ_KernelDry_KerRLock.c
+NSTUB(0xFFA88520 - RAM_OFFSET,  AcquireRecursiveLock)       // AJ_KernelDry_KerRLock.c
 NSTUB(0xFFA73E6C - RAM_OFFSET,  CreateRecursiveLock)
-NSTUB(0xFFA87D64 - RAM_OFFSET,  ReleaseRecursiveLock)       // AJ_KernelDry_KerRLock.c_p2
+NSTUB(0xFFA88634 - RAM_OFFSET,  ReleaseRecursiveLock)       // AJ_KernelDry_KerRLock.c_p2
 
 /** ResLock **/
 NSTUB(0xFF2C5848,  CreateResLockEntry)

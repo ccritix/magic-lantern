@@ -8,10 +8,6 @@
 #define LEDON 0x138800
 #define LEDOFF 0x838C00
 
-//~ Format dialog consts
-#define FORMAT_BTN "[Q]"
-#define STR_LOC 12
-
 #define HIJACK_CACHE_HACK
 
 #define HIJACK_ASIF_NEXT_BUFF 0xFF2AC4C8
@@ -223,6 +219,9 @@ Output size: 5496 x 3670
 
 #define DIALOG_MnCardFormatBegin (0x8888C) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
 #define DIALOG_MnCardFormatExecute (0x8DAF0) // similar
+#define FORMAT_BTN_NAME "[Q]"
+#define FORMAT_BTN BGMT_Q
+#define FORMAT_STR_LOC 12
 
 #define BULB_MIN_EXPOSURE 500
 
@@ -250,7 +249,7 @@ Output size: 5496 x 3670
 #define IMGPLAY_ZOOM_POS_DELTA_X 110 //(0x2be - 0x190)
 #define IMGPLAY_ZOOM_POS_DELTA_Y 90 //(0x1d4 - 0x150)
 
-#define BULB_EXPOSURE_CORRECTION 649 // min value for which bulb exif is OK [not tested]
+#define BULB_EXPOSURE_CORRECTION 150 // min value for which bulb exif is OK [not tested]
 
 // see http://magiclantern.wikia.com/wiki/VRAM/BMP
 #define WINSYS_BMP_DIRTY_BIT_NEG MEM(0x82B24)   //~ from string: refresh partly

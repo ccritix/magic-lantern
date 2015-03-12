@@ -10,6 +10,7 @@
 #include "menu.h"
 #include "shoot.h"
 #include "zebra.h"
+#include "raw.h"
 
 //~ #define CONFIG_DEBUGMSG 1
 
@@ -153,7 +154,7 @@ static void vram_params_update_if_dirty()
         BMP_LOCK( 
             if (vram_params_dirty)
             {
-                update_vram_params(); 
+                _update_vram_params(); 
                 vram_params_dirty = 0;
             }
         )
@@ -207,7 +208,7 @@ PROP_HANDLER(PROP_LOGICAL_CONNECT)
 
 static PROP_INT(PROP_VIDEO_SYSTEM, pal);
 
-void update_vram_params()
+void _update_vram_params()
 {
     #if CONFIG_DEBUGMSG
     if (is_menu_active("VRAM")) return;
@@ -391,6 +392,10 @@ void update_vram_params()
 //~ #endif
 
     vram_update_luts();
+    
+    #ifdef CONFIG_RAW_LIVEVIEW
+    raw_set_dirty();
+    #endif
 }
 
 
@@ -414,12 +419,37 @@ void update_vram_params()
 
 #include "bmp.h"
 
+void yuv422_buffer_check()
+{
+    if (!YUV422_LV_BUFFER_DISPLAY_ADDR)
+    {
+        /* YUV buffer might be unitialized - e.g. when you start the camera in photo mode */
+        /* Going to PLAY mode will fix it only if you have some image there */
+        /* If not... we are out of luck, no idea what to do. */
+        
+        /* This check is only needed if we want to display some YUV image created from scratch,
+         * in playback mode (e.g. mlv_play, pic_view)
+         */
+        
+        bmp_printf(FONT_MED, 50, 200, 
+            "YUV buffer was not initialized.\n"
+            "Please take a picture or go to LiveView."
+        );
+    }
+}
 
 static inline void * get_yuv422buffer(int offset)
 {
     #if defined(CONFIG_1100D) || defined(CONFIG_6D)
     return (void*)CACHEABLE(YUV422_LV_BUFFER_DISPLAY_ADDR); // Good enough
     #else
+    
+    if (YUV422_LV_BUFFER_DISPLAY_ADDR == 0)
+    {
+        /* YUV buffer not initialized, can't display anything here */
+        return 0;
+    }
+
     if (YUV422_LV_BUFFER_DISPLAY_ADDR == YUV422_LV_BUFFER_1)
        offset += 0;
     else if (YUV422_LV_BUFFER_DISPLAY_ADDR == YUV422_LV_BUFFER_2)
@@ -535,6 +565,7 @@ struct vram_info * get_yuv422_hd_vram()
 void vram_clear_lv()
 {
     struct vram_info * lv_vram = get_yuv422_vram();
+    if (!lv_vram->vram) return;
     memset(lv_vram->vram, 0, lv_vram->height * lv_vram->pitch);
 }
 
