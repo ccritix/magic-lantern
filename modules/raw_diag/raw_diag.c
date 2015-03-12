@@ -49,13 +49,14 @@ static char* cam_model;
 
 static char* get_video_mode_name()
 {
+    static char zoom_msg[12];
+    snprintf(zoom_msg, sizeof(zoom_msg), "ZOOM-X%d", lv_dispsize);
+    
     char* video_mode = 
         is_pure_play_photo_mode()                   ? "PLAY-PH"  :      /* Playback, reviewing a picture */
         is_pure_play_movie_mode()                   ? "PLAY-MV"  :      /* Playback, reviewing a video */
         is_play_mode()                              ? "PLAY-UNK" :
-        lv && lv_dispsize==5                        ? "ZOOM-X5"  :      /* Zoom x5 (it's the same in all modes) */
-        lv && lv_dispsize==10                       ? "ZOOM-X10" :      /* Zoom x10 (it's the same in all modes) */
-        lv && lv_dispsize!=1                        ? "ZOOM-UNK" :      /* Other zoom level? (6D seems to have one) */
+        lv && lv_dispsize!=1                        ? zoom_msg   :      /* Some zoom in LiveView */
         lv && lv_dispsize==1 && !is_movie_mode()    ? "PH-LV"    :      /* Photo LiveView */
         !is_movie_mode() && QR_MODE                 ? "PH-QR"    :      /* Photo QuickReview (right after taking a picture) */
         !is_movie_mode()                            ? "PH-UNK"   :
