@@ -28,12 +28,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 
 #include "sd_direct.h"
 #include "disp_direct.h"
 #include "font_direct.h"
 #include "led_dump.h"
+#include "prop_diag.h"
 
 #include "compiler.h"
 #include "consts.h"
@@ -191,6 +193,17 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
     font_draw(20, print_line_pos * 10, color, scale, txt);
     
     print_line_pos += scale;
+}
+
+int printf(const char * fmt, ...)
+{
+    va_list            ap;
+    char buf[128];
+    va_start( ap, fmt );
+    vsnprintf( buf, sizeof(buf)-1, fmt, ap );
+    va_end( ap );
+    print_line(COLOR_CYAN, 2, buf);
+    return 0;
 }
 
 void print_err(FF_ERROR err)
@@ -425,29 +438,28 @@ cstart( void )
     disp_init();
     
     print_line(COLOR_CYAN, 3, " Magic Lantern Rescue");
-    print_line(COLOR_CYAN, 3, "----------------------");
-    
+    print_line(COLOR_CYAN, 3, "----------------------------");
     
 #if defined(CONFIG_600D) || defined(CONFIG_5D3)
     /* file I/O only known to work on these cameras */
     malloc_init((void *)0x42000000, 0x02000000);
     
-    print_line(COLOR_CYAN, 2, " - Init SD/CF");
+    printf(" - Init SD/CF\n");
     sd_init(&sd_ctx);
     
-    print_line(COLOR_CYAN, 2, " - Init FAT");
+    printf(" - Init FAT\n");
     FF_IOMAN *ioman = fat_init();
     
-    print_line(COLOR_CYAN, 2, " - Dump ROM");
+    printf(" - Dump ROM\n");
     dump_rom(ioman);
     
-    print_line(COLOR_CYAN, 2, " - Umount FAT");
+    printf(" - Umount FAT\n");
     fat_deinit(ioman);
 #else
-    print_line(COLOR_CYAN, 2, " - Hello World!");
+    printf(" - Hello World!\n");
 #endif
     
-    print_line(COLOR_CYAN, 2, " - DONE!");
+    printf(" - DONE!");
     
     //led_dump(0xF8000000, 0x01000000);
 
