@@ -117,6 +117,7 @@ void process_property(uint32_t property, union prop_data * data, uint32_t data_l
             break;
         
         case PROP_FILE_PREFIX:
+        case PROP_USER_FILE_PREFIX:
             cam_info.file_prefix = data->str;
             break;
         
