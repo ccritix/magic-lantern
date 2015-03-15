@@ -440,6 +440,8 @@ cstart( void )
     print_line(COLOR_CYAN, 3, " Magic Lantern Rescue");
     print_line(COLOR_CYAN, 3, "----------------------------");
     
+    prop_diag();
+    
 #if defined(CONFIG_600D) || defined(CONFIG_5D3)
     /* file I/O only known to work on these cameras */
     malloc_init((void *)0x42000000, 0x02000000);
@@ -455,8 +457,6 @@ cstart( void )
     
     printf(" - Umount FAT\n");
     fat_deinit(ioman);
-#else
-    printf(" - Hello World!\n");
 #endif
     
     printf(" - DONE!");

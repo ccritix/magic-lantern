@@ -210,6 +210,7 @@ ML_SRC_REBOOT_OBJ += led_dump.o
 ML_SRC_REBOOT_OBJ += font_direct.o
 ML_SRC_REBOOT_OBJ += sd_direct.o
 ML_SRC_REBOOT_OBJ += disp_direct.o
+ML_SRC_REBOOT_OBJ += prop_diag.o
 ML_SRC_REBOOT_OBJ += malloc.o
 ML_SRC_REBOOT_OBJ += ff_blk.o
 ML_SRC_REBOOT_OBJ += ff_crc.o
@@ -359,3 +360,6 @@ clean::
 	$(call rm_files, version.c version.bin)
 
 FORCE:
+
+prop_diag: $(SRC_DIR)/prop_diag.c
+	gcc $(SRC_DIR)/prop_diag.c -o prop_diag -I$(SRC_DIR)
