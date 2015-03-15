@@ -421,6 +421,9 @@ cstart( void )
     print_line(COLOR_CYAN, 3, " Magic Lantern Rescue");
     print_line(COLOR_CYAN, 3, "----------------------");
     
+    
+#if defined(CONFIG_600D) || defined(CONFIG_5D3)
+    /* file I/O only known to work on these cameras */
     malloc_init((void *)0x42000000, 0x02000000);
     
     print_line(COLOR_CYAN, 2, " - Init SD/CF");
@@ -434,6 +437,9 @@ cstart( void )
     
     print_line(COLOR_CYAN, 2, " - Umount FAT");
     fat_deinit(ioman);
+#else
+    print_line(COLOR_CYAN, 2, " - Hello World!");
+#endif
     
     print_line(COLOR_CYAN, 2, " - DONE!");
     
