@@ -239,7 +239,7 @@ autoexec: $(ML_SRC_REBOOT_OBJ) $(ML_LIBC)
 		--cref \
 		-Map=autoexec.map \
 	); \
-	$(READELF) -l magiclantern | $(GREP) -C 2 MemSiz
+	$(READELF) -l magiclantern | $(GREP) -C 2 MemSiz || echo Could not check memory usage
 
 autoexec-fir: $(ML_SRC_REBOOT_OBJ)
 	$(call build,LD,$(LD) \
