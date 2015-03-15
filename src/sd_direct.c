@@ -181,7 +181,9 @@ uint32_t sd_transmit(struct sd_ctx *ctx, uint32_t sector, uint32_t count, uint8_
     uint32_t ret = 0;
     uint32_t err = 0;
 
+    #ifdef CARD_LED_ADDRESS
     *(volatile int*) (CARD_LED_ADDRESS) = (LEDON);
+    #endif
     
     /* get the RCA. could be cached */
     static uint32_t rca = 0xFFFFFFFF;
@@ -264,7 +266,9 @@ uint32_t sd_transmit(struct sd_ctx *ctx, uint32_t sector, uint32_t count, uint8_
     *sd_register(ctx, 0x0008) = 0;
     *sd_register(ctx, 0x0010) = 0;
     
+    #ifdef CARD_LED_ADDRESS
     *(volatile int*) (CARD_LED_ADDRESS) = (LEDOFF);
+    #endif
     
     return ret;
 }

@@ -139,7 +139,9 @@ static void boot_dump(char* filename, uint32_t addr, int size)
     int drive = DRIVE_SD;
     
     /* turn on the LED */
+    #ifdef CARD_LED_ADDRESS
     MEM(CARD_LED_ADDRESS) = (LEDON);
+    #endif
 
     /* save the file */
     int f = boot_fileopen(drive, filename, MODE_WRITE);
@@ -147,7 +149,9 @@ static void boot_dump(char* filename, uint32_t addr, int size)
     {
         while ( pos < size )
         {
+            #ifdef CARD_LED_ADDRESS
             MEM(CARD_LED_ADDRESS) = ((pos >> 16) & 1)?(LEDON):(LEDOFF);
+            #endif
             
             if(size - pos < block_size)
             {
@@ -167,7 +171,9 @@ static void boot_dump(char* filename, uint32_t addr, int size)
     }
 
     /* turn off the LED */
+    #ifdef CARD_LED_ADDRESS
     MEM(CARD_LED_ADDRESS) = (LEDOFF);
+    #endif
 }
 
 
