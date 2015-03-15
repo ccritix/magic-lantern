@@ -214,25 +214,102 @@ void disp_init_dummy (uint32_t buffer)
 {
 }
 
-/* this is hardcoded for 600D */
+static uint32_t ror(uint32_t word, uint32_t count)
+{
+    return word >> count | word << (32 - count);
+}
+
+static uint32_t decode_immediate_shifter_operand(uint32_t insn)
+{
+    uint32_t inmed_8 = insn & 0xFF;
+    uint32_t rotate_imm = (insn & 0xF00) >> 7;
+    return ror(inmed_8, rotate_imm);
+}
+
+static uint32_t find_func_called_before_string_ref(char* ref_string)
+{
+    /* look for this pattern:
+     * fffe1824:    eb0019a5    bl  @fromutil_disp_init
+     * fffe1828:    e28f0e2e    add r0, pc, #736    ; *'Other models\n'
+     */
+    
+    int found = 0;
+    uint32_t answer = 0;
+    
+    /* only scan the bootloader area */
+    for (uint32_t i = 0xFFFE0000; i < 0xFFFFFFF0; i += 4 )
+    {
+        uint32_t this = MEM(i);
+        uint32_t next = MEM(i+4);
+        int is_bl         = ((this & 0xFF000000) == 0xEB000000);
+        int is_string_ref = ((next & 0xFFFFF000) == 0xe28f0000); /* add R0, pc, #offset */
+        if (is_bl && is_string_ref)
+        {
+            uint32_t string_offset = decode_immediate_shifter_operand(next);
+            uint32_t pc = i + 4;
+            char* string_addr = pc + string_offset + 8;
+            if (strcmp(string_addr, ref_string) == 0)
+            {
+                /* bingo? */
+                found++;
+                uint32_t func_offset = (this & 0x00FFFFFF) << 2;
+                uint32_t pc = i;
+                uint32_t func_addr = pc + func_offset + 8;
+                if (func_addr > 0xFFFE0000)
+                {
+                    /* looks ok? */
+                    answer = func_addr;
+                }
+            }
+        }
+    }
+    
+    if (found == 1)
+    {
+        /* only return success if there's a single match (no ambiguity) */
+        return answer;
+    }
+    
+    return 0;
+}
+
+void* disp_init_autodetect()
+{
+    /* Called right before printing the following strings:
+     * "Other models\n"                     (5D2, 5D3, 60D, 500D, 70D)
+     * "File(*.fir) not found\n"            (5D2, 5D3, 60D, 500D, 70D)
+     * "sum check error or code modify\n"   (5D2, 60D, 500D)
+     * "sum check error\n"                  (5D3, 70D)
+     * "CF Read error\n"                    (5D2, 60D, 500D)
+     * ...
+     */
+    
+    uint32_t a = find_func_called_before_string_ref("Other models\n");
+    uint32_t b = find_func_called_before_string_ref("File(*.fir) not found\n");
+    
+    if (a == b)
+    {
+        /* I think this is what we are looking for :) */
+        return a;
+    }
+    
+    return &disp_init_dummy;
+}
+
 void disp_init()
 {
+    /* is this address valid for all cameras? */
     disp_framebuf = (uint8_t *)0x44000000;
-    void (*fromutil_disp_init)(uint32_t) = &disp_init_dummy;
+    
+    /* this should cover most (if not all) ML-supported cameras */
+    /* and maybe most unsupported cameras as well :) */
+    void (*fromutil_disp_init)(uint32_t) = disp_init_autodetect();
     
     /* BSS is not zeroed */
     yuv_mode = YUV422;
 
-#if defined(CONFIG_600D)
-    fromutil_disp_init = (void (*)(uint32_t))0xFFFF5EC8;
-#elif defined(CONFIG_60D)
-    fromutil_disp_init = (void (*)(uint32_t))0xFFFF5E94;
-#elif defined(CONFIG_5D2)
-    fromutil_disp_init = (void (*)(uint32_t))0xFFFF6AA8;
+#if defined(CONFIG_5D2)
     yuv_mode = YUV411;
-#endif
-#if defined(CONFIG_5D3)
-    fromutil_disp_init = (void (*)(uint32_t))0xFFFE7EC0;
 #endif
     
     /* first clear, then init */
