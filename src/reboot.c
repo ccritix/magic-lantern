@@ -423,6 +423,45 @@ uint32_t data_abort_occurred()
     return ret;
 }
 
+static void find_gaonisoy()
+{
+    for (uint32_t start = 0xFF000000; start < 0xFFFFFFF0; start += 4)
+    {
+        if (MEM(start+4) == 0x6e6f6167 && MEM(start+8) == 0x796f7369) // gaonisoy
+        {
+            printf(" - ROMBASEADDR: 0x%X\n", start);
+        }
+    }
+}
+
+/** Shadow copy of the NVRAM boot flags stored at 0xF8000000 */
+#define NVRAM_BOOTFLAGS     ((void*) 0xF8000000)
+struct boot_flags
+{
+    uint32_t        firmware;   // 0x00
+    uint32_t        bootdisk;   // 0x04
+    uint32_t        ram_exe;    // 0x08
+    uint32_t        update;     // 0x0c
+};
+
+static struct boot_flags * const    boot_flags = NVRAM_BOOTFLAGS;;
+
+static void print_bootflags()
+{
+    printf(" - Boot flags: "
+        "FIR=%d "
+        "BOOT=%d "
+        "RAM=%d "
+        "UPD=%d\n",
+        boot_flags->firmware,
+        boot_flags->bootdisk,
+        boot_flags->ram_exe,
+        boot_flags->update
+    );
+
+}
+
+
 void
 __attribute__((noreturn))
 cstart( void )
@@ -441,6 +480,8 @@ cstart( void )
     print_line(COLOR_CYAN, 3, "----------------------------");
     
     prop_diag();
+    print_bootflags();
+    find_gaonisoy();
     
 #if defined(CONFIG_600D) || defined(CONFIG_5D3)
     /* file I/O only known to work on these cameras */
