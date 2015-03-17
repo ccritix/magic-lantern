@@ -142,6 +142,4 @@ void font_draw(uint32_t x_pos, uint32_t y_pos, uint32_t color, uint32_t scale, c
             }
         }
     }
-    
-    disp_update();
 }

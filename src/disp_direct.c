@@ -129,16 +129,6 @@ void disp_set_rgb_pixel(uint32_t x, uint32_t y, uint32_t R, uint32_t G, uint32_t
     }
 }
 
-void disp_update()
-{
-    /* set frame buffer memory areas */
-    MEM(0xC0F140D0) = (uint32_t)disp_framebuf & ~0x40000000;
-    MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf & ~0x40000000;
-    
-    /* trigger a display update */
-    MEM(0xC0F14000) = 1;
-}
-
 void disp_fill(uint32_t color)
 {
     /* build a 32 bit word */
@@ -205,9 +195,6 @@ void disp_progress(uint32_t progress)
     
     snprintf(text, 32, "%d%%", progress * 100 / 255);
     font_draw(disp_xres / 2 - 28, (disp_yres - height) / 2 + 2, COLOR_WHITE, 2, text);
-    
-    /* present image */
-    disp_update();
 }
 
 void disp_init_dummy (uint32_t buffer)
@@ -327,6 +314,13 @@ void disp_init()
     /* make a funny pattern in the YUV buffer*/
     disp_fill_yuv_gradient();
     
-    /* present new bitmap data */
-    disp_update();
+    /* set frame buffer memory areas */
+    MEM(0xC0F140D0) = (uint32_t)disp_framebuf & ~0x40000000;
+    MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf & ~0x40000000;
+    
+    /* trigger a display update */
+    MEM(0xC0F14000) = 1;
+    
+    /* from now on, everything you write on the display buffers
+     * will appear on the screen without doing anything special */
 }
