@@ -434,6 +434,82 @@ static void find_gaonisoy()
     }
 }
 
+
+struct model_data_s
+{
+    uint16_t id;
+    const char *name;
+};
+
+static const struct model_data_s model_data[] =
+{
+    { 0x000, "ERROR"   },
+    { 0x168, "10D"   },
+    { 0x170, "300D"  },
+    { 0x175, "20D"   },
+    { 0x176, "450D"  },
+    { 0x189, "350D"  },
+    { 0x190, "40D"   },
+    { 0x213, "5D"    },
+    { 0x218, "5D2"   },
+    { 0x234, "30D"   },
+    { 0x236, "400D"  },
+    { 0x250, "7D"    },
+    { 0x252, "500D"  },
+    { 0x254, "1000D" },
+    { 0x261, "50D"   },
+    { 0x270, "550D"  },
+    { 0x285, "5D3"   },
+    { 0x286, "600D"  },
+    { 0x287, "60D"   },
+    { 0x288, "1100D" },
+    { 0x289, "7D2"   },
+    { 0x301, "650D"  },
+    { 0x302, "6D"    },
+    { 0x325, "70D"   },
+    { 0x331, "EOSM"  },
+    { 0x346, "100D"  }
+};
+
+static uint32_t get_model_id()
+{
+    uint32_t *model_ptr = (uint32_t *)0xF8002014;
+    
+    if(*model_ptr && *model_ptr < 0x00000FFF)
+    {
+        return *model_ptr;
+    }
+    
+    /* newer models */
+    model_ptr = (uint32_t *)0xF8020014;
+    if(*model_ptr && *model_ptr < 0x00000FFF)
+    {
+        return *model_ptr;
+    }
+    
+    return 0;
+}
+
+static const char *get_model_string()
+{
+    uint32_t model = get_model_id();
+    
+    for(int pos = 0; pos < COUNT(model_data); pos++)
+    {
+        if(model_data[pos].id == model)
+        {
+            return model_data[pos].name;
+        }
+    }
+    
+    return "unknown";
+}
+
+static void print_model()
+{
+    printf(" - Camera: '%s'\n", get_model_string());
+}
+
 /** Shadow copy of the NVRAM boot flags stored at 0xF8000000 */
 #define NVRAM_BOOTFLAGS     ((void*) 0xF8000000)
 struct boot_flags
@@ -479,6 +555,7 @@ cstart( void )
     print_line(COLOR_CYAN, 3, " Magic Lantern Rescue");
     print_line(COLOR_CYAN, 3, "----------------------------");
     
+    print_model();
     prop_diag();
     print_bootflags();
     find_gaonisoy();
