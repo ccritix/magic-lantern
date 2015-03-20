@@ -124,21 +124,17 @@ static void fail()
 static int (*boot_fileopen)(int drive, char *filename, int mode) = 0; // read=1, write=2
 static int (*boot_filewrite)(int drive, int handle, void* address, unsigned long size) = 0;
 static int (*boot_fileclose)(int drive, int handle) = 0;
+static int (*boot_card_init)() = 0;
 
 enum { DRIVE_CF, DRIVE_SD } boot_drive;
 enum { MODE_READ=1, MODE_WRITE=2 } boot_access_mode;
 
-
-static void boot_dump(char* filename, uint32_t addr, int size)
+static void boot_dump(int drive, char* filename, uint32_t addr, int size)
 {
     /* check whether our stubs were initialized */
     if (!boot_fileopen) fail();
     if (!boot_filewrite) fail();
     if (!boot_fileclose) fail();
-    
-    int block_size = 512;
-    int pos = 0;
-    int drive = DRIVE_SD;
     
     /* turn on the LED */
     #ifdef CARD_LED_ADDRESS
@@ -149,23 +145,8 @@ static void boot_dump(char* filename, uint32_t addr, int size)
     int f = boot_fileopen(drive, filename, MODE_WRITE);
     if (f != -1)
     {
-        while ( pos < size )
-        {
-            #ifdef CARD_LED_ADDRESS
-            MEM(CARD_LED_ADDRESS) = ((pos >> 16) & 1)?(LEDON):(LEDOFF);
-            #endif
-            
-            if(size - pos < block_size)
-            {
-                block_size = size - pos;
-            }
-            if(boot_filewrite(drive, f, (void*)(addr + pos), block_size) == -1)
-            {
-                break;
-            }
-            pos += block_size;
-        }
-        boot_fileclose(1, f);
+        boot_filewrite(drive, f, (void*) addr, size);
+        boot_fileclose(drive, f);
     }
     else
     {
@@ -177,12 +158,6 @@ static void boot_dump(char* filename, uint32_t addr, int size)
     MEM(CARD_LED_ADDRESS) = (LEDOFF);
     #endif
 }
-
-
-
-
-
-
 
 struct sd_ctx sd_ctx;
 uint32_t print_line_pos = 2;
@@ -537,6 +512,89 @@ static void print_bootflags()
 
 }
 
+void dump_rom_with_canon_routines()
+{
+    /* file I/O routines are called from "Open file for write: %s\n" */
+    
+    const char* cam = get_model_string();
+
+    if (strcmp(cam, "5D3") == 0)
+    {
+        boot_fileopen  = (void*) 0xFFFE9114;
+        boot_filewrite = (void*) 0xFFFE9570;
+        boot_fileclose = (void*) 0xFFFE927C;
+        boot_card_init = (void*) 0xFFFE34B0;
+    }
+
+    if (strcmp(cam, "60D") == 0)
+    {
+        boot_fileopen  = (void*) 0xffff9ce8;
+        boot_filewrite = (void*) 0xffffa0f8;
+        boot_fileclose = (void*) 0xffff9e38;
+    }
+
+    if (strcmp(cam, "550D") == 0)
+    {
+        boot_fileopen  = (void*) 0xFFFF9D30;
+        boot_filewrite = (void*) 0xFFFFA140;
+        boot_fileclose = (void*) 0xFFFF9E80;
+    }
+    
+    if (strcmp(cam, "600D") == 0)
+    {
+        boot_fileopen  = (void*) 0xFFFF9D80;
+        boot_filewrite = (void*) 0xFFFFA190;
+        boot_fileclose = (void*) 0xFFFF9ED0;
+    }
+
+    /* are we calling the right stubs? */
+    
+    if (!boot_fileopen || !boot_filewrite || !boot_fileclose)
+    {
+        print_line(COLOR_RED, 2, " - Boot file I/O stubs not set.");
+        fail();
+    }
+    
+    if (MEM(boot_fileopen)  != 0xe92d41f0 ||
+        MEM(boot_filewrite) != 0xe92d4fff ||
+        MEM(boot_fileclose) != 0xe92d41f0)
+    {
+        print_line(COLOR_RED, 2, " - Boot file I/O stubs incorrect.");
+        fail();
+    }
+
+    if (boot_card_init)
+    {
+        /* not all cameras need this, but some do */
+        printf(" - Init SD...\n");
+        boot_card_init();
+    }
+
+    printf(" - Dumping ROM0...\n");
+    boot_dump(DRIVE_SD, "ROM0.BIN", 0xF0000000, 0x01000000);
+    printf(" - Dumping ROM1...\n");
+    boot_dump(DRIVE_SD, "ROM1.BIN", 0xF8000000, 0x01000000);
+}
+
+static void dump_rom_with_fullfat()
+{
+#if defined(CONFIG_600D) || defined(CONFIG_5D3)
+    /* file I/O only known to work on these cameras */
+    malloc_init((void *)0x42000000, 0x02000000);
+    
+    printf(" - Init SD/CF\n");
+    sd_init(&sd_ctx);
+    
+    printf(" - Init FAT\n");
+    FF_IOMAN *ioman = fat_init();
+
+    printf(" - Dump ROM\n");
+    dump_rom(ioman);
+    
+    printf(" - Umount FAT\n");
+    fat_deinit(ioman);
+#endif
+}
 
 void
 __attribute__((noreturn))
@@ -560,66 +618,10 @@ cstart( void )
     print_bootflags();
     find_gaonisoy();
     
-#if defined(CONFIG_600D) || defined(CONFIG_5D3)
-    /* file I/O only known to work on these cameras */
-    malloc_init((void *)0x42000000, 0x02000000);
-    
-    printf(" - Init SD/CF\n");
-    sd_init(&sd_ctx);
-    
-    printf(" - Init FAT\n");
-    FF_IOMAN *ioman = fat_init();
-    
-    printf(" - Dump ROM\n");
-    dump_rom(ioman);
-    
-    printf(" - Umount FAT\n");
-    fat_deinit(ioman);
-#endif
+    /* pick one method for dumping the ROM */
+    dump_rom_with_canon_routines();
+    //~ dump_rom_with_fullfat();
     
     printf(" - DONE!");
-    
-    //led_dump(0xF8000000, 0x01000000);
-
-    while(1)
-    {
-        blink(10);
-        busy_wait(20);
-    }
-
-#if 0   
-    /* 550D stubs, all called from "Open file for write: %s\n" */
-    boot_fileopen  = (void*) 0xFFFF9D30;
-    boot_filewrite = (void*) 0xFFFFA140;
-    boot_fileclose = (void*) 0xFFFF9E80;
-    
-    /* 60D check */
-    if (MEM(boot_fileopen)  != 0xe92d41f0) fail();
-    if (MEM(boot_filewrite) != 0xe92d4fff) fail();
-    if (MEM(boot_fileclose) != 0xe92d41f0) fail();
-#endif
-
-
-    /* 600D v1.0.2 stubs, all called from "Open file for write: %s\n" */
-    boot_fileopen  = (void*) 0xFFFF9D80;
-    boot_filewrite = (void*) 0xFFFFA190;
-    boot_fileclose = (void*) 0xFFFF9ED0;
-    
-    /* 60D check */
-    if (MEM(boot_fileopen)  != 0xe92d41f0) fail();
-    if (MEM(boot_filewrite) != 0xe92d4fff) fail();
-    if (MEM(boot_fileclose) != 0xe92d41f0) fail();
-
-    busy_wait(1000);
-    
-    /* ROM dump */
-    boot_dump("DUMMY.BIN", 0xF8000000, 0x01000000);
-    boot_dump("ROM1.BIN", 0xF8000000, 0x01000000);
-    
-    /* signal it's finished */
-    blink(100);
-    
-    while(1)
-    {
-    }
+    while(1);
 }
