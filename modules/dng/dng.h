@@ -78,6 +78,6 @@ struct dng_info * dng_get_info(struct raw_info * raw_info, int use_frame_shutter
 void dng_free(struct dng_info * dng_info);
 #endif
 
-int dng_save(char* filename, struct dng_info * dng_info);
+int dng_save(char* filename, void * buffer, struct dng_info * dng_info);
 
 #endif

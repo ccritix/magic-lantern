@@ -246,7 +246,7 @@ static void show_active_options()
 }
 
 /* here we only have a global raw_info */
-#define save_dng(filename) dng_save(filename, &dng_info)
+#define save_dng(filename) dng_save(filename, raw_info_buffer, &dng_info)
 
 #define FAIL(fmt,...) { fprintf(stderr, "Error: "); fprintf(stderr, fmt, ## __VA_ARGS__); fprintf(stderr, "\n"); exit(1); }
 #define CHECK(ok, fmt,...) { if (!(ok)) FAIL(fmt, ## __VA_ARGS__); }
@@ -290,6 +290,8 @@ struct raw_info raw_info = {
     .calibration_illuminant1 = 1,       // Daylight
 };
 
+void * raw_info_buffer = NULL;
+
 static struct tm tm;
 static struct lens_info lens_info =
 {
@@ -332,14 +334,14 @@ static int black_subtract_simple(int left_margin, int top_margin);
 static int white_detect();
 
 static inline int raw_get_pixel16(int x, int y) {
-    unsigned short * buf = raw_info.buffer;
+    unsigned short * buf = raw_info_buffer;
     int value = buf[x + y * raw_info.width];
     return value;
 }
 
 static inline int raw_set_pixel16(int x, int y, int value)
 {
-    unsigned short * buf = raw_info.buffer;
+    unsigned short * buf = raw_info_buffer;
     buf[x + y * raw_info.width] = value;
     return value;
 }
@@ -500,7 +502,7 @@ int main(int argc, char** argv)
         /* PGM is big endian, need to reverse it */
         reverse_bytes_order(buf, width * height * 2);
 
-        raw_info.buffer = buf;
+        raw_info_buffer = buf;
         
         /* did we read the PGM correctly? (right byte order etc) */
         //~ int i;
@@ -547,7 +549,7 @@ int main(int argc, char** argv)
                 /* run a second black subtract pass, to fix whatever our funky processing may do to blacks */
                 black_subtract_simple(left_margin, top_margin);
 
-                reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+                reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
 
                 float red_balance = -1, blue_balance = -1;
                 read_white_balance(filename, &red_balance, &blue_balance);
@@ -653,7 +655,7 @@ static int black_subtract(int left_margin, int top_margin)
 {
     if (debug_black)
     {
-        reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+        reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
         save_dng("untouched.dng");
     }
 
@@ -793,15 +795,15 @@ static int black_subtract(int left_margin, int top_margin)
                 black_white = MAX(black_white, blackframe[x + y*w]);
             }
         }
-        void* old_buffer = raw_info.buffer;
-        raw_info.buffer = (void*)blackframe;
+        void* old_buffer = raw_info_buffer;
+        raw_info_buffer = (void*)blackframe;
         int orig_black = raw_info.black_level;
         int orig_white = raw_info.white_level;
         raw_info.black_level = black_black;
         raw_info.white_level = black_white;
-        reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+        reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
         save_dng("black.dng");
-        raw_info.buffer = old_buffer;
+        raw_info_buffer = old_buffer;
         raw_info.black_level = orig_black;
         raw_info.white_level = orig_white;
     }
@@ -834,7 +836,7 @@ static int black_subtract(int left_margin, int top_margin)
 
     if (debug_black)
     {
-        reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+        reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
         save_dng("subtracted.dng");
     }
 
@@ -1480,7 +1482,7 @@ static int hdr_interpolate()
     
     if (!rggb) /* this code assumes RGGB, so we need to skip one line */
     {
-        raw_info.buffer += raw_info.pitch;
+        raw_info_buffer += raw_info.pitch;
         raw_info.active_area.y1++;
         raw_info.active_area.y2--;
         raw_info.jpeg.y++;
@@ -1727,7 +1729,7 @@ static int hdr_interpolate()
             for (y = 0; y < h; y ++)
                 for (x = 0; x < w; x ++)
                     raw_set_pixel16(x, y, rawData[y][x]);
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("amaze-input.dng");
         }
 
@@ -1752,19 +1754,19 @@ static int hdr_interpolate()
             for (y = 0; y < h; y ++)
                 for (x = 2; x < w-2; x ++)
                     raw_set_pixel16(x, y, red[y][x]);
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("amaze-red.dng");
 
             for (y = 0; y < h; y ++)
                 for (x = 2; x < w-2; x ++)
                     raw_set_pixel16(x, y, green[y][x]);
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("amaze-green.dng");
 
             for (y = 0; y < h; y ++)
                 for (x = 2; x < w-2; x ++)
                     raw_set_pixel16(x, y, blue[y][x]);
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("amaze-blue.dng");
             
             /* the above operations were destructive, so we stop here */
@@ -1785,7 +1787,7 @@ static int hdr_interpolate()
         for (y = 0; y < h; y ++)
             for (x = 2; x < w-2; x ++)
                 raw_set_pixel16(x, y, gray[x + y*w]);
-        reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+        reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
         save_dng("edge-gray.dng");
         exit(1);
         #endif
@@ -1952,7 +1954,7 @@ static int hdr_interpolate()
             for (y = 0; y < h; y ++)
                 for (x = 2; x < w-2; x ++)
                     raw_set_pixel16(x, y, gray[x + y*w]);
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("edges.dng");
             if(system("dcraw -d -r 1 1 1 1 edges.dng"));
             /* best viewed at 400% with nearest neighbour interpolation (no filtering) */
@@ -1966,7 +1968,7 @@ static int hdr_interpolate()
                     raw_set_pixel16(x, y, ev2raw[dir * EV_RESOLUTION]);
                 }
             }
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("edge-map.dng");
             if(system("dcraw -d -r 1 1 1 1 edge-map.dng"));
             printf("debug exit\n");
@@ -2344,19 +2346,19 @@ static int hdr_interpolate()
 
     if (debug_blend)
     {
-        reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+        reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
         save_dng("normal.dng");
 
         for (y = 3; y < h-2; y ++)
             for (x = 2; x < w-2; x ++)
                 raw_set_pixel16(x, y, bright[x + y*w]);
-        reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+        reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
         save_dng("bright.dng");
 
         for (y = 3; y < h-2; y ++)
             for (x = 2; x < w-2; x ++)
                 raw_set_pixel16(x, y, dark[x + y*w]);
-        reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+        reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
         save_dng("dark.dng");
 
         if (use_fullres)
@@ -2364,14 +2366,14 @@ static int hdr_interpolate()
             for (y = 3; y < h-2; y ++)
                 for (x = 2; x < w-2; x ++)
                     raw_set_pixel16(x, y, fullres[x + y*w]);
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("fullres.dng");
         }
 
         for (y = 3; y < h-2; y ++)
             for (x = 2; x < w-2; x ++)
                 raw_set_pixel16(x, y, halfres[x + y*w]);
-        reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+        reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
         save_dng("halfres.dng");
 
         if (chroma_smooth_method)
@@ -2381,14 +2383,14 @@ static int hdr_interpolate()
                 for (y = 3; y < h-2; y ++)
                     for (x = 2; x < w-2; x ++)
                         raw_set_pixel16(x, y, fullres_smooth[x + y*w]);
-                reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+                reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
                 save_dng("fullres_smooth.dng");
             }
 
             for (y = 3; y < h-2; y ++)
                 for (x = 2; x < w-2; x ++)
                     raw_set_pixel16(x, y, halfres_smooth[x + y*w]);
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("halfres_smooth.dng");
         }
     }
@@ -2430,7 +2432,7 @@ static int hdr_interpolate()
             for (y = 3; y < h-2; y ++)
                 for (x = 2; x < w-2; x ++)
                     raw_set_pixel16(x, y, ev2raw[COERCE(alias_map[x + y*w] * 1024, -10*EV_RESOLUTION, 14*EV_RESOLUTION-1)]);
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("alias.dng");
         }
 
@@ -2483,7 +2485,7 @@ static int hdr_interpolate()
             for (y = 3; y < h-2; y ++)
                 for (x = 2; x < w-2; x ++)
                     raw_set_pixel16(x, y, ev2raw[COERCE(alias_aux[x + y*w] * 1024, -10*EV_RESOLUTION, 14*EV_RESOLUTION-1)]);
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("alias-dilated.dng");
         }
 
@@ -2545,7 +2547,7 @@ static int hdr_interpolate()
             for (y = 3; y < h-2; y ++)
                 for (x = 2; x < w-2; x ++)
                     raw_set_pixel16(x, y, ev2raw[COERCE(alias_map[x + y*w] * 128, -10*EV_RESOLUTION, 14*EV_RESOLUTION-1)]);
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("alias-smooth.dng");
         }
 
@@ -2574,7 +2576,7 @@ static int hdr_interpolate()
             for (y = 3; y < h-2; y ++)
                 for (x = 2; x < w-2; x ++)
                     raw_set_pixel16(x, y, ev2raw[(long long)alias_map[x + y*w] * 13*EV_RESOLUTION / ALIAS_MAP_MAX]);
-            reverse_bytes_order(raw_info.buffer, raw_info.frame_size);
+            reverse_bytes_order(raw_info_buffer, raw_info.frame_size);
             save_dng("alias-filtered.dng");
         }
 
@@ -2702,7 +2704,7 @@ static int hdr_interpolate()
 
     if (!rggb) /* back to GBRG */
     {
-        raw_info.buffer -= raw_info.pitch;
+        raw_info_buffer -= raw_info.pitch;
         raw_info.active_area.y1--;
         raw_info.active_area.y2++;
         raw_info.jpeg.y--;

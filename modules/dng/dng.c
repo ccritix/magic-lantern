@@ -780,7 +780,7 @@ void dng_free(struct dng_info * dng_info)
 
 #endif
 
-int dng_save(char* filename, struct dng_info * dng_info)
+int dng_save(char* filename, void* buffer, struct dng_info * dng_info)
 {
     FILE* f = FIO_CreateFile(filename);
     if (!f) return 0;
@@ -789,13 +789,12 @@ int dng_save(char* filename, struct dng_info * dng_info)
     if(!dng_header) return 0;
     
     size_t actual_header_size = dng_write_header_data(dng_info, dng_header, HEADER_SIZE);
-    char* rawadr = (void*)dng_info->raw_info->buffer;
     uint32_t raw_size = dng_info->raw_info->frame_size;
     
     FIO_WriteFile(f, dng_header, actual_header_size);
     
-    reverse_bytes_order(UNCACHEABLE(rawadr), raw_size);
-    FIO_WriteFile(f, UNCACHEABLE(rawadr), raw_size);
+    reverse_bytes_order(UNCACHEABLE(buffer), raw_size);
+    FIO_WriteFile(f, UNCACHEABLE(buffer), raw_size);
     
     fio_free(dng_header);
     

@@ -92,7 +92,7 @@ static char* silent_pic_get_name()
 static void silent_pic_save_dng(char* filename, struct raw_info * raw_info)
 {
     struct dng_info * dng_info = dng_get_info(raw_info, 1);
-    int result = dng_save(filename, dng_info);
+    int result = dng_save(filename, raw_info->buffer, dng_info);
     dng_free(dng_info);
     
     if(!result) bmp_printf(FONT_MED, 0, 80, "DNG save error");

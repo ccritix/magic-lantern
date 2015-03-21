@@ -1483,7 +1483,7 @@ int main (int argc, char *argv[])
         if(block_xref)
         {
             print_msg(MSG_INFO, "XREF table contains %d entries\n", block_xref->entryCount);
-            xrefs = (mlv_xref_t *)((uint32_t)block_xref + sizeof(mlv_xref_hdr_t));
+            xrefs = (mlv_xref_t *)(block_xref + sizeof(mlv_xref_hdr_t));
 
             if(dump_xrefs)
             {
@@ -2219,6 +2219,7 @@ read_headers:
                             void fix_vertical_stripes();
                             void find_and_fix_cold_pixels(int fix, int framenumber);
                             extern struct raw_info raw_info;
+                            extern void* raw_info_buffer;
 
                             int frame_filename_len = strlen(output_filename) + 32;
                             char *frame_filename = malloc(frame_filename_len);
@@ -2228,7 +2229,7 @@ read_headers:
 
                             raw_info = lv_rec_footer.raw_info;
                             raw_info.frame_size = frame_size;
-                            raw_info.buffer = frame_buffer;
+                            raw_info_buffer = frame_buffer;
                             if(new_depth)
                             {
                                 raw_info.bits_per_pixel = new_depth;
@@ -2314,7 +2315,7 @@ read_headers:
                             strncpy(dng_info.camera_serial, (char*)idnt_info.cameraSerial, 32);
 
                             /* finally save the DNG */
-                            if(!dng_save(frame_filename, &dng_info))
+                            if(!dng_save(frame_filename, frame_buffer, &dng_info))
                             {
                                 print_msg(MSG_ERROR, "Failed writing into .DNG file\n");
                                 goto abort;

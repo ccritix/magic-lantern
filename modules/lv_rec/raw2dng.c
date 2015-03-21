@@ -25,7 +25,8 @@
 #include "math.h"
 #include "lv_rec.h"
 #include <raw.h>
-#include <chdk-dng.h>
+#include <time.h>
+#include "../dng/dng.h"
 #include "qsort.h"  /* much faster than standard C qsort */
 #include "../dual_iso/optmed.h"
 #include "../dual_iso/wirth.h"
@@ -35,6 +36,42 @@
 
 lv_rec_file_footer_t lv_rec_footer;
 struct raw_info raw_info;
+void * raw_info_buffer = NULL;
+
+static struct tm tm;
+
+static struct lens_info lens_info =
+{
+    .name = "",
+    .focal_len = 0,
+    .focus_dist = 0,
+    .aperture = 0,
+    .iso = 0,
+    .iso_auto = 0,
+    .hyperfocal = 0,
+    .dof_near = 0,
+    .dof_far = 0,
+    .wb_mode = 0,
+    .kelvin = 0,
+    .WBGain_R = 0,
+    .WBGain_G = 0,
+    .WBGain_B = 0,
+    .wbs_gm = 0,
+    .wbs_ba = 0,
+};
+
+static struct dng_info dng_info =
+{
+    .camera_name = "",
+    .camera_serial = "",
+    .shutter = 0,
+    .fps_numerator = 0,
+    .fps_denominator = 1,
+    .frame_number = 0,
+    .raw_info = &raw_info,
+    .lens_info = &lens_info,
+    .tm = &tm
+};
 
 #define FAIL(fmt,...) { fprintf(stderr, "Error: "); fprintf(stderr, fmt, ## __VA_ARGS__); fprintf(stderr, "\n"); exit(1); }
 #define CHECK(ok, fmt,...) { if (!ok) FAIL(fmt, ## __VA_ARGS__); }
@@ -67,7 +104,7 @@ int main(int argc, char** argv)
     
     FILE* fi = fopen(argv[1], "rb");
     CHECK(fi, "could not open %s", argv[1]);
-    if (sizeof(lv_rec_file_footer_t) != 192) FAIL("sizeof(lv_rec_file_footer_t) = %d, should be 192", sizeof(lv_rec_file_footer_t));
+    if (sizeof(lv_rec_file_footer_t) != 192) FAIL("sizeof(lv_rec_file_footer_t) = %zu, should be 192", sizeof(lv_rec_file_footer_t));
     
     fseeko(fi, -192, SEEK_END);
     int r = fread(&lv_rec_footer, 1, sizeof(lv_rec_file_footer_t), fi);
@@ -128,7 +165,7 @@ int main(int argc, char** argv)
         fflush(stdout);
         int r = fread(raw, 1, lv_rec_footer.frameSize, fi);
         CHECK(r == lv_rec_footer.frameSize, "fread");
-        raw_info.buffer = raw;
+        raw_info_buffer = raw;
         
         /* uncomment if the raw file is recovered from a DNG with dd */
         //~ reverse_bytes_order(raw, lv_rec_footer.frameSize);
@@ -142,9 +179,11 @@ int main(int argc, char** argv)
         #ifdef CHROMA_SMOOTH
         chroma_smooth();
         #endif
-
-        dng_set_framerate(lv_rec_footer.sourceFpsx1000);
-        save_dng(fn, &raw_info);
+        
+        dng_info.fps_numerator = lv_rec_footer.sourceFpsx1000;
+        dng_info.fps_denominator = 1000;
+        
+        dng_save(fn, raw_info_buffer, &dng_info);
     }
     fclose(fi);
     printf("\nDone.\n");
@@ -157,7 +196,7 @@ int main(int argc, char** argv)
 #endif
 
 int raw_get_pixel(int x, int y) {
-    struct raw_pixblock * p = (void*)raw_info.buffer + y * raw_info.pitch + (x/8)*14;
+    struct raw_pixblock * p = (void*)raw_info_buffer + y * raw_info.pitch + (x/8)*14;
     switch (x%8) {
         case 0: return p->a;
         case 1: return p->b_lo | (p->b_hi << 12);
@@ -173,7 +212,7 @@ int raw_get_pixel(int x, int y) {
 
 void raw_set_pixel(int x, int y, int value)
 {
-    struct raw_pixblock * p = (void*)raw_info.buffer + y * raw_info.pitch + (x/8)*14;
+    struct raw_pixblock * p = (void*)raw_info_buffer + y * raw_info.pitch + (x/8)*14;
     switch (x%8) {
         case 0: p->a = value; break;
         case 1: p->b_lo = value; p->b_hi = value >> 12; break;
@@ -295,7 +334,7 @@ static void detect_vertical_stripes_coeffs()
 
     /* compute 8 little histograms */
     struct raw_pixblock * row;
-    for (row = raw_info.buffer; (void*)row < (void*)raw_info.buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
+    for (row = raw_info_buffer; (void*)row < (void*)raw_info_buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
     {
         struct raw_pixblock * p;
         for (p = row; (void*)p < (void*)row + raw_info.pitch - sizeof(struct raw_pixblock);)
@@ -458,7 +497,7 @@ static void apply_vertical_stripes_correction()
     
     struct raw_pixblock * row;
     
-    for (row = raw_info.buffer; (void*)row < (void*)raw_info.buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
+    for (row = raw_info_buffer; (void*)row < (void*)raw_info_buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
     {
         struct raw_pixblock * p;
         for (p = row; (void*)p < (void*)row + raw_info.pitch; p++)
@@ -475,7 +514,7 @@ static void apply_vertical_stripes_correction()
     }
     
     int black = raw_info.black_level;
-    for (row = raw_info.buffer; (void*)row < (void*)raw_info.buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
+    for (row = raw_info_buffer; (void*)row < (void*)raw_info_buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
     {
         struct raw_pixblock * p;
         for (p = row; (void*)p < (void*)row + raw_info.pitch; p++)
