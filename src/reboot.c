@@ -129,6 +129,32 @@ static int (*boot_card_init)() = 0;
 enum { DRIVE_CF, DRIVE_SD } boot_drive;
 enum { MODE_READ=1, MODE_WRITE=2 } boot_access_mode;
 
+static void dump_md5(int drive, char* filename, uint32_t addr, int size)
+{
+    uint8_t md5_bin[16];
+    char md5_ascii[34];
+    md5((void *) addr, size, md5_bin);
+    snprintf(md5_ascii, sizeof(md5_ascii),
+        "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+        md5_bin[0],  md5_bin[1],  md5_bin[2],  md5_bin[3],
+        md5_bin[4],  md5_bin[5],  md5_bin[6],  md5_bin[7],
+        md5_bin[8],  md5_bin[9],  md5_bin[10], md5_bin[11],
+        md5_bin[12], md5_bin[13], md5_bin[14], md5_bin[15]
+    );
+    char file_base[10];
+    snprintf(file_base, sizeof(file_base), "%s", filename);
+    file_base[strlen(file_base)-4] = 0;
+    char md5file[10];
+    snprintf(md5file, sizeof(md5file), "%s.MD5", file_base);
+    printf(" - MD5: %s\n", md5_ascii);
+
+    int f = boot_fileopen(drive, md5file, MODE_WRITE);
+    if (f != -1)
+    {
+        boot_filewrite(drive, f, (void*) md5_ascii, 33);
+        boot_fileclose(drive, f);
+    }
+}
 static void boot_dump(int drive, char* filename, uint32_t addr, int size)
 {
     /* check whether our stubs were initialized */
@@ -147,6 +173,8 @@ static void boot_dump(int drive, char* filename, uint32_t addr, int size)
     {
         boot_filewrite(drive, f, (void*) addr, size);
         boot_fileclose(drive, f);
+        
+        dump_md5(drive, filename, addr, size);
     }
     else
     {
