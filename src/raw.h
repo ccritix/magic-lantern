@@ -203,9 +203,6 @@ struct raw_info {
 
 extern struct raw_info raw_info;
 
-/* save a DNG file; all parameters are taken from raw_info */
-int save_dng(char* filename, struct raw_info * raw_info);
-
 /* do not include ML headers if used in postprocessing */
 #ifdef CONFIG_MAGICLANTERN
 /** Menu helpers **/

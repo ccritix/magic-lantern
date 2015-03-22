@@ -40,6 +40,19 @@
 #define dbg_printf(fmt,...) {}
 #endif
 
+#ifdef RAW_DEBUG_DUMP
+/* import functions from the dng module */
+static void*(*dng_get_info)(struct raw_info * raw_info, int use_frame_shutter) = MODULE_FUNCTION(dng_get_info);
+static void(*dng_free)(void * dng_info) = MODULE_FUNCTION(dng_free);
+static int(*dng_save)(char* filename, void* buffer, void* dng_info) = MODULE_FUNCTION(dng_save);
+
+/* A marco so we save dngs the same way as chdk-dng */
+#define save_dng(filename,raw_info) \
+void* dng_info = dng_get_info(raw_info, 0); \
+dng_save(filename, (raw_info)->buffer, dng_info); \
+dng_free(dng_info);
+#endif
+
 static struct semaphore * raw_sem = 0;
 
 static int dirty = 0;

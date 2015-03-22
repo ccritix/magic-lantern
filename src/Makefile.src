@@ -167,7 +167,6 @@ ML_SRC_OBJS = \
 	builtin-enforcing.o \
 	ml-cbr.o \
 	raw.o \
-	chdk-dng.o \
 	edmac-memcpy.o \
 
 
