@@ -188,7 +188,7 @@ static void boot_dump(int drive, char* filename, uint32_t addr, int size)
 }
 
 struct sd_ctx sd_ctx;
-uint32_t print_line_pos = 2;
+volatile uint32_t print_line_pos = 2;
 
 
 void print_line(uint32_t color, uint32_t scale, char *txt)
@@ -624,6 +624,82 @@ static void dump_rom_with_fullfat()
 #endif
 }
 
+
+/* timer interrupt variables */
+volatile uint32_t timer_irq_count = 0;
+volatile uint32_t timer_int_print_line = 0;
+uint32_t timer_module = 2;
+uint32_t timer_irq_id = 0x0A;
+
+
+void timer_enable(uint32_t module)
+{
+    /* enable module clocks */
+    MEM(0xC0400008) |= 0x400 << module;
+    MEM(0xC0400010 | module * 4) = 0;
+    MEM(0xC0203000) = 0x08;
+}
+
+void timer_reset(uint32_t module)
+{
+    /* set flag for initialization */
+    MEM(0xC0210000 | module * 0x100 | 0x00) = 0x80000000;
+    
+    /* wait until module successfully initialized */
+    while(MEM(0xC0210000 | module * 0x100 | 0x00) & 0x80000000)
+    {
+    }
+}
+
+void timer_start(uint32_t module, uint32_t target)
+{
+    /* enable module */
+    MEM(0xC0210000 | module * 0x100 | 0x00) = 1;
+    
+    /* some init values and interrupts */
+    MEM(0xC0210000 | module * 0x100 | 0x04) = 2;
+    MEM(0xC0210000 | module * 0x100 | 0x14) = 3;
+    MEM(0xC0210000 | module * 0x100 | 0x08) = target;
+    MEM(0xC0210000 | module * 0x100 | 0x10) = 1;
+}
+
+uint32_t timer_get_value(uint32_t module)
+{
+    return MEM(0xC0210000 | module * 0x100 | 0x0C);
+}
+
+uint32_t timer_get_target(uint32_t module)
+{
+    return MEM(0xC0210000 | module * 0x100 | 0x08);
+}
+
+void print_irq()
+{
+    printf(" - IRQs: %06d (0x%08X 0x%08X)\n", timer_irq_count, timer_get_value(timer_module), timer_get_target(timer_module));
+}
+
+
+void int_enable(uint32_t id)
+{
+    MEM(0xC0201010) = id;
+    volatile uint32_t status = MEM(0xC0201200);
+}
+
+void __attribute__((interrupt)) irq_handler()
+{
+    /* get interrupt id */
+    uint32_t irq_id = MEM(0xC0201004) >> 2;
+    
+    /* check if timer counted up */
+    if(irq_id == timer_irq_id)
+    {
+        timer_irq_count++;
+    }
+    
+    /* reset/re-arm interrupt. works without, but firmware does so */
+    int_enable(irq_id);
+}
+
 void
 __attribute__((noreturn))
 cstart( void )
@@ -633,14 +709,34 @@ cstart( void )
     MEM(0x00000028) = (uint32_t)&_vec_data_abort;
     MEM(0x0000002C) = (uint32_t)&_vec_data_abort;
     MEM(0x00000030) = (uint32_t)&_vec_data_abort;
-    MEM(0x00000038) = (uint32_t)&_vec_data_abort;
+    MEM(0x00000038) = (uint32_t)&irq_handler;
     MEM(0x0000003C) = (uint32_t)&_vec_data_abort;
+    
+    /* allow interrupts */
+    sei(0);
     
     disp_init();
     
     print_line(COLOR_CYAN, 3, " Magic Lantern Rescue");
     print_line(COLOR_CYAN, 3, "----------------------------");
+
+    /* allow timer interrupt to happen */
+    int_enable(timer_irq_id);   
+    timer_irq_count = 0; 
+
+    /* enable module clocks, etc */
+    timer_enable(timer_module);
+    /* reset module */
+    timer_reset(timer_module);
+    /* start counting */
+    timer_start(timer_module, 0xFFFF);
     
+    timer_int_print_line = print_line_pos;
+    while(1)
+    {
+        print_line_pos = timer_int_print_line;
+        print_irq();
+    }
     print_model();
     prop_diag();
     print_bootflags();

@@ -139,6 +139,10 @@ void font_draw(uint32_t x_pos, uint32_t y_pos, uint32_t color, uint32_t scale, c
                 {
                     font_put_pixel(x_pos + i * (FONTW*scale) + x, y_pos + y, color);
                 }
+                else
+                {
+                    font_put_pixel(x_pos + i * (FONTW*scale) + x, y_pos + y, COLOR_EMPTY);
+                }
             }
         }
     }

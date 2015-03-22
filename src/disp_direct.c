@@ -307,7 +307,7 @@ void disp_init()
 #endif
     
     /* first clear, then init */
-    disp_fill(COLOR_BLACK);
+    disp_fill(COLOR_EMPTY);
     
     /* this one initializes everyhting that is needed for display usage. PWM, PWR, GPIO, SIO and DISPLAY */
     fromutil_disp_init(0);
@@ -316,7 +316,7 @@ void disp_init()
     disp_set_palette();
     
     /* BMP foreground is transparent */
-    disp_fill(COLOR_TRANSPARENT_BLACK);
+    disp_fill(COLOR_EMPTY);
     
     /* make a funny pattern in the YUV buffer*/
     disp_fill_yuv_gradient();
