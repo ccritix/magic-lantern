@@ -95,6 +95,11 @@ uint32_t rgb2yuv411(int R, int G, int B, uint32_t addr)
 
 void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color)
 {
+    if(x >= 720 || y >= 480)
+    {
+        return;
+    }
+    
     uint32_t pixnum = ((y * disp_xres) + x) / 2;
     
     if(x & 1)
@@ -194,7 +199,7 @@ void disp_progress(uint32_t progress)
     char text[32];
     
     snprintf(text, 32, "%d%%", progress * 100 / 255);
-    font_draw(disp_xres / 2 - 28, (disp_yres - height) / 2 + 2, COLOR_WHITE, 2, text);
+    font_draw(disp_xres / 2 - 28, (disp_yres - height) / 2 + 2, COLOR_WHITE, 2, text, 0);
 }
 
 void disp_init_dummy (uint32_t buffer)
@@ -293,7 +298,8 @@ void* disp_init_autodetect()
 void disp_init()
 {
     /* is this address valid for all cameras? */
-    disp_framebuf = (uint8_t *)0x44000000;
+    disp_framebuf = (uint8_t *)(0x50000000 - 720*480/2);
+    disp_yuvbuf = (uint8_t *)(disp_framebuf - 720*480*2);
     
     /* this should cover most (if not all) ML-supported cameras */
     /* and maybe most unsupported cameras as well :) */

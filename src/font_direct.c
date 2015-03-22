@@ -119,15 +119,25 @@ void font_put_pixel(int x, int y, int c)
     disp_set_pixel(x, y, c);
 }
 
-void font_draw(uint32_t x_pos, uint32_t y_pos, uint32_t color, uint32_t scale, char *text)
+void font_draw(uint32_t *x_pos, uint32_t *y_pos, uint32_t color, uint32_t scale, char *text, uint32_t count)
 {
-    uint32_t length = strlen(text);
-    
-    for(uint32_t i = 0; i < length; i++)
+    if(count == 0)
     {
+        count = strlen(text);
+    }
+    
+    for(uint32_t i = 0; i < count; i++)
+    {
+        if(text[i] == '\n')
+        {
+            (*x_pos) = 0;
+            (*y_pos) += scale * FONTH;
+        	continue;
+        }
+        
         uint32_t ix = text[i] - 0x20;
 
-        if(ix < 0 || ix > 127)
+        if(ix > 127)
         {
         	continue;
         }
@@ -137,13 +147,14 @@ void font_draw(uint32_t x_pos, uint32_t y_pos, uint32_t color, uint32_t scale, c
             {
                 if(fontImg[ix][y/scale] & (1<<(x/scale)))
                 {
-                    font_put_pixel(x_pos + i * (FONTW*scale) + x, y_pos + y, color);
+                    font_put_pixel(*x_pos + x, *y_pos + y, color);
                 }
                 else
                 {
-                    font_put_pixel(x_pos + i * (FONTW*scale) + x, y_pos + y, COLOR_EMPTY);
+                    font_put_pixel(*x_pos + x, *y_pos + y, COLOR_EMPTY);
                 }
             }
         }
+        (*x_pos) += FONTW*scale;
     }
 }

@@ -188,14 +188,36 @@ static void boot_dump(int drive, char* filename, uint32_t addr, int size)
 }
 
 struct sd_ctx sd_ctx;
-volatile uint32_t print_line_pos = 2;
+uint32_t print_x = 0;
+uint32_t print_y = 0;
+char print_tmp[2];
 
+void print_char()
+{
+    print_tmp[0] = (char)MEM(0x4080FFF8);
+    print_tmp[1] = 0;
+    
+    font_draw(&print_x, &print_y, COLOR_WHITE, 1, print_tmp, 1);
+    
+    if(print_y > 480)
+    {
+        print_y = 0;
+    }
+}
+
+void print_line_ext(uint32_t color, uint32_t scale, char *txt, uint32_t count)
+{
+    font_draw(&print_x, &print_y, color, scale, txt, count);
+    
+    if(print_y > 480)
+    {
+        print_y = 0;
+    }
+}
 
 void print_line(uint32_t color, uint32_t scale, char *txt)
 {
-    font_draw(20, print_line_pos * 10, color, scale, txt);
-    
-    print_line_pos += scale;
+    print_line_ext(color, scale, txt, 0);
 }
 
 int printf(const char * fmt, ...)
@@ -215,14 +237,14 @@ void print_err(FF_ERROR err)
     
     if(message)
     {
-        print_line(COLOR_RED, 1, "   Error code:");
+        print_line(COLOR_RED, 1, "   Error code:\n");
         print_line(COLOR_RED, 1, message);
     }
     else
     {
         char text[32];
         
-        snprintf(text, 32, "   Error code: 0x%08X", err);
+        snprintf(text, 32, "   Error code: 0x%08X\n", err);
         print_line(COLOR_RED, 1, text);
     }
 }
@@ -235,7 +257,7 @@ static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, un
     {
         char text[64];
         
-        snprintf(text, 64, "   SD read error: 0x%02X, sector: 0x%08X, count: %d", ret, sector, count);
+        snprintf(text, 64, "   SD read error: 0x%02X, sector: 0x%08X, count: %d\n", ret, sector, count);
         print_line(COLOR_RED, 1, text);
     }
     
@@ -250,7 +272,7 @@ static unsigned long FF_blk_write(unsigned char *buffer, unsigned long sector, u
     {
         char text[64];
         
-        snprintf(text, 64, "   SD write error: 0x%02X, sector: 0x%08X, count: %d", ret, sector, count);
+        snprintf(text, 64, "   SD write error: 0x%02X, sector: 0x%08X, count: %d\n", ret, sector, count);
         print_line(COLOR_RED, 1, text);
     }
     
@@ -277,7 +299,7 @@ FF_IOMAN * fat_init()
     ioman = FF_CreateIOMAN(NULL, 0x4000, 0x200, &err);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to init driver");
+        print_line(COLOR_RED, 1, "   Failed to init driver\n");
         print_err(err);
         halt_blink_code(10, 2);
     }
@@ -285,7 +307,7 @@ FF_IOMAN * fat_init()
     FF_RegisterBlkDevice(ioman, 0x200, (FF_WRITE_BLOCKS) &FF_blk_write, (FF_READ_BLOCKS) &FF_blk_read, &err);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to register driver");
+        print_line(COLOR_RED, 1, "   Failed to register driver\n");
         print_err(err);
         halt_blink_code(10, 3);
     }
@@ -293,7 +315,7 @@ FF_IOMAN * fat_init()
     err = FF_MountPartition(ioman, 0);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to mount partition");
+        print_line(COLOR_RED, 1, "   Failed to mount partition\n");
         print_err(err);
         halt_blink_code(10, 4);
     }
@@ -308,7 +330,7 @@ void fat_deinit(FF_IOMAN *ioman)
     err = FF_UnmountPartition(ioman);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to unmount partition");
+        print_line(COLOR_RED, 1, "   Failed to unmount partition\n");
         print_err(err);
         halt_blink_code(10, 8);
     }
@@ -316,7 +338,7 @@ void fat_deinit(FF_IOMAN *ioman)
     err = FF_DestroyIOMAN(ioman);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to deinit driver");
+        print_line(COLOR_RED, 1, "   Failed to deinit driver\n");
         print_err(err);
         halt_blink_code(10, 9);
     }
@@ -326,17 +348,17 @@ void dump_rom(FF_IOMAN *ioman)
 {
     FF_ERROR err = FF_ERR_NONE;
     
-    print_line(COLOR_CYAN, 1, "   Creating dump file");
+    print_line(COLOR_CYAN, 1, "   Creating dump file\n");
     
     FF_FILE *file = FF_Open(ioman, "\\ROM.BIN", FF_GetModeBits("w"), &err);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to create dump file");
+        print_line(COLOR_RED, 1, "   Failed to create dump file\n");
         print_err(err);
         halt_blink_code(10, 5);
     }
     
-    print_line(COLOR_CYAN, 1, "   Dumping...");
+    print_line(COLOR_CYAN, 1, "   Dumping...\n");
     
     uint32_t block_size = 0x2000;
     uint32_t block_count = 0x01000000 / block_size;
@@ -355,7 +377,7 @@ void dump_rom(FF_IOMAN *ioman)
         err = FF_Write(file, block_size, 1, (FF_T_UINT8 *) (0xF8000000 + block * block_size));
         if(err <= 0)
         {
-            print_line(COLOR_RED, 1, "   Failed to write dump file");
+            print_line(COLOR_RED, 1, "   Failed to write dump file\n");
             print_err(err);
             FF_Close(file);
             FF_UnmountPartition(ioman);
@@ -368,12 +390,12 @@ void dump_rom(FF_IOMAN *ioman)
     err = FF_Close(file);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to close dump file");
+        print_line(COLOR_RED, 1, "   Failed to close dump file\n");
         print_err(err);
         halt_blink_code(10, 7);
     }
     
-    print_line(COLOR_CYAN, 1, "   Building checksum file");
+    print_line(COLOR_CYAN, 1, "   Building checksum file\n");
     
     unsigned char md5_output[16];
     md5((void *)0xF8000000, 0x01000000, md5_output);
@@ -381,7 +403,7 @@ void dump_rom(FF_IOMAN *ioman)
     file = FF_Open(ioman, "\\ROM.MD5", FF_GetModeBits("w"), &err);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to create MD5 file");
+        print_line(COLOR_RED, 1, "   Failed to create MD5 file\n");
         print_err(err);
         halt_blink_code(10, 5);
     }
@@ -389,7 +411,7 @@ void dump_rom(FF_IOMAN *ioman)
     err = FF_Write(file, 16, 1, md5_output);
     if(err <= 0)
     {
-        print_line(COLOR_RED, 1, "   Failed to write MD5 file");
+        print_line(COLOR_RED, 1, "   Failed to write MD5 file\n");
         print_err(err);
         FF_Close(file);
         FF_UnmountPartition(ioman);
@@ -399,12 +421,12 @@ void dump_rom(FF_IOMAN *ioman)
     err = FF_Close(file);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to close MD5 file");
+        print_line(COLOR_RED, 1, "   Failed to close MD5 file\n");
         print_err(err);
         halt_blink_code(10, 7);
     }
     
-    print_line(COLOR_CYAN, 1, "   Finished, cleaning up");
+    print_line(COLOR_CYAN, 1, "   Finished, cleaning up\n");
     
     FF_UnmountPartition(ioman);
 }
@@ -579,7 +601,7 @@ void dump_rom_with_canon_routines()
     
     if (!boot_fileopen || !boot_filewrite || !boot_fileclose)
     {
-        print_line(COLOR_RED, 2, " - Boot file I/O stubs not set.");
+        print_line(COLOR_RED, 2, " - Boot file I/O stubs not set.\n");
         fail();
     }
     
@@ -587,7 +609,7 @@ void dump_rom_with_canon_routines()
         MEM(boot_filewrite) != 0xe92d4fff ||
         MEM(boot_fileclose) != 0xe92d41f0)
     {
-        print_line(COLOR_RED, 2, " - Boot file I/O stubs incorrect.");
+        print_line(COLOR_RED, 2, " - Boot file I/O stubs incorrect.\n");
         fail();
     }
 
@@ -700,6 +722,24 @@ void __attribute__((interrupt)) irq_handler()
     int_enable(irq_id);
 }
 
+void boot_linux()
+{
+    MEM(0x4080FFF4) = &print_char;
+    MEM(0x4080FFFC) = &print_line_ext;
+    
+    asm(
+        "MOV   R0, #0x00\n"
+        "MOV   R1, #0xFFFFFFFF\n"
+        "MOV   R2, #0x00\n"
+        "MOV   R13, #0x08000000\n"
+        "ADR   R3, linux_addr\n"
+        "LDR   R3, [R3]\n"
+        "BX    R3\n"
+        "linux_addr:\n"
+        ".word   0x40810000\n"
+    );
+}
+
 void
 __attribute__((noreturn))
 cstart( void )
@@ -715,11 +755,18 @@ cstart( void )
     /* allow interrupts */
     sei(0);
     
+    
+    print_x = 0;
+    print_y = 0;
+    
     disp_init();
     
-    print_line(COLOR_CYAN, 3, " Magic Lantern Rescue");
-    print_line(COLOR_CYAN, 3, "----------------------------");
+    print_line(COLOR_CYAN, 3, " Magic Lantern Rescue\n");
+    print_line(COLOR_CYAN, 3, "----------------------------\n");
 
+    printf(" - Booting linux...\n");
+    boot_linux();
+    
     /* allow timer interrupt to happen */
     int_enable(timer_irq_id);   
     timer_irq_count = 0; 
@@ -730,11 +777,12 @@ cstart( void )
     timer_reset(timer_module);
     /* start counting */
     timer_start(timer_module, 0xFFFF);
+
     
-    timer_int_print_line = print_line_pos;
+    timer_int_print_line = print_y;
     while(1)
     {
-        print_line_pos = timer_int_print_line;
+        print_y = timer_int_print_line;
         print_irq();
     }
     print_model();
@@ -749,3 +797,19 @@ cstart( void )
     printf(" - DONE!");
     while(1);
 }
+
+/** Include the relocatable shim code */
+extern uint8_t blob_start;
+extern uint8_t blob_end;
+
+/* this will include the linux kernel at 0x40810000 */
+asm(
+    ".text\n"
+    ".org 0x00010000\n"
+    ".globl blob_start\n"
+    "blob_start:\n"
+    ".incbin \"/root/linux/linux-3.19/arch/arm/boot/xipImage\"\n"
+    "blob_end:\n"
+    ".globl blob_end\n"
+);
+
