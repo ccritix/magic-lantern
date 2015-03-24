@@ -19,8 +19,8 @@
 
 #define ABS(a) ({ __typeof__ (a) _a = (a); _a > 0 ? _a : -_a; })
 
-uint8_t *disp_framebuf = (uint8_t *)0x44000000;
-uint8_t *disp_yuvbuf = (uint8_t *)0x44800000;
+uint8_t *disp_framebuf = NULL;
+uint8_t *disp_yuvbuf = NULL;
 
 int disp_yres = 480;
 int disp_xres = 720;
@@ -295,10 +295,71 @@ void* disp_init_autodetect()
     return &disp_init_dummy;
 }
 
+/* use dma engine for memcopy */
+void disp_direct_memcpy(void *dst, void *src, uint32_t bytes)
+{
+    /* initialize DMA engine */
+    MEM(0xC0A10000) = 0x00000001;
+    MEM(0xC0A10018) = src;
+    MEM(0xC0A1001C) = dst;
+    MEM(0xC0A10020) = bytes;
+    /* start copying */
+    MEM(0xC0A10008) = 0x00000201;
+    
+    while(MEM(0xC0A10008) & 1)
+    {
+    }
+}
+
+/* use dma engine for memset */
+void disp_direct_memset(void *dst, uint8_t value, uint32_t bytes)
+{
+    if(bytes < 0x20)
+    {
+        memcpy(dst, value, bytes);
+        return;
+    }
+    
+    /* build a 32 bit word with the memset value */
+    uint32_t memset_buf = value;
+    memset_buf |= memset_buf << 8;
+    memset_buf |= memset_buf << 16;
+    
+    /* fill 0x10 bytes already with that new value */
+    uint32_t *memset_ptr = dst;
+    
+    memset_ptr[0] = memset_buf;
+    memset_ptr[1] = memset_buf;
+    memset_ptr[2] = memset_buf;
+    memset_ptr[3] = memset_buf;
+    
+    /* initialize DMA engine */
+    MEM(0xC0A10000) = 0x00000001;
+    MEM(0xC0A10018) = dst;
+    MEM(0xC0A1001C) = (uint32_t)(memset_ptr) + 0x10;
+    MEM(0xC0A10020) = bytes - 0x10;
+    
+    /* start copying without altering source address */
+    MEM(0xC0A10008) = 0x00000201 | 0x20;
+    
+    while(MEM(0xC0A10008) & 1)
+    {
+    }
+}
+
+void disp_direct_scroll_up(uint32_t lines)
+{
+    uint32_t start = lines * 720 / 2;
+    uint32_t size = (720 * 480 / 2) - start;
+    
+    disp_direct_memcpy(disp_framebuf, &disp_framebuf[start], size);
+    disp_direct_memset(&disp_framebuf[size], 0x00, start);
+}
+
 void disp_init()
 {
     /* is this address valid for all cameras? */
-    disp_framebuf = (uint8_t *)(0x50000000 - 720*480/2);
+    disp_framebuf = (uint8_t *)(0x10000000 - 720*480/2);
     disp_yuvbuf = (uint8_t *)(disp_framebuf - 720*480*2);
     
     /* this should cover most (if not all) ML-supported cameras */
@@ -325,11 +386,12 @@ void disp_init()
     disp_fill(COLOR_EMPTY);
     
     /* make a funny pattern in the YUV buffer*/
-    disp_fill_yuv_gradient();
+    memset(disp_yuvbuf, 0x00, 720*480*2);
+    //disp_fill_yuv_gradient();
     
     /* set frame buffer memory areas */
-    MEM(0xC0F140D0) = (uint32_t)disp_framebuf & ~0x40000000;
-    MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf & ~0x40000000;
+    MEM(0xC0F140D0) = (uint32_t)disp_framebuf;
+    MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf;
     
     /* trigger a display update */
     MEM(0xC0F14000) = 1;

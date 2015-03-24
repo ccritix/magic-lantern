@@ -201,7 +201,8 @@ void print_char()
     
     if(print_y > 480)
     {
-        print_y = 0;
+        print_y = 480 - 8;
+        disp_direct_scroll_up(8);
     }
 }
 
@@ -211,7 +212,8 @@ void print_line_ext(uint32_t color, uint32_t scale, char *txt, uint32_t count)
     
     if(print_y > 480)
     {
-        print_y = 0;
+        print_y = 480 - 8;
+        disp_direct_scroll_up(8);
     }
 }
 
@@ -728,12 +730,21 @@ void boot_linux()
     MEM(0x4080FFFC) = &print_line_ext;
     
     asm(
+        /* enter SVC mode */
+        "mrs   r0, cpsr      \n"
+        "bic   r0, r0, #0x1F \n"
+        "orr   r0, r0, #0xD3 \n"
+        "msr   cpsr, r0      \n"
+        
+        /* setup registers for kernel boot */
         "MOV   R0, #0x00\n"
         "MOV   R1, #0xFFFFFFFF\n"
         "MOV   R2, #0x00\n"
         "MOV   R13, #0x08000000\n"
         "ADR   R3, linux_addr\n"
         "LDR   R3, [R3]\n"
+        
+        /* boot kernel */
         "BX    R3\n"
         "linux_addr:\n"
         ".word   0x40810000\n"
@@ -753,19 +764,18 @@ cstart( void )
     MEM(0x0000003C) = (uint32_t)&_vec_data_abort;
     
     /* allow interrupts */
-    sei(0);
-    
+    //sei(0);
     
     print_x = 0;
     print_y = 0;
     
     disp_init();
+    boot_linux();
     
     print_line(COLOR_CYAN, 3, " Magic Lantern Rescue\n");
     print_line(COLOR_CYAN, 3, "----------------------------\n");
 
     printf(" - Booting linux...\n");
-    boot_linux();
     
     /* allow timer interrupt to happen */
     int_enable(timer_irq_id);   
@@ -808,7 +818,7 @@ asm(
     ".org 0x00010000\n"
     ".globl blob_start\n"
     "blob_start:\n"
-    ".incbin \"/root/linux/linux-3.19/arch/arm/boot/xipImage\"\n"
+    ".incbin \"../../xipImage\"\n"
     "blob_end:\n"
     ".globl blob_end\n"
 );
