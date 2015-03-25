@@ -810,8 +810,7 @@ void boot_linux()
     setup_mem_tag(&atags_ptr, 0x41000000, 0x0EF20000);
     //setup_mem_tag(&atags_ptr, 0x50000000, 0x10000000);
     setup_ramdisk_tag(&atags_ptr, 4096);
-    setup_initrd2_tag(&atags_ptr, 0x40B00000, 1 * 1024 * 1024);
-    setup_cmdline_tag(&atags_ptr, "root=/dev/ram0 earlyprintk=1");
+    setup_cmdline_tag(&atags_ptr, "root=/dev/ram0 init=/bin/sh earlyprintk=1");
     setup_end_tag(&atags_ptr);
     
     asm(
