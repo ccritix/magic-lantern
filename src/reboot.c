@@ -41,6 +41,7 @@
 #include "consts.h"
 #include "fullfat.h"
 #include "md5.h"
+#include "atag.h"
 
 #define MEM(x) (*(volatile uint32_t *)(x))
 
@@ -724,30 +725,117 @@ void __attribute__((interrupt)) irq_handler()
     int_enable(irq_id);
 }
 
+/*
+ * from: https://github.com/hackndev/cocoboot/blob/master/arm/atag.c
+ * Tag setup code and structures were originally from the GPL'd article:
+ *
+ * Booting ARM Linux
+ * Copyright (C) 2004 Vincent Sanders
+ * http://www.simtec.co.uk/products/SWLINUX/files/booting_article.html
+ *
+ */
+static void setup_core_tag(struct atag **params, uint32_t pagesize, uint32_t rootdev)
+{
+    (*params)->hdr.tag = ATAG_CORE; /* start with the core tag */
+    (*params)->hdr.size = tag_size(atag_core); /* size the tag */
+    (*params)->u.core.flags = 1; /* ensure read-only */
+    (*params)->u.core.pagesize = pagesize;
+    (*params)->u.core.rootdev = rootdev;
+    
+    *params = tag_next(*params); /* move pointer to next tag */
+}
+
+static void setup_ramdisk_tag(struct atag **params, uint32_t size)
+{
+    (*params)->hdr.tag = ATAG_RAMDISK; /* Ramdisk tag */
+    (*params)->hdr.size = tag_size(atag_ramdisk); /* size tag */
+    (*params)->u.ramdisk.flags = 0; /* Load the ramdisk */
+    (*params)->u.ramdisk.size = size; /* Decompressed ramdisk size */
+    (*params)->u.ramdisk.start = 0; /* Unused */
+    *params = tag_next(*params); /* move pointer to next tag */
+}
+
+static void setup_initrd2_tag(struct atag **params, uint32_t start, uint32_t size)
+{
+	(*params)->hdr.tag = ATAG_INITRD2;         /* Initrd2 tag */
+	(*params)->hdr.size = tag_size(atag_initrd2);  /* size tag */
+
+	(*params)->u.initrd2.start = start;        /* physical start */
+	(*params)->u.initrd2.size = size;          /* compressed ramdisk size */
+
+	*params = tag_next(*params);              /* move pointer to next tag */
+}
+
+static void setup_mem_tag(struct atag **params, uint32_t start, uint32_t len)
+{
+	(*params)->hdr.tag = ATAG_MEM;             /* Memory tag */
+	(*params)->hdr.size = tag_size(atag_mem);  /* size tag */
+
+	(*params)->u.mem.start = start;            /* Start of memory area (physical address) */
+	(*params)->u.mem.size = len;               /* Length of area */
+
+	*params = tag_next(*params);              /* move pointer to next tag */
+}
+
+static void setup_cmdline_tag(struct atag **params, const char * line)
+{
+	int linelen = strlen(line);
+
+	if(!linelen)
+		return;                             /* do not insert a tag for an empty commandline */
+
+	(*params)->hdr.tag = ATAG_CMDLINE;         /* Commandline tag */
+	(*params)->hdr.size = (sizeof(struct atag_header) + linelen + 1 + 4) >> 2;
+
+	strcpy((*params)->u.cmdline.cmdline,line); /* place commandline into tag */
+
+	*params = tag_next(*params);              /* move pointer to next tag */
+}
+
+static void setup_end_tag(struct atag **params)
+{
+	(*params)->hdr.tag = ATAG_NONE;            /* Empty tag ends list */
+	(*params)->hdr.size = 0;                   /* zero length */
+}
+
 void boot_linux()
 {
     MEM(0x4080FFF4) = &print_char;
     MEM(0x4080FFFC) = &print_line_ext;
     
+    struct atag *atags_ptr = (void*)0x4080F000;
+    
+    /* setup atags */  
+    setup_core_tag(&atags_ptr, 4096, 0x100);
+    setup_mem_tag(&atags_ptr, 0x41000000, 0x0EF20000);
+    //setup_mem_tag(&atags_ptr, 0x50000000, 0x10000000);
+    setup_ramdisk_tag(&atags_ptr, 4096);
+    setup_initrd2_tag(&atags_ptr, 0x40B00000, 1 * 1024 * 1024);
+    setup_cmdline_tag(&atags_ptr, "root=/dev/ram0 earlyprintk=1");
+    setup_end_tag(&atags_ptr);
+    
     asm(
         /* enter SVC mode */
-        "mrs   r0, cpsr      \n"
-        "bic   r0, r0, #0x1F \n"
-        "orr   r0, r0, #0xD3 \n"
-        "msr   cpsr, r0      \n"
+        "mrs   r0, cpsr         \n"
+        "bic   r0, r0, #0x1F    \n"
+        "orr   r0, r0, #0xD3    \n"
+        "msr   cpsr, r0         \n"
         
         /* setup registers for kernel boot */
-        "MOV   R0, #0x00\n"
-        "MOV   R1, #0xFFFFFFFF\n"
-        "MOV   R2, #0x00\n"
-        "MOV   R13, #0x08000000\n"
-        "ADR   R3, linux_addr\n"
-        "LDR   R3, [R3]\n"
+        "ADR   R4,  parameters  \n"
+        "MOV   R0,  #0x00       \n"
+        "LDR   R1,  [R4, #0x00] \n"
+        "LDR   R2,  [R4, #0x04] \n"
+        "LDR   R3,  [R4, #0x08] \n"
         
         /* boot kernel */
-        "BX    R3\n"
-        "linux_addr:\n"
-        ".word   0x40810000\n"
+        "BX    R3               \n"
+        
+        /* memory addresses */
+        "parameters:\n"
+        ".word   0xFFFFFFFF\n" /* machine ID */
+        ".word   0x4080F000\n" /* ATAGs address */
+        ".word   0x40810000\n" /* linux kernel address */
     );
 }
 
