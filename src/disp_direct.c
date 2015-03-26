@@ -10,7 +10,10 @@
 #include "compiler.h"
 #include "consts.h"
 
-#define MEM(x) (*(volatile uint32_t *)(x))
+#define MEM(x)      (*(volatile uint32_t *)(x))
+#define CACHED(x)   (((uint32_t)x) & ~0x40000000)
+#define UNCACHED(x) (((uint32_t)x) | 0x40000000)
+
 #define UYVY_PACK(u,y1,v,y2) ((u) & 0xFF) | (((y1) & 0xFF) << 8) | (((v) & 0xFF) << 16) | (((y2) & 0xFF) << 24);
  
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -19,11 +22,16 @@
 
 #define ABS(a) ({ __typeof__ (a) _a = (a); _a > 0 ? _a : -_a; })
 
-uint8_t *disp_framebuf = NULL;
+
+uint8_t *disp_bmpbuf = NULL;
 uint8_t *disp_yuvbuf = NULL;
 
 int disp_yres = 480;
 int disp_xres = 720;
+
+
+void dma_memset(void *dst, uint8_t value, uint32_t bytes);
+void dma_memcpy(void *dst, void *src, uint32_t bytes);
 
 /* most cameras use YUV422, but some old models (e.g. 5D2) use YUV411 */
 enum { YUV422, YUV411 } yuv_mode;
@@ -104,11 +112,11 @@ void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color)
     
     if(x & 1)
     {
-        disp_framebuf[pixnum] = (disp_framebuf[pixnum] & 0x0F) | ((color & 0x0F)<<4);
+        disp_bmpbuf[pixnum] = (disp_bmpbuf[pixnum] & 0x0F) | ((color & 0x0F)<<4);
     }
     else
     {
-        disp_framebuf[pixnum] = (disp_framebuf[pixnum] & 0xF0) | (color & 0x0F);
+        disp_bmpbuf[pixnum] = (disp_bmpbuf[pixnum] & 0xF0) | (color & 0x0F);
     }
 }
 
@@ -139,22 +147,8 @@ void disp_fill(uint32_t color)
     /* build a 32 bit word */
     uint32_t val = color;
     val |= val << 4;
-    val |= val << 8;
-    val |= val << 16;
     
-    for(int ypos = 0; ypos < disp_yres; ypos++)
-    {
-        /* we are writing 8 pixels at once with a 32 bit word */
-        for(int xpos = 0; xpos < disp_xres; xpos += 8)
-        {
-            /* get linear pixel number */
-            uint32_t pixnum = ((ypos * disp_xres) + xpos);
-            /* two pixels per byte */
-            uint32_t *ptr = (uint32_t *)&disp_framebuf[pixnum / 2];
-            
-            *ptr = val;
-        }
-    }
+    dma_memset(disp_bmpbuf, val, disp_yres * disp_xres / 2);
 }
 
 void disp_fill_yuv_gradient()
@@ -295,72 +289,21 @@ void* disp_init_autodetect()
     return &disp_init_dummy;
 }
 
-/* use dma engine for memcopy */
-void disp_direct_memcpy(void *dst, void *src, uint32_t bytes)
-{
-    /* initialize DMA engine */
-    MEM(0xC0A10000) = 0x00000001;
-    MEM(0xC0A10018) = src;
-    MEM(0xC0A1001C) = dst;
-    MEM(0xC0A10020) = bytes;
-    /* start copying */
-    MEM(0xC0A10008) = 0x00000201;
-    
-    while(MEM(0xC0A10008) & 1)
-    {
-    }
-}
-
-/* use dma engine for memset */
-void disp_direct_memset(void *dst, uint8_t value, uint32_t bytes)
-{
-    if(bytes < 0x20)
-    {
-        memcpy(dst, value, bytes);
-        return;
-    }
-    
-    /* build a 32 bit word with the memset value */
-    uint32_t memset_buf = value;
-    memset_buf |= memset_buf << 8;
-    memset_buf |= memset_buf << 16;
-    
-    /* fill 0x10 bytes already with that new value */
-    uint32_t *memset_ptr = dst;
-    
-    memset_ptr[0] = memset_buf;
-    memset_ptr[1] = memset_buf;
-    memset_ptr[2] = memset_buf;
-    memset_ptr[3] = memset_buf;
-    
-    /* initialize DMA engine */
-    MEM(0xC0A10000) = 0x00000001;
-    MEM(0xC0A10018) = dst;
-    MEM(0xC0A1001C) = (uint32_t)(memset_ptr) + 0x10;
-    MEM(0xC0A10020) = bytes - 0x10;
-    
-    /* start copying without altering source address */
-    MEM(0xC0A10008) = 0x00000201 | 0x20;
-    
-    while(MEM(0xC0A10008) & 1)
-    {
-    }
-}
 
 void disp_direct_scroll_up(uint32_t lines)
 {
     uint32_t start = lines * 720 / 2;
     uint32_t size = (720 * 480 / 2) - start;
     
-    disp_direct_memcpy(disp_framebuf, &disp_framebuf[start], size);
-    disp_direct_memset(&disp_framebuf[size], 0x00, start);
+    dma_memcpy(disp_bmpbuf, &disp_bmpbuf[start], size);
+    dma_memset(&disp_bmpbuf[size], 0x00, start);
 }
 
 void disp_init()
 {
     /* is this address valid for all cameras? */
-    disp_framebuf = (uint8_t *)(0x10000000 - 720*480/2);
-    disp_yuvbuf = (uint8_t *)(disp_framebuf - 720*480*2);
+    disp_bmpbuf = (uint8_t *)UNCACHED(0x50000000 - 720*480/2);
+    disp_yuvbuf = (uint8_t *)UNCACHED(disp_bmpbuf - 720*480*2);
     
     /* this should cover most (if not all) ML-supported cameras */
     /* and maybe most unsupported cameras as well :) */
@@ -386,12 +329,11 @@ void disp_init()
     disp_fill(COLOR_EMPTY);
     
     /* make a funny pattern in the YUV buffer*/
-    memset(disp_yuvbuf, 0x00, 720*480*2);
-    //disp_fill_yuv_gradient();
+    dma_memset(disp_yuvbuf, 0x00, 720*480*2);
     
     /* set frame buffer memory areas */
-    MEM(0xC0F140D0) = (uint32_t)disp_framebuf;
-    MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf;
+    MEM(0xC0F140D0) = CACHED(disp_bmpbuf);
+    MEM(0xC0F140E0) = CACHED(disp_yuvbuf);
     
     /* trigger a display update */
     MEM(0xC0F14000) = 1;
