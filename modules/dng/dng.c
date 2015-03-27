@@ -27,9 +27,8 @@
 #include <raw.h>
 #include <lens.h>
 #include <property.h>
+#include <propvalues.h>
 #include <fps.h>
-
-extern int WEAK_FUNC(ret_1) PROPAD_GetPropertyData(uint32_t property, void** addr, size_t* len);
 
 #else
 //compile for desktop
@@ -62,7 +61,7 @@ extern int WEAK_FUNC(ret_1) PROPAD_GetPropertyData(uint32_t property, void** add
 
 #include "dng.h"
 
-#define IFD0_COUNT 38
+#define IFD0_COUNT 39
 #define SOFTWARE_NAME "Magic Lantern"
 #define EXIF_IFD_COUNT 8
 #define PACK(a) (((uint16_t)a[1] << 16) | ((uint16_t)a[0]))
@@ -514,6 +513,9 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
     strncpy(make, model, 32);
     char * space = strchr(make, ' ');
     if(space) *space = 0x0;
+    char serial[33];
+    strncpy(serial, dng_info->camera_serial, 32);
+    serial[32] = 0x0; //make sure we are null terminated
     
     uint32_t exif_ifd_offset = (uint32_t)(position + sizeof(uint16_t) + IFD0_COUNT * sizeof(struct directory_entry) + sizeof(uint32_t));
     uint32_t data_offset = exif_ifd_offset + sizeof(uint16_t) + EXIF_IFD_COUNT * sizeof(struct directory_entry) + sizeof(uint32_t);
@@ -578,6 +580,7 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
         {tcColorMatrix2,                ttSRational,RATIONAL_ENTRY(matricies.ColorMatrix2, header, &data_offset, 18)},
         {tcAsShotNeutral,               ttRational, RATIONAL_ENTRY(wbal, header, &data_offset, 6)},
         {tcBaselineExposure,            ttSRational,RATIONAL_ENTRY(basline_exposure, header, &data_offset, 2)},
+        {tcCameraSerialNumber,          ttAscii,    STRING_ENTRY(serial, header, &data_offset)},
         {tcCalibrationIlluminant1,      ttShort,    1,      lsStandardLightA},
         {tcCalibrationIlluminant2,      ttShort,    1,      lsD65},
         {tcActiveArea,                  ttLong,     ARRAY_ENTRY(dng_info->raw_info->dng_active_area, header, &data_offset, 4)},
@@ -696,14 +699,27 @@ void FAST reverse_bytes_order(char* buf, int count)
                   
 #ifdef CONFIG_MAGICLANTERN
 
+static char camera_serial[32] = "";
+
+PROP_HANDLER(PROP_BODY_ID)
+{
+    /* different camera serial lengths */
+    if(len == 8)
+    {
+        snprintf(camera_serial, sizeof(camera_serial), "%X%08X", (uint32_t)(*((uint64_t*)buf) & 0xFFFFFFFF), (uint32_t) (*((uint64_t*)buf) >> 32));
+    }
+    else if(len == 4)
+    {
+        snprintf(camera_serial, sizeof(camera_serial), "%08X", *((uint32_t*)buf));
+    }
+    else
+    {
+        snprintf(camera_serial, sizeof(camera_serial), "(unknown len %d)", len);
+    }
+}
+                  
 struct dng_info * dng_get_info(struct raw_info * raw_info, int use_frame_shutter)
 {
-    char *model_data = NULL;
-    uint64_t *body_data = NULL;
-    size_t model_len = 0;
-    size_t body_len = 0;
-    int err = 0;
-    
     struct dng_info * dng_info = malloc(sizeof(struct dng_info));
     if(dng_info)
     {
@@ -711,41 +727,23 @@ struct dng_info * dng_get_info(struct raw_info * raw_info, int use_frame_shutter
         dng_info->lens_info = malloc(sizeof(struct lens_info));
         dng_info->tm = malloc(sizeof(struct tm));
         
-        /* default values */
-        dng_info->camera_name[0] = '\000';
-        dng_info->camera_serial[0] = '\000';
-        
         /* get camera properties */
-        err = PROPAD_GetPropertyData(PROP_CAM_MODEL, (void **) &model_data, &model_len);
-        if(err || model_len < 36 || !model_data)
+        if(strlen(camera_model) == 0)
         {
-            snprintf((char*)dng_info->camera_name, sizeof(dng_info->camera_name), "ERR:%d md:0x%8X ml:%d", err, model_data, model_len);
+            snprintf((char*)dng_info->camera_name, sizeof(dng_info->camera_name), "ERR: Unknown Camera");
         }
         else
         {
-            memcpy((char *)dng_info->camera_name, &model_data[0], 32);
+            memcpy((char *)dng_info->camera_name, camera_model, sizeof(dng_info->camera_name));
         }
         
-        err = PROPAD_GetPropertyData(PROP_BODY_ID, (void **) &body_data, &body_len);
-        if(err || !body_data || body_len == 0)
+        if(strlen(camera_serial) == 0)
         {
-            snprintf((char*)dng_info->camera_serial, sizeof(dng_info->camera_serial), "ERR:%d bd:0x%8X bl:%d", err, body_data, body_len);
+            snprintf((char*)dng_info->camera_serial, sizeof(dng_info->camera_serial), "????????");
         }
         else
         {
-            /* different camera serial lengths */
-            if(body_len == 8)
-            {
-                snprintf((char *)dng_info->camera_serial, sizeof(dng_info->camera_serial), "%X%08X", (uint32_t)(*body_data & 0xFFFFFFFF), (uint32_t) (*body_data >> 32));
-            }
-            else if(body_len == 4)
-            {
-                snprintf((char *)dng_info->camera_serial, sizeof(dng_info->camera_serial), "%08X", *((uint32_t*)body_data));
-            }
-            else
-            {
-                snprintf((char *)dng_info->camera_serial, sizeof(dng_info->camera_serial), "(unknown len %d)", body_len);
-            }
+            memcpy((char *)dng_info->camera_serial, camera_serial, sizeof(dng_info->camera_serial));
         }
         
         
@@ -803,7 +801,7 @@ int dng_save(char* filename, void* buffer, struct dng_info * dng_info)
 }
 
 #ifdef CONFIG_MAGICLANTERN
-                  
+
 static unsigned int dng_init()
 {
     return 0;
@@ -819,6 +817,10 @@ MODULE_INFO_START()
     MODULE_DEINIT(dng_deinit)
 MODULE_INFO_END()
 
+MODULE_PROPHANDLERS_START()
+    MODULE_PROPHANDLER(PROP_BODY_ID)
+MODULE_PROPHANDLERS_END()
+                  
 MODULE_CBRS_START()
 MODULE_CBRS_END()
 
