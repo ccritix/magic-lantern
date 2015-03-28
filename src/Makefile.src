@@ -18,197 +18,23 @@ CFLAGS += \
 	-DCONFIG_FW_VERSION=$(FW_VERSION) \
 	-DCURRENT_CAMERA_SIGNATURE=SIG_$(MODEL)_$(FW_VERSION)
 
-ifeq ($(ML_BOOT_HACK_OBJ), n)
-ML_BOOT_HACK_OBJ =
-else ifndef ML_BOOT_HACK_OBJ
-ML_BOOT_HACK_OBJ = boot-hack.o
-endif
-
-ifeq ($(ML_PICSTYLE_AUTO), n)
-ML_PICSTYLE_OBJ = picstyle-noauto.o
-else
-ML_PICSTYLE_OBJ = picstyle.o
-endif
-
-ifeq ($(ML_BITRATE_OBJ), n)
-ML_BITRATE_OBJ =
-else ifndef ML_BITRATE_OBJ
-ML_BITRATE_OBJ = bitrate.o
-endif
-
-ifeq ($(ML_AUDIO_OBJ), n)
-ML_AUDIO_OBJ =
-else ifndef ML_AUDIO_OBJ
-ML_AUDIO_OBJ = audio-ak.o
-endif
-
-ifeq ($(ML_ZEBRA_OBJ), n)
-ML_ZEBRA_OBJ =
-else ifndef ML_ZEBRA_OBJ
-ML_ZEBRA_OBJ = zebra.o \
-			   vectorscope.o
-endif
-
-ifeq ($(ML_BOOTFLAGS_OBJ), n)
-ML_BOOTFLAGS_OBJ =
-else ifndef ML_BOOTFLAGS_OBJ
-ML_BOOTFLAGS_OBJ = bootflags.o
-endif
-
-ifeq ($(ML_AF_PATTERNS_OBJ), n)
-ML_AF_PATTERNS_OBJ = 
-else ifndef ML_AF_PATTERNS_OBJ
-ML_AF_PATTERNS_OBJ = af_patterns.o
-endif
-
-ifeq ($(ML_ENTRY_OBJ), n)
-ML_ENTRY_OBJ =
-else ifndef ML_ENTRY_OBJ
-ML_ENTRY_OBJ = entry.o
-endif
-
-ifeq ($(ML_SRC_PROFILE),minimal)
-ML_OBJS-y = \
-	magiclantern.lds \
-	$(ML_ENTRY_OBJ) \
-	minimal.o \
-	$(PLATFORM_DIR)/stubs.o
-
-else ifeq ($(ML_SRC_PROFILE),installer)
-ML_INSTALLER_OBJS = \
-	magiclantern.lds \
-	$(ML_ENTRY_OBJ) \
-	$(PLATFORM_DIR)/stubs.o \
-	installer.o \
-	version.o \
-	fio-ml.o \
-	ico.o \
-	bmp.o \
-	rbf_font.o \
-	stdio.o \
-	dialog_test.o \
-	bootflags.o \
-	mem.o \
-	util.o \
-
-ML_OBJS-y += $(ML_INSTALLER_OBJS)
 
 CFLAGS += -DCONFIG_INSTALLER
 
-else ifeq ($(ML_SRC_PROFILE),generic)
-
-ML_OBJS-y += \
-	magiclantern.lds \
-	$(ML_ENTRY_OBJ) \
-	$(PLATFORM_DIR)/stubs.o \
-	version.o
-
-ML_SRC_OBJS = \
-	$(ML_BOOT_HACK_OBJ) \
-	fio-ml.o \
-	mem.o \
-	ico.o \
-	edmac.o \
-	menu.o \
-	debug.o \
-	rand.o \
-	posix.o \
-	util.o \
-	imath.o \
-	electronic_level.o \
-	cfn.o \
-	gui.o \
-	$(ML_PICSTYLE_OBJ) \
-	exmem.o \
-	bmp.o \
-	rbf_font.o \
-	config.o \
-	stdio.o \
-	$(ML_BITRATE_OBJ) \
-	lcdsensor.o \
-	tweaks.o \
-	tweaks-eyefi.o \
-	lens.o \
-	property.o \
-	propvalues.o \
-	gui-common.o \
-	chdk-gui_draw.o \
-	movtweaks.o \
-	menuhelp.o \
-	menuindex.o \
-	$(ML_AF_PATTERNS_OBJ) \
-	focus.o \
-	notify_box.o \
-	$(ML_BOOTFLAGS_OBJ) \
-	dialog_test.o \
-	vram.o \
-	greenscreen.o \
-	fps-engio.o \
-	shoot.o \
-	hdr.o \
-	lv-img-engio.o \
-	state-object.o \
-	tasks.o \
-	vsync-lite.o \
-	tskmon.o \
-	battery.o \
-	imgconv.o \
-	histogram.o \
-	falsecolor.o \
-	$(ML_AUDIO_OBJ) \
-	$(ML_ZEBRA_OBJ) \
-	beep.o \
-	crop-mode-hack.o \
-	ph_info_disp.o \
-	flexinfo.o \
-	screenshot.o \
-	fileprefix.o \
-	lvinfo.o \
-	builtin-enforcing.o \
-	ml-cbr.o \
-	raw.o \
-	chdk-dng.o \
-	edmac-memcpy.o \
-
-
-ML_OBJS-y += $(ML_SRC_OBJS)
 
 include $(TOP_DIR)/src/Makefile.src.config
-
-else ifndef ML_OBJS-y
-$(error ML_OBJS-y is not defined)
-endif
-
-ifneq ($(ML_SRC_PROFILE),minimal)
-ML_OBJS-y += $(ML_SRC_EXTRA_OBJS)
-endif
-
-ifdef ML_SRC_EXCLUDE_OBJS
-ML_OBJS-y := $(filter-out $(ML_SRC_EXCLUDE_OBJS), $(ML_OBJS-y))
-endif
 
 include $(TOP_DIR)/Makefile.filerules
 
 # Magic Lantern rules
 
-magiclantern: $(ML_OBJS-y) $(ML_LIBC)
-	$(call build,LD,$(LD) \
-		-o $@ \
-		-N \
-		$(LFLAGS) \
-		-T \
-		$^ \
-        -Map=location.map \
-	)
-
-reboot.o: $(SRC_DIR)/reboot.c $(PLATFORM_DIR)/version.bin magiclantern.bin
 
 ifndef ML_SRC_REBOOT_OBJ
 ML_SRC_REBOOT_OBJ = reboot.o
 ML_SRC_REBOOT_OBJ += font_direct.o
 ML_SRC_REBOOT_OBJ += disp_direct.o
 ML_SRC_REBOOT_OBJ += kernel.o
-
+CFLAGS += -save-temps
 endif
 
 clean::
@@ -218,7 +44,7 @@ autoexec: $(ML_SRC_REBOOT_OBJ) $(ML_LIBC)
 	$(call build,LD,$(LD) \
 		-o $@ \
 		-e _start \
-		-Ttext $(AUTOEXEC_BASE) \
+		-Ttext 0x00800000 \
 		$^ \
 		--cref \
 		-Map=autoexec.map \

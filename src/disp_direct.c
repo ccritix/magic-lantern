@@ -302,7 +302,7 @@ void disp_direct_scroll_up(uint32_t lines)
 void disp_init()
 {
     /* is this address valid for all cameras? */
-    disp_bmpbuf = (uint8_t *)UNCACHED(0x50000000 - 720*480/2);
+    disp_bmpbuf = (uint8_t *)UNCACHED(0x10000000 - 720*480/2);
     disp_yuvbuf = (uint8_t *)UNCACHED(disp_bmpbuf - 720*480*2);
     
     /* this should cover most (if not all) ML-supported cameras */

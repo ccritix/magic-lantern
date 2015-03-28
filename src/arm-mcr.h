@@ -72,6 +72,52 @@ select_normal_vectors( void )
     );
 }
 
+static inline void
+disable_dcache( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "bic %0, %0, #0x04\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+static inline void
+disable_icache( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "bic %0, %0, #0x1000\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+
+static inline void
+enable_dcache( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "orr %0, %0, #0x04\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+static inline void
+enable_icache( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "orr %0, %0, #0x1000\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+
 /*
      naming conventions
     --------------------
@@ -157,6 +203,7 @@ static inline void sync_caches()
     clean_d_cache();
     flush_i_cache();
 }
+
 
 // This must be a macro
 #define setup_memory_region( region, value ) \

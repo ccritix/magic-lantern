@@ -76,22 +76,15 @@ asm(
     "BIC     R0, R0, #0x3F\n"   // Clear I,F,T
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
     "MSR     CPSR, R0\n"
+    "ADR     R0, cstart_addr\n"
+    "LDR     R0, [R0]\n"
+    "MOV     R1, #0x40000000\n"
+    "BIC     R0, R0, R1\n"
+    "BX      R0\n"
     "B       cstart\n"
     
-    /* return */
-    ".globl _vec_data_abort\n"
-    "_vec_data_abort:\n"
-    "STMFD SP!, {R0-R1}\n"
-    "ADR R0, _dat_data_abort\n"
-    "LDR R1, [R0]\n"
-    "ADD R1, R1, #1\n"
-    "STR R1, [R0]\n"
-    "LDMFD SP!, {R0-R1}\n"
-    "SUBS PC, R14, #4\n"
-
-    ".globl _dat_data_abort\n"
-    "_dat_data_abort:\n"
-    ".word 0x00000000\n"
+    "cstart_addr:\n"
+    ".word   cstart\n"
 );
 
 void print_char()
@@ -115,7 +108,7 @@ void print_line_ext(uint32_t color, uint32_t scale, char *txt, uint32_t count)
     if(print_y > 480)
     {
         print_y = 480 - 8;
-        //disp_direct_scroll_up(8);
+        disp_direct_scroll_up(8);
     }
 }
 
@@ -135,17 +128,36 @@ int printf(const char * fmt, ...)
     return 0;
 }
 
+void __attribute__ ((noinline)) dma_sync_caches()
+{
+    sync_caches();
+}
+
+uint32_t dma_int_status = 0;
+
+void dma_pre_setup()
+{
+    dma_int_status = cli();
+    dma_sync_caches();
+}
+
+void dma_post_setup()
+{
+    dma_sync_caches();
+    sei(dma_int_status);
+}
+
 /* use dma engine for memcopy */
 void dma_memcpy(void *dst, void *src, uint32_t bytes)
 {
-    //if(bytes < 0x20)
+    if(bytes < 0x20)
     {
         memcpy(dst, src, bytes);
         return;
     }
     
     /* write back cache content and mark everything invalid */
-    sync_caches();
+    dma_pre_setup();
     
     /* initialize DMA engine */
     MEM(0xC0A10000) = 0x00000001;
@@ -161,20 +173,20 @@ void dma_memcpy(void *dst, void *src, uint32_t bytes)
     }
     
     /* write back cache content and mark everything invalid */
-    sync_caches();
+    dma_post_setup();
 }
 
 /* use dma engine for memset */
 void dma_memset(void *dst, uint8_t value, uint32_t bytes)
 {
-    //if(bytes < 0x20)
+    if(bytes < 0x20)
     {
         memset(dst, value, bytes);
         return;
     }
     
     /* write back cache content and mark everything invalid */
-    sync_caches();
+    dma_pre_setup();
     
     /* build a 32 bit word with the memset value */
     uint32_t memset_buf = value;
@@ -203,7 +215,7 @@ void dma_memset(void *dst, uint8_t value, uint32_t bytes)
     }
     
     /* write back cache content and mark everything invalid */
-    sync_caches();
+    dma_post_setup();
 }
 
 /*
@@ -289,18 +301,25 @@ static void setup_end_tag(struct atag **params)
 	(*params)->hdr.size = 0;                   /* zero length */
 }
 
-
 void boot_linux()
 {
     uint32_t *interface_ptr = (void*)0x40000000;
-    struct atag *atags_ptr = (void*)0x40000010;    
+    struct atag *atags_ptr = (void*)0x00000100;    
     
-    uint32_t ram_start = 0x40E00000;
-    uint32_t ram_size = 0x0F120000;
-    uint32_t kernel_addr = ram_start;
+    disable_dcache();
+    disable_icache();
+    
+    uint32_t ram_start = 0x00E00000;
+    uint32_t ram_end   = 0x0FF20000;
+    uint32_t ram_size  = ram_end - ram_start;
+    
+    /* place kernel at the start o */
     uint32_t kernel_size = CACHED(&kernel_end) - CACHED(&kernel_start);
-    uint32_t initrd_addr = kernel_addr + ALIGN(kernel_size, 0x1000);
+    uint32_t kernel_addr = 0x8000;
+    
+    /* place initrd at RAM end */
     uint32_t initrd_size = CACHED(&initrd_end) - CACHED(&initrd_start);
+    uint32_t initrd_addr = ram_start + ram_size - initrd_size;
     
     /* setup callback functions */
     interface_ptr[0] = &print_line_ext;
@@ -310,28 +329,30 @@ void boot_linux()
     /* setup atags */  
     printf("  Setup ATAGs...\n");
     setup_core_tag(&atags_ptr, 4096, 0x100);
-    setup_mem_tag(&atags_ptr, ram_start, ram_size);
+    setup_mem_tag(&atags_ptr, CACHED(ram_start), ram_size);
     setup_ramdisk_tag(&atags_ptr, (initrd_size + 1023) / 1024);
-    setup_initrd2_tag(&atags_ptr, initrd_addr, initrd_size);
-    setup_cmdline_tag(&atags_ptr, "init=/bin/sh root=/dev/ram0 earlyprintk=1");
+    setup_initrd2_tag(&atags_ptr, CACHED(initrd_addr), initrd_size);
+    setup_cmdline_tag(&atags_ptr, "init=/init root=/dev/ram0 earlyprintk=1");
     setup_end_tag(&atags_ptr);
     
-    /* move kernel into free space */
-    printf("  Copying kernel to 0x%08X, size 0x%08X...\n", kernel_addr, kernel_size);
+    /* move kernel into free spa ce */
+    printf("  Copying kernel to 0x%08X (0x%08X bytes)...\n", kernel_addr, kernel_size);
     dma_memcpy(kernel_addr, &kernel_start, kernel_size);
-    printf("  Copying initrd to 0x%08X, size 0x%08X...\n", initrd_addr, initrd_size);
+    printf("  Copying initrd to 0x%08X (0x%08X bytes)...\n", initrd_addr, initrd_size);
     dma_memcpy(initrd_addr, &initrd_start, initrd_size);
     
     printf("  Starting Kernel...\n");
     
-    asm(
-        ".globl kernel_start\n"
+    enable_dcache();
+    enable_icache();
     
+    
+    asm(
         /* enter SVC mode */
-        "MRS   r0, CPSR         \n"
-        "BIC   r0, r0, #0x1F    \n"
-        "ORR   r0, r0, #0xD3    \n"
-        "MSR   CPSR, r0         \n"
+        "MRS   R0, CPSR         \n"
+        "BIC   R0, R0, #0x1F    \n"
+        "ORR   R0, R0, #0xD3    \n"
+        "MSR   CPSR, R0         \n"
         
         /* setup registers for kernel boot */
         "ADR   R4,  parameters  \n"
@@ -347,9 +368,9 @@ void boot_linux()
         /* memory addresses */
         "parameters:\n"
         ".word   0xFFFFFFFF\n" /* machine ID */
-        ".word   0x40000010\n" /* ATAGs address */
-        ".word   0x40E00000\n" /* linux kernel address */
-        ".word   0x407FF000\n" /* stack for kernel boot */
+        ".word   0x00000100\n" /* ATAGs address */
+        ".word   0x00008000\n" /* linux kernel address */
+        ".word   0x00008000\n" /* stack for kernel boot */
     );
 }
 
@@ -359,6 +380,12 @@ cstart( void )
 {
     print_x = 0;
     print_y = 0;
+    
+    MEM(0xC0400004) = 0x403;
+    MEM(0xC0400004) |= 0x03000000;
+    MEM(0xC0400044) = 0;
+    MEM(0xC0400134) = 0;
+    MEM(0xC0400008) |= 0x43000F;
     
     disp_init();
     
