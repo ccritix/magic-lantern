@@ -34,8 +34,10 @@ ML_SRC_REBOOT_OBJ = reboot.o
 ML_SRC_REBOOT_OBJ += font_direct.o
 ML_SRC_REBOOT_OBJ += disp_direct.o
 ML_SRC_REBOOT_OBJ += kernel.o
-CFLAGS += -save-temps
+#CFLAGS += -save-temps
 endif
+
+kernel.o: ../../xipImage ../../initrd.img
 
 clean::
 	$(call rm_files, magiclantern.bin autoexec autoexec.map location.map)
@@ -44,7 +46,7 @@ autoexec: $(ML_SRC_REBOOT_OBJ) $(ML_LIBC)
 	$(call build,LD,$(LD) \
 		-o $@ \
 		-e _start \
-		-Ttext 0x00800000 \
+		-Ttext 0x00008000 \
 		$^ \
 		--cref \
 		-Map=autoexec.map \

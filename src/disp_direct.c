@@ -299,11 +299,16 @@ void disp_direct_scroll_up(uint32_t lines)
     dma_memset(&disp_bmpbuf[size], 0x00, start);
 }
 
-void disp_init()
+void disp_init(void *mem_start, void *mem_end)
 {
     /* is this address valid for all cameras? */
-    disp_bmpbuf = (uint8_t *)UNCACHED(0x10000000 - 720*480/2);
-    disp_yuvbuf = (uint8_t *)UNCACHED(disp_bmpbuf - 720*480*2);
+    disp_bmpbuf = (uint8_t *)UNCACHED((CACHED(mem_end) - 720*480/2));
+    disp_yuvbuf = (uint8_t *)UNCACHED((CACHED(disp_bmpbuf) - 720*480*2));
+    
+    if((uint32_t)disp_bmpbuf < mem_start)
+    {
+        return;
+    }
     
     /* this should cover most (if not all) ML-supported cameras */
     /* and maybe most unsupported cameras as well :) */
@@ -332,8 +337,8 @@ void disp_init()
     dma_memset(disp_yuvbuf, 0x00, 720*480*2);
     
     /* set frame buffer memory areas */
-    MEM(0xC0F140D0) = CACHED(disp_bmpbuf);
-    MEM(0xC0F140E0) = CACHED(disp_yuvbuf);
+    MEM(0xC0F140D0) = UNCACHED(disp_bmpbuf);
+    MEM(0xC0F140E0) = UNCACHED(disp_yuvbuf);
     
     /* trigger a display update */
     MEM(0xC0F14000) = 1;

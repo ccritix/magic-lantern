@@ -58,7 +58,6 @@ extern uint8_t *disp_yuvbuf;
 
 uint32_t print_x = 0;
 uint32_t print_y = 0;
-char print_tmp[2];
 
 asm(
     ".text\n"
@@ -76,20 +75,48 @@ asm(
     "BIC     R0, R0, #0x3F\n"   // Clear I,F,T
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
     "MSR     CPSR, R0\n"
-    "ADR     R0, cstart_addr\n"
-    "LDR     R0, [R0]\n"
-    "MOV     R1, #0x40000000\n"
-    "BIC     R0, R0, R1\n"
-    "BX      R0\n"
-    "B       cstart\n"
+    "ADR     R4, addresses\n"
     
-    "cstart_addr:\n"
+    /* flush all caches so we can work on uncached memory */
+    "MOV     R0, #0\n"
+    "MCR     p15, 0, R0, c7, c5, 0\n" // entire I cache
+    "MCR     p15, 0, R0, c7, c6, 0\n" // entire D cache
+    "MCR     p15, 0, R0, c7, c10, 4\n" // drain write buffer
+    
+    /* now copy the whole binary to 0x40001000 */
+    "LDR     R0, [R4, #0]\n"
+    "LDR     R1, [R4, #4]\n"
+    "LDR     R2, [R4, #8]\n"
+    "MOV     R3, #0x40000000\n"
+    "ORR     R0, R0, R3\n"
+    "ORR     R1, R1, R3\n"
+    
+    "_copy_loop:\n"
+    "CMP     R0, R1\n"
+    "BGE     _exec_main\n"
+    "LDMIA   R2!, {R5, R6, R7, R8, R9, R10, R11, R12}\n"
+    "STMIA   R0!, {R5, R6, R7, R8, R9, R10, R11, R12}\n"
+    "B       _copy_loop\n"
+    
+    /* and jump to the cached memory */
+    "_exec_main:\n"
+    "MOV     R0, #0\n"
+    "MCR     p15, 0, R0, c7, c5, 0\n" // flush I cache
+    "LDR     R0, [R4, #0x0C]\n"
+    "BX      R0\n"
+    
+    "addresses:\n"
+    ".word   _start\n"
+    ".word   _end\n"
+    ".word   0x40800000\n"
     ".word   cstart\n"
 );
 
 void print_char()
 {
-    print_tmp[0] = (char)MEM(0x40000008);
+    char print_tmp[2];
+    
+    print_tmp[0] = (char)MEM(0x00008008);
     print_tmp[1] = 0;
     
     font_draw(&print_x, &print_y, COLOR_WHITE, 1, print_tmp, 1);
@@ -160,17 +187,27 @@ void dma_memcpy(void *dst, void *src, uint32_t bytes)
     dma_pre_setup();
     
     /* initialize DMA engine */
-    MEM(0xC0A10000) = 0x00000001;
+    MEM(0xC0A10000) = 1;
+    MEM(0xC0A10004) = 0;
+    MEM(0xC0A10010) = 0;
+    MEM(0xC0A10014) = 0;
     MEM(0xC0A10018) = src;
     MEM(0xC0A1001C) = dst;
     MEM(0xC0A10020) = bytes;
     
     /* start copying */
-    MEM(0xC0A10008) = 0x00000201;
+    MEM(0xC0A10008) = 0x00030200;
+    MEM(0xC0A10008) |= 1;
     
+    while((MEM(0xC0A10010) | 1) != 1)
+    {
+    }
     while(MEM(0xC0A10008) & 1)
     {
     }
+    
+    /* reset some flags */
+    MEM(0xC0A10010) = 0;
     
     /* write back cache content and mark everything invalid */
     dma_post_setup();
@@ -202,17 +239,27 @@ void dma_memset(void *dst, uint8_t value, uint32_t bytes)
     memset_ptr[3] = memset_buf;
     
     /* initialize DMA engine */
-    MEM(0xC0A10000) = 0x00000001;
+    MEM(0xC0A10000) = 1;
+    MEM(0xC0A10004) = 0;
+    MEM(0xC0A10010) = 0;
+    MEM(0xC0A10014) = 0;
     MEM(0xC0A10018) = dst;
     MEM(0xC0A1001C) = (uint32_t)(memset_ptr) + 0x10;
     MEM(0xC0A10020) = bytes - 0x10;
     
     /* start copying without altering source address */
-    MEM(0xC0A10008) = 0x00000201 | 0x20;
+    MEM(0xC0A10008) = 0x00030200 | 0x20;
+    MEM(0xC0A10008) |= 1;
     
+    while((MEM(0xC0A10010) | 1) != 1)
+    {
+    }
     while(MEM(0xC0A10008) & 1)
     {
     }
+    
+    /* reset some flags */
+    MEM(0xC0A10010) = 0;
     
     /* write back cache content and mark everything invalid */
     dma_post_setup();
@@ -303,23 +350,21 @@ static void setup_end_tag(struct atag **params)
 
 void boot_linux()
 {
-    uint32_t *interface_ptr = (void*)0x40000000;
+    uint32_t *interface_ptr = (void*)0x00008000;
     struct atag *atags_ptr = (void*)0x00000100;    
     
-    disable_dcache();
-    disable_icache();
     
-    uint32_t ram_start = 0x00E00000;
-    uint32_t ram_end   = 0x0FF20000;
+    uint32_t ram_start = 0x01000000;
+    uint32_t ram_end   = 0x10000000;
     uint32_t ram_size  = ram_end - ram_start;
     
     /* place kernel at the start o */
-    uint32_t kernel_size = CACHED(&kernel_end) - CACHED(&kernel_start);
-    uint32_t kernel_addr = 0x8000;
+    uint32_t kernel_size = &kernel_end - &kernel_start;
+    uint32_t kernel_addr = 0x00800000;
     
     /* place initrd at RAM end */
-    uint32_t initrd_size = CACHED(&initrd_end) - CACHED(&initrd_start);
-    uint32_t initrd_addr = ram_start + ram_size - initrd_size;
+    uint32_t initrd_size = &initrd_end - &initrd_start;
+    uint32_t initrd_addr = ram_end - initrd_size;
     
     /* setup callback functions */
     interface_ptr[0] = &print_line_ext;
@@ -328,14 +373,14 @@ void boot_linux()
     
     /* setup atags */  
     printf("  Setup ATAGs...\n");
-    setup_core_tag(&atags_ptr, 4096, 0x100);
-    setup_mem_tag(&atags_ptr, CACHED(ram_start), ram_size);
+    setup_core_tag(&atags_ptr, 8192, 0x100);
+    setup_mem_tag(&atags_ptr, ram_start, ram_size);
     setup_ramdisk_tag(&atags_ptr, (initrd_size + 1023) / 1024);
-    setup_initrd2_tag(&atags_ptr, CACHED(initrd_addr), initrd_size);
+    setup_initrd2_tag(&atags_ptr, initrd_addr, initrd_size);
     setup_cmdline_tag(&atags_ptr, "init=/init root=/dev/ram0 earlyprintk=1");
     setup_end_tag(&atags_ptr);
     
-    /* move kernel into free spa ce */
+    /* move kernel into free space */
     printf("  Copying kernel to 0x%08X (0x%08X bytes)...\n", kernel_addr, kernel_size);
     dma_memcpy(kernel_addr, &kernel_start, kernel_size);
     printf("  Copying initrd to 0x%08X (0x%08X bytes)...\n", initrd_addr, initrd_size);
@@ -345,7 +390,6 @@ void boot_linux()
     
     enable_dcache();
     enable_icache();
-    
     
     asm(
         /* enter SVC mode */
@@ -369,8 +413,8 @@ void boot_linux()
         "parameters:\n"
         ".word   0xFFFFFFFF\n" /* machine ID */
         ".word   0x00000100\n" /* ATAGs address */
-        ".word   0x00008000\n" /* linux kernel address */
-        ".word   0x00008000\n" /* stack for kernel boot */
+        ".word   0x00800000\n" /* linux kernel address */
+        ".word   0x00700000\n" /* stack for kernel boot */
     );
 }
 
@@ -381,17 +425,11 @@ cstart( void )
     print_x = 0;
     print_y = 0;
     
-    MEM(0xC0400004) = 0x403;
-    MEM(0xC0400004) |= 0x03000000;
-    MEM(0xC0400044) = 0;
-    MEM(0xC0400134) = 0;
-    MEM(0xC0400008) |= 0x43000F;
-    
-    disp_init();
+    disp_init(&_end, (void*)0x00800000);
     
     printf(" Magic Lantern Linux Loader\n");
     printf("----------------------------\n");
-    
+
     boot_linux();
     while(1);
 }
