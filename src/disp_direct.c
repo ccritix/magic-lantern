@@ -290,13 +290,16 @@ void* disp_init_autodetect()
 }
 
 
-void disp_direct_scroll_up(uint32_t lines)
+uint32_t disp_direct_scroll_up(uint32_t lines)
 {
-    uint32_t start = lines * 720 / 2;
-    uint32_t size = (720 * 480 / 2) - start;
+    uint32_t height = (lines * FONTH);
+    uint32_t start = (720 * height) / 2;
+    uint32_t size = (720 * (480 - height)) / 2;
     
     dma_memcpy(disp_bmpbuf, &disp_bmpbuf[start], size);
     dma_memset(&disp_bmpbuf[size], 0x00, start);
+    
+    return height;
 }
 
 void disp_init(void *mem_start, void *mem_end)

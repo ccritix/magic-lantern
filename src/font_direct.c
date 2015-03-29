@@ -123,7 +123,9 @@ void font_draw(uint32_t *x_pos, uint32_t *y_pos, uint32_t color, uint32_t scale,
 {
     uint32_t char_width = scale * FONTW;
     uint32_t char_height = scale * FONTH;
-        
+    uint32_t xpos = *x_pos;
+    uint32_t ypos = *y_pos;
+    
     if(count == 0)
     {
         count = strlen(text);
@@ -133,20 +135,20 @@ void font_draw(uint32_t *x_pos, uint32_t *y_pos, uint32_t color, uint32_t scale,
     {
         if(text[i] == '\n')
         {
-            (*x_pos) = 0;
-            (*y_pos) += char_height;
+            xpos = 0;
+            ypos += char_height;
         	continue;
         }
         
         if(text[i] == '\b')
         {
-            if((*x_pos) >= char_width)
+            if(xpos >= char_width)
             {
-                (*x_pos) -= char_width;
+                xpos -= char_width;
             }
             else
             {
-                (*x_pos) = 0;
+                xpos = 0;
             }
         	continue;
         }
@@ -165,14 +167,17 @@ void font_draw(uint32_t *x_pos, uint32_t *y_pos, uint32_t color, uint32_t scale,
             {
                 if(fontImg[ix][y/scale] & (1<<(x/scale)))
                 {
-                    font_put_pixel(*x_pos + x, *y_pos + y, color);
+                    font_put_pixel(xpos + x, ypos + y, color);
                 }
                 else
                 {
-                    font_put_pixel(*x_pos + x, *y_pos + y, COLOR_EMPTY);
+                    font_put_pixel(xpos + x, ypos + y, COLOR_EMPTY);
                 }
             }
         }
-        (*x_pos) += char_width;
+        xpos += char_width;
     }
+    
+    *x_pos = xpos;
+    *y_pos = ypos;
 }

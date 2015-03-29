@@ -20,6 +20,7 @@ void disp_progress(uint32_t progress);
 void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color);
 void disp_init();
 void disp_update();
-void disp_direct_scroll_up(uint32_t lines);
+uint32_t disp_direct_scroll_up(uint32_t lines);
+
 
 #endif

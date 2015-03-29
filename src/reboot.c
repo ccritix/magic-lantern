@@ -83,7 +83,7 @@ asm(
     "MCR     p15, 0, R0, c7, c6, 0\n" // entire D cache
     "MCR     p15, 0, R0, c7, c10, 4\n" // drain write buffer
     
-    /* now copy the whole binary to 0x40001000 */
+    /* now copy the whole binary to 0x40008000 */
     "LDR     R0, [R4, #0]\n"
     "LDR     R1, [R4, #4]\n"
     "LDR     R2, [R4, #8]\n"
@@ -115,28 +115,32 @@ asm(
 void print_char()
 {
     char print_tmp[2];
+    uint32_t ints = cli();
     
     print_tmp[0] = (char)MEM(0x00008008);
     print_tmp[1] = 0;
     
     font_draw(&print_x, &print_y, COLOR_WHITE, 1, print_tmp, 1);
     
-    if(print_y > 480)
+    if(print_y >= 480)
     {
-        print_y = 480 - 8;
-        disp_direct_scroll_up(8);
+        print_y = 480 - disp_direct_scroll_up(1);
     }
+    
+    sei(ints);
 }
 
 void print_line_ext(uint32_t color, uint32_t scale, char *txt, uint32_t count)
 {
+    uint32_t ints = cli();
+    
     font_draw(&print_x, &print_y, color, scale, txt, count);
     
-    if(print_y > 480)
+    if(print_y >= 480)
     {
-        print_y = 480 - 8;
-        disp_direct_scroll_up(8);
+        print_y = 480 - disp_direct_scroll_up(1);
     }
+    sei(ints);
 }
 
 void print_line(uint32_t color, uint32_t scale, char *txt)
@@ -377,7 +381,7 @@ void boot_linux()
     setup_mem_tag(&atags_ptr, ram_start, ram_size);
     setup_ramdisk_tag(&atags_ptr, (initrd_size + 1023) / 1024);
     setup_initrd2_tag(&atags_ptr, initrd_addr, initrd_size);
-    setup_cmdline_tag(&atags_ptr, "init=/init root=/dev/ram0 earlyprintk=1");
+    setup_cmdline_tag(&atags_ptr, "init=/bin/sh root=/dev/ram0 earlyprintk=1");
     setup_end_tag(&atags_ptr);
     
     /* move kernel into free space */
