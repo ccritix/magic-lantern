@@ -18,6 +18,10 @@
 #include "battery.h"
 #include "../dng/dng.h"
 
+extern WEAK_FUNC(ret_0) struct dng_info * dng_get_info(struct raw_info * raw_info, int use_frame_shutter);
+extern WEAK_FUNC(ret_0) void dng_free(struct dng_info * dng_info);
+extern WEAK_FUNC(ret_0) int dng_save(char* filename, void * buffer, struct dng_info * dng_info);
+
 static uint64_t ret_0_long() { return 0; }
 
 extern WEAK_FUNC(ret_0) void display_filter_get_buffers(uint32_t** src_buf, uint32_t** dst_buf);
@@ -62,6 +66,7 @@ static CONFIG_INT( "silent.pic.file_format", silent_pic_file_format, 0 );
 //#define SILENT_PIC_MODE_SLITSCAN_CENTER_V 5 // center vertical
 
 static int silent_pic_mlv_available = 0;
+static int silent_pic_dng_available = 0;
 static mlv_file_hdr_t mlv_file_hdr;
 static uint64_t mlv_start_timestamp = 0;
 static char image_file_name[100];
@@ -86,6 +91,17 @@ static MENU_UPDATE_FUNC(silent_pic_check_mlv)
             info->warning_level = 0;
         }
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use the MLV file format, you must load the mlv_rec module.");
+    }
+    
+    if (silent_pic_file_format == SILENT_PIC_FILE_FORMAT_DNG && !silent_pic_dng_available)
+    {
+        if (info->warning_level == MENU_WARN_NOT_WORKING)
+        {
+            /* make sure the MLV warning appears first (with highest priority) */
+            /* (normally, the menu backend prints only the first warning with the highest level, but here we want the last one) */
+            info->warning_level = 0;
+        }
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use the DNG file format, you must load the dng module.");
     }
 }
 
@@ -1447,6 +1463,7 @@ static unsigned int silent_init()
     prop_shutter = lens_info.raw_shutter;
 
     silent_pic_mlv_available = (mlv_generate_guid() != 0ULL);
+    silent_pic_dng_available = (void*)&dng_save != (void*)&ret_0;
 
     if (is_camera("500D", "*") || is_camera("550D", "*") || is_camera("600D", "*"))
     {
