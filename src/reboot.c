@@ -58,6 +58,8 @@ extern uint8_t *disp_yuvbuf;
 
 uint32_t print_x = 0;
 uint32_t print_y = 0;
+void _vec_data_abort();
+extern uint32_t _dat_data_abort;
 
 asm(
     ".text\n"
@@ -110,6 +112,21 @@ asm(
     ".word   _end\n"
     ".word   0x40800000\n"
     ".word   cstart\n"
+    
+    /* return on ABORT */
+    ".globl _vec_data_abort\n"
+    "_vec_data_abort:\n"
+    "STMFD SP!, {R0-R1}\n"
+    "ADR R0, _dat_data_abort\n"
+    "LDR R1, [R0]\n"
+    "ADD R1, R1, #1\n"
+    "STR R1, [R0]\n"
+    "LDMFD SP!, {R0-R1}\n"
+    "SUBS PC, R14, #4\n"
+
+    ".globl _dat_data_abort\n"
+    "_dat_data_abort:\n"
+    ".word 0x00000000\n"
 );
 
 void print_char()
@@ -422,10 +439,316 @@ void boot_linux()
     );
 }
 
+
+
+
+void int_enable(uint32_t id)
+{
+    MEM(0xC0201010) = id;
+    volatile uint32_t status = MEM(0xC0201200);
+}
+
+uint32_t gpio_get_base(uint32_t port)
+{
+    return 0xC0220000 | (port << 2);
+}
+
+void gpio_high(uint32_t port)
+{
+    uint32_t base = gpio_get_base(port);
+    
+    MEM(base) |= 0x02;
+}
+
+void gpio_low(uint32_t port)
+{
+    uint32_t base = gpio_get_base(port);
+    
+    MEM(base) &= ~0x02;
+}
+
+uint32_t gpio_get(uint32_t port)
+{
+    uint32_t base = gpio_get_base(port);
+    
+    return ((MEM(base) & 0x02) != 0);
+}
+
+void gpio_set(uint32_t port, uint32_t state)
+{
+    if(state)
+    {
+        gpio_high(port);
+    }
+    else
+    {
+        gpio_low(port);
+    }
+}
+
+uint32_t sio_get_base(uint32_t module)
+{
+    return 0xC0820000 | (module << 8);
+}
+
+void sio_xmit_word(uint32_t module, uint16_t *data)
+{
+    uint32_t base = sio_get_base(module);
+    
+    MEM(base + 0x18) = *data;
+    
+    MEM(base + 0x04) |= 1;
+    
+    while(MEM(base + 0x04) & 1)
+    {
+    }
+    
+    *data = MEM(base + 0x1C);
+}
+
+void sio_send_async(uint32_t module, uint16_t data)
+{
+    uint32_t base = sio_get_base(module);
+    
+    MEM(base + 0x18) = data;
+    MEM(base + 0x04) |= 1;
+}
+
+void sio_recv_async(uint32_t module, uint16_t *data)
+{
+    uint32_t base = sio_get_base(module);
+    
+    MEM(base + 0x10) = 0;
+    *data = MEM(base + 0x1C);
+}
+
+void sio_ready(uint32_t module)
+{
+    uint32_t base = sio_get_base(module);
+    
+    return ((MEM(base + 0x04) & 1) == 0);
+}
+
+void sio_init(uint32_t module)
+{
+    uint32_t base = sio_get_base(module);
+    
+    /* enable clocks */
+    MEM(0xC0400008) |=  0x430005;
+    
+    /* setup GPIOs? */
+    MEM(0xC0221300) =  0x25;
+    
+    MEM(base + 0x08) =  0x1;
+    MEM(base + 0x0C) =  0x13020010;
+}
+
+#define CS_ACTIVE   0
+#define CS_INACTIVE 1
+
+void mpu_set_cs(uint32_t state)
+{
+    gpio_set(39, state);
+}
+
+uint32_t mpu_get_cs()
+{
+    return gpio_get(39) ? CS_INACTIVE : CS_ACTIVE;
+}
+
+static int mreq_sent = 0;
+static int k = 1;
+static int sio3_recv_counter = 0;
+
+uint8_t recv_buf[128];
+uint8_t send_buf[128];
+#define BYTESWAP(x) (((x)>>8) | ((x)<<8))
+
+
+int mpu_get_data_to_send(int unk, int* data)
+{
+    int msg[3] = {0x0406, 0x0002, 0x0000};
+    if (k <= 3)
+    {
+        *data = msg[k-1];
+        printf("send %x\n", *data);
+        k++;
+        return 1;
+    }
+    
+    if(k == 4)
+    {
+        mpu_set_cs(CS_INACTIVE);
+    }
+    
+    return 0;
+}
+
+int sio3_recv(int data)
+{
+    int ack = 0;
+    
+    /* byte swap */
+    data = BYTESWAP(data);
+    
+    if(sio3_recv_counter)
+    {
+        printf(" %02X %02X ", data & 0xFF, (data >> 8) & 0xFF);
+        sio3_recv_counter -= 2;
+        ack = 1;
+        if (!sio3_recv_counter)
+        {
+            printf("\n");
+            ack = 0;
+        }
+    }
+    else
+    {
+        sio3_recv_counter = data & 0xFF;
+        if (sio3_recv_counter)
+        {
+            printf("Receiving %d bytes: ", sio3_recv_counter);
+            printf(" %02X %02X ", data & 0xFF, (data >> 8) & 0xFF);
+            if (sio3_recv_counter & 1)
+            {
+                printf("WTF\n");
+                sio3_recv_counter = 2;
+            }
+            sio3_recv_counter -= 2;
+            ack = 1;
+        }
+        else
+        {
+            printf("(0)");
+        }
+    }
+    return ack;
+}
+
+static void mreq_isr()
+{
+    MEM(0xC020302C) = 0x1C;
+
+    /* check for MREQ? */
+    if (!(MEM(0xC020302C) & 1))
+    {
+        /* check if a transmission in progress by reading CS line */
+        if(mpu_get_cs() == CS_INACTIVE)
+        {
+            /* no, start first transmission */
+            sio_send_async(3, 0);
+        }
+        else
+        {
+            /* CS is active, check if SIO is finished */
+            if(!sio_ready(3))
+            {
+                int out_data;
+                int result = mpu_get_data_to_send(0, &out_data);
+                if (result == 1)
+                {
+                    printf("sending %x\n", out_data);
+                    sio_send_async(3, BYTESWAP(out_data));
+                }
+            }
+        }
+    }
+}
+
+enum mpu_xmit_state
+{
+    MPU_XMIT_IDLE,
+    
+    /* via mpu_xmit(), then sio3_isr() */
+    MPU_XMIT_SEND,
+    
+    /* via mreq_isr() */
+    MPU_XMIT_RECV_HDR,
+    /* via sio3_isr() */
+    MPU_XMIT_RECV_DATA
+}
+
+static void sio3_isr()
+{
+    volatile int data = 0;
+    
+    /* we received a SIO ISR, so there is new data available */
+    sio_recv_async(3, &data);
+    
+    /* check if we should continue with transmission */
+    int ack = sio3_recv(data);
+
+    /*  */
+    if(mpu_get_cs() == CS_INACTIVE)
+    {
+        if(ack != 1)
+        {
+            return;
+        }
+        sio_send_async(3, 0);
+        return;
+    }
+    
+    if(!sio_ready(3))
+    {
+        return;
+    }
+
+    int out_data;
+    if(!mpu_get_data_to_send(1, &out_data))
+    {
+        if(ack != 1)
+        {
+            return;
+        }
+        sio_send_async(3, 0);
+    }
+    else
+    {
+        printf("sending %x\n", out_data);
+        sio_send_async(3, BYTESWAP(out_data));
+    }
+}
+
+
+void __attribute__((interrupt)) irq_handler()
+{
+    /* get interrupt id */
+    uint32_t irq_id = MEM(0xC0201004) >> 2;
+    
+    /* check if timer counted up */
+    if(irq_id == 0x50)
+    {
+        mreq_isr();
+    }
+
+    if(irq_id == 0x36)
+    {
+        sio3_isr();
+    }
+
+    /* reset/re-arm interrupt. works without, but firmware does so */
+    int_enable(irq_id);
+}
+
 void
 __attribute__((noreturn))
 cstart( void )
 {
+    disable_dcache();
+    enable_icache();
+    
+    /* install custom data abort handler */
+    MEM(0x00000024) = (uint32_t)&_vec_data_abort;
+    MEM(0x00000028) = (uint32_t)&_vec_data_abort;
+    MEM(0x0000002C) = (uint32_t)&_vec_data_abort;
+    MEM(0x00000030) = (uint32_t)&_vec_data_abort;
+    MEM(0x00000038) = (uint32_t)&irq_handler;
+    MEM(0x0000003C) = (uint32_t)&_vec_data_abort;
+    
+    /* allow interrupts */
+    sei(0);
+    
     print_x = 0;
     print_y = 0;
     
@@ -434,7 +757,28 @@ cstart( void )
     printf(" Magic Lantern Linux Loader\n");
     printf("----------------------------\n");
 
-    boot_linux();
+
+    printf("  Setup MPU...\n");
+    sio3_recv_counter = 0;
+    mreq_sent = 0;
+    
+    /* setup SPI lines */
+    mpu_set_cs(CS_INACTIVE);
+    sio_init(3);
+    
+    /* setup MREQ? */
+    MEM(0xC020302C) =  0xC;
+    
+    /* enable interrupts for MREQ and SPI */
+    int_enable(0x50);
+    int_enable(0x36);
+    
+    mpu_set_cs(CS_ACTIVE);
+    
+    
+    printf("  Done\n");
+    
+    //boot_linux();
     while(1);
 }
 
