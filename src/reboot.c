@@ -212,8 +212,8 @@ void dma_memcpy(void *dst, void *src, uint32_t bytes)
     MEM(0xC0A10004) = 0;
     MEM(0xC0A10010) = 0;
     MEM(0xC0A10014) = 0;
-    MEM(0xC0A10018) = src;
-    MEM(0xC0A1001C) = dst;
+    MEM(0xC0A10018) = (uint32_t)src;
+    MEM(0xC0A1001C) = (uint32_t)dst;
     MEM(0xC0A10020) = bytes;
     
     /* start copying */
@@ -264,8 +264,8 @@ void dma_memset(void *dst, uint8_t value, uint32_t bytes)
     MEM(0xC0A10004) = 0;
     MEM(0xC0A10010) = 0;
     MEM(0xC0A10014) = 0;
-    MEM(0xC0A10018) = dst;
-    MEM(0xC0A1001C) = (uint32_t)(memset_ptr) + 0x10;
+    MEM(0xC0A10018) = (uint32_t)dst;
+    MEM(0xC0A1001C) = ((uint32_t)(memset_ptr) + 0x10);
     MEM(0xC0A10020) = bytes - 0x10;
     
     /* start copying without altering source address */
@@ -388,8 +388,8 @@ void boot_linux()
     uint32_t initrd_addr = ram_end - initrd_size;
     
     /* setup callback functions */
-    interface_ptr[0] = &print_line_ext;
-    interface_ptr[1] = &print_char;
+    interface_ptr[0] = (uint32_t)&print_line_ext;
+    interface_ptr[1] = (uint32_t)&print_char;
     interface_ptr[2] = 0;
     
     /* setup atags */  
@@ -403,9 +403,9 @@ void boot_linux()
     
     /* move kernel into free space */
     printf("  Copying kernel to 0x%08X (0x%08X bytes)...\n", kernel_addr, kernel_size);
-    dma_memcpy(kernel_addr, &kernel_start, kernel_size);
+    dma_memcpy((void *)kernel_addr, &kernel_start, kernel_size);
     printf("  Copying initrd to 0x%08X (0x%08X bytes)...\n", initrd_addr, initrd_size);
-    dma_memcpy(initrd_addr, &initrd_start, initrd_size);
+    dma_memcpy((void *)initrd_addr, &initrd_start, initrd_size);
     
     printf("  Starting Kernel...\n");
     
@@ -522,7 +522,7 @@ void sio_recv_async(uint32_t module, uint16_t *data)
     *data = MEM(base + 0x1C);
 }
 
-void sio_ready(uint32_t module)
+uint32_t sio_ready(uint32_t module)
 {
     uint32_t base = sio_get_base(module);
     
@@ -556,73 +556,176 @@ uint32_t mpu_get_cs()
     return gpio_get(39) ? CS_INACTIVE : CS_ACTIVE;
 }
 
-static int mreq_sent = 0;
-static int k = 1;
-static int sio3_recv_counter = 0;
-
-uint8_t recv_buf[128];
-uint8_t send_buf[128];
-#define BYTESWAP(x) (((x)>>8) | ((x)<<8))
 
 
-int mpu_get_data_to_send(int unk, int* data)
+enum mpu_xmit_state
 {
-    int msg[3] = {0x0406, 0x0002, 0x0000};
-    if (k <= 3)
-    {
-        *data = msg[k-1];
-        printf("send %x\n", *data);
-        k++;
-        return 1;
-    }
+    MPU_XMIT_IDLE = 0,
     
-    if(k == 4)
-    {
-        mpu_set_cs(CS_INACTIVE);
-    }
+    /* via mpu_xmit(), then sio3_isr() */
+    MPU_XMIT_SEND_START,
+    MPU_XMIT_SEND,
+    MPU_XMIT_SEND_WAIT_ISR,
     
-    return 0;
+    /* via mreq_isr() */
+    MPU_XMIT_RECV_HDR,
+    MPU_XMIT_RECV_HDR_WAIT_ISR,
+    /* via sio3_isr() */
+    MPU_XMIT_RECV_DATA,
+    MPU_XMIT_RECV_DATA_WAIT_ISR
+};
+
+
+volatile enum mpu_xmit_state mpu_state = MPU_XMIT_IDLE;
+uint32_t mpu_mreq_pending = 0;
+uint8_t recv_buf[128];
+uint32_t recv_buf_count = 0;
+uint32_t recv_buf_pos = 0;
+uint8_t send_buf[128];
+uint32_t send_buf_count = 0;
+uint32_t send_buf_pos = 0;
+
+#define BYTESWAP(x) (((x)>>8) | ((x)<<8))
+static void mpu_handle(void);
+static void mpu_handle(void);
+static void mpu_received(uint8_t *data, uint32_t length);
+static void mpu_send(uint8_t *buf, uint32_t length, uint32_t blocking);
+
+
+void mpu_init()
+{
+    mpu_state = MPU_XMIT_IDLE;
+    mpu_mreq_pending = 0;
+    recv_buf_count = 0;
+    recv_buf_pos = 0;
+    send_buf_count = 0;
+    send_buf_pos = 0;
+    
+    uint8_t init_msg[] = { 0x06, 0x04, 0x02, 0x00, 0x00, 0x00};
+    mpu_send(init_msg, 6, 1);
 }
 
-int sio3_recv(int data)
+static void mpu_send(uint8_t *buf, uint32_t length, uint32_t blocking)
 {
-    int ack = 0;
-    
-    /* byte swap */
-    data = BYTESWAP(data);
-    
-    if(sio3_recv_counter)
+restart:
+    /* wait till ready */
+    while(mpu_state != MPU_XMIT_IDLE)
     {
-        printf(" %02X %02X ", data & 0xFF, (data >> 8) & 0xFF);
-        sio3_recv_counter -= 2;
-        ack = 1;
-        if (!sio3_recv_counter)
-        {
-            printf("\n");
-            ack = 0;
-        }
     }
-    else
+    
+    uint32_t int_status = cli();
+    
+    if(mpu_state != MPU_XMIT_IDLE)
     {
-        sio3_recv_counter = data & 0xFF;
-        if (sio3_recv_counter)
-        {
-            printf("Receiving %d bytes: ", sio3_recv_counter);
-            printf(" %02X %02X ", data & 0xFF, (data >> 8) & 0xFF);
-            if (sio3_recv_counter & 1)
-            {
-                printf("WTF\n");
-                sio3_recv_counter = 2;
-            }
-            sio3_recv_counter -= 2;
-            ack = 1;
-        }
-        else
-        {
-            printf("(0)");
-        }
+        sei(int_status);
+        goto restart;
     }
-    return ack;
+    
+    /* we got the lock */
+    memcpy(send_buf, buf, length);
+    send_buf_count = length;
+    mpu_state = MPU_XMIT_SEND_START;
+    
+    sei(int_status);
+    
+    /* start transfer */
+    mpu_handle();
+    
+    /* wait till done */
+    while(blocking && mpu_state != MPU_XMIT_IDLE)
+    {
+    }
+}
+
+static void mpu_received(uint8_t *data, uint32_t length)
+{
+    printf("Received %d bytes: ", length);
+    
+    for(uint32_t pos = 0; pos < length; pos++)
+    {
+        printf(" %02X", data[pos]);
+    }
+    printf("\n");
+    
+    /* do not call mpu_send() blocking from here, as we are in interrupt */
+}
+
+static void mpu_handle()
+{
+    uint32_t int_status = cli();
+    uint32_t restart = 0;
+    uint16_t data = 0;
+    
+    do
+    {
+        restart = 0;
+        
+        switch(mpu_state)
+        {
+            case MPU_XMIT_IDLE:
+                if(!mpu_mreq_pending)
+                {
+                    break;
+                }
+                
+                /* oh, the MREQ line was toggled meanwhile. handle it */
+                mpu_mreq_pending = 0;
+                recv_buf_pos = 0;
+                recv_buf_count = 0;
+                mpu_state = MPU_XMIT_RECV_HDR;
+                restart = 1;
+                break;
+                
+            case MPU_XMIT_SEND_START:  
+                recv_buf_pos = 0;
+                recv_buf_count = 0;
+                send_buf_pos = 0;          
+                mpu_set_cs(CS_ACTIVE);
+                break;
+                
+            case MPU_XMIT_SEND:
+                if(send_buf_pos >= send_buf_count)
+                {
+                    mpu_set_cs(CS_INACTIVE);
+                    mpu_state = MPU_XMIT_IDLE;
+                    break;
+                }
+                
+                /* there is data to send */
+                data = send_buf[send_buf_pos++] << 8;
+                data |= send_buf[send_buf_pos++];
+                
+                sio_send_async(3, data);
+                mpu_state = MPU_XMIT_SEND_WAIT_ISR;
+                break;
+                
+            case MPU_XMIT_RECV_HDR:
+                mpu_set_cs(CS_ACTIVE);
+                sio_send_async(3, 0);
+                mpu_state = MPU_XMIT_RECV_HDR_WAIT_ISR;
+                break;
+                
+            case MPU_XMIT_RECV_DATA:
+                /* finished transfer? */
+                if(recv_buf_pos >= recv_buf_count)
+                {
+                    mpu_set_cs(CS_INACTIVE);
+                    mpu_state = MPU_XMIT_IDLE;
+                    mpu_received(recv_buf, recv_buf_pos);
+                    break;
+                }
+                
+                /* we need some more data */
+                sio_send_async(3, 0);
+                mpu_state = MPU_XMIT_RECV_DATA_WAIT_ISR;
+                break;
+                
+            default:
+                break;
+        }
+    } while(restart);
+
+    sei(int_status);
 }
 
 static void mreq_isr()
@@ -632,82 +735,53 @@ static void mreq_isr()
     /* check for MREQ? */
     if (!(MEM(0xC020302C) & 1))
     {
-        /* check if a transmission in progress by reading CS line */
-        if(mpu_get_cs() == CS_INACTIVE)
+        switch(mpu_state)
         {
-            /* no, start first transmission */
-            sio_send_async(3, 0);
+            case MPU_XMIT_IDLE:
+                mpu_mreq_pending = 1;
+                break;
+                
+            case MPU_XMIT_SEND_START:
+                mpu_state = MPU_XMIT_SEND;
+                break;
+                
+            default:
+                break;
         }
-        else
-        {
-            /* CS is active, check if SIO is finished */
-            if(!sio_ready(3))
-            {
-                int out_data;
-                int result = mpu_get_data_to_send(0, &out_data);
-                if (result == 1)
-                {
-                    printf("sending %x\n", out_data);
-                    sio_send_async(3, BYTESWAP(out_data));
-                }
-            }
-        }
+        
+        mpu_handle();
     }
-}
-
-enum mpu_xmit_state
-{
-    MPU_XMIT_IDLE,
-    
-    /* via mpu_xmit(), then sio3_isr() */
-    MPU_XMIT_SEND,
-    
-    /* via mreq_isr() */
-    MPU_XMIT_RECV_HDR,
-    /* via sio3_isr() */
-    MPU_XMIT_RECV_DATA
 }
 
 static void sio3_isr()
 {
-    volatile int data = 0;
-    
     /* we received a SIO ISR, so there is new data available */
+    uint16_t data = 0;
     sio_recv_async(3, &data);
     
-    /* check if we should continue with transmission */
-    int ack = sio3_recv(data);
-
-    /*  */
-    if(mpu_get_cs() == CS_INACTIVE)
+    recv_buf[recv_buf_pos++] = data >> 8;
+    recv_buf[recv_buf_pos++] = data & 0xFF;
+    
+    switch(mpu_state)
     {
-        if(ack != 1)
-        {
-            return;
-        }
-        sio_send_async(3, 0);
-        return;
+        case MPU_XMIT_SEND_WAIT_ISR:
+            mpu_state = MPU_XMIT_SEND;
+            break;
+            
+        case MPU_XMIT_RECV_HDR_WAIT_ISR:
+            recv_buf_count = recv_buf[0];
+            mpu_state = MPU_XMIT_RECV_DATA;
+            break;
+            
+        case MPU_XMIT_RECV_DATA_WAIT_ISR:
+            mpu_state = MPU_XMIT_RECV_DATA;
+            break;
+                
+        default:
+            break;
     }
     
-    if(!sio_ready(3))
-    {
-        return;
-    }
-
-    int out_data;
-    if(!mpu_get_data_to_send(1, &out_data))
-    {
-        if(ack != 1)
-        {
-            return;
-        }
-        sio_send_async(3, 0);
-    }
-    else
-    {
-        printf("sending %x\n", out_data);
-        sio_send_async(3, BYTESWAP(out_data));
-    }
+    mpu_handle();
 }
 
 
@@ -759,22 +833,19 @@ cstart( void )
 
 
     printf("  Setup MPU...\n");
-    sio3_recv_counter = 0;
-    mreq_sent = 0;
     
     /* setup SPI lines */
     mpu_set_cs(CS_INACTIVE);
     sio_init(3);
     
     /* setup MREQ? */
-    MEM(0xC020302C) =  0xC;
+    MEM(0xC020302C) = 0xC;
     
     /* enable interrupts for MREQ and SPI */
     int_enable(0x50);
     int_enable(0x36);
     
-    mpu_set_cs(CS_ACTIVE);
-    
+    mpu_init();
     
     printf("  Done\n");
     
