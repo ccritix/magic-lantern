@@ -1,0 +1,34 @@
+
+First install the ARM EABI cross compiler that comes with your distro.
+
+Then download and build binutils
+  wget http://ftp.gnu.org/gnu/binutils/binutils-2.25.tar.bz2
+  bunzip binutils-2.25.tar.bz2
+  tar -xf binutils-2.25.tar
+  cd binutils-2.25
+  ./configure --target=arm-elf --prefix=/root/busybox/binutils
+  make
+  make install
+
+Get elf2flt
+  mkdir elf2flt
+  cd elf2flt
+  wget https://gfiber.googlesource.com/buildroot/+archive/d5d2851ec024af7fa982e18e72a8104c96d46e3c/toolchain/elf2flt/elf2flt.tar.gz
+  gunzip elf2flt.tar.gz
+  tar -xf elf2flt.tar
+  patch -p1 < elf2flt.patch
+
+Patch and configure it, for me it was
+  ./configure --target=arm-elf --with-libbfd=/root/busybox/binutils-2.25/bfd/libbfd.a --with-libiberty=/root/busybox/binutils-2.25/libiberty/libiberty.a --with-bfd-include-dir=/root/busybox/binutils-2.25/bfd/
+
+Then follow the readme of elf2flt and install the binaries elf2flt and
+ld-elf2flt where your arm-linux-gnueabi-* binaries are.
+
+(rename arm-linux-gnueabi-ld to arm-linux-gnueabi-ld.real then copy
+ld-elf2flt to arm-linux-gnueabi-ld and elf2flt to arm-linux-gnueabi-elf2flt)
+
+Then you should be able to compile that assembly file.
+
+ToDo:
+ - find out how to use uClibc as static library together with elf2flt
+ - find out how to use shared libraries with FLAT
