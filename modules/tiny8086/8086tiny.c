@@ -190,25 +190,25 @@ unsigned short vid_addr_lookup[VIDEO_RAM_SIZE], cga_colors[4] = {0 /* Black */, 
 // Helper functions
 
 // Set carry flag
-char set_CF(int new_CF)
+static char set_CF(int new_CF)
 {
 	return regs8[FLAG_CF] = !!new_CF;
 }
 
 // Set auxiliary flag
-char set_AF(int new_AF)
+static char set_AF(int new_AF)
 {
 	return regs8[FLAG_AF] = !!new_AF;
 }
 
 // Set overflow flag
-char set_OF(int new_OF)
+static char set_OF(int new_OF)
 {
 	return regs8[FLAG_OF] = !!new_OF;
 }
 
 // Set auxiliary and overflow flag after arithmetic operations
-char set_AF_OF_arith()
+static char set_AF_OF_arith()
 {
 	set_AF((op_source ^= op_dest ^ op_result) & 0x10);
 	if (op_result == op_dest)
@@ -218,7 +218,7 @@ char set_AF_OF_arith()
 }
 
 // Assemble and return emulated CPU FLAGS register in scratch_uint
-void make_flags()
+static void make_flags()
 {
 	scratch_uint = 0xF002; // 8086 has reserved and unused flags set to 1
 	for (int i = 9; i--;)
@@ -226,7 +226,7 @@ void make_flags()
 }
 
 // Set emulated CPU FLAGS register from regs8[FLAG_xx] values
-void set_flags(int new_flags)
+static void set_flags(int new_flags)
 {
 	for (int i = 9; i--;)
 		regs8[FLAG_CF + i] = !!(1 << bios_table_lookup[TABLE_FLAGS_BITFIELDS][i] & new_flags);
@@ -234,7 +234,7 @@ void set_flags(int new_flags)
 
 // Convert raw opcode to translated opcode index. This condenses a large number of different encodings of similar
 // instructions into a much smaller number of distinct functions, which we then execute
-void set_opcode(unsigned char opcode)
+static void set_opcode(unsigned char opcode)
 {
 	xlat_opcode_id = bios_table_lookup[TABLE_XLAT_OPCODE][raw_opcode_id = opcode];
 	extra = bios_table_lookup[TABLE_XLAT_SUBFUNCTION][opcode];
@@ -243,7 +243,7 @@ void set_opcode(unsigned char opcode)
 }
 
 // Execute INT #interrupt_num on the emulated machine
-char pc_interrupt(unsigned char interrupt_num)
+static char pc_interrupt(unsigned char interrupt_num)
 {
 	set_opcode(0xCD); // Decode like INT
 
@@ -258,13 +258,13 @@ char pc_interrupt(unsigned char interrupt_num)
 }
 
 // AAA and AAS instructions - which_operation is +1 for AAA, and -1 for AAS
-int AAA_AAS(char which_operation)
+static int AAA_AAS(char which_operation)
 {
 	return (regs16[REG_AX] += 262 * which_operation*set_AF(set_CF(((regs8[REG_AL] & 0x0F) > 9) || regs8[FLAG_AF])), regs8[REG_AL] &= 0x0F);
 }
 
 #ifndef NO_GRAPHICS
-void audio_callback(void *data, unsigned char *stream, int len)
+static void audio_callback(void *data, unsigned char *stream, int len)
 {
 	for (int i = 0; i < len; i++)
 		stream[i] = (spkr_en == 3) && CAST(unsigned short)mem[0x4AA] ? -((54 * wave_counter++ / CAST(unsigned short)mem[0x4AA]) & 1) : sdl_audio.silence;
@@ -274,6 +274,9 @@ void audio_callback(void *data, unsigned char *stream, int len)
 #endif
 
 // Emulator entry point
+#ifdef CONFIG_MAGICLANTERN
+static
+#endif
 int main(int argc, char **argv)
 {
 #ifndef NO_GRAPHICS
