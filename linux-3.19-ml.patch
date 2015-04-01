@@ -1,0 +1,1301 @@
+diff -Nur linux-3.19/arch/arm/Kconfig linux-3.19-ml/arch/arm/Kconfig
+--- linux-3.19/arch/arm/Kconfig	2015-02-09 03:54:22.000000000 +0100
++++ linux-3.19-ml/arch/arm/Kconfig	2015-03-26 21:09:31.845699670 +0100
+@@ -306,6 +306,24 @@
+ 	default ARCH_VERSATILE if !MMU
+ 	default ARCH_MULTIPLATFORM if MMU
+ 
++config ARCH_EOS 
++	bool "Canon EOS" 
++	select MULTI_IRQ_HANDLER
++	select CPU_ARM946E
++	select ARCH_REQUIRE_GPIOLIB
++	select DW_APB_TIMER_OF
++#	select HAVE_TCM
++	select NO_IOPORT_MAP
++	select FB_CFB_FILLRECT
++	select FB_CFB_COPYAREA
++	select FB_CFB_IMAGEBLIT
++	select COMMON_CLK
++	select GENERIC_CLOCKEVENTS
++	select ATAGS
++	select MEMORY
++	help
++	  This enables support for Canon EOS DSLRs.
++
+ config ARCH_MULTIPLATFORM
+ 	bool "Allow multiple platforms to be selected"
+ 	depends on MMU
+diff -Nur linux-3.19/arch/arm/Makefile linux-3.19-ml/arch/arm/Makefile
+--- linux-3.19/arch/arm/Makefile	2015-02-09 03:54:22.000000000 +0100
++++ linux-3.19-ml/arch/arm/Makefile	2015-03-26 21:09:22.705695449 +0100
+@@ -206,6 +206,7 @@
+ machine-$(CONFIG_ARCH_W90X900)		+= w90x900
+ machine-$(CONFIG_ARCH_ZYNQ)		+= zynq
+ machine-$(CONFIG_PLAT_SPEAR)		+= spear
++machine-$(CONFIG_ARCH_EOS)		+= eos
+ 
+ # Platform directory name.  This list is sorted alphanumerically
+ # by CONFIG_* macro name.
+Binary files linux-3.19/arch/arm/boot/xipImage and linux-3.19-ml/arch/arm/boot/xipImage differ
+diff -Nur linux-3.19/arch/arm/configs/eos_defconfig linux-3.19-ml/arch/arm/configs/eos_defconfig
+--- linux-3.19/arch/arm/configs/eos_defconfig	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/configs/eos_defconfig	2015-03-24 22:08:21.954497754 +0100
+@@ -0,0 +1,438 @@
++CONFIG_ARM=y
++CONFIG_SYS_SUPPORTS_APM_EMULATION=y
++CONFIG_HAVE_TCM=y
++CONFIG_NO_IOPORT_MAP=y
++CONFIG_STACKTRACE_SUPPORT=y
++CONFIG_HAVE_LATENCYTOP_SUPPORT=y
++CONFIG_LOCKDEP_SUPPORT=y
++CONFIG_TRACE_IRQFLAGS_SUPPORT=y
++CONFIG_RWSEM_XCHGADD_ALGORITHM=y
++CONFIG_GENERIC_HWEIGHT=y
++CONFIG_GENERIC_CALIBRATE_DELAY=y
++CONFIG_NEED_DMA_MAP_STATE=y
++CONFIG_ARCH_SUPPORTS_UPROBES=y
++CONFIG_VECTORS_BASE=0x00000000
++CONFIG_PHYS_OFFSET=0x41000000
++CONFIG_GENERIC_BUG=y
++CONFIG_DEFCONFIG_LIST="/lib/modules/$UNAME_RELEASE/.config"
++CONFIG_IRQ_WORK=y
++
++CONFIG_BROKEN_ON_SMP=y
++CONFIG_INIT_ENV_ARG_LIMIT=32
++CONFIG_CROSS_COMPILE="arm-none-eabi-"
++CONFIG_LOCALVERSION=""
++CONFIG_LOCALVERSION_AUTO=y
++CONFIG_HAVE_KERNEL_GZIP=y
++CONFIG_HAVE_KERNEL_LZMA=y
++CONFIG_HAVE_KERNEL_XZ=y
++CONFIG_HAVE_KERNEL_LZO=y
++CONFIG_HAVE_KERNEL_LZ4=y
++CONFIG_KERNEL_GZIP=y
++CONFIG_DEFAULT_HOSTNAME="(none)"
++CONFIG_USELIB=y
++
++CONFIG_GENERIC_IRQ_PROBE=y
++CONFIG_GENERIC_IRQ_SHOW=y
++CONFIG_HARDIRQS_SW_RESEND=y
++CONFIG_HANDLE_DOMAIN_IRQ=y
++CONFIG_IRQ_FORCED_THREADING=y
++CONFIG_GENERIC_CLOCKEVENTS=y
++CONFIG_GENERIC_CLOCKEVENTS_BUILD=y
++
++CONFIG_HZ_PERIODIC=y
++
++CONFIG_TICK_CPU_ACCOUNTING=y
++
++CONFIG_TINY_RCU=y
++CONFIG_LOG_BUF_SHIFT=17
++CONFIG_GENERIC_SCHED_CLOCK=y
++CONFIG_NAMESPACES=y
++CONFIG_UTS_NS=y
++CONFIG_PID_NS=y
++CONFIG_BLK_DEV_INITRD=y
++CONFIG_INITRAMFS_SOURCE="/root/initrd/"
++CONFIG_INITRAMFS_ROOT_UID=0
++CONFIG_INITRAMFS_ROOT_GID=0
++CONFIG_RD_GZIP=y
++CONFIG_RD_BZIP2=y
++CONFIG_RD_LZMA=y
++CONFIG_RD_XZ=y
++CONFIG_RD_LZO=y
++CONFIG_RD_LZ4=y
++CONFIG_INIT_FALLBACK=y
++CONFIG_SYSCTL=y
++CONFIG_ANON_INODES=y
++CONFIG_HAVE_UID16=y
++CONFIG_EXPERT=y
++CONFIG_UID16=y
++CONFIG_SYSFS_SYSCALL=y
++CONFIG_KALLSYMS=y
++CONFIG_KALLSYMS_ALL=y
++CONFIG_PRINTK=y
++CONFIG_BUG=y
++CONFIG_ELF_CORE=y
++CONFIG_BASE_FULL=y
++CONFIG_FUTEX=y
++CONFIG_EPOLL=y
++CONFIG_SIGNALFD=y
++CONFIG_TIMERFD=y
++CONFIG_EVENTFD=y
++CONFIG_AIO=y
++CONFIG_ADVISE_SYSCALLS=y
++CONFIG_HAVE_PERF_EVENTS=y
++CONFIG_PERF_USE_VMALLOC=y
++
++CONFIG_VM_EVENT_COUNTERS=y
++CONFIG_SLUB_DEBUG=y
++CONFIG_COMPAT_BRK=y
++CONFIG_SLUB=y
++CONFIG_HAVE_OPROFILE=y
++CONFIG_ARCH_USE_BUILTIN_BSWAP=y
++CONFIG_HAVE_ARCH_TRACEHOOK=y
++CONFIG_HAVE_DMA_ATTRS=y
++CONFIG_GENERIC_SMP_IDLE_THREAD=y
++CONFIG_GENERIC_IDLE_POLL_SETUP=y
++CONFIG_HAVE_REGS_AND_STACK_ACCESS_API=y
++CONFIG_HAVE_CLK=y
++CONFIG_HAVE_DMA_API_DEBUG=y
++CONFIG_HAVE_PERF_REGS=y
++CONFIG_HAVE_PERF_USER_STACK_DUMP=y
++CONFIG_ARCH_WANT_IPC_PARSE_VERSION=y
++CONFIG_HAVE_CC_STACKPROTECTOR=y
++CONFIG_CC_STACKPROTECTOR_NONE=y
++CONFIG_HAVE_CONTEXT_TRACKING=y
++CONFIG_HAVE_VIRT_CPU_ACCOUNTING_GEN=y
++CONFIG_HAVE_IRQ_TIME_ACCOUNTING=y
++CONFIG_MODULES_USE_ELF_REL=y
++CONFIG_CLONE_BACKWARDS=y
++CONFIG_OLD_SIGSUSPEND3=y
++CONFIG_OLD_SIGACTION=y
++
++CONFIG_ARCH_HAS_GCOV_PROFILE_ALL=y
++CONFIG_HAVE_GENERIC_DMA_COHERENT=y
++CONFIG_SLABINFO=y
++CONFIG_RT_MUTEXES=y
++CONFIG_BASE_SMALL=0
++CONFIG_BLOCK=y
++CONFIG_LBDAF=y
++CONFIG_BLK_DEV_BSG=y
++
++CONFIG_MSDOS_PARTITION=y
++CONFIG_EFI_PARTITION=y
++
++CONFIG_IOSCHED_NOOP=y
++CONFIG_IOSCHED_DEADLINE=y
++CONFIG_IOSCHED_CFQ=y
++CONFIG_DEFAULT_CFQ=y
++CONFIG_DEFAULT_IOSCHED="cfq"
++CONFIG_INLINE_SPIN_UNLOCK_IRQ=y
++CONFIG_INLINE_READ_UNLOCK=y
++CONFIG_INLINE_READ_UNLOCK_IRQ=y
++CONFIG_INLINE_WRITE_UNLOCK=y
++CONFIG_INLINE_WRITE_UNLOCK_IRQ=y
++CONFIG_ARCH_SUPPORTS_ATOMIC_RMW=y
++
++CONFIG_ARCH_EOS=y
++
++CONFIG_CPU_ARM9TDMI=y
++CONFIG_CPU_ARM946E=y
++CONFIG_CPU_32v4T=y
++CONFIG_CPU_32v5=y
++CONFIG_CPU_ABRT_NOMMU=y
++CONFIG_CPU_PABRT_LEGACY=y
++CONFIG_CPU_CACHE_V4=y
++CONFIG_CPU_CACHE_VIVT=y
++CONFIG_CPU_CP15=y
++CONFIG_CPU_CP15_MPU=y
++
++CONFIG_ARM_THUMB=y
++CONFIG_CPU_ICACHE_DISABLE=y
++CONFIG_CPU_DCACHE_DISABLE=y
++CONFIG_CPU_DCACHE_SIZE=0x00002000
++CONFIG_TLS_REG_EMUL=y
++CONFIG_NEED_KUSER_HELPERS=y
++CONFIG_ARM_L1_CACHE_SHIFT=5
++CONFIG_MULTI_IRQ_HANDLER=y
++CONFIG_SET_MEM_PARAM=y
++CONFIG_DRAM_BASE=0x41000000
++CONFIG_DRAM_SIZE=0x1E000000
++CONFIG_FLASH_MEM_BASE=0xF8000000
++CONFIG_FLASH_SIZE=0x00800000
++
++
++CONFIG_PAGE_OFFSET=0x41000000
++CONFIG_ARCH_NR_GPIO=0
++CONFIG_PREEMPT_NONE=y
++CONFIG_HZ_FIXED=0
++CONFIG_HZ_100=y
++CONFIG_HZ=100
++CONFIG_HAVE_ARCH_PFN_VALID=y
++CONFIG_ARCH_WANT_GENERAL_HUGETLB=y
++CONFIG_FLATMEM=y
++CONFIG_FLAT_NODE_MEM_MAP=y
++CONFIG_HAVE_MEMBLOCK=y
++CONFIG_NO_BOOTMEM=y
++CONFIG_PAGEFLAGS_EXTENDED=y
++CONFIG_SPLIT_PTLOCK_CPUS=999999
++CONFIG_ZONE_DMA_FLAG=0
++CONFIG_NOMMU_INITIAL_TRIM_EXCESS=1
++CONFIG_NEED_PER_CPU_KM=y
++CONFIG_FORCE_MAX_ZONEORDER=11
++CONFIG_SWIOTLB=y
++CONFIG_IOMMU_HELPER=y
++
++CONFIG_ATAGS=y
++CONFIG_ZBOOT_ROM_TEXT=0
++CONFIG_ZBOOT_ROM_BSS=0
++CONFIG_CMDLINE="rdinit=/linuxrc earlyprintk=1"
++CONFIG_CMDLINE_FROM_BOOTLOADER=y
++CONFIG_XIP_KERNEL=y
++CONFIG_XIP_PHYS_ADDR=0x40810000
++
++
++
++
++
++CONFIG_FPE_NWFPE=y
++
++CONFIG_ARCH_BINFMT_ELF_RANDOMIZE_PIE=y
++CONFIG_BINFMT_SCRIPT=y
++CONFIG_BINFMT_FLAT=y
++CONFIG_BINFMT_ZFLAT=y
++CONFIG_BINFMT_SHARED_FLAT=y
++CONFIG_BINFMT_MISC=y
++CONFIG_COREDUMP=y
++
++CONFIG_HAVE_BPF_JIT=y
++
++
++CONFIG_UEVENT_HELPER=y
++CONFIG_UEVENT_HELPER_PATH=""
++CONFIG_STANDALONE=y
++CONFIG_PREVENT_FIRMWARE_BUILD=y
++CONFIG_FW_LOADER=y
++CONFIG_FIRMWARE_IN_KERNEL=y
++CONFIG_EXTRA_FIRMWARE=""
++CONFIG_ALLOW_DEV_COREDUMP=y
++
++CONFIG_ARCH_MIGHT_HAVE_PC_PARPORT=y
++CONFIG_BLK_DEV=y
++
++CONFIG_BLK_DEV_RAM=y
++CONFIG_BLK_DEV_RAM_COUNT=16
++CONFIG_BLK_DEV_RAM_SIZE=4096
++CONFIG_BLK_DEV_XIP=y
++
++
++
++
++
++
++
++
++CONFIG_SCSI_MOD=y
++
++CONFIG_INPUT=y
++
++CONFIG_INPUT_MOUSEDEV=y
++CONFIG_INPUT_MOUSEDEV_PSAUX=y
++CONFIG_INPUT_MOUSEDEV_SCREEN_X=1024
++CONFIG_INPUT_MOUSEDEV_SCREEN_Y=768
++
++CONFIG_INPUT_KEYBOARD=y
++CONFIG_KEYBOARD_ATKBD=y
++CONFIG_INPUT_MOUSE=y
++CONFIG_MOUSE_PS2=y
++CONFIG_MOUSE_PS2_ALPS=y
++CONFIG_MOUSE_PS2_LOGIPS2PP=y
++CONFIG_MOUSE_PS2_SYNAPTICS=y
++CONFIG_MOUSE_PS2_CYPRESS=y
++CONFIG_MOUSE_PS2_TRACKPOINT=y
++
++CONFIG_SERIO=y
++CONFIG_SERIO_SERPORT=y
++CONFIG_SERIO_LIBPS2=y
++
++CONFIG_TTY=y
++CONFIG_VT=y
++CONFIG_CONSOLE_TRANSLATIONS=y
++CONFIG_VT_CONSOLE=y
++CONFIG_HW_CONSOLE=y
++CONFIG_VT_HW_CONSOLE_BINDING=y
++CONFIG_UNIX98_PTYS=y
++CONFIG_LEGACY_PTYS=y
++CONFIG_LEGACY_PTY_COUNT=256
++CONFIG_DEVKMEM=y
++
++
++CONFIG_HW_RANDOM=y
++
++
++
++
++
++CONFIG_ARCH_HAVE_CUSTOM_GPIO_H=y
++CONFIG_ARCH_REQUIRE_GPIOLIB=y
++CONFIG_GPIOLIB=y
++CONFIG_GPIO_DEVRES=y
++
++
++
++
++
++
++
++
++CONFIG_WATCHDOG=y
++CONFIG_WATCHDOG_CORE=y
++
++CONFIG_SOFT_WATCHDOG=y
++CONFIG_SSB_POSSIBLE=y
++
++CONFIG_BCMA_POSSIBLE=y
++
++
++
++
++
++CONFIG_FB=y
++CONFIG_FB_CMDLINE=y
++CONFIG_FB_CFB_FILLRECT=y
++CONFIG_FB_CFB_COPYAREA=y
++CONFIG_FB_CFB_IMAGEBLIT=y
++CONFIG_FB_TILEBLITTING=y
++
++
++CONFIG_DUMMY_CONSOLE=y
++CONFIG_FRAMEBUFFER_CONSOLE=y
++CONFIG_FRAMEBUFFER_CONSOLE_DETECT_PRIMARY=y
++CONFIG_LOGO=y
++CONFIG_LOGO_LINUX_MONO=y
++CONFIG_LOGO_LINUX_VGA16=y
++
++CONFIG_HID=y
++CONFIG_HID_GENERIC=y
++
++CONFIG_HID_PLANTRONICS=y
++CONFIG_USB_OHCI_LITTLE_ENDIAN=y
++CONFIG_RTC_LIB=y
++CONFIG_RTC_CLASS=y
++CONFIG_RTC_HCTOSYS=y
++CONFIG_RTC_SYSTOHC=y
++CONFIG_RTC_HCTOSYS_DEVICE="rtc0"
++
++CONFIG_RTC_INTF_SYSFS=y
++CONFIG_RTC_INTF_PROC=y
++CONFIG_RTC_INTF_DEV=y
++
++
++
++
++
++
++CONFIG_CLKDEV_LOOKUP=y
++CONFIG_HAVE_CLK_PREPARE=y
++CONFIG_COMMON_CLK=y
++
++
++
++CONFIG_CLKSRC_OF=y
++CONFIG_DW_APB_TIMER=y
++CONFIG_DW_APB_TIMER_OF=y
++
++
++
++CONFIG_MEMORY=y
++
++
++
++CONFIG_EXT2_FS=y
++CONFIG_FILE_LOCKING=y
++CONFIG_FSNOTIFY=y
++CONFIG_DNOTIFY=y
++CONFIG_INOTIFY_USER=y
++
++
++
++CONFIG_FAT_FS=y
++CONFIG_MSDOS_FS=y
++CONFIG_VFAT_FS=y
++CONFIG_FAT_DEFAULT_CODEPAGE=437
++CONFIG_FAT_DEFAULT_IOCHARSET="iso8859-1"
++
++CONFIG_PROC_FS=y
++CONFIG_PROC_SYSCTL=y
++CONFIG_KERNFS=y
++CONFIG_SYSFS=y
++CONFIG_MISC_FILESYSTEMS=y
++CONFIG_NLS=y
++CONFIG_NLS_DEFAULT="iso8859-1"
++
++
++CONFIG_MESSAGE_LOGLEVEL_DEFAULT=4
++
++CONFIG_ENABLE_WARN_DEPRECATED=y
++CONFIG_ENABLE_MUST_CHECK=y
++CONFIG_FRAME_WARN=1024
++CONFIG_FRAME_POINTER=y
++CONFIG_DEBUG_KERNEL=y
++
++CONFIG_HAVE_DEBUG_KMEMLEAK=y
++
++CONFIG_PANIC_ON_OOPS_VALUE=0
++CONFIG_PANIC_TIMEOUT=0
++CONFIG_SCHED_DEBUG=y
++
++CONFIG_DEBUG_BUGVERBOSE=y
++
++CONFIG_HAVE_FUNCTION_GRAPH_TRACER=y
++CONFIG_HAVE_SYSCALL_TRACEPOINTS=y
++CONFIG_HAVE_C_RECORDMCOUNT=y
++CONFIG_TRACING_SUPPORT=y
++CONFIG_FTRACE=y
++CONFIG_BRANCH_PROFILE_NONE=y
++
++CONFIG_HAVE_ARCH_KGDB=y
++CONFIG_DEBUG_USER=y
++CONFIG_DEBUG_LL=y
++CONFIG_DEBUG_LL_UART_NONE=y
++CONFIG_DEBUG_LL_INCLUDE="mach/debug-macro.S"
++CONFIG_UNCOMPRESS_INCLUDE="mach/uncompress.h"
++CONFIG_EARLY_PRINTK=y
++
++CONFIG_DEFAULT_SECURITY_DAC=y
++CONFIG_DEFAULT_SECURITY=""
++
++CONFIG_BITREVERSE=y
++CONFIG_GENERIC_STRNCPY_FROM_USER=y
++CONFIG_GENERIC_STRNLEN_USER=y
++CONFIG_GENERIC_PCI_IOMAP=y
++CONFIG_GENERIC_IO=y
++CONFIG_ARCH_USE_CMPXCHG_LOCKREF=y
++CONFIG_CRC32=y
++CONFIG_CRC32_SLICEBY8=y
++CONFIG_ZLIB_INFLATE=y
++CONFIG_LZO_DECOMPRESS=y
++CONFIG_LZ4_DECOMPRESS=y
++CONFIG_XZ_DEC=y
++CONFIG_XZ_DEC_X86=y
++CONFIG_XZ_DEC_POWERPC=y
++CONFIG_XZ_DEC_IA64=y
++CONFIG_XZ_DEC_ARM=y
++CONFIG_XZ_DEC_ARMTHUMB=y
++CONFIG_XZ_DEC_SPARC=y
++CONFIG_XZ_DEC_BCJ=y
++CONFIG_DECOMPRESS_GZIP=y
++CONFIG_DECOMPRESS_BZIP2=y
++CONFIG_DECOMPRESS_LZMA=y
++CONFIG_DECOMPRESS_XZ=y
++CONFIG_DECOMPRESS_LZO=y
++CONFIG_DECOMPRESS_LZ4=y
++CONFIG_GENERIC_ALLOCATOR=y
++CONFIG_HAS_IOMEM=y
++CONFIG_HAS_DMA=y
++CONFIG_GENERIC_ATOMIC64=y
++CONFIG_ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE=y
++CONFIG_FONT_SUPPORT=y
++CONFIG_FONT_8x8=y
++CONFIG_FONT_8x16=y
+diff -Nur linux-3.19/arch/arm/mach-eos/Kconfig linux-3.19-ml/arch/arm/mach-eos/Kconfig
+--- linux-3.19/arch/arm/mach-eos/Kconfig	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/Kconfig	2015-03-26 21:08:38.833699626 +0100
+@@ -0,0 +1,13 @@
++config ARCH_EOS
++	bool "Canon EOS"
++	select ARM_VIC
++	select ARCH_REQUIRE_GPIOLIB
++	select DW_APB_TIMER_OF
++	select NO_IOPORT_MAP
++	select FB_CFB_FILLRECT
++	select FB_CFB_COPYAREA
++	select FB_CFB_IMAGEBLIT
++	select COMMON_CLK
++	select GENERIC_CLOCKEVENTS
++	select MEMORY
++
+diff -Nur linux-3.19/arch/arm/mach-eos/Makefile linux-3.19-ml/arch/arm/mach-eos/Makefile
+--- linux-3.19/arch/arm/mach-eos/Makefile	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/Makefile	2015-03-28 23:33:49.115295213 +0100
+@@ -0,0 +1,5 @@
++obj-y	:= common.o
++obj-y	+= timer.o
++obj-y	+= console.o
++obj-y	+= tty.o
++obj-y	+= fb.o
+diff -Nur linux-3.19/arch/arm/mach-eos/Makefile.boot linux-3.19-ml/arch/arm/mach-eos/Makefile.boot
+--- linux-3.19/arch/arm/mach-eos/Makefile.boot	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/Makefile.boot	2015-03-24 22:08:21.958497687 +0100
+@@ -0,0 +1,3 @@
++  zreladdr-y		+= 0x42000000
++params_phys-y		:= 0x40000000
++initrd_phys-y		:= 0x43000000
+diff -Nur linux-3.19/arch/arm/mach-eos/common.c linux-3.19-ml/arch/arm/mach-eos/common.c
+--- linux-3.19/arch/arm/mach-eos/common.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/common.c	2015-03-31 22:17:28.907683219 +0200
+@@ -0,0 +1,113 @@
++/*
++ * Copyright (c) 2011 Georg Hofstetter, Magic Lantern Team
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/kernel.h>
++#include <linux/interrupt.h>
++#include <linux/irq.h>
++#include <linux/clockchips.h>
++#include <linux/irqchip.h>
++#include <linux/delay.h>
++#include <linux/platform_device.h>
++#include <linux/reboot.h>
++#include <linux/console.h>
++#include <linux/sched_clock.h>
++
++
++#include <asm/exception.h>
++#include <asm/mach/irq.h>
++#include <asm/mach/arch.h>
++#include <asm/mach/map.h>
++#include <asm/mach/time.h>
++
++#include "macros.h"
++
++
++/* timer.h */
++void eos_timer_interrupt(int irq, void *dev_id);
++void eos_timer_init(void);
++
++
++struct timer_list eos_blink_timer;
++static uint32_t eos_int_readback = 0;
++static int eos_blink_state = 0;
++
++void eos_int_enable(uint32_t id)
++{
++	MEM(0xC0201010) = id;
++	eos_int_readback = MEM(0xC0201200);
++}
++
++void eos_int_disable(uint32_t id)
++{
++	/* uhm... */
++	MEM(0xC0200000 + 0x10 * ((id << 25) >> 28) + 12) = 1 << ((id & 7) | ((id & 0x180) >> 4));
++	eos_int_readback = MEM(0xC0201200);
++}
++
++static void eos_blink(unsigned long unused)
++{
++	if(eos_blink_state)
++	{
++	    MEM(0xC0220134) = 0x44;
++	}
++	else
++	{
++	    MEM(0xC0220134) = 0x46;
++	}
++
++	eos_blink_state ^= 1;
++
++	mod_timer(&eos_blink_timer, jiffies + msecs_to_jiffies(500));
++}
++
++static void __exception_irq_entry eos_handle_irq(struct pt_regs *regs)
++{
++	/* get interrupt id */
++	uint32_t irq_id = MEM(0xC0201004) >> 2;
++
++	//pr_notice("IRQ 0x%02X ", irq_id);
++
++	//irq_id = 0x0A; /* for some reason the interrupt controller does not deliver the ID */
++
++	if(irq_id == 0x0A)
++	{
++		eos_timer_interrupt(irq_id, NULL);
++	}
++
++	eos_int_enable(irq_id);
++	// handle_IRQ(irq_id, regs); /* will cause IRQ lookup failure, why?! */
++}
++
++static void __init eos_machine_init(void)
++{
++	setup_timer(&eos_blink_timer, &eos_blink, 0);
++	mod_timer(&eos_blink_timer, jiffies + msecs_to_jiffies(500));
++}
++
++static void __init eos_irq_init(void)
++{
++	set_handle_irq(&eos_handle_irq);
++
++	/* those are not necessary, just to play with IRQ handler */
++	MEM(0xC0201100) = 0x43210DCB;
++	MEM(0xC0201104) = 0xFEA98765;
++	MEM(0xC0201200) = 1;
++
++	eos_int_readback = MEM(0xC0201200);
++}
++
++static void eos_wdt_restart(enum reboot_mode mode, const char *cmd)
++{
++}
++
++DT_MACHINE_START(eos, "Canon EOS")
++	.init_machine	= &eos_machine_init,
++	.init_irq	= &eos_irq_init,
++	.init_time	= &eos_timer_init,
++	.restart	= &eos_wdt_restart,
++MACHINE_END
+diff -Nur linux-3.19/arch/arm/mach-eos/console.c linux-3.19-ml/arch/arm/mach-eos/console.c
+--- linux-3.19/arch/arm/mach-eos/console.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/console.c	2015-03-28 23:30:44.551289644 +0100
+@@ -0,0 +1,70 @@
++/*
++ * Copyright (c) 2011 Georg Hofstetter, Magic Lantern Team
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/kernel.h>
++#include <linux/interrupt.h>
++#include <linux/irq.h>
++#include <linux/clockchips.h>
++#include <linux/irqchip.h>
++#include <linux/delay.h>
++#include <linux/console.h>
++
++#include <linux/tty.h>
++#include <linux/tty_flip.h>
++
++#define MEM(add) (*(volatile uint32_t *)(add))
++
++/* console.h */
++void eos_con_write(struct console *co, const char *s, unsigned int count);
++
++void (*eos_boot_print)(uint32_t color, uint32_t scale, char *txt, uint32_t count);
++extern struct tty_driver *eos_tty_driver;
++
++
++void eos_con_write(struct console *co, const char *s, unsigned int count)
++{
++	eos_boot_print(15, 1, s, count);
++}
++
++int eos_con_read(struct console *co, char *s, unsigned count)
++{
++	pr_notice("eos_con_read called");
++	return 0;
++}
++
++struct tty_driver *eos_con_device(struct console *co, int *index)
++{
++	pr_notice("eos_con_device called");
++	*index = co->index;
++
++	return eos_tty_driver;
++}
++
++static struct console eos_console =
++{
++	.name    = "eos-console",
++	.write   = &eos_con_write,
++	.read    = &eos_con_read,
++	.device  = &eos_con_device,
++	.flags   = CON_PRINTBUFFER | CON_ANYTIME | CON_ENABLED | CON_CONSDEV,
++	.index   = 0,
++	.data    = NULL,
++};
++
++static int __init eos_console_init(void)
++{
++	eos_boot_print = (void *)MEM(0x00008000);
++
++	register_console(&eos_console);
++	add_preferred_console(eos_console.name, eos_console.index, NULL);
++
++	return 0;
++}
++
++console_initcall(eos_console_init);
++
+diff -Nur linux-3.19/arch/arm/mach-eos/fb.c linux-3.19-ml/arch/arm/mach-eos/fb.c
+--- linux-3.19/arch/arm/mach-eos/fb.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/fb.c	2015-03-28 23:34:18.183292147 +0100
+@@ -0,0 +1,123 @@
++/*
++ * Copyright (c) 2011 Georg Hofstetter, Magic Lantern Team
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/kernel.h>
++#include <linux/delay.h>
++#include <linux/platform_device.h>
++
++
++#include <linux/fb.h>
++
++#include "macros.h"
++
++
++/* fb.h */
++static int __init eos_fb_init(void);
++
++
++static struct fb_fix_screeninfo eos_fb_fix;
++static struct fb_var_screeninfo eos_fb_var;
++static struct fb_ops eos_fb_ops = {
++	.owner          = THIS_MODULE,
++	.fb_fillrect    = &cfb_fillrect,
++	.fb_copyarea    = &cfb_copyarea,
++	.fb_imageblit   = &cfb_imageblit,
++};
++
++static int eos_fb_probe(struct platform_device *pdev)
++{
++	struct fb_info *info;
++
++	pr_notice("eos_fb_probe: alloc\n");
++	info = framebuffer_alloc(0, &pdev->dev);
++
++	if(!info)
++	{
++		pr_notice("eos_fb_probe: alloc failed\n");
++		return -ENOMEM;
++	}
++
++	strcpy(eos_fb_fix.id, "EOS Builtin");
++
++	eos_fb_fix.smem_start = MEM(0xC0F140D0);
++	eos_fb_fix.smem_len = 720 * 480 / 2;
++	eos_fb_fix.type = FB_TYPE_INTERLEAVED_PLANES;
++	//eos_fb_fix.type_aux = 2;
++	eos_fb_fix.visual = FB_VISUAL_PSEUDOCOLOR;
++	eos_fb_fix.xpanstep = 0;
++	eos_fb_fix.ypanstep = 1;
++	eos_fb_fix.ywrapstep = 0;
++	eos_fb_fix.line_length = 720;
++	eos_fb_fix.accel = FB_ACCEL_NONE;
++
++	eos_fb_var.bits_per_pixel = 4;
++	eos_fb_var.xres = 720;
++	eos_fb_var.yres = 480;
++	eos_fb_var.xres_virtual = 720;
++	eos_fb_var.yres_virtual = 480;
++
++	info->fbops = &eos_fb_ops;
++	info->var = eos_fb_var;
++	info->fix = eos_fb_fix;
++	info->screen_base = eos_fb_fix.smem_start;
++
++	pr_notice("eos_fb_probe: register\n");
++	int ret = register_framebuffer(info);
++
++	if (ret)
++	{
++		pr_notice("eos_fb_probe: failed to register EOS framebuffer device: %d\n", ret);
++	}
++
++	pr_notice("eos_fb_probe: done\n");
++	return 0;
++}
++
++static struct platform_driver eos_fb_driver = {
++	.driver = {
++		.name = "eos-fb",
++	},
++	.probe = eos_fb_probe,
++};
++
++static struct platform_device *eos_fb_device;
++
++static int __init eos_fb_init(void)
++{
++	int ret;
++
++	pr_notice("eos_fb_init: register\n");
++	ret = platform_driver_register(&eos_fb_driver);
++	if (ret)
++	{
++		pr_notice("eos_fb_init: failed to register %d\n", ret);
++		return ret;
++	}
++
++	pr_notice("eos_fb_init: alloc\n");
++	eos_fb_device = platform_device_alloc("eos-fb", 0);
++	if(!eos_fb_device)
++	{
++		pr_notice("eos_fb_init: failed NULL\n");
++		return -ENODEV;
++	}
++
++	pr_notice("eos_fb_init: add\n");
++	ret = platform_device_add(eos_fb_device);
++	if(ret)
++	{
++		pr_notice("eos_fb_init: failed to add %d\n", ret);
++		return ret;
++	}
++
++	pr_notice("eos_fb_init: done\n");
++	return 0;
++}
++
++/* for now use bootloader based display, so skip framebuffer init */
++//module_init(eos_fb_init);
+diff -Nur linux-3.19/arch/arm/mach-eos/include/mach/debug-macro.S linux-3.19-ml/arch/arm/mach-eos/include/mach/debug-macro.S
+--- linux-3.19/arch/arm/mach-eos/include/mach/debug-macro.S	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/include/mach/debug-macro.S	2015-03-28 15:19:57.368200579 +0100
+@@ -0,0 +1,19 @@
++
++	.macro	addruart, rp, rv, tmp
++		ldr	\rp, =0x00008000
++	.endm
++
++	.macro	senduart, rd, base
++		str	\rd, [\base, #8]
++		push	{r0-r4,r14}
++		ldr	r0, [\base, #4]
++		mov	lr, pc
++		bx	r0
++		pop	{r0-r4,r14}
++	.endm
++
++	.macro	busyuart, rd, rx
++	.endm
++
++	.macro	waituart, rd, rx
++	.endm
+diff -Nur linux-3.19/arch/arm/mach-eos/include/mach/irqs.h linux-3.19-ml/arch/arm/mach-eos/include/mach/irqs.h
+--- linux-3.19/arch/arm/mach-eos/include/mach/irqs.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/include/mach/irqs.h	2015-04-01 22:30:40.190684575 +0200
+@@ -0,0 +1,6 @@
++#ifndef __MACH_IRQS_H
++#define __MACH_IRQS_H
++
++#define NR_IRQS		0x200
++
++#endif /* __MACH_IRQS_H */
+\ No newline at end of file
+diff -Nur linux-3.19/arch/arm/mach-eos/include/mach/uncompress.h linux-3.19-ml/arch/arm/mach-eos/include/mach/uncompress.h
+--- linux-3.19/arch/arm/mach-eos/include/mach/uncompress.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/include/mach/uncompress.h	2015-04-01 22:31:00.448803116 +0200
+@@ -0,0 +1,15 @@
++
++static inline void putc(char c)
++{
++	uint32_t *interface_ptr = (void*)0x00008000;
++	void (*boot_print)(void) = interface_ptr[1];
++	interface_ptr[2] = c;
++
++	boot_print();
++}
++
++static inline void flush(void)
++{
++}
++
++#define arch_decomp_setup()
+diff -Nur linux-3.19/arch/arm/mach-eos/macros.h linux-3.19-ml/arch/arm/mach-eos/macros.h
+--- linux-3.19/arch/arm/mach-eos/macros.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/macros.h	2015-03-28 23:26:32.623418538 +0100
+@@ -0,0 +1,2 @@
++
++#define MEM(add) (*(volatile uint32_t *)(add))
+diff -Nur linux-3.19/arch/arm/mach-eos/timer.c linux-3.19-ml/arch/arm/mach-eos/timer.c
+--- linux-3.19/arch/arm/mach-eos/timer.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/timer.c	2015-03-29 03:00:49.779463858 +0200
+@@ -0,0 +1,169 @@
++/*
++ * Copyright (c) 2011 Georg Hofstetter, Magic Lantern Team
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/kernel.h>
++#include <linux/interrupt.h>
++#include <linux/clockchips.h>
++#include <linux/platform_device.h>
++#include <linux/reboot.h>
++#include <linux/console.h>
++#include <linux/sched_clock.h>
++
++#include <asm/exception.h>
++#include <asm/mach/irq.h>
++#include <asm/mach/arch.h>
++#include <asm/mach/map.h>
++#include <asm/mach/time.h>
++
++
++#define MEM(add) (*(volatile uint32_t *)(add))
++
++/* the available modules are 0, 1 and 2 */
++uint32_t eos_clock_module = 2;
++uint32_t eos_timer_module = 2;
++uint32_t eos_timer_irq_id = 0x0A;
++
++uint32_t eos_timer_get_value(uint32_t module);
++void eos_int_enable(uint32_t id);
++
++
++static void eos_clock_mode(enum clock_event_mode mode, struct clock_event_device *dev)
++{
++	return;
++}
++
++static int eos_clock_next_event(unsigned long delta, struct clock_event_device *dev)
++{
++	return 0;
++}
++
++static cycle_t eos_clocksource_read(struct clocksource *cs)
++{
++	return eos_timer_get_value(eos_clock_module);
++}
++
++static u64 notrace eos_schedclock_read(void)
++{
++	return eos_timer_get_value(eos_timer_module);
++}
++
++static struct clocksource eos_clocksource = {
++	.name		= "EOS Timer/Clock",
++	.rating		= 31,
++	.read		= &eos_clocksource_read,
++	.mask		= CLOCKSOURCE_MASK(16),
++	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
++};
++
++static struct clock_event_device eos_clock_event = {
++	.name		= "EOS Clock Event",
++	.features	= CLOCK_EVT_FEAT_PERIODIC,
++	.rating		= 100,
++	.set_next_event	= &eos_clock_next_event,
++	.set_mode	= &eos_clock_mode,
++};
++
++void eos_timer_interrupt(int irq, void *dev_id)
++{
++	/* notify the system clock about that event */
++	eos_clock_event.event_handler(&eos_clock_event);
++}
++
++static struct irqaction eos_timer_irq = {
++	.name		= "EOS Timer IRQ",
++	.flags		= IRQF_TIMER,
++	.handler	= &eos_timer_interrupt,
++	.dev_id		= &eos_clock_event,
++};
++
++static inline uint32_t eos_timer_base_address(uint32_t module)
++{
++	return 0xC0210000 | (module << 8);
++}
++
++void eos_timer_enable(uint32_t module)
++{
++	/* enable module clocks */
++	MEM(0xC0400010 | (module << 2)) = 0;
++	MEM(0xC0400008) |= 0x400 << module;
++	MEM(0xC0203000) = 0x08;
++}
++
++void eos_timer_reset(uint32_t module)
++{
++	uint32_t timer_base = eos_timer_base_address(module);
++
++	/* set flag for initialization */
++	MEM(timer_base) = 0x80000000;
++
++	/* wait until module successfully initialized, signalled by a cleared reset bit */
++	while(MEM(timer_base) & 0x80000000)
++	{
++	}
++}
++
++void eos_timer_start(uint32_t module, uint32_t target, uint32_t interrupt)
++{
++	uint32_t timer_base = eos_timer_base_address(module);
++
++	/* enable module */
++	MEM(timer_base | 0x00) = 1;
++
++	/* some init values and interrupts */
++	MEM(timer_base | 0x04) = 2;
++	MEM(timer_base | 0x14) = interrupt ? 3 : 0;
++	MEM(timer_base | 0x08) = target;
++	MEM(timer_base | 0x10) = 1;
++}
++
++uint32_t eos_timer_get_value(uint32_t module)
++{
++	uint32_t timer_base = eos_timer_base_address(module);
++
++	return MEM(timer_base | 0x0C);
++}
++
++uint32_t eos_timer_get_target(uint32_t module)
++{
++	uint32_t timer_base = eos_timer_base_address(module);
++
++	return MEM(timer_base | 0x08);
++}
++
++void __init eos_timer_init(void)
++{
++	eos_timer_irq.irq = eos_timer_irq_id;
++
++	/* register the interrupt handler and enable it */
++	setup_irq(eos_timer_irq.irq, &eos_timer_irq);
++	enable_irq(eos_timer_irq.irq);
++
++	/* enable module clocks, etc */
++	eos_timer_enable(eos_timer_module);
++	//eos_timer_enable(eos_clock_module);
++
++	/* allow timer interrupt to happen */
++	eos_int_enable(eos_timer_irq_id);
++
++	/* reset module */
++	eos_timer_reset(eos_timer_module);
++	//eos_timer_reset(eos_clock_module);
++
++	sched_clock_register(&eos_schedclock_read, 16, 1000000);
++
++	/* start counting */
++	eos_timer_start(eos_timer_module, 10000, 1);
++	//eos_timer_start(eos_clock_module, 0x10000, 0);
++
++	/* clock is continuous only, so no need to set frequency parameters */
++	eos_clock_event.cpumask = cpumask_of(0);
++	clockevents_config_and_register(&eos_clock_event, 0, 0, 0);
++
++	eos_clocksource.mult = clocksource_khz2mult(1000, 0);
++	clocksource_register_khz(&eos_clocksource, 1000);
++}
+diff -Nur linux-3.19/arch/arm/mach-eos/tty.c linux-3.19-ml/arch/arm/mach-eos/tty.c
+--- linux-3.19/arch/arm/mach-eos/tty.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/arch/arm/mach-eos/tty.c	2015-04-01 22:08:47.997381624 +0200
+@@ -0,0 +1,113 @@
++/*
++ * Copyright (c) 2011 Georg Hofstetter, Magic Lantern Team
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#include <linux/kernel.h>
++#include <linux/interrupt.h>
++#include <linux/irq.h>
++#include <linux/clockchips.h>
++#include <linux/irqchip.h>
++#include <linux/delay.h>
++#include <linux/platform_device.h>
++#include <linux/reboot.h>
++#include <linux/console.h>
++#include <linux/sched_clock.h>
++
++#include <linux/tty.h>
++#include <linux/tty_flip.h>
++
++struct tty_driver *eos_tty_driver = NULL;
++struct tty_port eos_tty_port;
++
++void eos_con_write(struct console *co, const char *s, unsigned int count);
++
++static int eos_tty_write(struct tty_struct *ttys, const unsigned char *s, int count)
++{
++	/* if a user process opens a TTY, just pass it to the console driver */
++	eos_con_write(NULL, s, count);
++
++	return count;
++}
++
++static int eos_tty_open(struct tty_struct *ttys, struct file *filp)
++{
++	pr_notice("eos_tty_open\n");
++	return tty_port_open(&eos_tty_port, ttys, filp);
++}
++
++static void eos_tty_close(struct tty_struct *ttys, struct file *filp)
++{
++	pr_notice("eos_tty_close\n");
++}
++
++static int eos_tty_write_room(struct tty_struct *ttys)
++{
++	return 1024;
++}
++
++static void eos_tty_hangup(struct tty_struct *ttys)
++{
++}
++
++static struct tty_port_operations eos_tty_port_ops = {
++};
++
++static int eos_tty_install(struct tty_driver *drv, struct tty_struct *tty)
++{
++	pr_notice("eos_tty_install\n");
++	tty_port_init(&eos_tty_port);
++	eos_tty_port.ops = &eos_tty_port_ops;
++	tty_port_install(&eos_tty_port, drv, tty);
++
++	return 0;
++}
++
++static const struct tty_operations eos_tty_ops = {
++	.open           = &eos_tty_open,
++	.close          = &eos_tty_close,
++	.write          = &eos_tty_write,
++	.write_room     = &eos_tty_write_room,
++	.hangup         = &eos_tty_hangup,
++	.install        = &eos_tty_install,
++};
++
++int __init eos_tty_init(void)
++{
++	int ret = 0;
++
++	eos_tty_driver = tty_alloc_driver(1, 0);
++	if (!eos_tty_driver) {
++		pr_err("eos_console_init: could not allocate tty driver)\n");
++		return 0;
++	}
++
++	eos_tty_driver->driver_name = "eos-tty";
++	eos_tty_driver->name = "eos-console";
++	eos_tty_driver->type = TTY_DRIVER_TYPE_CONSOLE;
++	eos_tty_driver->subtype = SYSTEM_TYPE_CONSOLE;
++	eos_tty_driver->init_termios = tty_std_termios;
++	eos_tty_driver->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
++	eos_tty_driver->ports[0] = &eos_tty_port;
++
++	tty_set_operations(eos_tty_driver, &eos_tty_ops);
++
++	ret = tty_register_driver(eos_tty_driver);
++	if (ret) {
++		pr_err("eos_console_init: could not register tty driver (ret=%i)\n", ret);
++		return 0;
++	}
++/*
++	ret = platform_driver_register(eos_tty_driver);
++	if (ret) {
++		pr_err("eos_console_init: could not register platform driver (ret=%i)\n", ret);
++		return 0 ;
++	}
++*/
++	return 0;
++}
++
++module_init(eos_tty_init);
+diff -Nur linux-3.19/arch/arm/mm/proc-arm946.S linux-3.19-ml/arch/arm/mm/proc-arm946.S
+--- linux-3.19/arch/arm/mm/proc-arm946.S	2015-02-09 03:54:22.000000000 +0100
++++ linux-3.19-ml/arch/arm/mm/proc-arm946.S	2015-03-24 22:08:21.970497487 +0100
+@@ -328,6 +328,9 @@
+ 
+ 	.type	__arm946_setup, #function
+ __arm946_setup:
++	push {r1, r2}					@ for some reason, this routine destroys r1 and r2,
++							@ which should contain machine ID and DT/ATAGS pointer
++							@ don't know if it's a kernel bug or my lack of understanding
+ 	mov	r0, #0
+ 	mcr	p15, 0, r0, c7, c5, 0		@ invalidate I cache
+ 	mcr	p15, 0, r0, c7, c6, 0		@ invalidate D cache
+@@ -347,6 +350,7 @@
+ 	mov	r2, #10				@ 11 is the minimum (4KB)
+ 1:	add	r2, r2, #1			@ area size *= 2
+ 	mov	r1, r1, lsr #1
++	cmp r1, #0
+ 	bne	1b				@ count not zero r-shift
+ 	orr	r0, r0, r2, lsl #1		@ the region register value
+ 	orr	r0, r0, #1			@ set enable bit
+@@ -392,6 +396,8 @@
+ #ifdef CONFIG_CPU_CACHE_ROUND_ROBIN
+ 	orr	r0, r0, #0x00004000		@ .1.. .... .... ....
+ #endif
++	pop {r2, r1}					@ restore machine ID and DT/ATAGS ptr
++									@ (__mmap_switched expects them here)
+ 	ret	lr
+ 
+ 	.size	__arm946_setup, . - __arm946_setup
+diff -Nur linux-3.19/arch/arm/tools/mach-types linux-3.19-ml/arch/arm/tools/mach-types
+--- linux-3.19/arch/arm/tools/mach-types	2015-02-09 03:54:22.000000000 +0100
++++ linux-3.19-ml/arch/arm/tools/mach-types	2015-03-24 22:08:21.990497594 +0100
+@@ -1007,3 +1007,4 @@
+ eukrea_cpuimx28sd	MACH_EUKREA_CPUIMX28SD	EUKREA_CPUIMX28SD	4573
+ domotab			MACH_DOMOTAB		DOMOTAB			4574
+ pfla03			MACH_PFLA03		PFLA03			4575
++eos			MACH_EOS		EOS			123456
+diff -Nur linux-3.19/build.sh linux-3.19-ml/build.sh
+--- linux-3.19/build.sh	1970-01-01 01:00:00.000000000 +0100
++++ linux-3.19-ml/build.sh	2015-04-01 22:38:07.632099022 +0200
+@@ -0,0 +1,6 @@
++#!/bin/bash
++
++make ARCH=arm xipImage
++cp arch/arm/boot/xipImage ..
++cp vmlinux ..
++
+diff -Nur linux-3.19/fs/binfmt_flat.c linux-3.19-ml/fs/binfmt_flat.c
+--- linux-3.19/fs/binfmt_flat.c	2015-02-09 03:54:22.000000000 +0100
++++ linux-3.19-ml/fs/binfmt_flat.c	2015-04-01 22:14:40.136417502 +0200
+@@ -44,7 +44,7 @@
+ 
+ /****************************************************************************/
+ 
+-#if 0
++#if 1
+ #define DEBUG 1
+ #endif
+ 
+@@ -652,7 +652,7 @@
+ 						   full_data);
+ 		}
+ 		if (IS_ERR_VALUE(result)) {
+-			printk("Unable to read code+data+bss, errno %d\n",(int)-result);
++			printk("err c+d+b,%d,%X %X %X %X %X\n",(int)-result, textpos, text_len, datapos, ntohl(hdr->data_start), full_data);
+ 			vm_munmap(textpos, text_len + data_len + extra +
+ 				MAX_SHARED_LIBS * sizeof(unsigned long));
+ 			ret = result;
+@@ -933,6 +933,25 @@
+ 	DBG_FLT("start_thread(regs=0x%x, entry=0x%x, start_stack=0x%x)\n",
+ 		(int)regs, (int)start_addr, (int)current->mm->start_stack);
+ 	
++
++	/* dump some of the first instructions. looks cool. and helps debugging btw. */
++	uint32_t *data_p  = (void *)start_addr;
++	uint32_t pos = 0;
++	for(pos = 0; pos < 10; pos++)
++	{
++		DBG_FLT(" 0x%08X ", data_p[pos]);
++	}
++	DBG_FLT("\n");
++
++	/*  uh, oh... well... let me explain this...
++	    start_thread doesn't start the thread, but prepares the registers and such.
++	    somewhat happens in the stack, too. but... how does this cause the thread to 
++	    really get executed? noone really knows that
++	    so... ultry-dirty hack: jump into user space directly. HALP!
++	*/
++	void (*func)(void) = data_p;
++	func();
++
+ 	start_thread(regs, start_addr, current->mm->start_stack);
+ 
+ 	return 0;
+diff -Nur linux-3.19/fs/exec.c linux-3.19-ml/fs/exec.c
+--- linux-3.19/fs/exec.c	2015-02-09 03:54:22.000000000 +0100
++++ linux-3.19-ml/fs/exec.c	2015-03-31 20:02:35.567018565 +0200
+@@ -1543,6 +1543,9 @@
+ 		goto out;
+ 
+ 	retval = exec_binprm(bprm);
++
++pr_err("exec_binprm returned %d\n", retval);
++
+ 	if (retval < 0)
+ 		goto out;
+ 
+diff -Nur linux-3.19/init/main.c linux-3.19-ml/init/main.c
+--- linux-3.19/init/main.c	2015-02-09 03:54:22.000000000 +0100
++++ linux-3.19-ml/init/main.c	2015-03-29 17:30:25.481662827 +0200
+@@ -974,6 +974,7 @@
+ 		       execute_command, ret);
+ #endif
+ 	}
++	pr_err("try_to_run_init_process\n");
+ 	if (!try_to_run_init_process("/sbin/init") ||
+ 	    !try_to_run_init_process("/etc/init") ||
+ 	    !try_to_run_init_process("/bin/init") ||
