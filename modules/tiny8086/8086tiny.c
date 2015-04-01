@@ -11,6 +11,8 @@
 #include "console.h"
 #include "imath.h"
 #include "zebra.h"
+#include "bmp.h"
+#include "../ime_base/ime_base.h"
 
 #define open FIO_OpenFile
 #define lseek FIO_SeekSkipFile
@@ -168,14 +170,34 @@ static void print_char(int ch);
 #define CAST(a,x) (((struct { a v; } __attribute__ ((packed)) *)(&(x)))->v)
 
 #ifdef CONFIG_MAGICLANTERN
+/* use a ring buffer for keystrokes */
+static char kb_buffer[64];
+static int kb_buffer_read_index = 0;
+static int kb_buffer_write_index = 0;
+
 static inline int kbhit()
 {
-    return 0;
+    return kb_buffer_write_index != kb_buffer_read_index;
 }
 
 static inline int getch()
 {
-    return 'a';
+    int ans = kb_buffer[kb_buffer_read_index];
+    kb_buffer_read_index = MOD(kb_buffer_read_index+1, COUNT(kb_buffer));
+    return ans;
+}
+
+/* called from our key handler */
+static void kb_buffer_add_char(int chr)
+{
+    int next = MOD(kb_buffer_write_index+1, COUNT(kb_buffer));
+    
+    /* ring buffer not full? add one more char */
+    if (next != kb_buffer_read_index)
+    {
+        kb_buffer[kb_buffer_write_index] = chr;
+        kb_buffer_write_index = next;
+    }
 }
 #endif
 
@@ -840,9 +862,59 @@ static void print_char(int ch)
     }
 }
 
+static char cmd_buffer[50] = "";
+
+static IME_DONE_FUNC(cmd_buffer_done)
+{
+    if(status == IME_OK)
+    {
+        for (char* c = cmd_buffer; *c; c++)
+        {
+            kb_buffer_add_char(*c);
+        }
+        kb_buffer_add_char(13);
+    }
+
+    SetGUIRequestMode(0);
+    console_show();
+    return IME_OK;
+}
+
+static unsigned int tiny8086_keypress(unsigned int key)
+{
+    if (!display_idle())
+    {
+        return 1;
+    }
+    
+    switch (key)
+    {
+        case MODULE_KEY_PRESS_SET:
+            console_hide();
+            cmd_buffer[0] = 0;
+            SetGUIRequestMode(1);
+            ime_base_start(
+                (unsigned char *)"Enter command",
+                (unsigned char *)cmd_buffer,
+                sizeof(cmd_buffer)-1,
+                IME_UTF8,
+                IME_CHARSET_ANY,
+                NULL,
+                cmd_buffer_done,
+                0, 0, 0, 0
+            );
+            return 0;
+    }
+    return 1;
+}
+
+
 static unsigned int tiny8086_init()
 {
     console_show();
+    
+    /* FreeDOS asks you to press F5/F8 to do some stuff; skip it */
+    kb_buffer_add_char(13);
 
     static char* argv[] = {"tiny8086", "bios", "fd.img", 0};
     task_create("tiny8086_task", 0x1f, 128*1024, main, (void*)argv);
@@ -858,5 +930,9 @@ MODULE_INFO_START()
     MODULE_INIT(tiny8086_init)
     MODULE_DEINIT(tiny8086_deinit)
 MODULE_INFO_END()
+
+MODULE_CBRS_START()
+    MODULE_CBR(CBR_KEYPRESS, tiny8086_keypress, 0)
+MODULE_CBRS_END()
 
 #endif

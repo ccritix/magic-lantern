@@ -15,4 +15,7 @@ You need these files on your card:
 * tiny8086.mo in ML/MODULES
 * bios and fd.img from the 8086tiny website, on the root directory
 
+To be able to enter commands at the DOS prompt, load the IME modules
+(e.g. ime_base and ime_rot). Press SET to enter a command.
+
 To build the desktop emulator: make -f Makefile.orig
