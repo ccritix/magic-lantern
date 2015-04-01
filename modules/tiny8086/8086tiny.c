@@ -220,8 +220,10 @@ unsigned char mem[RAM_SIZE], io_ports[IO_PORT_COUNT], *opcode_stream, *regs8, i_
 unsigned short *regs16, reg_ip, seg_override, file_index, wave_counter;
 unsigned int op_source, op_dest, rm_addr, op_to_addr, op_from_addr, i_data0, i_data1, i_data2, scratch_uint, scratch2_uint, inst_counter, set_flags_type, GRAPHICS_X, GRAPHICS_Y, pixel_colors[16], vmem_ctr;
 int op_result, disk[3], scratch_int;
+#ifdef CONFIG_MAGICLANTERN
+struct tm now;
+#else
 time_t clock_buf;
-#ifndef CONFIG_MAGICLANTERN
 struct timeb ms_clock;
 #endif
 
@@ -746,9 +748,10 @@ int main(int argc, char **argv)
 						write(1, regs8, 1)
 						#endif
 					OPCODE 1: // GET_RTC
-						#ifdef CONFIG_MAGICLANTERN /* fixme: time functions not working yet */
-						memset(mem + SEGREG(REG_ES, REG_BX,), 0, sizeof(struct tm));
-						CAST(short,mem[SEGREG(REG_ES, REG_BX, 36+)]) = 0;
+						#ifdef CONFIG_MAGICLANTERN
+						LoadCalendarFromRTC(&now);
+						memset(mem + SEGREG(REG_ES, REG_BX,), &now, sizeof(struct tm));
+						CAST(short,mem[SEGREG(REG_ES, REG_BX, 36+)]) = get_ms_clock_value();
 						#else
 						time(&clock_buf);
 						ftime(&ms_clock);
