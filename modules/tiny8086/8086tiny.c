@@ -17,6 +17,8 @@
 #define read FIO_ReadFile
 #define write FIO_WriteFile
 
+static void print_char(int ch);
+
 #else /* building for desktop */
 
 #include <time.h>
@@ -165,8 +167,20 @@
 // https://code.google.com/p/lz4/issues/detail?id=4 and https://code.google.com/p/lz4/source/detail?r=33#
 #define CAST(a,x) (((struct { a v; } __attribute__ ((packed)) *)(&(x)))->v)
 
+#ifdef CONFIG_MAGICLANTERN
+static inline int kbhit()
+{
+    return 0;
+}
+
+static inline int getch()
+{
+    return 'a';
+}
+#endif
+
 // Keyboard driver for console. This may need changing for UNIX/non-UNIX platforms
-#ifdef _WIN32
+#if defined(_WIN32) || defined(CONFIG_MAGICLANTERN)
 #define KEYBOARD_DRIVER kbhit() && (mem[0x4A6] = getch(), pc_interrupt(7))
 #else
 #define KEYBOARD_DRIVER read(0, mem + 0x4A6, 1) && (int8_asap = (mem[0x4A6] == 0x1B), pc_interrupt(7))
@@ -704,7 +718,11 @@ int main(int argc, char **argv)
 				switch ((char)i_data0)
 				{
 					OPCODE_CHAIN 0: // PUTCHAR_AL
+						#ifdef CONFIG_MAGICLANTERN
+						print_char(*regs8);
+						#else
 						write(1, regs8, 1)
+						#endif
 					OPCODE 1: // GET_RTC
 						#ifdef CONFIG_MAGICLANTERN /* fixme: time functions not working yet */
 						memset(mem + SEGREG(REG_ES, REG_BX,), 0, sizeof(struct tm));
@@ -804,6 +822,23 @@ int main(int argc, char **argv)
 }
 
 #ifdef CONFIG_MAGICLANTERN
+
+static void print_char(int ch)
+{
+    static int escape_sequence = 0;
+    if (escape_sequence)
+    {
+        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'))
+            escape_sequence = 0;
+    }
+    else
+    {
+        if (ch == 27)
+            escape_sequence = 1;
+        else
+            printf((char*) &ch);
+    }
+}
 
 static unsigned int tiny8086_init()
 {
