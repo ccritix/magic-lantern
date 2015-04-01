@@ -455,6 +455,52 @@ void boot_linux()
 
 
 
+
+enum mpu_xmit_state
+{
+    MPU_XMIT_IDLE = 0,
+    
+    /* via mpu_xmit(), then sio3_isr() */
+    MPU_XMIT_SEND_START,
+    MPU_XMIT_SEND,
+    MPU_XMIT_SEND_WAIT_ISR,
+    
+    /* via mreq_isr() */
+    MPU_XMIT_RECV_HDR,
+    MPU_XMIT_RECV_HDR_WAIT_ISR,
+    /* via sio3_isr() */
+    MPU_XMIT_RECV_DATA,
+    MPU_XMIT_RECV_DATA_WAIT_ISR
+};
+
+
+volatile enum mpu_xmit_state mpu_state = MPU_XMIT_IDLE;
+uint32_t mpu_mreq_pending = 0;
+uint8_t recv_buf[128];
+uint32_t recv_buf_count = 0;
+uint32_t recv_buf_pos = 0;
+uint8_t send_buf[128];
+uint32_t send_buf_count = 0;
+uint32_t send_buf_pos = 0;
+uint32_t mpu_cs_gpio = 0;
+
+#define BYTESWAP(x) (((x)>>8) | ((x)<<8))
+static void mpu_handle(void);
+static void mpu_handle(void);
+static void mpu_received(uint8_t *data, uint32_t length);
+static void mpu_send(uint8_t *buf, uint32_t length, uint32_t blocking);
+
+
+
+void int_setup(void)
+{
+    MEM(0xC0201100) = 0x43210DCB;
+    MEM(0xC0201104) = 0xFEA98765;
+    MEM(0xC0201200) = 1;
+   
+    volatile uint32_t status = MEM(0xC0201200);
+}
+
 void int_enable(uint32_t id)
 {
     MEM(0xC0201010) = id;
@@ -547,13 +593,14 @@ void sio_init(uint32_t module)
     uint32_t base = sio_get_base(module);
     
     /* enable clocks */
-    MEM(0xC0400008) |=  0x430005;
+    //MEM(0xC0400008) |= 0x430005;
+    MEM(0xC0400008) |=   0x200000;
     
     /* setup GPIOs? */
     MEM(0xC0221300) =  0x25;
     
-    MEM(base + 0x08) =  0x1;
-    MEM(base + 0x0C) =  0x13020010;
+    MEM(base + 0x08) = 0x1;
+    MEM(base + 0x0C) = 0x13020010;
 }
 
 #define CS_ACTIVE   0
@@ -561,48 +608,14 @@ void sio_init(uint32_t module)
 
 void mpu_set_cs(uint32_t state)
 {
-    gpio_set(39, state);
+    gpio_set(mpu_cs_gpio, state);
 }
 
 uint32_t mpu_get_cs()
 {
-    return gpio_get(39) ? CS_INACTIVE : CS_ACTIVE;
+    return gpio_get(mpu_cs_gpio) ? CS_INACTIVE : CS_ACTIVE;
 }
 
-
-
-enum mpu_xmit_state
-{
-    MPU_XMIT_IDLE = 0,
-    
-    /* via mpu_xmit(), then sio3_isr() */
-    MPU_XMIT_SEND_START,
-    MPU_XMIT_SEND,
-    MPU_XMIT_SEND_WAIT_ISR,
-    
-    /* via mreq_isr() */
-    MPU_XMIT_RECV_HDR,
-    MPU_XMIT_RECV_HDR_WAIT_ISR,
-    /* via sio3_isr() */
-    MPU_XMIT_RECV_DATA,
-    MPU_XMIT_RECV_DATA_WAIT_ISR
-};
-
-
-volatile enum mpu_xmit_state mpu_state = MPU_XMIT_IDLE;
-uint32_t mpu_mreq_pending = 0;
-uint8_t recv_buf[128];
-uint32_t recv_buf_count = 0;
-uint32_t recv_buf_pos = 0;
-uint8_t send_buf[128];
-uint32_t send_buf_count = 0;
-uint32_t send_buf_pos = 0;
-
-#define BYTESWAP(x) (((x)>>8) | ((x)<<8))
-static void mpu_handle(void);
-static void mpu_handle(void);
-static void mpu_received(uint8_t *data, uint32_t length);
-static void mpu_send(uint8_t *buf, uint32_t length, uint32_t blocking);
 
 
 void mpu_init()
@@ -615,7 +628,7 @@ void mpu_init()
     send_buf_pos = 0;
     
     uint8_t init_msg[] = { 0x06, 0x04, 0x02, 0x00, 0x00, 0x00};
-    mpu_send(init_msg, 6, 1);
+    mpu_send(init_msg, 6, 0);
 }
 
 static void mpu_send(uint8_t *buf, uint32_t length, uint32_t blocking)
@@ -808,10 +821,13 @@ void __attribute__((interrupt)) irq_handler()
     {
         mreq_isr();
     }
-
-    if(irq_id == 0x36)
+    else if(irq_id == 0x36)
     {
         sio3_isr();
+    }
+    else
+    {
+        printf("IRQ: 0x%02X\n", irq_id);
     }
 
     /* reset/re-arm interrupt. works without, but firmware does so */
@@ -836,6 +852,8 @@ cstart( void )
     /* allow interrupts */
     sei(0);
     
+    int_setup();
+    
     print_x = 0;
     print_y = 0;
     
@@ -844,25 +862,32 @@ cstart( void )
     printf(" Magic Lantern Linux Loader\n");
     printf("----------------------------\n");
 
+    if(0)
+    {
+        printf("  Setup MPU...\n");
 
-    printf("  Setup MPU...\n");
-    
-    /* setup SPI lines */
-    mpu_set_cs(CS_INACTIVE);
-    sio_init(3);
-    
-    /* setup MREQ? */
-    MEM(0xC020302C) = 0xC;
-    
-    /* enable interrupts for MREQ and SPI */
-    int_enable(0x50);
-    int_enable(0x36);
-    
-    mpu_init();
-    
-    printf("  Done\n");
-    
-    //boot_linux();
+        /* setup SPI lines */
+        mpu_cs_gpio = 39; /* 600D */
+        //mpu_cs_gpio = 47; /* 5D3 */
+        
+        mpu_set_cs(CS_INACTIVE);
+        sio_init(3);
+
+        /* enable interrupts for MREQ and SPI */
+        int_enable(0x50);
+        int_enable(0x36);
+        
+        /* setup MREQ? */
+        MEM(0xC020302C) = 0xC;
+
+        mpu_init();
+
+        printf("  Done\n");
+    }
+    else
+    {
+        boot_linux();
+    }
     while(1);
 }
 
