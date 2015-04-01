@@ -275,10 +275,17 @@ static void audio_callback(void *data, unsigned char *stream, int len)
 
 // Emulator entry point
 #ifdef CONFIG_MAGICLANTERN
-static
-#endif
+static int main(char* argv[])
+{
+    /* hardcoded command-line arguments */
+    int argc = 3;
+
+#else
 int main(int argc, char **argv)
 {
+
+#endif
+
 #ifndef NO_GRAPHICS
 	// Initialise SDL
 	SDL_Init(SDL_INIT_AUDIO);
@@ -302,7 +309,9 @@ int main(int argc, char **argv)
 
 	// Open BIOS (file id disk[2]), floppy disk image (disk[1]), and hard disk image (disk[0]) if specified
 	for (file_index = 3; file_index;)
-		disk[--file_index] = *++argv ? open(*argv, 32898) : 0;
+	{
+		disk[--file_index] = *++argv ? printf("open %s\r\n", *argv), open(*argv, O_RDONLY | O_SYNC) : 0;
+	}
 
 	// Set CX:AX equal to the hard disk image size, if present
 	CAST(unsigned)regs16[REG_AX] = *disk ? lseek(*disk, 0, 2) >> 9 : 0;
@@ -784,3 +793,26 @@ int main(int argc, char **argv)
 #endif
 	return 0;
 }
+
+#ifdef CONFIG_MAGICLANTERN
+
+static unsigned int tiny8086_init()
+{
+    console_show();
+
+    static char* argv[] = {"tiny8086", "bios", "fd.img", 0};
+    task_create("tiny8086_task", 0x1f, 128*1024, main, (void*)argv);
+    return 0;
+}
+
+static unsigned int tiny8086_deinit()
+{
+    return 0;
+}
+
+MODULE_INFO_START()
+    MODULE_INIT(tiny8086_init)
+    MODULE_DEINIT(tiny8086_deinit)
+MODULE_INFO_END()
+
+#endif
