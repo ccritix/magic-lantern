@@ -160,7 +160,10 @@
 
 // Reinterpretation cast
 // #define CAST(a) *(a*)&
-#define CAST(a,x) (*(a*)&(x))
+
+// work around unaligned ARM access issues inspired from
+// https://code.google.com/p/lz4/issues/detail?id=4 and https://code.google.com/p/lz4/source/detail?r=33#
+#define CAST(a,x) (((struct { a v; } __attribute__ ((packed)) *)(&(x)))->v)
 
 // Keyboard driver for console. This may need changing for UNIX/non-UNIX platforms
 #ifdef _WIN32
