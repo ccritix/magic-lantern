@@ -5,6 +5,20 @@
 //
 // This work is licensed under the MIT License. See included LICENSE.TXT.
 
+#ifdef CONFIG_MAGICLANTERN
+#include "dryos.h"
+#include "module.h"
+#include "console.h"
+#include "imath.h"
+#include "zebra.h"
+
+#define open FIO_OpenFile
+#define lseek FIO_SeekSkipFile
+#define read FIO_ReadFile
+#define write FIO_WriteFile
+
+#else /* building for desktop */
+
 #include <time.h>
 #include <sys/timeb.h>
 #include <memory.h>
@@ -17,6 +31,8 @@
 #ifndef NO_GRAPHICS
 #include "SDL.h"
 #endif
+
+#endif /* CONFIG_MAGICLANTERN */
 
 // Emulator system constants
 #define IO_PORT_COUNT 0x10000
@@ -160,7 +176,9 @@ unsigned short *regs16, reg_ip, seg_override, file_index, wave_counter;
 unsigned int op_source, op_dest, rm_addr, op_to_addr, op_from_addr, i_data0, i_data1, i_data2, scratch_uint, scratch2_uint, inst_counter, set_flags_type, GRAPHICS_X, GRAPHICS_Y, pixel_colors[16], vmem_ctr;
 int op_result, disk[3], scratch_int;
 time_t clock_buf;
+#ifndef CONFIG_MAGICLANTERN
 struct timeb ms_clock;
+#endif
 
 #ifndef NO_GRAPHICS
 SDL_AudioSpec sdl_audio = {44100, AUDIO_U8, 1, 0, 128};
@@ -667,10 +685,15 @@ int main(int argc, char **argv)
 					OPCODE_CHAIN 0: // PUTCHAR_AL
 						write(1, regs8, 1)
 					OPCODE 1: // GET_RTC
+						#ifdef CONFIG_MAGICLANTERN /* fixme: time functions not working yet */
+						memset(mem + SEGREG(REG_ES, REG_BX,), 0, sizeof(struct tm));
+						CAST(short)mem[SEGREG(REG_ES, REG_BX, 36+)] = 0;
+						#else
 						time(&clock_buf);
 						ftime(&ms_clock);
 						memcpy(mem + SEGREG(REG_ES, REG_BX,), localtime(&clock_buf), sizeof(struct tm));
 						CAST(short)mem[SEGREG(REG_ES, REG_BX, 36+)] = ms_clock.millitm;
+						#endif
 					OPCODE 2: // DISK_READ
 					OPCODE_CHAIN 3: // DISK_WRITE
 						regs8[REG_AL] = ~lseek(disk[regs8[REG_DL]], CAST(unsigned)regs16[REG_BP] << 9, 0)
