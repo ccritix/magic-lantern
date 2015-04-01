@@ -310,7 +310,7 @@ void disp_init(void *mem_start, void *mem_end)
     
     if((uint32_t)disp_bmpbuf < mem_start)
     {
-        return;
+        while(1);
     }
     
     /* this should cover most (if not all) ML-supported cameras */
@@ -340,8 +340,8 @@ void disp_init(void *mem_start, void *mem_end)
     dma_memset(disp_yuvbuf, 0x00, 720*480*2);
     
     /* set frame buffer memory areas */
-    MEM(0xC0F140D0) = UNCACHED(disp_bmpbuf);
-    MEM(0xC0F140E0) = UNCACHED(disp_yuvbuf);
+    MEM(0xC0F140D0) = CACHED(disp_bmpbuf);
+    MEM(0xC0F140E0) = CACHED(disp_yuvbuf);
     
     /* trigger a display update */
     MEM(0xC0F14000) = 1;
