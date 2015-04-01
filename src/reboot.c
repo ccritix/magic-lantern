@@ -374,12 +374,25 @@ void boot_linux()
     uint32_t *interface_ptr = (void*)0x00008000;
     struct atag *atags_ptr = (void*)0x00000100;    
     
-    
     uint32_t ram_start = 0x01000000;
-    uint32_t ram_end   = 0x10000000;
+    uint32_t ram_end   = 0x20000000;
+    
+    /* check for RAM size */
+    printf("  Checking RAM size...");
+    MEM(0x50008000) = 0xDAAABEEF;
+    
+    if(MEM(0x50008000) != 0xDAAABEEF)
+    {
+        ram_end = 0x10000000;
+    }
     uint32_t ram_size  = ram_end - ram_start;
     
-    /* place kernel at the start o */
+    printf("  %d MiB\n", ram_size / 1024 / 1024);
+    
+    /* force 256MiB because 7D crashes during boot. other digic writing there? */
+    ram_end = 0x10000000;
+    
+    /* place kernel */
     uint32_t kernel_size = &kernel_end - &kernel_start;
     uint32_t kernel_addr = 0x00800000;
     
@@ -387,7 +400,7 @@ void boot_linux()
     uint32_t initrd_size = &initrd_end - &initrd_start;
     uint32_t initrd_addr = ram_end - initrd_size;
     
-    /* setup callback functions */
+    /* setup callback functions, this loader acts as "BIOS" */
     interface_ptr[0] = (uint32_t)&print_line_ext;
     interface_ptr[1] = (uint32_t)&print_char;
     interface_ptr[2] = 0;
@@ -398,7 +411,7 @@ void boot_linux()
     setup_mem_tag(&atags_ptr, ram_start, ram_size);
     setup_ramdisk_tag(&atags_ptr, (initrd_size + 1023) / 1024);
     setup_initrd2_tag(&atags_ptr, initrd_addr, initrd_size);
-    setup_cmdline_tag(&atags_ptr, "init=/bin/sh root=/dev/ram0 earlyprintk=1");
+    setup_cmdline_tag(&atags_ptr, "init=/bin/init root=/dev/ram0 earlyprintk=1");
     setup_end_tag(&atags_ptr);
     
     /* move kernel into free space */
@@ -409,8 +422,8 @@ void boot_linux()
     
     printf("  Starting Kernel...\n");
     
-    enable_dcache();
-    enable_icache();
+    //enable_dcache();
+    //enable_icache();
     
     asm(
         /* enter SVC mode */
