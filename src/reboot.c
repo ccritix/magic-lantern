@@ -198,7 +198,7 @@ void dma_post_setup()
 /* use dma engine for memcopy */
 void dma_memcpy(void *dst, void *src, uint32_t bytes)
 {
-    if(bytes < 0x20)
+    //if(bytes < 0x20)
     {
         memcpy(dst, src, bytes);
         return;
@@ -237,7 +237,7 @@ void dma_memcpy(void *dst, void *src, uint32_t bytes)
 /* use dma engine for memset */
 void dma_memset(void *dst, uint8_t value, uint32_t bytes)
 {
-    if(bytes < 0x20)
+    //if(bytes < 0x20)
     {
         memset(dst, value, bytes);
         return;
