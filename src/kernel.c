@@ -24,22 +24,23 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-extern uint8_t kernel_start;
-extern uint8_t kernel_end;
-extern uint8_t initrd_start;
-extern uint8_t initrd_end;
-
 /* this will include the linux kernel */
 asm(
+    ".section .rodata\n"
+    ".word 0xF00DCAFE\n"
+    ".word kernel_end - kernel_start\n"
     ".globl kernel_start\n"
     "kernel_start:\n"
     ".incbin \"../../xipImage\"\n"
     "kernel_end:\n"
     ".globl kernel_end\n"
     
+    ".word initrd_end - initrd_start\n"
     ".globl initrd_start\n"
     "initrd_start:\n"
+    //".incbin \"../../initramfs.igz\"\n"
     ".incbin \"../../initrd.img\"\n"
+    //".incbin \"../../rootfs.ext2\"\n"
     "initrd_end:\n"
     ".globl initrd_end\n"
 );
