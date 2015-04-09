@@ -89,7 +89,6 @@ DIET_OBJ = \
 	__ltostr.o \
 	isalnum.o \
 	isspace.o \
-	isspace.o \
 	isxdigit.o \
 	strcpy.o \
 	strcmp.o \
