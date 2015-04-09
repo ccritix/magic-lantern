@@ -161,9 +161,7 @@ static void boot_dump(int drive, char* filename, uint32_t addr, int size)
     if (!boot_fileclose) fail();
     
     /* turn on the LED */
-    #ifdef CARD_LED_ADDRESS
-    MEM(CARD_LED_ADDRESS) = (LEDON);
-    #endif
+    led_on();
 
     /* save the file */
     int f = boot_fileopen(drive, filename, MODE_WRITE);
@@ -180,9 +178,7 @@ static void boot_dump(int drive, char* filename, uint32_t addr, int size)
     }
 
     /* turn off the LED */
-    #ifdef CARD_LED_ADDRESS
-    MEM(CARD_LED_ADDRESS) = (LEDOFF);
-    #endif
+    led_off();
 }
 
 struct sd_ctx sd_ctx;
