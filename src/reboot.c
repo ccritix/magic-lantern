@@ -104,12 +104,10 @@ void led_off()
 
 static void blink(int n)
 {
-#if defined(CARD_LED_ADDRESS) && defined(LEDON) && defined(LEDOFF)
-    *(volatile int*) (CARD_LED_ADDRESS) = (LEDON);
+    led_on();
     busy_wait(n);
-    *(volatile int*)(CARD_LED_ADDRESS) = (LEDOFF);
+    led_off();
     busy_wait(n);
-#endif
 }
 
 static void fail()
