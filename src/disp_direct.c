@@ -316,6 +316,11 @@ void disp_init(void *mem_start, void *mem_end)
     /* this should cover most (if not all) ML-supported cameras */
     /* and maybe most unsupported cameras as well :) */
     void (*fromutil_disp_init)(uint32_t) = disp_init_autodetect();
+
+    /* this one initializes everyhting that is needed for display usage. PWM, PWR, GPIO, SIO and DISPLAY */
+    /* note: this may require the memory we use as display buffer (e.g. on 6D) */
+    /* so we must call it before writing anything there */
+    fromutil_disp_init(0);
     
     /* BSS is not zeroed */
     yuv_mode = YUV422;
@@ -324,11 +329,8 @@ void disp_init(void *mem_start, void *mem_end)
     yuv_mode = YUV411;
 #endif
     
-    /* first clear, then init */
+    /* clear display buffer */
     disp_fill(COLOR_EMPTY);
-    
-    /* this one initializes everyhting that is needed for display usage. PWM, PWR, GPIO, SIO and DISPLAY */
-    fromutil_disp_init(0);
 
     /* we want our own palette */
     disp_set_palette();
@@ -336,7 +338,7 @@ void disp_init(void *mem_start, void *mem_end)
     /* BMP foreground is transparent */
     disp_fill(COLOR_EMPTY);
     
-    /* make a funny pattern in the YUV buffer*/
+    /* YUV buffer is black */
     dma_memset(disp_yuvbuf, 0x00, 720*480*2);
     
     /* set frame buffer memory areas */
