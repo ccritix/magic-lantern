@@ -35,48 +35,38 @@ ML_SRC_REBOOT_OBJ += font_direct.o
 ML_SRC_REBOOT_OBJ += disp_direct.o
 endif
 
+clean::
+	$(call rm_files, kernel.bin kernel.o loader loader.bin autoexec loader.lds)
+
+# kernel+initrd is a huge binary blob that is not to relocate. 
+# attach it to our loader just like the initrd usually is attached to kernel
 kernel.o: ../../xipImage ../../initrd.img
 
+# kernel.bin is the structure containing kernel+initrd
 kernel.bin: kernel.o
 	$(call build,OBJCOPY,$(OBJCOPY) -O binary $< $@)
 	$(call build,STAT,$(STAT_CMD) $@)
-    
-clean::
-	$(call rm_files, magiclantern.bin autoexec autoexec.map location.map)
 
-autoexec.bin:: kernel.bin
-    
-autoexec: autoexec.lds $(ML_SRC_REBOOT_OBJ) $(ML_LIBC)
+# combine autoexec.bin from the real linux loader and the kernel
+autoexec.bin: loader.bin kernel.bin
+	@echo Building autoexec.bin from loader + kernel/initrd
+	@cp loader.bin autoexec.bin
+	@cat kernel.bin >> autoexec.bin
+	$(call build,STAT,$(STAT_CMD) $@)
+
+# this is the linux loader unit
+loader: loader.lds $(ML_SRC_REBOOT_OBJ) $(ML_LIBC)
 	$(call build,LD,$(LD) \
 		-o $@ \
 		-e _start \
 		$^ \
 		--cref \
-		-Map=autoexec.map \
+		-Map=loader.map \
 	); \
-	$(READELF) -l magiclantern | $(GREP) -C 2 MemSiz || echo Could not check memory usage
+	$(READELF) -l loader | $(GREP) -C 2 MemSiz || echo Could not check memory usage
 
-autoexec-fir: $(ML_SRC_REBOOT_OBJ)
-	$(call build,LD,$(LD) \
-		-o $@ \
-		-e _start \
-		-Ttext $(FIR_BASE) \
-		$^ \
-		--cref \
-		-Map=autoexec.map \
-	);
-
-clean::
-	$(call rm_files, autoexec-fir autoexec-fir.bin)
-
-autoexec.lds : $(SRC_DIR)/autoexec.lds.S
+loader.lds: $(SRC_DIR)/loader.lds.S
 	$(call build,CPP,$(CPP) $(CFLAGS) $< | $(GREP) -v '^#' > $@)
-
-magiclantern.lds: $(SRC_DIR)/magiclantern.lds.S
-	$(call build,CPP,$(CPP) $(CFLAGS) $< | $(GREP) -v '^#' > $@)
-
-clean::
-	$(call rm_files, magiclantern.lds)
 
 $(TOP_DIR)/tcc/libtccx.o: FORCE
 	+$(MAKE) -C $(TOP_DIR)/tcc
