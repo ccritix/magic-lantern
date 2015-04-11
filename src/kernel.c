@@ -31,7 +31,8 @@ asm(
     ".word kernel_end - kernel_start\n"
     ".globl kernel_start\n"
     "kernel_start:\n"
-    ".incbin \"../../xipImage\"\n"
+    //".incbin \"../../xipImage\"\n"
+    ".incbin \"../../zImage\"\n"
     "kernel_end:\n"
     ".globl kernel_end\n"
     
@@ -40,6 +41,7 @@ asm(
     "initrd_start:\n"
     //".incbin \"../../initramfs.igz\"\n"
     ".incbin \"../../initrd.img\"\n"
+    //".incbin \"../../rootfs.cpio.gz\"\n"
     //".incbin \"../../rootfs.ext2\"\n"
     "initrd_end:\n"
     ".globl initrd_end\n"

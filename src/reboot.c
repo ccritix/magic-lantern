@@ -372,6 +372,7 @@ static void setup_end_tag(struct atag **params)
 	(*params)->hdr.size = 0;                   /* zero length */
 }
 
+
 void boot_linux()
 {
     register uint32_t sp asm("sp");
@@ -396,7 +397,7 @@ void boot_linux()
     printf("  %d MiB\n", ram_size / 1024 / 1024);
     
     /* force 256MiB because 7D crashes during boot. other digic writing there? */
-    ram_end = 0x10000000;
+    //ram_end = 0x10000000;
     
     /* kernel and initrd are still at the address where the ROM loaded our binary to */
     void *loader_end = (void *)(0x40800000 + (uint32_t)&__kernel_start - (uint32_t)&_start);
