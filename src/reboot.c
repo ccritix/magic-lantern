@@ -653,14 +653,14 @@ void timer_reset(uint32_t module)
 
 void timer_start(uint32_t module, uint32_t target)
 {
-    /* enable module */
-    MEM(0xC0210000 | module * 0x100 | 0x00) = 1;
-    
     /* some init values and interrupts */
     MEM(0xC0210000 | module * 0x100 | 0x04) = 2;
     MEM(0xC0210000 | module * 0x100 | 0x14) = 3;
     MEM(0xC0210000 | module * 0x100 | 0x08) = target;
     MEM(0xC0210000 | module * 0x100 | 0x10) = 1;
+
+    /* enable module */
+    MEM(0xC0210000 | module * 0x100 | 0x00) = 1;
 }
 
 uint32_t timer_get_value(uint32_t module)
