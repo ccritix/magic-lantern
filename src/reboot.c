@@ -49,11 +49,10 @@
 #define UNCACHED(x) (((uint32_t)x) | 0x40000000)
 #define ALIGN(x,y)  (((x) + (y) - 1) & ~((y)-1))
 
-extern uint8_t kernel_start;
-extern uint8_t kernel_end;
-extern uint8_t initrd_start;
-extern uint8_t initrd_end;
+extern uint8_t _start;
 extern uint8_t _end;
+extern uint8_t __code_end;
+extern uint8_t __kernel_start;
 extern uint8_t *disp_yuvbuf;
 
 uint32_t print_x = 0;
@@ -62,7 +61,7 @@ void _vec_data_abort();
 extern uint32_t _dat_data_abort;
 
 asm(
-    ".text\n"
+    ".section .init\n"
     ".globl _start\n"
     "_start:\n"
 
@@ -78,6 +77,7 @@ asm(
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
     "MSR     CPSR, R0\n"
     "ADR     R4, addresses\n"
+    "LDR     SP, [R4, #0x10]\n"
     
     /* flush all caches so we can work on uncached memory */
     "MOV     R0, #0\n"
@@ -85,7 +85,7 @@ asm(
     "MCR     p15, 0, R0, c7, c6, 0\n" // entire D cache
     "MCR     p15, 0, R0, c7, c10, 4\n" // drain write buffer
     
-    /* now copy the whole binary to 0x40008000 */
+    /* now copy the whole binary from 0x40800000 to target address in RAM */
     "LDR     R0, [R4, #0]\n"
     "LDR     R1, [R4, #4]\n"
     "LDR     R2, [R4, #8]\n"
@@ -109,10 +109,12 @@ asm(
     
     "addresses:\n"
     ".word   _start\n"
-    ".word   _end\n"
+    ".word   __code_end\n"
     ".word   0x40800000\n"
     ".word   cstart\n"
+    ".word   0x41000000\n" /* stack */
     
+    ".section .text\n"
     /* return on ABORT */
     ".globl _vec_data_abort\n"
     "_vec_data_abort:\n"
@@ -141,7 +143,7 @@ void print_char()
     
     if(print_y >= 480)
     {
-        print_y = 480 - disp_direct_scroll_up(1);
+        //print_y = 480 - disp_direct_scroll_up(1);
     }
     
     sei(ints);
@@ -388,6 +390,9 @@ static void setup_end_tag(struct atag **params)
 
 void boot_linux()
 {
+    register uint32_t sp asm("sp");
+    printf("  Stack is 0x%08X\n", sp);
+    
     uint32_t *interface_ptr = (void*)0x00008000;
     struct atag *atags_ptr = (void*)0x00000100;    
     
@@ -409,12 +414,25 @@ void boot_linux()
     /* force 256MiB because 7D crashes during boot. other digic writing there? */
     ram_end = 0x10000000;
     
+    void *loader_end = (void *)(0x40800000 + (uint32_t)&__kernel_start - (uint32_t)&_start);
+    uint32_t *magic = ((uint32_t *)loader_end);
+    uint32_t *loader_kernel_size = ((uint32_t *)loader_end) + 1;
+    void *loader_kernel_start = loader_kernel_size + 1;
+    uint32_t *loader_initrd_size = (uint32_t *)(loader_kernel_start + *loader_kernel_size);
+    void *loader_initrd_start = loader_initrd_size + 1;
+    
+    if(*magic != 0xF00DCAFE)
+    {
+        printf("  No kernel attached: 0x%08X\n", *magic);
+        while(1);
+    }
+    
     /* place kernel */
-    uint32_t kernel_size = &kernel_end - &kernel_start;
+    uint32_t kernel_size = *loader_kernel_size;
     uint32_t kernel_addr = 0x00800000;
     
     /* place initrd at RAM end */
-    uint32_t initrd_size = &initrd_end - &initrd_start;
+    uint32_t initrd_size = *loader_initrd_size;
     uint32_t initrd_addr = ram_end - initrd_size;
     
     /* setup callback functions, this loader acts as "BIOS" */
@@ -426,16 +444,20 @@ void boot_linux()
     printf("  Setup ATAGs...\n");
     setup_core_tag(&atags_ptr, 8192, 0x100);
     setup_mem_tag(&atags_ptr, ram_start, ram_size);
-    setup_ramdisk_tag(&atags_ptr, (initrd_size + 1023) / 1024);
+    setup_ramdisk_tag(&atags_ptr, (2 * initrd_size + 1023) / 1024);
     setup_initrd2_tag(&atags_ptr, initrd_addr, initrd_size);
-    setup_cmdline_tag(&atags_ptr, "init=/bin/init root=/dev/ram0 earlyprintk=1");
+    setup_cmdline_tag(&atags_ptr, "init=/bin/busybox root=/dev/ram0 earlyprintk=1");
     setup_end_tag(&atags_ptr);
     
+    
     /* move kernel into free space */
-    printf("  Copying kernel to 0x%08X (0x%08X bytes)...\n", kernel_addr, kernel_size);
-    dma_memcpy((void *)kernel_addr, &kernel_start, kernel_size);
-    printf("  Copying initrd to 0x%08X (0x%08X bytes)...\n", initrd_addr, initrd_size);
-    dma_memcpy((void *)initrd_addr, &initrd_start, initrd_size);
+    printf("  Copying initrd from 0x%08X to 0x%08X-0x%08X (0x%08X bytes)...\n", loader_initrd_start, initrd_addr, initrd_addr + initrd_size, initrd_size);
+    dma_memcpy((void *)initrd_addr, loader_initrd_start, initrd_size);
+    printf("  Copying kernel from 0x%08X to 0x%08X-0x%08X (0x%08X bytes)...\n", loader_kernel_start, kernel_addr, kernel_addr + kernel_size, kernel_size);
+    
+    /* first move to a safe place, then to the target position. source and dest may overlap! */
+    dma_memcpy((void *)(initrd_addr - kernel_size), loader_kernel_start, kernel_size);
+    dma_memcpy((void *)kernel_addr, (initrd_addr - kernel_size), kernel_size);
     
     printf("  Starting Kernel...\n");
     
@@ -465,7 +487,7 @@ void boot_linux()
         ".word   0xFFFFFFFF\n" /* machine ID */
         ".word   0x00000100\n" /* ATAGs address */
         ".word   0x00800000\n" /* linux kernel address */
-        ".word   0x00700000\n" /* stack for kernel boot */
+        ".word   0x00800000\n" /* stack for kernel boot */
     );
 }
 
@@ -874,7 +896,7 @@ cstart( void )
     print_x = 0;
     print_y = 0;
     
-    disp_init(&_end, (void*)0x00800000);
+    disp_init(0, (void*)(0x01000000 - 1024));
     
     printf(" Magic Lantern Linux Loader\n");
     printf("----------------------------\n");

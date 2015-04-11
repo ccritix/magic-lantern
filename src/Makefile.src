@@ -33,20 +33,23 @@ ifndef ML_SRC_REBOOT_OBJ
 ML_SRC_REBOOT_OBJ = reboot.o
 ML_SRC_REBOOT_OBJ += font_direct.o
 ML_SRC_REBOOT_OBJ += disp_direct.o
-ML_SRC_REBOOT_OBJ += kernel.o
-#CFLAGS += -save-temps
 endif
 
 kernel.o: ../../xipImage ../../initrd.img
 
+kernel.bin: kernel.o
+	$(call build,OBJCOPY,$(OBJCOPY) -O binary $< $@)
+	$(call build,STAT,$(STAT_CMD) $@)
+    
 clean::
 	$(call rm_files, magiclantern.bin autoexec autoexec.map location.map)
 
-autoexec: $(ML_SRC_REBOOT_OBJ) $(ML_LIBC)
+autoexec.bin:: kernel.bin
+    
+autoexec: autoexec.lds $(ML_SRC_REBOOT_OBJ) $(ML_LIBC)
 	$(call build,LD,$(LD) \
 		-o $@ \
 		-e _start \
-		-Ttext 0x00008000 \
 		$^ \
 		--cref \
 		-Map=autoexec.map \
@@ -65,6 +68,9 @@ autoexec-fir: $(ML_SRC_REBOOT_OBJ)
 
 clean::
 	$(call rm_files, autoexec-fir autoexec-fir.bin)
+
+autoexec.lds : $(SRC_DIR)/autoexec.lds.S
+	$(call build,CPP,$(CPP) $(CFLAGS) $< | $(GREP) -v '^#' > $@)
 
 magiclantern.lds: $(SRC_DIR)/magiclantern.lds.S
 	$(call build,CPP,$(CPP) $(CFLAGS) $< | $(GREP) -v '^#' > $@)
