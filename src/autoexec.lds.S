@@ -28,9 +28,9 @@
 
 MEMORY 
 {
-    init    (rwx) : ORIGIN = 0x00008000, LENGTH = 0x00000200
-    ram     (rwx) : ORIGIN = 0x00008200, LENGTH = 0x00000E00
-    code    (rwx) : ORIGIN = 0x00009000, LENGTH = 0x00006000
+    init    (rwx) : ORIGIN = 0x00004200, LENGTH = 0x00000200
+    ram     (rwx) : ORIGIN = 0x00004400, LENGTH = 0x00000E00
+    code    (rwx) : ORIGIN = 0x00005200, LENGTH = 0x00003E00
 }
 
 SECTIONS

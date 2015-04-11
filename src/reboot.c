@@ -55,6 +55,7 @@ extern uint8_t __code_end;
 extern uint8_t __kernel_start;
 extern uint8_t *disp_yuvbuf;
 
+void *video_bufs = 0;
 uint32_t print_x = 0;
 uint32_t print_y = 0;
 void _vec_data_abort();
@@ -131,23 +132,6 @@ asm(
     ".word 0x00000000\n"
 );
 
-void print_char()
-{
-    char print_tmp[2];
-    uint32_t ints = cli();
-    
-    print_tmp[0] = (char)MEM(0x00008008);
-    print_tmp[1] = 0;
-    
-    font_draw(&print_x, &print_y, COLOR_WHITE, 1, print_tmp, 1);
-    
-    if(print_y >= 480)
-    {
-        //print_y = 480 - disp_direct_scroll_up(1);
-    }
-    
-    sei(ints);
-}
 
 void print_line_ext(uint32_t color, uint32_t scale, char *txt, uint32_t count)
 {
@@ -393,11 +377,11 @@ void boot_linux()
     register uint32_t sp asm("sp");
     printf("  Stack is 0x%08X\n", sp);
     
-    uint32_t *interface_ptr = (void*)0x00008000;
     struct atag *atags_ptr = (void*)0x00000100;    
-    
-    uint32_t ram_start = 0x01000000;
-    uint32_t ram_end   = 0x20000000;
+    uint32_t ram_start = 0x00000000;
+    uint32_t ram_end = 0x20000000;
+    /* put kernel at 32M https://www.kernel.org/doc/Documentation/arm/Booting */
+    uint32_t kernel_addr = 0x02000000;
     
     /* check for RAM size */
     printf("  Checking RAM size...");
@@ -407,13 +391,14 @@ void boot_linux()
     {
         ram_end = 0x10000000;
     }
-    uint32_t ram_size  = ram_end - ram_start;
+    uint32_t ram_size = ram_end - ram_start;
     
     printf("  %d MiB\n", ram_size / 1024 / 1024);
     
     /* force 256MiB because 7D crashes during boot. other digic writing there? */
     ram_end = 0x10000000;
     
+    /* kernel and initrd are still at the address where the ROM loaded our binary to */
     void *loader_end = (void *)(0x40800000 + (uint32_t)&__kernel_start - (uint32_t)&_start);
     uint32_t *magic = ((uint32_t *)loader_end);
     uint32_t *loader_kernel_size = ((uint32_t *)loader_end) + 1;
@@ -427,40 +412,32 @@ void boot_linux()
         while(1);
     }
     
-    /* place kernel */
-    uint32_t kernel_size = *loader_kernel_size;
-    uint32_t kernel_addr = 0x00800000;
-    
-    /* place initrd at RAM end */
+    /* place initrd at RAM end and get sizes */
     uint32_t initrd_size = *loader_initrd_size;
-    uint32_t initrd_addr = ram_end - initrd_size;
-    
-    /* setup callback functions, this loader acts as "BIOS" */
-    interface_ptr[0] = (uint32_t)&print_line_ext;
-    interface_ptr[1] = (uint32_t)&print_char;
-    interface_ptr[2] = 0;
+    uint32_t initrd_addr = (uint32_t)video_bufs - initrd_size;
+    uint32_t kernel_size = *loader_kernel_size;
     
     /* setup atags */  
     printf("  Setup ATAGs...\n");
-    setup_core_tag(&atags_ptr, 8192, 0x100);
+    setup_core_tag(&atags_ptr, 4096, 0x100);
     setup_mem_tag(&atags_ptr, ram_start, ram_size);
     setup_ramdisk_tag(&atags_ptr, (2 * initrd_size + 1023) / 1024);
     setup_initrd2_tag(&atags_ptr, initrd_addr, initrd_size);
-    setup_cmdline_tag(&atags_ptr, "init=/bin/busybox root=/dev/ram0 earlyprintk=1");
+    setup_cmdline_tag(&atags_ptr, "init=/bin/sh root=/dev/ram0 earlyprintk=1");
     setup_end_tag(&atags_ptr);
-    
     
     /* move kernel into free space */
     printf("  Copying initrd from 0x%08X to 0x%08X-0x%08X (0x%08X bytes)...\n", loader_initrd_start, initrd_addr, initrd_addr + initrd_size, initrd_size);
     dma_memcpy((void *)initrd_addr, loader_initrd_start, initrd_size);
-    printf("  Copying kernel from 0x%08X to 0x%08X-0x%08X (0x%08X bytes)...\n", loader_kernel_start, kernel_addr, kernel_addr + kernel_size, kernel_size);
     
     /* first move to a safe place, then to the target position. source and dest may overlap! */
+    printf("  Copying kernel from 0x%08X to 0x%08X-0x%08X (0x%08X bytes)...\n", loader_kernel_start, kernel_addr, kernel_addr + kernel_size, kernel_size);    
     dma_memcpy((void *)(initrd_addr - kernel_size), loader_kernel_start, kernel_size);
     dma_memcpy((void *)kernel_addr, (initrd_addr - kernel_size), kernel_size);
     
     printf("  Starting Kernel...\n");
     
+    cli();
     //enable_dcache();
     //enable_icache();
     
@@ -486,8 +463,8 @@ void boot_linux()
         "parameters:\n"
         ".word   0xFFFFFFFF\n" /* machine ID */
         ".word   0x00000100\n" /* ATAGs address */
-        ".word   0x00800000\n" /* linux kernel address */
-        ".word   0x00800000\n" /* stack for kernel boot */
+        ".word   0x02000000\n" /* linux kernel address */
+        ".word   0x00008000\n" /* stack for kernel boot */
     );
 }
 
@@ -896,11 +873,13 @@ cstart( void )
     print_x = 0;
     print_y = 0;
     
-    disp_init(0, (void*)(0x01000000 - 1024));
+    video_bufs = disp_init(0, (void*)(0x10000000));
     
     printf(" Magic Lantern Linux Loader\n");
     printf("----------------------------\n");
 
+    printf("  Video buffers from 0x%08X to 0x%08X (0x%08X bytes)...\n", (uint32_t)video_bufs, 0x10000000, (0x10000000 - (uint32_t)video_bufs));
+    
     if(0)
     {
         printf("  Setup MPU...\n");
