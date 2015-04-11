@@ -892,7 +892,7 @@ diff -Nur linux-3.19/arch/arm/mach-eos/macros.h linux-3.19-ml/arch/arm/mach-eos/
 +#define MEM(add) (*(volatile uint32_t *)(add))
 diff -Nur linux-3.19/arch/arm/mach-eos/timer.c linux-3.19-ml/arch/arm/mach-eos/timer.c
 --- linux-3.19/arch/arm/mach-eos/timer.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-3.19-ml/arch/arm/mach-eos/timer.c	2015-03-29 03:00:49.779463858 +0200
++++ linux-3.19-ml/arch/arm/mach-eos/timer.c	2015-04-11 13:46:49.163619519 +0200
 @@ -0,0 +1,169 @@
 +/*
 + * Copyright (c) 2011 Georg Hofstetter, Magic Lantern Team
@@ -1007,14 +1007,14 @@ diff -Nur linux-3.19/arch/arm/mach-eos/timer.c linux-3.19-ml/arch/arm/mach-eos/t
 +{
 +	uint32_t timer_base = eos_timer_base_address(module);
 +
-+	/* enable module */
-+	MEM(timer_base | 0x00) = 1;
-+
 +	/* some init values and interrupts */
 +	MEM(timer_base | 0x04) = 2;
 +	MEM(timer_base | 0x14) = interrupt ? 3 : 0;
 +	MEM(timer_base | 0x08) = target;
 +	MEM(timer_base | 0x10) = 1;
++
++	/* enable module */
++	MEM(timer_base | 0x00) = 1;
 +}
 +
 +uint32_t eos_timer_get_value(uint32_t module)
