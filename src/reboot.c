@@ -709,9 +709,12 @@ cstart( void )
     MEM(0x00000028) = (uint32_t)&_vec_data_abort;
     MEM(0x0000002C) = (uint32_t)&_vec_data_abort;
     MEM(0x00000030) = (uint32_t)&_vec_data_abort;
-    MEM(0x00000038) = (uint32_t)&irq_handler;
     MEM(0x0000003C) = (uint32_t)&_vec_data_abort;
-    
+
+    /* install custom IRQ handler */
+    MEM(0x00000018) = 0xE59FF018; /* MOV PC, [PC, # 0x18] */
+    MEM(0x00000038) = (uint32_t)&irq_handler;
+
     /* allow interrupts */
     sei(0);
     
