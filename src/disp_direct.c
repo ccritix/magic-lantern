@@ -302,7 +302,7 @@ uint32_t disp_direct_scroll_up(uint32_t lines)
     return height;
 }
 
-void disp_init(void *mem_start, void *mem_end)
+void *disp_init(void *mem_start, void *mem_end)
 {
     /* is this address valid for all cameras? */
     disp_bmpbuf = (uint8_t *)UNCACHED((CACHED(mem_end) - 720*480/2));
@@ -342,12 +342,14 @@ void disp_init(void *mem_start, void *mem_end)
     dma_memset(disp_yuvbuf, 0x00, 720*480*2);
     
     /* set frame buffer memory areas */
-    MEM(0xC0F140D0) = CACHED(disp_bmpbuf);
-    MEM(0xC0F140E0) = CACHED(disp_yuvbuf);
+    MEM(0xC0F140D0) = (MEM(0xC0F140D0) & 0x40000000) | CACHED(disp_bmpbuf);
+    MEM(0xC0F140E0) = (MEM(0xC0F140E0) & 0x40000000) | CACHED(disp_yuvbuf);
     
     /* trigger a display update */
     MEM(0xC0F14000) = 1;
     
     /* from now on, everything you write on the display buffers
      * will appear on the screen without doing anything special */
+     
+     return CACHED(disp_yuvbuf);
 }

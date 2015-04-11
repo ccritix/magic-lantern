@@ -18,8 +18,9 @@
 void disp_set_palette();
 void disp_progress(uint32_t progress);
 void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color);
-void disp_init();
+void *disp_init(void *mem_start, void *mem_end);
 void disp_update();
+void disp_fill(uint32_t color);
 uint32_t disp_direct_scroll_up(uint32_t lines);
 
 
