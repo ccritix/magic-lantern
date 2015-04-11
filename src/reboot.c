@@ -433,8 +433,8 @@ void boot_linux()
     
     /* first move to a safe place, then to the target position. source and dest may overlap! */
     printf("  Copying kernel from 0x%08X to 0x%08X-0x%08X (0x%08X bytes)...\n", loader_kernel_start, kernel_addr, kernel_addr + kernel_size, kernel_size);    
-    dma_memcpy((void *)(initrd_addr - kernel_size), loader_kernel_start, kernel_size);
-    dma_memcpy((void *)kernel_addr, (initrd_addr - kernel_size), kernel_size);
+    dma_memcpy((void *)(initrd_addr - kernel_size), (void *)loader_kernel_start, kernel_size);
+    dma_memcpy((void *)kernel_addr, (void *)((initrd_addr - kernel_size)), kernel_size);
     
     printf("  Starting Kernel...\n");
     
