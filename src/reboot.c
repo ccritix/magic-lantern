@@ -151,12 +151,29 @@ void print_line_ext(uint32_t color, uint32_t scale, char *txt, uint32_t count)
 {
     uint32_t ints = cli();
     
+    if(count == 0)
+    {
+        count = strlen(txt);
+    }
+    
+    for(uint32_t pos = 0; pos < count; pos++)
+    {
+        MEM(0xC0800000) = txt[pos];
+    }
+    
     font_draw(&print_x, &print_y, color, scale, txt, count);
+    
+    if(print_x >= 720)
+    {
+        print_y++;
+        print_x = 0;
+    }
     
     if(print_y >= 480)
     {
         print_y = 480 - disp_direct_scroll_up(1);
     }
+    
     sei(ints);
 }
 
