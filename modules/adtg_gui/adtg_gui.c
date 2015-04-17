@@ -8,9 +8,7 @@
 #include <bmp.h>
 #include <menu.h>
 #include <config.h>
-
-#include <gdb.h>
-#include <cache_hacks.h>
+#include <patch.h>
 
 #include "avl.h"
 #include "avl.c"    /* unusual include in order to avoid exporting the AVL symbols (keep the namespace clean) */
@@ -638,16 +636,16 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uin
     re->caller_pc = caller_pc;
 }
 
-static void adtg_log(breakpoint_t *bkpt)
+static void adtg_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
     
-    unsigned int cs = bkpt->ctx[0];
-    unsigned int *data_buf = (unsigned int *) bkpt->ctx[1];
+    unsigned int cs = regs[0];
+    unsigned int *data_buf = (unsigned int *) regs[1];
     int dst = cs & 0xF;
 
     uint32_t caller_task = get_current_task();
-    uint32_t caller_pc = bkpt->ctx[14];
+    uint32_t caller_pc = PATCH_HOOK_CALLER();
     
     /* log all ADTG writes */
     while(*data_buf != 0xFFFFFFFF)
@@ -659,14 +657,14 @@ static void adtg_log(breakpoint_t *bkpt)
     }
 }
 
-static void cmos_log(breakpoint_t *bkpt)
+static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
 
-    unsigned short *data_buf = (unsigned short *) bkpt->ctx[0];
+    unsigned short *data_buf = (unsigned short *) regs[0];
     
     uint32_t caller_task = get_current_task();
-    uint32_t caller_pc = bkpt->ctx[14];
+    uint32_t caller_pc = PATCH_HOOK_CALLER();
     
     /* log all CMOS writes */
     while(*data_buf != 0xFFFF)
@@ -676,14 +674,14 @@ static void cmos_log(breakpoint_t *bkpt)
     }
 }
 
-static void cmos16_log(breakpoint_t *bkpt)
+static void cmos16_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
 
-    unsigned short *data_buf = (unsigned short *) bkpt->ctx[0];
+    unsigned short *data_buf = (unsigned short *) regs[0];
     
     uint32_t caller_task = get_current_task();
-    uint32_t caller_pc = bkpt->ctx[14];
+    uint32_t caller_pc = PATCH_HOOK_CALLER();
 
     /* log all CMOS writes */
     while(*data_buf != 0xFFFF)
@@ -693,15 +691,15 @@ static void cmos16_log(breakpoint_t *bkpt)
     }
 }
 
-static void engio_write_log(breakpoint_t *bkpt)
+static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
     if (!digic_intercept) return;
     
-    uint32_t* data_buf = (uint32_t*) bkpt->ctx[0];
+    uint32_t* data_buf = (uint32_t*) regs[0];
 
     uint32_t caller_task = get_current_task();
-    uint32_t caller_pc = bkpt->ctx[14];
+    uint32_t caller_pc = PATCH_HOOK_CALLER();
     
     /* log all ENGIO register writes */
     while(*data_buf != 0xFFFFFFFF)
@@ -714,36 +712,36 @@ static void engio_write_log(breakpoint_t *bkpt)
     }
 }
 
-static void EngDrvOut_log(breakpoint_t *bkpt)
+static void EngDrvOut_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
     if (!digic_intercept) return;
 
-    uint32_t data = (uint32_t) bkpt->ctx[0];
+    uint32_t data = (uint32_t) regs[0];
     uint16_t dst = (data & 0xFFFF0000) >> 16;
     uint16_t reg = data & 0x0000FFFF;
-    uint32_t val = (uint32_t) bkpt->ctx[1];
+    uint32_t val = (uint32_t) regs[1];
 
     uint32_t caller_task = get_current_task();
-    uint32_t caller_pc = bkpt->ctx[14];
+    uint32_t caller_pc = PATCH_HOOK_CALLER();
     
     reg_update_unique_32(dst, reg, &val, caller_task, caller_pc);
-    bkpt->ctx[1] = val;
+    regs[1] = val;
 }
 
-static void EngDrvOuts_log(breakpoint_t *bkpt)
+static void EngDrvOuts_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
     if (!digic_intercept) return;
 
-    uint32_t data = (uint32_t) bkpt->ctx[0];
+    uint32_t data = (uint32_t) regs[0];
     uint16_t dst = (data & 0xFFFF0000) >> 16;
     uint16_t reg = data & 0x0000FFFF;
-    uint32_t * values = (uint32_t *) bkpt->ctx[1];
-    uint32_t num = (uint32_t) bkpt->ctx[2];
+    uint32_t * values = (uint32_t *) regs[1];
+    uint32_t num = (uint32_t) regs[2];
 
     uint32_t caller_task = get_current_task();
-    uint32_t caller_pc = bkpt->ctx[14];
+    uint32_t caller_pc = PATCH_HOOK_CALLER();
     
     for (uint32_t i = 0; i < num; i++)
     {
@@ -751,14 +749,14 @@ static void EngDrvOuts_log(breakpoint_t *bkpt)
     }
 }
 
-static void SendDataToDfe_log(breakpoint_t *bkpt)
+static void SendDataToDfe_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
     
-    unsigned int *data_buf = (unsigned int *) bkpt->ctx[0];
+    unsigned int *data_buf = (unsigned int *) regs[0];
 
     uint32_t caller_task = get_current_task();
-    uint32_t caller_pc = bkpt->ctx[14];
+    uint32_t caller_pc = PATCH_HOOK_CALLER();
     
     /* log all DFE writes */
     while(*data_buf != 0xFFFFFFFF)
@@ -768,8 +766,9 @@ static void SendDataToDfe_log(breakpoint_t *bkpt)
     }
 }
 
-static void dummy_readout_log(breakpoint_t *bkpt)
+static void dummy_readout_log(uint32_t* _regs, uint32_t* stack, uint32_t pc)
 {
+    /* fixme: naming conflict */
     for (int reg = 0; reg < reg_num; reg++)
     {
         regs[reg].prev_val = regs[reg].val;
@@ -780,42 +779,31 @@ static MENU_SELECT_FUNC(adtg_toggle)
 {
     adtg_enabled = !adtg_enabled;
     
-    static breakpoint_t * bkpt1 = 0;
-    static breakpoint_t * bkpt2 = 0;
-    static breakpoint_t * bkpt3 = 0;
-    static breakpoint_t * bkpt4 = 0;
-    static breakpoint_t * bkpt5 = 0;
-    static breakpoint_t * bkpt6 = 0;
-    static breakpoint_t * bkpt7 = 0;
-    static breakpoint_t * bkpt8 = 0;
-    static breakpoint_t * bkpt9 = 0;
-    
     if (adtg_enabled)
     {
-        /* set watchpoints at ADTG and CMOS writes */
-        gdb_setup();
-        if (ADTG_WRITE_FUNC)   bkpt1 = gdb_add_watchpoint(ADTG_WRITE_FUNC, 0, &adtg_log);
-        if (CMOS_WRITE_FUNC)   bkpt2 = gdb_add_watchpoint(CMOS_WRITE_FUNC, 0, &cmos_log);
-        if (CMOS2_WRITE_FUNC)  bkpt3 = gdb_add_watchpoint(CMOS2_WRITE_FUNC, 0, &cmos_log);
-        if (CMOS16_WRITE_FUNC) bkpt4 = gdb_add_watchpoint(CMOS16_WRITE_FUNC, 0, &cmos16_log);
-        if (ENGIO_WRITE_FUNC)  bkpt5 = gdb_add_watchpoint(ENGIO_WRITE_FUNC, 0, &engio_write_log);
-        if (ENG_DRV_OUT_FUNC)  bkpt6 = gdb_add_watchpoint(ENG_DRV_OUT_FUNC, 0, &EngDrvOut_log);
-        if (ENG_DRV_OUTS_FUNC) bkpt7 = gdb_add_watchpoint(ENG_DRV_OUTS_FUNC, 0, &EngDrvOuts_log);
-        if (SEND_DATA_TO_DFE_FUNC) bkpt8 = gdb_add_watchpoint(SEND_DATA_TO_DFE_FUNC, 0, &SendDataToDfe_log);
-        if (SCS_DUMMY_READOUT_DONE_FUNC) bkpt9 = gdb_add_watchpoint(SCS_DUMMY_READOUT_DONE_FUNC, 0, &dummy_readout_log);
+        /* set hooks at ADTG and CMOS writes */
+        if (ADTG_WRITE_FUNC)   patch_hook_function(ADTG_WRITE_FUNC, MEM(ADTG_WRITE_FUNC), &adtg_log, "adtg_log");
+        if (CMOS_WRITE_FUNC)   patch_hook_function(CMOS_WRITE_FUNC, MEM(CMOS_WRITE_FUNC), &cmos_log, "cmos_log");
+        if (CMOS2_WRITE_FUNC)  patch_hook_function(CMOS2_WRITE_FUNC, MEM(CMOS2_WRITE_FUNC), &cmos_log, "cmos_log");
+        if (CMOS16_WRITE_FUNC) patch_hook_function(CMOS16_WRITE_FUNC, MEM(CMOS16_WRITE_FUNC), &cmos16_log, "cmos16_log");
+        if (ENGIO_WRITE_FUNC)  patch_hook_function(ENGIO_WRITE_FUNC, MEM(ENGIO_WRITE_FUNC), &engio_write_log, "engio_write_log");
+        if (ENG_DRV_OUT_FUNC)  patch_hook_function(ENG_DRV_OUT_FUNC, MEM(ENG_DRV_OUT_FUNC), &EngDrvOut_log, "EngDrvOut_log");
+        if (ENG_DRV_OUTS_FUNC) patch_hook_function(ENG_DRV_OUTS_FUNC, MEM(ENG_DRV_OUTS_FUNC), &EngDrvOuts_log, "EngDrvOuts_log");
+        if (SEND_DATA_TO_DFE_FUNC) patch_hook_function(SEND_DATA_TO_DFE_FUNC, MEM(SEND_DATA_TO_DFE_FUNC), &SendDataToDfe_log, "SendDataToDfe_log");
+        if (SCS_DUMMY_READOUT_DONE_FUNC) patch_hook_function(SCS_DUMMY_READOUT_DONE_FUNC, MEM(SCS_DUMMY_READOUT_DONE_FUNC), &dummy_readout_log, "dummy_readout_log");
     }
     else
     {
         /* uninstall watchpoints */
-        if (bkpt1) gdb_delete_bkpt(bkpt1);
-        if (bkpt2) gdb_delete_bkpt(bkpt2);
-        if (bkpt3) gdb_delete_bkpt(bkpt3);
-        if (bkpt4) gdb_delete_bkpt(bkpt4);
-        if (bkpt5) gdb_delete_bkpt(bkpt5);
-        if (bkpt6) gdb_delete_bkpt(bkpt6);
-        if (bkpt7) gdb_delete_bkpt(bkpt7);
-        if (bkpt8) gdb_delete_bkpt(bkpt8);
-        if (bkpt9) gdb_delete_bkpt(bkpt9);
+        if (ADTG_WRITE_FUNC)   unpatch_memory(ADTG_WRITE_FUNC);
+        if (CMOS_WRITE_FUNC)   unpatch_memory(CMOS_WRITE_FUNC);
+        if (CMOS2_WRITE_FUNC)  unpatch_memory(CMOS2_WRITE_FUNC);
+        if (CMOS16_WRITE_FUNC) unpatch_memory(CMOS16_WRITE_FUNC);
+        if (ENGIO_WRITE_FUNC)  unpatch_memory(ENGIO_WRITE_FUNC);
+        if (ENG_DRV_OUT_FUNC)  unpatch_memory(ENG_DRV_OUT_FUNC);
+        if (ENG_DRV_OUTS_FUNC) unpatch_memory(ENG_DRV_OUTS_FUNC);
+        if (SEND_DATA_TO_DFE_FUNC) unpatch_memory(SEND_DATA_TO_DFE_FUNC);
+        if (SCS_DUMMY_READOUT_DONE_FUNC) unpatch_memory(SCS_DUMMY_READOUT_DONE_FUNC);
     }
 }
 
