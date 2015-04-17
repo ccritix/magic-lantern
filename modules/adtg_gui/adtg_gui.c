@@ -40,6 +40,7 @@ static struct known_reg known_regs[] = {
     {DST_CMOS,      6, 0, "ISO 50 or timing related: FFF => darker image"},
     {DST_CMOS,      7, 0, "Looks like the cmos is dieing (g3gg0)"},
     {DST_ADTG, 0x8000, 0, "Causes interlacing (g3gg0)"},
+    {DST_ADTG, 0x8806, 0, "Causes interlacing artifacts"},
     {DST_ADTG, 0x800C, 0, "Line skipping factor (2 = 1080p, 4 = 720p, 0 = zoom)"},
     {DST_ADTG, 0x805E, 1, "Shutter blanking for x5/x10 zoom"},
     {DST_ADTG, 0x8060, 1, "Shutter blanking for LiveView 1x"},
@@ -1026,6 +1027,43 @@ static MENU_SELECT_FUNC(lock_displayed_registers)
     menu_toggle_submenu();
 }
 
+static int crop_mode_reg(int reg)
+{
+    if (regs[reg].dst == DST_CMOS)
+    {
+        switch (regs[reg].reg)
+        {
+            case 1: return 0xB8B;       /* CMOS[1]: vertical position and size */
+            case 2: return 0x10E;       /* CMOS[2]: horizontal position and downsizing factor */
+            case 6: return 0x170;       /* CMOS[6]: ISO related? */
+        }
+    }
+    else if (regs[reg].dst == 2)        /* ADTG 2 */
+    {
+        switch (regs[reg].reg)
+        {
+            case 0x8000: return 5;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
+            case 0x8806: return 0x6088; /* without this, you get some weird artifacts; this should only go to ADTG2, not 4 */
+        }
+    }
+
+    return 0;
+}
+
+static MENU_SELECT_FUNC(crop_mode_overrides)
+{
+    for (int reg = 0; reg < reg_num; reg++)
+    {
+        int ovr = crop_mode_reg(reg);
+        if (ovr)
+        {
+            regs[reg].override = ovr;
+            regs[reg].override_enabled = 1;
+        }
+    }
+    menu_toggle_submenu();
+}
+
 #include <lens.h>
 static int log_all_regs = 0;
 static volatile int log_iso_regs_running = 0;
@@ -1184,6 +1222,12 @@ static struct menu_entry adtg_gui_menu[] =
                         .select         = lock_displayed_registers,
                         .help           = "Override all displayed registers to their current value.",
                         .help2          = "Registers already overriden will not be changed.",
+                    },
+                    {
+                        .name           = "3x crop mode (5D3)",
+                        .select         = crop_mode_overrides,
+                        .help           = "Turns regular 1080p into 1:1 crop mode. For other cameras:",
+                        .help2          = "magiclantern.fm/forum/index.php?topic=10111.msg145036#msg145036",
                     },
                     MENU_EOL,
                 },
