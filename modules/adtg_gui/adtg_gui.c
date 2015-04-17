@@ -1122,8 +1122,7 @@ static void log_iso_regs()
 
 PROP_HANDLER(PROP_GUI_STATE)
 {
-    int* data = buf;
-    if (data[0] == GUISTATE_QR)
+    if (buf[0] == GUISTATE_QR)
     {
         if (log_all_regs && adtg_enabled && !log_iso_regs_running)
         {
