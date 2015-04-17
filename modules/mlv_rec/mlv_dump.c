@@ -106,7 +106,11 @@ enum bug_id
         introduced: 9058cbc13fa4 
         fixed in  : 2da80f3de3d1 
         */
-    BUG_ID_BLOCKSIZE_WRONG = 1
+    BUG_ID_BLOCKSIZE_WRONG = 1,
+    /* 
+        dont know yet where this bug comes from. was reported in http://www.magiclantern.fm/forum/index.php?topic=14703
+    */
+    BUG_ID_FRAMEDATA_MISALIGN = 2
 };
 
 int batch_mode = 0;
@@ -1063,6 +1067,7 @@ int main (int argc, char *argv[])
     int black_fix = 0;
     enum bug_id fix_bug = BUG_ID_NONE;
     int fix_bug_1_offset = 0;
+    int fix_bug_2_offset = 0;
     int dng_output = 0;
     int dump_xrefs = 0;
     int fix_cold_pixels = 0;
@@ -1108,6 +1113,17 @@ int main (int argc, char *argv[])
                 {
                     fix_bug = MIN(16384, MAX(1, atoi(optarg)));
                     print_msg(MSG_INFO, "FIX BUG #%d [active]\n", fix_bug);
+                    
+                    if(fix_bug == BUG_ID_FRAMEDATA_MISALIGN)
+                    {
+                        char *parm = strchr(optarg, ',');
+                        if(parm && *parm)
+                        {
+                            parm++;
+                            fix_bug_2_offset = MIN(16384, MAX(-16384, atoi(parm)));
+                            print_msg(MSG_INFO, "FIX BUG #%d [active] parameter: %d\n", fix_bug, fix_bug_2_offset);
+                        }
+                    }
                 }
                 break;
               
@@ -1427,6 +1443,10 @@ int main (int argc, char *argv[])
             {
                 print_msg(MSG_INFO, "   - But only write '%s' blocks\n", extract_block);
             }
+            if(inject_filename)
+            {
+                print_msg(MSG_INFO, "   - Inject data from '%s'\n", inject_filename);
+            }
         }
 
         print_msg(MSG_INFO, "   - Output into '%s'\n", output_filename);
@@ -1468,6 +1488,7 @@ int main (int argc, char *argv[])
     memset(&wbal_info, 0x00, sizeof(mlv_wbal_hdr_t));
     memset(&wavi_info, 0x00, sizeof(mlv_wavi_hdr_t));
     memset(&rtci_info, 0x00, sizeof(mlv_rtci_hdr_t));
+    memset(&main_header, 0x00, sizeof(mlv_file_hdr_t));
 
     char info_string[256] = "(MLV Video without INFO blocks)";
 
@@ -1703,7 +1724,7 @@ read_headers:
             }
 
             /* is this the first file? */
-            if(file_hdr.fileNum == 0)
+            if(main_header.fileGuid == 0)
             {
                 memcpy(&main_header, &file_hdr, sizeof(mlv_file_hdr_t));
 
@@ -1981,7 +2002,13 @@ read_headers:
                     int frame_size = block_hdr.blockSize - sizeof(mlv_vidf_hdr_t) - block_hdr.frameSpace;
                     int prev_frame_size = frame_size;
 
-                    file_set_pos(in_file, block_hdr.frameSpace, SEEK_CUR);
+                    uint64_t skipSize = block_hdr.frameSpace;
+                    if(fix_bug == BUG_ID_FRAMEDATA_MISALIGN && (int)block_hdr.frameSpace >= fix_bug_2_offset)
+                    {
+                        print_msg(MSG_INFO, "BUG_ID_FRAMEDATA_MISALIGN: Offset frame data by %d byte\n", fix_bug_2_offset);
+                        skipSize -= fix_bug_2_offset;
+                    }
+                    file_set_pos(in_file, skipSize, SEEK_CUR);
                     
                     /* we can correct that frame by fixing frame space */
                     if(fix_bug == BUG_ID_BLOCKSIZE_WRONG && fix_bug_1_offset != 0)
@@ -1993,7 +2020,7 @@ read_headers:
                     }
                     
                     /* check if there is enough memory for that frame */
-                    if(frame_size > frame_buffer_size)
+                    if(frame_size > (int)frame_buffer_size)
                     {
                         /* no, set new size */
                         frame_buffer_size = frame_size;
@@ -2048,6 +2075,11 @@ read_headers:
                         goto abort;
                     }
 
+                    if(fix_bug == BUG_ID_FRAMEDATA_MISALIGN && (int)block_hdr.frameSpace >= fix_bug_2_offset)
+                    {
+                        file_set_pos(in_file, fix_bug_2_offset, SEEK_CUR);
+                    }
+                    
                     lua_handle_hdr_data(lua_state, buf.blockType, "_data_read", &block_hdr, sizeof(block_hdr), frame_buffer, frame_size);
 
                     if(recompress || decompress || ((raw_output || dng_output) && compressed))
@@ -3188,13 +3220,11 @@ abort:
 
         if(fwrite(&hdr, sizeof(mlv_vidf_hdr_t), 1, out_file) != 1)
         {
-            print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
-            goto abort;
+            print_msg(MSG_ERROR, "Failed writing average frame header into .MLV file\n");
         }
         if(fwrite(frame_buffer, frame_size, 1, out_file) != 1)
         {
-            print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
-            goto abort;
+            print_msg(MSG_ERROR, "Failed writing average frame data into .MLV file\n");
         }
     }
 
@@ -3207,7 +3237,6 @@ abort:
         if(fwrite(&lv_rec_footer, sizeof(lv_rec_file_footer_t), 1, out_file) != 1)
         {
             print_msg(MSG_ERROR, "Failed writing into .RAW file\n");
-            goto abort;
         }
     }
 
@@ -3240,8 +3269,7 @@ abort:
         
         if(fwrite(&main_header, main_header.blockSize, 1, out_file) != 1)
         {
-            print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
-            goto abort;
+            print_msg(MSG_ERROR, "Failed to rewrite header in .MLV file\n");
         }
     }
     
@@ -3266,7 +3294,6 @@ abort:
         if(fwrite(&tmp_uint32, 4, 1, out_file_wav) != 1)
         {
             print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
-            goto abort;
         }
 
         tmp_uint32 = wav_file_size; /* data size */
@@ -3274,7 +3301,6 @@ abort:
         if(fwrite(&tmp_uint32, 4, 1, out_file_wav) != 1)
         {
             print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
-            goto abort;
         }
         fclose(out_file_wav);
     }

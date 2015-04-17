@@ -1076,18 +1076,18 @@ static void mlv_play_build_index(char *filename, FILE **chunk_files, uint32_t ch
                 {
                     bmp_printf(FONT_MED, 30, 190, "File #%d ends prematurely, %d bytes read", chunk, read);
                     beep();
-                    msleep(1000);
-                    break;
+                    msleep(2000);
+                    return;
                 }
             }
             
             /* unexpected block header size? */
-            if(buf.blockSize < sizeof(mlv_hdr_t) || buf.blockSize > 10 * 1024 * 1024)
+            if(buf.blockSize < sizeof(mlv_hdr_t) || buf.blockSize > 50 * 1024 * 1024)
             {
                 bmp_printf(FONT_MED, 30, 190, "Invalid header size: %d bytes at 0x%08X", buf.blockSize, position);
                 beep();
-                msleep(1000);
-                break;
+                msleep(2000);
+                return;
             }
 
             /* file header */
@@ -1103,8 +1103,8 @@ static void mlv_play_build_index(char *filename, FILE **chunk_files, uint32_t ch
                 {
                     bmp_printf(FONT_MED, 30, 190, "File ends prematurely during MLVI");
                     beep();
-                    msleep(1000);
-                    break;
+                    msleep(2000);
+                    return;
                 }
 
                 /* is this the first file? */
@@ -1119,8 +1119,8 @@ static void mlv_play_build_index(char *filename, FILE **chunk_files, uint32_t ch
                     {
                         bmp_printf(FONT_MED, 30, 190, "Error: GUID within the file chunks mismatch!");
                         beep();
-                        msleep(1000);
-                        break;
+                        msleep(2000);
+                        return;
                     }
                 }
                 
@@ -1579,6 +1579,13 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
     
     /* load or create index file */
     block_xref = mlv_play_get_index(filename, chunk_files, chunk_count);
+    if (!block_xref)
+    {
+        bmp_printf(FONT_LARGE, 30, 100, "Index error:", filename);
+        bmp_printf(FONT_MED, 40, 100 + font_large.height + 1, filename);
+        return;
+    }
+
     mlv_xref_t *xrefs = (mlv_xref_t *)&(((uint8_t*)block_xref)[sizeof(mlv_xref_hdr_t)]);
     
     /* index building would print on screen */
@@ -1998,7 +2005,7 @@ static void mlv_play_raw(char *filename, FILE **chunk_files, uint32_t chunk_coun
             }
             
             buffer->frameSize = frame_size;
-            buffer->frameBuffer = malloc(buffer->frameSize);
+            buffer->frameBuffer = fio_malloc(buffer->frameSize);
         }
 
         if(!buffer->frameBuffer)

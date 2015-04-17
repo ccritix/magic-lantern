@@ -408,9 +408,6 @@ seconds_clock_task( void* unused )
 }
 TASK_CREATE( "clock_task", seconds_clock_task, 0, 0x19, 0x2000 );
 
-
-static PROP_INT(PROP_VIDEO_SYSTEM, pal);
-
 #ifdef FEATURE_INTERVALOMETER
 
 static MENU_UPDATE_FUNC(timelapse_calc_display)
@@ -421,7 +418,7 @@ static MENU_UPDATE_FUNC(timelapse_calc_display)
     int total_time_s = d * total_shots;
     int total_time_m = total_time_s / 60;
     int fps = video_mode_fps;
-    if (!fps) fps = pal ? 25 : 30;
+    if (!fps) fps = video_system_pal ? 25 : 30;
     MENU_SET_WARNING(MENU_WARN_INFO, 
         "Timelapse: %dh%02dm, %d shots, %d fps => %02dm%02ds.", 
         total_time_m / 60, 
@@ -2391,7 +2388,7 @@ static void zoom_halfshutter_step()
         if (hs && lv_dispsize == 1 && display_idle())
         {
             #ifdef CONFIG_ZOOM_HALFSHUTTER_UILOCK
-            msleep(200);
+            msleep(500);
             #else
             msleep(50);
             #endif
@@ -2779,7 +2776,7 @@ void ensure_bulb_mode()
             set_shooting_mode(SHOOTMODE_M);
         int shutter = SHUTTER_BULB;
         prop_request_change( PROP_SHUTTER, &shutter, 4 );
-        prop_request_change( PROP_SHUTTER_ALSO, &shutter, 4 );
+        prop_request_change( PROP_SHUTTER_AUTO, &shutter, 4 );  /* todo: is this really needed? */
     #endif
     
     SetGUIRequestMode(0);
@@ -2957,7 +2954,7 @@ bulb_take_pic(int duration)
     lens_cleanup_af();
     if (d0 >= 0) lens_set_drivemode(d0);
     prop_request_change( PROP_SHUTTER, &s0r, 4 );
-    prop_request_change( PROP_SHUTTER_ALSO, &s0r, 4);
+    prop_request_change( PROP_SHUTTER_AUTO, &s0r, 4);
     set_shooting_mode(m0r);
     msleep(200);
     
@@ -5914,6 +5911,9 @@ shoot_task( void* unused )
                     intervalometer_pictures_taken = 1;
                     int dt = get_interval_time();
                     intervalometer_next_shot_time = COERCE(intervalometer_next_shot_time + dt, seconds_clock, seconds_clock + dt);
+#ifdef CONFIG_MODULES
+                    module_exec_cbr(CBR_INTERVALOMETER);
+#endif
                 }
                 #endif
             }
