@@ -232,6 +232,7 @@ static void play_test_tone()
     msg->times = 1;
     msg->wait = 0;
     msg->waveform = beep_wavetype;
+    msg->mixer_settings = NULL;
     
     msg_queue_post(beep_queue, (uint32_t)msg);
 }
