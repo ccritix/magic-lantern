@@ -315,16 +315,16 @@ static void sound_try_start(struct sound_ctx *ctx)
 
 static void sound_stop_asif(struct sound_ctx *ctx)
 {
-    if(ctx->mode == SOUND_MODE_PLAYBACK)
+    if (ctx->device->state != SOUND_STATE_RUNNING)
     {
-        trace_write(sound_trace_ctx, "sound_stop_asif: StopASIFDMADAC");
-        StopASIFDMADAC(&sound_asif_stop_cbr, ctx);
+        trace_write(sound_trace_ctx, "sound_stop_asif called, but already stopping!");
+        return;
     }
-    else
-    {
-        trace_write(sound_trace_ctx, "sound_stop_asif: StopASIFDMAADC");
-        StopASIFDMAADC(&sound_asif_stop_cbr, ctx);
-    }
+
+    ctx->device->state = SOUND_STATE_STOPPING;
+
+    // request call to StopASIF...
+    msg_queue_post(sound_queue, 2);
 }
 
 static enum sound_result sound_op_lock (struct sound_ctx *ctx, enum sound_lock type)
@@ -536,7 +536,6 @@ static enum sound_result sound_op_pause (struct sound_ctx *ctx)
                 break;
 
             case SOUND_STATE_RUNNING:
-                ctx->device->state = SOUND_STATE_STOPPING;
                 sound_stop_asif(ctx);
                 break;
 
@@ -856,6 +855,9 @@ void sound_task()
            can we place that code in the ASIF callbacks?
            but then there is a delay dependingon the size of the buffers being played.
            also not very bright...
+           
+           for the 6D, semaphores are taken during the callbacks, so that calling for
+           example StopASIFDMADAC leads to ERR 70 as the TakeSemaphore times out. -Maqs
         */
         if(!msg_queue_receive(sound_queue, &msg, 1000))
         {
@@ -872,6 +874,18 @@ void sound_task()
                         /* make sure everything gets initialized again */
                         sound_device.codec_ops.poweron();
                         sound_set_mixer(sound_device.current_ctx);
+                    }
+                    break;
+                case 2:
+                    if(sound_device.current_ctx->mode == SOUND_MODE_PLAYBACK)
+                    {
+                        trace_write(sound_trace_ctx, "StopASIFDMADAC");
+                        StopASIFDMADAC(&sound_asif_stop_cbr, sound_device.current_ctx);
+                    }
+                    else
+                    {
+                        trace_write(sound_trace_ctx, "StopASIFDMAADC");
+                        StopASIFDMAADC(&sound_asif_stop_cbr, sound_device.current_ctx);
                     }
                     break;
             }
