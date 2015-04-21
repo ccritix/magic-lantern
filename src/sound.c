@@ -317,7 +317,7 @@ static void sound_stop_asif(struct sound_ctx *ctx)
 {
     if (ctx->device->state != SOUND_STATE_RUNNING)
     {
-        trace_write(sound_trace_ctx, "sound_stop_asif called, but already stopping!");
+        trace_write(sound_trace_ctx, "sound_stop_asif called, but state is not SOUND_STATE_RUNNING!");
         return;
     }
 
