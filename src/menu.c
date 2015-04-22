@@ -38,6 +38,10 @@
 #include "debug.h"
 #include "lvinfo.h"
 
+#ifdef CONFIG_QEMU
+#define GUIMODE_ML_MENU 0
+#endif
+
 #define CONFIG_MENU_ICONS
 //~ #define CONFIG_MENU_DIM_HACKS
 #undef SUBMENU_DEBUG_JUNKIE
@@ -672,7 +676,7 @@ static void entry_guess_icon_type(struct menu_entry * entry)
         {
             entry->icon_type = IT_SUBMENU;
         }
-        else if (!IS_ML_PTR(entry->priv) || entry->select == (void(*)(void*,int))run_in_separate_task)
+        else if (!IS_ML_PTR(entry->priv) || entry->select == run_in_separate_task)
         {
             entry->icon_type = IT_ACTION;
         }
@@ -2002,9 +2006,9 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
     else if (DEPENDS_ON(DEP_MANUAL_FOCUS) && !is_manual_focus())
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires manual focus.");
     else if (DEPENDS_ON(DEP_CFN_AF_HALFSHUTTER) && cfn_get_af_button_assignment() != AF_BTN_HALFSHUTTER && !is_manual_focus())
-        snprintf(warning, MENU_MAX_WARNING_LEN, "Set AF to Half-Shutter from Canon menu (CFn / custom ctrl).");
+        snprintf(warning, MENU_MAX_WARNING_LEN, "Set AF to Half-Shutter from Canon menu (CFn / custom ctrl), or use MF.");
     else if (DEPENDS_ON(DEP_CFN_AF_BACK_BUTTON) && cfn_get_af_button_assignment() == AF_BTN_HALFSHUTTER && !is_manual_focus())
-        snprintf(warning, MENU_MAX_WARNING_LEN, "Set AF to back btn (*) from Canon menu (CFn / custom ctrl).");
+        snprintf(warning, MENU_MAX_WARNING_LEN, "Set AF to back btn (*) from Canon menu (CFn / custom ctrl), or use MF.");
     else if (DEPENDS_ON(DEP_EXPSIM) && lv && !lv_luma_is_accurate())
         snprintf(warning, MENU_MAX_WARNING_LEN, EXPSIM_WARNING_MSG);
     //~ else if (DEPENDS_ON(DEP_NOT_EXPSIM) && lv && lv_luma_is_accurate())
@@ -2120,7 +2124,7 @@ entry_default_display_info(
         STR_APPEND(value, "%s", entry->choices[SELECTED_INDEX(entry)]);
     }
 
-    else if (IS_ML_PTR(entry->priv) && entry->select != (void(*)(void*,int))run_in_separate_task)
+    else if (IS_ML_PTR(entry->priv) && entry->select != run_in_separate_task)
     {
         if (entry->min == 0 && entry->max == 1)
         {
@@ -5219,7 +5223,7 @@ static void joystick_longpress_check()
     if (joystick_pressed)
     {
         joystick_longpress++;
-        delayed_call(100, joystick_longpress_check);
+        delayed_call(100, joystick_longpress_check, 0);
     }
     
     //~ bmp_printf(FONT_MED, 50, 50, "%d ", joystick_longpress);
@@ -5251,7 +5255,7 @@ static void erase_longpress_check()
     if (erase_pressed)
     {
         erase_longpress++;
-        delayed_call(100, erase_longpress_check);
+        delayed_call(100, erase_longpress_check, 0);
     }
     
     //~ bmp_printf(FONT_MED, 50, 50, "%d ", erase_longpress);
@@ -5322,7 +5326,7 @@ int handle_ml_menu_erase(struct event * event)
             /* if we can make use of a long joystick press, check it */
             joystick_pressed = 1;
             joystick_longpress = 0;
-            delayed_call(100, joystick_longpress_check);
+            delayed_call(100, joystick_longpress_check, 0);
             if (gui_menu_shown()) return 0;
         }
     }
@@ -5349,7 +5353,7 @@ int handle_ml_menu_erase(struct event * event)
         {
             erase_pressed = 1;
             erase_longpress = 0;
-            delayed_call(100, erase_longpress_check);
+            delayed_call(100, erase_longpress_check, 0);
             return 0;
         }
     }
@@ -5689,11 +5693,19 @@ int menu_request_image_backend()
         return 0;
     }
 
-    if (t > last_guimode_request + 500 && DISPLAY_IS_ON && get_yuv422_vram()->vram)
+    if (t > last_guimode_request + 500 && DISPLAY_IS_ON)
     {
-        /* ready to draw on the YUV buffer! */
-        clrscr();
-        return 1;
+        if (get_yuv422_vram()->vram)
+        {
+            /* ready to draw on the YUV buffer! */
+            clrscr();
+            return 1;
+        }
+        else
+        {
+            /* something might be wrong */
+            yuv422_buffer_check();
+        }
     }
     
     /* not yet ready, please retry */

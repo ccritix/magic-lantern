@@ -8,10 +8,6 @@
 #define LEDON 0x138800
 #define LEDOFF 0x838C00
 
-//~ Format dialog consts
-#define FORMAT_BTN "[Q]"
-#define STR_LOC 12
-
 #define HIJACK_CACHE_HACK
 
 #define HIJACK_ASIF_NEXT_BUFF 0xFF2AC4C8
@@ -30,6 +26,7 @@
 #define ASIF_MAX_VOL 10
 
 #define HIJACK_CACHE_HACK_INITTASK_ADDR 0xFF0C1C6C
+#define HIJACK_CACHE_HACK_GUITASK_6D_ADDR 0xFF0DF6DC
 
 // load ML in the AllocateMemory pool
 #define HIJACK_CACHE_HACK_BSS_END_ADDR 0xff0c3470
@@ -223,6 +220,9 @@ Output size: 5496 x 3670
 
 #define DIALOG_MnCardFormatBegin (0x8888C) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
 #define DIALOG_MnCardFormatExecute (0x8DAF0) // similar
+#define FORMAT_BTN_NAME "[Q]"
+#define FORMAT_BTN BGMT_Q
+#define FORMAT_STR_LOC 12
 
 #define BULB_MIN_EXPOSURE 500
 
@@ -309,3 +309,6 @@ Output size: 5496 x 3670
 #define CONFIG_AUDIO_IC_QUEUED 1
 // http://www.magiclantern.fm/forum/index.php?topic=9673.0
 #define EFIC_CELSIUS ((int)efic_temp * 85 / 100 - 102)
+
+// look for "JudgeBottomInfoDispTimerState(%d)"
+#define JUDGE_BOTTOM_INFO_DISP_TIMER_STATE	0x841C0
