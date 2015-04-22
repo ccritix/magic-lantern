@@ -22,7 +22,7 @@ export PATH := $(ARM_PATH):$(PATH)
 
 # configure is a bit picky regarding exact platform type and how you specify it. hope it works for you too :)
 $(MAD_DIR)/Makefile: 
-	cd $(MAD_DIR) && ./configure --disable-debugging --prefix=$(MAD_OUT) --host=arm-$(ARM_ABI) --disable-shared CFLAGS=--specs=nosys.specs
+	cd $(MAD_DIR) && ./configure --disable-debugging --prefix=$(MAD_OUT) --host=arm-$(ARM_ABI) --disable-shared CFLAGS=--specs=nosys.specs CC=$(CC)
 	cd $(MAD_DIR) && echo "\r\n/* redirect malloc/free calls to internal code as ML doesnt provide those directly */\r\n#define malloc mp3_play_malloc\r\n#define free mp3_play_free\r\n" >> config.h
 
 $(MAD_OBJ): $(MAD_DIR)/Makefile
