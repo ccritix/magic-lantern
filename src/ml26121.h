@@ -90,6 +90,7 @@ enum ml26121_regs
     ML26121_DVOL_CTL               = 0x68, /* Digital Volume Control Func Enable */ /* Play Limiter + Capture Limiter + Digital Volume Fade Switch +Digital Switch */
     ML26121_MIXER_VOL_CTL          = 0x6a, /* Mixer & Volume Control*/
     ML26121_RECORD_DIG_VOL         = 0x6c, /* Capture/Record Digital Volume */
+    ML26121_RECORD_DIG_VOL2        = 0x6e, /* Capture/Record Digital Volume 2 ?*/
     ML26121_PLBAK_DIG_VOL          = 0x70, /* Playback Digital Volume */
     ML26121_DIGI_BOOST_VOL         = 0x72,
     ML26121_EQ_GAIN_BRAND0         = 0x74, /* EQ Band0 Volume */
@@ -280,7 +281,7 @@ enum ml26121_mic_if_ctl
     ML26121_MIC_IF_CTL_ANALOG_SINGLE   = 0x00,
     ML26121_MIC_IF_CTL_DIGITAL_SINGLE  = 0x01,
     ML26121_MIC_IF_CTL_ANALOG_DIFFER   = 0x02,
-    ML26121_MIC_IF_CTL_DIGITAL_DIFFER  = 0x03, // "This register is to select the usage of analog microphone input interface(MIN)" so I suspect this will not work...
+    ML26121_MIC_IF_CTL_DIGITAL_DIFFER  = 0x03,
 };
 
 enum ml26121_rch_mixer_input

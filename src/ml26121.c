@@ -108,10 +108,53 @@ static void ml26121_set_loop(uint32_t state)
 
 static void ml26121_unpower_mic()
 {
+    ml26121_write(ML26121_PW_IN_PW_MNG, ML26121_PW_IN_PW_MNG_OFF);
+    
+    ml26121_write_changed();
 }
 
-static void ml26121_power_mic()
+static void ml26121_power_ext_mic()
 {
+    ml26121_write(ML26121_PW_IN_PW_MNG, ML26121_PW_IN_PW_MNG_BOTH);
+    
+    ml26121_write(ML26121_MIC_IF_CTL, ML26121_MIC_IF_CTL_ANALOG_SINGLE);
+    ml26121_write(ML26121_RCH_MIXER_INPUT, ML26121_RCH_MIXER_INPUT_SINGLE_HOT);
+    ml26121_write(ML26121_LCH_MIXER_INPUT, ML26121_LCH_MIXER_INPUT_SINGLE_HOT);
+    ml26121_write(ML26121_RECORD_PATH, ML26121_RECORD_PATH_MICL2LCH_MICR2RCH);
+    
+    /* volume part */
+    ml26121_write(ML26121_PW_MIC_IN_VOL, ML26121_MIC_IN_VOL_MAX);
+    ml26121_write(ML26121_PW_MIC_BOOST_VOL1, ML26121_MIC_BOOST_VOL1_3);
+    ml26121_write(ML26121_PW_MIC_BOOST_VOL2, ML26121_MIC_BOOST_VOL2_ON);
+    ml26121_write(ML26121_PW_AMP_VOL_FUNC, ML26121_MIC_BOOST_VOL2_ON);
+    
+    ml26121_write(ML26121_DVOL_CTL, ML26121_DVOL_CTL_FUNC_EN_ALC_FADE);
+    ml26121_write(ML26121_RECORD_DIG_VOL, ML26121_REC_DIGI_VOL_MAX);
+    ml26121_write(ML26121_RECORD_DIG_VOL2, ML26121_REC_DIGI_VOL_MAX);
+    
+    ml26121_write_changed();
+}
+
+static void ml26121_power_int_mic()
+{
+    ml26121_write(ML26121_PW_IN_PW_MNG, ML26121_PW_IN_PW_MNG_BOTH);
+    
+    ml26121_write(ML26121_MIC_IF_CTL, ML26121_MIC_IF_CTL_ANALOG_SINGLE);
+    ml26121_write(ML26121_RCH_MIXER_INPUT, ML26121_RCH_MIXER_INPUT_SINGLE_COLD);
+    ml26121_write(ML26121_LCH_MIXER_INPUT, ML26121_LCH_MIXER_INPUT_SINGLE_COLD);
+    ml26121_write(ML26121_RECORD_PATH, ML26121_RECORD_PATH_MICR2LCH_MICR2RCH);
+    
+    /* volume part */
+    ml26121_write(ML26121_PW_MIC_IN_VOL, ML26121_MIC_IN_VOL_MAX);
+    ml26121_write(ML26121_PW_MIC_BOOST_VOL1, ML26121_MIC_BOOST_VOL1_3);
+    ml26121_write(ML26121_PW_MIC_BOOST_VOL2, ML26121_MIC_BOOST_VOL2_ON);
+    ml26121_write(ML26121_PW_AMP_VOL_FUNC, ML26121_MIC_BOOST_VOL2_ON);
+    
+    ml26121_write(ML26121_DVOL_CTL, ML26121_DVOL_CTL_FUNC_EN_ALC_FADE);
+    ml26121_write(ML26121_RECORD_DIG_VOL, ML26121_REC_DIGI_VOL_MAX);
+    ml26121_write(ML26121_RECORD_DIG_VOL2, ML26121_REC_DIGI_VOL_MAX);
+    
+    ml26121_write_changed();
 }
 
 static void ml26121_unpower_out()
@@ -230,28 +273,34 @@ static enum sound_result ml26121_op_apply_mixer(struct sound_mixer *prev, struct
         {
             default:
             case SOUND_SOURCE_OFF:
-                ml26121_unpower_mic();
                 ml26121_write_masked(ML26121_RECPLAY_STATE, ML26121_RECPLAY_STATE_REC, 0);
+                ml26121_write_changed();
+                
+                ml26121_unpower_mic();
                 ml26121_write_changed();
                 break;
                 
             case SOUND_SOURCE_INT_MIC:
-                ml26121_write(ML26121_RCH_MIXER_INPUT, ML26121_RCH_MIXER_INPUT_SINGLE_COLD);
-                ml26121_write(ML26121_LCH_MIXER_INPUT, ML26121_LCH_MIXER_INPUT_SINGLE_COLD);
-                ml26121_write(ML26121_RECORD_PATH, ML26121_RECORD_PATH_MICR2LCH_MICR2RCH);
-                ml26121_write(ML26121_MIC_IF_CTL, ML26121_MIC_IF_CTL_ANALOG_SINGLE);
+                ml26121_unpower_mic();
+                ml26121_power_int_mic();
+                ml26121_write_changed();
+                
                 ml26121_write_masked(ML26121_RECPLAY_STATE, ML26121_RECPLAY_STATE_REC, ML26121_RECPLAY_STATE_REC);
                 ml26121_write_changed();
                 break;
+                
             case SOUND_SOURCE_EXT_MIC:
-                ml26121_write(ML26121_RCH_MIXER_INPUT, ML26121_RCH_MIXER_INPUT_SINGLE_HOT);
-                ml26121_write(ML26121_LCH_MIXER_INPUT, ML26121_LCH_MIXER_INPUT_SINGLE_HOT);
-                ml26121_write(ML26121_RECORD_PATH, ML26121_RECORD_PATH_MICL2LCH_MICR2RCH);
-                ml26121_write(ML26121_MIC_IF_CTL, ML26121_MIC_IF_CTL_ANALOG_SINGLE);
+                ml26121_unpower_mic();
+                ml26121_power_ext_mic();
+                ml26121_write_changed();
+                
                 ml26121_write_masked(ML26121_RECPLAY_STATE, ML26121_RECPLAY_STATE_REC, ML26121_RECPLAY_STATE_REC);
                 ml26121_write_changed();
                 break;
+                
             case SOUND_SOURCE_EXTENDED_1: // L internal R external
+                ml26121_unpower_mic();
+                ml26121_power_int_mic();
                 ml26121_write(ML26121_RCH_MIXER_INPUT, ML26121_RCH_MIXER_INPUT_SINGLE_HOT);
                 ml26121_write(ML26121_LCH_MIXER_INPUT, ML26121_LCH_MIXER_INPUT_SINGLE_COLD);
                 ml26121_write(ML26121_RECORD_PATH, ML26121_RECORD_PATH_MICL2LCH_MICR2RCH);
@@ -259,7 +308,10 @@ static enum sound_result ml26121_op_apply_mixer(struct sound_mixer *prev, struct
                 ml26121_write_masked(ML26121_RECPLAY_STATE, ML26121_RECPLAY_STATE_REC, ML26121_RECPLAY_STATE_REC);
                 ml26121_write_changed();
                 break;
+                
             case SOUND_SOURCE_EXTENDED_2: // L internal R balanced (used for test)
+                ml26121_unpower_mic();
+                ml26121_power_int_mic();
                 ml26121_write(ML26121_RCH_MIXER_INPUT, ML26121_RCH_MIXER_INPUT_SINGLE_HOT);
                 ml26121_write(ML26121_MIC_IF_CTL, ML26121_MIC_IF_CTL_ANALOG_DIFFER);
                 ml26121_write(ML26121_LCH_MIXER_INPUT, ML26121_LCH_MIXER_INPUT_SINGLE_COLD);
