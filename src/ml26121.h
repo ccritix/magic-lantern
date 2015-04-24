@@ -90,7 +90,7 @@ enum ml26121_regs
     ML26121_DVOL_CTL               = 0x68, /* Digital Volume Control Func Enable */ /* Play Limiter + Capture Limiter + Digital Volume Fade Switch +Digital Switch */
     ML26121_MIXER_VOL_CTL          = 0x6a, /* Mixer & Volume Control*/
     ML26121_RECORD_DIG_VOL         = 0x6c, /* Capture/Record Digital Volume */
-    ML26121_RECORD_DIG_VOL2        = 0x6e, /* Capture/Record Digital Volume 2 ?*/
+    ML26121_RECORD_DIG_VOL2        = 0x6e, /* Record L/R Balance Volume Control Register */
     ML26121_PLBAK_DIG_VOL          = 0x70, /* Playback Digital Volume */
     ML26121_DIGI_BOOST_VOL         = 0x72,
     ML26121_EQ_GAIN_BRAND0         = 0x74, /* EQ Band0 Volume */
@@ -98,7 +98,7 @@ enum ml26121_regs
     ML26121_EQ_GAIN_BRAND2         = 0x78, /* EQ Band2 Volume */
     ML26121_EQ_GAIN_BRAND3         = 0x7a, /* EQ Band3 Volume */
     ML26121_EQ_GAIN_BRAND4         = 0x7c, /* EQ Band4 Volume */
-    ML26121_HPF2_CUTOFF            = 0x7e, /* HPF2 CutOff*/
+    ML26121_HPF2_CUTOFF            = 0x7e, /* HPF2 CutOff */
     ML26121_EQBRAND0_F0L           = 0x80, /* EQ Band0 Coef0L */
     ML26121_EQBRAND0_F0H           = 0x82,
     ML26121_EQBRAND0_F1L           = 0x84,
