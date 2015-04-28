@@ -136,7 +136,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
  * and http://a1ex.bitbucket.org/ML/states/ for state diagrams.
  */
 
-#if defined(CONFIG_5D2) || defined(CONFIG_50D) || defined(CONFIG_60D) || defined(CONFIG_550D) || defined(CONFIG_500D) || defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_7D)
+#if defined(CONFIG_5D2) || defined(CONFIG_50D) || defined(CONFIG_60D) || defined(CONFIG_550D) || defined(CONFIG_500D) || defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_1200D) || defined(CONFIG_7D)
 #define RAW_PHOTO_EDMAC 0xc0f04208
 #endif
 
@@ -261,6 +261,15 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
      -903, 10000,     2016, 10000,    6728, 10000
 #endif
 
+#ifdef CONFIG_1200D
+    //~  { "Canon EOS 1200D", 0, 0x3510,
+    //~  { 6444,-904,-893,-4563,12308,2535,-903,2016,6728 } },
+    #define CAM_COLORMATRIX1                       \
+      6444, 10000,     -904, 10000,    -893, 10000,\
+    -4563, 10000,    12308, 10000,    2535, 10000, \
+     -903, 10000,     2016, 10000,    6728, 10000
+#endif
+
 #ifdef CONFIG_60D
         //~ { "Canon EOS 60D", 0, 0x2ff7,
         //~ {  6719,-994,-925,-4408,12426,2211,-887,2129,6051 } },
@@ -344,6 +353,10 @@ static int dynamic_ranges[] = {1146, 1139, 1116, 1061, 980, 898, 806, 728};
 #endif
 
 #ifdef CONFIG_1100D
+static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO 12800 available
+#endif
+
+#ifdef CONFIG_1200D
 static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO 12800 available
 #endif
 
@@ -665,6 +678,19 @@ static int raw_update_params_work()
         skip_top = 52;
         #endif
       
+        #ifdef CONFIG_1200D
+        skip_top = 16;
+        skip_left = 62;
+        raw_info.buffer += width * 14/8;
+        height--;
+        #endif
+
+        #ifdef CONFIG_6D
+        skip_left = 72;
+        skip_right = 0;
+        skip_top = 52;
+        #endif
+
         #if defined(CONFIG_50D)
         skip_left = 64;
         skip_top = 54;

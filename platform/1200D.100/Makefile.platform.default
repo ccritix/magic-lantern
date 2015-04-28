@@ -1,0 +1,24 @@
+#Makefile.setup.platform for 1200D
+
+# Definitions for version 100
+ifeq ($(FW_VERSION),100)
+CANON_NAME_FIR=CCF13100.FIR
+ROMBASEADDR	= 0xFF0C0000
+
+ifeq ($(ML_SRC_PROFILE),generic)
+# DryOSmemory map
+# RESTARTSTART is selected to be just above the end of the bss
+#
+RESTARTSTART	= 0x00C80100
+else ifeq ($(ML_SRC_PROFILE),installer)
+# DryOSmemory map
+# RESTARTSTART is selected to be just above the end of the bss
+#
+RESTARTSTART	= 0x0007f000
+endif
+
+#end of FW_VERSION == 100
+endif
+
+#not used but...
+FIRMWARE_ID_1200D= 0x80000288
