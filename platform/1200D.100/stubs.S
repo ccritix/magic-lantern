@@ -61,10 +61,10 @@ NSTUB(0xFF157514,  SetGUIRequestMode)
 NSTUB(0xFF0D1AF0,  gui_init_end)
 NSTUB(0xFF0D10D4,  gui_main_task)
 NSTUB(0xFF159590,  gui_massive_event_loop)
-// NSTUB(    ???,  GUI_SetLvMode)                           /* present on 500D.111, 50D.109, 5D2.212 */
+NSTUB(0xFF2E94E8,  GUI_SetLvMode)                           /* ??? present on 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  GUI_SetMovieSize_a)                      /* present on 50D.109 */
 // NSTUB(    ???,  GUI_SetMovieSize_b)                      /* present on 50D.109 */
-// NSTUB(    ???,  Gui_SetSoundRecord)                      /* present on 6D.113, 5D2.212 */
+NSTUB(0xFF2E971C,  Gui_SetSoundRecord)                      /* ??? present on 6D.113, 5D2.212 */
 
 /** ASIF **/
 NSTUB(0xFF108C54,  PowerAudioOutput)
@@ -97,8 +97,8 @@ NSTUB(   0x1D3E0,  bmp_vram_info)
 /** CFN **/
 NSTUB(0xFF5FB8EC,  GetCFnData)
 NSTUB(0xFF5FBB18,  SetCFnData)
-// NSTUB(    ???,  GUI_GetCFnForTab4)                       /* present on 7D.203 */
-// NSTUB(    ???,  GUI_SetCFnForTab4)                       /* present on 7D.203 */
+// NSTUB(    ???,  GUI_GetCFnForTab4)                       /* ??? present on 7D.203 */
+NSTUB(0xFF42AEE0,  GUI_SetCFnForTab4)                       /* ??? present on 7D.203 */
 
 /** Camera interface? **/
 NSTUB(0xC0220000,  camera_engine)
@@ -130,8 +130,8 @@ NSTUB(0xFF44F9DC,  ShootOlcApp_handler)
 // NSTUB(    ???,  LiveViewShutterApp_handler)
 // NSTUB(    ???,  LiveViewWbApp_handler)                   /* present on 7D.203, 5D3.113, 5D2.212 */
 // NSTUB(    ???,  LiveViewWifiApp_handler)                 /* present on 6D.113 */
-// NSTUB(    ???,  StartPlayProtectGuideApp)                /* present on 7D.203, 5D2.212 */
-// NSTUB(    ???,  StopPlayProtectGuideApp)                 /* present on 7D.203, 5D2.212 */
+NSTUB(0xFF56D8AC,  StartPlayProtectGuideApp)                /* present on 7D.203, 5D2.212 */
+NSTUB(0xFF56D4CC,  StopPlayProtectGuideApp)                 /* present on 7D.203, 5D2.212 */
 
 /** Display **/
 NSTUB(0xFF403F90,  MirrorDisplay)
@@ -184,11 +184,11 @@ NSTUB(0xFF0DC3A8,  SRM_FreeMemoryResourceFor1stJob)
 
 /** GUI for old cameras **/
 // NSTUB(    ???,  gui_change_lcd_state_post)               /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
-// NSTUB(    ???,  gui_change_mode)                         /* present on 7D.203, 500D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
-// NSTUB(    ???,  gui_change_shoot_type_post)              /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
+NSTUB(0xFF0D185C,  gui_change_mode)                         /* present on 7D.203, 500D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
+NSTUB(0xFF15C470,  gui_change_shoot_type_post)              /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_init_event)                          /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
-// NSTUB(    ???,  gui_local_post)                          /* present on 7D.203, 500D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
-// NSTUB(    ???,  gui_other_post)                          /* present on 7D.203, 500D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
+NSTUB(0xFF15BBA0,  gui_local_post)                          /* present on 7D.203, 500D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
+NSTUB(0xFF15C150,  gui_other_post)                          /* present on 7D.203, 500D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
 // NSTUB(    ???,  gui_post_10000085)                       /* present on 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_timer_something)                     /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_timer_struct)                        /* present on 7D.203, 500D.111, 60D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
@@ -248,15 +248,15 @@ NSTUB(0xFF10C850, _prop_cleanup)
 NSTUB(0xFF10C0C8, _prop_request_change)
 NSTUB(0xFF10C6A8,  prop_deliver)
 NSTUB(0xFF10C730,  prop_register_slave)
-// NSTUB(    ???,  PROPAD_GetPropertyData)                  /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 50D.109, 5D2.212, 600D.102, 550D.109 */
+NSTUB(0xFF10D50C,  PROPAD_GetPropertyData)                  /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 50D.109, 5D2.212, 600D.102, 550D.109 */
 // NSTUB(    ???,  prop_unregister_slave)                   /* present on 7D.203 */
 
 /** RPC (for 7D) **/
-// NSTUB(    ???,  BulkInIPCTransfer)                       /* present on 7D.203 */
-// NSTUB(    ???,  BulkOutIPCTransfer)                      /* present on 7D.203 */
-// NSTUB(    ???,  QuickOutIPCTransfer)                     /* present on 7D.203 */
-// NSTUB(    ???,  RegisterRPCHandler)                      /* present on 7D.203, 7D_MASTER.203 */
-// NSTUB(    ???,  RequestRPC)                              /* present on 7D.203, 7D_MASTER.203 */
+NSTUB(0xFF2B2A78,  BulkInIPCTransfer)                       /* present on 7D.203 */
+NSTUB(0xFF2B29A8,  BulkOutIPCTransfer)                      /* present on 7D.203 */
+NSTUB(0xFF2B2BF8,  QuickOutIPCTransfer)                     /* present on 7D.203 */
+NSTUB(0xFF2B3178,  RegisterRPCHandler)                      /* present on 7D.203, 7D_MASTER.203 */
+NSTUB(0xFF2B3228,  RequestRPC)                              /* present on 7D.203, 7D_MASTER.203 */
 
 /** Recursive locks **/
 NSTUB(0xFF2B408C,  AcquireRecursiveLock)
@@ -292,10 +292,10 @@ NSTUB(0xFF12F67C,  task_trampoline)                      // mk11174
 /** Misc **/
 NSTUB(0xFF11AEE0,  LoadCalendarFromRTC)
 NSTUB(0xFF2B74D8,  vsnprintf)
-// NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
+NSTUB(0xFF114874,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */
-// NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
+NSTUB(0xFF623900,  memcpy)                                  /* present on 7D_MASTER.203 */
  
 /** Unused stubs or porting notes **/
 ///NSTUB(0xFF1D391C,  AbortEDmac)
