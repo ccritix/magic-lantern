@@ -122,13 +122,12 @@ NSTUB(0xFF43C08C,  HideUnaviFeedBack_maybe)
 NSTUB(0xFF440B90,  LiveViewApp_handler)
 NSTUB(0xFF441218,  LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState)
 NSTUB(0xFF442864,  LiveViewApp_handler_end) // mk11174
-// NSTUB(    ???,  LiveViewShutterApp_handler)
 NSTUB(0xFF45BDB4,  PlayMain_handler)
 NSTUB(0xFF56AD08,  PlayMovieGuideApp_handler)
 NSTUB(0xFF44F9DC,  ShootOlcApp_handler)
 // NSTUB(    ???,  LiveViewLevelApp_handler)                /* present on 5D3.113 */
 // NSTUB(    ???,  LiveViewShutterApp_handler)
-// NSTUB(    ???,  LiveViewWbApp_handler)                   /* present on 7D.203, 5D3.113, 5D2.212 */
+NSTUB(0xFF44E238,  LiveViewWbApp_handler)                   /* present on 7D.203, 5D3.113, 5D2.212 */
 // NSTUB(    ???,  LiveViewWifiApp_handler)                 /* present on 6D.113 */
 NSTUB(0xFF56D8AC,  StartPlayProtectGuideApp)                /* present on 7D.203, 5D2.212 */
 NSTUB(0xFF56D4CC,  StopPlayProtectGuideApp)                 /* present on 7D.203, 5D2.212 */
@@ -298,59 +297,3 @@ NSTUB(0xFF114874,  EnableImagePhysicalScreenParameter)      /* present on 7D.203
 NSTUB(0xFF623900,  memcpy)                                  /* present on 7D_MASTER.203 */
  
 /** Unused stubs or porting notes **/
-///NSTUB(0xFF1D391C,  AbortEDmac)
-///NSTUB(0xFF2279C0,  ChangeColorPalette)
-///NSTUB(0xFF31CAD8,  CreateDialogBox)                         // might be good (dumps=1, score=74)
-///NSTUB(0xFF06C914,  DebugMsg)                                // might be good (dumps=1, score=1.1e+03)
-///NSTUB(0xFF31C270,  DeleteDialogBox)                         // might be good (dumps=1, score=47)
-///NSTUB(0xff35abc4, ErrCardApp_handler) Unused
-///NSTUB(0xFF1D9550,  FIO_SeekFile)
-///NSTUB(0xFF223218,  GUI_GetFirmVersion)                      // might be good (dumps=1, score=11)
-///NSTUB(0xFF10DC10,  GetJpegBufForLV)                         // Actually FA_GetJpegBufForLV check ROM FA_ routines to find it
-///NSTUB(0xFF10DC1C,  GetJpegSizeForLV)                        // Actually FA_GetJpegSizeForLV (see above)
-///NSTUB(0xff071e8c, GetNumberOfChunks) // AJ_PackMemory_PackMem_p2
-///NSTUB(0xff071afc, GetRemainOfMemoryChunk) // AJ_PackMemory_PackMem.c_IsChunkSignature_p3
-///NSTUB(0xff071b2c, GetSizeOfMemoryChunk) // AJ_PackMemory_IsChunkSignature
-///NSTUB(0xff071e28, GetSizeOfMemorySuite)
-///NSTUB(0xFF3712C8,  HideBottomInfoDisp_maybe)                // look for StartBottomInfoDispTimer
-///NSTUB(0xFF1CACFC,  MREQ_ISR)
-///NSTUB(0xFF1DC754,  MuteOff_0)                               // might be good (dumps=1, score=0.47)
-///NSTUB(0xFF1DC70C,  MuteOn_0)                                // might be good (dumps=1, score=0.46)
-///NSTUB(0xFF039518,  PD_RemoteRelease)
-///NSTUB(0xFF1D3964,  PopEDmac)
-///NSTUB(0xFF13ACC4,  PtpPropButtonSW1)                        // might be good (dumps=1, score=3.2)
-///NSTUB(0xFF13AD68,  PtpPropButtonSW2)                        // might be good (dumps=1, score=3.2)
-///NSTUB(0xFF139A00,  RemoteRelease)                           // might be good (dumps=1, score=3.8)
-///NSTUB(0xFF1CAD8C,  SIO3_ISR)
-///NSTUB(0xFF062AF4,  SetBitmapVramAddress)                    // might be good (dumps=1, score=8.2)
-///NSTUB(0xFF05BC7C, _prop_get_value)                          // might be good (dumps=1, score=62)
-///NSTUB(0xFF06C548,  bootdisk_disable)                        // might be good (dumps=1, score=1.3)
-///NSTUB(0xFF06C53C,  bootdisk_enable)                         // might be good (dumps=1, score=1.3)
-///NSTUB(0xFF4C2CD8,  cfReadBlk)                               // might be good (dumps=1, score=9.1)
-///NSTUB(0xFF010500,  cli_save)                                // might be good (dumps=1, score=0.32)
-///NSTUB(0xFF31B4A0,  ctrlman_dispatch_event)                  // might be good (dumps=1, score=10)
-///NSTUB(0xFF1DC10C,  dispcheck)                               // might be good (dumps=1, score=6)
-///NSTUB(0xFF06C894,  dmstart)                                 // might be good (dumps=1, score=7.9)
-///NSTUB(0xFF06C8D4,  dmstop)                                  // might be good (dumps=1, score=7.9)
-///NSTUB(0xFF06D2B4,  dumpf)                                   // might be good (dumps=1, score=3.9)
-///NSTUB(0xFF139910,  gui_lock)                                // might be good (dumps=1, score=23)
-///NSTUB(0xFF31B5F0,  gui_task_create)                         // might be good (dumps=1, score=9.4)
-///NSTUB(0xFF31B710,  gui_task_destroy)                        // might be good (dumps=1, score=18)
-///NSTUB(    0x1A7C,  hotplug_struct)
-///NSTUB(0xFF01B2CC,  hotplug_task)                            // might be good (dumps=1, score=11)
-///NSTUB(    0x1A8C,  hotplug_usb_buf)                         // after "USB Disconnect"
-///NSTUB(0xFF1B92CC,  mvrSetGopOptSizeHD)                      // might be good (dumps=1, score=4.7)
-///NSTUB(0xFF1B9344,  mvrSetGopOptSizeVGA)                     // might be good (dumps=1, score=4.7)
-///NSTUB(0xFF1B91B8,  mvrSetHDOptSize)                         // might be good (dumps=1, score=4.9)
-///NSTUB(0xFF1B9564,  mvrSetPrintMovieLog)                     // might be good (dumps=1, score=4.8)
-///NSTUB(0xFF1B8F50,  mvrSetQscale)                            // might be good (dumps=1, score=4.7)
-///NSTUB(0xFF1B9200,  mvrSetVGAOptSize)                        // might be good (dumps=1, score=4.9)
-///NSTUB(0xFF06E260,  oneshot_timer)                           // might be good (dumps=1, score=31)
-///NSTUB(0xFF223844,  prop_request_icu_auto_poweroff)          // might be good (dumps=1, score=68)
-///NSTUB(0xFF1EDA10,  register_func)                           // Good. Found matches: ff1eda10/1.2e+02, ff1eda20/6.2
-///NSTUB(0xFF1E8630,  register_interrupt)
-///NSTUB(0xFF4C8A1C,  sdReadBlk)                               // might be good (dumps=1, score=9.2)
-///NSTUB(0xFF010514,  sei_restore)                             // might be good (dumps=1, score=0.22)
-///NSTUB(0xFF2E0164,  vram_get_number)                         // might be good (dumps=1, score=12)
-///NSTUB(0xFF1DAB90,  vram_get_pos_and_size)
-///NSTUB(   0x76268,  vram_info)                               // in vram_get_number
