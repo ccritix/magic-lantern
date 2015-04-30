@@ -504,7 +504,7 @@ static const char *get_model_string()
 
 static void print_model()
 {
-    printf(" - Camera: '%s'\n", get_model_string());
+    printf(" - Model ID: 0x%X %s\n", get_model_id(), get_model_string());
 }
 
 /** Shadow copy of the NVRAM boot flags stored at 0xF8000000 */
