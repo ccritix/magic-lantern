@@ -2,8 +2,11 @@
  * Camera internals for 1200D 1.0.0
  */
 
+/** Hello World example */
+#define CONFIG_HELLO_WORLD
+
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
-//#undef CONFIG_PROP_REQUEST_CHANGE
+#undef CONFIG_PROP_REQUEST_CHANGE
 
 /** 
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 

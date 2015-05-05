@@ -22,7 +22,7 @@
 #define SIG_500D_111 0x44f49aef // from FF010000
 #define SIG_5D2_212  0xae78b938 // from FF010000
 #define SIG_1100D_105 0x46de7624 // from FF010000
-#define SIG_1200D_100 0x83ddfa4b // from QEMU HelloWorld
+//#define SIG_1200D_100 0x83ddfa4b // from QEMU HelloWorld
 // Not supported cameras
 #define SIG_6D_112   0x6D677512
 #define SIG_6D_113   0x6B6A9C6F
