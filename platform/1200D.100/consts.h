@@ -4,18 +4,107 @@
 
 #define CANON_SHUTTER_RATING 100000
 
-#include "consts-600d.101.h"
-#define CARD_LED_ADDRESS 0xC0220130 // ???
+#define MVR_992_STRUCT (*(void**)0x1E2C) // a1ex
+
+// Copy from 600d
+
+// these were found in ROM, but not tested yet
+
+#define div_maybe(a,b) ((a)/(b))
+
+// see mvrGetBufferUsage, which is not really safe to call => err70
+// macros copied from arm-console
+//#define MVR_BUFFER_USAGE_FRAME ABS(div_maybe(-100*MEM(356 + MVR_992_STRUCT) - 100*MEM(364 + MVR_992_STRUCT) - 100*MEM(952 + MVR_992_STRUCT) - 100*MEM(960 + MVR_992_STRUCT) + 100*MEM(360 + MVR_992_STRUCT) + 100*MEM(368 + MVR_992_STRUCT), -MEM(356 + MVR_992_STRUCT) - MEM(364 + MVR_992_STRUCT) + MEM(360 + MVR_992_STRUCT) + MEM(368 + MVR_992_STRUCT)))
+//#define MVR_BUFFER_USAGE_SOUND div_maybe(-100*MEM(544 + MVR_992_STRUCT) + 100*MEM(532 + MVR_992_STRUCT), 0xa)
+//#define MVR_BUFFER_USAGE MAX(MVR_BUFFER_USAGE_FRAME, MVR_BUFFER_USAGE_SOUND)
+
+//#define MVR_FRAME_NUMBER (*(int*)(332 + MVR_992_STRUCT))
+//#define MVR_BYTES_WRITTEN (*(int*)(296 + MVR_992_STRUCT))
+
+#define MOV_RES_AND_FPS_COMBINATIONS 9 // Really, Canon?
+#define MOV_OPT_NUM_PARAMS 2
+#define MOV_GOP_OPT_NUM_PARAMS 5
+#define MOV_OPT_STEP 5
+#define MOV_GOP_OPT_STEP 5
+
+//#define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0x1a8c // this prop_deliver performs the action for Video Connect and Video Disconnect
+//#define HOTPLUG_VIDEO_OUT_STATUS_ADDR 0x1ac4 // passed as 2nd arg to prop_deliver; 1 = display connected, 0 = not, other values disable this event (trick)
+
+// 720x480, changes when external monitor is connected
+
+// Below this line, all constant are from 550D/T2i 1.0.9 and not yet confirmed for 600D/T3i 1.0.1 !!!
+
+#define YUV422_HD_PITCH_IDLE 2112
+#define YUV422_HD_HEIGHT_IDLE 704
+
+#define YUV422_HD_PITCH_ZOOM 2048
+#define YUV422_HD_HEIGHT_ZOOM 680
+
+#define YUV422_HD_PITCH_REC_FULLHD 3440
+#define YUV422_HD_HEIGHT_REC_FULLHD 974
+
+// guess
+#define YUV422_HD_PITCH_REC_720P 2560
+#define YUV422_HD_HEIGHT_REC_720P 580
+
+#define YUV422_HD_PITCH_REC_480P 1280
+#define YUV422_HD_HEIGHT_REC_480P 480
+
+
+#define BGMT_FLASH_MOVIE (event->type == 0 && event->param == 0x61 && is_movie_mode() && event->arg == 9)
+#define BGMT_PRESS_FLASH_MOVIE (BGMT_FLASH_MOVIE && (*(int*)(event->obj) & 0x4000000))
+#define BGMT_UNPRESS_FLASH_MOVIE (BGMT_FLASH_MOVIE && (*(int*)(event->obj) & 0x4000000) == 0)
+#define FLASH_BTN_MOVIE_MODE get_flash_movie_pressed()
+
+#define CLK_25FPS 0x1e24c  // this is updated at 25fps and seems to be related to auto exposure
+
+#define AJ_LCD_Palette 0x1BBE0
+
+#define COLOR_FG_NONLV 80
+
+#define MOV_REC_STATEOBJ (*(void**)0x5B34)
+#define MOV_REC_CURRENT_STATE *(int*)(MOV_REC_STATEOBJ + 28)
+
+//#define AE_VALUE (*(int8_t*)0x7E14)
+#define BTN_METERING_PRESSED_IN_LV 0 // 60D only
+
+// these are wrong (just for compiling)
+#define BGMT_PRESS_ZOOMOUT_MAYBE 0x10
+#define BGMT_UNPRESS_ZOOMOUT_MAYBE 0x11
+
+#define BGMT_PRESS_ZOOMIN_MAYBE 0xe
+#define BGMT_UNPRESS_ZOOMIN_MAYBE 0xf
+
+#define NUM_PICSTYLES 10
+#define PROP_PICSTYLE_SETTINGS(i) ((i) == 1 ? PROP_PICSTYLE_SETTINGS_AUTO : PROP_PICSTYLE_SETTINGS_STANDARD - 2 + i)
+
+#define MOVIE_MODE_REMAP_X SHOOTMODE_ADEP
+#define MOVIE_MODE_REMAP_Y SHOOTMODE_CA
+#define MOVIE_MODE_REMAP_X_STR "A-DEP"
+#define MOVIE_MODE_REMAP_Y_STR "CA"
+
+#define FLASH_MAX_EV 3
+#define FLASH_MIN_EV -5
+#define FASTEST_SHUTTER_SPEED_RAW 152
+#define MAX_AE_EV 5
+
+
+#define IMGPLAY_ZOOM_LEVEL_ADDR (0x7CE8) // a1ex
+#define IMGPLAY_ZOOM_LEVEL_MAX 14
+// End of Copy from 600d
+
+
+#define CARD_LED_ADDRESS 0xC0220134 // a1ex
 #define LEDON 0x46 // ???
 #define LEDOFF 0x44 // ???
 
 // RESTARTSTART 0x82900
-#define HIJACK_INSTR_BL_CSTART 0xFF0C019C
+#define HIJACK_INSTR_BL_CSTART 0xFF0C019C // a1ex
 #define HIJACK_INSTR_BSS_END 0xFF0C10D0 //BSS_END is 0x82884 ?
 #define HIJACK_FIXBR_BZERO32 0xFF0C1038
 #define HIJACK_FIXBR_CREATE_ITASK 0xFF0C10C0
 #define HIJACK_INSTR_MY_ITASK 0xFF0C10DC
-#define HIJACK_TASK_ADDR 0x1a38 // ????
+#define HIJACK_TASK_ADDR 0x1a2c // a1ex
 
 // Used in boot-hack.c with CONFIG_ALLOCATE_MEMORY_POOL
 #define ROM_ITASK_START 0xFF0C9648
@@ -45,12 +134,12 @@
 #define YUV422_HD_BUFFER_DMA_ADDR (shamem_read(REG_EDMAC_WRITE_HD_ADDR))
 
 // From Alex
-#define FOCUS_CONFIRMATION (*(int*)0x3EA4) // see "focusinfo" and Wiki:Struct_Guessing
+#define FOCUS_CONFIRMATION (*(int*)0x3EA8) // a1ex
 #define HALFSHUTTER_PRESSED (*(int*)0x2A28) // used for Trap Focus and Magic Off.
 //~ #define AF_BUTTON_PRESSED_LV 0
 #define CURRENT_DIALOG_MAYBE (*(int*)0x35CC) // GUIMode_maybe in Indy's IDC
 #define LV_BOTTOM_BAR_DISPLAYED (((*(int8_t*)0x526C) == 0xF) ||((*(int8_t*)0xC164) != 0x17)) // dec CancelBottomInfoDispTimer
-#define ISO_ADJUSTMENT_ACTIVE ((*(int*)0x526C) == 0xF) // dec ptpNotifyOlcInfoChanged
+#define ISO_ADJUSTMENT_ACTIVE ((*(int*)0x5278) == 0xF) // a1ex
 #define UNAVI_FEEDBACK_TIMER_ACTIVE (MEM(0xC160) != 0x17) // dec CancelUnaviFeedBackTimer
 
 
@@ -115,10 +204,10 @@
 #define INFO_BTN_NAME "DISP"
 #define Q_BTN_NAME "[Q]"
 
-#define DISPLAY_STATEOBJ (*(struct state_object **)0x2078)
+#define DISPLAY_STATEOBJ (*(struct state_object **)0x2104) // a1ex
 #define DISPLAY_IS_ON (DISPLAY_STATEOBJ->current_state != 0)
 
-#define VIDEO_PARAMETERS_SRC_3 0x70C0C
+#define VIDEO_PARAMETERS_SRC_3 0x72944 // a1ex
 #define FRAME_ISO (*(uint16_t*)(VIDEO_PARAMETERS_SRC_3+0x8))
 #define FRAME_SHUTTER (*(uint8_t*)(VIDEO_PARAMETERS_SRC_3+0xa))
 #define FRAME_BV (*(uint8_t*)(VIDEO_PARAMETERS_SRC_3+0xb))
@@ -136,8 +225,6 @@
 
 #define AUDIO_MONITORING_HEADPHONES_CONNECTED 0
 
-#define MVR_992_STRUCT (*(void**)0x1DF4)
-
 #define SENSOR_RES_X 4272
 #define SENSOR_RES_Y 2848
 
@@ -145,8 +232,8 @@
 #define REG_EDMAC_WRITE_LV_ADDR 0xc0f04308
 #define REG_EDMAC_WRITE_HD_ADDR 0xc0f04208 // SDRAM address of HD buffer (aka YUV)
 
-#define AE_STATE (*(int8_t*)(0x7E18 + 0x1C))
-#define AE_VALUE (*(int8_t*)(0x7E18 + 0x1D))
+#define AE_STATE (*(int8_t*)(0x7664 + 0x1C)) // a1ex
+#define AE_VALUE (*(int8_t*)(0x7664 + 0x1D)) // a1ex
 
 // position for ML ISO disp outside LV
 #define MENU_DISP_ISO_POS_X 527
@@ -209,5 +296,5 @@
 
 // temperature convertion from raw-temperature to celsius
 // http://www.magiclantern.fm/forum/index.php?topic=9673.0
-#define EFIC_CELSIUS ((int)efic_temp - 128)
+//#define EFIC_CELSIUS ((int)efic_temp - 128)
 

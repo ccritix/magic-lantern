@@ -3,7 +3,6 @@
 #undef FEATURE_LV_3RD_PARTY_FLASH
 #undef FEATURE_EYEFI_TRICKS
 
-
 // No MLU on the 1100D
 #undef FEATURE_MLU
 #undef FEATURE_MLU_HANDHELD
@@ -27,4 +26,4 @@
 #undef FEATURE_SHOW_EDMAC_INFO
 #undef FEATURE_FLEXINFO
 
-//#define FEATURE_SHOW_SIGNATURE // useful when developing
+#define FEATURE_SHOW_SIGNATURE // useful when developing
