@@ -4024,6 +4024,8 @@ void update_lv_fps() // to be called every 10 seconds
 }
 #endif
 
+int is_mvr_buffer_almost_full() { return 0; }
+
 // Items which need a high FPS
 // Magic Zoom, Focus Peaking, zebra*, spotmeter*, false color*
 // * = not really high FPS, but still fluent
