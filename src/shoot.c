@@ -665,6 +665,15 @@ void get_afframe_pos(int W, int H, int* x, int* y)
     *y = (afframe[3] + afframe[5]/2) * H / afframe[1];
 }
 
+/* get sensor resolution, as specified by PROP_LV_AFFRAME */
+/* (to get valid values, one has to go to LiveView at least once) */
+void get_afframe_sensor_res(int* W, int* H)
+{
+    if (W) *W = afframe[0];
+    if (H) *H = afframe[1];
+}
+
+
 #ifdef FEATURE_LV_ZOOM_SETTINGS
 PROP_HANDLER( PROP_HALF_SHUTTER ) {
     zoom_sharpen_step();
@@ -2296,6 +2305,10 @@ extern void rec_notify_trigger(int rec);
 #ifdef CONFIG_50D
 PROP_HANDLER(PROP_SHOOTING_TYPE)
 {
+    /* there might be a false trigger at startup - issue #1992 */
+    extern int ml_started;
+    if (!ml_started) return;
+
     int rec = (shooting_type == 4 ? 2 : 0);
 
     #ifdef FEATURE_REC_NOTIFY
@@ -6365,7 +6378,7 @@ shoot_task( void* unused )
             #endif
 
 #ifdef FEATURE_AUDIO_REMOTE_SHOT
-#if defined(CONFIG_7D) || defined(CONFIG_6D) || defined(CONFIG_650D) || defined(CONFIG_700D)
+#if defined(CONFIG_7D) || defined(CONFIG_6D) || defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM)
             /* experimental for 7D now, has to be made generic */
             static int last_audio_release_running = 0;
             
