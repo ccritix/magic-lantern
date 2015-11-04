@@ -5468,6 +5468,8 @@ static unsigned int adtg_gui_init()
     {
         ADTG_WRITE_FUNC = 0xFF22F8F4; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0xFF22F9DC; //"[REG] ############ Start CMOS"
+        ENGIO_WRITE_FUNC = 0xFF190CF4;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF190B84;
     }
     else if (is_camera("550D", "1.0.9")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg61551#msg61551
     {
