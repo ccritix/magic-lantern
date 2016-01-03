@@ -441,9 +441,9 @@ static uint32_t add_string(char * str, uint8_t * buffer, uint32_t * data_offset)
 static uint32_t add_rational(int32_t numerator, int32_t denominator, uint8_t * buffer, uint32_t * data_offset)
 {
     uint32_t result = *data_offset;
-    *(int32_t*)(buffer + *data_offset) = numerator;
+    memcpy(buffer + *data_offset, &numerator, sizeof(int32_t));
     *data_offset += sizeof(int32_t);
-    *(int32_t*)(buffer + *data_offset) = denominator;
+    memcpy(buffer + *data_offset, &denominator, sizeof(int32_t));
     *data_offset += sizeof(int32_t);
     return result;
 }
@@ -483,7 +483,7 @@ static void add_ifd(struct directory_entry * ifd, uint8_t * header, size_t * pos
     *position += sizeof(uint16_t);
     memcpy(header + *position, ifd, count * sizeof(struct directory_entry));
     *position += count * sizeof(struct directory_entry);
-    *(uint32_t*)(header + *position) = 0;
+    memset(header + *position, 0, sizeof(uint32_t));
     *position += sizeof(uint32_t);
 }
 
