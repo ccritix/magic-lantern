@@ -13,6 +13,7 @@
 #include <bmp.h>
 #include <menu.h>
 #include <property.h>
+#include "../ime_base/ime_base.h"
 
 #include "lua_common.h"
 
@@ -351,6 +352,46 @@ int luaopen_KEY(lua_State * L)
     return 1;
 }
 
+/// Codepages for IME
+// @field UTF8
+// @field CP437
+// @field NUMERIC
+// @table CODEPAGE
+int luaopen_CODEPAGE(lua_State * L)
+{
+    lua_newtable(L);
+    LUA_CONSTANT(UTF8, IME_UTF8);
+    LUA_CONSTANT(CP437, IME_CP437);
+    LUA_CONSTANT(CP819, IME_CP819);
+    return 1;
+}
+
+/// Character sets for IME
+// @field ANY
+// @field ALPHA
+// @field NUMERIC
+// @field PUNCTUATION
+// @field SPECIAL
+// @field MATH
+// @field MAIL
+// @field FILENAME
+// @field HEX
+// @table CHARSET
+int luaopen_CHARSET(lua_State * L)
+{
+    lua_newtable(L);
+    LUA_CONSTANT(ANY, IME_CHARSET_ANY);
+    LUA_CONSTANT(ALPHA, IME_CHARSET_ALPHA);
+    LUA_CONSTANT(NUMERIC, IME_CHARSET_NUMERIC);
+    LUA_CONSTANT(PUNCTUATION, IME_CHARSET_PUNCTUATION);
+    LUA_CONSTANT(SPECIAL, IME_CHARSET_SPECIAL);
+    LUA_CONSTANT(MATH, IME_CHARSET_MATH);
+    LUA_CONSTANT(MAIL, IME_CHARSET_MAIL);
+    LUA_CONSTANT(FILENAME, IME_CHARSET_FILENAME);
+    LUA_CONSTANT(HEX, IME_CHARSET_HEX);
+    return 1;
+}
+
 /***
  Font
  @type font
@@ -401,6 +442,8 @@ int luaopen_constants(lua_State *L)
     luaL_requiref(L, "FONT", luaopen_FONT, 1);
     luaL_requiref(L, "COLOR", luaopen_COLOR, 1);
     luaL_requiref(L, "KEY", luaopen_KEY, 1);
+    luaL_requiref(L, "CODEPAGE", luaopen_CODEPAGE, 1);
+    luaL_requiref(L, "CHARSET", luaopen_CHARSET, 1);
     
     //just return true
     lua_pushboolean(L, 1);

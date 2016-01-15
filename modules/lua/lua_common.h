@@ -110,6 +110,7 @@ int luaopen_interval(lua_State * L);
 int luaopen_battery(lua_State * L);
 int luaopen_task(lua_State * L);
 int luaopen_property(lua_State *L);
+int luaopen_ime(lua_State *L);
 int luaopen_constants(lua_State *L);
 
 int luaopen_MODE(lua_State * L);
