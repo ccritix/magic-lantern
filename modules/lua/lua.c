@@ -355,6 +355,8 @@ static const luaL_Reg alllibs[] =
     {"FONT", luaopen_FONT},
     {"COLOR", luaopen_COLOR},
     {"KEY", luaopen_KEY},
+    {"CHARSET", luaopen_CHARSET},
+    {"CODEPAGE", luaopen_CODEPAGE},
     {NULL,NULL}
 };
 

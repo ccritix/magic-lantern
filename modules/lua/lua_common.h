@@ -120,5 +120,7 @@ int luaopen_DEPENDS_ON(lua_State * L);
 int luaopen_FONT(lua_State * L);
 int luaopen_COLOR(lua_State * L);
 int luaopen_KEY(lua_State * L);
+int luaopen_CHARSET(lua_State * L);
+int luaopen_CODEPAGE(lua_State * L);
 
 #endif
