@@ -124,6 +124,8 @@ function textbox.create(value,x,y,w,font,h)
     tb.foreground = COLOR.WHITE
     tb.background = COLOR.BLACK
     tb.focused_background = COLOR.BLUE
+    tb.ime_charset = CHARSET.ANY
+    tb.ime_caption = ""
     tb.col = 1
     if h == nil then
         tb.height = tb.font.height + 10
@@ -178,6 +180,12 @@ function textbox:handle_key(k)
         if self.col <= #l then
             self.value = string.format("%s%s",l:sub(1,self.col - 1),l:sub(self.col + 1))
         end
+    elseif k == KEY.SET then
+        local l = ime.gets(self.ime_caption, self.value, 13, self.ime_charset)
+        menu.block(true)
+        if l ~= nil then
+            self.value = l
+        end
     end
 end
 
@@ -200,6 +208,8 @@ function filedialog:createcontrols()
     --limit chars to those needed for filenames
     self.save_box.min_char = 46
     self.save_box.max_char = 95
+    self.save_box.ime_charset = CHARSET.ANY
+    self.save_box.ime_caption = "Enter Filename"
     local w = self.width / 2
     self.ok_button = button.create("OK",self.left,self.top+self.height,self.font,w)
     self.cancel_button = button.create("Cancel",self.left + w,self.top+self.height,self.font,w)
@@ -634,6 +644,12 @@ function editor:handle_key(k)
             else
                 self.selection_end = {self.line,self.col}
             end
+        end
+    elseif k == KEY.MENU then
+        local l = ime.gets("Editing Line "..tostring(self.line), self.lines[self.line])
+        menu.block(true)
+        if l ~= nil then
+            self.lines[self.line] = l
         end
     end
 end
