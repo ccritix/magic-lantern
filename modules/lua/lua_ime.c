@@ -50,11 +50,13 @@ static IME_DONE_FUNC(luaCB_ime_done_cbr)
 }
 
 /***
- Starts IME and returns the result
+ Starts IME and returns the result, blocks until IME is complete
+ Do not call from menu task (start a new task)
  @tparam[opt] string caption a message to display to the user
+ @tparam[opt] string default_value the default value
  @tparam[opt=255] int max_length maximum length of the input text
- @tparam[opt] int codepage codepage @{constants.CODEPAGE}
  @tparam[opt] int charset character set @{constants.CHARSET}
+ @tparam[opt] int codepage codepage @{constants.CODEPAGE}
  @tparam[opt] function update function called periodically to validate input
  @tparam[opt] int x x position of the IME dialog
  @tparam[opt] int y y position of the IME dialog
@@ -68,18 +70,19 @@ static int luaCB_ime_gets(lua_State* L)
     if(ime_state) return luaL_error(L, "IME is unavailable, another script is currently using IME");
     int error = 0;
     LUA_PARAM_STRING_OPTIONAL(caption, 1, "");
-    LUA_PARAM_INT_OPTIONAL(max_length, 2, 255);
-    LUA_PARAM_INT_OPTIONAL(codepage, 3, IME_UTF8);
+    LUA_PARAM_STRING_OPTIONAL(default_value, 2, "");
+    LUA_PARAM_INT_OPTIONAL(max_length, 3, 255);
     LUA_PARAM_INT_OPTIONAL(charset, 4, (int32_t)IME_CHARSET_ANY);
-    LUA_PARAM_INT_OPTIONAL(x, 6, 0);
-    LUA_PARAM_INT_OPTIONAL(y, 7, 0);
-    LUA_PARAM_INT_OPTIONAL(w, 8, 0);
-    LUA_PARAM_INT_OPTIONAL(h, 9, 0);
+    LUA_PARAM_INT_OPTIONAL(codepage, 5, IME_UTF8);
+    LUA_PARAM_INT_OPTIONAL(x, 7, 0);
+    LUA_PARAM_INT_OPTIONAL(y, 8, 0);
+    LUA_PARAM_INT_OPTIONAL(w, 9, 0);
+    LUA_PARAM_INT_OPTIONAL(h, 10, 0);
     
     ime_state = L;
-    if (lua_gettop(L) <= 5 && lua_isfunction(L, 5))
+    if (lua_gettop(L) <= 6 && lua_isfunction(L, 6))
     {
-        lua_pushvalue(L, 5);
+        lua_pushvalue(L, 6);
         update_cbr_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     }
     else
@@ -87,8 +90,8 @@ static int luaCB_ime_gets(lua_State* L)
         update_cbr_ref = LUA_NOREF;
     }
     char* text = malloc(sizeof(char) * (max_length + 1));
-    text[0] = 0x0;
-    
+    strncpy(text, default_value, max_length);
+    text[max_length] = 0x0;
     void* ctx = ime_base_start((char*)caption, text, max_length, codepage, charset, update_cbr_ref != LUA_NOREF ? &luaCB_ime_update_cbr : NULL, &luaCB_ime_done_cbr, x, y, w, h);
     if(ctx)
     {
