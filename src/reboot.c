@@ -464,6 +464,7 @@ static const struct model_data_s model_data[] =
     { 0x301, "650D"  },
     { 0x302, "6D"    },
     { 0x325, "70D"   },
+    { 0x326, "700D"  },
     { 0x331, "EOSM"  },
     { 0x346, "100D"  }
 };
@@ -574,6 +575,14 @@ void dump_rom_with_canon_routines()
         boot_fileopen  = (void*) 0xFFFF9D80;
         boot_filewrite = (void*) 0xFFFFA190;
         boot_fileclose = (void*) 0xFFFF9ED0;
+    }
+    
+    if (strcmp(cam, "700D") == 0)
+    {
+        boot_fileopen  = (void*) 0xFFFE9868;
+        boot_filewrite = (void*) 0xFFFE9CC4;
+        boot_fileclose = (void*) 0xFFFE99D0;
+        boot_card_init = (void*) 0xFFFE266C;
     }
 
     /* are we calling the right stubs? */
