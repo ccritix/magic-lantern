@@ -127,9 +127,9 @@ void font_draw(uint32_t x_pos, uint32_t y_pos, uint32_t color, uint32_t scale, c
     {
         uint32_t ix = text[i] - 0x20;
 
-        if(ix < 0 || ix > 127)
+        if (ix > 127)
         {
-        	continue;
+            continue;
         }
         for(uint32_t y = 0; y < FONTH * scale; y++)
         {
