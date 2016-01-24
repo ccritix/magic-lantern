@@ -583,7 +583,11 @@ void init_stubs()
 
     if (strcmp(cam, "5D3") == 0)
     {
-        boot_card_init = (void*) 0xFFFE34B0;
+        /* from FFFF1738: routines from FFFE0000 to FFFEF408 are copied to 0x100000 */
+        intptr_t RAM_OFFSET   =   0xFFFE0000 - 0x100000;
+        boot_open_write = (void*) 0xFFFE9C00 - RAM_OFFSET;
+        boot_card_init  = (void*) 0xFFFE34B0 - RAM_OFFSET;
+        boot_putchar    = (void*) 0xFFFEA8EC - RAM_OFFSET;
     }
 
     if (strcmp(cam, "60D") == 0)
