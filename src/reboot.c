@@ -535,7 +535,7 @@ static void print_bootflags()
 
 }
 
-void dump_rom_with_canon_routines()
+void init_stubs()
 {
     /* static variables declared as 0 are not initialized (BSS is not zeroed out) */
     /* workaround: clear them here */
@@ -584,6 +584,11 @@ void dump_rom_with_canon_routines()
         boot_fileclose = (void*) 0xFFFE99D0;
         boot_card_init = (void*) 0xFFFE266C;
     }
+}
+
+void dump_rom_with_canon_routines()
+{
+    init_stubs();
 
     /* are we calling the right stubs? */
     
