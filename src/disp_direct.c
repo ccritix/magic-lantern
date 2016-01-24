@@ -9,6 +9,7 @@
 #include "disp_direct.h"
 #include "compiler.h"
 #include "consts.h"
+#include "asm.h"
 
 #define MEM(x) (*(volatile uint32_t *)(x))
 #define UYVY_PACK(u,y1,v,y2) ((u) & 0xFF) | (((y1) & 0xFF) << 8) | (((v) & 0xFF) << 16) | (((y2) & 0xFF) << 24);
@@ -201,65 +202,6 @@ void disp_init_dummy (uint32_t buffer)
 {
 }
 
-static uint32_t ror(uint32_t word, uint32_t count)
-{
-    return word >> count | word << (32 - count);
-}
-
-static uint32_t decode_immediate_shifter_operand(uint32_t insn)
-{
-    uint32_t inmed_8 = insn & 0xFF;
-    uint32_t rotate_imm = (insn & 0xF00) >> 7;
-    return ror(inmed_8, rotate_imm);
-}
-
-static uint32_t find_func_called_before_string_ref(char* ref_string)
-{
-    /* look for this pattern:
-     * fffe1824:    eb0019a5    bl  @fromutil_disp_init
-     * fffe1828:    e28f0e2e    add r0, pc, #736    ; *'Other models\n'
-     */
-    
-    int found = 0;
-    uint32_t answer = 0;
-    
-    /* only scan the bootloader area */
-    for (uint32_t i = 0xFFFE0000; i < 0xFFFFFFF0; i += 4 )
-    {
-        uint32_t this = MEM(i);
-        uint32_t next = MEM(i+4);
-        int is_bl         = ((this & 0xFF000000) == 0xEB000000);
-        int is_string_ref = ((next & 0xFFFFF000) == 0xe28f0000); /* add R0, pc, #offset */
-        if (is_bl && is_string_ref)
-        {
-            uint32_t string_offset = decode_immediate_shifter_operand(next);
-            uint32_t pc = i + 4;
-            char* string_addr = pc + string_offset + 8;
-            if (strcmp(string_addr, ref_string) == 0)
-            {
-                /* bingo? */
-                found++;
-                uint32_t func_offset = (this & 0x00FFFFFF) << 2;
-                uint32_t pc = i;
-                uint32_t func_addr = pc + func_offset + 8;
-                if (func_addr > 0xFFFE0000)
-                {
-                    /* looks ok? */
-                    answer = func_addr;
-                }
-            }
-        }
-    }
-    
-    if (found == 1)
-    {
-        /* only return success if there's a single match (no ambiguity) */
-        return answer;
-    }
-    
-    return 0;
-}
-
 void* disp_init_autodetect()
 {
     /* Called right before printing the following strings:
@@ -278,13 +220,13 @@ void* disp_init_autodetect()
     if (a == b)
     {
         /* I think this is what we are looking for :) */
-        return a;
+        return (void*) a;
     }
     
     if (a == c)
     {
         /* I think this is what we are looking for :) */
-        return a;
+        return (void*) a;
     }
     
     return &disp_init_dummy;
