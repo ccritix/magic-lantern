@@ -61,8 +61,8 @@ uint32_t find_func_called_before_string_ref(char* ref_string)
     int found = 0;
     uint32_t answer = 0;
     
-    /* only scan the bootloader area */
-    for (uint32_t i = 0xFFFE0000; i < 0xFFFFFFF0; i += 4 )
+    /* only scan the bootloader RAM area */
+    for (uint32_t i = 0x100000; i < 0x110000; i += 4 )
     {
         uint32_t this = MEM(i);
         uint32_t next = MEM(i+4);
@@ -72,7 +72,7 @@ uint32_t find_func_called_before_string_ref(char* ref_string)
         {
             uint32_t string_offset = decode_immediate_shifter_operand(next);
             uint32_t pc = i + 4;
-            char* string_addr = pc + string_offset + 8;
+            char* string_addr = (void*) pc + string_offset + 8;
             if (strcmp(string_addr, ref_string) == 0)
             {
                 /* bingo? */
@@ -80,7 +80,7 @@ uint32_t find_func_called_before_string_ref(char* ref_string)
                 uint32_t func_offset = (this & 0x00FFFFFF) << 2;
                 uint32_t pc = i;
                 uint32_t func_addr = pc + func_offset + 8;
-                if (func_addr > 0xFFFE0000)
+                if (func_addr > 0x100000 && func_addr < 0x110000)
                 {
                     /* looks ok? */
                     answer = func_addr;
