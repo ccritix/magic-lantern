@@ -119,16 +119,27 @@ static void fail()
 }
 
 /* file I/O stubs */
-static int (*boot_fileopen)(int drive, char *filename, int mode) = 0; // read=1, write=2
-static int (*boot_filewrite)(int drive, int handle, void* address, unsigned long size) = 0;
-static int (*boot_fileclose)(int drive, int handle) = 0;
+static int (*boot_open_write)(int drive, char* filename, void* buf, uint32_t size) = 0;
 static int (*boot_card_init)() = 0;
 
 enum { DRIVE_CF, DRIVE_SD } boot_drive;
-enum { MODE_READ=1, MODE_WRITE=2 } boot_access_mode;
 
 /* for intercepting Canon messages */
 static int (*boot_putchar)(int ch) = 0;
+
+static void save_file(int drive, char* filename, void* addr, int size)
+{
+    /* check whether our stubs were initialized */
+    if (!boot_open_write)
+    {
+        fail();
+    }
+
+    if (boot_open_write(drive, filename, (void*) addr, size) == -1)
+    {
+        fail();
+    }
+}
 
 static void dump_md5(int drive, char* filename, uint32_t addr, int size)
 {
@@ -149,36 +160,17 @@ static void dump_md5(int drive, char* filename, uint32_t addr, int size)
     snprintf(md5file, sizeof(md5file), "%s.MD5", file_base);
     printf(" - MD5: %s\n", md5_ascii);
 
-    int f = boot_fileopen(drive, md5file, MODE_WRITE);
-    if (f != -1)
-    {
-        boot_filewrite(drive, f, (void*) md5_ascii, 33);
-        boot_fileclose(drive, f);
-    }
+    save_file(drive, md5file, (void*) md5_ascii, 33);
 }
+
 static void boot_dump(int drive, char* filename, uint32_t addr, int size)
 {
-    /* check whether our stubs were initialized */
-    if (!boot_fileopen) fail();
-    if (!boot_filewrite) fail();
-    if (!boot_fileclose) fail();
-    
     /* turn on the LED */
     led_on();
 
-    /* save the file */
-    int f = boot_fileopen(drive, filename, MODE_WRITE);
-    if (f != -1)
-    {
-        boot_filewrite(drive, f, (void*) addr, size);
-        boot_fileclose(drive, f);
-        
-        dump_md5(drive, filename, addr, size);
-    }
-    else
-    {
-        fail();
-    }
+    /* save the file and the MD5 checksum */
+    save_file(drive, filename, (void*) addr, size);
+    dump_md5(drive, filename, addr, size);
 
     /* turn off the LED */
     led_off();
@@ -582,55 +574,28 @@ void init_stubs()
 {
     /* static variables declared as 0 are not initialized (BSS is not zeroed out) */
     /* workaround: clear them here */
-    boot_fileopen  = (void*) 0;
-    boot_filewrite = (void*) 0;
-    boot_fileclose = (void*) 0;
-    boot_card_init = (void*) 0;
-    boot_putchar   = (void*) 0;
 
-    /* file I/O routines are called from "Open file for write: %s\n" */
-    /* for boot_card_init, look for something like "(Not)? (SD|CF) Detect High" */
+    boot_open_write = (void*) 0;    /* "Open file for write: %s\n" */
+    boot_card_init  = (void*) 0;    /* something like "(Not)? (SD|CF) Detect High" */
+    boot_putchar    = (void*) 0;    /* called from puts, very simple */
     
     const char* cam = get_model_string();
 
     if (strcmp(cam, "5D3") == 0)
     {
-        boot_fileopen  = (void*) 0xFFFE9114;
-        boot_filewrite = (void*) 0xFFFE9570;
-        boot_fileclose = (void*) 0xFFFE927C;
         boot_card_init = (void*) 0xFFFE34B0;
     }
 
     if (strcmp(cam, "60D") == 0)
     {
         /* from FFFF12EC: routines from FFFF2A3C to FFFFFBE4 are copied to 0x100000 */
-        intptr_t RAM_OFFSET  =   0xFFFF2A3C - 0x100000;
-        boot_fileopen  = (void*) 0xffff9ce8 - RAM_OFFSET;
-        boot_filewrite = (void*) 0xffffa0f8 - RAM_OFFSET;
-        boot_fileclose = (void*) 0xffff9e38 - RAM_OFFSET;
-        boot_card_init = (void*) 0xFFFF4D5C - RAM_OFFSET;
-        boot_putchar   = (void*) 0xFFFFB334 - RAM_OFFSET;
-    }
-
-    if (strcmp(cam, "550D") == 0)
-    {
-        boot_fileopen  = (void*) 0xFFFF9D30;
-        boot_filewrite = (void*) 0xFFFFA140;
-        boot_fileclose = (void*) 0xFFFF9E80;
-    }
-    
-    if (strcmp(cam, "600D") == 0)
-    {
-        boot_fileopen  = (void*) 0xFFFF9D80;
-        boot_filewrite = (void*) 0xFFFFA190;
-        boot_fileclose = (void*) 0xFFFF9ED0;
+        intptr_t RAM_OFFSET   =   0xFFFF2A3C - 0x100000;
+        boot_open_write = (void*) 0xFFFFA70C - RAM_OFFSET;
+        boot_putchar    = (void*) 0xFFFFB334 - RAM_OFFSET;
     }
     
     if (strcmp(cam, "700D") == 0)
     {
-        boot_fileopen  = (void*) 0xFFFE9868;
-        boot_filewrite = (void*) 0xFFFE9CC4;
-        boot_fileclose = (void*) 0xFFFE99D0;
         boot_card_init = (void*) 0xFFFE266C;
     }
 
@@ -648,24 +613,20 @@ void dump_rom_with_canon_routines()
 
     /* are we calling the right stubs? */
     
-    if (!boot_fileopen || !boot_filewrite || !boot_fileclose)
+    if (!boot_open_write)
     {
-        print_line(COLOR_RED, 2, " - Boot file I/O stubs not set.");
+        print_line(COLOR_RED, 2, " - Boot file write stub not set.");
         fail();
     }
     
-    if (MEM(boot_fileopen)  != 0xe92d41f0 ||
-        MEM(boot_filewrite) != 0xe92d4fff ||
-        MEM(boot_fileclose) != 0xe92d41f0)
+    if (MEM(boot_open_write)  != 0xe92d47f0)
     {
-        print_line(COLOR_RED, 2, " - Boot file I/O stubs incorrect.");
+        print_line(COLOR_RED, 2, " - Boot file write stub incorrect.");
         fail();
     }
 
-    if ((((uint32_t)boot_fileopen  & 0xF0000000) == 0xF0000000) ||
-        (((uint32_t)boot_filewrite & 0xF0000000) == 0xF0000000) ||
-        (((uint32_t)boot_fileclose & 0xF0000000) == 0xF0000000) ||
-        (((uint32_t)boot_card_init & 0xF0000000) == 0xF0000000))
+    if ((((uint32_t)boot_open_write & 0xF0000000) == 0xF0000000) ||
+        (((uint32_t)boot_card_init  & 0xF0000000) == 0xF0000000))
     {
         print_line(COLOR_YELLOW, 2, " - Boot file I/O stubs called from ROM.");
     }
@@ -721,7 +682,7 @@ cstart( void )
     print_line(COLOR_CYAN, 3, "----------------------------");
     
     print_model();
-    prop_diag();
+    //~ prop_diag();
     print_bootflags();
     find_gaonisoy();
     
