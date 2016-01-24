@@ -536,6 +536,13 @@ static void print_bootflags()
 
 void dump_rom_with_canon_routines()
 {
+    /* static variables declared as 0 are not initialized (BSS is not zeroed out) */
+    /* workaround: clear them here */
+    boot_fileopen  = (void*) 0;
+    boot_filewrite = (void*) 0;
+    boot_fileclose = (void*) 0;
+    boot_card_init = (void*) 0;
+
     /* file I/O routines are called from "Open file for write: %s\n" */
     
     const char* cam = get_model_string();
