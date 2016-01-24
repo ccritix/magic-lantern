@@ -678,5 +678,8 @@ cstart( void )
     //~ dump_rom_with_fullfat();
     
     printf(" - DONE!");
+
+
+    font_draw(20, 450, COLOR_WHITE, 2, " You may now remove the battery.\n");
     while(1);
 }
