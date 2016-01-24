@@ -127,6 +127,9 @@ static int (*boot_card_init)() = 0;
 enum { DRIVE_CF, DRIVE_SD } boot_drive;
 enum { MODE_READ=1, MODE_WRITE=2 } boot_access_mode;
 
+/* for intercepting Canon messages */
+static int (*boot_putchar)(int ch) = 0;
+
 static void dump_md5(int drive, char* filename, uint32_t addr, int size)
 {
     uint8_t md5_bin[16];
@@ -535,6 +538,46 @@ static void print_bootflags()
 
 }
 
+/* we replace boot_putchar with this one, to print Canon messages on the LCD */
+static int my_putchar(int ch)
+{
+    /* Canon's puts assumes putchar will not change R3 */
+    /* ARM calling convention says R3 is not preserved */
+    /* workaround: push/pop it manually, and do the same for R1 and R2 just in case */
+
+    asm("push {R1,R2,R3}");
+
+    /* message buffer; make sure it's initialized without having to zero the BSS */
+    static char buf[720 / FONTW] = "\xFF";
+    if (buf[0] == '\xFF') buf[0] = 0;
+    
+    unsigned len = strlen(buf);
+
+    /* print message to screen after each line, or when buffer gets full */
+    if (ch == 13 || ch == 10 || len+7 >= sizeof(buf))
+    {
+        if (len)
+        {
+            /* align message with spaces */
+            for (int i = len + 6; i >= 0; i--)
+                buf[i] = (i-6 >= 0) ? buf[i-6] : ' ';
+            print_line(COLOR_WHITE, 1, buf);
+            buf[0] = 0;
+        }
+    }
+    else
+    {
+        /* append char to buffer */
+        /* (overflow condition was checked before) */
+        buf[len+1] = 0;
+        buf[len] = ch;
+    }
+
+    asm("pop {R1,R2,R3}");
+
+    return ch;
+}
+
 void init_stubs()
 {
     /* static variables declared as 0 are not initialized (BSS is not zeroed out) */
@@ -543,6 +586,7 @@ void init_stubs()
     boot_filewrite = (void*) 0;
     boot_fileclose = (void*) 0;
     boot_card_init = (void*) 0;
+    boot_putchar   = (void*) 0;
 
     /* file I/O routines are called from "Open file for write: %s\n" */
     /* for boot_card_init, look for something like "(Not)? (SD|CF) Detect High" */
@@ -565,6 +609,7 @@ void init_stubs()
         boot_filewrite = (void*) 0xffffa0f8 - RAM_OFFSET;
         boot_fileclose = (void*) 0xffff9e38 - RAM_OFFSET;
         boot_card_init = (void*) 0xFFFF4D5C - RAM_OFFSET;
+        boot_putchar   = (void*) 0xFFFFB334 - RAM_OFFSET;
     }
 
     if (strcmp(cam, "550D") == 0)
@@ -587,6 +632,13 @@ void init_stubs()
         boot_filewrite = (void*) 0xFFFE9CC4;
         boot_fileclose = (void*) 0xFFFE99D0;
         boot_card_init = (void*) 0xFFFE266C;
+    }
+
+    if (boot_putchar)
+    {
+        /* replace Canon's putchar with our own, to print their messages on the screen */
+        MEM(boot_putchar) = B_INSTR(boot_putchar, &my_putchar);
+        sync_caches();
     }
 }
 
