@@ -545,6 +545,7 @@ void init_stubs()
     boot_card_init = (void*) 0;
 
     /* file I/O routines are called from "Open file for write: %s\n" */
+    /* for boot_card_init, look for something like "(Not)? (SD|CF) Detect High" */
     
     const char* cam = get_model_string();
 
@@ -558,9 +559,12 @@ void init_stubs()
 
     if (strcmp(cam, "60D") == 0)
     {
-        boot_fileopen  = (void*) 0xffff9ce8;
-        boot_filewrite = (void*) 0xffffa0f8;
-        boot_fileclose = (void*) 0xffff9e38;
+        /* from FFFF12EC: routines from FFFF2A3C to FFFFFBE4 are copied to 0x100000 */
+        intptr_t RAM_OFFSET  =   0xFFFF2A3C - 0x100000;
+        boot_fileopen  = (void*) 0xffff9ce8 - RAM_OFFSET;
+        boot_filewrite = (void*) 0xffffa0f8 - RAM_OFFSET;
+        boot_fileclose = (void*) 0xffff9e38 - RAM_OFFSET;
+        boot_card_init = (void*) 0xFFFF4D5C - RAM_OFFSET;
     }
 
     if (strcmp(cam, "550D") == 0)
@@ -604,6 +608,14 @@ void dump_rom_with_canon_routines()
     {
         print_line(COLOR_RED, 2, " - Boot file I/O stubs incorrect.");
         fail();
+    }
+
+    if ((((uint32_t)boot_fileopen  & 0xF0000000) == 0xF0000000) ||
+        (((uint32_t)boot_filewrite & 0xF0000000) == 0xF0000000) ||
+        (((uint32_t)boot_fileclose & 0xF0000000) == 0xF0000000) ||
+        (((uint32_t)boot_card_init & 0xF0000000) == 0xF0000000))
+    {
+        print_line(COLOR_YELLOW, 2, " - Boot file I/O stubs called from ROM.");
     }
 
     if (boot_card_init)
