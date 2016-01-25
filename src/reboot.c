@@ -145,23 +145,26 @@ static void save_file(int drive, char* filename, void* addr, int size)
 static void dump_md5(int drive, char* filename, uint32_t addr, int size)
 {
     uint8_t md5_bin[16];
-    char md5_ascii[34];
+    char md5_ascii[50];
     md5((void *) addr, size, md5_bin);
     snprintf(md5_ascii, sizeof(md5_ascii),
-        "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+        "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x  %s\n",
         md5_bin[0],  md5_bin[1],  md5_bin[2],  md5_bin[3],
         md5_bin[4],  md5_bin[5],  md5_bin[6],  md5_bin[7],
         md5_bin[8],  md5_bin[9],  md5_bin[10], md5_bin[11],
-        md5_bin[12], md5_bin[13], md5_bin[14], md5_bin[15]
+        md5_bin[12], md5_bin[13], md5_bin[14], md5_bin[15],
+        filename
     );
     char file_base[10];
     snprintf(file_base, sizeof(file_base), "%s", filename);
     file_base[strlen(file_base)-4] = 0;
     char md5file[10];
     snprintf(md5file, sizeof(md5file), "%s.MD5", file_base);
+    md5_ascii[32] = 0;
     printf(" - MD5: %s\n", md5_ascii);
-
-    save_file(drive, md5file, (void*) md5_ascii, 33);
+    md5_ascii[32] = ' ';
+    
+    save_file(drive, md5file, (void*) md5_ascii, strlen(md5_ascii));
 }
 
 static void boot_dump(int drive, char* filename, uint32_t addr, int size)
