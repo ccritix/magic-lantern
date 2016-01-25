@@ -7,6 +7,7 @@
 #include "string.h"
 
 #define MEM(x) (*(volatile uint32_t *)(x))
+#define STMFD 0xe92d0000
 
 static uint32_t ror(uint32_t word, uint32_t count)
 {
@@ -51,6 +52,19 @@ char* asm_guess_func_name_from_string(uint32_t addr)
     return "";
 }
 
+uint32_t locate_func_start(uint32_t search_from, uint32_t stop_addr)
+{
+    /* search backwards in memory for a STMFD */
+    for(uint32_t i = search_from; i > stop_addr; i -= 4 )
+    {
+        if((MEM(i) & 0xFFFF0000) == (STMFD & 0xFFFF0000))
+        {
+            return i;
+        }
+    }
+    return 0;
+}
+
 uint32_t find_func_called_before_string_ref(char* ref_string)
 {
     /* look for this pattern:
@@ -93,6 +107,34 @@ uint32_t find_func_called_before_string_ref(char* ref_string)
     {
         /* only return success if there's a single match (no ambiguity) */
         return answer;
+    }
+    
+    return 0;
+}
+
+uint32_t find_func_from_string(char* string, int Rd, uint32_t max_start_offset)
+{
+    /* only scan the bootloader RAM area */
+    for (uint32_t i = 0x100000; i < 0x110000; i += 4 )
+    {
+        /* look for: add Rd, pc, #offset */
+        uint32_t insn = MEM(i);
+        if( (insn & 0xFFFFF000) == (0xe28f0000 | (Rd << 12)) )
+        {
+            /* let's check if it refers to our string */
+            int offset = decode_immediate_shifter_operand(insn);
+            int pc = i;
+            int dest = pc + offset + 8;
+            if (strcmp((char*)dest, string) == 0)
+            {
+                uint32_t func_start = locate_func_start(i, 0x100000);
+                if (func_start && (i > func_start) && (i < func_start + max_start_offset))
+                {
+                    /* looks OK, start of function is not too far from the string reference */
+                    return func_start;
+                }
+            }
+        }
     }
     
     return 0;

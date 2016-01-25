@@ -41,6 +41,7 @@
 #include "consts.h"
 #include "fullfat.h"
 #include "md5.h"
+#include "asm.h"
 
 #define MEM(x) (*(volatile uint32_t *)(x))
 
@@ -575,9 +576,11 @@ void init_stubs()
     /* static variables declared as 0 are not initialized (BSS is not zeroed out) */
     /* workaround: clear them here */
 
-    boot_open_write = (void*) 0;    /* "Open file for write: %s\n" */
     boot_card_init  = (void*) 0;    /* something like "(Not)? (SD|CF) Detect High" */
     boot_putchar    = (void*) 0;    /* called from puts, very simple */
+
+    /* autodetect this one */
+    boot_open_write = (void*) find_func_from_string("Open file for write : %s\n", 0, 0x50);
     
     const char* cam = get_model_string();
 
@@ -585,7 +588,6 @@ void init_stubs()
     {
         /* from FFFF1738: routines from FFFE0000 to FFFEF408 are copied to 0x100000 */
         intptr_t RAM_OFFSET   =   0xFFFE0000 - 0x100000;
-        boot_open_write = (void*) 0xFFFE9C00 - RAM_OFFSET;
         boot_card_init  = (void*) 0xFFFE34B0 - RAM_OFFSET;
         boot_putchar    = (void*) 0xFFFEA8EC - RAM_OFFSET;
     }
@@ -594,7 +596,6 @@ void init_stubs()
     {
         /* from FFFF12EC: routines from FFFF2A3C to FFFFFBE4 are copied to 0x100000 */
         intptr_t RAM_OFFSET   =   0xFFFF2A3C - 0x100000;
-        boot_open_write = (void*) 0xFFFFA70C - RAM_OFFSET;
         boot_putchar    = (void*) 0xFFFFB334 - RAM_OFFSET;
     }
     
@@ -602,7 +603,6 @@ void init_stubs()
     {
         /* from FFFF14E8: routines from FFFE0000 to FFFEFFB8 are copied to 0x100000 */
         intptr_t RAM_OFFSET   =   0xFFFE0000 - 0x100000;
-        boot_open_write = (void*) 0xFFFEA354 - RAM_OFFSET;
         boot_card_init  = (void*) 0xFFFE266C - RAM_OFFSET;
         boot_putchar    = (void*) 0xFFFEB040 - RAM_OFFSET;
     }
