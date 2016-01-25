@@ -543,9 +543,8 @@ static int my_putchar(int ch)
 
     asm("push {R1,R2,R3}");
 
-    /* message buffer; make sure it's initialized without having to zero the BSS */
-    static char buf[720 / FONTW] = "\xFF";
-    if (buf[0] == '\xFF') buf[0] = 0;
+    /* message buffer */
+    static char buf[720 / FONTW] = "";
     
     unsigned len = strlen(buf);
 
@@ -576,12 +575,6 @@ static int my_putchar(int ch)
 
 void init_stubs()
 {
-    /* static variables declared as 0 are not initialized (BSS is not zeroed out) */
-    /* workaround: clear them here */
-
-    boot_card_init  = (void*) 0;    /* something like "(Not)? (SD|CF) Detect High" */
-    boot_putchar    = (void*) 0;    /* called from puts, very simple */
-
     /* autodetect this one */
     boot_open_write = (void*) find_func_from_string("Open file for write : %s\n", 0, 0x50);
     

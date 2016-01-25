@@ -240,9 +240,6 @@ void disp_init()
     /* this should cover most (if not all) ML-supported cameras */
     /* and maybe most unsupported cameras as well :) */
     void (*fromutil_disp_init)(uint32_t) = disp_init_autodetect();
-    
-    /* BSS is not zeroed */
-    yuv_mode = YUV422;
 
 #if defined(CONFIG_5D2)
     yuv_mode = YUV411;
