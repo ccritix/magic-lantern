@@ -181,14 +181,22 @@ static void boot_dump(int drive, char* filename, uint32_t addr, int size)
 }
 
 struct sd_ctx sd_ctx;
-uint32_t print_line_pos = 2;
+uint32_t print_y = 20;
 
 
 void print_line(uint32_t color, uint32_t scale, char *txt)
 {
-    font_draw(20, print_line_pos * 10, color, scale, txt);
+    int height = scale * (FONTH + 2);
     
-    print_line_pos += scale;
+    if (print_y + height >= 480)
+    {
+        disp_direct_scroll_up(height);
+        print_y -= height;
+    }
+
+    font_draw(20, print_y, color, scale, txt);
+    
+    print_y += height;
 }
 
 int printf(const char * fmt, ...)
@@ -549,7 +557,7 @@ static int my_putchar(int ch)
     unsigned len = strlen(buf);
 
     /* print message to screen after each line, or when buffer gets full */
-    if (ch == 13 || ch == 10 || len+7 >= sizeof(buf))
+    if (ch == 13 || ch == 10 || len+7 > sizeof(buf))
     {
         if (len)
         {
@@ -736,9 +744,9 @@ cstart( void )
     dump_rom_with_canon_routines();
     //~ dump_rom_with_fullfat();
     
-    printf(" - DONE!");
-
-
-    font_draw(20, 450, COLOR_WHITE, 2, " You may now remove the battery.\n");
+    printf(" - DONE!\n");
+    printf("\n");
+    print_line(COLOR_WHITE, 2, " You may now remove the battery.\n");
+    
     while(1);
 }

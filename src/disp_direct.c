@@ -270,3 +270,16 @@ void disp_init()
     /* from now on, everything you write on the display buffers
      * will appear on the screen without doing anything special */
 }
+
+uint32_t disp_direct_scroll_up(uint32_t height)
+{
+    uint32_t start = (720 * height) / 2;
+    uint32_t size = (720 * (480 - height)) / 2;
+    uint32_t color = COLOR_TRANSPARENT_BLACK;
+    color |= color << 4;
+    
+    memcpy(disp_framebuf, &disp_framebuf[start], size);
+    memset(&disp_framebuf[size], color, start);
+    
+    return height;
+}
