@@ -195,7 +195,9 @@ void disp_progress(uint32_t progress)
     char text[32];
     
     snprintf(text, 32, "%d%%", progress * 100 / 255);
-    font_draw(disp_xres / 2 - 28, (disp_yres - height) / 2 + 2, COLOR_WHITE, 2, text);
+    uint32_t x = disp_xres / 2 - 28;
+    uint32_t y = (disp_yres - height) / 2 + 2;
+    font_draw(&x, &y, COLOR_WHITE, 2, text);
 }
 
 void disp_init_dummy (uint32_t buffer)

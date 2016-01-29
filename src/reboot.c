@@ -181,8 +181,8 @@ static void boot_dump(int drive, char* filename, uint32_t addr, int size)
 }
 
 struct sd_ctx sd_ctx;
+uint32_t print_x = 0;
 uint32_t print_y = 20;
-
 
 void print_line(uint32_t color, uint32_t scale, char *txt)
 {
@@ -194,9 +194,7 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
         print_y -= height;
     }
 
-    font_draw(20, print_y, color, scale, txt);
-    
-    print_y += height;
+    font_draw(&print_x, &print_y, color, scale, txt);
 }
 
 int printf(const char * fmt, ...)
@@ -551,31 +549,9 @@ static int my_putchar(int ch)
 
     asm("push {R1,R2,R3}");
 
-    /* message buffer */
-    static char buf[720 / FONTW] = "";
+    /* print each character */
+    print_line(COLOR_WHITE, 1, (char*) &ch);
     
-    unsigned len = strlen(buf);
-
-    /* print message to screen after each line, or when buffer gets full */
-    if (ch == 13 || ch == 10 || len+7 > sizeof(buf))
-    {
-        if (len)
-        {
-            /* align message with spaces */
-            for (int i = len + 6; i >= 0; i--)
-                buf[i] = (i-6 >= 0) ? buf[i-6] : ' ';
-            print_line(COLOR_WHITE, 1, buf);
-            buf[0] = 0;
-        }
-    }
-    else
-    {
-        /* append char to buffer */
-        /* (overflow condition was checked before) */
-        buf[len+1] = 0;
-        buf[len] = ch;
-    }
-
     asm("pop {R1,R2,R3}");
 
     return ch;
@@ -659,20 +635,20 @@ void dump_rom_with_canon_routines()
     
     if (!boot_open_write)
     {
-        print_line(COLOR_RED, 2, " - Boot file write stub not set.");
+        print_line(COLOR_RED, 2, " - Boot file write stub not set.\n");
         fail();
     }
     
     if (MEM(boot_open_write)  != 0xe92d47f0)
     {
-        print_line(COLOR_RED, 2, " - Boot file write stub incorrect.");
-        printf(" - Address: %X   Value: %X", boot_open_write, MEM(boot_open_write));
+        print_line(COLOR_RED, 2, " - Boot file write stub incorrect.\n");
+        printf(" - Address: %X   Value: %X\n", boot_open_write, MEM(boot_open_write));
         fail();
     }
 
     if (!boot_card_init)
     {
-        print_line(COLOR_YELLOW, 2, " - Card init stub not found.");
+        print_line(COLOR_YELLOW, 2, " - Card init stub not found.\n");
     }
 
     if ((((uint32_t)boot_open_write & 0xF0000000) == 0xF0000000) ||
@@ -732,11 +708,11 @@ cstart( void )
     disable_dcache();
     disable_icache();
     
-    print_line(COLOR_CYAN, 3, " Magic Lantern Rescue");
-    print_line(COLOR_CYAN, 3, "----------------------------");
+    print_line(COLOR_CYAN, 3, "  Magic Lantern Rescue\n");
+    print_line(COLOR_CYAN, 3, " ----------------------------\n");
     
     print_model();
-    //~ prop_diag();
+    prop_diag();
     print_bootflags();
     find_gaonisoy();
     
