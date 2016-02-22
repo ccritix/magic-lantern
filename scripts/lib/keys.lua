@@ -36,6 +36,14 @@ function keys:start()
         end
         return false    -- block regular button events
     end
+    if touch.is_available then
+        touch.down = function(x,y,id)
+            table.insert(keys.keys, {type = 1, x = x, y = y, id = id})
+        end
+        touch.up = function(x,y,id)
+            table.insert(keys.keys, {type = 0, x = x, y = y, id = id})
+        end
+    end
     return true
 end
 
@@ -60,6 +68,10 @@ function keys:stop()
     self:reset()
     self.running = false
     event.keypress = self.old_keypress
+    if touch.is_available then
+        touch.down = nil
+        touch.up = nil
+    end
 end
 
 --[[---------------------------------------------------------------------------

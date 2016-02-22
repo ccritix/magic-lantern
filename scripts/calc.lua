@@ -64,8 +64,9 @@ function calc:main_loop()
                 break
             end
             self:draw()
+        else
+            task.yield(100)
         end
-        task.yield(100)
     end
     keys:stop()
     if self.running == false then menu.block(false) end
@@ -87,6 +88,27 @@ function calc:handle_key(key)
         self:handle_button("=")
     elseif key == KEY.SET then
         self:handle_button(self.buttons[self.row][self.col])
+    elseif type(key) == "table" or type(key) == nil then
+        local x = key.x - self.left
+        local y = key.y - self.top
+        if x > 0 and x < self.width and y > self.cell_size and y < self.height then
+            self.row = y // self.cell_size
+            self.col = x // self.cell_size + 1
+            if key.type == 0 then
+                self:handle_button(self.buttons[self.row][self.col])
+            end
+        elseif y > 0 and y < self.cell_size and key.type == 0 and #(self.value) > 0 then
+            self.value = string.sub(self.value, 1, #(self.value) - 1)
+        end
+    end
+end
+
+function calc:translate_xy(x, y)
+    x = x - self.left
+    y = y - self.top
+    if x > 0 and x < self.width and y > self.cell_size and y < self.height then
+        self.row = y // self.cell_size
+        self.col = x // self.cell_size + 1
     end
 end
 
