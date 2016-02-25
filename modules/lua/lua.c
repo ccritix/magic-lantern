@@ -208,8 +208,10 @@ LUA_CBR_FUNC(vsync_setparam)
 #endif
 
 static struct script_event_entry * keypress_cbr_scripts = NULL;
+extern int menu_block_touch;
 static unsigned int lua_keypress_cbr(unsigned int ctx)
 {
+    if(menu_block_touch && (ctx == MODULE_KEY_TOUCH_1_FINGER || ctx == MODULE_KEY_TOUCH_2_FINGER) && gui_menu_shown()) return CBR_RET_KEYPRESS_HANDLED;
     last_keypress = ctx;
     //keypress cbr interprets things backwards from other CBRs
     return lua_do_cbr(ctx, keypress_cbr_scripts, "keypress", 500, CBR_RET_KEYPRESS_NOTHANDLED, CBR_RET_KEYPRESS_HANDLED);

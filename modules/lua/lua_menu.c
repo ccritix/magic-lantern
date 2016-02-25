@@ -15,6 +15,7 @@
 #include "lua_common.h"
 
 extern int menu_redraw_blocked;
+int menu_block_touch = 0;
 static int luaCB_menu_instance_index(lua_State * L);
 static int luaCB_menu_instance_newindex(lua_State * L);
 static int luaCB_menu_remove(lua_State * L);
@@ -342,6 +343,16 @@ static int luaCB_menu_block(lua_State * L)
     return 0;
 }
 
+/// Block touch evens from ML menu (if you want to do custom touch handling)
+// @tparam bool enaabled
+// @function block_touch
+static int luaCB_menu_block_touch(lua_State * L)
+{
+    LUA_PARAM_BOOL(enabled, 1);
+    menu_block_touch = enabled;
+    return 0;
+}
+
 /// Open ML menu
 // @function open
 static int luaCB_menu_open(lua_State * L)
@@ -357,6 +368,30 @@ static int luaCB_menu_close(lua_State * L)
 {
     gui_stop_menu();
     msleep(1000);
+    return 0;
+}
+
+/// Opens the current submenu
+// @function open_submenu
+static int luaCB_menu_open_submenu(lua_State * L)
+{
+    menu_open_submenu();
+    return 0;
+}
+
+/// Closes the current submenu
+// @function close_submenu
+static int luaCB_menu_close_submenu(lua_State * L)
+{
+    menu_close_submenu();
+    return 0;
+}
+
+/// Toggles the current menu item's submenu
+// @function toggle_submenu
+static int luaCB_menu_toggle_submenu(lua_State * L)
+{
+    menu_toggle_submenu();
     return 0;
 }
 
@@ -844,6 +879,10 @@ const luaL_Reg menulib[] =
     {"open", luaCB_menu_open},
     {"close", luaCB_menu_close},
     {"block", luaCB_menu_block},
+    {"block_touch", luaCB_menu_block_touch},
+    {"open_submenu", luaCB_menu_open_submenu},
+    {"close_submenu", luaCB_menu_close_submenu},
+    {"toggle_submenu", luaCB_menu_toggle_submenu},
     {NULL, NULL}
 };
 
