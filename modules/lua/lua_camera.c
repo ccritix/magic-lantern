@@ -12,6 +12,7 @@
 #include <lens.h>
 #include <shoot.h>
 #include <bmp.h>
+#include <imath.h>
 
 #include "lua_common.h"
 
@@ -145,24 +146,40 @@ static int luaCB_camera_index(lua_State * L)
 static int luaCB_camera_newindex(lua_State * L)
 {
     LUA_PARAM_STRING_OPTIONAL(key, 2, "");
-    if(!strcmp(key, "ec"))
+    int status = 1;
+    
+    if(!strcmp(key, "shutter"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        lens_set_ae(EC2RAW(value));
+        status = hdr_set_rawshutter(shutterf_to_raw(value));
+    }
+    else if(!strcmp(key, "aperture"))
+    {
+        LUA_PARAM_NUMBER(value, 3);
+        status = hdr_set_rawaperture((int)roundf((log2i(value) * 16) + 8));
+    }
+    else if(!strcmp(key, "iso"))
+    {
+        LUA_PARAM_INT(value, 3);
+        int i = 0;
+        for(i = 0; i < COUNT(values_iso); i++)
+            if(values_iso[i] <= value) break;
+        status = lens_set_rawiso(codes_iso[i]);
+    }
+    else if(!strcmp(key, "ec"))
+    {
+        LUA_PARAM_NUMBER(value, 3);
+        status = lens_set_ae(EC2RAW(value));
     }
     else if(!strcmp(key, "flash_ec"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        lens_set_flash_ae(EC2RAW(value));
+        status = lens_set_flash_ae(EC2RAW(value));
     }
     else if(!strcmp(key, "kelvin"))
     {
         LUA_PARAM_INT(value, 3);
         lens_set_kelvin(value);
-    }
-    else if(!strcmp(key, "shutter") || !strcmp(key, "aperture") || !strcmp(key, "iso") || !strcmp(key, "ec"))
-    {
-        return luaL_error(L, "'%s' field is readonly\nyou can set %s with it's various fields\nex:camera.shutter.value = 1/10", key, key);
     }
     else if(!strcmp(key, "model") || !strcmp(key, "firmware") || !strcmp(key, "mode") || !strcmp(key, "af_mode") || !strcmp(key, "metering_mode") || !strcmp(key, "drive_mode") || !strcmp(key, "temperature") || !strcmp(key, "state"))
     {
@@ -172,6 +189,7 @@ static int luaCB_camera_newindex(lua_State * L)
     {
         lua_rawset(L, 1);
     }
+    if(!status) return luaL_error(L, "set '%s' failed", key);
     return 0;
 }
 
@@ -184,7 +202,7 @@ static int luaCB_camera_newindex(lua_State * L)
 static int luaCB_camera_shoot(lua_State * L)
 {
     LUA_PARAM_INT_OPTIONAL(wait, 1, 64);
-    LUA_PARAM_INT_OPTIONAL(should_af, 2, 1);
+    LUA_PARAM_BOOL_OPTIONAL(should_af, 2, 1);
     int result = lens_take_picture(wait, should_af);
     lua_pushinteger(L, result);
     return 1;
@@ -255,35 +273,37 @@ static int luaCB_shutter_newindex(lua_State * L)
     
     if(!lens_info.raw_shutter) return luaL_error(L, "Shutter speed is automatic - cannot adjust manually.");
     
+    int status = 1;
     if(!strcmp(key, "raw"))
     {
         LUA_PARAM_INT(value, 3);
-        lens_set_rawshutter(value);
+        status = hdr_set_rawshutter(value);
     }
     else if(!strcmp(key, "apex"))
     {
         LUA_PARAM_INT(value, 3);
-        lens_set_rawshutter(TV2RAW(value));
+        status = hdr_set_rawshutter(TV2RAW(value));
     }
     else if(!strcmp(key, "apexf"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        lens_set_rawshutter(TV2RAW((int)roundf(value * 10)));
+        status = hdr_set_rawshutter(TV2RAW((int)roundf(value * 10)));
     }
     else if(!strcmp(key, "ms"))
     {
         LUA_PARAM_INT(value, 3);
-        lens_set_rawshutter(shutter_ms_to_raw(value));
+        status = hdr_set_rawshutter(shutter_ms_to_raw(value));
     }
     else if(!strcmp(key, "value"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        lens_set_rawshutter(shutterf_to_raw(value));
+        status = hdr_set_rawshutter(shutterf_to_raw(value));
     }
     else
     {
         lua_rawset(L, 1);
     }
+    if(!status) return luaL_error(L, "set 'camera.shutter.%s' failed", key);
     return 0;
 }
 
@@ -304,7 +324,7 @@ static int luaCB_aperture_index(lua_State * L)
     else if(!strcmp(key,"apexf")) lua_pushnumber(L, (RAW2AV(lens_info.raw_aperture) / 10.0));
     /// Get/Set aperture as f-number (floating point)
     // @tfield number value
-    else if(!strcmp(key,"value")) lua_pushnumber(L, APEX_AV(lens_info.raw_aperture) / 8.0);
+    else if(!strcmp(key,"value")) lua_pushnumber(L, lens_info.aperture / 10.0);
     else lua_rawget(L, 1);
     return 1;
 }
@@ -327,31 +347,33 @@ static int luaCB_aperture_newindex(lua_State * L)
     {
         return luaL_error(L, lens_info.name[0] ? "Aperture is automatic - cannot adjust manually." : "Manual lens - cannot adjust aperture.");
     }
+    int status = 1;
     
     if(!strcmp(key, "raw"))
     {
         LUA_PARAM_INT(value, 3);
-        lens_set_rawaperture(value);
+        status = hdr_set_rawaperture(value);
     }
     else if(!strcmp(key, "apex"))
     {
         LUA_PARAM_INT(value, 3);
-        lens_set_rawaperture(AV2RAW(value));
+        status = hdr_set_rawaperture(AV2RAW(value));
     }
     else if(!strcmp(key, "apexf"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        lens_set_rawaperture(AV2RAW((int)roundf(value * 10)));
+        status = hdr_set_rawaperture(AV2RAW((int)roundf(value * 10)));
     }
     else if(!strcmp(key, "value"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        lens_set_rawaperture((int)roundf((value * 8) + 8));
+        status = hdr_set_rawaperture((int)roundf((log2i(value) * 16) + 8));
     }
     else
     {
         lua_rawset(L, 1);
     }
+    if(!status) return luaL_error(L, "set 'camera.aperture.%s' failed", key);
     return 0;
 }
 
@@ -396,20 +418,21 @@ static int luaCB_iso_tostring(lua_State * L)
 static int luaCB_iso_newindex(lua_State * L)
 {
     LUA_PARAM_STRING_OPTIONAL(key, 2, "");
+    int status = 1;
     if(!strcmp(key, "raw"))
     {
         LUA_PARAM_INT(value, 3);
-        lens_set_rawiso(value);
+        status = lens_set_rawiso(value);
     }
     else if(!strcmp(key, "apex"))
     {
         LUA_PARAM_INT(value, 3);
-        lens_set_rawiso(SV2RAW(value));
+        status = lens_set_rawiso(SV2RAW(value));
     }
     else if(!strcmp(key, "apexf"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        lens_set_rawiso(SV2RAW((int)roundf(value * 10)));
+        status = lens_set_rawiso(SV2RAW((int)roundf(value * 10)));
     }
     else if(!strcmp(key, "value"))
     {
@@ -417,12 +440,13 @@ static int luaCB_iso_newindex(lua_State * L)
         int i = 0;
         for(i = 0; i < COUNT(values_iso); i++)
             if(values_iso[i] <= value) break;
-        lens_set_rawiso(codes_iso[i]);
+        status = lens_set_rawiso(codes_iso[i]);
     }
     else
     {
         lua_rawset(L, 1);
     }
+    if(!status) return luaL_error(L, "set 'camera.iso.%s' failed", key);
     return 0;
 }
 
@@ -461,25 +485,27 @@ static int luaCB_ec_tostring(lua_State * L)
 static int luaCB_ec_newindex(lua_State * L)
 {
     LUA_PARAM_STRING_OPTIONAL(key, 2, "");
+    int status = 1;
     if(!strcmp(key, "raw"))
     {
         LUA_PARAM_INT(value, 3);
-        lens_set_ae(value);
+        status = lens_set_ae(value);
     }
     else if(!strcmp(key, "apex"))
     {
         LUA_PARAM_INT(value, 3);
-        lens_set_ae(EC2RAW(value));
+        status = lens_set_ae(EC2RAW(value));
     }
     else if(!strcmp(key, "apexf") || !strcmp(key, "value"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        lens_set_ae(EC2RAW((int)roundf(value * 10)));
+        status = lens_set_ae(EC2RAW((int)roundf(value * 10)));
     }
     else
     {
         lua_rawset(L, 1);
     }
+    if(!status) return luaL_error(L, "set 'camera.ec.%s' failed", key);
     return 0;
 }
 
@@ -504,25 +530,27 @@ static int luaCB_fec_tostring(lua_State * L)
 static int luaCB_fec_newindex(lua_State * L)
 {
     LUA_PARAM_STRING_OPTIONAL(key, 2, "");
+    int status = 1;
     if(!strcmp(key, "raw"))
     {
         LUA_PARAM_INT(value, 3);
-        lens_set_flash_ae(value);
+        status = lens_set_flash_ae(value);
     }
     else if(!strcmp(key, "apex"))
     {
         LUA_PARAM_INT(value, 3);
-        lens_set_flash_ae(EC2RAW(value));
+        status = lens_set_flash_ae(EC2RAW(value));
     }
     else if(!strcmp(key, "apexf") || !strcmp(key, "value"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        lens_set_flash_ae(EC2RAW((int)roundf(value * 10)));
+        status = lens_set_flash_ae(EC2RAW((int)roundf(value * 10)));
     }
     else
     {
         lua_rawset(L, 1);
     }
+    if(!status) return luaL_error(L, "set 'camera.fec.%s' failed", key);
     return 0;
 }
 
