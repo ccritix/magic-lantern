@@ -66,7 +66,7 @@ static struct logged_func logged_functions[] = {
     { 0xFF861840, "mpu_recv", 1, mpu_recv_log },
     #endif
 
-    #ifdef CONFIG_5D3   /* 1.2.3 */
+    #ifdef CONFIG_5D3_123
     { 0x17d54,    "TryPostEvent", 5 },
     { 0xFF2E8648, "mpu_send", 2, mpu_send_log }, // here it's OK via GDB hooks
     { 0xFF1226F0, "mpu_recv", 1, mpu_recv_log},  // fixme: first call may be missed, figure out why (seems to be OK at cold boot)
@@ -163,7 +163,13 @@ static struct logged_func logged_functions[] = {
     { 0xff193ed0, "UnLockEngineResources", 1, UnLockEngineResources_log},
 #endif
 
-#ifdef CONFIG_5D3  /* 1.2.3 */
+#ifdef CONFIG_5D3
+    { 0xFF6B4E2C, "DryEFatFormat", 7 },
+    { 0xFF729BDC, "sd_choose_filesystem", 2 },
+    { 0xFF729FC4, "sd_choose_filesystem_ret", 1 },
+#endif
+
+#ifdef CONFIG_5D3_123
     { 0x178ec, "StateTransition", 4 , state_transition_log },
     { 0x17d54, "TryPostEvent", 5 },
     { 0x17674, "TryPostStageEvent", 5 },
