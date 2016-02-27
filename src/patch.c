@@ -480,16 +480,15 @@ static MENU_UPDATE_FUNC(patches_update)
         if (ram_patches) MENU_APPEND_RINFO("%s%d RAM", info->rinfo[0] ? ", " : "", ram_patches);
     }
     
-    if (cache_locked())
-    {
-        MENU_SET_ICON(MNI_RECORD, 0); /* red dot */
-        MENU_SET_WARNING(MENU_WARN_ADVICE, "Cache is locked down (not exactly clean).");
-    }
-    
     if (last_error[0])
     {
         MENU_SET_ICON(MNI_RECORD, 0); /* red dot */
         MENU_SET_WARNING(MENU_WARN_ADVICE, last_error);
+    }
+    else if (cache_locked())
+    {
+        MENU_SET_ICON(MNI_RECORD, 0); /* red dot */
+        MENU_SET_WARNING(MENU_WARN_ADVICE, "Cache is locked down (not exactly clean).");
     }
 }
 
