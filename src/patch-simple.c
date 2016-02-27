@@ -175,6 +175,31 @@ static uint32_t get_patch_current_value(struct patch_info * p)
     return read_value(p->addr, p->is_instruction);
 }
 
+static char * error_msg(int err)
+{
+    static char msg[128];
+    
+    /* there may be one or more error flags set */
+    msg[0] = 0;
+    if (err & E_PATCH_UNKNOWN_ERROR)        STR_APPEND(msg, "UNKNOWN_ERROR,");
+    if (err & E_PATCH_ALREADY_PATCHED)      STR_APPEND(msg, "ALREADY_PATCHED,");
+    if (err & E_PATCH_TOO_MANY_PATCHES)     STR_APPEND(msg, "TOO_MANY_PATCHES,");
+    if (err & E_PATCH_OLD_VALUE_MISMATCH)   STR_APPEND(msg, "OLD_VAL_MISMATCH,");
+    if (err & E_PATCH_CACHE_COLLISION)      STR_APPEND(msg, "CACHE_COLLISION,");
+    if (err & E_PATCH_CACHE_ERROR)          STR_APPEND(msg, "CACHE_ERROR,");
+    if (err & E_PATCH_REG_NOT_FOUND)        STR_APPEND(msg, "REG_NOT_FOUND,");
+
+    if (err & E_UNPATCH_NOT_PATCHED)        STR_APPEND(msg, "NOT_PATCHED,");
+    if (err & E_UNPATCH_OVERWRITTEN)        STR_APPEND(msg, "OVERWRITTEN,");
+    if (err & E_UNPATCH_REG_NOT_FOUND)      STR_APPEND(msg, "REG_NOT_FOUND,");
+    
+    /* remove last comma */
+    int len = strlen(msg);
+    if (len) msg[len-1] = 0;
+    
+    return msg;
+}
+
 static int patch_memory_work(
     uintptr_t _addr,
     uint32_t old_value,
@@ -236,7 +261,7 @@ static int patch_memory_work(
 end:
     if (err)
     {
-        snprintf(last_error, sizeof(last_error), "Patch error at %x (err %x)", addr, err);
+        snprintf(last_error, sizeof(last_error), "Patch error at %x (%s)", addr, error_msg(err));
     }
     sei(old_int);
     return err;
@@ -388,7 +413,7 @@ int unpatch_memory(uintptr_t _addr)
 end:
     if (err)
     {
-        snprintf(last_error, sizeof(last_error), "Unpatch error at %x (err %x)", addr, err);
+        snprintf(last_error, sizeof(last_error), "Unpatch error at %x (%s)", addr, error_msg(err));
     }
     sei(old_int);
     return err;
