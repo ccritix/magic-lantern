@@ -1128,7 +1128,7 @@ static void hack_liveview(int unhack)
         {
             if (!unhack) /* hack */
             {
-                int err = patch_memory(
+                int err = patch_instruction(
                     dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, dialog_refresh_timer_new_instr, 
                     "raw_rec: slow down Canon dialog refresh timer"
                 );
