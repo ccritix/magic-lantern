@@ -195,7 +195,7 @@ int patch_memory_matrix(
             /* safety check */
             if ((old & check_mask) != (check_value & check_mask))
             {
-                err = E_PATCH_FAILED;
+                err = E_PATCH_OLD_VALUE_MISMATCH;
                 goto end;
             }
 
@@ -263,7 +263,7 @@ int unpatch_memory_matrix(uintptr_t _addr)
     
     if (p < 0)
     {
-        err = E_UNPATCH_FAILED;
+        err = E_UNPATCH_NOT_PATCHED;
         goto end;
     }
     

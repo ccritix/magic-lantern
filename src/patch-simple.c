@@ -213,7 +213,7 @@ static int patch_memory_work(
     /* safety check */
     if (old != old_value)
     {
-        err = E_PATCH_FAILED;
+        err = E_PATCH_OLD_VALUE_MISMATCH;
         goto end;
     }
 
@@ -323,6 +323,7 @@ int unpatch_memory(uintptr_t _addr)
 
     dbg_printf("unpatch_memory(%x)\n", addr);
 
+    /* find the patch in our data structure */
     int p = -1;
     for (int i = 0; i < num_patches; i++)
     {
@@ -335,7 +336,7 @@ int unpatch_memory(uintptr_t _addr)
     
     if (p < 0)
     {
-        err = E_UNPATCH_FAILED;
+        err = E_UNPATCH_NOT_PATCHED;
         goto end;
     }
     
@@ -512,7 +513,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     if (logging_slot < 0)
     {
         snprintf(last_error, sizeof(last_error), "No logging slot for %x", addr);
-        err = E_PATCH_FAILED;
+        err = E_PATCH_TOO_MANY_PATCHES;
         goto end;
     }
     
