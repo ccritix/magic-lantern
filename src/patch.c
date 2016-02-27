@@ -223,6 +223,7 @@ end:
     if (err)
     {
         snprintf(last_error, sizeof(last_error), "Patch error at %x (err %x)", addr, err);
+        puts(last_error);
     }
     sei(old_int);
     return err;
@@ -301,6 +302,7 @@ end:
     if (err)
     {
         snprintf(last_error, sizeof(last_error), "Unpatch error at %x (err %x)", addr, err);
+        puts(last_error);
     }
     sei(old_int);
     return err;
@@ -455,6 +457,7 @@ static MENU_UPDATE_FUNC(patches_update)
             if (!is_patch_still_applied(i))
             {
                 snprintf(last_error, sizeof(last_error), "Patch %x overwritten, probably by Maxwell's demon.");
+                puts(last_error);
                 errors++;
             }
         }

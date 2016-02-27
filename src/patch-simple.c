@@ -262,6 +262,7 @@ end:
     if (err)
     {
         snprintf(last_error, sizeof(last_error), "Patch error at %x (%s)", addr, error_msg(err));
+        puts(last_error);
     }
     sei(old_int);
     return err;
@@ -414,6 +415,7 @@ end:
     if (err)
     {
         snprintf(last_error, sizeof(last_error), "Unpatch error at %x (%s)", addr, error_msg(err));
+        puts(last_error);
     }
     sei(old_int);
     return err;
@@ -538,6 +540,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     if (logging_slot < 0)
     {
         snprintf(last_error, sizeof(last_error), "No logging slot for %x", addr);
+        puts(last_error);
         err = E_PATCH_TOO_MANY_PATCHES;
         goto end;
     }
@@ -655,6 +658,7 @@ static MENU_UPDATE_FUNC(patches_update)
                     "Patch %x overwritten (expected %x, current value %x).",
                     patches[i].addr, patches[i].patched_value, get_patch_current_value(&patches[i])
                 );
+                puts(last_error);
                 errors++;
             }
         }
