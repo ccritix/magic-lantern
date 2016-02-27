@@ -20,7 +20,7 @@
 #define MAX_LOGGING_HOOKS 32
 
 /* for patching a single 32-bit integer (RAM or ROM, data or code) */
-struct patch_info
+struct patch
 {
     uint32_t* addr;                 /* first memory address to patch (RAM or ROM) */
     uint32_t backup;                /* old value (to undo the patch) */
@@ -44,7 +44,7 @@ struct logging_hook_code
     uint32_t fixup;             /* for relocating instructions that do PC-relative addressing */
 };
 
-static struct patch_info patches[MAX_PATCHES] = {{0}};
+static struct patch patches[MAX_PATCHES] = {{0}};
 static int num_patches = 0;
 
 /* at startup we don't have malloc, so we allocate it statically */
@@ -170,7 +170,7 @@ static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
     return 0;
 }
 
-static uint32_t get_patch_current_value(struct patch_info * p)
+static uint32_t get_patch_current_value(struct patch * p)
 {
     return read_value(p->addr, p->is_instruction);
 }

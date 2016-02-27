@@ -16,10 +16,10 @@
 #define dbg_printf(fmt,...) {}
 #endif
 
-#define MAX_PATCHES 32
+#define MAX_MATRIX_PATCHES 32
 
-/* for patching either a single address, an array or a matrix of related memory addresses */
-struct patch_info
+/* for patching an array or a matrix of related memory addresses */
+struct matrix_patch
 {
     uint32_t* addr;                 /* first memory address to patch (RAM data only) */
     
@@ -29,7 +29,7 @@ struct patch_info
     uint16_t num_rows;              /* how many rows do we have? (1 = a single row = a simple array) */
     uint16_t row_size;              /* if patching a matrix of values: offset until the next row, in bytes */
     
-    uint32_t* backups;             /* user-supplied storage for backup (must be uint32_t backup[num_columns*num_rows]) */
+    uint32_t* backups;              /* user-supplied storage for backup (must be uint32_t backup[num_columns*num_rows]) */
 
     uint32_t patch_mask;            /* what bits are actually used (both when reading original and writing patched value) */
     uint32_t patch_scaling;         /* scaling factor for the old value (0x10000 = 1.0; 0 discards the old value, obviously) */
@@ -40,8 +40,8 @@ struct patch_info
     uint16_t scroll_pos;            /* internal, for menu navigation */
 };
 
-static struct patch_info patches[MAX_PATCHES] = {{0}};
-static int num_patches = 0;
+static struct matrix_patch matrix_patches[MAX_MATRIX_PATCHES] = {{0}};
+static int num_matrix_patches = 0;
 
 static char last_error[70];
 
@@ -83,15 +83,15 @@ static void do_patch(uint32_t* addr, uint32_t value)
     }
 }
 
-static void* get_patch_addr(struct patch_info * p, int row_index, int col_index)
+static void* get_matrix_patch_addr(struct matrix_patch * p, int row_index, int col_index)
 {
     return (void*)p->addr + row_index * p->row_size + col_index * p->col_size;
 }
 
 enum masked {NOT_MASKED, MASKED};
-static uint32_t get_patch_current_value(struct patch_info * p, int row_index, int col_index, enum masked masked)
+static uint32_t get_matrix_patch_current_value(struct matrix_patch * p, int row_index, int col_index, enum masked masked)
 {
-    void* addr = get_patch_addr(p, row_index, col_index);
+    void* addr = get_matrix_patch_addr(p, row_index, col_index);
     uint32_t raw_value = read_value(addr);
     
     if (masked == MASKED)
@@ -104,7 +104,7 @@ static uint32_t get_patch_current_value(struct patch_info * p, int row_index, in
     }
 }
 
-static uint32_t get_patch_backup_value(struct patch_info * p, int row_index, int col_index, enum masked masked)
+static uint32_t get_matrix_patch_backup_value(struct matrix_patch * p, int row_index, int col_index, enum masked masked)
 {
     int linear_index = COERCE(row_index * p->num_columns + col_index, 0, p->num_rows * p->num_columns - 1);
     uint32_t ans = p->backups[linear_index];
@@ -117,14 +117,14 @@ static uint32_t get_patch_backup_value(struct patch_info * p, int row_index, int
     return ans;
 }
 
-static void set_patch_backup_value(struct patch_info * p, int row_index, int col_index, uint32_t value)
+static void set_matrix_patch_backup_value(struct matrix_patch * p, int row_index, int col_index, uint32_t value)
 {
     dbg_printf("Backup %x[%d][%d] = %x\n", p->addr, row_index, col_index, value);
     int linear_index = COERCE(row_index * p->num_columns + col_index, 0, p->num_rows * p->num_columns - 1);
     p->backups[linear_index] = value;
 }
 
-static uint32_t get_patch_new_value(struct patch_info * p, int row_index, int col_index)
+static uint32_t get_matrix_patch_new_value(struct matrix_patch * p, int row_index, int col_index)
 {
     if (p->patch_scaling == 0)
     {
@@ -132,7 +132,7 @@ static uint32_t get_patch_new_value(struct patch_info * p, int row_index, int co
     }
     else
     {
-        uint32_t old = get_patch_backup_value(p, row_index, col_index, MASKED);
+        uint32_t old = get_matrix_patch_backup_value(p, row_index, col_index, MASKED);
         uint32_t new = (uint64_t) old * (uint64_t) p->patch_scaling / (uint64_t) 0x10000 + p->patch_offset;
         dbg_printf("Scaling %x[%x][%x] from %x to %x f=0x%x/0x10000\n", p->addr, row_index, col_index, old, new & p->patch_mask, p->patch_scaling);
         return new & p->patch_mask;
@@ -161,9 +161,9 @@ int patch_memory_matrix(
     uint32_t old_int = cli();
 
     /* is this address already patched? refuse to patch it twice */
-    for (int i = 0; i < num_patches; i++)
+    for (int i = 0; i < num_matrix_patches; i++)
     {
-        if (patches[i].addr == addr)
+        if (matrix_patches[i].addr == addr)
         {
             err = E_PATCH_ALREADY_PATCHED;
             goto end;
@@ -173,16 +173,16 @@ int patch_memory_matrix(
     }
 
     /* fill metadata */
-    patches[num_patches].addr = addr;
-    patches[num_patches].num_rows = num_rows;
-    patches[num_patches].row_size = row_size;
-    patches[num_patches].num_columns = num_columns;
-    patches[num_patches].col_size = col_size;
-    patches[num_patches].patch_mask = patch_mask;
-    patches[num_patches].patch_scaling = patch_scaling;
-    patches[num_patches].patch_offset = patch_offset;
-    patches[num_patches].backups = backup_storage;
-    patches[num_patches].description = description;
+    matrix_patches[num_matrix_patches].addr = addr;
+    matrix_patches[num_matrix_patches].num_rows = num_rows;
+    matrix_patches[num_matrix_patches].row_size = row_size;
+    matrix_patches[num_matrix_patches].num_columns = num_columns;
+    matrix_patches[num_matrix_patches].col_size = col_size;
+    matrix_patches[num_matrix_patches].patch_mask = patch_mask;
+    matrix_patches[num_matrix_patches].patch_scaling = patch_scaling;
+    matrix_patches[num_matrix_patches].patch_offset = patch_offset;
+    matrix_patches[num_matrix_patches].backups = backup_storage;
+    matrix_patches[num_matrix_patches].description = description;
 
     /* are we patching the right thing? */
     /* and while we are at it, save backup values too */
@@ -190,7 +190,7 @@ int patch_memory_matrix(
     {
         for (int c = 0; c < num_columns; c++)
         {
-            uint32_t old = get_patch_current_value(&patches[num_patches], r, c, NOT_MASKED);
+            uint32_t old = get_matrix_patch_current_value(&matrix_patches[num_matrix_patches], r, c, NOT_MASKED);
 
             /* safety check */
             if ((old & check_mask) != (check_value & check_mask))
@@ -200,7 +200,7 @@ int patch_memory_matrix(
             }
 
             /* save backup value */
-            set_patch_backup_value(&patches[num_patches], r, c, old);
+            set_matrix_patch_backup_value(&matrix_patches[num_matrix_patches], r, c, old);
         }
     }
     
@@ -209,15 +209,15 @@ int patch_memory_matrix(
     {
         for (int c = 0; c < num_columns; c++)
         {
-            void* adr = get_patch_addr(&patches[num_patches], r, c);
-            uint32_t old = get_patch_current_value(&patches[num_patches], r, c, NOT_MASKED);
-            uint32_t patch_value = get_patch_new_value(&patches[num_patches], r, c);
+            void* adr = get_matrix_patch_addr(&matrix_patches[num_matrix_patches], r, c);
+            uint32_t old = get_matrix_patch_current_value(&matrix_patches[num_matrix_patches], r, c, NOT_MASKED);
+            uint32_t patch_value = get_matrix_patch_new_value(&matrix_patches[num_matrix_patches], r, c);
             uint32_t new = (old & ~patch_mask) | (patch_value & patch_mask);
             do_patch(adr, new);
         }
     }
     
-    num_patches++;
+    num_matrix_patches++;
     
 end:
     if (err)
@@ -229,16 +229,16 @@ end:
     return err;
 }
 
-static int is_patch_still_applied(int p)
+static int is_matrix_patch_still_applied(int p)
 {
-    int num_rows = patches[p].num_rows;
-    int num_columns = patches[p].num_columns;
+    int num_rows = matrix_patches[p].num_rows;
+    int num_columns = matrix_patches[p].num_columns;
     for (int r = 0; r < num_rows; r++)
     {
         for (int c = 0; c < num_columns; c++)
         {
-            uint32_t current = get_patch_current_value(&patches[p], r, c, MASKED);
-            uint32_t patched = get_patch_new_value(&patches[p], r, c);
+            uint32_t current = get_matrix_patch_current_value(&matrix_patches[p], r, c, MASKED);
+            uint32_t patched = get_matrix_patch_new_value(&matrix_patches[p], r, c);
             if (current != patched) return 0;
         }
     }
@@ -253,9 +253,9 @@ int unpatch_memory_matrix(uintptr_t _addr)
     uint32_t old_int = cli();
 
     int p = -1;
-    for (int i = 0; i < num_patches; i++)
+    for (int i = 0; i < num_matrix_patches; i++)
     {
-        if (patches[i].addr == addr)
+        if (matrix_patches[i].addr == addr)
         {
             p = i;
             break;
@@ -269,34 +269,34 @@ int unpatch_memory_matrix(uintptr_t _addr)
     }
     
     /* is the patch still applied? */
-    if (!is_patch_still_applied(p))
+    if (!is_matrix_patch_still_applied(p))
     {
         err = E_UNPATCH_OVERWRITTEN;
         goto end;
     }
     
     /* undo the patch */
-    int num_rows = patches[p].num_rows;
-    int num_columns = patches[p].num_columns;
+    int num_rows = matrix_patches[p].num_rows;
+    int num_columns = matrix_patches[p].num_columns;
     for (int r = 0; r < num_rows; r++)
     {
         for (int c = 0; c < num_columns; c++)
         {
-            void* adr = get_patch_addr(&patches[p], r, c);
-            uint32_t old = get_patch_current_value(&patches[p], r, c, NOT_MASKED);
-            uint32_t backup = get_patch_backup_value(&patches[p], r, c, MASKED);
-            uint32_t patch_mask = patches[p].patch_mask;
+            void* adr = get_matrix_patch_addr(&matrix_patches[p], r, c);
+            uint32_t old = get_matrix_patch_current_value(&matrix_patches[p], r, c, NOT_MASKED);
+            uint32_t backup = get_matrix_patch_backup_value(&matrix_patches[p], r, c, MASKED);
+            uint32_t patch_mask = matrix_patches[p].patch_mask;
             uint32_t new = (old & ~patch_mask) | backup;
             do_patch(adr, new);
         }
     }
 
     /* remove from our data structure (shift the other array items) */
-    for (int i = p + 1; i < num_patches; i++)
+    for (int i = p + 1; i < num_matrix_patches; i++)
     {
-        patches[i-1] = patches[i];
+        matrix_patches[i-1] = matrix_patches[i];
     }
-    num_patches--;
+    num_matrix_patches--;
 
 end:
     if (err)
@@ -337,66 +337,66 @@ int patch_memory_array(
     return patch_memory_matrix(addr, num_items, item_size, 1, 0, check_mask, check_value, patch_mask, patch_scaling, patch_offset, backup_storage, description);
 }
 
-static MENU_SELECT_FUNC(patch_scroll)
+static MENU_SELECT_FUNC(matrix_patch_scroll)
 {
     int p = (int) priv;
-    if (p < 0 || p >= num_patches)
+    if (p < 0 || p >= num_matrix_patches)
         return;
     
-    int scroll_pos = patches[p].scroll_pos;
-    menu_numeric_toggle(&scroll_pos, delta, 0, patches[p].num_rows * patches[p].num_columns - 1);
-    patches[p].scroll_pos = scroll_pos;
+    int scroll_pos = matrix_patches[p].scroll_pos;
+    menu_numeric_toggle(&scroll_pos, delta, 0, matrix_patches[p].num_rows * matrix_patches[p].num_columns - 1);
+    matrix_patches[p].scroll_pos = scroll_pos;
 }
 
-static MENU_UPDATE_FUNC(patch_update)
+static MENU_UPDATE_FUNC(matrix_patch_update)
 {
     int p = (int) entry->priv;
-    if (p < 0 || p >= num_patches)
+    if (p < 0 || p >= num_matrix_patches)
     {
         entry->shidden = 1;
         return;
     }
 
     /* long description */
-    MENU_SET_HELP("%s.", patches[p].description);
+    MENU_SET_HELP("%s.", matrix_patches[p].description);
 
     /* short description: assume the long description is formatted as "module_name: it does this and that" */
     /* => extract module_name and display it as short description */
     char short_desc[16];
-    snprintf(short_desc, sizeof(short_desc), "%s", patches[p].description);
+    snprintf(short_desc, sizeof(short_desc), "%s", matrix_patches[p].description);
     char* sep = strchr(short_desc, ':');
     if (sep) *sep = 0;
     MENU_SET_RINFO("%s", short_desc);
 
-    /* ROM patches are considered invasive, display them with red icon */
-    MENU_SET_ICON(IS_ROM_PTR(patches[p].addr) ? MNI_RECORD : MNI_ON, 0);
+    /* ROM matrix_patches are considered invasive, display them with red icon */
+    MENU_SET_ICON(IS_ROM_PTR(matrix_patches[p].addr) ? MNI_RECORD : MNI_ON, 0);
 
     char name[20];
     snprintf(name, sizeof(name), "Array: %X");
     
-    int row = (patches[p].scroll_pos / patches[p].num_columns) % patches[p].num_rows;
-    int col = patches[p].scroll_pos % patches[p].num_columns;
+    int row = (matrix_patches[p].scroll_pos / matrix_patches[p].num_columns) % matrix_patches[p].num_rows;
+    int col = matrix_patches[p].scroll_pos % matrix_patches[p].num_columns;
     
-    if (patches[p].scroll_pos == 0)
+    if (matrix_patches[p].scroll_pos == 0)
     {
-        if (patches[p].num_rows > 1)
+        if (matrix_patches[p].num_rows > 1)
         {
-            STR_APPEND(name, " "SYM_TIMES" %d", patches[p].num_rows);
+            STR_APPEND(name, " "SYM_TIMES" %d", matrix_patches[p].num_rows);
         }
 
-        if (patches[p].num_columns > 1)
+        if (matrix_patches[p].num_columns > 1)
         {
-            STR_APPEND(name, " "SYM_TIMES" %d", patches[p].num_columns);
+            STR_APPEND(name, " "SYM_TIMES" %d", matrix_patches[p].num_columns);
         }
     }
     else
     {
-        if (patches[p].num_rows > 1)
+        if (matrix_patches[p].num_rows > 1)
         {
             STR_APPEND(name, " [%d]", row);
         }
 
-        if (patches[p].num_columns > 1)
+        if (matrix_patches[p].num_columns > 1)
         {
             STR_APPEND(name, " [%d]", col);
         }
@@ -406,9 +406,9 @@ static MENU_UPDATE_FUNC(patch_update)
 
     /* if 16-bit is enough, show only that */
     int type_mask = 0xFFFF;
-    if (patches[p].patch_mask & 0xFFFF0000) type_mask = 0xFFFFFFFF;
-    int val = get_patch_current_value(&patches[p], row, col, NOT_MASKED) & type_mask;
-    int backup = get_patch_backup_value(&patches[p], row, col, NOT_MASKED) & type_mask;
+    if (matrix_patches[p].patch_mask & 0xFFFF0000) type_mask = 0xFFFFFFFF;
+    int val = get_matrix_patch_current_value(&matrix_patches[p], row, col, NOT_MASKED) & type_mask;
+    int backup = get_matrix_patch_backup_value(&matrix_patches[p], row, col, NOT_MASKED) & type_mask;
 
     /* patch value: do we have enough space to print before and after? */
     if ((val & 0xFFFF0000) == 0 && (backup & 0xFFFF0000) == 0)
@@ -421,11 +421,11 @@ static MENU_UPDATE_FUNC(patch_update)
     }
 
     /* some detailed info */
-    void* addr = get_patch_addr(&patches[p], row, col);
-    MENU_SET_WARNING(MENU_WARN_INFO, "0x%X: 0x%X -> 0x%X, mask %x.", addr, backup, val, patches[p].patch_mask);
+    void* addr = get_matrix_patch_addr(&matrix_patches[p], row, col);
+    MENU_SET_WARNING(MENU_WARN_INFO, "0x%X: 0x%X -> 0x%X, mask %x.", addr, backup, val, matrix_patches[p].patch_mask);
     
     /* was this patch overwritten by somebody else? */
-    if (!is_patch_still_applied(p))
+    if (!is_matrix_patch_still_applied(p))
     {
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This patch was overwritten, probably by Maxwell's demon.");
     }
@@ -434,17 +434,17 @@ static MENU_UPDATE_FUNC(patch_update)
 /* forward reference */
 static struct menu_entry patch_menu[];
 
-static MENU_UPDATE_FUNC(patches_update)
+static MENU_UPDATE_FUNC(matrix_patches_update)
 {
     int ram_patches = 0;
     int rom_patches = 0;
     int errors = 0;
 
-    for (int i = 0; i < MAX_PATCHES; i++)
+    for (int i = 0; i < MAX_MATRIX_PATCHES; i++)
     {
-        if (i < num_patches)
+        if (i < num_matrix_patches)
         {
-            if (IS_ROM_PTR(patches[i].addr))
+            if (IS_ROM_PTR(matrix_patches[i].addr))
             {
                 rom_patches++;
             }
@@ -454,7 +454,7 @@ static MENU_UPDATE_FUNC(patches_update)
             }
             patch_menu[0].children[i].shidden = 0;
             
-            if (!is_patch_still_applied(i))
+            if (!is_matrix_patch_still_applied(i))
             {
                 snprintf(last_error, sizeof(last_error), "Patch %x overwritten, probably by Maxwell's demon.");
                 puts(last_error);
@@ -492,57 +492,57 @@ static MENU_UPDATE_FUNC(patches_update)
     }
 }
 
-#define PATCH_ENTRY(i) \
+#define MATRIX_PATCH_ENTRY(i) \
         { \
             .priv = (void*)i, \
-            .select = patch_scroll, \
-            .update = patch_update, \
+            .select = matrix_patch_scroll, \
+            .update = matrix_patch_update, \
             .shidden = 1, \
         }
 
 static struct menu_entry patch_menu[] =
 {
     {
-        .name = "Memory patches",
-        .update = patches_update,
+        .name = "Matrix patches",
+        .update = matrix_patches_update,
         .select = menu_open_submenu,
         .icon_type = IT_SUBMENU,
         .help = "Show memory addresses patched in Canon code or data areas.",
         .submenu_width = 710,
         .children =  (struct menu_entry[]) {
-            // for i in range(128): print "            PATCH_ENTRY(%d)," % i
-            PATCH_ENTRY(0),
-            PATCH_ENTRY(1),
-            PATCH_ENTRY(2),
-            PATCH_ENTRY(3),
-            PATCH_ENTRY(4),
-            PATCH_ENTRY(5),
-            PATCH_ENTRY(6),
-            PATCH_ENTRY(7),
-            PATCH_ENTRY(8),
-            PATCH_ENTRY(9),
-            PATCH_ENTRY(10),
-            PATCH_ENTRY(11),
-            PATCH_ENTRY(12),
-            PATCH_ENTRY(13),
-            PATCH_ENTRY(14),
-            PATCH_ENTRY(15),
-            PATCH_ENTRY(16),
-            PATCH_ENTRY(17),
-            PATCH_ENTRY(18),
-            PATCH_ENTRY(19),
-            PATCH_ENTRY(20),
-            PATCH_ENTRY(21),
-            PATCH_ENTRY(22),
-            PATCH_ENTRY(23),
-            PATCH_ENTRY(24),
-            PATCH_ENTRY(25),
-            PATCH_ENTRY(26),
-            PATCH_ENTRY(27),
-            PATCH_ENTRY(28),
-            PATCH_ENTRY(29),
-            PATCH_ENTRY(30),
-            PATCH_ENTRY(31),
+            // for i in range(128): print "            MATRIX_PATCH_ENTRY(%d)," % i
+            MATRIX_PATCH_ENTRY(0),
+            MATRIX_PATCH_ENTRY(1),
+            MATRIX_PATCH_ENTRY(2),
+            MATRIX_PATCH_ENTRY(3),
+            MATRIX_PATCH_ENTRY(4),
+            MATRIX_PATCH_ENTRY(5),
+            MATRIX_PATCH_ENTRY(6),
+            MATRIX_PATCH_ENTRY(7),
+            MATRIX_PATCH_ENTRY(8),
+            MATRIX_PATCH_ENTRY(9),
+            MATRIX_PATCH_ENTRY(10),
+            MATRIX_PATCH_ENTRY(11),
+            MATRIX_PATCH_ENTRY(12),
+            MATRIX_PATCH_ENTRY(13),
+            MATRIX_PATCH_ENTRY(14),
+            MATRIX_PATCH_ENTRY(15),
+            MATRIX_PATCH_ENTRY(16),
+            MATRIX_PATCH_ENTRY(17),
+            MATRIX_PATCH_ENTRY(18),
+            MATRIX_PATCH_ENTRY(19),
+            MATRIX_PATCH_ENTRY(20),
+            MATRIX_PATCH_ENTRY(21),
+            MATRIX_PATCH_ENTRY(22),
+            MATRIX_PATCH_ENTRY(23),
+            MATRIX_PATCH_ENTRY(24),
+            MATRIX_PATCH_ENTRY(25),
+            MATRIX_PATCH_ENTRY(26),
+            MATRIX_PATCH_ENTRY(27),
+            MATRIX_PATCH_ENTRY(28),
+            MATRIX_PATCH_ENTRY(29),
+            MATRIX_PATCH_ENTRY(30),
+            MATRIX_PATCH_ENTRY(31),
             MENU_EOL,
         }
     }
