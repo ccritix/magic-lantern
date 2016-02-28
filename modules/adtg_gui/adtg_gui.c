@@ -5493,7 +5493,7 @@ static unsigned int adtg_gui_init()
         ENG_DRV_OUT_FUNC = 0xff97d794;
         SEND_DATA_TO_DFE_FUNC = 0xffa71598;
     }
-    else if (is_camera("6D", "1.1.3")) // from 1%
+    else if (is_camera("6D", "1.1.6")) // from 1% (match 6D.113), JL, checked by Maqs
     {
         CMOS_WRITE_FUNC = 0x2445C; //"[REG] ############ Start CMOS OC_KICK"
         CMOS2_WRITE_FUNC = 0x2420C; //"[REG] ############ Start CMOS"
@@ -5517,7 +5517,7 @@ static unsigned int adtg_gui_init()
         ADTG_WRITE_FUNC = 0x178FC; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0x17A1C; //"[REG] ############ Start CMOS"
     }
-    else if (is_camera("700D", "1.1.3"))
+    else if (is_camera("700D", "1.1.4"))
     {
         ADTG_WRITE_FUNC = 0x178FC; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0x17A1C; //"[REG] ############ Start CMOS"

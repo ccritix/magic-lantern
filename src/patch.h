@@ -26,16 +26,18 @@
 #define _patch_h_
 
 #define E_PATCH_OK 0
-#define E_PATCH_FAILED 0x1
-#define E_PATCH_ALREADY_PATCHED 0x2
-#define E_PATCH_REG_NOT_FOUND 0x08
-#define E_PATCH_CACHE_COLLISION 0x10
-#define E_PATCH_CACHE_ERROR     0x20
+#define E_PATCH_UNKNOWN_ERROR       0x1
+#define E_PATCH_ALREADY_PATCHED     0x2
+#define E_PATCH_TOO_MANY_PATCHES    0x4
+#define E_PATCH_OLD_VALUE_MISMATCH  0x8
+#define E_PATCH_CACHE_COLLISION     0x10
+#define E_PATCH_CACHE_ERROR         0x20
+#define E_PATCH_REG_NOT_FOUND       0x40
 
-#define E_UNPATCH_OK 0
-#define E_UNPATCH_FAILED 0x10000
-#define E_UNPATCH_OVERWRITTEN 0x20000
-#define E_UNPATCH_REG_NOT_FOUND 0x80000
+#define E_UNPATCH_OK                0
+#define E_UNPATCH_NOT_PATCHED       0x10000
+#define E_UNPATCH_OVERWRITTEN       0x20000
+#define E_UNPATCH_REG_NOT_FOUND     0x80000
 
 /****************
  * Data patches *

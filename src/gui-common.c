@@ -17,7 +17,7 @@
 #include <af_patterns.h>
 #endif
 
-#if defined(CONFIG_LVAPP_HACK_RELOC) || defined(CONFIG_LVAPP_HACK_DEBUGMSG) || defined(CONFIG_LVAPP_HACK_FBUFF)
+#if defined(CONFIG_LVAPP_HACK_RELOC) || defined(CONFIG_LVAPP_HACK_DEBUGMSG)
 #define CONFIG_LVAPP_HACK
 #endif
 
@@ -44,10 +44,11 @@ extern int cf_card_workaround;
 
 static void hacked_DebugMsg(int class, int level, char* fmt, ...)
 {
+    #if defined(CONFIG_LVAPP_HACK_DEBUGMSG)
     if (bottom_bar_hack && class == 131 && level == 1)
-    
-    #if defined(JUDGE_BOTTOM_INFO_DISP_TIMER_STATE)
+    {
         MEM(JUDGE_BOTTOM_INFO_DISP_TIMER_STATE) = 0;
+    }
     #endif
 
     #ifdef CONFIG_5D3
@@ -126,19 +127,15 @@ int handle_other_events(struct event * event)
 
             if (get_halfshutter_pressed()) bottom_bar_dirty = 10;
 
-            #ifdef CONFIG_LVAPP_HACK_FBUFF
-            if (!canon_gui_front_buffer_disabled() && UNAVI_FEEDBACK_TIMER_ACTIVE)
-            {
-                clrscr();
-                canon_gui_disable_front_buffer();
-                bottom_bar_dirty=0;
-            }
-
-            if (canon_gui_front_buffer_disabled() && !UNAVI_FEEDBACK_TIMER_ACTIVE)
-            {
-                canon_gui_enable_front_buffer(0);
-            }
-            #else
+            #ifdef UNAVI_FEEDBACK_TIMER_ACTIVE
+            /*
+             * Hide Canon's Q menu (aka UNAVI) as soon as the user quits it.
+             * 
+             * By default, this menu remains on screen for a few seconds.
+             * After it disappears, we would have to redraw cropmarks, zebras and so on,
+             * which looks pretty ugly, since our redraw is slow.
+             * Better hide the menu right away, then redraw - it feels a lot less sluggish.
+             */
             if (UNAVI_FEEDBACK_TIMER_ACTIVE)
             {
                 /* Canon stub */
@@ -147,7 +144,6 @@ int handle_other_events(struct event * event)
                 bottom_bar_dirty = 0;
             }
             #endif
-
         }
         else
         {
@@ -160,14 +156,13 @@ int handle_other_events(struct event * event)
             bottom_bar_dirty = 0;
         }
 
+        /* Redraw ML bottom bar if Canon bar was displayed over it */
         if (!liveview_display_idle()) bottom_bar_dirty = 0;
         if (bottom_bar_dirty) bottom_bar_dirty--;
-
         if (bottom_bar_dirty == 1)
         {
             lens_display_set_dirty();
         }
-
     }
 #endif
     return 1;
@@ -214,7 +209,16 @@ static int pre_shutdown_requested = 0; // used for preventing wakeup from paused
 void reset_pre_shutdown_flag_step() // called every second
 {
     if (pre_shutdown_requested && !sensor_cleaning)
+    {
         pre_shutdown_requested--;
+        
+        if (!pre_shutdown_requested)
+        {
+            /* false shutdown alarm? */
+            info_led_off();
+            _card_led_off();
+        }
+    }
 }
 
 void check_pre_shutdown_flag() // called from ml_shutdown
@@ -404,7 +408,9 @@ int handle_common_events_by_feature(struct event * event)
         event->param == GMT_GUICMD_LOCK_OFF)
     {
         pre_shutdown_requested = 4;
+        info_led_on(); _card_led_on();
         config_save_at_shutdown();
+        info_led_on(); _card_led_on();
         return 1;
     }
 
@@ -481,8 +487,8 @@ int handle_common_events_by_feature(struct event * event)
     if (handle_transparent_overlay(event) == 0) return 0; // on 500D, these two share the same key
     #endif
     
-    #if defined(FEATURE_OVERLAYS_IN_PLAYBACK_MODE) && defined(BTN_ZEBRAS_FOR_PLAYBACK) && defined(BTN_ZEBRAS_FOR_PLAYBACK_NAME)
-    if (handle_livev_playback(event) == 0) return 0;
+    #if defined(FEATURE_OVERLAYS_IN_PLAYBACK_MODE)
+    if (handle_overlays_playback(event) == 0) return 0;
     #endif
 
     #if defined(FEATURE_SET_MAINDIAL) || defined(FEATURE_QUICK_ERASE) || defined(FEATURE_KEN_ROCKWELL_ZOOM_5D3)

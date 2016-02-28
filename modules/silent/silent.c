@@ -67,6 +67,8 @@ static char image_file_name[100];
 static uint32_t mlv_max_filesize = 0xFFFFFFFF;
 static int mlv_file_frame_number = 0;
 
+static int long_exposure_fix_enabled = 0;
+
 
 static MENU_UPDATE_FUNC(silent_pic_slitscan_display)
 {
@@ -805,7 +807,7 @@ static int silent_pic_raw_prepare_buffers(struct memSuite * hSuite)
         int size = GetSizeOfMemoryChunk(hChunk);
         int used = ptr - ptr0;
         int remain = size - used;
-        //~ console_printf("remain: %x\n", remain);
+        //~ printf("remain: %x\n", remain);
 
         /* the EDMAC might write a bit more than that, so we'll use a small safety margin */
         if (remain < raw_info.frame_size * 33/32)
@@ -814,22 +816,22 @@ static int silent_pic_raw_prepare_buffers(struct memSuite * hSuite)
             hChunk = GetNextMemoryChunk(hSuite, hChunk);
             if (!hChunk)
             {
-                //~ console_printf("no more memory\n");
+                //~ printf("no more memory\n");
                 break;
             }
             ptr = (void*) GetMemoryAddressOfMemoryChunk(hChunk);
-            //~ console_printf("next chunk: %x %x\n", hChunk, ptr);
+            //~ printf("next chunk: %x %x\n", hChunk, ptr);
             continue;
         }
         else /* alright, a new frame fits here */
         {
-            //~ console_printf("FRAME %d: hSuite=%x hChunk=%x ptr=%x\n", count, hSuite, hChunk, ptr);
+            //~ printf("FRAME %d: hSuite=%x hChunk=%x ptr=%x\n", count, hSuite, hChunk, ptr);
             sp_frames[count] = ptr;
             count++;
             ptr = ptr + raw_info.frame_size;
             if (count >= SP_BUFFER_SIZE)
             {
-                //~ console_printf("we have lots of RAM, lol\n");
+                //~ printf("we have lots of RAM, lol\n");
                 break;
             }
         }
@@ -1082,6 +1084,21 @@ static void display_off_if_qr_mode(int unused, int preview_time)
 
 static uint32_t SLOWEST_SHUTTER = SHUTTER_15s;
 
+static void long_exposure_fix()
+{
+    unsigned shutter_old = lens_info.raw_shutter;
+    if (long_exposure_fix_enabled && shutter_old < SHUTTER_0s8)
+    {
+        unsigned shutter = SHUTTER_1_500;
+        prop_request_change_wait( PROP_SHUTTER, &shutter, 4, 100);
+        void* job = (void*) call("FA_CreateTestImage");
+        call("FA_CaptureTestImage", job);
+        call("FA_DeleteTestImage", job);
+        
+        prop_request_change_wait( PROP_SHUTTER, &shutter_old, 4, 100);
+    }
+}
+
 static int
 silent_pic_take_fullres(int interactive)
 {
@@ -1316,6 +1333,7 @@ cleanup:
         call("FA_DeleteTestImage", copy_job);
     }
     
+    long_exposure_fix();
     gui_uilock(UILOCK_NONE);
     
     return ok;
@@ -1522,7 +1540,7 @@ static unsigned int silent_init()
     if (is_camera("500D", "*") || is_camera("550D", "*") || is_camera("600D", "*"))
     {
         /* see http://www.magiclantern.fm/forum/index.php?topic=12523.msg129874#msg129874 */
-        SLOWEST_SHUTTER = SHUTTER_0s8;
+        long_exposure_fix_enabled = 1;
     }
 
     menu_add("Shoot", silent_menu, COUNT(silent_menu));
