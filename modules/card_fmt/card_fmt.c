@@ -66,6 +66,7 @@ static void update_patch()
     {
         unpatch_memory(addr_exfat_table);
     }
+    patch_active = 0;
 
     if (card_fs)
     {
