@@ -141,6 +141,16 @@ static unsigned int card_fmt_init()
         addr_fat_table_1        = 0xFF9D2BBC;
         addr_fat_table_2        = 0xFF9D2B70;
     }
+    else if (is_camera("5D3",  "1.2.3"))
+    {
+        addr_cf_check           = 0xFF5C63B4;
+        addr_fat_or_exfat       = 0xFF5C6624;
+        addr_fat_type_or_exfat  = 0xFF735BA0;
+        addr_partition_id       = 0xFF735CA0;
+        addr_exfat_table        = 0xFF9E4338;
+        addr_fat_table_1        = 0xFF9E4320;
+        addr_fat_table_2        = 0xFF9E4294;
+    }
 
     /* check stubs */
     if ((MEM(addr_cf_check)          != CMP_R0_0x10000000) ||
