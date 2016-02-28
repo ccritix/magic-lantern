@@ -165,6 +165,7 @@ extern int call( const char* name, ... );
 // stdio
 extern int vsnprintf( char* str, size_t n, const char* fmt, va_list ap ); // non-standard; don't export it
 extern int printf(const char* fmt, ... );
+extern int puts(const char* s);
 
 extern size_t strlen( const char* str );
 extern int snprintf( char* str, size_t n, const char* fmt, ... );
