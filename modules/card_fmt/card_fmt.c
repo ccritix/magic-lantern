@@ -10,7 +10,7 @@ static CONFIG_INT("card_fs", card_fs, 0);
 #define FORCE_EXFAT 2
 
 /* addresses to be patched */
-static uint32_t addr_cf_check = 0;
+static uint32_t addr_cf_check = 0;              /* this one is optional, only for CF cameras */
 static uint32_t addr_fat_or_exfat = 0;
 static uint32_t addr_fat_type_or_exfat = 0;
 static uint32_t addr_partition_id = 0;
@@ -49,7 +49,10 @@ static void update_patch()
     /* undo active patches, if any */
     if (patch_active)
     {
-        unpatch_memory(addr_cf_check);
+        if (addr_cf_check)
+        {
+            unpatch_memory(addr_cf_check);
+        }
         unpatch_memory(addr_fat_or_exfat);
         unpatch_memory(addr_partition_id);
     }
@@ -79,7 +82,10 @@ static void update_patch()
             card_fs == FORCE_EXFAT ? CMP_R0_0x00FC0000 : 0;
 
         /* common patches */
-        patch_instruction(addr_cf_check,                CMP_R0_0x10000000, patched_insn_cf, "CardFS: handle large CF cards as SD (to use exFAT)");
+        if (addr_cf_check)
+        {
+            patch_instruction(addr_cf_check,            CMP_R0_0x10000000, patched_insn_cf, "CardFS: handle large CF cards as SD (to use exFAT)");
+        }
         patch_instruction(addr_fat_or_exfat,            CMP_R1_0x04000000, patched_insn1,   "CardFS: filesystem decision 1 (FAT or exFAT)");
         patch_instruction(addr_partition_id,            CMP_R6_0x04000000, patched_insn2,   "CardFS: filesystem decision 2a (FAT12/16/32/exFAT)");
         
@@ -151,9 +157,19 @@ static unsigned int card_fmt_init()
         addr_fat_table_1        = 0xFF9E4320;
         addr_fat_table_2        = 0xFF9E4294;
     }
+    else if (is_camera("650D",  "1.0.4"))
+    {
+        addr_fat_or_exfat       = 0xFF62B960;
+        addr_fat_type_or_exfat  = 0xFF7A1A74;
+        addr_partition_id       = 0xFF7A1B74;
+        addr_exfat_table        = 0xFFA3E8A8;
+        addr_fat_table_1        = 0xFFA3E890;
+        addr_fat_table_2        = 0xFFA3E844;
+    }
 
     /* check stubs */
-    if ((MEM(addr_cf_check)          != CMP_R0_0x10000000) ||
+    if ((addr_cf_check &&
+         MEM(addr_cf_check)          != CMP_R0_0x10000000) ||
         (MEM(addr_fat_or_exfat)      != CMP_R1_0x04000000) ||
         (MEM(addr_fat_type_or_exfat) != CMP_R6_0x04000000) ||
         (MEM(addr_partition_id)      != CMP_R6_0x04000000) ||
