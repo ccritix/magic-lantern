@@ -169,6 +169,7 @@ ML_SRC_OBJS = \
 	raw.o \
 	chdk-dng.o \
 	edmac-memcpy.o \
+	patch.o \
 
 
 ML_OBJS-y += $(ML_SRC_OBJS)
