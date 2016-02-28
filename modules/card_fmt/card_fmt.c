@@ -10,11 +10,13 @@ static CONFIG_INT("card_fs", card_fs, 0);
 #define FORCE_EXFAT 2
 
 /* addresses to be patched */
+static uint32_t addr_cf_check = 0;
 static uint32_t addr_fat_or_exfat = 0;
 static uint32_t addr_fat_type_or_exfat = 0;
 static uint32_t addr_partition_id = 0;
 static uint32_t addr_exfat_table = 0;
-static uint32_t addr_cf_check = 0;
+static uint32_t addr_fat_table_1 = 0;
+static uint32_t addr_fat_table_2 = 0;
 
 /* values */
 
@@ -54,6 +56,8 @@ static void update_patch()
     if (patch_active == FORCE_FAT32)
     {
         unpatch_memory(addr_fat_type_or_exfat);
+        unpatch_memory(addr_fat_table_1);
+        unpatch_memory(addr_fat_table_2);
     }
     else if (patch_active == FORCE_EXFAT)
     {
@@ -83,6 +87,8 @@ static void update_patch()
         {
             /* patches only needed for forcing FAT32 */
             patch_instruction(addr_fat_type_or_exfat,   CMP_R6_0x04000000, patched_insn2,   "CardFS: filesystem decision 2b (FAT12/16/32/exFAT)");
+            patch_memory     (addr_fat_table_1,         0x04000000, 0x40000000,             "CardFS: FAT32 parameters table 1 extended from 32GB to 512GB");
+            patch_memory     (addr_fat_table_2,         0x04000000, 0x40000000,             "CardFS: FAT32 parameters table 2 extended from 32GB to 512GB");
         }
         else if (card_fs == FORCE_EXFAT)
         {
@@ -132,6 +138,8 @@ static unsigned int card_fmt_init()
         addr_fat_type_or_exfat  = 0xFF729C60;
         addr_partition_id       = 0xFF729D60;
         addr_exfat_table        = 0xFF9D2BD4;
+        addr_fat_table_1        = 0xFF9D2BBC;
+        addr_fat_table_2        = 0xFF9D2B70;
     }
 
     /* check stubs */
@@ -139,12 +147,9 @@ static unsigned int card_fmt_init()
         (MEM(addr_fat_or_exfat)      != CMP_R1_0x04000000) ||
         (MEM(addr_fat_type_or_exfat) != CMP_R6_0x04000000) ||
         (MEM(addr_partition_id)      != CMP_R6_0x04000000) ||
-        (MEM(addr_exfat_table)       != 0x04000000) ||
-        (MEM(addr_exfat_table+0x04)  != 0) ||
-        (MEM(addr_exfat_table+0x08)  != 0) ||
-        (MEM(addr_exfat_table+0x0C)  != 0x10000000) ||
-        (MEM(addr_exfat_table+0x10)  != 0x100) ||
-        (MEM(addr_exfat_table+0x14)  != 0x8000))
+        (memcmp((void*)addr_exfat_table, (const uint32_t[]){0x04000000, 0, 0, 0x10000000}, 4*4)) ||
+        (memcmp((void*)addr_fat_table_1, (const uint32_t[]){0x04000000, 0x40, 0x2000, 0xFFFFFFFF}, 4*4)) ||
+        (memcmp((void*)addr_fat_table_2, (const uint32_t[]){0x04000000, 0x3F00FF, 0xFFFFFFFF, 0}, 4*4)))
     {
         return CBR_RET_ERROR;
     }
