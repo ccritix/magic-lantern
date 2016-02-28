@@ -834,8 +834,9 @@ static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc)
         int32_t new_offset = fixup - new_pc - 8;
 
         uint32_t new_instr = 0
-            | ( instr & ~0xFFF )
-            | ( new_offset & 0xFFF )
+            | ( 1<<23 )                 /* our fixup is always forward */
+            | ( instr & ~0xFFF )        /* copy old instruction, without offset */
+            | ( new_offset & 0xFFF )    /* replace offset */
             ;
 
         // Copy the data to the offset location
