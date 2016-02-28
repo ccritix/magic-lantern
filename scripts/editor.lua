@@ -55,7 +55,7 @@ function button:draw()
         else bg = self.highlight end
     end
     display.rect(self.left,self.top,self.width,self.height,self.border,bg)
-    local x =  self.width / 2 - self.font:width(self.caption) / 2
+    local x =  self.width // 2 - self.font:width(self.caption) // 2
     display.print(self.caption,self.left + x,self.top + self.pad,self.font,fg,bg)
 end
 
@@ -90,8 +90,8 @@ function scrollbar:draw()
     if (self.max - self.min + 1) * self.step <= self.height then return end
     
     local total_height = (self.max - self.min + 1) * self.step
-    local thumb_height = self.height * self.height / total_height
-    local offset = (self.value - self.min) * self.step * self.height / total_height
+    local thumb_height = self.height * self.height // total_height
+    local offset = (self.value - self.min) * self.step * self.height // total_height
     display.rect(self.left,self.top + offset,self.width,thumb_height,self.foreground,self.foreground)
 end
 
@@ -200,7 +200,7 @@ function filedialog:createcontrols()
     --limit chars to those needed for filenames
     self.save_box.min_char = 46
     self.save_box.max_char = 95
-    local w = self.width / 2
+    local w = self.width // 2
     self.ok_button = button.create("OK",self.left,self.top+self.height,self.font,w)
     self.cancel_button = button.create("Cancel",self.left + w,self.top+self.height,self.font,w)
     local title_height = 20 + FONT.LARGE.height
@@ -237,8 +237,8 @@ end
 function filedialog:scroll_into_view()
     if self.selected < self.scrollbar.value then
         self.scrollbar.value = self.selected
-    elseif self.selected >= self.scrollbar.value + (self.height - 20 - FONT.LARGE.height) / self.font.height - 3  then
-        self.scrollbar.value = self.selected - ((self.height - 20 - FONT.LARGE.height) / self.font.height - 3)
+    elseif self.selected >= self.scrollbar.value + (self.height - 20 - FONT.LARGE.height) // self.font.height - 3  then
+        self.scrollbar.value = self.selected - ((self.height - 20 - FONT.LARGE.height) // self.font.height - 3)
     end
 end
 
@@ -328,7 +328,7 @@ function filedialog:show()
     end
     self.focused_index = 1
     self:update_focus()
-    local w = self.width/2
+    local w = self.width//2
     self:updatefiles()
     self:draw()
     local started = keys:start()
@@ -461,7 +461,9 @@ editor =
     submenu_index = 1,
     font = FONT.MONO_20,
     debugging = false,
-    time = 0
+    menu_font = FONT.LARGE,
+    title_height = 20 + FONT.LARGE.height,
+    q_width = FONT.LARGE:width("Q") + 20,
 }
 
 for k,v in pairs(FONT) do
@@ -469,8 +471,8 @@ for k,v in pairs(FONT) do
 end
 table.sort(editor.menu[4].items)
 
-editor.lines_per_page = (display.height - 20 - FONT.LARGE.height) / editor.font.height / 2
-editor.scrollbar = scrollbar.create(editor.font.height,1,1,display.width - 2,20 + FONT.LARGE.height,2)
+editor.lines_per_page = (display.height - editor.title_height) // editor.font.height // 2
+editor.scrollbar = scrollbar.create(editor.font.height,1,1,display.width - 2,editor.title_height,2)
 
 editor.mlmenu = menu.new
 {
@@ -520,7 +522,6 @@ function editor:main_loop()
         if menu.visible == false then break end
         local key = keys:getkey()
         if key ~= nil then
-            local redraw = false
             if self.menu_open then
                 if self:handle_menu_key(key) == false then
                     break
@@ -533,9 +534,11 @@ function editor:main_loop()
                 self:handle_key(key)
             end
             self:draw()
+            --don't yield long, see if there's more keys to process
+            task.yield(1)
+        else
+            task.yield(100)
         end
-        editor.time = editor.time + 1
-        task.yield(100)
     end
     keys:stop()
     if self.running == false then menu.block(false) end
@@ -635,6 +638,18 @@ function editor:handle_key(k)
                 self.selection_end = {self.line,self.col}
             end
         end
+    elseif type(k) == "table" or type(k) == nil then
+        if k.y <= self.title_height then
+            if k.type == 0 then
+                self.menu_open = true
+            end
+        elseif k.type == 0 then
+            local line = ((k.y - self.title_height) // self.font.height) + self.scrollbar.value - 1
+            if line > 0 and line <= #(self.lines) then
+                self.line = line
+                self.col = 1
+            end
+        end
     end
 end
 
@@ -672,38 +687,73 @@ function editor:handle_menu_key(k)
         local m = self.menu[self.menu_index]
         self.submenu_index = dec(self.submenu_index,1,#(m.items))
     elseif k == KEY.SET then
-        local m = self.menu[self.menu_index].items[self.submenu_index]
-        if self:menu_enabled(m) then
-            if m == "Exit" then return false
-            elseif m == "Save" then self:save(self.filename)
-            elseif m == "Save As" then self:save()
-            elseif m == "New" then self:new()
-            elseif m == "Open" then self:open()
-            elseif m == "Cut" then self:copy() self:delete_selection()
-            elseif m == "Copy" then self:copy()
-            elseif m == "Paste" then self:paste()
-            elseif m == "Select All" then
-                self.selection_start = {1,1}
-                self.selection_end = {#(self.lines),#(self.lines[self.line])}
-            elseif m == "Run" then
-                if self:save(self.filename) then
-                    self:debug()
-                end
-            elseif m == "Step Into" then
-                if self:save(self.filename) then
-                    self:debug(true)
-                end
-            elseif m == "Detach" then
-                self.debugging = false
-                debug.sethook()
-            elseif m == "Stacktrace" then
-                self:draw_text(self.stacktrace)
-            elseif m == "Locals" then
-                self:draw_text(self.locals)
-            elseif FONT[m] ~= nil then
-                self.font = FONT[m]
-                self.scrollbar.step = self.font.height
+        return self:do_menu_item()
+    elseif type(k) == "table" or type(k) == nil then
+        if k.y <= self.title_height then
+            if k.type == 0 then
+                self.menu_open = false
             end
+        elseif k.y < self.title_height + self.menu_font.height + 10 then
+            local x = 0
+            for i,v in ipairs(self.menu) do
+                local w = self.menu_font:width(v.name) + 20
+                x = x + w
+                if k.x < x then
+                    self.menu_index = i
+                    self.submenu_index = 1
+                    return true
+                end
+            end
+            if k.type == 0 then self.menu_open = false end
+        else
+            local m = self.menu[self.menu_index]
+            local n = k.y - (self.title_height + self.menu_font.height + 10)
+            n = n // self.menu_font.height + 1
+            if n >= 1 and n <= #(m.items) then
+                self.submenu_index = n
+                if k.type == 0 then
+                    return self:do_menu_item()
+                end
+            elseif k.type == 0 then
+                self.menu_open = false
+            end
+        end
+    end
+    return true
+end
+
+function editor:do_menu_item()
+    local m = self.menu[self.menu_index].items[self.submenu_index]
+    if self:menu_enabled(m) then
+        if m == "Exit" then return false
+        elseif m == "Save" then self:save(self.filename)
+        elseif m == "Save As" then self:save()
+        elseif m == "New" then self:new()
+        elseif m == "Open" then self:open()
+        elseif m == "Cut" then self:copy() self:delete_selection()
+        elseif m == "Copy" then self:copy()
+        elseif m == "Paste" then self:paste()
+        elseif m == "Select All" then
+            self.selection_start = {1,1}
+            self.selection_end = {#(self.lines),#(self.lines[self.line])}
+        elseif m == "Run" then
+            if self:save(self.filename) then
+                self:debug()
+            end
+        elseif m == "Step Into" then
+            if self:save(self.filename) then
+                self:debug(true)
+            end
+        elseif m == "Detach" then
+            self.debugging = false
+            debug.sethook()
+        elseif m == "Stacktrace" then
+            self:draw_text(self.stacktrace)
+        elseif m == "Locals" then
+            self:draw_text(self.locals)
+        elseif FONT[m] ~= nil then
+            self.font = FONT[m]
+            self.scrollbar.step = self.font.height
         end
     end
     return true
@@ -729,8 +779,10 @@ function editor:open()
         self:update_title(false, true)
         self.lines = {}
         self:draw_status("Loading...")
-        for line in io.lines(f) do
-            table.insert(self.lines,line)
+        local file = io.open(f,"r")
+        local data = file:read("*a")
+        for line in string.gmatch(data, "([^\n]*)[\n]?") do
+            table.insert(self.lines, line)
         end
         self.line = 1
         self.col = 1
@@ -976,8 +1028,8 @@ end
 function editor:draw_status(msg)
     local h = FONT.LARGE.height + 40
     local w = FONT.LARGE:width(msg) + 40
-    local x = 360 - w / 2
-    local y = 240 - h / 2
+    local x = 360 - w // 2
+    local y = 240 - h // 2
     display.rect(x,y,w,h,COLOR.WHITE,COLOR.BLACK)
     display.print(msg,x+20,y+20,FONT.LARGE,COLOR.WHITE,COLOR.BLACK)
 end
@@ -1009,7 +1061,8 @@ end
 
 function editor:draw_text(text)
     self.menu_open = false
-    local pos = self:draw_title()
+    self:draw_title()
+    local pos = self.title_height
     display.rect(0,pos,display.width,display.height-pos,COLOR.BLACK,COLOR.BLACK)
     for line in text:gmatch("[^\r\n]+") do
         local clipped = display.print(line,10,pos,self.font)
@@ -1024,8 +1077,6 @@ function editor:draw_text(text)
 end
 
 function editor:draw_title()
-    local w = FONT.LARGE:width("Q") + 20
-    local h = 20 + FONT.LARGE.height
     local bg = COLOR.gray(5)
     local fg = COLOR.GRAY
     if self.debugging then 
@@ -1035,23 +1086,21 @@ function editor:draw_title()
             bg = COLOR.DARK_GREEN1_MOD
         end
     end
-    display.rect(0,0,display.width,h,fg,bg)
+    display.rect(0,0,display.width,self.title_height,fg,bg)
     if self.menu_open then
-        display.rect(0,0,w,h,fg,COLOR.BLUE)
-        display.print("Q",10,10,FONT.LARGE,COLOR.WHITE,COLOR.BLUE)
+        display.rect(0,0,self.q_width,self.title_height,fg,COLOR.BLUE)
+        display.print("Q",10,10,self.menu_font,COLOR.WHITE,COLOR.BLUE)
     else
-        display.rect(0,0,w,h,fg,bg)
-        display.print("Q",10,10,FONT.LARGE,COLOR.WHITE,bg)
+        display.rect(0,0,self.q_width,self.title_height,fg,bg)
+        display.print("Q",10,10,self.menu_font,COLOR.WHITE,bg)
     end
-    display.print(self.title,w + 10,10,FONT.LARGE,COLOR.WHITE,bg)
-    return h
+    display.print(self.title,self.q_width + 10,10,self.menu_font,COLOR.WHITE,bg)
 end
 
 function editor:draw_submenu(m,x,y)
     local bg = COLOR.gray(5)
     local fg = COLOR.GRAY
-    local f = FONT.LARGE
-    local h = #m * f.height + 10
+    local h = #m * self.menu_font.height + 10
     local w = 200
     display.rect(x,y,w,h,fg,bg)
     x = x + 5
@@ -1059,39 +1108,38 @@ function editor:draw_submenu(m,x,y)
     for i,v in ipairs(m) do
         if self:menu_enabled(v) then
             if i == self.submenu_index then
-                display.rect(x,y,w-10,f.height,COLOR.BLUE,COLOR.BLUE)
-                display.print(v,x,y,f,COLOR.WHITE,COLOR.BLUE)
+                display.rect(x,y,w-10,self.menu_font.height,COLOR.BLUE,COLOR.BLUE)
+                display.print(v,x,y,self.menu_font,COLOR.WHITE,COLOR.BLUE)
             else
-                display.print(v,x,y,f,COLOR.WHITE,bg)
+                display.print(v,x,y,self.menu_font,COLOR.WHITE,bg)
             end
         else
             if i == self.submenu_index then
-                display.rect(x,y,w-10,f.height,COLOR.DARK_GRAY,COLOR.DARK_GRAY)
-                display.print(v,x,y,f,COLOR.GRAY,COLOR.DARK_GRAY)
+                display.rect(x,y,w-10,self.menu_font.height,COLOR.DARK_GRAY,COLOR.DARK_GRAY)
+                display.print(v,x,y,self.menu_font,COLOR.GRAY,COLOR.DARK_GRAY)
             else
-                display.print(v,x,y,f,COLOR.DARK_GRAY,bg)
+                display.print(v,x,y,self.menu_font,COLOR.DARK_GRAY,bg)
             end
         end
-        y = y + f.height
+        y = y + self.menu_font.height
     end
 end
 
 function editor:draw_menu()
     local bg = COLOR.gray(5)
     local fg = COLOR.GRAY
-    local f = FONT.LARGE
-    local h = f.height + 10
+    local h = self.menu_font.height + 10
     local x = 0
-    local y = self:draw_title()
+    self:draw_title()
     for i,v in ipairs(self.menu) do
-        local w = f:width(v.name) + 20
+        local w = self.menu_font:width(v.name) + 20
         if i == self.menu_index then
-            display.rect(x,y,w,h,fg,COLOR.BLUE)
-            display.print(v.name,x + 10,y + 5,f,COLOR.WHITE,COLOR.BLUE)
-            self:draw_submenu(v.items,x,y+h)
+            display.rect(x,self.title_height,w,h,fg,COLOR.BLUE)
+            display.print(v.name,x + 10,self.title_height + 5,self.menu_font,COLOR.WHITE,COLOR.BLUE)
+            self:draw_submenu(v.items,x,self.title_height+h)
         else
-            display.rect(x,y,w,h,fg,bg)
-            display.print(v.name,x + 10,y + 5,f,COLOR.WHITE,bg)
+            display.rect(x,self.title_height,w,h,fg,bg)
+            display.print(v.name,x + 10,self.title_height + 5,self.menu_font,COLOR.WHITE,bg)
         end
         x = x + w
     end
@@ -1115,7 +1163,8 @@ end
 
 function editor:draw_main()
     display.rect(0,0,display.width,display.height,COLOR.BLACK,COLOR.BLACK)
-    local pos = self:draw_title()
+    local pos = self.title_height
+    self:draw_title()
     pos = pos + 10
     local pad = 10
     local h = self.font.height
