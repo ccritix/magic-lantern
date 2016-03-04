@@ -1,5 +1,6 @@
 -- a text editor
 require("keys")
+require("keyboard")
 
 function inc(val,min,max)
     if val == max then return min end
@@ -648,6 +649,10 @@ function editor:handle_key(k)
             if line > 0 and line <= #(self.lines) then
                 self.line = line
                 self.col = 1
+                local result = keyboard:show(self.lines[self.line])
+                if result ~= nil then
+                    self.lines[self.line] = result
+                end
             end
         end
     end
@@ -781,7 +786,7 @@ function editor:open()
         self:draw_status("Loading...")
         local file = io.open(f,"r")
         local data = file:read("*a")
-        for line in string.gmatch(data, "([^\n]*)[\n]?") do
+        for line in string.gmatch(data, "[^\r\n]+") do
             table.insert(self.lines, line)
         end
         self.line = 1
