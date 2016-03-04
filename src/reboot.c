@@ -573,10 +573,44 @@ static int my_putchar(int ch)
     return ch;
 }
 
+static void* find_boot_card_init()
+{
+    char * boot_card_strings[] = {
+        "cf_ready (Not SD Detect High)\n",  /* most cameras */
+        "cf_ready (Not CD Detect High)\n",  /* 5D2, 50D */
+        "cf_ready (Not CF Detect High)\n",  /* 7D */
+        "SD Detect High\n",                 /* 6D, 70D */
+    };
+
+    /* find a function matching one of those strings */
+    /* fail if two matches */
+    void* found = 0;
+    for (int i = 0; i < COUNT(boot_card_strings); i++)
+    {
+        void* match = (void*) find_func_from_string(boot_card_strings[i], 0, 0x100);
+        
+        if (match)
+        {
+            if (found && found != match)
+            {
+                /* ambiguous match (matched two strings with different results) */
+                printf("boot_card_init: found at %X and %X\n", found, match);
+                return 0;
+            }
+            
+            /* store this match */
+            found = match;
+        }
+    }
+    
+    return found;
+}
+
 void init_stubs()
 {
     /* autodetect this one */
     boot_open_write = (void*) find_func_from_string("Open file for write : %s\n", 0, 0x50);
+    boot_card_init = find_boot_card_init();
     
     const char* cam = get_model_string();
 
@@ -584,7 +618,6 @@ void init_stubs()
     {
         /* from FFFF1738: routines from FFFE0000 to FFFEF408 are copied to 0x100000 */
         intptr_t RAM_OFFSET   =   0xFFFE0000 - 0x100000;
-        boot_card_init  = (void*) 0xFFFE34B0 - RAM_OFFSET;
         boot_putchar    = (void*) 0xFFFEA8EC - RAM_OFFSET;
     }
 
@@ -599,7 +632,6 @@ void init_stubs()
     {
         /* from FFFF14E8: routines from FFFE0000 to FFFEFFB8 are copied to 0x100000 */
         intptr_t RAM_OFFSET   =   0xFFFE0000 - 0x100000;
-        boot_card_init  = (void*) 0xFFFE266C - RAM_OFFSET;
         boot_putchar    = (void*) 0xFFFEB040 - RAM_OFFSET;
     }
 
@@ -626,7 +658,13 @@ void dump_rom_with_canon_routines()
     if (MEM(boot_open_write)  != 0xe92d47f0)
     {
         print_line(COLOR_RED, 2, " - Boot file write stub incorrect.");
+        printf(" - Address: %X   Value: %X", boot_open_write, MEM(boot_open_write));
         fail();
+    }
+
+    if (!boot_card_init)
+    {
+        print_line(COLOR_YELLOW, 2, " - Card init stub not found.");
     }
 
     if ((((uint32_t)boot_open_write & 0xF0000000) == 0xF0000000) ||
@@ -638,7 +676,7 @@ void dump_rom_with_canon_routines()
     if (boot_card_init)
     {
         /* not all cameras need this, but some do */
-        printf(" - Init SD...\n");
+        printf(" - Init SD... (%X)\n", boot_card_init);
         boot_card_init();
     }
 
