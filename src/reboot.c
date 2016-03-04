@@ -623,7 +623,6 @@ void init_stubs()
     {
         /* replace Canon's putchar with our own, to print their messages on the screen */
         MEM(boot_putchar) = B_INSTR(boot_putchar, &my_putchar);
-        sync_caches();
     }
 }
 
