@@ -17,19 +17,19 @@ keyboard.layouts =
   {
       {"1","2","3","4","5","6","7","8","9","0"},
       {"-","/",":",";","(",")","$","&","@",'"'},
-      {"#+="    ,".",",","?","!","'",    "DEL"},
+      {"#+=","\x7F",".",",","?","!","'","\x8B","DEL"},
       {"ABC",    "SPACE",   "Cancel",   "OK"  }
   },
   {
       {"[","]","{","}","#","%","^","*","+","="},
-      { "_","\\","|","~","<",">","£","¥",'"'  },
-      {"123"    ,".",",","?","!","'",    "DEL"},
+      { "_","\\","|","~","<",">","\x80","\x81","\x82"},
+      {"123","\x83","\x84","\x85","\x86","\x87","\x88","\x89","DEL"},
       {"ABC",    "SPACE",   "Cancel",   "OK"  }
   }
 }
 keyboard.rows = 4
 keyboard.cols = 10
-keyboard.font = FONT.CANON
+keyboard.font = FONT.LARGE
 keyboard.border = COLOR.gray(75)
 keyboard.background = COLOR.BLACK
 keyboard.foreground = COLOR.WHITE
