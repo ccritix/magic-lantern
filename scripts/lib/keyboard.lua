@@ -35,6 +35,7 @@ keyboard.background = COLOR.BLACK
 keyboard.foreground = COLOR.WHITE
 keyboard.highlight = COLOR.BLUE
 keyboard.error_forground = COLOR.RED
+keyboard.cursor_color = COLOR.ORANGE
 keyboard.cell_width = display.width // 10
 keyboard.cell_height = display.height // 6
 keyboard.cell_pad_left = (keyboard.cell_width - keyboard.font:width("0")) // 2
@@ -45,6 +46,7 @@ function keyboard:show(default,maxlen,charset)
     self.value = default
     self.maxlen = maxlen
     self.charset = charset
+    self.pos = #(self.value)
     self:run()
     return self.value
 end
@@ -81,7 +83,20 @@ function keyboard:main_loop()
 end
 
 function keyboard:handle_key(k)
-    if type(k) == "table" or type(k) == nil then
+    if k == KEY.LEFT then
+        self.pos = math.max(0,self.pos-1)
+    elseif k == KEY.RIGHT then
+        self.pos = math.min(#(self.value),self.pos+1)
+    elseif k == KEY.UP then
+        self.pos = #(self.value)
+    elseif k == KEY.DOWN then
+        self.pos = 0
+    elseif k == KEY.SET then
+        return false
+    elseif k == KEY.MENU then
+        self.value = nil
+        return false
+    elseif type(k) == "table" or type(k) == nil then
         local i = k.y * 6 // display.height
         if i >= 2 and i <=6 then
             self.row = i - 1
@@ -99,26 +114,76 @@ function keyboard:handle_key(k)
             
             if k.type == 0 then
                 local c = row[self.col]
+                local len = #(self.value)
                 if c == "Cancel" then self.value = nil return false
                 elseif c == "OK" then return false
                 elseif c == "DEL" then
-                    local len = #(self.value)
-                    if len > 0 then
-                        self.value = string.sub(self.value,1,len - 1)
+                    if len > 0 and self.pos > 0 then
+                        if self.pos == len then self.value = string.sub(self.value,1,len - 1)
+                        else self.value = string.sub(self.value,1,self.pos - 1)..string.sub(self.value,self.pos+1,len) end
+                        self.pos = self.pos - 1
                     end
                 elseif c == "ABC" then
                     self.layout_index = 1
+                    self.layouts[3][4][1] = "ABC"
+                    self.layouts[4][4][1] = "ABC"
                 elseif c == "abc" then
                     self.layout_index = 2
+                    self.layouts[3][4][1] = "abc"
+                    self.layouts[4][4][1] = "abc"
                 elseif c == "123" then
                     self.layout_index = 3
                 elseif c == "#+=" then
                     self.layout_index = 4
                 else
                     if c == "SPACE" then c = " " end
-                    self.value = self.value..c
+                    if self.pos == 0 then self.value = c..self.value
+                    elseif self.pos == len then self.value = self.value..c
+                    else self.value = string.sub(self.value,1,self.pos)..c..string.sub(self.value,self.pos+1,len) end
+                    self.pos = self.pos + 1
                 end
             end
+        else
+            local len = #(self.value)
+            local guess = (k.x - 20) // self.font:width("0")
+            if guess > len then
+                guess = len
+            elseif guess < 0 then
+                guess = 0
+            else
+                local cur = self.font:width(string.sub(self.value,1,guess)) + 20
+                if k.x > cur then
+                    --start searching forward
+                    while k.x > cur do
+                        local last = cur
+                        if guess >= len then break end
+                        cur = self.font:width(string.sub(self.value,1,guess+1)) + 20
+                        if k.x < cur then
+                            if (cur - k.x) < (k.x - last) then
+                                guess = guess + 1
+                            end
+                            break
+                        end
+                        guess = guess + 1
+                    end
+                else
+                    --start searching backward
+                    while k.x < cur do
+                        local last = cur
+                        if guess < 1 then break end
+                        cur = self.font:width(string.sub(self.value,1,guess-1)) + 20
+                        if k.x > cur then
+                            if (k.x - cur) < (last - k.x) then
+                                guess = guess - 1
+                            end
+                            break
+                        end
+                        guess = guess - 1
+                    end
+                
+                end
+            end
+            self.pos = guess
         end
     end
     return true
@@ -128,6 +193,9 @@ function keyboard:draw()
     display.draw(function()
         display.rect(0,0,display.width,display.height,self.border,self.background)
         display.print(self.value,20,20,self.font,self.foreground,self.background)
+        local str = string.sub(self.value, 1, self.pos)
+        local cur_pos = self.font:width(str) + 20
+        display.rect(cur_pos,20,4,self.font.height,self.cursor_color,self.cursor_color)
         local current = self.layouts[self.layout_index]
         local y = display.height * 2 // 6
         local x = 0
