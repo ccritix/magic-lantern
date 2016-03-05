@@ -786,9 +786,27 @@ function editor:open()
         self:draw_status("Loading...")
         local file = io.open(f,"r")
         local data = file:read("*a")
-        for line in string.gmatch(data, "[^\r\n]+") do
-            table.insert(self.lines, line)
+        local p1 = 1
+        local p2 = 1
+        local len = #data
+        while p2 <= len do
+            local c = string.sub(data,p2,p2)
+            if c == "\r" or c == "\n" then
+                if p1 == p2 then table.insert(self.lines,"")
+                else table.insert(self.lines, string.sub(data,p1,p2-1)) end
+                if p2 == len then break end
+                p2 = p2 + 1
+                if c == "\r" and string.sub(data,p2,p2) == "\n" then
+                    p2 = p2 + 1
+                end
+                p1 = p2
+            else
+                p2 = p2 + 1
+            end
         end
+        if p1 == p2 then table.insert(self.lines,"")
+        else table.insert(self.lines, string.sub(data,p1,p2-1)) end
+        
         self.line = 1
         self.col = 1
         self.scrollbar.table = self.lines
