@@ -84,7 +84,7 @@ static void lua_touch_task(int unused)
                 }
                 else
                 {
-                    err_printf("lua semaphore timeout (another task is running this script)\n");
+                    printf("lua semaphore timeout: touch %d %d (%dms)\n", event.fields.touch_id, event.fields.num_touch_points, 0);
                 }
             }
         }
