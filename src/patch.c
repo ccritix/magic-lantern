@@ -283,6 +283,13 @@ static int patch_memory_work(
         }
     }
 
+    /* do we have room for a new patch? */
+    if (num_patches >= COUNT(patches))
+    {
+        err = E_PATCH_TOO_MANY_PATCHES;
+        goto end;
+    }
+
     /* fill metadata */
     patches[num_patches].addr = addr;
     patches[num_patches].patched_value = new_value;
@@ -630,6 +637,13 @@ int patch_memory_matrix(
         }
         
         /* todo: check matrices too */
+    }
+    
+    /* do we have room for a new patch? */
+    if (num_matrix_patches >= COUNT(matrix_patches))
+    {
+        err = E_PATCH_TOO_MANY_PATCHES;
+        goto end;
     }
 
     /* fill metadata */
