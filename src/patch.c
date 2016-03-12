@@ -11,7 +11,7 @@
 #undef PATCH_DEBUG
 
 #ifdef PATCH_DEBUG
-#define dbg_printf(fmt,...) { console_printf(fmt, ## __VA_ARGS__); }
+#define dbg_printf(fmt,...) { printf(fmt, ## __VA_ARGS__); }
 #else
 #define dbg_printf(fmt,...) {}
 #endif
@@ -399,7 +399,7 @@ static void check_cache_lock_still_needed()
 }
 
 /* forward reference */
-static int unpatch_memory_matrix(uintptr_t _addr);
+static int unpatch_memory_matrix(uintptr_t _addr, uint32_t old_int);
 
 int unpatch_memory(uintptr_t _addr)
 {
@@ -423,7 +423,7 @@ int unpatch_memory(uintptr_t _addr)
     if (p < 0)
     {
         /* patch not found, let's look it up in the matrix patches */
-        return unpatch_memory_matrix(_addr);
+        return unpatch_memory_matrix(_addr, old_int);
     }
     
     /* is the patch still applied? */
@@ -706,11 +706,11 @@ static int is_matrix_patch_still_applied(int p)
     return 1;
 }
 
-static int unpatch_memory_matrix(uintptr_t _addr)
+/* note: this is always called with interrupts disabled */
+static int unpatch_memory_matrix(uintptr_t _addr, uint32_t old_int)
 {
     uint32_t* addr = (uint32_t*) _addr;
     int err = E_UNPATCH_OK;
-    uint32_t old_int = cli();
 
     int p = -1;
     for (int i = 0; i < num_matrix_patches; i++)
