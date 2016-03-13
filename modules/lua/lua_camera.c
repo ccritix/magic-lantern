@@ -13,6 +13,7 @@
 #include <shoot.h>
 #include <bmp.h>
 #include <imath.h>
+#include <math.h>
 
 #include "lua_common.h"
 
@@ -23,6 +24,11 @@ static int luaCB_shutter_tostring(lua_State * L);
 static int luaCB_aperture_index(lua_State * L);
 static int luaCB_aperture_newindex(lua_State * L);
 static int luaCB_aperture_tostring(lua_State * L);
+
+static int luaCB_min_aperture_index(lua_State * L);
+static int luaCB_min_aperture_tostring(lua_State * L);
+static int luaCB_max_aperture_index(lua_State * L);
+static int luaCB_max_aperture_tostring(lua_State * L);
 
 static int luaCB_iso_index(lua_State * L);
 static int luaCB_iso_newindex(lua_State * L);
@@ -156,7 +162,7 @@ static int luaCB_camera_newindex(lua_State * L)
     else if(!strcmp(key, "aperture"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        status = hdr_set_rawaperture((int)roundf((log2i(value) * 16) + 8));
+        status = hdr_set_rawaperture((int)roundf((log2f(value) * 16) + 8));
     }
     else if(!strcmp(key, "iso"))
     {
@@ -164,17 +170,17 @@ static int luaCB_camera_newindex(lua_State * L)
         int i = 0;
         for(i = 0; i < COUNT(values_iso); i++)
             if(values_iso[i] <= value) break;
-        status = lens_set_rawiso(codes_iso[i]);
+        status = hdr_set_rawiso(codes_iso[i]);
     }
     else if(!strcmp(key, "ec"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        status = lens_set_ae(EC2RAW(value));
+        status = lens_set_ae(APEX1000_EC2RAW((int)roundf(value * 1000)));
     }
     else if(!strcmp(key, "flash_ec"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        status = lens_set_flash_ae(EC2RAW(value));
+        status = lens_set_flash_ae(APEX1000_EC2RAW((int)roundf(value * 1000)));
     }
     else if(!strcmp(key, "kelvin"))
     {
@@ -244,7 +250,7 @@ static int luaCB_shutter_index(lua_State * L)
     if(!strcmp(key,"raw")) lua_pushinteger(L, lens_info.raw_shutter);
     /// Get/Set shutter speed in APEX units (floating point)
     // @tfield number apex
-    else if(!strcmp(key,"apex")) lua_pushnumber(L, (APEX10_RAW2TV(lens_info.raw_shutter)/10.0));
+    else if(!strcmp(key,"apex")) lua_pushnumber(L, (APEX1000_RAW2TV(lens_info.raw_shutter)/1000.0));
     /// Get/Set shutter speed in milliseconds
     // @tfield int ms
     else if(!strcmp(key,"ms")) lua_pushinteger(L, raw2shutter_ms(lens_info.raw_shutter));
@@ -279,7 +285,7 @@ static int luaCB_shutter_newindex(lua_State * L)
     else if(!strcmp(key, "apex"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        status = hdr_set_rawshutter(APEX10_TV2RAW((int)roundf(value * 10)));
+        status = hdr_set_rawshutter(APEX1000_TV2RAW((int)roundf(value * 1000)));
     }
     else if(!strcmp(key, "ms"))
     {
@@ -310,10 +316,66 @@ static int luaCB_aperture_index(lua_State * L)
     if(!strcmp(key,"raw")) lua_pushinteger(L, lens_info.raw_aperture);
     /// Get/Set aperture in APEX units (floating point)
     // @tfield number apex
-    else if(!strcmp(key,"apex")) lua_pushnumber(L, (APEX10_RAW2AV(lens_info.raw_aperture) / 10.0));
+    else if(!strcmp(key,"apex")) lua_pushnumber(L, (APEX1000_RAW2AV(lens_info.raw_aperture) / 1000.0));
     /// Get/Set aperture as f-number (floating point)
     // @tfield number value
     else if(!strcmp(key,"value")) lua_pushnumber(L, lens_info.aperture / 10.0);
+    /// Get/Set minimum (wide open) aperture value (aperture object)
+    // @tfield aperture min
+    else if(!strcmp(key,"min"))
+    {
+        lua_newtable(L);
+        lua_pushcfunction(L, luaCB_min_aperture_tostring);
+        lua_setfield(L, -2, "__tostring");
+        lua_pushcfunction(L, luaCB_min_aperture_index);
+        lua_setfield(L, -2, "__index");
+        lua_pushvalue(L, -1);
+        lua_setmetatable(L, -2);
+    }
+    /// Get/Set maximum (closed) aperture value (aperture object)
+    // @tfield aperture max
+    else if(!strcmp(key,"max"))
+    {
+        lua_newtable(L);
+        lua_pushcfunction(L, luaCB_max_aperture_tostring);
+        lua_setfield(L, -2, "__tostring");
+        lua_pushcfunction(L, luaCB_max_aperture_index);
+        lua_setfield(L, -2, "__index");
+        lua_pushvalue(L, -1);
+        lua_setmetatable(L, -2);
+    }
+    else lua_rawget(L, 1);
+    return 1;
+}
+
+static int luaCB_min_aperture_index(lua_State * L)
+{
+    LUA_PARAM_STRING_OPTIONAL(key, 2, "");
+    /// Get minimum (wide open) aperture in Canon raw units
+    // @tfield int raw
+    if(!strcmp(key,"raw")) lua_pushinteger(L, lens_info.raw_aperture_min);
+    /// Get minimum (wide open) aperture in APEX units (floating point)
+    // @tfield number apex
+    else if(!strcmp(key,"apex")) lua_pushnumber(L, (APEX1000_RAW2AV(lens_info.raw_aperture_min) / 1000.0));
+    /// Get minimum (wide open) aperture as f-number (floating point)
+    // @tfield number value
+    else if(!strcmp(key,"value")) lua_pushnumber(L, RAW2VALUE(aperture, lens_info.raw_aperture_min) / 10.0);
+    else lua_rawget(L, 1);
+    return 1;
+}
+
+static int luaCB_max_aperture_index(lua_State * L)
+{
+    LUA_PARAM_STRING_OPTIONAL(key, 2, "");
+    /// Get maximum (closed) aperture in Canon raw units
+    // @tfield int raw
+    if(!strcmp(key,"raw")) lua_pushinteger(L, lens_info.raw_aperture_max);
+    /// Get maximum (closed) aperture in APEX units (floating point)
+    // @tfield number apex
+    else if(!strcmp(key,"apex")) lua_pushnumber(L, (APEX1000_RAW2AV(lens_info.raw_aperture_max) / 1000.0));
+    /// Get maximum (closed) aperture as f-number (floating point)
+    // @tfield number value
+    else if(!strcmp(key,"value")) lua_pushnumber(L, RAW2VALUE(aperture, lens_info.raw_aperture_max) / 10.0);
     else lua_rawget(L, 1);
     return 1;
 }
@@ -323,8 +385,19 @@ static int luaCB_aperture_index(lua_State * L)
 //@function __tostring
 static int luaCB_aperture_tostring(lua_State * L)
 {
-    int a = lens_info.aperture;
-    lua_pushfstring(L, SYM_F_SLASH"%d.%d", a / 10, a % 10);
+    lua_pushfstring(L, lens_format_aperture(lens_info.raw_aperture));
+    return 1;
+}
+
+static int luaCB_min_aperture_tostring(lua_State * L)
+{
+    lua_pushfstring(L, lens_format_aperture(lens_info.raw_aperture_min));
+    return 1;
+}
+
+static int luaCB_max_aperture_tostring(lua_State * L)
+{
+    lua_pushfstring(L, lens_format_aperture(lens_info.raw_aperture_max));
     return 1;
 }
 
@@ -346,12 +419,12 @@ static int luaCB_aperture_newindex(lua_State * L)
     else if(!strcmp(key, "apex"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        status = hdr_set_rawaperture(APEX10_AV2RAW((int)roundf(value * 10)));
+        status = hdr_set_rawaperture(APEX1000_AV2RAW((int)roundf(value * 1000)));
     }
     else if(!strcmp(key, "value"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        status = hdr_set_rawaperture((int)roundf((log2i(value) * 16) + 8));
+        status = hdr_set_rawaperture((int)roundf((log2f(value) * 16) + 8));
     }
     else
     {
@@ -372,7 +445,7 @@ static int luaCB_iso_index(lua_State * L)
     if(!strcmp(key,"raw")) lua_pushinteger(L, lens_info.raw_iso);
     /// Get/Set ISO in APEX units (floating point)
     // @tfield number apex
-    else if(!strcmp(key,"apex")) lua_pushnumber(L, (APEX10_RAW2SV(lens_info.raw_iso) / 10.0));
+    else if(!strcmp(key,"apex")) lua_pushnumber(L, (APEX1000_RAW2SV(lens_info.raw_iso) / 1000.0));
     /// Get/Set ISO
     // @tfield int value
     else if(!strcmp(key,"value")) lua_pushinteger(L, raw2iso(lens_info.raw_iso));
@@ -403,20 +476,18 @@ static int luaCB_iso_newindex(lua_State * L)
     if(!strcmp(key, "raw"))
     {
         LUA_PARAM_INT(value, 3);
-        status = lens_set_rawiso(value);
+        status = hdr_set_rawiso(value);
     }
     else if(!strcmp(key, "apex"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        status = lens_set_rawiso(APEX10_SV2RAW((int)roundf(value * 10)));
+        status = hdr_set_rawiso(APEX1000_SV2RAW((int)roundf(value * 1000)));
     }
     else if(!strcmp(key, "value"))
     {
         LUA_PARAM_INT(value, 3);
-        int i = 0;
-        for(i = 0; i < COUNT(values_iso); i++)
-            if(values_iso[i] <= value) break;
-        status = lens_set_rawiso(codes_iso[i]);
+        int raw = value ? (int)roundf(log2f(value/3.125) * 8) + 32 : 0;
+        status = hdr_set_rawiso(raw);
     }
     else
     {
@@ -437,7 +508,7 @@ static int luaCB_ec_index(lua_State * L)
     if(!strcmp(key,"raw")) lua_pushinteger(L, lens_info.ae);
     /// Get/Set exposure compensation in EV or APEX
     // @tfield number value
-    else if(!strcmp(key,"value")) lua_pushnumber(L, APEX10_RAW2EC(lens_info.ae) / 10.0);
+    else if(!strcmp(key,"value")) lua_pushnumber(L, APEX1000_RAW2EC(lens_info.ae) / 1000.0);
     else lua_rawget(L, 1);
     return 1;
     
@@ -465,7 +536,7 @@ static int luaCB_ec_newindex(lua_State * L)
     else if(!strcmp(key, "value"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        status = lens_set_ae(EC2RAW((int)roundf(value * 10)));
+        status = lens_set_ae(APEX1000_EC2RAW((int)roundf(value * 1000)));
     }
     else
     {
@@ -479,7 +550,7 @@ static int luaCB_fec_index(lua_State * L)
 {
     LUA_PARAM_STRING_OPTIONAL(key, 2, "");
     if(!strcmp(key,"raw")) lua_pushinteger(L, lens_info.flash_ae);
-    else if(!strcmp(key,"value")) lua_pushnumber(L, APEX10_RAW2EC(lens_info.flash_ae) / 10.0);
+    else if(!strcmp(key,"value")) lua_pushnumber(L, APEX1000_RAW2EC(lens_info.flash_ae) / 1000.0);
     else lua_rawget(L, 1);
     return 1;
     
@@ -504,7 +575,7 @@ static int luaCB_fec_newindex(lua_State * L)
     else if(!strcmp(key, "value"))
     {
         LUA_PARAM_NUMBER(value, 3);
-        status = lens_set_flash_ae(EC2RAW((int)roundf(value * 10)));
+        status = lens_set_flash_ae(APEX1000_EC2RAW((int)roundf(value * 1000)));
     }
     else
     {
