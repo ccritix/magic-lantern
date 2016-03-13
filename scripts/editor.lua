@@ -62,7 +62,7 @@ end
 
 function button:handle_key(k)
     if k == KEY.SET and self.focused and self.disabled == false then return self.caption end
-    if (type(k) == "table" or type(k) == nil) and self.disabled == false then
+    if type(k) == "table" and self.disabled == false then
         if k.type == 0 and k.x > self.left and k.x < self.left + self.width and k.y > self.top and k.y < self.top + self.width then
             return self.caption
         end
@@ -184,7 +184,7 @@ function textbox:handle_key(k)
         if self.col <= #l then
             self.value = string.format("%s%s",l:sub(1,self.col - 1),l:sub(self.col + 1))
         end
-    elseif type(k) == "table" or type(k) == nil then
+    elseif type(k) == "table" then
         if k.type == 0 and k.x > self.left and k.x < self.left + self.width and k.y > self.top and k.y < self.top + self.width then
             local result = keyboard:show(self.value)
             if result ~= nil then self.value = result end
@@ -295,7 +295,7 @@ function filedialog:handle_key(k)
         self:scroll_into_view()
     elseif k == KEY.SET then
         return self:do_selected()
-    elseif type(k) == nil or type(k) == "table" then
+    elseif type(k) == "table" then
         local result = self.ok_button:handle_key(k)
         if result ~= nil then return result end
         result = self.cancel_button:handle_key(k)
@@ -677,7 +677,7 @@ function editor:handle_key(k)
                 self.selection_end = {self.line,self.col}
             end
         end
-    elseif type(k) == "table" or type(k) == nil then
+    elseif type(k) == "table" then
         if k.y <= self.title_height then
             if k.type == 0 then
                 self.menu_open = true
@@ -731,7 +731,7 @@ function editor:handle_menu_key(k)
         self.submenu_index = dec(self.submenu_index,1,#(m.items))
     elseif k == KEY.SET then
         return self:do_menu_item()
-    elseif type(k) == "table" or type(k) == nil then
+    elseif type(k) == "table" then
         if k.y <= self.title_height then
             if k.type == 0 then
                 self.menu_open = false

@@ -96,7 +96,7 @@ function keyboard:handle_key(k)
     elseif k == KEY.MENU then
         self.value = nil
         return false
-    elseif type(k) == "table" or type(k) == nil then
+    elseif type(k) == "table" then
         local i = k.y * 6 // display.height
         if i >= 2 and i <=6 then
             self.row = i - 1
