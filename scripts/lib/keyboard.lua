@@ -36,16 +36,22 @@ keyboard.foreground = COLOR.WHITE
 keyboard.highlight = COLOR.BLUE
 keyboard.error_forground = COLOR.RED
 keyboard.cursor_color = COLOR.ORANGE
+keyboard.grey_text = COLOR.gray(50)
 keyboard.cell_width = display.width // 10
 keyboard.cell_height = display.height // 6
 keyboard.cell_pad_left = (keyboard.cell_width - keyboard.font:width("0")) // 2
 keyboard.cell_pad_top = (keyboard.cell_height - keyboard.font.height) // 2
 keyboard.layout_index = 1
 
-function keyboard:show(default,maxlen,charset)
+function keyboard:show(default,maxlen,up,down,preline,postline)
     self.value = default
     self.maxlen = maxlen
-    self.charset = charset
+    if up ~= nil then assert(type(up) == "function", "expected function, parameter 'down'") end
+    if down ~= nil then assert(type(down) == "function", "expected function, parameter 'down'") end
+    self.up = up
+    self.down = down
+    self.preline = preline
+    self.postline = postline
     self.pos = #(self.value)
     self:run()
     return self.value
@@ -84,13 +90,17 @@ end
 
 function keyboard:handle_key(k)
     if k == KEY.LEFT then
-        self.pos = math.max(0,self.pos-1)
+        if self.up ~= nil and self.pos == 0 then self:up(true)
+        else self.pos = math.max(0,self.pos-1) end
     elseif k == KEY.RIGHT then
-        self.pos = math.min(#(self.value),self.pos+1)
+        if self.down ~= nil and self.pos == #(self.value) then self:down(true)
+        else self.pos = math.min(#(self.value),self.pos+1) end
     elseif k == KEY.UP then
-        self.pos = #(self.value)
+        if self.up ~= nil then self:up(false)
+        else self.pos = #(self.value) end
     elseif k == KEY.DOWN then
-        self.pos = 0
+        if self.up ~= nil then self:down(false)
+        else self.pos = 0 end
     elseif k == KEY.SET then
         return false
     elseif k == KEY.MENU then
@@ -192,12 +202,23 @@ end
 function keyboard:draw()
     display.draw(function()
         display.rect(0,0,display.width,display.height,self.border,self.background)
-        display.print(self.value,20,20,self.font,self.foreground,self.background)
+        local y = 20
+        if self.preline ~= nil then
+            display.print(self.preline,20,y,self.font,self.grey_text,self.background)
+            y = y + self.font.height + 10
+        end
+        display.print(self.value,20,y,self.font,self.foreground,self.background)
         local str = string.sub(self.value, 1, self.pos)
         local cur_pos = self.font:width(str) + 20
-        display.rect(cur_pos,20,4,self.font.height,self.cursor_color,self.cursor_color)
+        display.rect(cur_pos,y,4,self.font.height,self.cursor_color,self.cursor_color)
+        
+        if self.postline ~= nil then
+            y = y + self.font.height + 10
+            display.print(self.postline,20,y,self.font,self.grey_text,self.background)
+        end
+        
         local current = self.layouts[self.layout_index]
-        local y = display.height * 2 // 6
+        y = display.height * 2 // 6
         local x = 0
         for i=1,4,1 do
             local row = current[i]
