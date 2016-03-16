@@ -688,7 +688,7 @@ function editor:handle_key(k)
                 self.line = line
                 self.col = 1
                 keyboard.font = self.font
-                local result = keyboard:show(self.lines[self.line],nil,function(k,w) self:handle_keyboard_up(k,w) end,function(k,w) self:handle_keyboard_down(k,w) end,self.lines[self.line - 1], self.lines[self.line + 1])
+                local result = keyboard:show(self.lines[self.line],nil,function(k,w) self:handle_keyboard_up(k,w) end,function(k,w) self:handle_keyboard_down(k,w) end,self.line,self.lines)
                 if result ~= nil then
                     self.lines[self.line] = result
                 end
@@ -700,18 +700,16 @@ end
 function editor:handle_keyboard_up(k,w)
     self.lines[self.line] = k.value
     self.line = dec(self.line,1,#(self.lines))
-    k.preline = self.lines[self.line-1]
     k.value = self.lines[self.line]
-    k.postline = self.lines[self.line+1]
+    k.line = self.line
     if w or k.pos > #(k.value) then k.pos = #(k.value) end
 end
 
 function editor:handle_keyboard_down(k,w)
     self.lines[self.line] = k.value
     self.line = inc(self.line,1,#(self.lines))
-    k.preline = self.lines[self.line-1]
     k.value = self.lines[self.line]
-    k.postline = self.lines[self.line+1]
+    k.line = self.line
     if w then k.pos = 0 end
     if k.pos > #(k.value) then k.pos = #(k.value) end
 end

@@ -30,6 +30,7 @@ keyboard.layouts =
 keyboard.rows = 4
 keyboard.cols = 10
 keyboard.font = FONT.LARGE
+keyboard.key_font = FONT.LARGE
 keyboard.border = COLOR.gray(75)
 keyboard.background = COLOR.BLACK
 keyboard.foreground = COLOR.WHITE
@@ -38,21 +39,26 @@ keyboard.error_forground = COLOR.RED
 keyboard.cursor_color = COLOR.ORANGE
 keyboard.grey_text = COLOR.gray(50)
 keyboard.cell_width = display.width // 10
-keyboard.cell_height = display.height // 6
-keyboard.cell_pad_left = (keyboard.cell_width - keyboard.font:width("0")) // 2
-keyboard.cell_pad_top = (keyboard.cell_height - keyboard.font.height) // 2
+keyboard.cell_height = display.height // 8
 keyboard.layout_index = 1
 
-function keyboard:show(default,maxlen,up,down,preline,postline)
+function keyboard:show(default,maxlen,up,down,line,lines)
     self.value = default
     self.maxlen = maxlen
     if up ~= nil then assert(type(up) == "function", "expected function, parameter 'down'") end
     if down ~= nil then assert(type(down) == "function", "expected function, parameter 'down'") end
     self.up = up
     self.down = down
-    self.preline = preline
-    self.postline = postline
+    self.line = line
+    self.lines = lines
+    if self.line == nil or self.lines == nil then
+        self.line = 1
+        self.lines = { self.value }
+    end
     self.pos = #(self.value)
+    self.cell_pad_left = (self.cell_width - self.key_font:width("0")) // 2
+    self.cell_pad_top = (self.cell_height - self.key_font.height) // 2
+    self:update_lines()
     self:run()
     return self.value
 end
@@ -90,16 +96,24 @@ end
 
 function keyboard:handle_key(k)
     if k == KEY.LEFT then
-        if self.up ~= nil and self.pos == 0 then self:up(true)
+        if self.up ~= nil and self.pos == 0 then 
+            self:up(true)
+            self:update_lines()
         else self.pos = math.max(0,self.pos-1) end
     elseif k == KEY.RIGHT then
-        if self.down ~= nil and self.pos == #(self.value) then self:down(true)
+        if self.down ~= nil and self.pos == #(self.value) then 
+            self:down(true)
+            self:update_lines()
         else self.pos = math.min(#(self.value),self.pos+1) end
     elseif k == KEY.UP then
-        if self.up ~= nil then self:up(false)
+        if self.up ~= nil then 
+            self:up(false)
+            self:update_lines()
         else self.pos = #(self.value) end
     elseif k == KEY.DOWN then
-        if self.up ~= nil then self:down(false)
+        if self.up ~= nil then 
+            self:down(false)
+            self:update_lines()
         else self.pos = 0 end
     elseif k == KEY.SET then
         return false
@@ -107,9 +121,9 @@ function keyboard:handle_key(k)
         self.value = nil
         return false
     elseif type(k) == "table" then
-        local i = k.y * 6 // display.height
-        if i >= 2 and i <=6 then
-            self.row = i - 1
+        local i = k.y * 8 // display.height
+        if i >= 4 and i <=8 then
+            self.row = i - 3
             local current = self.layouts[self.layout_index]
             local row = current[self.row]
             local cols = #row
@@ -199,26 +213,41 @@ function keyboard:handle_key(k)
     return true
 end
 
+function keyboard:update_lines()
+    local max_lines = (display.height // 2 - 2) // self.font.height - 1
+    local total_lines_before = self.line - 1
+    local total_lines_after = #(self.lines) - self.line
+    self.lines_before = max_lines // 2
+    self.lines_after = max_lines - self.lines_before
+    if total_lines_before < self.lines_before then 
+        self.lines_after = math.min(self.lines_after + self.lines_before - total_lines_before,total_lines_after)
+        self.lines_before = total_lines_before
+    elseif total_lines_after < self.lines_after then 
+        self.lines_before = math.min(self.lines_before + self.lines_after - total_lines_after,total_lines_before)
+        self.lines_after = total_lines_after
+    end
+    self.text_top = (display.height // 2 - (max_lines + 1) * self.font.height) // 2
+end
+
 function keyboard:draw()
     display.draw(function()
         display.rect(0,0,display.width,display.height,self.border,self.background)
-        local y = 20
-        if self.preline ~= nil then
-            display.print(self.preline,20,y,self.font,self.grey_text,self.background)
-            y = y + self.font.height + 10
+        local y = self.text_top
+        for i=-self.lines_before,-1,1 do
+            display.print(self.lines[self.line + i],10,y,self.font,self.grey_text,self.background)
+            y = y + self.font.height
         end
-        display.print(self.value,20,y,self.font,self.foreground,self.background)
+        display.print(self.value,10,y,self.font,self.foreground,self.background)
         local str = string.sub(self.value, 1, self.pos)
-        local cur_pos = self.font:width(str) + 20
+        local cur_pos = self.font:width(str) + 10
         display.rect(cur_pos,y,4,self.font.height,self.cursor_color,self.cursor_color)
-        
-        if self.postline ~= nil then
-            y = y + self.font.height + 10
-            display.print(self.postline,20,y,self.font,self.grey_text,self.background)
+        for i=1,self.lines_after,1 do
+            y = y + self.font.height
+            display.print(self.lines[self.line + i],10,y,self.font,self.grey_text,self.background)
         end
         
         local current = self.layouts[self.layout_index]
-        y = display.height * 2 // 6
+        y = display.height * 4 // 8
         local x = 0
         for i=1,4,1 do
             local row = current[i]
@@ -246,8 +275,8 @@ function keyboard:draw()
                     w = display.width // cols
                 end
                 display.rect(x2,y,w,self.cell_height,self.border,bg)
-                local pad = w // 2 - self.font:width(c) // 2
-                display.print(c,x2 + pad, y + self.cell_pad_top,self.font,fg,bg)
+                local pad = w // 2 - self.key_font:width(c) // 2
+                display.print(c,x2 + pad, y + self.cell_pad_top,self.key_font,fg,bg)
                 x = x + self.cell_width
             end
             y = y + self.cell_height
