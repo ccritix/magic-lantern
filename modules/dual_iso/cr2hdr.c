@@ -1770,7 +1770,19 @@ static int match_exposures(double* corr_ev, int* white_darkened)
     if (bps) free(bps);
 
     /* apply the correction */
+
+    /*
+     * We already know that EXIF black level is the average of the black levels
+     * for bright and dark exposures, so their offset is symmetrical around the mean
+     * 
+     * Usually, the brighter exposure ends up having a lower black level.
+     *
+     * From fitting: dark-black = a * (bright-black) + b
+     * Find black delta so that (dark-black-delta) = a * (bright-black+delta).
+     */
     double b20 = b * 16;
+    double black_delta20 = b20 / (a + 1);
+    
     for (int y = 0; y < h; y ++)
     {
         for (int x = 0; x < w; x ++)
@@ -1781,11 +1793,11 @@ static int match_exposures(double* corr_ev, int* white_darkened)
             if (BRIGHT_ROW)
             {
                 /* bright exposure: darken and apply the black offset (fixme: why not half?) */
-                p = (p - black20) * a + black20 + b20*a;
+                p = (p - black20 + black_delta20) * a + black20;
             }
             else
             {
-                p = p - b20 + b20*a;
+                p = (p - black20 - black_delta20) + black20;
             }
             
             /* out of range? */
@@ -1795,7 +1807,7 @@ static int match_exposures(double* corr_ev, int* white_darkened)
             raw_set_pixel20(x, y, p);
         }
     }
-    *white_darkened = (white20 - black20 + b20) * a + black20;
+    *white_darkened = (white20 - black20 + black_delta20) * a + black20;
 
     double factor = 1/a;
     if (factor < 1.2 || !isfinite(factor))
@@ -1808,7 +1820,7 @@ static int match_exposures(double* corr_ev, int* white_darkened)
     *corr_ev = log2(factor);
 
     printf("ISO difference  : %.2f EV (%d)\n", log2(factor), (int)round(factor*100));
-    printf("Black delta     : %.2f\n", b/4); /* we want to display black delta for the 14-bit original data, but we have computed it from 16-bit data */
+    printf("Black delta     : %.2f\n", black_delta20 / 64.0 * 2.0);
     return 1;
 }
 
