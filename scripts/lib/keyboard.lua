@@ -216,7 +216,7 @@ end
 function keyboard:update_lines()
     local max_lines = (display.height // 2 - 2) // self.font.height - 1
     local total_lines_before = self.line - 1
-    local total_lines_after = #(self.lines) - self.line
+    local total_lines_after = math.max(self.line, #(self.lines)) - self.line
     self.lines_before = max_lines // 2
     self.lines_after = max_lines - self.lines_before
     if total_lines_before < self.lines_before then 
