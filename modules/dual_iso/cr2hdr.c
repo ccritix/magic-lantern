@@ -458,6 +458,7 @@ static int hdr_check();
 static int hdr_interpolate();
 static int black_subtract(int left_margin, int top_margin);
 static int black_subtract_simple(int left_margin, int top_margin);
+static void check_black_level();
 static void white_detect(int* white_dark, int* white_bright);
 static void white_balance_gray(float* red_balance, float* blue_balance, int method);
 
@@ -1221,6 +1222,105 @@ static int black_subtract_simple(int left_margin, int top_margin)
     raw_info.white_level -= black_delta;
     
     return 1;
+}
+
+/* histograms: 14-bit levels (array size 16384), cummulative */
+/* to be used after ISO matching */
+static void black_level_histograms(int* hist_eroded, int* hist_dilated)
+{
+    int w = raw_info.width;
+    int h = raw_info.height;
+    
+    uint32_t * raw = raw_info.buffer;
+
+#define MAX9(a,b,c,d,e,f,g,h,i) \
+    MAX(MAX(MAX(MAX(a,b),MAX(c,d)),MAX(MAX(e,f),MAX(g,h))),i)
+
+#define MIN9(a,b,c,d,e,f,g,h,i) \
+    MIN(MIN(MIN(MIN(a,b),MIN(c,d)),MIN(MIN(e,f),MIN(g,h))),i)
+
+    memset(hist_eroded, 0, 16384*sizeof(int));
+    memset(hist_dilated, 0, 16384*sizeof(int));
+    
+    for (int y = 4; y < h-4; y++)
+    {
+        for (int x = 2; x < w-2; x++)
+        {
+            /* erode/dilate each color channel, with data having the same brightness */
+            int ero = MIN9(
+                raw[x-2 + (y-4)*w], raw[x + (y-4)*w], raw[x+2 + (y-4)*w],
+                raw[x-2 +  y   *w], raw[x +  y   *w], raw[x+2 +  y   *w],
+                raw[x-2 + (y+4)*w], raw[x + (y+4)*w], raw[x+2 + (y+4)*w]
+            );
+            int dil = MAX9(
+                raw[x-2 + (y-4)*w], raw[x + (y-4)*w], raw[x+2 + (y-4)*w],
+                raw[x-2 +  y   *w], raw[x +  y   *w], raw[x+2 +  y   *w],
+                raw[x-2 + (y+4)*w], raw[x + (y+4)*w], raw[x+2 + (y+4)*w]
+            );
+            
+            /* build histograms of eroded/dilated images */
+            hist_eroded[((ero + 32) / 64) & 0x3FFF]++;
+            hist_dilated[((dil + 32) / 64) & 0x3FFF]++;
+        }
+    }
+    
+    /* cumsum */
+    for (int i = 1; i < 16384; i++)
+    {
+        hist_eroded[i] += hist_eroded[i-1];
+        hist_dilated[i] += hist_dilated[i-1];
+    }
+}
+
+static int guess_black_level(int* hist_eroded, int* hist_dilated)
+{
+    double best = 0;
+    int black = raw_info.black_level;
+    for (int i = 0; i < 16384; i++)
+    {
+        /* this is more art than science, but it appears to work :P */
+        /* it will underestimate the black level on a dark frame though */
+        double score = hist_eroded[i] / 10000.0 - hist_dilated[i];
+        if (score > best)
+        {
+            best = score;
+            black = i;
+        }
+    }
+    return black;
+}
+
+static void check_black_level()
+{
+    int hist_eroded[16384];
+    int hist_dilated[16384];
+
+    /**
+     * When eroding some random noise, the result will end up below the black level;
+     * if there are no pixels like this, our black level is probably too low
+     * (or, the image doesn't have deep shadow details).
+     * 
+     * When dilating it, the result will end up above black level,
+     * so if we get many pixels below black after dilating,
+     * it means our black level is too high.
+     */
+
+    int black20 = raw_info.black_level;
+    int black14 = (black20 + 32) / 64;
+    
+    black_level_histograms(hist_eroded, hist_dilated);
+    
+    int guessed_black14 = guess_black_level(hist_eroded, hist_dilated);
+    
+    if (hist_eroded[black14] == 0)
+    {
+        printf("Black level     : %d might be too low (guess: %d).\n", black14, guessed_black14);
+    }
+    else if (hist_dilated[black14] > hist_eroded[black14] / 1000)
+    {
+        printf("Black level     : %d is too high, using %d\n", black14, guessed_black14);
+        raw_info.black_level = guessed_black14 * 64;
+    }
 }
 
 static void compute_black_noise(int x1, int x2, int y1, int y2, int dx, int dy, double* out_mean, double* out_stdev, int (*raw_get_pixel)(int x, int y))
@@ -2225,6 +2325,9 @@ static int hdr_interpolate()
 
     /* run a second black subtract pass, to fix whatever our funky processing may do to blacks */
     black_subtract_simple(raw_info.active_area.x1, raw_info.active_area.y1);
+
+    /* analyze the image to see if black level looks OK; adjust if needed */
+    check_black_level();
 
     /* estimate dynamic range */
     double lowiso_dr = log2(white - black) - dark_noise_ev;
