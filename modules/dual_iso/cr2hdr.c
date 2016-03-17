@@ -1224,6 +1224,12 @@ static int black_subtract_simple(int left_margin, int top_margin)
     return 1;
 }
 
+#define MIN9(a,b,c,d,e,f,g,h,i) \
+    MIN(MIN(MIN(MIN(a,b),MIN(c,d)),MIN(MIN(e,f),MIN(g,h))),i)
+
+#define MAX13(a,b,c,d,e,f,g,h,i,j,k,l,m) \
+    MAX(MAX(MAX(MAX(a,b),MAX(c,d)),MAX(MAX(e,f),MAX(g,h))),MAX(MAX(MAX(i,j),MAX(k,l)),m))
+
 /* histograms: 14-bit levels (array size 16384), cummulative */
 /* to be used after ISO matching */
 static void black_level_histograms(int* hist_eroded, int* hist_dilated)
@@ -1232,33 +1238,31 @@ static void black_level_histograms(int* hist_eroded, int* hist_dilated)
     
     uint32_t * raw = raw_info.buffer;
 
-#define MAX9(a,b,c,d,e,f,g,h,i) \
-    MAX(MAX(MAX(MAX(a,b),MAX(c,d)),MAX(MAX(e,f),MAX(g,h))),i)
-
-#define MIN9(a,b,c,d,e,f,g,h,i) \
-    MIN(MIN(MIN(MIN(a,b),MIN(c,d)),MIN(MIN(e,f),MIN(g,h))),i)
-
-    memset(hist_eroded, 0, 16384*sizeof(int));
+    memset(hist_eroded,  0, 16384*sizeof(int));
     memset(hist_dilated, 0, 16384*sizeof(int));
     
     for (int y = raw_info.active_area.y1 + 16; y < raw_info.active_area.y2 - 16; y++)
     {
-        for (int x = raw_info.active_area.x1 +16; x < raw_info.active_area.x2 - 16; x++)
+        for (int x = raw_info.active_area.x1 + 16; x < raw_info.active_area.x2 - 16; x++)
         {
             /* erode/dilate each color channel, with data having the same brightness */
+
             int ero = MIN9(
                 raw[x-2 + (y-4)*w], raw[x + (y-4)*w], raw[x+2 + (y-4)*w],
                 raw[x-2 +  y   *w], raw[x +  y   *w], raw[x+2 +  y   *w],
                 raw[x-2 + (y+4)*w], raw[x + (y+4)*w], raw[x+2 + (y+4)*w]
             );
-            int dil = MAX9(
-                raw[x-2 + (y-4)*w], raw[x + (y-4)*w], raw[x+2 + (y-4)*w],
-                raw[x-2 +  y   *w], raw[x +  y   *w], raw[x+2 +  y   *w],
-                raw[x-2 + (y+4)*w], raw[x + (y+4)*w], raw[x+2 + (y+4)*w]
+
+            int dil = MAX13(
+                                                    raw[x + (y-8)*w],
+                                raw[x-2 + (y-4)*w], raw[x + (y-4)*w], raw[x+2 + (y-4)*w],
+                raw[x-4 + y*w], raw[x-2 +  y   *w], raw[x +  y   *w], raw[x+2 +  y   *w], raw[x+4 + y*w],
+                                raw[x-2 + (y+4)*w], raw[x + (y+4)*w], raw[x+2 + (y+4)*w],
+                                                    raw[x + (y+8)*w]
             );
             
             /* build histograms of eroded/dilated images */
-            hist_eroded[((ero + 32) / 64) & 0x3FFF]++;
+            hist_eroded [((ero + 32) / 64) & 0x3FFF]++;
             hist_dilated[((dil + 32) / 64) & 0x3FFF]++;
         }
     }
@@ -1279,11 +1283,20 @@ static int guess_black_level(int* hist_eroded, int* hist_dilated)
 {
     double best = 0;
     int black = (raw_info.black_level + 32) / 64;
-    for (int i = 0; i < 16384; i++)
+    for (int i = 0; i < 4096; i++)
     {
-        /* this is more art than science, but it appears to work :P */
-        /* it will underestimate the black level on a dark frame though */
-        double score = hist_eroded[i] / 10000.0 - hist_dilated[i];
+        /* this is more black art than science, but it appears to work :P
+         * on an ideal Gaussian noise image, it doesn't need any bias,
+         * and it gives the right result with symmetrical 3x3 morphological operators.
+         * however, real-world images are hardly symmetrical - we have to figure out
+         * the black level by looking at the tail of the histogram...
+         * the bias trick appears to handle both images with a small black object
+         * and heavily underexposed images (more than half of the frame black)
+         */
+        double dark_area = (double) hist_dilated[i + 5] / hist_dilated[16383];
+        double bias = MIN(100 / dark_area / dark_area, 10000);
+        double score = hist_eroded[i] / bias - hist_dilated[i];
+        
         if (score > best)
         {
             best = score;
@@ -1319,7 +1332,7 @@ static void check_black_level()
     {
         printf("Black level     : %d might be too low (guess: %d).\n", black14, guessed_black14);
     }
-    else if (hist_dilated[black14] > hist_eroded[black14] / 1000)
+    else if (hist_dilated[black14] > hist_eroded[black14] / 10000)
     {
         printf("Black level     : %d is too high, using %d\n", black14, guessed_black14);
         raw_info.black_level = guessed_black14 * 64;
