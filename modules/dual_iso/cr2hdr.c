@@ -1216,7 +1216,7 @@ static int black_subtract_simple(int left_margin, int top_margin)
         
     int black_delta = raw_info.black_level - new_black;
     
-    printf("Black adjust    : %d\n", (int)black_delta);
+    printf("Black adjust    : %.1f\n", black_delta / 64.0);
     raw_info.black_level -= black_delta;
     raw_info.white_level -= black_delta;
     
