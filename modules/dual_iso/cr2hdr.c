@@ -1229,7 +1229,6 @@ static int black_subtract_simple(int left_margin, int top_margin)
 static void black_level_histograms(int* hist_eroded, int* hist_dilated)
 {
     int w = raw_info.width;
-    int h = raw_info.height;
     
     uint32_t * raw = raw_info.buffer;
 
@@ -1242,9 +1241,9 @@ static void black_level_histograms(int* hist_eroded, int* hist_dilated)
     memset(hist_eroded, 0, 16384*sizeof(int));
     memset(hist_dilated, 0, 16384*sizeof(int));
     
-    for (int y = 4; y < h-4; y++)
+    for (int y = raw_info.active_area.y1 + 16; y < raw_info.active_area.y2 - 16; y++)
     {
-        for (int x = 2; x < w-2; x++)
+        for (int x = raw_info.active_area.x1 +16; x < raw_info.active_area.x2 - 16; x++)
         {
             /* erode/dilate each color channel, with data having the same brightness */
             int ero = MIN9(
@@ -1264,6 +1263,10 @@ static void black_level_histograms(int* hist_eroded, int* hist_dilated)
         }
     }
     
+    /* do not count values at level=0 (probably bad pixels) */
+    hist_eroded[0] = 0;
+    hist_dilated[0] = 0;
+    
     /* cumsum */
     for (int i = 1; i < 16384; i++)
     {
@@ -1275,7 +1278,7 @@ static void black_level_histograms(int* hist_eroded, int* hist_dilated)
 static int guess_black_level(int* hist_eroded, int* hist_dilated)
 {
     double best = 0;
-    int black = raw_info.black_level;
+    int black = (raw_info.black_level + 32) / 64;
     for (int i = 0; i < 16384; i++)
     {
         /* this is more art than science, but it appears to work :P */
