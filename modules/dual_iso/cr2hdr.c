@@ -3241,9 +3241,12 @@ static int hdr_interpolate()
     }
 
     /* let's see how much dynamic range we actually got */
-    compute_black_noise(8, raw_info.active_area.x1 - 8, raw_info.active_area.y1 + 20, raw_info.active_area.y2 - 20, 1, 1, &noise_avg, &noise_std[0], raw_get_pixel32);
-    printf("Noise level     : %.02f (20-bit), ideally %.02f\n", noise_std[0], ideal_noise_std);
-    printf("Dynamic range   : %.02f EV (cooked)\n", log2(white - black) - log2(noise_std[0]));
+    if (raw_info.active_area.x1)
+    {
+        compute_black_noise(8, raw_info.active_area.x1 - 8, raw_info.active_area.y1 + 20, raw_info.active_area.y2 - 20, 1, 1, &noise_avg, &noise_std[0], raw_get_pixel32);
+        printf("Noise level     : %.02f (20-bit), ideally %.02f\n", noise_std[0], ideal_noise_std);
+        printf("Dynamic range   : %.02f EV (cooked)\n", log2(white - black) - log2(noise_std[0]));
+    }
 
     /* run a final black subtract pass, to fix whatever our funky processing may do to blacks */
     black_subtract_simple(raw_info.active_area.x1, raw_info.active_area.y1);
