@@ -45,6 +45,27 @@ const char * get_camera_model(const char* filename)
     return model;
 }
 
+int get_black_level(const char* filename)
+{
+    static char black[100];
+    char exif_cmd[10000];
+    snprintf(exif_cmd, sizeof(exif_cmd), "exiftool -BlackLevel -b \"%s\"", filename);
+    FILE* exif_file = popen(exif_cmd, "r");
+    if(exif_file) 
+    {
+        if (fgets(black, sizeof(black), exif_file) == NULL)
+            goto err;
+        pclose(exif_file);
+        return atoi(black);
+    }
+    else
+    {
+        err:
+        printf("**WARNING** Could not get black level from EXIF. Assuming 2048.\n");
+        return 2048;
+    }
+}
+
 /*
 This function uses EXIF information to calculate the following two ratios:
   Red balance is the ratio G/R for a neutral color (typically > 1)

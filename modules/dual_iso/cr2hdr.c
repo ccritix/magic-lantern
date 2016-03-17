@@ -785,7 +785,10 @@ int main(int argc, char** argv)
         if (hdr_check())
         {
             if (!black_subtract(left_margin, top_margin))
-                printf("Black subtract didn't work\n");
+            {
+                raw_info.black_level = get_black_level(filename);
+                printf("Black level     : %d\n", raw_info.black_level);
+            }
 
             if (hdr_interpolate())
             {
@@ -993,7 +996,7 @@ static int black_subtract(int left_margin, int top_margin)
     if (left_margin < 10 || top_margin < 10)
     {
         printf("Black borders   : N/A\n");
-        return 1;
+        return 0;
     }
 
     printf("Black borders   : %d left, %d top\n", left_margin, top_margin);

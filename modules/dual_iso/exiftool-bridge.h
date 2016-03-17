@@ -12,6 +12,8 @@ Use only on dual ISO shots!
 */
 void read_white_balance(const char* filename, float* red_balance, float* blue_balance);
 
+int get_black_level(const char* filename);
+
 void set_white_level(const char* file, int level);
 
 void embed_original_raw(const char* dng_file, const char* raw_file, int delete_original);
