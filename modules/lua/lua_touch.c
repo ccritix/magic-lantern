@@ -15,8 +15,8 @@ extern int is_camera(const char * model, const char * firmware);
 
 typedef int (*touch_cbr)(int,int,int,int);
 
-touch_cbr * hijack_touch_cbr_ptr = NULL;
-touch_cbr canon_touch_cbr_ptr = NULL;
+static touch_cbr * hijack_touch_cbr_ptr = NULL;
+static touch_cbr canon_touch_cbr_ptr = NULL;
 
 struct msg_queue * lua_touch_queue = NULL;
 
@@ -44,7 +44,7 @@ typedef union
     uint32_t packed;
 } lua_touch_event_t;
 
-int lua_touch_task_running = 0;
+static int lua_touch_task_running = 0;
 static struct lua_touch_handler * touch_handlers = NULL;
 
 static void lua_touch_task(int unused)
