@@ -318,6 +318,17 @@ static int luaCB_lvinfo_newindex(lua_State * L)
     return 0;
 }
 
+static const char * lua_lv_fields[] =
+{
+    "start",
+    "pause",
+    "resume",
+    "stop",
+    "info",
+    "enabled",
+    NULL
+};
+
 static const luaL_Reg lvlib[] =
 {
     { "start", luaCB_lv_start },

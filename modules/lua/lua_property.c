@@ -642,6 +642,12 @@ static int luaCB_property_newindex(lua_State * L)
     return 0;
 }
 
+static const char * lua_property_fields[] =
+{
+    //TODO: put all those properties in here
+    NULL
+};
+
 const luaL_Reg propertylib[] =
 {
     {NULL, NULL}

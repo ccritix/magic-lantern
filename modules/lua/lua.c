@@ -318,6 +318,19 @@ static int luaCB_event_newindex(lua_State * L)
     return 0;
 }
 
+static const char * lua_event_fields[] =
+{
+    "pre_shoot",
+    "post_shoot",
+    "shoot_task",
+    "seconds_clock",
+    "keypress",
+    "custom_picture_taking",
+    "intervalometer",
+    "config_save",
+    NULL
+};
+
 static const luaL_Reg eventlib[] =
 {
     { NULL, NULL }
@@ -373,6 +386,69 @@ static int luaCB_global_index(lua_State * L)
         }
     }
     return 0;
+}
+
+
+int luaCB_next(lua_State * L)
+{
+    lua_getmetatable(L, 1);
+    lua_getfield(L, -1, "fields");
+    const char ** fields = (const char **)lua_touserdata(L, -1);
+    lua_pop(L, 2);
+    
+    if(lua_isnil(L, 2))
+    {
+        if(fields && fields[0])
+        {
+            lua_pushstring(L, fields[0]);
+        }
+        else
+        {
+            lua_pushnil(L);
+            lua_pushnil(L);
+            return 2;
+        }
+    }
+    else
+    {
+        LUA_PARAM_STRING(key, 2);
+        int found = 0;
+        for(int i = 0; fields[i]; i++)
+        {
+            if(!strcmp(key, fields[i]))
+            {
+                if(fields && fields[i+1])
+                {
+                    lua_pushstring(L, fields[i+1]);
+                }
+                else
+                {
+                    lua_pushnil(L);
+                    lua_pushnil(L);
+                    return 2;
+                }
+                found = true;
+                break;
+            }
+        }
+        if(!found)
+        {
+            lua_pushnil(L);
+            lua_pushnil(L);
+            return 2;
+        }
+    }
+    lua_pushvalue(L, -1);
+    lua_gettable(L, 1);
+    return 2;
+}
+
+int luaCB_pairs(lua_State * L)
+{
+    lua_pushcfunction(L, luaCB_next);
+    lua_pushvalue(L, 1);
+    lua_pushnil(L);
+    return 3;
 }
 
 static lua_State * load_lua_state()

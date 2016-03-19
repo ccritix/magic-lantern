@@ -74,6 +74,19 @@ static int luaCB_lens_focus(lua_State * L)
     return 1;
 }
 
+static const char * lua_lens_fields[] =
+{
+    "name",
+    "focal_length",
+    "focal_distance",
+    "hyperfocal",
+    "dof_near",
+    "dof_far",
+    "af",
+    "focus",
+    NULL
+};
+
 static const luaL_Reg lenslib[] =
 {
     { "focus", luaCB_lens_focus },

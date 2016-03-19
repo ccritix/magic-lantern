@@ -228,6 +228,15 @@ static int luaCB_touch_newindex(lua_State * L)
     return 0;
 }
 
+static const char * lua_touch_fields[] =
+{
+    "up",
+    "move",
+    "down",
+    "is_available",
+    NULL
+};
+
 const luaL_Reg touchlib[] =
 {
     {NULL, NULL}

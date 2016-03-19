@@ -57,6 +57,29 @@ static int luaCB_dryos_call(lua_State * L)
     return 1;
 }
 
+const char * lua_dryos_directory_fields[] =
+{
+    "path",
+    "exists",
+    "create",
+    "children",
+    "files",
+    "parent",
+    NULL
+};
+
+const char * lua_dryos_card_fields[] =
+{
+    "_card_ptr",
+    "cluster_size",
+    "drive_letter",
+    "file_number",
+    "folder_number",
+    "free_space",
+    "type",
+    NULL
+};
+
 /***
  Creates a @{directory} object that is used to get information about a directory
  
@@ -98,6 +121,10 @@ static int luaCB_dryos_directory(lua_State * L)
     lua_setfield(L, -2, "__index");
     lua_pushcfunction(L, luaCB_directory_newindex);
     lua_setfield(L, -2, "__newindex");
+    lua_pushcfunction(L, luaCB_pairs);
+    lua_setfield(L, -2, "__pairs");
+    lua_pushlightuserdata(L, lua_dryos_directory_fields);
+    lua_setfield(L, -2, "fields");
     lua_pushvalue(L, -1);
     lua_setmetatable(L, -2);
     return 1;
@@ -158,6 +185,10 @@ static int luaCB_dryos_index(lua_State * L)
         lua_setfield(L, -2, "__index");
         lua_pushcfunction(L, luaCB_card_newindex);
         lua_setfield(L, -2, "__newindex");
+        lua_pushcfunction(L, luaCB_pairs);
+        lua_setfield(L, -2, "__pairs");
+        lua_pushlightuserdata(L, lua_dryos_card_fields);
+        lua_setfield(L, -2, "fields");
         lua_pushvalue(L, -1);
         lua_setmetatable(L, -2);
     }
@@ -176,6 +207,10 @@ static int luaCB_dryos_index(lua_State * L)
         lua_setfield(L, -2, "__index");
         lua_pushcfunction(L, luaCB_card_newindex);
         lua_setfield(L, -2, "__newindex");
+        lua_pushcfunction(L, luaCB_pairs);
+        lua_setfield(L, -2, "__pairs");
+        lua_pushlightuserdata(L, lua_dryos_card_fields);
+        lua_setfield(L, -2, "fields");
         lua_pushvalue(L, -1);
         lua_setmetatable(L, -2);
     }
@@ -425,6 +460,21 @@ static int luaCB_card_newindex(lua_State * L)
 {
     return luaL_error(L, "'card' type is readonly");
 }
+
+static const char * lua_dryos_fields[] =
+{
+    "clock",
+    "ms_clock",
+    "prefix",
+    "dcim_dir",
+    "config_dir",
+    "ml_card",
+    "shooting_card",
+    "date",
+    "call",
+    "directory",
+    NULL
+};
 
 const luaL_Reg dryoslib[] =
 {

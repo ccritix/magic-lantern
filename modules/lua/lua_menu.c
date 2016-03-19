@@ -871,6 +871,21 @@ static int luaCB_menu_remove(lua_State * L)
     return 0;
 }
 
+static const char * lua_menu_fields[] =
+{
+    "new",
+    "set",
+    "get",
+    "open",
+    "close",
+    "block",
+    "block_touch",
+    "open_submenu",
+    "close_submenu",
+    "toggle_submenu",
+    NULL
+};
+
 const luaL_Reg menulib[] =
 {
     {"new", luaCB_menu_new},
