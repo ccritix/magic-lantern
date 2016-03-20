@@ -59,7 +59,6 @@ static int luaCB_dryos_call(lua_State * L)
 
 const char * lua_dryos_directory_fields[] =
 {
-    "path",
     "exists",
     "create",
     "children",
@@ -70,7 +69,6 @@ const char * lua_dryos_directory_fields[] =
 
 const char * lua_dryos_card_fields[] =
 {
-    "_card_ptr",
     "cluster_size",
     "drive_letter",
     "file_number",
@@ -388,7 +386,7 @@ static int luaCB_directory_index(lua_State * L)
     else if(!strcmp(key, "parent"))
     {
         size_t len = strlen(path);
-        if (len > 0 && path[len - 1] == '/')
+        if (len > 3 && path[len - 1] == '/')
         {
             char * parent_path = copy_string(path);
             parent_path[len - 1] = 0x0;
