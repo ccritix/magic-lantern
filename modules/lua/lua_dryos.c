@@ -117,6 +117,7 @@ static int luaCB_dryos_directory(lua_State * L)
         lua_pushvalue(L, 1);
     }
     lua_setfield(L, -2, "path");
+    lua_newtable(L);
     lua_pushcfunction(L, luaCB_directory_index);
     lua_setfield(L, -2, "__index");
     lua_pushcfunction(L, luaCB_directory_newindex);
@@ -125,7 +126,6 @@ static int luaCB_dryos_directory(lua_State * L)
     lua_setfield(L, -2, "__pairs");
     lua_pushlightuserdata(L, lua_dryos_directory_fields);
     lua_setfield(L, -2, "fields");
-    lua_pushvalue(L, -1);
     lua_setmetatable(L, -2);
     return 1;
 }
@@ -181,6 +181,7 @@ static int luaCB_dryos_index(lua_State * L)
         lua_setfield(L, -2, "_card_ptr");
         lua_pushfstring(L, "%s:/", card->drive_letter);
         lua_setfield(L, -2, "path");
+        lua_newtable(L);
         lua_pushcfunction(L, luaCB_card_index);
         lua_setfield(L, -2, "__index");
         lua_pushcfunction(L, luaCB_card_newindex);
@@ -189,7 +190,6 @@ static int luaCB_dryos_index(lua_State * L)
         lua_setfield(L, -2, "__pairs");
         lua_pushlightuserdata(L, lua_dryos_card_fields);
         lua_setfield(L, -2, "fields");
-        lua_pushvalue(L, -1);
         lua_setmetatable(L, -2);
     }
     /// Get the shooting card
@@ -203,6 +203,7 @@ static int luaCB_dryos_index(lua_State * L)
         lua_setfield(L, -2, "_card_ptr");
         lua_pushfstring(L, "%s:/", card->drive_letter);
         lua_setfield(L, -2, "path");
+        lua_newtable(L);
         lua_pushcfunction(L, luaCB_card_index);
         lua_setfield(L, -2, "__index");
         lua_pushcfunction(L, luaCB_card_newindex);
@@ -211,14 +212,12 @@ static int luaCB_dryos_index(lua_State * L)
         lua_setfield(L, -2, "__pairs");
         lua_pushlightuserdata(L, lua_dryos_card_fields);
         lua_setfield(L, -2, "fields");
-        lua_pushvalue(L, -1);
         lua_setmetatable(L, -2);
     }
     /// Gets a table representing the current date/time
     // @tfield date date
     else if(!strcmp(key, "date"))
     {
-        
         /// Represents a date/time
         // @type date
         struct tm tm;
@@ -471,8 +470,6 @@ static const char * lua_dryos_fields[] =
     "ml_card",
     "shooting_card",
     "date",
-    "call",
-    "directory",
     NULL
 };
 

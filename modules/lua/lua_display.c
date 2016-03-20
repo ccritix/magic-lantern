@@ -393,18 +393,6 @@ static const char * lua_display_fields[] =
     "idle",
     "height",
     "width",
-    "on",
-    "off",
-    "screenshot",
-    "clear",
-    "print",
-    "pixel",
-    "line",
-    "rect",
-    "circle",
-    "load",
-    "draw",
-    "notify_box",
     NULL
 };
 

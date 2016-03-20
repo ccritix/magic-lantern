@@ -388,6 +388,16 @@ static int luaCB_global_index(lua_State * L)
     return 0;
 }
 
+int do_lua_next(lua_State * L)
+{
+    int r = lua_next(L, 1);
+    if (!r)
+    {
+        lua_pushnil(L);
+        lua_pushnil(L);
+    }
+    return 2;
+}
 
 int luaCB_next(lua_State * L)
 {
@@ -404,12 +414,11 @@ int luaCB_next(lua_State * L)
         }
         else
         {
-            lua_pushnil(L);
-            lua_pushnil(L);
-            return 2;
+            lua_pushvalue(L, 2);
+            return do_lua_next(L);
         }
     }
-    else
+    else if(lua_type(L, 2) == LUA_TSTRING)
     {
         LUA_PARAM_STRING(key, 2);
         int found = 0;
@@ -420,23 +429,26 @@ int luaCB_next(lua_State * L)
                 if(fields && fields[i+1])
                 {
                     lua_pushstring(L, fields[i+1]);
+                    found = true;
+                    break;
                 }
                 else
                 {
                     lua_pushnil(L);
-                    lua_pushnil(L);
-                    return 2;
+                    return do_lua_next(L);
                 }
-                found = true;
-                break;
             }
         }
         if(!found)
         {
-            lua_pushnil(L);
-            lua_pushnil(L);
-            return 2;
+            lua_pushvalue(L, 2);
+            return do_lua_next(L);
         }
+    }
+    else
+    {
+        lua_pushvalue(L, 2);
+        return do_lua_next(L);
     }
     lua_pushvalue(L, -1);
     lua_gettable(L, 1);

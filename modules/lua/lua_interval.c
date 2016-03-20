@@ -63,7 +63,6 @@ static const char * lua_interval_fields[] =
     "time",
     "count",
     "running",
-    "stop",
     NULL
 };
 

@@ -320,11 +320,6 @@ static int luaCB_lvinfo_newindex(lua_State * L)
 
 static const char * lua_lv_fields[] =
 {
-    "start",
-    "pause",
-    "resume",
-    "stop",
-    "info",
     "enabled",
     NULL
 };

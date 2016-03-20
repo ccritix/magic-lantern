@@ -105,8 +105,6 @@ static int luaCB_task_newindex(lua_State * L)
 
 static const char * lua_task_fields[] =
 {
-    "create",
-    "yield",
     NULL
 };
 

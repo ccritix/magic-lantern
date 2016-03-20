@@ -83,7 +83,6 @@ static const char * lua_lens_fields[] =
     "dof_near",
     "dof_far",
     "af",
-    "focus",
     NULL
 };
 

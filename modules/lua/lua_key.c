@@ -85,8 +85,6 @@ static int luaCB_key_newindex(lua_State * L)
 static const char * lua_key_fields[] =
 {
     "last",
-    "press",
-    "wait",
     NULL
 };
 

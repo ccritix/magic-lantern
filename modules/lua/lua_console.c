@@ -59,10 +59,6 @@ static int luaCB_console_newindex(lua_State * L) { lua_rawset(L, 1); return 0; }
 
 static const char * lua_console_fields[] =
 {
-    "show",
-    "hide",
-    "clear",
-    "write",
     NULL
 };
 

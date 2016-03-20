@@ -86,8 +86,6 @@ static int luaCB_movie_newindex(lua_State * L)
 static const char * lua_movie_fields[] =
 {
     "recording",
-    "start",
-    "stop",
     NULL
 };
 
