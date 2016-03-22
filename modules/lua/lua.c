@@ -115,7 +115,7 @@ char * copy_string(const char * str)
     return copy;
 }
 
-/*** 
+/***
  Event Handlers.
  
  Scripts can repsond to events by setting the functions in the 'event' table.
@@ -123,7 +123,7 @@ char * copy_string(const char * str)
  that specifies whether or not the backend should continue executing event handlers
  for this particular event.
  
- Event handlers will not run if there's already a script or another event handler 
+ Event handlers will not run if there's already a script or another event handler
  actively executing at the same time.
  
  @author Magic Lantern Team
@@ -131,10 +131,10 @@ char * copy_string(const char * str)
  @license GPL
  @module event
  @usage
-event.keypress = function(key)
-    print("You pressed a key: "..key)
-    return false
-end
+ event.keypress = function(key)
+ print("You pressed a key: "..key)
+ return false
+ end
  */
 
 
@@ -190,7 +190,7 @@ static unsigned int lua_do_cbr(unsigned int ctx, struct script_event_entry * eve
 #define LUA_CBR_FUNC(name, arg, timeout)\
 static struct script_event_entry * name##_cbr_scripts = NULL;\
 static unsigned int lua_##name##_cbr(unsigned int ctx) {\
-    return lua_do_cbr(arg, name##_cbr_scripts, #name, timeout, CBR_RET_CONTINUE, CBR_RET_STOP);\
+return lua_do_cbr(arg, name##_cbr_scripts, #name, timeout, CBR_RET_CONTINUE, CBR_RET_STOP);\
 }\
 
 LUA_CBR_FUNC(pre_shoot, ctx, 500)
@@ -220,9 +220,9 @@ static unsigned int lua_keypress_cbr(unsigned int ctx)
 #define SCRIPT_CBR_SET(event) \
 if(!strcmp(key, #event))\
 {\
-    lua_pushvalue(L, 3);\
-    set_event_script_entry(&event##_cbr_scripts, L, lua_isfunction(L, -1) ? luaL_ref(L, LUA_REGISTRYINDEX) : LUA_NOREF); \
-    return 0;\
+lua_pushvalue(L, 3);\
+set_event_script_entry(&event##_cbr_scripts, L, lua_isfunction(L, -1) ? luaL_ref(L, LUA_REGISTRYINDEX) : LUA_NOREF); \
+return 0;\
 }\
 
 static void set_event_script_entry(struct script_event_entry ** root, lua_State * L, int function_ref)
@@ -544,24 +544,24 @@ static unsigned int lua_deinit()
 }
 
 MODULE_INFO_START()
-    MODULE_INIT(lua_init)
-    MODULE_DEINIT(lua_deinit)
+MODULE_INIT(lua_init)
+MODULE_DEINIT(lua_deinit)
 MODULE_INFO_END()
 
 MODULE_CBRS_START()
-    MODULE_CBR(CBR_PRE_SHOOT, lua_pre_shoot_cbr, 0)
-    MODULE_CBR(CBR_POST_SHOOT, lua_post_shoot_cbr, 0)
-    MODULE_CBR(CBR_SHOOT_TASK, lua_shoot_task_cbr, 0)
-    MODULE_CBR(CBR_SECONDS_CLOCK, lua_seconds_clock_cbr, 0)
-    MODULE_CBR(CBR_KEYPRESS, lua_keypress_cbr, 0)
-    MODULE_CBR(CBR_CUSTOM_PICTURE_TAKING, lua_custom_picture_taking_cbr, 0)
-    MODULE_CBR(CBR_INTERVALOMETER, lua_intervalometer_cbr, 0)
-    MODULE_CBR(CBR_CONFIG_SAVE, lua_config_save_cbr, 0)
+MODULE_CBR(CBR_PRE_SHOOT, lua_pre_shoot_cbr, 0)
+MODULE_CBR(CBR_POST_SHOOT, lua_post_shoot_cbr, 0)
+MODULE_CBR(CBR_SHOOT_TASK, lua_shoot_task_cbr, 0)
+MODULE_CBR(CBR_SECONDS_CLOCK, lua_seconds_clock_cbr, 0)
+MODULE_CBR(CBR_KEYPRESS, lua_keypress_cbr, 0)
+MODULE_CBR(CBR_CUSTOM_PICTURE_TAKING, lua_custom_picture_taking_cbr, 0)
+MODULE_CBR(CBR_INTERVALOMETER, lua_intervalometer_cbr, 0)
+MODULE_CBR(CBR_CONFIG_SAVE, lua_config_save_cbr, 0)
 
 #ifdef CONFIG_VSYNC_EVENTS
-    MODULE_CBR(CBR_VSYNC, lua_vsync_cbr, 0)
-    MODULE_CBR(CBR_DISPLAY_FILTER, lua_display_filter_cbr, 0)
-    MODULE_CBR(CBR_VSYNC_SETPARAM, lua_vsync_setparam_cbr, 0)
+MODULE_CBR(CBR_VSYNC, lua_vsync_cbr, 0)
+MODULE_CBR(CBR_DISPLAY_FILTER, lua_display_filter_cbr, 0)
+MODULE_CBR(CBR_VSYNC_SETPARAM, lua_vsync_setparam_cbr, 0)
 #endif
 
 MODULE_CBRS_END()

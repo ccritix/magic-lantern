@@ -1,6 +1,7 @@
 -- a text editor
 require("keys")
 require("keyboard")
+require("logger")
 
 function inc(val,min,max)
     if val == max then return min end
@@ -374,17 +375,21 @@ function filedialog:show()
     while true do
         local key = keys:getkey()
         if key ~= nil then
-            local result = self:handle_key(key)
-            if result == "Cancel" then 
-                if started then keys:stop() end
-                return nil
-            elseif result == "OK" then
-                if started then keys:stop() end
-                if self.save_mode then return self.current.path..self.save_box.value
-                else return self.selected_value end
-            elseif result ~= nil then
-                if started then keys:stop() end
-                return result
+            -- process all keys in the queue (until getkey() returns nil), then redraw
+            while key ~= nil do
+                local result = self:handle_key(key)
+                if result == "Cancel" then 
+                    if started then keys:stop() end
+                    return nil
+                elseif result == "OK" then
+                    if started then keys:stop() end
+                    if self.save_mode then return self.current.path..self.save_box.value
+                    else return self.selected_value end
+                elseif result ~= nil then
+                    if started then keys:stop() end
+                    return result
+                end
+                key = keys:getkey()
             end
             self:draw()
         end
@@ -557,20 +562,27 @@ function editor:main_loop()
     menu.block(true)
     self:draw()
     keys:start()
-    while true do
+    local exit = false
+    while not exit do
         if menu.visible == false then break end
         local key = keys:getkey()
         if key ~= nil then
-            if self.menu_open then
-                if self:handle_menu_key(key) == false then
-                    break
+            -- process all keys in the queue (until getkey() returns nil), then redraw
+            while key ~= nil do
+                if self.menu_open then
+                    if self:handle_menu_key(key) == false then
+                        exit = true
+                        break
+                    end
+                elseif self.debugging then
+                    if self:handle_debug_key(key) == false then
+                        exit = true
+                        break
+                    end
+                else
+                    self:handle_key(key)
                 end
-            elseif self.debugging then
-                if self:handle_debug_key(key) == false then
-                    break
-                end
-            else
-                self:handle_key(key)
+                key = keys:getkey()
             end
             self:draw()
             --don't yield long, see if there's more keys to process
@@ -838,31 +850,11 @@ function editor:open()
     if f ~= nil then
         self.filename = f
         self:update_title(false, true)
-        self.lines = {}
         self:draw_status("Loading...")
         local file = io.open(f,"r")
-        local data = file:read("*a")
-        local p1 = 1
-        local p2 = 1
-        local len = #data
-        while p2 <= len do
-            local c = string.sub(data,p2,p2)
-            if c == "\r" or c == "\n" then
-                if p1 == p2 then table.insert(self.lines,"")
-                else table.insert(self.lines, string.sub(data,p1,p2-1)) end
-                if p2 == len then break end
-                p2 = p2 + 1
-                if c == "\r" and string.sub(data,p2,p2) == "\n" then
-                    p2 = p2 + 1
-                end
-                p1 = p2
-            else
-                p2 = p2 + 1
-            end
-        end
-        if p1 == p2 then table.insert(self.lines,"")
-        else table.insert(self.lines, string.sub(data,p1,p2-1)) end
-        
+        --this is much faster than io.lines b/c the file io is all done in one large read request
+        self.lines = logger.tolines(file:read("*a"))
+        file:close()
         self.line = 1
         self.col = 1
         self.scrollbar.table = self.lines
@@ -1319,7 +1311,6 @@ end
 function handle_error(error)
     if error == nil then error = "Unknown Error!\n" end
     local f = FONT.MONO_20
-    print(error)
     display.rect(0,0,display.width,display.height,COLOR.RED,COLOR.BLACK)
     local pos = 10
     for line in error:gmatch("[^\r\n]+") do
@@ -1330,5 +1321,8 @@ function handle_error(error)
         end
         pos = pos + f.height
     end
+    local log = logger("EDITOR.ERR")
+    log:write(error)
+    log:close()
     keys:anykey()
 end

@@ -1,6 +1,7 @@
 -- a simple calculator
 
 require("keys")
+require("logger")
 
 calc = {}
 calc.value = ""
@@ -186,7 +187,6 @@ end
 function handle_error(error)
     if error == nil then error = "Unknown Error!\n" end
     local f = FONT.MONO_20
-    print(error)
     display.rect(0,0,display.width,display.height,COLOR.RED,COLOR.BLACK)
     local pos = 10
     for line in error:gmatch("[^\r\n]+") do
@@ -197,5 +197,8 @@ function handle_error(error)
         end
         pos = pos + f.height
     end
+    local log = logger("CALC.ERR")
+    log:write(error)
+    log:close()
     keys:anykey()
 end
