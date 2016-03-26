@@ -113,17 +113,24 @@ Recursively enumerates table structures
 function logger:serialize(o,l)
     if type(o) == "string" then
         self:writef("%q",o)
-    elseif type(o) == "table" then
+    elseif type(o) == "table" or type(o) == "userdata" then
         if l == nil then l = 1 end
         --prevent infinite recursion
         if l < 10 then
-            self:write("table:\n")
-            for k,v in pairs(o) do
-                for i=1,l,1 do self:write("  ") end
-                if type(k) == "string" then self:writef("%s = ",k)
-                else self:writef("[%s] = ",tostring(k)) end
-                self:serialize(v,l+1)
-                if type(v) ~= "table" then self:write("\n") end
+            local s,e = pcall(function() pairs(o) end)
+            if s == true then
+                -- something iterable
+                self:writef("%s:\n",type(o))
+                for k,v in pairs(o) do
+                    for i=1,l,1 do self:write("  ") end
+                    if type(k) == "string" then self:writef("%s = ",k)
+                    else self:writef("[%s] = ",tostring(k)) end
+                    self:serialize(v,l+1)
+                    if type(v) ~= "table" then self:write("\n") end
+                end
+            else
+                -- something not iterable
+                self:writef("%s",type(o))
             end
         end
     else

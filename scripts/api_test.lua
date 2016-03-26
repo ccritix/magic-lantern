@@ -37,10 +37,43 @@ function api_tests()
     console.clear()
     console.show()
     test_log = logger("LUATEST.LOG")
-    printf("Testing module 'camera'...")
+
+    printf("Generic tests...")
     print_table("camera")
-    
+    print_table("event")
+    print_table("console")
+    print_table("lv")
+    print_table("lens")
+    print_table("display")
+    print_table("key")
+    print_table("menu")
+    print_table("testmenu")
+    print_table("movie")
+    print_table("dryos")
+    print_table("interval")
+    print_table("battery")
+    print_table("task")
+    print_table("property")
+
+
+    printf("Testing module 'camera'...")
+    printf("Camera    : %s (%s) %s", camera.model, camera.model_short, camera.firmware)
+    printf("Lens      : %s", lens.name)
+    printf("Shoot mode: %s", camera.mode)
+    printf("Shutter   : %s (raw %s, %ss, %sms, apex %s)", camera.shutter, camera.shutter.raw, camera.shutter.value, camera.shutter.ms, camera.shutter.apex)
+    printf("Aperture  : %s (raw %s, f/%s, apex %s)", camera.aperture, camera.aperture.raw, camera.aperture.value, camera.aperture.apex)
+    printf("Av range  : %s..%s (raw %s..%s, f/%s..f/%s, apex %s..%s)",
+        camera.aperture.min, camera.aperture.max,
+        camera.aperture.min.raw, camera.aperture.max.raw,
+        camera.aperture.min.value, camera.aperture.max.value,
+        camera.aperture.min.apex, camera.aperture.max.apex
+    )
+    printf("ISO       : %s (raw %s, %s, apex %s)", camera.iso, camera.iso.raw, camera.iso.value, camera.iso.apex)
+    printf("EC        : %s (raw %s, %s EV)", camera.ec, camera.ec.raw, camera.ec.value)
+    printf("Flash EC  : %s (raw %s, %s EV)", camera.flash_ec, camera.flash_ec.raw, camera.flash_ec.value)
+
     request_mode(MODE.M, "M")
+    old_value = camera.shutter.raw
     printf("Setting shutter to random values...")
     for k = 1,100 do
         method = math.random(1,4)
@@ -112,8 +145,10 @@ function api_tests()
             end
         end
     end
+    camera.shutter.raw = old_value
 
     request_mode(MODE.M, "M")
+    old_value = camera.iso.raw
     printf("Setting ISO to random values...")
     for k = 1,100 do
         method = math.random(1,3)
@@ -162,11 +197,13 @@ function api_tests()
             end
         end
     end
+    camera.iso.raw = old_value
 
     if camera.aperture.min.raw == camera.aperture.max.raw then
         printf("This lens does not have variable aperture (skipping test).")
     else
         request_mode(MODE.M, "M")
+        old_value = camera.aperture.raw
         printf("Setting aperture to random values...")
         for k = 1,100 do
             method = math.random(1,3)
@@ -220,9 +257,11 @@ function api_tests()
                 end
             end
         end
+        camera.aperture.raw = old_value
     end
 
     request_mode(MODE.AV, "Av")
+    old_value = camera.ec.raw
     printf("Setting EC to random values...")
     for k = 1,100 do
         method = math.random(1,2)
@@ -263,8 +302,10 @@ function api_tests()
             end
         end
     end
+    camera.ec.raw = old_value
 
     -- copy/paste & replace from EC (those two should behave in the same way)
+    old_value = camera.flash_ec.raw
     printf("Setting Flash EC to random values...")
     for k = 1,100 do
         method = math.random(1,2)
@@ -305,21 +346,8 @@ function api_tests()
             end
         end
     end
+    camera.flash_ec.raw = old_value
     
-    print_table("event")
-    print_table("console")
-    print_table("lv")
-    print_table("lens")
-    print_table("display")
-    print_table("key")
-    print_table("menu")
-    print_table("testmenu")
-    print_table("movie")
-    print_table("dryos")
-    print_table("interval")
-    print_table("battery")
-    print_table("task")
-    print_table("property")
     printf("Done!")
     
     test_log:close()
