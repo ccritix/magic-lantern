@@ -5570,8 +5570,8 @@ static unsigned int adtg_gui_init()
         CMOS2_WRITE_FUNC = 0x2420C; //"[REG] ############ Start CMOS"
         ADTG_WRITE_FUNC = 0x24108; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS16_WRITE_FUNC = 0x24548; //"[REG] ############ Start CMOS16 OC_KICK"
-        ENGIO_WRITE_FUNC = 0xFF2AE148;  // from stubs
-        ENG_DRV_OUT_FUNC = 0xFF2ADE30;
+        ENGIO_WRITE_FUNC = 0xFF2AE134;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF2ADE1C;
     }
     else if (is_camera("EOSM", "2.0.2")) // from 1%
     {
