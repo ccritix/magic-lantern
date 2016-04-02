@@ -510,7 +510,7 @@ static struct reg_entry * reg_find(uint16_t dst, uint16_t reg, uint32_t context)
     return (struct reg_entry *) found_reg;
 }
 
-static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint32_t reg_shift, uint32_t is_nrzi, uint32_t caller_task, uint32_t caller_pc)
+static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint16_t* val_ptr, uint32_t reg_shift, uint32_t is_nrzi, uint32_t caller_task, uint32_t caller_pc)
 {
     if (reg_num + 1 >= COUNT(regs))
     {
@@ -548,7 +548,6 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint32_t 
     if (re->override_enabled)
     {
         int ovr = get_override_value(re);
-        uint16_t* val_ptr = addr;
         ovr &= ((1 << reg_shift) - 1);
         *val_ptr &= ~((1 << reg_shift) - 1);
         *val_ptr |= ovr;
@@ -646,15 +645,28 @@ static void adtg_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
     uint32_t caller_task = get_current_task();
     uint32_t caller_pc = PATCH_HOOK_CALLER();
-    
+
+    /* copy data into a buffer, to make the override temporary */
+    static uint32_t copy[512];
+    uint32_t* copy_end = &copy[COUNT(copy)];
+    uint32_t* copy_ptr = copy;
+
     /* log all ADTG writes */
     while(*data_buf != 0xFFFFFFFF)
     {
-        if (dst & 1) reg_update_unique(1, data_buf, *data_buf, 16, 0, caller_task, caller_pc);
-        if (dst & 2) reg_update_unique(2, data_buf, *data_buf, 16, 0, caller_task, caller_pc);
-        if (dst & 4) reg_update_unique(4, data_buf, *data_buf, 16, 0, caller_task, caller_pc);
+        *copy_ptr = *data_buf;
+        if (dst & 1) reg_update_unique(1, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
+        if (dst & 2) reg_update_unique(2, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
+        if (dst & 4) reg_update_unique(4, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
         data_buf++;
+        copy_ptr++;
+        if (copy_ptr > copy_end) while(1);
     }
+    *copy_ptr = 0xFFFFFFFF;
+    
+    /* pass our modified register list to adtg_write */
+    uint32_t* out_regs = PATCH_HOOK_OUT_REGS();
+    out_regs[1] = (uint32_t) copy;
 }
 
 static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
@@ -665,13 +677,30 @@ static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     
     uint32_t caller_task = get_current_task();
     uint32_t caller_pc = PATCH_HOOK_CALLER();
-    
+
+    /* copy data into a buffer, to make the override temporary */
+    /* that means: as soon as we stop executing the hooks / overriding things,
+     * values are back to normal */
+    static uint16_t copy[512];
+    uint16_t* copy_end = &copy[COUNT(copy)];
+    uint16_t* copy_ptr = copy;
+
     /* log all CMOS writes */
     while(*data_buf != 0xFFFF)
     {
-        reg_update_unique(DST_CMOS, data_buf, *data_buf, 12, 0, caller_task, caller_pc);
+        *copy_ptr = *data_buf;
+
+        reg_update_unique(DST_CMOS, data_buf, *data_buf, copy_ptr, 12, 0, caller_task, caller_pc);
+
         data_buf++;
+        copy_ptr++;
+        if (copy_ptr > copy_end) while(1);
     }
+    *copy_ptr = 0xFFFF;
+
+    /* pass our modified register list to cmos_write */
+    uint32_t* out_regs = PATCH_HOOK_OUT_REGS();
+    out_regs[0] = (uint32_t) copy;
 }
 
 static void cmos16_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
@@ -683,16 +712,34 @@ static void cmos16_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     uint32_t caller_task = get_current_task();
     uint32_t caller_pc = PATCH_HOOK_CALLER();
 
+    /* copy data into a buffer, to make the override temporary */
+    /* that means: as soon as we stop executing the hooks / overriding things,
+     * values are back to normal */
+    static uint16_t copy[512];
+    uint16_t* copy_end = &copy[COUNT(copy)];
+    uint16_t* copy_ptr = copy;
+
     /* log all CMOS writes */
     while(*data_buf != 0xFFFF)
     {
-        reg_update_unique(DST_CMOS16, data_buf, *data_buf, 12, 0, caller_task, caller_pc);
+        *copy_ptr = *data_buf;
+
+        reg_update_unique(DST_CMOS16, data_buf, *data_buf, copy_ptr, 12, 0, caller_task, caller_pc);
+
         data_buf++;
+        copy_ptr++;
+        if (copy_ptr > copy_end) while(1);
     }
+    *copy_ptr = 0xFFFF;
+
+    /* pass our modified register list to cmos_write */
+    uint32_t* out_regs = PATCH_HOOK_OUT_REGS();
+    out_regs[0] = (uint32_t) copy;
 }
 
 static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
+    /* fixme: use nondestructive overriding */
     if (photo_only && lv) return;
     if (!digic_intercept) return;
     
@@ -757,13 +804,26 @@ static void SendDataToDfe_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
     uint32_t caller_task = get_current_task();
     uint32_t caller_pc = PATCH_HOOK_CALLER();
-    
+
+    /* copy data into a buffer, to make the override temporary */
+    static uint32_t copy[512];
+    uint32_t* copy_end = &copy[COUNT(copy)];
+    uint32_t* copy_ptr = copy;
+
     /* log all DFE writes */
     while(*data_buf != 0xFFFFFFFF)
     {
-        reg_update_unique(DST_DFE, data_buf, *data_buf, 16, 0, caller_task, caller_pc);
+        *copy_ptr = *data_buf;
+        reg_update_unique(DST_DFE, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
         data_buf++;
+        copy_ptr++;
+        if (copy_ptr > copy_end) while(1);
     }
+    *copy_ptr = 0xFFFFFFFF;
+    
+    /* pass our modified register list to adtg_write */
+    uint32_t* out_regs = PATCH_HOOK_OUT_REGS();
+    out_regs[0] = (uint32_t) copy;
 }
 
 static void dummy_readout_log(uint32_t* _regs, uint32_t* stack, uint32_t pc)
