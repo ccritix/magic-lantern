@@ -955,9 +955,20 @@ static MENU_UPDATE_FUNC(reg_update)
     if (regs[reg].override_enabled)
     {
         int ovr = get_override_value(&regs[reg]);
-        MENU_SET_RINFO("-> 0x%x", regs[reg].is_nrzi ? nrzi_decode(ovr) : ovr);
+        if (get_menu_edit_mode() || menu_active_but_hidden())
+        {
+            int val = regs[reg].val;
+            MENU_SET_RINFO("<- 0x%x", regs[reg].is_nrzi ? nrzi_decode(val) : val);
+        }
+        else
+        {
+            MENU_SET_RINFO("-> 0x%x", regs[reg].is_nrzi ? nrzi_decode(ovr) : ovr);
+        }
+        
         if (menu_active_and_not_hidden())
+        {
             MENU_SET_WARNING(MENU_WARN_INFO, "Press Q to stop overriding this register.");
+        }
     }
     else
     {
