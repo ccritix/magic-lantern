@@ -75,6 +75,9 @@ dietlibc.a: $(DIET_OBJ)
 install::
 	$(CP) $(SCRIPT_DIR)/*.lua $(INSTALL_SCRIPTS_DIR)/
 	$(CP) $(SCRIPT_LIB_DIR)/*.lua $(INSTALL_SCRIPTS_LIB_DIR)/
+	$(CP) $(SCRIPT_DIR)/flashair/wifi_con.lua $(INSTALL_SCRIPTS_DIR)/
+	$(CP) $(SCRIPT_DIR)/flashair/upscript.lua $(INSTALL_DIR)/UPSCRIPT.LUA
+	$(UMOUNT) $(CF_CARD)
 
 # run a syntax check after compiling
 # fixme: how to execute it only once?
