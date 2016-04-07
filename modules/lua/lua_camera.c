@@ -182,11 +182,13 @@ static int luaCB_camera_index(lua_State * L)
     // @tfield int kelvin
     else if(!strcmp(key, "kelvin")) lua_pushinteger(L, lens_info.kelvin);
     /// Get the current camera mode, possible values defined in @{constants.MODE}
+    /// Note: for cameras without a dedicated video mode, it will return MODE.MOVIE
+    /// whenever your camera is configured to record videos.
     // @tfield int mode
-    else if(!strcmp(key, "mode")) lua_pushinteger(L, shooting_mode);
-    /// Get the current auto focus mode
-    // @tfield int af_mode readonly
-    else if(!strcmp(key, "af_mode")) lua_pushinteger(L, af_mode);
+    else if(!strcmp(key, "mode"))
+    {
+        lua_pushinteger(L, is_movie_mode() ? SHOOTMODE_MOVIE : shooting_mode);
+    }
     /// Get the current metering mode
     // @tfield int metering_mode readonly
     else if(!strcmp(key, "metering_mode")) lua_pushinteger(L, metering_mode);
@@ -250,7 +252,7 @@ static int luaCB_camera_newindex(lua_State * L)
         LUA_PARAM_INT(value, 3);
         lens_set_kelvin(value);
     }
-    else if(!strcmp(key, "model") || !strcmp(key, "firmware") || !strcmp(key, "mode") || !strcmp(key, "af_mode") || !strcmp(key, "metering_mode") || !strcmp(key, "drive_mode") || !strcmp(key, "temperature") || !strcmp(key, "state"))
+    else if(!strcmp(key, "model") || !strcmp(key, "firmware") || !strcmp(key, "mode") || !strcmp(key, "metering_mode") || !strcmp(key, "drive_mode") || !strcmp(key, "temperature") || !strcmp(key, "state"))
     {
         return luaL_error(L, "'%s' is readonly!", key);
     }
@@ -337,7 +339,8 @@ static int luaCB_shutter_newindex(lua_State * L)
 {
     LUA_PARAM_STRING_OPTIONAL(key, 2, "");
     
-    if(!lens_info.raw_shutter) return luaL_error(L, "Shutter speed is automatic - cannot adjust manually.");
+    /* this breaks copy2m */
+    //~ if(!lens_info.raw_shutter) return luaL_error(L, "Shutter speed is automatic - cannot adjust manually.");
     
     int status = 1;
     if(!strcmp(key, "raw"))
@@ -478,7 +481,8 @@ static int luaCB_aperture_newindex(lua_State * L)
     
     if (!lens_info.aperture)
     {
-        return luaL_error(L, lens_info.name[0] ? "Aperture is automatic - cannot adjust manually." : "Manual lens - cannot adjust aperture.");
+        /* is it needed? */
+        //~ return luaL_error(L, lens_info.name[0] ? "Aperture is automatic - cannot adjust manually." : "Manual lens - cannot adjust aperture.");
     }
     int status = 1;
     
@@ -665,7 +669,6 @@ static const char * lua_camera_fields[] =
     "flash_ec",
     "kelvin",
     "mode",
-    "af_mode",
     "metering_mode",
     "drive_mode",
     "model",

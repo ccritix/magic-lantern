@@ -2,6 +2,9 @@
 -- Very incomplete
 require("logger")
 
+-- global logger
+test_log = nil
+
 function printf(s,...)
     test_log:writef(s,...)
     test_log:write("\n")
@@ -32,12 +35,31 @@ function print_table(t)
     end
 end
 
-function api_tests()
-    menu.close()
-    console.clear()
-    console.show()
-    test_log = logger("LUATEST.LOG")
+-- used for testing Lua 'strict' mode
+declared_var = nil
 
+function strict_tests()
+    printf("Strict mode tests...")
+
+    -- this should work
+    declared_var = 5
+    assert(declared_var == 5)
+
+    -- this should raise error
+    local s,e = pcall(function() undeclared_var = 7 end)
+    assert(s == false)
+    assert(e:find("assign to undeclared variable 'undeclared_var'"))
+
+    -- same here
+    local s,e = pcall(function() print(undeclared_var) end)
+    assert(s == false)
+    assert(e:find("variable 'undeclared_var' is not declared"))
+
+    printf("Strict mode tests passed.")
+    printf("")
+end
+
+function generic_tests()
     printf("Generic tests...")
     print_table("camera")
     print_table("event")
@@ -54,9 +76,12 @@ function api_tests()
     print_table("battery")
     print_table("task")
     print_table("property")
+    printf("Generic tests completed.")
+    printf("")
+end
 
-
-    printf("Testing module 'camera'...")
+function test_camera_exposure()
+    printf("Testing exposure settings, module 'camera'...")
     printf("Camera    : %s (%s) %s", camera.model, camera.model_short, camera.firmware)
     printf("Lens      : %s", lens.name)
     printf("Shoot mode: %s", camera.mode)
@@ -73,10 +98,11 @@ function api_tests()
     printf("Flash EC  : %s (raw %s, %s EV)", camera.flash_ec, camera.flash_ec.raw, camera.flash_ec.value)
 
     request_mode(MODE.M, "M")
-    old_value = camera.shutter.raw
+    local old_value = camera.shutter.raw
     printf("Setting shutter to random values...")
     for k = 1,100 do
-        method = math.random(1,4)
+        local method = math.random(1,4)
+        local d = nil
         if method == 1 then
             local s = math.random(1,30)
             camera.shutter.value = s
@@ -109,7 +135,7 @@ function api_tests()
         
         -- seconds and apex should be consistent
         -- see http://dougkerr.net/Pumpkin/articles/APEX.pdf
-        expected_apex = math.log(1/camera.shutter.value,2)
+        local expected_apex = math.log(1/camera.shutter.value,2)
         if math.abs(expected_apex - camera.shutter.apex) > 0.01 then
             printf("Error: shutter %ss != Tv%s, expected %s", camera.shutter.value, camera.shutter.apex, expected_apex)
         end
@@ -117,31 +143,32 @@ function api_tests()
         -- setting shutter to the same value, using any method (s,ms,apex,raw)
         -- should not change anything
         for i,field in pairs{"value","ms","apex","raw"} do
-            apex  = camera.shutter.apex
-            value = camera.shutter.value
-            ms    = camera.shutter.ms
-            raw   = camera.shutter.raw
+            local current = {}
+            current.apex  = camera.shutter.apex
+            current.value = camera.shutter.value
+            current.ms    = camera.shutter.ms
+            current.raw   = camera.shutter.raw
             
             -- ms is integer, so tests at very low values will fail because of roundoff errors
             -- however, if we have set the shutter in ms from the beginning, it will work fine
-            if field == "ms" and ms < 10 and method ~= 2 then
+            if field == "ms" and current.ms < 10 and method ~= 2 then
                 -- how do you write "continue" in Lua?!
                 field = "value"
             end
             
-            camera.shutter[field] = _G[field]
+            camera.shutter[field] = current[field]
             
-            if camera.shutter.value ~= value then
-                printf("Error: shutter set to %s=%s, got %ss, expected %ss", field, _G[field], camera.shutter.value, value)
+            if camera.shutter.value ~= current.value then
+                printf("Error: shutter set to %s=%s, got %ss, expected %ss", field, current[field], camera.shutter.value, current.value)
             end
-            if camera.shutter.ms ~= ms then
-                printf("Error: shutter set to %s=%s, got %sms, expected %sms", field, _G[field], camera.shutter.ms, ms)
+            if camera.shutter.ms ~= current.ms then
+                printf("Error: shutter set to %s=%s, got %sms, expected %sms", field, current[field], camera.shutter.ms, current.ms)
             end
-            if camera.shutter.apex ~= apex then
-                printf("Error: shutter set to %s=%s, got Tv%s, expected Tv%s", field, _G[field], camera.shutter.apex, apex)
+            if camera.shutter.apex ~= current.apex then
+                printf("Error: shutter set to %s=%s, got Tv%s, expected Tv%s", field, current[field], camera.shutter.apex, current.apex)
             end
-            if camera.shutter.raw ~= raw then
-                printf("Error: shutter set to %s=%s, got %s, expected %s (raw)", field, _G[field], camera.shutter.raw, raw)
+            if camera.shutter.raw ~= current.raw then
+                printf("Error: shutter set to %s=%s, got %s, expected %s (raw)", field, current[field], camera.shutter.raw, current.raw)
             end
         end
     end
@@ -151,7 +178,8 @@ function api_tests()
     old_value = camera.iso.raw
     printf("Setting ISO to random values...")
     for k = 1,100 do
-        method = math.random(1,3)
+        local method = math.random(1,3)
+        local d = nil
         if method == 1 then
             local iso = math.random(100, 6400)
             camera.iso.value = iso
@@ -172,7 +200,7 @@ function api_tests()
         end
 
         -- ISO and Sv (APEX) should be consistent
-        expected_apex = math.log(camera.iso.value/3.125, 2)
+        local expected_apex = math.log(camera.iso.value/3.125, 2)
         if math.abs(expected_apex - camera.iso.apex) > 0.2 then
             printf("Error: ISO %s != Sv%s, expected %s", camera.iso.value, camera.iso.apex, expected_apex)
         end
@@ -180,20 +208,21 @@ function api_tests()
         -- setting ISO to the same value, using any method (value,apex,raw)
         -- should not change anything
         for i,field in pairs{"value","apex","raw"} do
-            apex  = camera.iso.apex
-            value = camera.iso.value
-            raw   = camera.iso.raw
+            local current = {}
+            current.apex  = camera.iso.apex
+            current.value = camera.iso.value
+            current.raw   = camera.iso.raw
             
-            camera.iso[field] = _G[field]
+            camera.iso[field] = current[field]
             
-            if camera.iso.value ~= value then
-                printf("Error: ISO set to %s=%s, got %s, expected %s", field, _G[field], camera.iso.value, value)
+            if camera.iso.value ~= current.value then
+                printf("Error: ISO set to %s=%s, got %s, expected %s", field, current[field], camera.iso.value, current.value)
             end
-            if camera.iso.apex ~= apex then
-                printf("Error: ISO set to %s=%s, got Sv%s, expected Sv%s", field, _G[field], camera.iso.apex, apex)
+            if camera.iso.apex ~= current.apex then
+                printf("Error: ISO set to %s=%s, got Sv%s, expected Sv%s", field, current[field], camera.iso.apex, current.apex)
             end
-            if camera.iso.raw ~= raw then
-                printf("Error: ISO set to %s=%s, got %s, expected %s (raw)", field, _G[field], camera.iso.raw, raw)
+            if camera.iso.raw ~= current.raw then
+                printf("Error: ISO set to %s=%s, got %s, expected %s (raw)", field, current[field], camera.iso.raw, current.raw)
             end
         end
     end
@@ -206,8 +235,9 @@ function api_tests()
         old_value = camera.aperture.raw
         printf("Setting aperture to random values...")
         for k = 1,100 do
-            method = math.random(1,3)
-            extra_tol = 0
+            local method = math.random(1,3)
+            local d = nil
+            local extra_tol = 0
             if method == 1 then
                 local av = math.random(round(camera.aperture.min.value*10), round(camera.aperture.max.value*10)) / 10
                 camera.aperture.value = av
@@ -232,7 +262,7 @@ function api_tests()
             end
 
             -- aperture and Av (APEX) should be consistent
-            expected_apex = math.log(camera.aperture.value, 2) * 2
+            local expected_apex = math.log(camera.aperture.value, 2) * 2
             if math.abs(expected_apex - camera.aperture.apex) > 0.2 then
                 printf("Error: aperture %s != Av%s, expected %s", camera.aperture.value, camera.aperture.apex, expected_apex)
             end
@@ -240,20 +270,21 @@ function api_tests()
             -- setting aperture to the same value, using any method (value,apex,raw)
             -- should not change anything
             for i,field in pairs{"value","apex","raw"} do
-                apex  = camera.aperture.apex
-                value = camera.aperture.value
-                raw   = camera.aperture.raw
+                local current = {}
+                current.apex  = camera.aperture.apex
+                current.value = camera.aperture.value
+                current.raw   = camera.aperture.raw
                 
-                camera.aperture[field] = _G[field]
+                camera.aperture[field] = current[field]
                 
-                if camera.aperture.value ~= value then
-                    printf("Error: aperture set to %s=%s, got %s, expected %s", field, _G[field], camera.aperture.value, value)
+                if camera.aperture.value ~= current.value then
+                    printf("Error: aperture set to %s=%s, got %s, expected %s", field, current[field], camera.aperture.value, current.value)
                 end
-                if camera.aperture.apex ~= apex then
-                    printf("Error: aperture set to %s=%s, got Sv%s, expected Sv%s", field, _G[field], camera.aperture.apex, apex)
+                if camera.aperture.apex ~= current.apex then
+                    printf("Error: aperture set to %s=%s, got Sv%s, expected Sv%s", field, current[field], camera.aperture.apex, current.apex)
                 end
-                if camera.aperture.raw ~= raw then
-                    printf("Error: aperture set to %s=%s, got %s, expected %s (raw)", field, _G[field], camera.aperture.raw, raw)
+                if camera.aperture.raw ~= current.raw then
+                    printf("Error: aperture set to %s=%s, got %s, expected %s (raw)", field, current[field], camera.aperture.raw, current.raw)
                 end
             end
         end
@@ -264,7 +295,8 @@ function api_tests()
     old_value = camera.ec.raw
     printf("Setting EC to random values...")
     for k = 1,100 do
-        method = math.random(1,2)
+        local method = math.random(1,2)
+        local d = nil
         if method == 1 then
             local ec = math.random(-2*100, 2*100) / 100
             camera.ec.value = ec
@@ -281,7 +313,7 @@ function api_tests()
         end
 
         -- EC and raw should be consistent
-        expected_ec = camera.ec.raw / 8
+        local expected_ec = camera.ec.raw / 8
         if math.abs(expected_ec - camera.ec.value) > 0.001 then
             printf("Error: EC raw %s != %s EV, expected %s EV", camera.ec.raw, camera.ec.value, expected_ec)
         end
@@ -289,16 +321,17 @@ function api_tests()
         -- setting EC to the same value, using any method (value,raw)
         -- should not change anything
         for i,field in pairs{"value","raw"} do
-            value = camera.ec.value
-            raw   = camera.ec.raw
+            local current = {}
+            current.value = camera.ec.value
+            current.raw   = camera.ec.raw
             
-            camera.ec[field] = _G[field]
+            camera.ec[field] = current[field]
             
-            if camera.ec.value ~= value then
-                printf("Error: EC set to %s=%s, got %s, expected %s EV", field, _G[field], camera.ec.value, value)
+            if camera.ec.value ~= current.value then
+                printf("Error: EC set to %s=%s, got %s, expected %s EV", field, current[field], camera.ec.value, current.value)
             end
-            if camera.ec.raw ~= raw then
-                printf("Error: EC set to %s=%s, got %s, expected %s (raw)", field, _G[field], camera.ec.raw, raw)
+            if camera.ec.raw ~= current.raw then
+                printf("Error: EC set to %s=%s, got %s, expected %s (raw)", field, current[field], camera.ec.raw, current.raw)
             end
         end
     end
@@ -308,7 +341,8 @@ function api_tests()
     old_value = camera.flash_ec.raw
     printf("Setting Flash EC to random values...")
     for k = 1,100 do
-        method = math.random(1,2)
+        local method = math.random(1,2)
+        local d = nil
         if method == 1 then
             local fec = math.random(-2*100, 2*100) / 100
             camera.flash_ec.value = fec
@@ -325,28 +359,162 @@ function api_tests()
         end
 
         -- EC and raw should be consistent
-        expected_fec = camera.flash_ec.raw / 8
+        local expected_fec = camera.flash_ec.raw / 8
         if math.abs(expected_fec - camera.flash_ec.value) > 0.001 then
-            printf("Error: FEC raw %s != %s EV, expected %s EV", camera.flash_ec.raw, camera.flash_ec.value, expected_fec)
+            printf("Error: FEC raw %s != %s EV, expected %s EV", camera.flash_ec.raw, camera.flash_ec.value, current.expected_fec)
         end
 
         -- setting EC to the same value, using any method (value,raw)
         -- should not change anything
         for i,field in pairs{"value","raw"} do
-            value = camera.flash_ec.value
-            raw   = camera.flash_ec.raw
+            local current = {}
+            current.value = camera.flash_ec.value
+            current.raw   = camera.flash_ec.raw
             
-            camera.flash_ec[field] = _G[field]
+            camera.flash_ec[field] = current[field]
             
-            if camera.flash_ec.value ~= value then
-                printf("Error: FEC set to %s=%s, got %s, expected %s EV", field, _G[field], camera.flash_ec.value, value)
+            if camera.flash_ec.value ~= current.value then
+                printf("Error: FEC set to %s=%s, got %s, expected %s EV", field, current[field], camera.flash_ec.value, current.value)
             end
-            if camera.flash_ec.raw ~= raw then
-                printf("Error: FEC set to %s=%s, got %s, expected %s (raw)", field, _G[field], camera.flash_ec.raw, raw)
+            if camera.flash_ec.raw ~= current.raw then
+                printf("Error: FEC set to %s=%s, got %s, expected %s (raw)", field, current[field], camera.flash_ec.raw, current.raw)
             end
         end
     end
     camera.flash_ec.raw = old_value
+
+    printf("Exposure tests completed.")
+    printf("")
+end
+
+function test_lv()
+    printf("Testing module 'lv'...")
+    if lv.enabled then
+        printf("LiveView is running; stopping...");
+        lv.stop()
+        assert(not lv.enabled, "LiveView did not stop")
+        msleep(2000)
+    end
+
+    printf("Starting LiveView...");
+    lv.start()
+    assert(lv.enabled, "LiveView did not start")
+
+    msleep(2000)
+    
+    for i,z in pairs{1, 5, 10, 5, 1, 10, 1} do
+        printf("Setting zoom to x%d...", z)
+        lv.zoom = z
+        assert(lv.zoom == z, "Could not set zoom in LiveView ")
+        lv.wait(5)
+    end
+
+    printf("Pausing LiveView...");
+    lv.pause()
+    assert(lv.enabled, "LiveView stopped")
+    assert(lv.paused, "LiveView could not be paused")
+
+    msleep(2000)
+
+    printf("Resuming LiveView...");
+    lv.resume()
+    assert(lv.enabled, "LiveView stopped")
+    assert(not lv.paused, "LiveView could not be resumed")
+
+    msleep(2000)
+
+    printf("Stopping LiveView...");
+    lv.stop()
+
+    assert(not lv.enabled, "LiveView did not stop")
+    assert(not lv.paused,  "LiveView is disabled, can't be paused")
+    assert(not lv.running, "LiveView is disabled, can't be running")
+
+    msleep(1000)
+
+    printf("LiveView tests completed.");
+    printf("")
+end
+
+function test_lens_focus()
+    if lens.name == "" then
+        printf("This test requires an electronic lens.")
+        assert(not lens.af, "manual lenses can't autofocus")
+        return
+    end
+    
+    if not lens.af then
+        printf("Please enable autofocus.")
+        printf("(or, remove the lens from the camera to skip this test)")
+        while not lens.af and lens.name ~= "" do
+            console.show()
+            msleep(1000)
+        end
+    end
+    
+    if not lv.running then
+        lv.start()
+        assert(lv.running)
+    end
+    
+    if lens.af then
+        printf("Focus distance: %s",  lens.focus_distance)
+
+        -- note: focus direction is not consistent
+        -- some lenses will focus to infinity, others to macro
+        printf("Focusing backward...")
+        while lens.focus(-1,3,true) do end
+        printf("Focus distance: %s",  lens.focus_distance)
+
+        msleep(500)
+        
+        for i,step in pairs{3,2,1} do
+            for j,wait in pairs{true,false} do
+                printf("Focusing forward with step size %d, wait=%s...", step, wait)
+                local steps_front = 0
+                while lens.focus(1,step,true) do
+                    console.write(".")
+                    steps_front = steps_front + 1
+                end
+                printf("")
+                printf("Focus distance: %s",  lens.focus_distance)
+                
+                msleep(500)
+                
+                printf("Focusing backward with step size %d, wait=%s...", step, wait)
+                local steps_back = 0
+                while lens.focus(-1,step,true) do
+                    console.write(".")
+                    steps_back = steps_back + 1
+                end
+                printf("")
+                printf("Focus distance: %s",  lens.focus_distance)
+
+                msleep(500)
+
+                printf("Focus range: %s steps forward, %s steps backward. ",  steps_front, steps_back)
+            end
+        end
+        printf("Focus test completed.")
+    else
+        printf("Focus test skipped.")
+    end
+    printf("")
+end
+
+function api_tests()
+    menu.close()
+    console.clear()
+    console.show()
+    test_log = logger("LUATEST.LOG")
+
+    strict_tests()
+    generic_tests()
+    
+    printf("Module tests...")
+    test_camera_exposure()
+    test_lv()
+    test_lens_focus()
     
     printf("Done!")
     

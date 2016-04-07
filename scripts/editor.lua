@@ -84,7 +84,8 @@ function scrollbar.create(step,min,max,x,y,w,h)
     sb.left = x
     sb.width = w
     sb.foreground = COLOR.BLUE
-    if width == nil then sb.w = 2 end
+    -- fixme: neither global width nor sb.w appear to be used anywhere
+    -- if width == nil then sb.w = 2 end
     sb.height = h
     if h == nil then sb.height = display.height - y end
     return sb
@@ -154,7 +155,7 @@ function textbox:handle_key(k)
         self.col = inc(self.col,1,#(self.value) + 1)
     elseif k ==  KEY.LEFT then
         self.col = dec(self.col,1,#(self.value) + 1)
-    elseif k == KEY.WHEEL_LEFT then
+    elseif k == KEY.WHEEL_RIGHT then
         --mod char
         local l = self.value
         if self.col < #l then
@@ -164,7 +165,7 @@ function textbox:handle_key(k)
         else
            self.value = l..string.char(self.min_char)
         end
-    elseif k == KEY.WHEEL_RIGHT then
+    elseif k == KEY.WHEEL_LEFT then
         --mod char
         local l = self.value
         if self.col < #l then
@@ -616,7 +617,7 @@ function editor:handle_key(k)
         if self.col == 1 then self.line = dec(self.line,1,#(self.lines)) end
         self.col = dec(self.col,1,#(self.lines[self.line]) + 1)
         self:scroll_into_view()
-    elseif k == KEY.WHEEL_LEFT then
+    elseif k == KEY.WHEEL_RIGHT then
         --mod char
         self:update_title(true)
         local l = self.lines[self.line]
@@ -628,7 +629,7 @@ function editor:handle_key(k)
             self.lines[self.line] = l..string.char(self.min_char)
         end
         self:scroll_into_view()
-    elseif k == KEY.WHEEL_RIGHT then
+    elseif k == KEY.WHEEL_LEFT then
         --mod char
         self:update_title(true)
         local l = self.lines[self.line]

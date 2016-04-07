@@ -50,6 +50,8 @@ struct script_semaphore
 static int lua_loaded = 0;
 int last_keypress = 0;
 
+static char * strict_lua = 0;
+
 static struct script_semaphore * script_semaphores = NULL;
 
 int lua_take_semaphore(lua_State * L, int timeout, struct semaphore ** assoc_semaphore)
@@ -487,6 +489,14 @@ static lua_State * load_lua_state()
     lua_setmetatable(L, -2);
     lua_pop(L, 1);
     
+    if (strict_lua)
+    {
+        if (luaL_loadstring(L, strict_lua) || docall(L, 0, LUA_MULTRET))
+        {
+            err_printf("%s\n", lua_tostring(L, -1));
+        }
+    }
+    
     return L;
 }
 
@@ -517,18 +527,34 @@ static void lua_load_task(int unused)
     struct fio_file file;
     struct fio_dirent * dirent = 0;
     
+    /* preload strict.lua once, since it will be used in all scripts */
+    int bufsize;
+    strict_lua = (char*) read_entire_file(SCRIPTS_DIR "/lib/strict.lua", &bufsize);
+    
+    if (!strict_lua)
+    {
+        printf("Warning: strict.lua not found.\n");
+    }
+    
     dirent = FIO_FindFirstEx(SCRIPTS_DIR, &file);
     if(!IS_ERROR(dirent))
     {
         do
         {
-            if (!(file.mode & ATTR_DIRECTORY) && (string_ends_with(file.name, ".LUA") || string_ends_with(file.name, ".lua")) && file.name[0] != '.')
+            if (!(file.mode & ATTR_DIRECTORY) && (string_ends_with(file.name, ".LUA") || string_ends_with(file.name, ".lua")) && file.name[0] != '.' && file.name[0] != '_')
             {
                 add_script(file.name);
             }
         }
         while(FIO_FindNextEx(dirent, &file) == 0);
     }
+    
+    if (strict_lua)
+    {
+        fio_free(strict_lua);
+        strict_lua = 0;
+    }
+    
     lua_loaded = 1;
 }
 
