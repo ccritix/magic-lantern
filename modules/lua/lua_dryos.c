@@ -135,6 +135,17 @@ static int luaCB_dryos_directory(lua_State * L)
     return 1;
 }
 
+/***
+ Remove a file from card
+ @tparam string file_path
+ @function remove
+ */
+static int luaCB_dryos_remove(lua_State * L)
+{
+    LUA_PARAM_STRING(path, 1);
+    return FIO_RemoveFile(path);
+}
+
 static void setfield (lua_State *L, const char *key, int value) {
     lua_pushinteger(L, value);
     lua_setfield(L, -2, key);
@@ -482,6 +493,7 @@ const luaL_Reg dryoslib[] =
 {
     {"call", luaCB_dryos_call},
     {"directory", luaCB_dryos_directory},
+    {"remove", luaCB_dryos_remove},
     {NULL, NULL}
 };
 
