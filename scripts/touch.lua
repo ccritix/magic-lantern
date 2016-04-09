@@ -8,6 +8,8 @@ Swipe from left/right near middle: adjust aperture
 Swipe from left/right near bottom: adjust iso
 ]]
 
+require('config')
+
 swipe_down_start_y = display.height // 5
 swipe_up_start_y = display.height * 4 // 5
 swipe_height = display.height // 3
@@ -36,7 +38,7 @@ menu.block_touch(true)
 touch.down = function(x,y,id)
     start_x = x
     start_y = y
-    if menu.visible == false and lv.enabled and (x > swipe_left_x or x < swipe_right_x) and y > tv_y1 and y < iso_y2 then
+    if touch_menu.value == "On" and menu.visible == false and lv.enabled and (x > swipe_left_x or x < swipe_right_x) and y > tv_y1 and y < iso_y2 then
         local move_x = x // swipe_horizontal_width
         local move_dir = 1
         if x > swipe_left_x then move_dir = -1 end
@@ -87,3 +89,14 @@ touch.up = function(x,y,id)
         end
     end
 end
+
+touch_menu = menu.new
+{
+    parent = "Prefs",
+    name = "Touch Expo Controls",
+    help = "Control exposure with touch gestures",
+    choices = {"Off","On"},
+    value = "Off"
+}
+
+config.create_from_menu(touch_menu)
