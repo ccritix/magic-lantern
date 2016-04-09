@@ -22,6 +22,7 @@
 #include "patch.h"
 #include "blink.h"
 #include "asm.h"
+#include "qemu-util.h"
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
     /* we don't have malloc from the beginning, so we'll use a static buffer, which should be small */
@@ -109,6 +110,13 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
                 if (y > 450) y = 0;
             }
         #endif
+    #endif
+
+    #ifdef CONFIG_QEMU
+    /* in QEMU, just print things at the console, without logging,
+     * so we aren't limited by buffer size */
+    qprint(msg);
+    len = 0;
     #endif
 
     sei(old);
