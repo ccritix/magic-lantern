@@ -24,6 +24,12 @@ swipe_right_x = display.width // 12
 swipe_left_x = display.width * 11 // 12
 swipe_horizontal_width = display.width // 12
 settings_adjust = 0
+start_x = 0
+start_y = 0
+iso_start = 0
+av_start = 0
+tv_start = 0
+move_x = 0
 
 menu.block_touch(true)
 
@@ -31,8 +37,8 @@ touch.down = function(x,y,id)
     start_x = x
     start_y = y
     if menu.visible == false and lv.enabled and (x > swipe_left_x or x < swipe_right_x) and y > tv_y1 and y < iso_y2 then
-        move_x = x // swipe_horizontal_width
-        move_dir = 1
+        local move_x = x // swipe_horizontal_width
+        local move_dir = 1
         if x > swipe_left_x then move_dir = -1 end
         if y > iso_y1 then 
             settings_adjust = 3
@@ -47,17 +53,17 @@ touch.down = function(x,y,id)
         touch.move = function(mx,my,mid)
             if mx // swipe_horizontal_width ~= move_x then
                 move_x = mx // swipe_horizontal_width
-                local move_amt = 10 * move_x // 3
-                if move_dir == -1 then move_amt = -10 * (12 - move_x) // 3 end
+                local move_amt = move_x / 3
+                if move_dir == -1 then move_amt = (move_x - 12) / 3 end
                 if settings_adjust == 1 then
                     camera.shutter.apex = tv_start - move_amt
-                    display.notify_box(camera.shutter.tostring())
+                    display.notify_box(tostring(camera.shutter))
                 elseif settings_adjust == 2 then
                     camera.aperture.apex = av_start - move_amt
-                    display.notify_box(camera.aperture.tostring())
+                    display.notify_box(tostring(camera.aperture))
                 elseif settings_adjust == 3 then
                     camera.iso.apex = iso_start + move_amt
-                    display.notify_box(camera.iso.tostring())
+                    display.notify_box(tostring(camera.iso))
                 end
             end
         end
