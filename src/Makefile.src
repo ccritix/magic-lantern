@@ -128,6 +128,7 @@ ML_SRC_OBJS = \
 	lcdsensor.o \
 	tweaks.o \
 	tweaks-eyefi.o \
+	play.o \
 	lens.o \
 	property.o \
 	propvalues.o \
