@@ -698,13 +698,14 @@ static int raw_update_params_work()
         prev_delta_y = delta_y;
     }
 #endif
-    
+
     /* black and white autodetection are time-consuming */
     /* only refresh once per second or if dirty, but never while recording */
     static int bw_aux = INT_MIN;
     int recompute_black_and_white = NOT_RECORDING && (dirty || should_run_polling_action(1000, &bw_aux));
 
-    if (dirty)
+    /* in QR mode: always recompute geometry parameters */
+    if (dirty || QR_MODE)
     {
         raw_set_geometry(width, height, skip_left, skip_right, skip_top, skip_bottom);
         dirty = 0;
@@ -905,6 +906,39 @@ void raw_set_geometry(int width, int height, int skip_left, int skip_right, int 
         }
     }
 #endif
+
+    if (QR_MODE)
+    {
+        /* this might be camera-specific; only tested on 5D3 */
+        
+        int zoom_level = MEM(IMGPLAY_ZOOM_LEVEL_ADDR);
+        if (zoom_level < 0)
+        {
+            /* QR, no zoom */
+            preview_skip_left = raw_info.active_area.x1 + 18;
+            preview_skip_top  = raw_info.active_area.y1 + 18;
+            preview_width     = raw_info.jpeg.width - 36;
+            preview_height    = raw_info.jpeg.height - 36;
+        }
+        else
+        {
+            /* QR, zoom enabled */
+            /* 1000 = 10x, 800 = 8x and so on */
+            /* ratios guessed from the top-left position:
+             * IMGPLAY_ZOOM_POS_X_CENTER / IMGPLAY_ZOOM_POS_X and similar for Y */
+            int zoom_ratios[] = {155, 166, 186, 200, 231, 259, 300, 321, 370, 429, 522, 600, 700, 800, 1000 };
+            int zoom_ratio = zoom_ratios[COERCE(zoom_level, 0, 14)];
+
+            int canon_width   = raw_info.jpeg.width - 36;
+            int canon_height  = raw_info.jpeg.height - 36;
+            int canon_offx    = raw_info.active_area.x1 + 18;
+            int canon_offy    = raw_info.active_area.y1 + 18;
+            preview_width     = canon_width * 100 / zoom_ratio;
+            preview_height    = canon_height * 100 / zoom_ratio;
+            preview_skip_left = canon_width * IMGPLAY_ZOOM_POS_X / IMGPLAY_ZOOM_POS_X_CENTER / 2 + canon_offx - preview_width / 2;
+            preview_skip_top  = canon_height * IMGPLAY_ZOOM_POS_Y / IMGPLAY_ZOOM_POS_Y_CENTER / 2 + canon_offy - preview_height / 2;
+        }
+    }
 
     raw_set_preview_rect(preview_skip_left, preview_skip_top, preview_width, preview_height);
 
