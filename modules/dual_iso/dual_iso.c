@@ -68,6 +68,8 @@
 #include <math.h>
 #include <fileprefix.h>
 #include <raw.h>
+#include <play.h>
+#include <imgconv.h>
 
 static CONFIG_INT("isoless.hdr", isoless_hdr, 0);
 static CONFIG_INT("isoless.iso", isoless_recovery_iso, 3);
@@ -432,105 +434,277 @@ int dual_iso_set_recovery_iso(int iso)
     return 1;
 }
 
+static int black_levels[4];
+static int preview_gains[4] = {4, 0, 0, 4};
+
+static int raw_average(int x1, int x2, int y1, int y2, int dx, int dy)
+{
+    int black = 0;
+    int num = 0;
+    /* compute average level */
+    for (int y = y1; y < y2; y += dy)
+    {
+        for (int x = x1; x < x2; x += dx)
+        {
+            black += raw_get_pixel(x, y);
+            num++;
+        }
+    }
+
+    return black / num;
+}
+
+static void detect_black_levels()
+{
+    for (int y = 0; y < 4; y++)
+    {
+        black_levels[y] = raw_average(
+            8, raw_info.active_area.x1 - 8,
+            raw_info.active_area.y1/4*4 + 20 + y, raw_info.active_area.y2 - 20,
+            1*4, 4*4
+        );
+    }
+}
+
+/* For accessing the pixels in a struct raw_pixblock, faster than via raw_get_pixel */
+#define PA(p) ((int)(p->a))
+#define PB(p) ((int)(p->b_lo | (p->b_hi << 12)))
+#define PC(p) ((int)(p->c_lo | (p->c_hi << 10)))
+#define PD(p) ((int)(p->d_lo | (p->d_hi << 8)))
+#define PE(p) ((int)(p->e_lo | (p->e_hi << 6)))
+#define PF(p) ((int)(p->f_lo | (p->f_hi << 4)))
+#define PG(p) ((int)(p->g_lo | (p->g_hi << 2)))
+#define PH(p) ((int)(p->h))
+
+#define FC4(x,y) ((x)%2 + ((y)%2)*2)
+
+static int raw_get_pixel_dual(int x, int y)
+{
+    int p = raw_get_pixel(x, y);
+    
+    if (preview_gains[y%4] && p > raw_info.white_level)
+    {
+        /* overexposed pixel? interpolate from low ISO */
+        p = (raw_get_pixel(x, y+2) + raw_get_pixel(x, y-2)) / 2;
+        p -= black_levels[(y+2)%4];
+    }
+    else
+    {
+        /* not overexposed? subtract black level and darken if high ISO */
+        p = (p - black_levels[y%4]) >> preview_gains[y%4];
+    }
+    return p;
+}
+
+static void FAST raw_fullres_rgb_dual(int x, int y, int* r, int* g, int* b)
+{
+    int p1 = raw_get_pixel_dual(x, y);
+    int p2 = raw_get_pixel_dual(x+1, y);
+    int p3 = raw_get_pixel_dual(x, y+1);
+    int p4 = raw_get_pixel_dual(x+1, y+1);
+    int rgb[4];
+    rgb[FC4(x,y)] = p1;
+    rgb[FC4(x+1,y)] = p2;
+    rgb[FC4(x,y+1)] = p3;
+    rgb[FC4(x+1,y+1)] = p4;
+    *r = rgb[0];
+    *g = (rgb[1] + rgb[2]) / 2;
+    *b = rgb[3];
+}
+
+static void FAST raw_downsampled_pixel_dual(struct raw_pixblock * pb, int i, int* out_a, int* out_b)
+{
+    int a = ((PA(pb) + PC(pb) + PE(pb) + PG(pb)) >> 2);
+    int b = ((PB(pb) + PD(pb) + PF(pb) + PH(pb)) >> 2);
+    
+    if (preview_gains[i] &&   /* only check high ISO field */
+       (a > raw_info.white_level || b > raw_info.white_level))
+    {
+        /* any of those two pixels overexposed? interpolate both */
+        int it = (i-2) & 3;
+        int ib = (i+2) & 3;
+        int at, bt, ab, bb;
+        raw_downsampled_pixel_dual((void*) pb - 2*raw_info.pitch, it, &at, &bt);
+        raw_downsampled_pixel_dual((void*) pb + 2*raw_info.pitch, ib, &ab, &bb);
+        a = (at + ab) / 2;
+        b = (bt + bb) / 2;
+    }
+    else
+    {
+        a = (a - black_levels[i]) >> preview_gains[i];
+        b = (b - black_levels[i]) >> preview_gains[i];
+    }
+    
+    *out_a = a;
+    *out_b = b;
+}
+
+static void FAST raw_downsampled_rgb_dual(int x, int y, int* r, int* g, int* b)
+{
+    /* round Y to even values and X to multiples of 8 */
+    /* (will average 8x2 blocks) */
+    x &= ~7;
+    y &= ~1;
+    
+    /* RGGB Bayer cell */
+    struct raw_pixblock * rg = (struct raw_pixblock *) raw_info.buffer + (x + y * raw_info.width) / 8;
+    struct raw_pixblock * gb = (void*) rg + raw_info.pitch;
+
+    int G1, G2;
+    raw_downsampled_pixel_dual(rg, y & 3, r, &G1);
+    raw_downsampled_pixel_dual(gb, (y+1) & 3, &G2, b);
+    *g = (G1 + G2) / 2;
+}
+
+static void FAST raw_get_pixel_rgb_dual(int x, int y, int zoom_factor, int* r, int* g, int* b, int clip_thr)
+{
+    if (zoom_factor < 200)
+    {
+        raw_downsampled_rgb_dual(x, y, r, g, b);
+    }
+    else
+    {
+        raw_fullres_rgb_dual(x, y, r, g, b);
+    }
+    
+    /* clip sub-black values */
+    if (*r < 0) *r = 0;
+    if (*g < 0) *g = 0;
+    if (*b < 0) *b = 0;
+
+    /* show overexposed channels as black */
+    if (*r > clip_thr) *r = 0;
+    if (*g > clip_thr) *g = 0;
+    if (*b > clip_thr) *b = 0;
+}
+
+
+static int zoom_changed()
+{
+    struct play_zoom * zoom = play_zoom_info();
+    static int prev_zoom, prev_x, prev_y;
+    if (prev_zoom != zoom->level ||
+        prev_x    != zoom->pos_x ||
+        prev_y    != zoom->pos_y)
+    {
+        /* frame moving around? don't draw */
+        prev_zoom = zoom->level;
+        prev_x    = zoom->pos_x;
+        prev_y    = zoom->pos_y;
+        return 1;
+    }
+    return 0;
+}
+
+/* return 1 on success, 0 if interrupted or otherwise failed */
+static int FAST raw_preview_dual_iso()
+{
+    uint8_t * bvram = bmp_vram();
+    if (!bvram) return 0;
+
+    uint32_t* lv = (void*) get_yuv422_vram()->vram;
+    if (!lv) return 0;
+    
+    struct play_zoom * zoom = play_zoom_info();
+    int zoom_factor = zoom->factor;
+
+    detect_black_levels();
+
+    uint8_t* gamma = malloc(16384);
+    
+    for (int i = 0; i < 16384; i++)
+    {
+        int g  = (i > 0) ? (log2f(i)) * 255 / 14 : 0;
+        gamma[i]  = COERCE(g  * g  / 255, 0, 255);
+    }
+    
+    int black = raw_info.black_level;
+    int white = raw_info.white_level;
+    
+    int x1 = BM2LV_X(os.x0 + 100);
+    int x2 = BM2LV_X(os.x_max - 100);
+    int y1 = BM2LV_Y(os.y0 + 100);
+    int y2 = BM2LV_Y(os.y_max - 100);
+
+    for (int i = y1; i < y2; i ++)
+    {
+        int y = LV2RAW_Y(i);
+
+        for (int j = x1; j < x2; j ++)
+        {
+            int x = LV2RAW_X(j);
+
+            int r, g, b;
+            raw_get_pixel_rgb_dual(x, y, zoom_factor, &r, &g, &b, white-black);
+
+            int rm = COERCE(( 3703*r - 1147*g +  293*b) / 1024, 0, 16383);
+            int gm = COERCE((- 444*r + 1714*g -  815*b) / 1024, 0, 16383);
+            int bm = COERCE((   26*r -  563*g + 2896*b) / 1024, 0, 16383);
+            
+            if (r > white-black || g > white-black || b > white-black)
+            {
+                rm = white; gm = white; bm = white;
+            }
+            
+            int R = gamma[rm];
+            int G = gamma[gm];
+            int B = gamma[bm];
+
+            uint32_t uyvy = rgb2yuv422(R, G, B);
+
+            int pixoff_dst = LV(j,i) / 2;
+            uint32_t* dst = &lv[pixoff_dst / 2];
+            uint32_t mask = (pixoff_dst % 2 ? 0xffFF00FF : 0x00FFffFF);
+            *(dst) = (uyvy & mask) | (*(dst) & ~mask);
+        }
+
+        /* check if we still have to run, every 16 lines */
+        if ((i & 0xF) == 0)
+        {
+            if (!display_is_on()) return 0;
+            if (!is_play_or_qr_mode()) return 0;
+            if (zoom_changed()) return 0;
+            get_ms_clock_value();
+        }
+    }
+    
+    free(gamma);
+    return 1;
+}
+
 static unsigned int isoless_playback_fix(unsigned int ctx)
 {
-    if (is_7d || is_1100d)
-        return 0; /* seems to cause problems, figure out why */
+    /* preview on zoom change, redraw twice */
+    static int preview_drawn = 0;
+
+    if (!isoless_hdr ||
+        !is_play_or_qr_mode() ||
+        !display_is_on() ||
+        zoom_changed())
+    {
+        preview_drawn = 0;
+        return 0;
+    }
     
-    if (!isoless_hdr) return 0;
-    if (!is_play_or_qr_mode()) return 0;
-    
-    static int aux = INT_MIN;
-    if (!should_run_polling_action(1000, &aux))
+    /* redraw twice, just in case the first attempt gets erased */
+    if (preview_drawn >= 2)
+    {
+        return 0;
+    }
+
+    /* leave 0.5 seconds between redraws */
+    static int last_redraw = INT_MIN;
+    if (!should_run_polling_action(500, &last_redraw))
         return 0;
 
-    uint32_t* lv = (uint32_t*)get_yuv422_vram()->vram;
-    if (!lv) return 0;
-
-    /* try to guess the period of alternating lines */
-    int avg[5];
-    int best_score = 0;
-    int period = 0;
-    int max_i = 0;
-    int min_i = 0;
-    int max_b = 0;
-    int min_b = 0;
-    for (int rep = 2; rep <= 5; rep++)
+    if (raw_update_params())
     {
-        /* compute average brightness for each line group */
-        for (int i = 0; i < rep; i++)
-            avg[i] = 0;
-        
-        int num = 0;
-        for(int y = os.y0; y < os.y_max; y ++ )
+        if (raw_preview_dual_iso())
         {
-            for (int x = os.x0; x < os.x_max; x += 32)
-            {
-                uint32_t uyvy = lv[BM2LV(x,y)/4];
-                int luma = (((((uyvy) >> 24) & 0xFF) + (((uyvy) >> 8) & 0xFF)) >> 1);
-                avg[y % rep] += luma;
-                num++;
-            }
-        }
-        
-        /* choose the group with max contrast */
-        int min = INT_MAX;
-        int max = INT_MIN;
-        int mini = 0;
-        int maxi = 0;
-        for (int i = 0; i < rep; i++)
-        {
-            avg[i] = avg[i] * rep / num;
-            if (avg[i] < min)
-            {
-                min = avg[i];
-                mini = i;
-            }
-            if (avg[i] > max)
-            {
-                max = avg[i];
-                maxi = i;
-            }
-        }
-
-        int score = max - min;
-        if (score > best_score)
-        {
-            period = rep;
-            best_score = score;
-            min_i = mini;
-            max_i = maxi;
-            max_b = max;
-            min_b = min;
+            preview_drawn++;
         }
     }
     
-    if (best_score < 5)
-        return 0;
-
-    /* alternate between bright and dark exposures */
-    static int show_bright = 0;
-    show_bright = !show_bright;
-    
-    /* one exposure too bright or too dark? no point in showing it */
-    int forced = 0;
-    if (min_b < 10)
-        show_bright = 1, forced = 1;
-    if (max_b > 245)
-        show_bright = 0, forced = 1;
-
-    bmp_printf(FONT_MED, 0, 0, "%s%s", show_bright ? "Bright" : "Dark", forced ? " only" : "");
-
-    /* only keep one line from each group (not optimal for resolution, but doesn't have banding) */
-    for(int y = os.y0; y < os.y_max; y ++ )
-    {
-        uint32_t* bright = &(lv[BM2LV_R(y)/4]);
-        int dark_y = y/period*period + (show_bright ? max_i : min_i);
-        if (dark_y < 0) continue;
-        if (y == dark_y) continue;
-        uint32_t* dark = &(lv[BM2LV_R(dark_y)/4]);
-        memcpy(bright, dark, vram_lv.pitch);
-    }
     return 0;
 }
 

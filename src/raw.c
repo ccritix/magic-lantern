@@ -802,12 +802,15 @@ static int raw_update_params_work()
 
 int raw_update_params()
 {
+    info_led_on();
     get_yuv422_vram();  /* refresh VRAM parameters */
     
     int ans = 0;
     take_semaphore(raw_sem, 0);
     ans = raw_update_params_work();
     give_semaphore(raw_sem);
+    info_led_off();
+    
     return ans;
 }
 
