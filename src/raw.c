@@ -26,6 +26,7 @@
 #include "lens.h"
 #include "module.h"
 #include "menu.h"
+#include "play.h"
 #include "edmac-memcpy.h"
 #include "imgconv.h"
 
@@ -911,8 +912,9 @@ void raw_set_geometry(int width, int height, int skip_left, int skip_right, int 
     {
         /* this might be camera-specific; only tested on 5D3 */
         
-        int zoom_level = MEM(IMGPLAY_ZOOM_LEVEL_ADDR);
-        if (zoom_level < 0)
+        struct play_zoom * zoom = play_zoom_info();
+        
+        if (zoom->level < 0)
         {
             /* QR, no zoom */
             preview_skip_left = raw_info.active_area.x1 + 18;
@@ -923,20 +925,14 @@ void raw_set_geometry(int width, int height, int skip_left, int skip_right, int 
         else
         {
             /* QR, zoom enabled */
-            /* 1000 = 10x, 800 = 8x and so on */
-            /* ratios guessed from the top-left position:
-             * IMGPLAY_ZOOM_POS_X_CENTER / IMGPLAY_ZOOM_POS_X and similar for Y */
-            int zoom_ratios[] = {155, 166, 186, 200, 231, 259, 300, 321, 370, 429, 522, 600, 700, 800, 1000 };
-            int zoom_ratio = zoom_ratios[COERCE(zoom_level, 0, 14)];
-
             int canon_width   = raw_info.jpeg.width - 36;
             int canon_height  = raw_info.jpeg.height - 36;
             int canon_offx    = raw_info.active_area.x1 + 18;
             int canon_offy    = raw_info.active_area.y1 + 18;
-            preview_width     = canon_width * 100 / zoom_ratio;
-            preview_height    = canon_height * 100 / zoom_ratio;
-            preview_skip_left = canon_width * IMGPLAY_ZOOM_POS_X / IMGPLAY_ZOOM_POS_X_CENTER / 2 + canon_offx - preview_width / 2;
-            preview_skip_top  = canon_height * IMGPLAY_ZOOM_POS_Y / IMGPLAY_ZOOM_POS_Y_CENTER / 2 + canon_offy - preview_height / 2;
+            preview_width     = canon_width * 100 / zoom->factor;
+            preview_height    = canon_height * 100 / zoom->factor;
+            preview_skip_left = canon_width * (zoom->pos_x + 1000) / 1000 / 2 + canon_offx - preview_width / 2;
+            preview_skip_top  = canon_height * (zoom->pos_y + 1000) / 1000 / 2 + canon_offy - preview_height / 2;
         }
     }
 
