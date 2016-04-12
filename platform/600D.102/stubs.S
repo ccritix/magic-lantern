@@ -313,7 +313,7 @@ NSTUB(0xFF07E3F4,  task_trampoline)
 /** Misc **/
 NSTUB(   0x73590,  lv_path_struct)                          // first arg of SelectPathDriveMode
 NSTUB(0xFF069AE0,  LoadCalendarFromRTC)
-NSTUB(0xFF1F94BC,  vsnprintf)
+///NSTUB(0xFF1F94BC,  vsnprintf)
 //NSTUB( 0xff37aee4, ChangeHDMIOutputSizeToFULLHD)
 //NSTUB( 0xff37b174, ChangeHDMIOutputSizeToVGA)
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */

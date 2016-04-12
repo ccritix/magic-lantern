@@ -297,4 +297,3 @@ NSTUB(0xFF969A2C,  memcpy)
 // NSTUB(    ???,  LoadCalendarFromRTC)                     /* present on 7D.203, 500D.111, 60D.111, 6D.113, 5D3.113, 50D.109, 5D2.212, 600D.102, 650D.104, 550D.109, 1100D.105, EOSM.202, 700D.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */
-// NSTUB(    ???,  vsnprintf)                               /* present on 7D.203, 500D.111, 60D.111, 6D.113, 5D3.113, 50D.109, 5D2.212, 600D.102, 650D.104, 550D.109, 1100D.105, EOSM.202, 700D.113 */

@@ -297,7 +297,7 @@ NSTUB(0xFFA68B30 - RAM_OFFSET,  task_trampoline)
 
 /** Misc **/
 NSTUB(0xFF1315DC,  LoadCalendarFromRTC)
-NSTUB(0xFFA71E94 - RAM_OFFSET,  vsnprintf)
+///NSTUB(0xFFA71E94 - RAM_OFFSET,  vsnprintf)
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */

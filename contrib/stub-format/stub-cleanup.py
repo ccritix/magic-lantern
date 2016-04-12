@@ -38,6 +38,7 @@ force_unused = [
     "PackMem_SetEDmacForMemorySuite",
     "PackMem_StartEDmac",
     "FIO_SeekFile",
+    "vsnprintf",        # Canon's version is quirky; we'll use the dietlibc one
 ]
 
 def check_used_work(stub):

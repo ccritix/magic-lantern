@@ -295,7 +295,7 @@ NSTUB(0xFF07C970,  task_trampoline)                         // might be good (du
 /** Misc **/
 NSTUB(   0x736B4,  lv_path_struct)                          // first arg of SelectPathDriveMode
 NSTUB(0xFF0694E4,  LoadCalendarFromRTC)                     // might be good (dumps=1, score=30)
-NSTUB(0xFF1EBFE0,  vsnprintf)                               // might be good (dumps=1, score=9.5)
+///NSTUB(0xFF1EBFE0,  vsnprintf)                               // might be good (dumps=1, score=9.5)
 ///NSTUB(0xff0707fc, AllocateMemory_do) // malloc struct at 0x2B48
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */

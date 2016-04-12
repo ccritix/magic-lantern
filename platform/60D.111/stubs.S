@@ -302,7 +302,7 @@ NSTUB(0xFF07B8AC,  task_trampoline)
 /** Misc **/
 NSTUB(   0x52940,  lv_path_struct)                          // first arg of SelectPathDriveMode
 NSTUB(0xFF067B68,  LoadCalendarFromRTC)
-NSTUB(0xFF1DA530,  vsnprintf)
+///NSTUB(0xFF1DA530,  vsnprintf)
 ///NSTUB( 0xff06f7c4, AllocateMemory_do ) // this one won't throw ERR70 on failure
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
