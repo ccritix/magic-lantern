@@ -82,34 +82,6 @@ int isgraph(int x) { return ispunct(x) || isalnum(x); }
 int isspace(int x) { return strchr(" \r\n\t",x)!=0; }
 int iscntrl(int x) { return strchr("\x07\x08\r\n\x0C\x0B\x09",x)!=0; }
 
-int
-snprintf(
-    char *          buf,
-    size_t          max_len,
-    const char *        fmt,
-    ...
-)
-{
-    // Docs say:
-    
-    // http://linux.die.net/man/3/snprintf
-    // The functions snprintf() and vsnprintf() write at most size bytes (including the terminating null byte ('\0')) to str.
-    
-    // http://pubs.opengroup.org/onlinepubs/9699919799/functions/snprintf.html
-    // The snprintf() function shall be equivalent to sprintf(), with the addition of the n argument 
-    // which states the size of the buffer referred to by s. If n is zero, nothing shall be written 
-    // and s may be a null pointer. Otherwise, output bytes beyond the n-1st shall be discarded instead 
-    // of being written to the array, and a null byte is written at the end of the bytes actually written into the array.
-    
-    // Canon vsnprintf will write max_len + 1 bytes, so we need to pass max_len - 1.
-
-    va_list         ap;
-    va_start( ap, fmt );
-    int len = vsnprintf( buf, max_len - 1, fmt, ap );
-    va_end( ap );
-    return len;
-}
-
 /**
  * 5D3            cacheable     uncacheable
  * newlib memset: 237MB/s       100MB/s
