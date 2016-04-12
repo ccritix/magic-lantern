@@ -655,7 +655,7 @@ static void histobar_refresh()
     ev_levels[0] = (int)roundf(raw_to_ev(raw_levels[0]) * 10);
     ev_levels[1] = (int)roundf(raw_to_ev(raw_levels[1]) * 10);
     printf("Median   : %d = %s%d.%d EV\n", raw_levels[0], FMT_FIXEDPOINT1(ev_levels[0]));
-    printf("Shadow 5%%: %d = %s%d.%d EV\n", 0, raw_levels[1], FMT_FIXEDPOINT1(ev_levels[1]));
+    printf("Shadow 5%%: %d = %s%d.%d EV\n", raw_levels[1], FMT_FIXEDPOINT1(ev_levels[1]));
     #endif
 
     lens_display_set_dirty();

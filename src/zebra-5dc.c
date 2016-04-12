@@ -1328,7 +1328,7 @@ static MENU_UPDATE_FUNC(zebra_level_display)
     {
         MENU_SET_VALUE(
             "%d%% (%d)",
-            level, 0, 
+            level,
             (level * 255 + 50) / 100
         );
     }

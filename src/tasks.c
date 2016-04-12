@@ -292,7 +292,7 @@ MENU_UPDATE_FUNC(tasks_print)
                 
                 bmp_printf(SHADOW_FONT(FONT(FONT_SMALL, cpu_percent_rel < 50 ? COLOR_WHITE : cpu_percent_rel < 90 ? COLOR_YELLOW : COLOR_RED, 38)), x, y, 
                 "%3d %s: a=%2d.%1d%% r=%2d.%1d%%\n", 
-                task_id, short_name, cpu_percent_abs, cpu_percent_abs_dec, 0, cpu_percent_rel, cpu_percent_rel_dec, 0);
+                task_id, short_name, cpu_percent_abs, cpu_percent_abs_dec, cpu_percent_rel, cpu_percent_rel_dec);
             }
             else
             {
@@ -313,13 +313,13 @@ MENU_UPDATE_FUNC(tasks_print)
                 
                 bmp_printf(SHADOW_FONT(FONT(FONT_SMALL, color, 38)), x, y, 
                 "%3d %s: p=%2x w=%2x m=%2d%% %d\n", 
-                task_id, short_name, task_attr.pri, task_attr.wait_id, mem_percent, 0, task_attr.state);
+                task_id, short_name, task_attr.pri, task_attr.wait_id, mem_percent, task_attr.state);
             }
             #else
                 int mem_percent = task_attr.used * 100 / task_attr.size;
                 bmp_printf(SHADOW_FONT(FONT(FONT_SMALL, task_id >= 99 ? COLOR_RED : COLOR_WHITE, 38)), x, y, 
                 "%3d %s: p=%2x w=%2x m=%2d%% %d\n", 
-                task_id, short_name, task_attr.pri, task_attr.wait_id, mem_percent, 0, task_attr.state);
+                task_id, short_name, task_attr.pri, task_attr.wait_id, mem_percent, task_attr.state);
             #endif
 
             #if defined(CONFIG_60D) || defined(CONFIG_7D) || defined(CONFIG_DIGIC_V)

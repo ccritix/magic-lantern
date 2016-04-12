@@ -4928,8 +4928,8 @@ static void hdr_check_for_under_or_over_exposure(int* under, int* over)
         FONT_LARGE, 50, 50, 
         "Under:%3d.%02d%%\n"
         "Over :%3d.%02d%%", 
-        pu/100, pu%100, 0, 
-        po/100, po%100, 0
+        pu/100, pu%100,
+        po/100, po%100
     ); 
     msleep(500);
 }

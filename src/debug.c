@@ -180,7 +180,7 @@ static void dump_img_task(void* priv, int unused)
     get_yuv422_vram();
     get_yuv422_hd_vram();
 
-    snprintf(pattern + path_len, sizeof(pattern) - path_len, "LV-%%03d.422", 0);
+    snprintf(pattern + path_len, sizeof(pattern) - path_len, "LV-%%03d.422");
     get_numbered_file_name(pattern, 999, filename, sizeof(filename));
     f = FIO_CreateFile(filename);
     if (f)
@@ -189,7 +189,7 @@ static void dump_img_task(void* priv, int unused)
         FIO_CloseFile(f);
     }
 
-    snprintf(pattern + path_len, sizeof(pattern) - path_len, "HD-%%03d.422", 0);
+    snprintf(pattern + path_len, sizeof(pattern) - path_len, "HD-%%03d.422");
     get_numbered_file_name(pattern, 999, filename, sizeof(filename));
     f = FIO_CreateFile(filename);
     if (f)
@@ -199,7 +199,7 @@ static void dump_img_task(void* priv, int unused)
     }
 
 #ifdef CONFIG_RAW_LIVEVIEW
-    snprintf(pattern + path_len, sizeof(pattern) - path_len, "RAW-%%03d.DNG", 0);
+    snprintf(pattern + path_len, sizeof(pattern) - path_len, "RAW-%%03d.DNG");
     get_numbered_file_name(pattern, 999, filename, sizeof(filename));
     
     if (lv) raw_lv_request();
@@ -233,7 +233,7 @@ static void dump_img_task(void* priv, int unused)
 #endif
 
     /* create a log file with relevant settings */
-    snprintf(pattern + path_len, sizeof(pattern) - path_len, "VRAM-%%03d.LOG", 0);
+    snprintf(pattern + path_len, sizeof(pattern) - path_len, "VRAM-%%03d.LOG");
     get_numbered_file_name(pattern, 999, filename, sizeof(filename));
     f = FIO_CreateFile(filename);
     if (f)
