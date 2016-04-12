@@ -59,7 +59,6 @@ CFLAGS +=\
 	-Wno-unused-function \
 	-Werror-implicit-function-declaration \
 	-Wno-missing-field-initializers \
-	-Wno-format \
 	-Wdouble-promotion \
 	-ffast-math \
 	-fsingle-precision-constant \
