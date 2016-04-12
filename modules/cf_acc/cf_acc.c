@@ -3,7 +3,8 @@
 #include <property.h>
 #include <bmp.h>
 #include <menu.h>
-
+#include <console.h>
+#include <powersave.h>
 
 #define CF_REG_B(x) (*(volatile uint8_t *)     (0xC0620000 | x))
 #define CF_REG_W(x) (*(volatile uint16_t *)    (0xC0620000 | x))
@@ -18,6 +19,10 @@
 #define CF_REG_CYL_HI        0x2005
 #define CF_REG_CDH           0x2006
 #define CF_REG_COMMAND       0x2007
+
+/* these registers change their meaning when read */
+#define CF_REG_ERROR         CF_REG_FEATURE
+#define CF_REG_STATUS        CF_REG_COMMAND
 
 /* bit 1: set to zero to disable card INT */
 #define CF_REG_IREQ          0x200E
@@ -59,7 +64,7 @@ uint32_t cf_acc_read_sector(uint32_t sector, uint8_t *data)
     CF_REG_B(CF_REG_COMMAND) = 0x20;
     
     /* wait until card is ready again */
-    while((CF_REG_B(CF_REG_COMMAND) ^ 0x40) & 0xC0)
+    while((CF_REG_B(CF_REG_STATUS) ^ 0x40) & 0xC0)
     {
         msleep(20);
     }
@@ -112,7 +117,7 @@ uint32_t cf_acc_write_sector(uint32_t sector, uint8_t *data)
     }
     
     /* wait until card is ready again */
-    while((CF_REG_B(CF_REG_COMMAND) ^ 0x40) & 0xC0)
+    while((CF_REG_B(CF_REG_STATUS) ^ 0x40) & 0xC0)
     {
         msleep(20);
     }
@@ -146,7 +151,7 @@ void cf_acc_read_task()
     CF_REG_B(CF_REG_COMMAND) = 0xEC;
     
     /* wait until card is ready again */
-    while((CF_REG_B(CF_REG_COMMAND) ^ 0x40) & 0xC0)
+    while((CF_REG_B(CF_REG_STATUS) ^ 0x40) & 0xC0)
     {
         msleep(20);
     }
@@ -180,25 +185,13 @@ void cf_acc_read_task()
     canon_gui_enable_front_buffer(0);
 }
 
-static MENU_UPDATE_FUNC(cf_acc_read_update)
-{
-}
-
-static MENU_SELECT_FUNC(cf_acc_read_select)
-{
-    gui_stop_menu();
-    task_create("cf_acc_read_task", 0x1e, 0x1000, cf_acc_read_task, (void*)0);
-}
-
 static struct menu_entry cf_acc_menu[] =
 {
     {
         .name = "Read CF details (MAY CAUSE ERR)",
-        .update = &cf_acc_read_update,
-        .select = &cf_acc_read_select,
-        .priv = NULL,
-        .icon_type = IT_ACTION,
-    }
+        .select = run_in_separate_task,
+        .priv = cf_acc_read_task,
+    },
 };
 
 unsigned int cf_acc_init()
