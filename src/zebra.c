@@ -3131,10 +3131,6 @@ struct menu_entry zebra_menus[] = {
     },
     #endif
     MENU_PLACEHOLDER("Vectorscope"),
-};
-
-static struct menu_entry level_indic_menus[] = {
-    #ifdef CONFIG_ELECTRONIC_LEVEL
     #ifdef FEATURE_LEVEL_INDICATOR
     {
         .name = "Level Indicator", 
@@ -3144,8 +3140,8 @@ static struct menu_entry level_indic_menus[] = {
         .depends_on = DEP_GLOBAL_DRAW,
     },
     #endif
-    #endif
 };
+
 static struct menu_entry livev_dbg_menus[] = {
     #ifdef FEATURE_SHOW_OVERLAY_FPS
     {
@@ -4225,7 +4221,7 @@ livev_hipriority_task( void* unused )
         #endif
 
         #ifdef CONFIG_ELECTRONIC_LEVEL
-        if (electronic_level && k % 8 == 5)
+        if (electronic_level && k % 2)
             BMP_LOCK( if (lv) show_electronic_level(); )
         #endif
 
@@ -4543,7 +4539,6 @@ static void zebra_init()
     menu_add( "Debug", livev_dbg_menus, COUNT(livev_dbg_menus) );
     //~ menu_add( "Movie", movie_menus, COUNT(movie_menus) );
     //~ menu_add( "Config", cfg_menus, COUNT(cfg_menus) );
-    menu_add( "Display", level_indic_menus, COUNT(level_indic_menus) );
     #ifdef FEATURE_CROPMARKS
     menu_add( "Overlay", cropmarks_menu, COUNT(cropmarks_menu) );
     #endif
