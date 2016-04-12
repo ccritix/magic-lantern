@@ -324,9 +324,10 @@ static void stub_test_task(void* arg)
         TEST_FUNC_CHECK(strcmp(a, b), > 0);
 
         // vsnprintf (called by snprintf)
-        char buf[4];
-        TEST_FUNC_CHECK(snprintf(buf, 3, "%d", 1234), == 2);
+        char buf[4] = "abcd";
+        TEST_FUNC_CHECK(snprintf(buf, 3, "%d", 1234), == 4);
         TEST_FUNC_CHECK_STR(buf, "12");
+        TEST_FUNC_CHECK(buf[3], == 'd');   /* check for buffer overflow */
 
         // memcpy, memset, bzero32
         char foo[] __attribute__((aligned(32))) = "qwertyuiop";
