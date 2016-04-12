@@ -5,7 +5,12 @@
 #include <errno.h>
 #include <string.h>
 #include <linux/types.h>
+#ifdef CONFIG_MAGICLANTERN
+#include <machine/endian.h>
+#include "hdparm-ml-shim.h"
+#else
 #include <endian.h>
+#endif
 
 #if __BYTE_ORDER == __BIG_ENDIAN
 #define __USE_XOPEN

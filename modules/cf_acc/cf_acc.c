@@ -185,12 +185,95 @@ void cf_acc_read_task()
     canon_gui_enable_front_buffer(0);
 }
 
+int do_drive_cmd(int fd, unsigned char *args, unsigned int timeout_secs)
+{
+    /*
+     * Inputs:
+     * from hdparm:
+     *   args[0]: command in; status out.
+     *   args[1]: lbal for SMART, nsect for all others; error out
+     *   args[2]: feat in; nsect out.
+     *   args[3]: data-count (512 multiple) for all cmds.
+     * 
+     * from ioctl doc:
+     * Commands other than WIN_SMART
+     *   args[0]	COMMAND
+     *   args[1]	NSECTOR
+     *   args[2]	FEATURE
+     *   args[3]	NSECTOR
+     * 
+     * for Identify Drive: [EC 0 0 1]
+     * 
+     * Outputs:
+     *   from ioctl doc:
+     *   args[] buffer is filled with register values followed by any 
+     *   data returned by the disk.
+     *   args[0]	status
+     *   args[1]	error
+     *   args[2]	NSECTOR
+     *   args[3]	undefined
+     *   args[4+]	NSECTOR * 512 bytes of data returned by the command.
+     */
+
+    /* disable card interrupt. not sure if needed. */
+    uint8_t control = CF_REG_B(CF_REG_IREQ);
+    CF_REG_B(CF_REG_IREQ) = (control & ~2);
+    
+    /* disable controller interrupts for this command */
+    CF_REG_D(CF_REG_CTRL_INT_B) = 0;
+    CF_REG_D(CF_REG_CTRL_INT_A) = 0;
+    
+    /* issue the requested command */
+    CF_REG_B(CF_REG_CDH) = 0;
+    CF_REG_B(CF_REG_COMMAND) = args[0];
+    CF_REG_B(CF_REG_SEC_COUNT) = args[3];
+    
+    /* wait until card is ready again */
+    unsigned char status;
+    while(((status = CF_REG_B(CF_REG_STATUS)) ^ 0x40) & 0xC0)
+    {
+        msleep(20);
+    }
+    
+    /* output flags */
+    args[0] = status;
+    args[1] = CF_REG_B(CF_REG_ERROR);
+    args[2] = args[3];
+    
+    /* read received data */
+    for(int word_num = 0; word_num < 256 * args[3]; word_num++)
+    {
+        uint16_t word = CF_REG_W(CF_REG_DATA_IN);
+        args[4 + word_num*2]   = word & 0xFF;
+        args[4 + word_num*2+1] = word >> 8;
+    }
+    
+    /* reenable card interrupts */
+    CF_REG_B(CF_REG_IREQ) = control;
+    
+    return 0;
+}
+
+extern void hdparm_identify(int,int);
+
+static void hdparm_identify_task()
+{
+    console_show();
+    msleep(1000);
+    hdparm_identify(1, 0);
+}
+
 static struct menu_entry cf_acc_menu[] =
 {
     {
         .name = "Read CF details (MAY CAUSE ERR)",
         .select = run_in_separate_task,
         .priv = cf_acc_read_task,
+    },
+    {
+        .name = "hdparm identify",
+        .select = run_in_separate_task,
+        .priv = hdparm_identify_task,
     },
 };
 
