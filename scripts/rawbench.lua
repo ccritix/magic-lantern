@@ -222,6 +222,7 @@ function run_test()
 end
 
 function main()
+    math.randomseed(dryos.date.min * 13 + dryos.date.sec + dryos.ms_clock)
     msleep(10000)
     menu.close()
     console.show()
