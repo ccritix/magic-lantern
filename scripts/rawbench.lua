@@ -116,6 +116,15 @@ function format_card()
         key.press(KEY.MENU)     -- open Canon menu
         msleep(1000)
         assert(not lv.enabled)
+        print("Please select the Format menu item.")
+        print("Do not click it, just move the selection bar.")
+        -- fixme: io.write
+        console.write("The script will press SET in: ")
+        for i = 20,0,-1 do
+            console.write(string.format("%d... ", i))
+            msleep(1000)
+        end
+        print ""
         key.press(KEY.SET)      -- assuming we are on the Format item, press SET
         msleep(500)
         key.press(KEY.LEFT)     -- press LEFT to select CF card
@@ -178,7 +187,6 @@ function run_test()
     
     if not check_card_empty() then
         print("DCIM directory is not empty.")
-        print("Make sure the Format option is selected in Canon menu.")
         print("Going to format the card, then record 10 test clips,")
         print("then pick a random raw_rec from ML/MODULES/RAW_REC/")
         print("====================================================")
