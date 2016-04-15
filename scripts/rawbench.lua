@@ -82,7 +82,6 @@ end
 
 function check_files()
     print("Checking clips...")
-    -- place the log in ML/LOGS so it can survive after format
     local dir = dryos.dcim_dir
     assert(dir.exists)
     local nframes_list = {}
@@ -90,10 +89,15 @@ function check_files()
     -- todo: MLV support
     for i,filename in pairs(dir:files()) do
         if filename:ends(".RAW") then
-            local num_frames, last_chunk
-            num_frames, last_chunk = get_num_frames(filename)
-            log:writef("%s: %s\n", last_chunk, num_frames)
-            table.insert(nframes_list, num_frames)
+            local num_frames, last_chunk, ok, err
+            ok, num_frames, last_chunk =
+                xpcall(get_num_frames, debug.traceback, filename)
+            if ok then
+                log:writef("%s: %s\n", last_chunk, num_frames)
+                table.insert(nframes_list, num_frames)
+            else
+                log:write(num_frames) -- log traceback
+            end
         end
     end
     
@@ -209,7 +213,12 @@ function run_test()
         msleep(5000)
     end
     
-    check_files()
+    -- fixme: this may crash
+    local ok, err = xpcall(check_files, debug.traceback)
+    if not ok then
+        log:write(err)
+    end
+
 end
 
 function main()
@@ -218,11 +227,13 @@ function main()
     console.show()
     console.clear()
     
+    -- place the log in ML/LOGS so it can survive after format
     log = logger("ML/LOGS/RAWBENCH.LOG")
+
     run_test()
+
     log:close()
-    
-    
+  
     console.show()
     print("Finished.")
     msleep(2000)
