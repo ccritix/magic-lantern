@@ -110,7 +110,9 @@ end
 -- note: this is fragile, requires precise initial conditions:
 -- LiveView, and Format already pre-selected in Canon menu
 function format_card()
-    if camera.model_short == "5D3" then
+    if camera.model_short == "5D3" or 
+       camera.model_short == "5D2"
+    then
         print("Formatting card...")
         assert(lv.enabled)      -- from LiveView,
         key.press(KEY.MENU)     -- open Canon menu
@@ -126,12 +128,14 @@ function format_card()
         end
         print ""
         key.press(KEY.SET)      -- assuming we are on the Format item, press SET
-        msleep(500)
-        key.press(KEY.LEFT)     -- press LEFT to select CF card
-        key.press(KEY.UNPRESS_UDLR)
-        msleep(200)
-        key.press(KEY.SET)      -- confirm selection
-        msleep(500)             -- wait for ML to copy itself in RAM
+        if camera.model_short == "5D3" then
+            msleep(200)
+            key.press(KEY.LEFT)     -- press LEFT to select CF card
+            key.press(KEY.UNPRESS_UDLR)
+            msleep(200)
+            key.press(KEY.SET)      -- confirm selection
+        end
+        msleep(5000)            -- wait for ML to copy itself in RAM
         key.press(KEY.RIGHT)    -- press RIGHT to select OK
         key.press(KEY.UNPRESS_UDLR)
         msleep(200)
@@ -180,7 +184,8 @@ end
 function run_test()
 
     if not menu.get("Movie", "RAW video") and
-       not menu.get("Movie", "RAW video (MLV)") then
+       not menu.get("Movie", "RAW video (MLV)")
+    then
        print("Please enable RAW video recording.")
        return
     end
