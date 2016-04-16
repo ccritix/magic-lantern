@@ -29,15 +29,21 @@ int __libc_open(const char * fn, int flags, ...)
     uint32_t filesize = 0;
     if (FIO_GetFileSize(fn, &filesize) != 0)
     {
-        dbg_printf("ERR_SIZE\n");
-        errno = ENOENT;
-        return -1;
+        if (!(flags & O_CREAT))
+        {
+            dbg_printf("ERR_SIZE\n");
+            errno = ENOENT;
+            return -1;
+        }
     }
     
     /* not sure if correct */
-    int fd = (flags & O_CREAT)
-        ? (int) FIO_CreateFile(fn)
-        : (int) FIO_OpenFile(fn, flags);
+    int fd = 
+        (flags & O_CREAT) && (flags & O_APPEND) ?
+            (int) FIO_CreateFileOrAppend(fn) :
+        (flags & O_CREAT) ?
+            (int) FIO_CreateFile(fn) :
+            (int) FIO_OpenFile(fn, flags);
 
     if (!fd)
     {
