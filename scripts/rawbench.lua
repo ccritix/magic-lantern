@@ -121,9 +121,9 @@ function format_card()
         print("Please select the Format menu item.")
         print("Do not click it, just move the selection bar.")
         -- fixme: io.write
-        console.write("The script will press SET in: ")
+        console.write("The script will press SET in NN seconds.")
         for i = 20,0,-1 do
-            console.write(string.format("%d... ", i))
+            console.write(string.format("\b\b\b\b\b\b\b\b\b\b\b%2d seconds.", i))
             msleep(1000)
         end
         print ""
@@ -214,16 +214,20 @@ function run_test()
     
     print("About to start recording...")
     msleep(5000)
-    console.hide()
     
     for i = 1,10 do
-        print(string.format("Recording test clip #%d...\n", i))
+        print(string.format("Recording test clip #%d/10...\n", i))
+        msleep(2000)
+        console.hide()
+
         movie.start()
         while movie.recording do
             msleep(10000)
         end
+        
+        console.show()
         print("Recording stopped.")
-        msleep(5000)
+        msleep(2000)
     end
     
     -- fixme: this may crash
