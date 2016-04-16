@@ -11,7 +11,7 @@ What it does:
 - Formats the card (simulated keypresses in Canon menu)
 - Picks a random raw_rec version from ML/MODULES/RAW_REC/*.mo
 - Restarts the camera to load the new module
-- Records 10 test clips with current settings
+- Records NUM_CLIPS test clips with current settings
 - Writes number of frames from each clip to a log file
 - Also writes some basic statistics (median, Q1, Q3)
 - Repeats over and over
@@ -20,6 +20,9 @@ What it does:
 
 require("logger")
 require("stats")
+
+-- number of clips
+NUM_CLIPS = 8
 
 -- global logger
 log = nil
@@ -59,7 +62,7 @@ end
 
 function find_last_chunk(raw_filename)
     local last = raw_filename
-    for i = 0,10 do
+    for i = 0,NUM_CLIPS do
         local chunk_filename = string.sub(raw_filename, 1, -4) 
             .. string.format("R%02d", i)
         local f = io.open(chunk_filename, "rb")
@@ -121,12 +124,13 @@ function format_card()
         print("Please select the Format menu item.")
         print("Do not click it, just move the selection bar.")
         -- fixme: io.write
-        console.write("The script will press SET in NN seconds.")
+        console.write("The script will press SET in NN seconds...")
         for i = 20,0,-1 do
-            console.write(string.format("\b\b\b\b\b\b\b\b\b\b\b%2d seconds.", i))
+            console.write(string.format("\b\b\b\b\b\b\b\b\b\b\b\b\b%2d seconds...", i))
             msleep(1000)
         end
         print ""
+        print "Formatting..."
         key.press(KEY.SET)      -- assuming we are on the Format item, press SET
         if camera.model_short == "5D3" then
             msleep(200)
@@ -192,8 +196,8 @@ function run_test()
     
     if not check_card_empty() then
         print("DCIM directory is not empty.")
-        print("Going to format the card, then record 10 test clips,")
-        print("then pick a random raw_rec from ML/MODULES/RAW_REC/")
+        print("Going to format the card, then record the test clips,")
+        print("then pick a random raw_rec from ML/MODULES/RAW_REC/ .")
         print("====================================================")
         print("")
         msleep(5000)
@@ -207,16 +211,16 @@ function run_test()
         return
     else
         print("DCIM directory is empty.")
-        print("Going to record 10 test clips.")
-        print("=============================")
+        print(string.format("Going to record %d test clips.", NUM_CLIPS))
+        print("==============================")
         print("")
     end
     
     print("About to start recording...")
     msleep(5000)
     
-    for i = 1,10 do
-        print(string.format("Recording test clip #%d/10...\n", i))
+    for i = 1,NUM_CLIPS do
+        print(string.format("Recording test clip #%d/%d...\n", i, NUM_CLIPS))
         msleep(2000)
         console.hide()
 
@@ -227,7 +231,9 @@ function run_test()
         
         console.show()
         print("Recording stopped.")
-        msleep(2000)
+        
+        -- wait for all frames to be saved
+        msleep(20000)
     end
     
     -- fixme: this may crash
