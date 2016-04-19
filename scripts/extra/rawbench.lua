@@ -195,9 +195,10 @@ function format_card()
         print("Please select the Format menu item.")
         print("Do not click it, just move the selection bar.")
         -- fixme: io.write
-        console.write("The script will press SET in NN seconds...")
+        io.write("The script will press SET in NN seconds...")
         for i = 20,0,-1 do
-            console.write(string.format("\b\b\b\b\b\b\b\b\b\b\b\b\b%2d seconds...", i))
+            io.write(string.format("\b\b\b\b\b\b\b\b\b\b\b\b\b%2d seconds...", i))
+            io.flush()
             msleep(1000)
         end
         print ""
@@ -284,7 +285,7 @@ function run_test()
         print("Going to format the card, then record the test clips,")
         print("then pick a random raw_rec from ML/MODULES/RAW_REC/ .")
         print("=====================================================")
-        msleep(5000)
+        msleep(10000)
 
         format_card()
         random_raw_rec()
