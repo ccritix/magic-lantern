@@ -114,7 +114,11 @@ end
 -- LiveView, and Format already pre-selected in Canon menu
 function format_card()
     if camera.model_short == "5D3" or 
-       camera.model_short == "5D2"
+       camera.model_short == "5D2" or
+       camera.model_short == "50D" or
+       camera.model_short == "60D" or
+       camera.model_short == "6D" or
+       camera.model_short == "7D"
     then
         print("Formatting card...")
         assert(lv.enabled)      -- from LiveView,
