@@ -199,11 +199,24 @@ function run_test()
     end
     
     if not check_card_empty() then
+        -- count frames from existing files, if any
+        -- fixme: this may crash
+        local ok, err = xpcall(check_files, debug.traceback)
+        if not ok then
+            log:write(err)
+        end
+        print("To stop the experiment, exit LiveView.")
+        msleep(5000)
+        if not lv.enabled then
+            print("Experiment stopped (not in LiveView)")
+            return
+        end
+
+        print("=====================================================")
         print("DCIM directory is not empty.")
         print("Going to format the card, then record the test clips,")
         print("then pick a random raw_rec from ML/MODULES/RAW_REC/ .")
-        print("====================================================")
-        print("")
+        print("=====================================================")
         msleep(5000)
 
         format_card()
@@ -266,9 +279,11 @@ function main()
     print("Finished.")
     msleep(2000)
 
-    print("A little break, then... reboot.")
-    msleep(60000)
-    camera.reboot()
+    if lv.enabled then
+        print("A little break, then... reboot.")
+        msleep(60000)
+        camera.reboot()
+    end
 end
 
 --[[
