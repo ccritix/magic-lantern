@@ -48,7 +48,7 @@ end
 
 -- this does not perform any checks,
 -- just reads 4 bytes from footer
-function extract_num_frames(raw_filename)
+function extract_num_frames_raw(raw_filename)
     local f = io.open(raw_filename, "r")
     f:seek("end", -0xB4)
     -- fixme: nicer way to read an integer from a binary file?
@@ -60,9 +60,9 @@ function extract_num_frames(raw_filename)
     return lo + hi * 256 + LO * 65536 + HI * 65536 * 256
 end
 
-function find_last_chunk(raw_filename)
+function find_last_chunk_raw(raw_filename)
     local last = raw_filename
-    for i = 0,NUM_CLIPS do
+    for i = 0,99 do
         local chunk_filename = string.sub(raw_filename, 1, -4) 
             .. string.format("R%02d", i)
         local f = io.open(chunk_filename, "rb")
@@ -76,12 +76,79 @@ function find_last_chunk(raw_filename)
     return last
 end
 
-function get_num_frames(raw_filename)
-    local last_chunk = find_last_chunk(raw_filename)
-    local num_frames = extract_num_frames(last_chunk)
+function get_num_frames_raw(raw_filename)
+    local last_chunk = find_last_chunk_raw(raw_filename)
+    local num_frames = extract_num_frames_raw(last_chunk)
     return num_frames, last_chunk
 end
 
+function read_next_block_mlv(file)
+    -- fixme: nicer way to read an integer from a binary file?
+    local block_type = file:read(4)
+    local lo = string.byte(file:read(1))
+    local hi = string.byte(file:read(1))
+    local LO = string.byte(file:read(1))
+    local HI = string.byte(file:read(1))
+    local block_size = lo + hi * 256 + LO * 65536 + HI * 65536 * 256
+    -- seek to next block
+    file:seek("cur", block_size - 8)
+    return block_type
+end
+
+function extract_num_frames_mlv(mlv_filename)
+    local f = io.open(mlv_filename, "r")
+    if f == nil then
+        return -1
+    end
+    
+    -- fixme: these return int32, not good above 2GB
+    -- workaround: incremental seeks until it fails
+    local num_frames = 0
+    while true do
+    
+        local ok, block_type = pcall(read_next_block_mlv, f)
+        
+        if not ok then
+            break
+        end
+        
+        if block_type == "VIDF" then
+            num_frames = num_frames + 1
+        end
+    end
+    f:close()
+    return num_frames
+end
+
+function get_num_frames_mlv(mlv_filename)
+    
+    local last_chunk = mlv_filename
+    local num_frames = extract_num_frames_mlv(mlv_filename)
+
+    for i = 0,99 do
+        local chunk_filename = string.sub(mlv_filename, 1, -4) 
+            .. string.format("M%02d", i)
+        
+        local num_frames_chunk = extract_num_frames_mlv(chunk_filename)
+        
+        if num_frames_chunk > 0 then
+            num_frames = num_frames + num_frames_chunk
+            last_chunk = chunk_filename
+        else
+            break
+        end
+    end
+
+    return num_frames, last_chunk
+end
+
+function get_num_frames(filename)
+    if filename:ends(".RAW") then
+        return get_num_frames_raw(filename)
+    elseif filename:ends(".MLV") then
+        return get_num_frames_mlv(filename)
+    end
+end
 
 function check_files()
     print("Checking clips...")
@@ -91,7 +158,7 @@ function check_files()
 
     -- todo: MLV support
     for i,filename in pairs(dir:files()) do
-        if filename:ends(".RAW") then
+        if filename:ends(".RAW") or filename:ends(".MLV") then
             local num_frames, last_chunk, ok, err
             ok, num_frames, last_chunk =
                 xpcall(get_num_frames, debug.traceback, filename)
