@@ -15,7 +15,9 @@
 require("keys")
 
 --printf
-function printf(...) console.write(string.format(...)) end
+function printf(...)
+    io.write(string.format(...))
+end
 
 -- http://www.sokobano.de/wiki/index.php?title=Sok_format
 
@@ -416,8 +418,9 @@ end
 
 sokoban_menu = menu.new
 {
-    parent = "Games",
-    name = "Sokoban",
+    parent  = "Games",
+    name    = "Sokoban",
+    help    = "A simple game in Lua",
     submenu = 
     {
         {

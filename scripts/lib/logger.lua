@@ -27,6 +27,7 @@ function logger_metatable.__call(self,filename,listener)
     t.filename = filename
     t.listener = listener
     t.logfile = io.open(filename, "a")
+    t.logfile:setvbuf("line")
     local calling_filename = debug.getinfo(2,"S").short_src
     local date = dryos.date
     t.logfile:write(string.format([[
@@ -90,7 +91,7 @@ Writes a string to the log
 function logger:write(str)
     str = tostring(str)
     if self.listener ~= nil then self.listener:write(str) end
-    console.write(str)
+    io.write(str)
     self.logfile:write(str)
 end
 

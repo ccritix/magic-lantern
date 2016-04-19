@@ -536,13 +536,9 @@ PROP_HANDLER( PROP_LV_FOCUS_DONE )
     info_led_off();
     
     lv_focus_requests = 0;
-    
-    if (buf[0] == 0)
-    {
-        /* OK, focus command executed */
-        lv_focus_done = 1;
-    }
 
+    //~ bmp_printf(FONT_MED, 50, 100, "Focus status: 0x%x  ", buf[0]);
+    
     if (buf[0] & 0x1000) 
     {
         NotifyBox(1000, "Focus: soft limit reached");
@@ -550,8 +546,13 @@ PROP_HANDLER( PROP_LV_FOCUS_DONE )
     }
     else if (buf[0] & 0xF000) 
     {
-        NotifyBox(1000, "Focus: unknown error");
+        NotifyBox(1000, "Focus: unknown error (%x)", buf[0]);
         lv_focus_error = 1;
+    }
+    else
+    {
+        /* assume all is fine (not sure if correct, but seems to work) */
+        lv_focus_done = 1;
     }
 }
 
@@ -652,8 +653,6 @@ lens_focus(
     return lv_focus_error ? 0 : 1;
 }
 
-static PROP_INT(PROP_ICU_UILOCK, uilock);
-
 void lens_wait_readytotakepic(int wait)
 {
     int i;
@@ -662,7 +661,7 @@ void lens_wait_readytotakepic(int wait)
         if (ml_shutdown_requested) return;
         if (sensor_cleaning) { msleep(50); continue; }
         if (shooting_mode == SHOOTMODE_M && lens_info.raw_shutter == 0) { msleep(50); continue; }
-        if (job_state_ready_to_take_pic() && burst_count > 0 && ((uilock & 0xFF) == 0)) break;
+        if (job_state_ready_to_take_pic() && burst_count > 0 && ((icu_uilock & 0xFF) == 0)) break;
         msleep(50);
         if (NOT_RECORDING) info_led_on();
     }

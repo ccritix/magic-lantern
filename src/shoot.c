@@ -45,6 +45,7 @@
 #include "imgconv.h"
 #include "fps.h"
 #include "lvinfo.h"
+#include "powersave.h"
 
 #ifdef FEATURE_LCD_SENSOR_REMOTE
 #include "lcdsensor.h"
@@ -981,6 +982,7 @@ void center_lv_afframe_do()
         {
             /* center on the raw frame */
             raw_lv_request();
+            
             if (raw_update_params())
             {
                 int delta_x, delta_y;
@@ -1433,6 +1435,16 @@ void ensure_movie_mode()
     }
     if (!lv) force_liveview();
 #endif
+}
+
+void ensure_photo_mode()
+{
+    while (is_movie_mode())
+    {
+        NotifyBox(2000, "Please switch to photo mode.");
+        msleep(500);
+    }
+    msleep(500); 
 }
 
 #ifdef FEATURE_EXPO_ISO
@@ -4701,7 +4713,7 @@ static int hdr_shutter_release(int ev_x8)
     {
         hdr_iso_shift(ev_x8); // don't change the EV value
         int ae0 = lens_info.ae;
-        ans = MIN(ans, hdr_set_ae(ae0 + ev_x8));
+        ans &= (hdr_set_ae(ae0 + ev_x8) == 1);
         take_a_pic(AF_DONT_CHANGE);
         hdr_set_ae(ae0);
         hdr_iso_shift_restore();
@@ -4755,7 +4767,7 @@ static int hdr_shutter_release(int ev_x8)
             #if defined(CONFIG_5D2) || defined(CONFIG_50D)
             if (get_expsim() == 2) { set_expsim(1); msleep(300); } // can't set shutter slower than 1/30 in movie mode
             #endif
-            ans = MIN(ans, hdr_set_rawshutter(rc));
+            ans &= (hdr_set_rawshutter(rc) == 1);
             take_a_pic(AF_DONT_CHANGE);
         }
         
