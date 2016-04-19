@@ -265,12 +265,14 @@ function run_test()
     end
     
     if not check_card_empty() then
+        
         -- count frames from existing files, if any
         -- fixme: this may crash
         local ok, err = xpcall(check_files, debug.traceback)
         if not ok then
             log:write(err)
         end
+        
         print("To stop the experiment, exit LiveView.")
         msleep(5000)
         if not lv.enabled then
@@ -319,12 +321,7 @@ function run_test()
         msleep(20000)
     end
     
-    -- fixme: this may crash
-    local ok, err = xpcall(check_files, debug.traceback)
-    if not ok then
-        log:write(err)
-    end
-
+    -- will check the clips at next reboot
 end
 
 function main()
