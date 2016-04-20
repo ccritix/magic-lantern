@@ -305,17 +305,22 @@ function run_test()
     msleep(5000)
     
     for i = 1,NUM_CLIPS do
-        print(string.format("Recording test clip #%d/%d...\n", i, NUM_CLIPS))
+        local date = dryos.date
+        log:writef("[%02d:%02d:%02d] Recording test clip %d of %d...\n", date.hour, date.min, date.sec, i, NUM_CLIPS)
+        
         msleep(2000)
         console.hide()
 
         movie.start()
         while movie.recording do
-            msleep(10000)
+            msleep(5000)
         end
         
         console.show()
-        print("Recording stopped.")
+        
+        -- the timestamp is far from exact; it's just for spotting obvious errors
+        date = dryos.date
+        log:writef("[%02d:%02d:%02d] Recording stopped.\n", date.hour, date.min, date.sec)
         
         -- wait for all frames to be saved
         msleep(20000)
