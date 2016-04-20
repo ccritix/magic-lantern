@@ -155,7 +155,7 @@ static void lua_touch_init()
     }
     else if (is_camera("700D", "1.1.4"))
     {
-        hijack_touch_cbr_ptr = (touch_cbr*)0x4D858;
+        hijack_touch_cbr_ptr = (touch_cbr*)0x32200;
     }
     
     if (hijack_touch_cbr_ptr)
