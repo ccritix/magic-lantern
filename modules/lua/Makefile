@@ -12,7 +12,7 @@ LUA_LIB_O= lua_globals.o lua_console.o lua_camera.o lua_lv.o lua_lens.o lua_movi
 # define the module name - make sure name is max 8 characters
 MODULE_NAME=lua
 MODULE_OBJS=$(LUA_SRC)/ml-lua-shim.o $(CORE_O) $(LIB_O) $(LUA_LIB_O) lua.o dietlibc.a
-MODULE_CFLAGS += -DLUA_32BITS -DLUA_COMPAT_FLOATSTRING -Idietlibc/include/
+MODULE_CFLAGS += -DLUA_INT64_FLOAT32 -DLUA_COMPAT_FLOATSTRING -Idietlibc/include/
 
 # include modules environment
 include $(TOP_DIR)/modules/Makefile.modules

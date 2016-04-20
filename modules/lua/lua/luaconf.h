@@ -125,6 +125,14 @@
 #define LUA_INT_LONG
 #define LUA_REAL_DOUBLE
 
+#elif defined(LUA_INT64_FLOAT32)	/* }{ */
+/*
+** for ML: in core, we have 32-bit floating routines for size
+*  (hopefully this restriction will be temporary)
+*/
+#define LUA_INT_LONG
+#define LUA_REAL_FLOAT
+
 #else				/* }{ */
 /*
 ** default configuration for 64-bit Lua ('long long' and 'double')
