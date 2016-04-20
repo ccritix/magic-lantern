@@ -130,7 +130,7 @@
 ** for ML: in core, we have 32-bit floating routines for size
 *  (hopefully this restriction will be temporary)
 */
-#define LUA_INT_LONG
+#define LUA_INT_LONGLONG
 #define LUA_REAL_FLOAT
 
 #else				/* }{ */
