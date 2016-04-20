@@ -343,7 +343,9 @@ function main()
     msleep(2000)
 
     if lv.enabled then
+        -- stop LiveView and wait for the camera to cool down
         print("A little break, then... reboot.")
+        lv.stop()
         msleep(60000)
         camera.reboot()
     end
