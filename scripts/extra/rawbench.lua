@@ -237,6 +237,10 @@ function random_raw_rec()
     end
     assert(#files)
     local selected_filename = files[math.random(1, #files)]
+    log:writef("\n")
+    log:writef("For next experiment\n")
+    log:writef("===================\n")
+    log:writef("\n")
     log:writef("Raw_rec version : %s\n", selected_filename)
     
     -- will this copy without errors? we'll see
