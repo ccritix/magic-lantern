@@ -154,13 +154,14 @@ function get_file_size(filename)
     -- fixme: seek returns int32
     local f = io.open(filename, "r")
     if f then
-        local size = f:seek("end", 0)
+        -- fixme: seeking at exactly 4GB returns nil, so seek a little 
+        local size = f:seek("end", -16) + 16.0
         if size < 0 then
             -- workaround between 2 and 4 GB
             -- approximate with floats
-            size = size * 1.0 + 2.0^32
+            size = size + 2.0^32
         end
-        return size * 1.0
+        return size
     end
 end
 
