@@ -156,6 +156,7 @@ function get_file_size(filename)
     if f then
         -- fixme: seeking at exactly 4GB returns nil, so seek a little 
         local size = f:seek("end", -16) + 16.0
+        f:close()
         if size < 0 then
             -- workaround between 2 and 4 GB
             -- approximate with floats
