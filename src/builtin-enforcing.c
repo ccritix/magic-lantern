@@ -61,6 +61,8 @@
         \
         var /= var; \
         var %= var; \
+        var >>= var; \
+        var <<= var; \
     } while(0)
     
 /* only do the float/uint64 builtins */    
