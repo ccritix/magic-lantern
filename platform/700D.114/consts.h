@@ -270,7 +270,7 @@
     #define TOUCH_XY_RAW2 (TOUCH_XY_RAW1+4)
     #define TOUCH_MULTI 0x4D810   //~ found these with memspy. look for addresses changing with screen touches.
     //--------------
-    #define HIJACK_TOUCH_CBR_PTR 0x4D858
+    #define HIJACK_TOUCH_CBR_PTR 0x32200
 
     //~ max volume supported for beeps
     #define ASIF_MAX_VOL 5
