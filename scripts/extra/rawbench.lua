@@ -90,6 +90,12 @@ function read_next_block_mlv(file)
     local LO = string.byte(file:read(1))
     local HI = string.byte(file:read(1))
     local block_size = lo + hi * 256 + LO * 65536 + HI * 65536 * 256
+    if block_size <= 8 then
+        -- assert here would fail silently, so log a message manually
+        -- position may not be correct (negative and modulo 4GB)
+        log:writef("Invalid block size at %s\n", file:seek("cur", 0));
+        assert(false)
+    end
     -- seek to next block
     file:seek("cur", block_size - 8)
     return block_type
