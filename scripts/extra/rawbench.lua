@@ -306,8 +306,10 @@ end
 
 function run_test()
 
-    if menu.get("Movie", "RAW video") ~= 1 then
-       print("Please enable RAW video recording (raw_rec).")
+    if menu.get("Movie", "RAW video") ~= 1 and
+       menu.get("Movie", "RAW video (MLV)") ~= 1
+    then
+       print("Please enable RAW video recording.")
        return
     end
     
