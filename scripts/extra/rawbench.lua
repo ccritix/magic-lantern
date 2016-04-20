@@ -101,7 +101,7 @@ function extract_num_frames_mlv(mlv_filename)
         return -1
     end
     
-    -- fixme: these return int32, not good above 2GB
+    -- fixme: seek returns int32, not good above 2GB
     -- workaround: incremental seeks until it fails
     local num_frames = 0
     while true do
@@ -150,20 +150,54 @@ function get_num_frames(filename)
     end
 end
 
+function get_file_size(filename)
+    -- fixme: seek returns int32
+    local f = io.open(filename, "r")
+    if f then
+        local size = f:seek("end", 0)
+        if size < 0 then
+            -- workaround between 2 and 4 GB
+            -- approximate with floats
+            size = size * 1.0 + 2.0^32
+        end
+        return size * 1.0
+    end
+end
+
+function get_total_size(filename)
+    local total_size = get_file_size(filename)
+
+    for i = 0,99 do
+        local chunk_filename = string.sub(filename, 1, -3) 
+            .. string.format("%02d", i)
+        
+        local chunk_size = get_file_size(chunk_filename)
+        
+        if chunk_size then
+            total_size = total_size + chunk_size
+        else
+            break
+        end
+    end
+    
+    return total_size
+end
+
 function check_files()
     print("Checking clips...")
     local dir = dryos.dcim_dir
     assert(dir.exists)
     local nframes_list = {}
 
-    -- todo: MLV support
     for i,filename in pairs(dir:files()) do
         if filename:ends(".RAW") or filename:ends(".MLV") then
-            local num_frames, last_chunk, ok, err
-            ok, num_frames, last_chunk =
+            local ok, num_frames, last_chunk =
                 xpcall(get_num_frames, debug.traceback, filename)
             if ok then
-                log:writef("%s: %s\n", last_chunk, num_frames)
+                local total_size = get_total_size(filename)
+                -- size is approximate, because we work on floats
+                -- to bypass the 4GB limit (fixme: enable 64-bit integers in Lua)
+                log:writef("%s:%5d frames, %s GB\n", last_chunk, num_frames, total_size / 1024 / 1024 / 1024)
                 table.insert(nframes_list, num_frames)
             else
                 log:write(num_frames) -- log traceback
