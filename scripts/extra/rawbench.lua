@@ -236,6 +236,7 @@ function random_raw_rec()
         end
     end
     assert(#files)
+    math.randomseed(dryos.date.min * 13 + dryos.date.sec + dryos.ms_clock)
     local selected_filename = files[math.random(1, #files)]
     log:writef("\n")
     log:writef("For next experiment\n")
@@ -334,7 +335,6 @@ function run_test()
 end
 
 function main()
-    math.randomseed(dryos.date.min * 13 + dryos.date.sec + dryos.ms_clock)
     msleep(10000)
     menu.close()
     console.show()
