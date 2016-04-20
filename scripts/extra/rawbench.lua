@@ -101,8 +101,8 @@ function extract_num_frames_mlv(mlv_filename)
         return -1
     end
     
-    -- fixme: seek returns int32, not good above 2GB
-    -- workaround: incremental seeks until it fails
+    -- don't rely on seek returning 64-bit values
+    -- just use incremental seeks until it fails
     local num_frames = 0
     while true do
     
@@ -151,16 +151,10 @@ function get_num_frames(filename)
 end
 
 function get_file_size(filename)
-    -- fixme: seek returns int32
     local f = io.open(filename, "r")
     if f then
         local size = f:seek("end", 0)
-        if size < 0 then
-            -- workaround between 2 and 4 GB
-            -- approximate with floats
-            size = size * 1.0 + 2.0^32
-        end
-        return size * 1.0
+        return size
     end
 end
 
@@ -195,9 +189,9 @@ function check_files()
                 xpcall(get_num_frames, debug.traceback, filename)
             if ok then
                 local total_size = get_total_size(filename)
-                -- size is approximate, because we work on floats
-                -- to bypass the 4GB limit (fixme: enable 64-bit integers in Lua)
-                log:writef("%s:%5d frames, %s GB\n", last_chunk, num_frames, total_size / 1024 / 1024 / 1024)
+                -- fixme: 64-bit printf not working
+                -- but math is done internally on 64-bit integers
+                log:writef("%s:%5d frames, %s GB\n", last_chunk, num_frames, total_size / 1024.0 / 1024 / 1024)
                 table.insert(nframes_list, num_frames)
             else
                 log:write(num_frames) -- log traceback
