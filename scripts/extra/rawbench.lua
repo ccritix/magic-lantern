@@ -234,6 +234,7 @@ function format_card()
         key.press(KEY.MENU)     -- open Canon menu
         msleep(1000)
         assert(not lv.enabled)
+        console.show()
         print("Please select the Format menu item.")
         print("Do not click it, just move the selection bar.")
         -- fixme: io.write
@@ -242,6 +243,7 @@ function format_card()
             io.write(string.format("\b\b\b\b\b\b\b\b\b\b\b\b\b%2d seconds...", i))
             io.flush()
             msleep(1000)
+            console.show()
         end
         print ""
         print "Formatting..."
