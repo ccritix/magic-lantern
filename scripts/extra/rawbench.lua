@@ -406,14 +406,4 @@ function main()
     end
 end
 
---[[
-keymenu = menu.new
-{
-    name   = "Raw video benchmark",
-    help   = "Compares different versions of raw_rec, randomly chosen from",
-    help2  = "ML/MODULES/RAW_REC/*.MO. Logs number of frames for each test run.",
-    select = function(this) task.create(main) end,
-}
-]]--
-
 task.create(main)
