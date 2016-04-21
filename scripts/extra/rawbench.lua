@@ -371,8 +371,9 @@ function run_test()
         while movie.recording do
             msleep(5000)
             elapsed_time = elapsed_time + 5
-            if elapsed_time >= 60 then
-                log:writef("[%02d:%02d:%02d] Still recording; will stop here.\n")
+            if elapsed_time == 60 then
+                date = dryos.date
+                log:writef("[%02d:%02d:%02d] Still recording; will stop here.\n", date.hour, date.min, date.sec)
                 movie.stop()
             end
         end
