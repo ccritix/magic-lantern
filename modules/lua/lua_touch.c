@@ -157,7 +157,10 @@ static void lua_touch_init()
     {
         hijack_touch_cbr_ptr = (touch_cbr*)0x32200;
     }
-    
+    else if (is_camera("650D", "1.0.4"))
+    {
+        hijack_touch_cbr_ptr = (touch_cbr*)0x3212C;
+    }
     if (hijack_touch_cbr_ptr)
     {
         canon_touch_cbr_ptr = *hijack_touch_cbr_ptr;
