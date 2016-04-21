@@ -364,8 +364,17 @@ function run_test()
         console.hide()
 
         movie.start()
+        
+        -- let the movie run for up to 1 minute
+        local elapsed_time = 0
+
         while movie.recording do
             msleep(5000)
+            elapsed_time = elapsed_time + 5
+            if elapsed_time >= 60 then
+                log:writef("[%02d:%02d:%02d] Still recording; will stop here.\n")
+                movie.stop()
+            end
         end
         
         console.show()
