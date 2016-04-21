@@ -342,6 +342,7 @@ function run_test()
         random_raw_rec()
         
         print("Restarting...")
+        log:close()
         msleep(5000)
         camera.reboot()
         return
