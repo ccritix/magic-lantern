@@ -35,13 +35,11 @@
 // stateobj_disp[1]
 #define YUV422_LV_BUFFER_DISPLAY_ADDR (*(uint32_t*)(0x23C10+0x11c))
 
-
 #define YUV422_HD_BUFFER_DMA_ADDR (shamem_read(REG_EDMAC_WRITE_HD_ADDR)) // first line from DMA is dummy
 
-
-    // http://magiclantern.wikia.com/wiki/ASM_Zedbra
-    #define YUV422_HD_BUFFER_1 0x463cc080
-    #define YUV422_HD_BUFFER_2 0x46000080
+// http://magiclantern.wikia.com/wiki/ASM_Zedbra
+#define YUV422_HD_BUFFER_1 0x463cc080
+#define YUV422_HD_BUFFER_2 0x46000080
 
 // see "focusinfo" and Wiki:Struct_Guessing
 #define FOCUS_CONFIRMATION (*(int*)0x275A0)
@@ -58,8 +56,8 @@
 #define CURRENT_DIALOG_MAYBE (*(int*)0x264DC) // in SetGUIRequestMode
 #define ISO_ADJUSTMENT_ACTIVE ((*(int*)(0x31184)) == 0xF) // dec ptpNotifyOlcInfoChanged and look for: if arg1 == 1: MEM(0x79B8) = *(arg2)
 
-    // from a screenshot
-    #define COLOR_FG_NONLV 1
+// from a screenshot
+#define COLOR_FG_NONLV 1
 
 #define MVR_516_STRUCT (*(void**)0x2372C) // look in MVR_Initialize for AllocateMemory call; decompile it and see where ret_AllocateMemory is stored.
 
@@ -86,7 +84,7 @@
 #define DLG_PLAY 1
 #define DLG_MENU 2
 
-    #define DLG_FOCUS_MODE 0x123456
+#define DLG_FOCUS_MODE 0x123456
 
 /* these don't exist in the M */
 #define DLG_MOVIE_ENSURE_A_LENS_IS_ATTACHED (CURRENT_DIALOG_MAYBE == 0x24)
@@ -96,9 +94,9 @@
 #define PLAY_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_DIALOG_MAYBE == DLG_PLAY)
 #define MENU_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_DIALOG_MAYBE == DLG_MENU)
 
-    #define AUDIO_MONITORING_HEADPHONES_CONNECTED 0
-    #define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0
-    #define HOTPLUG_VIDEO_OUT_STATUS_ADDR 0
+#define AUDIO_MONITORING_HEADPHONES_CONNECTED 0
+#define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0
+#define HOTPLUG_VIDEO_OUT_STATUS_ADDR 0
 
 // position for ML ISO disp outside LV
 #define MENU_DISP_ISO_POS_X 527
@@ -168,14 +166,14 @@
 #define FORMAT_BTN BGMT_Q
 #define FORMAT_STR_LOC 11
 
-    #define BULB_MIN_EXPOSURE 1000
+#define BULB_MIN_EXPOSURE 1000
 
 // http://magiclantern.wikia.com/wiki/Fonts
 #define BFNT_CHAR_CODES    0xf8cca8a8
 #define BFNT_BITMAP_OFFSET 0xf8ccd7b4
 #define BFNT_BITMAP_DATA   0xffcd06c0
 
-    #define DLG_SIGNATURE 0x4c414944 
+#define DLG_SIGNATURE 0x4c414944 
 
 // from CFn
 #define AF_BTN_HALFSHUTTER 0
@@ -190,8 +188,7 @@
 #define IMGPLAY_ZOOM_POS_DELTA_X (0x144 - 0x93)
 #define IMGPLAY_ZOOM_POS_DELTA_Y (0xd8 - 0x7d)
 
-
-    #define BULB_EXPOSURE_CORRECTION 150 // min value for which bulb exif is OK [not tested]
+#define BULB_EXPOSURE_CORRECTION 150 // min value for which bulb exif is OK [not tested]
 
 // see http://magiclantern.wikia.com/wiki/VRAM/BMP
 #define WINSYS_BMP_DIRTY_BIT_NEG MEM(0x3d914+0x2c)
@@ -262,6 +259,9 @@
  *
  *  And that's how Canon's touch screen works :)
  *******************************************************************************************************************/
+
+#define HIJACK_TOUCH_CBR_PTR 0x3212C // (0x320E0+4C)
+
 //~ max volume supported for beeps
 #define ASIF_MAX_VOL 5
 
