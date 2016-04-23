@@ -38,7 +38,7 @@ menu.block_touch(true)
 touch.down = function(x,y,id)
     start_x = x
     start_y = y
-    if touch_menu.value == "On" and menu.visible == false and lv.enabled and (x > swipe_left_x or x < swipe_right_x) and y > tv_y1 and y < iso_y2 then
+    if touch_menu.value == "On" and menu.visible == false and lv.global_draw and (x > swipe_left_x or x < swipe_right_x) and y > tv_y1 and y < iso_y2 then
         local move_x = x // swipe_horizontal_width
         local move_dir = 1
         if x > swipe_left_x then move_dir = -1 end
