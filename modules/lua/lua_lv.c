@@ -42,6 +42,9 @@ static int luaCB_lv_index(lua_State * L)
     /// Get/set LiveView zoom factor (1, 5, 10).
     // @tfield bool zoom
     else if(!strcmp(key, "zoom")) lua_pushinteger(L, lv_dispsize);
+    /// Get whether you may draw most overlays, info bars and so on
+    // @tfield bool global_draw
+    else if(!strcmp(key, "global_draw")) lua_pushboolean(L, get_global_draw());
     else lua_rawget(L, 1);
     return 1;
 }
@@ -70,6 +73,10 @@ static int luaCB_lv_newindex(lua_State * L)
         {
             return luaL_error(L, "Could not set LiveView zoom");
         }
+    }
+    else if(!strcmp(key, "global_draw"))
+    {
+        return luaL_error(L, "global_draw is readonly");
     }
     else
     {
