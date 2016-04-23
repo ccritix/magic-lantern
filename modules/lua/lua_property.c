@@ -84,7 +84,7 @@ static void lua_prop_task(int unused)
                     else lua_pushinteger(L, *((uint8_t*)(msg->value)));
                     if(docall(L, 2, 0))
                     {
-                        err_printf("script prop handler failed:\n %s\n", lua_tostring(L, -1));
+                        fprintf(stderr, "script prop handler failed:\n %s\n", lua_tostring(L, -1));
                     }
                 }
                 give_semaphore(sem);
@@ -113,7 +113,7 @@ static void lua_prophandler(unsigned property, void * priv, void * addr, unsigne
     }
     else
     {
-        err_printf("lua_prophandler: malloc error");
+        fprintf(stderr, "lua_prophandler: malloc error");
     }
 }
 
@@ -122,7 +122,7 @@ static void lua_register_prop_handler(unsigned prop_id)
     if(!lua_prop_task_running)
     {
         lua_prop_task_running = 1;
-        task_create("lua_prop_task", 0x1c, 0x8000, lua_prop_task, 0);
+        task_create("lua_prop_task", 0x1c, 0x10000, lua_prop_task, 0);
     }
     //check for existing prop handler
     struct lua_prop * current;
