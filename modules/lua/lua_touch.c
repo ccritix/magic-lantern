@@ -77,7 +77,7 @@ static void lua_touch_task(int unused)
                         lua_pushinteger(L, event.fields.touch_id);
                         if(docall(L, 3, 0))
                         {
-                            err_printf("script touch handler failed:\n %s\n", lua_tostring(L, -1));
+                            fprintf(stderr, "script touch handler failed:\n %s\n", lua_tostring(L, -1));
                         }
                     }
                     give_semaphore(sem);
