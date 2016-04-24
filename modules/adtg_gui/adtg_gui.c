@@ -342,6 +342,7 @@ static int show_what = 0;
 #define SHOW_MODIFIED_SINCE_TIMESTAMP 3
 #define SHOW_OVERRIDEN 4
 #define SHOW_FPS_TIMERS 5
+#define SHOW_DISPLAY_REGS 6
 
 static int digic_intercept = 0;
 static int photo_only = 0;
@@ -1207,14 +1208,23 @@ static struct menu_entry adtg_gui_menu[] =
                 .name           = "Show",
                 .priv           = &show_what,
                 .update         = show_update,
-                .max            = 5,
-                .choices        = CHOICES("Everything", "Known regs only", "Modified at least twice", "Modified from now on", "Overriden regs only", "FPS timers only"),
-                .help2          = "Everything: show all registers as soon as they are written.\n"
+                .max            = 6,
+                .choices        = CHOICES(
+                                    "Everything",
+                                    "Known regs only",
+                                    "Modified at least twice",
+                                    "Modified from now on",
+                                    "Overriden regs only",
+                                    "FPS timers only",
+                                    "Display registers only",
+                                  ),
+                .help2          =  "Everything: show all registers as soon as they are written.\n"
                                    "Known: show only the registers with a known description.\n"
                                    "Modified at least twice: only regs that were changed more than once.\n"
                                    "Modified from now on: only regs where final value was modified.\n"
                                    "Overriden: show only regs where you have changed the value.\n"
                                    "FPS timers only: show only FPS timer A and B.\n"
+                                   "Display registers only: C0F14000 ... C0F14FFF.\n"
             },
             {
                 .name           = "Advanced",
@@ -5455,6 +5465,12 @@ static MENU_UPDATE_FUNC(show_update)
             case SHOW_FPS_TIMERS:
             {
                 visible = (regs[reg].dst == 0xC0F0) && (regs[reg].reg == 0x6014 || regs[reg].reg == 0x6008);
+                break;
+            }
+            case SHOW_DISPLAY_REGS:
+            {
+                /* C0F14nnn */
+                visible = (regs[reg].dst == 0xC0F1) && ((regs[reg].reg & 0xF000) == 0x4000);
                 break;
             }
             case SHOW_ALL:
