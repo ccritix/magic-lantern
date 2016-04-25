@@ -18,6 +18,7 @@ ML_MODULES_DYNAMIC ?= \
 	bench \
 	selftest \
 	adv_int \
+	crop_rec \
 	adtg_gui \
  	iso_regs \
 	raw_diag \
