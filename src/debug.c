@@ -1183,8 +1183,7 @@ static struct menu_entry debug_menus[] = {
         .name = "Image buffers",
         .update = image_buf_display,
         .icon_type = IT_ALWAYS_ON,
-        .help = "Display the image buffer sizes (LiveView and Craw).",
-        //.essential = 0,
+        .help = "Display the image buffer sizes (LiveView and HD).",
     },
 #endif
 #ifdef FEATURE_SHOW_SHUTTER_COUNT
