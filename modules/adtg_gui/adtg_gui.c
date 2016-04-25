@@ -1118,17 +1118,43 @@ static int crop_mode_reg(int reg)
     return 0;
 }
 
-static MENU_SELECT_FUNC(crop_mode_overrides)
+static int res3k_reg(int reg)
+{
+    if (regs[reg].dst == 0xC0F0)
+    {
+        switch (regs[reg].reg)
+        {
+            case 0x6804:                /* C0F06804 - raw resolution */
+                return 0x52801AB;       /* from 0x528011B -> 3072px in raw_rec */
+        }
+    }
+
+    return 0;
+}
+
+static void apply_preset(int(*get_preset_reg)(int))
 {
     for (int reg = 0; reg < reg_num; reg++)
     {
-        int ovr = crop_mode_reg(reg);
+        int ovr = get_preset_reg(reg);
         if (ovr)
         {
             regs[reg].override = ovr;
             regs[reg].override_enabled = 1;
         }
     }
+}
+
+static MENU_SELECT_FUNC(crop_mode_overrides)
+{
+    apply_preset(crop_mode_reg);
+    menu_toggle_submenu();
+}
+
+static MENU_SELECT_FUNC(crop_mode_overrides_3k)
+{
+    apply_preset(crop_mode_reg);
+    apply_preset(res3k_reg);
     menu_toggle_submenu();
 }
 
@@ -1306,6 +1332,11 @@ static struct menu_entry adtg_gui_menu[] =
                         .select         = crop_mode_overrides,
                         .help           = "Turns regular 1080p into 1:1 crop mode. For other cameras:",
                         .help2          = "magiclantern.fm/forum/index.php?topic=10111.msg145036#msg145036",
+                    },
+                    {
+                        .name           = "1:1 3K crop mode (5D3)",
+                        .select         = crop_mode_overrides_3k,
+                        .help           = "Experimental 3K video mode with 1:1 crop. Preview broken.",
                     },
                     MENU_EOL,
                 },
