@@ -43,9 +43,9 @@
 #define YUV422_LV_BUFFER_DISPLAY_ADDR (*(uint32_t*)(0x246a4+0x11c))
 
 #define REG_EDMAC_WRITE_LV_ADDR 0xc0f04508 // SDRAM address of LV buffer (aka VRAM)
-#define REG_EDMAC_WRITE_HD_ADDR 0xc0f04a08 // SDRAM address of HD buffer (aka YUV)
+#define REG_EDMAC_WRITE_HD_ADDR 0xc0f26C08 // SDRAM address of HD buffer (aka YUV)
 
-#define YUV422_HD_BUFFER_DMA_ADDR (shamem_read(REG_EDMAC_WRITE_HD_ADDR) + vram_hd.pitch) // first line from DMA is dummy
+#define YUV422_HD_BUFFER_DMA_ADDR (shamem_read(REG_EDMAC_WRITE_HD_ADDR))
 
 
 // http://magiclantern.wikia.com/wiki/ASM_Zedbra
