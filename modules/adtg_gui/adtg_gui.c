@@ -343,6 +343,7 @@ static int show_what = 0;
 #define SHOW_OVERRIDEN 4
 #define SHOW_FPS_TIMERS 5
 #define SHOW_DISPLAY_REGS 6
+#define SHOW_IMAGE_SIZE_REGS 7
 
 static int digic_intercept = 0;
 static int photo_only = 0;
@@ -1208,7 +1209,7 @@ static struct menu_entry adtg_gui_menu[] =
                 .name           = "Show",
                 .priv           = &show_what,
                 .update         = show_update,
-                .max            = 6,
+                .max            = 7,
                 .choices        = CHOICES(
                                     "Everything",
                                     "Known regs only",
@@ -1217,6 +1218,7 @@ static struct menu_entry adtg_gui_menu[] =
                                     "Overriden regs only",
                                     "FPS timers only",
                                     "Display registers only",
+                                    "Image size regs only",
                                   ),
                 .help2          =  "Everything: show all registers as soon as they are written.\n"
                                    "Known: show only the registers with a known description.\n"
@@ -1225,6 +1227,7 @@ static struct menu_entry adtg_gui_menu[] =
                                    "Overriden: show only regs where you have changed the value.\n"
                                    "FPS timers only: show only FPS timer A and B.\n"
                                    "Display registers only: C0F14000 ... C0F14FFF.\n"
+                                   "Image size regs only: registers related to raw image size (resolution).\n"
             },
             {
                 .name           = "Advanced",
@@ -5471,6 +5474,32 @@ static MENU_UPDATE_FUNC(show_update)
             {
                 /* C0F14nnn */
                 visible = (regs[reg].dst == 0xC0F1) && ((regs[reg].reg & 0xF000) == 0x4000);
+                break;
+            }
+            case SHOW_IMAGE_SIZE_REGS:
+            {
+                if ((regs[reg].dst == 0xC0F0) && ((regs[reg].reg & 0xF000) == 0x6000))
+                {
+                    visible = 1;
+                    break;
+                }
+                for (int i = 0; i < COUNT(known_regs); i++)
+                {
+                    if (known_match(i, reg))
+                    {
+                        if (
+                            strstr(known_regs[i].description, "esolution") ||
+                            strstr(known_regs[i].description, "idth") ||
+                            strstr(known_regs[i].description, "eight") ||
+                            strstr(known_regs[i].description, "ine count") ||
+                            strstr(known_regs[i].description, "dwSrFstAdtg") ||
+                        0)
+                        {
+                            visible = 1;
+                            break;
+                        }
+                    }
+                }
                 break;
             }
             case SHOW_ALL:
