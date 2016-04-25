@@ -60,8 +60,6 @@
 #define REG_EDMAC_WRITE_HD_ADDR 0xc0f04008 // SDRAM address of HD buffer (aka YUV)
 
 // http://magiclantern.wikia.com/wiki/ASM_Zedbra
-#define YUV422_HD_BUFFER_1 0x44000080
-#define YUV422_HD_BUFFER_2 0x46000080
 
 
     

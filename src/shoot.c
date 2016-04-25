@@ -1211,11 +1211,12 @@ void playback_compare_images_task(int dir)
         dir = 1;
     }
     
-    void* aux_buf = (void*)YUV422_HD_BUFFER_2;
     void* current_buf;
     int w = get_yuv422_vram()->width;
     int h = get_yuv422_vram()->height;
     int buf_size = w * h * 2;
+    void* aux_buf = tmp_malloc(buf_size);
+    if (!aux_buf) goto cleanup;
     current_buf = get_yuv422_vram()->vram;
     yuv_halfcopy(aux_buf, current_buf, w, h, 1);
     next_image_in_play_mode(dir);
@@ -1223,6 +1224,9 @@ void playback_compare_images_task(int dir)
     yuv_halfcopy(aux_buf, current_buf, w, h, 0);
     current_buf = get_yuv422_vram()->vram;
     memcpy(current_buf, aux_buf, buf_size);
+
+cleanup:
+    if (aux_buf) free(aux_buf);
     give_semaphore(set_maindial_sem);
 }
 
@@ -1237,6 +1241,8 @@ void expfuse_preview_update_task(int dir)
 {
     ASSERT(set_maindial_sem);
     take_semaphore(set_maindial_sem, 0);
+    /* fixme: buf_acc should be kept unchanged between calls,
+     * but freed at the end */
     void* buf_acc = (void*)YUV422_HD_BUFFER_1;
     void* buf_ws  = (void*)YUV422_HD_BUFFER_2;
     void* buf_lv  = get_yuv422_vram()->vram;
@@ -1263,6 +1269,8 @@ void expfuse_preview_update_task(int dir)
     //~ bmp_printf(FONT_LARGE, 0, 480 - font_large.height, "Do not press Delete!");
 
 end:
+    if (buf_acc) free(buf_acc);
+    if (buf_ws) free(buf_ws);
     give_semaphore(set_maindial_sem);
 }
 

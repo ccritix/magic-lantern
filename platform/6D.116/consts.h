@@ -66,12 +66,7 @@
 
 // http://magiclantern.wikia.com/wiki/ASM_Zedbra
 // not checked for 6D.116 (yet?)
-#define YUV422_HD_BUFFER_1 0x13FFF780
-#define YUV422_HD_BUFFER_2 0x0EFFF780
 //#define YUV422_HD_BUFFER_DMA_ADDR 0x54000000
-//#define YUV422_HD_BUFFER_1 0x54000000
-//#define YUV422_HD_BUFFER_2 0x4ee00000 //Also 0x4f000000 in Logs
-//#define YUV422_HD_BUFFER_2 0x4f000000 //Also 0x4f000000 in Logs
 
 
 // see "focusinfo" and Wiki:Struct_Guessing

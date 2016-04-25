@@ -36,9 +36,6 @@
 #define YUV422_HD_BUFFER_DMA_ADDR (shamem_read(REG_EDMAC_WRITE_HD_ADDR))
 
 // http://magiclantern.wikia.com/wiki/ASM_Zedbra
-#define YUV422_HD_BUFFER_1 0x44000080
-#define YUV422_HD_BUFFER_2 0x4C000080
-#define YUV422_HD_BUFFER_3 0x50000080
 
 // see "focusinfo" and Wiki:Struct_Guessing
 #define FOCUS_CONFIRMATION (*(int*)0x3C54)

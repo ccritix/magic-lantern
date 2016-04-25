@@ -234,7 +234,11 @@
 /** Prefs menu **/
 
     #define FEATURE_SET_MAINDIAL
-    #define FEATURE_PLAY_EXPOSURE_FUSION
+    
+    /* uses hardcoded image buffers -> 
+     * only enable on cameras where YUV422_HD_BUFFER* are 100% right */
+    //~ #define FEATURE_PLAY_EXPOSURE_FUSION
+    
     #define FEATURE_PLAY_COMPARE_IMAGES
     #define FEATURE_PLAY_TIMELAPSE
     #define FEATURE_PLAY_EXPOSURE_ADJUST

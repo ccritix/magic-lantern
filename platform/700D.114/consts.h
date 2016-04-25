@@ -40,8 +40,6 @@
 
 
         // http://magiclantern.wikia.com/wiki/ASM_Zedbra
-    #define YUV422_HD_BUFFER_1 0x463cc080
-    #define YUV422_HD_BUFFER_2 0x46000080
 
 // see "focusinfo" and Wiki:Struct_Guessing
 #define FOCUS_CONFIRMATION (*(int*)0x27660)

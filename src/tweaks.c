@@ -3096,7 +3096,6 @@ void defish_draw_play()
     struct vram_info * vram = get_yuv422_vram();
 
     uint32_t * lvram = (uint32_t *)vram->vram;
-    uint32_t * aux_buf = (void*)YUV422_HD_BUFFER_2;
     if (!lvram) return;
 
     uint8_t * const bvram = bmp_vram();
@@ -3110,6 +3109,9 @@ void defish_draw_play()
 
     uint16_t * defish_lut = defish_lut_load();
     if (!defish_lut) return;
+
+    uint32_t * aux_buf = tmp_malloc(buf_size);
+    if (!aux_buf) goto cleanup;
 
     memcpy(aux_buf, lvram, buf_size);
     
@@ -3164,7 +3166,10 @@ void defish_draw_play()
         if (!PLAY_OR_QR_MODE || !DISPLAY_IS_ON) break;
         if ((void*)get_yuv422_vram()->vram != (void*)lvram) break; // user moved to a new image?
     }
-    free(defish_lut);
+
+cleanup:
+    if (aux_buf) free(aux_buf);
+    if (defish_lut) free(defish_lut);
 }
 #endif
 
