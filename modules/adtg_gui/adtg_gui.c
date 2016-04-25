@@ -1088,13 +1088,20 @@ static MENU_SELECT_FUNC(lock_displayed_registers)
     menu_toggle_submenu();
 }
 
+/* pack two 6-bit values into a 12-bit one */
+#define PACK12(lo,hi) ((((lo) & 0x3F) | ((hi) << 6)) & 0xFFF)
+
 static int crop_mode_reg(int reg)
 {
     if (regs[reg].dst == DST_CMOS)
     {
         switch (regs[reg].reg)
         {
-            case 1: return 0xB8B;       /* CMOS[1]: vertical position and size */
+            case 1:                     /* CMOS[1]: vertical position and size */
+                return (video_mode_resolution)
+                    ? PACK12(14,10)     /* 720p,  almost centered */
+                    : PACK12(11,11);    /* 1080p, almost centered */
+
             case 2: return 0x10E;       /* CMOS[2]: horizontal position and downsizing factor */
             case 6: return 0x170;       /* CMOS[6]: ISO related? */
         }
@@ -1295,7 +1302,7 @@ static struct menu_entry adtg_gui_menu[] =
                         .help2          = "Registers already overriden will not be changed.",
                     },
                     {
-                        .name           = "3x crop mode (5D3)",
+                        .name           = "1:1 crop mode (5D3)",
                         .select         = crop_mode_overrides,
                         .help           = "Turns regular 1080p into 1:1 crop mode. For other cameras:",
                         .help2          = "magiclantern.fm/forum/index.php?topic=10111.msg145036#msg145036",
