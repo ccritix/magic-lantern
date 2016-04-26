@@ -337,8 +337,14 @@ function run_test()
         print("then pick a random raw_rec from ML/MODULES/RAW_REC/ .")
         print("=====================================================")
         msleep(10000)
-
+        
+        -- format the card
+        -- also close the log file and reopen it afterwards
+        log.logfile:close()
         format_card()
+        log.logfile = io.open(log.filename, "a")
+        
+        -- pick a random version of raw_rec
         random_raw_rec()
         
         print("Restarting...")
