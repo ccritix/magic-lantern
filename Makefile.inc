@@ -6,7 +6,7 @@ _CONFIGS_compile_name = _compile
 _CONFIGS_clean_name = _clean
 _CONFIGS_install_name = _install
 
-_CONFIGS_to_filter_out = CONFIG_PICOC
+_CONFIGS_to_filter_out = 
 
 _CONFIGS_to_compile = $(filter-out $(_CONFIGS_to_filter_out), $(ML_SETUP_CONFIGS_WITH_DIR))
 
@@ -43,11 +43,7 @@ install_extra_data: prepare_install_dir
 	$(CP) $(FONT_DIR)/*.rbf $(INSTALL_FONTS_DIR)/
 	$(CP) $(VRAM_DIR)/*.lut $(INSTALL_DATA_DIR)/
 	$(CP) $(CROP_DIR)/*.bmp $(INSTALL_CROPMARKS_DIR)/
-#TODO: This should be moved to plugins or something more related
-	$(CP) $(SCRIPT_DIR)/*.lua $(INSTALL_SCRIPTS_DIR)/
-	$(CP) $(SCRIPT_DIR)/*.c $(INSTALL_SCRIPTS_DIR)/
-	$(CP) $(SCRIPT_DIR)/*.py $(INSTALL_SCRIPTS_DIR)/
-
+	$(INSTALL_ALL_SCRIPTS)
 
 copy-autoexec: autoexec.bin
 	$(CP) autoexec.bin $(INSTALL_DIR)

@@ -928,6 +928,7 @@ void config_save()
     config_menu_save_flags();
     #ifdef CONFIG_MODULES
     module_save_configs();
+    module_exec_cbr(CBR_CONFIG_SAVE);
     #endif
     if (config_deleted) config_autosave = 1; /* this can be improved, because it's not doing a proper "undo" */
     config_deleted = 0;
