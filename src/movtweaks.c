@@ -17,6 +17,7 @@
 #include "fps.h"
 #include "beep.h"
 #include "lvinfo.h"
+#include "raw.h"
 #include "powersave.h"
 
 
@@ -709,6 +710,7 @@ void smooth_iso_step()
     if (!is_movie_mode()) { iso_acc = 0; return; }
     if (!lv) { iso_acc = 0; return; }
     if (!lens_info.raw_iso) { iso_acc = 0; return; } // no auto iso
+    if (raw_lv_is_enabled()) { iso_acc = 0; return; } // not compatible with raw
     
     static int prev_bv = (int)0xdeadbeef;
     #ifdef FRAME_BV
