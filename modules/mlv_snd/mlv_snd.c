@@ -573,6 +573,7 @@ static struct menu_entry mlv_snd_menu[] =
         .priv = &mlv_snd_enabled,
         .max = 1,
         .help = "Enable sound recording for MLV.",
+        .depends_on = DEP_MOVIE_MODE_RAW,
         .submenu_width = 710,
         .children = (struct menu_entry[])
         {
