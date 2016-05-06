@@ -24,7 +24,6 @@ struct Histogram
     /** total number of pixels analyzed by histogram */
     uint32_t total_px;
 
-    int is_rgb;
     int is_raw;
 };
 
@@ -50,7 +49,7 @@ int raw_hist_get_overexposure_percentage(int gray_projection);
 
 extern struct menu_entry hist_menu_entry;
 
-extern int hist_type;
+extern int hist_colorspace;
 extern int hist_draw;
 extern int hist_meter;
 extern int hist_warn;
@@ -61,8 +60,6 @@ MENU_UPDATE_FUNC(hist_warn_display);
 
 MENU_UPDATE_FUNC(raw_histo_update);
 
-#define RAW_HISTOGRAM_ENABLED (hist_draw && hist_type >= 2)
-#define RAW_HISTOBAR_ENABLED (hist_draw && hist_type == 3)
-
+extern int raw_histogram_enable;
 
 #endif /* _histogram_h_ */
