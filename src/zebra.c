@@ -342,7 +342,7 @@ int histogram_or_small_waveform_enabled()
         (
             (hist_draw) &&
             #ifdef FEATURE_RAW_OVERLAYS
-            !(/* histobar*/ (raw_histogram_type == 1) && can_use_raw_overlays_menu()) &&
+            !(RAW_HISTOBAR_ENABLED && can_use_raw_overlays_menu()) &&
             #endif
             1
         )
@@ -478,7 +478,7 @@ static uint8_t* waveform = 0;
 #ifdef FEATURE_HISTOGRAM
 static void hist_add_pixel(uint32_t pixel, int Y)
 {
-    if (hist_colorspace == 1 && !EXT_MONITOR_RCA) // rgb
+    if (histogram.is_rgb)
     {
         int R, G, B;
         //~ uyvy2yrgb(pixel, &Y, &R, &G, &B);
@@ -548,7 +548,12 @@ hist_build()
         hist_build_raw();
     }
     #endif
-    
+
+    histogram.is_rgb =
+        histogram.is_raw ||    /* RAW histogram is always RGB-based */
+        (hist_type_yuv == 1 && /* Use YUV RGB histogram if selected */
+        !EXT_MONITOR_RCA);     /* However, we cannot use YUV RGB histogram on RCA monitors, because they use YUV411 instead of YUV422 */
+
     if (!waveform_draw && !vectorscope_draw && (!hist_draw || histogram.is_raw))
     {
         /* optimization: no YUV-based histogram/waveform/scope enabled
@@ -3032,40 +3037,18 @@ struct menu_entry zebra_menus[] = {
         .depends_on = DEP_GLOBAL_DRAW | DEP_EXPSIM,
         .submenu_width = 700,
         .children =  (struct menu_entry[]) {
-            {
-                .name = "Color space",
-                .priv = &hist_colorspace, 
-                .max = 1,
-                .choices = (const char *[]) {"Luma", "RGB"},
-                .icon_type = IT_DICE,
-                .help = "Color space for histogram: Luma channel (YUV) / RGB.",
-            },
-            {
-                .name = "Scaling",
-                .priv = &hist_log, 
-                .max = 1,
-                .choices = (const char *[]) {"Linear", "Log"},
-                .help = "Linear or logarithmic histogram.",
-                .icon_type = IT_DICE,
-            },
-            {
-                .name = "Clip warning",
-                .priv = &hist_warn, 
-                .max = 1,
-                .help = "Display warning dots when one color channel is clipped.",
-                .help2 = "Numbers represent the percentage of pixels clipped.",
-            },
             #ifdef FEATURE_RAW_HISTOGRAM
             {
-                .name = "Appearance",
-                .priv = &raw_histogram_type,
+                .name = "Appearance (RAW)",
+                .priv = &hist_type_raw,
                 .max = 1,
                 .choices = CHOICES("Full Histogram", "Simplified HistoBar"),
                 .help = "How the RAW-based histogram should look like.",
+                .help2 = "If RAW data is not available, it will fall back to YUV-based.",
                 .depends_on = DEP_HIDE_IF_NOT_RAW,
             },
             {
-                .name = "RAW EV indicator",
+                .name = "EV indicator (RAW)",
                 .priv = &hist_meter,
                 .max = 2,
                 .choices = CHOICES("OFF", "Dynamic Range", "ETTR hint"),
@@ -3077,6 +3060,28 @@ struct menu_entry zebra_menus[] = {
                 .depends_on = DEP_HIDE_IF_NOT_RAW,
             },
             #endif
+            {
+                .name = "Hist. type (YUV)",
+                .priv = &hist_type_yuv, 
+                .max = 1,
+                .choices = (const char *[]) {"Luma", "RGB"},
+                .help = "YUV-based histogram type: Luma channel (Y from YUV) or RGB.",
+                .depends_on = DEP_HIDE_IF_RAW,
+            },
+            {
+                .name = "Scaling",
+                .priv = &hist_log, 
+                .max = 1,
+                .choices = (const char *[]) {"Linear", "Log"},
+                .help = "Linear or logarithmic histogram.",
+            },
+            {
+                .name = "Clip warning",
+                .priv = &hist_warn, 
+                .max = 1,
+                .help = "Display warning dots when one color channel is clipped.",
+                .help2 = "Numbers represent the percentage of pixels clipped.",
+            },
             MENU_EOL
         },
     },
