@@ -243,15 +243,21 @@ struct menu_entry
 #define DEP_M_MODE (1<<12)
 #define DEP_MANUAL_ISO (1<<13)
 
-#define DEP_SOUND_RECORDING (1<<14)
+#define DEP_SOUND_RECORDING     (1<<14)
 #define DEP_NOT_SOUND_RECORDING (1<<15)
 
-#define DEP_MOVIE_MODE_H264  (1<<16)    /* for features that only work in H.264 */
-#define DEP_MOVIE_MODE_RAW   (1<<17)    /* for features that only work in RAW movie */
-#define DEP_MOVIE_MODE_MJPEG (1<<18)    /* reserved, who knows */
+/* for features that only make sense when shooting either RAW or JPG/H.264 (photo or video) */
+#define DEP_RAW_SHOOTING     (1<<16)
+#define DEP_YUV_SHOOTING     (1<<17)
 
-#define DEP_HIDE_IF_RAW      (1<<30)    /* for features that should be hidden when shooting RAW (photo or movie) */
-#define DEP_HIDE_IF_NOT_RAW  (1<<31)    /* for features that should be hidden when shooting JPEG or H.264 */
+/* for features that only work in either H.264 or RAW */
+#define DEP_MOVIE_MODE_H264  (DEP_MOVIE_MODE | DEP_YUV_SHOOTING)
+#define DEP_MOVIE_MODE_RAW   (DEP_MOVIE_MODE | DEP_RAW_SHOOTING)
+
+/* special case: hide certain menu entries when shooting either RAW or JPG/H.264 */
+/* (todo: implement it in a more generic way?) */
+#define DEP_HIDE_IF_RAW      (1<<30)
+#define DEP_HIDE_IF_NOT_RAW  (1<<31)
 
 struct menu
 {

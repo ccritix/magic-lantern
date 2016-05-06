@@ -1997,22 +1997,32 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
             }
         }
     }
-    
+
+    int raw_enabled = can_use_raw_overlays_menu();
+    int raw_enabled_lv = raw_lv_is_enabled();
+
     // default warnings
          if (DEPENDS_ON(DEP_GLOBAL_DRAW) && !get_global_draw())
         snprintf(warning, MENU_MAX_WARNING_LEN, GDR_WARNING_MSG);
+    else if (DEPENDS_ON(DEP_MOVIE_MODE_H264) && (!is_movie_mode() || raw_enabled_lv))
+        snprintf(warning, MENU_MAX_WARNING_LEN, "This feature only works in H.264 movie mode.");
+    else if (DEPENDS_ON(DEP_MOVIE_MODE_RAW) && (!is_movie_mode() || !raw_enabled_lv))
+        snprintf(warning, MENU_MAX_WARNING_LEN, "This feature only works in RAW movie mode.");
     else if (DEPENDS_ON(DEP_MOVIE_MODE) && !is_movie_mode())
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature only works in movie mode.");
-    else if (DEPENDS_ON(DEP_MOVIE_MODE_H264) && (!is_movie_mode() || raw_lv_is_enabled()))
-        snprintf(warning, MENU_MAX_WARNING_LEN, "This feature only works in H.264 movie mode.");
-    else if (DEPENDS_ON(DEP_MOVIE_MODE_RAW) && (!is_movie_mode() || !raw_lv_is_enabled()))
-        snprintf(warning, MENU_MAX_WARNING_LEN, "This feature only works in RAW movie mode.");
     else if (DEPENDS_ON(DEP_PHOTO_MODE) && is_movie_mode())
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature only works in photo mode.");
     else if (DEPENDS_ON(DEP_LIVEVIEW) && !lv)
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature only works in LiveView.");
     else if (DEPENDS_ON(DEP_NOT_LIVEVIEW) && lv)
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature does not work in LiveView.");
+    else if (DEPENDS_ON(DEP_RAW_SHOOTING) && !raw_enabled)
+        snprintf(warning, MENU_MAX_WARNING_LEN, is_movie_mode() ?
+            "[MOVIE] You should enable RAW video recording." :
+            "[PHOTO] Set picture quality to RAW in Canon menu."
+        );
+    else if (DEPENDS_ON(DEP_YUV_SHOOTING) && raw_enabled)
+        snprintf(warning, MENU_MAX_WARNING_LEN, "This feature is YUV-based; it would give wrong results when used with RAW.");
     else if (DEPENDS_ON(DEP_AUTOFOCUS) && is_manual_focus())
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires autofocus enabled.");
     else if (DEPENDS_ON(DEP_MANUAL_FOCUS) && !is_manual_focus())
@@ -2025,8 +2035,6 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
 #endif
     else if (DEPENDS_ON(DEP_EXPSIM) && lv && !lv_luma_is_accurate())
         snprintf(warning, MENU_MAX_WARNING_LEN, EXPSIM_WARNING_MSG);
-    //~ else if (DEPENDS_ON(DEP_NOT_EXPSIM) && lv && lv_luma_is_accurate())
-        //~ snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires ExpSim disabled.");
     else if (DEPENDS_ON(DEP_MANUAL_FOCUS) && !is_manual_focus())
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires manual focus.");
     else if (DEPENDS_ON(DEP_CHIPPED_LENS) && !lens_info.name[0])
@@ -2050,12 +2058,12 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
     {
              if (WORKS_BEST_IN(DEP_GLOBAL_DRAW) && !get_global_draw())
             snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best with GlobalDraw enabled.");
+        else if (WORKS_BEST_IN(DEP_MOVIE_MODE_H264) && (!is_movie_mode() || raw_enabled_lv))
+            snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best in H.264 movie mode.");
+        else if (WORKS_BEST_IN(DEP_MOVIE_MODE_RAW) && (!is_movie_mode() || !raw_enabled_lv))
+            snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best in RAW movie mode.");
         else if (WORKS_BEST_IN(DEP_MOVIE_MODE) && !is_movie_mode())
             snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best in movie mode.");
-        else if (WORKS_BEST_IN(DEP_MOVIE_MODE_H264) && (!is_movie_mode() || raw_lv_is_enabled()))
-            snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best in H.264 movie mode.");
-        else if (WORKS_BEST_IN(DEP_MOVIE_MODE_RAW) && (!is_movie_mode() || !raw_lv_is_enabled()))
-            snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best in RAW movie mode.");
         else if (WORKS_BEST_IN(DEP_PHOTO_MODE) && is_movie_mode())
             snprintf(warning, MENU_MAX_WARNING_LEN, "This feature works best in photo mode.");
         else if (WORKS_BEST_IN(DEP_LIVEVIEW) && !lv)

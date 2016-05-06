@@ -1990,7 +1990,7 @@ int can_use_raw_overlays_menu()
 MENU_UPDATE_FUNC(menu_set_warning_raw)
 {
     MENU_SET_WARNING(MENU_WARN_NOT_WORKING, 
-        is_movie_mode() ? "[MOVIE] This feature requires you shooting RAW." :
+        is_movie_mode() ? "[MOVIE] You should enable RAW video recording." :
                           "[PHOTO] Set picture quality to RAW in Canon menu."
     );
 }
