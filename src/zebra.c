@@ -2375,7 +2375,7 @@ spotmeter_erase()
 
     int xcb = spot_prev_xcb;
     int ycb = spot_prev_ycb;
-    int dx = spotmeter_formula == 2 ? 52 : (spotmeter_formula == SPTMTR_F_RGB_PERCENT ? 80: 26); 
+    int dx = spotmeter_formula == 2 ? 52 : (spotmeter_formula == SPTMTR_F_RGB_PERCENT ? 67: 26); 
     int y0 = -13;
     uint32_t* M = (uint32_t*)get_bvram_mirror();
     uint32_t* B = (uint32_t*)bmp_vram();
@@ -2529,7 +2529,7 @@ static void spotmeter_step()
     uint32_t* M = (uint32_t*)get_bvram_mirror();
     uint32_t* B = (uint32_t*)bmp_vram();
 
-    int dx = spotmeter_formula == 2 ? 52 : 26;
+    int dx = spotmeter_formula == 2 ? 52 : (spotmeter_formula == SPTMTR_F_RGB_PERCENT ? 67: 26); 
     int y0 = arrow_keys_shortcuts_active() ? (int)(36 - font_med.height) : (int)(-13);
     for( y = (ycb&~1) + y0 ; y <= (ycb&~1) + 36 ; y++ )
     {
@@ -2615,8 +2615,8 @@ fallback_from_raw:
         bmp_printf(
             fnt | FONT_ALIGN_CENTER,
             xcb, ycb, 
-            "%3d%s%3d%s%3d%s",
-            R*100/255,"%", G*100/255, "%", B*100/255, "%"
+            "%3d,%3d,%3d%%",
+            R*100/255, G*100/255, B*100/255
         );
     }
 }
