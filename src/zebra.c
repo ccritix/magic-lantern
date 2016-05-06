@@ -2004,14 +2004,6 @@ static MENU_UPDATE_FUNC(zebra_draw_display)
     #endif
 }
 
-static MENU_UPDATE_FUNC(zebra_param_not_used_for_raw)
-{
-    #ifdef FEATURE_RAW_ZEBRAS
-    if (raw_zebra_enable && can_use_raw_overlays_menu())
-        MENU_SET_WARNING(RAW_ZEBRA_ENABLE ? MENU_WARN_NOT_WORKING : MENU_WARN_ADVICE, "Not used for RAW zebras.");
-    #endif
-}
-
 static MENU_UPDATE_FUNC(zebra_level_display)
 {
     int level = CURRENT_VALUE;
@@ -2029,8 +2021,6 @@ static MENU_UPDATE_FUNC(zebra_level_display)
             (level * 255 + 50) / 100
         );
     }
-    
-    zebra_param_not_used_for_raw(entry, info);
 }
 #endif
 
@@ -2740,8 +2730,8 @@ struct menu_entry zebra_menus[] = {
                 #endif
                 .choices = (const char *[]) {"Luma", "RGB", "Luma Fast"},
                 .icon_type = IT_DICE,
-                .update = zebra_param_not_used_for_raw,
                 .help = "Luma: red/blue. RGB: show color of the clipped channel(s).",
+                .depends_on = DEP_HIDE_IF_RAW,
             },
             {
                 .name = "Underexposure",
@@ -2751,6 +2741,7 @@ struct menu_entry zebra_menus[] = {
                 .icon_type = IT_PERCENT_OFF,
                 .update = zebra_level_display,
                 .help = "Underexposure threshold.",
+                .depends_on = DEP_HIDE_IF_RAW,
             },
             {
                 .name = "Overexposure", 
@@ -2760,6 +2751,7 @@ struct menu_entry zebra_menus[] = {
                 .icon_type = IT_PERCENT_OFF,
                 .update = zebra_level_display,
                 .help = "Overexposure threshold.",
+                .depends_on = DEP_HIDE_IF_RAW,
             },
             #ifdef CONFIG_MOVIE
             {
@@ -2768,6 +2760,7 @@ struct menu_entry zebra_menus[] = {
                 .max = 1,
                 .choices = (const char *[]) {"Hide", "Show"},
                 .help = "You can hide zebras when recording.",
+                .depends_on = DEP_HIDE_IF_RAW,
             },
             #endif
             #ifdef FEATURE_RAW_ZEBRAS
@@ -2785,7 +2778,8 @@ struct menu_entry zebra_menus[] = {
                 .max = 5,
                 .choices = (const char *[]) {"OFF", "0 EV", "1 EV", "2 EV", "3 EV", "4 EV"},
                 .help = "RAW zebra underexposure threshold",
-                .help2 = "(in EVs above the noise floor)"
+                .help2 = "(in EVs above the noise floor)",
+                .depends_on = DEP_HIDE_IF_NOT_RAW,
             },
             #endif
             MENU_EOL
