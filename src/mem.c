@@ -798,6 +798,7 @@ static int choose_allocator(int size, unsigned int flags)
 /* returns 0 if it couldn't allocate */
 void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned int line)
 {
+    ASSERT(mem_sem);
     take_semaphore(mem_sem, 0);
 
     dbg_printf("alloc(%s) from %s:%d task %s\n", format_memory_size_and_flags(size, flags), file, line, get_task_name_from_id((int)get_current_task()));
@@ -921,8 +922,8 @@ struct memSuite * shoot_malloc_suite_contig(size_t size)
 
 
 /* initialize memory pools, if any of them needs that */
-/* (called as the first init func => mem.o should be first in the Makefile.src (well, after boot-hack) */
-static void mem_init()
+/* should be called before any mallocs */
+void _mem_init()
 {
     mem_sem = create_named_semaphore("mem_sem", 1);
 
@@ -934,8 +935,6 @@ static void mem_init()
         }
     }
 }
-
-INIT_FUNC(__FILE__, mem_init);
 
 
 /* GUI stuff */

@@ -426,8 +426,9 @@ static void backup_task()
 // From here we can do file I/O and maybe other complex stuff
 static void my_big_init_task()
 {
-  _find_ml_card();
-  _load_fonts();
+    _mem_init();
+    _find_ml_card();
+    _load_fonts();
 
 #ifdef CONFIG_HELLO_WORLD
     int sig = compute_signature((int*)SIG_START, 0x10000);
