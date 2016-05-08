@@ -1426,6 +1426,7 @@ static struct menu_entry mem_menus[] = {
         .help = "Free memory, shared between ML and Canon firmware.",
         .help2 = "Press SET for detailed info.",
         .submenu_width = 710,
+        .submenu_height = 330,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Allocated RAM",
