@@ -122,3 +122,6 @@
 
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
 #define CONFIG_LVAPP_HACK_RELOC
+
+/** Use memory that appears unused by RscMgr */
+#define CONFIG_RSCMGR_UNUSED_SPACE

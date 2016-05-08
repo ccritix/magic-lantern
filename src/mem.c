@@ -38,10 +38,10 @@
 /* used for faking the cacheable flag (internally we must use the same flag as returned by allocator) */
 #define UNCACHEABLE_FLAG 0x8000
 
-typedef void* (*mem_init_func)();
-typedef void* (*mem_alloc_func)(size_t size);
-typedef void (*mem_free_func)(void* ptr);
-typedef int (*mem_get_free_space_func)();
+typedef void   (*mem_init_func)();
+typedef void * (*mem_alloc_func)(size_t size);
+typedef void   (*mem_free_func)(void* ptr);
+typedef int (*mem_get_free_space_func)();   /* optional argument: mem_used */
 typedef int (*mem_get_max_region_func)();
 
 /* use underscore for allocator functions to prevent other code from calling them directly */
@@ -119,7 +119,63 @@ int GetFreeMemForMalloc()
     return MALLOC_FREE_MEMORY;
 }
 
+#ifdef CONFIG_RSCMGR_UNUSED_SPACE
+static void* rscmgr_unused_mem_pool = 0;
+
+extern void* init_memory_pool(void* start, uint32_t size);
+extern void* allocate_memory_from_pool(void* pool, uint32_t size);
+extern void free_memory_to_pool(void* pool, void* ptr);
+extern int get_max_region_of_pool(void* pool, int* max_region);
+ 
+static void rscmgr_init()
+{
+    rscmgr_unused_mem_pool = init_memory_pool(
+        (void*) RSCMGR_UNUSED_SPACE_START,
+        RSCMGR_UNUSED_SPACE_END - RSCMGR_UNUSED_SPACE_START
+    );
+}
+
+static void* rscmgr_malloc(size_t size)
+{
+    return allocate_memory_from_pool(rscmgr_unused_mem_pool, size);
+}
+
+static void rscmgr_free(void* ptr)
+{
+    free_memory_to_pool(rscmgr_unused_mem_pool, ptr);
+}
+
+static int rscmgr_get_max_region()
+{
+    int a;
+    int err = get_max_region_of_pool(rscmgr_unused_mem_pool, &a);
+    if (err) return 0;
+    return a;
+}
+
+static int rscmgr_get_free_space(uint32_t mem_used)
+{
+    /* we don't have the stub, so we use a little guessowrk */
+    uint32_t pool_size = RSCMGR_UNUSED_SPACE_END - RSCMGR_UNUSED_SPACE_START;
+    return pool_size - mem_used;
+}
+#endif
+
 static struct mem_allocator allocators[] = {
+#ifdef CONFIG_RSCMGR_UNUSED_SPACE
+    {
+        /* take an unused block from RscMgr and manage it with AllocateMemory's low-level allocators */
+        .name = "RscMgr",
+        .init = rscmgr_init,
+        .malloc = rscmgr_malloc,
+        .free = rscmgr_free,
+        /* fixme: not sure whether we can use DMA here or not */
+        .get_free_space = rscmgr_get_free_space,
+        .get_max_region = rscmgr_get_max_region,
+        .preferred_min_alloc_size = 0,
+        .preferred_max_alloc_size = 5 * 1024 * 1024,
+    },
+#endif
     {
         .name = "malloc",
         .malloc = _malloc,
@@ -151,16 +207,6 @@ static struct mem_allocator allocators[] = {
 #ifndef CONFIG_INSTALLER    /* installer only needs the basic allocators */
 
 
-#if 0 /* not implemented yet */
-    {
-        .name = "RscMgr",
-        .malloc = _rscmgr_malloc,
-        .free = _rscmgr_free,
-        .get_free_space = rscmgr_get_free_space,
-        .preferred_min_alloc_size = 16 * 1024,
-        .preferred_max_alloc_size = 2 * 1024 * 1024,
-    },
-#endif
 
 #if 0 /* not implemented yet */
     {
@@ -660,7 +706,9 @@ static int search_for_allocator(int size, int require_preferred_size, int requir
         }
         
         /* do we have enough free space without exceeding the preferred limit? */
-        int free_space = allocators[a].get_free_space ? allocators[a].get_free_space() : 30*1024*1024;
+        int free_space = (allocators[a].get_free_space)
+            ? allocators[a].get_free_space(allocators[a].mem_used)
+            : 30*1024*1024; /* fixme */
         //~ dbg_printf("%s: free space %s\n", allocators[a].name, format_memory_size(free_space));
         if (!(
                 (
@@ -1216,7 +1264,9 @@ static MENU_UPDATE_FUNC(mem_pool_display)
     MENU_SET_NAME(allocators[index].name);
 
     int used = allocators[index].mem_used;
-    int free_space = allocators[index].get_free_space ? allocators[index].get_free_space() : -1;
+    int free_space = (allocators[index].get_free_space)
+        ? allocators[index].get_free_space(allocators[index].mem_used)
+        : -1;
 
     if (free_space > 0)
     {
@@ -1403,6 +1453,14 @@ static struct menu_entry mem_menus[] = {
                 .priv = (int*)2,
                 .update = mem_pool_display,
             },
+            #ifdef CONFIG_RSCMGR_UNUSED_SPACE
+            {
+                .name = allocators[3].name,
+                .icon_type = IT_ALWAYS_ON,
+                .priv = (int*)3,
+                .update = mem_pool_display,
+            },
+            #endif
             {
                 .name = "stack space",
                 .icon_type = IT_ALWAYS_ON,
