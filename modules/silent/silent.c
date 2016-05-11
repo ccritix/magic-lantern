@@ -15,6 +15,8 @@
 #include <string.h>
 #include <battery.h>
 #include <powersave.h>
+#include <console.h>
+#include <patch.h>
 #include "../lv_rec/lv_rec.h"
 #include "../mlv_rec/mlv.h"
 
@@ -37,6 +39,10 @@ extern WEAK_FUNC(ret_0) int GetBatteryLevel();
 extern WEAK_FUNC(ret_0) int GetBatteryTimeRemaining();
 extern WEAK_FUNC(ret_0) int GetBatteryDrainRate();
 
+extern void WEAK_FUNC(ret_0) ProcessPathForFurikake(void*);
+extern void WEAK_FUNC(ret_0) PACK16_Setup(void* args);
+extern void WEAK_FUNC(ret_0) debug_intercept();
+
 #define FEATURE_SILENT_PIC_RAW_BURST
 //~ #define FEATURE_SILENT_PIC_RAW
 
@@ -44,6 +50,7 @@ static CONFIG_INT( "silent.pic", silent_pic_enabled, 0 );
 static CONFIG_INT( "silent.pic.mode", silent_pic_mode, 0 );
 static CONFIG_INT( "silent.pic.slitscan.mode", silent_pic_slitscan_mode, 0 );
 static CONFIG_INT( "silent.pic.file_format", silent_pic_file_format, 0 );
+static CONFIG_INT( "silent.pic.bit_depth", silent_pic_bit_depth, 0 );
 #define SILENT_PIC_MODE_SIMPLE 0
 #define SILENT_PIC_MODE_BURST 1
 #define SILENT_PIC_MODE_BURST_END_TRIGGER 2
@@ -78,6 +85,10 @@ static MENU_UPDATE_FUNC(silent_pic_mode_update)
     /* reveal options for the current shooting mode, if any */
     silent_menu[0].children[1].shidden =
         (silent_pic_mode != SILENT_PIC_MODE_SLITSCAN);
+
+    /* bit depth only implemented for full-res pics */
+    silent_menu[0].children[3].shidden =
+        (silent_pic_mode != SILENT_PIC_MODE_FULLRES);
 }
 
 static MENU_UPDATE_FUNC(silent_pic_check_mlv)
@@ -155,6 +166,22 @@ static MENU_UPDATE_FUNC(silent_pic_display)
 static MENU_UPDATE_FUNC(silent_pic_file_format_display)
 {
     silent_pic_check_mlv(entry, info);
+}
+
+/* return true if this camera has the stubs for custom bit depths */
+static int silent_pic_bit_depth_check()
+{
+    return 
+        ((void*)&ProcessPathForFurikake != (void*)&ret_0) &&
+        ((void*)&PACK16_Setup != (void*)&ret_0);
+}
+
+static MENU_UPDATE_FUNC(silent_pic_bit_depth_update)
+{
+    if (!silent_pic_bit_depth_check())
+    {
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Lower bit depths are not (yet) available on your camera.");
+    }
 }
 
 static char* silent_pic_get_name()
@@ -1152,6 +1179,94 @@ static void long_exposure_fix()
     }
 }
 
+static void PACK16_Setup_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    struct pack16_args
+    {
+      int unknown_mode_flag;
+      int is_12bit;
+      int is_14bit;
+      int is_16bit;
+      int unknown_ccd2_dm_en;
+      int defm_on;
+      int ilim;
+    } * args = (void*) regs[0];
+    
+    switch (silent_pic_bit_depth)
+    {
+        case 1: /* 12-bit */
+            args->is_16bit = 0;
+            args->is_14bit = 0;
+            args->is_12bit = 1;
+            break;
+        
+        case 2: /* 10-bit */
+            args->is_16bit = 0;
+            args->is_14bit = 0;
+            args->is_12bit = 0;
+            break;
+    }
+}
+
+static void bit_depth_reduce(struct raw_info * raw_info, void* out_buf)
+{
+    int bpp = 14 - silent_pic_bit_depth * 2;
+    
+    /* update raw_info for the reduced bit depth */
+    raw_info->bits_per_pixel = bpp;
+    raw_info->pitch = raw_info->width * raw_info->bits_per_pixel / 8;
+    raw_info->frame_size = raw_info->height * raw_info->pitch;
+    raw_info->black_level >>= (silent_pic_bit_depth * 2);
+    raw_info->white_level >>= (silent_pic_bit_depth * 2);
+
+    /* configure Furikake parameters for bit depth reduction */
+    /* from raw_twk */
+    struct s_DefcData
+    {
+        void *pSrcAddress;
+        void *pDestAddr;
+        uint32_t xRes;
+        uint32_t yRes;
+        uint32_t rawDepth14;
+        uint32_t dstModeRaw;
+    } defc;
+    defc.pSrcAddress = raw_info->buffer;
+    defc.pDestAddr = out_buf;
+    defc.xRes = raw_info->width;
+    defc.yRes = raw_info->height;
+    defc.rawDepth14 = 1;
+    defc.dstModeRaw = 1;   /* 0 = 16-bit, 1 = 14-bit; any value works here, since we'll override it */
+    
+    /* hook to override the bit depth in PACK16 setup function */
+    patch_hook_function(
+        (uintptr_t)&PACK16_Setup,
+        0xE92D4010,
+        PACK16_Setup_hook,
+        "PACK16: raw bit depth override"
+    );
+    
+    /* log Canon messages if dm-spy is compiled in ML core */
+    debug_intercept();
+    
+    /* also time the operation */
+    int64_t t0 = get_us_clock_value();
+
+    /* this does the bit depth conversion using Canon's image processor */
+    /* it uses DSUNPACK, PACK16 and DEFC */
+    /* todo: understand how those are configured and linked together */
+    ProcessPathForFurikake(&defc);
+
+    int64_t t1 = get_us_clock_value();
+    
+    /* finished */
+    debug_intercept();
+    unpatch_memory((uintptr_t)&PACK16_Setup);
+    printf("Furikake time: %d us\n", (int)(t1 - t0));
+
+    /* use the result as raw buffer */
+    raw_info->buffer = defc.pDestAddr;
+}
+
 static int
 silent_pic_take_fullres(int interactive)
 {
@@ -1309,8 +1424,12 @@ silent_pic_take_fullres(int interactive)
     /* prepare to save the file */
     struct raw_info local_raw_info = raw_info;
     
-    /* DNG only: make a copy of the image, because save_dng will overwrite the contents of the raw buffer */
-    if (silent_pic_file_format == SILENT_PIC_FILE_FORMAT_DNG)
+    /* We need to make a copy of the image if:
+     * - we save as DNG (because save_dng will overwrite the contents of the raw buffer)
+     * - we change the output bit depth
+     */
+    if (silent_pic_file_format == SILENT_PIC_FILE_FORMAT_DNG ||
+       (silent_pic_bit_depth && silent_pic_bit_depth_check()))
     {
         copy_job = (void*) call("FA_CreateTestImage");
         copy_buf = (void*) call("FA_GetCrawBuf", copy_job);
@@ -1333,8 +1452,16 @@ silent_pic_take_fullres(int interactive)
         
         if (copy_buf)
         {
-            local_raw_info.buffer = copy_buf;
-            memcpy(local_raw_info.buffer, raw_info.buffer, local_raw_info.frame_size);
+            if (silent_pic_bit_depth)
+            {
+                /* bit depth other than 14 bits? */
+                bit_depth_reduce(&local_raw_info, copy_buf);
+            }
+            else
+            {
+                local_raw_info.buffer = copy_buf;
+                memcpy(local_raw_info.buffer, raw_info.buffer, local_raw_info.frame_size);
+            }
         }
         
         ok = silent_pic_save_file(&local_raw_info, capture_time);
@@ -1585,6 +1712,14 @@ static struct menu_entry silent_menu[] = {
                     "MLV is fast, and will group all frames into a single video file.\n",
                 .choices = CHOICES("DNG", "MLV"),
             },
+            {
+                .name = "Bit Depth",
+                .priv = &silent_pic_bit_depth,
+                .update = silent_pic_bit_depth_update,
+                .max = 2,
+                .choices = CHOICES("14", "12", "10"),
+                .help = "Experimental lower bit depths."
+            },
             MENU_EOL,
         }
         #endif
@@ -1632,6 +1767,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(silent_pic_mode)
     MODULE_CONFIG(silent_pic_slitscan_mode)
     MODULE_CONFIG(silent_pic_file_format)
+    MODULE_CONFIG(silent_pic_bit_depth)
 MODULE_CONFIGS_END()
 
 MODULE_PROPHANDLERS_START()
