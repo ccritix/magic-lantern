@@ -861,6 +861,20 @@ static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc)
     return instr;
 }
 
+static int check_jump_range(uint32_t pc, uint32_t dest)
+{
+    uint32_t offset = dest - pc - 8;
+    uint32_t offset_neg = -offset;
+
+    if ((offset & 0xFC000000) && (offset_neg & 0xFC000000))
+    {
+        printf("Jump range error: %x -> %x\n", pc, dest);
+        return 0;
+    }
+    
+    return 1;
+}
+
 int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function_cbr logging_function, char* description)
 {
     int err = 0;
@@ -881,14 +895,27 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     
     if (logging_slot < 0)
     {
-        snprintf(last_error, sizeof(last_error), "No logging slot for %x", addr);
+        snprintf(last_error, sizeof(last_error), "Patch error at %x (no logging slot)", addr);
         puts(last_error);
         err = E_PATCH_TOO_MANY_PATCHES;
         goto end;
     }
     
-    /* create the logging code */
     struct logging_hook_code * hook = &logging_hooks[logging_slot];
+    
+    /* check the jumps we are going to use */
+    /* fixme: use long jumps? */
+    if (!check_jump_range((uint32_t) &hook->call_logger, (uint32_t) logging_function) ||
+        !check_jump_range((uint32_t) &hook->b_return,    (uint32_t) addr + 4) ||
+        !check_jump_range((uint32_t) addr,               (uint32_t) hook))
+    {
+        snprintf(last_error, sizeof(last_error), "Patch error at %x (jump out of range)", addr);
+        puts(last_error);
+        err = E_PATCH_UNKNOWN_ERROR;
+        goto end;
+    }
+    
+    /* create the logging code */
     hook->save_regs       = 0xe92d5fff;                                     /* e92d5fff: STMFD  SP!, {R0-R12,LR} */
     hook->mov_regs        = 0xe1a0000d;                                     /* e1a0000d: MOV    R0, SP */
     hook->mov_stack       = 0xe28d1038;                                     /* e28d1038: ADD    R1, SP, #56 */
