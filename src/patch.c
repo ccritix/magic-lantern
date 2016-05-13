@@ -59,13 +59,15 @@ struct logging_hook_code
     uint32_t save_regs;         /* e92d5fff: STMFD  SP!, {R0-R12,LR} */
     uint32_t mov_regs;          /* e1a0000d: MOV    R0, SP */
     uint32_t mov_stack;         /* e28d1038: ADD    R1, SP, #56 */
-    uint32_t mov_pc;            /* e59f200c: LDR    R2, [PC,#12] */
-    uint32_t call_logger;       /*           BL     logging_function */
+    uint32_t mov_pc;            /* e59f2010: LDR    R2, [PC,#16] */
+    uint32_t mov_lr_pc;         /* e1a0e00f: MOV    LR, PC */
+    uint32_t call_logger;       /* e59ff010: LDR    PC, [PC,#16] */
     uint32_t restore_regs;      /* e8bd5fff: LDMFD  SP!, {R0-R12,LR} */
     uint32_t original_instr;    /*           original ASM instruction (which was patched to jump here) */
     uint32_t b_return;          /*           B      patched_address + 4 */
     uint32_t addr;              /* patched address (for identification) */
     uint32_t fixup;             /* for relocating instructions that do PC-relative addressing */
+    uint32_t logging_function;  /* for long call */
 };
 
 static struct patch patches[MAX_PATCHES] = {{0}};
@@ -822,7 +824,7 @@ int patch_memory_array(
 static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc)
 {
     uint32_t instr = MEM(pc);
-    uint32_t fixup = new_pc + 0xC;
+    uint32_t fixup = new_pc + 0xC;  /* offset hardcoded for logging_hook_code */
     uint32_t load = instr & LOAD_MASK;
 
     // Check for load from %pc
@@ -905,8 +907,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     
     /* check the jumps we are going to use */
     /* fixme: use long jumps? */
-    if (!check_jump_range((uint32_t) &hook->call_logger, (uint32_t) logging_function) ||
-        !check_jump_range((uint32_t) &hook->b_return,    (uint32_t) addr + 4) ||
+    if (!check_jump_range((uint32_t) &hook->b_return,    (uint32_t) addr + 4) ||
         !check_jump_range((uint32_t) addr,               (uint32_t) hook))
     {
         snprintf(last_error, sizeof(last_error), "Patch error at %x (jump out of range)", addr);
@@ -919,12 +920,15 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     hook->save_regs       = 0xe92d5fff;                                     /* e92d5fff: STMFD  SP!, {R0-R12,LR} */
     hook->mov_regs        = 0xe1a0000d;                                     /* e1a0000d: MOV    R0, SP */
     hook->mov_stack       = 0xe28d1038;                                     /* e28d1038: ADD    R1, SP, #56 */
-    hook->mov_pc          = 0xe59f200c;                                     /* e59f200c: LDR    R2, [PC,#12] */
-    hook->call_logger     = BL_INSTR(&hook->call_logger, logging_function); /*           BL     logging_function */
+    hook->mov_pc          = 0xe59f2010;                                     /* e59f2010: LDR    R2, [PC,#16] */
+    hook->mov_lr_pc       = 0xe1a0e00f;                                     /* e1a0e00f: MOV    LR, PC */
+    hook->call_logger     = 0xe59ff010;                                     /* e59ff010: LDR    PC, [PC,#16] */
     hook->restore_regs    = 0xe8bd5fff;                                     /* e8bd5fff: LDMFD  SP!, {R0-R12,LR} */
     hook->original_instr  = reloc_instr(addr, (uint32_t)&hook->original_instr); /*       original ASM instruction, relocated */
     hook->b_return        = B_INSTR (&hook->b_return, addr + 4);            /*           B      patched_address + 4 */
     hook->addr            = addr;                                           /*           patched address (for identification) */
+    /* hook->fixup goes here; used in reloc_instr */
+    hook->logging_function= (uint32_t) logging_function;
 
     /* since we have modified some code in RAM, sync the caches */
     patch_sync_cache(1);
