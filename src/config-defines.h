@@ -38,7 +38,10 @@
  */
     /** This may help discovering some cool new stuff - http://magiclantern.wikia.com/wiki/Register_Map/Brute_Force **/
     /** For developers only; can be dangerous **/
-    //~ #define CONFIG_DIGIC_POKE
+    #define CONFIG_DIGIC_POKE
+    
+    /** Debug -> Memory Browser */
+    #define CONFIG_HEXDUMP
 
     /** A bunch of debug tools **/
     //~ #define CONFIG_DEBUGMSG 1
