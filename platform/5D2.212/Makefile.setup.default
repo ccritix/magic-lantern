@@ -4,4 +4,3 @@ ML_PICSTYLE_AUTO=n
 
 ML_SRC_EXTRA_OBJS = \
 	afma.o \
-	asm.o \
