@@ -260,6 +260,7 @@ reloc(
     int old = cli();
     sync_caches();
     reapply_cache_patches();
+    sei(old);
 #endif
 
     // Return the entry point of the new function
