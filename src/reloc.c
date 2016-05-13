@@ -16,7 +16,7 @@
 #endif
 
 #include "reloc.h"
-#include <patch.h>
+#include "patch.h"
 
 int verbose = 1;
 
