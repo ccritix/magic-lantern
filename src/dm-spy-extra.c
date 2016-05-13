@@ -20,6 +20,7 @@
 
 static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void state_transition_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void CreateResLockEntry_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void LockEngineResources_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void UnLockEngineResources_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void fps_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
@@ -84,7 +85,8 @@ static struct logged_func logged_functions[] = {
     /* message-level SIO3/MREQ communication */
     { 0xFF1BF26C, "mpu_send", 2, mpu_send_log }, 
     { 0xFF05DFDC, "mpu_recv", 1, mpu_recv_log}, 
-    #endif	
+    { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
+    #endif
 };
 #else
 static struct logged_func logged_functions[] = {
@@ -167,6 +169,8 @@ static struct logged_func logged_functions[] = {
     { 0xFF6B4E2C, "DryEFatFormat", 7 },
     { 0xFF729BDC, "sd_choose_filesystem", 2 },
     { 0xFF729FC4, "sd_choose_filesystem_ret", 1 },
+    { 0xFF290B94, "CreateResLockEntry", 2, CreateResLockEntry_log },
+    { 0xFF29105C, "LockEngineResources", 1, LockEngineResources_log },
 #endif
 
 #ifdef CONFIG_5D3_123
@@ -309,14 +313,8 @@ static void state_transition_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     );
 }
 
-static void LockEngineResources_log_base(uint32_t* regs, char* name, uint32_t* arg0)
+static void EngineResources_list(uint32_t* resIds, int resNum)
 {
-    uint32_t* resLock = arg0;
-    uint32_t* resIds = (void*) resLock[5];
-    int resNum = resLock[6];
-    uint32_t caller = PATCH_HOOK_CALLER();
-
-    DryosDebugMsg(0, 0, "*** %s(%x) x%d from %x:", name, resLock, resNum, caller);
     for (int i = 0; i < resNum; i++)
     {
         uint32_t class = resIds[i] & 0xFFFF0000;
@@ -347,6 +345,26 @@ static void LockEngineResources_log_base(uint32_t* regs, char* name, uint32_t* a
             DryosDebugMsg(0, 0, "    %2d) %8x (%s)", (i+1), resIds[i], desc);
         }
     }
+}
+
+static void CreateResLockEntry_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    uint32_t* resIds = (void*) regs[0];
+    int resNum = regs[1];
+    uint32_t caller = PATCH_HOOK_CALLER();
+    DryosDebugMsg(0, 0, "*** CreateResLockEntry(%x, %d) from %x:", resIds, resNum, caller);
+    EngineResources_list(resIds, resNum);
+}
+
+
+static void LockEngineResources_log_base(uint32_t* regs, char* name, uint32_t* arg0)
+{
+    uint32_t* resLock = arg0;
+    uint32_t* resIds = (void*) resLock[5];
+    int resNum = resLock[6];
+    uint32_t caller = PATCH_HOOK_CALLER();
+    DryosDebugMsg(0, 0, "*** %s(%x) x%d from %x:", name, resLock, resNum, caller);
+    EngineResources_list(resIds, resNum);
 }
 
 static void LockEngineResources_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
