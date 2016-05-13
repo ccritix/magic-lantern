@@ -1075,7 +1075,7 @@ static MENU_UPDATE_FUNC(matrix_patch_update)
 static struct menu_entry patch_menu[];
 
 #define SIMPLE_PATCH_MENU_ENTRY(i) patch_menu[0].children[i]
-#define MATRIX_PATCH_MENU_ENTRY(i) patch_menu[0].children[i+MAX_PATCHES]
+#define MATRIX_PATCH_MENU_ENTRY(i) patch_menu[0].children[(i)+MAX_PATCHES]
 
 static MENU_UPDATE_FUNC(patches_update)
 {
