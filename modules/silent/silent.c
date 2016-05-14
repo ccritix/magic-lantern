@@ -16,7 +16,7 @@
 #include <battery.h>
 #include <powersave.h>
 #include <console.h>
-#include <patch.h>
+#include <edmac.h>
 #include "../lv_rec/lv_rec.h"
 #include "../mlv_rec/mlv.h"
 
@@ -38,10 +38,6 @@ extern WEAK_FUNC(ret_0_long) uint64_t mlv_set_timestamp(mlv_hdr_t *hdr, uint64_t
 extern WEAK_FUNC(ret_0) int GetBatteryLevel();
 extern WEAK_FUNC(ret_0) int GetBatteryTimeRemaining();
 extern WEAK_FUNC(ret_0) int GetBatteryDrainRate();
-
-extern void WEAK_FUNC(ret_0) ProcessPathForFurikake(void*);
-extern void WEAK_FUNC(ret_0) PACK16_Setup(void* args);
-extern void WEAK_FUNC(ret_0) debug_intercept();
 
 #define FEATURE_SILENT_PIC_RAW_BURST
 //~ #define FEATURE_SILENT_PIC_RAW
@@ -166,22 +162,6 @@ static MENU_UPDATE_FUNC(silent_pic_display)
 static MENU_UPDATE_FUNC(silent_pic_file_format_display)
 {
     silent_pic_check_mlv(entry, info);
-}
-
-/* return true if this camera has the stubs for custom bit depths */
-static int silent_pic_bit_depth_check()
-{
-    return 
-        ((void*)&ProcessPathForFurikake != (void*)&ret_0) &&
-        ((void*)&PACK16_Setup != (void*)&ret_0);
-}
-
-static MENU_UPDATE_FUNC(silent_pic_bit_depth_update)
-{
-    if (!silent_pic_bit_depth_check())
-    {
-        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Lower bit depths are not (yet) available on your camera.");
-    }
 }
 
 static char* silent_pic_get_name()
@@ -1179,92 +1159,182 @@ static void long_exposure_fix()
     }
 }
 
-static void PACK16_Setup_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
+static struct semaphore * edmac_write_done_sem = 0;
+static struct LockEntry * resLock = 0;
+
+static void edmac_read_complete_cbr(void *ctx)
 {
-    struct pack16_args
-    {
-      int unknown_mode_flag;
-      int is_12bit;
-      int is_14bit;
-      int is_16bit;
-      int unknown_ccd2_dm_en;
-      int defm_on;
-      int ilim;
-    } * args = (void*) regs[0];
-    
-    switch (silent_pic_bit_depth)
-    {
-        case 1: /* 12-bit */
-            args->is_16bit = 0;
-            args->is_14bit = 0;
-            args->is_12bit = 1;
-            break;
-        
-        case 2: /* 10-bit */
-            args->is_16bit = 0;
-            args->is_14bit = 0;
-            args->is_12bit = 0;
-            break;
-    }
+}
+
+static void edmac_write_complete_cbr(void * ctx)
+{
+    give_semaphore(edmac_write_done_sem);
 }
 
 static void bit_depth_reduce(struct raw_info * raw_info, void* out_buf)
 {
-    int bpp = 14 - silent_pic_bit_depth * 2;
+    int out_bpp = 14 - silent_pic_bit_depth * 2;
+
+    uint32_t edmac_read_chan = 10;
+    uint32_t edmac_write_chan = 1;
+    uint32_t edmac_read_connection = 1;
+    uint32_t edmac_write_connection = 16;
+
+    /* it locks up without reslock */
+    if (!resLock)
+    {
+        int edmac_read_ch_index = edmac_channel_to_index(edmac_read_chan);
+        int edmac_write_ch_index = edmac_channel_to_index(edmac_write_chan);
+        uint32_t resIds[] = {
+            0x00000000 | edmac_write_ch_index,      /* write edmac channel */
+            0x00010000 | edmac_read_ch_index,       /* read edmac channel */
+            0x00020000 | edmac_write_connection,    /* write connection */
+            0x00030000 | edmac_read_connection,     /* read connection */
+            0x00050002,                             /* DSUNPACK? */
+            0x00050005,                             /* DEFC? */
+            0x0005001d,                             /* PACK16/WDMAC16 */
+            0x0005001f,                             /* PACK16/WDMAC16 */
+        };
+        resLock = CreateResLockEntry(resIds, COUNT(resIds));
+    }
     
+    LockEngineResources(resLock);
+
+    /* configure image processing modules to perform the bit depth reduction */
+    /* register addresses from strings */
+    /* register values from a QEMU trace of ProcessPathForFurikake */
+    const uint32_t DS_SEL           = 0xC0F08104;
+    const uint32_t PACK16_ISEL      = 0xC0F082D0;
+    const uint32_t PACK16_ISEL2     = 0xC0F0839C;
+    const uint32_t WDMAC16_ISEL     = 0xC0F082D8;
+    const uint32_t DSUNPACK_ENB     = 0xC0F08060;
+    const uint32_t DSUNPACK_MODE    = 0xC0F08064;
+    const uint32_t DSUNPACK_DM_EN   = 0xC0F08274;
+    const uint32_t DEF_ENB          = 0xC0F080A0;
+    const uint32_t DEF_80A4         = 0xC0F080A4;
+    const uint32_t DEF_MODE         = 0xC0F080A8;
+    const uint32_t DEF_CTRL         = 0xC0F080AC;
+    const uint32_t DEF_YB_XB        = 0xC0F080B0;
+    const uint32_t DEF_YN_XN        = 0xC0F080B4;
+    const uint32_t DEF_YA_XA        = 0xC0F080BC;
+    const uint32_t DEF_INTR_EN      = 0xC0F080D0;
+    const uint32_t DEF_HOSEI        = 0xC0F080D4;
+    const uint32_t DEFC_X2MODE      = 0xC0F08270;
+    const uint32_t DEFC_DET_MODE    = 0xC0F082B4;
+    const uint32_t PACK16_ENB       = 0xC0F08120;
+    const uint32_t PACK16_MODE      = 0xC0F08124;
+    const uint32_t PACK16_DEFM_ON   = 0xC0F082B8;
+    const uint32_t PACK16_ILIM      = 0xC0F085B4;
+    const uint32_t PACK16_CCD2_DM_EN= 0xC0F0827C;
+
+    /* for PACK16_MODE, DSUNPACK_MODE, ADUNPACK_MODE (mask 0x131) */
+    const uint32_t MODE_16BIT       = 0x130;
+    const uint32_t MODE_14BIT       = 0x030;
+    const uint32_t MODE_12BIT       = 0x010;
+    const uint32_t MODE_10BIT       = 0x000;
+    const uint32_t bit_modes[] = { MODE_14BIT, MODE_12BIT, MODE_10BIT };
+
+    engio_write((uint32_t[]) {
+        /* input selection for the processing modules? */
+        DS_SEL,         0,
+        PACK16_ISEL,    4,
+        PACK16_ISEL2,   0,
+        WDMAC16_ISEL,   0,
+        
+        /* DSUNPACK module (input image data) */
+        DSUNPACK_ENB,   0x80000000,
+        DSUNPACK_MODE,  MODE_14BIT,
+        DSUNPACK_DM_EN, 0,
+        
+        /* DEF(C) module (is it needed?) */
+        DEF_ENB,        0x80000000,
+        DEF_80A4,       0,
+        DEF_CTRL,       0,
+        DEF_MODE,       0x104,
+        DEF_YN_XN,      0,
+        DEF_YB_XB,      ((raw_info->height-1) << 16) | (raw_info->width-1),
+        DEF_YA_XA,      0,
+        DEF_INTR_EN,    0,
+        DEF_HOSEI,      0x11,
+        DEFC_X2MODE,    0,
+        DEFC_DET_MODE,  1,
+
+        /* PACK16 module (output image data) */
+        PACK16_ENB,     0x80000000,
+        PACK16_MODE,    bit_modes[silent_pic_bit_depth],
+        PACK16_DEFM_ON, 1,
+        PACK16_ILIM,    0x3FFF, /* white level? */
+        PACK16_CCD2_DM_EN, 0,
+        
+        /* whew! */
+        0xFFFFFFFF,     0xFFFFFFFF
+    });
+
+    /* EDMAC setup */
+    RegisterEDmacCompleteCBR(edmac_read_chan, edmac_read_complete_cbr, 0);
+    RegisterEDmacCompleteCBR(edmac_write_chan, edmac_write_complete_cbr, 0);
+
+    ConnectWriteEDmac(edmac_write_chan, edmac_write_connection);
+    ConnectReadEDmac(edmac_read_chan, edmac_read_connection);
+
+    struct edmac_info src_edmac_info = {
+        .xb = raw_info->pitch,
+        .yb = raw_info->height - 1,
+    };
+
+    struct edmac_info dst_edmac_info = {
+        .xb = raw_info->width * out_bpp / 8,
+        .yb = raw_info->height - 1,
+    };
+    
+    SetEDmac(edmac_read_chan, raw_info->buffer, &src_edmac_info, 0x20000);
+    SetEDmac(edmac_write_chan, out_buf, &dst_edmac_info, 1);
+
+    /* time the operation */
+    info_led_on();
+    int64_t t0 = get_us_clock_value();
+    
+    /* start processing */
+    StartEDmac(edmac_write_chan, 0);
+
+    engio_write((uint32_t[]) {
+        PACK16_ENB,     1,
+        DEF_ENB,        1,
+        DSUNPACK_ENB,   1,
+        0xFFFFFFFF,     0xFFFFFFFF
+    });
+
+    StartEDmac(edmac_read_chan, 2);
+    
+    /* wait for everything to finish */
+    take_semaphore(edmac_write_done_sem, 0);
+
+    int64_t t1 = get_us_clock_value();
+    info_led_off();
+    
+    /* finished */
+    
+    /* this disables the processing modules, I guess */
+    engio_write((uint32_t[]) {
+        PACK16_ENB,     0x80000000,
+        DEF_ENB,        0x80000000,
+        DSUNPACK_ENB,   0x80000000,
+        0xFFFFFFFF,     0xFFFFFFFF
+    });
+
+    UnregisterEDmacCompleteCBR(edmac_read_chan);
+    UnregisterEDmacCompleteCBR(edmac_write_chan);
+    UnLockEngineResources(resLock);
+
+    printf("Furikake time: %d us\n", (int)(t1 - t0));
+
     /* update raw_info for the reduced bit depth */
-    raw_info->bits_per_pixel = bpp;
+    raw_info->bits_per_pixel = out_bpp;
     raw_info->pitch = raw_info->width * raw_info->bits_per_pixel / 8;
     raw_info->frame_size = raw_info->height * raw_info->pitch;
     raw_info->black_level >>= (silent_pic_bit_depth * 2);
     raw_info->white_level >>= (silent_pic_bit_depth * 2);
-
-    /* configure Furikake parameters for bit depth reduction */
-    /* from raw_twk */
-    struct s_DefcData
-    {
-        void *pSrcAddress;
-        void *pDestAddr;
-        uint32_t xRes;
-        uint32_t yRes;
-        uint32_t rawDepth14;
-        uint32_t dstModeRaw;
-    } defc;
-    defc.pSrcAddress = raw_info->buffer;
-    defc.pDestAddr = out_buf;
-    defc.xRes = raw_info->width;
-    defc.yRes = raw_info->height;
-    defc.rawDepth14 = 1;
-    defc.dstModeRaw = 1;   /* 0 = 16-bit, 1 = 14-bit; any value works here, since we'll override it */
-    
-    /* hook to override the bit depth in PACK16 setup function */
-    patch_hook_function(
-        (uintptr_t)&PACK16_Setup,
-        0xE92D4010,
-        PACK16_Setup_hook,
-        "PACK16: raw bit depth override"
-    );
-    
-    /* log Canon messages if dm-spy is compiled in ML core */
-    debug_intercept();
-    
-    /* also time the operation */
-    int64_t t0 = get_us_clock_value();
-
-    /* this does the bit depth conversion using Canon's image processor */
-    /* it uses DSUNPACK, PACK16 and DEFC */
-    /* todo: understand how those are configured and linked together */
-    ProcessPathForFurikake(&defc);
-
-    int64_t t1 = get_us_clock_value();
-    
-    /* finished */
-    debug_intercept();
-    unpatch_memory((uintptr_t)&PACK16_Setup);
-    printf("Furikake time: %d us\n", (int)(t1 - t0));
-
-    /* use the result as raw buffer */
-    raw_info->buffer = defc.pDestAddr;
+    raw_info->buffer = out_buf;
 }
 
 static int
@@ -1429,7 +1499,7 @@ silent_pic_take_fullres(int interactive)
      * - we change the output bit depth
      */
     if (silent_pic_file_format == SILENT_PIC_FILE_FORMAT_DNG ||
-       (silent_pic_bit_depth && silent_pic_bit_depth_check()))
+       (silent_pic_bit_depth))
     {
         copy_job = (void*) call("FA_CreateTestImage");
         copy_buf = (void*) call("FA_GetCrawBuf", copy_job);
@@ -1767,7 +1837,6 @@ static struct menu_entry silent_menu[] = {
             {
                 .name = "Bit Depth",
                 .priv = &silent_pic_bit_depth,
-                .update = silent_pic_bit_depth_update,
                 .max = 2,
                 .choices = CHOICES("14", "12", "10"),
                 .help = "Experimental lower bit depths."
@@ -1800,6 +1869,8 @@ static unsigned int silent_init()
         /* see http://www.magiclantern.fm/forum/index.php?topic=12523.msg129874#msg129874 */
         long_exposure_fix_enabled = 1;
     }
+    
+    edmac_write_done_sem = create_named_semaphore("edmac_write_done", 0);
 
     menu_add("Shoot", silent_menu, COUNT(silent_menu));
     return 0;

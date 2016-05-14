@@ -216,11 +216,6 @@ NSTUB(0xFFA02C50 - RAM_OFFSET,  pre_isr_hook)
 // NSTUB(    ???,  isr_table_handler)                       /* present on 7D_MASTER.203 */
 // NSTUB(    ???,  isr_table_param)                         /* present on 7D_MASTER.203 */
 
-/** Image processing paths */
-NSTUB(0xFF3C3D20, ProcessPathForFurikake)
-NSTUB(0xFF571EF8, PACK16_Setup)             // PACK16_MODE:%#lx and others
-
-
 /** LCD Sensor **/
 // NSTUB(0xff9b1be0 - RAM_OFFSET, LightMeasure_n_Callback_r0) - looks a bit different, disabling for now
 // NSTUB(    ???,  DispSensorStart)                         /* present on 500D.111, 50D.109, 5D2.212, 600D.102, 650D.104, 550D.109, 700D.113 */
