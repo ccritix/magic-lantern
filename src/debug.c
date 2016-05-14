@@ -154,6 +154,7 @@ static void dump_rom_task(void* priv, int unused)
     msleep(200);
 
     dump_big_seg(4, "ML/LOGS/RAM4.BIN");
+    dump_big_seg(5, "ML/LOGS/RAM5.BIN");
 }
 
 static void dump_img_task(void* priv, int unused)
