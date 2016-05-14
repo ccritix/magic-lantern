@@ -865,10 +865,13 @@ static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc)
 
 static int check_jump_range(uint32_t pc, uint32_t dest)
 {
-    uint32_t offset = dest - pc - 8;
-    uint32_t offset_neg = -offset;
-
-    if ((offset & 0xFC000000) && (offset_neg & 0xFC000000))
+    /* shift offset by 2+6 bits to handle the sign bit */
+    int32_t offset = (B_INSTR(pc, dest) & 0x00FFFFFF) << 8;
+    
+    /* compute the destination from the jump and compare to the original */
+    uint32_t new_dest = ((((uint64_t)pc + 8) << 6) + offset) >> 6;
+    
+    if (dest != new_dest)
     {
         printf("Jump range error: %x -> %x\n", pc, dest);
         return 0;
