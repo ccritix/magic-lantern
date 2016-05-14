@@ -20,6 +20,7 @@
 #include "menu.h"
 #include "edmac.h"
 #include "util.h"
+#include "console.h"
 
 #ifdef MEM_DEBUG
 #define dbg_printf(fmt,...) { printf(fmt, ## __VA_ARGS__); }
@@ -161,10 +162,58 @@ static int rscmgr_get_free_space(uint32_t mem_used)
 }
 #endif
 
+#ifdef CONFIG_RSCMGR_UNUSED_SPACE_TEST
+    #ifndef CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
+    #error This requires CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
+    #endif
+    
+void rscmgr_test_unused_space()
+{
+    console_show();
+    printf("Testing %x...%x...\n", RSCMGR_UNUSED_SPACE_START, RSCMGR_UNUSED_SPACE_END-1);
+    msleep(5000);
+    console_hide();
+    
+    while(1)
+    {
+        for (uint32_t a = RSCMGR_UNUSED_SPACE_START; a < RSCMGR_UNUSED_SPACE_END; a += 4)
+        {
+            if (MEM(a) != 0x124B1DE0)
+            {
+                /* find the memory range that appears used */
+                /* ignore unused gaps < 1K */
+                int count = 1024;
+                int b = a;
+                int c = a;
+                while (count-- && b < RSCMGR_UNUSED_SPACE_END)
+                {
+                    b += 4;
+                    if (MEM(b) != 0x124B1DE0)
+                    {
+                        count = 1024;
+                        c = b;
+                    }
+                }
+                console_show();
+                printf("%x ... %x: used\n", a, c);
+                a = c + 4;
+            }
+        }
+        
+        msleep(1000);
+    }
+}
+
+TASK_CREATE("rscmgr_test", rscmgr_test_unused_space, 0, 0x1f, 0);
+#endif
+
 static struct mem_allocator allocators[] = {
 #ifdef CONFIG_RSCMGR_UNUSED_SPACE
     {
         /* take an unused block from RscMgr and manage it with AllocateMemory's low-level allocators */
+        /* the block must be tested to make sure it's really free before using it */
+        /* to do so, define CONFIG_RSCMGR_UNUSED_SPACE_TEST,
+         * then use and abuse the camera for a while in this configuration */
         .name = "RscMgr",
         .init = rscmgr_init,
         .malloc = rscmgr_malloc,
