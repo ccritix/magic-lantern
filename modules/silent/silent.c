@@ -1528,6 +1528,58 @@ err:
     return 0;
 }
 
+/* just for testing */
+static void
+silent_pic_fullres_lv_test()
+{
+    /* get out of LiveView, but leave the shutter open */
+    PauseLiveView();
+    
+    /* go to QR mode to trigger overlays and let the raw backend set the buffer size and offsets */
+    /* some cameras would freeze here if Image Review is disabled in Canon menu */
+    int new_gui = GUISTATE_QR;
+    prop_request_change_wait(PROP_GUI_STATE, &new_gui, 4, 1000);
+
+    /* block all keys until finished, to avoid errors */
+    gui_uilock(UILOCK_EVERYTHING);
+
+    struct JobClass * job = (void*) call("FA_CreateTestImage");
+    struct JobClass * copy_job = (void*) call("FA_CreateTestImage");
+    void* copy_buf = (void*) call("FA_GetCrawBuf", copy_job);
+    
+    /* take the first picture, to initialize raw_info */
+    clrscr();
+    call("FA_CaptureTestImage", job);
+    raw_set_dirty();
+    if (!raw_update_params())
+    {
+        bmp_printf(FONT_MED, 0, 0, "Raw error");
+        goto cleanup;
+    }
+    clrscr();
+    raw_preview_fast();
+
+    while (1)
+    {
+        /* capture a new image */
+        info_led_on();
+        call("FA_CaptureTestImage", job);
+        info_led_off();
+
+        /* preview the low-bit-depth image */
+        /* it will be scrambled for now */
+        void* oldbuf = raw_info.buffer;
+        bit_depth_reduce(&raw_info, copy_buf);
+        raw_preview_fast();
+        raw_info.buffer = oldbuf;
+    }
+
+cleanup:
+    call("FA_DeleteTestImage", job);
+    call("FA_DeleteTestImage", copy_job);
+    gui_uilock(UILOCK_NONE);
+}
+
 static unsigned int
 silent_pic_take(unsigned int interactive) // for remote release, set interactive=0
 {
@@ -1720,6 +1772,14 @@ static struct menu_entry silent_menu[] = {
                 .choices = CHOICES("14", "12", "10"),
                 .help = "Experimental lower bit depths."
             },
+            #if 1
+            /* for debugging; will be disabled in main builds */
+            {
+                .name = "Fullres LV test",
+                .priv = silent_pic_fullres_lv_test,
+                .select = run_in_separate_task,
+            },
+            #endif
             MENU_EOL,
         }
         #endif
