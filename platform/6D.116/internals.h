@@ -150,3 +150,6 @@
 
 /** Workaround for menu timeout in LiveView */
 #define CONFIG_MENU_TIMEOUT_FIX
+
+/** Override DebugMsg for ADTG shutter speed controls */
+#define CONFIG_DEBUGMSG_HACK

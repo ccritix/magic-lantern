@@ -154,3 +154,6 @@
 
 /** Patch LiveViewApp dialog hander to hide Canon bottom bar */
 #define CONFIG_LVAPP_HACK_PATCH
+
+/** Override DebugMsg for CF card workaround and for ADTG shutter speed controls */
+#define CONFIG_DEBUGMSG_HACK
