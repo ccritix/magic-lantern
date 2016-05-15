@@ -3,7 +3,6 @@
 ML_BITRATE_OBJ = bitrate-5d3.o
 ML_AF_PATTERNS_OBJ = n
 
-CONFIG_LVAPP_HACK_PATCH = y
 
 ML_SRC_EXTRA_OBJS = \
 	video_hacks.o \

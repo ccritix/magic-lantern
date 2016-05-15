@@ -132,6 +132,7 @@ ML_SRC_OBJS = \
 	property.o \
 	propvalues.o \
 	gui-common.o \
+	liveview.o \
 	chdk-gui_draw.o \
 	movtweaks.o \
 	menuhelp.o \

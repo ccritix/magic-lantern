@@ -17,23 +17,8 @@
 #include <af_patterns.h>
 #endif
 
-#if defined(CONFIG_LVAPP_HACK_PATCH) || defined(CONFIG_LVAPP_HACK_DEBUGMSG)
-#define CONFIG_LVAPP_HACK
-#endif
-
-static int bottom_bar_dirty = 0;
-static int last_time_active = 0;
-
-int is_canon_bottom_bar_dirty() { return bottom_bar_dirty; }
-int get_last_time_active() { return last_time_active; }
-
-// disable Canon bottom bar
-
-#if defined(CONFIG_LVAPP_HACK_DEBUGMSG) || defined(CONFIG_LVAPP_HACK)
-static int bottom_bar_hack = 0;
-#endif
-
-#if defined(CONFIG_LVAPP_HACK_DEBUGMSG)
+/* misc hacks, to be cleaned up */
+#if defined(CONFIG_DEBUGMSG_HACK)
 
 #ifdef CONFIG_5D3
 extern int cf_card_workaround;
@@ -41,13 +26,6 @@ extern int cf_card_workaround;
 
 static void hacked_DebugMsg(int class, int level, char* fmt, ...)
 {
-    #if defined(CONFIG_LVAPP_HACK_DEBUGMSG)
-    if (bottom_bar_hack && class == 131 && level == 1)
-    {
-        MEM(JUDGE_BOTTOM_INFO_DISP_TIMER_STATE) = 0;
-    }
-    #endif
-
     #ifdef CONFIG_5D3
     if (cf_card_workaround)
     {
@@ -99,71 +77,11 @@ static void DebugMsg_uninstall()
 
 INIT_FUNC("debugmsg-hack", DebugMsg_hack);
 
-#endif // CONFIG_LVAPP_HACK_DEBUGMSG
+#endif // CONFIG_DEBUGMSG_HACK
 
-int handle_other_events(struct event * event)
-{
-    extern int ml_started;
-    if (!ml_started) return 1;
-
-#ifdef CONFIG_LVAPP_HACK
-
-    unsigned short int lv_refreshing = lv && event->type == 2 && event->param == GMT_LOCAL_DIALOG_REFRESH_LV;
-    unsigned short int should_hide = lv_disp_mode == 0 && get_global_draw_setting() && liveview_display_idle() && lv_dispsize == 1;
-    
-    if(lv_refreshing)
-    {
-        if(should_hide)
-        {
-            #ifdef CONFIG_LVAPP_HACK_PATCH
-            extern void reloc_liveviewapp_install();  /* liveview.c */
-            reloc_liveviewapp_install();
-            #endif
-            
-            bottom_bar_hack = 1;
-
-            if (get_halfshutter_pressed()) bottom_bar_dirty = 10;
-
-            #ifdef UNAVI_FEEDBACK_TIMER_ACTIVE
-            /*
-             * Hide Canon's Q menu (aka UNAVI) as soon as the user quits it.
-             * 
-             * By default, this menu remains on screen for a few seconds.
-             * After it disappears, we would have to redraw cropmarks, zebras and so on,
-             * which looks pretty ugly, since our redraw is slow.
-             * Better hide the menu right away, then redraw - it feels a lot less sluggish.
-             */
-            if (UNAVI_FEEDBACK_TIMER_ACTIVE)
-            {
-                /* Canon stub */
-                extern void HideUnaviFeedBack_maybe();
-                HideUnaviFeedBack_maybe();
-                bottom_bar_dirty = 0;
-            }
-            #endif
-        }
-        else
-        {
-            #ifdef CONFIG_LVAPP_HACK_PATCH
-            extern void reloc_liveviewapp_uninstall();  /* liveview.c */
-            reloc_liveviewapp_uninstall();
-            #endif
-
-            bottom_bar_hack  = 0;
-            bottom_bar_dirty = 0;
-        }
-
-        /* Redraw ML bottom bar if Canon bar was displayed over it */
-        if (!liveview_display_idle()) bottom_bar_dirty = 0;
-        if (bottom_bar_dirty) bottom_bar_dirty--;
-        if (bottom_bar_dirty == 1)
-        {
-            lens_display_set_dirty();
-        }
-    }
-#endif
-    return 1;
-}
+// for powersave timers
+static int last_time_active = 0;
+int get_last_time_active() { return last_time_active; }
 
 int handle_common_events_startup(struct event * event)
 {   
