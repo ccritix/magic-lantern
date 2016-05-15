@@ -32,6 +32,7 @@
 #include <zebra.h>
 #include <focus.h>
 #include "lua_common.h"
+#include "umm_malloc/umm_malloc.h"
 
 struct script_event_entry
 {
@@ -548,7 +549,6 @@ static void lua_load_task(int unused)
             if (!(file.mode & ATTR_DIRECTORY) && (string_ends_with(file.name, ".LUA") || string_ends_with(file.name, ".lua")) && file.name[0] != '.' && file.name[0] != '_')
             {
                 add_script(file.name);
-                msleep(100);
             }
         }
         while(FIO_FindNextEx(dirent, &file) == 0);
@@ -560,6 +560,13 @@ static void lua_load_task(int unused)
         strict_lua = 0;
     }
     
+    extern int core_reallocs;    /* ml-lua-shim.c */
+    extern int core_reallocs_size;
+    printf("Free umm_heap : %s\n", format_memory_size(umm_free_heap_size()));
+    if (core_reallocs)
+    {
+        printf("Core reallocs : %d (%s)\n", core_reallocs, format_memory_size(core_reallocs_size));
+    }
     printf("All scripts loaded.\n");
 
     /* wait for key pressed or for 5-second timeout, whichever comes first */
