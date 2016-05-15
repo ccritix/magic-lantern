@@ -129,7 +129,7 @@ NSTUB(0xFF623240,  LiveViewWbApp_handler)
 NSTUB(0xFF36728C,  PlayMain_handler)
 NSTUB(0xFF4CBA10,  PlayMovieGuideApp_handler)
 NSTUB(0xFF4B6930,  ShootOlcApp_handler)                     // AJ_DIALOG.HANDLER_DlgShootOlcInfo.c
-// NSTUB(0xff4b09e4, LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState)
+NSTUB(0xff4b09e4,  LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState)
 // NSTUB(0xff4b1cc4, LiveViewApp_handler_end) // start of next function
 // NSTUB(    ???,  LiveViewShutterApp_handler)              /* present on 6D.113, 650D.104, EOSM.202, 700D.113 */
 // NSTUB(    ???,  LiveViewWifiApp_handler)                 /* present on 6D.113 */
