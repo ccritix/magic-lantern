@@ -17,7 +17,7 @@
 #include <af_patterns.h>
 #endif
 
-#if defined(CONFIG_LVAPP_HACK_RELOC) || defined(CONFIG_LVAPP_HACK_DEBUGMSG)
+#if defined(CONFIG_LVAPP_HACK_PATCH) || defined(CONFIG_LVAPP_HACK_DEBUGMSG)
 #define CONFIG_LVAPP_HACK
 #endif
 
@@ -115,7 +115,7 @@ int handle_other_events(struct event * event)
     {
         if(should_hide)
         {
-            #ifdef CONFIG_LVAPP_HACK_RELOC
+            #ifdef CONFIG_LVAPP_HACK_PATCH
             extern void reloc_liveviewapp_install();  /* liveview.c */
             reloc_liveviewapp_install();
             #endif
@@ -144,7 +144,7 @@ int handle_other_events(struct event * event)
         }
         else
         {
-            #ifdef CONFIG_LVAPP_HACK_RELOC
+            #ifdef CONFIG_LVAPP_HACK_PATCH
             extern void reloc_liveviewapp_uninstall();  /* liveview.c */
             reloc_liveviewapp_uninstall();
             #endif
