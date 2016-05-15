@@ -122,5 +122,5 @@
 #define CONFIG_RAW_PHOTO
 #define CONFIG_RAW_LIVEVIEW
 
-/** Hide Canon bottom bar from DebugMsg hook */
-#define CONFIG_LVAPP_HACK_DEBUGMSG
+/** Patch LiveViewApp dialog hander to hide Canon bottom bar */
+#define CONFIG_LVAPP_HACK_PATCH

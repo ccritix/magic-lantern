@@ -145,8 +145,8 @@
 /** We have an internal GPS */
 #define CONFIG_GPS
 
-/** Hide Canon bottom bar from DebugMsg hook */
-#define CONFIG_LVAPP_HACK_DEBUGMSG
+/** Patch LiveViewApp dialog hander to hide Canon bottom bar */
+#define CONFIG_LVAPP_HACK_PATCH
 
 /** Workaround for menu timeout in LiveView */
 #define CONFIG_MENU_TIMEOUT_FIX

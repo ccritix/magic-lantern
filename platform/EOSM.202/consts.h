@@ -228,5 +228,3 @@
 //~ max volume supported for beeps
 #define ASIF_MAX_VOL 10
 
-// look for "JudgeBottomInfoDispTimerState(%d)"
-#define JUDGE_BOTTOM_INFO_DISP_TIMER_STATE	0x5D43C
