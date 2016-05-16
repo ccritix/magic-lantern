@@ -67,6 +67,11 @@ static struct logged_func logged_functions[] = {
     { 0xFF861840, "mpu_recv", 1, mpu_recv_log },
     #endif
 
+    #ifdef CONFIG_5D3
+    { 0xFF2E42E4, "mpu_send", 2, mpu_send_log },
+    { 0xFF122B5C, "mpu_recv", 1, mpu_recv_log},
+    #endif
+
     #ifdef CONFIG_5D3_123
     { 0x17d54,    "TryPostEvent", 5 },
     { 0xFF2E8648, "mpu_send", 2, mpu_send_log }, // here it's OK via GDB hooks
