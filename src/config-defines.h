@@ -12,7 +12,7 @@
     //~ #define CONFIG_EARLY_PORT
 
     /** Load fonts and print Hello World (disable CONFIG_EARLY_PORT); will not start any other ML tasks, handlers etc. */
-    #define CONFIG_HELLO_WORLD
+    //~ #define CONFIG_HELLO_WORLD
     
     /** Create a developer FIR for enabling the bootflag and dumping the ROM. */
     //~ #define CONFIG_DUMPER_BOOTFLAG
@@ -22,16 +22,16 @@
  */
 
     /** If something goes wrong (ERR70), we can save a crash log **/
-    //~ #define CONFIG_CRASH_LOG
+    #define CONFIG_CRASH_LOG
 
     /** It's a good idea to back up ROM contents on the card - just in case **/
-    //~ #define CONFIG_AUTOBACKUP_ROM
+    #define CONFIG_AUTOBACKUP_ROM
 
     /** You may want to disable this for troubleshooting **/
     #define CONFIG_CONFIG_FILE
     
     /** Show detailed info about tasks and CPU usage */
-    //~ #define CONFIG_TSKMON
+    #define CONFIG_TSKMON
 
 /**
  * Some debug stuff - you should enable it Makefile.user to avoid pushing unwanted changes to the repo

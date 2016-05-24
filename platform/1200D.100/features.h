@@ -1,1 +1,6 @@
 #define FEATURE_SHOW_SIGNATURE // useful when developing
+#undef CONFIG_CRASH_LOG
+#undef CONFIG_AUTOBACKUP_ROM
+#undef CONFIG_STRESS_TEST
+#undef CONFIG_BENCHMARKS
+#undef CONFIG_TSKMON
