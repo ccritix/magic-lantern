@@ -9,7 +9,7 @@
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 
  * They might slow down Canon code, so here you can disable all of them (useful for debugging or early ports) 
  */
-//~ #define CONFIG_STATE_OBJECT_HOOKS
+#define CONFIG_STATE_OBJECT_HOOKS
 
 /** This camera runs DryOS **/
 //~ #define CONFIG_VXWORKS
