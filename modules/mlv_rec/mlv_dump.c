@@ -928,8 +928,8 @@ void chroma_smooth(int method, struct raw_info *info)
     int w = info->width;
     int h = info->height;
 
-    unsigned short * aux = malloc(w * h * sizeof(short));
-    unsigned short * aux2 = malloc(w * h * sizeof(short));
+    uint32_t * aux = malloc(w * h * sizeof(uint32_t));
+    uint32_t * aux2 = malloc(w * h * sizeof(uint32_t));
 
     int x,y;
     for (y = 0; y < h; y++)
@@ -2447,6 +2447,7 @@ read_headers:
                             dng_info.raw_info = &raw_info;
                             dng_info.lens_info = &dng_lens_info;
                             
+                            dng_info.frame_number = last_vidf.frameNumber;
                             dng_info.fps_numerator = main_header.sourceFpsNom;
                             dng_info.fps_denominator = main_header.sourceFpsDenom;
                             dng_info.shutter = (uint32_t)expo_info.shutterValue;
@@ -2458,6 +2459,7 @@ read_headers:
                             dng_lens_info.iso = expo_info.isoValue;
                             
                             dng_lens_info.wb_mode = wbal_info.wb_mode;
+                            dng_lens_info.kelvin = wbal_info.kelvin;
                             dng_lens_info.wbs_ba = wbal_info.wbs_ba;
                             dng_lens_info.wbs_gm = wbal_info.wbs_gm;
                             dng_lens_info.WBGain_R = wbal_info.wbgain_r;
