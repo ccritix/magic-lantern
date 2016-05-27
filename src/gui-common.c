@@ -17,7 +17,7 @@
 #include <af_patterns.h>
 #endif
 
-#if defined(CONFIG_LVAPP_HACK_RELOC) || defined(CONFIG_LVAPP_HACK_DEBUGMSG) || defined(CONFIG_LVAPP_HACK_FBUFF)
+#if defined(CONFIG_LVAPP_HACK_RELOC) || defined(CONFIG_LVAPP_HACK_DEBUGMSG)
 #define CONFIG_LVAPP_HACK
 #endif
 
@@ -26,9 +26,6 @@ static int last_time_active = 0;
 
 int is_canon_bottom_bar_dirty() { return bottom_bar_dirty; }
 int get_last_time_active() { return last_time_active; }
-
-
-PROP_INT(PROP_ICU_UILOCK, uilock);
 
 // disable Canon bottom bar
 
@@ -44,10 +41,11 @@ extern int cf_card_workaround;
 
 static void hacked_DebugMsg(int class, int level, char* fmt, ...)
 {
+    #if defined(CONFIG_LVAPP_HACK_DEBUGMSG)
     if (bottom_bar_hack && class == 131 && level == 1)
-    
-    #if defined(JUDGE_BOTTOM_INFO_DISP_TIMER_STATE)
+    {
         MEM(JUDGE_BOTTOM_INFO_DISP_TIMER_STATE) = 0;
+    }
     #endif
 
     #ifdef CONFIG_5D3
@@ -126,19 +124,15 @@ int handle_other_events(struct event * event)
 
             if (get_halfshutter_pressed()) bottom_bar_dirty = 10;
 
-            #ifdef CONFIG_LVAPP_HACK_FBUFF
-            if (!canon_gui_front_buffer_disabled() && UNAVI_FEEDBACK_TIMER_ACTIVE)
-            {
-                clrscr();
-                canon_gui_disable_front_buffer();
-                bottom_bar_dirty=0;
-            }
-
-            if (canon_gui_front_buffer_disabled() && !UNAVI_FEEDBACK_TIMER_ACTIVE)
-            {
-                canon_gui_enable_front_buffer(0);
-            }
-            #else
+            #ifdef UNAVI_FEEDBACK_TIMER_ACTIVE
+            /*
+             * Hide Canon's Q menu (aka UNAVI) as soon as the user quits it.
+             * 
+             * By default, this menu remains on screen for a few seconds.
+             * After it disappears, we would have to redraw cropmarks, zebras and so on,
+             * which looks pretty ugly, since our redraw is slow.
+             * Better hide the menu right away, then redraw - it feels a lot less sluggish.
+             */
             if (UNAVI_FEEDBACK_TIMER_ACTIVE)
             {
                 /* Canon stub */
@@ -147,7 +141,6 @@ int handle_other_events(struct event * event)
                 bottom_bar_dirty = 0;
             }
             #endif
-
         }
         else
         {
@@ -160,14 +153,13 @@ int handle_other_events(struct event * event)
             bottom_bar_dirty = 0;
         }
 
+        /* Redraw ML bottom bar if Canon bar was displayed over it */
         if (!liveview_display_idle()) bottom_bar_dirty = 0;
         if (bottom_bar_dirty) bottom_bar_dirty--;
-
         if (bottom_bar_dirty == 1)
         {
             lens_display_set_dirty();
         }
-
     }
 #endif
     return 1;
@@ -443,6 +435,12 @@ int handle_common_events_by_feature(struct event * event)
     if (handle_av_short_for_menu(event) == 0) return 0;
     #endif
 
+    #ifdef FEATURE_MAGIC_ZOOM
+    /* must be before handle_module_keys to allow zoom while recording raw,
+     * but also let the raw recording modules block the zoom keys to avoid crashing */
+    if (handle_zoom_overlay(event) == 0) return 0;
+    #endif
+
     if (handle_module_keys(event) == 0) return 0;
     if (handle_flexinfo_keys(event) == 0) return 0;
 
@@ -513,10 +511,6 @@ int handle_common_events_by_feature(struct event * event)
     if (handle_follow_focus_save_restore(event) == 0) return 0;
     #endif
     
-    #ifdef FEATURE_MAGIC_ZOOM
-    if (handle_zoom_overlay(event) == 0) return 0;
-    #endif
-    
     #ifdef FEATURE_LV_ZOOM_SETTINGS
     if (handle_zoom_x5_x10(event) == 0) return 0;
     #endif
@@ -564,6 +558,10 @@ int handle_common_events_by_feature(struct event * event)
     #if defined(FEATURE_LV_BUTTON_PROTECT) || defined(FEATURE_LV_BUTTON_RATE)
     if (handle_lv_play(event) == 0) return 0;
     #endif
+    
+    /* if nothing else uses the arrow keys, use them for moving the focus box */
+    /* (some cameras may block it in certain modes) */
+    if (handle_lv_afframe_workaround(event) == 0) return 0;
 
     return 1;
 }
@@ -617,9 +615,12 @@ char* get_info_button_name() { return INFO_BTN_NAME; }
 
 void gui_uilock(int what)
 {
-    int unlocked = UILOCK_NONE;
-    prop_request_change(PROP_ICU_UILOCK, &unlocked, 4);
-    msleep(50);
+    /* change just the lower 16 bits, to ensure correct requests;
+     * the higher bits appear to be for requesting the change */
+    int unlocked = UILOCK_REQUEST | (UILOCK_NONE & 0xFFFF);
+    prop_request_change_wait(PROP_ICU_UILOCK, &unlocked, 4, 2000);
+    
+    what = UILOCK_REQUEST | (what & 0xFFFF);
     prop_request_change_wait(PROP_ICU_UILOCK, &what, 4, 2000);
 }
 
@@ -630,7 +631,11 @@ void ui_lock(int what)
 
 void fake_simple_button(int bgmt_code)
 {
-    if ((uilock & 0xFFFF) && (bgmt_code >= 0)) return; // Canon events may not be safe to send when UI is locked; ML events are (and should be sent)
+    if ((icu_uilock & 0xFFFF) && (bgmt_code >= 0))
+    {
+        // Canon events may not be safe to send when UI is locked; ML events are (and should be sent)
+        return;
+    }
 
     if (ml_shutdown_requested) return;
     GUI_Control(bgmt_code, 0, FAKE_BTN, 0);
@@ -660,4 +665,9 @@ int get_gui_mode()
 {
     /* this is GUIMode from SetGUIRequestMode */
     return CURRENT_DIALOG_MAYBE;
+}
+
+int get_dlg_signature()
+{
+    return DLG_SIGNATURE;
 }

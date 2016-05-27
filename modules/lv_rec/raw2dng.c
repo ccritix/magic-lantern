@@ -74,7 +74,7 @@ static struct dng_info dng_info =
 };
 
 #define FAIL(fmt,...) { fprintf(stderr, "Error: "); fprintf(stderr, fmt, ## __VA_ARGS__); fprintf(stderr, "\n"); exit(1); }
-#define CHECK(ok, fmt,...) { if (!ok) FAIL(fmt, ## __VA_ARGS__); }
+#define CHECK(ok, fmt,...) { if (!(ok)) FAIL(fmt, ## __VA_ARGS__); }
 
 void fix_vertical_stripes();
 void find_and_fix_cold_pixels(int fix, int framenumber);
@@ -588,7 +588,7 @@ static inline int FC(int row, int col)
 
 void find_and_fix_cold_pixels(int fix, int framenumber)
 {
-    #define MAX_COLD_PIXELS 5000
+    #define MAX_COLD_PIXELS 200000
   
     struct xy { int x; int y; };
     

@@ -699,8 +699,6 @@ void FAST reverse_bytes_order(char* buf, int count)
                   
 #ifdef CONFIG_MAGICLANTERN
 
-static char camera_serial[32] = "";
-
 PROP_HANDLER(PROP_BODY_ID)
 {
     /* different camera serial lengths */
