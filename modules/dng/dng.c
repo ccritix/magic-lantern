@@ -61,9 +61,9 @@
 
 #include "dng.h"
 
-#define IFD0_COUNT 39
+#define IFD0_COUNT 40
 #define SOFTWARE_NAME "Magic Lantern"
-#define EXIF_IFD_COUNT 8
+#define EXIF_IFD_COUNT 11
 #define PACK(a) (((uint16_t)a[1] << 16) | ((uint16_t)a[0]))
 #define PACK2(a,b) (((uint16_t)b << 16) | ((uint16_t)a))
 #define STRING_ENTRY(a,b,c) (uint32_t)(strlen(a) + 1), add_string(a, b, c)
@@ -107,6 +107,13 @@ static const struct cam_matrices cam_matrices[] =
     },
     {
         "Canon EOS 6D",
+        { 7546, 10000, -1435, 10000, -929, 10000, -3846, 10000, 11488, 10000, 2692, 10000, -332, 10000, 1209, 10000, 6370, 10000 },
+        { 7034, 10000, -804, 10000, -1014, 10000, -4420, 10000, 12564, 10000, 2058, 10000, -851, 10000, 1994, 10000, 5758, 10000 },
+        { 7763, 10000, 65, 10000, 1815, 10000, 2364, 10000, 8351, 10000, -715, 10000, -59, 10000, -4228, 10000, 12538, 10000 },
+        { 7464, 10000, 1044, 10000, 1135, 10000, 2648, 10000, 9173, 10000, -1820, 10000, 113, 10000, -2154, 10000, 10292, 10000 }
+    },
+    {
+        "Canon EOS 70D",
         { 7546, 10000, -1435, 10000, -929, 10000, -3846, 10000, 11488, 10000, 2692, 10000, -332, 10000, 1209, 10000, 6370, 10000 },
         { 7034, 10000, -804, 10000, -1014, 10000, -4420, 10000, 12564, 10000, 2058, 10000, -851, 10000, 1994, 10000, 5758, 10000 },
         { 7763, 10000, 65, 10000, 1815, 10000, 2364, 10000, 8351, 10000, -715, 10000, -59, 10000, -4228, 10000, 12538, 10000 },
@@ -172,6 +179,101 @@ static const struct cam_matrices cam_matrices[] =
         { 6602, 10000, -841, 10000, -939, 10000, -4472, 10000, 12458, 10000, 2247, 10000, -975, 10000, 2039, 10000, 6148, 10000 },
         { 7747, 10000, 485, 10000, 1411, 10000, 2340, 10000, 8840, 10000, -1180, 10000, 105, 10000, -4147, 10000, 12293, 10000 },
         { 7397, 10000, 1199, 10000, 1047, 10000, 2650, 10000, 9355, 10000, -2005, 10000, 193, 10000, -2113, 10000, 10171, 10000 }
+    }
+};
+
+struct camera_focal_resolution{
+    char * camera;
+    int32_t focal_resolution_x[2];
+    int32_t focal_resolution_y[2];
+    int32_t unit;
+};
+
+static const struct camera_focal_resolution camera_focal_resolutions[] =
+{
+    {
+        "Canon EOS 5D Mark III",
+        { 5760000, 1461 },
+        { 3840000, 972 },
+        2
+    },
+    {
+        "Canon EOS 5D Mark II",
+        { 5616000, 1459 },
+        { 3744000, 958 },
+        2
+    },
+    {
+        "Canon EOS 7D",
+        { 5184000, 907 },
+        { 3456000, 595 },
+        2
+    },
+    {
+        "Canon EOS 6D",
+        { 5472000, 1436 },
+        { 3648000, 956 },
+        2
+    },
+    {
+        "Canon EOS 60D",
+        { 5184000, 905 },
+        { 3456000, 595 },
+        2
+    },
+    {
+        "Canon EOS 70D",
+        { 5472000, 899 },
+        { 3648000, 599 },
+        2
+    },
+    {
+        "Canon EOS 50D",
+        { 4752000, 894 },
+        { 3168000, 597 },
+        2
+    },
+    {
+        "Canon EOS 500D",
+        { 4752000, 894 },
+        { 3168000, 593 },
+        2
+    },
+    {
+        "Canon EOS 550D",
+        { 5184000, 905 },
+        { 3456000, 595 },
+        2
+    },
+    {
+        "Canon EOS 600D",
+        { 5184000, 905 },
+        { 3456000, 595 },
+        2
+    },
+    {
+        "Canon EOS 650D",
+        { 5184000, 894 },
+        { 3456000, 597 },
+        2
+    },
+    {
+        "Canon EOS 700D",
+        { 5184000, 894 },
+        { 3456000, 597 },
+        2
+    },
+    {
+        "Canon EOS 1100D",
+        { 4272000, 905 },
+        { 2848000, 595 },
+        2
+    },
+    {
+        "Canon EOS M",
+        { 5184000, 894 },
+        { 3456000, 597 },
+        2
     }
 };
 
@@ -453,22 +555,39 @@ static inline uint8_t to_tc_byte(int value)
     return (((value / 10) << 4) | (value % 10));
 }
 
-static uint32_t add_timecode(float framerate, int drop_frame, uint64_t frame, uint8_t * buffer, uint32_t * data_offset)
+static uint32_t add_timecode(double framerate, int frame, uint8_t * buffer, uint32_t * data_offset)
 {
     uint32_t result = *data_offset;
     memset(buffer + *data_offset, 0, 8);
+    int hours, minutes, seconds, frames;
     
-    //from raw2cdng, credits: chmee
-    int hours = (int)((double)frame / framerate / 3600);
-    frame = frame - (hours * 60 * 60 * (int)framerate);
-    int minutes = (int)((double)frame / framerate / 60);
-    frame = frame - (minutes * 60 * (int)framerate);
-    int seconds = (int)((double)frame / framerate) % 60;
-    frame = frame - (seconds * (int)framerate);
-    int frames = frame % MAX(1,(int)roundf(framerate));
+    /*
+     //use drop frame if the framerate is close to 30 / 1.001
+     int drop_frame = round((1.0 - framerate / ceil(framerate)) * 1000) == 1 && ceil(framerate) == 30;
+     
+     if (drop_frame)
+     {
+     int d = frame / 17982;
+     int m = frame % 17982;
+     int f = frame + 18 * d + 2 * (MAX(0, m - 2) / 1798);
+     
+     hours = ((f / 30) / 60) / 60;
+     minutes = ((f / 30) / 60) % 60;
+     seconds = (f / 30) % 60;
+     frames = f % 30;
+     }
+     */
+    
+    //round the framerate to the next largest integral framerate
+    //tc will not match real world time if framerate is not an integer
+    double time = framerate == 0 ? 0 : frame / (framerate > 1 ? round(framerate) : framerate);
+    hours = (int)floor(time / 3600);
+    minutes = ((int)floor(time / 60)) % 60;
+    seconds = ((int)floor(time)) % 60;
+    frames = framerate > 1 ? (frame % ((int)round(framerate))) : 0;
     
     buffer[*data_offset] = to_tc_byte(frames) & 0x3F;
-    if(drop_frame) buffer[*data_offset] = buffer[*data_offset] | (1 << 7); //set the drop frame bit
+    //if(drop_frame) buffer[*data_offset] = buffer[*data_offset] | (1 << 7); //set the drop frame bit
     buffer[*data_offset + 1] = to_tc_byte(seconds) & 0x7F;
     buffer[*data_offset + 2] = to_tc_byte(minutes) & 0x7F;
     buffer[*data_offset + 3] = to_tc_byte(hours) & 0x3F;
@@ -520,6 +639,39 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
     uint32_t exif_ifd_offset = (uint32_t)(position + sizeof(uint16_t) + IFD0_COUNT * sizeof(struct directory_entry) + sizeof(uint32_t));
     uint32_t data_offset = exif_ifd_offset + sizeof(uint16_t) + EXIF_IFD_COUNT * sizeof(struct directory_entry) + sizeof(uint32_t);
     
+    struct camera_focal_resolution camera_focal_resolution = camera_focal_resolutions[0];
+    for(int i = 0; i < COUNT(camera_focal_resolutions); i++)
+    {
+        if(!strcmp(camera_focal_resolutions[i].camera, model))
+        {
+            camera_focal_resolution = camera_focal_resolutions[i];
+            break;
+        }
+    }
+    int32_t focal_resolution_x[2] = {camera_focal_resolution.focal_resolution_x[0], camera_focal_resolution.focal_resolution_x[1]};
+    int32_t focal_resolution_y[2] = {camera_focal_resolution.focal_resolution_y[0], camera_focal_resolution.focal_resolution_y[1]};
+    
+    int32_t par[4] = {1,1,1,1};
+    double rawW = dng_info->raw_info->active_area.x2 - dng_info->raw_info->active_area.x1;
+    double rawH = dng_info->raw_info->active_area.y2 - dng_info->raw_info->active_area.y1;
+    double aspect_ratio = rawW / rawH;
+    //check the aspect ratio of the original raw buffer, if it's > 2 and we're not in crop mode, then this is probably squeezed footage
+    //TODO: can we be more precise about detecting this?
+    if(aspect_ratio > 2.0 && rawH <= 720)
+    {
+        // 5x3 line skpping
+        par[2] = 5; par[3] = 3;
+        focal_resolution_x[1] = focal_resolution_x[1] * 3;
+        focal_resolution_y[1] = focal_resolution_y[1] * 5;
+    }
+    //if the width is larger than 2000, we're probably not in crop mode
+    //TODO: this may not be the safest assumption, esp. if adtg control of sensor resolution/crop is implemented, currently it is true for all ML cameras
+    else if(rawW < 2000)
+    {
+        focal_resolution_x[1] = focal_resolution_x[1] * 3;
+        focal_resolution_y[1] = focal_resolution_y[1] * 3;
+    }
+    
     int32_t frame_rate[2] = {dng_info->fps_numerator, dng_info->fps_denominator};
     double frame_rate_f = dng_info->fps_denominator == 0 ? 0 : (double)dng_info->fps_numerator / (double)dng_info->fps_denominator;
     char datetime[255];
@@ -530,7 +682,6 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
         basline_exposure[1] = 1;
     }
     
-    int drop_frame = frame_rate[1] % 10 != 0;
     //number of frames since midnight
     uint64_t tc_frame = (uint64_t)dng_info->frame_number;
     
@@ -574,6 +725,7 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
         {tcUniqueCameraModel,           ttAscii,    STRING_ENTRY(model, header, &data_offset)},
         {tcBlackLevel,                  ttLong,     1,      dng_info->raw_info->black_level},
         {tcWhiteLevel,                  ttLong,     1,      dng_info->raw_info->white_level},
+        {tcDefaultScale,                ttRational, RATIONAL_ENTRY(par, header, &data_offset, 4)},
         {tcDefaultCropOrigin,           ttShort,    2,      PACK(dng_info->raw_info->crop.origin)},
         {tcDefaultCropSize,             ttShort,    2,      PACK(dng_info->raw_info->crop.size)},
         {tcColorMatrix1,                ttSRational,RATIONAL_ENTRY(matricies.ColorMatrix1, header, &data_offset, 18)},
@@ -586,7 +738,7 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
         {tcActiveArea,                  ttLong,     ARRAY_ENTRY(dng_info->raw_info->dng_active_area, header, &data_offset, 4)},
         {tcForwardMatrix1,              ttSRational,RATIONAL_ENTRY(matricies.ForwardMatrix1, header, &data_offset, 18)},
         {tcForwardMatrix2,              ttSRational,RATIONAL_ENTRY(matricies.ForwardMatrix2, header, &data_offset, 18)},
-        {tcTimeCodes,                   ttByte,     8,      add_timecode(frame_rate_f, drop_frame, tc_frame, header, &data_offset)},
+        {tcTimeCodes,                   ttByte,     8,      add_timecode(frame_rate_f, tc_frame, header, &data_offset)},
         {tcFrameRate,                   ttSRational,RATIONAL_ENTRY(frame_rate, header, &data_offset, 2)},
         {tcBaselineExposureOffset,      ttSRational,RATIONAL_ENTRY2(0, 1, header, &data_offset)},
     };
@@ -600,6 +752,9 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
         {tcExifVersion,                 ttUndefined,4,      0x30333230},
         {tcSubjectDistance,             ttRational, RATIONAL_ENTRY2(dng_info->lens_info->focus_dist, 1, header, &data_offset)},
         {tcFocalLength,                 ttRational, RATIONAL_ENTRY2(dng_info->lens_info->focal_len, 1, header, &data_offset)},
+        {tcFocalPlaneXResolutionExif,   ttRational, RATIONAL_ENTRY(focal_resolution_x, header, &data_offset, 2)},
+        {tcFocalPlaneYResolutionExif,   ttRational, RATIONAL_ENTRY(focal_resolution_y, header, &data_offset, 2)},
+        {tcFocalPlaneResolutionUnitExif,ttShort,    1,      camera_focal_resolution.unit}, //inches
         {tcLensModelExif,               ttAscii,    STRING_ENTRY((char*)dng_info->lens_info->name, header, &data_offset)},
     };
     
