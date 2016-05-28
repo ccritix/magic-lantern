@@ -183,6 +183,25 @@ function test_io()
     append_test("tmp.txt")
 end
 
+function test_keys()
+    printf("Testing half-shutter...\n")
+    -- open Canon menu
+    key.press(KEY.MENU)
+    msleep(1000)
+    -- fixme: expose things like QR_MODE, PLAY_MODE, enter_play_mode...
+    assert(camera.state == 1)
+    key.press(KEY.HALFSHUTTER)
+    assert(key.last == KEY.HALFSHUTTER)
+    msleep(1000)
+    -- half-shutter should close Canon menu
+    assert(camera.state == 0)
+    key.press(KEY.UNPRESS_HALFSHUTTER)
+    assert(key.last == KEY.UNPRESS_HALFSHUTTER)
+    printf("Half-shutter test OK.\n")
+    
+    -- todo: test other key codes? press/unpress events?
+end
+
 function test_camera_exposure()
     printf("Testing exposure settings, module 'camera'...\n")
     printf("Camera    : %s (%s) %s\n", camera.model, camera.model_short, camera.firmware)
@@ -510,6 +529,52 @@ function test_camera_exposure()
     printf("\n")
 end
 
+function test_camera_take_pics()
+    printf("Testing module 'camera', picture taking functions...\n")
+    local initial_file_num
+
+    request_mode(MODE.M, "M")
+    camera.shutter = 1/50
+    msleep(2000)
+    
+    printf("Snap simulation test...\n")
+    assert(menu.set("Shoot Preferences", "Snap Simulation", 1))
+    initial_file_num = dryos.shooting_card.file_number
+    camera.shoot()
+    assert(dryos.shooting_card.file_number == initial_file_num)
+    assert(menu.set("Shoot Preferences", "Snap Simulation", 0))
+
+    msleep(2000)
+
+    printf("Single picture...\n")
+    initial_file_num = dryos.shooting_card.file_number
+    camera.shoot()
+    assert((dryos.shooting_card.file_number - initial_file_num) % 10000 == 1)
+    
+    msleep(2000)
+
+    printf("Two burst pictures...\n")
+    printf("Ideally, the camera should be in some continuous shooting mode (not checked).\n")
+    initial_file_num = dryos.shooting_card.file_number
+    camera.burst(2)
+    assert((dryos.shooting_card.file_number - initial_file_num) % 10000 == 2)
+
+    msleep(2000)
+
+    printf("Bulb picture...\n")
+    local t0 = dryos.ms_clock
+    initial_file_num = dryos.shooting_card.file_number
+    camera.bulb(10)
+    local t1 = dryos.ms_clock
+    local elapsed = t1 - t0
+    printf("Elapsed time: %s\n", elapsed)
+    -- we can't measure this time accurately, so we only do a very rough check
+    assert(elapsed > 9900 and elapsed < 15000)
+    assert((dryos.shooting_card.file_number - initial_file_num) % 10000 == 1)
+
+    printf("Picture taking tests completed.\n")
+end
+
 function test_lv()
     printf("Testing module 'lv'...\n")
     if lv.enabled then
@@ -636,7 +701,9 @@ function api_tests()
     
     printf("Module tests...\n")
     test_io()
+    test_keys()
     test_camera_exposure()
+    test_camera_take_pics()
     test_lv()
     test_lens_focus()
     

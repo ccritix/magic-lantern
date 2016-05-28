@@ -519,23 +519,6 @@ table.sort(editor.menu[4].items)
 editor.lines_per_page = (display.height - editor.title_height) // editor.font.height // 2
 editor.scrollbar = scrollbar.create(editor.font.height,1,1,display.width - 2,editor.title_height,2)
 
-editor.mlmenu = menu.new
-{
-    name = "Text Editor",
-    help = "Edit text files or debug Lua scripts",
-    icon_type = ICON_TYPE.ACTION,
-    select = function(this)
-        task.create(function() editor:run() end)
-    end,
-    update = function(this)
-        if editor.filename ~= nil then
-            return editor.filename
-        else
-            return ""
-        end
-    end
-}
-
 -- The main program loop
 function editor:run()
     local status, error = xpcall(function()
@@ -1328,3 +1311,5 @@ function handle_error(error)
     log:close()
     keys:anykey()
 end
+
+editor:run()
