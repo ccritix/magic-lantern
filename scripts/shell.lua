@@ -84,16 +84,6 @@ function shell:handle_keyboard_down(k,w)
     end
 end
 
-shell.mlmenu = menu.new
-{
-    name = "Lua Shell",
-    help = "Interactive Lua Shell",
-    select = function(this)
-        task.create(function() shell:run() end)
-    end,
-    update = function(this) return shell.value end
-}
-
 function handle_error(error)
     if error == nil then error = "Unknown Error!\n" end
     local f = FONT.MONO_20
@@ -112,3 +102,5 @@ function handle_error(error)
     log:close()
     keys:anykey()
 end
+
+shell:run()
