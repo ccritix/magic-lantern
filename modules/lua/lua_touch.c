@@ -106,6 +106,23 @@ static int touch_event_cbr(int x, int y, int num_touch_points, int touch_id)
     return canon_touch_cbr_ptr ? canon_touch_cbr_ptr(x,y,num_touch_points,touch_id) : 0;
 }
 
+static void update_touch_cant_unload(lua_State * L)
+{
+    //are there any event handlers for this script left?
+    int any_active_handlers = 0;
+    struct lua_touch_handler * current;
+    for(current = touch_handlers; current; current = current->next)
+    {
+        if(current->L == L && current->touch_handler_ref != LUA_NOREF)
+        {
+            any_active_handlers = 1;
+            break;
+        }
+    }
+    lua_set_cant_unload(L, any_active_handlers, LUA_TOUCH_UNLOAD_MASK);
+}
+
+
 static void set_touch_handler(lua_State * L, int type, int function_ref)
 {
     if(!lua_touch_task_running)
@@ -123,6 +140,7 @@ static void set_touch_handler(lua_State * L, int type, int function_ref)
                 luaL_unref(L, LUA_REGISTRYINDEX, current->touch_handler_ref);
             }
             current->touch_handler_ref = function_ref;
+            update_touch_cant_unload(L);
             return;
         }
     }
@@ -142,6 +160,7 @@ static void set_touch_handler(lua_State * L, int type, int function_ref)
             luaL_error(L, "malloc error creating touch handler");
         }
     }
+    update_touch_cant_unload(L);
 }
 
 static void lua_touch_init()

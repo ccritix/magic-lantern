@@ -35,8 +35,9 @@
 #define LUA_TASK_UNLOAD_MASK   1
 #define LUA_PROP_UNLOAD_MASK   2
 #define LUA_LVINFO_UNLOAD_MASK 3
+#define LUA_TOUCH_UNLOAD_MASK  4
 //this needs to always be last b/c each event takes it's own mask starting at this one
-#define LUA_EVENT_UNLOAD_MASK  4
+#define LUA_EVENT_UNLOAD_MASK  5
 
 #define LUA_PARAM_INT(name, index)\
 if(index > lua_gettop(L) || !(lua_isinteger(L, index) || lua_isnumber(L,index))) return luaL_argerror(L, index, "expected integer for param '" #name "'");\
