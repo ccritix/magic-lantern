@@ -9,7 +9,10 @@
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 
  * They might slow down Canon code, so here you can disable all of them (useful for debugging or early ports) 
  */
+#define CONFIG_HELLO_WORLD
 #define CONFIG_STATE_OBJECT_HOOKS
+
+
 
 /** This camera runs DryOS **/
 //~ #define CONFIG_VXWORKS
@@ -22,7 +25,7 @@
 #define CONFIG_MOVIE
 
 /** This camera has a 4:3 screen, 720x480 **/
-//~ #define CONFIG_4_3_SCREEN
+#define CONFIG_4_3_SCREEN
 
 /** We only have a single red LED **/
 //~ #define CONFIG_BLUE_LED
@@ -34,7 +37,7 @@
 //~ #define CONFIG_MLU
 
 /** This camera reports focus info in LiveView **/
-//~ #define CONFIG_LV_FOCUS_INFO
+#define CONFIG_LV_FOCUS_INFO
 
 /** No level sensor **/
 //~ #define CONFIG_ELECTRONIC_LEVEL
@@ -43,7 +46,7 @@
 //~ #define CONFIG_AUTO_BRIGHTNESS
 
 /** There is a Q menu in Play mode, with image protect, rate etc **/
-//~ #define CONFIG_Q_MENU_PLAYBACK
+#define CONFIG_Q_MENU_PLAYBACK
 
 /** No flip-out display **/
 //~ #define CONFIG_VARIANGLE_DISPLAY
@@ -52,7 +55,7 @@
 //~ #define CONFIG_BATTERY_INFO
 
 /** We can do bulb exposures **/
-//~ #define CONFIG_BULB
+#define CONFIG_BULB
 
 /** Bulb mode is done by going to M mode and setting shutter speed beyond 30s **/
 //~ #define CONFIG_SEPARATE_BULB_MODE
@@ -71,19 +74,19 @@
 //~ #define CONFIG_DISPLAY_FILTERS
 
 /** We can override ISO on a per-frame basis, by changing FRAME_ISO (e.g. for HDR video or gradual exposure) **/
-//~ #define CONFIG_FRAME_ISO_OVERRIDE
+#define CONFIG_FRAME_ISO_OVERRIDE
 
 /** But we can't override the digital ISO component via FRAME_ISO **/
-//~ #define CONFIG_FRAME_ISO_OVERRIDE_ANALOG_ONLY
+#define CONFIG_FRAME_ISO_OVERRIDE_ANALOG_ONLY
 
 /** We can't change ExpSim from ML :( **/
 //~ #define CONFIG_EXPSIM
 
 /** We can playback sounds via ASIF DMA **/
-//~ #define CONFIG_BEEP
+ #define CONFIG_BEEP
 
 /** This camera has trouble saving Kelvin and/or WBShift in movie mode, so ML has to do this instead **/
-//~ #define CONFIG_WB_WORKAROUND
+#define CONFIG_WB_WORKAROUND
 
 /** We can restore ML files after formatting the card in the camera **/
 //~ #define CONFIG_RESTORE_AFTER_FORMAT
