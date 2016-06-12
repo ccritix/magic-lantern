@@ -40,3 +40,7 @@ NSTUB(0xFEC28D28,  msleep)
 
 /** Dumper **/
 NSTUB(0xFE2C22C1, dump_file)            // Thumb
+
+/** Memory info **/
+NSTUB(0xFE0A1AD1, malloc_info)          // Thumb
+NSTUB(0xFE0A1B69, sysmem_info)          // Thumb

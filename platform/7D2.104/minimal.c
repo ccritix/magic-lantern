@@ -90,8 +90,14 @@ copy_and_restart( int offset )
      * calls bzero(), then loads bs_end and calls
      * create_init_task
      */
-    // Reserve memory after the BSS for our application
-    INSTR( HIJACK_INSTR_BSS_END ) = (uintptr_t) _bss_end;
+    // Reserve memory at the end of malloc pool for our application
+    // Note: unlike most (all?) DIGIC 4/5 cameras,
+    // the malloc buffer is specified as start + size (not start + end)
+    // so we adjust both values in order to keep things close to the traditional ML boot process
+    // (alternative: we could adjust only the size, and place ML at the end of malloc buffer)
+    uint32_t ml_reserved_mem = (uintptr_t) _bss_end - INSTR( HIJACK_INSTR_BSS_END );
+    INSTR( HIJACK_INSTR_BSS_END     ) += ml_reserved_mem;
+    INSTR( HIJACK_INSTR_BSS_END + 4 ) -= ml_reserved_mem;
 
     // Fix the calls to bzero32() and create_init_task()
     FIXUP_BRANCH( HIJACK_FIXBR_BZERO32, my_bzero32 );
@@ -115,9 +121,16 @@ copy_and_restart( int offset )
 }
 
 extern void __attribute__((long_call)) dump_file(char* name, uint32_t addr, uint32_t size);
+extern void __attribute__((long_call)) malloc_info(void);
+extern void __attribute__((long_call)) sysmem_info(void);
 
 static void DUMP_ASM dump_task()
 {
+    /* print memory info on QEMU console */
+    malloc_info();
+    sysmem_info();
+
+    /* dump both ROMs */
     dump_file("ROM0.BIN", 0xF0000000, 0x02000000);
     dump_file("ROM1.BIN", 0xF8000000, 0x02000000);
 }
