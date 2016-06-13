@@ -3,5 +3,7 @@ asm(
     ".globl _start\n"
     "_start:\n"
 
-    "B  0xFE0A0000\n"   /* jump to Canon firmware */
+    /* jump to Canon firmware */
+    /* note: with B 0xFE0A0000, gcc inserts a veneer */
+    "LDR PC, =0xFE0A0000\n"
 );
