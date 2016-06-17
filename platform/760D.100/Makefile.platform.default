@@ -1,0 +1,12 @@
+#Makefile.setup.platform for 760D
+CANON_NAME_FIR  = 5D300133.FIR
+FIRMWARE_ID     = 0x80000347
+UPDATE_NAME_FIR = DUMP760D.FIR
+
+# these are not correct (just to compile)
+RESTARTSTART    = 0x0
+ROMBASEADDR     = 0xFC000000
+
+# these should be removed when porting starts
+ML_SRC_PROFILE  = minimal
+ML_SRC_REBOOT_OBJ = reboot.o
