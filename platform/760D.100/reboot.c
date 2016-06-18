@@ -40,10 +40,6 @@ cstart( void )
         }
     }
     
-    /* footer magic for xor_chk */
-    asm volatile("LDR R0, =0xE12FFF13");
-    asm volatile("LDR R0, =0xCCCCCCCC");
-    
     // should be unreachable
     while(1);
 }
