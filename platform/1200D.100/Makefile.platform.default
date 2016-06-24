@@ -2,7 +2,7 @@
 
 # Definitions for version 100
 ifeq ($(FW_VERSION),100)
-CANON_NAME_FIR=CCF13104.FIR
+CANON_NAME_FIR=60D00111.FIR
 ROMBASEADDR	= 0xFF0C0000
 
 ifeq ($(ML_SRC_PROFILE),generic)
@@ -20,7 +20,6 @@ endif
 #end of FW_VERSION == 100
 endif
 
-#not used but...
-FIRMWARE_ID_1200D= 0x80000288
+FIRMWARE_ID = 0x80000327
 
 ML_BITRATE_OBJ=n
