@@ -123,12 +123,14 @@ copy_and_restart( int offset )
 extern void __attribute__((long_call)) dump_file(char* name, uint32_t addr, uint32_t size);
 extern void __attribute__((long_call)) malloc_info(void);
 extern void __attribute__((long_call)) sysmem_info(void);
+extern void __attribute__((long_call)) smemShowFix(void);
 
 static void DUMP_ASM dump_task()
 {
     /* print memory info on QEMU console */
     malloc_info();
     sysmem_info();
+    smemShowFix();
 
     /* dump both ROMs */
     dump_file("ROM0.BIN", 0xF0000000, 0x02000000);
