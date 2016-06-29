@@ -97,6 +97,11 @@ static struct logged_func logged_functions[] = {
     { 0xFF1BB02C, "mpu_send", 2, mpu_send_log },
     { 0xFF05A3AC, "mpu_recv", 1, mpu_recv_log},
     #endif
+
+    #ifdef CONFIG_600D
+    { 0xFF1DB524, "mpu_send", 2, mpu_send_log },    /* dwSize < TXBD_DATA_SIZE */
+    { 0xFF05ED84, "mpu_recv", 1, mpu_recv_log },    /* registered in InitializeIntercom as CBR */
+    #endif
 };
 #else
 static struct logged_func logged_functions[] = {
