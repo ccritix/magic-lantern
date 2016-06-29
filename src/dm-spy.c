@@ -25,8 +25,30 @@
 #include "qemu-util.h"
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
-    /* we don't have malloc from the beginning, so we'll use a static buffer, which should be small */
-    #define BUF_SIZE (64*1024)
+    /* we don't have malloc from the beginning
+     * we can either use a small static buffer (portable)
+     * or, if we need larger logs, we can hijack some unused memory block from RscMgr
+     * (see sMemShowFix and http://www.magiclantern.fm/forum/index.php?topic=5071.msg166799#msg166799 )
+     */
+    #if defined(CONFIG_5D3)
+        #define BUF_ADDR (0x4A000000 + 0x00CA8000)  /* between IVA_NVY and SS_DEVELOP1 */
+        #define BUF_SIZE (0x4AE00000 - BUF_ADDR)    /* 1.3M unused block */
+    #elif defined(CONFIG_70D)
+        #define BUF_ADDR 0x55000000                 /* IVA_NVY, hopefully not used at startup */
+        #define BUF_SIZE 0x00E00000                 /* 14M */
+    #elif defined(CONFIG_60D)
+        #define BUF_ADDR 0x5CC280E0                 /* FREE2, hopefully unused */
+        #define BUF_SIZE 0x002C1F20                 /* 2.75M */
+    #elif defined(CONFIG_550D)
+        #define BUF_ADDR (0x4F116000 + 0x00410000)  /* between IMGVRAM3 and LV_WB */
+        #define BUF_SIZE (0x4F626000 - BUF_ADDR)    /* 1M unused block */
+    #elif defined(CONFIG_600D)
+        #define BUF_ADDR 0x4F6BD940                 /* BANK8_FREE1, hopefully unused */
+        #define BUF_SIZE 0x000E2740                 /* 0.88M */
+    #else
+        #define BUF_SIZE (64*1024)
+        #warning debug message buffer might be too small.
+    #endif
 #else
     /* we can use a larger buffer, because we have the memory backend up and running */
     #define BUF_SIZE (1024*1024)
@@ -124,7 +146,14 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
 
+#ifdef BUF_ADDR
+/* logging buffer has some fixed address (model-dependent) */
+static char * staticbuf = (char *) CACHEABLE(BUF_ADDR);
+#else
+/* fallback: allocate logging buffer in ML binary (autoexec.bin) */
+/* if we run out of memory, compiling ML without features (empty features.h) helps */
 static char staticbuf[BUF_SIZE];
+#endif
 
 // call this from boot-hack.c
 void debug_intercept()
