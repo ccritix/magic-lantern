@@ -1,8 +1,9 @@
 /** \file
- * 760D dumper
+ * ROM dumper using LED blinks
  */
 
 #include "arm-mcr.h"
+#include "consts.h"
 
 asm(
     ".text\n"
@@ -26,6 +27,21 @@ static void busy_wait(int n)
 }
 
 static void blink(int n)
+{
+    while (1)
+    {
+#if defined(CARD_LED_ADDRESS) && defined(LEDON) && defined(LEDOFF)
+        *(volatile int*)(CARD_LED_ADDRESS) = (LEDON);
+        busy_wait(n);
+        *(volatile int*)(CARD_LED_ADDRESS) = (LEDOFF);
+        busy_wait(n);
+#else
+    #warning LED address unknown
+#endif
+    }
+}
+
+static void blink_all(int n)
 {
     /* https://chdk.setepontos.com/index.php?topic=11316.msg111290#msg111290
      * https://chdk.setepontos.com/index.php?topic=1493.msg13469#msg13469
@@ -139,6 +155,12 @@ cstart( void )
 {
     /* Try guessing the LED address */
     guess_led(10);
+    
+    /* Try blinking the LED at the address defined in platform consts.h */
+    //~ blink(10);
+    
+    /* Try blinking a range of addresses, hoping the LED might be there */
+    //~ blink_all(10);
     
     /* Try jumping to main firmware from FIR */
     //~ try_jumping_to_firmware();
