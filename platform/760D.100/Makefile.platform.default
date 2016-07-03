@@ -12,3 +12,4 @@ ROMBASEADDR     = 0xFC000000
 # these should be removed when porting starts
 ML_SRC_PROFILE  = minimal
 ML_SRC_REBOOT_OBJ = reboot-dumper.o footer.o
+READELF=echo MemSiz
