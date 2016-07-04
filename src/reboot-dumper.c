@@ -158,7 +158,17 @@ static void try_jumping_to_firmware()
 #define DELAY0       1
 #define DELAY1       4
 
-#define SLOWDOWN     3
+/* successfully dumped data with slowdown 4 */
+#define SLOWDOWN     4
+
+
+
+struct dump_header
+{
+    uint32_t address;
+    uint16_t blocksize;
+} __attribute__((packed));
+
 
 /*
  * CRC code seems to come from linux's crc16.c, which is GPL v2.
@@ -206,8 +216,10 @@ static uint16_t crc16_byte(uint16_t crc, const uint8_t data)
     return (crc >> 8) ^ crc16_table[(crc ^ data) & 0xff];
 }
 
-static uint16_t crc16(uint16_t crc, const uint8_t *buffer, uint32_t len)
+static uint16_t crc16(uint16_t crc, void *addr, uint32_t len)
 {
+    uint8_t *buffer = (uint8_t *)addr;
+    
 	while (len--)
     {
 		crc = crc16_byte(crc, *buffer++);
@@ -317,21 +329,38 @@ static int block_empty(uint8_t *data, uint32_t length)
     return 1;
 }
 
-static void led_dump()
+static void send_data(void *addr, uint32_t length)
 {
+    uint8_t *buffer = (uint8_t *)addr;
+    
+    /* send data */
+    for(uint32_t i = 0; i < length; i++)
+    {
+        send_byte(buffer[i]);
+    }
+}
+
+static void led_dump(uint32_t address, uint32_t length)
+{
+    uint16_t block_size = 512;
+    uint32_t block_count = length / block_size;
+    struct dump_header header;
+
     idle();
     
-    uint32_t block = 0;
-    uint16_t block_size = 512;
-    uint32_t block_count = (32 * 1024 * 1024) / block_size;
-    uint8_t *buffer = (uint8_t *)0xF8000000;
-
-    for(block = 0; block < block_count; block++)
+    /* send alternating bits to pre-charge capacitors in sound card */
+    for(uint32_t loop = 0; loop < 20; loop++)
     {
-        uint8_t *block_ptr = &buffer[block * block_size];
+        send_byte(0xaa);
+    }
+    
+    /* now send real data */
+    for(uint32_t block = 0; block < block_count; block++)
+    {
+        uint32_t block_address = address + block * block_size;
         
         /* skip empty blocks */
-        if(block_empty(block_ptr, block_size))
+        if(block_empty((void *)block_address, block_size))
         {
             continue;
         }
@@ -342,21 +371,21 @@ static void led_dump()
         send_byte(0xaa);
         send_byte(0x50);
 
-        /* block infos */
-        send_word((uint32_t)block_ptr);
-        send_half(block_size);
-
-        /* send data */
-        for(uint32_t i = 0; i < block_size; i++)
-        {
-            send_byte(block_ptr[i]);
-        }
-
-        /* send crc */
-        uint16_t crc = crc16(0, block_ptr, block_size);
+        /* build block header */
+        header.address = block_address;
+        header.blocksize = block_size;
         
+        /* calc CRC for the block being sent */
+        uint16_t crc = crc16(0, &header, sizeof(struct dump_header));
+        crc = crc16(crc, (void *)block_address, block_size);
+        
+        /* send block header */
         send_half(crc);
+        send_data(&header, sizeof(struct dump_header));
+        send_data((void *)block_address, block_size);
     }
+    
+    return;
 }
 
 void
@@ -378,7 +407,7 @@ cstart( void )
     
     /* Try dumping the ROM via soundcard (CHDK method) */
     /* decoder in contrib/led_blink_dumper/ */
-    led_dump();
+    led_dump(0xF8000000, 0x02000000);
     
     // should be unreachable
     while(1);
