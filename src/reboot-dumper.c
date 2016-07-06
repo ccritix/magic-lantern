@@ -49,6 +49,7 @@ static void blink_all(int n)
      */
     while (1)
     {
+        // turn all led on all addresses on
         for (int i = 0; i < 512; i++)
         {
             *(volatile int*)(0xd20b0800 + i * 4) = 0x4c0003;
@@ -56,6 +57,7 @@ static void blink_all(int n)
 
         busy_wait(n);
 
+        // turn led off on all addresses
         for (int i = 0; i < 512; i++)
         {
             *(volatile int*)(0xd20b0800 + i * 4) = 0x4d0002;
@@ -167,6 +169,7 @@ struct dump_header
 {
     uint32_t address;
     uint16_t blocksize;
+    uint8_t blocktype;
 } __attribute__((packed));
 
 
@@ -329,6 +332,19 @@ static int block_empty(uint8_t *data, uint32_t length)
     return 1;
 }
 
+static int block_zero(uint8_t *data, uint32_t length)
+{
+    for(uint32_t pos = 0; pos < length; pos++)
+    {
+        if(data[pos] != 0)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 static void send_data(void *addr, uint32_t length)
 {
     uint8_t *buffer = (uint8_t *)addr;
@@ -349,7 +365,7 @@ static void led_dump(uint32_t address, uint32_t length)
     idle();
     
     /* send alternating bits to pre-charge capacitors in sound card */
-    for(uint32_t loop = 0; loop < 20; loop++)
+    for(uint32_t loop = 0; loop < 2000; loop++)
     {
         send_byte(0xaa);
     }
@@ -365,6 +381,16 @@ static void led_dump(uint32_t address, uint32_t length)
             continue;
         }
         
+        /* check for zero blocks */
+        if(block_zero((void *)block_address, block_size))
+        {
+            header.blocktype = 1;
+        }
+        else
+        {
+            header.blocktype = 0;
+        }
+
         /* sync header */
         send_byte(0x0a);
         send_byte(0x55);
@@ -377,12 +403,19 @@ static void led_dump(uint32_t address, uint32_t length)
         
         /* calc CRC for the block being sent */
         uint16_t crc = crc16(0, &header, sizeof(struct dump_header));
-        crc = crc16(crc, (void *)block_address, block_size);
         
+        if(header.blocktype == 0)
+        {
+            /* calc CRC for the rest of the data */
+            crc = crc16(crc, (void *)block_address, block_size);
+        }
         /* send block header */
         send_half(crc);
         send_data(&header, sizeof(struct dump_header));
-        send_data((void *)block_address, block_size);
+        if(header.blocktype == 0)
+        {
+            send_data((void *)block_address, block_size);
+        }
     }
     
     return;

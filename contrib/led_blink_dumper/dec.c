@@ -53,6 +53,7 @@ struct dump_header
 {
     uint32_t address;
     uint16_t blocksize;
+    uint8_t blocktype;
 } __attribute__((packed));
 
 
@@ -156,7 +157,7 @@ int main(int argc, char *argv[])
         uint32_t offset = 0;
         uint16_t crc_read = 0;
         uint16_t crc_calc = 0;
-        
+        uint8_t block_type = 0;
         /* skip sync header */
         offset += 4;
         
@@ -168,7 +169,30 @@ int main(int argc, char *argv[])
         struct dump_header *header = (struct dump_header *)(&file_data[block_start + offset]);
         addr = header->address;
         block_size = header->blocksize;
+        block_type = header->blocktype;
         
+
+        if(block_type == 1) /* we have a special block with only 0x00 - bytes */
+        {
+            printf("  offset 0x%08X: addr 0x%08X, len 0x%04X, crc 0x%04X, all bytes 0, ", 
+                   file_offset, addr, block_size, crc_read);
+            crc_calc = crc16(0, &file_data[block_start + offset], sizeof(struct dump_header));
+            if(crc_calc == crc_read)
+            {
+                uint32_t size = block_size;
+                uint8_t *buf = malloc(size);
+                memset(buf, 0, size);
+                fwrite(buf, 1, size, file_out);
+                free(buf);
+                printf("CRC ok\n");
+            }
+            else
+            {
+                printf("CRC fail\n");
+            }
+            file_offset = findsig(block_start + offset + sizeof(struct dump_header));
+            continue;
+        }
         printf("  offset 0x%08X: addr 0x%08X, len 0x%04X, crc 0x%04X, ", file_offset, addr, block_size, crc_read);
         
         /* check sizes */

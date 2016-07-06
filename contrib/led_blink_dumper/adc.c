@@ -55,24 +55,24 @@
 #define LEVEL_LO        2
 
 /* may get tweaked to better match the bit times of the recording */
-uint32_t len_sync = 5;
-uint32_t len_zero = 1;
-uint32_t len_one = 3;
-uint32_t len_space = 2;
+uint32_t len_sync = 20;
+uint32_t len_zero = 3;
+uint32_t len_one = 10;
+uint32_t len_space = 3;
 uint32_t inverted = 0;
 
 /* this parameter should match the setting in dumper, assuming bit times above were untouched */
-uint32_t slowdown = 4;
+uint32_t slowdown = 1;
 
 /* make them fit the signal amplitudes */
-int32_t level_hi = 1000;
-int32_t level_lo = 0;
+int32_t level_hi = 120;
+int32_t level_lo = 110;
 
 /* auto DC-offset compensation, the lower the number, the slower it learns. 
    tries to undo sound card's DC filtering by integrating.
    for rates close to the sampling rate, 0.6 seems to be a good starting point.
 */
-float avg_fact = 0.6;
+float avg_fact = 0;
 
 float dc_offset = 0;
 
@@ -94,7 +94,7 @@ int get_level(short v)
 
 int main(int argc, char *argv[])
 {
-    short buf[1024];
+    uint8_t buf[1024];
     int bytes_written = 0;
     int len = 0;
     int p = 0;
@@ -262,11 +262,11 @@ int main(int argc, char *argv[])
     while (!feof(f))
     {
         pp += len;
-        len = fread(buf, 1, sizeof(buf), f) / 2;
+        len = fread(buf, 1, sizeof(buf), f);
         p=0;
         while (p<len)
         {
-            int16_t signal = buf[p++];
+            uint8_t signal = buf[p++];
             
             dc_offset = (dc_offset * (1 - avg_fact)) + (signal * avg_fact);
 
@@ -290,6 +290,7 @@ int main(int argc, char *argv[])
                     }
                     else
                     {
+                        printf("sync: %d\n", cnt);
                         if(cnt >= len_sync * slowdown)
                         {
                             cnt = 1;
@@ -313,7 +314,8 @@ int main(int argc, char *argv[])
                     }
                     else
                     {
-                        if(cnt >= len_one * slowdown)
+                        printf("bit: %d\n", cnt);
+                        if(cnt >= len_one * slowdown && cnt <= 2 * len_one * slowdown)
                         {
                             cnt = 1;
                             byte |= (1<<bits);
@@ -329,7 +331,7 @@ int main(int argc, char *argv[])
                                 state = ST_SPACE;
                             }
                         }
-                        else if(cnt >= len_zero * slowdown)
+                        else if(cnt >= len_zero * slowdown && cnt < len_one * slowdown)
                         {
                             cnt = 1;
                             if((++bits) == 8)
@@ -360,6 +362,7 @@ int main(int argc, char *argv[])
                     }
                     else
                     {
+                        printf("space: %d\n", cnt);
                         if(cnt >= len_space * slowdown)
                         {
                             cnt = 1;
