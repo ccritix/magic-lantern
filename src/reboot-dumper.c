@@ -440,7 +440,7 @@ cstart( void )
     
     /* Try dumping the ROM via soundcard (CHDK method) */
     /* decoder in contrib/led_blink_dumper/ */
-    led_dump(0xF8000000, 0x02000000);
+    led_dump(0xFC000000, 0x04000000);
     
     // should be unreachable
     while(1);
