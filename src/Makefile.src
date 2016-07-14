@@ -208,8 +208,7 @@ reboot.o: $(SRC_DIR)/reboot.c $(PLATFORM_DIR)/version.bin magiclantern.bin
 ifndef ML_SRC_REBOOT_OBJ
 ML_SRC_REBOOT_OBJ = reboot.o \
 	disp_direct.o font_direct.o \
-	strlen.o strcmp.o gcc-libgcc.a \
-	footer.o
+	strlen.o strcmp.o gcc-libgcc.a
 ML_SRC_REBOOT_OBJ += md5.o
 ML_SRC_REBOOT_OBJ += led_dump.o
 ML_SRC_REBOOT_OBJ += font_direct.o
@@ -232,6 +231,7 @@ ML_SRC_REBOOT_OBJ += ff_safety.o
 ML_SRC_REBOOT_OBJ += ff_string.o
 ML_SRC_REBOOT_OBJ += ff_time.o
 ML_SRC_REBOOT_OBJ += ff_unicode.o
+ML_SRC_REBOOT_OBJ += footer.o
 endif
 
 clean::
