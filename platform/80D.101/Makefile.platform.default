@@ -1,15 +1,11 @@
 #Makefile.setup.platform for 80D
 CANON_NAME_FIR  = 5D300133.FIR
 FIRMWARE_ID     = 0x80000350
-UPDATE_NAME_FIR = DUMP_80D.FIR
+UPDATE_NAME_FIR = BOOT_80D.FIR
 FIR_BASE        = 0x00800120
 AUTOEXEC_BASE   = 0x00800000
-
-# these are not correct (just to compile)
-RESTARTSTART    = 0x0
-ROMBASEADDR     = 0xFC000000
+RESTARTSTART    = 0x001CC400
+ROMBASEADDR     = 0xFE0A0000
 
 # these should be removed when porting starts
 ML_SRC_PROFILE  = minimal
-ML_SRC_REBOOT_OBJ = reboot-dumper.o footer.o
-READELF=echo MemSiz
