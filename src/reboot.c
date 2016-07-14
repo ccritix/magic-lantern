@@ -45,6 +45,9 @@
 
 #define MEM(x) (*(volatile uint32_t *)(x))
 
+/* we need this ASM block to be the first thing in the file */
+#pragma GCC optimize ("-fno-reorder-functions")
+
 asm(
     ".text\n"
     ".globl _start\n"
