@@ -153,7 +153,7 @@ enable_icache( void )
 */
 
 /* do you really want to call that? */
-static inline void flush_caches()
+static inline void _flush_caches()
 {
     uint32_t reg = 0;
     asm(

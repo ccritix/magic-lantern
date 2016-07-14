@@ -184,16 +184,12 @@ int fps_should_record_wav() { return get_fps_override() && fps_wav_record && is_
 int fps_should_record_wav() { return 0; }
 #endif
 
-#if defined(CONFIG_50D) || defined(CONFIG_500D)
-PROP_INT(PROP_VIDEO_SYSTEM, pal);
-#endif
-
 static int is_current_mode_ntsc()
 {
     if (!is_movie_mode()) return 0;
 
     #if defined(CONFIG_50D)
-    return !pal;
+    return !video_system_pal;
     #endif
     if (video_mode_fps == 30 || video_mode_fps == 60 || video_mode_fps == 24) return 1;
     return 0;
@@ -235,9 +231,11 @@ static void fps_read_current_timer_values();
     #define FPS_TIMER_B_MIN (fps_timer_b_orig - (ZOOM ? 44 : MV720 ? 0 : 70)) /* you can push LiveView until 68fps (timer_b_orig - 50), but good luck recording that */
 #elif defined(CONFIG_EOSM)
     #define TG_FREQ_BASE 32000000
-    #define FPS_TIMER_A_MIN 520
+    #define FPS_TIMER_A_MIN (ZOOM ? 666 : MV1080CROP ? 532 : 520)
     #undef FPS_TIMER_B_MIN
-    #define FPS_TIMER_B_MIN MIN(fps_timer_b_orig, 1970)
+    #define FPS_TIMER_B_MIN ( \
+    RECORDING_H264 ? (MV1080CROP ? 1750 : MV720 ? 990 : 1970) \
+                   : (ZOOM || MV1080CROP ? 1336 : 1970))
 #elif defined(CONFIG_6D)
     #define TG_FREQ_BASE 25600000
     #define FPS_TIMER_A_MIN (fps_timer_a_orig - (ZOOM ? 22 : MV720 ? 10 : 34) ) //, ZOOM ? 708 : 512)
@@ -276,7 +274,7 @@ static void fps_read_current_timer_values();
 #elif defined(CONFIG_1100D)
     #define NEW_FPS_METHOD 1
     #undef TG_FREQ_BASE
-    #define TG_FREQ_BASE 32070000
+    // #define TG_FREQ_BASE 32070000 - incorrect, see http://www.magiclantern.fm/forum/index.php?topic=1009.msg146321#msg146321
     #undef FPS_TIMER_A_MIN
     #define FPS_TIMER_A_MIN (ZOOM ? 940 : 872)
     #undef FPS_TIMER_B_MIN
@@ -627,7 +625,7 @@ static int fps_get_timer(int fps_x1000)
     int fps_timer = FPS_x1000_TO_TIMER(fps_x1000);
 
     #if defined(CONFIG_500D) || defined(CONFIG_50D) // these cameras use 30.000 fps, not 29.97 => look in system settings to check if PAL or NTSC
-    ntsc = !pal;
+    ntsc = !video_system_pal;
     #endif
 
     // in PAL/NTSC, round FPS to match the power supply frequency and avoid flicker

@@ -49,14 +49,6 @@ asm(
     ".text\n"
     ".globl _start\n"
     "_start:\n"
-
-    /* if used in a .fir file, there is a 0x120 byte address offset.
-       so cut the first 0x120 bytes off autoexec.bin before embedding into .fir
-     */
-    "B       skip_fir_header\n"
-    ".incbin \"version.bin\"\n" // this must have exactly 0x11C (284) bytes
-    "skip_fir_header:\n"
-
     "MRS     R0, CPSR\n"
     "BIC     R0, R0, #0x3F\n"   // Clear I,F,T
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
