@@ -476,7 +476,7 @@ static const struct model_data_s model_data[] =
     { 0x331, "EOSM"  },
 };
 
-static uint32_t get_model_id()
+uint32_t get_model_id()
 {
     uint32_t *model_ptr = (uint32_t *)0xF8002014;
     
@@ -502,7 +502,7 @@ static uint32_t get_model_id()
     return 0;
 }
 
-static uint32_t is_digic6()
+uint32_t is_digic6()
 {
     return get_model_id() == *(uint32_t *)0xFC060014;
 }

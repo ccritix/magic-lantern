@@ -15,7 +15,6 @@
 #define COLOR_GRAY              0x0A
 #define COLOR_WHITE             0x0F
 
-void disp_set_palette();
 void disp_progress(uint32_t progress);
 void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color);
 void disp_init();
