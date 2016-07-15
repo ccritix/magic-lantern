@@ -502,6 +502,11 @@ static uint32_t get_model_id()
     return 0;
 }
 
+static uint32_t is_digic6()
+{
+    return get_model_id() == *(uint32_t *)0xFC060014;
+}
+
 static const char *get_model_string()
 {
     uint32_t model = get_model_id();
@@ -522,8 +527,8 @@ static void print_model()
     printf(" - Model ID: 0x%X %s\n", get_model_id(), get_model_string());
 }
 
-/** Shadow copy of the NVRAM boot flags stored at 0xF8000000 */
-#define NVRAM_BOOTFLAGS     ((void*) 0xF8000000)
+/** Shadow copy of the NVRAM boot flags stored at 0xF8000000
+ * (or 0xFC040000 on DIGIC 6) */
 struct boot_flags
 {
     uint32_t        firmware;   // 0x00
@@ -532,10 +537,12 @@ struct boot_flags
     uint32_t        update;     // 0x0c
 };
 
-static struct boot_flags * const    boot_flags = NVRAM_BOOTFLAGS;;
-
 static void print_bootflags()
 {
+    struct boot_flags * const boot_flags = (void*)(
+        is_digic6() ? 0xFC040000 : 0xF8000000
+    );
+    
     printf(" - Boot flags: "
         "FIR=%d "
         "BOOT=%d "
