@@ -34,11 +34,12 @@ extern int printf(const char* fmt, ... );
 struct nesting_level
 {
     char name[10];
-    uint32_t terminator;
+    uint32_t terminator1;
+    uint32_t terminator2;
 };
 
 struct nesting_level levels[] = {
-    { "class",    0x0F000000 },
+    { "class",    0x0F000000, 0x1F000000 },
     { "group",    0x00FF0000 },
     { "subgroup", 0x0000FFFF },
     { "property", 0x00000000 },
@@ -151,6 +152,41 @@ void parse_property(uint32_t* buffer, uint32_t buffer_len)
     process_property(id, (union prop_data *) data, size);
 }
 
+static int check_terminator(int level, uint32_t tail, int verbose)
+{
+    if (levels[level].terminator1 == 0)
+    {
+        /* nothing to check */
+        return -1;
+    }
+    
+    if (levels[level].terminator1 == tail)
+    {
+        /* check if terminator matches the current group's tail */
+        return 1;
+    }
+
+    if (levels[level].terminator2)
+    {
+        /* some property blocks may use different terminator values */
+        if (levels[level].terminator2 == tail)
+        {
+            return 1;
+        }
+    }
+
+    if (verbose)
+    {
+        printf("%s end error (0x%x, expected 0x%x or 0x%x)\n",
+            levels[level].name, tail,
+            levels[level].terminator1,
+            levels[level].terminator2
+        );
+    }
+
+    return 0;
+}
+
 /* parse a class of groups of subgroups of properties (recursive) */
 int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int verbose, int output)
 {
@@ -166,7 +202,7 @@ int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int verbose, i
     
     uint32_t tail = buffer[size/4 - 1];
 
-    if (output && levels[level].terminator == 0)
+    if (output && levels[level].terminator1 == 0)
     {
         parse_property(buffer, size);
     }
@@ -176,25 +212,22 @@ int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int verbose, i
         printf("%s: id=0x%x size=0x%x tail=0x%x\n", levels[level].name, id, size, tail);
     }
 
-    if (levels[level].terminator)
+    if (check_terminator(level, tail, verbose))
     {
-        if (tail == levels[level].terminator)
+        if (level+1 < COUNT(levels))
         {
-            if (level+1 < COUNT(levels))
+            int ok = parse_prop_group(buffer+2, size-8, level+1, verbose, output);
+            if (!ok)
             {
-                int ok = parse_prop_group(buffer+2, size-8, level+1, verbose, output);
-                if (!ok)
-                {
-                    if (verbose) printf("%s: check failed\n", levels[level+1].name);
-                    return 0;
-                }
+                if (verbose) printf("%s: check failed\n", levels[level+1].name);
+                return 0;
             }
         }
-        else
-        {
-            if (verbose) printf("%s end error (0x%x, expected 0x%x)\n", levels[level].name, tail, levels[level].terminator);
-            return 0;
-        }
+    }
+    else
+    {
+        /* error message was printed in check_terminator */
+        return 0;
     }
 
     if (buffer_len - size == 4)
@@ -225,9 +258,9 @@ void guess_prop(uint32_t* buffer, uint32_t buffer_len, int verbose)
             if (last_pos > 12 && last_pos < total-4)            // not out of range?
             {
                 uint32_t last = buffer[last_pos/4];
-                if (last == levels[0].terminator)               // terminator OK?
+                if (check_terminator(0, last, 0))               // terminator OK?
                 {
-                    if (verbose) printf("Trying offset 0x%x...\n", offset);
+                    if (verbose) printf("Trying offset 0x%x, size=0x%x...\n", offset, size);
 
                     /* let's try to parse it quietly, without any messages */
                     /* if successful, will parse again with output enabled */
@@ -267,8 +300,9 @@ static void print_camera_info()
     /* for running on the camera */
     void prop_diag()
     {
-        guess_prop(0xF0000000, 0x1000000, 0);
-        guess_prop(0xF8000000, 0x1000000, 0);
+        guess_prop((void*)0xF0000000, 0x1000000, 0);
+        guess_prop((void*)0xF8000000, 0x1000000, 0);
+        guess_prop((void*)0xFC000000, 0x2000000, 0);
         print_camera_info();
     }
 #else
