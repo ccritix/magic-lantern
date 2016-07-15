@@ -262,6 +262,7 @@ void* disp_init_autodetect()
     return &disp_init_dummy;
 }
 
+extern uint32_t get_model_id();
 extern uint32_t is_digic6();
 
 void disp_init()
@@ -270,17 +271,20 @@ void disp_init()
     {
         disp_bpp = 8;
     }
-    
+
+    uint32_t id = get_model_id();
+    if (id == 0x218 || id == 0x261 || id == 0x250)
+    {
+        /* 5D2, 50D, 7D */
+        yuv_mode = YUV411;
+    }
+
     /* is this address valid for all cameras? */
     disp_framebuf = (uint8_t *)0x44000000;
 
     /* this should cover most (if not all) ML-supported cameras */
     /* and maybe most unsupported cameras as well :) */
     void (*fromutil_disp_init)(uint32_t) = disp_init_autodetect();
-
-#if defined(CONFIG_5D2)
-    yuv_mode = YUV411;
-#endif
 
     /* this one initializes everyhting that is needed for display usage. PWM, PWR, GPIO, SIO and DISPLAY */
     fromutil_disp_init(0);
