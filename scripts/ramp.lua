@@ -301,6 +301,12 @@ function ramp:add_keyframe()
     end
 end
 
+function ramp:clear_all()
+    for k,opt in pairs(self.options) do
+        opt.keyframes = nil
+    end
+end
+
 function ramp:draw()
     display.draw(function()
         display.rect(0, 0, display.width, display.height, COLOR.BLACK, COLOR.BLACK)
@@ -393,10 +399,39 @@ ramp.menu = menu.new
             select = function(this) task.create(function() ramp:edit() end) end,
             help = "View and edit keyframes",
         },
+        {
+            name = "Clear Keyframes",
+            select = function(this) ramp:clear_all() end
+        },
     }
 }
 
-config.create_from_menu(ramp.menu)
+ramp.config = config.create
+{
+    enabled = false,
+    ramp = {}
+}
+function ramp.config:saving() 
+    self.data.enabled = ramp.menu.submenu["Enabled"].value
+    self.data.ramp = {}
+    for k,opt in pairs(ramp.options) do
+        if opt.keyframes then
+            self.data.ramp[opt.name] = opt.keyframes
+        end
+    end
+end
+--load config data
+ramp.menu.submenu["Enabled"].value = ramp.config.data.enabled or 0
+if ramp.config.data.ramp then
+    for name,kf in pairs(ramp.config.data.ramp) do
+        for k,opt in pairs(ramp.options) do
+            if opt.name == name then
+                opt.keyframes = kf
+                break
+            end
+        end
+    end
+end
 
 
 function handle_error(error)
