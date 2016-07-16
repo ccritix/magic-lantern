@@ -318,10 +318,13 @@ void disp_init()
 
 uint32_t disp_direct_scroll_up(uint32_t height)
 {
-    uint32_t start = (720 * height) / 2;
-    uint32_t size = (720 * (480 - height)) / 2;
+    uint32_t start = (720 * height) * disp_bpp / 8;
+    uint32_t size = (720 * (480 - height)) * disp_bpp / 8;
     uint32_t color = COLOR_TRANSPARENT_BLACK;
-    color |= color << 4;
+    if (disp_bpp == 4)
+    {
+        color |= color << 4;
+    }
     
     memcpy(disp_framebuf, &disp_framebuf[start], size);
     memset(&disp_framebuf[size], color, start);
