@@ -5,12 +5,39 @@ require("keys")
 require("logger")
 require("class")
 
+available_colors = 
+{
+    COLOR.LIGHT_GRAY,
+    COLOR.GREEN1,
+    COLOR.CYAN,
+    COLOR.RED,
+    COLOR.BLUE,
+    COLOR.GREEN2,
+    COLOR.DARK_RED,
+    COLOR.MAGENTA,
+    COLOR.YELLOW,
+    COLOR.ORANGE,
+    COLOR.DARK_CYAN1_MOD,
+    COLOR.GRAY,
+    COLOR.DARK_GREEN1_MOD,
+    COLOR.LIGHT_BLUE,
+    COLOR.DARK_ORANGE_MOD,
+    COLOR.DARK_CYAN2_MOD,
+    COLOR.DARK_GREEN2_MOD,
+}
+current_color = -1
+function next_color()
+    current_color = (current_color + 1) % (#available_colors)
+    return available_colors[current_color + 1]
+end
+
 option = class()
 function option:init(...)
     object.init(self,...)
     self.scale = self.scale or 1/3
     self.offset = self.offset or 0
     self.starting_value = 0
+    self.color = next_color()
 end
 function option:init_start()
     self.starting_value = self:get_value()
@@ -87,7 +114,6 @@ ramp.options =
         name = "Shutter",
         source = camera.shutter,
         property = "apex",
-        color = COLOR.BLUE,
         min = -5,
         max = 12,
     },
@@ -95,7 +121,6 @@ ramp.options =
         name = "Aperture",
         source = camera.aperture,
         property = "apex",
-        color = COLOR.RED,
         min = camera.aperture.min.apex,
         max = camera.aperture.max.apex
     },
@@ -103,7 +128,6 @@ ramp.options =
         name = "ISO",
         source = camera.iso,
         property = "apex",
-        color = COLOR.GREEN1,
         min = 5,
         max = 11,
     },
@@ -111,7 +135,6 @@ ramp.options =
         name = "EC",
         source = camera.ec,
         property = "value",
-        color = COLOR.CYAN,
         min = -5,
         max = 5,
     },
@@ -119,20 +142,17 @@ ramp.options =
         name = "Flash EC",
         source = camera.flash_ec,
         property = "value",
-        color = COLOR.ORANGE,
         min = -5,
         max = 5,
     },
     focus_option {
         name = "Focus",
-        color = COLOR.DARK_RED,
         scale = 1,
     },
     wb_option {
         name = "WB",
         source = camera,
         property = "kelvin",
-        color = COLOR.MAGENTA,
         scale = 100,
         offset = 5500,
     },
@@ -140,7 +160,6 @@ ramp.options =
         name = "Interval",
         source = interval,
         property = "time",
-        color = COLOR.YELLOW,
         scale = 1
     },
 }
