@@ -7,7 +7,6 @@ require("class")
 
 available_colors = 
 {
-    COLOR.LIGHT_GRAY,
     COLOR.GREEN1,
     COLOR.CYAN,
     COLOR.RED,
@@ -24,6 +23,7 @@ available_colors =
     COLOR.DARK_ORANGE_MOD,
     COLOR.DARK_CYAN2_MOD,
     COLOR.DARK_GREEN2_MOD,
+    COLOR.LIGHT_GRAY,
 }
 current_color = -1
 function next_color()
@@ -367,7 +367,7 @@ function ramp:draw()
         end
         
         -- x-axis
-        display.line(tx(0), ty(0), tx(self.xmax), ty(0), COLOR.GRAY)
+        display.line(tx(self.xmin), ty(0), tx(self.xmax), ty(0), COLOR.GRAY)
         
         -- graphs
         for i,v in ipairs(self.options) do
