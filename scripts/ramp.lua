@@ -275,15 +275,28 @@ function ramp:handle_key(k)
         self.selected_option = self.selected_option + 1
         if self.selected_option > #(self.options) then self.selected_option = 1 end
     elseif k == KEY.LEFT then
-        if self.x > 0 then self.x = self.x - 1 end
+        self.x = self.x - 1
+        if self.x < self.xmin then self.x = self.xmax end
+    elseif k == KEY.WHEEL_LEFT then
+        self.x = self.x - 10
+        if self.x < self.xmin then self.x = self.xmax end
     elseif k == KEY.RIGHT then
         self.x = self.x + 1
+        if self.x > self.xmax then self.xmax = self.x end
+    elseif k == KEY.WHEEL_RIGHT then
+        self.x = self.x + 10
         if self.x > self.xmax then self.xmax = self.x end
     elseif k == KEY.UP then
         self.y = self.y + 1
         if self.y > self.ymax then self.ymax = self.y end
+    elseif k == KEY.WHEEL_UP then
+        self.y = self.y + 10
+        if self.y > self.ymax then self.ymax = self.y end
     elseif k == KEY.DOWN then
         self.y = self.y - 1
+        if self.y < self.ymin then self.ymin = self.y end
+    elseif k == KEY.WHEEL_DOWN then
+        self.y = self.y - 10
         if self.y < self.ymin then self.ymin = self.y end
     elseif k == KEY.SET then
         self:add_keyframe()
