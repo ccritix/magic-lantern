@@ -182,9 +182,9 @@ ramp.options =
 }
 
 ramp.selected_option = 1
-ramp.x = 0
+ramp.x = 1
 ramp.y = 0
-ramp.xmin = 0
+ramp.xmin = 1
 ramp.ymin = -15
 ramp.xmax = 10
 ramp.ymax = 15
