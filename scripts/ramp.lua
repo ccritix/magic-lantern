@@ -106,6 +106,23 @@ function interval_option:format(value)
 end
 function interval_option:init_start() end
 
+menu_option = class(option)
+function menu_option:init(p)
+    option.init(self,p)
+    self.scale = 1
+end
+function menu_option:format(value)
+    return tostring(self:convert(value))
+end
+function menu_option:set_value(value)
+    menu.set(self.parent, self.entry, self:convert(value))
+end
+function menu_option:get_value()
+    return menu.get(self.parent, self.name)
+end
+function menu_option:init_start() end
+
+
 ramp = {}
 
 ramp.options = 
