@@ -189,6 +189,7 @@ ramp.ymin = -15
 ramp.xmax = 10
 ramp.ymax = 15
 ramp.font = FONT.MED
+ramp.edit_help = "INFO->Toggle Target | SET->Add Keyframe | Arrows->Move Cursor | MENU->Exit"
 
 function linear_ramp(start_kf, end_kf, frame)
     return (frame - start_kf.frame) * (end_kf.value - start_kf.value) / (end_kf.frame - start_kf.frame) + start_kf.value;
@@ -395,6 +396,9 @@ function ramp:draw()
         local opt = self.options[self.selected_option]
         display.print(string.format("%s: %s", opt.name, opt:format(self.y)), max + 1, 1, self.font, COLOR.WHITE, COLOR.BLACK)
         display.print(string.format("frame: %s", self.x), max + 1, self.font.height + 1, self.font, COLOR.WHITE, COLOR.BLACK)
+        
+        --help
+        display.print(self.edit_help, 1, display.height - FONT.SMALL.height - 1, FONT.SMALL, COLOR.DARK_GRAY, COLOR.BLACK)
     end)
 end
 
