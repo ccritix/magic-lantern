@@ -53,6 +53,23 @@ function apex_option:convert_absolute(value)
     return self.starting_value - self:convert(value)
 end
 
+focus_option = class(option)
+function focus_option:set_value(value)
+    local delta = self:convert(value) - self.starting_value
+    if lens.focus(delta, 1) then
+        self.starting_value = self:convert(value)
+    end
+end
+function focus_option:get_value()
+    return self.starting_value
+end
+function focus_option:format(value)
+    return string.format("%d steps", self:convert(value))
+end
+function focus_option:init_start() 
+    self.starting_value = 0
+end
+
 wb_option = class(option)
 function wb_option:format(value)
     return string.format("%d K", self:convert(value))
@@ -109,6 +126,13 @@ ramp.options =
         min = -5,
         max = 5,
     },
+    focus_option {
+        name = "Focus",
+        color = COLOR.DARK_RED,
+        scale = 1,
+        offset = 0,
+        starting_value = 0
+    },
     wb_option {
         name = "WB",
         source = camera,
@@ -152,16 +176,18 @@ function event.intervalometer(count)
             end
         end
         for k,opt in pairs(ramp.options) do
-            if opt.keyframes and #(opt.keyframes) > 1 then
+            if opt.keyframes then
                 local prev_kf
                 for j,kf in pairs(opt.keyframes) do
                     if kf.frame == count then
                         ramp.log:writef("Ramping %s (%d): %s\n", opt.name, count, opt:format(kf.value))
                         opt:set_value(kf.value)
+                        break
                     elseif kf.frame > count and prev_kf then
                         local value = linear_ramp(prev_kf, kf, count)
                         ramp.log:writef("Ramping %s (%d): %s\n", opt.name, count, opt:format(value))
                         opt:set_value(value)
+                        break
                     end
                     prev_kf = kf
                 end
