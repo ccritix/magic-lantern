@@ -6,8 +6,8 @@ require("logger")
 require("class")
 
 option = class()
-function option:__init(p)
-    object.__init(self,p)
+function option:init(...)
+    object.init(self,...)
     self.scale = self.scale or 1/3
     self.offset = self.offset or 0
     self.starting_value = 0
@@ -40,9 +40,6 @@ end
 
 -- for Tv and Av, larger apex values are decreasing exposure
 apex_option = class(option)
-function apex_option:__init(p)
-    option.__init(self,p)
-end
 function apex_option:set_value(value)
     self.source[self.property] = self.starting_value - self:convert(value)
 end
@@ -64,7 +61,7 @@ function focus_option:get_value()
     return self.starting_value
 end
 function focus_option:format(value)
-    return string.format("%d steps", self:convert(value))
+    return string.format("%s steps", tostring(self:convert(value)))
 end
 function focus_option:init_start() 
     self.starting_value = 0
@@ -72,7 +69,7 @@ end
 
 wb_option = class(option)
 function wb_option:format(value)
-    return string.format("%d K", self:convert(value))
+    return string.format("%s K", tostring(self:convert(value)))
 end
 function wb_option:init_start() end
 
@@ -130,8 +127,6 @@ ramp.options =
         name = "Focus",
         color = COLOR.DARK_RED,
         scale = 1,
-        offset = 0,
-        starting_value = 0
     },
     wb_option {
         name = "WB",

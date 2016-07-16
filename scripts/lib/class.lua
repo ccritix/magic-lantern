@@ -41,32 +41,13 @@ function class(base_class)
     local constructor = function(f,...)
         local i = {}
         setmetatable(i,mt)
-        if t.__init then
-            t.__init(i,...)
-        end
+        i:init(...)
         return i
     end
     
     --[[---------------------------------------------------------------------------
     @type object
     ]]
-    
-    --[[---------------------------------------------------------------------------
-    The default object constructor simply takes a table as an argument and copies
-    that table's fields to the new object. To override this behavior, define an
-    __init function in your class. This is a private function that's not meant to 
-    be invoked directly, rather it is called by the actual constructor when a new 
-    instance is created
-    @tparam table p
-    @function __init
-    ]]
-    function t:__init(p)
-        if type(p) == "table" then
-            for k,v in pairs(p) do
-                self[k] = v
-            end
-        end
-    end
     
     --[[---------------------------------------------------------------------------
     Returns this instance's class definition table
@@ -110,3 +91,20 @@ end
 
 -- create a lowest level base class for all other types to based on
 object = class()
+
+--[[---------------------------------------------------------------------------
+The default object constructor simply takes a table as an argument and copies
+that table's fields to the new object. To override this behavior, define an
+init function in your class. This is a private function that's not meant to 
+be invoked directly, rather it is called by the actual constructor when a new 
+instance is created
+@tparam table p
+@function init
+]]
+function object:init(p)
+    if type(p) == "table" then
+        for k,v in pairs(p) do
+            self[k] = v
+        end
+    end
+end
