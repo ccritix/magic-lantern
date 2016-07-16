@@ -411,7 +411,8 @@ function ramp:draw()
         display.print(string.format("frame: %s", self.x), max + 1, self.font.height + 1, self.font, COLOR.WHITE, COLOR.BLACK)
         
         --help
-        display.print(self.edit_help, 1, display.height - FONT.SMALL.height - 1, FONT.SMALL, COLOR.DARK_GRAY, COLOR.BLACK)
+        display.rect(0, display.height - FONT.SMALL.height - 2, display.width, FONT.SMALL.height + 2, COLOR.DARK_GRAY, COLOR.DARK_GRAY)
+        display.print(self.edit_help, 1, display.height - FONT.SMALL.height - 1, FONT.SMALL, COLOR.LIGHT_GRAY, COLOR.DARK_GRAY)
     end)
 end
 
