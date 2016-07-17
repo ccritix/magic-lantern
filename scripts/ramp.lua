@@ -429,6 +429,14 @@ ramp.menu = menu.new
             max = 1,
             icon_type = ICON_TYPE.BOOL,
             help = "Enable advanced intervalometer ramping",
+            select = function(this)
+                if this.value == 0 then
+                    this.value = 1
+                else
+                    this.value = 0
+                end
+                ramp.menu.value = this.value
+            end
         },
         --[[ Not Implemented:
         {
@@ -470,7 +478,8 @@ function ramp.config:saving()
     end
 end
 --load config data
-ramp.menu.submenu["Enabled"].value = ramp.config.data.enabled or 0
+ramp.menu.value = ramp.config.data.enabled or 0
+ramp.menu.submenu["Enabled"].value = ramp.menu.value
 if ramp.config.data.ramp then
     for name,kf in pairs(ramp.config.data.ramp) do
         for k,opt in pairs(ramp.options) do
