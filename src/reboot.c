@@ -223,24 +223,22 @@ static void fail()
     while(1);
 }
 
-extern int compute_signature(int* start, int num);
-
 void
 __attribute__((noreturn))
 cstart( void )
 {
-    #if !(CURRENT_CAMERA_SIGNATURE)
+#if !(CURRENT_CAMERA_SIGNATURE)
     #warning Signature Checking bypassed!! Please use a proper signature
-    #else
-    int s = compute_signature((int*)SIG_START, SIG_LEN);
-    int _signature = (int)CURRENT_CAMERA_SIGNATURE;
-    if (s != _signature)
+#else
+    uint32_t s = compute_signature((void*)SIG_START, SIG_LEN);
+    uint32_t expected_signature = CURRENT_CAMERA_SIGNATURE;
+    if (s != expected_signature)
     {
         qprint("[boot] firmware signature: "); qprintn(s); qprint("\n");
-        qprint("                 expected: "); qprintn(_signature); qprint("\n");
+        qprint("                 expected: "); qprintn(expected_signature); qprint("\n");
         fail();
     }
-    #endif
+#endif
 
 #ifdef __ARM__
     /* turn on the LED as soon as autoexec.bin is loaded (may happen without powering on) */
