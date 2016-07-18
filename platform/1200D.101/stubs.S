@@ -2,7 +2,7 @@
  * Entry points into the firmware image.
  *
  * These are the functions that we can call from our tasks
- * in the Canon 1.0.0 firmware for the 1200d / Rebel T5.
+ * in the Canon 1.0.1 firmware for the 1200d / Rebel T5.
  *
  */
 /*
