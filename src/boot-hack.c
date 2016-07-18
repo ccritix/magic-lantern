@@ -424,7 +424,7 @@ static void backup_rom_task()
 #ifdef CONFIG_HELLO_WORLD
 static void hello_world()
 {
-    int sig = compute_signature((int*)SIG_START, 0x10000);
+    uint32_t sig = compute_signature((void*)SIG_START, 0x10000);
     while(1)
     {
         bmp_printf(FONT_LARGE, 50, 50, "Hello, World!");
