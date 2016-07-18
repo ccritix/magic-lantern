@@ -212,7 +212,8 @@ cstart( void )
 #else
     uint32_t s = compute_signature((void*)SIG_START, SIG_LEN);
     uint32_t expected_signature = CURRENT_CAMERA_SIGNATURE;
-    if (s != expected_signature)
+    uint32_t expected_signature_alt = CURRENT_CAMERA_SIGNATURE_ALT;
+    if (s != expected_signature && s != expected_signature_alt)
     {
         fail();
     }
