@@ -23,7 +23,6 @@
 #define SIG_7D_MASTER_203 0x640BF4D1 // from FF010000
 #define SIG_1100D_105 0x46de7624 // from FF010000
 #define SIG_1200D_100 0x9d609575 // from FF0C0000 (QEMU HelloWorld)
-#define SIG_1200D_101 0x9d618f81 // identical to 1.0.0, except version and build date
 #define SIG_6D_116   0x11cb1ed2 // from FF0C0000
 #define SIG_5D3_113  0x2e2f65f5 // from FF0C0000
 #define SIG_EOSM_202 0x2D7c6dcf // from FF0C0000
@@ -31,15 +30,6 @@
 #define SIG_700D_114 0x4b35ce13 // from FF0C0000
 // TODO: multiple 100D.100 out there :(
 #define SIG_100D_100 0x34443B7F
-
-#ifdef CONFIG_1200D
-/* 1200D: accept both firmware versions (1.0.0 and 1.0.1), since they are identical */
-#define CURRENT_CAMERA_SIGNATURE_ALT SIG_1200D_101
-#endif
-
-#ifndef CURRENT_CAMERA_SIGNATURE_ALT
-#define CURRENT_CAMERA_SIGNATURE_ALT CURRENT_CAMERA_SIGNATURE
-#endif
 
 static uint32_t compute_signature(uint32_t * start, uint32_t num)
 {
