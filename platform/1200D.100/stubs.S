@@ -247,7 +247,6 @@ NSTUB(0xFF10C850, _prop_cleanup)
 NSTUB(0xFF10C0C8, _prop_request_change)
 NSTUB(0xFF10C6A8,  prop_deliver)
 NSTUB(0xFF10C730,  prop_register_slave)
-NSTUB(0xFF10D50C,  PROPAD_GetPropertyData)                  /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 50D.109, 5D2.212, 600D.102, 550D.109 */
 // NSTUB(    ???,  prop_unregister_slave)                   /* present on 7D.203 */
 
 /** RPC (for 7D) **/
@@ -294,6 +293,7 @@ NSTUB(0xFF2B74D8,  vsnprintf)
 NSTUB(0xFF114874,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */
-NSTUB(0xFF623900,  memcpy)                                  /* present on 7D_MASTER.203 */
  
 /** Unused stubs or porting notes **/
+///NSTUB(0xFF623900,  memcpy)                               /* present on 7D_MASTER.203 */
+///NSTUB(0xFF10D50C,  PROPAD_GetPropertyData)               /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 50D.109, 5D2.212, 600D.102, 550D.109 */
