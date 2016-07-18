@@ -57,14 +57,14 @@ NSTUB(    0x1C18,  gui_main_struct)
 NSTUB(    0xA528,  gui_task_list)
 NSTUB(0xFF0D1590,  GUI_ChangeMode)
 NSTUB(0xFF0D1490,  GUI_Control)
+NSTUB(0xFF2E94E8,  GUI_SetLvMode)                           /* ??? present on 500D.111, 50D.109, 5D2.212 */
+NSTUB(0xFF2E971C,  Gui_SetSoundRecord)                      /* ??? present on 6D.113, 5D2.212 */
 NSTUB(0xFF157514,  SetGUIRequestMode)
 NSTUB(0xFF0D1AF0,  gui_init_end)
 NSTUB(0xFF0D10D4,  gui_main_task)
 NSTUB(0xFF159590,  gui_massive_event_loop)
-NSTUB(0xFF2E94E8,  GUI_SetLvMode)                           /* ??? present on 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  GUI_SetMovieSize_a)                      /* present on 50D.109 */
 // NSTUB(    ???,  GUI_SetMovieSize_b)                      /* present on 50D.109 */
-NSTUB(0xFF2E971C,  Gui_SetSoundRecord)                      /* ??? present on 6D.113, 5D2.212 */
 
 /** ASIF **/
 NSTUB(0xFF108C54,  PowerAudioOutput)
@@ -89,16 +89,17 @@ NSTUB(0xFF2AD25C, _audio_ic_write)
 NSTUB(0xFF69B488,  audio_thresholds)
 NSTUB(0xFF10888C,  sounddev_active_in)
 NSTUB(0xFF108488,  sounddev_task)
+// NSTUB(    ???, _audio_ic_write_bulk)                     /* present on 6D.116 */
 
 /** Bitmap **/
 NSTUB(   0x1BBE0,  LCD_Palette)
 NSTUB(   0x1D3E0,  bmp_vram_info)
 
 /** CFN **/
+NSTUB(0xFF42AEE0,  GUI_SetCFnForTab4)                       /* ??? present on 7D.203 */
 NSTUB(0xFF5FB8EC,  GetCFnData)
 NSTUB(0xFF5FBB18,  SetCFnData)
 // NSTUB(    ???,  GUI_GetCFnForTab4)                       /* ??? present on 7D.203 */
-NSTUB(0xFF42AEE0,  GUI_SetCFnForTab4)                       /* ??? present on 7D.203 */
 
 /** Camera interface? **/
 NSTUB(0xC0220000,  camera_engine)
@@ -121,16 +122,16 @@ NSTUB(0xFF4250E0,  ErrForCamera_handler)
 NSTUB(0xFF43C08C,  HideUnaviFeedBack_maybe)
 NSTUB(0xFF440B90,  LiveViewApp_handler)
 NSTUB(0xFF441218,  LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState)
-NSTUB(0xFF442864,  LiveViewApp_handler_end) // mk11174
+NSTUB(0xFF442864,  LiveViewApp_handler_end)                 // mk11174
+NSTUB(0xFF44E238,  LiveViewWbApp_handler)                   /* present on 7D.203, 5D3.113, 5D2.212 */
 NSTUB(0xFF45BDB4,  PlayMain_handler)
 NSTUB(0xFF56AD08,  PlayMovieGuideApp_handler)
 NSTUB(0xFF44F9DC,  ShootOlcApp_handler)
-// NSTUB(    ???,  LiveViewLevelApp_handler)                /* present on 5D3.113 */
-// NSTUB(    ???,  LiveViewShutterApp_handler)
-NSTUB(0xFF44E238,  LiveViewWbApp_handler)                   /* present on 7D.203, 5D3.113, 5D2.212 */
-// NSTUB(    ???,  LiveViewWifiApp_handler)                 /* present on 6D.113 */
 NSTUB(0xFF56D8AC,  StartPlayProtectGuideApp)                /* present on 7D.203, 5D2.212 */
 NSTUB(0xFF56D4CC,  StopPlayProtectGuideApp)                 /* present on 7D.203, 5D2.212 */
+// NSTUB(    ???,  LiveViewLevelApp_handler)                /* present on 5D3.113 */
+// NSTUB(    ???,  LiveViewShutterApp_handler)
+// NSTUB(    ???,  LiveViewWifiApp_handler)                 /* present on 6D.113 */
 
 /** Display **/
 NSTUB(0xFF403F90,  MirrorDisplay)
@@ -168,10 +169,10 @@ NSTUB(0xFF2B9360,  TryPostStageEvent)
 NSTUB(0xFF2B93BC,  TryPostStageEvent_end)
 
 /** ExMem **/
-NSTUB(0xFF124E8C,  AddMemoryChunk)            // called before " 32(Src,bytes,Unit)=(%#lx,%#lx,%#lx)" in many places; see also hAddSuite
+NSTUB(0xFF124E8C,  AddMemoryChunk)                          // called before " 32(Src,bytes,Unit)=(%#lx,%#lx,%#lx)" in many places; see also hAddSuite
 NSTUB(0xFF1279B4,  AllocateContinuousMemoryResource)
 NSTUB(0xFF127968,  AllocateMemoryResource)
-NSTUB(0xFF124408,  CreateMemoryChunk)         // called from CreateMemorySuite
+NSTUB(0xFF124408,  CreateMemoryChunk)                       // called from CreateMemorySuite
 NSTUB(0xFF124BE8,  CreateMemorySuite)
 NSTUB(0xFF124A1C,  DeleteMemorySuite)
 NSTUB(0xFF127AAC,  FreeMemoryResource)
@@ -182,22 +183,22 @@ NSTUB(0xFF0D9B14,  SRM_AllocateMemoryResourceFor1stJob)
 NSTUB(0xFF0DC3A8,  SRM_FreeMemoryResourceFor1stJob)
 
 /** GUI for old cameras **/
-// NSTUB(    ???,  gui_change_lcd_state_post)               /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
 NSTUB(0xFF0D185C,  gui_change_mode)                         /* present on 7D.203, 500D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
 NSTUB(0xFF15C470,  gui_change_shoot_type_post)              /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
-// NSTUB(    ???,  gui_init_event)                          /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
 NSTUB(0xFF15BBA0,  gui_local_post)                          /* present on 7D.203, 500D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
 NSTUB(0xFF15C150,  gui_other_post)                          /* present on 7D.203, 500D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
+// NSTUB(    ???,  gui_change_lcd_state_post)               /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
+// NSTUB(    ???,  gui_init_event)                          /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_post_10000085)                       /* present on 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_timer_something)                     /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_timer_struct)                        /* present on 7D.203, 500D.111, 60D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
 
 /** GUI timers **/
+NSTUB(0xFF437180,  CancelDateTimer)                         /* present on 7D.203, 6D.113, 5D3.113 */
 NSTUB(0xFF1292BC,  CancelTimer)
 NSTUB(0xFF120F28,  SetHPTimerAfterNow)
 NSTUB(0xFF12101C,  SetHPTimerNextTick)
 NSTUB(0xFF1290BC,  SetTimerAfter)
-NSTUB(0xFF437180,  CancelDateTimer)                         /* present on 7D.203, 6D.113, 5D3.113 */
 
 /** H264 Encoder **/
 NSTUB(    0x5A14,  mvr_config)
@@ -217,9 +218,10 @@ NSTUB(0xFF134BB8,  DispSensorStart)
 // NSTUB(    ???,  LightMeasure_n_Callback_r0)              /* present on 7D.203, 5D2.212 */
 
 /** Making the card bootable **/
+NSTUB(   0x14FEC,  cf_device)                               // mk11174
 NSTUB(   0x15010,  sd_device)                               // mk11174 (0x15010)
 NSTUB(0xFF4F93E8,  fsuDecodePartitionTable)
-NSTUB(   0x14FEC,  cf_device)                               // mk11174
+// NSTUB(    ???,  cf_device_ptr)                           /* present on 5D3.113 */
 
 /** Memory allocation **/
 NSTUB(0xFF123440,  GetMemoryInformation)
@@ -283,17 +285,17 @@ NSTUB(0xFF122770,  msleep)
 /** Tasks **/
 NSTUB(    0x193C,  task_dispatch_hook)
 NSTUB(0xFF122824,  task_create)
-NSTUB(0xFF12F67C,  task_trampoline)                      // mk11174
+NSTUB(0xFF12F67C,  task_trampoline)                         // mk11174
 // NSTUB(    ???,  current_task_ctx)                        /* present on 7D.203 */
 // NSTUB(    ???,  next_task_ctx)                           /* present on 7D.203 */
 
 /** Misc **/
+NSTUB(0xFF114874,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
 NSTUB(0xFF11AEE0,  LoadCalendarFromRTC)
 NSTUB(0xFF2B74D8,  vsnprintf)
-NSTUB(0xFF114874,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */
- 
+
 /** Unused stubs or porting notes **/
-///NSTUB(0xFF623900,  memcpy)                               /* present on 7D_MASTER.203 */
 ///NSTUB(0xFF10D50C,  PROPAD_GetPropertyData)               /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 50D.109, 5D2.212, 600D.102, 550D.109 */
+///NSTUB(0xFF623900,  memcpy)                               /* present on 7D_MASTER.203 */
