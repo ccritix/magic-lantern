@@ -147,7 +147,7 @@ def merge_stubs(stubs1, stubs2):
         if name in n2s2:
             other_categ = n2s2[name].categ
 
-            if stub.categ != other_categ:
+            if stub.categ != other_categ and other_categ != porting_notes_categ:
                 if stub.categ == "Misc" or other_categ in preferred_categs:
                     c2s1[stub.categ].remove(stub)
                     stub.categ = other_categ
