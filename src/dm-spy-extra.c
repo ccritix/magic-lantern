@@ -93,6 +93,11 @@ static struct logged_func logged_functions[] = {
     { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
     #endif
 
+    #ifdef CONFIG_500D
+    { 0xFF18A884, "mpu_send", 2, mpu_send_log },
+    { 0xFF05C1F0, "mpu_recv", 1, mpu_recv_log},
+    #endif
+
     #ifdef CONFIG_550D
     { 0xFF1BB02C, "mpu_send", 2, mpu_send_log },
     { 0xFF05A3AC, "mpu_recv", 1, mpu_recv_log},
