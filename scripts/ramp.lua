@@ -111,6 +111,9 @@ function menu_option:init(p)
     option.init(self,p)
     self.scale = 1
 end
+function menu_option:convert(value)
+    return math.floor(value)
+end
 function menu_option:format(value)
     return tostring(self:convert(value))
 end
@@ -121,6 +124,11 @@ function menu_option:get_value()
     return menu.get(self.parent, self.name)
 end
 function menu_option:init_start() end
+
+menu_time_option = class(menu_option)
+function menu_time_option:format(value)
+    return string.format("%2d:%02d", math.floor(value // 60), math.floor(value % 60))
+end
 
 
 ramp = {}
@@ -179,6 +187,72 @@ ramp.options =
         property = "time",
         scale = 1
     },
+    menu_time_option {
+        name = "Bulb Timer",
+        parent = "Bulb Timer",
+        entry = "Exposure duration",
+        min = 1
+    },
+    menu_option {
+        name = "AutoETTR",
+        parent = "Shoot",
+        entry = "Auto ETTR",
+        min = 0,
+        max = 1,
+    },
+    menu_option {
+        name = "Slowest Shutter",
+        parent = "Auto ETTR",
+        entry = "Slowest shutter",
+    },
+    menu_option {
+        name = "Midtone SNR",
+        parent = "Auto ETTR",
+        entry = "Midtone SNR limit",
+    },
+    menu_option {
+        name = "Shadow SNR",
+        parent = "Auto ETTR",
+        entry = "Shadow SNR limit",
+    },
+    menu_option {
+        name = "Dual ISO",
+        parent = "Shoot",
+        entry = "Dual ISO",
+        min = 0,
+        max = 1,
+    },
+    menu_option {
+        name = "Recovery ISO",
+        parent = "Dual ISO",
+        entry = "Recovery ISO",
+    },
+    menu_option {
+        name = "Bracketing",
+        parent = "Shoot",
+        entry = "Advanced Bracket",
+        min = 0,
+        max = 1,
+    },
+    menu_option {
+        name = "Frames",
+        parent = "Advanced Bracket",
+        entry = "Frames",
+        min = 0,
+        max = 12,
+    },
+    menu_option {
+        name = "EV",
+        parent = "Advanced Bracket",
+        entry = "EV increment",
+    },
+    menu_option {
+        name = "Silent Pic",
+        parent = "Shoot",
+        entry = "Silent Picture",
+        min = 0,
+        max = 1,
+    }
 }
 
 ramp.selected_option = 1
