@@ -107,7 +107,7 @@
 //~ #define CONFIG_EVF_STATE_SYNC
 
 /** This camera loads ML into the AllocateMemory pool **/
-//~ #define CONFIG_ALLOCATE_MEMORY_POOL
+#define CONFIG_ALLOCATE_MEMORY_POOL
 
 /** FPS override: we can change both timer A and B */
 //~ #define CONFIG_FPS_TIMER_A_ONLY
