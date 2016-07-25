@@ -12,3 +12,6 @@
 #undef FEATURE_AUDIO_REMOTE_SHOT
 
 #undef FEATURE_ARROW_SHORTCUTS
+
+/* it writes to LiveView buffer, which is not yet known */
+#undef FEATURE_MAGIC_ZOOM
