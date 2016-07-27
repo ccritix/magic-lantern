@@ -64,8 +64,8 @@
 //~ #define CONFIG_ZOOM_BTN_NOT_WORKING_WHILE_RECORDING
 
 /** We can redirect the display buffer to some arbitrary address, just by changing YUV422_LV_BUFFER_DISPLAY_ADDR **/
-//~ #define CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY
-//~ #define CONFIG_CAN_REDIRECT_DISPLAY_BUFFER
+#define CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY
+#define CONFIG_CAN_REDIRECT_DISPLAY_BUFFER
 
 /** Therefore, we can implement display filters (features that alter the LiveView image in real-time) **/
 //~ #define CONFIG_DISPLAY_FILTERS
@@ -79,8 +79,8 @@
 /** We can't change ExpSim from ML :( **/
 //~ #define CONFIG_EXPSIM
 
-/** We can playback sounds via ASIF DMA **/
-#define CONFIG_BEEP
+/** We can't playback sounds via ASIF DMA **/
+//~ #define CONFIG_BEEP
 
 /** This camera has trouble saving Kelvin and/or WBShift in movie mode, so ML has to do this instead **/
 #define CONFIG_WB_WORKAROUND
@@ -90,7 +90,7 @@
 
 /** We can use DMA_MEMCPY but it has no real benefit **/
 //~ #define CONFIG_DMA_MEMCPY
-/** We don't know how to use edmac_memcpy. This one is really fast (600MB/s!) */
+/** We do know how to use edmac_memcpy. This one is really fast (600MB/s!) */
 #define CONFIG_EDMAC_MEMCPY
 
 /** We should't warn the user if movie exposure is Auto **/
