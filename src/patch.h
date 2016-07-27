@@ -141,7 +141,6 @@ int reapply_cache_patches();
  * - patches only a single address (slightly lower chances of collision)
  * - does not patch anything when the hook is triggered (self-modifying code runs only once, when set up => faster and less stuff that can break)
  * - uses less black magic (easy to understand by ASM noobs like me)
- * - limitation: it does not save/restore the flags, so it will have problems with conditional jumps
  * - hooking on instructions that do relative addressing is not fully supported; LDR Rn, [PC, #off] is fine (relocated)
  * - regs contain R0-R12 and LR (be careful)
  * - first 4 args of the inspected function are in regs[0] ... regs[3]

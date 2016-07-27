@@ -58,7 +58,7 @@ union logging_hook_code
 {
     struct
     {
-        uint32_t arm_asm[7];        /* ARM ASM code for jumping to the logging function and back */
+        uint32_t arm_asm[11];       /* ARM ASM code for jumping to the logging function and back */
         uint32_t reloc_insn;        /* original instruction, relocated */
         uint32_t jump_back;         /* instruction to jump back to original code */
         uint32_t addr;              /* patched address (for identification) */
@@ -66,7 +66,7 @@ union logging_hook_code
         uint32_t logging_function;  /* for long call */
     };
 
-    uint32_t code[12];
+    uint32_t code[16];
 };
 
 static struct patch patches[MAX_PATCHES] = {{0}};
@@ -920,11 +920,15 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     /* create the logging code */
     *hook = (union logging_hook_code) { .code = {
         0xe92d5fff,     /* STMFD  SP!, {R0-R12,LR}  ; save all regs to stack */
-        0xe1a0000d,     /* MOV    R0, SP            ; pass them to logging function as first arg */
-        0xe28d1038,     /* ADD    R1, SP, #56       ; pass stack pointer to logging function */
-        0xe59f2010,     /* LDR    R2, [PC,#16]      ; pass patched address to logging function */
+        0xe10f0000,     /* MRS    R0, CPSR          ; save CPSR (flags) */
+        0xe92d0001,     /* STMFD  SP!, {R0}         ; to stack */
+        0xe28d0004,     /* ADD    R0, SP, #4        ; pass them to logging function as first arg */
+        0xe28d103c,     /* ADD    R1, SP, #60       ; pass stack pointer to logging function */
+        0xe59f2018,     /* LDR    R2, [PC,#24]      ; pass patched address to logging function */
         0xe1a0e00f,     /* MOV    LR, PC            ; setup return address for long call */
-        0xe59ff010,     /* LDR    PC, [PC,#16]      ; long call to logging_function */
+        0xe59ff018,     /* LDR    PC, [PC,#24]      ; long call to logging_function */
+        0xe8bd0001,     /* LDMFD  SP!, {R0}         ; restore CPSR */
+        0xe128f000,     /* MSR    CPSR_f, R0        ; (flags only) from stack */
         0xe8bd5fff,     /* LDMFD  SP!, {R0-R12,LR}  ; restore regs */
         reloc_instr(                                
             addr,                           /*      ; relocate the original instruction */
