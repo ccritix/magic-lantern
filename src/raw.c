@@ -82,7 +82,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_LV_EDMAC 0xC0F26008
 #endif
 
-#if defined(CONFIG_DIGIC_V) || defined(CONFIG_600D) || defined(CONFIG_60D)
+#if defined(CONFIG_DIGIC_V) || defined(CONFIG_600D) || defined(CONFIG_60D) || defined(CONFIG_1200D)
 /* probably all new cameras use this address */
 #define RAW_LV_EDMAC 0xC0F26208
 #endif
@@ -594,6 +594,13 @@ static int raw_update_params_work()
         #warning FIXME: are these values correct for 720p and crop modes?
         skip_top    = 26;
         skip_left   = zoom ? 0 : 256;
+        #endif
+        
+        #ifdef CONFIG_1200D
+        skip_top    = 28;
+        skip_left   = zoom ? 0 : 152;
+        skip_right  = zoom ? 0 : 2;
+        skip_bottom = zoom ? 4 : 0;
         #endif
 
         dbg_printf("LV raw buffer: %x (%dx%d)\n", raw_info.buffer, width, height);
