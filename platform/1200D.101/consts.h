@@ -4,7 +4,7 @@
 
 #define CANON_SHUTTER_RATING 100000
 
-#define MVR_992_STRUCT (*(void**)0x1E20) // mk11174
+#define MVR_992_STRUCT (*(void**)0x1E2C) // alex
 
 // Copy from 600d
 
@@ -99,9 +99,9 @@
 #define DRYOS_ASSERT_HANDLER 0x1A18 // dec TH_assert or assert_0
 
 // Found by Alex using Heavendew dump
-#define YUV422_LV_BUFFER_1 0x41ae8e50
-#define YUV422_LV_BUFFER_2 0x412c8e50
-#define YUV422_LV_BUFFER_3 0x416d8e50
+#define YUV422_LV_BUFFER_1 0x40d07800
+#define YUV422_LV_BUFFER_2 0x4c233800
+#define YUV422_LV_BUFFER_3 0x4f11d800
 
 #define YUV422_HD_BUFFER_1 0x468cb600
 #define YUV422_HD_BUFFER_2 0x47465c00
