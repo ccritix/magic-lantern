@@ -291,7 +291,7 @@ NSTUB(0xFF12F67C,  task_trampoline)                         // mk11174
 
 /** Misc **/
 NSTUB(0xFF114874,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
-NSTUB(0xFF11AD58,  LoadCalendarFromRTC)                     // mk11174
+NSTUB(0xFF11AEE0,  LoadCalendarFromRTC)
 NSTUB(   0x753F0,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */   // mk11174
 NSTUB(0xFF2B74D8,  vsnprintf)
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
