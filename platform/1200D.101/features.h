@@ -12,3 +12,6 @@
 #undef FEATURE_AUDIO_REMOTE_SHOT
 
 #undef FEATURE_ARROW_SHORTCUTS
+
+// Causes green tint on live view
+#undef FEATURE_LV_BRIGHTNESS_CONTRAST
