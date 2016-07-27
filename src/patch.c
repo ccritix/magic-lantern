@@ -58,7 +58,9 @@ union logging_hook_code
 {
     struct
     {
-        uint32_t arm_asm[9];        /* ARM ASM code for jumping to the logging function and back */
+        uint32_t arm_asm[7];        /* ARM ASM code for jumping to the logging function and back */
+        uint32_t reloc_insn;        /* original instruction, relocated */
+        uint32_t jump_back;         /* instruction to jump back to original code */
         uint32_t addr;              /* patched address (for identification) */
         uint32_t fixup;             /* for relocating instructions that do PC-relative addressing */
         uint32_t logging_function;  /* for long call */
@@ -906,8 +908,8 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     
     /* check the jumps we are going to use */
     /* fixme: use long jumps? */
-    if (!check_jump_range((uint32_t) &hook->code[8], (uint32_t) addr + 4) ||
-        !check_jump_range((uint32_t) addr,           (uint32_t) hook))
+    if (!check_jump_range((uint32_t) &hook->reloc_insn, (uint32_t) addr + 4) ||
+        !check_jump_range((uint32_t) addr,              (uint32_t) hook))
     {
         snprintf(last_error, sizeof(last_error), "Patch error at %x (jump out of range)", addr);
         puts(last_error);
@@ -926,10 +928,10 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
         0xe8bd5fff,     /* LDMFD  SP!, {R0-R12,LR}  ; restore regs */
         reloc_instr(                                
             addr,                           /*      ; relocate the original instruction */
-            (uint32_t) &hook->code[7],      /*      ; from the patched address */
+            (uint32_t) &hook->reloc_insn,   /*      ; from the patched address */
             (uint32_t) &hook->fixup         /*      ; (it might need a fixup) */
         ),
-        B_INSTR(&hook->code[8], addr + 4),  /*      ; jump back to original code */
+        B_INSTR(&hook->jump_back, addr + 4),/*      ; jump back to original code */
         addr,                               /*      ; patched address (for identification) */
         hook->fixup,                        /*      ; this is updated by reloc_instr */
         (uint32_t) logging_function,
