@@ -1069,6 +1069,8 @@ static unsigned int adtg_gui_init()
     {
         ADTG_WRITE_FUNC = 0xFF3A246C; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0xFF3A265C; //"[REG] ############ Start CMOS"
+        ENGIO_WRITE_FUNC = 0xFF29DF84;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF29DBB8;
     }
     else return CBR_RET_ERROR;
 
