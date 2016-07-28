@@ -45,6 +45,9 @@
     #elif defined(CONFIG_600D)
         #define BUF_ADDR 0x4F6BD940                 /* BANK8_FREE1, hopefully unused */
         #define BUF_SIZE 0x000E2740                 /* 0.88M */
+    #elif defined(CONFIG_100D)
+        #define BUF_ADDR 0x47E00000                 /* maybe free, by CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP */
+        #define BUF_SIZE 0x00F00000                 /* 15M */
     #else
         #define BUF_SIZE (64*1024)
         #warning debug message buffer might be too small.
