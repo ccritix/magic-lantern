@@ -1064,10 +1064,15 @@ static unsigned int adtg_gui_init()
     {
         ADTG_WRITE_FUNC = 0x178FC; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0x17A1C; //"[REG] ############ Start CMOS"
-    }    
+    }
+    else if (is_camera("1200D", "1.0.1"))
+    {
+        ADTG_WRITE_FUNC = 0xFF3A246C; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
+        CMOS_WRITE_FUNC = 0xFF3A265C; //"[REG] ############ Start CMOS"
+    }
     else return CBR_RET_ERROR;
 
-    
+
     menu_add("Debug", adtg_gui_menu, COUNT(adtg_gui_menu));
     return 0;
 }
