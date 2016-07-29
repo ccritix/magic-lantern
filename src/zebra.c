@@ -1047,12 +1047,7 @@ void bvram_mirror_init()
 {
     if (!bvram_mirror_start)
     {
-        #if defined(RSCMGR_MEMORY_PATCH_END)
-        extern unsigned int ml_reserved_mem;
-        bvram_mirror_start = (uint8_t*) (RESTARTSTART + ml_reserved_mem);
-        #else
         bvram_mirror_start = (void*)malloc(BMP_VRAM_SIZE);
-        #endif
         if (!bvram_mirror_start) 
         {   
             while(1)

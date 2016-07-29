@@ -766,20 +766,6 @@ my_init_task(int a, int b, int c, int d)
     tskmon_init();
     #endif
     
-
-#if defined(RSCMGR_MEMORY_PATCH_END)
-    /* another new method for memory allocation, hopefully the last one :) */
-    uint32_t orig_length = MEM(RSCMGR_MEMORY_PATCH_END);
-    /* 0x00D00000 is the start address of its memory pool and we expect that it goes until 0x60000000, so its (0x20000000-0x00D00000) bytes */
-    uint32_t new_length = (RESTARTSTART & 0xFFFF0000) - 0x00D00000;
-    
-    /* figured out that this is nonsense... */
-    //cache_fake(RSCMGR_MEMORY_PATCH_END, new_length, TYPE_DCACHE);
-    
-    /* RAM for ML is the difference minus BVRAM that is placed right behind ML */
-    ml_reserved_mem = orig_length - new_length - BMP_VRAM_SIZE - 0x200;
-    
-#else  
     uint32_t orig_instr = MEM(HIJACK_CACHE_HACK_BSS_END_ADDR);
     uint32_t new_instr = HIJACK_CACHE_HACK_BSS_END_INSTR;  
     /* get and check the reserved memory size for magic lantern to prevent invalid setups to crash camera */
@@ -823,7 +809,6 @@ my_init_task(int a, int b, int c, int d)
         cache_fake(HIJACK_CACHE_HACK_ALLOCMEM_SIZE_ADDR, HIJACK_CACHE_HACK_ALLOCMEM_SIZE_INSTR, TYPE_ICACHE);
     #endif
     }
-#endif
 
     #ifdef CONFIG_6D
     //Hijack GUI Task Here - Now we're booting with cache hacks and have menu.
