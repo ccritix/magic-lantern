@@ -97,6 +97,34 @@ disable_icache( void )
 }
 
 static inline void
+disable_write_buffer( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "bic %0, %0, #0x8\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+
+static inline void disable_all_caches()
+{
+    asm(
+        "mrc p15, 0, r0, c1, c0, 0\n"   /* read SCTLR */
+        "bic r0, #0x4\n"                /* disable data and unified caches */
+        "bic r0, #0x8\n"                /* disable write buffer */
+        "bic r0, #0x1000\n"             /* disable instruction cache */
+        "mcr p15, 0, r0, c1, c0, 0\n"   /* write back SCTLR */
+        "mov r0, #0\n"
+        "mcr p15, 0, r0, c2, c0, 0\n"   /* disable data cache on all memory regions */
+        "mcr p15, 0, r0, c2, c0, 1\n"   /* disable instruction cache on all memory regions */
+        "mcr p15, 0, r0, c3, c0, 0\n"   /* disable write buffer on all memory regions */
+        : : : "r0"
+    );
+}
+
+static inline void
 enable_dcache( void )
 {
     uint32_t reg;
@@ -115,6 +143,18 @@ enable_icache( void )
     asm(
         "mrc p15, 0, %0, c1, c0\n"
         "orr %0, %0, #0x1000\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+
+static inline void
+enable_write_buffer( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "orr %0, %0, #0x8\n"
         "mcr p15, 0, %0, c1, c0\n"
         : "=r"(reg)
     );

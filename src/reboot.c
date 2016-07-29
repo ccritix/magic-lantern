@@ -720,8 +720,10 @@ cstart( void )
     disp_init();
     
     /* disable caching (seems to interfere with ROM dumping) */
-    disable_dcache();
-    disable_icache();
+    //~ disable_dcache();
+    //~ disable_icache();
+    //~ disable_write_buffer();
+    disable_all_caches();
     
     print_line(COLOR_CYAN, 3, "  Magic Lantern Rescue\n");
     print_line(COLOR_CYAN, 3, " ----------------------------\n");
