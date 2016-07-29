@@ -48,6 +48,9 @@
     #elif defined(CONFIG_100D)
         #define BUF_ADDR 0x47E00000                 /* maybe free, by CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP */
         #define BUF_SIZE 0x00F00000                 /* 15M */
+    #elif defined(CONFIG_7D)
+        #define BUF_ADDR 0x5CC00000                 /* FREE2, hopefully unused, from 0x5CBD3980 size 0x00316680 */
+        #define BUF_SIZE 0x00100000                 /* use 1M */
     #else
         #define BUF_SIZE (64*1024)
         #warning debug message buffer might be too small.
@@ -70,6 +73,11 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
         
     if (class == 21) // engio, lots of messages
         return;
+    
+    #ifdef CONFIG_7D
+    if (class == 0x3E) // IPC, causes ERR70
+        return;
+    #endif
     
     va_list            ap;
 
