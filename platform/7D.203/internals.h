@@ -132,3 +132,6 @@
 
 /** This camera loads ML into the AllocateMemory pool **/
 #define CONFIG_ALLOCATE_MEMORY_POOL
+
+/** Use memory that appears unused by RscMgr */
+#define CONFIG_RSCMGR_UNUSED_SPACE

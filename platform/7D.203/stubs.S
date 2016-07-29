@@ -237,6 +237,12 @@ NSTUB(0xFF20DA84, _free_dma_memory)
 NSTUB(0xFF0162F0, _malloc)
 // NSTUB(    ???,  free_dma_memory)                         /* present on 7D_MASTER.203 */
 
+/** Low-level allocators */
+NSTUB(0xFF07C53C, init_memory_pool)            // used to init the AllocateMemory pool and others
+NSTUB(0xFF07CBB4, allocate_memory_from_pool)   // called from AllocateMemory
+NSTUB(0xFF07CE20, free_memory_to_pool)         // called from FreeMemory
+NSTUB(0xFF07C9E0, get_max_region_of_pool)      // called from GetSizeOfMaxRegion
+
 /** Message queues **/
 NSTUB(0xFF205E9C,  msg_queue_count)
 NSTUB(0xFF07FC28,  msg_queue_create)
