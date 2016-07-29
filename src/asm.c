@@ -76,7 +76,7 @@ uint32_t find_func_called_before_string_ref(char* ref_string)
     uint32_t answer = 0;
     
     /* only scan the bootloader RAM area */
-    for (uint32_t i = 0x40100000; i < 0x40110000; i += 4 )
+    for (uint32_t i = 0x100000; i < 0x110000; i += 4 )
     {
         uint32_t this = MEM(i);
         uint32_t next = MEM(i+4);
@@ -94,7 +94,7 @@ uint32_t find_func_called_before_string_ref(char* ref_string)
                 uint32_t func_offset = (this & 0x00FFFFFF) << 2;
                 uint32_t pc = i;
                 uint32_t func_addr = pc + func_offset + 8;
-                if (func_addr > 0x40100000 && func_addr < 0x40110000)
+                if (func_addr > 0x100000 && func_addr < 0x110000)
                 {
                     /* looks ok? */
                     answer = func_addr;
@@ -115,7 +115,7 @@ uint32_t find_func_called_before_string_ref(char* ref_string)
 uint32_t find_func_from_string(char* string, int Rd, uint32_t max_start_offset)
 {
     /* only scan the bootloader RAM area */
-    for (uint32_t i = 0x40100000; i < 0x40110000; i += 4 )
+    for (uint32_t i = 0x100000; i < 0x110000; i += 4 )
     {
         /* look for: add Rd, pc, #offset */
         uint32_t insn = MEM(i);
@@ -127,7 +127,7 @@ uint32_t find_func_from_string(char* string, int Rd, uint32_t max_start_offset)
             int dest = pc + offset + 8;
             if (strcmp((char*)dest, string) == 0)
             {
-                uint32_t func_start = locate_func_start(i, 0x40100000);
+                uint32_t func_start = locate_func_start(i, 0x100000);
                 if (func_start && (i > func_start) && (i < func_start + max_start_offset))
                 {
                     /* looks OK, start of function is not too far from the string reference */
