@@ -679,15 +679,27 @@ void dump_rom_with_canon_routines()
         boot_card_init();
     }
 
-    printf(" - Dumping ROM0 (attempt 1)...\n");
-    boot_dump(DRIVE_SD, "ROM0A.BIN", 0xF0000000, 0x01000000);
-    printf(" - Dumping ROM1 (attempt 1)...\n");
-    boot_dump(DRIVE_SD, "ROM1A.BIN", 0xF8000000, 0x01000000);
+    if (is_digic6())
+    {
+        printf(" - Dumping ROM1 (attempt 1)...\n");
+        boot_dump(DRIVE_SD, "ROM1A.BIN", 0xFC000000, 0x02000000);
+        printf(" - Dumping ROM1 (attempt 2)...\n");
+        boot_dump(DRIVE_SD, "ROM1B.BIN", 0xFE000000, 0x02000000);
+        printf(" - Dumping ROM1 (attempt 3)...\n");
+        boot_dump(DRIVE_SD, "ROM1C.BIN", 0xFD000000, 0x02000000);
+    }
+    else
+    {
+        printf(" - Dumping ROM0 (attempt 1)...\n");
+        boot_dump(DRIVE_SD, "ROM0A.BIN", 0xF0000000, 0x01000000);
+        printf(" - Dumping ROM1 (attempt 1)...\n");
+        boot_dump(DRIVE_SD, "ROM1A.BIN", 0xF8000000, 0x01000000);
 
-    printf(" - Dumping ROM0 (attempt 2)...\n");
-    boot_dump(DRIVE_SD, "ROM0B.BIN", 0xF0000000, 0x01000000);
-    printf(" - Dumping ROM1 (attempt 2)...\n");
-    boot_dump(DRIVE_SD, "ROM1B.BIN", 0xF8000000, 0x01000000);
+        printf(" - Dumping ROM0 (attempt 2)...\n");
+        boot_dump(DRIVE_SD, "ROM0B.BIN", 0xF0000000, 0x01000000);
+        printf(" - Dumping ROM1 (attempt 2)...\n");
+        boot_dump(DRIVE_SD, "ROM1B.BIN", 0xF8000000, 0x01000000);
+    }
 }
 
 static void dump_rom_with_fullfat()
@@ -728,7 +740,15 @@ cstart( void )
     //~ disable_dcache();
     //~ disable_icache();
     //~ disable_write_buffer();
-    disable_all_caches();
+    
+    if (is_digic6())
+    {
+        disable_all_caches_d6();
+    }
+    else
+    {
+        disable_all_caches();
+    }
     
     print_line(COLOR_CYAN, 3, "  Magic Lantern Rescue\n");
     print_line(COLOR_CYAN, 3, " ----------------------------\n");
