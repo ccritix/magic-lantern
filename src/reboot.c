@@ -679,10 +679,15 @@ void dump_rom_with_canon_routines()
         boot_card_init();
     }
 
-    printf(" - Dumping ROM0...\n");
-    boot_dump(DRIVE_SD, "ROM0.BIN", 0xF0000000, 0x01000000);
-    printf(" - Dumping ROM1...\n");
-    boot_dump(DRIVE_SD, "ROM1.BIN", 0xF8000000, 0x01000000);
+    printf(" - Dumping ROM0 (attempt 1)...\n");
+    boot_dump(DRIVE_SD, "ROM0A.BIN", 0xF0000000, 0x01000000);
+    printf(" - Dumping ROM1 (attempt 1)...\n");
+    boot_dump(DRIVE_SD, "ROM1A.BIN", 0xF8000000, 0x01000000);
+
+    printf(" - Dumping ROM0 (attempt 2)...\n");
+    boot_dump(DRIVE_SD, "ROM0B.BIN", 0xF0000000, 0x01000000);
+    printf(" - Dumping ROM1 (attempt 2)...\n");
+    boot_dump(DRIVE_SD, "ROM1B.BIN", 0xF8000000, 0x01000000);
 }
 
 static void dump_rom_with_fullfat()
