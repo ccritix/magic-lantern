@@ -598,8 +598,8 @@ static int raw_update_params_work()
         
         #ifdef CONFIG_1200D
         skip_top    = 28;
-        skip_left   = zoom ? 0 : 152;
-        skip_right  = zoom ? 0 : 2;
+        skip_left   = zoom ? 0 : 154;
+        skip_right  = zoom ? 0 : 4;
         skip_bottom = zoom ? 4 : 0;
         #endif
 
