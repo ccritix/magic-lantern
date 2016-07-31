@@ -686,10 +686,8 @@ static int raw_update_params_work()
         #endif
       
         #ifdef CONFIG_1200D
-        skip_top = 16;
-        skip_left = 62;
-        raw_info.buffer += width * 14/8;
-        height--;
+        skip_top = 52;
+        skip_left = 145;
         #endif
 
         #ifdef CONFIG_6D
