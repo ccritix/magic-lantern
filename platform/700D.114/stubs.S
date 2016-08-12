@@ -284,6 +284,7 @@ NSTUB(   0x247B0,  task_max)
 NSTUB(0xFFA5F4DC - RAM_OFFSET,  get_current_task)
 NSTUB(0xFFA6B63C - RAM_OFFSET,  get_obj_attr)
 NSTUB(0xFFA768DC - RAM_OFFSET,  is_taskid_valid)
+NSTUB(0xFFA639E8 - RAM_OFFSET,  GetTaskName)
 
 /** Task sleep **/
 NSTUB(0xFFA63764 - RAM_OFFSET,  msleep)
