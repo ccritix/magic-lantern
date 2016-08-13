@@ -111,6 +111,7 @@ static int menu_zebras_mirror_dirty = 0; // to clear zebras from mirror (avoids 
 
 int menu_help_active = 0; // also used in menuhelp.c
 int menu_redraw_blocked = 0; // also used in flexinfo
+static int menu_redraw_blocked_local = 0;
 static int menu_redraw_cancel = 0;
 
 static int submenu_level = 0;
@@ -4252,7 +4253,7 @@ menu_redraw_task()
                 continue;
             }
             
-            if (!menu_redraw_blocked)
+            if (!menu_redraw_blocked && !menu_redraw_blocked_local)
             {
                 menu_redraw_do();
             }
@@ -4378,16 +4379,45 @@ void keyrepeat_ack(int button_code) // also for arrow shortcuts
 #ifdef CONFIG_TOUCHSCREEN
 int handle_ml_menu_touch(struct event * event)
 {
+    static int last_x = 0;
+    static int last_y = 0;
+    
     int button_code = event->param;
     switch (button_code) {
         case BGMT_TOUCH_1_FINGER:
-            fake_simple_button(BGMT_Q);
+        {
+            uint32_t coords = MEM(MEM(event->obj + 4) + 4);
+            uint32_t x = coords & 0xFFFF;
+            uint32_t y = coords >> 16;
+            fill_circle(x, y, 2, COLOR_RED);
+            last_x = x;
+            last_y = y;
+            menu_redraw_blocked_local = 1;
             return 0;
+        }
+
+        case BGMT_DRAG_1_FINGER:
+        {
+            /* point where the finger was pressed (before starting to drag) */
+            uint32_t pressed = MEM(MEM(event->obj + 4) + 4); (void) pressed;
+            /* current finger position */
+            uint32_t current = MEM(MEM(event->obj + 4) + 16);
+            uint32_t x = current & 0xFFFF;
+            uint32_t y = current >> 16;
+            
+            /* draw the current "gesture" */
+            draw_line(last_x, last_y, x, y, COLOR_RED);
+            last_x = x;
+            last_y = y;
+            return 0;
+        }
+
         case BGMT_TOUCH_2_FINGER:
             fake_simple_button(BGMT_TRASH);
             return 0;
         case BGMT_UNTOUCH_1_FINGER:
         case BGMT_UNTOUCH_2_FINGER:
+            menu_redraw_blocked_local = 0;
             return 0;
         default:
             return 1;
@@ -4637,6 +4667,7 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_TOUCH_2_FINGER:
     case BGMT_UNTOUCH_1_FINGER:
     case BGMT_UNTOUCH_2_FINGER:
+    case BGMT_DRAG_1_FINGER:
         return handle_ml_menu_touch(event);
 #endif
 #ifdef BGMT_RATE
@@ -4871,6 +4902,8 @@ static void menu_open()
     customize_mode = 0;
     menu_help_active = 0;
     keyrepeat = 0;
+    menu_redraw_blocked = 0;
+    menu_redraw_blocked_local = 0;
     menu_shown = 1;
     //~ menu_hidden_should_display_help = 0;
     if (lv) menu_zebras_mirror_dirty = 1;
