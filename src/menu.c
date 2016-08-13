@@ -205,7 +205,7 @@ static void select_menu_by_icon(int icon);
 static void menu_help_go_to_selected_entry(struct menu * menu);
 //~ static void menu_init( void );
 static void menu_show_version(void);
-static struct menu * get_current_submenu();
+static struct menu * get_selected_submenu();
 static struct menu * get_selected_menu();
 static void menu_make_sure_selection_is_valid();
 static void config_menu_load_flags();
@@ -3434,7 +3434,7 @@ menus_display(
 
     struct menu * submenu = 0;
     if (submenu_level)
-        submenu = get_current_submenu();
+        submenu = get_selected_submenu();
     
     advanced_mode = submenu ? submenu->advanced : 1;
 
@@ -4001,13 +4001,7 @@ menu_entry_move(
 // If the menu or the selection is empty, move back and forth to restore a valid selection
 static void menu_make_sure_selection_is_valid()
 {
-    struct menu * menu = get_selected_menu();
-    if (submenu_level)
-    {
-        struct menu * main_menu = menu;
-        menu = get_current_submenu();
-        if (!menu) menu = main_menu; // no submenu, operate on same item
-    }
+    struct menu * menu = get_selected_submenu();
  
     // current menu has any valid items in current mode?
     if (!menu_has_visible_items(menu))
@@ -4291,24 +4285,13 @@ static struct menu * get_selected_menu()
     return menu;
 }
 
-static struct menu_entry * get_selected_entry(struct menu * menu)  // argument is optional, just for speedup
+static struct menu * get_selected_submenu()
 {
-    if (!menu)
+    if (!submenu_level)
     {
-        menu = menus;
-        for( ; menu ; menu = menu->next )
-            if( menu->selected )
-                break;
+        return get_selected_menu();
     }
-    struct menu_entry * entry = menu->children;
-    for( ; entry ; entry = entry->next )
-        if( entry->selected )
-            return entry;
-    return 0;
-}
-
-static struct menu * get_current_submenu()
-{
+    
     struct menu_entry * entry = get_selected_entry(0);
     if (!entry) return 0;
     
@@ -4328,6 +4311,22 @@ static struct menu * get_current_submenu()
     // no submenu, fall back to edit mode
     submenu_level--;
     edit_mode = 1;
+    return 0;
+}
+
+static struct menu_entry * get_selected_entry(struct menu * menu)  // argument is optional, just for speedup
+{
+    if (!menu)
+    {
+        menu = menus;
+        for( ; menu ; menu = menu->next )
+            if( menu->selected )
+                break;
+    }
+    struct menu_entry * entry = menu->children;
+    for( ; entry ; entry = entry->next )
+        if( entry->selected )
+            return entry;
     return 0;
 }
 
@@ -4469,16 +4468,8 @@ handle_ml_menu_keys(struct event * event)
     }
     
     // Find the selected menu (should be cached?)
-    struct menu * menu = get_selected_menu();
+    struct menu * menu = get_selected_submenu();
 
-    struct menu * main_menu = menu;
-    if (submenu_level)
-    {
-        main_menu = menu;
-        menu = get_current_submenu();
-        if (!menu) menu = main_menu; // no submenu, operate on same item
-    }
-    
     int button_code = event->param;
 #if defined(CONFIG_60D) || defined(CONFIG_600D) || defined(CONFIG_7D) // Q not working while recording, use INFO instead
     if (button_code == BGMT_INFO && RECORDING) button_code = BGMT_Q;
@@ -4649,7 +4640,7 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_INFO:
         menu_help_active = !menu_help_active;
         menu_lv_transparent_mode = 0;
-        if (menu_help_active) menu_help_go_to_selected_entry(main_menu);
+        if (menu_help_active) menu_help_go_to_selected_entry(menu);
         menu_needs_full_redraw = 1;
         //~ menu_damage = 1;
         //~ menu_hidden_should_display_help = 0;
@@ -5769,14 +5760,7 @@ int menu_request_image_backend()
 
 MENU_SELECT_FUNC(menu_advanced_toggle)
 {
-    struct menu * menu = get_selected_menu();
-    struct menu * main_menu = menu;
-    if (submenu_level)
-    {
-        main_menu = menu;
-        menu = get_current_submenu();
-        if (!menu) menu = main_menu; // no submenu, operate on same item
-    }
+    struct menu * menu = get_selected_submenu();
     
     advanced_mode = menu->advanced = !menu->advanced;
     menu->scroll_pos = 0;
