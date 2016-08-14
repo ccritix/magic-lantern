@@ -434,6 +434,208 @@ struct menu * menu_get_root() {
   return menus;
 }
 
+#ifdef CONFIG_TOUCHSCREEN
+struct touch_zone
+{
+    int x;     /* zone center X */
+    int y;     /* zone center Y */
+    int w;     /* zone width */
+    int h;     /* zone height */
+    enum {
+        TOUCH_MENU_SELECT,
+        TOUCH_ENTRY_SELECT,
+        TOUCH_ENTRY_CLICK,
+        TOUCH_ENTRY_LONG_CLICK,
+        TOUCH_ENTRY_SET_VALUE,
+        TOUCH_ENTRY_INCREMENT,
+        TOUCH_ENTRY_DECREMENT,
+    } type;
+    void * obj;
+    int arg;
+};
+
+static struct touch_zone touch_zones[64];
+static int touch_zone_count = 0;
+
+static void touch_zone_add(struct touch_zone tz)
+{
+    if (touch_zone_count < COUNT(touch_zones))
+    {
+        touch_zones[touch_zone_count++] = tz;
+    }
+    else
+    {
+        printf("Too many touch zones.\n");
+    }
+}
+
+/* Return the touch zone that contains (x,y).
+ * If there are overlapping zones, return the closest match.
+ */
+static struct touch_zone * menu_find_touch_zone(int x, int y)
+{
+    struct touch_zone * best = 0;
+    int dmax = INT_MAX;
+    
+    for (int i = 0; i < touch_zone_count; i++)
+    {
+        struct touch_zone * tz = &touch_zones[i];
+        int dx = ABS(tz->x - x);
+        int dy = ABS(tz->y - y);
+        if (dx < tz->w / 2 && dy < tz->h / 2)
+        {
+            int d = dx*dx + dy*dy;
+            if (d < dmax)
+            {
+                dmax = d;
+                best = tz;
+            }
+        }
+    }
+    
+    return best;
+}
+
+static void menu_execute_touch(int x, int y)
+{
+    struct touch_zone * tz = menu_find_touch_zone(x, y);
+    if (tz)
+    {
+        switch (tz->type)
+        {
+            case TOUCH_MENU_SELECT:
+            {
+                for (struct menu * menu = menus; menu; menu = menu->next)
+                {
+                    menu->selected = (menu == tz->obj);
+                }
+                break;
+            }
+            
+            case TOUCH_ENTRY_SELECT:
+            case TOUCH_ENTRY_CLICK:
+            case TOUCH_ENTRY_LONG_CLICK:
+            case TOUCH_ENTRY_SET_VALUE:
+            case TOUCH_ENTRY_INCREMENT:
+            case TOUCH_ENTRY_DECREMENT:
+            {
+                struct menu * menu = get_selected_submenu();
+                if (!menu) break;
+                
+                for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
+                {
+                    entry->selected = (entry == tz->obj);
+                }
+                
+                switch (tz->type)
+                {
+                    case TOUCH_ENTRY_CLICK:
+                        fake_simple_button(BGMT_PRESS_SET);
+                        break;
+                    
+                    case TOUCH_ENTRY_LONG_CLICK:
+                        fake_simple_button(BGMT_Q);
+                        break;
+
+                    case TOUCH_ENTRY_INCREMENT:
+                        ASSERT(edit_mode);
+                        fake_simple_button(BGMT_WHEEL_RIGHT);
+                        break;
+
+                    case TOUCH_ENTRY_DECREMENT:
+                        ASSERT(edit_mode);
+                        fake_simple_button(BGMT_WHEEL_LEFT);
+                        break;
+                    
+                    case TOUCH_ENTRY_SET_VALUE:
+                        MEM(((struct menu_entry *)tz->obj)->priv) = tz->arg;
+                        edit_mode = 0;
+                        break;
+                    
+                    default:
+                        break;
+                }
+                
+                break;
+            }
+        }
+    }
+    else
+    {
+        /* tap outside configured zones - default actions */
+        if (edit_mode)
+        {
+            edit_mode = 0;
+        }
+        else if (submenu_level)
+        {
+            submenu_level--;
+        }
+    }
+}
+
+static int handle_ml_menu_touch(struct event * event)
+{
+    static int last_x = 0;
+    static int last_y = 0;
+    static int dragged = 0;
+    
+    int button_code = event->param;
+    switch (button_code) {
+        case BGMT_TOUCH_1_FINGER:
+        {
+            uint32_t coords = MEM(MEM(event->obj + 4) + 4);
+            uint32_t x = coords & 0xFFFF;
+            uint32_t y = coords >> 16;
+            fill_circle(x, y, 2, COLOR_RED);
+            last_x = x;
+            last_y = y;
+            dragged = 0;
+            menu_redraw_blocked_local = 1;
+            return 0;
+        }
+
+        case BGMT_DRAG_1_FINGER:
+        {
+            /* point where the finger was pressed (before starting to drag) */
+            uint32_t pressed = MEM(MEM(event->obj + 4) + 4); (void) pressed;
+            /* current finger position */
+            uint32_t current = MEM(MEM(event->obj + 4) + 16);
+            uint32_t x = current & 0xFFFF;
+            uint32_t y = current >> 16;
+            
+            /* draw the current "gesture" */
+            draw_line(last_x, last_y, x, y, COLOR_RED);
+            last_x = x;
+            last_y = y;
+
+            dragged = 1;
+            return 0;
+        }
+
+        case BGMT_UNTOUCH_1_FINGER:
+            if (!dragged)
+            {
+                menu_execute_touch(last_x, last_y);
+            }
+            menu_redraw_blocked_local = 0;
+            return 0;
+
+        case BGMT_TOUCH_2_FINGER:
+            fake_simple_button(BGMT_TRASH);
+            return 0;
+
+        case BGMT_UNTOUCH_2_FINGER:
+            menu_redraw_blocked_local = 0;
+            return 0;
+
+        default:
+            return 1;
+    }
+    return 1;
+}
+#endif
+
 // ISO 3 R10": 10, 12, 15, 20, 25, 30, 40, 50, 60, 80, 100
 /*
 static int round_to_R10(int val)
@@ -1944,8 +2146,23 @@ static void pickbox_draw(struct menu_entry * entry, int x0, int y0)
     {
         int y = y0 + (i-lo) * 32;
         if (i == sel)
+        {
             selection_bar_backend(MENU_BAR_COLOR, 45, x0-16, y, w, 32);
+        }
+        
         bmp_printf(fnt, x0, y, pickbox_string(entry, i));
+        
+        #ifdef CONFIG_TOUCHSCREEN
+        touch_zone_add((struct touch_zone) {
+            .x = x0-16 + w/2,
+            .y = y + 16,
+            .w = w,
+            .h = 32,
+            .type = TOUCH_ENTRY_SET_VALUE,
+            .obj = entry,
+            .arg = i,
+        });
+        #endif
     }
     
     /*
@@ -2664,6 +2881,61 @@ menu_entry_process(
         // print the menu on the screen
         if (info.custom_drawing == CUSTOM_DRAW_DISABLE)
             entry_print(info.x, info.y, info.x_val - x, h, entry, &info, IS_SUBMENU(menu));
+        
+        #ifdef CONFIG_TOUCHSCREEN
+        touch_zone_add((struct touch_zone) {
+            .x = (info.x + info.x_val) / 2,
+            .y = info.y + h/2,
+            .w = info.x_val - info.x,
+            .h = h * 3/2,
+            .type = TOUCH_ENTRY_SELECT,
+            .obj = entry
+        });
+        
+        if (!edit_mode)
+        {
+            int x_end = 720 - info.x;
+            touch_zone_add((struct touch_zone) {
+                .x = (info.x_val + x_end) / 2,
+                .y = info.y + h/2,
+                .w = x_end - info.x_val,
+                .h = h * 3/2,
+                .type = (entry->selected) ? TOUCH_ENTRY_CLICK : TOUCH_ENTRY_SELECT,
+                .obj = entry
+            });
+        }
+        else if (entry->selected && !SHOULD_HAVE_PICKBOX(entry))
+        {
+            int x0 = info.x_val;
+            int y0 = info.y + h + 10;
+            int x1 = x0 + 100;
+            int h = font_large.height + 8;
+            int gray = COLOR_GRAY(50);
+            int font = FONT(FONT_LARGE, gray, COLOR_BLACK) | FONT_ALIGN_CENTER;
+            bmp_draw_rect_chamfer(gray, x0, y0, h, h, 2, 0);
+            bmp_draw_rect_chamfer(gray, x1, y0, h, h, 2, 0);
+            bmp_printf(font, x0 + h/2, y0 + 5, "-");
+            bmp_printf(font, x1 + h/2, y0 + 5, "+");
+
+            touch_zone_add((struct touch_zone) {
+                .x = x0 + h/2,
+                .y = y0 + h/2,
+                .w = h * 3/2,
+                .h = h * 3/2,
+                .type = TOUCH_ENTRY_DECREMENT,
+                .obj = entry
+            });
+
+            touch_zone_add((struct touch_zone) {
+                .x = x1 + h/2,
+                .y = y0 + h/2,
+                .w = h * 3/2,
+                .h = h * 3/2,
+                .type = TOUCH_ENTRY_INCREMENT,
+                .obj = entry
+            });
+        }
+        #endif
     }
     return 1;
 }
@@ -3454,6 +3726,10 @@ menus_display(
 
     // will override them only if rack focus items are selected
     reset_override_zoom_buttons();
+    
+    #ifdef CONFIG_TOUCHSCREEN
+    touch_zone_count = 0;
+    #endif
 
     // how many tabs should we display? we should know in order to adjust the spacing between them
     // keep the conditions in sync with the next loop
@@ -3498,6 +3774,20 @@ menus_display(
             int icon_width = bfnt_char_get_width(icon_char);
             int x_ico = x + (icon_spacing - icon_width) / 2 + 1;
             bfnt_draw_char(icon_char, x_ico, y + 2, fg, bg);
+
+            #ifdef CONFIG_TOUCHSCREEN
+            if (!submenu && !edit_mode)
+            {
+                touch_zone_add((struct touch_zone) {
+                    .x = x_ico + icon_width / 2,
+                    .y = y + 20,
+                    .w = icon_width * 2,
+                    .h = 50,
+                    .type = TOUCH_MENU_SELECT,
+                    .obj = menu
+                });
+            }
+            #endif
 
             if (menu->selected)
             {
@@ -4375,56 +4665,6 @@ void keyrepeat_ack(int button_code) // also for arrow shortcuts
     keyrep_ack = (button_code == keyrepeat);
 }
 
-#ifdef CONFIG_TOUCHSCREEN
-int handle_ml_menu_touch(struct event * event)
-{
-    static int last_x = 0;
-    static int last_y = 0;
-    
-    int button_code = event->param;
-    switch (button_code) {
-        case BGMT_TOUCH_1_FINGER:
-        {
-            uint32_t coords = MEM(MEM(event->obj + 4) + 4);
-            uint32_t x = coords & 0xFFFF;
-            uint32_t y = coords >> 16;
-            fill_circle(x, y, 2, COLOR_RED);
-            last_x = x;
-            last_y = y;
-            menu_redraw_blocked_local = 1;
-            return 0;
-        }
-
-        case BGMT_DRAG_1_FINGER:
-        {
-            /* point where the finger was pressed (before starting to drag) */
-            uint32_t pressed = MEM(MEM(event->obj + 4) + 4); (void) pressed;
-            /* current finger position */
-            uint32_t current = MEM(MEM(event->obj + 4) + 16);
-            uint32_t x = current & 0xFFFF;
-            uint32_t y = current >> 16;
-            
-            /* draw the current "gesture" */
-            draw_line(last_x, last_y, x, y, COLOR_RED);
-            last_x = x;
-            last_y = y;
-            return 0;
-        }
-
-        case BGMT_TOUCH_2_FINGER:
-            fake_simple_button(BGMT_TRASH);
-            return 0;
-        case BGMT_UNTOUCH_1_FINGER:
-        case BGMT_UNTOUCH_2_FINGER:
-            menu_redraw_blocked_local = 0;
-            return 0;
-        default:
-            return 1;
-    }
-    return 1;
-}
-#endif
-
 int
 handle_ml_menu_keys(struct event * event) 
 {
@@ -4659,7 +4899,10 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_UNTOUCH_1_FINGER:
     case BGMT_UNTOUCH_2_FINGER:
     case BGMT_DRAG_1_FINGER:
-        return handle_ml_menu_touch(event);
+        if (!handle_ml_menu_touch(event))
+        {
+            break;
+        }
 #endif
 #ifdef BGMT_RATE
     case BGMT_RATE:
