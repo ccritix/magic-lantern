@@ -12,7 +12,7 @@
 #include "disp_direct.h"
 #include "compiler.h"
 #include "consts.h"
-
+#include "imath.h"
 
 static const uint8_t fontImg[108][8] =
 {
@@ -130,6 +130,13 @@ void font_draw(uint32_t *x_pos, uint32_t *y_pos, uint32_t color, uint32_t scale,
     
     for(uint32_t i = 0; i < count; i++)
     {
+        if (xpos + char_width > 720)
+        {
+            /* wrap long strings and right-justify them */
+            xpos = MAX(0, 720 - (count-i) * char_width);
+            ypos += char_height;
+        }
+        
         if(text[i] == '\n')
         {
             xpos = 0;
