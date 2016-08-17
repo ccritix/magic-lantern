@@ -218,7 +218,7 @@ void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) {
         "MRC    p15, 0, R1,c3,c0\n" // write buffer config
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
-
+#ifndef CONFIG_QEMU
         "MRC    p15, 0, R1,c9,c1\n" // DTCM config
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
@@ -226,7 +226,7 @@ void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) {
         "MRC    p15, 0, R1,c9,c1,1\n" // ITCM config
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
-
+#endif
         "BX     LR\n"
 
         :::"r0","r1"

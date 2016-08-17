@@ -24,6 +24,19 @@
  * Boston, MA  02110-1301, USA.
  */
 
+/* various settings */
+#undef PAGE_SCROLL
+#define PRINTF_FONT_SIZE 2
+#define PRINTF_FONT_COLOR COLOR_CYAN
+
+#define CPUINFO
+
+#ifdef CPUINFO
+#define PAGE_SCROLL
+#define PRINTF_FONT_SIZE 1
+#define PRINTF_FONT_COLOR COLOR_WHITE
+#endif
+
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -185,8 +198,28 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
     
     if (print_y + height >= 480)
     {
+#ifdef PAGE_SCROLL
+        /* wait for user to read the current page */
+        /* (no controls available; display a countdown instead) */
+        /* note: adjust the timings if running with cache disabled */
+        for (int i = 9; i > 0; i--)
+        {
+            int x = 710; int y = 0;
+            char msg[] = "0"; msg[0] = '0' + i;
+            font_draw(&x, &y, COLOR_WHITE, 1, (char*) &msg);
+            busy_wait(100);
+        }
+        
+        /* animation */
+        for (int i = 0; i < 48; i++)
+        {
+            disp_direct_scroll_up(10);
+            print_y -= 10;
+        }
+#else
         disp_direct_scroll_up(height);
         print_y -= height;
+#endif
     }
 
     font_draw(&print_x, &print_y, color, scale, txt);
@@ -199,7 +232,7 @@ int printf(const char * fmt, ...)
     va_start( ap, fmt );
     vsnprintf( buf, sizeof(buf)-1, fmt, ap );
     va_end( ap );
-    print_line(COLOR_CYAN, 2, buf);
+    print_line(PRINTF_FONT_COLOR, PRINTF_FONT_SIZE, buf);
     return 0;
 }
 
@@ -722,6 +755,8 @@ static void dump_rom_with_fullfat()
 #endif
 }
 
+extern void cpuinfo_print(void);
+
 void
 __attribute__((noreturn))
 cstart( void )
@@ -735,7 +770,12 @@ cstart( void )
     MEM(0x0000003C) = (uint32_t)&_vec_data_abort;
     
     disp_init();
-    
+
+#ifdef CPUINFO
+    printf("CHDK CPU info for 0x%X %s\n", get_model_id(), get_model_string());
+    printf("------------------------------\n");
+    cpuinfo_print();
+#else
     /* disable caching (seems to interfere with ROM dumping) */
     //~ disable_dcache();
     //~ disable_icache();
@@ -763,6 +803,8 @@ cstart( void )
     //~ dump_rom_with_fullfat();
     
     printf(" - DONE!\n");
+#endif
+
     printf("\n");
     print_line(COLOR_WHITE, 2, " You may now remove the battery.\n");
     

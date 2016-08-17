@@ -1,6 +1,9 @@
+#include "stdio.h"
 #include "stdlib.h"
-#include "gui_mbox.h"
-#include "gui.h"
+#include "string.h"
+
+/* for DIGIC 6 */
+#define THUMB_FW
 
 struct cpuinfo_bitfield_desc_s {
     unsigned bits;
@@ -53,67 +56,28 @@ static const char *regperm_str(unsigned val) {
 void cpuinfo_finish(unsigned dummy);
 void cpuinfo_get_info(unsigned *results);
 
-void cpuinfo_write_file(void) {
+void cpuinfo_print(void) {
     unsigned cpuinfo[NUM_CPUINFO_WORDS];
     int i,j;
     unsigned fieldval,wordval;
     unsigned mask,bits;
     FILE *finfo;
-    char buf[100];
     char *p;
     cpuinfo_get_info(cpuinfo);
-    finfo=fopen("A/CPUINFO.TXT", "wb");
     for(i = 0; cpuinfo_desc[i].name; i++) {
         wordval = cpuinfo[i];
-        sprintf(buf,"%-10s 0x%08X\n",cpuinfo_desc[i].name,wordval);
-        fwrite(buf,1,strlen(buf),finfo);
+        printf("%-10s 0x%08X\n",cpuinfo_desc[i].name,wordval);
+        
         for(j=0; cpuinfo_desc[i].fields[j].name; j++) {
-            p=buf;
             bits = cpuinfo_desc[i].fields[j].bits;
             mask = ~(0xFFFFFFFF << bits);
             fieldval = wordval & mask;
-            p+=sprintf(p,"  %-20s 0x%X %d",cpuinfo_desc[i].fields[j].name,fieldval,fieldval);
+            printf("  %-20s 0x%X %d",cpuinfo_desc[i].fields[j].name,fieldval,fieldval);
             if(cpuinfo_desc[i].fields[j].desc_fn) {
-                p+=sprintf(p," [%s]",cpuinfo_desc[i].fields[j].desc_fn(fieldval));
+                printf(" [%s]",cpuinfo_desc[i].fields[j].desc_fn(fieldval));
             }
-            strcat(p,"\n");
-            fwrite(buf,1,strlen(buf),finfo);
+            printf("\n");
             wordval >>= bits;
         }
     }
-    fclose(finfo);
-    gui_mbox_init((int)"CPUINFO",(int)"Wrote A/CPUINFO.TXT",MBOX_FUNC_RESTORE|MBOX_TEXT_CENTER, cpuinfo_finish);
 }
-
-int basic_module_init() {
-    cpuinfo_write_file();
-    return 1;
-}
-// =========  MODULE INIT =================
-#include "simple_module.c"
-void cpuinfo_finish(unsigned dummy) {
-    running=0;
-}
-
-ModuleInfo _module_info =
-{
-    MODULEINFO_V1_MAGICNUM,
-    sizeof(ModuleInfo),
-    SIMPLE_MODULE_VERSION,			// Module version
-
-    ANY_CHDK_BRANCH, 0, OPT_ARCHITECTURE,			// Requirements of CHDK version
-    ANY_PLATFORM_ALLOWED,		// Specify platform dependency
-
-    (int32_t)"CPU INFO",
-    MTYPE_TOOL,             //Read CPU and cache information from CP15
-
-    &_librun.base,
-
-    ANY_VERSION,                // CONF version
-    ANY_VERSION,                // CAM SCREEN version
-    ANY_VERSION,                // CAM SENSOR version
-    ANY_VERSION,                // CAM INFO version
-};
-
-/*************** END OF AUXILARY PART *******************/
-

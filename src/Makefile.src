@@ -211,12 +211,11 @@ ML_SRC_REBOOT_OBJ = reboot.o \
 	strlen.o strcmp.o gcc-libgcc.a
 ML_SRC_REBOOT_OBJ += md5.o
 ML_SRC_REBOOT_OBJ += led_dump.o
-ML_SRC_REBOOT_OBJ += font_direct.o
 ML_SRC_REBOOT_OBJ += sd_direct.o
-ML_SRC_REBOOT_OBJ += disp_direct.o
 ML_SRC_REBOOT_OBJ += prop_diag.o
 ML_SRC_REBOOT_OBJ += malloc.o
 ML_SRC_REBOOT_OBJ += asm.o
+ML_SRC_REBOOT_OBJ += cpuinfo.o
 ML_SRC_REBOOT_OBJ += ff_blk.o
 ML_SRC_REBOOT_OBJ += ff_crc.o
 ML_SRC_REBOOT_OBJ += ff_dir.o
