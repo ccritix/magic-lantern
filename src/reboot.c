@@ -204,18 +204,19 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
         /* note: adjust the timings if running with cache disabled */
         for (int i = 9; i > 0; i--)
         {
-            int x = 710; int y = 0;
+            uint32_t x = 710; uint32_t y = 0;
             char msg[] = "0"; msg[0] = '0' + i;
             font_draw(&x, &y, COLOR_WHITE, 1, (char*) &msg);
             busy_wait(100);
         }
         
         /* animation */
-        for (int i = 0; i < 48; i++)
+        while (print_y > 0)
         {
             disp_direct_scroll_up(10);
             print_y -= 10;
         }
+        print_y = 0;
 #else
         disp_direct_scroll_up(height);
         print_y -= height;
