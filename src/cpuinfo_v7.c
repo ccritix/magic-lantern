@@ -332,6 +332,7 @@ const struct cpuinfo_word_desc_s cpuinfo_desc[]={
     {"Cache type", cpuinf_ctr },
     {"TCM type", cpuinf_generic },
     {"MPU type", cpuinf_mputype },
+    {"Multiprocessor ID", cpuinf_generic },
     {"Processor feature 0", cpuinf_feat0 },
     {"Processor feature 1", cpuinf_feat1 },
     {"Debug feature", cpuinf_generic },
@@ -349,6 +350,10 @@ const struct cpuinfo_word_desc_s cpuinfo_desc[]={
     {"Cache level ID", cpuinf_clidr },
     {"Cache size ID reg (data, level0)", cpuinf_ccsidr },
     {"Cache size ID reg (inst, level0)", cpuinf_ccsidr },
+    {"SCTLR", cpuinf_generic },
+    {"ACTLR", cpuinf_generic },
+    {"ACTLR2", cpuinf_generic },
+    {"CPACR", cpuinf_generic },
     {"Build options 1", cpuinf_generic },
     {"Build options 2", cpuinf_generic },
     {"ATCM region reg", cpuinf_tcmreg },
@@ -394,14 +399,20 @@ void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) {
 
         "MRC    p15, 0, R1,c0,c0\n" // ident
         "STR    R1, [R0]\n"
+
         "MRC    p15, 0, R1,c0,c0,1\n" // cache
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
+        
         "MRC    p15, 0, R1,c0,c0,2\n" // TCM
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
         "MRC    p15, 0, R1,c0,c0,4\n" // MPU
+        "ADD    R0, R0, #4\n"
+        "STR    R1, [R0]\n"
+
+        "MRC    p15, 0, R1,c0,c0,5\n" // MPIDR
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
@@ -413,51 +424,51 @@ void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) {
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c1,2\n" //
+        "MRC    p15, 0, R1,c0,c1,2\n" // ID_DFR0
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c1,3\n" //
+        "MRC    p15, 0, R1,c0,c1,3\n" // ID_AFR0
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c1,4\n" //
+        "MRC    p15, 0, R1,c0,c1,4\n" // ID_MMFR0
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c1,5\n" //
+        "MRC    p15, 0, R1,c0,c1,5\n" // ID_MMFR1
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c1,6\n" //
+        "MRC    p15, 0, R1,c0,c1,6\n" // ID_MMFR2
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c1,7\n" //
+        "MRC    p15, 0, R1,c0,c1,7\n" // ID_MMFR3
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c2,0\n" //
+        "MRC    p15, 0, R1,c0,c2,0\n" // ID_ISAR0
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c2,1\n" //
+        "MRC    p15, 0, R1,c0,c2,1\n" // ID_ISAR1
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c2,2\n" //
+        "MRC    p15, 0, R1,c0,c2,2\n" // ID_ISAR2
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c2,3\n" //
+        "MRC    p15, 0, R1,c0,c2,3\n" // ID_ISAR3
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c2,4\n" //
+        "MRC    p15, 0, R1,c0,c2,4\n" // ID_ISAR4
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        "MRC    p15, 0, R1,c0,c2,5\n" //
+        "MRC    p15, 0, R1,c0,c2,5\n" // ID_ISAR5
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
@@ -476,6 +487,24 @@ void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) {
         "MCR    p15, 2, R1,c0,c0,0\n" // CSSELR (inst cache, level0)
 
         "MRC    p15, 1, R1,c0,c0,0\n" // CCSIDR (the currently selected one)
+        "ADD    R0, R0, #4\n"
+        "STR    R1, [R0]\n"
+        
+        "MRC    p15, 0, R1,c1,c0,0\n" // SCTLR
+        "ADD    R0, R0, #4\n"
+        "STR    R1, [R0]\n"
+
+        "MRC    p15, 0, R1,c1,c0,1\n" // ACTLR
+        "ADD    R0, R0, #4\n"
+        "STR    R1, [R0]\n"
+
+#ifndef CONFIG_QEMU
+        "MRC    p15, 0, R1,c15,c0,0\n" // ACTLR2
+        "ADD    R0, R0, #4\n"
+        "STR    R1, [R0]\n"
+#endif
+
+        "MRC    p15, 0, R1,c1,c0,2\n" // CPACR
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
