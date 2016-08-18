@@ -205,17 +205,19 @@ magiclantern: $(ML_OBJS-y) $(ML_LIBC)
 
 reboot.o: $(SRC_DIR)/reboot.c $(PLATFORM_DIR)/version.bin magiclantern.bin
 
-ifndef ML_SRC_REBOOT_OBJ
 ML_SRC_REBOOT_OBJ = reboot.o \
 	disp_direct.o font_direct.o \
 	strlen.o strcmp.o gcc-libgcc.a
 ML_SRC_REBOOT_OBJ += md5.o
 ML_SRC_REBOOT_OBJ += led_dump.o
-ML_SRC_REBOOT_OBJ += sd_direct.o
 ML_SRC_REBOOT_OBJ += prop_diag.o
 ML_SRC_REBOOT_OBJ += malloc.o
 ML_SRC_REBOOT_OBJ += asm.o
 ML_SRC_REBOOT_OBJ += cpuinfo.o
+
+ifeq ($(CONFIG_FULLFAT),y)
+CFLAGS += -DCONFIG_FULLFAT
+ML_SRC_REBOOT_OBJ += sd_direct.o
 ML_SRC_REBOOT_OBJ += ff_blk.o
 ML_SRC_REBOOT_OBJ += ff_crc.o
 ML_SRC_REBOOT_OBJ += ff_dir.o
@@ -230,8 +232,9 @@ ML_SRC_REBOOT_OBJ += ff_safety.o
 ML_SRC_REBOOT_OBJ += ff_string.o
 ML_SRC_REBOOT_OBJ += ff_time.o
 ML_SRC_REBOOT_OBJ += ff_unicode.o
-ML_SRC_REBOOT_OBJ += footer.o
 endif
+
+ML_SRC_REBOOT_OBJ += footer.o
 
 clean::
 	$(call rm_files, magiclantern.bin autoexec autoexec.map location.map)

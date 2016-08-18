@@ -237,6 +237,7 @@ int printf(const char * fmt, ...)
     return 0;
 }
 
+#ifdef CONFIG_FULLFAT
 void print_err(FF_ERROR err)
 {
     char *message = (char*)FF_GetErrMessage(err);
@@ -436,6 +437,7 @@ void dump_rom(FF_IOMAN *ioman)
     
     FF_UnmountPartition(ioman);
 }
+#endif
 
 void malloc_init(void *ptr, uint32_t size);
 void _vec_data_abort();
