@@ -29,11 +29,11 @@
 #define PRINTF_FONT_SIZE 2
 #define PRINTF_FONT_COLOR COLOR_CYAN
 
-#define CPUINFO
-
-#ifdef CPUINFO
+#ifdef CONFIG_CPUINFO
 #define PAGE_SCROLL
+#undef  PRINTF_FONT_SIZE
 #define PRINTF_FONT_SIZE 1
+#undef  PRINTF_FONT_COLOR
 #define PRINTF_FONT_COLOR COLOR_WHITE
 #endif
 
@@ -774,7 +774,7 @@ cstart( void )
     
     disp_init();
 
-#ifdef CPUINFO
+#ifdef CONFIG_CPUINFO
     printf("CHDK CPU info for 0x%X %s\n", get_model_id(), get_model_string());
     printf("------------------------------\n");
     cpuinfo_print();

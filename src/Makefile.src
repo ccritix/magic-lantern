@@ -213,7 +213,11 @@ ML_SRC_REBOOT_OBJ += led_dump.o
 ML_SRC_REBOOT_OBJ += prop_diag.o
 ML_SRC_REBOOT_OBJ += malloc.o
 ML_SRC_REBOOT_OBJ += asm.o
+
+ifeq ($(CONFIG_CPUINFO),y)
+CFLAGS += -DCONFIG_CPUINFO
 ML_SRC_REBOOT_OBJ += cpuinfo.o
+endif
 
 ifeq ($(CONFIG_FULLFAT),y)
 CFLAGS += -DCONFIG_FULLFAT

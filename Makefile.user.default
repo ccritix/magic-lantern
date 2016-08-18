@@ -202,3 +202,7 @@ CONFIG_PIC          = n
 
 # recovery: use the fullfat library for low-level card access
 CONFIG_FULLFAT      = n
+
+# recovery: print CHDK cpuinfo
+CONFIG_CPUINFO      = n
+
