@@ -527,17 +527,14 @@ void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) {
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-#ifndef CONFIG_QEMU
         "MRC    p15, 0, R1,c15,c0,0\n" // ACTLR2
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
-#endif
 
         "MRC    p15, 0, R1,c1,c0,2\n" // CPACR
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-#ifndef CONFIG_QEMU
         "MRC    p15, 0, R1,c15,c2,0\n" // Build options 1 reg
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
@@ -545,7 +542,6 @@ void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) {
         "MRC    p15, 0, R1,c15,c2,1\n" // Build options 2 reg
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
-#endif
 
         "MRC    p15, 0, R1,c9,c1,1\n" // ATCM region reg
         "ADD    R0, R0, #4\n"
