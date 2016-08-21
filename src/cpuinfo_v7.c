@@ -322,6 +322,35 @@ const struct cpuinfo_bitfield_desc_s cpuinf_accesscontrol[] = {
     {}
 };
 
+const struct cpuinfo_bitfield_desc_s cpuinf_sctlr[] = {
+    {1,"MPU Enable"},
+    {1,"Strict Align"},
+    {1,"L1 DCache Enable"},
+    {4,"- (SBO)"},
+    {4,"- (SBZ)"},
+    {1,"Branch Pred Enable"},
+    {1,"L1 ICache Enable"},
+    {1,"High Vectors"},
+    {1,"Round Robin"},
+    {1,"- (SBZ)"},
+    {1,"- (SBO)"},
+    {1,"MPU background reg"},
+    {1,"- (SBO)"},
+    {1,"Div0 exception"},
+    {1,"- (SBZ)"},
+    {1,"FIQ Enable"},
+    {2,"- (SBO)"},
+    {1,"VIC"},
+    {1,"CPSR E bit"},
+    {1,"- (SBZ)"},
+    {1,"NMFI"},
+    {1,"TRE"},
+    {1,"AFE"},
+    {1,"Thumb exceptions"},
+    {1,"Big endian"},
+    {}
+};
+
 const struct cpuinfo_bitfield_desc_s cpuinf_generic[] = {
     {32,"(raw value)"},
     {}
@@ -350,7 +379,7 @@ const struct cpuinfo_word_desc_s cpuinfo_desc[]={
     {"Cache level ID", cpuinf_clidr },
     {"Cache size ID reg (data, level0)", cpuinf_ccsidr },
     {"Cache size ID reg (inst, level0)", cpuinf_ccsidr },
-    {"SCTLR", cpuinf_generic },
+    {"SCTLR", cpuinf_sctlr },
     {"ACTLR", cpuinf_generic },
     {"ACTLR2", cpuinf_generic },
     {"CPACR", cpuinf_generic },
