@@ -42,6 +42,7 @@
 #include "picstyle.h"
 #include "focus.h"
 #include "lvinfo.h"
+#include "powersave.h"
 
 // for movie logging
 static char* mvr_logfile_buffer = 0;
@@ -674,7 +675,7 @@ int mlu_lock_mirror_if_needed() // called by lens_take_picture; returns 0 if suc
     if (drive_mode == DRIVE_SELFTIMER_2SEC || drive_mode == DRIVE_SELFTIMER_REMOTE || drive_mode == DRIVE_SELFTIMER_CONTINUOUS)
         return 0;
     
-    if (get_mlu() && CURRENT_DIALOG_MAYBE)
+    if (get_mlu() && CURRENT_GUI_MODE)
     {
         SetGUIRequestMode(0);
         int iter = 20;
@@ -1498,6 +1499,15 @@ static void update_stuff()
     iso_components_update();
 }
 
+static void focus_ring_powersave_fix()
+{
+    if (!RECORDING && is_manual_focus())
+    {
+        /* Canon bug? turning the focus ring doesn't reset powersave timer */
+        powersave_prolong();
+    }
+}
+
 #if defined(CONFIG_EOSM)
 PROP_HANDLER( PROP_LV_FOCAL_DISTANCE )
 {
@@ -1507,6 +1517,7 @@ PROP_HANDLER( PROP_LV_FOCAL_DISTANCE )
     
     idle_wakeup_reset_counters(-11);
     lens_display_set_dirty();
+    focus_ring_powersave_fix();
     
 #ifdef FEATURE_LV_ZOOM_SETTINGS
     zoom_focus_ring_trigger();
@@ -1538,6 +1549,7 @@ PROP_HANDLER( PROP_LV_LENS )
         
         idle_wakeup_reset_counters(-11);
         lens_display_set_dirty();
+        focus_ring_powersave_fix();
         
         #ifdef FEATURE_LV_ZOOM_SETTINGS
         zoom_focus_ring_trigger();
