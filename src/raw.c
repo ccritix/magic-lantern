@@ -34,6 +34,7 @@
 #undef RAW_DEBUG        /* define it to help with porting */
 #undef RAW_DEBUG_DUMP   /* if you want to save the raw image buffer and the DNG from here */
 #undef RAW_DEBUG_BLACK  /* for checking black level calibration */
+#undef RAW_DEBUG_TYPE   /* this lets you select the raw type (for PREFERRED_RAW_TYPE) from menu */
 /* see also RAW_ZEBRA_TEST and RAW_SPOTMETER_TEST in zebra.c */
 
 #ifdef RAW_DEBUG
@@ -156,9 +157,16 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 /**
  * Renato [http://www.magiclantern.fm/forum/index.php?topic=5614.msg41070#msg41070]:
  * "Best images in: 17, 35, 37, 39, 81, 83, 99"
+ * "Good but sprinkles of many colors: 5, 7, 8, 9, 11, 13, 15..."
+ * 
+ * jonzero [http://www.magiclantern.fm/forum/index.php?topic=5614.msg42140#msg42140]:
+ * "Normal image with a few color pixels - NO BANDING: 5, 7, 8, 9, 11, 13, 15..."
+ * 
+ * First set may have vertical stripes (variable), but no bad pixels
+ * Second set has bad pixels (easy to correct), but no vertical stripes (to be tested)
  * note: values are off by 1
  */
-#define PREFERRED_RAW_TYPE 16
+#define PREFERRED_RAW_TYPE 4
 #define RAW_TYPE_ADDRESS 0x2D168
 #endif
 
@@ -1500,6 +1508,9 @@ void FAST raw_lv_redirect_edmac(void* ptr)
 }
 
 #ifdef CONFIG_EDMAC_RAW_SLURP
+
+static int lv_raw_type = PREFERRED_RAW_TYPE;
+
 void FAST raw_lv_vsync()
 {
     /* where should we save the raw data? */
@@ -1507,7 +1518,13 @@ void FAST raw_lv_vsync()
     
     if (buf && lv_raw_enabled)
     {
-        //~ bmp_printf(FONT_MED, 50, 50, "%x %dx%d  ", buf,  raw_info.pitch, raw_info.height);
+        #ifdef PREFERRED_RAW_TYPE
+        /* this needs to be set for every single frame */
+        uint32_t raw_type_register = MEM(RAW_TYPE_ADDRESS-4);
+        ASSERT(raw_type_register == 0xC0F08114 || raw_type_register == 0xC0F37014);
+        EngDrvOut(raw_type_register, lv_raw_type);
+        #endif
+
         /* pull the raw data into "buf" */
         int width, height;
         int ok = raw_lv_get_resolution(&width, &height);
@@ -1517,19 +1534,11 @@ void FAST raw_lv_vsync()
             edmac_raw_slurp(CACHEABLE(buf), pitch, height);
         }
     }
-    else
-    {
-        //~ bmp_printf(FONT_MED, 50, 50, "%x %d...  ", buf,  lv_raw_enabled);
-    }
     
     /* overriding the buffer is only valid for one frame */
     redirected_raw_buffer = 0;
-    
-    #ifdef PREFERRED_RAW_TYPE
-    /* this needs to be set for every single frame */
-    EngDrvOutLV(MEM(RAW_TYPE_ADDRESS-4), PREFERRED_RAW_TYPE);
-    #endif
 }
+
 #endif
 
 int raw_lv_settings_still_valid()
@@ -2041,9 +2050,28 @@ PROP_HANDLER(PROP_LV_DISPSIZE)
     #endif
 }
 
+#ifdef RAW_DEBUG_TYPE
+#ifndef CONFIG_EDMAC_RAW_SLURP
+    #error Only implemented for CONFIG_EDMAC_RAW_SLURP.
+#endif
+static struct menu_entry debug_menus[] = {
+    {
+        .name = "LV raw type",
+        .priv = &lv_raw_type,
+        .max = 64,
+        .help = "Choose what type of raw stream we should use in LiveView.",
+        .help2 = "See lv_af_raw, lv_rshd_raw, lv_set_raw, KindOfCraw...",
+    },
+};
+#endif
+
 static void raw_init()
 {
     raw_sem = create_named_semaphore("raw_sem", 1);
+    
+    #ifdef RAW_DEBUG_TYPE
+    menu_add("Debug", debug_menus, COUNT(debug_menus));
+    #endif
 }
 
 INIT_FUNC("raw", raw_init);
