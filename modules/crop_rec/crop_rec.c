@@ -438,11 +438,12 @@ static LVINFO_UPDATE_FUNC(crop_info)
 
     if (crop_preset_menu)
     {
-        if (!is_supported_mode())
+        if (is_supported_mode())
         {
             if (!patch_active || crop_preset_menu != crop_preset)
             {
                 STR_APPEND(buffer, " " SYM_WARNING);
+                item->color_fg = COLOR_YELLOW;
             }
         }
     }
@@ -451,6 +452,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
         if (patch_active)
         {
             STR_APPEND(buffer, " " SYM_WARNING);
+            item->color_fg = COLOR_YELLOW;
         }
     }
 }
