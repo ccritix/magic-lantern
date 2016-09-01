@@ -572,14 +572,14 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint16_t*
     re->caller_pc = caller_pc;
 }
 
-static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uint32_t caller_task, uint32_t caller_pc)
+static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* addr, uint32_t* val_ptr, uint32_t caller_task, uint32_t caller_pc)
 {
     if (reg_num + 1 >= COUNT(regs))
     {
         return;
     }
 
-    int32_t val = *(int32_t*)pval;
+    int32_t val = *(int32_t*)val_ptr;
     uint32_t context = 
         unique_key == UNIQUE_REG_AND_CALLER_PC ? caller_pc :
         unique_key == UNIQUE_REG_AND_CALLER_TASK ? caller_task : 0;
@@ -610,14 +610,14 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uin
         /* override these registers before they get a chance to appear in the menu */
         if (re->dst == 0xC0F0 && re->reg == 0x6014)
         {
-            *pval = 8191;
+            *val_ptr = 8191;
         }
     }
 
     if (re->override_enabled)
     {
         int ovr = get_override_value(re);
-        *pval = ovr;
+        *val_ptr = ovr;
     }
 
     if (re->val != val)
@@ -632,17 +632,27 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* pval, uin
         sei(old);
     }
     
-    re->addr = pval;
+    re->addr = addr;
     re->caller_task = caller_task;
     re->caller_pc = caller_pc;
 }
+
+/* used in cmos/adtg/engio log functions */
+#define INCREMENT(data_buf, copy_ptr, copy_end) {  \
+        data_buf++;                                         \
+        copy_ptr++;                                         \
+        if (copy_ptr > copy_end) {                          \
+            cli();                                          \
+            while(1); /* on error, lock up the camera */    \
+        }                                                   \
+    }
 
 static void adtg_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
     
-    unsigned int cs = regs[0];
-    unsigned int *data_buf = (unsigned int *) regs[1];
+    uint32_t cs = regs[0];
+    uint32_t *data_buf = (uint32_t *) regs[1];
     int dst = cs & 0xF;
 
     uint32_t caller_task = get_current_task();
@@ -660,22 +670,19 @@ static void adtg_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
         if (dst & 1) reg_update_unique(1, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
         if (dst & 2) reg_update_unique(2, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
         if (dst & 4) reg_update_unique(4, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
-        data_buf++;
-        copy_ptr++;
-        if (copy_ptr > copy_end) while(1);
+        INCREMENT(data_buf, copy_ptr, copy_end);
     }
     *copy_ptr = 0xFFFFFFFF;
     
     /* pass our modified register list to adtg_write */
-    uint32_t* out_regs = PATCH_HOOK_OUT_REGS();
-    out_regs[1] = (uint32_t) copy;
+    regs[1] = (uint32_t) copy;
 }
 
 static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
 
-    unsigned short *data_buf = (unsigned short *) regs[0];
+    uint16_t *data_buf = (uint16_t *) regs[0];
     
     uint32_t caller_task = get_current_task();
     uint32_t caller_pc = PATCH_HOOK_CALLER();
@@ -691,25 +698,20 @@ static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     while(*data_buf != 0xFFFF)
     {
         *copy_ptr = *data_buf;
-
         reg_update_unique(DST_CMOS, data_buf, *data_buf, copy_ptr, 12, 0, caller_task, caller_pc);
-
-        data_buf++;
-        copy_ptr++;
-        if (copy_ptr > copy_end) while(1);
+        INCREMENT(data_buf, copy_ptr, copy_end);
     }
     *copy_ptr = 0xFFFF;
 
     /* pass our modified register list to cmos_write */
-    uint32_t* out_regs = PATCH_HOOK_OUT_REGS();
-    out_regs[0] = (uint32_t) copy;
+    regs[0] = (uint32_t) copy;
 }
 
 static void cmos16_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
 
-    unsigned short *data_buf = (unsigned short *) regs[0];
+    uint16_t *data_buf = (uint16_t *) regs[0];
     
     uint32_t caller_task = get_current_task();
     uint32_t caller_pc = PATCH_HOOK_CALLER();
@@ -725,18 +727,13 @@ static void cmos16_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     while(*data_buf != 0xFFFF)
     {
         *copy_ptr = *data_buf;
-
         reg_update_unique(DST_CMOS16, data_buf, *data_buf, copy_ptr, 12, 0, caller_task, caller_pc);
-
-        data_buf++;
-        copy_ptr++;
-        if (copy_ptr > copy_end) while(1);
+        INCREMENT(data_buf, copy_ptr, copy_end);
     }
     *copy_ptr = 0xFFFF;
 
-    /* pass our modified register list to cmos_write */
-    uint32_t* out_regs = PATCH_HOOK_OUT_REGS();
-    out_regs[0] = (uint32_t) copy;
+    /* pass our modified register list to cmos16_write */
+    regs[0] = (uint32_t) copy;
 }
 
 static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
@@ -747,18 +744,29 @@ static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     
     uint32_t* data_buf = (uint32_t*) regs[0];
 
+    /* copy data into a buffer, to make the override temporary */
+    static uint32_t copy[512];
+    uint32_t* copy_end = &copy[COUNT(copy)];
+    uint32_t* copy_ptr = copy;
+
     uint32_t caller_task = get_current_task();
     uint32_t caller_pc = PATCH_HOOK_CALLER();
-    
+
     /* log all ENGIO register writes */
     while(*data_buf != 0xFFFFFFFF)
     {
+        *copy_ptr = *data_buf;
         uint16_t dst = ((*data_buf) & 0xFFFF0000) >> 16;
         uint16_t reg = (*data_buf) & 0x0000FFFF;
-        data_buf++;
-        reg_update_unique_32(dst, reg, data_buf, caller_task, caller_pc);
-        data_buf++;
+        INCREMENT(data_buf, copy_ptr, copy_end);
+        *copy_ptr = *data_buf;
+        reg_update_unique_32(dst, reg, data_buf, copy_ptr, caller_task, caller_pc);
+        INCREMENT(data_buf, copy_ptr, copy_end);
     }
+    *copy_ptr = 0xFFFFFFFF;
+
+    /* pass our modified register list to engio_write */
+    regs[0] = (uint32_t) copy;
 }
 
 static void EngDrvOut_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
@@ -774,7 +782,7 @@ static void EngDrvOut_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     uint32_t caller_task = get_current_task();
     uint32_t caller_pc = PATCH_HOOK_CALLER();
     
-    reg_update_unique_32(dst, reg, &val, caller_task, caller_pc);
+    reg_update_unique_32(dst, reg, &val, &val, caller_task, caller_pc);
     regs[1] = val;
 }
 
@@ -792,9 +800,10 @@ static void EngDrvOuts_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     uint32_t caller_task = get_current_task();
     uint32_t caller_pc = PATCH_HOOK_CALLER();
     
+    /* fixme: copy the data to make sure our overrides are temporary */
     for (uint32_t i = 0; i < num; i++)
     {
-        reg_update_unique_32(dst, reg + 4*i, &values[i], caller_task, caller_pc);
+        reg_update_unique_32(dst, reg + 4*i, &values[i], &values[i], caller_task, caller_pc);
     }
 }
 
@@ -802,7 +811,7 @@ static void SendDataToDfe_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
     
-    unsigned int *data_buf = (unsigned int *) regs[0];
+    uint32_t *data_buf = (uint32_t *) regs[0];
 
     uint32_t caller_task = get_current_task();
     uint32_t caller_pc = PATCH_HOOK_CALLER();
@@ -817,15 +826,12 @@ static void SendDataToDfe_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
         *copy_ptr = *data_buf;
         reg_update_unique(DST_DFE, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
-        data_buf++;
-        copy_ptr++;
-        if (copy_ptr > copy_end) while(1);
+        INCREMENT(data_buf, copy_ptr, copy_end);
     }
     *copy_ptr = 0xFFFFFFFF;
     
-    /* pass our modified register list to adtg_write */
-    uint32_t* out_regs = PATCH_HOOK_OUT_REGS();
-    out_regs[0] = (uint32_t) copy;
+    /* pass our modified register list to SendDataToDfe */
+    regs[0] = (uint32_t) copy;
 }
 
 static void dummy_readout_log(uint32_t* _regs, uint32_t* stack, uint32_t pc)
