@@ -15,8 +15,7 @@
 #include <raw.h>
 #include <lens.h>
 #include <math.h>
-
-#include <gdb.h>
+#include <patch.h>
 
 static CONFIG_INT("enabled", hooks_enabled, 0);
 static CONFIG_INT("gain.cmos", cmos_gain, 0);
@@ -136,9 +135,9 @@ static int get_raw_iso_index()
 }
 
 /* intercept engio_write calls to override digital gain/offset registers */
-static void engio_write_log(breakpoint_t *bkpt)
+static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    uint32_t* data_buf = (uint32_t*) bkpt->ctx[0];
+    uint32_t* data_buf = (uint32_t*) regs[0];
     
     while(*data_buf != 0xFFFFFFFF)
     {
@@ -196,10 +195,10 @@ static uint32_t nrzi_encode( uint32_t in_val )
 }
 
 /* intercept adtg_write calls to override ADTG gain */
-static void adtg_log(breakpoint_t *bkpt)
+static void adtg_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    uint32_t cs = bkpt->ctx[0];
-    uint32_t *data_buf = (uint32_t *) bkpt->ctx[1];
+    uint32_t cs = regs[0];
+    uint32_t *data_buf = (uint32_t *) regs[1];
     int dst = cs & 0xF;
 
     while(*data_buf != 0xFFFFFFFF)
@@ -245,9 +244,9 @@ static void adtg_log(breakpoint_t *bkpt)
 static int cmos_gain_changed = 0;
 
 /* intercept cmos_write calls to override CMOS gain */
-static void cmos_log(breakpoint_t *bkpt)
+static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    uint16_t *data_buf = (unsigned short *) bkpt->ctx[0];
+    uint16_t *data_buf = (uint16_t *) regs[0];
     
     while(*data_buf != 0xFFFF)
     {
@@ -273,42 +272,27 @@ static void cmos_log(breakpoint_t *bkpt)
 /* enable/disable the hack */
 static MENU_SELECT_FUNC(iso_regs_toggle)
 {
-    hooks_enabled = !hooks_enabled;
+    int is_113 = streq(firmware_version, "1.1.3");
+    uint32_t ADTG_WRITE_FUNC  = 0x11640;
+    uint32_t CMOS_WRITE_FUNC  = 0x119CC;
+    uint32_t CMOS2_WRITE_FUNC = 0x11784;
+    uint32_t ENGIO_WRITE_FUNC = is_113 ? 0xFF28CC3C : 0xFF290F98;
 
-    static breakpoint_t * bkpt1 = 0;
-    static breakpoint_t * bkpt2 = 0;
-    static breakpoint_t * bkpt3 = 0;
-    static breakpoint_t * bkpt4 = 0;
+    hooks_enabled = !hooks_enabled;
 
     if (hooks_enabled)
     {
-        uint32_t ADTG_WRITE_FUNC  = 0x11644;
-        uint32_t CMOS_WRITE_FUNC  = 0x119CC;
-        uint32_t CMOS2_WRITE_FUNC = 0x11784;
-        uint32_t ENGIO_WRITE_FUNC = 0xff28cc3c;
-
-        if (streq(firmware_version, "1.2.3"))
-        {
-            ADTG_WRITE_FUNC = 0x11640;
-            ENGIO_WRITE_FUNC = 0xFF290F98+8;    /* was ist das? */
-        }
-        else if (streq(firmware_version, "1.1.3"))
-        {
-        }
-        else return;
-
-        gdb_setup();
-        bkpt1 = gdb_add_watchpoint(ADTG_WRITE_FUNC,  0, &adtg_log);
-        bkpt2 = gdb_add_watchpoint(CMOS_WRITE_FUNC,  0, &cmos_log);
-        bkpt3 = gdb_add_watchpoint(CMOS2_WRITE_FUNC, 0, &cmos_log);
-        bkpt4 = gdb_add_watchpoint(ENGIO_WRITE_FUNC, 0, &engio_write_log);
+        patch_hook_function(ADTG_WRITE_FUNC,  MEM(ADTG_WRITE_FUNC),  &adtg_log, "adtg_log");
+        patch_hook_function(CMOS_WRITE_FUNC,  MEM(CMOS_WRITE_FUNC),  &cmos_log, "cmos_log");
+        patch_hook_function(CMOS2_WRITE_FUNC, MEM(CMOS2_WRITE_FUNC), &cmos_log, "cmos_log");
+        patch_hook_function(ENGIO_WRITE_FUNC, MEM(ENGIO_WRITE_FUNC), &engio_write_log, "engio_write_log");
     }
     else
     {
-        gdb_delete_bkpt(bkpt1);
-        gdb_delete_bkpt(bkpt2);
-        gdb_delete_bkpt(bkpt3);
-        gdb_delete_bkpt(bkpt4);
+        unpatch_memory(ADTG_WRITE_FUNC);
+        unpatch_memory(CMOS_WRITE_FUNC);
+        unpatch_memory(CMOS2_WRITE_FUNC);
+        unpatch_memory(ENGIO_WRITE_FUNC);
     }
 }
 
