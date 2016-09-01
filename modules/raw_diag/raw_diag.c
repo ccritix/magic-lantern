@@ -1733,11 +1733,13 @@ static void test_bracket()
     FIO_RemoveFile("RAWSAMPL.DAT");
     menu_set_value_from_script("Expo", "Mini ISO", 0);
     menu_set_value_from_script("Debug", "ISO registers", 0);
+    menu_set_value_from_script("Debug", "ADTG Registers", 0);
     lens_set_rawshutter(SHUTTER_1_50);
     test_shot();
 
     menu_set_value_from_script("Expo", "Mini ISO", 1);
     menu_set_value_from_script("Debug", "ISO registers", 1);
+    menu_set_value_from_script("Debug", "ADTG Registers", 1);
     lens_set_rawshutter(SHUTTER_1_25);
     test_shot();
 }
@@ -1957,11 +1959,11 @@ static struct menu_entry raw_diag_menu[] =
                 .help           = "Save a DNG file (raw_diag/IMG_nnnn/raw.dng) after analysis.",
             },
             {
-                .name           = "Test Bracket",
+                .name           = "Bracket 1/50 vs 1/25 ADTG",
                 .priv           = &test_bracket,
                 .select         = (void (*)(void*,int))run_in_separate_task,
-                .help           = "Shot 1: 1/50 with iso_regs and mini_iso turned off.",
-                .help2          = "Shot 2: 1/25 with iso_regs and mini_iso turned on, if loaded.",
+                .help           = "Shot 1: 1/50 with adtg_gui/iso_regs/mini_iso turned off, if loaded.",
+                .help2          = "Shot 2: 1/25 with adtg_gui/iso_regs/mini_iso turned on, if loaded.",
             },
             {
                 .name           = "Dummy Bracket",
