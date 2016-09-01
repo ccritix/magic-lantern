@@ -134,37 +134,58 @@ static int get_raw_iso_index()
     return COERCE(((lens_info.raw_iso+3)/8*8 - ISO_100) / 8, 0, 7);
 }
 
+/* used in cmos/adtg/engio log functions */
+#define INCREMENT(data_buf, copy_ptr, copy_end) {  \
+        data_buf++;                                         \
+        copy_ptr++;                                         \
+        if (copy_ptr > copy_end) {                          \
+            cli();                                          \
+            while(1); /* on error, lock up the camera */    \
+        }                                                   \
+    }
+
 /* intercept engio_write calls to override digital gain/offset registers */
 static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     uint32_t* data_buf = (uint32_t*) regs[0];
+
+    /* copy data into a buffer, to make the override temporary */
+    static uint32_t copy[512];
+    uint32_t* copy_end = &copy[COUNT(copy)];
+    uint32_t* copy_ptr = copy;
     
     while(*data_buf != 0xFFFFFFFF)
     {
+        *copy_ptr = *data_buf;
         uint32_t reg = (*data_buf) & 0xFFFFFFFE;
-        data_buf++;
+        INCREMENT(data_buf, copy_ptr, copy_end);
+        *copy_ptr = *data_buf;
         uint32_t val = (*data_buf);
         
         if (reg == 0xc0f37ae4 || reg == 0xc0f37af0 || reg == 0xc0f37afc || reg == 0xc0f37b08)
         {
             default_digital_gain = val;
-            if (digital_gain) *data_buf = digital_gain;
+            if (digital_gain) *copy_ptr = digital_gain;
         }
         
         if (reg == 0xc0f37ae0 || reg == 0xc0f37aec || reg == 0xc0f37af8 || reg == 0xc0f37b04)
         {
             default_black_white_offset = val - 0x7000;
-            if (black_white_offset) *data_buf = black_white_offset + 0x7000;
+            if (black_white_offset) *copy_ptr = black_white_offset + 0x7000;
         }
         
         if (reg == 0xc0f0819c)
         {
             default_saturate_offset = val;
-            if (saturate_offset) *data_buf = saturate_offset;
+            if (saturate_offset) *copy_ptr = saturate_offset;
         }
 
-        data_buf++;
+        INCREMENT(data_buf, copy_ptr, copy_end);
     }
+    *copy_ptr = 0xFFFFFFFF;
+
+    /* pass our modified register list to adtg_write */
+    regs[0] = (uint32_t) copy;
 }
 
 static int32_t nrzi_decode( uint32_t in_val )
@@ -201,44 +222,56 @@ static void adtg_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     uint32_t *data_buf = (uint32_t *) regs[1];
     int dst = cs & 0xF;
 
+    /* copy data into a buffer, to make the override temporary */
+    static uint32_t copy[512];
+    uint32_t* copy_end = &copy[COUNT(copy)];
+    uint32_t* copy_ptr = copy;
+
     while(*data_buf != 0xFFFFFFFF)
     {
+        *copy_ptr = *data_buf;
         uint32_t data = *data_buf;
         uint32_t reg = data >> 16;
         uint32_t val = data & 0xFFFF;
+
         if ((reg == 0x8882 || reg == 0x8884 || reg == 0x8886 || reg == 0x8888) && (dst == 2 || dst == 4))
         {
             if (reg == 0x8882 && dst == 2) default_adtg_gain = val;
             if (adtg_gain) val = adtg_gain;
-            *data_buf = (reg << 16) | (val & 0xFFFF);
+            *copy_ptr = (reg << 16) | (val & 0xFFFF);
         }
         if ((reg == 0x8 || reg == 0x9 || reg == 0xA || reg == 0xB) && (dst == 2 || dst == 4))
         {
             if (reg == 0x8 && dst == 2) default_adtg_preamp = val;
             int delta = adtg_preamp - default_adtg_preamp;
             if (adtg_preamp >= 0) val += delta;
-            *data_buf = (reg << 16) | (val & 0xFFFF);
+            *copy_ptr = (reg << 16) | (val & 0xFFFF);
         }
         if ((reg == 0xFE) && (dst == 2 || dst == 4))
         {
             if (dst == 2) default_adtg_fe = val;
             if (adtg_fe >= 0) val = adtg_fe;
-            *data_buf = (reg << 16) | (val & 0xFFFF);
+            *copy_ptr = (reg << 16) | (val & 0xFFFF);
         }
         if ((reg == 0x8880) && (dst == 6))
         {
             if (!default_black_reference) default_black_reference = val;    // this only works on first test picture
             if (black_reference) val = black_reference;
-            *data_buf = (reg << 16) | (val & 0xFFFF);
+            *copy_ptr = (reg << 16) | (val & 0xFFFF);
         }
         if (reg == 0x82F3)
         {
             default_top_ob = nrzi_decode(val);
             if (top_ob >= 0) val = nrzi_encode(top_ob);
-            *data_buf = (reg << 16) | (val & 0xFFFF);
+            *copy_ptr = (reg << 16) | (val & 0xFFFF);
         }
-        data_buf++;
+        
+        INCREMENT(data_buf, copy_ptr, copy_end);
     }
+    *copy_ptr = 0xFFFFFFFF;
+
+    /* pass our modified register list to adtg_write */
+    regs[1] = (uint32_t) copy;
 }
 
 static int cmos_gain_changed = 0;
@@ -247,9 +280,18 @@ static int cmos_gain_changed = 0;
 static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     uint16_t *data_buf = (uint16_t *) regs[0];
-    
+
+    /* copy data into a buffer, to make the override temporary */
+    /* that means: as soon as we stop executing the hooks / overriding things,
+     * values are back to normal */
+    static uint16_t copy[512];
+    uint16_t* copy_end = &copy[COUNT(copy)];
+    uint16_t* copy_ptr = copy;
+
     while(*data_buf != 0xFFFF)
     {
+        *copy_ptr = *data_buf;
+
         uint16_t data = *data_buf;
         uint16_t reg = data >> 12;
         uint16_t val = data & 0xFFF;
@@ -261,12 +303,16 @@ static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
             {
                 cmos_gain_changed = 1;
                 val = cmos_gain;
-                *data_buf = (reg << 12) | (val & 0xFFF);
+                *copy_ptr = (reg << 12) | (val & 0xFFF);
             }
         }
         
-        data_buf++;
+        INCREMENT(data_buf, copy_ptr, copy_end);
     }
+    *copy_ptr = 0xFFFF;
+
+    /* pass our modified register list to cmos_write */
+    regs[0] = (uint32_t) copy;
 }
 
 /* enable/disable the hack */
