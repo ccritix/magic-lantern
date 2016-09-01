@@ -154,7 +154,6 @@ typedef void (*patch_hook_function_cbr)(uint32_t* regs, uint32_t* stack, uint32_
 
 /* to be called only from a patch_hook_function_cbr */
 #define PATCH_HOOK_CALLER() (regs[13]-4)    /* regs[13] contains LR, not SP */
-#define PATCH_HOOK_OUT_REGS() (stack - 14)  /* useful for overriding registers in the original function */
 
 int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function_cbr logging_function, char* description);
 
