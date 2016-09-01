@@ -30,6 +30,7 @@ static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void engdrvbits_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 
 struct logged_func
 {
@@ -68,6 +69,10 @@ static struct logged_func logged_functions[] = {
     #endif
 
     #ifdef CONFIG_5D3
+    { 0xFF0C79B0, "C0201200", 0, mmio_log },
+    { 0xFF2E426C, "C0400008", 1, mmio_log },
+    { 0xFF0CB768, "C022016C", 12, mmio_log },
+
     { 0xFF2E42E4, "mpu_send", 2, mpu_send_log },
     { 0xFF122B5C, "mpu_recv", 1, mpu_recv_log},
     #endif
@@ -325,6 +330,26 @@ static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     len += snprintf(msg + len, sizeof(msg) - len, "), from %x", caller);
     
     DryosDebugMsg(0, 0, "%s", msg);
+}
+
+static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    int arm_reg = 0;
+    char* mmio_name = 0;
+    
+    for (int i = 0; i < COUNT(logged_functions); i++)
+    {
+        if (logged_functions[i].addr == pc)
+        {
+            /* in this case, num_args is actually the ARM register number
+             * that contains the MMIO register value */
+            arm_reg = logged_functions[i].num_args;
+            mmio_name = logged_functions[i].name;
+            break;
+        }
+    }
+    
+    DryosDebugMsg(0, 0, "*** [%s] -> %x (pc=%x)", mmio_name, regs[arm_reg], pc-4);
 }
 
 static void state_transition_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
