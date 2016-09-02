@@ -1489,28 +1489,37 @@ static void FAST darkframe_grayscale()
     free(num);
 }
 
+static char * raw_diag_get_numbered_file_name(const char * name, const char * extension)
+{
+    static char filename[FIO_MAX_PATH_LENGTH];
+    
+    /* note: we use a custom routine because we want a slightly different naming
+     * compared to ML's get_numbered_file_name
+     */
+    int filenum = 0;
+    do
+    {
+        char short_name[8+1];
+        char suffix[10];
+        /* first file is not numbered */
+        if (filenum) snprintf(suffix, sizeof(suffix), "-%d%s", filenum, extension);
+        else snprintf(suffix, sizeof(suffix), "%s", extension);
+        /* number the screenshots, but make sure we fit the file name in 8 characters, trimming the original name if needed */
+        snprintf(short_name, sizeof(short_name) - strlen(suffix) + 4, "%s", name);
+        snprintf(filename, sizeof(filename), "raw_diag/%s%04d/%s%s", get_file_prefix(), get_shooting_card()->file_number, short_name, suffix);
+        filenum++;
+    }
+    while (is_file(filename));
+    
+    return filename;
+}
+
 /* name: 8 chars please */
 static void screenshot_if_needed(const char* name)
 {
     if (auto_screenshot)
     {
-        char filename[100];
-        
-        int filenum = 0;
-        
-        do
-        {
-            char short_name[8+1];
-            char suffix[10];
-            if (filenum) snprintf(suffix, sizeof(suffix), "-%d.ppm", filenum);
-            else snprintf(suffix, sizeof(suffix), ".ppm");
-            /* number the screenshots, but make sure we fit the file name in 8 characters, trimming the original name if needed */
-            snprintf(short_name, sizeof(short_name) - strlen(suffix) + 4, "%s", name);
-            snprintf(filename, sizeof(filename), "raw_diag/%s%04d/%s%s", get_file_prefix(), get_shooting_card()->file_number, short_name, suffix);
-            filenum++;
-        }
-        while (is_file(filename));
-        
+        char * filename = raw_diag_get_numbered_file_name(name, ".ppm");
         take_screenshot(filename, SCREENSHOT_BMP);
 
         bmp_printf(FONT_SMALL, 0, 480 - font_small.height, "Saved %s.", filename);
@@ -1637,9 +1646,7 @@ static void raw_diag_task(int corr)
     
     if (dump_raw)
     {
-        char filename[100];
-        snprintf(filename, sizeof(filename), "raw_diag/%s%04d/raw.dng", get_file_prefix(), get_shooting_card()->file_number);
-        bmp_printf(FONT_MED, 0, 50, "Saving %s...", filename);
+        char * filename = raw_diag_get_numbered_file_name("raw", ".dng");
 
         /* make a copy of the raw buffer, because it's being updated while we are saving it */
         void* buf = malloc(raw_info.frame_size);
