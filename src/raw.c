@@ -163,10 +163,10 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
  * "Normal image with a few color pixels - NO BANDING: 5, 7, 8, 9, 11, 13, 15..."
  * 
  * First set may have vertical stripes (variable), but no bad pixels
- * Second set has bad pixels (easy to correct), but no vertical stripes (to be tested)
+ * Second set has bad pixels (easy to correct), and no vertical stripes on some cameras (but still present on others)
  * note: values are off by 1
  */
-#define PREFERRED_RAW_TYPE 4
+#define PREFERRED_RAW_TYPE 16
 #define RAW_TYPE_ADDRESS 0x2D168
 #endif
 
@@ -191,7 +191,8 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 /** 
  * White level
- * one size fits all: should work on most cameras and can't be wrong by more than 0.1 EV
+ * one size fits all: should work on most cameras and can't be wrong by more than 0.15 EV
+ * that is, log2((16382-2048) / (15000-2048))
  */
 #define WHITE_LEVEL 15000
 
@@ -199,6 +200,11 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #ifdef CONFIG_6D
 #undef WHITE_LEVEL
 #define WHITE_LEVEL 13000
+#endif
+
+#ifdef CONFIG_5D3
+#undef WHITE_LEVEL
+#define WHITE_LEVEL 16382
 #endif
 
 /**
