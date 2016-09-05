@@ -196,8 +196,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     *copy_ptr = 0xFFFF;
 
     /* pass our modified register list to cmos_write */
-    uint32_t* out_regs = stack - 14;
-    out_regs[0] = (uint32_t) copy;
+    regs[0] = (uint32_t) copy;
 }
 
 static int FAST adtg_lookup(uint32_t* data_buf, int reg_needle)
@@ -296,8 +295,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     *copy_ptr = 0xFFFFFFFF;
     
     /* pass our modified register list to adtg_write */
-    uint32_t* out_regs = stack - 14;
-    out_regs[1] = (uint32_t) copy;
+    regs[1] = (uint32_t) copy;
 }
 
 static int patch_active = 0;
