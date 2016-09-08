@@ -82,9 +82,8 @@ struct task_attr_str {
   unsigned int id;
 }; // size = 0x28
 
-/** Return the head of the running task list */
-extern int
-get_current_task(void);
+/** The head of the running task list */
+extern struct task * current_task;
 
 /** Official initial task.
  * \note Overridden by reboot shim.

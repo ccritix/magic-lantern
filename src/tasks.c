@@ -24,38 +24,15 @@ extern int GetTaskName(int id_x2, char** task_name_ptr);
 
 int ml_shutdown_requested = 0;
 
-/* fixme: for some reason it doesn't seem to work for other task names */
 char* get_current_task_name()
 {
-    int task_id = get_current_task();
-    if (task_id >= 0)
+    /* DryOS: right after current_task we have a flag
+     * set to 1 when handling an interrupt */
+    uint32_t * interrupt_active = (uint32_t*) MEM((uintptr_t)current_task + 4);
+    
+    if (!interrupt_active)
     {
-        static char* task_name;
-        
-#ifdef CONFIG_DEBUG_INTERCEPT
-        static int prev_task_id = -1234;
-        
-        if (task_id == prev_task_id)
-        {
-            /* if called again from the same task, return the cached name */
-            /* note: there is a small chance of returning wrong result, if called from a new task that reused the same ID */
-            /* with this, it's fast enough for catching DebugMsg calls from LiveView */
-            /* let's use it only with CONFIG_DEBUG_INTERCEPT for now */
-            return task_name;
-        }
-
-        prev_task_id = task_id;
-#endif
-        
-        int err = GetTaskName(task_id * 2, &task_name);
-        if (!err)
-        {
-            return task_name;
-        }
-        else
-        {
-            return "**ERROR**";
-        }
+        return current_task->name;
     }
     else
     {
