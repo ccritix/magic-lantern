@@ -16,7 +16,6 @@
 #include "lens.h"
 
 extern int is_taskid_valid(int, int, void*);
-extern int get_obj_attr(void*, unsigned char*, int, int);
 
 /* id_x2 is get_current_task() * 2 */
 /* returns 0 on success and puts the output in *task_name_ptr */
@@ -75,7 +74,6 @@ return "?";
     struct task_attr_str task_attr;
     int r = is_taskid_valid(1, c, &task_attr); // ok
     if (r==0) {
-      //~ r = get_obj_attr( &(task_attr.args), &(task_attr.fpu), 0, 0); // buggy ?
       if (task_attr.name!=0) name=task_attr.name;
       else name=unknown_task;
     }
@@ -299,7 +297,6 @@ MENU_UPDATE_FUNC(tasks_print)
         {
             total_tasks++;
 
-            //r = get_obj_attr( &(task_attr.args), &(task_attr.fpu), 0, 0); // buggy ?
             if (task_attr.name!=0)
             {
                 name=task_attr.name;
