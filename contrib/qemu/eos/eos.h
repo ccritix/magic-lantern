@@ -2,34 +2,18 @@
 
 #define HW_EOS_H
 
-/* macros to define machine types */
-#define EOS_MACHINE(cam, addr, digic_version) \
-    static void eos_init_##cam(MachineState *args) \
-    { eos_init_common("ROM-"#cam".BIN", addr, digic_version); } \
-    \
-    QEMUMachine canon_eos_machine_##cam = { \
-        .name = #cam, 0, \
-        .desc = "Canon EOS "#cam, \
-        .init = &eos_init_##cam, \
-    };
+#include "hw/sysbus.h"
+#include "hw/sd/sd.h"
+#include "hw/ide/internal.h"
 
-/** Some small engio API **/
-#define REG_PRINT_CHAR 0xCF123000
-#define REG_SHUTDOWN   0xCF123004
-#define REG_DUMP_VRAM  0xCF123008
-#define REG_PRINT_NUM  0xCF12300C
-#define REG_GET_KEY    0xCF123010
-#define REG_BMP_VRAM   0xCF123014
-#define REG_IMG_VRAM   0xCF123018
-#define REG_RAW_BUFF   0xCF12301C
-#define REG_DISP_TYPE  0xCF123020
-
+/** Helper macros **/
 #define COUNT(x)        ((int)(sizeof(x)/sizeof((x)[0])))
 
 #define STR_APPEND(orig,fmt,...) ({ int _len = strlen(orig); snprintf(orig + _len, sizeof(orig) - _len, fmt, ## __VA_ARGS__); });
 
 #define BMPPITCH 960
 #define BM(x,y) ((x) + (y) * BMPPITCH)
+
 
 /** ARM macros **/
 
@@ -41,11 +25,12 @@
 #define FAR_CALL_INSTR   0xe51ff004    // ldr pc, [pc,#-4]
 #define LOOP_INSTR       0xeafffffe    // 1: b 1b
 
+
 /** Memory configuration **/
 #define ROM0_ADDR     0xF0000000
 #define ROM1_ADDR     0xF8000000
-#define ROM0_SIZE     0x01000000
-#define ROM1_SIZE     0x01000000
+#define ROM0_SIZE     s->model->rom0_size
+#define ROM1_SIZE     s->model->rom1_size
 
 #define TCM_SIZE      0x00001000
 #define RAM_SIZE      0x40000000
@@ -55,22 +40,22 @@
 #define RAM2_SIZE     0x40000000
 
 #define IO_MEM_START  0xC0000000    /* common to all DIGICs */
-#define IO_MEM_LEN45  0x10000000    /* for DIGIC 4/5 */
-#define IO_MEM_LEN6   0x20000000    /* for DIGIC 6 */
 
 /* define those for logging RAM access (reads + writes) */
 /* caveat: this area will be marked as IO, so you can't execute anything from there */
 //~ #define TRACE_MEM_START  0x00000000
 //~ #define TRACE_MEM_LEN    0x00800000
 
-#define Q_HELPER_ADDR 0x30000000
-
 /* defines for memory/register access */
-#define INT_ENTRIES 0x100
+#define INT_ENTRIES 0x200
 
 #define MODE_MASK  0xF0
 #define MODE_READ  0x10
 #define MODE_WRITE 0x20
+
+/* DryOS timer */
+#define TIMER_INTERRUPT s->model->dryos_timer_interrupt
+#define DRYOS_TIMER_ID  s->model->dryos_timer_id
 
 typedef struct
 {
@@ -96,6 +81,11 @@ typedef struct
     uint32_t status;
 } SDIOState;
 
+typedef struct
+{
+    IDEBus bus;
+} CFState;
+
 struct palette_entry
 {
     uint8_t R;
@@ -112,17 +102,11 @@ typedef struct
     uint32_t bmp_vram;
     uint32_t img_vram;
     uint32_t raw_buff;
+    uint32_t bmp_pitch;
     struct palette_entry palette_4bit[16];
     struct palette_entry palette_8bit[256];
     int is_4bit;
 } DispState;
-
-typedef struct
-{
-    int buf[16];    /* ring buffer */
-    int head;       /* for extracting keys from the buffer */
-    int tail;       /* for inserting keys into the buffer */
-} KeybState;
 
 struct HPTimer
 {
@@ -130,6 +114,8 @@ struct HPTimer
     int output_compare;
     int triggered;
 };
+
+#define HPTIMER_INTERRUPT s->model->hptimer_interrupt
 
 struct mpu_init_spell
 {
@@ -146,11 +132,12 @@ typedef struct
     unsigned char recv_buffer[128];
     int recv_index;
     
-    int spell_set;              /* used for replaying MPU messages */
-    int out_spell;
+    /* used for replaying MPU messages */
+    unsigned char * out_spell;
     int out_char;
 
-    struct { short spell_set; short out_spell; } send_queue[0x100];
+    /* contains pointers to MPU out spells (see mpu_init_spell) */
+    unsigned char * send_queue[0x100];
     int sq_head;                /* for extracting items */
     int sq_tail;                /* for inserting (queueing) items */
 
@@ -158,6 +145,34 @@ typedef struct
 
 typedef struct
 {
+    uint32_t addr;
+    uint16_t xa;
+    uint16_t ya;
+    uint16_t xb;
+    uint16_t yb;
+    uint16_t xn;
+    uint16_t yn;
+    uint32_t off1a;
+    uint32_t off1b;
+    uint32_t off1c;
+    uint32_t off2a;
+    uint32_t off2b;
+    uint32_t off3;
+    uint32_t flags;
+} EDmacChState;
+
+typedef struct
+{
+    EDmacChState ch[64];
+    uint32_t read_conn[16];     /* each connection can get data from a single read channel */
+    uint32_t write_conn[64];    /* each write channel can get data from a single connection */
+} EDMACState;
+
+typedef struct
+{
+    /* model-specific settings from model_list.c */
+    struct eos_model_desc * model;
+
     ARMCPU *cpu;
     MemoryRegion *system_mem;
     MemoryRegion tcm_code;
@@ -181,17 +196,20 @@ typedef struct
     uint32_t irq_id;
     QemuMutex irq_lock;
     uint32_t digic_timer;
-    uint32_t timer_reload_value[3];
-    uint32_t timer_current_value[3];
-    uint32_t timer_enabled[3];
+    uint32_t timer_reload_value[20];
+    uint32_t timer_current_value[20];
+    uint32_t timer_enabled[20];
     struct HPTimer HPTimers[8];
     uint32_t clock_enable;
+    uint32_t clock_enable_6;
     uint32_t flash_state_machine;
     DispState disp;
-    KeybState keyb;
     RTCState rtc;
     SDIOState sd;
+    CFState cf;
     MPUState mpu;
+    EDMACState edmac;
+    struct SerialFlashState * sf;
 } EOSState;
 
 typedef struct
@@ -231,8 +249,6 @@ unsigned int eos_handle_flashctrl ( unsigned int parm, EOSState *s, unsigned int
 unsigned int eos_handle_dma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_ram ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_sio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
-unsigned int eos_handle_sio3 ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
-unsigned int eos_handle_mreq ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_cartridge ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_tio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_timers ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
@@ -248,8 +264,11 @@ unsigned int eos_handle_sddma ( unsigned int parm, EOSState *s, unsigned int add
 unsigned int eos_handle_cfdma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_asif ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_display ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
-
-unsigned int eos_handle_ml_helpers ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_edmac ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_edmac_chsw ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_engio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_power_control ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_adc ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 
 unsigned int eos_handle_digic6 ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 
@@ -266,7 +285,12 @@ unsigned int eos_handler ( EOSState *s, unsigned int address, unsigned char type
 unsigned int eos_trigger_int(EOSState *s, unsigned int id, unsigned int delay);
 unsigned int flash_get_blocksize(unsigned int rom, unsigned int size, unsigned int word_offset);
 
-static void eos_load_image(EOSState *s, const char* file, int offset, int max_size, uint32_t addr, int swap_endian);
+void eos_load_image(EOSState *s, const char* file, int offset, int max_size, uint32_t addr, int swap_endian);
+
+  
+void sdio_trigger_interrupt(EOSState *s, SDIOState *sd);
+ 
+void io_log(const char * module_name, EOSState *s, unsigned int address, unsigned char type, unsigned int in_value, unsigned int out_value, const char * msg, intptr_t msg_arg1, intptr_t msg_arg2);
 
 /* EOS ROM device */
 /* its not done yet */
