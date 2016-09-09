@@ -20,6 +20,7 @@
 #include "menu.h"
 #include "edmac.h"
 #include "util.h"
+#include "console.h"
 
 #ifdef MEM_DEBUG
 #define dbg_printf(fmt,...) { printf(fmt, ## __VA_ARGS__); }
@@ -38,10 +39,10 @@
 /* used for faking the cacheable flag (internally we must use the same flag as returned by allocator) */
 #define UNCACHEABLE_FLAG 0x8000
 
-typedef void* (*mem_init_func)();
-typedef void* (*mem_alloc_func)(size_t size);
-typedef void (*mem_free_func)(void* ptr);
-typedef int (*mem_get_free_space_func)();
+typedef void   (*mem_init_func)();
+typedef void * (*mem_alloc_func)(size_t size);
+typedef void   (*mem_free_func)(void* ptr);
+typedef int (*mem_get_free_space_func)();   /* optional argument: mem_used */
 typedef int (*mem_get_max_region_func)();
 
 /* use underscore for allocator functions to prevent other code from calling them directly */
@@ -59,6 +60,7 @@ extern void* _shoot_malloc( size_t len );
 extern void  _shoot_free( void * buf );
 
 /* wrappers for the selftest module, not to be used in other code */
+#ifndef CONFIG_INSTALLER
 void* __priv_malloc(size_t size)           { return _malloc(size);           }
 void  __priv_free(void* ptr)               { _free(ptr);                     }
 void* __priv_AllocateMemory(size_t size)   { return _AllocateMemory(size);   }
@@ -67,6 +69,7 @@ void* __priv_alloc_dma_memory(size_t size) { return _alloc_dma_memory(size); }
 void  __priv_free_dma_memory(void* ptr)    { _free_dma_memory(ptr);          }
 void* __priv_shoot_malloc(size_t size)     { return _shoot_malloc(size);     }
 void  __priv_shoot_free(void* ptr)         { _shoot_free(ptr);               }
+#endif
 
 static struct semaphore * mem_sem = 0;
 
@@ -119,7 +122,111 @@ int GetFreeMemForMalloc()
     return MALLOC_FREE_MEMORY;
 }
 
+#ifdef CONFIG_RSCMGR_UNUSED_SPACE
+static void* rscmgr_unused_mem_pool = 0;
+
+extern void* init_memory_pool(void* start, uint32_t size);
+extern void* allocate_memory_from_pool(void* pool, uint32_t size);
+extern void free_memory_to_pool(void* pool, void* ptr);
+extern int get_max_region_of_pool(void* pool, int* max_region);
+ 
+static void rscmgr_init()
+{
+    rscmgr_unused_mem_pool = init_memory_pool(
+        (void*) RSCMGR_UNUSED_SPACE_START,
+        RSCMGR_UNUSED_SPACE_END - RSCMGR_UNUSED_SPACE_START
+    );
+}
+
+static void* rscmgr_malloc(size_t size)
+{
+    return allocate_memory_from_pool(rscmgr_unused_mem_pool, size);
+}
+
+static void rscmgr_free(void* ptr)
+{
+    free_memory_to_pool(rscmgr_unused_mem_pool, ptr);
+}
+
+static int rscmgr_get_max_region()
+{
+    int a;
+    int err = get_max_region_of_pool(rscmgr_unused_mem_pool, &a);
+    if (err) return 0;
+    return a;
+}
+
+static int rscmgr_get_free_space(uint32_t mem_used)
+{
+    /* we don't have the stub, so we use a little guessowrk */
+    uint32_t pool_size = RSCMGR_UNUSED_SPACE_END - RSCMGR_UNUSED_SPACE_START;
+    return pool_size - mem_used;
+}
+#endif
+
+#ifdef CONFIG_RSCMGR_UNUSED_SPACE_TEST
+    #ifndef CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
+    #error This requires CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
+    #endif
+    
+void rscmgr_test_unused_space()
+{
+    console_show();
+    printf("Testing %x...%x...\n", RSCMGR_UNUSED_SPACE_START, RSCMGR_UNUSED_SPACE_END-1);
+    msleep(5000);
+    console_hide();
+    
+    while(1)
+    {
+        for (uint32_t a = RSCMGR_UNUSED_SPACE_START; a < RSCMGR_UNUSED_SPACE_END; a += 4)
+        {
+            if (MEM(a) != 0x124B1DE0)
+            {
+                /* find the memory range that appears used */
+                /* ignore unused gaps < 1K */
+                int count = 1024;
+                int b = a;
+                int c = a;
+                while (count-- && b < RSCMGR_UNUSED_SPACE_END)
+                {
+                    b += 4;
+                    if (MEM(b) != 0x124B1DE0)
+                    {
+                        count = 1024;
+                        c = b;
+                    }
+                }
+                console_show();
+                printf("%x ... %x: used\n", a, c);
+                a = c + 4;
+            }
+        }
+        
+        msleep(1000);
+    }
+}
+
+TASK_CREATE("rscmgr_test", rscmgr_test_unused_space, 0, 0x1f, 0);
+#endif
+
 static struct mem_allocator allocators[] = {
+#ifdef CONFIG_RSCMGR_UNUSED_SPACE
+    {
+        /* take an unused block from RscMgr and manage it with AllocateMemory's low-level allocators */
+        /* the block must be tested to make sure it's really free before using it */
+        /* to do so, define CONFIG_RSCMGR_UNUSED_SPACE_TEST,
+         * then use and abuse the camera for a while in this configuration */
+        .name = "RscMgr",
+        .init = rscmgr_init,
+        .malloc = rscmgr_malloc,
+        .free = rscmgr_free,
+        /* fixme: not sure whether we can use DMA here or not */
+        .get_free_space = rscmgr_get_free_space,
+        .get_max_region = rscmgr_get_max_region,
+        .preferred_min_alloc_size = 0,
+        .preferred_max_alloc_size = 5 * 1024 * 1024,
+    },
+#endif
     {
         .name = "malloc",
         .malloc = _malloc,
@@ -151,16 +258,6 @@ static struct mem_allocator allocators[] = {
 #ifndef CONFIG_INSTALLER    /* installer only needs the basic allocators */
 
 
-#if 0 /* not implemented yet */
-    {
-        .name = "RscMgr",
-        .malloc = _rscmgr_malloc,
-        .free = _rscmgr_free,
-        .get_free_space = rscmgr_get_free_space,
-        .preferred_min_alloc_size = 16 * 1024,
-        .preferred_max_alloc_size = 2 * 1024 * 1024,
-    },
-#endif
 
 #if 0 /* not implemented yet */
     {
@@ -660,7 +757,9 @@ static int search_for_allocator(int size, int require_preferred_size, int requir
         }
         
         /* do we have enough free space without exceeding the preferred limit? */
-        int free_space = allocators[a].get_free_space ? allocators[a].get_free_space() : 30*1024*1024;
+        int free_space = (allocators[a].get_free_space)
+            ? allocators[a].get_free_space(allocators[a].mem_used)
+            : 30*1024*1024; /* fixme */
         //~ dbg_printf("%s: free space %s\n", allocators[a].name, format_memory_size(free_space));
         if (!(
                 (
@@ -750,6 +849,7 @@ static int choose_allocator(int size, unsigned int flags)
 /* returns 0 if it couldn't allocate */
 void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned int line)
 {
+    ASSERT(mem_sem);
     take_semaphore(mem_sem, 0);
 
     dbg_printf("alloc(%s) from %s:%d task %s\n", format_memory_size_and_flags(size, flags), file, line, get_current_task_name());
@@ -873,8 +973,8 @@ struct memSuite * shoot_malloc_suite_contig(size_t size)
 
 
 /* initialize memory pools, if any of them needs that */
-/* (called as the first init func => mem.o should be first in the Makefile.src (well, after boot-hack) */
-static void mem_init()
+/* should be called before any mallocs */
+void _mem_init()
 {
     mem_sem = create_named_semaphore("mem_sem", 1);
 
@@ -886,8 +986,6 @@ static void mem_init()
         }
     }
 }
-
-INIT_FUNC(__FILE__, mem_init);
 
 
 /* GUI stuff */
@@ -1216,7 +1314,9 @@ static MENU_UPDATE_FUNC(mem_pool_display)
     MENU_SET_NAME(allocators[index].name);
 
     int used = allocators[index].mem_used;
-    int free_space = allocators[index].get_free_space ? allocators[index].get_free_space() : -1;
+    int free_space = (allocators[index].get_free_space)
+        ? allocators[index].get_free_space(allocators[index].mem_used)
+        : -1;
 
     if (free_space > 0)
     {
@@ -1376,6 +1476,7 @@ static struct menu_entry mem_menus[] = {
         .help = "Free memory, shared between ML and Canon firmware.",
         .help2 = "Press SET for detailed info.",
         .submenu_width = 710,
+        .submenu_height = 330,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Allocated RAM",
@@ -1403,6 +1504,14 @@ static struct menu_entry mem_menus[] = {
                 .priv = (int*)2,
                 .update = mem_pool_display,
             },
+            #ifdef CONFIG_RSCMGR_UNUSED_SPACE
+            {
+                .name = allocators[3].name,
+                .icon_type = IT_ALWAYS_ON,
+                .priv = (int*)3,
+                .update = mem_pool_display,
+            },
+            #endif
             {
                 .name = "stack space",
                 .icon_type = IT_ALWAYS_ON,

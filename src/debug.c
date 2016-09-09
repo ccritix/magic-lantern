@@ -81,12 +81,12 @@ draw_prop_reset( void * priv )
 void _card_led_on()  //See sub_FF32B410 -> sub_FF0800A4
 {
     *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x800c00;
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDON); //0x138000
+    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x138000;
 }
 void _card_led_off()  //See sub_FF32B424 -> sub_FF0800B8
 {
     *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x800c00;
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDOFF); //0x38400
+    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x38400;
 }
 //TODO: Check if this is correct, because reboot.c said 0x838C00
 #elif defined(CARD_LED_ADDRESS) && defined(LEDON) && defined(LEDOFF)
@@ -152,13 +152,13 @@ static void dump_rom_task(void* priv, int unused)
     msleep(200);
 
     dump_big_seg(4, "ML/LOGS/RAM4.BIN");
+    dump_big_seg(5, "ML/LOGS/RAM5.BIN");
 
     /* you can't write the TCM directly, needs to be copied */
     void* buf = fio_malloc(0x1000);
     memcpy(buf, 0, 0x1000);
     dump_seg(buf, 0x1000, "ML/LOGS/TCM.BIN");
     free(buf);
-
 }
 
 static void dump_img_task(void* priv, int unused)
@@ -302,7 +302,7 @@ void bsod()
         gui_stop_menu();
         SetGUIRequestMode(1);
         msleep(1000);
-    } while (CURRENT_DIALOG_MAYBE != 1);
+    } while (CURRENT_GUI_MODE != 1);
     NotifyBoxHide();
     canon_gui_disable_front_buffer();
     gui_uilock(UILOCK_EVERYTHING);
@@ -343,6 +343,35 @@ static void run_test()
     call("FA_DeleteTestImage", job);
     info_led_off();
     debug_intercept();
+}
+
+static void unmount_sd_card()
+{
+    extern void FSUunMountDevice(int drive);
+    
+    msleep(1000);
+    console_clear();
+    console_show();
+    
+    /* call shutdown hooks that need to save configs */
+    extern int module_shutdown();
+    config_save_at_shutdown();
+    module_shutdown();
+    
+    /* unmount the SD card */
+    FSUunMountDevice(2);
+    
+    printf("Unmounted SD card.\n");
+    printf("You may now copy files remotely on your wifi card.\n");
+    printf("Press shutter halfway to reboot.\n");
+    
+    while (!get_halfshutter_pressed())
+    {
+        msleep(10);
+    }
+
+    int reboot = 0;
+    prop_request_change(PROP_REBOOT, &reboot, 4);
 }
 
 #if CONFIG_DEBUGMSG
@@ -1110,6 +1139,15 @@ static struct menu_entry debug_menus[] = {
         .select      = run_in_separate_task,
         .help = "Dump all image buffers (LV, HD, RAW) from current video mode."
     },
+#ifdef FEATURE_UNMOUNT_SD_CARD
+    {
+        .name        = "Unmount SD card",
+        .priv        = unmount_sd_card,
+        .select      = run_in_separate_task,
+        .help        = "Run before uploading files to a Wi-Fi card, to avoid data corruption.",
+        .help2       = "No further writes will be performed on your card from the camera.",
+    },
+#endif
 #ifdef FEATURE_DONT_CLICK_ME
     {
         .name        = "Don't click me!",
@@ -1554,7 +1592,7 @@ static void HijackFormatDialogBox()
     if (MEM(DIALOG_MnCardFormatBegin) == 0) return;
     struct gui_task * current = gui_task_list.current;
     struct dialog * dialog = current->priv;
-    if (dialog && MEM(dialog->type) != DLG_SIGNATURE) return;
+    if (dialog && !streq(dialog->type, "DIALOG")) return;
 
     if (keep_ml_after_format)
         dialog_set_property_str(dialog, 4, "Format card, keep ML " FORMAT_BTN_NAME);
@@ -1567,7 +1605,7 @@ static void HijackCurrentDialogBox(int string_id, char* msg)
 {
     struct gui_task * current = gui_task_list.current;
     struct dialog * dialog = current->priv;
-    if (dialog && MEM(dialog->type) != DLG_SIGNATURE) return;
+    if (dialog && !streq(dialog->type, "DIALOG")) return;
     dialog_set_property_str(dialog, string_id, msg);
     dialog_redraw(dialog);
 }
@@ -1592,7 +1630,7 @@ static void HijackDialogBox()
 {
     struct gui_task * current = gui_task_list.current;
     struct dialog * dialog = current->priv;
-    if (dialog && MEM(dialog->type) != DLG_SIGNATURE) return;
+    if (dialog && !streq(dialog->type, "DIALOG")) return;
     int i;
     for (i = 0; i<255; i++) {
             char s[30];
@@ -1828,8 +1866,17 @@ static void CopyMLFilesBack_AfterFormat()
     }
 
     HijackCurrentDialogBox(FORMAT_STR_LOC, "Magic Lantern restored :)");
+    msleep(2000);
+}
+
+static void restart_after_format()
+{
+    /* restart the camera after formatting */
+    HijackCurrentDialogBox(FORMAT_STR_LOC, "Restarting camera...");
     msleep(1000);
-    HijackCurrentDialogBox(FORMAT_STR_LOC, "Format");
+    
+    int reboot = 0;
+    prop_request_change(PROP_REBOOT, &reboot, 4);
 }
 
 static void HijackFormatDialogBox_main()
@@ -1875,10 +1922,15 @@ static void HijackFormatDialogBox_main()
     {
         gui_uilock(UILOCK_EVERYTHING);
         CopyMLFilesBack_AfterFormat();
+        TmpMem_Done();
+        restart_after_format();
+        /* needed? */
         gui_uilock(UILOCK_NONE);
     }
-
-    TmpMem_Done();
+    else
+    {
+        TmpMem_Done();
+    }
 }
 #endif
 
@@ -1938,13 +1990,13 @@ int handle_buttons_being_held(struct event * event)
     if (event->param == BGMT_PRESS_HALFSHUTTER) halfshutter_pressed = 1;
     if (event->param == BGMT_UNPRESS_HALFSHUTTER) halfshutter_pressed = 0;
     #endif
-    #ifdef BGMT_UNPRESS_ZOOMIN_MAYBE
-    if (event->param == BGMT_PRESS_ZOOMIN_MAYBE) {zoom_in_pressed = 1; zoom_out_pressed = 0; }
-    if (event->param == BGMT_UNPRESS_ZOOMIN_MAYBE) {zoom_in_pressed = 0; zoom_out_pressed = 0; }
+    #ifdef BGMT_UNPRESS_ZOOM_IN
+    if (event->param == BGMT_PRESS_ZOOM_IN) {zoom_in_pressed = 1; zoom_out_pressed = 0; }
+    if (event->param == BGMT_UNPRESS_ZOOM_IN) {zoom_in_pressed = 0; zoom_out_pressed = 0; }
     #endif
-    #ifdef BGMT_PRESS_ZOOMOUT_MAYBE
-    if (event->param == BGMT_PRESS_ZOOMOUT_MAYBE) { zoom_out_pressed = 1; zoom_in_pressed = 0; }
-    if (event->param == BGMT_UNPRESS_ZOOMOUT_MAYBE) { zoom_out_pressed = 0; zoom_in_pressed = 0; }
+    #ifdef BGMT_PRESS_ZOOM_OUT
+    if (event->param == BGMT_PRESS_ZOOM_OUT) { zoom_out_pressed = 1; zoom_in_pressed = 0; }
+    if (event->param == BGMT_UNPRESS_ZOOM_OUT) { zoom_out_pressed = 0; zoom_in_pressed = 0; }
     #endif
     
     (void)zoom_in_pressed; /* silence warning */

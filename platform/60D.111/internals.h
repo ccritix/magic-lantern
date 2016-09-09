@@ -101,6 +101,9 @@
 /** We can display some extra info in photo mode (not LiveView) **/
 #define CONFIG_PHOTO_MODE_INFO_DISPLAY
 
+/** This camera loads ML into the AllocateMemory pool **/
+#define CONFIG_ALLOCATE_MEMORY_POOL
+
 /** FIO_RenameFile works **/
 #define CONFIG_FIO_RENAMEFILE_WORKS
 
@@ -119,3 +122,6 @@
 
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
 #define CONFIG_LVAPP_HACK_RELOC
+
+/** Use memory that appears unused by RscMgr */
+#define CONFIG_RSCMGR_UNUSED_SPACE
