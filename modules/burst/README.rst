@@ -1,9 +1,7 @@
 Burst mode tweaks
 =================
 
-:Author: a1ex
-:License: GPL
-:Summary: Tweaks related to burst (continuous) shooting mode
+Available tweaks:
 
 * Image previews while shooting a burst sequence
 * Option to limit the number of pictures in a burst sequence
@@ -23,3 +21,7 @@ Difficult:
   (5D3 sometimes does this and refuses to take any more pictures
   until the buffer is completely empty - why?)
 * ETTR during burst sequences
+
+:Author: a1ex
+:License: GPL
+:Summary: Tweaks related to burst (continuous) shooting mode
