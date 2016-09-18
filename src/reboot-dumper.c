@@ -71,10 +71,10 @@ static void blink_all(int n)
 }
 
 /* Attempt to identify the LED address, knowing it is somewhere
- * between 0xd20b0800 and 0xd20b1000 (512 possible MMIO addresses).
+ * between 0xd20b0000 and 0xd20b2000 (2048 possible MMIO addresses).
  * 
- * On each address, we will send its binary representation (9 bits),
- * all in parallel; I expect only one of those 512 addresses (the LED)
+ * On each address, we will send its binary representation (11 bits),
+ * all in parallel; I expect only one of those 2048 addresses (the LED)
  * will actually blink, so you would just write down the blink sequence
  * (long/short) and identify the LED address.
  *
@@ -86,16 +86,20 @@ static void blink_all(int n)
  */
 static void guess_led(int n)
 {
-    const int N = 512;
+    const int32_t  bits         = 11;
+    const int32_t  N            = 1 << bits;
+    const uint32_t base_addr    = 0xD20B0000;
+    const uint32_t led_on       = 0x4D0002;
+    const uint32_t led_off      = 0x4C0003;
     
     while (1)
     {
-        for (int bit = 8; bit >= 0; --bit)
+        for (int bit = bits-1; bit >= 0; --bit)
         {
             // turn all led on all addresses on
             for (int i = 0; i < N; ++i)
             {
-                *(volatile int*)(0xd20b0800 + i * 4) = 0x4c0003;
+                *(volatile int*)(base_addr + i * 4) = led_on;
             }
             
             // sleep short
@@ -107,7 +111,7 @@ static void guess_led(int n)
                 int shortBlink = (i & (1<<bit)) == 0;
                 if (shortBlink)
                 {
-                    *(volatile int*)(0xd20b0800 + i * 4) = 0x4d0002;
+                    *(volatile int*)(base_addr + i * 4) = led_off;
                 }
             }
 
@@ -118,7 +122,7 @@ static void guess_led(int n)
             // turn led off on all addresses
             for (int i = 0; i < N; ++i)
             {
-                *(volatile int*)(0xd20b0800 + i * 4) = 0x4d0002;
+                *(volatile int*)(base_addr + i * 4) = led_off;
             }
             
             // pause between blinking
