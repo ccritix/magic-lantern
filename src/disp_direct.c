@@ -20,8 +20,10 @@
 
 #define ABS(a) ({ __typeof__ (a) _a = (a); _a > 0 ? _a : -_a; })
 
-static uint8_t *disp_framebuf = (uint8_t *)0x44000000;
-static uint8_t *disp_yuvbuf = (uint8_t *)0x44800000;
+/* the image buffers will be made uncacheable in display_init */
+static uint8_t *disp_framebuf = (uint8_t *)0x04000000;
+static uint8_t *disp_yuvbuf = (uint8_t *)0x04800000;
+static uint32_t caching_bit = 0x40000000;
 
 static int disp_yres = 480;
 static int disp_xres = 720;
@@ -117,7 +119,9 @@ static uint32_t rgb2yuv411(int R, int G, int B, uint32_t addr)
 
 void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color)
 {
-    uint32_t pixnum = ((y * disp_xres) + x);
+    /* assume the caller uses 720x480 logical coords */
+
+    uint32_t pixnum = ((y * disp_yres / 480) * disp_xres) + x;
     
     switch (disp_bpp)
     {
@@ -236,34 +240,44 @@ void* disp_init_autodetect()
 {
     /* Called right before printing the following strings:
      * "Other models\n"                     (5D2, 5D3, 60D, 500D, 70D, 7D)
-     * "File(*.fir) not found\n"            (5D2, 5D3, 60D, 500D, 70D)
+     * "File(*.fir) not found\n"            (5D2, 5D3, 60D, 500D, 70D, 400D, 5D)
      * "sum check error or code modify\n"   (5D2, 60D, 500D, 7D)
      * "sum check error\n"                  (5D3, 70D)
      * "CF Read error\n"                    (5D2, 60D, 500D, 7D)
+     * "Error File(*.fir)\n"                (400D, 5D)
      * ...
      */
-    
+
     uint32_t a = find_func_called_before_string_ref("Other models\n");
     uint32_t b = find_func_called_before_string_ref("File(*.fir) not found\n");
     uint32_t c = find_func_called_before_string_ref("sum check error or code modify\n");
-    
-    if (a == b)
+    uint32_t d = find_func_called_before_string_ref("Error File(*.fir)\n");
+
+    /* note: we will do double-checks to avoid jumping to random code */
+    if (a && a == b)
     {
-        /* I think this is what we are looking for :) */
+        /* this should cover most cameras */
         return (void*) a;
     }
-    
-    if (a == c)
+
+    if (a && a == c)
     {
-        /* I think this is what we are looking for :) */
+        /* this will cover 7D (maybe others) */
         return (void*) a;
     }
-    
+
+    if (b && b == d)
+    {
+        /* this will cover 400D/5D (maybe all VxWorks cameras?) */
+        return (void*) b;
+    }
+
     return &disp_init_dummy;
 }
 
 extern uint32_t get_model_id();
 extern uint32_t is_digic6();
+extern uint32_t is_vxworks();
 
 void disp_init()
 {
@@ -278,9 +292,16 @@ void disp_init()
         /* 5D2, 50D, 7D */
         yuv_mode = YUV411;
     }
-
-    /* is this address valid for all cameras? */
-    disp_framebuf = (uint8_t *)0x44000000;
+    
+    if (is_vxworks())
+    {
+        caching_bit = 0x10000000;
+        disp_yres = 240;
+    }
+    
+    /* make the image buffers uncacheable */
+    *(uint32_t*)&disp_framebuf |= caching_bit;
+    *(uint32_t*)&disp_yuvbuf   |= caching_bit;
 
     /* this should cover most (if not all) ML-supported cameras */
     /* and maybe most unsupported cameras as well :) */
@@ -305,8 +326,8 @@ void disp_init()
     else
     {
         /* set frame buffer memory areas */
-        MEM(0xC0F140D0) = (uint32_t)disp_framebuf & ~0x40000000;
-        MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf & ~0x40000000;
+        MEM(0xC0F140D0) = (uint32_t)disp_framebuf & ~caching_bit;
+        MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf & ~caching_bit;
         
         /* trigger a display update */
         MEM(0xC0F14000) = 1;
@@ -318,8 +339,11 @@ void disp_init()
 
 uint32_t disp_direct_scroll_up(uint32_t height)
 {
-    uint32_t start = (720 * height) * disp_bpp / 8;
-    uint32_t size = (720 * (480 - height)) * disp_bpp / 8;
+    /* assume the caller uses 720x480 logical coords */
+    height = height * disp_xres / 480;
+    
+    uint32_t start = (disp_xres * height) * disp_bpp / 8;
+    uint32_t size = (disp_xres * (disp_yres - height)) * disp_bpp / 8;
     uint32_t color = COLOR_TRANSPARENT_BLACK;
     if (disp_bpp == 4)
     {

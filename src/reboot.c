@@ -543,6 +543,12 @@ uint32_t is_digic6()
     return get_model_id() == *(uint32_t *)0xFC060014;
 }
 
+uint32_t is_vxworks()
+{
+    /* check for Wind (from Wind River Systems, Inc.) */
+    return MEM(0xFF81003C) == 0x646E6957;
+}
+
 static const char *get_model_string()
 {
     uint32_t model = get_model_id();
