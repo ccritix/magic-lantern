@@ -9,7 +9,7 @@
 typedef struct
 {
     int is_available;
-    int size;
+    uint32_t size;
 } MCB, *MCB_P;
 
 
@@ -39,7 +39,7 @@ void *malloc(size_t elem_size)
     /* check whether any chunk (allocated before) is free first */
     MCB_P p_mcb;
     int flag = NO_MCB;
-    int sz;
+    size_t sz;
 
     p_mcb = (MCB_P)mem_start_p;
 

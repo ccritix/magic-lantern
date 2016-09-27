@@ -71,7 +71,7 @@ union prop_data
     int8_t i8[400]; 
 };
 
-void process_property(uint32_t property, union prop_data * data, uint32_t data_len)
+static void process_property(uint32_t property, union prop_data * data, uint32_t data_len)
 {
     switch (property)
     {
@@ -138,7 +138,7 @@ void process_property(uint32_t property, union prop_data * data, uint32_t data_l
 
 /* parse a property buffer (id, size, data) */
 /* buffer_len is always in bytes */
-void parse_property(uint32_t* buffer, uint32_t buffer_len)
+static void parse_property(uint32_t* buffer, uint32_t buffer_len)
 {
     uint32_t id = buffer[0];
     uint32_t size = buffer[1] - 8;
@@ -188,7 +188,7 @@ static int check_terminator(int level, uint32_t tail, int verbose)
 }
 
 /* parse a class of groups of subgroups of properties (recursive) */
-int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int verbose, int output)
+static int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int verbose, int output)
 {
     //~ printf("parse prop group %p %x %d\n", buffer, buffer_len, level);
     uint32_t id = buffer[0];
@@ -245,7 +245,7 @@ int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int verbose, i
 }
 
 /* Brute force: find the offsets that look like valid property data structures */
-void guess_prop(uint32_t* buffer, uint32_t buffer_len, int verbose)
+static void guess_prop(uint32_t* buffer, uint32_t buffer_len, int verbose)
 {
     int total = buffer_len;
     int offset = 0;
@@ -297,38 +297,38 @@ static void print_camera_info()
 }
 
 #ifdef CONFIG_MAGICLANTERN
-    /* for running on the camera */
-    void prop_diag()
+/* for running on the camera */
+void prop_diag()
+{
+    guess_prop((void*)0xF0000000, 0x1000000, 0);
+    guess_prop((void*)0xF8000000, 0x1000000, 0);
+    guess_prop((void*)0xFC000000, 0x2000000, 0);
+    print_camera_info();
+}
+#else
+/* for offline testing */
+void main(int argc, char** argv)
+{
+    if (argc < 2)
     {
-        guess_prop((void*)0xF0000000, 0x1000000, 0);
-        guess_prop((void*)0xF8000000, 0x1000000, 0);
-        guess_prop((void*)0xFC000000, 0x2000000, 0);
+        printf("usage: %s ROM0.BIN\n", argv[0]);
+        return;
+    }
+    printf("Loading %s...\n", argv[1]);
+    char* filename = argv[1];
+    FILE* f = fopen(filename, "rb");
+    if (f)
+    {
+        fseek(f, 0, SEEK_END);
+        int len = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        int* buf = malloc(len);
+        fread(buf, len, 1, f);
+        fclose(f);
+        
+        printf("Scanning from %p to %p...\n", buf, ((void*)buf) + len);
+        guess_prop(buf, len, 0);
         print_camera_info();
     }
-#else
-    /* for offline testing */
-    void main(int argc, char** argv)
-    {
-        if (argc < 2)
-        {
-            printf("usage: %s ROM0.BIN\n", argv[0]);
-            return;
-        }
-        printf("Loading %s...\n", argv[1]);
-        char* filename = argv[1];
-        FILE* f = fopen(filename, "rb");
-        if (f)
-        {
-            fseek(f, 0, SEEK_END);
-            int len = ftell(f);
-            fseek(f, 0, SEEK_SET);
-            int* buf = malloc(len);
-            fread(buf, len, 1, f);
-            fclose(f);
-            
-            printf("Scanning from %p to %p...\n", buf, ((void*)buf) + len);
-            guess_prop(buf, len, 0);
-            print_camera_info();
-        }
-    }
+}
 #endif

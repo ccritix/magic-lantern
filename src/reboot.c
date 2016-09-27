@@ -238,7 +238,7 @@ int printf(const char * fmt, ...)
 }
 
 #ifdef CONFIG_FULLFAT
-void print_err(FF_ERROR err)
+static void print_err(FF_ERROR err)
 {
     char *message = (char*)FF_GetErrMessage(err);
     
@@ -286,7 +286,7 @@ static unsigned long FF_blk_write(unsigned char *buffer, unsigned long sector, u
     return ret ? FF_ERR_DRIVER_FATAL_ERROR : 0;
 }
 
-void halt_blink_code(uint32_t speed, uint32_t code)
+static void halt_blink_code(uint32_t speed, uint32_t code)
 {
     while(1)
     {
@@ -298,7 +298,7 @@ void halt_blink_code(uint32_t speed, uint32_t code)
     }
 }
 
-FF_IOMAN * fat_init()
+static FF_IOMAN * fat_init()
 {
     FF_IOMAN *ioman = NULL;
     FF_ERROR err = FF_ERR_NONE;
@@ -330,7 +330,7 @@ FF_IOMAN * fat_init()
     return ioman;
 }
 
-void fat_deinit(FF_IOMAN *ioman)
+static void fat_deinit(FF_IOMAN *ioman)
 {
     FF_ERROR err = FF_ERR_NONE;
     
@@ -351,7 +351,7 @@ void fat_deinit(FF_IOMAN *ioman)
     }
 }
 
-void dump_rom(FF_IOMAN *ioman)
+static void dump_rom(FF_IOMAN *ioman)
 {
     FF_ERROR err = FF_ERR_NONE;
     
@@ -443,7 +443,7 @@ void malloc_init(void *ptr, uint32_t size);
 void _vec_data_abort();
 extern uint32_t _dat_data_abort;
 
-uint32_t data_abort_occurred()
+static uint32_t data_abort_occurred()
 {
     uint32_t ret = 0;
     
@@ -648,7 +648,7 @@ static void* find_boot_card_init()
     return found;
 }
 
-void init_stubs()
+static void init_stubs()
 {
     /* autodetect this one */
     boot_open_write = (void*) find_func_from_string("Open file for write : %s\n", 0, 0x50);
@@ -684,7 +684,7 @@ void init_stubs()
     }
 }
 
-void dump_rom_with_canon_routines()
+static void dump_rom_with_canon_routines()
 {
     init_stubs();
 
