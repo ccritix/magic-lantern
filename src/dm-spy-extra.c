@@ -91,6 +91,11 @@ static struct logged_func logged_functions[] = {
     { 0xFF1E26F0, "mpu_recv", 1, mpu_recv_log}, 
     #endif	
 
+    #ifdef CONFIG_50D
+    { 0xFF977488, "mpu_send", 2, mpu_send_log },
+    { 0xFF85BEDC, "mpu_recv", 1, mpu_recv_log },
+    #endif
+
     #ifdef CONFIG_60D
     /* message-level SIO3/MREQ communication */
     { 0xFF1BF26C, "mpu_send", 2, mpu_send_log }, 
