@@ -32,6 +32,15 @@ static int disp_bpp  = 4;
 /* most cameras use YUV422, but some old models (e.g. 5D2) use YUV411 */
 static enum { YUV422, YUV411 } yuv_mode;
 
+static uint32_t BMP_BUF_REG_D6 = 0xD2030108;
+static uint32_t PALETTE_REG_D6 = 0xD20139A8;
+static uint32_t PALETTE_ACK_D6 = 0xD20139A0;
+
+/* 5D4 is different */
+const uint32_t BMP_BUF_REG_5D4 = 0xD2018228;
+const uint32_t PALETTE_REG_5D4 = 0xD2018398;
+const uint32_t PALETTE_ACK_5D4 = 0xD201839C;
+
 static void disp_set_palette()
 {
     // transparent
@@ -75,8 +84,8 @@ static void disp_set_palette()
         
         sync_caches();
         
-        MEM(0xD20139A8) = (uint32_t) palette >> 4;
-        MEM(0xD20139A0) = 1;
+        MEM(PALETTE_REG_D6) = (uint32_t) palette >> 4;
+        MEM(PALETTE_ACK_D6) = 1;
     }
 }
 
@@ -120,8 +129,9 @@ static uint32_t rgb2yuv411(int R, int G, int B, uint32_t addr)
 void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color)
 {
     /* assume the caller uses 720x480 logical coords */
+    /* (handle 720x240 buffers as well, but don't stretch 900x600) */
 
-    uint32_t pixnum = ((y * disp_yres / 480) * disp_xres) + x;
+    uint32_t pixnum = (y * (disp_yres * 2 / 480) / 2) * disp_xres + x;
     
     switch (disp_bpp)
     {
@@ -292,7 +302,17 @@ void disp_init()
         /* 5D2, 50D, 7D */
         yuv_mode = YUV411;
     }
-    
+
+    if (id == 0x349)
+    {
+        /* 5D4 */
+        disp_xres = 900;
+        disp_yres = 600;
+        BMP_BUF_REG_D6 = BMP_BUF_REG_5D4;
+        PALETTE_REG_D6 = PALETTE_REG_5D4;
+        PALETTE_ACK_D6 = PALETTE_ACK_5D4;
+    }
+
     if (is_vxworks())
     {
         caching_bit = 0x10000000;
@@ -321,7 +341,7 @@ void disp_init()
     
     if (disp_bpp == 8)
     {
-        MEM(0xD2030108) = (uint32_t)disp_framebuf >> 8;
+        MEM(BMP_BUF_REG_D6) = (uint32_t)disp_framebuf >> 8;
     }
     else
     {

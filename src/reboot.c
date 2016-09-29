@@ -482,6 +482,7 @@ static const struct model_data_s model_data[] =
     { 0x285, "5D3"   },
     { 0x382, "5DS"   },
     { 0x401, "5DSR"  },
+    { 0x349, "5D4"   },
     { 0x302, "6D"    },
     { 0x250, "7D"    },
     { 0x289, "7D2"   },
