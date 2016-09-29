@@ -347,7 +347,9 @@ void disp_init()
     {
         /* set frame buffer memory areas */
         MEM(0xC0F140D0) = (uint32_t)disp_framebuf & ~caching_bit;
+        MEM(0xC0F140D4) = (uint32_t)disp_framebuf & ~caching_bit;
         MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf & ~caching_bit;
+        MEM(0xC0F140E4) = (uint32_t)disp_yuvbuf & ~caching_bit;
         
         /* trigger a display update */
         MEM(0xC0F14000) = 1;
