@@ -34,12 +34,10 @@ static enum { YUV422, YUV411 } yuv_mode;
 
 static uint32_t BMP_BUF_REG_D6 = 0xD2030108;
 static uint32_t PALETTE_REG_D6 = 0xD20139A8;
-static uint32_t PALETTE_ACK_D6 = 0xD20139A0;
 
 /* 5D4 is different */
 const uint32_t BMP_BUF_REG_5D4 = 0xD2018228;
 const uint32_t PALETTE_REG_5D4 = 0xD2018398;
-const uint32_t PALETTE_ACK_5D4 = 0xD201839C;
 
 static void disp_set_palette()
 {
@@ -85,7 +83,7 @@ static void disp_set_palette()
         sync_caches();
         
         MEM(PALETTE_REG_D6) = (uint32_t) palette >> 4;
-        MEM(PALETTE_ACK_D6) = 1;
+        MEM(PALETTE_REG_D6-8) = 1;
     }
 }
 
@@ -306,11 +304,9 @@ void disp_init()
     if (id == 0x349)
     {
         /* 5D4 */
-        disp_xres = 900;
+        disp_xres = 928;    /* fixme: 900 displayed */
         disp_yres = 600;
-        BMP_BUF_REG_D6 = BMP_BUF_REG_5D4;
         PALETTE_REG_D6 = PALETTE_REG_5D4;
-        PALETTE_ACK_D6 = PALETTE_ACK_5D4;
     }
 
     if (is_vxworks())
@@ -341,7 +337,14 @@ void disp_init()
     
     if (disp_bpp == 8)
     {
-        MEM(BMP_BUF_REG_D6) = (uint32_t)disp_framebuf >> 8;
+        if (get_model_id() == 0x349)
+        {
+            MEM(BMP_BUF_REG_5D4) = (uint32_t)disp_framebuf & ~caching_bit;
+        }
+        else
+        {
+            MEM(BMP_BUF_REG_D6) = (uint32_t)disp_framebuf >> 8;
+        }
     }
     else
     {
