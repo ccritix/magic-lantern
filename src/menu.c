@@ -38,6 +38,7 @@
 #include "debug.h"
 #include "lvinfo.h"
 #include "powersave.h"
+#include "timer.h"
 
 #ifdef CONFIG_QEMU
 #define GUIMODE_ML_MENU 0
@@ -128,7 +129,11 @@ static CONFIG_INT("menu.junkie", junkie_mode, 0);
 
 static int is_customize_selected();
 
+#ifdef CONFIG_40D
+void CancelDateTimer() { }
+#else
 extern void CancelDateTimer();
+#endif
 
 #define CAN_HAVE_PICKBOX(entry) ((entry)->max > (entry)->min && (((entry)->max - (entry)->min < 15) || (entry)->choices) && IS_ML_PTR((entry)->priv))
 #define SHOULD_HAVE_PICKBOX(entry) ((entry)->max > (entry)->min + 1 && (entry)->max - (entry)->min < 10 && IS_ML_PTR((entry)->priv))

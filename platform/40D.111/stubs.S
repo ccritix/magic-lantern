@@ -34,6 +34,7 @@ NSTUB( ROMBASEADDR, firmware_entry )
 
 NSTUB(0xFFD4376C,  AcquireRecursiveLock)
 NSTUB(0xFFD5B3E8,  AllocateMemory)
+NSTUB(0xFFD5B3E8, _AllocateMemory)
 NSTUB(0xFF9A34EC,  CreateDialogBox)
 NSTUB(0xFFD4B150,  CreateRecursiveLock)
     //NSTUB(0xff2ff7c4, DeleteDialogBox)
@@ -50,6 +51,7 @@ NSTUB(0xFFD16A80,  FIO_ReadFile)
 NSTUB(0xFFD169BC, _FIO_RemoveFile)
 NSTUB(0xFFD16BF0,  FIO_WriteFile)
 NSTUB(0xFFD5B428,  FreeMemory)
+NSTUB(0xFFD5B428, _FreeMemory)
     //NSTUB(0xff022004, GUI_ChangeMode)
 NSTUB(0xFF85BD68,  GUI_Control)
 NSTUB(0xFF89D99C,  GUI_GetFirmVersion)
@@ -70,6 +72,7 @@ NSTUB(0xFF860068,  SetGUIRequestMode)
     //NSTUB(0xff0730c8, _audio_ic_write)
 NSTUB(    0x4134,  additional_version)                      // or 4154, not sure
 NSTUB(0xFFD56CE8,  alloc_dma_memory)
+NSTUB(0xFFD56CE8, _alloc_dma_memory)
 NSTUB(   0x1E450,  bmp_vram_info)                           // need checking
 //NSTUB(0xffd7d718, bzero32) // memset at 0xffd7d718
 NSTUB(0xFFD3E320,  call)
@@ -86,7 +89,9 @@ NSTUB(0xFF86793C,  dialog_set_property_str)
     //NSTUB(    0x2b18, dm_names)
     //NSTUB(0xffd4cb6c, dm_set_store_level)
 NSTUB(0xFFD5B428,  free)                                    // not good, points to FreeMemory
+NSTUB(0xFFD5B428,  _free)                                    // not good, points to FreeMemory
 NSTUB(0xFFD56D2C,  free_dma_memory)
+NSTUB(0xFFD56D2C, _free_dma_memory)
     //NSTUB(0xff3d7798, fsuDecodePartitionTable) // AJ_fsuGetPart_related
 NSTUB(0xFFD43F28,  give_semaphore)
 NSTUB(0xFF85E018,  gui_change_lcd_state_post)
@@ -107,6 +112,7 @@ NSTUB(0xFFD4228C,  gui_timer_something)
     //NSTUB(    0x3624, gui_timer_struct)
 NSTUB(0xDEADBEEF,  init_task)
 NSTUB(0xFFD5B3E8,  malloc)                                  // not good, points to AllocateMemory
+NSTUB(0xFFD5B3E8,  _malloc)                                  // not good, points to AllocateMemory
 NSTUB(0xFFD432B8,  msg_queue_post)
 NSTUB(0xFFD42BD4,  msg_queue_receive)
 NSTUB(0xFFD44300,  msleep)

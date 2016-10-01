@@ -46,6 +46,7 @@
 #include "fps.h"
 #include "lvinfo.h"
 #include "powersave.h"
+#include "state-object.h"
 
 #ifdef FEATURE_LCD_SENSOR_REMOTE
 #include "lcdsensor.h"
@@ -5106,6 +5107,10 @@ void schedule_movie_start() { movie_start_flag = 1; }
 
 static int movie_end_flag = 0;
 void schedule_movie_end() { movie_end_flag = 1; }
+
+#if defined(CONFIG_40D)
+int wait_lv_frames(int x) { }
+#endif
 
 /* exit from PLAY or QR modes (to LiveView or plain photo mode) */
 void exit_play_qr_mode()

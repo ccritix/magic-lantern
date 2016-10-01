@@ -79,13 +79,13 @@ void zoom_overlay_set_countdown(int x){}
 int lv_luma_is_accurate() { return 1; }
 int should_draw_bottom_graphs() { return 0; }
 void bmp_mute_flag_reset(){}
-void PauseLiveView(){};
-void ResumeLiveView(){};
+//void PauseLiveView(){};
+//void ResumeLiveView(){};
 void play_422(){};
 int get_zoom_overlay_trigger_by_focus_ring(){ return 0; }
 int get_disp_mode() { return 0; }
-void bmp_off(){};
-void bmp_on(){};
+//void bmp_off(){};
+//void bmp_on(){};
 void clear_zebras_from_mirror(){};
 void copy_zebras_from_mirror(){};
 void cropmark_clear_cache(){};
@@ -99,7 +99,7 @@ static void set_ml_palette_if_dirty();
 //    uYvY yYuY vYyY
 // => uYvY uYvY uYvY
 
-int bmp_is_on() { return 1; }
+//int bmp_is_on() { return 1; }
 
 #define hist_height         54
 #define HIST_WIDTH          128
@@ -194,12 +194,14 @@ static CONFIG_INT( "spotmeter.position",        spotmeter_position, 1 ); // fixe
 //~ static CONFIG_INT( "zebra.density", zebra_density, 0); 
 //~ static CONFIG_INT( "hd.vram", use_hd_vram, 0); 
 
+#if 0
 CONFIG_INT("idle.display.turn_off.after", idle_display_turn_off_after, 0); // this also enables power saving for intervalometer
 static CONFIG_INT("idle.display.dim.after", idle_display_dim_after, 0);
 static CONFIG_INT("idle.display.gdraw_off.after", idle_display_global_draw_off_after, 0);
 static CONFIG_INT("idle.rec", idle_rec, 0);
 static CONFIG_INT("idle.shortcut.key", idle_shortcut_key, 0);
 CONFIG_INT("idle.blink", idle_blink, 1);
+#endif
 
 /**
  * Normal BMP VRAM has its origin in 720x480 center crop
@@ -2025,6 +2027,7 @@ void draw_histogram_and_waveform(int allow_play)
     }
 }
 
+#if 0
 int idle_is_powersave_enabled()
 {
     return 0;
@@ -2051,7 +2054,9 @@ int handle_powersave_key(struct event * event)
 void idle_wakeup_reset_counters(int reason) // called from handle_buttons
 {
 }
+#endif
 
+#define _redraw_do redraw_do
 void redraw_do()
 {
     //~ clrscr();

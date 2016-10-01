@@ -1995,6 +1995,10 @@ int handle_buttons_being_held(struct event * event)
     return 1;
 }
 
+#ifdef CONFIG_40D
+void _redraw_do() { }
+#endif
+
 // those functions seem not to be thread safe
 // calling them from gui_main_task seems to sync them with other Canon calls properly
 int handle_tricky_canon_calls(struct event * event)
