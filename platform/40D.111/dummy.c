@@ -2,7 +2,7 @@
 #include "dryos.h"
 
 uint32_t shamem_read(uint32_t addr) { return 0; } // or maybe return MEM(addr)
-void _EngDrvOut(int addr, int value) { MEM(addr) = value; }
+void _EngDrvOut(uint32_t addr, uint32_t value) { MEM(addr) = value; }
 
 int new_LiveViewApp_handler = 0xff123456;
 

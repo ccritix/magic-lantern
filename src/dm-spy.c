@@ -27,6 +27,8 @@ unsigned int BUF_SIZE = (1024*1024);
 static char* buf = 0;
 static int len = 0;
 
+extern void beep();
+
 void my_DebugMsg(int class, int level, char* fmt, ...)
 {
     if (!buf) return;

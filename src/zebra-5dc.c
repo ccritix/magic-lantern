@@ -62,7 +62,7 @@ static void black_bars_16x9();
 static void black_bars();
 //~ static void defish_draw_play();
 
-extern unsigned int log_length(int x);
+extern uint32_t log_length(int x);
 extern void zoom_sharpen_step();
 extern void bv_auto_update();
 
@@ -75,7 +75,7 @@ int toggle_disp_mode();
 void toggle_disp_mode_menu(void *priv, int delta);
 
 int get_zoom_overlay_trigger_mode() { return 0; }
-void zoom_overlay_set_countdown(){}
+void zoom_overlay_set_countdown(int x){}
 int lv_luma_is_accurate() { return 1; }
 int should_draw_bottom_graphs() { return 0; }
 void bmp_mute_flag_reset(){}
@@ -99,7 +99,7 @@ static void set_ml_palette_if_dirty();
 //    uYvY yYuY vYyY
 // => uYvY uYvY uYvY
 
-static int bmp_is_on() { return 1; }
+int bmp_is_on() { return 1; }
 
 #define hist_height         54
 #define HIST_WIDTH          128
@@ -220,7 +220,7 @@ int cropmark_cache_dirty = 1;
 int crop_dirty = 0;       // redraw cropmarks after some time (unit: 0.1s)
 int clearscreen_countdown = 20;
 
-//~ int recording = 0;
+int recording = 0;
 
 void crop_set_dirty(int value)
 {
@@ -2010,7 +2010,7 @@ void draw_histogram_and_waveform(int allow_play)
 
     if( hist_draw )
     {
-        BMP_LOCK( hist_draw_image( os.x_max - HIST_WIDTH - 5, os.y0 + 100, -1); )
+        BMP_LOCK( hist_draw_image( os.x_max - HIST_WIDTH - 5, os.y0 + 100); )
     }
 
     if( waveform_draw)

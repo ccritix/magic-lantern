@@ -28,4 +28,6 @@
 #define FEATURE_INTERVALOMETER
 #undef FEATURE_FLEXINFO
 
+#undef CONFIG_RAW_LIVEVIEW
+
 // anything else working? no idea

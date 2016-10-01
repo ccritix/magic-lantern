@@ -1174,11 +1174,19 @@ void bmp_off()
     }
 }
 
+/*
 void bmp_mute_flag_reset()
 {
     _bmp_muted = 0;
     _bmp_unmuted = 0;
 }
+*/
+#define bmp_mute_flag_reset() \
+	{ \
+	    _bmp_muted = 0; \
+	    _bmp_unmuted = 0; \
+	}
+
 
 /* for menu: scale the BMP overlay by 128/denx and 128/deny */
 void bmp_zoom(uint8_t* dst, uint8_t* src, int x0, int y0, int denx, int deny)

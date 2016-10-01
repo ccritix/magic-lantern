@@ -98,7 +98,8 @@ error
 
 void set_ml_palette();
 
-int D2V(unsigned color) { return bmp_lut[MIN(color & 0xFF,79)]; }
+//int D2V(unsigned color) { return bmp_lut[MIN(color & 0xFF,79)]; }
+#define D2V(color) bmp_lut[MIN(color & 0xFF,79)]
 
 extern int bmp_vram_idle_ptr;
 
@@ -556,10 +557,10 @@ extern uint32_t LCD_Palette[];
 #endif
 
 /* turn on/off the BMP overlay by making the palette transparent and restoring it */
-void bmp_off();
-void bmp_on();
-int bmp_is_on();
-void bmp_mute_flag_reset();  /* reset the BMP on/off state (to be called when changing video modes) */
+extern void bmp_off();
+extern void bmp_on();
+extern int bmp_is_on();
+extern void bmp_mute_flag_reset();  /* reset the BMP on/off state (to be called when changing video modes) */
 
 /* change colors in a palette entry, by modifying some other color */
 /* todo: move to palette.c/h? */
