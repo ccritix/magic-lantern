@@ -174,6 +174,9 @@ extern void create_task_cmd_shell(const char * name);
 
 void ml_hijack_create_task_cmd_shell(const char * name)
 {
+	// Fix from vnd to stop crashing by calling cache_unlock()
+	cache_unlock();
+
 	// call original create_task_cmd_shell to start taskCmdShell
 	create_task_cmd_shell(name);
 
