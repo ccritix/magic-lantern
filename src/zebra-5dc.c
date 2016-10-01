@@ -53,6 +53,7 @@ static void schedule_transparent_overlay();
 static int zebra_color_word_row(int c, int y);
 static void spotmeter_step();
 
+static void beep();
 
 static void cropmark_cache_update_signature();
 static int cropmark_cache_is_valid();
@@ -90,6 +91,8 @@ void copy_zebras_from_mirror(){};
 void cropmark_clear_cache(){};
 void update_disp_mode_bits_from_params(){};
 int disp_profiles_0 = 0;
+
+static void set_ml_palette_if_dirty();
 
 // color info in 5Dc is not quite yuv422... but almost there (it's probably yuv411)
 
@@ -141,6 +144,7 @@ int nondigic_zoom_overlay_enabled()
 {
     return 0;
 }
+static CONFIG_INT( "histogram.colorspace", hist_colorspace, 1);
 
 static CONFIG_INT( "focus.peaking", focus_peaking, 1);
 //~ static CONFIG_INT( "focus.peaking.method", focus_peaking_method, 1);

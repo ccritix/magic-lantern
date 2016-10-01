@@ -35,6 +35,9 @@
 #ifdef CONFIG_VXWORKS
 
     // inline functions in bmp.h
+void set_ml_palette_if_dirty();
+void BmpDDev_take_semaphore();
+void BmpDDev_give_semaphore();
 
 #else // DryOS
 
@@ -609,14 +612,9 @@ void bmp_draw_rect_chamfer(int color, int x0, int y0, int w, int h, int a, int t
 
 #ifdef CONFIG_VXWORKS
 
-/** converting dryos palette to vxworks one */
-static char bmp_lut[80] = {
-    0x00, 0xff, 0x99, 0x88, 0x77, 0x44, 0x22, 0x22, 0x11, 0x33, 0xDD, 0x33, 0x11, 0x33, 0x55, 0x66,
-    0x55, 0x77, 0x22, 0x77, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55,
-    0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x99, 0x99, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xBB,
-    0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xDD, 0xDD, 0xDD,
-    0xDD, 0xDD, 0xDD, 0xDD, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-};
+extern int RGB_Palette[];
+extern int LCD_Palette[];
+extern int PB_Palette[];
 
 void set_ml_palette()
 {
@@ -641,14 +639,10 @@ void set_ml_palette()
         0xFFFFFFFF  // F - white
     };
 
-    extern int RGB_Palette[];
-    extern int LCD_Palette[];
-    extern int PB_Palette[];
-
     if (0) // convert from RGB to PB with Canon code, write result to a file
     {      // if you change RGB palette, run this first to get the PB equivalent (comment out BmpDDev semaphores first)
         NotifyBox(10000, "%x ", PB_Palette);
-        SetRGBPaletteToDisplayDevice(palette); // problem: this is unsafe to call (race condition with Canon code)
+        //SetRGBPaletteToDisplayDevice(palette); // problem: this is unsafe to call (race condition with Canon code) //~ Disabled due to compile issue
         FILE* f = FIO_CreateFile("pb.log");
         if (f)
         {
@@ -736,8 +730,6 @@ void guess_palette()
     }
 }
 */
-
-int D2V(unsigned color) { return bmp_lut[MIN(color & 0xFF,79)]; }
 
 #endif
 

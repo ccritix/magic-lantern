@@ -66,7 +66,7 @@ void idle_globaldraw_dis();
 void idle_globaldraw_en();
 int get_last_time_active();
 
-int handle_livev_playback(struct event * event);
+int handle_livev_playback(struct event * event, int button);
 
 /* focus peaking */
 int is_focus_peaking_enabled();
@@ -76,7 +76,7 @@ void peak_disp_filter();    /* CBR called from tweaks.c */
 /* spotmeter */
 int get_spot_motion(int dxb, int xcb, int ycb, int draw);
 void get_spot_yuv(int dxb, int* Y, int* U, int* V);
-void get_spot_yuv_ex(int size_dxb, int dx, int dy, int* Y, int* U, int* V, int draw, int erase);
+void get_spot_yuv_ex(int size_dxb, int dx, int dy, int* Y, int* U, int* V);
 
 /* private */
 void spotmeter_erase();

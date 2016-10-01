@@ -408,6 +408,7 @@
     #define PROP_CARD_RECORD       0x8003000B
     #define PROP_CLUSTER_SIZE      0x2010004
     #define PROP_FREE_SPACE        0x2010006
+
 #else // DryOS
     
     #define PROP_CARD_SELECT         0x80040002 //  1=CF, 2=SD

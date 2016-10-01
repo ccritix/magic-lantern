@@ -256,6 +256,10 @@ static void fps_read_current_timer_values();
 #elif defined(CONFIG_550D) || defined(CONFIG_600D) || defined(CONFIG_60D)
     #define TG_FREQ_BASE 28800000
     #define FPS_TIMER_A_MIN MIN(fps_timer_a_orig - (ZOOM ? 0 : 10), ZOOM ? 734 : video_mode_crop ? (video_mode_resolution == 2 ? 400 : 560) : 0x21A)
+#else
+    // Fallback for non-defined models
+    #define TG_FREQ_BASE 28800000
+    #define FPS_TIMER_A_MIN MIN(fps_timer_a_orig - (ZOOM ? 0 : 10), ZOOM ? 734 : video_mode_crop ? (video_mode_resolution == 2 ? 400 : 560) : 0x21A)
 #endif
 
 // these can change timer B with another method, more suitable for high FPS

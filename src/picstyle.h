@@ -24,7 +24,7 @@ int lens_get_from_other_picstyle_saturation(int index);
 int lens_get_from_other_picstyle_color_tone(int index);
 
 #ifdef PROP_PICSTYLE_SETTINGS
-    #error this should no longer be in consts.h
+//~    #error this should no longer be in consts.h
 #endif
 
 #if NUM_PICSTYLES == 9      /* old cameras */

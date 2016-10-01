@@ -47,14 +47,17 @@ static int handle_buttons(struct event * event)
 	return 1;
 }
 
-#define g_mq MEM(0x11e00)
-#define g_sem MEM(0x11E04)
+#define g_mq (struct msg_queue *)MEM(0x11e00)
+#define g_sem (struct semaphore *)MEM(0x11E04)
 //~ static struct gui_mq * mq = 0x11e00;
 //~ static struct semaphore * sem = 0x11E04;
-static int * obj = 0x28CC;
-static int * timer_obj = 0x28f8;
+static int * obj = (int *)0x28CC;
+static int * timer_obj = (int *)0x28f8;
 
 extern struct gui_timer_struct gui_timer_struct;
+
+unsigned short int magic_is_off(); // declared elsewhere
+void gui_post_10000062( int, void *, int ); // also declared elsewhere
 
 int max_gui_queue_len = 0;
 
@@ -157,7 +160,7 @@ static void ml_gui_main_task( void )
 		}
 
         if (IS_FAKE(event_ptr)) {
-           event->arg = 0;      /* do not pass the "fake" flag to Canon code */
+           event_ptr->arg = 0;      /* do not pass the "fake" flag to Canon code */
         }
 
         if (event_ptr->type == 0 && event_ptr->param < 0) {
@@ -205,7 +208,7 @@ static void ml_gui_main_task( void )
 			{
 				gui_local_post( 0xb, 0, 0 );
 				if( *timer_obj != 0)
-					gui_timer_something( *timer_obj, 4 );
+					gui_timer_something( (void *)*timer_obj, 4 );
 			}
 
 			gui_change_mode( event_ptr->param );
@@ -276,6 +279,9 @@ queue_clear:
 		goto event_loop_bottom;
 	}
 }
+
+extern void DeleteTask(int);
+extern int QueryTaskByName(char *);
 
 // double-check gui main task first!!!
 void ml_hijack_gui_main_task()

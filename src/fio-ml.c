@@ -242,6 +242,8 @@ void _find_ml_card()
     }
 }
 
+#if !defined(CONFIG_VXWORKS) // DryOS
+
 PROP_HANDLER(PROP_CARD_SELECT)
 {
     int card_select = buf[0] - 1;
@@ -308,6 +310,8 @@ PROP_HANDLER(PROP_FOLDER_NUMBER_C)
 {
     available_cards[CARD_C].folder_number = buf[0];
 }
+
+#endif // DryOS
 
 PROP_HANDLER(PROP_DCIM_DIR_SUFFIX)
 {
