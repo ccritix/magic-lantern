@@ -94,6 +94,7 @@ static int is_5d2 = 0;
 static int is_50d = 0;
 static int is_6d = 0;
 static int is_60d = 0; 
+static int is_70d = 0;
 static int is_500d = 0;
 static int is_550d = 0;
 static int is_600d = 0;
@@ -776,6 +777,48 @@ static unsigned int isoless_init()
         CMOS_ISO_BITS = 3;
         CMOS_FLAG_BITS = 2;
         CMOS_EXPECTED_FLAG = 0; 
+    }
+    else if (is_camera("70D", "1.1.2"))
+    {
+        /* Movie Mode
+        100 - 0x4045349a value (0x3)
+        200 - 0x404534c8
+        400 - 0x404534f6
+        800 - 0x40453524
+        1600 -0x40453552
+        3200 -0x40453580 
+        6400 -0x40453ae value (0xdb) */
+        
+        is_70d = 1;    
+
+        /* FRAME_CMOS_ISO_START = 0x4045349a; // CMOS register 0000 - for LiveView, ISO 100 (check in movie mode, not photo!)
+        FRAME_CMOS_ISO_COUNT =          7; // from ISO 100 to 6400 (last real iso!)
+        FRAME_CMOS_ISO_SIZE  =         46; // distance between ISO 100 and ISO 200 addresses, in bytes */
+        
+        
+        /* WE DO NOT SEEM TO BE ABLE TO USE DUAL ISO IN MOVIE MODE */
+        /* MORE CONFUSING IS THAT WE ARE INDEED ABLE TO USE */
+        /* CMOS[0] OR CMOS[3]. BOTH SEEM TO WORK WELL IN PHOTO MODE */
+        /* FOR NOW LET US OPT FOR CMOS[0] BUT THE QUESTION IS: */
+        /* COULD WE TAKE ADVANTAGE OF USING BOTH AT THE SAME TIME (TRIPLE ISO)? */
+        
+        /* Photo Mode
+        100 - 0x40451664 value (0x3)
+        200 - 0x40451678
+        400 - 0x4045168c
+        800 - 0x404516a0
+        1600 -0x404516b4
+        3200 -0x404516c8 
+        6400 -0x404516dc value (0xdb)
+        12800-0x404516dc value (0xdb) like ISO 6400 */
+        
+        PHOTO_CMOS_ISO_START = 0x40451664; // CMOS register 0000 - for photo mode, ISO 100
+        PHOTO_CMOS_ISO_COUNT =          7; // from ISO 100 to 6400 (last real iso!)
+        PHOTO_CMOS_ISO_SIZE  =         20; // distance between ISO 100 and ISO 200 addresses, in bytes
+
+        CMOS_ISO_BITS = 3;      // unverified
+        CMOS_FLAG_BITS = 2;     // unverified
+        CMOS_EXPECTED_FLAG = 3; // unverified
     }
     else if (is_camera("500D", "1.1.1"))
     {  
