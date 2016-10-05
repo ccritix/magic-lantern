@@ -39,6 +39,7 @@
 #define SIG_100D_100B 0x34443B7F
 #define SIG_70D_111A 0xDC6591AD
 #define SIG_70D_111B 0xDD6F9EB3
+#define SIG_70D_112 0xD8698F05
 
 static int compute_signature(int* start, int num)
 {

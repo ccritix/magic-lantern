@@ -253,7 +253,11 @@ NSTUB(    0x9818,  msleep)
 
 /** Tasks **/
 NSTUB(    0x98CC,  task_create)
-NSTUB(   0x7AAD4,  task_dispatch_hook)                      /* DryOS_Hooks needs 7AAD4 */
+/** Very Important **/
+/** Using correct 7AAD4 stub leads to a stucked boot with continuous LED **/
+/** Only with the task related fixes from DryOS_Hooks branch we are allowed **/
+/** to use 7AAD4. Til then we use just another lucky wrong one for a succesful boot **/
+NSTUB(   0x7A9B4,  task_dispatch_hook)                      /* DryOS_Hooks needs 7AAD4 */
 NSTUB(    0xEF60,  task_trampoline)
 
 /** Misc **/
