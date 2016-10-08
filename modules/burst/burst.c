@@ -27,6 +27,21 @@ static int check_preconditions()
     return 1;
 }
 
+/* last file number when the camera was idle (not taking pictures) */
+static int last_idle_file_num = 0;
+
+static void burst_file_num_poll()
+{
+    if (lens_info.job_state && get_halfshutter_pressed())
+    {
+        /* nothing to do, prop handler takes care of it */
+    }
+    else
+    {
+        last_idle_file_num = get_shooting_card()->file_number;
+    }
+}
+
 static void display_off_if_unchanged(int unused, int preview_time)
 {
     /* If our magic number is still on the screen,
@@ -45,8 +60,11 @@ static void burst_preview_run()
 
     if (lens_info.job_state && get_halfshutter_pressed() && !lv)
     {
-        /* wait for display to turn off, then force it back on */
-        if (!display_is_on())
+        int pics_taken = MOD(get_shooting_card()->file_number - last_idle_file_num, 10000);
+
+        /* if we took at least 2 pictures in a burst sequence, 
+         * wait for display to turn off, then force it back on */
+        if (pics_taken >= 2 && !display_is_on())
         {
             display_on();
             triggered = 1;
@@ -103,21 +121,6 @@ static void burst_preview_run()
     }
 }
 
-/* last file number when the camera was idle (not taking pictures) */
-static int last_idle_file_num = 0;
-
-static void burst_max_count_poll()
-{
-    if (lens_info.job_state && get_halfshutter_pressed())
-    {
-        /* nothing to do, prop handler takes care of it */
-    }
-    else
-    {
-        last_idle_file_num = get_shooting_card()->file_number;
-    }
-}
-
 static void burst_max_count_run(int file_number)
 {
     if (!check_preconditions())
@@ -169,14 +172,11 @@ static unsigned int burst_shoot_cbr()
         return 0;
     }
 
+    burst_file_num_poll();
+
     if (burst_preview)
     {
         burst_preview_run();
-    }
-
-    if (burst_max_count)
-    {
-        burst_max_count_poll();
     }
 
     return 0;
