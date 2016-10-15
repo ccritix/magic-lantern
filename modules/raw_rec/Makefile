@@ -8,25 +8,26 @@ include ../Makefile.modules
 
 all:: raw2dng
 
+R2D_CFLAGS = -I$(SRC_DIR) -mno-ms-bitfields -D_FILE_OFFSET_BITS=64
+R2D_LFLAGS = -lm
+
 # RAW to DNG converter for PC
-raw2dng: ../lv_rec/raw2dng.c
-	$(call build,HOST_CC,$(HOST_CC) -c ../dng/dng.c -std=gnu99 -O2 -Wall -I$(SRC_DIR))
-	$(call build,HOST_CC,$(HOST_CC) -c ../lv_rec/raw2dng.c -mno-ms-bitfields -O2 -Wall -I$(SRC_DIR) -D_FILE_OFFSET_BITS=64)
-	$(call build,HOST_CC,$(HOST_CC) raw2dng.o dng.o -o raw2dng -lm)
+raw2dng: ../dng/dng.c ../lv_rec/raw2dng.c
+	$(call build,HOST_CC,$(HOST_CC) -c ../dng/dng.c $(HOST_CFLAGS) $(R2D_CFLAGS))
+	$(call build,HOST_CC,$(HOST_CC) -c ../lv_rec/raw2dng.c $(HOST_CFLAGS) $(R2D_CFLAGS))
+	$(call build,HOST_CC,$(HOST_CC) raw2dng.o dng.o -o raw2dng $(HOST_LFLAGS) $(R2D_LFLAGS))
 
 # debug tool
 dng2raw: dng2raw.c
-	$(call build,GCC,gcc dng2raw.c -O2 -Wall -I$(SRC_DIR)) -o dng2raw
+	$(call build,HOST_CC,$(HOST_CC) dng2raw.c $(HOST_CFLAGS) $(R2D_CFLAGS)) -o dng2raw
 
-raw2dng.exe: $(SRC_DIR)/chdk-dng.c ../lv_rec/raw2dng.c
-	$(call build,MINGW,$(MINGW_GCC) -c $(SRC_DIR)/chdk-dng.c -m32 -mno-ms-bitfields -O2 -Wall -I$(SRC_DIR))
-	$(call build,MINGW,$(MINGW_GCC) -c ../lv_rec/raw2dng.c -m32 -mno-ms-bitfields -O2 -Wall -I$(SRC_DIR) -D_FILE_OFFSET_BITS=64)
-	$(call build,MINGW,$(MINGW_GCC) raw2dng.o chdk-dng.o -o raw2dng.exe -lm -m32)
+raw2dng.exe: ../dng/dng.c ../lv_rec/raw2dng.c
+	$(call build,MINGW,$(MINGW_GCC) -c ../dng/dng.c $(HOST_CFLAGS) $(R2D_CFLAGS))
+	$(call build,MINGW,$(MINGW_GCC) -c ../lv_rec/raw2dng.c $(HOST_CFLAGS) $(R2D_CFLAGS))
+	$(call build,MINGW,$(MINGW_GCC) raw2dng.o dng.o -o raw2dng.exe $(HOST_LFLAGS) $(R2D_LFLAGS))
 
-raw2dng.exe: ../lv_rec/raw2dng.c
-	$(call build,MINGW,$(MINGW_GCC) -c ../dng/dng.c -O2 -Wall -I$(SRC_DIR))
-	$(call build,MINGW,$(MINGW_GCC) -c ../lv_rec/raw2dng.c -mno-ms-bitfields -O2 -Wall -I$(SRC_DIR) -D_FILE_OFFSET_BITS=64)
-	$(call build,MINGW,$(MINGW_GCC) raw2dng.o dng.o -o raw2dng.exe -lm -m32)
+dng2raw.exe: dng2raw.c
+	$(call build,MINGW,$(MINGW_GCC) dng2raw.c $(HOST_CFLAGS) $(R2D_CFLAGS)) -o dng2raw.exe
 
 clean::
 	$(call rm_files, raw2dng raw2dng.exe dng2raw dng2raw.exe)
