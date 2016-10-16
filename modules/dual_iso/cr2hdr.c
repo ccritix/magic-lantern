@@ -2679,7 +2679,7 @@ static int hdr_interpolate()
                 }
             }
             save_debug_dng("edge-map.dng");
-            if(system("dcraw -d -r 1 1 1 1 edge-map.dng"));
+            if(system("dcraw -d -r 1 1 1 1 -k 0 edge-map.dng"));
             printf("debug exit\n");
             exit(1);
         }
