@@ -60,6 +60,7 @@ static int is_bright[4];
 
 /** Command-line interface */
 
+int force_dual = 0;
 int interp_method = 0;          /* 0:amaze-edge, 1:mean23 */
 int chroma_smooth_method = 2;
 int fix_pink_dots = 0;
@@ -218,6 +219,7 @@ struct cmd_group options[] = {
     },
     {
         "Troubleshooting options", (struct cmd_option[]) {
+            { &force_dual,     1, "--force",          "force processing even if the image is not Dual ISO." },
             { &debug_blend,    1, "--debug-blend",      "save intermediate images used for blending:\n"
                                                         "    dark.dng        the low-ISO exposure, interpolated\n"
                                                         "    bright.dng      the high-ISO exposure, interpolated and darkened\n"
@@ -783,7 +785,7 @@ int main(int argc, char** argv)
         
         dng_set_thumbnail_size(384, 252);
 
-        if (hdr_check())
+        if (force_dual || hdr_check())
         {
             if (!black_subtract(left_margin, top_margin))
             {
@@ -1929,10 +1931,9 @@ static int match_exposures(double* corr_ev, int* white_darkened)
     *white_darkened = (white20 - black20 + black_delta20) * a + black20;
 
     double factor = 1/a;
-    if (factor < 1.2 || !isfinite(factor))
+    if (!force_dual && (factor < 1.2 || !isfinite(factor)))
     {
         printf("Doesn't look like interlaced ISO\n");
-        factor = 1;
         return 0;
     }
     
