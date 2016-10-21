@@ -96,6 +96,8 @@ static struct logged_func logged_functions[] = {
     { 0xFF1BF26C, "mpu_send", 2, mpu_send_log }, 
     { 0xFF05DFDC, "mpu_recv", 1, mpu_recv_log}, 
     { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
+    { 0xFF1C8B98, "LockEngineResources", 1, LockEngineResources_log },
+    { 0xFF1C8CD4, "UnLockEngineResources", 1, UnLockEngineResources_log },
     #endif
 
     #ifdef CONFIG_500D
@@ -152,6 +154,20 @@ static struct logged_func logged_functions[] = {
     { 0xff86c720, "SetHPTimerAfter", 4 },
     { 0xff9a86e0, "LockEngineResources", 1, LockEngineResources_log },
     { 0xff9a87d0, "UnLockEngineResources", 1, UnLockEngineResources_log},
+#endif
+
+#ifdef CONFIG_60D
+    { 0xFF1BF26C, "mpu_send", 2, mpu_send_log }, 
+    { 0xFF05DFDC, "mpu_recv", 1, mpu_recv_log}, 
+    { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
+    { 0xFF1C8B98, "LockEngineResources", 1, LockEngineResources_log },
+    { 0xFF1C8CD4, "UnLockEngineResources", 1, UnLockEngineResources_log },
+    { 0xFF1C45A8, "StartEDmac", 2 },
+    { 0xFF1C42A8, "SetEDmac", 4 },
+    { 0xFF06E534, "take_semaphore", 2 },
+    { 0xFF06E61C, "give_semaphore", 1 },
+    { 0xFF1C8C00, "resinfo_wait_smth", 0, mmio_log },
+    { 0xFF1C8AC0, "resinfo_check", 7, mmio_log },
 #endif
 
 #ifdef CONFIG_550D
