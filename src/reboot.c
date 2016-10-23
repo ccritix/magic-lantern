@@ -222,7 +222,7 @@ cstart( void )
 
 #ifdef __ARM__
     /* turn on the LED as soon as autoexec.bin is loaded (may happen without powering on) */
-    #if defined(CONFIG_40D) || defined(CONFIG_5DC)
+    #if defined(CONFIG_40D) || defined(CONFIG_5DC) || defined(CONFIG_450D)
         *(volatile int*) (LEDBLUE) = (LEDON);
         *(volatile int*) (LEDRED)  = (LEDON); // do we need the red too ?
     #elif defined(CARD_LED_ADDRESS) && defined(LEDON) // A more portable way, hopefully

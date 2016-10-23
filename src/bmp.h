@@ -92,6 +92,8 @@ static char bmp_lut[80] = {
 inline uint8_t* bmp_vram_real() { return (uint8_t*) MEM(0x29328); }
 #elif defined(CONFIG_40D)
 inline uint8_t* bmp_vram_real() { return (uint8_t*) MEM(0x1E330); }
+#elif defined(CONFIG_450D)
+inline uint8_t* bmp_vram_real() { return (uint8_t*) MEM(0x30970); }
 #else
 error
 #endif

@@ -34,7 +34,7 @@ static struct menu_entry help_menus[] = {
         #elif defined(CONFIG_5D2)
         .name = "Pict.Style",
         .choices = CHOICES("Open submenu (Q)"),
-        #elif defined(CONFIG_5DC) || defined(CONFIG_40D)
+        #elif defined(CONFIG_5DC) || defined(CONFIG_40D) || defined(CONFIG_450D)
         .name = "Press JUMP",
         .choices = CHOICES("Open submenu (Q)"),
         #elif defined(CONFIG_EOSM)

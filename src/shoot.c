@@ -702,7 +702,7 @@ static void mlu_take_pic()
     SW2(1,250);
     SW2(0,50);
     SW1(0,50);
-    #elif defined(CONFIG_40D)
+    #elif defined(CONFIG_40D) || defined(CONFIG_450D)
     call("FA_Release");
     #else
     call("Release"); // new cameras (including 500D)
@@ -5108,7 +5108,7 @@ void schedule_movie_start() { movie_start_flag = 1; }
 static int movie_end_flag = 0;
 void schedule_movie_end() { movie_end_flag = 1; }
 
-#if defined(CONFIG_40D)
+#if defined(CONFIG_40D) || defined(CONFIG_450D)
 int wait_lv_frames(int x) { }
 #endif
 

@@ -696,7 +696,7 @@ int mlu_lock_mirror_if_needed() // called by lens_take_picture; returns 0 if suc
             SW2(1,250);
             SW2(0,50);
             SW1(0,50);
-            #elif defined(CONFIG_40D)
+            #elif defined(CONFIG_40D) || defined(CONFIG_450D)
             call("FA_Release");
             #else
             call("Release");
@@ -838,7 +838,7 @@ lens_take_picture(
     }
     #elif defined(CONFIG_5DC)
     call("rssRelease");
-    #elif defined(CONFIG_40D)
+    #elif defined(CONFIG_40D) || defined(CONFIG_450D)
     call("FA_Release");
     #else
     call("Release");
@@ -1376,7 +1376,7 @@ PROP_HANDLER( PROP_WB_KELVIN_LV )
     lens_info.kelvin = value;
 }
 
-#if !defined(CONFIG_5DC) && !defined(CONFIG_40D)
+#if !defined(CONFIG_5DC) && !defined(CONFIG_40D) && !defined(CONFIG_450D)
 static uint16_t custom_wb_gains[128];
 PROP_HANDLER(PROP_CUSTOM_WB)
 {

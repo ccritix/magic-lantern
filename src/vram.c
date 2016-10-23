@@ -269,7 +269,7 @@ void _update_vram_params()
     os.off_43 = 0;
     os.off_169 = 0;
     os.off_1610 = 0;
-#elif defined(CONFIG_40D)
+#elif defined(CONFIG_40D) || defined(CONFIG_450D)
     //~ vram_lv.width = 720; // we only know the HD buffer for now... let's try to pretend it can be used as LV :)
     //~ vram_lv.height = 480;
     // we only know the HD buffer for now... let's try to pretend it can be used as LV :)
@@ -307,7 +307,7 @@ void _update_vram_params()
     bm2lv.sy = 1024 * vram_lv.height / (480-52);
     bm2lv.tx = 0;
     bm2lv.ty = -26;
-#elif CONFIG_40D
+#elif defined(CONFIG_40D) || defined(CONFIG_450D)
     bm2lv.sx = 1024 * vram_lv.width / 720;
     bm2lv.sy = 1024 * vram_lv.height / 480;
     //~ bm2lv.sy = 1024 * vram_lv.height / (480-48);    
@@ -331,7 +331,7 @@ void _update_vram_params()
     //~ hd_ratio_num = recording ? (video_mode_resolution < 2 ? 16 : 4) : 3;
     //~ hd_ratio_den = recording ? (video_mode_resolution < 2 ?  9 : 3) : 2;
 
-#if defined(CONFIG_40D)
+#if defined(CONFIG_40D) || defined(CONFIG_450D)
     vram_hd.width = vram_lv.width;
     vram_hd.height = vram_lv.height;
     vram_hd.pitch = vram_lv.pitch;

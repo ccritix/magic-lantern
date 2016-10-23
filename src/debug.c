@@ -1995,7 +1995,7 @@ int handle_buttons_being_held(struct event * event)
     return 1;
 }
 
-#ifdef CONFIG_40D
+#if defined (CONFIG_40D) || defined(CONFIG_450D)
 void _redraw_do() { }
 #endif
 

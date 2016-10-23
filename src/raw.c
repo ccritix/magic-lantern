@@ -293,6 +293,15 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
     -2025, 10000,     2553, 10000,    7315, 10000
 #endif
 
+#ifdef CONFIG_450D // these values are in ufraw-0.22
+    //~{ "Canon EOS 450D", 0, 0x3f60,
+        //~{ 6071,-747,-856,-7653,15365,2441,-2025,2553,7315 } },
+    #define CAM_COLORMATRIX1                       \
+     6071, 10000,     -747, 10000,    -856, 10000, \
+    -7653, 10000,    15365, 10000,    2441, 10000, \
+    -2025, 10000,     2553, 10000,    7315, 10000
+#endif
+
 #ifdef CONFIG_50D // these values are in ufraw-0.19.2
     //~{ "Canon EOS 50D", 0, 0x3d93,
 	//~{ 4920,616,-593,-6493,13964,2784,-1774,3178,7005 } }, 
@@ -383,6 +392,11 @@ static int dynamic_ranges[] = {1091, 1072, 1055, 999, 910, 824, 736, 662};
 #endif
 
 #ifdef CONFIG_40D
+// TODO: FIXME: correct values
+static int dynamic_ranges[] = {1100, 1094, 1060, 1005, 919, 826, 726, 633};
+#endif
+
+#ifdef CONFIG_450D
 // TODO: FIXME: correct values
 static int dynamic_ranges[] = {1100, 1094, 1060, 1005, 919, 826, 726, 633};
 #endif

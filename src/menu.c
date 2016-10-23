@@ -129,7 +129,7 @@ static CONFIG_INT("menu.junkie", junkie_mode, 0);
 
 static int is_customize_selected();
 
-#ifdef CONFIG_40D
+#if defined (CONFIG_40D)  || defined(CONFIG_450D)
 void CancelDateTimer() { }
 #else
 extern void CancelDateTimer();

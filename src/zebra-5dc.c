@@ -1457,7 +1457,7 @@ static MENU_UPDATE_FUNC(vectorscope_display)
 }
 
 
-#ifdef CONFIG_40D
+#if defined(CONFIG_40D) || defined(CONFIG_450D)
 static MENU_UPDATE_FUNC(clearscreen_display)
 {
     int mode = clearscreen;
@@ -1551,7 +1551,7 @@ int get_spot_motion(int dxb, int xcb, int ycb, int draw)
     return 0;
 }
 
-#ifdef CONFIG_40D
+#if defined(CONFIG_40D) || defined(CONFIG_450D)
 void
 spotmeter_erase()
 {

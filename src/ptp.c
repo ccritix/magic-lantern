@@ -77,7 +77,7 @@ uint32_t ptp_register_all_handlers()
 
 static void ptp_init( void *unused )
 {
-#ifndef CONFIG_40D 
+#if !defined (CONFIG_40D)  && !defined(CONFIG_450D)
 	ptp_register_all_handlers();
 #endif
 }

@@ -304,7 +304,7 @@ void prop_request_change(unsigned property, const void* addr, size_t len)
 {
 #ifdef CONFIG_PROP_REQUEST_CHANGE
 
-	#if defined(CONFIG_40D)
+	#if defined(CONFIG_40D) || defined(CONFIG_450D)
 	if (property != PROP_AFPOINT) {
 		return;
 	}
