@@ -40,8 +40,11 @@ struct logged_func
     patch_hook_function_cbr log_func;           /* if generic_log is not enough, you may use a custom logging function */
 };
 
-#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
 static struct logged_func logged_functions[] = {
+    /* dummy entry, just to check cache conflicts */
+    { (uint32_t) &DryosDebugMsg, "DebugMsg" },
+
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
     #ifdef CONFIG_5D2
     { 0xff9b3cb4, "register_interrupt", 4 },
     //~ { 0xFF87284C, "dma_memcpy", 3 },            // conflicts with mpu_recv
@@ -125,9 +128,9 @@ static struct logged_func logged_functions[] = {
     { 0x36288, "mpu_send", 2, mpu_send_log },    /* dwSize < TXBD_DATA_SIZE */
     {  0x4040, "mpu_recv", 1, mpu_recv_log },    /* registered in InitializeIntercom as CBR */
     #endif
-};
-#else
-static struct logged_func logged_functions[] = {
+
+#else /* not CONFIG_DEBUG_INTERCEPT_STARTUP */
+
 #ifdef CONFIG_5D2
     { 0xff9b9198, "StateTransition", 4 , state_transition_log },
     { 0xff9b989c, "TryPostEvent", 5 },
@@ -264,10 +267,10 @@ static struct logged_func logged_functions[] = {
     { 0xFF694DE4, "PathDrv_EekoAddRawPathCore.c", 4 },
     //~ { 0xFF694C88, "eeko_setup_twoadd", 3 },
     { 0xFF694A04, "PathDrv_EekoAddRawPathCore.c_div8", 4 },
-    
+#endif
+
 #endif
 };
-#endif
 
 /* format arg to string and try to guess its type, with snprintf-like usage */
 /* (string, ROM function name or regular number) */
@@ -598,7 +601,8 @@ void dm_spy_extra_install()
         CACHE_SEGMENT_ADDRMASK(TYPE_ICACHE)
     );
 
-    for (int i = 0; i < COUNT(logged_functions); i++)
+    /* note: first entry is DebugMsg */
+    for (int i = 1; i < COUNT(logged_functions); i++)
     {
         if (logged_functions[i].addr)
         {
@@ -616,7 +620,7 @@ void dm_spy_extra_install()
 
 void dm_spy_extra_uninstall()
 {
-    for (int i = 0; i < COUNT(logged_functions); i++)
+    for (int i = 1; i < COUNT(logged_functions); i++)
     {
         unpatch_memory(logged_functions[i].addr);
     }
