@@ -535,6 +535,11 @@ static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 static int check_no_conflicts(int i)
 {
+    #ifdef CONFIG_QEMU
+    /* you can safely log conflicting addresses from QEMU */
+    return 1;
+    #endif
+
     /* two memory addresses can't be patched at the same time if their index bits are the same */
     /* fixme: hardcoded masks */
     int index_mask = 0x7E0;
