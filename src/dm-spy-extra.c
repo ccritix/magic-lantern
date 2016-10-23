@@ -18,6 +18,12 @@
 #include "console.h"
 #include "edmac.h"
 
+/* this needs pre_isr_hook/post_isr_hook stubs */
+//~ #define LOG_INTERRUPTS
+
+extern void (*pre_isr_hook)();
+extern void (*post_isr_hook)();
+
 static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void state_transition_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void CreateResLockEntry_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
@@ -31,6 +37,7 @@ static void engdrvbits_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void register_interrupt_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 
 struct logged_func
 {
@@ -46,7 +53,7 @@ static struct logged_func logged_functions[] = {
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
     #ifdef CONFIG_5D2
-    { 0xff9b3cb4, "register_interrupt", 4 },
+    { 0xff9b3cb4, "register_interrupt", 4, register_interrupt_log },
     //~ { 0xFF87284C, "dma_memcpy", 3 },            // conflicts with mpu_recv
     { 0xff9b989c, "TryPostEvent", 5},
     { 0xff9b8f24, "TryPostStageEvent", 5 },
@@ -101,6 +108,9 @@ static struct logged_func logged_functions[] = {
     { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
     { 0xFF1C8B98, "LockEngineResources", 1, LockEngineResources_log },
     { 0xFF1C8CD4, "UnLockEngineResources", 1, UnLockEngineResources_log },
+    
+    /* this conflicts with DebugMsg... not sure how to fix */
+    //~ { 0xFF1D68C0, "register_interrupt", 4, register_interrupt_log },
     #endif
 
     #ifdef CONFIG_500D
@@ -121,7 +131,7 @@ static struct logged_func logged_functions[] = {
     #ifdef CONFIG_700D
     { 0xFF31AD6C, "mpu_send", 2, mpu_send_log },
     { 0xFF11E934, "mpu_recv", 1, mpu_recv_log },
-    { 0x13344,    "register_interrupt", 4 },
+    { 0x13344,    "register_interrupt", 4, register_interrupt_log },
     #endif
 
     #ifdef CONFIG_100D
@@ -142,7 +152,7 @@ static struct logged_func logged_functions[] = {
     //~ { 0xFF9A45E8, "SetEDmac", 4 },                          // conflicts with RegisterHead1InterruptHandler
     { 0xFF9A464C, "StartEDmac", 2 },
     
-    { 0xff9b3cb4, "register_interrupt", 4 },
+    { 0xff9b3cb4, "register_interrupt", 4, register_interrupt_log },
     //~ { 0xffb277c8, "register_obinteg_cbr", 2 },              // conflicts with UnLockEngineResources
     { 0xffaf6930, "set_digital_gain_and_related", 3 },
     //~ { 0xffaf68a4, "set_saturate_offset", 1 },               // conflicts with TryPostEvent
@@ -184,7 +194,7 @@ static struct logged_func logged_functions[] = {
     { 0xff1bff44, "SetEDmac", 4 },
     { 0xff1c024c, "StartEDmac", 2 },
     
-    { 0xff1d2944, "register_interrupt", 4 },
+    { 0xff1d2944, "register_interrupt", 4, register_interrupt_log },
     { 0xff2806f8, "RegisterHead1InterruptHandler", 3 },
     { 0xFF068BB8, "SetHPTimerAfter", 4 },
     { 0xff1c4a34, "LockEngineResources", 1, LockEngineResources_log },
@@ -203,7 +213,7 @@ static struct logged_func logged_functions[] = {
     { 0xff18fb4c, "SetEDmac", 4 },
     { 0xff18fbf0, "StartEDmac", 2 },
     
-    //~ { 0xff1a0b90, "register_interrupt", 4 },                // conflicts with ConnectReadEDmac
+    //~ { 0xff1a0b90, "register_interrupt", 4, register_interrupt_log }, // conflicts with ConnectReadEDmac
     //~ { 0xff32646c, "register_obinteg_cbr", 2 },              // conflicts with set_digital_gain_and_related
     { 0xff2f6c7c, "set_digital_gain_and_related", 3 },
     //~ { 0xff2f6bf0, "set_saturate_offset", 1 },               // conflicts with ConnectReadEDmac
@@ -239,7 +249,7 @@ static struct logged_func logged_functions[] = {
     { 0x125f8, "SetEDmac", 4 },
     { 0x12910, "StartEDmac", 2 },
     
-    { 0x83b8, "register_interrupt", 4 },
+    { 0x83b8, "register_interrupt", 4, register_interrupt_log },
     { 0xff3aa650, "set_digital_gain_maybe", 3 },
     { 0xff4fa6ac, "set_fps_maybe", 1, fps_log },
     { 0xff2170d8, "SetSsgVsize_fps_timer_B", 1 },
@@ -533,6 +543,60 @@ static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     DryosDebugMsg(0, 0, "*** mpu_recv(%02x %s), from %x", size, msg, caller);
 }
 
+static char* isr_names[256];
+
+static void register_interrupt_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    /* log the original call as usual */
+    generic_log(regs, stack, pc);
+
+    /* store the interrupt name */
+    int isr = regs[1];
+    char* name = (char*) regs[0];
+    
+    if (name)
+    {
+        isr_names[isr & 0xFF] = name;
+    }
+}
+
+static void pre_isr_log(uint32_t isr)
+{
+#ifdef CONFIG_60D
+    if (isr == 0x36)
+    {
+        /* hm, this causes trouble, not sure why (slow sprintf?) */
+        DryosDebugMsg(0, 0, ">>> INT-36h SIO3");
+        return;
+    }
+#endif
+
+    /* not sure about all models, only checked 5D2, 60D and 5D3 */
+#ifdef CONFIG_DIGIC_V
+    uint32_t handler = MEM(0x40000000 + 4*isr);
+    uint32_t arg = MEM(0x40000800 + 4*isr);
+#else
+    uint32_t handler = MEM(0x400006F8 + 4*isr);
+    uint32_t arg = MEM(0x40000AF8 + 4*isr);
+#endif
+
+    char* name = isr_names[isr & 0xFF];
+
+    if (name)
+    {
+        DryosDebugMsg(0, 0, ">>> INT-%02Xh %s %x(%x)", isr, name, handler, arg);
+    }
+    else
+    {
+        DryosDebugMsg(0, 0, ">>> INT-%02Xh %x(%x)", isr, handler, arg);
+    }
+}
+
+static void post_isr_log(uint32_t isr)
+{
+    DryosDebugMsg(0, 0, "<<< INT-%02Xh done", isr);
+}
+
 static int check_no_conflicts(int i)
 {
     #ifdef CONFIG_QEMU
@@ -621,6 +685,24 @@ void dm_spy_extra_install()
             }
         }
     }
+
+#ifdef LOG_INTERRUPTS
+    pre_isr_hook = &pre_isr_log;
+    post_isr_hook = &post_isr_log;
+#endif
+
+    isr_names[0x0A] = "Timer";
+    isr_names[0x10] = "HPTimer";
+    isr_names[0x2E] = "Term-RD";
+    isr_names[0x3A] = "Term-WR";
+    isr_names[0x34] = "SIO1";
+    isr_names[0x35] = "SIO2";
+    isr_names[0x36] = "SIO3";
+    isr_names[0x50] = "MREQ";
+    isr_names[0x2f] = "DMA1";
+    isr_names[0x74] = "DMA2";
+    isr_names[0x75] = "DMA3";
+    isr_names[0x76] = "DMA4";
 }
 
 void dm_spy_extra_uninstall()
@@ -629,4 +711,9 @@ void dm_spy_extra_uninstall()
     {
         unpatch_memory(logged_functions[i].addr);
     }
+
+#ifdef LOG_INTERRUPTS
+    pre_isr_hook = 0;
+    post_isr_hook = 0;
+#endif
 }
