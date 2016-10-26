@@ -208,8 +208,8 @@ void configure_cache_replaces()
 {
     /* 40D:  reserve 512 KB or RAM for ML (original: MOV R1, 0xc00000; modified: MOV R1, 0xB80000) */
     /* 450D: reserve 512 KB or RAM for ML (original: MOV R1, 0xA00000; modified: MOV R1, 0x980000) */
-    // cache_fake(0xFF8113A0, 0xE3A01726, TYPE_ICACHE); //+ 40D: 0xFF811354, 0xE3A0172E
-    cache_fake(0xFF8113A0, 0xE3A0160B, TYPE_ICACHE); //+ 40D: 0xFF811354, 0xE3A0172E for 0xB00000
+    cache_fake(0xFF8113A0, 0xE3A01726, TYPE_ICACHE); //+ 40D: 0xFF811354, 0xE3A0172E
+    // cache_fake(0xFF8113A0, 0xE3A0160B, TYPE_ICACHE); //+ 40D: 0xFF811354, 0xE3A0172E for 0xB00000
 
     /* replace create_task_cmd_shell with our modified version to start ml_init_task */
     cache_fake(0xFF811520, BL_INSTR(0xFF811520, &ml_hijack_create_task_cmd_shell), TYPE_ICACHE); //+ 40D: 0xFF81147C, BL_INSTR(0xFF81147C

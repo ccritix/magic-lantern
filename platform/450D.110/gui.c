@@ -294,17 +294,18 @@ void ml_hijack_gui_main_task()
     
     //~ delete canon's GuiMainTask.
     DeleteTask(taskptr);
-	    // bmp_fill(COLOR_BLACK, 5, 5, 700, 400);
 
-	// _load_fonts();
 	// LEDBLUE = LEDOFF;
-	     // bmp_printf( FONT_SMALL, 10, 50,         "MagicLantern %03dD FONT_SMALL", 450);
-	     // bmp_printf( FONT_MED, 10, 100,         "MagicLantern %03dD FONT_MED", 450);
-	     // bmp_printf( FONT_MED_LARGE, 10, 150,         "MagicLantern %03dD FONT_MED_LARGE", 450);
-	     // bmp_printf( FONT_LARGE, 10, 200,         "MagicLantern %03dD FONT_LARGE", 450);
-	     // bmp_printf( FONT_CANON, 10, 250,         "MagicLantern %03dD FONT_CANON", 450);
+	    // bmp_fill(COLOR_BLACK, 1, 50, 720, 300);
+		// bmp_draw_rect(COLOR_RED, 1, 1, 718, 478);
+	     
+		// bmp_printf( FONT_SMALL, 10, 50,         "MagicLantern %03dD FONT_SMALL", 450);
+	    // bmp_printf( FONT_MED, 10, 100,         "MagicLantern %03dD FONT_MED", 450);
+	    // bmp_printf( FONT_MED_LARGE, 10, 150,         "MagicLantern %03dD FONT_MED_LARGE", 450);
+	    // bmp_printf( FONT_LARGE, 10, 200,         "MagicLantern %03dD FONT_LARGE", 450);
+	    // bmp_printf( FONT_CANON, 10, 250,         "MagicLantern %03dD FONT_CANON", 450);
+		// msleep(8800);
 
-	// msleep(2800);
     //~ start our GuiMainTask.
 	task_create("GuiMainTask", 0x17, 0x2000, ml_gui_main_task, 0);
 }
