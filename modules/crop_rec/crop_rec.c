@@ -56,6 +56,7 @@ static int is_supported_mode()
 }
 
 static int is_5D3 = 0;
+static int is_EOSM = 0;
 
 static int cmos_vidmode_ok = 0;
 
@@ -240,7 +241,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     /* expand this as required */
     struct adtg_new adtg_new[2] = {{0}};
     
-    if (is_5D3)
+    if (is_5D3 || is_EOSM)
     {
         switch (crop_preset)
         {
@@ -310,9 +311,17 @@ static void update_patch()
         /* install our hooks, if we haven't already do so */
         if (!patch_active)
         {
-            patch_hook_function(CMOS_WRITE, MEM_CMOS_WRITE, &cmos_hook, "crop_rec: CMOS[1,2,6] parameters hook");
-            patch_hook_function(ADTG_WRITE, MEM_ADTG_WRITE, &adtg_hook, "crop_rec: ADTG[8000,8806] parameters hook");
-            patch_active = 1;
+            if (is_5D3)
+            {
+                patch_hook_function(CMOS_WRITE, MEM_CMOS_WRITE, &cmos_hook, "crop_rec: CMOS[1,2,6] parameters hook");
+                patch_active = 1;
+            }
+            
+            if (is_5D3 || is_EOSM) 
+            {
+                patch_hook_function(ADTG_WRITE, MEM_ADTG_WRITE, &adtg_hook, "crop_rec: ADTG[8000,8806] parameters hook");
+                patch_active = 1;
+            }
         }
     }
     else
@@ -320,9 +329,17 @@ static void update_patch()
         /* undo active patches, if any */
         if (patch_active)
         {
-            unpatch_memory(CMOS_WRITE);
-            unpatch_memory(ADTG_WRITE);
-            patch_active = 0;
+            if (is_5D3)
+            {
+                unpatch_memory(CMOS_WRITE);
+                patch_active = 0;
+            }
+            
+            if (is_5D3 || is_EOSM)
+            {
+                unpatch_memory(ADTG_WRITE);
+                patch_active = 0;
+            }
         }
     }
 }
@@ -477,6 +494,21 @@ static unsigned int crop_rec_init()
         MEM_ADTG_WRITE = 0xE92D47F0;
         
         is_5D3 = 1;
+    }
+    else if (is_camera("EOSM", "2.0.2"))
+    {
+        CMOS_WRITE = 0x2998C;
+        MEM_CMOS_WRITE = 0xE92D41F0;
+        
+        ADTG_WRITE = 0x2986C;
+        MEM_ADTG_WRITE = 0xE92D43F8;
+        
+        is_EOSM = 1;
+        
+        /* on EOSM the CMOS hook without anything changed results in
+           black preview data with some minimal noise. So disable
+           the CMOS hook on EOSM for now and fix this value to 1. */
+        if (is_EOSM) cmos_vidmode_ok = 1;
     }
     
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
