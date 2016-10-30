@@ -38,6 +38,24 @@
 void set_ml_palette_if_dirty();
 void BmpDDev_take_semaphore();
 void BmpDDev_give_semaphore();
+uint8_t* BMP_VRAM_START(uint8_t* bmp_buf)  { return bmp_buf; }
+
+/** Returns a pointer to the real BMP vram */
+#ifdef CONFIG_5DC
+inline uint8_t* bmp_vram_real() { return (uint8_t*) MEM(0x29328); }
+#elif defined(CONFIG_40D)
+inline uint8_t* bmp_vram_real() { return (uint8_t*) MEM(0x1E330); }
+#elif defined(CONFIG_450D)
+inline uint8_t* bmp_vram_real() { return (uint8_t*) MEM(0x30970); }
+#else
+error
+#endif
+
+uint8_t* bmp_vram_idle()
+{
+	return (uint8_t *)((uintptr_t)bmp_vram_idle_ptr);
+}
+
 
 #else // DryOS
 

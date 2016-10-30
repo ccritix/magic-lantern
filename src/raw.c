@@ -145,6 +145,10 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_PHOTO_EDMAC 0xc0f04008
 #endif
 
+#if defined(CONFIG_450D)
+#define RAW_PHOTO_EDMAC 0xc0f04108
+#endif
+
 /** 
  * Raw type (optional)
  * decompile lv_af_raw

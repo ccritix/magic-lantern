@@ -88,7 +88,7 @@ static char bmp_lut[80] = {
 #define BMP_HDMI_OFFSET 0
 
 /** Returns a pointer to the real BMP vram */
-#ifdef CONFIG_5DC
+/* #ifdef CONFIG_5DC
 inline uint8_t* bmp_vram_real() { return (uint8_t*) MEM(0x29328); }
 #elif defined(CONFIG_40D)
 inline uint8_t* bmp_vram_real() { return (uint8_t*) MEM(0x1E330); }
@@ -96,7 +96,8 @@ inline uint8_t* bmp_vram_real() { return (uint8_t*) MEM(0x1E330); }
 inline uint8_t* bmp_vram_real() { return (uint8_t*) MEM(0x30970); }
 #else
 error
-#endif
+#endif */
+uint8_t* bmp_vram_real();
 
 void set_ml_palette();
 
@@ -106,13 +107,14 @@ void set_ml_palette();
 extern int bmp_vram_idle_ptr;
 
 /** Returns a pointer to idle BMP vram */
-inline uint8_t* bmp_vram_idle()
+uint8_t* bmp_vram_idle();
+/* inline uint8_t* bmp_vram_idle()
 {
 	return (uint8_t *)((uintptr_t)bmp_vram_idle_ptr);
-}
+} */
 
-inline uint8_t* BMP_VRAM_START(uint8_t* bmp_buf) { return bmp_buf; }
-
+// inline uint8_t* BMP_VRAM_START(uint8_t* bmp_buf) { return bmp_buf; }
+uint8_t* BMP_VRAM_START(uint8_t* bmp_buf);
 #define BMP_VRAM_END(bmp_buf) (BMP_VRAM_START((uint8_t*)(bmp_buf)) + BMP_VRAM_SIZE)
 
 #define SET_4BIT_PIXEL(p, x, color) *(char*)(p) = ((x) % 2) ? ((*(char*)(p) & 0x0F) | (D2V(color) << 4)) : ((*(char*)(p) & 0xF0) | (D2V(color) & 0x0F))

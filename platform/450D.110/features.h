@@ -29,6 +29,7 @@
 #undef FEATURE_FLEXINFO
 
 #undef CONFIG_RAW_LIVEVIEW
+// #define CONFIG_RAW_LIVEVIEW
 #undef FEATURE_OVERLAYS_IN_PLAYBACK_MODE
 
 // anything else working? no idea

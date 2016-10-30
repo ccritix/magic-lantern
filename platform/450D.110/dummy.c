@@ -42,3 +42,12 @@ void SRM_FreeMemoryResourceFor1stJob(void* raw_buffer, int unk1_zero, int unk2_z
 int GetSizeOfMaxRegion(int* max_region) { return 0; }
 int64_t FIO_SeekSkipFile( FILE* stream, int64_t position, int whence ) { return 0; }
 
+int SetHPTimerNextTick(int last_expiry, int offset, timerCbr_t timer_cbr, timerCbr_t overrun_cbr, void *priv) { return 0; }
+int SetHPTimerAfterNow(int delay_us, timerCbr_t timer_cbr, timerCbr_t overrun_cbr, void* priv) { return 0; }
+void CancelTimer(int timer_id){}
+void* edmac_copy_rectangle_adv(void* dst, void* src, int src_width, int src_x, int src_y, int dst_width, int dst_x, int dst_y, int w, int h){}
+void edmac_memcpy_res_lock(){}
+int task_max = 256;
+void bv_toggle(void* priv, int delta) {}
+int take_screenshot( char* filename, uint32_t mode ) { return 1; }
+
