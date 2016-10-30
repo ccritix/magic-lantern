@@ -638,29 +638,30 @@ void set_ml_palette()
 {
     if (!DISPLAY_IS_ON) return;
 
-    int palette[16] = {
-        0x00870000, // transparent
-        0x0000FFFF, // 1 - red
-        0x00CC00FF, // 2 - green
-        0xFF0000FF, // 3 - blue
-        0xFFFF00FF, // 4 - cyan
-        0xFF00FFFF, // 5 - magenta
-        0x00FFFFFF, // 6 - yellow
-        0x0090FFFF, // 7 - orange
-        0x00000080, // 8 - transparent black
-        0x000000FF, // 9 - black
-        0x1C1C1CFF, // A - gray 1
-        0x404040FF, // B - gray 2
-        0x7F7F7FFF, // C - gray 3
-        0xAAAAAAFF, // D - gray 4
-        0xD4D4D4FF, // E - gray 5
-        0xFFFFFFFF  // F - white
-    };
-
     if (0) // convert from RGB to PB with Canon code, write result to a file
     {      // if you change RGB palette, run this first to get the PB equivalent (comment out BmpDDev semaphores first)
+        int palette[16] = {
+            0x00870000, // transparent
+            0x0000FFFF, // 1 - red
+            0x00CC00FF, // 2 - green
+            0xFF0000FF, // 3 - blue
+            0xFFFF00FF, // 4 - cyan
+            0xFF00FFFF, // 5 - magenta
+            0x00FFFFFF, // 6 - yellow
+            0x0090FFFF, // 7 - orange
+            0x00000080, // 8 - transparent black
+            0x000000FF, // 9 - black
+            0x1C1C1CFF, // A - gray 1
+            0x404040FF, // B - gray 2
+            0x7F7F7FFF, // C - gray 3
+            0xAAAAAAFF, // D - gray 4
+            0xD4D4D4FF, // E - gray 5
+            0xFFFFFFFF  // F - white
+        };
+
         NotifyBox(10000, "%x ", PB_Palette);
-        //SetRGBPaletteToDisplayDevice(palette); // problem: this is unsafe to call (race condition with Canon code) //~ Disabled due to compile issue
+        extern void SetRGBPaletteToDisplayDevice(void*);
+        SetRGBPaletteToDisplayDevice(palette); // problem: this is unsafe to call (race condition with Canon code)
         FILE* f = FIO_CreateFile("pb.log");
         if (f)
         {
@@ -770,7 +771,7 @@ char bmp_palette_lut[80] = {
         if (p != 0 && p != 0x14 && p != 0x3 && p != m) continue; \
         if ((p == 0x14 || p == 0x3) && bmp_color == 0) continue; \
     } \
-    char* p = &b_row[ xs/2 ];  \
+    uint8_t* p = &b_row[ xs/2 ];  \
     SET_4BIT_PIXEL(p, xs, bmp_color); \
 
 #else
