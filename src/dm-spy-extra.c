@@ -703,6 +703,26 @@ void dm_spy_extra_install()
     isr_names[0x74] = "DMA2";
     isr_names[0x75] = "DMA3";
     isr_names[0x76] = "DMA4";
+
+    /* should be in sync with qemu/eos/eos.c */
+    const int edmac_interrupts[] = {
+        0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x6D, 0xC0, 0x00, /* write channels 0..6, one unused position */
+        0x5D, 0x5E, 0x5F, 0x6E, 0xC1, 0xC8, 0x00, 0x00, /* read channels 0..5, two unused positions */
+        0xF9, 0x83, 0x8A, 0xCA, 0xCB, 0xD2, 0xD3, 0x00, /* write channels 7..13, one unused position */
+        0x8B, 0x92, 0xE2, 0x95, 0x96, 0x97, 0x00, 0x00, /* read channels 6..11, two unused positions */
+        0xDA, 0xDB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* write channels 14..15, 6 unused positions */
+        0x9D, 0x9E, 0x9F, 0xA5, 0x00, 0x00, 0x00, 0x00, /* read channels 12..15, 4 unused positions */
+    };
+    
+    for (int i = 0; i < COUNT(edmac_interrupts); i++)
+    {
+        int isr = edmac_interrupts[i];
+        if (isr)
+        {
+            isr_names[isr] = malloc(10);
+            snprintf(isr_names[isr], 10, "EDMAC#%d", i);
+        }
+    }
 }
 
 void dm_spy_extra_uninstall()
