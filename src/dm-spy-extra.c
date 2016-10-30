@@ -79,10 +79,7 @@ static struct logged_func logged_functions[] = {
     #endif
 
     #ifdef CONFIG_5D3
-    { 0xFF0C79B0, "C0201200", 0, mmio_log },
-    { 0xFF2E426C, "C0400008", 1, mmio_log },
-    { 0xFF0CB768, "C022016C", 12, mmio_log },
-
+    { 0x83b8,     "register_interrupt", 4, register_interrupt_log },
     { 0xFF2E42E4, "mpu_send", 2, mpu_send_log },
     { 0xFF122B5C, "mpu_recv", 1, mpu_recv_log},
     #endif
@@ -231,11 +228,28 @@ static struct logged_func logged_functions[] = {
 #endif
 
 #ifdef CONFIG_5D3
-    { 0xFF6B4E2C, "DryEFatFormat", 7 },
-    { 0xFF729BDC, "sd_choose_filesystem", 2 },
-    { 0xFF729FC4, "sd_choose_filesystem_ret", 1 },
+    //~ { 0xFF6B4E2C, "DryEFatFormat", 7 },
+    //~ { 0xFF729BDC, "sd_choose_filesystem", 2 },
+    //~ { 0xFF729FC4, "sd_choose_filesystem_ret", 1 },
+
+    { 0x83b8, "register_interrupt", 4, register_interrupt_log },
+
     { 0xFF290B94, "CreateResLockEntry", 2, CreateResLockEntry_log },
     { 0xFF29105C, "LockEngineResources", 1, LockEngineResources_log },
+    { 0xFF291200, "UnLockEngineResources", 1, UnLockEngineResources_log },
+
+    { 0x178ec, "StateTransition", 4 , state_transition_log },
+    { 0x17d54, "TryPostEvent", 5 },
+    { 0x17674, "TryPostStageEvent", 5 },
+
+    { 0x12768, "ConnectReadEDmac", 2 },
+    { 0x126a4, "ConnectWriteEDmac", 2 },
+    { 0x12afc, "RegisterEDmacCompleteCBR", 3 },
+    { 0x125f8, "SetEDmac", 4 },
+    { 0x12910, "StartEDmac", 2 },
+
+    { 0x4588, "SetTgNextState", 2 },
+    { 0x7218, "SetHPTimerAfter", 4 },
 #endif
 
 #ifdef CONFIG_5D3_123
