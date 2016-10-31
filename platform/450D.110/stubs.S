@@ -221,9 +221,10 @@ NSTUB(0xFFD0A800, TryPostEvent_end)
 NSTUB(0xFFD1180C, TryPostStageEvent)
 NSTUB(0xFFD1197C, TryPostStageEvent_end) // PendStageEvent
 
-NSTUB(0xFFD28528, get_current_task) // 0x22E00
+NSTUB(0xFFD28528, get_current_task) // 0x355C0
 NSTUB(0xFFD282EC, get_task_info)
 NSTUB(0xFFD29C10, get_active_task_list)
+NSTUB(   0x355C0, current_task)
 
 NSTUB(0xFFD0A0D4, create_task_cmd_shell)
 
