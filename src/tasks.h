@@ -34,6 +34,28 @@ struct context
         uint32_t                pc;             // off_0x3C;
 }; // 0x40 bytes
 
+#ifdef CONFIG_VXWORKS
+struct task
+{
+    uint32_t                off_0x00;
+    uint32_t                off_0x04;
+    uint32_t                off_0x08;
+    uint32_t                off_0x0C;
+    uint32_t                off_0x10;
+    uint32_t                off_0x14;
+    uint32_t                off_0x18;
+    uint32_t                off_0x1C;
+    uint32_t                off_0x20;
+    uint32_t                off_0x24;
+    uint32_t                off_0x28;
+    uint32_t                off_0x2C;
+    uint32_t                off_0x30;
+    uint32_t                name;
+    uint32_t                off_0x38;
+    uint32_t                off_0x3C;
+    /* entry appears to be at 0x74, others unknown */
+};
+#else
 struct task
 {
         uint32_t                off_0x00;       // always 0?
@@ -64,7 +86,7 @@ struct task
         uint8_t                 off_0x4f;
         struct context *        context;        // off 0x4C
 };
-
+#endif
 
 struct task_attr_str {
   unsigned int entry;
