@@ -7,6 +7,7 @@
 #include <patch.h>
 #include <bmp.h>
 #include <lvinfo.h>
+#include <powersave.h>
 
 #undef CROP_DEBUG
 
@@ -353,38 +354,9 @@ PROP_HANDLER(PROP_LV_ACTION)
 
 static MENU_UPDATE_FUNC(crop_update)
 {
-    if (!lv)
+    if (crop_preset_menu && lv && !is_supported_mode())
     {
-        return;
-    }
-    
-    if (crop_preset_menu)
-    {
-        if (is_supported_mode())
-        {
-            if (!patch_active)
-            {
-                MENU_SET_WARNING(MENU_WARN_ADVICE, "After leaving ML menu, press PLAY twice to enable crop mode.");
-                MENU_SET_RINFO(SYM_WARNING);
-            }
-            else if (crop_preset_menu != crop_preset)
-            {
-                MENU_SET_WARNING(MENU_WARN_ADVICE, "After leaving ML menu, press PLAY twice to use the new setting.");
-                MENU_SET_RINFO(SYM_WARNING);
-            }
-        }
-        else
-        {
-            MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This feature only works in 1080p and 720p video modes.");
-        }
-    }
-    else /* crop disabled */
-    {
-        if (patch_active)
-        {
-            MENU_SET_WARNING(MENU_WARN_ADVICE, "After leaving ML menu, press PLAY twice to return to normal mode.");
-            MENU_SET_RINFO(SYM_WARNING);
-        }
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This feature only works in 1080p and 720p video modes.");
     }
 }
 
@@ -410,6 +382,76 @@ static struct menu_entry crop_rec_menu[] =
             "3x1 binning: bin every 3 lines, read all columns (extreme anamorphic)\n"
     },
 };
+
+static int crop_rec_needs_lv_refresh()
+{
+    if (!lv)
+    {
+        return 0;
+    }
+
+    if (crop_preset_menu)
+    {
+        if (is_supported_mode())
+        {
+            if (!patch_active || crop_preset_menu != crop_preset)
+            {
+                return 1;
+            }
+        }
+    }
+    else /* crop disabled */
+    {
+        if (patch_active)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/* when closing ML menu, check whether we need to refresh the LiveView */
+static unsigned int crop_rec_polling_cbr(unsigned int unused)
+{
+    /* also check at startup */
+    static int lv_dirty = 1;
+
+    int menu_shown = gui_menu_shown();
+    if (lv && menu_shown)
+    {
+        lv_dirty = 1;
+    }
+    
+    if (!lv || menu_shown || RECORDING_RAW)
+    {
+        /* outside LV: no need to do anything */
+        /* don't change while browsing the menu, but shortly after closing it */
+        /* don't change while recording raw, but after recording stops
+         * (H.264 should tolerate this pretty well, except maybe 50D) */
+        return CBR_RET_CONTINUE;
+    }
+
+    if (lv_dirty)
+    {
+        /* do we need to refresh LiveView? */
+        if (crop_rec_needs_lv_refresh())
+        {
+            /* let's check this once again, just in case */
+            /* (possible race condition that would result in unnecessary refresh) */
+            msleep(200);
+            if (crop_rec_needs_lv_refresh())
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
+        }
+        lv_dirty = 0;
+    }
+    
+    return CBR_RET_CONTINUE;
+}
+
 
 /* Display recording status in top info bar */
 static LVINFO_UPDATE_FUNC(crop_info)
@@ -451,24 +493,10 @@ static LVINFO_UPDATE_FUNC(crop_info)
         }
     }
 
-    if (crop_preset_menu)
+    if (crop_rec_needs_lv_refresh())
     {
-        if (is_supported_mode())
-        {
-            if (!patch_active || crop_preset_menu != crop_preset)
-            {
-                STR_APPEND(buffer, " " SYM_WARNING);
-                item->color_fg = COLOR_YELLOW;
-            }
-        }
-    }
-    else /* crop disabled */
-    {
-        if (patch_active)
-        {
-            STR_APPEND(buffer, " " SYM_WARNING);
-            item->color_fg = COLOR_YELLOW;
-        }
+        STR_APPEND(buffer, " " SYM_WARNING);
+        item->color_fg = COLOR_YELLOW;
     }
 }
 
@@ -530,6 +558,10 @@ MODULE_INFO_END()
 MODULE_CONFIGS_START()
     MODULE_CONFIG(crop_preset_menu)
 MODULE_CONFIGS_END()
+
+MODULE_CBRS_START()
+    MODULE_CBR(CBR_SHOOT_TASK, crop_rec_polling_cbr, 0)
+MODULE_CBRS_END()
 
 MODULE_PROPHANDLERS_START()
     MODULE_PROPHANDLER(PROP_LV_ACTION)
