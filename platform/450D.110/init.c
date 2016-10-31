@@ -175,8 +175,16 @@ void ml_big_init_task()
 
 void ml_init_task(void * p)
 {
-	msleep(100);
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+    extern void debug_intercept();
+    debug_intercept();
+    msleep(20000);
+    _find_ml_card();
+    debug_intercept();
+    return;
+#endif
 
+	msleep(100);
     ml_big_init_task();
 	ml_hijack_gui_main_task();
 }
