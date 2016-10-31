@@ -218,10 +218,10 @@ NSTUB(0xFF1ADBCC,  mvrSetDefQScale)
 // NSTUB(    ???,  mvrSetGopOptSizeFULLHD)                  /* present on 600D.102, 550D.109, 1100D.105 */
 
 /** Interrupts **/
+NSTUB(    0x1944,  pre_isr_hook)
+NSTUB(    0x1948,  post_isr_hook)
 // NSTUB(    ???,  isr_table_handler)                       /* present on 7D_MASTER.203 */
 // NSTUB(    ???,  isr_table_param)                         /* present on 7D_MASTER.203 */
-// NSTUB(    ???,  post_isr_hook)                           /* present on 7D.203, 6D.113, 5D3.113, EOSM.202 */
-// NSTUB(    ???,  pre_isr_hook)                            /* present on 7D.203, 6D.113, 5D3.113, 7D_MASTER.203, EOSM.202 */
 
 /** LCD Sensor **/
 // NSTUB(    ???,  DispSensorStart)                         /* present on 500D.111, 50D.109, 5D2.212, 600D.102, 650D.104, 550D.109, 700D.113 */
@@ -242,7 +242,12 @@ NSTUB(0xFF1DE354, _alloc_dma_memory)
 NSTUB(0xFF018974, _free)
 NSTUB(0xFF1DE388, _free_dma_memory)
 NSTUB(0xFF01891C, _malloc)
-// NSTUB(    ???,  free_dma_memory)                         /* present on 7D_MASTER.203 */
+
+/** Low-level allocators */
+NSTUB(0xFF06F14C, init_memory_pool)            // used to init the AllocateMemory pool and others
+NSTUB(0xFF06F7C4, allocate_memory_from_pool)   // called from AllocateMemory
+NSTUB(0xFF06FA30, free_memory_to_pool)         // called from FreeMemory
+NSTUB(0xFF06F5F0, get_max_region_of_pool)      // called from GetSizeOfMaxRegion
 
 /** Message queues **/
 NSTUB(0xF81D6D18,  msg_queue_count)
@@ -285,9 +290,8 @@ NSTUB(0xFF06E534,  take_semaphore)
 
 /** Task info **/
 NSTUB(    0x3234,  task_max)
-NSTUB(0xFF0171DC,  get_current_task)
-NSTUB(0xFF07E384,  get_obj_attr)                            // AJ_checks_if_Process_id_created_by_Dryos
 NSTUB(0xFF33EF30,  is_taskid_valid)                         // AJ_task_trampoline_related_p10
+NSTUB(    0x1A2C,  current_task)
 
 /** Task sleep **/
 NSTUB(0xFF06EA08,  msleep)                                  // called from EV_GETDONE_CACHE param 0x64

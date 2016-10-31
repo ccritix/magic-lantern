@@ -37,6 +37,10 @@
 #include "cache_hacks.h"
 #endif
 
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+#include "dm-spy.h"
+#endif
+
 #include "boot-hack.h"
 #include "reloc.h"
 
@@ -44,10 +48,6 @@
 
 #if defined(FEATURE_GPS_TWEAKS)
 #include "gps.h"
-#endif
-
-#ifdef CONFIG_QEMU
-#include "qemu-util.h"
 #endif
 
 #if defined(CONFIG_HELLO_WORLD)
@@ -184,7 +184,7 @@ copy_and_restart( )
 
     //~ Canon changed their task starting method in the 6D so our old hook method doesn't work.
 #ifndef CONFIG_6D
-#if !defined(CONFIG_EARLY_PORT) && !defined(CONFIG_HELLO_WORLD) && !defined(CONFIG_DUMPER_BOOTFLAG)
+#if !defined(CONFIG_EARLY_PORT) && !defined(CONFIG_HELLO_WORLD) && !defined(CONFIG_DUMPER_BOOTFLAG) && !defined(CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK)
     // Install our task creation hooks
     task_dispatch_hook = my_task_dispatch_hook;
     #ifdef CONFIG_TSKMON
@@ -258,29 +258,6 @@ my_task_dispatch_hook(
     extern struct task_mapping _task_overrides_start[];
     extern struct task_mapping _task_overrides_end[];
     struct task_mapping * mapping = _task_overrides_start;
-
-#ifdef CONFIG_QEMU
-    char* task_name = get_task_name_from_id(get_current_task());
-    
-    if ((((intptr_t)task->entry & 0xF0000000) == 0xF0000000 || task->entry < RESTARTSTART) &&
-        (   /* only start some whitelisted Canon tasks */
-            #ifndef CONFIG_550D
-            !streq(task_name, "Startup") &&
-            #endif
-            !streq(task_name, "TaskMain") &&
-            !streq(task_name, "PowerMgr") &&
-            !streq(task_name, "EventMgr") &&
-            //~ !streq(task_name, "PropMgr") &&
-        1))
-    {
-        qprintf("[*****] Not starting task %x(%x) %s\n", task->entry, task->arg, task_name);
-        task->entry = &ret_0;
-    }
-    else
-    {
-        qprintf("[*****] Starting task %x(%x) %s\n", task->entry, task->arg, task_name);
-    }
-#endif
 
     for( ; mapping < _task_overrides_end ; mapping++ )
     {
@@ -471,6 +448,7 @@ static void dumper_bootflag()
  */
 static void my_big_init_task()
 {
+    _mem_init();
     _find_ml_card();
     _load_fonts();
 
@@ -568,6 +546,12 @@ static void my_big_init_task()
     
     msleep(500);
     ml_started = 1;
+
+
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+    info_led_blink(5,500,500);
+    debug_intercept();
+#endif
 }
 
 /** Blocks execution until config is read */
@@ -594,7 +578,7 @@ static int my_assert_handler(char* msg, char* file, int line, int arg4)
         "at %s:%d, task %s\n"
         "lv:%d mode:%d\n", 
         msg, 
-        file, line, get_task_name_from_id(get_current_task()), 
+        file, line, get_current_task_name(), 
         lv, shooting_mode
     );
     request_crash_log(1);
@@ -608,7 +592,7 @@ void ml_assert_handler(char* msg, char* file, int line, const char* func)
         "at %s:%d (%s), task %s\n"
         "lv:%d mode:%d\n", 
         msg, 
-        file, line, func, get_task_name_from_id(get_current_task()), 
+        file, line, func, get_current_task_name(), 
         lv, shooting_mode
     );
     request_crash_log(2);
@@ -674,7 +658,7 @@ init_task_func init_task_patched(int a, int b, int c, int d)
     uint32_t* addr_AllocMem_end     = (void*)(CreateTaskMain_reloc_buf + ROM_ALLOCMEM_END + CreateTaskMain_offset);
     uint32_t* addr_BL_AllocMem_init = (void*)(CreateTaskMain_reloc_buf + ROM_ALLOCMEM_INIT + CreateTaskMain_offset);
 
-    #if defined(CONFIG_550D)
+    #if defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_7D)
     // change end limit to 0xc60000 => reserve 640K for ML
     *addr_AllocMem_end = MOV_R1_0xC60000_INSTR;
     ml_reserved_mem = 640 * 1024;
@@ -718,7 +702,7 @@ my_init_task(int a, int b, int c, int d)
     // An overflow in Canon code may write a zero right in the middle of ML code
     unsigned int *backup_address = 0;
     unsigned int backup_data = 0;
-    unsigned int task_id = get_current_task();
+    unsigned int task_id = current_task->taskId;
 
     if(task_id > 0x68 && task_id < 0xFFFFFFFF)
     {
@@ -738,20 +722,6 @@ my_init_task(int a, int b, int c, int d)
     tskmon_init();
     #endif
     
-
-#if defined(RSCMGR_MEMORY_PATCH_END)
-    /* another new method for memory allocation, hopefully the last one :) */
-    uint32_t orig_length = MEM(RSCMGR_MEMORY_PATCH_END);
-    /* 0x00D00000 is the start address of its memory pool and we expect that it goes until 0x60000000, so its (0x20000000-0x00D00000) bytes */
-    uint32_t new_length = (RESTARTSTART & 0xFFFF0000) - 0x00D00000;
-    
-    /* figured out that this is nonsense... */
-    //cache_fake(RSCMGR_MEMORY_PATCH_END, new_length, TYPE_DCACHE);
-    
-    /* RAM for ML is the difference minus BVRAM that is placed right behind ML */
-    ml_reserved_mem = orig_length - new_length - BMP_VRAM_SIZE - 0x200;
-    
-#else  
     uint32_t orig_instr = MEM(HIJACK_CACHE_HACK_BSS_END_ADDR);
     uint32_t new_instr = HIJACK_CACHE_HACK_BSS_END_INSTR;  
     /* get and check the reserved memory size for magic lantern to prevent invalid setups to crash camera */
@@ -795,7 +765,6 @@ my_init_task(int a, int b, int c, int d)
         cache_fake(HIJACK_CACHE_HACK_ALLOCMEM_SIZE_ADDR, HIJACK_CACHE_HACK_ALLOCMEM_SIZE_INSTR, TYPE_ICACHE);
     #endif
     }
-#endif
 
     #ifdef CONFIG_6D
     //Hijack GUI Task Here - Now we're booting with cache hacks and have menu.
@@ -819,11 +788,6 @@ my_init_task(int a, int b, int c, int d)
     /* ensure binary is not too large */
     if (ml_used_mem > ml_reserved_mem)
     {
-        #ifdef CONFIG_QEMU
-        qprintf("Out of memory: ml_used_mem=%d ml_reserved_mem=%d\n", ml_used_mem, ml_reserved_mem);
-        call("shutdown");
-        #endif
-        
         while(1)
         {
             info_led_blink(3, 500, 500);
@@ -831,6 +795,10 @@ my_init_task(int a, int b, int c, int d)
             msleep(1000);
         }
     }
+
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+    debug_intercept();
+#endif
 
     // memory check OK, call Canon's init_task
     int ans = init_task_func(a,b,c,d);
@@ -841,6 +809,15 @@ my_init_task(int a, int b, int c, int d)
     {
         *backup_address = backup_data;
     }
+#endif
+
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
+    msleep(5000);
+    _card_led_on();
+    msleep(1000);
+    _card_led_off();
+    debug_intercept();
+    return ans;
 #endif
 
 #if defined(CONFIG_CRASH_LOG)
@@ -888,10 +865,6 @@ my_init_task(int a, int b, int c, int d)
 
 #ifndef CONFIG_EARLY_PORT
 
-#ifdef CONFIG_QEMU
-    qemu_cam_init();
-#endif
-
     // wait for firmware to initialize
     while (!bmp_vram_raw()) msleep(100);
     
@@ -929,11 +902,6 @@ my_init_task(int a, int b, int c, int d)
     }
 
     task_create("ml_init", 0x1e, 0x4000, my_big_init_task, 0 );
-
-#ifdef CONFIG_QEMU  /* fixme: Canon GUI task is not started */
-    extern void ml_gui_main_task();
-    task_create("GuiMainTask", 0x17, 0x2000, ml_gui_main_task, 0);
-#endif
 
     return ans;
 #endif // !CONFIG_EARLY_PORT

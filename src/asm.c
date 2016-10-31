@@ -6,6 +6,8 @@
 #include "compiler.h"
 #include "string.h"
 
+#define STMFD 0xe92d0000
+
 static uint32_t ror(uint32_t word, uint32_t count)
 {
     return word >> count | word << (32 - count);
@@ -18,16 +20,48 @@ static uint32_t decode_immediate_shifter_operand(uint32_t insn)
     return ror(inmed_8, rotate_imm);
 }
 
-static int seems_to_be_string(char* addr)
+/* returns true if the machine will not lock up when dereferencing ptr */
+int is_sane_ptr(uint32_t ptr)
 {
-    int len = strlen(addr);
-    if (len > 4 && len < 100)
+    if (ptr < 0x1000)
     {
-        for (char* c = addr; *c; c++)
+        return 0;
+    }
+
+    switch (ptr & 0xF0000000)
+    {
+        case 0x00000000:
+        case 0x10000000:
+        case 0x40000000:
+        case 0x50000000:
+        case 0xF0000000:
+            return 1;
+    }
+
+    return 0;
+}
+
+int looks_like_string(uint32_t addr)
+{
+    if (!is_sane_ptr(addr))
+    {
+        return 0;
+    }
+    
+    int min_len = 4;
+    int max_len = 100;
+    
+    for (uint32_t p = addr; p < addr + max_len; p++)
+    {
+        char c = *(char*)p;
+        if (c == 0 && p > addr + min_len)
         {
-            if (*c < 7 || *c > 127) return 0;
+            return 1;
         }
-        return 1;
+        if (c < 32 || c > 127)
+        {
+            return 0;
+        }
     }
     return 0;
 }
@@ -37,12 +71,19 @@ char* asm_guess_func_name_from_string(uint32_t addr)
     for (uint32_t i = addr; i < addr + 4 * 20; i += 4 )
     {
         uint32_t insn = *(uint32_t*)i;
+
+        if (i > addr + 4 * 3 && (insn & 0xFFFF0000) == (STMFD & 0xFFFF0000))
+        {
+            /* start of a new function? stop searching */
+            break;
+        }
+
         if( (insn & 0xFFFFF000) == 0xe28f2000 ) // add R2, pc, #offset - should catch strings passed to DebugMsg
         {
             int offset = decode_immediate_shifter_operand(insn);
             int pc = i;
             int dest = pc + offset + 8;
-            if (seems_to_be_string((char*) dest))
+            if (looks_like_string(dest))
                 return (char*) dest;
         }
     }

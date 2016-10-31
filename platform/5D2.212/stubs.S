@@ -211,10 +211,10 @@ NSTUB(0xFF990188,  mvrSetDefQScale)
 // NSTUB(    ???,  mvrSetGopOptSizeFULLHD)                  /* present on 600D.102, 550D.109, 1100D.105 */
 
 /** Interrupts **/
+NSTUB(    0x193C,  pre_isr_hook)
+NSTUB(    0x1940,  post_isr_hook)
 // NSTUB(    ???,  isr_table_handler)                       /* present on 7D_MASTER.203 */
 // NSTUB(    ???,  isr_table_param)                         /* present on 7D_MASTER.203 */
-// NSTUB(    ???,  post_isr_hook)                           /* present on 7D.203, 6D.113, 5D3.113, EOSM.202 */
-// NSTUB(    ???,  pre_isr_hook)                            /* present on 7D.203, 6D.113, 5D3.113, 7D_MASTER.203, EOSM.202 */
 
 /** LCD Sensor **/
 NSTUB(0xFF9D8250,  DispSensorStart)
@@ -278,9 +278,8 @@ NSTUB(0xFF86DD88,  take_semaphore)
 
 /** Task info **/
 NSTUB(    0x3050,  task_max)
-NSTUB(0xFF8168C0,  get_current_task)
-NSTUB(0xFF818110,  get_obj_attr)                            // AJ_checks_if_Process_id_created_by_Dryos
 NSTUB(0xFF8182C8,  is_taskid_valid)                         // AJ_task_trampoline_related_p10
+NSTUB(    0x1A24,  current_task)
 
 /** Task sleep **/
 NSTUB(0xFF86E22C,  msleep)

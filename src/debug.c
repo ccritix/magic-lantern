@@ -26,7 +26,6 @@
 
 #ifdef CONFIG_DEBUG_INTERCEPT
 #include "dm-spy.h"
-#include "tp-spy.h"
 #endif
 
 #ifdef CONFIG_MODULES
@@ -64,8 +63,7 @@ void display_off();
 void fake_halfshutter_step();
 
 #ifdef CONFIG_DEBUG_INTERCEPT
-void j_debug_intercept() { debug_intercept(); }
-void j_tp_intercept() { tp_intercept(); }
+void j_debug_intercept() { msleep(1000); debug_intercept(); }
 #endif
 
 #if CONFIG_DEBUGMSG
@@ -154,6 +152,13 @@ static void dump_rom_task(void* priv, int unused)
     msleep(200);
 
     dump_big_seg(4, "ML/LOGS/RAM4.BIN");
+    dump_big_seg(5, "ML/LOGS/RAM5.BIN");
+
+    /* you can't write the TCM directly, needs to be copied */
+    void* buf = fio_malloc(0x1000);
+    memcpy(buf, 0, 0x1000);
+    dump_seg(buf, 0x1000, "ML/LOGS/TCM.BIN");
+    free(buf);
 }
 
 static void dump_img_task(void* priv, int unused)
@@ -328,6 +333,16 @@ void bsod()
 
 static void run_test()
 {
+    msleep(2000);
+
+    void debug_intercept();
+    debug_intercept();
+    info_led_on();
+    void* job = (void*) call("FA_CreateTestImage");
+    call("FA_CaptureTestImage", job);
+    call("FA_DeleteTestImage", job);
+    info_led_off();
+    debug_intercept();
 }
 
 static void unmount_sd_card()
@@ -1143,16 +1158,10 @@ static struct menu_entry debug_menus[] = {
 #endif
 #ifdef CONFIG_DEBUG_INTERCEPT
     {
-        .name        = "DM Log",
+        .name        = "DebugMsg Log",
         .priv        = j_debug_intercept,
-        .select      = run_in_separate_task,
-        .help = "Log DebugMessages"
-    },
-    {
-        .name        = "TryPostEvent Log",
-        .priv        = j_tp_intercept,
-        .select      = run_in_separate_task,
-        .help = "Log TryPostEvents"
+        .select      = (void(*)(void*,int))run_in_separate_task,
+        .help = "Log all DebugMsg calls (dm-spy)."
     },
 #endif
 #ifdef FEATURE_SHOW_TASKS
@@ -2041,10 +2050,6 @@ int handle_tricky_canon_calls(struct event * event)
 // engio functions may fail and lock the camera
 void EngDrvOut(uint32_t reg, uint32_t value)
 {
-    #ifdef CONFIG_QEMU
-    if (!reg) return;   /* fixme: LCD palette not initialized */
-    #endif
-
     if (ml_shutdown_requested) return;
     if (!(MEM(0xC0400008) & 0x2)) return; // this routine requires LCLK enabled
     _EngDrvOut(reg, value);

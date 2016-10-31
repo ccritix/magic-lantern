@@ -16,29 +16,62 @@
 #include "lens.h"
 
 extern int is_taskid_valid(int, int, void*);
-extern int get_obj_attr(void*, unsigned char*, int, int);
 
 int ml_shutdown_requested = 0;
+
+char* get_current_task_name()
+{
+    /* DryOS: right after current_task we have a flag
+     * set to 1 when handling an interrupt */
+    uint32_t * interrupt_active = (uint32_t*) MEM((uintptr_t)current_task + 4);
+    
+    if (!interrupt_active)
+    {
+        return current_task->name;
+    }
+    else
+    {
+    #ifdef CURRENT_INTERRUPT_ADDR
+        static char isr[] = "**INT-00h**";
+        int i = MEM(CURRENT_INTERRUPT_ADDR) >> 2;
+        int i0 = (i & 0xF);
+        int i1 = (i >> 4) & 0xF;
+        isr[6] = i1 < 10 ? '0' + i1 : 'A' + i1 - 10;
+        isr[7] = i0 < 10 ? '0' + i0 : 'A' + i0 - 10;
+        return isr;
+    #else
+        return "**INTERRUPT**";
+    #endif
+    }
+}
 
 char* get_task_name_from_id(int id)
 {
 #if defined(CONFIG_VXWORKS)
 return "?";
 #endif
+
+    if (id == -1)
+    {
+        return "**INTERRUPT**";
+    }
+
+    static char unknown_task[20];
+    char* name = unknown_task;
+    int c = id & 0xFF;
+
+    snprintf(unknown_task, sizeof(unknown_task), "Task#%d", id);
+    
     if(id < 0)
     {
-        return "?";
+        return unknown_task;
     }
-    
-    char* name = "?";
-    int c = id & 0xFF;
 
     struct task_attr_str task_attr;
     int r = is_taskid_valid(1, c, &task_attr); // ok
     if (r==0) {
-      //~ r = get_obj_attr( &(task_attr.args), &(task_attr.fpu), 0, 0); // buggy ?
       if (task_attr.name!=0) name=task_attr.name;
-      else name="?";
+      else name=unknown_task;
     }
     return name;
 }
@@ -131,7 +164,7 @@ void task_update_loads() // called every second from clock_task
 int task_check_stack()
 {
     struct task_attr_str task_attr;
-    int id = (int)get_current_task() & 0xFF;
+    int id = current_task->taskId;
 
     /* works, gives the same result as DryOS routine, so... let's just use the DryOS one
      *
@@ -260,7 +293,6 @@ MENU_UPDATE_FUNC(tasks_print)
         {
             total_tasks++;
 
-            //r = get_obj_attr( &(task_attr.args), &(task_attr.fpu), 0, 0); // buggy ?
             if (task_attr.name!=0)
             {
                 name=task_attr.name;
@@ -382,7 +414,7 @@ static char func_holding_bmp_lock[50] = "";
 
 int CheckBmpAcquireRecursiveLock(void* lock, int line, const char* func)
 {
-    char* task_name = get_task_name_from_id((int)get_current_task());
+    char* task_name = get_current_task_name();
     
     // just a warning, sometimes we can't get without it (e.g. at redraw), but it's best to avoid
     /*
@@ -410,13 +442,13 @@ int CheckBmpAcquireRecursiveLock(void* lock, int line, const char* func)
     while ((r = (int)AcquireRecursiveLock(lock, wait)))
     {
         char msg[100];
-        snprintf(msg, sizeof(msg), "%s:%s:%d:\nRLock held by %s:%s:%d  ", get_task_name_from_id((int)get_current_task()), func, line, get_task_name_from_id(task_holding_bmp_lock), func_holding_bmp_lock, line_holding_bmp_lock);//, get_task_name_from_id(task_holding_bmp_lock));
+        snprintf(msg, sizeof(msg), "%s:%s:%d:\nRLock held by %s:%s:%d  ", get_current_task_name(), func, line, get_task_name_from_id(task_holding_bmp_lock), func_holding_bmp_lock, line_holding_bmp_lock);//, get_task_name_from_id(task_holding_bmp_lock));
         int x = 100;
         bmp_puts(FONT_MED, (unsigned int *)&x, (unsigned int *)&x, msg);
         ml_assert_handler(msg, __FILE__, __LINE__, __func__);
         wait = 0;
     }
-    task_holding_bmp_lock = ((int)get_current_task()) & 0xFF;
+    task_holding_bmp_lock = current_task->taskId;
     line_holding_bmp_lock = line;
     snprintf(func_holding_bmp_lock, sizeof(func_holding_bmp_lock), func);
     return r;

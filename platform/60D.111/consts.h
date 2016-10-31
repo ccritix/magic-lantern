@@ -15,9 +15,18 @@
 #define HIJACK_INSTR_MY_ITASK 0xFF0110DC
 #define HIJACK_TASK_ADDR 0x1a2c
 
-#define HIJACK_CACHE_HACK
-#define HIJACK_CACHE_HACK_INITTASK_ADDR  0xFF0110DC
-#define RSCMGR_MEMORY_PATCH_END 0xF8013698
+// Used in boot-hack.c with CONFIG_ALLOCATE_MEMORY_POOL
+#define ROM_ITASK_START 0xFF0193C0
+#define ROM_ITASK_END  0xFF019598
+#define ROM_CREATETASK_MAIN_START 0xFF0121F8
+#define ROM_CREATETASK_MAIN_END 0xFF012498
+#define ROM_ALLOCMEM_END 0xFF012218
+#define ROM_ALLOCMEM_INIT 0xFF012220
+#define ROM_B_CREATETASK_MAIN 0xFF019434
+
+// used in mem.c with CONFIG_RSCMGR_UNUSED_SPACE
+#define RSCMGR_UNUSED_SPACE_START 0x5F900000
+#define RSCMGR_UNUSED_SPACE_END   0x5FE00000
 
 #define ARMLIB_OVERFLOWING_BUFFER 0x36468 // in AJ_armlib_setup_related3
 
@@ -265,3 +274,7 @@
 // temperature convertion from raw-temperature to celsius
 // http://www.magiclantern.fm/forum/index.php?topic=9673.0
 #define EFIC_CELSIUS ((int)efic_temp * 80 / 100 - 93)
+
+/* look in TCM code, from address 0x18, where the data from C0201004 is stored */
+/* reading that register again will lock up the camera */
+#define CURRENT_INTERRUPT_ADDR 0x674

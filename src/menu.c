@@ -2852,7 +2852,7 @@ menu_display(
     //hide upper menu for vscroll
     int pos = get_menu_selected_pos(menu);
     int num_visible = get_menu_visible_count(menu);
-    int target_height = 370;
+    int target_height = menu->submenu_height ? menu->submenu_height - 54 : 370;
     if (is_menu_active("Help")) target_height -= 20;
     if (is_menu_active("Focus")) target_height -= 70;
     int natural_height = num_visible * font_large.height;
@@ -5759,36 +5759,6 @@ MENU_UPDATE_FUNC(menu_advanced_update)
     MENU_SET_ICON(IT_ACTION, 0);
     MENU_SET_HELP(advanced_mode ? "Back to 'beginner' mode." : "Advanced options for experts. Use with care.");
 }
-
-#ifdef CONFIG_QEMU
-void qemu_menu_screenshots()
-{
-    /* hack to bypass ML checks */
-    CURRENT_GUI_MODE = 1;
-    
-    /* hack to avoid picture style warning */
-    lens_info.picstyle = 1;
-    
-    /* get a screenshot of the initial "welcome" screen, then hide it */
-    menu_redraw_do();
-    call("dispcheck");
-    beta_set_warned();
-    
-    while(1)
-    {
-        /* get a screenshot of the current menu */
-        menu_redraw_do();
-        call("dispcheck");
-        
-        /* cycle through menus, until the first menu gets selected again */
-        menu_move(get_selected_menu(), 1);
-        if (menus->selected)
-            break;
-    }
-    call("shutdown");
-    while(1);
-}
-#endif
 
 /* run something in new task, with powersave disabled
  * (usually, such actions are short-lived tasks
