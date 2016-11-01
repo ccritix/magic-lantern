@@ -23,8 +23,8 @@ static CONFIG_INT("crop.preset", crop_preset_menu, 0);
  * so we keep two variables: what's selected in menu and what's actually used */
 static int crop_preset = 0;
 
-#define CROP_PRESET_3X 1
-#define CROP_PRESET_3x3_1X 2
+#define CROP_PRESET_3x3_1X 1
+#define CROP_PRESET_3X 2
 #define CROP_PRESET_1x3 3
 #define CROP_PRESET_3x1 4
 
@@ -379,15 +379,15 @@ static struct menu_entry crop_rec_menu[] =
         .max = 3,
         .choices = CHOICES(
             "OFF",
-            "1:1 (3x)",
             "3x3 720p (1x wide)",
+            "1:1 (3x)",
             "1x3 binning",
             "3x1 binning",      /* doesn't work well */
         ),
         .help =
             "Change 1080p and 720p movie modes into crop modes (select one)\n"
-            "1:1 sensor readout (square pixels in RAW, 3x crop)\n"
             "3x3 binning in 720p (square pixels in RAW, vertical crop, ratio 29:10)\n"
+            "1:1 sensor readout (square pixels in RAW, 3x crop)\n"
             "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
             "3x1 binning: bin every 3 lines, read all columns (extreme anamorphic)\n"
     },
@@ -542,6 +542,7 @@ static unsigned int crop_rec_init()
         MEM_ADTG_WRITE = 0xE92D43F8;
         
         is_EOSM = 1;
+        crop_rec_menu[0].max = 1;
     }
     
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
