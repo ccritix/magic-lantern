@@ -33,6 +33,9 @@
     #if defined(CONFIG_5D3)
         #define BUF_ADDR (0x4A000000 + 0x00CA8000)  /* between IVA_NVY and SS_DEVELOP1 */
         #define BUF_SIZE (0x4AE00000 - BUF_ADDR)    /* 1.3M unused block */
+    #elif defined(CONFIG_50D)
+        #define BUF_ADDR 0x5D000000                 
+        #define BUF_SIZE 0x00100000                 /* use 1M */
     #elif defined(CONFIG_70D)
         #define BUF_ADDR 0x55000000                 /* IVA_NVY, hopefully not used at startup */
         #define BUF_SIZE 0x00E00000                 /* 14M */
