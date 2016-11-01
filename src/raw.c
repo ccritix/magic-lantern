@@ -667,7 +667,7 @@ static int raw_update_params_work()
         height--;
         #endif
 
-        #if defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_600D)
+        #if defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_600D) || defined(CONFIG_1200D)
         skip_left = 142;
         skip_top = 52;
         #endif
@@ -683,11 +683,6 @@ static int raw_update_params_work()
         skip_left = 72;
         skip_right = 0;
         skip_top = 52;
-        #endif
-      
-        #ifdef CONFIG_1200D
-        skip_top = 52;
-        skip_left = 145;
         #endif
 
         #ifdef CONFIG_6D
