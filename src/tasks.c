@@ -23,7 +23,7 @@ char* get_current_task_name()
 {
     /* DryOS: right after current_task we have a flag
      * set to 1 when handling an interrupt */
-    uint32_t * interrupt_active = (uint32_t*) MEM((uintptr_t)current_task + 4);
+    uint32_t interrupt_active = MEM((uintptr_t)&current_task + 4);
     
     if (!interrupt_active)
     {
