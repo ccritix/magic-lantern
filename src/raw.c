@@ -1530,7 +1530,7 @@ void FAST raw_lv_vsync()
         int ok = raw_lv_get_resolution(&width, &height);
         if (ok)
         {
-            int pitch = width * 14/8;
+            int pitch = width * raw_info.bits_per_pixel / 8;
             edmac_raw_slurp(CACHEABLE(buf), pitch, height);
         }
     }
