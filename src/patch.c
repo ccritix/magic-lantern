@@ -193,6 +193,9 @@ static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
             {
                 return E_PATCH_CACHE_ERROR;
             }
+            
+            /* yes! */
+            return 0;
         }
         else
         {
