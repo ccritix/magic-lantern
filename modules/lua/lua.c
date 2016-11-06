@@ -545,7 +545,7 @@ static void lua_load_task(int unused)
             if (!(file.mode & ATTR_DIRECTORY) && (string_ends_with(file.name, ".LUA") || string_ends_with(file.name, ".lua")) && file.name[0] != '.' && file.name[0] != '_')
             {
                 add_script(file.name);
-                msleep(20);
+                msleep(100);
             }
         }
         while(FIO_FindNextEx(dirent, &file) == 0);
@@ -558,7 +558,14 @@ static void lua_load_task(int unused)
     }
     
     printf("All scripts loaded.\n");
-    msleep(500);
+
+    /* wait for key pressed or for 5-second timeout, whichever comes first */
+    last_keypress = 0;
+    for (int i = 0; i < 50 && !last_keypress; i++)
+    {
+        msleep(100);
+    }
+
     console_hide();
     
     lua_loaded = 1;

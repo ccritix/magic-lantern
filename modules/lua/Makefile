@@ -23,6 +23,7 @@ include $(TOP_DIR)/modules/Makefile.modules
 lua.sym: lua.mo
 	$(call build,STRIP,$(READELF) -sW $< | grep GLOBAL | grep -v UND | grep -v COM | grep -v "__module_.*$(MODULE_NAME)" | $(AWK) "{print \$$8;}" | sort > localsyms)
 	$(call build,STRIP,$(OBJCOPY) lua.mo lua.mo --localize-symbols localsyms)
+	$(call rm_files, localsyms)
 	$(call build,EXPORTS,$(READELF) -sW $< | grep GLOBAL | grep -v UND | grep -v COM | grep -v "__module_.*$(MODULE_NAME)" | $(AWK) "{print \$$2 \" \" \$$8;}" | sort > $@ && cat $@)
 
 # Extract the stdio files that we need
@@ -75,8 +76,15 @@ dietlibc.a: $(DIET_OBJ)
 	$(call build,AR,$(AR) cr $@ $^)
 
 # also copy the scripts when running "make install" from the module directory
-install::
+install_user_data::
 	$(INSTALL_ALL_SCRIPTS)
+
+# run "make install extra=1" to copy scripts from the extra dir
+# into the main scripts dir on the card, so they autostart
+ifeq ($(extra),1)
+install_user_data::
+	$(CP) $(SCRIPT_DIR)/extra/*.lua $(INSTALL_SCRIPTS_DIR)
+endif
 
 # run a syntax check after compiling
 all:: syntax_check.log
