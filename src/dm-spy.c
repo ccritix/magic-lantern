@@ -203,8 +203,10 @@ void debug_intercept()
             blink_init();
             blink_str(staticbuf);
         #else
-            dump_seg(staticbuf, len, "dm.log");
-            NotifyBox(2000, "DebugMsg log: saved %d bytes.", len);
+            char log_filename[100];
+            get_numbered_file_name("dm-%04d.log", 9999, log_filename, sizeof(log_filename));
+            dump_seg(staticbuf, len, log_filename);
+            NotifyBox(2000, "%s: saved %d bytes.", log_filename, len);
         #endif
         len = 0;
     }
@@ -245,8 +247,10 @@ void debug_intercept()
         unpatch_memory(DebugMsg_addr);
         buf[len] = 0;
         clean_d_cache();
-        dump_seg(buf, len, "dm.log");
-        NotifyBox(2000, "DebugMsg log: saved %d bytes.", len);
+        char log_filename[100];
+        get_numbered_file_name("dm-%04d.log", 9999, log_filename, sizeof(log_filename));
+        dump_seg(buf, len, log_filename);
+        NotifyBox(2000, "%s: saved %d bytes.", log_filename, len);
         len = 0;
         fio_free(buf);
         buf = 0;
