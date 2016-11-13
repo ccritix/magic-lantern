@@ -321,10 +321,14 @@ static struct known_reg known_regs[] = {
     {0xC0F1,   0x12d4, 0, "LV resolution (raw.j.height | ?) before upsampling?"},           // these two also change at 5x->10x zoom
     {0xC0F1,   0x1314, 0, "LV resolution (raw.j.height | lv.width) before upsampling?"},    // ratio is around 1.4, so maybe some upsampling is applied afterwards
 
-    {0xc0f3,   0x83dc, 0, "Resolution (RAW.height | RAW.width)"},     // 5D3, full raw buffer including optical black
-
     {0xC0F0,   0x8548, 0, "LV resolution * downsize factor? (RAW.height * D | RAW.width * D)"},
-    
+
+    {0xC0F0,   0x9050, 0, "Aewb metering area (y1|x1)"},
+    {0xC0F0,   0x9054, 0, "Aewb metering area (y2|x2)"},
+
+    {0xc0f3,   0x83d4, 0, "Preview area (y1 | x1/4)"},  /* similar to raw_info.active_area */
+    {0xc0f3,   0x83dc, 0, "Preview area (y2 | x2/4)"},
+
     {DST_DFE,  0x180e, 0, "Blue LED"},
     {DST_DFE,  0x1810, 0, "LightMeasure"},
     {DST_DFE,  0x1d02, 0, "DFE gain (similar to ADTG 888x)"},
