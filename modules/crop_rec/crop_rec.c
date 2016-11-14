@@ -337,6 +337,8 @@ static int FAST adtg_lookup(uint32_t* data_buf, int reg_needle)
     return -1;
 }
 
+extern WEAK_FUNC(ret_0) void fps_override_shutter_blanking();
+
 static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (!is_supported_mode() || !cmos_vidmode_ok)
@@ -344,6 +346,11 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         /* don't patch other video modes */
         return;
     }
+    
+    /* This hook is called from the DebugMsg's in adtg_write,
+     * so if we change the register list address, it won't be able to override them.
+     * Workaround: let's call it here. */
+    fps_override_shutter_blanking();
 
     uint32_t cs = regs[0];
     uint32_t *data_buf = (uint32_t *) regs[1];
@@ -363,8 +370,23 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     };
     
     /* expand this as required */
-    struct adtg_new adtg_new[2] = {{0}};
-    
+    struct adtg_new adtg_new[3] = {{0}};
+
+    /* scan for shutter blanking and make both zoom and non-zoom value equal */
+    /* (the values are different when using FPS override with ADTG shutter override) */
+    /* (fixme: might be better to handle this in ML core?) */
+    int shutter_blanking = 0;
+    int adtg_blanking_reg = (lv_dispsize == 1) ? 0x8060 : 0x805E;
+    for (uint32_t * buf = data_buf; *buf != 0xFFFFFFFF; buf++)
+    {
+        int reg = (*buf) >> 16;
+        if (reg == adtg_blanking_reg)
+        {
+            int val = (*buf) & 0xFFFF;
+            shutter_blanking = val;
+        }
+    }
+
     if (is_5D3 || is_EOSM)
     {
         switch (crop_preset)
@@ -373,8 +395,10 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3X:
                 /* ADTG2/4[0x8000] = 5 (set in one call) */
                 /* ADTG2[0x8806] = 0x6088 (artifacts without it) */
+                /* ADTG[0x805E]: shutter blanking for zoom mode  */
                 adtg_new[0] = (struct adtg_new) {6, 0x8000, 5};
                 adtg_new[1] = (struct adtg_new) {2, 0x8806, 0x6088};
+                adtg_new[2] = (struct adtg_new) {6, 0x805E, shutter_blanking};
                 break;
 
             /* 3x3 binning in 720p (in 1080p it's already 3x3) */
