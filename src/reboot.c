@@ -56,6 +56,50 @@
 #include "md5.h"
 #include "asm.h"
 
+
+#ifdef CONFIG_QRCODE
+#define SHOW_QR
+#include "qrencode.h"
+
+void *calloc(size_t nmemb, size_t size)
+{
+    void *p = malloc(nmemb*size);
+    memset(p, 0x00, nmemb*size);
+    
+    return p;
+}
+
+void *realloc(void *ptr, size_t size)
+{
+    void *p = malloc(size);
+    memcpy(p, ptr, size);
+    free(ptr);
+    
+    return p;
+}
+
+char *strcat(char *dest, const char *src)
+{
+    char *ldest = dest;
+
+    while (*ldest)
+    {
+        ldest++;
+    }
+
+    while (*src)
+    {
+        *ldest++ = *src++;
+    }
+    
+    *ldest = '\0';
+    
+    return dest;
+}
+
+int __errno = 0;
+#endif
+
 #define MEM(x) (*(volatile uint32_t *)(x))
 
 /* we need this ASM block to be the first thing in the file */
@@ -191,6 +235,56 @@ static void boot_dump(int drive, char* filename, uint32_t addr, int size)
 struct sd_ctx sd_ctx;
 uint32_t print_x = 0;
 uint32_t print_y = 20;
+char print_line_scroll_data[8192];
+
+
+#ifdef SHOW_QR
+void qr_show(char *text)
+{
+    QRcode *code = QRcode_encodeData(strlen(text), (uint8_t *)text, 0, QR_ECLEVEL_M);
+    
+    if(!code)
+    {
+        uint32_t x = 0;
+        uint32_t y = 0;
+        font_draw(&x, &y, COLOR_RED, 2, "QR FAILED");
+        return;
+    }
+    
+    int qr_margin = 10;
+    int scaling = (480 - 2 * qr_margin) / code->width;
+    int size = code->width * scaling;
+    
+    /* clear the area including borders */
+    for(int y = 0; y < size + 2 * qr_margin; y++)
+    {
+        for(int x = 0; x < size + 2 * qr_margin; x++)
+        {
+            disp_set_pixel(x, y, COLOR_BLACK);
+        }
+    }
+    
+    /* set white pixels */
+    for(int y = 0; y < code->width; y++)
+    {
+        uint8_t *data_line = &code->data[y*code->width];
+        
+        for(int x = 0; x < code->width; x++)
+        {
+            if(!(data_line[x] & 1))
+            {
+                for(int mulx = 0; mulx < scaling; mulx++)
+                {
+                    for(int muly = 0; muly < scaling; muly++)
+                    {
+                        disp_set_pixel(qr_margin + scaling * x + mulx, qr_margin + scaling * y + muly, COLOR_WHITE);
+                    }
+                }
+            }
+        }
+    }
+}
+#endif
 
 void print_line(uint32_t color, uint32_t scale, char *txt)
 {
@@ -202,6 +296,12 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
         /* wait for user to read the current page */
         /* (no controls available; display a countdown instead) */
         /* note: adjust the timings if running with cache disabled */
+        
+#ifdef SHOW_QR
+        /* page scroll happened, show the buffered content */
+        qr_show(print_line_scroll_data);
+        print_line_scroll_data[0] = '\0';
+#endif
         for (int i = 9; i > 0; i--)
         {
             uint32_t x = 710; uint32_t y = 0;
@@ -224,6 +324,11 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
     }
 
     font_draw(&print_x, &print_y, color, scale, txt);
+    
+#ifdef SHOW_QR
+    /* concat everything that was printed to show as QR code later */
+    strcat(print_line_scroll_data, txt);
+#endif
 }
 
 int printf(const char * fmt, ...)
@@ -740,7 +845,6 @@ static void dump_rom_with_fullfat()
 {
 #if defined(CONFIG_600D) || defined(CONFIG_5D3)
     /* file I/O only known to work on these cameras */
-    malloc_init((void *)0x42000000, 0x02000000);
     
     printf(" - Init SD/CF\n");
     sd_init(&sd_ctx);
@@ -770,12 +874,24 @@ cstart( void )
     MEM(0x00000038) = (uint32_t)&_vec_data_abort;
     MEM(0x0000003C) = (uint32_t)&_vec_data_abort;
     
+#if defined(CONFIG_600D) || defined(CONFIG_5D3) || defined(SHOW_QR)
+    /* needed by FAT and QRCode routines */
+    malloc_init((void *)0x42000000, 0x02000000);
+#endif
+#if defined(SHOW_QR)
+    print_line_scroll_data[0] = '\0';
+#endif
+    
     disp_init();
 
 #ifdef CONFIG_CPUINFO
     printf("CHDK CPU info for 0x%X %s\n", get_model_id(), get_model_string());
     printf("------------------------------\n");
     cpuinfo_print();
+#if defined(SHOW_QR)
+    /* commit last page */
+    print_line(COLOR_CYAN, 60, "o");
+#endif
 #else
     /* disable caching (seems to interfere with ROM dumping) */
     //~ disable_dcache();
