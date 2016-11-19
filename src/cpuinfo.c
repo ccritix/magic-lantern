@@ -66,13 +66,13 @@ void cpuinfo_print(void) {
     cpuinfo_get_info(cpuinfo);
     for(i = 0; cpuinfo_desc[i].name; i++) {
         wordval = cpuinfo[i];
-        printf("%-10s 0x%08X\n",cpuinfo_desc[i].name,wordval);
+        printf("%s 0x%08X\n",cpuinfo_desc[i].name,wordval);
         
         for(j=0; cpuinfo_desc[i].fields[j].name; j++) {
             bits = cpuinfo_desc[i].fields[j].bits;
             mask = ~(0xFFFFFFFF << bits);
             fieldval = wordval & mask;
-            printf("  %-20s 0x%X %d",cpuinfo_desc[i].fields[j].name,fieldval,fieldval);
+            printf(" %s 0x%X %d",cpuinfo_desc[i].fields[j].name,fieldval,fieldval);
             if(cpuinfo_desc[i].fields[j].desc_fn) {
                 printf(" [%s]",cpuinfo_desc[i].fields[j].desc_fn(fieldval));
             }
