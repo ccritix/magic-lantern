@@ -239,6 +239,7 @@ char print_line_scroll_data[8192];
 
 
 #ifdef SHOW_QR
+/* you can use http://qrlogo.kaarposoft.dk/qrdecode.html to decode this image after aligned correctly */
 void qr_show(char *text)
 {
     QRcode *code = QRcode_encodeData(strlen(text), (uint8_t *)text, 0, QR_ECLEVEL_M);
