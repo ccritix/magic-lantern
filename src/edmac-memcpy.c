@@ -388,6 +388,10 @@ uint32_t raw_write_chan = 1;
 uint32_t raw_write_chan = 4;
 #endif
 
+#ifdef CONFIG_EOSM
+uint32_t raw_write_chan = 0x12;
+#endif
+
 
 static void edmac_slurp_complete_cbr (void* ctx)
 {
@@ -401,7 +405,11 @@ static void edmac_slurp_complete_cbr (void* ctx)
 void edmac_raw_slurp(void* dst, int w, int h)
 {
     /* see wiki, register map, EDMAC what the flags mean. they are for setting up copy block size */
+#ifdef CONFIG_EOSM
+    uint32_t dmaFlags = 0x20000000;
+#else
     uint32_t dmaFlags = 0x20001000;
+#endif
     
     /* @g3gg0: this callback does get called */
     RegisterEDmacCompleteCBR(raw_write_chan, &edmac_slurp_complete_cbr, 0);
@@ -420,6 +428,10 @@ void edmac_raw_slurp(void* dst, int w, int h)
     SetEDmac(raw_write_chan, (void*)dst, &dst_edmac_info, dmaFlags);
     
     /* start transfer. no flags for write, 2 for read channels */
+#ifdef CONFIG_EOSM
     StartEDmac(raw_write_chan, 0);
+#else
+    StartEDmac(raw_write_chan, 2);
+#endif
 }
 #endif /* CONFIG_EDMAC_RAW_SLURP */
