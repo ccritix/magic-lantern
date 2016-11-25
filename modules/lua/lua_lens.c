@@ -17,11 +17,11 @@
 static int luaCB_lens_index(lua_State * L)
 {
     LUA_PARAM_STRING_OPTIONAL(key, 2, "");
-    /// Get the name of the lens (reported by the lens)
-    // @tfield string name readonly
+    /// Get/Set the name of the lens (reported by the lens)
+    // @tfield string name
     if(!strcmp(key, "name")) lua_pushstring(L, lens_info.name);
-    /// Get the focal length of the lens (in mm)
-    // @tfield int focal_length readonly
+    /// Get/Set the focal length of the lens (in mm)
+    // @tfield int focal_length
     else if(!strcmp(key, "focal_length")) lua_pushinteger(L, lens_info.focal_len);
     /// Get the current focus distance (in mm)
     // @tfield int focus_distance readonly
@@ -41,6 +41,12 @@ static int luaCB_lens_index(lua_State * L)
     /// Get the current auto focus mode (may be model-specific)
     // @tfield int af_mode readonly
     else if(!strcmp(key, "af_mode")) lua_pushinteger(L, af_mode);
+    /// Use to manually set the len's aperture value for non-chipped lenses (for metadata purposes)
+    // @tfield bool manual_aperture
+    else if(!strcmp(key, "manual_aperture")) lua_pushnumber(L, lens_info.aperture / 10.0);
+    /// Get if the lens chipped
+    // @tfield bool is_chipped readonly
+    else if(!strcmp(key, "is_chipped")) lua_pushboolean(L, lens_info.is_chipped);
     else lua_rawget(L, 1);
     return 1;
 }
@@ -48,7 +54,23 @@ static int luaCB_lens_index(lua_State * L)
 static int luaCB_lens_newindex(lua_State * L)
 {
     LUA_PARAM_STRING_OPTIONAL(key, 2, "");
-    if(!strcmp(key, "name") || !strcmp(key, "focal_length") || !strcmp(key, "focus_distance") || !strcmp(key, "hyperfocal") || !strcmp(key, "dof_near") || !strcmp(key, "dof_far") || !strcmp(key, "af"))
+    if(!strcmp(key, "name"))
+    {
+        LUA_PARAM_STRING(value, 3);
+        strncpy(lens_info.name, value, 31);
+    }
+    else if(!strcmp(key, "focal_length"))
+    {
+        LUA_PARAM_INT(value, 3);
+        lens_info.focal_len = value;
+    }
+    else if(!strcmp(key, "manual_aperture"))
+    {
+        if(lens_info.is_chipped) return luaL_error(L, "Can't set manual aperture for chipped lens");
+        LUA_PARAM_NUMBER(value, 3);
+        lens_info.aperture = (int)(value * 10);
+    }
+    else if(!strcmp(key, "focus_distance") || !strcmp(key, "hyperfocal") || !strcmp(key, "dof_near") || !strcmp(key, "dof_far") || !strcmp(key, "af") || !strcmp(key, "is_chipped"))
     {
         return luaL_error(L, "'%s' is readonly!", key);
     }
