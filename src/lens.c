@@ -1088,6 +1088,12 @@ PROP_HANDLER( PROP_LENS_NAME )
     if( len > sizeof(lens_info.name) )
         len = sizeof(lens_info.name);
     memcpy( (char*)lens_info.name, buf, len );
+    lens_info.is_chipped = lens_info.name[0];
+    if (!lens_info.is_chipped)
+    {
+        lens_info.focal_len = 0;
+        lens_info.focus_dist = 0;
+    }
 }
 
 PROP_HANDLER(PROP_LENS)
@@ -1526,6 +1532,8 @@ PROP_HANDLER( PROP_LV_FOCAL_DISTANCE )
 #endif
 PROP_HANDLER( PROP_LV_LENS )
 {
+    if (!lens_info.is_chipped) return;
+    
     const struct prop_lv_lens * const lv_lens = (void*) buf;
     lens_info.focal_len    = bswap16( lv_lens->focal_len );
     lens_info.focus_dist    = bswap16( lv_lens->focus_dist );
@@ -2432,7 +2440,7 @@ static LVINFO_UPDATE_FUNC(mode_update)
 static LVINFO_UPDATE_FUNC(focal_len_update)
 {
     LVINFO_BUFFER(16);
-    if (lens_info.name[0])
+    if (lens_info.is_chipped)
     {
         snprintf(buffer, sizeof(buffer), "%d%s",
                crop_info ? (lens_info.focal_len * SENSORCROPFACTOR + 5) / 10 : lens_info.focal_len,
@@ -2463,7 +2471,7 @@ static LVINFO_UPDATE_FUNC(av_update)
 {
     LVINFO_BUFFER(8);
 
-    if (lens_info.raw_aperture && lens_info.name[0])
+    if (lens_info.raw_aperture && lens_info.is_chipped)
     {
         snprintf(buffer, sizeof(buffer), lens_format_aperture(lens_info.raw_aperture));
     }

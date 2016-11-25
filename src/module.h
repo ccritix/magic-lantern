@@ -106,7 +106,7 @@ int module_translate_key(int key, int dest);
 /* update major if older modules will *not* be compatible */
 #define MODULE_MAJOR 6
 /* update minor if older modules will be compatible, but newer module will not run on older magic lantern versions */
-#define MODULE_MINOR 0
+#define MODULE_MINOR 1
 /* update patch if nothing regarding to compatibility changes */
 #define MODULE_PATCH 0
 

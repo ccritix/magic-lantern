@@ -78,6 +78,7 @@ struct lens_info
         int                     dof_diffraction_blur;   /* fixme: move those near other DOF fields on next API update */
         //~ float                   lens_rotation;
         //~ float                   lens_step;
+        int                     is_chipped;
 };
 
 extern struct lens_info lens_info;
