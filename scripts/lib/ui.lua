@@ -20,18 +20,18 @@ end
 scrollbar = {}
 scrollbar.__index = scrollbar
 
-function scrollbar.create(step,min,max,x,y,w,h)
+function scrollbar.create(step, min, max, x, y, w, h)
     local sb = {}
-    setmetatable(sb,scrollbar)
+    setmetatable(sb, scrollbar)
     sb.step = step
     sb.min = min
     sb.max = max
     sb.value = min
-    sb.top = y
-    sb.left = x
+    sb.top = y or 0
+    sb.left = x or (display.width - 2)
     sb.foreground = COLOR.BLUE
-    sb.width = w
-    sb.height = h
+    sb.width = w or 2
+    sb.height = h or (display.height - y)
     if h == nil then sb.height = display.height - y end
     return sb
 end
@@ -77,7 +77,7 @@ function selector.create(title, items, format, width)
     return s
 end
 
-function selector:run()
+function selector:select()
     local status, error = xpcall(function()
         keys:start()
         menu.block(true)
@@ -92,11 +92,14 @@ function selector:run()
             if self.cancel then break end
         end
     end, debug.traceback)
-    if status == false then
-        handle_error(error)
-    end
     menu.block(false)
     keys:stop()
+    if status == false then
+        handle_error(error)
+        return false
+    else
+        return not self.cancel
+    end
 end
 
 function selector:handle_key(key)
