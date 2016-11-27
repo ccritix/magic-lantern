@@ -169,7 +169,7 @@ function selector:handle_key(key)
         self.index = inc(self.index, 1, #self.items)
     elseif key == KEY.SET then
         return false
-    else
+    elseif key == KEY.MENU or key == KEY.INFO or key == KEY.PLAY or key == KEY.Q then
         self.cancel = true
         return false
     end
