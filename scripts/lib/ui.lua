@@ -20,32 +20,32 @@ end
 button = {}
 button.__index = button
 
-function button.create(caption,x,y,font,w,h)
-    local b = {}
-    setmetatable(b,button)
-    b.font = font
-    if b.font == nil then
-        b.font = FONT.MED_LARGE
+function button.create(caption, x, y, font, w, h)
+    local self = {}
+    setmetatable(self, utton)
+    self.font = font
+    if self.font == nil then
+        self.font = FONT.MED_LARGE
     end
-    b.caption = caption
-    b.pad = 5
-    b.left = x
-    b.top = y
-    b.width = w
-    b.height = h
-    b.border = COLOR.WHITE
-    b.foreground = COLOR.WHITE
-    b.background = COLOR.BLACK
-    b.highlight = COLOR.BLUE
-    b.disabled_color = COLOR.DARK_GRAY
-    b.disabled_background = COLOR.gray(5)
-    b.focused = false
-    b.disabled = false
+    self.caption = caption
+    self.pad = 5
+    self.left = x
+    self.top = y
+    self.width = w
+    self.height = h
+    self.border = COLOR.WHITE
+    self.foreground = COLOR.WHITE
+    self.background = COLOR.BLACK
+    self.highlight = COLOR.BLUE
+    self.disabled_color = COLOR.DARK_GRAY
+    self.disabled_background = COLOR.gray(5)
+    self.focused = false
+    self.disabled = false
     if h == nil then
-        b.height = b.font.height + b.pad * 2
+        self.height = self.font.height + self.pad * 2
     end
     if w == nil then
-        b.width = b.font:width(b.caption) + b.pad * 2
+        self.width = self.font:width(self.caption) + self.pad * 2
     end
     return b
 end
@@ -125,7 +125,7 @@ function selector.create(title, items, format, width)
     self.title = title
     self.items = items
     self.format = format
-    self.font = FONT.MED_LARGE
+    self.font = FONT.LARGE
     self.pad = 4
     self.visible_items = math.min(#items, (display.height - self.pad * 4) // self.font.height - 1)
     self.cancel = false
