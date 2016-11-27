@@ -36,6 +36,8 @@ char* get_current_task_name()
         int i = MEM(CURRENT_INTERRUPT_ADDR) >> 2;
         int i0 = (i & 0xF);
         int i1 = (i >> 4) & 0xF;
+        int i2 = (i >> 8) & 0xF;
+        isr[5] = i2 ? '0' + i2 : '-';
         isr[6] = i1 < 10 ? '0' + i1 : 'A' + i1 - 10;
         isr[7] = i0 < 10 ? '0' + i0 : 'A' + i0 - 10;
         return isr;

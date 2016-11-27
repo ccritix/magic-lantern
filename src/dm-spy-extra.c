@@ -562,7 +562,7 @@ static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     DryosDebugMsg(0, 0, "*** mpu_recv(%02x %s), from %x", size, msg, caller);
 }
 
-static char* isr_names[256] = {
+static char* isr_names[0x200] = {
     [0x0A] = "Timer",
     [0x10] = "HPTimer",
     [0x2E] = "Term-RD",
@@ -625,7 +625,7 @@ static void register_interrupt_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     
     if (name)
     {
-        isr_names[isr & 0xFF] = name;
+        isr_names[isr & 0x1FF] = name;
     }
 }
 
@@ -649,21 +649,21 @@ static void pre_isr_log(uint32_t isr)
     uint32_t arg = MEM(0x40000AF8 + 4*isr);
 #endif
 
-    char* name = isr_names[isr & 0xFF];
+    char* name = isr_names[isr & 0x1FF];
 
     if (name)
     {
-        DryosDebugMsg(0, 0, ">>> INT-%02Xh %s %x(%x)", isr, name, handler, arg);
+        DryosDebugMsg(0, 0, ">>> INT-%Xh %s %x(%x)", isr, name, handler, arg);
     }
     else
     {
-        DryosDebugMsg(0, 0, ">>> INT-%02Xh %x(%x)", isr, handler, arg);
+        DryosDebugMsg(0, 0, ">>> INT-%Xh %x(%x)", isr, handler, arg);
     }
 }
 
 static void post_isr_log(uint32_t isr)
 {
-    DryosDebugMsg(0, 0, "<<< INT-%02Xh done", isr);
+    DryosDebugMsg(0, 0, "<<< INT-%Xh done", isr);
 }
 
 static int check_no_conflicts(int i)
