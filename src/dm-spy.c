@@ -24,54 +24,15 @@
 #include "asm.h"
 #include "qemu-util.h"
 
-#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
-    /* we don't have malloc from the beginning
-     * we can either use a small static buffer (portable)
-     * or, if we need larger logs, we can hijack some unused memory block from RscMgr
-     * (see sMemShowFix and http://www.magiclantern.fm/forum/index.php?topic=5071.msg166799#msg166799 )
-     */
-    #if defined(CONFIG_5D3)
-        #define BUF_ADDR (0x4A000000 + 0x00CA8000)  /* between IVA_NVY and SS_DEVELOP1 */
-        #define BUF_SIZE (0x4AE00000 - BUF_ADDR)    /* 1.3M unused block */
-    #elif defined(CONFIG_50D)
-        #define BUF_ADDR 0x5D000000                 
-        #define BUF_SIZE 0x00100000                 /* use 1M */
-    #elif defined(CONFIG_70D)
-        #define BUF_ADDR 0x55000000                 /* IVA_NVY, hopefully not used at startup */
-        #define BUF_SIZE 0x00E00000                 /* 14M */
-    #elif defined(CONFIG_60D)
-        #define BUF_ADDR 0x5CC280E0                 /* FREE2, hopefully unused */
-        #define BUF_SIZE 0x002C1F20                 /* 2.75M */
-    #elif defined(CONFIG_550D)
-        #define BUF_ADDR (0x4F116000 + 0x00410000)  /* between IMGVRAM3 and LV_WB */
-        #define BUF_SIZE (0x4F626000 - BUF_ADDR)    /* 1M unused block */
-    #elif defined(CONFIG_600D)
-        #define BUF_ADDR 0x4F6BD940                 /* BANK8_FREE1, hopefully unused */
-        #define BUF_SIZE 0x000E2740                 /* 0.88M */
-    #elif defined(CONFIG_700D)
-        #define BUF_ADDR 0x41D00000                 /* before EEKO */
-        #define BUF_SIZE 0x00100000                 /* use 1M */
-    #elif defined(CONFIG_100D)
-        #define BUF_ADDR 0x47E00000                 /* maybe free, by CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP */
-        #define BUF_SIZE 0x00F00000                 /* 15M */
-    #elif defined(CONFIG_7D)
-        #define BUF_ADDR 0x5CC00000                 /* FREE2, hopefully unused, from 0x5CBD3980 size 0x00316680 */
-        #define BUF_SIZE 0x00100000                 /* use 1M */
-    #else
-        #define BUF_SIZE (64*1024)
-        #warning debug message buffer might be too small.
-    #endif
-#else
-    /* we can use a larger buffer, because we have the memory backend up and running */
-    #define BUF_SIZE (1024*1024)
-#endif
+#define BUF_SIZE_STATIC (16*1024)
+#define BUF_SIZE_MALLOC (2048*1024)
 
+static char * volatile buf = 0;
+static volatile int buf_size = 0;
+static volatile int len = 0;
 
 extern void dm_spy_extra_install();
 extern void dm_spy_extra_uninstall();
-
-static char* buf = 0;
-static volatile int len = 0;
 
 static void my_DebugMsg(int class, int level, char* fmt, ...)
 {
@@ -108,19 +69,19 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     if (spaces < 0) spaces = 0;
     snprintf(task_name_padded + spaces, 11 - spaces, "%s", task_name);
     
-    len += snprintf( buf+len, MIN(50, BUF_SIZE-len), "%s:%08x:%02x:%02x: ", task_name_padded, lr-4, class, level );
+    len += snprintf( buf+len, MIN(50, buf_size-len), "%s:%08x:%02x:%02x: ", task_name_padded, lr-4, class, level );
 
     va_start( ap, fmt );
-    len += vsnprintf( buf+len, BUF_SIZE-len-1, fmt, ap );
+    len += vsnprintf( buf+len, buf_size-len-1, fmt, ap );
     va_end( ap );
     
     #ifdef PRINT_STACK
     {
-        int spaces = COERCE(120 - (len - len0), 0, BUF_SIZE-len-1);
+        int spaces = COERCE(120 - (len - len0), 0, buf_size-len-1);
         memset(buf+len, ' ', spaces);
         len += spaces;
         
-        len += snprintf( buf+len, BUF_SIZE-len, "stack: " );
+        len += snprintf( buf+len, buf_size-len, "stack: " );
         for (int i = 0; i < 200; i++)
         {
             uint32_t addr = MEM(sp+i*4) - 4;
@@ -128,13 +89,13 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
             /* does it look like a pointer to some ARM instruction? */
             if (is_sane_ptr(addr) && (MEM(addr) & 0xF0000000) == 0xE0000000)
             {
-                len += snprintf( buf+len, BUF_SIZE-len, "%x ", addr);
+                len += snprintf( buf+len, buf_size-len, "%x ", addr);
             }
         }
     }
     #endif
 
-    len += snprintf( buf+len, BUF_SIZE-len, "\n" );
+    len += snprintf( buf+len, buf_size-len, "\n" );
     
     #ifdef PRINT_EACH_MESSAGE
         #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
@@ -163,14 +124,53 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
 
-#ifdef BUF_ADDR
-/* logging buffer has some fixed address (model-dependent) */
-static char * staticbuf = (char *) CACHEABLE(BUF_ADDR);
-#else
-/* fallback: allocate logging buffer in ML binary (autoexec.bin) */
-/* if we run out of memory, compiling ML without features (empty features.h) helps */
-static char staticbuf[BUF_SIZE];
-#endif
+/* use a small buffer until the memory backend gets initialized */
+static char staticbuf[BUF_SIZE_STATIC] = {0};
+
+void debug_realloc()
+{
+    DryosDebugMsg(0, 0, "(*) Reallocating logging buffer...");
+
+    extern void * _AllocateMemory(size_t size);
+    extern void * _malloc(size_t size);
+
+    int new_buf_size = BUF_SIZE_MALLOC;
+    void * new_buf = _AllocateMemory(new_buf_size);
+
+    DryosDebugMsg(0, 0, "(*) New buffer: %x, size=%d.", new_buf, new_buf_size);
+
+    if (new_buf)
+    {
+        uint32_t old = cli();
+
+        /* switch to the new buffer */
+        void * old_buf = buf;
+        int old_buf_size = buf_size;
+        buf = new_buf;
+        buf_size = new_buf_size;
+        
+        /* copy old contents */
+        memcpy(buf, old_buf, len);
+
+        sei(old);
+
+        DryosDebugMsg(0, 0, "(*) Buffer reallocated (%d -> %d).", old_buf_size, buf_size);
+
+        /* check for overflow */
+        if (len >= old_buf_size - 50)
+        {
+            DryosDebugMsg(0, 0, "(*) Old buffer full, some lines may be lost.");
+        }
+
+        /* old buffer remains allocated; any real reason to free it? */
+    }
+    else
+    {
+        DryosDebugMsg(0, 0, "(*) malloc error!");
+        /* if it fails, you can either try _malloc, reduce buffer size,
+         * or look for unused memory areas in RscMgr */
+    }
+}
 
 // call this from boot-hack.c
 void debug_intercept()
@@ -184,6 +184,8 @@ void debug_intercept()
         #endif
         
         buf = staticbuf;
+        buf_size = BUF_SIZE_STATIC;
+        
         dm_spy_extra_install();
         patch_instruction(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
@@ -195,9 +197,7 @@ void debug_intercept()
     else // subsequent call, uninstall the hook and save log to file
     {
         dm_spy_extra_uninstall();
-        buf = 0;
         unpatch_memory(DebugMsg_addr);
-        staticbuf[len] = 0;
         
         #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
             blink_init();
@@ -205,9 +205,10 @@ void debug_intercept()
         #else
             char log_filename[100];
             get_numbered_file_name("dm-%04d.log", 9999, log_filename, sizeof(log_filename));
-            dump_seg(staticbuf, len, log_filename);
+            dump_seg(buf, len, log_filename);
             NotifyBox(2000, "%s: saved %d bytes.", log_filename, len);
         #endif
+        buf = 0;
         len = 0;
     }
 }
@@ -221,7 +222,8 @@ void debug_intercept()
     
     if (!buf) // first call, intercept debug messages
     {
-        buf = malloc(BUF_SIZE);                         /* allocate memory for our logs (it's huge) */
+        buf = malloc(BUF_SIZE_MALLOC);                  /* allocate memory for our logs (it's huge) */
+        buf_size = BUF_SIZE_MALLOC;
         
         dm_spy_extra_install();
         

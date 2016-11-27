@@ -811,6 +811,11 @@ my_init_task(int a, int b, int c, int d)
     }
 #endif
 
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+    extern void debug_realloc();
+    debug_realloc();
+#endif
+
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
     msleep(5000);
     _card_led_on();
