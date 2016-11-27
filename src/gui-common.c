@@ -71,6 +71,11 @@ static uint32_t orig_DebugMsg_instr = 0;
 
 static void DebugMsg_hack()
 {
+#ifdef CONFIG_DEBUG_INTERCEPT
+    /* conflicts with the logging hook */
+    return;
+#endif
+
     if (!orig_DebugMsg_instr)
     {
         uint32_t d = (uint32_t)&DryosDebugMsg;
