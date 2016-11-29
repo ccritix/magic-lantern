@@ -38,6 +38,7 @@ static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void register_interrupt_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 
 struct logged_func
 {
@@ -255,6 +256,8 @@ static struct logged_func logged_functions[] = {
 
     { 0x4588, "SetTgNextState", 2 },
     { 0x7218, "SetHPTimerAfter", 4 },
+    
+    { 0xFF508F78, "Eeko WakeUp", 0, eeko_wakeup_log },
 #endif
 
 #ifdef CONFIG_5D3_123
@@ -560,6 +563,42 @@ static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     char msg[256];
     mpu_decode(buf, msg, sizeof(msg));
     DryosDebugMsg(0, 0, "*** mpu_recv(%02x %s), from %x", size, msg, caller);
+}
+
+static void eeko_dump()
+{
+    /* RAM (overlaps 2 memory regions) */
+    dump_seg((void*)0x1E00000, 0x120000, "1E00000.DMP");
+
+    /* Shared memory? (configured as I/O) */
+    dump_seg((void*)0x1F20000, 0x020000, "1F20000.DMP");
+
+    /* reading from 0xD028[08]000 results in camera lockup;
+     * let's use EekoBltDmac to copy the contents to main memory */
+    void (*EekoBltDmac_copy)(int zero, uint32_t dst, uint32_t src, uint32_t size, void* cbr, int arg)
+        = (void*) 0xFF3B940C;   /* 5D3 1.1.3 */
+    
+    void * buf = malloc(0x8000);
+    if (buf)
+    {
+        /* RAM (mapped to 0) */
+        EekoBltDmac_copy(0, (uint32_t)buf, 0xD0288000, 0x8000, ret_0, 0);
+        msleep(100);
+        dump_seg(buf, 0x8000, "D0288000.DMP");
+
+        /* TCM (mapped to 0x40000000) */
+        EekoBltDmac_copy(0, (uint32_t)buf, 0xD0280000, 0x4000, ret_0, 0);
+        msleep(100);
+        dump_seg(buf, 0x4000, "D0280000.DMP");
+
+        free(buf);
+    }
+}
+
+static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    DryosDebugMsg(0, 0, "*** Eeko about to wake up; dumping RAM...");
+    eeko_dump();
 }
 
 static char* isr_names[0x200] = {
