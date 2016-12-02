@@ -149,6 +149,7 @@ NSTUB(0xFF325764,  NormalDisplay)
 NSTUB(0xFF325734,  ReverseDisplay)
 
 /** EDMAC **/
+NSTUB(0xFF1C46F8,  AbortEDmac)
 NSTUB(0xFF1C4424,  ConnectReadEDmac)
 NSTUB(0xFF1C4360,  ConnectWriteEDmac)
 NSTUB(0xFF1C47C0,  RegisterEDmacAbortCBR)
@@ -307,14 +308,14 @@ NSTUB(0xFF07B8AC,  task_trampoline)
 NSTUB(   0x52940,  lv_path_struct)                          // first arg of SelectPathDriveMode
 NSTUB(0xFF067B68,  LoadCalendarFromRTC)
 NSTUB(0xFF1DA530,  vsnprintf)
-///NSTUB( 0xff06f7c4, AllocateMemory_do ) // this one won't throw ERR70 on failure
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
+// NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
 ///NSTUB( 0xFF538000, AJ_memset_R0_addr_R1_Len_R2_byteVal ) // bzero32+4
-///NSTUB([idk], AbortEDmac)
+///NSTUB( 0xff06f7c4, AllocateMemory_do ) // this one won't throw ERR70 on failure
 ///NSTUB(0xFF37479C,  CancelBottomInfoDispTimer)
 ///NSTUB(0xFF0728C0,  CreateBinarySemaphore)                   // called CreateBinarySemaphore
 ///NSTUB(0xFF3076F8, CreateDialogBox)

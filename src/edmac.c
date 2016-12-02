@@ -148,6 +148,16 @@ uint32_t edmac_get_address(uint32_t channel)
     return shamem_read(edmac_get_base(channel) + 0x08);
 }
 
+uint32_t edmac_get_pointer(uint32_t channel)
+{
+    if (channel >= NUM_EDMAC_CHANNELS)
+    {
+        return -1;
+    }
+
+    return MEM(edmac_get_base(channel) + 0x08);
+}
+
 uint32_t edmac_get_length(uint32_t channel)
 {
     if (channel >= NUM_EDMAC_CHANNELS)
@@ -229,52 +239,59 @@ uint32_t edmac_get_connection(uint32_t channel, uint32_t direction)
     return shamem_read(addr);
 }
 
+int edmac_fix_off1(int32_t off)
+{
+    /* the value is signed, but the number of bits is model-dependent */
+#ifdef CONFIG_DIGIC_V
+    int off1_bits = 19;
+#else
+    int off1_bits = 17; /* checked on DIGIC 3 and 4 */
+#endif
+
+    return off << (32-off1_bits) >> (32-off1_bits);
+}
+
+struct edmac_info edmac_get_info(uint32_t channel)
+{
+    uint32_t base = edmac_get_base(channel);
+    struct edmac_info info = {
+        .xa    = shamem_read(base + 0x14) & 0xFFFF,
+        .xb    = shamem_read(base + 0x10) & 0xFFFF,
+        .xn    = shamem_read(base + 0x0C) & 0xFFFF,
+        .ya    = shamem_read(base + 0x14) >> 16,
+        .yb    = shamem_read(base + 0x10) >> 16,
+        .yn    = shamem_read(base + 0x0C) >> 16,
+        .off1a = edmac_fix_off1(shamem_read(base + 0x20)),
+        .off1b = edmac_fix_off1(shamem_read(base + 0x18)),
+        .off2a = shamem_read(base + 0x24),
+        .off2b = shamem_read(base + 0x1C),
+        .off3  = shamem_read(base + 0x28),
+    };
+    return info;
+}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+uint32_t edmac_get_total_size(struct edmac_info * info, int include_offsets)
+{
+    int xa = info->xa; int xb = info->xb; int xn = info->xn;
+    int ya = info->ya; int yb = info->yb; int yn = info->yn;
+    int off1a = info->off1a; int off1b = info->off1b;
+    int off2a = info->off2a; int off2b = info->off2b;
+    int off3  = info->off3;
+    
+    /* actual amount of data transferred */
+    uint32_t transfer_data_size =
+        (xa * (ya+1) * xn + xb * (ya+1)) * yn +
+        (xa * (yb+1) * xn + xb * (yb+1));
+    
+    /* total size covered, including offsets */
+    uint32_t transfer_data_skip_size =
+        (((xa + off1a) * ya + xa + off2a) * xn +
+         ((xb + off1b) * ya + xb + off3)) * yn +
+        (((xa + off1a) * yb + xa + off2b) * xn +
+          (xb + off1b) * yb + xb + off3);
+    
+    return (include_offsets)
+        ? transfer_data_skip_size
+        : transfer_data_size;
+}

@@ -1,6 +1,8 @@
 #ifndef _edmac_c
 #define _edmac_c
 
+#include "module.h"
+
 #define EDMAC_WRITE_0  0
 #define EDMAC_WRITE_1  1
 #define EDMAC_WRITE_2  2
@@ -57,6 +59,7 @@ struct edmac_info
 void EDMAC_Register_Complete_CBR(unsigned int channel, void (*cbr)(), unsigned int ctx);
 void SetEDmac(unsigned int channel, void *address, struct edmac_info *ptr, int flags);
 void StartEDmac(unsigned int channel, int flags);
+void AbortEDmac(unsigned int channel);
 void ConnectWriteEDmac(unsigned int channel, unsigned int where);
 void ConnectReadEDmac(unsigned int channel, unsigned int where);
 unsigned int GetEdmacAddress(unsigned int channel);
@@ -65,12 +68,26 @@ uint32_t edmac_channel_to_index(uint32_t channel);
 uint32_t edmac_index_to_channel(uint32_t index, uint32_t direction);
 
 uint32_t edmac_get_flags(uint32_t channel);
-uint32_t edmac_get_state(uint32_t channel);
-uint32_t edmac_get_base(uint32_t channel);
-uint32_t edmac_get_address(uint32_t channel);
-uint32_t edmac_get_length(uint32_t channel);
+uint32_t edmac_get_state(uint32_t channel);     /* 0=idle, 1=running (from hardware) */
+uint32_t edmac_get_base(uint32_t channel);      /* base register */
+uint32_t edmac_get_address(uint32_t channel);   /* start address */
+uint32_t edmac_get_pointer(uint32_t channel);   /* current address (from hardware) */
+uint32_t edmac_get_length(uint32_t channel);    /* yb,xb (hi,lo) */
 uint32_t edmac_get_connection(uint32_t channel, uint32_t direction);
 uint32_t edmac_get_dir(uint32_t channel);
+
+/* off1 is signed on some odd number of bits; use this to extend the sign bit to int32 */
+int edmac_fix_off1(int32_t off);
+
+struct edmac_info edmac_get_info(uint32_t channel);
+uint32_t edmac_get_total_size(struct edmac_info * info, int include_offsets);
+
+/* provided by edmac.mo */
+#if defined(MODULE)
+char * edmac_format_size(struct edmac_info * info);
+#else
+static char * (*edmac_format_size)(struct edmac_info * info) = MODULE_FUNCTION(edmac_format_size);
+#endif
 
 struct LockEntry *CreateResLockEntry(uint32_t *resIds, uint32_t resIdCount);
 unsigned int LockEngineResources(struct LockEntry *lockEntry);
