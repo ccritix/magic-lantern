@@ -39,6 +39,7 @@ static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void register_interrupt_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void start_edmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 
 struct logged_func
 {
@@ -153,7 +154,7 @@ static struct logged_func logged_functions[] = {
     { 0xFF9A4604, "ConnectWriteEDmac", 2 },
     { 0xFF9A4798, "RegisterEDmacCompleteCBR", 3 },
     //~ { 0xFF9A45E8, "SetEDmac", 4 },                          // conflicts with RegisterHead1InterruptHandler
-    { 0xFF9A464C, "StartEDmac", 2 },
+    { 0xFF9A464C, "StartEDmac", 2, start_edmac_log },
     
     { 0xff9b3cb4, "register_interrupt", 4, register_interrupt_log },
     //~ { 0xffb277c8, "register_obinteg_cbr", 2 },              // conflicts with UnLockEngineResources
@@ -178,7 +179,7 @@ static struct logged_func logged_functions[] = {
     { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
     { 0xFF1C8B98, "LockEngineResources", 1, LockEngineResources_log },
     { 0xFF1C8CD4, "UnLockEngineResources", 1, UnLockEngineResources_log },
-    { 0xFF1C45A8, "StartEDmac", 2 },
+    { 0xFF1C45A8, "StartEDmac", 2, start_edmac_log },
     { 0xFF1C42A8, "SetEDmac", 4 },
     { 0xFF06E534, "take_semaphore", 2 },
     { 0xFF06E61C, "give_semaphore", 1 },
@@ -195,7 +196,7 @@ static struct logged_func logged_functions[] = {
     { 0xff1bfffc, "ConnectWriteEDmac", 2 },
     { 0xFF1C0418, "RegisterEDmacCompleteCBR", 3 },
     { 0xff1bff44, "SetEDmac", 4 },
-    { 0xff1c024c, "StartEDmac", 2 },
+    { 0xff1c024c, "StartEDmac", 2, start_edmac_log },
     
     { 0xff1d2944, "register_interrupt", 4, register_interrupt_log },
     { 0xff2806f8, "RegisterHead1InterruptHandler", 3 },
@@ -214,7 +215,7 @@ static struct logged_func logged_functions[] = {
     { 0xff18fb68, "ConnectWriteEDmac", 2 },
     { 0xff18fd60, "RegisterEDmacCompleteCBR", 3 },
     { 0xff18fb4c, "SetEDmac", 4 },
-    { 0xff18fbf0, "StartEDmac", 2 },
+    { 0xff18fbf0, "StartEDmac", 2, start_edmac_log },
     
     //~ { 0xff1a0b90, "register_interrupt", 4, register_interrupt_log }, // conflicts with ConnectReadEDmac
     //~ { 0xff32646c, "register_obinteg_cbr", 2 },              // conflicts with set_digital_gain_and_related
@@ -252,7 +253,7 @@ static struct logged_func logged_functions[] = {
     { 0x126a4, "ConnectWriteEDmac", 2 },
     { 0x12afc, "RegisterEDmacCompleteCBR", 3 },
     { 0x125f8, "SetEDmac", 4 },
-    { 0x12910, "StartEDmac", 2 },
+    { 0x12910, "StartEDmac", 2, start_edmac_log },
 
     { 0x4588, "SetTgNextState", 2 },
     { 0x7218, "SetHPTimerAfter", 4 },
@@ -269,7 +270,7 @@ static struct logged_func logged_functions[] = {
     { 0x126a4, "ConnectWriteEDmac", 2 },
     { 0x12afc, "RegisterEDmacCompleteCBR", 3 },
     { 0x125f8, "SetEDmac", 4 },
-    { 0x12910, "StartEDmac", 2 },
+    { 0x12910, "StartEDmac", 2, start_edmac_log },
     
     { 0x83b8, "register_interrupt", 4, register_interrupt_log },
     { 0xff3aa650, "set_digital_gain_maybe", 3 },
@@ -599,6 +600,21 @@ static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     DryosDebugMsg(0, 0, "*** Eeko about to wake up; dumping RAM...");
     eeko_dump();
+}
+
+static void start_edmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    /* log the original call as usual */
+    generic_log(regs, stack, pc);
+    
+    int ch = regs[0];
+    struct edmac_info edmac_info = edmac_get_info(ch);
+    DryosDebugMsg(0, 0,
+        "    addr %x, size %s",
+        edmac_get_address(ch),
+        edmac_format_size(&edmac_info)
+    );
+    
 }
 
 static char* isr_names[0x200] = {
