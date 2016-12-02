@@ -8,8 +8,8 @@
     Alternatively the Mersenne Twister can be used, if you need better random numbers.
  */
 
-#define RAND_LFSR113
-//#define RAND_MERSENNE_TWISTER
+//#define RAND_LFSR113
+#define RAND_MERSENNE_TWISTER
 
 
 
