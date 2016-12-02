@@ -375,13 +375,13 @@ function run_test()
         local elapsed_time = 0
 
         while movie.recording do
-            msleep(5000)
             elapsed_time = elapsed_time + 5
             if elapsed_time == 60 then
                 date = dryos.date
                 log:writef("[%02d:%02d:%02d] Still recording; will stop here.\n", date.hour, date.min, date.sec)
-                movie.stop()
+                pcall(movie.stop) -- if this fails, it's because recording already stopped meanwhile (race condition)
             end
+            msleep(5000)
         end
         
         console.show()
