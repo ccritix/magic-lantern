@@ -110,8 +110,8 @@ static uint32_t cam_7d = 0;
 static uint32_t cam_700d = 0;
 static uint32_t cam_60d = 0;
 
-static uint32_t raw_rec_edmac_align = 0x01000;
-static uint32_t raw_rec_write_align = 0x01000;
+static uint32_t raw_rec_edmac_align = 0x0400;
+static uint32_t raw_rec_write_align = 0x0200;
 
 static uint32_t mlv_rec_dma_active = 0;
 static uint32_t mlv_writer_threads = 2;
@@ -236,6 +236,7 @@ static FILE *mlv_handles[MAX_WRITER_THREADS];
 static struct msg_queue *mlv_writer_queues[MAX_WRITER_THREADS];
 static uint32_t writer_job_count[MAX_WRITER_THREADS];
 static int32_t current_write_speed[MAX_WRITER_THREADS];
+static int32_t writer_task_id[MAX_WRITER_THREADS];
 
 /* mlv information */
 struct msg_queue *mlv_block_queue = NULL;
@@ -1606,13 +1607,13 @@ static void hack_liveview_vsync()
                  * - don't record this: you will have lots of bad pixels (no big deal if you can remove them)
                  * - don't record lv_af_raw: you will have random colored dots that contain focus info; their position is not fixed, so you can't remove them
                  * - use half-shutter heuristic for clean silent pics
-                 *
+                 * 
                  * Reason for overriding here:
                  * - if you use lv_af_raw, you can no longer restore it when you start recording.
                  * - if you override here, image quality is restored as soon as you stop overriding
                  * - but pink preview is also restored, you can't have both
                  */
-
+                
                 *(volatile uint32_t*)0xc0f08114 = 0;
             }
             else
@@ -1628,57 +1629,63 @@ static void hack_liveview_vsync()
             }
         }
     }
-
+    
     if (!PREVIEW_HACKED) return;
+    
+    int rec = RAW_IS_RECORDING;
+    static int prev_rec = 0;
+    int should_hack = 0;
+    int should_unhack = 0;
 
-    int32_t rec = RAW_IS_RECORDING;
-    static int32_t prev_rec = 0;
-    int32_t should_hack = 0;
-    int32_t should_unhack = 0;
-
-    if(rec)
+    if (rec)
     {
         if (frame_count == 0)
-        {
             should_hack = 1;
-        }
     }
     else if (prev_rec)
     {
         should_unhack = 1;
     }
     prev_rec = rec;
-
-    if(should_hack)
+    
+    if (should_hack)
     {
-        if(!PREVIEW_CANON && !PREVIEW_AUTO)
+        int y = 100;
+        for (int channel = 0; channel < 32; channel++)
         {
-            int32_t y = 100;
-            for(int32_t channel = 0; channel < 32; channel++)
+            /* silence out the EDMACs used for HD and LV buffers */
+            int pitch = edmac_get_length(channel) & 0xFFFF;
+            if (pitch == vram_lv.pitch || pitch == vram_hd.pitch)
             {
-                /* silence out the EDMACs used for HD and LV buffers */
-                int32_t pitch = edmac_get_length(channel) & 0xFFFF;
-                if (pitch == vram_lv.pitch || pitch == vram_hd.pitch || pitch== 2000 || pitch== 512 || pitch== 576 || pitch== 3456)
-                {
-                    uint32_t reg = edmac_get_base(channel);
-                    bmp_printf(FONT_SMALL, 30, y += font_small.height, "Hack %x %dx%d ", reg, shamem_read(reg + 0x10) & 0xFFFF, shamem_read(reg + 0x10) >> 16);
-                    *(volatile uint32_t *)(reg + 0x10) = shamem_read(reg + 0x10) & 0xFFFF;
-                }
+                uint32_t reg = edmac_get_base(channel);
+                bmp_printf(FONT_SMALL, 30, y += font_small.height, "Hack %x %dx%d ", reg, shamem_read(reg + 0x10) & 0xFFFF, shamem_read(reg + 0x10) >> 16);
+                *(volatile uint32_t *)(reg + 0x10) = shamem_read(reg + 0x10) & 0xFFFF;
             }
         }
     }
-    else if(should_unhack)
+    else if (should_unhack)
     {
-        if (cam_eos_m) //EOS-M not unhacking, why?
+        task_create("lv_unhack", 0x1e, 0x1000, unhack_liveview_vsync, (void*)0);
+    }
+}
+
+static void cache_require(int lock)
+{
+    static int cache_was_unlocked = 0;
+    if (lock)
+    {
+        if (!cache_locked())
         {
-            //call("aewb_enableaewb", 1);
-            PauseLiveView();
-            ResumeLiveView();
-            idle_globaldraw_en();
+            cache_was_unlocked = 1;
+            icache_lock();
         }
-        else
+    }
+    else
+    {
+        if (cache_was_unlocked)
         {
-            task_create("lv_unhack", 0x1e, 0x1000, unhack_liveview_vsync, (void*)0);
+            icache_unlock();
+            cache_was_unlocked = 0;
         }
     }
 }
@@ -1716,7 +1723,7 @@ static void hack_liveview(int32_t unhack)
     if (small_hacks)
     {
         /* disable canon graphics (gains a little speed) */
-        static int32_t canon_gui_was_enabled;
+        static int canon_gui_was_enabled;
         if (!unhack)
         {
             canon_gui_was_enabled = !canon_gui_front_buffer_disabled();
@@ -1732,13 +1739,7 @@ static void hack_liveview(int32_t unhack)
         call("aewb_enableaewb", unhack ? 1 : 0);  /* for new cameras */
         call("lv_ae",           unhack ? 1 : 0);  /* for old cameras */
         call("lv_wb",           unhack ? 1 : 0);
-
-        if (cam_50d && !(hdmi_code == 5) && !unhack)
-        {
-            /* not sure how to unhack this one, and on 5D2 it crashes */
-            call("lv_af_fase_addr", 0); //Turn off face detection
-        }
-
+        
         /* change dialog refresh timer from 50ms to 8192ms */
         uint32_t dialog_refresh_timer_addr = /* in StartDialogRefreshTimer */
             cam_50d ? 0xffa84e00 :
@@ -1770,11 +1771,13 @@ static void hack_liveview(int32_t unhack)
         {
             if (!unhack) /* hack */
             {
+                cache_require(1);
                 cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_new_instr, TYPE_ICACHE);
             }
             else /* unhack */
             {
                 cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, TYPE_ICACHE);
+                cache_require(0);
             }
         }
     }
@@ -2146,18 +2149,16 @@ static int32_t mlv_prepend_block(uint32_t slot, mlv_hdr_t *block)
 
 static void mlv_rec_dma_cbr_r(void *ctx)
 {
-    /* now mark the last filled buffer as being ready to transfer */
-    slots[capture_slot].status = SLOT_FULL;
+}
+
+static void mlv_rec_dma_cbr_w(void *ctx)
+{
     mlv_rec_dma_active = 0;
     
     mlv_rec_dma_end = get_us_clock_value();
     mlv_rec_dma_duration = (uint32_t)(mlv_rec_dma_end - mlv_rec_dma_start);
     
     edmac_copy_rectangle_adv_cleanup();
-}
-
-static void mlv_rec_dma_cbr_w(void *ctx)
-{
 }
 
 static int32_t FAST process_frame()
@@ -2194,10 +2195,12 @@ static int32_t FAST process_frame()
     hdr->panPosY = skip_y;
     
     void* ptr = (void*)((int32_t)hdr + sizeof(mlv_vidf_hdr_t) + hdr->frameSpace);
-    void* fullSizeBuffer = fullsize_buffers[(fullsize_buffer_pos+1) % 2];
-
+    
     /* advance to next buffer for the upcoming capture */
     fullsize_buffer_pos = (fullsize_buffer_pos + 1) % 2;
+    
+    /* this one still contains old data, so save that */
+    void* fullSizeBuffer = fullsize_buffers[fullsize_buffer_pos];
 
     /* dont process this frame if a module wants to skip that */
     if(raw_rec_cbr_skip_frame(fullSizeBuffer))
@@ -2206,11 +2209,12 @@ static int32_t FAST process_frame()
     }
     
     mlv_rec_dma_active = 1;
-    edmac_copy_rectangle_cbr_start(ptr, raw_info.buffer, raw_info.width*bits_per_pixel[bpp_mode]/8, (skip_x+7)/8*bits_per_pixel[bpp_mode], skip_y/2*2, res_x*bits_per_pixel[bpp_mode]/8, 0, 0, res_x*bits_per_pixel[bpp_mode]/8, res_y, &mlv_rec_dma_cbr_r, &mlv_rec_dma_cbr_w, NULL);
+    edmac_copy_rectangle_cbr_start(ptr, fullSizeBuffer, raw_info.width*raw_info.bits_per_pixel/8, (skip_x+7)/8*raw_info.bits_per_pixel, skip_y/2*2, res_x*raw_info.bits_per_pixel/8, 0, 0, res_x*raw_info.bits_per_pixel/8, res_y, &mlv_rec_dma_cbr_r, &mlv_rec_dma_cbr_w, NULL);
     mlv_rec_dma_start = get_us_clock_value();
 
     /* copy current frame to our buffer and crop it to its final size */
     slots[capture_slot].frame_number = frame_count;
+    slots[capture_slot].status = SLOT_FULL;
 
     trace_write(raw_rec_trace_ctx, "==> enqueue frame %d in slot %d DMA: %d us", frame_count, capture_slot, mlv_rec_dma_duration);
 
@@ -2224,17 +2228,21 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
 {
     static uint32_t edmac_timeouts = 0;
     
+    if(!mlv_video_enabled || !is_movie_mode())
+    {
+        return 0;
+    }
+    
+    if(!RAW_IS_RECORDING)
+    {
+        return 0;
+    }
     /* just a counter for waiting x frames, decrease whenever non-zero */
     if(frame_countdown)
     {
         frame_countdown--;
     }
     
-    if(!mlv_video_enabled || !is_movie_mode())
-    {
-        return 0;
-    }
-
     /* if previous DMA isn't finished yet, skip frame */
     if(mlv_rec_dma_active)
     {
@@ -2257,11 +2265,6 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
 
     /* panning window is updated when recording, but also when not recording */
     panning_update();
-
-    if(!RAW_IS_RECORDING)
-    {
-        return 0;
-    }
     
     if(!raw_lv_settings_still_valid())
     {
@@ -2275,6 +2278,9 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
         return 0;
     }
     
+    /* double-buffering */
+    raw_lv_redirect_edmac(fullsize_buffers[fullsize_buffer_pos]);
+
     process_frame();
     
     return 0;
@@ -2434,10 +2440,9 @@ static int32_t mlv_write_rawi(FILE* f, struct raw_info raw_info)
     rawi.raw_info = raw_info;
     
     /* overwrite bpp relevant information */
-    rawi.raw_info.bits_per_pixel = bits_per_pixel[bpp_mode];
-    rawi.raw_info.pitch = rawi.raw_info.width * bits_per_pixel[bpp_mode] / 8;
-    rawi.raw_info.black_level = raw_info.black_level >> (14 - bits_per_pixel[bpp_mode]);
-    rawi.raw_info.white_level = raw_info.white_level >> (14 - bits_per_pixel[bpp_mode]);
+    rawi.raw_info.pitch = rawi.raw_info.width * raw_info.bits_per_pixel / 8;
+    rawi.raw_info.black_level = raw_info.black_level >> (14 - raw_info.bits_per_pixel);
+    rawi.raw_info.white_level = raw_info.white_level >> (14 - raw_info.bits_per_pixel);
 
     return mlv_write_hdr(f, (mlv_hdr_t *)&rawi);
 }
@@ -2959,7 +2964,10 @@ static void enqueue_buffer(uint32_t writer, write_job_t *write_job)
                 {
                     failed++;
                     msg_queue_post(mlv_block_queue, (uint32_t) block);
-                    bmp_printf(FONT_MED, 0, 430, "FAILED. queued: %d failed: %d (requeued)", queued, failed);
+                    char name[5];
+                    name[4] = 0;
+                    memcpy(name, block->blockType, 4);
+                    bmp_printf(FONT_MED, 0, 430, "FAILED '%s'. queued: %d failed: %d (requeued)", name, queued, failed);
                     break;
                 }
             }
@@ -3141,6 +3149,38 @@ static void mlv_rec_queue_blocks()
     }
 }
 
+static void setup_bit_depth()
+{
+    raw_info.bits_per_pixel = bits_per_pixel[bpp_mode];
+    raw_info.pitch = raw_info.width * raw_info.bits_per_pixel / 8;
+    
+    if (raw_info.bits_per_pixel == 12)
+    {
+        EngDrvOut(0xC0F08094, MODE_12BIT);
+    }
+    else if (raw_info.bits_per_pixel == 10)
+    {
+        EngDrvOut(0xC0F08094, MODE_10BIT);
+    }
+    
+    if (raw_info.bits_per_pixel != 14)
+    {
+        /* sometimes the first frame after setting up lower bit depth is garbage */
+        wait_lv_frames(2);
+    }
+}
+
+static void restore_bit_depth()
+{
+    if (raw_info.bits_per_pixel != 14)
+    {
+        EngDrvOut(0xC0F08094, MODE_14BIT);
+    }
+    
+    raw_info.bits_per_pixel = 14;
+    raw_info.pitch = raw_info.width * 14 / 8;
+}
+
 static void raw_video_rec_task()
 {
     /* init stuff */
@@ -3190,21 +3230,7 @@ static void raw_video_rec_task()
     msleep(start_delay * 1000);
 
     hack_liveview(0);
-
-    /* now overwrite PACK32_MODE */
-    switch(bits_per_pixel[bpp_mode])
-    {
-        case 10:
-            EngDrvOut(0xC0F08094, MODE_10BIT);
-            break;
-            
-        case 12:
-            EngDrvOut(0xC0F08094, MODE_12BIT);
-            break;
-            
-        default:
-            break;
-    }
+    setup_bit_depth();
     
     do
     {
@@ -3276,7 +3302,7 @@ static void raw_video_rec_task()
         for(uint32_t writer = 0; writer < mlv_writer_threads; writer++)
         {
             uint32_t base_prio = 0x12;
-            task_create("writer_thread", base_prio + writer, 0x1000, raw_writer_task, (void*)writer);
+            writer_task_id[writer] = (int)task_create("writer_thread", base_prio + writer, 0x1000, raw_writer_task, (void*)writer) >> 1;
         }
 
         /* wait a bit to make sure threads are running */
@@ -3364,6 +3390,7 @@ static void raw_video_rec_task()
                 {
                     enqueue_buffer(0, &write_job);
                     util_atomic_inc(&writer_job_count[0]);
+                    //task_resume(writer_task_id[0]);
                 }
                 else
                 {
@@ -3383,6 +3410,7 @@ static void raw_video_rec_task()
                 {
                     enqueue_buffer(1, &write_job);
                     util_atomic_inc(&writer_job_count[1]);
+                    //task_resume(writer_task_id[1]);
                 }
                 else
                 {
@@ -3629,17 +3657,7 @@ cleanup:
         raw_tag_take++;
     }
     
-    /* now undo changes to PACK32_MODE */
-    switch(bits_per_pixel[bpp_mode])
-    {
-        case 10:
-        case 12:
-            EngDrvOut(0xC0F08094, MODE_14BIT);
-            break;
-            
-        default:
-            break;
-    }
+    restore_bit_depth();
     
     hack_liveview(1);
     redraw();
