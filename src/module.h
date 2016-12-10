@@ -14,6 +14,8 @@
 #define MODULE_PROPHANDLER_PREFIX     __module_prophandler_
 
 #define MODULE_STRINGS_SECTION        __attribute__ ((section(".module_strings")))
+#define MODULE_HGDIFF_SECTION         __attribute__ ((section(".module_hgdiff")))
+#define MODULE_HGINFO_SECTION         __attribute__ ((section(".module_hginfo")))
 
 #define MODULE_MAGIC                  0x5A
 #define STR(x)                        STR_(x)
@@ -104,6 +106,7 @@ int module_translate_key(int key, int dest);
 
 
 /* update major if older modules will *not* be compatible */
+   
 #define MODULE_MAJOR 7
 /* update minor if older modules will be compatible, but newer module will not run on older magic lantern versions */
 #define MODULE_MINOR 1

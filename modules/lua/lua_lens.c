@@ -46,7 +46,7 @@ static int luaCB_lens_index(lua_State * L)
     else if(!strcmp(key, "manual_aperture")) lua_pushnumber(L, lens_info.aperture / 10.0);
     /// Get if the lens chipped
     // @tfield bool is_chipped readonly
-    else if(!strcmp(key, "is_chipped")) lua_pushboolean(L, lens_info.is_chipped);
+    else if(!strcmp(key, "is_chipped")) lua_pushboolean(L, lens_info.lens_exists);
     else lua_rawget(L, 1);
     return 1;
 }
@@ -66,7 +66,7 @@ static int luaCB_lens_newindex(lua_State * L)
     }
     else if(!strcmp(key, "manual_aperture"))
     {
-        if(lens_info.is_chipped) return luaL_error(L, "Can't set manual aperture for chipped lens");
+        if(lens_info.lens_exists) return luaL_error(L, "Can't set manual aperture for chipped lens");
         LUA_PARAM_NUMBER(value, 3);
         lens_info.aperture = (int)(value * 10);
     }

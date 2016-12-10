@@ -675,7 +675,7 @@ int mlu_lock_mirror_if_needed() // called by lens_take_picture; returns 0 if suc
     if (drive_mode == DRIVE_SELFTIMER_2SEC || drive_mode == DRIVE_SELFTIMER_REMOTE || drive_mode == DRIVE_SELFTIMER_CONTINUOUS)
         return 0;
     
-    if (get_mlu() && CURRENT_DIALOG_MAYBE)
+    if (get_mlu() && CURRENT_GUI_MODE)
     {
         SetGUIRequestMode(0);
         int iter = 20;
@@ -1088,26 +1088,49 @@ PROP_HANDLER( PROP_LENS_NAME )
     if( len > sizeof(lens_info.name) )
         len = sizeof(lens_info.name);
     memcpy( (char*)lens_info.name, buf, len );
-    lens_info.is_chipped = lens_info.name[0];
-    if (!lens_info.is_chipped)
-    {
-        lens_info.focal_len = 0;
-        lens_info.focus_dist = 0;
-    }
 }
 
 PROP_HANDLER(PROP_LENS)
 {
     uint8_t* info = (uint8_t *) buf;
+    
     #ifdef CONFIG_5DC
+    lens_info.lens_exists = 0;
     lens_info.raw_aperture_min = info[2];
     lens_info.raw_aperture_max = info[3];
     lens_info.lens_id = 0;
+    lens_info.lens_focal_min = 0;
+    lens_info.lens_focal_max = 0;
+    lens_info.lens_extender = 0;
+    lens_info.lens_version = 0;
+    lens_info.lens_capabilities = 0;
     #else
+    lens_info.lens_exists = info[0];
     lens_info.raw_aperture_min = info[1];
     lens_info.raw_aperture_max = info[2];
-    lens_info.lens_id = info[4] | (info[5] << 8);
+    lens_info.lens_id = (info[3] << 8) | info[4];
+    lens_info.lens_focal_min = (info[5] << 8) | info[6];
+    lens_info.lens_focal_max = (info[7] << 8) | info[8];
+    lens_info.lens_extender = info[0xE];
+    
+    /* not all models support this feature */
+    if(len >= 0x1C)
+    {
+        lens_info.lens_version = (info[0x19] << 16) | (info[0x1A] << 8) | info[0x1B];
+        lens_info.lens_capabilities = info[0x1C];
+    }
+    else
+    {
+        lens_info.lens_version = 0;
+        lens_info.lens_capabilities = 0;
+    }
     #endif
+    
+    if (!lens_info.lens_exists)
+    {
+        lens_info.focal_len = 0;
+        lens_info.focus_dist = 0;
+    }
     
     if (lens_info.raw_aperture < lens_info.raw_aperture_min || lens_info.raw_aperture > lens_info.raw_aperture_max)
     {
@@ -1532,7 +1555,7 @@ PROP_HANDLER( PROP_LV_FOCAL_DISTANCE )
 #endif
 PROP_HANDLER( PROP_LV_LENS )
 {
-    if (!lens_info.is_chipped) return;
+    if (!lens_info.lens_exists) return;
     
     const struct prop_lv_lens * const lv_lens = (void*) buf;
     lens_info.focal_len    = bswap16( lv_lens->focal_len );
@@ -1645,9 +1668,98 @@ static struct menu_entry lens_menus[] = {
     #endif
 };
 
+static MENU_UPDATE_FUNC(lens_name_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    MENU_SET_VALUE("%s", lens_info.name );
+}
+
+static MENU_UPDATE_FUNC(lens_id_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    MENU_SET_VALUE("0x%04X", lens_info.lens_id );
+}
+
+static MENU_UPDATE_FUNC(lens_extender_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    MENU_SET_VALUE("0x%02X", lens_info.lens_extender );
+}
+
+static MENU_UPDATE_FUNC(lens_version_display)
+{
+    uint8_t v2 = lens_info.lens_version >> 16;
+    uint8_t v1 = lens_info.lens_version >> 8;
+    uint8_t v0 = lens_info.lens_version;
+    
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    
+    if(lens_info.lens_version)
+    {
+        MENU_SET_VALUE("v%d.%d.%d", v2, v1, v0);
+    }
+    else
+    {
+        MENU_SET_VALUE("(none)");
+    }
+}
+
+static MENU_UPDATE_FUNC(lens_capabilities_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    MENU_SET_VALUE("0x%02X", lens_info.lens_capabilities);
+}
+
+static MENU_UPDATE_FUNC(lens_focal_display)
+{
+    char *unit = "mm";
+    float factor = 1.0f;
+    
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    
+    if(focus_units == 1)
+    {
+        unit = "in";
+        factor = 1/2.54;
+    }
+    
+    if(lens_info.lens_focal_min == lens_info.lens_focal_max)
+    {
+        MENU_SET_VALUE("%d %s", (int)(lens_info.lens_focal_min * factor), unit);
+    }
+    else
+    {
+        MENU_SET_VALUE("%d-%d %s", (int)(lens_info.lens_focal_min * factor), (int)(lens_info.lens_focal_max * factor), unit);
+    }
+}
+
 static struct menu_entry tweak_menus[] = {
    {
-        .name = "Lens Info Prefs",
+        .name = "Lens Info/Prefs",
         .select   = menu_open_submenu,
         .children =  (struct menu_entry[]) {
             #ifndef CONFIG_FULLFRAME
@@ -1666,6 +1778,36 @@ static struct menu_entry tweak_menus[] = {
                 .choices = CHOICES("mm/cm", "ft/in"),
                 .max = 1,
                 .help  = "Can select between Metric and Imperial focus distance units",
+            },
+            {
+                .name = "Name",
+                .update = &lens_name_display,
+                .help  = "Show current lens name",
+            },
+            {
+                .name = "Focal len",
+                .update = &lens_focal_display,
+                .help  = "Show current lens focal length",
+            },
+            {
+                .name = "ID",
+                .update = &lens_id_display,
+                .help  = "Show current lens ID",
+            },
+            {
+                .name = "Version",
+                .update = &lens_version_display,
+                .help  = "Show current lens version string",
+            },
+            {
+                .name = "Capability bits",
+                .update = &lens_capabilities_display,
+                .help  = "Show current lens capability bits",
+            },
+            {
+                .name = "Extender",
+                .update = &lens_extender_display,
+                .help  = "Show current lens extender information byte",
             },
             MENU_EOL
         },
@@ -2440,7 +2582,7 @@ static LVINFO_UPDATE_FUNC(mode_update)
 static LVINFO_UPDATE_FUNC(focal_len_update)
 {
     LVINFO_BUFFER(16);
-    if (lens_info.is_chipped)
+    if (lens_info.lens_exists)
     {
         snprintf(buffer, sizeof(buffer), "%d%s",
                crop_info ? (lens_info.focal_len * SENSORCROPFACTOR + 5) / 10 : lens_info.focal_len,
@@ -2471,7 +2613,7 @@ static LVINFO_UPDATE_FUNC(av_update)
 {
     LVINFO_BUFFER(8);
 
-    if (lens_info.raw_aperture && lens_info.is_chipped)
+    if (lens_info.raw_aperture && lens_info.lens_exists)
     {
         snprintf(buffer, sizeof(buffer), lens_format_aperture(lens_info.raw_aperture));
     }
@@ -2617,26 +2759,48 @@ static LVINFO_UPDATE_FUNC(iso_update)
 
 static LVINFO_UPDATE_FUNC(wb_update)
 {
-    LVINFO_BUFFER(8);
+    LVINFO_BUFFER(16);
     
     if( lens_info.wb_mode == WB_KELVIN )
     {
-        snprintf(buffer, sizeof(buffer), lens_info.kelvin >= 10000 ? "%5dK" : "%4dK ", lens_info.kelvin);
+        snprintf(buffer, sizeof(buffer), "%dK", lens_info.kelvin);
     }
     else
     {
-        snprintf(buffer, sizeof(buffer), "%s ",
-            (uniwb_is_active()      ? " UniWB" :
+        snprintf(buffer, sizeof(buffer), "%s",
+            (uniwb_is_active()      ? "UniWB"  :
             (lens_info.wb_mode == 0 ? "AutoWB" : 
-            (lens_info.wb_mode == 1 ? " Sunny" :
+            (lens_info.wb_mode == 1 ? "Sunny"  :
             (lens_info.wb_mode == 2 ? "Cloudy" : 
-            (lens_info.wb_mode == 3 ? "Tungst" : 
-            (lens_info.wb_mode == 4 ? "Fluor." : 
-            (lens_info.wb_mode == 5 ? " Flash" : 
-            (lens_info.wb_mode == 6 ? "Custom" : 
-            (lens_info.wb_mode == 8 ? " Shade" :
+            (lens_info.wb_mode == 3 ? "Tungst." : 
+            (lens_info.wb_mode == 4 ? "Fluor."  : 
+            (lens_info.wb_mode == 5 ? "Flash"   : 
+            (lens_info.wb_mode == 6 ? "Custom"  : 
+            (lens_info.wb_mode == 8 ? "Shade"   :
              "unk")))))))))
         );
+    }
+    
+    int gm = lens_info.wbs_gm;
+    int ba = lens_info.wbs_ba;
+    
+    if (gm || ba)
+    {
+        /* a dot is smaller than a space */
+        if (buffer[strlen(buffer)-1] != '.')
+        {
+            STR_APPEND(buffer, ".");
+        }
+    }
+    
+    if (gm)
+    {
+        STR_APPEND(buffer, "%s%d", gm > 0 ? "G" : "M", ABS(gm));
+    }
+
+    if (ba)
+    {
+        STR_APPEND(buffer, "%s%d", ba > 0 ? "A" : "B", ABS(ba));
     }
 }
 
