@@ -6,9 +6,6 @@ MODULE_OBJS=lv_rec.o
 # include modules environment
 include ../Makefile.modules
 
-all:: raw2dng
-
-
 # RAW to DNG converter for PC
 raw2dng: FORCE
 	$(call build,HOST_CC,$(HOST_CC) -c ../dng/dng.c -std=gnu99 -O2 -Wall -I$(SRC_DIR))
@@ -17,7 +14,7 @@ raw2dng: FORCE
 
 raw2dng.exe: FORCE
 	$(call build,MINGW,$(MINGW_GCC) -c ../dng/dng.c -mno-ms-bitfields -O2 -Wall -I$(SRC_DIR))
-	$(call build,MINGW,$(MINGW_GCC) -c raw2dng.c -mno-ms-bitfields -O2 -Wall -I$(SRC_DIR) -D_FILE_OFFSET_BITS=64)
+	$(call build,MINGW,$(MINGW_GCC) -c raw2dng.c -mno-ms-bitfields -O2 -Wall -I$(SRC_DIR) -D_FILE_OFFSET_BITS=64 -std=c99)
 	$(call build,MINGW,$(MINGW_GCC) raw2dng.o dng.o -o raw2dng.exe -lm)
 
 clean::
