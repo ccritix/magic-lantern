@@ -331,16 +331,133 @@ void bsod()
     bmp_printf(fnt, 0, y+=h, "   for further assistance and information."                  );
 }
 
+
+struct TwoInTwoOutLosslessPath_args
+{ 
+  void *     ResLockKey;
+  uint32_t   ResLockKeySize;
+  uint32_t * engio_cmd_1_prepare;
+  uint32_t * engio_cmd_2_prepare;
+  uint32_t * engio_cmd_pre_jpcore;
+  uint32_t * engio_cmd_post_jpcore;
+  uint32_t * engio_cmd_stop;
+  uint32_t * engio_cmd_6_prepare;
+  uint32_t * engio_cmd_7_prepare;
+  uint32_t * engio_cmd_8_HIV_PPR;
+  uint16_t * PPR_table;
+  uint32_t * goes_to_obinteg_C0F0E000_size_0x188;
+  uint32_t * goes_to_C0F21000_size_0x7E0;
+  uint32_t * LuckyEnable_goes_to_C0F20000_size_0x1000;
+  uint16_t   LuckyEnable;
+  uint16_t   xRes;
+  uint16_t   yRes;
+  uint16_t   off_0x3E;
+  uint32_t   SamplePrecision;
+  uint32_t   off_0x44;
+  uint32_t   Read1_EdmacChannel;
+  uint32_t   Read1_EdmacStartFlags;
+  uint32_t   Read1_EdmacFlags;
+  uint32_t   Read1_EdmacConnection;
+  void *     Read1_Address;
+  uint32_t   Read1_Offset;
+  uint32_t   Read2_EdmacChannel;
+  uint32_t   Read2_EdmacStartFlags;
+  uint32_t   Read2_EdmacFlags;
+  uint32_t   Read2_EdmacConnection;
+  void *     Read2_Address;
+  uint32_t   Read2_Offset;
+  uint32_t   Write1_EdmacChannel;
+  uint32_t   Write1_EdmacStartFlags;
+  uint32_t   Write1_EdmacFlags;
+  uint32_t   Write1_EdmacConnection;
+  struct memSuite * Write1_MemSuite;
+  uint32_t   off_0x8C;
+  uint32_t   Write2_EdmacChannel;
+  uint32_t   Write2_EdmacStartFlags;
+  uint32_t   Write2_EdmacFlags;
+  uint32_t   Write2_EdmacConnection;
+  void *     Write2_Address;
+  uint32_t   Write2_Offset;
+};
+
+static void LosslessCompleteCBR()
+{
+    DryosDebugMsg(0, 0, "LosslessCompleteCBR\n");
+}
+
 static void run_test()
 {
     msleep(2000);
 
+    /* start logging */
     void debug_intercept();
     debug_intercept();
     info_led_on();
+
+    /* capture a test image (full-res silent pic) */
     void* job = (void*) call("FA_CreateTestImage");
     call("FA_CaptureTestImage", job);
+
+    /* ProcessTwoInTwoOutLosslessPath, 5D3 1.1.3 */
+    /* Must be run after taking a regular RAW picture, outside LiveView. */
+
+    /* not sure what this does; it's also used with some serial flash routines */
+    MEM(0xC022200C) = 0x12;
+
+    /* prepare arguments */
+    struct TwoInTwoOutLosslessPath_args * TTL_Args = (void*) 0x456F0;
+    void * TTL_ResLock = (void*) MEM(0x25E90);
+    void (*ProcessTwoInTwoOutLosslessPath_setup)(void*, void*) = (void*) 0xFF3D4680;
+
+    /* allocate memory (not sure how much is needed) */
+    TTL_Args->Write1_MemSuite = shoot_malloc_suite_contig(32*1024*1024);
+    TTL_Args->Write2_Address  = malloc(16*1024*1024);
+    TTL_Args->Read1_Address   = (void*) call("FA_GetCrawBuf", job);
+
+    if (!TTL_Args->Write1_MemSuite) return;
+    if (!TTL_Args->Write2_Address) return;
+
+    /* fill the buffers with 0 */
+    void * Write1_Address = GetMemoryAddressOfMemoryChunk(GetFirstChunkFromSuite(TTL_Args->Write1_MemSuite));
+    memset(Write1_Address,           0, 32*1024*1024);
+    memset(TTL_Args->Write2_Address, 0, 16*1024*1024);
+
+    /* configure the processing modules */
+    ProcessTwoInTwoOutLosslessPath_setup(TTL_ResLock, TTL_Args);
+    
+    printf("WR1: %x EDMAC#%d<%d> (%x)\n", Write1_Address,       TTL_Args->Write1_EdmacChannel, TTL_Args->Write1_EdmacConnection, TTL_Args->Write1_MemSuite);
+    printf("WR2: %x EDMAC#%d<%d>\n", TTL_Args->Write2_Address,  TTL_Args->Write2_EdmacChannel, TTL_Args->Write2_EdmacConnection);
+    printf("RD1: %x EDMAC#%d<%d>\n", TTL_Args->Read1_Address,   TTL_Args->Read1_EdmacChannel,  TTL_Args->Read1_EdmacConnection);
+    printf("RD2: %x EDMAC#%d<%d>\n", TTL_Args->Read2_Address,   TTL_Args->Read1_EdmacChannel,  TTL_Args->Read2_EdmacConnection);
+
+    /* register our CBR, to be called when finished */
+    void (*RegisterTwoInTwoOutLosslessPathCompleteCBR)(int, void*, void*) = (void*) 0xFF3D3774;
+    RegisterTwoInTwoOutLosslessPathCompleteCBR(4, LosslessCompleteCBR, 0);
+    
+    /* this changes a few registers that appear to be bit fields */
+    void (*TTL_set_some_flags)() = (void*) 0xFF32B418;
+    TTL_set_some_flags();
+
+    /* this starts the EDmac channels */
+    void (*ProcessTwoInTwoOutLosslessPath_start)(void*) = (void*) 0xFF3D46F0;
+    ProcessTwoInTwoOutLosslessPath_start(TTL_Args);
+
+    /* assume it completes in less than 1 second */
+    msleep(1000);
+
+    /* this is called at the end, not sure what it does */
+    MEM(0xC022200C) = 0x10;
+
+    /* save the output buffers */
+    dump_seg(Write1_Address, 32*1024*1024, "TTL_WR1.BIN");
+    dump_seg(TTL_Args->Write2_Address, 16*1024*1024, "TTL_WR2.BIN");
+
+    /* cleanup */
     call("FA_DeleteTestImage", job);
+    shoot_free_suite(TTL_Args->Write1_MemSuite); TTL_Args->Write1_MemSuite = 0;
+    free(TTL_Args->Write2_Address); TTL_Args->Write2_Address = 0;
+
+    /* save the log */
     info_led_off();
     debug_intercept();
 }
