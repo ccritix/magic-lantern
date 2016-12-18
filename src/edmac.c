@@ -32,6 +32,10 @@ static uint32_t edmac_chanlist[] =
 #define NUM_EDMAC_CHANNELS 32
 #endif
 
+/* not sure */
+/* guess: from 0xC0F05020 to 0xC0F05200 we have read connections */
+#define NUM_EDMAC_CONNECTIONS 120
+
 /* http://www.magiclantern.fm/forum/index.php?topic=6740 */
 static uint32_t write_edmacs[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x20, 0x21};
 static uint32_t read_edmacs[]  = {0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x28, 0x29, 0x2A, 0x2B};
@@ -117,6 +121,31 @@ uint32_t edmac_get_base(uint32_t channel)
     return bases[edmac_block] + (edmac_num << 8);
 }
 
+static uint32_t edmac_get_block(uint32_t reg)
+{
+    switch (reg & 0xFFFFF000)
+    {
+        case 0xC0F04000: return 0;
+        case 0xC0F26000: return 1;
+        case 0xC0F30000: return 2;
+        default: return 0xFFFFFFFF;
+    }
+}
+
+uint32_t edmac_get_channel(uint32_t reg)
+{
+    uint32_t block = edmac_get_block(reg);
+    if (block == 0xFFFFFFFF)
+    {
+        return 0xFFFFFFFF;
+    }
+
+    uint32_t ch = ((reg >> 8) & 0xF) + block * 16;
+    //ASSERT(edmac_get_dir(ch) != EDMAC_DIR_UNUSED);
+    //ASSERT(edmac_get_base(ch) == reg);
+    return ch;
+}
+
 uint32_t edmac_get_state(uint32_t channel)
 {
     if (channel >= NUM_EDMAC_CHANNELS)
@@ -198,7 +227,7 @@ uint32_t edmac_get_connection(uint32_t channel, uint32_t direction)
             dest_chan = channel - 8;
         }
         
-        for(uint32_t pos = 0; pos < 48; pos++)
+        for(uint32_t pos = 0; pos < NUM_EDMAC_CONNECTIONS; pos++)
         {
             addr = 0xC0F05020 + (4 * pos);
             uint32_t dst = shamem_read(addr);
