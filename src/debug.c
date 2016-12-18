@@ -380,13 +380,19 @@ struct TwoInTwoOutLosslessPath_args
   uint32_t   Write2_Offset;
 };
 
+static struct semaphore * lossless_sem = 0;
+
 static void LosslessCompleteCBR()
 {
     DryosDebugMsg(0, 0, "LosslessCompleteCBR\n");
+    give_semaphore(lossless_sem);
 }
 
 static void run_test()
 {
+    /* ProcessTwoInTwoOutLosslessPath, 5D3 1.1.3 */
+    /* Must be run from LiveView; will switch to PLAY mode to capture an image. */
+    enter_play_mode();
     msleep(2000);
 
     /* start logging */
@@ -398,16 +404,22 @@ static void run_test()
     void* job = (void*) call("FA_CreateTestImage");
     call("FA_CaptureTestImage", job);
 
-    /* ProcessTwoInTwoOutLosslessPath, 5D3 1.1.3 */
-    /* Must be run after taking a regular RAW picture, outside LiveView. */
+    if (!lossless_sem)
+    {
+        lossless_sem = create_named_semaphore(0, 0);
+    }
 
     /* not sure what this does; it's also used with some serial flash routines */
     MEM(0xC022200C) = 0x12;
 
     /* prepare arguments */
     struct TwoInTwoOutLosslessPath_args * TTL_Args = (void*) 0x456F0;
-    void * TTL_ResLock = (void*) MEM(0x25E90);
-    void (*ProcessTwoInTwoOutLosslessPath_setup)(void*, void*) = (void*) 0xFF3D4680;
+
+    /* setup photo quality (valid values: 0=RAW, 1, 2, 14, 15) */
+    void (*TTL_setup_PictureSize_Mem1ToRaw)(int unused, void* TTL_Args, int PictureSize) = (void*) 0xFF32330C;
+    TTL_setup_PictureSize_Mem1ToRaw(0, TTL_Args, 0);
+    TTL_Args->xRes = 5920;
+    TTL_Args->yRes = 3950;
 
     /* allocate memory (not sure how much is needed) */
     TTL_Args->Write1_MemSuite = shoot_malloc_suite_contig(32*1024*1024);
@@ -423,8 +435,11 @@ static void run_test()
     memset(TTL_Args->Write2_Address, 0, 16*1024*1024);
 
     /* configure the processing modules */
+    void * TTL_ResLock = (void*) MEM(0x25E90);
+    void (*ProcessTwoInTwoOutLosslessPath_setup)(void*, void*) = (void*) 0xFF3D4680;
     ProcessTwoInTwoOutLosslessPath_setup(TTL_ResLock, TTL_Args);
     
+    printf("%dx%d %d\n", TTL_Args->xRes, TTL_Args->yRes, TTL_Args->SamplePrecision);
     printf("WR1: %x EDMAC#%d<%d> (%x)\n", Write1_Address,       TTL_Args->Write1_EdmacChannel, TTL_Args->Write1_EdmacConnection, TTL_Args->Write1_MemSuite);
     printf("WR2: %x EDMAC#%d<%d>\n", TTL_Args->Write2_Address,  TTL_Args->Write2_EdmacChannel, TTL_Args->Write2_EdmacConnection);
     printf("RD1: %x EDMAC#%d<%d>\n", TTL_Args->Read1_Address,   TTL_Args->Read1_EdmacChannel,  TTL_Args->Read1_EdmacConnection);
@@ -435,22 +450,32 @@ static void run_test()
     RegisterTwoInTwoOutLosslessPathCompleteCBR(4, LosslessCompleteCBR, 0);
     
     /* this changes a few registers that appear to be bit fields */
-    void (*TTL_set_some_flags)() = (void*) 0xFF32B418;
-    TTL_set_some_flags();
+    void (*TTL_set_some_flags)(int PictureType) = (void*) 0xFF32B418;
+    TTL_set_some_flags(0x10000);
+
+    /* time the operation */
+    uint32_t t0 = get_us_clock_value();
 
     /* this starts the EDmac channels */
     void (*ProcessTwoInTwoOutLosslessPath_start)(void*) = (void*) 0xFF3D46F0;
     ProcessTwoInTwoOutLosslessPath_start(TTL_Args);
 
-    /* assume it completes in less than 1 second */
-    msleep(1000);
+    /* wait until finished */
+    take_semaphore(lossless_sem, 1000);
+    uint32_t t1 = get_us_clock_value();
 
     /* this is called at the end, not sure what it does */
     MEM(0xC022200C) = 0x10;
 
+    printf("Elapsed time: %d us\n", (int)(t1 - t0));
+
     /* save the output buffers */
     dump_seg(Write1_Address, 32*1024*1024, "TTL_WR1.BIN");
     dump_seg(TTL_Args->Write2_Address, 16*1024*1024, "TTL_WR2.BIN");
+
+    /* to decode, add this at the beginning of lossless_jpeg_load_raw in dcraw.c:
+     *   ifp = fopen("TTL_WR1.BIN", "rb");
+     */
 
     /* cleanup */
     call("FA_DeleteTestImage", job);
