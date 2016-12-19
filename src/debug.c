@@ -334,7 +334,7 @@ void bsod()
 
 struct TwoInTwoOutLosslessPath_args
 { 
-  void *     ResLockKey;
+  uint32_t * ResLockKey;
   uint32_t   ResLockKeySize;
   uint32_t * engio_cmd_1_prepare;
   uint32_t * engio_cmd_2_prepare;
@@ -388,21 +388,22 @@ static void LosslessCompleteCBR()
     give_semaphore(lossless_sem);
 }
 
+/* pack two 16-bit values into a 32-bit one */
+#define PACK32(lo,hi) (((uint32_t)(lo) & 0xFFFF) | ((uint32_t)(hi) << 16))
+
 static void run_test()
 {
     /* ProcessTwoInTwoOutLosslessPath, 5D3 1.1.3 */
-    /* Must be run from LiveView; will switch to PLAY mode to capture an image. */
-    enter_play_mode();
+    /* LiveView test */
+    int width = 2080;
+    int height = 1080;
+    
     msleep(2000);
 
     /* start logging */
     void debug_intercept();
     debug_intercept();
     info_led_on();
-
-    /* capture a test image (full-res silent pic) */
-    void* job = (void*) call("FA_CreateTestImage");
-    call("FA_CaptureTestImage", job);
 
     if (!lossless_sem)
     {
@@ -415,30 +416,77 @@ static void run_test()
     /* prepare arguments */
     struct TwoInTwoOutLosslessPath_args * TTL_Args = (void*) 0x456F0;
 
-    /* setup photo quality (valid values: 0=RAW, 1, 2, 14, 15) */
+    /* setup photo quality (valid values: 0=RAW, 1=MRAW, 2=SRAW, 14, 15) */
     void (*TTL_setup_PictureSize_Mem1ToRaw)(int unused, void* TTL_Args, int PictureSize) = (void*) 0xFF32330C;
     TTL_setup_PictureSize_Mem1ToRaw(0, TTL_Args, 0);
-    TTL_Args->xRes = 5920;
-    TTL_Args->yRes = 3950;
+    TTL_Args->xRes = width;
+    TTL_Args->yRes = height;
+
+    /* Output channel 22 appears used in LiveView; use 17 instead */
+    TTL_Args->Write1_EdmacChannel = 0x11;
 
     /* allocate memory (not sure how much is needed) */
-    TTL_Args->Write1_MemSuite = shoot_malloc_suite_contig(32*1024*1024);
-    TTL_Args->Write2_Address  = malloc(16*1024*1024);
-    TTL_Args->Read1_Address   = (void*) call("FA_GetCrawBuf", job);
+    TTL_Args->Write1_MemSuite = shoot_malloc_suite_contig(16*1024*1024);
+    TTL_Args->Write2_Address  = 0;
+
+    /* must have a valid raw buffer in LiveView */
+    TTL_Args->Read1_Address   = raw_info.buffer;
 
     if (!TTL_Args->Write1_MemSuite) return;
-    if (!TTL_Args->Write2_Address) return;
-
-    /* fill the buffers with 0 */
-    void * Write1_Address = GetMemoryAddressOfMemoryChunk(GetFirstChunkFromSuite(TTL_Args->Write1_MemSuite));
-    memset(Write1_Address,           0, 32*1024*1024);
-    memset(TTL_Args->Write2_Address, 0, 16*1024*1024);
+    if (!TTL_Args->Read1_Address) return;
 
     /* configure the processing modules */
-    void * TTL_ResLock = (void*) MEM(0x25E90);
+
+    uint32_t resources[] = {
+        0x10000,                        /* read channel 0x8 */
+        edmac_channel_to_index(0x11),   /* write channel 0x11 */
+        0x2002d,
+        0x20016,
+        0x50034,
+        0x5002d,
+        0x50010,
+        0x90001,
+        0x230000,
+        0x160000,
+        0x260000,
+        0x260001,
+        0x260002,
+        0x260003,
+    };
+
+    /* fixme: will only work on the first call */
+    void * TTL_ResLock = CreateResLockEntry(resources, COUNT(resources));
     void (*ProcessTwoInTwoOutLosslessPath_setup)(void*, void*) = (void*) 0xFF3D4680;
     ProcessTwoInTwoOutLosslessPath_setup(TTL_ResLock, TTL_Args);
-    
+
+    /* resolution is hardcoded in some places; patch them */
+    EngDrvOut(0xC0F375B4, PACK32(width/2 - 1,   height - 1 ));  /* 0xF6D0B8F */
+    EngDrvOut(0xC0F13068, PACK32(width   - 1,   height - 1 ));  /* 0xF6D171F */
+    EngDrvOut(0xC0F12010,        width/2 - 1                );  /* 0xB8F     */
+    EngDrvOut(0xC0F12014, PACK32(width/2 - 1,   height - 1 ));  /* 0xF6D0B8F */
+    EngDrvOut(0xC0F1201C,        width/2/10-1               );  /* 0x127     */
+    EngDrvOut(0xC0F12020, PACK32(width/2/10-1,  height/10-1));  /* 0x18A0127 */
+
+    /* need to read the image data in 2 vertical slices (not sure why)
+     * example: for 2040 x 1080 x 14bpp =>
+     * (1820, skip 1820) x 1079, 1820, skip -3927560, (1820, skip 1820) x 1080
+     */
+    int slice_pitch = width/2 * 14/8;
+
+    struct edmac_info read1_info = {
+        .xa = slice_pitch,
+        .xb = slice_pitch,
+        .xn = 1,
+        .yb = height - 1,
+        .off1a = slice_pitch,
+        .off1b = slice_pitch,
+        .off2b = -2 * slice_pitch * (height - 1),
+    };
+
+    SetEDmac(TTL_Args->Read1_EdmacChannel, TTL_Args->Read1_Address, &read1_info, TTL_Args->Read1_EdmacFlags);
+
+    void * Write1_Address = GetMemoryAddressOfMemoryChunk(GetFirstChunkFromSuite(TTL_Args->Write1_MemSuite));
+
     printf("%dx%d %d\n", TTL_Args->xRes, TTL_Args->yRes, TTL_Args->SamplePrecision);
     printf("WR1: %x EDMAC#%d<%d> (%x)\n", Write1_Address,       TTL_Args->Write1_EdmacChannel, TTL_Args->Write1_EdmacConnection, TTL_Args->Write1_MemSuite);
     printf("WR2: %x EDMAC#%d<%d>\n", TTL_Args->Write2_Address,  TTL_Args->Write2_EdmacChannel, TTL_Args->Write2_EdmacConnection);
@@ -469,18 +517,26 @@ static void run_test()
 
     printf("Elapsed time: %d us\n", (int)(t1 - t0));
 
-    /* save the output buffers */
-    dump_seg(Write1_Address, 32*1024*1024, "TTL_WR1.BIN");
-    dump_seg(TTL_Args->Write2_Address, 16*1024*1024, "TTL_WR2.BIN");
+    /* compute output size */
+    uint32_t current_ptr = (uint32_t) CACHEABLE(edmac_get_pointer(TTL_Args->Write1_EdmacChannel));
+    uint32_t initial_ptr = (uint32_t) CACHEABLE(Write1_Address);
+    uint32_t output_size = current_ptr - initial_ptr;
+    uint32_t uncompressed_size = width * height * 14/8;
+    int ratio_x100 = output_size * 100 / uncompressed_size;
+    printf("Output size : %s (%s%d.%02d%%)\n", format_memory_size(output_size), FMT_FIXEDPOINT2S(ratio_x100));
+
+    /* save the output buffer */
+    dump_seg(Write1_Address, output_size, "TTL_WR1.BIN");
 
     /* to decode, add this at the beginning of lossless_jpeg_load_raw in dcraw.c:
      *   ifp = fopen("TTL_WR1.BIN", "rb");
+     * also, for 2080x1080, CR2 metadata must be patched as well:
+     *   cr2_slice[1] = cr2_slice[2] = 2080/2;
+     *   if (jh->wide == 2960) { jh->wide = 2080/2; jh->high = 1080; }
      */
 
     /* cleanup */
-    call("FA_DeleteTestImage", job);
     shoot_free_suite(TTL_Args->Write1_MemSuite); TTL_Args->Write1_MemSuite = 0;
-    free(TTL_Args->Write2_Address); TTL_Args->Write2_Address = 0;
 
     /* save the log */
     info_led_off();
