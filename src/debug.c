@@ -397,8 +397,13 @@ static void run_test()
     /* LiveView test */
     int width = 2080;
     int height = 1080;
-    
+
+    console_hide();
+    raw_lv_request();
+    raw_update_params();
     msleep(2000);
+    raw_lv_release();
+    console_show();
 
     /* start logging */
     void debug_intercept();
@@ -454,8 +459,13 @@ static void run_test()
         0x260003,
     };
 
-    /* fixme: will only work on the first call */
-    void * TTL_ResLock = CreateResLockEntry(resources, COUNT(resources));
+    /* create ResLock on first call */
+    static void * TTL_ResLock = 0;
+    if (!TTL_ResLock)
+    {
+        TTL_ResLock = CreateResLockEntry(resources, COUNT(resources));
+    }
+
     void (*ProcessTwoInTwoOutLosslessPath_setup)(void*, void*) = (void*) 0xFF3D4680;
     ProcessTwoInTwoOutLosslessPath_setup(TTL_ResLock, TTL_Args);
 
@@ -517,13 +527,16 @@ static void run_test()
 
     printf("Elapsed time: %d us\n", (int)(t1 - t0));
 
-    /* compute output size */
-    uint32_t current_ptr = (uint32_t) CACHEABLE(edmac_get_pointer(TTL_Args->Write1_EdmacChannel));
-    uint32_t initial_ptr = (uint32_t) CACHEABLE(Write1_Address);
-    uint32_t output_size = current_ptr - initial_ptr;
+    /* stop processing; this will report output size */
+    uint32_t output_size = 0;
+    void (*TTL_Stop)(void*) = (void*) 0xFF3D4728;
+    void (*TTL_ReleasePathResources)(void*, void*, void*) = (void*) 0xFF3D4760;
+    TTL_Stop(TTL_Args);
+    TTL_ReleasePathResources(TTL_ResLock, TTL_Args, &output_size);
+    
     uint32_t uncompressed_size = width * height * 14/8;
-    int ratio_x100 = output_size * 100 / uncompressed_size;
-    printf("Output size : %s (%s%d.%02d%%)\n", format_memory_size(output_size), FMT_FIXEDPOINT2S(ratio_x100));
+    int ratio_x100 = output_size * 10000.0 / uncompressed_size;
+    printf("Output size : %s (%s%d.%02d%%)\n", format_memory_size(output_size), FMT_FIXEDPOINT2(ratio_x100));
 
     /* save the output buffer */
     dump_seg(Write1_Address, output_size, "TTL_WR1.BIN");
