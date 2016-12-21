@@ -395,8 +395,6 @@ static void run_test()
 {
     /* ProcessTwoInTwoOutLosslessPath, 5D3 1.1.3 */
     /* LiveView test */
-    int width = 2080;
-    int height = 1080;
 
     console_hide();
     raw_lv_request();
@@ -404,6 +402,13 @@ static void run_test()
     msleep(2000);
     raw_lv_release();
     console_show();
+
+    /* trick the encoder so it configures slice width = image width */
+    /* we'll have two slices on top of each other; this will give
+     * valid lossless DNG as well, if we prepend a header :)
+     */
+    int width = raw_info.width * 2;
+    int height = raw_info.height / 2;
 
     /* start logging */
     void debug_intercept();
@@ -470,27 +475,23 @@ static void run_test()
     ProcessTwoInTwoOutLosslessPath_setup(TTL_ResLock, TTL_Args);
 
     /* resolution is hardcoded in some places; patch them */
-    EngDrvOut(0xC0F375B4, PACK32(width/2 - 1,   height - 1 ));  /* 0xF6D0B8F */
-    EngDrvOut(0xC0F13068, PACK32(width   - 1,   height - 1 ));  /* 0xF6D171F */
-    EngDrvOut(0xC0F12010,        width/2 - 1                );  /* 0xB8F     */
-    EngDrvOut(0xC0F12014, PACK32(width/2 - 1,   height - 1 ));  /* 0xF6D0B8F */
-    EngDrvOut(0xC0F1201C,        width/2/10-1               );  /* 0x127     */
-    EngDrvOut(0xC0F12020, PACK32(width/2/10-1,  height/10-1));  /* 0x18A0127 */
+    EngDrvOut(0xC0F375B4, PACK32(width    - 1,  height/2  - 1));  /* 0xF6D0B8F */
+    EngDrvOut(0xC0F13068, PACK32(width*2  - 1,  height/2  - 1));  /* 0xF6D171F */
+    EngDrvOut(0xC0F12010,        width    - 1                 );  /* 0xB8F     */
+    EngDrvOut(0xC0F12014, PACK32(width    - 1,  height/2  - 1));  /* 0xF6D0B8F */
+    EngDrvOut(0xC0F1201C,        width/10 - 1                 );  /* 0x127     */
+    EngDrvOut(0xC0F12020, PACK32(width/10 - 1,  height/20 - 1));  /* 0x18A0127 */
 
-    /* need to read the image data in 2 vertical slices (not sure why)
-     * example: for 2040 x 1080 x 14bpp =>
-     * (1820, skip 1820) x 1079, 1820, skip -3927560, (1820, skip 1820) x 1080
+    /* need to read the image data in 2 slices
+     * default configuration is 2 vertical slices;
+     * however, using 2 horizontal slices makes it easy
+     * to just slap a DNG header, resulting in valid output.
+     * 
+     * => the input EDMAC will simply read the image as usual.
      */
-    int slice_pitch = width/2 * 14/8;
-
     struct edmac_info read1_info = {
-        .xa = slice_pitch,
-        .xb = slice_pitch,
-        .xn = 1,
+        .xb = width * 14/8,
         .yb = height - 1,
-        .off1a = slice_pitch,
-        .off1b = slice_pitch,
-        .off2b = -2 * slice_pitch * (height - 1),
     };
 
     SetEDmac(TTL_Args->Read1_EdmacChannel, TTL_Args->Read1_Address, &read1_info, TTL_Args->Read1_EdmacFlags);
@@ -541,12 +542,7 @@ static void run_test()
     /* save the output buffer */
     dump_seg(Write1_Address, output_size, "TTL_WR1.BIN");
 
-    /* to decode, add this at the beginning of lossless_jpeg_load_raw in dcraw.c:
-     *   ifp = fopen("TTL_WR1.BIN", "rb");
-     * also, for 2080x1080, CR2 metadata must be patched as well:
-     *   cr2_slice[1] = cr2_slice[2] = 2080/2;
-     *   if (jh->wide == 2960) { jh->wide = 2080/2; jh->high = 1080; }
-     */
+    /* to decode, prepend a DNG header with compression tag set to 7. */
 
     /* cleanup */
     shoot_free_suite(TTL_Args->Write1_MemSuite); TTL_Args->Write1_MemSuite = 0;
