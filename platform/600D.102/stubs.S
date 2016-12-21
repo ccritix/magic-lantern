@@ -160,6 +160,7 @@ NSTUB(0xFF33BFDC,  NormalDisplay)
 NSTUB(0xFF33BFAC,  ReverseDisplay)
 
 /** EDMAC **/
+NSTUB(0xFF1E09B0,  AbortEDmac)
 NSTUB(0xFF1E06DC,  ConnectReadEDmac)
 NSTUB(0xFF1E0618,  ConnectWriteEDmac)
 NSTUB(0xFF1E0A78,  RegisterEDmacAbortCBR)
@@ -317,13 +318,13 @@ NSTUB(0xFF1F94BC,  vsnprintf)
 //NSTUB( 0xff37aee4, ChangeHDMIOutputSizeToFULLHD)
 //NSTUB( 0xff37b174, ChangeHDMIOutputSizeToVGA)
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
+// NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
 ///NSTUB( 0xFF34B724, AJ_guess_LED_OFF )
 ///NSTUB( 0xFF34B6F4, AJ_guess_LED_ON )   // led for SD/CF read and write ops
-///NSTUB(0xFF1E09B0,  AbortEDmac)
 ///NSTUB(0xFF29E25C,  AfCtrl_SetLensParameterRemote)
 ///NSTUB(0xFF37FAF4,  CancelBottomInfoDispTimer)
 ///NSTUB(0xFF234FCC,  ChangeColorPalette)

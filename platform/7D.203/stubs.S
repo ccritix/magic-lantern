@@ -152,6 +152,7 @@ NSTUB(0xFF1F5660,  StartEDmac)
 NSTUB(0xFF1F58B8,  UnregisterEDmacAbortCBR)
 NSTUB(0xFF1F5864,  UnregisterEDmacCompleteCBR)
 NSTUB(0xFF1F5994,  UnregisterEDmacPopCBR)
+///NSTUB([idk], AbortEDmac)
 
 /** Electronic Level **/
 NSTUB(0xFF236E9C,  GUI_SetRollingPitchingLevelStatus)
@@ -298,10 +299,10 @@ NSTUB(0xFF075210,  LoadCalendarFromRTC)
 NSTUB(0xFF16004C,  PtpDps_remote_release_SW1_SW2_worker)    // called from: ptpRemoteRelease Occupy
 NSTUB(0xFF5517B0,  lv_path_struct)
 NSTUB(0xFF209670,  vsnprintf)
+// NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
-///NSTUB([idk], AbortEDmac)
 ///NSTUB(0xFF06EDD0,  AsyncEnableImagePhysicalScreenParameter)
 ///NSTUB(0xFF2FFD3C,  CreateDialogBox)
 ///NSTUB(0xFF2FF7C4,  DeleteDialogBox)

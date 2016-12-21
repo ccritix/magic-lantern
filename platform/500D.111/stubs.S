@@ -156,6 +156,7 @@ NSTUB(0xFF18FBF0,  StartEDmac)
 NSTUB(0xFF18FE30,  UnregisterEDmacAbortCBR)
 NSTUB(0xFF18FD74,  UnregisterEDmacCompleteCBR)
 NSTUB(0xFF18FE74,  UnregisterEDmacPopCBR)
+///NSTUB([idk], AbortEDmac)
 
 /** Electronic Level **/
 // NSTUB(    ???,  GUI_SetRollingPitchingLevelStatus)       /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 600D.102, 650D.104, 550D.109, 700D.113 */
@@ -300,12 +301,12 @@ NSTUB(0xFF072B30,  task_trampoline)
 NSTUB(0xFF0642D0,  LoadCalendarFromRTC)
 NSTUB(0xFF1A442C,  vsnprintf)                               /** Look in DebugMsg, near the bottom.  It calls vsnprintf() -- with a buffer size of 0x4C. */
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
+// NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
-///NSTUB([idk], AbortEDmac)
 ///NSTUB(0xFF2C92BC,  ChangeColorPalette)
 ///NSTUB(0xFF26896C,  CreateDialogBox)
 ///NSTUB(0xFF2683F4,  DeleteDialogBox)

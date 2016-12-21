@@ -142,6 +142,7 @@ NSTUB(0xFF4B6930,  ShootOlcApp_handler)                     // AJ_DIALOG.HANDLER
 // NSTUB(    ???,  ReverseDisplay)                          /* present on 60D.111, 600D.102, 650D.104, 550D.109, 1100D.105, 700D.113 */
 
 /** EDMAC **/
+NSTUB(0xFF9F19A4 - RAM_OFFSET,  AbortEDmac)
 NSTUB(0xFF9F16B0 - RAM_OFFSET,  ConnectReadEDmac)
 NSTUB(0xFF9F15EC - RAM_OFFSET,  ConnectWriteEDmac)
 NSTUB(0xFF9F1B2C - RAM_OFFSET,  RegisterEDmacAbortCBR)
@@ -293,16 +294,15 @@ NSTUB(0xFF9ECD70 - RAM_OFFSET,  task_trampoline)
 // NSTUB(    ???,  next_task_ctx)                           /* present on 7D.203 */
 
 /** Misc **/
+NSTUB(0xFF4827D4,  FSUunMountDevice)
 NSTUB(0xFF135F10,  LoadCalendarFromRTC)
 NSTUB(0xFF9F4F3C - RAM_OFFSET,  vsnprintf)
-NSTUB(0xFF4827D4,  FSUunMountDevice)
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
-///NSTUB(0xFF9F19A4 - RAM_OFFSET,  AbortEDmac)
 ///NSTUB(0xFF44C8C4,  CreateDialogBox)
 ///NSTUB(0xFF44B894,  DeleteDialogBox)
 ///NSTUB(0xff181314, ENCODE_StartEncodeJpeg)

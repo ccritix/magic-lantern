@@ -161,6 +161,7 @@ NSTUB(0xFF97C938,  StartEDmac)
 NSTUB(0xFF97CAE4,  UnregisterEDmacAbortCBR)
 NSTUB(0xFF97CA98,  UnregisterEDmacCompleteCBR)
 NSTUB(0xFF97CB28,  UnregisterEDmacPopCBR)
+///NSTUB([idk], AbortEDmac)
 
 /** Electronic Level **/
 // NSTUB(    ???,  GUI_SetRollingPitchingLevelStatus)       /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 600D.102, 650D.104, 550D.109, 700D.113 */
@@ -307,12 +308,12 @@ NSTUB(0xFF86334C,  LoadCalendarFromRTC)
 NSTUB(0xFF98E1E4,  vsnprintf)                               // d
 //NSTUB( 0xffa86684, ChangeHDMIOutputSizeToFULLHD)														//d
 //NSTUB( 0xffa855f4, ChangeHDMIOutputSizeToVGA)														//d
+// NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
-///NSTUB([idk], AbortEDmac)
 ///NSTUB(0xFFA854D0,  BeginMovieRecSequence)
 ///NSTUB(0xFFA4717C,  CreateDialogBox)
 ///NSTUB(0xFFA46C14,  DeleteDialogBox)

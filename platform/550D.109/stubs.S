@@ -161,6 +161,7 @@ NSTUB(0xFF1C024C,  StartEDmac)
 NSTUB(0xFF1C0454,  UnregisterEDmacAbortCBR)
 NSTUB(0xFF1C042C,  UnregisterEDmacCompleteCBR)
 NSTUB(0xFF1C047C,  UnregisterEDmacPopCBR)
+///NSTUB([idk], AbortEDmac)
 
 /** Electronic Level **/
 NSTUB(0xFF2045E0,  GUI_SetRollingPitchingLevelStatus)
@@ -308,6 +309,7 @@ NSTUB(0xFF1D6638,  vsnprintf)
 //NSTUB(0xFF2FEA48, ChangeHDMIOutputSizeToFULLHD)
 //NSTUB(0xFF2FECB0, ChangeHDMIOutputSizeToVGA)
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
+// NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
@@ -316,7 +318,6 @@ NSTUB(0xFF1D6638,  vsnprintf)
 ///NSTUB(0xFF1D8A3C,  AJ_UserLevel_task)
 ///NSTUB( 0xFF2DF554, AJ_guess_LED_OFF )
 ///NSTUB( 0xFF2DF524, AJ_guess_LED_ON )
-///NSTUB([idk], AbortEDmac)
 ///NSTUB(0xFF3026F8,  CancelBottomInfoDispTimer)
 ///NSTUB(0xFF31CFCC,  ChangeColorPalette)
 ///NSTUB(0xFF2B5EEC,  CreateDialogBox)
