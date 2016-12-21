@@ -17,6 +17,7 @@
 #include <powersave.h>
 #include "../lv_rec/lv_rec.h"
 #include "../mlv_rec/mlv.h"
+#include "lossless.h"
 
 static uint64_t ret_0_long() { return 0; }
 
@@ -53,6 +54,7 @@ static CONFIG_INT( "silent.pic.file_format", silent_pic_file_format, 0 );
 
 #define SILENT_PIC_FILE_FORMAT_DNG 0
 #define SILENT_PIC_FILE_FORMAT_MLV 1
+#define SILENT_PIC_FILE_FORMAT_LOSSLESS_DNG 2
 
 #define SILENT_PIC_MODE_SLITSCAN_SCAN_TTB 0 // top to bottom
 #define SILENT_PIC_MODE_SLITSCAN_SCAN_BTT 1 // bottom to top
@@ -441,19 +443,55 @@ write_error:
     return 0;
 }
 
+static int save_lossless_dng(char * filename, struct raw_info * raw_info)
+{
+    struct raw_info out_raw_info = *raw_info;
+
+    /* fixme: may fail */
+    struct memSuite * out_suite = shoot_malloc_suite_contig(MIN(raw_info->frame_size, 32*1024*1024));
+
+    if (!out_suite)
+    {
+        bmp_printf( FONT_MED, 0, 83, "Malloc error");
+        return 0;
+    }
+
+    out_raw_info.frame_size = lossless_compress_raw(raw_info, out_suite);
+    out_raw_info.buffer = GetMemoryAddressOfMemoryChunk(GetFirstChunkFromSuite(out_suite));
+
+    int ok = save_dng(filename, &out_raw_info);
+    if (!ok) bmp_printf( FONT_MED, 0, 83, "DNG save error (card full?)");
+
+    shoot_free_suite(out_suite);
+
+    return ok;
+}
+
 static int silent_pic_save_file(struct raw_info * raw_info, int capture_time_ms)
 {
-    if(silent_pic_file_format == SILENT_PIC_FILE_FORMAT_MLV)
+    switch (silent_pic_file_format)
     {
-        return save_mlv(raw_info, capture_time_ms);
+        case SILENT_PIC_FILE_FORMAT_MLV:
+        {
+            return save_mlv(raw_info, capture_time_ms);
+        }
+
+        case SILENT_PIC_FILE_FORMAT_DNG:
+        {
+            char* filename = silent_pic_get_name();
+            int ok = save_dng(filename, raw_info);
+            if (!ok) bmp_printf( FONT_MED, 0, 83, "DNG save error (card full?)");
+            return ok;
+        }
+
+        case SILENT_PIC_FILE_FORMAT_LOSSLESS_DNG:
+        {
+            char* filename = silent_pic_get_name();
+            return save_lossless_dng(filename, raw_info);
+        }
     }
-    else
-    {
-        char* filename = silent_pic_get_name();
-        int ok = save_dng(filename, raw_info);
-        if (!ok) bmp_printf( FONT_MED, 0, 83, "DNG save error (card full?)");
-        return ok;
-    }
+
+    return 0;
 }
 
 #ifdef FEATURE_SILENT_PIC_RAW
@@ -1578,12 +1616,13 @@ static struct menu_entry silent_menu[] = {
                 .name = "File Format",
                 .update = silent_pic_file_format_display,
                 .priv = &silent_pic_file_format,
-                .max = 1,
+                .max = 2,
                 .help = "File format to save the image as:",
                 .help2 =
                     "DNG is slow, but needs no extra post-processing.\n"
-                    "MLV is fast, and will group all frames into a single video file.\n",
-                .choices = CHOICES("DNG", "MLV"),
+                    "MLV is fast, and will group all frames into a single video file.\n"
+                    "Lossless DNG is fast and uses CR2 compression routines (experimental).\n",
+                .choices = CHOICES("DNG", "MLV", "Lossless DNG"),
             },
             MENU_EOL,
         }
@@ -1606,7 +1645,14 @@ static unsigned int silent_init()
         long_exposure_fix_enabled = 1;
     }
 
+    if (!lossless_init())
+    {
+        /* lossless DNG not available; hide from menu */
+        silent_menu[0].children[2].max = 1;
+    }
+
     menu_add("Shoot", silent_menu, COUNT(silent_menu));
+
     return 0;
 }
 
