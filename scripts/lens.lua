@@ -14,6 +14,17 @@ lenses =
 
 selector_instance = selector.create("Select Manual Lens", lenses, function(l) return l.name end, 600)
 
+lens_config = config.create({})
+
+if lens_config.data ~= nil and lens_config.data.name ~= nil then
+    for i,v in ipairs(lenses) do
+        if v == lens_config.data.name then
+            selector_instance.index = i
+            break
+        end
+    end
+end
+
 xmp:add_property(xmp.lens_name, function() return lens.name end)
 xmp:add_property(xmp.focal_length, function() return lens.focal_length end)
 xmp:add_property(xmp.aperture, function() return math.floor(camera.aperture.value * 10) end)
@@ -51,6 +62,7 @@ function update_lens()
     for k,v in pairs(lenses[selector_instance.index]) do
         lens[k] = v
     end
+    lens_config.data = { name = lenses[selector_instance.index].name }
     xmp:start()
 end
 
