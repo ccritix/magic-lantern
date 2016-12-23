@@ -22,7 +22,7 @@ button.__index = button
 
 function button.create(caption, x, y, font, w, h)
     local self = {}
-    setmetatable(self, utton)
+    setmetatable(self, button)
     self.font = font
     if self.font == nil then
         self.font = FONT.MED_LARGE
@@ -47,7 +47,7 @@ function button.create(caption, x, y, font, w, h)
     if w == nil then
         self.width = self.font:width(self.caption) + self.pad * 2
     end
-    return b
+    return self
 end
 
 function button:draw()
