@@ -18,7 +18,7 @@ lens_config = config.create({})
 
 if lens_config.data ~= nil and lens_config.data.name ~= nil then
     for i,v in ipairs(lenses) do
-        if v == lens_config.data.name then
+        if v.name == lens_config.data.name then
             selector_instance.index = i
             break
         end
