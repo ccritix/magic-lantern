@@ -4,6 +4,7 @@
 #include "property.h"
 
 #include "crop-mode-hack.h"
+#include "config.h"
 
 #ifdef FEATURE_CROP_MODE_HACK
 
