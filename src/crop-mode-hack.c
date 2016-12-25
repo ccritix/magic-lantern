@@ -7,6 +7,8 @@
 
 #ifdef FEATURE_CROP_MODE_HACK
 
+static CONFIG_INT("movie.crop.mode", movie_crop_mode, 0);
+
 static int video_mode[10];
 PROP_HANDLER(PROP_VIDEO_MODE)
 {
@@ -32,6 +34,7 @@ unsigned int movie_crop_hack_enable()
     video_mode[0] = 0xc;
     video_mode[4] = 2;
     prop_request_change(PROP_VIDEO_MODE, video_mode, 0);
+    movie_crop_mode = 1;
     return 1;
 }
 
@@ -43,6 +46,7 @@ unsigned int movie_crop_hack_disable() {
     video_mode[0] = 0;
     video_mode[4] = 0;
     prop_request_change(PROP_VIDEO_MODE, video_mode, 0);
+    movie_crop_mode = 0;
     return 1;
 }
 

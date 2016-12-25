@@ -33,6 +33,7 @@
 #include "property.h"
 #include "consts.h"
 #include "tskmon.h"
+
 #if defined(HIJACK_CACHE_HACK)
 #include "cache_hacks.h"
 #endif
@@ -41,6 +42,8 @@
 #include "reloc.h"
 
 #include "ml-cbr.h"
+
+#include "crop-mode-hack.h"
 
 #if defined(FEATURE_GPS_TWEAKS)
 #include "gps.h"
@@ -501,7 +504,11 @@ static void my_big_init_task()
     config_load();
     
     debug_init_stuff();
-
+    
+#ifdef FEATURE_CROP_MODE_HACK
+    if (get_config_var("movie.crop.mode")) movie_crop_hack_enable();
+#endif
+    
     #ifdef FEATURE_GPS_TWEAKS
     gps_tweaks_startup_hook();
     #endif
