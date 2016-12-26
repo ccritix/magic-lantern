@@ -94,7 +94,7 @@ void crop_mode_hack_init()
     menu_add( "Movie", crop_hack_menus, COUNT(crop_hack_menus) );
     
     config_load();
-    if (get_config_var("movie.crop.mode"))
+    if (movie_crop_mode)
     {
         movie_crop_hack_enable();
     }
