@@ -1,8 +1,6 @@
 #include "dryos.h"
-
 #include "menu.h"
 #include "property.h"
-
 #include "crop-mode-hack.h"
 #include "config.h"
 
@@ -35,7 +33,6 @@ unsigned int movie_crop_hack_enable()
     video_mode[0] = 0xc;
     video_mode[4] = 2;
     prop_request_change(PROP_VIDEO_MODE, video_mode, 0);
-    movie_crop_mode = 1;
     return 1;
 }
 
@@ -47,7 +44,6 @@ unsigned int movie_crop_hack_disable() {
     video_mode[0] = 0;
     video_mode[4] = 0;
     prop_request_change(PROP_VIDEO_MODE, video_mode, 0);
-    movie_crop_mode = 0;
     return 1;
 }
 
@@ -59,10 +55,12 @@ static void movie_crop_hack_toggle(void* priv, int sign)
         if(!video_mode_crop) 
         {
             movie_crop_hack_enable();
+            movie_crop_mode = 1;
         } 
         else 
         {
             movie_crop_hack_disable();
+            movie_crop_mode = 0;
         }
     }
 }
@@ -94,6 +92,12 @@ static struct menu_entry crop_hack_menus[] = {
 void crop_mode_hack_init()
 {
     menu_add( "Movie", crop_hack_menus, COUNT(crop_hack_menus) );
+    
+    config_load();
+    if (get_config_var("movie.crop.mode"))
+    {
+        movie_crop_hack_enable();
+    }
 }
 
 INIT_FUNC(__FILE__, crop_mode_hack_init);

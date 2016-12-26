@@ -43,8 +43,6 @@
 
 #include "ml-cbr.h"
 
-#include "crop-mode-hack.h"
-
 #if defined(FEATURE_GPS_TWEAKS)
 #include "gps.h"
 #endif
@@ -504,10 +502,6 @@ static void my_big_init_task()
     config_load();
     
     debug_init_stuff();
-    
-#ifdef FEATURE_CROP_MODE_HACK
-    if (get_config_var("movie.crop.mode")) movie_crop_hack_enable();
-#endif
     
     #ifdef FEATURE_GPS_TWEAKS
     gps_tweaks_startup_hook();
