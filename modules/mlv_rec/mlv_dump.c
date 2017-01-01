@@ -115,6 +115,58 @@ enum bug_id
 
 int batch_mode = 0;
 
+void set_unique_camera_name(mlv_idnt_hdr_t *idnt_hdr)
+{
+    switch(idnt_hdr->cameraModel)
+    {
+        case 0x80000285:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 5D Mark III", 32);
+            break;
+        case 0x80000218:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 5D Mark II", 32);
+            break;
+        case 0x80000302:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 6D", 32);
+            break;
+        case 0x80000250:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 7D", 32);
+            break;
+        case 0x80000325:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 70D", 32);
+            break;
+        case 0x80000287:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 60D", 32);
+            break;
+        case 0x80000261:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 50D", 32);
+            break;
+        case 0x80000326:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 700D", 32);
+            break;
+        case 0x80000301:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 650D", 32);
+            break;
+        case 0x80000286:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 600D", 32);
+            break;
+        case 0x80000270:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 550D", 32);
+            break;
+        case 0x80000252:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 500D", 32);
+            break;
+        case 0x80000288:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 1100D", 32);
+            break;
+        case 0x80000331:
+            memcpy(idnt_hdr->cameraName, "Canon EOS M", 32);
+            break;
+        case 0x80000346:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 100D", 32);
+            break;
+    }
+}
+
 void print_msg(uint32_t type, const char* format, ... )
 {
     va_list args;
@@ -2598,6 +2650,7 @@ read_headers:
                             dng_set_lensmodel((char*)lens_info.lensName);
                             dng_set_focal(lens_info.focalLength, 1);
                             dng_set_iso(expo_info.isoValue);
+                            set_unique_camera_name(&idnt_info);
 
                             //dng_set_wbgain(1024, wbal_info.wbgain_r, 1024, wbal_info.wbgain_g, 1024, wbal_info.wbgain_b);
 
