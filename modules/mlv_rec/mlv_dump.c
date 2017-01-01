@@ -1087,9 +1087,6 @@ int main (int argc, char *argv[])
     /* long options */
     int chroma_smooth_method = 0;
     int black_fix = 0;
-    enum bug_id fix_bug = BUG_ID_NONE;
-    int fix_bug_1_offset = 0;
-    int fix_bug_2_offset = 0;
     int dng_output = 0;
     int dump_xrefs = 0;
     int fix_cold_pixels = 1;
@@ -1130,29 +1127,8 @@ int main (int argc, char *argv[])
         switch (opt)
         {
             case 'F':
-                if(!optarg)
-                {
-                    print_msg(MSG_ERROR, "Error: Missing bug ID\n");
-                    print_msg(MSG_ERROR, "    #1 - fix invalid block sizes\n");
-                    return ERR_PARAM;
-                }
-                else
-                {
-                    fix_bug = MIN(16384, MAX(1, atoi(optarg)));
-                    print_msg(MSG_INFO, "FIX BUG #%d [active]\n", fix_bug);
-                    
-                    if(fix_bug == BUG_ID_FRAMEDATA_MISALIGN)
-                    {
-                        char *parm = strchr(optarg, ',');
-                        if(parm && *parm)
-                        {
-                            parm++;
-                            fix_bug_2_offset = MIN(16384, MAX(-16384, atoi(parm)));
-                            print_msg(MSG_INFO, "FIX BUG #%d [active] parameter: %d\n", fix_bug, fix_bug_2_offset);
-                        }
-                    }
-                }
-                break;
+                print_msg(MSG_ERROR, "Error: No bug fix options supported in this version\n");
+                return ERR_PARAM;
               
             case 'B':
                 if(!optarg)
@@ -1402,7 +1378,13 @@ int main (int argc, char *argv[])
     {
         print_msg(MSG_INFO, "   - altering FPS metadata for %d/1000 fps\n", alter_fps);
     }
-
+    
+    /* force 14bpp output for DNG code */
+    if(dng_output)
+    {
+        bit_depth = 14;
+    }
+    
     /* special case - splitting into frames doesnt require a specific output file */
     if(dng_output && !output_filename)
     {
@@ -1597,7 +1579,7 @@ int main (int argc, char *argv[])
         if(block_xref)
         {
             print_msg(MSG_INFO, "XREF table contains %d entries\n", block_xref->entryCount);
-            xrefs = (mlv_xref_t *)((uint32_t)block_xref + sizeof(mlv_xref_hdr_t));
+            xrefs = (mlv_xref_t *)(block_xref + 1);
 
             if(dump_xrefs)
             {
@@ -1687,7 +1669,7 @@ int main (int argc, char *argv[])
     }
 
     print_msg(MSG_INFO, "Processing...\n");
-    uint64_t position_previous = 0;
+    
     do
     {
         mlv_hdr_t buf;
@@ -1742,11 +1724,8 @@ read_headers:
         /* unexpected block header size? */
         if(buf.blockSize < sizeof(mlv_hdr_t) || buf.blockSize > 50 * 1024 * 1024)
         {
-            if(!fix_bug)
-            {
-                print_msg(MSG_ERROR, "Invalid block size at position 0x%08" PRIx64 "\n", position);
-                goto abort;
-            }
+            print_msg(MSG_ERROR, "Invalid block size at position 0x%08" PRIx64 "\n", position);
+            goto abort;
         }
 
         /* file header */
@@ -2074,24 +2053,10 @@ read_headers:
                     int decompress = compressed && decompress_output;
 
                     int frame_size = block_hdr.blockSize - sizeof(mlv_vidf_hdr_t) - block_hdr.frameSpace;
-                    int prev_frame_size = frame_size;
-
+                    int prev_frame_size = frame_size;                    
                     uint64_t skipSize = block_hdr.frameSpace;
-                    if(fix_bug == BUG_ID_FRAMEDATA_MISALIGN && (int)block_hdr.frameSpace >= fix_bug_2_offset)
-                    {
-                        print_msg(MSG_INFO, "BUG_ID_FRAMEDATA_MISALIGN: Offset frame data by %d byte\n", fix_bug_2_offset);
-                        skipSize -= fix_bug_2_offset;
-                    }
-                    file_set_pos(in_file, skipSize, SEEK_CUR);
                     
-                    /* we can correct that frame by fixing frame space */
-                    if(fix_bug == BUG_ID_BLOCKSIZE_WRONG && fix_bug_1_offset != 0)
-                    {
-                        print_msg(MSG_INFO, "BUG_ID_BLOCKSIZE_WRONG: Seeking %d byte\n", fix_bug_1_offset);
-                        file_set_pos(in_file, fix_bug_1_offset, SEEK_CUR);
-                        block_hdr.frameSpace += fix_bug_1_offset;
-                        fix_bug_1_offset = 0;
-                    }
+                    file_set_pos(in_file, skipSize, SEEK_CUR);
                     
                     /* check if there is enough memory for that frame */
                     if(frame_size > (int)frame_buffer_size)
@@ -2145,11 +2110,6 @@ read_headers:
                         goto abort;
                     }
 
-                    if(fix_bug == BUG_ID_FRAMEDATA_MISALIGN && (int)block_hdr.frameSpace >= fix_bug_2_offset)
-                    {
-                        file_set_pos(in_file, fix_bug_2_offset, SEEK_CUR);
-                    }
-                    
                     lua_handle_hdr_data(lua_state, buf.blockType, "_data_read", &block_hdr, sizeof(block_hdr), frame_buffer, frame_size);
 
                     if(recompress || decompress || ((raw_output || dng_output) && compressed))
@@ -2398,6 +2358,7 @@ read_headers:
                         frame_size = new_size;
                         current_depth = new_depth;
 
+                        frame_buffer = realloc(frame_buffer, frame_size);
                         memcpy(frame_buffer, new_buffer, frame_size);
                         free(new_buffer);
                     }
@@ -2554,12 +2515,27 @@ read_headers:
                             raw_info = lv_rec_footer.raw_info;
                             raw_info.frame_size = frame_size;
                             raw_info.buffer = frame_buffer;
+                            
+                            if(new_depth)
+                            {
+                                raw_info.bits_per_pixel = new_depth;
+                                if(old_depth > new_depth)
+                                {
+                                    raw_info.black_level >>= old_depth - new_depth;
+                                    raw_info.white_level >>= old_depth - new_depth;
+                                }
+                                else
+                                {
+                                    raw_info.black_level <<= new_depth - old_depth;
+                                    raw_info.white_level <<= new_depth - old_depth;
+                                }
+                            }
 
                             /* override the resolution from raw_info with the one from lv_rec_footer, if they don't match */
                             if (lv_rec_footer.xRes != raw_info.width)
                             {
                                 raw_info.width = lv_rec_footer.xRes;
-                                raw_info.pitch = raw_info.width * 14/8;
+                                raw_info.pitch = raw_info.width * raw_info.bits_per_pixel / 8;
                                 raw_info.active_area.x1 = 0;
                                 raw_info.active_area.x2 = raw_info.width;
                                 raw_info.jpeg.x = 0;
@@ -2728,14 +2704,6 @@ read_headers:
                 else
                 {
                     file_set_pos(in_file, position + block_hdr.blockSize, SEEK_SET);
-                    
-                    /* we can correct that frame by fixing frame space */
-                    if(fix_bug == BUG_ID_BLOCKSIZE_WRONG && fix_bug_1_offset != 0)
-                    {
-                        print_msg(MSG_INFO, "BUG_ID_BLOCKSIZE_WRONG: Seeking %d byte\n", fix_bug_1_offset);
-                        file_set_pos(in_file, fix_bug_1_offset, SEEK_CUR);
-                        fix_bug_1_offset = 0;
-                    }
                 }
 
                 vidf_max_number = MAX(vidf_max_number, block_hdr.frameNumber);
@@ -3186,6 +3154,49 @@ read_headers:
                     print_msg(MSG_INFO, "      cfa_pattern      0x%08X\n", block_hdr.raw_info.cfa_pattern);
                     print_msg(MSG_INFO, "      calibration_ill  %d\n", block_hdr.raw_info.calibration_illuminant1);
                 }
+            
+                int frame_size = MAX(bit_depth, block_hdr.raw_info.bits_per_pixel) * block_hdr.raw_info.height * block_hdr.raw_info.width / 8;
+                
+                frame_buffer_size = frame_size;
+                
+                /* realloc buffers */
+                frame_buffer = realloc(frame_buffer, frame_buffer_size);
+                
+                if(!frame_buffer)
+                {
+                    print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
+                    goto abort;
+                }
+                
+                if(frame_arith_buffer)
+                {
+                    frame_arith_buffer = realloc(frame_arith_buffer, frame_buffer_size * sizeof(uint32_t));
+                    if(!frame_arith_buffer)
+                    {
+                        print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
+                        goto abort;
+                    }
+                }
+                
+                if(frame_sub_buffer)
+                {
+                    frame_sub_buffer = realloc(frame_sub_buffer, frame_buffer_size);
+                    if(!frame_sub_buffer)
+                    {
+                        print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
+                        goto abort;
+                    }
+                }
+                
+                if(prev_frame_buffer)
+                {
+                    prev_frame_buffer = realloc(prev_frame_buffer, frame_buffer_size);
+                    if(!prev_frame_buffer)
+                    {
+                        print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
+                        goto abort;
+                    }
+                }
 
                 /* cache these bits when we convert to legacy or resample bit depth */
                 //if(raw_output || bit_depth)
@@ -3204,7 +3215,23 @@ read_headers:
 
                     if(bit_depth)
                     {
-                        block_hdr.raw_info.bits_per_pixel = bit_depth;
+                        int new_depth = bit_depth;
+                        int old_depth = block_hdr.raw_info.bits_per_pixel;
+                        if(new_depth != old_depth)
+                        {
+                            block_hdr.raw_info.bits_per_pixel = bit_depth;
+                            //changing bit depth changes the black and white levels
+                            if(old_depth > new_depth)
+                            {
+                                block_hdr.raw_info.black_level >>= old_depth - new_depth;
+                                block_hdr.raw_info.white_level >>= old_depth - new_depth;
+                            }
+                            else
+                            {
+                                block_hdr.raw_info.black_level <<= new_depth - old_depth;
+                                block_hdr.raw_info.white_level <<= new_depth - old_depth;
+                            }
+                        }
                     }
 
                     if(fwrite(&block_hdr, block_hdr.blockSize, 1, out_file) != 1)
@@ -3321,48 +3348,9 @@ read_headers:
             else
             {
                 print_msg(MSG_INFO, "Unknown Block: %c%c%c%c, skipping\n", buf.blockType[0], buf.blockType[1], buf.blockType[2], buf.blockType[3]);
-                
-                if(fix_bug == BUG_ID_BLOCKSIZE_WRONG)
-                {
-                    char type[5];
-                    uint32_t range = 0x80;
-                    
-                    type[4] = '\000';
-                    print_msg(MSG_INFO, "BUG_ID_BLOCKSIZE_WRONG: Invalid block at 0x%08" PRIx64 ", trying to fix it\n", position);
-                    position += range / 2;
-                    
-                    for(uint32_t offset = 0; offset < range; offset++)
-                    {
-                        file_set_pos(in_file, position, SEEK_SET);
-                        
-                        if(fread(&type, 4, 1, in_file) != 1)
-                        {
-                            print_msg(MSG_ERROR, "BUG_ID_BLOCKSIZE_WRONG: Failed to read from source file\n");
-                            goto abort;
-                        }
-                        
-                        if(!memcmp(type, "NULL", 4))
-                        {
-                            fix_bug_1_offset = -(offset - range / 2);
-                            print_msg(MSG_INFO, "BUG_ID_BLOCKSIZE_WRONG: Success, offset: %d bytes.\n", fix_bug_1_offset);
-                            file_set_pos(in_file, position_previous, SEEK_SET);
-                            position = position_previous;
-                            break;
-                        }
-                        position--;
-                    }
-                    if(memcmp(type, "NULL", 4))
-                    {
-                        print_msg(MSG_ERROR, "BUG_ID_BLOCKSIZE_WRONG: Failed to fix\n");
-                        goto abort;
-                    }
-                }
-                else
-                {
-                    file_set_pos(in_file, position + buf.blockSize, SEEK_SET);
 
-                    lua_handle_hdr(lua_state, buf.blockType, "", 0);
-                }
+                file_set_pos(in_file, position + buf.blockSize, SEEK_SET);
+                lua_handle_hdr(lua_state, buf.blockType, "", 0);
             }
         }
 
@@ -3379,8 +3367,6 @@ read_headers:
                 break;
             }
         }
-        
-        position_previous = position;
     }
     while(!feof(in_file));
 

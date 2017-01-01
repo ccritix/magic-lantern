@@ -8,9 +8,6 @@
 static struct semaphore * edmac_memcpy_sem = 0; /* to allow only one memcpy running at a time */
 static struct semaphore * edmac_read_done_sem = 0; /* to know when memcpy is finished */
 
-static struct edmac_info src_edmac_info;
-static struct edmac_info dst_edmac_info;
-
 /* pick some free (check using debug menu) EDMAC channels write: 0x00-0x06, 0x10-0x16, 0x20-0x21. read: 0x08-0x0D, 0x18-0x1D,0x28-0x2B */
 #if defined(CONFIG_5D2) || defined(CONFIG_50D)
 uint32_t edmac_read_chan = 0x19;
@@ -107,11 +104,18 @@ void edmac_memcpy_res_unlock()
 
 void* edmac_copy_rectangle_cbr_start(void* dst, void* src, int src_width, int src_x, int src_y, int dst_width, int dst_x, int dst_y, int w, int h, void (*cbr_r)(void*), void (*cbr_w)(void*), void *cbr_ctx)
 {
-    /* dmaFlags are set up for 16 bytes per transfer, and overflow checking seems to be done every 8 bytes */
-    /* widths that are not modulo 8 will cause overflow (the DMA will not stop) */
-    /* do not remove this check, or risk permanent camera bricking */
-    if (dst_width % 8)
+    /* dmaFlags: 16 (DIGIC 5) or 4 (DIGIC 4) bytes per transfer
+     * in order to successfully stop the EDMAC transfer,
+     * w * h must be mod number of bytes per transfer
+     * (not sure why it works that way, found experimentally)
+     *
+     * Do not remove this check, or risk permanent camera bricking.
+     */
+    if ((w * h) % 16)
+    {
+        printf("Invalid EDMAC output size: %d x %d (mod16 = %d)\n", w, h, (w * h) % 16);
         return 0;
+    }
 
     take_semaphore(edmac_memcpy_sem, 0);
     
@@ -141,14 +145,18 @@ void* edmac_copy_rectangle_cbr_start(void* dst, void* src, int src_width, int sr
     /* xb is width */
     /* yb is height-1 (number of repetitions) */
     /* off1b is the number of bytes to skip after every xb bytes being transferred */
-    src_edmac_info.xb = w;
-    src_edmac_info.yb = h-1;
-    src_edmac_info.off1b = src_width - w;
+    struct edmac_info src_edmac_info = {
+        .xb = w,
+        .yb = h-1,
+        .off1b = src_width - w,
+    };
     
     /* destination setup has no special cropping */
-    dst_edmac_info.xb = w;
-    dst_edmac_info.yb = h-1;
-    dst_edmac_info.off1b = dst_width - w;
+    struct edmac_info dst_edmac_info = {
+        .xb = w,
+        .yb = h-1,
+        .off1b = dst_width - w,
+    };
     
     SetEDmac(edmac_read_chan, (void*)src_adjusted, &src_edmac_info, dmaFlags);
     SetEDmac(edmac_write_chan, (void*)dst_adjusted, &dst_edmac_info, dmaFlags);
@@ -388,6 +396,9 @@ uint32_t raw_write_chan = 1;
 uint32_t raw_write_chan = 4;
 #endif
 
+#if defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM) || defined(CONFIG_6D)
+uint32_t raw_write_chan = 0x12;
+#endif
 
 static void edmac_slurp_complete_cbr (void* ctx)
 {
@@ -401,7 +412,13 @@ static void edmac_slurp_complete_cbr (void* ctx)
 void edmac_raw_slurp(void* dst, int w, int h)
 {
     /* see wiki, register map, EDMAC what the flags mean. they are for setting up copy block size */
+#if defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM)
+    uint32_t dmaFlags = 0x20000000;
+#elif defined(CONFIG_6D)
+	uint32_t dmaFlags = 0x40000000;
+#else
     uint32_t dmaFlags = 0x20001000;
+#endif
     
     /* @g3gg0: this callback does get called */
     RegisterEDmacCompleteCBR(raw_write_chan, &edmac_slurp_complete_cbr, 0);
@@ -413,9 +430,10 @@ void edmac_raw_slurp(void* dst, int w, int h)
     
     /* xb is width */
     /* yb is height-1 (number of repetitions) */
-    static struct edmac_info dst_edmac_info;
-    dst_edmac_info.xb = w;
-    dst_edmac_info.yb = h-1;
+    struct edmac_info dst_edmac_info = {
+        .xb = w,
+        .yb = h-1,
+    };
     
     SetEDmac(raw_write_chan, (void*)dst, &dst_edmac_info, dmaFlags);
     
