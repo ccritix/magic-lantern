@@ -19,3 +19,4 @@ ML_MODULES_DYNAMIC ?= \
 	selftest \
 	adv_int \
 	crop_rec \
+	raw_twk \
