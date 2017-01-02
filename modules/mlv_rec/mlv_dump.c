@@ -31,7 +31,7 @@
 #include <time.h>
 
 /* dng related headers */
-#include <chdk-dng.h>
+#include "../dng/dng.h"
 #include "../dual_iso/wirth.h"  /* fast median, generic implementation (also kth_smallest) */
 #include "../dual_iso/optmed.h" /* fast median for small common array sizes (3, 7, 9...) */
 
@@ -114,6 +114,108 @@ enum bug_id
 };
 
 int batch_mode = 0;
+
+void set_unique_camera_name(mlv_idnt_hdr_t *idnt_hdr)
+
+{
+
+    switch(idnt_hdr->cameraModel)
+
+    {
+
+        case 0x80000285:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 5D Mark III", 32);
+
+            break;
+
+        case 0x80000218:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 5D Mark II", 32);
+
+            break;
+
+        case 0x80000302:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 6D", 32);
+
+            break;
+
+        case 0x80000250:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 7D", 32);
+
+            break;
+
+        case 0x80000325:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 70D", 32);
+
+            break;
+
+        case 0x80000287:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 60D", 32);
+
+            break;
+
+        case 0x80000261:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 50D", 32);
+
+            break;
+
+        case 0x80000326:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 700D", 32);
+
+            break;
+
+        case 0x80000301:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 650D", 32);
+
+            break;
+
+        case 0x80000286:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 600D", 32);
+
+            break;
+
+        case 0x80000270:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 550D", 32);
+
+            break;
+
+        case 0x80000252:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 500D", 32);
+
+            break;
+
+        case 0x80000288:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 1100D", 32);
+
+            break;
+
+        case 0x80000331:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS M", 32);
+
+            break;
+
+        case 0x80000346:
+
+            memcpy(idnt_hdr->cameraName, "Canon EOS 100D", 32);
+
+            break;
+
+    }
+
+}
 
 void print_msg(uint32_t type, const char* format, ... )
 {
@@ -2501,35 +2603,63 @@ read_headers:
                         }
 
                         if(dng_output)
+
                         {
+
                             void fix_vertical_stripes();
+
                             void find_and_fix_cold_pixels(int force_analysis);
+
                             extern struct raw_info raw_info;
 
+                            extern void* raw_info_buffer;
+
+
                             int frame_filename_len = strlen(output_filename) + 32;
+
                             char *frame_filename = malloc(frame_filename_len);
+
                             snprintf(frame_filename, frame_filename_len, "%s%06d.dng", output_filename, block_hdr.frameNumber);
+
 
                             lua_handle_hdr_data(lua_state, buf.blockType, "_data_write_dng", &block_hdr, sizeof(block_hdr), frame_buffer, frame_size);
 
+
                             raw_info = lv_rec_footer.raw_info;
+
                             raw_info.frame_size = frame_size;
-                            raw_info.buffer = frame_buffer;
-                            
+
+                            raw_info_buffer = frame_buffer;
+
+
                             if(new_depth)
+
                             {
+
                                 raw_info.bits_per_pixel = new_depth;
+
                                 if(old_depth > new_depth)
+
                                 {
+
                                     raw_info.black_level >>= old_depth - new_depth;
+
                                     raw_info.white_level >>= old_depth - new_depth;
+
                                 }
+
                                 else
+
                                 {
+
                                     raw_info.black_level <<= new_depth - old_depth;
+
                                     raw_info.white_level <<= new_depth - old_depth;
+
                                 }
+
                             }
+
 
                             /* override the resolution from raw_info with the one from lv_rec_footer, if they don't match */
                             if (lv_rec_footer.xRes != raw_info.width)
@@ -2566,66 +2696,111 @@ read_headers:
                             chroma_smooth(chroma_smooth_method, &raw_info);
 
                             /* set MLV metadata into DNG tags */
-                            dng_set_framerate_rational(main_header.sourceFpsNom, main_header.sourceFpsDenom);
-                            dng_set_shutter(1, (int)(1000000.0f/(float)expo_info.shutterValue));
-                            dng_set_aperture(lens_info.aperture, 100);
-                            dng_set_camname((char*)idnt_info.cameraName);
-                            dng_set_description((char*)info_string);
-                            dng_set_lensmodel((char*)lens_info.lensName);
-                            dng_set_focal(lens_info.focalLength, 1);
-                            dng_set_iso(expo_info.isoValue);
 
-                            //dng_set_wbgain(1024, wbal_info.wbgain_r, 1024, wbal_info.wbgain_g, 1024, wbal_info.wbgain_b);
+                            struct dng_info dng_info;
+
+                            struct lens_info dng_lens_info;
+
+                            dng_info.raw_info = &raw_info;
+
+                            dng_info.lens_info = &dng_lens_info;
+
+                            
+
+                            dng_info.xRes = video_xRes;
+
+                            dng_info.yRes = video_yRes;
+
+
+                            dng_info.frame_number = last_vidf.frameNumber;
+
+                            dng_info.fps_numerator = main_header.sourceFpsNom;
+
+                            dng_info.fps_denominator = main_header.sourceFpsDenom;
+
+                            dng_info.shutter = (uint32_t)expo_info.shutterValue;
+
+                            set_unique_camera_name(&idnt_info);
+
+                            strncpy(dng_info.camera_name, (char*)idnt_info.cameraName, 32);
+
+                            dng_lens_info.aperture = lens_info.aperture;
+
+                            strncpy(dng_lens_info.name, (char*)lens_info.lensName, 32);
+
+                            dng_lens_info.focal_len = lens_info.focalLength;
+
+                            dng_lens_info.focus_dist = lens_info.focalDist;
+
+                            dng_lens_info.iso = expo_info.isoValue;
+
+                            
+
+                            dng_lens_info.wb_mode = wbal_info.wb_mode;
+
+                            dng_lens_info.kelvin = wbal_info.kelvin;
+
+                            dng_lens_info.WBGain_R = wbal_info.wbgain_r;
+
+                            dng_lens_info.WBGain_G = wbal_info.wbgain_g;
+
+                            dng_lens_info.WBGain_B = wbal_info.wbgain_b;
+
+                            dng_lens_info.wbs_gm = wbal_info.wbs_gm;
+
+                            dng_lens_info.wbs_ba = wbal_info.wbs_ba;
+
+                            
 
                             /* calculate the time this frame was taken at, i.e., the start time + the current timestamp. this can be off by a second but it's better than nothing */
+
                             int ms = 0.5 + buf.timestamp / 1000.0;
+
                             int sec = ms / 1000;
+
                             ms %= 1000;
+
                             // FIXME: the struct tm doesn't have tm_gmtoff on Linux so the result might be wrong?
+
                             struct tm tm;
+
                             tm.tm_sec = rtci_info.tm_sec + sec;
+
                             tm.tm_min = rtci_info.tm_min;
+
                             tm.tm_hour = rtci_info.tm_hour;
+
                             tm.tm_mday = rtci_info.tm_mday;
+
                             tm.tm_mon = rtci_info.tm_mon;
+
                             tm.tm_year = rtci_info.tm_year;
+
                             tm.tm_wday = rtci_info.tm_wday;
+
                             tm.tm_yday = rtci_info.tm_yday;
+
                             tm.tm_isdst = rtci_info.tm_isdst;
 
-                            if(mktime(&tm) != -1)
-                            {
-                                char datetime_str[32];
-                                char subsec_str[8];
-                                strftime(datetime_str, 20, "%Y:%m:%d %H:%M:%S", &tm);
-                                snprintf(subsec_str, sizeof(subsec_str), "%03d", ms);
-                                dng_set_datetime(datetime_str, subsec_str);
-                            }
-                            else
-                            {
-                                // soemthing went wrong. let's proceed anyway
-                                print_msg(MSG_ERROR, "VIDF: [W] Failed calculating the DateTime from the timestamp\n");
-                                dng_set_datetime("", "");
-                            }
+                            dng_info.tm = &tm;
 
+                            
 
-                            uint64_t serial = 0;
-                            char *end;
-                            serial = strtoull((char *)idnt_info.cameraSerial, &end, 16);
-                            if (serial && !*end)
-                            {
-                                char serial_str[64];
+                            strncpy(dng_info.camera_serial, (char*)idnt_info.cameraSerial, 32);
 
-                                sprintf(serial_str, "%"PRIu64, serial);
-                                dng_set_camserial((char*)serial_str);
-                            }
 
                             /* finally save the DNG */
-                            if(!save_dng(frame_filename, &raw_info))
+
+                            if(!dng_save(frame_filename, frame_buffer, &dng_info))
+
                             {
+
                                 print_msg(MSG_ERROR, "VIDF: Failed writing into .DNG file\n");
+
                                 goto abort;
+
                             }
+
 
                             /* callout for a saved dng file */
                             lua_call_va(lua_state, "dng_saved", "si", frame_filename, block_hdr.frameNumber);
