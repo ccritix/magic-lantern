@@ -75,6 +75,9 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     
     //~ char* classname = dm_names[class]; /* not working, some names are gibberish; todo: check for printable characters? */
     
+    /* can be replaced with get_us_clock_value, with a slightly higher overhead */
+    uint32_t us_timer = MEM(0xC0242014);
+
     char* task_name = get_current_task_name();
     
     /* Canon's vsnprintf doesn't know %20s */
@@ -82,8 +85,8 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     int spaces = 10 - strlen(task_name);
     if (spaces < 0) spaces = 0;
     snprintf(task_name_padded + spaces, 11 - spaces, "%s", task_name);
-    
-    len += snprintf( buf+len, MIN(50, buf_size-len), "%s:%08x:%02x:%02x: ", task_name_padded, lr-4, class, level );
+
+    len += snprintf( buf+len, buf_size-len, "%05X> %s:%08x:%02x:%02x: ", us_timer, task_name_padded, lr-4, class, level );
 
     va_start( ap, fmt );
     len += vsnprintf( buf+len, buf_size-len-1, fmt, ap );
