@@ -658,20 +658,21 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
     double rawH = dng_info->raw_info->active_area.y2 - dng_info->raw_info->active_area.y1;
     double aspect_ratio = rawW / rawH;
     //check the aspect ratio of the original raw buffer, if it's > 2 and we're not in crop mode, then this is probably squeezed footage
-    //TODO: can we be more precise about detecting this?
-    if(aspect_ratio > 2.5)
-    {
-        // 5x3 line skpping
-        par[2] = 5; par[3] = 3;
-        focal_resolution_x[1] = focal_resolution_x[1] * 3;
-        focal_resolution_y[1] = focal_resolution_y[1] * 5;
-    }
-    //if the width is larger than 2000, we're probably not in crop mode
-    //TODO: this may not be the safest assumption, esp. if adtg control of sensor resolution/crop is implemented, currently it is true for all ML cameras
-    else if(rawW < 2000)
-    {
-        focal_resolution_y[1] = focal_resolution_y[1] * 3;
-    }
+        //TODO: can we be more precise about detecting this?
+        if(aspect_ratio > 2.0 && rawH <= 720)
+        {
+            // 5x3 line skpping
+            par[2] = 5; par[3] = 3;
+            focal_resolution_x[1] = focal_resolution_x[1] * 3;
+            focal_resolution_y[1] = focal_resolution_y[1] * 5;
+        }
+        //if the width is larger than 2000, we're probably not in crop mode
+        //TODO: this may not be the safest assumption, esp. if adtg control of sensor resolution/crop is implemented, currently it is true for all ML cameras
+        else if(rawW < 2000)
+        {
+            focal_resolution_x[1] = focal_resolution_x[1] * 3;
+            focal_resolution_y[1] = focal_resolution_y[1] * 3;
+        }
     
     //we get the active area of the original raw source, not the recorded data, so overwrite the active area if the recorded data does
     //not contain the OB areas
