@@ -440,11 +440,19 @@ static int raw_lv_get_resolution(int* width, int* height)
     (void)mv640; (void)mv720; (void)mv1080; (void)mv640; (void)mv1080crop; (void)mv640crop; (void)zoom;
 
     #ifdef CONFIG_5D3
-    /* don't know how to get the resolution without relying on Canon's lv_save_raw */
-    *width  = zoom ? 3744 : mv720 ? 2080 : 2080;
-    *height = zoom ? 1380 : mv720 ?  692 : 1318;    /* height must be exact! copy it from Debug->EDMAC */
+    /*
+     * from adtg_gui.c:
+     * {0xC0F0,   0x6800, 0, "RAW first line|column. Column is / 8 on 5D3 (parallel readout?)"},
+     * {0xC0F0,   0x6804, 0, "RAW last line|column. 5D3: f6e|2fe, first 1|18 => 5936x3950"},
+     */
+    uint32_t top_left = shamem_read(0xC0F06800);
+    uint32_t bot_right = shamem_read(0xC0F06804);
+    *width  = ((bot_right & 0xFFFF) - (top_left & 0xFFFF)) * 8; /* 2080 in 1080p */
+    *height = (bot_right >> 16) - (top_left >> 16) - 1;         /* 1318 in 1080p */
     return 1;
     #endif
+
+    /* don't know how to get the resolution without relying on Canon's lv_save_raw */
 
     #ifdef CONFIG_60D
     *width  = zoom ? 2520 : mv640crop ? 920 : mv720 || mv640 ? 1888 : 1888;
@@ -752,6 +760,12 @@ static int raw_update_params_work()
 
 
 /*********************** Portable code ****************************************/
+
+    /* skip offsets must be even */
+    skip_left   &= ~1;
+    skip_right  &= ~1;
+    skip_top    &= ~1;
+    skip_bottom &= ~1;
 
     if (width != raw_info.width || height != raw_info.height)
     {
@@ -1639,10 +1653,8 @@ static void FAST raw_preview_color_work(void* raw_buffer, void* lv_buffer, int y
         gamma_g[i]  = COERCE(g_g  * g_g  / 255, 0, 255); /* (it's like a nonlinear curve applied on top of log) */
     }
     
-    int x1 = BM2LV_X(os.x0);
-    int x2 = BM2LV_X(os.x_max);
-    x1 = MAX(x1, RAW2LV_X(MAX(raw_info.active_area.x1, preview_rect_x)));
-    x2 = MIN(x2, RAW2LV_X(MIN(raw_info.active_area.x2, preview_rect_x + preview_rect_w)));
+    int x1 = COERCE(RAW2LV_X(preview_rect_x), 0, vram_lv.width);
+    int x2 = COERCE(RAW2LV_X(preview_rect_x + preview_rect_w), 0, vram_lv.width);
     if (x2 < x1) return;
 
     /* cache the LV to RAW transformation for the inner loop to make it faster */
@@ -1658,11 +1670,10 @@ static void FAST raw_preview_color_work(void* raw_buffer, void* lv_buffer, int y
     {
         int yr = LV2RAW_Y(y) & ~1;
 
-        /* on HDMI screens, BM2LV_DX() may get negative */
-        if((yr <= preview_rect_y || yr >= preview_rect_y + preview_rect_h) && BM2LV_DX(x2-x1) > 0)
+        if (yr <= preview_rect_y || yr >= preview_rect_y + preview_rect_h)
         {
             /* out of range, just fill with black */
-            memset(&lv32[LV(0,y)/4], 0, BM2LV_DX(x2-x1)*2);
+            memset(&lv32[LV(0,y)/4], 0, x2-x1);
             continue;
         }
 
@@ -1731,10 +1742,8 @@ static void FAST raw_preview_fast_work(void* raw_buffer, void* lv_buffer, int y1
         gamma[i] = g * g / 255; /* idk, looks better this way */
     }
     
-    int x1 = BM2LV_X(os.x0);
-    int x2 = BM2LV_X(os.x_max);
-    x1 = MAX(x1, RAW2LV_X(MAX(raw_info.active_area.x1, preview_rect_x)));
-    x2 = MIN(x2, RAW2LV_X(MIN(raw_info.active_area.x2, preview_rect_x + preview_rect_w)));
+    int x1 = COERCE(RAW2LV_X(preview_rect_x), 0, vram_lv.width);
+    int x2 = COERCE(RAW2LV_X(preview_rect_x + preview_rect_w), 0, vram_lv.width);
     if (x2 < x1) return;
 
     /* cache the LV to RAW transformation for the inner loop to make it faster */
@@ -1749,11 +1758,10 @@ static void FAST raw_preview_fast_work(void* raw_buffer, void* lv_buffer, int y1
     {
         int yr = LV2RAW_Y(y) | 1;
 
-        /* on HDMI screens, BM2LV_DX() may get negative */
-        if((yr <= preview_rect_y || yr >= preview_rect_y + preview_rect_h) && BM2LV_DX(x2-x1) > 0)
+        if (yr <= preview_rect_y || yr >= preview_rect_y + preview_rect_h)
         {
             /* out of range, just fill with black */
-            memset(&lv64[LV(0,y)/8], 0, BM2LV_DX(x2-x1)*2);
+            memset(&lv64[LV(0,y)/8], 0, x2-x1);
             continue;
         }
 
