@@ -17,6 +17,7 @@
 #include "cache_hacks.h"
 #include "console.h"
 #include "edmac.h"
+#include "timer.h"
 
 /* this needs pre_isr_hook/post_isr_hook stubs */
 //~ #define LOG_INTERRUPTS
@@ -49,9 +50,39 @@ struct logged_func
     patch_hook_function_cbr log_func;           /* if generic_log is not enough, you may use a custom logging function */
 };
 
+/* helper to get a function address directly from stubs */
+#define STUB_ENTRY(name, ...) { (uint32_t) &name, #name, ## __VA_ARGS__ }
+
 static struct logged_func logged_functions[] = {
     /* dummy entry, just to check cache conflicts */
     { (uint32_t) &DryosDebugMsg, "DebugMsg" },
+
+    /* some common DIGIC V functions that are usually in RAM */
+#ifdef CONFIG_DIGIC_V
+    STUB_ENTRY(task_create, 5),
+    STUB_ENTRY(msleep, 1),
+
+    STUB_ENTRY(take_semaphore, 2),
+    STUB_ENTRY(give_semaphore, 1),
+    STUB_ENTRY(msg_queue_post, 2),
+    STUB_ENTRY(msg_queue_receive, 3),
+
+    STUB_ENTRY(ConnectReadEDmac, 2),
+    STUB_ENTRY(ConnectWriteEDmac, 2),
+    STUB_ENTRY(RegisterEDmacCompleteCBR, 3),
+    STUB_ENTRY(SetEDmac, 4),
+    STUB_ENTRY(StartEDmac, 2, start_edmac_log),
+    STUB_ENTRY(AbortEDmac, 1),
+
+#ifdef CONFIG_DMA_MEMCPY
+    STUB_ENTRY(dma_memcpy, 3),
+#endif
+
+    STUB_ENTRY(SetTimerAfter, 4),
+    STUB_ENTRY(SetHPTimerAfterNow, 4),
+    STUB_ENTRY(SetHPTimerNextTick, 4),
+    STUB_ENTRY(CancelTimer, 1),
+#endif
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
     #ifdef CONFIG_5D2
@@ -254,12 +285,6 @@ static struct logged_func logged_functions[] = {
     { 0x17d54, "TryPostEvent", 5 },
     { 0x17674, "TryPostStageEvent", 5 },
 
-    { 0x12768, "ConnectReadEDmac", 2 },
-    { 0x126a4, "ConnectWriteEDmac", 2 },
-    { 0x12afc, "RegisterEDmacCompleteCBR", 3 },
-    { 0x125f8, "SetEDmac", 4 },
-    { 0x12910, "StartEDmac", 2, start_edmac_log },
-
     { 0x4588, "SetTgNextState", 2 },
     { 0x7218, "SetHPTimerAfter", 4 },
     
@@ -270,12 +295,6 @@ static struct logged_func logged_functions[] = {
     { 0x178ec, "StateTransition", 4 , state_transition_log },
     { 0x17d54, "TryPostEvent", 5 },
     { 0x17674, "TryPostStageEvent", 5 },
-
-    { 0x12768, "ConnectReadEDmac", 2 },
-    { 0x126a4, "ConnectWriteEDmac", 2 },
-    { 0x12afc, "RegisterEDmacCompleteCBR", 3 },
-    { 0x125f8, "SetEDmac", 4 },
-    { 0x12910, "StartEDmac", 2, start_edmac_log },
     
     { 0x83b8, "register_interrupt", 4, register_interrupt_log },
     { 0xff3aa650, "set_digital_gain_maybe", 3 },
