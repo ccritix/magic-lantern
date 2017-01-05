@@ -114,6 +114,18 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 //~ #define DEFAULT_RAW_BUFFER MEM(0x25f1c + 0x34)  /* 123 */
 #endif
 
+#ifdef CONFIG_650D
+#define DEFAULT_RAW_BUFFER MEM(0x25B00 + 0x3C)
+#endif
+
+#ifdef CONFIG_700D
+#define DEFAULT_RAW_BUFFER MEM(0x25B0C + 0x3C)
+#endif
+
+#ifdef CONFIG_EOSM
+#define DEFAULT_RAW_BUFFER MEM(0x404E4 + 0x44)
+#endif
+
 #else
 
 /* with Canon lv_save_raw, just read it from EDMAC */
@@ -153,6 +165,12 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
  * see also http://www.magiclantern.fm/forum/index.php?topic=5614.msg39696#msg39696
  */
 
+#ifdef CONFIG_DIGIC_V
+#define RAW_TYPE_REGISTER 0xC0F37014
+#else
+#define RAW_TYPE_REGISTER 0xC0F08114    /* PACK32_ISEL */
+#endif
+
 #ifdef CONFIG_5D3
 /**
  * Renato [http://www.magiclantern.fm/forum/index.php?topic=5614.msg41070#msg41070]:
@@ -167,7 +185,6 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
  * note: values are off by 1
  */
 #define PREFERRED_RAW_TYPE 16
-#define RAW_TYPE_ADDRESS 0x2D168
 #endif
 
 /**
@@ -177,15 +194,16 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
  * http://www.magiclantern.fm/forum/index.php?topic=6658.0
  */
 
+#ifdef CONFIG_60D
+#define PREFERRED_RAW_TYPE 5
+#endif
 /*
 #ifdef CONFIG_700D
 #define PREFERRED_RAW_TYPE 78
-#define RAW_TYPE_ADDRESS 0x351B8
 #endif
 
 #ifdef CONFIG_650D
 #define PREFERRED_RAW_TYPE 78
-#define RAW_TYPE_ADDRESS 0x350B4
 #endif
 */
 
@@ -413,11 +431,19 @@ static int raw_lv_get_resolution(int* width, int* height)
     (void)mv640; (void)mv720; (void)mv1080; (void)mv640; (void)mv1080crop; (void)mv640crop; (void)zoom;
 
     #ifdef CONFIG_5D3
-    /* don't know how to get the resolution without relying on Canon's lv_save_raw */
-    *width  = zoom ? 3744 : mv720 ? 2080 : 2080;
-    *height = zoom ? 1380 : mv720 ?  692 : 1318;    /* height must be exact! copy it from Debug->EDMAC */
+    /*
+     * from adtg_gui.c:
+     * {0xC0F0,   0x6800, 0, "RAW first line|column. Column is / 8 on 5D3 (parallel readout?)"},
+     * {0xC0F0,   0x6804, 0, "RAW last line|column. 5D3: f6e|2fe, first 1|18 => 5936x3950"},
+     */
+    uint32_t top_left = shamem_read(0xC0F06800);
+    uint32_t bot_right = shamem_read(0xC0F06804);
+    *width  = ((bot_right & 0xFFFF) - (top_left & 0xFFFF)) * 8; /* 2080 in 1080p */
+    *height = (bot_right >> 16) - (top_left >> 16) - 1;         /* 1318 in 1080p */
     return 1;
     #endif
+
+    /* don't know how to get the resolution without relying on Canon's lv_save_raw */
 
     #ifdef CONFIG_60D
     *width  = zoom ? 2520 : mv640crop ? 920 : mv720 || mv640 ? 1888 : 1888;
@@ -428,6 +454,18 @@ static int raw_lv_get_resolution(int* width, int* height)
     #ifdef CONFIG_600D
     *width  = zoom ? 2520 : mv1080crop ? 1952 : mv720  ? 1888 : 1888;
     *height = zoom ? 1106 : mv1080crop ? 1048 : mv720  ?  720 : 1182;
+    return 1;
+    #endif
+    
+    #if defined(CONFIG_650D) || defined(CONFIG_700D)
+    *width  = zoom ? 2592 : mv1080crop ? 1872 : mv720  ? 1808 : 1808;
+    *height = zoom ? 1108 : mv1080crop ? 1060 : mv720  ?  720 : 1190;
+    return 1;
+    #endif
+
+    #ifdef CONFIG_EOSM
+    *width  = video_mode_crop ? 1872 : 1808;
+    *height = video_mode_crop ? 1060 : 727;
     return 1;
     #endif
 
@@ -964,7 +1002,7 @@ void raw_set_geometry(int width, int height, int skip_left, int skip_right, int 
 {
     raw_info.width = width;
     raw_info.height = height;
-    raw_info.pitch = raw_info.width * 14 / 8;
+    raw_info.pitch = raw_info.width * raw_info.bits_per_pixel / 8;
     raw_info.frame_size = raw_info.height * raw_info.pitch;
     raw_info.active_area.x1 = skip_left;
     raw_info.active_area.y1 = skip_top;
@@ -1526,9 +1564,7 @@ void FAST raw_lv_vsync()
     {
         #ifdef PREFERRED_RAW_TYPE
         /* this needs to be set for every single frame */
-        uint32_t raw_type_register = MEM(RAW_TYPE_ADDRESS-4);
-        ASSERT(raw_type_register == 0xC0F08114 || raw_type_register == 0xC0F37014);
-        EngDrvOut(raw_type_register, lv_raw_type);
+        EngDrvOut(RAW_TYPE_REGISTER, lv_raw_type);
         #endif
 
         /* pull the raw data into "buf" */
@@ -1536,7 +1572,7 @@ void FAST raw_lv_vsync()
         int ok = raw_lv_get_resolution(&width, &height);
         if (ok)
         {
-            int pitch = width * 14/8;
+            int pitch = width * raw_info.bits_per_pixel / 8;
             edmac_raw_slurp(CACHEABLE(buf), pitch, height);
         }
     }
@@ -2064,7 +2100,8 @@ static struct menu_entry debug_menus[] = {
     {
         .name = "LV raw type",
         .priv = &lv_raw_type,
-        .max = 64,
+        .max  = 0xFFFF,
+        .unit = UNIT_HEX,
         .help = "Choose what type of raw stream we should use in LiveView.",
         .help2 = "See lv_af_raw, lv_rshd_raw, lv_set_raw, KindOfCraw...",
     },
