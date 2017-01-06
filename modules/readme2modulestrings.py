@@ -142,6 +142,7 @@ if len(last_change_info):
     split = last_change_date.split(" ")
     seconds = float(split[0])
     last_change_date = datetime.utcfromtimestamp(seconds).strftime("%Y-%m-%d %H:%M:%S UTC")
+    commit_msg = commit_msg.decode('ascii', 'ignore')
     
     # trim changeset to 7 chars, like Bitbucket does
     last_changeset = last_changeset[:7]
