@@ -40,6 +40,7 @@
 // touch events
 #define BGMT_TOUCH_1_FINGER 0x6f
 #define BGMT_UNTOUCH_1_FINGER 0x70
+#define BGMT_DRAG_1_FINGER 0x71
 #define BGMT_TOUCH_2_FINGER 0x76
 #define BGMT_UNTOUCH_2_FINGER 0x77
 #define BGMT_TOUCH_MOVE 0x71 // when one or two finger are moving
