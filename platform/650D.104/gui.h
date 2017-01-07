@@ -4,6 +4,7 @@
     // touch events
 #define BGMT_TOUCH_1_FINGER 0x6b
 #define BGMT_UNTOUCH_1_FINGER 0x6c
+#define BGMT_DRAG_1_FINGER 0x6d
 #define BGMT_TOUCH_2_FINGER 0x72
 #define BGMT_UNTOUCH_2_FINGER 0x73
 
