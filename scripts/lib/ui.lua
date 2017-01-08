@@ -139,6 +139,7 @@ end
 
 function selector:select()
     local status, error = xpcall(function()
+        self.cancel = false
         keys:start()
         menu.block(true)
         self:draw()
