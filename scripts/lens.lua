@@ -68,7 +68,7 @@ end
 
 lens_menu = menu.new
 {
-    parent = "Lens Info Prefs",
+    parent = "Lens Info/Prefs",
     name = "Manual Lens",
     help = "Info to use for attached non-chipped lens",
     icon_type = ICON_TYPE.ACTION,
