@@ -95,6 +95,7 @@ char *strdup(const char *s);
 #include "../lv_rec/lv_rec.h"
 #include "../../src/raw.h"
 #include "mlv.h"
+#include "camera_id.h"
 
 enum bug_id
 {
@@ -114,58 +115,6 @@ enum bug_id
 };
 
 int batch_mode = 0;
-
-void set_unique_camera_name(mlv_idnt_hdr_t *idnt_hdr)
-{
-    switch(idnt_hdr->cameraModel)
-    {
-        case 0x80000285:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 5D Mark III", 32);
-            break;
-        case 0x80000218:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 5D Mark II", 32);
-            break;
-        case 0x80000302:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 6D", 32);
-            break;
-        case 0x80000250:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 7D", 32);
-            break;
-        case 0x80000325:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 70D", 32);
-            break;
-        case 0x80000287:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 60D", 32);
-            break;
-        case 0x80000261:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 50D", 32);
-            break;
-        case 0x80000326:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 700D", 32);
-            break;
-        case 0x80000301:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 650D", 32);
-            break;
-        case 0x80000286:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 600D", 32);
-            break;
-        case 0x80000270:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 550D", 32);
-            break;
-        case 0x80000252:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 500D", 32);
-            break;
-        case 0x80000288:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 1100D", 32);
-            break;
-        case 0x80000331:
-            memcpy(idnt_hdr->cameraName, "Canon EOS M", 32);
-            break;
-        case 0x80000346:
-            memcpy(idnt_hdr->cameraName, "Canon EOS 100D", 32);
-            break;
-    }
-}
 
 void print_msg(uint32_t type, const char* format, ... )
 {
@@ -1146,6 +1095,8 @@ int main (int argc, char *argv[])
     int dump_xrefs = 0;
     int fix_cold_pixels = 1;
     int fix_vert_stripes = 1;
+    
+    const char * unique_camname = "";
 
     struct option long_options[] = {
         {"lua",    required_argument, NULL,  'L' },
@@ -2645,12 +2596,11 @@ read_headers:
                             dng_set_framerate_rational(main_header.sourceFpsNom, main_header.sourceFpsDenom);
                             dng_set_shutter(1, (int)(1000000.0f/(float)expo_info.shutterValue));
                             dng_set_aperture(lens_info.aperture, 100);
-                            dng_set_camname((char*)idnt_info.cameraName);
+                            dng_set_camname((char*)unique_camname);
                             dng_set_description((char*)info_string);
                             dng_set_lensmodel((char*)lens_info.lensName);
                             dng_set_focal(lens_info.focalLength, 1);
                             dng_set_iso(expo_info.isoValue);
-                            set_unique_camera_name(&idnt_info);
 
                             //dng_set_wbgain(1024, wbal_info.wbgain_r, 1024, wbal_info.wbgain_g, 1024, wbal_info.wbgain_b);
 
@@ -3090,6 +3040,15 @@ read_headers:
                     {
                         print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
                         goto abort;
+                    }
+                }
+
+                if(!strcmp(unique_camname, ""))
+                {
+                    unique_camname = get_camera_name_by_id(idnt_info.cameraModel, UNIQ);
+                    if(!strcmp(unique_camname, "Unknown Model"))
+                    {
+                        unique_camname = (const char*) idnt_info.cameraName;
                     }
                 }
             }
