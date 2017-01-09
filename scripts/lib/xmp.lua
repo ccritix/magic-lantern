@@ -25,8 +25,9 @@ xmp.template = [[
 </x:xmpmeta>
 ]]
 
-xmp.property_format = [[%s="%s"
-    ]]
+xmp.property_format = [[
+    %s="%s"
+]]
 
 -- predefined xmp properties
 xmp.lens_name = { name = "aux:Lens" }
