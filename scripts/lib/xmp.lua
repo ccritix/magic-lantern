@@ -18,15 +18,15 @@ xmp.template = [[
   <rdf:Description rdf:about=""
     xmlns:exif="http://ns.adobe.com/exif/1.0/"
     xmlns:aux="http://ns.adobe.com/exif/1.0/aux/"
-    exif:ExifVersion="0230"
-    %s>
+    exif:ExifVersion="0230"%s>
   </rdf:Description>
  </rdf:RDF>
 </x:xmpmeta>
 ]]
 
-xmp.property_format = [[%s="%s"
-    ]]
+xmp.property_format = [[
+
+    %s="%s"]]
 
 -- predefined xmp properties
 xmp.lens_name = { name = "aux:Lens" }
