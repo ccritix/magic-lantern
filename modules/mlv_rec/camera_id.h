@@ -31,7 +31,6 @@ typedef struct {
 static const camera_id_t camera_id[] = {
 	{ 0x80000213, {"Canon EOS 5D", "", ""} },
 	{ 0x80000218, {"Canon EOS 5D Mark II", "", ""} },
-	{ 0x80000236, {"Canon EOS 400D", "Canon EOS Digital Rebel XTi", "Canon EOS Kiss Digital X"} },
 	{ 0x80000250, {"Canon EOS 7D", "", ""} },
 	{ 0x80000252, {"Canon EOS 500D", "Canon EOS Rebel T1i", "Canon EOS Kiss X3"} },
 	{ 0x80000254, {"Canon EOS 1000D", "Canon EOS Rebel XS", "Canon EOS Kiss F"} },
@@ -61,7 +60,7 @@ static const camera_id_t camera_id[] = {
 };
 
 /* Get camera name by model ID and name type (UNIQ, LOC1, LOC2) */ 
-const char * get_camera_name_by_id(unsigned long model_id, int name_type)
+static const char * get_camera_name_by_id(unsigned long model_id, int name_type)
 {
 	int i = 0;
 	const char * camName = "Unknown Model";
