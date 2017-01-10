@@ -2525,6 +2525,12 @@ read_headers:
                                     raw_info.white_level >>= old_depth - new_depth;
                                 }
                                 else
+			        if(black_fix)
+                                {
+                                    raw_info.black_level <<= black_fix;
+                                    raw_info.white_level <<= new_depth - old_depth;
+                                }
+				else
                                 {
                                     raw_info.black_level <<= new_depth - old_depth;
                                     raw_info.white_level <<= new_depth - old_depth;
