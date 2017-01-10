@@ -1127,7 +1127,7 @@ void show_usage(char *executable)
 
     print_msg(MSG_INFO, "-- bugfixes --\n");
     print_msg(MSG_INFO, " --black-fix=value   set black level to <value> (fix green/magenta cast). if no value given, it will be set to 2048.\n");
-    print_msg(MSG_INFO, " --white-fix=value   set white level to <value>. if no value given, it will be set to 16384.\n");
+    print_msg(MSG_INFO, " --white-fix=value   set white level to <value>. if no value given, it will be set to 15000.\n");
     print_msg(MSG_INFO, " --fix-bug=id        fix some special bugs. *only* to be used if given instruction by developers.\n");
     print_msg(MSG_INFO, "\n");
 }
@@ -2468,8 +2468,11 @@ read_headers:
                             {
                                 uint16_t value = bitextract(src_line, x, old_depth);
 
-                                /* normalize the old value to 16 bits */
+                                /* normalize the old value to 16 bits, minimizing the roundoff error */
+                                /* assume the bit depth reduction simply discarded the lower bits */
+                                /* => we have a bias of 0.5 LSB that can be corrected here. */
                                 value <<= (16-old_depth);
+                                value += (1 << (15-old_depth));
 
                                 /* convert the old value to destination depth */
                                 value >>= (16-new_depth);
