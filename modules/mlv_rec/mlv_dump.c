@@ -1126,7 +1126,8 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, "\n");
 
     print_msg(MSG_INFO, "-- bugfixes --\n");
-    print_msg(MSG_INFO, " --black-fix=value   set black level to <value> (fix green/magenta cast)\n");
+    print_msg(MSG_INFO, " --black-fix=value   set black level to <value> (fix green/magenta cast). if no value given, it will be set to 2048.\n");
+    print_msg(MSG_INFO, " --white-fix=value   set white level to <value>. if no value given, it will be set to 16384.\n");
     print_msg(MSG_INFO, " --fix-bug=id        fix some special bugs. *only* to be used if given instruction by developers.\n");
     print_msg(MSG_INFO, "\n");
 }
@@ -1189,6 +1190,7 @@ int main (int argc, char *argv[])
     /* long options */
     int chroma_smooth_method = 0;
     int black_fix = 0;
+    int white_fix = 0;
     int dng_output = 0;
     int dump_xrefs = 0;
     int fix_cold_pixels = 1;
@@ -1197,6 +1199,7 @@ int main (int argc, char *argv[])
     struct option long_options[] = {
         {"lua",    required_argument, NULL,  'L' },
         {"black-fix",  optional_argument, NULL,  'B' },
+	{"white-fix",  optional_argument, NULL,  'W' },
         {"fix-bug",  required_argument, NULL,  'F' },
         {"batch",  no_argument, &batch_mode,  1 },
         {"dump-xrefs",   no_argument, &dump_xrefs,  1 },
@@ -1224,13 +1227,24 @@ int main (int argc, char *argv[])
     }
 
     int index = 0;
-    while ((opt = getopt_long(argc, argv, "A:F:B:L:t:xz:emnas:X:I:uvrcdo:l:b:f:", long_options, &index)) != -1)
+    while ((opt = getopt_long(argc, argv, "A:F:B:W:L:t:xz:emnas:X:I:uvrcdo:l:b:f:", long_options, &index)) != -1)
     {
         switch (opt)
         {
             case 'F':
                 print_msg(MSG_ERROR, "Error: No bug fix options supported in this version\n");
                 return ERR_PARAM;
+
+            case 'W':
+                if(!optarg)
+                {
+                    white_fix = 16384;
+                }
+                else
+                {
+                    white_fix = MIN(16384, MAX(1, atoi(optarg)));
+                }
+                break;
               
             case 'B':
                 if(!optarg)
@@ -1474,6 +1488,11 @@ int main (int argc, char *argv[])
     if(black_fix)
     {
         print_msg(MSG_INFO, "   - Setting black level to %d\n", black_fix);
+    }
+
+    if(white_fix)
+    {
+        print_msg(MSG_INFO, "   - Setting white level to %d\n", white_fix);
     }
 
     if(alter_fps)
@@ -2628,38 +2647,69 @@ read_headers:
                             if(new_depth)
                             {
                                 raw_info.bits_per_pixel = new_depth;
+                                int delta = old_depth - new_depth;
+                                int old_black = raw_info.black_level;
+                                int old_white = raw_info.white_level;
                                 
                                 /* scale down black level */
                                 if(!black_fix)
                                 {
-                                    int delta = old_depth - new_depth;
-                                    
                                     if(delta)
                                     {
-                                        print_msg(MSG_INFO, "  input black_level/white_level:      %d/%d\n", raw_info.black_level, raw_info.white_level);
                                         
                                         if(delta > 0)
                                         {
                                             raw_info.black_level >>= delta;
-                                            raw_info.white_level >>= delta;
                                         }
                                         else
                                         {
                                             raw_info.black_level <<= ABS(delta);
-                                            raw_info.white_level <<= ABS(delta);
                                         }
 
-                                        print_msg(MSG_INFO, "  scaled by %d bits due to conversion:\n", ABS(delta));
-                                        print_msg(MSG_INFO, "  output black_level/white_level:      %d/%d\n", raw_info.black_level, raw_info.white_level);
+                                        if(verbose)
+                                        {
+                                            print_msg(MSG_INFO, "   black: %d -> %d\n", old_black, raw_info.black_level);
+                                        }
                                     }
                                 }
                                 else
                                 {
                                     raw_info.black_level = black_fix;
-                                    print_msg(MSG_INFO, "  black_level      %d (hardcoded)\n", raw_info.black_level);
+                                    if(verbose)
+                                    {
+                                        print_msg(MSG_INFO, "   black: %d -> %d (forced)\n", old_black, raw_info.black_level);
+                                    }
+                                }
+                                
+                                /* scale down white level */
+                                if(!white_fix)
+                                {
+                                    if(delta)
+                                    {
+                                        if(delta > 0)
+                                        {
+                                            raw_info.white_level >>= delta;
+                                        }
+                                        else
+                                        {
+                                            raw_info.white_level <<= ABS(delta);
+                                        }
+
+                                        if(verbose)
+                                        {
+                                            print_msg(MSG_INFO, "   white: %d -> %d\n", old_white, raw_info.white_level);
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    raw_info.white_level = white_fix;
+                                    if(verbose)
+                                    {
+                                        print_msg(MSG_INFO, "   white: %d -> %d (forced)\n", old_white, raw_info.white_level);
+                                    }
                                 }
                             }
-
 
                             /* override the resolution from raw_info with the one from lv_rec_footer, if they don't match */
                             if (lv_rec_footer.xRes != raw_info.width)
@@ -3299,12 +3349,7 @@ read_headers:
 
                 /* skip remaining data, if there is any */
                 file_set_pos(in_file, position + block_hdr.blockSize, SEEK_SET);
-                
-                if(black_fix)
-                {
-                    block_hdr.raw_info.black_level = black_fix;
-                }
-                
+
                 lua_handle_hdr(lua_state, buf.blockType, &block_hdr, sizeof(block_hdr));
 
                 video_xRes = block_hdr.xRes;
@@ -3392,34 +3437,67 @@ read_headers:
                     if(new_depth)
                     {
                         block_hdr.raw_info.bits_per_pixel = new_depth;
+                        int delta = old_depth - new_depth;
+                        int old_black = block_hdr.raw_info.black_level;
+                        int old_white = block_hdr.raw_info.white_level;
                         
+                        /* scale down black level */
                         if(!black_fix)
                         {
-                            int delta = old_depth - new_depth;
-                            
                             if(delta)
                             {
-                                print_msg(MSG_INFO, "  input black_level/white_level:      %d/%d\n", block_hdr.raw_info.black_level, block_hdr.raw_info.white_level);
                                 
                                 if(delta > 0)
                                 {
                                     block_hdr.raw_info.black_level >>= delta;
-                                    block_hdr.raw_info.white_level >>= delta;
                                 }
                                 else
                                 {
                                     block_hdr.raw_info.black_level <<= ABS(delta);
-                                    block_hdr.raw_info.white_level <<= ABS(delta);
                                 }
 
-                                print_msg(MSG_INFO, "  scaled by %d bits due to conversion:\n", ABS(delta));
-                                print_msg(MSG_INFO, "  output black_level/white_level:      %d/%d\n", block_hdr.raw_info.black_level, block_hdr.raw_info.white_level);
+                                if(verbose)
+                                {
+                                    print_msg(MSG_INFO, "   black: %d -> %d\n", old_black, block_hdr.raw_info.black_level);
+                                }
                             }
                         }
                         else
                         {
                             block_hdr.raw_info.black_level = black_fix;
-                            print_msg(MSG_INFO, "  black_level      %d (hardcoded)\n", block_hdr.raw_info.black_level);
+                            if(verbose)
+                            {
+                                print_msg(MSG_INFO, "   black: %d -> %d (forced)\n", old_black, block_hdr.raw_info.black_level);
+                            }
+                        }
+                        
+                        /* scale down white level */
+                        if(!white_fix)
+                        {
+                            if(delta)
+                            {
+                                if(delta > 0)
+                                {
+                                    block_hdr.raw_info.white_level >>= delta;
+                                }
+                                else
+                                {
+                                    block_hdr.raw_info.white_level <<= ABS(delta);
+                                }
+
+                                if(verbose)
+                                {
+                                    print_msg(MSG_INFO, "   white: %d -> %d\n", old_white, block_hdr.raw_info.white_level);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            block_hdr.raw_info.white_level = white_fix;
+                            if(verbose)
+                            {
+                                print_msg(MSG_INFO, "   white: %d -> %d (forced)\n", old_white, block_hdr.raw_info.white_level);
+                            }
                         }
                     }
 
