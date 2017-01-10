@@ -2631,35 +2631,26 @@ read_headers:
 
                             raw_info_buffer = frame_buffer;
 
-
                             if(new_depth)
-
                             {
-
                                 raw_info.bits_per_pixel = new_depth;
-
                                 if(old_depth > new_depth)
-
                                 {
-
                                     raw_info.black_level >>= old_depth - new_depth;
-
                                     raw_info.white_level >>= old_depth - new_depth;
-
                                 }
-
                                 else
-
+			        if(black_fix)
                                 {
-
-                                    raw_info.black_level <<= new_depth - old_depth;
-
+                                    raw_info.black_level <<= black_fix;
                                     raw_info.white_level <<= new_depth - old_depth;
-
                                 }
-
+				else
+                                {
+                                    raw_info.black_level <<= new_depth - old_depth;
+                                    raw_info.white_level <<= new_depth - old_depth;
+                                }
                             }
-
 
                             /* override the resolution from raw_info with the one from lv_rec_footer, if they don't match */
                             if (lv_rec_footer.xRes != raw_info.width)
