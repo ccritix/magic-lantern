@@ -116,105 +116,56 @@ enum bug_id
 int batch_mode = 0;
 
 void set_unique_camera_name(mlv_idnt_hdr_t *idnt_hdr)
-
 {
-
     switch(idnt_hdr->cameraModel)
 
     {
-
         case 0x80000285:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 5D Mark III", 32);
-
             break;
-
         case 0x80000218:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 5D Mark II", 32);
-
             break;
-
         case 0x80000302:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 6D", 32);
-
             break;
-
         case 0x80000250:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 7D", 32);
-
             break;
-
         case 0x80000325:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 70D", 32);
-
             break;
-
         case 0x80000287:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 60D", 32);
-
             break;
-
         case 0x80000261:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 50D", 32);
-
             break;
-
         case 0x80000326:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 700D", 32);
-
             break;
-
         case 0x80000301:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 650D", 32);
-
             break;
-
         case 0x80000286:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 600D", 32);
-
             break;
-
         case 0x80000270:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 550D", 32);
-
             break;
-
         case 0x80000252:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 500D", 32);
-
             break;
-
         case 0x80000288:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 1100D", 32);
-
             break;
-
         case 0x80000331:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS M", 32);
-
             break;
-
         case 0x80000346:
-
             memcpy(idnt_hdr->cameraName, "Canon EOS 100D", 32);
-
             break;
-
     }
-
 }
 
 void print_msg(uint32_t type, const char* format, ... )
@@ -2751,121 +2702,68 @@ read_headers:
                             /* set MLV metadata into DNG tags */
 
                             struct dng_info dng_info;
-
                             struct lens_info dng_lens_info;
-
                             dng_info.raw_info = &raw_info;
-
-                            dng_info.lens_info = &dng_lens_info;
-
-                            
-
+                            dng_info.lens_info = &dng_lens_info;                            
                             dng_info.xRes = video_xRes;
-
                             dng_info.yRes = video_yRes;
-
-
                             dng_info.frame_number = last_vidf.frameNumber;
-
                             dng_info.fps_numerator = main_header.sourceFpsNom;
-
                             dng_info.fps_denominator = main_header.sourceFpsDenom;
-
                             dng_info.shutter = (uint32_t)expo_info.shutterValue;
-
                             set_unique_camera_name(&idnt_info);
-
                             strncpy(dng_info.camera_name, (char*)idnt_info.cameraName, 32);
-
                             dng_lens_info.aperture = lens_info.aperture;
-
                             strncpy(dng_lens_info.name, (char*)lens_info.lensName, 32);
-
                             dng_lens_info.focal_len = lens_info.focalLength;
-
                             dng_lens_info.focus_dist = lens_info.focalDist;
-
-                            dng_lens_info.iso = expo_info.isoValue;
-
-                            
-
+                            dng_lens_info.iso = expo_info.isoValue;                         
                             dng_lens_info.wb_mode = wbal_info.wb_mode;
-
                             dng_lens_info.kelvin = wbal_info.kelvin;
-
                             dng_lens_info.WBGain_R = wbal_info.wbgain_r;
-
                             dng_lens_info.WBGain_G = wbal_info.wbgain_g;
-
                             dng_lens_info.WBGain_B = wbal_info.wbgain_b;
-
                             dng_lens_info.wbs_gm = wbal_info.wbs_gm;
-
-                            dng_lens_info.wbs_ba = wbal_info.wbs_ba;
-
-                            
+                            dng_lens_info.wbs_ba = wbal_info.wbs_ba;                           
 
                             /* calculate the time this frame was taken at, i.e., the start time + the current timestamp. this can be off by a second but it's better than nothing */
 
                             int ms = 0.5 + buf.timestamp / 1000.0;
-
                             int sec = ms / 1000;
-
                             ms %= 1000;
 
                             // FIXME: the struct tm doesn't have tm_gmtoff on Linux so the result might be wrong?
 
                             struct tm tm;
-
                             tm.tm_sec = rtci_info.tm_sec + sec;
-
                             tm.tm_min = rtci_info.tm_min;
-
                             tm.tm_hour = rtci_info.tm_hour;
-
                             tm.tm_mday = rtci_info.tm_mday;
-
                             tm.tm_mon = rtci_info.tm_mon;
-
                             tm.tm_year = rtci_info.tm_year;
-
                             tm.tm_wday = rtci_info.tm_wday;
-
                             tm.tm_yday = rtci_info.tm_yday;
-
                             tm.tm_isdst = rtci_info.tm_isdst;
-
-                            dng_info.tm = &tm;
-
-                            
-
+                            dng_info.tm = &tm;                            
                             strncpy(dng_info.camera_serial, (char*)idnt_info.cameraSerial, 32);
-
 
                             /* finally save the DNG */
 
                             if(!dng_save(frame_filename, frame_buffer, &dng_info))
-
                             {
-
                                 print_msg(MSG_ERROR, "VIDF: Failed writing into .DNG file\n");
-
                                 goto abort;
-
                             }
-
 
                             /* callout for a saved dng file */
                             lua_call_va(lua_state, "dng_saved", "si", frame_filename, block_hdr.frameNumber);
-
                             free(frame_filename);
                         }
-
                         if(mlv_output && !only_metadata_mode && !average_mode && (!extract_block || !strncasecmp(extract_block, (char*)block_hdr.blockType, 4)))
                         {
                             if(compress_output)
                             {
-#ifdef MLV_USE_LZMA
+				#ifdef MLV_USE_LZMA
                                 size_t lzma_out_size = 2 * frame_size;
                                 size_t lzma_in_size = frame_size;
                                 size_t lzma_props_size = LZMA_PROPS_SIZE;
@@ -2898,10 +2796,10 @@ read_headers:
                                     goto abort;
                                 }
                                 free(lzma_out);
-#else
+				#else
                                 print_msg(MSG_INFO, "    LZMA: not compiled into this release, aborting.\n");
                                 goto abort;
-#endif
+				#endif
                             }
 
                             if(frame_size != prev_frame_size)
