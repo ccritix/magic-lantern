@@ -110,8 +110,8 @@ static uint32_t cam_7d = 0;
 static uint32_t cam_700d = 0;
 static uint32_t cam_60d = 0;
 
-static uint32_t raw_rec_edmac_align = 0x0400;
-static uint32_t raw_rec_write_align = 0x0200;
+static uint32_t raw_rec_edmac_align = 0x01000;
+static uint32_t raw_rec_write_align = 0x01000;
 
 static uint32_t mlv_rec_dma_active = 0;
 static uint32_t mlv_writer_threads = 2;
@@ -158,18 +158,7 @@ static CONFIG_INT("mlv.preview", preview_mode, 0);
 static CONFIG_INT("mlv.warm_up", warm_up, 0);
 static CONFIG_INT("mlv.use_srm_memory", use_srm_memory, 1);
 static CONFIG_INT("mlv.small_hacks", small_hacks, 1);
-static CONFIG_INT("mlv.create_dirs", create_dirs, 0); 
-static CONFIG_INT("mlv.bpp", bpp_mode, 2);
-
-static uint32_t bits_per_pixel[] = { 10, 12, 14 };
-
-/* for PACK16_MODE, DSUNPACK_MODE, ADUNPACK_MODE (mask 0x131) */
-#define MODE_16BIT 0x130
-#define MODE_14BIT 0x030
-#define MODE_12BIT 0x010
-#define MODE_10BIT 0x000
-
-
+static CONFIG_INT("mlv.create_dirs", create_dirs, 0);
 
 static int start_delay = 0;
 
@@ -178,7 +167,7 @@ static int32_t res_x = 0;
 static int32_t res_y = 0;
 static int32_t max_res_x = 0;
 static int32_t max_res_y = 0;
-static int sensor_res_x = 0;
+static int32_t sensor_res_x = 0;
 static float squeeze_factor = 0;
 static int32_t frame_size = 0;
 static int32_t skip_x = 0;
@@ -236,7 +225,6 @@ static FILE *mlv_handles[MAX_WRITER_THREADS];
 static struct msg_queue *mlv_writer_queues[MAX_WRITER_THREADS];
 static uint32_t writer_job_count[MAX_WRITER_THREADS];
 static int32_t current_write_speed[MAX_WRITER_THREADS];
-static int32_t writer_task_id[MAX_WRITER_THREADS];
 
 /* mlv information */
 struct msg_queue *mlv_block_queue = NULL;
@@ -584,7 +572,7 @@ static void update_resolution_params()
 
     /* frame size without rounding */
     /* must be multiple of 4 */
-    frame_size = res_x * res_y * bits_per_pixel[bpp_mode]/8;
+    frame_size = res_x * res_y * 14/8;
     ASSERT(frame_size % 4 == 0);
 
     update_cropping_offsets();
@@ -717,7 +705,7 @@ static char* guess_how_many_frames()
 static MENU_UPDATE_FUNC(write_speed_update)
 {
     int32_t fps = fps_get_current_x1000();
-    int32_t speed = (res_x * res_y * bits_per_pixel[bpp_mode] / 8 / 1024) * fps / 10 / 1024;
+    int32_t speed = (res_x * res_y * 14/8 / 1024) * fps / 10 / 1024;
     int32_t ok = speed < measured_write_speed;
     speed /= 10;
 
@@ -755,6 +743,7 @@ static void refresh_raw_settings(int32_t force)
 
 static int32_t calc_crop_factor()
 {
+
     int32_t camera_crop = 162;
     int32_t sampling_x = 3;
     
@@ -1088,7 +1077,7 @@ static int32_t setup_buffers()
 
     /* allocate memory for double buffering */
     /* (we need a single large contiguous chunk) */
-    uint32_t buf_size = raw_info.width * raw_info.height * bits_per_pixel[bpp_mode] / 8 * 33/32; /* leave some margin, just in case */
+    uint32_t buf_size = raw_info.width * raw_info.height * 14/8 * 33/32; /* leave some margin, just in case */
     ASSERT(fullsize_buffers[0] == 0);
     fullsize_buffers[0] = fio_malloc(buf_size);
     
@@ -1607,13 +1596,13 @@ static void hack_liveview_vsync()
                  * - don't record this: you will have lots of bad pixels (no big deal if you can remove them)
                  * - don't record lv_af_raw: you will have random colored dots that contain focus info; their position is not fixed, so you can't remove them
                  * - use half-shutter heuristic for clean silent pics
-                 * 
+                 *
                  * Reason for overriding here:
                  * - if you use lv_af_raw, you can no longer restore it when you start recording.
                  * - if you override here, image quality is restored as soon as you stop overriding
                  * - but pink preview is also restored, you can't have both
                  */
-                
+
                 *(volatile uint32_t*)0xc0f08114 = 0;
             }
             else
@@ -1629,63 +1618,57 @@ static void hack_liveview_vsync()
             }
         }
     }
-    
-    if (!PREVIEW_HACKED) return;
-    
-    int rec = RAW_IS_RECORDING;
-    static int prev_rec = 0;
-    int should_hack = 0;
-    int should_unhack = 0;
 
-    if (rec)
+    if (!PREVIEW_HACKED) return;
+
+    int32_t rec = RAW_IS_RECORDING;
+    static int32_t prev_rec = 0;
+    int32_t should_hack = 0;
+    int32_t should_unhack = 0;
+
+    if(rec)
     {
         if (frame_count == 0)
+        {
             should_hack = 1;
+        }
     }
     else if (prev_rec)
     {
         should_unhack = 1;
     }
     prev_rec = rec;
-    
-    if (should_hack)
+
+    if(should_hack)
     {
-        int y = 100;
-        for (int channel = 0; channel < 32; channel++)
+        if(!PREVIEW_CANON && !PREVIEW_AUTO)
         {
-            /* silence out the EDMACs used for HD and LV buffers */
-            int pitch = edmac_get_length(channel) & 0xFFFF;
-            if (pitch == vram_lv.pitch || pitch == vram_hd.pitch)
+            int32_t y = 100;
+            for(int32_t channel = 0; channel < 32; channel++)
             {
-                uint32_t reg = edmac_get_base(channel);
-                bmp_printf(FONT_SMALL, 30, y += font_small.height, "Hack %x %dx%d ", reg, shamem_read(reg + 0x10) & 0xFFFF, shamem_read(reg + 0x10) >> 16);
-                *(volatile uint32_t *)(reg + 0x10) = shamem_read(reg + 0x10) & 0xFFFF;
+                /* silence out the EDMACs used for HD and LV buffers */
+                int32_t pitch = edmac_get_length(channel) & 0xFFFF;
+                if (pitch == vram_lv.pitch || pitch == vram_hd.pitch || pitch== 2000 || pitch== 512 || pitch== 576 || pitch== 3456)
+                {
+                    uint32_t reg = edmac_get_base(channel);
+                    bmp_printf(FONT_SMALL, 30, y += font_small.height, "Hack %x %dx%d ", reg, shamem_read(reg + 0x10) & 0xFFFF, shamem_read(reg + 0x10) >> 16);
+                    *(volatile uint32_t *)(reg + 0x10) = shamem_read(reg + 0x10) & 0xFFFF;
+                }
             }
         }
     }
-    else if (should_unhack)
+    else if(should_unhack)
     {
-        task_create("lv_unhack", 0x1e, 0x1000, unhack_liveview_vsync, (void*)0);
-    }
-}
-
-static void cache_require(int lock)
-{
-    static int cache_was_unlocked = 0;
-    if (lock)
-    {
-        if (!cache_locked())
+        if (cam_eos_m) //EOS-M not unhacking, why?
         {
-            cache_was_unlocked = 1;
-            icache_lock();
+            //call("aewb_enableaewb", 1);
+            PauseLiveView();
+            ResumeLiveView();
+            idle_globaldraw_en();
         }
-    }
-    else
-    {
-        if (cache_was_unlocked)
+        else
         {
-            icache_unlock();
-            cache_was_unlocked = 0;
+            task_create("lv_unhack", 0x1e, 0x1000, unhack_liveview_vsync, (void*)0);
         }
     }
 }
@@ -1723,7 +1706,7 @@ static void hack_liveview(int32_t unhack)
     if (small_hacks)
     {
         /* disable canon graphics (gains a little speed) */
-        static int canon_gui_was_enabled;
+        static int32_t canon_gui_was_enabled;
         if (!unhack)
         {
             canon_gui_was_enabled = !canon_gui_front_buffer_disabled();
@@ -1739,7 +1722,13 @@ static void hack_liveview(int32_t unhack)
         call("aewb_enableaewb", unhack ? 1 : 0);  /* for new cameras */
         call("lv_ae",           unhack ? 1 : 0);  /* for old cameras */
         call("lv_wb",           unhack ? 1 : 0);
-        
+
+        if (cam_50d && !(hdmi_code == 5) && !unhack)
+        {
+            /* not sure how to unhack this one, and on 5D2 it crashes */
+            call("lv_af_fase_addr", 0); //Turn off face detection
+        }
+
         /* change dialog refresh timer from 50ms to 8192ms */
         uint32_t dialog_refresh_timer_addr = /* in StartDialogRefreshTimer */
             cam_50d ? 0xffa84e00 :
@@ -1771,13 +1760,11 @@ static void hack_liveview(int32_t unhack)
         {
             if (!unhack) /* hack */
             {
-                cache_require(1);
                 cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_new_instr, TYPE_ICACHE);
             }
             else /* unhack */
             {
                 cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, TYPE_ICACHE);
-                cache_require(0);
             }
         }
     }
@@ -2149,16 +2136,18 @@ static int32_t mlv_prepend_block(uint32_t slot, mlv_hdr_t *block)
 
 static void mlv_rec_dma_cbr_r(void *ctx)
 {
-}
-
-static void mlv_rec_dma_cbr_w(void *ctx)
-{
+    /* now mark the last filled buffer as being ready to transfer */
+    slots[capture_slot].status = SLOT_FULL;
     mlv_rec_dma_active = 0;
     
     mlv_rec_dma_end = get_us_clock_value();
     mlv_rec_dma_duration = (uint32_t)(mlv_rec_dma_end - mlv_rec_dma_start);
     
     edmac_copy_rectangle_adv_cleanup();
+}
+
+static void mlv_rec_dma_cbr_w(void *ctx)
+{
 }
 
 static int32_t FAST process_frame()
@@ -2195,12 +2184,10 @@ static int32_t FAST process_frame()
     hdr->panPosY = skip_y;
     
     void* ptr = (void*)((int32_t)hdr + sizeof(mlv_vidf_hdr_t) + hdr->frameSpace);
-    
+    void* fullSizeBuffer = fullsize_buffers[(fullsize_buffer_pos+1) % 2];
+
     /* advance to next buffer for the upcoming capture */
     fullsize_buffer_pos = (fullsize_buffer_pos + 1) % 2;
-    
-    /* this one still contains old data, so save that */
-    void* fullSizeBuffer = fullsize_buffers[fullsize_buffer_pos];
 
     /* dont process this frame if a module wants to skip that */
     if(raw_rec_cbr_skip_frame(fullSizeBuffer))
@@ -2209,12 +2196,11 @@ static int32_t FAST process_frame()
     }
     
     mlv_rec_dma_active = 1;
-    edmac_copy_rectangle_cbr_start(ptr, fullSizeBuffer, raw_info.width*raw_info.bits_per_pixel/8, (skip_x+7)/8*raw_info.bits_per_pixel, skip_y/2*2, res_x*raw_info.bits_per_pixel/8, 0, 0, res_x*raw_info.bits_per_pixel/8, res_y, &mlv_rec_dma_cbr_r, &mlv_rec_dma_cbr_w, NULL);
+    edmac_copy_rectangle_cbr_start(ptr, raw_info.buffer, raw_info.pitch, (skip_x+7)/8*14, skip_y/2*2, res_x*14/8, 0, 0, res_x*14/8, res_y, &mlv_rec_dma_cbr_r, &mlv_rec_dma_cbr_w, NULL);
     mlv_rec_dma_start = get_us_clock_value();
 
     /* copy current frame to our buffer and crop it to its final size */
     slots[capture_slot].frame_number = frame_count;
-    slots[capture_slot].status = SLOT_FULL;
 
     trace_write(raw_rec_trace_ctx, "==> enqueue frame %d in slot %d DMA: %d us", frame_count, capture_slot, mlv_rec_dma_duration);
 
@@ -2238,7 +2224,7 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
     {
         return 0;
     }
-    
+
     /* if previous DMA isn't finished yet, skip frame */
     if(mlv_rec_dma_active)
     {
@@ -2261,7 +2247,7 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
 
     /* panning window is updated when recording, but also when not recording */
     panning_update();
-    
+
     if(!RAW_IS_RECORDING)
     {
         return 0;
@@ -2279,9 +2265,6 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
         return 0;
     }
     
-    /* double-buffering */
-    raw_lv_redirect_edmac(fullsize_buffers[fullsize_buffer_pos]);
-
     process_frame();
     
     return 0;
@@ -2439,11 +2422,6 @@ static int32_t mlv_write_rawi(FILE* f, struct raw_info raw_info)
     rawi.xRes = res_x;
     rawi.yRes = res_y;
     rawi.raw_info = raw_info;
-    
-    /* overwrite bpp relevant information */
-    rawi.raw_info.pitch = rawi.raw_info.width * raw_info.bits_per_pixel / 8;
-    rawi.raw_info.black_level = raw_info.black_level >> (14 - raw_info.bits_per_pixel);
-    rawi.raw_info.white_level = raw_info.white_level >> (14 - raw_info.bits_per_pixel);
 
     return mlv_write_hdr(f, (mlv_hdr_t *)&rawi);
 }
@@ -2965,10 +2943,7 @@ static void enqueue_buffer(uint32_t writer, write_job_t *write_job)
                 {
                     failed++;
                     msg_queue_post(mlv_block_queue, (uint32_t) block);
-                    char name[5];
-                    name[4] = 0;
-                    memcpy(name, block->blockType, 4);
-                    bmp_printf(FONT_MED, 0, 430, "FAILED '%s'. queued: %d failed: %d (requeued)", name, queued, failed);
+                    bmp_printf(FONT_MED, 0, 430, "FAILED. queued: %d failed: %d (requeued)", queued, failed);
                     break;
                 }
             }
@@ -3150,38 +3125,6 @@ static void mlv_rec_queue_blocks()
     }
 }
 
-static void setup_bit_depth()
-{
-    raw_info.bits_per_pixel = bits_per_pixel[bpp_mode];
-    raw_info.pitch = raw_info.width * raw_info.bits_per_pixel / 8;
-    
-    if (raw_info.bits_per_pixel == 12)
-    {
-        EngDrvOut(0xC0F08094, MODE_12BIT);
-    }
-    else if (raw_info.bits_per_pixel == 10)
-    {
-        EngDrvOut(0xC0F08094, MODE_10BIT);
-    }
-    
-    if (raw_info.bits_per_pixel != 14)
-    {
-        /* sometimes the first frame after setting up lower bit depth is garbage */
-        wait_lv_frames(2);
-    }
-}
-
-static void restore_bit_depth()
-{
-    if (raw_info.bits_per_pixel != 14)
-    {
-        EngDrvOut(0xC0F08094, MODE_14BIT);
-    }
-    
-    raw_info.bits_per_pixel = 14;
-    raw_info.pitch = raw_info.width * 14 / 8;
-}
-
 static void raw_video_rec_task()
 {
     /* init stuff */
@@ -3231,8 +3174,8 @@ static void raw_video_rec_task()
     msleep(start_delay * 1000);
 
     hack_liveview(0);
-    setup_bit_depth();
-    
+
+
     do
     {
         /* get exclusive access to our edmac channels */
@@ -3303,7 +3246,7 @@ static void raw_video_rec_task()
         for(uint32_t writer = 0; writer < mlv_writer_threads; writer++)
         {
             uint32_t base_prio = 0x12;
-            writer_task_id[writer] = (int)task_create("writer_thread", base_prio + writer, 0x1000, raw_writer_task, (void*)writer) >> 1;
+            task_create("writer_thread", base_prio + writer, 0x1000, raw_writer_task, (void*)writer);
         }
 
         /* wait a bit to make sure threads are running */
@@ -3391,7 +3334,6 @@ static void raw_video_rec_task()
                 {
                     enqueue_buffer(0, &write_job);
                     util_atomic_inc(&writer_job_count[0]);
-                    //task_resume(writer_task_id[0]);
                 }
                 else
                 {
@@ -3411,7 +3353,6 @@ static void raw_video_rec_task()
                 {
                     enqueue_buffer(1, &write_job);
                     util_atomic_inc(&writer_job_count[1]);
-                    //task_resume(writer_task_id[1]);
                 }
                 else
                 {
@@ -3657,9 +3598,7 @@ cleanup:
     {
         raw_tag_take++;
     }
-    
-    restore_bit_depth();
-    
+
     hack_liveview(1);
     redraw();
 
@@ -3808,7 +3747,7 @@ PROP_HANDLER(PROP_ROLLING_PITCHING_LEVEL)
 static MENU_SELECT_FUNC(raw_tag_str_start)
 {
     strcpy(raw_tag_str_tmp, raw_tag_str);
-    ime_base_start((char *)"Enter text", (char *)raw_tag_str_tmp, sizeof(raw_tag_str_tmp)-1, IME_UTF8, IME_CHARSET_ANY, NULL, raw_tag_str_done, 0, 0, 0, 0);
+    ime_base_start((unsigned char *)"Enter text", (unsigned char *)raw_tag_str_tmp, sizeof(raw_tag_str_tmp)-1, IME_UTF8, IME_CHARSET_ANY, NULL, raw_tag_str_done, 0, 0, 0, 0);
 }
 
 static MENU_UPDATE_FUNC(raw_tag_str_update)
@@ -3874,7 +3813,7 @@ static struct menu_entry raw_video_menu[] =
         .update = raw_main_update,
         .submenu_width = 710,
         .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
-        .help = "Record RAW video. Press LiveView to start.",
+        .help = "Record 14-bit RAW video. Press LiveView to start.",
         .children =  (struct menu_entry[]) {
             {
                 .name = "Resolution",
@@ -3890,12 +3829,6 @@ static struct menu_entry raw_video_menu[] =
                 .max = COUNT(aspect_ratio_presets_num) - 1,
                 .update = aspect_ratio_update,
                 .choices = aspect_ratio_choices,
-            },
-            {
-                .name = "Bit Depth",
-                .priv = &bpp_mode,
-                .max = 2,
-                .choices = CHOICES("10bpp", "12bpp", "14bpp"),
             },
             {
                 .name = "Create Directory",
@@ -4279,7 +4212,7 @@ static unsigned int raw_rec_init()
 
     if(cam_5d2 || cam_50d)
     {
-       raw_video_menu[0].help = "Record RAW video. Press SET to start.";
+       raw_video_menu[0].help = "Record 14-bit RAW video. Press SET to start.";
     }
 
     menu_add("Movie", raw_video_menu, COUNT(raw_video_menu));
@@ -4350,7 +4283,6 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(mlv_video_enabled)
     MODULE_CONFIG(resolution_index_x)
     MODULE_CONFIG(res_x_fine)
-    MODULE_CONFIG(bpp_mode)
     MODULE_CONFIG(aspect_ratio_index)
     MODULE_CONFIG(measured_write_speed)
     MODULE_CONFIG(allow_frame_skip)
