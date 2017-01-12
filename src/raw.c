@@ -753,11 +753,13 @@ static int raw_update_params_work()
         prev_delta_y = delta_y;
     }
 #endif
-    
+
     /* black and white autodetection are time-consuming */
     /* only refresh once per second or if dirty, but never while recording */
     static int bw_aux = INT_MIN;
-    int recompute_black_and_white = NOT_RECORDING && 
+    int recompute_black_and_white = 
+        NOT_RECORDING &&
+        raw_info.bits_per_pixel == 14 &&
         (raw_info.black_level == 0 || dirty || should_run_polling_action(1000, &bw_aux));
 
     if (dirty)
@@ -774,7 +776,8 @@ static int raw_update_params_work()
 
     int black_mean, black_stdev_x100;
     raw_info.white_level = WHITE_LEVEL;
-    
+
+    ASSERT(raw_info.bits_per_pixel == 14);
     int ok = autodetect_black_level(&black_mean, &black_stdev_x100);
     
     if (!ok)
@@ -922,7 +925,13 @@ int raw_update_params()
         /* let's try again */
         ans = raw_update_params_once();
     }
-    
+
+    if (raw_info.bits_per_pixel != 14)
+    {
+        /* hack: this will disable all overlays at bit depths other than 14 */
+        return 0;
+    }
+
     return ans;
 }
 
@@ -1724,6 +1733,9 @@ static void FAST raw_preview_fast_work(void* raw_buffer, void* lv_buffer, int y1
 
 void FAST raw_preview_fast_ex(void* raw_buffer, void* lv_buffer, int y1, int y2, int quality)
 {
+    if (raw_info.bits_per_pixel != 14)
+        return;
+
     yuv422_buffer_check();
 
     if (raw_buffer == (void*)-1)
@@ -1844,18 +1856,52 @@ void raw_lv_request()
 
     /* this one should be called only in LiveView */
     ASSERT(lv);
-    
+
     take_semaphore(raw_sem, 0);
     raw_lv_request_count++;
     raw_lv_update();
     give_semaphore(raw_sem);
 }
+
 void raw_lv_release()
 {
     take_semaphore(raw_sem, 0);
     raw_lv_request_count--;
     ASSERT(raw_lv_request_count >= 0);
     raw_lv_update();
+    give_semaphore(raw_sem);
+}
+
+void raw_lv_request_bpp(int bpp)
+{
+    take_semaphore(raw_sem, 0);
+
+    /* raw bit depth setup is done from PACK32_MODE register (mask 0x131) */
+    const uint32_t PACK32_MODE = 0xC0F08094;
+    enum {
+        MODE_16BIT = 0x130,
+        MODE_14BIT = 0x030,
+        MODE_12BIT = 0x010,
+        MODE_10BIT = 0x000,
+    };
+    const uint32_t modes[] = { MODE_10BIT, MODE_12BIT, MODE_14BIT, MODE_16BIT};
+
+    int bpp_index = COERCE((bpp-10)/2, 0, COUNT(modes));
+
+    if (shamem_read(PACK32_MODE) == modes[bpp_index])
+    {
+        /* no change needed */
+        ASSERT(raw_info.bits_per_pixel == bpp);
+    }
+    else
+    {
+        EngDrvOut(PACK32_MODE, modes[bpp_index]);
+        raw_info.bits_per_pixel = bpp;
+        raw_info.pitch = raw_info.width * raw_info.bits_per_pixel / 8;
+        /* fixme: after switching bit depth, EDMAC needs 1-2 frames to settle */
+        wait_lv_frames(2);
+    }
+
     give_semaphore(raw_sem);
 }
 #endif
@@ -1938,7 +1984,10 @@ int can_use_raw_overlays()
     
 #ifdef CONFIG_RAW_LIVEVIEW
     if (lv && raw_lv_is_enabled())
-        return 1;
+    {
+        /* currently, raw overlays only work with 14 bits per pixel */
+        return raw_info.bits_per_pixel == 14;
+    }
 #endif
     
     return 0;

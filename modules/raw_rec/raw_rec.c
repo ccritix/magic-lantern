@@ -128,10 +128,6 @@ static CONFIG_INT("raw.small.hacks", small_hacks, 1);
 
 static CONFIG_INT("raw.bppi", bpp_index, 2);
 #define BPP (10 + 2*bpp_index)
-#define MODE_16BIT 0x130
-#define MODE_14BIT 0x030
-#define MODE_12BIT 0x010
-#define MODE_10BIT 0x000
 
 /* Recording Status Indicator Options */
 #define INDICATOR_OFF        0
@@ -1517,11 +1513,18 @@ static void init_mlv_chunk_headers(struct raw_info * raw_info)
     rawi_hdr.xRes = res_x;
     rawi_hdr.yRes = res_y;
     rawi_hdr.raw_info = *raw_info;
+
+    /* overwrite bpp relevant information */
     rawi_hdr.raw_info.bits_per_pixel = BPP;
     rawi_hdr.raw_info.pitch = rawi_hdr.raw_info.width * BPP / 8;
-    rawi_hdr.raw_info.black_level = rawi_hdr.raw_info.black_level >> (14 - BPP);
-    rawi_hdr.raw_info.white_level = rawi_hdr.raw_info.white_level >> (14 - BPP);
-    
+
+    /* scale black and white levels, minimizing the roundoff error */
+    int black14 = rawi_hdr.raw_info.black_level;
+    int white14 = rawi_hdr.raw_info.white_level;
+    int bpp_scaling = (1 << (14 - BPP));
+    rawi_hdr.raw_info.black_level = (black14 + bpp_scaling/2) / bpp_scaling;
+    rawi_hdr.raw_info.white_level = (white14 + bpp_scaling/2) / bpp_scaling;
+
     mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);
     mlv_fill_expo(&expo_hdr, mlv_start_timestamp);
     mlv_fill_lens(&lens_hdr, mlv_start_timestamp);
@@ -1674,34 +1677,12 @@ static int write_frames(FILE** pf, void* ptr, int size_used)
 
 static void setup_bit_depth()
 {
-    raw_info.bits_per_pixel = BPP;
-    raw_info.pitch = raw_info.width * BPP / 8;
-    
-    if (BPP == 12)
-    {
-        EngDrvOut(0xC0F08094, MODE_12BIT);
-    }
-    else if (BPP == 10)
-    {
-        EngDrvOut(0xC0F08094, MODE_10BIT);
-    }
-    
-    if (BPP != 14)
-    {
-        /* sometimes the first frame after setting up lower bit depth is garbage */
-        wait_lv_frames(2);
-    }
+    raw_lv_request_bpp(BPP);
 }
 
 static void restore_bit_depth()
 {
-    raw_info.bits_per_pixel = 14;
-    raw_info.pitch = raw_info.width * 14 / 8;
-    
-    if (BPP != 14)
-    {
-        EngDrvOut(0xC0F08094, MODE_14BIT);
-    }
+    raw_lv_request_bpp(14);
 }
 
 static void raw_video_rec_task()
