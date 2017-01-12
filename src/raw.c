@@ -959,7 +959,7 @@ void raw_set_geometry(int width, int height, int skip_left, int skip_right, int 
 {
     raw_info.width = width;
     raw_info.height = height;
-    raw_info.pitch = raw_info.width * 14 / 8;
+    raw_info.pitch = raw_info.width * raw_info.bits_per_pixel / 8;
     raw_info.frame_size = raw_info.height * raw_info.pitch;
     raw_info.active_area.x1 = skip_left;
     raw_info.active_area.y1 = skip_top;
@@ -1525,7 +1525,7 @@ void FAST raw_lv_vsync()
         int ok = raw_lv_get_resolution(&width, &height);
         if (ok)
         {
-            int pitch = width * 14/8;
+            int pitch = width * raw_info.bits_per_pixel / 8;
             edmac_raw_slurp(CACHEABLE(buf), pitch, height);
         }
     }
@@ -2026,7 +2026,8 @@ static struct menu_entry debug_menus[] = {
     {
         .name = "LV raw type",
         .priv = &lv_raw_type,
-        .max = 64,
+        .max  = 0xFFFF,
+        .unit = UNIT_HEX,
         .help = "Choose what type of raw stream we should use in LiveView.",
         .help2 = "See lv_af_raw, lv_rshd_raw, lv_set_raw, KindOfCraw...",
     },
