@@ -2232,7 +2232,6 @@ read_headers:
                         if((int)subtract_frame_buffer_size != frame_size)
                         {
                             print_msg(MSG_ERROR, "Error: Frame sizes of footage and subtract frame differ (%d, %d)", frame_size, subtract_frame_buffer_size);
-                            break;
                         }
                         
                         int pitch = video_xRes * current_depth / 8;
@@ -2262,7 +2261,6 @@ read_headers:
                         if((int)flatfield_frame_buffer_size != frame_size)
                         {
                             print_msg(MSG_ERROR, "Error: Frame sizes of footage and flat-field frame differ (%d, %d)", frame_size, flatfield_frame_buffer_size);
-                            break;
                         }
                         
                         int pitch = video_xRes * current_depth / 8;
