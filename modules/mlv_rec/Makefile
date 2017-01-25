@@ -6,8 +6,8 @@ MODULE_OBJS=mlv_rec.o mlv.o
 # include modules environment
 include ../Makefile.modules
 
-MLV_CFLAGS = -I$(SRC_DIR) -D MLV_USE_LZMA -Wpadded -mno-ms-bitfields -D _7ZIP_ST -D MLV2DNG
-MLV_LFLAGS =
+MLV_CFLAGS = -I$(SRC_DIR) -D MLV_USE_LZMA -m32 -Wpadded -mno-ms-bitfields -D _7ZIP_ST -D MLV2DNG
+MLV_LFLAGS = -m32
 MLV_LIBS = -lm
 MLV_LIBS_MINGW = -lm
 
@@ -25,8 +25,8 @@ endif
 
 # add target architecture for OSX
 ifdef FOR_OSX
-    MLV_CFLAGS += -mmacosx-version-min=10.6
-    MLV_LFLAGS += -mmacosx-version-min=10.6
+    MLV_CFLAGS += -arch i386 -mmacosx-version-min=10.6
+    MLV_LFLAGS += -arch i386 -mmacosx-version-min=10.6
 endif
 
 # LZMA library flags
@@ -44,8 +44,8 @@ MLV_LFLAGS +=
 MLV_LIBS += $(LZMA_LIB)
 MLV_LIBS_MINGW += $(LZMA_LIB_MINGW)
 
-MLV_DUMP_OBJS=mlv_dump.host.o ../dng/dng.host.o ../lv_rec/raw2dng.host.o $(LZMA_LIB)
-MLV_DUMP_OBJS_MINGW=mlv_dump.w32.o ../dng/dng.w32.o ../lv_rec/raw2dng.w32.o $(LZMA_LIB_MINGW)
+MLV_DUMP_OBJS=mlv_dump.host.o $(SRC_DIR)/chdk-dng.host.o ../lv_rec/raw2dng.host.o $(LZMA_LIB) 
+MLV_DUMP_OBJS_MINGW=mlv_dump.w32.o $(SRC_DIR)/chdk-dng.w32.o ../lv_rec/raw2dng.w32.o $(LZMA_LIB_MINGW) 
 
 
 clean::
