@@ -41,6 +41,7 @@
 
 lv_rec_file_footer_t lv_rec_footer;
 struct raw_info raw_info;
+void * raw_info_buffer = NULL;
 
 #define FAIL(fmt,...) { fprintf(stderr, "Error: "); fprintf(stderr, fmt, ## __VA_ARGS__); fprintf(stderr, "\n"); exit(1); }
 #define CHECK(ok, fmt,...) { if (!(ok)) FAIL(fmt, ## __VA_ARGS__); }
@@ -297,7 +298,7 @@ int main(int argc, char** argv)
         if (!mlvout)
         {
             printf("writing DNG...");
-            raw_info.buffer = raw;
+            raw_info_buffer = raw;
             
             /* uncomment if the raw file is recovered from a DNG with dd */
             //~ reverse_bytes_order(raw, lv_rec_footer.frameSize);
@@ -818,7 +819,7 @@ uint32_t file_set_pos(FILE *stream, uint64_t offset, int whence)
 #endif
 
 int raw_get_pixel(int x, int y) {
-    struct raw_pixblock * p = (void*)raw_info.buffer + y * raw_info.pitch + (x/8)*14;
+    struct raw_pixblock * p = (void*)raw_info_buffer + y * raw_info.pitch + (x/8)*14;
     switch (x%8) {
         case 0: return p->a;
         case 1: return p->b_lo | (p->b_hi << 12);
@@ -834,7 +835,7 @@ int raw_get_pixel(int x, int y) {
 
 void raw_set_pixel(int x, int y, int value)
 {
-    struct raw_pixblock * p = (void*)raw_info.buffer + y * raw_info.pitch + (x/8)*14;
+    struct raw_pixblock * p = (void*)raw_info_buffer + y * raw_info.pitch + (x/8)*14;
     switch (x%8) {
         case 0: p->a = value; break;
         case 1: p->b_lo = value; p->b_hi = value >> 12; break;
@@ -958,7 +959,7 @@ static void detect_vertical_stripes_coeffs()
     /* that is, adjust all columns to make them as bright as a */
     /* process green pixels only, assuming the image is RGGB */
     struct raw_pixblock * row;
-    for (row = raw_info.buffer; (void*)row < (void*)raw_info.buffer + raw_info.pitch * raw_info.height; row += 2 * raw_info.pitch / sizeof(struct raw_pixblock))
+    for (row = raw_info_buffer; (void*)row < (void*)raw_info_buffer + raw_info.pitch * raw_info.height; row += 2 * raw_info.pitch / sizeof(struct raw_pixblock))
     {
         /* first line is RG */
         struct raw_pixblock * rg;
@@ -1108,7 +1109,7 @@ static void apply_vertical_stripes_correction()
     
     struct raw_pixblock * row;
     
-    for (row = raw_info.buffer; (void*)row < (void*)raw_info.buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
+    for (row = raw_info_buffer; (void*)row < (void*)raw_info_buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
     {
         struct raw_pixblock * p;
         for (p = row; (void*)p < (void*)row + raw_info.pitch; p++)
@@ -1125,7 +1126,7 @@ static void apply_vertical_stripes_correction()
     }
     
     int black = raw_info.black_level;
-    for (row = raw_info.buffer; (void*)row < (void*)raw_info.buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
+    for (row = raw_info_buffer; (void*)row < (void*)raw_info_buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
     {
         struct raw_pixblock * p;
         for (p = row; (void*)p < (void*)row + raw_info.pitch; p++)
