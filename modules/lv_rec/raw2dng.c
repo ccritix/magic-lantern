@@ -1199,7 +1199,7 @@ void find_and_fix_cold_pixels(int force_analysis)
   
     FILE * cold_pixel_file;
     static int cold_pixel_file_exists = 0;
-    int bc;
+    int ret_val;
 
     struct xy { int x; int y; };
     static struct xy cold_pixel_list[MAX_COLD_PIXELS];
@@ -1218,12 +1218,12 @@ void find_and_fix_cold_pixels(int force_analysis)
             do
             {
                 cold_pixels++;
-                bc = fscanf(cold_pixel_file, "%d%*[ \t]%d%*[ \t]\n", &cold_pixel_list[cold_pixels].x, &cold_pixel_list[cold_pixels].y);
+                ret_val = fscanf(cold_pixel_file, "%d%*[ \t]%d%*[ \t]\n", &cold_pixel_list[cold_pixels].x, &cold_pixel_list[cold_pixels].y);
             } 
-            while (!feof(cold_pixel_file));
+            while (ret_val != EOF);
             
-            cold_pixel_file_exists = bc = 1;
-            printf("\rFile badpixels.map loaded : %d pixels                             \n", cold_pixels);
+            cold_pixel_file_exists = 1;
+            printf("\rFile badpixels.map loaded : %d pixels                            \n", cold_pixels);
             fclose(cold_pixel_file);
         }
     }
@@ -1256,7 +1256,7 @@ void find_and_fix_cold_pixels(int force_analysis)
         if (!cold_pixel_file_exists) printf("\rCold pixels found: %d                             \n", cold_pixels);
     }
 
-    if (force_analysis == 2)
+    if (!cold_pixel_file_exists && force_analysis == 2)
     {
         cold_pixel_file = fopen("badpixels.map", "w");
         for (int pix_count = 0; pix_count < cold_pixels; pix_count++)
