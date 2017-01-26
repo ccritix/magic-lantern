@@ -32,12 +32,6 @@
 
 static inline int kth_smallest_int(int a[], int n, int k)
 {
-    if (n <= 0 || k < 0)
-    {
-        /* safeguard for invalid calls */
-        printf("error: kth_smallest_int(n=%d, k=%d)\n", n, k);
-        exit(1);
-    }
 
     register int i,j,l,m ;
     register int x ;

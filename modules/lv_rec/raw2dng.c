@@ -1212,7 +1212,7 @@ void find_and_fix_cold_pixels(int force_analysis)
     
     if (cold_pixels < 0 && !force_analysis)
     {
-        cold_pixel_file = fopen(".badpixels", "r");
+        cold_pixel_file = fopen("badpixels.map", "r");
         if (cold_pixel_file)
         {
             do
@@ -1223,7 +1223,7 @@ void find_and_fix_cold_pixels(int force_analysis)
             while (!feof(cold_pixel_file));
             
             cold_pixel_file_exists = bc = 1;
-            printf("\rFile .badpixels loaded : %d pixels                             \n", cold_pixels);
+            printf("\rFile badpixels.map loaded : %d pixels                             \n", cold_pixels);
             fclose(cold_pixel_file);
         }
     }
@@ -1256,16 +1256,16 @@ void find_and_fix_cold_pixels(int force_analysis)
         if (!cold_pixel_file_exists) printf("\rCold pixels found: %d                             \n", cold_pixels);
     }
 
-    if (!cold_pixel_file_exists && force_analysis == 2)
+    if (!force_analysis == 2)
     {
-        cold_pixel_file = fopen(".badpixels", "w");
+        cold_pixel_file = fopen("badpixels.map", "w");
         for (int pix_count = 0; pix_count < cold_pixels; pix_count++)
         {
             fprintf(cold_pixel_file, "%d \t %d\n", cold_pixel_list[pix_count].x, cold_pixel_list[pix_count].y);
         } 
 
         cold_pixel_file_exists = 1;
-        printf("\rFile .badpixels written : %d pixels                             \n", cold_pixels);
+        printf("\rFile badpixels.map written : %d pixels                             \n", cold_pixels);
         fclose(cold_pixel_file);
      }
 
