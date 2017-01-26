@@ -1256,7 +1256,7 @@ void find_and_fix_cold_pixels(int force_analysis)
         if (!cold_pixel_file_exists) printf("\rCold pixels found: %d                             \n", cold_pixels);
     }
 
-    if (!force_analysis == 2)
+    if (force_analysis == 2)
     {
         cold_pixel_file = fopen("badpixels.map", "w");
         for (int pix_count = 0; pix_count < cold_pixels; pix_count++)
