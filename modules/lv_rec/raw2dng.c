@@ -1192,49 +1192,65 @@ static inline int FC(int row, int col)
     }
 }
 
-
 void find_and_fix_cold_pixels(int force_analysis)
 {
     #define MAX_COLD_PIXELS 200000
   
     FILE * cold_pixel_file;
-    static int cold_pixel_file_exists = 0;
-    int ret_val;
+    FILE * focus_pixel_file;
+    static int cold_pixel_file_exists = 0, focus_pixel_file_exists = 0;
 
     struct xy { int x; int y; };
     static struct xy cold_pixel_list[MAX_COLD_PIXELS];
-    static int cold_pixels = -1;
+    static int cold_pixels = 0, first_frame = 1, start_pixel = 0;
+    static unsigned long frame_count = 0;
         
     int w = raw_info.width;
     int h = raw_info.height;
     
-    /* search file with bad pixels, if not found then scan for bad pixels in the first frame only, or on request */
-    
-    if (cold_pixels < 0 && !force_analysis)
+    /* at sane ISOs, noise stdev is well less than 50, so 200 should be enough */
+    int cold_thr = MAX(0, raw_info.black_level - 200);
+
+    /* pixel maps check */
+    if (first_frame && force_analysis != 1)
     {
-        cold_pixel_file = fopen("badpixels.map", "r");
+        cold_pixel_file = fopen("allbadpixels.map", "r");
+        focus_pixel_file = fopen("focuspixels.map", "r");
         if (cold_pixel_file)
         {
-            do
+            cold_pixel_file_exists = 1;
+
+            while (fscanf(cold_pixel_file, "%d%*[ \t]%d%*[ \t^0]\n", &cold_pixel_list[cold_pixels].x, &cold_pixel_list[cold_pixels].y) != EOF)
             {
                 cold_pixels++;
-                ret_val = fscanf(cold_pixel_file, "%d%*[ \t]%d%*[ \t]\n", &cold_pixel_list[cold_pixels].x, &cold_pixel_list[cold_pixels].y);
-            } 
-            while (ret_val != EOF);
-            
-            cold_pixel_file_exists = 1;
-            printf("\rFile badpixels.map loaded : %d pixels                            \n", cold_pixels);
+            }
+
+            printf("\rFile allbadpixels.map loaded : %d pixels                            \n", cold_pixels);
             fclose(cold_pixel_file);
+        }
+        else if (focus_pixel_file)
+        {
+            
+            focus_pixel_file_exists = 1;
+
+            while (fscanf(focus_pixel_file, "%d%*[ \t]%d%*[ \t^0]\n", &cold_pixel_list[cold_pixels].x, &cold_pixel_list[cold_pixels].y) != EOF)
+            {
+                cold_pixels++;
+            } 
+
+            printf("\rFile focuspixels.map loaded : %d pixels                            \n", cold_pixels);
+            fclose(focus_pixel_file);
+            goto repair_mark;
         }
     }
 
-    if (cold_pixels < 0 || force_analysis)
+    /* if pixel maps not found then scan for cold pixels in the first frame only or in every frame on request force_analysis = 1 */
+    if (cold_pixels == 0 || force_analysis == 1)
     {
-        cold_pixels = 0;
         
-        /* at sane ISOs, noise stdev is well less than 50, so 200 should be enough */
-        int cold_thr = MAX(0, raw_info.black_level - 200);
+analyse_mark:
 
+        cold_pixels = start_pixel;
         /* analyse all pixels of the frame */
         for (int y = 0; y < h; y++)
         {
@@ -1253,28 +1269,36 @@ void find_and_fix_cold_pixels(int force_analysis)
             }
         }
         
-        if (!cold_pixel_file_exists) printf("\rCold pixels found: %d                             \n", cold_pixels);
+        if (!cold_pixel_file_exists)
+        {
+            printf("\rFrame%lu : cold pixels found: %d                             \n", frame_count, cold_pixels - start_pixel);
+            frame_count++;
+        }
+        if (start_pixel) start_pixel = 0;
     }
 
+    /* save allbadpixels.map file */
     if (!cold_pixel_file_exists && force_analysis == 2)
     {
-        cold_pixel_file = fopen("badpixels.map", "w");
+        cold_pixel_file = fopen("allbadpixels.map", "w");
         for (int pix_count = 0; pix_count < cold_pixels; pix_count++)
         {
             fprintf(cold_pixel_file, "%d \t %d\n", cold_pixel_list[pix_count].x, cold_pixel_list[pix_count].y);
         } 
 
         cold_pixel_file_exists = 1;
-        printf("\rFile badpixels.map written : %d pixels                             \n", cold_pixels);
+        printf("\rFile allbadpixels.map written : %d pixels                             \n", cold_pixels);
         fclose(cold_pixel_file);
      }
 
+repair_mark:
+    
     /* repair the cold pixels */
-    for (int p = 0; p < cold_pixels; p++)
+    for (int p = start_pixel; p < cold_pixels; p++)
     {
         int x = cold_pixel_list[p].x;
         int y = cold_pixel_list[p].y;
-      
+    
         int neighbours[100];
         int k = 0;
         int fc0 = FC(x, y);
@@ -1311,6 +1335,15 @@ void find_and_fix_cold_pixels(int force_analysis)
         raw_set_pixel(x, y, -median_int_wirth(neighbours, k));
     }
     
+    if (first_frame)
+    {
+        first_frame = 0;
+        if (focus_pixel_file_exists)
+        {
+            start_pixel = cold_pixels;
+            goto analyse_mark;
+        }
+    }
 }
 
 #ifdef CHROMA_SMOOTH
