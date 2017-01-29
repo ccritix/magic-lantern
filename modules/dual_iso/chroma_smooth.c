@@ -2,7 +2,7 @@
 #define CHROMA_SMOOTH_FUNC chroma_smooth_2x2
 #define CHROMA_SMOOTH_MAX_IJ 2
 #define CHROMA_SMOOTH_FILTER_SIZE 5
-#define CHROMA_SMOOTH_MEDIAN opt_med3
+#define CHROMA_SMOOTH_MEDIAN opt_med5
 #elif defined(CHROMA_SMOOTH_3X3)
 #define CHROMA_SMOOTH_FUNC chroma_smooth_3x3
 #define CHROMA_SMOOTH_MAX_IJ 2
