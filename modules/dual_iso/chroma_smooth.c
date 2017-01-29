@@ -2,7 +2,7 @@
 #define CHROMA_SMOOTH_FUNC chroma_smooth_2x2
 #define CHROMA_SMOOTH_MAX_IJ 2
 #define CHROMA_SMOOTH_FILTER_SIZE 5
-#define CHROMA_SMOOTH_MEDIAN opt_med5
+#define CHROMA_SMOOTH_MEDIAN opt_med3
 #elif defined(CHROMA_SMOOTH_3X3)
 #define CHROMA_SMOOTH_FUNC chroma_smooth_3x3
 #define CHROMA_SMOOTH_MAX_IJ 2
@@ -46,8 +46,8 @@ static void CHROMA_SMOOTH_FUNC(uint32_t * inp, uint32_t * out, int* raw2ev, int*
                     #endif
                     
                     int r  = inp[x+i   +   (y+j) * w];
-                    int g1 = inp[x+i+1 +   (y+j) * w];
-                    int g2 = inp[x+i   + (y+j+1) * w];
+                    int g1 = inp[x+i+1 +   (y+j) * w]; 		
+                    int g2 = inp[x+i   + (y+j+1) * w]; 
                     int b  = inp[x+i+1 + (y+j+1) * w];
                     
                     int ge = (raw2ev[g1] + raw2ev[g2]) / 2;
