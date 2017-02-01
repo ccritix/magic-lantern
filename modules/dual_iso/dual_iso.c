@@ -68,6 +68,8 @@
 #include <math.h>
 #include <fileprefix.h>
 #include <raw.h>
+#include "../mlv_rec/mlv.h"
+#include "../mlv_rec/mlv_rec_interface.h"
 
 static CONFIG_INT("isoless.hdr", isoless_hdr, 0);
 static CONFIG_INT("isoless.iso", isoless_recovery_iso, 3);
@@ -676,6 +678,18 @@ static struct menu_entry isoless_menu[] =
     },
 };
 
+void isoless_mlv_rec_cbr (uint32_t event, void *ctx, mlv_hdr_t *hdr)
+{
+    static mlv_diso_hdr_t dual_iso_block;
+    
+    mlv_set_type((mlv_hdr_t *)&dual_iso_block, "DISO");
+    dual_iso_block.blockSize = sizeof(dual_iso_block);
+    dual_iso_block.dualMode = dual_iso_is_active();
+    dual_iso_block.isoValue = isoless_recovery_iso;
+    
+    mlv_rec_queue_block((mlv_hdr_t *)&dual_iso_block);
+}
+
 static unsigned int isoless_init()
 {
     if (is_camera("5D3", "1.1.3") || is_camera("5D3", "1.2.3"))
@@ -936,6 +950,9 @@ static unsigned int isoless_init()
         isoless_hdr = 0;
         return 1;
     }
+    
+    mlv_rec_register_cbr(MLV_REC_EVENT_STARTED | MLV_REC_EVENT_CYCLIC, &isoless_mlv_rec_cbr, NULL);
+    
     return 0;
 }
 
