@@ -20,6 +20,8 @@
 
 static int is_5D3 = 0;
 static int is_EOSM = 0;
+static int is_700D = 0;
+static int is_600D = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 
@@ -89,6 +91,40 @@ static const char crop_choices_help_eosm[] =
 
 static const char crop_choices_help2_eosm[] =
     "On EOS M, when not recording H264, LV defaults to 720p with 5x3 binning.";
+
+/* menu choices for 700D */
+static enum crop_preset crop_presets_700d[] = {
+    CROP_PRESET_OFF,
+    CROP_PRESET_3x3_1X,
+};
+
+static const char * crop_choices_700d[] = {
+    "OFF",
+    "3x3 720p",
+};
+
+static const char crop_choices_help_700d[] =
+    "3x3 binning in 720p (1728x692 with square raw pixels)";
+
+static const char crop_choices_help2_700d[] =
+    "Copied settings from EOSM.";
+
+/* menu choices for 600D */
+static enum crop_preset crop_presets_600d[] = {
+    CROP_PRESET_OFF,
+    CROP_PRESET_3x3_1X,
+};
+
+static const char * crop_choices_600d[] = {
+    "OFF",
+    "3x3 720p",
+};
+
+static const char crop_choices_help_600d[] =
+    "3x3 binning in 720p (1728x692 with square raw pixels)";
+
+static const char crop_choices_help2_600d[] =
+    "Copied settings from EOSM.";
 
 /* camera-specific parameters */
 static uint32_t CMOS_WRITE      = 0;
@@ -177,6 +213,34 @@ static int FAST check_cmos_vidmode(uint16_t* data_buf)
         }
         
         if (is_EOSM)
+        {
+            if (reg == 7)
+            {
+                found = 1;
+                /* prevent running in 600D hack crop mode */
+                if (value != 0x800) 
+                {
+                    ok = 0;
+                }
+            }
+        }
+        
+        data_buf++;
+
+        if (is_700D)
+        {
+            if (reg == 7)
+            {
+                found = 1;
+                /* prevent running in 600D hack crop mode */
+                if (value != 0x800) 
+                {
+                    ok = 0;
+                }
+            }
+        }
+
+        if (is_600D)
         {
             if (reg == 7)
             {
@@ -295,6 +359,27 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         }
     }
 
+    if (is_700D)
+    {
+        switch (crop_preset)
+        {
+            case CROP_PRESET_3x3_1X:
+                /* start/stop scanning line, very large increments */
+                cmos_new[7] = PACK12(6,29);
+                break;            
+        }
+    }
+
+    if (is_600D)
+    {
+        switch (crop_preset)
+        {
+            case CROP_PRESET_3x3_1X:
+                /* start/stop scanning line, very large increments */
+                cmos_new[7] = PACK12(6,29);
+                break;            
+        }
+    }
 
     
     /* copy data into a buffer, to make the override temporary */
@@ -387,7 +472,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         }
     }
 
-    if (is_5D3 || is_EOSM)
+    if (is_5D3 || is_EOSM || is_700D || is_600D)
     {
         switch (crop_preset)
         {
@@ -730,6 +815,36 @@ static unsigned int crop_rec_init()
         crop_rec_menu[0].max        = COUNT(crop_choices_eosm) - 1;
         crop_rec_menu[0].help       = crop_choices_help_eosm;
         crop_rec_menu[0].help2      = crop_choices_help2_eosm;
+    }
+    else if (is_camera("700D", "1.1.4"))
+    {
+        CMOS_WRITE = 0x17A1C;
+        MEM_CMOS_WRITE = 0xE92D41F0;
+        
+        ADTG_WRITE = 0x178FC;
+        MEM_ADTG_WRITE = 0xE92D43F8;
+        
+        is_700D = 1;
+        crop_presets                = crop_presets_700d;
+        crop_rec_menu[0].choices    = crop_choices_700d;
+        crop_rec_menu[0].max        = COUNT(crop_choices_700d) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_700d;
+        crop_rec_menu[0].help2      = crop_choices_help2_700d;
+    }
+    else if (is_camera("600D", "1.0.2"))
+    {
+        CMOS_WRITE = 0x17A1C;
+        MEM_CMOS_WRITE = 0xE92D41F0;
+        
+        ADTG_WRITE = 0x178FC;
+        MEM_ADTG_WRITE = 0xE92D43F8;
+        
+        is_600D = 1;
+        crop_presets                = crop_presets_600d;
+        crop_rec_menu[0].choices    = crop_choices_600d;
+        crop_rec_menu[0].max        = COUNT(crop_choices_600d) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_600d;
+        crop_rec_menu[0].help2      = crop_choices_help2_600d;
     }
     
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
