@@ -833,10 +833,10 @@ static unsigned int crop_rec_init()
     }
     else if (is_camera("600D", "1.0.2"))
     {
-        CMOS_WRITE = 0x17A1C;
+        CMOS_WRITE = 0xFF2DD0E8;
         MEM_CMOS_WRITE = 0xE92D41F0;
-        
-        ADTG_WRITE = 0x178FC;
+       
+        ADTG_WRITE = 0xFF2DCEF4;
         MEM_ADTG_WRITE = 0xE92D43F8;
         
         is_600D = 1;
