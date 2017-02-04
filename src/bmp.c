@@ -966,7 +966,9 @@ int bfnt_draw_char(int c, int px, int py, int fg, int bg)
 {
     if (!bfnt_ok())
     {
+        #ifndef PYCPARSER   /* circular dependency */
         bmp_printf(FONT_SMALL, 0, 0, "font addr bad");
+        #endif
         return 0;
     }
 
