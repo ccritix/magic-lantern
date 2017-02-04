@@ -5471,7 +5471,7 @@ static void menu_set_flags(char* menu_name, char* entry_name, int flags)
         jhide_menu_by_name(menu_name, entry_name);
 }
 
-#define CFG_APPEND(fmt, ...) ({ lastlen = snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); cfglen += lastlen; })
+#define CFG_APPEND(fmt, ...) do { lastlen = snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); cfglen += lastlen; } while(0)
 #define CFG_SIZE 32768
 
 static void menu_save_flags(char* filename)
