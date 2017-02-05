@@ -118,6 +118,10 @@ dropbox: all
 
 features.html: FORCE
 	cd features; python features-html.py > ../features.html
- 
+
+tasks:
+	python -m doctest build_tools/check_tasks.py
+	python build_tools/check_tasks.py
+
 FORCE:
 
