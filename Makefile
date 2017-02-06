@@ -133,5 +133,8 @@ tasks:
 	make -i -C modules/ clean
 	make -C platform/5D3.113 clean
 
+tasks-clang:
+	clang -fsyntax-only -Wthread-safety src/mutex-test.c
+
 FORCE:
 
