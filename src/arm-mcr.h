@@ -35,6 +35,7 @@ asm(
 #include <limits.h>
 #include <sys/types.h>
 #include "compiler.h"
+#include "mutex.h"
 
 typedef void (*thunk)(void);
 
@@ -204,9 +205,12 @@ set_i_tcm( uint32_t value )
     asm( "mcr p15, 0, %0, c9, c1, 1\n" : : "r"(value) );
 }
 
+/* only used for clang's thread safety analysis */
+typedef int __interrupt_mutex_t CAPABILITY("mutex");
+static __interrupt_mutex_t IRQ_mutex __attribute__((unused));
 
 /** Routines to enable / disable interrupts */
-static inline uint32_t
+static inline uint32_t ACQUIRE(IRQ_mutex) NO_THREAD_SAFETY_ANALYSIS
 cli(void)
 {
     uint32_t old_irq;
@@ -221,7 +225,7 @@ cli(void)
     return old_irq; // return the flag itself
 }
 
-static inline void
+static inline void RELEASE(IRQ_mutex) NO_THREAD_SAFETY_ANALYSIS
 sei( uint32_t old_irq )
 {
     asm __volatile__ (
