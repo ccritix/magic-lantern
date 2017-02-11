@@ -68,7 +68,7 @@
 #include <util.h>
 #include <edmac.h>
 #include <edmac-memcpy.h>
-#include <cache_hacks.h>
+#include <patch.h>
 #include <string.h>
 #include <shoot.h>
 #include <powersave.h>
@@ -558,7 +558,8 @@ static void update_resolution_params()
     max_res_y = raw_info.jpeg.height & ~1;
 
     /* squeeze factor */
-    if ( (cam_eos_m && !video_mode_crop) ? (lv_dispsize == 1) : (video_mode_resolution == 1 && lv_dispsize == 1 && is_movie_mode()) ) /* 720p, image squeezed */
+    //if ( (cam_eos_m && !video_mode_crop) ? (lv_dispsize == 1) : (video_mode_resolution == 1 && lv_dispsize == 1 && is_movie_mode()) ) /* 720p, image squeezed */
+    if ( (video_mode_resolution == 1 && lv_dispsize == 1 && is_movie_mode()) ) /* 720p, image squeezed */
     {
         /* assume the raw image should be 16:9 when de-squeezed */
         //int32_t correct_height = max_res_x * 9 / 16;
@@ -1664,27 +1665,6 @@ static void hack_liveview_vsync()
     }
 }
 
-static void cache_require(int lock)
-{
-    static int cache_was_unlocked = 0;
-    if (lock)
-    {
-        if (!cache_locked())
-        {
-            cache_was_unlocked = 1;
-            icache_lock();
-        }
-    }
-    else
-    {
-        if (cache_was_unlocked)
-        {
-            icache_unlock();
-            cache_was_unlocked = 0;
-        }
-    }
-}
-
 /* this is a separate task */
 static void unhack_liveview_vsync(int32_t unused)
 {
@@ -1755,25 +1735,24 @@ static void hack_liveview(int32_t unhack)
         uint32_t dialog_refresh_timer_orig_instr = 0xe3a00032; /* mov r0, #50 */
         uint32_t dialog_refresh_timer_new_instr  = 0xe3a00a02; /* change to mov r0, #8192 */
 
-        if (*(volatile uint32_t*)dialog_refresh_timer_addr != dialog_refresh_timer_orig_instr)
-        {
-            /* something's wrong */
-            NotifyBox(1000, "Hack error at %x:\nexpected %x, got %x", dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, *(volatile uint32_t*)dialog_refresh_timer_addr);
-            beep_custom(1000, 2000, 1);
-            dialog_refresh_timer_addr = 0;
-        }
-
         if (dialog_refresh_timer_addr)
         {
             if (!unhack) /* hack */
             {
-                cache_require(1);
-                cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_new_instr, TYPE_ICACHE);
+                int err = patch_instruction(
+                    dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, dialog_refresh_timer_new_instr, 
+                    "mlv_rec: slow down Canon dialog refresh timer"
+                );
+                
+                if (err)
+                {
+                    NotifyBox(1000, "Hack error at %x:\nexpected %x, got %x", dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, *(volatile uint32_t*)dialog_refresh_timer_addr);
+                    beep_custom(1000, 2000, 1);
+                }
             }
             else /* unhack */
             {
-                cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, TYPE_ICACHE);
-                cache_require(0);
+                unpatch_memory(dialog_refresh_timer_addr);
             }
         }
     }
