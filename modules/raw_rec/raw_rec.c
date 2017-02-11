@@ -1325,6 +1325,22 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
     return 0;
 }
 
+static char dcim_dir_suffix[6];
+
+PROP_HANDLER(PROP_DCIM_DIR_SUFFIX)
+{
+    snprintf(dcim_dir_suffix, sizeof(dcim_dir_suffix), (const char *)buf);
+}
+
+static const char* get_cf_dcim_dir()
+{
+    static char dcim_dir[FIO_MAX_PATH_LENGTH];
+    struct card_info * card = get_shooting_card();
+    if (is_dir("A:/")) card = get_card(CARD_A);
+    snprintf(dcim_dir, sizeof(dcim_dir), "%s:/DCIM/%03d%s", card->drive_letter, card->folder_number, dcim_dir_suffix);
+    return dcim_dir;
+}
+
 static char* get_next_raw_movie_file_name()
 {
     static char filename[100];
@@ -1338,7 +1354,7 @@ static char* get_next_raw_movie_file_name()
          * Get unique file names from the current date/time
          * last field gets incremented if there's another video with the same name
          */
-        snprintf(filename, sizeof(filename), "%s/M%02d-%02d%02d.RAW", get_dcim_dir(), now.tm_mday, now.tm_hour, COERCE(now.tm_min + number, 0, 99));
+        snprintf(filename, sizeof(filename), "%s/M%02d-%02d%02d.RAW", get_cf_dcim_dir(), now.tm_mday, now.tm_hour, COERCE(now.tm_min + number, 0, 99));
         
         /* already existing file? */
         uint32_t size;
@@ -1404,7 +1420,7 @@ static void raw_video_rec_task()
 
     /* create a backup file, to make sure we can save the file footer even if the card is full */
     char backup_filename[100];
-    snprintf(backup_filename, sizeof(backup_filename), "%s/backup.raw", get_dcim_dir());
+    snprintf(backup_filename, sizeof(backup_filename), "%s/backup.raw", get_cf_dcim_dir());
     FILE* bf = FIO_CreateFile(backup_filename);
     if (!bf)
     {
@@ -1910,7 +1926,7 @@ static struct menu_entry raw_video_menu[] =
                 .priv   = &h264_proxy,
                 .max    = 1,
                 .help   = "Record a H.264 video at the same time.",
-                .help2  = "Will reduce write speed and available memory.",
+                .help2  = "For best performance, record H.264 on SD and RAW on CF.",
                 .advanced = 1,
             },
             {
@@ -2207,6 +2223,10 @@ MODULE_CBRS_START()
     MODULE_CBR(CBR_SHOOT_TASK, raw_rec_polling_cbr, 0)
     MODULE_CBR(CBR_DISPLAY_FILTER, raw_rec_update_preview, 0)
 MODULE_CBRS_END()
+
+MODULE_PROPHANDLERS_START()
+    MODULE_PROPHANDLER(PROP_DCIM_DIR_SUFFIX)
+MODULE_PROPHANDLERS_END()
 
 MODULE_CONFIGS_START()
     MODULE_CONFIG(raw_video_enabled)
