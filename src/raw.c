@@ -109,9 +109,28 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define DEFAULT_RAW_BUFFER MEM(MEM(0x51FC))
 #endif
 
-#ifdef CONFIG_5D3
-#define DEFAULT_RAW_BUFFER MEM(0x2600C + 0x2c)  /* 113 */
-//~ #define DEFAULT_RAW_BUFFER MEM(0x25f1c + 0x34)  /* 123 */
+#ifdef CONFIG_5D3_113
+#define DEFAULT_RAW_BUFFER MEM(0x2600C + 0x2c)
+#endif
+
+#ifdef CONFIG_5D3_123
+#define DEFAULT_RAW_BUFFER MEM(0x25f1c + 0x34)
+#endif
+
+#ifdef CONFIG_650D
+#define DEFAULT_RAW_BUFFER MEM(0x25B00 + 0x3C)
+#endif
+
+#ifdef CONFIG_700D
+#define DEFAULT_RAW_BUFFER MEM(0x25B0C + 0x3C)
+#endif
+
+#ifdef CONFIG_EOSM
+#define DEFAULT_RAW_BUFFER MEM(0x404E4 + 0x44)
+#endif
+
+#ifdef CONFIG_6D
+#define DEFAULT_RAW_BUFFER MEM(0x76d6c + 0x2C)
 #endif
 
 #ifdef CONFIG_650D
