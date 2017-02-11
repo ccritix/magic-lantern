@@ -180,21 +180,15 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 /** 
  * White level
- * one size fits all: should work on most cameras and can't be wrong by more than 0.15 EV
- * that is, log2((16382-2048) / (15000-2048))
+ * 
+ * With PREFERRED_RAW_TYPE set to CCD, most cameras appear to clip above 16300
+ * (most of them actually use the full range, until 16382)
+ * 
+ * one size fits all: 16200 may sacrifice up to 0.02 EV of highlights
+ * that is, log2((16382-2048) / (16000-2048))
  */
-#define WHITE_LEVEL 15000
+#define WHITE_LEVEL 16200
 
-/** there may be exceptions */
-#ifdef CONFIG_6D
-#undef WHITE_LEVEL
-#define WHITE_LEVEL 13000
-#endif
-
-#ifdef CONFIG_5D3
-#undef WHITE_LEVEL
-#define WHITE_LEVEL 16300
-#endif
 
 /**
  * Color matrix should be copied from DCRAW.
@@ -1623,7 +1617,7 @@ static void FAST raw_preview_color_work(void* raw_buffer, void* lv_buffer, int y
         if (yr <= preview_rect_y || yr >= preview_rect_y + preview_rect_h)
         {
             /* out of range, just fill with black */
-            memset(&lv32[LV(0,y)/4], 0, x2-x1);
+            memset(&lv32[LV(0,y)/4], 0, (x2-x1)*2);
             continue;
         }
 
@@ -1711,7 +1705,7 @@ static void FAST raw_preview_fast_work(void* raw_buffer, void* lv_buffer, int y1
         if (yr <= preview_rect_y || yr >= preview_rect_y + preview_rect_h)
         {
             /* out of range, just fill with black */
-            memset(&lv64[LV(0,y)/8], 0, x2-x1);
+            memset(&lv64[LV(0,y)/8], 0, (x2-x1)*2);
             continue;
         }
 
