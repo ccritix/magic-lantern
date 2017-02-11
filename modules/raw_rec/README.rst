@@ -1,11 +1,7 @@
-Raw video v1.1 (MLV Lite)
-=========================
+Raw recording v1.0
+==================
 
-Records 14-bit RAW video.
-
-This is the original RAW recording module updated to MLV file format
-(credits: dmilligan), but without the extra features from mlv_rec.
-The performance should be identical to the old raw_rec v1.0.
+Records 14-bit RAW video. Minimalist, no metadata.
 
 You may want to load mlv_play for reviewing clips.
 
