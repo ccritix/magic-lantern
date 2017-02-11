@@ -65,6 +65,7 @@
 #include "zebra.h"
 #include "fps.h"
 #include "powersave.h"
+#include "shoot.h"
 
 /* from mlv_play module */
 extern WEAK_FUNC(ret_0) void mlv_play_file(char *filename);
@@ -122,6 +123,8 @@ static CONFIG_INT("raw.preview", preview_mode, 0);
 static CONFIG_INT("raw.warm.up", warm_up, 0);
 static CONFIG_INT("raw.use.srm.memory", use_srm_memory, 1);
 static CONFIG_INT("raw.small.hacks", small_hacks, 1);
+
+static CONFIG_INT("raw.h264.proxy", h264_proxy, 0);
 
 /* Recording Status Indicator Options */
 #define INDICATOR_OFF        0
@@ -1389,6 +1392,13 @@ static void raw_video_rec_task()
     uint32_t written_chunk = 0; /* in bytes, for current chunk */
     int last_block_size = 0; /* for detecting early stops */
 
+    if (h264_proxy)
+    {
+        /* start H.264 recording */
+        ASSERT(!RECORDING_H264);
+        movie_start();
+    }
+
     /* disable Canon's powersaving (30 min in LiveView) */
     powersave_prohibit();
 
@@ -1803,6 +1813,12 @@ cleanup:
     /* re-enable powersaving  */
     powersave_permit();
 
+    if (h264_proxy && RECORDING_H264)
+    {
+        /* stop H.264 recording */
+        movie_end();
+    }
+
     raw_recording_state = RAW_IDLE;
 }
 
@@ -1890,6 +1906,14 @@ static struct menu_entry raw_video_menu[] =
                 .advanced = 1,
             },
             {
+                .name   = "H.264 proxy",
+                .priv   = &h264_proxy,
+                .max    = 1,
+                .help   = "Record a H.264 video at the same time.",
+                .help2  = "Will reduce write speed and available memory.",
+                .advanced = 1,
+            },
+            {
                 .name = "Card warm-up",
                 .priv = &warm_up,
                 .max = 7,
@@ -1946,7 +1970,7 @@ static unsigned int raw_rec_keypress_cbr(unsigned int key)
         return 1;
 
     /* if you somehow managed to start recording H.264, let it stop */
-    if (RECORDING_H264)
+    if (RECORDING_H264 && !h264_proxy)
         return 1;
     
     /* block the zoom key while recording */
@@ -2020,6 +2044,28 @@ static unsigned int raw_rec_keypress_cbr(unsigned int key)
     }
     
     return 1;
+}
+
+static unsigned int raw_rec_keypress_cbr_raw(unsigned int raw_event)
+{
+    struct event * event = (struct event *) raw_event;
+
+    if (h264_proxy)
+    {
+        if (IS_FAKE(event))
+        {
+            if (raw_recording_state == RAW_PREPARING ||
+                raw_recording_state == RAW_FINISHING)
+            {
+                /* fake events (generated from ML) are not processed */
+                /* they are probably for starting/stopping H.264 */
+                return 1;
+            }
+        }
+    }
+
+    int key = module_translate_key(event->param, MODULE_KEY_PORTABLE);
+    return raw_rec_keypress_cbr(key);
 }
 
 static int preview_dirty = 0;
@@ -2157,7 +2203,7 @@ MODULE_INFO_END()
 
 MODULE_CBRS_START()
     MODULE_CBR(CBR_VSYNC, raw_rec_vsync_cbr, 0)
-    MODULE_CBR(CBR_KEYPRESS, raw_rec_keypress_cbr, 0)
+    MODULE_CBR(CBR_KEYPRESS_RAW, raw_rec_keypress_cbr_raw, 0)
     MODULE_CBR(CBR_SHOOT_TASK, raw_rec_polling_cbr, 0)
     MODULE_CBR(CBR_DISPLAY_FILTER, raw_rec_update_preview, 0)
 MODULE_CBRS_END()
@@ -2172,4 +2218,5 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(use_srm_memory)
     MODULE_CONFIG(small_hacks)
     MODULE_CONFIG(warm_up)
+    MODULE_CONFIG(h264_proxy)
 MODULE_CONFIGS_END()
