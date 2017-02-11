@@ -1377,19 +1377,11 @@ static char* get_next_chunk_file_name(char* base_name, int chunk)
     return filename;
 }
 
-static char* get_wav_file_name(char* raw_movie_filename)
+/* a bit of a hack: this tells the audio backend that we are going to record sound */
+/* => it will show audio meters and disable beeps */
+int mlv_snd_is_enabled()
 {
-    /* same name as movie, but with wav extension */
-    static char wavfile[100];
-    snprintf(wavfile, sizeof(wavfile), raw_movie_filename);
-    int len = strlen(wavfile);
-    wavfile[len-4] = '.';
-    wavfile[len-3] = 'W';
-    wavfile[len-2] = 'A';
-    wavfile[len-1] = 'V';
-    /* prefer SD card for saving WAVs (should be faster on 5D3) */
-    if (is_dir("B:/")) wavfile[0] = 'B';
-    return wavfile;
+    return h264_proxy && sound_recording_enabled_canon();
 }
 
 static void raw_video_rec_task()
