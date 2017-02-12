@@ -217,9 +217,12 @@ int round_shutter(int tv, int slowest_shutter)
     tv = MIN(tv, FASTEST_SHUTTER_SPEED_RAW);
 
     /* note: it's possible to get a valid shutter just by altering the requested value by 1 */
+    /* ... unless we hit some limits */
     tvr = MAX(tv    , slowest_shutter); if (expo_value_rounding_ok(tvr, 0)) return tvr;
     tvr = MAX(tv - 1, slowest_shutter); if (expo_value_rounding_ok(tvr, 0)) return tvr;
     tvr = MAX(tv + 1, slowest_shutter); if (expo_value_rounding_ok(tvr, 0)) return tvr;
+    tvr = MAX(tv - 2, slowest_shutter); if (expo_value_rounding_ok(tvr, 0)) return tvr;
+    tvr = MAX(tv + 2, slowest_shutter); if (expo_value_rounding_ok(tvr, 0)) return tvr;
     return 0;
 }
 
@@ -323,21 +326,67 @@ char* get_shootmode_name_short(int shooting_mode)
                                                 "?"  ;
 }
 
-int FAST get_ml_bottombar_pos()
+int FAST get_ml_topbar_pos()
 {
-    unsigned bottom = 480;
-    int screen_layout = get_screen_layout();
-    
-    if (screen_layout == SCREENLAYOUT_3_2_or_4_3) bottom = os.y_max;
-    else if (screen_layout == SCREENLAYOUT_16_9) bottom = os.y_max - os.off_169;
-    else if (screen_layout == SCREENLAYOUT_16_10) bottom = os.y_max - os.off_1610;
-    else if (screen_layout == SCREENLAYOUT_UNDER_3_2) bottom = MIN(os.y_max + 54, 480);
-    else if (screen_layout == SCREENLAYOUT_UNDER_16_9) bottom = MIN(os.y_max - os.off_169 + 54, 480);
+    const int bar_height = 32;
+    int bmp_ymax = (hdmi_code >= 5) ? 510 : 480;
 
     if (gui_menu_shown())
-        bottom = 480 + (hdmi_code == 5 ? 40 : 0); // force it at the bottom of menu
+    {
+        return (hdmi_code >= 5) ? 40 : 2; // force it at the top of menu
+    }
+    else
+    {
+        int screen_layout = get_screen_layout();
 
-    return bottom - 34;
+        switch (screen_layout)
+        {
+            case SCREENLAYOUT_16_9:
+                return os.y0 + os.off_169 + 2; // meters just below 16:9 border
+
+            case SCREENLAYOUT_16_10:
+                return os.y0 + os.off_1610 + 2; // meters just below 16:9 border
+
+            case SCREENLAYOUT_UNDER_3_2:
+                return MIN(os.y_max + 2, bmp_ymax - 2*bar_height);
+
+            case SCREENLAYOUT_UNDER_16_9:
+                return MIN(os.y_max - os.off_169 + 4, bmp_ymax - 2*bar_height);
+
+            default:
+                return os.y0 + 2; // just above the 16:9 frame
+        }
+    }
+}
+
+int FAST get_ml_bottombar_pos()
+{
+    const int bar_height = 32;
+
+    if (gui_menu_shown())
+    {
+        return 480 + (hdmi_code >= 5 ? 40 : 0) - bar_height; // force it at the bottom of menu
+    }
+    else
+    {
+        int screen_layout = get_screen_layout();
+
+        switch (screen_layout)
+        {
+            case SCREENLAYOUT_16_9:
+                return os.y_max - os.off_169 - bar_height;
+
+            case SCREENLAYOUT_16_10:
+                return os.y_max - os.off_1610 - bar_height;
+
+            case SCREENLAYOUT_UNDER_3_2:
+            case SCREENLAYOUT_UNDER_16_9:
+                return get_ml_topbar_pos() + bar_height;
+
+            default:
+                return os.y_max - bar_height - 2; // just above the 16:9 frame
+        }
+    }
 }
 
 void draw_ml_bottombar()
@@ -478,26 +527,6 @@ char* lens_format_aperture(int raw_aperture)
         snprintf(aperture, sizeof(aperture), SYM_F_SLASH"%d", f / 10);
     }
     return aperture;
-}
-
-int FAST get_ml_topbar_pos()
-{
-    int screen_layout = get_screen_layout();
-
-    int y = 0;
-    if (gui_menu_shown())
-    {
-        y = (hdmi_code == 5 ? 40 : 2); // force it at the top of menu
-    }
-    else
-    {
-        if (screen_layout == SCREENLAYOUT_3_2_or_4_3) y = os.y0 + 2; // just above the 16:9 frame
-        else if (screen_layout == SCREENLAYOUT_16_9) y = os.y0 + os.off_169; // meters just below 16:9 border
-        else if (screen_layout == SCREENLAYOUT_16_10) y = os.y0 + os.off_1610; // meters just below 16:9 border
-        else if (screen_layout == SCREENLAYOUT_UNDER_3_2) y = MIN(os.y_max, 480 - 68);
-        else if (screen_layout == SCREENLAYOUT_UNDER_16_9) y = MIN(os.y_max - os.off_169, 480 - 68);
-    }
-    return y;
 }
 
 void free_space_show_photomode()
@@ -675,7 +704,7 @@ int mlu_lock_mirror_if_needed() // called by lens_take_picture; returns 0 if suc
     if (drive_mode == DRIVE_SELFTIMER_2SEC || drive_mode == DRIVE_SELFTIMER_REMOTE || drive_mode == DRIVE_SELFTIMER_CONTINUOUS)
         return 0;
     
-    if (get_mlu() && CURRENT_DIALOG_MAYBE)
+    if (get_mlu() && CURRENT_GUI_MODE)
     {
         SetGUIRequestMode(0);
         int iter = 20;
@@ -2607,26 +2636,48 @@ static LVINFO_UPDATE_FUNC(iso_update)
 
 static LVINFO_UPDATE_FUNC(wb_update)
 {
-    LVINFO_BUFFER(8);
+    LVINFO_BUFFER(16);
     
     if( lens_info.wb_mode == WB_KELVIN )
     {
-        snprintf(buffer, sizeof(buffer), lens_info.kelvin >= 10000 ? "%5dK" : "%4dK ", lens_info.kelvin);
+        snprintf(buffer, sizeof(buffer), "%dK", lens_info.kelvin);
     }
     else
     {
-        snprintf(buffer, sizeof(buffer), "%s ",
-            (uniwb_is_active()      ? " UniWB" :
+        snprintf(buffer, sizeof(buffer), "%s",
+            (uniwb_is_active()      ? "UniWB"  :
             (lens_info.wb_mode == 0 ? "AutoWB" : 
-            (lens_info.wb_mode == 1 ? " Sunny" :
+            (lens_info.wb_mode == 1 ? "Sunny"  :
             (lens_info.wb_mode == 2 ? "Cloudy" : 
-            (lens_info.wb_mode == 3 ? "Tungst" : 
-            (lens_info.wb_mode == 4 ? "Fluor." : 
-            (lens_info.wb_mode == 5 ? " Flash" : 
-            (lens_info.wb_mode == 6 ? "Custom" : 
-            (lens_info.wb_mode == 8 ? " Shade" :
+            (lens_info.wb_mode == 3 ? "Tungst." : 
+            (lens_info.wb_mode == 4 ? "Fluor."  : 
+            (lens_info.wb_mode == 5 ? "Flash"   : 
+            (lens_info.wb_mode == 6 ? "Custom"  : 
+            (lens_info.wb_mode == 8 ? "Shade"   :
              "unk")))))))))
         );
+    }
+    
+    int gm = lens_info.wbs_gm;
+    int ba = lens_info.wbs_ba;
+    
+    if (gm || ba)
+    {
+        /* a dot is smaller than a space */
+        if (buffer[strlen(buffer)-1] != '.')
+        {
+            STR_APPEND(buffer, ".");
+        }
+    }
+    
+    if (gm)
+    {
+        STR_APPEND(buffer, "%s%d", gm > 0 ? "G" : "M", ABS(gm));
+    }
+
+    if (ba)
+    {
+        STR_APPEND(buffer, "%s%d", ba > 0 ? "A" : "B", ABS(ba));
     }
 }
 
