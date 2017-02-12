@@ -131,4 +131,4 @@
 //~ #define CONFIG_NO_MANUAL_EXPOSURE_MOVIE
 
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
-#define CONFIG_LVAPP_HACK_RELOC
+#define CONFIG_LVAPP_HACK_PATCH

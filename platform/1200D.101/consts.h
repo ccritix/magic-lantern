@@ -53,11 +53,11 @@
 //#define AE_VALUE (*(int8_t*)0x7E14)
 
 // these are wrong (just for compiling)
-#define BGMT_PRESS_ZOOMOUT_MAYBE 0x10
-#define BGMT_UNPRESS_ZOOMOUT_MAYBE 0x11
+#define BGMT_PRESS_ZOOM_OUT 0x10
+#define BGMT_UNPRESS_ZOOM_OUT 0x11
 
-#define BGMT_PRESS_ZOOMIN_MAYBE 0xe
-#define BGMT_UNPRESS_ZOOMIN_MAYBE 0xf
+#define BGMT_PRESS_ZOOM_IN 0xe
+#define BGMT_UNPRESS_ZOOM_IN 0xf
 
 #define NUM_PICSTYLES 10
 
@@ -115,27 +115,27 @@
 #define FOCUS_CONFIRMATION (*(int*)0x3EA8) // a1ex
 #define HALFSHUTTER_PRESSED (*(int*)0x2A28) // used for Trap Focus and Magic Off.
 //~ #define AF_BUTTON_PRESSED_LV 0
-#define CURRENT_DIALOG_MAYBE (*(int*)0x35CC) // GUIMode_maybe in Indy's IDC
+#define CURRENT_GUI_MODE (*(int*)0x35CC) // GUIMode_maybe in Indy's IDC
 #define LV_BOTTOM_BAR_DISPLAYED (((*(int8_t*)0x526C) == 0xF) ||((*(int8_t*)0xC164) != 0x17)) // dec CancelBottomInfoDispTimer
 #define ISO_ADJUSTMENT_ACTIVE ((*(int*)0x5278) == 0xF) // a1ex
 #define UNAVI_FEEDBACK_TIMER_ACTIVE (MEM(0xC160) != 0x17) // dec CancelUnaviFeedBackTimer
 
 
-// From CURRENT_DIALOG_MAYBE
-#define DLG_WB 0x2b
-#define DLG_FOCUS_MODE 9
-#define DLG_DRIVE_MODE 8
-#define DLG_PICTURE_STYLE 0x2a
-#define DLG_PLAY 1
-#define DLG_MENU 2
-#define DLG_Q_UNAVI 0x23
-#define DLG_FLASH_AE 0x28
-#define DLG_PICQ 0x2d
-#define DLG_MOVIE_ENSURE_A_LENS_IS_ATTACHED (CURRENT_DIALOG_MAYBE == 0x1e)
-#define DLG_MOVIE_PRESS_LV_TO_RESUME (CURRENT_DIALOG_MAYBE == 0x1f)
+// From CURRENT_GUI_MODE
+#define GUIMODE_WB 0x2b
+#define GUIMODE_FOCUS_MODE 9
+#define GUIMODE_DRIVE_MODE 8
+#define GUIMODE_PICTURE_STYLE 0x2a
+#define GUIMODE_PLAY 1
+#define GUIMODE_MENU 2
+#define GUIMODE_Q_UNAVI 0x23
+#define GUIMODE_FLASH_AE 0x28
+#define GUIMODE_PICQ 0x2d
+#define GUIMODE_MOVIE_ENSURE_A_LENS_IS_ATTACHED (CURRENT_GUI_MODE == 0x1e)
+#define GUIMODE_MOVIE_PRESS_LV_TO_RESUME (CURRENT_GUI_MODE == 0x1f)
 
-#define PLAY_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_DIALOG_MAYBE == DLG_PLAY)
-#define MENU_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_DIALOG_MAYBE == DLG_MENU)
+#define PLAY_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_GUI_MODE == GUIMODE_PLAY)
+#define MENU_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_GUI_MODE == GUIMODE_MENU)
 
 // for gui_main_task (1100d 105)
 #define GMT_NFUNCS 7
@@ -154,7 +154,7 @@
 #define BFNT_BITMAP_OFFSET 0xFF9ECAA4
 #define BFNT_BITMAP_DATA   0xFF9EF81C
 
-#define DLG_SIGNATURE 0x4c414944 // just print it
+#define GUIMODE_SIGNATURE 0x4c414944 // just print it
 
 // from CFn
 #define AF_BTN_HALFSHUTTER 0

@@ -276,7 +276,6 @@ NSTUB(0xFF12229C,  take_semaphore)
 /** Task info **/
 NSTUB(    0x295C,  task_max)
 NSTUB(0xFF0C7464,  get_current_task)
-NSTUB(0xFF132154,  get_obj_attr)
 NSTUB(0xFF417ED4,  is_taskid_valid)
 
 /** Task sleep **/
