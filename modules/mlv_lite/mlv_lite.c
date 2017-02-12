@@ -1676,6 +1676,8 @@ static int write_frames(FILE** pf, void* ptr, int size_used)
     return 1;
 }
 
+extern thunk ErrCardForLVApp_handler;
+
 static void raw_video_rec_task()
 {
     //~ console_show();
@@ -1771,6 +1773,18 @@ static void raw_video_rec_task()
         if (buffer_full)
         {
             goto abort_and_check_early_stop;
+        }
+        
+        /* fixme: not very portable */
+        if (h264_proxy && get_current_dialog_handler() == &ErrCardForLVApp_handler)
+        {
+            /* emergency stop - free all resources ASAP to prevent crash */
+            /* the video will be incomplete */
+            NotifyBox(5000, "Emergency Stop");
+            raw_recording_state = RAW_FINISHING;
+            wait_lv_frames(2);
+            writing_queue_head = writing_queue_tail;
+            break;
         }
         
         int w_tail = writing_queue_tail; /* this one can be modified outside the loop, so grab it here, just in case */
@@ -1935,7 +1949,7 @@ abort_and_check_early_stop:
     raw_recording_state = RAW_FINISHING;
 
     /* wait until the other tasks calm down */
-    msleep(500);
+    wait_lv_frames(2);
 
     /* exclusive edmac access no longer needed */
     edmac_memcpy_res_unlock();
@@ -2016,7 +2030,8 @@ cleanup:
     /* re-enable powersaving  */
     powersave_permit();
 
-    if (h264_proxy && RECORDING_H264)
+    if (h264_proxy && RECORDING_H264 &&
+        get_current_dialog_handler() != &ErrCardForLVApp_handler)
     {
         /* stop H.264 recording */
         movie_end();
