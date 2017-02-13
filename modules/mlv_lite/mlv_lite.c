@@ -68,6 +68,8 @@
 #include "../trace/trace.h"
 #include "powersave.h"
 
+THREAD_ROLE(RawRecTask);            /* our raw recording task */
+
 /* from mlv_play module */
 extern WEAK_FUNC(ret_0) void mlv_play_file(char *filename);
 
@@ -96,12 +98,12 @@ static int cam_5d3_123 = 0;
  * use roughly 10% increments
  **/
 
-static int resolution_presets_x[] = {  640,  960,  1280,  1600,  1920,  2240,  2560,  2880,  3200,  3520 };
-#define  RESOLUTION_CHOICES_X CHOICES("640","960","1280","1600","1920","2240","2560","2880","3200","3520")
+static const int resolution_presets_x[] = {  640,  960,  1280,  1600,  1920,  2240,  2560,  2880,  3200,  3520 };
+#define  RESOLUTION_CHOICES_X       CHOICES("640","960","1280","1600","1920","2240","2560","2880","3200","3520")
 
-static int aspect_ratio_presets_num[]      = {   5,    4,    3,       8,      25,     239,     235,      22,    2,     185,     16,    5,    3,    4,    12,    1175,    1,    1 };
-static int aspect_ratio_presets_den[]      = {   1,    1,    1,       3,      10,     100,     100,      10,    1,     100,      9,    3,    2,    3,    10,    1000,    1,    2 };
-static const char * aspect_ratio_choices[] = {"5:1","4:1","3:1","2.67:1","2.50:1","2.39:1","2.35:1","2.20:1","2:1","1.85:1", "16:9","5:3","3:2","4:3","1.2:1","1.175:1","1:1","1:2"};
+static const int aspect_ratio_presets_num[]      = {   5,    4,    3,       8,      25,     239,     235,      22,    2,     185,     16,    5,    3,    4,    12,    1175,    1,    1 };
+static const int aspect_ratio_presets_den[]      = {   1,    1,    1,       3,      10,     100,     100,      10,    1,     100,      9,    3,    2,    3,    10,    1000,    1,    2 };
+static const char * aspect_ratio_choices[] =       {"5:1","4:1","3:1","2.67:1","2.50:1","2.39:1","2.35:1","2.20:1","2:1","1.85:1", "16:9","5:3","3:2","4:3","1.2:1","1.175:1","1:1","1:2"};
 
 /* config variables */
 
@@ -132,7 +134,7 @@ static CONFIG_INT("raw.small.hacks", small_hacks, 1);
 #define INDICATOR_ON_SCREEN  2
 #define INDICATOR_RAW_BUFFER 3
 
-static int show_graph = 0;
+static GUARDED_BY(GuiMainTask)  int show_graph = 0;
 
 /* auto-choose the indicator style based on global draw settings */
 /* GD off: only "on screen" works, obviously */
@@ -140,6 +142,9 @@ static int show_graph = 0;
 #define indicator_display (show_graph ? INDICATOR_RAW_BUFFER : get_global_draw() ? INDICATOR_IN_LVINFO : INDICATOR_ON_SCREEN)
 
 /* state variables */
+
+/* fixme: resolution parameters are updated from multiple tasks */
+/* (though they do not run all at the same time) */
 static int res_x = 0;
 static int res_y = 0;
 static int max_res_x = 0;
@@ -161,8 +166,8 @@ static int frame_offset_delta_y = 0;
 #define RAW_RECORDING 2
 #define RAW_FINISHING 3
 
-static int raw_recording_state = RAW_IDLE;
-static int raw_previewing = 0;
+static volatile                     int raw_recording_state = RAW_IDLE;
+static GUARDED_BY(LiveVHiPrioTask)  int raw_previewing = 0;
 
 #define RAW_IS_IDLE      (raw_recording_state == RAW_IDLE)
 #define RAW_IS_PREPARING (raw_recording_state == RAW_PREPARING)
@@ -179,42 +184,42 @@ struct frame_slot
     enum {SLOT_FREE, SLOT_FULL, SLOT_WRITING} status;
 };
 
-static struct memSuite * shoot_mem_suite = 0;     /* memory suite for our buffers */
-static struct memSuite * srm_mem_suite = 0;
+static GUARDED_BY(RawRecTask)   struct memSuite * shoot_mem_suite = 0;  /* memory suite for our buffers */
+static GUARDED_BY(RawRecTask)   struct memSuite * srm_mem_suite = 0;
 
-static void * fullsize_buffers[2];                /* original image, before cropping, double-buffered */
-static int fullsize_buffer_pos = 0;               /* which of the full size buffers (double buffering) is currently in use */
-static int chunk_list[32];                        /* list of free memory chunk sizes, used for frame estimations */
+static GUARDED_BY(RawRecTask)   void * fullsize_buffers[2];         /* original image, before cropping, double-buffered */
+static GUARDED_BY(LiveViewTask) int fullsize_buffer_pos = 0;        /* which of the full size buffers (double buffering) is currently in use */
+static GUARDED_BY(RawRecTask)   int chunk_list[32];                 /* list of free memory chunk sizes, used for frame estimations */
 
-static struct frame_slot slots[511];              /* frame slots */
-static int slot_count = 0;                        /* how many frame slots we have */
-static int capture_slot = -1;                     /* in what slot are we capturing now (index) */
-static volatile int force_new_buffer = 0;         /* if some other task decides it's better to search for a new buffer */
+static volatile                 struct frame_slot slots[511];       /* frame slots */
+static GUARDED_BY(RawRecTask)   int slot_count = 0;                 /* how many frame slots we have */
+static GUARDED_BY(LiveViewTask) int capture_slot = -1;              /* in what slot are we capturing now (index) */
+static volatile                 int force_new_buffer = 0;           /* if some other task decides it's better to search for a new buffer */
 
-static int writing_queue[COUNT(slots)+1];         /* queue of completed frames (slot indices) waiting to be saved */
-static int writing_queue_tail = 0;                /* place captured frames here */
-static int writing_queue_head = 0;                /* extract frames to be written from here */ 
+static GUARDED_BY(LiveViewTask) int writing_queue[COUNT(slots)+1];  /* queue of completed frames (slot indices) waiting to be saved */
+static GUARDED_BY(LiveViewTask) int writing_queue_tail = 0;         /* place captured frames here */
+static GUARDED_BY(RawRecTask)   int writing_queue_head = 0;         /* extract frames to be written from here */ 
 
-static int frame_count = 0;                       /* how many frames we have processed */
-static int chunk_frame_count = 0;                 /* how many frames in the current file chunk */
-static int buffer_full = 0;                       /* true when the memory becomes full */
-char* raw_movie_filename = 0;                     /* file name for current (or last) movie */
-static char* chunk_filename = 0;                  /* file name for current movie chunk */
-static int64_t written_total = 0;                 /* how many bytes we have written in this movie */
-static int64_t written_chunk = 0;                 /* same for current chunk */
-static int writing_time = 0;                      /* time spent by raw_video_rec_task in FIO_WriteFile calls */
-static int idle_time = 0;                         /* time spent by raw_video_rec_task doing something else */
-static uint32_t edmac_active = 0;
+static GUARDED_BY(LiveViewTask) int frame_count = 0;                /* how many frames we have processed */
+static volatile                 int chunk_frame_count = 0;          /* how many frames in the current file chunk */
+static GUARDED_BY(LiveViewTask) int buffer_full = 0;                /* true when the memory becomes full */
+       GUARDED_BY(RawRecTask)   char * raw_movie_filename = 0;      /* file name for current (or last) movie */
+static GUARDED_BY(RawRecTask)   char * chunk_filename = 0;          /* file name for current movie chunk */
+static GUARDED_BY(RawRecTask)   int64_t written_total = 0;          /* how many bytes we have written in this movie */
+static GUARDED_BY(RawRecTask)   int64_t written_chunk = 0;          /* same for current chunk */
+static GUARDED_BY(RawRecTask)   int writing_time = 0;               /* time spent by raw_video_rec_task in FIO_WriteFile calls */
+static GUARDED_BY(RawRecTask)   int idle_time = 0;                  /* time spent by raw_video_rec_task doing something else */
+static volatile                 uint32_t edmac_active = 0;
 
-static mlv_file_hdr_t file_hdr;
-static mlv_rawi_hdr_t rawi_hdr;
-static mlv_idnt_hdr_t idnt_hdr;
-static mlv_expo_hdr_t expo_hdr;
-static mlv_lens_hdr_t lens_hdr;
-static mlv_rtci_hdr_t rtci_hdr;
-static mlv_wbal_hdr_t wbal_hdr;
-static uint64_t mlv_start_timestamp = 0;
-uint32_t raw_rec_trace_ctx = TRACE_ERROR;
+static GUARDED_BY(RawRecTask)   mlv_file_hdr_t file_hdr;
+static GUARDED_BY(RawRecTask)   mlv_rawi_hdr_t rawi_hdr;
+static GUARDED_BY(RawRecTask)   mlv_idnt_hdr_t idnt_hdr;
+static GUARDED_BY(RawRecTask)   mlv_expo_hdr_t expo_hdr;
+static GUARDED_BY(RawRecTask)   mlv_lens_hdr_t lens_hdr;
+static GUARDED_BY(RawRecTask)   mlv_rtci_hdr_t rtci_hdr;
+static GUARDED_BY(RawRecTask)   mlv_wbal_hdr_t wbal_hdr;
+static GUARDED_BY(RawRecTask)   uint64_t mlv_start_timestamp = 0;
+       GUARDED_BY(RawRecTask)   uint32_t raw_rec_trace_ctx = TRACE_ERROR;
 
 /* interface to other modules: these are called when recording starts or stops  */
 extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_starting();
@@ -288,6 +293,7 @@ static void update_cropping_offsets()
     }
 }
 
+/* fixme: must be thread-safe */
 static void update_resolution_params()
 {
     /* max res X */
@@ -651,7 +657,8 @@ static MENU_UPDATE_FUNC(aspect_ratio_update)
     write_speed_update(entry, info);
 }
 
-static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
+static REQUIRES(RawRecTask)
+int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
 {
     if(mem_suite)
     {
@@ -721,7 +728,8 @@ static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
     return chunk_index;
 }
 
-static int setup_buffers()
+static REQUIRES(RawRecTask)
+int setup_buffers()
 {
     /* allocate memory for double buffering */
     /* (we need a single large contiguous chunk) */
@@ -765,7 +773,8 @@ static int setup_buffers()
     return 1;
 }
 
-static void free_buffers()
+static REQUIRES(RawRecTask)
+void free_buffers()
 {
     if (shoot_mem_suite) shoot_free_suite(shoot_mem_suite);
     shoot_mem_suite = 0;
@@ -1237,7 +1246,8 @@ static void hack_liveview(int unhack)
     }
 }
 
-static int FAST choose_next_capture_slot()
+static REQUIRES(LiveViewTask) FAST
+int choose_next_capture_slot()
 {
     /* keep on rolling? */
     /* O(1) */
@@ -1341,7 +1351,8 @@ static void edmac_cbr_w(void *ctx)
     edmac_copy_rectangle_adv_cleanup();
 }
 
-static void FAST process_frame()
+static REQUIRES(LiveViewTask) FAST
+void process_frame()
 {
     /* skip the first frame, it will be gibberish */
     if (frame_count == 0)
@@ -1412,7 +1423,8 @@ static void FAST process_frame()
     return;
 }
 
-static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
+static REQUIRES(LiveViewTask)
+unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
 {
     if (!raw_video_enabled) return 0;
     if (!is_movie_mode()) return 0;
@@ -1485,7 +1497,8 @@ static char* get_wav_file_name(char* raw_movie_filename)
     return wavfile;
 }
 
-static void init_mlv_chunk_headers(struct raw_info * raw_info)
+static REQUIRES(RawRecTask)
+void init_mlv_chunk_headers(struct raw_info * raw_info)
 {
     mlv_start_timestamp = mlv_set_timestamp(NULL, 0);
     
@@ -1543,7 +1556,8 @@ static int last_write_timestamp = 0;    /* last FIO_WriteFile call */
 static int mlv_chunk = 0;               /* MLV chunk index from header */
 
 /* update the frame count and close the chunk */
-static void finish_chunk(FILE* f)
+static REQUIRES(RawRecTask)
+void finish_chunk(FILE* f)
 {
     file_hdr.videoFrameCount = chunk_frame_count;
     FIO_SeekSkipFile(f, 0, SEEK_SET);
@@ -1553,7 +1567,8 @@ static void finish_chunk(FILE* f)
 }
 
 /* This saves a group of frames, also taking care of file splitting if required */
-static int write_frames(FILE** pf, void* ptr, int size_used)
+static REQUIRES(RawRecTask)
+int write_frames(FILE** pf, void* ptr, int size_used)
 {
     FILE* f = *pf;
     
@@ -1660,7 +1675,8 @@ static int write_frames(FILE** pf, void* ptr, int size_used)
     return 1;
 }
 
-static void raw_video_rec_task()
+static REQUIRES(RawRecTask)
+void raw_video_rec_task()
 {
     //~ console_show();
     /* init stuff */
@@ -2239,7 +2255,8 @@ static int raw_rec_should_preview(void)
     return 0;
 }
 
-static unsigned int raw_rec_update_preview(unsigned int ctx)
+static REQUIRES(LiveVHiPrioTask)
+unsigned int raw_rec_update_preview(unsigned int ctx)
 {
     /* just say whether we can preview or not */
     if (ctx == 0)
