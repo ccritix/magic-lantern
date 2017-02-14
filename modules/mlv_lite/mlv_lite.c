@@ -58,7 +58,7 @@
 #include "edmac.h"
 #include "edmac-memcpy.h"
 #include "../file_man/file_man.h"
-#include "patch.h"
+#include "cache_hacks.h"
 #include "lvinfo.h"
 #include "beep.h"
 #include "raw.h"
@@ -68,6 +68,7 @@
 #include "../trace/trace.h"
 #include "powersave.h"
 #include "shoot.h"
+#include "fileprefix.h"
 
 /* from mlv_play module */
 extern WEAK_FUNC(ret_0) void mlv_play_file(char *filename);
@@ -128,9 +129,6 @@ static CONFIG_INT("raw.use.srm.memory", use_srm_memory, 1);
 static CONFIG_INT("raw.small.hacks", small_hacks, 1);
 
 static CONFIG_INT("raw.h264.proxy", h264_proxy, 0);
-
-static CONFIG_INT("raw.bppi", bpp_index, 2);
-#define BPP (10 + 2*bpp_index)
 
 /* Recording Status Indicator Options */
 #define INDICATOR_OFF        0
@@ -245,38 +243,17 @@ static void refresh_cropmarks()
     }
 }
 
-static int calc_res_y(int res_x, int max_res_y, int num, int den, float squeeze)
+static int calc_res_y(int res_x, int num, int den, float squeeze)
 {
-    int res_y;
-    
     if (squeeze != 1.0f)
     {
         /* image should be enlarged vertically in post by a factor equal to "squeeze" */
-        res_y = (int)(roundf(res_x * den / num / squeeze) + 1);
+        return (int)(roundf(res_x * den / num / squeeze) + 1) & ~1;
     }
     else
     {
         /* assume square pixels */
-        res_y = (res_x * den / num + 1);
-    }
-    
-    res_y = MIN(res_y, max_res_y);
-    
-    /* res_x * res_y must be modulo 16 bytes */
-    switch (MOD(res_x * BPP / 8, 8))
-    {
-        case 0:     /* res_x is modulo 8 bytes, so res_y must be even */
-            return res_y & ~1;
-
-        case 4:     /* res_x is modulo 4 bytes, so res_y must be modulo 4 as well */
-            return res_y & ~3;
-        
-        case 2:
-        case 6:     /* res_x is modulo 2 bytes, so res_y must be modulo 8 */
-            return res_y & ~7;
-
-        default:    /* should be unreachable */
-            return res_y & ~15;
+        return (res_x * den / num + 1) & ~1;
     }
 }
 
@@ -323,9 +300,8 @@ static void update_resolution_params()
     int right_margin = (raw_info.active_area.x2) / 8 * 8;
     int max = (right_margin - left_margin);
     
-    /* max image width is modulo 2 bytes and 8 pixels */
-    /* (EDMAC requires W x H to be modulo 16 bytes) */
-    /* (processing tools require W modulo 8 pixels for struct raw_pixblock) */
+    /* horizontal resolution *MUST* be mod 32 in order to use the fastest EDMAC flags (16 byte transfer) */
+    max &= ~31;
     
     max_res_x = max;
     
@@ -347,21 +323,18 @@ static void update_resolution_params()
     /* res Y */
     int num = aspect_ratio_presets_num[aspect_ratio_index];
     int den = aspect_ratio_presets_den[aspect_ratio_index];
-    res_y = calc_res_y(res_x, max_res_y, num, den, squeeze_factor);
-
-    /* check EDMAC restrictions (W * H multiple of 16 bytes) */
-    ASSERT((res_x * BPP / 8 * res_y) % 16 == 0);
+    res_y = MIN(calc_res_y(res_x, num, den, squeeze_factor), max_res_y);
 
     /* frame size */
     /* should be multiple of 512, so there's no write speed penalty (see http://chdk.setepontos.com/index.php?topic=9970 ; confirmed by benchmarks) */
     /* let's try 64 for EDMAC alignment */
     /* 64 at the front for the VIDF header */
     /* 4 bytes after for checking EDMAC operation */
-    int frame_size_padded = (VIDF_HDR_SIZE + (res_x * res_y * BPP/8) + 4 + 511) & ~511;
+    int frame_size_padded = (VIDF_HDR_SIZE + (res_x * res_y * 14/8) + 4 + 511) & ~511;
     
     /* frame size without padding */
     /* must be multiple of 4 */
-    frame_size_real = res_x * res_y * BPP/8;
+    frame_size_real = res_x * res_y * 14/8;
     ASSERT(frame_size_real % 4 == 0);
     
     frame_size = frame_size_padded;
@@ -394,7 +367,7 @@ static char* guess_aspect_ratio(int res_x, int res_y)
     
     if (minerr < 0.05)
     {
-        int h = calc_res_y(res_x, max_res_y, best_num, best_den, squeeze_factor);
+        int h = calc_res_y(res_x, best_num, best_den, squeeze_factor);
         /* if the difference is 1 pixel, consider it exact */
         char* qualifier = ABS(h - res_y) > 1 ? "almost " : "";
         snprintf(msg, sizeof(msg), "%s%d:%d", qualifier, best_num, best_den);
@@ -403,14 +376,14 @@ static char* guess_aspect_ratio(int res_x, int res_y)
     {
         int r = (int)roundf(ratio * 100);
         /* is it 2.35:1 or 2.353:1? */
-        int h = calc_res_y(res_x, max_res_y, r, 100, squeeze_factor);
+        int h = calc_res_y(res_x, r, 100, squeeze_factor);
         char* qualifier = ABS(h - res_y) > 1 ? "almost " : "";
         if (r%100) snprintf(msg, sizeof(msg), "%s%d.%02d:1", qualifier, r/100, r%100);
     }
     else
     {
         int r = (int)roundf((1/ratio) * 100);
-        int h = calc_res_y(res_x, max_res_y, 100, r, squeeze_factor);
+        int h = calc_res_y(res_x, 100, r, squeeze_factor);
         char* qualifier = ABS(h - res_y) > 1 ? "almost " : "";
         if (r%100) snprintf(msg, sizeof(msg), "%s1:%d.%02d", qualifier, r/100, r%100);
     }
@@ -467,7 +440,7 @@ static char* guess_how_many_frames()
 static MENU_UPDATE_FUNC(write_speed_update)
 {
     int fps = fps_get_current_x1000();
-    int speed = (res_x * res_y * BPP/8 / 1024) * fps / 10 / 1024;
+    int speed = (res_x * res_y * 14/8 / 1024) * fps / 10 / 1024;
     int ok = speed < measured_write_speed;
     speed /= 10;
 
@@ -574,7 +547,7 @@ static MENU_UPDATE_FUNC(aspect_ratio_update_info)
         int num = aspect_ratio_presets_num[aspect_ratio_index];
         int den = aspect_ratio_presets_den[aspect_ratio_index];
         int sq100 = (int)roundf(squeeze_factor*100);
-        int res_y_corrected = calc_res_y(res_x, max_res_y, num, den, 1.0f);
+        int res_y_corrected = calc_res_y(res_x, num, den, 1.0f);
         MENU_SET_HELP("%dx%d. Stretch by %s%d.%02dx to get %dx%d (%s) in post.", res_x, res_y, FMT_FIXEDPOINT2(sq100), res_x, res_y_corrected, aspect_ratio_choices[aspect_ratio_index]);
     }
 }
@@ -636,8 +609,8 @@ static MENU_SELECT_FUNC(resolution_change_fine_value)
     }
     
     /* fine-tune resolution in small increments */
-    int cur_res = ((resolution_presets_x[resolution_index_x] + res_x_fine) + 15) & ~15;
-    cur_res = COERCE(cur_res + delta * 16, resolution_presets_x[0], max_res_x); 
+    int cur_res = resolution_presets_x[resolution_index_x] + res_x_fine;
+    cur_res = COERCE(cur_res + delta * 32, resolution_presets_x[0], max_res_x); 
 
     /* select the closest preset */
     int max_delta = INT_MAX;
@@ -667,7 +640,7 @@ static MENU_UPDATE_FUNC(aspect_ratio_update)
 
     int num = aspect_ratio_presets_num[aspect_ratio_index];
     int den = aspect_ratio_presets_den[aspect_ratio_index];
-    int selected_y = calc_res_y(res_x, max_res_y, num, den, squeeze_factor);
+    int selected_y = calc_res_y(res_x, num, den, squeeze_factor);
     
     if (selected_y > max_res_y + 2)
     {
@@ -756,7 +729,7 @@ static int setup_buffers()
 {
     /* allocate memory for double buffering */
     /* (we need a single large contiguous chunk) */
-    int buf_size = raw_info.width * raw_info.height * BPP/8 * 33/32; /* leave some margin, just in case */
+    int buf_size = raw_info.width * raw_info.height * 14/8 * 33/32; /* leave some margin, just in case */
     ASSERT(fullsize_buffers[0] == 0);
     fullsize_buffers[0] = fio_malloc(buf_size);
     
@@ -1092,6 +1065,29 @@ static unsigned int raw_rec_polling_cbr(unsigned int unused)
     return 0;
 }
 
+
+/* todo: reference counting, like with raw_lv_request */
+static void cache_require(int lock)
+{
+    static int cache_was_unlocked = 0;
+    if (lock)
+    {
+        if (!cache_locked())
+        {
+            cache_was_unlocked = 1;
+            icache_lock();
+        }
+    }
+    else
+    {
+        if (cache_was_unlocked)
+        {
+            icache_unlock();
+            cache_was_unlocked = 0;
+        }
+    }
+}
+
 static void unhack_liveview_vsync(int unused);
 
 static void hack_liveview_vsync()
@@ -1221,24 +1217,25 @@ static void hack_liveview(int unhack)
         uint32_t dialog_refresh_timer_orig_instr = 0xe3a00032; /* mov r0, #50 */
         uint32_t dialog_refresh_timer_new_instr  = 0xe3a00a02; /* change to mov r0, #8192 */
 
+        if (*(volatile uint32_t*)dialog_refresh_timer_addr != dialog_refresh_timer_orig_instr)
+        {
+            /* something's wrong */
+            NotifyBox(1000, "Hack error at %x:\nexpected %x, got %x", dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, *(volatile uint32_t*)dialog_refresh_timer_addr);
+            beep_custom(1000, 2000, 1);
+            dialog_refresh_timer_addr = 0;
+        }
+
         if (dialog_refresh_timer_addr)
         {
             if (!unhack) /* hack */
             {
-                int err = patch_instruction(
-                    dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, dialog_refresh_timer_new_instr, 
-                    "raw_rec: slow down Canon dialog refresh timer"
-                );
-                
-                if (err)
-                {
-                    NotifyBox(1000, "Hack error at %x:\nexpected %x, got %x", dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, *(volatile uint32_t*)dialog_refresh_timer_addr);
-                    beep_custom(1000, 2000, 1);
-                }
+                cache_require(1);
+                cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_new_instr, TYPE_ICACHE);
             }
             else /* unhack */
             {
-                unpatch_memory(dialog_refresh_timer_addr);
+                cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, TYPE_ICACHE);
+                cache_require(0);
             }
         }
     }
@@ -1407,8 +1404,8 @@ static void FAST process_frame()
     edmac_copy_rectangle_cbr_start(
         ptr, fullSizeBuffer,
         raw_info.pitch,
-        (skip_x+7)/8*BPP, skip_y/2*2,
-        res_x*BPP/8, 0, 0, res_x*BPP/8, res_y,
+        (skip_x+7)/8*14, skip_y/2*2,
+        res_x*14/8, 0, 0, res_x*14/8, res_y,
         &edmac_cbr_r, &edmac_cbr_w, NULL
     );
 
@@ -1459,11 +1456,22 @@ static char* get_next_raw_movie_file_name()
 
     for (int number = 0 ; number < 100; number++)
     {
-        /**
-         * Get unique file names from the current date/time
-         * last field gets incremented if there's another video with the same name
-         */
-        snprintf(filename, sizeof(filename), "%s/M%02d-%02d%02d.MLV", get_cf_dcim_dir(), now.tm_mday, now.tm_hour, COERCE(now.tm_min + number, 0, 99));
+        if (h264_proxy)
+        {
+            /**
+             * Try to match Canon movie file names
+             * Use the file number from the H.264 card; increment if there are duplicates
+             */
+            snprintf(filename, sizeof(filename), "%s/%s%04d.MLV", get_cf_dcim_dir(), get_file_prefix(), MOD(get_shooting_card()->file_number + number, 10000));
+        }
+        else
+        {
+            /**
+             * Get unique file names from the current date/time
+             * last field gets incremented if there's another video with the same name
+             */
+            snprintf(filename, sizeof(filename), "%s/M%02d-%02d%02d.MLV", get_cf_dcim_dir(), now.tm_mday, now.tm_hour, COERCE(now.tm_min + number, 0, 99));
+        }
         
         /* already existing file? */
         uint32_t size;
@@ -1517,18 +1525,7 @@ static void init_mlv_chunk_headers(struct raw_info * raw_info)
     rawi_hdr.xRes = res_x;
     rawi_hdr.yRes = res_y;
     rawi_hdr.raw_info = *raw_info;
-
-    /* overwrite bpp relevant information */
-    rawi_hdr.raw_info.bits_per_pixel = BPP;
-    rawi_hdr.raw_info.pitch = rawi_hdr.raw_info.width * BPP / 8;
-
-    /* scale black and white levels, minimizing the roundoff error */
-    int black14 = rawi_hdr.raw_info.black_level;
-    int white14 = rawi_hdr.raw_info.white_level;
-    int bpp_scaling = (1 << (14 - BPP));
-    rawi_hdr.raw_info.black_level = (black14 + bpp_scaling/2) / bpp_scaling;
-    rawi_hdr.raw_info.white_level = (white14 + bpp_scaling/2) / bpp_scaling;
-
+    
     mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);
     mlv_fill_expo(&expo_hdr, mlv_start_timestamp);
     mlv_fill_lens(&lens_hdr, mlv_start_timestamp);
@@ -1679,15 +1676,7 @@ static int write_frames(FILE** pf, void* ptr, int size_used)
     return 1;
 }
 
-static void setup_bit_depth()
-{
-    raw_lv_request_bpp(BPP);
-}
-
-static void restore_bit_depth()
-{
-    raw_lv_request_bpp(14);
-}
+extern thunk ErrCardForLVApp_handler;
 
 static void raw_video_rec_task()
 {
@@ -1756,8 +1745,6 @@ static void raw_video_rec_task()
 
     hack_liveview(0);
     
-    setup_bit_depth();
-    
     /* get exclusive access to our edmac channels */
     edmac_memcpy_res_lock();
 
@@ -1786,6 +1773,18 @@ static void raw_video_rec_task()
         if (buffer_full)
         {
             goto abort_and_check_early_stop;
+        }
+        
+        /* fixme: not very portable */
+        if (h264_proxy && get_current_dialog_handler() == &ErrCardForLVApp_handler)
+        {
+            /* emergency stop - free all resources ASAP to prevent crash */
+            /* the video will be incomplete */
+            NotifyBox(5000, "Emergency Stop");
+            raw_recording_state = RAW_FINISHING;
+            wait_lv_frames(2);
+            writing_queue_head = writing_queue_tail;
+            break;
         }
         
         int w_tail = writing_queue_tail; /* this one can be modified outside the loop, so grab it here, just in case */
@@ -1950,7 +1949,7 @@ abort_and_check_early_stop:
     raw_recording_state = RAW_FINISHING;
 
     /* wait until the other tasks calm down */
-    msleep(500);
+    wait_lv_frames(2);
 
     /* exclusive edmac access no longer needed */
     edmac_memcpy_res_unlock();
@@ -2025,16 +2024,14 @@ cleanup:
     #ifdef DEBUG_BUFFERING_GRAPH
     take_screenshot(SCREENSHOT_FILENAME_AUTO, SCREENSHOT_BMP);
     #endif
-    
-    restore_bit_depth();
-    
     hack_liveview(1);
     redraw();
     
     /* re-enable powersaving  */
     powersave_permit();
 
-    if (h264_proxy && RECORDING_H264)
+    if (h264_proxy && RECORDING_H264 &&
+        get_current_dialog_handler() != &ErrCardForLVApp_handler)
     {
         /* stop H.264 recording */
         movie_end();
@@ -2091,7 +2088,7 @@ static struct menu_entry raw_video_menu[] =
         .update = raw_main_update,
         .submenu_width = 710,
         .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
-        .help = "Record RAW video (MLV format, no sound, basic metadata).",
+        .help = "Record 14-bit RAW video (MLV format, no sound, basic metadata).",
         .help2 = "Press LiveView to start recording.",
         .children =  (struct menu_entry[]) {
             {
@@ -2108,12 +2105,6 @@ static struct menu_entry raw_video_menu[] =
                 .max = COUNT(aspect_ratio_presets_num) - 1,
                 .update = aspect_ratio_update,
                 .choices = aspect_ratio_choices,
-            },
-            {
-                .name = "Bit depth",
-                .priv = &bpp_index,
-                .max = 2,
-                .choices = CHOICES("10bpp", "12bpp", "14bpp"),
             },
             {
                 .name = "Preview",
@@ -2394,7 +2385,7 @@ static unsigned int raw_rec_init()
     
     if (cam_5d2 || cam_50d)
     {
-       raw_video_menu[0].help = "Record RAW video. Press SET to start.";
+       raw_video_menu[0].help = "Record 14-bit RAW video. Press SET to start.";
     }
 
     menu_add("Movie", raw_video_menu, COUNT(raw_video_menu));
@@ -2448,6 +2439,5 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(use_srm_memory)
     MODULE_CONFIG(small_hacks)
     MODULE_CONFIG(warm_up)
-    MODULE_CONFIG(bpp_index)
     MODULE_CONFIG(h264_proxy)
 MODULE_CONFIGS_END()
