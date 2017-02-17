@@ -628,17 +628,22 @@ static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 static void start_edmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
+    /* we will want two messages together */
+    uint32_t old = cli();
+
     /* log the original call as usual */
     generic_log(regs, stack, pc);
     
     int ch = regs[0];
     struct edmac_info edmac_info = edmac_get_info(ch);
     DryosDebugMsg(0, 0,
-        "    addr %x, size %s",
+        "    addr %x, ptr %x, size %s",
         edmac_get_address(ch),
+        edmac_get_pointer(ch),
         edmac_format_size(&edmac_info)
     );
-    
+
+    sei(old);
 }
 
 static char* isr_names[0x200] = {
