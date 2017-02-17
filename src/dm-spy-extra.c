@@ -41,6 +41,7 @@ static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void register_interrupt_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void start_edmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void TryPostEvent_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 
 struct logged_func
 {
@@ -88,8 +89,8 @@ static struct logged_func logged_functions[] = {
     #ifdef CONFIG_5D2
     { 0xff9b3cb4, "register_interrupt", 4, register_interrupt_log },
     //~ { 0xFF87284C, "dma_memcpy", 3 },            // conflicts with mpu_recv
-    { 0xff9b989c, "TryPostEvent", 5},
-    { 0xff9b8f24, "TryPostStageEvent", 5 },
+    { 0xff9b989c, "TryPostEvent", 5, TryPostEvent_log },
+    { 0xff9b8f24, "TryPostStageEvent", 5, TryPostEvent_log },
 
     /* register-level SIO3/MREQ communication */
     { 0xFF99F318, "MREQ_ISR", 0 },
@@ -118,13 +119,13 @@ static struct logged_func logged_functions[] = {
     #endif
 
     #ifdef CONFIG_5D3_123
-    { 0x17d54,    "TryPostEvent", 5 },
+    { 0x17d54,    "TryPostEvent", 5, TryPostEvent_log },
     { 0xFF2E8648, "mpu_send", 2, mpu_send_log }, // here it's OK via GDB hooks
     { 0xFF1226F0, "mpu_recv", 1, mpu_recv_log},  // fixme: first call may be missed, figure out why (seems to be OK at cold boot)
     #endif
 	
 	#ifdef CONFIG_6D	/* 1.1.3 */
-    { 0x39F04,    "TryPostEvent", 5 },
+    { 0x39F04,    "TryPostEvent", 5, TryPostEvent_log },
 	
 	/* message-level SIO3/MREQ communication */
     { 0xFF3A8648, "mpu_send", 2, mpu_send_log }, 
@@ -183,8 +184,8 @@ static struct logged_func logged_functions[] = {
 
 #ifdef CONFIG_5D2
     { 0xff9b9198, "StateTransition", 4 , state_transition_log },
-    { 0xff9b989c, "TryPostEvent", 5 },
-    //~ { 0xff9b8f24, "TryPostStageEvent", 5 },                 // conflicts with SetHPTimerAfter
+    { 0xff9b989c, "TryPostEvent", 5, TryPostEvent_log },
+    //~ { 0xff9b8f24, "TryPostStageEvent", 5, TryPostEvent_log },                 // conflicts with SetHPTimerAfter
 
     { 0xFF9A462C, "ConnectReadEDmac", 2 },
     { 0xFF9A4604, "ConnectWriteEDmac", 2 },
@@ -225,8 +226,8 @@ static struct logged_func logged_functions[] = {
 
 #ifdef CONFIG_550D
     { 0xff1d84f4, "StateTransition", 4 , state_transition_log },
-    { 0xff1d8c30, "TryPostEvent", 5 },
-    { 0xff1d82b8, "TryPostStageEvent", 5 },
+    { 0xff1d8c30, "TryPostEvent", 5, TryPostEvent_log },
+    { 0xff1d82b8, "TryPostStageEvent", 5, TryPostEvent_log },
 
     { 0xff1c00c0, "ConnectReadEDmac", 2 },
     { 0xff1bfffc, "ConnectWriteEDmac", 2 },
@@ -244,8 +245,8 @@ static struct logged_func logged_functions[] = {
 
 #ifdef CONFIG_500D
     { 0xff1a62a0, "StateTransition", 4 , state_transition_log },
-    { 0xff1a69a4, "TryPostEvent", 5 },
-    { 0xff1a602c, "TryPostStageEvent", 5 },
+    { 0xff1a69a4, "TryPostEvent", 5, TryPostEvent_log },
+    { 0xff1a602c, "TryPostStageEvent", 5, TryPostEvent_log },
 
     { 0xff18fb90, "ConnectReadEDmac", 2 },
     { 0xff18fb68, "ConnectWriteEDmac", 2 },
@@ -282,8 +283,8 @@ static struct logged_func logged_functions[] = {
     { 0xFF291200, "UnLockEngineResources", 1, UnLockEngineResources_log },
 
     { 0x178ec, "StateTransition", 4 , state_transition_log },
-    { 0x17d54, "TryPostEvent", 5 },
-    { 0x17674, "TryPostStageEvent", 5 },
+    { 0x17d54, "TryPostEvent", 5, TryPostEvent_log },
+    { 0x17674, "TryPostStageEvent", 5, TryPostEvent_log },
 
     { 0x4588, "SetTgNextState", 2 },
     { 0x7218, "SetHPTimerAfter", 4 },
@@ -293,8 +294,8 @@ static struct logged_func logged_functions[] = {
 
 #ifdef CONFIG_5D3_123
     { 0x178ec, "StateTransition", 4 , state_transition_log },
-    { 0x17d54, "TryPostEvent", 5 },
-    { 0x17674, "TryPostStageEvent", 5 },
+    { 0x17d54, "TryPostEvent", 5, TryPostEvent_log },
+    { 0x17674, "TryPostStageEvent", 5, TryPostEvent_log },
     
     { 0x83b8, "register_interrupt", 4, register_interrupt_log },
     { 0xff3aa650, "set_digital_gain_maybe", 3 },
@@ -644,6 +645,22 @@ static void start_edmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     );
 
     sei(old);
+}
+
+static void TryPostEvent_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    uint32_t caller = PATCH_HOOK_CALLER();
+    const char * class = (const char *) MEM(regs[0]);
+    const char * event_prefix =
+        streq(class, "StageClass") ? "Stage" :
+        streq(class, "TaskClass" ) ? ""      :
+                                     class   ;
+    DryosDebugMsg(0, 0,
+        "*** TryPost%sEvent(%s, 0x%x, 0x%x, 0x%x), from %x",
+        event_prefix,
+        MEM(regs[1]), regs[2], regs[3], MEM(stack),
+        caller
+    );
 }
 
 static char* isr_names[0x200] = {
