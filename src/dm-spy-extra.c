@@ -40,7 +40,7 @@ static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void register_interrupt_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
-static void start_edmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void StartEDmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void TryPostEvent_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 
 struct logged_func
@@ -72,7 +72,7 @@ static struct logged_func logged_functions[] = {
     STUB_ENTRY(ConnectWriteEDmac, 2),
     STUB_ENTRY(RegisterEDmacCompleteCBR, 3),
     STUB_ENTRY(SetEDmac, 4),
-    STUB_ENTRY(StartEDmac, 2, start_edmac_log),
+    STUB_ENTRY(StartEDmac, 2, StartEDmac_log),
     STUB_ENTRY(AbortEDmac, 1),
 
 #ifdef CONFIG_DMA_MEMCPY
@@ -191,7 +191,7 @@ static struct logged_func logged_functions[] = {
     { 0xFF9A4604, "ConnectWriteEDmac", 2 },
     { 0xFF9A4798, "RegisterEDmacCompleteCBR", 3 },
     //~ { 0xFF9A45E8, "SetEDmac", 4 },                          // conflicts with RegisterHead1InterruptHandler
-    { 0xFF9A464C, "StartEDmac", 2, start_edmac_log },
+    { 0xFF9A464C, "StartEDmac", 2, StartEDmac_log },
     
     { 0xff9b3cb4, "register_interrupt", 4, register_interrupt_log },
     //~ { 0xffb277c8, "register_obinteg_cbr", 2 },              // conflicts with UnLockEngineResources
@@ -216,7 +216,7 @@ static struct logged_func logged_functions[] = {
     { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
     { 0xFF1C8B98, "LockEngineResources", 1, LockEngineResources_log },
     { 0xFF1C8CD4, "UnLockEngineResources", 1, UnLockEngineResources_log },
-    { 0xFF1C45A8, "StartEDmac", 2, start_edmac_log },
+    { 0xFF1C45A8, "StartEDmac", 2, StartEDmac_log },
     { 0xFF1C42A8, "SetEDmac", 4 },
     { 0xFF06E534, "take_semaphore", 2 },
     { 0xFF06E61C, "give_semaphore", 1 },
@@ -233,7 +233,7 @@ static struct logged_func logged_functions[] = {
     { 0xff1bfffc, "ConnectWriteEDmac", 2 },
     { 0xFF1C0418, "RegisterEDmacCompleteCBR", 3 },
     { 0xff1bff44, "SetEDmac", 4 },
-    { 0xff1c024c, "StartEDmac", 2, start_edmac_log },
+    { 0xff1c024c, "StartEDmac", 2, StartEDmac_log },
     
     { 0xff1d2944, "register_interrupt", 4, register_interrupt_log },
     { 0xff2806f8, "RegisterHead1InterruptHandler", 3 },
@@ -252,7 +252,7 @@ static struct logged_func logged_functions[] = {
     { 0xff18fb68, "ConnectWriteEDmac", 2 },
     { 0xff18fd60, "RegisterEDmacCompleteCBR", 3 },
     { 0xff18fb4c, "SetEDmac", 4 },
-    { 0xff18fbf0, "StartEDmac", 2, start_edmac_log },
+    { 0xff18fbf0, "StartEDmac", 2, StartEDmac_log },
     
     //~ { 0xff1a0b90, "register_interrupt", 4, register_interrupt_log }, // conflicts with ConnectReadEDmac
     //~ { 0xff32646c, "register_obinteg_cbr", 2 },              // conflicts with set_digital_gain_and_related
@@ -627,7 +627,7 @@ static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     eeko_dump();
 }
 
-static void start_edmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
+static void StartEDmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     /* we will want two messages together */
     uint32_t old = cli();
