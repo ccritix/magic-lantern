@@ -724,7 +724,7 @@ static void register_interrupt_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     int isr = regs[1];
     char* name = (char*) regs[0];
     
-    if (name)
+    if (name && !isr_names[isr & 0x1FF])
     {
         isr_names[isr & 0x1FF] = name;
     }
@@ -755,6 +755,19 @@ static void pre_isr_log(uint32_t isr)
     if (name)
     {
         DryosDebugMsg(0, 0, ">>> INT-%Xh %s %x(%x)", isr, name, handler, arg);
+
+        if (strncmp(name, "EDMAC#", 6) == 0)
+        {
+            int ch = atoi(name + 6);
+            struct edmac_info edmac_info = edmac_get_info(ch);
+            DryosDebugMsg(0, 0,
+                "    addr %x, ptr %x, size %s, flags %x",
+                edmac_get_address(ch),
+                edmac_get_pointer(ch),
+                edmac_format_size(&edmac_info),
+                edmac_get_flags(ch)
+            );
+        }
     }
     else
     {
