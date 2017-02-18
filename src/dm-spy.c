@@ -25,7 +25,21 @@
 #include "qemu-util.h"
 
 #define BUF_SIZE_STATIC (16*1024)
+
+/* the buffer is reallocated early in the boot process
+ * we can't tell in advance how much free space will be eventually
+ */
+#define BUF_SIZE_MALLOC (512*1024)
+
+/* very little memory available */
+#if defined(CONFIG_1100D)
+#define BUF_SIZE_MALLOC (128*1024)
+#endif
+
+/* plenty of memory available */
+#if defined(CONFIG_5D2) || defined(CONFIG_5D3) || defined(CONFIG_50D) || defined(CONFIG_500D)
 #define BUF_SIZE_MALLOC (2048*1024)
+#endif
 
 static char * volatile buf = 0;
 static volatile int buf_size = 0;
