@@ -22,6 +22,9 @@
 /* this needs pre_isr_hook/post_isr_hook stubs */
 //~ #define LOG_INTERRUPTS
 
+/* delay mpu_send calls, to allow grouping MPU messages by timestamps */
+#define MPU_DELAY_SEND
+
 extern void (*pre_isr_hook)();
 extern void (*post_isr_hook)();
 
@@ -569,8 +572,34 @@ static void mpu_decode(char* in, char* out, int max_len)
     if (len) out[len-1] = 0;
 }
 
+static volatile int last_mpu_timestamp = 0;
+
 static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
+#ifdef MPU_DELAY_SEND
+    /* wait 10ms after the last mpu_send/recv
+     * (related messages usually arrive at less than 1ms apart)
+     * note: during a mpu_send (usually called from PropMgr),
+     * mpu_recv may be called from other tasks;
+     * we'll wait until mpu_recv activity calms down for 10ms.
+     */
+    int l, t;
+    do
+    {
+        /* for some reason, msleep here appears to disturb the startup process */
+        /* busy waiting appears fine though */
+
+        /* for thread safety, timer must be read after last_mpu_timestamp */
+        /* assume int assignments are atomic and not reordered */
+        /* => even if a context switch happens between them, t will be >= l. */
+        /* to test: swap the two assignments => a few loops will stop too early (t < l) */
+        l = last_mpu_timestamp;
+        t = MEM(0xC0242014);
+    }
+    while (MOD(t - l, 0x100000) < 10000);
+    //~ DryosDebugMsg(0, 0, "*** mpu wait (%d)", t - l);
+#endif
+
     uint32_t caller = PATCH_HOOK_CALLER();
     char* buf = (char*) regs[0];
     int size = regs[1];                 /* message size */
@@ -579,6 +608,7 @@ static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     char msg[256];
     mpu_decode(buf, msg, sizeof(msg));
     DryosDebugMsg(0, 0, "*** mpu_send(%02x %s), from %x", size_ex, msg, caller);
+    last_mpu_timestamp = MEM(0xC0242014);
 }
 
 static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
@@ -589,6 +619,7 @@ static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     char msg[256];
     mpu_decode(buf, msg, sizeof(msg));
     DryosDebugMsg(0, 0, "*** mpu_recv(%02x %s), from %x", size, msg, caller);
+    last_mpu_timestamp = MEM(0xC0242014);
 }
 
 static void eeko_dump()
