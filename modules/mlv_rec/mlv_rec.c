@@ -81,8 +81,8 @@
 #include "../trace/trace.h"
 
 #include "mlv.h"
-#include "mlv_rec.h"
 #include "mlv_rec_interface.h"
+#include "mlv_rec.h"
 
 /* an alternative tracing method that embeds the logs into the MLV file itself */
 /* looks like it might cause pink frames - http://www.magiclantern.fm/forum/index.php?topic=5473.msg165356#msg165356 */
@@ -286,7 +286,7 @@ uint32_t mlv_rec_unregister_cbr(event_cbr_t cbr)
     
     uint32_t ret = 0;
     uint32_t old_int = cli();
-    for(int pos = 0; registered_cbrs[pos].cbr && pos < COUNT(registered_cbrs); pos++)
+    for(int pos = 0; (registered_cbrs[pos].cbr != NULL) && (pos < COUNT(registered_cbrs)); pos++)
     {
         if(registered_cbrs[pos].cbr == cbr)
         {
@@ -310,7 +310,7 @@ uint32_t mlv_rec_unregister_cbr(event_cbr_t cbr)
 
 static void mlv_rec_call_cbr(uint32_t event, mlv_hdr_t *hdr)
 {
-    for(int pos = 0; registered_cbrs[pos].cbr && pos < COUNT(registered_cbrs); pos++)
+    for(int pos = 0; (registered_cbrs[pos].cbr != NULL) && (pos < COUNT(registered_cbrs)); pos++)
     {
         if(registered_cbrs[pos].event & event)
         {
@@ -2219,6 +2219,9 @@ static int32_t mlv_prepend_block(uint32_t slot, mlv_hdr_t *block)
 
 static void mlv_rec_dma_cbr_r(void *ctx)
 {
+    /* call the VIDF CBRs */
+    mlv_rec_call_cbr(MLV_REC_EVENT_VIDF, slots[capture_slot].ptr);
+    
     /* now mark the last filled buffer as being ready to transfer */
     slots[capture_slot].status = SLOT_FULL;
     mlv_rec_dma_active = 0;
@@ -2425,7 +2428,7 @@ static int32_t mlv_rec_get_chunk_filename(char* base_name, char* filename, int32
 
 static int32_t mlv_write_hdr(FILE* f, mlv_hdr_t *hdr)
 {
-    mlv_rec_call_cbr(MLV_REC_EVENT_BLOCK, NULL);
+    mlv_rec_call_cbr(MLV_REC_EVENT_BLOCK, hdr);
 
     uint32_t written = FIO_WriteFile(f, hdr, hdr->blockSize);
 
@@ -3013,7 +3016,8 @@ static void enqueue_buffer(uint32_t writer, write_job_t *write_job)
             }
             else
             {
-                mlv_rec_call_cbr(MLV_REC_EVENT_BLOCK, NULL);
+                /* when this block will get prepended, call the CBR */
+                mlv_rec_call_cbr(MLV_REC_EVENT_BLOCK, block);
 
                 /* prepend the given block if possible or requeue it in case of error */
                 int32_t ret = mlv_prepend_block(slot, block);
