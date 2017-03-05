@@ -19,8 +19,8 @@ static GUARDED_BY(lvinfo_sem)   struct lvinfo_item * _info_items[MAX_ITEMS];
 static GUARDED_BY(lvinfo_sem)   int _info_items_count = 0;
 static GUARDED_BY(lvinfo_sem)   int layout_dirty = 0;
 
-static GUARDED_BY(lvinfo_sem)   int default_font = FONT_MED_LARGE;   /* used in normal situations */
-static GUARDED_BY(lvinfo_sem)   int small_font = FONT_MED;           /* used if the layout gets really tight */
+static GUARDED_BY(lvinfo_sem)   int default_font = FONT_MED_LARGE | FONT_ALIGN_CENTER;   /* used in normal situations */
+static GUARDED_BY(lvinfo_sem)   int small_font = FONT_MED | FONT_ALIGN_CENTER;           /* used if the layout gets really tight */
 
 /* fixme: false thread safety warning
  * when called from INIT_FUNC's, the semaphore may not be initialized yet
@@ -491,8 +491,8 @@ void lvinfo_align_and_display(struct lvinfo_item * items[], int count, int bar_x
     /* try to borrow the color from the cropmarks; if it's fully transparent, use transparent gray */
     int bg = (items == top_items) ? TOPBAR_BGCOLOR : BOTTOMBAR_BGCOLOR;
     if (bg == 0) bg = COLOR_BG_DARK;
-    default_font = FONT(FONT_MED_LARGE, COLOR_WHITE, bg) | FONT_ALIGN_CENTER;
-    small_font = FONT(FONT_MED, COLOR_WHITE, bg) | FONT_ALIGN_CENTER;
+    default_font = FONT(default_font, COLOR_WHITE, bg);
+    small_font = FONT(small_font, COLOR_WHITE, bg);
     
     int font_changed = 0;
 
