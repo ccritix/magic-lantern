@@ -115,6 +115,7 @@ static CONFIG_INT("raw.write.speed", measured_write_speed, 0);
 static CONFIG_INT("raw.pre-record", pre_record, 0);
 static int pre_record_triggered = 0;    /* becomes 1 once you press REC twice */
 static int pre_record_num_frames = 0;   /* how many frames we should pre-record */
+static int pre_record_first_frame = 0;  /* first frame index from pre-recording buffer */
 
 static CONFIG_INT("raw.dolly", dolly_mode, 0);
 #define FRAMING_CENTER (dolly_mode == 0)
@@ -1329,13 +1330,19 @@ static void FAST pre_record_vsync_step()
 {
     if (raw_recording_state == RAW_PRE_RECORDING)
     {
+        if (!pre_record_first_frame)
+        {
+            /* start pre-recording (first attempt) */
+            pre_record_first_frame = frame_count;
+        }
+
         if (pre_record_triggered)
         {
             /* queue all captured frames for writing */
             /* (they are numbered from 1 to frame_count-1; frame 0 is skipped) */
             /* they are not ordered, which complicates things a bit */
             int i = 0;
-            for (int current_frame = 1; current_frame < frame_count; current_frame++)
+            for (int current_frame = pre_record_first_frame; current_frame < frame_count; current_frame++)
             {
                 /* consecutive frames tend to be grouped, 
                  * so this loop will not run every time */
@@ -1361,16 +1368,14 @@ static void FAST pre_record_vsync_step()
             
             for (int i = 0; i < slot_count; i++)
             {
-                /* first frame is 1 */
+                /* first frame is "pre_record_first_frame" */
                 if (slots[i].status == SLOT_FULL)
                 {
-                    ASSERT(slots[i].frame_number > 0);
-                    
-                    if (slots[i].frame_number == 1)
+                    if (slots[i].frame_number == pre_record_first_frame)
                     {
                         slots[i].status = SLOT_FREE;
                     }
-                    else
+                    else if (slots[i].frame_number > pre_record_first_frame)
                     {
                         slots[i].frame_number--;
                         ((mlv_vidf_hdr_t*)slots[i].ptr)->frameNumber
@@ -1778,6 +1783,7 @@ static void raw_video_rec_task()
     mlv_chunk = 0;
     edmac_active = 0;
     pre_record_triggered = 0;
+    pre_record_first_frame = 0;
     
     powersave_prohibit();
 
