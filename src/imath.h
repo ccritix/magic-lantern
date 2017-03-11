@@ -12,6 +12,10 @@ int log10i(int x);
       int _m = (m); \
      (_x % _m + _m) % _m; })
 
+/* increment modulo (fast, but x must be already modulo N) */
+/* todo: assert? */
+#define INC_MOD(x,m) \
+    ((x) = ((x)+1 < (m)) ? (x)+1 : (x)+1-(m))
 
 #define MIN(a,b) \
    ({ __typeof__ ((a)+(b)) _a = (a); \
