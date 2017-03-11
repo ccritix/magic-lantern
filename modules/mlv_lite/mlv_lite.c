@@ -117,6 +117,11 @@ static int pre_record_triggered = 0;    /* becomes 1 once you press REC twice */
 static int pre_record_num_frames = 0;   /* how many frames we should pre-record */
 static int pre_record_first_frame = 0;  /* first frame index from pre-recording buffer */
 
+static CONFIG_INT("raw.rec-trigger", rec_trigger, 0);
+#define REC_TRIGGER_HALFSHUTTER_START_STOP 1
+#define REC_TRIGGER_HALFSHUTTER_HOLD 2
+#define REC_TRIGGER_HALFSHUTTER_1_FRAME 3
+
 static CONFIG_INT("raw.dolly", dolly_mode, 0);
 #define FRAMING_CENTER (dolly_mode == 0)
 #define FRAMING_PANNING (dolly_mode == 1)
@@ -768,17 +773,22 @@ static int setup_buffers()
     {
         return 0;
     }
-    
-    if (pre_record)
+
+    /* note: rec_trigger is implemented via pre_recording
+     * even if pre_record is turned off, we still reuse its state machine
+     * for the rec_trigger feature - with an empty pre-recording buffer
+     */
+    if (pre_record || rec_trigger)
     {
         /* how much should we pre-record? */
-        const int presets[4] = {1, 2, 5, 10};
-        int requested_seconds = presets[(pre_record-1) & 3];
+        const int presets[5] = {0, 1, 2, 5, 10};
+        int requested_seconds = presets[MOD(pre_record, COUNT(presets))];
         int requested_frames = requested_seconds * fps_get_current_x1000() / 1000;
 
         /* leave at least 16MB for buffering */
         int max_frames = slot_count - 16*1024*1024 / frame_size;
-        pre_record_num_frames = MIN(requested_frames, max_frames);
+        pre_record_num_frames = COERCE(requested_frames, 1, max_frames);
+        printf("Pre-rec: %d frames (max %d)\n", pre_record_num_frames, max_frames);
     }
     
     return 1;
@@ -1328,12 +1338,27 @@ static int FAST choose_next_capture_slot()
 
 static void FAST pre_record_vsync_step()
 {
+    if (raw_recording_state == RAW_RECORDING)
+    {
+        if (!pre_record_triggered)
+        {
+            /* return to pre-recording state */
+            pre_record_first_frame = frame_count;
+            raw_recording_state = RAW_PRE_RECORDING;
+            printf("Pre-rec: back to pre-recording (frame %d).\n", pre_record_first_frame);
+            /* fall through the next block */
+        }
+    }
+
     if (raw_recording_state == RAW_PRE_RECORDING)
     {
+        ASSERT(pre_record_num_frames);
+
         if (!pre_record_first_frame)
         {
             /* start pre-recording (first attempt) */
             pre_record_first_frame = frame_count;
+            printf("Pre-rec: starting from frame %d.\n", pre_record_first_frame);
         }
 
         if (pre_record_triggered)
@@ -1341,6 +1366,8 @@ static void FAST pre_record_vsync_step()
             /* queue all captured frames for writing */
             /* (they are numbered from 1 to frame_count-1; frame 0 is skipped) */
             /* they are not ordered, which complicates things a bit */
+            printf("Pre-rec: queueing frames %d to %d.\n", pre_record_first_frame, frame_count-1);
+
             int i = 0;
             for (int current_frame = pre_record_first_frame; current_frame < frame_count; current_frame++)
             {
@@ -1359,7 +1386,7 @@ static void FAST pre_record_vsync_step()
             /* done, from now on we can just record normally */
             raw_recording_state = RAW_RECORDING;
         }
-        else if (frame_count >= pre_record_num_frames)
+        else if (frame_count - pre_record_first_frame >= pre_record_num_frames)
         {
             /* discard old frames */
             /* also adjust frame_count so all frames start from 1,
@@ -1446,10 +1473,7 @@ static void FAST process_frame()
         return;
     }
     
-    if (raw_recording_state == RAW_PRE_RECORDING)
-    {
-        pre_record_vsync_step();
-    }
+    pre_record_vsync_step();
     
     /* where to save the next frame? */
     capture_slot = choose_next_capture_slot(capture_slot);
@@ -1472,6 +1496,11 @@ static void FAST process_frame()
             /* it's quite unlikely that FIO DMA will be faster than EDMAC */
             writing_queue[writing_queue_tail] = capture_slot;
             INC_MOD(writing_queue_tail, COUNT(writing_queue));
+                
+            if (rec_trigger == REC_TRIGGER_HALFSHUTTER_1_FRAME)
+            {
+                pre_record_triggered = 0;
+            }
         }
     }
     else
@@ -1782,9 +1811,11 @@ static void raw_video_rec_task()
     last_write_timestamp = 0;
     mlv_chunk = 0;
     edmac_active = 0;
-    pre_record_triggered = 0;
+
+    /* note: rec_trigger is implemented via pre_recording */
+    pre_record_triggered = !pre_record && !rec_trigger;
     pre_record_first_frame = 0;
-    
+
     powersave_prohibit();
 
     /* create output file */
@@ -1988,7 +2019,6 @@ abort:
             last_block_size = 0; /* ignore early stop check */
 
 abort_and_check_early_stop:
-
             if (last_block_size > 2)
             {
                 bmp_printf( FONT_MED, 30, 90, 
@@ -2188,6 +2218,17 @@ static struct menu_entry raw_video_menu[] =
                 .help2   = "Press REC twice: 1 - to start pre-recording, 2 - for normal recording.",
             },
             {
+                .name    = "Rec trigger",
+                .priv    = &rec_trigger,
+                .max     = 3,
+                .choices = CHOICES("OFF", "Half-shut: start/pause", "Half-shut: hold", "Half-shut: 1 frame"),
+                .help    = "Use external trigger to start/pause recording within a video clip.",
+                .help2   = "Disabled (press REC as usual).\n"
+                           "Press half-shutter to start/pause recording within the current clip.\n"
+                           "Press and hold the shutter halfway to record (e.g. for short events).\n"
+                           "Press half-shutter to record a single frame (use with external trigger).\n",
+            },
+            {
                 .name = "Digital dolly",
                 .priv = &dolly_mode,
                 .max = 1,
@@ -2205,10 +2246,11 @@ static struct menu_entry raw_video_menu[] =
                 .advanced = 1,
             },
             {
-                .name = "Use SRM job memory",
+                .name = "Use SRM memory",
                 .priv = &use_srm_memory,
                 .max = 1,
-                .help = "Allocate memory from SRM job buffers",
+                .help = "Allocate memory from SRM job buffers (normally used for still capture).",
+                .help2 = "Side effect: will show BUSY on the screen and might affect other functions.",
                 .advanced = 1,
             },
             {
@@ -2275,10 +2317,51 @@ static unsigned int raw_rec_keypress_cbr(unsigned int key)
                 break;
             
             case RAW_PRE_RECORDING:
-                pre_record_triggered = 1;
+            {
+                if (rec_trigger) {
+                    /* use the external trigger for pre-recording */
+                    raw_start_stop();
+                } else {
+                    /* use REC key to trigger pre-recording */
+                    pre_record_triggered = 1;
+                }
                 break;
+            }
         }
         return 0;
+    }
+
+    /* half-shutter trigger keys */
+    if (RAW_IS_RECORDING)
+    {
+        if (key == MODULE_KEY_PRESS_HALFSHUTTER)
+        {
+            switch (rec_trigger)
+            {
+                case REC_TRIGGER_HALFSHUTTER_START_STOP:
+                {
+                    pre_record_triggered = !pre_record_triggered;
+                    break;
+                }
+
+                case REC_TRIGGER_HALFSHUTTER_HOLD:
+                case REC_TRIGGER_HALFSHUTTER_1_FRAME:
+                {
+                    pre_record_triggered = 1;
+                    break;
+                }
+            }
+        }
+        
+        if (key == MODULE_KEY_UNPRESS_HALFSHUTTER)
+        {
+            switch (rec_trigger)
+            {
+                case REC_TRIGGER_HALFSHUTTER_HOLD:
+                    pre_record_triggered = 0;
+                    break;
+            }
+        }
     }
     
     /* panning (with arrow keys) */
@@ -2479,6 +2562,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(aspect_ratio_index)
     MODULE_CONFIG(measured_write_speed)
     MODULE_CONFIG(pre_record)
+    MODULE_CONFIG(rec_trigger)
     MODULE_CONFIG(dolly_mode)
     MODULE_CONFIG(preview_mode)
     MODULE_CONFIG(use_srm_memory)
