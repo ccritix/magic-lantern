@@ -208,6 +208,7 @@ static int writing_queue_tail = 0;                /* place captured frames here 
 static int writing_queue_head = 0;                /* extract frames to be written from here */ 
 
 static int frame_count = 0;                       /* how many frames we have processed */
+static int skipped_frames = 0;                    /* how many frames we had to drop (only done during pre-recording) */
 static int chunk_frame_count = 0;                 /* how many frames in the current file chunk */
 static int buffer_full = 0;                       /* true when the memory becomes full */
 char* raw_movie_filename = 0;                     /* file name for current (or last) movie */
@@ -799,7 +800,16 @@ static int setup_buffers()
         {
             max_frames--;
         }
-        
+
+        /* if we have to record only 1 frame after the trigger,
+         * we can simply buffer as much as we want
+         * (unless the user triggers frames really fast)
+         */
+        if (rec_trigger == REC_TRIGGER_HALFSHUTTER_1_FRAME)
+        {
+            max_frames = slot_count - 5;
+        }
+
         pre_record_num_frames = COERCE(requested_frames - 1, 1, max_frames);
         printf("Pre-rec: %d frames (max %d)\n", pre_record_num_frames, max_frames);
     }
@@ -1349,6 +1359,55 @@ static int FAST choose_next_capture_slot()
     return best_index;
 }
 
+static void FAST pre_record_discard_frame()
+{
+    /* discard old frames */
+    /* also adjust frame_count so all frames start from 1,
+     * just like the rest of the code assumes */
+    frame_count--;
+    
+    for (int i = 0; i < slot_count; i++)
+    {
+        /* first frame is "pre_record_first_frame" */
+        if (slots[i].status == SLOT_FULL)
+        {
+            if (slots[i].frame_number == pre_record_first_frame)
+            {
+                slots[i].status = SLOT_FREE;
+            }
+            else if (slots[i].frame_number > pre_record_first_frame)
+            {
+                slots[i].frame_number--;
+                ((mlv_vidf_hdr_t*)slots[i].ptr)->frameNumber
+                    = slots[i].frame_number - 1;
+            }
+        }
+    }
+}
+
+static void FAST pre_record_queue_frames()
+{
+    /* queue all captured frames for writing */
+    /* (they are numbered from 1 to frame_count-1; frame 0 is skipped) */
+    /* they are not ordered, which complicates things a bit */
+    printf("Pre-rec: queueing frames %d to %d.\n", pre_record_first_frame, frame_count-1);
+
+    int i = 0;
+    for (int current_frame = pre_record_first_frame; current_frame < frame_count; current_frame++)
+    {
+        /* consecutive frames tend to be grouped, 
+         * so this loop will not run every time */
+        while (slots[i].status != SLOT_FULL || slots[i].frame_number != current_frame)
+        {
+            INC_MOD(i, slot_count);
+        }
+        
+        writing_queue[writing_queue_tail] = i;
+        INC_MOD(writing_queue_tail, COUNT(writing_queue));
+        INC_MOD(i, slot_count);
+    }
+}
+
 static void FAST pre_record_vsync_step()
 {
     if (raw_recording_state == RAW_RECORDING)
@@ -1376,53 +1435,14 @@ static void FAST pre_record_vsync_step()
 
         if (pre_record_triggered)
         {
-            /* queue all captured frames for writing */
-            /* (they are numbered from 1 to frame_count-1; frame 0 is skipped) */
-            /* they are not ordered, which complicates things a bit */
-            printf("Pre-rec: queueing frames %d to %d.\n", pre_record_first_frame, frame_count-1);
-
-            int i = 0;
-            for (int current_frame = pre_record_first_frame; current_frame < frame_count; current_frame++)
-            {
-                /* consecutive frames tend to be grouped, 
-                 * so this loop will not run every time */
-                while (slots[i].status != SLOT_FULL || slots[i].frame_number != current_frame)
-                {
-                    INC_MOD(i, slot_count);
-                }
-                
-                writing_queue[writing_queue_tail] = i;
-                INC_MOD(writing_queue_tail, COUNT(writing_queue));
-                INC_MOD(i, slot_count);
-            }
-            
+            pre_record_queue_frames();
+    
             /* done, from now on we can just record normally */
             raw_recording_state = RAW_RECORDING;
         }
         else if (frame_count - pre_record_first_frame >= pre_record_num_frames)
         {
-            /* discard old frames */
-            /* also adjust frame_count so all frames start from 1,
-             * just like the rest of the code assumes */
-            frame_count--;
-            
-            for (int i = 0; i < slot_count; i++)
-            {
-                /* first frame is "pre_record_first_frame" */
-                if (slots[i].status == SLOT_FULL)
-                {
-                    if (slots[i].frame_number == pre_record_first_frame)
-                    {
-                        slots[i].status = SLOT_FREE;
-                    }
-                    else if (slots[i].frame_number > pre_record_first_frame)
-                    {
-                        slots[i].frame_number--;
-                        ((mlv_vidf_hdr_t*)slots[i].ptr)->frameNumber
-                            = slots[i].frame_number - 1;
-                    }
-                }
-            }
+            pre_record_discard_frame();
         }
     }
 }
@@ -1490,7 +1510,16 @@ static void FAST process_frame()
     
     /* where to save the next frame? */
     capture_slot = choose_next_capture_slot(capture_slot);
-    
+
+    if (capture_slot < 0 && raw_recording_state == RAW_PRE_RECORDING)
+    {
+        /* pre-recording? we can just discard frames as needed */
+        pre_record_discard_frame();
+        capture_slot = choose_next_capture_slot();
+        ASSERT(capture_slot);
+        bmp_printf(FONT_MED, 50, 50, "Skipped %d frames", ++skipped_frames);
+    }
+
     if (capture_slot >= 0)
     {
         /* okay */
@@ -1816,6 +1845,7 @@ static void raw_video_rec_task()
     capture_slot = -1;
     fullsize_buffer_pos = 0;
     frame_count = 0;
+    skipped_frames = 0;
     chunk_frame_count = 0;
     buffer_full = 0;
     FILE* f = 0;
