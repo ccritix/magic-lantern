@@ -304,6 +304,7 @@ NSTUB(0xFF1EBFE0,  vsnprintf)                               // might be good (du
 
 /** Unused stubs or porting notes **/
 ///NSTUB(0xff0707fc, AllocateMemory_do) // malloc struct at 0x2B48
+///NSTUB(0xff0707fc, AllocateMemory_do) // malloc struct at 0x2B48
 ///NSTUB(0xFF2279C0,  ChangeColorPalette)
 ///NSTUB(0xFF31CAD8,  CreateDialogBox)                         // might be good (dumps=1, score=74)
 ///NSTUB(0xFF06C914,  DebugMsg)                                // might be good (dumps=1, score=1.1e+03)
