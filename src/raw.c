@@ -133,22 +133,6 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define DEFAULT_RAW_BUFFER MEM(0x76d6c + 0x2C)
 #endif
 
-#ifdef CONFIG_650D
-#define DEFAULT_RAW_BUFFER MEM(0x25B00 + 0x3C)
-#endif
-
-#ifdef CONFIG_700D
-#define DEFAULT_RAW_BUFFER MEM(0x25B0C + 0x3C)
-#endif
-
-#ifdef CONFIG_EOSM
-#define DEFAULT_RAW_BUFFER MEM(0x404E4 + 0x44)
-#endif
-
-#ifdef CONFIG_6D
-#define DEFAULT_RAW_BUFFER MEM(0x76d6c + 0x2C)
-#endif
-
 #else
 
 /* with Canon lv_save_raw, just read it from EDMAC */
