@@ -698,6 +698,55 @@ static struct lvinfo_item info_items[] = {
     }
 };
 
+static unsigned int raw_info_update_cbr(unsigned int unused)
+{
+    if (patch_active)
+    {
+        /* not implemented yet */
+        raw_capture_info.offset_x = raw_capture_info.offset_y   = SHRT_MIN;
+
+        if (lv_dispsize > 1)
+        {
+            /* raw backend gets it right */
+            return 0;
+        }
+
+        /* update horizontal pixel binning parameters */
+        switch (crop_preset)
+        {
+            case CROP_PRESET_3X:
+            case CROP_PRESET_3x1:
+                raw_capture_info.binning_x    = raw_capture_info.binning_y  = 1;
+                raw_capture_info.skipping_x   = raw_capture_info.skipping_y = 0;
+                break;
+
+            case CROP_PRESET_3x3_1X:
+            case CROP_PRESET_1x3:
+                raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
+                break;
+        }
+
+        /* update vertical pixel binning / line skipping parameters */
+        switch (crop_preset)
+        {
+            case CROP_PRESET_3X:
+            case CROP_PRESET_1x3:
+                raw_capture_info.binning_y = 1; raw_capture_info.skipping_y = 0;
+                break;
+
+            case CROP_PRESET_3x3_1X:
+            case CROP_PRESET_3x1:
+            {
+                int b = (is_5D3) ? 3 : 1;
+                int s = (is_5D3) ? 0 : 2;
+                raw_capture_info.binning_y = b; raw_capture_info.skipping_y = s;
+                break;
+            }
+        }
+    }
+    return 0;
+}
+
 static unsigned int crop_rec_init()
 {
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
@@ -754,6 +803,7 @@ MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
     MODULE_CBR(CBR_SHOOT_TASK, crop_rec_polling_cbr, 0)
+    MODULE_CBR(CBR_RAW_INFO_UPDATE, raw_info_update_cbr, 0)
 MODULE_CBRS_END()
 
 MODULE_PROPHANDLERS_START()
