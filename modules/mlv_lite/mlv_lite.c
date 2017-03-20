@@ -67,6 +67,7 @@
 #include "../mlv_rec/mlv.h"
 #include "../trace/trace.h"
 #include "powersave.h"
+#include "shoot.h"
 
 /* from mlv_play module */
 extern WEAK_FUNC(ret_0) void mlv_play_file(char *filename);
@@ -125,6 +126,8 @@ static CONFIG_INT("raw.preview", preview_mode, 0);
 static CONFIG_INT("raw.warm.up", warm_up, 0);
 static CONFIG_INT("raw.use.srm.memory", use_srm_memory, 1);
 static CONFIG_INT("raw.small.hacks", small_hacks, 1);
+
+static CONFIG_INT("raw.h264.proxy", h264_proxy, 0);
 
 static CONFIG_INT("raw.bppi", bpp_index, 2);
 #define BPP (10 + 2*bpp_index)
@@ -1438,6 +1441,15 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
     return 0;
 }
 
+static const char* get_cf_dcim_dir()
+{
+    static char dcim_dir[FIO_MAX_PATH_LENGTH];
+    struct card_info * card = get_shooting_card();
+    if (is_dir("A:/")) card = get_card(CARD_A);
+    snprintf(dcim_dir, sizeof(dcim_dir), "%s:/DCIM/%03d%s", card->drive_letter, card->folder_number, get_dcim_dir_suffix());
+    return dcim_dir;
+}
+
 static char* get_next_raw_movie_file_name()
 {
     static char filename[100];
@@ -1451,7 +1463,7 @@ static char* get_next_raw_movie_file_name()
          * Get unique file names from the current date/time
          * last field gets incremented if there's another video with the same name
          */
-        snprintf(filename, sizeof(filename), "%s/M%02d-%02d%02d.MLV", get_dcim_dir(), now.tm_mday, now.tm_hour, COERCE(now.tm_min + number, 0, 99));
+        snprintf(filename, sizeof(filename), "%s/M%02d-%02d%02d.MLV", get_cf_dcim_dir(), now.tm_mday, now.tm_hour, COERCE(now.tm_min + number, 0, 99));
         
         /* already existing file? */
         uint32_t size;
@@ -1474,19 +1486,11 @@ static char* get_next_chunk_file_name(char* base_name, int chunk)
     return filename;
 }
 
-static char* get_wav_file_name(char* raw_movie_filename)
+/* a bit of a hack: this tells the audio backend that we are going to record sound */
+/* => it will show audio meters and disable beeps */
+int mlv_snd_is_enabled()
 {
-    /* same name as movie, but with wav extension */
-    static char wavfile[100];
-    snprintf(wavfile, sizeof(wavfile), raw_movie_filename);
-    int len = strlen(wavfile);
-    wavfile[len-4] = '.';
-    wavfile[len-3] = 'W';
-    wavfile[len-2] = 'A';
-    wavfile[len-1] = 'V';
-    /* prefer SD card for saving WAVs (should be faster on 5D3) */
-    if (is_dir("B:/")) wavfile[0] = 'B';
-    return wavfile;
+    return h264_proxy && sound_recording_enabled_canon();
 }
 
 static void init_mlv_chunk_headers(struct raw_info * raw_info)
@@ -1703,6 +1707,14 @@ static void raw_video_rec_task()
     mlv_chunk = 0;
     edmac_active = 0;
     
+    if (h264_proxy)
+    {
+        /* start H.264 recording */
+        ASSERT(!RECORDING_H264);
+        movie_start();
+    }
+
+    /* disable Canon's powersaving (30 min in LiveView) */
     powersave_prohibit();
 
     /* create output file */
@@ -2022,6 +2034,12 @@ cleanup:
     /* re-enable powersaving  */
     powersave_permit();
 
+    if (h264_proxy && RECORDING_H264)
+    {
+        /* stop H.264 recording */
+        movie_end();
+    }
+
     raw_recording_state = RAW_IDLE;
 }
 
@@ -2095,8 +2113,7 @@ static struct menu_entry raw_video_menu[] =
                 .name = "Bit depth",
                 .priv = &bpp_index,
                 .max = 2,
-                .choices = CHOICES("10", "12", "14"),
-                .unit = UNIT_DEC,
+                .choices = CHOICES("10bpp", "12bpp", "14bpp"),
             },
             {
                 .name = "Preview",
@@ -2115,6 +2132,14 @@ static struct menu_entry raw_video_menu[] =
                 .max = 1,
                 .help = "Smooth panning of the recording window (software dolly).",
                 .help2 = "Use arrow keys (joystick) to move the window.",
+                .advanced = 1,
+            },
+            {
+                .name   = "H.264 proxy",
+                .priv   = &h264_proxy,
+                .max    = 1,
+                .help   = "Record a H.264 video at the same time.",
+                .help2  = "For best performance, record H.264 on SD and RAW on CF.",
                 .advanced = 1,
             },
             {
@@ -2174,7 +2199,7 @@ static unsigned int raw_rec_keypress_cbr(unsigned int key)
         return 1;
 
     /* if you somehow managed to start recording H.264, let it stop */
-    if (RECORDING_H264)
+    if (RECORDING_H264 && !h264_proxy)
         return 1;
     
     /* block the zoom key while recording */
@@ -2248,6 +2273,28 @@ static unsigned int raw_rec_keypress_cbr(unsigned int key)
     }
     
     return 1;
+}
+
+static unsigned int raw_rec_keypress_cbr_raw(unsigned int raw_event)
+{
+    struct event * event = (struct event *) raw_event;
+
+    if (h264_proxy)
+    {
+        if (IS_FAKE(event))
+        {
+            if (raw_recording_state == RAW_PREPARING ||
+                raw_recording_state == RAW_FINISHING)
+            {
+                /* fake events (generated from ML) are not processed */
+                /* they are probably for starting/stopping H.264 */
+                return 1;
+            }
+        }
+    }
+
+    int key = module_translate_key(event->param, MODULE_KEY_PORTABLE);
+    return raw_rec_keypress_cbr(key);
 }
 
 static int preview_dirty = 0;
@@ -2385,7 +2432,7 @@ MODULE_INFO_END()
 
 MODULE_CBRS_START()
     MODULE_CBR(CBR_VSYNC, raw_rec_vsync_cbr, 0)
-    MODULE_CBR(CBR_KEYPRESS, raw_rec_keypress_cbr, 0)
+    MODULE_CBR(CBR_KEYPRESS_RAW, raw_rec_keypress_cbr_raw, 0)
     MODULE_CBR(CBR_SHOOT_TASK, raw_rec_polling_cbr, 0)
     MODULE_CBR(CBR_DISPLAY_FILTER, raw_rec_update_preview, 0)
 MODULE_CBRS_END()
@@ -2402,4 +2449,5 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(small_hacks)
     MODULE_CONFIG(warm_up)
     MODULE_CONFIG(bpp_index)
+    MODULE_CONFIG(h264_proxy)
 MODULE_CONFIGS_END()
