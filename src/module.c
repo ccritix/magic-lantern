@@ -735,8 +735,8 @@ int FAST module_exec_cbr(unsigned int type)
 #if !defined(BGMT_REC)
 #define BGMT_REC -1
 #endif
-#if !defined(BGMT_PRESS_ZOOMIN_MAYBE)
-#define BGMT_PRESS_ZOOMIN_MAYBE -1
+#if !defined(BGMT_PRESS_ZOOM_IN)
+#define BGMT_PRESS_ZOOM_IN -1
 #endif
 #if !defined(BGMT_LV)
 #define BGMT_LV -1
@@ -823,7 +823,7 @@ int module_translate_key(int key, int dest)
     MODULE_TRANSLATE_KEY(BGMT_UNPRESS_DP           , MODULE_KEY_UNPRESS_DP           , dest);
     MODULE_TRANSLATE_KEY(BGMT_RATE                 , MODULE_KEY_RATE                 , dest);
     MODULE_TRANSLATE_KEY(BGMT_REC                  , MODULE_KEY_REC                  , dest);
-    MODULE_TRANSLATE_KEY(BGMT_PRESS_ZOOMIN_MAYBE   , MODULE_KEY_PRESS_ZOOMIN         , dest);
+    MODULE_TRANSLATE_KEY(BGMT_PRESS_ZOOM_IN   , MODULE_KEY_PRESS_ZOOMIN         , dest);
     MODULE_TRANSLATE_KEY(BGMT_LV                   , MODULE_KEY_LV                   , dest);
     MODULE_TRANSLATE_KEY(BGMT_PICSTYLE             , MODULE_KEY_PICSTYLE             , dest);
     MODULE_TRANSLATE_KEY(BGMT_JOY_CENTER           , MODULE_KEY_JOY_CENTER           , dest);
@@ -1116,7 +1116,7 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
                 int fg = COLOR_GRAY(40);
                 int bg = COLOR_BLACK;
                 int fnt = SHADOW_FONT(FONT(FONT_MED_LARGE, fg, bg));
-                bmp_printf(fnt | FONT_ALIGN_RIGHT | FONT_TEXT_WIDTH(320), 680, info->y+2, "%s", name);
+                bmp_printf(fnt | FONT_ALIGN_RIGHT | FONT_TEXT_WIDTH(340), 680, info->y+2, "%s", name);
             }
         }
     }
