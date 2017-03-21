@@ -66,17 +66,17 @@ static struct logged_func logged_functions[] = {
     STUB_ENTRY(task_create, 5),
     STUB_ENTRY(msleep, 1),
 
-    STUB_ENTRY(take_semaphore, 2),
-    STUB_ENTRY(give_semaphore, 1),
-    STUB_ENTRY(msg_queue_post, 2),
-    STUB_ENTRY(msg_queue_receive, 3),
+    //STUB_ENTRY(take_semaphore, 2),
+    //STUB_ENTRY(give_semaphore, 1),
+    //STUB_ENTRY(msg_queue_post, 2),
+    //STUB_ENTRY(msg_queue_receive, 3),
 
     STUB_ENTRY(ConnectReadEDmac, 2),
     STUB_ENTRY(ConnectWriteEDmac, 2),
     STUB_ENTRY(RegisterEDmacCompleteCBR, 3),
     STUB_ENTRY(SetEDmac, 4),
     STUB_ENTRY(StartEDmac, 2, StartEDmac_log),
-    STUB_ENTRY(AbortEDmac, 1),
+    //STUB_ENTRY(AbortEDmac, 1),
 
 #ifdef CONFIG_DMA_MEMCPY
     STUB_ENTRY(dma_memcpy, 3),
@@ -122,9 +122,10 @@ static struct logged_func logged_functions[] = {
     #endif
 
     #ifdef CONFIG_5D3_123
-    { 0x17d54,    "TryPostEvent", 5, TryPostEvent_log },
+    //{ 0x17d54,    "TryPostEvent", 5, TryPostEvent_log },
     { 0xFF2E8648, "mpu_send", 2, mpu_send_log }, // here it's OK via GDB hooks
     { 0xFF1226F0, "mpu_recv", 1, mpu_recv_log},  // fixme: first call may be missed, figure out why (seems to be OK at cold boot)
+    { 0xFF16B318, "lv_raw_buf", 7 },             // raw buffer size at [SP+8]; [SP] and [SP+4] have FlickerAddress'es
     #endif
 	
 	#ifdef CONFIG_6D	/* 1.1.3 */
