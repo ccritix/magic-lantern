@@ -115,7 +115,7 @@ static struct logged_func logged_functions[] = {
     { 0xFF861840, "mpu_recv", 1, mpu_recv_log },
     #endif
 
-    #ifdef CONFIG_5D3
+    #ifdef CONFIG_5D3_113
     { 0x83b8,     "register_interrupt", 4, register_interrupt_log },
     { 0xFF2E42E4, "mpu_send", 2, mpu_send_log },
     { 0xFF122B5C, "mpu_recv", 1, mpu_recv_log},
@@ -274,7 +274,7 @@ static struct logged_func logged_functions[] = {
     { 0xff193ed0, "UnLockEngineResources", 1, UnLockEngineResources_log},
 #endif
 
-#ifdef CONFIG_5D3
+#ifdef CONFIG_5D3_113
     //~ { 0xFF6B4E2C, "DryEFatFormat", 7 },
     //~ { 0xFF729BDC, "sd_choose_filesystem", 2 },
     //~ { 0xFF729FC4, "sd_choose_filesystem_ret", 1 },
