@@ -5611,7 +5611,7 @@ static unsigned int adtg_gui_init()
         CMOS_WRITE_FUNC = 0x119CC;
         CMOS2_WRITE_FUNC = 0x11784;
         CMOS16_WRITE_FUNC = 0x11AB8;
-        ENGIO_WRITE_FUNC = 0xFF290F98+8;    /* was ist das? */
+        ENGIO_WRITE_FUNC = 0xFF290F98;
         ENG_DRV_OUT_FUNC = 0xFF290C80;
     }
     else if (is_camera("5D2", "2.1.2"))
