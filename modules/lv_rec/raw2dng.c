@@ -41,6 +41,7 @@
 
 lv_rec_file_footer_t lv_rec_footer;
 struct raw_info raw_info;
+void * raw_info_buffer = NULL;
 
 #define FAIL(fmt,...) { fprintf(stderr, "Error: "); fprintf(stderr, fmt, ## __VA_ARGS__); fprintf(stderr, "\n"); exit(1); }
 #define CHECK(ok, fmt,...) { if (!(ok)) FAIL(fmt, ## __VA_ARGS__); }
@@ -297,7 +298,7 @@ int main(int argc, char** argv)
         if (!mlvout)
         {
             printf("writing DNG...");
-            raw_info.buffer = raw;
+            raw_info_buffer = raw;
             
             /* uncomment if the raw file is recovered from a DNG with dd */
             //~ reverse_bytes_order(raw, lv_rec_footer.frameSize);
@@ -818,7 +819,7 @@ uint32_t file_set_pos(FILE *stream, uint64_t offset, int whence)
 #endif
 
 int raw_get_pixel(int x, int y) {
-    struct raw_pixblock * p = (void*)raw_info.buffer + y * raw_info.pitch + (x/8)*14;
+    struct raw_pixblock * p = (void*)raw_info_buffer + y * raw_info.pitch + (x/8)*14;
     switch (x%8) {
         case 0: return p->a;
         case 1: return p->b_lo | (p->b_hi << 12);
@@ -834,7 +835,7 @@ int raw_get_pixel(int x, int y) {
 
 void raw_set_pixel(int x, int y, int value)
 {
-    struct raw_pixblock * p = (void*)raw_info.buffer + y * raw_info.pitch + (x/8)*14;
+    struct raw_pixblock * p = (void*)raw_info_buffer + y * raw_info.pitch + (x/8)*14;
     switch (x%8) {
         case 0: p->a = value; break;
         case 1: p->b_lo = value; p->b_hi = value >> 12; break;
@@ -958,7 +959,7 @@ static void detect_vertical_stripes_coeffs()
     /* that is, adjust all columns to make them as bright as a */
     /* process green pixels only, assuming the image is RGGB */
     struct raw_pixblock * row;
-    for (row = raw_info.buffer; (void*)row < (void*)raw_info.buffer + raw_info.pitch * raw_info.height; row += 2 * raw_info.pitch / sizeof(struct raw_pixblock))
+    for (row = raw_info_buffer; (void*)row < (void*)raw_info_buffer + raw_info.pitch * raw_info.height; row += 2 * raw_info.pitch / sizeof(struct raw_pixblock))
     {
         /* first line is RG */
         struct raw_pixblock * rg;
@@ -1108,7 +1109,7 @@ static void apply_vertical_stripes_correction()
     
     struct raw_pixblock * row;
     
-    for (row = raw_info.buffer; (void*)row < (void*)raw_info.buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
+    for (row = raw_info_buffer; (void*)row < (void*)raw_info_buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
     {
         struct raw_pixblock * p;
         for (p = row; (void*)p < (void*)row + raw_info.pitch; p++)
@@ -1125,7 +1126,7 @@ static void apply_vertical_stripes_correction()
     }
     
     int black = raw_info.black_level;
-    for (row = raw_info.buffer; (void*)row < (void*)raw_info.buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
+    for (row = raw_info_buffer; (void*)row < (void*)raw_info_buffer + raw_info.pitch * raw_info.height; row += raw_info.pitch / sizeof(struct raw_pixblock))
     {
         struct raw_pixblock * p;
         for (p = row; (void*)p < (void*)row + raw_info.pitch; p++)
@@ -1191,27 +1192,66 @@ static inline int FC(int row, int col)
     }
 }
 
-
 void find_and_fix_cold_pixels(int force_analysis)
 {
     #define MAX_COLD_PIXELS 200000
   
+    FILE * cold_pixel_file;
+    FILE * focus_pixel_file;
+
     struct xy { int x; int y; };
-    
     static struct xy cold_pixel_list[MAX_COLD_PIXELS];
-    static int cold_pixels = -1;
+    static unsigned long frame_count = 0;
+    static int cold_pixels = 0, cold_pixel_file_exists = 0, focus_pixel_file_exists = 0;
     
+    int start_pixel = 0;
     int w = raw_info.width;
     int h = raw_info.height;
     
-    /* scan for bad pixels in the first frame only, or on request*/
-    if (cold_pixels < 0 || force_analysis)
-    {
-        cold_pixels = 0;
-        
-        /* at sane ISOs, noise stdev is well less than 50, so 200 should be enough */
-        int cold_thr = MAX(0, raw_info.black_level - 200);
+    /* at sane ISOs, noise stdev is well less than 50, so 200 should be enough */
+    int cold_thr = MAX(0, raw_info.black_level - 200);
 
+    /* pixel maps check */
+    if (!frame_count && force_analysis != 1)
+    {
+        cold_pixel_file = fopen("allbadpixels.map", "r");
+        focus_pixel_file = fopen("focuspixels.map", "r");
+        if (cold_pixel_file)
+        {
+            cold_pixel_file_exists = 1;
+
+            while (fscanf(cold_pixel_file, "%d%*[ \t]%d%*[ \t^0]\n", &cold_pixel_list[cold_pixels].x, &cold_pixel_list[cold_pixels].y) != EOF)
+            {
+                cold_pixels++;
+            }
+
+            printf("\rFile allbadpixels.map loaded : %d pixels                            \n", cold_pixels);
+            fclose(cold_pixel_file);
+            goto repair_mark;
+        }
+        else if (focus_pixel_file)
+        {
+            
+            focus_pixel_file_exists = 1;
+
+            while (fscanf(focus_pixel_file, "%d%*[ \t]%d%*[ \t^0]\n", &cold_pixel_list[cold_pixels].x, &cold_pixel_list[cold_pixels].y) != EOF)
+            {
+                cold_pixels++;
+            } 
+
+            printf("\rFile focuspixels.map loaded : %d pixels                            \n", cold_pixels);
+            fclose(focus_pixel_file);
+            goto repair_mark;
+        }
+    }
+
+    /* if pixel maps not found then scan for cold pixels in the first frame only or in every frame on request force_analysis = 1 */
+    if ((!frame_count && !cold_pixels) || force_analysis == 1)
+    {
+        
+analyse_mark:
+
+        cold_pixels = start_pixel;
         /* analyse all pixels of the frame */
         for (int y = 0; y < h; y++)
         {
@@ -1229,15 +1269,19 @@ void find_and_fix_cold_pixels(int force_analysis)
                 }
             }
         }
-        printf("\rCold pixels : %d                             \n", (cold_pixels));
-    }  
+        printf("\rFrame%lu : cold pixels found: %d                             \n", frame_count, cold_pixels - start_pixel);
+    }
+    
+    //printf("\rINFO: allbadpixels = %d, focuspixels = %d, coldpixels = %d, startpixel = %d, forceanalysis = %d, framecount = %lu\n", cold_pixel_file_exists, focus_pixel_file_exists, cold_pixels, start_pixel, force_analysis, frame_count); /* Debug */
 
+repair_mark:
+    
     /* repair the cold pixels */
-    for (int p = 0; p < cold_pixels; p++)
+    for (int p = start_pixel; p < cold_pixels; p++)
     {
         int x = cold_pixel_list[p].x;
         int y = cold_pixel_list[p].y;
-      
+    
         int neighbours[100];
         int k = 0;
         int fc0 = FC(x, y);
@@ -1274,6 +1318,41 @@ void find_and_fix_cold_pixels(int force_analysis)
         raw_set_pixel(x, y, -median_int_wirth(neighbours, k));
     }
     
+    if (!frame_count && !start_pixel && focus_pixel_file_exists)
+    {
+        start_pixel = cold_pixels;
+        goto analyse_mark;
+    }
+    
+    /* save allbadpixels.map file */
+    if (!frame_count && force_analysis == 2)
+    {
+        if (cold_pixel_file_exists)
+        {
+            printf("\rWARNING: existing allbadpixels.map can not be overwritten                     \n");
+        }
+        else
+        {
+            if (cold_pixels - start_pixel)
+            {
+                cold_pixel_file = fopen("allbadpixels.map", "w");
+                for (int pix_count = 0; pix_count < cold_pixels; pix_count++)
+                {
+                    fprintf(cold_pixel_file, "%d \t %d\n", cold_pixel_list[pix_count].x, cold_pixel_list[pix_count].y);
+                } 
+
+                cold_pixel_file_exists = 1;
+                printf("\rFile allbadpixels.map written : %d pixels                             \n", cold_pixels);
+                fclose(cold_pixel_file);
+            }
+            else
+            {
+                printf("\rWARNING: allbadpixels.map is not written. No cold pixels found            \n");
+            }
+        }
+    }
+    
+    frame_count++;
 }
 
 #ifdef CHROMA_SMOOTH
