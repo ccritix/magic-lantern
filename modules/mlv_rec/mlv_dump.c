@@ -4200,15 +4200,15 @@ abort:
     if(out_file_wav)
     {
         /* Patch the WAV size fields */
-        uint32_t tmp_uint32 = wav_data_size + 36; /* + header size */
+        uint32_t tmp_uint32 = wav_data_size + wav_header_size - 8; /* minus 8 = RIFF + (file size field 4 bytes) */
         file_set_pos(out_file_wav, 4, SEEK_SET);
         if(fwrite(&tmp_uint32, 4, 1, out_file_wav) != 1)
         {
             print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
         }
 
-        tmp_uint32 = wav_data_size; /* data size */
-        file_set_pos(out_file_wav, 40, SEEK_SET);
+         tmp_uint32 = wav_data_size; /* data size */
+         file_set_pos(out_file_wav, 1686, SEEK_SET);
         if(fwrite(&tmp_uint32, 4, 1, out_file_wav) != 1)
         {
             print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
