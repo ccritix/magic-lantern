@@ -35,7 +35,7 @@ NSTUB(0xFF0C1028,  cstart)
 NSTUB(0xFF623B5C,  bzero32)
 NSTUB(0xFF0C7DF0,  create_init_task)
 NSTUB(0xFF0C9648,  init_task)
-NSTUB(   0x70594,  additional_version)
+NSTUB(    0x7B98,  additional_version)
 
 /** File I/O **/
 NSTUB(0xFF2A2930,  FIO_CloseFile)
