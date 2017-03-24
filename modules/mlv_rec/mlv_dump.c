@@ -31,7 +31,7 @@
 #include <time.h>
 
 /* dng related headers */
-#include "../dng/dng.h"
+#include "dng/dng.h"
 #include "../dual_iso/wirth.h"  /* fast median, generic implementation (also kth_smallest) */
 #include "../dual_iso/optmed.h" /* fast median for small common array sizes (3, 7, 9...) */
 
