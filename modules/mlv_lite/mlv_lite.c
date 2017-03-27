@@ -694,13 +694,13 @@ static int pre_record_calc_max_frames(int slot_count)
         max_frames--;
     }
 
-    /* if we have to record only 1 frame after the trigger,
-     * we can simply buffer as much as we want
-     * (unless the user triggers frames really fast)
+    /* if we only have to save the pre-recorded frames,
+     * we can simply use the entire buffer for pre-recording
+     * (one frame is required for capturing)
      */
     if (rec_trigger == REC_TRIGGER_HALFSHUTTER_PRE_ONLY)
     {
-        max_frames = slot_count - 2;
+        max_frames = slot_count - 1;
     }
 
     ASSERT(max_frames > 0);
@@ -1427,8 +1427,7 @@ static void FAST pre_record_discard_frame()
     /* discard old frames */
     /* also adjust frame_count so all frames start from 1,
      * just like the rest of the code assumes */
-    frame_count--;
-    
+
     for (int i = 0; i < slot_count; i++)
     {
         /* first frame is "pre_record_first_frame" */
@@ -1437,6 +1436,7 @@ static void FAST pre_record_discard_frame()
             if (slots[i].frame_number == pre_record_first_frame)
             {
                 slots[i].status = SLOT_FREE;
+                frame_count--;
             }
             else if (slots[i].frame_number > pre_record_first_frame)
             {
@@ -1471,6 +1471,19 @@ static void FAST pre_record_queue_frames()
     }
 }
 
+static void pre_record_discard_frame_if_no_free_slots()
+{
+    for (int i = 0; i < slot_count; i++)
+    {
+        if (slots[i].status == SLOT_FREE)
+        {
+            return;
+        }
+    }
+
+    pre_record_discard_frame();
+}
+
 static void FAST pre_record_vsync_step()
 {
     if (raw_recording_state == RAW_RECORDING)
@@ -1498,10 +1511,23 @@ static void FAST pre_record_vsync_step()
 
         if (pre_record_triggered)
         {
+            /* make sure we have a free slot, no matter what */
+            pre_record_discard_frame_if_no_free_slots();
+
             pre_record_queue_frames();
     
-            /* done, from now on we can just record normally */
-            raw_recording_state = RAW_RECORDING;
+            if (rec_trigger != REC_TRIGGER_HALFSHUTTER_PRE_ONLY)
+            {
+                /* done, from now on we can just record normally */
+                raw_recording_state = RAW_RECORDING;
+            }
+            else
+            {
+                /* do not resume recording; just start a new pre-recording "session" */
+                /* trick to allow reusing all frames for pre-recording */
+                pre_record_triggered = 0;
+                pre_record_first_frame = frame_count;
+            }
         }
         else if (pre_recording_buffer_full())
         {
@@ -1579,7 +1605,7 @@ static void FAST process_frame()
         /* pre-recording? we can just discard frames as needed */
         pre_record_discard_frame();
         capture_slot = choose_next_capture_slot();
-        ASSERT(capture_slot);
+        ASSERT(capture_slot >= 0);
         bmp_printf(FONT_MED, 50, 50, "Skipped %d frames", ++skipped_frames);
     }
 
@@ -1594,13 +1620,6 @@ static void FAST process_frame()
         {
             /* pre-recording before trigger? don't queue frames for writing */
             /* (do nothing here) */
-        }
-        else if (rec_trigger == REC_TRIGGER_HALFSHUTTER_PRE_ONLY)
-        {
-            /* we already had one frame in the pre-recording buffer */
-            /* it's already queued, so all that's left to do is to pause recording */
-            pre_record_triggered = 0;
-            frame_count--;
         }
         else
         {
