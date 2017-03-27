@@ -235,6 +235,13 @@ extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_stopping();
 
 static int raw_rec_should_preview(void);
 
+static inline int pre_recording_buffer_full()
+{
+    return 
+        raw_recording_state == RAW_PRE_RECORDING &&
+        frame_count - pre_record_first_frame >= pre_record_num_frames;
+}
+
 static void refresh_cropmarks()
 {
     if (lv_dispsize > 1 || raw_rec_should_preview() || !raw_video_enabled)
@@ -997,7 +1004,7 @@ static LVINFO_UPDATE_FUNC(recording_status)
 
     /* Calculate the stats */
     int fps = fps_get_current_x1000();
-    int t = (frame_count * 1000 + fps/2) / fps;
+    int t = (frame_count * 1000) / fps;
     int predicted = predict_frames(measured_write_speed * 1024 / 100 * 1024, 0);
 
     if (!buffer_full) 
@@ -1006,6 +1013,12 @@ static LVINFO_UPDATE_FUNC(recording_status)
         if (raw_recording_state == RAW_PRE_RECORDING)
         {
             item->color_bg = COLOR_BLUE;
+            
+            if (pre_recording_buffer_full())
+            {
+                int t = (frame_count * 1000 * 10) / fps;
+                snprintf(buffer, sizeof(buffer), "%02d:%02d.%d", t/10/60, (t/10)%60, t % 10);
+            }
         }
         else if (predicted >= 10000)
         {
@@ -1037,7 +1050,7 @@ static void show_recording_status()
     {
         /* Calculate the stats */
         int fps = fps_get_current_x1000();
-        int t = (frame_count * 1000 + fps/2) / fps;
+        int t = (frame_count * 1000) / fps;
         int predicted = predict_frames(measured_write_speed * 1024 / 100 * 1024, 0);
 
         int speed=0;
@@ -1123,7 +1136,13 @@ static void show_recording_status()
             rl_icon_width = bfnt_draw_char (ICON_ML_MOVIE,rl_x,rl_y,rl_color,COLOR_BG_DARK);
 
             /* Display the Status */
-            bmp_printf (FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), rl_x+rl_icon_width+5, rl_y+5, "%02d:%02d", t/60, t%60);
+            bmp_printf (FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), rl_x+rl_icon_width+5, rl_y+5, "%02d:%02d   ", t/60, t%60);
+
+            if (pre_recording_buffer_full())
+            {
+                int t = (frame_count * 1000 * 10) / fps;
+                bmp_printf (FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), rl_x+rl_icon_width+5, rl_y+5, "%02d:%02d.%d", t/10/60, (t/10)%60, t % 10);
+            }
 
             if (writing_time)
             {
@@ -1482,7 +1501,7 @@ static void FAST pre_record_vsync_step()
             /* done, from now on we can just record normally */
             raw_recording_state = RAW_RECORDING;
         }
-        else if (frame_count - pre_record_first_frame >= pre_record_num_frames)
+        else if (pre_recording_buffer_full())
         {
             pre_record_discard_frame();
         }
