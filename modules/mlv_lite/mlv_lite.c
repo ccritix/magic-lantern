@@ -58,7 +58,7 @@
 #include "edmac.h"
 #include "edmac-memcpy.h"
 #include "../file_man/file_man.h"
-#include "patch.h"
+#include "cache_hacks.h"
 #include "lvinfo.h"
 #include "beep.h"
 #include "raw.h"
@@ -67,7 +67,6 @@
 #include "../mlv_rec/mlv.h"
 #include "../trace/trace.h"
 #include "powersave.h"
-#include "shoot.h"
 
 /* from mlv_play module */
 extern WEAK_FUNC(ret_0) void mlv_play_file(char *filename);
@@ -121,7 +120,7 @@ static int pre_record_first_frame = 0;  /* first frame index from pre-recording 
 static CONFIG_INT("raw.rec-trigger", rec_trigger, 0);
 #define REC_TRIGGER_HALFSHUTTER_START_STOP 1
 #define REC_TRIGGER_HALFSHUTTER_HOLD 2
-#define REC_TRIGGER_HALFSHUTTER_1_FRAME 3
+#define REC_TRIGGER_HALFSHUTTER_PRE_ONLY 3
 
 static CONFIG_INT("raw.dolly", dolly_mode, 0);
 #define FRAMING_CENTER (dolly_mode == 0)
@@ -136,11 +135,6 @@ static CONFIG_INT("raw.preview", preview_mode, 0);
 static CONFIG_INT("raw.warm.up", warm_up, 0);
 static CONFIG_INT("raw.use.srm.memory", use_srm_memory, 1);
 static CONFIG_INT("raw.small.hacks", small_hacks, 1);
-
-static CONFIG_INT("raw.h264.proxy", h264_proxy, 0);
-
-static CONFIG_INT("raw.bppi", bpp_index, 2);
-#define BPP (10 + 2*bpp_index)
 
 /* Recording Status Indicator Options */
 #define INDICATOR_OFF        0
@@ -160,6 +154,7 @@ static int res_x = 0;
 static int res_y = 0;
 static int max_res_x = 0;
 static int max_res_y = 0;
+static int sensor_res_x = 0;
 static float squeeze_factor = 0;
 static int frame_size = 0;
 static int frame_size_real = 0;
@@ -226,7 +221,6 @@ static uint32_t edmac_active = 0;
 
 static mlv_file_hdr_t file_hdr;
 static mlv_rawi_hdr_t rawi_hdr;
-static mlv_rawc_hdr_t rawc_hdr;
 static mlv_idnt_hdr_t idnt_hdr;
 static mlv_expo_hdr_t expo_hdr;
 static mlv_lens_hdr_t lens_hdr;
@@ -240,6 +234,13 @@ extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_starting();
 extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_stopping();
 
 static int raw_rec_should_preview(void);
+
+static inline int pre_recording_buffer_full()
+{
+    return 
+        raw_recording_state == RAW_PRE_RECORDING &&
+        frame_count - pre_record_first_frame >= pre_record_num_frames;
+}
 
 static void refresh_cropmarks()
 {
@@ -258,38 +259,17 @@ static void refresh_cropmarks()
     }
 }
 
-static int calc_res_y(int res_x, int max_res_y, int num, int den, float squeeze)
+static int calc_res_y(int res_x, int num, int den, float squeeze)
 {
-    int res_y;
-    
     if (squeeze != 1.0f)
     {
         /* image should be enlarged vertically in post by a factor equal to "squeeze" */
-        res_y = (int)(roundf(res_x * den / num / squeeze) + 1);
+        return (int)(roundf(res_x * den / num / squeeze) + 1) & ~1;
     }
     else
     {
         /* assume square pixels */
-        res_y = (res_x * den / num + 1);
-    }
-    
-    res_y = MIN(res_y, max_res_y);
-    
-    /* res_x * res_y must be modulo 16 bytes */
-    switch (MOD(res_x * BPP / 8, 8))
-    {
-        case 0:     /* res_x is modulo 8 bytes, so res_y must be even */
-            return res_y & ~1;
-
-        case 4:     /* res_x is modulo 4 bytes, so res_y must be modulo 4 as well */
-            return res_y & ~3;
-        
-        case 2:
-        case 6:     /* res_x is modulo 2 bytes, so res_y must be modulo 8 */
-            return res_y & ~7;
-
-        default:    /* should be unreachable */
-            return res_y & ~15;
+        return (res_x * den / num + 1) & ~1;
     }
 }
 
@@ -336,9 +316,8 @@ static void update_resolution_params()
     int right_margin = (raw_info.active_area.x2) / 8 * 8;
     int max = (right_margin - left_margin);
     
-    /* max image width is modulo 2 bytes and 8 pixels */
-    /* (EDMAC requires W x H to be modulo 16 bytes) */
-    /* (processing tools require W modulo 8 pixels for struct raw_pixblock) */
+    /* horizontal resolution *MUST* be mod 32 in order to use the fastest EDMAC flags (16 byte transfer) */
+    max &= ~31;
     
     max_res_x = max;
     
@@ -360,21 +339,18 @@ static void update_resolution_params()
     /* res Y */
     int num = aspect_ratio_presets_num[aspect_ratio_index];
     int den = aspect_ratio_presets_den[aspect_ratio_index];
-    res_y = calc_res_y(res_x, max_res_y, num, den, squeeze_factor);
-
-    /* check EDMAC restrictions (W * H multiple of 16 bytes) */
-    ASSERT((res_x * BPP / 8 * res_y) % 16 == 0);
+    res_y = MIN(calc_res_y(res_x, num, den, squeeze_factor), max_res_y);
 
     /* frame size */
     /* should be multiple of 512, so there's no write speed penalty (see http://chdk.setepontos.com/index.php?topic=9970 ; confirmed by benchmarks) */
     /* let's try 64 for EDMAC alignment */
     /* 64 at the front for the VIDF header */
     /* 4 bytes after for checking EDMAC operation */
-    int frame_size_padded = (VIDF_HDR_SIZE + (res_x * res_y * BPP/8) + 4 + 511) & ~511;
+    int frame_size_padded = (VIDF_HDR_SIZE + (res_x * res_y * 14/8) + 4 + 511) & ~511;
     
     /* frame size without padding */
     /* must be multiple of 4 */
-    frame_size_real = res_x * res_y * BPP/8;
+    frame_size_real = res_x * res_y * 14/8;
     ASSERT(frame_size_real % 4 == 0);
     
     frame_size = frame_size_padded;
@@ -407,7 +383,7 @@ static char* guess_aspect_ratio(int res_x, int res_y)
     
     if (minerr < 0.05)
     {
-        int h = calc_res_y(res_x, max_res_y, best_num, best_den, squeeze_factor);
+        int h = calc_res_y(res_x, best_num, best_den, squeeze_factor);
         /* if the difference is 1 pixel, consider it exact */
         char* qualifier = ABS(h - res_y) > 1 ? "almost " : "";
         snprintf(msg, sizeof(msg), "%s%d:%d", qualifier, best_num, best_den);
@@ -416,14 +392,14 @@ static char* guess_aspect_ratio(int res_x, int res_y)
     {
         int r = (int)roundf(ratio * 100);
         /* is it 2.35:1 or 2.353:1? */
-        int h = calc_res_y(res_x, max_res_y, r, 100, squeeze_factor);
+        int h = calc_res_y(res_x, r, 100, squeeze_factor);
         char* qualifier = ABS(h - res_y) > 1 ? "almost " : "";
         if (r%100) snprintf(msg, sizeof(msg), "%s%d.%02d:1", qualifier, r/100, r%100);
     }
     else
     {
         int r = (int)roundf((1/ratio) * 100);
-        int h = calc_res_y(res_x, max_res_y, 100, r, squeeze_factor);
+        int h = calc_res_y(res_x, 100, r, squeeze_factor);
         char* qualifier = ABS(h - res_y) > 1 ? "almost " : "";
         if (r%100) snprintf(msg, sizeof(msg), "%s1:%d.%02d", qualifier, r/100, r%100);
     }
@@ -489,7 +465,7 @@ static char* guess_how_many_frames()
 static MENU_UPDATE_FUNC(write_speed_update)
 {
     int fps = fps_get_current_x1000();
-    int speed = (res_x * res_y * BPP/8 / 1024) * fps / 10 / 1024;
+    int speed = (res_x * res_y * 14/8 / 1024) * fps / 10 / 1024;
     int ok = speed < measured_write_speed;
     speed /= 10;
 
@@ -531,11 +507,31 @@ static void refresh_raw_settings(int force)
     }
 }
 
-static int calc_crop_factor()
+PROP_HANDLER( PROP_LV_AFFRAME ) {
+    ASSERT(len <= 128);
+    if(!lv) return;
+    
+    sensor_res_x = ((int32_t*)buf)[0];
+}
+
+
+static int32_t calc_crop_factor()
 {
-    int sensor_res_x = raw_capture_info.sensor_res_x;
-    int camera_crop  = raw_capture_info.sensor_crop;
-    int sampling_x   = raw_capture_info.binning_x + raw_capture_info.skipping_x;
+
+    int32_t camera_crop = 162;
+    int32_t sampling_x = 3;
+    
+    if (cam_5d2 || cam_5d3 || cam_6d) camera_crop = 100;
+    
+    //if (cam_500d || cam_50d) sensor_res_x = 4752;
+    //if (cam_eos_m || cam_550d || cam_600d || cam_650d || cam_700d || cam_60d || cam_7d) sensor_res_x = 5184;
+    //if (cam_6d) sensor_res_x = 5472;
+    //if (cam_5d2) sensor_res_x = 5616;
+    //if (cam_5d3) sensor_res_x = 5760;
+    
+    if (video_mode_crop || (lv_dispsize > 1)) sampling_x = 1;
+    
+    if (!sensor_res_x) return 0;
     
     return camera_crop * (sensor_res_x / sampling_x) / res_x;
 }
@@ -557,7 +553,7 @@ static MENU_UPDATE_FUNC(raw_main_update)
     else
     {
         MENU_SET_VALUE("ON, %dx%d", res_x, res_y);
-        int crop_factor = calc_crop_factor();
+        int32_t crop_factor = calc_crop_factor();
         if (crop_factor) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
     }
 
@@ -576,7 +572,7 @@ static MENU_UPDATE_FUNC(aspect_ratio_update_info)
         int num = aspect_ratio_presets_num[aspect_ratio_index];
         int den = aspect_ratio_presets_den[aspect_ratio_index];
         int sq100 = (int)roundf(squeeze_factor*100);
-        int res_y_corrected = calc_res_y(res_x, max_res_y, num, den, 1.0f);
+        int res_y_corrected = calc_res_y(res_x, num, den, 1.0f);
         MENU_SET_HELP("%dx%d. Stretch by %s%d.%02dx to get %dx%d (%s) in post.", res_x, res_y, FMT_FIXEDPOINT2(sq100), res_x, res_y_corrected, aspect_ratio_choices[aspect_ratio_index]);
     }
 }
@@ -636,8 +632,8 @@ static MENU_SELECT_FUNC(resolution_change_fine_value)
     }
     
     /* fine-tune resolution in small increments */
-    int cur_res = ((resolution_presets_x[resolution_index_x] + res_x_fine) + 15) & ~15;
-    cur_res = COERCE(cur_res + delta * 16, resolution_presets_x[0], max_res_x); 
+    int cur_res = resolution_presets_x[resolution_index_x] + res_x_fine;
+    cur_res = COERCE(cur_res + delta * 32, resolution_presets_x[0], max_res_x); 
 
     /* select the closest preset */
     int max_delta = INT_MAX;
@@ -667,7 +663,7 @@ static MENU_UPDATE_FUNC(aspect_ratio_update)
 
     int num = aspect_ratio_presets_num[aspect_ratio_index];
     int den = aspect_ratio_presets_den[aspect_ratio_index];
-    int selected_y = calc_res_y(res_x, max_res_y, num, den, squeeze_factor);
+    int selected_y = calc_res_y(res_x, num, den, squeeze_factor);
     
     if (selected_y > max_res_y + 2)
     {
@@ -701,7 +697,7 @@ static int pre_record_calc_max_frames(int slot_count)
      * we can simply buffer as much as we want
      * (unless the user triggers frames really fast)
      */
-    if (rec_trigger == REC_TRIGGER_HALFSHUTTER_1_FRAME)
+    if (rec_trigger == REC_TRIGGER_HALFSHUTTER_PRE_ONLY)
     {
         max_frames = slot_count - 5;
     }
@@ -713,7 +709,7 @@ static int pre_record_calc_num_frames(int slot_count, int max_frames)
 {
     int requested_seconds = pre_record;
     int requested_frames = (requested_seconds * fps_get_current_x1000() + 500) / 1000;
-    return COERCE(requested_frames - 1, 1, max_frames);
+    return COERCE(requested_frames, 1, max_frames);
 }
 
 static MENU_UPDATE_FUNC(pre_recording_update)
@@ -818,7 +814,7 @@ static int setup_buffers()
 {
     /* allocate memory for double buffering */
     /* (we need a single large contiguous chunk) */
-    int buf_size = raw_info.width * raw_info.height * BPP/8 * 33/32; /* leave some margin, just in case */
+    int buf_size = raw_info.width * raw_info.height * 14/8 * 33/32; /* leave some margin, just in case */
     ASSERT(fullsize_buffers[0] == 0);
     fullsize_buffers[0] = fio_malloc(buf_size);
     
@@ -1008,7 +1004,7 @@ static LVINFO_UPDATE_FUNC(recording_status)
 
     /* Calculate the stats */
     int fps = fps_get_current_x1000();
-    int t = (frame_count * 1000 + fps/2) / fps;
+    int t = ((frame_count-1) * 1000) / fps;
     int predicted = predict_frames(measured_write_speed * 1024 / 100 * 1024, 0);
 
     if (!buffer_full) 
@@ -1017,6 +1013,12 @@ static LVINFO_UPDATE_FUNC(recording_status)
         if (raw_recording_state == RAW_PRE_RECORDING)
         {
             item->color_bg = COLOR_BLUE;
+            
+            if (pre_recording_buffer_full())
+            {
+                int t = ((frame_count-1) * 1000 * 10) / fps;
+                snprintf(buffer, sizeof(buffer), "%02d:%02d.%d", t/10/60, (t/10)%60, t % 10);
+            }
         }
         else if (predicted >= 10000)
         {
@@ -1048,7 +1050,7 @@ static void show_recording_status()
     {
         /* Calculate the stats */
         int fps = fps_get_current_x1000();
-        int t = (frame_count * 1000 + fps/2) / fps;
+        int t = ((frame_count-1) * 1000) / fps;
         int predicted = predict_frames(measured_write_speed * 1024 / 100 * 1024, 0);
 
         int speed=0;
@@ -1134,7 +1136,13 @@ static void show_recording_status()
             rl_icon_width = bfnt_draw_char (ICON_ML_MOVIE,rl_x,rl_y,rl_color,COLOR_BG_DARK);
 
             /* Display the Status */
-            bmp_printf (FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), rl_x+rl_icon_width+5, rl_y+5, "%02d:%02d", t/60, t%60);
+            bmp_printf (FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), rl_x+rl_icon_width+5, rl_y+5, "%02d:%02d   ", t/60, t%60);
+
+            if (pre_recording_buffer_full())
+            {
+                int t = ((frame_count-1) * 1000 * 10) / fps;
+                bmp_printf (FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), rl_x+rl_icon_width+5, rl_y+5, "%02d:%02d.%d", t/10/60, (t/10)%60, t % 10);
+            }
 
             if (writing_time)
             {
@@ -1172,6 +1180,29 @@ static unsigned int raw_rec_polling_cbr(unsigned int unused)
     show_recording_status();
 
     return 0;
+}
+
+
+/* todo: reference counting, like with raw_lv_request */
+static void cache_require(int lock)
+{
+    static int cache_was_unlocked = 0;
+    if (lock)
+    {
+        if (!cache_locked())
+        {
+            cache_was_unlocked = 1;
+            icache_lock();
+        }
+    }
+    else
+    {
+        if (cache_was_unlocked)
+        {
+            icache_unlock();
+            cache_was_unlocked = 0;
+        }
+    }
 }
 
 static void unhack_liveview_vsync(int unused);
@@ -1303,24 +1334,25 @@ static void hack_liveview(int unhack)
         uint32_t dialog_refresh_timer_orig_instr = 0xe3a00032; /* mov r0, #50 */
         uint32_t dialog_refresh_timer_new_instr  = 0xe3a00a02; /* change to mov r0, #8192 */
 
+        if (*(volatile uint32_t*)dialog_refresh_timer_addr != dialog_refresh_timer_orig_instr)
+        {
+            /* something's wrong */
+            NotifyBox(1000, "Hack error at %x:\nexpected %x, got %x", dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, *(volatile uint32_t*)dialog_refresh_timer_addr);
+            beep_custom(1000, 2000, 1);
+            dialog_refresh_timer_addr = 0;
+        }
+
         if (dialog_refresh_timer_addr)
         {
             if (!unhack) /* hack */
             {
-                int err = patch_instruction(
-                    dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, dialog_refresh_timer_new_instr, 
-                    "raw_rec: slow down Canon dialog refresh timer"
-                );
-                
-                if (err)
-                {
-                    NotifyBox(1000, "Hack error at %x:\nexpected %x, got %x", dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, *(volatile uint32_t*)dialog_refresh_timer_addr);
-                    beep_custom(1000, 2000, 1);
-                }
+                cache_require(1);
+                cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_new_instr, TYPE_ICACHE);
             }
             else /* unhack */
             {
-                unpatch_memory(dialog_refresh_timer_addr);
+                cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, TYPE_ICACHE);
+                cache_require(0);
             }
         }
     }
@@ -1469,7 +1501,7 @@ static void FAST pre_record_vsync_step()
             /* done, from now on we can just record normally */
             raw_recording_state = RAW_RECORDING;
         }
-        else if (frame_count - pre_record_first_frame >= pre_record_num_frames)
+        else if (pre_recording_buffer_full())
         {
             pre_record_discard_frame();
         }
@@ -1561,17 +1593,19 @@ static void FAST process_frame()
             /* pre-recording before trigger? don't queue frames for writing */
             /* (do nothing here) */
         }
+        else if (rec_trigger == REC_TRIGGER_HALFSHUTTER_PRE_ONLY)
+        {
+            /* we already had one frame in the pre-recording buffer */
+            /* it's already queued, so all that's left to do is to pause recording */
+            pre_record_triggered = 0;
+            frame_count--;
+        }
         else
         {
             /* send it for saving, even if it isn't done yet */
             /* it's quite unlikely that FIO DMA will be faster than EDMAC */
             writing_queue[writing_queue_tail] = capture_slot;
             INC_MOD(writing_queue_tail, COUNT(writing_queue));
-                
-            if (rec_trigger == REC_TRIGGER_HALFSHUTTER_1_FRAME)
-            {
-                pre_record_triggered = 0;
-            }
         }
     }
     else
@@ -1601,8 +1635,8 @@ static void FAST process_frame()
     edmac_copy_rectangle_cbr_start(
         ptr, fullSizeBuffer,
         raw_info.pitch,
-        (skip_x+7)/8*BPP, skip_y/2*2,
-        res_x*BPP/8, 0, 0, res_x*BPP/8, res_y,
+        (skip_x+7)/8*14, skip_y/2*2,
+        res_x*14/8, 0, 0, res_x*14/8, res_y,
         &edmac_cbr_r, &edmac_cbr_w, NULL
     );
 
@@ -1634,15 +1668,6 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
     return 0;
 }
 
-static const char* get_cf_dcim_dir()
-{
-    static char dcim_dir[FIO_MAX_PATH_LENGTH];
-    struct card_info * card = get_shooting_card();
-    if (is_dir("A:/")) card = get_card(CARD_A);
-    snprintf(dcim_dir, sizeof(dcim_dir), "%s:/DCIM/%03d%s", card->drive_letter, card->folder_number, get_dcim_dir_suffix());
-    return dcim_dir;
-}
-
 static char* get_next_raw_movie_file_name()
 {
     static char filename[100];
@@ -1656,7 +1681,7 @@ static char* get_next_raw_movie_file_name()
          * Get unique file names from the current date/time
          * last field gets incremented if there's another video with the same name
          */
-        snprintf(filename, sizeof(filename), "%s/M%02d-%02d%02d.MLV", get_cf_dcim_dir(), now.tm_mday, now.tm_hour, COERCE(now.tm_min + number, 0, 99));
+        snprintf(filename, sizeof(filename), "%s/M%02d-%02d%02d.MLV", get_dcim_dir(), now.tm_mday, now.tm_hour, COERCE(now.tm_min + number, 0, 99));
         
         /* already existing file? */
         uint32_t size;
@@ -1679,11 +1704,19 @@ static char* get_next_chunk_file_name(char* base_name, int chunk)
     return filename;
 }
 
-/* a bit of a hack: this tells the audio backend that we are going to record sound */
-/* => it will show audio meters and disable beeps */
-int mlv_snd_is_enabled()
+static char* get_wav_file_name(char* raw_movie_filename)
 {
-    return h264_proxy && sound_recording_enabled_canon();
+    /* same name as movie, but with wav extension */
+    static char wavfile[100];
+    snprintf(wavfile, sizeof(wavfile), raw_movie_filename);
+    int len = strlen(wavfile);
+    wavfile[len-4] = '.';
+    wavfile[len-3] = 'W';
+    wavfile[len-2] = 'A';
+    wavfile[len-1] = 'V';
+    /* prefer SD card for saving WAVs (should be faster on 5D3) */
+    if (is_dir("B:/")) wavfile[0] = 'B';
+    return wavfile;
 }
 
 static void init_mlv_chunk_headers(struct raw_info * raw_info)
@@ -1710,24 +1743,7 @@ static void init_mlv_chunk_headers(struct raw_info * raw_info)
     rawi_hdr.xRes = res_x;
     rawi_hdr.yRes = res_y;
     rawi_hdr.raw_info = *raw_info;
-
-    memset(&rawc_hdr, 0, sizeof(mlv_rawc_hdr_t));
-    mlv_set_type((mlv_hdr_t *)&rawc_hdr, "RAWC");
-    mlv_set_timestamp((mlv_hdr_t *)&rawc_hdr, mlv_start_timestamp);
-    rawc_hdr.blockSize = sizeof(mlv_rawc_hdr_t);
-    rawc_hdr.raw_capture_info = raw_capture_info;
-
-    /* overwrite bpp relevant information */
-    rawi_hdr.raw_info.bits_per_pixel = BPP;
-    rawi_hdr.raw_info.pitch = rawi_hdr.raw_info.width * BPP / 8;
-
-    /* scale black and white levels, minimizing the roundoff error */
-    int black14 = rawi_hdr.raw_info.black_level;
-    int white14 = rawi_hdr.raw_info.white_level;
-    int bpp_scaling = (1 << (14 - BPP));
-    rawi_hdr.raw_info.black_level = (black14 + bpp_scaling/2) / bpp_scaling;
-    rawi_hdr.raw_info.white_level = (white14 + bpp_scaling/2) / bpp_scaling;
-
+    
     mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);
     mlv_fill_expo(&expo_hdr, mlv_start_timestamp);
     mlv_fill_lens(&lens_hdr, mlv_start_timestamp);
@@ -1739,14 +1755,12 @@ static int write_mlv_chunk_headers(FILE* f)
 {
     if (FIO_WriteFile(f, &file_hdr, file_hdr.blockSize) != (int)file_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &rawi_hdr, rawi_hdr.blockSize) != (int)rawi_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &rawc_hdr, rawc_hdr.blockSize) != (int)rawc_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &idnt_hdr, idnt_hdr.blockSize) != (int)idnt_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &expo_hdr, expo_hdr.blockSize) != (int)expo_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &lens_hdr, lens_hdr.blockSize) != (int)lens_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &wbal_hdr, wbal_hdr.blockSize) != (int)wbal_hdr.blockSize) return 0;
-    int hdr_size = sizeof(file_hdr) + sizeof(rawi_hdr) + sizeof(rawc_hdr) + sizeof(idnt_hdr) 
-        + sizeof(expo_hdr) + sizeof(lens_hdr) + sizeof(rtci_hdr) + sizeof(wbal_hdr);
+    int hdr_size = sizeof(file_hdr) + sizeof(rawi_hdr) + sizeof(idnt_hdr) + sizeof(expo_hdr) + sizeof(lens_hdr) + sizeof(rtci_hdr) + sizeof(wbal_hdr);
     
     /* insert a null block so the header size is multiple of 512 bytes */
     mlv_hdr_t nul_hdr;
@@ -1885,16 +1899,6 @@ static int write_frames(FILE** pf, void* ptr, int size_used, int num_frames)
     return 1;
 }
 
-static void setup_bit_depth()
-{
-    raw_lv_request_bpp(BPP);
-}
-
-static void restore_bit_depth()
-{
-    raw_lv_request_bpp(14);
-}
-
 static void raw_video_rec_task()
 {
     //~ console_show();
@@ -1918,14 +1922,6 @@ static void raw_video_rec_task()
     pre_record_triggered = !pre_record && !rec_trigger;
     pre_record_first_frame = 0;
 
-    if (h264_proxy)
-    {
-        /* start H.264 recording */
-        ASSERT(!RECORDING_H264);
-        movie_start();
-    }
-
-    /* disable Canon's powersaving (30 min in LiveView) */
     powersave_prohibit();
 
     /* create output file */
@@ -1966,8 +1962,6 @@ static void raw_video_rec_task()
     }
 
     hack_liveview(0);
-    
-    setup_bit_depth();
     
     /* get exclusive access to our edmac channels */
     edmac_memcpy_res_lock();
@@ -2235,20 +2229,11 @@ cleanup:
     #ifdef DEBUG_BUFFERING_GRAPH
     take_screenshot(SCREENSHOT_FILENAME_AUTO, SCREENSHOT_BMP);
     #endif
-    
-    restore_bit_depth();
-    
     hack_liveview(1);
     redraw();
     
     /* re-enable powersaving  */
     powersave_permit();
-
-    if (h264_proxy && RECORDING_H264)
-    {
-        /* stop H.264 recording */
-        movie_end();
-    }
 
     raw_recording_state = RAW_IDLE;
 }
@@ -2301,7 +2286,7 @@ static struct menu_entry raw_video_menu[] =
         .update = raw_main_update,
         .submenu_width = 710,
         .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
-        .help = "Record RAW video (MLV format, no sound, basic metadata).",
+        .help = "Record 14-bit RAW video (MLV format, no sound, basic metadata).",
         .help2 = "Press LiveView to start recording.",
         .children =  (struct menu_entry[]) {
             {
@@ -2318,12 +2303,6 @@ static struct menu_entry raw_video_menu[] =
                 .max = COUNT(aspect_ratio_presets_num) - 1,
                 .update = aspect_ratio_update,
                 .choices = aspect_ratio_choices,
-            },
-            {
-                .name = "Bit depth",
-                .priv = &bpp_index,
-                .max = 2,
-                .choices = CHOICES("10bpp", "12bpp", "14bpp"),
             },
             {
                 .name = "Preview",
@@ -2348,12 +2327,12 @@ static struct menu_entry raw_video_menu[] =
                 .name    = "Rec trigger",
                 .priv    = &rec_trigger,
                 .max     = 3,
-                .choices = CHOICES("OFF", "Half-shut: start/pause", "Half-shut: hold", "Half-shut: 1 frame"),
+                .choices = CHOICES("OFF", "Half-shut: start/pause", "Half-shut: hold", "Half-shut: pre only"),
                 .help    = "Use external trigger to start/pause recording within a video clip.",
                 .help2   = "Disabled (press REC as usual).\n"
                            "Press half-shutter to start/pause recording within the current clip.\n"
                            "Press and hold the shutter halfway to record (e.g. for short events).\n"
-                           "Press half-shutter to record a single frame (use with external trigger).\n",
+                           "Half-shutter to save only the pre-recorded frames (at least 1 frame).\n",
             },
             {
                 .name = "Digital dolly",
@@ -2361,14 +2340,6 @@ static struct menu_entry raw_video_menu[] =
                 .max = 1,
                 .help = "Smooth panning of the recording window (software dolly).",
                 .help2 = "Use arrow keys (joystick) to move the window.",
-                .advanced = 1,
-            },
-            {
-                .name   = "H.264 proxy",
-                .priv   = &h264_proxy,
-                .max    = 1,
-                .help   = "Record a H.264 video at the same time.",
-                .help2  = "For best performance, record H.264 on SD and RAW on CF.",
                 .advanced = 1,
             },
             {
@@ -2429,7 +2400,7 @@ static unsigned int raw_rec_keypress_cbr(unsigned int key)
         return 1;
 
     /* if you somehow managed to start recording H.264, let it stop */
-    if (RECORDING_H264 && !h264_proxy)
+    if (RECORDING_H264)
         return 1;
     
     /* block the zoom key while recording */
@@ -2480,7 +2451,7 @@ static unsigned int raw_rec_keypress_cbr(unsigned int key)
                 }
 
                 case REC_TRIGGER_HALFSHUTTER_HOLD:
-                case REC_TRIGGER_HALFSHUTTER_1_FRAME:
+                case REC_TRIGGER_HALFSHUTTER_PRE_ONLY:
                 {
                     pre_record_triggered = 1;
                     break;
@@ -2548,28 +2519,6 @@ static unsigned int raw_rec_keypress_cbr(unsigned int key)
     }
     
     return 1;
-}
-
-static unsigned int raw_rec_keypress_cbr_raw(unsigned int raw_event)
-{
-    struct event * event = (struct event *) raw_event;
-
-    if (h264_proxy)
-    {
-        if (IS_FAKE(event))
-        {
-            if (raw_recording_state == RAW_PREPARING ||
-                raw_recording_state == RAW_FINISHING)
-            {
-                /* fake events (generated from ML) are not processed */
-                /* they are probably for starting/stopping H.264 */
-                return 1;
-            }
-        }
-    }
-
-    int key = module_translate_key(event->param, MODULE_KEY_PORTABLE);
-    return raw_rec_keypress_cbr(key);
 }
 
 static int preview_dirty = 0;
@@ -2669,7 +2618,7 @@ static unsigned int raw_rec_init()
     
     if (cam_5d2 || cam_50d)
     {
-       raw_video_menu[0].help = "Record RAW video. Press SET to start.";
+       raw_video_menu[0].help = "Record 14-bit RAW video. Press SET to start.";
     }
 
     menu_add("Movie", raw_video_menu, COUNT(raw_video_menu));
@@ -2707,7 +2656,7 @@ MODULE_INFO_END()
 
 MODULE_CBRS_START()
     MODULE_CBR(CBR_VSYNC, raw_rec_vsync_cbr, 0)
-    MODULE_CBR(CBR_KEYPRESS_RAW, raw_rec_keypress_cbr_raw, 0)
+    MODULE_CBR(CBR_KEYPRESS, raw_rec_keypress_cbr, 0)
     MODULE_CBR(CBR_SHOOT_TASK, raw_rec_polling_cbr, 0)
     MODULE_CBR(CBR_DISPLAY_FILTER, raw_rec_update_preview, 0)
 MODULE_CBRS_END()
@@ -2725,6 +2674,4 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(use_srm_memory)
     MODULE_CONFIG(small_hacks)
     MODULE_CONFIG(warm_up)
-    MODULE_CONFIG(bpp_index)
-    MODULE_CONFIG(h264_proxy)
 MODULE_CONFIGS_END()
