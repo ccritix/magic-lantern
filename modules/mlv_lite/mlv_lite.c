@@ -165,8 +165,8 @@ static int max_res_x = 0;
 static int max_res_y = 0;
 static int sensor_res_x = 0;
 static float squeeze_factor = 0;
-static int frame_size = 0;
-static int frame_size_real = 0;
+static int max_frame_size = 0;
+static int frame_size_uncompressed = 0;
 static int skip_x = 0;
 static int skip_y = 0;
 
@@ -195,7 +195,8 @@ static int raw_previewing = 0;
 /* one video frame */
 struct frame_slot
 {
-    void* ptr;          /* image data, size=frame_size */
+    void* ptr;          /* image data */
+    int size;           /* max_frame_size for uncompressed data, lower for compressed */
     int frame_number;   /* from 0 to n */
     enum {SLOT_FREE, SLOT_FULL, SLOT_WRITING} status;
 };
@@ -376,10 +377,10 @@ static void update_resolution_params()
     
     /* frame size without padding */
     /* must be multiple of 4 */
-    frame_size_real = res_x * res_y * BPP/8;
-    ASSERT(frame_size_real % 4 == 0);
+    frame_size_uncompressed = res_x * res_y * BPP/8;
+    ASSERT(frame_size_uncompressed % 4 == 0);
     
-    frame_size = frame_size_padded;
+    max_frame_size = frame_size_padded;
     
     update_cropping_offsets();
 }
@@ -435,16 +436,16 @@ static char* guess_aspect_ratio(int res_x, int res_y)
 static int predict_frames(int write_speed)
 {
     int fps = fps_get_current_x1000();
-    int capture_speed = frame_size / 1000 * fps;
+    int capture_speed = max_frame_size / 1000 * fps;
     int buffer_fill_speed = capture_speed - write_speed;
     if (buffer_fill_speed <= 0)
         return INT_MAX;
     
     int total_slots = 0;
     for (int i = 0; i < COUNT(chunk_list); i++)
-        total_slots += chunk_list[i] / frame_size;
+        total_slots += chunk_list[i] / max_frame_size;
     
-    float buffer_fill_time = total_slots * frame_size / (float) buffer_fill_speed;
+    float buffer_fill_time = total_slots * max_frame_size / (float) buffer_fill_speed;
     int frames = buffer_fill_time * fps / 1000;
     return frames;
 }
@@ -486,7 +487,7 @@ static MENU_UPDATE_FUNC(write_speed_update)
     int ok = speed < measured_write_speed;
     speed /= 10;
 
-    if (frame_size % 512)
+    if (max_frame_size % 512)
     {
         MENU_SET_WARNING(MENU_WARN_ADVICE, "Frame size not multiple of 512 bytes!");
     }
@@ -701,7 +702,7 @@ static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
 {
     if(mem_suite)
     {
-        /* use all chunks larger than frame_size for recording */
+        /* use all chunks larger than max_frame_size for recording */
         struct memChunk * chunk = GetFirstChunkFromSuite(mem_suite);
         while(chunk)
         {
@@ -726,12 +727,12 @@ static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
 
             /* fit as many frames as we can */
             int group_size = 0;
-            while (size >= frame_size && slot_count < COUNT(slots))
+            while (size >= max_frame_size && slot_count < COUNT(slots))
             {
                 mlv_vidf_hdr_t* vidf_hdr = (mlv_vidf_hdr_t*) ptr;
                 memset(vidf_hdr, 0, sizeof(mlv_vidf_hdr_t));
                 mlv_set_type((mlv_hdr_t*)vidf_hdr, "VIDF");
-                vidf_hdr->blockSize  = frame_size;
+                vidf_hdr->blockSize  = max_frame_size;
                 vidf_hdr->frameSpace = VIDF_HDR_SIZE - sizeof(mlv_vidf_hdr_t);
                 vidf_hdr->cropPosX   = (skip_x + 7) & ~7;
                 vidf_hdr->cropPosY   = skip_y & ~1;
@@ -739,10 +740,11 @@ static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
                 vidf_hdr->panPosY    = skip_y;
                 
                 slots[slot_count].ptr = (void*) ptr;
+                slots[slot_count].size = max_frame_size;
                 slots[slot_count].status = SLOT_FREE;
-                ptr += frame_size;
-                size -= frame_size;
-                group_size += frame_size;
+                ptr += max_frame_size;
+                size -= max_frame_size;
+                group_size += max_frame_size;
                 slot_count++;
                 printf("slot #%d: %x\n", slot_count, ptr);
 
@@ -750,7 +752,7 @@ static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
                 /* (after this number, write speed decreases) */
                 /* (CFDMA can write up to FFFF sectors at once) */
                 /* (FFFE just in case) */
-                if (group_size + frame_size > 0xFFFE * 512)
+                if (group_size + max_frame_size > 0xFFFE * 512)
                 {
                     /* insert a small gap to split the group here */
                     ptr += 64;
@@ -816,7 +818,7 @@ static int setup_buffers()
         int requested_frames = requested_seconds * fps_get_current_x1000() / 1000;
 
         /* leave at least 16MB for buffering */
-        int max_frames = slot_count - 16*1024*1024 / frame_size;
+        int max_frames = slot_count - 16*1024*1024 / max_frame_size;
         pre_record_num_frames = MIN(requested_frames, max_frames);
     }
     
@@ -854,7 +856,7 @@ static void show_buffer_status()
     int y = BUFFER_DISPLAY_Y;
     for (int i = 0; i < slot_count; i++)
     {
-        if (i > 0 && slots[i].ptr != slots[i-1].ptr + frame_size)
+        if (i > 0 && slots[i].ptr != slots[i-1].ptr + slots[i-1].size)
             x += MAX(2, scale);
 
         int color = slots[i].status == SLOT_FREE    ? COLOR_BLACK :
@@ -1310,7 +1312,7 @@ static int FAST choose_next_capture_slot()
     if (
         capture_slot >= 0 && 
         capture_slot + 1 < slot_count && 
-        slots[capture_slot + 1].ptr == slots[capture_slot].ptr + frame_size && 
+        slots[capture_slot + 1].ptr == slots[capture_slot].ptr + slots[capture_slot].size && 
         slots[capture_slot + 1].status == SLOT_FREE &&
         !force_new_buffer
        )
@@ -1321,16 +1323,18 @@ static int FAST choose_next_capture_slot()
     /* O(n), n = slot_count */
     int len = 0;
     void* prev_ptr = PTR_INVALID;
+    int prev_size = 0;
     int best_len = 0;
     int best_index = -1;
     for (int i = 0; i < slot_count; i++)
     {
         if (slots[i].status == SLOT_FREE)
         {
-            if (slots[i].ptr == prev_ptr + frame_size)
+            if (slots[i].ptr == prev_ptr + prev_size)
             {
                 len++;
                 prev_ptr = slots[i].ptr;
+                prev_size = slots[i].size;
                 if (len > best_len)
                 {
                     best_len = len;
@@ -1341,6 +1345,7 @@ static int FAST choose_next_capture_slot()
             {
                 len = 1;
                 prev_ptr = slots[i].ptr;
+                prev_size = slots[i].size;
                 if (len > best_len)
                 {
                     best_len = len;
@@ -1358,7 +1363,7 @@ static int FAST choose_next_capture_slot()
     /* fixme: */
     /* avoid 32MB writes, they are slower (they require two DMA calls) */
     /* go back a few K and the speed is restored */
-    //~ best_len = MIN(best_len, (32*1024*1024 - 8192) / frame_size);
+    //~ best_len = MIN(best_len, (32*1024*1024 - 8192) / max_frame_size);
     
     force_new_buffer = 0;
 
@@ -1427,8 +1432,8 @@ static void pre_record_vsync_step()
 static void frame_add_checks(int slot_index)
 {
     void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
-    uint32_t* frame_end = ptr + frame_size_real - 4;
-    uint32_t* after_frame = ptr + frame_size_real;
+    uint32_t* frame_end = ptr + frame_size_uncompressed - 4;
+    uint32_t* after_frame = ptr + frame_size_uncompressed;
     *(volatile uint32_t*) frame_end = FRAME_SENTINEL; /* this will be overwritten by EDMAC */
     *(volatile uint32_t*) after_frame = FRAME_SENTINEL; /* this shalt not be overwritten */
 }
@@ -1436,8 +1441,8 @@ static void frame_add_checks(int slot_index)
 static int frame_check_saved(int slot_index)
 {
     void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
-    uint32_t* frame_end = ptr + frame_size_real - 4;
-    uint32_t* after_frame = ptr + frame_size_real;
+    uint32_t* frame_end = ptr + frame_size_uncompressed - 4;
+    uint32_t* after_frame = ptr + frame_size_uncompressed;
     if (*(volatile uint32_t*) after_frame != FRAME_SENTINEL)
     {
         /* EDMAC overflow */
@@ -1499,14 +1504,14 @@ static void compress_task()
 
         if (OUTPUT_COMPRESSION)
         {
-            struct memSuite * outSuite = CreateMemorySuite((void*)out_ptr, frame_size, 0);
+            struct memSuite * outSuite = CreateMemorySuite((void*)out_ptr, max_frame_size, 0);
             int compressed_size = lossless_compress_raw_rectangle(
                 outSuite, fullSizeBuffer,
                 raw_info.width, skip_x, skip_y,
                 res_x, res_y
             );
-            ASSERT(compressed_size < frame_size);
-            MEM(out_ptr + frame_size_real - 4) = 0;
+            ASSERT(compressed_size < max_frame_size);
+            MEM(out_ptr + frame_size_uncompressed - 4) = 0;
             DeleteMemorySuite(outSuite);
         }
         else
@@ -1761,15 +1766,12 @@ static void finish_chunk(FILE* f)
 }
 
 /* This saves a group of frames, also taking care of file splitting if required */
-static int write_frames(FILE** pf, void* ptr, int size_used, int num_frames)
+static int write_frames(FILE** pf, void* ptr, int group_size, int num_frames)
 {
-    /* note: num_frames can be computed as size_used / frame_size, but compressed frames are around the corner) */
-    ASSERT(num_frames == size_used / frame_size);
-
     FILE* f = *pf;
     
     /* if we know there's a 4GB file size limit and we're about to exceed it, go ahead and make a new chunk */
-    if (file_size_limit && written_chunk + size_used > 0xFFFFFFFF)
+    if (file_size_limit && written_chunk + group_size > 0xFFFFFFFF)
     {
         finish_chunk(f);
         chunk_filename = get_next_chunk_file_name(raw_movie_filename, ++mlv_chunk);
@@ -1800,15 +1802,15 @@ static int write_frames(FILE** pf, void* ptr, int size_used, int num_frames)
     int t0 = get_ms_clock_value();
     if (!last_write_timestamp) last_write_timestamp = t0;
     idle_time += t0 - last_write_timestamp;
-    int r = FIO_WriteFile(f, ptr, size_used);
+    int r = FIO_WriteFile(f, ptr, group_size);
     last_write_timestamp = get_ms_clock_value();
 
-    if (r != size_used) /* 4GB limit or card full? */
+    if (r != group_size) /* 4GB limit or card full? */
     {
         printf("Write error.\n");
         
         /* failed, but not at 4GB limit, card must be full */
-        if (written_chunk + size_used < 0xFFFFFFFF)
+        if (written_chunk + group_size < 0xFFFFFFFF)
         {
             printf("Failed before 4GB limit. Card full?\n");
             /* don't try and write the remaining frames, the card is full */
@@ -1843,13 +1845,13 @@ static int write_frames(FILE** pf, void* ptr, int size_used, int num_frames)
         written_chunk = write_mlv_chunk_headers(g);
         written_total += written_chunk;
         
-        int r2 = written_chunk ? FIO_WriteFile(g, ptr, size_used) : 0;
-        if (r2 == size_used) /* new chunk worked, continue with it */
+        int r2 = written_chunk ? FIO_WriteFile(g, ptr, group_size) : 0;
+        if (r2 == group_size) /* new chunk worked, continue with it */
         {
             printf("Success!\n");
             *pf = f = g;
-            written_total += size_used;
-            written_chunk += size_used;
+            written_total += group_size;
+            written_chunk += group_size;
             chunk_frame_count += num_frames;
         }
         else /* new chunk didn't work, card full */
@@ -1864,8 +1866,8 @@ static int write_frames(FILE** pf, void* ptr, int size_used, int num_frames)
     else
     {
         /* all fine */
-        written_total += size_used;
-        written_chunk += size_used;
+        written_total += group_size;
+        written_chunk += group_size;
         chunk_frame_count += num_frames;
     }
     
@@ -2009,17 +2011,19 @@ static void raw_video_rec_task()
         /* group items from the queue in a contiguous block - as many as we can */
         int last_grouped = w_head;
         
+        int group_size = 0;
         for (int i = w_head; i != w_tail; i = MOD(i+1, COUNT(writing_queue)))
         {
             int slot_index = writing_queue[i];
-            int group_pos = MOD(i - w_head, COUNT(writing_queue));
 
             /* TBH, I don't care if these are part of the same group or not,
              * as long as pointers are ordered correctly */
-            if (slots[slot_index].ptr == slots[first_slot].ptr + frame_size * group_pos)
+            if (slots[slot_index].ptr == slots[first_slot].ptr + group_size)
                 last_grouped = i;
             else
                 break;
+            
+            group_size += slots[slot_index].size;
         }
         
         /* grouped frames from w_head to last_grouped (including both ends) */
@@ -2035,7 +2039,8 @@ static void raw_video_rec_task()
             /* overflow time unit: 0.1 seconds */
             int overflow_time = free_slots * 1000 * 10 / fps;
             /* better underestimate write speed a little */
-            int frame_limit = overflow_time * 1024 / 10 * (measured_write_speed * 9 / 100) * 1024 / frame_size / 10;
+            int avg_frame_size = group_size / num_frames;
+            int frame_limit = overflow_time * 1024 / 10 * (measured_write_speed * 9 / 100) * 1024 / avg_frame_size / 10;
             if (frame_limit >= 0 && frame_limit < num_frames)
             {
                 //~ printf("careful, will overflow in %d.%d seconds, better write only %d frames\n", overflow_time/10, overflow_time%10, frame_limit);
@@ -2052,7 +2057,6 @@ static void raw_video_rec_task()
         }
 
         void* ptr = slots[first_slot].ptr;
-        int size_used = frame_size * num_frames;
 
         /* mark these frames as "writing" */
         for (int i = w_head; i != after_last_grouped; i = MOD(i+1, COUNT(writing_queue)))
@@ -2066,7 +2070,7 @@ static void raw_video_rec_task()
             slots[slot_index].status = SLOT_WRITING;
         }
 
-        if (!write_frames(&f, ptr, size_used, num_frames))
+        if (!write_frames(&f, ptr, group_size, num_frames))
         {
             goto abort;
         }
@@ -2186,7 +2190,7 @@ abort_and_check_early_stop:
 
         slots[slot_index].status = SLOT_WRITING;
         if (indicator_display == INDICATOR_RAW_BUFFER) show_buffer_status();
-        if (!write_frames(&f, slots[slot_index].ptr, frame_size, 1))
+        if (!write_frames(&f, slots[slot_index].ptr, slots[slot_index].size, 1))
         {
             NotifyBox(5000, "Card Full");
             beep();
