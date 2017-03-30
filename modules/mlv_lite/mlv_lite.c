@@ -67,6 +67,7 @@
 #include "../mlv_rec/mlv.h"
 #include "../trace/trace.h"
 #include "powersave.h"
+#include "../silent/lossless.h"
 
 /* from mlv_play module */
 extern WEAK_FUNC(ret_0) void mlv_play_file(char *filename);
@@ -129,6 +130,10 @@ static CONFIG_INT("raw.preview", preview_mode, 0);
 static CONFIG_INT("raw.warm.up", warm_up, 0);
 static CONFIG_INT("raw.use.srm.memory", use_srm_memory, 1);
 static CONFIG_INT("raw.small.hacks", small_hacks, 1);
+
+static CONFIG_INT("raw.output_format", output_format, 1);
+#define OUTPUT_14BIT_NATIVE 0
+#define OUTPUT_14BIT_LOSSLESS 1
 
 /* Recording Status Indicator Options */
 #define INDICATOR_OFF        0
@@ -1424,6 +1429,29 @@ static void edmac_cbr_w(void *ctx)
     edmac_copy_rectangle_adv_cleanup();
 }
 
+static struct msg_queue * compress_mq = 0;
+
+static void compress_task()
+{
+    compress_mq = msg_queue_create("compress_mq", 1);
+
+    while(1)
+    {
+        void * out_ptr;
+        msg_queue_receive(compress_mq, (struct event**)&out_ptr, 0);
+
+        struct memSuite * outSuite = CreateMemorySuite(out_ptr, frame_size, 0);
+        int compressed_size = lossless_compress_raw_rectangle(
+            outSuite, raw_info.buffer,
+            raw_info.width, skip_x, skip_y,
+            res_x, res_y
+        );
+        ASSERT(compressed_size < frame_size);
+        MEM(out_ptr + frame_size_real - 4) = 0;
+        DeleteMemorySuite(outSuite);
+    }
+}
+
 static void FAST process_frame()
 {
     /* skip the first frame, it will be gibberish */
@@ -1492,14 +1520,24 @@ static void FAST process_frame()
 
     //~ printf("saving frame %d: slot %d ptr %x\n", frame_count, capture_slot, ptr);
 
-    edmac_active = 1;
-    edmac_copy_rectangle_cbr_start(
-        ptr, fullSizeBuffer,
-        raw_info.pitch,
-        (skip_x+7)/8*14, skip_y/2*2,
-        res_x*14/8, 0, 0, res_x*14/8, res_y,
-        &edmac_cbr_r, &edmac_cbr_w, NULL
-    );
+    /* for some reason, compression cannot be started from vsync */
+    /* let's delegate it to another task */
+    if (output_format == OUTPUT_14BIT_LOSSLESS)
+    {
+        ASSERT(compress_mq);
+        msg_queue_post(compress_mq, (uint32_t) ptr);
+    }
+    else
+    {
+        edmac_active = 1;
+        edmac_copy_rectangle_cbr_start(
+            ptr, fullSizeBuffer,
+            raw_info.pitch,
+            (skip_x+7)/8*14, skip_y/2*2,
+            res_x*14/8, 0, 0, res_x*14/8, res_y,
+            &edmac_cbr_r, &edmac_cbr_w, NULL
+        );
+    }
 
     /* advance to next frame */
     frame_count++;
@@ -1822,7 +1860,10 @@ static void raw_video_rec_task()
     hack_liveview(0);
     
     /* get exclusive access to our edmac channels */
-    edmac_memcpy_res_lock();
+    if (output_format == OUTPUT_14BIT_NATIVE)
+    {
+        edmac_memcpy_res_lock();
+    }
 
     /* this will enable the vsync CBR and the other task(s) */
     raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
@@ -2016,7 +2057,10 @@ abort_and_check_early_stop:
     msleep(500);
 
     /* exclusive edmac access no longer needed */
-    edmac_memcpy_res_unlock();
+    if (output_format == OUTPUT_14BIT_NATIVE)
+    {
+        edmac_memcpy_res_unlock();
+    }
 
     set_recording_custom(CUSTOM_RECORDING_NOT_RECORDING);
 
@@ -2162,6 +2206,18 @@ static struct menu_entry raw_video_menu[] =
                 .max = COUNT(aspect_ratio_presets_num) - 1,
                 .update = aspect_ratio_update,
                 .choices = aspect_ratio_choices,
+            },
+            {
+                .name       = "Data format",
+                .priv       = &output_format,
+                .max        = 1,
+                .choices    = CHOICES(
+                                "14-bit",
+                                "14-bit lossless",
+                              ),
+                .help       = "Choose the output format (bit depth, compression) for the raw stream:\n",
+                .help2      = "14-bit: native uncompressed format from Canon firmware.\n"
+                              "14-bit lossless: compressed with Canon's Lossless JPEG routines (about 55-65%).\n"
             },
             {
                 .name = "Preview",
@@ -2447,6 +2503,10 @@ static unsigned int raw_rec_init()
         NotifyBoxHide();
     }
 
+
+    task_create("compress_task", 0x0F, 0x1000, compress_task, (void*)0);
+    lossless_init();
+
     return 0;
 }
 
@@ -2479,4 +2539,5 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(use_srm_memory)
     MODULE_CONFIG(small_hacks)
     MODULE_CONFIG(warm_up)
+    MODULE_CONFIG(output_format)
 MODULE_CONFIGS_END()
