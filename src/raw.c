@@ -92,12 +92,19 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #endif
 
 #ifdef CONFIG_5D3_113
-#define DEFAULT_RAW_BUFFER MEM(0x2600C + 0x2c)
+//#define DEFAULT_RAW_BUFFER MEM(0x2600C + 0x2c)
 #endif
 
 #ifdef CONFIG_5D3_123
-#define DEFAULT_RAW_BUFFER MEM(0x25f1c + 0x34)
+//#define DEFAULT_RAW_BUFFER MEM(0x25f1c + 0x34)
 #endif
+
+#ifdef CONFIG_5D3
+#define CONFIG_ALLOCATE_RAW_LV_BUFFER
+#define CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY
+#define RAW_LV_BUFFER_ALLOC_SIZE ((0x527 + 2612) * (0x2FE - 0x18)*8 * 14/8)
+#endif
+
 
 #ifdef CONFIG_650D
 #define DEFAULT_RAW_BUFFER MEM(0x25B00 + 0x3C)
@@ -1867,10 +1874,28 @@ static void raw_lv_enable()
 #ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
     uint32_t old = cli();
     if(!raw_allocated_lv_buffer) {
+        #ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY
+        /* dummy allocation, exploiting use after free */
+        /* this assumes nobody will touch the SRM memory while in LiveView */
+        /* or if they do, they are aware of our trick */
+        struct memSuite * suite = srm_malloc_suite(1);
+        if (suite)
+        {
+            /* the SRM memory backend may also be managed by our malloc wrappers */
+            /* leave some unused space - if it ever gets allocated by other task
+             * and overwritten by us, let the backend free it */
+            void * srm_buf = GetMemoryAddressOfMemoryChunk(GetFirstChunkFromSuite(suite));
+            raw_allocated_lv_buffer = srm_buf + 0x100;
+            srm_free_suite(suite);
+        }
+        #else
         raw_allocated_lv_buffer = fio_malloc(RAW_LV_BUFFER_ALLOC_SIZE);
+        #endif
     }
     sei(old);
 #endif
+
+    
 }
 
 static void raw_lv_disable()
@@ -1884,7 +1909,9 @@ static void raw_lv_disable()
 #ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
     uint32_t old = cli();
     if(raw_allocated_lv_buffer) {
+        #ifndef CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY
         free(raw_allocated_lv_buffer);
+        #endif
         raw_allocated_lv_buffer = 0;
     }
     sei(old);
