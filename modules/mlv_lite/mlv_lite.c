@@ -223,7 +223,8 @@ static int fullsize_buffer_pos = 0;               /* which of the full size buff
 static int chunk_list[32];                        /* list of free memory chunk sizes, used for frame estimations */
 
 static struct frame_slot slots[511];              /* frame slots */
-static int slot_count = 0;                        /* how many frame slots we have */
+static int total_slot_count = 0;                  /* how many frame slots we have (including the reserved ones) */
+static int valid_slot_count = 0;                  /* total minus reserved */
 static int capture_slot = -1;                     /* in what slot are we capturing now (index) */
 static volatile int force_new_buffer = 0;         /* if some other task decides it's better to search for a new buffer */
 
@@ -850,10 +851,10 @@ static void add_reserved_slots(void * ptr, int n)
      * so we'll resize them on the fly) */
     for (int i = 0; i < n; i++)
     {
-        slots[slot_count].ptr = ptr;
-        slots[slot_count].size = 0;
-        slots[slot_count].status = SLOT_RESERVED;
-        slot_count++;
+        slots[total_slot_count].ptr = ptr;
+        slots[total_slot_count].size = 0;
+        slots[total_slot_count].status = SLOT_RESERVED;
+        total_slot_count++;
     }
 }
 
@@ -886,17 +887,18 @@ static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
 
             /* fit as many frames as we can */
             int group_size = 0;
-            while (size >= max_frame_size && slot_count < COUNT(slots))
+            while (size >= max_frame_size && total_slot_count < COUNT(slots))
             {
-                slots[slot_count].ptr = (void*) ptr;
-                slots[slot_count].size = max_frame_size;
-                slots[slot_count].payload_size = frame_size_uncompressed;
-                slots[slot_count].status = SLOT_FREE;
+                slots[total_slot_count].ptr = (void*) ptr;
+                slots[total_slot_count].size = max_frame_size;
+                slots[total_slot_count].payload_size = frame_size_uncompressed;
+                slots[total_slot_count].status = SLOT_FREE;
                 ptr += max_frame_size;
                 size -= max_frame_size;
                 group_size += max_frame_size;
-                slot_count++;
-                //printf("slot #%d: %x\n", slot_count, ptr);
+                total_slot_count++;
+                valid_slot_count++;
+                //printf("slot #%d: %x\n", total_slot_count, ptr);
 
                 /* split the group at 32M-512K */
                 /* (after this number, write speed decreases) */
@@ -958,7 +960,7 @@ static int setup_buffers()
     chunk_index = add_mem_suite(srm_mem_suite, chunk_index);
   
     /* we need at least 3 slots */
-    if (slot_count < 3)
+    if (valid_slot_count < 3)
     {
         return 0;
     }
@@ -970,8 +972,8 @@ static int setup_buffers()
     if (pre_record || rec_trigger)
     {
         /* how much should we pre-record? */
-        int max_frames = pre_record_calc_max_frames(slot_count);
-        pre_record_num_frames = pre_record_calc_num_frames(slot_count, max_frames);
+        int max_frames = pre_record_calc_max_frames(valid_slot_count);
+        pre_record_num_frames = pre_record_calc_num_frames(valid_slot_count, max_frames);
         printf("Pre-rec: %d frames (max %d)\n", pre_record_num_frames, max_frames);
     }
     
@@ -991,7 +993,7 @@ static void free_buffers()
 static int count_free_slots()
 {
     int free_slots = 0;
-    for (int i = 0; i < slot_count; i++)
+    for (int i = 0; i < total_slot_count; i++)
         if (slots[i].status == SLOT_FREE)
             free_slots++;
     return free_slots;
@@ -1007,7 +1009,7 @@ static void show_buffer_status()
     int y = BUFFER_DISPLAY_Y + 50;
     uint32_t chunk_start = (uint32_t) slots[0].ptr;
 
-    for (int i = 0; i < slot_count; i++)
+    for (int i = 0; i < total_slot_count; i++)
     {
         if (i > 0 && slots[i].ptr != slots[i-1].ptr + slots[i-1].size)
         {
@@ -1044,7 +1046,7 @@ static void show_buffer_status()
         int x = frame_count % 720;
         int ymin = 120;
         int ymax = 400;
-        int y = ymin + free * (ymax - ymin) / slot_count;
+        int y = ymin + free * (ymax - ymin) / valid_slot_count;
         fill_circle(x, y, 3, COLOR_BLACK);
         static int prev_x = 0;
         static int prev_y = 0;
@@ -1488,7 +1490,7 @@ static int FAST choose_next_capture_slot()
     /* O(1) */
     if (
         capture_slot >= 0 && 
-        capture_slot + 1 < slot_count && 
+        capture_slot + 1 < total_slot_count && 
         slots[capture_slot + 1].ptr == slots[capture_slot].ptr + slots[capture_slot].size && 
         slots[capture_slot + 1].status == SLOT_FREE &&
         !force_new_buffer
@@ -1497,13 +1499,13 @@ static int FAST choose_next_capture_slot()
 
     /* choose a new buffer? */
     /* choose the largest contiguous free section */
-    /* O(n), n = slot_count */
+    /* O(n), n = total_slot_count */
     int len = 0;
     void* prev_ptr = PTR_INVALID;
     int prev_size = 0;
     int best_len = 0;
     int best_index = -1;
-    for (int i = 0; i < slot_count; i++)
+    for (int i = 0; i < total_slot_count; i++)
     {
         if (slots[i].status == SLOT_FREE)
         {
@@ -1583,15 +1585,17 @@ static void shrink_slot(int slot_index, int new_frame_size)
             if (slots[i+1].status == SLOT_RESERVED)
             {
                 //printf("Slot %d becomes available (%d >= %d).\n", i, slots[i+1].size, max_frame_size);
+                slots[i+1].status = SLOT_FREE;
+                valid_slot_count++;
             }
             else
             {
                 /* existing free slots will get shifted, without changing their size */
                 ASSERT(slots[i+1].size - dif_size == max_frame_size);
+                ASSERT(slots[i+1].status == SLOT_FREE);
             }
             shrink_slot(i+1, frame_size_uncompressed);
             ASSERT(slots[i+1].size == max_frame_size);
-            slots[i+1].status = SLOT_FREE;
         }
     }
 
@@ -1607,6 +1611,7 @@ static void free_slot(int slot_index)
     if (slots[i].size == max_frame_size)
     {
         slots[i].status = SLOT_FREE;
+        valid_slot_count++;
         return;
     }
 
@@ -1644,11 +1649,17 @@ static void free_slot(int slot_index)
     for (i = start; i <= end; i++)
     {
         slots[i].ptr = ptr;
+        
+        if (slots[i].status == SLOT_FREE)
+        {
+            valid_slot_count--;
+        }
 
         if (ptr + max_frame_size <= end_ptr)
         {
             slots[i].status = SLOT_FREE;
             slots[i].size = max_frame_size;
+            valid_slot_count++;
         }
         else
         {
@@ -1670,7 +1681,7 @@ static void FAST pre_record_discard_frame()
     /* also adjust frame_count so all frames start from 1,
      * just like the rest of the code assumes */
 
-    for (int i = 0; i < slot_count; i++)
+    for (int i = 0; i < total_slot_count; i++)
     {
         /* first frame is "pre_record_first_frame" */
         if (slots[i].status == SLOT_FULL)
@@ -1704,18 +1715,18 @@ static void FAST pre_record_queue_frames()
          * so this loop will not run every time */
         while (slots[i].status != SLOT_FULL || slots[i].frame_number != current_frame)
         {
-            INC_MOD(i, slot_count);
+            INC_MOD(i, total_slot_count);
         }
         
         writing_queue[writing_queue_tail] = i;
         INC_MOD(writing_queue_tail, COUNT(writing_queue));
-        INC_MOD(i, slot_count);
+        INC_MOD(i, total_slot_count);
     }
 }
 
 static void pre_record_discard_frame_if_no_free_slots()
 {
-    for (int i = 0; i < slot_count; i++)
+    for (int i = 0; i < total_slot_count; i++)
     {
         if (slots[i].status == SLOT_FREE)
         {
@@ -2269,7 +2280,8 @@ static void raw_video_rec_task()
     //~ console_show();
     /* init stuff */
     raw_recording_state = RAW_PREPARING;
-    slot_count = 0;
+    total_slot_count = 0;
+    valid_slot_count = 0;
     capture_slot = -1;
     fullsize_buffer_pos = 0;
     frame_count = 0;
