@@ -113,7 +113,9 @@ CONFIG_INT("raw.video.enabled", raw_video_enabled, 0);
 static CONFIG_INT("raw.res_x", resolution_index_x, 4);
 static CONFIG_INT("raw.res_x_fine", res_x_fine, 0);
 static CONFIG_INT("raw.aspect.ratio", aspect_ratio_index, 10);
+
 static CONFIG_INT("raw.write.speed", measured_write_speed, 0);
+static CONFIG_INT("raw.avg_compress_ratio", avg_compression_ratio, 0);
 
 static CONFIG_INT("raw.pre-record", pre_record, 0);
 static int pre_record_triggered = 0;    /* becomes 1 once you press REC twice */
@@ -462,10 +464,41 @@ static int count_available_slots()
     return available_slots;
 }
 
+static int get_avg_compression_ratio()
+{
+    if (OUTPUT_COMPRESSION == 0)
+    {
+        /* no compression (100%) */
+        return 100;
+    }
+
+    if (avg_compression_ratio)
+    {
+        /* we have a measurement from latest clip */
+        /* fixme: handle different bit depths */
+        return avg_compression_ratio;
+    }
+
+    /* reasonable defaults */
+    switch (output_format)
+    {
+        case OUTPUT_14BIT_LOSSLESS:
+            return 60;
+        case OUTPUT_12BIT_LOSSLESS:
+            return 52;
+        case OUTPUT_10BIT_LOSSLESS:
+            return 48;
+    }
+    
+    /* should be unreachable */
+    ASSERT(0);
+    return 0;
+}
+
 static int predict_frames(int write_speed, int available_slots)
 {
     int fps = fps_get_current_x1000();
-    int capture_speed = max_frame_size / 1000 * fps;
+    int capture_speed = max_frame_size / 1000 * fps / 100 * get_avg_compression_ratio();
     int buffer_fill_speed = capture_speed - write_speed;
     if (buffer_fill_speed <= 0)
         return INT_MAX;
@@ -513,7 +546,8 @@ static char* guess_how_many_frames()
 static MENU_UPDATE_FUNC(write_speed_update)
 {
     int fps = fps_get_current_x1000();
-    int speed = (res_x * res_y * BPP/8 / 1024) * fps / 10 / 1024;
+    int speed = (res_x * res_y * BPP/8 / 1024) * fps / 1024
+        * get_avg_compression_ratio() / 100 / 10;
     int ok = speed < measured_write_speed;
     speed /= 10;
 
@@ -726,6 +760,24 @@ static MENU_UPDATE_FUNC(aspect_ratio_update)
     write_speed_update(entry, info);
 }
 
+static MENU_UPDATE_FUNC(output_format_update)
+{
+    switch (output_format)
+    {
+        case OUTPUT_14BIT_NATIVE:
+            break;
+        case OUTPUT_12BIT_UNCOMPRESSED:
+            MENU_SET_RINFO("85%%");
+            break;
+        case OUTPUT_10BIT_UNCOMPRESSED:
+            MENU_SET_RINFO("70%%");
+            break;
+        default:
+            MENU_SET_RINFO("~%d%%", get_avg_compression_ratio());
+            break;
+    }
+}
+
 static int pre_record_calc_max_frames(int slot_count)
 {
     /* reserve at least 10 frames for buffering 
@@ -936,7 +988,7 @@ static void free_buffers()
     fullsize_buffers[0] = 0;
 }
 
-static int get_free_slots()
+static int count_free_slots()
 {
     int free_slots = 0;
     for (int i = 0; i < slot_count; i++)
@@ -988,7 +1040,7 @@ static void show_buffer_status()
 
 #ifdef DEBUG_BUFFERING_GRAPH
     {
-        int free = get_free_slots();
+        int free = count_free_slots();
         int x = frame_count % 720;
         int ymin = 120;
         int ymax = 400;
@@ -2360,7 +2412,7 @@ static void raw_video_rec_task()
         /* grouped frames from w_head to last_grouped (including both ends) */
         int num_frames = MOD(last_grouped - w_head + 1, COUNT(writing_queue));
         
-        int free_slots = get_free_slots();
+        int free_slots = count_free_slots();
         
         /* if we are about to overflow, save a smaller number of frames, so they can be freed quicker */
         if (measured_write_speed)
@@ -2546,6 +2598,14 @@ cleanup:
         raw_movie_filename = 0;
     }
 
+    if (OUTPUT_COMPRESSION)
+    {
+        /* estimate compression ratio */
+        /* fixme: handle different compression levels */
+        avg_compression_ratio = written_total / frame_count
+            * 100 / (res_x * res_y * 14/8);
+    }
+
     /* everything saved, we can unlock the buttons.
      * note: freeing SRM memory will also touch uilocks,
      * so it's best to call this before free_buffers */
@@ -2644,6 +2704,7 @@ static struct menu_entry raw_video_menu[] =
                 .name       = "Data format",
                 .priv       = &output_format,
                 .max        = 3,
+                .update     = output_format_update,
                 .choices    = CHOICES(
                                 "14-bit",
                                 "12-bit",
@@ -3009,6 +3070,9 @@ static unsigned int raw_rec_init()
 
     menu_add("Movie", raw_video_menu, COUNT(raw_video_menu));
 
+    /* hack: force proper alignment in menu */
+    raw_video_menu->children->parent_menu->split_pos = 15;
+
     lvinfo_add_items (info_items, COUNT(info_items));
 
     /* some cards may like this */
@@ -3055,6 +3119,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(res_x_fine)    
     MODULE_CONFIG(aspect_ratio_index)
     MODULE_CONFIG(measured_write_speed)
+    MODULE_CONFIG(avg_compression_ratio)
     MODULE_CONFIG(pre_record)
     MODULE_CONFIG(rec_trigger)
     MODULE_CONFIG(dolly_mode)
