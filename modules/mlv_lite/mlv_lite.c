@@ -1964,7 +1964,7 @@ static void FAST process_frame()
         else
         {
             /* send it for saving, even if it isn't done yet */
-            /* it's quite unlikely that FIO DMA will be faster than EDMAC */
+            /* (the recording thread will wait until it's done) */
             writing_queue[writing_queue_tail] = capture_slot;
             INC_MOD(writing_queue_tail, COUNT(writing_queue));
         }
@@ -2398,13 +2398,17 @@ static void raw_video_rec_task()
             continue;
         }
 
+        /* race condition with compress_task */
+        uint32_t old_int = cli();
+
         int first_slot = writing_queue[w_head];
 
         /* check whether the first frame was filled by EDMAC (it may be sent in advance) */
-        /* probably not needed */
-        int check = frame_check_saved(first_slot);
-        if (check == 0)
+        /* we need at least one valid frame */
+        
+        if (frame_check_saved(first_slot) == 0)
         {
+            sei(old_int);
             msleep(20);
             continue;
         }
@@ -2417,6 +2421,22 @@ static void raw_video_rec_task()
         {
             int slot_index = writing_queue[i];
 
+            if (frame_check_saved(slot_index) == 0)
+            {
+                /* frame not yet ready - stop here */
+                ASSERT(i != w_head);
+                break;
+            }
+
+            /* consistency checks */
+            ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockSize == (uint32_t) slots[slot_index].size);
+            ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->frameNumber == (uint32_t) slots[slot_index].frame_number - 1);
+
+            if (OUTPUT_COMPRESSION)
+            {
+                ASSERT(slots[slot_index].size < max_frame_size);
+            }
+
             /* TBH, I don't care if these are part of the same group or not,
              * as long as pointers are ordered correctly */
             if (slots[slot_index].ptr == slots[first_slot].ptr + group_size)
@@ -2426,7 +2446,9 @@ static void raw_video_rec_task()
             
             group_size += slots[slot_index].size;
         }
-        
+
+        sei(old_int);
+
         /* grouped frames from w_head to last_grouped (including both ends) */
         int num_frames = MOD(last_grouped - w_head + 1, COUNT(writing_queue));
         
@@ -2463,6 +2485,12 @@ static void raw_video_rec_task()
         for (int i = w_head; i != after_last_grouped; INC_MOD(i, COUNT(writing_queue)))
         {
             int slot_index = writing_queue[i];
+
+            if (OUTPUT_COMPRESSION)
+            {
+                ASSERT(slots[slot_index].size < max_frame_size);
+            }
+
             if (slots[slot_index].status != SLOT_FULL)
             {
                 bmp_printf(FONT_LARGE, 30, 70, "Slot check error");
@@ -2589,6 +2617,10 @@ abort_and_check_early_stop:
         last_processed_frame++;
 
         slots[slot_index].status = SLOT_WRITING;
+        if (OUTPUT_COMPRESSION)
+        {
+            ASSERT(slots[slot_index].size < max_frame_size);
+        }
         if (indicator_display == INDICATOR_RAW_BUFFER) show_buffer_status();
         if (!write_frames(&f, slots[slot_index].ptr, slots[slot_index].size, 1))
         {
