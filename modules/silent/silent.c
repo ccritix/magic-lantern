@@ -443,35 +443,41 @@ write_error:
     return 0;
 }
 
-static int save_lossless_dng(char * filename, struct raw_info * raw_info, struct memSuite * optional_aux_memsuite)
+static int save_lossless_dng(char * filename, struct raw_info * raw_info)
 {
     struct raw_info out_raw_info = *raw_info;
 
-    /* fixme: may fail */
-    /* workaround: if available, use a pre-allocated buffer (optional) */
-    struct memSuite * out_suite = (optional_aux_memsuite)
-         ? optional_aux_memsuite
-         : shoot_malloc_suite_contig(MIN(raw_info->frame_size, 32*1024*1024));
+    ASSERT(out_raw_info.bits_per_pixel == 14);
 
-    if (!out_suite)
-    {
-        bmp_printf( FONT_MED, 0, 83, "Malloc error");
-        return 0;
-    }
+    /* compress the image in-place */
 
+    /* skip the top bar (that way, we'll be able to avoid race conditions) */
+    /* note: this does not operate on global raw_info, so overwriting temporarily is OK */
+    struct raw_info old_raw_info = *raw_info;
+    int dy = raw_info->active_area.y1;
+    int dm = dy * raw_info->pitch;
+    raw_info->buffer += dm;
+    raw_info->frame_size -= dm;
+    raw_info->height -= dy;
+    raw_info->active_area.y1 -= dy;
+    raw_info->active_area.y2 -= dy;
+
+    /* fixme: why passing the real buffer size result in lockup? */
+    struct memSuite * out_suite = CreateMemorySuite(out_raw_info.buffer, 10*1024*1024, 0);
     out_raw_info.frame_size = lossless_compress_raw(raw_info, out_suite);
-    out_raw_info.buffer = GetMemoryAddressOfMemoryChunk(GetFirstChunkFromSuite(out_suite));
+    ASSERT(out_raw_info.frame_size < raw_info->frame_size);
+    DeleteMemorySuite(out_suite);
+
+    /* restore raw_info */
+    *raw_info = old_raw_info;
 
     int ok = save_dng(filename, &out_raw_info);
     if (!ok) bmp_printf( FONT_MED, 0, 83, "DNG save error (card full?)");
 
-    if (!optional_aux_memsuite)
-        shoot_free_suite(out_suite);
-
     return ok;
 }
 
-static int silent_pic_save_file(struct raw_info * raw_info, int capture_time_ms, void * optional_aux_memsuite)
+static int silent_pic_save_file(struct raw_info * raw_info, int capture_time_ms)
 {
     switch (silent_pic_file_format)
     {
@@ -491,7 +497,7 @@ static int silent_pic_save_file(struct raw_info * raw_info, int capture_time_ms,
         case SILENT_PIC_FILE_FORMAT_LOSSLESS_DNG:
         {
             char* filename = silent_pic_get_name();
-            return save_lossless_dng(filename, raw_info, optional_aux_memsuite);
+            return save_lossless_dng(filename, raw_info);
         }
     }
 
@@ -895,16 +901,25 @@ silent_pic_take_lv(int interactive)
 
     bmp_printf(FONT_MED, 0, 37, "Preparing...");
     int ok = 1;
-    int raw_flag = 0;
-    
+
+    struct memSuite * hSuite1 = 0;
+    struct memSuite * hSuite2 = 0;
+
+    /* this enables a LiveView debug flag that gives us 14-bit RAW data. Cool! */
+    int raw_flag = 1;
+    raw_lv_request();
+ 
+    /* get image resolution, white level etc */
+    if (!raw_update_params())
+    {
+        goto cleanup;
+    }
+
     /* allocate RAM */
     /* we do this step first to block the shutter asap */
     /* (gui_uilock doesn't seem to work in this case, because shutter
      * is already pressed; but allocating the entire SRM memory does!)
      */
-    struct memSuite * hSuite1 = 0;
-    struct memSuite * hSuite2 = 0;
-    struct memSuite * hSuiteX = 0;
 
     switch (silent_pic_mode)
     {
@@ -913,12 +928,6 @@ silent_pic_take_lv(int interactive)
         case SILENT_PIC_MODE_BURST_END_TRIGGER:
         case SILENT_PIC_MODE_BEST_FOCUS:
         {
-            if (silent_pic_file_format == SILENT_PIC_FILE_FORMAT_LOSSLESS_DNG)
-            {
-                /* need temporary storage for compression */
-                hSuiteX = shoot_malloc_suite_contig(raw_info.frame_size);
-            }
-
             hSuite1 = srm_malloc_suite(0);
             /* fixme: allocating shoot memory during picture taking causes lockup */
             if (lens_info.job_state) break;
@@ -947,16 +956,6 @@ silent_pic_take_lv(int interactive)
         goto cleanup;
     }
 
-    /* this enables a LiveView debug flag that gives us 14-bit RAW data. Cool! */
-    raw_flag = 1;
-    raw_lv_request();
- 
-    /* get image resolution, white level etc */
-    if (!raw_update_params())
-    {
-        goto cleanup;
-    }
-
     /* how many pics we can take in the current memory suite? */
     /* we'll have a pointer to each picture slot in sp_frames[], indexed from 0 to sp_buffer_count */
     int total_size = 0;
@@ -965,12 +964,12 @@ silent_pic_take_lv(int interactive)
     if (hSuite1)
     {
         total_size += hSuite1->size;
-        sp_buffer_count = silent_pic_raw_prepare_buffers(hSuite1, sp_buffer_count);
+        sp_buffer_count += silent_pic_raw_prepare_buffers(hSuite1, sp_buffer_count);
     }
     if (hSuite2)
     {
         total_size += hSuite2->size;
-        sp_buffer_count = silent_pic_raw_prepare_buffers(hSuite2, sp_buffer_count);
+        sp_buffer_count += silent_pic_raw_prepare_buffers(hSuite2, sp_buffer_count);
     }
 
     if (sp_buffer_count > 1)
@@ -1081,7 +1080,7 @@ silent_pic_take_lv(int interactive)
             raw_force_aspect_ratio_1to1();
             raw_preview_fast_ex(local_raw_info.buffer, (void*)-1, -1, -1, -1);
             
-            ok = silent_pic_save_file(&local_raw_info, 0, hSuiteX);
+            ok = silent_pic_save_file(&local_raw_info, 0);
             if (!ok) break;
             
             if ((get_halfshutter_pressed() || !LV_PAUSED) && i > i0)
@@ -1120,14 +1119,13 @@ silent_pic_take_lv(int interactive)
         
         local_raw_info.buffer = sp_frames[0];
         bmp_printf(FONT_MED, 0, 60, "Saving %d x %d...", local_raw_info.jpeg.width, local_raw_info.jpeg.height);
-        ok = silent_pic_save_file(&local_raw_info, 0, hSuiteX);
+        ok = silent_pic_save_file(&local_raw_info, 0);
         redraw();
     }
     
 cleanup:
     sp_running = 0;
     sp_buffer_count = 0;
-    if (hSuiteX) shoot_free_suite(hSuiteX);
     if (hSuite1) srm_free_suite(hSuite1);
     if (hSuite2) shoot_free_suite(hSuite2);
     if (raw_flag) raw_lv_release();
@@ -1389,7 +1387,7 @@ silent_pic_take_fullres(int interactive)
         }
 
         /* todo: use copy_buf for lossless DNG, as shoot_malloc may fail on some cameras */
-        ok = silent_pic_save_file(&local_raw_info, capture_time, 0);
+        ok = silent_pic_save_file(&local_raw_info, capture_time);
         int t1 = get_ms_clock_value();
         save_time = t1 - t0;
      
