@@ -765,6 +765,12 @@ static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
             int size = GetSizeOfMemoryChunk(chunk);
             intptr_t ptr = (intptr_t) GetMemoryAddressOfMemoryChunk(chunk);
 
+            /* use-after-free from raw backend? skip this chunk */
+            if ((void*)ptr + 0x100 == raw_info.buffer)
+            {
+                goto next;
+            }
+
             /* write it down for future frame predictions */
             if (chunk_index < COUNT(chunk_list) && size > 64)
             {
@@ -815,7 +821,8 @@ static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
                     group_size = 0;
                 }
             }
-            
+        
+        next:
             /* next chunk */
             chunk = GetNextMemoryChunk(mem_suite, chunk);
         }
