@@ -113,6 +113,16 @@ static CONFIG_INT("raw.res_x_fine", res_x_fine, 0);
 static CONFIG_INT("raw.aspect.ratio", aspect_ratio_index, 10);
 static CONFIG_INT("raw.write.speed", measured_write_speed, 0);
 
+static CONFIG_INT("raw.pre-record", pre_record, 0);
+static int pre_record_triggered = 0;    /* becomes 1 once you press REC twice */
+static int pre_record_num_frames = 0;   /* how many frames we should pre-record */
+static int pre_record_first_frame = 0;  /* first frame index from pre-recording buffer */
+
+static CONFIG_INT("raw.rec-trigger", rec_trigger, 0);
+#define REC_TRIGGER_HALFSHUTTER_START_STOP 1
+#define REC_TRIGGER_HALFSHUTTER_HOLD 2
+#define REC_TRIGGER_HALFSHUTTER_PRE_ONLY 3
+
 static CONFIG_INT("raw.dolly", dolly_mode, 0);
 #define FRAMING_CENTER (dolly_mode == 0)
 #define FRAMING_PANNING (dolly_mode == 1)
@@ -166,13 +176,15 @@ static int frame_offset_delta_y = 0;
 #define RAW_PREPARING 1
 #define RAW_RECORDING 2
 #define RAW_FINISHING 3
+#define RAW_PRE_RECORDING 4
 
 static int raw_recording_state = RAW_IDLE;
 static int raw_previewing = 0;
 
 #define RAW_IS_IDLE      (raw_recording_state == RAW_IDLE)
 #define RAW_IS_PREPARING (raw_recording_state == RAW_PREPARING)
-#define RAW_IS_RECORDING (raw_recording_state == RAW_RECORDING)
+#define RAW_IS_RECORDING (raw_recording_state == RAW_RECORDING || \
+                          raw_recording_state == RAW_PRE_RECORDING)
 #define RAW_IS_FINISHING (raw_recording_state == RAW_FINISHING)
 
 #define VIDF_HDR_SIZE 64
@@ -202,6 +214,7 @@ static int writing_queue_tail = 0;                /* place captured frames here 
 static int writing_queue_head = 0;                /* extract frames to be written from here */ 
 
 static int frame_count = 0;                       /* how many frames we have processed */
+static int skipped_frames = 0;                    /* how many frames we had to drop (only done during pre-recording) */
 static int chunk_frame_count = 0;                 /* how many frames in the current file chunk */
 static int buffer_full = 0;                       /* true when the memory becomes full */
 char* raw_movie_filename = 0;                     /* file name for current (or last) movie */
@@ -227,6 +240,13 @@ extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_starting();
 extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_stopping();
 
 static int raw_rec_should_preview(void);
+
+static inline int pre_recording_buffer_full()
+{
+    return 
+        raw_recording_state == RAW_PRE_RECORDING &&
+        frame_count - pre_record_first_frame >= pre_record_num_frames;
+}
 
 static void refresh_cropmarks()
 {
@@ -417,7 +437,15 @@ static char* guess_aspect_ratio(int res_x, int res_y)
     return msg;
 }
 
-static int predict_frames(int write_speed)
+static int count_available_slots()
+{
+    int available_slots = 0;
+    for (int i = 0; i < COUNT(chunk_list); i++)
+        available_slots += chunk_list[i] / frame_size;
+    return available_slots;
+}
+
+static int predict_frames(int write_speed, int available_slots)
 {
     int fps = fps_get_current_x1000();
     int capture_speed = frame_size / 1000 * fps;
@@ -425,11 +453,12 @@ static int predict_frames(int write_speed)
     if (buffer_fill_speed <= 0)
         return INT_MAX;
     
-    int total_slots = 0;
-    for (int i = 0; i < COUNT(chunk_list); i++)
-        total_slots += chunk_list[i] / frame_size;
+    if (!available_slots)
+    {
+        available_slots = count_available_slots();
+    }
     
-    float buffer_fill_time = total_slots * frame_size / (float) buffer_fill_speed;
+    float buffer_fill_time = available_slots * frame_size / (float) buffer_fill_speed;
     int frames = buffer_fill_time * fps / 1000;
     return frames;
 }
@@ -443,8 +472,8 @@ static char* guess_how_many_frames()
     int write_speed_lo = measured_write_speed * 1024 / 100 * 1024 - 512 * 1024;
     int write_speed_hi = measured_write_speed * 1024 / 100 * 1024 + 512 * 1024;
     
-    int f_lo = predict_frames(write_speed_lo);
-    int f_hi = predict_frames(write_speed_hi);
+    int f_lo = predict_frames(write_speed_lo, 0);
+    int f_hi = predict_frames(write_speed_hi, 0);
     
     static char msg[50];
     if (f_lo < 5000)
@@ -588,15 +617,13 @@ static MENU_UPDATE_FUNC(resolution_update)
         return;
     }
     
-    res_x = resolution_presets_x[resolution_index_x] + res_x_fine;
-       
     refresh_raw_settings(1);
-
-    int selected_x = res_x;
 
     MENU_SET_VALUE("%dx%d", res_x, res_y);
     int crop_factor = calc_crop_factor();
     if (crop_factor) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
+
+    int selected_x = resolution_presets_x[resolution_index_x] + res_x_fine;
     
     if (selected_x > max_res_x)
     {
@@ -680,6 +707,70 @@ static MENU_UPDATE_FUNC(aspect_ratio_update)
         aspect_ratio_update_info(entry, info);
     }
     write_speed_update(entry, info);
+}
+
+static int pre_record_calc_max_frames(int slot_count)
+{
+    /* reserve at least 10 frames for buffering 
+     * but no more than half of available RAM */
+    int max_frames = MAX(slot_count / 2, slot_count - 10);
+
+    /* if resolution is very high, reserve more, to avoid running out of steam */
+    /* heuristic: reserve enough to get 500 frames with 90% of the measured write speed */
+    /* but not more than half of available memory */
+    int assumed_write_speed = measured_write_speed  * 1024 / 100 * 1024 * 9 / 10;
+    while (max_frames > slot_count / 2 &&
+        predict_frames(assumed_write_speed, slot_count - max_frames) < 500)
+    {
+        max_frames--;
+    }
+
+    /* if we only have to save the pre-recorded frames,
+     * we can simply use the entire buffer for pre-recording
+     * (one frame is required for capturing)
+     */
+    if (rec_trigger == REC_TRIGGER_HALFSHUTTER_PRE_ONLY)
+    {
+        max_frames = slot_count - 1;
+    }
+
+    ASSERT(max_frames > 0);
+    return max_frames;
+}
+
+static int pre_record_calc_num_frames(int slot_count, int max_frames)
+{
+    int requested_seconds = pre_record;
+    int requested_frames = (requested_seconds * fps_get_current_x1000() + 500) / 1000;
+    return COERCE(requested_frames, 1, max_frames);
+}
+
+static MENU_UPDATE_FUNC(pre_recording_update)
+{
+    MENU_SET_VALUE(
+        pre_record ? "%d second%s" : "OFF",
+        pre_record, pre_record == 1 ? "" : "s"
+    );
+
+    int slot_count = count_available_slots();
+    if (slot_count)
+    {
+        int max_frames = pre_record_calc_max_frames(slot_count);
+        int pre_frames = pre_record_calc_num_frames(slot_count, max_frames);
+        if (pre_frames == max_frames)
+        {
+            int fps = fps_get_current_x1000();
+            int total_sec = (slot_count * 1000 * 10 + fps/2) / fps;
+            int pre_sec   = (pre_frames * 1000 * 10 + fps/2) / fps;
+            MENU_SET_RINFO("max %d.%d", pre_sec/10, pre_sec%10);
+            MENU_SET_WARNING(
+                MENU_WARN_INFO,
+                "Using %d.%ds (%d frames) out of %d.%ds (%d frames) for pre-recording.",
+                pre_sec/10, pre_sec%10, pre_frames,
+                total_sec/10, total_sec%10, slot_count
+            );
+        }
+    }
 }
 
 static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
@@ -792,6 +883,18 @@ static int setup_buffers()
     {
         return 0;
     }
+
+    /* note: rec_trigger is implemented via pre_recording
+     * even if pre_record is turned off, we still reuse its state machine
+     * for the rec_trigger feature - with an empty pre-recording buffer
+     */
+    if (pre_record || rec_trigger)
+    {
+        /* how much should we pre-record? */
+        int max_frames = pre_record_calc_max_frames(slot_count);
+        pre_record_num_frames = pre_record_calc_num_frames(slot_count, max_frames);
+        printf("Pre-rec: %d frames (max %d)\n", pre_record_num_frames, max_frames);
+    }
     
     return 1;
 }
@@ -851,7 +954,7 @@ static void show_buffer_status()
         int ymin = 120;
         int ymax = 400;
         int y = ymin + free * (ymax - ymin) / slot_count;
-        dot(x-16, y-16, COLOR_BLACK, 3);
+        fill_circle(x, y, 3, COLOR_BLACK);
         static int prev_x = 0;
         static int prev_y = 0;
         if (prev_x && prev_y && prev_x < x)
@@ -862,7 +965,7 @@ static void show_buffer_status()
         prev_y = y;
         bmp_draw_rect(COLOR_BLACK, 0, ymin, 720, ymax-ymin);
         
-        int xp = predict_frames(measured_write_speed * 1024 / 100 * 1024) % 720;
+        int xp = predict_frames(measured_write_speed * 1024 / 100 * 1024, 0) % 720;
         draw_line(xp, ymax, xp, ymin, COLOR_RED);
     }
 #endif
@@ -934,13 +1037,23 @@ static LVINFO_UPDATE_FUNC(recording_status)
 
     /* Calculate the stats */
     int fps = fps_get_current_x1000();
-    int t = (frame_count * 1000 + fps/2) / fps;
-    int predicted = predict_frames(measured_write_speed * 1024 / 100 * 1024);
+    int t = ((frame_count-1) * 1000) / fps;
+    int predicted = predict_frames(measured_write_speed * 1024 / 100 * 1024, 0);
 
     if (!buffer_full) 
     {
         snprintf(buffer, sizeof(buffer), "%02d:%02d", t/60, t%60);
-        if (predicted >= 10000)
+        if (raw_recording_state == RAW_PRE_RECORDING)
+        {
+            item->color_bg = COLOR_BLUE;
+            
+            if (pre_recording_buffer_full())
+            {
+                int t = ((frame_count-1) * 1000 * 10) / fps;
+                snprintf(buffer, sizeof(buffer), "%02d:%02d.%d", t/10/60, (t/10)%60, t % 10);
+            }
+        }
+        else if (predicted >= 10000)
         {
             item->color_bg = COLOR_GREEN1;
         }
@@ -970,8 +1083,8 @@ static void show_recording_status()
     {
         /* Calculate the stats */
         int fps = fps_get_current_x1000();
-        int t = (frame_count * 1000 + fps/2) / fps;
-        int predicted = predict_frames(measured_write_speed * 1024 / 100 * 1024);
+        int t = ((frame_count-1) * 1000) / fps;
+        int predicted = predict_frames(measured_write_speed * 1024 / 100 * 1024, 0);
 
         int speed=0;
         int idle_percent=0;
@@ -1032,7 +1145,11 @@ static void show_recording_status()
 
             /* If continuous OK, make the movie icon green, else set based on expected time left */
             int rl_color;
-            if (predicted >= 10000) 
+            if (raw_recording_state == RAW_PRE_RECORDING)
+            {
+                rl_color = COLOR_BLUE;
+            }
+            else if (predicted >= 10000) 
             {
                 rl_color = COLOR_GREEN1;
             } 
@@ -1052,7 +1169,13 @@ static void show_recording_status()
             rl_icon_width = bfnt_draw_char (ICON_ML_MOVIE,rl_x,rl_y,rl_color,COLOR_BG_DARK);
 
             /* Display the Status */
-            bmp_printf (FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), rl_x+rl_icon_width+5, rl_y+5, "%02d:%02d", t/60, t%60);
+            bmp_printf (FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), rl_x+rl_icon_width+5, rl_y+5, "%02d:%02d   ", t/60, t%60);
+
+            if (pre_recording_buffer_full())
+            {
+                int t = ((frame_count-1) * 1000 * 10) / fps;
+                bmp_printf (FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), rl_x+rl_icon_width+5, rl_y+5, "%02d:%02d.%d", t/10/60, (t/10)%60, t % 10);
+            }
 
             if (writing_time)
             {
@@ -1330,6 +1453,120 @@ static int FAST choose_next_capture_slot()
     return best_index;
 }
 
+static void FAST pre_record_discard_frame()
+{
+    /* discard old frames */
+    /* also adjust frame_count so all frames start from 1,
+     * just like the rest of the code assumes */
+
+    for (int i = 0; i < slot_count; i++)
+    {
+        /* first frame is "pre_record_first_frame" */
+        if (slots[i].status == SLOT_FULL)
+        {
+            if (slots[i].frame_number == pre_record_first_frame)
+            {
+                slots[i].status = SLOT_FREE;
+                frame_count--;
+            }
+            else if (slots[i].frame_number > pre_record_first_frame)
+            {
+                slots[i].frame_number--;
+                ((mlv_vidf_hdr_t*)slots[i].ptr)->frameNumber
+                    = slots[i].frame_number - 1;
+            }
+        }
+    }
+}
+
+static void FAST pre_record_queue_frames()
+{
+    /* queue all captured frames for writing */
+    /* (they are numbered from 1 to frame_count-1; frame 0 is skipped) */
+    /* they are not ordered, which complicates things a bit */
+    printf("Pre-rec: queueing frames %d to %d.\n", pre_record_first_frame, frame_count-1);
+
+    int i = 0;
+    for (int current_frame = pre_record_first_frame; current_frame < frame_count; current_frame++)
+    {
+        /* consecutive frames tend to be grouped, 
+         * so this loop will not run every time */
+        while (slots[i].status != SLOT_FULL || slots[i].frame_number != current_frame)
+        {
+            INC_MOD(i, slot_count);
+        }
+        
+        writing_queue[writing_queue_tail] = i;
+        INC_MOD(writing_queue_tail, COUNT(writing_queue));
+        INC_MOD(i, slot_count);
+    }
+}
+
+static void pre_record_discard_frame_if_no_free_slots()
+{
+    for (int i = 0; i < slot_count; i++)
+    {
+        if (slots[i].status == SLOT_FREE)
+        {
+            return;
+        }
+    }
+
+    pre_record_discard_frame();
+}
+
+static void FAST pre_record_vsync_step()
+{
+    if (raw_recording_state == RAW_RECORDING)
+    {
+        if (!pre_record_triggered)
+        {
+            /* return to pre-recording state */
+            pre_record_first_frame = frame_count;
+            raw_recording_state = RAW_PRE_RECORDING;
+            printf("Pre-rec: back to pre-recording (frame %d).\n", pre_record_first_frame);
+            /* fall through the next block */
+        }
+    }
+
+    if (raw_recording_state == RAW_PRE_RECORDING)
+    {
+        ASSERT(pre_record_num_frames);
+
+        if (!pre_record_first_frame)
+        {
+            /* start pre-recording (first attempt) */
+            pre_record_first_frame = frame_count;
+            printf("Pre-rec: starting from frame %d.\n", pre_record_first_frame);
+        }
+
+        if (pre_record_triggered)
+        {
+            /* make sure we have a free slot, no matter what */
+            pre_record_discard_frame_if_no_free_slots();
+
+            pre_record_queue_frames();
+    
+            if (rec_trigger != REC_TRIGGER_HALFSHUTTER_PRE_ONLY)
+            {
+                /* done, from now on we can just record normally */
+                raw_recording_state = RAW_RECORDING;
+            }
+            else
+            {
+                /* do not resume recording; just start a new pre-recording "session" */
+                /* trick to allow reusing all frames for pre-recording */
+                pre_record_triggered = 0;
+                pre_record_first_frame = frame_count;
+            }
+        }
+        else if (pre_recording_buffer_full())
+        {
+            pre_record_discard_frame();
+        }
+    }
+}
+
 #define FRAME_SENTINEL 0xA5A5A5A5 /* for double-checking EDMAC operations */
 
 static void frame_add_checks(int slot_index)
@@ -1389,9 +1626,20 @@ static void FAST process_frame()
         return;
     }
     
+    pre_record_vsync_step();
+    
     /* where to save the next frame? */
     capture_slot = choose_next_capture_slot(capture_slot);
-    
+
+    if (capture_slot < 0 && raw_recording_state == RAW_PRE_RECORDING)
+    {
+        /* pre-recording? we can just discard frames as needed */
+        pre_record_discard_frame();
+        capture_slot = choose_next_capture_slot();
+        ASSERT(capture_slot >= 0);
+        bmp_printf(FONT_MED, 50, 50, "Skipped %d frames", ++skipped_frames);
+    }
+
     if (capture_slot >= 0)
     {
         /* okay */
@@ -1399,10 +1647,18 @@ static void FAST process_frame()
         slots[capture_slot].status = SLOT_FULL;
         frame_add_checks(capture_slot);
 
-        /* send it for saving, even if it isn't done yet */
-        /* it's quite unlikely that FIO DMA will be faster than EDMAC */
-        writing_queue[writing_queue_tail] = capture_slot;
-        writing_queue_tail = MOD(writing_queue_tail + 1, COUNT(writing_queue));
+        if (raw_recording_state == RAW_PRE_RECORDING)
+        {
+            /* pre-recording before trigger? don't queue frames for writing */
+            /* (do nothing here) */
+        }
+        else
+        {
+            /* send it for saving, even if it isn't done yet */
+            /* it's quite unlikely that FIO DMA will be faster than EDMAC */
+            writing_queue[writing_queue_tail] = capture_slot;
+            INC_MOD(writing_queue_tail, COUNT(writing_queue));
+        }
     }
     else
     {
@@ -1438,7 +1694,6 @@ static void FAST process_frame()
 
     /* advance to next frame */
     frame_count++;
-    chunk_frame_count++;
 
     return;
 }
@@ -1596,8 +1851,11 @@ static void finish_chunk(FILE* f)
 }
 
 /* This saves a group of frames, also taking care of file splitting if required */
-static int write_frames(FILE** pf, void* ptr, int size_used)
+static int write_frames(FILE** pf, void* ptr, int size_used, int num_frames)
 {
+    /* note: num_frames can be computed as size_used / frame_size, but compressed frames are around the corner) */
+    ASSERT(num_frames == size_used / frame_size);
+
     FILE* f = *pf;
     
     /* if we know there's a 4GB file size limit and we're about to exceed it, go ahead and make a new chunk */
@@ -1682,6 +1940,7 @@ static int write_frames(FILE** pf, void* ptr, int size_used)
             *pf = f = g;
             written_total += size_used;
             written_chunk += size_used;
+            chunk_frame_count += num_frames;
         }
         else /* new chunk didn't work, card full */
         {
@@ -1697,6 +1956,7 @@ static int write_frames(FILE** pf, void* ptr, int size_used)
         /* all fine */
         written_total += size_used;
         written_chunk += size_used;
+        chunk_frame_count += num_frames;
     }
     
     writing_time += last_write_timestamp - t0;
@@ -1722,6 +1982,7 @@ static void raw_video_rec_task()
     capture_slot = -1;
     fullsize_buffer_pos = 0;
     frame_count = 0;
+    skipped_frames = 0;
     chunk_frame_count = 0;
     buffer_full = 0;
     FILE* f = 0;
@@ -1730,7 +1991,11 @@ static void raw_video_rec_task()
     last_write_timestamp = 0;
     mlv_chunk = 0;
     edmac_active = 0;
-    
+
+    /* note: rec_trigger is implemented via pre_recording */
+    pre_record_triggered = !pre_record && !rec_trigger;
+    pre_record_first_frame = 0;
+
     if (h264_proxy)
     {
         /* start H.264 recording */
@@ -1786,7 +2051,7 @@ static void raw_video_rec_task()
     edmac_memcpy_res_lock();
 
     /* this will enable the vsync CBR and the other task(s) */
-    raw_recording_state = RAW_RECORDING;
+    raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
 
     /* try a sync beep (not very precise, but better than nothing) */
     beep();
@@ -1836,7 +2101,7 @@ static void raw_video_rec_task()
         /* group items from the queue in a contiguous block - as many as we can */
         int last_grouped = w_head;
         
-        for (int i = w_head; i != w_tail; i = MOD(i+1, COUNT(writing_queue)))
+        for (int i = w_head; i != w_tail; INC_MOD(i, COUNT(writing_queue)))
         {
             int slot_index = writing_queue[i];
             int group_pos = MOD(i - w_head, COUNT(writing_queue));
@@ -1882,7 +2147,7 @@ static void raw_video_rec_task()
         int size_used = frame_size * num_frames;
 
         /* mark these frames as "writing" */
-        for (int i = w_head; i != after_last_grouped; i = MOD(i+1, COUNT(writing_queue)))
+        for (int i = w_head; i != after_last_grouped; INC_MOD(i, COUNT(writing_queue)))
         {
             int slot_index = writing_queue[i];
             if (slots[slot_index].status != SLOT_FULL)
@@ -1893,7 +2158,7 @@ static void raw_video_rec_task()
             slots[slot_index].status = SLOT_WRITING;
         }
 
-        if (!write_frames(&f, ptr, size_used))
+        if (!write_frames(&f, ptr, size_used, num_frames))
         {
             goto abort;
         }
@@ -1902,7 +2167,7 @@ static void raw_video_rec_task()
         last_block_size = MOD(after_last_grouped - w_head, COUNT(writing_queue));
 
         /* mark these frames as "free" so they can be reused */
-        for (int i = w_head; i != after_last_grouped; i = MOD(i+1, COUNT(writing_queue)))
+        for (int i = w_head; i != after_last_grouped; INC_MOD(i, COUNT(writing_queue)))
         {
             if (i == writing_queue_tail)
             {
@@ -1944,7 +2209,6 @@ abort:
             last_block_size = 0; /* ignore early stop check */
 
 abort_and_check_early_stop:
-
             if (last_block_size > 2)
             {
                 bmp_printf( FONT_MED, 30, 90, 
@@ -2013,7 +2277,7 @@ abort_and_check_early_stop:
 
         slots[slot_index].status = SLOT_WRITING;
         if (indicator_display == INDICATOR_RAW_BUFFER) show_buffer_status();
-        if (!write_frames(&f, slots[slot_index].ptr, frame_size))
+        if (!write_frames(&f, slots[slot_index].ptr, frame_size, 1))
         {
             NotifyBox(5000, "Card Full");
             beep();
@@ -2151,6 +2415,25 @@ static struct menu_entry raw_video_menu[] =
                 .advanced = 1,
             },
             {
+                .name    = "Pre-record",
+                .priv    = &pre_record,
+                .max     = 10,
+                .update  = pre_recording_update,
+                .help    = "Pre-records a few seconds of video into memory, discarding old frames.",
+                .help2   = "Press REC twice: 1 - to start pre-recording, 2 - for normal recording.",
+            },
+            {
+                .name    = "Rec trigger",
+                .priv    = &rec_trigger,
+                .max     = 3,
+                .choices = CHOICES("OFF", "Half-shut: start/pause", "Half-shut: hold", "Half-shut: pre only"),
+                .help    = "Use external trigger to start/pause recording within a video clip.",
+                .help2   = "Disabled (press REC as usual).\n"
+                           "Press half-shutter to start/pause recording within the current clip.\n"
+                           "Press and hold the shutter halfway to record (e.g. for short events).\n"
+                           "Half-shutter to save only the pre-recorded frames (at least 1 frame).\n",
+            },
+            {
                 .name = "Digital dolly",
                 .priv = &dolly_mode,
                 .max = 1,
@@ -2176,10 +2459,11 @@ static struct menu_entry raw_video_menu[] =
                 .advanced = 1,
             },
             {
-                .name = "Use SRM job memory",
+                .name = "Use SRM memory",
                 .priv = &use_srm_memory,
                 .max = 1,
-                .help = "Allocate memory from SRM job buffers",
+                .help = "Allocate memory from SRM job buffers (normally used for still capture).",
+                .help2 = "Side effect: will show BUSY on the screen and might affect other functions.",
                 .advanced = 1,
             },
             {
@@ -2244,8 +2528,53 @@ static unsigned int raw_rec_keypress_cbr(unsigned int key)
             case RAW_RECORDING:
                 raw_start_stop();
                 break;
+            
+            case RAW_PRE_RECORDING:
+            {
+                if (rec_trigger) {
+                    /* use the external trigger for pre-recording */
+                    raw_start_stop();
+                } else {
+                    /* use REC key to trigger pre-recording */
+                    pre_record_triggered = 1;
+                }
+                break;
+            }
         }
         return 0;
+    }
+
+    /* half-shutter trigger keys */
+    if (RAW_IS_RECORDING)
+    {
+        if (key == MODULE_KEY_PRESS_HALFSHUTTER)
+        {
+            switch (rec_trigger)
+            {
+                case REC_TRIGGER_HALFSHUTTER_START_STOP:
+                {
+                    pre_record_triggered = !pre_record_triggered;
+                    break;
+                }
+
+                case REC_TRIGGER_HALFSHUTTER_HOLD:
+                case REC_TRIGGER_HALFSHUTTER_PRE_ONLY:
+                {
+                    pre_record_triggered = 1;
+                    break;
+                }
+            }
+        }
+        
+        if (key == MODULE_KEY_UNPRESS_HALFSHUTTER)
+        {
+            switch (rec_trigger)
+            {
+                case REC_TRIGGER_HALFSHUTTER_HOLD:
+                    pre_record_triggered = 0;
+                    break;
+            }
+        }
     }
     
     /* panning (with arrow keys) */
@@ -2467,6 +2796,8 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(res_x_fine)    
     MODULE_CONFIG(aspect_ratio_index)
     MODULE_CONFIG(measured_write_speed)
+    MODULE_CONFIG(pre_record)
+    MODULE_CONFIG(rec_trigger)
     MODULE_CONFIG(dolly_mode)
     MODULE_CONFIG(preview_mode)
     MODULE_CONFIG(use_srm_memory)
