@@ -210,7 +210,8 @@ struct frame_slot
     enum {
         SLOT_FREE,          /* available for image capture */
         SLOT_RESERVED,      /* it may become available when resizing the previous slots */
-        SLOT_FULL,          /* contains image data (can be fully captured or in progress - test with frame_check_saved) */
+        SLOT_CAPTURING,     /* in progress */
+        SLOT_FULL,          /* contains fully captured image data */
         SLOT_WRITING        /* it's being saved to card */
     } status;
 };
@@ -1689,6 +1690,9 @@ static void FAST pre_record_discard_frame()
 
     for (int i = 0; i < total_slot_count; i++)
     {
+        /* at the moment of this call, there should be no slots in progress */
+        ASSERT(slots[i].status != SLOT_CAPTURING);
+
         /* first frame is "pre_record_first_frame" */
         if (slots[i].status == SLOT_FULL)
         {
@@ -1807,7 +1811,7 @@ static void frame_add_checks(int slot_index)
     *(volatile uint32_t*) after_frame = FRAME_SENTINEL; /* this shalt not be overwritten */
 }
 
-static void frame_mark_complete(int slot_index)
+static void frame_fake_edmac_check(int slot_index)
 {
     void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
     uint32_t edmac_size = (slots[slot_index].payload_size + 3) & ~3;
@@ -1884,6 +1888,9 @@ static void compress_task()
         int slot_index = msg & 0xFFFF;
         int fullsize_index = msg >> 16;
 
+        /* we must receive a slot marked as "capturing in progress */
+        ASSERT(slots[slot_index].status == SLOT_CAPTURING);
+
         void* out_ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
         void* fullSizeBuffer = fullsize_buffers[fullsize_index];
 
@@ -1899,7 +1906,9 @@ static void compress_task()
             
             /* resize frame slots on the fly, to compressed size */
             shrink_slot(slot_index, compressed_size);
-            frame_mark_complete(slot_index);
+            
+            /* our old EDMAC check assumes frame sizes known in advance - not the case here */
+            frame_fake_edmac_check(slot_index);
         }
         else
         {
@@ -1912,6 +1921,9 @@ static void compress_task()
                 &edmac_cbr_r, &edmac_cbr_w, NULL
             );
         }
+        
+        /* mark it as completed */
+        slots[slot_index].status = SLOT_FULL;
     }
 
     /* exclusive edmac access no longer needed */
@@ -1959,7 +1971,7 @@ static void FAST process_frame()
     {
         /* okay */
         slots[capture_slot].frame_number = frame_count;
-        slots[capture_slot].status = SLOT_FULL;
+        slots[capture_slot].status = SLOT_CAPTURING;
         frame_add_checks(capture_slot);
 
         if (raw_recording_state == RAW_PRE_RECORDING)
@@ -2404,17 +2416,13 @@ static void raw_video_rec_task()
             continue;
         }
 
-        /* race condition with compress_task */
-        uint32_t old_int = cli();
-
         int first_slot = writing_queue[w_head];
 
         /* check whether the first frame was filled by EDMAC (it may be sent in advance) */
         /* we need at least one valid frame */
         
-        if (frame_check_saved(first_slot) == 0)
+        if (slots[first_slot].status != SLOT_FULL)
         {
-            sei(old_int);
             msleep(20);
             continue;
         }
@@ -2427,7 +2435,7 @@ static void raw_video_rec_task()
         {
             int slot_index = writing_queue[i];
 
-            if (frame_check_saved(slot_index) == 0)
+            if (slots[slot_index].status != SLOT_FULL)
             {
                 /* frame not yet ready - stop here */
                 ASSERT(i != w_head);
@@ -2452,8 +2460,6 @@ static void raw_video_rec_task()
             
             group_size += slots[slot_index].size;
         }
-
-        sei(old_int);
 
         /* grouped frames from w_head to last_grouped (including both ends) */
         int num_frames = MOD(last_grouped - w_head + 1, COUNT(writing_queue));
