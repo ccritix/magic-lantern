@@ -44,6 +44,7 @@
 
 #define DEBUG_REDRAW_INTERVAL 1000   /* normally 1000; low values like 50 will reduce write speed a lot! */
 #undef DEBUG_BUFFERING_GRAPH      /* some funky graphs */
+static int show_graph = 0;
 
 #include <module.h>
 #include <dryos.h>
@@ -68,6 +69,7 @@
 #include "../trace/trace.h"
 #include "powersave.h"
 #include "shoot.h"
+#include "../silent/lossless.h"
 
 /* from mlv_play module */
 extern WEAK_FUNC(ret_0) void mlv_play_file(char *filename);
@@ -111,7 +113,9 @@ CONFIG_INT("raw.video.enabled", raw_video_enabled, 0);
 static CONFIG_INT("raw.res_x", resolution_index_x, 4);
 static CONFIG_INT("raw.res_x_fine", res_x_fine, 0);
 static CONFIG_INT("raw.aspect.ratio", aspect_ratio_index, 10);
+
 static CONFIG_INT("raw.write.speed", measured_write_speed, 0);
+static CONFIG_INT("raw.avg_compress_ratio", avg_compression_ratio, 0);
 
 static CONFIG_INT("raw.pre-record", pre_record, 0);
 static int pre_record_triggered = 0;    /* becomes 1 once you press REC twice */
@@ -139,16 +143,22 @@ static CONFIG_INT("raw.small.hacks", small_hacks, 1);
 
 static CONFIG_INT("raw.h264.proxy", h264_proxy, 0);
 
-static CONFIG_INT("raw.bppi", bpp_index, 2);
-#define BPP (10 + 2*bpp_index)
+static CONFIG_INT("raw.output_format", output_format, 3);
+#define OUTPUT_14BIT_NATIVE 0
+#define OUTPUT_12BIT_UNCOMPRESSED 1
+#define OUTPUT_10BIT_UNCOMPRESSED 2
+#define OUTPUT_14BIT_LOSSLESS 3
+#define OUTPUT_12BIT_LOSSLESS 4
+#define OUTPUT_10BIT_LOSSLESS 5
+#define OUTPUT_COMPRESSION (output_format/3)
+
+#define BPP (14 - 2*(output_format%3))
 
 /* Recording Status Indicator Options */
 #define INDICATOR_OFF        0
 #define INDICATOR_IN_LVINFO  1
 #define INDICATOR_ON_SCREEN  2
 #define INDICATOR_RAW_BUFFER 3
-
-static int show_graph = 0;
 
 /* auto-choose the indicator style based on global draw settings */
 /* GD off: only "on screen" works, obviously */
@@ -161,8 +171,8 @@ static int res_y = 0;
 static int max_res_x = 0;
 static int max_res_y = 0;
 static float squeeze_factor = 0;
-static int frame_size = 0;
-static int frame_size_real = 0;
+static int max_frame_size = 0;
+static int frame_size_uncompressed = 0;
 static int skip_x = 0;
 static int skip_y = 0;
 
@@ -191,9 +201,18 @@ static int raw_previewing = 0;
 /* one video frame */
 struct frame_slot
 {
-    void* ptr;          /* image data, size=frame_size */
+    void* ptr;          /* image data */
+    int size;           /* total size, including overheads (VIDF, padding);
+                           max_frame_size for uncompressed data, lower for compressed */
+    int payload_size;   /* size effectively used by image data */
     int frame_number;   /* from 0 to n */
-    enum {SLOT_FREE, SLOT_FULL, SLOT_WRITING} status;
+    enum {
+        SLOT_FREE,          /* available for image capture */
+        SLOT_RESERVED,      /* it may become available when resizing the previous slots */
+        SLOT_CAPTURING,     /* in progress */
+        SLOT_FULL,          /* contains fully captured image data */
+        SLOT_WRITING        /* it's being saved to card */
+    } status;
 };
 
 static struct memSuite * shoot_mem_suite = 0;     /* memory suite for our buffers */
@@ -203,8 +222,9 @@ static void * fullsize_buffers[2];                /* original image, before crop
 static int fullsize_buffer_pos = 0;               /* which of the full size buffers (double buffering) is currently in use */
 static int chunk_list[32];                        /* list of free memory chunk sizes, used for frame estimations */
 
-static struct frame_slot slots[511];              /* frame slots */
-static int slot_count = 0;                        /* how many frame slots we have */
+static struct frame_slot slots[1023];             /* frame slots */
+static int total_slot_count = 0;                  /* how many frame slots we have (including the reserved ones) */
+static int valid_slot_count = 0;                  /* total minus reserved */
 static int capture_slot = -1;                     /* in what slot are we capturing now (index) */
 static volatile int force_new_buffer = 0;         /* if some other task decides it's better to search for a new buffer */
 
@@ -232,6 +252,7 @@ static mlv_expo_hdr_t expo_hdr;
 static mlv_lens_hdr_t lens_hdr;
 static mlv_rtci_hdr_t rtci_hdr;
 static mlv_wbal_hdr_t wbal_hdr;
+static mlv_vidf_hdr_t vidf_hdr;
 static uint64_t mlv_start_timestamp = 0;
 uint32_t raw_rec_trace_ctx = TRACE_ERROR;
 
@@ -381,10 +402,10 @@ static void update_resolution_params()
     
     /* frame size without padding */
     /* must be multiple of 4 */
-    frame_size_real = res_x * res_y * BPP/8;
-    ASSERT(frame_size_real % 4 == 0);
+    frame_size_uncompressed = res_x * res_y * BPP/8;
+    ASSERT(frame_size_uncompressed % 4 == 0);
     
-    frame_size = frame_size_padded;
+    max_frame_size = frame_size_padded;
     
     update_cropping_offsets();
 }
@@ -441,14 +462,45 @@ static int count_available_slots()
 {
     int available_slots = 0;
     for (int i = 0; i < COUNT(chunk_list); i++)
-        available_slots += chunk_list[i] / frame_size;
+        available_slots += chunk_list[i] / max_frame_size;
     return available_slots;
+}
+
+static int get_avg_compression_ratio()
+{
+    if (OUTPUT_COMPRESSION == 0)
+    {
+        /* no compression (100%) */
+        return 100;
+    }
+
+    if (avg_compression_ratio)
+    {
+        /* we have a measurement from latest clip */
+        /* fixme: handle different bit depths */
+        return avg_compression_ratio;
+    }
+
+    /* reasonable defaults */
+    switch (output_format)
+    {
+        case OUTPUT_14BIT_LOSSLESS:
+            return 60;
+        case OUTPUT_12BIT_LOSSLESS:
+            return 52;
+        case OUTPUT_10BIT_LOSSLESS:
+            return 48;
+    }
+    
+    /* should be unreachable */
+    ASSERT(0);
+    return 0;
 }
 
 static int predict_frames(int write_speed, int available_slots)
 {
     int fps = fps_get_current_x1000();
-    int capture_speed = frame_size / 1000 * fps;
+    int capture_speed = max_frame_size / 1000 * fps / 100 * get_avg_compression_ratio();
     int buffer_fill_speed = capture_speed - write_speed;
     if (buffer_fill_speed <= 0)
         return INT_MAX;
@@ -458,7 +510,7 @@ static int predict_frames(int write_speed, int available_slots)
         available_slots = count_available_slots();
     }
     
-    float buffer_fill_time = available_slots * frame_size / (float) buffer_fill_speed;
+    float buffer_fill_time = available_slots * max_frame_size / (float) buffer_fill_speed;
     int frames = buffer_fill_time * fps / 1000;
     return frames;
 }
@@ -496,11 +548,12 @@ static char* guess_how_many_frames()
 static MENU_UPDATE_FUNC(write_speed_update)
 {
     int fps = fps_get_current_x1000();
-    int speed = (res_x * res_y * BPP/8 / 1024) * fps / 10 / 1024;
+    int speed = (res_x * res_y * BPP/8 / 1024) * fps / 1024
+        * get_avg_compression_ratio() / 100 / 10;
     int ok = speed < measured_write_speed;
     speed /= 10;
 
-    if (frame_size % 512)
+    if (max_frame_size % 512)
     {
         MENU_SET_WARNING(MENU_WARN_ADVICE, "Frame size not multiple of 512 bytes!");
     }
@@ -690,6 +743,24 @@ static MENU_UPDATE_FUNC(aspect_ratio_update)
     write_speed_update(entry, info);
 }
 
+static MENU_UPDATE_FUNC(output_format_update)
+{
+    switch (output_format)
+    {
+        case OUTPUT_14BIT_NATIVE:
+            break;
+        case OUTPUT_12BIT_UNCOMPRESSED:
+            MENU_SET_RINFO("85%%");
+            break;
+        case OUTPUT_10BIT_UNCOMPRESSED:
+            MENU_SET_RINFO("70%%");
+            break;
+        default:
+            MENU_SET_RINFO("~%d%%", get_avg_compression_ratio());
+            break;
+    }
+}
+
 static int pre_record_calc_max_frames(int slot_count)
 {
     /* reserve at least 10 frames for buffering 
@@ -754,11 +825,26 @@ static MENU_UPDATE_FUNC(pre_recording_update)
     }
 }
 
+static void add_reserved_slots(void * ptr, int n)
+{
+    /* each group has some additional (empty) slots,
+     * to be used when frames are compressed
+     * (we don't know the compressed size in advance,
+     * so we'll resize them on the fly) */
+    for (int i = 0; i < n && total_slot_count < COUNT(slots); i++)
+    {
+        slots[total_slot_count].ptr = ptr;
+        slots[total_slot_count].size = 0;
+        slots[total_slot_count].status = SLOT_RESERVED;
+        total_slot_count++;
+    }
+}
+
 static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
 {
     if(mem_suite)
     {
-        /* use all chunks larger than frame_size for recording */
+        /* use all chunks larger than max_frame_size for recording */
         struct memChunk * chunk = GetFirstChunkFromSuite(mem_suite);
         while(chunk)
         {
@@ -789,39 +875,35 @@ static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
 
             /* fit as many frames as we can */
             int group_size = 0;
-            while (size >= frame_size && slot_count < COUNT(slots))
+            while (size >= max_frame_size && total_slot_count < COUNT(slots))
             {
-                mlv_vidf_hdr_t* vidf_hdr = (mlv_vidf_hdr_t*) ptr;
-                memset(vidf_hdr, 0, sizeof(mlv_vidf_hdr_t));
-                mlv_set_type((mlv_hdr_t*)vidf_hdr, "VIDF");
-                vidf_hdr->blockSize  = frame_size;
-                vidf_hdr->frameSpace = VIDF_HDR_SIZE - sizeof(mlv_vidf_hdr_t);
-                vidf_hdr->cropPosX   = (skip_x + 7) & ~7;
-                vidf_hdr->cropPosY   = skip_y & ~1;
-                vidf_hdr->panPosX    = skip_x;
-                vidf_hdr->panPosY    = skip_y;
-                
-                slots[slot_count].ptr = (void*) ptr;
-                slots[slot_count].status = SLOT_FREE;
-                ptr += frame_size;
-                size -= frame_size;
-                group_size += frame_size;
-                slot_count++;
-                printf("slot #%d: %x\n", slot_count, ptr);
+                slots[total_slot_count].ptr = (void*) ptr;
+                slots[total_slot_count].size = max_frame_size;
+                slots[total_slot_count].payload_size = frame_size_uncompressed;
+                slots[total_slot_count].status = SLOT_FREE;
+                ptr += max_frame_size;
+                size -= max_frame_size;
+                group_size += max_frame_size;
+                total_slot_count++;
+                valid_slot_count++;
+                //printf("slot #%d: %x\n", total_slot_count, ptr);
 
                 /* split the group at 32M-512K */
                 /* (after this number, write speed decreases) */
                 /* (CFDMA can write up to FFFF sectors at once) */
                 /* (FFFE just in case) */
-                if (group_size + frame_size > 0xFFFE * 512)
+                if (group_size + max_frame_size > 0xFFFE * 512)
                 {
                     /* insert a small gap to split the group here */
+                    add_reserved_slots((void*)ptr, group_size / max_frame_size);
                     ptr += 64;
                     size -= 64;
                     group_size = 0;
                 }
             }
         
+            add_reserved_slots((void*)ptr, group_size / max_frame_size);
+            
         next:
             /* next chunk */
             chunk = GetNextMemoryChunk(mem_suite, chunk);
@@ -867,7 +949,7 @@ static int setup_buffers()
     chunk_index = add_mem_suite(srm_mem_suite, chunk_index);
   
     /* we need at least 3 slots */
-    if (slot_count < 3)
+    if (valid_slot_count < 3)
     {
         return 0;
     }
@@ -879,8 +961,8 @@ static int setup_buffers()
     if (pre_record || rec_trigger)
     {
         /* how much should we pre-record? */
-        int max_frames = pre_record_calc_max_frames(slot_count);
-        pre_record_num_frames = pre_record_calc_num_frames(slot_count, max_frames);
+        int max_frames = pre_record_calc_max_frames(valid_slot_count);
+        pre_record_num_frames = pre_record_calc_num_frames(valid_slot_count, max_frames);
         printf("Pre-rec: %d frames (max %d)\n", pre_record_num_frames, max_frames);
     }
     
@@ -897,10 +979,10 @@ static void free_buffers()
     fullsize_buffers[0] = 0;
 }
 
-static int get_free_slots()
+static int count_free_slots()
 {
     int free_slots = 0;
-    for (int i = 0; i < slot_count; i++)
+    for (int i = 0; i < total_slot_count; i++)
         if (slots[i].status == SLOT_FREE)
             free_slots++;
     return free_slots;
@@ -913,35 +995,47 @@ static void show_buffer_status()
 {
     if (!liveview_display_idle()) return;
     
-    int scale = MAX(1, (300 / slot_count + 1) & ~1);
-    int x = BUFFER_DISPLAY_X;
-    int y = BUFFER_DISPLAY_Y;
-    for (int i = 0; i < slot_count; i++)
-    {
-        if (i > 0 && slots[i].ptr != slots[i-1].ptr + frame_size)
-            x += MAX(2, scale);
+    int y = BUFFER_DISPLAY_Y + 50;
+    uint32_t chunk_start = (uint32_t) slots[0].ptr;
 
-        int color = slots[i].status == SLOT_FREE    ? COLOR_BLACK :
-                    slots[i].status == SLOT_WRITING ? COLOR_GREEN1 :
-                    slots[i].status == SLOT_FULL    ? COLOR_LIGHT_BLUE :
-                                                      COLOR_RED ;
-        for (int k = 0; k < scale; k++)
+    for (int i = 0; i < total_slot_count; i++)
+    {
+        if (i > 0 && slots[i].ptr != slots[i-1].ptr + slots[i-1].size)
         {
-            draw_line(x, y+5, x, y+17, color);
-            x++;
+            /* new chunk */
+            chunk_start = (uint32_t) slots[i].ptr;
+            y += 10;
+            if (y > 400) return;
         }
-        
-        if (scale > 3)
-            x++;
+
+        int color = slots[i].status == SLOT_FREE      ? COLOR_GRAY(10) :
+                    slots[i].status == SLOT_WRITING   ? COLOR_GREEN1 :
+                    slots[i].status == SLOT_FULL      ? COLOR_LIGHT_BLUE :
+                    slots[i].status == SLOT_RESERVED  ? COLOR_GRAY(50) :
+                                                        COLOR_RED ;
+
+        uint32_t x1 = (uint32_t) slots[i].ptr - chunk_start;
+        uint32_t x2 = x1 + slots[i].size;
+        x1 = 650 * (x1/1024) / (32*1024) + BUFFER_DISPLAY_X;
+        x2 = 650 * (x2/1024) / (32*1024) + BUFFER_DISPLAY_X;
+        x1 = COERCE(x1, 0, 720);
+        x2 = COERCE(x2, 0, 720);
+
+        for (uint32_t x = x1; x < x2; x++)
+        {
+            draw_line(x, y, x, y+7, color);
+        }
+        draw_line(x1, y, x1, y+7, COLOR_BLACK);
+        draw_line(x2, y, x2, y+7, COLOR_BLACK);
     }
 
 #ifdef DEBUG_BUFFERING_GRAPH
     {
-        int free = get_free_slots();
+        int free = count_free_slots();
         int x = frame_count % 720;
         int ymin = 120;
         int ymax = 400;
-        int y = ymin + free * (ymax - ymin) / slot_count;
+        int y = ymin + free * (ymax - ymin) / valid_slot_count;
         fill_circle(x, y, 3, COLOR_BLACK);
         static int prev_x = 0;
         static int prev_y = 0;
@@ -1094,14 +1188,14 @@ static void show_recording_status()
             show_buffer_status();
 
             if (predicted < 10000)
-                bmp_printf( FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), BUFFER_DISPLAY_X, BUFFER_DISPLAY_Y+22,
+                bmp_printf( FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), BUFFER_DISPLAY_X, BUFFER_DISPLAY_Y,
                     "%02d:%02d, %d frames / %d expected  ",
                     t/60, t%60,
                     frame_count,
                     predicted
                 );
             else
-                bmp_printf( FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), BUFFER_DISPLAY_X, BUFFER_DISPLAY_Y+22,
+                bmp_printf( FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), BUFFER_DISPLAY_X, BUFFER_DISPLAY_Y,
                     "%02d:%02d, %d frames, continuous OK  ",
                     t/60, t%60,
                     frame_count
@@ -1121,7 +1215,7 @@ static void show_recording_status()
                     if (idle_percent) { STR_APPEND(msg, ", %d%% idle", idle_percent); }
                     else { STR_APPEND(msg, ", %dms idle", idle_time); }
                 }
-                bmp_printf( FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), BUFFER_DISPLAY_X, BUFFER_DISPLAY_Y+22+font_med.height, "%s", msg);
+                bmp_printf( FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), BUFFER_DISPLAY_X, BUFFER_DISPLAY_Y+font_med.height, "%s", msg);
             }
         }
         else if (indicator_display == INDICATOR_ON_SCREEN)
@@ -1361,8 +1455,8 @@ static int FAST choose_next_capture_slot()
     /* O(1) */
     if (
         capture_slot >= 0 && 
-        capture_slot + 1 < slot_count && 
-        slots[capture_slot + 1].ptr == slots[capture_slot].ptr + frame_size && 
+        capture_slot + 1 < total_slot_count && 
+        slots[capture_slot + 1].ptr == slots[capture_slot].ptr + slots[capture_slot].size && 
         slots[capture_slot + 1].status == SLOT_FREE &&
         !force_new_buffer
        )
@@ -1370,19 +1464,21 @@ static int FAST choose_next_capture_slot()
 
     /* choose a new buffer? */
     /* choose the largest contiguous free section */
-    /* O(n), n = slot_count */
+    /* O(n), n = total_slot_count */
     int len = 0;
     void* prev_ptr = PTR_INVALID;
+    int prev_size = 0;
     int best_len = 0;
     int best_index = -1;
-    for (int i = 0; i < slot_count; i++)
+    for (int i = 0; i < total_slot_count; i++)
     {
         if (slots[i].status == SLOT_FREE)
         {
-            if (slots[i].ptr == prev_ptr + frame_size)
+            if (slots[i].ptr == prev_ptr + prev_size)
             {
                 len++;
                 prev_ptr = slots[i].ptr;
+                prev_size = slots[i].size;
                 if (len > best_len)
                 {
                     best_len = len;
@@ -1393,6 +1489,7 @@ static int FAST choose_next_capture_slot()
             {
                 len = 1;
                 prev_ptr = slots[i].ptr;
+                prev_size = slots[i].size;
                 if (len > best_len)
                 {
                     best_len = len;
@@ -1410,11 +1507,143 @@ static int FAST choose_next_capture_slot()
     /* fixme: */
     /* avoid 32MB writes, they are slower (they require two DMA calls) */
     /* go back a few K and the speed is restored */
-    //~ best_len = MIN(best_len, (32*1024*1024 - 8192) / frame_size);
+    //~ best_len = MIN(best_len, (32*1024*1024 - 8192) / max_frame_size);
     
     force_new_buffer = 0;
 
     return best_index;
+}
+
+static void shrink_slot(int slot_index, int new_frame_size)
+{
+    uint32_t old_int = cli();
+
+    int i = slot_index;
+
+    /* round to 512 multiples for file write speed - see frame_size_padded */
+    int new_size = (VIDF_HDR_SIZE + new_frame_size + 4 + 511) & ~511;
+    int old_size = slots[i].size;
+    int dif_size = old_size - new_size;
+    ASSERT(dif_size >= 0);
+
+    //printf("Shrink slot %d from %d to %d.\n", i, old_size, new_size);
+    
+    if (dif_size ==  0)
+    {
+        /* nothing to do */
+        return;
+    }
+
+    slots[i].size = new_size;
+    slots[i].payload_size = new_frame_size;
+    ((mlv_vidf_hdr_t*)slots[i].ptr)->blockSize
+        = slots[i].size;
+
+    int linked =
+        (i+1 < COUNT(slots)) &&
+        (slots[i+1].status == SLOT_FREE || slots[i+1].status == SLOT_RESERVED) &&
+        (slots[i+1].ptr == slots[i].ptr + old_size);
+
+    if (linked)
+    {
+        /* adjust the next slot from the same chunk (increase its size) */
+        slots[i+1].ptr  -= dif_size;
+        slots[i+1].size += dif_size;
+        
+        /* if it's big enough, mark it as available */
+        if (slots[i+1].size >= max_frame_size)
+        {
+            if (slots[i+1].status == SLOT_RESERVED)
+            {
+                //printf("Slot %d becomes available (%d >= %d).\n", i, slots[i+1].size, max_frame_size);
+                slots[i+1].status = SLOT_FREE;
+                valid_slot_count++;
+            }
+            else
+            {
+                /* existing free slots will get shifted, without changing their size */
+                ASSERT(slots[i+1].size - dif_size == max_frame_size);
+                ASSERT(slots[i+1].status == SLOT_FREE);
+            }
+            shrink_slot(i+1, frame_size_uncompressed);
+            ASSERT(slots[i+1].size == max_frame_size);
+        }
+    }
+
+    sei(old_int);
+}
+
+static void free_slot(int slot_index)
+{
+    int i = slot_index;
+
+    slots[i].status = SLOT_RESERVED;
+    
+    if (slots[i].size == max_frame_size)
+    {
+        slots[i].status = SLOT_FREE;
+        valid_slot_count++;
+        return;
+    }
+
+    ASSERT(slots[i].size < max_frame_size);
+
+    /* re-allocate all reserved slots from this chunk to full frames */
+    /* the remaining reserved slots will be moved at the end */
+
+    /* this is called from both vsync and raw_rec_task */
+    uint32_t old_int = cli();
+
+    /* find first slot from this chunk */
+    while ((i-1 >= 0) &&
+           (slots[i-1].status == SLOT_FREE || slots[i-1].status == SLOT_RESERVED) &&
+           (slots[i].ptr == slots[i-1].ptr + slots[i-1].size))
+    {
+        i--;
+    }
+    int start = i;
+
+    /* find last slot from this chunk */
+    i = slot_index;
+    while ((i+1 < COUNT(slots)) &&
+           (slots[i+1].status == SLOT_FREE || slots[i+1].status == SLOT_RESERVED) &&
+           (slots[i+1].ptr == slots[i].ptr + slots[i].size))
+    {
+        i++;
+    }
+    int end = i;
+
+    //printf("Reallocating slots %d...%d.\n", start, end);
+    void * start_ptr = slots[start].ptr;
+    void * end_ptr = slots[end].ptr + slots[end].size;
+    void * ptr = start_ptr;
+    for (i = start; i <= end; i++)
+    {
+        slots[i].ptr = ptr;
+        
+        if (slots[i].status == SLOT_FREE)
+        {
+            valid_slot_count--;
+        }
+
+        if (ptr + max_frame_size <= end_ptr)
+        {
+            slots[i].status = SLOT_FREE;
+            slots[i].size = max_frame_size;
+            valid_slot_count++;
+        }
+        else
+        {
+            /* first reserved slot will have non-zero size */
+            /* all others 0 */
+            slots[i].status = SLOT_RESERVED;
+            slots[i].size = end_ptr - ptr;
+            ASSERT(slots[i].size < max_frame_size);
+        }
+        ptr += slots[i].size;
+    }
+
+    sei(old_int);
 }
 
 static void FAST pre_record_discard_frame()
@@ -1423,14 +1652,17 @@ static void FAST pre_record_discard_frame()
     /* also adjust frame_count so all frames start from 1,
      * just like the rest of the code assumes */
 
-    for (int i = 0; i < slot_count; i++)
+    for (int i = 0; i < total_slot_count; i++)
     {
+        /* at the moment of this call, there should be no slots in progress */
+        ASSERT(slots[i].status != SLOT_CAPTURING);
+
         /* first frame is "pre_record_first_frame" */
         if (slots[i].status == SLOT_FULL)
         {
             if (slots[i].frame_number == pre_record_first_frame)
             {
-                slots[i].status = SLOT_FREE;
+                free_slot(i);
                 frame_count--;
             }
             else if (slots[i].frame_number > pre_record_first_frame)
@@ -1457,18 +1689,18 @@ static void FAST pre_record_queue_frames()
          * so this loop will not run every time */
         while (slots[i].status != SLOT_FULL || slots[i].frame_number != current_frame)
         {
-            INC_MOD(i, slot_count);
+            INC_MOD(i, total_slot_count);
         }
         
         writing_queue[writing_queue_tail] = i;
         INC_MOD(writing_queue_tail, COUNT(writing_queue));
-        INC_MOD(i, slot_count);
+        INC_MOD(i, total_slot_count);
     }
 }
 
 static void pre_record_discard_frame_if_no_free_slots()
 {
-    for (int i = 0; i < slot_count; i++)
+    for (int i = 0; i < total_slot_count; i++)
     {
         if (slots[i].status == SLOT_FREE)
         {
@@ -1536,17 +1768,27 @@ static void FAST pre_record_vsync_step()
 static void frame_add_checks(int slot_index)
 {
     void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
-    uint32_t* frame_end = ptr + frame_size_real - 4;
-    uint32_t* after_frame = ptr + frame_size_real;
+    uint32_t edmac_size = (slots[slot_index].payload_size + 3) & ~3;
+    uint32_t* frame_end = ptr + edmac_size - 4;
+    uint32_t* after_frame = ptr + edmac_size;
     *(volatile uint32_t*) frame_end = FRAME_SENTINEL; /* this will be overwritten by EDMAC */
     *(volatile uint32_t*) after_frame = FRAME_SENTINEL; /* this shalt not be overwritten */
+}
+
+static void frame_fake_edmac_check(int slot_index)
+{
+    void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
+    uint32_t edmac_size = (slots[slot_index].payload_size + 3) & ~3;
+    uint32_t* after_frame = ptr + edmac_size;
+    *(volatile uint32_t*) after_frame = FRAME_SENTINEL;
 }
 
 static int frame_check_saved(int slot_index)
 {
     void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
-    uint32_t* frame_end = ptr + frame_size_real - 4;
-    uint32_t* after_frame = ptr + frame_size_real;
+    uint32_t edmac_size = (slots[slot_index].payload_size + 3) & ~3;
+    uint32_t* frame_end = ptr + edmac_size - 4;
+    uint32_t* after_frame = ptr + edmac_size;
     if (*(volatile uint32_t*) after_frame != FRAME_SENTINEL)
     {
         /* EDMAC overflow */
@@ -1571,6 +1813,91 @@ static void edmac_cbr_w(void *ctx)
 {
     edmac_active = 0;
     edmac_copy_rectangle_adv_cleanup();
+}
+
+static struct msg_queue * compress_mq = 0;
+
+static void compress_task()
+{
+    if (!compress_mq)
+    {
+        compress_mq = msg_queue_create("compress_mq", 1);
+        ASSERT(compress_mq);
+    }
+
+    /* get exclusive access to our edmac channels */
+    if (OUTPUT_COMPRESSION == 0)
+    {
+        edmac_memcpy_res_lock();
+        printf("EDMAC copy resources locked.\n");
+    }
+
+    /* fixme: setting size 0x41a100, 0x41a200 or nearby value results in lockup, why?! */
+    /* fixme: will overflow if the input data is not a valid image */
+    struct memSuite * outSuite = CreateMemorySuite(0, 32*1024*1024, 0);
+    struct memChunk * outChunk = GetFirstChunkFromSuite(outSuite);
+
+    /* run as long as the main recorder task requires it */
+    while (1)
+    {
+        uint32_t msg;
+        msg_queue_receive(compress_mq, (struct event**)&msg, 0);
+
+        if (msg == 0xFFFFFFFF)
+        {
+            /* request to stop */
+            break;
+        }
+
+        int slot_index = msg & 0xFFFF;
+        int fullsize_index = msg >> 16;
+
+        /* we must receive a slot marked as "capturing in progress */
+        ASSERT(slots[slot_index].status == SLOT_CAPTURING);
+
+        void* out_ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
+        void* fullSizeBuffer = fullsize_buffers[fullsize_index];
+
+        if (OUTPUT_COMPRESSION)
+        {
+            outChunk->memory_address = out_ptr;
+            int compressed_size = lossless_compress_raw_rectangle(
+                outSuite, fullSizeBuffer,
+                raw_info.width, skip_x, skip_y,
+                res_x, res_y
+            );
+            ASSERT(compressed_size < max_frame_size);
+            
+            /* resize frame slots on the fly, to compressed size */
+            shrink_slot(slot_index, compressed_size);
+            
+            /* our old EDMAC check assumes frame sizes known in advance - not the case here */
+            frame_fake_edmac_check(slot_index);
+        }
+        else
+        {
+            edmac_active = 1;
+            edmac_copy_rectangle_cbr_start(
+                (void*)out_ptr, fullSizeBuffer,
+                raw_info.pitch,
+                (skip_x+7)/8*BPP, skip_y/2*2,
+                res_x*BPP/8, 0, 0, res_x*BPP/8, res_y,
+                &edmac_cbr_r, &edmac_cbr_w, NULL
+            );
+        }
+        
+        /* mark it as completed */
+        slots[slot_index].status = SLOT_FULL;
+    }
+
+    /* exclusive edmac access no longer needed */
+    if (OUTPUT_COMPRESSION == 0)
+    {
+        edmac_memcpy_res_unlock();
+        printf("EDMAC copy resources unlocked.\n");
+    }
+
+    DeleteMemorySuite(outSuite);
 }
 
 static void FAST process_frame()
@@ -1608,7 +1935,7 @@ static void FAST process_frame()
     {
         /* okay */
         slots[capture_slot].frame_number = frame_count;
-        slots[capture_slot].status = SLOT_FULL;
+        slots[capture_slot].status = SLOT_CAPTURING;
         frame_add_checks(capture_slot);
 
         if (raw_recording_state == RAW_PRE_RECORDING)
@@ -1619,7 +1946,7 @@ static void FAST process_frame()
         else
         {
             /* send it for saving, even if it isn't done yet */
-            /* it's quite unlikely that FIO DMA will be faster than EDMAC */
+            /* (the recording thread will wait until it's done) */
             writing_queue[writing_queue_tail] = capture_slot;
             INC_MOD(writing_queue_tail, COUNT(writing_queue));
         }
@@ -1631,30 +1958,25 @@ static void FAST process_frame()
         return;
     }
 
-    /* copy current frame to our buffer and crop it to its final size */
-    mlv_vidf_hdr_t* vidf_hdr = (mlv_vidf_hdr_t*)slots[capture_slot].ptr;
-    vidf_hdr->frameNumber = slots[capture_slot].frame_number - 1;
-    mlv_set_timestamp((mlv_hdr_t*)vidf_hdr, mlv_start_timestamp);
-    vidf_hdr->cropPosX = (skip_x + 7) & ~7;
-    vidf_hdr->cropPosY = skip_y & ~1;
-    vidf_hdr->panPosX = skip_x;
-    vidf_hdr->panPosY = skip_y;
-    void* ptr = slots[capture_slot].ptr + VIDF_HDR_SIZE;
-    void* fullSizeBuffer = fullsize_buffers[(fullsize_buffer_pos+1) % 2];
+    /* set VIDF metadata for this frame */
+    vidf_hdr.frameNumber = slots[capture_slot].frame_number - 1;
+    mlv_set_timestamp((mlv_hdr_t*)&vidf_hdr, mlv_start_timestamp);
+    vidf_hdr.cropPosX = (skip_x + 7) & ~7;
+    vidf_hdr.cropPosY = skip_y & ~1;
+    vidf_hdr.panPosX = skip_x;
+    vidf_hdr.panPosY = skip_y;
+    *(mlv_vidf_hdr_t*)(slots[capture_slot].ptr) = vidf_hdr;
 
     /* advance to next buffer for the upcoming capture */
     fullsize_buffer_pos = (fullsize_buffer_pos + 1) % 2;
 
     //~ printf("saving frame %d: slot %d ptr %x\n", frame_count, capture_slot, ptr);
 
-    edmac_active = 1;
-    edmac_copy_rectangle_cbr_start(
-        ptr, fullSizeBuffer,
-        raw_info.pitch,
-        (skip_x+7)/8*BPP, skip_y/2*2,
-        res_x*BPP/8, 0, 0, res_x*BPP/8, res_y,
-        &edmac_cbr_r, &edmac_cbr_w, NULL
-    );
+    /* copy current frame to our buffer and crop it to its final size */
+    /* for some reason, compression cannot be started from vsync */
+    /* let's delegate it to another task */
+    ASSERT(compress_mq);
+    msg_queue_post(compress_mq, capture_slot | (fullsize_buffer_pos << 16));
 
     /* advance to next frame */
     frame_count++;
@@ -1746,7 +2068,8 @@ static void init_mlv_chunk_headers(struct raw_info * raw_info)
     file_hdr.fileNum = 0;
     file_hdr.fileCount = 0; //autodetect
     file_hdr.fileFlags = 4;
-    file_hdr.videoClass = 1;
+    file_hdr.videoClass = MLV_VIDEO_CLASS_RAW |
+        (OUTPUT_COMPRESSION ? MLV_VIDEO_CLASS_FLAG_LJ92 : 0);
     file_hdr.audioClass = 0;
     file_hdr.videoFrameCount = 0; //autodetect
     file_hdr.audioFrameCount = 0;
@@ -1783,6 +2106,12 @@ static void init_mlv_chunk_headers(struct raw_info * raw_info)
     mlv_fill_lens(&lens_hdr, mlv_start_timestamp);
     mlv_fill_rtci(&rtci_hdr, mlv_start_timestamp);
     mlv_fill_wbal(&wbal_hdr, mlv_start_timestamp);
+
+    /* init MLV header for each frame (VIDF) */
+    memset(&vidf_hdr, 0, sizeof(mlv_vidf_hdr_t));
+    mlv_set_type((mlv_hdr_t*)&vidf_hdr, "VIDF");
+    vidf_hdr.blockSize  = max_frame_size;
+    vidf_hdr.frameSpace = VIDF_HDR_SIZE - sizeof(mlv_vidf_hdr_t);
 }
 
 static int write_mlv_chunk_headers(FILE* f)
@@ -1823,15 +2152,12 @@ static void finish_chunk(FILE* f)
 }
 
 /* This saves a group of frames, also taking care of file splitting if required */
-static int write_frames(FILE** pf, void* ptr, int size_used, int num_frames)
+static int write_frames(FILE** pf, void* ptr, int group_size, int num_frames)
 {
-    /* note: num_frames can be computed as size_used / frame_size, but compressed frames are around the corner) */
-    ASSERT(num_frames == size_used / frame_size);
-
     FILE* f = *pf;
     
     /* if we know there's a 4GB file size limit and we're about to exceed it, go ahead and make a new chunk */
-    if (file_size_limit && written_chunk + size_used > 0xFFFFFFFF)
+    if (file_size_limit && written_chunk + group_size > 0xFFFFFFFF)
     {
         finish_chunk(f);
         chunk_filename = get_next_chunk_file_name(raw_movie_filename, ++mlv_chunk);
@@ -1862,15 +2188,15 @@ static int write_frames(FILE** pf, void* ptr, int size_used, int num_frames)
     int t0 = get_ms_clock_value();
     if (!last_write_timestamp) last_write_timestamp = t0;
     idle_time += t0 - last_write_timestamp;
-    int r = FIO_WriteFile(f, ptr, size_used);
+    int r = FIO_WriteFile(f, ptr, group_size);
     last_write_timestamp = get_ms_clock_value();
 
-    if (r != size_used) /* 4GB limit or card full? */
+    if (r != group_size) /* 4GB limit or card full? */
     {
         printf("Write error.\n");
         
         /* failed, but not at 4GB limit, card must be full */
-        if (written_chunk + size_used < 0xFFFFFFFF)
+        if (written_chunk + group_size < 0xFFFFFFFF)
         {
             printf("Failed before 4GB limit. Card full?\n");
             /* don't try and write the remaining frames, the card is full */
@@ -1905,13 +2231,13 @@ static int write_frames(FILE** pf, void* ptr, int size_used, int num_frames)
         written_chunk = write_mlv_chunk_headers(g);
         written_total += written_chunk;
         
-        int r2 = written_chunk ? FIO_WriteFile(g, ptr, size_used) : 0;
-        if (r2 == size_used) /* new chunk worked, continue with it */
+        int r2 = written_chunk ? FIO_WriteFile(g, ptr, group_size) : 0;
+        if (r2 == group_size) /* new chunk worked, continue with it */
         {
             printf("Success!\n");
             *pf = f = g;
-            written_total += size_used;
-            written_chunk += size_used;
+            written_total += group_size;
+            written_chunk += group_size;
             chunk_frame_count += num_frames;
         }
         else /* new chunk didn't work, card full */
@@ -1926,8 +2252,8 @@ static int write_frames(FILE** pf, void* ptr, int size_used, int num_frames)
     else
     {
         /* all fine */
-        written_total += size_used;
-        written_chunk += size_used;
+        written_total += group_size;
+        written_chunk += group_size;
         chunk_frame_count += num_frames;
     }
     
@@ -1950,7 +2276,8 @@ static void raw_video_rec_task()
     //~ console_show();
     /* init stuff */
     raw_recording_state = RAW_PREPARING;
-    slot_count = 0;
+    total_slot_count = 0;
+    valid_slot_count = 0;
     capture_slot = -1;
     fullsize_buffer_pos = 0;
     frame_count = 0;
@@ -1967,6 +2294,10 @@ static void raw_video_rec_task()
     /* note: rec_trigger is implemented via pre_recording */
     pre_record_triggered = !pre_record && !rec_trigger;
     pre_record_first_frame = 0;
+
+    uint32_t result = (uint32_t)
+        task_create("compress_task", 0x0F, 0x1000, compress_task, (void*)0);
+    ASSERT(!(result & 1));
 
     if (h264_proxy)
     {
@@ -2019,9 +2350,6 @@ static void raw_video_rec_task()
     hack_liveview(0);
     
     setup_bit_depth();
-    
-    /* get exclusive access to our edmac channels */
-    edmac_memcpy_res_lock();
 
     /* this will enable the vsync CBR and the other task(s) */
     raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
@@ -2063,9 +2391,9 @@ static void raw_video_rec_task()
         int first_slot = writing_queue[w_head];
 
         /* check whether the first frame was filled by EDMAC (it may be sent in advance) */
-        /* probably not needed */
-        int check = frame_check_saved(first_slot);
-        if (check == 0)
+        /* we need at least one valid frame */
+        
+        if (slots[first_slot].status != SLOT_FULL)
         {
             msleep(20);
             continue;
@@ -2074,23 +2402,41 @@ static void raw_video_rec_task()
         /* group items from the queue in a contiguous block - as many as we can */
         int last_grouped = w_head;
         
+        int group_size = 0;
         for (int i = w_head; i != w_tail; INC_MOD(i, COUNT(writing_queue)))
         {
             int slot_index = writing_queue[i];
-            int group_pos = MOD(i - w_head, COUNT(writing_queue));
+
+            if (slots[slot_index].status != SLOT_FULL)
+            {
+                /* frame not yet ready - stop here */
+                ASSERT(i != w_head);
+                break;
+            }
+
+            /* consistency checks */
+            ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockSize == (uint32_t) slots[slot_index].size);
+            ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->frameNumber == (uint32_t) slots[slot_index].frame_number - 1);
+
+            if (OUTPUT_COMPRESSION)
+            {
+                ASSERT(slots[slot_index].size < max_frame_size);
+            }
 
             /* TBH, I don't care if these are part of the same group or not,
              * as long as pointers are ordered correctly */
-            if (slots[slot_index].ptr == slots[first_slot].ptr + frame_size * group_pos)
+            if (slots[slot_index].ptr == slots[first_slot].ptr + group_size)
                 last_grouped = i;
             else
                 break;
+            
+            group_size += slots[slot_index].size;
         }
-        
+
         /* grouped frames from w_head to last_grouped (including both ends) */
         int num_frames = MOD(last_grouped - w_head + 1, COUNT(writing_queue));
         
-        int free_slots = get_free_slots();
+        int free_slots = count_free_slots();
         
         /* if we are about to overflow, save a smaller number of frames, so they can be freed quicker */
         if (measured_write_speed)
@@ -2100,7 +2446,8 @@ static void raw_video_rec_task()
             /* overflow time unit: 0.1 seconds */
             int overflow_time = free_slots * 1000 * 10 / fps;
             /* better underestimate write speed a little */
-            int frame_limit = overflow_time * 1024 / 10 * (measured_write_speed * 9 / 100) * 1024 / frame_size / 10;
+            int avg_frame_size = group_size / num_frames;
+            int frame_limit = overflow_time * 1024 / 10 * (measured_write_speed * 9 / 100) * 1024 / avg_frame_size / 10;
             if (frame_limit >= 0 && frame_limit < num_frames)
             {
                 //~ printf("careful, will overflow in %d.%d seconds, better write only %d frames\n", overflow_time/10, overflow_time%10, frame_limit);
@@ -2117,12 +2464,17 @@ static void raw_video_rec_task()
         }
 
         void* ptr = slots[first_slot].ptr;
-        int size_used = frame_size * num_frames;
 
         /* mark these frames as "writing" */
         for (int i = w_head; i != after_last_grouped; INC_MOD(i, COUNT(writing_queue)))
         {
             int slot_index = writing_queue[i];
+
+            if (OUTPUT_COMPRESSION)
+            {
+                ASSERT(slots[slot_index].size < max_frame_size);
+            }
+
             if (slots[slot_index].status != SLOT_FULL)
             {
                 bmp_printf(FONT_LARGE, 30, 70, "Slot check error");
@@ -2131,7 +2483,7 @@ static void raw_video_rec_task()
             slots[slot_index].status = SLOT_WRITING;
         }
 
-        if (!write_frames(&f, ptr, size_used, num_frames))
+        if (!write_frames(&f, ptr, group_size, num_frames))
         {
             goto abort;
         }
@@ -2169,7 +2521,7 @@ static void raw_video_rec_task()
             }
             last_processed_frame++;
 
-            slots[slot_index].status = SLOT_FREE;
+            free_slot(slot_index);
         }
         
         /* remove these frames from the queue */
@@ -2213,8 +2565,8 @@ abort_and_check_early_stop:
     /* wait until the other tasks calm down */
     msleep(500);
 
-    /* exclusive edmac access no longer needed */
-    edmac_memcpy_res_unlock();
+    /* end the compression task */
+    msg_queue_post(compress_mq, 0xFFFFFFFF);
 
     set_recording_custom(CUSTOM_RECORDING_NOT_RECORDING);
 
@@ -2249,14 +2601,18 @@ abort_and_check_early_stop:
         last_processed_frame++;
 
         slots[slot_index].status = SLOT_WRITING;
+        if (OUTPUT_COMPRESSION)
+        {
+            ASSERT(slots[slot_index].size < max_frame_size);
+        }
         if (indicator_display == INDICATOR_RAW_BUFFER) show_buffer_status();
-        if (!write_frames(&f, slots[slot_index].ptr, frame_size, 1))
+        if (!write_frames(&f, slots[slot_index].ptr, slots[slot_index].size, 1))
         {
             NotifyBox(5000, "Card Full");
             beep();
             break;
         }
-        slots[slot_index].status = SLOT_FREE;
+        free_slot(slot_index);
     }
 
     if (!written_total || !f)
@@ -2274,6 +2630,14 @@ cleanup:
     {
         FIO_RemoveFile(raw_movie_filename);
         raw_movie_filename = 0;
+    }
+
+    if (OUTPUT_COMPRESSION)
+    {
+        /* estimate compression ratio */
+        /* fixme: handle different compression levels */
+        avg_compression_ratio = written_total / frame_count
+            * 100 / (res_x * res_y * 14/8);
     }
 
     /* everything saved, we can unlock the buttons.
@@ -2371,10 +2735,25 @@ static struct menu_entry raw_video_menu[] =
                 .choices = aspect_ratio_choices,
             },
             {
-                .name = "Bit depth",
-                .priv = &bpp_index,
-                .max = 2,
-                .choices = CHOICES("10bpp", "12bpp", "14bpp"),
+                .name       = "Data format",
+                .priv       = &output_format,
+                .max        = 3,
+                .update     = output_format_update,
+                .choices    = CHOICES(
+                                "14-bit",
+                                "12-bit",
+                                "10-bit",
+                                "14-bit lossless",
+                                "12-bit lossless",
+                                "10-bit lossless",
+                              ),
+                .help       = "Choose the output format (bit depth, compression) for the raw stream:",
+                .help2      = "14-bit: native uncompressed format used in Canon firmware.\n"
+                              "12-bit: uncompressed, 2 LSB trimmed (nearly lossless on current sensor).\n"
+                              "10-bit: uncompressed, 4 LSB trimmed (small loss of detail in shadows).\n"
+                              "14-bit lossless: compressed with Canon's Lossless JPEG (about 55-65%).\n"
+                              "12-bit lossless: signal divided by 4 before compression (about 50-55%).\n"
+                              "10-bit lossless: signal divided by 16 before compression (about 45-50%).\n",
             },
             {
                 .name = "Preview",
@@ -2447,7 +2826,7 @@ static struct menu_entry raw_video_menu[] =
                 .advanced = 1,
             },
             {
-                .name = "Show buffer graph",
+                .name = "Show buffers",
                 .priv = &show_graph,
                 .max = 1,
                 .help = "Displays a graph of the current buffer usage and expected frames.",
@@ -2725,6 +3104,9 @@ static unsigned int raw_rec_init()
 
     menu_add("Movie", raw_video_menu, COUNT(raw_video_menu));
 
+    /* hack: force proper alignment in menu */
+    raw_video_menu->children->parent_menu->split_pos = 15;
+
     lvinfo_add_items (info_items, COUNT(info_items));
 
     /* some cards may like this */
@@ -2742,6 +3124,8 @@ static unsigned int raw_rec_init()
         }
         NotifyBoxHide();
     }
+
+    lossless_init();
 
     return 0;
 }
@@ -2769,6 +3153,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(res_x_fine)    
     MODULE_CONFIG(aspect_ratio_index)
     MODULE_CONFIG(measured_write_speed)
+    MODULE_CONFIG(avg_compression_ratio)
     MODULE_CONFIG(pre_record)
     MODULE_CONFIG(rec_trigger)
     MODULE_CONFIG(dolly_mode)
@@ -2776,6 +3161,6 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(use_srm_memory)
     MODULE_CONFIG(small_hacks)
     MODULE_CONFIG(warm_up)
-    MODULE_CONFIG(bpp_index)
+    MODULE_CONFIG(output_format)
     MODULE_CONFIG(h264_proxy)
 MODULE_CONFIGS_END()
