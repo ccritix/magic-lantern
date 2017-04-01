@@ -222,7 +222,7 @@ static void * fullsize_buffers[2];                /* original image, before crop
 static int fullsize_buffer_pos = 0;               /* which of the full size buffers (double buffering) is currently in use */
 static int chunk_list[32];                        /* list of free memory chunk sizes, used for frame estimations */
 
-static struct frame_slot slots[511];              /* frame slots */
+static struct frame_slot slots[1023];             /* frame slots */
 static int total_slot_count = 0;                  /* how many frame slots we have (including the reserved ones) */
 static int valid_slot_count = 0;                  /* total minus reserved */
 static int capture_slot = -1;                     /* in what slot are we capturing now (index) */
@@ -849,7 +849,7 @@ static void add_reserved_slots(void * ptr, int n)
      * to be used when frames are compressed
      * (we don't know the compressed size in advance,
      * so we'll resize them on the fly) */
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n && total_slot_count < COUNT(slots); i++)
     {
         slots[total_slot_count].ptr = ptr;
         slots[total_slot_count].size = 0;
