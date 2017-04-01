@@ -855,8 +855,9 @@ static int silent_pic_raw_prepare_buffers(struct memSuite * hSuite, int initial_
         int remain = size - used;
         //~ printf("remain: %x\n", remain);
 
-        /* the EDMAC might write a bit more than that, so we'll use a small safety margin */
-        if (remain < raw_info.frame_size * 129/128)
+        /* the EDMAC might write a bit more than that,
+         * so we'll use a small safety margin (2 extra lines) */
+        if (remain < raw_info.frame_size + 2 * raw_info.pitch)
         {
             /* move to next chunk */
             hChunk = GetNextMemoryChunk(hSuite, hChunk);
@@ -930,7 +931,7 @@ silent_pic_take_lv(int interactive)
         /* allocate only one frame in simple and slitscan modes */
         case SILENT_PIC_MODE_SIMPLE:
         case SILENT_PIC_MODE_SLITSCAN:
-            hSuite2 = shoot_malloc_suite_contig(raw_info.frame_size * 129/128);
+            hSuite1 = srm_malloc_suite(1);
             break;
     }
 
@@ -1129,8 +1130,8 @@ cleanup:
     sp_running = 0;
     sp_buffer_count = 0;
     if (hSuiteX) shoot_free_suite(hSuiteX);
-    if (hSuite2) shoot_free_suite(hSuite2);
     if (hSuite1) srm_free_suite(hSuite1);
+    if (hSuite2) shoot_free_suite(hSuite2);
     if (raw_flag) raw_lv_release();
     return ok;
 }
@@ -1347,7 +1348,7 @@ silent_pic_take_fullres(int interactive)
         /* however this won't trigger ETTR & co (but you'll see a warning in the menu) */
         int old_gui_state = gui_state;
         gui_state = GUISTATE_QR;
-        int ok = raw_update_params();
+        ok = raw_update_params();
         gui_state = old_gui_state;
         if (!ok)
         {
