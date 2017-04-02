@@ -1,3 +1,5 @@
+-- Lua Shell
+-- Interactive Lua Shell
 
 require("keys")
 require("keyboard")
