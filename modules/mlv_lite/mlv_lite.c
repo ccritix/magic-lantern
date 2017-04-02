@@ -1578,7 +1578,8 @@ static void free_slot(int slot_index)
     int i = slot_index;
 
     slots[i].status = SLOT_RESERVED;
-    
+    valid_slot_count--;
+
     if (slots[i].size == max_frame_size)
     {
         slots[i].status = SLOT_FREE;
