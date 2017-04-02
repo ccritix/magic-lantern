@@ -1,4 +1,6 @@
--- a text editor
+-- Text Editor
+-- Edit text files or debug Lua scripts
+
 require("keys")
 require("keyboard")
 require("logger")
@@ -373,7 +375,7 @@ function filedialog:show()
     self:updatefiles()
     self:draw()
     local started = keys:start()
-    while true do
+    while menu.visible do
         local key = keys:getkey()
         if key ~= nil then
             -- process all keys in the queue (until getkey() returns nil), then redraw
@@ -520,12 +522,15 @@ editor.lines_per_page = (display.height - editor.title_height) // editor.font.he
 editor.scrollbar = scrollbar.create(editor.font.height,1,1,display.width - 2,editor.title_height,2)
 
 -- The main program loop
-function editor:run()
+function editor:run(filename)
     local status, error = xpcall(function()
         self.running = true
         menu.block(true)
         display.clear()
-        if self.first_run then
+        if filename then
+            self:open(filename)
+            self.menu_open = false
+        elseif self.first_run then
             self:new()
             self.first_run = false
         else
@@ -548,8 +553,7 @@ function editor:main_loop()
     self:draw()
     keys:start()
     local exit = false
-    while not exit do
-        if menu.visible == false then break end
+    while menu.visible and not exit do
         local key = keys:getkey()
         if key ~= nil then
             -- process all keys in the queue (until getkey() returns nil), then redraw
@@ -830,8 +834,10 @@ function editor:menu_enabled(m)
     end
 end
 
-function editor:open()
-    local f = self.filedialog:open()
+function editor:open(f)
+    if f == nil then
+        f = self.filedialog:open()
+    end
     if f ~= nil then
         self.filename = f
         self:update_title(false, true)
@@ -1312,4 +1318,4 @@ function handle_error(error)
     keys:anykey()
 end
 
-editor:run()
+editor:run(arg[1])

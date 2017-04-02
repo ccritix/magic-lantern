@@ -71,7 +71,7 @@ int get_free_space_32k(const struct card_info* card)
 
 
 static CONFIG_INT("card.test", card_test_enabled, 1);
-static CONFIG_INT("card.force_type", card_force_type, 0);
+static CONFIG_INT("card.force_type", card_force_type, 1);
 
 #ifndef CONFIG_INSTALLER
 #ifdef CONFIG_5D3
@@ -245,8 +245,12 @@ void _find_ml_card()
 PROP_HANDLER(PROP_CARD_SELECT)
 {
     int card_select = buf[0] - 1;
-    ASSERT(card_select >= 0 && card_select < 3)
-    SHOOTING_CARD = &available_cards[buf[0]-1];
+    if (card_select >= 0 && card_select < COUNT(available_cards))
+    {
+        SHOOTING_CARD = &available_cards[card_select];
+        return;
+    }
+    ASSERT(0);
 }
 
 PROP_HANDLER(PROP_CLUSTER_SIZE_A)
@@ -398,8 +402,8 @@ int FIO_CreateDirectory(const char * dirname)
 }
 
 #if defined(CONFIG_FIO_RENAMEFILE_WORKS)
-int _FIO_RenameFile(char *src,char *dst);
-int FIO_RenameFile(char *src,char *dst)
+int _FIO_RenameFile(const char * src, const char * dst);
+int FIO_RenameFile(const char * src, const char * dst)
 {
     char newSrc[FIO_MAX_PATH_LENGTH];
     char newDst[FIO_MAX_PATH_LENGTH];
@@ -408,7 +412,7 @@ int FIO_RenameFile(char *src,char *dst)
     return _FIO_RenameFile(newSrc, newDst);
 }
 #else
-int FIO_RenameFile(char* src, char* dst)
+int FIO_RenameFile(const char * src, const char * dst)
 {
     // FIO_RenameFile not known, or doesn't work
     // emulate it by copy + erase (poor man's rename :P )
@@ -515,7 +519,7 @@ FILE* FIO_CreateFileOrAppend(const char* name)
     return f;
 }
 
-int FIO_CopyFile(char *src,char *dst)
+int FIO_CopyFile(const char * src, const char * dst)
 {
     FILE* f = FIO_OpenFile(src, O_RDONLY | O_SYNC);
     if (!f) return -1;
@@ -554,7 +558,7 @@ int FIO_CopyFile(char *src,char *dst)
     return 0;
 }
 
-int FIO_MoveFile(char *src,char *dst)
+int FIO_MoveFile(const char * src, const char * dst)
 {
     int err = FIO_CopyFile(src,dst);
     if (!err)

@@ -732,8 +732,8 @@ int FAST module_exec_cbr(unsigned int type)
 #if !defined(BGMT_REC)
 #define BGMT_REC -1
 #endif
-#if !defined(BGMT_PRESS_ZOOMIN_MAYBE)
-#define BGMT_PRESS_ZOOMIN_MAYBE -1
+#if !defined(BGMT_PRESS_ZOOM_IN)
+#define BGMT_PRESS_ZOOM_IN -1
 #endif
 #if !defined(BGMT_LV)
 #define BGMT_LV -1
@@ -816,11 +816,9 @@ int module_translate_key(int key, int dest)
     MODULE_TRANSLATE_KEY(BGMT_INFO                 , MODULE_KEY_INFO                 , dest);
     MODULE_TRANSLATE_KEY(BGMT_PLAY                 , MODULE_KEY_PLAY                 , dest);
     MODULE_TRANSLATE_KEY(BGMT_TRASH                , MODULE_KEY_TRASH                , dest);
-    MODULE_TRANSLATE_KEY(BGMT_PRESS_DP             , MODULE_KEY_PRESS_DP             , dest);
-    MODULE_TRANSLATE_KEY(BGMT_UNPRESS_DP           , MODULE_KEY_UNPRESS_DP           , dest);
     MODULE_TRANSLATE_KEY(BGMT_RATE                 , MODULE_KEY_RATE                 , dest);
     MODULE_TRANSLATE_KEY(BGMT_REC                  , MODULE_KEY_REC                  , dest);
-    MODULE_TRANSLATE_KEY(BGMT_PRESS_ZOOMIN_MAYBE   , MODULE_KEY_PRESS_ZOOMIN         , dest);
+    MODULE_TRANSLATE_KEY(BGMT_PRESS_ZOOM_IN   , MODULE_KEY_PRESS_ZOOMIN         , dest);
     MODULE_TRANSLATE_KEY(BGMT_LV                   , MODULE_KEY_LV                   , dest);
     MODULE_TRANSLATE_KEY(BGMT_PICSTYLE             , MODULE_KEY_PICSTYLE             , dest);
     MODULE_TRANSLATE_KEY(BGMT_JOY_CENTER           , MODULE_KEY_JOY_CENTER           , dest);
@@ -842,6 +840,8 @@ int module_translate_key(int key, int dest)
     MODULE_TRANSLATE_KEY(BGMT_TOUCH_2_FINGER       , MODULE_KEY_TOUCH_2_FINGER       , dest);
     MODULE_TRANSLATE_KEY(BGMT_UNTOUCH_2_FINGER     , MODULE_KEY_UNTOUCH_2_FINGER     , dest);
     MODULE_TRANSLATE_KEY(BGMT_Q                    , MODULE_KEY_Q                    , dest);
+    MODULE_TRANSLATE_KEY(BGMT_PRESS_DP             , MODULE_KEY_PRESS_DP             , dest);
+    MODULE_TRANSLATE_KEY(BGMT_UNPRESS_DP           , MODULE_KEY_UNPRESS_DP           , dest);
     /* these are not simple key codes, so they will not work with MODULE_TRANSLATE_KEY */
     //~ MODULE_TRANSLATE_KEY(BGMT_PRESS_FLASH_MOVIE    , MODULE_KEY_PRESS_FLASH_MOVIE    , dest);
     //~ MODULE_TRANSLATE_KEY(BGMT_UNPRESS_FLASH_MOVIE  , MODULE_KEY_UNPRESS_FLASH_MOVIE  , dest);
@@ -890,33 +890,40 @@ int handle_module_keys(struct event * event)
         count = MAX(count, event->arg);
     }
     
-    while (count--)
+    for(int mod = 0; mod < MODULE_COUNT_MAX; mod++)
     {
-        for(int mod = 0; mod < MODULE_COUNT_MAX; mod++)
+        module_cbr_t *cbr = module_list[mod].cbr;
+        if(module_list[mod].valid && cbr)
         {
-            module_cbr_t *cbr = module_list[mod].cbr;
-            if(module_list[mod].valid && cbr)
+            while(cbr->name)
             {
-                while(cbr->name)
+                if(cbr->type == CBR_KEYPRESS)
                 {
-                    if(cbr->type == CBR_KEYPRESS)
+                    int pass_event = 1;
+                    /* one event may include multiple key presses - decompose it */
+                    for (int i = 0; i < count; i++)
                     {
-                        /* key got handled? */
-                        if(!cbr->handler(module_translate_key(event->param, MODULE_KEY_PORTABLE)))
-                        {
-                            return 0;
-                        }
+                        int portable_key = module_translate_key(event->param, MODULE_KEY_PORTABLE);
+                        pass_event &= cbr->handler(portable_key);
                     }
-                    if(cbr->type == CBR_KEYPRESS_RAW)
+                    if (!pass_event)
                     {
-                        /* key got handled? */
-                        if(!cbr->handler((int)event))
-                        {
-                            return 0;
-                        }
+                        /* key handled */
+                        return 0;
                     }
-                    cbr++;
                 }
+                if(cbr->type == CBR_KEYPRESS_RAW)
+                {
+                    /* raw event includes counter - let's pass it only once */
+                    int pass_event = cbr->handler((int)event);
+
+                    if (!pass_event)
+                    {
+                        /* key handled */
+                        return 0;
+                    }
+                }
+                cbr++;
             }
         }
     }
@@ -1134,7 +1141,7 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
                 int fg = COLOR_GRAY(40);
                 int bg = COLOR_BLACK;
                 int fnt = SHADOW_FONT(FONT(FONT_MED_LARGE, fg, bg));
-                bmp_printf(fnt | FONT_ALIGN_RIGHT | FONT_TEXT_WIDTH(320), 680, info->y+2, "%s", name);
+                bmp_printf(fnt | FONT_ALIGN_RIGHT | FONT_TEXT_WIDTH(340), 680, info->y+2, "%s", name);
             }
         }
     }
@@ -1432,7 +1439,6 @@ static struct menu_entry module_submenu[] = {
 
 #define MODULE_ENTRY(i) \
         { \
-            .name = "Module", \
             .priv = (void*)i, \
             .select = module_menu_update_select, \
             .select_Q = module_open_submenu, \

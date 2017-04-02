@@ -217,9 +217,12 @@ int round_shutter(int tv, int slowest_shutter)
     tv = MIN(tv, FASTEST_SHUTTER_SPEED_RAW);
 
     /* note: it's possible to get a valid shutter just by altering the requested value by 1 */
+    /* ... unless we hit some limits */
     tvr = MAX(tv    , slowest_shutter); if (expo_value_rounding_ok(tvr, 0)) return tvr;
     tvr = MAX(tv - 1, slowest_shutter); if (expo_value_rounding_ok(tvr, 0)) return tvr;
     tvr = MAX(tv + 1, slowest_shutter); if (expo_value_rounding_ok(tvr, 0)) return tvr;
+    tvr = MAX(tv - 2, slowest_shutter); if (expo_value_rounding_ok(tvr, 0)) return tvr;
+    tvr = MAX(tv + 2, slowest_shutter); if (expo_value_rounding_ok(tvr, 0)) return tvr;
     return 0;
 }
 
@@ -323,21 +326,67 @@ char* get_shootmode_name_short(int shooting_mode)
                                                 "?"  ;
 }
 
-int FAST get_ml_bottombar_pos()
+int FAST get_ml_topbar_pos()
 {
-    unsigned bottom = 480;
-    int screen_layout = get_screen_layout();
-    
-    if (screen_layout == SCREENLAYOUT_3_2_or_4_3) bottom = os.y_max;
-    else if (screen_layout == SCREENLAYOUT_16_9) bottom = os.y_max - os.off_169;
-    else if (screen_layout == SCREENLAYOUT_16_10) bottom = os.y_max - os.off_1610;
-    else if (screen_layout == SCREENLAYOUT_UNDER_3_2) bottom = MIN(os.y_max + 54, 480);
-    else if (screen_layout == SCREENLAYOUT_UNDER_16_9) bottom = MIN(os.y_max - os.off_169 + 54, 480);
+    const int bar_height = 32;
+    int bmp_ymax = (hdmi_code >= 5) ? 510 : 480;
 
     if (gui_menu_shown())
-        bottom = 480 + (hdmi_code == 5 ? 40 : 0); // force it at the bottom of menu
+    {
+        return (hdmi_code >= 5) ? 40 : 2; // force it at the top of menu
+    }
+    else
+    {
+        int screen_layout = get_screen_layout();
 
-    return bottom - 34;
+        switch (screen_layout)
+        {
+            case SCREENLAYOUT_16_9:
+                return os.y0 + os.off_169 + 2; // meters just below 16:9 border
+
+            case SCREENLAYOUT_16_10:
+                return os.y0 + os.off_1610 + 2; // meters just below 16:9 border
+
+            case SCREENLAYOUT_UNDER_3_2:
+                return MIN(os.y_max + 2, bmp_ymax - 2*bar_height);
+
+            case SCREENLAYOUT_UNDER_16_9:
+                return MIN(os.y_max - os.off_169 + 4, bmp_ymax - 2*bar_height);
+
+            default:
+                return os.y0 + 2; // just above the 16:9 frame
+        }
+    }
+}
+
+int FAST get_ml_bottombar_pos()
+{
+    const int bar_height = 32;
+
+    if (gui_menu_shown())
+    {
+        return 480 + (hdmi_code >= 5 ? 40 : 0) - bar_height; // force it at the bottom of menu
+    }
+    else
+    {
+        int screen_layout = get_screen_layout();
+
+        switch (screen_layout)
+        {
+            case SCREENLAYOUT_16_9:
+                return os.y_max - os.off_169 - bar_height;
+
+            case SCREENLAYOUT_16_10:
+                return os.y_max - os.off_1610 - bar_height;
+
+            case SCREENLAYOUT_UNDER_3_2:
+            case SCREENLAYOUT_UNDER_16_9:
+                return get_ml_topbar_pos() + bar_height;
+
+            default:
+                return os.y_max - bar_height - 2; // just above the 16:9 frame
+        }
+    }
 }
 
 void draw_ml_bottombar()
@@ -480,26 +529,6 @@ char* lens_format_aperture(int raw_aperture)
     return aperture;
 }
 
-int FAST get_ml_topbar_pos()
-{
-    int screen_layout = get_screen_layout();
-
-    int y = 0;
-    if (gui_menu_shown())
-    {
-        y = (hdmi_code == 5 ? 40 : 2); // force it at the top of menu
-    }
-    else
-    {
-        if (screen_layout == SCREENLAYOUT_3_2_or_4_3) y = os.y0 + 2; // just above the 16:9 frame
-        else if (screen_layout == SCREENLAYOUT_16_9) y = os.y0 + os.off_169; // meters just below 16:9 border
-        else if (screen_layout == SCREENLAYOUT_16_10) y = os.y0 + os.off_1610; // meters just below 16:9 border
-        else if (screen_layout == SCREENLAYOUT_UNDER_3_2) y = MIN(os.y_max, 480 - 68);
-        else if (screen_layout == SCREENLAYOUT_UNDER_16_9) y = MIN(os.y_max - os.off_169, 480 - 68);
-    }
-    return y;
-}
-
 void free_space_show_photomode()
 {
     int free_space_32k = get_free_space_32k(get_shooting_card());
@@ -540,16 +569,49 @@ PROP_HANDLER( PROP_LV_FOCUS_DONE )
 
     //~ bmp_printf(FONT_MED, 50, 100, "Focus status: 0x%x  ", buf[0]);
     
-    if (buf[0] & 0x1000) 
+    static int last_pos = 0;
+    static int retries = 2;
+    
+    int error_flag = buf[0] & 0x1000;
+    int focus_changed = last_pos != lens_info.focus_pos;
+    int lens_stuck = error_flag && !focus_changed;
+
+    if (lens_stuck)
     {
+        printf("Lens stuck? (%d, %x)\n", retries, buf[0]);
+    }
+    else
+    {
+        printf("Lens moving (%d, %x)\n", lens_info.focus_pos - last_pos, buf[0]);
+    }
+
+    if (lens_stuck && retries == 0)
+    {
+        /* only trigger the error if the lens did not move at all
+         * after 2 retries */
         NotifyBox(1000, "Focus: soft limit reached");
         lv_focus_error = 1;
+        
+        /* assume the error was handled (e.g. by reversing direction)
+         * and allow 2 retries for the next attempt */
+        retries = 2;
     }
     else
     {
         /* assume all is fine (not sure if correct, but seems to work) */
         lv_focus_done = 1;
+        
+        if (lens_stuck)
+        {
+            retries--;
+        }
+        else
+        {
+            retries = 2;
+        }
     }
+
+    last_pos = lens_info.focus_pos;
 }
 
 static void
@@ -582,7 +644,6 @@ lens_focus(
 
     if (!lv) return 0;
     if (is_manual_focus()) return 0;
-    if (lens_info.job_state) return 0;
 
     if (num_steps < 0)
     {
@@ -601,13 +662,30 @@ lens_focus(
             if (wait)
             {
                 lv_focus_done = 0;
-                
-                /* request and wait for confirmation */
                 info_led_on();
+
+#ifdef CONFIG_FOCUS_COMMANDS_PROP_NOT_CONFIRMED
+                /* in old models, each focus command is confirmed by pfAfComplete interrupt */
+                /* it's not safe to send commands before that (camera crashes) */
+                /* properties are not confirmed, so prop_request_change_wait would time out */
+                /* not all cameras having this string require this though (550D, maybe 7D as well) */
+                /* todo: VxWorks cameras may require this too */
+                extern volatile int pfAfComplete_counter;
+                int old = pfAfComplete_counter;
+
+                prop_request_change(PROP_LV_LENS_DRIVE_REMOTE, &focus_cmd, 4);
+
+                while (pfAfComplete_counter == old)
+                {
+                    msleep(10);
+                }
+#else
+                /* request and wait for confirmation */
                 prop_request_change_wait(PROP_LV_LENS_DRIVE_REMOTE, &focus_cmd, 4, 1000);
-                
+
                 /* also wait for confirmation from PROP_LV_FOCUS_DONE */
                 lens_focus_wait();
+#endif
                 
                 /* also wait a little more if user want so (for really stubborn lenses) */
                 if (extra_delay)
@@ -675,7 +753,7 @@ int mlu_lock_mirror_if_needed() // called by lens_take_picture; returns 0 if suc
     if (drive_mode == DRIVE_SELFTIMER_2SEC || drive_mode == DRIVE_SELFTIMER_REMOTE || drive_mode == DRIVE_SELFTIMER_CONTINUOUS)
         return 0;
     
-    if (get_mlu() && CURRENT_DIALOG_MAYBE)
+    if (get_mlu() && CURRENT_GUI_MODE)
     {
         SetGUIRequestMode(0);
         int iter = 20;
@@ -801,10 +879,20 @@ lens_take_picture(
     int should_af
 )
 {
-    if (ml_taking_pic) return -1;
+    if (ml_taking_pic)
+    {
+        return -1;
+    }
+
     ml_taking_pic = 1;
 
-    if (should_af != AF_DONT_CHANGE) lens_setup_af(should_af);
+    int file_number_before = get_shooting_card()->file_number;
+
+    if (should_af != AF_DONT_CHANGE)
+    {
+        lens_setup_af(should_af);
+    }
+    
     //~ take_semaphore(lens_sem, 0);
     lens_wait_readytotakepic(64);
     
@@ -854,27 +942,45 @@ lens_take_picture(
     SW1(0,0);
     #endif
 
-end:
+end:;
+    int ret = 0;
     if( !wait )
     {
         //~ give_semaphore(lens_sem);
-        if (should_af != AF_DONT_CHANGE) lens_cleanup_af();
-        ml_taking_pic = 0;
-        return 0;
+        goto finish;
     }
     else
     {
         msleep(200);
 
-        if (drive_mode == DRIVE_SELFTIMER_2SEC) msleep(2000);
-        if (drive_mode == DRIVE_SELFTIMER_REMOTE || drive_mode == DRIVE_SELFTIMER_CONTINUOUS) msleep(10000);
+        if (drive_mode == DRIVE_SELFTIMER_2SEC)
+        {
+            msleep(2000);
+        }
+        if (drive_mode == DRIVE_SELFTIMER_REMOTE || drive_mode == DRIVE_SELFTIMER_CONTINUOUS)
+        {
+            msleep(10000);
+        }
 
         lens_wait_readytotakepic(wait);
+
+        while (get_shooting_card()->file_number == file_number_before)
+        {
+            msleep(50);
+        }
+
         //~ give_semaphore(lens_sem);
-        if (should_af != AF_DONT_CHANGE) lens_cleanup_af();
-        ml_taking_pic = 0;
-        return lens_info.job_state;
+        ret = lens_info.job_state;
+        goto finish;
     }
+
+finish:
+    if (should_af != AF_DONT_CHANGE)
+    {
+        lens_cleanup_af();
+    }
+    ml_taking_pic = 0;
+    return ret;
 }
 
 #ifdef FEATURE_MOVIE_LOGGING
@@ -1093,14 +1199,49 @@ PROP_HANDLER( PROP_LENS_NAME )
 PROP_HANDLER(PROP_LENS)
 {
     uint8_t* info = (uint8_t *) buf;
+    
     #ifdef CONFIG_5DC
+    lens_info.lens_exists = 0;
     lens_info.raw_aperture_min = info[2];
     lens_info.raw_aperture_max = info[3];
     lens_info.lens_id = 0;
+    lens_info.lens_focal_min = 0;
+    lens_info.lens_focal_max = 0;
+    lens_info.lens_extender = 0;
+    lens_info.lens_version = 0;
+    lens_info.lens_capabilities = 0;
     #else
+    lens_info.lens_exists = info[0];
     lens_info.raw_aperture_min = info[1];
     lens_info.raw_aperture_max = info[2];
-    lens_info.lens_id = info[4] | (info[5] << 8);
+    lens_info.lens_id = (info[3] << 8) | info[4];
+    lens_info.lens_focal_min = (info[5] << 8) | info[6];
+    lens_info.lens_focal_max = (info[7] << 8) | info[8];
+    lens_info.lens_extender = info[0xE];
+    
+    /* not all models support this feature */
+    if(len >= 0x1C)
+    {
+        lens_info.lens_version = (info[0x19] << 16) | (info[0x1A] << 8) | info[0x1B];
+        lens_info.lens_capabilities = info[0x1C];
+        
+        /* not sure how big the lens serial is; exiftool shows 5 bytes in htmlDump */
+        uint32_t lens_serial_lo = 
+             info[0x18]        |
+            (info[0x17] << 8)  |
+            (info[0x16] << 16) |
+            (info[0x15] << 24) ;
+        uint32_t lens_serial_hi = 
+             info[0x14]        ;
+        lens_info.lens_serial = 
+             (uint64_t) lens_serial_lo | 
+            ((uint64_t) lens_serial_hi << 32);
+    }
+    else
+    {
+        lens_info.lens_version = 0;
+        lens_info.lens_capabilities = 0;
+    }
     #endif
     
     if (lens_info.raw_aperture < lens_info.raw_aperture_min || lens_info.raw_aperture > lens_info.raw_aperture_max)
@@ -1508,40 +1649,29 @@ static void focus_ring_powersave_fix()
     }
 }
 
-#if defined(CONFIG_EOSM)
-PROP_HANDLER( PROP_LV_FOCAL_DISTANCE )
-{
-#ifdef FEATURE_MAGIC_ZOOM
-    if (get_zoom_overlay_trigger_by_focus_ring()) zoom_overlay_set_countdown(300);
-#endif
-    
-    idle_wakeup_reset_counters(-11);
-    lens_display_set_dirty();
-    focus_ring_powersave_fix();
-    
-#ifdef FEATURE_LV_ZOOM_SETTINGS
-    zoom_focus_ring_trigger();
-#endif
-}
-#endif
 PROP_HANDLER( PROP_LV_LENS )
 {
     const struct prop_lv_lens * const lv_lens = (void*) buf;
-    lens_info.focal_len    = bswap16( lv_lens->focal_len );
+    lens_info.focal_len     = bswap16( lv_lens->focal_len );
     lens_info.focus_dist    = bswap16( lv_lens->focus_dist );
+    lens_info.focus_pos     = (int16_t) bswap16( lv_lens->focus_pos );
     
     if (lens_info.focal_len > 1000) // bogus values
         lens_info.focal_len = 0;
 
     //~ uint32_t lrswap = SWAP_ENDIAN(lv_lens->lens_rotation);
     //~ uint32_t lsswap = SWAP_ENDIAN(lv_lens->lens_step);
-
     //~ lens_info.lens_rotation = *((float*)&lrswap);
     //~ lens_info.lens_step = *((float*)&lsswap);
-#if !defined(CONFIG_EOSM)  
+    
     static unsigned old_focus_dist = 0;
+    static int      old_focus_pos = 0;
     static unsigned old_focal_len = 0;
-    if (lv && (old_focus_dist && lens_info.focus_dist != old_focus_dist) && (old_focal_len && lens_info.focal_len == old_focal_len))
+    int focus_dist_changed = (old_focus_dist && lens_info.focus_dist != old_focus_dist);
+    int focus_pos_changed = (lens_info.focus_pos != old_focus_pos);
+    int lens_not_zoomed = (old_focal_len && lens_info.focal_len == old_focal_len);
+
+    if (lv && lens_not_zoomed && (focus_pos_changed || focus_dist_changed))
     {
         #ifdef FEATURE_MAGIC_ZOOM
         if (get_zoom_overlay_trigger_by_focus_ring()) zoom_overlay_set_countdown(300);
@@ -1556,8 +1686,8 @@ PROP_HANDLER( PROP_LV_LENS )
         #endif
     }
     old_focus_dist = lens_info.focus_dist;
+    old_focus_pos = lens_info.focus_pos;
     old_focal_len = lens_info.focal_len;
-#endif
     update_stuff();
 }
 
@@ -1637,6 +1767,119 @@ static struct menu_entry lens_menus[] = {
     #endif
 };
 
+static MENU_UPDATE_FUNC(lens_name_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    MENU_SET_VALUE("%s", lens_info.name );
+}
+
+static MENU_UPDATE_FUNC(lens_id_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+
+    /* exiftool displays this as decimal */
+    MENU_SET_VALUE("0x%04X (%d)", lens_info.lens_id, lens_info.lens_id);
+}
+
+static MENU_UPDATE_FUNC(lens_serial_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+
+    if(lens_info.lens_serial)
+    {
+        MENU_SET_VALUE(
+            "%02x%08X", /* to match exiftool display */ 
+            (uint32_t)(lens_info.lens_serial >> 32),
+            (uint32_t)lens_info.lens_serial
+        );
+    }
+    else
+    {
+        MENU_SET_VALUE("(none)");
+    }
+}
+
+static MENU_UPDATE_FUNC(lens_extender_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    MENU_SET_VALUE("0x%02X", lens_info.lens_extender );
+}
+
+static MENU_UPDATE_FUNC(lens_version_display)
+{
+    uint8_t v2 = lens_info.lens_version >> 16;
+    uint8_t v1 = lens_info.lens_version >> 8;
+    uint8_t v0 = lens_info.lens_version;
+    
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    
+    if(lens_info.lens_version)
+    {
+        MENU_SET_VALUE("v%d.%d.%d", v2, v1, v0);
+    }
+    else
+    {
+        MENU_SET_VALUE("(none)");
+    }
+}
+
+static MENU_UPDATE_FUNC(lens_capabilities_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    MENU_SET_VALUE("0x%02X", lens_info.lens_capabilities);
+}
+
+static MENU_UPDATE_FUNC(lens_focal_display)
+{
+    char *unit = "mm";
+    float factor = 1.0f;
+    
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    
+    if(focus_units == 1)
+    {
+        unit = "in";
+        factor = 1/2.54;
+    }
+    
+    if(lens_info.lens_focal_min == lens_info.lens_focal_max)
+    {
+        MENU_SET_VALUE("%d %s", (int)(lens_info.lens_focal_min * factor), unit);
+    }
+    else
+    {
+        MENU_SET_VALUE("%d-%d %s", (int)(lens_info.lens_focal_min * factor), (int)(lens_info.lens_focal_max * factor), unit);
+    }
+}
+
 static struct menu_entry tweak_menus[] = {
    {
         .name = "Lens Info Prefs",
@@ -1660,6 +1903,60 @@ static struct menu_entry tweak_menus[] = {
                 .help  = "Can select between Metric and Imperial focus distance units",
             },
             MENU_EOL
+        }
+    }
+};
+
+/* better place for this menu? */
+static struct menu_entry lens_info_menus[] = {
+   {
+        .name = "Lens info",
+        .select   = menu_open_submenu,
+        .submenu_width = 700,
+        .children =  (struct menu_entry[]) {
+            {
+                .name = "Name",
+                .update = &lens_name_display,
+                .help  = "Show current lens name (as reported by your lens or adapter).",
+                .help2 = "Read-only.",
+            },
+            {
+                .name = "Focal len",
+                .update = &lens_focal_display,
+                .help  = "Show current lens focal length.",
+                .help2 = "Read-only. Zoom lenses are only updated in LiveView.",
+            },
+            {
+                .name = "Lens ID",
+                .update = &lens_id_display,
+                .help  = "Show current lens ID. Should match exiftool TEST.CR2 -LensType -b.",
+                .help2 = "Read-only. Lenses from different manufacturers may have the same ID.",
+            },
+            {
+                .name = "Serial num",
+                .update = &lens_serial_display,
+                .help  = "Show current lens serial number. Not all cameras report this.",
+                .help2 = "Read-only. Should match exiftool TEST.CR2 -LensSerialNumber .",
+            },
+            {
+                .name = "Version",
+                .update = &lens_version_display,
+                .help  = "Show current lens version string.",
+                .help2 = "Read-only.",
+            },
+            {
+                .name = "Capability",
+                .update = &lens_capabilities_display,
+                .help  = "Show current lens capability bits.",
+                .help2 = "Read-only.",
+            },
+            {
+                .name = "Extender",
+                .update = &lens_extender_display,
+                .help  = "Show current lens extender information byte.",
+                .help2 = "Read-only.",
+            },
+            MENU_EOL
         },
     }
 };
@@ -1669,6 +1966,12 @@ void
 crop_factor_menu_init()
 {
     menu_add("Prefs", tweak_menus, COUNT(tweak_menus));
+    menu_add("Debug", lens_info_menus, COUNT(lens_info_menus));
+
+    /* hack: lens name is usually long */
+    /* force all submenu values to the left to maintain a nice layout */
+    /* todo: better backend support? */
+    lens_info_menus[0].children[0].parent_menu->split_pos = -10;
 }
 
 static void
@@ -2609,26 +2912,48 @@ static LVINFO_UPDATE_FUNC(iso_update)
 
 static LVINFO_UPDATE_FUNC(wb_update)
 {
-    LVINFO_BUFFER(8);
+    LVINFO_BUFFER(16);
     
     if( lens_info.wb_mode == WB_KELVIN )
     {
-        snprintf(buffer, sizeof(buffer), lens_info.kelvin >= 10000 ? "%5dK" : "%4dK ", lens_info.kelvin);
+        snprintf(buffer, sizeof(buffer), "%dK", lens_info.kelvin);
     }
     else
     {
-        snprintf(buffer, sizeof(buffer), "%s ",
-            (uniwb_is_active()      ? " UniWB" :
+        snprintf(buffer, sizeof(buffer), "%s",
+            (uniwb_is_active()      ? "UniWB"  :
             (lens_info.wb_mode == 0 ? "AutoWB" : 
-            (lens_info.wb_mode == 1 ? " Sunny" :
+            (lens_info.wb_mode == 1 ? "Sunny"  :
             (lens_info.wb_mode == 2 ? "Cloudy" : 
-            (lens_info.wb_mode == 3 ? "Tungst" : 
-            (lens_info.wb_mode == 4 ? "Fluor." : 
-            (lens_info.wb_mode == 5 ? " Flash" : 
-            (lens_info.wb_mode == 6 ? "Custom" : 
-            (lens_info.wb_mode == 8 ? " Shade" :
+            (lens_info.wb_mode == 3 ? "Tungst." : 
+            (lens_info.wb_mode == 4 ? "Fluor."  : 
+            (lens_info.wb_mode == 5 ? "Flash"   : 
+            (lens_info.wb_mode == 6 ? "Custom"  : 
+            (lens_info.wb_mode == 8 ? "Shade"   :
              "unk")))))))))
         );
+    }
+    
+    int gm = lens_info.wbs_gm;
+    int ba = lens_info.wbs_ba;
+    
+    if (gm || ba)
+    {
+        /* a dot is smaller than a space */
+        if (buffer[strlen(buffer)-1] != '.')
+        {
+            STR_APPEND(buffer, ".");
+        }
+    }
+    
+    if (gm)
+    {
+        STR_APPEND(buffer, "%s%d", gm > 0 ? "G" : "M", ABS(gm));
+    }
+
+    if (ba)
+    {
+        STR_APPEND(buffer, "%s%d", ba > 0 ? "A" : "B", ABS(ba));
     }
 }
 

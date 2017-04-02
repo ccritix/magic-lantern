@@ -98,7 +98,6 @@ struct script_menu_entry
     int info_ref;
     int rinfo_ref;
     int submenu_ref;
-    int run_in_separate_task;
 };
 
 char * copy_string(const char * str);
@@ -108,6 +107,13 @@ int lua_take_semaphore(lua_State * L, int timeout, struct semaphore ** assoc_sem
 int lua_give_semaphore(lua_State * L, struct semaphore ** assoc_semaphore);
 
 void lua_set_cant_unload(lua_State * L, int cant_unload, int mask);
+void lua_save_last_error(lua_State * L);
+void lua_set_last_menu(lua_State * L, const char * parent_menu, const char * menu_entry);
+
+void lua_set_cant_yield(lua_State * L, int cant_yield);
+int  lua_get_cant_yield(lua_State * L);
+
+const char * lua_get_script_filename(lua_State * L);
 
 int luaCB_next(lua_State * L);
 int luaCB_pairs(lua_State * L);

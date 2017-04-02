@@ -33,6 +33,7 @@
 #include "config-defines.h"
 #include "compiler.h"
 #include "dialog.h"
+#include "consts.h"
 #include "gui.h"
 #include "gui-common.h"
 #include "vram.h"
@@ -41,7 +42,6 @@
 #include "tasks.h"
 #include "debug.h"
 #include "audio.h"
-#include "consts.h"
 #include <stdarg.h>
 #include "exmem.h"
 #include "mem.h"
@@ -253,6 +253,10 @@ void wait_till_next_second();
 void _EngDrvOut(uint32_t reg, uint32_t value);    /* Canon stub */
 void EngDrvOut(uint32_t reg, uint32_t value);     /* ML wrapper */
 void EngDrvOutLV(uint32_t reg, uint32_t value);   /* ML wrapper for LiveView-only calls */
+
+/* set multiple ENGIO registers in a single call */
+void _engio_write(uint32_t* reg_list);    /* Canon stub */
+void engio_write(uint32_t* reg_list);     /* ML wrapper */
 
 #ifdef CONFIG_550D
 /** 550D hack for DISPLAY_IS_ON */

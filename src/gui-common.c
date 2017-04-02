@@ -58,12 +58,6 @@ static void hacked_DebugMsg(int class, int level, char* fmt, ...)
         }
     }
     #endif
-    
-#ifdef CONFIG_5D3
-    extern int rec_led_off;
-    if ((class == 34 || class == 35) && level == 1 && rec_led_off && RECORDING) // cfWriteBlk, sdWriteBlk
-        *(uint32_t*) (CARD_LED_ADDRESS) = (LEDOFF);
-#endif
 
 #ifdef FRAME_SHUTTER_BLANKING_WRITE
     if (class == 145) /* 5D3-specific? */
@@ -192,7 +186,7 @@ int handle_common_events_startup(struct event * event)
         
         #ifdef CONFIG_5D3
         // block LV button at startup to avoid lockup with manual lenses (Canon bug?)
-        if (event->param == BGMT_LV && !lv && (lv_movie_select == 0 || is_movie_mode()) && !DLG_MOVIE_ENSURE_A_LENS_IS_ATTACHED && !DLG_MOVIE_PRESS_LV_TO_RESUME)
+        if (event->param == BGMT_LV && !lv && (lv_movie_select == 0 || is_movie_mode()) && !GUIMODE_MOVIE_ENSURE_A_LENS_IS_ATTACHED && !GUIMODE_MOVIE_PRESS_LV_TO_RESUME)
             return 0;
         #endif
                 
@@ -244,6 +238,49 @@ int handle_scrollwheel_fast_clicks(struct event * event)
             GUI_Control(event->param, 0, 1, 0);
         return 0;
     }
+    return 1;
+}
+
+/* Q is always defined */
+/* if some models don't have it, we are going to use some other button instead. */
+/* some mappings are valid for cameras with a Q button as well */
+static int handle_Q_button_equiv(struct event * event)
+{
+    if (!gui_menu_shown())
+    {
+        /* only remap other buttons while in ML menu */
+        /* note: in ML menu, these buttons will no longer be available
+         * to other modules/scripts directly (they will be all seen as Q).
+         * outside ML menu, they retain their regular functionality.
+         */
+        return 1;
+    }
+
+    switch (event->param)
+    {
+#ifdef BGMT_RATE
+    case BGMT_RATE:
+#endif
+#ifdef BGMT_Q_ALT
+    case BGMT_Q_ALT:
+#endif
+#if defined(CONFIG_5D2) || defined(CONFIG_7D)
+    case BGMT_PICSTYLE:
+#endif
+#ifdef CONFIG_50D
+    case BGMT_FUNC:
+#endif
+#ifdef CONFIG_500D
+    case BGMT_LV:
+#endif
+#ifdef CONFIG_5DC
+    case BGMT_JUMP:
+    case BGMT_PRESS_DIRECT_PRINT:
+#endif
+        fake_simple_button(BGMT_Q);
+        return 0;
+    }
+    
     return 1;
 }
 
@@ -337,8 +374,8 @@ int handle_digital_zoom_shortcut(struct event * event)
         case BGMT_UNPRESS_DISP:
             disp_pressed = 0;
             break;
-        case BGMT_PRESS_ZOOMIN_MAYBE: 
-        case BGMT_PRESS_ZOOMOUT_MAYBE:
+        case BGMT_PRESS_ZOOM_IN: 
+        case BGMT_PRESS_ZOOM_OUT:
             disp_zoom_pressed = 1;
             break;
         default:
@@ -350,7 +387,7 @@ int handle_digital_zoom_shortcut(struct event * event)
     {
         if (!video_mode_crop)
         {
-            if (video_mode_resolution == 0 && event->param == BGMT_PRESS_ZOOMIN_MAYBE)
+            if (video_mode_resolution == 0 && event->param == BGMT_PRESS_ZOOM_IN)
             {
                 if (NOT_RECORDING)
                 {
@@ -363,7 +400,7 @@ int handle_digital_zoom_shortcut(struct event * event)
         }
         else
         {
-            if (event->param == BGMT_PRESS_ZOOMIN_MAYBE)
+            if (event->param == BGMT_PRESS_ZOOM_IN)
             {
                 if (NOT_RECORDING)
                 {
@@ -373,7 +410,7 @@ int handle_digital_zoom_shortcut(struct event * event)
                 NotifyBox(2000, "Zoom greater than 3x is disabled.\n");
                 return 0; // don't allow more than 3x zoom
             }
-            if (event->param == BGMT_PRESS_ZOOMOUT_MAYBE)
+            if (event->param == BGMT_PRESS_ZOOM_OUT)
             {
                 if (NOT_RECORDING)
                 {
@@ -430,6 +467,9 @@ int handle_common_events_by_feature(struct event * event)
     // as a record of when the user was last actively pushing buttons.
     if (event->param != GMT_OLC_INFO_CHANGED)
         last_time_active = get_seconds_clock();
+
+    /* convert Q replacement events into BGMT_Q */
+    if (handle_Q_button_equiv(event) == 0) return 0;
 
     #ifdef CONFIG_MENU_WITH_AV
     if (handle_av_short_for_menu(event) == 0) return 0;
@@ -494,7 +534,7 @@ int handle_common_events_by_feature(struct event * event)
     if (handle_overlays_playback(event) == 0) return 0;
     #endif
 
-    #if defined(FEATURE_SET_MAINDIAL) || defined(FEATURE_QUICK_ERASE) || defined(FEATURE_KEN_ROCKWELL_ZOOM_5D3)
+    #if defined(FEATURE_SET_MAINDIAL) || defined(FEATURE_QUICK_ERASE)
     if (handle_set_wheel_play(event) == 0) return 0;
     #endif
 
@@ -513,10 +553,6 @@ int handle_common_events_by_feature(struct event * event)
     
     #ifdef FEATURE_LV_ZOOM_SETTINGS
     if (handle_zoom_x5_x10(event) == 0) return 0;
-    #endif
-    
-    #ifdef FEATURE_KEN_ROCKWELL_ZOOM_5D3
-    if (handle_krzoom(event) == 0) return 0;
     #endif
     
     #if !defined(CONFIG_50D) && !defined(CONFIG_5D2) && !defined(CONFIG_5D3) && !defined(CONFIG_6D)
@@ -558,6 +594,10 @@ int handle_common_events_by_feature(struct event * event)
     #if defined(FEATURE_LV_BUTTON_PROTECT) || defined(FEATURE_LV_BUTTON_RATE)
     if (handle_lv_play(event) == 0) return 0;
     #endif
+    
+    /* if nothing else uses the arrow keys, use them for moving the focus box */
+    /* (some cameras may block it in certain modes) */
+    if (handle_lv_afframe_workaround(event) == 0) return 0;
 
     return 1;
 }
@@ -660,10 +700,5 @@ void redraw_after(int msec)
 int get_gui_mode()
 {
     /* this is GUIMode from SetGUIRequestMode */
-    return CURRENT_DIALOG_MAYBE;
-}
-
-int get_dlg_signature()
-{
-    return DLG_SIGNATURE;
+    return CURRENT_GUI_MODE;
 }
