@@ -1544,6 +1544,7 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, "\n");
     print_msg(MSG_INFO, "-- Image manipulation --\n");
     print_msg(MSG_INFO, " -a                  average all frames in <inputfile> and output a single-frame MLV from it\n");
+    print_msg(MSG_INFO, " --avg-hdr           output averaged MLV by averaging every frame with the next frame in HDR <inputfile>\n");
     print_msg(MSG_INFO, " --avg-vertical      [DARKFRAME ONLY] average the resulting frame in vertical direction, so we will extract vertical banding\n");
     print_msg(MSG_INFO, " --avg-horizontal    [DARKFRAME ONLY] average the resulting frame in horizontal direction, so we will extract horizontal banding\n");
     print_msg(MSG_INFO, " -s mlv_file         subtract the reference frame in given file from every single frame during processing\n");
@@ -1701,7 +1702,7 @@ int main (int argc, char *argv[])
     struct option long_options[] = {
         {"lua",    required_argument, NULL,  'L' },
         {"black-fix",  optional_argument, NULL,  'B' },
-	{"white-fix",  optional_argument, NULL,  'W' },
+	    {"white-fix",  optional_argument, NULL,  'W' },
         {"fix-bug",  required_argument, NULL,  'F' },
         {"batch",  no_argument, &batch_mode,  1 },
         {"dump-xrefs",   no_argument, &dump_xrefs,  1 },
@@ -1714,6 +1715,7 @@ int main (int argc, char *argv[])
         {"fixcp2",    no_argument, &fix_cold_pixels,  2 },
         {"savecp",    no_argument, &fix_cold_pixels,  3 },
         {"no-stripes",  no_argument, &fix_vert_stripes,  0 },
+        {"avg-hdr",  no_argument, &average_mode,  2 },
         {"avg-vertical",  no_argument, &average_vert,  1 },
         {"avg-horizontal",  no_argument, &average_hor,  1 },
         {0,         0,                 0,  0 }
@@ -2077,7 +2079,7 @@ int main (int argc, char *argv[])
             {
                 print_msg(MSG_INFO, "   - Compress frame data\n");
             }
-            if(average_mode)
+            if(average_mode == 1)
             {
                 print_msg(MSG_INFO, "   - Output only one frame with averaged pixel values\n");
                 if(average_vert)
@@ -2088,6 +2090,10 @@ int main (int argc, char *argv[])
                 {
                     print_msg(MSG_INFO, "   - Also average the images in horizontal direction to extract horizontal banding\n");
                 }
+            }
+            else if(average_mode == 2)
+            {
+                print_msg(MSG_INFO, "   - Output frames with averaged HDR pixel values\n");
             }
             if(extract_block)
             {
@@ -2415,9 +2421,13 @@ read_headers:
 
                 if(mlv_output)
                 {
-                    if(average_mode)
+                    if(average_mode == 1)
                     {
                         file_hdr.videoFrameCount = 1;
+                    }
+                    else if(average_mode == 2)
+                    {
+                        file_hdr.videoFrameCount -= 1;
                     }
 
                     /* set the output compression flag */
@@ -2930,7 +2940,7 @@ read_headers:
                     }
 
                     /* in average mode, sum up all pixel values of a pixel position */
-                    if(average_mode)
+                    if(average_mode == 1)
                     {
                         int pitch = video_xRes * current_depth / 8;
 
@@ -2947,6 +2957,43 @@ read_headers:
                         }
 
                         average_samples++;
+                    }
+                    else if(average_mode == 2) // HDR averaging
+                    {
+                        uint8_t *current_frame_buffer = malloc(frame_size);
+                        int pitch = video_xRes * current_depth / 8;
+
+                        /* backup current frame for later */
+                        memcpy(current_frame_buffer, frame_buffer, frame_size);
+                        
+                        for(int y = 0; y < video_yRes; y++)
+                        {
+                            uint16_t *src_line = (uint16_t *)&prev_frame_buffer[y * pitch];
+                            uint16_t *dst_line = (uint16_t *)&frame_buffer[y * pitch];
+                            
+                            for(int x = 0; x < video_xRes; x++)
+                            {
+                                uint16_t src_val = bitextract(src_line, x, current_depth);
+                                uint16_t dst_val = bitextract(dst_line, x, current_depth);
+                                uint16_t value = (src_val + dst_val) / 2;
+                                /*
+                                if(src_val < 20 || dst_val < 20)
+                                {
+                                    value = MAX(src_val, dst_val);
+                                }
+                                else if(src_val > 15000 || dst_val > 15000)
+                                {
+                                    value = MIN(src_val, dst_val);
+                                }
+                                */
+
+                                bitinsert(dst_line, x, current_depth, value);
+                            }
+                        }
+
+                        /* save current original frame to prev buffer */
+                        memcpy(prev_frame_buffer, current_frame_buffer, frame_size);
+                        free(current_frame_buffer);
                     }
 
                     /* now resample bit depth if requested */
@@ -3156,15 +3203,15 @@ read_headers:
                             
                             int old_depth = lv_rec_footer.raw_info.bits_per_pixel;
                             int new_depth = bit_depth;
+                            int old_black = raw_info.black_level;
+                            int old_white = raw_info.white_level;
                             
                             /* patch raw info */
                             if(new_depth)
                             {
                                 raw_info.bits_per_pixel = new_depth;
                                 int delta = old_depth - new_depth;
-                                int old_black = raw_info.black_level;
-                                int old_white = raw_info.white_level;
-                                
+
                                 /* scale down black level */
                                 if(!black_fix)
                                 {
@@ -3216,6 +3263,25 @@ read_headers:
                                     }
                                 }
                                 else
+                                {
+                                    raw_info.white_level = white_fix;
+                                    if(verbose)
+                                    {
+                                        print_msg(MSG_INFO, "   white: %d -> %d (forced)\n", old_white, raw_info.white_level);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                if(black_fix)
+                                {
+                                    raw_info.black_level = black_fix;
+                                    if(verbose)
+                                    {
+                                        print_msg(MSG_INFO, "   black: %d -> %d (forced)\n", old_black, raw_info.black_level);
+                                    }
+                                }
+                                if(white_fix)
                                 {
                                     raw_info.white_level = white_fix;
                                     if(verbose)
@@ -3319,7 +3385,7 @@ read_headers:
                             lua_call_va(lua_state, "dng_saved", "si", frame_filename, block_hdr.frameNumber);
                             free(frame_filename);
                         }
-                        if(mlv_output && !only_metadata_mode && !average_mode && (!extract_block || !strncasecmp(extract_block, (char*)block_hdr.blockType, 4)))
+                        if(mlv_output && !only_metadata_mode && (average_mode != 1) && (!extract_block || !strncasecmp(extract_block, (char*)block_hdr.blockType, 4)))
                         {
                             if(compress_output)
                             {
@@ -3893,15 +3959,15 @@ read_headers:
 
                     int old_depth = lv_rec_footer.raw_info.bits_per_pixel;
                     int new_depth = bit_depth;
-
+                    int old_black = block_hdr.raw_info.black_level;
+                    int old_white = block_hdr.raw_info.white_level;
+                    
                     /* scale down black level */
                     if(new_depth)
                     {
                         block_hdr.raw_info.bits_per_pixel = new_depth;
                         int delta = old_depth - new_depth;
-                        int old_black = block_hdr.raw_info.black_level;
-                        int old_white = block_hdr.raw_info.white_level;
-                        
+
                         /* scale down black level */
                         if(!black_fix)
                         {
@@ -3958,6 +4024,25 @@ read_headers:
                             if(verbose)
                             {
                                 print_msg(MSG_INFO, "   white: %d -> %d (forced)\n", old_white, block_hdr.raw_info.white_level);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if(black_fix)
+                        {
+                            block_hdr.raw_info.black_level = black_fix;
+                            if(verbose)
+                            {
+                                print_msg(MSG_INFO, "   black: %d -> %d (forced)\n", old_black, raw_info.black_level);
+                            }
+                        }
+                        if(white_fix)
+                        {
+                            block_hdr.raw_info.white_level = white_fix;
+                            if(verbose)
+                            {
+                                print_msg(MSG_INFO, "   white: %d -> %d (forced)\n", old_white, raw_info.white_level);
                             }
                         }
                     }
@@ -4034,9 +4119,6 @@ read_headers:
                 {
                     size_t name_len = strlen(output_filename) + 5;  // + .wav\0
                     char* wav_file_name = malloc(name_len);
-                    /* NOTE, assumes little endian system, fix for big endian */
-                    uint32_t tmp_uint32;
-                    uint16_t tmp_uint16;
 
                     strncpy(wav_file_name, output_filename, name_len);
                     strncat(wav_file_name, ".wav", name_len);
@@ -4140,7 +4222,7 @@ abort:
     print_msg(MSG_INFO, "Processed %d video frames\n", vidf_frames_processed);
 
     /* in average mode, finalize average calculation and output the resulting average */
-    if(average_mode)
+    if(average_mode == 1)
     {
         if(!average_samples)
         {
