@@ -1417,6 +1417,9 @@ static void unhack_liveview_vsync(int unused)
     while (!RAW_IS_IDLE) msleep(100);
     PauseLiveView();
     ResumeLiveView();
+
+    /* fixme: in exmem.c, but how? */
+    gui_uilock(UILOCK_NONE);
 }
 
 static void hack_liveview(int unhack)
