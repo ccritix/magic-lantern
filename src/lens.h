@@ -86,13 +86,14 @@ struct lens_info
         uint8_t                 lens_extender;
         uint8_t                 lens_capabilities;
         uint32_t                lens_version;
+        uint64_t                lens_serial;
 };
 
 extern struct lens_info lens_info;
 
 #define DOF_DIFFRACTION_LIMIT_REACHED 1
 
-#if defined(CONFIG_6D)
+#if defined(CONFIG_6D) || defined(CONFIG_5D3_123)
 struct prop_lv_lens
 {  
         uint32_t                lens_rotation; // Identical Doesn't Change

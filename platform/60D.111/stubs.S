@@ -285,9 +285,9 @@ NSTUB(0xFF06E534,  take_semaphore)
 
 /** Task info **/
 NSTUB(    0x3234,  task_max)
-NSTUB(0xFF0171DC,  get_current_task)
-NSTUB(0xFF07E384,  get_obj_attr)                            // AJ_checks_if_Process_id_created_by_Dryos
 NSTUB(0xFF33EF30,  is_taskid_valid)                         // AJ_task_trampoline_related_p10
+NSTUB(    0x1A2C,  current_task)
+NSTUB(     0x674,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
 
 /** Task sleep **/
 NSTUB(0xFF06EA08,  msleep)                                  // called from EV_GETDONE_CACHE param 0x64
@@ -303,14 +303,15 @@ NSTUB(0xFF07B8AC,  task_trampoline)
 NSTUB(   0x52940,  lv_path_struct)                          // first arg of SelectPathDriveMode
 NSTUB(0xFF067B68,  LoadCalendarFromRTC)
 NSTUB(0xFF1DA530,  vsnprintf)
-///NSTUB( 0xff06f7c4, AllocateMemory_do ) // this one won't throw ERR70 on failure
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
+// NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
 ///NSTUB( 0xFF538000, AJ_memset_R0_addr_R1_Len_R2_byteVal ) // bzero32+4
 ///NSTUB([idk], AbortEDmac)
+///NSTUB( 0xff06f7c4, AllocateMemory_do ) // this one won't throw ERR70 on failure
 ///NSTUB(0xFF37479C,  CancelBottomInfoDispTimer)
 ///NSTUB(0xFF0728C0,  CreateBinarySemaphore)                   // called CreateBinarySemaphore
 ///NSTUB(0xFF3076F8, CreateDialogBox)

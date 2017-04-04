@@ -278,9 +278,9 @@ NSTUB(0xFF86DD88,  take_semaphore)
 
 /** Task info **/
 NSTUB(    0x3050,  task_max)
-NSTUB(0xFF8168C0,  get_current_task)
-NSTUB(0xFF818110,  get_obj_attr)                            // AJ_checks_if_Process_id_created_by_Dryos
 NSTUB(0xFF8182C8,  is_taskid_valid)                         // AJ_task_trampoline_related_p10
+NSTUB(    0x1A24,  current_task)
+NSTUB(     0x668,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
 
 /** Task sleep **/
 NSTUB(0xFF86E22C,  msleep)
@@ -297,6 +297,7 @@ NSTUB(0xFF86412C,  EnableImagePhysicalScreenParameter)
 NSTUB(0xFF8696D8,  LoadCalendarFromRTC)
 NSTUB(0xFF92EEB8,  PtpDps_remote_release_SW1_SW2_worker)    // called from: ptpRemoteRelease Occupy
 NSTUB(0xFF9B7324,  vsnprintf)
+// NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
