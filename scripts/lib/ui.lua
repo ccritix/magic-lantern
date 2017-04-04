@@ -143,7 +143,7 @@ function selector:select()
         keys:start()
         menu.block(true)
         self:draw()
-        while true do
+        while menu.visible do
             local key = keys:getkey()
             if key ~= nil then
                 if not self:handle_key(key) then break end
