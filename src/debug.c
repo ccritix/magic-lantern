@@ -971,7 +971,6 @@ static MENU_UPDATE_FUNC(edmac_display)
 }
 #endif
 
-extern void menu_open_submenu();
 extern MENU_UPDATE_FUNC(tasks_print);
 extern MENU_UPDATE_FUNC(batt_display);
 extern MENU_SELECT_FUNC(tasks_toggle_flags);

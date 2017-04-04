@@ -67,7 +67,7 @@ int lua_take_semaphore(lua_State * L, int timeout, struct semaphore ** assoc_sem
             return take_semaphore(current->semaphore, timeout);
         }
     }
-    fprintf(stderr, "error: could not find semaphore for lua state\n");
+    fprintf(stderr, "[%s] error: could not find semaphore for lua state\n", lua_get_script_filename(L));
     return -1;
 }
 
@@ -82,7 +82,7 @@ int lua_give_semaphore(lua_State * L, struct semaphore ** assoc_semaphore)
             return give_semaphore(current->semaphore);
         }
     }
-    fprintf(stderr, "error: could not find semaphore for lua state\n");
+    fprintf(stderr, "[%s] error: could not find semaphore for lua state\n", lua_get_script_filename(L));
     return -1;
 }
 
@@ -128,7 +128,7 @@ char * copy_string(const char * str)
 /***
  Event Handlers.
  
- Scripts can repsond to events by setting the functions in the 'event' table.
+ Scripts can respond to events by setting the functions in the 'event' table.
  Event handler functions can take one integer parameter, and must return a boolean
  that specifies whether or not the backend should continue executing event handlers
  for this particular event.
@@ -168,7 +168,7 @@ static unsigned int lua_do_cbr(unsigned int ctx, struct script_event_entry * eve
                     lua_pushinteger(L, ctx);
                     if(docall(L, 1, 1))
                     {
-                        fprintf(stderr, "lua cbr error:\n %s\n", lua_tostring(L, -1));
+                        fprintf(stderr, "[%s] cbr error:\n %s\n", lua_get_script_filename(L), lua_tostring(L, -1));
                         lua_save_last_error(L);
                         result = CBR_RET_ERROR;
                         give_semaphore(sem);
@@ -191,7 +191,7 @@ static unsigned int lua_do_cbr(unsigned int ctx, struct script_event_entry * eve
             }
             else
             {
-                printf("lua semaphore timeout: %s (%dms)\n", event_name, timeout);
+                printf("[%s] semaphore timeout: %s (%dms)\n", lua_get_script_filename(L), event_name, timeout);
             }
         }
     }
@@ -302,44 +302,64 @@ static int luaCB_event_newindex(lua_State * L)
 {
     LUA_PARAM_STRING_OPTIONAL(key, 2, "");
     
-    /// Called before a picture is taken
+    // Called before a picture is taken
     // @param arg unused
-    // @treturn bool whether or not to continue executing CBRs for this event
+    // @treturn bool whether or not to continue executing CBRs for this event.
+    //
+    // Recommended: true (no real reason to block other CBRs here).
     // @function pre_shoot
     SCRIPT_CBR_SET(pre_shoot);
-    /// Called after a picture is taken
+    // Called after a picture is taken
     // @param arg unused
-    // @treturn bool whether or not to continue executing CBRs for this event
+    // @treturn bool whether or not to continue executing CBRs for this event.
+    //
+    // Recommended: true (no real reason to block other CBRs here).
     // @function post_shoot
     SCRIPT_CBR_SET(post_shoot);
-    /// Called periodicaly from shoot_task
+    /// Called periodicaly from shoot_task.
     // @param arg unused
-    // @treturn bool whether or not to continue executing CBRs for this event
+    // @treturn bool whether or not to continue executing CBRs for this event.
+    //
+    // Recommended: true (no real reason to block other CBRs here).
     // @function shoot_task
     SCRIPT_CBR_SET(shoot_task);
-    /// Called each second
+    /// Called once per second.
+    /// Should return quickly, because other tasks may rely on timing accuracy.
     // @param arg unused
-    // @treturn bool whether or not to continue executing CBRs for this event
+    // @treturn bool whether or not to continue executing CBRs for this event.
+    //
+    // Recommended: true (no real reason to block other CBRs here).
     // @function seconds_clock
     SCRIPT_CBR_SET(seconds_clock);
-    /// Called when a key is pressed
+    /// Called when a key is pressed.
     // @tparam int key the key that was pressed, see @{constants.KEY}
-    // @treturn bool whether or not to continue executing CBRs for this event
+    // @treturn bool whether or not to continue executing CBRs for this event.
+    //
+    // Returning false will prevent other modules and/or Canon firmware from processing this event.
+    //
+    // For all unhandled events, return true.
     // @function keypress
     SCRIPT_CBR_SET(keypress);
-    /// Special types of picture taking (e.g. silent pics); so intervalometer and other photo taking routines should use that instead of regular pics
+    /// Special types of picture taking (e.g.&nbsp;silent pics)
+    /// so intervalometer and other photo taking routines should use that instead of regular pics.
     // @param arg unused
-    // @treturn bool whether or not to continue executing CBRs for this event
+    // @treturn bool whether or not to continue executing CBRs for this event.
+    //
+    // Recommended: false if your code took a custom picture, true otherwise.
     // @function custom_picture_taking
     SCRIPT_CBR_SET(custom_picture_taking);
-    /// Called after a picture is taken with the intervalometer
+    /// Called after a picture is taken with the intervalometer.
     // @tparam int interval_count the current interval count
-    // @treturn bool whether or not to continue executing CBRs for this event
+    // @treturn bool whether or not to continue executing CBRs for this event.
+    //
+    // Recommended: true (no real reason to block other CBRs here).
     // @function intervalometer
     SCRIPT_CBR_SET(intervalometer);
-    /// Called when configs are being saved; save any config data for your script here
+    /// Called when configs are being saved; save any config data for your script here.
     // @param arg unused
-    // @treturn bool whether or not to continue executing CBRs for this event
+    // @treturn bool whether or not to continue executing CBRs for this event.
+    //
+    // Recommended: true (no real reason to block other CBRs here).
     // @function config_save
     SCRIPT_CBR_SET(config_save);
 #ifdef CONFIG_VSYNC_EVENTS
@@ -496,7 +516,33 @@ int luaCB_pairs(lua_State * L)
     return 3;
 }
 
-static lua_State * load_lua_state()
+/* from lua/lua.c */
+static void createargtable (lua_State *L, char **argv, int argc, int script) {
+  int i, narg;
+  if (script == argc) script = 0;  /* no script name? */
+  narg = argc - (script + 1);  /* number of positive indices */
+  lua_createtable(L, narg, script + 1);
+  for (i = 0; i < argc; i++) {
+    lua_pushstring(L, argv[i]);
+    lua_rawseti(L, -2, i - script);
+  }
+  lua_setglobal(L, "arg");
+}
+
+/* from lua/lua.c */
+static int pushargs (lua_State *L) {
+  int i, n;
+  if (lua_getglobal(L, "arg") != LUA_TTABLE)
+    luaL_error(L, "'arg' is not a table");
+  n = (int)luaL_len(L, -1);
+  luaL_checkstack(L, n + 3, "too many arguments to script");
+  for (i = 1; i <= n; i++)
+    lua_rawgeti(L, -i, i);
+  lua_remove(L, -i);  /* remove table from the stack */
+  return n;
+}
+
+static lua_State * load_lua_state(int argc, char** argv)
 {
     lua_State* L = luaL_newstate();
     luaL_requiref(L, "_G", luaopen_base, 1);
@@ -530,7 +576,7 @@ static lua_State * load_lua_state()
         if (!strict_lua)
         {
             /* allow scripts to run without strict.lua, if not present */
-            printf("Warning: strict.lua not found.\n");
+            printf("[Lua] warning: strict.lua not found.\n");
         }
         
         /* note: strict_lua is never freed */
@@ -543,26 +589,38 @@ static lua_State * load_lua_state()
             fprintf(stderr, "%s\n", lua_tostring(L, -1));
         }
     }
-    
+
+    createargtable(L, argv, argc, 0);
+
     return L;
 }
 
 #define SCRIPT_FLAG_AUTORUN_ENABLED "LEN"
 
-#define SCRIPT_STATE_NOT_RUNNING 0
-#define SCRIPT_STATE_LOADING     1
-#define SCRIPT_STATE_RUNNING     2
+#define SCRIPT_STATE_NOT_RUNNING            0
+#define SCRIPT_STATE_LOADING_OR_RUNNING     1
+#define SCRIPT_STATE_RUNNING_IN_BACKGROUND  2
 
 struct lua_script
 {
-    char * filename;
+    int argc;
+    union
+    {
+        char * filename;
+        char * argv[5];
+    };
+
     char * name;
     char * description;
     char * last_error;
+    const char * last_menu_parent;
+    const char * last_menu_entry;
     int autorun;
     int state;
     int load_time;
     int cant_unload;
+    int cant_yield;
+    int tasks_started;
     lua_State * L;
     struct script_semaphore * sem;
     struct menu_entry * menu_entry;
@@ -571,6 +629,10 @@ struct lua_script
 
 static struct lua_script * lua_scripts = NULL;
 
+/* note: when specifying LUA_TASK_UNLOAD_MASK,
+ * the caller must have started or stopped one task (not more, not less)
+ * because this routine also keeps a counter of how many tasks were started
+ */
 void lua_set_cant_unload(lua_State * L, int cant_unload, int mask)
 {
     struct lua_script * current;
@@ -578,6 +640,19 @@ void lua_set_cant_unload(lua_State * L, int cant_unload, int mask)
     {
         if(current->L == L)
         {
+            if (mask & LUA_TASK_UNLOAD_MASK)
+            {
+                /* the script started or stopped one task */
+                current->tasks_started += (cant_unload ? 1 : -1);
+                
+                if (!cant_unload && current->tasks_started)
+                {
+                    /* if there are still tasks running,
+                     * we cannot allow unloading yet */
+                    mask &= ~LUA_TASK_UNLOAD_MASK;
+                }
+            }
+
             if(cant_unload)
             {
                 current->cant_unload |= (1 << mask);
@@ -589,7 +664,7 @@ void lua_set_cant_unload(lua_State * L, int cant_unload, int mask)
             return;
         }
     }
-    fprintf(stderr, "lua_set_cant_unload: script not found\n");
+    fprintf(stderr, "[Lua] lua_set_cant_unload: script not found\n");
 }
 
 static void lua_clear_last_error(struct lua_script * script)
@@ -611,6 +686,59 @@ void lua_save_last_error(lua_State * L)
             script->last_error = copy_string(lua_tostring(L, -1));
         }
     }
+}
+
+/* called when a script registers a menu,
+ * so we know to tell the user where the new menu is
+ */
+void lua_set_last_menu(lua_State * L, const char * parent_menu, const char * menu_entry)
+{
+    for (struct lua_script * script = lua_scripts; script; script = script->next)
+    {
+        if(script->L == L)
+        {
+            printf("[%s] menu: %s - %s\n", lua_get_script_filename(L), parent_menu, menu_entry);
+            script->last_menu_parent = parent_menu;
+            script->last_menu_entry = menu_entry;
+        }
+    }
+}
+
+/* hack to prevent some unsafe yield calls */
+/* fixme: proper thread safety */
+void lua_set_cant_yield(lua_State * L, int cant_yield)
+{
+    for (struct lua_script * script = lua_scripts; script; script = script->next)
+    {
+        if(script->L == L)
+        {
+            script->cant_yield = cant_yield;
+        }
+    }
+}
+
+int lua_get_cant_yield(lua_State * L)
+{
+    for (struct lua_script * script = lua_scripts; script; script = script->next)
+    {
+        if(script->L == L)
+        {
+            return script->cant_yield;
+        }
+    }
+    return -1;
+}
+
+const char * lua_get_script_filename(lua_State * L)
+{
+    for (struct lua_script * script = lua_scripts; script; script = script->next)
+    {
+        if(script->L == L)
+        {
+            return script->filename;
+        }
+    }
+    return "?";
 }
 
 static int lua_get_config_flag_path(struct lua_script * script, char * full_path, const char * flag)
@@ -644,27 +772,20 @@ static int lua_get_flag(struct lua_script * script, const char * flag)
     return 0;
 }
 
-static void set_script_autorun(struct lua_script * script, int value)
-{
-    if (script->autorun != value)
-    {
-        script->autorun = value;
-        lua_set_flag(script, SCRIPT_FLAG_AUTORUN_ENABLED, script->autorun);
-    }
-}
-
 static void load_script(struct lua_script * script)
 {
     if(script->L)
     {
-        fprintf(stderr, "script is already running\n");
+        fprintf(stderr, "[%s] script is already running.\n", script->filename);
         return;
     }
     
     script->load_time = get_seconds_clock();
-    script->state = SCRIPT_STATE_LOADING;
-    lua_State* L = script->L = load_lua_state();
+    script->state = SCRIPT_STATE_LOADING_OR_RUNNING;
+    lua_State* L = script->L = load_lua_state(script->argc, script->argv);
     script->cant_unload = 0;
+    script->cant_yield = 0;
+    script->tasks_started = 0;
     lua_clear_last_error(script);
     
     if (!script->sem)
@@ -684,22 +805,27 @@ static void load_script(struct lua_script * script)
         int error = 0;
         char full_path[MAX_PATH_LEN];
         snprintf(full_path, MAX_PATH_LEN, SCRIPTS_DIR "/%s", script->filename);
-        printf("Loading script: %s\n", script->filename);
-        if(luaL_loadfile(L, full_path) || docall(L, 0, LUA_MULTRET))
+        printf("[%s] script starting.\n", script->filename);
+
+        int status = luaL_loadfile(L, full_path);
+        if (status == LUA_OK) {
+            int n = pushargs(L);  /* push arguments to script */
+            status = docall(L, n, LUA_MULTRET);
+        }
+
+        if (status != LUA_OK)
         {
             /* error loading script */
             fprintf(stderr, "%s\n", lua_tostring(L, -1));
             error = 1;
         }
+
         give_semaphore(script->sem->semaphore);
 
         if (error)
         {
             /* save the last error string for this script */
             lua_save_last_error(L);
-
-            /* disable autorun on error */
-            set_script_autorun(script, 0);
         }
 
         if (script->cant_unload)
@@ -707,12 +833,10 @@ static void load_script(struct lua_script * script)
             /* "complex" script that keeps running after load
              * set autorun and hide the "run script" menu
              */
-            script->state = SCRIPT_STATE_RUNNING;
+            script->state = SCRIPT_STATE_RUNNING_IN_BACKGROUND;
             script->menu_entry->icon_type = IT_BOOL;
-            script->menu_entry->children[0].shidden = 1;
 
-            /* enable autorun if there was no error */
-            if (!error) set_script_autorun(script, 1);
+            printf("[%s] running in background.\n", script->filename);
         }
         else
         {
@@ -724,21 +848,73 @@ static void load_script(struct lua_script * script)
             script->menu_entry->icon_type = IT_ACTION;
             script->state = SCRIPT_STATE_NOT_RUNNING;
             script->load_time = 0;
+            printf("[%s] script finished.\n\n", script->filename);
         }
     }
     else
     {
-        fprintf(stderr, "load script failed: could not create semaphore\n");
+        fprintf(stderr, "[Lua] load script failed: could not create semaphore\n");
+    }
+}
+
+static MENU_UPDATE_FUNC(script_print_state)
+{
+    struct lua_script * script = (struct lua_script *)(entry->priv);
+    if (!script) return;
+
+    if (script->last_error)
+    {
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "%s", script->last_error);
+        return;
+    }
+
+    switch (script->state)
+    {
+        case SCRIPT_STATE_NOT_RUNNING:
+            MENU_SET_WARNING(MENU_WARN_INFO, "Press SET to load/run this script.");
+            break;
+
+        case SCRIPT_STATE_LOADING_OR_RUNNING:
+            MENU_SET_WARNING(MENU_WARN_INFO, "Script is running.");
+            break;
+
+        case SCRIPT_STATE_RUNNING_IN_BACKGROUND:
+            if (script->last_menu_parent && script->last_menu_entry)
+            {
+                MENU_SET_WARNING(MENU_WARN_INFO,
+                    "Running in background. Menu: %s -> %s.",
+                    script->last_menu_parent, script->last_menu_entry
+                );
+            }
+            else
+            {
+                MENU_SET_WARNING(MENU_WARN_INFO,
+                    "Running in background. Complex script%s%s%s%s%s.",
+                    script->cant_unload & (1<<LUA_TASK_UNLOAD_MASK)   ? "; task running" : "",
+                    script->cant_unload & (1<<LUA_LVINFO_UNLOAD_MASK) ? "; LVInfo item" : "",
+                    script->cant_unload & (1<<LUA_PROP_UNLOAD_MASK)   ? "; property handler" : "",
+                    script->cant_unload & 0xFFFFFFF0                  ? "; event handler" : "",
+                    script->cant_unload & (1<<LUA_MENU_UNLOAD_MASK)   ? "; menu item" : ""
+                );
+            }
+            break;
     }
 }
 
 static MENU_UPDATE_FUNC(lua_script_menu_update)
 {
+    if(!lua_loaded)
+    {
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Please wait for Lua to finish loading...");
+        return;
+    }
+
     struct lua_script * script = (struct lua_script *)(entry->priv);
     if(script)
     {
         MENU_SET_VALUE("");
         MENU_SET_HELP(script->description);
+        MENU_SET_ENABLED(1);
 
         if (script->autorun)
         {
@@ -746,54 +922,53 @@ static MENU_UPDATE_FUNC(lua_script_menu_update)
         }
         else
         {
-            MENU_SET_WARNING(MENU_WARN_INFO, "Press SET to load/run this script.");
-            
-            if(!lua_loaded)
-            {
-                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Please wait for Lua to finish loading...");
-            }
+            script_print_state(entry, info);
         }
-        
+
         /* if a script takes a long time in the LOADING state,
          * it's probably a simple script that is running for a long time */
         int script_uptime = script->load_time ? get_seconds_clock() - script->load_time : 0;
         
-        int fg = script->state ? COLOR_WHITE : COLOR_GRAY(40);
-        int fnt = SHADOW_FONT(FONT(FONT_MED_LARGE, fg, COLOR_BLACK));
-        bmp_printf(fnt | FONT_ALIGN_RIGHT, 680, info->y+2,
+        const char * script_status = 
             script->autorun
                 ? "AUTORUN" :
             script->last_error
                 ? "ERROR" :
             script->state == SCRIPT_STATE_NOT_RUNNING
-                ? "" :
-            script->state == SCRIPT_STATE_LOADING
-                ? (script_uptime <= 2 ? "Loading" : "Running") :
-            script->state == SCRIPT_STATE_RUNNING
-                ? "Running" : "?!"
-        );
+                ? script->filename :
+            script->state == SCRIPT_STATE_LOADING_OR_RUNNING
+                ? "Running" :
+            script->state == SCRIPT_STATE_RUNNING_IN_BACKGROUND
+                ? "Running (BG)" : "?!";
+        
+        if (info->can_custom_draw)
+        {
+            int fg = (script->state || script->autorun || script->last_error)
+                ? COLOR_WHITE : entry->selected ? COLOR_GRAY(50) : COLOR_GRAY(10);
+            int fnt = SHADOW_FONT(FONT(FONT_MED_LARGE, fg, COLOR_BLACK));
+            bmp_printf(fnt | FONT_ALIGN_RIGHT, 680, info->y+2, script_status);
+        }
+        else
+        {
+            MENU_SET_RINFO(script_status);
+        }
 
         switch (script->state)
         {
-            case SCRIPT_STATE_LOADING:
+            case SCRIPT_STATE_LOADING_OR_RUNNING:
                 MENU_SET_ICON(MNI_RECORD, 0);
                 break;
 
-            case SCRIPT_STATE_RUNNING:
-                MENU_SET_ICON(MNI_BOOL(script->autorun), 0);
+            case SCRIPT_STATE_RUNNING_IN_BACKGROUND:
+                MENU_SET_ICON(MNI_ON, 1);
                 break;
-        }
-
-
-        if (script->last_error)
-        {
-            MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "%s", script->last_error);
         }
     }
 }
 
 static void lua_user_load_task(struct lua_script * script)
 {
+    ASSERT(script->filename == script->argv[0]);
     load_script(script);
 }
 
@@ -807,36 +982,25 @@ static MENU_SELECT_FUNC(lua_script_menu_select)
     {
         if (lua_loaded)
         {
-            script->state = SCRIPT_STATE_LOADING;
+            script->state = SCRIPT_STATE_LOADING_OR_RUNNING;
             task_create("lua_user_load_task", 0x1c, 0x10000, lua_user_load_task, script);
             return;
         }
-    }
-    
-    /* if the script is already running, open the submenu */
-    if (!is_submenu_or_edit_mode_active())
-    {
-        menu_open_submenu();
     }
 }
 
 static MENU_UPDATE_FUNC(lua_script_run_update)
 {
+    struct lua_script * script = (struct lua_script *)(entry->priv);
+    if (!script) return;
+
     MENU_SET_VALUE("");
 
-    struct lua_script * script = (struct lua_script *)entry->priv;
-    ASSERT(script); if (!script) return;
-
-    if ( script->state == SCRIPT_STATE_NOT_RUNNING )
+    script_print_state(entry, info);
+    
+    if (script->state != SCRIPT_STATE_NOT_RUNNING)
     {
-        if (!lua_loaded)
-        {
-            MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Please wait for Lua to finish loading...");
-        }
-    }
-    else
-    {
-        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Script is running.");
+        info->warning_level = MENU_WARN_NOT_WORKING;
     }
 }
 
@@ -846,13 +1010,49 @@ static MENU_SELECT_FUNC(lua_script_toggle_autorun)
     // toggle auto_run (priv = &script->autorun)
     // note: any script can be set to autorun
     struct lua_script * script = (struct lua_script *)(priv - offsetof(struct lua_script, autorun));
-    set_script_autorun(script, !script->autorun);
+    script->autorun = !script->autorun;
+    lua_set_flag(script, SCRIPT_FLAG_AUTORUN_ENABLED, script->autorun);
 }
 
 static MENU_SELECT_FUNC(lua_script_edit)
 {
-    /* not yet implemented */
-    beep();
+    struct lua_script * script = (struct lua_script *)priv;
+    ASSERT(script); if (!script) return;
+
+    struct lua_script * editor = 0;
+    for (struct lua_script * current = lua_scripts; current; current = current->next)
+    {
+        if (strcasecmp(current->filename, "EDITOR.LUA") == 0)
+        {
+            editor = current;
+            break;
+        }
+    }
+
+    if (!editor)
+    {
+        console_show();
+        printf("[Lua] could not find EDITOR.LUA.");
+        return;
+    }
+    
+    /* attempt to start the script */
+    if ( editor->state == SCRIPT_STATE_NOT_RUNNING && lua_loaded)
+    {
+        static char full_path[MAX_PATH_LEN];
+        snprintf(full_path, MAX_PATH_LEN, SCRIPTS_DIR "/%s", script->filename);
+
+        editor->argc = 2;
+        editor->argv[1] = full_path;
+
+        editor->state = SCRIPT_STATE_LOADING_OR_RUNNING;
+        task_create("lua_user_load_task", 0x1c, 0x10000, lua_user_load_task, editor);
+    }
+    else
+    {
+        console_show();
+        printf("[Lua] could not start EDITOR.LUA.");
+    }
 }
 
 static MENU_UPDATE_FUNC(menu_no_value)
@@ -862,7 +1062,7 @@ static MENU_UPDATE_FUNC(menu_no_value)
 
 static struct menu_entry script_menu_template = {
     .icon_type  = IT_ACTION,
-    .select = lua_script_menu_select,
+    .select = menu_open_submenu,
     .update = lua_script_menu_update,
 };
 
@@ -957,10 +1157,13 @@ static char* script_extract_string_from_comments(char* buf, char** output, const
     return p;
 }
 
-static void script_get_name_from_comments(const char * filename, char ** name, char ** description)
+static void script_get_name_from_comments(const char * filename, char ** p_name, char ** p_description)
 {
-    *name = 0;
-    *description = 0;
+    ASSERT(p_name);
+    ASSERT(p_description);
+
+    *p_name = 0;
+    *p_description = 0;
 
     char full_path[MAX_PATH_LEN];
     snprintf(full_path, MAX_PATH_LEN, SCRIPTS_DIR "/%s", filename);
@@ -973,18 +1176,33 @@ static void script_get_name_from_comments(const char * filename, char ** name, c
     fclose(f);
     
     /* extract name and description */
-    char* c = script_extract_string_from_comments(buf, name, 0);
-    
-    /* name too long? use it as description */
-    /* (todo: check string length with current font instead) */
-    if (name && strlen(*name) > 25)
+    char* c = script_extract_string_from_comments(buf, p_name, 0);
+
+    /* name too long? shorten it and use the full string as description */
+    char * name = *p_name;
+    if (name && bmp_string_width(FONT_LARGE, name) > 450)
     {
-        free(*name); *name = 0;
-        script_extract_string_from_comments(buf, description, filename);
+        script_extract_string_from_comments(buf, p_description, filename);
+
+        /* attempt to break the string at spaces, commas or whatever */
+        int len = strlen(name) - 3;
+        while (bmp_string_width(FONT_LARGE, name) > 450)
+        {
+            for (len--; len > 0; len--)
+            {
+                if (!isalnum(name[len]))
+                {
+                    name[len] = name[len+1] = name[len+2] = '.';
+                    name[len+3] = 0;
+                    break;
+                }
+            }
+        }
     }
     else
     {
-        script_extract_string_from_comments(c, description, filename);
+        /* first line short => OK, use it as script name and next line as description */
+        script_extract_string_from_comments(c, p_description, filename);
     }
 }
 
@@ -993,6 +1211,7 @@ static void add_script(const char * filename)
     struct lua_script * new_script = calloc(1, sizeof(struct lua_script));
     if (!new_script) goto err;
 
+    new_script->argc = 1;
     new_script->filename = copy_string(filename);
     if (!new_script->filename) goto err;
 
@@ -1028,7 +1247,7 @@ err:
         free(new_script->filename);
         free(new_script);
     }
-    fprintf(stderr, "add_script: malloc error\n");
+    fprintf(stderr, "[Lua] add_script: malloc error\n");
 }
 
 static void lua_do_autoload()
@@ -1038,6 +1257,12 @@ static void lua_do_autoload()
     {
         if(lua_get_flag(current, SCRIPT_FLAG_AUTORUN_ENABLED))
         {
+            if (!console_visible)
+            {
+                /* only show Lua script loading messages at startup (on demand) */
+                console_clear();
+                console_show();
+            }
             current->autorun = 1;
             load_script(current);
             msleep(100);
@@ -1047,9 +1272,8 @@ static void lua_do_autoload()
 
 static void lua_load_task(int unused)
 {
-    console_show();
+    /* wait until other modules (hopefully) finish loading */
     msleep(500);
-    console_clear();
     
     struct fio_file file;
     struct fio_dirent * dirent = 0;
@@ -1073,18 +1297,18 @@ static void lua_load_task(int unused)
     }
 
     menu_add("Scripts", script_console_menu, COUNT(script_console_menu));
+    lua_loaded = 1;
     
     lua_do_autoload();
     
     extern int core_reallocs;    /* ml-lua-shim.c */
     extern int core_reallocs_size;
-    printf("Free umm_heap : %s\n", format_memory_size(umm_free_heap_size()));
+    printf("[Lua] free umm_heap : %s\n", format_memory_size(umm_free_heap_size()));
     if (core_reallocs)
     {
-        printf("Core reallocs : %d (%s)\n", core_reallocs, format_memory_size(core_reallocs_size));
+        printf("[Lua] core reallocs : %d (%s)\n", core_reallocs, format_memory_size(core_reallocs_size));
     }
-    printf("All scripts loaded.\n");
-    lua_loaded = 1;
+    printf("[Lua] all scripts loaded.\n");
 
     /* wait for key pressed or for 5-second timeout, whichever comes first */
     last_keypress = 0;
