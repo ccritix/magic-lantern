@@ -220,7 +220,7 @@ struct frame_slot
 static struct memSuite * shoot_mem_suite = 0;     /* memory suite for our buffers */
 static struct memSuite * srm_mem_suite = 0;
 
-static int chunk_list[32];                        /* list of free memory chunk sizes, used for frame estimations */
+static int chunk_list[32] = {0};                  /* list of free memory chunk sizes, used for frame estimations */
 
 static struct frame_slot slots[1023];             /* frame slots */
 static int total_slot_count = 0;                  /* how many frame slots we have (including the reserved ones) */
@@ -243,6 +243,8 @@ static int64_t written_chunk = 0;                 /* same for current chunk */
 static int writing_time = 0;                      /* time spent by raw_video_rec_task in FIO_WriteFile calls */
 static int idle_time = 0;                         /* time spent by raw_video_rec_task doing something else */
 static uint32_t edmac_active = 0;
+
+static void * scratch_buffer = 0;                 /* temporary storage (from SRM, with use-after-free) */
 
 /* for compress_task */
 static struct msg_queue * compress_mq = 0;
@@ -580,10 +582,11 @@ static MENU_UPDATE_FUNC(write_speed_update)
 static void measure_compression_ratio()
 {
     ASSERT(RAW_IS_IDLE);
+    if (!scratch_buffer) return;
 
     /* compress the current frame to estimate the ratio */
     /* set up a dummy slot configuration */
-    slots[0].ptr = 0;   /* do not save output */
+    slots[0].ptr = scratch_buffer;
     slots[0].size = max_frame_size;
     slots[0].status = SLOT_CAPTURING;
     total_slot_count = 1;
@@ -594,6 +597,9 @@ static void measure_compression_ratio()
 
     /* compression ratio will be updated in compress_task */
 }
+
+static int setup_buffers();
+static void free_buffers();
 
 static void refresh_raw_settings(int force)
 {
@@ -615,6 +621,14 @@ static void refresh_raw_settings(int force)
         if (raw_update_params())
         {
             update_resolution_params();
+
+            if (chunk_list[0] == 0)
+            {
+                /* do a dummy allocation at startup, to see what memory we have available */
+                setup_buffers();
+                ASSERT(chunk_list[0]);
+                free_buffers();
+            }
 
             /* update compression ratio once every 2 seconds */
             if (OUTPUT_COMPRESSION && compress_mq && should_run_polling_action(2000, &aux2))
@@ -910,7 +924,7 @@ static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
                 );
                 chunk_index++;
             }
-            
+
             /* align pointer at 64 bytes */
             intptr_t ptr_raw = ptr;
             ptr   = (ptr + 63) & ~63;
@@ -972,11 +986,14 @@ static int setup_buffers()
     }
         
     int chunk_index = 0;
-    chunk_index = add_mem_suite(shoot_mem_suite, chunk_index);
     chunk_index = add_mem_suite(srm_mem_suite, chunk_index);
+    chunk_index = add_mem_suite(shoot_mem_suite, chunk_index);
 
     if (srm_mem_suite)
     {
+        /* if enabled, first slot will be from SRM */
+        scratch_buffer = slots[0].ptr;
+        
         /* keeping SRM allocated will block the half-shutter
          * and may show BUSY on the screen. */
         /* assuming no other task will allocate during recording, 
@@ -1986,6 +2003,7 @@ static void compress_task()
         ASSERT(slots[slot_index].status == SLOT_CAPTURING);
 
         void* out_ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
+        ASSERT(slots[slot_index].ptr);
 
         edmac_start_clock = MEM(0xC0242014);
 
@@ -1993,7 +2011,7 @@ static void compress_task()
         {
             outChunk->memory_address = out_ptr;
             int compressed_size = lossless_compress_raw_rectangle(
-                slots[slot_index].ptr ? outSuite : NULL, raw_info.buffer,
+                outSuite, raw_info.buffer,
                 raw_info.width, skip_x, skip_y,
                 res_x, res_y
             );
