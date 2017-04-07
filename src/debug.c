@@ -561,9 +561,11 @@ static void unmount_sd_card()
     console_show();
     
     /* call shutdown hooks that need to save configs */
-    extern int module_shutdown();
     config_save_at_shutdown();
+#ifdef CONFIG_MODULES
+    extern int module_shutdown();
     module_shutdown();
+#endif
     
     /* unmount the SD card */
     FSUunMountDevice(2);
