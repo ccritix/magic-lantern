@@ -549,7 +549,7 @@ static void my_big_init_task()
 
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
-    info_led_blink(5,500,500);
+    info_led_blink(20,500,500);
     debug_intercept();
 #endif
 }
