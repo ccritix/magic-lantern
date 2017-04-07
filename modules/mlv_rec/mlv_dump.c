@@ -1741,11 +1741,11 @@ int main (int argc, char *argv[])
             case 'W':
                 if(!optarg)
                 {
-                    white_fix = 16384;
+                    white_fix = 16383;
                 }
                 else
                 {
-                    white_fix = MIN(16384, MAX(1, atoi(optarg)));
+                    white_fix = MIN(16383, MAX(1, atoi(optarg)));
                 }
                 break;
               
@@ -1756,7 +1756,7 @@ int main (int argc, char *argv[])
                 }
                 else
                 {
-                    black_fix = MIN(16384, MAX(1, atoi(optarg)));
+                    black_fix = MIN(16383, MAX(1, atoi(optarg)));
                 }
                 break;
                 
