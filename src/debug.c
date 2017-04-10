@@ -290,6 +290,23 @@ void scan_A5A5()
     info_led_on();
     for (uint32_t a = 0xF8000000; a < 0xF9000000; a += 4)
     {
+        if (a >= 0xF8F40000 && a < 0xF8F80000)
+        {
+            /* RING - that's where most errors were */
+            uint32_t a0 = a & ~0xFFF;
+            if (MEM(a0) != 0xFFFF)
+            {
+                /* inactive RING block - ignore */
+                continue;
+            }
+        }
+
+        if (a >= 0xF8F80000 && a < 0xF8FA0000)
+        {
+            /* last debug log - ignore */
+            continue;
+        }
+
         /* there are some areas where it's normal to see 0xA5A5A5A5 -
          * they are followed by 0xE5E5E5E5 */
         if (MEM(a) == 0xA5A5A5A5 && MEM(a+4) != 0xE5E5E5E5)
