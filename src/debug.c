@@ -285,8 +285,39 @@ void guimode_test()
 }
 #endif
 
+void scan_A5A5()
+{
+    info_led_on();
+    for (uint32_t a = 0xF8000000; a < 0xF9000000; a += 4)
+    {
+        /* there are some areas where it's normal to see 0xA5A5A5A5 -
+         * they are followed by 0xE5E5E5E5 */
+        if (MEM(a) == 0xA5A5A5A5 && MEM(a+4) != 0xE5E5E5E5)
+        {
+            console_show();
+            printf("Your camera appears to have been affected by a null pointer bug\n");
+            printf("from the Apr04 build. Please contact Magic Lantern developers\n");
+            printf("on IRC (#magiclantern on freenode) to take a closer look.\n");
+            printf("\n");
+            printf("The effects of this bug can range from nothing at all,\n");
+            printf("subtle (or not-so-subtle) issues, to soft-bricking (recoverable).\n");
+            printf("\n");
+            printf("For diagnosing your camera, please prepare:\n");
+            printf("- a good copy of your ROM (under ML/LOGS from an old ML card)\n");
+            printf("- a fresh (possibly bad) ROM copy (Debug -> Dump ROM and RAM)\n");
+            printf("\n");
+            printf("Your camera is probably all right, but we'd still like to double-check.\n");
+            printf("Thank you and sorry for the inconvenience.\n");
+            
+            return;
+        }
+    }
+    info_led_off();
+}
+
 static void run_test()
 {
+    scan_A5A5();
 }
 
 static void unmount_sd_card()
