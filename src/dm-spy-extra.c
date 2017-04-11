@@ -40,7 +40,6 @@ static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void engdrvbits_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
-static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void register_interrupt_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void StartEDmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
@@ -49,10 +48,15 @@ static void TryPostEvent_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 struct logged_func
 {
     uint32_t addr;                              /* Logged address (usually at the start of the function; will be passed to gdb_add_watchpoint) */
-    char* name;                                 /* Breakpoint (function) name (optional, can be NULL) */
-    int num_args;                               /* How many arguments does your function have? (will try to print them) */
+    const char * name;                          /* Breakpoint (function) name (optional, can be NULL) */
+    uint32_t args;                              /* Log function arguments, registers, return values etc */
     patch_hook_function_cbr log_func;           /* if generic_log is not enough, you may use a custom logging function */
 };
+
+/* for args: */
+#define NUM_ARGS_MASK 0xF   /* up to 15 function arguments */
+#define R(i) (0x100 << i)   /* log any registers */
+#define RET  (0x1000000)    /* return value of the function */
 
 /* helper to get a function address directly from stubs */
 #define STUB_ENTRY(name, ...) { (uint32_t) &name, #name, ## __VA_ARGS__ }
@@ -224,8 +228,8 @@ static struct logged_func logged_functions[] = {
     { 0xFF1C42A8, "SetEDmac", 4 },
     { 0xFF06E534, "take_semaphore", 2 },
     { 0xFF06E61C, "give_semaphore", 1 },
-    { 0xFF1C8C00, "resinfo_wait_smth", 0, mmio_log },
-    { 0xFF1C8AC0, "resinfo_check", 7, mmio_log },
+    { 0xFF1C8C00, "resinfo_wait_smth", R(0) },
+    { 0xFF1C8AC0, "resinfo_check", R(7) },
 #endif
 
 #ifdef CONFIG_550D
@@ -368,23 +372,45 @@ static int snprintf_guess_arg(char* buf, int maxlen, uint32_t arg)
     }
 }
 
+static uint32_t last_result_pc = 0;
+
+/* temporary hook, for logging the return value of a function */
+static void result_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    DryosDebugMsg(0, 0, "==> 0x%x, from %x", regs[0], pc-4);
+
+    /* we can't disable this hook right now, as it's still executing */
+    /* workaround: we'll just disable the previous one */
+    if (last_result_pc)
+    {
+        unpatch_memory(last_result_pc);
+    }
+
+    last_result_pc = pc;
+}
+
 static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     uint32_t caller = PATCH_HOOK_CALLER();
-    
+
+    uint32_t args = 0;
     int num_args = 0;
-    char* func_name = 0;
+    int log_result = 0;
+    const char * func_name = 0;
     
     for (int i = 0; i < COUNT(logged_functions); i++)
     {
         if (logged_functions[i].addr == pc)
         {
-            num_args = logged_functions[i].num_args;
+            args = logged_functions[i].args;
             func_name = logged_functions[i].name;
             break;
         }
     }
-    
+
+    num_args = args & NUM_ARGS_MASK;
+    log_result = args & RET;
+
     char msg[200];
     int len;
 
@@ -397,40 +423,49 @@ static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
         len = snprintf(msg, sizeof(msg), "*** FUNC(%x)(", pc);
     }
 
+    int first_arg = 1;
+
     for (int i = 0; i < num_args; i++)
     {
         uint32_t arg = (i < 4) ? regs[i] : stack[i-4];
 
+        if (!first_arg) len += snprintf(msg + len, sizeof(msg) - len, ", ");
         len += snprintf_guess_arg(msg + len, sizeof(msg) - len, arg);
-        
-        if (i < num_args -1)
+        first_arg = 0;
+    }
+
+    for (int reg = 0; reg < 13; reg++)
+    {
+        if (args & R(reg))
         {
-            len += snprintf(msg + len, sizeof(msg) - len, ", ");
+            if (!first_arg) len += snprintf(msg + len, sizeof(msg) - len, ", ");
+            len += snprintf(msg + len, sizeof(msg) - len, "R%d=%x", reg, regs[reg]);
+            first_arg = 0;
         }
     }
+
     len += snprintf(msg + len, sizeof(msg) - len, "), from %x", caller);
     
     DryosDebugMsg(0, 0, "%s", msg);
-}
 
-static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
-{
-    int arm_reg = 0;
-    char* mmio_name = 0;
-    
-    for (int i = 0; i < COUNT(logged_functions); i++)
+    if (last_result_pc)
     {
-        if (logged_functions[i].addr == pc)
+        unpatch_memory(last_result_pc);
+        last_result_pc = 0;
+    }
+
+    if (log_result)
+    {
+        int err = patch_hook_function(
+            regs[13], MEM(regs[13]),    /* LR */
+            result_log, "result_log"
+        );
+
+        if (err)
         {
-            /* in this case, num_args is actually the ARM register number
-             * that contains the MMIO register value */
-            arm_reg = logged_functions[i].num_args;
-            mmio_name = logged_functions[i].name;
-            break;
+            DryosDebugMsg(0, 0, "!!! cannot log return value (err %x)", err);
         }
     }
-    
-    DryosDebugMsg(0, 0, "*** [%s] -> %x (pc=%x)", mmio_name, regs[arm_reg], pc-4);
 }
 
 static void state_transition_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
