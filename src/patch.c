@@ -266,7 +266,7 @@ static int patch_memory_work(
     uint32_t old_value,
     uint32_t new_value,
     uint32_t is_instruction,
-    const char* description
+    const char * description
 )
 {
     uint32_t* addr = (uint32_t*)_addr;
@@ -496,7 +496,7 @@ int patch_memory(
     uintptr_t addr,
     uint32_t old_value,
     uint32_t new_value,
-    const char* description
+    const char * description
 )
 {
     return patch_memory_work(addr, old_value, new_value, 0, description);
@@ -506,7 +506,7 @@ int patch_instruction(
     uintptr_t addr,
     uint32_t old_value,
     uint32_t new_value,
-    const char* description
+    const char * description
 )
 {
     return patch_memory_work(addr, old_value, new_value, 1, description);
@@ -622,7 +622,7 @@ int patch_memory_matrix(
     uint32_t patch_scaling,
     uint32_t patch_offset,
     uint32_t* backup_storage,
-    const char* description
+    const char * description
 )
 {
     uint32_t* addr = (uint32_t*)_addr;
@@ -793,7 +793,7 @@ int patch_memory_ex(
     uint32_t patch_mask,
     uint32_t patch_scaling,
     uint32_t patch_offset,
-    const char* description
+    const char * description
 )
 {
     return patch_memory_matrix(addr, 1, 0, 1, 0, check_mask, check_value, patch_mask, patch_scaling, patch_offset, 0, description);
@@ -809,7 +809,7 @@ int patch_memory_array(
     uint32_t patch_scaling,
     uint32_t patch_offset,
     uint32_t* backup_storage,
-    const char* description
+    const char * description
 )
 {
     return patch_memory_matrix(addr, num_items, item_size, 1, 0, check_mask, check_value, patch_mask, patch_scaling, patch_offset, backup_storage, description);
@@ -881,7 +881,7 @@ static int check_jump_range(uint32_t pc, uint32_t dest)
     return 1;
 }
 
-int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function_cbr logging_function, char* description)
+int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function_cbr logging_function, const char * description)
 {
     int err = 0;
 
