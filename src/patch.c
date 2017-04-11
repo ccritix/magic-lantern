@@ -91,6 +91,10 @@ static int patch_sync_cache(int also_data);
 /* lock or unlock the cache as needed */
 static void cache_require(int lock)
 {
+#ifdef CONFIG_QEMU
+    return;
+#endif
+
     if (lock)
     {
         if (!cache_locked())
@@ -108,6 +112,10 @@ static void cache_require(int lock)
 
 static int patch_sync_cache(int also_data)
 {
+#ifdef CONFIG_QEMU
+    return 0;
+#endif
+
     int err = 0;
     
     int locked = cache_locked();
@@ -141,6 +149,10 @@ static int patch_sync_cache(int also_data)
 /* low-level routines */
 static uint32_t read_value(uint32_t* addr, int is_instruction)
 {
+#ifdef CONFIG_QEMU
+    goto read_from_ram;
+#endif
+
     uint32_t cached_value;
     
     if (is_instruction && IS_ROM_PTR(addr) && cache_locked()
@@ -162,6 +174,7 @@ static uint32_t read_value(uint32_t* addr, int is_instruction)
         dbg_printf("Read from ROM: %x -> %x\n", addr, MEM(addr));
     }
 
+read_from_ram:
     /* trick required because we don't have unaligned memory access */
     switch ((uintptr_t)addr & 3)
     {
@@ -177,7 +190,11 @@ static uint32_t read_value(uint32_t* addr, int is_instruction)
 static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
 {
     dbg_printf("Patching %x from %x to %x\n", addr, read_value(addr, is_instruction), value);
-    
+
+#ifdef CONFIG_QEMU
+    goto write_to_ram;
+#endif
+
     if (IS_ROM_PTR(addr))
     {
         /* todo: check for conflicts (@g3gg0?) */
@@ -210,6 +227,7 @@ static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
         addr = UNCACHEABLE(addr);
     }
 
+write_to_ram:
     /* trick required because we don't have unaligned memory access */
     switch ((uintptr_t)addr & 3)
     {
@@ -366,6 +384,10 @@ static int reapply_cache_patch(int p)
 
 int reapply_cache_patches()
 {
+#ifdef CONFIG_QEMU
+    return 0;
+#endif
+
     int err = 0;
     
     /* this function is also public */
@@ -386,6 +408,10 @@ int reapply_cache_patches()
 
 static void check_cache_lock_still_needed()
 {
+#ifdef CONFIG_QEMU
+    return;
+#endif
+
     if (!cache_locked())
     {
         return;
@@ -443,10 +469,12 @@ int unpatch_memory(uintptr_t _addr)
         err = E_UNPATCH_OVERWRITTEN;
         goto end;
     }
-    
+
+#ifndef CONFIG_QEMU
     /* not needed for ROM patches - there we will re-apply all the remaining ones from scratch */
     /* (slower, but old reverted patches should no longer give collisions) */
     if (!IS_ROM_PTR(addr))
+#endif
     {
         err = do_patch(patches[p].addr, patches[p].backup, patches[p].is_instruction);
         if (err) goto end;
