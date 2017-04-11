@@ -25,6 +25,9 @@
 /* delay mpu_send calls, to allow grouping MPU messages by timestamps */
 #define MPU_DELAY_SEND
 
+/* log calls to malloc, AllocateMemory, alloc_dma_memory */
+#undef LOG_MALLOC_CALLS
+
 extern void (*pre_isr_hook)();
 extern void (*post_isr_hook)();
 
@@ -61,6 +64,15 @@ struct logged_func
 /* helper to get a function address directly from stubs */
 #define STUB_ENTRY(name, ...) { (uint32_t) &name, #name, ## __VA_ARGS__ }
 
+#ifdef LOG_MALLOC_CALLS
+extern thunk _malloc;
+extern thunk _free;
+extern thunk _AllocateMemory;
+extern thunk _FreeMemory;
+extern thunk _alloc_dma_memory;
+extern thunk _free_dma_memory;
+#endif
+
 static struct logged_func logged_functions[] = {
     /* dummy entry, just to check cache conflicts */
     { (uint32_t) &DryosDebugMsg, "DebugMsg" },
@@ -90,6 +102,15 @@ static struct logged_func logged_functions[] = {
     STUB_ENTRY(SetHPTimerAfterNow, 4),
     STUB_ENTRY(SetHPTimerNextTick, 4),
     STUB_ENTRY(CancelTimer, 1),
+#endif  /* CONFIG_DIGIC_V */
+
+#ifdef LOG_MALLOC_CALLS
+    STUB_ENTRY(_malloc, 1 | RET),
+    STUB_ENTRY(_free, 1),
+    STUB_ENTRY(_AllocateMemory, 1 | RET),
+    STUB_ENTRY(_FreeMemory, 1),
+    STUB_ENTRY(_alloc_dma_memory, 1 | RET),
+    STUB_ENTRY(_free_dma_memory, 1),
 #endif
 
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
