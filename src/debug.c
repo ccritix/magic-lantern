@@ -287,6 +287,8 @@ void guimode_test()
 
 static void run_test()
 {
+    printf("Gotcha!\n");
+    ASSERT(0);
 }
 
 static void unmount_sd_card()
