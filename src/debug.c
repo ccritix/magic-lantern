@@ -334,7 +334,8 @@ void scan_A5A5()
 
 static void run_test()
 {
-    scan_A5A5();
+    printf("Gotcha!\n");
+    ASSERT(0);
 }
 
 static void unmount_sd_card()
