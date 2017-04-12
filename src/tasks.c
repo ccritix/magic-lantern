@@ -369,6 +369,9 @@ MENU_UPDATE_FUNC(tasks_print)
 #include "gps.h"
 #endif
 
+/* to refactor with CBR */
+extern int module_shutdown();
+
 static void ml_shutdown()
 {
     check_pre_shutdown_flag();
@@ -385,8 +388,6 @@ static void ml_shutdown()
 #endif    
     config_save_at_shutdown();
 #if defined(CONFIG_MODULES)
-    /* to refactor with CBR */
-    extern int module_shutdown();
     module_shutdown();
 #endif
     info_led_on();
@@ -395,8 +396,12 @@ static void ml_shutdown()
 
 PROP_HANDLER(PROP_TERMINATE_SHUT_REQ)
 {
-    //bmp_printf(FONT_MED, 0, 0, "SHUT REQ %d ", buf[0]);
-    if (buf[0] == 0)  ml_shutdown();
+    /* 0=request, 3=execute, 4=cancel */
+    /* 3 appears too late for saving config files */
+    if (buf[0] == 0)
+    {
+        ml_shutdown();
+    }
 }
 
 PROP_HANDLER(PROP_ABORT)
@@ -410,6 +415,11 @@ PROP_HANDLER(PROP_ABORT)
          * when opening battery door (check with e.g. PROP_VIDEO_SYSTEM) */
         extern int terminateAbort_save_settings;
         terminateAbort_save_settings = 0;
+
+        #if defined(CONFIG_MODULES)
+        /* if no hard crash, load the modules after taking the battery out */
+        module_shutdown();
+        #endif
 
         /* minimalist feedback that battery door event was processed */
         info_led_on();
