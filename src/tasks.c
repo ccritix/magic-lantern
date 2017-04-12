@@ -399,6 +399,23 @@ PROP_HANDLER(PROP_TERMINATE_SHUT_REQ)
     if (buf[0] == 0)  ml_shutdown();
 }
 
+PROP_HANDLER(PROP_ABORT)
+{
+    /* emergency stop - do not save properties */
+    /* -1 = init, 1 = trigger */
+
+    if (buf[0] == 1)
+    {
+        /* 5D3: this prevents RING and RASEN from being saved
+         * when opening battery door (check with e.g. PROP_VIDEO_SYSTEM) */
+        extern int terminateAbort_save_settings;
+        terminateAbort_save_settings = 0;
+
+        /* minimalist feedback that battery door event was processed */
+        info_led_on();
+    }
+}
+
 #if 0
 static int task_holding_bmp_lock = 0;
 static int line_holding_bmp_lock = 0;
