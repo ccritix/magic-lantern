@@ -625,6 +625,7 @@ static void refresh_raw_settings(int force)
 
     /* if we got the semaphore before raw_rec_task started, all fine */
     /* if we got it afterwards, RAW_IS_IDLE is no longer true => stop */
+    /* raw_rec_task is unable to change the state while we have the semaphore */
     if (!RAW_IS_IDLE) goto end;
 
     /* autodetect the resolution (update 4 times per second) */
@@ -2525,11 +2526,11 @@ static void raw_video_rec_task()
 {
     //~ console_show();
     /* init stuff */
-    raw_recording_state = RAW_PREPARING;
 
     /* make sure preview or raw updates are not running */
     /* (they won't start in RAW_PREPARING, but we might catch them running) */
     take_semaphore(raw_preview_lock, 0);
+    raw_recording_state = RAW_PREPARING;
     give_semaphore(raw_preview_lock);
 
     total_slot_count = 0;
