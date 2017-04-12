@@ -117,7 +117,7 @@ static CONFIG_INT("raw.res_x_fine", res_x_fine, 0);
 static CONFIG_INT("raw.aspect.ratio", aspect_ratio_index, 10);
 
 static CONFIG_INT("raw.write.speed", measured_write_speed, 0);
-static int measured_compression_ratio;
+static int measured_compression_ratio = 0;
 
 static CONFIG_INT("raw.pre-record", pre_record, 0);
 static int pre_record_triggered = 0;    /* becomes 1 once you press REC twice */
@@ -220,6 +220,8 @@ struct frame_slot
 static struct memSuite * shoot_mem_suite = 0;     /* memory suite for our buffers */
 static struct memSuite * srm_mem_suite = 0;
 
+static void * fullsize_buffers[2];                /* original image, before cropping, double-buffered */
+static int fullsize_buffer_pos = 0;               /* which of the full size buffers (double buffering) is currently in use */
 static int chunk_list[32] = {0};                  /* list of free memory chunk sizes, used for frame estimations */
 
 static struct frame_slot slots[1023];             /* frame slots */
@@ -587,12 +589,21 @@ static void measure_compression_ratio()
     slots[0].size = max_frame_size;
     slots[0].status = SLOT_CAPTURING;
     total_slot_count = 1;
+    ASSERT(fullsize_buffers[1] == 0);
+    fullsize_buffers[1] = raw_info.buffer;
 
     msg_queue_post(compress_mq, INT_MAX);
-    msg_queue_post(compress_mq, 0);
+    msg_queue_post(compress_mq, 1 << 16);
     msg_queue_post(compress_mq, INT_MIN);
 
     /* compression ratio will be updated in compress_task */
+    while (slots[0].status == SLOT_CAPTURING)
+    {
+        msleep(10);
+    }
+
+    ASSERT(measured_compression_ratio);
+    fullsize_buffers[1] = 0;
 }
 
 static int setup_buffers();
@@ -969,6 +980,22 @@ static int add_mem_suite(struct memSuite * mem_suite, int chunk_index)
 
 static int setup_buffers()
 {
+    /* allocate memory for double buffering */
+    /* (we need a single large contiguous chunk) */
+    int buf_size = raw_info.width * raw_info.height * BPP/8 * 33/32; /* leave some margin, just in case */
+    ASSERT(fullsize_buffers[0] == 0);
+    fullsize_buffers[0] = fio_malloc(buf_size);
+    
+    /* reuse Canon's buffer */
+    fullsize_buffers[1] = UNCACHEABLE(raw_info.buffer);
+
+    /* anything wrong? */
+    if(fullsize_buffers[0] == 0 || fullsize_buffers[1] == 0)
+    {
+        /* buffers will be freed by caller in the cleanup section */
+        return 0;
+    }
+
     /* allocate the entire memory, but only use large chunks */
     /* yes, this may be a bit wasteful, but at least it works */
     
@@ -1023,6 +1050,10 @@ static void free_buffers()
     shoot_mem_suite = 0;
     if (srm_mem_suite) srm_free_suite(srm_mem_suite);
     srm_mem_suite = 0;
+    if (fullsize_buffers[0]) fio_free(fullsize_buffers[0]);
+    fullsize_buffers[0] = 0;
+    ASSERT(fullsize_buffers[1] == UNCACHEABLE(raw_info.buffer));
+    fullsize_buffers[1] = 0;
 }
 
 static int count_free_slots()
@@ -1993,11 +2024,13 @@ static void compress_task()
         }
 
         int slot_index = msg & 0xFFFF;
+        int fullsize_index = msg >> 16;
 
         /* we must receive a slot marked as "capturing in progress */
         ASSERT(slots[slot_index].status == SLOT_CAPTURING);
 
         void* out_ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
+        void* fullSizeBuffer = fullsize_buffers[fullsize_index];
 
         edmac_start_clock = MEM(0xC0242014);
 
@@ -2010,7 +2043,7 @@ static void compress_task()
             ASSERT(outSuite);
 
             int compressed_size = lossless_compress_raw_rectangle(
-                slots[slot_index].ptr ? outSuite : NULL, raw_info.buffer,
+                slots[slot_index].ptr ? outSuite : NULL, fullSizeBuffer,
                 raw_info.width, skip_x, skip_y,
                 res_x, res_y
             );
@@ -2047,7 +2080,7 @@ static void compress_task()
         {
             edmac_active = 1;
             edmac_copy_rectangle_cbr_start(
-                (void*)out_ptr, raw_info.buffer,
+                (void*)out_ptr, fullSizeBuffer,
                 raw_info.pitch,
                 (skip_x+7)/8*BPP, skip_y/2*2,
                 res_x*BPP/8, 0, 0, res_x*BPP/8, res_y,
@@ -2127,13 +2160,16 @@ static void FAST process_frame()
     vidf_hdr.panPosY = skip_y;
     *(mlv_vidf_hdr_t*)(slots[capture_slot].ptr) = vidf_hdr;
 
+    /* advance to next buffer for the upcoming capture */
+    fullsize_buffer_pos = (fullsize_buffer_pos + 1) % 2;
+
     //~ printf("saving frame %d: slot %d ptr %x\n", frame_count, capture_slot, ptr);
 
     /* copy current frame to our buffer and crop it to its final size */
     /* for some reason, compression cannot be started from vsync */
     /* let's delegate it to another task */
     ASSERT(compress_mq);
-    msg_queue_post(compress_mq, capture_slot);
+    msg_queue_post(compress_mq, capture_slot | (fullsize_buffer_pos << 16));
 
     /* advance to next frame */
     frame_count++;
@@ -2155,6 +2191,9 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
     if (!RAW_IS_RECORDING) return 0;
     if (!raw_lv_settings_still_valid()) { raw_recording_state = RAW_FINISHING; return 0; }
     if (buffer_full) return 0;
+
+    /* double-buffering */
+    raw_lv_redirect_edmac(fullsize_buffers[fullsize_buffer_pos % 2]);
 
     process_frame();
 
@@ -2440,6 +2479,7 @@ static void raw_video_rec_task()
     total_slot_count = 0;
     valid_slot_count = 0;
     capture_slot = -1;
+    fullsize_buffer_pos = 0;
     frame_count = 0;
     skipped_frames = 0;
     chunk_frame_count = 0;
