@@ -151,10 +151,20 @@ static CONFIG_INT("raw.output_format", output_format, 3);
 #define OUTPUT_10BIT_UNCOMPRESSED 2
 #define OUTPUT_14BIT_LOSSLESS 3
 #define OUTPUT_12BIT_LOSSLESS 4
-#define OUTPUT_10BIT_LOSSLESS 5
-#define OUTPUT_COMPRESSION (output_format/3)
+#define OUTPUT_11BIT_LOSSLESS 5
+#define OUTPUT_10BIT_LOSSLESS 6
+#define OUTPUT_9_BIT_LOSSLESS 7
+#define OUTPUT_8_BIT_LOSSLESS 8
+#define OUTPUT_COMPRESSION (output_format>2)
 
-#define BPP (14 - 2*(output_format%3))
+/* container BPP (variable for uncompressed, always 14 for lossless JPEG) */
+static const int bpp_container[] = { 14, 12, 10, 14, 14, 14, 14, 14, 14 };
+
+/* "fake" lower bit depths using digital gain (for lossless JPEG) */
+static const int bpp_digi_gain[] = { 14, 14, 14, 14, 12, 11, 10,  9,  8 };
+
+#define BPP     bpp_container[output_format]
+#define BPP_D   bpp_digi_gain[output_format]
 
 /* Recording Status Indicator Options */
 #define INDICATOR_OFF        0
@@ -503,8 +513,14 @@ static int get_estimated_compression_ratio()
             return 60;
         case OUTPUT_12BIT_LOSSLESS:
             return 52;
+        case OUTPUT_11BIT_LOSSLESS:
+            return 50;
         case OUTPUT_10BIT_LOSSLESS:
             return 48;
+        case OUTPUT_9_BIT_LOSSLESS:
+            return 45;
+        case OUTPUT_8_BIT_LOSSLESS:
+            return 40;
     }
     
     /* should be unreachable */
@@ -587,9 +603,34 @@ static MENU_UPDATE_FUNC(write_speed_update)
     }
 }
 
+static void setup_bit_depth()
+{
+    if (OUTPUT_COMPRESSION)
+    {
+        int div = 1 << (14 - BPP_D);
+        raw_lv_request_digital_gain(4096 / div);
+    }
+    else
+    {
+        raw_lv_request_bpp(BPP);
+    }
+}
+
+static void restore_bit_depth()
+{
+    raw_lv_request_bpp(14);
+    raw_lv_request_digital_gain(0);
+}
+
 static void measure_compression_ratio()
 {
     ASSERT(RAW_IS_IDLE);
+
+    if (BPP_D != 14)
+    {
+        setup_bit_depth();
+        wait_lv_frames(2);
+    }
 
     /* compress the current frame to estimate the ratio */
     /* set up a dummy slot configuration */
@@ -612,6 +653,12 @@ static void measure_compression_ratio()
 
     ASSERT(measured_compression_ratio);
     fullsize_buffers[1] = 0;
+
+    if (BPP_D != 14)
+    {
+        restore_bit_depth();
+        wait_lv_frames(2);
+    }
 }
 
 static int setup_buffers();
@@ -2514,16 +2561,6 @@ static int write_frames(FILE** pf, void* ptr, int group_size, int num_frames)
     return 1;
 }
 
-static void setup_bit_depth()
-{
-    raw_lv_request_bpp(BPP);
-}
-
-static void restore_bit_depth()
-{
-    raw_lv_request_bpp(14);
-}
-
 static void raw_video_rec_task()
 {
     //~ console_show();
@@ -2574,8 +2611,10 @@ static void raw_video_rec_task()
         NotifyBox(5000, "Raw detect error");
         goto cleanup;
     }
-    
+
     update_resolution_params();
+
+    setup_bit_depth();
 
     /* create output file */
     raw_movie_filename = get_next_raw_movie_file_name();
@@ -2603,8 +2642,6 @@ static void raw_video_rec_task()
     }
 
     hack_liveview(0);
-    
-    setup_bit_depth();
 
     /* this will enable the vsync CBR and the other task(s) */
     raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
@@ -2987,7 +3024,7 @@ static struct menu_entry raw_video_menu[] =
             {
                 .name       = "Data format",
                 .priv       = &output_format,
-                .max        = 3,
+                .max        = 8,
                 .update     = output_format_update,
                 .choices    = CHOICES(
                                 "14-bit",
@@ -2995,15 +3032,30 @@ static struct menu_entry raw_video_menu[] =
                                 "10-bit",
                                 "14-bit lossless",
                                 "12-bit lossless",
+                                "11-bit lossless",
                                 "10-bit lossless",
+                                "9-bit lossless",
+                                "8-bit lossless",
                               ),
                 .help       = "Choose the output format (bit depth, compression) for the raw stream:",
                 .help2      = "14-bit: native uncompressed format used in Canon firmware.\n"
                               "12-bit: uncompressed, 2 LSB trimmed (nearly lossless on current sensor).\n"
                               "10-bit: uncompressed, 4 LSB trimmed (small loss of detail in shadows).\n"
-                              "14-bit lossless: compressed with Canon's Lossless JPEG (about 55-65%).\n"
-                              "12-bit lossless: signal divided by 4 before compression (about 50-55%).\n"
-                              "10-bit lossless: signal divided by 16 before compression (about 45-50%).\n",
+                              "14-bit compressed with Canon's Lossless JPEG. Recommended ISO < 100.\n"
+                              "Signal divided by 4 before compression. Recommended ISO 100-1600.\n"
+                              "Signal divided by 8 before compression. Recommended ISO 100-6400.\n"
+                              "Signal divided by 16 before compression. Recommended ISO 1600+.\n"
+                              "Signal divided by 32 before compression. Recommended ISO 6400+.\n"
+                              "Signal divided by 64 before compression. Recommenedd ISO 12800+.\n",
+                /* 5D3 noise levels (raw_diag, dark frame, 1/50, ISO 100-25600, ~50C):
+                 * octave code to get recommendations:
+                 * isos   = [100 200 400 800 1600 3200 6400 12800 25600];
+                 * noises = [6.7 6.9 7.1 7.8  9.0 11.7 16.8  33.6  66.7];
+                 * gains  = [1 4 8 16 32 64];
+                 * for i = 1:6,
+                 *     [log2(2**14/gains(i)), isos(noises/gains(i) < 2.5 & noises/gains(i) > 0.5 )]
+                 * end
+                 */
             },
             {
                 .name = "Preview",
