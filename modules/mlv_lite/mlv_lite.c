@@ -277,7 +277,9 @@ static inline int pre_recording_buffer_full()
 
 static inline int pre_recorded_frames()
 {
-    return frame_count - pre_record_first_frame;
+    return (pre_record_first_frame)
+        ? frame_count - pre_record_first_frame
+        : 0;
 }
 
 static void refresh_cropmarks()
