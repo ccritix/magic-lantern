@@ -192,6 +192,9 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #define SHAD_GAIN_REGISTER 0xC0F08030
 
+static int lv_raw_type = PREFERRED_RAW_TYPE;
+static int lv_raw_gain = 0;
+
 /** 
  * White level
  * 
@@ -203,6 +206,15 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
  */
 #define WHITE_LEVEL 16200
 
+static int get_default_white_level()
+{
+    if (lv_raw_gain)
+    {
+        return (WHITE_LEVEL - 2048) * lv_raw_gain / 4096 + 2048;
+    }
+    
+    return WHITE_LEVEL;
+}
 
 /**
  * Color matrix should be copied from DCRAW.
@@ -850,7 +862,7 @@ static int raw_update_params_work()
     }
 
     int black_mean, black_stdev_x100;
-    raw_info.white_level = WHITE_LEVEL;
+    raw_info.white_level = get_default_white_level();
 
     ASSERT(raw_info.bits_per_pixel == 14);
     int ok = autodetect_black_level(&black_mean, &black_stdev_x100);
@@ -1597,9 +1609,6 @@ void FAST raw_lv_redirect_edmac(void* ptr)
 
 #ifdef CONFIG_EDMAC_RAW_SLURP
 
-static int lv_raw_type = PREFERRED_RAW_TYPE;
-static int lv_raw_gain = 0;
-
 void FAST raw_lv_vsync()
 {
     /* where should we save the raw data? */
@@ -2050,13 +2059,13 @@ void raw_lv_request_digital_gain(int gain)
     if (gain)
     {
         lv_raw_gain = gain;
-        raw_info.white_level = (WHITE_LEVEL - 2048) * gain / 4096 + 2048;
+        raw_info.white_level = get_default_white_level();
         raw_info.black_level = 2048;
     }
     else
     {
         lv_raw_gain = 0;
-        raw_info.white_level = WHITE_LEVEL;
+        raw_info.white_level = get_default_white_level();
         /* fixme: what to do with black level? */
     }
     
