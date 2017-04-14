@@ -469,6 +469,30 @@ static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     
     DryosDebugMsg(0, 0, "%s", msg);
 
+    for (int i = 0; i < num_args + 13; i++)
+    {
+        uint32_t arg = (i < 4) ? regs[i] : stack[i-4];
+        if (i >= num_args)
+        {
+            int reg = i - num_args;
+            if (args & R(reg)) {
+                arg = regs[reg];
+            } else {
+                continue;
+            }
+        }
+
+        if (arg > 0x1000 && arg < 0x1000000 && !looks_like_string(arg))
+        {
+            DryosDebugMsg(0, 0,
+                "    *0x%x = { %x %x %x %x  %x %x %x %x  %x %x %x %x ... }", arg,
+                MEM(arg),    MEM(arg+4),  MEM(arg+8),  MEM(arg+12),
+                MEM(arg+16), MEM(arg+20), MEM(arg+24), MEM(arg+28),
+                MEM(arg+32), MEM(arg+36), MEM(arg+40), MEM(arg+44)
+            );
+        }
+    }
+
     if (last_result_pc)
     {
         unpatch_memory(last_result_pc);
