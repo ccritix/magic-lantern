@@ -327,33 +327,32 @@ static struct logged_func logged_functions[] = {
     { 0x17674, "TryPostStageEvent", 5, TryPostEvent_log },
     
     { 0x83b8, "register_interrupt", 4, register_interrupt_log },
-    { 0xff3aa650, "set_digital_gain_maybe", 3 },
-    { 0xff4fa6ac, "set_fps_maybe", 1, fps_log },
-    { 0xff2170d8, "SetSsgVsize_fps_timer_B", 1 },
-    { 0x4588, "SetTgNextState", 2 },
+    //~ { 0xff3aa650, "set_digital_gain_maybe", 3 },
+    //~ { 0xff4fa6ac, "set_fps_maybe", 1, fps_log },
+    //~ { 0xff2170d8, "SetSsgVsize_fps_timer_B", 1 },
+    //~ { 0x4588, "SetTgNextState", 2 },
     { 0xff216a20, "RegisterHead1InterruptHandler", 3 },
     { 0xff4fa16c, "RegisterHead2InterruptHandler", 3 },
     //~ { 0xff4fa224, "RegisterHead3InterruptHandler", 3 }, /* conflicts with RegisterHead1InterruptHandler */
     { 0xff4fa4ec, "RegisterHead4InterruptHandler", 3 },
-    { 0x7218, "SetHPTimerAfter", 4 },
     { 0xff2953b8, "LockEngineResources", 1, LockEngineResources_log },
     { 0xff29555c, "UnLockEngineResources", 1, UnLockEngineResources_log},
-    
-    { 0xff290f98, "engio_write", 1, engio_write_log},   /* on 5D3, Canon's engio_write is silent */
-    { 0xff290c80, "EngDrvOut", 2 },                     /* same here */
-    { 0xff290ca0, "EngDrvIn", 1 },
-    { 0xff290d38, "EngDrvBits", 3, engdrvbits_log},
-    { 0xff290cd4, "EngDrvIns", 3 },
+
+    //~ { 0xff290f98, "engio_write", 1, engio_write_log},   /* on 5D3, Canon's engio_write is silent */
+    //~ { 0xff290c80, "EngDrvOut", 2 },                     /* same here */
+    //~ { 0xff290ca0, "EngDrvIn", 1 },
+    //~ { 0xff290d38, "EngDrvBits", 3, engdrvbits_log},
+    //~ { 0xff290cd4, "EngDrvIns", 3 },
     /* only EngDrvOuts is verbose, no need to log it here */
     
-    { 0xFF694880, "eeko_setup_global_vars", 10 },
-    { 0xFF69518C, "eeko_prepare_dsunpack", 3 },
-    { 0xFF6950BC, "eeko_prepare_adunpack", 3 },
-    { 0xFF695124, "eeko_prepare_unpack24", 3 },
+    //~ { 0xFF694880, "eeko_setup_global_vars", 10 },
+    //~ { 0xFF69518C, "eeko_prepare_dsunpack", 3 },
+    //~ { 0xFF6950BC, "eeko_prepare_adunpack", 3 },
+    //~ { 0xFF695124, "eeko_prepare_unpack24", 3 },
     //~ { 0xFF695D50, "eeko_setup_shad", 2 },
-    { 0xFF694DE4, "PathDrv_EekoAddRawPathCore.c", 4 },
+    //~ { 0xFF694DE4, "PathDrv_EekoAddRawPathCore.c", 4 },
     //~ { 0xFF694C88, "eeko_setup_twoadd", 3 },
-    { 0xFF694A04, "PathDrv_EekoAddRawPathCore.c_div8", 4 },
+    //~ { 0xFF694A04, "PathDrv_EekoAddRawPathCore.c_div8", 4 },
 #endif
 
 #endif
