@@ -37,6 +37,7 @@ enum crop_preset {
     CROP_PRESET_1x3,
     CROP_PRESET_3x1,
     CROP_PRESET_40_FPS,
+    CROP_PRESET_CENTER_Z,
     NUM_CROP_PRESETS
 };
 
@@ -61,6 +62,7 @@ static enum crop_preset crop_presets_5d3[] = {
     CROP_PRESET_3K,
     CROP_PRESET_UHD,
     CROP_PRESET_4K_HFPS,
+    CROP_PRESET_CENTER_Z,
     CROP_PRESET_FULLRES_LV,
   //CROP_PRESET_1x3,
   //CROP_PRESET_3x1,
@@ -76,6 +78,7 @@ static const char * crop_choices_5d3[] = {
     "3K 1:1",
     "UHD 1:1",
     "4K 1:1 half-fps",
+    "3.5K 1:1 centered x5",
     "Full-res LiveView",
   //"1x3 binning",
   //"3x1 binning",      /* doesn't work well */
@@ -94,6 +97,7 @@ static const char crop_choices_help2_5d3[] =
     "1:1 3K crop (3072x1920 @ 24p, square raw pixels, preview broken)\n"
     "1:1 4K UHD crop (3840x1600 @ 24p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x3072 @ 12 fps, half frame rate, preview broken)\n"
+    "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
     "Full resolution LiveView (5796x3870 @ 7.45 fps, 5784x3864, preview broken)\n"
     "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "3x1 binning: bin every 3 lines, read all columns (extreme anamorphic)\n"
@@ -143,7 +147,16 @@ static int is_720p()
 static int is_supported_mode()
 {
     if (!lv) return 0;
-    return is_1080p() || is_720p();
+
+    /* note: zoom check is covered by check_cmos_vidmode */
+    switch (crop_preset)
+    {
+        case CROP_PRESET_CENTER_Z:
+            return 1;
+
+        default:
+            return is_1080p() || is_720p();
+    }
 }
 
 static int32_t  target_yres = 0;
@@ -302,10 +315,30 @@ static int FAST check_cmos_vidmode(uint16_t* data_buf)
             if (reg == 1)
             {
                 found = 1;
-                if (value != 0x800 &&   /* not 1080p? */
-                    value != 0xBC2)     /* not 720p? */
+
+                switch (crop_preset)
                 {
-                    ok = 0;
+                    case CROP_PRESET_CENTER_Z:
+                    {
+                        /* detecting the zoom mode is tricky;
+                         * let's just exclude 1080p and 720p for now ... */
+                        if (value == 0x800 ||
+                            value == 0xBC2)
+                        {
+                            ok = 0;
+                        }
+                        break;
+                    }
+
+                    default:
+                    {
+                        if (value != 0x800 &&   /* not 1080p? */
+                            value != 0xBC2)     /* not 720p? */
+                        {
+                            ok = 0;
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -333,6 +366,9 @@ static int FAST check_cmos_vidmode(uint16_t* data_buf)
 
 /* pack two 6-bit values into a 12-bit one */
 #define PACK12(lo,hi) ((((lo) & 0x3F) | ((hi) << 6)) & 0xFFF)
+
+/* pack two 16-bit values into a 32-bit one */
+#define PACK32(lo,hi) (((uint32_t)(lo) & 0xFFFF) | ((uint32_t)(hi) << 16))
 
 /* pack two 16-bit values into a 32-bit one */
 #define PACK32(lo,hi) (((uint32_t)(lo) & 0xFFFF) | ((uint32_t)(hi) << 16))
@@ -467,6 +503,12 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             /* 3x1 binning (bin every 3 lines, read every column) */
             case CROP_PRESET_3x1:
                 cmos_new[2] = 0x10E;    /* read every column, centered crop */
+                break;
+
+            /* raw buffer centered in zoom mode */
+            case CROP_PRESET_CENTER_Z:
+                cmos_new[1] = PACK12(9+2,42+1); /* vertical (first|last) */
+                cmos_new[2] = 0x09E;            /* horizontal offset (mask 0xFF0) */
                 break;
         }
     }
@@ -1299,9 +1341,26 @@ PROP_HANDLER(PROP_LV_ACTION)
 
 static MENU_UPDATE_FUNC(crop_update)
 {
-    if (CROP_PRESET_MENU && lv && !is_supported_mode())
+    if (CROP_PRESET_MENU && lv)
     {
-        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This feature only works in 1080p and 720p video modes.");
+        if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z)
+        {
+            if (lv_dispsize == 1)
+            {
+                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use this mode, please enable the x5 zoom in LiveView.");
+            }
+        }
+        else /* non-zoom modes */
+        {
+            if (!is_supported_mode())
+            {
+                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This feature only works in 1080p and 720p video modes.");
+            }
+            else if (lv_dispsize != 1)
+            {
+                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use this mode, please disable the LiveView zoom.");
+            }
+        }
     }
 }
 
@@ -1411,6 +1470,35 @@ static int crop_rec_needs_lv_refresh()
     return 0;
 }
 
+static void center_canon_preview()
+{
+    /* center the preview window on the raw buffer */
+    /* overriding these registers once will do the trick...
+     * ... until the focus box is moved by the user */
+    uint32_t pos1 = shamem_read(0xc0f383d4);
+    uint32_t pos2 = shamem_read(0xc0f383dc);
+    int raw_xc = (146 + 3744) / 2 / 4;  /* hardcoded for 5D3 */
+    int raw_yc = ( 60 + 1380) / 2;      /* values from old raw.c */
+    int x1 = pos1 & 0xFFFF;
+    int x2 = pos2 & 0xFFFF;
+    int y1 = pos1 >> 16;
+    int y2 = pos2 >> 16;
+    int current_xc = (x1 + x2) / 2;
+    int current_yc = (y1 + y2) / 2;
+    int dx = raw_xc - current_xc;
+    int dy = raw_yc - current_yc;
+    
+    if (dx || dy)
+    {
+        /* note: bits 0x80008000 appear to have no effect,
+         * so we'll use them to flag the centered zoom mode,
+         * e.g. for focus_box_get_raw_crop_offset */
+        dbg_printf("[crop_rec] centering zoom preview: dx=%d, dy=%d\n", dx, dy);
+        EngDrvOutLV(0xc0f383d4, PACK32(x1 + dx, y1 + dy) | 0x80008000);
+        EngDrvOutLV(0xc0f383dc, PACK32(x2 + dx, y2 + dy) | 0x80008000);
+    }
+}
+
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
@@ -1453,6 +1541,11 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         lv_dirty = 0;
     }
 
+    if (lv_dispsize > 1 && crop_preset == CROP_PRESET_CENTER_Z)
+    {
+        center_canon_preview();
+    }
+
     return CBR_RET_CONTINUE;
 }
 
@@ -1463,6 +1556,21 @@ static LVINFO_UPDATE_FUNC(crop_info)
     
     if (patch_active)
     {
+        /* default behavior for unsupported modes */
+        snprintf(buffer, sizeof(buffer), SYM_WARNING);
+
+        if (lv_dispsize > 1)
+        {
+            /* special: x5 zoom */
+            switch (crop_preset)
+            {
+                case CROP_PRESET_CENTER_Z:
+                    snprintf(buffer, sizeof(buffer), "1:1");
+                    break;
+            }
+            goto warn;
+        }
+
         switch (crop_preset)
         {
             case CROP_PRESET_3X:
@@ -1514,16 +1622,16 @@ static LVINFO_UPDATE_FUNC(crop_info)
             case CROP_PRESET_3x1:
                 snprintf(buffer, sizeof(buffer), "3x1");
                 break;
-
-            default:
-                snprintf(buffer, sizeof(buffer), "??");
-                break;
         }
     }
 
+warn:
     if (crop_rec_needs_lv_refresh())
     {
-        STR_APPEND(buffer, " " SYM_WARNING);
+        if (!streq(buffer, SYM_WARNING))
+        {
+            STR_APPEND(buffer, " " SYM_WARNING);
+        }
         item->color_fg = COLOR_YELLOW;
     }
 }
