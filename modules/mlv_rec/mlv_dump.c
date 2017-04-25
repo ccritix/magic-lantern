@@ -1671,16 +1671,6 @@ int main (int argc, char *argv[])
     int video_xRes = 0;
     int video_yRes = 0;
 
-#ifdef MLV_USE_LZMA
-    /* this may need some tuning */
-    int lzma_dict = 1<<27;
-    int lzma_lc = 0;
-    int lzma_lp = 1;
-    int lzma_pb = 1;
-    int lzma_fb = 16;
-    int lzma_threads = 8;
-#endif
-
     lua_State *lua_state = NULL;
 
     /* long options */
@@ -2988,23 +2978,12 @@ read_headers:
                         average_samples++;
                     }
 
+
                     /* now resample bit depth if requested */
                     if(new_depth && (old_depth != new_depth))
                     {
                         int new_size = (video_xRes * video_yRes * new_depth + 7) / 8;
                         unsigned char *new_buffer = malloc(new_size);
-
-                        if(verbose)
-                        {
-                            print_msg(MSG_INFO, "   depth: %d -> %d, size: %d -> %d (%2.2f%%)\n", old_depth, new_depth, frame_size, new_size, ((float)new_depth * 100.0f) / (float)old_depth);
-                        }
-
-                        int calced_size = ((video_xRes * video_yRes * old_depth + 7) / 8);
-                        if(calced_size > frame_size)
-                        {
-                            print_msg(MSG_INFO, "Error: old frame size is too small for %dx%d at %d bpp. Input data corrupt. (%d < %d)\n", video_xRes, video_yRes, old_depth, frame_size, calced_size);
-                            break;
-                        }
 
                         int old_pitch = video_xRes * old_depth / 8;
                         int new_pitch = video_xRes * new_depth / 8;
@@ -3023,12 +3002,36 @@ read_headers:
                                 /* => we have a bias of 0.5 LSB that can be corrected here. */
                                 value <<= (16-old_depth);
                                 value += (1 << (15-old_depth));
+			
 
+			    /* A hack to make lj92 work with 14bit files */                          
+                            if(compressed)
+                            {
+                                /* convert the old value to destination depth */
+                                value >>= (14-new_depth);
+
+                                /* set old bpp depth to be able to calculate white and black levels correctly */
+                               lv_rec_footer.raw_info.bits_per_pixel = 14;
+			    }
+			    else
+			    {
+
+                        if(verbose)
+                        {
+                            print_msg(MSG_INFO, "   depth: %d -> %d, size: %d -> %d (%2.2f%%)\n", old_depth, new_depth, frame_size, new_size, ((float)new_depth * 100.0f) / (float)old_depth);
+                        }
+
+                        int calced_size = ((video_xRes * video_yRes * old_depth + 7) / 8);
+                        if(calced_size > frame_size)
+                        {
+                            print_msg(MSG_INFO, "Error: old frame size is too small for %dx%d at %d bpp. Input data corrupt. (%d < %d)\n", video_xRes, video_yRes, old_depth, frame_size, calced_size);
+                            break;
+                        }
                                 /* convert the old value to destination depth */
                                 value >>= (16-new_depth);
-
+			    }
                                 bitinsert(dst_line, x, new_depth, value);
-                            }
+                          }
                         }
 
                         frame_size = new_size;
@@ -3037,7 +3040,7 @@ read_headers:
                         frame_buffer = realloc(frame_buffer, frame_size);
                         memcpy(frame_buffer, new_buffer, frame_size);
                         free(new_buffer);
-                    }
+                      }
 
                     if(bit_zap)
                     {
