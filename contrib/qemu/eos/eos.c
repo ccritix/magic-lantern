@@ -1,5 +1,9 @@
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+
 #include "hw/hw.h"
 #include "hw/loader.h"
+#include "cpu.h"
 #include "sysemu/sysemu.h"
 #include "hw/devices.h"
 #include "hw/boards.h"
@@ -7,6 +11,7 @@
 #include "exec/memory-internal.h"
 #include "exec/ram_addr.h"
 #include "hw/sysbus.h"
+#include "qemu/log.h"
 #include "ui/console.h"
 #include "ui/pixel_ops.h"
 #include "hw/display/framebuffer.h"
@@ -137,7 +142,7 @@ static void eos_machine_init(void)
     }
 }
 
-machine_init(eos_machine_init);
+type_init(eos_machine_init);
 
 
 

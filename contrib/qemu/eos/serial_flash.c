@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "cpu.h"
+
 #include "eos.h"
 #include "hw/sd/sd.h"
 #include "hw/eos/serial_flash.h"

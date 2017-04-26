@@ -2,6 +2,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "cpu.h"
+
 #include "eos.h"
 #include "model_list.h"
 #include "mpu.h"

@@ -4,7 +4,10 @@
 #include <stdint.h>
 #include <string.h>
 
-
+#include "qemu/osdep.h"
+#include "qapi/error.h"
+#include "cpu.h"
+#include "exec/log.h"
 #include "sysemu/sysemu.h"
 #include "eos.h"
 #include "eos_ml_helpers.h"
