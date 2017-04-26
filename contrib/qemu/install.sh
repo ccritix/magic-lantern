@@ -2,7 +2,7 @@
 
 set -e
 
-QEMU_NAME=${QEMU_NAME:=qemu-2.5.0}
+QEMU_NAME=${QEMU_NAME:=qemu-2.9.0}
 ML=${ML:=magic-lantern}
 
 echo

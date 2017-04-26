@@ -1,6 +1,6 @@
 #!/bin/bash
 
-QEMU_PATH=${QEMU_PATH:=qemu-2.5.0}
+QEMU_PATH=${QEMU_PATH:=qemu-2.9.0}
 MAKE=${MAKE:=make}
 
 function is_mounted
