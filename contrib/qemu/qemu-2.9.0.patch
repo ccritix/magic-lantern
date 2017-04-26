@@ -1,136 +1,150 @@
 diff --git a/cpu-exec.c b/cpu-exec.c
-index c88d0ff..36eedc7 100644
+index 63a56d0..d156e04 100644
 --- a/cpu-exec.c
 +++ b/cpu-exec.c
-@@ -31,6 +31,7 @@
- #include "hw/i386/apic.h"
+@@ -35,6 +35,7 @@
  #endif
+ #include "sysemu/cpus.h"
  #include "sysemu/replay.h"
 +#include "hw/boards.h"
  
  /* -icount align implementation. */
  
-@@ -500,8 +501,118 @@ int cpu_exec(CPUState *cpu)
-                     tcg_ctx.tb_ctx.tb_invalidated_flag = 0;
-                 }
-                 if (qemu_loglevel_mask(CPU_LOG_EXEC)) {
+@@ -135,6 +136,104 @@ static void init_delay_params(SyncClocks *sc, const CPUState *cpu)
+ }
+ #endif /* CONFIG USER ONLY */
+ 
 +#if defined(TARGET_ARM)
-+                    /* rather than logging just PC, also log the disassembled code */
-+                    if (!singlestep) {
-+                        /* separate translation blocks by newlines */
-+                        qemu_log("\n");
-+                    }
-+                    if (CPU_NEXT(first_cpu)) {
-+                        qemu_log("[CPU%d] ", current_cpu->cpu_index);
-+                    }
-+                    log_target_disas(cpu, tb->pc, tb->size, 0);
++static void eos_log_calls(CPUState *cpu, TranslationBlock *tb)
++{
++    ARMCPU *arm_cpu = ARM_CPU(cpu);
++    CPUARMState *env = &arm_cpu->env;
++    
++    static FILE * idc = NULL;
++    static int stderr_dup = 0;
++    static uint32_t prev_pc = 0;
++    static uint32_t prev_lr = 0;
++    static uint32_t prev_sp = 0;
++    static uint32_t prev_size = 0;
++    if (!idc)
++    {
++        char idc_path[100];
++
++        snprintf(idc_path, sizeof(idc_path), "%s.idc", MACHINE_GET_CLASS(current_machine)->name);
++        fprintf(stderr, "Exporting called functions to %s.\n", idc_path);
++        idc = fopen(idc_path, "w");
++        assert(idc);
++        
++        /* QEMU is usually closed with CTRL-C, so call this when finished */
++        void close_idc(void)
++        {
++            fprintf(idc, "}\n");
++            fclose(idc);
++        }
++        atexit(close_idc);
++
++        fprintf(idc, "/* List of functions called during execution. */\n");
++        fprintf(idc, "/* Generated from QEMU. */\n\n");
++        fprintf(idc, "#include <idc.idc>\n\n");
++        fprintf(idc, "static main() {\n");
++
++        stderr_dup = dup(fileno(stderr));
++    }
++    uint32_t pc = env->regs[15];
++    uint32_t lr = env->regs[14];
++    uint32_t sp = env->regs[13];
++    assert(pc == tb->pc);
++
++    if (0)
++    {
++        fprintf(stderr, "   * PC:%x->%x LR:%x->%x SP:%x->%x */\n",
++            prev_pc, pc, prev_lr, lr, prev_sp, sp
++        );
++    }
++    
++    /* bit array for every possible PC & ~3 */
++    static uint32_t saved_pcs[(1 << 30) / 32] = {0};
++    
++    /* when a function call is made:
++     * - LR is updated with the return address
++     * - stack is decremented
++     * - note: the above might also happen during a context switch,
++     *   so use a heuristic to filter them out
++     */
++    if (lr != prev_lr && sp <= prev_sp &&
++        abs((int)sp - (int)prev_sp) < 1024)
++    {
++        /* log each called function to IDC, only once */
++        int pca = pc >> 2;
++        if (!(saved_pcs[pca/32] & (1 << (pca%32))))
++        {
++            saved_pcs[pca/32] |= (1 << pca%32);
++            
++            /* log_target_disas writes to stderr; redirect it to our output file */
++            /* todo: any other threads that might output to stderr? */
++            assert(stderr_dup);
++            fflush(stderr); fflush(idc);
++            dup2(fileno(idc), fileno(stderr));
++            fprintf(stderr, "  /* from "); log_target_disas(cpu, prev_pc, prev_size, 0);
++            fprintf(stderr, "   *   -> "); log_target_disas(cpu, tb->pc, tb->size, 0);
++            fprintf(stderr, "   * PC:%x->%x LR:%x->%x SP:%x->%x */\n",
++                prev_pc, pc, prev_lr, lr, prev_sp, sp
++            );
++            fprintf(stderr, "  SetReg(0x%X, \"T\", %d);\n", pc, env->thumb);
++            fprintf(stderr, "  MakeCode(0x%X);\n", pc);
++            fprintf(stderr, "  MakeFunction(0x%X, BADADDR);\n", pc);
++            fprintf(stderr, "\n");
++            dup2(stderr_dup, fileno(stderr));
++        }
++
++        /* log each call to console */
++        fprintf(stderr, "%08X: call 0x%X (%s)\n", prev_pc, pc, env->thumb ? "Thumb" : "ARM");
++    }
++    
++    if (pc != prev_pc && pc == (prev_lr & ~1))
++    {
++        fprintf(stderr, "%08X: return to 0x%X (%s)\n", prev_pc, pc, env->thumb ? "Thumb" : "ARM");
++    }
++    prev_pc = pc;
++    prev_lr = lr;
++    prev_sp = sp;
++    prev_size = tb->size;
++}
++#endif
++
+ /* Execute a TB, and fix up the CPU state afterwards if necessary */
+ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, TranslationBlock *itb)
+ {
+@@ -144,10 +243,27 @@ static inline tcg_target_ulong cpu_tb_exec(CPUState *cpu, TranslationBlock *itb)
+     int tb_exit;
+     uint8_t *tb_ptr = itb->tc_ptr;
+ 
++#if defined(TARGET_ARM)
++    if (qemu_loglevel_mask(CPU_LOG_EXEC)) {
++        /* rather than logging just PC, also log the disassembled code */
++        if (!singlestep) {
++            /* separate translation blocks by newlines */
++            qemu_log("\n");
++        }
++        if (CPU_NEXT(first_cpu)) {
++            qemu_log("[CPU%d] ", current_cpu->cpu_index);
++        }
++        log_target_disas(cpu, itb->pc, itb->size, 0);
++    }
++    if (qemu_loglevel_mask(EOS_LOG_CALLS)) {
++        eos_log_calls(cpu, itb);
++    }
 +#else
-                     qemu_log("Trace %p [" TARGET_FMT_lx "] %s\n",
-                              tb->tc_ptr, tb->pc, lookup_symbol(tb->pc));
+     qemu_log_mask_and_addr(CPU_LOG_EXEC, itb->pc,
+                            "Trace %p [%d: " TARGET_FMT_lx "] %s\n",
+                            itb->tc_ptr, cpu->cpu_index, itb->pc,
+                            lookup_symbol(itb->pc));
 +#endif
-+                }
-+
-+                if (qemu_loglevel_mask(EOS_LOG_CALLS))
-+                {
-+#if defined(TARGET_ARM)
-+                    ARMCPU *arm_cpu = ARM_CPU(cpu);
-+                    CPUARMState *env = &arm_cpu->env;
-+                    
-+                    static FILE * idc = NULL;
-+                    static int stderr_dup = 0;
-+                    static uint32_t prev_pc = 0;
-+                    static uint32_t prev_lr = 0;
-+                    static uint32_t prev_sp = 0;
-+                    static uint32_t prev_size = 0;
-+                    if (!idc)
-+                    {
-+                        char idc_path[100];
-+
-+                        snprintf(idc_path, sizeof(idc_path), "%s.idc", MACHINE_GET_CLASS(current_machine)->name);
-+                        fprintf(stderr, "Exporting called functions to %s.\n", idc_path);
-+                        idc = fopen(idc_path, "w");
-+                        assert(idc);
-+                        
-+                        /* QEMU is usually closed with CTRL-C, so call this when finished */
-+                        void close_idc(void)
-+                        {
-+                            fprintf(idc, "}\n");
-+                            fclose(idc);
-+                        }
-+                        atexit(close_idc);
-+
-+                        fprintf(idc, "/* List of functions called during execution. */\n");
-+                        fprintf(idc, "/* Generated from QEMU. */\n\n");
-+                        fprintf(idc, "#include <idc.idc>\n\n");
-+                        fprintf(idc, "static main() {\n");
-+
-+                        stderr_dup = dup(fileno(stderr));
-+                    }
-+                    uint32_t pc = env->regs[15];
-+                    uint32_t lr = env->regs[14];
-+                    uint32_t sp = env->regs[13];
-+                    assert(pc == tb->pc);
-+
-+                    if (0)
-+                    {
-+                        fprintf(stderr, "   * PC:%x->%x LR:%x->%x SP:%x->%x */\n",
-+                            prev_pc, pc, prev_lr, lr, prev_sp, sp
-+                        );
-+                    }
-+                    
-+                    /* bit array for every possible PC & ~3 */
-+                    static uint32_t saved_pcs[(1 << 30) / 32] = {0};
-+                    
-+                    /* when a function call is made:
-+                     * - LR is updated with the return address
-+                     * - stack is decremented
-+                     * - note: the above might also happen during a context switch,
-+                     *   so use a heuristic to filter them out
-+                     */
-+                    if (lr != prev_lr && sp <= prev_sp &&
-+                        abs((int)sp - (int)prev_sp) < 1024)
-+                    {
-+                        /* log each called function to IDC, only once */
-+                        int pca = pc >> 2;
-+                        if (!(saved_pcs[pca/32] & (1 << (pca%32))))
-+                        {
-+                            saved_pcs[pca/32] |= (1 << pca%32);
-+                            
-+                            /* log_target_disas writes to stderr; redirect it to our output file */
-+                            /* todo: any other threads that might output to stderr? */
-+                            assert(stderr_dup);
-+                            fflush(stderr); fflush(idc);
-+                            dup2(fileno(idc), fileno(stderr));
-+                            fprintf(stderr, "  /* from "); log_target_disas(cpu, prev_pc, prev_size, 0);
-+                            fprintf(stderr, "   *   -> "); log_target_disas(cpu, tb->pc, tb->size, 0);
-+                            fprintf(stderr, "   * PC:%x->%x LR:%x->%x SP:%x->%x */\n",
-+                                prev_pc, pc, prev_lr, lr, prev_sp, sp
-+                            );
-+                            fprintf(stderr, "  SetReg(0x%X, \"T\", %d);\n", pc, env->thumb);
-+                            fprintf(stderr, "  MakeCode(0x%X);\n", pc);
-+                            fprintf(stderr, "  MakeFunction(0x%X, BADADDR);\n", pc);
-+                            fprintf(stderr, "\n");
-+                            dup2(stderr_dup, fileno(stderr));
-+                        }
-+
-+                        /* log each call to console */
-+                        fprintf(stderr, "%08X: call 0x%X (%s)\n", prev_pc, pc, env->thumb ? "Thumb" : "ARM");
-+                    }
-+                    
-+                    if (pc != prev_pc && pc == (prev_lr & ~1))
-+                    {
-+                        fprintf(stderr, "%08X: return to 0x%X (%s)\n", prev_pc, pc, env->thumb ? "Thumb" : "ARM");
-+                    }
-+                    prev_pc = pc;
-+                    prev_lr = lr;
-+                    prev_sp = sp;
-+                    prev_size = tb->size;
-+#endif
-                 }
-                 /* see if we can patch the calling TB. When the TB
-                    spans two pages, we cannot safely do a direct
+ 
+ #if defined(DEBUG_DISAS)
+     if (qemu_loglevel_mask(CPU_LOG_TB_CPU)
 diff --git a/hw/arm/Makefile.objs b/hw/arm/Makefile.objs
-index 2195b60..e3e2c14 100644
+index 4c5c4ee..bc3f5b3 100644
 --- a/hw/arm/Makefile.objs
 +++ b/hw/arm/Makefile.objs
 @@ -6,6 +6,7 @@ obj-y += tosa.o versatilepb.o vexpress.o virt.o xilinx_zynq.o z2.o
@@ -142,66 +156,25 @@ index 2195b60..e3e2c14 100644
  obj-y += armv7m.o exynos4210.o pxa2xx.o pxa2xx_gpio.o pxa2xx_pic.o
  obj-$(CONFIG_DIGIC) += digic.o
 diff --git a/include/qemu/log.h b/include/qemu/log.h
-index 362cbc4..809426e 100644
+index a50e994..ace1aea 100644
 --- a/include/qemu/log.h
 +++ b/include/qemu/log.h
-@@ -42,6 +42,10 @@ static inline bool qemu_log_enabled(void)
- #define CPU_LOG_MMU        (1 << 12)
- #define CPU_LOG_TB_NOCHAIN (1 << 13)
+@@ -44,6 +44,10 @@ static inline bool qemu_log_separate(void)
+ #define LOG_TRACE          (1 << 15)
+ #define CPU_LOG_TB_OP_IND  (1 << 16)
  
-+#define EOS_LOG_IO         (1 << 14)
-+#define EOS_LOG_UART       (1 << 15)
-+#define EOS_LOG_CALLS      (1 << 16)
++#define EOS_LOG_IO         (1 << 17)
++#define EOS_LOG_UART       (1 << 18)
++#define EOS_LOG_CALLS      (1 << 19)
 +
  /* Returns true if a bit is set in the current loglevel mask
   */
  static inline bool qemu_loglevel_mask(int mask)
-diff --git a/memory.c b/memory.c
-index e193658..9de7251 100644
---- a/memory.c
-+++ b/memory.c
-@@ -1761,7 +1761,7 @@ static void memory_region_update_container_subregions(MemoryRegion *subregion)
-                          int128_make64(other->addr))) {
-             continue;
-         }
--#if 0
-+#if 1
-         printf("warning: subregion collision %llx/%llx (%s) "
-                "vs %llx/%llx (%s)\n",
-                (unsigned long long)offset,
-@@ -1798,6 +1798,9 @@ void memory_region_add_subregion(MemoryRegion *mr,
-                                  hwaddr offset,
-                                  MemoryRegion *subregion)
- {
-+    fprintf(stderr, "%08X - %08X: %s\n",
-+                     (int)offset, (int)offset + (int)subregion->size.lo - 1,
-+                     subregion->name);
-     subregion->may_overlap = false;
-     subregion->priority = 0;
-     memory_region_add_subregion_common(mr, offset, subregion);
-diff --git a/qemu-log.c b/qemu-log.c
-index 7cb01a8..d45c7c0 100644
---- a/qemu-log.c
-+++ b/qemu-log.c
-@@ -120,6 +120,13 @@ const QEMULogItem qemu_log_items[] = {
-     { CPU_LOG_TB_NOCHAIN, "nochain",
-       "do not chain compiled TBs so that \"exec\" and \"cpu\" show\n"
-       "complete traces" },
-+      
-+    { EOS_LOG_IO, "io",
-+      "EOS: log low-level I/O activity" },
-+    { EOS_LOG_UART, "uart",
-+      "EOS: log low-level UART activity" },
-+    { EOS_LOG_CALLS, "calls",
-+      "EOS: log function calls and export them to IDA" },
-     { 0, NULL, NULL },
- };
- 
-diff --git a/target-arm/cpu.c b/target-arm/cpu.c
-index 30739fc..79babf9 100644
---- a/target-arm/cpu.c
-+++ b/target-arm/cpu.c
-@@ -501,8 +501,9 @@ static void arm_cpu_initfn(Object *obj)
+diff --git a/target/arm/cpu.c b/target/arm/cpu.c
+index 04b062c..7b5be34 100644
+--- a/target/arm/cpu.c
++++ b/target/arm/cpu.c
+@@ -552,8 +552,9 @@ static void arm_cpu_initfn(Object *obj)
  static Property arm_cpu_reset_cbar_property =
              DEFINE_PROP_UINT64("reset-cbar", ARMCPU, reset_cbar, 0);
  
@@ -212,7 +185,7 @@ index 30739fc..79babf9 100644
  
  static Property arm_cpu_rvbar_property =
              DEFINE_PROP_UINT64("rvbar", ARMCPU, rvbar, 0);
-@@ -711,6 +712,100 @@ static void arm926_initfn(Object *obj)
+@@ -893,6 +894,100 @@ static void arm926_initfn(Object *obj)
      cpu->reset_sctlr = 0x00090078;
  }
  
@@ -313,7 +286,7 @@ index 30739fc..79babf9 100644
  static void arm946_initfn(Object *obj)
  {
      ARMCPU *cpu = ARM_CPU(obj);
-@@ -914,9 +1009,15 @@ static void arm_v7m_class_init(ObjectClass *oc, void *data)
+@@ -1097,9 +1192,15 @@ static void arm_v7m_class_init(ObjectClass *oc, void *data)
  
  static const ARMCPRegInfo cortexr5_cp_reginfo[] = {
      /* Dummy the TCM region regs for the moment */
@@ -331,7 +304,7 @@ index 30739fc..79babf9 100644
        .access = PL1_RW, .type = ARM_CP_CONST },
      REGINFO_SENTINEL
  };
-@@ -1328,6 +1429,8 @@ typedef struct ARMCPUInfo {
+@@ -1558,6 +1659,8 @@ typedef struct ARMCPUInfo {
  static const ARMCPUInfo arm_cpus[] = {
  #if !defined(CONFIG_USER_ONLY) || !defined(TARGET_AARCH64)
      { .name = "arm926",      .initfn = arm926_initfn },
@@ -340,13 +313,13 @@ index 30739fc..79babf9 100644
      { .name = "arm946",      .initfn = arm946_initfn },
      { .name = "arm1026",     .initfn = arm1026_initfn },
      /* What QEMU calls "arm1136-r2" is actually the 1136 r0p2, i.e. an
-diff --git a/target-arm/helper.c b/target-arm/helper.c
-index afc4163..46cd503 100644
---- a/target-arm/helper.c
-+++ b/target-arm/helper.c
-@@ -5891,11 +5891,21 @@ void arm_cpu_do_interrupt(CPUState *cs)
-     /* Switch to the new mode, and to the correct instruction set.  */
-     env->uncached_cpsr = (env->uncached_cpsr & ~CPSR_M) | new_mode;
+diff --git a/target/arm/helper.c b/target/arm/helper.c
+index 8cb7a94..58fc78c 100644
+--- a/target/arm/helper.c
++++ b/target/arm/helper.c
+@@ -6718,11 +6718,21 @@ static void arm_cpu_do_interrupt_aarch32(CPUState *cs)
+         env->uncached_cpsr |= CPSR_E;
+     }
      env->daif |= mask;
 -    /* this is a lie, as the was no c1_sys on V4T/V5, but who cares
 -     * and we should just guard the thumb mode on V4 */
@@ -368,26 +341,26 @@ index afc4163..46cd503 100644
 +
      env->regs[14] = env->regs[15] + offset;
      env->regs[15] = addr;
-     cs->interrupt_request |= CPU_INTERRUPT_EXITTB;
-diff --git a/target-arm/helper.h b/target-arm/helper.h
-index c2a85c7..2671a2c 100644
---- a/target-arm/helper.h
-+++ b/target-arm/helper.h
-@@ -64,6 +64,8 @@ DEF_HELPER_2(v7m_mrs, i32, env, i32)
+ }
+diff --git a/target/arm/helper.h b/target/arm/helper.h
+index df86bf7..fed4989 100644
+--- a/target/arm/helper.h
++++ b/target/arm/helper.h
+@@ -65,6 +65,8 @@ DEF_HELPER_2(v7m_mrs, i32, env, i32)
  
- DEF_HELPER_3(access_check_cp_reg, void, env, ptr, i32)
+ DEF_HELPER_4(access_check_cp_reg, void, env, ptr, i32, i32)
  DEF_HELPER_3(set_cp_reg, void, env, ptr, i32)
 +DEF_HELPER_3(print_set_cp_reg, void, env, ptr, i32)
 +DEF_HELPER_3(print_get_cp_reg, void, env, ptr, i32)
  DEF_HELPER_2(get_cp_reg, i32, env, ptr)
  DEF_HELPER_3(set_cp_reg64, void, env, ptr, i64)
  DEF_HELPER_2(get_cp_reg64, i64, env, ptr)
-diff --git a/target-arm/op_helper.c b/target-arm/op_helper.c
-index 6cd54c8..54595d2 100644
---- a/target-arm/op_helper.c
-+++ b/target-arm/op_helper.c
-@@ -474,6 +474,156 @@ void HELPER(set_cp_reg)(CPUARMState *env, void *rip, uint32_t value)
-     ri->writefn(env, ri, value);
+diff --git a/target/arm/op_helper.c b/target/arm/op_helper.c
+index d64c867..284ff4c 100644
+--- a/target/arm/op_helper.c
++++ b/target/arm/op_helper.c
+@@ -754,6 +754,156 @@ void HELPER(set_cp_reg)(CPUARMState *env, void *rip, uint32_t value)
+     }
  }
  
 +/* adapted from CHDK cpuinfo */
@@ -543,20 +516,20 @@ index 6cd54c8..54595d2 100644
  uint32_t HELPER(get_cp_reg)(CPUARMState *env, void *rip)
  {
      const ARMCPRegInfo *ri = rip;
-diff --git a/target-arm/translate.c b/target-arm/translate.c
-index 5d22879..d919a46 100644
---- a/target-arm/translate.c
-+++ b/target-arm/translate.c
-@@ -37,6 +37,8 @@
- 
+diff --git a/target/arm/translate.c b/target/arm/translate.c
+index e32e38c..fdd2015 100644
+--- a/target/arm/translate.c
++++ b/target/arm/translate.c
+@@ -36,6 +36,8 @@
  #include "trace-tcg.h"
+ #include "exec/log.h"
  
 +#define LOG_ALL_CP_READS
 +#define LOG_ALL_CP_WRITES
  
  #define ENABLE_ARCH_4T    arm_dc_feature(s, ARM_FEATURE_V4T)
  #define ENABLE_ARCH_5     arm_dc_feature(s, ARM_FEATURE_V5)
-@@ -7222,6 +7224,27 @@ static int disas_coproc_insn(DisasContext *s, uint32_t insn)
+@@ -7561,6 +7563,27 @@ static int disas_coproc_insn(DisasContext *s, uint32_t insn)
          /* Handle special cases first */
          switch (ri->type & ~(ARM_CP_FLAG_MASK & ~ARM_CP_SPECIAL)) {
          case ARM_CP_NOP:
@@ -584,7 +557,7 @@ index 5d22879..d919a46 100644
              return 0;
          case ARM_CP_WFI:
              if (isread) {
-@@ -7276,6 +7299,15 @@ static int disas_coproc_insn(DisasContext *s, uint32_t insn)
+@@ -7615,6 +7638,15 @@ static int disas_coproc_insn(DisasContext *s, uint32_t insn)
                  } else {
                      tmp = load_cpu_offset(ri->fieldoffset);
                  }
@@ -600,7 +573,7 @@ index 5d22879..d919a46 100644
                  if (rt == 15) {
                      /* Destination register of r15 for 32 bit loads sets
                       * the condition codes from the high 4 bits of the value
-@@ -7287,6 +7319,19 @@ static int disas_coproc_insn(DisasContext *s, uint32_t insn)
+@@ -7626,6 +7658,19 @@ static int disas_coproc_insn(DisasContext *s, uint32_t insn)
                  }
              }
          } else {
@@ -620,3 +593,21 @@ index 5d22879..d919a46 100644
              /* Write */
              if (ri->type & ARM_CP_CONST) {
                  /* If not forbidden by access permissions, treat as WI */
+diff --git a/util/log.c b/util/log.c
+index 96f30dd..31afa8f 100644
+--- a/util/log.c
++++ b/util/log.c
+@@ -272,6 +272,13 @@ const QEMULogItem qemu_log_items[] = {
+     { CPU_LOG_TB_NOCHAIN, "nochain",
+       "do not chain compiled TBs so that \"exec\" and \"cpu\" show\n"
+       "complete traces" },
++      
++    { EOS_LOG_IO, "io",
++      "EOS: log low-level I/O activity" },
++    { EOS_LOG_UART, "uart",
++      "EOS: log low-level UART activity" },
++    { EOS_LOG_CALLS, "calls",
++      "EOS: log function calls and export them to IDA" },
+     { 0, NULL, NULL },
+ };
+ 
