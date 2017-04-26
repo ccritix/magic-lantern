@@ -248,7 +248,7 @@ typedef struct
     RTCState rtc;
     SDIOState sd;
     CFState cf;
-    DigicUartState uart;
+    DigicUartState * uart;
     MPUState mpu;
     EDMACState edmac;
     PreproState prepro;

@@ -1360,12 +1360,15 @@ static void eos_init_common(MachineState *machine)
     }
     
     /* init UART */
-    /* FIXME use a qdev chardev prop instead of qemu_char_get_next_serial() */
-    s->uart.chr = qemu_char_get_next_serial();
-    if (s->uart.chr) {
-        qemu_chr_add_handlers(s->uart.chr, eos_uart_can_rx, eos_uart_rx, eos_uart_event, &s->uart);
+    DeviceState *dev = qdev_create(NULL, TYPE_DIGIC_UART);
+    qdev_prop_set_chr(dev, "chardev", serial_hds[0]);
+    qdev_init_nofail(dev);
+    s->uart = DIGIC_UART(dev);
+
+    if (s->uart->chr.chr) {
+        qemu_chr_fe_set_handlers(&s->uart->chr, eos_uart_can_rx, eos_uart_rx, eos_uart_event, s->uart, NULL, true);
     }
-    eos_uart_reset(&s->uart);
+    eos_uart_reset(s->uart);
 
 
     /* init MPU */
@@ -3683,26 +3686,26 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
             {
                 assert(value == (value & 0xFF));
                 
-                if (s->uart.chr) {
-                    qemu_chr_fe_write_all(s->uart.chr, (void*) &value, 1);
-                }
+                if (s->uart->chr.chr) {
+                    qemu_chr_fe_write_all(&s->uart->chr, (void*) &value, 1);
                 
-                /* fixme: better way to check whether the serial is printing to console? */
-                if (strcmp(s->uart.chr->filename, "stdio") != 0 &&
-                    strcmp(s->uart.chr->filename, "mux") != 0)
-                {
-                    printf("\x1B[31m%c\x1B[0m", value);
+                    /* fixme: better way to check whether the serial is printing to console? */
+                    if (strcmp(s->uart->chr.chr->filename, "stdio") != 0 &&
+                        strcmp(s->uart->chr.chr->filename, "mux") != 0)
+                    {
+                        printf("\x1B[31m%c\x1B[0m", value);
 
-                    if (enable_tio_interrupt)
-                    {
-                        /* if using interrupts, prefer line-buffered output */
-                        eos_trigger_int(s, 0x3A + parm, 0);
-                    }
-                    
-                    if (!enable_tio_interrupt || value == '\n')
-                    {
-                        /* not all messages have a newline */
-                        fflush(stdout);
+                        if (enable_tio_interrupt)
+                        {
+                            /* if using interrupts, prefer line-buffered output */
+                            eos_trigger_int(s, 0x3A + parm, 0);
+                        }
+                        
+                        if (!enable_tio_interrupt || value == '\n')
+                        {
+                            /* not all messages have a newline */
+                            fflush(stdout);
+                        }
                     }
                 }
             }
@@ -3714,8 +3717,8 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
 
         case 0x04:
             msg = "Read byte: 0x%02X";
-            s->uart.reg_st &= ~(ST_RX_RDY);
-            ret = s->uart.reg_rx;
+            s->uart->reg_st &= ~(ST_RX_RDY);
+            ret = s->uart->reg_rx;
             msg_arg1 = ret;
             break;
 
@@ -3725,17 +3728,17 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
                 if(value & 1)
                 {
                     msg = "Reset RX indicator";
-                    s->uart.reg_st &= ~(ST_RX_RDY);
+                    s->uart->reg_st &= ~(ST_RX_RDY);
                 }
                 else
                 {
-                    ret = s->uart.reg_st;
+                    ret = s->uart->reg_st;
                 }
             }
             else
             {
                 msg = "Status: 1 = char available, 2 = can write";
-                ret = s->uart.reg_st;
+                ret = s->uart->reg_st;
             }
             break;
 
