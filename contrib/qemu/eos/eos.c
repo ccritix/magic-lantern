@@ -478,7 +478,7 @@ static void eos_interrupt_timer_body(EOSState *s)
                     if(pos == TIMER_INTERRUPT)
                     {
                         if (qemu_loglevel_mask(CPU_LOG_INT)) {
-                            //~ printf("[EOS] trigger int 0x%02X (delayed)\n", pos);    /* quiet */
+                            printf("[EOS] trigger int 0x%02X (delayed)\n", pos);    /* quiet */
                         }
                         s->irq_schedule[pos] = s->timer_reload_value[DRYOS_TIMER_ID] >> 8;
                     }
@@ -1784,12 +1784,6 @@ unsigned int eos_handle_intengine ( unsigned int parm, EOSState *s, unsigned int
                 /* this register resets on read (subsequent reads should report 0) */
                 s->irq_id = 0;
                 cpu_reset_interrupt(CPU(CURRENT_CPU), CPU_INTERRUPT_HARD);
-
-                if(msg_arg2 == TIMER_INTERRUPT)
-                {
-                    /* timer interrupt, quiet */
-                    return ret;
-                }
             }
             break;
 
@@ -1804,12 +1798,6 @@ unsigned int eos_handle_intengine ( unsigned int parm, EOSState *s, unsigned int
 
                 /* we shouldn't reset s->irq_id here (we already reset it on read) */
                 /* if we reset it here also, it will trigger interrupt 0 incorrectly (on race conditions) */
-
-                if (value == TIMER_INTERRUPT)
-                {
-                    /* timer interrupt, quiet */
-                    return 0;
-                }
             }
             else
             {
@@ -3885,7 +3873,6 @@ unsigned int eos_handle_digic_timer ( unsigned int parm, EOSState *s, unsigned i
     {
         ret = s->digic_timer;
         msg = "DIGIC clock";
-        return ret; /* be quiet */
     }
 
     io_log("TIMER", s, address, type, value, ret, msg, 0, 0);
