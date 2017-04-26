@@ -1304,6 +1304,9 @@ static void eos_init_common(MachineState *machine)
 {
     EOSState *s = eos_init_cpu(EOS_MACHINE_GET_CLASS(machine)->model);
 
+    /* print memory map */
+    mtree_info(fprintf, stderr, 1);
+
     /* hijack machine option "firmware" to pass command-line parameters */
     /* e.g. ./run_canon_fw 5D3,firmware="113;boot=1" */
     /* fixme: better way to expose machine-specific options? */
