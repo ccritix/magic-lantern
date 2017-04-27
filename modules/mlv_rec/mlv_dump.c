@@ -1035,6 +1035,7 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, " --cs5x5             5x5 chroma smoothing\n");
     print_msg(MSG_INFO, " --no-fixcp          do not fix cold pixels\n");
     print_msg(MSG_INFO, " --fixcp2            fix non-static (moving) cold pixels (slow)\n");
+    print_msg(MSG_INFO, " --savecp            save first frame cold pixels to file along with --fixcp2 swith behavior\n");
     print_msg(MSG_INFO, " --no-stripes        do not fix vertical stripes in highlights\n");
 
     print_msg(MSG_INFO, "\n");
@@ -1161,6 +1162,7 @@ int main (int argc, char *argv[])
         {"cs5x5",  no_argument, &chroma_smooth_method,  5 },
         {"no-fixcp",  no_argument, &fix_cold_pixels,  0 },
         {"fixcp2",    no_argument, &fix_cold_pixels,  2 },
+        {"savecp",    no_argument, &fix_cold_pixels,  3 },
         {"no-stripes",  no_argument, &fix_vert_stripes,  0 },
         {"avg-vertical",  no_argument, &average_vert,  1 },
         {"avg-horizontal",  no_argument, &average_hor,  1 },
@@ -2701,7 +2703,7 @@ read_headers:
                             
                             if (fix_cold_pixels)
                             {
-                                find_and_fix_cold_pixels(fix_cold_pixels == 2);
+                                find_and_fix_cold_pixels(fix_cold_pixels-1);
                             }
 
                             /* this is internal again */
