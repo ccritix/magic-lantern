@@ -72,6 +72,7 @@ static int show_edmac = 0;
 #include "../trace/trace.h"
 #include "powersave.h"
 #include "shoot.h"
+#include "fileprefix.h"
 #include "timer.h"
 #include "../silent/lossless.h"
 
@@ -2506,11 +2507,22 @@ static char* get_next_raw_movie_file_name()
 
     for (int number = 0 ; number < 100; number++)
     {
-        /**
-         * Get unique file names from the current date/time
-         * last field gets incremented if there's another video with the same name
-         */
-        snprintf(filename, sizeof(filename), "%s/M%02d-%02d%02d.MLV", get_cf_dcim_dir(), now.tm_mday, now.tm_hour, COERCE(now.tm_min + number, 0, 99));
+        if (h264_proxy)
+        {
+            /**
+             * Try to match Canon movie file names
+             * Use the file number from the H.264 card; increment if there are duplicates
+             */
+            snprintf(filename, sizeof(filename), "%s/%s%04d.MLV", get_cf_dcim_dir(), get_file_prefix(), MOD(get_shooting_card()->file_number + number, 10000));
+        }
+        else
+        {
+            /**
+             * Get unique file names from the current date/time
+             * last field gets incremented if there's another video with the same name
+             */
+            snprintf(filename, sizeof(filename), "%s/M%02d-%02d%02d.MLV", get_cf_dcim_dir(), now.tm_mday, now.tm_hour, COERCE(now.tm_min + number, 0, 99));
+        }
         
         /* already existing file? */
         uint32_t size;
@@ -2743,6 +2755,8 @@ static int write_frames(FILE** pf, void* ptr, int group_size, int num_frames)
     return 1;
 }
 
+extern thunk ErrCardForLVApp_handler;
+
 static void raw_video_rec_task()
 {
     //~ console_show();
@@ -2860,6 +2874,18 @@ static void raw_video_rec_task()
         if (buffer_full)
         {
             goto abort_and_check_early_stop;
+        }
+        
+        /* fixme: not very portable */
+        if (h264_proxy && get_current_dialog_handler() == &ErrCardForLVApp_handler)
+        {
+            /* emergency stop - free all resources ASAP to prevent crash */
+            /* the video will be incomplete */
+            NotifyBox(5000, "Emergency Stop");
+            raw_recording_state = RAW_FINISHING;
+            wait_lv_frames(2);
+            writing_queue_head = writing_queue_tail;
+            break;
         }
         
         int w_tail = writing_queue_tail; /* this one can be modified outside the loop, so grab it here, just in case */
@@ -3047,7 +3073,7 @@ abort_and_check_early_stop:
     raw_recording_state = RAW_FINISHING;
 
     /* wait until the other tasks calm down */
-    msleep(500);
+    wait_lv_frames(2);
 
     /* signal end of recording to the compression task */
     msg_queue_post(compress_mq, INT_MIN);
@@ -3135,7 +3161,8 @@ cleanup:
     /* re-enable powersaving  */
     powersave_permit();
 
-    if (h264_proxy && RECORDING_H264)
+    if (h264_proxy && RECORDING_H264 &&
+        get_current_dialog_handler() != &ErrCardForLVApp_handler)
     {
         /* stop H.264 recording */
         movie_end();
