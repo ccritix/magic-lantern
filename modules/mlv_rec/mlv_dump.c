@@ -3286,6 +3286,12 @@ read_headers:
                                 raw_info.jpeg.y = 0;
                                 raw_info.jpeg.height = raw_info.height;
                             }
+
+                            /* call raw2dng code, moved here because otherwise numbers are off for compressed raw */
+                            if (fix_vert_stripes)
+                            {
+                                fix_vertical_stripes();
+                            }
                             
                             if (fix_cold_pixels)
                             {
@@ -3349,12 +3355,6 @@ read_headers:
                             {
                                 print_msg(MSG_ERROR, "VIDF: Failed writing into .DNG file\n");
                                 goto abort;
-                            }
-
-                            /* call raw2dng code, moved here because otherwise numbers are off for compressed raw */
-                            if (fix_vert_stripes)
-                            {
-                                fix_vertical_stripes();
                             }
 
                             /* callout for a saved dng file */
