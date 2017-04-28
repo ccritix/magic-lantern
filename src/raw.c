@@ -93,14 +93,15 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #endif
 
 #ifdef CONFIG_5D3_113
-//#define DEFAULT_RAW_BUFFER MEM(0x2600C + 0x2c)
+#define DEFAULT_RAW_BUFFER MEM(0x2600C + 0x2c)
 #endif
 
 #ifdef CONFIG_5D3_123
-//#define DEFAULT_RAW_BUFFER MEM(0x25f1c + 0x34)
+#define DEFAULT_RAW_BUFFER MEM(0x25f1c + 0x34)
 #endif
 
 #ifdef CONFIG_5D3
+#define DEFAULT_RAW_BUFFER_SIZE (9*1024*1024)   /* at least 3744*1380*14/8; apparently more */
 #define CONFIG_ALLOCATE_RAW_LV_BUFFER
 #define CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY
 #define RAW_LV_BUFFER_ALLOC_SIZE ((0x527 + 2612) * (0x2FE - 0x18)*8 * 14/8)
@@ -432,20 +433,17 @@ extern void reverse_bytes_order(char* buf, int count);
 
 #ifdef CONFIG_RAW_LIVEVIEW
 
-#if defined(CONFIG_ALLOCATE_RAW_LV_BUFFER)
-static void* raw_allocated_lv_buffer = 0;
-#endif
+/* can be either allocated by us or Canon's default */
+static void * raw_allocated_lv_buffer = 0;
+static void * raw_lv_buffer = 0;
+static int raw_lv_buffer_size = 0;
 
 static void* raw_get_default_lv_buffer()
 {
 #if !defined(CONFIG_EDMAC_RAW_SLURP)
     return (void*) shamem_read(RAW_LV_EDMAC);
-#elif defined(DEFAULT_RAW_BUFFER)
-    return (void*) DEFAULT_RAW_BUFFER;
-#elif defined(CONFIG_ALLOCATE_RAW_LV_BUFFER)
-    return raw_allocated_lv_buffer;
 #else
-    #error DEFAULT_RAW_BUFFER not configured.
+    return raw_lv_buffer;
 #endif
 }
 /* returns 1 on success */
@@ -517,7 +515,71 @@ static int raw_lv_get_resolution(int* width, int* height)
     return 1;
 #endif
 }
+
+#ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
+/* requires raw_sem */
+static void raw_lv_realloc_buffer()
+{
+    int width, height;
+    int ok = raw_lv_get_resolution(&width, &height);
+    if (!ok)
+    {
+        ASSERT(0);
+        return;
+    }
+
+    int required_size = width * height * 14/8;
+    if (raw_lv_buffer_size >= required_size)
+    {
+        /* no need for a larger buffer */
+        return;
+    }
+
+    printf("Default raw buffer too small (%s", format_memory_size(raw_lv_buffer_size));
+    printf(", need %dx%d %s) - reallocating.\n", width, height, format_memory_size(required_size));
+
+    if (raw_info.buffer && raw_info.buffer != (void *) DEFAULT_RAW_BUFFER)
+    {
+        ASSERT(0);
+        return;
+    }
+
+#ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY
+    /* dummy allocation, exploiting use after free */
+    /* this assumes nobody will touch the SRM memory while in LiveView */
+    /* or if they do, they are aware of our trick */
+    struct memSuite * suite = srm_malloc_suite(1);
+    if (suite)
+    {
+        /* the SRM memory backend may also be managed by our malloc wrappers */
+        /* leave some unused space - if it ever gets allocated by other task
+         * and overwritten by us, let the backend free it */
+        void * srm_buf = GetMemoryAddressOfMemoryChunk(GetFirstChunkFromSuite(suite));
+        raw_allocated_lv_buffer = srm_buf + 0x100;
+        srm_free_suite(suite);
+    }
+#else
+    raw_allocated_lv_buffer = fio_malloc(RAW_LV_BUFFER_ALLOC_SIZE);
 #endif
+
+    raw_lv_buffer = raw_allocated_lv_buffer;
+    raw_lv_buffer_size = RAW_LV_BUFFER_ALLOC_SIZE;
+}
+
+/* requires raw_sem */
+static void raw_lv_free_buffer()
+{
+    if(raw_allocated_lv_buffer) {
+        #ifndef CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY
+        free(raw_allocated_lv_buffer);
+        #endif
+        raw_allocated_lv_buffer = 0;
+    }
+    raw_lv_buffer = 0;
+    raw_lv_buffer_size = 0;
+}
+#endif /* CONFIG_ALLOCATE_RAW_LV_BUFFER */
+#endif /* CONFIG_RAW_LIVEVIEW */
 
 static int raw_update_params_work()
 {
@@ -570,6 +632,7 @@ static int raw_update_params_work()
         }
         #endif
 
+        raw_lv_realloc_buffer();
         raw_info.buffer = raw_get_default_lv_buffer();
         
         if (!raw_info.buffer)
@@ -1655,7 +1718,10 @@ void FAST raw_lv_vsync()
         if (ok)
         {
             int pitch = width * raw_info.bits_per_pixel / 8;
-            edmac_raw_slurp(CACHEABLE(buf), pitch, height);
+            if (raw_lv_buffer_size >= pitch * height)
+            {
+                edmac_raw_slurp(CACHEABLE(buf), pitch, height);
+            }
         }
     }
     
@@ -1921,7 +1987,6 @@ void FAST raw_preview_fast()
 }
 
 #ifdef CONFIG_RAW_LIVEVIEW
-
 static void raw_lv_enable()
 {
     /* make sure LiveView is fully started before enabling the raw flag */
@@ -1934,50 +1999,27 @@ static void raw_lv_enable()
     call("lv_save_raw", 1);
 #endif
 
-#ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
-    uint32_t old = cli();
-    if(!raw_allocated_lv_buffer) {
-        #ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY
-        /* dummy allocation, exploiting use after free */
-        /* this assumes nobody will touch the SRM memory while in LiveView */
-        /* or if they do, they are aware of our trick */
-        struct memSuite * suite = srm_malloc_suite(1);
-        if (suite)
-        {
-            /* the SRM memory backend may also be managed by our malloc wrappers */
-            /* leave some unused space - if it ever gets allocated by other task
-             * and overwritten by us, let the backend free it */
-            void * srm_buf = GetMemoryAddressOfMemoryChunk(GetFirstChunkFromSuite(suite));
-            raw_allocated_lv_buffer = srm_buf + 0x100;
-            srm_free_suite(suite);
-        }
-        #else
-        raw_allocated_lv_buffer = fio_malloc(RAW_LV_BUFFER_ALLOC_SIZE);
-        #endif
-    }
-    sei(old);
+#ifdef DEFAULT_RAW_BUFFER
+    raw_lv_buffer = (void *) DEFAULT_RAW_BUFFER;
+    raw_lv_buffer_size = DEFAULT_RAW_BUFFER_SIZE;
 #endif
 
-    
+#ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
+    raw_lv_realloc_buffer();
+#endif
 }
 
 static void raw_lv_disable()
 {
     lv_raw_enabled = 0;
-    
+    raw_info.buffer = 0;
+
 #ifndef CONFIG_EDMAC_RAW_SLURP
     call("lv_save_raw", 0);
 #endif
 
 #ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
-    uint32_t old = cli();
-    if(raw_allocated_lv_buffer) {
-        #ifndef CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY
-        free(raw_allocated_lv_buffer);
-        #endif
-        raw_allocated_lv_buffer = 0;
-    }
-    sei(old);
+    raw_lv_free_buffer();
 #endif
 }
 
