@@ -2928,16 +2928,23 @@ static void raw_video_rec_task()
             goto abort_and_check_early_stop;
         }
         
-        /* fixme: not very portable */
-        if (use_h264_proxy() && get_current_dialog_handler() == &ErrCardForLVApp_handler)
+        if (use_h264_proxy())
         {
-            /* emergency stop - free all resources ASAP to prevent crash */
-            /* the video will be incomplete */
-            NotifyBox(5000, "Emergency Stop");
-            raw_recording_state = RAW_FINISHING;
-            wait_lv_frames(2);
-            writing_queue_head = writing_queue_tail;
-            break;
+            /* throttle the raw recording task to make sure H.264 is not starving */
+            /* fixme: this is open loop */
+            msleep(10);
+
+            /* fixme: not very portable */
+            if (get_current_dialog_handler() == &ErrCardForLVApp_handler)
+            {
+                /* emergency stop - free all resources ASAP to prevent crash */
+                /* the video will be incomplete */
+                NotifyBox(5000, "Emergency Stop");
+                raw_recording_state = RAW_FINISHING;
+                wait_lv_frames(2);
+                writing_queue_head = writing_queue_tail;
+                break;
+            }
         }
         
         int w_tail = writing_queue_tail; /* this one can be modified outside the loop, so grab it here, just in case */
