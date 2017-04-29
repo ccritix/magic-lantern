@@ -2839,6 +2839,7 @@ static void raw_video_rec_task()
     last_write_timestamp = 0;
     mlv_chunk = 0;
     edmac_active = 0;
+    int liveview_hacked = 0;
 
     if (lv_dispsize == 10)
     {
@@ -2902,6 +2903,7 @@ static void raw_video_rec_task()
     }
 
     hack_liveview(0);
+    liveview_hacked = 1;
 
     /* this will enable the vsync CBR and the other task(s) */
     raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
@@ -3219,9 +3221,11 @@ cleanup:
     free_buffers();
 
     restore_bit_depth();
-    
-    hack_liveview(1);
-    redraw();
+
+    if (liveview_hacked)
+    {
+        hack_liveview(1);
+    }
     
     /* re-enable powersaving  */
     powersave_permit();
@@ -3233,6 +3237,7 @@ cleanup:
         movie_end();
     }
 
+    redraw();
     raw_recording_state = RAW_IDLE;
 }
 
