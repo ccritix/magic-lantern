@@ -452,6 +452,7 @@ static void * raw_allocated_lv_buffer = 0;
 static void * raw_lv_buffer = 0;
 static int raw_lv_buffer_size = 0;
 
+/* our default LiveView buffer (which can be DEFAULT_RAW_BUFFER or allocated) */
 static void* raw_get_default_lv_buffer()
 {
 #if !defined(CONFIG_EDMAC_RAW_SLURP)
@@ -530,7 +531,20 @@ static int raw_lv_get_resolution(int* width, int* height)
 #endif
 }
 
-#ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
+/* requires raw_sem */
+static void raw_lv_free_buffer()
+{
+    printf("Freeing LV raw buffer %x.\n", raw_lv_buffer);
+    if(raw_allocated_lv_buffer) {
+        #ifndef CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY
+        free(raw_allocated_lv_buffer);
+        #endif
+        raw_allocated_lv_buffer = 0;
+    }
+    raw_lv_buffer = 0;
+    raw_lv_buffer_size = 0;
+}
+
 /* requires raw_sem */
 static void raw_lv_realloc_buffer()
 {
@@ -543,6 +557,33 @@ static void raw_lv_realloc_buffer()
     }
 
     int required_size = width * height * 14/8;
+    if (DEFAULT_RAW_BUFFER_SIZE >= required_size)
+    {
+        /* no need for a larger buffer */
+        if (raw_lv_buffer != (void *) DEFAULT_RAW_BUFFER)
+        {
+            printf("Default raw buffer OK for %dx%d (%s)", width, height, format_memory_size(required_size));
+
+            if (raw_lv_buffer && raw_lv_buffer == raw_allocated_lv_buffer)
+            {
+                printf(" - back to default.\n");
+                raw_lv_free_buffer();
+            }
+            else if (raw_lv_buffer)
+            {
+                printf(": %x -> %x\n", raw_lv_buffer, DEFAULT_RAW_BUFFER);
+            }
+            else
+            {
+                printf(".\n");
+            }
+        }
+
+        raw_lv_buffer = (void *) DEFAULT_RAW_BUFFER;
+        raw_lv_buffer_size = DEFAULT_RAW_BUFFER_SIZE;
+        return;
+    }
+
     if (raw_lv_buffer_size >= required_size)
     {
         /* no need for a larger buffer */
@@ -579,20 +620,6 @@ static void raw_lv_realloc_buffer()
     raw_lv_buffer = raw_allocated_lv_buffer;
     raw_lv_buffer_size = RAW_LV_BUFFER_ALLOC_SIZE;
 }
-
-/* requires raw_sem */
-static void raw_lv_free_buffer()
-{
-    if(raw_allocated_lv_buffer) {
-        #ifndef CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY
-        free(raw_allocated_lv_buffer);
-        #endif
-        raw_allocated_lv_buffer = 0;
-    }
-    raw_lv_buffer = 0;
-    raw_lv_buffer_size = 0;
-}
-#endif /* CONFIG_ALLOCATE_RAW_LV_BUFFER */
 #endif /* CONFIG_RAW_LIVEVIEW */
 
 static int raw_update_params_work()
@@ -2037,8 +2064,6 @@ static void raw_lv_enable()
         info_led_off();
     }
 #endif
-    raw_lv_buffer = (void *) DEFAULT_RAW_BUFFER;
-    raw_lv_buffer_size = DEFAULT_RAW_BUFFER_SIZE;
 #endif
 
 #ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
