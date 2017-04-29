@@ -2739,11 +2739,7 @@ static int write_frames(FILE** pf, void* ptr, int group_size, int num_frames)
         }
     }
     
-    int t0 = get_ms_clock_value();
-    if (!last_write_timestamp) last_write_timestamp = t0;
-    idle_time += t0 - last_write_timestamp;
     int r = FIO_WriteFile(f, ptr, group_size);
-    last_write_timestamp = get_ms_clock_value();
 
     if (r != group_size) /* 4GB limit or card full? */
     {
@@ -2811,7 +2807,6 @@ static int write_frames(FILE** pf, void* ptr, int group_size, int num_frames)
         chunk_frame_count += num_frames;
     }
     
-    writing_time += last_write_timestamp - t0;
     return 1;
 }
 
@@ -2838,6 +2833,8 @@ static void raw_video_rec_task()
     buffer_full = 0;
     FILE* f = 0;
     written_total = 0; /* in bytes */
+    writing_time = 0;
+    idle_time = 0;
     int last_block_size = 0; /* for detecting early stops */
     last_write_timestamp = 0;
     mlv_chunk = 0;
@@ -2917,9 +2914,6 @@ static void raw_video_rec_task()
 
     /* signal start of recording to the compression task */
     msg_queue_post(compress_mq, INT_MAX);
-
-    writing_time = 0;
-    idle_time = 0;
     
     /* fake recording status, to integrate with other ml stuff (e.g. hdr video */
     set_recording_custom(CUSTOM_RECORDING_RAW);
@@ -3060,10 +3054,18 @@ static void raw_video_rec_task()
             slots[slot_index].status = SLOT_WRITING;
         }
 
+        int t0 = get_ms_clock_value();
+        if (!last_write_timestamp) last_write_timestamp = t0;
+        idle_time += t0 - last_write_timestamp;
+
+        /* save a group of frames and measure execution time */
         if (!write_frames(&f, ptr, group_size, num_frames))
         {
             goto abort;
         }
+        
+        last_write_timestamp = get_ms_clock_value();
+        writing_time += last_write_timestamp - t0;
 
         /* for detecting early stops */
         last_block_size = MOD(after_last_grouped - w_head, COUNT(writing_queue));
