@@ -207,7 +207,7 @@ static GUARDED_BY(LiveViewTask) int writing_queue_tail = 0;         /* place cap
 static GUARDED_BY(RawRecTask)   int writing_queue_head = 0;         /* extract frames to be written from here */ 
 
 static GUARDED_BY(LiveViewTask) int frame_count = 0;                /* how many frames we have processed */
-static volatile                 int chunk_frame_count = 0;          /* how many frames in the current file chunk */
+static GUARDED_BY(RawRecTask)   int chunk_frame_count = 0;          /* how many frames in the current file chunk */
 static GUARDED_BY(LiveViewTask) int buffer_full = 0;                /* true when the memory becomes full */
        GUARDED_BY(RawRecTask)   char * raw_movie_filename = 0;      /* file name for current (or last) movie */
 static GUARDED_BY(RawRecTask)   char * chunk_filename = 0;          /* file name for current movie chunk */
@@ -1335,7 +1335,8 @@ int choose_next_capture_slot()
     return best_index;
 }
 
-static void pre_record_vsync_step()
+static REQUIRES(LiveViewTask)
+void pre_record_vsync_step()
 {
     if (raw_recording_state == RAW_PRE_RECORDING)
     {
@@ -1394,7 +1395,8 @@ static void pre_record_vsync_step()
 
 #define FRAME_SENTINEL 0xA5A5A5A5 /* for double-checking EDMAC operations */
 
-static void frame_add_checks(int slot_index)
+static REQUIRES(LiveViewTask)
+void frame_add_checks(int slot_index)
 {
     void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
     uint32_t* frame_end = ptr + frame_size_real - 4;
@@ -1403,7 +1405,8 @@ static void frame_add_checks(int slot_index)
     *(volatile uint32_t*) after_frame = FRAME_SENTINEL; /* this shalt not be overwritten */
 }
 
-static int frame_check_saved(int slot_index)
+static REQUIRES(RawRecTask)
+int frame_check_saved(int slot_index)
 {
     void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
     uint32_t* frame_end = ptr + frame_size_real - 4;
@@ -1775,6 +1778,18 @@ int write_frames(FILE** pf, void* ptr, int size_used, int num_frames)
     return 1;
 }
 
+/* note: called from raw_video_rec_task */
+/* vsync does not run at this time, so we can take its role momentarily */
+static REQUIRES(LiveViewTask)
+void init_vsync_vars()
+{
+    frame_count = 0;
+    capture_slot = -1;
+    fullsize_buffer_pos = 0;
+    buffer_full = 0;
+    edmac_active = 0;
+}
+
 static REQUIRES(RawRecTask)
 void raw_video_rec_task()
 {
@@ -1782,19 +1797,14 @@ void raw_video_rec_task()
     /* init stuff */
     raw_recording_state = RAW_PREPARING;
     slot_count = 0;
-    capture_slot = -1;
-    fullsize_buffer_pos = 0;
-    frame_count = 0;
     chunk_frame_count = 0;
-    buffer_full = 0;
     FILE* f = 0;
     written_total = 0; /* in bytes */
     int last_block_size = 0; /* for detecting early stops */
     last_write_timestamp = 0;
     mlv_chunk = 0;
-    edmac_active = 0;
     pre_record_triggered = 0;
-    
+
     /* disable Canon's powersaving (30 min in LiveView) */
     powersave_prohibit();
 
