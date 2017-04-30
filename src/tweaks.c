@@ -977,15 +977,9 @@ static void play_zoom_center_pos_update()
 
 #endif // FEATURE_QUICK_ZOOM
 
-static int joke_mode = 0;
-
 static void
 tweak_task( void* unused)
 {
-    struct tm now;
-    LoadCalendarFromRTC(&now);
-    joke_mode = (now.tm_mday == 1 && now.tm_mon == 3);
-    
     extern void movtweak_task_init();
     movtweak_task_init();
     
@@ -2416,16 +2410,6 @@ static void preview_contrast_n_saturation_step()
     if (play_dirty) play_dirty--; else return;
     msleep(100);
 #else
-    if (joke_mode)
-    {
-        if (rand()%5 == 3 && get_seconds_clock() == get_last_time_active() + rand()%3)
-        {
-            int old = backlight_level;
-            set_backlight_level(rand()%8);
-            msleep(rand()%50);
-            set_backlight_level(old);
-        }
-    }
     if (!lv) return;
 #endif
 
@@ -2690,15 +2674,12 @@ static void alter_bitmap_palette(int dim_factor, int grayscale, int u_shift, int
 
     if (!bmp_is_on()) return;
 
-    // 255 is reserved for ClearScreen, don't alter it
-    for (int i = 0; i < 255; i++)
+    for (int i = 0; i < 256; i++)
     {
         if (i==0 || i==3 || i==0x14) continue; // don't alter transparent entries
 
-        int orig_palette_entry = LCD_Palette[3*i + 2];
-        //~ bmp_printf(FONT_LARGE,0,0,"%x ", orig_palette_entry);
-        //~ msleep(300);
-        //~ continue;
+        int orig_palette_entry = LCD_Palette[3*i+0x300 + 2];
+
         int8_t opacity = (orig_palette_entry >> 24) & 0xFF;
         uint8_t orig_y = (orig_palette_entry >> 16) & 0xFF;
         int8_t  orig_u = (orig_palette_entry >>  8) & 0xFF;
@@ -2714,9 +2695,24 @@ static void alter_bitmap_palette(int dim_factor, int grayscale, int u_shift, int
             ((u       & 0xFF) <<  8) |
             ((v       & 0xFF));
 
-        if (!DISPLAY_IS_ON) return;
+        if (!DISPLAY_IS_ON)
+            return;
+
+        /* make sure we are actually writing to display registers */
+        /* (check whether LCD_Palette stub is right before writing) */
+        /* FIXME: not valid on DIGIC 6 */
+        if ((LCD_Palette[3*i] & 0xFFFFF000) != 0xC0F14000)
+            return;
+
         EngDrvOut(LCD_Palette[3*i], new_palette_entry);
         EngDrvOut(LCD_Palette[3*i+0x300], new_palette_entry);
+
+        /* record the new palette entry, for our screenshots
+         * there are two copies of the palette; 
+         * our modifications (if any) are saved in the first copy,
+         * and the second copy contains the original (Canon) values.
+         */
+        EngDrvOut(LCD_Palette[3*i+2], new_palette_entry);
     }
 #endif
 }

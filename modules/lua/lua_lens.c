@@ -26,6 +26,13 @@ static int luaCB_lens_index(lua_State * L)
     /// Get the current focus distance (in mm). Only updated in LiveView.
     // @tfield int focus_distance readonly
     else if(!strcmp(key, "focus_distance")) lua_pushinteger(L, lens_info.focus_dist * 10);
+    /// Get the raw relative focus motor position, in steps.
+    /// This counter is 0 at camera startup, its range depend on the lens,
+    /// and is updated only when the focus motor moves. It will lose track
+    /// of the lens position during manual focus, unless you use a focus-by-wire lens.
+    /// Details: [www.magiclantern.fm/forum/index.php?topic=4997](http://www.magiclantern.fm/forum/index.php?topic=4997).
+    // @tfield int focus_pos readonly
+    else if(!strcmp(key, "focus_pos")) lua_pushinteger(L, lens_info.focus_pos);
     /// Get the hyperfocal distance of the lens (in mm). Only updated in LiveView.
     ///
     /// Computed from focal length, focus distance and aperture, see Focus -> DOF Settings menu for options.
@@ -107,7 +114,7 @@ static int luaCB_lens_focus(lua_State * L)
     return 1;
 }
 
-static int wait_focus_status(int timeout, int value)
+static int wait_focus_status(int timeout, int value1, int value2)
 {
     int t0 = get_ms_clock_value();
 
@@ -115,7 +122,7 @@ static int wait_focus_status(int timeout, int value)
     {
         msleep(10);
 
-        if (lv_focus_status == value)
+        if (lv_focus_status == value1 || lv_focus_status == value2)
         {
             return 1;
         }
@@ -159,17 +166,17 @@ static int luaCB_lens_autofocus(lua_State * L)
         goto error;
     }
 
-    /* 3 = focusing, 1 = idle */
-    if (wait_focus_status(1000, 3))
+    /* 3 = focusing, 1 = idle (most models), 2 = idle (100D) */
+    if (wait_focus_status(1000, 3, 3))
     {
-        if (wait_focus_status(5000, 1))
+        if (wait_focus_status(5000, 1, 2))
         {
             goto success;
         }
         else
         {
             /* timeout */
-            printf("Focus status: %d\n", lv_focus_status);
+            printf("[%s] focus status: %d\n", lua_get_script_filename(L), lv_focus_status);
             goto error;
         }
     }

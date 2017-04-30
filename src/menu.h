@@ -272,8 +272,8 @@ struct menu
     int16_t             submenu_height;
     int16_t             scroll_pos;
     int16_t             split_pos; // the limit between name and value columns
-    unsigned            advanced : 1;
-    unsigned            has_placeholders: 1;
+    char                advanced;
+    char                has_placeholders;
 };
 
 #define IS_SUBMENU(menu) (menu->icon == ICON_ML_SUBMENU)
@@ -398,7 +398,7 @@ void menu_close_submenu();
 void menu_toggle_submenu();
 
 int menu_get_value_from_script(const char* name, const char* entry_name);
-char* menu_get_str_value_from_script(const char* name, const char* entry_name);
+char* menu_get_str_value_from_script(const char* name, const char* entry_name, struct menu_display_info * info);
 int menu_set_value_from_script(const char* name, const char* entry_name, int value);
 int menu_set_str_value_from_script(const char* name, const char* entry_name, char* value, int value_int);
 

@@ -60,20 +60,20 @@ static MENU_SELECT_FUNC(script_menu_select)
                 lua_pushinteger(L, delta);
                 if(docall(L, 2, 0))
                 {
-                    fprintf(stderr, "script error:\n %s\n", lua_tostring(L, -1));
+                    fprintf(stderr, "[%s] script error:\n %s\n", lua_get_script_filename(L), lua_tostring(L, -1));
                     lua_save_last_error(L);
                 }
                 give_semaphore(sem);
             }
             else
             {
-                fprintf(stderr, "select is not a function\n");
+                fprintf(stderr, "[%s] select is not a function\n", lua_get_script_filename(L));
                 give_semaphore(sem);
             }
         }
         else
         {
-            printf("lua semaphore timeout: menu.select (%dms)\n", 500);
+            printf("[%s] semaphore timeout: menu.select (%dms)\n", lua_get_script_filename(L), 500);
         }
     }
 }
@@ -158,7 +158,7 @@ static MENU_UPDATE_FUNC(script_menu_update)
         }
         else
         {
-            printf("lua semaphore timeout: menu.update (%dms)\n", 100);
+            printf("[%s] semaphore timeout: menu.update (%dms)\n", lua_get_script_filename(L), 100);
         }
     }
 }
@@ -186,13 +186,28 @@ static int get_index_for_choices(struct menu_entry * menu_entry, const char * va
 /// Get the value of some existing ML menu entry.
 // @tparam string menu name of the parent menu ('Audio', 'Expo', 'Overlay', 'Shoot', 'Movie', etc)
 // @tparam string entry name of the menu entry
-// @treturn int the value of the menu entry (current selection)
+// @tparam[opt] string as_string pass empty string "" to get the result as string (default is int)
+// @treturn ?int|string|nil the current value of the requested menu entry (nil if menu entry not found)
 // @function get
 static int luaCB_menu_get(lua_State * L)
 {
     LUA_PARAM_STRING(menu, 1);
     LUA_PARAM_STRING(entry, 2);
-    lua_pushinteger(L, menu_get_value_from_script(menu, entry));
+    LUA_PARAM_STRING_OPTIONAL(as_string, 3, NULL);
+    
+    if (as_string)
+    {
+        struct menu_display_info info;
+        char * str = menu_get_str_value_from_script(menu, entry, &info);
+        if (!str) lua_pushnil(L);
+        else lua_pushstring(L, str);
+    }
+    else
+    {
+        int val = menu_get_value_from_script(menu, entry);
+        if (val == INT_MIN) lua_pushnil(L);
+        else lua_pushinteger(L, val);
+    }
     return 1;
 }
 
@@ -200,43 +215,36 @@ static int luaCB_menu_get(lua_State * L)
 // @tparam string menu name of the parent menu ('Audio', 'Expo', 'Overlay', 'Shoot', 'Movie', etc).
 // @tparam string entry name of the menu entry.
 // @tparam ?int|string value the value to set.
-// @treturn bool whether or not the call was sucessful.
+// @treturn ?bool|nil whether or not the call was sucessful, or nil if the requested menu entry was not found.
 // @function set
 static int luaCB_menu_set(lua_State * L)
 {
     LUA_PARAM_STRING(menu, 1);
     LUA_PARAM_STRING(entry, 2);
+    int result = INT_MIN;
     if(lua_isinteger(L, 3))
     {
         LUA_PARAM_INT(value, 3);
-        lua_pushboolean(L, menu_set_value_from_script(menu, entry, value));
+        result = menu_set_value_from_script(menu, entry, value);
+        lua_pushboolean(L, result);
     }
     else
     {
         LUA_PARAM_STRING(value, 3);
         char * copy = copy_string(value);
-        lua_pushboolean(L, menu_set_str_value_from_script(menu, entry, copy, -1));
+        result = menu_set_str_value_from_script(menu, entry, copy, INT_MIN);
         free(copy);
     }
+
+    if (result == INT_MIN) lua_pushnil(L);
+    else lua_pushboolean(L, result);
+
     return 1;
 }
 
 /// Open ML menu.
-///
-/// Optionally, it may also select the requested menu.
-// @param[opt] menu name of the parent menu ('Audio', 'Expo', 'Overlay', 'Shoot', 'Movie', etc)
-// @param[opt] entry name of the menu entry
-// @function open
 static int luaCB_menu_open(lua_State * L)
 {
-    LUA_PARAM_STRING_OPTIONAL(menu, 1, NULL);
-    LUA_PARAM_STRING_OPTIONAL(entry, 2, NULL);
-
-    if (menu)
-    {
-        select_menu_by_name((char *) menu, entry);
-    }
-
     gui_open_menu();
     msleep(1000);
     return 0;
@@ -249,6 +257,23 @@ static int luaCB_menu_close(lua_State * L)
     gui_stop_menu();
     msleep(1000);
     return 0;
+}
+
+/// Select an item from ML menu.
+// @tparam[opt] string menu name of the parent menu ('Audio', 'Expo', 'Overlay', 'Shoot', 'Movie', etc)
+// @tparam[opt] string entry name of the menu entry
+// @treturn bool whether or not the call was sucessful.
+// @function select
+static int luaCB_menu_select(lua_State * L)
+{
+    LUA_PARAM_STRING(menu, 1);
+    LUA_PARAM_STRING_OPTIONAL(entry, 2, NULL);
+    select_menu_by_name((char *) menu, entry);
+    lua_pushboolean(L, 
+        entry ? is_menu_entry_selected((char *) menu, (char *) entry)
+              : is_menu_selected((char *) menu)
+    );
+    return 1;
 }
 
 /// Block the ML menu from redrawing (if you wand to do custom drawing).
@@ -679,7 +704,7 @@ static void load_menu_entry(lua_State * L, struct script_menu_entry * script_ent
                 }
                 else
                 {
-                    fprintf(stderr, "invalid choice[%d]\n", choice_index);
+                    fprintf(stderr, "[%s] invalid choice[%d]\n", lua_get_script_filename(L), choice_index);
                     menu_entry->choices[choice_index] = NULL;
                     choices_count = choice_index;
                 }
@@ -729,7 +754,7 @@ static void load_menu_entry(lua_State * L, struct script_menu_entry * script_ent
             }
             else
             {
-                fprintf(stderr, "warning: could not create metatable submenu");
+                fprintf(stderr, "[%s] warning: could not create metatable submenu", lua_get_script_filename(L));
             }
             
             for (submenu_index = 0; submenu_index < submenu_count; submenu_index++)
@@ -762,20 +787,20 @@ static void load_menu_entry(lua_State * L, struct script_menu_entry * script_ent
                         }
                         else
                         {
-                            fprintf(stderr, "warning: could not get metatable submenu");
+                            fprintf(stderr, "[%s] warning: could not get metatable submenu", lua_get_script_filename(L));
                         }
                         lua_pop(L, 2);
                     }
                     else
                     {
-                        fprintf(stderr, "warning: could not get parent metatable");
+                        fprintf(stderr, "[%s] warning: could not get parent metatable", lua_get_script_filename(L));
                     }
                     
                     lua_pop(L, 1);//userdata
                 }
                 else
                 {
-                    fprintf(stderr, "invalid submenu[%d]\n", submenu_index);
+                    fprintf(stderr, "[%s] invalid submenu[%d]\n", lua_get_script_filename(L), submenu_index);
                 }
                 lua_pop(L, 1);
             }
@@ -835,6 +860,7 @@ const luaL_Reg menulib[] =
     {"set", luaCB_menu_set},
     {"open", luaCB_menu_open},
     {"close", luaCB_menu_close},
+    {"select", luaCB_menu_select},
     {"block", luaCB_menu_block},
     {"new", luaCB_menu_new},
     {NULL, NULL}

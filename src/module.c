@@ -75,14 +75,17 @@ static int module_load_symbols(TCCState *s, char *filename)
     FIO_ReadFile(file, buf, size);
     FIO_CloseFile(file);
 
-    while(buf[pos])
+    while(pos < size && buf[pos])
     {
         char address_buf[16];
         char symbol_buf[128];
         uint32_t length = 0;
         uint32_t address = 0;
 
-        while(buf[pos + length] && buf[pos + length] != ' ' && length < sizeof(address_buf))
+        while (pos + length < size &&
+               buf[pos + length] &&
+               buf[pos + length] != ' ' &&
+               length < sizeof(address_buf))
         {
             address_buf[length] = buf[pos + length];
             length++;
@@ -92,7 +95,11 @@ static int module_load_symbols(TCCState *s, char *filename)
         pos += length + 1;
         length = 0;
 
-        while(buf[pos + length] && buf[pos + length] != '\r' && buf[pos + length] != '\n' && length < sizeof(symbol_buf))
+        while (pos + length < size &&
+               buf[pos + length] &&
+               buf[pos + length] != '\r' &&
+               buf[pos + length] != '\n' &&
+               length < sizeof(symbol_buf))
         {
             symbol_buf[length] = buf[pos + length];
             length++;
@@ -102,7 +109,10 @@ static int module_load_symbols(TCCState *s, char *filename)
         pos += length + 1;
         length = 0;
 
-        while(buf[pos + length] && (buf[pos + length] == '\r' || buf[pos + length] == '\n'))
+        while (pos + length < size &&
+               buf[pos + length] &&
+              (buf[pos + length] == '\r' ||
+               buf[pos + length] == '\n'))
         {
             pos++;
         }
@@ -890,33 +900,40 @@ int handle_module_keys(struct event * event)
         count = MAX(count, event->arg);
     }
     
-    while (count--)
+    for(int mod = 0; mod < MODULE_COUNT_MAX; mod++)
     {
-        for(int mod = 0; mod < MODULE_COUNT_MAX; mod++)
+        module_cbr_t *cbr = module_list[mod].cbr;
+        if(module_list[mod].valid && cbr)
         {
-            module_cbr_t *cbr = module_list[mod].cbr;
-            if(module_list[mod].valid && cbr)
+            while(cbr->name)
             {
-                while(cbr->name)
+                if(cbr->type == CBR_KEYPRESS)
                 {
-                    if(cbr->type == CBR_KEYPRESS)
+                    int pass_event = 1;
+                    /* one event may include multiple key presses - decompose it */
+                    for (int i = 0; i < count; i++)
                     {
-                        /* key got handled? */
-                        if(!cbr->handler(module_translate_key(event->param, MODULE_KEY_PORTABLE)))
-                        {
-                            return 0;
-                        }
+                        int portable_key = module_translate_key(event->param, MODULE_KEY_PORTABLE);
+                        pass_event &= cbr->handler(portable_key);
                     }
-                    if(cbr->type == CBR_KEYPRESS_RAW)
+                    if (!pass_event)
                     {
-                        /* key got handled? */
-                        if(!cbr->handler((int)event))
-                        {
-                            return 0;
-                        }
+                        /* key handled */
+                        return 0;
                     }
-                    cbr++;
                 }
+                if(cbr->type == CBR_KEYPRESS_RAW)
+                {
+                    /* raw event includes counter - let's pass it only once */
+                    int pass_event = cbr->handler((int)event);
+
+                    if (!pass_event)
+                    {
+                        /* key handled */
+                        return 0;
+                    }
+                }
+                cbr++;
             }
         }
     }
