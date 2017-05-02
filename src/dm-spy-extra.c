@@ -116,6 +116,12 @@ static struct logged_func logged_functions[] = {
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
     #ifdef CONFIG_5D2
     { 0xff9b3cb4, "register_interrupt", 4, register_interrupt_log },
+
+    /* message-level SIO3/MREQ communication */
+    { 0xFF99F518, "mpu_send", 2, mpu_send_log },
+    { 0xFF861840, "mpu_recv", 1, mpu_recv_log },
+
+#if 0
     //~ { 0xFF87284C, "dma_memcpy", 3 },            // conflicts with mpu_recv
     { 0xff9b989c, "TryPostEvent", 5, TryPostEvent_log },
     { 0xff9b8f24, "TryPostStageEvent", 5, TryPostEvent_log },
@@ -134,10 +140,7 @@ static struct logged_func logged_functions[] = {
     { 0xFF99F424, "SIO3_data_to_send", 1 },
     { 0xFF99F380, "MREQ_get_data_to_send_ret", 1 },
     { 0xFF99F38C, "MREQ_data_to_send", 1 },
-
-    /* message-level SIO3/MREQ communication */
-    { 0xFF99F518, "mpu_send", 2, mpu_send_log },
-    { 0xFF861840, "mpu_recv", 1, mpu_recv_log },
+#endif
     #endif
 
     #ifdef CONFIG_5D3_113
