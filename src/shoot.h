@@ -22,6 +22,9 @@ int get_bulb_shutter_raw_equiv();
 /* true if you are in bulb mode (some cameras have a dedicated mode, others have a BULB position for shutter speed in M mode) */
 int is_bulb_mode();
 
+/* switch to BULB mode */
+void ensure_bulb_mode();
+
 /* start/stop recording */
 void movie_start();
 void movie_end();
@@ -41,7 +44,8 @@ void set_lv_zoom(int zoom);
 
 /* todo: move it somewhere else (playback tricks?) */
 void next_image_in_play_mode(int direction);
-void get_out_of_play_mode(int extra_wait);
+void exit_play_qr_mode();
+void enter_play_mode();
 int is_pure_play_movie_mode();      /* tweaks.c, to be moved */
 int is_pure_play_photo_mode();
 int is_pure_play_photo_or_movie_mode();
@@ -123,15 +127,13 @@ int is_continuous_drive();
 
 /* expo lock */
 void expo_lock_update_value();
-int round_expo_comp(int ae);
-int round_aperture(int av);
-int round_shutter(int tv, int slowest_shutter);
-int expo_value_rounding_ok(int raw, int is_aperture);
 
 /* to be refactored with CBRs (maybe with the lvinfo engine) */
 void iso_refresh_display();
 void display_trap_focus_info();
 void free_space_show_photomode();
+
+const char* format_time_hours_minutes_seconds(int seconds);
 
 #endif // __SHOOT_H_
 

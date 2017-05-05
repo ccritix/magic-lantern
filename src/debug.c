@@ -23,7 +23,6 @@
 #include "lvinfo.h"
 #include "timer.h"
 #include "raw.h"
-#include "powersave.h"
 
 #ifdef CONFIG_DEBUG_INTERCEPT
 #include "dm-spy.h"
@@ -84,12 +83,12 @@ draw_prop_reset( void * priv )
 void _card_led_on()  //See sub_FF32B410 -> sub_FF0800A4
 {
     *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x800c00;
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDON); //0x138000
+    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x138000;
 }
 void _card_led_off()  //See sub_FF32B424 -> sub_FF0800B8
 {
     *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x800c00;
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDOFF); //0x38400
+    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x38400;
 }
 //TODO: Check if this is correct, because reboot.c said 0x838C00
 #elif defined(CARD_LED_ADDRESS) && defined(LEDON) && defined(LEDOFF)
@@ -286,49 +285,38 @@ void guimode_test()
 }
 #endif
 
-//~ uncompressed video testing
-#ifdef CONFIG_6D
-FILE * movfile;
-int record_uncomp = 0;
-#endif
-
-void bsod()
-{
-    do {
-        gui_stop_menu();
-        SetGUIRequestMode(1);
-        msleep(1000);
-    } while (CURRENT_DIALOG_MAYBE != 1);
-    NotifyBoxHide();
-    canon_gui_disable_front_buffer();
-    gui_uilock(UILOCK_EVERYTHING);
-    bmp_fill(COLOR_BLUE, 0, 0, 720, 480);
-    int fnt = SHADOW_FONT(FONT_MONO_20);
-    int h = 20;
-    int y = 20;
-    bmp_printf(fnt, 0, y+=h, "   A problem has been detected and Magic Lantern has been"   );
-    bmp_printf(fnt, 0, y+=h, "   shut down to prevent damage to your camera."              );
-    y += h;
-    bmp_printf(fnt, 0, y+=h, "   If this is the first time you've seen this STOP error"    );
-    bmp_printf(fnt, 0, y+=h, "   screen, restart your camera. If this screen appears"      );
-    bmp_printf(fnt, 0, y+=h, "   again, follow these steps:"                               );
-    y += h;
-    bmp_printf(fnt, 0, y+=h, "   - Go to LiveView and enable DIGIC peaking.  "             );
-    bmp_printf(fnt, 0, y+=h, "   - Take a photo of a calendar, focusing on today's date. " );
-    bmp_printf(fnt, 0, y+=h, "   - Try pressing the magic button quickly enough. "         );
-    y += h;
-    bmp_printf(fnt, 0, y+=h, "   Technical information:");
-    bmp_printf(fnt, 0, y+=h, "   *** STOP 0x000000aa (0x1000af22, 0xdeadbeef, 0xffff)"     );
-    y += h;
-    bmp_printf(fnt, 0, y+=h, "   Beginning dump of physical memory"                        );
-    bmp_printf(fnt, 0, y+=h, "   Physical memory dump complete. Your camera is bricked."   );
-    y += h;
-    bmp_printf(fnt, 0, y+=h, "   Contact the Magic Lantern guys at www.magiclantern.fm"    );
-    bmp_printf(fnt, 0, y+=h, "   for further assistance and information."                  );
-}
-
 static void run_test()
 {
+}
+
+static void unmount_sd_card()
+{
+    extern void FSUunMountDevice(int drive);
+    
+    msleep(1000);
+    console_clear();
+    console_show();
+    
+    /* call shutdown hooks that need to save configs */
+    extern int module_shutdown();
+    config_save_at_shutdown();
+    module_shutdown();
+    
+    /* unmount the SD card */
+    FSUunMountDevice(2);
+    
+    printf("Unmounted SD card.\n");
+    printf("You may now copy files remotely on your wifi card.\n");
+    printf("Press shutter halfway to reboot.\n");
+    
+    while (!get_halfshutter_pressed())
+    {
+        info_led_on();
+        msleep(10);
+    }
+
+    int reboot = 0;
+    prop_request_change(PROP_REBOOT, &reboot, 4);
 }
 
 #if CONFIG_DEBUGMSG
@@ -784,7 +772,7 @@ static void edmac_display_page(int i0, int x0, int y0)
         uint32_t addr = edmac_get_address(ch);
         union edmac_size_t
         {
-            struct { short x, y; } size;
+            struct { uint16_t x, y; } size;
             uint32_t raw;
         };
 
@@ -802,22 +790,27 @@ static void edmac_display_page(int i0, int x0, int y0)
         }
 
         if (state != 0 && state != 1)
+        {
             STR_APPEND(msg, " (%x)", state);
+        }
 
         uint32_t dir     = edmac_get_dir(ch);
         uint32_t conn_w  = edmac_get_connection(ch, EDMAC_DIR_WRITE);
         uint32_t conn_r  = edmac_get_connection(ch, EDMAC_DIR_READ);
 
-        if (conn_w != 0 && conn_r != 0xFF)
-        {
-            /* should be unreachable */
-            STR_APPEND(msg, " <%x,%x>", conn_w, conn_r);
-        }
-        else if (dir == EDMAC_DIR_WRITE)
+        int color =
+            dir == EDMAC_DIR_UNUSED ? COLOR_GRAY(20) :   /* unused? */
+            state == 0              ? COLOR_GRAY(50) :   /* inactive? */
+            state == 1              ? COLOR_GREEN1   :   /* active? */
+                                      COLOR_RED      ;   /* no idea */
+
+        if (dir == EDMAC_DIR_WRITE)
         {
             if (conn_w == 0)
             {
-                STR_APPEND(msg, " <w>");
+                /* Write EDMAC, but could not figure out where it's connected */
+                /* May be either unused, or connected to 0 (RAW data) */
+                STR_APPEND(msg, " <w!>");
             }
             else
             {
@@ -828,7 +821,8 @@ static void edmac_display_page(int i0, int x0, int y0)
         {
             if (conn_r == 0xFF)
             {
-                STR_APPEND(msg, " <r>");
+                /* Read EDMAC, but could not figure out where it's connected */
+                STR_APPEND(msg, " <r!>");
             }
             else
             {
@@ -836,13 +830,11 @@ static void edmac_display_page(int i0, int x0, int y0)
             }
         }
 
-        int color =
-            conn_r != 0xFF && dir != EDMAC_DIR_READ ? COLOR_RED      :   /* seems used for read, but dir is not read? */
-            conn_w != 0 && dir != EDMAC_DIR_WRITE   ? COLOR_RED      :   /* seems used for write, but dir is not write? */
-            dir == EDMAC_DIR_UNUSED                 ? COLOR_GRAY(20) :   /* unused? */
-            state == 0                              ? COLOR_GRAY(50) :   /* inactive? */
-            state == 1                              ? COLOR_GREEN1   :   /* active? */
-                                                      COLOR_RED      ;   /* no idea */
+        if (dir != EDMAC_DIR_UNUSED && strchr(msg, '!'))
+        {
+            color = COLOR_YELLOW;
+        }
+
 
         bmp_printf(
             FONT(FONT_MONO_20, color, COLOR_BLACK),
@@ -1092,6 +1084,15 @@ static struct menu_entry debug_menus[] = {
         .select      = run_in_separate_task,
         .help = "Dump all image buffers (LV, HD, RAW) from current video mode."
     },
+#ifdef FEATURE_UNMOUNT_SD_CARD
+    {
+        .name        = "Unmount SD card",
+        .priv        = unmount_sd_card,
+        .select      = run_in_separate_task,
+        .help        = "Run before uploading files to a Wi-Fi card, to avoid data corruption.",
+        .help2       = "No further writes will be performed on your card from the camera.",
+    },
+#endif
 #ifdef FEATURE_DONT_CLICK_ME
     {
         .name        = "Don't click me!",
@@ -1542,7 +1543,7 @@ static void HijackFormatDialogBox()
     if (MEM(DIALOG_MnCardFormatBegin) == 0) return;
     struct gui_task * current = gui_task_list.current;
     struct dialog * dialog = current->priv;
-    if (dialog && MEM(dialog->type) != DLG_SIGNATURE) return;
+    if (dialog && !streq(dialog->type, "DIALOG")) return;
 
     if (keep_ml_after_format)
         dialog_set_property_str(dialog, 4, "Format card, keep ML " FORMAT_BTN_NAME);
@@ -1555,7 +1556,7 @@ static void HijackCurrentDialogBox(int string_id, char* msg)
 {
     struct gui_task * current = gui_task_list.current;
     struct dialog * dialog = current->priv;
-    if (dialog && MEM(dialog->type) != DLG_SIGNATURE) return;
+    if (dialog && !streq(dialog->type, "DIALOG")) return;
     dialog_set_property_str(dialog, string_id, msg);
     dialog_redraw(dialog);
 }
@@ -1580,7 +1581,7 @@ static void HijackDialogBox()
 {
     struct gui_task * current = gui_task_list.current;
     struct dialog * dialog = current->priv;
-    if (dialog && MEM(dialog->type) != DLG_SIGNATURE) return;
+    if (dialog && !streq(dialog->type, "DIALOG")) return;
     int i;
     for (i = 0; i<255; i++) {
             char s[30];
@@ -1816,8 +1817,17 @@ static void CopyMLFilesBack_AfterFormat()
     }
 
     HijackCurrentDialogBox(FORMAT_STR_LOC, "Magic Lantern restored :)");
+    msleep(2000);
+}
+
+static void restart_after_format()
+{
+    /* restart the camera after formatting */
+    HijackCurrentDialogBox(FORMAT_STR_LOC, "Restarting camera...");
     msleep(1000);
-    HijackCurrentDialogBox(FORMAT_STR_LOC, "Format");
+    
+    int reboot = 0;
+    prop_request_change(PROP_REBOOT, &reboot, 4);
 }
 
 static void HijackFormatDialogBox_main()
@@ -1863,10 +1873,15 @@ static void HijackFormatDialogBox_main()
     {
         gui_uilock(UILOCK_EVERYTHING);
         CopyMLFilesBack_AfterFormat();
+        TmpMem_Done();
+        restart_after_format();
+        /* needed? */
         gui_uilock(UILOCK_NONE);
     }
-
-    TmpMem_Done();
+    else
+    {
+        TmpMem_Done();
+    }
 }
 #endif
 
@@ -1926,13 +1941,13 @@ int handle_buttons_being_held(struct event * event)
     if (event->param == BGMT_PRESS_HALFSHUTTER) halfshutter_pressed = 1;
     if (event->param == BGMT_UNPRESS_HALFSHUTTER) halfshutter_pressed = 0;
     #endif
-    #ifdef BGMT_UNPRESS_ZOOMIN_MAYBE
-    if (event->param == BGMT_PRESS_ZOOMIN_MAYBE) {zoom_in_pressed = 1; zoom_out_pressed = 0; }
-    if (event->param == BGMT_UNPRESS_ZOOMIN_MAYBE) {zoom_in_pressed = 0; zoom_out_pressed = 0; }
+    #ifdef BGMT_UNPRESS_ZOOM_IN
+    if (event->param == BGMT_PRESS_ZOOM_IN) {zoom_in_pressed = 1; zoom_out_pressed = 0; }
+    if (event->param == BGMT_UNPRESS_ZOOM_IN) {zoom_in_pressed = 0; zoom_out_pressed = 0; }
     #endif
-    #ifdef BGMT_PRESS_ZOOMOUT_MAYBE
-    if (event->param == BGMT_PRESS_ZOOMOUT_MAYBE) { zoom_out_pressed = 1; zoom_in_pressed = 0; }
-    if (event->param == BGMT_UNPRESS_ZOOMOUT_MAYBE) { zoom_out_pressed = 0; zoom_in_pressed = 0; }
+    #ifdef BGMT_PRESS_ZOOM_OUT
+    if (event->param == BGMT_PRESS_ZOOM_OUT) { zoom_out_pressed = 1; zoom_in_pressed = 0; }
+    if (event->param == BGMT_UNPRESS_ZOOM_OUT) { zoom_out_pressed = 0; zoom_in_pressed = 0; }
     #endif
     
     (void)zoom_in_pressed; /* silence warning */
@@ -1989,4 +2004,10 @@ void EngDrvOut(uint32_t reg, uint32_t value)
     if (ml_shutdown_requested) return;
     if (!(MEM(0xC0400008) & 0x2)) return; // this routine requires LCLK enabled
     _EngDrvOut(reg, value);
+}
+
+void engio_write(uint32_t* reg_list)
+{
+    if (!(MEM(0xC0400008) & 0x2)) return; // this routine requires LCLK enabled
+    _engio_write(reg_list);
 }

@@ -134,8 +134,9 @@ int FAST get_y_skip_offset_for_histogram()
 static int is_zoom_mode_so_no_zebras() 
 { 
     if (!lv) return 0;
-    if (lv_dispsize == 1) return 0;
-    if (raw_lv_is_enabled()) return 0; /* exception: in raw mode we can record crop videos */
+    if (lv_dispsize == 1) return 0;     /* always on in x1 */
+    if (lv_dispsize > 5) return 1;      /* always disable in x10 zoom and also in the special x1 mode from some recent models (0x81) */
+    if (raw_lv_is_enabled()) return 0;  /* exception: in raw mode we can record crop videos */
     
     return 1;
 }
@@ -173,7 +174,7 @@ static CONFIG_INT("disp.mode.x", disp_mode_x, 1);
 static CONFIG_INT( "transparent.overlay", transparent_overlay, 0);
 static CONFIG_INT( "transparent.overlay.x", transparent_overlay_offx, 0);
 static CONFIG_INT( "transparent.overlay.y", transparent_overlay_offy, 0);
-static CONFIG_INT( "transparent.overlay.autoupd", transparent_overlay_auto_update, 1);
+static CONFIG_INT( "transparent.overlay.autoupd", transparent_overlay_auto_update, 0);
 static int transparent_overlay_hidden = 0;
 
 static CONFIG_INT( "global.draw",   global_draw, 3 );
@@ -263,7 +264,7 @@ int should_draw_zoom_overlay()
     if (!zoom_overlay_enabled) return 0;
     if (!zebra_should_run()) return 0;
     if (EXT_MONITOR_RCA) return 0;
-    if (hdmi_code == 5) return 0;
+    if (hdmi_code >= 5) return 0;
     #if defined(CONFIG_DISPLAY_FILTERS) && defined(CONFIG_CAN_REDIRECT_DISPLAY_BUFFER) && !defined(CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY)
     extern int display_broken_for_mz(); /* tweaks.c */
     if (display_broken_for_mz()) return 0;
@@ -304,7 +305,6 @@ int nondigic_zoom_overlay_enabled()
 static CONFIG_INT( "focus.peaking", focus_peaking, 0);
 //~ static CONFIG_INT( "focus.peaking.method", focus_peaking_method, 1);
 static CONFIG_INT( "focus.peaking.filter.edges", focus_peaking_filter_edges, 0); // prefer texture details rather than strong edges
-static CONFIG_INT( "focus.peaking.lowlight", focus_peaking_lores, 1); // use a low-res image buffer for better results in low light
 static CONFIG_INT( "focus.peaking.thr", focus_peaking_pthr, 5); // 1%
 static CONFIG_INT( "focus.peaking.color", focus_peaking_color, 7); // R,G,B,C,M,Y,cc1,cc2
 CONFIG_INT( "focus.peaking.grayscale", focus_peaking_grayscale, 0); // R,G,B,C,M,Y,cc1,cc2
@@ -437,7 +437,7 @@ int get_global_draw() // menu setting, or off if
             #endif
             !LV_PAUSED && 
             #ifdef CONFIG_5D3
-            !(hdmi_code==5 && video_mode_resolution>0) && // unusual VRAM parameters
+            !(hdmi_code >= 5 && video_mode_resolution>0) && // unusual VRAM parameters
             #endif
             job_state_ready_to_take_pic();
     }
@@ -1124,28 +1124,16 @@ static int* dirty_pixels = 0;
 static uint32_t* dirty_pixel_values = 0;
 static int dirty_pixels_num = 0;
 //~ static unsigned int* bm_hd_r_cache = 0;
-static uint16_t bm_hd_x_cache[BMP_W_PLUS - BMP_W_MINUS];
-static int bm_hd_bm2lv_sx = 0;
-static int bm_hd_lv2hd_sx = 0;
-static int old_peak_lores = 0;
+static uint16_t bm_lv_x_cache[BMP_W_PLUS - BMP_W_MINUS];
 
 static void zebra_update_lut()
 {
+    static int prev_bm2lv_sx = 0;
     int rebuild = 0;
-        
-    if(unlikely(bm_hd_bm2lv_sx != bm2lv.sx))
+
+    if(unlikely(prev_bm2lv_sx != bm2lv.sx))
     {
-        bm_hd_bm2lv_sx = bm2lv.sx;
-        rebuild = 1;
-    }
-    if(unlikely(bm_hd_lv2hd_sx != lv2hd.sx))
-    {
-        bm_hd_lv2hd_sx = lv2hd.sx;
-        rebuild = 1;
-    }
-    if (unlikely(focus_peaking_lores != old_peak_lores))
-    {
-        old_peak_lores = focus_peaking_lores;
+        prev_bm2lv_sx = bm2lv.sx;
         rebuild = 1;
     }
     
@@ -1156,7 +1144,7 @@ static void zebra_update_lut()
 
         for (int x = xStart; x < xEnd; x += 1)
         {
-            bm_hd_x_cache[x - BMP_W_MINUS] = ((focus_peaking_lores ? BM2LV_X(x) : BM2HD_X(x)) * 2) + 1;
+            bm_lv_x_cache[x - BMP_W_MINUS] = BM2LV_X(x) * 2 + 1;
         }        
     }
 }
@@ -1478,11 +1466,6 @@ static inline int FAST peak_d2xy(const uint8_t* p8)
     return calc_peak(p8, vram_lv.pitch);
 }
 
-static inline int FAST peak_d2xy_hd(const uint8_t* p8)
-{
-    return calc_peak(p8, vram_hd.pitch);
-}
-
 #ifdef FEATURE_FOCUS_PEAK_DISP_FILTER
 
 //~ static inline int peak_blend_solid(uint32_t* s, int e, int thr) { return 0x4C7F4CD5; }
@@ -1668,10 +1651,6 @@ static void FAST focus_found_pixel(int x, int y, int e, int thr, uint8_t * const
     //~ int color = COLOR_RED;
     color = (color << 8) | color;
     
-#ifdef FEATURE_ANAMORPHIC_PREVIEW
-    y = anamorphic_squeeze_bmp_y(y);
-#endif
-    
     uint16_t * const b_row = (uint16_t*)( bvram + BM_R(y) );   // 2 pixels
     uint16_t * const m_row = (uint16_t*)( bvram_mirror + BM_R(y) );   // 2 pixels
 
@@ -1780,10 +1759,8 @@ draw_zebra_and_focus( int Z, int F )
         }
         dirty_pixels_num = 0;
         
-        struct vram_info *hd_vram = focus_peaking_lores ? get_yuv422_vram() : get_yuv422_hd_vram();
-        uint32_t hdvram = (uint32_t)hd_vram->vram;
-        if (focus_peaking_lores) hdvram = (uint32_t)CACHEABLE(YUV422_LV_BUFFER_DISPLAY_ADDR);
-        if (!hdvram) return 0;
+        uint32_t vram = (uint32_t)CACHEABLE(YUV422_LV_BUFFER_DISPLAY_ADDR);
+        if (!vram) return 0;
         
         int off = get_y_skip_offset_for_overlays();
         int yStart = os.y0 + off + 8;
@@ -1791,7 +1768,12 @@ draw_zebra_and_focus( int Z, int F )
         int xStart = os.x0 + 8;
         int xEnd = os.x_max - 8;
         int n_over = 0;
-        
+
+        #ifdef FEATURE_ANAMORPHIC_PREVIEW
+        yStart = anamorphic_squeeze_bmp_y(yStart);
+        yEnd   = anamorphic_squeeze_bmp_y(yEnd);
+        #endif
+
         const uint8_t* p8; // that's a moving pointer
         
         zebra_update_lut();
@@ -1813,40 +1795,20 @@ draw_zebra_and_focus( int Z, int F )
             n_total = ((yEnd - yStart) * (xEnd - xStart)) / 6;
             for(int y = yStart; y < yEnd; y += 3)
             {
-                uint32_t hd_row = hdvram + (focus_peaking_lores ? BM2LV_R(y) : BM2HD_R(y));
+                uint32_t row = vram + BM2LV_R(y);
                 
-                if (focus_peaking_lores) // use LV buffer
+                for (int x = xStart; x < xEnd; x += 2)
                 {
-                    for (int x = xStart; x < xEnd; x += 2)
+                    p8 = (uint8_t *)(row + bm_lv_x_cache[x - BMP_W_MINUS]);
+                     
+                    int e = peak_d2xy(p8);
+                    
+                    /* executed for 1% of pixels */
+                    if (unlikely(e >= thr))
                     {
-                        p8 = (uint8_t *)(hd_row + bm_hd_x_cache[x - BMP_W_MINUS]); // this was adjusted to hold LV offsets instead of HD
-                         
-                        int e = peak_d2xy(p8);
-                        
-                        /* executed for 1% of pixels */
-                        if (unlikely(e >= thr))
-                        {
-                            n_over++;
-                            if (unlikely(dirty_pixels_num >= MAX_DIRTY_PIXELS)) break; // threshold too low, abort
-                            focus_found_pixel(x, y, e, thr, bvram);
-                        }
-                    }
-                }
-                else // hi-res, use HD buffer
-                {
-                    for (int x = xStart; x < xEnd; x += 2)
-                    {
-                        p8 = (uint8_t *)(hd_row + bm_hd_x_cache[x - BMP_W_MINUS]);
-                         
-                        int e = peak_d2xy_hd(p8);
-                        
-                        /* executed for 1% of pixels */
-                        if (unlikely(e >= thr))
-                        {
-                            n_over++;
-                            if (unlikely(dirty_pixels_num >= MAX_DIRTY_PIXELS)) break; // threshold too low, abort
-                            focus_found_pixel(x, y, e, thr, bvram);
-                        }
+                        n_over++;
+                        if (unlikely(dirty_pixels_num >= MAX_DIRTY_PIXELS)) break; // threshold too low, abort
+                        focus_found_pixel(x, y, e, thr, bvram);
                     }
                 }
             }
@@ -1856,12 +1818,12 @@ draw_zebra_and_focus( int Z, int F )
             n_total = ((yEnd - yStart) * (xEnd - xStart));
             for(int y = yStart; y < yEnd; y ++)
             {
-                uint32_t hd_row = hdvram + BM2HD_R(y);
+                uint32_t row = vram + BM2LV_R(y);
                 
                 for (int x = xStart; x < xEnd; x ++)
                 {
-                    p8 = (uint8_t *)(hd_row + bm_hd_x_cache[x - BMP_W_MINUS]);
-                    int e = peak_d2xy_hd(p8);
+                    p8 = (uint8_t *)(row + bm_lv_x_cache[x - BMP_W_MINUS]);
+                    int e = peak_d2xy(p8);
                     
                     /* executed for 1% of pixels */
                     if (unlikely(e >= thr))
@@ -2085,7 +2047,7 @@ static MENU_UPDATE_FUNC(global_draw_display)
     }
 
     #ifdef CONFIG_5D3
-    if (hdmi_code==5 && video_mode_resolution>0) // unusual VRAM parameters
+    if (hdmi_code >= 5 && video_mode_resolution>0) // unusual VRAM parameters
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Not compatible with HDMI 50p/60p.");
     #endif
     if (lv && lv_disp_mode && ZEBRAS_IN_LIVEVIEW)
@@ -2144,7 +2106,7 @@ static MENU_UPDATE_FUNC(zoom_overlay_display)
 
     if (EXT_MONITOR_RCA)
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Magic Zoom does not work with SD monitors");
-    else if (hdmi_code == 5)
+    else if (hdmi_code >= 5)
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Magic Zoom does not work in HDMI 1080i.");
     #if defined(CONFIG_DISPLAY_FILTERS) && defined(CONFIG_CAN_REDIRECT_DISPLAY_BUFFER) && !defined(CONFIG_CAN_REDIRECT_DISPLAY_BUFFER_EASILY)
     extern int display_broken_for_mz(); /* tweaks.c */
@@ -2829,14 +2791,6 @@ struct menu_entry zebra_menus[] = {
                          "Fine details: looks for microcontrast. Needs lots of light.\n",
                 .icon_type = IT_DICE
             },
-            {
-                .name = "Image buffer",
-                .priv = &focus_peaking_lores,
-                .max = 1,
-                .icon_type = IT_DICE,
-                .choices = CHOICES("High-res", "Low-res"),
-                .help = "Use a low-res image to get better results in low light.",
-            },
             /*
             {
                 .name = "Method",
@@ -3153,12 +3107,6 @@ static struct menu_entry livev_dbg_menus[] = {
     #endif
 };
 
-#ifdef CONFIG_LCD_SENSOR
-CONFIG_INT("lcdsensor.wakeup", lcd_sensor_wakeup, 1);
-#else
-#define lcd_sensor_wakeup 0
-#endif
-
 #ifdef FEATURE_LV_DISPLAY_PRESETS
 struct menu_entry livev_cfg_menus[] = {
     {
@@ -3276,9 +3224,9 @@ int handle_zoom_overlay(struct event * event)
     // zoom in when recording => enable Magic Zoom 
     if (get_zoom_overlay_trigger_mode() && RECORDING_H264_STARTED && MVR_FRAME_NUMBER > 10 && event->param ==
         #if defined(CONFIG_5D3) || defined(CONFIG_6D)
-        BGMT_PRESS_ZOOMIN_MAYBE
+        BGMT_PRESS_ZOOM_IN
         #else
-        BGMT_UNPRESS_ZOOMIN_MAYBE
+        BGMT_UNPRESS_ZOOM_IN
         #endif
     )
     {
@@ -3287,13 +3235,13 @@ int handle_zoom_overlay(struct event * event)
     }
 
     // if magic zoom is enabled, Zoom In should always disable it 
-    if (is_zoom_overlay_triggered_by_zoom_btn() && event->param == BGMT_PRESS_ZOOMIN_MAYBE)
+    if (is_zoom_overlay_triggered_by_zoom_btn() && event->param == BGMT_PRESS_ZOOM_IN)
     {
         zoom_overlay_toggle();
         return 0;
     }
     
-    if (get_zoom_overlay_trigger_mode() && lv_dispsize == 1 && event->param == BGMT_PRESS_ZOOMIN_MAYBE)
+    if (get_zoom_overlay_trigger_mode() && lv_dispsize == 1 && event->param == BGMT_PRESS_ZOOM_IN)
     {
         #ifdef FEATURE_LCD_SENSOR_SHORTCUTS
         int lcd_sensor_trigger = (get_lcd_sensor_shortcuts() && display_sensor && DISPLAY_SENSOR_POWERED);
@@ -3314,27 +3262,6 @@ int handle_zoom_overlay(struct event * event)
         }
     }
 #endif
-
-    /* allow moving AF frame (focus box) when Canon blocks it */
-    /* most cameras will block the focus box keys in Manual Focus mode while recording */
-    /* 6D seems to block them always in MF, https://bitbucket.org/hudson/magic-lantern/issue/1816/cant-move-focus-box-on-6d */
-    if (
-        #if !defined(CONFIG_6D) /* others? */
-        RECORDING_H264 &&
-        #endif
-        liveview_display_idle() &&
-        is_manual_focus() &&
-    1)
-    {
-        if (event->param == BGMT_PRESS_LEFT)
-            { move_lv_afframe(-300, 0); return 0; }
-        if (event->param == BGMT_PRESS_RIGHT)
-            { move_lv_afframe(300, 0); return 0; }
-        if (event->param == BGMT_PRESS_UP)
-            { move_lv_afframe(0, -300); return 0; }
-        if (event->param == BGMT_PRESS_DOWN)
-            { move_lv_afframe(0, 300); return 0; }
-    }
 
     return 1;
 }
@@ -3436,7 +3363,7 @@ static void draw_zoom_overlay(int dirty)
 
     // select buffer where MZ should be written (camera-specific, guesswork)
     #if defined(CONFIG_5D2) || defined(CONFIG_EOSM) || defined(CONFIG_50D)
-    /* fixme: ugly hack */
+    #warning FIXME: this method uses busy waiting, which causes high CPU usage and overheating when using Magic Zoom
     void busy_vsync(int hd, int timeout_ms)
     {
         int timeout_us = timeout_ms * 1000;
@@ -3456,10 +3383,21 @@ static void draw_zoom_overlay(int dirty)
     lvr = (uint16_t*) shamem_read(REG_EDMAC_WRITE_LV_ADDR);
     busy_vsync(0, 20);
     #endif
+
     #if defined(CONFIG_DIGIC_V) && ! defined(CONFIG_EOSM)
     lvr = CACHEABLE(YUV422_LV_BUFFER_DISPLAY_ADDR);
-    if (lvr != CACHEABLE(YUV422_LV_BUFFER_1) && lvr != CACHEABLE(YUV422_LV_BUFFER_2) && lvr != CACHEABLE(YUV422_LV_BUFFER_3)) return;
-    #else
+    if (
+        lvr != CACHEABLE(YUV422_LV_BUFFER_1) && 
+        lvr != CACHEABLE(YUV422_LV_BUFFER_2) && 
+        lvr != CACHEABLE(YUV422_LV_BUFFER_3) &&
+        #ifdef YUV422_LV_BUFFER_4
+        lvr != CACHEABLE(YUV422_LV_BUFFER_4) &&
+        #endif
+       1)
+    {
+        /* refuse to draw on invalid buffer addresses */
+        return;
+    }
     #endif
     
     if (!lvr) return;
@@ -3652,9 +3590,9 @@ int liveview_display_idle()
                   || dialog->handler == (dialog_handler_t) &LiveViewShutterApp_handler
                   #endif
               ) &&
-            CURRENT_DIALOG_MAYBE <= 3 && 
-            #ifdef CURRENT_DIALOG_MAYBE_2
-            CURRENT_DIALOG_MAYBE_2 <= 3 &&
+            CURRENT_GUI_MODE <= 3 && 
+            #ifdef CURRENT_GUI_MODE_2
+            CURRENT_GUI_MODE_2 <= 3 &&
             #endif
             job_state_ready_to_take_pic() &&
             !mirror_down )
@@ -3854,30 +3792,6 @@ clearscreen_loop:
         idle_led_blink_step(k);
 
         if (!lv && !lv_paused) continue;
-
-        // especially for 50D
-        #ifdef CONFIG_KILL_FLICKER
-        if (kill_canon_gui_mode == 1)
-        {
-            if (ZEBRAS_IN_LIVEVIEW && !gui_menu_shown())
-            {
-                int idle = liveview_display_idle() && lv_disp_mode == 0;
-                if (idle)
-                {
-                    if (!canon_gui_front_buffer_disabled())
-                        idle_kill_flicker();
-                }
-                else
-                {
-                    if (canon_gui_front_buffer_disabled())
-                        idle_stop_killing_flicker();
-                }
-                static int prev_idle = 0;
-                if (!idle && prev_idle != idle) redraw();
-                prev_idle = idle;
-            }
-        }
-        #endif
         
         #ifdef FEATURE_CLEAR_OVERLAYS
         if (clearscreen == 3)
@@ -3976,20 +3890,28 @@ BMP_LOCK (
         struct gui_task * current = gui_task_list.current;
         struct dialog * dialog = current->priv;
 
-        if (dialog && MEM(dialog->type) == DLG_SIGNATURE) // if dialog seems valid
+        if (dialog && streq(dialog->type, "DIALOG")) // if dialog seems valid
         {
-            #ifdef CONFIG_KILL_FLICKER
             // to redraw, we need access to front buffer
-            int d = canon_gui_front_buffer_disabled();
-            canon_gui_enable_front_buffer(0);
-            #endif
+            int front_buffer_disabled = canon_gui_front_buffer_disabled();
+            if (front_buffer_disabled)
+            {
+                /* temporarily enable front buffer to allow the redraw */
+                canon_gui_enable_front_buffer(0);
+            }
             
             dialog_redraw(dialog); // try to redraw (this has semaphores for winsys)
             
-            #ifdef CONFIG_KILL_FLICKER
-            // restore things back
-            if (d) idle_kill_flicker();
-            #endif
+            if (front_buffer_disabled)
+            {
+                /* disable it back */
+                
+                #ifdef CONFIG_KILL_FLICKER
+                idle_kill_flicker();
+                #else
+                canon_gui_disable_front_buffer();
+                #endif
+            }
         }
         else
         {
@@ -4343,7 +4265,7 @@ void update_disp_mode_bits_from_params()
         (focus_peaking        ? 1<<8 : 0) |
         (zoom_overlay_enabled ? 1<<9 : 0) |
         (transparent_overlay  ? 1<<10: 0) |
-        //~ (electronic_level     ? 1<<11: 0) |
+        (electronic_level     ? 1<<11: 0) |
         //~ (defish_preview       ? 1<<12: 0) |
 #ifdef FEATURE_VECTORSCOPE
         (vectorscope_should_draw() ? 1<<13: 0) |
@@ -4379,7 +4301,7 @@ void update_disp_mode_params_from_bits()
     focus_peaking        = bits & (1<<8) ? 1 : 0;
     zoom_overlay_enabled = bits & (1<<9) ? 1 : 0;
     transparent_overlay  = bits & (1<<10)? 1 : 0;
-    //~ electronic_level     = bits & (1<<11)? 1 : 0;
+    electronic_level     = bits & (1<<11)? 1 : 0;
     //~ defish_preview       = bits & (1<<12)? 1 : 0;
 #ifdef FEATURE_VECTORSCOPE
     vectorscope_request_draw(bits & (1<<13)? 1 : 0);
@@ -4647,14 +4569,16 @@ static void show_overlay()
 
 static void transparent_overlay_from_play()
 {
-    if (!PLAY_MODE) { fake_simple_button(BGMT_PLAY); msleep(1000); }
+    /* go to play mode if not already there */
+    enter_play_mode();
+    
+    /* create overlay from current image */
     make_overlay();
-    get_out_of_play_mode(500);
-    msleep(500);
-    if (!lv) { force_liveview(); msleep(500); }
-    msleep(1000);
-    BMP_LOCK( show_overlay(); )
-    //~ transparent_overlay = 1;
+
+    /* go to LiveView */
+    force_liveview();
+    
+    /* the overlay will now be displayed from cropmarks.c */
 }
 
 PROP_HANDLER(PROP_LV_ACTION)
@@ -4675,7 +4599,9 @@ PROP_HANDLER(PROP_LV_ACTION)
 
 void peaking_benchmark()
 {
-    int lv0 = lv;
+    int old_lv = lv;
+    int old_peaking = focus_peaking;
+    focus_peaking = 1;
     msleep(1000);
     fake_simple_button(BGMT_PLAY);
     msleep(2000);
@@ -4688,5 +4614,6 @@ void peaking_benchmark()
     int b = get_seconds_clock();
     NotifyBox(10000, "%d seconds => %d fps", b-a, 1000 / (b-a));
     beep();
-    lv = lv0;
+    lv = old_lv;
+    focus_peaking = old_peaking;
 }

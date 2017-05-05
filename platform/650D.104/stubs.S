@@ -282,9 +282,9 @@ NSTUB(0xFFA535B8 - RAM_OFFSET,  take_semaphore)
 
 /** Task info **/
 NSTUB(   0x247A4,  task_max)                                // Not so sure....
-NSTUB(0xFFA4F80C - RAM_OFFSET,  get_current_task)
-NSTUB(0xFFA5B96C - RAM_OFFSET,  get_obj_attr)               // AJ_checks_if_Process_id_created_by_Dryos
 NSTUB(0xFFA66C0C - RAM_OFFSET,  is_taskid_valid)            // AJ_task_trampoline_related_p10
+NSTUB(   0x233D8,  current_task)
+NSTUB(     0x674,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
 
 /** Task sleep **/
 NSTUB(0xFFA53A94 - RAM_OFFSET,  msleep)
@@ -300,6 +300,7 @@ NSTUB(0xFFA58E60 - RAM_OFFSET,  task_trampoline)
 NSTUB(0xFF130A44,  LoadCalendarFromRTC)                     // xref: called by exceptionhandlercbr
 ///NSTUB(0xFFA621C4 - RAM_OFFSET,  vsnprintf)                  // not sure it gets called from RAM
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
+// NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
