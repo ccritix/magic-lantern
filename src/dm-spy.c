@@ -139,6 +139,11 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     sei(old);
 }
 
+int debug_intercept_running()
+{
+    return (buf != 0);
+}
+
 #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
 
 /* use a small buffer until the memory backend gets initialized */

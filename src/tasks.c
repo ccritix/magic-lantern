@@ -11,6 +11,7 @@
 #include "tskmon.h"
 #include "menu.h"
 #include "crop-mode-hack.h"
+#include "dm-spy.h"
 
 /* for CBRs */
 #include "config.h"
@@ -389,6 +390,15 @@ static void ml_shutdown()
     extern int module_shutdown();
     module_shutdown();
 #endif
+
+#if defined(CONFIG_DEBUG_INTERCEPT)
+    if (debug_intercept_running())
+    {
+        /* any logging in progress? save it now */
+        debug_intercept();
+    }
+#endif
+
     info_led_on();
     _card_led_on();
 }
