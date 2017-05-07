@@ -3519,7 +3519,7 @@ read_headers:
 #endif
                         }
 
-                        if(frame_buffer_size != (uint32_t)frame_size && !verbose)
+                        if(frame_buffer_size != (uint32_t)frame_size && verbose)
                         {
                             print_msg(MSG_INFO, "  saving: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%% ratio)\n", frame_size, frame_buffer_size, ((float)frame_buffer_size * 100.0f) / (float)frame_size);
                         }
