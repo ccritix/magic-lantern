@@ -3800,9 +3800,6 @@ read_headers:
                     goto abort;
                 }
 
-                /* skip remaining data, if there is any */
-                file_set_pos(in_file, position + block_hdr.blockSize, SEEK_SET);
-
                 lua_handle_hdr(lua_state, buf.blockType, &block_hdr, sizeof(block_hdr));
 
                 if(verbose)
@@ -4193,9 +4190,6 @@ read_headers:
                     goto abort;
                 }
 
-                /* skip remaining data, if there is any */
-                file_set_pos(in_file, position + block_hdr.blockSize, SEEK_SET);
-                
                 lua_handle_hdr(lua_state, buf.blockType, &block_hdr, sizeof(block_hdr));
 
                 if(verbose)
