@@ -2400,8 +2400,8 @@ read_headers:
                 print_msg(MSG_INFO, "    File        : %d / %d\n", file_hdr.fileNum, file_hdr.fileCount);
                 print_msg(MSG_INFO, "    Frames Video: %d\n", file_hdr.videoFrameCount);
                 print_msg(MSG_INFO, "    Frames Audio: %d\n", file_hdr.audioFrameCount);
-                print_msg(MSG_INFO, "    Class Video : 0x%02X\n", file_hdr.videoClass);
-                print_msg(MSG_INFO, "    Class Audio : 0x%02X\n", file_hdr.audioClass);
+                print_msg(MSG_INFO, "    Class Video : 0x%08X\n", file_hdr.videoClass);
+                print_msg(MSG_INFO, "    Class Audio : 0x%08X\n", file_hdr.audioClass);
             }
             
             if(alter_fps)
@@ -3607,7 +3607,7 @@ read_headers:
                             lua_handle_hdr_data(lua_state, buf.blockType, "_data_write_mlv", &block_hdr, sizeof(block_hdr), frame_buffer, frame_buffer_size);
 
                             /* delete free space and correct header size if needed */
-                            if(fwrite(frame_buffer, frame_buffer_size, 1, out_file) != 1)
+                            block_hdr.blockSize = sizeof(mlv_vidf_hdr_t) + frame_buffer_size;
                             block_hdr.frameSpace = 0;
                             block_hdr.frameNumber -= frame_start;
 
@@ -3616,7 +3616,7 @@ read_headers:
                                 print_msg(MSG_ERROR, "VIDF: Failed writing into .MLV file\n");
                                 goto abort;
                             }
-                            if(fwrite(frame_buffer, frame_size, 1, out_file) != 1)
+                            if(fwrite(frame_buffer, frame_buffer_size, 1, out_file) != 1)
                             {
                                 print_msg(MSG_ERROR, "VIDF: Failed writing into .MLV file\n");
                                 goto abort;
@@ -4461,6 +4461,7 @@ abort:
 
         if(compress_output)
         {
+            main_header.videoClass |= MLV_VIDEO_CLASS_FLAG_LJ92;
             main_header.videoClass &= ~MLV_VIDEO_CLASS_FLAG_LZMA;
         }
         if(decompress_input)
