@@ -1616,6 +1616,7 @@ void print_capture_info(mlv_rawc_hdr_t * rawc)
         rawc->raw_capture_info.sensor_crop % 100,
         rawc->raw_capture_info.sensor_crop == 100 ? "Full frame" : 
         rawc->raw_capture_info.sensor_crop == 162 ? "APS-C" : "35mm equiv"
+
     );
     
     int sampling_x = rawc->raw_capture_info.binning_x + rawc->raw_capture_info.skipping_x;
@@ -4192,13 +4193,16 @@ read_headers:
                     goto abort;
                 }
 
+                /* skip remaining data, if there is any */
+                file_set_pos(in_file, position + block_hdr.blockSize, SEEK_SET);
+                
                 lua_handle_hdr(lua_state, buf.blockType, &block_hdr, sizeof(block_hdr));
 
                 if(verbose)
                 {
                     print_capture_info(&block_hdr);
                 }
-            } 
+            }            
             else if(!memcmp(buf.blockType, "WAVI", 4))
             {
                 mlv_wavi_hdr_t block_hdr;
