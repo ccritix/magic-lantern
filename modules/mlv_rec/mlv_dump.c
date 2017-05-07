@@ -1684,6 +1684,7 @@ int main (int argc, char *argv[])
     int bit_zap = 0;
     int compress_output = 0;
     int decompress_input = 0;
+    int dng_compression = 0;
     int verbose = 0;
     int alter_fps = 0;
     char opt = ' ';
@@ -2011,12 +2012,14 @@ int main (int argc, char *argv[])
             print_msg(MSG_INFO, "   - Compress frames written into DNG (slow)\n");
             print_msg(MSG_INFO, "   - Enforcing 14bpp for DNG output\n");
             bit_depth = 14;
+            dng_compression = 1;
 
         }
         else if(compress_output > 1)
         {
             print_msg(MSG_INFO, "   - Writing original compressed lossless payload into DNG\n");
             print_msg(MSG_INFO, "   - WARNING: These compressed DNGs will not undergo any preprocessing like stripe fix etc\n");
+            dng_compression = 1;
         }
         else
         {
@@ -3540,6 +3543,7 @@ read_headers:
 
                             struct dng_info dng_info;
                             struct lens_info dng_lens_info;
+                            dng_info.dng_compression = dng_compression;
                             dng_info.raw_info = &raw_info;
                             dng_info.lens_info = &dng_lens_info;                            
                             dng_info.xRes = video_xRes;

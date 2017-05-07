@@ -63,6 +63,7 @@ struct dng_info
     char camera_serial[32];
     
     uint32_t shutter; /* microseconds */
+    uint8_t dng_compression;
     
     int32_t fps_numerator;
     int32_t fps_denominator;

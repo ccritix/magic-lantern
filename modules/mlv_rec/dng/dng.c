@@ -719,7 +719,7 @@ size_t dng_write_header_data(struct dng_info * dng_info, uint8_t * header, size_
         {tcImageWidth,                  ttLong,     1,      dng_info->raw_info->width},
         {tcImageLength,                 ttLong,     1,      dng_info->raw_info->height},
         {tcBitsPerSample,               ttShort,    1,      dng_info->raw_info->bits_per_pixel},
-        {tcCompression,                 ttShort,    1,      ccUncompressed},
+        {tcCompression,                 ttShort,    1,      dng_info->dng_compression == 1 ? ccJPEG : ccUncompressed},
         {tcPhotometricInterpretation,   ttShort,    1,      piCFA},
         {tcFillOrder,                   ttShort,    1,      1},
         {tcMake,                        ttAscii,    STRING_ENTRY(make, header, &data_offset)},
@@ -962,7 +962,8 @@ int dng_save(char* filename, void* buffer, struct dng_info * dng_info)
     
     FIO_WriteFile(f, dng_header, actual_header_size);
     
-    reverse_bytes_order(UNCACHEABLE(buffer), raw_size);
+    if (!dng_info->dng_compression)
+        reverse_bytes_order(UNCACHEABLE(buffer), raw_size);
     FIO_WriteFile(f, UNCACHEABLE(buffer), raw_size);
     
     fio_free(dng_header);
