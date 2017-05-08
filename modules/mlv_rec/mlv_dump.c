@@ -2006,14 +2006,13 @@ int main (int argc, char *argv[])
     }
     
     /* force 14bpp output for DNG code */
-   /* Not forcing to 14bit will make files work also with 10/12-bit files */
     if(dng_output)
     {
         if(compress_output == 1)
         {
             print_msg(MSG_INFO, "   - Compress frames written into DNG (slow)\n");
             print_msg(MSG_INFO, "   - Enforcing 14bpp for DNG output\n");
-          /*bit_depth = 14;*/
+            bit_depth = 14;
             dng_compression = 1;
 
         }
@@ -2027,7 +2026,7 @@ int main (int argc, char *argv[])
         {
             print_msg(MSG_INFO, "   - Decompressing before writing DNG\n");
             print_msg(MSG_INFO, "   - Enforcing 14bpp for DNG output\n");
-          /*bit_depth = 14;*/
+            bit_depth = 14;
             decompress_input = 1;
         }
         
@@ -2783,7 +2782,7 @@ read_headers:
                     }
                     
                     /* check if there is enough memory for that frame */
-                    if(read_size != (int)frame_buffer_size)
+                    if(read_size > (int)frame_buffer_size)
                     {
                         /* no, set new size */
                         frame_buffer_size = read_size;
