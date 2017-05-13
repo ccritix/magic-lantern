@@ -2234,7 +2234,7 @@ read_headers:
                     }
                     
                     /* check if there is enough memory for that frame */
-                    if(read_size != (int)frame_buffer_size)
+                    if(read_size > (int)frame_buffer_size)
                     {
                         /* no, set new size */
                         frame_buffer_size = read_size;
@@ -2345,9 +2345,19 @@ read_headers:
                                 print_msg(MSG_INFO, "    LJ92: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%% ratio)\n", frame_buffer_size, frame_size, ((float)frame_buffer_size * 100.0f) / (float)frame_size);
                             }
                             
+                        /* different approach for dng files vs MLV files */
+                        if(write_block)
+                        {
                             frame_buffer = realloc(frame_buffer, frame_size);
                             frame_buffer_size = frame_size;
                             assert(frame_buffer);
+                        }   
+                        else
+                        {
+                            frame_buffer = realloc(frame_buffer, frame_size);
+                            lj92_frame_size = frame_size;
+                            assert(frame_buffer);
+                        }
                             
                             /* repack the 16 bit words containing values with max 14 bit */
                             int orig_pitch = video_xRes * lv_rec_footer.raw_info.bits_per_pixel / 8;
