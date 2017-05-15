@@ -2020,7 +2020,6 @@ int main (int argc, char *argv[])
         {
             print_msg(MSG_INFO, "   - Writing original compressed lossless payload into DNG\n");
             print_msg(MSG_INFO, "   - WARNING: These compressed DNGs will not undergo any preprocessing like stripe fix etc\n");
-            dng_compression = 1;
         }
         else
         {
@@ -2740,12 +2739,14 @@ read_headers:
                     */
                     if(dng_output && compress_output > 1)
                     {
+	/* Will output 10bit12bit instead of 14bit files when -c -c . Also skip print_msg
                         if(!compressed)
                         {
                             print_msg(MSG_ERROR, "    DNG: pass-through original lossless data not possible, source is uncompressed!\n");
                             goto abort;
                         }
                         print_msg(MSG_INFO, "    DNG: pass-through original lossless data\n");
+	*/
                         run_decompressor = 0;
                         run_compressor = 0;
                         fix_vert_stripes = 0;
