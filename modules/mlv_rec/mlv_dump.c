@@ -2747,7 +2747,7 @@ read_headers:
                         }
                         print_msg(MSG_INFO, "    DNG: pass-through original lossless data\n");
 	*/
-                        run_decompressor = 0;
+                        run_decompressor = 1;
                         run_compressor = 0;
                         fix_vert_stripes = 0;
                         fix_cold_pixels = 0;
