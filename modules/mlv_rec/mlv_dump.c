@@ -2737,6 +2737,7 @@ read_headers:
                         when specified "-c -c" on commandline, pass through unmodified lossless data into DNG files.
                         this will be a lot faster, but requires the user to fix striping and stuff on its own.
                     */
+
                     if(dng_output && compress_output > 1)
                     {
 	/* Will output 10bit12bit instead of 14bit files when -c -c . Also skip print_msg
@@ -2747,6 +2748,30 @@ read_headers:
                         }
                         print_msg(MSG_INFO, "    DNG: pass-through original lossless data\n");
 	*/
+                        dng_compression = 1;
+                        run_compressor = 1;
+                        fix_vert_stripes = 0;
+                        fix_cold_pixels = 0;
+                        assert(!chroma_smooth_method);
+                        assert(!subtract_mode);
+                        assert(!flatfield_mode);
+                        assert(!average_mode);
+                        assert(!bit_zap);
+                        assert(!delta_encode_mode);
+                        assert(!raw_output);
+                    } 
+
+                    if(dng_output && compress_output > 1 && decompress_input)
+                    {
+	/* Will output 10bit12bit instead of 14bit files when -c -c . Also skip print_msg
+                        if(!compressed)
+                        {
+                            print_msg(MSG_ERROR, "    DNG: pass-through original lossless data not possible, source is uncompressed!\n");
+                            goto abort;
+                        }
+                        print_msg(MSG_INFO, "    DNG: pass-through original lossless data\n");
+	*/
+                        dng_compression = 0;
                         run_decompressor = 1;
                         run_compressor = 0;
                         fix_vert_stripes = 0;
