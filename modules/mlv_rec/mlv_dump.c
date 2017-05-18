@@ -1007,9 +1007,22 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, " -f frames           frames to save. e.g. '12' saves frames 0 to 12, '12-40' saves frames 12 to 40.\n");
     print_msg(MSG_INFO, " -A fpsx1000         Alter the video file's FPS metadata\n");
     print_msg(MSG_INFO, " -x                  build xref file (indexing)\n");
-    print_msg(MSG_INFO, " -m                  write only metadata, no audio or video frames\n");
-    print_msg(MSG_INFO, " -n                  write no metadata, only audio and video frames\n");
 
+    print_msg(MSG_INFO, "\n");
+    print_msg(MSG_INFO, "-- MLV autopsy --\n");
+    print_msg(MSG_INFO, " --skip-block <block#>        skip given block number\n");
+    print_msg(MSG_INFO, " --skip-type <type>           skip given block type (e.g. VIDF, AUDF etc)\n");
+    print_msg(MSG_INFO, " --extract <block#>           extract only the block at given into output file\n");
+    print_msg(MSG_INFO, " --replace <block#>           replace block with data from given source file\n");
+    print_msg(MSG_INFO, " --autopsy-file <file>        extract/insert from this file\n");
+    print_msg(MSG_INFO, " --payload-only               features above extract/replace affect not the whole block, but only payload\n");
+    print_msg(MSG_INFO, " --header-only                features above extract/replace affect not the whole block, but only header\n");
+    print_msg(MSG_INFO, " --relaxed                    do not exit on every error, skip blocks that are erroneous\n");
+    print_msg(MSG_INFO, " -m                           write only metadata, no audio or video frames\n");
+    print_msg(MSG_INFO, " -n                           write no metadata, only audio and video frames\n");
+    print_msg(MSG_INFO, " -I <mlv_file>                inject data from given MLV file right after MLVI header\n");
+    print_msg(MSG_INFO, " -X type                      extract only block type\n");
+    
     print_msg(MSG_INFO, "\n");
     print_msg(MSG_INFO, "-- Image manipulation --\n");
     print_msg(MSG_INFO, " -a                  average all frames in <inputfile> and output a single-frame MLV from it\n");
@@ -1021,8 +1034,6 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, "\n");
     print_msg(MSG_INFO, "-- Processing --\n");
     print_msg(MSG_INFO, " -e                  delta-encode frames to improve compression, but lose random access capabilities\n");
-    print_msg(MSG_INFO, " -X type             extract only block type\n");
-    print_msg(MSG_INFO, " -I mlv_file         inject data from given MLV file right after MLVI header\n");
 
     /* yet unclear which format to choose, so keep that as reminder */
     //print_msg(MSG_INFO, " -u lut_file         look-up table with 4 * xRes * yRes 16-bit words that is applied before bit depth conversion\n");
@@ -1106,6 +1117,34 @@ void print_capture_info(mlv_rawc_hdr_t * rawc)
     }
 }
 
+int get_header_size(void *type)
+{
+#define HEADER_SIZE(h,s) do {if(!memcmp(type, h, 4)) { return sizeof(s); } } while(0)
+
+    HEADER_SIZE("MLVI", mlv_file_hdr_t);
+    HEADER_SIZE("VIDF", mlv_vidf_hdr_t);
+    HEADER_SIZE("AUDF", mlv_vidf_hdr_t);
+    HEADER_SIZE("RAWI", mlv_rawi_hdr_t);
+    HEADER_SIZE("RAWC", mlv_rawc_hdr_t);
+    HEADER_SIZE("WAVI", mlv_wavi_hdr_t);
+    HEADER_SIZE("EXPO", mlv_expo_hdr_t);
+    HEADER_SIZE("LENS", mlv_lens_hdr_t);
+    HEADER_SIZE("RTCI", mlv_rtci_hdr_t);
+    HEADER_SIZE("IDNT", mlv_idnt_hdr_t);
+    HEADER_SIZE("XREF", mlv_xref_hdr_t);
+    HEADER_SIZE("INFO", mlv_info_hdr_t);
+    HEADER_SIZE("DISO", mlv_diso_hdr_t);
+    HEADER_SIZE("MARK", mlv_mark_hdr_t);
+    HEADER_SIZE("STYL", mlv_styl_hdr_t);
+    HEADER_SIZE("ELVL", mlv_elvl_hdr_t);
+    HEADER_SIZE("WBAL", mlv_wbal_hdr_t);
+    HEADER_SIZE("DEBG", mlv_debg_hdr_t);
+    
+    return 0;
+
+#undef HEADER_SIZE
+}
+
 int main (int argc, char *argv[])
 {
     char *input_filename = NULL;
@@ -1134,6 +1173,7 @@ int main (int argc, char *argv[])
     int no_metadata_mode = 0;
     int only_metadata_mode = 0;
     int average_samples = 0;
+    int relaxed = 0;
 
     int mlv_output = 0;
     int raw_output = 0;
@@ -1159,6 +1199,28 @@ int main (int argc, char *argv[])
     int fix_cold_pixels = 1;
     int fix_vert_stripes = 1;
     
+    /* MLV autopsy */
+    enum autopsy_content_type
+    {
+        AUTOPSY_BLOCK = 0,
+        AUTOPSY_HEADER = 1,
+        AUTOPSY_PAYLOAD = 2
+    };
+    enum autopsy_mode_type
+    {
+        AUTOPSY_OFF = 0,
+        AUTOPSY_EXTRACT = 1,
+        AUTOPSY_REPLACE = 2,
+        AUTOPSY_SKIP_BLOCK = 3,
+        AUTOPSY_SKIP_TYPE = 4
+    };
+    int autopsy_mode = AUTOPSY_OFF;
+    int autopsy_content = AUTOPSY_BLOCK;
+    int autopsy_block = 0;
+    char *autopsy_block_type = "    ";
+    char *autopsy_file = "autopsy.bin";
+    
+    
     const char * unique_camname = "(unknown)";
 
     struct option long_options[] = {
@@ -1178,6 +1240,17 @@ int main (int argc, char *argv[])
         {"no-stripes",  no_argument, &fix_vert_stripes,  0 },
         {"avg-vertical",  no_argument, &average_vert,  1 },
         {"avg-horizontal",  no_argument, &average_hor,  1 },
+        
+        /* MLV autopsy */
+        {"relaxed",       no_argument, &relaxed,  1 },
+        {"skip-type",     required_argument, NULL,  'T' },
+        {"skip-block",    required_argument, NULL,  'U' },
+        {"extract",       required_argument, NULL,  'Y' },
+        {"replace",       required_argument, NULL,  'Z' },
+        {"autopsy-file",  required_argument, NULL,  'V' },
+        {"header-only",   no_argument, &autopsy_content,  (int)AUTOPSY_HEADER },
+        {"payload-only",  no_argument, &autopsy_content,  (int)AUTOPSY_PAYLOAD },
+        
         {0,         0,                 0,  0 }
     };
 
@@ -1192,10 +1265,40 @@ int main (int argc, char *argv[])
     }
 
     int index = 0;
-    while ((opt = getopt_long(argc, argv, "A:F:B:W:L:t:xz:emnas:X:I:uvrcdo:l:b:f:", long_options, &index)) != -1)
+    while ((opt = getopt_long(argc, argv, "A:F:B:W:L:T:V:X:Y:Z:I:t:xz:emnas:uvrcdo:l:b:f:", long_options, &index)) != -1)
     {
         switch (opt)
         {
+            case 'Y':
+                autopsy_mode = AUTOPSY_EXTRACT;
+                autopsy_block = atoi(optarg);
+                break;
+                
+            case 'Z':
+                autopsy_mode = AUTOPSY_REPLACE;
+                autopsy_block = atoi(optarg);
+                break;
+                
+            case 'U':
+                autopsy_mode = AUTOPSY_SKIP_BLOCK;
+                autopsy_block = atoi(optarg);
+                break;
+                
+            case 'T':
+                autopsy_mode = AUTOPSY_SKIP_TYPE;
+                autopsy_block_type = strdup(optarg);
+                
+                if(strlen(autopsy_block_type) != 4)
+                {
+                    print_msg(MSG_ERROR, "Error: Block types must be 4 characters\n");
+                    return ERR_PARAM;
+                }
+                break;
+                
+            case 'V':
+                autopsy_file = strdup(optarg);
+                break;
+              
             case 'F':
                 print_msg(MSG_ERROR, "Error: No bug fix options supported in this version\n");
                 return ERR_PARAM;
@@ -1211,7 +1314,6 @@ int main (int argc, char *argv[])
                 }
                 break;
                 
-              
             case 'B':
                 if(!optarg)
                 {
@@ -1827,6 +1929,282 @@ read_headers:
             print_msg(MSG_ERROR, "Invalid block size at position 0x%08" PRIx64 "\n", position);
             goto abort;
         }
+        
+        if(autopsy_mode)
+        {
+            if(blocks_processed == autopsy_block || autopsy_mode == AUTOPSY_SKIP_TYPE)
+            {
+                switch(autopsy_mode)
+                {
+                    case AUTOPSY_SKIP_BLOCK:
+                    {
+                        goto skip_block;
+                    }
+
+                    case AUTOPSY_SKIP_TYPE:
+                    {
+                        if(!memcmp(autopsy_block_type, buf.blockType, 4))
+                        {
+                            goto skip_block;
+                        }
+                    }
+
+                    case AUTOPSY_EXTRACT:
+                    {
+                        /* by default, dump all of the block's data */
+                        uint32_t start = 0;
+                        uint32_t length = buf.blockSize;
+                        
+                        FILE *autopsy_handle = fopen(autopsy_file, "wb+");
+                        
+                        if(!autopsy_handle)
+                        {
+                            print_msg(MSG_ERROR, "Failed opening autopsy file\n");
+                            goto abort;
+                        }
+                        
+                        uint8_t *autopsy_buf = malloc(length);
+                        if(!autopsy_buf)
+                        {
+                            print_msg(MSG_ERROR, "Failed to allocate buffer for data to extract\n");
+                            goto abort;
+                        }
+                        
+                        if(fread(autopsy_buf, length, 1, in_file) != 1)
+                        {
+                            print_msg(MSG_ERROR, "Failed to read data from input file\n");
+                            goto abort;
+                        }
+                        
+                        switch(autopsy_content)
+                        {
+                            case AUTOPSY_HEADER:
+                            {
+                                /* header only, so jsut reduce length */
+                                length = get_header_size(autopsy_buf);
+                                
+                                if(!length)
+                                {
+                                    print_msg(MSG_ERROR, "Error: Unknown block type '%c%c%c%c', cannot determine its header size.\n", autopsy_buf[0], autopsy_buf[1], autopsy_buf[2], autopsy_buf[3]);
+                                    goto abort;
+                                }
+                                break;
+                            }
+                            
+                            case AUTOPSY_PAYLOAD:
+                            {
+                                /* payload only, so skip header */
+                                int header_length = get_header_size(autopsy_buf);
+                                
+                                if(!header_length)
+                                {
+                                    print_msg(MSG_ERROR, "Error: Unknown block type '%c%c%c%c', cannot determine its header size.\n", autopsy_buf[0], autopsy_buf[1], autopsy_buf[2], autopsy_buf[3]);
+                                    goto abort;
+                                }
+                                
+                                length -= header_length;
+                                start = header_length;
+                                
+                                if(!length)
+                                {
+                                    print_msg(MSG_ERROR, "Error: No payload available for this block type '%c%c%c%c'.\n", autopsy_buf[0], autopsy_buf[1], autopsy_buf[2], autopsy_buf[3]);
+                                    goto abort;
+                                }
+                                break;
+                            }
+                        }
+                        
+                        /* make sure not to read beyond source buffer */
+                        if(start + length > buf.blockSize)
+                        {
+                            print_msg(MSG_ERROR, "Error: Block type '%c%c%c%c' has invalid size.\n", autopsy_buf[0], autopsy_buf[1], autopsy_buf[2], autopsy_buf[3]);
+                            goto abort;
+                        }
+                        
+                        /* write data int autopsy file */
+                        if(fwrite(&autopsy_buf[start], length, 1, autopsy_handle) != 1)
+                        {
+                            print_msg(MSG_ERROR, "Failed writing into autopsy file\n");
+                            goto abort;
+                        }
+                        
+                        free(autopsy_buf);
+                        fclose(autopsy_handle);
+                        
+                        goto abort;
+                    }
+
+                    case AUTOPSY_REPLACE:
+                    {
+                        if(!output_filename)
+                        {
+                            print_msg(MSG_ERROR, "Need some output file, else manipulation would make no sense\n");
+                            goto abort;
+                        }
+                        
+                        FILE *autopsy_handle = fopen(autopsy_file, "rb");
+                        
+                        if(!autopsy_handle)
+                        {
+                            print_msg(MSG_ERROR, "Failed opening autopsy file\n");
+                            goto abort;
+                        }
+                        
+                        /* first get content length of autopsy file */
+                        file_set_pos(autopsy_handle, 0, SEEK_END);
+                        uint32_t autopsy_size = file_get_pos(autopsy_handle);
+                        file_set_pos(autopsy_handle, 0, SEEK_SET);
+                        
+                        switch(autopsy_content)
+                        {
+                            case AUTOPSY_HEADER:
+                            {
+                                /* to replace header, read original block and replace data */
+                                mlv_hdr_t *autopsy_block = malloc(buf.blockSize);
+                                mlv_hdr_t *autopsy_header = malloc(autopsy_size);
+                                
+                                if(!autopsy_block || !autopsy_header)
+                                {
+                                    print_msg(MSG_ERROR, "Failed to allocate buffer for data to extract\n");
+                                    goto abort;
+                                }
+                                
+                                /* read original block from input file */
+                                if(fread(autopsy_block, buf.blockSize, 1, in_file) != 1)
+                                {
+                                    print_msg(MSG_ERROR, "Failed to read data from input file\n");
+                                    goto abort;
+                                }
+                        
+                                /* read new header from autopsy file */
+                                if(fread(autopsy_header, autopsy_size, 1, autopsy_handle) != 1)
+                                {
+                                    print_msg(MSG_ERROR, "Failed to read data from autopsy file\n");
+                                    goto abort;
+                                }
+                                
+                                /* patch autopsy header to match block size */
+                                int old_header_size = get_header_size(autopsy_block);
+                                
+                                if(!old_header_size)
+                                {
+                                    print_msg(MSG_ERROR, "Error: Unknown block type '%c%c%c%c', cannot determine its header size.\n", autopsy_block->blockType[0], autopsy_block->blockType[1], autopsy_block->blockType[2], autopsy_block->blockType[3]);
+                                    goto abort;
+                                }
+                                
+                                /* calculate new block size from payload length */
+                                int payload_size = autopsy_block->blockSize - old_header_size;
+                                autopsy_header->blockSize = autopsy_size + payload_size;
+                                
+                                /* write new patched header */
+                                if(fwrite(autopsy_header, autopsy_size, 1, out_file) != 1)
+                                {
+                                    print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
+                                    goto abort;
+                                }
+                                
+                                /* write original payload */
+                                if(fwrite(&((uint8_t*)autopsy_block)[old_header_size], payload_size, 1, out_file) != 1)
+                                {
+                                    print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
+                                    goto abort;
+                                }
+                                
+                                free(autopsy_block);
+                                free(autopsy_header);
+                                break;
+                            }
+                                
+                            case AUTOPSY_PAYLOAD:
+                            {
+                                /* read original header and use payload from autopsy file */
+                                int header_size = get_header_size(&buf);
+                                
+                                if(!header_size)
+                                {
+                                    print_msg(MSG_ERROR, "Error: Unknown block type '%c%c%c%c', cannot determine its header size.\n", buf.blockType[0], buf.blockType[1], buf.blockType[2], buf.blockType[3]);
+                                    goto abort;
+                                }
+                                
+                                mlv_hdr_t *autopsy_header = malloc(header_size);
+                                mlv_hdr_t *autopsy_payload = malloc(autopsy_size);
+                                
+                                if(!autopsy_header || !autopsy_payload)
+                                {
+                                    print_msg(MSG_ERROR, "Failed to allocate buffer for data to extract\n");
+                                    goto abort;
+                                }
+                                
+                                /* read original header from input file */
+                                if(fread(autopsy_header, header_size, 1, in_file) != 1)
+                                {
+                                    print_msg(MSG_ERROR, "Failed to read data from input file\n");
+                                    goto abort;
+                                }
+                        
+                                /* calculate new block size from payload length */
+                                autopsy_header->blockSize = header_size + autopsy_size;
+                                
+                                /* write new patched header */
+                                if(fwrite(autopsy_header, header_size, 1, out_file) != 1)
+                                {
+                                    print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
+                                    goto abort;
+                                }
+                                
+                                /* read new payload from autopsy file */
+                                if(fread(autopsy_payload, autopsy_size, 1, autopsy_handle) != 1)
+                                {
+                                    print_msg(MSG_ERROR, "Failed to read data from autopsy file\n");
+                                    goto abort;
+                                }
+                                
+                                /* write replaced payload */
+                                if(fwrite(autopsy_payload, autopsy_size, 1, out_file) != 1)
+                                {
+                                    print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
+                                    goto abort;
+                                }
+                                
+                                free(autopsy_header);
+                                free(autopsy_payload);
+                                break;
+                            }
+                            
+                            case AUTOPSY_BLOCK:
+                            {
+                                mlv_hdr_t *autopsy_block = malloc(autopsy_size);
+                                
+                                if(!autopsy_block)
+                                {
+                                    print_msg(MSG_ERROR, "Failed to allocate buffer for data to extract\n");
+                                    goto abort;
+                                }
+                                
+                                /* read new header from autopsy file */
+                                if(fread(autopsy_block, autopsy_size, 1, autopsy_handle) != 1)
+                                {
+                                    print_msg(MSG_ERROR, "Failed to read data from autopsy file\n");
+                                    goto abort;
+                                }
+                                
+                                if(fwrite(autopsy_block, autopsy_size, 1, out_file) != 1)
+                                {
+                                    print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
+                                    goto abort;
+                                }
+                                free(autopsy_block);
+                                break;
+                            }
+                        }
+                        
+                        fclose(autopsy_handle);
+                        
+                        goto skip_block;
+                    }
+                }                
+            }
+        }
 
         /* file header */
         if(!memcmp(buf.blockType, "MLVI", 4))
@@ -1840,7 +2218,6 @@ read_headers:
                 print_msg(MSG_ERROR, "File ends in the middle of a block\n");
                 goto abort;
             }
-            file_set_pos(in_file, position + file_hdr.blockSize, SEEK_SET);
 
             lua_handle_hdr(lua_state, buf.blockType, &file_hdr, sizeof(file_hdr));
 
@@ -1950,7 +2327,7 @@ read_headers:
                         
                         if(fread(buf, size, 1, inject_file) != 1)
                         {
-                            print_msg(MSG_ERROR, "Failed to read data form inject file\n");
+                            print_msg(MSG_ERROR, "Failed to read data from inject file\n");
                             goto abort;
                         }
 
@@ -2015,6 +2392,7 @@ read_headers:
             {
                 print_msg(MSG_INFO, "Block: %c%c%c%c\n", buf.blockType[0], buf.blockType[1], buf.blockType[2], buf.blockType[3]);
                 print_msg(MSG_INFO, "  Offset: 0x%08" PRIx64 "\n", position);
+                print_msg(MSG_INFO, "  Number: %d\n", blocks_processed);
                 print_msg(MSG_INFO, "    Size: %d\n", buf.blockSize);
 
                 /* NULL blocks don't have timestamps */
@@ -2958,12 +3336,20 @@ read_headers:
                             else
                             {
                                 print_msg(MSG_INFO, "    LJ92: Failed (%d)\n", ret);
+                                if(relaxed)
+                                {
+                                    goto skip_block;
+                                }
                                 goto abort;
                             }
                             
                             free(compressed);
 #else
                             print_msg(MSG_INFO, "    no compression type compiled into this release, aborting.\n");
+                            if(relaxed)
+                            {
+                                goto skip_block;
+                            }
                             goto abort;
 #endif
                         }
@@ -3046,6 +3432,10 @@ read_headers:
                             if(!save_dng(frame_filename, &raw_info))
                             {
                                 print_msg(MSG_ERROR, "VIDF: Failed writing into .DNG file\n");
+                                if(relaxed)
+                                {
+                                    goto skip_block;
+                                }
                                 goto abort;
                             }
 
@@ -3762,10 +4152,11 @@ read_headers:
 
                 lua_handle_hdr(lua_state, buf.blockType, "", 0);
             }
-            
-            file_set_pos(in_file, position + buf.blockSize, SEEK_SET);
         }
 
+skip_block:
+        file_set_pos(in_file, position + buf.blockSize, SEEK_SET);
+            
         /* count any read block, no matter if header or video frame */
         blocks_processed++;
 
