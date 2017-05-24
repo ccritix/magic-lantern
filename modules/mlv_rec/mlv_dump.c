@@ -1795,6 +1795,8 @@ int main (int argc, char *argv[])
         
         /* MLV autopsy */
         {"relaxed",       no_argument, &relaxed,  1 },
+        {"visualize",     no_argument, &visualize,  1 },
+        {"skip-xref",     no_argument, &skip_xref,  1 },
         {"skip-type",     required_argument, NULL,  'T' },
         {"skip-block",    required_argument, NULL,  'U' },
         {"extract",       required_argument, NULL,  'Y' },
@@ -2343,12 +2345,24 @@ int main (int argc, char *argv[])
             }
             else
             {
+            if(block_xref->entryCount == 0)
+
+                if(dump_xrefs)
+                {
+                print_msg(MSG_INFO, "Empty XREF table, will be ignored\n");
+                free(block_xref);
+                block_xref= NULL;
+            }
+            else
+            {
                 print_msg(MSG_INFO, "XREF table contains %d entries\n", block_xref->entryCount);
                 xrefs = (mlv_xref_t *)(block_xref + 1);
 
                 if(dump_xrefs)
                 {
                     xref_dump(block_xref);
+                }
+
                 }
 
             }
