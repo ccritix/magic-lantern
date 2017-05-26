@@ -3286,7 +3286,7 @@ read_headers:
                     }
                     
                     /* check if there is enough memory for that frame */
-                    if(read_size > (int)frame_buffer_size)
+                    if(read_size != (int)frame_buffer_size)
                     {
                         /* no, set new size */
                         frame_buffer_size = read_size;
@@ -3356,9 +3356,8 @@ read_headers:
                             int ret = lj92_open(&handle, (uint8_t *)frame_buffer, frame_buffer_size, &lj92_width, &lj92_height, &lj92_bitdepth, &lj92_components);
 
                             /* this is the raw data size with 16 bit words. it's just temporary */
-
                             size_t out_size = lj92_width * lj92_height * sizeof(uint16_t) * lj92_components;
-
+                            
                             if(ret == LJ92_ERROR_NONE)
                             {
                                 if(verbose)
@@ -3369,6 +3368,7 @@ read_headers:
                             }
                             else
                             {
+                                print_msg(MSG_ERROR, "    LJ92: Failed (%d)\n", ret);
                                 if(relaxed)
                                 {
                                     goto skip_block;
@@ -3376,7 +3376,7 @@ read_headers:
                                 goto abort;
                             }
                             
-                            /* we need a temporary buffer so we dont overwrite source data */                            /* do a proper size check before we continue */
+                            /* do a proper size check before we continue */
                             int lj92_frame_size = ((lj92_width * lj92_height * lj92_components * lv_rec_footer.raw_info.bits_per_pixel + 7) / 8);
                             
                             if(lj92_frame_size != frame_size)
@@ -3404,20 +3404,11 @@ read_headers:
                             {
                                 print_msg(MSG_INFO, "    LJ92: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%% ratio)\n", frame_buffer_size, frame_size, ((float)frame_buffer_size * 100.0f) / (float)frame_size);
                             }
-
-                        /* different approach for dng files vs MLV files */
-                        if(write_block)
-                        {
+                            
                             frame_buffer = realloc(frame_buffer, frame_size);
                             frame_buffer_size = frame_size;
                             assert(frame_buffer);
-                        }   
-                        else
-                        {
-                            frame_buffer = realloc(frame_buffer, frame_size);
-                            lj92_frame_size = frame_size;
-                            assert(frame_buffer);
-                        }                         
+                            
                             /* repack the 16 bit words containing values with max 14 bit */
                             int orig_pitch = video_xRes * lv_rec_footer.raw_info.bits_per_pixel / 8;
 
@@ -3689,6 +3680,7 @@ read_headers:
                         }
 
                         frame_size = new_size;
+                        frame_buffer_size = new_size;
                         current_depth = new_depth;
 
                         frame_buffer = realloc(frame_buffer, frame_size);
@@ -3848,8 +3840,8 @@ read_headers:
                             int old_depth = lv_rec_footer.raw_info.bits_per_pixel;
                             int new_depth = bit_depth;
                             
-                            /* patch raw info */
-                            if(new_depth)
+                            /* patch raw info if bit depth changed */
+                            if(new_depth != old_depth)
                             {
                                 raw_info.bits_per_pixel = new_depth;
                                 int delta = old_depth - new_depth;
@@ -3917,7 +3909,7 @@ read_headers:
                             }
 
                             /* override the resolution from raw_info with the one from lv_rec_footer, if they don't match */
-                            if (lv_rec_footer.xRes != raw_info.width)
+                            if(lv_rec_footer.xRes != raw_info.width)
                             {
                                 raw_info.width = lv_rec_footer.xRes;
                                 raw_info.pitch = raw_info.width * raw_info.bits_per_pixel / 8;
@@ -3927,7 +3919,7 @@ read_headers:
                                 raw_info.jpeg.width = raw_info.width;
                             }
 
-                            if (lv_rec_footer.yRes != raw_info.height)
+                            if(lv_rec_footer.yRes != raw_info.height)
                             {
                                 raw_info.height = lv_rec_footer.yRes;
                                 raw_info.active_area.y1 = 0;
@@ -3937,12 +3929,12 @@ read_headers:
                             }
 
                             /* call raw2dng code */
-                            if (fix_vert_stripes)
+                            if(fix_vert_stripes)
                             {
                                 fix_vertical_stripes();
                             }
                             
-                            if (fix_cold_pixels)
+                            if(fix_cold_pixels)
                             {
                                 find_and_fix_cold_pixels(fix_cold_pixels-1);
                             }
