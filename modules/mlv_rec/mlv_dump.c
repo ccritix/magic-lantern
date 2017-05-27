@@ -3249,7 +3249,7 @@ read_headers:
                             int new_depth = bit_depth;
                             
                             /* patch raw info if bit depth changed */
-                            if(new_depth != old_depth)
+                            if(new_depth)
                             {
                                 raw_info.bits_per_pixel = new_depth;
                                 int delta = old_depth - new_depth;
