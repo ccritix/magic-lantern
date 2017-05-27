@@ -4022,6 +4022,10 @@ read_headers:
                             else
                             {
                                 print_msg(MSG_ERROR, "    LJ92: Failed (%d)\n", ret);
+                                if(relaxed)
+                                {
+                                    goto skip_block;
+                                }
                                 goto abort;
                             }
                             
