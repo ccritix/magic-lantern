@@ -9,7 +9,6 @@
 #include "property.h"
 #include "beep.h"
 #include "bmp.h"
-#include "patch.h"
 
 #ifndef CONFIG_MODULES_MODEL_SYM
 #error Not defined file name with symbols
@@ -75,14 +74,17 @@ static int module_load_symbols(TCCState *s, char *filename)
     FIO_ReadFile(file, buf, size);
     FIO_CloseFile(file);
 
-    while(buf[pos])
+    while(pos < size && buf[pos])
     {
         char address_buf[16];
         char symbol_buf[128];
         uint32_t length = 0;
         uint32_t address = 0;
 
-        while(buf[pos + length] && buf[pos + length] != ' ' && length < sizeof(address_buf))
+        while (pos + length < size &&
+               buf[pos + length] &&
+               buf[pos + length] != ' ' &&
+               length < sizeof(address_buf))
         {
             address_buf[length] = buf[pos + length];
             length++;
@@ -92,7 +94,11 @@ static int module_load_symbols(TCCState *s, char *filename)
         pos += length + 1;
         length = 0;
 
-        while(buf[pos + length] && buf[pos + length] != '\r' && buf[pos + length] != '\n' && length < sizeof(symbol_buf))
+        while (pos + length < size &&
+               buf[pos + length] &&
+               buf[pos + length] != '\r' &&
+               buf[pos + length] != '\n' &&
+               length < sizeof(symbol_buf))
         {
             symbol_buf[length] = buf[pos + length];
             length++;
@@ -102,7 +108,10 @@ static int module_load_symbols(TCCState *s, char *filename)
         pos += length + 1;
         length = 0;
 
-        while(buf[pos + length] && (buf[pos + length] == '\r' || buf[pos + length] == '\n'))
+        while (pos + length < size &&
+               buf[pos + length] &&
+              (buf[pos + length] == '\r' ||
+               buf[pos + length] == '\n'))
         {
             pos++;
         }
@@ -438,10 +447,7 @@ static void _module_load_all(uint32_t list_only)
     }
     
     /* before we execute code, make sure a) data caches are drained and b) instruction caches are clean */
-    int old = cli();
     sync_caches();
-    reapply_cache_patches();
-    sei(old);
     
     /* go through all modules and initialize them */
     printf("Init modules...\n");
@@ -976,8 +982,6 @@ static MENU_SELECT_FUNC(module_menu_update_select)
     config_flag_file_setting_save(enable_file, module_list[mod_number].enabled);
 }
 
-static const char* module_get_string(int mod_number, const char* name);
-
 static int startswith(const char* str, const char* prefix)
 {
     const char* s = str;
@@ -1175,8 +1179,13 @@ static MENU_SELECT_FUNC(module_info_toggle)
     }
 }
 
-static const char* module_get_string(int mod_number, const char* name)
+const char* module_get_string(int mod_number, const char* name)
 {
+    if(mod_number < 0 || mod_number >= MODULE_COUNT_MAX)
+    {
+        return NULL;
+    }
+    
     module_strpair_t *strings = module_list[mod_number].strings;
 
     if (strings)
@@ -1189,7 +1198,44 @@ static const char* module_get_string(int mod_number, const char* name)
             }
         }
     }
-    return 0;
+    
+    return NULL;
+}
+
+const char* module_get_name(int mod_number)
+{
+    if(mod_number < 0 || mod_number >= MODULE_COUNT_MAX)
+    {
+        return NULL;
+    }
+    
+    return module_list[mod_number].name;
+}
+
+/*  returns the next loaded module id, or -1 when the end was reached.
+    if passing -1 as the mod_number, it will return the first loaded module number.
+*/
+int module_get_next_loaded(int mod_number)
+{
+    if(mod_number < 0)
+    {
+        mod_number = -1;
+    }
+    
+    while(1)
+    {
+        mod_number++;
+        
+        if(mod_number >= MODULE_COUNT_MAX)
+        {
+            return -1;
+        }
+        
+        if(module_list[mod_number].valid && module_list[mod_number].enabled)
+        {
+            return mod_number;
+        }
+    }
 }
 
 static int module_is_special_string(const char* name)
