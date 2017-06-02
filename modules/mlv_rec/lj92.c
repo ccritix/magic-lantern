@@ -969,6 +969,7 @@ void writeHeader(lje* self) {
         e[w++] = 0; // Component ID
         e[w++] = 0x11; // Component X/Y
         e[w++] = 0; // Unused (Quantisation)
+
     e[w++] = 0xff; e[w++] = 0xda; //SCAN
     // Write SCAN
         e[w++] = 0x0; e[w++] = 8; //Ls, scan header length

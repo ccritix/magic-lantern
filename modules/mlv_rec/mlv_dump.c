@@ -37,7 +37,7 @@
 MODULE_STRINGS()
 
 /* dng related headers */
-#include <chdk-dng.h>
+#include "dng/dng.h"
 #include "../dual_iso/wirth.h"  /* fast median, generic implementation (also kth_smallest) */
 #include "../dual_iso/optmed.h" /* fast median for small common array sizes (3, 7, 9...) */
 
@@ -105,7 +105,7 @@ char *strdup(const char *s);
 #include "../lv_rec/lv_rec.h"
 #include "../../src/raw.h"
 #include "mlv.h"
-#include "camera_id.h"
+#include "wav.h"
 
 enum bug_id
 {
@@ -125,6 +125,59 @@ enum bug_id
 };
 
 int batch_mode = 0;
+
+void set_unique_camera_name(mlv_idnt_hdr_t *idnt_hdr)
+{
+    switch(idnt_hdr->cameraModel)
+
+    {
+        case 0x80000285:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 5D Mark III", 32);
+            break;
+        case 0x80000218:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 5D Mark II", 32);
+            break;
+        case 0x80000302:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 6D", 32);
+            break;
+        case 0x80000250:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 7D", 32);
+            break;
+        case 0x80000325:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 70D", 32);
+            break;
+        case 0x80000287:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 60D", 32);
+            break;
+        case 0x80000261:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 50D", 32);
+            break;
+        case 0x80000326:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 700D", 32);
+            break;
+        case 0x80000301:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 650D", 32);
+            break;
+        case 0x80000286:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 600D", 32);
+            break;
+        case 0x80000270:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 550D", 32);
+            break;
+        case 0x80000252:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 500D", 32);
+            break;
+        case 0x80000288:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 1100D", 32);
+            break;
+        case 0x80000331:
+            memcpy(idnt_hdr->cameraName, "Canon EOS M", 32);
+            break;
+        case 0x80000346:
+            memcpy(idnt_hdr->cameraName, "Canon EOS 100D", 32);
+            break;
+    }
+}
 
 void print_msg(uint32_t type, const char* format, ... )
 {
@@ -907,18 +960,505 @@ FILE **load_all_chunks(char *base_filename, int *entries)
 
 #define EV_RESOLUTION 32768
 
-#define CHROMA_SMOOTH_2X2
-#include "../dual_iso/chroma_smooth.c"
-#undef CHROMA_SMOOTH_2X2
+static void chroma_smooth_3x3(unsigned short * inp, unsigned short * out, int* raw2ev, int* ev2raw)
+{
+    int w = raw_info.width;
+    int h = raw_info.height;
+    int x,y;
 
-#define CHROMA_SMOOTH_3X3
-#include "../dual_iso/chroma_smooth.c"
-#undef CHROMA_SMOOTH_3X3
+    for (y = 4; y < h-5; y += 2)
+    {
+        for (x = 4; x < w-4; x += 2)
+        {
+            /**
+             * for each red pixel, compute the median value of red minus interpolated green at the same location
+             * the median value is then considered the "true" difference between red and green
+             * same for blue vs green
+             * 
+             *
+             * each red pixel has 4 green neighbours, so we may interpolate as follows:
+             * - mean or median(t,b,l,r)
+             * - choose between mean(t,b) and mean(l,r) (idea from AHD)
+             * 
+             * same for blue; note that a RG/GB cell has 6 green pixels that we need to analyze
+             * 2 only for red, 2 only for blue, and 2 shared
+             *    g
+             *   gRg
+             *    gBg
+             *     g
+             *
+             * choosing the interpolation direction seems to give cleaner results
+             * the direction is choosen over the entire filtered area (so we do two passes, one for each direction, 
+             * and at the end choose the one for which total interpolation error is smaller)
+             * 
+             * error = sum(abs(t-b)) or sum(abs(l-r))
+             * 
+             * interpolation in EV space (rather than linear) seems to have less color artifacts in high-contrast areas
+             * 
+             * we can use this filter for 3x3 RG/GB cells or 5x5
+             */
+            int i,j;
+            int k = 0;
+            int med_r[9];
+            int med_b[9];
+            
+            /* first try to interpolate in horizontal direction */
+            int eh = 0;
+            for (i = -2; i <= 2; i += 2)
+            {
+                for (j = -2; j <= 2; j += 2)
+                {
+                    int r  = inp[x+i   +   (y+j) * w];
+                    int b  = inp[x+i+1 + (y+j+1) * w];
+                                                        /*  for R      for B      */
+                    int g1 = inp[x+i+1 +   (y+j) * w];  /*  Right      Top        */
+                    int g2 = inp[x+i   + (y+j+1) * w];  /*  Bottom     Left       */
+                    int g3 = inp[x+i-1 +   (y+j) * w];  /*  Left                  */ 
+                  //int g4 = inp[x+i   + (y+j-1) * w];  /*  Top                   */
+                    int g5 = inp[x+i+2 + (y+j+1) * w];  /*             Right      */
+                  //int g6 = inp[x+i+1 + (y+j+2) * w];  /*             Bottom     */
+                    
+                    g1 = raw2ev[g1];
+                    g2 = raw2ev[g2];
+                    g3 = raw2ev[g3];
+                  //g4 = raw2ev[g4];
+                    g5 = raw2ev[g5];
+                  //g6 = raw2ev[g6];
+                    
+                    int gr = (g1+g3)/2;
+                    int gb = (g2+g5)/2;
+                    eh += ABS(g1-g3) + ABS(g2-g5);
+                    med_r[k] = raw2ev[r] - gr;
+                    med_b[k] = raw2ev[b] - gb;
+                    k++;
+                }
+            }
 
-#define CHROMA_SMOOTH_5X5
-#include "../dual_iso/chroma_smooth.c"
-#undef CHROMA_SMOOTH_5X5
+            /* difference from green, with horizontal interpolation */
+            int drh = opt_med9(med_r);
+            int dbh = opt_med9(med_b);
+            
+            /* next, try to interpolate in vertical direction */
+            int ev = 0;
+            k = 0;
+            for (i = -2; i <= 2; i += 2)
+            {
+                for (j = -2; j <= 2; j += 2)
+                {
+                    int r  = inp[x+i   +   (y+j) * w];
+                    int b  = inp[x+i+1 + (y+j+1) * w];
+                                                        /*  for R      for B      */
+                    int g1 = inp[x+i+1 +   (y+j) * w];  /*  Right      Top        */
+                    int g2 = inp[x+i   + (y+j+1) * w];  /*  Bottom     Left       */
+                  //int g3 = inp[x+i-1 +   (y+j) * w];  /*  Left                  */ 
+                    int g4 = inp[x+i   + (y+j-1) * w];  /*  Top                   */
+                  //int g5 = inp[x+i+2 + (y+j+1) * w];  /*             Right      */
+                    int g6 = inp[x+i+1 + (y+j+2) * w];  /*             Bottom     */
+                    
+                    g1 = raw2ev[g1];
+                    g2 = raw2ev[g2];
+                  //g3 = raw2ev[g3];
+                    g4 = raw2ev[g4];
+                  //g5 = raw2ev[g5];
+                    g6 = raw2ev[g6];
+                    
+                    int gr = (g2+g4)/2;
+                    int gb = (g1+g6)/2;
+                    ev += ABS(g2-g4) + ABS(g1-g6);
+                    med_r[k] = raw2ev[r] - gr;
+                    med_b[k] = raw2ev[b] - gb;
+                    k++;
+                }
+            }
 
+            /* difference from green, with vertical interpolation */
+            int drv = opt_med9(med_r);
+            int dbv = opt_med9(med_b);
+
+            /* back to our filtered pixels (RG/GB cell) */
+            int g1 = inp[x+1 +     y * w];
+            int g2 = inp[x   + (y+1) * w];
+            int g3 = inp[x-1 +   (y) * w];
+            int g4 = inp[x   + (y-1) * w];
+            int g5 = inp[x+2 + (y+1) * w];
+            int g6 = inp[x+1 + (y+2) * w];
+            
+            g1 = raw2ev[g1];
+            g2 = raw2ev[g2];
+            g3 = raw2ev[g3];
+            g4 = raw2ev[g4];
+            g5 = raw2ev[g5];
+            g6 = raw2ev[g6];
+
+            /* which of the two interpolations will we choose? */
+            int grv = (g2+g4)/2;
+            int grh = (g1+g3)/2;
+            int gbv = (g1+g6)/2;
+            int gbh = (g2+g5)/2;
+            int gr = ev < eh ? grv : grh;
+            int gb = ev < eh ? gbv : gbh;
+            int dr = ev < eh ? drv : drh;
+            int db = ev < eh ? dbv : dbh;
+            
+            int r0 = inp[x   +     y * w];
+            int b0 = inp[x+1 + (y+1) * w];
+
+            /* if we are close to the noise floor, use both directions, beacuse otherwise it will affect the noise structure and introduce false detail */
+            /* todo: smooth transition between the two methods? better thresholding condition? */
+            int thr = 64;
+            if (r0 < raw_info.black_level+thr || b0 < raw_info.black_level+thr || ABS(drv - drh) < thr || ABS(grv-grh) < thr || ABS(gbv-gbh) < thr)
+            {
+                dr = (drv+drh)/2;
+                db = (dbv+dbh)/2;
+                gr = (g1+g2+g3+g4)/4;
+                gb = (g1+g2+g5+g6)/4;
+            }
+
+            /* replace red and blue pixels with filtered values, keep green pixels unchanged */
+            /* don't touch overexposed areas */
+            if (out[x   +     y * w] < raw_info.white_level)
+                out[x   +     y * w] = ev2raw[COERCE(gr + dr, -10*EV_RESOLUTION, 14*EV_RESOLUTION-1)];
+            
+            if (out[x+1  + (y+1)* w] < raw_info.white_level)
+                out[x+1 + (y+1) * w] = ev2raw[COERCE(gb + db, -10*EV_RESOLUTION, 14*EV_RESOLUTION-1)];
+        }
+    }
+}
+
+/* processes top, bottom, left and right neighbours */
+static void chroma_smooth_2x2(unsigned short * inp, unsigned short * out, int* raw2ev, int* ev2raw)
+{
+    int w = raw_info.width;
+    int h = raw_info.height;
+    int x,y;
+
+    for (y = 4; y < h-5; y += 2)
+    {
+        for (x = 4; x < w-4; x += 2)
+        {
+            /**
+             * for each red pixel, compute the median value of red minus interpolated green at the same location
+             * the median value is then considered the "true" difference between red and green
+             * same for blue vs green
+             * 
+             *
+             * each red pixel has 4 green neighbours, so we may interpolate as follows:
+             * - mean or median(t,b,l,r)
+             * - choose between mean(t,b) and mean(l,r) (idea from AHD)
+             * 
+             * same for blue; note that a RG/GB cell has 6 green pixels that we need to analyze
+             * 2 only for red, 2 only for blue, and 2 shared
+             *    g
+             *   gRg
+             *    gBg
+             *     g
+             *
+             * choosing the interpolation direction seems to give cleaner results
+             * the direction is choosen over the entire filtered area (so we do two passes, one for each direction, 
+             * and at the end choose the one for which total interpolation error is smaller)
+             * 
+             * error = sum(abs(t-b)) or sum(abs(l-r))
+             * 
+             * interpolation in EV space (rather than linear) seems to have less color artifacts in high-contrast areas
+             * 
+             * we can use this filter for 3x3 RG/GB cells or 5x5
+             */
+            int i,j;
+            int k = 0;
+            int med_r[5];
+            int med_b[5];
+            
+            /* first try to interpolate in horizontal direction */
+            int eh = 0;
+            for (i = -2; i <= 2; i += 2)
+            {
+                for (j = -2; j <= 2; j += 2)
+                {
+                    if (ABS(i) + ABS(j) == 4) continue;
+                    
+                    int r  = inp[x+i   +   (y+j) * w];
+                    int b  = inp[x+i+1 + (y+j+1) * w];
+                                                        /*  for R      for B      */
+                    int g1 = inp[x+i+1 +   (y+j) * w];  /*  Right      Top        */
+                    int g2 = inp[x+i   + (y+j+1) * w];  /*  Bottom     Left       */
+                    int g3 = inp[x+i-1 +   (y+j) * w];  /*  Left                  */ 
+                  //int g4 = inp[x+i   + (y+j-1) * w];  /*  Top                   */
+                    int g5 = inp[x+i+2 + (y+j+1) * w];  /*             Right      */
+                  //int g6 = inp[x+i+1 + (y+j+2) * w];  /*             Bottom     */
+                    
+                    g1 = raw2ev[g1];
+                    g2 = raw2ev[g2];
+                    g3 = raw2ev[g3];
+                  //g4 = raw2ev[g4];
+                    g5 = raw2ev[g5];
+                  //g6 = raw2ev[g6];
+                    
+                    int gr = (g1+g3)/2;
+                    int gb = (g2+g5)/2;
+                    eh += ABS(g1-g3) + ABS(g2-g5);
+                    med_r[k] = raw2ev[r] - gr;
+                    med_b[k] = raw2ev[b] - gb;
+                    k++;
+                }
+            }
+
+            /* difference from green, with horizontal interpolation */
+            int drh = opt_med5(med_r);
+            int dbh = opt_med5(med_b);
+            
+            /* next, try to interpolate in vertical direction */
+            int ev = 0;
+            k = 0;
+            for (i = -2; i <= 2; i += 2)
+            {
+                for (j = -2; j <= 2; j += 2)
+                {
+                    if (ABS(i) + ABS(j) == 4) continue;
+
+                    int r  = inp[x+i   +   (y+j) * w];
+                    int b  = inp[x+i+1 + (y+j+1) * w];
+                                                        /*  for R      for B      */
+                    int g1 = inp[x+i+1 +   (y+j) * w];  /*  Right      Top        */
+                    int g2 = inp[x+i   + (y+j+1) * w];  /*  Bottom     Left       */
+                  //int g3 = inp[x+i-1 +   (y+j) * w];  /*  Left                  */ 
+                    int g4 = inp[x+i   + (y+j-1) * w];  /*  Top                   */
+                  //int g5 = inp[x+i+2 + (y+j+1) * w];  /*             Right      */
+                    int g6 = inp[x+i+1 + (y+j+2) * w];  /*             Bottom     */
+                    
+                    g1 = raw2ev[g1];
+                    g2 = raw2ev[g2];
+                  //g3 = raw2ev[g3];
+                    g4 = raw2ev[g4];
+                  //g5 = raw2ev[g5];
+                    g6 = raw2ev[g6];
+                    
+                    int gr = (g2+g4)/2;
+                    int gb = (g1+g6)/2;
+                    ev += ABS(g2-g4) + ABS(g1-g6);
+                    med_r[k] = raw2ev[r] - gr;
+                    med_b[k] = raw2ev[b] - gb;
+                    k++;
+                }
+            }
+
+            /* difference from green, with vertical interpolation */
+            int drv = opt_med5(med_r);
+            int dbv = opt_med5(med_b);
+
+            /* back to our filtered pixels (RG/GB cell) */
+            int g1 = inp[x+1 +     y * w];
+            int g2 = inp[x   + (y+1) * w];
+            int g3 = inp[x-1 +   (y) * w];
+            int g4 = inp[x   + (y-1) * w];
+            int g5 = inp[x+2 + (y+1) * w];
+            int g6 = inp[x+1 + (y+2) * w];
+            
+            g1 = raw2ev[g1];
+            g2 = raw2ev[g2];
+            g3 = raw2ev[g3];
+            g4 = raw2ev[g4];
+            g5 = raw2ev[g5];
+            g6 = raw2ev[g6];
+
+            /* which of the two interpolations will we choose? */
+            int grv = (g2+g4)/2;
+            int grh = (g1+g3)/2;
+            int gbv = (g1+g6)/2;
+            int gbh = (g2+g5)/2;
+            int gr = ev < eh ? grv : grh;
+            int gb = ev < eh ? gbv : gbh;
+            int dr = ev < eh ? drv : drh;
+            int db = ev < eh ? dbv : dbh;
+            
+            int r0 = inp[x   +     y * w];
+            int b0 = inp[x+1 + (y+1) * w];
+
+            /* if we are close to the noise floor, use both directions, beacuse otherwise it will affect the noise structure and introduce false detail */
+            /* todo: smooth transition between the two methods? better thresholding condition? */
+            int thr = 64;
+            if (r0 < raw_info.black_level+thr || b0 < raw_info.black_level+thr || ABS(drv - drh) < thr || ABS(grv-grh) < thr || ABS(gbv-gbh) < thr)
+            {
+                dr = (drv+drh)/2;
+                db = (dbv+dbh)/2;
+                gr = (g1+g2+g3+g4)/4;
+                gb = (g1+g2+g5+g6)/4;
+            }
+
+            /* replace red and blue pixels with filtered values, keep green pixels unchanged */
+            /* don't touch overexposed areas */
+            if (out[x   +     y * w] < raw_info.white_level)
+                out[x   +     y * w] = ev2raw[COERCE(gr + dr, -10*EV_RESOLUTION, 14*EV_RESOLUTION-1)];
+            
+            if (out[x+1  + (y+1)* w] < raw_info.white_level)
+                out[x+1 + (y+1) * w] = ev2raw[COERCE(gb + db, -10*EV_RESOLUTION, 14*EV_RESOLUTION-1)];
+        }
+    }
+}
+
+static void chroma_smooth_5x5(unsigned short * inp, unsigned short * out, int* raw2ev, int* ev2raw)
+{
+    int w = raw_info.width;
+    int h = raw_info.height;
+    int x,y;
+
+    for (y = 6; y < h-7; y += 2)
+    {
+        for (x = 6; x < w-6; x += 2)
+        {
+            /**
+             * for each red pixel, compute the median value of red minus interpolated green at the same location
+             * the median value is then considered the "true" difference between red and green
+             * same for blue vs green
+             * 
+             *
+             * each red pixel has 4 green neighbours, so we may interpolate as follows:
+             * - mean or median(t,b,l,r)
+             * - choose between mean(t,b) and mean(l,r) (idea from AHD)
+             * 
+             * same for blue; note that a RG/GB cell has 6 green pixels that we need to analyze
+             * 2 only for red, 2 only for blue, and 2 shared
+             *    g
+             *   gRg
+             *    gBg
+             *     g
+             *
+             * choosing the interpolation direction seems to give cleaner results
+             * the direction is choosen over the entire filtered area (so we do two passes, one for each direction, 
+             * and at the end choose the one for which total interpolation error is smaller)
+             * 
+             * error = sum(abs(t-b)) or sum(abs(l-r))
+             * 
+             * interpolation in EV space (rather than linear) seems to have less color artifacts in high-contrast areas
+             * 
+             * we can use this filter for 3x3 RG/GB cells or 5x5
+             */
+            int i,j;
+            int k = 0;
+            int med_r[25];
+            int med_b[25];
+            
+            /* first try to interpolate in horizontal direction */
+            int eh = 0;
+            for (i = -4; i <= 4; i += 2)
+            {
+                for (j = -4; j <= 4; j += 2)
+                {
+                    int r  = inp[x+i   +   (y+j) * w];
+                    int b  = inp[x+i+1 + (y+j+1) * w];
+                                                        /*  for R      for B      */
+                    int g1 = inp[x+i+1 +   (y+j) * w];  /*  Right      Top        */
+                    int g2 = inp[x+i   + (y+j+1) * w];  /*  Bottom     Left       */
+                    int g3 = inp[x+i-1 +   (y+j) * w];  /*  Left                  */ 
+                  //int g4 = inp[x+i   + (y+j-1) * w];  /*  Top                   */
+                    int g5 = inp[x+i+2 + (y+j+1) * w];  /*             Right      */
+                  //int g6 = inp[x+i+1 + (y+j+2) * w];  /*             Bottom     */
+                    
+                    g1 = raw2ev[g1];
+                    g2 = raw2ev[g2];
+                    g3 = raw2ev[g3];
+                  //g4 = raw2ev[g4];
+                    g5 = raw2ev[g5];
+                  //g6 = raw2ev[g6];
+                    
+                    int gr = (g1+g3)/2;
+                    int gb = (g2+g5)/2;
+                    eh += ABS(g1-g3) + ABS(g2-g5);
+                    med_r[k] = raw2ev[r] - gr;
+                    med_b[k] = raw2ev[b] - gb;
+                    k++;
+                }
+            }
+
+            /* difference from green, with horizontal interpolation */
+            int drh = opt_med25(med_r);
+            int dbh = opt_med25(med_b);
+            
+            /* next, try to interpolate in vertical direction */
+            int ev = 0;
+            k = 0;
+            for (i = -4; i <= 4; i += 2)
+            {
+                for (j = -4; j <= 4; j += 2)
+                {
+                    int r  = inp[x+i   +   (y+j) * w];
+                    int b  = inp[x+i+1 + (y+j+1) * w];
+                                                        /*  for R      for B      */
+                    int g1 = inp[x+i+1 +   (y+j) * w];  /*  Right      Top        */
+                    int g2 = inp[x+i   + (y+j+1) * w];  /*  Bottom     Left       */
+                  //int g3 = inp[x+i-1 +   (y+j) * w];  /*  Left                  */ 
+                    int g4 = inp[x+i   + (y+j-1) * w];  /*  Top                   */
+                  //int g5 = inp[x+i+2 + (y+j+1) * w];  /*             Right      */
+                    int g6 = inp[x+i+1 + (y+j+2) * w];  /*             Bottom     */
+                    
+                    g1 = raw2ev[g1];
+                    g2 = raw2ev[g2];
+                  //g3 = raw2ev[g3];
+                    g4 = raw2ev[g4];
+                  //g5 = raw2ev[g5];
+                    g6 = raw2ev[g6];
+                    
+                    int gr = (g2+g4)/2;
+                    int gb = (g1+g6)/2;
+                    ev += ABS(g2-g4) + ABS(g1-g6);
+                    med_r[k] = raw2ev[r] - gr;
+                    med_b[k] = raw2ev[b] - gb;
+                    k++;
+                }
+            }
+
+            /* difference from green, with vertical interpolation */
+            int drv = opt_med25(med_r);
+            int dbv = opt_med25(med_b);
+
+            /* back to our filtered pixels (RG/GB cell) */
+            int g1 = inp[x+1 +     y * w];
+            int g2 = inp[x   + (y+1) * w];
+            int g3 = inp[x-1 +   (y) * w];
+            int g4 = inp[x   + (y-1) * w];
+            int g5 = inp[x+2 + (y+1) * w];
+            int g6 = inp[x+1 + (y+2) * w];
+            
+            g1 = raw2ev[g1];
+            g2 = raw2ev[g2];
+            g3 = raw2ev[g3];
+            g4 = raw2ev[g4];
+            g5 = raw2ev[g5];
+            g6 = raw2ev[g6];
+
+            /* which of the two interpolations will we choose? */
+            int grv = (g2+g4)/2;
+            int grh = (g1+g3)/2;
+            int gbv = (g1+g6)/2;
+            int gbh = (g2+g5)/2;
+            int gr = ev < eh ? grv : grh;
+            int gb = ev < eh ? gbv : gbh;
+            int dr = ev < eh ? drv : drh;
+            int db = ev < eh ? dbv : dbh;
+            
+            int r0 = inp[x   +     y * w];
+            int b0 = inp[x+1 + (y+1) * w];
+
+            /* if we are close to the noise floor, use both directions, beacuse otherwise it will affect the noise structure and introduce false detail */
+            /* todo: smooth transition between the two methods? better thresholding condition? */
+            int thr = 64;
+            if (r0 < raw_info.black_level+thr || b0 < raw_info.black_level+thr || ABS(drv - drh) < thr || ABS(grv-grh) < thr || ABS(gbv-gbh) < thr)
+            {
+                dr = (drv+drh)/2;
+                db = (dbv+dbh)/2;
+                gr = (g1+g2+g3+g4)/4;
+                gb = (g1+g2+g5+g6)/4;
+            }
+            
+            /* replace red and blue pixels with filtered values, keep green pixels unchanged */
+            /* don't touch overexposed areas */
+            if (out[x   +     y * w] < raw_info.white_level)
+                out[x   +     y * w] = ev2raw[COERCE(gr + dr, -10*EV_RESOLUTION, 14*EV_RESOLUTION-1)];
+            
+            if (out[x+1  + (y+1)* w] < raw_info.white_level)
+                out[x+1 + (y+1) * w] = ev2raw[COERCE(gb + db, -10*EV_RESOLUTION, 14*EV_RESOLUTION-1)];
+        }
+    }
+}
 
 void chroma_smooth(int method, struct raw_info *info)
 {
@@ -945,8 +1485,8 @@ void chroma_smooth(int method, struct raw_info *info)
     int w = info->width;
     int h = info->height;
 
-    uint32_t * aux = malloc(w * h * sizeof(uint32_t));
-    uint32_t * aux2 = malloc(w * h * sizeof(uint32_t));
+    unsigned short * aux = malloc(w * h * sizeof(short));
+    unsigned short * aux2 = malloc(w * h * sizeof(short));
 
     int x,y;
     for (y = 0; y < h; y++)
@@ -982,6 +1522,7 @@ void chroma_smooth(int method, struct raw_info *info)
     free(aux2);
 }
 
+
 void show_usage(char *executable)
 {
     print_msg(MSG_INFO, "Usage: %s [options] <inputfile>\n", executable);
@@ -1000,6 +1541,7 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, " --cs5x5             5x5 chroma smoothing\n");
     print_msg(MSG_INFO, " --no-fixcp          do not fix cold pixels\n");
     print_msg(MSG_INFO, " --fixcp2            fix non-static (moving) cold pixels (slow)\n");
+    print_msg(MSG_INFO, " --savecp            save first frame cold pixels to file along with --fixcp2 swith behavior\n");
     print_msg(MSG_INFO, " --no-stripes        do not fix vertical stripes in highlights\n");
 
     print_msg(MSG_INFO, "\n");
@@ -1026,6 +1568,7 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, " --relaxed                    do not exit on every error, skip blocks that are erroneous\n");
     print_msg(MSG_INFO, " --visualize                  visualize block types, most likely you want to use --skip-xref along with it\n");
     print_msg(MSG_INFO, " --skip-xref                  skip loading .IDX (XREF) file, read block in the MLV file's order instead of presorted\n");
+
     print_msg(MSG_INFO, " -m                           write only metadata, no audio or video frames\n");
     print_msg(MSG_INFO, " -n                           write no metadata, only audio and video frames\n");
     print_msg(MSG_INFO, " -I <mlv_file>                inject data from given MLV file right after MLVI header\n");
@@ -1042,6 +1585,7 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, "\n");
     print_msg(MSG_INFO, "-- Processing --\n");
     print_msg(MSG_INFO, " -e                  delta-encode frames to improve compression, but lose random access capabilities\n");
+    print_msg(MSG_INFO, " -X type             extract only block type\n");
 
     /* yet unclear which format to choose, so keep that as reminder */
     //print_msg(MSG_INFO, " -u lut_file         look-up table with 4 * xRes * yRes 16-bit words that is applied before bit depth conversion\n");
@@ -1049,6 +1593,7 @@ void show_usage(char *executable)
 #if defined(MLV_USE_LZMA) || defined(MLV_USE_LJ92)
     print_msg(MSG_INFO, " -c                  compress video and audio frames using LJ92. if already compressed, then decompress and recompress again.\n");
     print_msg(MSG_INFO, "                     specify twice to pass through unmodified compressed (lossless) data to DNG which speeds up writing, but skips preprocessing\n");
+
     print_msg(MSG_INFO, " -d                  decompress compressed video and audio frames using LZMA or LJ92\n");
 #else
     print_msg(MSG_INFO, " -c, -d              NOT AVAILABLE: compression support was not compiled into this release\n");
@@ -1092,6 +1637,7 @@ void print_capture_info(mlv_rawc_hdr_t * rawc)
         rawc->raw_capture_info.sensor_crop % 100,
         rawc->raw_capture_info.sensor_crop == 100 ? "Full frame" : 
         rawc->raw_capture_info.sensor_crop == 162 ? "APS-C" : "35mm equiv"
+
     );
     
     int sampling_x = rawc->raw_capture_info.binning_x + rawc->raw_capture_info.skipping_x;
@@ -1153,6 +1699,7 @@ int get_header_size(void *type)
 #undef HEADER_SIZE
 }
 
+
 int main (int argc, char *argv[])
 {
     char *input_filename = NULL;
@@ -1186,12 +1733,14 @@ int main (int argc, char *argv[])
     int visualize = 0;
     int skip_xref = 0;
 
+
     int mlv_output = 0;
     int raw_output = 0;
     int bit_depth = 0;
     int bit_zap = 0;
     int compress_output = 0;
     int decompress_input = 0;
+    int dng_compression = 0;
     int verbose = 0;
     int alter_fps = 0;
     char opt = ' ';
@@ -1209,7 +1758,7 @@ int main (int argc, char *argv[])
     int dump_xrefs = 0;
     int fix_cold_pixels = 1;
     int fix_vert_stripes = 1;
-    
+
     /* MLV autopsy */
     enum autopsy_content_type
     {
@@ -1231,8 +1780,6 @@ int main (int argc, char *argv[])
     char *autopsy_block_type = "    ";
     char *autopsy_file = "autopsy.bin";
     
-    
-    const char * unique_camname = "(unknown)";
 
     struct option long_options[] = {
         {"version",  no_argument, &version,  1 },
@@ -1249,6 +1796,7 @@ int main (int argc, char *argv[])
         {"cs5x5",  no_argument, &chroma_smooth_method,  5 },
         {"no-fixcp",  no_argument, &fix_cold_pixels,  0 },
         {"fixcp2",    no_argument, &fix_cold_pixels,  2 },
+        {"savecp",    no_argument, &fix_cold_pixels,  3 },
         {"no-stripes",  no_argument, &fix_vert_stripes,  0 },
         {"avg-vertical",  no_argument, &average_vert,  1 },
         {"avg-horizontal",  no_argument, &average_hor,  1 },
@@ -1312,22 +1860,22 @@ int main (int argc, char *argv[])
             case 'V':
                 autopsy_file = strdup(optarg);
                 break;
-              
+    
             case 'F':
                 print_msg(MSG_ERROR, "Error: No bug fix options supported in this version\n");
                 return ERR_PARAM;
-              
+
             case 'W':
                 if(!optarg)
                 {
-                    white_fix = 15000;
+                    white_fix = 16383;
                 }
                 else
                 {
-                    white_fix = MIN(16384, MAX(1, atoi(optarg)));
+                    white_fix = MIN(16383, MAX(1, atoi(optarg)));
                 }
                 break;
-                
+              
             case 'B':
                 if(!optarg)
                 {
@@ -1335,7 +1883,7 @@ int main (int argc, char *argv[])
                 }
                 else
                 {
-                    black_fix = MIN(16384, MAX(1, atoi(optarg)));
+                    black_fix = MIN(16383, MAX(1, atoi(optarg)));
                 }
                 break;
                 
@@ -1554,7 +2102,7 @@ int main (int argc, char *argv[])
         print_msg(MSG_INFO, "\n");
         return 0;
     }
-    
+
     if(optind >= argc)
     {
         print_msg(MSG_ERROR, "Error: Missing input filename\n");
@@ -1562,7 +2110,7 @@ int main (int argc, char *argv[])
         return ERR_PARAM;
     }
 
-    
+
     /* get first file */
     input_filename = argv[optind];
 
@@ -1578,7 +2126,7 @@ int main (int argc, char *argv[])
     {
         print_msg(MSG_INFO, "   - Setting black level to %d\n", black_fix);
     }
-    
+
     if(white_fix)
     {
         print_msg(MSG_INFO, "   - Setting white level to %d\n", white_fix);
@@ -1597,6 +2145,8 @@ int main (int argc, char *argv[])
             print_msg(MSG_INFO, "   - Compress frames written into DNG (slow)\n");
             print_msg(MSG_INFO, "   - Enforcing 14bpp for DNG output\n");
             bit_depth = 14;
+            dng_compression = 1;
+
         }
         else if(compress_output > 1)
         {
@@ -1775,7 +2325,7 @@ int main (int argc, char *argv[])
     int in_file_count = 0;
     int in_file_num = 0;
 
-    uint32_t wav_file_size = 0; /* WAV format supports only 32-bit size */
+    uint32_t wav_data_size = 0; /* WAV format supports only 32-bit size */
     uint32_t wav_header_size = 0;
 
     /* this is for our generated XREF table */
@@ -1806,7 +2356,18 @@ int main (int argc, char *argv[])
         if(block_xref)
         {
             if(block_xref->entryCount == 0)
+            if(dump_xrefs)
             {
+                print_msg(MSG_INFO, "Empty XREF table, will be ignored\n");
+                free(block_xref);
+                block_xref= NULL;
+            }
+            else
+            {
+            if(block_xref->entryCount == 0)
+
+                if(dump_xrefs)
+                {
                 print_msg(MSG_INFO, "Empty XREF table, will be ignored\n");
                 free(block_xref);
                 block_xref= NULL;
@@ -1820,6 +2381,9 @@ int main (int argc, char *argv[])
                 {
                     xref_dump(block_xref);
                 }
+
+                }
+
             }
         }
         else
@@ -1931,7 +2495,6 @@ read_headers:
         if(fread(&buf, sizeof(mlv_hdr_t), 1, in_file) != 1)
         {
             print_msg(MSG_INFO, "\n");
-            
             if(block_xref)
             {
                 print_msg(MSG_INFO, "Reached EOF of chunk %d/%d after %i blocks total. This should never happen or your index file is wrong.\n", in_file_num, in_file_count, blocks_processed);
@@ -1965,7 +2528,7 @@ read_headers:
             print_msg(MSG_ERROR, "Invalid block size at position 0x%08" PRIx64 "\n", position);
             goto abort;
         }
-        
+
         /* show all block types in a more convenient style, but needs little housekeeping code */
         if(visualize)
         {
@@ -2029,6 +2592,7 @@ read_headers:
             
             goto skip_block;
         }
+
         
         if(autopsy_mode)
         {
@@ -2318,7 +2882,7 @@ read_headers:
                 print_msg(MSG_ERROR, "File ends in the middle of a block\n");
                 goto abort;
             }
-
+ 
             lua_handle_hdr(lua_state, buf.blockType, &file_hdr, sizeof(file_hdr));
 
             if(verbose)
@@ -2379,13 +2943,11 @@ read_headers:
                         file_hdr.videoClass |= MLV_VIDEO_CLASS_FLAG_LJ92;
                         file_hdr.videoClass &= ~MLV_VIDEO_CLASS_FLAG_LZMA;
                     }
-                    
                     if(decompress_input)
                     {
                         file_hdr.videoClass &= ~MLV_VIDEO_CLASS_FLAG_LJ92;
                         file_hdr.videoClass &= ~MLV_VIDEO_CLASS_FLAG_LZMA;
-                    }
-
+		    }	
                     if(delta_encode_mode)
                     {
                         file_hdr.videoClass |= MLV_VIDEO_CLASS_FLAG_DELTA;
@@ -2427,7 +2989,7 @@ read_headers:
                         
                         if(fread(buf, size, 1, inject_file) != 1)
                         {
-                            print_msg(MSG_ERROR, "Failed to read data from inject file\n");
+                                                        print_msg(MSG_ERROR, "Failed to read data from inject file\n");
                             goto abort;
                         }
 
@@ -2585,7 +3147,7 @@ read_headers:
                             goto abort;
                         }
                         
-                        wav_file_size += frame_size;
+                        wav_data_size += frame_size;
                     }
                     free(buf);
                 }
@@ -2644,7 +3206,7 @@ read_headers:
                     int compressed = compressed_lzma || compressed_lj92;
                     int recompress = compressed && compress_output;
                     int decompress = compressed && decompress_input;
-                    
+
                     /*
                       run decompression routine when
                         a) we shall re-compress the output (option -c for compressed input)
@@ -2672,15 +3234,42 @@ read_headers:
                         when specified "-c -c" on commandline, pass through unmodified lossless data into DNG files.
                         this will be a lot faster, but requires the user to fix striping and stuff on its own.
                     */
+
                     if(dng_output && compress_output > 1)
                     {
+	/* Will output 10bit12bit instead of 14bit files when -c -c . Also skip print_msg
                         if(!compressed)
                         {
                             print_msg(MSG_ERROR, "    DNG: pass-through original lossless data not possible, source is uncompressed!\n");
                             goto abort;
                         }
                         print_msg(MSG_INFO, "    DNG: pass-through original lossless data\n");
-                        run_decompressor = 0;
+	*/
+                        dng_compression = 1;
+                        run_compressor = 1;
+                        fix_vert_stripes = 0;
+                        fix_cold_pixels = 0;
+                        assert(!chroma_smooth_method);
+                        assert(!subtract_mode);
+                        assert(!flatfield_mode);
+                        assert(!average_mode);
+                        assert(!bit_zap);
+                        assert(!delta_encode_mode);
+                        assert(!raw_output);
+                    } 
+
+                    if(dng_output && compress_output > 1 && decompress_input)
+                    {
+	/* Will output 10bit12bit instead of 14bit files when -c -c . Also skip print_msg
+                        if(!compressed)
+                        {
+                            print_msg(MSG_ERROR, "    DNG: pass-through original lossless data not possible, source is uncompressed!\n");
+                            goto abort;
+                        }
+                        print_msg(MSG_INFO, "    DNG: pass-through original lossless data\n");
+	*/
+                        dng_compression = 0;
+                        run_decompressor = 1;
                         run_compressor = 0;
                         fix_vert_stripes = 0;
                         fix_cold_pixels = 0;
@@ -2691,8 +3280,8 @@ read_headers:
                         assert(!bit_zap);
                         assert(!delta_encode_mode);
                         assert(!raw_output);
-                    }
-                    
+                    }            
+
                     /*
                       the frame_size is the size of the raw video frame.
                       for uncompressed files, the VIDF contains this amount of bytes along with some padding.
@@ -2702,13 +3291,17 @@ read_headers:
                     int frame_size = ((video_xRes * video_yRes * lv_rec_footer.raw_info.bits_per_pixel + 7) / 8);
 
                     /* cache frame size as there are modes where the stored size does not match the frame's size (e.g. compressed frames) */
+
+                    
                     int read_size = frame_size;
                     
                     /* when the block is compressed, read the whole content, not just "frame_size" */
                     if(compressed)
+
                     {
                         /* just read everything right behind the frameSpace */
                         read_size = block_hdr.blockSize - sizeof(mlv_vidf_hdr_t) - block_hdr.frameSpace;
+
                     }
                     
                     /* check if there is enough memory for that frame */
@@ -2875,7 +3468,7 @@ read_headers:
                                 frame_buffer_size = lzma_out_size;
                                 assert(frame_buffer);
                                 memcpy(frame_buffer, lzma_out, frame_buffer_size);
-                                
+
                                 if(verbose)
                                 {
                                     print_msg(MSG_INFO, "    LZMA: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%%)\n", lzma_in_size, lzma_out_size, ((float)lzma_out_size * 100.0f) / (float)lzma_in_size);
@@ -3105,14 +3698,12 @@ read_headers:
                             }
                         }
 
-                        /* update uncompressed frame and buffer size */
                         frame_size = new_size;
                         frame_buffer_size = new_size;
                         current_depth = new_depth;
 
-                        frame_buffer = realloc(frame_buffer, frame_buffer_size);
-                        assert(frame_buffer);
-                        memcpy(frame_buffer, new_buffer, frame_buffer_size);
+                        frame_buffer = realloc(frame_buffer, frame_size);
+                        memcpy(frame_buffer, new_buffer, frame_size);
                         free(new_buffer);
                     }
 
@@ -3252,17 +3843,18 @@ read_headers:
                                 goto abort;
                             }
                         }
-                        
+
                         /* before compressing do stuff necessary for DNG output */
                         if(dng_output)
                         {
                             void fix_vertical_stripes();
                             void find_and_fix_cold_pixels(int force_analysis);
                             extern struct raw_info raw_info;
+                            extern void* raw_info_buffer;
 
                             raw_info = lv_rec_footer.raw_info;
                             raw_info.frame_size = frame_buffer_size;
-                            raw_info.buffer = frame_buffer;
+                            raw_info_buffer = frame_buffer;
                             
                             int old_depth = lv_rec_footer.raw_info.bits_per_pixel;
                             int new_depth = bit_depth;
@@ -3280,6 +3872,7 @@ read_headers:
                                 {
                                     if(delta)
                                     {
+                                        
                                         if(delta > 0)
                                         {
                                             raw_info.black_level >>= delta;
@@ -3333,7 +3926,7 @@ read_headers:
                                     }
                                 }
                             }
-                            
+
                             /* override the resolution from raw_info with the one from lv_rec_footer, if they don't match */
                             if(lv_rec_footer.xRes != raw_info.width)
                             {
@@ -3362,11 +3955,12 @@ read_headers:
                             
                             if(fix_cold_pixels)
                             {
-                                find_and_fix_cold_pixels(fix_cold_pixels == 2);
+                                find_and_fix_cold_pixels(fix_cold_pixels-1);
                             }
 
                             /* this is internal again */
                             chroma_smooth(chroma_smooth_method, &raw_info);
+
                         }                        
 
                         if(run_compressor)
@@ -3447,21 +4041,21 @@ read_headers:
                             else
                             {
                                 print_msg(MSG_ERROR, "    LJ92: Failed (%d)\n", ret);
+                                if(relaxed)
+                                {
+                                    goto skip_block;
+                                }
                                 goto abort;
                             }
                             
                             free(compressed);
 #else
                             print_msg(MSG_INFO, "    no compression type compiled into this release, aborting.\n");
-                            if(relaxed)
-                            {
-                                goto skip_block;
-                            }
                             goto abort;
 #endif
                         }
 
-                        if(frame_buffer_size != (uint32_t)frame_size && !verbose)
+                        if(frame_buffer_size != (uint32_t)frame_size && verbose)
                         {
                             print_msg(MSG_INFO, "  saving: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%% ratio)\n", frame_size, frame_buffer_size, ((float)frame_buffer_size * 100.0f) / (float)frame_size);
                         }
@@ -3480,23 +4074,43 @@ read_headers:
 
                             lua_handle_hdr_data(lua_state, buf.blockType, "_data_write_dng", &block_hdr, sizeof(block_hdr), frame_buffer, frame_buffer_size);
 
-                            /* set MLV metadata into DNG tags */
-                            dng_set_framerate_rational(main_header.sourceFpsNom, main_header.sourceFpsDenom);
-                            dng_set_shutter(expo_info.shutterValue, 1000000);
-                            dng_set_aperture(lens_info.aperture, 100);
-                            dng_set_camname((char*)unique_camname);
-                            dng_set_description((char*)info_string);
-                            dng_set_lensmodel((char*)lens_info.lensName);
-                            dng_set_focal(lens_info.focalLength, 1);
-                            dng_set_iso(expo_info.isoValue);
 
-                            //dng_set_wbgain(1024, wbal_info.wbgain_r, 1024, wbal_info.wbgain_g, 1024, wbal_info.wbgain_b);
+                            /* set MLV metadata into DNG tags */
+
+                            struct dng_info dng_info;
+                            struct lens_info dng_lens_info;
+                            dng_info.dng_compression = dng_compression;
+                            dng_info.raw_info = &raw_info;
+                            dng_info.lens_info = &dng_lens_info;                            
+                            dng_info.xRes = video_xRes;
+                            dng_info.yRes = video_yRes;
+                            dng_info.frame_number = last_vidf.frameNumber;
+                            dng_info.fps_numerator = main_header.sourceFpsNom;
+                            dng_info.fps_denominator = main_header.sourceFpsDenom;
+                            dng_info.shutter = (uint32_t)expo_info.shutterValue;
+                            set_unique_camera_name(&idnt_info);
+                            strncpy(dng_info.camera_name, (char*)idnt_info.cameraName, 32);
+                            dng_lens_info.aperture = lens_info.aperture;
+                            strncpy(dng_lens_info.name, (char*)lens_info.lensName, 32);
+                            dng_lens_info.focal_len = lens_info.focalLength;
+                            dng_lens_info.focus_dist = lens_info.focalDist;
+                            dng_lens_info.iso = expo_info.isoValue;                         
+                            dng_lens_info.wb_mode = wbal_info.wb_mode;
+                            dng_lens_info.kelvin = wbal_info.kelvin;
+                            dng_lens_info.WBGain_R = wbal_info.wbgain_r;
+                            dng_lens_info.WBGain_G = wbal_info.wbgain_g;
+                            dng_lens_info.WBGain_B = wbal_info.wbgain_b;
+                            dng_lens_info.wbs_gm = wbal_info.wbs_gm;
+                            dng_lens_info.wbs_ba = wbal_info.wbs_ba;                           
 
                             /* calculate the time this frame was taken at, i.e., the start time + the current timestamp. this can be off by a second but it's better than nothing */
+
                             int ms = 0.5 + buf.timestamp / 1000.0;
                             int sec = ms / 1000;
                             ms %= 1000;
+
                             // FIXME: the struct tm doesn't have tm_gmtoff on Linux so the result might be wrong?
+
                             struct tm tm;
                             tm.tm_sec = rtci_info.tm_sec + sec;
                             tm.tm_min = rtci_info.tm_min;
@@ -3507,48 +4121,24 @@ read_headers:
                             tm.tm_wday = rtci_info.tm_wday;
                             tm.tm_yday = rtci_info.tm_yday;
                             tm.tm_isdst = rtci_info.tm_isdst;
-
-                            if(mktime(&tm) != -1)
-                            {
-                                char datetime_str[32];
-                                char subsec_str[8];
-                                strftime(datetime_str, 20, "%Y:%m:%d %H:%M:%S", &tm);
-                                snprintf(subsec_str, sizeof(subsec_str), "%03d", ms);
-                                dng_set_datetime(datetime_str, subsec_str);
-                            }
-                            else
-                            {
-                                // soemthing went wrong. let's proceed anyway
-                                print_msg(MSG_ERROR, "VIDF: [W] Failed calculating the DateTime from the timestamp\n");
-                                dng_set_datetime("", "");
-                            }
-
-
-                            uint64_t serial = 0;
-                            char *end;
-                            serial = strtoull((char *)idnt_info.cameraSerial, &end, 16);
-                            if (serial && !*end)
-                            {
-                                char serial_str[64];
-
-                                sprintf(serial_str, "%"PRIu64, serial);
-                                dng_set_camserial((char*)serial_str);
-                            }
+                            dng_info.tm = &tm;                            
+                            strncpy(dng_info.camera_serial, (char*)idnt_info.cameraSerial, 32);
 
                             /* finally save the DNG */
-                            if(!save_dng(frame_filename, &raw_info))
+
+                            if(!dng_save(frame_filename, frame_buffer, &dng_info))
                             {
                                 print_msg(MSG_ERROR, "VIDF: Failed writing into .DNG file\n");
                                 if(relaxed)
                                 {
                                     goto skip_block;
                                 }
+
                                 goto abort;
                             }
 
                             /* callout for a saved dng file */
                             lua_call_va(lua_state, "dng_saved", "si", frame_filename, block_hdr.frameNumber);
-
                             free(frame_filename);
                         }
 
@@ -3574,9 +4164,9 @@ read_headers:
                         }
                     }
                 }
-                
                 /* no matter what the block handlers above did, skip that block */
                 file_set_pos(in_file, position + block_hdr.blockSize, SEEK_SET);
+
 
                 vidf_max_number = MAX(vidf_max_number, block_hdr.frameNumber);
 
@@ -3591,6 +4181,7 @@ read_headers:
                     print_msg(MSG_ERROR, "File ends in the middle of a block\n");
                     goto abort;
                 }
+
 
                 lua_handle_hdr(lua_state, buf.blockType, &lens_info, sizeof(lens_info));
 
@@ -3919,12 +4510,6 @@ read_headers:
                         goto abort;
                     }
                 }
-
-                unique_camname = get_camera_name_by_id(idnt_info.cameraModel, UNIQ);
-                if(!unique_camname)
-                {
-                    unique_camname = (const char*) idnt_info.cameraName;
-                }
             }
             else if(!memcmp(buf.blockType, "RTCI", 4))
             {
@@ -4030,7 +4615,7 @@ read_headers:
                     print_msg(MSG_ERROR, "File ends in the middle of a block\n");
                     goto abort;
                 }
-                
+
                 lua_handle_hdr(lua_state, buf.blockType, &block_hdr, sizeof(block_hdr));
 
                 video_xRes = block_hdr.xRes;
@@ -4199,7 +4784,7 @@ read_headers:
                     print_msg(MSG_ERROR, "File ends in the middle of a block\n");
                     goto abort;
                 }
-                
+
                 lua_handle_hdr(lua_state, buf.blockType, &block_hdr, sizeof(block_hdr));
 
                 if(verbose)
@@ -4248,9 +4833,6 @@ read_headers:
                 {
                     size_t name_len = strlen(output_filename) + 5;  // + .wav\0
                     char* wav_file_name = malloc(name_len);
-                    /* NOTE, assumes little endian system, fix for big endian */
-                    uint32_t tmp_uint32;
-                    uint16_t tmp_uint16;
 
                     strncpy(wav_file_name, output_filename, name_len);
                     strncat(wav_file_name, ".wav", name_len);
@@ -4262,42 +4844,58 @@ read_headers:
                         goto abort;
                     }
 
-                    int error = 1;
+                    /************************* Initialize wav_header struct *************************/
+                    struct wav_header wav_hdr =
+                    {
+                        .RIFF = "RIFF",
+                        .file_size = 0x504D4554, // for now it's "TEMP", should be (uint32_t)(wav_data_size + wav_header_size - 8), gonna be patched later
+                        .WAVE = "WAVE",
+                        .bext_id = "bext",
+                        .bext_size = sizeof(struct wav_bext),
+                        .bext.time_reference = 0, // (uint64_t)(rtci_info->tm_hour * 3600 + rtci_info->tm_min * 60 + rtci_info->tm_sec) * (uint64_t)wavi_info->samplingRate,
+                        .iXML_id = "iXML",
+                        .iXML_size = 1024,
+                        .fmt = "fmt\x20",
+                        .subchunk1_size = 16,
+                        .audio_format = 1,
+                        .num_channels = wavi_info.channels,
+                        .sample_rate = wavi_info.samplingRate,
+                        .byte_rate = wavi_info.bytesPerSecond,
+                        .block_align = 4,
+                        .bits_per_sample = wavi_info.bitsPerSample,
+                        .data = "data",
+                        .subchunk2_size = 0x504D4554, // for now it's "TEMP", should be (uint32_t)(wav_data_size), gonna be patched later
+                    };
+
+                    char temp[33];
+                    snprintf(temp, sizeof(temp), "%s", idnt_info.cameraName);
+                    memcpy(wav_hdr.bext.originator, temp, 32);
+                    snprintf(temp, sizeof(temp), "JPCAN%04d%.8s%02d%02d%02d%09d", idnt_info.cameraModel, idnt_info.cameraSerial , rtci_info.tm_hour, rtci_info.tm_min, rtci_info.tm_sec, rand());
+                    memcpy(wav_hdr.bext.originator_reference, temp, 32);
+                    snprintf(temp, sizeof(temp), "%04d:%02d:%02d", 1900 + rtci_info.tm_year, rtci_info.tm_mon, rtci_info.tm_mday);
+                    memcpy(wav_hdr.bext.origination_date, temp, 10);
+                    snprintf(temp, sizeof(temp), "%02d:%02d:%02d", rtci_info.tm_hour, rtci_info.tm_min, rtci_info.tm_sec);
+                    memcpy(wav_hdr.bext.origination_time, temp, 8);
                     
-                    /* Write header */
-                    error &= fwrite("RIFF", 4, 1, out_file_wav);
-                    tmp_uint32 = 36; // Two headers combined size, will be patched later
-                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
-                    error &= fwrite("WAVE", 4, 1, out_file_wav);
+                    char * project = "Magic Lantern";
+                    char * notes = "";
+                    char * keywords = "";
+                    int tape = 1, scene = 1, shot = 1, take = 1;
+                    int fps_denom = main_header.sourceFpsDenom;
+                    int fps_nom = main_header.sourceFpsNom;
+                    snprintf(wav_hdr.iXML, wav_hdr.iXML_size, iXML, project, notes, keywords, tape, scene, shot, take, fps_nom, fps_denom, fps_nom, fps_denom, fps_nom, fps_denom);
+                    /********************************************************************************/
 
-                    error &= fwrite("fmt ", 4, 1, out_file_wav);
-                    tmp_uint32 = 16; // Header size
-                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
-                    tmp_uint16 = wavi_info.format; // PCM
-                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
-                    tmp_uint16 = wavi_info.channels; // Stereo
-                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
-                    tmp_uint32 = wavi_info.samplingRate; // Sample rate
-                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
-                    tmp_uint32 = wavi_info.bytesPerSecond; // Byte rate (16-bit data, stereo)
-                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
-                    tmp_uint16 = wavi_info.blockAlign; // Block align
-                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
-                    tmp_uint16 = wavi_info.bitsPerSample; // Bits per sample
-                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
-
-                    error &= fwrite("data", 4, 1, out_file_wav);
-                    tmp_uint32 = 0; // Audio data length, will be patched later
-                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
-
-                    wav_file_size = 0;
-                    wav_header_size = file_get_pos(out_file_wav);
-                    
-                    if(error != 1)
+                    /* write WAV header */
+                    if((fwrite(&wav_hdr, sizeof(struct wav_header), 1, out_file_wav)) != 1)
                     {
                         print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
                         goto abort;
                     }
+
+                    /* init WAV data size, will be grow later block by block (AUDF) */
+                    wav_data_size = 0;
+                    wav_header_size = file_get_pos(out_file_wav); /* same as sizeof(struct wav_header) */
                 }
             }
             else if(!memcmp(buf.blockType, "NULL", 4))
@@ -4318,7 +4916,8 @@ read_headers:
 
 skip_block:
         file_set_pos(in_file, position + buf.blockSize, SEEK_SET);
-            
+
+
         /* count any read block, no matter if header or video frame */
         blocks_processed++;
 
@@ -4344,6 +4943,7 @@ abort:
         print_msg(MSG_INFO, "Processed %d video frames at %2.2f FPS (%2.2f s)\n", vidf_frames_processed, fps, vidf_frames_processed / fps);
     }
     
+
     /* in average mode, finalize average calculation and output the resulting average */
     if(average_mode)
     {
@@ -4482,7 +5082,7 @@ abort:
         {
             main_header.videoClass &= ~MLV_VIDEO_CLASS_FLAG_DELTA;
         }
-        
+
         fseek(out_file, 0L, SEEK_SET);
         
         if(fwrite(&main_header, main_header.blockSize, 1, out_file) != 1)
@@ -4507,15 +5107,15 @@ abort:
     if(out_file_wav)
     {
         /* Patch the WAV size fields */
-        uint32_t tmp_uint32 = wav_file_size + 36; /* + header size */
+        uint32_t tmp_uint32 = wav_data_size + wav_header_size - 8; /* minus 8 = RIFF + (file size field 4 bytes) */
         file_set_pos(out_file_wav, 4, SEEK_SET);
         if(fwrite(&tmp_uint32, 4, 1, out_file_wav) != 1)
         {
             print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
         }
 
-        tmp_uint32 = wav_file_size; /* data size */
-        file_set_pos(out_file_wav, 40, SEEK_SET);
+         tmp_uint32 = wav_data_size; /* data size */
+         file_set_pos(out_file_wav, 1686, SEEK_SET);
         if(fwrite(&tmp_uint32, 4, 1, out_file_wav) != 1)
         {
             print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
