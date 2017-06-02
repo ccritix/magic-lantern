@@ -31,11 +31,6 @@
 #include <time.h>
 #include <assert.h>
 
-#define MODULE_STRINGS_PREFIX mlv_dump_strings
-#include "../module_strings_wrapper.h"
-#include "module_strings.h"
-MODULE_STRINGS()
-
 /* dng related headers */
 #include "dng/dng.h"
 #include "../dual_iso/wirth.h"  /* fast median, generic implementation (also kth_smallest) */
@@ -1529,7 +1524,6 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, "Parameters:\n");
     print_msg(MSG_INFO, " -o output_file      write video data into a MLV file\n");
     print_msg(MSG_INFO, " -v                  verbose output\n");
-    print_msg(MSG_INFO, " --version           print version information\n");
     print_msg(MSG_INFO, " --batch             format output message suitable for batch processing\n");
     
     print_msg(MSG_INFO, "\n");
@@ -1713,12 +1707,11 @@ int main (int argc, char *argv[])
 
     int extract_frames = 0;
     uint32_t frame_start = 0;
-    uint32_t frame_end = UINT32_MAX;
+    uint32_t frame_end = 0;
     uint32_t audf_frames_processed = 0;
     uint32_t vidf_frames_processed = 0;
     uint32_t vidf_max_number = 0;
 
-    int version = 0;
     int delta_encode_mode = 0;
     int xref_mode = 0;
     int average_mode = 0;
@@ -1782,7 +1775,6 @@ int main (int argc, char *argv[])
     
 
     struct option long_options[] = {
-        {"version",  no_argument, &version,  1 },
         {"lua",    required_argument, NULL,  'L' },
         {"black-fix",  optional_argument, NULL,  'B' },
         {"white-fix",  optional_argument, NULL,  'W' },
@@ -2086,23 +2078,6 @@ int main (int argc, char *argv[])
         }
     }
 
-    print_msg(MSG_INFO, "\n");
-    print_msg(MSG_INFO, " MLV Dumper\n");
-    print_msg(MSG_INFO, "-----------------\n");
-    print_msg(MSG_INFO, "\n");
-
-    if(version)
-    {
-        const char *last_update = module_get_string(mlv_dump_strings, "Last update");
-        const char *build_date = module_get_string(mlv_dump_strings, "Build date");
-        
-        print_msg(MSG_INFO, "Last update:  %s", last_update);
-        print_msg(MSG_INFO, "Build date:   %s", build_date);
-        print_msg(MSG_INFO, "\n");
-        print_msg(MSG_INFO, "\n");
-        return 0;
-    }
-
     if(optind >= argc)
     {
         print_msg(MSG_ERROR, "Error: Missing input filename\n");
@@ -2110,6 +2085,12 @@ int main (int argc, char *argv[])
         return ERR_PARAM;
     }
 
+
+
+    print_msg(MSG_INFO, "\n");
+    print_msg(MSG_INFO, " MLV Dumper v1.0\n");
+    print_msg(MSG_INFO, "-----------------\n");
+    print_msg(MSG_INFO, "\n");
 
     /* get first file */
     input_filename = argv[optind];
