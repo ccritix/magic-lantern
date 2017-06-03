@@ -9,6 +9,7 @@
 #include "property.h"
 #include "beep.h"
 #include "bmp.h"
+#include "patch.h"
 
 #ifndef CONFIG_MODULES_MODEL_SYM
 #error Not defined file name with symbols
@@ -74,17 +75,14 @@ static int module_load_symbols(TCCState *s, char *filename)
     FIO_ReadFile(file, buf, size);
     FIO_CloseFile(file);
 
-    while(pos < size && buf[pos])
+    while(buf[pos])
     {
         char address_buf[16];
         char symbol_buf[128];
         uint32_t length = 0;
         uint32_t address = 0;
 
-        while (pos + length < size &&
-               buf[pos + length] &&
-               buf[pos + length] != ' ' &&
-               length < sizeof(address_buf))
+        while(buf[pos + length] && buf[pos + length] != ' ' && length < sizeof(address_buf))
         {
             address_buf[length] = buf[pos + length];
             length++;
@@ -94,11 +92,7 @@ static int module_load_symbols(TCCState *s, char *filename)
         pos += length + 1;
         length = 0;
 
-        while (pos + length < size &&
-               buf[pos + length] &&
-               buf[pos + length] != '\r' &&
-               buf[pos + length] != '\n' &&
-               length < sizeof(symbol_buf))
+        while(buf[pos + length] && buf[pos + length] != '\r' && buf[pos + length] != '\n' && length < sizeof(symbol_buf))
         {
             symbol_buf[length] = buf[pos + length];
             length++;
@@ -108,10 +102,7 @@ static int module_load_symbols(TCCState *s, char *filename)
         pos += length + 1;
         length = 0;
 
-        while (pos + length < size &&
-               buf[pos + length] &&
-              (buf[pos + length] == '\r' ||
-               buf[pos + length] == '\n'))
+        while(buf[pos + length] && (buf[pos + length] == '\r' || buf[pos + length] == '\n'))
         {
             pos++;
         }
@@ -447,7 +438,10 @@ static void _module_load_all(uint32_t list_only)
     }
     
     /* before we execute code, make sure a) data caches are drained and b) instruction caches are clean */
+    int old = cli();
     sync_caches();
+    reapply_cache_patches();
+    sei(old);
     
     /* go through all modules and initialize them */
     printf("Init modules...\n");
