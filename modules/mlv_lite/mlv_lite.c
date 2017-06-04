@@ -294,6 +294,7 @@ struct frame_slot
         SLOT_FREE,          /* available for image capture */
         SLOT_RESERVED,      /* it may become available when resizing the previous slots */
         SLOT_CAPTURING,     /* in progress */
+        SLOT_LOCKED,        /* locked by some other module */
         SLOT_FULL,          /* contains fully captured image data */
         SLOT_WRITING        /* it's being saved to card */
     } status;
@@ -369,16 +370,20 @@ void mlv_rec_get_slot_info(int32_t slot, uint32_t *size, void **address)
 /* this can be called from anywhere to get a free memory slot. must be submitted using mlv_rec_release_slot() */
 int32_t mlv_rec_get_free_slot()
 {
-    for (int i = 0; i < total_slot_count; i++)
+    int32_t ret = -1;
+    
+    for (int i = 0; (i < total_slot_count) && (ret == -1); i++)
     {
+        uint32_t old_int = cli();
         if (slots[i].status == SLOT_FREE)
         {
-            slots[i].status = SLOT_RESERVED;
-            return i;
+            slots[i].status = SLOT_LOCKED;
+            ret = i;
         }
+        sei(old_int);
     }
     
-    return -1;
+    return ret;
 }
 
 /* mark a previously with mlv_rec_get_free_slot() allocated slot for being reused or written into the file */
@@ -391,7 +396,11 @@ void mlv_rec_release_slot(int32_t slot, uint32_t write)
 
     if(write)
     {
+        uint32_t old_int = cli();
         slots[slot].status = SLOT_FULL;
+        writing_queue[writing_queue_tail] = slot;
+        INC_MOD(writing_queue_tail, COUNT(writing_queue));
+        sei(old_int);
     }
     else
     {
@@ -1482,6 +1491,7 @@ static void show_buffer_status()
                         slots[i].status == SLOT_WRITING   ? COLOR_GREEN1 :
                         slots[i].status == SLOT_FULL      ? COLOR_LIGHT_BLUE :
                         slots[i].status == SLOT_RESERVED  ? COLOR_GRAY(50) :
+                        slots[i].status == SLOT_LOCKED    ? COLOR_YELLOW :
                                                             COLOR_RED ;
 
             uint32_t x1 = (uint32_t) slots[i].ptr - chunk_start;
