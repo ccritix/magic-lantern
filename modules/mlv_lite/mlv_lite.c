@@ -42,6 +42,8 @@
  * Boston, MA  02110-1301, USA.
  */
 
+#define __MLV_LITE_C__
+
 static int show_graph = 0;
 static int show_edmac = 0;
 
@@ -67,6 +69,7 @@ static int show_edmac = 0;
 #include "focus.h"
 #include "fps.h"
 #include "../mlv_rec/mlv.h"
+#include "../mlv_rec/mlv_rec_interface.h"
 #include "../trace/trace.h"
 #include "powersave.h"
 #include "shoot.h"
@@ -352,6 +355,85 @@ static int raw_rec_should_preview(void);
 
 /* old mlv_rec interface stuff here */
 struct msg_queue *mlv_block_queue = NULL;
+/* registry of all other modules CBRs */
+static cbr_entry_t registered_cbrs[32];
+
+
+uint32_t mlv_rec_register_cbr(uint32_t event, event_cbr_t cbr, void *ctx)
+{
+    if(RAW_IS_RECORDING)
+    {
+        return 0;
+    }
+    
+    uint32_t ret = 0;
+    uint32_t old_int = cli();
+    for(int pos = 0; pos < COUNT(registered_cbrs); pos++)
+    {
+        if(registered_cbrs[pos].cbr == NULL)
+        {
+            registered_cbrs[pos].event = event;
+            registered_cbrs[pos].cbr = cbr;
+            registered_cbrs[pos].ctx = ctx;
+            ret = 1;
+            break;
+        }
+    }
+    sei(old_int);
+    
+    return ret;
+}
+
+uint32_t mlv_rec_unregister_cbr(event_cbr_t cbr)
+{
+    if(RAW_IS_RECORDING)
+    {
+        return 0;
+    }
+    
+    uint32_t ret = 0;
+    uint32_t old_int = cli();
+    for(int pos = 0; (registered_cbrs[pos].cbr != NULL) && (pos < COUNT(registered_cbrs)); pos++)
+    {
+        if(registered_cbrs[pos].cbr == cbr)
+        {
+            int32_t remaining = COUNT(registered_cbrs) - pos - 1;
+            
+            registered_cbrs[pos].cbr = NULL;
+            
+            if(remaining > 0)
+            {
+                memcpy(&registered_cbrs[pos], &registered_cbrs[pos + 1], remaining * sizeof(cbr_entry_t));
+                registered_cbrs[COUNT(registered_cbrs)-1].ctx = NULL;
+                ret = 1;
+                break;
+            }
+        }
+    }
+    sei(old_int);
+    
+    return ret;
+}
+
+static void mlv_rec_call_cbr(uint32_t event, mlv_hdr_t *hdr)
+{
+    for(int pos = 0; (registered_cbrs[pos].cbr != NULL) && (pos < COUNT(registered_cbrs)); pos++)
+    {
+        if(registered_cbrs[pos].event & event)
+        {
+            registered_cbrs[pos].cbr(event, registered_cbrs[pos].ctx, hdr);
+        }
+    }
+}
+
+static int32_t mlv_write_hdr(FILE* f, mlv_hdr_t *hdr)
+{
+    mlv_rec_call_cbr(MLV_REC_EVENT_BLOCK, hdr);
+
+    uint32_t written = FIO_WriteFile(f, hdr, hdr->blockSize);
+
+    return written == hdr->blockSize;
+}
 
 /* return details about allocated slot */
 void mlv_rec_get_slot_info(int32_t slot, uint32_t *size, void **address)
@@ -406,6 +488,12 @@ void mlv_rec_release_slot(int32_t slot, uint32_t write)
     {
         slots[slot].status = SLOT_FREE;
     }
+}
+
+/* set the timestamp relative to recording start */
+void mlv_rec_set_rel_timestamp(mlv_hdr_t *hdr, uint64_t timestamp)
+{
+    hdr->timestamp = timestamp - mlv_start_timestamp;
 }
 
 /* queuing of blocks from other modules */
@@ -2239,6 +2327,7 @@ static void FAST pre_record_vsync_step()
             /* return to pre-recording state */
             pre_record_first_frame = frame_count;
             raw_recording_state = RAW_PRE_RECORDING;
+            mlv_rec_call_cbr(MLV_REC_EVENT_STARTED, NULL);
             printf("Pre-rec: back to pre-recording (frame %d).\n", pre_record_first_frame);
             /* fall through the next block */
         }
@@ -2266,6 +2355,7 @@ static void FAST pre_record_vsync_step()
             {
                 /* done, from now on we can just record normally */
                 raw_recording_state = RAW_RECORDING;
+                mlv_rec_call_cbr(MLV_REC_EVENT_STARTED, NULL);
             }
             else
             {
@@ -2632,7 +2722,7 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
     panning_update();
 
     if (!RAW_IS_RECORDING) return 0;
-    if (!raw_lv_settings_still_valid()) { raw_recording_state = RAW_FINISHING; return 0; }
+    if (!raw_lv_settings_still_valid()) { raw_recording_state = RAW_FINISHING; mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL); return 0; }
     if (buffer_full) return 0;
 
     /* double-buffering */
@@ -2814,7 +2904,7 @@ static int write_mlv_vers_blocks(FILE *f)
                 mlv_build_vers(&hdr, mlv_start_timestamp, version_string);
                 
                 /* try to write to output file */
-                if(FIO_WriteFile(f, hdr, hdr->blockSize) != (int)hdr->blockSize)
+                if(!mlv_write_hdr(f, (mlv_hdr_t *)hdr))
                 {
                     error = 1;
                 }
@@ -2831,14 +2921,14 @@ static int write_mlv_vers_blocks(FILE *f)
 
 static int write_mlv_chunk_headers(FILE* f)
 {
-    if (FIO_WriteFile(f, &file_hdr, file_hdr.blockSize) != (int)file_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &rawi_hdr, rawi_hdr.blockSize) != (int)rawi_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &rawc_hdr, rawc_hdr.blockSize) != (int)rawc_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &idnt_hdr, idnt_hdr.blockSize) != (int)idnt_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &expo_hdr, expo_hdr.blockSize) != (int)expo_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &lens_hdr, lens_hdr.blockSize) != (int)lens_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &wbal_hdr, wbal_hdr.blockSize) != (int)wbal_hdr.blockSize) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&file_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&rawi_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&rawc_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&idnt_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&expo_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&lens_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&rtci_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&wbal_hdr)) return 0;
     if (write_mlv_vers_blocks(f)) return 0;
     
     int hdr_size = FIO_SeekSkipFile(f, 0, SEEK_CUR);
@@ -3057,6 +3147,9 @@ static void raw_video_rec_task()
         goto cleanup;
     }
 
+    /* signal that we are starting, call this before any memory allocation to give CBR the chance to allocate memory */
+    mlv_rec_call_cbr(MLV_REC_EVENT_STARTING, NULL);
+    
     /* allocate memory */
     if (!setup_buffers())
     {
@@ -3073,8 +3166,11 @@ static void raw_video_rec_task()
     /* try a sync beep (not very precise, but better than nothing) */
     beep();
 
-    /* signal that we are starting */
-    raw_rec_cbr_starting();
+    /* some modules may do some specific stuff right when we started recording */
+    if(!pre_record)
+    {
+        mlv_rec_call_cbr(MLV_REC_EVENT_STARTED, NULL);
+    }
 
     /* signal start of recording to the compression task */
     msg_queue_post(compress_mq, INT_MAX);
@@ -3107,6 +3203,7 @@ static void raw_video_rec_task()
                 /* the video will be incomplete */
                 NotifyBox(5000, "Emergency Stop");
                 raw_recording_state = RAW_FINISHING;
+                mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
                 wait_lv_frames(2);
                 writing_queue_head = writing_queue_tail;
                 break;
@@ -3239,6 +3336,9 @@ static void raw_video_rec_task()
             /* there is a block in the queue, try to get that block */
             if(!msg_queue_receive(mlv_block_queue, &block, 0))
             {
+                /* when this block will get written, call the CBR */
+                mlv_rec_call_cbr(MLV_REC_EVENT_BLOCK, block);
+                
                 /* use the write func to write the block */
                 write_frames(&f, block, block->blockSize, 0);
                 
@@ -3323,6 +3423,7 @@ abort_and_check_early_stop:
     
     /* done, this will stop the vsync CBR and the copying task */
     raw_recording_state = RAW_FINISHING;
+    mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
 
     /* wait until the other tasks calm down */
     wait_lv_frames(2);
@@ -3423,6 +3524,7 @@ cleanup:
 
     redraw();
     raw_recording_state = RAW_IDLE;
+    mlv_rec_call_cbr(MLV_REC_EVENT_STOPPED, NULL);
 }
 
 static void raw_start_stop()
@@ -3430,6 +3532,7 @@ static void raw_start_stop()
     if (!RAW_IS_IDLE)
     {
         raw_recording_state = RAW_FINISHING;
+        mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
         beep();
     }
     else
