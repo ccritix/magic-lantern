@@ -349,6 +349,35 @@ extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_stopping();
 
 static int raw_rec_should_preview(void);
 
+/* old mlv_rec interface stuff here */
+struct msg_queue *mlv_block_queue = NULL;
+
+/* queuing of blocks from other modules */
+uint32_t mlv_rec_queue_block(mlv_hdr_t *hdr)
+{
+    mlv_set_timestamp(hdr, mlv_start_timestamp);
+    msg_queue_post(mlv_block_queue, (uint32_t) hdr);
+    
+    return 1;
+}
+
+/* clear the queue specified, free'ing all received elements */
+static void flush_queue(struct msg_queue *queue)
+{
+    uint32_t messages = 0;
+
+    msg_queue_count(queue, &messages);
+    while(messages > 0)
+    {
+        void *tmp_buf = 0;
+        msg_queue_receive(queue, &tmp_buf, 0);
+        free(tmp_buf);
+        msg_queue_count(queue, &messages);
+    }
+}
+
+
+
 static inline int pre_recording_buffer_full()
 {
     /* fixme: not very accurate with variable frame sizes */
@@ -3142,6 +3171,25 @@ static void raw_video_rec_task()
             goto abort;
         }
         
+        /* write all queued blocks, if any */
+        uint32_t msg_count = 0;
+        msg_queue_count(mlv_block_queue, &msg_count);
+        
+        for(uint32_t msg = 0; msg < msg_count; msg++)
+        {
+            mlv_hdr_t *block = NULL;
+
+            /* there is a block in the queue, try to get that block */
+            if(!msg_queue_receive(mlv_block_queue, &block, 0))
+            {
+                /* use the write func to write the block */
+                write_frames(&f, block, block->blockSize, 0);
+                
+                /* free the block */
+                free(block);
+            }
+        }
+        
         last_write_timestamp = get_ms_clock_value();
         writing_time += last_write_timestamp - t0;
 
@@ -3224,6 +3272,9 @@ abort_and_check_early_stop:
 
     /* signal end of recording to the compression task */
     msg_queue_post(compress_mq, INT_MIN);
+    
+    /* clear blocks still in queue */
+    flush_queue(mlv_block_queue);
 
     set_recording_custom(CUSTOM_RECORDING_NOT_RECORDING);
 
@@ -3869,6 +3920,9 @@ static unsigned int raw_rec_init()
         }
         NotifyBoxHide();
     }
+    
+    /* allocate queue that other modules will fill with blocks to write to the current file */
+    mlv_block_queue = (struct msg_queue *) msg_queue_create("mlv_block_queue", 100);
 
     lossless_init();
 
