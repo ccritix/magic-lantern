@@ -18,70 +18,66 @@
  * Boston, MA  02110-1301, USA.
  */
 
-#ifndef _dng_h_
-#define _dng_h_
+#ifndef _dng_h
+#define _dng_h
 
-#ifndef CONFIG_MAGICLANTERN
-//compile for desktop
-//subset of the ML lens_info struct definition (only fields needed by dng.c code)
-struct lens_info
+#include <sys/types.h>
+#include <raw.h>
+#include "../mlv.h"
+
+/* all mlv block headers needed to generate a DNG frame plus extra parameters */
+struct frame_info
 {
-    char     name[32];
-    uint32_t focal_len; // in mm
-    uint32_t focus_dist; // in cm
-    uint32_t aperture;
-    uint32_t iso;
-    uint32_t iso_auto;
-    uint32_t hyperfocal; // in mm
-    uint32_t dof_near; // in mm
-    uint32_t dof_far; // in mm
-    
-    uint32_t wb_mode;
-    uint32_t kelvin;
-    uint32_t WBGain_R;
-    uint32_t WBGain_G;
-    uint32_t WBGain_B;
-    int8_t   wbs_gm;
-    int8_t   wbs_ba;
+    char * mlv_filename;
+    char * dng_filename;
+    double fps_override;
+
+    /* flags */
+    int deflicker_target;
+    int vertical_stripes;
+    int bad_pixels;
+    int save_bpm;
+    int dual_iso;
+    int chroma_smooth;
+    int pattern_noise;
+    int show_progress;
+    int compressed_raw;
+    int pack_dng_bits;
+
+    /* block headers */
+    mlv_vidf_hdr_t vidf_hdr;
+    mlv_file_hdr_t file_hdr;
+    mlv_rtci_hdr_t rtci_hdr;
+    mlv_idnt_hdr_t idnt_hdr;
+    mlv_rawi_hdr_t rawi_hdr;
+    mlv_expo_hdr_t expo_hdr;
+    mlv_lens_hdr_t lens_hdr;
+    mlv_wbal_hdr_t wbal_hdr;
 };
 
-#define WB_AUTO 0
-#define WB_SUNNY 1
-#define WB_SHADE 8
-#define WB_CLOUDY 2
-#define WB_TUNGSTEN 3
-#define WB_FLUORESCENT 4
-#define WB_FLASH 5
-#define WB_CUSTOM 6
-#define WB_KELVIN 9
-
-#endif
-
-struct dng_info
+/* buffers of DNG header and image data */
+struct dng_data
 {
-    char camera_name[32];
-    char camera_serial[32];
-    
-    uint32_t shutter; /* microseconds */
-    uint8_t dng_compression;
-    
-    int32_t fps_numerator;
-    int32_t fps_denominator;
-    int32_t frame_number;
-    
-    uint16_t xRes;
-    uint16_t yRes;
+    size_t header_size;
+    size_t image_size;
+    size_t image_size_packed;
+    size_t image_size_bak;
 
-    struct raw_info * raw_info;
-    struct lens_info * lens_info;
-    struct tm * tm;
+    uint8_t * header_buf;
+    uint16_t * image_buf;
+    uint16_t * image_buf_packed;
+    uint16_t * image_buf_bak;
 };
 
-#ifdef CONFIG_MAGICLANTERN
-struct dng_info * dng_get_info(struct raw_info * raw_info, int use_frame_shutter);
-void dng_free(struct dng_info * dng_info);
-#endif
+size_t dng_get_header_data(struct frame_info * frame_info, uint8_t * output_buffer, off_t offset, size_t max_size);
+size_t dng_get_header_size();
+size_t dng_get_image_data(struct frame_info * frame_info, uint16_t * packed_bits, uint8_t * output_buffer, off_t offset, size_t max_size);
+size_t dng_get_image_size(struct frame_info * frame_info, int flag);
+size_t dng_get_size(struct frame_info * frame_info, int flag);
 
-int dng_save(char* filename, void * buffer, struct dng_info * dng_info);
+void dng_init_data(struct frame_info * frame_info, struct dng_data * dng_data);
+void dng_process_data(struct frame_info * frame_info, struct dng_data * dng_data);
+int dng_save_data(struct frame_info * frame_info, struct dng_data * dng_data);
+void dng_free_data(struct frame_info * frame_info, struct dng_data * dng_data);
 
 #endif
