@@ -668,7 +668,7 @@ static struct menu_entry isoless_menu[] =
 };
 
 /* callback routine for mlv_rec to add a custom DISO block after recording started (which already was specified in mlv.h in definition phase) */
-void isoless_mlv_rec_cbr (uint32_t event, void *ctx, mlv_hdr_t *hdr)
+static void isoless_mlv_rec_cbr (uint32_t event, void *ctx, mlv_hdr_t *hdr)
 {
     /* construct a free-able pointer to later pass it to mlv_rec_queue_block */
     mlv_diso_hdr_t *dual_iso_block = malloc(sizeof(mlv_diso_hdr_t));
