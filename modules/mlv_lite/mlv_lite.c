@@ -75,6 +75,7 @@ static int show_edmac = 0;
 #include "shoot.h"
 #include "fileprefix.h"
 #include "timer.h"
+#include "ml-cbr.h"
 #include "../silent/lossless.h"
 
 /* from mlv_play module */
@@ -2806,12 +2807,18 @@ static char* get_next_chunk_file_name(char* base_name, int chunk)
     return filename;
 }
 
-/* a bit of a hack: this tells the audio backend that we are going to record sound */
-/* => it will show audio meters and disable beeps */
-/* g3gg0: what shall we do with it? use ml-cbr for it? seems ideal for this use case */
-int xxx_mlv_snd_is_enabled()
+/* this tells the audio backend that we are going to record sound */
+static ml_cbr_action raw_rec_snd_rec_cbr (const char *event, void *data)
 {
-    return use_h264_proxy() && sound_recording_enabled_canon();
+    uint32_t *status = (uint32_t*)data;
+    
+    if(use_h264_proxy() && sound_recording_enabled_canon())
+    {
+        *status = 1;
+        return ML_CBR_STOP;
+    }
+    
+    return ML_CBR_CONTINUE;
 }
 
 static void init_mlv_chunk_headers(struct raw_info * raw_info)
@@ -4058,6 +4065,8 @@ static struct lvinfo_item info_items[] = {
     }
 };
 
+static ml_cbr_action sound_used_cbr (const char *, void *);
+
 static unsigned int raw_rec_init()
 {
     cam_eos_m = is_camera("EOSM", "2.0.2");
@@ -4112,7 +4121,7 @@ static unsigned int raw_rec_init()
     raw_preview_lock = create_named_semaphore(0, 1);
 
     ASSERT(((uint32_t)task_create("compress_task", 0x0F, 0x1000, compress_task, (void*)0) & 1) == 0);
-
+    
     return 0;
 }
 
@@ -4131,6 +4140,7 @@ MODULE_CBRS_START()
     MODULE_CBR(CBR_KEYPRESS_RAW, raw_rec_keypress_cbr_raw, 0)
     MODULE_CBR(CBR_SHOOT_TASK, raw_rec_polling_cbr, 0)
     MODULE_CBR(CBR_DISPLAY_FILTER, raw_rec_update_preview, 0)
+    MODULE_NAMED_CBR("snd_rec_enabled", raw_rec_snd_rec_cbr)
 MODULE_CBRS_END()
 
 MODULE_CONFIGS_START()
