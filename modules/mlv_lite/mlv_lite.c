@@ -3337,7 +3337,6 @@ static void raw_video_rec_task()
 
             if (SLOT_MASK(slots[slot_index].status) != SLOT_FULL)
             {
-                printf("Slot check error");
                 bmp_printf(FONT_LARGE, 30, 70, "Slot check error");
                 beep();
             }
@@ -3387,7 +3386,6 @@ static void raw_video_rec_task()
         {
             if (i == writing_queue_tail)
             {
-                printf("Queue overflow");
                 bmp_printf(FONT_MED, 30, 110, "Queue overflow");
                 beep();
             }
@@ -3398,14 +3396,12 @@ static void raw_video_rec_task()
             {
                 if (frame_check_saved(slot_index) != 1)
                 {
-                    printf("Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number);
                     bmp_printf(FONT_MED, 30, 110, "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number);
                     beep();
                 }
                 
                 if (slots[slot_index].frame_number != last_processed_frame + 1)
                 {
-                    printf("Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1);
                     bmp_printf(FONT_MED, 30, 110, "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1);
                     beep();
                 }
@@ -3426,13 +3422,11 @@ abort:
 abort_and_check_early_stop:
             if (last_block_size > 3)
             {
-                printf("Early stop (%d). Should have recorded a few more frames.", last_block_size);
                 bmp_printf(FONT_MED, 30, 90, "Early stop (%d). Should have recorded a few more frames.", last_block_size);
                 beep_times(last_block_size);
             }
             else
             {
-                printf("Movie recording stopped automagically         ");
                 bmp_printf(FONT_MED, 30, 90, "Movie recording stopped automagically         ");
                 /* this is error beep, not audio sync beep */
                 beep_times(2);
@@ -3469,7 +3463,6 @@ abort_and_check_early_stop:
 
         if (SLOT_MASK(slots[slot_index].status) != SLOT_FULL)
         {
-            printf("Slot %d: frame %d not saved ", slot_index, slots[slot_index].frame_number);
             bmp_printf(FONT_MED, 30, 110, "Slot %d: frame %d not saved ", slot_index, slots[slot_index].frame_number);
             beep();
         }
@@ -3479,14 +3472,12 @@ abort_and_check_early_stop:
         {
             if (frame_check_saved(slot_index) != 1)
             {
-                printf("Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number);
                 bmp_printf( FONT_MED, 30, 110, "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number);
                 beep();
             }
 
             if (slots[slot_index].frame_number != last_processed_frame + 1)
             {
-                printf("Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1);
                 bmp_printf(FONT_MED, 30, 110, "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1);
                 beep();
             }
