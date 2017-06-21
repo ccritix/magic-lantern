@@ -268,30 +268,26 @@ static void guess_prop(uint32_t* buffer, uint32_t buffer_len, int active_only, i
                 uint32_t last = buffer[last_pos/4];
                 if (check_terminator(0, last, 0))               // terminator OK?
                 {
-                    #ifdef CONFIG_MAGICLANTERN
                     if (verbose)
-                    #endif
                     {
                         printf("Trying offset 0x%x, status=0x%x, size=0x%x...\n", offset, status, size);
                     }
 
                     /* let's try to parse it quietly, without any messages */
                     /* if successful, will parse again with output enabled */
-                    if (parse_prop_group(buffer + offset/4, size+4, 0, verbose, 0))
+                    if (parse_prop_group(buffer + offset/4, size+4, 0, verbose == 2, 0))
                     {
                         if (active_only && status != 0xFFFF)
                         {
                             /* skip inactive block */
-                            #ifdef CONFIG_MAGICLANTERN
                             if (verbose)
-                            #endif
                             {
                                 printf("Skipping inactive block 0x%x, status=0x%x, size=0x%x...\n", offset, status, size);
                             }
                             continue;
                         }
 
-                        parse_prop_group(buffer + offset/4, size+4, 0, verbose, 1);
+                        parse_prop_group(buffer + offset/4, size+4, 0, verbose == 2, 1);
                     }
                 }
             }
@@ -349,7 +345,7 @@ void main(int argc, char** argv)
         fclose(f);
         
         printf("Scanning from %p to %p...\n", buf, ((void*)buf) + len);
-        guess_prop(buf, len, 1, 0);
+        guess_prop(buf, len, 1, 1);
         print_camera_info();
     }
 }
