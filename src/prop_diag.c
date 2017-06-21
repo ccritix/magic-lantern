@@ -2,6 +2,9 @@
  * Property parsing code inspired from g3gg0's Property Editor and Indy's parse_prop.py,
  * but rewritten from scratch :)
  * 
+ * This tool can also be built as a standalone program:
+ *    gcc prop_diag.c -o prop_diag
+ * 
  * Python version available on request.
  * 
  * Data structure: in ROM, properties are organized in blocks, sub-blocks and sub-sub-blocks.
@@ -28,8 +31,8 @@ extern int printf(const char* fmt, ... );
 #endif
 
 #define bool int
-#include <compiler.h>
-#include <property.h>
+#include "compiler.h"
+#include "property.h"
 
 struct nesting_level
 {
