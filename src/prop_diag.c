@@ -10,15 +10,19 @@
  * Data structure: in ROM, properties are organized in blocks, sub-blocks and sub-sub-blocks.
  * 
  * Each nesting level uses the same structure:
- * [id_1 size_1 data_1    id_2 size_2 data_2    ...    id_n size_n data_n    terminator]
+ * [status_1 size_1 data_1    status_2 size_2 data_2    ...    status_n size_n data_n    terminator]
  * 
- * - "size" covers the size of "id", "size" and "data" fields, so "data" has size-8 bytes
+ * - "size" covers the size of "status", "size" and "data" fields, so "data" has size-8 bytes
  * - "data" is either an array of sub-blocks [subblock_1 subblock_2 ... subblock_n terminator]
  *    or the property data itself.
- * - "id", "size" and "terminator" are 32-bit integers each.
+ * - "status", "size" and "terminator" are 32-bit integers each.
  * 
  * Consistency check: sum of size_i == buffer_len - 4.
  * There are 4 nesting levels: let's call them "class", "group", "subgroup" and "property".
+ * 
+ * There are multiple copies of various setting blocks, and only one of them is marked
+ * as "active" (status = 0xFFFF); this is probably (just a guess) used for wear leveling
+ * and maybe also to save a "last known good" configuration (or that's just a side effect).
  * 
  */
 
@@ -139,20 +143,20 @@ static void process_property(uint32_t property, union prop_data * data, uint32_t
     }
 }
 
-/* parse a property buffer (id, size, data) */
+/* parse a property buffer (status, size, data) */
 /* buffer_len is always in bytes */
 static void parse_property(uint32_t* buffer, uint32_t buffer_len)
 {
-    uint32_t id = buffer[0];
+    uint32_t status = buffer[0];
     uint32_t size = buffer[1] - 8;
     uint32_t* data = &buffer[2];
     // assert len(data) == size
     
     #ifndef CONFIG_MAGICLANTERN
-    printf("Prop %10x %6d %s\n", id, size, (char*)data);
+    printf("Prop %10x %6d %s\n", status, size, (char*)data);
     #endif
 
-    process_property(id, (union prop_data *) data, size);
+    process_property(status, (union prop_data *) data, size);
 }
 
 static int check_terminator(int level, uint32_t tail, int verbose)
@@ -194,7 +198,7 @@ static int check_terminator(int level, uint32_t tail, int verbose)
 static int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int verbose, int output)
 {
     //~ printf("parse prop group %p %x %d\n", buffer, buffer_len, level);
-    uint32_t id = buffer[0];
+    uint32_t status = buffer[0];
     int size = buffer[1];
     
     if (size < 12 || size > buffer_len)
@@ -212,7 +216,7 @@ static int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int ver
     
     if (verbose)
     {
-        printf("%s: id=0x%x size=0x%x tail=0x%x\n", levels[level].name, id, size, tail);
+        printf("%s: status=0x%x size=0x%x tail=0x%x\n", levels[level].name, status, size, tail);
     }
 
     if (check_terminator(level, tail, verbose))
@@ -248,35 +252,50 @@ static int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int ver
 }
 
 /* Brute force: find the offsets that look like valid property data structures */
-static void guess_prop(uint32_t* buffer, uint32_t buffer_len, int verbose)
+static void guess_prop(uint32_t* buffer, uint32_t buffer_len, int active_only, int verbose)
 {
-    int total = buffer_len;
-    int offset = 0;
-    while (offset < total)
+    /* these properties must be aligned, right? */
+    for (int offset = 0; offset < buffer_len; offset += 0x100)
     {
+        int status = buffer[offset/4];
         int size = buffer[offset/4 + 1];
+
         if (size > 0 && (size & 3) == 0)                        // size looks 32-bit aligned?
         {
             int last_pos = offset + size - 4;
-            if (last_pos > 12 && last_pos < total-4)            // not out of range?
+            if (last_pos > 12 && last_pos < buffer_len-4)       // not out of range?
             {
                 uint32_t last = buffer[last_pos/4];
                 if (check_terminator(0, last, 0))               // terminator OK?
                 {
-                    if (verbose) printf("Trying offset 0x%x, size=0x%x...\n", offset, size);
+                    #ifdef CONFIG_MAGICLANTERN
+                    if (verbose)
+                    #endif
+                    {
+                        printf("Trying offset 0x%x, status=0x%x, size=0x%x...\n", offset, status, size);
+                    }
 
                     /* let's try to parse it quietly, without any messages */
                     /* if successful, will parse again with output enabled */
                     if (parse_prop_group(buffer + offset/4, size+4, 0, verbose, 0))
                     {
+                        if (active_only && status != 0xFFFF)
+                        {
+                            /* skip inactive block */
+                            #ifdef CONFIG_MAGICLANTERN
+                            if (verbose)
+                            #endif
+                            {
+                                printf("Skipping inactive block 0x%x, status=0x%x, size=0x%x...\n", offset, status, size);
+                            }
+                            continue;
+                        }
+
                         parse_prop_group(buffer + offset/4, size+4, 0, verbose, 1);
                     }
                 }
             }
         }
-        
-        /* these properties must be aligned, right? */
-        offset += 0x100;
     }
 }
 
@@ -303,9 +322,9 @@ static void print_camera_info()
 /* for running on the camera */
 void prop_diag()
 {
-    guess_prop((void*)0xF0000000, 0x1000000, 0);
-    guess_prop((void*)0xF8000000, 0x1000000, 0);
-    guess_prop((void*)0xFC000000, 0x2000000, 0);
+    guess_prop((void*)0xF0000000, 0x1000000, 1, 0);
+    guess_prop((void*)0xF8000000, 0x1000000, 1, 0);
+    guess_prop((void*)0xFC000000, 0x2000000, 1, 0);
     print_camera_info();
 }
 #else
@@ -330,7 +349,7 @@ void main(int argc, char** argv)
         fclose(f);
         
         printf("Scanning from %p to %p...\n", buf, ((void*)buf) + len);
-        guess_prop(buf, len, 0);
+        guess_prop(buf, len, 1, 0);
         print_camera_info();
     }
 }
