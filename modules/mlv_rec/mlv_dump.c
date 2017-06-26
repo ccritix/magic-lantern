@@ -4726,7 +4726,7 @@ read_headers:
 
                 if(verbose)
                 {
-                    print_msg(MSG_INFO, "     Date:        %02d.%02d.%04d\n", rtci_info.tm_mday, rtci_info.tm_mon + 1, 1900 + rtci_info.tm_year);
+                    print_msg(MSG_INFO, "     Date:        %02d-%02d-%02d\n", 1900 + rtci_info.tm_year, rtci_info.tm_mon + 1, rtci_info.tm_mday);
                     print_msg(MSG_INFO, "     Time:        %02d:%02d:%02d (GMT+%d)\n", rtci_info.tm_hour, rtci_info.tm_min, rtci_info.tm_sec, rtci_info.tm_gmtoff);
                     print_msg(MSG_INFO, "     Zone:        '%s'\n", rtci_info.tm_zone);
                     print_msg(MSG_INFO, "     Day of week: %d\n", rtci_info.tm_wday);
