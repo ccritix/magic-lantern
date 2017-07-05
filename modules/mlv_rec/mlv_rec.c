@@ -2642,7 +2642,7 @@ static void raw_prepare_chunk(FILE *f, mlv_file_hdr_t *hdr)
         mlv_write_hdr(f, (mlv_hdr_t *)&idnt_hdr);
         mlv_write_hdr(f, (mlv_hdr_t *)&wbal_hdr);
         mlv_write_hdr(f, (mlv_hdr_t *)&styl_hdr);
-        write_mlv_vers_blocks(f);
+        mlv_write_vers_blocks(f, mlv_start_timestamp);
     }
     
     /* insert a null block so the header size is multiple of 512 bytes */
