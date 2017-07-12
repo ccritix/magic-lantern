@@ -4786,7 +4786,8 @@ read_headers:
 
                 lua_handle_hdr(lua_state, buf.blockType, &expo_info, sizeof(expo_info));
 
-                if(verbose)
+
+                if(verbose && blocks_processed < 10)
                 {
                     print_msg(MSG_INFO, "     ISO Mode:   %d\n", expo_info.isoMode);
                     print_msg(MSG_INFO, "     ISO:        %d\n", expo_info.isoValue);
