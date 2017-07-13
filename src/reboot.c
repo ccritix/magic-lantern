@@ -511,6 +511,7 @@ static const struct model_data_s model_data[] =
     { 0x327, "1200D" },
     { 0x404, "1300D" },
     { 0x331, "EOSM"  },
+    { 0x355, "EOSM2"  },
 };
 
 uint32_t get_model_id()
