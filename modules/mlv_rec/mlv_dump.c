@@ -3492,24 +3492,21 @@ read_headers:
                     int frame_size = ((video_xRes * video_yRes * lv_rec_footer.raw_info.bits_per_pixel + 7) / 8);
 
                     /* cache frame size as there are modes where the stored size does not match the frame's size (e.g. compressed frames) */
-
-                    
                     int read_size = frame_size;
                     
                     /* when the block is compressed, read the whole content, not just "frame_size" */
                     if(compressed)
-
                     {
                         /* just read everything right behind the frameSpace */
                         read_size = block_hdr.blockSize - sizeof(mlv_vidf_hdr_t) - block_hdr.frameSpace;
-
                     }
                     
-                    /* check if there is enough memory for that frame */
-                    if(read_size != (int)frame_buffer_size)
+                    /* check if there is enough memory for that frame, compressed or uncompressed or with unexpected VIDF size */
+                    uint32_t new_buffer_size = MAX((uint32_t)frame_size, (uint32_t)read_size);
+                    if(frame_buffer_size < new_buffer_size)
                     {
                         /* no, set new size */
-                        frame_buffer_size = read_size;
+                        frame_buffer_size = new_buffer_size;
                         
                         /* realloc buffers */
                         frame_buffer = realloc(frame_buffer, frame_buffer_size);
@@ -3520,35 +3517,6 @@ read_headers:
                             goto abort;
                         }
                         
-                        if(frame_arith_buffer)
-                        {
-                            frame_arith_buffer = realloc(frame_arith_buffer, frame_buffer_size * sizeof(uint32_t));
-                            if(!frame_arith_buffer)
-                            {
-                                print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
-                                goto abort;
-                            }
-                        }
-                        
-                        if(frame_sub_buffer)
-                        {
-                            frame_sub_buffer = realloc(frame_sub_buffer, frame_buffer_size);
-                            if(!frame_sub_buffer)
-                            {
-                                print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
-                                goto abort;
-                            }
-                        }
-                        
-                        if(prev_frame_buffer)
-                        {
-                            prev_frame_buffer = realloc(prev_frame_buffer, frame_buffer_size);
-                            if(!prev_frame_buffer)
-                            {
-                                print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
-                                goto abort;
-                            }
-                        }
                     }
 
                     /* so skip frameSpace and read payload */
@@ -3625,9 +3593,6 @@ read_headers:
                                 print_msg(MSG_INFO, "    LJ92: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%% ratio)\n", frame_buffer_size, frame_size, ((float)frame_buffer_size * 100.0f) / (float)frame_size);
                             }
                             
-                            frame_buffer = realloc(frame_buffer, frame_size);
-                            frame_buffer_size = frame_size;
-                            assert(frame_buffer);
                             
                             /* repack the 16 bit words containing values with max 14 bit */
                             int orig_pitch = video_xRes * lv_rec_footer.raw_info.bits_per_pixel / 8;
@@ -3662,6 +3627,12 @@ read_headers:
                                 (unsigned char *)&frame_buffer[4 + LZMA_PROPS_SIZE], &lzma_in_size,
                                 (unsigned char *)&frame_buffer[4], lzma_props_size
                                 );
+
+                            if(lzma_out_size != frame_size)
+                            {
+                                print_msg(MSG_ERROR, "    LZMA: decompressed image size (%d) does not match size retrieved from RAWI (%d)\n", lzma_out_size, frame_size);
+                                goto abort;
+                            }
 
                             if(ret == SZ_OK)
                             {
@@ -4857,7 +4828,7 @@ read_headers:
                 
                 if(frame_arith_buffer)
                 {
-                    frame_arith_buffer = realloc(frame_arith_buffer, frame_buffer_size * sizeof(uint32_t));
+                    frame_arith_buffer = malloc(frame_size * sizeof(uint32_t));
                     if(!frame_arith_buffer)
                     {
                         print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
@@ -4877,7 +4848,7 @@ read_headers:
                 
                 if(prev_frame_buffer)
                 {
-                    prev_frame_buffer = realloc(prev_frame_buffer, frame_buffer_size);
+                    prev_frame_buffer = malloc(frame_size);
                     if(!prev_frame_buffer)
                     {
                         print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
