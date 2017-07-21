@@ -36,15 +36,9 @@
 /** Startup **/
 NSTUB( ROMBASEADDR, firmware_entry )
 NSTUB(0x????????,  cstart)
-NSTUB(0x????????,  bzero32)
-NSTUB(0x????????,  create_init_task)
-NSTUB(0xFE0DD70C,  init_task)
-
-NSTUB( ROMBASEADDR, firmware_entry )
-NSTUB(0x????????,  cstart)
 NSTUB(0x???????? - RAM_OFFSET,  bzero32)
 NSTUB(0x???????? - RAM_OFFSET,  create_init_task)
-NSTUB(0x????????,  init_task)
+NSTUB(0xFE0DD70C,  init_task)
 NSTUB(0x????????,  additional_version)                      // GuiDataStorage
 
 /** File I/O **/
@@ -72,15 +66,15 @@ NSTUB(0xFE170F0C,  gui_main_task)
 NSTUB(0xFE28DB54,  gui_massive_event_loop)
 
 /** ASIF **/
-NSTUB(0x????????,  PowerAudioOutput)
-NSTUB(0x????????,  SetAudioVolumeOut)
-NSTUB(0x????????,  SetNextASIFADCBuffer)
-NSTUB(0x????????,  SetNextASIFDACBuffer)
-NSTUB(0x????????,  SetSamplingRate)
-NSTUB(0x????????,  StartASIFDMAADC)
-NSTUB(0x????????,  StartASIFDMADAC)
-NSTUB(0x????????,  StopASIFDMAADC)
-NSTUB(0x????????,  StopASIFDMADAC)
+NSTUB(0xFE42B930,  PowerAudioOutput)						// JC Best guess
+NSTUB(0xFE42BB00,  SetAudioVolumeOut)						// JC Best guess
+NSTUB(0xFEDFB2FC,  SetNextASIFADCBuffer)					// JC
+NSTUB(0xFEDFB2D4,  SetNextASIFDACBuffer)					// JC
+NSTUB(0xFE24AFA4,  SetSamplingRate)						// JC Best guess
+NSTUB(0xFEDFB2A0,  StartASIFDMAADC)						// JC
+NSTUB(0xFEDFB28C,  StartASIFDMADAC)						// JC
+NSTUB(0xFEDFB2C4,  StopASIFDMAADC)							// JC
+NSTUB(0xFEDFB2B4,  StopASIFDMADAC)							// JC
 
 /** Audio **/
 NSTUB(0x????????, _audio_ic_read)
@@ -91,7 +85,7 @@ NSTUB(0x????????,  LCD_Palette)                             // TerminateBitmapDi
 NSTUB(0x????????,  bmp_vram_info)                           // SetBitmapVramAddress - as in 60D
 
 /** Camera interface? **/
-NSTUB(0x????????,  camera_engine)                           // HDMIDetectISR
+NSTUB(0xD20B22DC,  camera_engine)                           // JC HDMIDetectISR
 
 /** DMA **/
 // NSTUB(0x???????? - RAM_OFFSET, dma_memcpy)
@@ -129,7 +123,7 @@ NSTUB(0x???????? - RAM_OFFSET,  UnregisterEDmacCompleteCBR)
 NSTUB(0x???????? - RAM_OFFSET,  UnregisterEDmacPopCBR)
 
 /** Electronic Level **/
-NSTUB(0x????????,  GUI_SetRollingPitchingLevelStatus)       // RequestRollingPitching - no side effects :)
+NSTUB(0xFE4A7F58,  GUI_SetRollingPitchingLevelStatus)       // JC-C RequestRollingPitching - no side effects :)
 
 /** Engio **/
 NSTUB(0x????????, _EngDrvOut)                               // AJ_EngDrvOut_1xVar_to_ShadowStruct
@@ -170,14 +164,14 @@ NSTUB(0x????????,  sd_device)
 NSTUB(0x????????,  fsuDecodePartitionTable)                 // AJ_fsuGetPart_related   - called from loc_FE256364?
 
 /** Memory allocation **/
-NSTUB(0xFE9F5530 - RAM_OFFSET,  GetMemoryInformation)       // or FEF1CC90 ?
-NSTUB(0x???????? - RAM_OFFSET,  GetSizeOfMaxRegion)         // AJ_FC_sys_free_p2
-NSTUB(0x???????? - RAM_OFFSET, _AllocateMemory)
-NSTUB(0x???????? - RAM_OFFSET, _FreeMemory)
-NSTUB(0x???????? - RAM_OFFSET, _alloc_dma_memory)
-NSTUB(0x????????, _free)                                    // see "can't malloc"
-NSTUB(0x???????? - RAM_OFFSET, _free_dma_memory)
-NSTUB(0x????????, _malloc)
+NSTUB(0xFE9F5530 - RAM_OFFSET,  GetMemoryInformation)       // or FEF1CC90 ? - I think FE9F5530 correct, JC
+NSTUB(0xFE9F5504 - RAM_OFFSET,  GetSizeOfMaxRegion)         // JC-C AJ_FC_sys_free_p2
+NSTUB(0xFE9F5686 - RAM_OFFSET, _AllocateMemory)			 // JC-C
+NSTUB(0xFE9F5820 - RAM_OFFSET, _FreeMemory)				 // JC-C
+NSTUB(0xFE95AC84 - RAM_OFFSET, _alloc_dma_memory)			 // JC-C
+NSTUB(0xFE3426B6, _free)                                    // JC-C does not seem to be called near the can't malloc location like 5d3 f/w
+NSTUB(0xFEF1E4F8 - RAM_OFFSET, _free_dma_memory)			// JC-C
+NSTUB(0xFE342680, _malloc)									// JC-C
 
 /** Message queues **/
 NSTUB(0xFE87C852 - RAM_OFFSET,  msg_queue_count)            // or FEF175D6?
