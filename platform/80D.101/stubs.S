@@ -31,12 +31,12 @@
 NSTUB( ROMBASEADDR, firmware_entry )
 NSTUB(0xFE0D316D,  cstart)              // Thumb
 NSTUB(0xFE3FC20C,  bzero32)
-NSTUB(0xFC3FBC68,  create_init_task)
+NSTUB(0xFE3FBC68,  create_init_task)
 NSTUB(0xFE0D3385,  init_task)           // Thumb
 
 /** Tasks **/
 NSTUB(0xFE3FC0DC,  task_create)
-NSTUB(0xFC3FC1C4,  msleep)
+NSTUB(0xFE3FC1C4,  msleep)
 
 /** Dumper **/
 NSTUB(0xFE2E4AEB, dump_file)            // Thumb
