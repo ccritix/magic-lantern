@@ -655,7 +655,7 @@ static void adtg_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     uint32_t *data_buf = (uint32_t *) regs[1];
     int dst = cs & 0xF;
 
-    uint32_t caller_task = get_current_task();
+    uint32_t caller_task = current_task->taskId;
     uint32_t caller_pc = PATCH_HOOK_CALLER();
 
     /* copy data into a buffer, to make the override temporary */
@@ -684,7 +684,7 @@ static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
     uint16_t *data_buf = (uint16_t *) regs[0];
     
-    uint32_t caller_task = get_current_task();
+    uint32_t caller_task = current_task->taskId;
     uint32_t caller_pc = PATCH_HOOK_CALLER();
 
     /* copy data into a buffer, to make the override temporary */
@@ -713,7 +713,7 @@ static void cmos16_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
     uint16_t *data_buf = (uint16_t *) regs[0];
     
-    uint32_t caller_task = get_current_task();
+    uint32_t caller_task = current_task->taskId;
     uint32_t caller_pc = PATCH_HOOK_CALLER();
 
     /* copy data into a buffer, to make the override temporary */
@@ -749,7 +749,7 @@ static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     uint32_t* copy_end = &copy[COUNT(copy)];
     uint32_t* copy_ptr = copy;
 
-    uint32_t caller_task = get_current_task();
+    uint32_t caller_task = current_task->taskId;
     uint32_t caller_pc = PATCH_HOOK_CALLER();
 
     /* log all ENGIO register writes */
@@ -779,7 +779,7 @@ static void EngDrvOut_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     uint16_t reg = data & 0x0000FFFF;
     uint32_t val = (uint32_t) regs[1];
 
-    uint32_t caller_task = get_current_task();
+    uint32_t caller_task = current_task->taskId;
     uint32_t caller_pc = PATCH_HOOK_CALLER();
     
     reg_update_unique_32(dst, reg, &val, &val, caller_task, caller_pc);
@@ -797,7 +797,7 @@ static void EngDrvOuts_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     uint32_t * values = (uint32_t *) regs[1];
     uint32_t num = (uint32_t) regs[2];
 
-    uint32_t caller_task = get_current_task();
+    uint32_t caller_task = current_task->taskId;
     uint32_t caller_pc = PATCH_HOOK_CALLER();
     
     /* fixme: copy the data to make sure our overrides are temporary */
@@ -813,7 +813,7 @@ static void SendDataToDfe_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     
     uint32_t *data_buf = (uint32_t *) regs[0];
 
-    uint32_t caller_task = get_current_task();
+    uint32_t caller_task = current_task->taskId;
     uint32_t caller_pc = PATCH_HOOK_CALLER();
 
     /* copy data into a buffer, to make the override temporary */
