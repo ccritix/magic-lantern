@@ -44,9 +44,9 @@ NSTUB(    0x833C,  additional_version)
 NSTUB(0xFF1D9620,  FIO_CloseFile)                           // might be good (dumps=1, score=1e+02)
 NSTUB(0xFF1DA5F0,  FIO_FindClose)                           // might be good (dumps=1, score=69)
 NSTUB(0xFF1DA510,  FIO_FindNextEx)                          // might be good (dumps=1, score=50)
-NSTUB(0xFF1D93D0,  FIO_ReadFile)                            // might be good (dumps=1, score=87)
+NSTUB(0xFF1D93D0, _FIO_ReadFile)                            // might be good (dumps=1, score=87)
 NSTUB(0xFF1D9480,  FIO_SeekSkipFile)                        /* present on 5D3.113, EOSM.202 */
-NSTUB(0xFF1D9570,  FIO_WriteFile)                           // might be good (dumps=1, score=65)
+NSTUB(0xFF1D9570, _FIO_WriteFile)                           // might be good (dumps=1, score=65)
 NSTUB(0xFF1D9E5C, _FIO_CreateDirectory)                     // might be good (dumps=1, score=13)
 NSTUB(0xFF1D927C, _FIO_CreateFile)                          // might be good (dumps=1, score=50)
 NSTUB(0xFF1DA41C, _FIO_FindFirstEx)                         // might be good (dumps=1, score=50)
@@ -142,6 +142,7 @@ NSTUB(0xFF337C8C,  NormalDisplay)                           // might be good (du
 NSTUB(0xFF337C5C,  ReverseDisplay)                          // might be good (dumps=1, score=3.4)
 
 /** EDMAC **/
+NSTUB(0xFF1D391C,  AbortEDmac)
 NSTUB(0xFF1D3648,  ConnectReadEDmac)
 NSTUB(0xFF1D3584,  ConnectWriteEDmac)
 NSTUB(0xFF1D39E4,  RegisterEDmacAbortCBR)
@@ -300,7 +301,7 @@ NSTUB(0xFF1EBFE0,  vsnprintf)                               // might be good (du
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
-///NSTUB(0xFF1D391C,  AbortEDmac)
+///NSTUB(0xff0707fc, AllocateMemory_do) // malloc struct at 0x2B48
 ///NSTUB(0xff0707fc, AllocateMemory_do) // malloc struct at 0x2B48
 ///NSTUB(0xFF2279C0,  ChangeColorPalette)
 ///NSTUB(0xFF31CAD8,  CreateDialogBox)                         // might be good (dumps=1, score=74)
