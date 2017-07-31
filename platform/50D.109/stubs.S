@@ -53,9 +53,9 @@ NSTUB(    0xFF3C,  additional_version)                      // d
 NSTUB(0xFF982590,  FIO_CloseFile)                           // d
 NSTUB(0xFF9836A0,  FIO_FindClose)                           // called with ret_FIO_FindFirstEx after finishing the dir scanning loop
 NSTUB(0xFF9835A0,  FIO_FindNextEx)                          // d
-NSTUB(0xFF982820,  FIO_ReadFile)                            // d
+NSTUB(0xFF982820, _FIO_ReadFile)                            // d
 NSTUB(0xFF9828D0,  FIO_SeekSkipFile)
-NSTUB(0xFF9829D0,  FIO_WriteFile)                           // d
+NSTUB(0xFF9829D0, _FIO_WriteFile)                           // d
 NSTUB(0xFF982DF4, _FIO_CreateDirectory)
 NSTUB(0xFF9824E8, _FIO_CreateFile)                          // d
 NSTUB(0xFF983474, _FIO_FindFirstEx)                         // d
@@ -151,6 +151,7 @@ NSTUB(0xFFAA7C9C,  ShootOlcApp_handler)
 // NSTUB(    ???,  ReverseDisplay)                          /* present on 60D.111, 600D.102, 650D.104, 550D.109, 1100D.105, 700D.113 */
 
 /** EDMAC **/
+NSTUB(0xFF97C9E4,  AbortEDmac)
 NSTUB(0xFF97C918,  ConnectReadEDmac)
 NSTUB(0xFF97C8F0,  ConnectWriteEDmac)
 NSTUB(0xFF97CAAC,  RegisterEDmacAbortCBR)
@@ -161,7 +162,6 @@ NSTUB(0xFF97C938,  StartEDmac)
 NSTUB(0xFF97CAE4,  UnregisterEDmacAbortCBR)
 NSTUB(0xFF97CA98,  UnregisterEDmacCompleteCBR)
 NSTUB(0xFF97CB28,  UnregisterEDmacPopCBR)
-///NSTUB([idk], AbortEDmac)
 
 /** Electronic Level **/
 // NSTUB(    ???,  GUI_SetRollingPitchingLevelStatus)       /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 600D.102, 650D.104, 550D.109, 700D.113 */

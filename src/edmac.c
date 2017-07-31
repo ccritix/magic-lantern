@@ -272,12 +272,24 @@ int edmac_fix_off1(int32_t off)
 {
     /* the value is signed, but the number of bits is model-dependent */
 #ifdef CONFIG_DIGIC_V
-    int off1_bits = 19;
+    const int off1_bits = 19;
 #else
-    int off1_bits = 17; /* checked on DIGIC 3 and 4 */
+    const int off1_bits = 17; /* checked on DIGIC 3 and 4 */
 #endif
 
     return off << (32-off1_bits) >> (32-off1_bits);
+}
+
+int edmac_fix_off2(int32_t off)
+{
+    /* the value is signed, but the number of bits is model-dependent */
+#ifdef CONFIG_DIGIC_V
+    const int off2_bits = 32;
+#else
+    const int off2_bits = 28; /* checked on DIGIC 3 and 4 */
+#endif
+
+    return off << (32-off2_bits) >> (32-off2_bits);
 }
 
 struct edmac_info edmac_get_info(uint32_t channel)
@@ -292,9 +304,9 @@ struct edmac_info edmac_get_info(uint32_t channel)
         .yn    = shamem_read(base + 0x0C) >> 16,
         .off1a = edmac_fix_off1(shamem_read(base + 0x20)),
         .off1b = edmac_fix_off1(shamem_read(base + 0x18)),
-        .off2a = shamem_read(base + 0x24),
-        .off2b = shamem_read(base + 0x1C),
-        .off3  = shamem_read(base + 0x28),
+        .off2a = edmac_fix_off2(shamem_read(base + 0x24)),
+        .off2b = edmac_fix_off2(shamem_read(base + 0x1C)),
+        .off3  = edmac_fix_off2(shamem_read(base + 0x28)),
     };
     return info;
 }
@@ -323,4 +335,30 @@ uint32_t edmac_get_total_size(struct edmac_info * info, int include_offsets)
     return (include_offsets)
         ? transfer_data_skip_size
         : transfer_data_size;
+}
+
+#ifdef CONFIG_DIGIC_V
+#define EDMAC_BYTES_PER_TRANSFER_MASK EDMAC_BYTES_PER_TRANSFER_MASK_D5
+#else
+#define EDMAC_BYTES_PER_TRANSFER_MASK EDMAC_BYTES_PER_TRANSFER_MASK_D4
+#endif
+
+uint32_t edmac_bytes_per_transfer(uint32_t flags)
+{
+    switch (flags & EDMAC_BYTES_PER_TRANSFER_MASK)
+    {
+        case EDMAC_16_BYTES_PER_TRANSFER:
+        case EDMAC_16_BYTES_PER_TRANSFER | EDMAC_8_BYTES_PER_TRANSFER:
+            return 16;
+        case EDMAC_8_BYTES_PER_TRANSFER:
+        case EDMAC_8_BYTES_PER_TRANSFER & EDMAC_16_BYTES_PER_TRANSFER:
+            return 8;
+        case EDMAC_4_BYTES_PER_TRANSFER:
+        case EDMAC_4_BYTES_PER_TRANSFER | EDMAC_2_BYTES_PER_TRANSFER:
+            return 4;
+        case EDMAC_2_BYTES_PER_TRANSFER:
+        case EDMAC_2_BYTES_PER_TRANSFER & EDMAC_4_BYTES_PER_TRANSFER:
+            return 2;
+    }
+    return 0;
 }

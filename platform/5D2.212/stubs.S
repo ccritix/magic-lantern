@@ -44,9 +44,9 @@ NSTUB(   0x13428,  additional_version)
 NSTUB(0xFF9AAD10,  FIO_CloseFile)
 NSTUB(0xFF9ABE20,  FIO_FindClose)
 NSTUB(0xFF9ABD20,  FIO_FindNextEx)
-NSTUB(0xFF9AAFA0,  FIO_ReadFile)
+NSTUB(0xFF9AAFA0, _FIO_ReadFile)
 NSTUB(0xFF9AB050,  FIO_SeekSkipFile)
-NSTUB(0xFF9AB150,  FIO_WriteFile)
+NSTUB(0xFF9AB150, _FIO_WriteFile)
 NSTUB(0xFF9AB574, _FIO_CreateDirectory)
 NSTUB(0xFF9AAC68, _FIO_CreateFile)
 NSTUB(0xFF9ABBF4, _FIO_FindFirstEx)
@@ -142,6 +142,7 @@ NSTUB(0xFFB6AF34,  StopPlayProtectGuideApp)
 // NSTUB(    ???,  ReverseDisplay)                          /* present on 60D.111, 600D.102, 650D.104, 550D.109, 1100D.105, 700D.113 */
 
 /** EDMAC **/
+NSTUB(0xFF9A46F8,  AbortEDmac)
 NSTUB(0xFF9A462C,  ConnectReadEDmac)
 NSTUB(0xFF9A4604,  ConnectWriteEDmac)
 NSTUB(0xFF9A47C0,  RegisterEDmacAbortCBR)
@@ -152,7 +153,6 @@ NSTUB(0xFF9A464C,  StartEDmac)
 NSTUB(0xFF9A47F8,  UnregisterEDmacAbortCBR)
 NSTUB(0xFF9A47AC,  UnregisterEDmacCompleteCBR)
 NSTUB(0xFF9A483C,  UnregisterEDmacPopCBR)
-///NSTUB([idk], AbortEDmac)
 
 /** Electronic Level **/
 // NSTUB(    ???,  GUI_SetRollingPitchingLevelStatus)       /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 600D.102, 650D.104, 550D.109, 700D.113 */

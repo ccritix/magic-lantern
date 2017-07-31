@@ -174,7 +174,9 @@ static uint32_t read_value(uint32_t* addr, int is_instruction)
         dbg_printf("Read from ROM: %x -> %x\n", addr, MEM(addr));
     }
 
+#ifdef CONFIG_QEMU
 read_from_ram:
+#endif
     /* trick required because we don't have unaligned memory access */
     switch ((uintptr_t)addr & 3)
     {
@@ -227,7 +229,9 @@ static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
         addr = UNCACHEABLE(addr);
     }
 
+#ifdef CONFIG_QEMU
 write_to_ram:
+#endif
     /* trick required because we don't have unaligned memory access */
     switch ((uintptr_t)addr & 3)
     {
