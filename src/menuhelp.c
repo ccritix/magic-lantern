@@ -180,7 +180,7 @@ void menu_help_go_to_label(void* label, int delta)
     
     // trim spaces
     char label_adj[100];
-    snprintf(label_adj, sizeof(label_adj), "%s", label);
+    snprintf(label_adj, sizeof(label_adj), "%s", (char *) label);
     while (label_adj[strlen(label_adj)-1] == ' ')
     {
         label_adj[strlen(label_adj)-1] = '\0';

@@ -439,7 +439,7 @@ struct memSuite * _srm_malloc_suite(int num_requested_buffers)
             break;
         }
 
-        printf("srm buffer #%d: %x\n", num_buffers+1, buffers[num_buffers]);
+        printf("srm buffer #%d: %p\n", num_buffers+1, buffers[num_buffers]);
     }
     
     if (num_buffers == 0)
@@ -466,14 +466,14 @@ struct memSuite * _srm_malloc_suite(int num_requested_buffers)
         AddMemoryChunk(suite, chunk);
     }
     
-    printf("srm_malloc_suite => %x\n", suite);
+    printf("srm_malloc_suite => %p\n", suite);
     srm_allocated = 1;
     return suite;
 }
 
 void _srm_free_suite(struct memSuite * suite)
 {
-    printf("srm_free_suite(%x)\n", suite);
+    printf("srm_free_suite(%p)\n", suite);
     
     struct memChunk * chunk = GetFirstChunkFromSuite(suite);
 

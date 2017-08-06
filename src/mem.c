@@ -786,7 +786,7 @@ void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned i
         if (!ptr)
         {
             /* didn't work? */
-            snprintf(last_error_msg_short, sizeof(last_error_msg_short), "%s(%s,%x)", allocators[allocator_index].name, format_memory_size_and_flags(size, flags));
+            snprintf(last_error_msg_short, sizeof(last_error_msg_short), "%s(%s,%x)", allocators[allocator_index].name, format_memory_size_and_flags(size, flags), flags);
             snprintf(last_error_msg, sizeof(last_error_msg), "%s(%s) failed at %s:%d, %s.", allocators[allocator_index].name, format_memory_size_and_flags(size, flags), file, line, get_current_task_name());
             dbg_printf("alloc fail, took %s%d.%03d s\n", FMT_FIXEDPOINT3(t1-t0));
         }
@@ -1361,7 +1361,7 @@ static MENU_UPDATE_FUNC(mem_total_display)
         MENU_SET_VALUE("%s", format_memory_size(alloc_total_with_memcheck));
         MENU_APPEND_VALUE(", peak %s", format_memory_size(alloc_total_peak_with_memcheck));
         int ovh = (alloc_total_with_memcheck + sizeof(memcheck_mallocbuf) - alloc_total) * 1000 / alloc_total;
-        MENU_SET_WARNING(MENU_WARN_INFO, "Memcheck overhead: %d.%d%%.", ovh/10, ovh%10, 0);
+        MENU_SET_WARNING(MENU_WARN_INFO, "Memcheck overhead: %d.%d%%.", ovh/10, ovh%10);
     }
 }
 

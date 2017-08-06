@@ -163,7 +163,7 @@ static void module_update_core_symbols(TCCState* state)
             if (new_address != module_symbol_entry->address)
             {
                 *(module_symbol_entry->address) = new_address;
-                printf("  [i] upd: %s %x => %x\n", module_symbol_entry->name, old_address, new_address);
+                printf("  [i] upd: %s %p => %p\n", module_symbol_entry->name, old_address, new_address);
             }
             else
             {
@@ -175,7 +175,7 @@ static void module_update_core_symbols(TCCState* state)
         }
         else
         {
-            printf("  [i] 404: %s %x\n", module_symbol_entry->name, old_address);
+            printf("  [i] 404: %s %p\n", module_symbol_entry->name, old_address);
         }
     }
 }
@@ -339,7 +339,7 @@ static void _module_load_all(uint32_t list_only)
             {
                 module_list[mod].error = 1;
                 snprintf(module_list[mod].status, sizeof(module_list[mod].status), "FileErr");
-                snprintf(module_list[mod].long_status, sizeof(module_list[mod].long_status), "Load failed: %s, ret 0x%02X");
+                snprintf(module_list[mod].long_status, sizeof(module_list[mod].long_status), "Load failed: %s, ret 0x%02X", module_list[mod].name, ret);
                 printf("  [E] %s\n", module_list[mod].long_status);
             }
         }
@@ -505,12 +505,12 @@ static void _module_load_all(uint32_t list_only)
                     /* register "named" callbacks through ml-cbr */
                     if(cbr->type == CBR_NAMED)
                     {
-                        printf("  [i] ml-cbr '%s' 0%08X (%s)\n", cbr->name, cbr->handler, cbr->symbol);
+                        printf("  [i] ml-cbr '%s' 0%08X (%s)\n", cbr->name, (uint32_t) cbr->handler, cbr->symbol);
                         ml_register_cbr(cbr->name, (cbr_func)cbr->handler, 0);
                     }
                     else
                     {
-                        printf("  [i] cbr '%s' -> 0%08X\n", cbr->name, cbr->handler);
+                        printf("  [i] cbr '%s' -> 0%08X\n", cbr->name, (uint32_t) cbr->handler);
                     }
                     cbr++;
                 }

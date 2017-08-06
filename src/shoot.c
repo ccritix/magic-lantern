@@ -1703,10 +1703,7 @@ static MENU_UPDATE_FUNC(aperture_display)
         a = av = 0;
     MENU_SET_VALUE(
         SYM_F_SLASH"%d.%d",
-        a / 10,
-        a % 10, 
-        av / 8, 
-        (av % 8) * 10/8
+        a / 10, a % 10
     );
 
     if (!menu_active_but_hidden())
@@ -2605,7 +2602,7 @@ static MENU_UPDATE_FUNC(hdr_check_excessive_settings)
     }
     else if (hdr_stepsize < 8 && hdr_steps > 5)
     {
-        snprintf(what, sizeof(what), "0.5 EV", hdr_steps);
+        snprintf(what, sizeof(what), "0.5 EV");
     }
     
     if (what[0])

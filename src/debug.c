@@ -1451,7 +1451,7 @@ static void TmpMem_AddFile(char* filename)
     {
         char msg[100];
 
-        snprintf(msg, sizeof(msg), "Reading %s...", filename, tmp_buffer_ptr);
+        snprintf(msg, sizeof(msg), "Reading %s...", filename);
         HijackCurrentDialogBox(4, msg);
         TmpMem_UpdateSizeDisplay(1);
     }

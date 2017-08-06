@@ -131,9 +131,9 @@ MENU_UPDATE_FUNC(batt_display)
     int d = GetBatteryDrainRate();
     MENU_SET_VALUE(
         "%d%%, %dh%02dm, %d%%/h",
-        l, 0, 
+        l,
         r / 3600, (r % 3600) / 60,
-        d, 0
+        d
     );
     MENU_SET_ICON(MNI_PERCENT, l);
 }
