@@ -62,9 +62,9 @@ NSTUB(    0x82E0,  additional_version)
 NSTUB(0xFF1E66B4,  FIO_CloseFile)
 NSTUB(0xFF1E7684,  FIO_FindClose)                           // called with ret_FIO_FindFirstEx after finishing the dir scanning loop
 NSTUB(0xFF1E75A4,  FIO_FindNextEx)
-NSTUB(0xFF1E6464,  FIO_ReadFile)
+NSTUB(0xFF1E6464, _FIO_ReadFile)
 NSTUB(0xFF1E6514,  FIO_SeekSkipFile)
-NSTUB(0xFF1E6604,  FIO_WriteFile)
+NSTUB(0xFF1E6604, _FIO_WriteFile)
 NSTUB(0xFF1E6EF0, _FIO_CreateDirectory)
 NSTUB(0xFF1E6310, _FIO_CreateFile)
 NSTUB(0xFF1E74B0, _FIO_FindFirstEx)
@@ -160,6 +160,7 @@ NSTUB(0xFF33BFDC,  NormalDisplay)
 NSTUB(0xFF33BFAC,  ReverseDisplay)
 
 /** EDMAC **/
+NSTUB(0xFF1E09B0,  AbortEDmac)
 NSTUB(0xFF1E06DC,  ConnectReadEDmac)
 NSTUB(0xFF1E0618,  ConnectWriteEDmac)
 NSTUB(0xFF1E0A78,  RegisterEDmacAbortCBR)
@@ -324,7 +325,6 @@ NSTUB(0xFF069AE0,  LoadCalendarFromRTC)
 /** Unused stubs or porting notes **/
 ///NSTUB( 0xFF34B724, AJ_guess_LED_OFF )
 ///NSTUB( 0xFF34B6F4, AJ_guess_LED_ON )   // led for SD/CF read and write ops
-///NSTUB(0xFF1E09B0,  AbortEDmac)
 ///NSTUB(0xFF29E25C,  AfCtrl_SetLensParameterRemote)
 ///NSTUB(0xFF37FAF4,  CancelBottomInfoDispTimer)
 ///NSTUB(0xFF234FCC,  ChangeColorPalette)

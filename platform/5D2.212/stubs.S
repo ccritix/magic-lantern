@@ -44,9 +44,9 @@ NSTUB(   0x13428,  additional_version)
 NSTUB(0xFF9AAD10,  FIO_CloseFile)
 NSTUB(0xFF9ABE20,  FIO_FindClose)
 NSTUB(0xFF9ABD20,  FIO_FindNextEx)
-NSTUB(0xFF9AAFA0,  FIO_ReadFile)
+NSTUB(0xFF9AAFA0, _FIO_ReadFile)
 NSTUB(0xFF9AB050,  FIO_SeekSkipFile)
-NSTUB(0xFF9AB150,  FIO_WriteFile)
+NSTUB(0xFF9AB150, _FIO_WriteFile)
 NSTUB(0xFF9AB574, _FIO_CreateDirectory)
 NSTUB(0xFF9AAC68, _FIO_CreateFile)
 NSTUB(0xFF9ABBF4, _FIO_FindFirstEx)
@@ -142,6 +142,7 @@ NSTUB(0xFFB6AF34,  StopPlayProtectGuideApp)
 // NSTUB(    ???,  ReverseDisplay)                          /* present on 60D.111, 600D.102, 650D.104, 550D.109, 1100D.105, 700D.113 */
 
 /** EDMAC **/
+NSTUB(0xFF9A46F8,  AbortEDmac)
 NSTUB(0xFF9A462C,  ConnectReadEDmac)
 NSTUB(0xFF9A4604,  ConnectWriteEDmac)
 NSTUB(0xFF9A47C0,  RegisterEDmacAbortCBR)
@@ -304,7 +305,6 @@ NSTUB(0xFF92EEB8,  PtpDps_remote_release_SW1_SW2_worker)    // called from: ptpR
 /** Unused stubs or porting notes **/
 ///NSTUB(0xFF9B96A8,  AJ_UserLevel_task)
 ///NSTUB(0xFF866158,  AJ_Wait_Vsync)
-///NSTUB([idk], AbortEDmac)
 ///NSTUB(0xFF864508,  AsyncEnableImagePhysicalScreenParameter)
 ///NSTUB(0xFFAACD38,  BeginMovieRecSequence)
 ///NSTUB(0xFFAD2828,  ChangeColorPalette)

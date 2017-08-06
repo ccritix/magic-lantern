@@ -48,9 +48,9 @@ NSTUB(0xFF0C5430,  init_task)
 NSTUB(0xFF34290C,  FIO_CloseFile)                           // from Indy
 NSTUB(0xFF343904,  FIO_FindClose)                           // proper name: FindClose
 NSTUB(0xFF343824,  FIO_FindNextEx)
-NSTUB(0xFF3426BC,  FIO_ReadFile)
+NSTUB(0xFF3426BC, _FIO_ReadFile)
 NSTUB(0xFF34276C,  FIO_SeekSkipFile)                        /* took relative offset of 700D entry points and compared them to 650Ds. Tests are OK. */
-NSTUB(0xFF34285C,  FIO_WriteFile)                           // from Indy
+NSTUB(0xFF34285C, _FIO_WriteFile)                           // from Indy
 NSTUB(0xFF343168, _FIO_CreateDirectory)
 NSTUB(0xFF342568, _FIO_CreateFile)                          // from Indy
 NSTUB(0xFF343730, _FIO_FindFirstEx)
@@ -146,6 +146,7 @@ NSTUB(0xFF4D56E8,  NormalDisplay)                           // xref: Normal star
 NSTUB(0xFF4D56B8,  ReverseDisplay)                          // xref: Reverse start
 
 /** EDMAC **/
+NSTUB(0xFFA5EBC4 - RAM_OFFSET,  AbortEDmac)
 NSTUB(0xFFA5E8D0 - RAM_OFFSET,  ConnectReadEDmac)
 NSTUB(0xFFA5E80C - RAM_OFFSET,  ConnectWriteEDmac)
 NSTUB(0xFFA5ED4C - RAM_OFFSET,  RegisterEDmacAbortCBR)
@@ -306,7 +307,6 @@ NSTUB(0xFF130A44,  LoadCalendarFromRTC)                     // xref: called by e
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
-///NSTUB(   0x118E4,  AbortEDmac)
 ///NSTUB(0xFF4B341C,  CreateDialogBox)
 ///NSTUB(0xFF4B23E4,  DeleteDialogBox)
 ///NSTUB(0xFF511E88, ErrCardApp_handler) // Unused
