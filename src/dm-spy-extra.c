@@ -434,17 +434,13 @@ static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     num_args = args & NUM_ARGS_MASK;
     log_result = args & RET;
 
-    char msg[200];
-    int len;
-
-    if (func_name)
-    {
-        len = snprintf(msg, sizeof(msg), "*** %s(", func_name);
-    }
-    else
-    {
-        len = snprintf(msg, sizeof(msg), "*** FUNC(%x)(", pc);
-    }
+    /* this is too large to be placed on the stack (init_task) */
+    /* allocate it statically and giard it with cli/sei */
+    static char msg[200];
+    int old = cli();
+    int len = (func_name)
+        ? snprintf(msg, sizeof(msg), "*** %s(", func_name)
+        : snprintf(msg, sizeof(msg), "*** FUNC(%x)(", pc);
 
     int first_arg = 1;
 
@@ -470,6 +466,7 @@ static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     len += snprintf(msg + len, sizeof(msg) - len, "), from %x", caller);
     
     DryosDebugMsg(0, 0, "%s", msg);
+    sei(old);
 
     for (int i = 0; i < num_args + 13; i++)
     {
