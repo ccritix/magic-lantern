@@ -51,6 +51,14 @@ typedef uint32_t    size_t;
 typedef int32_t        ssize_t;
 #endif
 
+/* hack to allow using %d for uint32_t and int32_t without triggering warnings
+ * in stdint.h, they are defined as long, so they would require %ld
+ * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=32291 -> PRIu32 is portable,
+ * but would require changing most format strings, and doesn't look very well
+ * better suggestions welcome */
+#define uint32_t unsigned int
+#define int32_t int
+
 static inline uint32_t
 read_lr( void )
 {

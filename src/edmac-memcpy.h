@@ -1,8 +1,7 @@
 #ifndef _edmac_memcpy_h_
 #define _edmac_memcpy_h_
 
-#include "sys/types.h"
-#include "stdint.h"
+#include "dryos.h"
 
 void* edmac_memcpy(void* dst, void* src, size_t length);
 void* edmac_memset(void* dst, int value, size_t length);

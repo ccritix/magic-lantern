@@ -7,9 +7,9 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "compiler.h"
 #include "font_direct.h"
 #include "disp_direct.h"
-#include "compiler.h"
 #include "consts.h"
 
 #define MEM(x) (*(volatile uint32_t *)(x))
