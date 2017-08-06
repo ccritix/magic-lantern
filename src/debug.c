@@ -173,7 +173,7 @@ static void dump_img_task(void* priv, int unused)
     char* display_device = get_display_device_name();
     
 
-    int path_len = snprintf(pattern, sizeof(pattern), "%s/%s/%s/", CAMERA_MODEL, video_mode, display_device);
+    int path_len = scnprintf(pattern, sizeof(pattern), "%s/%s/%s/", CAMERA_MODEL, video_mode, display_device);
     
     /* make sure the VRAM parameters are updated */
     get_yuv422_vram();

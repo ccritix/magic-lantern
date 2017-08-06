@@ -590,7 +590,7 @@ const char* get_assert_msg() { return assert_msg; }
 
 static int my_assert_handler(char* msg, char* file, int line, int arg4)
 {
-    int len = snprintf(assert_msg, sizeof(assert_msg), 
+    int len = scnprintf(assert_msg, sizeof(assert_msg), 
         "ASSERT: %s\n"
         "at %s:%d, task %s\n"
         "lv:%d mode:%d\n\n", 
@@ -605,7 +605,7 @@ static int my_assert_handler(char* msg, char* file, int line, int arg4)
 
 void ml_assert_handler(char* msg, char* file, int line, const char* func)
 {
-    int len = snprintf(assert_msg, sizeof(assert_msg), 
+    int len = scnprintf(assert_msg, sizeof(assert_msg), 
         "ML ASSERT:\n%s\n"
         "at %s:%d (%s), task %s\n"
         "lv:%d mode:%d\n\n", 

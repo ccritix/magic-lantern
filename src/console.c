@@ -324,7 +324,7 @@ int printf(const char* fmt, ...)
     
     va_list         ap;
     va_start( ap, fmt );
-    int len = vsnprintf( buf, buf_size-1, fmt, ap );
+    int len = vscnprintf( buf, buf_size, fmt, ap );
     va_end( ap );
     console_puts(buf);
     return len;

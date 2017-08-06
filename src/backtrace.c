@@ -764,14 +764,14 @@ void eos_backtrace_rebuild(EOSState *s, char * buf, int size)
 
     if (buf)
     {
-        int len = snprintf(buf, size,
+        int len = scnprintf(buf, size,
             "%s stack: %x [%x-%x]\n",
             eos_get_current_task_name(s),
             sps[0], stack_top, stack_bot
         );
         while (--i >= 0)
         {
-            len += snprintf(
+            len += scnprintf(
                 buf + len, size - len,
                 "%s @ %x:%x\n",
                 called_func(lrs[i] - 4), lrs[i] - 4, sps[i]

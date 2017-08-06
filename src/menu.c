@@ -5472,7 +5472,7 @@ static void menu_set_flags(char* menu_name, char* entry_name, int flags)
         jhide_menu_by_name(menu_name, entry_name);
 }
 
-#define CFG_APPEND(fmt, ...) ({ lastlen = snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); cfglen += lastlen; })
+#define CFG_APPEND(fmt, ...) ({ int lastlen = scnprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); cfglen += lastlen; })
 #define CFG_SIZE 32768
 
 static void menu_save_flags(char* filename)
@@ -5480,7 +5480,6 @@ static void menu_save_flags(char* filename)
     char* cfg = malloc(CFG_SIZE);
     cfg[0] = '\0';
     int cfglen = 0;
-    int lastlen = 0;
 
     struct menu * menu = menus;
     for( ; menu ; menu = menu->next )

@@ -162,12 +162,23 @@ extern void msleep( int amount );
 extern int call( const char* name, ... );
 
 // stdio
-extern int vsnprintf( char* str, size_t n, const char* fmt, va_list ap ); // non-standard; don't export it
 extern int printf(const char* fmt, ... );
 extern int puts(const char* s);
 
 extern size_t strlen( const char* str );
-extern int snprintf( char* str, size_t n, const char* fmt, ... );
+
+extern int scnprintf( char* str, size_t n, const char* fmt, ... );
+extern int vscnprintf( char* str, size_t n, const char* fmt, va_list ap ); // non-standard; don't export it
+
+/* since Canon's vsnprintf returns the number of chars actually written,
+ * we were using the return value of snprintf/vsnprintf
+ * as described in https://lwn.net/Articles/69419/ 
+ * disallow this usage; we really meant scnprintf/vscnprintf
+ * note: if we don't care about return value, they are the same as snprintf/vsnprintf
+ */
+#define snprintf (void)scnprintf
+#define vsnprintf (void)vscnprintf
+
 extern int strcmp( const char* s1, const char* s2 );
 extern int strncmp( const char* s1, const char* s2, size_t n);
 extern int strcasecmp( const char* s1, const char* s2 );
