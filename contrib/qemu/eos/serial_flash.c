@@ -10,6 +10,10 @@
 
 #include "serial_flash.h"
 
+#define SF_DPRINTF(fmt, ...) DPRINTF("[SFIO] ",   EOS_LOG_SFLASH, fmt, ## __VA_ARGS__)
+#define SF_EPRINTF(fmt, ...) EPRINTF("[SFIO] ",   EOS_LOG_SFLASH, fmt, ## __VA_ARGS__)
+#define EE_DPRINTF(fmt, ...) DPRINTF("[EEPROM] ", EOS_LOG_SFLASH, fmt, ## __VA_ARGS__)
+#define EE_EPRINTF(fmt, ...) EPRINTF("[EEPROM] ", EOS_LOG_SFLASH, fmt, ## __VA_ARGS__)
 
 static const char * spi_opname(int code)
 {
@@ -41,7 +45,7 @@ SerialFlashState * serial_flash_init(const char * filename, size_t size)
     sf->data = (uint8_t*) malloc(size);
     sf->size = size;
     memcpy(sf->RDID_seq, (uint8_t[3])RDID_MACRONIX, sizeof(sf->RDID_seq));
-    sf->verbose = 1;
+
     if (sf->data == NULL) {
         free(sf);
         fprintf(stderr, "Could not allocate %zd (0x%zX) bytes for serial flash\n", size, size);
@@ -75,12 +79,10 @@ void serial_flash_free(SerialFlashState * sf)
 void serial_flash_set_CS(SerialFlashState * sf, int value)
 {
     if (value == 1) {
-        if (sf->verbose) {
-            if (sf->state == 0x03) { // Read array
-                printf("[EEPROM]: Verbose: Sent %d bytes\n", sf->rw_count);
-            } else if (sf->state == 0x07) { // Write array
-                printf("[EEPROM]: Verbose: Received %d bytes\n", sf->rw_count);
-            }
+        if (sf->state == 0x03) { // Read array
+            EE_DPRINTF("Verbose: Sent %d bytes\n", sf->rw_count);
+        } else if (sf->state == 0x07) { // Write array
+            EE_DPRINTF("Verbose: Received %d bytes\n", sf->rw_count);
         }
         sf->data_pointer = 0xFFFFFFFF;
         sf->state = 0;
@@ -89,8 +91,7 @@ void serial_flash_set_CS(SerialFlashState * sf, int value)
         sf->write_poll = 0;
     }
 
-    if (sf->verbose)
-        printf("[EEPROM]: CS = %d\n", value);
+    EE_DPRINTF("CS = %d\n", value);
 }
 
 uint8_t serial_flash_write_poll(SerialFlashState * sf)
@@ -106,18 +107,18 @@ uint8_t serial_flash_spi_read(SerialFlashState * sf)
     switch (sf->state) {
         case 0x6B: // QOFR: Quad Output Fast Read
         case 0x03: // Read array
-            // printf("A: %X\n",sf->read_value);
-            // printf("B: %X\n",sf->data[sf->data_pointer]);
-            // printf("i: %p[0x%X]\n",sf->data,sf->data_pointer);
+            // fprintf(stderr, "A: %X\n",sf->read_value);
+            // fprintf(stderr, "B: %X\n",sf->data[sf->data_pointer]);
+            // fprintf(stderr, "i: %p[0x%X]\n",sf->data,sf->data_pointer);
             sf->data_pointer++;
             if (sf->data_pointer >= sf->size)
                 sf->data_pointer -= sf->size;
             sf->read_value = sf->data[sf->data_pointer];
             sf->rw_count++;
             sf->write_poll = 10; // TODO parameter
-            // printf("C: %X\n",sf->read_value);
-            // printf("D: %X\n",sf->data[sf->data_pointer]);
-            // printf("j: %p[0x%X]\n",sf->data,sf->data_pointer);
+            // fprintf(stderr, "C: %X\n",sf->read_value);
+            // fprintf(stderr, "D: %X\n",sf->data[sf->data_pointer]);
+            // fprintf(stderr, "j: %p[0x%X]\n",sf->data,sf->data_pointer);
             break;
 
         case 0x05: // Read status
@@ -133,16 +134,15 @@ uint8_t serial_flash_spi_read(SerialFlashState * sf)
                 sf->state = 0;
                 sf->substate = 0;
             }
-            if (sf->verbose)
-                printf("[EEPROM]: Verbose: READ in RDID = %02Xh\n", ret);
+            EE_DPRINTF("Verbose: READ in RDID = %02Xh\n", ret);
             break;
 
         default:
-            printf("[EEPROM]: Error: read SO in state=%d\n", sf->state);
+            EE_EPRINTF("Error: read SO in state=%d\n", sf->state);
             sf->read_value = 0;
             break;
     }
-    printf("[EEPROM]: READ >> 0x%X\n", ret);
+    EE_DPRINTF("READ >> 0x%X\n", ret);
     return ret;
 }
 
@@ -154,42 +154,36 @@ void serial_flash_spi_write(SerialFlashState * sf, uint8_t value)
         switch (value)
         {
             case 0x01: // WRSR: Write Status Register
-                if (sf->verbose)
-                    printf("[EEPROM]: Verbose: [SR] << ...\n");
+                EE_DPRINTF("Verbose: [SR] << ...\n");
                 sf->state = 0x01;
                 sf->status_register = 0;
                 break;
 
             case 0x05: // RDSR: Read Status Register
-                if (sf->verbose)
-                    printf("[EEPROM]: Verbose: [SR] >> 0x%X\n", sf->status_register);
+                EE_DPRINTF("Verbose: [SR] >> 0x%X\n", sf->status_register);
                 sf->read_value = sf->status_register;
                 sf->state = 0x05;
                 break;
 
             case 0x08: // LPWP: Low Power Write Poll
-                if (sf->verbose)
-                    printf("[EEPROM]: Verbose: Write Poll\n");
+                EE_DPRINTF("Verbose: Write Poll\n");
                 // Pretend to use some time...
                 sf->read_value = (sf->write_poll > 0) ? 1 : 0;
                 if (sf->read_value) sf->write_poll--;
                 break;
 
             case 0x06: // WREN: Set Write Enable Latch
-                if (sf->verbose)
-                    printf("[EEPROM]: Verbose: Set Write Enable Latch\n");
+                EE_DPRINTF("Verbose: Set Write Enable Latch\n");
                 sf->status_register |= (1 << 1); // Set WEL bit
                 break;
 
             case 0x04: // WRDI: Reset Write Enable Latch
-                if (sf->verbose)
-                    printf("[EEPROM]: Verbose: Reset Write Enable Latch\n");
+                EE_DPRINTF("Verbose: Reset Write Enable Latch\n");
                 sf->status_register &= ~(1 << 1); // Unset WEL bit
                 break;
 
             case 0x9f: // RDID: Read identification
-                if (sf->verbose)
-                    printf("[EEPROM]: Verbose: Got RDID\n");
+                EE_DPRINTF("Verbose: Got RDID\n");
                 sf->read_value = sf->RDID_seq[0];
                 sf->state = 0x9f;
                 sf->substate = 0;
@@ -201,8 +195,7 @@ void serial_flash_spi_write(SerialFlashState * sf, uint8_t value)
             case 0x02: // WRITE: Write byte to Memory
             case 0x07: // WRITE: Write array to Memory
             case 0x6B: // QOFR: Quad Output Fast Read
-                if (sf->verbose)
-                    printf("[EEPROM]: Verbose: Got %s (%02Xh)\n", spi_opname(value), value);
+                EE_DPRINTF("Verbose: Got %s (%02Xh)\n", spi_opname(value), value);
                 sf->state = value;
                 sf->substate = 0;
                 sf->data_pointer = 0;
@@ -211,7 +204,7 @@ void serial_flash_spi_write(SerialFlashState * sf, uint8_t value)
                 break;
 
             default:
-                printf("[EEPROM]: Error: Illegal opcode 0x%02X\n", value);
+                EE_EPRINTF("Error: Illegal opcode 0x%02X\n", value);
                 break;
         }
         return;
@@ -224,8 +217,7 @@ void serial_flash_spi_write(SerialFlashState * sf, uint8_t value)
         sf->status_register = value;
         sf->state = 0;
         sf->substate = 0;
-        if (sf->verbose)
-            printf("[EEPROM]: Verbose: [SR] << 0x%02X\n", value);
+        EE_DPRINTF("Verbose: [SR] << 0x%02X\n", value);
         return;
     }
 
@@ -234,16 +226,14 @@ void serial_flash_spi_write(SerialFlashState * sf, uint8_t value)
         sf->data[sf->data_pointer] = value;
         sf->state = 0;
         sf->substate = 0;
-        if (sf->verbose)
-            printf("[EEPROM]: Verbose: Wrote byte 0x%02X @ 0x%06X\n", value, sf->data_pointer);
+        EE_DPRINTF("Verbose: Wrote byte 0x%02X @ 0x%06X\n", value, sf->data_pointer);
         return;
     }
 
     // Array write
     if (sf->state == 0x07 && sf->substate == 3) {
         sf->data[sf->data_pointer] = value;
-        if (sf->verbose)
-            printf("[EEPROM]: Verbose: Wrote array byte 0x%02X @ 0x%06X\n", value, sf->data_pointer);
+        EE_DPRINTF("Verbose: Wrote array byte 0x%02X @ 0x%06X\n", value, sf->data_pointer);
         sf->data_pointer = (sf->data_pointer+1) % sf->size;
         sf->rw_count++;
         return;
@@ -254,8 +244,7 @@ void serial_flash_spi_write(SerialFlashState * sf, uint8_t value)
         sf->data_pointer |= (value << (8*(2 - sf->substate)));
         sf->substate++;
         if (sf->substate == 3) {
-            if (sf->verbose)
-                printf("[EEPROM]: Verbose: address is now: 0x%06X\n", sf->data_pointer);
+            EE_DPRINTF("Verbose: address is now: 0x%06X\n", sf->data_pointer);
             if (sf->state == 0x03) {
                 sf->read_value = sf->data[sf->data_pointer];
             }
@@ -265,12 +254,11 @@ void serial_flash_spi_write(SerialFlashState * sf, uint8_t value)
     }
 
     // Otherwise invalid
-    printf("[EEPROM]: Error: WRITE in illegal state (state = %02Xh:%d, val=%d)\n", sf->state, sf->substate, value);
+    EE_EPRINTF("WRITE in illegal state (state = %02Xh:%d, val=%d)\n", sf->state, sf->substate, value);
 }
 
 
 /* based on pl181_send_command from hw/sd/pl181.c */
-#define DPRINTF(fmt, ...) do { printf("[SFIO] " fmt , ## __VA_ARGS__); } while (0)
 #define SDIO_STATUS_OK              0x1
 #define SDIO_STATUS_ERROR           0x2
 #define SDIO_STATUS_DATA_AVAILABLE  0x200000
@@ -280,10 +268,10 @@ void serial_flash_spi_write(SerialFlashState * sf, uint8_t value)
 
 static void sfio_do_transfer( EOSState *s)
 {
-    printf("[SFIO] eos_handle_sfio (copying now)\n");
+    SF_DPRINTF("eos_handle_sfio (copying now)\n");
     // FIXME sanitize addresses, this can seriously break stuff
     void * source = &s->sf->data[s->sf->data_pointer];
-    printf("[EEPROM-DMA]! [0x%X] -> [0x%X] (0x%X bytes)\n", 
+    fprintf(stderr, "[EEPROM-DMA]! [0x%X] -> [0x%X] (0x%X bytes)\n", 
            s->sf->data_pointer, s->sd.dma_addr, s->sd.dma_count);
 
     /* the data appears screwed up a bit - offset by half-byte?! */
@@ -293,23 +281,23 @@ static void sfio_do_transfer( EOSState *s)
     for (int i = 0; i < num_blocks; i++) {
         uint8_t * block_src = (uint8_t*)(source + i*BLOCK_OFFSET);
         uint32_t  block_dst = (uint32_t)(s->sd.dma_addr + i*BLOCK_SIZE);
+        uint8_t block[BLOCK_SIZE];
         for (int j = 0; j < BLOCK_SIZE; j++) {
             uint8_t this = *(uint8_t*)(block_src + j);
             uint8_t next = *(uint8_t*)(block_src + j + 1);
             uint8_t byte = (this << 4) | (next >> 4);
-
-            /* not exactly the most efficient way, but fast enough for our purpose */
-            cpu_physical_memory_write(block_dst + j, &byte, 1);
+            block[j] = byte;
 
             if (i == 0 && j < 16*4)
             {
-                printf("%s%02X%s",
+                qemu_log_mask(EOS_LOG_SFLASH, "%s%02X%s",
                     (j % 16 == 0) ? "[EEPROM-DATA]: " : "",
                     byte,
                     (j % 16 == 15) ? "\n" : " "
                 );
             }
         }
+        eos_mem_write(s, block_dst, block, BLOCK_SIZE);
     }
     s->sd.dma_count = 0;
             //sdio_write_data(&s->sd);
@@ -320,7 +308,7 @@ static void sfio_do_transfer( EOSState *s)
 
 unsigned int sfio_trigger_int_DMA ( EOSState *s )
 {
-    DPRINTF("sfio_trigger_int_DMA\n");
+    SF_DPRINTF("sfio_trigger_int_DMA\n");
     sfio_do_transfer(s);
     eos_trigger_int(s, 0x17B, 0);
     return 0;
@@ -328,14 +316,14 @@ unsigned int sfio_trigger_int_DMA ( EOSState *s )
 
 static inline void sfio_trigger_interrupt(EOSState *s, SDIOState *sd)
 {
-    DPRINTF("sfio_trigger_interrupt IN\n");
+    SF_DPRINTF("sfio_trigger_interrupt IN\n");
     /* after a successful operation, trigger int 0xB1 if requested */
     
     if ((sd->cmd_flags == 0x13 || sd->cmd_flags == 0x14)
         && !(sd->status & SDIO_STATUS_DATA_AVAILABLE))
     {
         /* if the current command does a data transfer, don't trigger until complete */
-        DPRINTF("Data transfer not yet complete\n");
+        SF_DPRINTF("Data transfer not yet complete\n");
         return;
     }
     
@@ -344,7 +332,7 @@ static inline void sfio_trigger_interrupt(EOSState *s, SDIOState *sd)
         eos_trigger_int(s, 0x17B, 0);
         //eos_trigger_int(s, 0xB1, 0);
 //    }
-    DPRINTF("sfio_trigger_interrupt OUT\n");
+    SF_DPRINTF("sfio_trigger_interrupt OUT\n");
 }
 
 unsigned int eos_handle_sfio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
@@ -373,7 +361,7 @@ unsigned int eos_handle_sfio ( unsigned int parm, EOSState *s, unsigned int addr
                 sd->status = 0;
                 
                 /* interpret this command */
-                printf("[SFIO] sdio_send_command (UNHANDLED)\n");
+                SF_DPRINTF("sdio_send_command (UNHANDLED)\n");
                 // sdio_send_command(&s->sd);
                 sd->status |= (SDIO_STATUS_OK|SDIO_STATUS_DATA_AVAILABLE); // Assume it's OK
                 
@@ -411,7 +399,7 @@ unsigned int eos_handle_sfio ( unsigned int parm, EOSState *s, unsigned int addr
             
             if (sd->cmd_flags == 0x13 && sd->dma_enabled && value)
             {
-                printf("[SFIO] sfio_write_data (UNHANDLED)\n");
+                SF_EPRINTF("sfio_write_data (UNHANDLED)\n");
                 //sdio_write_data(&s->sd);
             }
 
@@ -521,7 +509,7 @@ static inline unsigned int eos_handle_sfio_old ( unsigned int parm, EOSState *s,
                 sd->status = 0;
                 
                 /* interpret this command */
-                printf("[SFIO] sdio_send_command (UNHANDLED)\n");
+                SF_EPRINTF("sdio_send_command (UNHANDLED)\n");
                 // sdio_send_command(&s->sd);
                 sd->status |= (SDIO_STATUS_OK|SDIO_STATUS_DATA_AVAILABLE); // Assume it's OK
                 
@@ -563,7 +551,7 @@ static inline unsigned int eos_handle_sfio_old ( unsigned int parm, EOSState *s,
             
             if (sd->cmd_flags == 0x13 && sd->dma_enabled && value)
             {
-                printf("[SFIO] sfio_write_data (UNHANDLED)\n");
+                SF_EPRINTF("sfio_write_data (UNHANDLED)\n");
                 //sdio_write_data(&s->sd);
             }
 
@@ -667,28 +655,28 @@ unsigned int eos_handle_sio_serialflash ( unsigned int parm, EOSState *s, unsign
         {
             case 0x04:
                 value = serial_flash_write_poll(s->sf);
-                //printf("[SPI:%i:%02X] ", parm, address & 0xff);
-                //printf("[BUSY] >> %d (pc: 0x%08X)\r\n", value, pc);
+                //fprintf(stderr, "[SPI:%i:%02X] ", parm, address & 0xff);
+                //fprintf(stderr, "[BUSY] >> %d (pc: 0x%08X)\r\n", value, pc);
                 return value;
             case 0x10:
-                //printf("[SPI:%i:%02X] ", parm, address & 0xff);
-                //printf("[WMODE?] >> 0 (write mode?) (pc: 0x%08X)\r\n", pc);
+                //fprintf(stderr, "[SPI:%i:%02X] ", parm, address & 0xff);
+                //fprintf(stderr, "[WMODE?] >> 0 (write mode?) (pc: 0x%08X)\r\n", pc);
                 return 0; // Unk, set to zero before write
             case 0x1C:
                 value = serial_flash_spi_read(s->sf);
-                //printf("[SPI:%i:%02X] ", parm, address & 0xff);
-                //printf("[TX] >> 0x%02X (pc: 0x%08X)...\r\n", value, pc);
+                //fprintf(stderr, "[SPI:%i:%02X] ", parm, address & 0xff);
+                //fprintf(stderr, "[TX] >> 0x%02X (pc: 0x%08X)...\r\n", value, pc);
                 // last_was_tx = 1;
                 return value;
                 //return 0;
             case 0x38:
                 value = s->sf->mode;
-                //printf("[SPI:%i:%02X] ", parm, address & 0xff);
-                //printf("[MODE] >> 0x%X (pc: 0x%08X)\r\n", value, pc);
+                //fprintf(stderr, "[SPI:%i:%02X] ", parm, address & 0xff);
+                //fprintf(stderr, "[MODE] >> 0x%X (pc: 0x%08X)\r\n", value, pc);
                 return value;
             default:
-                //printf("[SPI:%i:%02X] ", parm, address & 0xff);
-                //printf("[???] >> 0 (pc: 0x%08X)\r\n", pc);
+                //fprintf(stderr, "[SPI:%i:%02X] ", parm, address & 0xff);
+                //fprintf(stderr, "[???] >> 0 (pc: 0x%08X)\r\n", pc);
                 return 0;
         }
     }
@@ -697,27 +685,27 @@ unsigned int eos_handle_sio_serialflash ( unsigned int parm, EOSState *s, unsign
         switch(address & 0xFF)
         {
             case 0x04:
-                //printf("[BUSY] << %d (set wait flag) (pc: 0x%08X)\r\n", value, pc);
-                //printf("[SPI:%i:%02X] ", parm, address & 0xff);
+                //fprintf(stderr, "[BUSY] << %d (set wait flag) (pc: 0x%08X)\r\n", value, pc);
+                //fprintf(stderr, "[SPI:%i:%02X] ", parm, address & 0xff);
                 return 0;
             case 0x10:
-                //printf("[SPI:%i:%02X] ", parm, address & 0xff);
-                //printf("[WMODE?] << 0 (write mode?) (pc: 0x%08X)\r\n", pc);
+                //fprintf(stderr, "[SPI:%i:%02X] ", parm, address & 0xff);
+                //fprintf(stderr, "[WMODE?] << 0 (write mode?) (pc: 0x%08X)\r\n", pc);
                 return 0; // Unk, set to zero before write
             case 0x18:
-                //printf("[SPI:%i:%02X] ", parm, address & 0xff);
-                //printf("[RX] << 0x%X (pc: 0x%08X)\r\n", value, pc);
+                //fprintf(stderr, "[SPI:%i:%02X] ", parm, address & 0xff);
+                //fprintf(stderr, "[RX] << 0x%X (pc: 0x%08X)\r\n", value, pc);
                 serial_flash_spi_write(s->sf,value);
                 return 0;
             case 0x38:
-                //printf("[SPI:%i:%02X] ", parm, address & 0xff);
+                //fprintf(stderr, "[SPI:%i:%02X] ", parm, address & 0xff);
                 // Set to (([SF_data,#20] != 1) ? 0x80800408 : 0x80A00408) before write (mode)
-                //printf("[MODE] << 0x%X (pc: 0x%08X)\r\n", value, pc);
+                //fprintf(stderr, "[MODE] << 0x%X (pc: 0x%08X)\r\n", value, pc);
                 s->sf->mode = value;
                 return 0;
             default:
-                //printf("[SPI:%i:%02X] ", parm, address & 0xff);
-                //printf("[???] << 0x%X (pc: 0x%08X)\r\n", value, pc);
+                //fprintf(stderr, "[SPI:%i:%02X] ", parm, address & 0xff);
+                //fprintf(stderr, "[???] << 0x%X (pc: 0x%08X)\r\n", value, pc);
                 return 0;
         }
     }
@@ -766,8 +754,8 @@ unsigned int eos_handle_spidma ( unsigned int parm, EOSState *s, unsigned int ad
                     if (dma_count > 0)
                     {
                         void * source = &s->sf->data[s->sf->data_pointer];
-                        printf("[EEPR-DMA]  [0x%X] -> [0x%X] (0x%X bytes)\n", s->sf->data_pointer, dma_addr, dma_count);
-                        cpu_physical_memory_write(dma_addr, source, dma_count);
+                        fprintf(stderr, "[EEPR-DMA]  [0x%X] -> [0x%X] (0x%X bytes)\n", s->sf->data_pointer, dma_addr, dma_count);
+                        eos_mem_write(s, dma_addr, source, dma_count);
                         dma_count = 0;
                     }
                 }
@@ -777,12 +765,12 @@ unsigned int eos_handle_spidma ( unsigned int parm, EOSState *s, unsigned int ad
         case 0x38:
             msg = "Transfer start?";
 
-            //cpu_physical_memory_write(dma_addr, &sf_data[sf_address], dma_count);
+            //eos_mem_write(s, dma_addr, &sf_data[sf_address], dma_count);
             if (dma_count > 0)
             {
                 void * source = &s->sf->data[s->sf->data_pointer];
-                printf("[EEPR-DMA]! [0x%X] -> [0x%X] (0x%X bytes)\n", s->sf->data_pointer, dma_addr, dma_count);
-                cpu_physical_memory_write(dma_addr, source, dma_count);
+                fprintf(stderr, "[EEPR-DMA]! [0x%X] -> [0x%X] (0x%X bytes)\n", s->sf->data_pointer, dma_addr, dma_count);
+                eos_mem_write(s, dma_addr, source, dma_count);
                 dma_count = 0;
             }
             //sdio_write_data(&s->sd);

@@ -5,7 +5,7 @@
 # To use gdb, start emulation with, for example:
 #    ./run_canon_fw.sh 60D -s -S & arm-none-eabi-gdb -x 60D/debugmsg.gdb
 
-set remotetimeout 20
+set tcp connect-timeout 300
 target remote localhost:1234
 
 ################################################################################
@@ -30,12 +30,22 @@ target remote localhost:1234
 #   In the RTC initialization routine, this flag
 #   is set to 1 if date/time was read successfully.
 #
+# NUM_CORES:
+#   Defaults to 1; only needed on multi-core machines.
+#
+# PRINT_CALLSTACK:
+#   Set to 1 if you want to print call stack for every single debug message:
+#   macro define PRINT_CALLSTACK 1
+#   It will be displayed before each message, in print_current_location.
+#
 ################################################################################
 
 # dummy definitions
 macro define CURRENT_TASK   ((int)0xFFFFFFFF)
 macro define CURRENT_ISR    ((int)0xFFFFFFFF)
 macro define RTC_VALID_FLAG ((int)0xFFFFFFFF)
+macro define NUM_CORES      1
+macro define PRINT_CALLSTACK 0
 
 # misc preferences
 set pagination off
@@ -73,7 +83,14 @@ define KRESET
     printf "%c[0m", 0x1B
 end
 
-macro define CURRENT_TASK_NAME ((char***)CURRENT_TASK)[0][9]
+# task name for DryOS (only if CURRENT_TASK is a valid pointer; otherwise, empty string)
+macro define CURRENT_TASK_NAME (((int*)CURRENT_TASK)[0] ? ((char***)CURRENT_TASK)[0][9] : CURRENT_TASK)
+
+# requires -d callstack, for example:
+# ./run_canon_fw 1300D,firmware="boot=0" -d callstack -s -S & arm-none-eabi-gdb -x 1300D/debugmsg.gdb
+define print_callstack
+  set $_ = *0xCF123030
+end
 
 # print current task name and return address
 define print_current_location
@@ -85,16 +102,97 @@ define print_current_location
     printf "Please define CURRENT_TASK.\n"
   end
 
+  if PRINT_CALLSTACK == 1
+    print_callstack
+  end
+
+  if NUM_CORES > 1
+    printf "[CPU%d] ", ($_thread-1)
+  end
+
   printf "["
   if CURRENT_ISR > 0
     KRED
     printf "   INT-%02Xh:%08x ", CURRENT_ISR, $r14-4
   else
-    KCYN
+    if $_thread == 1
+      KCYN
+    else
+      KYLW
+    end
     printf "%10s:%08x ", CURRENT_TASK_NAME, $r14-4
   end
   KRESET
   printf "] "
+end
+
+define print_current_location_with_callstack
+  if PRINT_CALLSTACK != 1
+    print_callstack
+  end
+  print_current_location
+end
+
+
+define print_formatted_string
+  # count how many % characters we have
+  # (gdb is very picky about the number of arguments...)
+  # note: 60D uses %S incorrectly at some point, so we don't format that string
+  set $num = 0
+  set $i = 0
+  set $badfmt = 0
+  set $chr = *(char*)($arg0+$i)
+  set $nxt = *(char*)($arg0+$i+1)
+  while $chr
+    set $num = $num + ( $chr == '%' && $nxt != '%' )
+    set $badfmt = $badfmt + ( $chr == '%' && ($nxt == 'S' || $nxt == 'R' ))
+    set $badfmt = $badfmt + ( $chr == '"' )
+    set $i = $i + 1
+    set $chr = $nxt
+    set $nxt = *(char*)($arg0+$i+1)
+  end
+  
+  # fixme: is gdb's nested if/else syntax that ugly?
+  # or, even better: a nicer way to format these strings?
+  if $num == 0 || $badfmt
+    printf "%s\n", $arg0
+  else
+  if $num == 1
+    eval "printf \"%s\n\", $arg1", $arg0
+  else
+  if $num == 2
+    eval "printf \"%s\n\", $arg1, $arg2", $arg0
+  else
+  if $num == 3
+    eval "printf \"%s\n\", $arg1, $arg2, $arg3", $arg0
+  else
+  if $num == 4
+    eval "printf \"%s\n\", $arg1, $arg2, $arg3, $arg4", $arg0
+  else
+  if $num == 5
+    eval "printf \"%s\n\", $arg1, $arg2, $arg3, $arg4, $arg5", $arg0
+  else
+  if $num == 6
+    eval "printf \"%s\n\", $arg1, $arg2, $arg3, $arg4, $arg5, $arg6", $arg0
+  else
+  if $num == 7
+    eval "printf \"%s\n\", $arg1, $arg2, $arg3, $arg4, $arg5, $arg6, $arg7", $arg0
+  else
+  if $num == 8
+    eval "printf \"%s\n\", $arg1, $arg2, $arg3, $arg4, $arg5, $arg6, $arg7, $arg8", $arg0
+  else
+    KRED
+    printf "%s [FIXME: %d args]\n", $arg0, $num
+    KRESET
+  end
+  end
+  end
+  end
+  end
+  end
+  end
+  end
+  end
 end
 
 # trace all DebugMsg calls
@@ -102,65 +200,28 @@ define DebugMsg_log
   commands
     silent
     print_current_location
+    printf "(%02x:%02x) ", $r0, $r1
+    print_formatted_string $r2 $r3 *(int*)$sp *(int*)($sp+4) *(int*)($sp+8) *(int*)($sp+12) *(int*)($sp+16) *(int*)($sp+20) *(int*)($sp+24)
+    c
+  end
+end
 
-    # count how many % characters we have
-    # (gdb is very picky about the number of arguments...)
-    # note: 60D uses %S incorrectly at some point, so we don't format that string
-    set $num = 0
-    set $i = 0
-    set $badfmt = 0
-    set $chr = *(char*)($r2+$i)
-    set $nxt = *(char*)($r2+$i+1)
-    while $chr
-      set $num = $num + ( $chr == '%' && $nxt != '%' )
-      set $badfmt = $badfmt + ( $chr == '%' && $nxt == 'S' )
-      set $badfmt = $badfmt + ( $chr == '"' )
-      set $i = $i + 1
-      set $chr = $nxt
-      set $nxt = *(char*)($r2+$i+1)
-    end
-    
-    # fixme: is gdb's nested if/else syntax that ugly?
-    # or, even better: a nicer way to format these strings?
-    if $num == 0 || $badfmt
-      printf "(%02x:%02x) %s\n", $r0, $r1, $r2
-    else
-    if $num == 1
-      eval "printf \"(%02x:%02x) %s\n\", $r3", $r0, $r1, $r2
-    else
-    if $num == 2
-      eval "printf \"(%02x:%02x) %s\n\", $r3, *(int*)$sp", $r0, $r1, $r2
-    else
-    if $num == 3
-      eval "printf \"(%02x:%02x) %s\n\", $r3, *(int*)$sp, *(int*)($sp+4)", $r0, $r1, $r2
-    else
-    if $num == 4
-      eval "printf \"(%02x:%02x), %s\n\", $r3, *(int*)$sp, *(int*)($sp+4), *(int*)($sp+8)", $r0, $r1, $r2
-    else
-    if $num == 5
-      eval "printf \"(%02x:%02x), %s\n\", $r3, *(int*)$sp, *(int*)($sp+4), *(int*)($sp+8), *(int*)($sp+12)", $r0, $r1, $r2
-    else
-    if $num == 6
-      eval "printf \"(%02x:%02x), %s\n\", $r3, *(int*)$sp, *(int*)($sp+4), *(int*)($sp+8), *(int*)($sp+12), *(int*)($sp+16)", $r0, $r1, $r2
-    else
-    if $num == 7
-      eval "printf \"(%02x:%02x), %s\n\", $r3, *(int*)$sp, *(int*)($sp+4), *(int*)($sp+8), *(int*)($sp+12), *(int*)($sp+16), *(int*)($sp+20)", $r0, $r1, $r2
-    else
-    if $num == 8
-      eval "printf \"(%02x:%02x), %s\n\", $r3, *(int*)$sp, *(int*)($sp+4), *(int*)($sp+8), *(int*)($sp+12), *(int*)($sp+16), *(int*)($sp+20), *(int*)($sp+24)", $r0, $r1, $r2
-    else
-      KRED
-      printf "%s [FIXME: %d args]\n", $r2, $num
-      KRESET
-    end
-    end
-    end
-    end
-    end
-    end
-    end
-    end
-    end
+# DebugMsg-like calls with only one extra argument
+define DebugMsg1_log
+  commands
+    silent
+    print_current_location
+    printf "(%02x) ", $r0
+    print_formatted_string $r1 $r2 $r3 *(int*)$sp *(int*)($sp+4) *(int*)($sp+8) *(int*)($sp+12) *(int*)($sp+16) *(int*)($sp+20)
+    c
+  end
+end
+
+define printf_log
+  commands
+    silent
+    print_current_location
+    print_formatted_string $r1 $r2 $r3 *(int*)$sp *(int*)($sp+4) *(int*)($sp+8) *(int*)($sp+12) *(int*)($sp+16) *(int*)($sp+20)
     c
   end
 end
@@ -173,6 +234,16 @@ define task_create_log
     KBLU
     printf "task_create(%s, prio=%x, stack=%x, entry=%x, arg=%x)\n", $r0, $r1, $r2, $r3, *(int*)$sp
     KRESET
+    c
+  end
+end
+
+# log task switches (use with watch *CURRENT_TASK)
+define task_switch_log
+  commands
+    silent
+    print_current_location
+    printf "Task switch\n"
     c
   end
 end
@@ -191,13 +262,27 @@ end
 define assert_log
   commands
     silent
-    print_current_location
+    print_current_location_with_callstack
     printf "["
     KRED
     printf "ASSERT"
     KRESET
     printf "] "
     printf "%s at %s:%d, %x\n", $r0, $r1, $r2, $r14
+    c
+  end
+end
+
+define assert0_log
+  commands
+    silent
+    print_current_location_with_callstack
+    printf "["
+    KRED
+    printf "ASSERT"
+    KRESET
+    printf "] "
+    printf " at %s:%d\n", $r0, $r1
     c
   end
 end
@@ -528,6 +613,7 @@ define try_post_event_log
     try_expand_ram_struct *(int*)($r3+8)
     try_expand_ram_struct *(int*)($r3+12)
     try_expand_ram_struct *(int*)($r3+16)
+    try_expand_ram_struct *(int*)$sp
     c
   end
 end
@@ -694,6 +780,33 @@ define UnLockEngineResources_log
   end
 end
 
+define StartEDmac_log
+  commands
+    silent
+    print_current_location
+    KBLU
+    printf "StartEDmac(%d, %x)\n", $r0, $r1
+    KRESET
+    c
+  end
+end
+
+define SetEDmac_log
+  commands
+    silent
+    print_current_location
+    KBLU
+    printf "SetEDmac(%d, 0x%x, 0x%x, 0x%x)\n", $r0, $r1, $r2, $r3
+    if $r2
+      printf "                       "
+      printf "{ %dx%d %dx%d %dx%d %d %d %d %d %d }\n", *(int*)($r2+0x14), *(int*)($r2+0x1c), *(int*)($r2+0x18), *(int*)($r2+0x20), *(int*)($r2+0x24), *(int*)($r2+0x28), *(int*)($r2+0x00), *(int*)($r2+0x04), *(int*)($r2+0x08), *(int*)($r2+0x0c), *(int*)($r2+0x10)
+      # xa*ya xb*yb xn*yn off1a off1b off2a off2b off3
+    end
+    KRESET
+    c
+  end
+end
+
 # date/time helpers
 
 define print_date_time
@@ -739,6 +852,16 @@ define load_default_date_time_log
       printf "\n"
       c
     end
+    c
+  end
+end
+
+define log_result
+  tbreak *($lr & ~1)
+  commands
+    silent
+    print_current_location
+    printf " => 0x%x\n", $r0
     c
   end
 end

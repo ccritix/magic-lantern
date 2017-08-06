@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # run this if you make changes to qemu and want to commit them back into ML tree
 
@@ -9,6 +9,9 @@ cp -v *.sh *.py *.gdb gdbopts ../$ML/contrib/qemu/scripts
 cp -v --parents */*.gdb ../$ML/contrib/qemu/scripts
 cp -v $QEMU_PATH/hw/eos/* ../$ML/contrib/qemu/eos
 cp -v $QEMU_PATH/hw/eos/mpu_spells/* ../$ML/contrib/qemu/eos/mpu_spells
+cp -v $QEMU_PATH/hw/eos/dbi/* ../$ML/contrib/qemu/eos/dbi
+cp -v --parents tests/*.sh tests/*.py ../$ML/contrib/qemu/
+cp -v --parents tests/*/*.md5 ../$ML/contrib/qemu/
 
 cd $QEMU_PATH
 git diff > ../../$ML/contrib/qemu/$QEMU_PATH.patch

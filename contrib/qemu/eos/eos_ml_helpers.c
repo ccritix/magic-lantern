@@ -8,8 +8,22 @@
 #include "sysemu/sysemu.h"
 #include "eos.h"
 #include "eos_ml_helpers.h"
+#include "dbi/logging.h"
 
-
+static void print_char(char value)
+{
+    /* line buffered output on stderr */
+    /* fixme: nicer way? */
+    static char buf[100];
+    static int len = 0;
+    buf[len++] = value;
+    buf[len] = 0;
+    if (value == '\n' || value == '\0' || len == COUNT(buf))
+    {
+        fprintf(stderr, KBLU"%s"KRESET, buf);
+        len = 0;
+    }
+}
 unsigned int eos_handle_ml_helpers ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
     if(type & MODE_WRITE)
@@ -17,15 +31,30 @@ unsigned int eos_handle_ml_helpers ( unsigned int parm, EOSState *s, unsigned in
         switch (address)
         {
             case REG_PRINT_CHAR:    /* print in blue */
-                printf("\x1B[34m%c\x1B[0m", (uint8_t)value);
+            {
+                print_char(value);
                 return 0;
+            }
 
-            case REG_PRINT_NUM:     /* print in green */
-                printf("\x1B[32m%x (%d)\x1B[0m\n", (uint32_t)value, (uint32_t)value);
+            case REG_PRINT_NUM:     /* print an int32 from the guest */
+            {
+                char num[32];
+                snprintf(num, sizeof(num), "0x%x (%d) ", (uint32_t)value, (uint32_t)value);
+                for (char * ch = num; *ch; ch++) {
+                    print_char(*ch);
+                }
+                print_char('\0');
+                return 0;
+            }
+
+            case REG_DISAS_32:      /* disassemble address (32-bit, ARM or Thumb) */
+                fprintf(stderr, KGRN);
+                target_disas(stderr, CPU(arm_env_get_cpu(&s->cpu0->env)), value & ~1, 4, value & 1);
+                fprintf(stderr, KRESET);
                 return 0;
 
             case REG_SHUTDOWN:
-                printf("Goodbye!\n");
+                fprintf(stderr, "Goodbye!\n");
                 qemu_system_shutdown_request();
                 return 0;
             
@@ -37,11 +66,11 @@ unsigned int eos_handle_ml_helpers ( unsigned int parm, EOSState *s, unsigned in
                 s->disp.img_vram = (uint32_t) value;
                 if (value)
                 {
-                    eos_load_image(s, "LV-000.422", 0, -1, value, 0);
+                    eos_load_image(s, "VRAM/PH-LV/LV-000.422", 0, -1, value, 0);
                 }
                 else
                 {
-                    printf("Image buffer disabled\n");
+                    fprintf(stderr, "Image buffer disabled\n");
                 }
                 return 0;
             
@@ -50,11 +79,11 @@ unsigned int eos_handle_ml_helpers ( unsigned int parm, EOSState *s, unsigned in
                 if (value)
                 {
                     /* fixme: hardcoded strip offset */
-                    eos_load_image(s, "RAW-000.DNG", 33792, -1, value, 1);
+                    eos_load_image(s, "VRAM/PH-LV/RAW-000.DNG", 33792, -1, value, 1);
                 }
                 else
                 {
-                    printf("Raw buffer disabled\n");
+                    fprintf(stderr, "Raw buffer disabled\n");
                 }
                 return 0;
 
@@ -79,8 +108,15 @@ unsigned int eos_handle_ml_helpers ( unsigned int parm, EOSState *s, unsigned in
             case REG_DISP_TYPE:
                 return s->disp.type;
         }
-        return 0;
     }
+
+    switch (address)
+    {
+        case REG_CALLSTACK:
+            eos_callstack_print_verbose(s);
+            return 0;
+    }
+
     return 0;
 }
 

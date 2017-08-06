@@ -5,6 +5,7 @@
 #include "hw/sysbus.h"
 #include "hw/sd/sd.h"
 #include "hw/ide/internal.h"
+#include "hw/char/digic-uart.h"
 
 /** Helper macros **/
 #define COUNT(x)        ((int)(sizeof(x)/sizeof((x)[0])))
@@ -14,6 +15,29 @@
 #define BMPPITCH 960
 #define BM(x,y) ((x) + (y) * BMPPITCH)
 
+// mod like in math... x mod n is from 0 to n-1
+#define MOD(x,m) \
+   ({ int _x = (x); \
+      int _m = (m); \
+     (_x % _m + _m) % _m; })
+
+/** Logging macros **/
+/* DPRINTF only gets printed when using -d device (-d mpu etc) */
+/* VPRINTF requires -d verbose (e.g. -d mpu,verbose) */
+/* EPRINTF is always printed */
+/* usually they are used to build device-specific macros, e.g. MPU_DPRINTF */
+#define EPRINTF(header, log_mask, fmt, ...) do { fprintf(stderr, header fmt, ## __VA_ARGS__); } while (0)
+#define DPRINTF(header, log_mask, fmt, ...) do { qemu_log_mask(log_mask, header fmt, ## __VA_ARGS__); } while (0)
+#define VPRINTF(header, log_mask, fmt, ...) do { if (qemu_loglevel_mask(EOS_LOG_VERBOSE)) qemu_log_mask(log_mask, header fmt, ## __VA_ARGS__); } while (0)
+
+/** ANSI colors **/
+#define KRED   "\x1B[31m"
+#define KBLU   "\x1B[34m"
+#define KGRN   "\x1B[32m"
+#define KLRED  "\x1B[1;31m"
+#define KCYN   "\x1B[1;36m"
+#define KWHT   "\x1B[1;37m"
+#define KRESET "\x1B[0m"
 
 /** ARM macros **/
 
@@ -25,26 +49,22 @@
 #define FAR_CALL_INSTR   0xe51ff004    // ldr pc, [pc,#-4]
 #define LOOP_INSTR       0xeafffffe    // 1: b 1b
 
+#define CURRENT_CPU   s->cpus[current_cpu ? current_cpu->cpu_index : 0]
 
 /** Memory configuration **/
-#define ROM0_ADDR     0xF0000000
-#define ROM1_ADDR     0xF8000000
+#define ROM0_ADDR     s->model->rom0_addr
+#define ROM1_ADDR     s->model->rom1_addr
 #define ROM0_SIZE     s->model->rom0_size
 #define ROM1_SIZE     s->model->rom1_size
 
-#define TCM_SIZE      0x00001000
-#define RAM_SIZE      0x40000000
-#define CACHING_BIT   0x40000000
-
-#define RAM2_ADDR     0x80000000    /* a second memory block on DIGIC 6? */
-#define RAM2_SIZE     0x40000000
+#define BTCM_ADDR     s->model->btcm_addr
+#define ATCM_ADDR     s->model->atcm_addr
+#define BTCM_SIZE     s->model->btcm_size
+#define ATCM_SIZE     s->model->atcm_size
+#define RAM_SIZE      s->model->ram_size
+#define CACHING_BIT   s->model->caching_bit
 
 #define IO_MEM_START  0xC0000000    /* common to all DIGICs */
-
-/* define those for logging RAM access (reads + writes) */
-/* caveat: this area will be marked as IO, so you can't execute anything from there */
-//~ #define TRACE_MEM_START  0x00000000
-//~ #define TRACE_MEM_LEN    0x00800000
 
 /* defines for memory/register access */
 #define INT_ENTRIES 0x200
@@ -52,6 +72,8 @@
 #define MODE_MASK  0xF0
 #define MODE_READ  0x10
 #define MODE_WRITE 0x20
+#define FORCE_LOG  0x01 /* force logging in io_log */
+#define NOCHK_LOG  0x02 /* do not check this memory access */
 
 /* DryOS timer */
 #define TIMER_INTERRUPT s->model->dryos_timer_interrupt
@@ -77,6 +99,8 @@ typedef struct
     uint32_t dma_enabled;
     uint32_t dma_addr;
     uint32_t dma_count;
+    uint32_t dma_transferred_bytes;
+    uint32_t pio_transferred_bytes;
     uint32_t response[5];
     uint32_t status;
 } SDIOState;
@@ -84,6 +108,15 @@ typedef struct
 typedef struct
 {
     IDEBus bus;
+    int interrupt_enabled;
+    int dma_read_request;
+    int dma_write_request;
+    int ata_interrupt_enabled;
+    int pending_interrupt;
+    uint32_t dma_addr;
+    uint32_t dma_count;
+    uint32_t dma_read;
+    uint32_t dma_written;
 } CFState;
 
 struct palette_entry
@@ -103,9 +136,12 @@ typedef struct
     uint32_t img_vram;
     uint32_t raw_buff;
     uint32_t bmp_pitch;
+    uint32_t width;
+    uint32_t height;
     struct palette_entry palette_4bit[16];
     struct palette_entry palette_8bit[256];
     int is_4bit;
+    int is_half_height;
 } DispState;
 
 struct HPTimer
@@ -119,8 +155,9 @@ struct HPTimer
 
 struct mpu_init_spell
 {
-  unsigned char in_spell[128];
-  unsigned char out_spells[128][128];  
+  uint16_t in_spell[128];
+  uint16_t out_spells[128][128];
+  const char * description;
 };
 
 typedef struct
@@ -129,15 +166,15 @@ typedef struct
     int sending;
     int receiving;
     
-    unsigned char recv_buffer[128];
+    uint16_t recv_buffer[128];
     int recv_index;
     
     /* used for replaying MPU messages */
-    unsigned char * out_spell;
+    uint16_t * out_spell;
     int out_char;
 
     /* contains pointers to MPU out spells (see mpu_init_spell) */
-    unsigned char * send_queue[0x100];
+    uint16_t * send_queue[0x100];
     int sq_head;                /* for extracting items */
     int sq_tail;                /* for inserting (queueing) items */
 
@@ -154,39 +191,65 @@ typedef struct
     uint16_t yn;
     uint32_t off1a;
     uint32_t off1b;
-    uint32_t off1c;
     uint32_t off2a;
     uint32_t off2b;
     uint32_t off3;
+    uint32_t off34;     /* 3 = abort request */
+    uint32_t off40;
     uint32_t flags;
 } EDmacChState;
 
 typedef struct
 {
+    void * buf;
+    uint32_t data_size;
+} EDmacData;
+
+typedef struct
+{
     EDmacChState ch[64];
-    uint32_t read_conn[16];     /* each connection can get data from a single read channel */
+    uint32_t read_conn[48];     /* each connection can get data from a single read channel */
     uint32_t write_conn[64];    /* each write channel can get data from a single connection */
+    EDmacData conn_data[48];    /* for each connection: memory contents transferred via EDMAC (malloc'd) */
+    uint32_t pending[64];       /* for each channel: true if a transfer is scheduled */
 } EDMACState;
 
 typedef struct
 {
+    uint32_t adkiz_intr_en;     /* for defect detection */
+    uint32_t hiv_enb;           /* for row/column pattern noise correction */
+    uint32_t pack16_enb;
+    uint32_t dsunpack_enb;
+    uint32_t def_enb;
+} PreproState;
+
+typedef struct
+{
+    const char * workdir;
+
     /* model-specific settings from model_list.c */
     struct eos_model_desc * model;
 
-    ARMCPU *cpu;
+    union
+    {
+        ARMCPU * cpus[2];
+        struct
+        {
+            ARMCPU *cpu0;
+            ARMCPU *cpu1;
+        };
+    };
+    
     MemoryRegion *system_mem;
     MemoryRegion tcm_code;
     MemoryRegion tcm_data;
     MemoryRegion ram;
     MemoryRegion ram_uncached;
-    MemoryRegion ram2;
+    MemoryRegion ram_uncached0;
+    MemoryRegion ram_extra;
     MemoryRegion rom0;
     MemoryRegion rom1;
-    uint8_t *rom0_data;
-    uint8_t *rom1_data;
     MemoryRegion iomem;
-    MemoryRegion tracemem;
-    MemoryRegion tracemem_uncached;
     qemu_irq interrupt;
     QemuThread interrupt_thread_id;
     uint32_t verbosity;
@@ -194,12 +257,11 @@ typedef struct
     uint32_t irq_enabled[INT_ENTRIES];
     uint32_t irq_schedule[INT_ENTRIES];
     uint32_t irq_id;
-    QemuMutex irq_lock;
     uint32_t digic_timer;
     uint32_t timer_reload_value[20];
     uint32_t timer_current_value[20];
     uint32_t timer_enabled[20];
-    struct HPTimer HPTimers[8];
+    struct HPTimer HPTimers[16];
     uint32_t clock_enable;
     uint32_t clock_enable_6;
     uint32_t flash_state_machine;
@@ -207,9 +269,13 @@ typedef struct
     RTCState rtc;
     SDIOState sd;
     CFState cf;
+    DigicUartState uart;
     MPUState mpu;
     EDMACState edmac;
+    PreproState prepro;
     struct SerialFlashState * sf;
+    uint32_t card_led;  /* 1 = on, -1 = off, 0 = not used */
+    QEMUTimer * interrupt_timer;
 } EOSState;
 
 typedef struct
@@ -244,31 +310,57 @@ typedef struct
     unsigned int parm;
 } EOSRegionHandler;
 
+/* direct variable mapping for MMIO registers,
+ * to be used in eos_handle_*
+ */
+
+#define MMIO_VAR(var)           \
+    if(type & MODE_WRITE) {     \
+        var = value;            \
+    } else {                    \
+        ret = var;              \
+    }
+
+#define MMIO_VAR_2x16(lo, hi)       \
+    if(type & MODE_WRITE) {         \
+        lo = value & 0xFFFF;        \
+        hi = value >> 16;           \
+    } else {                        \
+        ret = (lo) | ((hi) << 16);  \
+    }
+
 unsigned int eos_handle_rom ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_flashctrl ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_dma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_ram ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_sio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_cartridge ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
-unsigned int eos_handle_tio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_timers ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_timers_ ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_digic_timer ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_hptimer ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_intengine ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_intengine_vx ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_intengine_gic ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_basic ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_unk ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_sdio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_sddma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_cfdma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_cfata ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_asif ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_display ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_edmac ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_edmac_chsw ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_prepro ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_head ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_engio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_power_control ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_adc ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_jpcore( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_eeko_comm( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 
 unsigned int eos_handle_digic6 ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 
@@ -287,9 +379,6 @@ unsigned int flash_get_blocksize(unsigned int rom, unsigned int size, unsigned i
 
 void eos_load_image(EOSState *s, const char* file, int offset, int max_size, uint32_t addr, int swap_endian);
 
-  
-void sdio_trigger_interrupt(EOSState *s, SDIOState *sd);
- 
 void io_log(const char * module_name, EOSState *s, unsigned int address, unsigned char type, unsigned int in_value, unsigned int out_value, const char * msg, intptr_t msg_arg1, intptr_t msg_arg2);
 
 /* EOS ROM device */
@@ -307,5 +396,12 @@ ROMState *eos_rom_register(hwaddr base, DeviceState *qdev, const char *name, hwa
 
 #define MEM_WRITE_ROM(addr, buf, size) \
     cpu_physical_memory_write_rom(&address_space_memory, addr, buf, size)
+
+void eos_mem_read(EOSState *s, hwaddr addr, void * buf, int size);
+void eos_mem_write(EOSState *s, hwaddr addr, void * buf, int size);
+
+char * eos_get_current_task_name(EOSState *s);
+uint8_t eos_get_current_task_id(EOSState *s);
+int eos_get_current_task_stack(EOSState *s, uint32_t * start, uint32_t * end);
 
 #endif /* HW_EOS_H */
