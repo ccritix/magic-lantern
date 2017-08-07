@@ -18,6 +18,7 @@
 #include "console.h"
 #include "edmac.h"
 #include "timer.h"
+#include "dm-spy.h"
 
 /* this needs pre_isr_hook/post_isr_hook stubs */
 //~ #define LOG_INTERRUPTS
@@ -32,6 +33,7 @@ extern void (*pre_isr_hook)();
 extern void (*post_isr_hook)();
 
 static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void state_transition_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void CreateResLockEntry_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void LockEngineResources_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
@@ -153,7 +155,22 @@ static struct logged_func logged_functions[] = {
     //{ 0x17d54,    "TryPostEvent", 5, TryPostEvent_log },
     { 0xFF2E8648, "mpu_send", 2, mpu_send_log }, // here it's OK via GDB hooks
     { 0xFF1226F0, "mpu_recv", 1, mpu_recv_log},  // fixme: first call may be missed, figure out why (seems to be OK at cold boot)
-    { 0xFF16B318, "lv_raw_buf", 7 },             // raw buffer size at [SP+8]; [SP] and [SP+4] have FlickerAddress'es
+
+    { 0xFF1431C8, "0xC0800008", R(1), mmio_log },     /* [UART] ??? at (null):FF1431C4 (0x1)*/
+    { 0xFF1431D8, "0xC0800018", R(1), mmio_log },     /* [UART] interrupt flags? at (null):FF1431D4 (0x4)*/
+    { 0xFF31F6F0, "0xC0800008", R(6), mmio_log },     /* [UART] ??? at (null):FF31F6EC (0x1)*/
+    { 0xFF31F6F4, "0xC0800008", R(2), mmio_log },     /* [UART] ??? at (null):FF31F6F0 (0x1)*/
+    { 0xFF31F72C, "0xC0800008", R(2), mmio_log },     /* [UART] ??? at (null):FF31F728 (0x1)*/
+    { 0xFF31F760, "0xC0800008", R(0), mmio_log },     /* [UART] ??? at (null):FF31F75C (0x1)*/
+    { 0xFF14322C, "0xC0800008", R(1), mmio_log },     /* [UART] ??? at (null):FF143228 (0x1)*/
+    { 0xFF143250, "0xC0800008", R(0), mmio_log },     /* [UART] ??? at (null):FF14324C (0x1)*/
+    { 0xFF1436EC, "0xC0800014", R(1), mmio_log },     /* [UART] Status: 1 = char available, 2 = can write at init:FF1436E8 (0x2)*/
+    { 0xFF1436F0, "0xC0800018", R(2), mmio_log },     /* [UART] interrupt flags? at init:FF1436EC (0x3f)*/
+    { 0xFF14372C, "0xC0800008", R(0), mmio_log },     /* [UART] ??? at init:FF143728 (0x1)*/
+    { 0xFF143394, "0xC05000D0", R(4), mmio_log },     /* [UartDMA] Transfer command / status? at init:FF143390 (0x20)*/
+    { 0xFF143410, "0xC0800018", R(3), mmio_log },     /* [UART] interrupt flags? at init:FF14340C (0x3f)*/
+    { 0xFF14342C, "0xC0800008", R(0), mmio_log },     /* [UART] ??? at init:FF143428 (0x1)*/
+    { 0xFF1435D4, "0xC0800014", R(1), mmio_log },     /* [UART] Status: 1 = char available, 2 = can write at init:FF1435D0 (0x2)*/
     #endif
 	
 	#ifdef CONFIG_6D	/* 1.1.3 */
@@ -510,6 +527,61 @@ static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
             DryosDebugMsg(0, 0, "!!! cannot log return value (err %x)", err);
         }
     }
+}
+
+/* we want this to work very early in the boot process; snprintf not available */
+static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    uint32_t caller = PATCH_HOOK_CALLER();
+
+    uint32_t args = 0;
+    const char * func_name = 0;
+
+    /* fixme: might be slow with many entries */
+    for (int i = 0; i < COUNT(logged_functions); i++)
+    {
+        if (logged_functions[i].addr == pc)
+        {
+            args = logged_functions[i].args;
+            func_name = logged_functions[i].name;
+            break;
+        }
+    }
+
+    uint32_t old = cli();
+
+    debug_logstr("[MMIO] ");
+
+    /* func_name is actually register name */
+    debug_logstr(func_name);
+    debug_logstr(": ");
+
+    int first_arg = 1;
+    for (int reg = 0; reg < 13; reg++)
+    {
+        if (args & R(reg))
+        {
+            if (!first_arg) debug_logstr(", ");
+            char regstr[] = "Rx=";
+            regstr[1] = '0' + reg;
+            debug_logstr(regstr);
+            debug_loghex(regs[reg]);
+            first_arg = 0;
+        }
+    }
+
+    debug_logstr(", from ");
+    if (current_task)
+    {
+        debug_logstr(current_task->name);
+        debug_logstr(":");
+    }
+    debug_loghex(pc);
+    debug_logstr(":");
+    debug_loghex(caller);
+    debug_logstr("\n");
+
+    sei(old);
 }
 
 static void state_transition_log(uint32_t* regs, uint32_t* stack, uint32_t pc)

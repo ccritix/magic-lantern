@@ -48,6 +48,41 @@ static volatile int len = 0;
 extern void dm_spy_extra_install();
 extern void dm_spy_extra_uninstall();
 
+/* log simple strings without formatting
+ * useful when we don't have snprintf / enough stack / whatever) */
+void debug_logstr(const char * str)
+{
+    if (!buf) return;
+    if (!str) return;
+
+    uint32_t old = cli();
+
+    int copied_chars = MIN(strlen(str), buf_size - len - 1);
+    memcpy(buf + len, str, copied_chars);
+    len += copied_chars;
+    buf[len] = '\0';
+
+    qprint(str);
+    sei(old);
+}
+
+/* log 32-bit integers (print as hex) */
+void debug_loghex(uint32_t x)
+{
+    uint32_t old = cli();
+    char * str = &buf[len];
+
+    for (int i = 32-4; i >= 0 && len < buf_size-1; i -= 4)
+    {
+        uint32_t c = (x >> i) & 0xF;
+        buf[len++] = c + ((c <= 9) ? '0' : 'A' - 10);
+    }
+    buf[len] = '\0';
+
+    qprint(str);
+    sei(old);
+}
+
 static void my_DebugMsg(int class, int level, char* fmt, ...)
 {
     if (!buf) return;
