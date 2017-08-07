@@ -21,7 +21,7 @@
 #include "dm-spy.h"
 
 /* this needs pre_isr_hook/post_isr_hook stubs */
-//~ #define LOG_INTERRUPTS
+#define LOG_INTERRUPTS
 
 /* delay mpu_send calls, to allow grouping MPU messages by timestamps */
 #define MPU_DELAY_SEND
@@ -550,7 +550,10 @@ static void mmio_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
     uint32_t old = cli();
 
-    debug_logstr("[MMIO] ");
+    uint32_t us_timer = MEM(0xC0242014);
+    debug_loghex2(us_timer, 5);
+
+    debug_logstr("> [MMIO] ");
 
     /* func_name is actually register name */
     debug_logstr(func_name);
@@ -913,17 +916,23 @@ static void register_interrupt_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 }
 
+/* don't use snprintf in interrupts - it's a little heavy
+ * most interrupts are fine with it, but a few are tricky */
+
+static const char * interrupt_name(int i)
+{
+    static char name[] = "INT-00h";
+    int i0 = (i & 0xF);
+    int i1 = (i >> 4) & 0xF;
+    int i2 = (i >> 8) & 0xF;
+    name[3] = i2 ? '0' + i2 : '-';
+    name[4] = i1 < 10 ? '0' + i1 : 'A' + i1 - 10;
+    name[5] = i0 < 10 ? '0' + i0 : 'A' + i0 - 10;
+    return name;
+}
+
 static void pre_isr_log(uint32_t isr)
 {
-#ifdef CONFIG_60D
-    if (isr == 0x36)
-    {
-        /* hm, this causes trouble, not sure why (slow sprintf?) */
-        DryosDebugMsg(0, 0, ">>> INT-36h SIO3");
-        return;
-    }
-#endif
-
     /* not sure about all models, only checked 5D2, 60D and 5D3 */
 #ifdef CONFIG_DIGIC_V
     uint32_t handler = MEM(0x40000000 + 4*isr);
@@ -935,10 +944,21 @@ static void pre_isr_log(uint32_t isr)
 
     char* name = isr_names[isr & 0x1FF];
 
+    uint32_t us_timer = MEM(0xC0242014);
+    debug_loghex2(us_timer, 5);
+    debug_logstr(">    >>> ");
+    debug_logstr(interrupt_name(isr));
+    debug_logstr(" ");
+    debug_logstr(name);
+    debug_logstr(" ");
+    debug_loghex(handler);
+    debug_logstr("(");
+    debug_loghex(arg);
+    debug_logstr(")\n");
+
+#if 0
     if (name)
     {
-        DryosDebugMsg(0, 0, ">>> INT-%Xh %s %x(%x)", isr, name, handler, arg);
-
         if (strncmp(name, "EDMAC#", 6) == 0)
         {
             int ch = atoi(name + 6);
@@ -952,15 +972,16 @@ static void pre_isr_log(uint32_t isr)
             );
         }
     }
-    else
-    {
-        DryosDebugMsg(0, 0, ">>> INT-%Xh %x(%x)", isr, handler, arg);
-    }
+#endif
 }
 
 static void post_isr_log(uint32_t isr)
 {
-    DryosDebugMsg(0, 0, "<<< INT-%Xh done", isr);
+    uint32_t us_timer = MEM(0xC0242014);
+    debug_loghex2(us_timer, 5);
+    debug_logstr(">    <<< ");
+    debug_logstr(interrupt_name(isr));
+    debug_logstr(" done\n");
 }
 
 static int check_no_conflicts(int i)

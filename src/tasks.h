@@ -175,6 +175,8 @@ char * get_task_name_from_id(int id);
 
 char * get_current_task_name();
 
+char * get_interrupt_name(int id);
+
 /* to refactor with CBR */
 void task_update_loads(); // called every second from clock_task
 

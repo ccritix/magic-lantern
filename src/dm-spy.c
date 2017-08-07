@@ -67,12 +67,12 @@ void debug_logstr(const char * str)
 }
 
 /* log 32-bit integers (print as hex) */
-void debug_loghex(uint32_t x)
+void debug_loghex2(uint32_t x, int digits)
 {
     uint32_t old = cli();
     char * str = &buf[len];
 
-    for (int i = 32-4; i >= 0 && len < buf_size-1; i -= 4)
+    for (int i = (digits-1) * 4; i >= 0 && len < buf_size-1; i -= 4)
     {
         uint32_t c = (x >> i) & 0xF;
         buf[len++] = c + ((c <= 9) ? '0' : 'A' - 10);
@@ -81,6 +81,11 @@ void debug_loghex(uint32_t x)
 
     qprint(str);
     sei(old);
+}
+
+void debug_loghex(uint32_t x)
+{
+    return debug_loghex2(x, 8);
 }
 
 static void my_DebugMsg(int class, int level, char* fmt, ...)
