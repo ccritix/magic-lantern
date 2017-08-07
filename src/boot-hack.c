@@ -196,6 +196,10 @@ copy_and_restart( )
     * install our own handlers.
     */
 
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+    debug_intercept();
+#endif
+
     //~ Canon changed their task starting method in the 6D so our old hook method doesn't work.
 #ifndef CONFIG_6D
 #if !defined(CONFIG_EARLY_PORT) && !defined(CONFIG_HELLO_WORLD) && !defined(CONFIG_DUMPER_BOOTFLAG) && !defined(CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK)
@@ -832,10 +836,6 @@ my_init_task(int a, int b, int c, int d)
             msleep(1000);
         }
     }
-
-#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
-    debug_intercept();
-#endif
 
     // memory check OK, call Canon's init_task
     int ans = init_task_func(a,b,c,d);
