@@ -153,15 +153,15 @@ static struct logged_func logged_functions[] = {
 
     #ifdef CONFIG_5D3_123
     //{ 0x17d54,    "TryPostEvent", 5, TryPostEvent_log },
-    { 0xFF2E8648, "mpu_send", 2, mpu_send_log }, // here it's OK via GDB hooks
-    { 0xFF1226F0, "mpu_recv", 1, mpu_recv_log},  // fixme: first call may be missed, figure out why (seems to be OK at cold boot)
+    //{ 0xFF2E8648, "mpu_send", 2, mpu_send_log }, // here it's OK via GDB hooks
+    //{ 0xFF1226F0, "mpu_recv", 1, mpu_recv_log},  // fixme: first call may be missed, figure out why (seems to be OK at cold boot)
 
     { 0xFF1431C8, "0xC0800008", R(1), mmio_log },     /* [UART] ??? at (null):FF1431C4 (0x1)*/
     { 0xFF1431D8, "0xC0800018", R(1), mmio_log },     /* [UART] interrupt flags? at (null):FF1431D4 (0x4)*/
-    { 0xFF31F6F0, "0xC0800008", R(6), mmio_log },     /* [UART] ??? at (null):FF31F6EC (0x1)*/
-    { 0xFF31F6F4, "0xC0800008", R(2), mmio_log },     /* [UART] ??? at (null):FF31F6F0 (0x1)*/
-    { 0xFF31F72C, "0xC0800008", R(2), mmio_log },     /* [UART] ??? at (null):FF31F728 (0x1)*/
-    { 0xFF31F760, "0xC0800008", R(0), mmio_log },     /* [UART] ??? at (null):FF31F75C (0x1)*/
+    //{ 0xFF31F6F0, "0xC0800008", R(6), mmio_log },     /* [UART] ??? at (null):FF31F6EC (0x1)*/
+    //{ 0xFF31F6F4, "0xC0800008", R(2), mmio_log },     /* [UART] ??? at (null):FF31F6F0 (0x1)*/
+    //{ 0xFF31F72C, "0xC0800008", R(2), mmio_log },     /* [UART] ??? at (null):FF31F728 (0x1)*/
+    //{ 0xFF31F760, "0xC0800008", R(0), mmio_log },     /* [UART] ??? at (null):FF31F75C (0x1)*/
     { 0xFF14322C, "0xC0800008", R(1), mmio_log },     /* [UART] ??? at (null):FF143228 (0x1)*/
     { 0xFF143250, "0xC0800008", R(0), mmio_log },     /* [UART] ??? at (null):FF14324C (0x1)*/
     { 0xFF1436EC, "0xC0800014", R(1), mmio_log },     /* [UART] Status: 1 = char available, 2 = can write at init:FF1436E8 (0x2)*/
@@ -997,12 +997,21 @@ static int check_no_conflicts(int i)
 
         if (((a & index_mask) == (b & index_mask)) && ((a & high_mask) != (b & high_mask)))
         {
+            #if 0
+            /* for debugging in QEMU (without CONFIG_QEMU=y), see qemu-util.h */
+            /* with CONFIG_QEMU=y we don't have cache conflicts */
+            MEM(0xCF12300C) = logged_functions[i].addr;
+            MEM(0xCF12300C) = logged_functions[j].addr;
+            while(1);
+            #endif
+
             console_show();
             printf("Birthday paradox: %x %s\n"
                    "  conflicts with: %x %s.\n", 
                 logged_functions[i].addr, logged_functions[i].name,
                 logged_functions[j].addr, logged_functions[j].name
             );
+            
             return 0;
         }
     }
