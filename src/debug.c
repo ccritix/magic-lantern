@@ -301,7 +301,7 @@ void scan_A5A5()
             }
         }
 
-        if (a >= 0xF8F80000 && a < 0xF8FA0000)
+        if (a >= 0xF8F80000 && a < 0xF8FB0000)
         {
             /* last debug log - ignore */
             continue;
