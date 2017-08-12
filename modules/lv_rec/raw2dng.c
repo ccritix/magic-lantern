@@ -47,7 +47,7 @@ void * raw_info_buffer = NULL;
 #define CHECK(ok, fmt,...) { if (!(ok)) FAIL(fmt, ## __VA_ARGS__); }
 
 void fix_vertical_stripes();
-void find_and_fix_cold_pixels(int force_analysis);
+void find_and_fix_cold_pixels(int force_analysis, int pan_x, int pan_y);
 void chroma_smooth();
 
 #define EV_RESOLUTION 32768
@@ -307,7 +307,7 @@ int main(int argc, char** argv)
             snprintf(fn, sizeof(fn), "%s%06d.dng", prefix, framenumber);
 
             fix_vertical_stripes();
-            find_and_fix_cold_pixels(0);
+            find_and_fix_cold_pixels(0, 0, 0);
 
             #ifdef CHROMA_SMOOTH
             chroma_smooth();
@@ -1203,7 +1203,7 @@ static inline int FC(int row, int col)
     }
 }
 
-void find_and_fix_cold_pixels(int force_analysis)
+void find_and_fix_cold_pixels(int force_analysis, int pan_x, int pan_y)
 {
     #define MAX_COLD_PIXELS 200000
   
@@ -1218,6 +1218,8 @@ void find_and_fix_cold_pixels(int force_analysis)
     int start_pixel = 0;
     int w = raw_info.width;
     int h = raw_info.height;
+    int cropX = (pan_x + 7) & ~7;
+    int cropY = pan_y & ~1;
     
     /* at sane ISOs, noise stdev is well less than 50, so 200 should be enough */
     int cold_thr = MAX(0, raw_info.black_level - 200);
@@ -1226,12 +1228,12 @@ void find_and_fix_cold_pixels(int force_analysis)
     if (!frame_count && force_analysis != 1)
     {
         cold_pixel_file = fopen("allbadpixels.map", "r");
-        focus_pixel_file = fopen("focuspixels.map", "r");
+        focus_pixel_file = fopen("focuspixels.fpm", "r");
         if (cold_pixel_file)
         {
             cold_pixel_file_exists = 1;
 
-            while (fscanf(cold_pixel_file, "%d%*[ \t]%d%*[ \t^0]\n", &cold_pixel_list[cold_pixels].x, &cold_pixel_list[cold_pixels].y) != EOF)
+            while (fscanf(cold_pixel_file, "%d%*[ \t]%d%*[^\n]", &cold_pixel_list[cold_pixels].x, &cold_pixel_list[cold_pixels].y) != EOF)
             {
                 cold_pixels++;
             }
@@ -1244,8 +1246,14 @@ void find_and_fix_cold_pixels(int force_analysis)
         {
             
             focus_pixel_file_exists = 1;
+            
+            uint32_t cam_id = 0x0;
+            if(fscanf(focus_pixel_file, "#FPM%*[ ]%X%*[^\n]", &cam_id) != 1)
+            {
+                rewind(focus_pixel_file);
+            }
 
-            while (fscanf(focus_pixel_file, "%d%*[ \t]%d%*[ \t^0]\n", &cold_pixel_list[cold_pixels].x, &cold_pixel_list[cold_pixels].y) != EOF)
+            while (fscanf(focus_pixel_file, "%d%*[ \t]%d%*[^\n]", &cold_pixel_list[cold_pixels].x, &cold_pixel_list[cold_pixels].y) != EOF)
             {
                 cold_pixels++;
             } 
@@ -1274,8 +1282,8 @@ analyse_mark:
                 /* create a list containing the cold pixels */
                 if (is_cold && cold_pixels < MAX_COLD_PIXELS)
                 {
-                    cold_pixel_list[cold_pixels].x = x;
-                    cold_pixel_list[cold_pixels].y = y;
+                    cold_pixel_list[cold_pixels].x = x + cropX;
+                    cold_pixel_list[cold_pixels].y = y + cropY;
                     cold_pixels++;
                 }
             }
@@ -1290,8 +1298,8 @@ repair_mark:
     /* repair the cold pixels */
     for (int p = start_pixel; p < cold_pixels; p++)
     {
-        int x = cold_pixel_list[p].x;
-        int y = cold_pixel_list[p].y;
+        int x = cold_pixel_list[p].x - cropX;
+        int y = cold_pixel_list[p].y - cropY;
     
         int neighbours[100];
         int k = 0;
@@ -1320,13 +1328,17 @@ repair_mark:
                     continue;
                 }
 
+                //printf("bingo\n");
                 int p = raw_get_pixel(x+j, y+i);
                 neighbours[k++] = -p;
             }
         }
         
         /* replace the cold pixel with the median of the neighbours */
-        raw_set_pixel(x, y, -median_int_wirth(neighbours, k));
+        if(k > 0)
+        {
+            raw_set_pixel(x, y, -median_int_wirth(neighbours, k));
+        }
     }
     
     if (!frame_count && !start_pixel && focus_pixel_file_exists)
