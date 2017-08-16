@@ -142,6 +142,7 @@ NSTUB(0xFFB6AF34,  StopPlayProtectGuideApp)
 // NSTUB(    ???,  ReverseDisplay)                          /* present on 60D.111, 600D.102, 650D.104, 550D.109, 1100D.105, 700D.113 */
 
 /** EDMAC **/
+NSTUB(0xFF9A46F8,  AbortEDmac)
 NSTUB(0xFF9A462C,  ConnectReadEDmac)
 NSTUB(0xFF9A4604,  ConnectWriteEDmac)
 NSTUB(0xFF9A47C0,  RegisterEDmacAbortCBR)

@@ -230,7 +230,7 @@ static void mem_benchmark_task()
     
     if (HAS_EDMAC_MEMCPY)
     {
-        mem_benchmark_run("edmac_memcpy        ", &y, bufsize, (mem_bench_fun)edmac_memcpy, (intptr_t)UNCACHEABLE(buf1),   (intptr_t)UNCACHEABLE(buf2),   bufsize, 0);
+        mem_benchmark_run("edmac_memcpy        ", &y, bufsize, (mem_bench_fun)edmac_memcpy, (intptr_t)UNCACHEABLE(buf1),   (intptr_t)UNCACHEABLE(buf2),   bufsize, 0, 1);
         mem_benchmark_run("edmac_copy_rectangle", &y, 720*480, (mem_bench_fun)mem_test_edmac_copy_rectangle, 0, 0, 0, 0, 0);
     }
     

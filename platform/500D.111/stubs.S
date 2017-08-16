@@ -146,6 +146,7 @@ NSTUB(0xFF2C5D1C,  ShootOlcApp_handler)
 // NSTUB(    ???,  ReverseDisplay)                          /* present on 60D.111, 600D.102, 650D.104, 550D.109, 1100D.105, 700D.113 */
 
 /** EDMAC **/
+NSTUB(0xFF18FCC0,  AbortEDmac)
 NSTUB(0xFF18FB90,  ConnectReadEDmac)
 NSTUB(0xFF18FB68,  ConnectWriteEDmac)
 NSTUB(0xFF18FD88,  RegisterEDmacAbortCBR)
