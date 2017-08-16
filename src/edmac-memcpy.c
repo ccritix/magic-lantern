@@ -50,7 +50,7 @@ uint32_t edmac_write_chan = 0x04;
 #endif
 
 /* both channels get connected to this... lets call it service. it will just output the data it gets as input */
-uint32_t dmaConnection = 6;
+uint32_t dmaConnection = 7;
 
 static struct LockEntry * resLock = 0;
 
