@@ -63,6 +63,7 @@
 #include "beep.h"
 #include "raw.h"
 #include "zebra.h"
+#include "focus.h"
 #include "fps.h"
 #include "../mlv_rec/mlv.h"
 #include "../trace/trace.h"
@@ -128,9 +129,9 @@ static CONFIG_INT("raw.dolly", dolly_mode, 0);
 #define FRAMING_PANNING (dolly_mode == 1)
 
 static CONFIG_INT("raw.preview", preview_mode, 0);
-#define PREVIEW_AUTO (preview_mode == 0)
-#define PREVIEW_CANON (preview_mode == 1)
-#define PREVIEW_ML (preview_mode == 2)
+#define PREVIEW_AUTO   (preview_mode == 0)
+#define PREVIEW_CANON  (preview_mode == 1)
+#define PREVIEW_ML     (preview_mode == 2)
 #define PREVIEW_HACKED (preview_mode == 3)
 
 static CONFIG_INT("raw.warm.up", warm_up, 0);
@@ -160,7 +161,6 @@ static int res_x = 0;
 static int res_y = 0;
 static int max_res_x = 0;
 static int max_res_y = 0;
-static int sensor_res_x = 0;
 static float squeeze_factor = 0;
 static int frame_size = 0;
 static int frame_size_real = 0;
@@ -227,6 +227,7 @@ static uint32_t edmac_active = 0;
 
 static mlv_file_hdr_t file_hdr;
 static mlv_rawi_hdr_t rawi_hdr;
+static mlv_rawc_hdr_t rawc_hdr;
 static mlv_idnt_hdr_t idnt_hdr;
 static mlv_expo_hdr_t expo_hdr;
 static mlv_lens_hdr_t lens_hdr;
@@ -397,8 +398,8 @@ static char* guess_aspect_ratio(int res_x, int res_y)
     float ratio = (float)res_x / res_y;
     float minerr = 100;
     /* common ratios that are expressed as integer numbers, e.g. 3:2, 16:9, but not 2.35:1 */
-    static int common_ratios_x[] = {1, 2, 3, 3, 4, 16, 5, 5};
-    static int common_ratios_y[] = {1, 1, 1, 2, 3, 9,  4, 3};
+    static int common_ratios_x[] = {1, 2, 3, 4, 5, 3, 4, 16, 5, 5};
+    static int common_ratios_y[] = {1, 1, 1, 1, 1, 2, 3, 9,  4, 3};
     for (int i = 0; i < COUNT(common_ratios_x); i++)
     {
         int num = common_ratios_x[i];
@@ -538,32 +539,13 @@ static void refresh_raw_settings(int force)
     }
 }
 
-PROP_HANDLER( PROP_LV_AFFRAME ) {
-    ASSERT(len <= 128);
-    if(!lv) return;
-    
-    sensor_res_x = ((int32_t*)buf)[0];
-}
-
-
-static int32_t calc_crop_factor()
+static int calc_crop_factor()
 {
+    int sensor_res_x = raw_capture_info.sensor_res_x;
+    int camera_crop  = raw_capture_info.sensor_crop;
+    int sampling_x   = raw_capture_info.binning_x + raw_capture_info.skipping_x;
 
-    int32_t camera_crop = 162;
-    int32_t sampling_x = 3;
-    
-    if (cam_5d2 || cam_5d3 || cam_6d) camera_crop = 100;
-    
-    //if (cam_500d || cam_50d) sensor_res_x = 4752;
-    //if (cam_eos_m || cam_550d || cam_600d || cam_650d || cam_700d || cam_60d || cam_7d) sensor_res_x = 5184;
-    //if (cam_6d) sensor_res_x = 5472;
-    //if (cam_5d2) sensor_res_x = 5616;
-    //if (cam_5d3) sensor_res_x = 5760;
-    
-    if (video_mode_crop || (lv_dispsize > 1)) sampling_x = 1;
-    
-    if (!sensor_res_x) return 0;
-    
+    if (res_x == 0) return 0;
     return camera_crop * (sensor_res_x / sampling_x) / res_x;
 }
 
@@ -584,7 +566,7 @@ static MENU_UPDATE_FUNC(raw_main_update)
     else
     {
         MENU_SET_VALUE("ON, %dx%d", res_x, res_y);
-        int32_t crop_factor = calc_crop_factor();
+        int crop_factor = calc_crop_factor();
         if (crop_factor) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
     }
 
@@ -597,13 +579,19 @@ static MENU_UPDATE_FUNC(aspect_ratio_update_info)
     {
         char* ratio = guess_aspect_ratio(res_x, res_y);
         MENU_SET_HELP("%dx%d (%s).", res_x, res_y, ratio);
+
+        if (!streq(ratio, info->value))
+        {
+            /* aspect ratio different from requested value? */
+            MENU_SET_RINFO("%s", ratio);
+        }
     }
     else
     {
         int num = aspect_ratio_presets_num[aspect_ratio_index];
         int den = aspect_ratio_presets_den[aspect_ratio_index];
         int sq100 = (int)roundf(squeeze_factor*100);
-        int res_y_corrected = calc_res_y(res_x, max_res_y, num, den, 1.0f);
+        int res_y_corrected = calc_res_y(res_x, max_res_y*squeeze_factor, num, den, 1.0f);
         MENU_SET_HELP("%dx%d. Stretch by %s%d.%02dx to get %dx%d (%s) in post.", res_x, res_y, FMT_FIXEDPOINT2(sq100), res_x, res_y_corrected, aspect_ratio_choices[aspect_ratio_index]);
     }
 }
@@ -1240,7 +1228,7 @@ static void cache_require(int lock)
 
 static void unhack_liveview_vsync(int unused);
 
-static void hack_liveview_vsync()
+static void FAST hack_liveview_vsync()
 {
     if (cam_5d2 || cam_50d)
     {
@@ -1298,7 +1286,6 @@ static void hack_liveview_vsync()
     
     if (should_hack)
     {
-        int y = 100;
         for (int channel = 0; channel < 32; channel++)
         {
             /* silence out the EDMACs used for HD and LV buffers */
@@ -1306,7 +1293,7 @@ static void hack_liveview_vsync()
             if (pitch == vram_lv.pitch || pitch == vram_hd.pitch)
             {
                 uint32_t reg = edmac_get_base(channel);
-                bmp_printf(FONT_SMALL, 30, y += font_small.height, "Hack %x %dx%d ", reg, shamem_read(reg + 0x10) & 0xFFFF, shamem_read(reg + 0x10) >> 16);
+                //printf("Hack %d %x %dx%d\n", channel, reg, shamem_read(reg + 0x10) & 0xFFFF, shamem_read(reg + 0x10) >> 16);
                 *(volatile uint32_t *)(reg + 0x10) = shamem_read(reg + 0x10) & 0xFFFF;
             }
         }
@@ -1323,6 +1310,9 @@ static void unhack_liveview_vsync(int unused)
     while (!RAW_IS_IDLE) msleep(100);
     PauseLiveView();
     ResumeLiveView();
+
+    /* fixme: in exmem.c, but how? */
+    gui_uilock(UILOCK_NONE);
 }
 
 static void hack_liveview(int unhack)
@@ -1797,6 +1787,23 @@ static void init_mlv_chunk_headers(struct raw_info * raw_info)
     rawi_hdr.yRes = res_y;
     rawi_hdr.raw_info = *raw_info;
 
+    memset(&rawc_hdr, 0, sizeof(mlv_rawc_hdr_t));
+    mlv_set_type((mlv_hdr_t *)&rawc_hdr, "RAWC");
+    mlv_set_timestamp((mlv_hdr_t *)&rawc_hdr, mlv_start_timestamp);
+    rawc_hdr.blockSize = sizeof(mlv_rawc_hdr_t);
+
+    /* copy all fields from raw_capture_info */
+    rawc_hdr.sensor_res_x = raw_capture_info.sensor_res_x;
+    rawc_hdr.sensor_res_y = raw_capture_info.sensor_res_y;
+    rawc_hdr.sensor_crop  = raw_capture_info.sensor_crop;
+    rawc_hdr.reserved     = raw_capture_info.reserved;
+    rawc_hdr.binning_x    = raw_capture_info.binning_x;
+    rawc_hdr.skipping_x   = raw_capture_info.skipping_x;
+    rawc_hdr.binning_y    = raw_capture_info.binning_y;
+    rawc_hdr.skipping_y   = raw_capture_info.skipping_y;
+    rawc_hdr.offset_x     = raw_capture_info.offset_x;
+    rawc_hdr.offset_y     = raw_capture_info.offset_y;
+
     /* overwrite bpp relevant information */
     rawi_hdr.raw_info.bits_per_pixel = BPP;
     rawi_hdr.raw_info.pitch = rawi_hdr.raw_info.width * BPP / 8;
@@ -1815,84 +1822,18 @@ static void init_mlv_chunk_headers(struct raw_info * raw_info)
     mlv_fill_wbal(&wbal_hdr, mlv_start_timestamp);
 }
 
-static int write_mlv_vers_blocks(FILE *f)
-{
-    int mod = -1;
-    int error = 0;
-    
-    do
-    {
-        /* get next loaded module id */
-        mod = module_get_next_loaded(mod);
-        
-        /* make sure thats a valid one */
-        if(mod >= 0)
-        {
-            /* fetch information from module loader */
-            const char *mod_name = module_get_name(mod);
-            const char *mod_build_date = module_get_string(mod, "Build date");
-            const char *mod_last_update = module_get_string(mod, "Last update");
-            
-            if(mod_name != NULL)
-            {
-                /* just in case that ever happens */
-                if(mod_build_date == NULL)
-                {
-                    mod_build_date = "(no build date)";
-                }
-                if(mod_last_update == NULL)
-                {
-                    mod_last_update = "(no version)";
-                }
-                
-                /* separating the format string allows us to measure its length for malloc */
-                const char *fmt_string = "%s built %s; commit %s";
-                int buf_length = strlen(fmt_string) + strlen(mod_name) + strlen(mod_build_date) + strlen(mod_last_update) + 1;
-                char *version_string = malloc(buf_length);
-                
-                /* now build the string */
-                snprintf(version_string, buf_length, fmt_string, mod_name, mod_build_date, mod_last_update);
-                
-                /* and finally remove any newlines, they are annoying */
-                for(unsigned int pos = 0; pos < strlen(version_string); pos++)
-                {
-                    if(version_string[pos] == '\n')
-                    {
-                        version_string[pos] = ' ';
-                    }
-                }
-                
-                /* let the mlv helpers build the block for us */
-                mlv_vers_hdr_t *hdr = NULL;
-                mlv_build_vers(&hdr, mlv_start_timestamp, version_string);
-                
-                /* try to write to output file */
-                if(FIO_WriteFile(f, hdr, hdr->blockSize) != (int)hdr->blockSize)
-                {
-                    error = 1;
-                }
-                
-                /* free both temporary string and allocated mlv block */
-                free(version_string);
-                free(hdr);
-            }
-        }
-    } while(mod >= 0 && !error);
-    
-    return error;
-}
-
 static int write_mlv_chunk_headers(FILE* f)
 {
     if (FIO_WriteFile(f, &file_hdr, file_hdr.blockSize) != (int)file_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &rawi_hdr, rawi_hdr.blockSize) != (int)rawi_hdr.blockSize) return 0;
+    if (FIO_WriteFile(f, &rawc_hdr, rawc_hdr.blockSize) != (int)rawc_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &idnt_hdr, idnt_hdr.blockSize) != (int)idnt_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &expo_hdr, expo_hdr.blockSize) != (int)expo_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &lens_hdr, lens_hdr.blockSize) != (int)lens_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &wbal_hdr, wbal_hdr.blockSize) != (int)wbal_hdr.blockSize) return 0;
-    if (write_mlv_vers_blocks(f)) return 0;
-	
+    if (mlv_write_vers_blocks(f, mlv_start_timestamp)) return 0;
+    
     int hdr_size = FIO_SeekSkipFile(f, 0, SEEK_CUR);
     
     /* insert a null block so the header size is multiple of 512 bytes */
@@ -2477,11 +2418,12 @@ static struct menu_entry raw_video_menu[] =
                 .name = "Preview",
                 .priv = &preview_mode,
                 .max = 3,
-                .choices = CHOICES("Auto", "Canon", "ML Grayscale", "HaCKeD"),
+                .choices = CHOICES("Auto", "Real-time", "Framing", "Frozen LV"),
+                .help  = "Raw video preview (long half-shutter press to override):",
                 .help2 = "Auto: ML chooses what's best for each video mode\n"
-                         "Canon: plain old LiveView. Framing is not always correct.\n"
-                         "ML Grayscale: looks ugly, but at least framing is correct.\n"
-                         "HaCKeD: try to squeeze a little speed by killing LiveView.\n",
+                         "Plain old LiveView (color and real-time). Framing is not always correct.\n"
+                         "Slow (not real-time) and low-resolution, but has correct framing.\n"
+                         "Freeze LiveView for more speed; uses 'Framing' preview if Global Draw ON.\n",
                 .advanced = 1,
             },
             {
@@ -2729,19 +2671,74 @@ static int raw_rec_should_preview(void)
 
     /* keep x10 mode unaltered, for focusing */
     if (lv_dispsize == 10) return 0;
-    
-    if (PREVIEW_AUTO)
-        /* enable preview in x5 mode, since framing doesn't match */
-        return lv_dispsize == 5;
 
-    else if (PREVIEW_CANON)
+    /* framing is incorrect in modes with high resolutions
+     * (e.g. x5 zoom, crop_rec) */
+    int raw_active_width = raw_info.active_area.x2 - raw_info.active_area.x1;
+    int raw_active_height = raw_info.active_area.y2 - raw_info.active_area.y1;
+    int framing_incorrect =
+        raw_active_width > 2000 ||
+        raw_active_height > (video_mode_fps <= 30 ? 1300 : 720);
+
+    /* some modes have Canon preview totally broken */
+    int preview_broken = (lv_dispsize == 1 && raw_active_width > 2000);
+
+    int prefer_framing_preview = 
+        (res_x < max_res_x * 80/100) ? 1 :  /* prefer correct framing instead of large black bars */
+        (res_x*9 < res_y*16)         ? 1 :  /* tall aspect ratio -> prevent image hiding under info bars*/
+        (framing_incorrect)          ? 1 :  /* use correct framing in modes where Canon preview is incorrect */
+                                       0 ;  /* otherwise, use plain LiveView */
+
+    /* only override on long half-shutter press, when not autofocusing */
+    /* todo: move these in core, with a proper API */
+    static int long_halfshutter_press = 0;
+    static int last_hs_unpress = 0;
+    static int autofocusing = 0;
+
+    if (!get_halfshutter_pressed())
+    {
+        autofocusing = 0;
+        long_halfshutter_press = 0;
+        last_hs_unpress = get_ms_clock_value();
+    }
+    else
+    {
+        if (lv_focus_status == 3)
+        {
+            autofocusing = 1;
+        }
+        if (get_ms_clock_value() - last_hs_unpress > 500)
+        {
+            long_halfshutter_press = 1;
+        }
+    }
+
+    if (autofocusing)
+    {
+        /* disable our preview during autofocus */
         return 0;
-    
+    }
+
+    if (PREVIEW_AUTO)
+    {
+        /* half-shutter overrides default choice */
+        if (preview_broken) return 1;
+        return prefer_framing_preview ^ long_halfshutter_press;
+    }
+    else if (PREVIEW_CANON)
+    {
+        return long_halfshutter_press;
+    }
     else if (PREVIEW_ML)
-        return 1;
-    
+    {
+        return !long_halfshutter_press;
+    }
     else if (PREVIEW_HACKED)
-        return RAW_IS_RECORDING || get_halfshutter_pressed() || lv_dispsize == 5;
+    {
+        if (preview_broken) return 1;
+        return (RAW_IS_RECORDING || prefer_framing_preview)
+            ^ long_halfshutter_press;
+    }
     
     return 0;
 }
@@ -2760,27 +2757,40 @@ static unsigned int raw_rec_update_preview(unsigned int ctx)
         }
         return enabled;
     }
-    
+
+    /* only consider speed when the recorder is actually busy */
+    int queued_frames = MOD(writing_queue_tail - writing_queue_head, COUNT(writing_queue));
+    int need_for_speed = (RAW_IS_RECORDING) && (
+        (PREVIEW_HACKED && queued_frames > slot_count / 8) ||
+        (queued_frames > slot_count / 4)
+    );
+
     struct display_filter_buffers * buffers = (struct display_filter_buffers *) ctx;
 
     raw_previewing = 1;
-    raw_set_preview_rect(skip_x, skip_y, res_x, res_y);
+    raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
     raw_force_aspect_ratio_1to1();
+
+    /* when recording, preview both full-size buffers,
+     * to make sure it's not recording every other frame */
+    static int fi = 0; fi = !fi;
     raw_preview_fast_ex(
-        (void*)-1,
-        PREVIEW_HACKED && RAW_RECORDING ? (void*)-1 : buffers->dst_buf,
+        RAW_IS_RECORDING ? fullsize_buffers[fi] : (void*)-1,
+        PREVIEW_HACKED && RAW_IS_RECORDING ? (void*)-1 : buffers->dst_buf,
         -1,
         -1,
-        get_halfshutter_pressed() ? RAW_PREVIEW_COLOR_HALFRES : RAW_PREVIEW_GRAY_ULTRA_FAST
+        (need_for_speed && !get_halfshutter_pressed())
+            ? RAW_PREVIEW_GRAY_ULTRA_FAST
+            : RAW_PREVIEW_COLOR_HALFRES
     );
     raw_previewing = 0;
 
-    if (!RAW_IS_IDLE)
-    {
-        /* be gentle with the CPU, save it for recording (especially if the buffer is almost full) */
-        //~ msleep(free_buffers <= 2 ? 2000 : used_buffers > 1 ? 1000 : 100);
-        msleep(1000);
-    }
+    /* be gentle with the CPU, save it for recording (especially if the buffer is almost full) */
+    msleep(
+        (need_for_speed)
+            ? ((queued_frames > slot_count / 2) ? 1000 : 500)
+            : 50
+    );
 
     preview_dirty = 1;
     return 1;
