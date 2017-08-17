@@ -413,8 +413,10 @@ PROP_HANDLER(PROP_ABORT)
     {
         /* 5D3: this prevents RING and RASEN from being saved
          * when opening battery door (check with e.g. PROP_VIDEO_SYSTEM) */
+#ifdef CONFIG_5D3
         extern int terminateAbort_save_settings;
         terminateAbort_save_settings = 0;
+#endif
 
         #if defined(CONFIG_MODULES)
         /* if no hard crash, load the modules after taking the battery out */
