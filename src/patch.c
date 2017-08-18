@@ -1244,6 +1244,7 @@ static MENU_UPDATE_FUNC(patches_update)
 
 #define PATCH_ENTRY(i) \
         { \
+            .name = "(empty)", \
             .priv = (void*)i, \
             .update = patch_update, \
             .shidden = 1, \
@@ -1251,6 +1252,7 @@ static MENU_UPDATE_FUNC(patches_update)
 
 #define MATRIX_PATCH_ENTRY(i) \
         { \
+            .name = "(empty)", \
             .priv = (void*)i, \
             .select = matrix_patch_scroll, \
             .update = matrix_patch_update, \
