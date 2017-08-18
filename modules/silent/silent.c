@@ -1094,7 +1094,7 @@ silent_pic_take_lv(int interactive)
     }
 
     /* save the image(s) to card */
-    if (sp_num_frames > 1 || silent_pic_mode == SILENT_PIC_MODE_SLITSCAN)
+    if (1)
     {
         /* this will take a while; pause the liveview and block the buttons to make sure the user won't do something stupid */
         PauseLiveView();
@@ -1116,7 +1116,7 @@ silent_pic_take_lv(int interactive)
                 silent_pic_raw_show_focus(i);
 
             local_raw_info.buffer = sp_frames[i % sp_buffer_count];
-            raw_set_preview_rect(raw_info.active_area.x1, raw_info.active_area.y1, raw_info.active_area.x2 - raw_info.active_area.x1, raw_info.active_area.y2 - raw_info.active_area.y1, 1);
+            raw_set_preview_rect(raw_info.active_area.x1, raw_info.active_area.y1, raw_info.active_area.x2 - raw_info.active_area.x1, raw_info.active_area.y2 - raw_info.active_area.y1, 0);
             raw_force_aspect_ratio(0, 0);
             raw_preview_fast_ex(local_raw_info.buffer, (void*)-1, -1, -1, -1);
             
@@ -1151,16 +1151,6 @@ silent_pic_take_lv(int interactive)
             /* was it a burst sequence? reset the MLV frame counter to start a new file */
             mlv_file_frame_number = 0;
         }
-    }
-    else
-    {
-        if (is_intervalometer_running())
-            idle_force_powersave_now();
-        
-        local_raw_info.buffer = sp_frames[0];
-        bmp_printf(FONT_MED, 0, 60, "Saving %d x %d...", local_raw_info.jpeg.width, local_raw_info.jpeg.height);
-        ok = silent_pic_save_file(&local_raw_info, 0);
-        redraw();
     }
     
 cleanup:
