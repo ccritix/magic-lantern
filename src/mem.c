@@ -27,7 +27,8 @@
 #define dbg_printf(fmt,...) {}
 #endif
 
-#define MEM_SEC_ZONE 32
+#define MEMCHECK_CHECK          /* disable if running in qemu with -d memcheck */
+#define MEM_SEC_ZONE 16
 #define MEMCHECK_ENTRIES 256
 #define HISTORY_ENTRIES 256
 #define TASK_NAME_SIZE 12
@@ -88,7 +89,7 @@ struct mem_allocator
     int preferred_min_alloc_size;           /* if size is outside this range, it will try from other allocators */
     int preferred_max_alloc_size;           /* (but if it can't find any, it may still use this buffer) */
     int preferred_free_space;               /* if free space would drop under this, will try from other allocators first */
-    int minimum_free_space;                 /* will never allocate if free space would drop under this */
+    int minimum_free_space;                 /* will only use as a last resort if free space would drop under this */
     int minimum_alloc_size;                 /* will never allocate a buffer smaller than this */
     int maximum_blocks;                     /* will never allocate more than N buffers */
     
@@ -332,6 +333,10 @@ static const char * format_memory_size_and_flags( unsigned size, unsigned flags)
 /* second arg is optional, -1 if not available */
 static unsigned int memcheck_check(unsigned int ptr, unsigned int entry)
 {
+#ifndef MEMCHECK_CHECK
+    return 0;
+#endif
+
     unsigned int failed = 0;
     unsigned int failed_pos = 0;
     
@@ -456,6 +461,10 @@ static unsigned int memcheck_get_failed()
 
 static void memcheck_add(unsigned int ptr, const char *file, unsigned int line)
 {
+#ifndef MEMCHECK_CHECK
+    return;
+#endif
+
     int tries = MEMCHECK_ENTRIES;
     
     unsigned int state = cli();
@@ -485,6 +494,10 @@ static void memcheck_add(unsigned int ptr, const char *file, unsigned int line)
 
 static void memcheck_remove(unsigned int ptr, unsigned int failed)
 {
+#ifndef MEMCHECK_CHECK
+    return;
+#endif
+
     unsigned int buf_pos = ((struct memcheck_hdr *)ptr)->id;
     ((struct memcheck_hdr *)ptr)->id = JUST_FREED;
     
@@ -534,7 +547,8 @@ static void *memcheck_malloc( unsigned int len, const char *file, unsigned int l
     /* some allocators may return invalid ptr; discard it and return 0, as C malloc does */
     if ((intptr_t)ptr & 1) return 0;
     if (!ptr) return 0;
-    
+
+#ifdef MEMCHECK_CHECK
     /* fill MEM_SEC_ZONE with 0xA5 */
     for(unsigned pos = 0; pos < MEM_SEC_ZONE; pos++)
     {
@@ -545,7 +559,8 @@ static void *memcheck_malloc( unsigned int len, const char *file, unsigned int l
     {
         ((unsigned char *)ptr)[pos] = 0xA5;
     }
-    
+#endif
+
     /* did our allocator return a cacheable or uncacheable pointer? */
     unsigned int uncacheable_flag = (ptr == (unsigned int) UNCACHEABLE(ptr)) ? UNCACHEABLE_FLAG : 0;
     
@@ -671,13 +686,14 @@ static int search_for_allocator(int size, int require_preferred_size, int requir
         if (!(
                 (
                     /* preferred free space is... well... optional */
-                    !require_preferred_free_space ||
+                    (require_preferred_free_space <= 0) ||
                     (free_space - size - 1024 > allocators[a].preferred_free_space)
                 )
                 &&
                 (
-                    /* minimum_free_space is mandatory */
-                    free_space - size - 1024 > allocators[a].minimum_free_space
+                    /* minimum_free_space is important, but can be relaxed as a last resort, for small buffers */
+                    (require_preferred_free_space == -1 && size < allocators[a].minimum_free_space / 16) ||
+                    (free_space - size - 1024 > allocators[a].minimum_free_space)
                 )
            ))
         {
@@ -746,7 +762,12 @@ static int choose_allocator(int size, unsigned int flags)
     }
     
     /* DMA is mandatory, don't relax it */
-    
+
+    /* for small buffers, let's try an allocator with large minimum_free_space */
+    /* where breaking this constraint is unlikely to cause issues */
+    a = search_for_allocator(size, 0, -1, 0, needs_dma);
+    if (a >= 0) return a;
+
     /* if we arrive here, you should probably solder some memory chips on the mainboard */
     return -1;
 }
@@ -813,6 +834,8 @@ void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned i
 
 void __mem_free(void* buf)
 {
+    if (!buf) return;
+
     take_semaphore(mem_sem, 0);
 
     unsigned int ptr = (unsigned int)buf - MEM_SEC_ZONE;
@@ -981,6 +1004,7 @@ static void guess_free_mem_task(void* priv, int delta)
     {
         chunkAvail = GetSizeOfMemoryChunk(currentChunk);
         chunkAddress = (void*)GetMemoryAddressOfMemoryChunk(currentChunk);
+        printf("shoot buffer: %x ... %x\n", chunkAddress, chunkAddress + chunkAvail - 1);
 
         int mb = 10*chunkAvail/1024/1024;
         STR_APPEND(shoot_malloc_frag_desc, mb%10 ? "%s%d.%d" : "%s%d", total ? "+" : "", mb/10, mb%10);
@@ -1019,6 +1043,7 @@ static void guess_free_mem_task(void* priv, int delta)
         chunkAvail = GetSizeOfMemoryChunk(currentChunk);
         chunkAddress = (void*)GetMemoryAddressOfMemoryChunk(currentChunk);
         ASSERT(chunkAvail == srm_buffer_size);
+        printf("srm buffer: %x ... %x\n", chunkAddress, chunkAddress + chunkAvail - 1);
 
         int start = MEMORY_MAP_ADDRESS_TO_INDEX(chunkAddress);
         int width = MEMORY_MAP_ADDRESS_TO_INDEX(chunkAvail);

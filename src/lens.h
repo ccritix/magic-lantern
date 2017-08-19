@@ -78,7 +78,9 @@ struct lens_info
         int                     dof_diffraction_blur;   /* fixme: move those near other DOF fields on next API update */
         //~ float                   lens_rotation;
         //~ float                   lens_step;
-        
+        int                     focus_pos;              /* fine steps, starts at 0, range is lens-dependent,
+                                                         * only updates when motor moves (will lose position during MF) */
+
         /* those were retrieved from PROP_LENS property */
         uint8_t                 lens_exists;
         uint16_t                lens_focal_min;
@@ -104,17 +106,20 @@ struct prop_lv_lens
         uint32_t                off_0x14;
         uint32_t                off_0x18;
         uint32_t                off_0x1c;
-        uint32_t                off_0x20;
-        uint32_t                off_0x24;
+        uint16_t                off_0x20;
+        uint8_t                 off_0x22;
+        uint16_t                focus_pos; // off_0x23
+        uint8_t                 off_0x25;
+        uint16_t                off_0x26;
         uint32_t                off_0x28;
-        uint16_t                off_unk0;        
-        uint8_t                 off_unk1;
-        uint16_t                focal_len;      
-        uint16_t                off_unk2;
-        uint16_t                focus_dist;      
-        uint32_t                off_0x30;
-        uint32_t                off_0x34;
-        uint8_t                 off_0x38;
+        uint16_t                off_0x2c;        
+        uint8_t                 off_0x2e;
+        uint16_t                focal_len;  // off_0x2f
+        uint16_t                off_0x31;
+        uint16_t                focus_dist; // off_0x33
+        uint32_t                off_0x35;
+        uint32_t                off_0x39;
+        uint8_t                 off_0x3d;
 
 } __attribute__((packed));
 
@@ -123,24 +128,25 @@ SIZE_CHECK_STRUCT( prop_lv_lens, 62 );
 #elif defined(CONFIG_EOSM)
 struct prop_lv_lens
 {
-        uint32_t                lens_rotation; // 
-        uint32_t                lens_step; // 
-        uint32_t                off_0x08;  // 
-        uint32_t                off_0x0c;  // 
-        uint32_t                off_0x10;  // 
-        uint32_t                off_0x14;  // 
-        uint32_t                off_0x18;  // 
-        uint32_t                off_0x1c;  // 
-        uint32_t                off_0x20;  // 
-        uint32_t                off_0x24;  // 
-        uint32_t                off_0x28;  // L10  - names not accurate
-        uint16_t                off_0x30;  //      
-        uint16_t                focal_len; // 
-        uint16_t                focus_dist; // One FD
-        uint16_t                focus_dist2;//       
-        uint16_t                off_0x38;  // 
-        uint32_t                off_0x3c;  // 
-        uint8_t                 off_0x3D;  // 
+        uint32_t                lens_rotation;
+        uint32_t                lens_step;
+        uint32_t                off_0x08;
+        uint32_t                off_0x0c;
+        uint32_t                off_0x10;
+        uint32_t                off_0x14;
+        uint32_t                off_0x18;
+        uint32_t                off_0x1c;
+        uint16_t                off_0x20;
+        uint16_t                focus_pos;  // off_0x22; guess (not tested)
+        uint32_t                off_0x24;
+        uint32_t                off_0x28;
+        uint16_t                off_0x2c;
+        uint16_t                focal_len;  // off_0x2e
+        uint16_t                focus_dist; // One FD; off_0x30
+        uint16_t                focus_dist2;// off_0x32
+        uint16_t                off_0x34;
+        uint32_t                off_0x36;
+        uint8_t                 off_0x3a;
         
 } __attribute__((packed));
 
@@ -157,7 +163,8 @@ struct prop_lv_lens
         uint32_t                off_0x14;
         uint32_t                off_0x18;
         uint32_t                off_0x1c;
-        uint32_t                off_0x20;
+        int16_t                 focus_pos;  /* off_0x20; see lens_info.focus_pos */
+        uint16_t                off_0x22;
         uint32_t                off_0x24;
         uint32_t                off_0x28;
         uint16_t                focal_len;      // off_0x2c;
@@ -297,7 +304,7 @@ static const uint8_t  codes_aperture[] =  {0,  10,  11,  12,  13,  14,  15,  16,
 // UNIT_1_8_EV
 #define APEX_TV(raw) ((int)(raw) - 56)
 #define APEX_AV(raw) ((raw) ? (int)(raw) - 8 : 0)
-#define APEX_SV(raw) ((int)(raw) - 32)
+#define APEX_SV(raw) ((raw) ? (int)(raw) - 32 : 0)
 
 // UNIT APEX * 10
 #define APEX10_RAW2TV(raw) RSCALE(APEX_TV(raw), 10, 8)
@@ -307,7 +314,7 @@ static const uint8_t  codes_aperture[] =  {0,  10,  11,  12,  13,  14,  15,  16,
 
 #define APEX10_TV2RAW(apex) -APEX_TV(RSCALE(-(apex), 8, 10))
 #define APEX10_AV2RAW(apex) -APEX_AV(RSCALE(-(apex), 8, 10))    /* pathological case at f/0.8 */
-#define APEX10_SV2RAW(apex) -APEX_SV(RSCALE(-(apex), 8, 10))
+#define APEX10_SV2RAW(apex) -APEX_SV(RSCALE(-(apex), 8, 10))    /* pathological case at ISO 3.125 */
 #define APEX10_AV2VAL(apex) values_aperture[raw2index_aperture(APEX10_AV2RAW(apex))]
 
 #define APEX1000_RAW2TV(raw) RSCALE(APEX_TV(raw), 1000, 8)
@@ -317,7 +324,7 @@ static const uint8_t  codes_aperture[] =  {0,  10,  11,  12,  13,  14,  15,  16,
 
 #define APEX1000_TV2RAW(apex) -APEX_TV(RSCALE(-(apex), 8, 1000))
 #define APEX1000_AV2RAW(apex) -APEX_AV(RSCALE(-(apex), 8, 1000))    /* pathological case at f/0.8 */
-#define APEX1000_SV2RAW(apex) -APEX_SV(RSCALE(-(apex), 8, 1000))
+#define APEX1000_SV2RAW(apex) -APEX_SV(RSCALE(-(apex), 8, 1000))    /* pathological case at ISO 3.125 */
 #define APEX1000_EC2RAW(apex) RSCALE(apex, 8, 1000)
 
 // Conversions
