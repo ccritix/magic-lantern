@@ -597,8 +597,10 @@ const char* get_assert_msg() { return assert_msg; }
 static int my_assert_handler(char* msg, char* file, int line, int arg4)
 {
     /* prevent Canon settings from being saved at shutdown */
+#ifdef CONFIG_5D3
     extern int terminateShutdown_save_settings;
     terminateShutdown_save_settings = 0;
+#endif
 
     int len = snprintf(assert_msg, sizeof(assert_msg), 
         "ASSERT: %s\n"
@@ -616,8 +618,10 @@ static int my_assert_handler(char* msg, char* file, int line, int arg4)
 void ml_assert_handler(char* msg, char* file, int line, const char* func)
 {
     /* prevent Canon settings from being saved at shutdown */
+#ifdef CONFIG_5D3
     extern int terminateShutdown_save_settings;
     terminateShutdown_save_settings = 0;
+#endif
 
     int len = snprintf(assert_msg, sizeof(assert_msg), 
         "ML ASSERT:\n%s\n"
