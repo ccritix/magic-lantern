@@ -570,11 +570,13 @@ static void my_big_init_task()
     msleep(500);
     ml_started = 1;
 
+#ifdef CONFIG_5D3
     /* scan for the magic number 0xA5A5A5A5 that might have been
      * written into ROM as a result of a null pointer bug */
     msleep(1000);
     void scan_A5A5();
     scan_A5A5();
+#endif
 }
 
 /** Blocks execution until config is read */
