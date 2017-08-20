@@ -547,7 +547,6 @@ static void raw_lv_free_buffer()
     raw_lv_buffer_size = 0;
 }
 
-#ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
 /* requires raw_sem */
 static void raw_lv_realloc_buffer()
 {
@@ -602,6 +601,7 @@ static void raw_lv_realloc_buffer()
         return;
     }
 
+#ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
 #ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY
     /* dummy allocation, exploiting use after free */
     /* this assumes nobody will touch the SRM memory while in LiveView */
@@ -618,12 +618,17 @@ static void raw_lv_realloc_buffer()
     }
 #else
     raw_allocated_lv_buffer = fio_malloc(RAW_LV_BUFFER_ALLOC_SIZE);
-#endif
+#endif /* CONFIG_ALLOCATE_RAW_LV_BUFFER_SRM_DUMMY */
 
     raw_lv_buffer = raw_allocated_lv_buffer;
     raw_lv_buffer_size = RAW_LV_BUFFER_ALLOC_SIZE;
-}
+    return;
 #endif /* CONFIG_ALLOCATE_RAW_LV_BUFFER */
+
+    /* you should enable CONFIG_ALLOCATE_RAW_LV_BUFFER
+     * or find some other way to reserve memory for the RAW LV buffer */
+    ASSERT(0);
+}
 #endif /* CONFIG_RAW_LIVEVIEW */
 
 static int raw_update_params_work()
@@ -677,9 +682,7 @@ static int raw_update_params_work()
         }
         #endif
 
-#ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
         raw_lv_realloc_buffer();
-#endif
         raw_info.buffer = raw_get_default_lv_buffer();
         
         if (!raw_info.buffer)
@@ -2074,9 +2077,7 @@ static void raw_lv_enable()
 #endif
 #endif
 
-#ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
     raw_lv_realloc_buffer();
-#endif
 }
 
 static void raw_lv_disable()
