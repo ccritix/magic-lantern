@@ -1030,6 +1030,69 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, "\n");
 }
 
+void print_sampling_info(int bin, int skip, char * what)
+{
+    if (bin + skip == 1) {
+        print_msg(MSG_INFO, "read every %s", what);
+    } else if (skip == 0) {
+        print_msg(MSG_INFO, "bin %d %s%s", bin, what, bin == 1 ? "" : "s");
+    } else {
+        print_msg(MSG_INFO, "%s %d %s%s", bin == 1 ? "read" : "bin", bin, what, bin == 1 ? "" : "s");
+        if (skip) {
+            print_msg(MSG_INFO, ", skip %d", skip);
+        }
+    }
+}
+
+void print_capture_info(mlv_rawc_hdr_t * rawc)
+{
+    print_msg(
+        MSG_INFO, "    raw_capture_info:\n"
+    );
+    print_msg(
+        MSG_INFO, "      sensor res      %dx%d\n",
+        rawc->sensor_res_x,
+        rawc->sensor_res_y
+    );
+    print_msg(
+        MSG_INFO, "      sensor crop     %d.%02d (%s)\n",
+        rawc->sensor_crop / 100,
+        rawc->sensor_crop % 100,
+        rawc->sensor_crop == 100 ? "Full frame" : 
+        rawc->sensor_crop == 162 ? "APS-C" : "35mm equiv"
+    );
+    
+    int sampling_x = rawc->binning_x + rawc->skipping_x;
+    int sampling_y = rawc->binning_y + rawc->skipping_y;
+    
+    print_msg(
+        MSG_INFO, "      sampling        %dx%d (",
+        sampling_y, sampling_x
+    );
+    print_sampling_info(
+        rawc->binning_y,
+        rawc->skipping_y,
+        "line"
+    );
+    print_msg(MSG_INFO, ", ");
+    print_sampling_info(
+        rawc->binning_x,
+        rawc->skipping_x,
+        "column"
+    );
+    print_msg(MSG_INFO, ")\n");
+
+    if (rawc->offset_x != -32768 &&
+        rawc->offset_y != -32768)
+    {
+        print_msg(
+            MSG_INFO, "      offset          %d,%d\n",
+            rawc->offset_x,
+            rawc->offset_y
+        );
+    }
+}
+
 int main (int argc, char *argv[])
 {
     char *input_filename = NULL;
@@ -2904,6 +2967,61 @@ read_headers:
                     free(buf);
                 }
             }
+            else if(!memcmp(buf.blockType, "VERS", 4))
+            {
+                mlv_vers_hdr_t block_hdr;
+                int32_t hdr_size = MIN(sizeof(mlv_vers_hdr_t), buf.blockSize);
+
+                if(fread(&block_hdr, hdr_size, 1, in_file) != 1)
+                {
+                    print_msg(MSG_ERROR, "File ends in the middle of a block\n");
+                    goto abort;
+                }
+
+                lua_handle_hdr(lua_state, buf.blockType, &block_hdr, sizeof(block_hdr));
+
+                /* get the string length and malloc a buffer for that string */
+                int str_length = block_hdr.blockSize - hdr_size;
+
+                if(str_length)
+                {
+                    char *buf = malloc(str_length + 1);
+
+                    if(fread(buf, str_length, 1, in_file) != 1)
+                    {
+                        free(buf);
+                        print_msg(MSG_ERROR, "File ends in the middle of a block\n");
+                        goto abort;
+                    }
+
+                    if(verbose)
+                    {
+                        buf[block_hdr.length] = '\000';
+                        print_msg(MSG_INFO, "  String: '%s'\n", buf);
+                    }
+                    
+                    /* only output this block if there is any data */
+                    if(mlv_output && !no_metadata_mode)
+                    {
+                        /* correct header size if needed */
+                        block_hdr.blockSize = sizeof(mlv_vers_hdr_t) + str_length;
+                        if(fwrite(&block_hdr, sizeof(mlv_vers_hdr_t), 1, out_file) != 1)
+                        {
+                            free(buf);
+                            print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
+                            goto abort;
+                        }
+                        if(fwrite(buf, str_length, 1, out_file) != 1)
+                        {
+                            free(buf);
+                            print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
+                            goto abort;
+                        }
+                    }
+
+                    free(buf);
+                }
+            }
             else if(!memcmp(buf.blockType, "ELVL", 4))
             {
                 mlv_elvl_hdr_t block_hdr;
@@ -3223,6 +3341,27 @@ read_headers:
                     }
                 }
             }
+            else if(!memcmp(buf.blockType, "RAWC", 4))
+            {
+                mlv_rawc_hdr_t block_hdr;
+                uint32_t hdr_size = MIN(sizeof(mlv_rawc_hdr_t), buf.blockSize);
+
+                if(fread(&block_hdr, hdr_size, 1, in_file) != 1)
+                {
+                    print_msg(MSG_ERROR, "File ends in the middle of a block\n");
+                    goto abort;
+                }
+
+                /* skip remaining data, if there is any */
+                file_set_pos(in_file, position + block_hdr.blockSize, SEEK_SET);
+                
+                lua_handle_hdr(lua_state, buf.blockType, &block_hdr, sizeof(block_hdr));
+
+                if(verbose)
+                {
+                    print_capture_info(&block_hdr);
+                }
+            }            
             else if(!memcmp(buf.blockType, "WAVI", 4))
             {
                 mlv_wavi_hdr_t block_hdr;

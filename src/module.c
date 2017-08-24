@@ -10,6 +10,7 @@
 #include "beep.h"
 #include "bmp.h"
 #include "lens.h"
+#include "ml-cbr.h"
 
 #ifndef CONFIG_MODULES_MODEL_SYM
 #error Not defined file name with symbols
@@ -485,16 +486,34 @@ static void _module_load_all(uint32_t list_only)
                 }
             }
             
-            /* register property handlers */
-            if(module_list[mod].prop_handlers && !module_list[mod].error)
+            if(!module_list[mod].error)
             {
                 module_prophandler_t **props = module_list[mod].prop_handlers;
-                while(*props != NULL)
+                module_cbr_t *cbr = module_list[mod].cbr;
+                
+                /* register property handlers */
+                while(props && *props)
                 {
                     update_properties = 1;
                     printf("  [i] prop %s\n", (*props)->name);
                     prop_add_handler((*props)->property, (*props)->handler);
                     props++;
+                }
+                
+                /* register ml-cbr callback handlers */
+                while(cbr && cbr->name)
+                {
+                    /* register "named" callbacks through ml-cbr */
+                    if(cbr->type == CBR_NAMED)
+                    {
+                        printf("  [i] ml-cbr '%s' 0%08X (%s)\n", cbr->name, cbr->handler, cbr->symbol);
+                        ml_register_cbr(cbr->name, (cbr_func)cbr->handler, 0);
+                    }
+                    else
+                    {
+                        printf("  [i] cbr '%s' -> 0%08X\n", cbr->name, cbr->handler);
+                    }
+                    cbr++;
                 }
             }
             
@@ -540,6 +559,19 @@ static void _module_unload_all(void)
             {
                 module_list[mod].info->deinit();
                 module_list[mod].valid = 0;
+            }
+            
+            module_cbr_t *cbr = module_list[mod].cbr;
+        
+            /* register ml-cbr callback handlers */
+            while(cbr && cbr->name)
+            {
+                /* unregister "named" callbacks through ml-cbr */
+                if(cbr->type == CBR_NAMED)
+                {
+                    ml_unregister_cbr(cbr->name, (cbr_func)cbr->handler);
+                }
+                cbr++;
             }
         }
     }
@@ -1011,8 +1043,6 @@ static MENU_SELECT_FUNC(module_menu_update_select)
     config_flag_file_setting_save(enable_file, module_list[mod_number].enabled);
 }
 
-static const char* module_get_string(int mod_number, const char* name);
-
 static int startswith(const char* str, const char* prefix)
 {
     const char* s = str;
@@ -1173,6 +1203,8 @@ static void module_menu_update()
         /* only update those which display module information */
         if(entry->update == module_menu_update_entry)
         {
+            ASSERT(mod_number == (int) entry->priv);
+
             if(module_list[mod_number].valid)
             {
                 MENU_SET_SHIDDEN(0);
@@ -1189,6 +1221,9 @@ static void module_menu_update()
         }
         entry = entry->next;
     }
+
+    /* make sure we have as many menu entries as modules */
+    ASSERT(mod_number == MODULE_COUNT_MAX);
 }
 
 /* check which modules are loaded and hide others */
@@ -1210,8 +1245,13 @@ static MENU_SELECT_FUNC(module_info_toggle)
     }
 }
 
-static const char* module_get_string(int mod_number, const char* name)
+const char* module_get_string(int mod_number, const char* name)
 {
+    if(mod_number < 0 || mod_number >= MODULE_COUNT_MAX)
+    {
+        return NULL;
+    }
+    
     module_strpair_t *strings = module_list[mod_number].strings;
 
     if (strings)
@@ -1224,7 +1264,44 @@ static const char* module_get_string(int mod_number, const char* name)
             }
         }
     }
-    return 0;
+    
+    return NULL;
+}
+
+const char* module_get_name(int mod_number)
+{
+    if(mod_number < 0 || mod_number >= MODULE_COUNT_MAX)
+    {
+        return NULL;
+    }
+    
+    return module_list[mod_number].name;
+}
+
+/*  returns the next loaded module id, or -1 when the end was reached.
+    if passing -1 as the mod_number, it will return the first loaded module number.
+*/
+int module_get_next_loaded(int mod_number)
+{
+    if(mod_number < 0)
+    {
+        mod_number = -1;
+    }
+    
+    while(1)
+    {
+        mod_number++;
+        
+        if(mod_number >= MODULE_COUNT_MAX)
+        {
+            return -1;
+        }
+        
+        if(module_list[mod_number].valid && module_list[mod_number].enabled)
+        {
+            return mod_number;
+        }
+    }
 }
 
 static int module_is_special_string(const char* name)
@@ -1449,6 +1526,7 @@ static struct menu_entry module_submenu[] = {
 
 #define MODULE_ENTRY(i) \
         { \
+            .name = "Module", \
             .priv = (void*)i, \
             .select = module_menu_update_select, \
             .select_Q = module_open_submenu, \
@@ -1491,6 +1569,38 @@ static struct menu_entry module_menu[] = {
     MODULE_ENTRY(29)
     MODULE_ENTRY(30)
     MODULE_ENTRY(31)
+    MODULE_ENTRY(32)
+    MODULE_ENTRY(33)
+    MODULE_ENTRY(34)
+    MODULE_ENTRY(35)
+    MODULE_ENTRY(36)
+    MODULE_ENTRY(37)
+    MODULE_ENTRY(38)
+    MODULE_ENTRY(39)
+    MODULE_ENTRY(40)
+    MODULE_ENTRY(41)
+    MODULE_ENTRY(42)
+    MODULE_ENTRY(43)
+    MODULE_ENTRY(44)
+    MODULE_ENTRY(45)
+    MODULE_ENTRY(46)
+    MODULE_ENTRY(47)
+    MODULE_ENTRY(48)
+    MODULE_ENTRY(49)
+    MODULE_ENTRY(50)
+    MODULE_ENTRY(51)
+    MODULE_ENTRY(52)
+    MODULE_ENTRY(53)
+    MODULE_ENTRY(54)
+    MODULE_ENTRY(55)
+    MODULE_ENTRY(56)
+    MODULE_ENTRY(57)
+    MODULE_ENTRY(58)
+    MODULE_ENTRY(59)
+    MODULE_ENTRY(60)
+    MODULE_ENTRY(61)
+    MODULE_ENTRY(62)
+    MODULE_ENTRY(63)
 };
 
 static struct menu_entry module_debug_menu[] = {
