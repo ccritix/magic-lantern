@@ -32,6 +32,7 @@
 
 #include "config-defines.h"
 #include "compiler.h"
+#include "mutex.h"
 #include "dialog.h"
 #include "consts.h"
 #include "gui.h"
@@ -69,7 +70,7 @@ extern void *AcquireRecursiveLock(void *lock, int n);
 extern void *CreateRecursiveLock(int n);
 extern void *ReleaseRecursiveLock(void *lock);
 
-struct semaphore;
+struct semaphore {;} CAPABILITY("mutex");
 
 extern struct semaphore *
 create_named_semaphore(
@@ -81,12 +82,12 @@ extern int
 take_semaphore(
         struct semaphore *      semaphore,
         int                     timeout_interval
-);
+) ACQUIRE(semaphore) NO_THREAD_SAFETY_ANALYSIS;
 
 extern int
 give_semaphore(
         struct semaphore *      semaphore
-);
+) RELEASE(semaphore) NO_THREAD_SAFETY_ANALYSIS;
 
 extern void
 bzero32(
@@ -148,7 +149,7 @@ int rand (void);
 #define ASSERT(x) { if (!(x)) { ml_assert_handler(#x, __FILE__, __LINE__, __func__); }}
 //~ #define ASSERT(x) {}
 
-#define STR_APPEND(orig,fmt,...) ({ int _len = strlen(orig); snprintf(orig + _len, sizeof(orig) - _len, fmt, ## __VA_ARGS__); });
+#define STR_APPEND(orig,fmt,...) do { int _len = strlen(orig); snprintf(orig + _len, sizeof(orig) - _len, fmt, ## __VA_ARGS__); } while(0)
 
 #if defined(POSITION_INDEPENDENT)
 extern uint32_t _ml_base_address;

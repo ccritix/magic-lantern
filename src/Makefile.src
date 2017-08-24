@@ -5,7 +5,7 @@
 all:: autoexec.bin print_build_info
 
 clean::
-	$(call rm_files, *.o *.d autoexec autoexec.bin magiclantern magiclantern.bin)
+	$(call rm_files, *.o *.d *.i *.s autoexec autoexec.bin magiclantern magiclantern.bin)
 
 CFLAGS += \
 	-DCONFIG_MAGICLANTERN=1 \
@@ -269,6 +269,9 @@ $(SRC_DIR)/backtrace.c $(SRC_DIR)/backtrace.h:: $(SRC_DIR)/backtrace.%: $(QEMU_I
 # normally, *.h are added as dependencies of *.o in the *.d (make)files
 # but after "make clean" we don't have them
 $(SRC_DIR)/backtrace.c:: $(SRC_DIR)/backtrace.h
+
+# fixme: why?
+backtrace.t: backtrace.i
 
 endif
 

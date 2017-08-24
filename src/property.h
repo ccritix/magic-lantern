@@ -610,6 +610,8 @@ void prop_reset_registration(void);
 /* only re-register handlers in case it was updated in meantime */
 void prop_update_registration(void);
 
+THREAD_ROLE(PropMgrTask);
+
 /** Register a property handler with automated token function. module.h will define it for modules */
 #if !defined(MODULE)
 #define REGISTER_PROP_HANDLER_EX( id, func, length ) \
@@ -626,13 +628,12 @@ static struct prop_handler _prop_handler_##id##_block = { \
 #define PROP_HANDLER(id) \
 static void _prop_handler_##id(); \
 REGISTER_PROP_HANDLER( id, _prop_handler_##id ); \
-void _prop_handler_##id( \
+void REQUIRES(PropMgrTask) _prop_handler_##id( \
         unsigned                property, \
         void *                  token, \
         uint32_t *              buf, \
         unsigned                len \
 ) \
-
 
 #define PROP_INT(id,name) \
 volatile uint32_t name; \
