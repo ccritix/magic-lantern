@@ -1821,6 +1821,7 @@ void raw_video_rec_task()
     //~ console_show();
     /* init stuff */
     raw_recording_state = RAW_PREPARING;
+    NO_THREAD_SAFETY_CALL(init_vsync_vars)();
     slot_count = 0;
     chunk_frame_count = 0;
     FILE* f = 0;
