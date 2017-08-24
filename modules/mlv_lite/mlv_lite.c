@@ -1677,7 +1677,7 @@ static void show_recording_status()
                 rl_icon_width = bfnt_draw_char(
                     ICON_ML_MOVIE,
                     rl_x, rl_y,
-                    rl_color, COLOR_BG_DARK
+                    rl_color, NO_BG_ERASE
                 );
 
                 /* Display the Status */

@@ -215,7 +215,7 @@ static void menu_show_version(void);
 static struct menu * get_current_submenu();
 static struct menu * get_selected_menu();
 static void menu_make_sure_selection_is_valid();
-static void config_menu_load_flags();
+static void config_menu_reload_flags();
 static int guess_submenu_enabled(struct menu_entry * entry);
 static void menu_draw_icon(int x, int y, int type, intptr_t arg, int warn); // private
 static struct menu_entry * entry_find_by_name(const char* name, const char* entry_name);
@@ -1008,13 +1008,11 @@ static int get_menu_selected_pos(struct menu * menu)
 static int
 menu_has_visible_items(struct menu * menu)
 {
-    if (junkie_mode) // hide Debug and Help
+    if (junkie_mode) // hide Modules, Help and Modified
     {
         if (
-            streq(menu->name, "Debug") ||
-            streq(menu->name, "Help") ||
-            //~ streq(menu->name, "Scripts") ||
             streq(menu->name, "Modules") ||
+            streq(menu->name, "Help") ||
             streq(menu->name, MOD_MENU_NAME) ||
            0)
             return 0;
@@ -1113,6 +1111,7 @@ static void placeholder_copy(struct menu_entry * dst, struct menu_entry * src)
     int starred = dst->starred;
     int hidden = dst->hidden;
     int jhidden = dst->jhidden;
+    uint64_t usage_counters = dst->usage_counters;
     
     /* also keep the name pointer, which will help when removing the menu and restoring the placeholder */
     char* name = (char*) dst->name;
@@ -1126,6 +1125,7 @@ static void placeholder_copy(struct menu_entry * dst, struct menu_entry * src)
     dst->starred = starred;
     dst->hidden = hidden;
     dst->jhidden = jhidden;
+    dst->usage_counters = usage_counters;
 }
 
 /* if we find a placeholder entry, use it for changing the menu order */
@@ -1331,8 +1331,6 @@ menu_remove(
     struct menu * menu = menu_find_by_name( name, 0);
     if( !menu )
         return;
-    
-    menu_flags_load_dirty = 1;
 
     int removed = 0;
 
@@ -1365,8 +1363,10 @@ static float usage_counter_delta_long = 1.0;
 static float usage_counter_delta_short = 1.0;
 
 /* threshold for displaying the most used menu items */
+/* submenu items will all end up in the * column, so we'll adjust the threshold to avoid clutter */
 /* max value is used only for showing debug info */
 static float usage_counter_thr = 0;
+static float usage_counter_thr_sub = 0;
 static float usage_counter_max = 0;
 
 /* normalize the usage counters so the next increment is 1.0 */
@@ -1444,7 +1444,7 @@ end:
     give_semaphore(menu_sem);
 }
 
-static void menu_usage_counters_update_threshold(int num)
+static void menu_usage_counters_update_threshold(int num, int only_submenu_entries, int only_nonsubmenu_entries)
 {
     take_semaphore(menu_sem, 0);
 
@@ -1454,6 +1454,12 @@ static void menu_usage_counters_update_threshold(int num)
     for (struct menu * menu = menus; menu; menu = menu->next)
     {
         if (menu->no_name_lookup)
+            continue;
+
+        if (only_submenu_entries && !IS_SUBMENU(menu))
+            continue;
+
+        if (only_nonsubmenu_entries && IS_SUBMENU(menu))
             continue;
 
         for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
@@ -1471,6 +1477,12 @@ static void menu_usage_counters_update_threshold(int num)
     for (struct menu * menu = menus; menu; menu = menu->next)
     {
         if (menu->no_name_lookup)
+            continue;
+
+        if (only_submenu_entries && !IS_SUBMENU(menu))
+            continue;
+
+        if (only_nonsubmenu_entries && IS_SUBMENU(menu))
             continue;
 
         for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
@@ -1497,7 +1509,17 @@ static void menu_usage_counters_update_threshold(int num)
     }
 
     /* pick a threshold that selects the best "num" entries */
-    usage_counter_thr = MAX(counters[num-1], 0.01);
+    float thr = (num > 0) ? MAX(counters[num-1], 0.01) : 1e5;
+
+    if (!only_submenu_entries)
+    {
+        usage_counter_thr = thr;
+    }
+
+    if (!only_nonsubmenu_entries)
+    {
+        usage_counter_thr_sub = thr;
+    }
 
     free(counters);
 
@@ -2923,9 +2945,13 @@ static int mod_menu_select_func(struct menu_entry * entry)
 
 static int mru_menu_select_func(struct menu_entry * entry)
 {
+    float thr = IS_SUBMENU(entry->parent_menu)
+        ? usage_counter_thr_sub
+        : usage_counter_thr;
+
     return
-        entry->usage_counter_long_term  >= usage_counter_thr ||
-        entry->usage_counter_short_term >= usage_counter_thr ;
+        entry->usage_counter_long_term  >= thr ||
+        entry->usage_counter_short_term >= thr ;
 }
 
 static int mru_junkie_my_menu_select_func(struct menu_entry * entry)
@@ -3054,7 +3080,8 @@ static void junkie_menu_rebuild(int min_items, int * count_max, int * count_my, 
             {
                 if (mru_menu_select_func(entry))
                 {
-                    entry->jhidden = 1;
+                    /* move items from main menu, but not from submenus */
+                    entry->jhidden = !IS_SUBMENU(menu);
                     entry->jstarred = 1;
                     (*count_my)++;
                 }
@@ -3089,10 +3116,11 @@ my_menu_rebuild()
              * Threshold is increased until My Menu becomes
              * not much bigger than the longest menu.
              */
-            menu_usage_counters_update_threshold(junkie_mode * 10);
+            menu_usage_counters_update_threshold(junkie_mode * 10, 0, 0);
 
+            int count_max, count_my, count_my_next, count_my_0;
+            junkie_menu_rebuild(1, &count_max, &count_my_0, &count_my_next);
             int min = 2;
-            int count_max, count_my, count_my_next;
             do
             {
                 junkie_menu_rebuild(min, &count_max, &count_my, &count_my_next);
@@ -3100,11 +3128,14 @@ my_menu_rebuild()
             }
             while (min < 5 && count_my_next <= count_max + 2);
 
-            if (count_my > 0 && count_my < count_max - 2)
+            if (count_my > 0 && ABS(count_my - count_max) > 2)
             {
-                /* for some reason, My Menu ended up with few items */
-                /* let's add some more */
-                menu_usage_counters_update_threshold(junkie_mode * 10 + count_max - count_my - 2);
+                /* My Menu ended up with too few or too many items
+                 * it may look a bit unbalanced - let's "equalize" it */
+                int moved = count_my - count_my_0;
+                int sub_target = MAX(MAX(count_max, junkie_mode*4) - moved, 2);
+                menu_usage_counters_update_threshold(junkie_mode * 10 - sub_target, 0, 1);
+                menu_usage_counters_update_threshold(sub_target, 1, 0);
                 junkie_menu_rebuild(min-1, &count_max, &count_my, &count_my_next);
             }
 
@@ -3112,7 +3143,7 @@ my_menu_rebuild()
         }
         else
         {
-            menu_usage_counters_update_threshold(10);
+            menu_usage_counters_update_threshold(10, 0, 0);
             return dyn_menu_rebuild(my_menu, mru_menu_select_func, my_menu_placeholders, COUNT(my_menu_placeholders), DYN_MENU_EXPAND_ALL_SUBMENUS);
         }
     }
@@ -3396,7 +3427,7 @@ static char* junkie_get_shorttext(struct menu_display_info * info, int fnt, int 
         if (maxlen - len >= char_width * 4) // still plenty of space? try to print part of name too
         {
             static char nv[30];
-            char* sname = junkie_get_shortname(info, fnt, maxlen - len - 1);
+            char* sname = junkie_get_shortname(info, fnt, maxlen - len - bmp_string_width(fnt, " "));
             if (bmp_string_width(fnt, sname) >= char_width * 2)
             {
                 snprintf(nv, sizeof(nv), "%s %s", sname, svalue);
@@ -4196,8 +4227,8 @@ menu_entry_select(
             else if (SHOULD_USE_EDIT_MODE(entry)) edit_mode = !edit_mode;
             else if (entry->select)
             {
-                entry_used = (entry->select != menu_open_submenu);
                 entry->select( entry->priv, 1);
+                entry_used = 1;
             }
             else if IS_ML_PTR(entry->priv)
             {
@@ -5330,10 +5361,10 @@ menu_task( void* unused )
             }
 
             /* executed once at startup,
-             * and whenever new menus appear/disappear */
+             * and whenever new menus appear (after menu_add) */
             if (menu_flags_load_dirty)
             {
-                config_menu_load_flags();
+                config_menu_reload_flags();
                 menu_flags_load_dirty = 0;
             }
             
@@ -5844,8 +5875,110 @@ static void menu_unpack_flags(struct menu_entry * entry, uint32_t flags)
         entry->jhidden = 1;
 }
 
-#define CFG_APPEND(fmt, ...) ({ lastlen = snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); cfglen += lastlen; })
-#define CFG_SIZE 32768
+static int menu_parse_flags_line(
+    char * buf, int i, int size, int *prev,
+    char ** menu_name,
+    char ** entry_name,
+    uint32_t * flags,
+    uint32_t * usage_counter_l,
+    uint32_t * usage_counter_s
+)
+{
+    int sep = 0;
+    int start = i;
+
+    for ( ; i < size; i++)
+    {
+        if (buf[i] == '\\')
+        {
+            sep = i;
+        }
+        else if (buf[i] == '\n')
+        {
+            if (start+20 < sep && sep+1 < i)
+            {
+                buf[i] = 0;
+                buf[sep] = 0;
+                *menu_name = &buf[start+20];
+                *entry_name = &buf[sep+1];
+                *flags = buf[start] - '0';
+                *usage_counter_l = strtol(&buf[start+2], 0, 16);
+                *usage_counter_s = strtol(&buf[start+11], 0, 16);
+                return i + 1;
+            }
+
+            /* invalid line? */
+            start = i + 1;
+        }
+    }
+
+    /* finished */
+    return -1;
+}
+
+static void menu_reload_flags(char* filename)
+{
+    int size = 0;
+    char* buf = (char*)read_entire_file(filename , &size);
+    if (!buf) return;
+    int prev = -1;
+    int i = 0;
+
+    char *menu_name, *entry_name;
+    uint32_t flags, usage_counter_l, usage_counter_s;
+
+    while ((i = menu_parse_flags_line(
+                    buf, i, size, &prev, 
+                    &menu_name, &entry_name,
+                    &flags, &usage_counter_l, &usage_counter_s)) >= 0)
+    {
+        /* fixme: entries with same name may give trouble */
+        struct menu_entry * entry = entry_find_by_name(menu_name, entry_name);
+        if (entry && !entry->cust_loaded)
+        {
+            menu_unpack_flags(entry, flags);
+            entry->usage_counter_long_term_raw = usage_counter_l;
+            entry->usage_counter_short_term_raw = usage_counter_s;
+            entry->cust_loaded = 1;
+        }
+    }
+
+    free(buf);
+}
+
+#define CFG_APPEND(fmt, ...) ({ cfglen += snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); })
+#define CFG_SIZE (256*1024)
+
+static int menu_save_unloaded_flags(char* filename, char * cfg, int cfglen)
+{
+    int size = 0;
+    char* buf = (char*)read_entire_file(filename , &size);
+    if (!buf) return cfglen;
+    int prev = -1;
+    int i = 0;
+
+    char *menu_name, *entry_name;
+    uint32_t flags, usage_counter_l, usage_counter_s;
+
+    while ((i = menu_parse_flags_line(
+                    buf, i, size, &prev, 
+                    &menu_name, &entry_name,
+                    &flags, &usage_counter_l, &usage_counter_s)) >= 0)
+    {
+        /* fixme: entries with same name may give trouble */
+        struct menu_entry * entry = entry_find_by_name(menu_name, entry_name);
+        if (!entry)
+        {
+            CFG_APPEND("%d %08X %08X %s\\%s\n",
+                flags, usage_counter_l, usage_counter_s,
+                menu_name, entry_name
+            );
+        }
+    }
+
+    free(buf);
+    return cfglen;
+}
 
 static void menu_save_flags(char* filename)
 {
@@ -5854,7 +5987,8 @@ static void menu_save_flags(char* filename)
     char* cfg = malloc(CFG_SIZE);
     cfg[0] = '\0';
     int cfglen = 0;
-    int lastlen = 0;
+
+    cfglen = menu_save_unloaded_flags(filename, cfg, cfglen);
 
     for (struct menu * menu = menus; menu; menu = menu->next)
     {
@@ -5865,6 +5999,7 @@ static void menu_save_flags(char* filename)
         {
             if (!entry->name) continue;
             if (!entry->name[0]) continue;
+            if (MENU_IS_PLACEHOLDER(entry)) continue;
 
             uint32_t flags = menu_pack_flags(entry);
 
@@ -5893,52 +6028,11 @@ end:
     free(cfg);
 }
 
-static void menu_load_flags(char* filename)
-{
-    int size = 0;
-    char* buf = (char*)read_entire_file(filename , &size);
-    if (!size) return;
-    if (!buf) return;
-    int prev = -1;
-    int sep = 0;
-    for (int i = 0; i < size; i++)
-    {
-        if (buf[i] == '\\') sep = i;
-        else if (buf[i] == '\n')
-        {
-            //~ NotifyBox(2000, "%d %d %d ", prev, sep, i);
-            if (prev < sep-2 && sep < i-2)
-            {
-                buf[i] = 0;
-                buf[sep] = 0;
-                char* menu_name = &buf[prev+21];
-                char* entry_name = &buf[sep+1];
-                uint32_t flags = buf[prev+1] - '0';
-                uint32_t usage_counter_l = strtol(&buf[prev+3], 0, 16);
-                uint32_t usage_counter_s = strtol(&buf[prev+12], 0, 16);
-                //~ NotifyBox(2000, "%s -> %s", menu_name, entry_name); msleep(2000);
-                
-                /* fixme: entries with same name may give trouble */
-                struct menu_entry * entry = entry_find_by_name(menu_name, entry_name);
-                if (entry)
-                {
-                    menu_unpack_flags(entry, flags);
-                    entry->usage_counter_long_term_raw = usage_counter_l;
-                    entry->usage_counter_short_term_raw = usage_counter_s;
-                }
-            }
-            prev = i;
-        }
-    }
-    fio_free(buf);
-}
-
-
-static void config_menu_load_flags()
+static void config_menu_reload_flags()
 {
     char menu_config_file[0x80];
     snprintf(menu_config_file, sizeof(menu_config_file), "%sMENUS.CFG", get_config_dir());
-    menu_load_flags(menu_config_file);
+    menu_reload_flags(menu_config_file);
     my_menu_dirty = 1;
 }
 
