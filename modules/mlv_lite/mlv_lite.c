@@ -345,7 +345,7 @@ static GUARDED_BY(RawRecTask)   mlv_expo_hdr_t expo_hdr;
 static GUARDED_BY(RawRecTask)   mlv_lens_hdr_t lens_hdr;
 static GUARDED_BY(RawRecTask)   mlv_rtci_hdr_t rtci_hdr;
 static GUARDED_BY(RawRecTask)   mlv_wbal_hdr_t wbal_hdr;
-static GUARDED_BY(RawRecTask)   mlv_vidf_hdr_t vidf_hdr;
+static GUARDED_BY(LiveViewTask) mlv_vidf_hdr_t vidf_hdr;
 static GUARDED_BY(RawRecTask)   uint64_t mlv_start_timestamp = 0;
        GUARDED_BY(RawRecTask)   uint32_t raw_rec_trace_ctx = TRACE_ERROR;
 
@@ -1158,7 +1158,8 @@ static void * alloc_fullsize_buffer(struct memSuite * mem_suite, int fullres_buf
     return best_buffer;
 }
 
-static void add_reserved_slots(void * ptr, int n)
+static REQUIRES(RawRecTask)
+void add_reserved_slots(void * ptr, int n)
 {
     /* each group has some additional (empty) slots,
      * to be used when frames are compressed
@@ -2071,7 +2072,8 @@ static void free_slot(int slot_index)
     sei(old_int);
 }
 
-static void FAST pre_record_discard_frame()
+static REQUIRES(LiveViewTask)
+void FAST pre_record_discard_frame()
 {
     /* discard old frames */
     /* also adjust frame_count so all frames start from 1,
@@ -2100,7 +2102,8 @@ static void FAST pre_record_discard_frame()
     }
 }
 
-static void FAST pre_record_queue_frames()
+static REQUIRES(LiveViewTask)
+void FAST pre_record_queue_frames()
 {
     /* queue all captured frames for writing */
     /* (they are numbered from 1 to frame_count-1; frame 0 is skipped) */
@@ -2123,7 +2126,8 @@ static void FAST pre_record_queue_frames()
     }
 }
 
-static void pre_record_discard_frame_if_no_free_slots()
+static REQUIRES(LiveViewTask)
+void pre_record_discard_frame_if_no_free_slots()
 {
     for (int i = 0; i < total_slot_count; i++)
     {
@@ -2843,6 +2847,7 @@ void init_vsync_vars()
     fullsize_buffer_pos = 0;
     buffer_full = 0;
     edmac_active = 0;
+    skipped_frames = 0;
 }
 
 static REQUIRES(RawRecTask)
@@ -2855,12 +2860,12 @@ void raw_video_rec_task()
     /* (they won't start in RAW_PREPARING, but we might catch them running) */
     take_semaphore(raw_preview_lock, 0);
     raw_recording_state = RAW_PREPARING;
-    NO_THREAD_SAFETY_CALL(init_vsync_vars)();
     give_semaphore(raw_preview_lock);
+
+    NO_THREAD_SAFETY_CALL(init_vsync_vars)();
 
     total_slot_count = 0;
     valid_slot_count = 0;
-    skipped_frames = 0;
     chunk_frame_count = 0;
     FILE* f = 0;
     written_total = 0; /* in bytes */
