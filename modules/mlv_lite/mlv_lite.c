@@ -1956,6 +1956,7 @@ static void shrink_slot(int slot_index, int new_frame_size)
     if (dif_size ==  0)
     {
         /* nothing to do */
+        sei(old_int);
         return;
     }
 
