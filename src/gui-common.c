@@ -649,13 +649,14 @@ char* get_info_button_name() { return INFO_BTN_NAME; }
 
 void gui_uilock(int what)
 {
+    int old = icu_uilock;
+
     /* change just the lower 16 bits, to ensure correct requests;
      * the higher bits appear to be for requesting the change */
-    int unlocked = UILOCK_REQUEST | (UILOCK_NONE & 0xFFFF);
-    prop_request_change_wait(PROP_ICU_UILOCK, &unlocked, 4, 2000);
-    
     what = UILOCK_REQUEST | (what & 0xFFFF);
     prop_request_change_wait(PROP_ICU_UILOCK, &what, 4, 2000);
+
+    printf("UILock: %08x -> %08x => %08x %s\n", old, what, icu_uilock, (icu_uilock & 0xFFFF) != (what & 0xFFFF) ? "(!!!)" : "");
 }
 
 void ui_lock(int what)
@@ -668,6 +669,7 @@ void fake_simple_button(int bgmt_code)
     if ((icu_uilock & 0xFFFF) && (bgmt_code >= 0))
     {
         // Canon events may not be safe to send when UI is locked; ML events are (and should be sent)
+        printf("fake_simple_button(%d): UI locked (%x)\n", bgmt_code, icu_uilock);
         return;
     }
 
