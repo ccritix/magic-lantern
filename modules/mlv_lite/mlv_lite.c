@@ -254,23 +254,24 @@ static int raw_digital_gain_ok()
 #define indicator_display (show_graph ? INDICATOR_RAW_BUFFER : get_global_draw() ? INDICATOR_IN_LVINFO : INDICATOR_ON_SCREEN)
 
 /* state variables */
+static struct semaphore * settings_sem = 0;
 
 /* fixme: resolution parameters are updated from multiple tasks */
 /* (though they do not run all at the same time) */
-static int res_x = 0;
-static int res_y = 0;
-static int max_res_x = 0;
-static int max_res_y = 0;
-static float squeeze_factor = 0;
-static int max_frame_size = 0;
-static int frame_size_uncompressed = 0;
-static int skip_x = 0;
-static int skip_y = 0;
+static GUARDED_BY(settings_sem) int res_x = 0;
+static GUARDED_BY(settings_sem) int res_y = 0;
+static GUARDED_BY(settings_sem) int max_res_x = 0;
+static GUARDED_BY(settings_sem) int max_res_y = 0;
+static GUARDED_BY(settings_sem) float squeeze_factor = 0;
+static GUARDED_BY(settings_sem) int max_frame_size = 0;
+static GUARDED_BY(settings_sem) int frame_size_uncompressed = 0;
 
-static int frame_offset_x = 0;
-static int frame_offset_y = 0;
-static int frame_offset_delta_x = 0;
-static int frame_offset_delta_y = 0;
+static GUARDED_BY(LiveViewTask) int skip_x = 0;
+static GUARDED_BY(LiveViewTask) int skip_y = 0;
+static GUARDED_BY(LiveViewTask) int frame_offset_x = 0;
+static GUARDED_BY(LiveViewTask) int frame_offset_y = 0;
+static GUARDED_BY(GuiMainTask)  int frame_offset_delta_x = 0;
+static GUARDED_BY(GuiMainTask)  int frame_offset_delta_y = 0;
 
 #define RAW_IDLE      0
 #define RAW_PREPARING 1
@@ -279,7 +280,6 @@ static int frame_offset_delta_y = 0;
 #define RAW_PRE_RECORDING 4
 
 static volatile int raw_recording_state = RAW_IDLE;
-static struct semaphore * raw_preview_lock = 0;
 
 #define RAW_IS_IDLE      (raw_recording_state == RAW_IDLE)
 #define RAW_IS_PREPARING (raw_recording_state == RAW_PREPARING)
@@ -423,7 +423,9 @@ static int calc_res_y(int res_x, int max_res_y, int num, int den, float squeeze)
     }
 }
 
-static void update_cropping_offsets()
+/* fixme: called from many tasks */
+static REQUIRES(LiveViewTask)
+void update_cropping_offsets()
 {
     int sx = raw_info.active_area.x1 + (max_res_x - res_x) / 2;
     int sy = raw_info.active_area.y1 + (max_res_y - res_y) / 2;
@@ -459,7 +461,8 @@ static void update_cropping_offsets()
 }
 
 /* fixme: must be thread-safe */
-static void update_resolution_params()
+static REQUIRES(settings_sem)
+void update_resolution_params()
 {
     /* max res X */
     /* make sure we don't get dead pixels from rounding */
@@ -760,13 +763,14 @@ void measure_compression_ratio()
 static int setup_buffers();
 static void free_buffers();
 
-static void refresh_raw_settings(int force)
+static EXCLUDES(settings_sem)
+void refresh_raw_settings(int force)
 {
     if (!lv) return;
     
     if (!RAW_IS_IDLE) return;
 
-    take_semaphore(raw_preview_lock, 0);
+    take_semaphore(settings_sem, 0);
 
     /* if we got the semaphore before raw_rec_task started, all fine */
     /* if we got it afterwards, RAW_IS_IDLE is no longer true => stop */
@@ -801,7 +805,7 @@ static void refresh_raw_settings(int force)
     }
 
 end:
-    give_semaphore(raw_preview_lock);
+    give_semaphore(settings_sem);
 }
 
 static int calc_crop_factor()
@@ -1473,7 +1477,8 @@ static void show_buffer_status()
     }
 }
 
-static void panning_update()
+static REQUIRES(LiveViewTask)
+void panning_update()
 {
     if (!FRAMING_PANNING) return;
 
@@ -2867,7 +2872,7 @@ void init_vsync_vars()
     skipped_frames = 0;
 }
 
-static REQUIRES(RawRecTask)
+static REQUIRES(RawRecTask) EXCLUDES(settings_sem)
 void raw_video_rec_task()
 {
     //~ console_show();
@@ -2875,9 +2880,9 @@ void raw_video_rec_task()
 
     /* make sure preview or raw updates are not running */
     /* (they won't start in RAW_PREPARING, but we might catch them running) */
-    take_semaphore(raw_preview_lock, 0);
+    take_semaphore(settings_sem, 0);
     raw_recording_state = RAW_PREPARING;
-    give_semaphore(raw_preview_lock);
+    give_semaphore(settings_sem);
 
     /* locals */
     FILE* f = 0;
@@ -2930,9 +2935,10 @@ void raw_video_rec_task()
         goto cleanup;
     }
 
+    take_semaphore(settings_sem, 0);   /* not really needed; just to silence warnings */
     update_resolution_params();
-
     setup_bit_depth();
+    give_semaphore(settings_sem);
 
     /* create output file */
     raw_movie_filename = get_next_raw_movie_file_name();
@@ -3286,9 +3292,10 @@ cleanup:
      * so it's best to call this before free_buffers */
     gui_uilock(UILOCK_NONE);
 
+    take_semaphore(settings_sem, 0);   /* not really needed; just to silence warnings */
     free_buffers();
-
     restore_bit_depth();
+    give_semaphore(settings_sem);
 
     if (liveview_hacked)
     {
@@ -3747,7 +3754,7 @@ static int raw_rec_should_preview(void)
     return 0;
 }
 
-static REQUIRES(LiveVHiPrioTask)
+static REQUIRES(LiveVHiPrioTask) EXCLUDES(settings_sem)
 unsigned int raw_rec_update_preview(unsigned int ctx)
 {
     if (!compress_mq) return 0;
@@ -3777,9 +3784,9 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
     /* fixme: any call to raw_update_params() from another task
      * will reset the preview window (possibly during our preview)
      * resulting in some sort of flicker.
-     * We'll take care of our own updates with raw_preview_lock.
+     * We'll take care of our own updates with settings_sem.
      * Raw overlays (histogram etc) seem to be well-behaved. */
-    take_semaphore(raw_preview_lock, 0);
+    take_semaphore(settings_sem, 0);
 
     raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
     raw_force_aspect_ratio(0, 0);
@@ -3797,7 +3804,7 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
             : RAW_PREVIEW_COLOR_HALFRES
     );
 
-    give_semaphore(raw_preview_lock);
+    give_semaphore(settings_sem);
 
     /* be gentle with the CPU, save it for recording (especially if the buffer is almost full) */
     msleep(
@@ -3869,7 +3876,7 @@ static unsigned int raw_rec_init()
 
     lossless_init();
 
-    raw_preview_lock = create_named_semaphore(0, 1);
+    settings_sem = create_named_semaphore(0, 1);
 
     ASSERT(((uint32_t)task_create("compress_task", 0x0F, 0x1000, compress_task, (void*)0) & 1) == 0);
 
