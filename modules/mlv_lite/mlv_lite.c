@@ -1114,13 +1114,6 @@ static void * alloc_fullsize_buffer(struct memSuite * mem_suite, int fullres_buf
             int size = GetSizeOfMemoryChunk(chunk);
             intptr_t ptr = (intptr_t) GetMemoryAddressOfMemoryChunk(chunk);
 
-            /* use-after-free from raw backend? skip this chunk */
-            if ((void*)ptr + 0x100 == raw_info.buffer)
-            {
-                printf("Skipping %x (raw buffer).\n", ptr);
-                goto next;
-            }
-
             /* pick the buffer with the least amount of wasted space */
             if (size >= fullres_buf_size)
             {
@@ -1132,8 +1125,7 @@ static void * alloc_fullsize_buffer(struct memSuite * mem_suite, int fullres_buf
                     min_wasted_space = wasted;
                 }
             }
-            
-        next:
+
             /* next chunk */
             chunk = GetNextMemoryChunk(mem_suite, chunk);
         }
@@ -1175,13 +1167,6 @@ int add_mem_suite(struct memSuite * mem_suite, int chunk_index, int max_frame_si
         {
             int size = GetSizeOfMemoryChunk(chunk);
             intptr_t ptr = (intptr_t) GetMemoryAddressOfMemoryChunk(chunk);
-
-            /* use-after-free from raw backend? skip this chunk */
-            if ((void*)ptr + 0x100 == raw_info.buffer)
-            {
-                printf("Skipping %x (raw buffer).\n", ptr);
-                goto next;
-            }
 
             /* already used for a full-size buffer? */
             if ((void*)ptr == fullsize_buffers[0])
@@ -1233,8 +1218,7 @@ int add_mem_suite(struct memSuite * mem_suite, int chunk_index, int max_frame_si
             }
         
             add_reserved_slots((void*)ptr, group_size / max_frame_size);
-            
-        next:
+
             /* next chunk */
             chunk = GetNextMemoryChunk(mem_suite, chunk);
         }
