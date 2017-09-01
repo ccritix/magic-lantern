@@ -15,6 +15,7 @@ lenses =
     { name = "My Other Lens", focal_length = 25 },
 
 --  Zeiss ZF.2 manual lenses Nikon mount - these work with the lens profiles that ship with Adobe Camera Raw
+
 --  { name = "Zeiss Distagon T* 2.8/15 ZF.2",        focal_length =  15, manual_aperture = 2.8 },
 --  { name = "Zeiss Distagon T* 3.5/18 ZF.2",        focal_length =  18, manual_aperture = 3.5 },
 --  { name = "Zeiss Distagon T* 2.8/21 ZF.2",        focal_length =  21, manual_aperture = 2.8 },
@@ -29,10 +30,16 @@ lenses =
 --  { name = "Zeiss Makro-Planar T* 2/100 ZF.2",     focal_length = 100, manual_aperture = 2   },
 --  { name = "Zeiss Apo Sonnar T* 2/135 ZF.2",       focal_length = 135, manual_aperture = 2   },
 
+--  Nikon lenses
+--  { name = "Nikon Zoom Ais ED 50-300",             focal_length = 300, manual_aperture = 4.5 },
+--  { name = "Nikon AF NIKKOR 28mm f/1.4D",          focal_length =  28, manual_aperture = 1.4 },
+
+
 --  Samyang manual lenses - also branded as Rokinon and Bower. Cine versions use the same lens profile.
 --  The lens profiles for Samyang manual lenses that ship with Adobe Camera raw must be modified in order
 --  for automatic lens detection to work.
 --  More information here: http://www.magiclantern.fm/forum/index.php?topic=18083.msg176261#msg176261
+
 --  { name = "Samyang 8mm f/2.8 UMC Fisheye",        focal_length =   8, manual_aperture = 2.8 },
 --  { name = "Samyang 8mm f/2.8 UMC Fisheye II",     focal_length =   8, manual_aperture = 2.8 }, --   8mm T3.1 Cine
 --  { name = "Samyang 8mm f/3.5 UMC Fish-Eye CS",    focal_length =   8, manual_aperture = 3.5 },
@@ -51,6 +58,26 @@ lenses =
 --  { name = "Samyang 100mm f/2.8 ED UMC MACRO",     focal_length = 100, manual_aperture = 2.8 }, -- 100mm T3.1 Cine
 --  { name = "Samyang 135mm f/2 ED UMC",             focal_length = 135, manual_aperture = 2   }, -- 135mm T2.2 Cine
 --  { name = "Samyang 300mm f/6.3 ED UMC CS",        focal_length = 300, manual_aperture = 6.3 },
+
+
+--  Lensbaby lenses
+
+--  { name = "Lensbaby Sweet 35",                    focal_length =  35, manual_aperture = 2.5 },
+--  { name = "Lensbaby Sweet 50",                    focal_length =  50, manual_aperture = 2.5 },
+--  { name = "Lensbaby Twist 60",                    focal_length =  60, manual_aperture = 2.5 },
+--  { name = "Lensbaby Edge 50",                     focal_length =  50, manual_aperture = 3.2 },
+--  { name = "Lensbaby Edge 80",                     focal_length =  80, manual_aperture = 2.8 },
+--  { name = "Lensbaby Circular Fisheye",            focal_length = 5.8, manual_aperture = 3.5 },
+--  { name = "Lensbaby Soft Focus Optic",            focal_length =  50, manual_aperture = 2   },
+--  { name = "Lensbaby Double Glass Optic",          focal_length =  50, manual_aperture = 2   },
+--  { name = "Lensbaby Single Glass Optic",          focal_length =  50, manual_aperture = 2   },
+--  { name = "Lensbaby Plastic Optic",               focal_length =  50, manual_aperture = 2   },
+--  { name = "Lensbaby Pinhole Optic",               focal_length =  50, manual_aperture = 19  },
+--  { name = "Lensbaby Fisheye Optic",               focal_length =  12, manual_aperture = 4   },
+--  { name = "Lensbaby Velvet 56",                   focal_length =  56, manual_aperture = 1.6 },
+--  { name = "Lensbaby Velvet 85",                   focal_length =  85, manual_aperture = 1.8 },
+--  { name = "Lensbaby Creative Aperture",           focal_length =  50, manual_aperture = 2   },
+
 }
 
 selector_instance = selector.create("Select Manual Lens", lenses, function(l) return l.name end, 600)
