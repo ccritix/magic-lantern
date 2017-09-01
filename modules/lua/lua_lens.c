@@ -82,6 +82,7 @@ static int luaCB_lens_newindex(lua_State * L)
         if(lens_info.lens_exists) return luaL_error(L, "Can't set manual aperture for chipped lens");
         LUA_PARAM_NUMBER(value, 3);
         lens_info.aperture = (int)(value * 10);
+        lens_info.raw_aperture = VALUE2RAW(aperture, lens_info.aperture);
     }
     else if(!strcmp(key, "focus_distance") || !strcmp(key, "hyperfocal") || !strcmp(key, "dof_near") || !strcmp(key, "dof_far") || !strcmp(key, "af") || !strcmp(key, "is_chipped"))
     {
