@@ -299,7 +299,12 @@ static const uint8_t  codes_aperture[] =  {0,  10,  11,  12,  13,  14,  15,  16,
 //~ static const int codes_aperture[] =  {0,13,14,16,19,21,24,27,29,32,35,37,40,44,45,48,51,52,53,56,59,60, 61, 64, 68, 69, 72, 75, 76, 77, 80, 83, 84, 85, 88, 91, 92, 93, 96};
 
 #define RAW2VALUE(param,rawvalue) ((int)values_##param[raw2index_##param(rawvalue)])
-#define VALUE2RAW(param,value) ((int)val2raw_##param(value))
+#define VALUE2RAW(param,value) val2raw_##param(value)
+
+/* prototypes for VALUE2RAW */
+int VALUE2RAW(iso, int);
+int VALUE2RAW(shutter, int);
+int VALUE2RAW(aperture, int);
 
 // UNIT_1_8_EV
 #define APEX_TV(raw) ((int)(raw) - 56)
