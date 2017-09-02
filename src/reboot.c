@@ -770,6 +770,7 @@ static void enable_bootflag()
     if (set_bootflag && set_flag_i)
     {
         /* enable the boot flag */
+        printf(" - Enabling boot flag...\n");
         set_bootflag(1, -1);
     }
 }

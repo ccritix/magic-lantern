@@ -183,11 +183,16 @@ static int func_has_tag(uint32_t func, uint32_t tag)
             int offset = decode_immediate_shifter_operand(insn);
             int pc = i;
             int dest = pc + offset + 8;
-            printf("tag %x at %x (%d)\n", MEM(dest), pc, MEM(dest) == tag);
+            printf(" - %X: tag %x\n", pc, MEM(dest));
             if (MEM(dest) == tag)
             {
                 return 1;
             }
+        }
+        if ((insn & 0xFFFF0000) == 0xe8bd0000)
+        {
+            /* LDMFD - end of function */
+            break;
         }
     }
     return 0;
@@ -196,41 +201,42 @@ static int func_has_tag(uint32_t func, uint32_t tag)
 uint32_t find_func_called_after_string_ref(char * string, uint32_t tag)
 {
     int found = 0;
-    int confirmed = 0;
     uint32_t answer = 0;
 
     uint32_t start = find_string_ref(string);
-    printf(" start %x\n", start);
+    printf(" - Set flag found at %x\n", start);
     if (start)
     {
         for (uint32_t i = start + 4; i < start + 0x100; i += 4)
         {
-            uint32_t this = MEM(i);
-            int is_bl = ((this & 0xFF000000) == 0xEB000000);
+            uint32_t insn = MEM(i);
+            int is_bl = ((insn & 0xFF000000) == 0xEB000000);
             if (is_bl)
             {
                 uint32_t pc = i;
-                uint32_t func_addr = branch_destination(this, pc);
-                printf(" BL %x\n", func_addr);
+                uint32_t func_addr = branch_destination(insn, pc);
+                printf(" - %x: BL %x\n", pc, func_addr);
 
                 if (func_addr > 0x100000 && func_addr < 0x110000)
                 {
                     if (func_has_tag(func_addr, tag))
                     {
-                        if (func_addr == answer) {
-                            confirmed++;
-                        } else {
+                        if (func_addr != answer) {
                             found++;
-                            confirmed = 0;
                         }
                         answer = func_addr;
                     }
                 }
             }
+            if ((insn & 0xFFFF0000) == 0xe8bd0000)
+            {
+                /* LDMFD - end of function */
+                break;
+            }
         }
     }
 
-    if (found == 1 && confirmed)
+    if (found == 1)
     {
         /* only return success if there's a single match (no ambiguity) */
         return answer;
