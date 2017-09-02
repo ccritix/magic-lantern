@@ -17,8 +17,12 @@
 
 void disp_progress(uint32_t progress);
 void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color);
+void disp_set_pixel_other(uint32_t x, uint32_t y, uint32_t color);
+void disp_fill(uint32_t color);
+void disp_fill_other(uint32_t color);
 void disp_init();
-void disp_update();
+void disp_set_buf(int buf);
+void disp_swap();
 uint32_t disp_direct_scroll_up(uint32_t height);
 
 #endif

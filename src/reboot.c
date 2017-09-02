@@ -48,6 +48,7 @@
 #include "disp_direct.h"
 #include "font_direct.h"
 #include "led_dump.h"
+#include "disp_dump.h"
 #include "prop_diag.h"
 
 #include "compiler.h"
@@ -817,6 +818,8 @@ cstart( void )
     prop_diag();
     print_bootflags();
     find_gaonisoy();
+    
+    disp_dump(0xFC000000, 0x02000000);
 
     #if defined(CONFIG_BOOT_DUMPER)
         /* pick one method for dumping the ROM */

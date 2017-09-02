@@ -210,6 +210,7 @@ ML_SRC_REBOOT_OBJ = reboot.o \
 	strlen.o strcmp.o gcc-libgcc.a
 ML_SRC_REBOOT_OBJ += md5.o
 ML_SRC_REBOOT_OBJ += led_dump.o
+ML_SRC_REBOOT_OBJ += disp_dump.o
 ML_SRC_REBOOT_OBJ += prop_diag.o
 ML_SRC_REBOOT_OBJ += malloc.o
 ML_SRC_REBOOT_OBJ += asm.o

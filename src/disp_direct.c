@@ -22,12 +22,15 @@
 
 /* the image buffers will be made uncacheable in display_init */
 static uint8_t *disp_framebuf = (uint8_t *)0x04000000;
+static uint8_t *disp_framebuf_mirror = (uint8_t *)0x04080000;
 static uint8_t *disp_yuvbuf = (uint8_t *)0x04800000;
 static uint32_t caching_bit = 0x40000000;
 
 static int disp_yres = 480;
 static int disp_xres = 720;
 static int disp_bpp  = 4;
+
+static int disp_current_buf = 0;
 
 /* most cameras use YUV422, but some old models (e.g. 5D2) use YUV411 */
 static enum { YUV422, YUV411 } yuv_mode;
@@ -126,23 +129,56 @@ static uint32_t rgb2yuv411(int R, int G, int B, uint32_t addr)
     return 0;
 }
 
+uint8_t *disp_get_other_bmp()
+{
+    return (disp_current_buf ? disp_framebuf : disp_framebuf_mirror);
+}
+
+uint8_t *disp_get_active_bmp()
+{
+    return (disp_current_buf ? disp_framebuf_mirror : disp_framebuf);
+}
+
+void disp_set_pixel_other(uint32_t x, uint32_t y, uint32_t color)
+{
+    /* assume the caller uses 720x480 logical coords */
+    /* (handle 720x240 buffers as well, but don't stretch 900x600) */
+
+    uint32_t pixnum = (y * (disp_yres * 2 / 480) / 2) * disp_xres + x;
+    uint8_t *buf = disp_get_other_bmp();
+    
+    switch (disp_bpp)
+    {
+        case 8:
+            buf[pixnum] = color;
+            break;
+
+        case 4:
+            buf[pixnum/2] = (x & 1)
+                ? (buf[pixnum/2] & 0x0F) | ((color & 0x0F)<<4)
+                : (buf[pixnum/2] & 0xF0) |  (color & 0x0F);
+            break;
+    }
+}
+
 void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color)
 {
     /* assume the caller uses 720x480 logical coords */
     /* (handle 720x240 buffers as well, but don't stretch 900x600) */
 
     uint32_t pixnum = (y * (disp_yres * 2 / 480) / 2) * disp_xres + x;
+    uint8_t *buf = disp_get_active_bmp();
     
     switch (disp_bpp)
     {
         case 8:
-            disp_framebuf[pixnum] = color;
+            buf[pixnum] = color;
             break;
 
         case 4:
-            disp_framebuf[pixnum/2] = (x & 1)
-                ? (disp_framebuf[pixnum/2] & 0x0F) | ((color & 0x0F)<<4)
-                : (disp_framebuf[pixnum/2] & 0xF0) |  (color & 0x0F);
+            buf[pixnum/2] = (x & 1)
+                ? (buf[pixnum/2] & 0x0F) | ((color & 0x0F)<<4)
+                : (buf[pixnum/2] & 0xF0) |  (color & 0x0F);
             break;
     }
 }
@@ -169,10 +205,12 @@ void disp_set_rgb_pixel(uint32_t x, uint32_t y, uint32_t R, uint32_t G, uint32_t
     }
 }
 
-void disp_fill(uint32_t color)
+void disp_fill_other(uint32_t color)
 {
     /* build a 32 bit word */
     uint32_t val = color;
+    uint8_t *buf = disp_get_other_bmp();
+    
     if (disp_bpp == 4)
     {
         val |= val << 4;
@@ -188,7 +226,35 @@ void disp_fill(uint32_t color)
             /* get linear pixel number */
             uint32_t pixnum = ((ypos * disp_xres) + xpos);
             /* two pixels per byte */
-            uint32_t *ptr = (uint32_t *)&disp_framebuf[pixnum * disp_bpp / 8];
+            uint32_t *ptr = (uint32_t *)&buf[pixnum * disp_bpp / 8];
+            
+            *ptr = val;
+        }
+    }
+}
+
+void disp_fill(uint32_t color)
+{
+    /* build a 32 bit word */
+    uint32_t val = color;
+    uint8_t *buf = disp_get_active_bmp();
+    
+    if (disp_bpp == 4)
+    {
+        val |= val << 4;
+    }
+    val |= val << 8;
+    val |= val << 16;
+    
+    for(int ypos = 0; ypos < disp_yres; ypos++)
+    {
+        /* we are writing 4 or 8 pixels at once with a 32 bit word */
+        for(int xpos = 0; xpos < disp_xres; xpos += 32 / disp_bpp)
+        {
+            /* get linear pixel number */
+            uint32_t pixnum = ((ypos * disp_xres) + xpos);
+            /* two pixels per byte */
+            uint32_t *ptr = (uint32_t *)&buf[pixnum * disp_bpp / 8];
             
             *ptr = val;
         }
@@ -289,6 +355,39 @@ extern uint32_t get_model_id();
 extern uint32_t is_digic6();
 extern uint32_t is_vxworks();
 
+void disp_set_buf(int buf)
+{
+    disp_current_buf = buf;
+    
+    if (disp_bpp == 8)
+    {
+        if (get_model_id() == 0x349)
+        {
+            MEM(BMP_BUF_REG_5D4) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf) & ~caching_bit;
+        }
+        else
+        {
+            MEM(BMP_BUF_REG_D6) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf) >> 8;
+        }
+    }
+    else
+    {
+        /* set frame buffer memory areas */
+        MEM(0xC0F140D0) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf) & ~caching_bit;
+        MEM(0xC0F140D4) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf) & ~caching_bit;
+        MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf & ~caching_bit;
+        MEM(0xC0F140E4) = (uint32_t)disp_yuvbuf & ~caching_bit;
+        
+        /* trigger a display update */
+        MEM(0xC0F14000) = 1;
+    }
+}
+
+void disp_swap()
+{
+    disp_set_buf(disp_current_buf ^ 1);
+}
+
 void disp_init()
 {
     if (is_digic6())
@@ -319,6 +418,7 @@ void disp_init()
     
     /* make the image buffers uncacheable */
     *(uint32_t*)&disp_framebuf |= caching_bit;
+    *(uint32_t*)&disp_framebuf_mirror |= caching_bit;
     *(uint32_t*)&disp_yuvbuf   |= caching_bit;
 
     /* this should cover most (if not all) ML-supported cameras */
@@ -337,28 +437,7 @@ void disp_init()
     /* make a funny pattern in the YUV buffer*/
     disp_fill_yuv_gradient();
     
-    if (disp_bpp == 8)
-    {
-        if (get_model_id() == 0x349)
-        {
-            MEM(BMP_BUF_REG_5D4) = (uint32_t)disp_framebuf & ~caching_bit;
-        }
-        else
-        {
-            MEM(BMP_BUF_REG_D6) = (uint32_t)disp_framebuf >> 8;
-        }
-    }
-    else
-    {
-        /* set frame buffer memory areas */
-        MEM(0xC0F140D0) = (uint32_t)disp_framebuf & ~caching_bit;
-        MEM(0xC0F140D4) = (uint32_t)disp_framebuf & ~caching_bit;
-        MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf & ~caching_bit;
-        MEM(0xC0F140E4) = (uint32_t)disp_yuvbuf & ~caching_bit;
-        
-        /* trigger a display update */
-        MEM(0xC0F14000) = 1;
-    }
+    disp_set_buf(0);
     
     /* from now on, everything you write on the display buffers
      * will appear on the screen without doing anything special */
