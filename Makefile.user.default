@@ -206,3 +206,5 @@ CONFIG_FULLFAT      = n
 # recovery: print CHDK cpuinfo
 CONFIG_CPUINFO      = n
 
+# recovery: dump ROM from bootloader (either FULLFAT or Canon routines)
+CONFIG_BOOT_DUMPER  = n

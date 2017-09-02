@@ -238,6 +238,10 @@ ML_SRC_REBOOT_OBJ += ff_time.o
 ML_SRC_REBOOT_OBJ += ff_unicode.o
 endif
 
+ifeq ($(CONFIG_BOOT_DUMPER),y)
+CFLAGS += -DCONFIG_BOOT_DUMPER
+endif
+
 ML_SRC_REBOOT_OBJ += footer.o
 
 clean::

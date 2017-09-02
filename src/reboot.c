@@ -799,10 +799,15 @@ cstart( void )
     prop_diag();
     print_bootflags();
     find_gaonisoy();
-    
-    /* pick one method for dumping the ROM */
-    dump_rom_with_canon_routines();
-    //~ dump_rom_with_fullfat();
+
+    #if defined(CONFIG_BOOT_DUMPER)
+        /* pick one method for dumping the ROM */
+        #if defined(CONFIG_FULLFAT)
+            dump_rom_with_fullfat();
+        #else
+            dump_rom_with_canon_routines();
+        #endif
+    #endif
     
     printf(" - DONE!\n");
 #endif
