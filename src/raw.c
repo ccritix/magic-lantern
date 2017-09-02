@@ -298,7 +298,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
      -593, 10000,     1772, 10000,    6198, 10000
 #endif
 
-struct raw_info raw_info = {
+struct raw_info GUARDED_BY(raw_sem) raw_info = {
     .api_version = 1,
     .bits_per_pixel = 14,
     .black_level = 1024,
@@ -470,7 +470,8 @@ static int raw_lv_get_resolution(int* width, int* height)
 }
 #endif
 
-static int raw_update_params_work()
+static REQUIRES(raw_sem)
+int raw_update_params_work()
 {
     #ifdef RAW_DEBUG
     console_show();
@@ -1014,7 +1015,10 @@ void raw_set_preview_rect(int x, int y, int w, int h, int obey_info_bars)
     lv2raw.ty = y - LV2RAW_DY(y0_lv);
 }
 
-void raw_set_geometry(int width, int height, int skip_left, int skip_right, int skip_top, int skip_bottom)
+/* fixme: external calls to this are not exactly thread safe
+ * and they can be overwritten any time by raw_update_params */
+void REQUIRES(raw_sem)
+raw_set_geometry(int width, int height, int skip_left, int skip_right, int skip_top, int skip_bottom)
 {
     raw_info.width = width;
     raw_info.height = height;
@@ -1857,7 +1861,8 @@ int raw_lv_is_enabled()
 
 static int raw_lv_request_count = 0;
 
-static void raw_lv_update()
+static REQUIRES(raw_sem)
+void raw_lv_update()
 {
     int new_state = raw_lv_request_count > 0;
     if (new_state && !lv_raw_enabled)
@@ -1905,6 +1910,7 @@ static void raw_lv_update()
     }
 }
 
+EXCLUDES(raw_sem)
 void raw_lv_request()
 {
     /* refresh VRAM parameters */
@@ -1920,6 +1926,8 @@ void raw_lv_request()
     raw_lv_update();
     give_semaphore(raw_sem);
 }
+
+EXCLUDES(raw_sem)
 void raw_lv_release()
 {
     take_semaphore(raw_sem, 0);

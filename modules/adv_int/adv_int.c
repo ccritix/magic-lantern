@@ -982,8 +982,8 @@ static struct menu_entry adv_int_menu[] =
                     },
                     {
                         .name = "White Balance",
-                        .update = &kelvin_menu_update,
-                        .select = &kelvin_menu_select,
+                        .update = kelvin_menu_update,
+                        .select = kelvin_menu_select,
                         .priv = &keyframe_kelvin,
                         .help = "Changes the Kelvin white balance",
                     },

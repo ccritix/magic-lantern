@@ -919,8 +919,8 @@ menu_find_by_id(
 }
 */
 
-static struct menu *
-menu_find_by_name_internal(
+static REQUIRES(menu_sem)
+struct menu * menu_find_by_name_internal(
     const char *        name,
     int icon
 )
@@ -972,8 +972,8 @@ menu_find_by_name_internal(
     return new_menu;
 }
 
-static struct menu * 
-menu_find_by_name(
+static EXCLUDES(menu_sem)
+struct menu * menu_find_by_name(
     const char *        name,
     int icon
 )
@@ -1175,8 +1175,8 @@ menu_update_placeholder(struct menu * menu, struct menu_entry * new_entry)
 }
 
 
-static void
-menu_add_internal(
+static REQUIRES(menu_sem)
+void menu_add_internal(
     const char *        name,
     struct menu_entry * new_entry,
     int                 count,
@@ -1297,8 +1297,8 @@ menu_add_internal(
     }
 }
 
-void 
-menu_add(
+EXCLUDES(menu_sem)
+void menu_add(
     const char *        name,
     struct menu_entry * new_entry,
     int                 count
@@ -1357,8 +1357,8 @@ static void menu_remove_entry(struct menu * menu, struct menu_entry * entry)
     }
 }
 
-void
-menu_remove(
+EXCLUDES(menu_sem)
+void menu_remove(
     const char *        name,
     struct menu_entry * old_entry,
     int         count
@@ -1409,7 +1409,8 @@ static float usage_counter_thr_sub = 0;
 static float usage_counter_max = 0;
 
 /* normalize the usage counters so the next increment is 1.0 */
-static void menu_normalize_usage_counters(void)
+static EXCLUDES(menu_sem)
+void menu_normalize_usage_counters(void)
 {
     take_semaphore(menu_sem, 0);
 
@@ -1483,7 +1484,8 @@ end:
     give_semaphore(menu_sem);
 }
 
-static void menu_usage_counters_update_threshold(int num, int only_submenu_entries, int only_nonsubmenu_entries)
+static EXCLUDES(menu_sem)
+void menu_usage_counters_update_threshold(int num, int only_submenu_entries, int only_nonsubmenu_entries)
 {
     take_semaphore(menu_sem, 0);
 
@@ -3801,8 +3803,8 @@ show_vscroll(struct menu * parent){
     }
 }
 
-static void
-menus_display(
+static EXCLUDES(menu_sem)
+void menus_display(
     struct menu *       menu,
     int         orig_x,
     int         y
@@ -4173,8 +4175,8 @@ menu_entry_customize_toggle(
     menu_make_sure_selection_is_valid();
 }
 
-static void
-menu_entry_select(
+static EXCLUDES(menu_sem)
+void menu_entry_select(
     struct menu *   menu,
     int mode // 0 = increment, 1 = decrement, 2 = Q, 3 = SET
 )
@@ -4332,8 +4334,8 @@ menu_entry_select(
 }
 
 /** Scroll side to side in the list of menus */
-static void
-menu_move(
+static EXCLUDES(menu_sem)
+void menu_move(
     struct menu *       menu,
     int         direction
 )
@@ -4384,8 +4386,8 @@ menu_move(
 
 
 /** Scroll up or down in the currently displayed menu */
-static void
-menu_entry_move(
+static EXCLUDES(menu_sem)
+void menu_entry_move(
     struct menu *       menu,
     int         direction
 )
@@ -5152,7 +5154,7 @@ handle_ml_menu_keys(struct event * event)
 
 
 
-void
+void 
 menu_init( void )
 {
     menus = NULL;
@@ -5555,7 +5557,8 @@ void select_menu(char* name, int entry_index)
     //~ menu_damage = 1;
 }
 
-static void select_menu_recursive(struct menu * selected_menu, const char * entry_name)
+static REQUIRES(menu_sem)
+void select_menu_recursive(struct menu * selected_menu, const char * entry_name)
 {
     printf("select_menu %s -> %s\n", selected_menu->name, entry_name);
 
@@ -5609,6 +5612,7 @@ static void select_menu_recursive(struct menu * selected_menu, const char * entr
     }
 }
 
+EXCLUDES(menu_sem)
 void select_menu_by_name(char* name, const char* entry_name)
 {
     take_semaphore(menu_sem, 0);
@@ -5678,7 +5682,8 @@ static struct menu_entry * entry_find_by_name(const char* menu_name, const char*
     return ans;
 }
 
-static void select_menu_by_icon(int icon)
+static EXCLUDES(menu_sem)
+void select_menu_by_icon(int icon)
 {
     take_semaphore(menu_sem, 0);
     for (struct menu * menu = menus; menu; menu = menu->next)
@@ -5706,7 +5711,6 @@ menu_help_go_to_selected_entry(
     struct menu_entry * entry = get_selected_menu_entry(menu);
     if (!entry) return;
     menu_help_go_to_label((char*) entry->name, 0);
-    give_semaphore(menu_sem);
 }
 
 static void menu_show_version(void)
@@ -6032,7 +6036,7 @@ static void menu_reload_flags(char* filename)
     free(buf);
 }
 
-#define CFG_APPEND(fmt, ...) ({ cfglen += snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); })
+#define CFG_APPEND(fmt, ...) do { cfglen += snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); } while(0)
 #define CFG_SIZE (256*1024)
 
 static int menu_save_unloaded_flags(char* filename, char * cfg, int cfglen)
@@ -6188,6 +6192,7 @@ static char* menu_get_str_value_from_script_do(const char* name, const char* ent
 }
 
 /* requires passing a pointer to a local struct menu_display_info for thread safety */
+EXCLUDES(menu_sem)
 char* menu_get_str_value_from_script(const char* name, const char* entry_name, struct menu_display_info * info)
 {
     take_semaphore(menu_sem, 0);
@@ -6196,6 +6201,7 @@ char* menu_get_str_value_from_script(const char* name, const char* entry_name, s
     return ans;
 }
 
+EXCLUDES(menu_sem)
 int menu_set_str_value_from_script(const char* name, const char* entry_name, char* value, int value_int)
 {
     struct menu_entry * entry = entry_find_by_name(name, entry_name);
