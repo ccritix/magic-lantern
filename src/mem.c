@@ -777,6 +777,7 @@ static int choose_allocator(int size, unsigned int flags)
 /* returns 0 if it couldn't allocate */
 void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned int line)
 {
+    ASSERT(mem_sem);
     take_semaphore(mem_sem, 0);
 
     dbg_printf("alloc(%s) from %s:%d task %s\n", format_memory_size_and_flags(size, flags), file, line, get_current_task_name());
@@ -902,8 +903,8 @@ struct memSuite * shoot_malloc_suite_contig(size_t size)
 
 
 /* initialize memory pools, if any of them needs that */
-/* (called as the first init func => mem.o should be first in the Makefile.src (well, after boot-hack) */
-static void mem_init()
+/* should be called before any mallocs */
+void _mem_init()
 {
     mem_sem = create_named_semaphore("mem_sem", 1);
 
@@ -915,8 +916,6 @@ static void mem_init()
         }
     }
 }
-
-INIT_FUNC(__FILE__, mem_init);
 
 
 /* GUI stuff */
@@ -967,35 +966,35 @@ static void guess_free_mem_task(void* priv, int delta)
     take_semaphore(mem_sem, 0);
 
     {
-        struct memSuite * hSuite = _shoot_malloc_suite_contig(0);
-        if (!hSuite)
+        struct memSuite * shoot_suite = _shoot_malloc_suite_contig(0);
+        if (!shoot_suite)
         {
             beep();
             guess_mem_running = 0;
             give_semaphore(mem_sem);
             return;
         }
-        ASSERT(hSuite->num_chunks == 1);
-        max_shoot_malloc_mem = hSuite->size;
-        _shoot_free_suite(hSuite);
+        ASSERT(shoot_suite->num_chunks == 1);
+        max_shoot_malloc_mem = shoot_suite->size;
+        _shoot_free_suite(shoot_suite);
     }
 
-    struct memSuite * hSuite = _shoot_malloc_suite(0);
-    if (!hSuite)
+    struct memSuite * shoot_suite = _shoot_malloc_suite(0);
+    if (!shoot_suite)
     {
         beep();
         guess_mem_running = 0;
         give_semaphore(mem_sem);
         return;
     }
-    max_shoot_malloc_frag_mem = hSuite->size;
+    max_shoot_malloc_frag_mem = shoot_suite->size;
 
     struct memChunk *currentChunk;
     int chunkAvail;
     void* chunkAddress;
     int total = 0;
 
-    currentChunk = GetFirstChunkFromSuite(hSuite);
+    currentChunk = GetFirstChunkFromSuite(shoot_suite);
 
     snprintf(shoot_malloc_frag_desc, sizeof(shoot_malloc_frag_desc), "");
     memset(memory_map, 0, sizeof(memory_map));
@@ -1014,19 +1013,17 @@ static void guess_free_mem_task(void* priv, int delta)
         int width = MEMORY_MAP_ADDRESS_TO_INDEX(chunkAvail);
         memset(memory_map + start, COLOR_GREEN1, width);
 
-        currentChunk = GetNextMemoryChunk(hSuite, currentChunk);
+        currentChunk = GetNextMemoryChunk(shoot_suite, currentChunk);
     }
     STR_APPEND(shoot_malloc_frag_desc, " MB.");
     ASSERT(max_shoot_malloc_frag_mem == total);
 
-    exmem_clear(hSuite, 0);
-
-    _shoot_free_suite(hSuite);
+    exmem_clear(shoot_suite, 0);
 
     /* test the new SRM job allocator */
-    hSuite = _srm_malloc_suite(0);
+    struct memSuite * srm_suite = _srm_malloc_suite(0);
     
-    if (!hSuite)
+    if (!srm_suite)
     {
         beep();
         guess_mem_running = 0;
@@ -1034,8 +1031,8 @@ static void guess_free_mem_task(void* priv, int delta)
         return;
     }
     
-    srm_num_buffers = hSuite->num_chunks;
-    currentChunk = GetFirstChunkFromSuite(hSuite);
+    srm_num_buffers = srm_suite->num_chunks;
+    currentChunk = GetFirstChunkFromSuite(srm_suite);
     srm_buffer_size = GetSizeOfMemoryChunk(currentChunk);
 
     while(currentChunk)
@@ -1049,12 +1046,15 @@ static void guess_free_mem_task(void* priv, int delta)
         int width = MEMORY_MAP_ADDRESS_TO_INDEX(chunkAvail);
         memset(memory_map + start, COLOR_CYAN, width);
 
-        currentChunk = GetNextMemoryChunk(hSuite, currentChunk);
+        currentChunk = GetNextMemoryChunk(srm_suite, currentChunk);
     }
 
-    ASSERT(srm_buffer_size * srm_num_buffers == hSuite->size);
+    ASSERT(srm_buffer_size * srm_num_buffers == srm_suite->size);
+
+    exmem_clear(srm_suite, 0);
     
-    _srm_free_suite(hSuite);
+    _shoot_free_suite(shoot_suite);
+    _srm_free_suite(srm_suite);
 
     /* mallocs can resume now */
     give_semaphore(mem_sem);
