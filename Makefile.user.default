@@ -208,3 +208,6 @@ CONFIG_CPUINFO      = n
 
 # recovery: dump ROM from bootloader (either FULLFAT or Canon routines)
 CONFIG_BOOT_DUMPER  = n
+
+# recovery: enable boot flag from bootloader
+CONFIG_BOOT_BOOTFLAG = n

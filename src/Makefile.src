@@ -242,6 +242,10 @@ ifeq ($(CONFIG_BOOT_DUMPER),y)
 CFLAGS += -DCONFIG_BOOT_DUMPER
 endif
 
+ifeq ($(CONFIG_BOOT_BOOTFLAG),y)
+CFLAGS += -DCONFIG_BOOT_BOOTFLAG
+endif
+
 ML_SRC_REBOOT_OBJ += footer.o
 
 clean::

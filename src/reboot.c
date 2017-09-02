@@ -29,7 +29,7 @@
 #define PRINTF_FONT_SIZE 2
 #define PRINTF_FONT_COLOR COLOR_CYAN
 
-#ifdef CONFIG_CPUINFO
+#if defined(CONFIG_CPUINFO) || defined(CONFIG_BOOT_BOOTFLAG)
 #define PAGE_SCROLL
 #undef  PRINTF_FONT_SIZE
 #define PRINTF_FONT_SIZE 1
@@ -650,7 +650,7 @@ static void* find_boot_card_init()
     return found;
 }
 
-static void init_stubs()
+static void init_boot_file_io_stubs()
 {
     /* autodetect this one */
     boot_open_write = (void*) find_func_from_string("Open file for write : %s\n", 0, 0x50);
@@ -688,7 +688,7 @@ static void init_stubs()
 
 static void dump_rom_with_canon_routines()
 {
-    init_stubs();
+    init_boot_file_io_stubs();
 
     /* are we calling the right stubs? */
     
@@ -757,6 +757,23 @@ static void dump_rom_with_fullfat()
 #endif
 }
 
+static int (*set_bootflag)(int flag, int value) = 0;
+
+static void enable_bootflag()
+{
+    const char * SetFlag_str = "Set flag?(Y=ON(0x%08x)/N=OFF(0x%08x))? :";
+    uint32_t set_flag_i = find_func_from_string(SetFlag_str, 0, 0x100);
+    set_bootflag = (void*) find_func_called_after_string_ref(SetFlag_str, 0xFC040000);
+
+    printf(" - set_bootflag %X (interactive %X)\n", set_bootflag, set_flag_i);
+
+    if (set_bootflag && set_flag_i)
+    {
+        /* enable the boot flag */
+        set_bootflag(1, -1);
+    }
+}
+
 extern void cpuinfo_print(void);
 
 void
@@ -808,7 +825,12 @@ cstart( void )
             dump_rom_with_canon_routines();
         #endif
     #endif
-    
+
+    #if defined(CONFIG_BOOT_BOOTFLAG)
+        enable_bootflag();
+        print_bootflags();
+    #endif
+
     printf(" - DONE!\n");
 #endif
 

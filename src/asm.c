@@ -6,6 +6,8 @@
 #include "compiler.h"
 #include "string.h"
 
+extern int printf(const char * format, ...);
+
 #define MEM(x) (*(volatile uint32_t *)(x))
 #define STMFD 0xe92d0000
 
@@ -33,6 +35,13 @@ static int seems_to_be_string(char* addr)
         return 1;
     }
     return 0;
+}
+
+static uint32_t branch_destination(uint32_t insn, uint32_t pc)
+{
+    int32_t off = (((int32_t) insn & 0x00FFFFFF) << 8) >> 6;
+    uint32_t dest = pc + off + 8;
+    return dest;
 }
 
 char* asm_guess_func_name_from_string(uint32_t addr)
@@ -91,9 +100,8 @@ uint32_t find_func_called_before_string_ref(char* ref_string)
             {
                 /* bingo? */
                 found++;
-                uint32_t func_offset = (this & 0x00FFFFFF) << 2;
                 uint32_t pc = i;
-                uint32_t func_addr = pc + func_offset + 8;
+                uint32_t func_addr = branch_destination(this, pc);
                 if (func_addr > 0x100000 && func_addr < 0x110000)
                 {
                     /* looks ok? */
@@ -137,5 +145,96 @@ uint32_t find_func_from_string(char* string, int Rd, uint32_t max_start_offset)
         }
     }
     
+    return 0;
+}
+
+uint32_t find_string_ref(char* string)
+{
+    /* only scan the bootloader RAM area */
+    for (uint32_t i = 0x100000; i < 0x110000; i += 4 )
+    {
+        /* look for: add Rd, pc, #offset */
+        uint32_t insn = MEM(i);
+        if ((insn & 0xFFFF0000) == 0xe28f0000)
+        {
+            /* let's check if it refers to our string */
+            int offset = decode_immediate_shifter_operand(insn);
+            int pc = i;
+            int dest = pc + offset + 8;
+            if (strcmp((char*)dest, string) == 0)
+            {
+                return i;
+            }
+        }
+    }
+
+    return 0;
+}
+
+/* the function must be referencing the tag somehow (a constant value) */
+static int func_has_tag(uint32_t func, uint32_t tag)
+{
+    for (uint32_t i = func; i < func + 0x100; i += 4 )
+    {
+        /* look for: add Rd, pc, #offset */
+        uint32_t insn = MEM(i);
+        if( (insn & 0xFFFF0000) == 0xE59F0000)
+        {
+            int offset = decode_immediate_shifter_operand(insn);
+            int pc = i;
+            int dest = pc + offset + 8;
+            printf("tag %x at %x (%d)\n", MEM(dest), pc, MEM(dest) == tag);
+            if (MEM(dest) == tag)
+            {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+uint32_t find_func_called_after_string_ref(char * string, uint32_t tag)
+{
+    int found = 0;
+    int confirmed = 0;
+    uint32_t answer = 0;
+
+    uint32_t start = find_string_ref(string);
+    printf(" start %x\n", start);
+    if (start)
+    {
+        for (uint32_t i = start + 4; i < start + 0x100; i += 4)
+        {
+            uint32_t this = MEM(i);
+            int is_bl = ((this & 0xFF000000) == 0xEB000000);
+            if (is_bl)
+            {
+                uint32_t pc = i;
+                uint32_t func_addr = branch_destination(this, pc);
+                printf(" BL %x\n", func_addr);
+
+                if (func_addr > 0x100000 && func_addr < 0x110000)
+                {
+                    if (func_has_tag(func_addr, tag))
+                    {
+                        if (func_addr == answer) {
+                            confirmed++;
+                        } else {
+                            found++;
+                            confirmed = 0;
+                        }
+                        answer = func_addr;
+                    }
+                }
+            }
+        }
+    }
+
+    if (found == 1 && confirmed)
+    {
+        /* only return success if there's a single match (no ambiguity) */
+        return answer;
+    }
+
     return 0;
 }
