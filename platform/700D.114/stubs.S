@@ -47,9 +47,9 @@ NSTUB(   0x26CE8,  additional_version)
 NSTUB(0xFF34545C,  FIO_CloseFile)
 NSTUB(0xFF346454,  FIO_FindClose)                           // FindClose
 NSTUB(0xFF346374,  FIO_FindNextEx)
-NSTUB(0xFF34520C,  FIO_ReadFile)
+NSTUB(0xFF34520C, _FIO_ReadFile)
 NSTUB(0xFF3452BC,  FIO_SeekSkipFile)
-NSTUB(0xFF3453AC,  FIO_WriteFile)
+NSTUB(0xFF3453AC, _FIO_WriteFile)
 NSTUB(0xFF345CB8, _FIO_CreateDirectory)
 NSTUB(0xFF3450B8, _FIO_CreateFile)
 NSTUB(0xFF346280, _FIO_FindFirstEx)
@@ -145,6 +145,7 @@ NSTUB(0xFF4D920C,  NormalDisplay)
 NSTUB(0xFF4D91DC,  ReverseDisplay)
 
 /** EDMAC **/
+NSTUB(0xFFA6E784 - RAM_OFFSET,  AbortEDmac)
 NSTUB(0xFFA6E5A0 - RAM_OFFSET,  ConnectReadEDmac)
 NSTUB(0xFFA6E4DC - RAM_OFFSET,  ConnectWriteEDmac)
 NSTUB(0xFFA6EA1C - RAM_OFFSET,  RegisterEDmacAbortCBR)
@@ -305,7 +306,6 @@ NSTUB(0xFFA71E94 - RAM_OFFSET,  vsnprintf)
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
-///NSTUB(0xFFA6E784 - RAM_OFFSET,  AbortEDmac)
 ///NSTUB(0xFF4B6E5C,  CreateDialogBox)
 ///NSTUB(0xFF4B5E24,  DeleteDialogBox)
 ///NSTUB(0xFF19EB3C,  ENCODE_StartEncodeJpeg)

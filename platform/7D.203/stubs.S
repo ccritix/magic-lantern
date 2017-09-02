@@ -45,9 +45,9 @@ NSTUB(   0x16FB8,  additional_version)
 NSTUB(0xFF1FC684,  FIO_CloseFile)
 NSTUB(0xFF1FD554,  FIO_FindClose)                           // AJ__switch_0x1A50_n_calls_fstOpenDir
 NSTUB(0xFF1FD42C,  FIO_FindNextEx)
-NSTUB(0xFF1FC434,  FIO_ReadFile)
+NSTUB(0xFF1FC434, _FIO_ReadFile)
 NSTUB(0xFF1FC4E4,  FIO_SeekSkipFile)
-NSTUB(0xFF1FC5D4,  FIO_WriteFile)
+NSTUB(0xFF1FC5D4, _FIO_WriteFile)
 NSTUB(0xFF1FCCF4, _FIO_CreateDirectory)                     // not sure. g3gg0: confirmed by caller 'ctgDirCreate'
 NSTUB(0xFF1FC2E0, _FIO_CreateFile)
 NSTUB(0xFF1FD2B8, _FIO_FindFirstEx)
@@ -142,6 +142,7 @@ NSTUB(0xFF41DDE0,  StopPlayProtectGuideApp)
 // NSTUB(    ???,  ReverseDisplay)                          /* present on 60D.111, 600D.102, 650D.104, 550D.109, 1100D.105, 700D.113 */
 
 /** EDMAC **/
+NSTUB(0xFF8D48CC,  AbortEDmac)
 NSTUB(0xFF1F54DC,  ConnectReadEDmac)
 NSTUB(0xFF1F5418,  ConnectWriteEDmac)
 NSTUB(0xFF1F5878,  RegisterEDmacAbortCBR)
@@ -303,7 +304,6 @@ NSTUB(    0x6098,  pfAfComplete_counter)
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
-///NSTUB([idk], AbortEDmac)
 ///NSTUB(0xFF06EDD0,  AsyncEnableImagePhysicalScreenParameter)
 ///NSTUB(0xFF2FFD3C,  CreateDialogBox)
 ///NSTUB(0xFF2FF7C4,  DeleteDialogBox)

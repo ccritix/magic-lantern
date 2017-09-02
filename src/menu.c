@@ -76,9 +76,6 @@ static int my_menu_dirty = 0;
 static struct menu * mod_menu;
 static int mod_menu_dirty = 1;
 
-#define IS_DYNAMIC_MENU(menu) \
-    ((menu) == my_menu || (menu) == mod_menu)
-
 /* menu is checked for duplicate entries after adding new items */
 static void check_duplicate_entries();
 static int duplicate_check_dirty = 1;
@@ -128,6 +125,10 @@ static int caret_position = 0;
 
 #define SUBMENU_OR_EDIT (submenu_level || edit_mode)
 #define EDIT_OR_TRANSPARENT (edit_mode || menu_lv_transparent_mode)
+
+/* fixme: better solution? */
+static struct menu_entry * entry_being_updated = 0;
+static int entry_removed_itself = 0;
 
 static CONFIG_INT("menu.junkie", junkie_mode, 0);
 //~ static CONFIG_INT("menu.set", set_action, 2);
@@ -212,13 +213,14 @@ static void menu_help_go_to_selected_entry(struct menu * menu);
 //~ static void menu_init( void );
 static void menu_show_version(void);
 static struct menu * get_current_submenu();
-static struct menu * get_selected_menu();
+static struct menu * get_current_menu_or_submenu();
+static struct menu * get_selected_toplevel_menu();
 static void menu_make_sure_selection_is_valid();
-static void config_menu_load_flags();
+static void config_menu_reload_flags();
 static int guess_submenu_enabled(struct menu_entry * entry);
 static void menu_draw_icon(int x, int y, int type, intptr_t arg, int warn); // private
 static struct menu_entry * entry_find_by_name(const char* name, const char* entry_name);
-static struct menu_entry * get_selected_entry(struct menu * menu);
+static struct menu_entry * get_selected_menu_entry(struct menu * menu);
 static void submenu_display(struct menu * submenu);
 static void start_redraw_flood();
 static struct menu * menu_find_by_name(const char * name,  int icon);
@@ -311,7 +313,7 @@ static struct menu_entry customize_menu[] = {
 
 static int is_customize_selected(struct menu * menu) // argument is optional, just for speedup
 {
-    struct menu_entry * selected_entry = get_selected_entry(menu);
+    struct menu_entry * selected_entry = get_selected_menu_entry(menu);
     if (selected_entry == &customize_menu[0])
         return 1;
     return 0;
@@ -319,6 +321,7 @@ static int is_customize_selected(struct menu * menu) // argument is optional, ju
 
 #define MY_MENU_ENTRY \
         { \
+            .name = "(empty)", \
             .hidden = 1, \
             .jhidden = 1, \
         },
@@ -436,9 +439,11 @@ void customize_menu_init()
     // this is added at the end, after all the others
     my_menu = menu_find_by_name( MY_MENU_NAME, ICON_ML_MYMENU  );
     menu_add(MY_MENU_NAME, my_menu_placeholders, COUNT(my_menu_placeholders));
+    my_menu->no_name_lookup = 1;
     
     mod_menu = menu_find_by_name(MOD_MENU_NAME, ICON_ML_MODIFIED);
     menu_add(MOD_MENU_NAME, mod_menu_placeholders, COUNT(mod_menu_placeholders));
+    mod_menu->no_name_lookup = 1;
 }
 
 static struct menu * menus;
@@ -699,7 +704,7 @@ static void entry_guess_icon_type(struct menu_entry * entry)
         }
         else if(entry->choices)
         {
-            const char* first_choice = entry->choices[entry->min];
+            const char* first_choice = entry->choices[0];
             if (streq(first_choice, "OFF") || streq(first_choice, "Hide"))
                 entry->icon_type = entry->max == 1 ? IT_BOOL : IT_DICE_OFF;
             else if (streq(first_choice, "ON"))
@@ -914,23 +919,22 @@ menu_find_by_id(
 }
 */
 
-
 static struct menu *
-menu_find_by_name(
+menu_find_by_name_internal(
     const char *        name,
     int icon
 )
 {
-    take_semaphore( menu_sem, 0 );
+    ASSERT(name);
 
-    struct menu *       menu = menus;
+    struct menu * menu = menus;
 
     for( ; menu ; menu = menu->next )
     {
+        ASSERT(menu->name);
         if( streq( menu->name, name ) )
         {
             if (icon && !menu->icon) menu->icon = icon;
-            give_semaphore( menu_sem );
             return menu;
         }
 
@@ -943,20 +947,16 @@ menu_find_by_name(
     struct menu * new_menu = malloc( sizeof(*new_menu) );
     if( !new_menu )
     {
-        give_semaphore( menu_sem );
         return NULL;
     }
 
+    memset(new_menu, 0, sizeof(struct menu));
     new_menu->name      = name;
     new_menu->icon      = icon;
     new_menu->prev      = menu;
     new_menu->next      = NULL; // Inserting at end
-    new_menu->children  = NULL;
-    new_menu->submenu_width = 0;
-    new_menu->submenu_height = 0;
     new_menu->split_pos = -16;
-    new_menu->scroll_pos = 0;
-    new_menu->advanced = 0;
+
     // menu points to the last entry or NULL if there are none
     if( menu )
     {
@@ -969,8 +969,21 @@ menu_find_by_name(
         new_menu->selected  = 1;
     }
 
-    give_semaphore( menu_sem );
     return new_menu;
+}
+
+static struct menu * 
+menu_find_by_name(
+    const char *        name,
+    int icon
+)
+{
+    take_semaphore( menu_sem, 0 );
+
+    struct menu * menu = menu_find_by_name_internal(name, icon);
+
+    give_semaphore( menu_sem );
+    return menu;
 }
 
 static int get_menu_visible_count(struct menu * menu)
@@ -1004,13 +1017,11 @@ static int get_menu_selected_pos(struct menu * menu)
 static int
 menu_has_visible_items(struct menu * menu)
 {
-    if (junkie_mode) // hide Debug and Help
+    if (junkie_mode) // hide Modules, Help and Modified
     {
         if (
-            streq(menu->name, "Debug") ||
-            streq(menu->name, "Help") ||
-            //~ streq(menu->name, "Scripts") ||
             streq(menu->name, "Modules") ||
+            streq(menu->name, "Help") ||
             streq(menu->name, MOD_MENU_NAME) ||
            0)
             return 0;
@@ -1093,7 +1104,7 @@ static void menu_update_split_pos(struct menu * menu, struct menu_entry * entry)
 {
     // auto adjust width so that all things can be printed nicely
     // only "negative" numbers are auto-adjusted (if you override the width, you do so with a positive value)
-    if (entry->name && menu->split_pos < 0)// && entry->priv)
+    if (menu->split_pos < 0)// && entry->priv)
     {
         menu->split_pos = -MAX(-menu->split_pos, bmp_string_width(FONT_LARGE, entry->name)/20 + 2);
         if (-menu->split_pos > 28) menu->split_pos = -28;
@@ -1109,6 +1120,7 @@ static void placeholder_copy(struct menu_entry * dst, struct menu_entry * src)
     int starred = dst->starred;
     int hidden = dst->hidden;
     int jhidden = dst->jhidden;
+    uint64_t usage_counters = dst->usage_counters;
     
     /* also keep the name pointer, which will help when removing the menu and restoring the placeholder */
     char* name = (char*) dst->name;
@@ -1122,6 +1134,7 @@ static void placeholder_copy(struct menu_entry * dst, struct menu_entry * src)
     dst->starred = starred;
     dst->hidden = hidden;
     dst->jhidden = jhidden;
+    dst->usage_counters = usage_counters;
 }
 
 /* if we find a placeholder entry, use it for changing the menu order */
@@ -1137,7 +1150,10 @@ menu_update_placeholder(struct menu * menu, struct menu_entry * new_entry)
         return;
     }
 
-    if (!menu->has_placeholders) return;
+    if (!menu->has_placeholders)
+    {
+        return;
+    }
     
     for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
     {
@@ -1158,11 +1174,13 @@ menu_update_placeholder(struct menu * menu, struct menu_entry * new_entry)
     }
 }
 
-void
-menu_add(
+
+static void
+menu_add_internal(
     const char *        name,
     struct menu_entry * new_entry,
-    int                 count
+    int                 count,
+    struct menu_entry * parent
 )
 {
 #if defined(POSITION_INDEPENDENT)
@@ -1174,26 +1192,39 @@ menu_add(
         return;
 
     // Walk the menu list to find a menu
-    struct menu *       menu = menu_find_by_name( name, 0);
+    struct menu * menu = menu_find_by_name_internal( name, 0);
     if( !menu )
         return;
-    
+
+    if (IS_SUBMENU(menu))
+    {
+        /* we should have a parent menu entry */
+        if (!parent)
+        {
+            /* adding to existing submenus? take the parent from other entries */
+            ASSERT(menu->children);
+            parent = menu->children->parent;
+        }
+        ASSERT(streq(parent->name, name));
+    }
+
     menu_flags_load_dirty = 1;
     duplicate_check_dirty = 1;
     
     int count0 = count; // for submenus
 
-    take_semaphore( menu_sem, 0 );
-
     struct menu_entry * head = menu->children;
     if( !head )
     {
         // First one -- insert it as the selected item
+        // fixme: duplicate code
         head = menu->children = new_entry;
-        //~ if (new_entry->id == 0) new_entry->id = menu_id_increment++;
-        new_entry->next     = NULL;
-        new_entry->prev     = NULL;
-        new_entry->parent   = 0;
+        ASSERT(new_entry->name);
+        ASSERT(new_entry->next == NULL);
+        ASSERT(new_entry->prev == NULL);
+        ASSERT((parent == NULL) ^ IS_SUBMENU(menu));
+        ASSERT(new_entry->parent_menu == NULL);
+        new_entry->parent = parent;
         new_entry->parent_menu = menu;
         new_entry->selected = 1;
         menu_update_split_pos(menu, new_entry);
@@ -1209,11 +1240,15 @@ menu_add(
 
     for (int i = 0; i < count; i++)
     {
-        new_entry->selected = 0;
-        new_entry->next     = NULL;
-        new_entry->prev     = head;
-        new_entry->parent   = 0;
+        ASSERT(new_entry->name);
+        ASSERT(new_entry->next == NULL);
+        ASSERT(new_entry->prev == NULL);
+        ASSERT((parent == NULL) ^ IS_SUBMENU(menu));
+        ASSERT(new_entry->parent_menu == NULL);
+        new_entry->parent = parent;
         new_entry->parent_menu = menu;
+        new_entry->selected = 0;
+        new_entry->prev = head;
         head->next      = new_entry;
         head            = new_entry;
         menu_update_split_pos(menu, new_entry);
@@ -1221,9 +1256,6 @@ menu_add(
         menu_update_placeholder(menu, new_entry);
         new_entry++;
     }
-    
-    give_semaphore( menu_sem );
-
 
     // create submenus
 
@@ -1240,23 +1272,51 @@ menu_add(
                 child->works_best_in |= entry->works_best_in;
                 count++; 
             }
-            struct menu * submenu = menu_find_by_name( entry->name, ICON_ML_SUBMENU);
-            if (submenu->children != entry->children) // submenu is reused, do not add it twice
-                menu_add(entry->name, entry->children, count);
+            struct menu * submenu = menu_find_by_name_internal( entry->name, ICON_ML_SUBMENU);
             submenu->submenu_width = entry->submenu_width;
             submenu->submenu_height = entry->submenu_height;
+
+            if (submenu->children != entry->children)
+            {
+                /* sometimes the submenus are reused (e.g. Module menu)
+                 * only add them once */
+                menu_add_internal(entry->name, entry->children, count, entry);
+            }
             
+            /* the menu might have been created before as a regular menu (not as submenu) */
             /* ensure the "children" field always points to the very first item in the submenu */
-            /* (important when merging 2 submenus) */
-            while (entry->children->prev) entry->children = entry->children->prev;
+            /* also make sure the parent entries are correct */
+            while (entry->children->prev)
+            {
+                entry->children = entry->children->prev;
+                entry->children->parent = entry;
+            }
         }
         entry = entry->prev;
         if (!entry) break;
     }
 }
 
+void 
+menu_add(
+    const char *        name,
+    struct menu_entry * new_entry,
+    int                 count
+)
+{
+    take_semaphore( menu_sem, 0 );
+
+    menu_add_internal(name, new_entry, count, 0);
+
+    give_semaphore( menu_sem );
+}
+
 static void menu_remove_entry(struct menu * menu, struct menu_entry * entry)
 {
+    if (entry == entry_being_updated)
+    {
+        entry_removed_itself = 1;
+    }
     if (menu->children == entry)
     {
         menu->children = entry->next;
@@ -1310,8 +1370,6 @@ menu_remove(
     struct menu * menu = menu_find_by_name( name, 0);
     if( !menu )
         return;
-    
-    menu_flags_load_dirty = 1;
 
     int removed = 0;
 
@@ -1344,8 +1402,10 @@ static float usage_counter_delta_long = 1.0;
 static float usage_counter_delta_short = 1.0;
 
 /* threshold for displaying the most used menu items */
+/* submenu items will all end up in the * column, so we'll adjust the threshold to avoid clutter */
 /* max value is used only for showing debug info */
 static float usage_counter_thr = 0;
+static float usage_counter_thr_sub = 0;
 static float usage_counter_max = 0;
 
 /* normalize the usage counters so the next increment is 1.0 */
@@ -1381,7 +1441,7 @@ static void menu_update_usage_counters(struct menu_entry * entry)
         if (!entry) goto end;
     }
 
-    if (streq(entry->parent_menu->name, "Modules"))
+    if (entry->parent_menu->no_name_lookup)
     {
         /* ignore this special menu */
         goto end;
@@ -1423,7 +1483,7 @@ end:
     give_semaphore(menu_sem);
 }
 
-static void menu_usage_counters_update_threshold(int num)
+static void menu_usage_counters_update_threshold(int num, int only_submenu_entries, int only_nonsubmenu_entries)
 {
     take_semaphore(menu_sem, 0);
 
@@ -1432,8 +1492,15 @@ static void menu_usage_counters_update_threshold(int num)
     /* count the menu items */
     for (struct menu * menu = menus; menu; menu = menu->next)
     {
-        if (IS_DYNAMIC_MENU(menu))
+        if (menu->no_name_lookup)
             continue;
+
+        if (only_submenu_entries && !IS_SUBMENU(menu))
+            continue;
+
+        if (only_nonsubmenu_entries && IS_SUBMENU(menu))
+            continue;
+
         for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
         {
             num_entries++;
@@ -1448,8 +1515,15 @@ static void menu_usage_counters_update_threshold(int num)
     int k = 0;
     for (struct menu * menu = menus; menu; menu = menu->next)
     {
-        if (IS_DYNAMIC_MENU(menu))
+        if (menu->no_name_lookup)
             continue;
+
+        if (only_submenu_entries && !IS_SUBMENU(menu))
+            continue;
+
+        if (only_nonsubmenu_entries && IS_SUBMENU(menu))
+            continue;
+
         for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
         {
             float counter = MAX(entry->usage_counter_long_term, entry->usage_counter_short_term);
@@ -1474,7 +1548,17 @@ static void menu_usage_counters_update_threshold(int num)
     }
 
     /* pick a threshold that selects the best "num" entries */
-    usage_counter_thr = MAX(counters[num-1], 0.01);
+    float thr = (num > 0) ? MAX(counters[num-1], 0.01) : 1e5;
+
+    if (!only_submenu_entries)
+    {
+        usage_counter_thr = thr;
+    }
+
+    if (!only_nonsubmenu_entries)
+    {
+        usage_counter_thr_sub = thr;
+    }
 
     free(counters);
 
@@ -2283,12 +2367,6 @@ entry_default_display_info(
     info->warning_level = check_default_warnings(entry, warning);
     
     snprintf(name, sizeof(name), "%s", entry->name);
-    
-    /* for junkie mode, short_name will get copied, short_value is empty by default */
-    /*if(entry->short_name && strlen(entry->short_name))
-    {
-        snprintf(short_name, sizeof(short_name), "%s", entry->short_name);
-    }*/
 
     if (entry->choices && SELECTED_INDEX(entry) >= 0 && SELECTED_INDEX(entry) < NUM_CHOICES(entry))
     {
@@ -2564,7 +2642,13 @@ skip_name:
         w -= (end - wmax);
     
     int xval = x + w;
-    
+
+    // value overlaps name? show value only (overwrite the name)
+    if (xval < x + bmp_string_width(fnt, info->name))
+    {
+        xval = x;
+    }
+
     if (entry->selected && 
         editing_with_caret(entry) && 
         caret_position >= (int)strlen(info->value))
@@ -2635,8 +2719,12 @@ skip_name:
     // selection bar params
     int xl = x - 5 + x_font_offset;
     int xc = x - 5 + x_font_offset;
+
     if ((in_submenu || edit_mode) && info->value[0])
-        xc = x + w - 15;
+    {
+        /* highlight value field */
+        xc = MAX(xl, xval - 15);
+    }
 
     // selection bar
     if (entry->selected)
@@ -2703,7 +2791,7 @@ skip_name:
                 help2_buf[0] = 0;
                 for (int i = entry->min; i <= entry->max; i++)
                 {
-                    int len = bmp_string_width(FONT_MED, help2);
+                    int len = bmp_string_width(FONT_MED, help2_buf);
                     if (len > 700) break;
                     STR_APPEND(help2_buf, "%s%s", pickbox_string(entry, i), i < entry->max ? " / " : ".");
                 }
@@ -2906,9 +2994,13 @@ static int mod_menu_select_func(struct menu_entry * entry)
 
 static int mru_menu_select_func(struct menu_entry * entry)
 {
+    float thr = IS_SUBMENU(entry->parent_menu)
+        ? usage_counter_thr_sub
+        : usage_counter_thr;
+
     return
-        entry->usage_counter_long_term  >= usage_counter_thr ||
-        entry->usage_counter_short_term >= usage_counter_thr ;
+        entry->usage_counter_long_term  >= thr ||
+        entry->usage_counter_short_term >= thr ;
 }
 
 static int mru_junkie_my_menu_select_func(struct menu_entry * entry)
@@ -2928,9 +3020,9 @@ dyn_menu_rebuild(struct menu * dyn_menu, int (*select_func)(struct menu_entry * 
     int i = 0;
     for (struct menu * menu = menus; menu; menu = menu->next)
     {
-        if (IS_DYNAMIC_MENU(menu))
+        if (menu->no_name_lookup)
             continue;
-        
+
         if (IS_SUBMENU(menu))
             continue;
 
@@ -3007,7 +3099,7 @@ static void junkie_menu_rebuild(int min_items, int * count_max, int * count_my, 
 
     for (struct menu * menu = menus; menu; menu = menu->next)
     {
-        if (IS_DYNAMIC_MENU(menu))
+        if (menu->no_name_lookup)
             continue;
 
         int count = 0;
@@ -3037,7 +3129,8 @@ static void junkie_menu_rebuild(int min_items, int * count_max, int * count_my, 
             {
                 if (mru_menu_select_func(entry))
                 {
-                    entry->jhidden = 1;
+                    /* move items from main menu, but not from submenus */
+                    entry->jhidden = !IS_SUBMENU(menu);
                     entry->jstarred = 1;
                     (*count_my)++;
                 }
@@ -3072,10 +3165,11 @@ my_menu_rebuild()
              * Threshold is increased until My Menu becomes
              * not much bigger than the longest menu.
              */
-            menu_usage_counters_update_threshold(junkie_mode * 10);
+            menu_usage_counters_update_threshold(junkie_mode * 10, 0, 0);
 
+            int count_max, count_my, count_my_next, count_my_0;
+            junkie_menu_rebuild(1, &count_max, &count_my_0, &count_my_next);
             int min = 2;
-            int count_max, count_my, count_my_next;
             do
             {
                 junkie_menu_rebuild(min, &count_max, &count_my, &count_my_next);
@@ -3083,11 +3177,14 @@ my_menu_rebuild()
             }
             while (min < 5 && count_my_next <= count_max + 2);
 
-            if (count_my > 0 && count_my < count_max - 2)
+            if (count_my > 0 && ABS(count_my - count_max) > 2)
             {
-                /* for some reason, My Menu ended up with few items */
-                /* let's add some more */
-                menu_usage_counters_update_threshold(junkie_mode * 10 + count_max - count_my - 2);
+                /* My Menu ended up with too few or too many items
+                 * it may look a bit unbalanced - let's "equalize" it */
+                int moved = count_my - count_my_0;
+                int sub_target = MAX(MAX(count_max, junkie_mode*4) - moved, 2);
+                menu_usage_counters_update_threshold(junkie_mode * 10 - sub_target, 0, 1);
+                menu_usage_counters_update_threshold(sub_target, 1, 0);
                 junkie_menu_rebuild(min-1, &count_max, &count_my, &count_my_next);
             }
 
@@ -3095,7 +3192,7 @@ my_menu_rebuild()
         }
         else
         {
-            menu_usage_counters_update_threshold(10);
+            menu_usage_counters_update_threshold(10, 0, 0);
             return dyn_menu_rebuild(my_menu, mru_menu_select_func, my_menu_placeholders, COUNT(my_menu_placeholders), DYN_MENU_EXPAND_ALL_SUBMENUS);
         }
     }
@@ -3114,7 +3211,7 @@ static int mod_menu_rebuild()
 
     mod_menu_dirty = 0;
     
-    mod_menu_selected_entry = get_selected_entry(mod_menu);
+    mod_menu_selected_entry = get_selected_menu_entry(mod_menu);
 
     /* mod_menu_selected_entry must be from the regular menu (not the dynamic one) */
     if (mod_menu_selected_entry && mod_menu_selected_entry->name)
@@ -3145,7 +3242,7 @@ menu_display(
     //hide upper menu for vscroll
     int pos = get_menu_selected_pos(menu);
     int num_visible = get_menu_visible_count(menu);
-    int target_height = 370;
+    int target_height = menu->submenu_height ? menu->submenu_height - 54 : 370;
     if (is_menu_active("Help")) target_height -= 20;
     if (is_menu_active("Focus")) target_height -= 70;
     int natural_height = num_visible * font_large.height;
@@ -3379,7 +3476,7 @@ static char* junkie_get_shorttext(struct menu_display_info * info, int fnt, int 
         if (maxlen - len >= char_width * 4) // still plenty of space? try to print part of name too
         {
             static char nv[30];
-            char* sname = junkie_get_shortname(info, fnt, maxlen - len - 1);
+            char* sname = junkie_get_shortname(info, fnt, maxlen - len - bmp_string_width(fnt, " "));
             if (bmp_string_width(fnt, sname) >= char_width * 2)
             {
                 snprintf(nv, sizeof(nv), "%s %s", sname, svalue);
@@ -3653,7 +3750,7 @@ show_hidden_items(struct menu * menu, int force_clear)
                 STR_APPEND(hidden_msg, "%s", entry->name);
                 while (isspace(hidden_msg[strlen(hidden_msg)-1])) hidden_msg[strlen(hidden_msg)-1] = '\0';
                 while (ispunct(hidden_msg[strlen(hidden_msg)-1])) hidden_msg[strlen(hidden_msg)-1] = '\0';
-                hidden_msg[MIN(len+15, (int)sizeof(hidden_msg))] = '\0';
+                hidden_msg[MIN(len+15, (int)sizeof(hidden_msg)-1)] = '\0';
                 hidden_count++;
             }
         }
@@ -3722,7 +3819,7 @@ menus_display(
     if (mod_menu_dirty)
         mod_menu_rebuild();
 
-    if (get_selected_menu()->icon != menu_first_by_icon)
+    if (get_selected_toplevel_menu()->icon != menu_first_by_icon)
     {
         select_menu_by_icon(menu_first_by_icon);
     }
@@ -3731,7 +3828,16 @@ menus_display(
 
     struct menu * submenu = 0;
     if (submenu_level)
+    {
         submenu = get_current_submenu();
+
+        if (!submenu)
+        {
+            // no submenu, fall back to edit mode
+            submenu_level--;
+            edit_mode = 1;
+        }
+    }
     
     advanced_mode = submenu ? submenu->advanced : 1;
 
@@ -3741,7 +3847,7 @@ menus_display(
     struct menu * junkie_sub = 0;
     if (junkie_mode == 2)
     {
-        struct menu_entry * entry = get_selected_entry(0);
+        struct menu_entry * entry = get_selected_menu_entry(0);
         if (entry && entry->children)
             junkie_sub = menu_find_by_name(entry->name, 0);
     }
@@ -3888,7 +3994,7 @@ menus_display(
 static void
 implicit_submenu_display()
 {
-    struct menu * menu = get_selected_menu();
+    struct menu * menu = get_selected_toplevel_menu();
     menu_display(
         menu,
         MENU_OFFSET,
@@ -4009,9 +4115,16 @@ menu_entry_customize_toggle(
     struct menu *   menu
 )
 {
-    struct menu_entry * entry = get_selected_entry(menu);
+    if (menu->no_name_lookup && menu != my_menu)
+    {
+        /* we depend on name look-ups */
+        /* my_menu is a special case, see below */
+        beep();
+        return;
+    }
+
+    struct menu_entry * entry = get_selected_menu_entry(menu);
     if (!entry) return;
-    if (!entry->name) return;
 
     /* make sure the customized menu entry can be looked up by name */
     struct menu_entry * entry_by_name = entry_find_by_name(entry->parent_menu->name, entry->name);
@@ -4026,7 +4139,9 @@ menu_entry_customize_toggle(
     {
         // lookup the corresponding entry in normal menus, and toggle that one instead
         struct menu_entry * orig_entry = entry_by_name;
-        if (!orig_entry->starred) return;
+        ASSERT(orig_entry->starred);
+        ASSERT(orig_entry->parent_menu);
+        ASSERT(orig_entry->parent_menu->no_name_lookup == 0);
         menu_entry_star_toggle(orig_entry); // should not fail
         return;
     }
@@ -4067,7 +4182,7 @@ menu_entry_select(
     if( !menu )
         return;
 
-    struct menu_entry * entry = get_selected_entry(menu);
+    struct menu_entry * entry = get_selected_menu_entry(menu);
     if( !entry )
     {
         /* empty submenu? go back */
@@ -4075,7 +4190,7 @@ menu_entry_select(
         submenu_level = MAX(submenu_level - 1, 0);
         return;
     }
-    
+
     // don't perform actions on empty items (can happen on empty submenus)
     if (!is_visible(entry))
     {
@@ -4084,6 +4199,13 @@ menu_entry_select(
         menu_lv_transparent_mode = 0;
         return;
     }
+
+    /* note: entry->select() can delete itself (see e.g. file_man) */
+    /* we must be careful to prevent using entry if this happened */
+    /* fixme: better solution? */
+    ASSERT(entry_being_updated == 0);
+    entry_being_updated = entry;
+    entry_removed_itself = 0;
 
     /* usage counters are only updated for actual toggles */
     /* they are not updated during submenu navigation */
@@ -4164,7 +4286,7 @@ menu_entry_select(
             else if (entry->select)
             {
                 entry->select( entry->priv, 1);
-                entry_used = (entry->select != menu_open_submenu);
+                entry_used = 1;
             }
             else if IS_ML_PTR(entry->priv)
             {
@@ -4189,12 +4311,20 @@ menu_entry_select(
 
         entry_used = 1;
     }
-    
-    if(entry->unit == UNIT_TIME && edit_mode && caret_position == 0) caret_position = 1;
 
-    if (entry_used)
+    entry_being_updated = 0;
+
+    if (!entry_removed_itself)
     {
-        menu_update_usage_counters(entry);
+        if (entry->unit == UNIT_TIME && edit_mode && caret_position == 0)
+        {
+            caret_position = 1;
+        }
+
+        if (entry_used)
+        {
+            menu_update_usage_counters(entry);
+        }
     }
 
     config_dirty = 1;
@@ -4336,24 +4466,18 @@ menu_entry_move(
 // If the menu or the selection is empty, move back and forth to restore a valid selection
 static void menu_make_sure_selection_is_valid()
 {
-    struct menu * menu = get_selected_menu();
-    if (submenu_level)
-    {
-        struct menu * main_menu = menu;
-        menu = get_current_submenu();
-        if (!menu) menu = main_menu; // no submenu, operate on same item
-    }
+    struct menu * menu = get_current_menu_or_submenu();
  
     // current menu has any valid items in current mode?
     if (!menu_has_visible_items(menu))
     {
         if (submenu_level) return; // empty submenu
-        menu_move(menu, -1); menu = get_selected_menu();
-        menu_move(menu, 1); menu = get_selected_menu();
+        menu_move(menu, -1); menu = get_selected_toplevel_menu();
+        menu_move(menu, 1); menu = get_selected_toplevel_menu();
     }
 
     // currently selected menu entry is visible?
-    struct menu_entry * entry = get_selected_entry(menu);
+    struct menu_entry * entry = get_selected_menu_entry(menu);
     if (!entry) return;
 
     if (entry->selected && !is_visible(entry))
@@ -4615,7 +4739,7 @@ menu_redraw_full()
 }
 
 
-static struct menu * get_selected_menu()
+static struct menu * get_selected_toplevel_menu()
 {
     struct menu * menu = menus;
     for( ; menu ; menu = menu->next )
@@ -4624,10 +4748,12 @@ static struct menu * get_selected_menu()
     return menu;
 }
 
-static struct menu_entry * get_selected_entry(struct menu * menu)  // argument is optional, just for speedup
+// argument is optional; 0 = top-level menus; otherwise, any menu can be used
+static struct menu_entry * get_selected_menu_entry(struct menu * menu)
 {
     if (!menu)
     {
+        /* find the currently selected top-level menu */
         menu = menus;
         for( ; menu ; menu = menu->next )
             if( menu->selected )
@@ -4643,7 +4769,7 @@ static struct menu_entry * get_selected_entry(struct menu * menu)  // argument i
 
 static struct menu * get_current_submenu()
 {
-    struct menu_entry * entry = get_selected_entry(0);
+    struct menu_entry * entry = get_selected_menu_entry(0);
     if (!entry) return 0;
     
     for(int level = submenu_level; level > 1; level--)
@@ -4657,12 +4783,32 @@ static struct menu * get_current_submenu()
     }
 
     if (entry && entry->children)
-        return menu_find_by_name(entry->name, 0);
+    {
+        return entry->children->parent_menu;
+    }
 
-    // no submenu, fall back to edit mode
-    submenu_level--;
-    edit_mode = 1;
     return 0;
+}
+
+static struct menu * get_current_menu_or_submenu()
+{
+    // Find the selected menu (should be cached?)
+    struct menu * menu = get_selected_toplevel_menu();
+
+    struct menu * main_menu = menu;
+    if (submenu_level)
+    {
+        main_menu = menu;
+        menu = get_current_submenu();
+
+        if (!menu)
+        {
+            // no submenu, operate on same item
+            menu = main_menu;
+        }
+    }
+
+    return menu;
 }
 
 static int keyrepeat = 0;
@@ -4773,16 +4919,8 @@ handle_ml_menu_keys(struct event * event)
             return 0;
     }
     
-    // Find the selected menu (should be cached?)
-    struct menu * menu = get_selected_menu();
-
-    struct menu * main_menu = menu;
-    if (submenu_level)
-    {
-        main_menu = menu;
-        menu = get_current_submenu();
-        if (!menu) menu = main_menu; // no submenu, operate on same item
-    }
+    // Find the selected menu or submenu (should be cached?)
+    struct menu * menu = get_current_menu_or_submenu();
     
     int button_code = event->param;
 #if defined(CONFIG_60D) || defined(CONFIG_600D) || defined(CONFIG_7D) // Q not working while recording, use INFO instead
@@ -4841,7 +4979,7 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_PRESS_UP:
         if (edit_mode && !menu_lv_transparent_mode)
         {
-            struct menu_entry * entry = get_selected_entry(menu);
+            struct menu_entry * entry = get_selected_menu_entry(menu);
             if(entry && uses_caret_editing(entry))
             {
                 menu_entry_select( menu, 0 );
@@ -4864,7 +5002,7 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_PRESS_DOWN:
         if (edit_mode && !menu_lv_transparent_mode)
         {
-            struct menu_entry * entry = get_selected_entry(menu);
+            struct menu_entry * entry = get_selected_menu_entry(menu);
             if(entry && uses_caret_editing(entry))
             {
                 menu_entry_select( menu, 1 );
@@ -4887,7 +5025,7 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_PRESS_RIGHT:
         if(EDIT_OR_TRANSPARENT)
         {
-            struct menu_entry * entry = get_selected_entry(menu);
+            struct menu_entry * entry = get_selected_menu_entry(menu);
             if(entry && uses_caret_editing(entry))
             {
                 caret_move(entry, -1);
@@ -4906,7 +5044,7 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_PRESS_LEFT:
         if(EDIT_OR_TRANSPARENT)
         {
-            struct menu_entry * entry = get_selected_entry(menu);
+            struct menu_entry * entry = get_selected_menu_entry(menu);
             if(entry && uses_caret_editing(entry))
             {
                 caret_move(entry, 1);
@@ -4950,7 +5088,11 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_INFO:
         menu_help_active = !menu_help_active;
         menu_lv_transparent_mode = 0;
-        if (menu_help_active) menu_help_go_to_selected_entry(main_menu);
+        if (menu_help_active)
+        {
+            /* fixme: go up one level until the help page is found */
+            menu_help_go_to_selected_entry(get_selected_toplevel_menu());
+        }
         menu_needs_full_redraw = 1;
         //~ menu_damage = 1;
         //~ menu_hidden_should_display_help = 0;
@@ -5018,20 +5160,28 @@ menu_init( void )
     gui_sem = create_named_semaphore( "gui", 0 );
     menu_redraw_sem = create_named_semaphore( "menu_r", 1);
 
-    struct menu * m = NULL;
-    m = menu_find_by_name( "Audio",     ICON_ML_AUDIO   );
-    m = menu_find_by_name( "Expo",      ICON_ML_EXPO    );
-    m = menu_find_by_name( "Overlay",   ICON_ML_OVERLAY );
-    m = menu_find_by_name( "Movie",     ICON_ML_MOVIE   );
-    m = menu_find_by_name( "Shoot",     ICON_ML_SHOOT   );
-    m = menu_find_by_name( "Focus",     ICON_ML_FOCUS   );
-    m = menu_find_by_name( "Display",   ICON_ML_DISPLAY );
-    m = menu_find_by_name( "Prefs",     ICON_ML_PREFS   );
-    m = menu_find_by_name( "Scripts",   ICON_ML_SCRIPT  );
-    m = menu_find_by_name( "Games",     ICON_ML_GAMES  );
-    m = menu_find_by_name( "Modules",   ICON_ML_MODULES ); if (m) m->split_pos = 11;
-    m = menu_find_by_name( "Debug",     ICON_ML_DEBUG   );
-    m = menu_find_by_name( "Help",      ICON_ML_INFO    );
+    menu_find_by_name( "Audio",     ICON_ML_AUDIO   );
+    menu_find_by_name( "Expo",      ICON_ML_EXPO    );
+    menu_find_by_name( "Overlay",   ICON_ML_OVERLAY );
+    menu_find_by_name( "Movie",     ICON_ML_MOVIE   );
+    menu_find_by_name( "Shoot",     ICON_ML_SHOOT   );
+    menu_find_by_name( "Focus",     ICON_ML_FOCUS   );
+    menu_find_by_name( "Display",   ICON_ML_DISPLAY );
+    menu_find_by_name( "Prefs",     ICON_ML_PREFS   );
+    menu_find_by_name( "Scripts",   ICON_ML_SCRIPT  );
+    menu_find_by_name( "Games",     ICON_ML_GAMES  );
+    menu_find_by_name( "Modules",   ICON_ML_MODULES );
+    menu_find_by_name( "Debug",     ICON_ML_DEBUG   );
+    menu_find_by_name( "Help",      ICON_ML_INFO    );
+
+    struct menu * m = menu_find_by_name( "Modules", 0 );
+    ASSERT(m);
+    m->split_pos = -11;
+    m->no_name_lookup = 1;
+
+    m = menu_find_by_name( "Help", 0 );
+    ASSERT(m);
+    m->no_name_lookup = 1;
 }
 
 /*
@@ -5281,10 +5431,10 @@ menu_task( void* unused )
             }
 
             /* executed once at startup,
-             * and whenever new menus appear/disappear */
+             * and whenever new menus appear (after menu_add) */
             if (menu_flags_load_dirty)
             {
-                config_menu_load_flags();
+                config_menu_reload_flags();
                 menu_flags_load_dirty = 0;
             }
             
@@ -5360,14 +5510,12 @@ TASK_CREATE( "menu_task", menu_task, 0, 0x1a, 0x2000 );
 
 int is_menu_entry_selected(char* menu_name, char* entry_name)
 {
-    struct menu * menu = menus;
-    for( ; menu ; menu = menu->next )
-        if( menu->selected )
-            break;
+    struct menu * menu = get_current_menu_or_submenu();
     if (streq(menu->name, menu_name))
     {
-        struct menu_entry * entry = get_selected_entry(menu);
+        struct menu_entry * entry = get_selected_menu_entry(menu);
         if (!entry) return 0;
+        if (!entry->name) return 0;
         return streq(entry->name, entry_name);
     }
     return 0;
@@ -5407,6 +5555,60 @@ void select_menu(char* name, int entry_index)
     //~ menu_damage = 1;
 }
 
+static void select_menu_recursive(struct menu * selected_menu, const char * entry_name)
+{
+    printf("select_menu %s -> %s\n", selected_menu->name, entry_name);
+
+    /* update selection flag for all entries from this menu */
+    for (struct menu * menu = menus; menu; menu = menu->next)
+    {
+        int menu_selected = (menu == selected_menu);
+
+        if (!IS_SUBMENU(selected_menu))
+        {
+            /* only select the menu if it's at the top level */
+            menu->selected = menu_selected;
+
+            if (menu_selected)
+            {
+                /* update last selected menu (only at the top level); see menu_move */
+                menu_first_by_icon = selected_menu->icon;
+            }
+        }
+
+        if ((menu == selected_menu) && entry_name) 
+        {
+            /* select the requested menu entry from this menu */
+            struct menu_entry * selected_entry = 0;
+            for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
+            {
+                if (streq(entry->name, entry_name))
+                {
+                    selected_entry = entry;
+                    break;
+                }
+            }
+            
+            if (selected_entry)
+            {
+                /* update selection flag for all entries from this menu */
+                for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
+                {
+                    entry->selected = (entry == selected_entry);
+                }
+
+                /* select parent menu entry, if any */
+                if (selected_entry->parent)
+                {
+                    selected_entry = selected_entry->parent;
+                    select_menu_recursive(selected_entry->parent_menu, selected_entry->name);
+                    submenu_level++;
+                }
+            }
+        }
+    }
+}
+
 void select_menu_by_name(char* name, const char* entry_name)
 {
     take_semaphore(menu_sem, 0);
@@ -5425,52 +5627,17 @@ void select_menu_by_name(char* name, const char* entry_name)
 
     if (selected_menu)
     {
-        if (IS_SUBMENU(selected_menu))
-        {
-            /* submenus are hard; you need to select all parents along the way */
-            give_semaphore(menu_sem);
-            return;
-        }
-
-        /* update selection flag for all entries from this menu */
-        for (struct menu * menu = menus; menu; menu = menu->next)
-        {
-            menu->selected = (menu == selected_menu);
-
-            if (menu->selected && entry_name) 
-            {
-                /* process menu entries from the selected menu in a similar way */
-                struct menu_entry * selected_entry = 0;
-                for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
-                {
-                    if (streq(entry->name, entry_name))
-                    {
-                        selected_entry = entry;
-                        break;
-                    }
-                }
-                
-                if (selected_entry)
-                {
-                    /* update selection flag for all entries from this menu */
-                    for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
-                    {
-                        entry->selected = (entry == selected_entry);
-                    }
-                }
-            }
-        }
-
-        /* update other internal state (see menu_move) */
-        menu_first_by_icon = selected_menu->icon;
+        submenu_level = 0;
+        select_menu_recursive(selected_menu, entry_name);
+        beta_set_warned();
     }
 
     give_semaphore(menu_sem);
 }
 
-static struct menu_entry * entry_find_by_name(const char* name, const char* entry_name)
+static struct menu_entry * entry_find_by_name(const char* menu_name, const char* entry_name)
 {
-    if (!name || !entry_name)
+    if (!menu_name || !entry_name)
     {
         return 0;
     }
@@ -5480,11 +5647,11 @@ static struct menu_entry * entry_find_by_name(const char* name, const char* entr
 
     for (struct menu * menu = menus; menu; menu = menu->next)
     {
-        /* skip dynamic menus */
-        if (IS_DYNAMIC_MENU(menu))
+        /* skip special menus */
+        if (menu->no_name_lookup)
             continue;
-        
-        if (streq(menu->name, name))
+
+        if (streq(menu->name, menu_name))
         {
             for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
             {
@@ -5504,7 +5671,7 @@ static struct menu_entry * entry_find_by_name(const char* name, const char* entr
     if (count > 1)
     {
         console_show();
-        printf("Duplicate menu: %s (%d)\n", entry_name, count);
+        printf("Duplicate menu: %s -> %s (%d)\n", menu_name, entry_name, count);
         return 0;
     }
 
@@ -5536,7 +5703,7 @@ menu_help_go_to_selected_entry(
     if( !menu )
         return;
 
-    struct menu_entry * entry = get_selected_entry(menu);
+    struct menu_entry * entry = get_selected_menu_entry(menu);
     if (!entry) return;
     menu_help_go_to_label((char*) entry->name, 0);
     give_semaphore(menu_sem);
@@ -5794,27 +5961,131 @@ static void menu_unpack_flags(struct menu_entry * entry, uint32_t flags)
         entry->jhidden = 1;
 }
 
-#define CFG_APPEND(fmt, ...) ({ lastlen = snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); cfglen += lastlen; })
-#define CFG_SIZE 32768
+static int menu_parse_flags_line(
+    char * buf, int i, int size, int *prev,
+    char ** menu_name,
+    char ** entry_name,
+    uint32_t * flags,
+    uint32_t * usage_counter_l,
+    uint32_t * usage_counter_s
+)
+{
+    int sep = 0;
+    int start = i;
+
+    for ( ; i < size; i++)
+    {
+        if (buf[i] == '\\')
+        {
+            sep = i;
+        }
+        else if (buf[i] == '\n')
+        {
+            if (start+20 < sep && sep+1 < i)
+            {
+                buf[i] = 0;
+                buf[sep] = 0;
+                *menu_name = &buf[start+20];
+                *entry_name = &buf[sep+1];
+                *flags = buf[start] - '0';
+                *usage_counter_l = strtol(&buf[start+2], 0, 16);
+                *usage_counter_s = strtol(&buf[start+11], 0, 16);
+                return i + 1;
+            }
+
+            /* invalid line? */
+            start = i + 1;
+        }
+    }
+
+    /* finished */
+    return -1;
+}
+
+static void menu_reload_flags(char* filename)
+{
+    int size = 0;
+    char* buf = (char*)read_entire_file(filename , &size);
+    if (!buf) return;
+    int prev = -1;
+    int i = 0;
+
+    char *menu_name, *entry_name;
+    uint32_t flags, usage_counter_l, usage_counter_s;
+
+    while ((i = menu_parse_flags_line(
+                    buf, i, size, &prev, 
+                    &menu_name, &entry_name,
+                    &flags, &usage_counter_l, &usage_counter_s)) >= 0)
+    {
+        /* fixme: entries with same name may give trouble */
+        struct menu_entry * entry = entry_find_by_name(menu_name, entry_name);
+        if (entry && !entry->cust_loaded)
+        {
+            menu_unpack_flags(entry, flags);
+            entry->usage_counter_long_term_raw = usage_counter_l;
+            entry->usage_counter_short_term_raw = usage_counter_s;
+            entry->cust_loaded = 1;
+        }
+    }
+
+    free(buf);
+}
+
+#define CFG_APPEND(fmt, ...) ({ cfglen += snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); })
+#define CFG_SIZE (256*1024)
+
+static int menu_save_unloaded_flags(char* filename, char * cfg, int cfglen)
+{
+    int size = 0;
+    char* buf = (char*)read_entire_file(filename , &size);
+    if (!buf) return cfglen;
+    int prev = -1;
+    int i = 0;
+
+    char *menu_name, *entry_name;
+    uint32_t flags, usage_counter_l, usage_counter_s;
+
+    while ((i = menu_parse_flags_line(
+                    buf, i, size, &prev, 
+                    &menu_name, &entry_name,
+                    &flags, &usage_counter_l, &usage_counter_s)) >= 0)
+    {
+        /* fixme: entries with same name may give trouble */
+        struct menu_entry * entry = entry_find_by_name(menu_name, entry_name);
+        if (!entry)
+        {
+            CFG_APPEND("%d %08X %08X %s\\%s\n",
+                flags, usage_counter_l, usage_counter_s,
+                menu_name, entry_name
+            );
+        }
+    }
+
+    free(buf);
+    return cfglen;
+}
 
 static void menu_save_flags(char* filename)
 {
     menu_normalize_usage_counters();
 
-    char* cfg = fio_malloc(CFG_SIZE);
+    char* cfg = malloc(CFG_SIZE);
     cfg[0] = '\0';
     int cfglen = 0;
-    int lastlen = 0;
+
+    cfglen = menu_save_unloaded_flags(filename, cfg, cfglen);
 
     for (struct menu * menu = menus; menu; menu = menu->next)
     {
-        if (IS_DYNAMIC_MENU(menu))
+        if (menu->no_name_lookup)
             continue;
-        
+
         for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
         {
             if (!entry->name) continue;
             if (!entry->name[0]) continue;
+            if (MENU_IS_PLACEHOLDER(entry)) continue;
 
             uint32_t flags = menu_pack_flags(entry);
 
@@ -5840,55 +6111,14 @@ static void menu_save_flags(char* filename)
     FIO_CloseFile( file );
 
 end:
-    fio_free(cfg);
+    free(cfg);
 }
 
-static void menu_load_flags(char* filename)
-{
-    int size = 0;
-    char* buf = (char*)read_entire_file(filename , &size);
-    if (!size) return;
-    if (!buf) return;
-    int prev = -1;
-    int sep = 0;
-    for (int i = 0; i < size; i++)
-    {
-        if (buf[i] == '\\') sep = i;
-        else if (buf[i] == '\n')
-        {
-            //~ NotifyBox(2000, "%d %d %d ", prev, sep, i);
-            if (prev < sep-2 && sep < i-2)
-            {
-                buf[i] = 0;
-                buf[sep] = 0;
-                char* menu_name = &buf[prev+21];
-                char* entry_name = &buf[sep+1];
-                uint32_t flags = buf[prev+1] - '0';
-                uint32_t usage_counter_l = strtol(&buf[prev+3], 0, 16);
-                uint32_t usage_counter_s = strtol(&buf[prev+12], 0, 16);
-                //~ NotifyBox(2000, "%s -> %s", menu_name, entry_name); msleep(2000);
-                
-                /* fixme: entries with same name may give trouble */
-                struct menu_entry * entry = entry_find_by_name(menu_name, entry_name);
-                if (entry)
-                {
-                    menu_unpack_flags(entry, flags);
-                    entry->usage_counter_long_term_raw = usage_counter_l;
-                    entry->usage_counter_short_term_raw = usage_counter_s;
-                }
-            }
-            prev = i;
-        }
-    }
-    fio_free(buf);
-}
-
-
-static void config_menu_load_flags()
+static void config_menu_reload_flags()
 {
     char menu_config_file[0x80];
     snprintf(menu_config_file, sizeof(menu_config_file), "%sMENUS.CFG", get_config_dir());
-    menu_load_flags(menu_config_file);
+    menu_reload_flags(menu_config_file);
     my_menu_dirty = 1;
 }
 
@@ -5903,7 +6133,7 @@ void config_menu_save_flags()
 
 /*void menu_save_all_items_dbg()
 {
-    char* cfg = fio_malloc(CFG_SIZE);
+    char* cfg = malloc(CFG_SIZE);
     cfg[0] = '\0';
 
     int unnamed = 0;
@@ -5926,7 +6156,7 @@ void config_menu_save_flags()
     
     NotifyBox(5000, "Menu items: %d unnamed.", unnamed);
 end:
-    fio_free(cfg);
+    free(cfg);
 }*/
 
 int menu_get_value_from_script(const char* name, const char* entry_name)
@@ -6089,6 +6319,7 @@ int menu_set_str_value_from_script(const char* name, const char* entry_name, cha
         {
             /* custom menu selection logic */
             entry->select( entry->priv, 1);
+            /* fixme: will crash in file_man */
 
             /* the custom logic might rely on other tasks to update */
             msleep(50);
@@ -6198,21 +6429,13 @@ int menu_request_image_backend()
     return 0;
 }
 
-
 MENU_SELECT_FUNC(menu_advanced_toggle)
 {
-    struct menu * menu = get_selected_menu();
-    struct menu * main_menu = menu;
-    if (submenu_level)
-    {
-        main_menu = menu;
-        menu = get_current_submenu();
-        if (!menu) menu = main_menu; // no submenu, operate on same item
-    }
-    
+    struct menu * menu = get_current_menu_or_submenu();
     advanced_mode = menu->advanced = !menu->advanced;
     menu->scroll_pos = 0;
 }
+
 MENU_UPDATE_FUNC(menu_advanced_update)
 {
     MENU_SET_NAME(advanced_mode ? "Simple..." : "Advanced...");
@@ -6241,7 +6464,7 @@ void qemu_menu_screenshots()
         call("dispcheck");
         
         /* cycle through menus, until the first menu gets selected again */
-        menu_move(get_selected_menu(), 1);
+        menu_move(get_selected_toplevel_menu(), 1);
         if (menus->selected)
             break;
     }
@@ -6288,21 +6511,28 @@ static void check_duplicate_entries()
 
     for (struct menu * menu = menus; menu; menu = menu->next)
     {
-        if (IS_DYNAMIC_MENU(menu))
+        if (menu->no_name_lookup)
             continue;
-        
+
         for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
         {
-            if (!entry->name)
-                continue;
-
             if (entry->shidden)
                 continue;
 
             /* make sure each item can be looked up by name */
             /* entry_find_by_name will print a warning if there are duplicates */
+            /* and it should either find the right thing, or fail */
+            ASSERT(entry->name);
             struct menu_entry * e = entry_find_by_name(menu->name, entry->name);
-            ASSERT(e == 0 || e == entry);
+            ASSERT(e == entry || e == 0);
+
+            if (IS_SUBMENU(menu))
+            {
+                /* this entry must be linked to its parent */
+                ASSERT(entry->parent);
+                ASSERT(entry->parent_menu == menu);
+                ASSERT(streq(entry->parent->name, menu->name));
+            }
         }
     }
 

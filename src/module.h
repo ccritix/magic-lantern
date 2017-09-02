@@ -30,6 +30,7 @@
 #define MODULE_LONG_STATUS_LENGTH     63
 
 /* some callbacks that may be needed by modules. more to come. ideas? needs? */
+#define CBR_NAMED                     0x8000 /* named CBR using ml-cbr */
 #define CBR_PRE_SHOOT                 1 /* called before image is taken */
 #define CBR_POST_SHOOT                2 /* called after image is taken */
 #define CBR_SHOOT_TASK                3 /* called periodically from shoot task */
@@ -56,6 +57,8 @@
 #define CBR_CUSTOM_PICTURE_TAKING    11 /* special types of picture taking (e.g. silent pics); so intervalometer and other photo taking routines should use that instead of regular pics */
 #define CBR_INTERVALOMETER           12 /* called after a picture is taken with the intervalometer */
 #define CBR_CONFIG_SAVE              13 /* called when ML configs are being saved */
+
+#define CBR_RAW_INFO_UPDATE          14 /* called after raw_info is updated successfully */
 
 /* return values from CBRs */
 #define CBR_RET_CONTINUE              0             /* keep calling other CBRs of the same type */
@@ -214,7 +217,8 @@ typedef struct
 #define MODULE_CBRS_START()                                     MODULE_CBRS_START_(MODULE_CBR_PREFIX,MODULE_NAME)
 #define MODULE_CBRS_START_(prefix,modname)                      MODULE_CBRS_START__(prefix,modname)
 #define MODULE_CBRS_START__(prefix,modname)                     module_cbr_t prefix##modname[] = {
-#define MODULE_CBR(cb_type,cbr,context)                         { .name = #cb_type, .symbol = #cbr, .type = cb_type, .handler = cbr, .ctx = context },
+#define MODULE_CBR(cb_type,cbr,context)                         { .name = #cb_type, .symbol = #cbr, .type = cb_type,   .handler = cbr, .ctx = context },
+#define MODULE_NAMED_CBR(cb_name,cbr)                           { .name = cb_name,  .symbol = #cbr, .type = CBR_NAMED, .handler = (void*)cbr, .ctx = 0       },
 #define MODULE_CBRS_END()                                           { (void *)0, (void *)0, 0, (void *)0, 0 }\
                                                                 };
                                                             
@@ -269,6 +273,11 @@ void *module_load(char *filename);
 int module_exec(void *module, char *symbol, int count, ...);
 int module_unload(void *module);
 unsigned int module_get_symbol(void *module, char *symbol);
+
+/* those are used by e.g. mlv_lite to surf the loaded modules and their versions */
+int module_get_next_loaded(int mod_number);
+const char* module_get_string(int mod_number, const char* name);
+const char* module_get_name(int mod_number);
 
 /* execute all callback routines of given type. maybe it will get extended to support varargs */
 int module_exec_cbr(unsigned int type);

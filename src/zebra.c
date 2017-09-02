@@ -421,7 +421,7 @@ int get_global_draw() // menu setting, or off if
     
     #ifdef CONFIG_CONSOLE
     extern int console_visible;
-    if (console_visible) return 0;
+    if (console_visible && !lv) return 0;
     #endif
     
     if (lv && ZEBRAS_IN_LIVEVIEW)
@@ -3729,6 +3729,7 @@ void draw_histogram_and_waveform(int allow_play)
 #ifdef FEATURE_HISTOGRAM
     if( hist_draw && !WAVEFORM_FULLSCREEN)
     {
+        extern int console_visible;
         #ifdef CONFIG_4_3_SCREEN
         if (PLAY_OR_QR_MODE)
             BMP_LOCK( hist_draw_image( os.x0 + 500,  1); )
@@ -3736,6 +3737,8 @@ void draw_histogram_and_waveform(int allow_play)
         #endif
         if (should_draw_bottom_graphs())
             BMP_LOCK( hist_draw_image( os.x0 + 50,  480 - hist_height - 1); )
+        else if (console_visible)
+            BMP_LOCK( hist_draw_image( os.x_max - HIST_WIDTH - 5, os.y0 + 70); )
         else if (screen_layout == SCREENLAYOUT_3_2)
             BMP_LOCK( hist_draw_image( os.x_max - HIST_WIDTH - 2,  os.y_max - (lv ? os.off_169 + 10 : 0) - hist_height - 1); )
         else
@@ -4509,7 +4512,7 @@ static void make_overlay()
     FILE* f = FIO_CreateFile("ML/DATA/overlay.dat");
     if (f)
     {
-        FIO_WriteFile( f, (const void *) UNCACHEABLE(bvram_mirror), BVRAM_MIRROR_SIZE);
+        FIO_WriteFile( f, (const void *) bvram_mirror, BVRAM_MIRROR_SIZE);
         FIO_CloseFile(f);
         bmp_printf(FONT_MED, 0, 0, "Overlay saved.  ");
     }
@@ -4532,10 +4535,14 @@ static void show_overlay()
     
     clrscr();
 
-    FILE* f = FIO_OpenFile("ML/DATA/overlay.dat", O_RDONLY | O_SYNC);
-    if (!f) return;
-    FIO_ReadFile(f, bvram_mirror, 960*480 );
-    FIO_CloseFile(f);
+    int size = 0;
+    void * tmp = read_entire_file("ML/DATA/overlay.dat", &size);
+    if (tmp)
+    {
+        ASSERT(size == BVRAM_MIRROR_SIZE);
+        memcpy(bvram_mirror, tmp, BVRAM_MIRROR_SIZE);
+        free(tmp); tmp = NULL;
+    }
 
     for (int y = os.y0; y < os.y_max; y++)
     {

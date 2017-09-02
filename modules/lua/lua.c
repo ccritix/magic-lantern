@@ -53,6 +53,7 @@ struct script_semaphore
 
 static int lua_loaded = 0;
 int last_keypress = 0;
+int waiting_for_keypress = -1;  /* 0 = all, -1 = none, other = wait for a specific key */
 
 static struct script_semaphore * script_semaphores = NULL;
 
@@ -223,10 +224,21 @@ static unsigned int lua_keypress_cbr(unsigned int ctx)
 {
     /* ignore unknown button codes */
     if (!ctx) return 1;
-    
+
     last_keypress = ctx;
     //keypress cbr interprets things backwards from other CBRs
-    return lua_do_cbr(ctx, keypress_cbr_scripts, "keypress", 500, CBR_RET_KEYPRESS_NOTHANDLED, CBR_RET_KEYPRESS_HANDLED);
+    int result = lua_do_cbr(ctx, keypress_cbr_scripts, "keypress", 500, CBR_RET_KEYPRESS_NOTHANDLED, CBR_RET_KEYPRESS_HANDLED);
+
+    if (result == CBR_RET_KEYPRESS_NOTHANDLED)
+    {
+        /* waiting for this/all keypress/es? block the event */
+        if (waiting_for_keypress == last_keypress || waiting_for_keypress == 0)
+        {
+            return CBR_RET_KEYPRESS_HANDLED;
+        }
+    }
+
+    return result;
 }
 
 #define SCRIPT_CBR_SET(event) \
@@ -924,10 +936,6 @@ static MENU_UPDATE_FUNC(lua_script_menu_update)
         {
             script_print_state(entry, info);
         }
-
-        /* if a script takes a long time in the LOADING state,
-         * it's probably a simple script that is running for a long time */
-        int script_uptime = script->load_time ? get_seconds_clock() - script->load_time : 0;
         
         const char * script_status = 
             script->autorun
@@ -1272,6 +1280,8 @@ static void lua_do_autoload()
 
 static void lua_load_task(int unused)
 {
+    int console_was_visible = console_visible;
+
     /* wait until other modules (hopefully) finish loading */
     msleep(500);
     
@@ -1310,14 +1320,20 @@ static void lua_load_task(int unused)
     }
     printf("[Lua] all scripts loaded.\n");
 
-    /* wait for key pressed or for 5-second timeout, whichever comes first */
-    last_keypress = 0;
-    for (int i = 0; i < 50 && !last_keypress; i++)
+    if (console_visible && !console_was_visible)
     {
-        msleep(100);
+        /* did we pop the console?
+         * wait for key pressed or for 5-second timeout,
+         * whichever comes first, then hide it. */
+        last_keypress = 0;
+        waiting_for_keypress = 0;
+        for (int i = 0; i < 50 && !last_keypress; i++)
+        {
+            msleep(100);
+        }
+        waiting_for_keypress = -1;
+        console_hide();
     }
-
-    console_hide();
 }
 
 static unsigned int lua_init()
