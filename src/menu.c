@@ -213,13 +213,14 @@ static void menu_help_go_to_selected_entry(struct menu * menu);
 //~ static void menu_init( void );
 static void menu_show_version(void);
 static struct menu * get_current_submenu();
-static struct menu * get_selected_menu();
+static struct menu * get_current_menu_or_submenu();
+static struct menu * get_selected_toplevel_menu();
 static void menu_make_sure_selection_is_valid();
 static void config_menu_reload_flags();
 static int guess_submenu_enabled(struct menu_entry * entry);
 static void menu_draw_icon(int x, int y, int type, intptr_t arg, int warn); // private
 static struct menu_entry * entry_find_by_name(const char* name, const char* entry_name);
-static struct menu_entry * get_selected_entry(struct menu * menu);
+static struct menu_entry * get_selected_menu_entry(struct menu * menu);
 static void submenu_display(struct menu * submenu);
 static void start_redraw_flood();
 static struct menu * menu_find_by_name(const char * name,  int icon);
@@ -312,7 +313,7 @@ static struct menu_entry customize_menu[] = {
 
 static int is_customize_selected(struct menu * menu) // argument is optional, just for speedup
 {
-    struct menu_entry * selected_entry = get_selected_entry(menu);
+    struct menu_entry * selected_entry = get_selected_menu_entry(menu);
     if (selected_entry == &customize_menu[0])
         return 1;
     return 0;
@@ -918,17 +919,15 @@ menu_find_by_id(
 }
 */
 
-static EXCLUDES(menu_sem)
-struct menu * menu_find_by_name(
+static struct menu *
+menu_find_by_name_internal(
     const char *        name,
     int icon
 )
 {
     ASSERT(name);
 
-    take_semaphore( menu_sem, 0 );
-
-    struct menu *       menu = menus;
+    struct menu * menu = menus;
 
     for( ; menu ; menu = menu->next )
     {
@@ -936,7 +935,6 @@ struct menu * menu_find_by_name(
         if( streq( menu->name, name ) )
         {
             if (icon && !menu->icon) menu->icon = icon;
-            give_semaphore( menu_sem );
             return menu;
         }
 
@@ -949,7 +947,6 @@ struct menu * menu_find_by_name(
     struct menu * new_menu = malloc( sizeof(*new_menu) );
     if( !new_menu )
     {
-        give_semaphore( menu_sem );
         return NULL;
     }
 
@@ -972,8 +969,21 @@ struct menu * menu_find_by_name(
         new_menu->selected  = 1;
     }
 
-    give_semaphore( menu_sem );
     return new_menu;
+}
+
+static struct menu * 
+menu_find_by_name(
+    const char *        name,
+    int icon
+)
+{
+    take_semaphore( menu_sem, 0 );
+
+    struct menu * menu = menu_find_by_name_internal(name, icon);
+
+    give_semaphore( menu_sem );
+    return menu;
 }
 
 static int get_menu_visible_count(struct menu * menu)
@@ -1165,8 +1175,8 @@ menu_update_placeholder(struct menu * menu, struct menu_entry * new_entry)
 }
 
 
-EXCLUDES(menu_sem)
-void menu_add(
+static void
+menu_add_internal(
     const char *        name,
     struct menu_entry * new_entry,
     int                 count
@@ -1181,16 +1191,30 @@ void menu_add(
         return;
 
     // Walk the menu list to find a menu
-    struct menu *       menu = menu_find_by_name( name, 0);
+    struct menu * menu = menu_find_by_name_internal( name, 0);
     if( !menu )
         return;
-    
+
+    struct menu_entry * parent = NULL;
+
+    if (IS_SUBMENU(menu))
+    {
+        /* all submenus should have some valid parent */
+        /* note: some submenus might be used by more than one menu entry;
+         * in this case, any of them is valid; all of them will have the same name */
+        ASSERT(menu->parent_menu);
+        ASSERT(menu->parent_entry);
+        ASSERT(streq(name, menu->parent_entry->name));
+
+        /* all entries from the submenu should be linked to the parent menu entry */
+        parent = menu->parent_entry;
+        ASSERT(streq(parent->name, name));
+    }
+
     menu_flags_load_dirty = 1;
     duplicate_check_dirty = 1;
     
     int count0 = count; // for submenus
-
-    take_semaphore( menu_sem, 0 );
 
     struct menu_entry * head = menu->children;
     if( !head )
@@ -1201,11 +1225,11 @@ void menu_add(
         ASSERT(new_entry->name);
         ASSERT(new_entry->next == NULL);
         ASSERT(new_entry->prev == NULL);
-        //ASSERT(new_entry->parent == NULL);
+        ASSERT((parent == NULL) ^ IS_SUBMENU(menu));
         ASSERT(new_entry->parent_menu == NULL);
-        new_entry->next     = NULL;
-        new_entry->prev     = NULL;
-        new_entry->parent   = 0;
+        new_entry->parent = parent;
+        new_entry->depends_on    |= (parent ? parent->depends_on : 0); // inherit dependencies
+        new_entry->works_best_in |= (parent ? parent->works_best_in : 0);
         new_entry->parent_menu = menu;
         new_entry->selected = 1;
         menu_update_split_pos(menu, new_entry);
@@ -1224,13 +1248,14 @@ void menu_add(
         ASSERT(new_entry->name);
         ASSERT(new_entry->next == NULL);
         ASSERT(new_entry->prev == NULL);
-        //ASSERT(new_entry->parent == NULL);
+        ASSERT((parent == NULL) ^ IS_SUBMENU(menu));
         ASSERT(new_entry->parent_menu == NULL);
-        new_entry->selected = 0;
-        new_entry->next     = NULL;
-        new_entry->prev     = head;
-        new_entry->parent   = 0;
+        new_entry->parent = parent;
+        new_entry->depends_on    |= (parent ? parent->depends_on : 0); // inherit dependencies
+        new_entry->works_best_in |= (parent ? parent->works_best_in : 0);
         new_entry->parent_menu = menu;
+        new_entry->selected = 0;
+        new_entry->prev = head;
         head->next      = new_entry;
         head            = new_entry;
         menu_update_split_pos(menu, new_entry);
@@ -1238,9 +1263,6 @@ void menu_add(
         menu_update_placeholder(menu, new_entry);
         new_entry++;
     }
-    
-    give_semaphore( menu_sem );
-
 
     // create submenus
 
@@ -1251,25 +1273,52 @@ void menu_add(
         {
             int count = 0;
             for (struct menu_entry * child = entry->children; !MENU_IS_EOL(child); child++)
-            { 
-                child->parent = entry;
-                child->depends_on |= entry->depends_on; // inherit dependencies
-                child->works_best_in |= entry->works_best_in;
-                count++; 
+            {
+                count++;
             }
-            struct menu * submenu = menu_find_by_name( entry->name, ICON_ML_SUBMENU);
-            if (submenu->children != entry->children) // submenu is reused, do not add it twice
-                menu_add(entry->name, entry->children, count);
+
+            struct menu * submenu = menu_find_by_name_internal( entry->name, ICON_ML_SUBMENU);
+            submenu->parent_menu = menu;
+            submenu->parent_entry = entry;
             submenu->submenu_width = entry->submenu_width;
             submenu->submenu_height = entry->submenu_height;
-            
+
+            if (submenu->children != entry->children)
+            {
+                /* sometimes the submenus are reused (e.g. Module menu)
+                 * only add them once */
+                menu_add_internal(entry->name, entry->children, count);
+            }
+
+            /* the menu might have been created before as a regular menu (not as submenu) */
             /* ensure the "children" field always points to the very first item in the submenu */
-            /* (important when merging 2 submenus) */
-            while (entry->children->prev) entry->children = entry->children->prev;
+            /* also make sure the parent entries and dependency flags are correct */
+            while (entry->children->prev)
+            {
+                entry->children = entry->children->prev;
+                entry->children->parent = entry;
+                entry->children->depends_on |= entry->depends_on;
+                entry->children->works_best_in |= entry->works_best_in;
+                printf("updating %s -> %s\n", entry->name, entry->children->name);
+            }
         }
         entry = entry->prev;
         if (!entry) break;
     }
+}
+
+void 
+menu_add(
+    const char *        name,
+    struct menu_entry * new_entry,
+    int                 count
+)
+{
+    take_semaphore( menu_sem, 0 );
+
+    menu_add_internal(name, new_entry, count);
+
+    give_semaphore( menu_sem );
 }
 
 static void menu_remove_entry(struct menu * menu, struct menu_entry * entry)
@@ -2605,7 +2654,13 @@ skip_name:
         w -= (end - wmax);
     
     int xval = x + w;
-    
+
+    // value overlaps name? show value only (overwrite the name)
+    if (xval < x + bmp_string_width(fnt, info->name))
+    {
+        xval = x;
+    }
+
     if (entry->selected && 
         editing_with_caret(entry) && 
         caret_position >= (int)strlen(info->value))
@@ -2676,8 +2731,12 @@ skip_name:
     // selection bar params
     int xl = x - 5 + x_font_offset;
     int xc = x - 5 + x_font_offset;
+
     if ((in_submenu || edit_mode) && info->value[0])
-        xc = x + w - 15;
+    {
+        /* highlight value field */
+        xc = MAX(xl, xval - 15);
+    }
 
     // selection bar
     if (entry->selected)
@@ -3164,7 +3223,7 @@ static int mod_menu_rebuild()
 
     mod_menu_dirty = 0;
     
-    mod_menu_selected_entry = get_selected_entry(mod_menu);
+    mod_menu_selected_entry = get_selected_menu_entry(mod_menu);
 
     /* mod_menu_selected_entry must be from the regular menu (not the dynamic one) */
     if (mod_menu_selected_entry && mod_menu_selected_entry->name)
@@ -3195,7 +3254,7 @@ menu_display(
     //hide upper menu for vscroll
     int pos = get_menu_selected_pos(menu);
     int num_visible = get_menu_visible_count(menu);
-    int target_height = 370;
+    int target_height = menu->submenu_height ? menu->submenu_height - 54 : 370;
     if (is_menu_active("Help")) target_height -= 20;
     if (is_menu_active("Focus")) target_height -= 70;
     int natural_height = num_visible * font_large.height;
@@ -3772,7 +3831,7 @@ void menus_display(
     if (mod_menu_dirty)
         mod_menu_rebuild();
 
-    if (get_selected_menu()->icon != menu_first_by_icon)
+    if (get_selected_toplevel_menu()->icon != menu_first_by_icon)
     {
         select_menu_by_icon(menu_first_by_icon);
     }
@@ -3781,7 +3840,16 @@ void menus_display(
 
     struct menu * submenu = 0;
     if (submenu_level)
+    {
         submenu = get_current_submenu();
+
+        if (!submenu)
+        {
+            printf("no submenu, fall back to edit mode\n");
+            submenu_level--;
+            edit_mode = 1;
+        }
+    }
     
     advanced_mode = submenu ? submenu->advanced : 1;
 
@@ -3791,7 +3859,7 @@ void menus_display(
     struct menu * junkie_sub = 0;
     if (junkie_mode == 2)
     {
-        struct menu_entry * entry = get_selected_entry(0);
+        struct menu_entry * entry = get_selected_menu_entry(0);
         if (entry && entry->children)
             junkie_sub = menu_find_by_name(entry->name, 0);
     }
@@ -3938,7 +4006,7 @@ void menus_display(
 static void
 implicit_submenu_display()
 {
-    struct menu * menu = get_selected_menu();
+    struct menu * menu = get_selected_toplevel_menu();
     menu_display(
         menu,
         MENU_OFFSET,
@@ -4067,7 +4135,7 @@ menu_entry_customize_toggle(
         return;
     }
 
-    struct menu_entry * entry = get_selected_entry(menu);
+    struct menu_entry * entry = get_selected_menu_entry(menu);
     if (!entry) return;
 
     /* make sure the customized menu entry can be looked up by name */
@@ -4126,7 +4194,7 @@ void menu_entry_select(
     if( !menu )
         return;
 
-    struct menu_entry * entry = get_selected_entry(menu);
+    struct menu_entry * entry = get_selected_menu_entry(menu);
     if( !entry )
     {
         /* empty submenu? go back */
@@ -4410,24 +4478,18 @@ void menu_entry_move(
 // If the menu or the selection is empty, move back and forth to restore a valid selection
 static void menu_make_sure_selection_is_valid()
 {
-    struct menu * menu = get_selected_menu();
-    if (submenu_level)
-    {
-        struct menu * main_menu = menu;
-        menu = get_current_submenu();
-        if (!menu) menu = main_menu; // no submenu, operate on same item
-    }
+    struct menu * menu = get_current_menu_or_submenu();
  
     // current menu has any valid items in current mode?
     if (!menu_has_visible_items(menu))
     {
         if (submenu_level) return; // empty submenu
-        menu_move(menu, -1); menu = get_selected_menu();
-        menu_move(menu, 1); menu = get_selected_menu();
+        menu_move(menu, -1); menu = get_selected_toplevel_menu();
+        menu_move(menu, 1); menu = get_selected_toplevel_menu();
     }
 
     // currently selected menu entry is visible?
-    struct menu_entry * entry = get_selected_entry(menu);
+    struct menu_entry * entry = get_selected_menu_entry(menu);
     if (!entry) return;
 
     if (entry->selected && !is_visible(entry))
@@ -4689,7 +4751,7 @@ menu_redraw_full()
 }
 
 
-static struct menu * get_selected_menu()
+static struct menu * get_selected_toplevel_menu()
 {
     struct menu * menu = menus;
     for( ; menu ; menu = menu->next )
@@ -4698,10 +4760,12 @@ static struct menu * get_selected_menu()
     return menu;
 }
 
-static struct menu_entry * get_selected_entry(struct menu * menu)  // argument is optional, just for speedup
+// argument is optional; 0 = top-level menus; otherwise, any menu can be used
+static struct menu_entry * get_selected_menu_entry(struct menu * menu)
 {
     if (!menu)
     {
+        /* find the currently selected top-level menu */
         menu = menus;
         for( ; menu ; menu = menu->next )
             if( menu->selected )
@@ -4717,7 +4781,7 @@ static struct menu_entry * get_selected_entry(struct menu * menu)  // argument i
 
 static struct menu * get_current_submenu()
 {
-    struct menu_entry * entry = get_selected_entry(0);
+    struct menu_entry * entry = get_selected_menu_entry(0);
     if (!entry) return 0;
     
     for(int level = submenu_level; level > 1; level--)
@@ -4731,12 +4795,34 @@ static struct menu * get_current_submenu()
     }
 
     if (entry && entry->children)
+    {
+        /* fixme */
         return menu_find_by_name(entry->name, 0);
+        //return entry->children->parent_menu;
+    }
 
-    // no submenu, fall back to edit mode
-    submenu_level--;
-    edit_mode = 1;
     return 0;
+}
+
+static struct menu * get_current_menu_or_submenu()
+{
+    // Find the selected menu (should be cached?)
+    struct menu * menu = get_selected_toplevel_menu();
+
+    struct menu * main_menu = menu;
+    if (submenu_level)
+    {
+        main_menu = menu;
+        menu = get_current_submenu();
+
+        if (!menu)
+        {
+            // no submenu, operate on same item
+            menu = main_menu;
+        }
+    }
+
+    return menu;
 }
 
 static int keyrepeat = 0;
@@ -4847,16 +4933,8 @@ handle_ml_menu_keys(struct event * event)
             return 0;
     }
     
-    // Find the selected menu (should be cached?)
-    struct menu * menu = get_selected_menu();
-
-    struct menu * main_menu = menu;
-    if (submenu_level)
-    {
-        main_menu = menu;
-        menu = get_current_submenu();
-        if (!menu) menu = main_menu; // no submenu, operate on same item
-    }
+    // Find the selected menu or submenu (should be cached?)
+    struct menu * menu = get_current_menu_or_submenu();
     
     int button_code = event->param;
 #if defined(CONFIG_60D) || defined(CONFIG_600D) || defined(CONFIG_7D) // Q not working while recording, use INFO instead
@@ -4915,7 +4993,7 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_PRESS_UP:
         if (edit_mode && !menu_lv_transparent_mode)
         {
-            struct menu_entry * entry = get_selected_entry(menu);
+            struct menu_entry * entry = get_selected_menu_entry(menu);
             if(entry && uses_caret_editing(entry))
             {
                 menu_entry_select( menu, 0 );
@@ -4938,7 +5016,7 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_PRESS_DOWN:
         if (edit_mode && !menu_lv_transparent_mode)
         {
-            struct menu_entry * entry = get_selected_entry(menu);
+            struct menu_entry * entry = get_selected_menu_entry(menu);
             if(entry && uses_caret_editing(entry))
             {
                 menu_entry_select( menu, 1 );
@@ -4961,7 +5039,7 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_PRESS_RIGHT:
         if(EDIT_OR_TRANSPARENT)
         {
-            struct menu_entry * entry = get_selected_entry(menu);
+            struct menu_entry * entry = get_selected_menu_entry(menu);
             if(entry && uses_caret_editing(entry))
             {
                 caret_move(entry, -1);
@@ -4980,7 +5058,7 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_PRESS_LEFT:
         if(EDIT_OR_TRANSPARENT)
         {
-            struct menu_entry * entry = get_selected_entry(menu);
+            struct menu_entry * entry = get_selected_menu_entry(menu);
             if(entry && uses_caret_editing(entry))
             {
                 caret_move(entry, 1);
@@ -5024,7 +5102,11 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_INFO:
         menu_help_active = !menu_help_active;
         menu_lv_transparent_mode = 0;
-        if (menu_help_active) menu_help_go_to_selected_entry(main_menu);
+        if (menu_help_active)
+        {
+            /* fixme: go up one level until the help page is found */
+            menu_help_go_to_selected_entry(get_selected_toplevel_menu());
+        }
         menu_needs_full_redraw = 1;
         //~ menu_damage = 1;
         //~ menu_hidden_should_display_help = 0;
@@ -5442,13 +5524,10 @@ TASK_CREATE( "menu_task", menu_task, 0, 0x1a, 0x2000 );
 
 int is_menu_entry_selected(char* menu_name, char* entry_name)
 {
-    struct menu * menu = menus;
-    for( ; menu ; menu = menu->next )
-        if( menu->selected )
-            break;
+    struct menu * menu = get_current_menu_or_submenu();
     if (streq(menu->name, menu_name))
     {
-        struct menu_entry * entry = get_selected_entry(menu);
+        struct menu_entry * entry = get_selected_menu_entry(menu);
         if (!entry) return 0;
         if (!entry->name) return 0;
         return streq(entry->name, entry_name);
@@ -5490,7 +5569,60 @@ void select_menu(char* name, int entry_index)
     //~ menu_damage = 1;
 }
 
-EXCLUDES(menu_sem)
+static void select_menu_recursive(struct menu * selected_menu, const char * entry_name)
+{
+    printf("select_menu %s -> %s\n", selected_menu->name, entry_name);
+
+    /* update selection flag for all entries from this menu */
+    for (struct menu * menu = menus; menu; menu = menu->next)
+    {
+        int menu_selected = (menu == selected_menu);
+
+        if (!IS_SUBMENU(selected_menu))
+        {
+            /* only select the menu if it's at the top level */
+            menu->selected = menu_selected;
+
+            if (menu_selected)
+            {
+                /* update last selected menu (only at the top level); see menu_move */
+                menu_first_by_icon = selected_menu->icon;
+            }
+        }
+
+        if ((menu == selected_menu) && entry_name) 
+        {
+            /* select the requested menu entry from this menu */
+            struct menu_entry * selected_entry = 0;
+            for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
+            {
+                if (streq(entry->name, entry_name))
+                {
+                    selected_entry = entry;
+                    break;
+                }
+            }
+            
+            if (selected_entry)
+            {
+                /* update selection flag for all entries from this menu */
+                for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
+                {
+                    entry->selected = (entry == selected_entry);
+                }
+
+                /* select parent menu entry, if any */
+                if (selected_entry->parent)
+                {
+                    selected_entry = selected_entry->parent;
+                    select_menu_recursive(selected_entry->parent_menu, selected_entry->name);
+                    submenu_level++;
+                }
+            }
+        }
+    }
+}
+
 void select_menu_by_name(char* name, const char* entry_name)
 {
     take_semaphore(menu_sem, 0);
@@ -5509,44 +5641,9 @@ void select_menu_by_name(char* name, const char* entry_name)
 
     if (selected_menu)
     {
-        if (IS_SUBMENU(selected_menu))
-        {
-            /* submenus are hard; you need to select all parents along the way */
-            give_semaphore(menu_sem);
-            return;
-        }
-
-        /* update selection flag for all entries from this menu */
-        for (struct menu * menu = menus; menu; menu = menu->next)
-        {
-            menu->selected = (menu == selected_menu);
-
-            if (menu->selected && entry_name) 
-            {
-                /* process menu entries from the selected menu in a similar way */
-                struct menu_entry * selected_entry = 0;
-                for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
-                {
-                    if (streq(entry->name, entry_name))
-                    {
-                        selected_entry = entry;
-                        break;
-                    }
-                }
-                
-                if (selected_entry)
-                {
-                    /* update selection flag for all entries from this menu */
-                    for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
-                    {
-                        entry->selected = (entry == selected_entry);
-                    }
-                }
-            }
-        }
-
-        /* update other internal state (see menu_move) */
-        menu_first_by_icon = selected_menu->icon;
+        submenu_level = 0;
+        select_menu_recursive(selected_menu, entry_name);
+        beta_set_warned();
     }
 
     give_semaphore(menu_sem);
@@ -5621,7 +5718,7 @@ menu_help_go_to_selected_entry(
     if( !menu )
         return;
 
-    struct menu_entry * entry = get_selected_entry(menu);
+    struct menu_entry * entry = get_selected_menu_entry(menu);
     if (!entry) return;
     menu_help_go_to_label((char*) entry->name, 0);
 }
@@ -6348,57 +6445,19 @@ int menu_request_image_backend()
     return 0;
 }
 
-
 MENU_SELECT_FUNC(menu_advanced_toggle)
 {
-    struct menu * menu = get_selected_menu();
-    struct menu * main_menu = menu;
-    if (submenu_level)
-    {
-        main_menu = menu;
-        menu = get_current_submenu();
-        if (!menu) menu = main_menu; // no submenu, operate on same item
-    }
-    
+    struct menu * menu = get_current_menu_or_submenu();
     advanced_mode = menu->advanced = !menu->advanced;
     menu->scroll_pos = 0;
 }
+
 MENU_UPDATE_FUNC(menu_advanced_update)
 {
     MENU_SET_NAME(advanced_mode ? "Simple..." : "Advanced...");
     MENU_SET_ICON(IT_ACTION, 0);
     MENU_SET_HELP(advanced_mode ? "Back to 'beginner' mode." : "Advanced options for experts. Use with care.");
 }
-
-#ifdef CONFIG_QEMU
-void qemu_menu_screenshots()
-{
-    /* hack to bypass ML checks */
-    CURRENT_GUI_MODE = 1;
-    
-    /* hack to avoid picture style warning */
-    lens_info.picstyle = 1;
-    
-    /* get a screenshot of the initial "welcome" screen, then hide it */
-    menu_redraw_do();
-    call("dispcheck");
-    beta_set_warned();
-    
-    while(1)
-    {
-        /* get a screenshot of the current menu */
-        menu_redraw_do();
-        call("dispcheck");
-        
-        /* cycle through menus, until the first menu gets selected again */
-        menu_move(get_selected_menu(), 1);
-        if (menus->selected)
-            break;
-    }
-    call("shutdown");
-    while(1);
-}
-#endif
 
 /* run something in new task, with powersave disabled
  * (usually, such actions are short-lived tasks
@@ -6448,9 +6507,18 @@ static void check_duplicate_entries()
 
             /* make sure each item can be looked up by name */
             /* entry_find_by_name will print a warning if there are duplicates */
+            /* and it should either find the right thing, or fail */
             ASSERT(entry->name);
             struct menu_entry * e = entry_find_by_name(menu->name, entry->name);
-            ASSERT(e == 0 || e == entry);
+            ASSERT(e == entry || e == 0);
+
+            if (IS_SUBMENU(menu))
+            {
+                /* this entry must be linked to its parent */
+                ASSERT(entry->parent);
+                ASSERT(entry->parent_menu == menu);
+                ASSERT(streq(entry->parent->name, menu->name));
+            }
         }
     }
 

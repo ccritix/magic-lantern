@@ -666,11 +666,6 @@ void gui_uilock(int what)
     printf("UILock: %08x -> %08x => %08x %s\n", old, what, icu_uilock, (icu_uilock & 0xFFFF) != (what & 0xFFFF) ? "(!!!)" : "");
 }
 
-void ui_lock(int what)
-{
-    gui_uilock(what);
-}
-
 void fake_simple_button(int bgmt_code)
 {
     if ((icu_uilock & 0xFFFF) && (bgmt_code >= 0))
