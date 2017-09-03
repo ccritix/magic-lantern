@@ -919,8 +919,8 @@ menu_find_by_id(
 }
 */
 
-static struct menu *
-menu_find_by_name_internal(
+static REQUIRES(menu_sem)
+struct menu * menu_find_by_name_internal(
     const char *        name,
     int icon
 )
@@ -972,8 +972,8 @@ menu_find_by_name_internal(
     return new_menu;
 }
 
-static struct menu * 
-menu_find_by_name(
+static EXCLUDES(menu_sem)
+struct menu * menu_find_by_name(
     const char *        name,
     int icon
 )
@@ -1175,8 +1175,8 @@ menu_update_placeholder(struct menu * menu, struct menu_entry * new_entry)
 }
 
 
-static void
-menu_add_internal(
+static REQUIRES(menu_sem)
+void menu_add_internal(
     const char *        name,
     struct menu_entry * new_entry,
     int                 count
@@ -1307,8 +1307,8 @@ menu_add_internal(
     }
 }
 
-void 
-menu_add(
+EXCLUDES(menu_sem)
+void menu_add(
     const char *        name,
     struct menu_entry * new_entry,
     int                 count
@@ -5569,7 +5569,8 @@ void select_menu(char* name, int entry_index)
     //~ menu_damage = 1;
 }
 
-static void select_menu_recursive(struct menu * selected_menu, const char * entry_name)
+static REQUIRES(menu_sem)
+void select_menu_recursive(struct menu * selected_menu, const char * entry_name)
 {
     printf("select_menu %s -> %s\n", selected_menu->name, entry_name);
 
@@ -5623,6 +5624,7 @@ static void select_menu_recursive(struct menu * selected_menu, const char * entr
     }
 }
 
+EXCLUDES(menu_sem)
 void select_menu_by_name(char* name, const char* entry_name)
 {
     take_semaphore(menu_sem, 0);
