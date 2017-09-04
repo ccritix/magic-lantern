@@ -141,16 +141,8 @@ static void
 my_init_task(int a, int b, int c, int d)
 {
     init_task(a,b,c,d);
+    
+    msleep(5000);
 
-    while(1)
-    {
-        MEM(CARD_LED_ADDRESS) = LEDON;
-        msleep(500);
-        MEM(CARD_LED_ADDRESS) = LEDOFF;
-        msleep(500);
-    }
-
-    //~ msleep(5000);
-
-    //~ task_create("dump", 0x1e, 0x1000, dump_task, 0 );
+    task_create("dump", 0x1e, 0x1000, dump_task, 0 );
 }
