@@ -76,6 +76,10 @@ void
 __attribute__((noreturn,noinline,naked))
 copy_and_restart( int offset )
 {
+    *(volatile uint32_t *)(0xD20C0084) = 0;
+    void __attribute__((long_call)) (*reboot)() = (void*) ROMBASEADDR;
+    reboot();
+
     zero_bss();
 
     // Copy the firmware to somewhere safe in memory
