@@ -217,6 +217,10 @@ void
 __attribute__((noreturn))
 cstart( void )
 {
+    *(volatile uint32_t *)(0xD20C0084) = 0;
+    void __attribute__((long_call)) (*reboot)() = (void*) ROMBASEADDR;
+    reboot();
+
     #if !(CURRENT_CAMERA_SIGNATURE)
     #warning Signature Checking bypassed!! Please use a proper signature
     #else
