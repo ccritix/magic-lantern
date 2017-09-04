@@ -76,10 +76,6 @@ void
 __attribute__((noreturn,noinline,naked))
 copy_and_restart( int offset )
 {
-    *(volatile uint32_t *)(0xD20C0084) = 0;
-    void __attribute__((long_call)) (*reboot)() = (void*) ROMBASEADDR;
-    reboot();
-
     zero_bss();
 
     // Copy the firmware to somewhere safe in memory
@@ -99,16 +95,16 @@ copy_and_restart( int offset )
     // the malloc buffer is specified as start + size (not start + end)
     // so we adjust both values in order to keep things close to the traditional ML boot process
     // (alternative: we could adjust only the size, and place ML at the end of malloc buffer)
-    uint32_t ml_reserved_mem = (uintptr_t) _bss_end - INSTR( HIJACK_INSTR_BSS_END );
-    INSTR( HIJACK_INSTR_BSS_END     ) += ml_reserved_mem;
-    INSTR( HIJACK_INSTR_BSS_END + 4 ) -= ml_reserved_mem;
+    //~ uint32_t ml_reserved_mem = (uintptr_t) _bss_end - INSTR( HIJACK_INSTR_BSS_END );
+    //~ INSTR( HIJACK_INSTR_BSS_END     ) += ml_reserved_mem;
+    //~ INSTR( HIJACK_INSTR_BSS_END + 4 ) -= ml_reserved_mem;
 
     // Fix the calls to bzero32() and create_init_task()
     FIXUP_BRANCH( HIJACK_FIXBR_BZERO32, my_bzero32 );
     FIXUP_BRANCH( HIJACK_FIXBR_CREATE_ITASK, my_create_init_task );
 
     // Set our init task to run instead of the firmware one
-    INSTR( HIJACK_INSTR_MY_ITASK ) = (uint32_t) my_init_task;
+    //~ INSTR( HIJACK_INSTR_MY_ITASK ) = (uint32_t) my_init_task;
     
     // Make sure that our self-modifying code clears the cache
     sync_caches();
