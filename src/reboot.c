@@ -217,10 +217,6 @@ void
 __attribute__((noreturn))
 cstart( void )
 {
-    *(volatile uint32_t *)(0xD20C0084) = 0;
-    void __attribute__((long_call)) (*reboot)() = (void*) ROMBASEADDR;
-    reboot();
-
     #if !(CURRENT_CAMERA_SIGNATURE)
     #warning Signature Checking bypassed!! Please use a proper signature
     #else
@@ -270,7 +266,8 @@ cstart( void )
        sooner or later. So, we have copied it to RESTARTSTART, and will tell Canon code not to touch it
        (usually by resizing some memory allocation pool and choosing RESTARTSTART in the newly created space).
     */
-    void __attribute__((long_call)) (*copy_and_restart)() = (void*) RESTARTSTART;
+    *(volatile uint32_t *)(0xD20C0084) = 0;
+    void __attribute__((long_call)) (*copy_and_restart)() = (void*) ROMBASEADDR;
     copy_and_restart();
 
 #endif /* __ARM__ */
