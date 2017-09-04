@@ -104,7 +104,7 @@ copy_and_restart( int offset )
     FIXUP_BRANCH( HIJACK_FIXBR_CREATE_ITASK, my_create_init_task );
 
     // Set our init task to run instead of the firmware one
-    //~ INSTR( HIJACK_INSTR_MY_ITASK ) = (uint32_t) my_init_task;
+    INSTR( HIJACK_INSTR_MY_ITASK ) = (uint32_t) my_init_task;
     
     // Make sure that our self-modifying code clears the cache
     sync_caches();
@@ -141,8 +141,16 @@ static void
 my_init_task(int a, int b, int c, int d)
 {
     init_task(a,b,c,d);
-    
-    msleep(5000);
 
-    task_create("dump", 0x1e, 0x1000, dump_task, 0 );
+    while(1)
+    {
+        MEM(CARD_LED_ADDRESS) = LEDON;
+        msleep(500);
+        MEM(CARD_LED_ADDRESS) = LEDOFF;
+        msleep(500);
+    }
+
+    //~ msleep(5000);
+
+    //~ task_create("dump", 0x1e, 0x1000, dump_task, 0 );
 }
