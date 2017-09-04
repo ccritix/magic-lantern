@@ -1592,7 +1592,7 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, "-- Image manipulation --\n");
     print_msg(MSG_INFO, "  -a                  average all frames in <inputfile> and output a single-frame MLV from it\n");
     print_msg(MSG_INFO, "  --avg-vertical      [DARKFRAME ONLY] average the resulting frame in vertical direction, so we will extract vertical banding\n");
-    print_msg(MSG_INFO, "  --avg-horizontal    [DARKFRAME ONLY] average the resulting frame in horizontal direction, so we will extract horizontal banding\n");
+    print_msg(MSG_INFO, "   --avg-horizontal   [DARKFRAME ONLY] average the resulting frame in horizontal direction, so we will extract horizontal banding\n");
     print_msg(MSG_INFO, "  -s mlv_file         subtract the reference frame in given file from every single frame during processing\n");
     print_msg(MSG_INFO, "  -t mlv_file         use the reference frame in given file as flat field (gain correction)\n");
 
@@ -1606,19 +1606,18 @@ void show_usage(char *executable)
     //print_msg(MSG_INFO, " -u lut_file         look-up table with 4 * xRes * yRes 16-bit words that is applied before bit depth conversion\n");
 
 #if defined(MLV_USE_LZMA) || defined(MLV_USE_LJ92)
-    print_msg(MSG_INFO, " -c                  compress video and audio frames using LJ92. if already compressed, then decompress and recompress again.\n");
-    print_msg(MSG_INFO, "                     specify twice to pass through unmodified compressed (lossless) data to DNG which speeds up writing, but skips preprocessing\n");
-
-    print_msg(MSG_INFO, " -d                  decompress compressed video and audio frames using LZMA or LJ92\n");
+    print_msg(MSG_INFO, "  -c                  compress video and audio frames using LJ92. if already compressed, then decompress and recompress again.\n");
+    print_msg(MSG_INFO, "                      specify twice to pass through unmodified compressed (lossless) data to DNG which speeds up writing, but skips preprocessing\n");
+    print_msg(MSG_INFO, "  -d                  decompress compressed video and audio frames using LZMA or LJ92\n");
 #else
-    print_msg(MSG_INFO, " -c, -d              NOT AVAILABLE: compression support was not compiled into this release\n");
+    print_msg(MSG_INFO, "  -c, -d              NOT AVAILABLE: compression support was not compiled into this release\n");
 #endif
     print_msg(MSG_INFO, "\n");
 
     print_msg(MSG_INFO, "-- bugfixes --\n");
-    print_msg(MSG_INFO, " --black-fix=value   set black level to <value> (fix green/magenta cast). if no value given, it will be set to 2048.\n");
-    print_msg(MSG_INFO, " --white-fix=value   set white level to <value>. if no value given, it will be set to 15000.\n");
-    print_msg(MSG_INFO, " --fix-bug=id        fix some special bugs. *only* to be used if given instruction by developers.\n");
+    print_msg(MSG_INFO, "  --black-fix=value   set black level to <value> (fix green/magenta cast). if no value given, it will be set to 2048.\n");
+    print_msg(MSG_INFO, "  --white-fix=value   set white level to <value>. if no value given, it will be set to 15000.\n");
+    print_msg(MSG_INFO, "  --fix-bug=id        fix some special bugs. *only* to be used if given instruction by developers.\n");
     print_msg(MSG_INFO, "\n");
 }
 
@@ -4815,52 +4814,44 @@ read_headers:
             
                 int frame_size = MAX(bit_depth, block_hdr.raw_info.bits_per_pixel) * block_hdr.raw_info.height * block_hdr.raw_info.width / 8;
                 
-                frame_buffer_size = frame_size;
-                
-                /* realloc buffers */
-                frame_buffer = realloc(frame_buffer, frame_buffer_size);
-                
-                if(!frame_buffer)
-                {
-                    print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
-                    goto abort;
-                }
-                
+                /* resolution change, old data will be thrown away */
                 if(frame_arith_buffer)
                 {
-                    frame_arith_buffer = malloc(frame_size * sizeof(uint32_t));
-                    if(!frame_arith_buffer)
-                    {
-                        print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
-                        goto abort;
-                    }
-                }
-                
-                if(frame_sub_buffer)
-                {
-                    frame_sub_buffer = realloc(frame_sub_buffer, frame_buffer_size);
-                    if(!frame_sub_buffer)
-                    {
-                        print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
-                        goto abort;
-                    }
+                    print_msg(MSG_INFO, "Got a new RAWI, throwing away average buffers etc.\n");
+                    free(frame_arith_buffer);
                 }
                 
                 if(prev_frame_buffer)
                 {
-                    prev_frame_buffer = malloc(frame_size);
-                    if(!prev_frame_buffer)
-                    {
-                        print_msg(MSG_ERROR, "VIDF: Failed to allocate %d byte\n", frame_buffer_size);
-                        goto abort;
-                    }
+                    print_msg(MSG_INFO, "Got a new RAWI, throwing away previous frame buffers etc.\n");
+                    free(prev_frame_buffer);
                 }
+                
+                frame_arith_buffer = malloc(frame_size * sizeof(uint32_t));
+                if(!frame_arith_buffer)
+                {
+                    print_msg(MSG_ERROR, "Failed to allocate %d byte for frame_arith_buffer\n", frame_size * sizeof(uint32_t));
+                    goto abort;
+                }
+                
+                prev_frame_buffer = malloc(frame_size);
+                if(!prev_frame_buffer)
+                {
+                    print_msg(MSG_ERROR, "Failed to allocate %d byte for prev_frame_buffer\n", frame_size);
+                    goto abort;
+                }
+
+
+                memset(frame_arith_buffer, 0x00, frame_size * sizeof(uint32_t));
+                memset(prev_frame_buffer, 0x00, frame_size);                
+
 
                 /* cache these bits when we convert to legacy or resample bit depth */
                 strncpy((char*)lv_rec_footer.magic, "RAWM", 4);
                 lv_rec_footer.xRes = block_hdr.xRes;
                 lv_rec_footer.yRes = block_hdr.yRes;
                 lv_rec_footer.raw_info = block_hdr.raw_info;
+
 
                 /* always output RAWI blocks, its not just metadata, but important frame format data */
                 if(mlv_output && (!extract_block || !strncasecmp(extract_block, (char*)&block_hdr.blockType, 4)))
