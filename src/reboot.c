@@ -69,7 +69,7 @@ asm(
     "BIC     R0, R0, #0x3F\n"   // Clear I,F,T
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
     "MSR     CPSR, R0\n"
-    "B       cstart\n"
+    "LDR PC, =cstart\n"         // long jump (into the uncacheable version, if linked that way)
     
     /* return */
     ".globl _vec_data_abort\n"
