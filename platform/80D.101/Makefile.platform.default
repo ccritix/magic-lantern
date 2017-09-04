@@ -9,5 +9,8 @@ ROMBASEADDR     = 0xFE0A0000
 FIR_BASE        = 0x40800120
 AUTOEXEC_BASE   = 0x40800000
 
+# Cortex R4
+CFLAGS += -march=armv7-r
+
 # these should be removed when porting starts
 ML_SRC_PROFILE  = minimal

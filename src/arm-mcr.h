@@ -154,8 +154,17 @@ static inline void flush_i_cache()
 /* ensure data is written into RAM and the instruction cache is empty so everything will get fetched again */
 static inline void sync_caches()
 {
+#ifdef CONFIG_DIGIC_VI
+    /* http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.faqs/ka14041.html */
+    /* http://infocenter.arm.com/help/topic/com.arm.doc.ihi0053b/IHI0053B_arm_c_language_extensions_2013.pdf */
+    /* Self-modifying code (from uncacheable memory) */
+    // data_cache_clean();
+    asm("DSB SY");      /* make sure the data is written to RAM */
+    asm("ISB SY");      /* make sure the processor fetches new instructions from cache or memory */
+#else
     clean_d_cache();
     flush_i_cache();
+#endif
 }
 
 // This must be a macro
