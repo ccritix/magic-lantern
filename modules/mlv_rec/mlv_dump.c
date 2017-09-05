@@ -4018,7 +4018,7 @@ read_headers:
                         if(dng_output)
                         {
                             void fix_vertical_stripes();
-                            void find_and_fix_cold_pixels(int force_analysis, int pan_x, int pan_y);
+                            void find_and_fix_cold_pixels(int force_analysis);
                             extern struct raw_info raw_info;
                             extern void* raw_info_buffer;
 
@@ -4125,7 +4125,7 @@ read_headers:
                             
                             if(fix_cold_pixels)
                             {
-                                find_and_fix_cold_pixels(fix_cold_pixels-1, last_vidf.panPosX, last_vidf.panPosY);
+                                find_and_fix_cold_pixels(fix_cold_pixels-1);
                             }
 
                             /* this is internal again */
