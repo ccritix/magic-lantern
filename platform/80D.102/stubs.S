@@ -2,7 +2,7 @@
  * Entry points into the firmware image.
  *
  * These are the functions that we can call from our tasks
- * in the Canon 1.0.4 firmware for the 7D Mark II.
+ * in the Canon 1.0.2 firmware for the EOS 80D.
  *
  */
 /*
@@ -30,13 +30,13 @@
 /** Startup **/
 NSTUB( ROMBASEADDR, firmware_entry )
 NSTUB(0xFE0D316D,  cstart)              // Thumb
-NSTUB(0xFE3FC20C,  bzero32)
-NSTUB(0xFE3FBC68,  create_init_task)
+NSTUB(0xFE3FC21C,  bzero32)
+NSTUB(0xFE3FBC78,  create_init_task)
 NSTUB(0xFE0D3385,  init_task)           // Thumb
 
 /** Tasks **/
-NSTUB(0xFE3FC0DC,  task_create)
-NSTUB(0xFE3FC1C4,  msleep)
+NSTUB(0xFE3FC0EC,  task_create)
+NSTUB(0xFE3FC1D4,  msleep)
 
 /** Dumper **/
 NSTUB(0xFE2E4AEB, dump_file)            // Thumb

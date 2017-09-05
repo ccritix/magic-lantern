@@ -1,5 +1,5 @@
 /**
- * Camera internals for 80D 1.0.1
+ * Camera internals for 80D 1.0.2
  */
 
 /** This camera has both a CF and an SD slot **/

@@ -1,5 +1,5 @@
 /*
- *  80D 1.0.1 consts
+ *  80D 1.0.2 consts
  */
  
 #define CARD_LED_ADDRESS            0xD20B0A24
