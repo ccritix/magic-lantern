@@ -6,8 +6,8 @@ MODULE_OBJS=mlv_rec.o mlv.o
 # include modules environment
 include ../Makefile.modules
 
-MLV_CFLAGS = -I$(SRC_DIR) -D MLV_USE_LZMA -D MLV_USE_LJ92 -Wpadded -mno-ms-bitfields -D _7ZIP_ST -D MLV2DNG
-MLV_LFLAGS = 
+MLV_CFLAGS = -I$(SRC_DIR) -D MLV_USE_LZMA -D MLV_USE_LJ92 -m32 -Wpadded -mno-ms-bitfields -D _7ZIP_ST -D MLV2DNG
+MLV_LFLAGS = -m32
 MLV_LIBS = -lm
 MLV_LIBS_MINGW = -lm
 
@@ -44,12 +44,12 @@ MLV_LFLAGS +=
 MLV_LIBS += $(LZMA_LIB)
 MLV_LIBS_MINGW += $(LZMA_LIB_MINGW)
 
-MLV_DUMP_OBJS=mlv_dump.host.o $(SRC_DIR)/chdk-dng.host.o ../lv_rec/raw2dng.host.o lj92.host.o $(LZMA_LIB) 
-MLV_DUMP_OBJS_MINGW=mlv_dump.w32.o $(SRC_DIR)/chdk-dng.w32.o ../lv_rec/raw2dng.w32.o lj92.w32.o $(LZMA_LIB_MINGW) 
+MLV_DUMP_OBJS=mlv_dump.host.o dng/dng.host.o ../lv_rec/raw2dng.host.o lj92.host.o $(LZMA_LIB)
+MLV_DUMP_OBJS_MINGW=mlv_dump.w32.o dng/dng.w32.o ../lv_rec/raw2dng.w32.o lj92.w32.o $(LZMA_LIB_MINGW)
 
 
 clean::
-	$(call rm_files, mlv_dump mlv_dump.exe $(LZMA_OBJS) $(LZMA_LIB) $(LZMA_OBJS_MINGW) $(LZMA_LIB_MINGW) $(MLV_DUMP_OBJS) $(MLV_DUMP_OBJS_MINGW) )
+	$(call rm_files, mlv_dump mlv_dump.exe $(LZMA_OBJS) $(LZMA_LIB) $(LZMA_OBJS_MINGW) $(LZMA_LIB_MINGW) dng/dng.host.o dng/dng.w32.o $(MLV_DUMP_OBJS) $(MLV_DUMP_OBJS_MINGW) )
 
 #
 # rules for host and win32 objects
