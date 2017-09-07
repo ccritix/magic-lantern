@@ -4,4 +4,5 @@
 #bitrate stuff is disabled in features.h
 ML_BITRATE_OBJ = bitrate-5d3.o
 ML_SRC_EXTRA_OBJS = \
-	afma.o 
+	afma.o \
+	reloc.o \

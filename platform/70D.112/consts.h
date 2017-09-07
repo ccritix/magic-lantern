@@ -8,36 +8,29 @@
 #define LEDON 0x138800
 #define LEDOFF 0x838C00
 
-//~ Format dialog consts
+// Format dialog consts
 #define FORMAT_BTN_NAME "[Q]"
 #define FORMAT_BTN BGMT_Q
 #define FORMAT_STR_LOC 11
 
-//~ max volume supported for beeps
+// max volume supported for beeps
 #define ASIF_MAX_VOL 10
 
-#define HIJACK_CACHE_HACK
-#define HIJACK_CACHE_HACK_INITTASK_ADDR 0xFF0C1C6C              //ok nikfreak
-#define HIJACK_CACHE_HACK_GUITASK_ADDR 0xFF0D98EC
-#define HIJACK_CACHE_HACK_BSS_END_ADDR 0xFF0C3464               //ok nikfreak
-#define HIJACK_CACHE_HACK_BSS_END_INSTR 0xC1C000
-
-#define ML_RESERVED_MEM (640*1024)
-
-//~ fixup start address of AllocateMemory pool 0x8F0000
-#define HIJACK_CACHE_HACK_ALLOCMEM_SIZE_ADDR 0xFF0C3174         //ok nikfreak
-//~ 0x7D0000
-#define HIJACK_CACHE_HACK_ALLOCMEM_SIZE_INSTR 0xE241087D        //unsure taken from 6D but seems to work
-
-#ifdef CONFIG_INSTALLER
 #define HIJACK_INSTR_BL_CSTART  0xFF0C0D90
 #define HIJACK_INSTR_BSS_END 0xFF0C1C64
 #define HIJACK_FIXBR_BZERO32 0xFF0C1BB8
 #define HIJACK_FIXBR_CREATE_ITASK 0xFF0C1C54
 #define HIJACK_INSTR_MY_ITASK 0xFF0C1C6C
 #define HIJACK_TASK_ADDR 0x7AAC0
-#endif 
-#define HIJACK_TASK_ADDR 0x7AAC0
+
+// Used in boot-hack.c with CONFIG_ALLOCATE_MEMORY_POOL
+#define ROM_ITASK_START             0xFF0C54CC      /* init_task start */
+#define ROM_ITASK_END               0xFF0C5544      /* init_task end */
+#define ROM_CREATETASK_MAIN_START   0xFF0C314C      /* CreateTaskMain start */
+#define ROM_CREATETASK_MAIN_END     0xFF0C317C      /* only relocate until AllocateMemory initialization" */
+#define ROM_ALLOCMEM_END            0xFF0C3170      /* where the end limit of AllocateMemory pool is set */
+#define ROM_ALLOCMEM_INIT           (ROM_ALLOCMEM_END + 8)  /* where it calls AllocateMemory_init_pool */
+#define ROM_B_CREATETASK_MAIN       (ROM_ITASK_END - 4)     /* jump from init_task to CreateTaskMain */
 
 #define CACHE_HACK_FLUSH_RATE_SLAVE 0xFF0E5C74
 #define CACHE_HACK_GOP_SIZE_SLAVE   0xFF2324BC
