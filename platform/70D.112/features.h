@@ -30,7 +30,6 @@
 // ToDo: alternative coordinates not using outer ones
 // custom builds may include it til we achieve it
 #undef FEATURE_FLEXINFO
-#undef CONFIG_TSKMON
 
 /* Audio Features */
 #define FEATURE_AUDIO_METERS
