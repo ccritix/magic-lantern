@@ -45,6 +45,7 @@ int verbose = 1;
 /**
  * Search through a memory region, looking for branch instructions
  * Returns a pointer to the new func_offset address.
+ * Requires 64 bytes for fixups.
  */
 uintptr_t
 reloc(
@@ -55,7 +56,6 @@ reloc(
     uintptr_t       new_pc
 )
 {
-    uintptr_t       pc;
     uint8_t * const     mem = ((uint8_t*) buf) - load_addr;
     // const uintptr_t      func_len = func_end - func_offset;
 
@@ -63,11 +63,11 @@ reloc(
     printf( "Fixing from %08x to %08x\n", func_offset, func_end );
 #endif
 
-    // Add up to 16 bytes of fixups
+    // Add up to 64 bytes of fixups
     uintptr_t fixups = new_pc;
-    uintptr_t entry = new_pc += 16;
+    uintptr_t entry = new_pc += 64;
 
-    for( pc=func_offset ; pc<=func_end ; pc += 4, new_pc += 4 )
+    for (uintptr_t pc = func_offset; pc < func_end; pc += 4, new_pc += 4)
     {
         uint32_t instr = *(uint32_t*)( mem+pc );
         uint32_t branch = instr & BRANCH_MASK;
