@@ -94,7 +94,8 @@ static int is_7d = 0;
 static int is_5d2 = 0;
 static int is_50d = 0;
 static int is_6d = 0;
-static int is_60d = 0; 
+static int is_60d = 0;
+static int is_100d = 0; 
 static int is_500d = 0;
 static int is_550d = 0;
 static int is_600d = 0;
@@ -240,7 +241,7 @@ static int isoless_enable(uint32_t start_addr, int size, int count, uint32_t* ba
             patch_value |= 1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS + CMOS_ISO_BITS);
         }
 
-        if (is_eosm || is_650d || is_700d) //TODO: This hack is probably needed on EOSM and 100D
+        if (is_eosm || is_650d || is_700d || is_100d) //TODO: This hack is probably needed on EOSM
         {
             /* Clear the MSB to fix line-skipping. 1 -> 8 lines, 0 -> 4 lines */
             patch_mask |= 0x800;
@@ -824,6 +825,22 @@ static unsigned int isoless_init()
         CMOS_ISO_BITS = 3;
         CMOS_FLAG_BITS = 2;
         CMOS_EXPECTED_FLAG = 0;
+    }
+	else if (is_camera("100D", "1.0.1"))
+    {
+        is_100d = 1;    
+
+        FRAME_CMOS_ISO_START = 0x416990c4;
+        FRAME_CMOS_ISO_COUNT =          6;
+        FRAME_CMOS_ISO_SIZE  =         34;
+
+        PHOTO_CMOS_ISO_START = 0x4169743e;
+        PHOTO_CMOS_ISO_COUNT =          6;
+        PHOTO_CMOS_ISO_SIZE  =         20;
+
+        CMOS_ISO_BITS = 3;
+        CMOS_FLAG_BITS = 2;
+        CMOS_EXPECTED_FLAG = 3;
     }
     else if (is_camera("700D", "1.1.4"))
     {
