@@ -15,3 +15,6 @@
 
 // Causes green tint on live view
 #undef FEATURE_LV_BRIGHTNESS_CONTRAST
+
+// Reported not to work - http://www.magiclantern.fm/forum/index.php?topic=12627.msg189609#msg189609
+#undef FEATURE_MAGIC_ZOOM_FULL_SCREEN
