@@ -3,7 +3,9 @@
  */
 
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
-#undef CONFIG_PROP_REQUEST_CHANGE
+/** A few users were running it that way for a couple of months with no issues; additionaly,
+ ** we now know how to recover from bad settings stuck into ROM, so let's enable them */ 
+#define CONFIG_PROP_REQUEST_CHANGE
 
 /** 
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 
