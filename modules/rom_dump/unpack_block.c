@@ -279,7 +279,6 @@ uint32_t unpack_file(FILE *in_file, FILE *out_file)
         uint32_t read_pos = ftell(in_file);
         if(fread(&header, sizeof(struct dump_header), 1, in_file) != 1)
         {
-            printf("Read failed\n");
             printf("Dumped 0x%08X-0x%08X\n", base_address, next_address);
             return 0;
         }
@@ -328,12 +327,12 @@ uint32_t unpack_file(FILE *in_file, FILE *out_file)
         }
         else
         {
-            if(address != next_address)
+            if(address > next_address)
             {
                 uint32_t missing_len = address - next_address;
-                printf("Missing block of 0x%X bytes at 0x%08X-0x%08X, assuming 0xFF\n", missing_len, next_address, next_address + blocksize - 1);
+                printf("Missing block of 0x%X bytes at 0x%08X-0x%08X, assuming 0xFF\n", missing_len, next_address, address - 1);
                 
-                fseek(out_file, address - base_address, SEEK_SET);
+                fseek(out_file, next_address - base_address, SEEK_SET);
                 uint8_t *missing = malloc(missing_len);
                 
                 memset(missing, 0xFF, missing_len);
@@ -343,7 +342,11 @@ uint32_t unpack_file(FILE *in_file, FILE *out_file)
                     printf("Write failed\n");
                     return 0;
                 }
-                free(missing);        
+                free(missing);
+            }
+            else if(address < next_address)
+            {
+                printf("Seeked back from expected 0x%08X to 0x%08X, assuming this is a concatenated file\n", next_address, address);
             }
         }
         
