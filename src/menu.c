@@ -5477,7 +5477,7 @@ static void menu_set_flags(char* menu_name, char* entry_name, int flags)
 
 static void menu_save_flags(char* filename)
 {
-    char* cfg = fio_malloc(CFG_SIZE);
+    char* cfg = malloc(CFG_SIZE);
     cfg[0] = '\0';
     int cfglen = 0;
     int lastlen = 0;
@@ -5513,7 +5513,7 @@ static void menu_save_flags(char* filename)
     FIO_CloseFile( file );
 
 end:
-    fio_free(cfg);
+    free(cfg);
 }
 
 static void menu_load_flags(char* filename)
@@ -5567,7 +5567,7 @@ void config_menu_save_flags()
 
 /*void menu_save_all_items_dbg()
 {
-    char* cfg = fio_malloc(CFG_SIZE);
+    char* cfg = malloc(CFG_SIZE);
     cfg[0] = '\0';
 
     int unnamed = 0;
@@ -5594,7 +5594,7 @@ void config_menu_save_flags()
     
     NotifyBox(5000, "Menu items: %d unnamed.", unnamed);
 end:
-    fio_free(cfg);
+    free(cfg);
 }*/
 
 int menu_get_value_from_script(const char* name, const char* entry_name)
@@ -5755,36 +5755,6 @@ MENU_UPDATE_FUNC(menu_advanced_update)
     MENU_SET_ICON(IT_ACTION, 0);
     MENU_SET_HELP(advanced_mode ? "Back to 'beginner' mode." : "Advanced options for experts. Use with care.");
 }
-
-#ifdef CONFIG_QEMU
-void qemu_menu_screenshots()
-{
-    /* hack to bypass ML checks */
-    CURRENT_GUI_MODE = 1;
-    
-    /* hack to avoid picture style warning */
-    lens_info.picstyle = 1;
-    
-    /* get a screenshot of the initial "welcome" screen, then hide it */
-    menu_redraw_do();
-    call("dispcheck");
-    beta_set_warned();
-    
-    while(1)
-    {
-        /* get a screenshot of the current menu */
-        menu_redraw_do();
-        call("dispcheck");
-        
-        /* cycle through menus, until the first menu gets selected again */
-        menu_move(get_selected_menu(), 1);
-        if (menus->selected)
-            break;
-    }
-    call("shutdown");
-    while(1);
-}
-#endif
 
 /* run something in new task, with powersave disabled
  * (usually, such actions are short-lived tasks

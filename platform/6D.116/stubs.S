@@ -48,9 +48,9 @@ NSTUB(0xFF0C5438,  init_task)
 NSTUB(0xFF33297C,  FIO_CloseFile)
 NSTUB(0xFF333974,  FIO_FindClose)                           // proper name: FindClose
 NSTUB(0xFF333894,  FIO_FindNextEx)
-NSTUB(0xFF33272C,  FIO_ReadFile)
+NSTUB(0xFF33272C, _FIO_ReadFile)
 NSTUB(0xFF3327DC,  FIO_SeekSkipFile)
-NSTUB(0xFF3328CC,  FIO_WriteFile)
+NSTUB(0xFF3328CC, _FIO_WriteFile)
 NSTUB(0xFF3331D8, _FIO_CreateDirectory)
 NSTUB(0xFF3325D8, _FIO_CreateFile)
 NSTUB(0xFF3337A0, _FIO_FindFirstEx)
@@ -289,7 +289,7 @@ NSTUB(     0x64C,  current_interrupt)                       // in interrupt hand
 NSTUB(0xFFCDB170 - RAM_OFFSET,  msleep)
 
 /** Tasks **/
-NSTUB(   0x74B1C,  task_dispatch_hook)
+NSTUB(   0x74C3C,  task_dispatch_hook)                      /* from task_trampoline -> last sub -> if (arg0 == CURRENT_TASK) call_new_task_dispatch_hook() */
 NSTUB(0xFFCDB224 - RAM_OFFSET,  task_create)
 NSTUB(0xFFCE0548 - RAM_OFFSET,  task_trampoline)
 // NSTUB(    ???,  current_task_ctx)                        /* present on 7D.203 */
