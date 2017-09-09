@@ -28,22 +28,28 @@
 #include <stub.h>
 
 /** Startup **/
-NSTUB( ROMBASEADDR, firmware_entry )
+NSTUB(ROMBASEADDR, firmware_entry )
 NSTUB(0xFE0A0B19,  cstart)              // Thumb
 NSTUB(0xFE683258,  bzero32)
 NSTUB(0xFE3F3958,  create_init_task)
-NSTUB(0xFE0EE524,  init_task)           // Thumb
+NSTUB(0xFE0EE525,  init_task)           // Thumb
 
 /** Tasks **/
 NSTUB(0xFE3F3E08,  task_create)
-NSTUB(0xFEC28D28,  msleep)
+NSTUB(0xFE3F3E90,  msleep)
 
-/** Dumper **/
-NSTUB(0xFE2C22C1, dump_file)            // Thumb
-
-/** Memory info **/
-NSTUB(0xFE0A1AD1, malloc_info)          // Thumb
-NSTUB(0xFE0A1B69, sysmem_info)          // Thumb
-NSTUB(0xFE1A3083, smemShowFix)          // Thumb
-
+/** File I/O **/
+NSTUB(0xFE46D6A5,  FIO_CloseFile)
+NSTUB(0xFEE9A839,  FIO_FindClose)
+NSTUB(0xFEE9A841,  FIO_FindNextEx)
+NSTUB(0xFE46D525,  FIO_ReadFile)
+NSTUB(0xFE46D595,  FIO_SeekSkipFile)
+NSTUB(0xFE46D637,  FIO_WriteFile)
+NSTUB(0xFE46D707,  FIO_CreateDirectory)
+NSTUB(0xFE46D44F,  FIO_CreateFile)
+NSTUB(0xFEE9A849,  FIO_FindFirstEx)
+NSTUB(0xFE46D791,  FIO_GetFileSize)
+NSTUB(0xFE46D3D9,  FIO_OpenFile)                            // or OpenFile?
+NSTUB(0xFE46D4B9,  FIO_RemoveFile)
+// NSTUB(    ???, _FIO_RenameFile)                          /* present on 60D.111, 6D.113, 600D.102, 650D.104, 550D.109, 1100D.105, EOSM.202, 700D.113 */
 

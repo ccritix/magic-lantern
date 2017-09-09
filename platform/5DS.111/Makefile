@@ -1,6 +1,7 @@
 #Makefile for 5DS
 
 MODEL=5DS
+ROMBASEADDR=0xFE0A0000
 
 include ../Makefile.platform
 

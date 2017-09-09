@@ -101,7 +101,7 @@ typedef int (*init_task_func)(int,int,int,int);
  * \internal
  */
 extern void
-create_init_task( void );
+create_init_task( int, int );
 
 /** Bootstrap a new task.
  * \internal

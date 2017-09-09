@@ -24,6 +24,7 @@
  * Boston, MA  02110-1301, USA.
  */
 
+#include "dryos.h"
 #include "compiler.h"
 #include "consts.h"
 #include "fw-signature.h"
@@ -205,6 +206,15 @@ static void fail()
 
 extern int compute_signature(int* start, int num);
 
+#if defined(CONFIG_5DS)
+void set_S_TX_DATA(int value)
+{
+  while ( !(MEM(0xD0034020) & 0x10) );
+  MEM(0xD0034014) = value;
+}
+#endif
+    
+
 void
 __attribute__((noreturn))
 cstart( void )
@@ -240,7 +250,12 @@ cstart( void )
     #if defined(CONFIG_7D)
         *(volatile int*)0xC0A00024 = 0x80000010; // send SSTAT for master processor, so it is in right state for rebooting
     #endif
-
+    
+    #if defined(CONFIG_5DS)
+    set_S_TX_DATA(0x20040);
+    MEM(0xD20C0084) = 0x0;
+    #endif
+    
     /* Jump into the newly relocated code
        Q: Why target/compiler-specific attribute long_call?
        A: If in any case the base address passed to linker (-Ttext 0x40800000) doesnt fit because we
