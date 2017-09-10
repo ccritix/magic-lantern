@@ -35,7 +35,7 @@
 #define CACHE_HACK_GOP_SIZE_SLAVE   0xFF2324BC
 
 // no idea if it's overflowing, need to check experimentally 
-#define ARMLIB_OVERFLOWING_BUFFER 0xAEF18                       //ok nikfreak in AJ_armlib_setup_related3
+#define ARMLIB_OVERFLOWING_BUFFER 0xAEF08                       //ok nikfreak in AJ_armlib_setup_related3
 
 #define DRYOS_ASSERT_HANDLER 0x7AAA0                            //ok nikfreak dec TH_assert or assert_0
 
