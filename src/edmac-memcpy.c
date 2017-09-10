@@ -356,17 +356,11 @@ void edmac_raw_slurp(void* dst, int w, int h)
 {
     /* see wiki, register map, EDMAC what the flags mean. they are for setting up copy block size */
 #if defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM)
-    uint32_t dmaFlags = 0x20000000;
-#elif defined(CONFIG_6D)
-    uint32_t dmaFlags = 0x40000000;
-#else
-#if defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM)
     uint32_t dmaFlags = EDMAC_2_BYTES_PER_TRANSFER;
 #elif defined(CONFIG_6D)
     uint32_t dmaFlags = EDMAC_4_BYTES_PER_TRANSFER;
 #else
     uint32_t dmaFlags = EDMAC_8_BYTES_PER_TRANSFER;
-#endif
 #endif
     
     /* @g3gg0: this callback does get called */
