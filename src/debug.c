@@ -304,7 +304,8 @@ static void unmount_sd_card()
     
     /* call shutdown hooks that need to save configs */
     config_save_at_shutdown();
-#ifdef CONFIG_MODULES
+
+#if defined(CONFIG_MODULES)
     extern int module_shutdown();
     module_shutdown();
 #endif
