@@ -41,9 +41,9 @@ NSTUB(    0x7B98,  additional_version)
 NSTUB(0xFF2A2930,  FIO_CloseFile)
 NSTUB(0xFF2A3900,  FIO_FindClose)                           // FindClose
 NSTUB(0xFF2A3820,  FIO_FindNextEx)
-NSTUB(0xFF2A26E0,  FIO_ReadFile)
+NSTUB(0xFF2A26E0, _FIO_ReadFile)
 NSTUB(0xFF2A2790,  FIO_SeekSkipFile)
-NSTUB(0xFF2A2880,  FIO_WriteFile)
+NSTUB(0xFF2A2880, _FIO_WriteFile)
 NSTUB(0xFF2A316C, _FIO_CreateDirectory)
 NSTUB(0xFF2A258C, _FIO_CreateFile)
 NSTUB(0xFF2A372C, _FIO_FindFirstEx)
@@ -275,8 +275,9 @@ NSTUB(0xFF12229C,  take_semaphore)
 
 /** Task info **/
 NSTUB(    0x295C,  task_max)
-NSTUB(0xFF0C7464,  get_current_task)
 NSTUB(0xFF417ED4,  is_taskid_valid)
+NSTUB(    0x1A2C,  current_task)
+NSTUB(     0x674,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
 
 /** Task sleep **/
 NSTUB(0xFF122770,  msleep)

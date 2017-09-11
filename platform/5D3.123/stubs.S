@@ -58,9 +58,9 @@ NSTUB(   0x46910,  additional_version)                      // GuiDataStorage
 NSTUB(0xFF30E814,  FIO_CloseFile)
 NSTUB(0xFF30F80C,  FIO_FindClose)                           // proper name: FindClose
 NSTUB(0xFF30F72C,  FIO_FindNextEx)
-NSTUB(0xFF30E5C4,  FIO_ReadFile)
+NSTUB(0xFF30E5C4, _FIO_ReadFile)
 NSTUB(0xFF30E674,  FIO_SeekSkipFile)
-NSTUB(0xFF30E764,  FIO_WriteFile)
+NSTUB(0xFF30E764, _FIO_WriteFile)
 NSTUB(0xFF30F070, _FIO_CreateDirectory)
 NSTUB(0xFF30E470, _FIO_CreateFile)
 NSTUB(0xFF30F638, _FIO_FindFirstEx)
@@ -156,6 +156,7 @@ NSTUB(0xFF4C13A4,  ShootOlcApp_handler)                     // AJ_DIALOG.HANDLER
 // NSTUB(    ???,  ReverseDisplay)                          /* present on 60D.111, 700D.111, 600D.102, 650D.104, 550D.109, 1100D.105 */
 
 /** EDMAC **/
+NSTUB(0xFFA0321C - RAM_OFFSET,  AbortEDmac)
 NSTUB(0xFFA02F28 - RAM_OFFSET,  ConnectReadEDmac)
 NSTUB(0xFFA02E64 - RAM_OFFSET,  ConnectWriteEDmac)
 NSTUB(0xFFA033A4 - RAM_OFFSET,  RegisterEDmacAbortCBR)
@@ -293,10 +294,9 @@ NSTUB(0xFF9F8D40 - RAM_OFFSET,  take_semaphore)
 
 /** Task info **/
 NSTUB(   0x25024,  task_max)
-///NSTUB(0xFF9F94A0,  GetTaskName)
-NSTUB(0xFF9F2CEC - RAM_OFFSET,  get_current_task)
-NSTUB(0xFFA010F4 - RAM_OFFSET,  get_obj_attr)               // AJ_checks_if_Process_id_created_by_Dryos
 NSTUB(0xFFA0A0D8 - RAM_OFFSET,  is_taskid_valid)            // AJ_task_trampoline_related_p10
+NSTUB(   0x23E14,  current_task)
+NSTUB(     0x674,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
 
 /** Task sleep **/
 NSTUB(0xFF9F921C - RAM_OFFSET,  msleep)
@@ -318,7 +318,6 @@ NSTUB(0xFFA067B4 - RAM_OFFSET,  vsnprintf)
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
-///NSTUB(0xFFA0321C - RAM_OFFSET,  AbortEDmac)
 ///NSTUB(0xFF4557F8,  CreateDialogBox)
 ///NSTUB(0xFF4547C8,  DeleteDialogBox)
 ///NSTUB(0xFF182B34, ENCODE_StartEncodeJpeg)
