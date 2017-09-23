@@ -38,6 +38,9 @@ NSTUB(0xFE0EE525,  init_task)           // Thumb
 NSTUB(0xFE3F3E08,  task_create)
 NSTUB(0xFE3F3E90,  msleep)
 
+NSTUB(0xFE3F3D80,  AllocateUncacheableMemory)
+NSTUB(0xFE3F3E58,  FreeUncachableMemory)
+
 /** File I/O **/
 NSTUB(0xFE46D6A5,  FIO_CloseFile)
 NSTUB(0xFEE9A839,  FIO_FindClose)
@@ -53,3 +56,7 @@ NSTUB(0xFE46D3D9,  FIO_OpenFile)                            // or OpenFile?
 NSTUB(0xFE46D4B9,  FIO_RemoveFile)
 // NSTUB(    ???, _FIO_RenameFile)                          /* present on 60D.111, 6D.113, 600D.102, 650D.104, 550D.109, 1100D.105, EOSM.202, 700D.113 */
 
+
+/** Slave Comm **/
+NSTUB(0xFE3F3980,  BulkOutIPCTransfer)
+NSTUB(0xFE3F3B04,  BulkInIPCTransfer)
