@@ -152,72 +152,96 @@ void disp_set_pixel(int x, int y, int c)
     bmp[x + y * 960] = c;
 }
 
+uint32_t BulkOutIPCTransfer(int type, uint8_t *buffer, int length, uint32_t master_addr, void (*cb)(uint32_t, uint32_t, uint32_t), uint32_t cb_parm);
+uint32_t BulkInIPCTransfer(int type, uint8_t *buffer, int length, uint32_t master_addr, void (*cb)(uint32_t, uint32_t, uint32_t), uint32_t cb_parm);
+void *AllocateUncacheableMemory(uint32_t length);
+void FreeUncachableMemory(void *buffer);
+
+void bulk_cbr(uint32_t parm, uint32_t address, uint32_t length)
+{
+    *(uint32_t*)parm = 0;
+}
+
+static void dump_slave(uint32_t address, uint32_t length, char *filename)
+{
+    uint32_t blocksize = 0x100000;
+    void *buffer = AllocateUncacheableMemory(blocksize);
+    FILE *f = FIO_CreateFile(filename);
+    
+    while(length)
+    {
+        volatile uint32_t wait = 1;
+        uint32_t len = (length > blocksize) ? blocksize : length;
+        
+        BulkInIPCTransfer(0, buffer, len, address, &bulk_cbr, (uint32_t)&wait);
+        while(wait)
+        {
+            msleep(10);
+        }
+        
+        FIO_WriteFile(f, buffer, len);
+        length -= len;
+        address += len;
+    }
+    
+    FIO_CloseFile(f);
+    FreeUncachableMemory(buffer);
+}
+
+static void dump_master(uint32_t address, uint32_t length, char *filename)
+{
+    uint32_t blocksize = 0x100000;
+    void *buffer = AllocateUncacheableMemory(blocksize);
+    FILE *f = FIO_CreateFile(filename);
+    
+    while(length)
+    {
+        uint32_t len = (length > blocksize) ? blocksize : length;
+        
+        memcpy(buffer, address, len);
+        FIO_WriteFile(f, buffer, len);
+        
+        length -= len;
+        address += len;
+    }
+    
+    FIO_CloseFile(f);
+    FreeUncachableMemory(buffer);
+}
+
 static void my_ml_task()
 {
-    static int led_state = 0;
+    msleep(4000);
     
-    msleep(5000);
+    dump_slave(0x00000000, 0x10000000, "A:/00000000.SLV");
+    dump_slave(0x10000000, 0x10000000, "A:/10000000.SLV");
+    dump_slave(0x20000000, 0x10000000, "A:/20000000.SLV");
+    dump_slave(0x30000000, 0x10000000, "A:/30000000.SLV");
+    dump_slave(0x40000000, 0x10000000, "A:/40000000.SLV");
+    dump_slave(0x50000000, 0x10000000, "A:/50000000.SLV");
+    dump_slave(0x60000000, 0x10000000, "A:/60000000.SLV");
+    dump_slave(0x70000000, 0x10000000, "A:/70000000.SLV");
+    dump_slave(0x80000000, 0x10000000, "A:/80000000.SLV");
+    dump_slave(0x90000000, 0x10000000, "A:/90000000.SLV");
+    dump_slave(0xA0000000, 0x10000000, "A:/A0000000.SLV");
+    dump_slave(0xB0000000, 0x10000000, "A:/B0000000.SLV");
+    dump_slave(0xE0000000, 0x10000000, "A:/E0000000.SLV");
+    dump_slave(0xF0000000, 0x08000000, "A:/F0000000.SLV");
+    dump_slave(0xF8000000, 0x08000000, "A:/F8000000.SLV");
+    dump_slave(0xFE000000, 0x02000000, "A:/FE000000.SLV");
     
-    FILE * f = NULL;
-    
-    f = FIO_CreateFile("A:/FE000000.BIN");
-    if (f != (void*) -1)
-    {
-        FIO_WriteFile(f, (void*) 0xFE000000, 0x02000000);
-        FIO_CloseFile(f);
-    }
-    
-    f = FIO_CreateFile("A:/00000000.BIN");
-    if (f != (void*) -1)
-    {
-        FIO_WriteFile(f, (void*) 0x00000000, 0x00004000);
-        FIO_CloseFile(f);
-    }
-    
-    f = FIO_CreateFile("A:/80000000.BIN");
-    if (f != (void*) -1)
-    {
-        FIO_WriteFile(f, (void*) 0x80000000, 0x00010000);
-        FIO_CloseFile(f);
-    }
-    
-    f = FIO_CreateFile("A:/40000000.BIN");
-    if (f != (void*) -1)
-    {
-        FIO_WriteFile(f, (void*) 0x40000000, 0x10000000);
-        FIO_CloseFile(f);
-    }
-    f = FIO_CreateFile("A:/50000000.BIN");
-    if (f != (void*) -1)
-    {
-        FIO_WriteFile(f, (void*) 0x50000000, 0x10000000);
-        FIO_CloseFile(f);
-    }
-    f = FIO_CreateFile("A:/60000000.BIN");
-    if (f != (void*) -1)
-    {
-        FIO_WriteFile(f, (void*) 0x60000000, 0x10000000);
-        FIO_CloseFile(f);
-    }
-    f = FIO_CreateFile("A:/70000000.BIN");
-    if (f != (void*) -1)
-    {
-        FIO_WriteFile(f, (void*) 0x70000000, 0x10000000);
-        FIO_CloseFile(f);
-    }
-    
-    
-    f = FIO_CreateFile("A:/80000000.BIN");
-    if (f != (void*) -1)
-    {
-        FIO_WriteFile(f, (void*) 0x70000000, 0x10000000);
-        FIO_CloseFile(f);
-    }
-    
-    
+    dump_master(0x00000000, 0x00004000, "A:/00000000.MST");
+    dump_master(0x00004000, 0x0FFFC000, "A:/00004000.MST");
+    dump_master(0x40000000, 0x10000000, "A:/40000000.MST");
+    dump_master(0x50000000, 0x10000000, "A:/50000000.MST");
+    dump_master(0x60000000, 0x10000000, "A:/60000000.MST");
+    dump_master(0x70000000, 0x10000000, "A:/70000000.MST");
+    dump_master(0xBFE00000, 0x00200000, "A:/BFE00000.MST");
+    dump_master(0x80000000, 0x00010000, "A:/80000000.MST");
+    dump_master(0xFC000000, 0x02000000, "A:/FC000000.MST");
+    dump_master(0xFE000000, 0x02000000, "A:/FE000000.MST");
     
     return;
-    
 }
 
 /** Initial task setup.
