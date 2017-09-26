@@ -21,7 +21,7 @@
 #define STR(x)                        STR_(x)
 #define STR_(x)                       #x
 
-#define MODULE_COUNT_MAX              32
+#define MODULE_COUNT_MAX              64
 #define MODULE_NAME_LENGTH            8
 #define MODULE_FILENAME_LENGTH        31    /* A:/ML/MODULES/8_3_name.mo */
 #define MODULE_STATUS_LENGTH          7     /* longest is FileErr */
@@ -55,6 +55,8 @@
 #define CBR_CUSTOM_PICTURE_TAKING    11 /* special types of picture taking (e.g. silent pics); so intervalometer and other photo taking routines should use that instead of regular pics */
 #define CBR_INTERVALOMETER           12 /* called after a picture is taken with the intervalometer */
 #define CBR_CONFIG_SAVE              13 /* called when ML configs are being saved */
+
+#define CBR_RAW_INFO_UPDATE          14 /* called after raw_info is updated successfully */
 
 /* return values from CBRs */
 #define CBR_RET_CONTINUE              0             /* keep calling other CBRs of the same type */
@@ -107,7 +109,7 @@ int module_translate_key(int key, int dest);
 
 
 /* update major if older modules will *not* be compatible */
-#define MODULE_MAJOR 6
+#define MODULE_MAJOR 7
 /* update minor if older modules will be compatible, but newer module will not run on older magic lantern versions */
 #define MODULE_MINOR 0
 /* update patch if nothing regarding to compatibility changes */

@@ -33,6 +33,7 @@
 #include "config-defines.h"
 #include "compiler.h"
 #include "dialog.h"
+#include "consts.h"
 #include "gui.h"
 #include "gui-common.h"
 #include "vram.h"
@@ -41,7 +42,6 @@
 #include "tasks.h"
 #include "debug.h"
 #include "audio.h"
-#include "consts.h"
 #include <stdarg.h>
 #include "exmem.h"
 #include "mem.h"
@@ -205,8 +205,6 @@ extern struct msg_queue *msg_queue_create(char *name, uint32_t backlog);
 
 uint32_t RegisterRPCHandler (uint32_t rpc_id, uint32_t (*handler) (uint8_t *, uint32_t));
 uint32_t RequestRPC (uint32_t id, void* data, uint32_t length, uint32_t cb, uint32_t cb_parm);
-
-const char* get_dcim_dir();
 
 // for optimization
 #define unlikely(exp) __builtin_expect(exp,0)
