@@ -1028,6 +1028,7 @@ static MENU_SELECT_FUNC(reg_toggle_override)
 
 #define REG_ENTRY(i) \
         { \
+            .name = "(empty)", \
             .priv = &regs[i].override, \
             .select_Q = reg_toggle_override, \
             .update = reg_update, \
