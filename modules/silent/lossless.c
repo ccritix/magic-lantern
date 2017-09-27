@@ -138,13 +138,13 @@ int lossless_init()
     {
         /* ProcessTwoInTwoOutJpegath, 100D 1.0.1 */
         TTL_SetArgs     = (void *) 0xFF3647D0;      /* fills TTJ_Args struct; PictureSize(Mem1ToRaw) */
-        TTL_Prepare     = (void *) 0xff42bf8c;      /* called right after ProcessTwoInTwoOutJpegath(R) Start(%d); */
+        TTL_Prepare     = (void *) 0xFF42Bf8C;      /* called right after ProcessTwoInTwoOutJpegath(R) Start(%d); */
                                                     /* calls [TTJ] GetPathResources and sets up the encoder for RAW */
-        TTL_RegisterCBR = (void *) 0xff42af70;      /* RegisterTwoInTwoOutJpegPathCompleteCBR */
-        TTL_SetFlags    = (void *) 0xff363148;      /* called next, with PictureType as arguments */ 
-        TTL_Start       = (void *) 0xff42c034;      /* called next; starts the EDmac transfers */
-        TTL_Stop        = (void *) 0xff42b1bc;      /* called right after sssStopMem1ToRawPath */
-        TTL_Finish      = (void *) 0xff42c0a4;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
+        TTL_RegisterCBR = (void *) 0xFF42AF70;      /* RegisterTwoInTwoOutJpegPathCompleteCBR */
+        TTL_SetFlags    = (void *) 0xFF363148;      /* called next, with PictureType as arguments */ 
+        TTL_Start       = (void *) 0xFF42c034;      /* called next; starts the EDmac transfers */
+        TTL_Stop        = (void *) 0xFF42B1BC;      /* called right after sssStopMem1ToRawPath */
+        TTL_Finish      = (void *) 0xFF42C0A4;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
     }
 
 
@@ -406,9 +406,9 @@ static void decompress_init()
 
     if (is_camera("100D", "1.0.1"))
     {
-        Setup_DecodeLosslessRawPath = (void *) 0xff42f4c8;
-        Start_DecodeLosslessPath    = (void *) 0xff42f590;
-        Cleanup_DecodeLosslessPath  = (void *) 0xff42f6f4;
+        Setup_DecodeLosslessRawPath = (void *) 0xFF42F4C8;
+        Start_DecodeLosslessPath    = (void *) 0xFF42F590;
+        Cleanup_DecodeLosslessPath  = (void *) 0xFF42F6F4;
     }
 
     /* all functions known? having the semaphore is an indicator we can decompress */
