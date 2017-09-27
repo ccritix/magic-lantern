@@ -98,45 +98,78 @@ static void FAST autodetect_black_level_calc(
     *out_stdev = stdev;
 }
 
-/* a slower version of the one from raw.c */
-/* scans more pixels and does not use a safety margin */
+/* a slower version of the one from raw.c (crop_rec_4k) */
+/* scans more pixels (every line, 2 pixels from every raw_pixblock)
+ * and does not use a lower bound for white level */
 static int autodetect_white_level()
 {
-    int white = 0;
-    int max = 0;
-    int confirms = 0;
+    int initial_guess = 0;
+    int white = initial_guess;
+
+    /* build a temporary histogram */
+    int * hist = malloc(16384 * sizeof(hist[0]));
+    if (!hist)
+    {
+        /* oops */
+        ASSERT(0);
+        return initial_guess;
+    }
+    memset(hist, 0, 16384 * sizeof(hist[0]));
 
     int raw_height = raw_info.active_area.y2 - raw_info.active_area.y1;
-    for (int y = raw_info.active_area.y1 + raw_height/10; y < raw_info.active_area.y2 - raw_height/10; y ++)
+    for (int y = raw_info.active_area.y1 + raw_height/10; y < raw_info.active_area.y2 - raw_height/10; y++)
     {
         int pitch = raw_info.width/8*14;
         int row = (intptr_t) raw_info.buffer + y * pitch;
-        int row_crop_start = row + raw_info.active_area.x1/8*14;
-        int row_crop_end = row + raw_info.active_area.x2/8*14;
+        int skip_5p = ((raw_info.active_area.x2 - raw_info.active_area.x1) * 6/128)/8*14; /* skip 5% */
+        int row_crop_start = row + raw_info.active_area.x1/8*14 + skip_5p;
+        int row_crop_end = row + raw_info.active_area.x2/8*14 - skip_5p;
         
-        for (struct raw_pixblock * p = (void*)row_crop_start; (void*)p < (void*)row_crop_end; p ++)
+        for (struct raw_pixblock * p = (void*)row_crop_start; (void*)p < (void*)row_crop_end; p++)
         {
-            /* todo: should probably also look at the other pixels from one pixblock */
-            if (p->a > max)
-            {
-                max = p->a;
-                confirms = 1;
-            }
-            else if (p->a == max)
-            {
-                confirms++;
-                if (confirms > 5)
-                {
-                    white = max;
-                }
-            }
+            /* a is red or green, b is green or blue */
+            int a = p->a;
+            int b = p->h;
+            hist[a]++;
+            hist[b]++;
         }
     }
-    
-    /* no confirmed max? use the unconfirmed one */
-    if (white == 0)
-        white = max;
 
+    int total = 0;
+    for (int i = 0; i < 16384; i++)
+    {
+        total += hist[i];
+    }
+
+    int acc = 0;
+    for (int i = 16383; i >= MAX(initial_guess, 10); i--)
+    {
+        //qprintf("[WL] %d: %d\n", i, hist[i]);
+        /* the peak should be much bigger than what's after it,
+         * and at least 10 overexposed pixels */
+        if (hist[i] + hist[i-1] > 10 + acc * 100)
+        {
+            printf("[WL] peak at %d:%d (count=%d+%d above=%d left=%d,%d,%d)\n", i, i+1, hist[i-1], hist[i], acc, hist[i-2], hist[i-3], hist[i-4]);
+            /* the peak should also be much bigger than what's before it */
+            if (hist[i-2] + hist[i-3] + hist[i-4] < (hist[i] + hist[i-1]) / 10)
+            {
+                printf("[WL] peak confirmed.\n");
+                white = i - 2;
+                break;
+            }
+        }
+
+        if (acc == 0 && hist[i] != 0)
+        {
+            /* if we are not going to find a peak,
+             * assume the image is not overexposed */
+            white = i;
+        }
+
+        acc += hist[i];
+    }
+
+    free(hist);
     return white;
 }
 
