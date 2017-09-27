@@ -404,6 +404,13 @@ static void decompress_init()
         Cleanup_DecodeLosslessPath  = (void *) 0xFF42DDFC;
     }
 
+    if (is_camera("100D", "1.0.1"))
+    {
+        Setup_DecodeLosslessRawPath = (void *) 0xff42f4c8;
+        Start_DecodeLosslessPath    = (void *) 0xff42f590;
+        Cleanup_DecodeLosslessPath  = (void *) 0xff42f6f4;
+    }
+
     /* all functions known? having the semaphore is an indicator we can decompress */
     if (Setup_DecodeLosslessRawPath && Start_DecodeLosslessPath && Cleanup_DecodeLosslessPath)
     {
