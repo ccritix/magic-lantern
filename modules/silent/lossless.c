@@ -134,9 +134,23 @@ int lossless_init()
         TTL_Finish      = (void *) 0xFF429328;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
     }
 
+    if (is_camera("100D", "1.0.1"))
+    {
+        /* ProcessTwoInTwoOutJpegath, 100D 1.0.1 */
+        TTL_SetArgs     = (void *) 0xFF3647D0;      /* fills TTJ_Args struct; PictureSize(Mem1ToRaw) */
+        TTL_Prepare     = (void *) 0xff42bf8c;      /* called right after ProcessTwoInTwoOutJpegath(R) Start(%d); */
+                                                    /* calls [TTJ] GetPathResources and sets up the encoder for RAW */
+        TTL_RegisterCBR = (void *) 0xff42af70;      /* RegisterTwoInTwoOutJpegPathCompleteCBR */
+        TTL_SetFlags    = (void *) 0xff363148;      /* called next, with PictureType as arguments */ 
+        TTL_Start       = (void *) 0xff42c034;      /* called next; starts the EDmac transfers */
+        TTL_Stop        = (void *) 0xff42b1bc;      /* called right after sssStopMem1ToRawPath */
+        TTL_Finish      = (void *) 0xff42c0a4;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
+    }
+
+
     lossless_sem = create_named_semaphore(0, 0);
     
-    if (is_camera("700D", "*") || is_camera("EOSM", "*"))
+    if (is_camera("700D", "*") || is_camera("EOSM", "*") || is_camera("100D", "*"))
     {
         uint32_t resources[] = {
             0x00000 | edmac_channel_to_index(edmac_write_chan),
@@ -388,6 +402,13 @@ static void decompress_init()
         Setup_DecodeLosslessRawPath = (void *) 0xFF42DBD0;
         Start_DecodeLosslessPath    = (void *) 0xFF42DC98;
         Cleanup_DecodeLosslessPath  = (void *) 0xFF42DDFC;
+    }
+
+    if (is_camera("100D", "1.0.1"))
+    {
+        Setup_DecodeLosslessRawPath = (void *) 0xff42f4c8;
+        Start_DecodeLosslessPath    = (void *) 0xff42f590;
+        Cleanup_DecodeLosslessPath  = (void *) 0xff42f6f4;
     }
 
     /* all functions known? having the semaphore is an indicator we can decompress */
