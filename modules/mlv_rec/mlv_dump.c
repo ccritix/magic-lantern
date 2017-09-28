@@ -2524,6 +2524,8 @@ read_headers:
         if(!memcmp(mlv_block->blockType, "MLVI", 4))
         {
             mlv_file_hdr_t file_hdr = *(mlv_file_hdr_t *)mlv_block;
+            
+            handled_write = 1;
 
             if(verbose)
             {
