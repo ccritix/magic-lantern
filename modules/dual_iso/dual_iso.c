@@ -769,18 +769,18 @@ static unsigned int isoless_init()
     }
     else if (is_camera("70D", "1.1.2"))
     {
-        /* Movie Mode
-        100 - 0x4045349a value (0x3)
-        200 - 0x404534c8
-        400 - 0x404534f6
-        800 - 0x40453524
-        1600 -0x40453552
-        3200 -0x40453580 
-        6400 -0x40453ae value (0xdb) */
+        /* Movie Mode CMOS[0]
+        100 - 0x404e77d6 value (0x3)
+        200 - 0x404e7804 value (0x27)
+        400 - 0x404e7832 value (0x4b)
+        800 - 0x404e7860 value (0x6f)
+        1600 -0x404e788e value (0x93)
+        3200 -0x404e78bc value (0xb7) 
+        6400 -0x404e78ea value (0xdb) */
         
         is_70d = 1;    
 
-        /* FRAME_CMOS_ISO_START = 0x4045349a; // CMOS register 0000 - for LiveView, ISO 100 (check in movie mode, not photo!)
+        /* FRAME_CMOS_ISO_START = 0x404e77d6; // CMOS register 0000 - for LiveView, ISO 100 (check in movie mode, not photo!)
         FRAME_CMOS_ISO_COUNT =          7; // from ISO 100 to 6400 (last real iso!)
         FRAME_CMOS_ISO_SIZE  =         46; // distance between ISO 100 and ISO 200 addresses, in bytes */
         
@@ -791,17 +791,16 @@ static unsigned int isoless_init()
         /* FOR NOW LET US OPT FOR CMOS[0] BUT THE QUESTION IS: */
         /* COULD WE TAKE ADVANTAGE OF USING BOTH AT THE SAME TIME (TRIPLE ISO)? */
         
-        /* Photo Mode
-        100 - 0x40451664 value (0x3)
-        200 - 0x40451678
-        400 - 0x4045168c
-        800 - 0x404516a0
-        1600 -0x404516b4
-        3200 -0x404516c8 
-        6400 -0x404516dc value (0xdb)
-        12800-0x404516dc value (0xdb) like ISO 6400 */
+        /* Photo Mode CMOS[0]
+        100 - 0x404e5664 value (0x3)
+        200 - 0x404e5678 value (0x27)
+        400 - 0x404e568c value (0x4b)
+        800 - 0x404e56a0 value (0x6f)
+        1600 -0x404e56b4 value (0x93)
+        3200 -0x404e56c8 value (0xb7) 
+        6400 -0x404e56dc value (0xdb) */
         
-        PHOTO_CMOS_ISO_START = 0x40451664; // CMOS register 0000 - for photo mode, ISO 100
+        PHOTO_CMOS_ISO_START = 0x404e5664; // CMOS register 0000 - for photo mode, ISO 100
         PHOTO_CMOS_ISO_COUNT =          7; // from ISO 100 to 6400 (last real iso!)
         PHOTO_CMOS_ISO_SIZE  =         20; // distance between ISO 100 and ISO 200 addresses, in bytes
 
