@@ -1212,8 +1212,7 @@ static void log_iso_regs()
 
     len += snprintf(msg+len, size-len, "==================================================================\n");
 
-    FILE * f = FIO_CreateFileOrAppend("A:/adtg.log");
-    if (!f) f = FIO_CreateFileOrAppend("B:/adtg.log");
+    FILE * f = FIO_CreateFileOrAppend("ML/LOGS/adtg.log");
     FIO_WriteFile(f, msg, len);
     FIO_CloseFile(f);
     fio_free(msg);
