@@ -233,11 +233,17 @@ static int lv_raw_gain = 0;
 #define WHITE_LEVEL 16200
 
 static int get_default_white_level()
-{
-    if (lv_raw_gain)
-    {
-        return (WHITE_LEVEL - 2048) * lv_raw_gain / 4096 + 2048;
-    }
+ {
+     if (lv_raw_gain)
+     {
+        int default_white = WHITE_LEVEL;
+
+        #ifdef CONFIG_100D
+        default_white = (lens_info.raw_iso == ISO_100) ? 13500 : 15300;
+        #endif
+
+        return (default_white - 2048) * lv_raw_gain / 4096 + 2048;
+     }
     
     return WHITE_LEVEL;
 }
