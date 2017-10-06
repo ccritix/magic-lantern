@@ -5695,6 +5695,8 @@ static unsigned int adtg_gui_init()
     regs_tree.root = 0;
 
     menu_add("Debug", adtg_gui_menu, COUNT(adtg_gui_menu));
+    ASSERT(adtg_gui_menu->children->parent_menu);
+    adtg_gui_menu->children->parent_menu->no_name_lookup = 1;
 
     /* check known registers for duplicates */
     for (int i = 0; i < COUNT(known_regs); i++)
