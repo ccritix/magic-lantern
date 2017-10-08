@@ -1625,8 +1625,20 @@ static void raw_diag_task(int corr)
         char filename[100];
         snprintf(filename, sizeof(filename), "raw_diag/%s%04d/raw.dng", get_file_prefix(), get_shooting_card()->file_number);
         bmp_printf(FONT_MED, 0, 50, "Saving %s...", filename);
-        save_dng(filename, &raw_info);
-        bmp_printf(FONT_MED, 0, 50, "Saved %s.   ", filename);
+
+        /* make a copy of the raw buffer, because it's being updated while we are saving it */
+        void* buf = malloc(raw_info.frame_size);
+        ASSERT(buf);
+
+        if (buf)
+        {
+            memcpy(buf, raw_info.buffer, raw_info.frame_size);
+            struct raw_info local_raw_info = raw_info;
+            local_raw_info.buffer = buf;
+            save_dng(filename, &local_raw_info);
+            free(buf);
+            bmp_printf(FONT_MED, 0, 50, "Saved %s.   ", filename);
+        }
     }
 
 end:
