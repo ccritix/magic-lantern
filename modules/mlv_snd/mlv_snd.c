@@ -246,7 +246,7 @@ static void mlv_snd_stop()
     
     /* some models may need this */
     StopASIFDMAADC();
-    SoundDevShutDownIn();
+    // SoundDevShutDownIn();  /* no model seems to need this */
     audio_configure(1);
     
     /* now flush the buffers */
