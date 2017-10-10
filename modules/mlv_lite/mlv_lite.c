@@ -431,8 +431,12 @@ static int calc_res_y(int res_x, int max_res_y, int num, int den, float squeeze)
 static REQUIRES(LiveViewTask)
 void update_cropping_offsets()
 {
-    int sx = raw_info.active_area.x1 + (max_res_x - res_x) / 2;
-    int sy = raw_info.active_area.y1 + (max_res_y - res_y) / 2;
+    /* fixme: left_margin duplicate */
+    int left_margin = (raw_info.active_area.x1 + 7) & ~7;
+    int top_margin  = (raw_info.active_area.y1 + 1) & ~1;
+
+    int sx = left_margin + (max_res_x - res_x) / 2;
+    int sy = top_margin  + (max_res_y - res_y) / 2;
 
     if (FRAMING_PANNING)
     {
@@ -469,8 +473,8 @@ void update_resolution_params()
 {
     /* max res X */
     /* make sure we don't get dead pixels from rounding */
-    int left_margin = (raw_info.active_area.x1 + 7) / 8 * 8;
-    int right_margin = (raw_info.active_area.x2) / 8 * 8;
+    int left_margin  = (raw_info.active_area.x1 + 7) & ~7;   /* ceil rounding to multiple of 8 pixels */
+    int right_margin = (raw_info.active_area.x2 + 0) & ~7;   /* floor rounding */
     int max = (right_margin - left_margin);
     
     /* max image width is modulo 2 bytes and 8 pixels */
