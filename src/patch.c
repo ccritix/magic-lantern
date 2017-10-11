@@ -11,7 +11,7 @@
 #undef PATCH_DEBUG
 
 #ifdef PATCH_DEBUG
-#define dbg_printf(fmt,...) { console_printf(fmt, ## __VA_ARGS__); }
+#define dbg_printf(fmt,...) { printf(fmt, ## __VA_ARGS__); }
 #else
 #define dbg_printf(fmt,...) {}
 #endif
@@ -54,18 +54,19 @@ struct matrix_patch
 
 /* ASM code from Maqs */
 /* logging hooks are always paired to a simple patch (that does the jump to this code) */
-struct logging_hook_code
+union logging_hook_code
 {
-    uint32_t save_regs;         /* e92d5fff: STMFD  SP!, {R0-R12,LR} */
-    uint32_t mov_regs;          /* e1a0000d: MOV    R0, SP */
-    uint32_t mov_stack;         /* e28d1038: ADD    R1, SP, #56 */
-    uint32_t mov_pc;            /* e59f200c: LDR    R2, [PC,#12] */
-    uint32_t call_logger;       /*           BL     logging_function */
-    uint32_t restore_regs;      /* e8bd5fff: LDMFD  SP!, {R0-R12,LR} */
-    uint32_t original_instr;    /*           original ASM instruction (which was patched to jump here) */
-    uint32_t b_return;          /*           B      patched_address + 4 */
-    uint32_t addr;              /* patched address (for identification) */
-    uint32_t fixup;             /* for relocating instructions that do PC-relative addressing */
+    struct
+    {
+        uint32_t arm_asm[11];       /* ARM ASM code for jumping to the logging function and back */
+        uint32_t reloc_insn;        /* original instruction, relocated */
+        uint32_t jump_back;         /* instruction to jump back to original code */
+        uint32_t addr;              /* patched address (for identification) */
+        uint32_t fixup;             /* for relocating instructions that do PC-relative addressing */
+        uint32_t logging_function;  /* for long call */
+    };
+
+    uint32_t code[16];
 };
 
 static struct patch patches[MAX_PATCHES] = {{0}};
@@ -75,7 +76,7 @@ static struct matrix_patch matrix_patches[MAX_MATRIX_PATCHES] = {{0}};
 static int num_matrix_patches = 0;
 
 /* at startup we don't have malloc, so we allocate it statically */
-static struct logging_hook_code logging_hooks[MAX_LOGGING_HOOKS] = {{0}};
+static union logging_hook_code logging_hooks[MAX_LOGGING_HOOKS];
 
 /**
  * Common routines
@@ -90,6 +91,10 @@ static int patch_sync_cache(int also_data);
 /* lock or unlock the cache as needed */
 static void cache_require(int lock)
 {
+#ifdef CONFIG_QEMU
+    return;
+#endif
+
     if (lock)
     {
         if (!cache_locked())
@@ -107,6 +112,10 @@ static void cache_require(int lock)
 
 static int patch_sync_cache(int also_data)
 {
+#ifdef CONFIG_QEMU
+    return 0;
+#endif
+
     int err = 0;
     
     int locked = cache_locked();
@@ -140,6 +149,10 @@ static int patch_sync_cache(int also_data)
 /* low-level routines */
 static uint32_t read_value(uint32_t* addr, int is_instruction)
 {
+#ifdef CONFIG_QEMU
+    goto read_from_ram;
+#endif
+
     uint32_t cached_value;
     
     if (is_instruction && IS_ROM_PTR(addr) && cache_locked()
@@ -161,6 +174,9 @@ static uint32_t read_value(uint32_t* addr, int is_instruction)
         dbg_printf("Read from ROM: %x -> %x\n", addr, MEM(addr));
     }
 
+#ifdef CONFIG_QEMU
+read_from_ram:
+#endif
     /* trick required because we don't have unaligned memory access */
     switch ((uintptr_t)addr & 3)
     {
@@ -176,7 +192,11 @@ static uint32_t read_value(uint32_t* addr, int is_instruction)
 static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
 {
     dbg_printf("Patching %x from %x to %x\n", addr, read_value(addr, is_instruction), value);
-    
+
+#ifdef CONFIG_QEMU
+    goto write_to_ram;
+#endif
+
     if (IS_ROM_PTR(addr))
     {
         /* todo: check for conflicts (@g3gg0?) */
@@ -192,6 +212,9 @@ static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
             {
                 return E_PATCH_CACHE_ERROR;
             }
+            
+            /* yes! */
+            return 0;
         }
         else
         {
@@ -206,6 +229,9 @@ static int do_patch(uint32_t* addr, uint32_t value, int is_instruction)
         addr = UNCACHEABLE(addr);
     }
 
+#ifdef CONFIG_QEMU
+write_to_ram:
+#endif
     /* trick required because we don't have unaligned memory access */
     switch ((uintptr_t)addr & 3)
     {
@@ -262,7 +288,7 @@ static int patch_memory_work(
     uint32_t old_value,
     uint32_t new_value,
     uint32_t is_instruction,
-    const char* description
+    const char * description
 )
 {
     uint32_t* addr = (uint32_t*)_addr;
@@ -281,6 +307,13 @@ static int patch_memory_work(
             err = E_PATCH_ALREADY_PATCHED;
             goto end;
         }
+    }
+
+    /* do we have room for a new patch? */
+    if (num_patches >= COUNT(patches))
+    {
+        err = E_PATCH_TOO_MANY_PATCHES;
+        goto end;
     }
 
     /* fill metadata */
@@ -355,6 +388,10 @@ static int reapply_cache_patch(int p)
 
 int reapply_cache_patches()
 {
+#ifdef CONFIG_QEMU
+    return 0;
+#endif
+
     int err = 0;
     
     /* this function is also public */
@@ -375,6 +412,10 @@ int reapply_cache_patches()
 
 static void check_cache_lock_still_needed()
 {
+#ifdef CONFIG_QEMU
+    return;
+#endif
+
     if (!cache_locked())
     {
         return;
@@ -399,7 +440,7 @@ static void check_cache_lock_still_needed()
 }
 
 /* forward reference */
-static int unpatch_memory_matrix(uintptr_t _addr);
+static int unpatch_memory_matrix(uintptr_t _addr, uint32_t old_int);
 
 int unpatch_memory(uintptr_t _addr)
 {
@@ -423,7 +464,7 @@ int unpatch_memory(uintptr_t _addr)
     if (p < 0)
     {
         /* patch not found, let's look it up in the matrix patches */
-        return unpatch_memory_matrix(_addr);
+        return unpatch_memory_matrix(_addr, old_int);
     }
     
     /* is the patch still applied? */
@@ -432,10 +473,12 @@ int unpatch_memory(uintptr_t _addr)
         err = E_UNPATCH_OVERWRITTEN;
         goto end;
     }
-    
+
+#ifndef CONFIG_QEMU
     /* not needed for ROM patches - there we will re-apply all the remaining ones from scratch */
     /* (slower, but old reverted patches should no longer give collisions) */
     if (!IS_ROM_PTR(addr))
+#endif
     {
         err = do_patch(patches[p].addr, patches[p].backup, patches[p].is_instruction);
         if (err) goto end;
@@ -453,7 +496,7 @@ int unpatch_memory(uintptr_t _addr)
     {
         if (logging_hooks[i].addr == _addr)
         {
-            memset(&logging_hooks[i], 0, sizeof(struct logging_hook_code));
+            memset(&logging_hooks[i], 0, sizeof(union logging_hook_code));
         }
     }
 
@@ -485,7 +528,7 @@ int patch_memory(
     uintptr_t addr,
     uint32_t old_value,
     uint32_t new_value,
-    const char* description
+    const char * description
 )
 {
     return patch_memory_work(addr, old_value, new_value, 0, description);
@@ -495,7 +538,7 @@ int patch_instruction(
     uintptr_t addr,
     uint32_t old_value,
     uint32_t new_value,
-    const char* description
+    const char * description
 )
 {
     return patch_memory_work(addr, old_value, new_value, 1, description);
@@ -611,7 +654,7 @@ int patch_memory_matrix(
     uint32_t patch_scaling,
     uint32_t patch_offset,
     uint32_t* backup_storage,
-    const char* description
+    const char * description
 )
 {
     uint32_t* addr = (uint32_t*)_addr;
@@ -630,6 +673,13 @@ int patch_memory_matrix(
         }
         
         /* todo: check matrices too */
+    }
+    
+    /* do we have room for a new patch? */
+    if (num_matrix_patches >= COUNT(matrix_patches))
+    {
+        err = E_PATCH_TOO_MANY_PATCHES;
+        goto end;
     }
 
     /* fill metadata */
@@ -706,11 +756,11 @@ static int is_matrix_patch_still_applied(int p)
     return 1;
 }
 
-static int unpatch_memory_matrix(uintptr_t _addr)
+/* note: this is always called with interrupts disabled */
+static int unpatch_memory_matrix(uintptr_t _addr, uint32_t old_int)
 {
     uint32_t* addr = (uint32_t*) _addr;
     int err = E_UNPATCH_OK;
-    uint32_t old_int = cli();
 
     int p = -1;
     for (int i = 0; i < num_matrix_patches; i++)
@@ -775,7 +825,7 @@ int patch_memory_ex(
     uint32_t patch_mask,
     uint32_t patch_scaling,
     uint32_t patch_offset,
-    const char* description
+    const char * description
 )
 {
     return patch_memory_matrix(addr, 1, 0, 1, 0, check_mask, check_value, patch_mask, patch_scaling, patch_offset, 0, description);
@@ -791,7 +841,7 @@ int patch_memory_array(
     uint32_t patch_scaling,
     uint32_t patch_offset,
     uint32_t* backup_storage,
-    const char* description
+    const char * description
 )
 {
     return patch_memory_matrix(addr, num_items, item_size, 1, 0, check_mask, check_value, patch_mask, patch_scaling, patch_offset, backup_storage, description);
@@ -805,10 +855,9 @@ int patch_memory_array(
 #define LOAD_MASK   0x0C000000
 #define LOAD_INSTR  0x04000000
 
-static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc)
+static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc, uint32_t fixup)
 {
     uint32_t instr = MEM(pc);
-    uint32_t fixup = new_pc + 0xC;
     uint32_t load = instr & LOAD_MASK;
 
     // Check for load from %pc
@@ -834,8 +883,9 @@ static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc)
         int32_t new_offset = fixup - new_pc - 8;
 
         uint32_t new_instr = 0
-            | ( instr & ~0xFFF )
-            | ( new_offset & 0xFFF )
+            | ( 1<<23 )                 /* our fixup is always forward */
+            | ( instr & ~0xFFF )        /* copy old instruction, without offset */
+            | ( new_offset & 0xFFF )    /* replace offset */
             ;
 
         // Copy the data to the offset location
@@ -846,7 +896,24 @@ static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc)
     return instr;
 }
 
-int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function_cbr logging_function, char* description)
+static int check_jump_range(uint32_t pc, uint32_t dest)
+{
+    /* shift offset by 2+6 bits to handle the sign bit */
+    int32_t offset = (B_INSTR(pc, dest) & 0x00FFFFFF) << 8;
+    
+    /* compute the destination from the jump and compare to the original */
+    uint32_t new_dest = ((((uint64_t)pc + 8) << 6) + offset) >> 6;
+    
+    if (dest != new_dest)
+    {
+        printf("Jump range error: %x -> %x\n", pc, dest);
+        return 0;
+    }
+    
+    return 1;
+}
+
+int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function_cbr logging_function, const char * description)
 {
     int err = 0;
 
@@ -857,7 +924,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     int logging_slot = -1;
     for (int i = 0; i < COUNT(logging_hooks); i++)
     {
-        if (logging_hooks[i].save_regs == 0)
+        if (logging_hooks[i].addr == 0)
         {
             logging_slot = i;
             break;
@@ -866,23 +933,48 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     
     if (logging_slot < 0)
     {
-        snprintf(last_error, sizeof(last_error), "No logging slot for %x", addr);
+        snprintf(last_error, sizeof(last_error), "Patch error at %x (no logging slot)", addr);
         puts(last_error);
         err = E_PATCH_TOO_MANY_PATCHES;
         goto end;
     }
     
+    union logging_hook_code * hook = &logging_hooks[logging_slot];
+    
+    /* check the jumps we are going to use */
+    /* fixme: use long jumps? */
+    if (!check_jump_range((uint32_t) &hook->reloc_insn, (uint32_t) addr + 4) ||
+        !check_jump_range((uint32_t) addr,              (uint32_t) hook))
+    {
+        snprintf(last_error, sizeof(last_error), "Patch error at %x (jump out of range)", addr);
+        puts(last_error);
+        err = E_PATCH_UNKNOWN_ERROR;
+        goto end;
+    }
+    
     /* create the logging code */
-    struct logging_hook_code * hook = &logging_hooks[logging_slot];
-    hook->save_regs       = 0xe92d5fff;                                     /* e92d5fff: STMFD  SP!, {R0-R12,LR} */
-    hook->mov_regs        = 0xe1a0000d;                                     /* e1a0000d: MOV    R0, SP */
-    hook->mov_stack       = 0xe28d1038;                                     /* e28d1038: ADD    R1, SP, #56 */
-    hook->mov_pc          = 0xe59f200c;                                     /* e59f200c: LDR    R2, [PC,#12] */
-    hook->call_logger     = BL_INSTR(&hook->call_logger, logging_function); /*           BL     logging_function */
-    hook->restore_regs    = 0xe8bd5fff;                                     /* e8bd5fff: LDMFD  SP!, {R0-R12,LR} */
-    hook->original_instr  = reloc_instr(addr, (uint32_t)&hook->original_instr); /*       original ASM instruction, relocated */
-    hook->b_return        = B_INSTR (&hook->b_return, addr + 4);            /*           B      patched_address + 4 */
-    hook->addr            = addr;                                           /*           patched address (for identification) */
+    *hook = (union logging_hook_code) { .code = {
+        0xe92d5fff,     /* STMFD  SP!, {R0-R12,LR}  ; save all regs to stack */
+        0xe10f0000,     /* MRS    R0, CPSR          ; save CPSR (flags) */
+        0xe92d0001,     /* STMFD  SP!, {R0}         ; to stack */
+        0xe28d0004,     /* ADD    R0, SP, #4        ; pass them to logging function as first arg */
+        0xe28d103c,     /* ADD    R1, SP, #60       ; pass stack pointer to logging function */
+        0xe59f2018,     /* LDR    R2, [PC,#24]      ; pass patched address to logging function */
+        0xe1a0e00f,     /* MOV    LR, PC            ; setup return address for long call */
+        0xe59ff018,     /* LDR    PC, [PC,#24]      ; long call to logging_function */
+        0xe8bd0001,     /* LDMFD  SP!, {R0}         ; restore CPSR */
+        0xe128f000,     /* MSR    CPSR_f, R0        ; (flags only) from stack */
+        0xe8bd5fff,     /* LDMFD  SP!, {R0-R12,LR}  ; restore regs */
+        reloc_instr(                                
+            addr,                           /*      ; relocate the original instruction */
+            (uint32_t) &hook->reloc_insn,   /*      ; from the patched address */
+            (uint32_t) &hook->fixup         /*      ; (it might need a fixup) */
+        ),
+        B_INSTR(&hook->jump_back, addr + 4),/*      ; jump back to original code */
+        addr,                               /*      ; patched address (for identification) */
+        hook->fixup,                        /*      ; this is updated by reloc_instr */
+        (uint32_t) logging_function,
+    }};
 
     /* since we have modified some code in RAM, sync the caches */
     patch_sync_cache(1);
@@ -893,7 +985,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     if (err)
     {
         /* something went wrong? */
-        memset(hook, 0, sizeof(struct logging_hook_code));
+        memset(hook, 0, sizeof(union logging_hook_code));
         goto end;
     }
 
@@ -1060,7 +1152,7 @@ static MENU_UPDATE_FUNC(matrix_patch_update)
 static struct menu_entry patch_menu[];
 
 #define SIMPLE_PATCH_MENU_ENTRY(i) patch_menu[0].children[i]
-#define MATRIX_PATCH_MENU_ENTRY(i) patch_menu[0].children[i+MAX_PATCHES]
+#define MATRIX_PATCH_MENU_ENTRY(i) patch_menu[0].children[(i)+MAX_PATCHES]
 
 static MENU_UPDATE_FUNC(patches_update)
 {
@@ -1152,6 +1244,7 @@ static MENU_UPDATE_FUNC(patches_update)
 
 #define PATCH_ENTRY(i) \
         { \
+            .name = "(empty)", \
             .priv = (void*)i, \
             .update = patch_update, \
             .shidden = 1, \
@@ -1159,6 +1252,7 @@ static MENU_UPDATE_FUNC(patches_update)
 
 #define MATRIX_PATCH_ENTRY(i) \
         { \
+            .name = "(empty)", \
             .priv = (void*)i, \
             .select = matrix_patch_scroll, \
             .update = matrix_patch_update, \
