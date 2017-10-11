@@ -206,8 +206,6 @@ extern struct msg_queue *msg_queue_create(char *name, uint32_t backlog);
 uint32_t RegisterRPCHandler (uint32_t rpc_id, uint32_t (*handler) (uint8_t *, uint32_t));
 uint32_t RequestRPC (uint32_t id, void* data, uint32_t length, uint32_t cb, uint32_t cb_parm);
 
-const char* get_dcim_dir();
-
 // for optimization
 #define unlikely(exp) __builtin_expect(exp,0)
 #define likely(exp) __builtin_expect(exp,1)
@@ -253,6 +251,10 @@ void wait_till_next_second();
 void _EngDrvOut(uint32_t reg, uint32_t value);    /* Canon stub */
 void EngDrvOut(uint32_t reg, uint32_t value);     /* ML wrapper */
 void EngDrvOutLV(uint32_t reg, uint32_t value);   /* ML wrapper for LiveView-only calls */
+
+/* set multiple ENGIO registers in a single call */
+void _engio_write(uint32_t* reg_list);    /* Canon stub */
+void engio_write(uint32_t* reg_list);     /* ML wrapper */
 
 #ifdef CONFIG_550D
 /** 550D hack for DISPLAY_IS_ON */
