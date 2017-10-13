@@ -235,7 +235,15 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         case CROP_PRESET_3x3_1X:
         case CROP_PRESET_3x3_1X_48p:
             if (is_720p()) skip_top = 0;
+        if (is_EOSM || is_700D || is_100D)
+        {
+            skip_left       = 66;
+            skip_right      = 0;
+            skip_top        = 28;
+            skip_bottom     = 0;
+	}
             break;
+
     }
 
     if (p_skip_left)   *p_skip_left    = skip_left;
