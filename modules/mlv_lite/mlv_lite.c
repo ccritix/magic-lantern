@@ -234,7 +234,7 @@ static int raw_digital_gain_ok()
 
         if (raw_info.width > default_width || raw_info.height > default_height)
         {
-            return 0;
+            return 1;
         }
     }
 
