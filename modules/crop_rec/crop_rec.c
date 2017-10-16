@@ -20,9 +20,7 @@
 #endif
 
 static int is_5D3 = 0;
-static int is_EOSM = 0;
-static int is_700D = 0;
-static int is_100D = 0;
+static int is_basic = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 
@@ -105,39 +103,23 @@ static const char crop_choices_help2_5d3[] =
     "3x1 binning: bin every 3 lines, read all columns (extreme anamorphic)\n"
     "FPS override test\n";
 
-/* menu choices for EOS M */
-static enum crop_preset crop_presets_eosm[] = {
+/* menu choices for cameras that only have the basic 3x3 crop_rec option */
+static enum crop_preset crop_presets_basic[] = {
     CROP_PRESET_OFF,
     CROP_PRESET_3x3_1X,
 };
 
-static const char * crop_choices_eosm[] = {
+static const char * crop_choices_basic[] = {
     "OFF",
     "3x3 720p",
 };
 
-static const char crop_choices_help_eosm[] =
-    "3x3 binning in 720p (1728x692 with square raw pixels)";
-
-static const char crop_choices_help2_eosm[] =
-    "On EOS M, when not recording H264, LV defaults to 720p with 5x3 binning.";
-
-/* menu choices for 700D */
-static enum crop_preset crop_presets_700d[] = {
-    CROP_PRESET_OFF,
-    CROP_PRESET_3x3_1X,
-};
-
-static const char * crop_choices_700d[] = {
-    "OFF",
-    "3x3 720p",
-};
-
-static const char crop_choices_help_700d[] =
+static const char crop_choices_help_basic[] =
     "Change 1080p and 720p movie modes into crop modes (one choice)";
 
-static const char crop_choices_help2_700d[] =
-    "3x3 binning in 720p (square pixels in RAW, vertical crop, up to 1736x688)";
+static const char crop_choices_help2_basic[] =
+    "3x3 binning in 720p (square pixels in RAW, vertical crop)";
+
 
 /* camera-specific parameters */
 static uint32_t CMOS_WRITE      = 0;
@@ -363,7 +345,7 @@ static int FAST check_cmos_vidmode(uint16_t* data_buf)
             }
         }
         
-        if (is_EOSM || is_700D || is_100D)
+        if (is_basic)
         {
             if (reg == 7)
             {
@@ -534,7 +516,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         }
     }
 
-    if (is_EOSM || is_700D || is_100D)
+    if (is_basic)
     {
         switch (crop_preset)
         {
@@ -853,7 +835,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
     }
 
-    if (is_EOSM || is_700D || is_100D)
+    if (is_basic)
     {
         switch (crop_preset)
         {
@@ -1732,10 +1714,13 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             }
         }
 
-        /* update skip offsets */
-        int skip_left, skip_right, skip_top, skip_bottom;
-        calc_skip_offsets(&skip_left, &skip_right, &skip_top, &skip_bottom);
-        raw_set_geometry(raw_info.width, raw_info.height, skip_left, skip_right, skip_top, skip_bottom);
+        if (is_5D3)
+        {
+            /* update skip offsets */
+            int skip_left, skip_right, skip_top, skip_bottom;
+            calc_skip_offsets(&skip_left, &skip_right, &skip_top, &skip_bottom);
+            raw_set_geometry(raw_info.width, raw_info.height, skip_left, skip_right, skip_top, skip_bottom);
+        }
     }
     return 0;
 }
@@ -1769,14 +1754,14 @@ static unsigned int crop_rec_init()
         ADTG_WRITE = 0x2986C;
         MEM_ADTG_WRITE = 0xE92D43F8;
         
-        is_EOSM = 1;
-        crop_presets                = crop_presets_eosm;
-        crop_rec_menu[0].choices    = crop_choices_eosm;
-        crop_rec_menu[0].max        = COUNT(crop_choices_eosm) - 1;
-        crop_rec_menu[0].help       = crop_choices_help_eosm;
-        crop_rec_menu[0].help2      = crop_choices_help2_eosm;
+        is_basic = 1;
+        crop_presets                = crop_presets_basic;
+        crop_rec_menu[0].choices    = crop_choices_basic;
+        crop_rec_menu[0].max        = COUNT(crop_choices_basic) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_basic;
+        crop_rec_menu[0].help2      = crop_choices_help2_basic;
     }
-    else if (is_camera("700D", "1.1.5"))
+    else if (is_camera("700D", "1.1.5") || is_camera("650D", "1.0.4"))
     {
         CMOS_WRITE = 0x17A1C;
         MEM_CMOS_WRITE = 0xE92D41F0;
@@ -1784,12 +1769,12 @@ static unsigned int crop_rec_init()
         ADTG_WRITE = 0x178FC;
         MEM_ADTG_WRITE = 0xE92D43F8;
         
-        is_700D = 1;
-        crop_presets                = crop_presets_700d;
-        crop_rec_menu[0].choices    = crop_choices_700d;
-        crop_rec_menu[0].max        = COUNT(crop_choices_700d) - 1;
-        crop_rec_menu[0].help       = crop_choices_help_700d;
-        crop_rec_menu[0].help2      = crop_choices_help2_700d;
+        is_basic = 1;
+        crop_presets                = crop_presets_basic;
+        crop_rec_menu[0].choices    = crop_choices_basic;
+        crop_rec_menu[0].max        = COUNT(crop_choices_basic) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_basic;
+        crop_rec_menu[0].help2      = crop_choices_help2_basic;
     }
     else if (is_camera("100D", "1.0.1"))
     {
@@ -1799,12 +1784,12 @@ static unsigned int crop_rec_init()
         ADTG_WRITE = 0x47144;
         MEM_ADTG_WRITE = 0xE92D43F8;
         
-        is_100D = 1;
-        crop_presets                = crop_presets_700d;
-        crop_rec_menu[0].choices    = crop_choices_700d;
-        crop_rec_menu[0].max        = COUNT(crop_choices_700d) - 1;
-        crop_rec_menu[0].help       = crop_choices_help_700d;
-        crop_rec_menu[0].help2      = crop_choices_help2_700d;
+        is_basic = 1;
+        crop_presets                = crop_presets_basic;
+        crop_rec_menu[0].choices    = crop_choices_basic;
+        crop_rec_menu[0].max        = COUNT(crop_choices_basic) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_basic;
+        crop_rec_menu[0].help2      = crop_choices_help2_basic;
     }       
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
     lvinfo_add_items (info_items, COUNT(info_items));
