@@ -147,10 +147,23 @@ int lossless_init()
         TTL_Finish      = (void *) 0xFF42C0A4;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
     }
 
+    if (is_camera("600D", "1.0.2"))
+    {
+        /* ProcessTwoInTwoOutJpegath, 600D 1.0.2 */
+        TTL_SetArgs     = (void *) 0xff2155e0;      /* fills TTJ_Args struct; PictureSize(Mem1ToRaw) */
+        TTL_Prepare     = (void *) 0xff2fe354;      /* called right after ProcessTwoInTwoOutJpegath(R) Start(%d); */
+        /* calls [TTJ] GetPathResources and sets up the encoder for RAW */
+        TTL_RegisterCBR = (void *) 0xFF2FD424;      /* RegisterTwoInTwoOutJpegPathCompleteCBR */
+        TTL_SetFlags    = (void *) 0xFF06E398;      /* alternate StartTwoInTwoOutJpegPath http://www.magiclantern.fm/forum/index.php?topic=18443.msg188721#msg188721 */
+        TTL_Start       = (void *) 0xFF2FE3FC;      /* called next; starts the EDmac transfers */
+        TTL_Stop        = (void *) 0xFF2FF784;      /* called right after sssStopMem1ToRawPath */
+        TTL_Finish      = (void *) 0xFF2FF434;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
+    }
+
 
     lossless_sem = create_named_semaphore(0, 0);
     
-    if (is_camera("700D", "*") || is_camera("EOSM", "*") || is_camera("100D", "*"))
+    if (is_camera("700D", "*") || is_camera("EOSM", "*") || is_camera("100D", "*") || is_camera("600D", "*"))
     {
         uint32_t resources[] = {
             0x00000 | edmac_channel_to_index(edmac_write_chan),
@@ -409,6 +422,13 @@ static void decompress_init()
         Setup_DecodeLosslessRawPath = (void *) 0xFF42F4C8;
         Start_DecodeLosslessPath    = (void *) 0xFF42F590;
         Cleanup_DecodeLosslessPath  = (void *) 0xFF42F6F4;
+    }
+
+    if (is_camera("600D", "1.0.2"))
+    {
+        Setup_DecodeLosslessRawPath = (void *) 0xFF30193C;
+        Start_DecodeLosslessPath    = (void *) 0xFF3019EC;
+        Cleanup_DecodeLosslessPath  = (void *) 0xFF0C4128;
     }
 
     /* all functions known? having the semaphore is an indicator we can decompress */
