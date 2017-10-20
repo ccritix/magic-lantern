@@ -100,6 +100,9 @@ static int cam_5d3 = 0;
 static int cam_5d3_113 = 0;
 static int cam_5d3_123 = 0;
 
+/* store mlv_snd samplingRate in here */
+static int samplingRate = 0;
+
 /**
  * resolution (in pixels) should be multiple of 16 horizontally (see http://www.magiclantern.fm/forum/index.php?topic=5839.0)
  * furthermore, resolution (in bytes) should be multiple of 8 in order to use the fastest EDMAC flags ( http://magiclantern.wikia.com/wiki/Register_Map#EDMAC ),
@@ -1963,26 +1966,12 @@ void hack_liveview(int unhack)
 
 void mlv_rec_queue_block(mlv_hdr_t *hdr)
 {
-    /* todo get WAVI block from mlv_snd and store it in start */
-
     if(!memcmp(hdr->blockType, "WAVI", 4))
     {
-        static mlv_wavi_hdr_t* work_hdr;
-        memset(&wavi_hdr, 0, sizeof(mlv_wavi_hdr_t));
-
-        mlv_set_type((mlv_hdr_t*)&wavi_hdr, "WAVI");
-        wavi_hdr.blockSize = sizeof(mlv_wavi_hdr_t);
-        mlv_set_timestamp((mlv_hdr_t*)&wavi_hdr, mlv_start_timestamp);
-        work_hdr = (mlv_wavi_hdr_t*)hdr;
-        /* this part is compatible to RIFF WAVE/fmt header */
-        wavi_hdr.format = work_hdr->timestamp;
-        wavi_hdr.channels = work_hdr->channels;
-        wavi_hdr.samplingRate = work_hdr->samplingRate;
-        wavi_hdr.bytesPerSecond = work_hdr->bytesPerSecond;
-        wavi_hdr.blockAlign = work_hdr->blockAlign;
-        wavi_hdr.bitsPerSample = work_hdr->bitsPerSample;
+        mlv_wavi_hdr_t *work_hdr = (mlv_wavi_hdr_t*)hdr;
+        samplingRate = work_hdr->samplingRate;
+        printf("Audio: samplingRate: %d", samplingRate);    
     }
-    /* This doesn't work :( */
 }
 
 void mlv_rec_set_rel_timestamp(mlv_hdr_t *hdr, uint64_t timestamp)
@@ -2979,23 +2968,25 @@ int write_mlv_chunk_headers(FILE* f)
     if (FIO_WriteFile(f, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &wbal_hdr, wbal_hdr.blockSize) != (int)wbal_hdr.blockSize) return 0;
 
-    /* Hardcoded audio settings, since the callback from mlv_snd doesn't work atm. */
-    memset(&wavi_hdr, 0, sizeof(mlv_wavi_hdr_t));
-   // mlv_wavi_hdr_t *wavi_hdr = malloc(sizeof(mlv_wavi_hdr_t));
-    
-    mlv_set_type((mlv_hdr_t*)&wavi_hdr, "WAVI");
-    wavi_hdr.blockSize = sizeof(mlv_wavi_hdr_t);
-    mlv_set_timestamp((mlv_hdr_t*)&wavi_hdr, mlv_start_timestamp);
- 
-    /* this part is compatible to RIFF WAVE/fmt header */
-    wavi_hdr.format = 1;
-    wavi_hdr.channels = 2;
-    wavi_hdr.samplingRate = 48000;
-    wavi_hdr.bytesPerSecond = 48000 * (16 / 8) * 2;
-    wavi_hdr.blockAlign = (16 / 8) * 2;
-    wavi_hdr.bitsPerSample = 16; 
+    if (samplingRate > 0) {
+        /* Semi hardcoded audio settings, since the callback from mlv_snd doesn't work atm. */
+        memset(&wavi_hdr, 0, sizeof(mlv_wavi_hdr_t));
+       // mlv_wavi_hdr_t *wavi_hdr = malloc(sizeof(mlv_wavi_hdr_t));
 
-    if (FIO_WriteFile(f, &wavi_hdr, wavi_hdr.blockSize) != (int)wavi_hdr.blockSize) return 0;
+        mlv_set_type((mlv_hdr_t*)&wavi_hdr, "WAVI");
+        wavi_hdr.blockSize = sizeof(mlv_wavi_hdr_t);
+        mlv_set_timestamp((mlv_hdr_t*)&wavi_hdr, mlv_start_timestamp);
+
+        /* this part is compatible to RIFF WAVE/fmt header */
+        wavi_hdr.format = 1;
+        wavi_hdr.channels = 2;
+        wavi_hdr.samplingRate = samplingRate;
+        wavi_hdr.bytesPerSecond = samplingRate * (16 / 8) * 2;
+        wavi_hdr.blockAlign = (16 / 8) * 2;
+        wavi_hdr.bitsPerSample = 16; 
+
+        if (FIO_WriteFile(f, &wavi_hdr, wavi_hdr.blockSize) != (int)wavi_hdr.blockSize) return 0;
+    }
 
     if (mlv_write_vers_blocks(f, mlv_start_timestamp)) return 0;
     
@@ -3237,6 +3228,9 @@ void raw_video_rec_task()
         goto cleanup;
     }
 
+    /* signal that we are starting */
+    raw_rec_cbr_starting();
+
     init_mlv_chunk_headers(&raw_info);
     written_total = written_chunk = write_mlv_chunk_headers(f);
     if (!written_chunk)
@@ -3253,9 +3247,6 @@ void raw_video_rec_task()
 
     /* try a sync beep (not very precise, but better than nothing) */
     beep();
-
-    /* signal that we are starting */
-    raw_rec_cbr_starting();
 
     /* signal start of recording to the compression task */
     msg_queue_post(compress_mq, INT_MAX);
