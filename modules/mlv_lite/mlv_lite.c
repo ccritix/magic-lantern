@@ -1968,8 +1968,8 @@ void mlv_rec_queue_block(mlv_hdr_t *hdr)
 {
     if(!memcmp(hdr->blockType, "WAVI", 4))
     {
-        mlv_wavi_hdr_t *work_hdr = (mlv_wavi_hdr_t*)hdr;
-        samplingRate = work_hdr->samplingRate;
+        mlv_wavi_hdr_t *wavi_hdr = (mlv_wavi_hdr_t*)hdr;
+        samplingRate = wavi_hdr->samplingRate;
         printf("Audio: samplingRate: %d", samplingRate);    
     }
 }
@@ -2967,24 +2967,9 @@ int write_mlv_chunk_headers(FILE* f)
     if (FIO_WriteFile(f, &lens_hdr, lens_hdr.blockSize) != (int)lens_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &wbal_hdr, wbal_hdr.blockSize) != (int)wbal_hdr.blockSize) return 0;
-
+    /* Is this the right location for the wavi block? 
+     The check for samplingRate isn't the best way, but it works. */
     if (samplingRate > 0) {
-        /* Semi hardcoded audio settings, since the callback from mlv_snd doesn't work atm. */
-        memset(&wavi_hdr, 0, sizeof(mlv_wavi_hdr_t));
-       // mlv_wavi_hdr_t *wavi_hdr = malloc(sizeof(mlv_wavi_hdr_t));
-
-        mlv_set_type((mlv_hdr_t*)&wavi_hdr, "WAVI");
-        wavi_hdr.blockSize = sizeof(mlv_wavi_hdr_t);
-        mlv_set_timestamp((mlv_hdr_t*)&wavi_hdr, mlv_start_timestamp);
-
-        /* this part is compatible to RIFF WAVE/fmt header */
-        wavi_hdr.format = 1;
-        wavi_hdr.channels = 2;
-        wavi_hdr.samplingRate = samplingRate;
-        wavi_hdr.bytesPerSecond = samplingRate * (16 / 8) * 2;
-        wavi_hdr.blockAlign = (16 / 8) * 2;
-        wavi_hdr.bitsPerSample = 16; 
-
         if (FIO_WriteFile(f, &wavi_hdr, wavi_hdr.blockSize) != (int)wavi_hdr.blockSize) return 0;
     }
 
@@ -3231,6 +3216,11 @@ void raw_video_rec_task()
     /* signal that we are starting */
     raw_rec_cbr_starting();
 
+    /* Need to start the recording of audio before the init of the mlv chuck 
+     * or the wavi header isn't initialized before the writing starts. */
+    raw_rec_cbr_started();
+    
+
     init_mlv_chunk_headers(&raw_info);
     written_total = written_chunk = write_mlv_chunk_headers(f);
     if (!written_chunk)
@@ -3257,10 +3247,6 @@ void raw_video_rec_task()
     int fps = fps_get_current_x1000();
     
     int last_processed_frame = frame_count;
-    
-    if (raw_recording_state == RAW_RECORDING) {
-        raw_rec_cbr_started();
-    }
     
     /* main recording loop */
     while (RAW_IS_RECORDING && lv)
