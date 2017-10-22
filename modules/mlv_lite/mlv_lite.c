@@ -2445,22 +2445,26 @@ static REQUIRES(RawRecTask)
 int frame_check_saved(int slot_index)
 {
     ASSERT(slots[slot_index].ptr);
-    void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
-    uint32_t edmac_size = (slots[slot_index].payload_size + 3) & ~3;
-    uint32_t* frame_end = ptr + edmac_size - 4;
-    uint32_t* after_frame = ptr + edmac_size;
-    if (*(volatile uint32_t*) after_frame != FRAME_SENTINEL)
+    /* Only do frame validation on video frames. */
+    if (((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType == "VIDF")
     {
-        /* EDMAC overflow */
-        return -1;
+
+        void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
+        uint32_t edmac_size = (slots[slot_index].payload_size + 3) & ~3;
+        uint32_t* frame_end = ptr + edmac_size - 4;
+        uint32_t* after_frame = ptr + edmac_size;
+        if (*(volatile uint32_t*) after_frame != FRAME_SENTINEL)
+        {
+            /* EDMAC overflow */
+            return -1;
+        }
+
+        if (*(volatile uint32_t*) frame_end == FRAME_SENTINEL)
+        {
+            /* frame not yet complete */
+            return 0;
+        }
     }
-    
-    if (*(volatile uint32_t*) frame_end == FRAME_SENTINEL)
-    {
-        /* frame not yet complete */
-        return 0;
-    }
-    
     /* looks alright */
     return 1;
 }
@@ -2691,6 +2695,7 @@ void process_frame(int next_fullsize_buffer_pos)
     if (frame_count <= 0)
     {
         frame_count++;
+        total_frame_count++;
         return;
     }
     
@@ -3259,7 +3264,7 @@ void raw_video_rec_task()
     
     int fps = fps_get_current_x1000();
     
-    int last_processed_frame = frame_count;
+    int last_processed_frame = 0;
     
     /* main recording loop */
     while (RAW_IS_RECORDING && lv)
@@ -3328,12 +3333,14 @@ void raw_video_rec_task()
                 ASSERT(i != w_head);
                 break;
             }
+            
+            if (((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType == "VIDF") {
+                /* consistency checks */
+                ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockSize == (uint32_t) slots[slot_index].size);
+//                ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->frameNumber == (uint32_t) slots[slot_index].frame_number - 1);
+            }
 
-            /* consistency checks */
-            ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockSize == (uint32_t) slots[slot_index].size);
-            ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->frameNumber == (uint32_t) slots[slot_index].frame_number - 1);
-
-            if (OUTPUT_COMPRESSION)
+            if (OUTPUT_COMPRESSION && ((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType == "VIDF")
             {
                 ASSERT(slots[slot_index].size < max_frame_size);
             }
@@ -3388,7 +3395,7 @@ void raw_video_rec_task()
         {
             int slot_index = writing_queue[i];
 
-            if (OUTPUT_COMPRESSION)
+            if (OUTPUT_COMPRESSION && ((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType == "VIDF")
             {
                 ASSERT(slots[slot_index].size < max_frame_size);
             }
@@ -3548,7 +3555,7 @@ abort_and_check_early_stop:
         last_processed_frame++;
 
         slots[slot_index].status = SLOT_WRITING;
-        if (OUTPUT_COMPRESSION)
+        if (OUTPUT_COMPRESSION && ((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType == "VIDF")
         {
             ASSERT(slots[slot_index].size < max_frame_size);
         }
