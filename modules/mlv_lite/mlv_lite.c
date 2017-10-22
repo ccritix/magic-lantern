@@ -2970,6 +2970,19 @@ int write_mlv_chunk_headers(FILE* f)
     /* Is this the right location for the wavi block? 
      The check for samplingRate isn't the best way, but it works. */
     if (samplingRate > 0) {
+        memset(&wavi_hdr, 0, sizeof(mlv_wavi_hdr_t));
+
+        mlv_set_type((mlv_hdr_t*)&wavi_hdr, "WAVI");
+        wavi_hdr.blockSize = sizeof(mlv_wavi_hdr_t);
+        mlv_set_timestamp((mlv_hdr_t*)&wavi_hdr, mlv_start_timestamp);
+
+        /* this part is compatible to RIFF WAVE/fmt header */
+        wavi_hdr.format = 1;
+        wavi_hdr.channels = 2;
+        wavi_hdr.samplingRate = samplingRate;
+        wavi_hdr.bytesPerSecond = samplingRate * (16 / 8) * 2;
+        wavi_hdr.blockAlign = (16 / 8) * 2;
+        wavi_hdr.bitsPerSample = 16;
         if (FIO_WriteFile(f, &wavi_hdr, wavi_hdr.blockSize) != (int)wavi_hdr.blockSize) return 0;
     }
 
