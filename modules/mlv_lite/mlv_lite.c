@@ -1964,7 +1964,7 @@ void hack_liveview(int unhack)
     }
 }
 
-void mlv_rec_queue_block(mlv_hdr_t *hdr)
+void mlv_lite_queue_block(mlv_hdr_t *hdr)
 {
     if(!memcmp(hdr->blockType, "WAVI", 4))
     {
@@ -2398,7 +2398,8 @@ void FAST pre_record_vsync_step()
             {
                 /* done, from now on we can just record normally */
                 raw_recording_state = RAW_RECORDING;
-                /* Audio isn't started? */
+                
+                /* Signal that the recording has started */
                 raw_rec_cbr_started();
             }
             else
@@ -2446,7 +2447,7 @@ int frame_check_saved(int slot_index)
 {
     ASSERT(slots[slot_index].ptr);
     /* Only do frame validation on video frames. */
-    if (((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType == "VIDF")
+    if (!memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4))
     {
 
         void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
@@ -3234,11 +3235,6 @@ void raw_video_rec_task()
     /* signal that we are starting */
     raw_rec_cbr_starting();
 
-    /* Need to start the recording of audio before the init of the mlv chuck 
-     * or the wavi header isn't initialized before the writing starts. */
-    raw_rec_cbr_started();
-    
-
     init_mlv_chunk_headers(&raw_info);
     written_total = written_chunk = write_mlv_chunk_headers(f);
     if (!written_chunk)
@@ -3253,6 +3249,11 @@ void raw_video_rec_task()
     /* this will enable the vsync CBR and the other task(s) */
     raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
 
+    if (raw_recording_state == RAW_RECORDING) {
+        /* signel that we are started! */
+        raw_rec_cbr_started();
+    }
+    
     /* try a sync beep (not very precise, but better than nothing) */
     beep();
 
@@ -3334,13 +3335,13 @@ void raw_video_rec_task()
                 break;
             }
             
-            if (((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType == "VIDF") {
+            if (!memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4)) {
                 /* consistency checks */
                 ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockSize == (uint32_t) slots[slot_index].size);
 //                ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->frameNumber == (uint32_t) slots[slot_index].frame_number - 1);
             }
 
-            if (OUTPUT_COMPRESSION && ((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType == "VIDF")
+            if (OUTPUT_COMPRESSION && !memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4))
             {
                 ASSERT(slots[slot_index].size < max_frame_size);
             }
@@ -3395,7 +3396,7 @@ void raw_video_rec_task()
         {
             int slot_index = writing_queue[i];
 
-            if (OUTPUT_COMPRESSION && ((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType == "VIDF")
+            if (OUTPUT_COMPRESSION && !memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4))
             {
                 ASSERT(slots[slot_index].size < max_frame_size);
             }
@@ -3555,7 +3556,7 @@ abort_and_check_early_stop:
         last_processed_frame++;
 
         slots[slot_index].status = SLOT_WRITING;
-        if (OUTPUT_COMPRESSION && ((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType == "VIDF")
+        if (OUTPUT_COMPRESSION && !memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4))
         {
             ASSERT(slots[slot_index].size < max_frame_size);
         }

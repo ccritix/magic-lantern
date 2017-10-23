@@ -60,7 +60,8 @@ extern void mlv_rec_get_slot_info(int32_t slot, uint32_t *size, void **address);
 extern int32_t mlv_rec_get_free_slot();
 extern void mlv_rec_release_slot(int32_t slot, uint32_t write);
 extern void mlv_rec_set_rel_timestamp(mlv_hdr_t *hdr, uint64_t timestamp);
-extern void mlv_rec_queue_block(mlv_hdr_t *hdr);
+extern WEAK_FUNC(ret_0) void mlv_rec_queue_block(mlv_hdr_t *hdr);
+extern WEAK_FUNC(ret_0) void mlv_lite_queue_block(mlv_hdr_t *hdr);
 
 static volatile int32_t mlv_snd_rec_active = 0;
 static struct msg_queue * volatile mlv_snd_buffers_empty = NULL;
@@ -441,7 +442,7 @@ static void mlv_snd_start()
     mlv_snd_state = MLV_SND_STATE_PREPARE;
 }
 
-static void mlv_snd_queue_wavi()
+static void mlv_snd_queue_wavi(uint32_t lite)
 {
     trace_write(trace_ctx, "mlv_snd_queue_wavi: queueing a WAVI block");
     
@@ -460,7 +461,11 @@ static void mlv_snd_queue_wavi()
     hdr->blockAlign = (mlv_snd_in_bits_per_sample / 8) * mlv_snd_in_channels;
     hdr->bitsPerSample = mlv_snd_in_bits_per_sample;
     
-    mlv_rec_queue_block((mlv_hdr_t *)hdr);
+    if (lite) {
+        mlv_lite_queue_block((mlv_hdr_t *)hdr);
+    } else {
+        mlv_rec_queue_block((mlv_hdr_t *)hdr);
+    }
 }
 
 /* public functions for raw_rec */
@@ -476,6 +481,7 @@ uint32_t raw_rec_cbr_starting()
         trace_write(trace_ctx, "raw_rec_cbr_starting: starting mlv_snd");
         mlv_snd_rec_active = 1;
         mlv_snd_start();
+        mlv_snd_queue_wavi(1);
     }
     
     return 0;
@@ -487,7 +493,7 @@ uint32_t raw_rec_cbr_started()
     {
         trace_write(trace_ctx, "raw_rec_cbr_started: allocating buffers");
         mlv_snd_alloc_buffers();
-        mlv_snd_queue_wavi();
+        mlv_snd_queue_wavi(0);
     }
     return 0;
 }
