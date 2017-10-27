@@ -1043,6 +1043,7 @@ void dm_spy_extra_install()
 #ifdef LOG_INTERRUPTS
     pre_isr_hook = &pre_isr_log;
     post_isr_hook = &post_isr_log;
+    ASSERT((void*)&post_isr_hook - (void*)&pre_isr_hook == 4);
 #endif
 }
 

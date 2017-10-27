@@ -221,10 +221,10 @@ NSTUB(0xFF9686C8,  mvrSetFullHDOptSize)                     // d
 //NSTUB( 0xFF17BF94, mvrSetGopOptSizeFULLHD )
 
 /** Interrupts **/
+NSTUB(    0x193C,  pre_isr_hook)
+NSTUB(    0x1940,  post_isr_hook)
 // NSTUB(    ???,  isr_table_handler)                       /* present on 7D_MASTER.203 */
 // NSTUB(    ???,  isr_table_param)                         /* present on 7D_MASTER.203 */
-// NSTUB(    ???,  post_isr_hook)                           /* present on 7D.203, 6D.113, 5D3.113, EOSM.202 */
-// NSTUB(    ???,  pre_isr_hook)                            /* present on 7D.203, 6D.113, 5D3.113, 7D_MASTER.203, EOSM.202 */
 
 /** LCD Sensor **/
 NSTUB(0xFF9ADD28,  DispSensorStart)                         // d
