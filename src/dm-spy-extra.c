@@ -29,6 +29,9 @@
 /* log calls to malloc, AllocateMemory, alloc_dma_memory */
 #undef LOG_MALLOC_CALLS
 
+/* log some common function calls that are usually in RAM */
+#undef LOG_COMMON_RAM_FUNCTIONS
+
 extern void (*pre_isr_hook)();
 extern void (*post_isr_hook)();
 
@@ -88,6 +91,7 @@ static struct logged_func logged_functions[] = {
     STUB_ENTRY(_mpu_recv, 1, mpu_recv_log),
 
     /* some common DIGIC V functions that are usually in RAM */
+#ifdef LOG_COMMON_RAM_FUNCTIONS
 #ifdef CONFIG_DIGIC_V
     STUB_ENTRY(task_create, 5),
     STUB_ENTRY(msleep, 1),
@@ -113,6 +117,7 @@ static struct logged_func logged_functions[] = {
     STUB_ENTRY(SetHPTimerNextTick, 4),
     STUB_ENTRY(CancelTimer, 1),
 #endif  /* CONFIG_DIGIC_V */
+#endif  /* LOG_COMMON_RAM_FUNCTIONS */
 
 #ifdef LOG_MALLOC_CALLS
     STUB_ENTRY(_malloc, 1 | RET),
