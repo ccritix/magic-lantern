@@ -244,6 +244,10 @@ NSTUB(0xFF9EB104 - RAM_OFFSET,  msg_queue_create)
 NSTUB(0xFF9F37B4 - RAM_OFFSET,  msg_queue_post)
 NSTUB(0xFF9F35C8 - RAM_OFFSET,  msg_queue_receive)
 
+/** MPU communication **/
+NSTUB(0xFF2E42E4, _mpu_send);                               /* dwSize < TXBD_DATA_SIZE */
+NSTUB(0xFF122B5C, _mpu_recv);                               /* registered in InitializeIntercom as CBR */
+
 /** PTP **/
 NSTUB(0xFF3F4F54,  ptp_register_handler)
 // NSTUB(    ???,  ptpPropSetUILock)                        /* present on 650D.104, 700D.113 */

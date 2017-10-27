@@ -253,6 +253,10 @@ NSTUB(0xFF86AD34,  msg_queue_create)                        // CreateMessageQueu
 NSTUB(0xFF866720,  msg_queue_post)                          // d
 NSTUB(0xFF866534,  msg_queue_receive)                       // d
 
+/** MPU communication **/
+NSTUB(0xFF977488, _mpu_send);                               /* dwSize < TXBD_DATA_SIZE */
+NSTUB(0xFF85BEDC, _mpu_recv);                               /* registered in InitializeIntercom as CBR */
+
 /** PTP **/
 NSTUB(0xFF9ED888,  ptp_register_handler)                    // d
 // NSTUB(    ???,  ptpPropSetUILock)                        /* present on 650D.104, 700D.113 */

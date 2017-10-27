@@ -239,6 +239,10 @@ NSTUB(0xFFA880D8 - RAM_OFFSET,  msg_queue_create)
 NSTUB(0xFFA883D4 - RAM_OFFSET,  msg_queue_post)             // 1EE44
 NSTUB(0xFFA881E8 - RAM_OFFSET,  msg_queue_receive)          // 1EC58
 
+/** MPU communication **/
+NSTUB(0xFFA872BC - RAM_OFFSET, _mpu_send)                   /* dwSize < TXBD_DATA_SIZE */
+NSTUB(0xFFA6CC30 - RAM_OFFSET, _mpu_recv)                   /* registered in InitializeIntercom as CBR */
+
 /** PTP **/
 NSTUB(0xFF45FBDC,  ptp_register_handler)
 

@@ -75,9 +75,16 @@ extern thunk _alloc_dma_memory;
 extern thunk _free_dma_memory;
 #endif
 
+extern thunk _mpu_send;
+extern thunk _mpu_recv;
+
 static struct logged_func logged_functions[] = {
     /* dummy entry, just to check cache conflicts */
     { (uint32_t) &DryosDebugMsg, "DebugMsg" },
+
+    /* MPU communication (all models) */
+    STUB_ENTRY(_mpu_send, 2, mpu_send_log),
+    STUB_ENTRY(_mpu_recv, 1, mpu_recv_log),
 
     /* some common DIGIC V functions that are usually in RAM */
 #ifdef CONFIG_DIGIC_V
@@ -119,10 +126,6 @@ static struct logged_func logged_functions[] = {
     #ifdef CONFIG_5D2
     { 0xff9b3cb4, "register_interrupt", 4, register_interrupt_log },
 
-    /* message-level SIO3/MREQ communication */
-    { 0xFF99F518, "mpu_send", 2, mpu_send_log },
-    { 0xFF861840, "mpu_recv", 1, mpu_recv_log },
-
 #if 0
     //~ { 0xFF87284C, "dma_memcpy", 3 },            // conflicts with mpu_recv
     { 0xff9b989c, "TryPostEvent", 5, TryPostEvent_log },
@@ -147,14 +150,10 @@ static struct logged_func logged_functions[] = {
 
     #ifdef CONFIG_5D3_113
     { 0x83b8,     "register_interrupt", 4, register_interrupt_log },
-    { 0xFF2E42E4, "mpu_send", 2, mpu_send_log },
-    { 0xFF122B5C, "mpu_recv", 1, mpu_recv_log},
     #endif
 
     #ifdef CONFIG_5D3_123
     //{ 0x17d54,    "TryPostEvent", 5, TryPostEvent_log },
-    //{ 0xFF2E8648, "mpu_send", 2, mpu_send_log }, // here it's OK via GDB hooks
-    //{ 0xFF1226F0, "mpu_recv", 1, mpu_recv_log},  // fixme: first call may be missed, figure out why (seems to be OK at cold boot)
 
     { 0xFF1431C8, "0xC0800008", R(1), mmio_log },     /* [UART] ??? at (null):FF1431C4 (0x1)*/
     { 0xFF1431D8, "0xC0800018", R(1), mmio_log },     /* [UART] interrupt flags? at (null):FF1431D4 (0x4)*/
@@ -172,24 +171,12 @@ static struct logged_func logged_functions[] = {
     { 0xFF14342C, "0xC0800008", R(0), mmio_log },     /* [UART] ??? at init:FF143428 (0x1)*/
     { 0xFF1435D4, "0xC0800014", R(1), mmio_log },     /* [UART] Status: 1 = char available, 2 = can write at init:FF1435D0 (0x2)*/
     #endif
-	
-	#ifdef CONFIG_6D	/* 1.1.3 */
+    
+    #ifdef CONFIG_6D	/* 1.1.3 */
     { 0x39F04,    "TryPostEvent", 5, TryPostEvent_log },
-	
-	/* message-level SIO3/MREQ communication */
-    { 0xFF3A8648, "mpu_send", 2, mpu_send_log }, 
-    { 0xFF1E26F0, "mpu_recv", 1, mpu_recv_log}, 
-    #endif	
-
-    #ifdef CONFIG_50D
-    { 0xFF977488, "mpu_send", 2, mpu_send_log },
-    { 0xFF85BEDC, "mpu_recv", 1, mpu_recv_log },
     #endif
 
     #ifdef CONFIG_60D
-    /* message-level SIO3/MREQ communication */
-    { 0xFF1BF26C, "mpu_send", 2, mpu_send_log }, 
-    { 0xFF05DFDC, "mpu_recv", 1, mpu_recv_log}, 
     { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
     { 0xFF1C8B98, "LockEngineResources", 1, LockEngineResources_log },
     { 0xFF1C8CD4, "UnLockEngineResources", 1, UnLockEngineResources_log },
@@ -198,35 +185,8 @@ static struct logged_func logged_functions[] = {
     //~ { 0xFF1D68C0, "register_interrupt", 4, register_interrupt_log },
     #endif
 
-    #ifdef CONFIG_500D
-    { 0xFF18A884, "mpu_send", 2, mpu_send_log },
-    { 0xFF05C1F0, "mpu_recv", 1, mpu_recv_log},
-    #endif
-
-    #ifdef CONFIG_550D
-    { 0xFF1BB02C, "mpu_send", 2, mpu_send_log },
-    { 0xFF05A3AC, "mpu_recv", 1, mpu_recv_log},
-    #endif
-
-    #ifdef CONFIG_600D
-    { 0xFF1DB524, "mpu_send", 2, mpu_send_log },    /* dwSize < TXBD_DATA_SIZE */
-    { 0xFF05ED84, "mpu_recv", 1, mpu_recv_log },    /* registered in InitializeIntercom as CBR */
-    #endif
-
     #ifdef CONFIG_700D
-    { 0xFF31AD6C, "mpu_send", 2, mpu_send_log },
-    { 0xFF11E934, "mpu_recv", 1, mpu_recv_log },
     { 0x13344,    "register_interrupt", 4, register_interrupt_log },
-    #endif
-
-    #ifdef CONFIG_100D
-    { 0x36288, "mpu_send", 2, mpu_send_log },    /* dwSize < TXBD_DATA_SIZE */
-    {  0x4040, "mpu_recv", 1, mpu_recv_log },    /* registered in InitializeIntercom as CBR */
-    #endif
-
-    #ifdef CONFIG_EOSM
-    { 0x1DD2C, "mpu_send", 2, mpu_send_log },    /* dwSize < TXBD_DATA_SIZE */
-    {  0x36A0, "mpu_recv", 1, mpu_recv_log },    /* registered in InitializeIntercom as CBR */
     #endif
 
 #else /* not CONFIG_DEBUG_INTERCEPT_STARTUP */
@@ -260,8 +220,6 @@ static struct logged_func logged_functions[] = {
 #endif
 
 #ifdef CONFIG_60D
-    { 0xFF1BF26C, "mpu_send", 2, mpu_send_log }, 
-    { 0xFF05DFDC, "mpu_recv", 1, mpu_recv_log}, 
     { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
     { 0xFF1C8B98, "LockEngineResources", 1, LockEngineResources_log },
     { 0xFF1C8CD4, "UnLockEngineResources", 1, UnLockEngineResources_log },
