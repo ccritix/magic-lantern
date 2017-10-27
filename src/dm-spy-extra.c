@@ -62,6 +62,7 @@ struct logged_func
 #define NUM_ARGS_MASK 0xF   /* up to 15 function arguments */
 #define R(i) (0x100 << i)   /* log any registers */
 #define RET  (0x1000000)    /* return value of the function */
+#define PTR  (0x2000000)    /* attempt to identify interesting pointers */
 
 /* helper to get a function address directly from stubs */
 #define STUB_ENTRY(name, ...) { (uint32_t) &name, #name, ## __VA_ARGS__ }
@@ -443,27 +444,30 @@ static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     DryosDebugMsg(0, 0, "%s", msg);
     sei(old);
 
-    for (int i = 0; i < num_args + 13; i++)
+    if (args & PTR)
     {
-        uint32_t arg = (i < 4) ? regs[i] : stack[i-4];
-        if (i >= num_args)
+        for (int i = 0; i < num_args + 13; i++)
         {
-            int reg = i - num_args;
-            if (args & R(reg)) {
-                arg = regs[reg];
-            } else {
-                continue;
+            uint32_t arg = (i < 4) ? regs[i] : stack[i-4];
+            if (i >= num_args)
+            {
+                int reg = i - num_args;
+                if (args & R(reg)) {
+                    arg = regs[reg];
+                } else {
+                    continue;
+                }
             }
-        }
 
-        if (arg > 0x1000 && arg < 0x1000000 && !looks_like_string(arg))
-        {
-            DryosDebugMsg(0, 0,
-                "    *0x%x = { %x %x %x %x  %x %x %x %x  %x %x %x %x ... }", arg,
-                MEM(arg),    MEM(arg+4),  MEM(arg+8),  MEM(arg+12),
-                MEM(arg+16), MEM(arg+20), MEM(arg+24), MEM(arg+28),
-                MEM(arg+32), MEM(arg+36), MEM(arg+40), MEM(arg+44)
-            );
+            if (arg > 0x1000 && arg < 0x1000000 && !looks_like_string(arg))
+            {
+                DryosDebugMsg(0, 0,
+                    "    *0x%x = { %x %x %x %x  %x %x %x %x  %x %x %x %x ... }", arg,
+                    MEM(arg),    MEM(arg+4),  MEM(arg+8),  MEM(arg+12),
+                    MEM(arg+16), MEM(arg+20), MEM(arg+24), MEM(arg+28),
+                    MEM(arg+32), MEM(arg+36), MEM(arg+40), MEM(arg+44)
+                );
+            }
         }
     }
 
