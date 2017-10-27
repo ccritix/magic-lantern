@@ -21,7 +21,7 @@
 #include "dm-spy.h"
 
 /* this needs pre_isr_hook/post_isr_hook stubs */
-#define LOG_INTERRUPTS
+#undef LOG_INTERRUPTS
 
 /* delay mpu_send calls, to allow grouping MPU messages by timestamps */
 #define MPU_DELAY_SEND
