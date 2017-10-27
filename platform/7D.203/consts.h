@@ -12,7 +12,7 @@
 #define CARD_A_LABEL 0x218000
 
 
-/* classic boot process */
+/* classic boot process - for installer and minimal targets */
 #define HIJACK_INSTR_BL_CSTART 0xff010158
 #define HIJACK_INSTR_BSS_END 0xff011058
 #define HIJACK_FIXBR_BZERO32 0xff010fc0

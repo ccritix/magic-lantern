@@ -23,13 +23,12 @@
 #include "hw/eos/serial_flash.h"
 #include "hw/eos/eos_utils.h"
 #include "eos_bufcon_100D.h"
+#include "hw/eos/engine.h"
 
 #define IGNORE_CONNECT_POLL
 
 #define DIGIC_TIMER_STEP 0x100
 #define DIGIC_TIMER_MASK (0xFFFFF & ~(DIGIC_TIMER_STEP-1))
-
-static void edmac_test_format_size(void);
 
 /* Machine class */
 
@@ -181,12 +180,14 @@ EOSRegionHandler eos_handlers[] =
     { "UART",         0xC0800000, 0xC08000FF, eos_handle_uart, 0 },
     { "UART",         0xC0810000, 0xC08100FF, eos_handle_uart, 1 },
     { "UART",         0xC0270000, 0xC0270000, eos_handle_uart, 2 },
+    { "I2C",          0xC0090000, 0xC00900FF, eos_handle_i2c, 0 },
     { "SIO0",         0xC0820000, 0xC08200FF, eos_handle_sio, 0 },
     { "SIO1",         0xC0820100, 0xC08201FF, eos_handle_sio, 1 },
     { "SIO2",         0xC0820200, 0xC08202FF, eos_handle_sio, 2 },
     { "SIO3",         0xC0820300, 0xC08203FF, eos_handle_sio3, 3 },
     { "SIO4",         0xC0820400, 0xC08204FF, eos_handle_sio_serialflash, 4 },
     { "SIO7",         0xC0820700, 0xC08207FF, eos_handle_sio_serialflash, 7 },
+    { "SIO8",         0xC0820800, 0xC08208FF, eos_handle_sio, 8 },
     { "MREQ",         0xC0203000, 0xC02030FF, eos_handle_mreq, 0 },
     { "DMA1",         0xC0A10000, 0xC0A100FF, eos_handle_dma, 1 },
     { "DMA2",         0xC0A20000, 0xC0A200FF, eos_handle_dma, 2 },
@@ -303,6 +304,10 @@ end:;
     char name[16];
     snprintf(name, sizeof(name), "ROM%d:%d", rom_id, size);
     io_log(name, s, address, MODE_WRITE, value, 0, msg, 0, 0);
+
+    /* make sure we execute the latest code */
+    /* fixme: shouldn't this be handled internally by QEMU?! */
+    tb_invalidate_phys_addr(&address_space_memory, address);
 }
 
 static const MemoryRegionOps rom_ops = {
@@ -339,22 +344,29 @@ void eos_mem_write(EOSState *s, hwaddr addr, void * buf, int size)
     cpu_physical_memory_write(addr, buf, size);
 }
 
-void eos_load_image(EOSState *s, const char * file_rel, int offset, int max_size, uint32_t addr, int swap_endian)
+const char * eos_get_cam_path(EOSState *s, const char * file_rel)
 {
     /* all files are loaded from $QEMU_EOS_WORKDIR/CAM/ */
     /* or $QEMU_EOS_WORKDIR/CAM/FIRM_VER/ if specified */
-    char file[1024];
+    static char file[1024];
 
     if (s->model->firmware_version)
     {
-        /* load from the firmware version directory */
+        /* load from the firmware version directory, if specified */
         snprintf(file, sizeof(file), "%s/%s/%d/%s", s->workdir, s->model->name, s->model->firmware_version, file_rel);
     }
     else
     {
-        /* second try, from the camera directory (some files may be common) */
+        /* or from the camera directory, if no firmware version is specified */
         snprintf(file, sizeof(file), "%s/%s/%s", s->workdir, s->model->name, file_rel);
     }
+
+    return file;
+}
+
+void eos_load_image(EOSState *s, const char * file_rel, int offset, int max_size, uint32_t addr, int swap_endian)
+{
+    const char * file = eos_get_cam_path(s, file_rel);
 
     int size = get_image_size(file);
     if (size < 0)
@@ -670,11 +682,65 @@ static void draw_line8_32(void *opaque,
     } while (-- width != 0);
 }
 
+static uint8_t clip_yuv(int v) {
+    if (v<0) return 0;
+    if (v>255) return 255;
+    return v;
+}
+
+static uint8_t yuv_to_r(uint8_t y, int8_t v) {
+    return clip_yuv(((y<<12) +          v*5743 + 2048)>>12);
+}
+
+static uint8_t yuv_to_g(uint8_t y, int8_t u, int8_t v) {
+    return clip_yuv(((y<<12) - u*1411 - v*2925 + 2048)>>12);
+}
+
+static uint8_t yuv_to_b(uint8_t y, int8_t u) {
+    return clip_yuv(((y<<12) + u*7258          + 2048)>>12);
+}
+
+static void draw_line_YUV8B_32(void *opaque,
+                uint8_t *d, const uint8_t *s, int width, int deststep)
+{
+    uint8_t v, r, g, b;
+    width = width / 2;
+    do {
+        v = ldub_p((void *) s);
+        if (v)
+        {
+            uint8_t p2 = s[2] - 0x80;
+            uint8_t p0 = s[0] - 0x80;
+            r = yuv_to_r(s[1],p2);
+            g = yuv_to_g(s[1],p0,p2);
+            b = yuv_to_b(s[1],p0);
+            ((uint32_t *) d)[0] = rgb_to_pixel32(r, g, b);
+                        
+            d += 4;
+            r = yuv_to_r(s[3],p2);
+            g = yuv_to_g(s[3],p0,p2);
+            b = yuv_to_b(s[3],p0);
+            ((uint32_t *) d)[0] = rgb_to_pixel32(r, g, b);
+            d += 4;
+        }
+        else
+        {
+            r = g = b = 128;
+            ((uint32_t *) d)[0] = rgb_to_pixel32(r, g, b);
+            d += 4;
+            ((uint32_t *) d)[0] = rgb_to_pixel32(r, g, b);
+            d += 4;
+        }
+        s +=4;
+    } while (-- width != 0);
+}
+
 static void draw_line4_32(void *opaque,
                 uint8_t *d, const uint8_t *s, int width, int deststep)
 {
     uint8_t v, r, g, b;
     EOSState* ws = (EOSState*) opaque;
+    void * d0 = d;
     
     do {
         v = ldub_p((void *) s);
@@ -688,6 +754,12 @@ static void draw_line4_32(void *opaque,
         if ((uintptr_t)d/4 % 2) s ++;
         d += 4;
     } while (-- width != 0);
+
+    if (ws->model->digic_version < 4)
+    {
+        /* double each line */
+        memcpy(d, d0, (void *) d - d0);
+    }
 }
 
 static void draw_line8_32_bmp_yuv(void *opaque,
@@ -876,23 +948,28 @@ static void eos_update_display(void *parm)
     int height      = heights    [s->disp.type];
     int yuv_width   = yuv_widths [s->disp.type];
     int yuv_height  = yuv_heights[s->disp.type];
-    
+
+    int height_multiplier = 1;
+    int out_height = height;
+
+    /* VxWorks models have 720x240 screens stretched vertically */
     if (s->model->digic_version < 4)
     {
-        /* for VxWorks bootloader */
-        height /= 2;
+        height_multiplier = 2;
+        height /= height_multiplier;
+        assert(out_height == height * height_multiplier);
     }
-    
+
     if (s->disp.width && s->disp.height)
     {
         /* did we manage to get them from registers? override the above stuff */
         width = s->disp.width;
-        height = s->disp.height;
+        out_height = height = s->disp.height;
     }
 
-    if (width != surface_width(surface) || height != surface_height(surface))
+    if (width != surface_width(surface) || out_height != surface_height(surface))
     {
-        qemu_console_resize(s->disp.con, width, height);
+        qemu_console_resize(s->disp.con, width, out_height);
         surface = qemu_console_surface(s->disp.con);
         s->disp.invalidate = 1;
     }
@@ -906,12 +983,12 @@ static void eos_update_display(void *parm)
     int first, last;
     
     first = 0;
-    int linesize = surface_stride(surface);
-    
+    int linesize = surface_stride(surface) * height_multiplier;
+
     if (s->disp.is_4bit)
     {
         /* bootloader config, 4 bpp */
-        uint64_t size = height * linesize;
+        uint64_t size = height * width / 2;
         MemoryRegionSection section = memory_region_find(
             s->system_mem,
             s->disp.bmp_vram ? s->disp.bmp_vram : 0x08000000,
@@ -939,9 +1016,26 @@ static void eos_update_display(void *parm)
             &first, &last
         );
     }
+    else if (strcmp(s->model->name, "EOSM3") == 0)
+    {
+        uint64_t size = height * s->disp.bmp_pitch;
+        MemoryRegionSection section = memory_region_find(
+            s->system_mem,
+            s->disp.bmp_vram ? s->disp.bmp_vram : 0x08000000,
+            size
+        );
+        framebuffer_update_display(
+            surface,
+            &section,
+            width , height,
+            s->disp.bmp_pitch, linesize, 0, 1,
+            draw_line_YUV8B_32, s,
+            &first, &last
+        );
+    }
     else
     {
-        uint64_t size = height * linesize;
+        uint64_t size = height * width;
         MemoryRegionSection section = memory_region_find(
             s->system_mem,
             s->disp.bmp_vram ? s->disp.bmp_vram : 0x08000000,
@@ -961,7 +1055,7 @@ static void eos_update_display(void *parm)
     {
         /* draw the LED at the bottom-right corner of the screen */
         int x_led = width - 8;
-        int y_led = height - 8;
+        int y_led = out_height - 8;
         uint8_t * dest = surface_data(surface);
         for (int dy = -5; dy <= 5; dy++)
         {
@@ -978,6 +1072,9 @@ static void eos_update_display(void *parm)
             }
         }
     }
+
+    first *= height_multiplier;
+    last *= height_multiplier;
 
     if (first >= 0) {
         dpy_gfx_update(s->disp.con, 0, first, width, last - first + 1);
@@ -1030,13 +1127,12 @@ static void eos_uart_rx(void *opaque, const uint8_t *buf, int size)
 
     s->reg_st |= ST_RX_RDY;
     s->reg_rx = *buf;
-    
+
     EOSState *es = (EOSState *)(opaque - offsetof(EOSState, uart));
-    if (strcmp(es->model->name, "5D3eeko") == 0)
-    {
-        /* fixme: hardcoded for Eeko */
-        eos_trigger_int(es, 0x39, 0);
-    }
+    assert(es->model->uart_rx_interrupt);
+
+    /* fixme: why it locks up without a delay? */
+    eos_trigger_int(es, es->model->uart_rx_interrupt, 10);
 }
 
 static void eos_uart_event(void *opaque, int event)
@@ -1175,7 +1271,18 @@ static EOSState *eos_init_cpu(struct eos_model_desc * model)
 
     vmstate_register_ram_global(&s->ram);
 
-    s->rtc.transfer_format = 0xFF;
+    /* initialize RTC registers, compatible to Ricoh R2062 etc */
+    s->rtc.transfer_format = RTC_INACTIVE;
+    s->rtc.regs[0x00] = 0x00;   /* second (BCD) */
+    s->rtc.regs[0x01] = 0x15;   /* minute (BCD) */
+    s->rtc.regs[0x02] = 0x12;   /* hour (BCD) */
+    s->rtc.regs[0x03] = 0x01;   /* day of week */
+    s->rtc.regs[0x04] = 0x30;   /* day (BCD) */
+    s->rtc.regs[0x05] = 0x09;   /* month (BCD), century bit (2000) */
+    s->rtc.regs[0x06] = 0x17;   /* year (BCD since 2000) */
+    s->rtc.regs[0x07] = s->model->rtc_time_correct;     /* Oscillation Adjustment Register */
+    s->rtc.regs[0x0E] = 0x20;                           /* Control Register 1: 24-hour mode, no alarms */
+    s->rtc.regs[0x0F] = s->model->rtc_control_reg_2;    /* Control Register 2: XST (model-specific), PON... */
 
     int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     s->interrupt_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, eos_interrupt_timer_cb, s);
@@ -1185,7 +1292,8 @@ static EOSState *eos_init_cpu(struct eos_model_desc * model)
     precompute_yuv2rgb(1);
     s->disp.con = graphic_console_init(NULL, 0, &eos_display_ops, s);
     s->disp.bmp_pitch = 960; /* fixme: get it from registers */
-    
+
+    /* init keys */
     qemu_add_kbd_event_handler(eos_key_event, s);
 
     /* start logging (see the dbi subdir) */
@@ -1252,6 +1360,19 @@ static void patch_EOSM3(EOSState *s)
 
     fprintf(stderr, "Patching 0xFC1847E4 (MechaCPUFirmTransfer, assert)\n");
     MEM_WRITE_ROM(0xFC1847E4, (uint8_t*) &bx_lr, 2);
+
+    fprintf(stderr, "Patching 0xFC3F1110 (MZRM send and wait)\n");
+    uint32_t pldrstr = 0x62A06920;
+    uint32_t pmovs_r0_1 = 0x2001;
+    MEM_WRITE_ROM(0xFC3F1110, (uint8_t*) &pldrstr, 4);
+    MEM_WRITE_ROM(0xFC3F1114, (uint8_t*) &pmovs_r0_1, 2);
+    
+    fprintf(stderr, "Patching 0xFC3F1178 (MZRM wait)\n");
+    uint32_t pdword0x0 = 0x00000000;
+    MEM_WRITE_ROM(0xFC3F1178, (uint8_t*) &pdword0x0, 4);
+    
+    fprintf(stderr, "Patching 0xFC10A312 (BmpDDev.c:554 assert)\n");
+    MEM_WRITE_ROM(0xFC10A312, (uint8_t*) &pdword0x0, 4);    
 }
 
 static void patch_EOSM10(EOSState *s)
@@ -1332,8 +1453,7 @@ static void eos_init_common(MachineState *machine)
     /* nkls: init SF */
     if (s->model->serial_flash_size)
     {
-        char sf_filename[1024];
-        snprintf(sf_filename, sizeof(sf_filename), "%s/%s/SFDATA.BIN", s->workdir, s->model->name);
+        const char * sf_filename = eos_get_cam_path(s, "SFDATA.BIN");
         s->sf = serial_flash_init(sf_filename, s->model->serial_flash_size);
     }
     
@@ -1345,11 +1465,11 @@ static void eos_init_common(MachineState *machine)
     }
     eos_uart_reset(&s->uart);
 
-
     /* init MPU */
     mpu_spells_init(s);
 
-    edmac_test_format_size();
+    /* init image processing engine */
+    engine_init();
 
     if (strcmp(s->model->name, "7D") == 0)
     {
@@ -1547,6 +1667,23 @@ int eos_get_current_task_stack(EOSState *s, uint32_t * top, uint32_t * bottom)
     return 0;
 }
 
+/* return 1 if you want this address or group to be highlighted */
+static int io_highlight(unsigned int address, unsigned char type, const char * module_name, const char * task_name)
+{
+    /* example: highlight RTC and UART messages (requires -d io,uart) */
+    return
+        strcmp(module_name, "RTC") == 0 ||
+        strcmp(module_name, "UART") == 0 ||
+        strcmp(module_name, "UartDMA") == 0 ;
+
+    /* example: highlight JPCORE/JP51/JPwhatever and EDMAC */
+    return
+        strncmp(module_name, "JP", 2) == 0 ||
+        strncmp(module_name, "EDMAC", 5) == 0 ;
+
+    return 1;
+}
+
 void io_log(const char * module_name, EOSState *s, unsigned int address, unsigned char type, unsigned int in_value, unsigned int out_value, const char * msg, intptr_t msg_arg1, intptr_t msg_arg2)
 {
     /* log I/O when "-d io" is specified on the command line */
@@ -1568,7 +1705,10 @@ void io_log(const char * module_name, EOSState *s, unsigned int address, unsigne
     if (!msg) msg = "???";
     
     char * task_name = eos_get_current_task_name(s);
-    
+
+    const char * color = io_highlight(address, type, module_name, task_name)
+        ? (type & MODE_WRITE ? KYLW : KLGRN) : "";
+
     char mod_name[50];
     char mod_name_and_pc[50];
     int indent = eos_callstack_get_indent(s);
@@ -1583,7 +1723,7 @@ void io_log(const char * module_name, EOSState *s, unsigned int address, unsigne
         task_name[MAX(5, 15 - (int)strlen(mod_name))] = 0;
         char spaces[] = "           ";
         spaces[MAX(0, 15 - (int)strlen(mod_name) - (int)strlen(task_name))] = 0;
-        snprintf(mod_name_and_pc, sizeof(mod_name_and_pc), "%s%s at %s:%08X:%08X", mod_name, spaces, task_name, pc, lr);
+        snprintf(mod_name_and_pc, sizeof(mod_name_and_pc), "%s%s%s%s at %s:%08X:%08X", color, mod_name, KRESET, spaces, task_name, pc, lr);
     }
     else
     {
@@ -1593,16 +1733,33 @@ void io_log(const char * module_name, EOSState *s, unsigned int address, unsigne
     /* description may have two optional integer arguments */
     char desc[200];
     snprintf(desc, sizeof(desc), msg, msg_arg1, msg_arg2);
-    
-    fprintf(stderr, "%s%-28s [0x%08X] %s 0x%-8X%s%s\n",
+
+    fprintf(stderr, "%s%-28s %s[0x%08X] %s 0x%-8X"KRESET"%s%s\n",
         cpu_name,
         mod_name_and_pc,
+        color,
         address,
         type & MODE_WRITE ? "<-" : "->",
         type & MODE_WRITE ? in_value : out_value,
         strlen(msg) ? ": " : "",
         desc
     );
+
+    /* print MMIO reads as dm-spy entries (dm-spy-experiments branch)
+     * so you can cross-check the values with the ones from actual hardware
+     * this requires -d io,nochain -singlestep (or -d io,callstack)
+     * does it really need a dedicated option? */
+    if (!(type & MODE_WRITE) && singlestep && qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN))
+    {
+        uint32_t insn;
+        cpu_physical_memory_read(pc, &insn, sizeof(insn));
+        uint32_t reg = (insn >> 12) & 0xF;
+        fprintf(stderr, "    { 0x%-8X, \"0x%X\", R(%d), mmio_log }, "
+                        "    /* %s %s at %s:%X (0x%x)*/\n",
+            pc + 4, address, reg,
+            mod_name, desc, task_name, pc, out_value
+        );
+    }
 }
 
 
@@ -2365,6 +2522,23 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
         case 0x00B0:
             msg = "FUNC SW OFF on 7D";
             ret = 0;
+            if(!strcmp(s->model->name, "50D") || !strcmp(s->model->name, "5D2"))
+            {
+                /* CS for RTC */
+                if(type & MODE_WRITE)
+                {
+                    if((value & 0x06) == 0x06)
+                    {
+                        msg = "[RTC] CS set";
+                        s->rtc.transfer_format = RTC_READY;
+                    }
+                    else
+                    {
+                        msg = "[RTC] CS reset";
+                        s->rtc.transfer_format = RTC_INACTIVE;
+                    }
+                }
+            }
             break;
             
         case 0x0024:
@@ -2448,18 +2622,19 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
             ret = 0;
             break;
 
-        case 0xC020: 
-            /* CS for RTC on 100D */
+        case 0xC020:    /* CS for RTC on 100D */ 
+        case 0xC0C4:    /* CS for RTC on 700D */
             if(type & MODE_WRITE)
             {
                 if((value & 0x0100000) == 0x100000)
                 {
                     msg = "[RTC] CS set";
-                    s->rtc.transfer_format = 0xFF;
+                    s->rtc.transfer_format = RTC_READY;
                 }
                 else
                 {
                     msg = "[RTC] CS reset";
+                    s->rtc.transfer_format = RTC_INACTIVE;
                 }
             }
             ret = 0;
@@ -2471,18 +2646,20 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
 //          ret = 0;
 //          break;
 
-        case 0x0128:
-            /* CS for RTC on 600D */
+        case 0x0128:    /* CS for RTC on 600D */
+        case 0x01F8:    /* 5D3 RTC */
+        case 0x005C:    /* 450D RTC */
             if(type & MODE_WRITE)
             {
                 if((value & 0x06) == 0x06)
                 {
                     msg = "[RTC] CS set";
-                    s->rtc.transfer_format = 0xFF;
+                    s->rtc.transfer_format = RTC_READY;
                 }
                 else
                 {
                     msg = "[RTC] CS reset";
+                    s->rtc.transfer_format = RTC_INACTIVE;
                 }
             }
             ret = 0;
@@ -2501,9 +2678,11 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
         case 0x004C:    /* 700D, 100D */
         case 0x0168:    /* 70D */
         case 0x01FC:    /* 5D3 */
+        case 0x0120:    /* 450D */
             msg = "WriteProtect";
             ret = 0;
             break;
+        
         
         case 0x301C:    /* 40D, 5D2 */
         case 0x3020:    /* 5D3 */
@@ -2619,982 +2798,6 @@ unsigned int eos_handle_ram ( unsigned int parm, EOSState *s, unsigned int addre
     io_log("RAM", s, address, type, value, ret, 0, 0, 0);
 
     return ret;
-}
-
-unsigned int eos_handle_cartridge ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
-{
-    io_log("Cartridge", s, address, type, value, 0, 0, 0, 0);
-    return 0;
-}
-
-static void edmac_trigger_interrupt(EOSState* s, int channel, int delay)
-{
-    /* from register_interrupt calls */
-    const int edmac_interrupts[] = {
-        0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x6D, 0xC0, 0x00, /* write channels 0..6, one unused position */
-        0x5D, 0x5E, 0x5F, 0x6E, 0xC1, 0xC8, 0x00, 0x00, /* read channels 0..5, two unused positions */
-        0xF9, 0x83, 0x8A, 0xCA, 0xCB, 0xD2, 0xD3, 0x00, /* write channels 7..13, one unused position */
-        0x8B, 0x92, 0xE2, 0x95, 0x96, 0x97, 0x00, 0x00, /* read channels 6..11, two unused positions */
-        0xDA, 0xDB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* write channels 14..15, 6 unused positions */
-        0x9D, 0x9E, 0x9F, 0xA5, 0x00, 0x00, 0x00, 0x00, /* read channels 12..15, 4 unused positions */
-    };
-
-#if 0
-    for (int i = 0; i < COUNT(edmac_interrupts); i++)
-    {
-        int isr = edmac_interrupts[i];
-        if (isr)
-        {
-            fprintf(stderr, "    [0x%02X] = \"EDMAC#%d\",\n", isr, i);
-        }
-    }
-    exit(1);
-#endif
-
-    assert(channel >= 0 && channel < COUNT(edmac_interrupts));
-    assert(edmac_interrupts[channel]);
-    
-    eos_trigger_int(s, edmac_interrupts[channel], delay);
-}
-
-static int edmac_fix_off1(EOSState *s, int32_t off)
-{
-    /* the value is signed, but the number of bits is model-dependent */
-    int off1_bits = (s->model->digic_version <= 4) ? 17 : 
-                    (s->model->digic_version == 5) ? 19 : 0;
-    assert(off1_bits);
-    return off << (32-off1_bits) >> (32-off1_bits);
-}
-
-static int edmac_fix_off2(EOSState *s, int32_t off)
-{
-    /* the value is signed, but the number of bits is model-dependent */
-    int off2_bits = (s->model->digic_version <= 4) ? 28 : 
-                    (s->model->digic_version == 5) ? 32 : 0;
-    assert(off2_bits);
-    return off << (32-off2_bits) >> (32-off2_bits);
-}
-
-static char * edmac_format_size_3(
-    int x, int off
-)
-{
-    static char buf[32];
-    snprintf(buf, sizeof(buf),
-        off ? "%d, skip %d" : x ? "%d" : "",
-        x, off
-    );
-    return buf;
-}
-
-static char * edmac_format_size_2(
-    int y, int x,
-    int off1, int off2
-)
-{
-    static char buf[64]; buf[0] = 0;
-    if (off1 == off2)
-    {
-        char * inner = edmac_format_size_3(x, off1);
-        snprintf(buf, sizeof(buf),
-            y == 0 ? "%s" : strchr(inner, ' ') ? "(%s) x %d" : "%sx%d",
-            inner, y+1
-        );
-    }
-    else
-    {
-        /* y may be executed never, once or many times */
-        if (y)
-        {
-            char * inner1 = edmac_format_size_3(x, off1);
-            snprintf(buf, sizeof(buf),
-                y == 0 ? "%s" : strchr(inner1, ' ') ? "(%s) x %d" : "%sx%d",
-                inner1, y
-            );
-        }
-        
-        /* y is executed once */
-        char * inner2 = edmac_format_size_3(x, off2);
-        STR_APPEND(buf, "%s%s", buf[0] && inner2[0] ? ", " : "", inner2);
-    }
-    return buf;
-}
-
-static char * edmac_format_size_1(
-    int y, int xn, int xa, int xb,
-    int off1a, int off1b, int off2, int off3
-)
-{
-    static char buf[128]; buf[0] = 0;
-    if (xa == xb && off1a == off1b && off2 == off3)
-    {
-        char * inner = edmac_format_size_2(y, xa, off1a, off2);
-        snprintf(buf, sizeof(buf),
-            xn == 0 ? "%s" : strchr(inner, ' ') ? "(%s) x %d" : "%sx%d",
-            inner, xn+1
-        );
-    }
-    else
-    {
-        /* xa may be executed never, once or many times */
-        if (xn)
-        {
-            char * inner1 = edmac_format_size_2(y, xa, off1a, off2);
-            snprintf(buf, sizeof(buf),
-                xn == 1 ? "%s" : strchr(inner1, ' ') ? "(%s) x %d" : "%sx%d",
-                inner1, xn
-            );
-        }
-        
-        /* xb is executed once */
-        char * inner2 = edmac_format_size_2(y, xb, off1b, off3);
-        STR_APPEND(buf, "%s%s",
-            !(buf[0] && inner2[0]) ? "" :   /* no separator needed */
-            strlen(buf) > 20 && strlen(inner2) > 20 ? ",\n  " : ", ",   /* newline for long strings */
-            inner2
-        );
-    }
-    return buf;
-}
-
-static char * edmac_format_size(
-    int yn, int ya, int yb, int xn, int xa, int xb,
-    int off1a, int off1b, int off2a, int off2b, int off3
-)
-{
-#if 0
-    const char * names[] = { "yn", "ya", "yb", "xn", "xa", "xb", "off1a", "off1b", "off2a", "off2b", "off3" };
-    int values[] = { yn, ya, yb, xn, xa, xb, off1a, off1b, off2a, off2b, off3 };
-    int len = 0;
-    for (int i = 0; i < COUNT(values); i++)
-        if (values[i])
-            len += fprintf(stderr, "%s=%d, ", names[i], values[i]);
-    fprintf(stderr, "\b\b: ");
-    for (int i = 0; i < 45 - len; i++)
-        fprintf(stderr, " ");
-    if (len > 45)
-        fprintf(stderr, "\n  ");
-#endif
-
-    static char buf[256]; buf[0] = 0;
-    
-    if (ya == yb && off2a == off2b)
-    {
-        char * inner = edmac_format_size_1(ya, xn, xa, xb, off1a, off1b, off2a, off3);
-        snprintf(buf, sizeof(buf),
-            yn == 0 ? "%s" : strchr(inner, ' ') ? "(%s) x %d" : "%sx%d",
-            inner, yn+1
-        );
-    }
-    else
-    {
-        /* ya may be executed never, once or many times */
-        if (yn)
-        {
-            char * inner1 = edmac_format_size_1(ya, xn, xa, xb, off1a, off1b, off2a, off3);
-            snprintf(buf, sizeof(buf),
-                yn == 1 ? "%s" : strchr(inner1, ' ') ? "(%s) x %d" : "%sx%d",
-                inner1, yn
-            );
-        }
-        
-        /* yb is executed once */
-        /* setting the last offset to off1b usually simplifies the formula */
-        char * inner2 = edmac_format_size_1(yb, xn, xa, xb, off1a, off1b, off2b, off3 ? off3 : off1b);
-        STR_APPEND(buf, "%s%s",
-            !(buf[0] && inner2[0]) ? "" :   /* no separator needed */
-            strlen(buf) > 20 && strlen(inner2) > 20 ? ",\n  " : ", ",   /* newline for long strings */
-            inner2
-        );
-    }
-    return buf;
-}
-
-static void edmac_test_format_size(void)
-{
-    return;
-
-    fprintf(stderr, "EDMAC format tests:\n");
-    fprintf(stderr, "%s\n", edmac_format_size(0, 0, 0x1df, 0, 0, 0x2d0,      0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(0, 0, 0x1df, 0, 0, 0x2d0,      0, 100, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(0, 0, 0, 0x1df, 0x2d0, 0x2d0,  0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(0, 0, 0, 0x1000, 0x1000, 0,    0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(0, 0, 0, 0x12, 0x1000, 0xC00,  0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(0, 0, 0xfff, 0x7, 0x20, 0x20,  0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(0, 0, 0xb3f, 0x2, 0xf0, 0xf0,  0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(0, 0, 0, 1055, 3276, 32,       0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(0, 0, 10, 95, 3276, 3276,      0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(3, 0,  7, 95, 3276, 3276,      0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(33,0, 62, 10, 3276, 3276,      0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(5, 2,  3, 10, 3276, 3276,      0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(3, 6,  5, 10, 3276, 3276,      0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(3, 7,  5, 10, 3276, 3276,      0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(8, 9,  7, 10, 3276, 3276,      0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(3, 28, 8, 10, 3276, 3276,      0, 0, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(3, 28, 8, 10, 3276, 3276,      0, 100, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(3, 28, 8, 10, 3276, 3276,      44, 100, 0, 0, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(3, 28, 8, 10, 3276, 1638,      44, 100, 172, 196, 1236));
-    fprintf(stderr, "%s\n", edmac_format_size(0, 0, 3839, 2, 768, 768,       0x2a00, 0x2a00, 0, 0xfd5d2d00, 0));
-    fprintf(stderr, "%s\n", edmac_format_size(137, 7, 7, 15, 320, 320,      -320,-320,-320,-320,-320));
-    fprintf(stderr, "%s\n", edmac_format_size(479, 0, 0, 9, 40, 40,          360, 360, 32, 32, 32));
-    exit(1);
-}
-
-/* 1 on success, 0 = no data available yet (should retry) */
-static int edmac_do_transfer(EOSState *s, int channel)
-{
-    /* not fully implemented */
-    fprintf(stderr, "[EDMAC#%d] Starting transfer %s 0x%X %s conn", channel,
-        (channel & 8) ? "from" : "to",
-        s->edmac.ch[channel].addr,
-        (channel & 8) ? "to" : "from"
-    );
-    
-    uint32_t conn = 0;
-    
-    if (channel & 8)
-    {
-        /* read channel */
-        for (int c = 0; c < COUNT(s->edmac.read_conn); c++)
-        {
-            if (s->edmac.read_conn[c] == channel)
-            {
-                /* can a read operation have multiple destinations? */
-                /* if yes, we don't handle that case yet */
-                assert(conn == 0);
-                conn = c;
-            }
-        }
-    }
-    else
-    {
-        conn = s->edmac.write_conn[channel];
-    }
-    
-    fprintf(stderr, " #%d, ", conn);
-
-    /* Hypothesis
-     * ==========
-     * 
-     * (
-     *    ((xa, skip off1a) * ya, xa, skip off2a) * xn
-     *     (xb, skip off1b) * ya, xb, skip off3
-     * ) * yn,
-     * 
-     * (
-     *    ((xa, skip off1a) * yb, xa, skip off2b) * xn
-     *     (xb, skip off1b) * yb, xb, skip off3
-     * )
-     * 
-     */
-
-    int xa = s->edmac.ch[channel].xa;
-    int ya = s->edmac.ch[channel].ya;
-    int xb = s->edmac.ch[channel].xb;
-    int yb = s->edmac.ch[channel].yb;
-    int xn = s->edmac.ch[channel].xn;
-    int yn = s->edmac.ch[channel].yn;
-    int off1a = edmac_fix_off1(s, s->edmac.ch[channel].off1a);
-    int off1b = edmac_fix_off1(s, s->edmac.ch[channel].off1b);
-    int off2a = edmac_fix_off2(s, s->edmac.ch[channel].off2a);
-    int off2b = edmac_fix_off2(s, s->edmac.ch[channel].off2b);
-    int off3  = edmac_fix_off2(s, s->edmac.ch[channel].off3);
-    int flags = edmac_fix_off2(s, s->edmac.ch[channel].flags);
-    
-    fprintf(stderr, "%s, ", edmac_format_size(yn, ya, yb, xn, xa, xb, off1a, off1b, off2a, off2b, off3));
-
-    fprintf(stderr, "flags=0x%X\n", flags);
-
-    /* actual amount of data transferred */
-    uint32_t transfer_data_size =
-        (xa * (ya+1) * xn + xb * (ya+1)) * yn +
-        (xa * (yb+1) * xn + xb * (yb+1));
-    
-    /* total size covered, including offsets */
-    uint32_t transfer_data_skip_size =
-        (((xa + off1a) * ya + xa + off2a) * xn +
-         ((xb + off1b) * ya + xb + off3)) * yn +
-        (((xa + off1a) * yb + xa + off2b) * xn +
-          (xb + off1b) * yb + xb + off3);
-
-    if (channel & 8)
-    {
-        /* from memory to image processing modules */
-        uint32_t src = s->edmac.ch[channel].addr;
-        
-        /* repeated transfers will append to existing buffer */
-        uint32_t old_size = s->edmac.conn_data[conn].data_size;
-        uint32_t new_size = old_size + transfer_data_size;
-        if (s->edmac.conn_data[conn].buf)
-        {
-            fprintf(stderr, "[EDMAC] conn #%d: data size %d -> %d.\n",
-                conn, old_size, new_size
-            );
-        }
-        s->edmac.conn_data[conn].buf = realloc(s->edmac.conn_data[conn].buf, new_size );
-        void * dst = s->edmac.conn_data[conn].buf + old_size;
-        s->edmac.conn_data[conn].data_size = new_size;
-        
-        for (int jn = 0; jn <= yn; jn++)
-        {
-            int y     = (jn < yn) ? ya    : yb;
-            int off2  = (jn < yn) ? off2a : off2b;
-            for (int in = 0; in <= xn; in++)
-            {
-                int x     = (in < xn) ? xa    : xb;
-                int off1  = (in < xn) ? off1a : off1b;
-                int off23 = (in < xn) ? off2  : off3;
-                for (int j = 0; j <= y; j++)
-                {
-                    int off = (j < y) ? off1 : off23;
-                    eos_mem_read(s, src, dst, x);
-                    src += x + off;
-                    dst += x;
-                }
-            }
-        }
-        fprintf(stderr, "[EDMAC#%d] %d bytes read from %X-%X.\n", channel, transfer_data_size, s->edmac.ch[channel].addr, s->edmac.ch[channel].addr + transfer_data_skip_size);
-    }
-    else
-    {
-        /* from image processing modules to memory */
-        uint32_t dst = s->edmac.ch[channel].addr;
-        
-        if (conn == 0 || conn == 35)
-        {
-            /* sensor data? */
-            s->edmac.conn_data[conn].buf = malloc(transfer_data_size);
-            s->edmac.conn_data[conn].data_size = transfer_data_size;
-
-            /* todo: autodetect all DNG files and cycle between them */
-            char filename[1024];
-            snprintf(filename, sizeof(filename), "%s/%s/VRAM/PH-QR/RAW-000.DNG", s->workdir, s->model->name);
-            FILE* f = fopen(filename, "rb");
-            if (f)
-            {
-                fprintf(stderr, "Loading photo raw data from %s...\n", filename);
-                /* fixme: hardcoded DNG offset */
-                fseek(f, 33792, SEEK_SET);
-                assert(fread(s->edmac.conn_data[conn].buf, 1, transfer_data_size, f) == transfer_data_size);
-                fclose(f);
-                reverse_bytes_order(s->edmac.conn_data[conn].buf, transfer_data_size);
-            }
-            else
-            {
-                fprintf(stderr, "%s not found; generating random noise\n", filename);
-                for (int i = 0; i < transfer_data_size; i++)
-                {
-                    ((uint8_t*)s->edmac.conn_data[conn].buf)[i] = rand();
-                }
-            }
-        }
-        
-        if (s->edmac.conn_data[conn].data_size < transfer_data_size)
-        {
-            fprintf(stderr, "[EDMAC#%d] Data %s; will try again later.\n", channel,
-                s->edmac.conn_data[conn].data_size ? "incomplete" : "unavailable"
-            );
-            return 0;
-        }
-        assert(s->edmac.conn_data[conn].buf);
-
-        void * src = s->edmac.conn_data[conn].buf;
-
-        for (int jn = 0; jn <= yn; jn++)
-        {
-            int y     = (jn < yn) ? ya    : yb;
-            int off2  = (jn < yn) ? off2a : off2b;
-            for (int in = 0; in <= xn; in++)
-            {
-                int x     = (in < xn) ? xa    : xb;
-                int off1  = (in < xn) ? off1a : off1b;
-                int off23 = (in < xn) ? off2  : off3;
-                for (int j = 0; j <= y; j++)
-                {
-                    int off = (j < y) ? off1 : off23;
-                    eos_mem_write(s, dst, src, x);
-                    src += x;
-                    dst += x + off;
-                }
-            }
-        }
-        assert(src - s->edmac.conn_data[conn].buf == transfer_data_size);
-        assert(dst - s->edmac.ch[channel].addr == transfer_data_skip_size);
-
-        uint32_t old_size = s->edmac.conn_data[conn].data_size;
-        uint32_t new_size = old_size - transfer_data_size;
-
-        if (new_size)
-        {
-            /* only copied some of the data to memory;
-             * shift the remaining data for use with subsequent transfers
-             * (a little slow, kinda reinventing a FIFO)
-             */
-            memmove(s->edmac.conn_data[conn].buf, s->edmac.conn_data[conn].buf + transfer_data_size, new_size);
-            s->edmac.conn_data[conn].buf = realloc(s->edmac.conn_data[conn].buf, new_size);
-            s->edmac.conn_data[conn].data_size = new_size;
-            fprintf(stderr, "[EDMAC] conn #%d: data size %d -> %d.\n",
-                conn, old_size, new_size
-            );
-        }
-        else
-        {
-            free(s->edmac.conn_data[conn].buf);
-            s->edmac.conn_data[conn].buf = 0;
-            s->edmac.conn_data[conn].data_size = 0;
-        }
-        
-        fprintf(stderr, "[EDMAC#%d] %d bytes written to %X-%X.\n", channel, transfer_data_size, s->edmac.ch[channel].addr, s->edmac.ch[channel].addr + transfer_data_skip_size);
-    }
-
-    /* return end address when reading back the register */
-    s->edmac.ch[channel].addr += transfer_data_skip_size;
-
-    /* assume 200 MB/s transfer speed */
-    int delay = transfer_data_size * 1e6 / (200*1024*1024) / 0x100;
-    printf("[EDMAC#%d] transfer delay %d x 256 us.\n", channel, delay);
-
-    edmac_trigger_interrupt(s, channel, delay);
-    return 1;
-}
-
-static void prepro_execute(EOSState *s)
-{
-    if (s->prepro.adkiz_intr_en)
-    {
-        /* appears to use data from connections 8 and 15 */
-        /* are these hardcoded? */
-        if (s->edmac.conn_data[8].buf && s->edmac.conn_data[15].buf)
-        {
-            fprintf(stderr, "[ADKIZ] Dummy operation.\n");
-            
-            /* "consume" the data from those two connections */
-            assert(s->edmac.conn_data[8].buf);
-            assert(s->edmac.conn_data[15].buf);
-
-            /* free it to allow the next operation */
-            free(s->edmac.conn_data[8].buf);
-            s->edmac.conn_data[8].buf = 0;
-            s->edmac.conn_data[8].data_size = 0;
-            
-            free(s->edmac.conn_data[15].buf);
-            s->edmac.conn_data[15].buf = 0;
-            s->edmac.conn_data[15].data_size = 0;
-            
-            eos_trigger_int(s, 0x65, 1);
-        }
-        else
-        {
-            fprintf(stderr, "[ADKIZ] Data unavailable; will try again later.\n");
-        }
-    }
-    
-    if (s->prepro.hiv_enb == 0 || s->prepro.hiv_enb == 1)
-    {
-        if (s->edmac.conn_data[15].buf)
-        {
-            fprintf(stderr, "[HIV] Dummy operation.\n");
-            assert(s->edmac.conn_data[15].buf);
-            free(s->edmac.conn_data[15].buf);
-            s->edmac.conn_data[15].buf = 0;
-            s->edmac.conn_data[15].data_size = 0;
-        }
-        else
-        {
-            fprintf(stderr, "[HIV] Data unavailable; will try again later.\n");
-        }
-    }
-
-    if (s->prepro.def_enb == 1)
-    {
-        if (s->edmac.conn_data[1].buf)
-        {
-            int transfer_size = s->edmac.conn_data[1].data_size;
-            int old_size = s->edmac.conn_data[16].data_size;
-            int new_size = old_size + transfer_size;
-            fprintf(stderr, "[DEF] Dummy operation (copy %d bytes from conn #1 to #16).\n", transfer_size);
-            if (old_size) fprintf(stderr, "[DEF] Data size %d -> %d.\n", old_size, new_size);
-            s->edmac.conn_data[16].buf = realloc(s->edmac.conn_data[16].buf, new_size);
-            s->edmac.conn_data[16].data_size = new_size;
-            memcpy(s->edmac.conn_data[16].buf + old_size, s->edmac.conn_data[1].buf, transfer_size);
-            free(s->edmac.conn_data[1].buf);
-            s->edmac.conn_data[1].buf = 0;
-            s->edmac.conn_data[1].data_size = 0;
-        }
-    }
-}
-
-unsigned int eos_handle_edmac ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
-{
-    const char * msg = 0;
-    unsigned int ret = 0;
-    int channel = (parm << 4) | ((address >> 8) & 0xF);
-    assert(channel < COUNT(s->edmac.ch));
-    
-    switch(address & 0xFF)
-    {
-        case 0x00:
-            msg = "control/status";
-            if (value == 1)
-            {
-                if (channel & 8)
-                {
-                    /* read channel: data is always available */
-                    assert(edmac_do_transfer(s, channel));
-                    
-                    /* any pending requests on other channels?
-                     * data might be available now */
-                    for (int ch = 0; ch < COUNT(s->edmac.pending); ch++)
-                    {
-                        if (s->edmac.pending[ch])
-                        {
-                            if (edmac_do_transfer(s, ch))
-                            {
-                                s->edmac.pending[ch] = 0;
-                            }
-                        }
-                    }
-                    
-                    /* some image processing modules may now have input data */
-                    prepro_execute(s);
-                }
-                else
-                {
-                    /* write channel: data may or may not be available right now */
-                    if (!edmac_do_transfer(s, channel))
-                    {
-                        /* didn't work; schedule it for later */
-                        s->edmac.pending[channel] = 1;
-                    }
-                }
-            }
-            break;
-
-        case 0x04:
-            msg = "flags";
-            MMIO_VAR(s->edmac.ch[channel].flags);
-            break;
-
-        case 0x08:
-            msg = "RAM address";
-            MMIO_VAR(s->edmac.ch[channel].addr);
-            break;
-
-        case 0x0C:
-            msg = "yn|xn";
-            MMIO_VAR_2x16(s->edmac.ch[channel].xn, s->edmac.ch[channel].yn);
-            break;
-
-        case 0x10:
-            msg = "yb|xb";
-            MMIO_VAR_2x16(s->edmac.ch[channel].xb, s->edmac.ch[channel].yb);
-            break;
-
-        case 0x14:
-            msg = "ya|xa";
-            MMIO_VAR_2x16(s->edmac.ch[channel].xa, s->edmac.ch[channel].ya);
-            break;
-
-        case 0x18:
-            msg = "off1b";
-            MMIO_VAR(s->edmac.ch[channel].off1b);
-            break;
-
-        case 0x1C:
-            msg = "off2b";
-            MMIO_VAR(s->edmac.ch[channel].off2b);
-            break;
-
-        case 0x20:
-            msg = "off1a";
-            MMIO_VAR(s->edmac.ch[channel].off1a);
-            break;
-
-        case 0x24:
-            msg = "off2a";
-            MMIO_VAR(s->edmac.ch[channel].off2a);
-            break;
-
-        case 0x28:
-            msg = "off3";
-            MMIO_VAR(s->edmac.ch[channel].off3);
-            break;
-
-        case 0x40:
-            msg = "off40";
-            MMIO_VAR(s->edmac.ch[channel].off40);
-            break;
-
-        case 0x30:
-            msg = "interrupt reason?";
-            if(type & MODE_WRITE)
-            {
-            }
-            else
-            {
-                /* read channels:
-                 *   0x02 = normal?
-                 *   0x10 = abort?
-                 * write channels:
-                 *   0x01 = normal? (used with PackMem)
-                 *   0x02 = normal?
-                 *   0x04 = pop?
-                 *   0x10 = abort?
-                 */
-                int pop_request = (s->edmac.ch[channel].flags & 0xF) == 6;
-                int abort_request = (s->edmac.ch[channel].off34 == 3);
-                ret = (abort_request) ? 0x10 :
-                      (pop_request)   ? 0x04 :
-                      (channel & 8)   ? 0x02 :
-                                        0x01 ;
-            }
-            break;
-
-        case 0x34:
-            msg = "off34";
-            MMIO_VAR(s->edmac.ch[channel].off34);
-
-            if(type & MODE_WRITE)
-            {
-                if (s->edmac.ch[channel].off34 == 3)
-                {
-                    msg = "abort request";
-                    edmac_trigger_interrupt(s, channel, 1);
-                }
-            }
-            break;
-    }
-    
-    char name[32];
-    snprintf(name, sizeof(name), "EDMAC#%d", channel);
-    io_log(name, s, address, type, value, ret, msg, 0, 0);
-    return ret;
-}
-
-/* EDMAC channel switch (connections) */
-unsigned int eos_handle_edmac_chsw ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
-{
-    const char * msg = 0;
-    int msg_arg1 = 0;
-    int msg_arg2 = 0;
-    unsigned int ret = 0;
-    
-    /* fixme: reads not implemented */
-    assert(type & MODE_WRITE);
-    
-    if (value == 0x80000000)
-    {
-        /* ?! used on M3 */
-        goto end;
-    }
-
-    /* 0xC0F05020 - 0xC0F050E0: read edmac connections */
-    /* 0xC0F05000 - 0xC0F0501C: write channel connections for channels 0-6, then 16 */
-    /* 0xC0F05200 - 0xC0F05240: write channel connections for channels > 16 */
-    switch(address & 0xFFF)
-    {
-        case 0x020 ... 0x0E0:
-        {
-            /* read channels  8...13 =>  0...5 */
-            /* read channels 24...29 =>  6...11 */
-            /* read channels 40...43 => 12...15 */
-            uint32_t conn = ((address & 0xFF) - 0x20) >> 2;
-            uint32_t ch = 
-                (value <=  5) ? value + 8      :
-                (value <= 11) ? value + 16 + 2 :
-                (value <= 15) ? value + 32 - 4 : -1 ;
-            assert(conn < COUNT(s->edmac.conn_data));
-            assert(ch < COUNT(s->edmac.ch));
-            s->edmac.read_conn[conn] = ch;
-            
-            /* make sure this mapping is unique */
-            /* (not sure how it's supposed to work, but...) */
-            for (int c = 0; c < COUNT(s->edmac.read_conn); c++)
-            {
-                if (c != conn && s->edmac.read_conn[c] == ch)
-                {
-                    fprintf(stderr, "[CHSW] Warning: disabling RD#%d -> conn #%d.\n", ch, c);
-                    s->edmac.read_conn[c] = 0;
-                }
-            }
-            
-            msg = "RAM -> RD#%d -> connection #%d";
-            msg_arg1 = ch;
-            msg_arg2 = conn;
-            break;
-        }
-
-        case 0x000 ... 0x01C:
-        {
-            uint32_t conn = value;
-            uint32_t ch = (address & 0x1F) >> 2;
-            if (ch == 7) ch = 16;
-            assert(conn < COUNT(s->edmac.conn_data));
-            assert(ch < COUNT(s->edmac.ch));
-            s->edmac.write_conn[ch] = conn;
-            msg = "connection #%d -> WR#%d -> RAM";
-            msg_arg1 = conn;
-            msg_arg2 = ch;
-            break;
-        }
-
-        case 0x200 ... 0x240:
-        {
-            /* write channels 17 ... 22: pos 0...5 */
-            /* write channels 32 ... 33: pos 6...7 */
-            uint32_t conn = value;
-            uint32_t pos = (address & 0x3F) >> 2;
-            uint32_t ch =
-                (pos <= 5) ? pos + 16 + 1
-                           : pos + 32 - 6 ;
-            assert(conn < COUNT(s->edmac.conn_data));
-            assert(ch < COUNT(s->edmac.ch));
-            s->edmac.write_conn[ch] = conn;
-            msg = "connection #%d -> WR#%d -> RAM";
-            msg_arg1 = conn;
-            msg_arg2 = ch;
-            break;
-        }
-    }
-
-end:
-    io_log("CHSW", s, address, type, value, ret, msg, msg_arg1, msg_arg2);
-    return ret;
-}
-
-static const char * prepro_reg_name(unsigned int addr)
-{
-    /* http://magiclantern.wikia.com/wiki/Register_Map#Image_PreProcessing */
-    switch(addr)
-    {
-        case 0xC0F08000: return "DARK_ENB";
-        case 0xC0F08004: return "DARK_MODE";
-        case 0xC0F08008: return "DARK_SETUP";
-        case 0xC0F0800C: return "DARK_LIMIT";
-        case 0xC0F08010: return "DARK_SETUP_14_12";
-        case 0xC0F08014: return "DARK_LIMIT_14_12";
-        case 0xC0F08018: return "DARK_SAT_LIMIT";
-
-        case 0xC0F08020: return "SHAD_ENB";
-        case 0xC0F08024: return "SHAD_MODE";
-        case 0xC0F08028: return "SHADE_PRESETUP";
-        case 0xC0F0802C: return "SHAD_POSTSETUP";
-        case 0xC0F08030: return "SHAD_GAIN";
-        case 0xC0F08034: return "SHAD_PRESETUP_14_12";
-        case 0xC0F08038: return "SHAD_POSTSETUP_14_12";
-
-        case 0xC0F08040: return "TWOADD_ENB";
-        case 0xC0F08044: return "TWOADD_MODE";
-        case 0xC0F08048: return "TWOADD_SETUP";
-        case 0xC0F0804C: return "TWOADD_LIMIT";
-        case 0xC0F08050: return "TWOADD_SETUP_14_12";
-        case 0xC0F08054: return "TWOADD_LIMIT_14_12";
-        case 0xC0F08058: return "TWOADD_SAT_LIMIT";
-
-        case 0xC0F08060: return "DSUNPACK_ENB";
-        case 0xC0F08064: return "DSUNPACK_MODE";
-
-        case 0xC0F08070: return "UNPACK24_ENB";
-        case 0xC0F08074: return "UNPACK24_MODE ";
-
-        case 0xC0F08080: return "ADUNPACK_ENB";
-        case 0xC0F08084: return "ADUNPACK_MODE";
-
-        case 0xC0F08090: return "PACK32_ENB";
-        case 0xC0F08094: return "PACK32_MODE";
-
-        case 0xC0F080A0: return "DEF_ENB";
-        case 0xC0F080A4: return "DEF_unk1";
-        case 0xC0F080A8: return "DEF_DEF_MODE";
-        case 0xC0F080AC: return "DEF_DEF_CTRL";
-        case 0xC0F080B0: return "DEF_YB_XB";
-        case 0xC0F080B4: return "DEF_YN_XN";
-        case 0xC0F080BC: return "DEF_YA_XA?";
-        case 0xC0F080C0: return "DEF_BUF_NUM";
-        case 0xC0F080C4: return "DEF_INTR_BE";
-        case 0xC0F080C8: return "DEF_INTR_AE";
-        case 0xC0F080D0: return "DEF_INTR_NUM/DEF_INTR_EN?";
-        case 0xC0F080D4: return "DEF_HOSEI";
-
-        case 0xC0F08100: return "CCDSEL";
-        case 0xC0F08104: return "DS_SEL";
-        case 0xC0F08108: return "OBWB_ISEL";
-        case 0xC0F0810C: return "PROC24_ISEL";
-        case 0xC0F08110: return "DPCME_ISEL";
-        case 0xC0F08114: return "PACK32_ISEL";
-
-        case 0xC0F08120: return "PACK16_ENB";
-        case 0xC0F08124: return "PACK16_MODE";
-
-        case 0xC0F08130: return "DEFM_ENB";
-        case 0xC0F08134: return "DEFM_unk1";
-        case 0xC0F08138: return "DEFM_MODE";
-        case 0xC0F08140: return "DEFM_INTR_NUM";
-        case 0xC0F0814C: return "DEFM_GRADE";
-        case 0xC0F08150: return "DEFM_DAT_TH";
-        case 0xC0F08154: return "DEFM_INTR_CLR";
-        case 0xC0F08158: return "DEFM_INTR_EN";
-        case 0xC0F0815C: return "DEFM_14_12_SEL";
-        case 0xC0F08160: return "DEFM_DAT_TH_14_12";
-        case 0xC0F0816C: return "DEFM_X2MODE";
-
-        case 0xC0F08180: return "HIV_ENB";
-        case 0xC0F08184: return "HIV_V_SIZE";
-        case 0xC0F08188: return "HIV_H_SIZE";
-        case 0xC0F0818C: return "HIV_POS_V_OFST";
-        case 0xC0F08190: return "HIV_POS_H_OFST";
-        case 0xC0F08194: return "HIV_unk1";
-        case 0xC0F08198: return "HIV_unk2";
-        case 0xC0F0819C: return "HIV_POST_SETUP";
-        case 0xC0F081C0: return "HIV_H_SWS_ENB";
-        case 0xC0F08214: return "HIV_PPR_EZ";
-        case 0xC0F08218: return "HIV_IN_SEL";
-
-        case 0xC0F08220: return "ADKIZ_unk1";
-        case 0xC0F08224: return "ADKIZ_THRESHOLD";
-        case 0xC0F08234: return "ADKIZ_TOTAL_SIZE";
-        case 0xC0F08238: return "ADKIZ_INTR_CLR";
-        case 0xC0F0823C: return "ADKIZ_INTR_EN";
-        case 0xC0F08240: return "ADMERG_INTR_EN";
-        case 0xC0F08244: return "ADMERG_TOTAL_SIZE";
-        case 0xC0F08248: return "ADMERG_MergeDefectsCount";
-        case 0xC0F08250: return "ADMERG_2_IN_SE";
-        case 0xC0F0825C: return "ADKIZ_THRESHOLD_14_12";
-
-        case 0xC0F08260: return "UNPACK24_DM_EN";
-        case 0xC0F08264: return "PACK32_DM_EN";
-        case 0xC0F08268: return "PACK32_MODE_H";
-        case 0xC0F0826C: return "unk_MODE_H";
-        case 0xC0F08270: return "DEFC_X2MODE";
-        case 0xC0F08274: return "DSUNPACK_DM_EN";
-        case 0xC0F08278: return "ADUNPACK_DM_EN";
-        case 0xC0F0827C: return "PACK16_CCD2_DM_EN";
-
-        case 0xC0F08280: return "SHAD_CBIT";
-        case 0xC0F08284: return "SHAD_C8MODE";
-        case 0xC0F08288: return "SHAD_C12MODE";
-        case 0xC0F0828C: return "SHAD_RMODE";
-        case 0xC0F08290: return "SHAD_COF_SEL";
-
-        case 0xC0F082A0: return "DARK_KZMK_SAV_A";
-        case 0xC0F082A4: return "DARK_KZMK_SAV_B";
-        case 0xC0F082A8: return "SHAD_KZMK_SAV";
-        case 0xC0F082AC: return "TWOA_KZMK_SAV_A";
-        case 0xC0F082B0: return "TWOA_KZMK_SAV_B";
-        case 0xC0F082B4: return "DEFC_DET_MODE";
-        case 0xC0F082B8: return "PACK16_DEFM_ON";
-        case 0xC0F082BC: return "PACK32_DEFM_ON";
-        case 0xC0F082C4: return "HIV_DEFMARK_CANCEL";
-
-        case 0xC0F082D0: return "PACK16_ISEL";
-        case 0xC0F082D4: return "WDMAC32_ISEL";
-        case 0xC0F082D8: return "WDMAC16_ISEL";
-        case 0xC0F082DC: return "OBINTG_ISEL";
-        case 0xC0F082E0: return "AFFINE_ISEL";
-        case 0xC0F08390: return "OBWB_ISEL2";
-        case 0xC0F08394: return "PROC24_ISEL2";
-        case 0xC0F08398: return "PACK32_ISEL2";
-        case 0xC0F0839C: return "PACK16_ISEL2";
-        case 0xC0F083A0: return "TAIWAN_ISEL";
-
-        case 0xC0F08420: return "HIV_BASE_OFST";
-        case 0xC0F08428: return "HIV_GAIN_DIV";
-        case 0xC0F0842C: return "HIV_PATH";
-
-        case 0xC0F08540: return "RSHD_ENB";
-
-        case 0xC0F085B0: return "PACK32_ILIM";
-        case 0xC0F085B4: return "PACK16_ILIM";
-    }
-    
-    return NULL;
-}
-
-unsigned int eos_handle_prepro ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
-{
-    const char * msg = prepro_reg_name(address);
-    unsigned int ret = 0;
-
-    switch (address & 0xFFF)
-    {
-        case 0x240:     /* ADMERG_INTR_EN */
-            MMIO_VAR(s->prepro.adkiz_intr_en);
-            break;
-        
-        case 0x0C8:     /* DEF_INTR_AE */
-            if(type & MODE_WRITE)
-            {
-            }
-            else
-            {
-                int AdKizDet_flag = (s->model->digic_version == 4) ? 0x20 : 
-                                    (s->model->digic_version == 5) ? 0x10 : 0;
-                assert(AdKizDet_flag);
-                ret = AdKizDet_flag;   /* Interruppt AdKizDet */
-            }
-            break;
-        
-        case 0x180:     /* HIV_ENB */
-            MMIO_VAR(s->prepro.hiv_enb);
-            break;
-
-        case 0x120:     /* PACK16_ENB */
-            MMIO_VAR(s->prepro.pack16_enb);
-            break;
-
-        case 0x060:     /* DSUNPACK_ENB */
-            MMIO_VAR(s->prepro.dsunpack_enb);
-            break;
-
-        case 0x0A0:     /* DEF_ENB */
-            MMIO_VAR(s->prepro.def_enb);
-            break;
-    }
-
-    io_log("PREPRO", s, address, type, value, ret, msg, 0, 0);
-    return ret;
-}
-
-unsigned int eos_handle_head ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
-{
-    const char * msg = prepro_reg_name(address);
-    unsigned int ret = 0;
-    
-    uint32_t bases[] = { 0, 0xC0F07048, 0xC0F0705C, 0xC0F07134, 0xC0F07148 };
-    uint32_t base = bases[parm];
-    
-    uint32_t interrupts[] = { 0, 0x6A, 0x6B, 0xD9, 0xE0 };
-    
-    switch (address - base)
-    {
-        case 0:
-            msg = "Enable?";
-            break;
-        case 4:
-            msg = "Start?";
-            if(type & MODE_WRITE)
-            {
-                if (value == 0xC)
-                {
-                    eos_trigger_int(s, interrupts[parm], 50);
-                }
-            }
-            break;
-        case 8:
-            msg = "Timer ticks";
-            break;
-    }
-
-    char name[32];
-    snprintf(name, sizeof(name), "HEAD%d", parm);
-    io_log(name, s, address, type, value, ret, msg, 0, 0);
-    return ret;
-}
-
-unsigned int eos_handle_engio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
-{
-    io_log("ENGIO", s, address, type, value, 0, 0, 0, 0);
-    return 0;
 }
 
 unsigned int eos_handle_power_control ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
@@ -3737,12 +2940,17 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
     const char * msg = 0;
     int msg_arg1 = 0;
     static int enable_tio_interrupt = 0;
+    static int flags = 0;
 
-    if (address == 0xC0270000)
+    if (address == 0xC0270000 && value == 0x80000000)
     {
-        /* TIO enable flag on EOS M3? */
-        static int mem = 0;
-        MMIO_VAR(mem);
+        msg = "TIO enable flag on EOS M3?";
+        goto end;
+    }
+
+    if (address == 0xC0270000 && value != (value & 0xFF))
+    {
+        /* unknown, probably not TIO */
         goto end;
     }
 
@@ -3751,6 +2959,7 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
         case 0x00:
             if(type & MODE_WRITE)
             {
+                msg = "Write char";
                 assert(value == (value & 0xFF));
                 
                 if (s->uart.chr) {
@@ -3765,9 +2974,10 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
                     fprintf(stderr, KRED"%c"KRESET, value);
                 }
 
+                /* 0 written during initialization */
                 if (enable_tio_interrupt)
                 {
-                    eos_trigger_int(s, 0x3A + parm, 0);
+                    eos_trigger_int(s, s->model->uart_tx_interrupt, 1);
                 }
             }
             else
@@ -3777,11 +2987,18 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
             break;
 
         case 0x04:
-            msg = "Read byte: 0x%02X";
+            msg = "Read char";
             s->uart.reg_st &= ~(ST_RX_RDY);
             ret = s->uart.reg_rx;
-            msg_arg1 = ret;
             break;
+
+        case 0x08:
+        {
+            msg = "Flags?";
+            MMIO_VAR(flags);
+            flags &= ~0x800;
+            break;
+        }
 
         case 0x14:
             if(type & MODE_WRITE)
@@ -3793,7 +3010,7 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
                 }
                 else
                 {
-                    ret = s->uart.reg_st;
+                    s->uart.reg_st = value;
                 }
             }
             else
@@ -3804,12 +3021,27 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
             break;
 
         case 0x18:
-            /* 1000D expects interrupt 0x3A to be triggered after writing each char */
-            /* most other cameras are upset by this interrupt */
-            enable_tio_interrupt = (value == 0xFFFFFFC4);
-            msg = (value == 0xFFFFFFC4) ? "enable interrupt?" : "interrupt related?";
-            ret = 0;
+        {
+            msg = "interrupt flags?";
+            static int status = 0;
+            MMIO_VAR(status);
+
+            if(type & MODE_WRITE)
+            {
+                /* 1000D expects interrupt 0x3A to be triggered after writing each char */
+                /* most other cameras are upset by this interrupt */
+                if (value == 0xFFFFFFC4)
+                {
+                    msg = "enable interrupt?";
+                    enable_tio_interrupt = 1;
+                }
+                else if (strcmp(s->model->name, "EOSM3") != 0)
+                {
+                    enable_tio_interrupt = value & 1;
+                }
+            }
             break;
+        }
     }
 
 end:
@@ -3820,15 +3052,365 @@ end:
     return ret;
 }
 
+unsigned int eos_handle_i2c ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+{
+    unsigned int ret = 0;
+    const char * msg = 0;
+    intptr_t msg_arg1 = 0;
+    intptr_t msg_arg2 = 0;
+
+    static unsigned int last_i2c_status = 0;
+    
+    static unsigned int last_i2c_rxpos = 0;
+    static unsigned char last_i2c_rxdata[1024];
+    
+    static unsigned int last_i2c_txpos = 0;
+    static unsigned char last_i2c_txdata[1024];
+    
+    static unsigned int last_i2c_addr = 0;
+    static unsigned int last_i2c_length = 0;
+    static unsigned int last_i2c_config = 0;
+    
+    switch(address & 0xFF)
+    {
+        case 0x08: /* status register */
+            if(type & MODE_WRITE)
+            {
+            }
+            else
+            {
+                /* 0x1000 busy */
+                /* 0x0010 transmit data ready */
+                /* 0x0020 stop condition */
+                msg = "status";
+                ret = last_i2c_status;
+            }
+            break;
+        
+        case 0x14: /* length */
+            msg = "length";
+            MMIO_VAR(last_i2c_length);
+            break;
+        
+        case 0x18: /* rx data */
+            if(type & MODE_WRITE)
+            {
+            }
+            else
+            {
+                msg = "RX data";
+                if(last_i2c_txpos < COUNT(last_i2c_txdata))
+                {
+                    ret = last_i2c_rxdata[last_i2c_rxpos++];
+                }
+                else
+                {
+                    ret = 0;
+                }
+            }
+            break;
+        
+        case 0x1C: /* slave address */
+            msg = "slave address";
+            MMIO_VAR(last_i2c_addr);
+            break;
+        
+        case 0x20: /* tx data */
+            msg = "TX data (%d)";
+            msg_arg1 = last_i2c_txpos;
+
+            if(type & MODE_WRITE)
+            {
+                /* buffer data */
+                if(last_i2c_txpos < COUNT(last_i2c_txdata))
+                {
+                    last_i2c_txdata[last_i2c_txpos] = value;
+                }
+                
+                last_i2c_txpos++;
+                if(last_i2c_txpos >= last_i2c_length)
+                {
+                    last_i2c_status |= 0x20;
+                    last_i2c_status |= 0x08; /* receive data ready */
+                }
+                last_i2c_status |= 0x10;
+            }
+            else
+            {
+                ret = last_i2c_txdata[last_i2c_txpos];
+            }
+            break;
+        
+        case 0x24: /* some config? write:0x2E20 read:0xAC20,0x2420,0x8C20 */
+            msg = "config? addr: %02X %s";
+            msg_arg1 = last_i2c_addr;
+            msg_arg2 = (intptr_t) "";
+
+            if(type & MODE_WRITE)
+            {
+                last_i2c_config = value;
+                
+                /* set module inactive? */
+                if(!(value & 0x20))
+                {
+                    char data[1024] = "";
+
+                    if (last_i2c_txpos)
+                    {
+                        STR_APPEND(data, "\n[I2C] sent:");
+                        for (int pos = 0; pos < last_i2c_txpos; pos++)
+                        {
+                            STR_APPEND(data, " %02X", last_i2c_txdata[pos]);
+                        }
+                    }
+
+                    if (last_i2c_rxpos)
+                    {
+                        STR_APPEND(data, "\n[I2C] recv:");
+                        for (int pos = 0; pos < last_i2c_rxpos; pos++)
+                        {
+                            STR_APPEND(data, " %02X", last_i2c_rxdata[pos]);
+                        }
+                    }
+
+                    last_i2c_status = 0;
+                    last_i2c_txpos = 0;
+                    last_i2c_rxpos = 0;
+                    msg_arg2 = (intptr_t) data;
+                }
+                /* set receive mode */
+                else if(!(value & 0x200))
+                {
+                    switch(last_i2c_addr)
+                    {
+                        case 0x3D:
+                            switch(last_i2c_txdata[0])
+                            {
+                                case 0x62:
+                                    last_i2c_rxdata[0] = 0x00;
+                                    last_i2c_rxdata[1] = 0x00;
+                                    break;
+                                    
+                            }
+                            break;
+                            
+                        case 0x38:
+                            switch(last_i2c_txdata[0])
+                            {
+                                case 0x02:
+                                    last_i2c_rxdata[0] = 0x00;
+                                    last_i2c_rxdata[1] = 0x00;
+                                    break;
+                                    
+                                case 0x04:
+                                    last_i2c_rxdata[0] = 0x00;
+                                    break;
+                                    
+                                case 0x1F:
+                                    last_i2c_rxdata[0] = 0x01;
+                                    break;
+                                    
+                                case 0x90:
+                                    last_i2c_rxdata[0] = 0x01;
+                                    break;
+                                    
+                                case 0x97:
+                                    last_i2c_rxdata[0] = 0x10;
+                                    break;
+                                    
+                            }
+                            break;
+                    }
+                }
+            }
+            else
+            {
+                ret = last_i2c_config;
+            }
+            break;
+    }
+
+    io_log("I2C", s, address, type, value, ret, msg, msg_arg1, msg_arg2);
+    return ret;
+}
+
+static unsigned int eos_handle_rtc ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+{
+    unsigned int ret = 0;
+    const char * msg = 0;
+    int msg_arg1 = 0;
+    int msg_arg2 = 0;
+
+    static unsigned int last_sio_txdata = 0;
+    static unsigned int last_sio_rxdata = 0;
+    static unsigned int last_sio_setup1 = 0;
+    static unsigned int last_sio_setup2 = 0;
+    static unsigned int last_sio_setup3 = 0;
+
+    switch(address & 0xFF)
+    {
+        case 0x04:
+            if((type & MODE_WRITE) && (value & 1))
+            {
+                static char default_msg[100];
+                snprintf(default_msg, sizeof(default_msg),
+                    "Transmit: 0x%08X, setup 0x%08X 0x%08X 0x%08X",
+                    last_sio_txdata, last_sio_setup1, last_sio_setup2, last_sio_setup3
+                );
+                msg = default_msg;
+
+                switch(s->rtc.transfer_format)
+                {
+                    /* CS inactive, do nothing */
+                    case RTC_INACTIVE:
+                    {
+                        assert(0);
+                        break;
+                    }
+                    
+                    /* waiting for a command byte */
+                    case RTC_READY:
+                    {
+                        uint8_t cmd = last_sio_txdata & 0x0F;
+                        uint8_t reg = (last_sio_txdata>>4) & 0x0F;
+                        if (!strcmp(s->model->name, "5D2") || !strcmp(s->model->name, "50D"))
+                        {
+                            reg = last_sio_txdata & 0x0F;
+                            cmd = (last_sio_txdata>>4) & 0x0F;
+                        }
+                        s->rtc.transfer_format = cmd;
+                        s->rtc.current_reg = reg;
+
+                        switch(cmd)
+                        {
+                            case RTC_WRITE_BURST:
+                            case RTC_WRITE_BURST2:
+                                msg = "Initiate WB (%02X)";
+                                msg_arg1 = last_sio_txdata;
+                                break;
+                                
+                            case RTC_READ_BURST:
+                            case RTC_READ_BURST2:
+                                msg = "Initiate RB (%02X)";
+                                msg_arg1 = last_sio_txdata;
+                                break;
+                                
+                            case RTC_WRITE_SINGLE:
+                                msg = "Initiate WS (%02X)";
+                                msg_arg1 = last_sio_txdata;
+                                break;
+                                
+                            case RTC_READ_SINGLE:
+                                msg = "Initiate RS (%02X)";
+                                msg_arg1 = last_sio_txdata;
+                                break;
+
+                            default:
+                                msg = "Requested invalid transfer mode 0x%02X";
+                                msg_arg1 = last_sio_txdata;
+                                break;
+                        }
+                        break;
+                    }
+
+                    /* burst writing */
+                    case RTC_WRITE_BURST:
+                    case RTC_WRITE_BURST2:
+                        s->rtc.regs[s->rtc.current_reg] = last_sio_txdata;
+                        msg = "WB %02X <- %02X";
+                        msg_arg1 = s->rtc.current_reg;
+                        msg_arg2 = last_sio_txdata & 0xFF;
+                        s->rtc.current_reg++;
+                        s->rtc.current_reg %= 0x10;
+                        break;
+
+                    /* burst reading */
+                    case RTC_READ_BURST:
+                    case RTC_READ_BURST2:
+                        last_sio_rxdata = s->rtc.regs[s->rtc.current_reg];
+                        msg = "RB %02X -> %02X";
+                        msg_arg1 = s->rtc.current_reg;
+                        msg_arg2 = last_sio_rxdata;
+                        s->rtc.current_reg++;
+                        s->rtc.current_reg %= 0x10;
+                        break;
+
+                    /* 1 byte writing */
+                    case RTC_WRITE_SINGLE:
+                        s->rtc.regs[s->rtc.current_reg] = last_sio_txdata;
+                        msg = "WS %02X <- %02X";
+                        msg_arg1 = s->rtc.current_reg;
+                        msg_arg2 = last_sio_txdata & 0xFF;
+                        s->rtc.transfer_format = RTC_READY;
+                        break;
+
+                    /* 1 byte reading */
+                    case RTC_READ_SINGLE:
+                        last_sio_rxdata = s->rtc.regs[s->rtc.current_reg];
+                        msg = "RS %02X -> %02X";
+                        msg_arg1 = s->rtc.current_reg;
+                        msg_arg2 = last_sio_rxdata;
+                        s->rtc.transfer_format = RTC_READY;
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+            else
+            {
+                ret = 0;
+            }
+            break;
+
+        case 0x0C:
+            msg = "setup 1";
+            MMIO_VAR(last_sio_setup1);
+            break;
+
+        case 0x10:
+            msg = "setup 2";
+            MMIO_VAR(last_sio_setup2);
+            break;
+
+        case 0x14:
+            msg = "setup 3";
+            MMIO_VAR(last_sio_setup3);
+            break;
+
+        case 0x18:
+            msg = "TX register";
+            MMIO_VAR(last_sio_txdata);
+            break;
+
+        case 0x1C:
+            msg = "RX register";
+            MMIO_VAR(last_sio_rxdata);
+            break;
+    }
+
+    io_log("RTC", s, address, type, value, ret, msg, msg_arg1, msg_arg2);
+    return ret;
+}
+
 unsigned int eos_handle_sio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
+    if (s->rtc.transfer_format != RTC_INACTIVE)
+    {
+        /* RTC CS active? */
+        return eos_handle_rtc(parm, s, address, type, value);
+    }
+
+    /* unknown SIO device? generic handler */
+
     unsigned int ret = 0;
     char msg[100] = "";
     char mod[10];
     
     snprintf(mod, sizeof(mod), "SIO%i", parm);
 
-    static unsigned int last_sio_data = 0;
+    static unsigned int last_sio_txdata = 0;
+    static unsigned int last_sio_rxdata = 0;
     static unsigned int last_sio_setup1 = 0;
     static unsigned int last_sio_setup2 = 0;
     static unsigned int last_sio_setup3 = 0;
@@ -3839,66 +3421,7 @@ unsigned int eos_handle_sio ( unsigned int parm, EOSState *s, unsigned int addre
         case 0x04:
             if((type & MODE_WRITE) && (value & 1))
             {
-                snprintf(msg, sizeof(msg), "Transmit: 0x%08X, setup 0x%08X 0x%08X 0x%08X PC: 0x%08X", last_sio_data, last_sio_setup1, last_sio_setup2, last_sio_setup3, pc );
-
-                switch(s->rtc.transfer_format)
-                {
-                    /* no special mode */
-                    case 0xFF:
-                    {
-                        uint8_t cmd = value & 0x0F;
-                        uint8_t reg = (value>>4) & 0x0F;
-                        s->rtc.transfer_format = cmd;
-                        s->rtc.current_reg = reg;
-
-                        switch(cmd)
-                        {
-                            /* burst writing */
-                            case 0x00:
-                            /* burst reading */
-                            case 0x04:
-                            /* 1 byte writing */
-                            case 0x08:
-                            /* 1 byte reading */
-                            case 0x0C:
-                                break;
-
-                            default:
-                                snprintf(mod, sizeof(mod), "RTC");
-                                snprintf(msg, sizeof(msg), "Requested invalid transfer mode 0x%02X", value);
-                                break;
-                        }
-                    }
-
-                    /* burst writing */
-                    case 0x00:
-                        s->rtc.regs[s->rtc.current_reg] = value;
-                        s->rtc.current_reg++;
-                        s->rtc.current_reg %= 0x10;
-                        break;
-
-                    /* burst reading */
-                    case 0x04:
-                        last_sio_data = s->rtc.regs[s->rtc.current_reg];
-                        s->rtc.current_reg++;
-                        s->rtc.current_reg %= 0x10;
-                        break;
-
-                    /* 1 byte writing */
-                    case 0x08:
-                        s->rtc.regs[s->rtc.current_reg] = value;
-                        s->rtc.transfer_format = 0xFF;
-                        break;
-
-                    /* 1 byte reading */
-                    case 0x0C:
-                        last_sio_data = s->rtc.regs[s->rtc.current_reg];
-                        s->rtc.transfer_format = 0xFF;
-                        break;
-
-                    default:
-                        break;
-                }
+                snprintf(msg, sizeof(msg), "Transmit: 0x%08X, setup 0x%08X 0x%08X 0x%08X PC: 0x%08X", last_sio_txdata, last_sio_setup1, last_sio_setup2, last_sio_setup3, pc );
             }
             else
             {
@@ -3920,13 +3443,12 @@ unsigned int eos_handle_sio ( unsigned int parm, EOSState *s, unsigned int addre
 
         case 0x18:
             snprintf(msg, sizeof(msg), "TX register");
-            MMIO_VAR(last_sio_data);
+            MMIO_VAR(last_sio_txdata);
             break;
 
         case 0x1C:
             snprintf(msg, sizeof(msg), "RX register");
-            /* fixme */
-            MMIO_VAR(last_sio_data);
+            MMIO_VAR(last_sio_rxdata);
             break;
     }
 
@@ -4507,8 +4029,69 @@ static void cfdma_trigger_interrupt(EOSState *s)
     }
 }
 
+static unsigned int eos_handle_uart_dma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+{
+    unsigned int ret = 0;
+    const char * msg = 0;
+
+    static uint32_t addr;
+    static uint32_t count;
+    static uint32_t status;
+
+    switch(address & 0x1F)
+    {
+        case 0x00:
+        case 0x08:
+            msg = "Transfer memory address";
+            MMIO_VAR(addr);
+            break;
+
+        case 0x04:
+        case 0x0C:
+            msg = "Transfer byte count";
+            MMIO_VAR(count);
+            break;
+
+        case 0x10:
+            msg = "Transfer command / status?";
+            if (value == 0x10023)
+            {
+                /* read char? */
+                count = 0;
+                cpu_physical_memory_write(addr, &s->uart.reg_rx, 1);
+                status = 0x10;
+
+                /* guess: initialization? */
+                static int first_time = 1;
+                if (first_time)
+                {
+                    eos_trigger_int(s, s->model->uart_rx_interrupt, 0);
+                    first_time = 0;
+                }
+            }
+            ret = 0x20;
+            break;
+
+        case 0x14:
+            msg = "DMA status?";
+            if (s->uart.reg_st & ST_RX_RDY) {
+                status |= 0x4;
+            }
+            MMIO_VAR(status);
+            break;
+    }
+
+    io_log("UartDMA", s, address, type, value, ret, msg, 0, 0);
+    return ret;
+}
+
 unsigned int eos_handle_cfdma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
+    if (parm == 0 && s->model->digic_version >= 4)
+    {
+        return eos_handle_uart_dma(parm, s, address, type, value);
+    }
+
     unsigned int ret = 0;
     const char * msg = 0;
 
@@ -5248,123 +4831,6 @@ unsigned int eos_handle_flashctrl ( unsigned int parm, EOSState *s, unsigned int
     return ret;
 }
 
-unsigned int eos_handle_jpcore( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
-{
-    const char * module_name = 0;
-    const char * msg = 0;
-    unsigned int ret = 0;
-
-    switch (parm)
-    {
-        case 0:
-        {
-            /* used for JPEG and old-style lossless compression (TTJ) */
-            module_name = "JP51";
-            break;
-        }
-
-        case 1:
-        {
-            /* used for H.264 */
-            module_name = "JP62";
-            break;
-        }
-
-        case 2:
-        {
-            /* used for new-style lossless compression (TTL) */
-            module_name = "JP57";
-            break;
-        }
-    }
-
-    /* common */
-    switch(address & 0xFFFF)
-    {
-        case 0x0000:
-            msg = "control/status?";
-            if(type & MODE_WRITE)
-            {
-                if (value & 1)
-                {
-                    msg = "Start JPCORE";
-                    eos_trigger_int(s, 0x64, 100);
-                }
-            }
-            else
-            {
-                /* EOSM: this value starts JPCORE, but fails the DCIM test */
-                //ret = 0x1010000;
-            }
-            break;
-
-        case 0x0004:
-            msg = "mode? (encode, decode etc)";
-            break;
-
-        case 0x000C:
-            msg = "operation mode?";
-            break;
-
-        case 0x0010 ... 0x001C:
-            msg = "JPEG tags, packed";
-            break;
-
-        case 0x0024:
-            msg = "output size";
-            break;
-
-        case 0x0030:
-            msg = "JPEGIC status?";
-            ret = 0x1FF;
-            break;
-
-        case 0x0040:
-            msg = "set to 0x600";
-            break;
-
-        case 0x0044:
-            msg = "interrupt status? (70D loop)";
-            ret = rand();
-            break;
-
-        case 0x0080:
-            msg = "slice size";
-            break;
-
-        case 0x0084:
-            msg = "number of components and bit depth";
-            break;
-
-        case 0x008C:
-            msg = "component subsampling";
-            break;
-
-        case 0x0094:
-            msg = "sample properties? for SOS header?";
-            break;
-
-        case 0x00E8:
-            msg = "slice width";
-            break;
-
-        case 0x0EC:
-            msg = "slice height";
-            break;
-
-        case 0x0928:
-            msg = "JpCoreFirm";
-            break;
-
-        case 0x092C:
-            msg = "JpCoreExtStream";
-            break;
-    }
-
-    io_log(module_name, s, address, type, value, ret, msg, 0, 0);
-    return ret;
-}
-
 unsigned int eos_handle_eeko_comm( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
     const char * msg = "INT%Xh: ???";
@@ -5434,14 +4900,24 @@ unsigned int eos_handle_digic6 ( unsigned int parm, EOSState *s, unsigned int ad
         case 0xD201381C:    /* D6 */
         case 0xD2018200:    /* 5D4 */
         case 0xD2018230:    /* 5D4 */
+        case 0xD20138BC:    /* M3 */
             msg = "Display resolution";
             MMIO_VAR_2x16(s->disp.width, s->disp.height);
             break;
         
         case 0xD2030108:    /* D6 */
-            s->disp.bmp_vram = value << 8;
-            s->disp.bmp_pitch = s->disp.width;
-            msg = "BMP VRAM";
+            if (strcmp(s->model->name, "EOSM3") == 0)
+            {
+                if ((value != 0x17410) && (value != 0x18010)) s->disp.bmp_vram = value << 8;
+                s->disp.bmp_pitch = (s->disp.width + 16) * 2;
+                msg = "BMP VRAM EOS M3";
+            }
+            else
+            {
+                s->disp.bmp_vram = value << 8;
+                s->disp.bmp_pitch = s->disp.width;
+                msg = "BMP VRAM";
+            }   
             break;
 
         case 0xD2018228:    /* 5D4 */

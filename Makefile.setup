@@ -8,6 +8,7 @@ include $(TOP_DIR)/Makefile.top
 
 -include $(TOP_DIR)/Makefile.user
 
+-include $(TOP_DIR)/Makefile.setup.toolchain
 
 ifeq ($(CONFIG_CCACHE), y)
     CC := $(CCACHE) $(CC)

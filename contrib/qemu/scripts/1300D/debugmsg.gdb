@@ -2,6 +2,10 @@
 # ./run_canon_fw.sh 1300D -d debugmsg -s -S & arm-none-eabi-gdb -x 1300D/debugmsg.gdb
 
 source -v debug-logging.gdb
+source -v 1300D/patches.gdb
+
+# To get debugging symbols from Magic Lantern, uncomment this:
+#symbol-file ../magic-lantern/platform/1300D.110/magiclantern
 
 macro define CURRENT_TASK 0x31170
 macro define CURRENT_ISR  (*(int*)0x31174 ? (*(int*)0x640) >> 2 : 0)
@@ -17,7 +21,7 @@ task_create_log
 b *0x3CBC
 assert_log
 
-# patch JPCORE (assert)
-set *(int*)0xFE4244FC = 0xe12fff1e
+b *0x2E50
+register_interrupt_log
 
 cont

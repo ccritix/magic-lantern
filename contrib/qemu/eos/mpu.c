@@ -46,6 +46,30 @@ static int mpu_init_spell_count = 0;
 #include "mpu_spells/EOSM.h"
 #include "mpu_spells/EOSM2.h"
 
+#include "mpu_spells/known_spells.h"
+
+static const char * mpu_spell_generic_description(uint16_t * spell)
+{
+    for (int i = 0; i < COUNT(known_spells); i++)
+    {
+        if (spell[0] && spell[1])
+        {
+            if (spell[2] == 6)
+            {
+                return "GUI_SWITCH";
+            }
+
+            if (spell[2] == known_spells[i].class &&
+                spell[3] == known_spells[i].id)
+            {
+                return known_spells[i].description;
+            }
+        }
+    }
+
+    return 0;
+}
+
 static void mpu_send_next_spell(EOSState *s)
 {
     if (s->mpu.sq_head != s->mpu.sq_tail)
@@ -62,7 +86,9 @@ static void mpu_send_next_spell(EOSState *s)
         {
             MPU_EPRINTF0("%02x ", s->mpu.out_spell[i]);
         }
-        MPU_EPRINTF0("\n");
+
+        const char * desc = mpu_spell_generic_description(s->mpu.out_spell);
+        MPU_EPRINTF0(" (%s)\n", desc ? desc : KLRED"unnamed"KRESET);
 
         s->mpu.out_char = -2;
 
@@ -183,6 +209,28 @@ static int match_spell(uint16_t * received, uint16_t * in_spell)
     return 1;
 }
 
+
+static int clean_shutdown = 0;
+
+static void clean_shutdown_check(void)
+{
+    if (!clean_shutdown)
+    {
+        MPU_EPRINTF(
+            KLRED"WARNING: forced shutdown."KRESET"\n\n"
+            "For clean shutdown, please use 'Machine -> Power Down'\n"
+            "(or 'system_powerdown' in QEMU monitor.)\n"
+        );
+    }
+}
+
+static void request_shutdown(void)
+{
+    MPU_EPRINTF("Shutdown requested.\n");
+    clean_shutdown = 1;
+    qemu_system_shutdown_request();
+}
+
 static void mpu_interpret_command(EOSState *s)
 {
     MPU_EPRINTF("Received: ");
@@ -199,12 +247,11 @@ static void mpu_interpret_command(EOSState *s)
     {
         if (match_spell(s->mpu.recv_buffer+1, mpu_init_spells[spell_set].in_spell+1))
         {
-            MPU_EPRINTF0(
-                " (%s%sspell #%d)\n",
-                mpu_init_spells[spell_set].description ? mpu_init_spells[spell_set].description : "",
-                mpu_init_spells[spell_set].description ? " - " : "",
-                spell_set+1
-            );
+            const char * desc = (mpu_init_spells[spell_set].description)
+                ? mpu_init_spells[spell_set].description
+                : mpu_spell_generic_description(mpu_init_spells[spell_set].in_spell);
+
+            MPU_EPRINTF0(" (%s - spell #%d)\n", desc ? desc : KLRED"unnamed"KRESET, spell_set+1);
             
             int out_spell;
             for (out_spell = 0; mpu_init_spells[spell_set].out_spells[out_spell][0]; out_spell++)
@@ -218,11 +265,18 @@ static void mpu_interpret_command(EOSState *s)
                 mpu_enqueue_spell(s, spell_set, out_spell, reply);
             }
             mpu_start_sending(s);
+
+            if (mpu_init_spells[spell_set].out_spells[out_spell][1] == MPU_SHUTDOWN)
+            {
+                request_shutdown();
+            }
             return;
         }
     }
-    
-    MPU_EPRINTF0(" (unknown spell)\n");
+
+    const char * desc = mpu_spell_generic_description(s->mpu.recv_buffer);
+
+    MPU_EPRINTF0(" ("KLRED"unknown - %s"KRESET")\n", desc ? desc : "unnamed");
 }
 
 void mpu_handle_sio3_interrupt(EOSState *s)
@@ -609,8 +663,8 @@ static struct {
     { 0xE050,   BGMT_PRESS_DOWN,                                                        },
     { 0xE04D,   BGMT_PRESS_RIGHT,                                                       },
     { 0xE0C8,   BGMT_UNPRESS_UP,                                                        },
-    { 0xE0D0,   BGMT_UNPRESS_LEFT,                                                      },
-    { 0xE0CB,   BGMT_UNPRESS_DOWN,                                                      },
+    { 0xE0CB,   BGMT_UNPRESS_LEFT,                                                      },
+    { 0xE0D0,   BGMT_UNPRESS_DOWN,                                                      },
     { 0xE0CD,   BGMT_UNPRESS_RIGHT,                                                     },
     
     { 0x004F,   BGMT_PRESS_DOWN_LEFT,   "Numpad keys",  "Joystick (8 directions)",      },
@@ -646,16 +700,34 @@ static struct {
     { 0x0032,   BGMT_MENU,              "M",            "MENU",                         },
     { 0x0019,   BGMT_PLAY,              "P",            "PLAY",                         },
     { 0x0017,   BGMT_INFO,              "I",            "INFO/DISP",                    },
+    { 0x0097,   BGMT_UNPRESS_INFO,                                                      },
     { 0x0010,   BGMT_Q,                 "Q",            "guess",                        },
     { 0x0026,   BGMT_LV,                "L",            "LiveView",                     },
+    { 0x0021,   BGMT_FUNC,              "F",            "FUNC",                         },
+    { 0x0024,   BGMT_JUMP,              "J",            "JUMP",                         },
+    { 0x0020,   BGMT_PRESS_DIRECT_PRINT,"D",            "Direct Print",                 },
+    { 0x00A0,   BGMT_UNPRESS_DIRECT_PRINT,                                              },
     { 0x0011,   BGMT_PICSTYLE,          "W",            "Pic.Style",                    },
+    { 0x001E,   BGMT_PRESS_AV,          "A",            "Av",                           },
+    { 0x009E,   BGMT_UNPRESS_AV,                                                        },
     { 0x002A,   BGMT_PRESS_HALFSHUTTER,     "Shift",    "Half-shutter"                  },
+    { 0x0036,   BGMT_PRESS_HALFSHUTTER,                                                 },
     { 0x00AA,   BGMT_UNPRESS_HALFSHUTTER,                                               },
-    { 0x0030,   GMT_GUICMD_OPEN_BATT_COVER, "B",        "Open battery cover",           },
+    { 0x00B6,   BGMT_UNPRESS_HALFSHUTTER,                                               },
+
+    /* the following unpress events are just tricks for sending two events
+     * with a small - apparently non-critical - delay between them */
+    { 0x0030,   GMT_GUICMD_OPEN_BATT_COVER, "B",        "Open battery door",            },
+    { 0x00B0,   MPU_SEND_ABORT_REQUEST,     /* sent shortly after opening batt. door */ },
+    { 0x002E,   GMT_GUICMD_OPEN_SLOT_COVER, "C",        "Open card door",               },
+    { 0x00AE,   MPU_SEND_SHUTDOWN_REQUEST,  /* sent shortly after opening card door */  },
+    { 0x0044,   GMT_GUICMD_START_AS_CHECK,  "F10",      "Power down switch",            },
+    { 0x00C4,   MPU_SEND_SHUTDOWN_REQUEST,  /* sent shortly after START_AS_CHECK */     },
 };
 
 /* returns MPU button codes (lo, hi) */
-static int translate_scancode_2(int scancode, int first_code)
+/* don't allow auto-repeat for most keys (exception: scrollwheels) */
+static int translate_scancode_2(int scancode, int first_code, int allow_auto_repeat)
 {
     if (!button_codes)
     {
@@ -670,6 +742,8 @@ static int translate_scancode_2(int scancode, int first_code)
         return 0x00F1F1F1;
     }
 
+    int ret = -2;                   /* not found */
+
     /* lookup MPU key code */
     for (int i = 0; i < COUNT(key_map); i++)
     {
@@ -681,18 +755,55 @@ static int translate_scancode_2(int scancode, int first_code)
                 case BGMT_UNPRESS_HALFSHUTTER:
                 case BGMT_PRESS_FULLSHUTTER:
                 case BGMT_UNPRESS_FULLSHUTTER:
+                case MPU_SEND_SHUTDOWN_REQUEST:
+                case MPU_SEND_ABORT_REQUEST:
+                {
                     /* special: return the raw gui code */
-                    return 0x0E0E0000 | key_map[i].gui_code;
+                    ret = 0x0E0E0000 | key_map[i].gui_code;
+                    break;
+                }
+
+                case BGMT_PRESS_AV:
+                case BGMT_UNPRESS_AV:
+                {
+                    /* special: return the raw gui code, with checking whether this button is supported */
+                    if (button_codes[key_map[i].gui_code])
+                    {
+                        ret = 0x0E0E0000 | key_map[i].gui_code;
+                    }
+                    break;
+                }
+
+                case BGMT_WHEEL_UP:
+                case BGMT_WHEEL_DOWN:
+                case BGMT_WHEEL_LEFT:
+                case BGMT_WHEEL_RIGHT:
+                {
+                    /* enable auto-repeat for these keys */
+                    allow_auto_repeat = 1;
+                    /* fall-through */
+                }
 
                 default:
+                {
                     /* return model-specific button code (bindReceiveSwitch) */
-                    return button_codes[key_map[i].gui_code];
+                    /* don't allow auto-repeat */
+                    ret = button_codes[key_map[i].gui_code];
+                    break;
+                }
             }
         }
     }
-    
-    /* not found */
-    return -2;
+
+    static int last_code = 0;
+    if (code == last_code && !allow_auto_repeat)
+    {
+        /* don't auto-repeat */
+        return -3;
+    }
+    last_code = code;
+
+    return ret;
 }
 
 static int translate_scancode(int scancode)
@@ -702,7 +813,7 @@ static int translate_scancode(int scancode)
     if (first_code)
     {
         /* special keys (arrows etc) */
-        int key = translate_scancode_2(scancode, first_code);
+        int key = translate_scancode_2(scancode, first_code, 0);
         first_code = 0;
         return key;
     }
@@ -715,13 +826,14 @@ static int translate_scancode(int scancode)
     }
     
     /* regular keys */
-    return translate_scancode_2(scancode, 0);
+    return translate_scancode_2(scancode, 0, 0);
 }
 
 static int key_avail(int scancode)
 {
     /* check whether a given key is available on current camera model */
-    return translate_scancode_2(scancode & 0xFF, scancode >> 8) > 0;
+    /* disable autorepeat checking */
+    return translate_scancode_2(scancode & 0xFF, scancode >> 8, 1) > 0;
 }
 
 static void show_keyboard_help(void)
@@ -738,14 +850,36 @@ static void show_keyboard_help(void)
             last_status = key_avail(key_map[i].scancode);
             if (last_status)
             {
-                MPU_EPRINTF0("- %-12s : %s\n", key_map[i].pc_key_name, key_map[i].cam_key_name);
+                int unpress_available = 0;
+                for (int j = i+1; j < COUNT(key_map); j++)
+                {
+                    if ((key_map[i].scancode & 0x80) == 0 &&
+                        (key_map[i].scancode | 0x80) == key_map[j].scancode &&
+                        (key_avail(key_map[j].scancode)))
+                    {
+                        unpress_available = 1;
+                    }
+                }
+                const char * press_only = 
+                    (unpress_available || strstr(key_map[i].cam_key_name, "wheel"))
+                        ? "" : "(press only)";
+                MPU_EPRINTF0("- %-12s : %s %s\n", key_map[i].pc_key_name, key_map[i].cam_key_name, press_only);
             }
         }
-        else if (last_status && !key_avail(key_map[i].scancode))
+        else if (last_status)
         {
             /* for grouped keys, make sure all codes are available */
-            MPU_EPRINTF("key code missing: %x %x\n", key_map[i].scancode, key_map[i].gui_code);
-            exit(1);
+            if (key_map[i].gui_code == BGMT_UNPRESS_SET ||
+                key_map[i].gui_code == BGMT_UNPRESS_INFO)
+            {
+                /* exception: UNPRESS_SET on VxWorks models */
+                /* 5D3 has UNPRESS_INFO - others? */
+            }
+            else if (!key_avail(key_map[i].scancode))
+            {
+                MPU_EPRINTF("key code missing: %x %x\n", key_map[i].scancode, key_map[i].gui_code);
+                exit(1);
+            }
         }
     }
     
@@ -772,31 +906,72 @@ void mpu_send_keypress(EOSState *s, int keycode)
     if ((key & 0xFFFF0000) == 0x0E0E0000)
     {
         MPU_EPRINTF0("Key event: %x -> %08x\n", keycode, key);
+
+        #define MPU_SEND_SPELLS(spells) \
+            for (int i = 0; i < COUNT(spells); i++) { \
+                mpu_enqueue_spell_generic(s, spells[i]); \
+            } \
+            mpu_start_sending(s); \
+
         switch (key & 0xFFFF)
         {
             case BGMT_PRESS_HALFSHUTTER:
             {
                 /* fixme: if in some other GUI mode, switch back to 0 first */
                 /* it will no longer be a simple sequence, but one with confirmation */
-                uint16_t mpu_halfshutter_spells[2][6] = {
+                uint16_t mpu_halfshutter_spells[][6] = {
                     { 0x06, 0x05, 0x06, 0x26, 0x01, 0x00 },
                     { 0x06, 0x04, 0x05, 0x00, 0x00, 0x00 },
                 };
-                for (int i = 0; i < COUNT(mpu_halfshutter_spells); i++)
-                {
-                    mpu_enqueue_spell_generic(s, mpu_halfshutter_spells[i]);
-                }
-                mpu_start_sending(s);
+                MPU_SEND_SPELLS(mpu_halfshutter_spells);
                 break;
             }
 
             case BGMT_UNPRESS_HALFSHUTTER:
             {
-                uint16_t mpu_halfshutter_spells[1][6] = {
+                uint16_t mpu_halfshutter_spells[][6] = {
                     { 0x06, 0x04, 0x05, 0x0B, 0x00, 0x00 },
                 };
-                mpu_enqueue_spell_generic(s, mpu_halfshutter_spells[0]);
-                mpu_start_sending(s);
+                MPU_SEND_SPELLS(mpu_halfshutter_spells);
+                break;
+            }
+
+            case BGMT_PRESS_AV:
+            {
+                /* fixme: M mode only, changes shutter info, maybe other side effects */
+                uint16_t mpu_av_spells[][0x12] = {
+                    { 0x06, 0x05, 0x06, 0x1C, 0x01, 0x00 },
+                    { 0x12, 0x11, 0x0a, 0x08, 0x06, 0x00, 0x01, 0x01, 0x98, 0x10, 0x00, 0x68, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00 },
+                };
+                MPU_SEND_SPELLS(mpu_av_spells);
+                break;
+            }
+
+            case BGMT_UNPRESS_AV:
+            {
+                uint16_t mpu_av_spells[][0x12] = {
+                    { 0x06, 0x05, 0x06, 0x1C, 0x00, 0x00 },
+                    { 0x12, 0x11, 0x0a, 0x08, 0x06, 0x00, 0x01, 0x03, 0x98, 0x10, 0x00, 0x68, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00 },
+                };
+                MPU_SEND_SPELLS(mpu_av_spells);
+                break;
+            }
+
+            case MPU_SEND_SHUTDOWN_REQUEST:
+            {
+                uint16_t shutdown_request[][6] = {
+                    { 0x06, 0x05, 0x02, 0x0b, 0x00, 0x00 },
+                };
+                MPU_SEND_SPELLS(shutdown_request);
+                break;
+            }
+
+            case MPU_SEND_ABORT_REQUEST:
+            {
+                uint16_t abort_request[][6] = {
+                    { 0x06, 0x04, 0x02, 0x0c, 0x00, 0x00 },
+                };
+                MPU_SEND_SPELLS(abort_request);
                 break;
             }
 
@@ -818,6 +993,17 @@ void mpu_send_keypress(EOSState *s, int keycode)
     /* (is this function called from the same thread as I/O handlers or not?) */
     mpu_enqueue_spell_generic(s, mpu_keypress_spell);
     mpu_start_sending(s);
+}
+
+static void mpu_send_powerdown(Notifier * notifier, void * null)
+{
+    EOSState *s = (EOSState *)((void *)notifier
+        - offsetof(MPUState, powerdown_notifier)
+        - offsetof(EOSState, mpu));
+
+    /* same as F10 */
+    mpu_send_keypress(s, 0x0044);
+    mpu_send_keypress(s, 0x00C4);
 }
 
 static void mpu_check_duplicate_spells(EOSState *s)
@@ -904,6 +1090,7 @@ void mpu_spells_init(EOSState *s)
 
     /* 1200D works with 60D MPU spells... and BOOTS THE GUI!!! */
     /* same for 1100D */
+    MPU_SPELL_SET_OTHER_CAM(1000D, 450D)
     MPU_SPELL_SET_OTHER_CAM(1100D, 60D)
     MPU_SPELL_SET_OTHER_CAM(1200D, 60D)
     MPU_SPELL_SET_OTHER_CAM(1300D, 60D)
@@ -932,8 +1119,9 @@ void mpu_spells_init(EOSState *s)
 
     MPU_BUTTON_CODES(100D)
     MPU_BUTTON_CODES(1100D)
-    MPU_BUTTON_CODES_OTHER_CAM(1200D, 600D)
+    MPU_BUTTON_CODES_OTHER_CAM(1200D, 1100D)
     MPU_BUTTON_CODES(450D)
+    MPU_BUTTON_CODES_OTHER_CAM(1000D, 450D)
     MPU_BUTTON_CODES(500D)
     MPU_BUTTON_CODES(550D)
     MPU_BUTTON_CODES(50D)
@@ -967,6 +1155,11 @@ void mpu_spells_init(EOSState *s)
         button_codes[BGMT_UNPRESS_LEFT]  = 
         button_codes[BGMT_UNPRESS_RIGHT] = button_codes[BGMT_UNPRESS_UDLR];
     }
-    
+
     show_keyboard_help();
+
+    s->mpu.powerdown_notifier.notify = mpu_send_powerdown;
+    qemu_register_powerdown_notifier(&s->mpu.powerdown_notifier);
+
+    atexit(clean_shutdown_check);
 }

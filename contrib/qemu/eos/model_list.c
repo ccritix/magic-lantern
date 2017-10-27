@@ -25,6 +25,8 @@ struct eos_model_desc eos_model_list[] = {
         .mpu_status_register    = 0xC0220098,
         .mpu_control_register   = 0xC0203034,
         .mpu_request_interrupt  = 0x52,
+        .uart_rx_interrupt      = 0x2E,
+        .uart_tx_interrupt      = 0x3A,
     },
     {
         /* defaults for DIGIC 4 cameras */
@@ -54,6 +56,8 @@ struct eos_model_desc eos_model_list[] = {
         .mpu_status_register    = 0xC022009C,
         .mpu_control_register   = 0xC020302C,
         .mpu_request_interrupt  = 0x50,
+        .uart_rx_interrupt      = 0x2E,
+        .uart_tx_interrupt      = 0x3A,
     },
     {
         /* defaults for DIGIC 5 cameras */
@@ -80,6 +84,8 @@ struct eos_model_desc eos_model_list[] = {
         .card_led_address       = 0xC022C188,   /* SD */
         .mpu_control_register   = 0xC020302C,
         .mpu_request_interrupt  = 0x50,
+        .uart_rx_interrupt      = 0x2E,
+        .uart_tx_interrupt      = 0x3A,
     },
     {
         /* defaults for DIGIC 6 cameras */
@@ -105,6 +111,8 @@ struct eos_model_desc eos_model_list[] = {
         .sd_driver_interrupt    = 0xEE,
         .sd_dma_interrupt       = 0xBE,
         .card_led_address       = 0xD20B0A24,
+        .uart_rx_interrupt      = 0x15D,
+        .uart_tx_interrupt      = 0x16D,
     },
     {
         /* defaults for DIGIC 7 cameras */
@@ -126,16 +134,20 @@ struct eos_model_desc eos_model_list[] = {
         .name                   = "60D",
         .digic_version          = 4,
         .current_task_addr      = 0x1A2C,
+        .rtc_time_correct       = 0x8D,
     },
     {
         .name                   = "600D",
         .digic_version          = 4,
         .current_task_addr      = 0x1A2C,
+        .rtc_time_correct       = 0x8C,
     },
     {
         .name                   = "500D",
         .digic_version          = 4,
         .current_task_addr      = 0x1A74,
+        .rtc_time_correct       = 0x8A,
+        .rtc_control_reg_2      = 0x20,
     },
     {
         .name                   = "5D2",
@@ -155,6 +167,7 @@ struct eos_model_desc eos_model_list[] = {
         .card_led_address       = 0xC022C06C,
         .cf_driver_interrupt    = 0x82,
         .cf_dma_interrupt       = 0xE3,
+        .rtc_time_correct       = 0x9F,
     },
     {
         /* started on request on photo taking, raw develop and others;
@@ -174,6 +187,7 @@ struct eos_model_desc eos_model_list[] = {
         .dryos_timer_interrupt  = 0xFE,
         .current_task_addr      = 0x40000148,
         .current_task_name_offs = 0x09,
+        .uart_rx_interrupt      = 0x39,
     },
     {
         .name                   = "650D",
@@ -182,6 +196,7 @@ struct eos_model_desc eos_model_list[] = {
         .mpu_request_register   = 0xC022006C,
         .mpu_status_register    = 0xC022006C,
         .serial_flash_size      = 0x800000,
+        .rtc_time_correct       = 0x98,
     },
     {
         .name                   = "100D",
@@ -190,6 +205,7 @@ struct eos_model_desc eos_model_list[] = {
         .mpu_status_register    = 0xC022006C,
         .serial_flash_size      = 0x1000000,
         .current_task_addr      = 0x652AC,
+        .rtc_time_correct       = 0x98,
     },
     {
         .name                   = "7D",
@@ -201,6 +217,8 @@ struct eos_model_desc eos_model_list[] = {
         .name                   = "550D",
         .digic_version          = 4,
         .current_task_addr      = 0x1A20,
+        .rtc_time_correct       = 0x8D,
+        .rtc_control_reg_2      = 0x20,
     },
     {
         .name                   = "6D",
@@ -216,6 +234,7 @@ struct eos_model_desc eos_model_list[] = {
         .mpu_status_register    = 0xC02200BC,
         .card_led_address       = 0xC022C06C,
         .serial_flash_size      = 0x800000,
+        .rtc_time_correct       = 0xA0,
     },
     {
         .name                   = "700D",
@@ -225,11 +244,13 @@ struct eos_model_desc eos_model_list[] = {
         .mpu_status_register    = 0xC022006C,
         .card_led_address       = 0xC022C188,
         .serial_flash_size      = 0x800000,
+        .rtc_time_correct       = 0x98,
     },
     {
         .name                   = "1100D",
         .digic_version          = 4,
         .current_task_addr      = 0x1A2C,
+        .rtc_time_correct       = 0x8D,
     },
     {
         .name                   = "1200D",
@@ -237,6 +258,7 @@ struct eos_model_desc eos_model_list[] = {
         .firmware_start         = 0xFF0C0000,
         .current_task_addr      = 0x1A2C,
         .card_led_address       = 0xC0220134,
+        .rtc_time_correct       = 0xFD,
     },
     {
         .name                   = "1300D",
@@ -249,6 +271,8 @@ struct eos_model_desc eos_model_list[] = {
         .current_task_addr      = 0x31170,
         .sd_driver_interrupt    = 0x4B,
         .sd_dma_interrupt       = 0x32,
+        .uart_rx_interrupt      = 0x38,
+        .rtc_time_correct       = 0xFD,
     },
     {
         .name                   = "EOSM",
@@ -258,6 +282,7 @@ struct eos_model_desc eos_model_list[] = {
         .mpu_status_register    = 0xC022006C,
         .card_led_address       = 0xC022C188,
         .serial_flash_size      = 0x800000,
+      //.rtc_time_correct       = 0x98,     /* the date/time dialog prevents the camera from going into LiveView */
     },
     {
         .name                   = "EOSM2",
@@ -266,6 +291,8 @@ struct eos_model_desc eos_model_list[] = {
         .mpu_request_register   = 0xC022006C,
         .mpu_status_register    = 0xC022006C,
         .serial_flash_size      = 0x1000000,
+        .rtc_time_correct       = 0x9A,
+        .rtc_control_reg_2      = 0x10,     /* the date/time dialog prevents the camera from going into LiveView */
     },
     {
         .name                   = "EOSM3",
@@ -349,6 +376,10 @@ struct eos_model_desc eos_model_list[] = {
         .name                   = "1000D",
         .digic_version          = 3,
         .current_task_addr      = 0x352C0,
+        .sd_driver_interrupt    = 0x4B,
+        .sd_dma_interrupt       = 0x32,
+        .rtc_time_correct       = 0x93,
+        .rtc_control_reg_2      = 0x20,
     },
     {
         .name                   = "400D",
@@ -362,6 +393,8 @@ struct eos_model_desc eos_model_list[] = {
         .current_task_addr      = 0x355C0,
         .sd_driver_interrupt    = 0x4B,
         .sd_dma_interrupt       = 0x32,
+        .rtc_time_correct       = 0x93,
+        .rtc_control_reg_2      = 0x20,
     },
     {
         .name                   = "40D",
