@@ -23,6 +23,7 @@
 #include "blink.h"
 #include "asm.h"
 #include "qemu-util.h"
+#include "propvalues.h"
 
 #define BUF_SIZE_STATIC (16*1024)
 
@@ -99,7 +100,25 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     if (class == 0x3E) // IPC, causes ERR70
         return;
     #endif
-    
+
+    /* only log messages from LiveView tasks until the buffer is half-full
+     * (these are very verbose) */
+    if (lv && len > buf_size / 2)
+    {
+        if (streq(current_task->name, "Evf") ||
+            streq(current_task->name, "Epp") ||
+            streq(current_task->name, "AeWb") ||
+            streq(current_task->name, "LVFACE") ||
+            streq(current_task->name, "LVC_FACE") ||
+            streq(current_task->name, "CLR_CALC") ||
+            streq(current_task->name, "DisplayMgr") ||
+            streq(current_task->name, "LiveViewMgr") ||
+            0)
+        {
+            return;
+        }
+    }
+
     va_list            ap;
 
     uint32_t old = cli();
