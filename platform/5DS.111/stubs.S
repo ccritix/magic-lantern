@@ -60,3 +60,10 @@ NSTUB(0xFE46D4B9,  FIO_RemoveFile)
 /** Slave Comm **/
 NSTUB(0xFE3F3980,  BulkOutIPCTransfer)
 NSTUB(0xFE3F3B04,  BulkInIPCTransfer)
+
+
+
+NSTUB(0x00001D70,  vsnprintf)
+NSTUB(0x00001C80,  get_current_task_id)
+NSTUB(0xFE48B081,  sprintf)
+NSTUB(0xFE221339,  get_task_name)

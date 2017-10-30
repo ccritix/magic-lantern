@@ -148,7 +148,10 @@ static int addr_pos = 5;
 /* used by font_draw */
 void disp_set_pixel(int x, int y, int c)
 {
-    uint8_t* bmp = 0x7ED2E000 ;
+    //void *(*GetCurrentImgAddrActive)(int buffer) = 0xFE52F689;
+    //void *(*GetCurrentImgAddrActive)(int buffer) = 0xFE52F6BB;
+    //uint8_t* bmp = GetCurrentImgAddrActive(0);
+    uint8_t* bmp = MEM(MEM(0xDB50) + 4);
     bmp[x + y * 960] = c;
 }
 
@@ -209,10 +212,105 @@ static void dump_master(uint32_t address, uint32_t length, char *filename)
     FreeUncachableMemory(buffer);
 }
 
+
+
+static char * volatile buf = 0;
+static volatile int buf_size = 0;
+static volatile int len = 0;
+
+#define CURRENT_TASK_NAME (((int*)CURRENT_TASK)[0] ? ((char***)CURRENT_TASK)[0][9] : CURRENT_TASK) 
+#define CURRENT_TASK 0x44F4
+#define CURRENT_ISR  (*(int*)0x44D0 ? (*(int*)0x44D4) : 0) 
+
+char *get_task_name(int id);
+int get_current_task_id();
+
+static void my_DebugMsg(int class, int level, char* fmt, ...)
+{
+    if (!buf) return;
+        
+    if (class != 145)
+        return;
+    
+    va_list            ap;
+    uint32_t old = cli();
+    uintptr_t lr = read_lr();
+    
+    /* can be replaced with get_us_clock_value, with a slightly higher overhead */
+    uint32_t us_timer = MEM(0xC0242014);
+
+    char* task_name = CURRENT_TASK_NAME;//get_task_name(get_current_task_id());
+    
+    /* Canon's vsnprintf doesn't know %20s */
+    char task_name_padded[11] = "           ";
+    int spaces = 10 - strlen(task_name);
+    if (spaces < 0) spaces = 0;
+    sprintf(task_name_padded + spaces, "%s", task_name);
+
+    len += sprintf( buf+len, "%05X> %s:%08x:%02x:%02x: ", us_timer, task_name_padded, lr-4, class, level );
+
+    va_start( ap, fmt );
+    len += vsnprintf( buf+len, buf_size-len-1, fmt, ap );
+    va_end( ap );
+    
+    len += sprintf(buf+len, "\n");
+
+    sei(old);
+}
+
+
 static void my_ml_task()
 {
     msleep(4000);
     
+    buf_size = 2 * 1024 * 1024;
+    buf = AllocateUncacheableMemory(buf_size);
+    len = 0;
+    
+    FILE *f = FIO_CreateFile("B:/log.txt");
+    
+    //my_DebugMsg(1, 2, "Test: %s %d", "dummy", 8198);
+    
+    //0F B4 70 4A 2D E9 F0 41 0E 46 11 68 A2 B0 00 29
+    //78 47 C0 46 E5 1F F0 04 EF BE AD DE A2 B0 00 29
+    
+    
+    MEM(0x02D288) = 0x41;
+    uint32_t old = cli();
+    MEM(0x268) = 0x46C04778;
+    MEM(0x26C) = 0xE51FF004;
+    MEM(0x270) = (uint32_t)&my_DebugMsg;
+    sei(old);
+    
+    while(1)
+    {
+        uint32_t old = cli();
+        if(len)
+        {
+            FIO_WriteFile(f, buf, len);
+            len = 0;
+        }
+        sei(old);
+        
+        msleep(500);
+        //MEM(CARD_LED_ADDRESS) = LEDON;
+        //msleep(500);
+        //MEM(CARD_LED_ADDRESS) = LEDOFF;
+        //msleep(500);
+        
+        //void *(*cmd_StartFlatDisplay)(int *buffer) = 0xFE2BD1FD;
+        //uint32_t buffer[4] = { 1, 2, 3, 4};
+        //cmd_StartFlatDisplay(buffer);
+        //font_draw(100, 75, COLOR_WHITE, 3, "Hello, World!");
+        
+        //for(int num = 0; num < 6; num++)
+        //{
+        //uint8_t *cmos = MEM(0x10C40) + 72 * num + 3392;
+        //
+        //*cmos++;
+        //}
+    }
+    /*
     dump_slave(0x00000000, 0x10000000, "A:/00000000.SLV");
     dump_slave(0x10000000, 0x10000000, "A:/10000000.SLV");
     dump_slave(0x20000000, 0x10000000, "A:/20000000.SLV");
@@ -240,6 +338,7 @@ static void my_ml_task()
     dump_master(0x80000000, 0x00010000, "A:/80000000.MST");
     dump_master(0xFC000000, 0x02000000, "A:/FC000000.MST");
     dump_master(0xFE000000, 0x02000000, "A:/FE000000.MST");
+    */
     
     return;
 }
