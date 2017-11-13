@@ -210,18 +210,17 @@ ML_SRC_REBOOT_OBJ = reboot.o \
 	strlen.o strcmp.o gcc-libgcc.a
 ML_SRC_REBOOT_OBJ += md5.o
 ML_SRC_REBOOT_OBJ += led_dump.o
-ML_SRC_REBOOT_OBJ += disp_dump.o
 ML_SRC_REBOOT_OBJ += prop_diag.o
 ML_SRC_REBOOT_OBJ += malloc.o
 ML_SRC_REBOOT_OBJ += asm.o
 
-ifeq ($(CONFIG_CPUINFO),y)
-CFLAGS += -DCONFIG_CPUINFO
+ifeq ($(CONFIG_BOOT_CPUINFO),y)
+CFLAGS += -DCONFIG_BOOT_CPUINFO
 ML_SRC_REBOOT_OBJ += cpuinfo.o
 endif
 
-ifeq ($(CONFIG_FULLFAT),y)
-CFLAGS += -DCONFIG_FULLFAT
+ifeq ($(CONFIG_BOOT_FULLFAT),y)
+CFLAGS += -DCONFIG_BOOT_FULLFAT
 ML_SRC_REBOOT_OBJ += sd_direct.o
 ML_SRC_REBOOT_OBJ += ff_blk.o
 ML_SRC_REBOOT_OBJ += ff_crc.o
@@ -237,6 +236,11 @@ ML_SRC_REBOOT_OBJ += ff_safety.o
 ML_SRC_REBOOT_OBJ += ff_string.o
 ML_SRC_REBOOT_OBJ += ff_time.o
 ML_SRC_REBOOT_OBJ += ff_unicode.o
+endif
+
+ifeq ($(CONFIG_BOOT_DISP_DUMP),y)
+CFLAGS += -DCONFIG_BOOT_DISP_DUMP
+ML_SRC_REBOOT_OBJ += disp_dump.o
 endif
 
 ifeq ($(CONFIG_BOOT_DUMPER),y)

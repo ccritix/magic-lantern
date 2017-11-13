@@ -200,14 +200,22 @@ CONFIG_QEMU_MENU_SCREENSHOTS = n
 # Work in progress - load ML as position-independent code (PIC)
 CONFIG_PIC          = n
 
-# recovery: use the fullfat library for low-level card access
-CONFIG_FULLFAT      = n
+# CONFIG_BOOT_* options are for the "recovery" builds
+# compile from platform/portable.000 or from model-specific platform dir
 
-# recovery: print CHDK cpuinfo
-CONFIG_CPUINFO      = n
+# dump ROM from bootloader (by default with Canon routines, optional FULLFAT or DISP_DUMP)
+CONFIG_BOOT_DUMPER       ?= n
 
-# recovery: dump ROM from bootloader (either FULLFAT or Canon routines)
-CONFIG_BOOT_DUMPER  = n
+# use the fullfat library for low-level card access
+# requires CONFIG_BOOT_DUMPER = y
+CONFIG_BOOT_FULLFAT      ?= n
 
-# recovery: enable boot flag from bootloader
-CONFIG_BOOT_BOOTFLAG = n
+# use a matrix-like display dumper (you need a second camera)
+# requires CONFIG_BOOT_DUMPER = y
+CONFIG_BOOT_DISP_DUMP    ?= n
+
+# print CHDK cpuinfo (hardcoded for DIGIC 6; comment out THUMB_FW cpuinfo.c for earlier models)
+CONFIG_BOOT_CPUINFO      ?= n
+
+# enable boot flag from bootloader (DIGIC 6)
+CONFIG_BOOT_BOOTFLAG     ?= n

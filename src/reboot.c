@@ -29,7 +29,7 @@
 #define PRINTF_FONT_SIZE 2
 #define PRINTF_FONT_COLOR COLOR_CYAN
 
-#if defined(CONFIG_CPUINFO)
+#if defined(CONFIG_BOOT_CPUINFO)
 #define PAGE_SCROLL
 #undef  PRINTF_FONT_SIZE
 #define PRINTF_FONT_SIZE 1
@@ -238,7 +238,7 @@ int printf(const char * fmt, ...)
     return 0;
 }
 
-#ifdef CONFIG_FULLFAT
+#ifdef CONFIG_BOOT_FULLFAT
 static void print_err(FF_ERROR err)
 {
     char *message = (char*)FF_GetErrMessage(err);
@@ -738,6 +738,7 @@ static void dump_rom_with_canon_routines()
     }
 }
 
+#ifdef CONFIG_BOOT_FULLFAT
 static void dump_rom_with_fullfat()
 {
 #if defined(CONFIG_600D) || defined(CONFIG_5D3)
@@ -757,6 +758,7 @@ static void dump_rom_with_fullfat()
     fat_deinit(ioman);
 #endif
 }
+#endif
 
 static int (*set_bootflag)(int flag, int value) = 0;
 
@@ -792,7 +794,7 @@ cstart( void )
     
     disp_init();
 
-#ifdef CONFIG_CPUINFO
+#ifdef CONFIG_BOOT_CPUINFO
     printf("CHDK CPU info for 0x%X %s\n", get_model_id(), get_model_string());
     printf("------------------------------\n");
     cpuinfo_print();
@@ -819,12 +821,12 @@ cstart( void )
     print_bootflags();
     find_gaonisoy();
     
-    disp_dump(0xFC000000, 0x02000000);
-
     #if defined(CONFIG_BOOT_DUMPER)
         /* pick one method for dumping the ROM */
-        #if defined(CONFIG_FULLFAT)
+        #if defined(CONFIG_BOOT_FULLFAT)
             dump_rom_with_fullfat();
+        #elif defined(CONFIG_BOOT_DISP_DUMP)
+            disp_dump(0xFC000000, 0x02000000);
         #else
             dump_rom_with_canon_routines();
         #endif
