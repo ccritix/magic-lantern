@@ -303,10 +303,7 @@ reloc(
     while ((intptr_t)entry - (intptr_t)fixups < 0);
     
     /* before we execute code, make sure a) data caches are drained and b) instruction caches are clean */
-    int old = cli();
     sync_caches();
-    reapply_cache_patches();
-    sei(old);
 #endif
 
     // Return the entry point of the new function
