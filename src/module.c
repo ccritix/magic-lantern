@@ -449,10 +449,7 @@ static void _module_load_all(uint32_t list_only)
     }
     
     /* before we execute code, make sure a) data caches are drained and b) instruction caches are clean */
-    int old = cli();
     sync_caches();
-    reapply_cache_patches();
-    sei(old);
     
     /* go through all modules and initialize them */
     printf("Init modules...\n");
