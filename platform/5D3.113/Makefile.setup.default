@@ -6,6 +6,3 @@ ML_AF_PATTERNS_OBJ = n
 ML_SRC_EXTRA_OBJS = \
 	video_hacks.o \
 	afma.o \
-
-
-CFLAG_USER += -DCONFIG_5D3_113=1

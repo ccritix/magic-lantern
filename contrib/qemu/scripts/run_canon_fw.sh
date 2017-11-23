@@ -57,7 +57,7 @@ $MAKE -C $QEMU_PATH || exit 2
 # clear the terminal
 # (since the logs are very large, being able to scroll at the beginning is helpful)
 # note: "tput reset" may crash when running as a background job, figure out why
-echo -e \\033c
+printf '\ec\e[3J'
 
 # print the invocation
 # https://unix.stackexchange.com/a/118468
@@ -67,9 +67,9 @@ case $(ps -o stat= -p $$) in
 esac
 
 # also print the command-line of arm-none-eabi-gdb, if any
-gdb_pid=$(pidof -s arm-none-eabi-gdb)
+gdb_pid=$(pgrep -nx arm-none-eabi-gdb)
 if [ "$gdb_pid" != "" ]; then
-  gdb_cmd=$(ps -p $gdb_pid -o args --no-headers)
+  gdb_cmd=$(ps -p $gdb_pid -o args | tail -n1)
   case $(ps -o stat= -p $gdb_pid) in
     *+*) echo "$gdb_cmd" ;;      # Running in foreground
     *) echo "$gdb_cmd" "&" ;;    # Running in background
@@ -91,7 +91,7 @@ env QEMU_EOS_DEBUGMSG="$QEMU_EOS_DEBUGMSG" \
   $QEMU_PATH/arm-softmmu/qemu-system-arm \
     -drive if=sd,format=raw,file=sd.img \
     -drive if=ide,format=raw,file=cf.img \
-    -chardev socket,server,nowait,path=qemu.monitor,id=monsock \
+    -chardev socket,server,nowait,path=qemu.monitor$QEMU_JOB_ID,id=monsock \
     -mon chardev=monsock,mode=readline \
     -M $*
 
@@ -106,3 +106,10 @@ env QEMU_EOS_DEBUGMSG="$QEMU_EOS_DEBUGMSG" \
 #
 # you can, of course, redirect it with -monitor stdio or -monitor vl
 # more info: http://nairobi-embedded.org/qemu_monitor_console.html
+
+# QEMU_JOB_ID should not generally be defined (just leave it blank)
+# exception: if you want to launch multiple instances of the emulator,
+# each instance will get its own qemu.monitor socket.
+#
+# If you start multiple instances, also use -snapshot to prevent changes
+# to the SD and CF card images (so they can be shared between all processes)

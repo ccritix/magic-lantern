@@ -4,7 +4,8 @@
 # This also shows the emulation state on various cameras
 # usage: 
 #   ./run_test.sh                   # test all models
-#   ./run_test.sh 5D3 EOSM EOSM3    # test only specific models
+#   ./run_test.sh 5D3 EOSM EOSM3    # test only specific models (uppercase arguments = camera models)
+#   ./run_test.sh 5D3 drysh menu    # run only the selected tests/models (lowercase arguments = test names)
 
 # Caveat: this assumes no other qemu-system-arm or
 # arm-none-eabi-gdb processes are running during the tests
@@ -19,7 +20,7 @@ POWERSHOT_CAMS=( EOSM3 EOSM10 EOSM5 A1100 )
 EOS_SECONDARY_CORES=( 5D3eeko 5D4AE 7D2S )
 
 # cameras able to run Canon GUI (menu tests)
-GUI_CAMS=( 5D2 5D3 50D 60D 70D
+GUI_CAMS=( 5D2 5D3 6D 50D 60D 70D
            450D 500D 550D 600D 650D 700D
            100D 1000D 1100D 1200D EOSM EOSM2 )
 
@@ -34,8 +35,32 @@ CF_CAMS=( 5D 5D2 5D3 5D4 7D 7D2M 40D 50D 400D )
 # cameras able to run the FA_CaptureTestImage test (full-res silent picture backend)
 FRSP_CAMS=( 5D3 500D 550D 50D 60D 1100D 1200D )
 
-if (( $# > 0 )); then
-    # arguments present? test only these models
+# newer openbsd netcat requires -N (since 1.111)
+# older openbsd netcat does not have -N (prints error if we attempt to use it)
+# try to autodetect which one should be used, and let the user override it
+NC=${NC:=$(nc -h |& grep -q -- -N && echo "nc -N" || echo "nc")}
+echo "Using netcat: $NC"
+
+function has_upper_args {
+    for arg in "$@"; do
+        if [ "$arg" == "${arg^^}" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+function has_lower_args {
+    for arg in "$@"; do
+        if [ "$arg" == "${arg,,}" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+if (( $# > 0 )) && has_upper_args "$@"; then
+    # uppercase arguments present? test only these models
     # fixme: nicer way to do the same? (intersection between arguments and the lists of supported models)
     REQ_CAMS=( $* )
     EOS_CAMS=($(join <(printf %s\\n "${REQ_CAMS[@]}" | sort -u) <(printf %s\\n "${EOS_CAMS[@]}" | sort -u) | sort -n))
@@ -47,13 +72,34 @@ if (( $# > 0 )); then
     EOS_SECONDARY_CORES=($(join <(printf %s\\n "${REQ_CAMS[@]}" | sort -u) <(printf %s\\n "${EOS_SECONDARY_CORES[@]}" | sort -u) | sort -n))
 fi
 
+# lowercase args are test names
+function test_selected {
+    local test=$1
+    shift
+    if has_lower_args ${BASH_ARGV[@]}; then
+        # lowercase args present?
+        for arg in ${BASH_ARGV[@]}; do
+            if [ "$arg" == "$test" ]; then
+                # current test selected
+                return 0
+            fi
+        done
+
+        # this test is not among the lowercase args? skip it
+        return 1
+    fi
+
+    # no lowercase args? run all tests
+    return 0
+}
+
 declare -A MENU_SEQUENCE
 MENU_SEQUENCE[5D2]="f1 i i i m up up up space m m w w p p" # sensor cleaning animation
 MENU_SEQUENCE[5D3]="f1 i i i f1 i m left down down down space m m p p q space m right right space m down right space pgdn m q"
+MENU_SEQUENCE[6D]="m left left up space space down space m right down space down space up up space down space m i i i q right space right space space space m m q p p"
 MENU_SEQUENCE[50D]="f1 i i i m up space space m w w p p" # sensor cleaning animation
 MENU_SEQUENCE[60D]="f1 i i i i m left left up space m m p p"
-#MENU_SEQUENCE[70D]="m up up up up space m up up" # fixme: locks up quickly
-MENU_SEQUENCE[70D]="f1" # fixme: doesn't go into menu
+MENU_SEQUENCE[70D]="m left up space down space m p p i i i i i q"
 MENU_SEQUENCE[450D]="f1 m up up space m left left i p p w down down space " # LiveView overlays also working, but the tests would crash at shutdown
 MENU_SEQUENCE[500D]="f1 m i i right right up m p p"
 MENU_SEQUENCE[550D]="m i i right right down down down space space p p" # info screen not working
@@ -74,8 +120,10 @@ FMT_SEQ_5D3="space space right space wait f1 space space"
 declare -A FORMAT_SEQUENCE
 FORMAT_SEQUENCE[5D2]="m right right right right $FMT_SEQ"
 FORMAT_SEQUENCE[5D3]="m left left left left $FMT_SEQ_5D3"
+FORMAT_SEQUENCE[6D]="m left left left $FMT_SEQ"
 FORMAT_SEQUENCE[50D]="m down down $FMT_SEQ"
 FORMAT_SEQUENCE[60D]="m left left left left $FMT_SEQ"
+FORMAT_SEQUENCE[70D]="m left left left $FMT_SEQ"
 FORMAT_SEQUENCE[450D]="m left left $FMT_SEQ"                # fixme: locks up
 FORMAT_SEQUENCE[500D]="m $FMT_SEQ"
 FORMAT_SEQUENCE[550D]="m $FMT_SEQ"
@@ -145,18 +193,41 @@ cp -v ../magic-lantern/contrib/qemu/sd.img.xz .
 unxz -k sd.img.xz
 cp sd.img cf.img
 
+# checksum of reference SD/CF images
+sd_checksum=`md5sum sd.img`
+cf_checksum=`md5sum cf.img`
+
+# optional argument: -q = quiet
+function sd_cf_restore_if_modified {
+    # compute the checksums of SD and CF images in parallel
+    local checksums="$( md5sum sd.img & md5sum cf.img & )"
+    sd_new_checksum=$(echo "$checksums" | grep sd.img)
+    cf_new_checksum=$(echo "$checksums" | grep cf.img)
+
+    if [ "$sd_new_checksum" != "$sd_checksum" ]; then
+        [ "$1" == "-q" ] || echo -n " SD modified "
+        rm sd.img
+        unxz -k sd.img.xz
+    fi
+    if [ "$cf_new_checksum" != "$cf_checksum" ]; then
+        [ "$1" == "-q" ] || echo -n " CF modified "
+        rm cf.img
+        cp sd.img cf.img
+    fi
+}
+
 # send a keypress and wait for the screen to match a checksum
 # save the screenshot, regardless of match result
 # vncexpect key md5 timeout capture
 function vncexpect {
-    vncdo -s :12345 key $1
+    vncdo -s $VNC_DISP key $1
     rm -f $4
-    if vncdo -s :12345 -v -v -t $3 expect-md5 $2 &> tests/vncdo.log; then
+    if vncdo -s $VNC_DISP -v -v -t $3 expect-md5 $2 &> tests/vncdo.log; then
         echo -n "."
-        vncdo -s :12345 capture $4
+        vncdo -s $VNC_DISP capture $4
         return 0
     else
-        vncdo -s :12345 capture $4
+        vncdo -s $VNC_DISP capture $4
         echo ""
         echo "$2  expected"
         md5sum $4
@@ -165,91 +236,261 @@ function vncexpect {
     return $ret
 }
 
+# just stop QEMU (current instance only) without shutting down DryOS
+# to be used when emulation is not expected to run the GUI
+function stop_qemu_expect_running {
+    echo "quit" | $NC -U $QEMU_MONITOR &> /dev/null \
+        && sleep 0.5 \
+        || echo -e "\e[31mQEMU not running\e[0m"
+}
+
+function stop_qemu_expect_not_running {
+    echo "quit" | $NC -U $QEMU_MONITOR &> /dev/null \
+        && echo -e "\e[31mQEMU still running\e[0m" \
+        && sleep 0.5
+}
+
+# shutdown DryOS cleanly and stop qemu (current instance only)
+# if shutdown was not clean, print a warning
+# to be used when emulation goes as far as booting the GUI
+function shutdown_qemu {
+    echo "system_powerdown" | $NC -U $QEMU_MONITOR &> /dev/null \
+        || echo -en "\e[31mQEMU not running\e[0m " \
+        && sleep 1 && stop_qemu_expect_not_running
+}
+
+# kill all instances of qemu-system-arm / arm-none-eabi-gdb
+# only used if graceful shutdown didn't work (see above)
+# fixme: only kill the QEMU processes started by us (how?)
 function kill_qemu {
-    # fixme: only kill the QEMU processes started by us (how?)
 
-    if [ "$1" == "expect_running" ] && ! pidof qemu-system-arm > /dev/null; then
-        echo -e "\e[31mQEMU not running\e[0m"
+    if pidof qemu-system-arm > /dev/null; then
+        echo -e "\e[31mQEMU still running"
     fi
 
-    if [ "$1" == "expect_not_running" ] && pidof qemu-system-arm > /dev/null; then
-        echo -e "\e[31mshutdown error\e[0m (QEMU still running)"
+    if killall -TERM -w qemu-system-arm 2>/dev/null; then
+        sleep 1
     fi
-
-    killall -TERM -w qemu-system-arm 2>/dev/null
-
-    sleep 1
 
     if pidof arm-none-eabi-gdb > /dev/null; then
         echo -e "\e[31mGDB still running\e[0m"
+
+        # for some reason, -TERM may hang up here
+        # but should be unreachable normally
+        killall -9 -w arm-none-eabi-gdb 2>/dev/null
     fi
-    # for some reason, -TERM may hang up here
-    # but should be unreachable normally
-    killall -9 -w arm-none-eabi-gdb 2>/dev/null
 }
 
 # just to be sure
 kill_qemu expect_not_running
 
-# All EOS cameras should run the Dry-shell console over UART
-# fixme: only works on D4 and D5 models
-echo
-echo "Testing Dry-shell over UART..."
-for CAM in 5D3eeko ${EOS_CAMS[*]}; do
-    printf "%5s: " $CAM
+export QEMU_JOB_ID=0
 
-    # skip VxWorks models for now
-    if grep -q VxWorks $CAM/ROM1.BIN; then
-        echo -e "\e[33mskipping\e[0m"
-        continue
+# tried GNU parallel (kinda works, trouble with functions using arrays)
+# tried Rust parallel (unable to call bash functions)
+# this one is in plain bash, so bash functions just work :)
+# https://stackoverflow.com/a/12436838
+# https://stackoverflow.com/a/33048123
+function job_limit {
+    local max_number=$((0 + ${1:-0}))
+    while true; do
+        local current_number=$(jobs -pr | wc -l)
+        if [[ $current_number -lt $max_number ]]; then
+            break
+        fi
+        sleep 0.5
+    done
+}
+
+# experiment - keep the "load" close to number of CPUs
+# will throttle if other jobs are running on the same machine
+# and use the full power if the machine is idle
+function job_limit_auto {
+    if [[ $(jobs -pr | wc -l) -gt 1 ]]; then
+        # delay checking if we started more than one background job
+        # trick to avoid undetected overloads and also to avoid slowdowns when there's nothing to do
+        sleep 0.2
+    fi
+    local max_number=$(nproc)
+    while true; do
+        # check how many processes are running on the system before deciding to start a new job
+        local procs_running=$(cat /proc/stat | grep procs_running | cut -d ' ' -f 2)
+        local procs_blocked=$(cat /proc/stat | grep procs_blocked | cut -d ' ' -f 2)
+        local current_number=$((procs_running + procs_blocked))
+        if [[ $current_number -lt $max_number ]]; then
+            break
+        fi
+        sleep 0.5
+    done
+}
+
+# generic helper for running tests
+# arguments: 
+# - test function name (without the test_ prefix)
+# - CAM (camera name)
+# - test name override (optional; derived from test function name by default)
+# QEMU_JOB_ID must be a small positive integer, unique for each job that might run in parallel
+function run_test {
+    if [ "$QEMU_JOB_ID" == "0" ]; then
+        echo "You forgot to increment QEMU_JOB_ID ;)"
+        exit 1
     fi
 
-    # same for DIGIC 6
-    if grep -q ZicoAssert $CAM/ROM1.BIN; then
-        echo -e "\e[33mskipping\e[0m"
-        continue
+    # global variables used in tests
+    TEST=${3:-${1//_/-}}
+    CAM=$2
+    GDB_PORT=$((1234+$QEMU_JOB_ID))
+    VNC_DISP=":$((12345+QEMU_JOB_ID))"
+    QEMU_MONITOR=qemu.monitor$QEMU_JOB_ID
+
+    if ! test_selected $TEST; then
+        # can we skip this test?
+        return
     fi
 
+    # make sure the test subdirectory is present
+    # and remove any previous logs or screenshots from this test
     mkdir -p tests/$CAM/
-    rm -f tests/$CAM/drysh.log
+    rm -f tests/$CAM/$TEST*.log
+    rm -f tests/$CAM/$TEST*.png
+    rm -f tests/$CAM/$TEST*.ppm
 
-    # most models require "akashimorino" to enable the Dry-shell
-    # a few don't (500D, 5D3eeko), but sending it anyway shouldn't hurt
+    # run the test function and buffer its output
+    ( printf "%7s: " $CAM && test_$1 ) 2>&1 | sponge
+
+    # local cleanup
+    rm -f $QEMU_MONITOR
+}
+
+# called after running each set of tests
+function cleanup {
+    QEMU_JOB_ID=0
+    wait
+    kill_qemu expect_not_running
+    sd_cf_restore_if_modified -q
+    rm -f qemu.monitor[0-9]*
+}
+
+
+# All cameras booting the GUI should be able to navigate Canon menu:
+function test_menu {
+
+    if [ -f $CAM/patches.gdb ]; then
+        (
+            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -vnc $VNC_DISP -d debugmsg -S -gdb tcp::$GDB_PORT &
+            arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/patches.gdb -ex quit &
+        ) &> tests/$CAM/$TEST.log
+    else
+        (
+            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -vnc $VNC_DISP -d debugmsg &
+        ) &> tests/$CAM/$TEST.log
+    fi
+
+    set_gui_timeout
+    sleep $GUI_TIMEOUT
+
+    # note: these should also work via qemu.monitor
+    # (slightly different keycodes and only PPM screenshots available)
+    count=0;
+    for key in ${MENU_SEQUENCE[$CAM]}; do
+        vncdotool -s $VNC_DISP key $key; sleep 0.5
+        vncdotool -s $VNC_DISP capture tests/$CAM/$TEST$((count++)).png
+        echo -n .
+    done
+
+    shutdown_qemu
+
+    tests/check_grep.sh tests/$CAM/$TEST.log -q "GUICMD_LOCK_OFF" || return
+    tests/check_grep.sh tests/$CAM/$TEST.log -q "SHUTDOWN" || return
+    tests/check_grep.sh tests/$CAM/$TEST.log -q "\[MPU\] Shutdown requested." || return
+    tests/check_grep.sh tests/$CAM/$TEST.log -q "Terminate : Success" || return
+
+    tests/check_md5.sh tests/$CAM/ $TEST || cat tests/$CAM/$TEST.md5.log
+}
+
+echo
+echo "Testing Canon menu..."
+for CAM in ${GUI_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test menu $CAM &
+    job_limit_auto
+done; cleanup
+
+
+# All GUI cameras should be able to format the virtual card:
+function test_format {
+
+    if [ -f $CAM/patches.gdb ]; then
+        (
+            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -vnc $VNC_DISP -S -gdb tcp::$GDB_PORT &
+            arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/patches.gdb -ex quit &
+        ) &> tests/$CAM/$TEST.log
+    else
+        (
+            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -vnc $VNC_DISP &
+        ) &> tests/$CAM/$TEST.log
+    fi
+
+    set_gui_timeout
+    sleep $GUI_TIMEOUT
+
+    count=0;
+    for key in ${FORMAT_SEQUENCE[$CAM]}; do
+        if [ $key = wait ]; then sleep 1; continue; fi
+        vncdotool -s $VNC_DISP key $key; sleep 0.5
+        vncdotool -s $VNC_DISP capture tests/$CAM/$TEST$((count++)).png
+        echo -n .
+    done
+
+    shutdown_qemu
+
+    tests/check_md5.sh tests/$CAM/ $TEST || cat tests/$CAM/$TEST.md5.log
+}
+
+echo
+echo "Testing card formatting..."
+for CAM in ${GUI_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test format $CAM &
+    job_limit_auto
+done; cleanup
+
+
+# All cameras should run under GDB and start a few tasks
+function test_gdb {
+
+    if [ ! -f $CAM/debugmsg.gdb ]; then
+        echo -e "\e[33m$CAM/debugmsg.gdb not present\e[0m"
+        return
+    fi
 
     (
-        sleep 5; echo "akashimorino";
-        sleep 0.5; echo "drysh";
-        sleep 0.5; echo "vers";
-        sleep 0.5; echo "?";
-        sleep 0.5; echo "task";
-        sleep 0.5; echo "quit" | nc -U qemu.monitor
-    ) | (
-        if [ -f $CAM/patches.gdb ]; then
-            ( arm-none-eabi-gdb -x $CAM/patches.gdb -ex quit 1>&2 &
-              ./run_canon_fw.sh $CAM,firmware="boot=0" \
-                -display none -serial stdio -s -S ) \
-                    > tests/$CAM/drysh.log \
-                    2> tests/$CAM/drysh-emu.log
-        else
-            ./run_canon_fw.sh $CAM,firmware="boot=0" \
-                -display none -serial stdio \
-                > tests/$CAM/drysh.log \
-                2> tests/$CAM/drysh-emu.log
-        fi
-    )
+        ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -display none -S -gdb tcp::$GDB_PORT &
+        arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/debugmsg.gdb -ex quit &
+    ) &> tests/$CAM/$TEST.log
 
-    kill_qemu
+    # wait for some tasks to start
+    touch tests/$CAM/$TEST.log
+    ( timeout 2 tail -f -n100000 tests/$CAM/$TEST.log & ) | grep --binary-files=text -qP "task_create\("
 
-    tests/check_grep.sh tests/$CAM/drysh.log \
-        -oEm1 "Dry-shell .*\..*| xd .*" || continue
+    # let it run for 1 second
+    sleep 1
+    stop_qemu_expect_running
 
-    tests/check_grep.sh tests/$CAM/drysh.log \
-        -q "akashimorino"
-
-done
+    tac tests/$CAM/$TEST.log > tmp
+    tests/check_grep.sh tmp -Em1 "task_create\("
+    echo -n "         "
+    tests/check_grep.sh tmp -Em1 "register_interrupt\([^n]"
+}
 
 echo
-echo "Testing call/return trace on main firmware..."
+echo "Testing GDB scripts..."
+for CAM in ${EOS_CAMS[*]} ${EOS_SECONDARY_CORES[*]} ${POWERSHOT_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test gdb $CAM &
+    job_limit_auto
+done; cleanup
+
 
 # Interrupts are generally non-deterministic; however, we can use
 # the -icount option in QEMU to get a deterministic execution trace.
@@ -261,27 +502,25 @@ echo "Testing call/return trace on main firmware..."
 #   where the bootloader is plain ARM)
 # - the overall structure is different enough to cause issues
 
-for CAM in ${EOS_SECONDARY_CORES[*]} ${EOS_CAMS[*]}; do
-    printf "%7s: " $CAM
-
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/calls-main*.log
+function test_calls_main {
 
     # log all function calls/returns and export to IDC
     # log task switches as well
     # use -icount to get a deterministic execution
     # fixme: execution under gdb is not deterministic, even with -icount
     # ansi2txt used here (only once) because it's very slow
-    ./run_canon_fw.sh $CAM,firmware="boot=0" -icount 5 \
+    ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -icount 5 \
         -display none -d calls,idc,tasks \
-        -serial file:tests/$CAM/calls-main-uart.log \
-        |& ansi2txt > tests/$CAM/calls-main-raw.log &
+        -serial file:tests/$CAM/$TEST-uart.log \
+        |& ansi2txt > tests/$CAM/$TEST-raw.log &
 
-    sleep 2
+    # wait for uart log to appear
+    while [ ! -f tests/$CAM/$TEST-uart.log ]; do sleep 1; done
+    sleep 1
 
     # check for boot message
-    if grep -qE "([KR].* (READY|AECU)|Dry|Boot)" tests/$CAM/calls-main-uart.log; then
-      msg=`grep --text -oEm1 "([KR].* (READY|AECU)|Dry|Boot)[a-zA-Z >]*" tests/$CAM/calls-main-uart.log`
+    if grep -qE "([KR].* (READY|AECU)|Dry|Boot)" tests/$CAM/$TEST-uart.log; then
+      msg=`grep --text -oEm1 "([KR].* (READY|AECU)|Dry|Boot)[a-zA-Z >]*" tests/$CAM/$TEST-uart.log`
       printf "%-16s" "$msg"
     else
       echo -en "\e[33mBad output\e[0m      "
@@ -294,7 +533,7 @@ for CAM in ${EOS_SECONDARY_CORES[*]} ${EOS_CAMS[*]}; do
     echo -n "                          "
 
     sleep 1
-    kill_qemu expect_running
+    stop_qemu_expect_running
 
     # as the emulation is not stopped exactly at the same time,
     # we have to trim it somewhere in order to get repeatable results.
@@ -302,16 +541,16 @@ for CAM in ${EOS_SECONDARY_CORES[*]} ${EOS_CAMS[*]}; do
     # was repeating over and over, so remove_end_loop.py was doing a fine job.
     # in the main firmware, things are not always repeating with a simple pattern.
     # stopping when IDC no longer grows is not reliable either - it depends a lot on the PC speed
-    # let's trim until matching the MD5 of calls-main-basic.idc
+    # let's trim until matching the MD5 of $TEST-basic.idc
     # this assumes the needles (expected test results) were created on a slower PC and/or using a smaller timeout
 
     cat $CAM.idc | grep -o "MakeFunction(.*)" \
-        > tests/$CAM/calls-main-basic.idc
+        > tests/$CAM/$TEST-basic.idc
 
-    # compute the MD5 of calls-main-basic.idc, line by line, until it matches its reference MD5
+    # compute the MD5 of $TEST-basic.idc, line by line, until it matches its reference MD5
     # man, this python3 is quite painful with all these unicode errors...
     cd tests/$CAM/
-    cat calls-main.md5 | grep calls-main-basic.idc | python3 -c 'if True:
+    cat $TEST.md5 | grep $TEST-basic.idc | python3 -c 'if True:
         import os, sys
         from hashlib import md5
         ref_md5, filename = sys.stdin.readline().split()
@@ -330,48 +569,48 @@ for CAM in ${EOS_SECONDARY_CORES[*]} ${EOS_CAMS[*]}; do
     cd $OLDPWD
 
     # trim the log file after the last function call identified in the IDC
-    last_call=`tail -1 tests/$CAM/calls-main-basic.idc | grep -om1 "0x[^,]*"`
+    last_call=`tail -1 tests/$CAM/$TEST-basic.idc | grep -om1 "0x[^,]*"`
     last_call_thumb=`printf "0x%X\n" $((last_call+1))`
 
     # extract call/return lines, task switches and interrupts
-    cat tests/$CAM/calls-main-raw.log \
+    cat tests/$CAM/$TEST-raw.log \
         | grep -E "call |return |Task switch |interrupt " \
         | sed -n "1,/call $last_call\|call $last_call_thumb/ p" \
-        > tests/$CAM/calls-main.log
+        > tests/$CAM/$TEST.log
 
     # extract only the basic info (call address indented, return address)
     # useful for checking when the log format changes
     # fixme: how to transform "return 0xVALUE to 0xADDR" into "return to 0xADDR" with shell scripting?
-    cat tests/$CAM/calls-main.log | grep -oP " *call 0x[0-9A-F]+| to 0x[0-9A-F]+" \
-        > tests/$CAM/calls-main-basic.log
+    cat tests/$CAM/$TEST.log | grep -oP " *call 0x[0-9A-F]+| to 0x[0-9A-F]+" \
+        > tests/$CAM/$TEST-basic.log
 
     # also copy the IDC file for checking its MD5
     # this works on CF models too, even if some nondeterminism is present
     # the IDC needs trimming, too, as it doesn't always stop at the same line
-    cat $CAM.idc | sed -n "1,/MakeFunction($last_call/ p" > tests/$CAM/calls-main.idc
-    cat $CAM.idc | tail -n 2 >> tests/$CAM/calls-main.idc
+    cat $CAM.idc | sed -n "1,/MakeFunction($last_call/ p" > tests/$CAM/$TEST.idc
+    cat $CAM.idc | tail -n 2 >> tests/$CAM/$TEST.idc
 
     # extract only the call address from IDC
     # useful for checking when some additional info changes (e.g. comments)
-    cat tests/$CAM/calls-main.idc | grep -o "MakeFunction(.*)" \
-        > tests/$CAM/calls-main-basic.idc
+    cat tests/$CAM/$TEST.idc | grep -o "MakeFunction(.*)" \
+        > tests/$CAM/$TEST-basic.idc
 
     # count some stats
-    calls=`cat tests/$CAM/calls-main.log | grep -c "call "`
-    retns=`cat tests/$CAM/calls-main.log | grep "return " | grep -vc "interrupt"`
-    ints=`cat tests/$CAM/calls-main.log | grep -E "interrupt .*at " | grep -vc "return"`
-    reti=`cat tests/$CAM/calls-main.log | grep -c "return from interrupt"`
-    nints=`cat tests/$CAM/calls-main.log | grep -E " interrupt .*at " | grep -vc "return"`
-    nreti=`cat tests/$CAM/calls-main.log | grep -c " return from interrupt"`
-    tsksw=`cat tests/$CAM/calls-main.log | grep -c "Task switch to "`
-    tasks=`cat tests/$CAM/calls-main.log | grep -oP "(?<=Task switch to )[^:]*" | sort | uniq | head -3 |  tr '\n' ' '`
+    calls=`cat tests/$CAM/$TEST.log | grep -c "call "`
+    retns=`cat tests/$CAM/$TEST.log | grep "return " | grep -vc "interrupt"`
+    ints=`cat tests/$CAM/$TEST.log | grep -E "interrupt .*at " | grep -vc "return"`
+    reti=`cat tests/$CAM/$TEST.log | grep -c "return from interrupt"`
+    nints=`cat tests/$CAM/$TEST.log | grep -E " interrupt .*at " | grep -vc "return"`
+    nreti=`cat tests/$CAM/$TEST.log | grep -c " return from interrupt"`
+    tsksw=`cat tests/$CAM/$TEST.log | grep -c "Task switch to "`
+    tasks=`cat tests/$CAM/$TEST.log | grep -oP "(?<=Task switch to )[^:]*" | sort | uniq | head -3 |  tr '\n' ' '`
     if (( ints == 0 )); then
       echo -en "\e[33mno interrupts\e[0m "
     else
       echo -n "$ints ints"
       if (( reti == 0 )); then
         echo -e ", \e[31mno reti\e[0m"
-        continue
+        return
       fi
       if (( nints != 0 )); then echo -n " ($nints nested)"; fi
       echo -n ", $reti reti"
@@ -381,7 +620,7 @@ for CAM in ${EOS_SECONDARY_CORES[*]} ${EOS_CAMS[*]}; do
       fi
       if (( reti > ints )); then
           echo -e " \e[31mtoo many reti\e[0m"
-          continue
+          return
       fi
       if (( tsksw > 0 )); then
          echo -n ", $tsksw task switches ( $tasks)"
@@ -393,16 +632,21 @@ for CAM in ${EOS_SECONDARY_CORES[*]} ${EOS_CAMS[*]}; do
     # if we are checking only the IDC, say so
     echo
     echo -n "                          "
-    grep -q '.log' tests/$CAM/calls-main.md5 \
+    grep -q '.log' tests/$CAM/$TEST.md5 \
         && echo -n "$calls calls, $retns returns " \
         || echo -n "IDC "
 
-    tests/check_md5.sh tests/$CAM/ calls-main || cat tests/$CAM/calls-main.md5.log
-done
-
+    tests/check_md5.sh tests/$CAM/ $TEST || cat tests/$CAM/$TEST.md5.log
+}
 
 echo
-echo "Testing call/return trace on fromutility..."
+echo "Testing call/return trace on main firmware..."
+for CAM in ${EOS_SECONDARY_CORES[*]} ${EOS_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test calls_main $CAM &
+    job_limit_auto
+done; cleanup
+
 
 # We should get a valid call/return trace on the bootloader,
 # which loads FROMUTILITY if autoexec.bin is not present on a bootable card.
@@ -413,320 +657,373 @@ echo "Testing call/return trace on fromutility..."
 # The results are assumed to be correct, but they were not thoroughly checked.
 # Feel free to report bugs, corner cases and so on.
 
-# remove autoexec.bin from card images (to get the FROMUTILITY menu)
-mdel -i $MSD ::/autoexec.bin
-mdel -i $MCF ::/autoexec.bin
-
-for CAM in ${EOS_CAMS[*]}; do
-    printf "%5s: " $CAM
-
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/calls-from*.log
+function test_calls_from {
 
     # log all function calls/returns and export to IDC
-    ./run_canon_fw.sh $CAM,firmware="boot=1" \
+    ./run_canon_fw.sh $CAM,firmware="boot=1" -snapshot \
         -display none -d calls,idc \
-        -serial file:tests/$CAM/calls-from-uart.log \
-        &> tests/$CAM/calls-from-raw.log &
-
-    sleep 0.5
+        -serial file:tests/$CAM/$TEST-uart.log \
+        &> tests/$CAM/$TEST-raw.log &
 
     # wait until the FROMUTILITY menu appears
-    (timeout 20 tail -f -n100000 tests/$CAM/calls-from-uart.log & ) \
+    touch tests/$CAM/$TEST-uart.log
+    (timeout 20 tail -f -n100000 tests/$CAM/$TEST-uart.log & ) \
         | grep -q "FROMUTIL"
     sleep 0.5
 
-    kill_qemu expect_running
+    stop_qemu_expect_running
 
     # extract call/return lines
     # remove infinite loop at the end, if any
-    ansi2txt < tests/$CAM/calls-from-raw.log \
+    ansi2txt < tests/$CAM/$TEST-raw.log \
         | grep -E "call |return " \
         | python remove_end_loop.py \
-        > tests/$CAM/calls-from.log
+        > tests/$CAM/$TEST.log
 
     # count some stats
-    calls=`cat tests/$CAM/calls-from.log | grep -c "call "`
-    retns=`cat tests/$CAM/calls-from.log | grep "return " | grep -vc "interrupt"`
+    calls=`cat tests/$CAM/$TEST.log | grep -c "call "`
+    retns=`cat tests/$CAM/$TEST.log | grep "return " | grep -vc "interrupt"`
 
     # extract only the basic info (call address indented, return address)
     # useful for checking when the log format changes
     # fixme: how to transform "return 0xVALUE to 0xADDR" into "return to 0xADDR" with shell scripting?
-    cat tests/$CAM/calls-from.log | grep -oP " *call 0x[0-9A-F]+| to 0x[0-9A-F]+" \
-        > tests/$CAM/calls-from-basic.log
+    cat tests/$CAM/$TEST.log | grep -oP " *call 0x[0-9A-F]+| to 0x[0-9A-F]+" \
+        > tests/$CAM/$TEST-basic.log
 
     # also copy the IDC file for checking its MD5
     # this works on CF models too, even if some nondeterminism is present
-    cp $CAM.idc tests/$CAM/calls-from.idc
+    cp $CAM.idc tests/$CAM/$TEST.idc
 
     # extract only the call address from IDC
     # useful for checking when some additional info changes (e.g. comments)
-    cat tests/$CAM/calls-from.idc | grep -o "MakeFunction(.*)" \
-        > tests/$CAM/calls-from-basic.idc
+    cat tests/$CAM/$TEST.idc | grep -o "MakeFunction(.*)" \
+        > tests/$CAM/$TEST-basic.idc
 
-    if grep -q "FROMUTIL" tests/$CAM/calls-from-uart.log; then
-        grep -oEm1 "FROMUTIL[^*]*" tests/$CAM/calls-from-uart.log | tr -d '\n'
-    elif grep -q "AUTOEXEC.BIN not found" tests/$CAM/calls-from-uart.log; then
+    if grep -q "FROMUTIL" tests/$CAM/$TEST-uart.log; then
+        grep -oEm1 "FROMUTIL[^*]*" tests/$CAM/$TEST-uart.log | tr -d '\n'
+    elif grep -q "AUTOEXEC.BIN not found" tests/$CAM/$TEST-uart.log; then
         echo -en "\e[33mFROMUTILITY not executed  \e[0m"
     else
         echo -e "\e[31mFAILED!\e[0m"
-        continue
+        return
     fi
 
     # if we are checking only the IDC, say so
-    grep -q '.log' tests/$CAM/calls-from.md5 \
+    grep -q '.log' tests/$CAM/$TEST.md5 \
         && echo -n "$calls calls, $retns returns " \
         || echo -n "IDC "
 
-    tests/check_md5.sh tests/$CAM/ calls-from || cat tests/$CAM/calls-from.md5.log
-done
+    tests/check_md5.sh tests/$CAM/ $TEST || cat tests/$CAM/$TEST.md5.log
+}
 
 echo
-echo "Testing callstack consistency with call/return trace for DebugMsg calls..."
+echo "Testing call/return trace on fromutility..."
 
-# At each point, the verbose call stack should match the call/return trace
-# This feature is also exercised in the context of interrupts and DryOS task switches
+# remove autoexec.bin from card images (to get the FROMUTILITY menu)
+mdel -i $MSD ::/autoexec.bin
+mdel -i $MCF ::/autoexec.bin
 
+# run the tests
 for CAM in ${EOS_CAMS[*]}; do
-    printf "%7s: " $CAM
+    ((QEMU_JOB_ID++))
+    run_test calls_from $CAM &
+    job_limit_auto
+done; cleanup
 
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/calls-cstack*.log
 
-    # skip VxWorks models for now
-    if grep -q VxWorks $CAM/ROM1.BIN; then
-        echo "skipping"
-        continue
+# Models able to display some Canon GUI should capture a still picture as well.
+# This requires a full-res silent picture at qemu/<camera>/VRAM/PH-QR/RAW-000.DNG.
+# Currently working on 500D, 550D, 50D, 60D, 1200D, and to a lesser extent, on 5D3 and 1100D.
+function test_frsp {
+
+    # compile it from ML dir, for each camera
+    FRSP_PATH=../magic-lantern/minimal/qemu-frsp
+    rm -f $FRSP_PATH/autoexec.bin
+    [ $CAM == "1200D" ] && (cd $FRSP_PATH; hg up qemu -C; hg merge 1200D; cd $OLDPWD) &>> tests/$CAM/$TEST-build.log
+    make MODEL=$CAM -C $FRSP_PATH clean &>> tests/$CAM/$TEST-build.log
+    make MODEL=$CAM -C $FRSP_PATH       &>> tests/$CAM/$TEST-build.log
+    [ $CAM == "1200D" ] && (cd $FRSP_PATH; hg up qemu -C; cd $OLDPWD) &>> tests/$CAM/$TEST-build.log
+    
+    if [ ! -f $FRSP_PATH/autoexec.bin ]; then
+        echo -e "\e[31mCompile error\e[0m"
+        return
     fi
 
-    # log all function calls/returns, interrupts
-    # and DebugMsg calls with call stack for each message
-    if [ -f $CAM/patches.gdb ]; then
-        (./run_canon_fw.sh $CAM,firmware="boot=0" -serial file:tests/$CAM/calls-cstack-uart.log \
-             -display none -d calls,tasks,debugmsg,v -s -S & \
-           arm-none-eabi-gdb -x $CAM/patches.gdb -ex quit &) &> tests/$CAM/calls-cstack-raw.log
+    # copy autoexec.bin to card images
+    mcopy -o -i $MSD $FRSP_PATH/autoexec.bin ::
+    mcopy -o -i $MCF $FRSP_PATH/autoexec.bin ::
+
+    # run the photo capture test
+    # wait for FA_CaptureTestImage Fin
+    (
+      ./wait_log.sh tests/$CAM/$TEST-uart.log 20 5 -q --text "FA_CaptureTestImage Fin" 2>/dev/null
+      sleep 1
+      echo screendump tests/$CAM/$TEST.ppm
+      echo quit
+    ) | (
+      ./run_canon_fw.sh $CAM,firmware="boot=1" -snapshot \
+        -display none -monitor stdio \
+        -d debugmsg \
+        -serial file:tests/$CAM/$TEST-uart.log \
+    ) &> tests/$CAM/$TEST.log
+
+    tests/check_grep.sh tests/$CAM/$TEST-uart.log \
+        -qm1 "FA_CreateTestImage Fin"  || return
+
+    tests/check_grep.sh tests/$CAM/$TEST-uart.log \
+        -qm1 "FA_CaptureTestImage Fin" || return
+
+    tests/check_grep.sh tests/$CAM/$TEST-uart.log \
+        -qm1 "FA_DeleteTestImage Fin"  || return
+
+    if [ -f tests/$CAM/$TEST.md5 ]; then
+        tests/check_md5.sh tests/$CAM/ $TEST
     else
-        ./run_canon_fw.sh $CAM,firmware="boot=0" \
-            -display none -d calls,tasks,debugmsg,v -serial stdio \
-            > tests/$CAM/calls-cstack-uart.log \
-            2> tests/$CAM/calls-cstack-raw.log &
+        echo "OK (no display)"
     fi
-    sleep 10
-    kill_qemu expect_running
+}
 
-    ansi2txt < tests/$CAM/calls-cstack-raw.log | python tests/test_callstack.py &> tests/$CAM/calls-cstack-test.log \
-        && (tail -n 1 tests/$CAM/calls-cstack-test.log | tr -d '\n'; echo " OK" ) \
-        || (tail -n 1 tests/$CAM/calls-cstack-test.log | tr -d '\n'; echo -e " \e[31mFAILED!\e[0m" )
-done
-
-# -d callstack triggered quite a few nondeterministic assertions during development
-# so, running it on all cameras where Canon menu can be navigated should be a good test
-# logging the entire call/return trace is possible, but very slow and not repeatable
 echo
-echo "Testing Canon menu with callstack enabled..."
-for CAM in ${GUI_CAMS[*]}; do
-    printf "%5s: " $CAM
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/menu*[0-9].png
-    rm -f tests/$CAM/menu.log
+echo "Testing FA_CaptureTestImage..."
+# this requires a custom build; cannot run in parallel
+for CAM in ${FRSP_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test frsp $CAM
+done; cleanup
 
-    if [ -f $CAM/patches.gdb ]; then
-        (./run_canon_fw.sh $CAM,firmware="boot=0" -vnc :12345 -d callstack -s -S & \
-            arm-none-eabi-gdb -x $CAM/patches.gdb -ex quit &) &> tests/$CAM/menu.log
-    else
-        (./run_canon_fw.sh $CAM,firmware="boot=0" -vnc :12345 -d callstack &) \
-            &> tests/$CAM/menu.log
-    fi
-
-    set_gui_timeout
-    sleep $(( 2*GUI_TIMEOUT ))
-
-    count=0;
-    for key in ${MENU_SEQUENCE[$CAM]}; do
-        # some GUI operations are very slow under -d callstack (many small functions called)
-        # for most of them, 1 second is enough, but the logic would be more complex
-        vncdotool -s :12345 key $key; sleep 3
-        vncdotool -s :12345 capture tests/$CAM/menu$((count++)).png
-        echo -n .
-    done
-
-    kill_qemu expect_running
-
-    tests/check_md5.sh tests/$CAM/ menu || cat tests/$CAM/menu.md5.log
-done
-
-# re-create the card images
-rm sd.img; unxz -k sd.img.xz; cp sd.img cf.img
 
 # All EOS cameras should emulate the bootloader
 # and jump to main firmware.
 # Also list blocks copied to RAM during startup, if any.
-echo
-echo "Testing bootloaders..."
-for CAM in ${EOS_CAMS[*]} ${EOS_SECONDARY_CORES[*]}; do
-    printf "%5s: " $CAM
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/boot.log
+function test_boot {
+
     # sorry, couldn't get the monitor working together with log redirection...
-    (./run_canon_fw.sh $CAM,firmware="boot=0" \
+    (./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot \
         -display none \
-        -serial file:tests/$CAM/boot-uart.log \
+        -serial file:tests/$CAM/$TEST-uart.log \
         -d romcpy,int \
-        &> tests/$CAM/boot.log \
+        &> tests/$CAM/$TEST.log \
     ) &
-    sleep 0.2
 
     # wait until some READY-like message is printed on the UART
-    ( timeout 2 tail -f -n100000 tests/$CAM/boot-uart.log & ) \
+    touch tests/$CAM/$TEST-uart.log
+    ( timeout 2 tail -f -n100000 tests/$CAM/$TEST-uart.log & ) \
         | grep -qE "([KR].* (READY|AECU).*|Intercom.*|Dry>)"
 
-    kill_qemu expect_running
+    stop_qemu_expect_running
 
     # fixme: duplicate regex
-    tests/check_grep.sh tests/$CAM/boot-uart.log \
+    tests/check_grep.sh tests/$CAM/$TEST-uart.log \
         -oE "([KR].* (READY|AECU).*|Intercom.*|Dry>)"
 
     # print ROMCPY messages before the first interrupt
-    ansi2txt < tests/$CAM/boot.log \
-        | grep -m1 -B 100000 -E "Taking exception|terminating on signal" \
+    ansi2txt < tests/$CAM/$TEST.log \
+        | grep -m1 -B 100000 -E "Taking exception|forced shutdown" \
         | grep -oE "\[ROMCPY\].*" \
-        | sed -e "s/\[ROMCPY\]/      /"
+        | sed -e "s/\[ROMCPY\]/        /"
+}
 
-done
-
-# All EOS cameras should load autoexec.bin, run HPTimer functions
-# and print current task name (this actually tests some ML stubs)
 echo
-echo "Testing HPTimer and task name..."
+echo "Testing bootloaders..."
+for CAM in ${EOS_CAMS[*]} ${EOS_SECONDARY_CORES[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test boot $CAM &
+    job_limit_auto
+done; cleanup
+
+
+# some basic tests for PowerShot models
+function test_boot_powershot {
+    echo ""
+
+    (
+        ./run_canon_fw.sh $CAM -snapshot \
+            -display none -d romcpy,int -S -gdb tcp::$GDB_PORT \
+            -serial file:tests/$CAM/$TEST-uart.log &
+        arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/debugmsg.gdb -ex quit &
+    ) &> tests/$CAM/$TEST.log
+
+    # wait for TurnOnDisplay, up to 10 seconds
+    touch tests/$CAM/$TEST.log
+    ( timeout 10 tail -f -n100000 tests/$CAM/$TEST.log & ) | grep -q "TurnOnDisplay"
+    stop_qemu_expect_running
+
+    printf "    SD boot: "; tests/check_grep.sh tests/$CAM/$TEST-uart.log -om1 "StartDiskboot"
+    printf "    Display: "; tests/check_grep.sh tests/$CAM/$TEST.log -om1 "TurnOnDisplay"
+    printf "    ROMcopy: "; tests/check_grep.sh tests/$CAM/$TEST.log -oPm1 "(?<=ROMCPY\]) "
+
+    # print ROMCPY messages before the first interrupt
+    # exception: EOS M5 copies interesting stuff after the first interrupt
+    ansi2txt < tests/$CAM/$TEST.log \
+        | ( [ $CAM == "EOSM5" ] && cat || grep -m1 -B 100000 -E "Taking exception|terminating on signal") \
+        | grep -oE "\[ROMCPY\].*" \
+        | sed -e "s/\[ROMCPY\]/     /"
+}
+
+echo
+echo "Testing PowerShot models..."
+for CAM in ${POWERSHOT_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test boot_powershot $CAM boot &
+    job_limit_auto
+done; cleanup
+
+
+# All EOS cameras should run the portable display test:
+function test_disp {
+    (sleep 5; echo screendump tests/$CAM/$TEST.ppm; echo quit) \
+      | ./run_canon_fw.sh $CAM,firmware="boot=1" -snapshot -display none -monitor stdio &> tests/$CAM/$TEST.log
+    
+    tests/check_md5.sh tests/$CAM/ $TEST
+}
+
+echo
+echo "Testing display from bootloader..."
 for CAM in ${EOS_CAMS[*]}; do
-    printf "%5s: " $CAM
+    ((QEMU_JOB_ID++))
+    run_test disp $CAM &
+    job_limit_auto
+done; cleanup
 
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/hptimer.log
-    rm -f tests/$CAM/hptimer-build.log
 
-    # compile it from ML dir, for each camera
-    HPTIMER_PATH=../magic-lantern/minimal/qemu-hptimer
-    rm -f $HPTIMER_PATH/autoexec.bin
-    make MODEL=$CAM -C $HPTIMER_PATH clean &>> tests/$CAM/hptimer-build.log
-    make MODEL=$CAM -C $HPTIMER_PATH       &>> tests/$CAM/hptimer-build.log
-    
-    if [ ! -f $HPTIMER_PATH/autoexec.bin ]; then
-        echo -e "\e[31mCompile error\e[0m"
-        continue
+# M3 uses a special CHDK build from Ant123
+# using it for the other PowerShot models
+# just to test whether they are booting from the card
+function test_disp_chdk {
+    echo ""
+
+    M3_DISKBOOT_BIN=tests/test-progs/M3/DISKBOOT.BIN
+    if [ ! -f $M3_DISKBOOT_BIN ]; then
+        mkdir -p `dirname $M3_DISKBOOT_BIN`
+        wget -q -O $M3_DISKBOOT_BIN http://a1ex.magiclantern.fm/bleeding-edge/M3/qemu/DISKBOOT.BIN
     fi
 
-    # copy autoexec.bin to card images
-    mcopy -o -i $MSD $HPTIMER_PATH/autoexec.bin ::
-    mcopy -o -i $MCF $HPTIMER_PATH/autoexec.bin ::
+    # Our SD image appears to be already bootable for CHDK (?!)
+    mcopy -o -i $MSD $M3_DISKBOOT_BIN ::
 
-    # run the HPTimer test
-    (./run_canon_fw.sh $CAM,firmware="boot=1" -display none &> tests/$CAM/hptimer.log) &
-    sleep 0.2
-    ( timeout 1 tail -f -n100000 tests/$CAM/hptimer.log & ) | grep --binary-files=text -qP "\x1B\x5B34mH\x1B\x5B0m\x1B\x5B34me\x1B\x5B0m"
-    sleep 1
-    kill_qemu expect_running
-    
-    tests/check_grep.sh tests/$CAM/hptimer.log -m1 "Hello from task run_test"
-    printf "       "
-    tests/check_grep.sh tests/$CAM/hptimer.log -m1 "Hello from HPTimer" && continue
-    printf "       "
-    tests/check_grep.sh tests/$CAM/hptimer.log -m1 "Hello from task init" && continue
-done
+    # run the emulation
+    (
+      sleep 10
+      echo screendump tests/$CAM/$TEST.ppm
+      echo quit
+    ) | (
+      ./run_canon_fw.sh $CAM -snapshot \
+            -display none -monitor stdio \
+            -serial file:tests/$CAM/$TEST-uart.log \
+    ) &> tests/$CAM/$TEST.log
 
-# These cameras should be able to navigate Canon menu:
+    printf "    SD boot: "; tests/check_grep.sh tests/$CAM/$TEST-uart.log -om1 "StartDiskboot"
+    printf "    RAMboot: "; tests/check_grep.sh tests/$CAM/$TEST-uart.log -om1 "Start Program on RAM"
+    printf "    Display: "; tests/check_md5.sh tests/$CAM/ $TEST
+}
+
 echo
-echo "Testing Canon menu..."
-for CAM in ${GUI_CAMS[*]}; do
-    printf "%5s: " $CAM
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/menu*[0-9].png
-    rm -f tests/$CAM/menu.log
+echo "Testing CHDK display..."
+# this will require custom builds; let's not run it in parallel yet
+for CAM in ${POWERSHOT_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test disp_chdk $CAM disp
+done; cleanup
+
+
+# All EOS cameras should run the Dry-shell console over UART
+# fixme: only works on D4 and D5 models
+function test_drysh {
+
+    # skip VxWorks models for now
+    if grep -q VxWorks $CAM/ROM1.BIN; then
+        echo -e "\e[33mskipping\e[0m"
+        return
+    fi
+
+    # same for DIGIC 6
+    if grep -q ZicoAssert $CAM/ROM1.BIN; then
+        echo -e "\e[33mskipping\e[0m"
+        return
+    fi
+
+    # most models require "akashimorino" to enable the Dry-shell
+    # a few don't (500D, 5D3eeko), but sending it anyway shouldn't hurt
+
+    (
+        sleep 5; echo "akashimorino";
+        sleep 0.5; echo "drysh";
+        sleep 0.5; echo "vers";
+        sleep 0.5; echo "?";
+        sleep 0.5; echo "task";
+        sleep 0.5; stop_qemu_expect_running;
+    ) | (
+        if [ -f $CAM/patches.gdb ]; then
+            (
+                arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/patches.gdb -ex quit 1>&2 &
+                ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot \
+                    -display none -serial stdio -S -gdb tcp::$GDB_PORT
+            )  > tests/$CAM/$TEST.log \
+              2> tests/$CAM/$TEST-emu.log
+        else
+            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot \
+                -display none -serial stdio \
+                 > tests/$CAM/$TEST.log \
+                2> tests/$CAM/$TEST-emu.log
+        fi
+    )
+
+    tests/check_grep.sh tests/$CAM/$TEST.log \
+        -oEm1 "Dry-shell .*\..*| xd .*" || return
+
+    tests/check_grep.sh tests/$CAM/$TEST.log \
+        -q "akashimorino"
+}
+
+echo
+echo "Testing Dry-shell over UART..."
+for CAM in 5D3eeko ${EOS_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test drysh $CAM &
+    job_limit $((4 * $(nproc)))
+done; cleanup
+
+
+# Most EOS cameras should be able to create the DCIM directory if missing.
+function test_dcim {
+
+    # remove the DCIM directory from the card images
+    mdeltree -i $MSD ::/DCIM &> /dev/null
+    mdeltree -i $MCF ::/DCIM &> /dev/null
 
     if [ -f $CAM/patches.gdb ]; then
-        (./run_canon_fw.sh $CAM,firmware="boot=0" -vnc :12345 -d debugmsg -s -S & \
-            arm-none-eabi-gdb -x $CAM/patches.gdb -ex quit &) &> tests/$CAM/menu.log
+        (
+            ./run_canon_fw.sh $CAM,firmware="boot=0" -display none -S -gdb tcp::$GDB_PORT &
+            arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/patches.gdb -ex quit &
+        ) &> tests/$CAM/$TEST.log
+        sleep 5
+        stop_qemu_expect_running
     else
-        (./run_canon_fw.sh $CAM,firmware="boot=0" -vnc :12345 -d debugmsg &) \
-            &> tests/$CAM/menu.log
+        (sleep 5; echo quit) \
+            | ./run_canon_fw.sh $CAM,firmware="boot=0" -display none -monitor stdio &> tests/$CAM/$TEST.log
     fi
+    
+    if (mdir -b -i $MSD | grep -q DCIM) || (mdir -b -i $MCF | grep -q DCIM); then
+        echo "OK"
+    else
+        echo -e "\e[31mFAILED!\e[0m"
+    fi
+}
 
-    set_gui_timeout
-    sleep $GUI_TIMEOUT
-
-    # note: these should also work via qemu.monitor
-    # (slightly different keycodes and only PPM screenshots available)
-    count=0;
-    for key in ${MENU_SEQUENCE[$CAM]}; do
-        vncdotool -s :12345 key $key; sleep 0.5
-        vncdotool -s :12345 capture tests/$CAM/menu$((count++)).png
-        echo -n .
-    done
-
-    # shutdown event
-    echo "system_powerdown" | nc -U qemu.monitor > /dev/null
-    sleep 5
-
-    # QEMU or GDB still running?
-    kill_qemu expect_not_running
-
-    tests/check_grep.sh tests/$CAM/menu.log -q "GUICMD_LOCK_OFF" || continue
-    tests/check_grep.sh tests/$CAM/menu.log -q "SHUTDOWN" || continue
-    tests/check_grep.sh tests/$CAM/menu.log -q "\[MPU\] Shutdown requested." || continue
-    tests/check_grep.sh tests/$CAM/menu.log -q "Terminate : Success" || continue
-
-    tests/check_md5.sh tests/$CAM/ menu || cat tests/$CAM/menu.md5.log
-done
-
-# These cameras should be able to format the virtual card:
 echo
-echo "Testing card formatting..."
-for CAM in ${GUI_CAMS[*]}; do
-    printf "%5s: " $CAM
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/format*[0-9].png
-    rm -f tests/$CAM/format.log
+echo "Testing file I/O (DCIM directory)..."
+# Currently works only on models that can boot Canon GUI,
+# and also on 1300D.
+# we need to check the card contents; cannot run in parallel
+for CAM in ${GUI_CAMS[*]} 1300D; do
+    ((QEMU_JOB_ID++))
+    run_test dcim $CAM
+done; cleanup
 
-    # re-create the card images before each test
-    rm sd.img; unxz -k sd.img.xz; cp sd.img cf.img
 
-    if [ -f $CAM/patches.gdb ]; then
-        (./run_canon_fw.sh $CAM,firmware="boot=0" -vnc :12345 -s -S & \
-            arm-none-eabi-gdb -x $CAM/patches.gdb -ex quit &) &> tests/$CAM/format.log
-    else
-        (./run_canon_fw.sh $CAM,firmware="boot=0" -vnc :12345 &) \
-            &> tests/$CAM/format.log
-    fi
-
-    set_gui_timeout
-    sleep $GUI_TIMEOUT
-
-    count=0;
-    for key in ${FORMAT_SEQUENCE[$CAM]}; do
-        if [ $key = wait ]; then sleep 1; continue; fi
-        vncdotool -s :12345 key $key; sleep 0.5
-        vncdotool -s :12345 capture tests/$CAM/format$((count++)).png
-        echo -n .
-    done
-
-    kill_qemu expect_running
-
-    tests/check_md5.sh tests/$CAM/ format || cat tests/$CAM/format.md5.log
-done
-
-# These cameras should be able to format the virtual card
+# All GUI cameras should be able to format the virtual card
 # and also restore Magic Lantern:
-echo
-echo "Testing ML restore after format..."
-TST=fmtrestore
-for CAM in 500D; do
-    # re-create the card images
-    rm sd.img; unxz -k sd.img.xz; cp sd.img cf.img
-
-    printf "%5s: " $CAM
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/$TST*.png
-    rm -f tests/$CAM/$TST.log
+function test_fmtrestore {
 
     mkdir -p tests/test-progs/
     wget -q -O tests/test-progs/ml-500D.zip https://builds.magiclantern.fm/jenkins/job/500D.111/431/artifact/platform/500D.111/magiclantern-Nightly.2017Feb12.500D111.zip
@@ -743,11 +1040,14 @@ for CAM in 500D; do
         mdel -i $MSD ::/ML/MODULES/LOADING.LCK 2>/dev/null
 
         if [ -f $CAM/patches.gdb ]; then
-            (./run_canon_fw.sh $CAM,firmware="boot=1" -vnc :12345 -d debugmsg -s -S & \
-                arm-none-eabi-gdb -x $CAM/patches.gdb -ex quit &) &>> tests/$CAM/$TST.log
+            (
+                ./run_canon_fw.sh $CAM,firmware="boot=1" -snapshot -vnc $VNC_DISP -d debugmsg -S -gdb tcp::$GDB_PORT &
+                arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/patches.gdb -ex quit &
+            ) &>> tests/$CAM/$TEST.log
         else
-            (./run_canon_fw.sh $CAM,firmware="boot=1" -vnc :12345 -d debugmsg &) \
-                &>> tests/$CAM/$TST.log
+            (
+                ./run_canon_fw.sh $CAM,firmware="boot=1" -snapshot -vnc $VNC_DISP -d debugmsg &
+            ) &>> tests/$CAM/$TEST.log
         fi
 
         sleep 5
@@ -762,7 +1062,7 @@ for CAM in 500D; do
         RESTARTING_=3044730d98d5da3e5e5f27642adf878a
 
         # fixme: remove duplicate count++, png, break
-        T=tests/$CAM/$TST
+        T=tests/$CAM/$TEST
         vncexpect f1    $MAIN_SCREEN 30 $T$((count++)).png || break # wait for main info screen with ML loaded
         vncexpect f1    $MAIN_SCREEN 5  $T$((count++)).png || break # also wait for LED activity to settle
         vncexpect f1    $MAIN_SCREEN 5  $T$((count++)).png || break # (the ROM autobackup may take a while)
@@ -780,230 +1080,162 @@ for CAM in 500D; do
         sleep 5
 
         # QEMU or GDB still running?
-        kill_qemu expect_not_running
+        stop_qemu_expect_not_running
 
         if [ $t -eq 3 ]; then
             echo " OK"   # one complete test run, stop here
-            break 2      # (break the "for k" loop)
+            return
         else
             echo -n " "
         fi
     done
 
-    kill_qemu
+    stop_qemu_expect_running
     echo -e "\e[31mFAILED!\e[0m"
-done
-
-# All cameras should run under GDB and start a few tasks
-echo
-echo "Testing GDB scripts..."
-for CAM in ${EOS_CAMS[*]} ${EOS_SECONDARY_CORES[*]} ${POWERSHOT_CAMS[*]}; do
-    printf "%5s: " $CAM
-
-    if [ ! -f $CAM/debugmsg.gdb ]; then
-        echo -e "\e[33m$CAM/debugmsg.gdb not present\e[0m"
-        continue
-    fi
-
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/gdb.log
-    (./run_canon_fw.sh $CAM,firmware="boot=0" -display none -s -S & \
-     arm-none-eabi-gdb -x $CAM/debugmsg.gdb -ex quit &) &> tests/$CAM/gdb.log
-    sleep 0.5
-    ( timeout 2 tail -f -n100000 tests/$CAM/gdb.log & ) | grep --binary-files=text -qP "task_create\("
-    sleep 2
-    kill_qemu expect_running
-
-    tac tests/$CAM/gdb.log > tmp
-    tests/check_grep.sh tmp -Em1 "task_create\("
-    echo -n "       "
-    tests/check_grep.sh tmp -Em1 "register_interrupt\([^n]"
-done
-
-# re-create the card images, just in case
-rm sd.img; unxz -k sd.img.xz; cp sd.img cf.img
+}
 
 echo
-echo "Testing FA_CaptureTestImage..."
-# Models able to display some Canon GUI should capture a still picture as well.
-# This requires a full-res silent picture at qemu/<camera>/VRAM/PH-QR/RAW-000.DNG.
-# Currently working on 500D, 550D, 50D, 60D, 1200D, and to a lesser extent, on 5D3 and 1100D.
-for CAM in ${FRSP_CAMS[*]}; do
-    printf "%5s: " $CAM
+echo "Testing ML restore after format..."
+# fixme: testing hardcoded for 500D
+for CAM in 500D; do
+    ((QEMU_JOB_ID++))
+    run_test fmtrestore $CAM
+done; cleanup
 
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/frsp.ppm
-    rm -f tests/$CAM/frsp*.log
+
+# All EOS cameras should load autoexec.bin, run HPTimer functions
+# and print current task name (this actually tests some ML stubs)
+function test_hptimer {
 
     # compile it from ML dir, for each camera
-    FRSP_PATH=../magic-lantern/minimal/qemu-frsp
-    rm -f $FRSP_PATH/autoexec.bin
-    [ $CAM == "1200D" ] && (cd $FRSP_PATH; hg up qemu -C; hg merge 1200D; cd $OLDPWD) &>> tests/$CAM/frsp-build.log
-    make MODEL=$CAM -C $FRSP_PATH clean &>> tests/$CAM/frsp-build.log
-    make MODEL=$CAM -C $FRSP_PATH       &>> tests/$CAM/frsp-build.log
-    [ $CAM == "1200D" ] && (cd $FRSP_PATH; hg up qemu -C; cd $OLDPWD) &>> tests/$CAM/frsp-build.log
+    HPTIMER_PATH=../magic-lantern/minimal/qemu-hptimer
+    rm -f $HPTIMER_PATH/autoexec.bin
+    make MODEL=$CAM -C $HPTIMER_PATH clean &>> tests/$CAM/$TEST-build.log
+    make MODEL=$CAM -C $HPTIMER_PATH       &>> tests/$CAM/$TEST-build.log
     
-    if [ ! -f $FRSP_PATH/autoexec.bin ]; then
+    if [ ! -f $HPTIMER_PATH/autoexec.bin ]; then
         echo -e "\e[31mCompile error\e[0m"
-        continue
+        return
     fi
 
     # copy autoexec.bin to card images
-    mcopy -o -i $MSD $FRSP_PATH/autoexec.bin ::
-    mcopy -o -i $MCF $FRSP_PATH/autoexec.bin ::
+    mcopy -o -i $MSD $HPTIMER_PATH/autoexec.bin ::
+    mcopy -o -i $MCF $HPTIMER_PATH/autoexec.bin ::
 
-    # run the photo capture test
-    # wait for FA_CaptureTestImage Fin
-    (
-      ./wait_log.sh tests/$CAM/frsp-uart.log 20 5 -q --text "FA_CaptureTestImage Fin" 2>/dev/null
-      sleep 1
-      echo screendump tests/$CAM/frsp.ppm
-      echo quit
-    ) | (
-      ./run_canon_fw.sh $CAM,firmware="boot=1" \
-        -display none -monitor stdio \
-        -d debugmsg \
-        -serial file:tests/$CAM/frsp-uart.log \
-    ) &> tests/$CAM/frsp.log
+    # run the HPTimer test
+    ./run_canon_fw.sh $CAM,firmware="boot=1" -snapshot -display none &> tests/$CAM/$TEST.log &
 
-    tests/check_grep.sh tests/$CAM/frsp-uart.log \
-        -qm1 "FA_CreateTestImage Fin"  || continue
+    # wait for He (Hello) from qprintf (blue, each char colored) 
+    touch tests/$CAM/$TEST.log
+    ( timeout 1 tail -f -n100000 tests/$CAM/$TEST.log & ) | grep --binary-files=text -qP "\x1B\x5B34mH\x1B\x5B0m\x1B\x5B34me\x1B\x5B0m"
 
-    tests/check_grep.sh tests/$CAM/frsp-uart.log \
-        -qm1 "FA_CaptureTestImage Fin" || continue
+    # let it run for 1 second
+    sleep 1
+    stop_qemu_expect_running
 
-    tests/check_grep.sh tests/$CAM/frsp-uart.log \
-        -qm1 "FA_DeleteTestImage Fin"  || continue
-
-    if [ -f tests/$CAM/frsp.md5 ]; then
-        tests/check_md5.sh tests/$CAM/ frsp
-    else
-        echo "OK (no display)"
-    fi
-done
+    tests/check_grep.sh tests/$CAM/$TEST.log -m1 "Hello from task run_test"
+    printf "       "
+    tests/check_grep.sh tests/$CAM/$TEST.log -m1 "Hello from HPTimer" && return
+    printf "       "
+    tests/check_grep.sh tests/$CAM/$TEST.log -m1 "Hello from task init" && return
+}
 
 echo
-echo "Testing file I/O (DCIM directory)..."
-# Most EOS cameras should be able to create the DCIM directory if missing.
-# Currently works only on models that can boot Canon GUI,
-# and also on 1300D.
-#for CAM in ${EOS_CAMS[*]}; do
-for CAM in ${GUI_CAMS[*]} 1300D; do
-    printf "%5s: " $CAM
-    
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/dcim.log
+echo "Testing HPTimer and task name..."
+# this requires a custom build; cannot run in parallel
+for CAM in ${EOS_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test hptimer $CAM
+done; cleanup
 
-    # remove the DCIM directory from the card images
-    mdeltree -i $MSD ::/DCIM &> /dev/null
-    mdeltree -i $MCF ::/DCIM &> /dev/null
+
+# -d callstack triggered quite a few nondeterministic assertions during development
+# so, running it on all cameras where Canon menu can be navigated should be a good test
+# logging the entire call/return trace is possible, but very slow and not repeatable
+function test_menu_callstack {
 
     if [ -f $CAM/patches.gdb ]; then
-        (./run_canon_fw.sh $CAM,firmware="boot=0" -display none -s -S & \
-         arm-none-eabi-gdb -x $CAM/patches.gdb -ex quit &) &> tests/$CAM/dcim.log
-        sleep 5
-        kill_qemu expect_running
+        (
+            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -vnc $VNC_DISP -d callstack -S -gdb tcp::$GDB_PORT &
+            arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/patches.gdb -ex quit &
+        ) &> tests/$CAM/$TEST.log
     else
-        (sleep 5; echo quit) \
-            | ./run_canon_fw.sh $CAM,firmware="boot=0" -display none -monitor stdio &> tests/$CAM/dcim.log
+        (
+            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -vnc $VNC_DISP -d callstack &
+        ) &> tests/$CAM/$TEST.log
     fi
-    
-    if (mdir -b -i $MSD | grep -q DCIM) || (mdir -b -i $MCF | grep -q DCIM); then
-        echo "OK"
-    else
-        echo -e "\e[31mFAILED!\e[0m"
-    fi
-done
 
-# re-create the card images, just in case
-rm sd.img; unxz -k sd.img.xz; cp sd.img cf.img
+    set_gui_timeout
+    sleep $(( 2*GUI_TIMEOUT ))
+
+    count=0;
+    for key in ${MENU_SEQUENCE[$CAM]}; do
+        # some GUI operations are very slow under -d callstack (many small functions called)
+        # for most of them, 1 second is enough, but the logic would be more complex
+        vncdotool -s $VNC_DISP key $key; sleep 3
+        vncdotool -s $VNC_DISP capture tests/$CAM/$TEST$((count++)).png
+        echo -n .
+    done
+
+    shutdown_qemu
+
+    tests/check_md5.sh tests/$CAM/ $TEST || cat tests/$CAM/$TEST.md5.log
+}
 
 echo
-echo "Testing display from bootloader..."
+echo "Testing Canon menu with callstack enabled..."
+for CAM in ${GUI_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test menu_callstack $CAM menu &
+    job_limit_auto
+done; cleanup
 
-# All EOS cameras should run the portable display test:
+
+# At each point, the verbose call stack should match the call/return trace
+# This feature is also exercised in the context of interrupts and DryOS task switches
+
+function test_calls_cstack {
+
+    # skip VxWorks models for now
+    if grep -q VxWorks $CAM/ROM1.BIN; then
+        echo "skipping"
+        return
+    fi
+
+    # log all function calls/returns, interrupts
+    # and DebugMsg calls with call stack for each message
+    if [ -f $CAM/patches.gdb ]; then
+        (
+            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot \
+                -display none -d calls,tasks,debugmsg,v -S -gdb tcp::$GDB_PORT \
+                -serial file:tests/$CAM/$TEST-uart.log &
+            arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/patches.gdb -ex quit &
+        ) &> tests/$CAM/$TEST-raw.log
+    else
+        ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot \
+            -display none -d calls,tasks,debugmsg,v \
+            -serial file:tests/$CAM/calls-cstack-uart.log \
+            &> tests/$CAM/$TEST-raw.log &
+    fi
+    sleep 10
+    stop_qemu_expect_running
+
+    ansi2txt < tests/$CAM/$TEST-raw.log | python tests/test_callstack.py &> tests/$CAM/$TEST-test.log \
+        && (tail -n 1 tests/$CAM/$TEST-test.log | tr -d '\n'; echo " OK" ) \
+        || (tail -n 1 tests/$CAM/$TEST-test.log | tr -d '\n'; echo -e " \e[31mFAILED!\e[0m" )
+}
+
+echo
+echo "Testing callstack consistency with call/return trace for DebugMsg calls..."
 for CAM in ${EOS_CAMS[*]}; do
-    printf "%5s: " $CAM
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/disp.ppm
-    rm -f tests/$CAM/disp.log
-    (sleep 5; echo screendump tests/$CAM/disp.ppm; echo quit) \
-      | ./run_canon_fw.sh $CAM,firmware="boot=1" -display none -monitor stdio &> tests/$CAM/disp.log
-    
-    tests/check_md5.sh tests/$CAM/ disp
-done
+    ((QEMU_JOB_ID++))
+    run_test calls_cstack $CAM &
+    job_limit_auto
+done; cleanup
 
-echo
-echo "Testing CHDK display..."
-
-# M3 uses a special CHDK build from Ant123
-# using it for the other PowerShot models
-# just to test whether they are booting from the card
-for CAM in ${POWERSHOT_CAMS[*]}; do
-    printf "%5s: \n" $CAM
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/disp.ppm
-    rm -f tests/$CAM/disp.log
-
-    M3_DISKBOOT_BIN=tests/test-progs/M3/DISKBOOT.BIN
-    if [ ! -f $M3_DISKBOOT_BIN ]; then
-        mkdir -p `dirname $M3_DISKBOOT_BIN`
-        wget -q -O $M3_DISKBOOT_BIN http://a1ex.magiclantern.fm/bleeding-edge/M3/qemu/DISKBOOT.BIN
-    fi
-
-    # Our SD image appears to be already bootable for CHDK (?!)
-    mcopy -o -i $MSD $M3_DISKBOOT_BIN ::
-
-    # run the emulation
-    (
-      sleep 10
-      echo screendump tests/$CAM/disp.ppm
-      echo quit
-    ) | (
-      ./run_canon_fw.sh $CAM \
-            -display none -monitor stdio \
-            -serial file:tests/$CAM/disp-uart.log \
-    ) &> tests/$CAM/disp.log
-
-    printf "  SD boot: "; tests/check_grep.sh tests/$CAM/disp-uart.log -om1 "StartDiskboot"
-    printf "  RAMboot: "; tests/check_grep.sh tests/$CAM/disp-uart.log -om1 "Start Program on RAM"
-    printf "  Display: "; tests/check_md5.sh tests/$CAM/ disp
-done
-
-echo
-echo "Testing PowerShot models..."
-for CAM in ${POWERSHOT_CAMS[*]}; do
-    echo "$CAM:"
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/boot.log
-
-    (./run_canon_fw.sh $CAM \
-       -display none -d romcpy,int -s -S \
-       -serial file:tests/$CAM/boot-uart.log & \
-     arm-none-eabi-gdb -x $CAM/debugmsg.gdb -ex quit &) &> tests/$CAM/boot.log
-
-    sleep 0.5
-    ( timeout 10 tail -f -n100000 tests/$CAM/boot.log & ) | grep -q "TurnOnDisplay"
-    kill_qemu expect_running
-
-    printf "  SD boot: "; tests/check_grep.sh tests/$CAM/boot-uart.log -om1 "StartDiskboot"
-    printf "  Display: "; tests/check_grep.sh tests/$CAM/boot.log -om1 "TurnOnDisplay"
-    printf "  ROMcopy: "; tests/check_grep.sh tests/$CAM/boot.log -oPm1 "(?<=ROMCPY\]) "
-
-    # print ROMCPY messages before the first interrupt
-    # exception: EOS M5 copies interesting stuff after the first interrupt
-    ansi2txt < tests/$CAM/boot.log \
-        | ( [ $CAM == "EOSM5" ] && cat || grep -m1 -B 100000 -E "Taking exception|terminating on signal") \
-        | grep -oE "\[ROMCPY\].*" \
-        | sed -e "s/\[ROMCPY\]/   /"
-
-done
 
 echo
 echo "Preparing portable ROM dumper..."
-
-# re-create the card images, just in case
-rm sd.img; unxz -k sd.img.xz; cp sd.img cf.img
 
 ROM_DUMPER_BIN=tests/test-progs/portable-rom-dumper/autoexec.bin
 TMP=tests/tmp
@@ -1075,39 +1307,40 @@ function check_rom_md5 {
     diff -q $TMP/cf.lst $TMP/cf2.lst
 }
 
-echo "Testing portable ROM dumper..."
 # Most EOS cameras should run the portable ROM dumper.
-for CAM in ${EOS_CAMS[*]}; do
-    printf "%5s: " $CAM
+function test_romdump {
 
     # The dumper requires the "Open file for write" string present in the firmware.
     if ! grep -q "Open file for write" $CAM/ROM[01].BIN ; then
         echo "skipping"
-        continue
+        return
     fi
-    
-    mkdir -p tests/$CAM/
-    rm -f tests/$CAM/romdump.ppm
-    rm -f tests/$CAM/romdump.log
 
     # make sure there are no ROM files on the card
     if mdir -i $MSD ::ROM* &> /dev/null; then
         echo "Error: SD image already contains ROM dumps."
-        continue
+        return
     fi
     if mdir -i $MCF ::ROM* &> /dev/null; then
         echo "Error: CF image already contains ROM dumps."
-        continue
+        return
     fi
 
     # for some reason, 7D is slower
     [ $CAM == "7D" ] && timeout=40 || timeout=20
 
-    (sleep $timeout; echo screendump tests/$CAM/romdump.ppm; echo quit) \
-      | ./run_canon_fw.sh $CAM,firmware="boot=1" -display none -monitor stdio &> tests/$CAM/romdump.log
+    (sleep $timeout; echo screendump tests/$CAM/$TEST.ppm; echo quit) \
+      | ./run_canon_fw.sh $CAM,firmware="boot=1" -display none -monitor stdio &> tests/$CAM/$TEST.log
     
     check_rom_md5 $CAM
-done
+}
+
+echo "Testing portable ROM dumper..."
+# we need to check the card contents; cannot run in parallel
+for CAM in ${EOS_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test romdump $CAM
+done; cleanup
 
 # custom SD image no longer needed
 sd_restore

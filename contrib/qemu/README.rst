@@ -78,7 +78,8 @@ What does not work (yet):
 - Cache behavior is not emulated (very hard; feel free to point us to code that can be reused);
 - Native Windows build (QEMU can be compiled on Windows => contribution welcome).
 
-Common issues and workarounds:
+Common issues and workarounds
+`````````````````````````````
 
 - Firmware version mismatch when trying to load ML
 
@@ -98,6 +99,18 @@ Common issues and workarounds:
 
   - short answer: ``-d io,nochain -singlestep``
   - see `Execution trace incomplete? PC values from MMIO logs not correct?`_
+
+- Netcat issues when interacting with ``qemu.monitor``
+
+  There are many versions of netcat around.
+  Newer variants of openbsd netcat
+  (`since 1.111, Mar 2013 <https://cvsweb.openbsd.org/cgi-bin/cvsweb/src/usr.bin/nc/netcat.c.diff?r1=1.110&r2=1.111&f=h>`_)
+  require ``-N``, but older versions do not have ``-N`` and will print an error if you attempt to use it. GNU netcat or other variants were not tested.
+  
+  TLDR: try openbsd netcat. If you get an error after copy/pasting some ``nc`` command from this guide, simply remove the ``-N``.
+  
+  Look in ``run_tests.sh`` for a slightly more portable workaround.
+  
 
 Installation
 ------------
@@ -318,7 +331,7 @@ you may:
 
 .. code:: shell
 
-  echo "system_powerdown" | nc -U qemu.monitor
+  echo "system_powerdown" | nc -N -U qemu.monitor
 
 Internally, Canon code refers to this kind of shutdown as ``SHUTDOWN_REQUEST``
 (watch their debug messages with ``-d debugmsg``).
@@ -330,10 +343,10 @@ after some timeout, if QEMU is still running:
 
 .. code:: shell
 
-  echo "system_powerdown" | nc -U qemu.monitor
+  echo "system_powerdown" | nc -N -U qemu.monitor
   sleep 2
-  if nc -U qemu.monitor < /dev/null > /dev/null 2>&1; then
-    echo "quit" | nc -U qemu.monitor
+  if nc -N -U qemu.monitor < /dev/null > /dev/null 2>&1; then
+    echo "quit" | nc -N -U qemu.monitor
   fi
 
 Opening the card door
@@ -470,7 +483,7 @@ That means, during emulation you can interact with it using netcat:
 
   .. code:: shell
 
-    nc -U qemu.monitor
+    nc -N -U qemu.monitor
 
   |
 
@@ -478,7 +491,7 @@ That means, during emulation you can interact with it using netcat:
 
   .. code:: shell
 
-    echo "log io" | nc -U qemu.monitor
+    echo "log io" | nc -N -U qemu.monitor
 
   |
 
@@ -486,7 +499,7 @@ That means, during emulation you can interact with it using netcat:
 
   .. code:: shell
 
-    if nc -U qemu.monitor < /dev/null > /dev/null 2>&1; then
+    if nc -N -U qemu.monitor < /dev/null > /dev/null 2>&1; then
       ...
     fi
 
@@ -520,7 +533,7 @@ Another option is to use the VNC interface:
         -vnc :1234 &
   sleep 10
   vncdotool -s :1234 capture snap.png
-  echo "system_powerdown" | nc -U qemu.monitor
+  echo "system_powerdown" | nc -N -U qemu.monitor
 
 Sending keystrokes
 ``````````````````
@@ -552,10 +565,10 @@ Or, if QEMU runs as a background process:
   ./run_canon_fw.sh 60D,firmware='boot=0' &
   
   sleep 10
-  echo "sendkey m" | nc -U qemu.monitor
+  echo "sendkey m" | nc -N -U qemu.monitor
   sleep 1
-  echo "screendump menu.ppm" | nc -U qemu.monitor
-  echo "system_powerdown" | nc -U qemu.monitor
+  echo "screendump menu.ppm" | nc -N -U qemu.monitor
+  echo "system_powerdown" | nc -N -U qemu.monitor
 
 From VNC:
 
@@ -574,7 +587,7 @@ From VNC:
   vncdotool -s :1234 key m
   sleep 1
   vncdotool -s :1234 capture snap.png
-  echo "system_powerdown" | nc -U qemu.monitor
+  echo "system_powerdown" | nc -N -U qemu.monitor
 
 Running multiple ML builds from a single command
 ````````````````````````````````````````````````
@@ -610,6 +623,75 @@ More examples:
 - `EOSM2 hello world <https://builds.magiclantern.fm/jenkins/view/QEMU/job/QEMU-EOSM2/18/console>`_
 - running ML from the dm-spy-experiments branch in the emulator (`QEMU-dm-spy <https://builds.magiclantern.fm/jenkins/view/QEMU/job/QEMU-dm-spy/65/consoleFull>`_)
 - running the FA_CaptureTestImage test based on the minimal ML target (`QEMU-FA_CaptureTestImage <https://builds.magiclantern.fm/jenkins/view/QEMU/job/QEMU-FA_CaptureTestImage>`_)
+
+Parallel execution
+``````````````````
+
+On modern machines, you will get significant speed gains by running multiple instances of QEMU in parallel.
+This is tricky and not automated. You need to be careful with the following global resources:
+
+- SD and CF images (``sd.img`` and ``cf.img``):
+
+  If all your parallel instances require the same initial SD/CF card contents,
+  and you do not need to inspect the changes to SD/CF after the experiment,
+  you may use these files as read-only shared resources with the help of QEMU's
+  `temporary snapshot <https://wiki.qemu.org/Documentation/CreateSnapshot#Temporary_snapshots>`_ feature
+  (simply add ``-snapshot`` to your command line). This will discard any changes to ``sd.img`` and ``cf.img``.
+  `Implementation details <https://lists.gnu.org/archive/html/qemu-devel/2008-09/msg00712.html>`_.
+
+  Otherwise, you could allocate different SD/CF images for each instance, but it's up to you to modify the scripts to handle that.
+
+- QEMU monitor socket (``qemu.monitor``):
+
+  Set the ``QEMU_JOB_ID`` environment variable; it will be used as suffix for ``qemu.monitor``.
+  
+  Example: ``QEMU_JOB_ID=1 ./run_canon_fw.sh 5D3`` will use ``qemu.monitor1`` for monitor commands.
+
+- GDB port (with ``-s -S``, this port is 1234):
+
+  Set QEMU_JOB_ID to a small positive integer; then you'll be able to do this:
+
+  .. code:: shell
+
+    QEMU_MON=qemu.monitor$QEMU_JOB_ID
+    GDB_PORT=$((1234+$QEMU_JOB_ID))
+    ./run_canon_fw.sh EOSM2 -S -gdb tcp::$GDB_PORT &
+    arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x EOSM2/patches.gdb -ex quit &
+    
+    # interact with monitor commands
+    sleep 5
+    echo "sendkey m" | nc -N -U $QEMU_MON
+    sleep 1
+
+    # quit when finished
+    echo "quit" | nc -N -U $QEMU_MON
+
+- VNC display
+
+  Same as above:
+
+  .. code:: shell
+
+    QEMU_MON=qemu.monitor$QEMU_JOB_ID
+    VNC_DISP=":$((12345+QEMU_JOB_ID))"
+    ./run_canon_fw.sh 5D3 -vnc $VNC_DISP &
+    
+    # interact with vncdotool
+    sleep 5
+    vncdotool -$VNC_DISP key m
+    sleep 1
+    
+    # quit when finished
+    echo "quit" | nc -N -U $QEMU_MON
+
+- any temporary files you may want to use
+
+  Use something like ``mktemp`` rather than hardcoding a filename.
+  Or, try achieving the same thing without a temporary file (pipes, process substitution).
+
+- any other global resources (you'll have to figure them out on your own).
+
+TODO: can this be automated somehow with containers?
 
 Debugging
 ---------
