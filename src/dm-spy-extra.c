@@ -195,6 +195,10 @@ static struct logged_func logged_functions[] = {
     { 0x13344,    "register_interrupt", 4, register_interrupt_log },
     #endif
 
+    #ifdef CONFIG_7D_203
+    { 0xFF080094, "0xC0220024", R(0), mmio_log },     /* [GPIO] GPIO_9 (master woke up on 7D) at Startup:FF080090 (0x0)*/
+    #endif
+
 #else /* not CONFIG_DEBUG_INTERCEPT_STARTUP */
 
 #ifdef CONFIG_5D2
