@@ -176,10 +176,10 @@ static unsigned int tft_regs_init()
     if (is_camera("EOSM", "2.0.2"))
     {
         /* TFT Command start ... TFT Command end */
-        tft_sio_init    = (void *) 0xFF12906C;
-        tft_sio_write   = (void *) 0xFF128F6C;
-        tft_sio_finish  = (void *) 0xFF13B30C;
-        p_tft_sio_obj   = (void **)   0x3EAF0;
+        tft_sio_init    = (void *) 0xFF12909C;
+        tft_sio_write   = (void *) 0xFF128F9C;
+        tft_sio_finish  = (void *) 0xFF13B454;
+        p_tft_sio_obj   = (void **)   0x3E690;
     }
 
     if (tft_sio_init && tft_sio_write && tft_sio_finish && p_tft_sio_obj)
