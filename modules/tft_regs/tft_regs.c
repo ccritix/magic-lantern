@@ -212,10 +212,10 @@ static unsigned int tft_regs_init()
     if (is_camera("50D", "1.0.9"))
     {
         /* TftDeepStanby, EnableTftCtrl CurrentBrightness=%d */
-        tft_sio_init    = (void *) 0xFF065B50;
-        tft_sio_write   = (void *) 0xFF060044;
-        tft_sio_finish  = (void *) 0xFF06AA00;
-        p_tft_sio_obj   = (void **)    0x30AE;
+        tft_sio_init    = (void *) 0xFF86017C;
+        tft_sio_write   = (void *) 0xFF860044;
+        tft_sio_finish  = (void *) 0xFF86AA00;
+        p_tft_sio_obj   = (void **)    0x2880;
     }
 
     if (is_camera("700D", "1.1.5"))
