@@ -146,6 +146,60 @@ static unsigned int tft_regs_init()
         p_tft_sio_obj   = (void **)   0x246F0;
     }
 
+    if (is_camera("5D3", "1.2.3"))
+    {
+        /* TftDeepStanby, EnableTftCtrl CurrentBrightness=%d */
+        tft_sio_init    = (void *) 0xFF12C950;
+        tft_sio_write   = (void *) 0xFF12C8AC;
+        tft_sio_finish  = (void *) 0xFF13BE8C;
+        p_tft_sio_obj   = (void **)   0x246D8;
+    }
+
+    if (is_camera("5D3", "1.3.4"))
+    {
+        /* TftDeepStanby, EnableTftCtrl CurrentBrightness=%d */
+        tft_sio_init    = (void *) 0xFF12C958;
+        tft_sio_write   = (void *) 0xFF12C8B4;
+        tft_sio_finish  = (void *) 0xFF13BE94;
+        p_tft_sio_obj   = (void **)   0x246D8;
+    }
+
+    if (is_camera("5D2", "2.1.2"))
+    {
+        /* TftDeepStanby, EnableTftCtrl CurrentBrightness=%d */
+        tft_sio_init    = (void *) 0xFF065B50;
+        tft_sio_write   = (void *) 0xFF065A54;
+        tft_sio_finish  = (void *) 0xFF071FD4;
+        p_tft_sio_obj   = (void **)    0x2828;
+    }
+
+    if (is_camera("6D", "1.1.6"))
+    {
+        /* TftDeepStanby, CurrentBrightness=%d */
+        tft_sio_init    = (void *) 0xFF1397F4;
+        tft_sio_write   = (void *) 0xFF139870;
+        tft_sio_finish  = (void *) 0xFF14A0B0;
+        p_tft_sio_obj   = (void **)   0x75540;
+    }
+
+    if (is_camera("7D", "2.0.3"))
+    {
+        /* TftDeepStanby, PD_IsDispLvOnTFT */
+        tft_sio_init    = (void *) 0xFF070114;
+        tft_sio_write   = (void *) 0xFF070068;
+        tft_sio_finish  = (void *) 0xFF07F8F4;
+        p_tft_sio_obj   = (void **)    0x21D0;
+    }
+
+    if (is_camera("7D", "2.0.6"))
+    {
+        /* TftDeepStanby, PD_IsDispLvOnTFT */
+        tft_sio_init    = (void *) 0xFF0700E8;
+        tft_sio_write   = (void *) 0xFF07003C;
+        tft_sio_finish  = (void *) 0xFF07F8C8;
+        p_tft_sio_obj   = (void **)    0x21D0;
+    }
+
     if (is_camera("60D", "1.1.1"))
     {
         /* TftDeepStanby, EnableTftCtrl CurrentBrightness=%d */
@@ -155,13 +209,13 @@ static unsigned int tft_regs_init()
         p_tft_sio_obj   = (void **)    0x2488;
     }
 
-    if (is_camera("650D", "1.0.4"))
+    if (is_camera("50D", "1.0.9"))
     {
-        /* TFT Command start ... TFT Command end */
-        tft_sio_init    = (void *) 0xFF127E88;
-        tft_sio_write   = (void *) 0xFF127D88;
-        tft_sio_finish  = (void *) 0xFF13B868;
-        p_tft_sio_obj   = (void **)   0x23C48;
+        /* TftDeepStanby, EnableTftCtrl CurrentBrightness=%d */
+        tft_sio_init    = (void *) 0xFF065B50;
+        tft_sio_write   = (void *) 0xFF060044;
+        tft_sio_finish  = (void *) 0xFF06AA00;
+        p_tft_sio_obj   = (void **)    0x30AE;
     }
 
     if (is_camera("700D", "1.1.5"))
@@ -173,6 +227,51 @@ static unsigned int tft_regs_init()
         p_tft_sio_obj   = (void **)   0x23C58;
     }
 
+    if (is_camera("650D", "1.0.4"))
+    {
+        /* TFT Command start ... TFT Command end */
+        tft_sio_init    = (void *) 0xFF127E88;
+        tft_sio_write   = (void *) 0xFF127D88;
+        tft_sio_finish  = (void *) 0xFF13B868;
+        p_tft_sio_obj   = (void **)   0x23C48;
+    }
+
+    if (is_camera("600D", "1.0.2"))
+    {
+        /* TFT Command start ... TFT Command end */
+        tft_sio_init    = (void *) 0xFF0625B4;
+        tft_sio_write   = (void *) 0xFF062430;
+        tft_sio_finish  = (void *) 0xFF074FE8;
+        p_tft_sio_obj   = (void **)    0x2410;
+    }
+
+    if (is_camera("550D", "1.0.9"))//
+    {
+        /* TftDeepStanby, EnableTftCtrl CurrentBrightness=%d */
+        tft_sio_init    = (void *) 0xFF05D638;
+        tft_sio_write   = (void *) 0xFF05D594;
+        tft_sio_finish  = (void *) 0xFF06DE40;
+        p_tft_sio_obj   = (void **)    0x240C;
+    }
+
+    if (is_camera("500D", "1.1.1"))
+    {
+        /* TftDeepStanby, EnableTftCtrl CurrentBrightness=%d */
+        tft_sio_init    = (void *) 0xFF060E18;
+        tft_sio_write   = (void *) 0xFF060CF4;
+        tft_sio_finish  = (void *) 0xFF06D9A8;
+        p_tft_sio_obj   = (void **)    0x2620;
+    }
+
+    if (is_camera("1100D", "1.0.5"))
+    {
+        /* TFT Command start ... TFT Command end */
+        tft_sio_init    = (void *) 0xFF062374;
+        tft_sio_write   = (void *) 0xFF0622D0;
+        tft_sio_finish  = (void *) 0xFF073564;
+        p_tft_sio_obj   = (void **)    0x23BC;
+    }
+
     if (is_camera("EOSM", "2.0.2"))
     {
         /* TFT Command start ... TFT Command end */
@@ -180,6 +279,42 @@ static unsigned int tft_regs_init()
         tft_sio_write   = (void *) 0xFF128F9C;
         tft_sio_finish  = (void *) 0xFF13B454;
         p_tft_sio_obj   = (void **)   0x3E690;
+    }
+
+    if (is_camera("EOSM", "2.0.3"))
+    {
+        /* TFT Command start ... TFT Command end */
+        tft_sio_init    = (void *) 0xFF12914C;
+        tft_sio_write   = (void *) 0xFF12904C;
+        tft_sio_finish  = (void *) 0xFF13B504;
+        p_tft_sio_obj   = (void **)   0X3E690;
+    }
+
+    if (is_camera("EOSM2", "1.0.3"))
+    {
+        /* TFT Command start ... TFT Command end */
+        tft_sio_init    = (void *) 0xFF137360;
+        tft_sio_write   = (void *) 0xFF1371F0;
+        tft_sio_finish  = (void *) 0xFF14A6E8;
+        p_tft_sio_obj   = (void **)   0X904D8;
+    }
+
+    if (is_camera("100D", "1.0.1"))
+    {
+        /* TFT Command start ... TFT Command end */
+        tft_sio_init    = (void *) 0xFF131C1C;
+        tft_sio_write   = (void *) 0xFF131AE0;
+        tft_sio_finish  = (void *) 0xFF146C20;
+        p_tft_sio_obj   = (void **)   0x65B28;
+    }
+
+    if (is_camera("70D", "1.1.2"))
+    {
+        /* TftDeepStanby, EnableTftCtrl CurrentBrightness=%d */
+        tft_sio_init    = (void *) 0xff134c64;
+        tft_sio_write   = (void *) 0xff134bb0;
+        tft_sio_finish  = (void *) 0xff147bd0;
+        p_tft_sio_obj   = (void **)   0x7B41C;
     }
 
     if (tft_sio_init && tft_sio_write && tft_sio_finish && p_tft_sio_obj)
