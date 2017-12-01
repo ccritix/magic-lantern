@@ -164,6 +164,15 @@ static unsigned int tft_regs_init()
         p_tft_sio_obj   = (void **)   0x246D8;
     }
 
+    if (is_camera("5D3", "1.3.5"))
+    {
+        /* TftDeepStanby, EnableTftCtrl CurrentBrightness=%d */
+        tft_sio_init    = (void *) 0xFF12C950;
+        tft_sio_write   = (void *) 0xFF12C8AC;
+        tft_sio_finish  = (void *) 0xFF13BE8C;
+        p_tft_sio_obj   = (void **)   0x27BE0;
+    }
+
     if (is_camera("5D2", "2.1.2"))
     {
         /* TftDeepStanby, EnableTftCtrl CurrentBrightness=%d */
