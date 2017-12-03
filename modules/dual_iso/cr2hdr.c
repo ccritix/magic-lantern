@@ -38,6 +38,7 @@ static int is_bright[4];
 #include <unistd.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <assert.h>
 
 #include "../../src/raw.h"
 #include "../../src/chdk-dng.h"
@@ -223,6 +224,7 @@ struct cmd_group options[] = {
             { &debug_blend,    1, "--debug-blend",      "save intermediate images used for blending:\n"
                                                         "    dark.dng        the low-ISO exposure, interpolated\n"
                                                         "    bright.dng      the high-ISO exposure, interpolated and darkened\n"
+                                                        "    delta.dng       difference between the two (useful to check exposure matching)\n"
                                                         "    halfres.dng     half-resolution blending (low noise, high aliasing)\n"
                                                         "    fullres.dng     full-resolution blending (minimal aliasing, high noise)\n"
                                                         "    *_smooth.dng    images after chroma smoothing"
@@ -1676,6 +1678,16 @@ static int bin_search(int lo, int hi, CritFunc crit)
 
 static int mean2(int a, int b, int white, int* err);
 
+static inline int FC(int row, int col)
+{
+    if ((row%2) == 0 && (col%2) == 0)
+        return 0;  /* red */
+    else if ((row%2) == 1 && (col%2) == 1)
+        return 2;  /* blue */
+    else
+        return 1;  /* green */
+}
+
 static int match_exposures(double* corr_ev, int* white_darkened)
 {
     /* guess ISO - find the factor and the offset for matching the bright and dark images */
@@ -1696,201 +1708,212 @@ static int match_exposures(double* corr_ev, int* white_darkened)
     memset(dark, 0, w * h * sizeof(dark[0]));
     memset(bright, 0, w * h * sizeof(bright[0]));
     
-    for (int y = y0; y < h-2; y += 3)
+    for (int y = y0; y < h-2; y++)
     {
         int* native = BRIGHT_ROW ? bright : dark;
         int* interp = BRIGHT_ROW ? dark : bright;
 
-        for (int x = 0; x < w; x += 3)
+        for (int x = 0; x < w; x++)
         {
             int pa = raw_get_pixel_20to16(x, y-2) - black;
             int pb = raw_get_pixel_20to16(x, y+2) - black;
             int pn = raw_get_pixel_20to16(x, y) - black;
             int pi = (pa + pb + 1) / 2;
-            if (pa >= clip || pb >= clip) pi = clip0;               /* pixel too bright? discard */
-            if (pi >= clip) pn = clip0;                             /* interpolated pixel not good? discard the other one too */
+            if (pa >= clip || pb >= clip || pn >= clip)
+                pi = pn = clip0;               /* pixel too bright? discard */
             interp[x + y * w] = pi;
             native[x + y * w] = pn;
         }
     }
-    
+
     /* 
      * Robust line fit (match unclipped data):
-     * - use (median_bright, median_dark) as origin
-     * - select highlights between 98 and 99.9th percentile to find the slope (ISO)
-     * - choose the slope that explains the largest number of highlight points (inspired from RANSAC)
-     * 
-     * Rationale:
-     * - exposure matching is important to be correct in bright_highlights (which are combined with dark_midtones)
-     * - low percentiles are likely affected by noise (this process is essentially a histogram matching)
-     * - as ad-hoc as it looks, it's the only method that passed all the test samples so far.
+     * - divide the image into a MxM grid (M=50)
+     * - consider only unclipped data (each ISO has its own white level)
+     * - compute low-iso median for each cell (unclipped data only)
+     * - compute median difference for each cell (unclipped data only)
+     * - line fit: X = low iso medians, Y = low iso medians + median difference
+     * - adjust (darken) high ISO to match low ISO
+     * - repeat to fine-tune the result
      */
-    int nmax = (w+2) * (h+2) / 9;   /* downsample by 3x3 for speed */
-    int * tmp = malloc(nmax * sizeof(tmp[0]));
-    
-    /* median_bright */
-    int n = 0;
-    for (int y = y0; y < h-2; y += 3)
-    {
-        for (int x = 0; x < w; x += 3)
-        {
-             int b = bright[x + y*w];
-             if (b >= clip) continue;
-             tmp[n++] = b;
-        }
-    }
-    int bmed = median_int_wirth(tmp, n);
 
-    int * bps = 0;
-    if (plot_iso_curve)
-    {
-        /* bright percentiles, in 0.5% increments */
-        bps = malloc(200 * sizeof(bps[0]));
-        for (int i = 0; i < 200; i++)
-        {
-            bps[i] = kth_smallest_int(tmp, n, (long long) n*i/200);
-        }
-    }
-
-    /* also compute the range for bright pixels (used to find the slope) */
-    int b_lo = kth_smallest_int(tmp, n, n*98/100);
-    int b_hi = kth_smallest_int(tmp, n, n*99.9/100);
-
-    /* median_dark */
-    n = 0;
-    for (int y = y0; y < h-2; y += 3)
-    {
-        for (int x = 0; x < w; x += 3)
-        {
-             int d = dark[x + y*w];
-             int b = bright[x + y*w];
-             if (b >= clip) continue;
-             tmp[n++] = d;
-        }
-    }
-    int dmed = median_int_wirth(tmp, n);
-
-    int * dps = 0;
-    if (plot_iso_curve)
-    {
-        /* dark percentiles, in 0.5% increments */
-        dps = malloc(200 * sizeof(bps[0]));
-        for (int i = 0; i < 200; i++)
-        {
-            dps[i] = kth_smallest_int(tmp, n, (long long) n*i/200);
-        }
-    }
-
-    /* select highlights used to find the slope (ISO) */
-    /* (98th percentile => up to 2% highlights) */
-    int hi_nmax = nmax/50;
-    int hi_n = 0;
-    int* hi_dark = malloc(hi_nmax * sizeof(hi_dark[0]));
-    int* hi_bright = malloc(hi_nmax * sizeof(hi_bright[0]));
-
-    for (int y = y0; y < h-2; y += 3)
-    {
-        for (int x = 0; x < w; x += 3)
-        {
-             int d = dark[x + y*w];
-             int b = bright[x + y*w];
-             if (b >= b_hi) continue;
-             if (b <= b_lo) continue;
-             hi_dark[hi_n] = d;
-             hi_bright[hi_n] = b;
-             hi_n++;
-             if (hi_n >= hi_nmax) break;
-        }
-    }
-
-    //~ printf("Selected %d highlight points (max %d)\n", hi_n, hi_nmax);
-    
-    double a = 0;
+    /* y = a*x + b */
+    /* y = bright, x = dark */
+    double a = 1;
     double b = 0;
 
-    int best_score = 0;
-    for (double ev = 0; ev < 6; ev += 0.002)
+    /* fixme: when to stop? */
+    for (int iter = 0; iter < 5; iter++)
     {
-        double test_a = pow(2, -ev);
-        double test_b = dmed - bmed * test_a;
+        const int M = 50;
 
-        int score = 0;
-        for (int i = 0; i < hi_n; i++)
-        {
-            int d = hi_dark[i];
-            int b = hi_bright[i];
-            int e = d - (b*test_a + test_b);
-            if (ABS(e) < 50) score++;
-        }
-        if (score > best_score)
-        {
-            best_score = score;
-            a = test_a;
-            b = test_b;
-            //~ printf("%f: %d\n", a, score);
-        }
-    }
-    free(hi_dark); hi_dark = 0;
-    free(hi_bright); hi_bright = 0;
-    free(tmp); tmp = 0;
+        int Darks[3*M*M];
+        int Brigs[3*M*M];
+        int K = 0;
 
-    if (plot_iso_curve)
-    {
-        printf("Linear fit      : y = %f*x + %f\n", a, b);
-        FILE* f = fopen("iso-curve.m", "w");
-        fprintf(f, "a = %g\n", a);
-        fprintf(f, "b = %g\n", b);
-        fprintf(f, "clip = %d\n", clip);
-        fprintf(f, "data = [\n");
-        int y0 = raw_info.active_area.y1 + 5;
-        for (int i = 0; i < 50000; i++)
+        for (int ch = 0; ch < 3; ch++)
         {
-            int x = (rand() % w)/3*3;
-            int y = (rand() % (h-y0-5))/3*3 + y0;
-            int d = dark[x + y*w];
-            int b = bright[x + y*w];
-            if (b >= clip0)
+            for (int i = 0; i < M; i++)
             {
-                /* retry (discard this pixel) */
-                /* this graph includes a few more highlights, not just those actually used for fitting */
-                i--;
-                continue;
+                for (int j = 0; j < M; j++)
+                {
+                    /* cell (i,j) */
+                    const int nmax = (1 + w / M) * (1 + h / M);
+                    int * darks = malloc(nmax * sizeof(darks[0]));
+                    int * diffs = malloc(nmax * sizeof(diffs[0]));
+                    int k = 0;
+                    int all = 0;
+
+                    for (int y = i * h / M; y < (i + 1) * h / M; y++)
+                    {
+                        if (y < y0) continue;
+                        if (y >= h-2) continue;
+
+                        for (int x = j * w / M; x < (j + 1) * w / M; x++)
+                        {
+                            /* one data point per channel */
+                            /* fixme: scan the image once, not 3 times */
+                            if (FC(y,x) != ch)
+                            {
+                                continue;
+                            }
+
+                            int lo = dark[x + y * w];
+                            int hi = bright[x + y * w];
+
+                            /* note: clipped pixels were all set to clip0 */
+                            if (lo != clip0 && hi != clip0)
+                            {
+                                assert(k < nmax);
+                                assert(lo < clip);
+                                assert(hi < clip);
+                                darks[k] = lo;
+                                diffs[k] = (hi-b)/a - lo;
+                                k++;
+                            }
+                            all++;
+                        }
+                    }
+
+                    /* more than 25% valid pixels? */
+                    if (k > all / 4)
+                    {
+                        assert(K < COUNT(Darks));
+                        Darks[K] = median_int_wirth(darks, k);
+                        int dmed = median_int_wirth(diffs, k);
+                        Brigs[K] = (dmed + Darks[K]) * a + b;
+                        if (0)
+                        {
+                            /* debug info */
+                            /* reuse darks to check the interquartile range of diffs */
+                            /* this will be very high at first iteration
+                             * but much lower at the next one(s) */
+                            int * quart = darks;
+                            int q = 0;
+                            for (int i = 0; i < k; i++)
+                                if (diffs[i] < dmed)
+                                    quart[q++] = diffs[i];
+                            int p25 = median_int_wirth(quart, q);
+                            q = 0;
+                            for (int i = 0; i < k; i++)
+                                if (diffs[i] > dmed)
+                                    quart[q++] = diffs[i];
+                            int p75 = median_int_wirth(quart, q);
+                            printf("diff range: %d - %d\n", p25, p75);
+                        }
+                        K++;
+                    }
+
+                    free(darks);
+                    free(diffs);
+                }
             }
-            /* randomize data, to get a better idea of pixel density */
-            fprintf(f, "    %f %f;\n", b + fast_randn05(), d + fast_randn05());
         }
-        fprintf(f, "];\n");
 
-        fprintf(f, "bps = [ ");
-        for (int i = 0; i < 200; i++)
-            fprintf(f, "%d ", bps[i]);
-        fprintf(f, "];\n");
+        /* linear fit on Diffs vs Darks */
 
-        fprintf(f, "dps = [ ");
-        for (int i = 0; i < 200; i++)
-            fprintf(f, "%d ", dps[i]);
-        fprintf(f, "];\n");
+        /*
+         * some sort of robust linear fitting
+         * median for X, median for Y, median for angle (atan2)
+         */
+        int * aux = malloc(K * sizeof(aux[0]));
+        memcpy(aux, Darks, K * sizeof(aux[0]));
+        int mx = median_int_wirth(aux, K);
+        memcpy(aux, Brigs, K * sizeof(aux[0]));
+        int my = median_int_wirth(aux, K);
+        free(aux);
 
-        fprintf(f, "bright = data(:,1);\n");
-        fprintf(f, "brightd = data(:,1)*a+b;\n");
-        fprintf(f, "dark = data(:,2);\n");
-        fprintf(f, "hi = bright > %d & bright < %d;\n", b_lo, b_hi);
-        //~ fprintf(f, "median(dark(hi) - bright(hi)*a - b)\n");
-        fprintf(f, "plot(brightd, dark, 'o', 'markersize', 0.1, brightd(hi), dark(hi), 'og', 'markersize', 0.1, brightd, brightd, 'or', 'markersize', 1); hold on;\n");
-        //~ fprintf(f, "axis([-1000 clip*1.1 -1000 1.5*a*clip+b]);\n");
-        fprintf(f, "axis auto; set(gca,'xscale','log'); set(gca,'yscale','log'); axis tight;\n");
-        fprintf(f, "plot(bps*a+b, dps, 'm', 'linewidth', 2, bps(round(1:9.99:end))*a+b, dps(round(1:9.99:end)), 'om', 'markersize', 3, 'linewidth', 6);\n");
-        fprintf(f, "plot([%d %d]*a+b, [%d %d], 'or', 'markersize', 3, 'linewidth', 8);\n", bmed, 0, dmed, 0);
-        fprintf(f, "print -dpng iso-curve.png\n");
-        fclose(f);
-        if(system("octave --persist iso-curve.m"));
+        int * Angles = malloc(K * sizeof(Angles[0]));
+        for (int i = 0; i < K; i++)
+        {
+            double ang = atan2(Brigs[i] - my, Darks[i] - mx);
+            while (ang < 0) ang += M_PI;
+            Angles[i] = (int)round(ang * 1000000);
+        }
+        int ma = median_int_wirth(Angles, K);
+        free(Angles);
+
+        /* convert to y = ax + b */
+        a = tan(ma / 1000000.0);
+        b = my - a * mx;
+
+        /* print values normalized to 14-bit */
+        /* b is usually negative */
+        printf("Linear fit      : y = %.4f*x - %.2f\n", a, -b/64);
+
+        if (plot_iso_curve)
+        {
+            FILE* f = fopen("iso-curve.m", "w");
+            fprintf(f, "a = %g\n", a);
+            fprintf(f, "b = %g\n", b);
+            fprintf(f, "clip = %d\n", clip);
+            fprintf(f, "Darks = [ ");
+            for (int i = 0; i < K; i++)
+                fprintf(f, "%d ", Darks[i]);
+            fprintf(f, "];\n");
+            fprintf(f, "Brigs = [ ");
+            for (int i = 0; i < K; i++)
+                fprintf(f, "%d ", Brigs[i]);
+            fprintf(f, "];\n");
+            fprintf(f, "black_delta = -b / (a + 1);");
+            fprintf(f, "graphics_toolkit gnuplot;\n");
+            fprintf(f, "plot(Darks - black_delta, Brigs + black_delta, '.r');\n");
+            fprintf(f, "axis auto; set(gca,'xscale','log'); set(gca,'yscale','log'); axis tight; ax = axis;\n");
+            fprintf(f, "hold on, plot(linspace(1, clip/a, 1000) - black_delta, linspace(1, clip/a, 1000) * a + b + black_delta); axis(ax);\n");
+            fprintf(f, "print -dpng iso-curve-%d.png\n", iter);
+            fclose(f);
+            if(system("octave iso-curve.m"));
+        }
     }
+
+#if 0
+    for (int y = 0; y < h; y ++)
+        for (int x = 0; x < w; x ++)
+            raw_set_pixel16(x, y, dark[x + y*w] * a + b + black);
+    save_debug_dng("fit-dark.dng");
+    for (int y = 0; y < h; y ++)
+        for (int x = 0; x < w; x ++)
+            raw_set_pixel16(x, y, bright[x + y*w] + black);
+    save_debug_dng("fit-bright.dng");
+    for (int y = 0; y < h; y ++)
+        for (int x = 0; x < w; x ++)
+            raw_set_pixel16(x, y, 100 * (bright[x + y*w] - (dark[x + y*w] * a + b)) + white/2);
+    save_debug_dng("fit-delta.dng");
+    for (int y = 0; y < h; y ++)
+        for (int x = 0; x < w; x ++)
+            raw_set_pixel16(x, y, 100 * (bright[x + y*w]/a - b/a - dark[x + y*w]) + white/2);
+    save_debug_dng("fit-delta2.dng");
+#endif
+
     free(dark);
     free(bright);
-    if (dps) free(dps);
-    if (bps) free(bps);
 
     /* apply the correction */
+
+    /* previous code used different assumption: dark = a * bright + b */
+    /* y = ax + b => x = y/a - b/a */
+    a = 1/a;
+    b *= a; b = -b;
 
     /*
      * We already know that EXIF black level is the average of the black levels
@@ -1941,6 +1964,7 @@ static int match_exposures(double* corr_ev, int* white_darkened)
 
     printf("ISO difference  : %.2f EV (%d)\n", log2(factor), (int)round(factor*100));
     printf("Black delta     : %.2f\n", black_delta20 / 64.0 * 2.0);
+
     return 1;
 }
 
@@ -2002,16 +2026,6 @@ static void chroma_smooth(uint32_t * inp, uint32_t * out, int* raw2ev, int* ev2r
             chroma_smooth_5x5(inp, out, raw2ev, ev2raw);
             break;
     }
-}
-
-static inline int FC(int row, int col)
-{
-    if ((row%2) == 0 && (col%2) == 0)
-        return 0;  /* red */
-    else if ((row%2) == 1 && (col%2) == 1)
-        return 2;  /* blue */
-    else
-        return 1;  /* green */
 }
 
 static void find_and_fix_bad_pixels(int dark_noise, int bright_noise, int* raw2ev, int* ev2raw)
@@ -3034,6 +3048,11 @@ static int hdr_interpolate()
             for (int x = 0; x < w; x ++)
                 raw_set_pixel_20to16(x, y, dark[x + y*w]);
         save_debug_dng("dark.dng");
+
+        for (int y = 0; y < h; y ++)
+            for (int x = 0; x < w; x ++)
+                raw_set_pixel_20to16(x, y, 32768 + 100 * (bright[x + y*w] - dark[x + y*w]));
+        save_debug_dng("delta.dng");
 
         if (use_fullres)
         {
