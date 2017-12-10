@@ -18,13 +18,14 @@
 #include "console.h"
 #include "edmac.h"
 #include "timer.h"
+#include "propvalues.h"
 #include "dm-spy.h"
 
 /* this needs pre_isr_hook/post_isr_hook stubs */
 #undef LOG_INTERRUPTS
 
 /* delay mpu_send calls, to allow grouping MPU messages by timestamps */
-#define MPU_DELAY_SEND
+#define MPU_DELAY_SEND (!lv)
 
 /* log calls to malloc, AllocateMemory, alloc_dma_memory */
 #undef LOG_MALLOC_CALLS
@@ -703,6 +704,8 @@ static volatile int last_mpu_timestamp = 0;
 static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
 #ifdef MPU_DELAY_SEND
+  if (MPU_DELAY_SEND)
+  {
     /* wait 10ms after the last mpu_send/recv
      * (related messages usually arrive at less than 1ms apart)
      * note: during a mpu_send (usually called from PropMgr),
@@ -724,6 +727,7 @@ static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
     while (MOD(t - l, 0x100000) < 10000);
     //~ DryosDebugMsg(0, 0, "*** mpu wait (%d)", t - l);
+  }
 #endif
 
     uint32_t caller = PATCH_HOOK_CALLER();
