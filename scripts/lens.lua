@@ -1,6 +1,6 @@
 -- Manual Lens Information
 -- Supplies lens information for manual lenses
--- Whenever there is a non-chipped lens detected, we prompt the user to select the attached manual lens from a list
+-- Whenever there is a non-chipped lens detected or a manual lens with AF Confirm Chip, we prompt the user to select the attached manual lens from a list
 
 require("ui")
 require("config")
@@ -93,21 +93,38 @@ if lens_config.data ~= nil and lens_config.data.name ~= nil then
     end
 end
 
+-- Property to be written in .xmp file
 xmp:add_property(xmp.lens_name, function() return lens.name end)
 xmp:add_property(xmp.focal_length, function() return lens.focal_length end)
 xmp:add_property(xmp.aperture, function() return math.floor(camera.aperture.value * 10) end)
 
+-- Helper function
+function is_manual_lens()
+  if (lens.lens_id == 0 or lens.lens_id == "(no lens)" or
+      lens.name == "1-65535mm" or lens.focal_length == "1-65535mm") then
+    return true
+  else
+    return false
+  end
+end
+
+--  Handler for lens_name property
+--  Get Called when:
+--  Switching lens
+--  Switching shoot mode
 function property.LENS_NAME:handler(value)
-    if lens.is_chipped == false then
+    if is_manual_lens() then
         task.create(select_lens)
     else
-        if selector_instance ~= nil then
-            selector_instance.cancel = true
-        end
-        xmp:stop()
+      -- Not a manual Lens, no need to write sidecar file
+      if selector_instance ~= nil then
+          selector_instance.cancel = true
+      end
+      xmp:stop()
     end
 end
 
+-- Open lens selection Menu
 function select_lens()
     if #lenses > 1 then
         local menu_already_open = menu.visible
@@ -126,12 +143,19 @@ function select_lens()
     end
 end
 
+-- Copy lens attribute from lenses and write to .xmp file
 function update_lens()
+    -- Update attribute from selected lens
     for k,v in pairs(lenses[selector_instance.index]) do
         lens[k] = v
     end
+    -- Update content of lens.cfg
     lens_config.data = { name = lenses[selector_instance.index].name }
+    -- Allow to write sidecar
     xmp:start()
+
+    -- Allow to write values for Lens Info and MLV file metadata
+    lens.lens_exists = true
 end
 
 lens_menu = menu.new
@@ -140,8 +164,8 @@ lens_menu = menu.new
     name = "Manual Lens",
     help = "Info to use for attached non-chipped lens",
     icon_type = ICON_TYPE.ACTION,
-    select = function() 
-        if lens.is_chipped == false then
+    select = function()
+        if is_manual_lens() then
             task.create(select_lens)
         end
     end,
@@ -149,12 +173,13 @@ lens_menu = menu.new
         return lens.name
     end,
     warning = function()
-        if lens.is_chipped then
+        if is_manual_lens() == false then
             return "Chipped lens is attached"
         end
     end
 }
 
-if lens.is_chipped == false then
+-- Check lens on start
+if is_manual_lens() then
     task.create(select_lens)
 end
