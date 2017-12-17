@@ -20,6 +20,9 @@ static int luaCB_lens_index(lua_State * L)
     /// Get/Set the name of the lens (reported by the lens)
     // @tfield string name
     if(!strcmp(key, "name")) lua_pushstring(L, lens_info.name);
+    /// Get the lens id
+    // @tfield int lens_id readonly
+    else if(!strcmp(key, "lens_id")) lua_pushinteger(L, lens_info.lens_id);
     /// Get/Set the focal length of the lens (in mm)
     // @tfield int focal_length
     else if(!strcmp(key, "focal_length")) lua_pushinteger(L, lens_info.focal_len);
@@ -71,6 +74,11 @@ static int luaCB_lens_newindex(lua_State * L)
     {
         LUA_PARAM_STRING(value, 3);
         strncpy(lens_info.name, value, 31);
+    }
+    else if(!strcmp(key, "lens_exists"))
+    {
+        LUA_PARAM_BOOL(value, 3);
+        lens_info.lens_exists = value;
     }
     else if(!strcmp(key, "focal_length"))
     {
