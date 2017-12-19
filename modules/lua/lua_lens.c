@@ -85,6 +85,16 @@ static int luaCB_lens_newindex(lua_State * L)
         LUA_PARAM_INT(value, 3);
         lens_info.focal_len = value;
     }
+    else if(!strcmp(key, "focal_min"))
+    {
+        LUA_PARAM_INT(value, 3);
+        lens_info.lens_focal_min = value;
+    }
+    else if(!strcmp(key, "focal_max"))
+    {
+        LUA_PARAM_INT(value, 3);
+        lens_info.lens_focal_max = value;
+    }
     else if(!strcmp(key, "manual_aperture"))
     {
         LUA_PARAM_NUMBER(value, 3);
