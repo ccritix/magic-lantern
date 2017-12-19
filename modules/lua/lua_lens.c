@@ -87,7 +87,6 @@ static int luaCB_lens_newindex(lua_State * L)
     }
     else if(!strcmp(key, "manual_aperture"))
     {
-        if(lens_info.lens_exists) return luaL_error(L, "Can't set manual aperture for chipped lens");
         LUA_PARAM_NUMBER(value, 3);
         lens_info.aperture = (int)(value * 10);
         lens_info.raw_aperture = VALUE2RAW(aperture, lens_info.aperture);
