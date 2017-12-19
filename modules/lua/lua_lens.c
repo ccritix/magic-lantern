@@ -23,6 +23,9 @@ static int luaCB_lens_index(lua_State * L)
     /// Get the lens id
     // @tfield int lens_id readonly
     else if(!strcmp(key, "lens_id")) lua_pushinteger(L, lens_info.lens_id);
+    /// Get the serial number of the lens
+    // @tfield int serial
+    else if(!strcmp(key, "serial")) lua_pushinteger(L, lens_info.lens_serial);
     /// Get/Set the focal length of the lens (in mm)
     // @tfield int focal_length
     else if(!strcmp(key, "focal_length")) lua_pushinteger(L, lens_info.focal_len);
@@ -100,6 +103,11 @@ static int luaCB_lens_newindex(lua_State * L)
         LUA_PARAM_NUMBER(value, 3);
         lens_info.aperture = (int)(value * 10);
         lens_info.raw_aperture = VALUE2RAW(aperture, lens_info.aperture);
+    }
+    else if(!strcmp(key, "serial"))
+    {
+        LUA_PARAM_INT(value, 3);
+        lens_info.lens_serial = value;
     }
     else if(!strcmp(key, "focus_distance") || !strcmp(key, "hyperfocal") || !strcmp(key, "dof_near") || !strcmp(key, "dof_far") || !strcmp(key, "af") || !strcmp(key, "is_chipped"))
     {
