@@ -12,7 +12,8 @@ lenses =
 --  that you want to use from the list or add your own lenses. Tip: Put your most used lenses at the top of the list.
 
     { name = "My Lens", focal_length = 50 },
-    { name = "My Other Lens", focal_length = 25 },
+    { name = "My Other Lens", focal_length = 25, manual_aperture = 2.8 },
+    { name = "My Zoom Lens", focal_length = 25, manual_aperture = 4, focal_length = 105, focal_min = 70, focal_max = 200 },
 
 --  Zeiss ZF.2 manual lenses Nikon mount - these work with the lens profiles that ship with Adobe Camera Raw
 
@@ -84,6 +85,8 @@ selector_instance = selector.create("Select Manual Lens", lenses, function(l) re
 
 lens_config = config.create({})
 
+lensSelected = false
+
 if lens_config.data ~= nil and lens_config.data.name ~= nil then
     for i,v in ipairs(lenses) do
         if v.name == lens_config.data.name then
@@ -121,6 +124,21 @@ function property.LENS_NAME:handler(value)
           selector_instance.cancel = true
       end
       xmp:stop()
+      -- Clear flag for next run
+      lensSelected = false
+    end
+end
+
+--  Handler for LV Lens Lenght property
+--  Get Called when entering LV
+function property.LV_LENS:handler(value)
+    -- Update length only if we are using a manual lens
+    -- Otherwise wrong focal length will be displayed
+    if lensSelected == true then
+      -- Update attribute from selected lens
+      for k,v in pairs(lenses[selector_instance.index]) do
+          lens[k] = v
+      end
     end
 end
 
@@ -153,7 +171,8 @@ function update_lens()
     lens_config.data = { name = lenses[selector_instance.index].name }
     -- Allow to write sidecar
     xmp:start()
-
+    -- Update flag
+    lensSelected = true
     -- Allow to write values for Lens Info and MLV file metadata
     lens.lens_exists = true
 end
