@@ -103,6 +103,7 @@ end
 xmp:add_property(xmp.lens_name, function() return lens.name end)
 xmp:add_property(xmp.focal_length, function() return lens.focal_length end)
 xmp:add_property(xmp.aperture, function() return math.floor(camera.aperture.value * 10) end)
+xmp:add_property(xmp.lens_serial, function() return lens.serial end)
 
 -- Helper function
 function is_manual_lens()
@@ -122,6 +123,15 @@ function reset_lens_values()
   lens.focal_min = 0
   lens.focal_max = 0
   lens.serial = 0
+end
+
+-- Get called in update_lens() after selecting a lens
+-- Get called when changing aperture or focal by menu
+function update_xmp()
+  lens_config.data = { name = lenses[selector_instance.index].name }
+  lens_config.data = { name = lenses[selector_instance.index].focal_length }
+  lens_config.data = { name = lenses[selector_instance.index].manual_aperture }
+  lens_config.data = { name = lenses[selector_instance.index].serial }
 end
 
 --  Handler for lens_name property
@@ -185,7 +195,7 @@ function update_lens()
         lens[k] = v
     end
     -- Update content of lens.cfg
-    lens_config.data = { name = lenses[selector_instance.index].name }
+    update_xmp()
     -- Allow to write sidecar
     xmp:start()
     -- Update flag
@@ -229,6 +239,7 @@ lens_menu = menu.new
                       -- A "0" is returned by menu when focal_min and focal_max are missing from lens attribute
                       if lensSelected == true and this.value ~= 0 then
                         lens.focal_length = this.value
+                        update_xmp()
                       else
                         -- Reset menu value to the corrected one
                         this.value = lens.focal_length
@@ -249,6 +260,7 @@ lens_menu = menu.new
             update = function(this)
                       if lensSelected == true then
                         lens.manual_aperture = tonumber(this.value)
+                        update_xmp()
                       else
                         -- Reset menu value to the corrected one
                         this.value = lens.manual_aperture
