@@ -111,6 +111,16 @@ function is_manual_lens()
   end
 end
 
+-- Function used to make sure all additional attributes are correct when switching lens,
+-- as if the new lens doesn't have the same attribute, old values don't get overwritten in lens_info
+-- Get called in update_lens() before setting value of the new lens
+function reset_lens_values()
+  lens.focal_length = 0
+  lens.focal_min = 0
+  lens.focal_max = 0
+  lens.serial = 0
+end
+
 --  Handler for lens_name property
 --  Get Called when:
 --  Switching lens
@@ -163,6 +173,8 @@ end
 
 -- Copy lens attribute from lenses and write to .xmp file
 function update_lens()
+    -- Reset lens_info structure to get correct values in Lens Info Menu and Metadata
+    reset_lens_value()
     -- Update attribute from selected lens
     for k,v in pairs(lenses[selector_instance.index]) do
         lens[k] = v
