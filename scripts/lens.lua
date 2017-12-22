@@ -103,7 +103,7 @@ xmp:add_property(xmp.aperture, function() return math.floor(camera.aperture.valu
 
 -- Helper function
 function is_manual_lens()
-  if (lens.lens_id == 0 or lens.lens_id == "(no lens)" or
+  if (lens.id == 0 or lens.id == "(no lens)" or
       lens.name == "1-65535mm" or lens.focal_length == "1-65535mm") then
     return true
   else
@@ -174,7 +174,7 @@ function update_lens()
     -- Update flag
     lensSelected = true
     -- Allow to write values for Lens Info and MLV file metadata
-    lens.lens_exists = true
+    lens.exists = true
 end
 
 lens_menu = menu.new

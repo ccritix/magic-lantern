@@ -21,8 +21,8 @@ static int luaCB_lens_index(lua_State * L)
     // @tfield string name
     if(!strcmp(key, "name")) lua_pushstring(L, lens_info.name);
     /// Get the lens id
-    // @tfield int lens_id readonly
-    else if(!strcmp(key, "lens_id")) lua_pushinteger(L, lens_info.lens_id);
+    // @tfield int id readonly
+    else if(!strcmp(key, "id")) lua_pushinteger(L, lens_info.lens_id);
     /// Get the serial number of the lens
     // @tfield int serial
     else if(!strcmp(key, "serial")) lua_pushinteger(L, lens_info.lens_serial);
@@ -78,7 +78,7 @@ static int luaCB_lens_newindex(lua_State * L)
         LUA_PARAM_STRING(value, 3);
         strncpy(lens_info.name, value, 31);
     }
-    else if(!strcmp(key, "lens_exists"))
+    else if(!strcmp(key, "exists"))
     {
         LUA_PARAM_BOOL(value, 3);
         lens_info.lens_exists = value;
