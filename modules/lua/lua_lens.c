@@ -29,6 +29,12 @@ static int luaCB_lens_index(lua_State * L)
     /// Get/Set the focal length of the lens (in mm)
     // @tfield int focal_length
     else if(!strcmp(key, "focal_length")) lua_pushinteger(L, lens_info.focal_len);
+    /// Get/Set the minimum focal length of the lens (in mm)
+    // @tfield int focal_min
+    else if(!strcmp(key, "focal_min")) lua_pushinteger(L, lens_info.lens_focal_min);
+    /// Get/Set the maximum focal length of the lens (in mm)
+    // @tfield int focal_max
+    else if(!strcmp(key, "focal_max")) lua_pushinteger(L, lens_info.lens_focal_max);
     /// Get the current focus distance (in mm). Only updated in LiveView.
     // @tfield int focus_distance readonly
     else if(!strcmp(key, "focus_distance")) lua_pushinteger(L, lens_info.focus_dist * 10);
