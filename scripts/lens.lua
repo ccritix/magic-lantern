@@ -81,6 +81,9 @@ lenses =
 
 }
 
+-- f-number values in 1/2 Stop
+Fnumbers = {"1.0","1.2","1.4","1.7","2","2.4","2.8","3.3","4","4.8","5.6","6.7","8","9.5","11","13","16","19","22","27","32"}
+
 selector_instance = selector.create("Select Manual Lens", lenses, function(l) return l.name end, 600)
 
 lens_config = config.create({})
@@ -162,19 +165,21 @@ function select_lens()
         end
         if selector_instance:select() then
             update_lens()
+            update_menu()
         end
         if not menu_already_open then
             menu.close()
         end
     elseif #lenses == 1 then
         update_lens()
+        update_menu()
     end
 end
 
 -- Copy lens attribute from lenses and write to .xmp file
 function update_lens()
     -- Reset lens_info structure to get correct values in Lens Info Menu and Metadata
-    reset_lens_value()
+    reset_lens_values()
     -- Update attribute from selected lens
     for k,v in pairs(lenses[selector_instance.index]) do
         lens[k] = v
@@ -195,11 +200,65 @@ lens_menu = menu.new
     name = "Manual Lens",
     help = "Info to use for attached non-chipped lens",
     icon_type = ICON_TYPE.ACTION,
-    select = function()
-        if is_manual_lens() then
-            task.create(select_lens)
-        end
-    end,
+    submenu =
+    {
+        {
+          name = "Lens",
+          help    = "Select Manual Lens",
+          select = function()
+                    if is_manual_lens() or lensSelected == true then
+                      task.create(select_lens)
+                   end end,
+          rinfo = function()
+                    return lens.name
+                  end,
+          warning = function()
+                      if lensSelected == false then
+                        return "this value is not supported for non-manual lens"
+                    end end
+        },
+        {
+            name    = "Focal Length",
+            help    = "Set Focal Length to metadata",
+            -- Min and Max are updated when a lens is selected from menu
+            min     = 8,
+            max     = 400,
+            unit    = UNIT.DEC,
+            -- Update Focal Length with selected value from submenu
+            update = function(this)
+                      -- A "0" is returned by menu when focal_min and focal_max are missing from lens attribute
+                      if lensSelected == true and this.value ~= 0 then
+                        lens.focal_length = this.value
+                      else
+                        -- Reset menu value to the corrected one
+                        this.value = lens.focal_length
+                      end end,
+            warning = function()
+                        if lensSelected == false then
+                          return "this value is not supported for non-manual lens"
+                        else if lens.focal_min == lens.focal_max then
+                          return "Chan be changed only for manual-focus Zoom lens"
+                        end
+                      end end,
+        },
+        {
+            name    = "Aperture",
+            help    = "Set Aperture to metadata",
+            choices = Fnumbers,
+            -- Update Aperture with selected value from submenu
+            update = function(this)
+                      if lensSelected == true then
+                        lens.manual_aperture = tonumber(this.value)
+                      else
+                        -- Reset menu value to the corrected one
+                        this.value = lens.manual_aperture
+                      end end,
+            warning = function()
+                        if lensSelected == false then
+                          return "this value is not supported for non-manual lens"
+                      end end,
+        }
+    },
     rinfo = function()
         return lens.name
     end,
@@ -209,6 +268,16 @@ lens_menu = menu.new
         end
     end
 }
+
+-- Update the menu with values for Focal Length and Aperture from selected Lens
+-- To be called when switching manual lens
+function update_menu()
+  lens_menu.submenu["Focal Length"].value = lens.focal_length
+  lens_menu.submenu["Focal Length"].min = lens.focal_min
+  lens_menu.submenu["Focal Length"].max = lens.focal_max
+  lens_menu.submenu["Aperture"].value = lens.manual_aperture
+end
+
 
 -- Check lens on start
 if is_manual_lens() then
