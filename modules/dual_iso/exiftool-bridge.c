@@ -59,9 +59,8 @@ void read_white_balance(const char* filename, float* red_balance, float* blue_ba
     int error = 0;
     int mode;
     int wb_r, wb_g1, wb_g2, wb_b;
-    int raw_r, raw_g1, raw_g2, raw_b;
 
-    //Determine WB mode (0 means Auto)
+    //Determine WB mode
     snprintf(exif_cmd, sizeof(exif_cmd), "exiftool -WhiteBalance -b \"%s\"", filename);
     FILE* exif_file = popen(exif_cmd, "r");
     if (exif_file)
@@ -73,49 +72,20 @@ void read_white_balance(const char* filename, float* red_balance, float* blue_ba
     
     if (error) goto err;
 
-    //If WB mode is not Auto, use WB_RGGBLevelsAsShot values
-    //If WB mode is Auto, read WB_RGGBLevelsMeasured values
-    //  (not WB_RGGBLevelsAuto values because they can be temperature-shifted)
-    //  Use WB_RGGBLevelsMeasured values if they have a significant difference between the G channels
-    //  Otherwise, use RawMeasuredRGGB values
-    if (mode != 0)
-    {
+    //use WB_RGGBLevelsAsShot values
+
         snprintf(exif_cmd, sizeof(exif_cmd), "exiftool -WB_RGGBLevelsAsShot -b \"%s\"", filename);
-    }
-    else
-    {
-        snprintf(exif_cmd, sizeof(exif_cmd), "exiftool -WB_RGGBLevelsMeasured -b \"%s\"", filename);
-    }
+
     exif_file = popen(exif_cmd, "r");
     if (exif_file)
     {
         if (fscanf(exif_file, "%d %d %d %d", &wb_r, &wb_g1, &wb_g2, &wb_b) != 4) error = 1;
         else
         {
-            if ((mode !=0) || (wb_g1-wb_g2 > wb_g2/2) || (wb_g2-wb_g1 > wb_g1/2))
-            {
                 printf("White balance   : from %s\n", mode != 0 ? "WB_RGGBLevelsAsShot" : "WB_RGGBLevelsMeasured");
                 //WB_RGGBLevels* values are multipliers, so there is an implied inverse
                 *red_balance = ((float)wb_r)/wb_g1;
                 *blue_balance = ((float)wb_b)/wb_g2;
-            }
-            else
-            {
-                snprintf(exif_cmd, sizeof(exif_cmd), "exiftool -RawMeasuredRGGB -b \"%s\"", filename);
-                FILE* exif_file2 = popen(exif_cmd, "r");
-                if (exif_file2)
-                {
-                    if (fscanf(exif_file2, "%d %d %d %d", &raw_r, &raw_g1, &raw_g2, &raw_b) != 4) error = 1;
-                    else
-                    {
-                        printf("White balance   : from RawMeasuredRGGB\n");
-                        //RawMeasuredRGGB values are proportional to the values of a neutral color
-                        *red_balance = ((float)raw_g1)/raw_r;
-                        *blue_balance = ((float)raw_g2)/raw_b;
-                    }
-                    pclose(exif_file2);
-                }
-            }
         }
         pclose(exif_file);
     }

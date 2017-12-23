@@ -69,7 +69,7 @@ int use_alias_map = 1;
 int use_stripe_fix = 1;
 float soft_film_ev = 0;
 
-int exif_wb = 0;
+int exif_wb = 1;
 float custom_wb[3] = {0, 0, 0};
 int debug_wb = 0;
 
@@ -172,7 +172,6 @@ struct cmd_group options[] = {
         "White balance", (struct cmd_option[]) {
             { &gray_wb,     WB_GRAY_MAX, "--wb=graymax",    "set AsShotNeutral by maximizing the number of gray pixels (default)" },
             { &gray_wb,     WB_GRAY_MED, "--wb=graymed",    "set AsShotNeutral from the median of R-G and B-G" },
-            { &exif_wb,               1, "--wb=exif",       "set AsShotNeutral from EXIF WB (not exactly working)" },
             { (int*)&custom_wb[0],    3, "--wb=%f,%f,%f",   "use custom RGB multipliers" },
             OPTION_EOL
         },
