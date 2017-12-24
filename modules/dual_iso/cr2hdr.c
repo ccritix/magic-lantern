@@ -69,9 +69,13 @@ int use_alias_map = 1;
 int use_stripe_fix = 1;
 float soft_film_ev = 0;
 
-int exif_wb = 1;
+int exif_wb = 0;
 float custom_wb[3] = {0, 0, 0};
 int debug_wb = 0;
+
+#define WB_GRAY_MED 1
+#define WB_GRAY_MAX 2
+int gray_wb = WB_GRAY_MAX;
 
 int debug_black = 0;
 int debug_blend = 0;
@@ -166,6 +170,9 @@ struct cmd_group options[] = {
     },
     {
         "White balance", (struct cmd_option[]) {
+            { &gray_wb,     WB_GRAY_MAX, "--wb=graymax",    "set AsShotNeutral by maximizing the number of gray pixels (default)" },
+            { &gray_wb,     WB_GRAY_MED, "--wb=graymed",    "set AsShotNeutral from the median of R-G and B-G" },
+            { &exif_wb,               1, "--wb=exif",       "set AsShotNeutral from EXIF WB (not exactly working)" },
             { (int*)&custom_wb[0],    3, "--wb=%f,%f,%f",   "use custom RGB multipliers" },
             OPTION_EOL
         },
@@ -3237,6 +3244,20 @@ static int hdr_interpolate()
         dng_set_wbgain(1000000, red_balance*1000000, 1, 1, 1000000, blue_balance*1000000);
         AsShotNeutral_method = "custom";
     }
+    else /* if (gray_wb) */
+    {
+        float red_balance = -1, blue_balance = -1;
+        white_balance_gray(&red_balance, &blue_balance, gray_wb);
+        dng_set_wbgain(1000000, red_balance*1000000, 1, 1, 1000000, blue_balance*1000000);
+        custom_wb[0] = red_balance;
+        custom_wb[1] = 1;
+        custom_wb[2] = blue_balance;
+        AsShotNeutral_method = 
+            gray_wb == WB_GRAY_MED ? "gray med" : 
+            gray_wb == WB_GRAY_MAX ? "gray max" :
+             "?"; 
+    }
+
     if (!exif_wb)
     {
         custom_wb[0] /= custom_wb[1];
@@ -3444,6 +3465,90 @@ static void white_balance_gray(float* red_balance, float* blue_balance, int meth
 
     int* histblur = malloc(size);
     memcpy(histblur, hist, size);
+
+    if (method == WB_GRAY_MED)
+    {
+        /* use median values for R-G and B-G */
+        int total = 0;
+        for (int b = 0; b < WB_RANGE; b++)
+        {
+            for (int r = 0; r < WB_RANGE; r++)
+            {
+                total += histblur[r + b*WB_RANGE];
+            }
+        }
+
+        int acc = 0;
+        for (int b = 0; b < WB_RANGE; b++)
+        {
+            for (int r = 0; r < WB_RANGE; r++)
+            {
+                acc += histblur[r + b*WB_RANGE];
+            }
+            if (acc > total/2)
+            {
+                bbest = b;
+                break;
+            }
+        }
+        
+        acc = 0;
+        for (int r = 0; r < WB_RANGE; r++)
+        {
+            for (int b = 0; b < WB_RANGE; b++)
+            {
+                acc += histblur[r + b*WB_RANGE];
+            }
+            if (acc > total/2)
+            {
+                rbest = r;
+                break;
+            }
+        }
+    }
+    else if (method == WB_GRAY_MAX)
+    {
+        /* scan for the WB value that maximizes the number of gray pixels, within a given color tolerance */
+        int tol = 2;
+
+        for (int k = 0; k < 3; k++)
+        {
+            box_blur(hist, histblur, WB_RANGE, WB_RANGE, tol);
+            memcpy(hist, histblur, size);
+        }
+
+        if (1)
+        {
+            /* prefer daylight WB */
+            double gains[3];
+            ufraw_kelvin_green_to_multipliers(5000, 1, gains);
+
+            for (int b = 0; b < WB_RANGE; b++)
+            {
+                for (int r = 0; r < WB_RANGE; r++)
+                {
+                    int dr = r - (WB_ORIGIN - log2(gains[0]) * WB_EV);
+                    int db = b - (WB_ORIGIN - log2(gains[2]) * WB_EV);
+                    float d = sqrt(dr*dr + db*db) / (WB_EV * WB_EV);
+                    float weight = 1000 * exp(-(d*d)*500);
+                    histblur[r + b*WB_RANGE] = log2(1 + histblur[r + b*WB_RANGE]) * weight;
+                }
+            }
+        }
+        int max = 0;
+        for (int b = tol; b < WB_RANGE-tol; b++)
+        {
+            for (int r = tol; r < WB_RANGE-tol; r++)
+            {
+                if (histblur[r + b*WB_RANGE] > max)
+                {
+                    max = histblur[r + b*WB_RANGE];
+                    rbest = r;
+                    bbest = b;
+                }
+            }
+        }
+    }
 
     if (debug_wb)
     {
