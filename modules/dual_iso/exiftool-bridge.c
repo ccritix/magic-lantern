@@ -82,7 +82,7 @@ void read_white_balance(const char* filename, float* red_balance, float* blue_ba
         if (fscanf(exif_file, "%d %d %d %d", &wb_r, &wb_g1, &wb_g2, &wb_b) != 4) error = 1;
         else
         {
-                printf("White balance   : from %s\n", mode != 0 ? "WB_RGGBLevelsAsShot" : "WB_RGGBLevelsMeasured");
+                printf("White balance   : from %s\n", "WB_RGGBLevelsAsShot");
                 //WB_RGGBLevels* values are multipliers, so there is an implied inverse
                 *red_balance = ((float)wb_r)/wb_g1;
                 *blue_balance = ((float)wb_b)/wb_g2;
