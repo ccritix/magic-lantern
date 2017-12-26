@@ -152,16 +152,14 @@ function property.LENS_NAME:handler(value)
     end
 end
 
---  Handler for LV Lens Lenght property
+--  Handler for LV Lens Length property
 --  Get Called when entering LV
+--  Otherwise a 50mm focal length will be displayed
 function property.LV_LENS:handler(value)
     -- Update length only if we are using a manual lens
-    -- Otherwise wrong focal length will be displayed
     if lensSelected == true then
       -- Update attribute from selected lens
-      for k,v in pairs(lenses[selector_instance.index]) do
-          lens[k] = v
-      end
+      lens.focal_length = lens_menu.submenu["Focal Length"].value
     end
 end
 
