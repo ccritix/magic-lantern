@@ -10,10 +10,18 @@ lenses =
 {
 --  The following is for testing purposes. Comment out the following lines then either uncomment only the lenses
 --  that you want to use from the list or add your own lenses. Tip: Put your most used lenses at the top of the list.
+--  Attributes to use:
+--  name            -> Name to be showed in Lens Info and in metadata
+--  focal_length    -> Current focal length to be saved in metadata (Zoom Lenses: Default value to be used after selecting lens)
+--  manual_aperture -> Max Aperture of the Lens
+--  focal_min       -> min Focal Length (optional for prime lenses)
+--  focal_max       -> max Focal Length (optional for prime lenses)
+--  serial          -> Lens Serial Number (optional)
+--  f_values        -> Available f-stop for selected lens (optional)
 
     { name = "My Lens", focal_length = 50 },
-    { name = "My Other Lens", focal_length = 25, manual_aperture = 2.8 },
-    { name = "My Zoom Lens", focal_length = 25, manual_aperture = 4, focal_length = 105, focal_min = 70, focal_max = 200 },
+    { name = "My Other Lens", focal_length = 25, manual_aperture = 2.8, f_values = {"2.8","4","5.6","8"} },
+    { name = "My Zoom Lens", focal_length = 105, manual_aperture = 4, focal_min = 70, focal_max = 200, serial = 123456789 },
 
 --  Zeiss ZF.2 manual lenses Nikon mount - these work with the lens profiles that ship with Adobe Camera Raw
 
@@ -81,13 +89,14 @@ lenses =
 
 }
 
--- f-number values in 1/2 Stop
-Fnumbers = {"1.0","1.2","1.4","1.7","2","2.4","2.8","3.3","4","4.8","5.6","6.7","8","9.5","11","13","16","19","22","27","32"}
+-- f-number values. Mostly 1/2 Stop
+Fnumbers = {"1.0","1.2","1.4","1.6","1.7","1.8","2","2.2","2.4","2.8","3.3","3.5","4","4.5","4.8","5","5.6","6.3","6.7","7.1","8","9.5","11","13","16","19","22","27","32"}
 
 selector_instance = selector.create("Select Manual Lens", lenses, function(l) return l.name end, 600)
 
 lens_config = config.create({})
 
+-- Flag variable used in LV Handler and menu
 lensSelected = false
 
 if lens_config.data ~= nil and lens_config.data.name ~= nil then
@@ -107,8 +116,9 @@ xmp:add_property(xmp.lens_serial, function() return lens.serial end)
 
 -- Helper function
 function is_manual_lens()
-  if (lens.id == 0 or lens.id == "(no lens)" or
-      lens.name == "1-65535mm" or lens.focal_length == "1-65535mm") then
+  -- Adapter with no AF Chip -> ID = 0
+  -- Adapter with AF confirm Chip -> name and focal length "1-65535mm"
+  if (lens.id == 0 or lens.name == "1-65535mm") then
     return true
   else
     return false
@@ -154,7 +164,7 @@ end
 
 --  Handler for LV Lens Length property
 --  Get Called when entering LV
---  Otherwise a 50mm focal length will be displayed
+--  Otherwise a "50mm" focal length will be displayed and saved to metadata
 function property.LV_LENS:handler(value)
     -- Update length only if we are using a manual lens
     if lensSelected == true then
@@ -198,7 +208,7 @@ function update_lens()
     xmp:start()
     -- Update flag
     lensSelected = true
-    -- Allow to write values for Lens Info and MLV file metadata
+    -- Allow to write values in Lens Info Menu
     lens.exists = true
 end
 
@@ -214,6 +224,7 @@ lens_menu = menu.new
           name = "Lens",
           help    = "Select Manual Lens",
           select = function()
+                    -- Select a new lens only when not using a lens with AF
                     if is_manual_lens() or lensSelected == true then
                       task.create(select_lens)
                    end end,
@@ -227,7 +238,7 @@ lens_menu = menu.new
         },
         {
             name    = "Focal Length",
-            help    = "Set Focal Length to metadata",
+            help    = "Focal length to be saved in metadata",
             -- Min and Max are updated when a lens is selected from menu
             min     = 8,
             max     = 400,
@@ -239,7 +250,7 @@ lens_menu = menu.new
                         lens.focal_length = this.value
                         update_xmp()
                       else
-                        -- Reset menu value to the corrected one
+                        -- Prime lens. Reset menu value to the corrected one
                         this.value = lens.focal_length
                       end end,
             warning = function()
@@ -252,7 +263,7 @@ lens_menu = menu.new
         },
         {
             name    = "Aperture",
-            help    = "Set Aperture to metadata",
+            help    = "Aperture to be saved in metadata",
             choices = Fnumbers,
             -- Update Aperture with selected value from submenu
             update = function(this)
@@ -281,7 +292,7 @@ lens_menu = menu.new
 
 -- Helper function for update_menu()
 -- Search for a specific value in a table
--- Return position index of val when fond, otherwise return first index
+-- Return position index of val when found, otherwise return first index
 function get_value_index (table, val)
     for index, value in ipairs(table) do
         if value == val then
