@@ -279,12 +279,40 @@ lens_menu = menu.new
     end
 }
 
+-- Helper function for update_menu()
+-- Search for a specific value in a table
+-- Return position index of val when fond, otherwise return first index
+function get_value_index (table, val)
+    for index, value in ipairs(table) do
+        if value == val then
+            return index
+        end
+    end
+    -- Value not found
+    return 1
+end
+
 -- Update the menu with values for Focal Length and Aperture from selected Lens
 -- To be called when switching manual lens
 function update_menu()
   lens_menu.submenu["Focal Length"].value = lens.focal_length
   lens_menu.submenu["Focal Length"].min = lens.focal_min
   lens_menu.submenu["Focal Length"].max = lens.focal_max
+
+  -- Update field "Choices" in menu for aperture selection
+  if lenses[selector_instance.index].f_values then
+    -- Lens selected has custom aperture value. Use .f_values table from lens instead of generic f-numbers
+    lens_menu.submenu["Aperture"].choices = lenses[selector_instance.index].f_values
+  else
+    local tmp = {} -- Used to save value from table.move
+    -- Generate a subset of Fnumbers starting from max Apeture (manual_aperture attribute) of the selected lens
+    local start = get_value_index(Fnumbers,tostring(lenses[selector_instance.index].manual_aperture))
+    -- Retrive f-number array size
+    local size = #Fnumbers
+    -- Retrive subset of Fnumbers table and set to menu
+    lens_menu.submenu["Aperture"].choices = table.move(Fnumbers, start, size, 1, tmp)
+  end
+  -- Assign manual_aperture as default aperture value when lens is selected
   lens_menu.submenu["Aperture"].value = lens.manual_aperture
 end
 
