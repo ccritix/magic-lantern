@@ -71,7 +71,7 @@ asm(
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
     "MSR     CPSR, R0\n"
     "LDR PC, =cstart\n"         // long jump (into the uncacheable version, if linked that way)
-    
+
     /* return */
     ".globl _vec_data_abort\n"
     "_vec_data_abort:\n"
@@ -172,7 +172,7 @@ static void dump_md5(int drive, char* filename, uint32_t addr, int size)
     md5_ascii[32] = 0;
     printf(" - MD5: %s\n", md5_ascii);
     md5_ascii[32] = ' ';
-    
+
     save_file(drive, md5file, (void*) md5_ascii, strlen(md5_ascii));
 }
 
@@ -196,7 +196,7 @@ uint32_t print_y = 20;
 void print_line(uint32_t color, uint32_t scale, char *txt)
 {
     int height = scale * (FONTH + 2);
-    
+
     if (print_y + height >= 480)
     {
 #ifdef PAGE_SCROLL
@@ -210,7 +210,7 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
             font_draw(&x, &y, COLOR_WHITE, 1, (char*) &msg);
             busy_wait(100);
         }
-        
+
         /* animation */
         while (print_y > 0)
         {
@@ -242,7 +242,7 @@ int printf(const char * fmt, ...)
 static void print_err(FF_ERROR err)
 {
     char *message = (char*)FF_GetErrMessage(err);
-    
+
     if(message)
     {
         print_line(COLOR_RED, 1, "   Error code:");
@@ -251,7 +251,7 @@ static void print_err(FF_ERROR err)
     else
     {
         char text[32];
-        
+
         snprintf(text, 32, "   Error code: 0x%08X", err);
         print_line(COLOR_RED, 1, text);
     }
@@ -260,30 +260,30 @@ static void print_err(FF_ERROR err)
 static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
     uint32_t ret = sd_read(&sd_ctx, sector, count, buffer);
-    
+
     if(ret)
     {
         char text[64];
-        
+
         snprintf(text, 64, "   SD read error: 0x%02X, sector: 0x%08X, count: %d", ret, sector, count);
         print_line(COLOR_RED, 1, text);
     }
-    
+
     return ret ? FF_ERR_DRIVER_FATAL_ERROR : 0;
 }
 
 static unsigned long FF_blk_write(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
     uint32_t ret = sd_write(&sd_ctx, sector, count, buffer);
-    
+
     if(ret)
     {
         char text[64];
-        
+
         snprintf(text, 64, "   SD write error: 0x%02X, sector: 0x%08X, count: %d", ret, sector, count);
         print_line(COLOR_RED, 1, text);
     }
-    
+
     return ret ? FF_ERR_DRIVER_FATAL_ERROR : 0;
 }
 
@@ -303,7 +303,7 @@ static FF_IOMAN * fat_init()
 {
     FF_IOMAN *ioman = NULL;
     FF_ERROR err = FF_ERR_NONE;
-    
+
     ioman = FF_CreateIOMAN(NULL, 0x4000, 0x200, &err);
     if(err)
     {
@@ -311,7 +311,7 @@ static FF_IOMAN * fat_init()
         print_err(err);
         halt_blink_code(10, 2);
     }
-    
+
     FF_RegisterBlkDevice(ioman, 0x200, (FF_WRITE_BLOCKS) &FF_blk_write, (FF_READ_BLOCKS) &FF_blk_read, &err);
     if(err)
     {
@@ -319,7 +319,7 @@ static FF_IOMAN * fat_init()
         print_err(err);
         halt_blink_code(10, 3);
     }
-    
+
     err = FF_MountPartition(ioman, 0);
     if(err)
     {
@@ -327,14 +327,14 @@ static FF_IOMAN * fat_init()
         print_err(err);
         halt_blink_code(10, 4);
     }
-    
+
     return ioman;
 }
 
 static void fat_deinit(FF_IOMAN *ioman)
 {
     FF_ERROR err = FF_ERR_NONE;
-    
+
     err = FF_UnmountPartition(ioman);
     if(err)
     {
@@ -342,7 +342,7 @@ static void fat_deinit(FF_IOMAN *ioman)
         print_err(err);
         halt_blink_code(10, 8);
     }
-    
+
     err = FF_DestroyIOMAN(ioman);
     if(err)
     {
@@ -355,9 +355,9 @@ static void fat_deinit(FF_IOMAN *ioman)
 static void dump_rom(FF_IOMAN *ioman)
 {
     FF_ERROR err = FF_ERR_NONE;
-    
+
     print_line(COLOR_CYAN, 1, "   Creating dump file");
-    
+
     FF_FILE *file = FF_Open(ioman, "\\ROM.BIN", FF_GetModeBits("w"), &err);
     if(err)
     {
@@ -365,23 +365,23 @@ static void dump_rom(FF_IOMAN *ioman)
         print_err(err);
         halt_blink_code(10, 5);
     }
-    
+
     print_line(COLOR_CYAN, 1, "   Dumping...");
-    
+
     uint32_t block_size = 0x2000;
     uint32_t block_count = 0x01000000 / block_size;
     uint32_t last_progress = 0;
-    
+
     for(uint32_t block = 0; block < block_count; block++)
     {
         uint32_t progress = block * 255 / block_count;
-        
+
         if(progress != last_progress)
         {
             last_progress = progress;
             disp_progress(progress);
         }
-        
+
         err = FF_Write(file, block_size, 1, (FF_T_UINT8 *) (0xF8000000 + block * block_size));
         if(err <= 0)
         {
@@ -393,8 +393,8 @@ static void dump_rom(FF_IOMAN *ioman)
         }
     }
     disp_progress(255);
-    
-    
+
+
     err = FF_Close(file);
     if(err)
     {
@@ -402,12 +402,12 @@ static void dump_rom(FF_IOMAN *ioman)
         print_err(err);
         halt_blink_code(10, 7);
     }
-    
+
     print_line(COLOR_CYAN, 1, "   Building checksum file");
-    
+
     unsigned char md5_output[16];
     md5((void *)0xF8000000, 0x01000000, md5_output);
-    
+
     file = FF_Open(ioman, "\\ROM.MD5", FF_GetModeBits("w"), &err);
     if(err)
     {
@@ -415,7 +415,7 @@ static void dump_rom(FF_IOMAN *ioman)
         print_err(err);
         halt_blink_code(10, 5);
     }
-    
+
     err = FF_Write(file, 16, 1, md5_output);
     if(err <= 0)
     {
@@ -425,7 +425,7 @@ static void dump_rom(FF_IOMAN *ioman)
         FF_UnmountPartition(ioman);
         halt_blink_code(10, 6);
     }
-    
+
     err = FF_Close(file);
     if(err)
     {
@@ -433,9 +433,9 @@ static void dump_rom(FF_IOMAN *ioman)
         print_err(err);
         halt_blink_code(10, 7);
     }
-    
+
     print_line(COLOR_CYAN, 1, "   Finished, cleaning up");
-    
+
     FF_UnmountPartition(ioman);
 }
 #endif
@@ -447,13 +447,13 @@ extern uint32_t _dat_data_abort;
 static uint32_t data_abort_occurred()
 {
     uint32_t ret = 0;
-    
+
     if(_dat_data_abort)
     {
         ret = 1;
     }
     _dat_data_abort = 0;
-    
+
     return ret;
 }
 
@@ -518,12 +518,12 @@ static const struct model_data_s model_data[] =
 uint32_t get_model_id()
 {
     uint32_t *model_ptr = (uint32_t *)0xF8002014;
-    
+
     if(*model_ptr && *model_ptr < 0x00000FFF)
     {
         return *model_ptr;
     }
-    
+
     /* newer models */
     model_ptr = (uint32_t *)0xF8020014;
     if(*model_ptr && *model_ptr < 0x00000FFF)
@@ -555,7 +555,7 @@ uint32_t is_vxworks()
 static const char *get_model_string()
 {
     uint32_t model = get_model_id();
-    
+
     for(int pos = 0; pos < COUNT(model_data); pos++)
     {
         if(model_data[pos].id == model)
@@ -563,7 +563,7 @@ static const char *get_model_string()
             return model_data[pos].name;
         }
     }
-    
+
     return "unknown";
 }
 
@@ -587,7 +587,7 @@ static void print_bootflags()
     struct boot_flags * const boot_flags = (void*)(
         is_digic6() ? 0xFC040000 : 0xF8000000
     );
-    
+
     printf(" - Boot flags: "
         "FIR=%d "
         "BOOT=%d "
@@ -612,7 +612,7 @@ static int my_putchar(int ch)
 
     /* print each character */
     print_line(COLOR_WHITE, 1, (char*) &ch);
-    
+
     asm("pop {R1,R2,R3}");
 
     return ch;
@@ -633,7 +633,7 @@ static void* find_boot_card_init()
     for (int i = 0; i < COUNT(boot_card_strings); i++)
     {
         void* match = (void*) find_func_from_string(boot_card_strings[i], 0, 0x100);
-        
+
         if (match)
         {
             if (found && found != match)
@@ -642,12 +642,12 @@ static void* find_boot_card_init()
                 printf("boot_card_init: found at %X and %X\n", found, match);
                 return 0;
             }
-            
+
             /* store this match */
             found = match;
         }
     }
-    
+
     return found;
 }
 
@@ -656,7 +656,7 @@ static void init_boot_file_io_stubs()
     /* autodetect this one */
     boot_open_write = (void*) find_func_from_string("Open file for write : %s\n", 0, 0x50);
     boot_card_init = find_boot_card_init();
-    
+
     const char* cam = get_model_string();
 
     if (strcmp(cam, "5D3") == 0)
@@ -672,7 +672,7 @@ static void init_boot_file_io_stubs()
         intptr_t RAM_OFFSET   =   0xFFFF2A3C - 0x100000;
         boot_putchar    = (void*) 0xFFFFB334 - RAM_OFFSET;
     }
-    
+
     if (strcmp(cam, "700D") == 0)
     {
         /* from FFFF14E8: routines from FFFE0000 to FFFEFFB8 are copied to 0x100000 */
@@ -687,18 +687,54 @@ static void init_boot_file_io_stubs()
     }
 }
 
+#ifdef CONFIG_BOOT_SROM_DUMPER
+static void (*sf_command_sio)(uint32_t command[], void * out_buffer, int out_buffer_size, int toggle_cs);
+static void sf_dump(int drive)
+{
+  uint32_t SF_SIZE;
+  /* turn on the LED */
+  led_on();
+
+  switch (get_model_id()) {
+    case 0x350 : //"80D"
+      SF_SIZE = 0x800000;
+      sf_command_sio = (void*)0;// TODO 0x10456C;
+      break;
+    case 0x393 : // "750D"
+      //SF_SIZE = 0x800000;
+      SF_SIZE = 0x1000;
+      sf_command_sio = (void*)0x104DA8;
+      break;
+    default :
+      printf("Serial flash dump not defined for your model\n");
+      led_off();
+      return;
+  }
+  /* save the file  */
+  printf(" - Reading serial flash to memory\n");
+  void (*buffer) = 0x42000000;
+  malloc_init(buffer,SF_SIZE );
+  //char buffer[0x1000];
+  int addr = 0x0;
+  sf_command_sio((uint32_t[]) {3, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF, -1}, buffer, SF_SIZE, 1);
+  printf(" - Writing serial flash to SFDATA.BIN\n");
+  save_file(drive, "SFDATA.BIN", buffer, SF_SIZE);
+  return;
+}
+#endif
+
 static void dump_rom_with_canon_routines()
 {
     init_boot_file_io_stubs();
 
     /* are we calling the right stubs? */
-    
+
     if (!boot_open_write)
     {
         print_line(COLOR_RED, 2, " - Boot file write stub not set.\n");
         fail();
     }
-    
+
     if (MEM(boot_open_write)  != 0xe92d47f0)
     {
         print_line(COLOR_RED, 2, " - Boot file write stub incorrect.\n");
@@ -727,7 +763,7 @@ static void dump_rom_with_canon_routines()
     if (is_digic6())
     {
         printf(" - Dumping ROM1...\n");
-        boot_dump(DRIVE_SD, "ROM1.BIN", 0xFC000000, 0x02000000);
+        //boot_dump(DRIVE_SD, "ROM1.BIN", 0xFC000000, 0x02000000);
     }
     else
     {
@@ -744,16 +780,16 @@ static void dump_rom_with_fullfat()
 #if defined(CONFIG_600D) || defined(CONFIG_5D3)
     /* file I/O only known to work on these cameras */
     malloc_init((void *)0x42000000, 0x02000000);
-    
+
     printf(" - Init SD/CF\n");
     sd_init(&sd_ctx);
-    
+
     printf(" - Init FAT\n");
     FF_IOMAN *ioman = fat_init();
 
     printf(" - Dump ROM\n");
     dump_rom(ioman);
-    
+
     printf(" - Umount FAT\n");
     fat_deinit(ioman);
 #endif
@@ -778,6 +814,7 @@ static void enable_bootflag()
     }
 }
 
+
 extern void cpuinfo_print(void);
 
 void
@@ -791,7 +828,7 @@ cstart( void )
     MEM(0x00000030) = (uint32_t)&_vec_data_abort;
     MEM(0x00000038) = (uint32_t)&_vec_data_abort;
     MEM(0x0000003C) = (uint32_t)&_vec_data_abort;
-    
+
     disp_init();
 
 #ifdef CONFIG_BOOT_CPUINFO
@@ -803,7 +840,7 @@ cstart( void )
     //~ disable_dcache();
     //~ disable_icache();
     //~ disable_write_buffer();
-    
+
     if (is_digic6())
     {
         disable_all_caches_d6();
@@ -812,15 +849,15 @@ cstart( void )
     {
         disable_all_caches();
     }
-    
+
     print_line(COLOR_CYAN, 3, "  Magic Lantern Rescue\n");
     print_line(COLOR_CYAN, 3, " ----------------------------\n");
-    
+
     print_model();
     prop_diag();
     print_bootflags();
     find_gaonisoy();
-    
+
     #if defined(CONFIG_BOOT_DUMPER)
         /* pick one method for dumping the ROM */
         #if defined(CONFIG_BOOT_FULLFAT)
@@ -830,8 +867,11 @@ cstart( void )
         #else
             dump_rom_with_canon_routines();
         #endif
+        #if defined(CONFIG_BOOT_SROM_DUMPER)
+            print_line(COLOR_CYAN, 3, " ----------------------------\n");
+            sf_dump(DRIVE_SD);
+        #endif
     #endif
-
     #if defined(CONFIG_BOOT_BOOTFLAG)
         enable_bootflag();
         print_bootflags();
@@ -842,6 +882,6 @@ cstart( void )
 
     printf("\n");
     print_line(COLOR_WHITE, 2, " You may now remove the battery.\n");
-    
+
     while(1);
 }
