@@ -94,19 +94,8 @@ Fnumbers = {"1.0","1.2","1.4","1.6","1.7","1.8","2","2.2","2.4","2.8","3.3","3.5
 
 selector_instance = selector.create("Select Manual Lens", lenses, function(l) return l.name end, 600)
 
-lens_config = config.create({})
-
 -- Flag variable used in LV Handler and menu
 lensSelected = false
-
-if lens_config.data ~= nil and lens_config.data.name ~= nil then
-    for i,v in ipairs(lenses) do
-        if v.name == lens_config.data.name then
-            selector_instance.index = i
-            break
-        end
-    end
-end
 
 -- Property to be written in .xmp file
 xmp:add_property(xmp.lens_name, function() return lens.name end)
@@ -118,7 +107,7 @@ xmp:add_property(xmp.lens_serial, function() return lens.serial end)
 function is_manual_lens()
   -- Adapter with no AF Chip -> ID = 0
   -- Adapter with AF confirm Chip -> name and focal length "1-65535mm"
-  if (lens.id == 0 or lens.name == "1-65535mm") then
+  if (lens.id == 0 or lens.name == "1-65535mm" or lens.name == "(no lens)") then
     return true
   else
     return false
@@ -135,21 +124,34 @@ function reset_lens_values()
   lens.serial = 0
 end
 
--- Get called in update_lens() after selecting a lens
--- Get called when changing aperture or focal by menu
-function update_xmp()
-  lens_config.data = { name = lenses[selector_instance.index].name }
-  lens_config.data = { name = lenses[selector_instance.index].focal_length }
-  lens_config.data = { name = lenses[selector_instance.index].manual_aperture }
-  lens_config.data = { name = lenses[selector_instance.index].serial }
+-- Function used to restore lens value of selected lens after changing shooting mode
+-- Get called in property.LENS_NAME:handler() after checking attached lens is manual
+function restore_lens_values()
+  local index = lens_config.data.Lens
+  if (index ~= nil and index ~= 0 and lens_config.data ~= nil) then
+    -- Restore Lens Info
+    for k,v in pairs(lenses[selector_instance.index]) do
+        lens[k] = v
+    end
+    -- Restore last Aperture and Focal Length used from lens.cfg
+    lens.focal_length = lens_config.data["Focal Length"]
+    lens.manual_aperture = lens_config.data["Aperture"]
+    lens.exists = true
+  end
 end
 
 --  Handler for lens_name property
 --  Get Called when:
 --  Switching lens
---  Switching shoot mode
+--  Switching shooting mode
 function property.LENS_NAME:handler(value)
     if is_manual_lens() then
+        -- If we are changing shooting mode, restore values and don't prompt again for lens selection
+        if lensSelected then
+          -- Restore lens value as before changing shooting mode
+          restore_lens_values()
+          return
+        end
         task.create(select_lens)
     else
       -- Not a manual Lens, no need to write sidecar file
@@ -157,6 +159,11 @@ function property.LENS_NAME:handler(value)
           selector_instance.cancel = true
       end
       xmp:stop()
+      -- Reset lens.cfg
+      for i = 1, #lens_config.data do
+        lens_config.data[i]=nil
+      end
+      lens_config:save()
       -- Clear flag for next run
       lensSelected = false
     end
@@ -165,11 +172,13 @@ end
 --  Handler for LV Lens Length property
 --  Get Called when entering LV
 --  Otherwise a "50mm" focal length will be displayed and saved to metadata
+--  Also fix Aperture when using AF Confirm chip
 function property.LV_LENS:handler(value)
     -- Update length only if we are using a manual lens
     if lensSelected == true then
       -- Update attribute from selected lens
       lens.focal_length = lens_menu.submenu["Focal Length"].value
+      lens.manual_aperture = lens_menu.submenu["Aperture"].value
     end
 end
 
@@ -195,6 +204,7 @@ function select_lens()
 end
 
 -- Copy lens attribute from lenses and write to .xmp file
+-- Note: Content of lens.cfg is automatically saved by ML after closing ML menu
 function update_lens()
     -- Reset lens_info structure to get correct values in Lens Info Menu and Metadata
     reset_lens_values()
@@ -202,8 +212,6 @@ function update_lens()
     for k,v in pairs(lenses[selector_instance.index]) do
         lens[k] = v
     end
-    -- Update content of lens.cfg
-    update_xmp()
     -- Allow to write sidecar
     xmp:start()
     -- Update flag
@@ -253,7 +261,6 @@ lens_menu = menu.new
                       -- A "0" is returned by menu when focal_min and focal_max are missing from lens attribute
                       if lensSelected == true and this.value ~= 0 then
                         lens.focal_length = this.value
-                        update_xmp()
                       else
                         -- Prime lens. Reset menu value to the corrected one
                         this.value = lens.focal_length
@@ -274,7 +281,6 @@ lens_menu = menu.new
             update = function(this)
                       if lensSelected == true then
                         lens.manual_aperture = tonumber(this.value)
-                        update_xmp()
                       else
                         -- Reset menu value to the corrected one
                         this.value = lens.manual_aperture
@@ -336,6 +342,8 @@ function update_menu()
   lens_menu.submenu["Aperture"].value = lens.manual_aperture
 end
 
+-- Create lens.cfg base on "Manual Lens" menu field
+lens_config = config.create_from_menu(lens_menu)
 
 -- Check lens on start
 if is_manual_lens() then
