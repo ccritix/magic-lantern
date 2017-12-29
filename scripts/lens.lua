@@ -223,11 +223,16 @@ lens_menu = menu.new
         {
           name = "Lens",
           help    = "Select Manual Lens",
+          unit    = UNIT.DEC,
           select = function()
                     -- Select a new lens only when not using a lens with AF
                     if is_manual_lens() or lensSelected == true then
                       task.create(select_lens)
                    end end,
+          update = function(this)
+                    -- Update integer value to be saved in lens.cfg
+                    this.value = selector_instance.index
+                   end,
           rinfo = function()
                     return lens.name
                   end,
@@ -280,6 +285,7 @@ lens_menu = menu.new
                       end end,
         }
     },
+    submenu_width = 700,
     rinfo = function()
         return lens.name
     end,
@@ -306,18 +312,21 @@ end
 -- Update the menu with values for Focal Length and Aperture from selected Lens
 -- To be called when switching manual lens
 function update_menu()
+  local index = selector_instance.index
+  -- Update selection and Focal Length
+  lens_menu.submenu["Lens"].value = index
   lens_menu.submenu["Focal Length"].value = lens.focal_length
   lens_menu.submenu["Focal Length"].min = lens.focal_min
   lens_menu.submenu["Focal Length"].max = lens.focal_max
 
   -- Update field "Choices" in menu for aperture selection
-  if lenses[selector_instance.index].f_values then
+  if lenses[index].f_values then
     -- Lens selected has custom aperture value. Use .f_values table from lens instead of generic f-numbers
-    lens_menu.submenu["Aperture"].choices = lenses[selector_instance.index].f_values
+    lens_menu.submenu["Aperture"].choices = lenses[index].f_values
   else
     local tmp = {} -- Used to save value from table.move
     -- Generate a subset of Fnumbers starting from max Apeture (manual_aperture attribute) of the selected lens
-    local start = get_value_index(Fnumbers,tostring(lenses[selector_instance.index].manual_aperture))
+    local start = get_value_index(Fnumbers,tostring(lenses[index].manual_aperture))
     -- Retrive f-number array size
     local size = #Fnumbers
     -- Retrive subset of Fnumbers table and set to menu
