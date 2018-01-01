@@ -446,7 +446,8 @@ void disp_init()
 uint32_t disp_direct_scroll_up(uint32_t height)
 {
     /* assume the caller uses 720x480 logical coords */
-    height = height * disp_xres / 480;
+    /* (handle 720x240 buffers as well, but don't stretch 900x600) */
+    height = height * (disp_yres * 2 / 480) / 2;
     
     uint32_t start = (disp_xres * height) * disp_bpp / 8;
     uint32_t size = (disp_xres * (disp_yres - height)) * disp_bpp / 8;
