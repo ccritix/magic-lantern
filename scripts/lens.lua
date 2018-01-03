@@ -100,7 +100,7 @@ lensSelected = false
 -- Property to be written in .xmp file
 xmp:add_property(xmp.lens_name, function() return lens.name end)
 xmp:add_property(xmp.focal_length, function() return lens.focal_length end)
-xmp:add_property(xmp.aperture, function() return math.floor(camera.aperture.value * 10) end)
+xmp:add_property(xmp.aperture, function() return (lens.manual_aperture * 10) end)
 xmp:add_property(xmp.lens_serial, function() return lens.serial end)
 
 -- Helper function
@@ -150,20 +150,17 @@ function property.LENS_NAME:handler(value)
         if lensSelected then
           -- Restore lens value as before changing shooting mode
           restore_lens_values()
-          return
+        else
+          task.create(select_lens)
         end
-        task.create(select_lens)
     else
       -- Not a manual Lens, no need to write sidecar file
       if selector_instance ~= nil then
           selector_instance.cancel = true
       end
       xmp:stop()
-      -- Reset lens.cfg
-      for i = 1, #lens_config.data do
-        lens_config.data[i]=nil
-      end
-      lens_config:save()
+      -- Reset selection in lens.cfg. Note: ML will save automatically new .cfg
+      lens_menu.submenu["Lens"].value = 0
       -- Clear flag for next run
       lensSelected = false
     end
@@ -192,14 +189,14 @@ function select_lens()
         end
         if selector_instance:select() then
             update_lens()
-            update_menu()
+            update_menu(0)
         end
         if not menu_already_open then
             menu.close()
         end
     elseif #lenses == 1 then
         update_lens()
-        update_menu()
+        update_menu(0)
     end
 end
 
@@ -246,8 +243,11 @@ lens_menu = menu.new
                   end,
           warning = function()
                       if lensSelected == false then
-                        return "this value is not supported for non-manual lens"
-                    end end
+                        return "No lens selected"
+                      else if is_manual_lens() == false then
+                        return "Chipped Lens detected. Only manual lens with AF Chip can change this."
+                      end end
+                    end,
         },
         {
             name    = "Focal Length",
@@ -266,12 +266,14 @@ lens_menu = menu.new
                         this.value = lens.focal_length
                       end end,
             warning = function()
-                        if lensSelected == false then
-                          return "this value is not supported for non-manual lens"
+                        if is_manual_lens() == false then
+                          return "Chipped Lens detected. Only manual lens with AF Chip can change this."
+                        else if lensSelected == false then
+                          return "No lens selected"
                         else if lens.focal_min == lens.focal_max then
                           return "Chan be changed only for manual-focus Zoom lens"
-                        end
-                      end end,
+                        end end end
+                      end,
         },
         {
             name    = "Aperture",
@@ -286,9 +288,17 @@ lens_menu = menu.new
                         this.value = lens.manual_aperture
                       end end,
             warning = function()
-                        if lensSelected == false then
-                          return "this value is not supported for non-manual lens"
-                      end end,
+                        if is_manual_lens() == false then
+                          return "Chipped Lens detected. Only manual lens with AF Chip can change this."
+                        else if lensSelected == false then
+                          return "No lens selected"
+                        end end
+                      end,
+        },
+        {
+            name = "Autoload Lens",
+            help = "Restore lens config from .cfg after camera Power On/Wake Up",
+            choices = {"Off","On"},
         }
     },
     submenu_width = 700,
@@ -317,11 +327,12 @@ end
 
 -- Update the menu with values for Focal Length and Aperture from selected Lens
 -- To be called when switching manual lens
-function update_menu()
+function update_menu(copy)
   local index = selector_instance.index
+  if(index == 0) then return end
+
   -- Update selection and Focal Length
   lens_menu.submenu["Lens"].value = index
-  lens_menu.submenu["Focal Length"].value = lens.focal_length
   lens_menu.submenu["Focal Length"].min = lens.focal_min
   lens_menu.submenu["Focal Length"].max = lens.focal_max
 
@@ -338,14 +349,35 @@ function update_menu()
     -- Retrive subset of Fnumbers table and set to menu
     lens_menu.submenu["Aperture"].choices = table.move(Fnumbers, start, size, 1, tmp)
   end
-  -- Assign manual_aperture as default aperture value when lens is selected
-  lens_menu.submenu["Aperture"].value = lens.manual_aperture
+
+  -- Check whenever need to load values from .cfg or not
+  if copy == 1 then
+    -- Assign Aperture and Focal Length from .cfg
+    lens_menu.submenu["Focal Length"].value = lens_config.data["Focal Length"]
+    lens_menu.submenu["Aperture"].value = lens_config.data["Aperture"]
+  else
+    -- Assign manual_aperture from lenses as default aperture value when lens is selected
+    lens_menu.submenu["Focal Length"].value = lens.focal_length
+    lens_menu.submenu["Aperture"].value = lens.manual_aperture
+  end
 end
 
 -- Create lens.cfg base on "Manual Lens" menu field
 lens_config = config.create_from_menu(lens_menu)
 
--- Check lens on start
+-- Check precence of manual lens on start and autoload values if the user enabled autoload
 if is_manual_lens() then
+  local id = tonumber(lens_config.data.Lens)
+  autoload = lens_menu.submenu["Lens autoload"].value == "On"
+
+  if autoload and id ~= 0 then
+    selector_instance.index = id
+    update_menu(1)
+    restore_lens_values()
+    lens_selected = true
+    xmp:start()
+  else
+    -- Prompt menu for lens selection
     task.create(select_lens)
+  end
 end
