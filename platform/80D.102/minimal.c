@@ -125,6 +125,14 @@ static void DUMP_ASM dump_task()
     /* dump ROM1 */
     dump_file("ROM1.BIN", 0xFC000000, 0x02000000);
 
+    /* dump RAM */
+    dump_file("ATCM.BIN", 0x00000000, 0x00004000);
+    dump_file("BTCM.BIN", 0x80000000, 0x00010000);
+  //dump_file("RAM4.BIN", 0x40000000, 0x40000000);    - runs out of space in QEMU
+    dump_file("BFE0.BIN", 0xBFE00000, 0x00200000);
+    dump_file("DFE0.BIN", 0xDFE00000, 0x00200000);
+  //dump_file("EE00.BIN", 0xEE000000, 0x02000000);    - unknown, may crash 
+
     /* save a diagnostic log */
     log_finish();
     call("dumpf");
