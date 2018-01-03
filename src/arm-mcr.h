@@ -167,7 +167,7 @@ static void set_csselr(u32 level, u32 type)
     asm volatile ("mcr p15, 2, %0, c0, c0, 0" : : "r" (csselr));
 }
 
-static void v7_inval_dcache_level_setway(u32 level, u32 num_sets,
+static void v7_clean_dcache_level_setway(u32 level, u32 num_sets,
                      u32 num_ways, u32 way_shift,
                      u32 log2_line_len)
 {
@@ -182,35 +182,8 @@ static void v7_inval_dcache_level_setway(u32 level, u32 num_sets,
         for (set = num_sets - 1; set >= 0; set--) {
             setway = (level << 1) | (set << log2_line_len) |
                  (way << way_shift);
-            /* Invalidate data/unified cache line by set/way */
-            asm volatile (" mcr p15, 0, %0, c7, c6, 2"
-                    : : "r" (setway));
-        }
-    }
-    /* DSB to make sure the operation is complete */
-    asm volatile("dsb sy\n");
-}
-
-static void v7_clean_inval_dcache_level_setway(u32 level, u32 num_sets,
-                           u32 num_ways, u32 way_shift,
-                           u32 log2_line_len)
-{
-    int way, set, setway;
-
-    /*
-     * For optimal assembly code:
-     *  a. count down
-     *  b. have bigger loop inside
-     */
-    for (way = num_ways - 1; way >= 0 ; way--) {
-        for (set = num_sets - 1; set >= 0; set--) {
-            setway = (level << 1) | (set << log2_line_len) |
-                 (way << way_shift);
-            /*
-             * Clean & Invalidate data/unified
-             * cache line by set/way
-             */
-            asm volatile (" mcr p15, 0, %0, c7, c14, 2"
+            /* Clean data/unified cache line by set/way */
+            asm volatile (" mcr p15, 0, %0, c7, c10, 2"
                     : : "r" (setway));
         }
     }
@@ -244,13 +217,10 @@ static void v7_maint_dcache_level_setway(u32 level, u32 operation)
     log2_num_ways = log_2_n_round_up(num_ways);
 
     way_shift = (32 - log2_num_ways);
-    if (operation == ARMV7_DCACHE_INVAL_ALL) {
-        v7_inval_dcache_level_setway(level, num_sets, num_ways,
+
+    if (operation == ARMV7_DCACHE_CLEAN_ALL)
+        v7_clean_dcache_level_setway(level, num_sets, num_ways,
                       way_shift, log2_line_len);
-    } else if (operation == ARMV7_DCACHE_CLEAN_INVAL_ALL) {
-        v7_clean_inval_dcache_level_setway(level, num_sets, num_ways,
-                           way_shift, log2_line_len);
-    }
 }
 
 static void v7_maint_dcache_all(u32 operation)
@@ -270,7 +240,7 @@ static void v7_maint_dcache_all(u32 operation)
 }
 
 void dcache_clean_all(void) {
-    v7_maint_dcache_all(ARMV7_DCACHE_CLEAN_INVAL_ALL);
+    v7_maint_dcache_all(ARMV7_DCACHE_CLEAN_ALL);
     /* anything else? */
 }
 
@@ -282,10 +252,7 @@ static inline void sync_caches()
     /* https://app.assembla.com/spaces/chdk/subversion/source/HEAD/trunk/lib/armutil/cache.c */
     /* http://www.magiclantern.fm/forum/index.php?topic=17360.msg191399#msg191399 */
     dcache_clean_all(); /* Clean the cache so that the new stuff is written out to memory */
-    asm("DSB SY");      /* Ensure data cache clean has completed */
     icache_flush_all(); /* Invalidate the instruction cache and branch predictor */
-    asm("DSB SY");      /* make sure the data is written to RAM */
-    asm("ISB SY");      /* make sure the processor fetches new instructions */
 }
 
 #else  /* DIGIC 2...5 */
