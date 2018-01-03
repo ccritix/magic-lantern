@@ -110,11 +110,10 @@ copy_and_restart( int offset )
         ;
 }
 
-extern void __attribute__((long_call)) dump_file(char* name, uint32_t addr, uint32_t size);
-extern void __attribute__((long_call)) malloc_info(void);
-extern void __attribute__((long_call)) sysmem_info(void);
-extern void __attribute__((long_call)) smemShowFix(void);
-extern int  __attribute__((long_call)) call( const char* name, ... );
+extern void dump_file(char* name, uint32_t addr, uint32_t size);
+extern void malloc_info(void);
+extern void sysmem_info(void);
+extern void smemShowFix(void);
 
 static void DUMP_ASM dump_task()
 {
