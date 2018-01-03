@@ -1,5 +1,5 @@
 /*
- *  700D 1.1.4 consts
+ *  700D 1.1.5 consts
  */
 
 #define CANON_SHUTTER_RATING 100000
@@ -53,13 +53,13 @@
 
 // for gui_main_task
 #define GMT_NFUNCS 7
-#define GMT_FUNCTABLE 0xFF7FA7F8 //dec gui_main_task
+#define GMT_FUNCTABLE 0xFF7FA7fC //dec gui_main_task
 
-#define CURRENT_DIALOG_MAYBE (*(int*)0x2658C) // in SetGUIRequestMode
+#define CURRENT_GUI_MODE (*(int*)0x2658C) // in SetGUIRequestMode
 #define ISO_ADJUSTMENT_ACTIVE ((*(int*)(0x31254)) == 0xF) // dec ptpNotifyOlcInfoChanged and look for: if arg1 == 1: MEM(0x79B8) = *(arg2)
 
-    // from a screenshot
-    #define COLOR_FG_NONLV 1
+// from a Canon screenshot: call("dispcheck")
+#define COLOR_FG_NONLV 80
 
 #define MVR_516_STRUCT (*(void**)0x23734) // look in MVR_Initialize for AllocateMemory call; decompile it and see where ret_AllocateMemory is stored.
 
@@ -80,21 +80,21 @@
     #define MOV_OPT_STEP 5
     #define MOV_GOP_OPT_STEP 5
 
-    #define AE_STATE (*(int8_t*)(0x366B8 + 0x1C))
-    #define AE_VALUE (*(int8_t*)(0x366B8 + 0x1D))
+    #define AE_STATE (*(int8_t*)(0x367B4 + 0x1C))
+    #define AE_VALUE (*(int8_t*)(0x367B4 + 0x1D))
 
-    #define DLG_PLAY 1
-    #define DLG_MENU 2
+    #define GUIMODE_PLAY 1
+    #define GUIMODE_MENU 2
 
-    #define DLG_FOCUS_MODE 0x123456
+    #define GUIMODE_FOCUS_MODE 0x123456
 
     /* these don't exist in the M */
-    #define DLG_MOVIE_ENSURE_A_LENS_IS_ATTACHED (CURRENT_DIALOG_MAYBE == 0x24)
-    #define DLG_MOVIE_PRESS_LV_TO_RESUME 0
+    #define GUIMODE_MOVIE_ENSURE_A_LENS_IS_ATTACHED (CURRENT_GUI_MODE == 0x24)
+    #define GUIMODE_MOVIE_PRESS_LV_TO_RESUME 0
     /*--------------*/
 
-    #define PLAY_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_DIALOG_MAYBE == DLG_PLAY)
-    #define MENU_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_DIALOG_MAYBE == DLG_MENU)
+    #define PLAY_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_GUI_MODE == GUIMODE_PLAY)
+    #define MENU_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_GUI_MODE == GUIMODE_MENU)
 
     #define AUDIO_MONITORING_HEADPHONES_CONNECTED 0
     #define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0
@@ -171,11 +171,10 @@
     #define BULB_MIN_EXPOSURE 1000
 
 // http://magiclantern.wikia.com/wiki/Fonts
-#define BFNT_CHAR_CODES    0xFFCF67E4
-#define BFNT_BITMAP_OFFSET 0xFFCF972C
-#define BFNT_BITMAP_DATA   0xFFCFC674
+#define BFNT_CHAR_CODES    0xFFCF8174
+#define BFNT_BITMAP_OFFSET 0xFFCFB0BC
+#define BFNT_BITMAP_DATA   0xFFCFE004
 
-#define DLG_SIGNATURE 0x414944 
 
     // from CFn
     #define AF_BTN_HALFSHUTTER 0

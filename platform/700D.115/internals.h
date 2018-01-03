@@ -1,5 +1,5 @@
 /**
- * Camera internals for 700D 1.1.4
+ * Camera internals for 700D 1.1.5
  */
 
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
@@ -139,3 +139,7 @@
 
 /** Workaround for menu timeout in LiveView */
 #define CONFIG_MENU_TIMEOUT_FIX
+
+/** this method bypasses Canon's lv_save_raw and slurps the raw data directly from connection #0 */
+#define CONFIG_EDMAC_RAW_SLURP
+

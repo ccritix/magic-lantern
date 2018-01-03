@@ -228,7 +228,7 @@ void redraw();
 void redraw_after(int msec);
 void _redraw_do();  /* private */
 
-/* Change GUI mode (aka CURRENT_DIALOG_MAYBE). Common modes are 0 (idle), DLG_PLAY and DLG_MENU. */
+/* Change GUI mode. Common modes are 0 (idle), GUIMODE_PLAY and GUIMODE_MENU. */
 void SetGUIRequestMode(int mode);
 int get_gui_mode();
 
@@ -269,7 +269,6 @@ int handle_follow_focus(struct event * event);
 int handle_follow_focus_save_restore(struct event * event);
 int handle_zoom_overlay(struct event * event);
 int handle_zoom_x5_x10(struct event * event);
-int handle_krzoom(struct event * event);
 int handle_quick_access_menu_items(struct event * event);
 int handle_fps_events(struct event * event);
 int handle_expo_preset(struct event * event);
@@ -295,8 +294,6 @@ int get_disp_pressed();
 int get_zoom_out_pressed();
 
 int display_is_on();
-
-int get_dlg_signature();
 
 /* wrapper for GUI timers */
 void delayed_call(int delay_ms, void(*function)(), void* arg);

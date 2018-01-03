@@ -67,7 +67,7 @@ static void call_bootflag_eventproc(char* eventproc)
     /* the visible effect is that camera will ask for a firmware update as soon as you remove the card or place a non-ML card */
     
     /* we'll try to call this routine from Canon menu only (where the sensor should be inactive) */
-    if (CURRENT_DIALOG_MAYBE == DLG_MENU && DISPLAY_IS_ON)
+    if (CURRENT_GUI_MODE == GUIMODE_MENU && DISPLAY_IS_ON)
     {
         for (int i = 0; i < 10; i++)
         {
@@ -77,7 +77,7 @@ static void call_bootflag_eventproc(char* eventproc)
 
         /* Horshack suggested to run the bootflag routines with IRQ/FIQ disabled */
         uint32_t old = cli();
-        if (CURRENT_DIALOG_MAYBE == DLG_MENU && DISPLAY_IS_ON)
+        if (CURRENT_GUI_MODE == GUIMODE_MENU && DISPLAY_IS_ON)
         {
             call( eventproc );
         }
@@ -101,16 +101,15 @@ call_init_funcs()
     }
 }
 
-#if defined(CONFIG_7D)
-void _card_led_on()  { *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDON); }
-void _card_led_off() { *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x38400; } //TODO: Check if this is correct, because reboot.c said 0x838C00
-#elif defined(CARD_LED_ADDRESS) && defined(LEDON) && defined(LEDOFF)
-void _card_led_on()  { *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDON); }
-void _card_led_off() { *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDOFF); }
-#else
-void _card_led_on()  { return; }
-void _card_led_off() { return; }
-#endif
+void _card_led_on()
+{
+    *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDON);
+}
+
+void _card_led_off()
+{
+    *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDOFF);
+}
 
 void info_led_on()
 {
@@ -122,6 +121,7 @@ void info_led_on()
     _card_led_on();
 #endif
 }
+
 void info_led_off()
 {
 #ifdef CONFIG_VXWORKS
@@ -132,6 +132,7 @@ void info_led_off()
     _card_led_off();
 #endif
 }
+
 void info_led_blink(int times, int delay_on, int delay_off)
 {
     for (int i = 0; i < times; i++)
@@ -281,9 +282,9 @@ static void hook_on_canon_menu()
 {
     gui_uilock(UILOCK_EVERYTHING);
     
-    if (CURRENT_DIALOG_MAYBE != DLG_MENU)
+    if (CURRENT_GUI_MODE != GUIMODE_MENU)
     {
-        SetGUIRequestMode(DLG_MENU);
+        SetGUIRequestMode(GUIMODE_MENU);
         
         /* Canon menu may draw on the screen for a while, but we'll try to be faster */ 
         for (int i = 0; i < 10; i++)
@@ -466,7 +467,7 @@ static int install(void)
     
     for (int i = 60; i > 0; i--)
     {
-        if (CURRENT_DIALOG_MAYBE != DLG_MENU || !DISPLAY_IS_ON)
+        if (CURRENT_GUI_MODE != GUIMODE_MENU || !DISPLAY_IS_ON)
         {
             /* abort if user gets out of Canon menu */
             return 0;
@@ -598,12 +599,15 @@ int hdmi_code = 0;
 void _update_vram_params(){};
 void draw_line(int x1, int y1, int x2, int y2, int cl){}
 void NotifyBox(int timeout, char* fmt, ...) {}
+struct vram_info lv_vram;
+struct vram_info * get_yuv422_vram() { lv_vram.vram = 0; return &lv_vram; }
 struct memSuite * _shoot_malloc_suite(size_t size) { return 0; }
 struct memSuite * _shoot_malloc_suite_contig(size_t size) { return 0; }
 void _shoot_free_suite(struct memSuite * suite) {}
 struct memSuite * _srm_malloc_suite(int num) { return 0; }
 void _srm_free_suite(struct memSuite * suite) {}
 char* get_current_task_name() { return "?"; }
+int printf(const char * format, ...) { return 0; }
 
 int y_times_BMPPITCH_cache[BMP_H_PLUS - BMP_H_MINUS];
 
