@@ -4,7 +4,7 @@
 static inline uint32_t thumb_branch_instr(uint32_t pc, uint32_t dest, uint32_t opcode)
 {
     /* thanks atonal */
-    uint32_t offset = dest - pc - 4;
+    uint32_t offset = dest - ((pc + 4) & ~3); /* according to datasheets, this should be the correct calculation -> ALIGN(PC, 4) */
     uint32_t s = (offset >> 24) & 1;
     uint32_t i1 = (offset >> 23) & 1;
     uint32_t i2 = (offset >> 22) & 1;
