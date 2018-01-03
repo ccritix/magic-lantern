@@ -109,7 +109,7 @@ void __attribute__((naked,noinline)) icache_flush_all(void)
 #define ARMV7_CLIDR_CTYPE_UNIFIED       4
 
 #define ARMV7_DCACHE_INVAL_ALL      1
-#define ARMV7_DCACHE_CLEAN_INVAL_ALL    2
+#define ARMV7_DCACHE_CLEAN_ALL    2
 #define ARMV7_DCACHE_INVAL_RANGE    3
 #define ARMV7_DCACHE_CLEAN_INVAL_RANGE  4
 
