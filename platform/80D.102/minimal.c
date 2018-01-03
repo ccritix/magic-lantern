@@ -117,6 +117,7 @@ extern void smemShowFix(void);
 
 static void DUMP_ASM dump_task()
 {
+#if 0
     /* print memory info on QEMU console */
     malloc_info();
     sysmem_info();
@@ -132,6 +133,7 @@ static void DUMP_ASM dump_task()
     dump_file("BFE0.BIN", 0xBFE00000, 0x00200000);
     dump_file("DFE0.BIN", 0xDFE00000, 0x00200000);
   //dump_file("EE00.BIN", 0xEE000000, 0x02000000);    - unknown, may crash 
+#endif
 
     /* save a diagnostic log */
     log_finish();
@@ -145,7 +147,7 @@ my_init_task(int a, int b, int c, int d)
 
     log_start();
 
-    msleep(2000);
+    msleep(1000);
 
     task_create("dump", 0x1e, 0x1000, dump_task, 0 );
 }

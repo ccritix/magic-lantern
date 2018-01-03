@@ -136,7 +136,7 @@ void log_start()
     }
     mpu_recv_cbr = &mpu_recv_log;
 
-    dm_set_store_level(255, 15);
+    dm_set_store_level(255, 1);
     DryosDebugMsg(0, 15, "Logging started.");
 
     sync_caches();
@@ -147,5 +147,6 @@ void log_finish()
     pre_isr_hook = 0;
     post_isr_hook = 0;
     sync_caches();
+    dm_set_store_level(255, 15);
     DryosDebugMsg(0, 15, "Logging finished.");
 }
