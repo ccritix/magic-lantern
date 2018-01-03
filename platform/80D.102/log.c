@@ -83,7 +83,7 @@ static void pre_isr_log(uint32_t isr)
     char* name = isr_names[isr & 0x1FF];
     if (name) return;
 
-    DryosDebugMsg(0, 5, "INT-%03Xh %X(%X)", isr, handler, arg);
+    DryosDebugMsg(0, 15, "INT-%03Xh %X(%X)", isr, handler, arg);
 }
 
 static void post_isr_log(uint32_t isr)
@@ -116,7 +116,7 @@ static int mpu_recv_log(char * buf)
     int size = buf[-1];
     char msg[256];
     mpu_decode(buf, msg, sizeof(msg));
-    DryosDebugMsg(0, 5, "*** mpu_recv(%02x %s)", size, msg);
+    DryosDebugMsg(0, 15, "*** mpu_recv(%02x %s)", size, msg);
 
     /* call the original */
     return mpu_recv(buf);
@@ -135,8 +135,9 @@ void log_start()
         msleep(10);
     }
     mpu_recv_cbr = &mpu_recv_log;
-    dm_set_store_level(255, 1);
-    DryosDebugMsg(0, 1, "Logging started.");
+
+    dm_set_store_level(255, 15);
+    DryosDebugMsg(0, 15, "Logging started.");
 
     sync_caches();
 }
@@ -146,5 +147,5 @@ void log_finish()
     pre_isr_hook = 0;
     post_isr_hook = 0;
     sync_caches();
-    DryosDebugMsg(0, 5, "Logging finished.");
+    DryosDebugMsg(0, 15, "Logging finished.");
 }
