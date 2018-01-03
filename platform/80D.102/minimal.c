@@ -34,19 +34,7 @@ static inline uint32_t thumb_branch_instr(uint32_t pc, uint32_t dest, uint32_t o
 #define THUMB_B_W_INSTR(pc,dest)    thumb_branch_instr((uint32_t)(pc), (uint32_t)(dest), 0x9000f000)
 #define THUMB_BLX_INSTR(pc,dest)    thumb_branch_instr((uint32_t)(pc), (uint32_t)(dest), 0xc000f000)
 
-/**
- * We will write to unaligned address; not sure if the target CPU supports it.
- * On DIGIC 4/5 it doesn't, so let's just play safe.
- */
-struct uint32_p { uint32_t val; } __attribute__((packed,aligned(2)));
-
-void DUMP_ASM test(struct uint32_p * p)
-{
-    p->val = 0x12345678;
-}
-
-/** Translate a firmware address into a relocated address */
-#define INSTR( addr ) ((struct uint32_p *)( (addr) - ROMBASEADDR + RELOCADDR ))->val
+#define INSTR( addr ) ( *(uint32_t*)( (addr) - ROMBASEADDR + RELOCADDR ) )
 
 /** Fix a branch instruction in the relocated firmware image */
 #define FIXUP_BRANCH( rom_addr, dest_addr ) \
