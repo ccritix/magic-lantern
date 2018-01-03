@@ -93,10 +93,50 @@ static void post_isr_log(uint32_t isr)
 extern void (*pre_isr_hook)();
 extern void (*post_isr_hook)();
 
+static void mpu_decode(char* in, char* out, int max_len)
+{
+    int len = 0;
+    int size = in[0];
+
+    /* print each byte as hex */
+    for (char* c = in; c < in + size; c++)
+    {
+        len += snprintf(out+len, max_len-len, "%02x ", *c);
+    }
+    
+    /* trim the last space */
+    if (len) out[len-1] = 0;
+}
+
+extern int (*mpu_recv_cbr)(char * buf, int size);
+extern int __attribute__((long_call)) mpu_recv(char * buf);
+
+static int mpu_recv_log(char * buf)
+{
+    int size = buf[-1];
+    char msg[256];
+    mpu_decode(buf, msg, sizeof(msg));
+    DryosDebugMsg(0, 5, "*** mpu_recv(%02x %s)", size, msg);
+
+    /* call the original */
+    return mpu_recv(buf);
+}
+
 void log_start()
 {
-    pre_isr_hook = &pre_isr_log;
+    //pre_isr_hook = &pre_isr_log;
     //post_isr_hook = &post_isr_log;
+
+    /* wait for InitializeIntercom to complete
+     * then install our own hook quickly
+     * this assumes Canon's init_task is already running */
+    while (!mpu_recv_cbr)
+    {
+        msleep(10);
+    }
+    mpu_recv_cbr = &mpu_recv_log;
+    DryosDebugMsg(0, 5, "Logging started.");
+
     sync_caches();
 }
 
@@ -105,4 +145,5 @@ void log_finish()
     pre_isr_hook = 0;
     post_isr_hook = 0;
     sync_caches();
+    DryosDebugMsg(0, 5, "Logging finished.");
 }

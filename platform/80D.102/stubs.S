@@ -57,3 +57,12 @@ NSTUB(    0x44B0,  pre_isr_hook)
 NSTUB(    0x44B4,  post_isr_hook)
 NSTUB(   0x19F14,  isr_table_handler)
 NSTUB(   0x19F18,  isr_table_param)
+
+/** MPU communication **/
+NSTUB(0xFE253C0F,  mpu_send)                                // Thumb
+NSTUB(0xFE5475CF,  mpu_recv)                                // Thumb
+NSTUB(    0x890C,  mpu_recv_cbr)
+NSTUB(0x80007BB8,  called_by_mpu_send)
+
+/** Misc **/
+NSTUB(0x800054AD,  vsnprintf)                               // Thumb

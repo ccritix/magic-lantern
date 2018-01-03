@@ -12,4 +12,4 @@ CFLAGS += -march=armv7-r
 
 # these should be removed when porting starts
 ML_SRC_PROFILE  = minimal
-ML_SRC_EXTRA_OBJS += log.o
+ML_SRC_EXTRA_OBJS += log.o stdio.o

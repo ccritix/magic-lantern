@@ -146,9 +146,9 @@ static void DUMP_ASM dump_task()
 static void
 my_init_task(int a, int b, int c, int d)
 {
-    log_start();
-
     init_task(a,b,c,d);
+
+    log_start();
 
     msleep(2000);
 
@@ -160,3 +160,6 @@ my_init_task(int a, int b, int c, int d)
 void disp_set_pixel(int x, int y, int c)
 {
 }
+
+/* dummy */
+int FIO_WriteFile( FILE* stream, const void* ptr, size_t count ) { };
