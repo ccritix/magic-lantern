@@ -91,11 +91,7 @@ asm(
     
     /* if the checksum was wrong, reset to main firmware */
     "BXNE    R10\n"
-
-    /* long jump */
-    /* this trick allows running from uncacheable memory,
-     * if the binary is linked at 0x40800000 / 0x40800120. */
-    "LDR PC, =cstart\n"
+    "B       cstart\n"
     
     "checksum_area:"
     ".word   _start\n"
