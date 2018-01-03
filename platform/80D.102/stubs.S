@@ -48,6 +48,7 @@ NSTUB(0xFE15F747,  smemShowFix)                             // Thumb
 
 /** Debug messages **/
 NSTUB(0xFE3FC214,  DryosDebugMsg)
+NSTUB(0xFE3FBEEC,  dm_set_store_level)
 
 /** Eventprocs (call by name) **/
 NSTUB(0xFE48422F,  call)                                    // Thumb

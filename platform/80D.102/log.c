@@ -135,7 +135,8 @@ void log_start()
         msleep(10);
     }
     mpu_recv_cbr = &mpu_recv_log;
-    DryosDebugMsg(0, 5, "Logging started.");
+    dm_set_store_level(255, 1);
+    DryosDebugMsg(0, 1, "Logging started.");
 
     sync_caches();
 }
