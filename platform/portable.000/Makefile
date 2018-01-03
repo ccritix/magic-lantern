@@ -11,6 +11,9 @@ RESTARTSTART=0
 AUTOEXEC_BASE = 0x40800000
 FIR_BASE      = 0x40800120
 
+# this would compile the "full" ML; we don't have any stubs/consts to build it
+PRINT_BUILD_INFO = n
+
 include ../Makefile.platform
 
 # dummy definitions to avoid building regular ML

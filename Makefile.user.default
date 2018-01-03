@@ -197,6 +197,8 @@ RST2LATEX=rst2latex.py
 BUILDVER=$(shell whoami).$(shell hg id -i -r .)
 VERSION = $(call eval_once,VERSION,Nightly.$(shell LC_TIME=EN date +'%Y%b%d').$(MODEL)$(FW_VERSION))
 
+PRINT_BUILD_INFO = y
+
 # Build configuration - untested and debug stuff handy for devs
 # these can be specified either in Makefile.user, or in the command line:
 # 

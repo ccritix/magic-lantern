@@ -401,6 +401,7 @@ $(PLATFORM_DIR)/version.bin: FORCE
 	@echo '' >> $@
 	@echo '' >> $@
 
+ifeq ($(PRINT_BUILD_INFO), n)
 print_build_info: FORCE magiclantern
 	@$(READELF) -l magiclantern | $(GREP) -C 2 MemSiz | $(GREP) -v EXIDX
 	@echo
@@ -417,6 +418,10 @@ print_build_info: FORCE magiclantern
 					echo ;; \
 			esac; \
 		fi
+else
+print_build_info:
+	@echo Skipping print_build_info.
+endif
 
 $(SRC_DIR)/menuindexentries.h:
 	$(call build,"MENU IDX", if [ -f $(DOC_DIR)/menuindex.txt ]; then \
