@@ -3,6 +3,7 @@
  */
 
 #include "dryos.h"
+#include "log.h"
 
 /** These are called when new tasks are created */
 static void my_init_task(int a, int b, int c, int d);
@@ -138,14 +139,17 @@ static void DUMP_ASM dump_task()
     dump_file("ROM1.BIN", 0xFC000000, 0x02000000);
 
     /* save a diagnostic log */
+    log_finish();
     call("dumpf");
 }
 
 static void
 my_init_task(int a, int b, int c, int d)
 {
+    log_start();
+
     init_task(a,b,c,d);
-    
+
     msleep(2000);
 
     task_create("dump", 0x1e, 0x1000, dump_task, 0 );
