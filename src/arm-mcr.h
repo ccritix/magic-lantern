@@ -85,7 +85,7 @@ select_normal_vectors( void )
 // ARMv7 cache control (based on U-BOOT cache_v7.c, utils.h, armv7.h)
 
 /* Invalidate entire I-cache and branch predictor array */
-void __attribute__((naked,noinline)) icache_flush_all(void)
+static void __attribute__((naked,noinline)) icache_flush_all(void)
 {
     /*
      * Invalidate all instruction caches to PoU.
@@ -239,7 +239,7 @@ static void v7_maint_dcache_all(u32 operation)
     }
 }
 
-void dcache_clean_all(void) {
+static void dcache_clean_all(void) {
     v7_maint_dcache_all(ARMV7_DCACHE_CLEAN_ALL);
     /* anything else? */
 }
