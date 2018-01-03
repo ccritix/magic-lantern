@@ -146,3 +146,9 @@ my_init_task(int a, int b, int c, int d)
 
     task_create("dump", 0x1e, 0x1000, dump_task, 0 );
 }
+
+/* used by font_draw */
+/* we don't have a valid display buffer yet */
+void disp_set_pixel(int x, int y, int c)
+{
+}
