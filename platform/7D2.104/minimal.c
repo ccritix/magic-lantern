@@ -112,6 +112,7 @@ copy_and_restart( int offset )
     // We enter after the signature, avoiding the
     // relocation jump that is at the head of the data
     // this is Thumb code
+    MEM(0xD20C0084) = 0;
     thunk __attribute__((long_call)) reloc_entry = (thunk)( RELOCADDR + 0xC + 1 );
     reloc_entry();
 
@@ -124,6 +125,7 @@ extern void __attribute__((long_call)) dump_file(char* name, uint32_t addr, uint
 extern void __attribute__((long_call)) malloc_info(void);
 extern void __attribute__((long_call)) sysmem_info(void);
 extern void __attribute__((long_call)) smemShowFix(void);
+extern int  __attribute__((long_call)) call( const char* name, ... );
 
 static void DUMP_ASM dump_task()
 {
@@ -132,9 +134,11 @@ static void DUMP_ASM dump_task()
     sysmem_info();
     smemShowFix();
 
-    /* dump both ROMs */
-    dump_file("ROM0.BIN", 0xF0000000, 0x02000000);
-    dump_file("ROM1.BIN", 0xF8000000, 0x02000000);
+    /* dump ROM1 */
+    dump_file("ROM1.BIN", 0xFC000000, 0x02000000);
+
+    /* save a diagnostic log */
+    //call("dumpf");
 }
 
 static void
@@ -142,7 +146,13 @@ my_init_task(int a, int b, int c, int d)
 {
     init_task(a,b,c,d);
     
-    msleep(5000);
+    msleep(2000);
 
     task_create("dump", 0x1e, 0x1000, dump_task, 0 );
+}
+
+/* used by font_draw */
+/* we don't have a valid display buffer yet */
+void disp_set_pixel(int x, int y, int c)
+{
 }
