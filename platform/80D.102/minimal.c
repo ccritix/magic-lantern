@@ -125,6 +125,7 @@ extern void __attribute__((long_call)) dump_file(char* name, uint32_t addr, uint
 extern void __attribute__((long_call)) malloc_info(void);
 extern void __attribute__((long_call)) sysmem_info(void);
 extern void __attribute__((long_call)) smemShowFix(void);
+extern int  __attribute__((long_call)) call( const char* name, ... );
 
 static void DUMP_ASM dump_task()
 {
@@ -135,6 +136,9 @@ static void DUMP_ASM dump_task()
 
     /* dump ROM1 */
     dump_file("ROM1.BIN", 0xFC000000, 0x02000000);
+
+    /* save a diagnostic log */
+    call("dumpf");
 }
 
 static void

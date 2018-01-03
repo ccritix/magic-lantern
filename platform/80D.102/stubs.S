@@ -45,3 +45,6 @@ NSTUB(0xFE2E4AEB, dump_file)            // Thumb
 NSTUB(0xFE2DB8AD, malloc_info)          // Thumb
 NSTUB(0xFE2DB945, sysmem_info)          // Thumb
 NSTUB(0xFE15F747, smemShowFix)          // Thumb
+
+/** Eventprocs (call by name) **/
+NSTUB(0xFE48422F,  call)                // Thumb
