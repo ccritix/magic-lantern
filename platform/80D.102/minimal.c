@@ -45,7 +45,7 @@ void DUMP_ASM test(struct uint32_p * p)
 }
 
 /** Translate a firmware address into a relocated address */
-#define INSTR( addr ) ((struct uint32_p *) UNCACHEABLE( (addr) - ROMBASEADDR + RELOCADDR ))->val
+#define INSTR( addr ) ((struct uint32_p *)( (addr) - ROMBASEADDR + RELOCADDR ))->val
 
 /** Fix a branch instruction in the relocated firmware image */
 #define FIXUP_BRANCH( rom_addr, dest_addr ) \
@@ -57,8 +57,8 @@ extern uint32_t _bss_start[], _bss_end[];
 static inline void
 zero_bss( void )
 {
-    uint32_t *bss = UNCACHEABLE(_bss_start);
-    while( bss < UNCACHEABLE(_bss_end) )
+    uint32_t *bss = _bss_start;
+    while( bss < _bss_end )
         *(bss++) = 0;
 }
 
@@ -81,7 +81,7 @@ copy_and_restart( int offset )
     // Copy the firmware to somewhere safe in memory
     const uint8_t * const firmware_start = (void*) ROMBASEADDR;
     const uint32_t firmware_len = RELOCSIZE;
-    uint32_t * const new_image = (void*) UNCACHEABLE(RELOCADDR);
+    uint32_t * const new_image = (void*) RELOCADDR;
 
     blob_memcpy( new_image, firmware_start, firmware_start + firmware_len );
 
