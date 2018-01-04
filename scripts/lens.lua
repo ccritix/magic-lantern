@@ -368,13 +368,13 @@ lens_config = config.create_from_menu(lens_menu)
 -- Check precence of manual lens on start and autoload values if the user enabled autoload
 if is_manual_lens() then
   local id = tonumber(lens_config.data.Lens)
-  autoload = lens_menu.submenu["Lens autoload"].value == "On"
+  autoload = lens_menu.submenu["Autoload Lens"].value == "On"
 
   if autoload and id ~= 0 then
     selector_instance.index = id
-    update_menu(1)
     restore_lens_values()
-    lens_selected = true
+    update_menu(1)
+    lensSelected = true
     xmp:start()
   else
     -- Prompt menu for lens selection
