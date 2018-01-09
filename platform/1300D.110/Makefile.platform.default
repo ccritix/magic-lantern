@@ -1,0 +1,25 @@
+#Makefile.setup.platform for 1300D
+
+# Definitions for version 110
+ML_MODULES_SYM_NAME=t6_$(FW_VERSION).sym
+
+ifeq ($(FW_VERSION),110)
+
+CANON_NAME_FIR=CCF12105.FIR
+ROMBASEADDR	= 0xF8010000
+
+ifeq ($(ML_SRC_PROFILE),generic)
+# DryOSmemory map
+# RESTARTSTART is selected to be just above the end of the bss
+#
+RESTARTSTART	= 0x00064000
+else
+# DryOSmemory map
+# RESTARTSTART is selected to be just above the end of the bss
+#
+RESTARTSTART	= 0x00064000
+endif
+
+#end of FW_VERSION == 110
+endif
+
