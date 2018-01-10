@@ -119,19 +119,19 @@ NSTUB(0xFE11F394,  DryosDebugMsg)
 NSTUB(0xFE11F6FC,  dm_set_store_level)                      // called by "dmstore"
 
 /** Dialog API **/
- NSTUB(0xFF31E390,  dialog_redraw)
- NSTUB(0xFF234DF4,  dialog_set_property_str)
+NSTUB(0xFE3F0A44,  dialog_redraw)
+NSTUB(0xFE2F8BF8,  dialog_set_property_str)
 
 /** Dialog handlers **/
 NSTUB(0xFE5ACCEC,  ErrCardForLVApp_handler)                 // LiveViewErrorApp, as in 60D
 NSTUB(0xFE45573C,  ErrForCamera_handler)                    // ERR70, ERR80 etc (DlgErrForCamera.c, AJ_DIALOG.HANDLER_DlgErrForCamera.c)
- NSTUB(0xFF378B34,  HideUnaviFeedBack_maybe)                 // look for StartUnaviFeedBackTimer
+NSTUB(0xFE488590,  HideUnaviFeedBack_maybe)                 // look for StartUnaviFeedBackTimer
 NSTUB(0xFE48D148,  LiveViewApp_handler)
- NSTUB(0xFF37DC4C,  LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState)
- NSTUB(0xFF37F29C,  LiveViewApp_handler_end)                 // start of next function
- NSTUB(0xFF398ABC,  PlayMain_handler)
- NSTUB(0xFF4B1920,  PlayMovieGuideApp_handler)
- NSTUB(0xFF38C928,  ShootOlcApp_handler)
+NSTUB(0xFE48D7B4,  LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState)
+NSTUB(0xFE48EDF0,  LiveViewApp_handler_end)                 // start of next function
+NSTUB(0xFE4A8C24,  PlayMain_handler)
+NSTUB(0xFE5E7BDC,  PlayMovieGuideApp_handler)
+NSTUB(0xFE49C300,  ShootOlcApp_handler)
 // NSTUB(    ???,  LiveViewLevelApp_handler)                /* present on 5D3.113 */
 // NSTUB(    ???,  LiveViewShutterApp_handler)              /* present on 6D.113, 650D.104, EOSM.202, 700D.113 */
 // NSTUB(    ???,  LiveViewWbApp_handler)                   /* present on 7D.203, 5D3.113, 5D2.212 */
@@ -140,30 +140,30 @@ NSTUB(0xFE48D148,  LiveViewApp_handler)
 // NSTUB(    ???,  StopPlayProtectGuideApp)                 /* present on 7D.203, 5D2.212 */
 
 /** Display **/
- NSTUB(0xFF33BF7C,  MirrorDisplay)
- NSTUB(0xFF33BFDC,  NormalDisplay)
- NSTUB(0xFF33BFAC,  ReverseDisplay)
+NSTUB(0xFE40E9E4,  MirrorDisplay)
+NSTUB(0xFE40EA44,  NormalDisplay)
+NSTUB(0xFE40EA14,  ReverseDisplay)
 
 /** EDMAC **/
- NSTUB(0xFF1E09B0,  AbortEDmac)
- NSTUB(0xFF1E06DC,  ConnectReadEDmac)
- NSTUB(0xFF1E0618,  ConnectWriteEDmac)
- NSTUB(0xFF1E0A78,  RegisterEDmacAbortCBR)
- NSTUB(0xFF1E0A50,  RegisterEDmacCompleteCBR)
- NSTUB(0xFF1E0B80,  RegisterEDmacPopCBR)
- NSTUB(0xFF1E0560,  SetEDmac)
- NSTUB(0xFF1E0860,  StartEDmac)
- NSTUB(0xFF1E0AB8,  UnregisterEDmacAbortCBR)
- NSTUB(0xFF1E0A64,  UnregisterEDmacCompleteCBR)
- NSTUB(0xFF1E0B94,  UnregisterEDmacPopCBR)
+NSTUB(0xFE29E8A8,  AbortEDmac)
+NSTUB(0xFE29E5B4,  ConnectReadEDmac)
+NSTUB(0xFE29E4F0,  ConnectWriteEDmac)
+NSTUB(0xFE29E970,  RegisterEDmacAbortCBR)
+NSTUB(0xFE29E948,  RegisterEDmacCompleteCBR)
+NSTUB(0xFE29EA74,  RegisterEDmacPopCBR)
+NSTUB(0xFE29E438,  SetEDmac)
+NSTUB(0xFE29E754,  StartEDmac)
+NSTUB(0xFE29E9B0,  UnregisterEDmacAbortCBR)
+NSTUB(0xFE29E95C,  UnregisterEDmacCompleteCBR)
+NSTUB(0xFE29EA88,  UnregisterEDmacPopCBR)
 
 /** Electronic Level **/
- NSTUB(0xFF227F64,  GUI_SetRollingPitchingLevelStatus)
+NSTUB(0xFE2EB038  GUI_SetRollingPitchingLevelStatus)
 
 /** Engio **/
- NSTUB(0xFF1E195C, _EngDrvOut)
- NSTUB(0xFF1E1D20, _engio_write)
- NSTUB(0xFF1E184C,  shamem_read)                             // AJ_0x8FB0_engio_struct_n_R0_manipulation_to_get_ptr
+NSTUB(0xFE29F844, _EngDrvOut)
+NSTUB(0xFE29FBF0, _engio_write)
+NSTUB(0xFE29F734,  shamem_read)                             // AJ_0x8FB0_engio_struct_n_R0_manipulation_to_get_ptr
 // NSTUB(    ???,  EngDrvOut)                               /* present on 7D_MASTER.203 */
 
 /** Eventprocs (call by name) **/
