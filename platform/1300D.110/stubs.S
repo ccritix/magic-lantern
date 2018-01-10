@@ -158,7 +158,7 @@ NSTUB(0xFE29E95C,  UnregisterEDmacCompleteCBR)
 NSTUB(0xFE29EA88,  UnregisterEDmacPopCBR)
 
 /** Electronic Level **/
-NSTUB(0xFE2EB038  GUI_SetRollingPitchingLevelStatus)
+NSTUB(0xFE2EB038,  GUI_SetRollingPitchingLevelStatus)
 
 /** Engio **/
 NSTUB(0xFE29F844, _EngDrvOut)
