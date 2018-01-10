@@ -39,6 +39,7 @@
 #define ROM_ALLOCMEM_INIT 0xFE0C1B7C
 #define ROM_B_CREATETASK_MAIN 0xFE129760
 
+/*
 // USED FOR FINDING BROKEN RELATIVE JUMPS
 #define ROM_BL_USERMEMCHECK 0xFE1296D0
 #define ROM_USERMEMCHECK_START 0xFE0C0A50
@@ -59,13 +60,13 @@
 #define ROM_BL_EXTLIBSETUP 0xFE12974C
 #define ROM_EXTLIBSETUP_START 0xFE0C1154
 #define ROM_EXTLIBSETUP_END 0xFE0C116C
-
+*/
 
 
 
 //#define ARMLIB_OVERFLOWING_BUFFER 0x167FC // in AJ_armlib_setup_related3
 
-//#define DRYOS_ASSERT_HANDLER 0x1A18 // dec TH_assert or assert_0
+ #define DRYOS_ASSERT_HANDLER 0x1A18 // dec TH_assert or assert_0
 
 // these were found in ROM, but not tested yet
 
