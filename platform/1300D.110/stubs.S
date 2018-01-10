@@ -221,7 +221,7 @@ NSTUB(0xFE125230,  FreeMemoryResource)                      // m_pfFreeMemoryCBR
 // NSTUB(    ???,  pre_isr_hook)                            /* present on 7D.203, 6D.113, 5D3.113, 7D_MASTER.203, EOSM.202 */
 
 /** LCD Sensor **/
- NSTUB(0xFF08397C,  DispSensorStart)
+NSTUB(0xFE12BBC8,  DispSensorStart)
 // NSTUB(    ???,  LightMeasure_n_Callback_r0)              /* present on 7D.203, 5D2.212 */
 
 /** Making the card bootable **/
@@ -233,9 +233,9 @@ NSTUB(0xFE1278C8,  GetMemoryInformation)                    // called from Alloc
 NSTUB(0xFE127874,  GetSizeOfMaxRegion)
 NSTUB(0xFE127B28, _AllocateMemory)                          // "[MEM] NG AllocateMemory"
 NSTUB(0xFE127EC4, _FreeMemory)
- NSTUB(0xFF1FD2E4, _alloc_dma_memory)
+NSTUB(0xFE2C2528, _alloc_dma_memory)
 NSTUB(0xFE2C6C04, _free)
- NSTUB(0xFF1FD318, _free_dma_memory)
+NSTUB(0xFE2C2564, _free_dma_memory)
 NSTUB(0xFE2C6BAC, _malloc)                                  // maybe it's better to use Allocate/Free?
 // NSTUB(    ???,  free_dma_memory)                         /* present on 7D_MASTER.203 */
 
