@@ -99,8 +99,7 @@ NSTUB(0xFE106228,  StopASIFDMAADC)                          /* present on 7D.203
 
 /** Bitmap **/
 NSTUB(   0x54A40,  LCD_Palette)                             // in InitializeBitmapDisplayDevice, right after 0xc0f14800
-NSTUB(   0x31848,  bmp_vram_info)
-// NSTUB(   0x1DB6C,  bmp_vram_info)
+NSTUB(   0x56240,  bmp_vram_info)
 
 /** CFN **/
 NSTUB(0xFE71C2A4,  GetCFnData)
