@@ -46,19 +46,19 @@ NSTUB(0xFE1296C8,  init_task)                               // passed as arg to 
 NSTUB(   0x67430,  additional_version)
 
 /** File I/O **/
-NSTUB(0xFE2A43FC,  FIO_CloseFile)                           //
+ NSTUB(0xFE2A43FC,  FIO_CloseFile)                           //
 NSTUB(0xFE2A53D0,  FIO_FindClose)                           // called with ret_FIO_FindFirstEx after finishing the dir scanning loop
 NSTUB(0xFE2A52F0,  FIO_FindNextEx)                          //
-NSTUB(0xFE2A41AC, _FIO_ReadFile)                            //
-NSTUB(0xFE2A425C,  FIO_SeekSkipFile)                        // same as SeekFile
-NSTUB(0xFE2A434C, _FIO_WriteFile)                           //
-NSTUB(0xFE2A4C3C, _FIO_CreateDirectory)                     //
-NSTUB(0xFE2A4058, _FIO_CreateFile)                          //
+ NSTUB(0xFE2A41AC, _FIO_ReadFile)                            //
+ NSTUB(0xFE2A425C,  FIO_SeekSkipFile)                        // same as SeekFile
+ NSTUB(0xFE2A434C, _FIO_WriteFile)                           //
+ NSTUB(0xFE2A4C3C, _FIO_CreateDirectory)                     //
+ NSTUB(0xFE2A4058, _FIO_CreateFile)                          //
 NSTUB(0xFE2A51FC, _FIO_FindFirstEx)                         //
-NSTUB(0xFE2A4578, _FIO_GetFileSize)                         //
-NSTUB(0xFE2A3F9C, _FIO_OpenFile)                            //
-NSTUB(0xFE2A4104, _FIO_RemoveFile)                          //
-NSTUB(0xFE2A4A74, _FIO_RenameFile)
+ NSTUB(0xFE2A4578, _FIO_GetFileSize)                         //
+ NSTUB(0xFE2A3F9C, _FIO_OpenFile)                            //
+ NSTUB(0xFE2A4104, _FIO_RemoveFile)                          //
+ NSTUB(0xFE2A4A74, _FIO_RenameFile)
 
 /** GUI **/
 NSTUB(   0x3136C,  gui_main_struct)                         // in gui_main_task
@@ -170,7 +170,7 @@ NSTUB(0xFE48D148,  LiveViewApp_handler)
  // NSTUB(    ???,  EngDrvOut)                               /* present on 7D_MASTER.203 */
  
  /** Eventprocs (call by name) **/
- NSTUB(0xFF06F260,  call)
+NSTUB(0xFE120288,  call)
  
  /** Events **/
  // NSTUB(    ???,  TryPostEvent)                            /* present on 6D.113, 650D.104, EOSM.202, 700D.113 */
@@ -227,79 +227,77 @@ NSTUB(0xFE125230,  FreeMemoryResource)                      // m_pfFreeMemoryCBR
  NSTUB(0xFF08397C,  DispSensorStart)
  // NSTUB(    ???,  LightMeasure_n_Callback_r0)              /* present on 7D.203, 5D2.212 */
  
- /** Making the card bootable **/
- NSTUB(   0x1574C,  sd_device)                               // in sdReadBlk
- NSTUB(0xFF4319A4,  fsuDecodePartitionTable)
- //NSTUB( 0x15728, cf_device )                // in cfReadBlk
- // NSTUB(    ???,  cf_device_ptr)                           /* present on 5D3.113 */
+/** Making the card bootable **/
+NSTUB(   0x499C4,  sd_device)                               // in sdReadBlk
+NSTUB(0xFE543BD0,  fsuDecodePartitionTable)
  
- /** Memory allocation **/
- NSTUB(0xFF072194,  GetMemoryInformation)                    // called from AllocateMemory
- NSTUB(0xFF072140,  GetSizeOfMaxRegion)
- NSTUB(0xFF0723F0, _AllocateMemory)                          // "[MEM] NG AllocateMemory"
- NSTUB(0xFF072780, _FreeMemory)
+/** Memory allocation **/
+NSTUB(0xFE1278C8,  GetMemoryInformation)                    // called from AllocateMemory
+NSTUB(0xFE127874,  GetSizeOfMaxRegion)
+NSTUB(0xFE127B28, _AllocateMemory)                          // "[MEM] NG AllocateMemory"
+NSTUB(0xFE127EC4, _FreeMemory)
  NSTUB(0xFF1FD2E4, _alloc_dma_memory)
- NSTUB(0xFF018DB0, _free)
+NSTUB(0xFE2C6C04, _free)
  NSTUB(0xFF1FD318, _free_dma_memory)
- NSTUB(0xFF018D58, _malloc)                                  // maybe it's better to use Allocate/Free?
+NSTUB(0xFE2C6BAC, _malloc)                                  // maybe it's better to use Allocate/Free?
  // NSTUB(    ???,  free_dma_memory)                         /* present on 7D_MASTER.203 */
  
- /** Message queues **/
- NSTUB(0xFF1F5C80,  msg_queue_count)
- NSTUB(0xFF1F5944,  msg_queue_create)                        // CreateMessageQueue
- NSTUB(0xFF1F5C40,  msg_queue_post)
- NSTUB(0xFF1F5A54,  msg_queue_receive)
+/** Message queues **/
+NSTUB(    0x7868,  msg_queue_count)
+NSTUB(    0x7480,  msg_queue_create)                        // CreateMessageQueue
+NSTUB(    0x7814,  msg_queue_post)
+NSTUB(    0x75D0,  msg_queue_receive)
  
- /** PTP **/
- NSTUB(0xFF2A49A0,  ptp_register_handler)
+/** PTP **/
+NSTUB(0xFE36ED54,  ptp_register_handler)
  // NSTUB(    ???,  ptpPropSetUILock)                        /* present on 650D.104, 700D.113 */
  
- /** Properties **/
+/** Properties **/
  NSTUB(0xFF05BE6C, _prop_cleanup)
  NSTUB(0xFF05B6E4, _prop_request_change)
  NSTUB(0xFF05BCC4,  prop_deliver)
  NSTUB(0xFF05BD4C,  prop_register_slave)                     // called by"GUI_RegisterPropertySlave"
  // NSTUB(    ???,  prop_unregister_slave)                   /* present on 7D.203 */
  
- /** RPC (for 7D) **/
+/** RPC (for 7D) **/
  // NSTUB(    ???,  BulkInIPCTransfer)                       /* present on 7D.203 */
  // NSTUB(    ???,  BulkOutIPCTransfer)                      /* present on 7D.203 */
  // NSTUB(    ???,  QuickOutIPCTransfer)                     /* present on 7D.203 */
  // NSTUB(    ???,  RegisterRPCHandler)                      /* present on 7D.203, 7D_MASTER.203 */
  // NSTUB(    ???,  RequestRPC)                              /* present on 7D.203, 7D_MASTER.203 */
  
- /** Recursive locks **/
+/** Recursive locks **/
  NSTUB(0xFF1F5D8C,  AcquireRecursiveLock)
  NSTUB(0xFF075500,  CreateRecursiveLock)
  NSTUB(0xFF1F5EA0,  ReleaseRecursiveLock)
- 
- /** ResLock **/
+
+/** ResLock **/
  NSTUB(0xFF1E4910,  CreateResLockEntry)
  NSTUB(0xFF1E4E50,  LockEngineResources)
  NSTUB(0xFF1E4F8C,  UnLockEngineResources)
  
- /** Semaphores **/
+/** Semaphores **/
  NSTUB(0xFF070E90,  create_named_semaphore)
  NSTUB(0xFF0710D8,  give_semaphore)
  NSTUB(0xFF070FF0,  take_semaphore)
  
- /** Task info **/
+/** Task info **/
  NSTUB(    0x3328,  task_max)
  NSTUB(0xFF3557F0,  is_taskid_valid)                         // AJ_task_trampoline_related_p10
  NSTUB(    0x1A2C,  current_task)
  NSTUB(     0x674,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
  
- /** Task sleep **/
+/** Task sleep **/
  NSTUB(    0x3780,  msleep)                                  // called from EV_GETDONE_CACHE param 0x64
  
- /** Tasks **/
+/** Tasks **/
  NSTUB(    0x193C,  task_dispatch_hook)
- NSTUB(0xFF071578,  task_create)
- NSTUB(0xFF07E3F4,  task_trampoline)
+NSTUB(   0x038FC,  task_create)
+NSTUB(    0x41DC,  task_trampoline)
  // NSTUB(    ???,  current_task_ctx)                        /* present on 7D.203 */
  // NSTUB(    ???,  next_task_ctx)                           /* present on 7D.203 */
  
- /** Misc **/
+/** Misc **/
  NSTUB(   0x73590,  lv_path_struct)                          // first arg of SelectPathDriveMode
  NSTUB(0xFF069AE0,  LoadCalendarFromRTC)
  NSTUB(0xFF1F94BC,  vsnprintf)
@@ -311,7 +309,7 @@ NSTUB(0xFE0180A8,  print_serial)
  // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
  // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
  
- /** Unused stubs or porting notes **/
+/** Unused stubs or porting notes **/
  ///NSTUB( 0xFF34B724, AJ_guess_LED_OFF )
  ///NSTUB( 0xFF34B6F4, AJ_guess_LED_ON )   // led for SD/CF read and write ops
  ///NSTUB(0xFF29E25C,  AfCtrl_SetLensParameterRemote)
