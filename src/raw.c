@@ -156,7 +156,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
  * and http://a1ex.bitbucket.org/ML/states/ for state diagrams.
  */
 
-#if defined(CONFIG_5D2) || defined(CONFIG_50D) || defined(CONFIG_60D) || defined(CONFIG_550D) || defined(CONFIG_500D) || defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_7D)
+#if defined(CONFIG_5D2) || defined(CONFIG_50D) || defined(CONFIG_60D) || defined(CONFIG_550D) || defined(CONFIG_500D) || defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_7D) || defined(CONFIG_1300D)
 #define RAW_PHOTO_EDMAC 0xc0f04208
 #endif
 
@@ -298,6 +298,17 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
      -593, 10000,     1772, 10000,    6198, 10000
 #endif
 
+#ifdef CONFIG_1300D
+	// PLACEHOLDER DATA FROM 600D TO BUILD HELLOWORLD
+        //~ { "Canon EOS 1300D", 0, 0x3510,
+        //~ { 6461,-907,-882,-4300,12184,2378,-819,1944,5931 } },
+    #define CAM_COLORMATRIX1                       \
+      6461, 10000,     -907, 10000,    -882, 10000,\
+    -4300, 10000,    12184, 10000,    2378, 10000, \
+     -819, 10000,     1944, 10000,    5931, 10000
+#endif
+
+
 struct raw_info raw_info = {
     .api_version = 1,
     .bits_per_pixel = 14,
@@ -366,6 +377,12 @@ static int dynamic_ranges[] = {1146, 1139, 1116, 1061, 980, 898, 806, 728};
 #ifdef CONFIG_1100D
 static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO 12800 available
 #endif
+
+#ifdef CONFIG_1300D
+// Placeholder copied from 1100D (1300D also does not support ISO12800)
+static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO 12800 available
+#endif
+
 
 #ifdef CONFIG_650D
 static int dynamic_ranges[] = {1062, 1047, 1021, 963,  888, 804, 695, 623, 548};
