@@ -1,10 +1,10 @@
 /**
- * Camera internals for 1100D 1.0.5
+ * Camera internals for 1300D 1.1.0
  */
 
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
-/** The 1100D port is pretty stable, so I think we can enable properties safely. **/
-#define CONFIG_PROP_REQUEST_CHANGE
+/** The 1300D port is very early, so I think we should not enable properties. **/
+//~ #define CONFIG_PROP_REQUEST_CHANGE
 
 /** 
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 
@@ -14,6 +14,10 @@
 
 /** This camera runs DryOS **/
 //~ #define CONFIG_VXWORKS
+
+/** This camera has a DIGIC V chip */
+// did not find LiveViewShutterApp_handler yet
+//#define CONFIG_DIGIC_V
 
 /** This camera has an APS-C sensor */
 //~ #define CONFIG_FULLFRAME
@@ -31,8 +35,8 @@
 /** There is no LCD sensor that turns the display off **/
 //~ #define CONFIG_LCD_SENSOR
 
-/** This camera does not have a mirror lockup feature **/
-//~ #define CONFIG_MLU
+/** This camera does have a mirror lockup feature **/
+#define CONFIG_MLU
 
 /** This camera reports focus info in LiveView **/
 #define CONFIG_LV_FOCUS_INFO
@@ -77,11 +81,14 @@
 /** But we can't override the digital ISO component via FRAME_ISO **/
 #define CONFIG_FRAME_ISO_OVERRIDE_ANALOG_ONLY
 
+/** We can also override shutter on a per-frame basis */
+#define CONFIG_FRAME_SHUTTER_OVERRIDE
+
 /** We can't change ExpSim from ML :( **/
 //~ #define CONFIG_EXPSIM
 
 /** We can playback sounds via ASIF DMA **/
-#define CONFIG_BEEP
+//~ #define CONFIG_BEEP
 
 /** This camera has trouble saving Kelvin and/or WBShift in movie mode, so ML has to do this instead **/
 #define CONFIG_WB_WORKAROUND
@@ -91,23 +98,21 @@
 
 /** We can use DMA_MEMCPY but it has no real benefit **/
 //~ #define CONFIG_DMA_MEMCPY
+
 /** We don't know how to use edmac_memcpy. This one is really fast (600MB/s!) */
 //#define CONFIG_EDMAC_MEMCPY
 
-/** We should't warn the user if movie exposure is Auto **/
+/** We shouldn't warn the user if movie exposure is Auto **/
 //~ #define CONFIG_MOVIE_AE_WARNING
 
 /** We can display some extra info in photo mode (not LiveView) **/
 #define CONFIG_PHOTO_MODE_INFO_DISPLAY
 
-/** FIO_RenameFile works **/
-#define CONFIG_FIO_RENAMEFILE_WORKS
-
 /** Perfect sync using EVF_STATE **/
 #define CONFIG_EVF_STATE_SYNC
 
 /** This camera loads ML into the AllocateMemory pool **/
-#define CONFIG_ALLOCATE_MEMORY_POOL
+//#define CONFIG_ALLOCATE_MEMORY_POOL
 
 /** FPS override: we can change both timer A and B */
 //~ #define CONFIG_FPS_TIMER_A_ONLY
@@ -115,10 +120,14 @@
 /** FPS override: Canon changes FPS registers often; we need to undo their changes asap */
 #define CONFIG_FPS_AGGRESSIVE_UPDATE
 
+/** FIO_RenameFile works **/
+//#define CONFIG_FIO_RENAMEFILE_WORKS
+
 /** This camera has a mono microphone input, so we should display only one audio meter **/
 #define CONFIG_MONO_MIC
 
-/** This camera has a low-resolution display, may require some antialiasing tricks for icons/fonts */
+#define CONFIG_GPS
+
 #define CONFIG_LOW_RESOLUTION_DISPLAY
 
 /** This camera uses the exposure comp button to open ML menu */
@@ -128,8 +137,14 @@
 //~ #define CONFIG_RAW_LIVEVIEW
 #define CONFIG_RAW_PHOTO
 
-/** There are no manual exposure controls in movie mode => we need expo override */
-#define CONFIG_NO_MANUAL_EXPOSURE_MOVIE
+
+/** Hide Canon bottom bar from DebugMsg hook */
+// #define CONFIG_LVAPP_HACK_DEBUGMSG
+
+/** Workaround for menu timeout in LiveView */
+#define CONFIG_MENU_TIMEOUT_FIX
 
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
 #define CONFIG_LVAPP_HACK_RELOC
+
+#undef CONFIG_CRASH_LOG

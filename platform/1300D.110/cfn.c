@@ -7,7 +7,7 @@
 int get_htp() { return GetCFnData(0, 5); }
 void set_htp(int value) { SetCFnData(0, 5, value); }
 
-// No MLU on the 1100D :(
+// No MLU on the 1300D :(
 int get_mlu() { return 0; }
 void set_mlu(int value) { return; }
 

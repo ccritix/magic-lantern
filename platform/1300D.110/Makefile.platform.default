@@ -1,25 +1,16 @@
 #Makefile.setup.platform for 1300D
 
-# Definitions for version 110
-ML_MODULES_SYM_NAME=t6_$(FW_VERSION).sym
+#not used but...
+FIRMWARE_ID_1300D= 0x80000288
 
 ifeq ($(FW_VERSION),110)
+CANON_NAME_FIR=CCF17110.FIR
 
-CANON_NAME_FIR=CCF12105.FIR
-ROMBASEADDR	= 0xF8010000
+ROMBASEADDR	= 0xFE0C0000
 
-ifeq ($(ML_SRC_PROFILE),generic)
-# DryOSmemory map
-# RESTARTSTART is selected to be just above the end of the bss
-#
-RESTARTSTART	= 0x00064000
-else
-# DryOSmemory map
-# RESTARTSTART is selected to be just above the end of the bss
-#
-RESTARTSTART	= 0x00064000
-endif
+#RESTARTSTART		= 0x00082000
+RESTARTSTART		= 0x000bf410
+#RESTARTSTART		= 0x00C80000
 
 #end of FW_VERSION == 110
 endif
-
