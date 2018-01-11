@@ -92,7 +92,7 @@ NSTUB(0xFE106228,  StopASIFDMAADC)                          /* present on 7D.203
  NSTUB(    0x1EA8,  sounddev)                                // in sounddev_task
  NSTUB(0xFF069FF8, _audio_ic_read)
  NSTUB(0xFF06A144, _audio_ic_write) // posible sub_FE2B3A18
- NSTUB(0xFF5DF9A0,  audio_thresholds)                        // find "ALV_Initialize", then pointer to "AudioLevel", thresholds are following array of 41 values
+ NSTUB(  0x8c32cc,  audio_thresholds)                        // find "ALV_Initialize", then pointer to "AudioLevel", thresholds are following array of 41 values
  NSTUB(0xFF057BE0,  sounddev_active_in)                      // "SoundDevActiveIn"
  NSTUB(0xFF057774,  sounddev_task)                           // "[SND] _SoundDeviceTask"
 // NSTUB(    ???, _audio_ic_write_bulk)                     /* present on 6D.116 */
@@ -179,21 +179,21 @@ NSTUB(0xFE120288,  call)
 NSTUB(0xFE122C84,  AddMemoryChunk)
 NSTUB(0xFE125118,  AllocateContinuousMemoryResource)        // m_pfContAllocMemoryCBR
 NSTUB(0xFE1250CC,  AllocateMemoryResource)                  // m_pfAllocMemoryCBR
- NSTUB(0xFF073040,  CreateMemoryChunk)
- NSTUB(0xFF073820,  CreateMemorySuite)                       // FFCCEF34
- NSTUB(0xFF073654,  DeleteMemorySuite)                       // FFCCED2C
+NSTUB(0xFE122200,  CreateMemoryChunk)
+NSTUB(0xFE1229E4,  CreateMemorySuite)                       // FFCCEF34
+NSTUB(0xFE122818,  DeleteMemorySuite)                       // FFCCED2C
 NSTUB(0xFE125230,  FreeMemoryResource)                      // m_pfFreeMemoryCBR
- NSTUB(0xFF073B98,  GetFirstChunkFromSuite)                  // AJ_PackMemory_PackMem_p3
- NSTUB(0xFF0735E0,  GetMemoryAddressOfMemoryChunk)           // AJ_PackMemory_PackMem.c_IsChunkSignature
- NSTUB(0xFF07432C,  GetNextMemoryChunk)
- NSTUB(0xFF029CA8,  SRM_AllocateMemoryResourceFor1stJob)
- NSTUB(0xFF02C53C,  SRM_FreeMemoryResourceFor1stJob)
+NSTUB(0xFE122D54,  GetFirstChunkFromSuite)                  // AJ_PackMemory_PackMem_p3
+NSTUB(0xFE1227A4,  GetMemoryAddressOfMemoryChunk)           // AJ_PackMemory_PackMem.c_IsChunkSignature
+NSTUB(0xFE1234E0,  GetNextMemoryChunk)
+NSTUB(0xFE0D5554,  SRM_AllocateMemoryResourceFor1stJob)
+NSTUB(0xFE0D7E54,  SRM_FreeMemoryResourceFor1stJob)
 
 /** GUI for old cameras **/
- NSTUB(    0x4588,  gui_timer_struct)                        // in GUI_Control_Post
- NSTUB(0xFF0A9E34,  gui_change_mode)                         // GUI_ChangeMode_Post
- NSTUB(0xFF0AA5A4,  gui_local_post)
- NSTUB(0xFF0AAB3C,  gui_other_post)
+NSTUB(   0x36CAC,  gui_timer_struct)                        // in GUI_Control_Post
+NSTUB(0xFE1536A0,  gui_change_mode)                         // GUI_ChangeMode_Post
+NSTUB(0xFE153E80,  gui_local_post)
+NSTUB(0xFE1544A8,  gui_other_post)
 // NSTUB(    ???,  gui_change_lcd_state_post)               /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_change_shoot_type_post)              /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  gui_init_event)                          /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
@@ -201,11 +201,11 @@ NSTUB(0xFE125230,  FreeMemoryResource)                      // m_pfFreeMemoryCBR
 // NSTUB(    ???,  gui_timer_something)                     /* present on 7D.203, 500D.111, 50D.109, 5D2.212 */
 
 /** GUI timers **/
- NSTUB(0xFF373930,  CancelDateTimer)                         /* present on 7D.203, 6D.113, 5D3.113 */
- NSTUB(0xFF077EF4,  CancelTimer)
- NSTUB(0xFF06FCE4,  SetHPTimerAfterNow)
- NSTUB(0xFF06FDD8,  SetHPTimerNextTick)
- NSTUB(0xFF077CF4,  SetTimerAfter)
+NSTUB(0xFE482FE0,  CancelDateTimer)                         /* present on 7D.203, 6D.113, 5D3.113 */
+NSTUB(0xFE129078,  CancelTimer)
+// NSTUB(0xFF06FCE4,  SetHPTimerAfterNow)
+// NSTUB(0xFF06FDD8,  SetHPTimerNextTick)
+NSTUB(0xFE128FA8,  SetTimerAfter)
 
 /** H264 Encoder **/
  NSTUB(    0x6290,  mvr_config)
@@ -250,10 +250,10 @@ NSTUB(0xFE36ED54,  ptp_register_handler)
 // NSTUB(    ???,  ptpPropSetUILock)                        /* present on 650D.104, 700D.113 */
 
 /** Properties **/
- NSTUB(0xFF05BE6C, _prop_cleanup)
- NSTUB(0xFF05B6E4, _prop_request_change)
- NSTUB(0xFF05BCC4,  prop_deliver)
- NSTUB(0xFF05BD4C,  prop_register_slave)                     // called by"GUI_RegisterPropertySlave"
+NSTUB(0xFE10C5B0, _prop_cleanup)
+NSTUB(0xFE10BE14, _prop_request_change)
+NSTUB(0xFE10C408,  prop_deliver)
+NSTUB(0xFE10C490,  prop_register_slave)                     // called by"GUI_RegisterPropertySlave"
 // NSTUB(    ???,  prop_unregister_slave)                   /* present on 7D.203 */
 
 /** RPC (for 7D) **/
@@ -264,14 +264,14 @@ NSTUB(0xFE36ED54,  ptp_register_handler)
 // NSTUB(    ???,  RequestRPC)                              /* present on 7D.203, 7D_MASTER.203 */
 
 /** Recursive locks **/
- NSTUB(0xFF1F5D8C,  AcquireRecursiveLock)
- NSTUB(0xFF075500,  CreateRecursiveLock)
- NSTUB(0xFF1F5EA0,  ReleaseRecursiveLock)
+NSTUB(    0xBCB8,  AcquireRecursiveLock)
+NSTUB(0xFE2C26AC,  CreateRecursiveLock) 
+NSTUB(    0xBE28,  ReleaseRecursiveLock)
 
 /** ResLock **/
- NSTUB(0xFF1E4910,  CreateResLockEntry)
- NSTUB(0xFF1E4E50,  LockEngineResources)
- NSTUB(0xFF1E4F8C,  UnLockEngineResources)
+NSTUB(0xFE2A2668,  CreateResLockEntry)
+NSTUB(0xFE2A2BA8,  LockEngineResources)
+NSTUB(0xFE2A2CE0,  UnLockEngineResources)
 
 /** Semaphores **/
 NSTUB(    0x30C8,  create_named_semaphore)
@@ -295,7 +295,7 @@ NSTUB(    0x41DC,  task_trampoline)
 // NSTUB(    ???,  next_task_ctx)                           /* present on 7D.203 */
 
 /** Misc **/
- NSTUB(   0x73590,  lv_path_struct)                          // first arg of SelectPathDriveMode
+NSTUB(   0x6D418,  lv_path_struct)                          // first arg of SelectPathDriveMode
 NSTUB(0xFE11AA64,  LoadCalendarFromRTC)
 NSTUB(0xFE2BC8A4,  vsnprintf)
 NSTUB(0xFE0180A8,  print_serial)

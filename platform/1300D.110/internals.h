@@ -4,7 +4,17 @@
 
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
 /** The 1300D port is very early, so I think we should not enable properties. **/
-//~ #define CONFIG_PROP_REQUEST_CHANGE
+#undef CONFIG_PROP_REQUEST_CHANGE
+
+#define FEATURE_MLU
+#define FEATURE_MLU_HANDHELD
+
+//~ #define FEATURE_MLU_HANDHELD_DEBUG
+//~ #define FEATURE_MLU_DIRECT_PRINT_SHORTCUT // for 5Dc
+
+#define FEATURE_FLASH_TWEAKS
+#define FEATURE_FLASH_NOFLASH
+
 
 /** 
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 
@@ -17,7 +27,7 @@
 
 /** This camera has a DIGIC V chip */
 // did not find LiveViewShutterApp_handler yet
-//#define CONFIG_DIGIC_V
+// #define CONFIG_DIGIC_V
 
 /** This camera has an APS-C sensor */
 //~ #define CONFIG_FULLFRAME
@@ -27,7 +37,7 @@
 #define CONFIG_MOVIE
 
 /** This camera has a 4:3 screen, 720x480 **/
-#define CONFIG_4_3_SCREEN
+// #define CONFIG_4_3_SCREEN
 
 /** We only have a single red LED **/
 //~ #define CONFIG_BLUE_LED
@@ -100,13 +110,18 @@
 //~ #define CONFIG_DMA_MEMCPY
 
 /** We don't know how to use edmac_memcpy. This one is really fast (600MB/s!) */
-//#define CONFIG_EDMAC_MEMCPY
+#define CONFIG_EDMAC_MEMCPY
 
 /** We shouldn't warn the user if movie exposure is Auto **/
 //~ #define CONFIG_MOVIE_AE_WARNING
 
 /** We can display some extra info in photo mode (not LiveView) **/
 #define CONFIG_PHOTO_MODE_INFO_DISPLAY
+
+/** Show 4 char if camera support only 3 in photo mode (not LiveView) **/
+
+/** FIO_RenameFile works **/
+#define CONFIG_FIO_RENAMEFILE_WORKS
 
 /** Perfect sync using EVF_STATE **/
 #define CONFIG_EVF_STATE_SYNC
@@ -119,9 +134,6 @@
 
 /** FPS override: Canon changes FPS registers often; we need to undo their changes asap */
 #define CONFIG_FPS_AGGRESSIVE_UPDATE
-
-/** FIO_RenameFile works **/
-//#define CONFIG_FIO_RENAMEFILE_WORKS
 
 /** This camera has a mono microphone input, so we should display only one audio meter **/
 #define CONFIG_MONO_MIC
@@ -148,3 +160,5 @@
 #define CONFIG_LVAPP_HACK_RELOC
 
 #undef CONFIG_CRASH_LOG
+
+#define CONFIG_HAS_PRINT_SERIAL

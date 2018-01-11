@@ -67,12 +67,12 @@
 
 //#define ARMLIB_OVERFLOWING_BUFFER 0x167FC // in AJ_armlib_setup_related3
 
- #define DRYOS_ASSERT_HANDLER 0x1A18 // dec TH_assert or assert_0
+#define DRYOS_ASSERT_HANDLER 0x35888 // dec TH_assert or assert_0
 
 // these were found in ROM, but not tested yet
 
 
-#define MVR_992_STRUCT (*(void**)0x1e44) // look in MVR_Initialize for AllocateMemory call
+#define MVR_992_STRUCT (*(void**)0x3E8) // look in MVR_Initialize for AllocateMemory call
 
 #define div_maybe(a,b) ((a)/(b))
 
@@ -245,9 +245,9 @@
 #define BULB_MIN_EXPOSURE 1000
 
 // http://magiclantern.wikia.com/wiki/Fonts
-#define BFNT_CHAR_CODES    0xff89477c
-#define BFNT_BITMAP_OFFSET 0xff8971b0
-#define BFNT_BITMAP_DATA   0xff899be4
+#define BFNT_CHAR_CODES    0xff23eb08
+#define BFNT_BITMAP_OFFSET 0xff241a58
+#define BFNT_BITMAP_DATA   0xff2449a8
 
 
 // from CFn
