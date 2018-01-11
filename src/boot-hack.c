@@ -62,7 +62,11 @@ static void my_bzero( uint8_t * base, uint32_t size );
 
 #ifndef HIJACK_CACHE_HACK
 /** This just goes into the bss */
+#ifdef CONFIG_1300D
+#define RELOCSIZE 0x4000 // look in HIJACK macros for the highest address, and subtract ROMBASEADDR
+#else
 #define RELOCSIZE 0x3000 // look in HIJACK macros for the highest address, and subtract ROMBASEADDR
+#endif
 
 static uint8_t _reloc[ RELOCSIZE ];
 #define RELOCADDR ((uintptr_t) _reloc)
@@ -425,12 +429,14 @@ static void backup_rom_task()
 #ifdef CONFIG_HELLO_WORLD
 static void hello_world()
 {
+	print_serial("HELLO WORLD\n");
     int sig = compute_signature((int*)SIG_START, 0x10000);
     while(1)
     {
         bmp_printf(FONT_LARGE, 50, 50, "Hello, World!");
         bmp_printf(FONT_LARGE, 50, 400, "firmware signature = 0x%x", sig);
         info_led_blink(1, 500, 500);
+        print_serial("firmware signature = 0x%x\n", sig);
     }
 }
 #endif
