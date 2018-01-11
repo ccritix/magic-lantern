@@ -17,8 +17,6 @@
 //#define HIJACK_CACHE_HACK_BSS_END_INSTR  0xE3A018C6 // should be the correct INSTRUCTION MOV R1, 0xc60000
 #define HIJACK_CACHE_HACK_INITTASK_ADDR  0xFE0C3B20
 
-
-
 #define HIJACK_INSTR_BL_CSTART  0xFE0C0638
 #define HIJACK_INSTR_BSS_END 0xFE0C3B10
 #define HIJACK_FIXBR_BZERO32 0xFE0C3A58
@@ -26,8 +24,8 @@
 #define HIJACK_INSTR_MY_ITASK 0xFE0C3B20
 
 #define HIJACK_TASK_ADDR 0x31170
-//#define HIJACK_TASK_ADDR 0x1a2c
 
+/*
 // Used in boot-hack.c with CONFIG_ALLOCATE_MEMORY_POOL
 #define ROM_ITASK_START 0xFE1296C8
 #define ROM_ITASK_END  0xFE1298AC
@@ -39,39 +37,13 @@
 #define ROM_ALLOCMEM_END 0xFE0C1B74
 #define ROM_ALLOCMEM_INIT 0xFE0C1B7C
 #define ROM_B_CREATETASK_MAIN 0xFE129760
-
-/*
-// USED FOR FINDING BROKEN RELATIVE JUMPS
-#define ROM_BL_USERMEMCHECK 0xFE1296D0
-#define ROM_USERMEMCHECK_START 0xFE0C0A50
-#define ROM_USERMEMCHECK_END 0xFE0C0A5C
-
-#define ROM_BL_TERMDRIVEINIT 0xFE129704
-#define ROM_TERMDRIVEINIT_START 0xFE0C3BC4
-#define ROM_TERMDRIVEINIT_END 0xFE0C3C9C
-
-#define ROM_BL_TERMDRIVECREATE 0xFE129718
-#define ROM_TERMDRIVECREATE_START 0xFE0C3CA0
-#define ROM_TERMDRIVECREATE_END 0xFE0C3CBC
-
-#define ROM_BL_STDIOSETUP 0xFE12972C
-#define ROM_STDIOSETUP_START 0xFE0C4564
-#define ROM_STDIOSETUP_END 0xFE0C476B
-
-#define ROM_BL_EXTLIBSETUP 0xFE12974C
-#define ROM_EXTLIBSETUP_START 0xFE0C1154
-#define ROM_EXTLIBSETUP_END 0xFE0C116C
 */
 
-
-
-//#define ARMLIB_OVERFLOWING_BUFFER 0x167FC // in AJ_armlib_setup_related3
+//#define ARMLIB_OVERFLOWING_BUFFER 0x167FC // in AJ_armlib_setup_related3 // this is deactivated in config for this camera, maybe we need to activate it again
 
 #define DRYOS_ASSERT_HANDLER 0x35888 // dec TH_assert or assert_0
 
 // these were found in ROM, but not tested yet
-
-
 #define MVR_992_STRUCT (*(void**)0x3E8) // look in MVR_Initialize for AllocateMemory call
 
 #define div_maybe(a,b) ((a)/(b))
@@ -91,56 +63,51 @@
 #define MOV_OPT_STEP 5
 #define MOV_GOP_OPT_STEP 5
 
-#define AUDIO_MONITORING_HEADPHONES_CONNECTED (!((*(int*)0xc0220070) & 1))
-#define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0x1a8c // this prop_deliver performs the action for Video Connect and Video Disconnect
-#define HOTPLUG_VIDEO_OUT_STATUS_ADDR 0x1ac4 // passed as 2nd arg to prop_deliver; 1 = display connected, 0 = not, other values disable this event (trick)
+ #define AUDIO_MONITORING_HEADPHONES_CONNECTED (!((*(int*)0xc0220070) & 1))
+ #define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0x1a8c // this prop_deliver performs the action for Video Connect and Video Disconnect
+ #define HOTPLUG_VIDEO_OUT_STATUS_ADDR 0x1ac4 // passed as 2nd arg to prop_deliver; 1 = display connected, 0 = not, other values disable this event (trick)
 
 
 // 720x480, changes when external monitor is connected
-#define YUV422_LV_BUFFER_1 0x40d07800 
-#define YUV422_LV_BUFFER_2 0x4c233800
-#define YUV422_LV_BUFFER_3 0x4f11d800
+ #define YUV422_LV_BUFFER_1 0x40d07800 
+ #define YUV422_LV_BUFFER_2 0x4c233800
+ #define YUV422_LV_BUFFER_3 0x4f11d800
  
-#define REG_EDMAC_WRITE_LV_ADDR 0xc0f04308 // SDRAM address of LV buffer (aka VRAM)
-#define REG_EDMAC_WRITE_HD_ADDR 0xc0f04208 // SDRAM address of HD buffer (aka YUV)
+ #define REG_EDMAC_WRITE_LV_ADDR 0xc0f04308 // SDRAM address of LV buffer (aka VRAM)
+ #define REG_EDMAC_WRITE_HD_ADDR 0xc0f04208 // SDRAM address of HD buffer (aka YUV)
 
-#define YUV422_LV_BUFFER_DISPLAY_ADDR (*(uint32_t*)0x2490)
+#define YUV422_LV_BUFFER_DISPLAY_ADDR (*(uint32_t*)0x318C8)
 #define YUV422_HD_BUFFER_DMA_ADDR (shamem_read(REG_EDMAC_WRITE_HD_ADDR))
 
 // changes during record
-#define YUV422_HD_BUFFER_1 0x44000080
-#define YUV422_HD_BUFFER_2 0x46000080
-#define YUV422_HD_BUFFER_3 0x48000080
-#define YUV422_HD_BUFFER_4 0x4e000080
-#define YUV422_HD_BUFFER_5 0x50000080
-
-
+ #define YUV422_HD_BUFFER_1 0x44000080
+ #define YUV422_HD_BUFFER_2 0x46000080
+ #define YUV422_HD_BUFFER_3 0x48000080
+ #define YUV422_HD_BUFFER_4 0x4e000080
+ #define YUV422_HD_BUFFER_5 0x50000080
 
 
 // guess
-
-
-#define FOCUS_CONFIRMATION (*(int*)0x479C)
-#define HALFSHUTTER_PRESSED (*(int*)0x1bdc) // same as 60D
+ #define FOCUS_CONFIRMATION (*(int*)0x479C)
+#define HALFSHUTTER_PRESSED (*(int*)0x31308) // same as 60D
 //~ #define AF_BUTTON_PRESSED_LV 0
 
 //~ #define DISPLAY_SENSOR (*(int*)0x2dec)
 //~ #define DISPLAY_SENSOR_ACTIVE (*(int*)0xC0220104)
-#define DISPLAY_SENSOR_POWERED (*(int*)0x3138)
+#define DISPLAY_SENSOR_POWERED (*(int*)0x3138)  // looks broken. there is code TODO: investigate, why there is code copied
 
 // for gui_main_task
 #define GMT_NFUNCS 7
-#define GMT_FUNCTABLE 0xff56dccc
+#define GMT_FUNCTABLE 0xFE851F20
 
 
 
 
-
-#define LV_BOTTOM_BAR_DISPLAYED (((*(int8_t*)0x5B28) == 0xF) || ((*(int8_t*)0xC84C) != 0x17))
-#define LV_BOTTOM_BAR_STATE (*(uint8_t*)0x7DF7) // in JudgeBottomInfoDispTimerState, if bottom bar state is 2, Judge returns 0; ML will make it 0 to hide bottom bar
-#define ISO_ADJUSTMENT_ACTIVE ((*(int*)0x5B28) == 0xF)
-#define SHOOTING_MODE (*(int*)0x3364)
-#define UNAVI_FEEDBACK_TIMER_ACTIVE (MEM(0xC848) != 0x17) // dec CancelUnaviFeedBackTimer
+#define LV_BOTTOM_BAR_DISPLAYED (((*(int8_t*)0x3830C) == 0xF) || ((*(int8_t*)0x3FE14) != 0x17))
+ #define LV_BOTTOM_BAR_STATE (*(uint8_t*)0x7DF7) // in JudgeBottomInfoDispTimerState, if bottom bar state is 2, Judge returns 0; ML will make it 0 to hide bottom bar
+#define ISO_ADJUSTMENT_ACTIVE ((*(int*)0x3830C) == 0xF)
+#define SHOOTING_MODE (*(int*)0x3592C)
+#define UNAVI_FEEDBACK_TIMER_ACTIVE (MEM(0x3FE14) != 0x17) // dec CancelUnaviFeedBackTimer
 
  #define COLOR_FG_NONLV 80
 
@@ -148,10 +115,10 @@
 
 
  
-#define AE_STATE (*(int8_t*)(0x7DF7 + 0x1C))
-#define AE_VALUE (*(int8_t*)(0x7DF7 + 0x1D))
+ #define AE_STATE (*(int8_t*)(0x3AA80 + 0x1C))
+ #define AE_VALUE (*(int8_t*)(0x3AA80 + 0x1D))
 
-#define CURRENT_GUI_MODE (*(int*)0x3ef4) // GUIMode_maybe
+#define CURRENT_GUI_MODE (*(int*)0x36560) // GUIMode_maybe
  #define GUIMODE_WB 5
  #define GUIMODE_FOCUS_MODE 9
  #define GUIMODE_DRIVE_MODE 8
@@ -161,13 +128,13 @@
  #define GUIMODE_Q_UNAVI 0x1F
  #define GUIMODE_FLASH_AE 0x22
  #define GUIMODE_PICQ 6
-#define GUIMODE_MOVIE_ENSURE_A_LENS_IS_ATTACHED (CURRENT_GUI_MODE == 0x1e)
-#define GUIMODE_MOVIE_PRESS_LV_TO_RESUME (CURRENT_GUI_MODE == 0x1f)
+ #define GUIMODE_MOVIE_ENSURE_A_LENS_IS_ATTACHED (CURRENT_GUI_MODE == 0x1e)
+ #define GUIMODE_MOVIE_PRESS_LV_TO_RESUME (CURRENT_GUI_MODE == 0x1f)
 //~ #define GUIMODE_MOVIE_ENSURE_A_LENS_IS_ATTACHED 0 // not good
 //~ #define GUIMODE_MOVIE_PRESS_LV_TO_RESUME 0
 
-#define PLAY_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_GUI_MODE == GUIMODE_PLAY)
-#define MENU_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_GUI_MODE == GUIMODE_MENU)
+ #define PLAY_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_GUI_MODE == GUIMODE_PLAY)
+ #define MENU_MODE (gui_state == GUISTATE_PLAYMENU && CURRENT_GUI_MODE == GUIMODE_MENU)
 
 
 
@@ -236,8 +203,8 @@
 #define MAX_AE_EV 5
 
 
-#define DIALOG_MnCardFormatBegin   (0x12864+4) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
-#define DIALOG_MnCardFormatExecute (0x158BC+4) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
+#define DIALOG_MnCardFormatBegin   (0x46520+4) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
+#define DIALOG_MnCardFormatExecute (0x4A65C+4) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
 #define FORMAT_BTN_NAME "[Q]"
 #define FORMAT_BTN BGMT_Q_ALT
 #define FORMAT_STR_LOC 11
@@ -254,10 +221,10 @@
 #define AF_BTN_HALFSHUTTER 0
 #define AF_BTN_STAR 1
 
-#define IMGPLAY_ZOOM_LEVEL_ADDR (0x8428+12) // dec GuiImageZoomDown and look for a negative counter
+#define IMGPLAY_ZOOM_LEVEL_ADDR (0x3B088+12) // dec GuiImageZoomDown and look for a negative counter
 #define IMGPLAY_ZOOM_LEVEL_MAX 14
-#define IMGPLAY_ZOOM_POS_X MEM(0x75e38) // Zoom CentrePos
-#define IMGPLAY_ZOOM_POS_Y MEM(0x75e3c)
+#define IMGPLAY_ZOOM_POS_X MEM(0x6FCA4) // Zoom CentrePos
+#define IMGPLAY_ZOOM_POS_Y MEM(0x6FD14)
 #define IMGPLAY_ZOOM_POS_X_CENTER 0x144
 #define IMGPLAY_ZOOM_POS_Y_CENTER 0xd8
 #define IMGPLAY_ZOOM_POS_DELTA_X (0x144 - 0x93)
@@ -265,10 +232,10 @@
 
 #define BULB_EXPOSURE_CORRECTION 100 // min value for which bulb exif is OK [not tested]
 
-#define WINSYS_BMP_DIRTY_BIT_NEG MEM(0xad80+0x2C) // see http://magiclantern.wikia.com/wiki/VRAM/BMP
+#define WINSYS_BMP_DIRTY_BIT_NEG MEM(0x3DBAC+0x2C) // see http://magiclantern.wikia.com/wiki/VRAM/BMP
 
 // manual exposure overrides
-#define LVAE_STRUCT 0x8b0c
+#define LVAE_STRUCT 0x3B7A4
 #define CONTROL_BV      (*(uint16_t*)(LVAE_STRUCT+0x1c)) // EP_SetControlBv
 #define CONTROL_BV_TV   (*(uint16_t*)(LVAE_STRUCT+0x1e)) // EP_SetControlParam
 #define CONTROL_BV_AV   (*(uint16_t*)(LVAE_STRUCT+0x20))
@@ -280,7 +247,7 @@
 #define LVAE_DISP_GAIN  (*(uint16_t*)(LVAE_STRUCT+0x26)) // lvae_setdispgain
 #define LVAE_MOV_M_CTRL (*(uint8_t* )(LVAE_STRUCT+0x78)) // lvae_setmoviemanualcontrol
 
-#define DISPLAY_ORIENTATION MEM(0x23dc+0x7C) // read-only; string: UpdateReverseTFT
+#define DISPLAY_ORIENTATION MEM(0x31818+0x7C) // read-only; string: UpdateReverseTFT
 
 #define MIN_MSLEEP 20
 
@@ -288,10 +255,11 @@
 #define Q_BTN_NAME (RECORDING ? "INFO" : "[Q]")
 #define ARROW_MODE_TOGGLE_KEY "DISP"
 
-#define DISPLAY_STATEOBJ (*(struct state_object **)0x2480)
+// TODO:
+  #define DISPLAY_STATEOBJ (*(struct state_object **)0x2480)
 #define DISPLAY_IS_ON (DISPLAY_STATEOBJ->current_state != 0)
 
-#define VIDEO_PARAMETERS_SRC_3 0x70AE8 // notation from g3gg0
+#define VIDEO_PARAMETERS_SRC_3 0x70AE8 // notation from g3gg0 // NOT FOUND .. 
 #define FRAME_SHUTTER_TIMER (*(uint16_t*)(VIDEO_PARAMETERS_SRC_3+0xC))
 #define FRAME_ISO (*(uint8_t*)(VIDEO_PARAMETERS_SRC_3+0x8))
 #define FRAME_APERTURE (*(uint8_t*)(VIDEO_PARAMETERS_SRC_3+0x9))
@@ -299,7 +267,7 @@
 #define FRAME_BV ((int)FRAME_SHUTTER + (int)FRAME_APERTURE - (int)FRAME_ISO)
 
 // see "Malloc Information"
-#define MALLOC_STRUCT 0x172c8
+#define MALLOC_STRUCT 0x671A8
 #define MALLOC_FREE_MEMORY (MEM(MALLOC_STRUCT + 8) - MEM(MALLOC_STRUCT + 0x1C)) // "Total Size" - "Allocated Size"
 
 // for bulb ramping calibration: delay between two exposure readings (increase it if brightness updates slowly)

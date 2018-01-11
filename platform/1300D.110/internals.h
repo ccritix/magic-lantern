@@ -159,6 +159,6 @@
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
 #define CONFIG_LVAPP_HACK_RELOC
 
-#undef CONFIG_CRASH_LOG
+//#undef CONFIG_CRASH_LOG
 
 #define CONFIG_HAS_PRINT_SERIAL
