@@ -9,10 +9,7 @@
 #include "zebra.h"
 #include "shoot.h"
 #include "alloca.h"
-
-#ifdef CONFIG_QEMU
 #include "qemu-util.h"
-#endif
 
 #ifndef CONFIG_CONSOLE
 #error Something went wrong CONFIg_CONSOLE should be defined
@@ -41,7 +38,7 @@ void console_hide()
 {
     console_visible = 0;
     msleep(100);
-    canon_gui_enable_front_buffer(1);
+    redraw();
 }
 
 void console_toggle()
@@ -95,10 +92,9 @@ static void console_init()
 void console_puts(const char* str) // don't DebugMsg from here!
 {
     #define NEW_CHAR(c) CONSOLE_BUFFER(console_buffer_index++) = (c)
-    
-    #ifdef CONFIG_QEMU
+
+    /* this only runs when compiling with CONFIG_QEMU */
     qprintf("%s", str);
-    #endif
 
     #ifdef CONSOLE_DEBUG
     bmp_printf(FONT_MED, 0, 0, "%s ", str);
@@ -166,8 +162,10 @@ static void console_draw(int tiny)
     int cbpos0 = MOD((console_buffer_index / CONSOLE_W) * CONSOLE_W  + CONSOLE_W, BUFSIZE);
     
     /* display last two lines that actually contain something (don't display the cursor-only line) */
-    if (tiny && console_buffer_index % CONSOLE_W == 0)
+    if (1 && console_buffer_index % CONSOLE_W == 0)
+    {
         cbpos0 -= CONSOLE_W;
+    }
 
     int skipped_lines = 0;
     int chopped_columns = 0;
@@ -187,8 +185,10 @@ static void console_draw(int tiny)
     if (skipped_lines == CONSOLE_H) // nothing to show
         return;
     
-    if (tiny)
-        skipped_lines = CONSOLE_H - 3;
+    if (1)
+    {
+        skipped_lines = MAX(skipped_lines, CONSOLE_H - (tiny ? 3 : 15));
+    }
     
     /* chop empty columns from the right */
     for (int j = CONSOLE_W-1; j > 0; j--)
@@ -202,22 +202,28 @@ static void console_draw(int tiny)
     }
     chopped_columns = MIN(chopped_columns, CONSOLE_W - (console_buffer_index % CONSOLE_W));
     
-    if (skipped_lines < 5) skipped_lines = 0;
+    //if (skipped_lines < 5) skipped_lines = 0;
     if (chopped_columns < 5) chopped_columns = 0;
 
     /* top-left corner of "full" console (without lines/columns skipped) */
     unsigned x0 =  (chopped_columns < 7) ? 0 : 8;
-    unsigned y0 =  480/2 - fontspec_font(CONSOLE_FONT)->height * CONSOLE_H/2;
+    //unsigned y0 =  480/2 - fontspec_font(CONSOLE_FONT)->height * CONSOLE_H/2;
 
     /* correct y to account for skipped lines */
-    int yc = y0;
-    if (tiny)
+    int yc = 476 - fontspec_font(CONSOLE_FONT)->height * (CONSOLE_H - skipped_lines);
+
+    if (lv && !gui_menu_shown())
     {
-        yc = gui_menu_shown() || MENU_MODE ? 415 : y0;
-    }
-    else
-    {
-        yc = y0 + fontspec_font(CONSOLE_FONT)->height * skipped_lines;
+        /* align with ML info bars */
+        extern int get_ml_topbar_pos();
+        extern int get_ml_bottombar_pos();
+        int yt = get_ml_topbar_pos();
+        int yb = get_ml_bottombar_pos();
+        if (yt > os.y0 + os.y_ex / 2)
+        {
+            yb = yt;
+        }
+        yc -= (490 - yb) ;
     }
 
     int fnt = FONT(CONSOLE_FONT,COLOR_WHITE, (lv || PLAY_OR_QR_MODE) ? COLOR_BG_DARK : COLOR_ALMOST_BLACK);
@@ -230,15 +236,10 @@ static void console_draw(int tiny)
     static int prev_h = 0;
     if (w < prev_w || h < prev_h)
     {
-        canon_gui_enable_front_buffer(1); // force a redraw
+        redraw();
         prev_w = w;
         prev_h = h;
-        //return; // better luck next time :)
-    }
-    else if (!tiny)
-    {
-        /* fixme: prevent Canon code from drawing over the console (ugly) */
-        canon_gui_disable_front_buffer();
+        return; // better luck next time :)
     }
     prev_w = w;
     prev_h = h;
@@ -299,7 +300,7 @@ console_task( void* unused )
         }
         else if (dirty)
         {
-            canon_gui_enable_front_buffer(1);
+            redraw();
             dirty = 0;
         }
         else if (console_visible && !gui_menu_shown())

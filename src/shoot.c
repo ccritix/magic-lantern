@@ -5107,55 +5107,6 @@ void schedule_movie_start() { movie_start_flag = 1; }
 static int movie_end_flag = 0;
 void schedule_movie_end() { movie_end_flag = 1; }
 
-/* exit from PLAY or QR modes (to LiveView or plain photo mode) */
-void exit_play_qr_mode()
-{
-    /* not there? */
-    if (!PLAY_OR_QR_MODE) return;
-
-    /* request new mode */
-    SetGUIRequestMode(0);
-    
-    /* wait up to 2 seconds */
-    for (int i = 0; i < 20 && PLAY_MODE; i++)
-    {
-        msleep(100);
-    }
-    
-    /* wait a little extra for the new mode to settle */
-    msleep(200);
-    
-    /* if in LiveView, wait for the first frame */
-    if (lv)
-    {
-        wait_lv_frames(1);
-    }
-}
-
-/* enter PLAY mode */
-void enter_play_mode()
-{
-    if (PLAY_MODE) return;
-    
-    /* request new mode */
-    SetGUIRequestMode(GUIMODE_PLAY);
-
-    /* wait up to 2 seconds to enter the PLAY mode */
-    for (int i = 0; i < 20 && !PLAY_MODE; i++)
-    {
-        msleep(100);
-    }
-
-    /* also wait for display to come up, up to 1 second */
-    for (int i = 0; i < 10 && !DISPLAY_IS_ON; i++)
-    {
-        msleep(100);
-    }
-    
-    /* wait a little extra for the new mode to settle */
-    msleep(200);
-}
-
 // take one shot, a sequence of HDR shots, or start a movie
 // to be called by remote triggers
 void remote_shot(int wait)
@@ -6395,7 +6346,7 @@ void iso_refresh_display() // in photo mode
             bmp_fill(bg, MENU_DISP_ISO_POS_X, MENU_DISP_ISO_POS_Y-10, 175, 85);
             char msg[30];
             snprintf(msg, sizeof(msg), "%d ", raw2iso(lens_info.raw_iso));
-            int w = bfnt_draw_char(ICON_ISO, MENU_DISP_ISO_POS_X + 5, MENU_DISP_ISO_POS_Y + 10, COLOR_FG_NONLV, bg);
+            int w = bfnt_draw_char(ICON_ISO, MENU_DISP_ISO_POS_X + 5, MENU_DISP_ISO_POS_Y + 10, COLOR_FG_NONLV, NO_BG_ERASE);
             bmp_printf(FONT(FONT_CANON, COLOR_FG_NONLV, bg), MENU_DISP_ISO_POS_X + w + 10, MENU_DISP_ISO_POS_Y + 10, msg);
         }
     }

@@ -33,6 +33,7 @@
 #include "config-defines.h"
 #include "compiler.h"
 #include "dialog.h"
+#include "consts.h"
 #include "gui.h"
 #include "gui-common.h"
 #include "vram.h"
@@ -41,13 +42,13 @@
 #include "tasks.h"
 #include "debug.h"
 #include "audio.h"
-#include "consts.h"
 #include <stdarg.h>
 #include "exmem.h"
 #include "mem.h"
 #include "fio-ml.h"
 #include "imath.h"
 #include "notify_box.h"
+#include "qemu-util.h"
 
 extern float roundf(float x);
 extern float powf(float x, float y);

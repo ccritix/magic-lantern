@@ -54,23 +54,14 @@ static int luaCB_beep(lua_State * L)
 }
 
 /***
- Take a picture
- @tparam[opt=64] int wait how long to wait for camera to be ready to take a picture
- @tparam[opt=true] bool should_af whether or not to use auto focus
- @function shoot
- */
-static int luaCB_shoot(lua_State * L)
-{
-    LUA_PARAM_INT_OPTIONAL(wait, 1, 64);
-    LUA_PARAM_BOOL_OPTIONAL(should_af, 2, 1);
-    int result = lens_take_picture(wait, should_af);
-    lua_pushinteger(L, result);
-    return 1;
-}
-
-/***
  Pauses for ms miliseconds and allows other tasks to run.
- @tparam int amount number of milliseconds to sleep
+
+ This will block other tasks/events from this script, but will allow
+ other scripts, ML tasks or Canon tasks.
+ 
+ TODO: make it identical to task.yield?
+
+ @tparam int amount number of milliseconds to sleep.
  @function msleep
  */
 static int luaCB_msleep(lua_State * L)
@@ -110,8 +101,8 @@ static int luaCB_led_off(lua_State * L)
 static int luaCB_led_blink(lua_State * L)
 {
     LUA_PARAM_INT_OPTIONAL(times, 1, 1);
-    LUA_PARAM_INT_OPTIONAL(delay_on, 1, 50);
-    LUA_PARAM_INT_OPTIONAL(delay_off, 1, 50);
+    LUA_PARAM_INT_OPTIONAL(delay_on, 2, 50);
+    LUA_PARAM_INT_OPTIONAL(delay_off, 3, 50);
     info_led_blink(times, delay_on, delay_off);
     return 0;
 }
@@ -120,7 +111,6 @@ static const luaL_Reg globallib[] =
 {
     { "msleep", luaCB_msleep },
     { "beep", luaCB_beep },
-    { "shoot", luaCB_shoot },
     { "led_on", luaCB_led_on },
     { "led_off", luaCB_led_off },
     { "led_blink", luaCB_led_blink },

@@ -14,6 +14,7 @@
 #include <edmac-memcpy.h>
 #include <screenshot.h>
 #include <powersave.h>
+#include <focus.h>
 #include <alloca.h>
 
 /* optional routines */
@@ -488,6 +489,103 @@ static void stub_test_cache()
     stub_test_cache_fio();
 
     TEST_MSG("Cache tests finished.\n\n");
+}
+
+static int wait_focus_status(int timeout, int value)
+{
+    int t0 = get_ms_clock_value();
+
+    while (get_ms_clock_value() - t0 < timeout)
+    {
+        msleep(10);
+
+        if (lv_focus_status == value)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void stub_test_af()
+{
+    /* Autofocus (with or without LiveView) */
+    int lv0 = lv;
+
+    /* test this loop 10 times */
+    for (int k = 0; k < 10; k++)
+    {
+        if (k < 5) force_liveview();
+        else close_liveview();
+
+        while (is_manual_focus())
+        {
+            NotifyBox(2000, 
+                "Please enable autofocus.\n"
+                "Press half-shutter to skip."
+            );
+            msleep(1000);
+
+            if (HALFSHUTTER_PRESSED)
+            {
+                return;
+            }
+        }
+
+        /* assume half-shutter is not pressed before starting the test */
+        TEST_FUNC_CHECK(HALFSHUTTER_PRESSED, == 0);
+
+        /* enable autofocus on half-shutter */
+        /* lv_focus_status expected to be 3 when focusing and 1 or 2 when idle */
+        lens_setup_af(AF_ENABLE);
+        module_send_keypress(MODULE_KEY_PRESS_HALFSHUTTER);
+        msleep(200);
+        TEST_FUNC_CHECK(HALFSHUTTER_PRESSED, == 1);
+        if (lv) {
+            TEST_FUNC_CHECK(wait_focus_status(1000, 3), == 1);
+            TEST_FUNC_CHECK(lv_focus_status, == 3)
+        } else {
+            msleep(1000);
+            TEST_FUNC_CHECK(get_focus_confirmation(), != 0);
+        }
+
+        module_send_keypress(MODULE_KEY_UNPRESS_HALFSHUTTER);
+        msleep(500);
+        TEST_FUNC_CHECK(HALFSHUTTER_PRESSED, == 0);
+        if (lv) {
+            TEST_FUNC_CHECK(wait_focus_status(1000, 3), == 0);
+            TEST_FUNC_CHECK(lv_focus_status, != 3)
+        } else {
+            TEST_FUNC_CHECK(get_focus_confirmation(), == 0);
+        }
+        lens_cleanup_af();
+
+        /* disable autofocus on half-shutter */
+        /* this time, autofocus should fail */
+        lens_setup_af(AF_DISABLE);
+        module_send_keypress(MODULE_KEY_PRESS_HALFSHUTTER);
+        TEST_FUNC_CHECK(HALFSHUTTER_PRESSED, == 1);
+        if (lv)
+        {
+            TEST_FUNC_CHECK(wait_focus_status(1000, 3), == 0);
+        }
+        else
+        {
+            msleep(1000);
+            TEST_FUNC_CHECK(get_focus_confirmation(), == 0);
+        }
+        module_send_keypress(MODULE_KEY_UNPRESS_HALFSHUTTER);
+        msleep(500);
+        TEST_FUNC_CHECK(HALFSHUTTER_PRESSED, == 0);
+        TEST_FUNC_CHECK(lv_focus_status, != 3)
+        lens_cleanup_af();
+    }
+
+    if (lv0)
+    {
+        /* if the test was started from LiveView, return to LV */
+        force_liveview();
+    }
 }
 
 static void stub_test_file_io()
@@ -992,7 +1090,7 @@ static void stub_test_dryos()
 
 static void stub_test_save_log()
 {
-    FILE* log = FIO_CreateFile( "stubtest.log" );
+    FILE* log = FIO_CreateFile("ML/LOGS/stubtest.log");
     if (log)
     {
         FIO_WriteFile(log, stub_log_buf, stub_log_len);
@@ -1025,6 +1123,7 @@ static void stub_test_task(void* arg)
     {
         stub_test_edmac();                  stub_test_save_log();
         stub_test_cache();                  stub_test_save_log();
+        stub_test_af();                     stub_test_save_log();
         stub_test_file_io();                stub_test_save_log();
         stub_test_gui_timers();             stub_test_save_log();
         stub_test_other_timers();           stub_test_save_log();
@@ -1041,15 +1140,15 @@ static void stub_test_task(void* arg)
 
     enter_play_mode();
 
-    stub_test_save_log();
-    fio_free(stub_log_buf);
-    stub_log_buf = 0;
-
-    printf(
+    TEST_MSG(
         "=========================================================\n"
         "Test complete, %d passed, %d failed.\n.",
         stub_passed_tests, stub_failed_tests
     );
+
+    stub_test_save_log();
+    fio_free(stub_log_buf);
+    stub_log_buf = 0;
 }
 
 static void rpc_test_task(void* unused)
@@ -1934,6 +2033,77 @@ static void edmac_test_task()
     edmac_memcpy_res_unlock();
 }
 
+static void __attribute__((optimize("-fno-delete-null-pointer-checks")))
+null_pointer_task()
+{
+    msleep(1000);
+    console_clear();
+    printf("Testing null pointer checker...\n");
+    console_show();
+    msleep(1000);
+
+    /* find the last crash log number - will trigger a new one */
+    char log_filename[100];
+    int log_number;
+    for (log_number = 99; log_number >= 0; log_number--)
+    {
+        snprintf(log_filename, sizeof(log_filename), "CRASH%02d.LOG", log_number);
+        if (is_file(log_filename))
+        {
+            ASSERT(log_number < 99);
+            break;
+        }
+    }
+
+    /* this should trigger a crash log */
+    /* the error will be noticed when DryOS switches to the next task */
+    uint32_t old = cli();
+    *(volatile uint32_t *) 0x0 = 0xBAADBAAD;
+    printf("MEM(0) = %X %s\n", MEM(0), MEM(0) == 0xBAADBAAD ? "OK" : "ERR");
+    sei(old);
+
+    msleep(1000);
+
+    /* this should be restored to the old value */
+    printf("MEM(0) = %X %s\n", MEM(0), MEM(0) == 0xBAADBAAD ? "ERR" : "OK");
+
+    /* does the new crash log look sane? */
+    snprintf(log_filename, sizeof(log_filename), "CRASH%02d.LOG", log_number + 1);
+    if (!is_file(log_filename))
+    {
+        printf("%s not saved - please report.\n", log_filename);
+    }
+    else
+    {
+        /* crash log was saved */
+        int size;
+        char * log = (char *) read_entire_file(log_filename, &size);
+        if (strstr(log, "baadbaad") && strstr(log, "run_test: NULL PTR"))
+        {
+            printf("%s looks OK.\n", log_filename);
+        }
+        else
+        {
+            printf("%s not good - please report.\n", log_filename);
+        }
+        free(log);
+    }
+
+    /* hide the crash log prompt(s) */
+    printf("Please wait; ignore any flashing prompts    ");
+    for (int i = 0; i <= 100; i++)
+    {
+        NotifyBoxHide();
+        msleep(50);
+        printf("\b\b\b(%d)", 5 - i / 20);
+    }
+
+    /* finished */
+    printf("\nNull pointer test completed.\n");
+    msleep(2000);
+    console_hide();
+}
+
 static void frozen_task()
 {
     NotifyBox(2000, "while(1);");
@@ -2064,6 +2234,13 @@ static struct menu_entry selftest_menu[] =
                 .priv       = edmac_test_task,
                 .help       = "Shift the entire display left and right with EDMAC routines.",
                 .help2      = "Fixme: this will lock up if you change the video mode during the test.",
+            },
+            {
+                .name       = "Null pointer test (quick)",
+                .select     = run_in_separate_task,
+                .priv       = null_pointer_task,
+                .help       = "Writes 0xBAADBAAD to address 0 (simulating a null pointer error).",
+                .help2      = "ML should save a crash log about 0xBAADBAAD and should not crash.",
             },
             MENU_EOL,
         }
