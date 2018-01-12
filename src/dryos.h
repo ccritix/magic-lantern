@@ -162,12 +162,6 @@ extern int call( const char* name, ... );
 extern int vsnprintf( char* str, size_t n, const char* fmt, va_list ap ); // non-standard; don't export it
 extern int printf(const char* fmt, ... );
 extern int puts(const char* s);
-#ifdef CONFIG_HAS_PRINT_SERIAL
-extern int _print_serial(const char* s, ...);
-#define print_serial(fmt, ...) _print_serial(fmt, ## __VA_ARGS__)
-#else
-#define print_serial(fmt, ...) {}
-#endif
 
 extern size_t strlen( const char* str );
 extern int snprintf( char* str, size_t n, const char* fmt, ... );

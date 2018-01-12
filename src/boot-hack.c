@@ -289,7 +289,7 @@ my_task_dispatch_hook(
     if( context->pc != (uint32_t) task_trampoline )
         return;
 
-    print_serial("Hijack TASK\n");
+    qprintf("Hijack TASK\n");
 
     thunk entry = (thunk) next_task->entry;
 
@@ -417,14 +417,14 @@ static void backup_rom_task()
 #ifdef CONFIG_HELLO_WORLD
 static void hello_world()
 {
-    print_serial("HELLO WORLD\n");
+    qprintf("HELLO WORLD\n");
     int sig = compute_signature((int*)SIG_START, 0x10000);
     while(1)
     {
         bmp_printf(FONT_LARGE, 50, 50, "Hello, World!");
         bmp_printf(FONT_LARGE, 50, 400, "firmware signature = 0x%x", sig);
         info_led_blink(1, 500, 500);
-        print_serial("firmware signature = 0x%x\n", sig);
+        qprintf("firmware signature = 0x%x\n", sig);
     }
 }
 #endif
