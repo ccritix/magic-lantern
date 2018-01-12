@@ -289,8 +289,6 @@ my_task_dispatch_hook(
     if( context->pc != (uint32_t) task_trampoline )
         return;
 
-    qprintf("Hijack TASK\n");
-
     thunk entry = (thunk) next_task->entry;
 
     qprintf("[****] Starting task %x(%x) %s\n", next_task->entry, next_task->arg, next_task->name);

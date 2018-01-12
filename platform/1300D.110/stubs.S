@@ -288,7 +288,7 @@ NSTUB(   0x31170,  current_task)
 NSTUB(    0x3780,  msleep)                                  // called from EV_GETDONE_CACHE param 0x64
 
 /** Tasks **/
- NSTUB(    0x310A0,  task_dispatch_hook) // ??310A0 600: 0x193C
+NSTUB(   0x35924,  task_dispatch_hook)  // task_trampoline -> last call -> last non-empty BL -> one indirect call here
 NSTUB(    0x38FC,  task_create)
 NSTUB(    0x41DC,  task_trampoline)
 // NSTUB(    ???,  current_task_ctx)                        /* present on 7D.203 */
