@@ -418,7 +418,7 @@ static void backup_rom_task()
 static void hello_world()
 {
     qprintf("HELLO WORLD\n");
-    uint32_t sig = compute_signature((void*)SIG_START, 0x10000);
+    uint32_t sig = compute_signature((void*)SIG_START, SIG_LEN);
     while(1)
     {
         bmp_printf(FONT_LARGE, 50, 50, "Hello, World!");

@@ -3,13 +3,8 @@
 
 #include <config-defines.h>
 
+#define SIG_START ROMBASEADDR
 #define SIG_LEN 0x10000
-
-#if defined(CONFIG_DIGIC_V) || defined(CONFIG_1200D)
-#define SIG_START 0xFF0C0000
-#else
-#define SIG_START 0xFF010000
-#endif
 
 #define SIG_60D_111  0xaf91b602 // from FF010000
 #define SIG_550D_109 0x851320e6 // from FF010000
@@ -21,7 +16,7 @@
 #define SIG_5D2_212  0xae78b938 // from FF010000
 #define SIG_1100D_105 0x46de7624 // from FF010000
 #define SIG_1200D_101 0x9d618f81 // identical to 1.0.0, except version and build date
-#define SIG_1300D_110 0xCD12E936
+#define SIG_1300D_110 0x3d8461b5 // from FE0C0000 (atypical)
 #define SIG_6D_112   0x6D677512
 #define SIG_6D_113   0x6B6A9C6F
 #define SIG_6D_116   0x11cb1ed2
