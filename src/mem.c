@@ -751,11 +751,18 @@ static int choose_allocator(int size, unsigned int flags)
     return -1;
 }
 
+// we need it in the next function, so declare it here
+static void mem_init();
+
 /* these two will replace all malloc calls */
 
 /* returns 0 if it couldn't allocate */
 void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned int line)
 {
+    if (mem_sem == 0) {
+        // for some reason the mem_init() was not called before, call it here
+        mem_init();
+    }
     take_semaphore(mem_sem, 0);
 
     dbg_printf("alloc(%s) from %s:%d task %s\n", format_memory_size_and_flags(size, flags), file, line, get_current_task_name());
@@ -795,7 +802,6 @@ void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned i
             /* force the cacheable pointer to be the way user requested it */
             /* note: internally, this library must use the vanilla pointer (non-mangled) */
             ptr = (flags & MEM_DMA) ? UNCACHEABLE(ptr) : CACHEABLE(ptr);
-
             dbg_printf("alloc ok, took %s%d.%03d s\n", FMT_FIXEDPOINT3(t1-t0));
         }
         
@@ -882,6 +888,9 @@ struct memSuite * shoot_malloc_suite_contig(size_t size)
 /* (called as the first init func => mem.o should be first in the Makefile.src (well, after boot-hack) */
 static void mem_init()
 {
+    // already called
+    if (mem_sem != 0)
+        return
     mem_sem = create_named_semaphore("mem_sem", 1);
 
     for (int a = 0; a < COUNT(allocators); a++)
