@@ -301,13 +301,18 @@ int update_bgmt_av_status(struct event * event) {
     if(event->obj == NULL) return -1;
     int gmt_int_ev_obj = *(int*)(event->obj);
     switch(shooting_mode) {
-        case SHOOTMODE_MOVIE:
         case SHOOTMODE_P:
         case SHOOTMODE_ADEP:
+        #ifdef CONFIG_1100D
+        case SHOOTMODE_MOVIE:
+        #endif
             if(gmt_int_ev_obj == 0x3010040) return 1;
             if(gmt_int_ev_obj == 0x1010040) return 0;
             break;
         case SHOOTMODE_M:
+        #ifdef CONFIG_1200D
+        case SHOOTMODE_MOVIE:
+        #endif
             if(gmt_int_ev_obj == 0x1010006) return 1;
             if(gmt_int_ev_obj == 0x3010006) return 0;
             break;

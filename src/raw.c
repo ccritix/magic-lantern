@@ -83,7 +83,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_LV_EDMAC 0xC0F26008
 #endif
 
-#if defined(CONFIG_DIGIC_V) || defined(CONFIG_600D) || defined(CONFIG_60D)
+#if defined(CONFIG_DIGIC_V) || defined(CONFIG_600D) || defined(CONFIG_60D) || defined(CONFIG_1200D)
 /* probably all new cameras use this address */
 #define RAW_LV_EDMAC 0xC0F26208
 #endif
@@ -156,7 +156,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
  * and http://a1ex.bitbucket.org/ML/states/ for state diagrams.
  */
 
-#if defined(CONFIG_5D2) || defined(CONFIG_50D) || defined(CONFIG_60D) || defined(CONFIG_550D) || defined(CONFIG_500D) || defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_7D) || defined(CONFIG_1300D)
+#if defined(CONFIG_5D2) || defined(CONFIG_50D) || defined(CONFIG_60D) || defined(CONFIG_550D) || defined(CONFIG_500D) || defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_1200D) || defined(CONFIG_1300D) || defined(CONFIG_7D)
 #define RAW_PHOTO_EDMAC 0xc0f04208
 #endif
 
@@ -254,6 +254,15 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_1100D
     //~  { "Canon EOS 1100D", 0, 0x3510,
+    //~  { 6444,-904,-893,-4563,12308,2535,-903,2016,6728 } },
+    #define CAM_COLORMATRIX1                       \
+      6444, 10000,     -904, 10000,    -893, 10000,\
+    -4563, 10000,    12308, 10000,    2535, 10000, \
+     -903, 10000,     2016, 10000,    6728, 10000
+#endif
+
+#ifdef CONFIG_1200D
+    //~  { "Canon EOS 1200D", 0, 0x3510,
     //~  { 6444,-904,-893,-4563,12308,2535,-903,2016,6728 } },
     #define CAM_COLORMATRIX1                       \
       6444, 10000,     -904, 10000,    -893, 10000,\
@@ -378,11 +387,14 @@ static int dynamic_ranges[] = {1146, 1139, 1116, 1061, 980, 898, 806, 728};
 static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO 12800 available
 #endif
 
+#ifdef CONFIG_1200D
+static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO 12800 available
+#endif
+
 #ifdef CONFIG_1300D
 // Placeholder copied from 1100D (1300D also does not support ISO12800)
 static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO 12800 available
 #endif
-
 
 #ifdef CONFIG_650D
 static int dynamic_ranges[] = {1062, 1047, 1021, 963,  888, 804, 695, 623, 548};
@@ -633,6 +645,13 @@ static int raw_update_params_work()
         skip_top    = 26;
         skip_left   = zoom ? 0 : 256;
         #endif
+        
+        #ifdef CONFIG_1200D
+        skip_top    = 28;
+        skip_left   = zoom ? 0 : 154;
+        skip_right  = zoom ? 0 : 4;
+        skip_bottom = zoom ? 4 : 0;
+        #endif
 
         dbg_printf("LV raw buffer: %x (%dx%d)\n", raw_info.buffer, width, height);
         dbg_printf("Skip left:%d right:%d top:%d bottom:%d\n", skip_left, skip_right, skip_top, skip_bottom);
@@ -699,7 +718,7 @@ static int raw_update_params_work()
         height--;
         #endif
 
-        #if defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_600D)
+        #if defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_600D) || defined(CONFIG_1200D)
         skip_left = 142;
         skip_top = 52;
         #endif
@@ -716,7 +735,13 @@ static int raw_update_params_work()
         skip_right = 0;
         skip_top = 52;
         #endif
-      
+
+        #ifdef CONFIG_6D
+        skip_left = 72;
+        skip_right = 0;
+        skip_top = 52;
+        #endif
+
         #if defined(CONFIG_50D)
         skip_left = 64;
         skip_top = 54;

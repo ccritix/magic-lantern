@@ -5,10 +5,8 @@
 
 #define SIG_LEN 0x10000
 
-#if defined(CONFIG_DIGIC_V)
+#if defined(CONFIG_DIGIC_V) || defined(CONFIG_1200D)
 #define SIG_START 0xFF0C0000
-#elif defined(CONFIG_7D) || defined(CONFIG_7D_MASTER)
-#define SIG_START 0xF8010000
 #else
 #define SIG_START 0xFF010000
 #endif
@@ -22,8 +20,8 @@
 #define SIG_500D_111 0x44f49aef // from FF010000
 #define SIG_5D2_212  0xae78b938 // from FF010000
 #define SIG_1100D_105 0x46de7624 // from FF010000
+#define SIG_1200D_101 0x9d618f81 // identical to 1.0.0, except version and build date
 #define SIG_1300D_110 0xCD12E936
-// Not supported cameras
 #define SIG_6D_112   0x6D677512
 #define SIG_6D_113   0x6B6A9C6F
 #define SIG_6D_116   0x11cb1ed2
@@ -41,11 +39,10 @@
 // TODO: multiple 100D.100 out there :(
 #define SIG_100D_100 0x34443B7F
 
-static int compute_signature(int* start, int num)
+static uint32_t compute_signature(uint32_t * start, uint32_t num)
 {
-    int c = 0;
-    int* p;
-    for (p = start; p < start + num; p++)
+    uint32_t c = 0;
+    for (uint32_t * p = start; p < start + num; p++)
     {
         c += *p;
     }

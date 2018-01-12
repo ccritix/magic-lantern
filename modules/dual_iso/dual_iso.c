@@ -101,6 +101,7 @@ static int is_650d = 0;
 static int is_700d = 0;
 static int is_eosm = 0;
 static int is_1100d = 0;
+static int is_1200d = 0;
 
 static uint32_t FRAME_CMOS_ISO_START = 0;
 static uint32_t FRAME_CMOS_ISO_COUNT = 0;
@@ -923,8 +924,37 @@ static unsigned int isoless_init()
         CMOS_FLAG_BITS = 5;
         CMOS_EXPECTED_FLAG = 0;
     }
+    else if (is_camera("1200D", "1.0.1"))
+    {
+        is_1200d = 1;
+        /*
+        100 - 0x0  0x406557EC
+        200 - 0x24 0x4065580A
+        400 - 0x48 0x40655828
+        800 - 0x6C 0x40655846
+        1600 -0x90 0x40655864
+        3200 -0xB4 0x40655882
+        */
+        FRAME_CMOS_ISO_START = 0x406557EC; // CMOS register 0000 - for LiveView, ISO 100 (check in movie mode, not photo!)
+        FRAME_CMOS_ISO_COUNT =          6; // from ISO 100 to 3200
+        FRAME_CMOS_ISO_SIZE  =         30; // distance between ISO 100 and ISO 200 addresses, in bytes
 
+        /*
+        100 - 0x0  0x40654670
+        200 - 0x24 0x40654682
+        400 - 0x48 0x40654694
+        800 - 0x6C 0x406546A6
+        1600 -0x90 0x406546B8
+        3200 -0xB4 0x406546CA
+        */
+        PHOTO_CMOS_ISO_START = 0x40654670; // CMOS register 0000 - for photo mode, ISO 100
+        PHOTO_CMOS_ISO_COUNT =          6; // from ISO 100 to 3200
+        PHOTO_CMOS_ISO_SIZE  =         18; // distance between ISO 100 and ISO 200 addresses, in bytes
 
+        CMOS_ISO_BITS = 3;
+        CMOS_FLAG_BITS = 2;
+        CMOS_EXPECTED_FLAG = 0;
+    }
 
 
     if (FRAME_CMOS_ISO_START || PHOTO_CMOS_ISO_START)
