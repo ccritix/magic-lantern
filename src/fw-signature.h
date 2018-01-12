@@ -3,13 +3,8 @@
 
 #include <config-defines.h>
 
+#define SIG_START ROMBASEADDR
 #define SIG_LEN 0x10000
-
-#if defined(CONFIG_DIGIC_V) || defined(CONFIG_1200D)
-#define SIG_START 0xFF0C0000
-#else
-#define SIG_START 0xFF010000
-#endif
 
 #define SIG_60D_111  0xaf91b602 // from FF010000
 #define SIG_550D_109 0x851320e6 // from FF010000
