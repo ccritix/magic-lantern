@@ -62,11 +62,7 @@ static void my_bzero( uint8_t * base, uint32_t size );
 
 #ifndef HIJACK_CACHE_HACK
 /** This just goes into the bss */
-#ifdef CONFIG_1300D
-#define RELOCSIZE 0x4000 // look in HIJACK macros for the highest address, and subtract ROMBASEADDR
-#else
 #define RELOCSIZE 0x3000 // look in HIJACK macros for the highest address, and subtract ROMBASEADDR
-#endif
 
 static uint8_t _reloc[ RELOCSIZE ];
 #define RELOCADDR ((uintptr_t) _reloc)
@@ -253,6 +249,8 @@ my_task_dispatch_hook(
     // Do nothing unless a new task is starting via the trampoile
     if( (*context)->pc != (uint32_t) task_trampoline )
         return;
+
+    print_serial("Hijack TASK\n");
     
     // Determine the task address
     struct task * const task = *(struct task**) HIJACK_TASK_ADDR;
@@ -429,7 +427,7 @@ static void backup_rom_task()
 #ifdef CONFIG_HELLO_WORLD
 static void hello_world()
 {
-	print_serial("HELLO WORLD\n");
+    print_serial("HELLO WORLD\n");
     int sig = compute_signature((int*)SIG_START, 0x10000);
     while(1)
     {
