@@ -256,8 +256,7 @@
 #define Q_BTN_NAME (RECORDING ? "INFO" : "[Q]")
 #define ARROW_MODE_TOGGLE_KEY "DISP"
 
-// TODO:
-  #define DISPLAY_STATEOBJ (*(struct state_object **)0x2480)
+#define DISPLAY_STATEOBJ (*(struct state_object **)0x318B8)
 #define DISPLAY_IS_ON (DISPLAY_STATEOBJ->current_state != 0)
 
 #define VIDEO_PARAMETERS_SRC_3 0x70AE8 // notation from g3gg0 // NOT FOUND .. 

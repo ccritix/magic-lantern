@@ -1,10 +1,12 @@
 #include "all_features.h"
 /* Can't Be Implemented */
 
-#define CONFIG_HELLO_WORLD
+//#define CONFIG_HELLO_WORLD
 #define FEATURE_DIGITAL_ZOOM_SHORTCUT
 #define FEATURE_LV_3RD_PARTY_FLASH
 #define FEATURE_EYEFI_TRICKS
+
+#define DEBUG_TASK_HOOK
 
 
 #define FEATURE_INTERMEDIATE_ISO_PHOTO_DISPLAY
