@@ -35,12 +35,6 @@
 #include "../module_strings_wrapper.h"
 #include "module_strings.h"
 MODULE_STRINGS()
-
-/* dng related headers */
-#include <chdk-dng.h>
-#include "../dual_iso/wirth.h"  /* fast median, generic implementation (also kth_smallest) */
-#include "../dual_iso/optmed.h" /* fast median for small common array sizes (3, 7, 9...) */
-
 #ifdef __WIN32
 #define FMT_SIZE "%u"
 #else
@@ -115,7 +109,8 @@ char *strdup(const char *s);
 #include "../lv_rec/lv_rec.h"
 #include "../../src/raw.h"
 #include "mlv.h"
-#include "camera_id.h"
+#include "dng/dng.h"
+#include "wav.h"
 
 enum bug_id
 {
@@ -921,84 +916,6 @@ FILE **load_all_chunks(char *base_filename, int *entries)
     return files;
 }
 
-
-#define EV_RESOLUTION 32768
-
-#define CHROMA_SMOOTH_2X2
-#include "../dual_iso/chroma_smooth.c"
-#undef CHROMA_SMOOTH_2X2
-
-#define CHROMA_SMOOTH_3X3
-#include "../dual_iso/chroma_smooth.c"
-#undef CHROMA_SMOOTH_3X3
-
-#define CHROMA_SMOOTH_5X5
-#include "../dual_iso/chroma_smooth.c"
-#undef CHROMA_SMOOTH_5X5
-
-
-void chroma_smooth(int method, struct raw_info *info)
-{
-    int black = info->black_level;
-    static int raw2ev[16384];
-    static int _ev2raw[24*EV_RESOLUTION];
-    int* ev2raw = _ev2raw + 10*EV_RESOLUTION;
-    
-    if(!method)
-    {
-        return;
-    }
-
-    for(int i = 0; i < 16384; i++)
-    {
-        raw2ev[i] = log2(MAX(1, i - black)) * EV_RESOLUTION;
-    }
-
-    for(int i = -10*EV_RESOLUTION; i < 14*EV_RESOLUTION; i++)
-    {
-        ev2raw[i] = black + pow(2, (float)i / EV_RESOLUTION);
-    }
-
-    int w = info->width;
-    int h = info->height;
-
-    uint32_t * aux = malloc(w * h * sizeof(uint32_t));
-    uint32_t * aux2 = malloc(w * h * sizeof(uint32_t));
-
-    int x,y;
-    for (y = 0; y < h; y++)
-    {
-        for (x = 0; x < w; x++)
-        {
-            aux[x + y*w] = aux2[x + y*w] = raw_get_pixel(x, y);
-        }
-    }
-
-    switch(method)
-    {
-        case 2:
-            chroma_smooth_2x2(aux, aux2, raw2ev, ev2raw);
-            break;
-        case 3:
-            chroma_smooth_3x3(aux, aux2, raw2ev, ev2raw);
-            break;
-        case 5:
-            chroma_smooth_5x5(aux, aux2, raw2ev, ev2raw);
-            break;
-    }
-
-    for (y = 0; y < h; y++)
-    {
-        for (x = 0; x < w; x++)
-        {
-            raw_set_pixel(x, y, aux2[x + y*w]);
-        }
-    }
-
-    free(aux);
-    free(aux2);
-}
-
 void show_usage(char *executable)
 {
     print_msg(MSG_INFO, "Usage: %s [options] <inputfile>\n", executable);
@@ -1016,9 +933,17 @@ void show_usage(char *executable)
     print_msg(MSG_INFO, "  --cs2x2             2x2 chroma smoothing\n");
     print_msg(MSG_INFO, "  --cs3x3             3x3 chroma smoothing\n");
     print_msg(MSG_INFO, "  --cs5x5             5x5 chroma smoothing\n");
-    print_msg(MSG_INFO, "  --no-fixcp          do not fix cold pixels\n");
-    print_msg(MSG_INFO, "  --fixcp2            fix non-static (moving) cold pixels (slow)\n");
+    print_msg(MSG_INFO, "  --no-fixcp          do not fix bad pixels\n");
+    print_msg(MSG_INFO, "  --fixcp2            use aggressive method for revealing more bad pixels\n");
     print_msg(MSG_INFO, "  --no-stripes        do not fix vertical stripes in highlights\n");
+    print_msg(MSG_INFO, "  --force-stripes     compute stripe correction for every frame\n");
+    print_msg(MSG_INFO, "  --is-dualiso        use dual iso compatible horizontal interpolation of focus and bad pixels\n");
+    print_msg(MSG_INFO, "  --save-bpm          save bad pixels to .BPM file\n");
+    print_msg(MSG_INFO, "  --fixpn             fix pattern noise\n");
+    print_msg(MSG_INFO, "  --deflicker=value   per-frame exposure compensation. value is target median in raw units ex: 3072 (default)\n");
+    print_msg(MSG_INFO, "  --no-bitpack        write DNG files with unpacked to 16 bit raw data\n");
+    print_msg(MSG_INFO, "  --show-progress     show DNG file creation progress. ignored when -v or --batch is specified\n");
+    print_msg(MSG_INFO, "                      also works when compressing MLV to MLV and shows compression ratio for each frame\n");
 
     print_msg(MSG_INFO, "\n");
     print_msg(MSG_INFO, "-- RAW output --\n");
@@ -1067,12 +992,12 @@ void show_usage(char *executable)
     //print_msg(MSG_INFO, " -u lut_file         look-up table with 4 * xRes * yRes 16-bit words that is applied before bit depth conversion\n");
 
 #if defined(MLV_USE_LZMA) || defined(MLV_USE_LJ92)
-    print_msg(MSG_INFO, "  -c                  compress video and audio frames using LJ92. if already compressed, then decompress and recompress again.\n");
-    print_msg(MSG_INFO, "                      specify twice to pass through unmodified compressed (lossless) data to DNG which speeds up writing, but skips preprocessing\n");
+    print_msg(MSG_INFO, "  -c                  compress video frames using LJ92. if input is lossless, then decompress and recompress again.\n");
     print_msg(MSG_INFO, "  -d                  decompress compressed video and audio frames using LZMA or LJ92\n");
 #else
     print_msg(MSG_INFO, "  -c, -d              NOT AVAILABLE: compression support was not compiled into this release\n");
 #endif
+    print_msg(MSG_INFO, "  -p                  pass through original raw data without processing, it works for lossless or uncompressed raw\n");
     print_msg(MSG_INFO, "\n");
 
     print_msg(MSG_INFO, "-- bugfixes --\n");
@@ -1254,6 +1179,61 @@ static void hexdump(char *buf, unsigned int size, unsigned int offset)
   print_msg(MSG_INFO, "\n");
 }
 
+/* rescale black and white levels if bit depth is changed (-b) and/or fix levels if --black/white-fix specified */
+static void fix_black_white_level(int32_t * black_level, int32_t * white_level, int32_t * bitdepth, int32_t new_bitdepth, int black_fix, int white_fix, int verbose)
+{
+    int32_t old_black = *black_level;
+    int32_t old_white = *white_level;
+
+    if(new_bitdepth)
+    {
+        int delta = *bitdepth - new_bitdepth;
+        
+        /* scale down black and white level */
+        if(delta)
+        {
+            *bitdepth = new_bitdepth;
+        
+            if(delta > 0)
+            {
+                *black_level >>= delta;
+                *white_level >>= delta;
+            }
+            else
+            {
+                *black_level <<= ABS(delta);
+                *white_level <<= ABS(delta);
+            }
+
+            if(verbose)
+            {
+                if(!black_fix)
+                    print_msg(MSG_INFO, "   black: %d -> %d\n", old_black, *black_level);
+                if(!white_fix)
+                    print_msg(MSG_INFO, "   white: %d -> %d\n", old_white, *white_level);
+            }
+        }
+    }
+    
+    if(black_fix)
+    {
+        *black_level = black_fix;
+        if(verbose)
+        {
+            print_msg(MSG_INFO, "   black: %d -> %d (forced)\n", old_black, *black_level);
+        }
+    }
+    
+    if(white_fix)
+    {
+        *white_level = white_fix;
+        if(verbose)
+        {
+            print_msg(MSG_INFO, "   white: %d -> %d (forced)\n", old_white, *white_level);
+        }
+    }
+}
+
 
 int main (int argc, char *argv[])
 {
@@ -1294,6 +1274,7 @@ int main (int argc, char *argv[])
     int decompress_input = 0;
     int verbose = 0;
     int alter_fps = 0;
+    int pass_through = 0;
     char opt = ' ';
 
     int video_xRes = 0;
@@ -1309,6 +1290,16 @@ int main (int argc, char *argv[])
     int dump_xrefs = 0;
     int fix_cold_pixels = 1;
     int fix_vert_stripes = 1;
+    int is_dual_iso = 0;
+    int save_bpm_file = 0;
+    int fix_pattern_noise = 0;
+    int deflicker_target = 0;
+    int show_progress = 0;
+    int pack_dng_bits = 1;
+    
+    /* helper structs for DNG exporting */
+    struct frame_info frame_info;
+    struct dng_data dng_data = { 0, 0, 0, 0, NULL, NULL, NULL, NULL };
     
     enum bug_id fix_bug = BUG_ID_NONE;
     
@@ -1351,9 +1342,6 @@ int main (int argc, char *argv[])
     char *autopsy_block_type = "    ";
     char *autopsy_file = "autopsy.bin";
     
-    
-    const char * unique_camname = "(unknown)";
-
     struct option long_options[] = {
         {"version",  no_argument, &version,  1 },
         {"lua",    required_argument, NULL,  'L' },
@@ -1372,6 +1360,13 @@ int main (int argc, char *argv[])
         {"no-stripes",  no_argument, &fix_vert_stripes,  0 },
         {"avg-vertical",  no_argument, &average_vert,  1 },
         {"avg-horizontal",  no_argument, &average_hor,  1 },
+        {"is-dualiso",    no_argument, &is_dual_iso,  1 },
+        {"save-bpm",    no_argument, &save_bpm_file,  1 },
+        {"force-stripes",  no_argument, &fix_vert_stripes,  2 },
+        {"fixpn",  no_argument, &fix_pattern_noise,  1 },
+        {"deflicker",  optional_argument, NULL,  'D' },
+        {"show-progress",  no_argument, &show_progress,  1 },
+        {"no-bitpack",  no_argument, &pack_dng_bits,  0 },
         
         /* MLV autopsy */
         {"relaxed",       no_argument, &relaxed,  1 },
@@ -1402,7 +1397,7 @@ int main (int argc, char *argv[])
     }
 
     int index = 0;
-    while ((opt = getopt_long(argc, argv, "A:F:B:W:L:S:T:V:X:Y:Z:I:t:xz:emnas:uvrcdo:l:b:f:", long_options, &index)) != -1)
+    while ((opt = getopt_long(argc, argv, "A:F:B:W:L:S:T:V:X:Y:Z:I:D:t:xz:emnas:uvrcdpo:l:b:f:", long_options, &index)) != -1)
     {
         switch (opt)
         {
@@ -1483,6 +1478,17 @@ int main (int argc, char *argv[])
                 }
                 break;
                 
+            case 'D':
+                if(!optarg)
+                {
+                    deflicker_target = 3072;
+                }
+                else
+                {
+                    deflicker_target = MIN(16384, MAX(1, atoi(optarg)));
+                }
+                break;
+            
             case 'A':
                 if(!optarg)
                 {
@@ -1599,7 +1605,7 @@ int main (int argc, char *argv[])
 
             case 'c':
 #if defined(MLV_USE_LJ92)
-                compress_output++;
+                compress_output = (!pass_through) ? 1 : 0;
 #else
                 print_msg(MSG_ERROR, "Error: Compression support was not compiled into this release\n");
                 return ERR_PARAM;
@@ -1613,6 +1619,10 @@ int main (int argc, char *argv[])
                 print_msg(MSG_ERROR, "Error: Compression support was not compiled into this release\n");
                 return ERR_PARAM;
 #endif
+                break;
+
+            case 'p':
+                pass_through = (!compress_output) ? 1 : 0;
                 break;
 
             case 'o':
@@ -1707,6 +1717,13 @@ int main (int argc, char *argv[])
     if(verbose)
     {
         print_msg(MSG_INFO, "   - Verbose messages\n");
+        show_progress = 0; // ignore "--show-progress", incompatible with verbose mode
+    }
+
+    if(batch_mode)
+    {
+        print_msg(MSG_INFO, "   - Batch processing suitable output\n");
+        show_progress = 0; // ignore "--show-progress", incompatible with batch mode
     }
     
     if(black_fix)
@@ -1721,28 +1738,37 @@ int main (int argc, char *argv[])
 
     if(alter_fps)
     {
-        print_msg(MSG_INFO, "   - altering FPS metadata for %d/1000 fps\n", alter_fps);
+        print_msg(MSG_INFO, "   - Altering FPS metadata for %d/1000 fps\n", alter_fps);
     }
     
-    /* force 14bpp output for DNG code */
     if(dng_output)
     {
-        if(compress_output == 1)
+        /* correct handling of bit depth conversion for DNG output */
+        if(compress_output) 
         {
             print_msg(MSG_INFO, "   - Compress frames written into DNG (slow)\n");
-            print_msg(MSG_INFO, "   - Enforcing 14bpp for DNG output\n");
-            bit_depth = 14;
+            if(bit_depth)
+            {
+                /* ignore "-b" switch */
+                print_msg(MSG_INFO, "   - WARNING: Ignoring bit depth conversion\n");
+                bit_depth = 0;
+            }
         }
-        else if(compress_output > 1)
+        else if(pass_through)
         {
-            print_msg(MSG_INFO, "   - Writing original compressed lossless payload into DNG\n");
-            print_msg(MSG_INFO, "   - WARNING: These compressed DNGs will not undergo any preprocessing like stripe fix etc\n");
+            print_msg(MSG_INFO, "   - Writing original (compressed/uncompressed) payload into DNG\n");
+            print_msg(MSG_INFO, "   - WARNING: These DNGs will not undergo any preprocessing like stripe fix etc\n");
+            if(bit_depth)
+            {
+                /* ignore "-b" switch */
+                print_msg(MSG_INFO, "   - WARNING: Ignoring bit depth conversion\n");
+                bit_depth = 0;
+            }
         }
         else
         {
-            print_msg(MSG_INFO, "   - Decompressing before writing DNG\n");
-            print_msg(MSG_INFO, "   - Enforcing 14bpp for DNG output\n");
-            bit_depth = 14;
+            /* decompress input before processing in case it's compressed.
+               if "-b" switch used do bit depth convertion, no depth forcing/ignoring is done */
             decompress_input = 1;
         }
         
@@ -1910,7 +1936,7 @@ int main (int argc, char *argv[])
     int in_file_count = 0;
     int in_file_num = 0;
 
-    uint32_t wav_file_size = 0; /* WAV format supports only 32-bit size */
+    uint32_t wav_data_size = 0; /* WAV format supports only 32-bit size */
     uint32_t wav_header_size = 0;
 
     /* this is for our generated XREF table */
@@ -2731,8 +2757,8 @@ read_headers:
                         print_msg(MSG_ERROR, "AUDF: Failed writing into .WAV file\n");
                         return PROCESS_ERROR;
                     }
-                    
-                    wav_file_size += frame_size;
+                
+                    wav_data_size += frame_size;
                 }
                 
                 audf_frames_processed++;
@@ -2802,23 +2828,17 @@ read_headers:
                     int write_block = mlv_output && !average_mode && (!extract_block || !strncasecmp(extract_block, (char*)block_hdr.blockType, 4));             
 
                     /*
-                      compress_output can be set to 0, 1 or 2. run if set to other than zero.
+                      compress_output can be 0 or 1. run compressor if not zero.
                     */
                     int run_compressor = compress_output != 0;
                     
                     /*
                       special case:
-                        when specified "-c -c" on commandline, pass through unmodified lossless data into DNG files.
+                        when specified "-p" on commandline, pass through unmodified (compressed/uncompressed) data into DNG files.
                         this will be a lot faster, but requires the user to fix striping and stuff on its own.
                     */
-                    if(dng_output && compress_output > 1)
+                    if(dng_output && pass_through)
                     {
-                        if(!compressed)
-                        {
-                            print_msg(MSG_ERROR, "    DNG: pass-through original lossless data not possible, source is uncompressed!\n");
-                            goto abort;
-                        }
-                        print_msg(MSG_INFO, "    DNG: pass-through original lossless data\n");
                         run_decompressor = 0;
                         run_compressor = 0;
                         fix_vert_stripes = 0;
@@ -3360,141 +3380,72 @@ read_headers:
                         /* before compressing do stuff necessary for DNG output */
                         if(dng_output)
                         {
-                            void fix_vertical_stripes();
-                            void find_and_fix_cold_pixels(int force_analysis);
-                            extern struct raw_info raw_info;
-
-                            int frame_filename_len = strlen(output_filename) + 32;
-                            char *frame_filename = malloc(frame_filename_len);
-                            snprintf(frame_filename, frame_filename_len, "%s%06d.dng", output_filename, block_hdr.frameNumber);
+                            struct raw_info raw_info;
 
                             lua_handle_hdr_data(lua_state, mlv_block->blockType, "_data_write_dng", &block_hdr, sizeof(block_hdr), frame_buffer, frame_size);
 
-                            raw_info.api_version = lv_rec_footer.raw_info.api_version;
-                            raw_info.height = lv_rec_footer.raw_info.height;
-                            raw_info.width = lv_rec_footer.raw_info.width;
-                            raw_info.pitch = lv_rec_footer.raw_info.pitch;
-                            raw_info.bits_per_pixel = lv_rec_footer.raw_info.bits_per_pixel;
-                            raw_info.black_level = lv_rec_footer.raw_info.black_level;
-                            raw_info.white_level = lv_rec_footer.raw_info.white_level;
-                            raw_info.jpeg.x = lv_rec_footer.raw_info.jpeg.x;
-                            raw_info.jpeg.y = lv_rec_footer.raw_info.jpeg.y;
-                            raw_info.jpeg.width = lv_rec_footer.raw_info.jpeg.width;
-                            raw_info.jpeg.height = lv_rec_footer.raw_info.jpeg.height;
-                            raw_info.exposure_bias[0] = lv_rec_footer.raw_info.exposure_bias[0];
-                            raw_info.exposure_bias[1] = lv_rec_footer.raw_info.exposure_bias[1];
-                            raw_info.cfa_pattern = lv_rec_footer.raw_info.cfa_pattern;
-                            raw_info.calibration_illuminant1 = lv_rec_footer.raw_info.calibration_illuminant1;
-                            memcpy(raw_info.color_matrix1, lv_rec_footer.raw_info.color_matrix1, sizeof(raw_info.color_matrix1));
-                            memcpy(raw_info.dng_active_area, lv_rec_footer.raw_info.dng_active_area, sizeof(raw_info.dng_active_area));
-                            raw_info.dynamic_range = lv_rec_footer.raw_info.dynamic_range;
-                            raw_info.frame_size = frame_size;
-                            raw_info.buffer = frame_buffer;
+                            /* copy over raw info from camera type to native (potentially x64) type */
+                            raw_info_from_camera(&raw_info, &lv_rec_footer.raw_info);
                             
-                            int old_depth = lv_rec_footer.raw_info.bits_per_pixel;
-                            int new_depth = bit_depth;
+                            /* patch raw info if black and/or white fix specified or bit depth changed */
+                            fix_black_white_level(&raw_info.black_level, &raw_info.white_level, &raw_info.bits_per_pixel, bit_depth, black_fix, white_fix, verbose);
                             
-                            /* patch raw info if bit depth changed */
-                            if(new_depth)
-                            {
-                                raw_info.bits_per_pixel = new_depth;
-                                int delta = old_depth - new_depth;
-                                int old_black = raw_info.black_level;
-                                int old_white = raw_info.white_level;
-                                
-                                /* scale down black level */
-                                if(!black_fix)
-                                {
-                                    if(delta)
-                                    {
-                                        if(delta > 0)
-                                        {
-                                            raw_info.black_level >>= delta;
-                                        }
-                                        else
-                                        {
-                                            raw_info.black_level <<= ABS(delta);
-                                        }
+                            /* raw state: 
+                               0 - uncompressed/decompressed
+                               1 - compressed/recompressed by "-c"
+                               2 - original uncompressed
+                               3 - original lossless
+                            */
+                            enum raw_state raw_state = (pass_through << 1) | (compressed & pass_through) | compress_output;
 
-                                        if(verbose)
-                                        {
-                                            print_msg(MSG_INFO, "   black: %d -> %d\n", old_black, raw_info.black_level);
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    raw_info.black_level = black_fix;
-                                    if(verbose)
-                                    {
-                                        print_msg(MSG_INFO, "   black: %d -> %d (forced)\n", old_black, raw_info.black_level);
-                                    }
-                                }
-                                
-                                /* scale down white level */
-                                if(!white_fix)
-                                {
-                                    if(delta)
-                                    {
-                                        if(delta > 0)
-                                        {
-                                            raw_info.white_level >>= delta;
-                                        }
-                                        else
-                                        {
-                                            raw_info.white_level <<= ABS(delta);
-                                        }
+                            /************ Initialize frame_info struct ************/
+                            frame_info.mlv_filename         = input_filename;
+                            frame_info.fps_override         = alter_fps;
+                            frame_info.deflicker_target     = deflicker_target;
+                            frame_info.vertical_stripes     = fix_vert_stripes;
+                            frame_info.bad_pixels           = fix_cold_pixels;
+                            frame_info.dual_iso             = is_dual_iso;
+                            frame_info.save_bpm             = save_bpm_file;
+                            frame_info.chroma_smooth        = chroma_smooth_method;
+                            frame_info.pattern_noise        = fix_pattern_noise;
+                            frame_info.show_progress        = show_progress;
+                            frame_info.raw_state            = raw_state;
+                            frame_info.pack_bits            = pack_dng_bits;
 
-                                        if(verbose)
-                                        {
-                                            print_msg(MSG_INFO, "   white: %d -> %d\n", old_white, raw_info.white_level);
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    raw_info.white_level = white_fix;
-                                    if(verbose)
-                                    {
-                                        print_msg(MSG_INFO, "   white: %d -> %d (forced)\n", old_white, raw_info.white_level);
-                                    }
-                                }
-                            }
+                            frame_info.file_hdr             = main_header;
+                            frame_info.vidf_hdr             = last_vidf;
+                            frame_info.rtci_hdr             = rtci_info;
+                            frame_info.idnt_hdr             = idnt_info;
+                            frame_info.expo_hdr             = expo_info;
+                            frame_info.lens_hdr             = lens_info;
+                            frame_info.wbal_hdr             = wbal_info;
+                            frame_info.rawi_hdr.xRes        = lv_rec_footer.xRes;
+                            frame_info.rawi_hdr.yRes        = lv_rec_footer.yRes;
                             
-                            /* override the resolution from raw_info with the one from lv_rec_footer, if they don't match */
-                            if(lv_rec_footer.xRes != raw_info.width)
-                            {
-                                raw_info.width = lv_rec_footer.xRes;
-                                raw_info.pitch = raw_info.width * raw_info.bits_per_pixel / 8;
-                                raw_info.active_area.x1 = 0;
-                                raw_info.active_area.x2 = raw_info.width;
-                                raw_info.jpeg.x = 0;
-                                raw_info.jpeg.width = raw_info.width;
-                            }
+                            /* copy over raw info from native (potentially x64) to camera type */
+                            raw_info_to_camera(&frame_info.rawi_hdr.raw_info, &raw_info);
+                            /******************************************************/
 
-                            if(lv_rec_footer.yRes != raw_info.height)
+                            /* init and process 'dng_data' raw buffers or use original compressed/uncompressed ones */
+                            switch(raw_state)
                             {
-                                raw_info.height = lv_rec_footer.yRes;
-                                raw_info.active_area.y1 = 0;
-                                raw_info.active_area.y2 = raw_info.height;
-                                raw_info.jpeg.y = 0;
-                                raw_info.jpeg.height = raw_info.height;
+                                /* if raw input lossless/uncompressed should stay 
+                                   uncompressed or is going to be compressed/recompressed */
+                                case UNCOMPRESSED_RAW:
+                                case COMPRESSED_RAW:
+                                    frame_info.frame_buffer = frame_buffer;
+                                    frame_info.frame_buffer_size = frame_buffer_size;
+                                    dng_init_data(&frame_info, &dng_data);
+                                    dng_process_data(&frame_info, &dng_data);
+                                    break;
+                                /* if passing through original uncompressed/lossless raw */
+                                case UNCOMPRESSED_ORIG:
+                                case COMPRESSED_ORIG:
+                                    dng_data.image_buf = (uint16_t *)frame_buffer;
+                                    dng_data.image_size = frame_buffer_size;
+                                    break;
                             }
-
-                            /* call raw2dng code */
-                            if(fix_vert_stripes)
-                            {
-                                fix_vertical_stripes();
-                            }
-                            
-                            if(fix_cold_pixels)
-                            {
-                                find_and_fix_cold_pixels(fix_cold_pixels == 2);
-                            }
-
-                            /* this is internal again */
-                            chroma_smooth(chroma_smooth_method, &raw_info);
-                        }                        
+                        }
 
                         if(run_compressor)
                         {
@@ -3502,21 +3453,32 @@ read_headers:
                             uint8_t *compressed = NULL;
                             int compressed_size = 0;
                             
-                            /* split the single channels into image tiles */
-                            int compress_buffer_size = video_xRes * video_yRes * sizeof(uint16_t);
-                            uint16_t *compress_buffer = malloc(compress_buffer_size);
+                            int compress_buffer_size = 0;
+                            uint16_t *compress_buffer = NULL;
 
-                            /* repack the 16 bit words containing values with max 14 bit */
-                            int orig_pitch = video_xRes * lv_rec_footer.raw_info.bits_per_pixel / 8;
-
-                            for(int y = 0; y < video_yRes; y++)
+                            /* if DNG output then point ready to compress buffer pointer to dng_data.image_buf and set correct size */
+                            if(dng_output)
                             {
-                                void *src_line = &frame_buffer[y * orig_pitch];
-                                uint16_t *dst_line = &compress_buffer[y * video_xRes];
+                                compress_buffer_size = dng_data.image_size;
+                                compress_buffer = dng_data.image_buf;
+                            }
+                            else // other case(s), MLV output, etc
+                            {
+                                compress_buffer_size = video_xRes * video_yRes * sizeof(uint16_t);
+                                compress_buffer = malloc(compress_buffer_size);
+                                
+                                /* repack the 16 bit words containing values with max 14 bit */
+                                int orig_pitch = video_xRes * lv_rec_footer.raw_info.bits_per_pixel / 8;
 
-                                for(int x = 0; x < video_xRes; x++)
+                                for(int y = 0; y < video_yRes; y++)
                                 {
-                                    dst_line[x] = bitextract(src_line, x, lv_rec_footer.raw_info.bits_per_pixel);
+                                    void *src_line = &frame_buffer[y * orig_pitch];
+                                    uint16_t *dst_line = &compress_buffer[y * video_xRes];
+
+                                    for(int x = 0; x < video_xRes; x++)
+                                    {
+                                        dst_line[x] = bitextract(src_line, x, lv_rec_footer.raw_info.bits_per_pixel);
+                                    }
                                 }
                             }
                             
@@ -3556,7 +3518,6 @@ read_headers:
                             }
                             
                             int ret = lj92_encode(compress_buffer, lj92_width, lj92_height, lj92_bitdepth, 2, lj92_width * lj92_height, 0, NULL, 0, &compressed, &compressed_size);
-                            free(compress_buffer);
 
                             if(ret == LJ92_ERROR_NONE)
                             {
@@ -3570,6 +3531,17 @@ read_headers:
                                 assert(frame_buffer);
                                 memcpy(frame_buffer, compressed, compressed_size);
                                 frame_buffer_size = compressed_size;
+
+                                /* if DNG output then point dng_data.image_buf to already compressed buffer and set correct size */
+                                if(dng_output)
+                                {
+                                    dng_data.image_buf = (uint16_t *)frame_buffer;
+                                    dng_data.image_size = frame_buffer_size;
+                                }
+                                else // other case(s), MLV output, etc
+                                {
+                                    free(compress_buffer);
+                                }
                             }
                             else
                             {
@@ -3586,84 +3558,30 @@ read_headers:
                             }
                             goto abort;
 #endif
+                            if(frame_buffer_size != (uint32_t)frame_size && !verbose && show_progress)
+                            {
+                                static int first_time = 1;
+                                if(first_time)
+                                {
+                                    print_msg(MSG_INFO, "\nWriting LJ92 compressed frames...\n");
+                                    first_time = 0;
+                                }
+                                print_msg(MSG_INFO, "  saving: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%% ratio)\n", frame_size, frame_buffer_size, ((float)frame_buffer_size * 100.0f) / (float)frame_size);
+                            }
                         }
 
-                        if(frame_buffer_size != (uint32_t)frame_size && !verbose)
-                        {
-                            print_msg(MSG_INFO, "  saving: "FMT_SIZE" -> "FMT_SIZE"  (%2.2f%% ratio)\n", frame_size, frame_buffer_size, ((float)frame_buffer_size * 100.0f) / (float)frame_size);
-                        }
-
-                        /* now finally write the DNG file */
+                        /* save DNG frame */
                         if(dng_output)
                         {
-                            extern struct raw_info raw_info;
-
-                            raw_info.frame_size = frame_buffer_size;
-                            raw_info.buffer = frame_buffer;
-                            
                             int frame_filename_len = strlen(output_filename) + 32;
                             char *frame_filename = malloc(frame_filename_len);
                             snprintf(frame_filename, frame_filename_len, "%s%06d.dng", output_filename, block_hdr.frameNumber);
-
                             lua_handle_hdr_data(lua_state, mlv_block->blockType, "_data_write_dng", &block_hdr, sizeof(block_hdr), frame_buffer, frame_buffer_size);
+                            frame_info.dng_filename = frame_filename;
 
-                            /* set MLV metadata into DNG tags */
-                            dng_set_framerate_rational(main_header.sourceFpsNom, main_header.sourceFpsDenom);
-                            dng_set_shutter(expo_info.shutterValue, 1000000);
-                            dng_set_aperture(lens_info.aperture, 100);
-                            dng_set_camname((char*)unique_camname);
-                            dng_set_description((char*)info_string);
-                            dng_set_lensmodel((char*)lens_info.lensName);
-                            dng_set_focal(lens_info.focalLength, 1);
-                            dng_set_iso(expo_info.isoValue);
-
-                            //dng_set_wbgain(1024, wbal_info.wbgain_r, 1024, wbal_info.wbgain_g, 1024, wbal_info.wbgain_b);
-
-                            /* calculate the time this frame was taken at, i.e., the start time + the current timestamp. this can be off by a second but it's better than nothing */
-                            int ms = 0.5 + mlv_block->timestamp / 1000.0;
-                            int sec = ms / 1000;
-                            ms %= 1000;
-                            // FIXME: the struct tm doesn't have tm_gmtoff on Linux so the result might be wrong?
-                            struct tm tm;
-                            tm.tm_sec = rtci_info.tm_sec + sec;
-                            tm.tm_min = rtci_info.tm_min;
-                            tm.tm_hour = rtci_info.tm_hour;
-                            tm.tm_mday = rtci_info.tm_mday;
-                            tm.tm_mon = rtci_info.tm_mon;
-                            tm.tm_year = rtci_info.tm_year;
-                            tm.tm_wday = rtci_info.tm_wday;
-                            tm.tm_yday = rtci_info.tm_yday;
-                            tm.tm_isdst = rtci_info.tm_isdst;
-
-                            if(mktime(&tm) != -1)
-                            {
-                                char datetime_str[32];
-                                char subsec_str[8];
-                                strftime(datetime_str, 20, "%Y:%m:%d %H:%M:%S", &tm);
-                                snprintf(subsec_str, sizeof(subsec_str), "%03d", ms);
-                                dng_set_datetime(datetime_str, subsec_str);
-                            }
-                            else
-                            {
-                                // soemthing went wrong. let's proceed anyway
-                                print_msg(MSG_ERROR, "VIDF: [W] Failed calculating the DateTime from the timestamp\n");
-                                dng_set_datetime("", "");
-                            }
-
-
-                            uint64_t serial = 0;
-                            char *end;
-                            serial = strtoull((char *)idnt_info.cameraSerial, &end, 16);
-                            if (serial && !*end)
-                            {
-                                char serial_str[64];
-
-                                sprintf(serial_str, "%"PRIu64, serial);
-                                dng_set_camserial((char*)serial_str);
-                            }
-
-                            /* finally save the DNG */
-                            if(!save_dng(frame_filename, &raw_info))
+                            dng_init_header(&frame_info, &dng_data);
+                            
+                            if(!dng_save(&frame_info, &dng_data))
                             {
                                 print_msg(MSG_ERROR, "VIDF: Failed writing into .DNG file\n");
                                 if(relaxed)
@@ -3866,15 +3784,12 @@ read_headers:
                     print_msg(MSG_INFO, "     Camera Model:  0x%08X\n", idnt_info.cameraModel);
                 }
 
-                unique_camname = get_camera_name_by_id(idnt_info.cameraModel, UNIQ);
-                if(!unique_camname)
-                {
-                    unique_camname = (const char*) idnt_info.cameraName;
-                }
             }
             else if(!memcmp(mlv_block->blockType, "RTCI", 4))
             {
                 rtci_info = *(mlv_rtci_hdr_t *)mlv_block;
+
+
 
                 if(verbose)
                 {
@@ -3986,77 +3901,10 @@ read_headers:
                 {
                     /* correct header size if needed */
                     block_hdr.blockSize = sizeof(mlv_rawi_hdr_t);
+                    block_hdr.raw_info.bits_per_pixel = lv_rec_footer.raw_info.bits_per_pixel;
 
-                    int old_depth = lv_rec_footer.raw_info.bits_per_pixel;
-                    int new_depth = bit_depth;
-
-                    /* scale down black level */
-                    if(new_depth)
-                    {
-                        block_hdr.raw_info.bits_per_pixel = new_depth;
-                        int delta = old_depth - new_depth;
-                        int old_black = block_hdr.raw_info.black_level;
-                        int old_white = block_hdr.raw_info.white_level;
-                        
-                        /* scale down black level */
-                        if(!black_fix)
-                        {
-                            if(delta)
-                            {
-                                
-                                if(delta > 0)
-                                {
-                                    block_hdr.raw_info.black_level >>= delta;
-                                }
-                                else
-                                {
-                                    block_hdr.raw_info.black_level <<= ABS(delta);
-                                }
-
-                                if(verbose)
-                                {
-                                    print_msg(MSG_INFO, "   black: %d -> %d\n", old_black, block_hdr.raw_info.black_level);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            block_hdr.raw_info.black_level = black_fix;
-                            if(verbose)
-                            {
-                                print_msg(MSG_INFO, "   black: %d -> %d (forced)\n", old_black, block_hdr.raw_info.black_level);
-                            }
-                        }
-                        
-                        /* scale down white level */
-                        if(!white_fix)
-                        {
-                            if(delta)
-                            {
-                                if(delta > 0)
-                                {
-                                    block_hdr.raw_info.white_level >>= delta;
-                                }
-                                else
-                                {
-                                    block_hdr.raw_info.white_level <<= ABS(delta);
-                                }
-
-                                if(verbose)
-                                {
-                                    print_msg(MSG_INFO, "   white: %d -> %d\n", old_white, block_hdr.raw_info.white_level);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            block_hdr.raw_info.white_level = white_fix;
-                            if(verbose)
-                            {
-                                print_msg(MSG_INFO, "   white: %d -> %d (forced)\n", old_white, block_hdr.raw_info.white_level);
-                            }
-                        }
-                    }
+                    /* patch raw info if black and/or white fix specified or bit depth changed */
+                    fix_black_white_level(&block_hdr.raw_info.black_level, &block_hdr.raw_info.white_level, &block_hdr.raw_info.bits_per_pixel, bit_depth, black_fix, white_fix, verbose);
 
                     if(fwrite(&block_hdr, block_hdr.blockSize, 1, out_file) != 1)
                     {
@@ -4095,56 +3943,74 @@ read_headers:
                 {
                     size_t name_len = strlen(output_filename) + 5;  // + .wav\0
                     char* wav_file_name = malloc(name_len);
-                    /* NOTE, assumes little endian system, fix for big endian */
-                    uint32_t tmp_uint32;
-                    uint16_t tmp_uint16;
-
                     strncpy(wav_file_name, output_filename, name_len);
-                    strncat(wav_file_name, ".wav", name_len);
+                    char *uline = strrchr(wav_file_name, '_');
+                    if(uline)
+                    {
+                        *uline = '\000';
+                    }
+                    strcat(wav_file_name, ".wav");
                     out_file_wav = fopen(wav_file_name, "wb");
                     free(wav_file_name);
+                    
                     if(!out_file_wav)
                     {
                         print_msg(MSG_ERROR, "Failed writing into audio output file\n");
                         goto abort;
                     }
 
-                    int error = 1;
+                    /************************* Initialize wav_header struct *************************/
+                    struct wav_header wav_hdr =
+                    {
+                        .RIFF = "RIFF",
+                        .file_size = 0x504D4554, // for now it's "TEMP", should be (uint32_t)(wav_data_size + wav_header_size - 8), gonna be patched later
+                        .WAVE = "WAVE",
+                        .bext_id = "bext",
+                        .bext_size = sizeof(struct wav_bext),
+                        .bext.time_reference = 0, // (uint64_t)(rtci_info->tm_hour * 3600 + rtci_info->tm_min * 60 + rtci_info->tm_sec) * (uint64_t)wavi_info->samplingRate,
+                        .iXML_id = "iXML",
+                        .iXML_size = 1024,
+                        .fmt = "fmt\x20",
+                        .subchunk1_size = 16,
+                        .audio_format = 1,
+                        .num_channels = wavi_info.channels,
+                        .sample_rate = wavi_info.samplingRate,
+                        .byte_rate = wavi_info.bytesPerSecond,
+                        .block_align = 4,
+                        .bits_per_sample = wavi_info.bitsPerSample,
+                        .data = "data",
+                        .subchunk2_size = 0x504D4554, // for now it's "TEMP", should be (uint32_t)(wav_data_size), gonna be patched later
+                    };
+
+                    char temp[33];
+                    snprintf(temp, sizeof(temp), "%s", idnt_info.cameraName);
+                    memcpy(wav_hdr.bext.originator, temp, 32);
+                    snprintf(temp, sizeof(temp), "JPCAN%04d%.8s%02d%02d%02d%09d", idnt_info.cameraModel, idnt_info.cameraSerial , rtci_info.tm_hour, rtci_info.tm_min, rtci_info.tm_sec, rand());
+                    memcpy(wav_hdr.bext.originator_reference, temp, 32);
+                    snprintf(temp, sizeof(temp), "%04d:%02d:%02d", 1900 + rtci_info.tm_year, rtci_info.tm_mon, rtci_info.tm_mday);
+                    memcpy(wav_hdr.bext.origination_date, temp, 10);
+                    snprintf(temp, sizeof(temp), "%02d:%02d:%02d", rtci_info.tm_hour, rtci_info.tm_min, rtci_info.tm_sec);
+                    memcpy(wav_hdr.bext.origination_time, temp, 8);
                     
-                    /* Write header */
-                    error &= fwrite("RIFF", 4, 1, out_file_wav);
-                    tmp_uint32 = 36; // Two headers combined size, will be patched later
-                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
-                    error &= fwrite("WAVE", 4, 1, out_file_wav);
+                    char * project = "Magic Lantern";
+                    char * notes = "";
+                    char * keywords = "";
+                    int tape = 1, scene = 1, shot = 1, take = 1;
+                    int fps_denom = main_header.sourceFpsDenom;
+                    int fps_nom = main_header.sourceFpsNom;
+                    snprintf(wav_hdr.iXML, wav_hdr.iXML_size, iXML, project, notes, keywords, tape, scene, shot, take, fps_nom, fps_denom, fps_nom, fps_denom, fps_nom, fps_denom);
+                    /********************************************************************************/
 
-                    error &= fwrite("fmt ", 4, 1, out_file_wav);
-                    tmp_uint32 = 16; // Header size
-                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
-                    tmp_uint16 = wavi_info.format; // PCM
-                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
-                    tmp_uint16 = wavi_info.channels; // Stereo
-                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
-                    tmp_uint32 = wavi_info.samplingRate; // Sample rate
-                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
-                    tmp_uint32 = wavi_info.bytesPerSecond; // Byte rate (16-bit data, stereo)
-                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
-                    tmp_uint16 = wavi_info.blockAlign; // Block align
-                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
-                    tmp_uint16 = wavi_info.bitsPerSample; // Bits per sample
-                    error &= fwrite(&tmp_uint16, 2, 1, out_file_wav);
-
-                    error &= fwrite("data", 4, 1, out_file_wav);
-                    tmp_uint32 = 0; // Audio data length, will be patched later
-                    error &= fwrite(&tmp_uint32, 4, 1, out_file_wav);
-
-                    wav_file_size = 0;
-                    wav_header_size = file_get_pos(out_file_wav);
-                    
-                    if(error != 1)
+                    /* write WAV header */
+                    if((fwrite(&wav_hdr, sizeof(struct wav_header), 1, out_file_wav)) != 1)
                     {
                         print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
                         goto abort;
                     }
+
+                    /* init WAV data size, will be grow later block by block (AUDF) */
+                    wav_data_size = 0;
+                    wav_header_size = file_get_pos(out_file_wav); /* same as sizeof(struct wav_header) */
                 }
             }
             else if(!memcmp(mlv_block->blockType, "NULL", 4))
@@ -4394,15 +4260,15 @@ abort:
     if(out_file_wav)
     {
         /* Patch the WAV size fields */
-        uint32_t tmp_uint32 = wav_file_size + 36; /* + header size */
+        uint32_t tmp_uint32 = wav_data_size + wav_header_size - 8; /* minus 8 = RIFF + (file size field 4 bytes) */
         file_set_pos(out_file_wav, 4, SEEK_SET);
         if(fwrite(&tmp_uint32, 4, 1, out_file_wav) != 1)
         {
             print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
         }
 
-        tmp_uint32 = wav_file_size; /* data size */
-        file_set_pos(out_file_wav, 40, SEEK_SET);
+        tmp_uint32 = wav_data_size; /* data size */
+        file_set_pos(out_file_wav, 1686, SEEK_SET);
         if(fwrite(&tmp_uint32, 4, 1, out_file_wav) != 1)
         {
             print_msg(MSG_ERROR, "Failed writing into .WAV file\n");
@@ -4410,6 +4276,11 @@ abort:
         fclose(out_file_wav);
     }
 
+    if(dng_output)
+    {
+        dng_free_data(&dng_data);
+    }
+    
     /* passing NULL to free is absolutely legal, so no check required */
     free(lut_filename);
     free(subtract_filename);
