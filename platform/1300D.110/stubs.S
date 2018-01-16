@@ -89,12 +89,13 @@ NSTUB(0xFE108CC8,  SoundDevShutDownIn)                      /* present on 7D.203
 NSTUB(0xFE106228,  StopASIFDMAADC)                          /* present on 7D.203, 6D.113, EOSM.202 */
 
 /** Audio **/
- NSTUB(    0x1EA8,  sounddev)                                // in sounddev_task
+NSTUB(    0x31604,  sounddev)                                // in sounddev_task
+// TODO: Not found direct write it looks like its some kind of serial connection now
  NSTUB(0xFF069FF8, _audio_ic_read)
  NSTUB(0xFF06A144, _audio_ic_write) // posible sub_FE2B3A18
- NSTUB(  0x8c32cc,  audio_thresholds)                        // find "ALV_Initialize", then pointer to "AudioLevel", thresholds are following array of 41 values
- NSTUB(0xFF057BE0,  sounddev_active_in)                      // "SoundDevActiveIn"
- NSTUB(0xFF057774,  sounddev_task)                           // "[SND] _SoundDeviceTask"
+NSTUB(0xFE8C32CC,  audio_thresholds)                        // find "ALV_Initialize", then pointer to "AudioLevel", thresholds are following array of 41 values
+NSTUB(0xFE108A70,  sounddev_active_in)                      // "SoundDevActiveIn"
+NSTUB(0xFE108660,  sounddev_task)                           // "[SND] _SoundDeviceTask"
 // NSTUB(    ???, _audio_ic_write_bulk)                     /* present on 6D.116 */
 
 /** Bitmap **/
@@ -208,11 +209,11 @@ NSTUB(0xFE129078,  CancelTimer)
 NSTUB(0xFE128FA8,  SetTimerAfter)
 
 /** H264 Encoder **/
- NSTUB(    0x6290,  mvr_config)
- NSTUB(0xFF1C9A74,  mvrFixQScale)
- NSTUB(0xFF1C9550,  mvrSetDefQScale)
- NSTUB(0xFF1C9588,  mvrSetFullHDOptSize)
- NSTUB(0xFF1C9778,  mvrSetGopOptSizeFULLHD)
+NSTUB(   0x38AC8,  mvr_config)
+NSTUB(0xFE281D2C,  mvrFixQScale)
+NSTUB(0xFE2817F0,  mvrSetDefQScale)
+NSTUB(0xFE281838,  mvrSetFullHDOptSize)
+NSTUB(0xFE281A1C,  mvrSetGopOptSizeFULLHD)
 
 /** Interrupts **/
 // NSTUB(    ???,  isr_table_handler)                       /* present on 7D_MASTER.203 */

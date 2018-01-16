@@ -1,7 +1,6 @@
 #include "all_features.h"
 /* Can't Be Implemented */
 
-//#define CONFIG_HELLO_WORLD
 #define FEATURE_DIGITAL_ZOOM_SHORTCUT
 #define FEATURE_LV_3RD_PARTY_FLASH
 #define FEATURE_EYEFI_TRICKS
@@ -20,4 +19,4 @@
 #undef FEATURE_SHOW_IMAGE_BUFFERS_INFO
 #undef FEATURE_SHOW_EDMAC_INFO
 
-#undef CONFIG_TSKMON
+//#undef CONFIG_TSKMON

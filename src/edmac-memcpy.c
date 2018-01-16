@@ -51,7 +51,7 @@ uint32_t edmac_read_chan = 0x19;
 uint32_t edmac_write_chan = 0x04;
 #elif defined(CONFIG_1300D)
 uint32_t edmac_read_chan = 0x19;
-uint32_t edmac_write_chan = 0x06;
+uint32_t edmac_write_chan = 0x04;
 #else
 #error Please find some free EDMAC channels for your camera.
 #endif
