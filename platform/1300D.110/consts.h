@@ -42,10 +42,10 @@
 
 //#define ARMLIB_OVERFLOWING_BUFFER 0x167FC // in AJ_armlib_setup_related3 // this is deactivated in config for this camera, maybe we need to activate it again
 
-#define DRYOS_ASSERT_HANDLER 0x35888 // dec TH_assert or assert_0
+#define DRYOS_ASSERT_HANDLER 0x35888 // dec TH_assert or assert_0 // not sure
 
 // these were found in ROM, but not tested yet
-#define MVR_992_STRUCT (*(void**)0x3E8) // look in MVR_Initialize for AllocateMemory call
+#define MVR_992_STRUCT (*(void**)0x315E0) // look in MVR_Initialize for AllocateMemory call
 
 #define div_maybe(a,b) ((a)/(b))
 
@@ -65,8 +65,8 @@
 #define MOV_GOP_OPT_STEP 5
 
  #define AUDIO_MONITORING_HEADPHONES_CONNECTED (!((*(int*)0xc0220070) & 1))
- #define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0x1a8c // this prop_deliver performs the action for Video Connect and Video Disconnect
- #define HOTPLUG_VIDEO_OUT_STATUS_ADDR 0x1ac4 // passed as 2nd arg to prop_deliver; 1 = display connected, 0 = not, other values disable this event (trick)
+//#define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0x1a8c // this prop_deliver performs the action for Video Connect and Video Disconnect  // not present on 1300D (see FE0C69C8: taskHotPlug)
+//#define HOTPLUG_VIDEO_OUT_STATUS_ADDR 0x1ac4 // passed as 2nd arg to prop_deliver; 1 = display connected, 0 = not, other values disable this event (trick)  // not present on 1300D (see FE0C69C8: taskHotPlug)
 
 
 // 720x480, changes when external monitor is connected
@@ -105,7 +105,7 @@
 
 
 #define LV_BOTTOM_BAR_DISPLAYED (((*(int8_t*)0x3830C) == 0xF) || ((*(int8_t*)0x3FE14) != 0x17))
- #define LV_BOTTOM_BAR_STATE (*(uint8_t*)0x7DF7) // in JudgeBottomInfoDispTimerState, if bottom bar state is 2, Judge returns 0; ML will make it 0 to hide bottom bar
+#define LV_BOTTOM_BAR_STATE (*(uint8_t*)0x3AA80) // in JudgeBottomInfoDispTimerState, if bottom bar state is 2, Judge returns 0; ML will make it 0 to hide bottom bar
 #define ISO_ADJUSTMENT_ACTIVE ((*(int*)0x3830C) == 0xF)
 #define SHOOTING_MODE (*(int*)0x3592C)
 #define UNAVI_FEEDBACK_TIMER_ACTIVE (MEM(0x3FE14) != 0x17) // dec CancelUnaviFeedBackTimer
@@ -120,15 +120,15 @@
  #define AE_VALUE (*(int8_t*)(0x3AA80 + 0x1D))
 
 #define CURRENT_GUI_MODE (*(int*)0x36560) // GUIMode_maybe
- #define GUIMODE_WB 5
- #define GUIMODE_FOCUS_MODE 9
- #define GUIMODE_DRIVE_MODE 8
- #define GUIMODE_PICTURE_STYLE 4
- #define GUIMODE_PLAY 1
- #define GUIMODE_MENU 2
- #define GUIMODE_Q_UNAVI 0x1F
- #define GUIMODE_FLASH_AE 0x22
- #define GUIMODE_PICQ 6
+#define GUIMODE_WB 5
+#define GUIMODE_FOCUS_MODE 9
+#define GUIMODE_DRIVE_MODE 8
+#define GUIMODE_PICTURE_STYLE 4
+#define GUIMODE_PLAY 1
+#define GUIMODE_MENU 2
+#define GUIMODE_Q_UNAVI 0x1F
+#define GUIMODE_FLASH_AE 0x22
+#define GUIMODE_PICQ 6
  #define GUIMODE_MOVIE_ENSURE_A_LENS_IS_ATTACHED (CURRENT_GUI_MODE == 0x1e)
  #define GUIMODE_MOVIE_PRESS_LV_TO_RESUME (CURRENT_GUI_MODE == 0x1f)
 //~ #define GUIMODE_MOVIE_ENSURE_A_LENS_IS_ATTACHED 0 // not good
