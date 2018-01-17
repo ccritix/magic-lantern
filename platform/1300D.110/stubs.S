@@ -73,6 +73,7 @@ NSTUB(0xFE151808,  gui_massive_event_loop)                  // GUI_Control_Post
 // NSTUB(    ???,  Gui_SetSoundRecord)                      /* present on 6D.113, 5D2.212 */
 
 /** ASIF **/
+// TODO:
  NSTUB(0xFF06A93C,  PowerAudioOutput)
 NSTUB(0xFE11B938,  SetAudioVolumeOut)
 NSTUB(0xFE106A98,  SetNextASIFADCBuffer)
@@ -109,6 +110,7 @@ NSTUB(0xFE71C4D0,  SetCFnData)
 // NSTUB(    ???,  GUI_SetCFnForTab4)                       /* present on 7D.203 */
 
 /** Camera interface? **/
+// TODO:
  NSTUB(0xC0220000,  camera_engine)
 
 /** DMA **/
@@ -280,10 +282,10 @@ NSTUB(    0x3358,  give_semaphore)
 NSTUB(    0x3270,  take_semaphore)
 
 /** Task info **/
- NSTUB(    0x3328,  task_max)
+NSTUB(    0x136,  task_max)
 NSTUB(0xFE2C2ED0,  is_taskid_valid)                         // AJ_task_trampoline_related_p10
 NSTUB(   0x31170,  current_task)
- NSTUB(     0x674,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
+NSTUB(     0x640,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
 
 /** Task sleep **/
 NSTUB(    0x3780,  msleep)                                  // called from EV_GETDONE_CACHE param 0x64
