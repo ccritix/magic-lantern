@@ -9,7 +9,7 @@
 #define FEATURE_MLU
 #define FEATURE_MLU_HANDHELD
 
-//~ #define FEATURE_MLU_HANDHELD_DEBUG
+#define FEATURE_MLU_HANDHELD_DEBUG
 //~ #define FEATURE_MLU_DIRECT_PRINT_SHORTCUT // for 5Dc
 
 #define FEATURE_FLASH_TWEAKS
@@ -26,8 +26,7 @@
 //~ #define CONFIG_VXWORKS
 
 /** This camera has a DIGIC V chip */
-// did not find LiveViewShutterApp_handler yet
-// #define CONFIG_DIGIC_V
+//#define CONFIG_DIGIC_V
 
 /** This camera has an APS-C sensor */
 //~ #define CONFIG_FULLFRAME
@@ -64,7 +63,7 @@
 //~ #define CONFIG_VARIANGLE_DISPLAY
 
 /** Battery does not report exact percentage **/
-//~ #define CONFIG_BATTERY_INFO
+#define CONFIG_BATTERY_INFO
 
 /** We can do bulb exposures **/
 #define CONFIG_BULB
@@ -98,7 +97,7 @@
 //~ #define CONFIG_EXPSIM
 
 /** We can playback sounds via ASIF DMA **/
-//~ #define CONFIG_BEEP
+#define CONFIG_BEEP
 
 /** This camera has trouble saving Kelvin and/or WBShift in movie mode, so ML has to do this instead **/
 #define CONFIG_WB_WORKAROUND
@@ -160,5 +159,3 @@
 #define CONFIG_LVAPP_HACK_RELOC
 
 //#undef CONFIG_CRASH_LOG
-
-#define CONFIG_HAS_PRINT_SERIAL
