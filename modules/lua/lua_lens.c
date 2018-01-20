@@ -54,7 +54,18 @@ static int luaCB_lens_index(lua_State * L)
     /// Get the current auto focus mode (may be model-specific, see PROP\_AF\_MODE in property.h).
     // @tfield int af_mode readonly
     else if(!strcmp(key, "af_mode")) lua_pushinteger(L, af_mode);
-    /// Use to manually set the len's aperture value for non-chipped lenses (for metadata purposes)
+    /// Get whether the lens is currently autofocusing.
+    ///
+    /// This does not include manual lens movements from lens.focus or ML follow focus - 
+    /// only movements from Canon autofocus triggered by half-shutter / AF-ON / * button.
+    /// It is updated several ms (sometimes hundreds of ms) after the half-shutter event.
+    ///
+    /// On cameras with continuous autofocus, the return value is unknown - please report.
+    ///
+    /// Known not to work on EOS M.
+    // @tfield bool autofocusing readonly
+    else if(!strcmp(key, "autofocusing")) lua_pushboolean(L, lv_focus_status == 3);
+    /// Use to manually set the lens aperture value for non-chipped lenses (for metadata purposes)
     // @tfield bool manual_aperture
     else if(!strcmp(key, "manual_aperture")) lua_pushnumber(L, lens_info.aperture / 10.0);
     /// Get if the lens chipped

@@ -407,45 +407,6 @@ static void playback_set_wheel_action(int dir)
 }
 #endif
 
-int is_pure_play_photo_mode() // no other dialogs active (such as delete)
-{
-    if (!PLAY_MODE) return 0;
-#ifdef CONFIG_5DC
-    return 1;
-#else
-    extern thunk PlayMain_handler;
-    return (intptr_t)get_current_dialog_handler() == (intptr_t)&PlayMain_handler;
-#endif
-}
-
-int is_pure_play_movie_mode() // no other dialogs active (such as delete)
-{
-    if (!PLAY_MODE) return 0;
-#ifdef CONFIG_VXWORKS
-    return 0;
-#else
-    extern thunk PlayMovieGuideApp_handler;
-    return (intptr_t)get_current_dialog_handler() == (intptr_t)&PlayMovieGuideApp_handler;
-#endif
-}
-
-int is_pure_play_photo_or_movie_mode() { return is_pure_play_photo_mode() || is_pure_play_movie_mode(); }
-
-int is_play_or_qr_mode()
-{
-    return PLAY_OR_QR_MODE;
-}
-
-int is_play_mode()
-{
-    return PLAY_MODE;
-}
-
-int is_menu_mode()
-{
-    return MENU_MODE;
-}
-
 #ifdef FEATURE_SET_MAINDIAL
 
 static void print_set_maindial_hint(int set)
@@ -2674,12 +2635,15 @@ static void alter_bitmap_palette(int dim_factor, int grayscale, int u_shift, int
 
     if (!bmp_is_on()) return;
 
-    for (int i = 0; i < 256; i++)
+    // 255 is reserved for ClearScreen, don't alter it
+    for (int i = 0; i < 255; i++)
     {
         if (i==0 || i==3 || i==0x14) continue; // don't alter transparent entries
 
-        int orig_palette_entry = LCD_Palette[3*i+0x300 + 2];
-
+        int orig_palette_entry = LCD_Palette[3*i + 2];
+        //~ bmp_printf(FONT_LARGE,0,0,"%x ", orig_palette_entry);
+        //~ msleep(300);
+        //~ continue;
         int8_t opacity = (orig_palette_entry >> 24) & 0xFF;
         uint8_t orig_y = (orig_palette_entry >> 16) & 0xFF;
         int8_t  orig_u = (orig_palette_entry >>  8) & 0xFF;
@@ -2695,24 +2659,9 @@ static void alter_bitmap_palette(int dim_factor, int grayscale, int u_shift, int
             ((u       & 0xFF) <<  8) |
             ((v       & 0xFF));
 
-        if (!DISPLAY_IS_ON)
-            return;
-
-        /* make sure we are actually writing to display registers */
-        /* (check whether LCD_Palette stub is right before writing) */
-        /* FIXME: not valid on DIGIC 6 */
-        if ((LCD_Palette[3*i] & 0xFFFFF000) != 0xC0F14000)
-            return;
-
+        if (!DISPLAY_IS_ON) return;
         EngDrvOut(LCD_Palette[3*i], new_palette_entry);
         EngDrvOut(LCD_Palette[3*i+0x300], new_palette_entry);
-
-        /* record the new palette entry, for our screenshots
-         * there are two copies of the palette; 
-         * our modifications (if any) are saved in the first copy,
-         * and the second copy contains the original (Canon) values.
-         */
-        EngDrvOut(LCD_Palette[3*i+2], new_palette_entry);
     }
 #endif
 }
@@ -3435,7 +3384,7 @@ static struct menu_entry display_menus[] = {
                 .min = 0,
                 #ifdef FEATURE_LV_SATURATION
                 .max = 3,   /* to get raw values, set .max = 0x1000, .unit = UNIT_HEX and comment out .choices */
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 #else
                 .max = 1,   /* the other options require saturation controls available */
                 #endif
@@ -3451,7 +3400,7 @@ static struct menu_entry display_menus[] = {
                 .max = 2,
                 .help = "For LiveView preview only. Does not affect recording.",
                 .update = preview_brightness_display,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .choices = (const char *[]) {"Normal", "High", "Very high"},
                 .depends_on = DEP_LIVEVIEW,
                 .icon_type = IT_PERCENT_OFF,
@@ -3463,7 +3412,7 @@ static struct menu_entry display_menus[] = {
                 .max = 3,
                 .update = preview_contrast_display,
                 .help = "For LiveView preview only. Does not affect recording.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .choices = (const char *[]) {"Zero", "Very low", "Low", "Normal", "High", "Very high", "Auto"},
                 .depends_on = DEP_LIVEVIEW,
                 .icon_type = IT_PERCENT_OFF,
@@ -3483,7 +3432,7 @@ static struct menu_entry display_menus[] = {
                          " \n"
                          " \n"
                          "Boost on WB: increase saturation when you are adjusting WB.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .choices = (const char *[]) {"Grayscale", "Low", "Normal", "High", "Very high", "Boost on WB adjust"},
                 .depends_on = DEP_LIVEVIEW,
                 .icon_type = IT_PERCENT_OFF,
@@ -3511,7 +3460,7 @@ static struct menu_entry display_menus[] = {
                 .icon_type = IT_PERCENT_OFF,
                 .help   = "Makes LiveView usable in complete darkness (photo mode).",
                 .help2  = "Tip: if it gets really dark, also enable FPS override.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .depends_on = DEP_LIVEVIEW | DEP_PHOTO_MODE,
             },
             #endif
@@ -3685,7 +3634,7 @@ static struct menu_entry display_menus[] = {
                 .priv     = &preview_crazy,
                 .min = 0,
                 .max = 2,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .choices = (const char *[]) {"OFF", "Swap U-V", "Extreme Chroma"},
                 .depends_on = DEP_LIVEVIEW,
                 .icon_type = IT_PERCENT_OFF,
@@ -3882,7 +3831,6 @@ static struct menu_entry play_menus[] = {
             .help = "What to do when you press SET and turn the scrollwheel.",
             //.essential = FOR_PHOTO,
             .icon_type = IT_BOOL,
-            //~ .edit_mode = EM_MANY_VALUES,
         },
 };
 #endif

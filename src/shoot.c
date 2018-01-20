@@ -2819,8 +2819,12 @@ bulb_take_pic(int duration)
     if (ml_taking_pic) return 1;
     ml_taking_pic = 1;
 
+    printf("[BULB] taking picture @ %s %d.%d\" %s\n",
+        lens_format_iso(lens_info.raw_iso),
+        duration / 1000, (duration / 100) % 10,
+        lens_format_aperture(lens_info.raw_aperture)
+    );
 
-    //~ NotifyBox(2000,  "Bulb: %d ", duration); msleep(2000);
     duration = MAX(duration, BULB_MIN_EXPOSURE) + BULB_EXPOSURE_CORRECTION;
     int s0r = lens_info.raw_shutter; // save settings (for restoring them back)
     int m0r = shooting_mode;
@@ -3809,7 +3813,6 @@ MENU_PLACEHOLDER("Post Deflicker"),
                 .select     = flash_ae_toggle,
                 .help = "Flash exposure compensation, from -10EV to +3EV.",
                 .icon_type = IT_PERCENT_OFF,
-                .edit_mode = EM_MANY_VALUES,
                 .depends_on = DEP_PHOTO_MODE,
             },
             #ifdef FEATURE_FLASH_NOFLASH
@@ -4020,7 +4023,7 @@ static struct menu_entry expo_menus[] = {
         .select     = kelvin_toggle,
         .help  = "Adjust Kelvin white balance and GM/BA WBShift.",
         .help2 = "Advanced: WBShift, RGB multipliers, Push-button WB...",
-        .edit_mode = EM_MANY_VALUES_LV,
+        .edit_mode = EM_SHOW_LIVEVIEW,
         .submenu_width = 700,
         .children =  (struct menu_entry[]) {
             {
@@ -4028,7 +4031,7 @@ static struct menu_entry expo_menus[] = {
                 .update    = kelvin_display,
                 .select     = kelvin_toggle,
                 .help = "Adjust Kelvin white balance.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             {
                 .name = "WBShift G/M",
@@ -4038,7 +4041,7 @@ static struct menu_entry expo_menus[] = {
                 .max = 9,
                 .icon_type = IT_PERCENT_OFF,
                 .help = "Green-Magenta white balance shift, for fluorescent lights.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             {
                 .name = "WBShift B/A",
@@ -4048,7 +4051,7 @@ static struct menu_entry expo_menus[] = {
                 .max = 9,
                 .icon_type = IT_PERCENT_OFF,
                 .help = "Blue-Amber WBShift; 1 unit = 5 mireks on Kelvin axis.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             {
                 .name = "R multiplier",
@@ -4057,7 +4060,7 @@ static struct menu_entry expo_menus[] = {
                 .select = wb_custom_gain_toggle,
                 .icon_type = IT_PERCENT,
                 .help = "RED channel multiplier, for custom white balance.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             {
                 .name = "G multiplier",
@@ -4066,7 +4069,7 @@ static struct menu_entry expo_menus[] = {
                 .select = wb_custom_gain_toggle,
                 .icon_type = IT_PERCENT,
                 .help = "GREEN channel multiplier, for custom white balance.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             {
                 .name = "B multiplier",
@@ -4075,7 +4078,7 @@ static struct menu_entry expo_menus[] = {
                 .select = wb_custom_gain_toggle,
                 .icon_type = IT_PERCENT,
                 .help = "BLUE channel multiplier, for custom white balance.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             /*{
                 .name = "Auto adjust Kelvin",
@@ -4105,7 +4108,7 @@ static struct menu_entry expo_menus[] = {
         .select     = iso_toggle,
         .help  = "Adjust and fine-tune ISO. Also displays APEX Sv value.",
         .help2 = "Advanced: digital ISO tweaks, HTP, ISO 50, ISO 800.000...",
-        .edit_mode = EM_MANY_VALUES_LV,
+        .edit_mode = EM_SHOW_LIVEVIEW,
         
         .submenu_width = 650,
 
@@ -4116,7 +4119,7 @@ static struct menu_entry expo_menus[] = {
                 .priv = &lens_info.iso_equiv_raw,
                 .unit = UNIT_ISO,
                 .select     = iso_toggle,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .update = iso_icon_update,
             },
             {
@@ -4125,7 +4128,7 @@ static struct menu_entry expo_menus[] = {
                 .priv = &lens_info.iso_analog_raw,
                 .unit = UNIT_ISO,
                 .select     = analog_iso_toggle,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .depends_on = DEP_MANUAL_ISO,
                 .update = iso_icon_update,
             },
@@ -4135,7 +4138,7 @@ static struct menu_entry expo_menus[] = {
                 .priv = &lens_info.iso_digital_ev,
                 .unit = UNIT_1_8_EV,
                 .select     = digital_iso_toggle,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .depends_on = DEP_MANUAL_ISO,
                 .icon_type = IT_DICE_OFF,
             },
@@ -4145,7 +4148,7 @@ static struct menu_entry expo_menus[] = {
                 .update = digic_iso_print_movie,
                 .select = digic_iso_toggle_movie,
                 .help = "ISO tweaks. Negative gain has better highlight roll-off.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .depends_on = DEP_MOVIE_MODE | DEP_MANUAL_ISO,
                 .icon_type = IT_DICE_OFF,
             },
@@ -4170,7 +4173,7 @@ static struct menu_entry expo_menus[] = {
                 .max = 120,
                 .unit = UNIT_ISO,
                 .help = "Minimum value for Auto ISO in movie mode.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             {
                 .name = "Max Movie AutoISO",
@@ -4179,7 +4182,7 @@ static struct menu_entry expo_menus[] = {
                 .max = 120,
                 .unit = UNIT_ISO,
                 .help = "Maximum value for Auto ISO in movie mode.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             {
                 .name = "A-ISO smoothness",
@@ -4187,7 +4190,7 @@ static struct menu_entry expo_menus[] = {
                 .min = 3,
                 .max = 30,
                 .help = "Speed for movie Auto ISO. Low values = smooth transitions.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             #endif
             MENU_EOL
@@ -4201,7 +4204,7 @@ static struct menu_entry expo_menus[] = {
         .select     = shutter_toggle,
         .icon_type  = IT_PERCENT,
         .help = "Fine-tune shutter value. Displays APEX Tv or degrees equiv.",
-        .edit_mode = EM_MANY_VALUES_LV,
+        .edit_mode = EM_SHOW_LIVEVIEW,
     },
     #endif
     #ifdef FEATURE_EXPO_APERTURE
@@ -4212,7 +4215,7 @@ static struct menu_entry expo_menus[] = {
         .icon_type  = IT_PERCENT,
         .help = "Adjust aperture. Also displays APEX aperture (Av) in stops.",
         .depends_on = DEP_CHIPPED_LENS,
-        .edit_mode = EM_MANY_VALUES_LV,
+        .edit_mode = EM_SHOW_LIVEVIEW,
     },
     #endif
     #ifdef FEATURE_PICSTYLE
@@ -4222,7 +4225,7 @@ static struct menu_entry expo_menus[] = {
         .select     = picstyle_toggle,
         .priv = &lens_info.picstyle,
         .help = "Change current picture style.",
-        .edit_mode = EM_MANY_VALUES_LV,
+        .edit_mode = EM_SHOW_LIVEVIEW,
         .icon_type = IT_DICE,
         .choices = (const char *[]) {
                 #if NUM_PICSTYLES == 10 // 600D, 5D3...
@@ -4250,7 +4253,7 @@ static struct menu_entry expo_menus[] = {
                 .select     = picstyle_toggle,
                 .help = "Change current picture style.",
                 //~ .show_liveview = 1,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .icon_type = IT_DICE,
             },
             {
@@ -4258,28 +4261,28 @@ static struct menu_entry expo_menus[] = {
                 .update     = sharpness_display,
                 .select     = sharpness_toggle,
                 .help = "Adjust sharpness in current picture style.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             {
                 .name = "Contrast",
                 .update     = contrast_display,
                 .select     = contrast_toggle,
                 .help = "Adjust contrast in current picture style.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             {
                 .name = "Saturation",
                 .update     = saturation_display,
                 .select     = saturation_toggle,
                 .help = "Adjust saturation in current picture style.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
             {
                 .name = "Color Tone",
                 .update     = color_tone_display,
                 .select     = color_tone_toggle,
                 .help = "Adjust color tone in current picture style.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
             },
     #ifdef FEATURE_REC_PICSTYLE
             {
@@ -4796,28 +4799,36 @@ static void hdr_check_for_under_or_over_exposure(int* under, int* over)
     ensure_play_or_qr_mode_after_shot();
 
     int under_numpix, over_numpix;
-    int total_numpix = get_under_and_over_exposure(20, 235, &under_numpix, &over_numpix);
-    int po = over_numpix * 10000 / total_numpix;
-    int pu = under_numpix * 10000 / total_numpix;
+    int total_numpix = get_under_and_over_exposure(50, 235, &under_numpix, &over_numpix);
+    int po = (uint64_t) over_numpix * 100000ull / total_numpix;
+    int pu = (uint64_t) under_numpix * 100000ull / total_numpix;
     if (over_numpix  > 0) po = MAX(po, 1);
     if (under_numpix > 0) pu = MAX(pu, 1);
-    *over  = po >  15; // 0.15 % highlight ignore
-    *under = pu > 250; // 2.50 % shadow ignore
+    *over  = po >    20; // 0.02% highlight ignore
+    *under = pu > 10000; // 10% shadow ignore
+
+    printf("[ABRK] over:%3d.%02d%% %s 0.02%% under:%3d.%02d%% %s 10%%\n",
+        po/1000, (po/10)%100, 0, *over ? ">" : "<", 0,
+        pu/1000, (pu/10)%100, 0, *under ? ">" : "<", 0
+    );
+
     bmp_printf(
         FONT_LARGE, 50, 50, 
-        "Under:%3d.%02d%%\n"
-        "Over :%3d.%02d%%", 
-        pu/100, pu%100, 0, 
-        po/100, po%100, 0
+        "Over :%3d.%02d%%\n"
+        "Under:%3d.%02d%%",
+        po/1000, (po/10)%100, 0,
+        pu/1000, (pu/10)%100, 0 
     ); 
+
     msleep(500);
 }
 
 static int hdr_shutter_release_then_check_for_under_or_over_exposure(int ev_x8, int* under, int* over)
 {
-    int ans = hdr_shutter_release(ev_x8);
+    int ok = hdr_shutter_release(ev_x8);
     hdr_check_for_under_or_over_exposure(under, over);
-    return ans;
+    if (!ok) printf("[ABRK] exposure limits reached.\n");
+    return ok;
 }
 
 static void hdr_auto_take_pics(int step_size, int skip0)
@@ -5106,55 +5117,6 @@ void schedule_movie_start() { movie_start_flag = 1; }
 
 static int movie_end_flag = 0;
 void schedule_movie_end() { movie_end_flag = 1; }
-
-/* exit from PLAY or QR modes (to LiveView or plain photo mode) */
-void exit_play_qr_mode()
-{
-    /* not there? */
-    if (!PLAY_OR_QR_MODE) return;
-
-    /* request new mode */
-    SetGUIRequestMode(0);
-    
-    /* wait up to 2 seconds */
-    for (int i = 0; i < 20 && PLAY_MODE; i++)
-    {
-        msleep(100);
-    }
-    
-    /* wait a little extra for the new mode to settle */
-    msleep(200);
-    
-    /* if in LiveView, wait for the first frame */
-    if (lv)
-    {
-        wait_lv_frames(1);
-    }
-}
-
-/* enter PLAY mode */
-void enter_play_mode()
-{
-    if (PLAY_MODE) return;
-    
-    /* request new mode */
-    SetGUIRequestMode(GUIMODE_PLAY);
-
-    /* wait up to 2 seconds to enter the PLAY mode */
-    for (int i = 0; i < 20 && !PLAY_MODE; i++)
-    {
-        msleep(100);
-    }
-
-    /* also wait for display to come up, up to 1 second */
-    for (int i = 0; i < 10 && !DISPLAY_IS_ON; i++)
-    {
-        msleep(100);
-    }
-    
-    /* wait a little extra for the new mode to settle */
-    msleep(500);
-}
 
 // take one shot, a sequence of HDR shots, or start a movie
 // to be called by remote triggers

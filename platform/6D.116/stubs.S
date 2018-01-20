@@ -145,7 +145,7 @@ NSTUB(0xFF53A39C,  ShootOlcApp_handler)                     // AJ_DIALOG.HANDLER
 // NSTUB(    ???,  ReverseDisplay)                          /* present on 60D.111, 600D.102, 650D.104, 550D.109, 1100D.105, 700D.113 */
 
 /** EDMAC **/
-NSTUB(0xFFCF7BBC - RAM_OFFSET,  AbortEDmac)
+NSTUB(0xFFD06210 - RAM_OFFSET,  AbortEDmac)
 NSTUB(0xFFD05D64 - RAM_OFFSET,  ConnectReadEDmac)
 NSTUB(0xFFD05CA0 - RAM_OFFSET,  ConnectWriteEDmac)
 NSTUB(0xFFD06344 - RAM_OFFSET,  RegisterEDmacAbortCBR)
@@ -290,7 +290,7 @@ NSTUB(     0x64C,  current_interrupt)                       // in interrupt hand
 NSTUB(0xFFCDB170 - RAM_OFFSET,  msleep)
 
 /** Tasks **/
-NSTUB(   0x74B1C,  task_dispatch_hook)
+NSTUB(   0x74C3C,  task_dispatch_hook)                      /* from task_trampoline -> last sub -> if (arg0 == CURRENT_TASK) call_new_task_dispatch_hook() */
 NSTUB(0xFFCDB224 - RAM_OFFSET,  task_create)
 NSTUB(0xFFCE0548 - RAM_OFFSET,  task_trampoline)
 // NSTUB(    ???,  current_task_ctx)                        /* present on 7D.203 */
