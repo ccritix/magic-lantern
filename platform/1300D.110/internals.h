@@ -6,16 +6,6 @@
 /** The 1300D port is very early, so I think we should not enable properties. **/
 #undef CONFIG_PROP_REQUEST_CHANGE
 
-#define FEATURE_MLU
-#define FEATURE_MLU_HANDHELD
-
-#define FEATURE_MLU_HANDHELD_DEBUG
-//~ #define FEATURE_MLU_DIRECT_PRINT_SHORTCUT // for 5Dc
-
-#define FEATURE_FLASH_TWEAKS
-#define FEATURE_FLASH_NOFLASH
-
-
 /** 
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 
  * They might slow down Canon code, so here you can disable all of them (useful for debugging or early ports) 
@@ -25,8 +15,8 @@
 /** This camera runs DryOS **/
 //~ #define CONFIG_VXWORKS
 
-/** This camera has a DIGIC V chip */
-//#define CONFIG_DIGIC_V
+/** This camera has a DIGIC IV chip */
+//#define CONFIG_DIGIC_IV
 
 /** This camera has an APS-C sensor */
 //~ #define CONFIG_FULLFRAME
@@ -36,7 +26,7 @@
 #define CONFIG_MOVIE
 
 /** This camera has a 4:3 screen, 720x480 **/
-// #define CONFIG_4_3_SCREEN
+#define CONFIG_4_3_SCREEN
 
 /** We only have a single red LED **/
 //~ #define CONFIG_BLUE_LED
@@ -44,10 +34,11 @@
 /** There is no LCD sensor that turns the display off **/
 //~ #define CONFIG_LCD_SENSOR
 
-/** This camera does have a mirror lockup feature **/
-#define CONFIG_MLU
+/** This camera does not have a mirror lockup feature **/
+//~ #define CONFIG_MLU
 
 /** This camera reports focus info in LiveView **/
+/* to be checked */
 #define CONFIG_LV_FOCUS_INFO
 
 /** No level sensor **/
@@ -63,7 +54,7 @@
 //~ #define CONFIG_VARIANGLE_DISPLAY
 
 /** Battery does not report exact percentage **/
-#define CONFIG_BATTERY_INFO
+//~ #define CONFIG_BATTERY_INFO
 
 /** We can do bulb exposures **/
 #define CONFIG_BULB
@@ -75,6 +66,7 @@
 //~ #define CONFIG_AUDIO_CONTROLS
 
 /** Zoom button can be used while recording (for Magic Zoom) **/
+/* to be checked */
 //~ #define CONFIG_ZOOM_BTN_NOT_WORKING_WHILE_RECORDING
 
 /** We can redirect the display buffer to some arbitrary address, just by changing YUV422_LV_BUFFER_DISPLAY_ADDR **/
@@ -93,13 +85,15 @@
 /** We can also override shutter on a per-frame basis */
 #define CONFIG_FRAME_SHUTTER_OVERRIDE
 
-/** We can't change ExpSim from ML :( **/
-//~ #define CONFIG_EXPSIM
+/** We can change ExpSim from ML **/
+/* to be checked */
+#define CONFIG_EXPSIM
 
 /** We can playback sounds via ASIF DMA **/
 #define CONFIG_BEEP
 
 /** This camera has trouble saving Kelvin and/or WBShift in movie mode, so ML has to do this instead **/
+/* to be checked */
 #define CONFIG_WB_WORKAROUND
 
 /** We can restore ML files after formatting the card in the camera **/
@@ -108,11 +102,11 @@
 /** We can use DMA_MEMCPY but it has no real benefit **/
 //~ #define CONFIG_DMA_MEMCPY
 
-/** We don't know how to use edmac_memcpy. This one is really fast (600MB/s!) */
+/** We know how to use edmac_memcpy. This one is really fast (600MB/s!) */
 #define CONFIG_EDMAC_MEMCPY
 
-/** We shouldn't warn the user if movie exposure is Auto **/
-//~ #define CONFIG_MOVIE_AE_WARNING
+/** We should warn the user if movie exposure is Auto **/
+#define CONFIG_MOVIE_AE_WARNING
 
 /** We can display some extra info in photo mode (not LiveView) **/
 #define CONFIG_PHOTO_MODE_INFO_DISPLAY
@@ -132,14 +126,10 @@
 //~ #define CONFIG_FPS_TIMER_A_ONLY
 
 /** FPS override: Canon changes FPS registers often; we need to undo their changes asap */
-#define CONFIG_FPS_AGGRESSIVE_UPDATE
+//~ #define CONFIG_FPS_AGGRESSIVE_UPDATE
 
 /** This camera has a mono microphone input, so we should display only one audio meter **/
 #define CONFIG_MONO_MIC
-
-#define CONFIG_GPS
-
-#define CONFIG_LOW_RESOLUTION_DISPLAY
 
 /** This camera uses the exposure comp button to open ML menu */
 #define CONFIG_MENU_WITH_AV
@@ -150,12 +140,11 @@
 
 
 /** Hide Canon bottom bar from DebugMsg hook */
-// #define CONFIG_LVAPP_HACK_DEBUGMSG
+//~ #define CONFIG_LVAPP_HACK_DEBUGMSG
 
 /** Workaround for menu timeout in LiveView */
-#define CONFIG_MENU_TIMEOUT_FIX
+//~ #define CONFIG_MENU_TIMEOUT_FIX
 
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
-#define CONFIG_LVAPP_HACK_RELOC
-
-//#undef CONFIG_CRASH_LOG
+/** FIXME: long calls during relocation **/
+//~ #define CONFIG_LVAPP_HACK_RELOC
