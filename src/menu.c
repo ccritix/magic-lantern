@@ -22,6 +22,7 @@
  */
 
 #include "dryos.h"
+#include "math.h"
 #include "version.h"
 #include "bmp.h"
 #include "gui.h"
@@ -326,13 +327,6 @@ static int is_customize_selected(struct menu * menu) // argument is optional, ju
             .jhidden = 1, \
         },
 
-static MENU_UPDATE_FUNC(menu_placeholder_unused_update)
-{
-    info->custom_drawing = CUSTOM_DRAW_THIS_ENTRY; // do not draw it at all
-    if (entry->selected && !junkie_mode)
-        bmp_printf(FONT(FONT_LARGE, 45, COLOR_BLACK), 250, info->y, "(empty)");
-}
-
 static struct menu_entry my_menu_placeholders[] = {
     MY_MENU_ENTRY
     MY_MENU_ENTRY
@@ -452,8 +446,36 @@ struct menu * menu_get_root() {
   return menus;
 }
 
+// 1-2-5 series - https://en.wikipedia.org/wiki/Preferred_number#1-2-5_series
+static int round_to_125(int val)
+{
+    if (val < 0)
+    {
+        return -round_to_125(-val);
+    }
+    
+    int mag = 1;
+    while (val >= 30)
+    {
+        val /= 10;
+        mag *= 10;
+    }
+    
+    if (val <= 2)
+        {}
+    else if (val <= 3)
+        val = 2;
+    else if (val <= 7)
+        val = 5;
+    else if (val <= 14)
+        val = 10;
+    else
+        val = 20;
+    
+    return val * mag;
+}
+
 // ISO 3 R10": 10, 12, 15, 20, 25, 30, 40, 50, 60, 80, 100
-/*
 static int round_to_R10(int val)
 {
     if (val < 0)
@@ -484,7 +506,7 @@ static int round_to_R10(int val)
         val = 30;
     
     return val * mag;
-}*/
+}
 
 // ISO 3 R20": 10, 11, 12, 14, 15, 18, 20, 22, 25, 28, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100
 static int round_to_R20(int val)
@@ -533,7 +555,13 @@ static int round_to_R20(int val)
     return val * mag;
 }
 
-static void menu_numeric_toggle_R20(int* val, int delta, int min, int max)
+static int round_to_pow2(int val)
+{
+    int stops = (int)roundf(log2f(val));
+    return (int)roundf(powf(2, stops));
+}
+
+static void menu_numeric_toggle_rounded(int* val, int delta, int min, int max, int (*round_func)(int))
 {
     ASSERT(IS_ML_PTR(val));
 
@@ -545,19 +573,39 @@ static void menu_numeric_toggle_R20(int* val, int delta, int min, int max)
         v = max;
     else
     {
-        int v0 = round_to_R20(v);
+        int v0 = round_func(v);
         if (v0 != v && SGN(v0 - v) == SGN(delta)) // did we round in the correct direction? if so, stop here
         {
             *val = v0;
             return;
         }
         // slow, but works (fast enough for numbers like 5000)
-        while (v0 == round_to_R20(v))
+        while (v0 == round_func(v))
             v += delta;
-        v = COERCE(round_to_R20(v), min, max);
+        v = COERCE(round_func(v), min, max);
     }
     
     set_config_var_ptr(val, v);
+}
+
+static void menu_numeric_toggle_R10(int* val, int delta, int min, int max)
+{
+    return menu_numeric_toggle_rounded(val, delta, min, max, round_to_R10);
+}
+
+static void menu_numeric_toggle_R20(int* val, int delta, int min, int max)
+{
+    return menu_numeric_toggle_rounded(val, delta, min, max, round_to_R20);
+}
+
+static void menu_numeric_toggle_125(int* val, int delta, int min, int max)
+{
+    return menu_numeric_toggle_rounded(val, delta, min, max, round_to_125);
+}
+
+static void menu_numeric_toggle_pow2(int* val, int delta, int min, int max)
+{
+    return menu_numeric_toggle_rounded(val, delta, min, max, round_to_pow2);
 }
 
 static void menu_numeric_toggle_long_range(int* val, int delta, int min, int max)
@@ -594,30 +642,46 @@ static void menu_numeric_toggle_long_range(int* val, int delta, int min, int max
 }
 
 /* for editing with caret */
-static int get_delta(struct menu_entry * entry, int sign)
+static int get_caret_delta(struct menu_entry * entry, int sign)
 {
     if(!EDIT_OR_TRANSPARENT)
-        return sign;
-    else if(entry->unit == UNIT_DEC)
-        return sign * powi(10, caret_position);
-    else if(entry->unit == UNIT_HEX)
-        return sign * powi(16, caret_position);
-    else if(entry->unit == UNIT_TIME)
     {
-        if(caret_position == 2) return sign * 10;
-        else if(caret_position == 4) return sign * 60;
-        else if(caret_position == 5) return sign * 600;
-        else if(caret_position == 7) return sign * 3600;
-        else if(caret_position == 8) return sign * 36000;
+        return sign;
     }
-    return sign;
+
+    switch (entry->unit)
+    {
+        case UNIT_DEC:
+        case UNIT_TIME_MS:
+        case UNIT_TIME_US:
+        {
+            return sign * powi(10, caret_position);
+        }
+
+        case UNIT_HEX:
+        {
+            return sign * powi(16, caret_position);
+        }
+
+        case UNIT_TIME:
+        {
+            const int increments[] = { 0, 1, 10, 0, 60, 600, 0, 3600, 36000 };
+            return sign * increments[caret_position];
+        }
+
+        default:
+        {
+            return sign;
+        }
+    }
 }
 
 static int uses_caret_editing(struct menu_entry * entry)
 {
     return 
         entry->select == 0 &&   /* caret editing requires its own toggle logic */
-        (entry->unit == UNIT_DEC || entry->unit == UNIT_HEX  || entry->unit == UNIT_TIME);  /* only these caret edit modes are supported */
+        (entry->unit == UNIT_DEC || entry->unit == UNIT_HEX  || entry->unit == UNIT_TIME ||
+         entry->unit == UNIT_TIME_MS || entry->unit == UNIT_TIME_US);  /* only these caret edit modes are supported */
 }
 
 static int editing_with_caret(struct menu_entry * entry)
@@ -627,9 +691,9 @@ static int editing_with_caret(struct menu_entry * entry)
 
 static void caret_move(struct menu_entry * entry, int delta)
 {
-    int max = (entry->unit == UNIT_HEX)  ? log2i(MAX(ABS(entry->max),ABS(entry->min)))/4 :
-              (entry->unit == UNIT_DEC)  ? log10i(MAX(ABS(entry->max),ABS(entry->min))/2)  :
-              (entry->unit == UNIT_TIME) ? 7 : 0;
+    int max = (entry->unit == UNIT_TIME) ? 7 :
+              (entry->unit == UNIT_HEX)  ? log2i(MAX(ABS(entry->max),ABS(entry->min)))/4
+                                         : log10i(MAX(ABS(entry->max),ABS(entry->min))/2) ;
 
     menu_numeric_toggle(&caret_position, delta, 0, max);
 
@@ -662,24 +726,44 @@ void menu_numeric_toggle_time(int * val, int delta, int min, int max)
     set_config_var_ptr(val, new_val);
 }
 
-static void menu_numeric_toggle_fast(int* val, int delta, int min, int max, int is_time, int ignore_timing)
+static void menu_numeric_toggle_fast(int* val, int delta, int min, int max, int unit, int edit_mode, int ignore_timing)
 {
     ASSERT(IS_ML_PTR(val));
     
     static int prev_t = 0;
     static int prev_delta = 1000;
     int t = get_ms_clock_value();
-    
-    if(is_time)
+
+    if (unit == UNIT_TIME)
     {
         menu_numeric_toggle_time(val, delta, min, max);
+    }
+    else if (edit_mode & EM_ROUND_ISO_R10)
+    {
+        menu_numeric_toggle_R10(val, delta, min, max);
+    }
+    else if (edit_mode & EM_ROUND_ISO_R20)
+    {
+        menu_numeric_toggle_R20(val, delta, min, max);
+    }
+    else if (edit_mode & EM_ROUND_1_2_5_10)
+    {
+        menu_numeric_toggle_125(val, delta, min, max);
+    }
+    else if (edit_mode & EM_ROUND_POWER_OF_2)
+    {
+        menu_numeric_toggle_pow2(val, delta, min, max);
     }
     else if (max - min > 20)
     {
         if (t - prev_t < 200 && prev_delta < 200 && !ignore_timing)
+        {
             menu_numeric_toggle_R20(val, delta, min, max);
+        }
         else
+        {
             menu_numeric_toggle_long_range(val, delta, min, max);
+        }
     }
     else
     {
@@ -2469,8 +2553,25 @@ entry_default_display_info(
                     {
                         STR_APPEND(value,"%ds", MEM(entry->priv));
                     }
+                    break;                    
+                }
+                case UNIT_TIME_MS:
+                case UNIT_TIME_US:
+                {
+                    if(edit_mode)
+                    {
+                        char* zero_pad = "00000000";
+                        STR_APPEND(value, "%s%d", (zero_pad + COERCE(8-(caret_position - log10i(MEM(entry->priv))),0,8)), MEM(entry->priv));
+                    }
+                    else
+                    {
+                        if (entry->unit == UNIT_TIME_MS) {
+                            STR_APPEND(value, "%d ms", MEM(entry->priv));
+                        } else {
+                            STR_APPEND(value, "%d " SYM_MICRO "s", MEM(entry->priv));
+                        }
+                    }
                     break;
-                    
                 }
                 default:
                 {
@@ -3087,11 +3188,11 @@ dyn_menu_rebuild(struct menu * dyn_menu, int (*select_func)(struct menu_entry * 
         dyn_entry->shidden = 1;
         dyn_entry->hidden = 1;
         dyn_entry->jhidden = 1;
-        dyn_entry->name = 0;
+        dyn_entry->name = "(empty)";
         dyn_entry->priv = 0;
         dyn_entry->select = 0;
         dyn_entry->select_Q = 0;
-        dyn_entry->update = menu_placeholder_unused_update;
+        dyn_entry->update = 0;
     }
     
     return 1; // success
@@ -3755,7 +3856,8 @@ show_hidden_items(struct menu * menu, int force_clear)
 
         for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
         {
-            if (HAS_HIDDEN_FLAG(entry) && entry->name)
+            /* fixme: check without streq */
+            if (HAS_HIDDEN_FLAG(entry) && !streq(entry->name, "(empty)"))
             {
                 if (hidden_count) { STR_APPEND(hidden_msg, ", "); }
                 int len = strlen(hidden_msg);
@@ -4235,9 +4337,9 @@ void menu_entry_select(
             /* .priv is a variable? in edit mode, increment according to caret_position, otherwise use exponential R20 toggle */
             /* exception: hex fields are never fast-toggled */
             if (editing_with_caret(entry) || (entry->unit == UNIT_HEX))
-                menu_numeric_toggle(entry->priv, get_delta(entry,-1), entry->min, entry->max);
+                menu_numeric_toggle(entry->priv, get_caret_delta(entry,-1), entry->min, entry->max);
             else
-                menu_numeric_toggle_fast(entry->priv, -1, entry->min, entry->max, entry->unit == UNIT_TIME, 0);
+                menu_numeric_toggle_fast(entry->priv, -1, entry->min, entry->max, entry->unit, entry->edit_mode, 0);
         }
         entry_used = 1;
     }
@@ -4289,12 +4391,23 @@ void menu_entry_select(
                 edit_mode = 0;
                 submenu_level = MAX(submenu_level - 1, 0);
             }
-            else if (edit_mode) edit_mode = 0;
-            else if (menu_lv_transparent_mode && entry->icon_type != IT_ACTION) menu_lv_transparent_mode = 0;
-            else if (entry->edit_mode == EM_MANY_VALUES) edit_mode = !edit_mode;
-            else if (entry->edit_mode == EM_MANY_VALUES_LV && lv) menu_lv_transparent_mode = !menu_lv_transparent_mode;
-            else if (entry->edit_mode == EM_MANY_VALUES_LV && !lv) edit_mode = !edit_mode;
-            else if (SHOULD_USE_EDIT_MODE(entry)) edit_mode = !edit_mode;
+            else if (edit_mode)
+            {
+                edit_mode = 0;
+            }
+            else if (menu_lv_transparent_mode && entry->icon_type != IT_ACTION)
+            {
+                menu_lv_transparent_mode = 0;
+            }
+            else if (entry->edit_mode & EM_SHOW_LIVEVIEW)
+            {
+                if (lv) menu_lv_transparent_mode = !menu_lv_transparent_mode;
+                else edit_mode = !edit_mode;
+            }
+            else if (SHOULD_USE_EDIT_MODE(entry))
+            {
+                edit_mode = !edit_mode;
+            }
             else if (entry->select)
             {
                 entry->select( entry->priv, 1);
@@ -4302,7 +4415,7 @@ void menu_entry_select(
             }
             else if IS_ML_PTR(entry->priv)
             {
-                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit == UNIT_TIME, 0);
+                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit, entry->edit_mode, 0);
                 entry_used = 1;
             }
         }
@@ -4316,9 +4429,9 @@ void menu_entry_select(
         else if (IS_ML_PTR(entry->priv))
         {
             if (editing_with_caret(entry) || (entry->unit == UNIT_HEX))
-                menu_numeric_toggle(entry->priv, get_delta(entry,1), entry->min, entry->max);
+                menu_numeric_toggle(entry->priv, get_caret_delta(entry,1), entry->min, entry->max);
             else
-                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit == UNIT_TIME, 0);
+                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit, entry->edit_mode, 0);
         }
 
         entry_used = 1;
@@ -5613,7 +5726,8 @@ void select_menu_recursive(struct menu * selected_menu, const char * entry_name)
                 }
 
                 /* select parent menu entry, if any */
-                if (selected_entry->parent)
+                /* (don't do this in dynamic menus) */
+                if (selected_entry->parent && menu != mod_menu && menu != my_menu)
                 {
                     selected_entry = selected_entry->parent;
                     select_menu_recursive(selected_entry->parent_menu, selected_entry->name);
@@ -5645,7 +5759,12 @@ void select_menu_by_name(char* name, const char* entry_name)
     {
         submenu_level = 0;
         select_menu_recursive(selected_menu, entry_name);
+
+        /* make sure it won't display the startup screen */
         beta_set_warned();
+
+        /* rebuild the modified settings menu */
+        mod_menu_dirty = 1;
     }
 
     give_semaphore(menu_sem);
@@ -6347,7 +6466,7 @@ int menu_set_str_value_from_script(const char* name, const char* entry_name, cha
             if (entry->max - entry->min > 1000)
             {
                 /* for very long min-max ranges, don't try every single value */
-                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit == UNIT_TIME, 1);
+                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit, entry->edit_mode, 1);
             }
             else
             {
@@ -6460,36 +6579,6 @@ MENU_UPDATE_FUNC(menu_advanced_update)
     MENU_SET_ICON(IT_ACTION, 0);
     MENU_SET_HELP(advanced_mode ? "Back to 'beginner' mode." : "Advanced options for experts. Use with care.");
 }
-
-#ifdef CONFIG_QEMU
-void qemu_menu_screenshots()
-{
-    /* hack to bypass ML checks */
-    CURRENT_GUI_MODE = 1;
-    
-    /* hack to avoid picture style warning */
-    lens_info.picstyle = 1;
-    
-    /* get a screenshot of the initial "welcome" screen, then hide it */
-    menu_redraw_do();
-    call("dispcheck");
-    beta_set_warned();
-    
-    while(1)
-    {
-        /* get a screenshot of the current menu */
-        menu_redraw_do();
-        call("dispcheck");
-        
-        /* cycle through menus, until the first menu gets selected again */
-        menu_move(get_selected_toplevel_menu(), 1);
-        if (menus->selected)
-            break;
-    }
-    call("shutdown");
-    while(1);
-}
-#endif
 
 /* run something in new task, with powersave disabled
  * (usually, such actions are short-lived tasks

@@ -49,6 +49,7 @@
 #include "fio-ml.h"
 #include "imath.h"
 #include "notify_box.h"
+#include "qemu-util.h"
 
 extern float roundf(float x);
 extern float powf(float x, float y);
@@ -146,7 +147,11 @@ void ml_assert_handler(char* msg, char* file, int line, const char* func);
 
 int rand (void);
 
+#if !defined(CONFIG_7D_MASTER)
 #define ASSERT(x) { if (!(x)) { ml_assert_handler(#x, __FILE__, __LINE__, __func__); }}
+#else
+#define ASSERT(x) do{}while(0)
+#endif
 //~ #define ASSERT(x) {}
 
 #define STR_APPEND(orig,fmt,...) do { int _len = strlen(orig); snprintf(orig + _len, sizeof(orig) - _len, fmt, ## __VA_ARGS__); } while(0)

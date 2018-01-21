@@ -39,10 +39,29 @@ lenses =
 --  { name = "Zeiss Makro-Planar T* 2/100 ZF.2",     focal_length = 100, manual_aperture = 2   },
 --  { name = "Zeiss Apo Sonnar T* 2/135 ZF.2",       focal_length = 135, manual_aperture = 2   },
 
---  Nikon lenses
---  { name = "Nikon Zoom Ais ED 50-300",             focal_length = 300, manual_aperture = 4.5 },
---  { name = "Nikon AF NIKKOR 28mm f/1.4D",          focal_length =  28, manual_aperture = 1.4 },
+--  Nikon AF lenses (Autofocus and Vibration Reduction won't work and exact aperture can't be set on G mount lenses)
 
+--  { name = "Nikon AF Fisheye-NIKKOR 16mm f/2.8D",  focal_length =  16, manual_aperture = 2.8 },
+--  { name = "Nikon AF NIKKOR 20mm f/2.8D",          focal_length =  20, manual_aperture = 2.8 },
+--  { name = "Nikon AF NIKKOR 28mm f/1.4D",          focal_length =  28, manual_aperture = 1.4 },
+--  { name = "Nikon AF NIKKOR 35mm f/2D",            focal_length =  35, manual_aperture = 2   },
+--  { name = "Nikon AF NIKKOR 50mm f/1.4D",          focal_length =  50, manual_aperture = 1.4 },
+--  { name = "Nikon AFS-NIKKOR 50mm f/1.8G",         focal_length =  50, manual_aperture = 1.8 },
+--  { name = "Nikon AF Micro-NIKKOR 60mm f/2.8D",    focal_length =  60, manual_aperture = 2.8 },
+--  { name = "Nikon AF NIKKOR 85mm f/1.4D IF",       focal_length =  85, manual_aperture = 1.4 },
+--  { name = "Nikon AF DC-NIKKOR 105mm f/2D",        focal_length = 105, manual_aperture = 2   },
+--  { name = "Nikon AF DC-NIKKOR 135mm f/2D",        focal_length = 135, manual_aperture = 2   },
+--  { name = "Nikon AF NIKKOR 28-105 f3.5-4.5D",     focal_length =  28, manual_aperture = 3.5 },
+
+--  Nikon Manual focus lenses
+
+--  { name = "Nikon Zoom Ais ED 50-300",             focal_length = 300, manual_aperture = 4.5 },
+--  { name = "Nikon Ais NIKKOR 24mm f/2.8",          focal_length =  24, manual_aperture = 2.8 },
+--  { name = "Nikon Ais NIKKOR 35mm f/1.4",          focal_length =  35, manual_aperture = 1.4 },
+--  { name = "Nikon Ais NIKKOR 55mm f/1.2",          focal_length =  55, manual_aperture = 1.2 },
+--  { name = "Nikon Ais MICRO NIKKOR 55mm f/2.8",    focal_length =  55, manual_aperture = 2.8 },
+--  { name = "Nikon Ais NIKKOR 105mm f/1.8",         focal_length = 105, manual_aperture = 1.8 },
+--  { name = "Nikon Ais NIKKOR 500mm f/8",           focal_length = 500, manual_aperture = 8   },
 
 --  Samyang manual lenses - also branded as Rokinon and Bower. Cine versions use the same lens profile.
 --  The lens profiles for Samyang manual lenses that ship with Adobe Camera raw must be modified in order
@@ -86,7 +105,16 @@ lenses =
 --  { name = "Lensbaby Velvet 56",                   focal_length =  56, manual_aperture = 1.6 },
 --  { name = "Lensbaby Velvet 85",                   focal_length =  85, manual_aperture = 1.8 },
 --  { name = "Lensbaby Creative Aperture",           focal_length =  50, manual_aperture = 2   },
+--  { name = "Lensbaby Sweet 80",                    focal_length =  80, manual_aperture = 2.8 },
+--  { name = "Lensbaby Creative Bokeh",              focal_length =  50, manual_aperture = 2.5 },
 
+--  Anamorphic Lenses
+
+--  { name = "Iscorama Anamorphic 50 f/2.8mm ",      focal_length =  50, manual_aperture = 2.8 },
+
+--  Miscellaneous lenses
+
+--  { name = "Kiron Macro 100mm f/2.8",              focal_length = 105, manual_aperture = 2.8 },
 }
 
 -- f-number values. Mostly 1/2 Stop

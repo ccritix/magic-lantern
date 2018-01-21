@@ -79,25 +79,15 @@ draw_prop_reset( void * priv )
 }
 #endif
 
-#if defined(CONFIG_7D) // pel: Checked. That's how it works in the 7D firmware
-void _card_led_on()  //See sub_FF32B410 -> sub_FF0800A4
+void _card_led_on()
 {
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x800c00;
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x138000;
+    *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDON);
 }
-void _card_led_off()  //See sub_FF32B424 -> sub_FF0800B8
+
+void _card_led_off()
 {
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x800c00;
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x38400;
+    *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDOFF);
 }
-//TODO: Check if this is correct, because reboot.c said 0x838C00
-#elif defined(CARD_LED_ADDRESS) && defined(LEDON) && defined(LEDOFF)
-void _card_led_on()  { *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDON); }
-void _card_led_off() { *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDOFF); }
-#else
-void _card_led_on()  { return; }
-void _card_led_off() { return; }
-#endif
 
 void info_led_on()
 {
@@ -1765,10 +1755,6 @@ int handle_tricky_canon_calls(struct event * event)
 // engio functions may fail and lock the camera
 void EngDrvOut(uint32_t reg, uint32_t value)
 {
-    #ifdef CONFIG_QEMU
-    if (!reg) return;   /* fixme: LCD palette not initialized */
-    #endif
-
     if (ml_shutdown_requested) return;
     if (!(MEM(0xC0400008) & 0x2)) return; // this routine requires LCLK enabled
     _EngDrvOut(reg, value);
