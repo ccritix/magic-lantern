@@ -93,9 +93,6 @@ zero_bss( void )
 /* Cannot use qprintf here for debugging (no snprintf). */
 /* You may use qprint/qprintn instead. */
 #define qprintf qprintf_not_available
-/* Cannot use qprintf here for debugging (no snprintf). */
-/* You may use qprint/qprintn instead. */
-#define qprintf qprintf_not_available
 
 /** Copy firmware to RAM, patch it and restart it */
 void
@@ -212,8 +209,7 @@ copy_and_restart( )
 
 /* qprintf should be fine from now on */
 #undef qprintf
-/* qprintf should be fine from now on */
-#undef qprintf
+
 static int _hold_your_horses = 1; // 0 after config is read
 int ml_started = 0; // 1 after ML is fully loaded
 int ml_gui_initialized = 0; // 1 after gui_main_task is started 
@@ -632,9 +628,6 @@ init_task_func init_task_patched(int a, int b, int c, int d)
     uint32_t* addr_BL_AllocMem_init = (void*)(CreateTaskMain_reloc_buf + ROM_ALLOCMEM_INIT + CreateTaskMain_offset);
     uint32_t* addr_B_CreateTaskMain = (void*)(init_task_reloc_buf + ROM_B_CREATETASK_MAIN + init_task_offset);
 
-    qprint("[BOOT] changing AllocMem_end:\n");
-    qdisas((uint32_t)addr_AllocMem_end);
-
     qprint("[BOOT] changing AllocMem limits:\n");
     qdisas((uint32_t)addr_AllocMem_end);
     qdisas((uint32_t)addr_AllocMem_end + 4);
@@ -719,13 +712,15 @@ my_init_task(int a, int b, int c, int d)
     }
 
 #ifdef HIJACK_CACHE_HACK
+
+#if !defined(CONFIG_EARLY_PORT) && !defined(CONFIG_HELLO_WORLD) && !defined(CONFIG_DUMPER_BOOTFLAG)
     /* as we do not return in the middle of te init task as in the hijack-through-copy method, we have to install the hook here */
     qprint("[BOOT] installing task dispatch hook at "); qprintn((int)&task_dispatch_hook); qprint("\n");
     task_dispatch_hook = my_task_dispatch_hook;
     #ifdef CONFIG_TSKMON
     tskmon_init();
     #endif
-    
+#endif
 
 #if defined(RSCMGR_MEMORY_PATCH_END)
     /* another new method for memory allocation, hopefully the last one :) */
@@ -738,6 +733,8 @@ my_init_task(int a, int b, int c, int d)
     
     /* RAM for ML is the difference minus BVRAM that is placed right behind ML */
     ml_reserved_mem = orig_length - new_length - BMP_VRAM_SIZE - 0x200;
+
+    qprintf("[BOOT] reserving memory from RscMgr: %X -> %X.\n", orig_length, new_length);
     
 #else  
     uint32_t orig_instr = MEM(HIJACK_CACHE_HACK_BSS_END_ADDR);
@@ -768,13 +765,19 @@ my_init_task(int a, int b, int c, int d)
         uint32_t new_end = ROR(new_immed_8, 2 * new_rotate_imm);
         
         ml_reserved_mem = orig_end - new_end;
+        qprintf("[BOOT] changing AllocMem end address: %X -> %X.\n", orig_end, new_end);
 
         /* now patch init task and continue execution */
+        qdisas(HIJACK_CACHE_HACK_BSS_END_ADDR);
+        qdisas(HIJACK_CACHE_HACK_BSS_END_ADDR + 4);
         cache_fake(HIJACK_CACHE_HACK_BSS_END_ADDR, new_instr, TYPE_ICACHE);
+        qdisas(HIJACK_CACHE_HACK_BSS_END_ADDR);
+        qdisas(HIJACK_CACHE_HACK_BSS_END_ADDR + 4);
     }
     else
     {
         /* we are not sure if this is a instruction, so patch data cache also */
+        qprintf("[BOOT] reserving memory: %X -> %X.\n", MEM(HIJACK_CACHE_HACK_BSS_END_ADDR), new_instr);
         cache_fake(HIJACK_CACHE_HACK_BSS_END_ADDR, new_instr, TYPE_ICACHE);
         cache_fake(HIJACK_CACHE_HACK_BSS_END_ADDR, new_instr, TYPE_DCACHE);
     }
@@ -792,12 +795,15 @@ my_init_task(int a, int b, int c, int d)
 
     #ifdef ML_RESERVED_MEM // define this if we can't autodetect the reserved memory size
     ml_reserved_mem = ML_RESERVED_MEM;
+    qprintf("[BOOT] using ML_RESERVED_MEM.\n");
     #endif
+
+    qprintf("[BOOT] reserved %d bytes for ML (used %d)\n", ml_reserved_mem, ml_used_mem);
 
     /* ensure binary is not too large */
     if (ml_used_mem > ml_reserved_mem)
     {
-        qprintf("[BOOT] out of memory: ml_used_mem=%d ml_reserved_mem=%d\n", ml_used_mem, ml_reserved_mem);
+        qprintf("[BOOT] out of memory.");
 
         while(1)
         {
@@ -809,6 +815,11 @@ my_init_task(int a, int b, int c, int d)
 
     // memory check OK, call Canon's init_task
     int ans = init_task_func(a,b,c,d);
+
+#ifdef HIJACK_CACHE_HACK
+    /* uninstall cache hacks */
+    cache_unlock();
+#endif
 
 #ifdef ARMLIB_OVERFLOWING_BUFFER
     // Restore the overwritten value.
