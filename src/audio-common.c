@@ -76,7 +76,7 @@ struct gain_struct
 };
 
 static struct gain_struct gain = {
-    .sem                    = (void*) 1,
+    .sem                    = (void*) 0,
 };
 
 static CONFIG_INT( "audio.lovl",       lovl,           0 );
@@ -1026,7 +1026,10 @@ enable_recording(int mode)
             #if defined(CONFIG_600D) || defined(CONFIG_7D)
             audio_configure(1);
             #else
-            give_semaphore( gain.sem );
+            if (gain.sem)
+            {
+                give_semaphore( gain.sem );
+            }
             #endif
             break;
         case 1:
@@ -1041,7 +1044,10 @@ enable_recording(int mode)
 // to be called from some other tasks that may mess with audio 
 static void audio_force_reconfigure() 
 {
-    give_semaphore( gain.sem ); 
+    if (gain.sem)
+    {
+        give_semaphore( gain.sem ); 
+    }
 }
 
 static void
