@@ -254,7 +254,7 @@ NSTUB(    0x9818,  msleep)
 
 /** Tasks **/
 NSTUB(    0x98CC,  task_create)
-NSTUB(   0x7AAD4,  task_dispatch_hook)                      /* DryOS_Hooks needs 7AAD4 */
+NSTUB(   0x7AAD4,  task_dispatch_hook)                      // task_trampoline -> last call -> last non-empty BL -> one indirect call here
 NSTUB(    0xEF60,  task_trampoline)
 
 /** Misc **/
