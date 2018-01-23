@@ -188,10 +188,6 @@ copy_and_restart( )
     * install our own handlers.
     */
 
-#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
-    debug_intercept();
-#endif
-
 #if !defined(CONFIG_EARLY_PORT) && !defined(CONFIG_HELLO_WORLD) && !defined(CONFIG_DUMPER_BOOTFLAG) && !defined(CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK)
     // Install our task creation hooks
     qprint("[BOOT] installing task dispatch hook at "); qprintn((int)&task_dispatch_hook); qprint("\n");
@@ -811,13 +807,12 @@ my_init_task(int a, int b, int c, int d)
         }
     }
 
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+    debug_intercept();
+#endif
+
     // memory check OK, call Canon's init_task
     int ans = init_task_func(a,b,c,d);
-
-#ifdef HIJACK_CACHE_HACK
-    /* uninstall cache hacks */
-    cache_unlock();
-#endif
 
 #ifdef ARMLIB_OVERFLOWING_BUFFER
     // Restore the overwritten value.
