@@ -249,5 +249,3 @@
 
 #define CANON_SHUTTER_RATING 150000
 
-// look for "JudgeBottomInfoDispTimerState(%d)"
-#define JUDGE_BOTTOM_INFO_DISP_TIMER_STATE	0x3334C

@@ -125,5 +125,5 @@
 /** We know how to use engine resource locks */
 #define CONFIG_ENGINE_RESLOCK
 
-/** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
-#define CONFIG_LVAPP_HACK_RELOC
+/** Patch LiveViewApp dialog hander to hide Canon bottom bar */
+#define CONFIG_LVAPP_HACK_PATCH

@@ -1,9 +1,5 @@
 /** \file
- * Replace the DlgLiveViewApp.
- *
- * Attempt to replace the DlgLiveViewApp with our own version.
- * Uses the reloc tools to do this.
- *
+ * Patch the DlgLiveViewApp to hide Canon's bottom bar.
  */
 #include "reloc.h"
 #include "dryos.h"
@@ -11,77 +7,110 @@
 #include "gui.h"
 #include "dialog.h"
 #include "config.h"
+#include "zebra.h"
+#include "lvinfo.h"
+#include "propvalues.h"
+#include "patch.h"
 
-extern thunk LiveViewApp_handler;
-extern thunk LiveViewApp_handler_end;
+#ifdef CONFIG_LVAPP_HACK_PATCH
+
 extern thunk LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState;
+static uint32_t addr = (uint32_t) &LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState;
+static int patched = 0;
 
-#define reloc_start ((uintptr_t)&LiveViewApp_handler)
-#define reloc_end   ((uintptr_t)&LiveViewApp_handler_end)
-#define reloc_len   (reloc_end - reloc_start)
-
-static uintptr_t reloc_buf = 0;
-
-/*
-static inline void
-reloc_branch(
-    uintptr_t       pc,
-    void *          dest
-)
+static void liveviewapp_patch()
 {
-    *(uint32_t*) pc = BL_INSTR( pc, dest );
-}*/
-
-uintptr_t new_LiveViewApp_handler = 0;
-
-static void
-reloc_liveviewapp_init( void *unused )
-{
-    //~ bmp_printf(FONT_LARGE, 50, 50, "reloc_len = %x", reloc_len);
-    //~ msleep(2000);
-    if (!reloc_buf) reloc_buf = (uintptr_t) malloc(reloc_len + 64);
-
-    //~ bmp_printf(FONT_LARGE, 50, 50, "reloc: %x, %x, %x ", reloc_buf, reloc_start, reloc_end );
-    //~ msleep(2000);
-    
-    new_LiveViewApp_handler = reloc(
-        0,      // we have physical memory
-        0,      // with no virtual offset
-        reloc_start,
-        reloc_end,
-        reloc_buf
-    );
-
-    //~ bmp_printf(FONT_LARGE, 50, 50, "new_app = %x", new_LiveViewApp_handler);
-    //~ msleep(2000);
-
-    const uintptr_t offset = new_LiveViewApp_handler - reloc_buf - reloc_start;
-
-    // Skip the call to JudgeBottomInfoDispTimerState
-    // and make it return 0 (i.e. no bottom bar displayed)
-    *(uint32_t*)(reloc_buf + (uintptr_t)&LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState + offset) = MOV_R0_0_INSTR;
-}
-
-void reloc_liveviewapp_install()
-{
-    struct gui_task * current = gui_task_list.current;
-    struct dialog * dialog = current->priv;
-    if (dialog->handler == (dialog_handler_t) &LiveViewApp_handler)
+    if (!patched)
     {
-        dialog->handler = (dialog_handler_t) new_LiveViewApp_handler;
-        //~ beep();
+        int err = patch_instruction(
+            addr,
+            MEM(addr),
+            MOV_R0_0_INSTR,
+            "Overlays: hide Canon bottom bar in LiveView"
+        );
+        if (!err) patched = 1;
     }
 }
 
-void reloc_liveviewapp_uninstall()
+static void liveviewapp_unpatch()
 {
-    struct gui_task * current = gui_task_list.current;
-    struct dialog * dialog = current->priv;
-    if ((uintptr_t) dialog->handler == new_LiveViewApp_handler)
-        dialog->handler = (dialog_handler_t) &LiveViewApp_handler;
+    if (patched)
+    {
+        int err = unpatch_memory(addr);
+        if (!err) patched = 0;
+    }
 }
 
-INIT_FUNC(__FILE__, reloc_liveviewapp_init);
+extern void HideUnaviFeedBack_maybe();  /* Canon stub */
+
+#endif
+
+static int bottom_bar_dirty = 0;
+int is_canon_bottom_bar_dirty() { return bottom_bar_dirty; }
+
+/* note: this receives events other than button codes */
+/* currently it doesn't do anything else, so it's placed here */
+int handle_other_events(struct event * event)
+{
+    extern int ml_started;
+    if (!ml_started) return 1;
+
+#ifdef CONFIG_LVAPP_HACK_PATCH
+
+    int should_hide =               /* hide Canon bottom bar: */
+        lv &&                       /* in LiveView, */
+        lv_disp_mode == 0 &&        /* if Canon overlays are hidden, */
+        lv_dispsize == 1 &&         /* and zoom is x1, */
+        get_global_draw_setting();  /* and ML overlays are enabled. */
+    
+    if (should_hide)
+    {
+        liveviewapp_patch();
+
+        if (get_halfshutter_pressed())
+        {
+            bottom_bar_dirty = 10;
+        }
+
+        #ifdef UNAVI_FEEDBACK_TIMER_ACTIVE
+        /*
+         * Hide Canon's Q menu (aka UNAVI) as soon as the user quits it.
+         * 
+         * By default, this menu remains on screen for a few seconds.
+         * After it disappears, we would have to redraw cropmarks, zebras and so on,
+         * which looks pretty ugly, since our redraw is slow.
+         * Better hide the menu right away, then redraw - it feels a lot less sluggish.
+         */
+        if (UNAVI_FEEDBACK_TIMER_ACTIVE)
+        {
+            HideUnaviFeedBack_maybe();
+            bottom_bar_dirty = 0;
+        }
+        #endif
+    }
+    else
+    {
+        liveviewapp_unpatch();
+        bottom_bar_dirty = 0;
+    }
+
+    unsigned short int lv_refreshing = lv && event->type == 2 && event->param == GMT_LOCAL_DIALOG_REFRESH_LV;
+    if (lv_refreshing)
+    {
+        /* Redraw ML bottom bar if Canon bar was displayed over it */
+        if (!liveview_display_idle()) bottom_bar_dirty = 0;
+        if (bottom_bar_dirty) bottom_bar_dirty--;
+        if (bottom_bar_dirty == 1)
+        {
+            lens_display_set_dirty();
+        }
+    }
+
+#endif
+
+    return 1;
+}
+
 
 // old code from Trammell's 1080i HDMI, good as documentation
 /*

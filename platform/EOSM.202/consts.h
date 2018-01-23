@@ -227,8 +227,6 @@
 //~ max volume supported for beeps
 #define ASIF_MAX_VOL 10
 
-// look for "JudgeBottomInfoDispTimerState(%d)"
-#define JUDGE_BOTTOM_INFO_DISP_TIMER_STATE	0x5D43C
 
 // temperature convertion from raw-temperature to celsius
 // http://www.magiclantern.fm/forum/index.php?topic=9673.msg171969#msg171969
