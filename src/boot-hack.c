@@ -97,9 +97,6 @@ zero_bss( void )
 /* Cannot use qprintf here for debugging (no snprintf). */
 /* You may use qprint/qprintn instead. */
 #define qprintf qprintf_not_available
-/* Cannot use qprintf here for debugging (no snprintf). */
-/* You may use qprint/qprintn instead. */
-#define qprintf qprintf_not_available
 
 /** Copy firmware to RAM, patch it and restart it */
 void
@@ -220,8 +217,7 @@ copy_and_restart( )
 
 /* qprintf should be fine from now on */
 #undef qprintf
-/* qprintf should be fine from now on */
-#undef qprintf
+
 static int _hold_your_horses = 1; // 0 after config is read
 int ml_started = 0; // 1 after ML is fully loaded
 int ml_gui_initialized = 0; // 1 after gui_main_task is started 
@@ -234,43 +230,50 @@ int ml_gui_initialized = 0; // 1 after gui_main_task is started
  */
 static void
 my_task_dispatch_hook(
-        struct context ** context_old,      /* on new DryOS (6D+), this argument is different (small number, unknown meaning) */
+        struct context ** p_context_old,    /* on new DryOS (6D+), this argument is different (small number, unknown meaning) */
         struct task * prev_task_unused,     /* only present on new DryOS */
-        struct task * next_task             /* only present on new DryOS; old versions use HIJACK_TASK_ADDR */
+        struct task * next_task_new         /* only present on new DryOS; old versions use HIJACK_TASK_ADDR */
 )
 {
-#ifdef HIJACK_TASK_ADDR
-    /* old DryOS only; undefine this for new DryOS */
-    next_task = *(struct task **)(HIJACK_TASK_ADDR);
-    qprintf("[****] task_hook(%x) -> %x(%s), from %x\n",
-        context_old,
-        next_task, next_task ? next_task->name : "??",
-        read_lr()
-    );
-#else
+    struct task * next_task = 
+        #ifdef CONFIG_NEW_DRYOS_TASK_HOOKS
+        next_task_new;
+        #else
+        *(struct task **)(HIJACK_TASK_ADDR);
+        #endif
+
+/* very verbose; disabled by default */
+#undef DEBUG_TASK_HOOK
+#ifdef DEBUG_TASK_HOOK
+#ifdef CONFIG_NEW_DRYOS_TASK_HOOKS
     /* new DryOS */
     qprintf("[****] task_hook(%x) %x(%s) -> %x(%s), from %x\n",
-        context_old,
+        p_context_old,
         prev_task_unused, prev_task_unused ? prev_task_unused->name : "??",
         next_task, next_task ? next_task->name : "??",
         read_lr()
     );
-#endif
+#else
+    /* old DryOS */
+    qprintf("[****] task_hook(%x) -> %x(%s), from %x\n",
+        p_context_old,
+        next_task, next_task ? next_task->name : "??",
+        read_lr()
+    );
+#endif  /* CONFIG_NEW_DRYOS_TASK_HOOKS */
+#endif  /* DEBUG_TASK_HOOK */
 
     if (!next_task)
         return;
 
-#ifdef HIJACK_TASK_ADDR
-    /* on old DryOS, context is passed as argument
-     * on some models (not all!), it can be found in the task structure as well */
-    if (!context_old)
-        return;
-
-    struct context * context = (*context_old);
-#else
+#ifdef CONFIG_NEW_DRYOS_TASK_HOOKS
     /* on new DryOS, first argument is not context; get it from the task structure */
     /* this also works for some models with old-style DryOS, but not all */
     struct context * context = next_task->context;
+#else
+    /* on old DryOS, context is passed as argument
+     * on some models (not all!), it can be found in the task structure as well */
+    struct context * context = p_context_old ? (*p_context_old) : 0;
 #endif
 
     if (!context)
@@ -654,7 +657,10 @@ init_task_func init_task_patched(int a, int b, int c, int d)
     /* R1: 0xD3C000 (end address, unchanged) */
     addr_AllocMem_end[1] = MOV_R0_0x4E0000_INSTR;
     ml_reserved_mem = 0x4E0000 - RESTARTSTART;
-    #elif defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_7D)
+    #elif defined(CONFIG_550D) || defined(CONFIG_600D)
+    // change end limit from 0xd00000 to 0xc70000 => reserve 576K for ML
+    *addr_AllocMem_end = MOV_R1_0xC70000_INSTR;
+    #elif defined(CONFIG_60D) || defined(CONFIG_7D)
     // change end limit from 0xd00000 to 0xc60000 => reserve 640K for ML
     *addr_AllocMem_end = MOV_R1_0xC60000_INSTR;
     ml_reserved_mem = 0xD00000 - RESTARTSTART;
@@ -721,12 +727,15 @@ my_init_task(int a, int b, int c, int d)
     }
 
 #ifdef HIJACK_CACHE_HACK
+
+#if !defined(CONFIG_EARLY_PORT) && !defined(CONFIG_HELLO_WORLD) && !defined(CONFIG_DUMPER_BOOTFLAG)
     /* as we do not return in the middle of te init task as in the hijack-through-copy method, we have to install the hook here */
+    qprint("[BOOT] installing task dispatch hook at "); qprintn((int)&task_dispatch_hook); qprint("\n");
     task_dispatch_hook = my_task_dispatch_hook;
     #ifdef CONFIG_TSKMON
     tskmon_init();
     #endif
-    
+#endif
     uint32_t orig_instr = MEM(HIJACK_CACHE_HACK_BSS_END_ADDR);
     uint32_t new_instr = HIJACK_CACHE_HACK_BSS_END_INSTR;  
     /* get and check the reserved memory size for magic lantern to prevent invalid setups to crash camera */
@@ -755,13 +764,19 @@ my_init_task(int a, int b, int c, int d)
         uint32_t new_end = ROR(new_immed_8, 2 * new_rotate_imm);
         
         ml_reserved_mem = orig_end - new_end;
+        qprintf("[BOOT] changing AllocMem end address: %X -> %X.\n", orig_end, new_end);
 
         /* now patch init task and continue execution */
+        qdisas(HIJACK_CACHE_HACK_BSS_END_ADDR);
+        qdisas(HIJACK_CACHE_HACK_BSS_END_ADDR + 4);
         cache_fake(HIJACK_CACHE_HACK_BSS_END_ADDR, new_instr, TYPE_ICACHE);
+        qdisas(HIJACK_CACHE_HACK_BSS_END_ADDR);
+        qdisas(HIJACK_CACHE_HACK_BSS_END_ADDR + 4);
     }
     else
     {
         /* we are not sure if this is a instruction, so patch data cache also */
+        qprintf("[BOOT] reserving memory: %X -> %X.\n", MEM(HIJACK_CACHE_HACK_BSS_END_ADDR), new_instr);
         cache_fake(HIJACK_CACHE_HACK_BSS_END_ADDR, new_instr, TYPE_ICACHE);
         cache_fake(HIJACK_CACHE_HACK_BSS_END_ADDR, new_instr, TYPE_DCACHE);
     }
@@ -778,12 +793,15 @@ my_init_task(int a, int b, int c, int d)
 
     #ifdef ML_RESERVED_MEM // define this if we can't autodetect the reserved memory size
     ml_reserved_mem = ML_RESERVED_MEM;
+    qprintf("[BOOT] using ML_RESERVED_MEM.\n");
     #endif
+
+    qprintf("[BOOT] reserved %d bytes for ML (used %d)\n", ml_reserved_mem, ml_used_mem);
 
     /* ensure binary is not too large */
     if (ml_used_mem > ml_reserved_mem)
     {
-        qprintf("[BOOT] out of memory: ml_used_mem=%d ml_reserved_mem=%d\n", ml_used_mem, ml_reserved_mem);
+        qprintf("[BOOT] out of memory.");
 
         while(1)
         {
@@ -795,6 +813,11 @@ my_init_task(int a, int b, int c, int d)
 
     // memory check OK, call Canon's init_task
     int ans = init_task_func(a,b,c,d);
+
+#ifdef HIJACK_CACHE_HACK
+    /* uninstall cache hacks */
+    cache_unlock();
+#endif
 
 #ifdef ARMLIB_OVERFLOWING_BUFFER
     // Restore the overwritten value.
