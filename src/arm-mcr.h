@@ -55,10 +55,17 @@ static inline uint32_t
 read_lr( void )
 {
     uint32_t lr;
-    asm( "mov %0, lr" : "=r"(lr) );
+    asm __volatile__ ( "mov %0, %%lr" : "=&r"(lr) );
     return lr;
 }
 
+static inline uint32_t
+read_sp( void )
+{
+    uint32_t sp;
+    asm __volatile__ ( "mov %0, %%sp" : "=&r"(sp) );
+    return sp;
+}
 
 static inline void
 select_normal_vectors( void )
@@ -105,7 +112,7 @@ select_normal_vectors( void )
 */
 
 /* do you really want to call that? */
-static inline void flush_caches()
+static inline void _flush_caches()
 {
     uint32_t reg = 0;
     asm(
@@ -121,10 +128,12 @@ static inline void flush_caches()
 /* write back all data into RAM and mark as invalid in data cache */
 static inline void clean_d_cache()
 {
+    /* assume 8KB data cache */
+    /* http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0092b/ch04s03s04.html */
     uint32_t segment = 0;
     do {
         uint32_t line = 0;
-        for( ; line != 0x400 ; line += 0x20 )
+        for( ; line != 0x800 ; line += 0x20 )
         {
             asm(
                 "mcr p15, 0, %0, c7, c14, 2"
@@ -149,13 +158,6 @@ static inline void flush_i_cache()
         "mcr p15, 0, r0, c7, c5, 0\n" // flush I cache
         : : : "r0"
     );
-}
-
-/* ensure data is written into RAM and the instruction cache is empty so everything will get fetched again */
-static inline void sync_caches()
-{
-    clean_d_cache();
-    flush_i_cache();
 }
 
 // This must be a macro
@@ -230,6 +232,20 @@ sei( uint32_t old_irq )
         "and %0, %0, #0xC0\n"
         "orr r1, r1, %0\n"
         "msr CPSR_c, r1" : : "r"(old_irq) : "r1" );
+}
+
+/* ensure data is written into RAM and the instruction cache is empty so everything will get fetched again */
+/* also reapply cache patches, if needed */
+static inline void sync_caches()
+{
+    uint32_t old = cli();
+    clean_d_cache();
+    flush_i_cache();
+#ifndef NO_CACHE_PATCHES
+    extern int _reapply_cache_patches();
+    _reapply_cache_patches();
+#endif
+    sei(old);
 }
 
 /**

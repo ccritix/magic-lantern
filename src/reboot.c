@@ -24,6 +24,7 @@
  * Boston, MA  02110-1301, USA.
  */
 
+#define NO_CACHE_PATCHES
 #include "compiler.h"
 #include "consts.h"
 #include "fw-signature.h"
@@ -234,8 +235,8 @@ cstart( void )
         &blob_start,
         &blob_end
     );
-    clean_d_cache();
-    flush_caches();
+    
+    sync_caches();
 
     #if defined(CONFIG_7D)
         *(volatile int*)0xC0A00024 = 0x80000010; // send SSTAT for master processor, so it is in right state for rebooting
