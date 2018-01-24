@@ -448,8 +448,9 @@ static void save_crash_log()
     FILE* f = FIO_CreateFile(log_filename);
     if (f)
     {
-        my_fprintf(f, "%s\n", get_assert_msg());
-        my_fprintf(f,
+        const char * msg = get_assert_msg();
+        FIO_WriteFile(f, msg, strlen(msg));
+        my_fprintf(f, "\n"
             "Magic Lantern version : %s\n"
             "Mercurial changeset   : %s\n"
             "Built on %s by %s.\n",
