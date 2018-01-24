@@ -3339,6 +3339,9 @@ abort_and_check_early_stop:
     {
         /* faster writing speed that way */
         PauseLiveView();
+
+        /* PauseLiveView breaks UI locks - why? */
+        gui_uilock(UILOCK_EVERYTHING);
     }
 
     /* write remaining frames */
