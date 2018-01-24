@@ -538,7 +538,7 @@ static int raw_lv_get_resolution(int* width, int* height)
      * is it really important to have exact height?
      * for some raw types, yes! */
 
-#ifdef CONFIG_5D3
+#if defined(CONFIG_5D3) || defined(CONFIG_100D)
     (*height)--;
 #endif
 
