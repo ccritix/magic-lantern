@@ -775,6 +775,11 @@ static int choose_allocator(int size, unsigned int flags)
 /* returns 0 if it couldn't allocate */
 void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned int line)
 {
+    /* running from PROP_HANDLER's will cause trouble
+     * slow allocators (in particular, srm_malloc) will keep the semaphore busy
+     * this would delay Canon's property handlers, possibly overflowing the queue */
+    if (streq(get_current_task_name(), "PropMgr")) ASSERT(0);
+
     ASSERT(mem_sem);
     take_semaphore(mem_sem, 0);
 
@@ -834,6 +839,9 @@ void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned i
 void __mem_free(void* buf)
 {
     if (!buf) return;
+
+    /* see __mem_malloc */
+    if (streq(get_current_task_name(), "PropMgr")) ASSERT(0);
 
     take_semaphore(mem_sem, 0);
 
