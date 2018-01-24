@@ -1215,9 +1215,7 @@ PROP_HANDLER( PROP_MVR_REC_START )
 
 PROP_HANDLER( PROP_LENS_NAME )
 {
-    if( len > sizeof(lens_info.name) )
-        len = sizeof(lens_info.name);
-    memcpy( (char*)lens_info.name, buf, len );
+    snprintf(lens_info.name, sizeof(lens_info.name), "%s", buf);
 }
 
 PROP_HANDLER(PROP_LENS)
