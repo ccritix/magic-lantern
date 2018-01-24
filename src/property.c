@@ -37,8 +37,6 @@ static void global_token_handler(void * token)
     global_token = token;
 }
 
-//~ static int current_prop_handler = 0;
-
 static void *
 global_property_handler(
     unsigned        property,
@@ -72,9 +70,9 @@ global_property_handler(
             /* execute handler, if any */
             if (handler->handler != NULL)
             {
-                //~ current_prop_handler = property;
+                qprintf("PROP_HANDLER(%X, %x, %x { %x %x }, %d)\n", property, handler->handler, buf, *(int*)buf, len > 4 ? *(int*)(buf+4) : 0, len);
                 handler->handler(property, priv, buf, len);
-                //~ current_prop_handler = 0;
+                qprintf("PROP_HANDLER(%X) finished.\n", property);
             }
         }
     }
@@ -87,9 +85,11 @@ void prop_add_handler (uint32_t property, void *handler)
 #if defined(POSITION_INDEPENDENT)
     handler[entry].handler = PIC_RESOLVE(handler[entry].handler);
 #endif
+    ASSERT(actual_num_handlers < COUNT(property_handlers));
     property_handlers[actual_num_handlers].handler = handler;
     property_handlers[actual_num_handlers].property = property;
     actual_num_handlers++;
+    qprintf("[%s] PROP_HANDLER %08X -> %x (%d/%d)\n", get_current_task_name(), property, handler, actual_num_handlers, COUNT(property_handlers));
 
     int duplicate = 0;
     for (int i = 0; i < actual_num_properties; i++)
