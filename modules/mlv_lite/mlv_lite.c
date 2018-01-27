@@ -3272,6 +3272,7 @@ void raw_video_rec_task()
     {
         if (buffer_full)
         {
+            raw_rec_cbr_stopping();
             goto abort_and_check_early_stop;
         }
         
