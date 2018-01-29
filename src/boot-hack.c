@@ -648,7 +648,7 @@ init_task_func init_task_patched(int a, int b, int c, int d)
         while(1);                                       /* refuse to boot */
     }
 
-    #if defined(CONFIG_6D)
+    #if defined(CONFIG_6D) || defined(CONFIG_70D)
     /* R0: 0x44C000 (start address, easier to patch, change to 0x4E0000 => reserve 592K for ML) */
     /* R1: 0xD3C000 (end address, unchanged) */
     addr_AllocMem_end[1] = MOV_R0_0x4E0000_INSTR;

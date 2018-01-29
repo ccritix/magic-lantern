@@ -133,6 +133,10 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define DEFAULT_RAW_BUFFER MEM(0x76d6c + 0x2C)
 #endif
 
+#ifdef CONFIG_70D
+#define DEFAULT_RAW_BUFFER MEM(0x7CFEC + 0x30)
+#endif
+
 #else
 
 /* with Canon lv_save_raw, just read it from EDMAC */
@@ -160,7 +164,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_PHOTO_EDMAC 0xc0f04208
 #endif
 
-#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM) || defined(CONFIG_650D)
+#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_70D)
 #define RAW_PHOTO_EDMAC 0xc0f04008
 #endif
 
@@ -298,6 +302,15 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
      -593, 10000,     1772, 10000,    6198, 10000
 #endif
 
+#ifdef CONFIG_70D
+    //~ { "Canon EOS 70D", 0, 0x3bc7,
+    //~ { 7034,-804,-1014,-4420,12564,2058,-851,1994,5758 } },
+    #define CAM_COLORMATRIX1                     \
+     7034, 10000,     -804, 10000,    -1014, 10000,\
+    -4420, 10000,    12564, 10000,    2058, 10000, \
+     -851, 10000,     1994, 10000,    5758, 10000
+#endif
+
 struct raw_info raw_info = {
     .api_version = 1,
     .bits_per_pixel = 14,
@@ -389,6 +402,10 @@ static int dynamic_ranges[] = {1060, 1063, 1037, 982, 901, 831, 718, 622, 536};
 
 #ifdef CONFIG_7D
 static int dynamic_ranges[] = {1112, 1108, 1076, 1010, 902, 826, 709, 622};
+#endif
+
+#ifdef CONFIG_70D
+static int dynamic_ranges[] = {1091, 1070, 1046, 986, 915, 837, 746, 655, 555};
 #endif
 
 static int autodetect_black_level(int* black_mean, int* black_stdev);
@@ -616,7 +633,13 @@ static int raw_update_params_work()
         skip_top    = 26;
         skip_left   = zoom ? 0 : 256;
         #endif
-
+		
+        #if defined(CONFIG_70D)
+        skip_top    = 28;
+        skip_left   = 144; // 146 could work, too
+        skip_right  = zoom ? 0 : 8;
+        #endif
+		
         dbg_printf("LV raw buffer: %x (%dx%d)\n", raw_info.buffer, width, height);
         dbg_printf("Skip left:%d right:%d top:%d bottom:%d\n", skip_left, skip_right, skip_top, skip_bottom);
 #else
@@ -715,7 +738,13 @@ static int raw_update_params_work()
         skip_left = 158;
         skip_top = 50;
         #endif
-
+		
+        #ifdef CONFIG_70D
+        skip_left = 142;        
+        skip_top = 52;
+        skip_right = 8;
+        #endif
+		
         dbg_printf("Photo raw buffer: %x (%dx%d)\n", raw_info.buffer, width, height);
         dbg_printf("Skip left:%d right:%d top:%d bottom:%d\n", skip_left, skip_right, skip_top, skip_bottom);
 #endif
