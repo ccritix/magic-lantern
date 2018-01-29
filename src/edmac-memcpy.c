@@ -26,7 +26,7 @@ uint32_t edmac_write_chan = 0x13;
 //~ w 3 4 6 10 11-15
 #elif defined(CONFIG_60D)
 uint32_t edmac_read_chan = 0x19;  /* free indices: 2, 3, 4, 5, 6, 7, 8, 9 */
-uint32_t edmac_write_chan = 0x06; /* 1, 4, 6, 10 */
+uint32_t edmac_write_chan = 0x01; /* 1, 4, 6, 10 */
 #elif defined(CONFIG_6D) || defined(CONFIG_5D3)
 uint32_t edmac_read_chan = 0x19;  /* Read: 0 5 7 11 14 15 */
 uint32_t edmac_write_chan = 0x11; /* Write: 6 8 15 */
