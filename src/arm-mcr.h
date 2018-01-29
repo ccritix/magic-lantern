@@ -241,10 +241,11 @@ static inline void sync_caches()
     uint32_t old = cli();
     clean_d_cache();
     flush_i_cache();
-#ifndef NO_CACHE_PATCHES
-    extern int _reapply_cache_patches();
+
+    /* this function is only present on main ML (not installer / reboot shim / minimal / etc) */
+    extern int __attribute__((weak)) _reapply_cache_patches ();
     _reapply_cache_patches();
-#endif
+
     sei(old);
 }
 
