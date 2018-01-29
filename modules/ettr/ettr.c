@@ -57,8 +57,7 @@ static int show_metered_areas = 0;
 extern WEAK_FUNC(ret_0) void raw_lv_request();
 extern WEAK_FUNC(ret_0) void raw_lv_release();
 extern WEAK_FUNC(ret_0) int  raw_lv_is_enabled();
-// 70D temporary solution to allow compiling the
-// ettr module when FEATURE_RAW_ZEBRAS is undefined
+// allow compiling module if FEATURE_RAW_ZEBRAS is undefined
 extern WEAK_FUNC(ret_0) void zebra_highlight_raw_advanced(struct raw_highlight_info * raw_highlight_info);
 
 /* optional beeps */
