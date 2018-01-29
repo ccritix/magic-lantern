@@ -24,7 +24,6 @@
  * Boston, MA  02110-1301, USA.
  */
 
-#define NO_CACHE_PATCHES
 #include "compiler.h"
 #include "consts.h"
 #include "fw-signature.h"
