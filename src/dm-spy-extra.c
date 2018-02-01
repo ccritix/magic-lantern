@@ -20,6 +20,7 @@
 #include "timer.h"
 #include "propvalues.h"
 #include "dm-spy.h"
+#include "backtrace.h"
 
 /* this needs pre_isr_hook/post_isr_hook stubs */
 #undef LOG_INTERRUPTS
@@ -67,6 +68,7 @@ struct logged_func
 #define R(i) (0x100 << i)   /* log any registers */
 #define RET  (0x1000000)    /* return value of the function */
 #define PTR  (0x2000000)    /* attempt to identify interesting pointers */
+#define BKT  (0x4000000)    /* call stack trace (backtrace) for this function */
 
 /* helper to get a function address directly from stubs */
 #define STUB_ENTRY(name, ...) { (uint32_t) &name, #name, ## __VA_ARGS__ }
@@ -184,9 +186,10 @@ static struct logged_func logged_functions[] = {
     #endif
 
     #ifdef CONFIG_60D
-    { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
-    { 0xFF1C8B98, "LockEngineResources", 1, LockEngineResources_log },
-    { 0xFF1C8CD4, "UnLockEngineResources", 1, UnLockEngineResources_log },
+    { 0xFF0F8BA8, "evfComAct", 4 | BKT } 
+    //~ { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
+    //~ { 0xFF1C8B98, "LockEngineResources", 1, LockEngineResources_log },
+    //~ { 0xFF1C8CD4, "UnLockEngineResources", 1, UnLockEngineResources_log },
     
     /* this conflicts with DebugMsg... not sure how to fix */
     //~ { 0xFF1D68C0, "register_interrupt", 4, register_interrupt_log },
@@ -498,6 +501,14 @@ static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
         {
             DryosDebugMsg(0, 0, "!!! cannot log return value (err %x)", err);
         }
+    }
+
+    if (args & BKT)
+    {
+        static char msg[512];
+        backtrace_getstr(msg, sizeof(msg));
+        debug_logstr(msg);
+        debug_logstr("\n");
     }
 }
 
