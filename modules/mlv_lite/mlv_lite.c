@@ -313,7 +313,7 @@ struct frame_slot
         SLOT_CAPTURING,     /* in progress */
         SLOT_FULL,          /* contains fully captured image data */
         SLOT_WRITING,       /* it's being saved to card */
-        SLOT_LOCKED	    /* in use by mlv_snd */                
+        SLOT_LOCKED         /* in use by mlv_snd */
     } status;
 };
 
@@ -368,9 +368,6 @@ extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_stopping();
 extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_started();
 extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_stopped();
 extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_mlv_block(mlv_hdr_t *hdr);
-extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_skip_frame(unsigned char *frame_data);
-extern WEAK_FUNC(ret_1) uint32_t raw_rec_cbr_save_buffer(uint32_t used, uint32_t buffer_index, uint32_t frame_count, uint32_t buffer_count);
-extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_skip_buffer(uint32_t buffer_index, uint32_t frame_count, uint32_t buffer_count);
 
 static int raw_rec_should_preview(void);
 
@@ -1964,13 +1961,13 @@ void hack_liveview(int unhack)
     }
 }
 
-void mlv_lite_queue_block(mlv_hdr_t *hdr)
+void mlv_rec_queue_block(mlv_hdr_t *hdr)
 {
     if(!memcmp(hdr->blockType, "WAVI", 4))
     {
         mlv_wavi_hdr_t *wavi_hdr = (mlv_wavi_hdr_t*)hdr;
         samplingRate = wavi_hdr->samplingRate;
-        printf("Audio: samplingRate: %d", samplingRate);    
+        printf("Audio: samplingRate: %d\n", samplingRate);    
     }
 }
 
@@ -2311,7 +2308,7 @@ void FAST pre_record_discard_frame()
             {
                 free_slot(i);
                 frame_count--;
-                total_frame_count--;                
+                total_frame_count--;
             }
             else if (slots[i].frame_number > pre_record_first_frame)
             {
@@ -2398,9 +2395,6 @@ void FAST pre_record_vsync_step()
             {
                 /* done, from now on we can just record normally */
                 raw_recording_state = RAW_RECORDING;
-                
-                /* Signal that the recording has started */
-                raw_rec_cbr_started();
             }
             else
             {
@@ -3235,6 +3229,10 @@ void raw_video_rec_task()
     /* signal that we are starting */
     raw_rec_cbr_starting();
 
+    /* Need to start the recording of audio before the init of the mlv chunk 
+     * or the wavi header isn't initialized before the writing starts. */
+    raw_rec_cbr_started();
+
     init_mlv_chunk_headers(&raw_info);
     written_total = written_chunk = write_mlv_chunk_headers(f);
     if (!written_chunk)
@@ -3249,11 +3247,6 @@ void raw_video_rec_task()
     /* this will enable the vsync CBR and the other task(s) */
     raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
 
-    if (raw_recording_state == RAW_RECORDING) {
-        /* signel that we are started! */
-        raw_rec_cbr_started();
-    }
-    
     /* try a sync beep (not very precise, but better than nothing) */
     beep();
 
@@ -3292,7 +3285,6 @@ void raw_video_rec_task()
                 /* the video will be incomplete */
                 NotifyBox(5000, "Emergency Stop");
                 raw_recording_state = RAW_FINISHING;
-                raw_rec_cbr_stopping();
                 wait_lv_frames(2);
                 writing_queue_head = writing_queue_tail;
                 break;
