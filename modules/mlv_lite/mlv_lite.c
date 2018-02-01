@@ -2080,9 +2080,17 @@ void mlv_rec_release_slot(int32_t slot, uint32_t write)
     {
         slots[slot].status = SLOT_FULL;
         slots[slot].frame_number = total_frame_count;
+
+        /* these things are normally updated by LiveViewTask (vsync hook)
+         * that task runs with high priority, so we are not going to interrupt it,
+         * but it might interrupt us, at least in theory; clear interrupts for now
+         * (not exactly clean; there are a bunch of thread safety warnings, for good reason)
+         */
+        int old = cli();
         total_frame_count++;
         writing_queue[writing_queue_tail] = slot;
         INC_MOD(writing_queue_tail, COUNT(writing_queue));
+        sei(old);
     }
     else
     {
