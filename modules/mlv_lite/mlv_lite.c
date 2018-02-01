@@ -101,7 +101,9 @@ static int cam_5d3_113 = 0;
 static int cam_5d3_123 = 0;
 
 /* store mlv_snd samplingRate in here */
+/* also use it for checking whether we are recording sound */
 static int samplingRate = 0;
+#define RECORDING_SOUND (samplingRate > 0)
 
 /**
  * resolution (in pixels) should be multiple of 16 horizontally (see http://www.magiclantern.fm/forum/index.php?topic=5839.0)
@@ -2954,22 +2956,9 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     mlv_set_type((mlv_hdr_t*)&vidf_hdr, "VIDF");
     vidf_hdr.blockSize  = max_frame_size;
     vidf_hdr.frameSpace = VIDF_HDR_SIZE - sizeof(mlv_vidf_hdr_t);
-}
 
-static REQUIRES(RawRecTask)
-int write_mlv_chunk_headers(FILE* f)
-{
-    if (FIO_WriteFile(f, &file_hdr, file_hdr.blockSize) != (int)file_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &rawi_hdr, rawi_hdr.blockSize) != (int)rawi_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &rawc_hdr, rawc_hdr.blockSize) != (int)rawc_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &idnt_hdr, idnt_hdr.blockSize) != (int)idnt_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &expo_hdr, expo_hdr.blockSize) != (int)expo_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &lens_hdr, lens_hdr.blockSize) != (int)lens_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &wbal_hdr, wbal_hdr.blockSize) != (int)wbal_hdr.blockSize) return 0;
-    /* Is this the right location for the wavi block? 
-     The check for samplingRate isn't the best way, but it works. */
-    if (samplingRate > 0) {
+    if (RECORDING_SOUND)
+    {
         memset(&wavi_hdr, 0, sizeof(mlv_wavi_hdr_t));
 
         mlv_set_type((mlv_hdr_t*)&wavi_hdr, "WAVI");
@@ -2983,6 +2972,24 @@ int write_mlv_chunk_headers(FILE* f)
         wavi_hdr.bytesPerSecond = samplingRate * (16 / 8) * 2;
         wavi_hdr.blockAlign = (16 / 8) * 2;
         wavi_hdr.bitsPerSample = 16;
+    }
+}
+
+static REQUIRES(RawRecTask)
+int write_mlv_chunk_headers(FILE* f)
+{
+    if (FIO_WriteFile(f, &file_hdr, file_hdr.blockSize) != (int)file_hdr.blockSize) return 0;
+    if (FIO_WriteFile(f, &rawi_hdr, rawi_hdr.blockSize) != (int)rawi_hdr.blockSize) return 0;
+    if (FIO_WriteFile(f, &rawc_hdr, rawc_hdr.blockSize) != (int)rawc_hdr.blockSize) return 0;
+    if (FIO_WriteFile(f, &idnt_hdr, idnt_hdr.blockSize) != (int)idnt_hdr.blockSize) return 0;
+    if (FIO_WriteFile(f, &expo_hdr, expo_hdr.blockSize) != (int)expo_hdr.blockSize) return 0;
+    if (FIO_WriteFile(f, &lens_hdr, lens_hdr.blockSize) != (int)lens_hdr.blockSize) return 0;
+    if (FIO_WriteFile(f, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) return 0;
+    if (FIO_WriteFile(f, &wbal_hdr, wbal_hdr.blockSize) != (int)wbal_hdr.blockSize) return 0;
+
+    if (RECORDING_SOUND)
+    {
+        /* WAVI written only if we record sound */
         if (FIO_WriteFile(f, &wavi_hdr, wavi_hdr.blockSize) != (int)wavi_hdr.blockSize) return 0;
     }
 
