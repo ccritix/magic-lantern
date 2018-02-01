@@ -508,39 +508,74 @@ write_error:
 }
 
 static int save_lossless_dng(char * filename, struct raw_info * raw_info)
+/* fixme: 5D3 can use a method that does not compress DNGs in place */
+/* this fixes various issues, but memory management is more difficult */
+/* and it doesn't work on all cameras */
 {
-    struct raw_info out_raw_info = *raw_info;
-
-    ASSERT(out_raw_info.bits_per_pixel == 14);
-
-    /* fixme: not all models are able to allocate such a large contiguous chunk */
-    int max_compressed_size = ((uint64_t) raw_info->frame_size * 80 / 100) & ~0xFFF;
-    struct memSuite * out_suite = shoot_malloc_suite_contig(max_compressed_size);
-
-    if (!out_suite)
+    if (is_camera("5D3", "*"))
     {
-        bmp_printf( FONT_MED, 0, 83, "Out of memory");
-        return 0;
+        struct raw_info out_raw_info = *raw_info;
+
+        ASSERT(out_raw_info.bits_per_pixel == 14);
+
+        /* fixme: not all models are able to allocate such a large contiguous chunk */
+        int max_compressed_size = ((uint64_t) raw_info->frame_size * 80 / 100) & ~0xFFF;
+        struct memSuite * out_suite = shoot_malloc_suite_contig(max_compressed_size);
+
+        if (!out_suite)
+        {
+            bmp_printf( FONT_MED, 0, 83, "Out of memory");
+            return 0;
+        }
+
+        ASSERT(out_suite->size == max_compressed_size);
+
+        out_raw_info.frame_size = lossless_compress_raw(&out_raw_info, out_suite);
+
+        if (out_raw_info.frame_size > out_suite->size)
+        {
+            bmp_printf( FONT_MED, 0, 83, "Warning: output truncated (%s)", format_memory_size(out_suite->size));
+            out_raw_info.frame_size = out_suite->size;
+        }
+
+        out_raw_info.buffer = GetMemoryAddressOfMemoryChunk(GetFirstChunkFromSuite(out_suite));
+
+        int ok = save_dng(filename, &out_raw_info);
+        if (!ok) bmp_printf( FONT_MED, 0, 83, "DNG save error (card full?)");
+
+        shoot_free_suite(out_suite);
+
+        return ok;
     }
-
-    ASSERT(out_suite->size == max_compressed_size);
-
-    out_raw_info.frame_size = lossless_compress_raw(&out_raw_info, out_suite);
-
-    if (out_raw_info.frame_size > out_suite->size)
+    else
     {
-        bmp_printf( FONT_MED, 0, 83, "Warning: output truncated (%s)", format_memory_size(out_suite->size));
-        out_raw_info.frame_size = out_suite->size;
+        struct raw_info out_raw_info = *raw_info;
+
+        ASSERT(out_raw_info.bits_per_pixel == 14);
+
+        /* compress the image in-place */
+
+        /* skip the top bar (that way, we'll be able to avoid race conditions) */
+        int dy = out_raw_info.active_area.y1;
+        int dm = dy * out_raw_info.pitch;
+        void * output_buffer = out_raw_info.buffer;     /* output buffer = real buffer */
+        out_raw_info.buffer += dm;                      /* input buffer = real buffer + top bar size */
+        out_raw_info.frame_size -= dm;
+        out_raw_info.height -= dy;
+        out_raw_info.active_area.y1 -= dy;
+        out_raw_info.active_area.y2 -= dy;
+
+        struct memSuite * out_suite = CreateMemorySuite(output_buffer, raw_info->frame_size & ~0xFFF, 0);
+        out_raw_info.frame_size = lossless_compress_raw(&out_raw_info, out_suite);
+        ASSERT(out_raw_info.frame_size < raw_info->frame_size);
+        out_raw_info.buffer = output_buffer;
+        DeleteMemorySuite(out_suite);
+
+        int ok = save_dng(filename, &out_raw_info);
+        if (!ok) bmp_printf( FONT_MED, 0, 83, "DNG save error (card full?)");
+
+        return ok;
     }
-
-    out_raw_info.buffer = GetMemoryAddressOfMemoryChunk(GetFirstChunkFromSuite(out_suite));
-
-    int ok = save_dng(filename, &out_raw_info);
-    if (!ok) bmp_printf( FONT_MED, 0, 83, "DNG save error (card full?)");
-
-    shoot_free_suite(out_suite);
-
-    return ok;
 }
 
 static int silent_pic_save_file(struct raw_info * raw_info)
