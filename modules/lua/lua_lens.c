@@ -20,9 +20,21 @@ static int luaCB_lens_index(lua_State * L)
     /// Get/Set the name of the lens (reported by the lens)
     // @tfield string name
     if(!strcmp(key, "name")) lua_pushstring(L, lens_info.name);
+    /// Get the lens id
+    // @tfield int id readonly
+    else if(!strcmp(key, "id")) lua_pushinteger(L, lens_info.lens_id);
+    /// Get the serial number of the lens
+    // @tfield int serial
+    else if(!strcmp(key, "serial")) lua_pushinteger(L, lens_info.lens_serial);
     /// Get/Set the focal length of the lens (in mm)
     // @tfield int focal_length
     else if(!strcmp(key, "focal_length")) lua_pushinteger(L, lens_info.focal_len);
+    /// Get/Set the minimum focal length of the lens (in mm)
+    // @tfield int focal_min
+    else if(!strcmp(key, "focal_min")) lua_pushinteger(L, lens_info.lens_focal_min);
+    /// Get/Set the maximum focal length of the lens (in mm)
+    // @tfield int focal_max
+    else if(!strcmp(key, "focal_max")) lua_pushinteger(L, lens_info.lens_focal_max);
     /// Get the current focus distance (in mm). Only updated in LiveView.
     // @tfield int focus_distance readonly
     else if(!strcmp(key, "focus_distance")) lua_pushinteger(L, lens_info.focus_dist * 10);
@@ -83,17 +95,36 @@ static int luaCB_lens_newindex(lua_State * L)
         LUA_PARAM_STRING(value, 3);
         strncpy(lens_info.name, value, 31);
     }
+    else if(!strcmp(key, "exists"))
+    {
+        LUA_PARAM_BOOL(value, 3);
+        lens_info.lens_exists = value;
+    }
     else if(!strcmp(key, "focal_length"))
     {
         LUA_PARAM_INT(value, 3);
         lens_info.focal_len = value;
     }
+    else if(!strcmp(key, "focal_min"))
+    {
+        LUA_PARAM_INT(value, 3);
+        lens_info.lens_focal_min = value;
+    }
+    else if(!strcmp(key, "focal_max"))
+    {
+        LUA_PARAM_INT(value, 3);
+        lens_info.lens_focal_max = value;
+    }
     else if(!strcmp(key, "manual_aperture"))
     {
-        if(lens_info.lens_exists) return luaL_error(L, "Can't set manual aperture for chipped lens");
         LUA_PARAM_NUMBER(value, 3);
         lens_info.aperture = (int)(value * 10);
         lens_info.raw_aperture = VALUE2RAW(aperture, lens_info.aperture);
+    }
+    else if(!strcmp(key, "serial"))
+    {
+        LUA_PARAM_INT(value, 3);
+        lens_info.lens_serial = value;
     }
     else if(!strcmp(key, "focus_distance") || !strcmp(key, "hyperfocal") || !strcmp(key, "dof_near") || !strcmp(key, "dof_far") || !strcmp(key, "af") || !strcmp(key, "is_chipped"))
     {

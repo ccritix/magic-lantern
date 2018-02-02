@@ -572,6 +572,31 @@ static int luaCB_menu_instance_newindex(lua_State * L)
     else if(!strcmp(key, "submenu_width")) { LUA_PARAM_INT(value, 3); script_entry->menu_entry->submenu_width = value; }
     else if(!strcmp(key, "unit")) { LUA_PARAM_INT(value, 3); script_entry->menu_entry->unit = value; }
     else if(!strcmp(key, "works_best_in")) { LUA_PARAM_INT(value, 3); script_entry->menu_entry->works_best_in = value; }
+    else if(!strcmp(key, "choices")){
+          int choices_count = luaL_len(L, -1);         
+          script_entry->menu_entry->choices = malloc(sizeof(char*) * choices_count);
+          if(script_entry->menu_entry->choices)
+          {
+              int choice_index = 0;
+              for (choice_index = 0; choice_index < choices_count; choice_index++)
+              {
+                  if(lua_geti(L, -1, choice_index + 1) == LUA_TSTRING) //lua arrays are 1 based
+                  {
+                      script_entry->menu_entry->choices[choice_index] = lua_tostring(L, -1);
+                  }
+                  else
+                  {
+                      fprintf(stderr, "[%s] invalid choice[%d]\n", lua_get_script_filename(L), choice_index);
+                      script_entry->menu_entry->choices[choice_index] = NULL;
+                      choices_count = choice_index;
+                  }
+                  lua_pop(L, 1);
+              }
+              script_entry->menu_entry->min = 0;
+              script_entry->menu_entry->max = choices_count - 1;
+          }
+
+    }
     else if(!strcmp(key, "select"))
     {
         if(script_entry->select_ref != LUA_NOREF) luaL_unref(L, LUA_REGISTRYINDEX, script_entry->select_ref);

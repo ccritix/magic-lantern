@@ -1900,7 +1900,11 @@ static MENU_UPDATE_FUNC(lens_focal_display)
         factor = 1/2.54;
     }
     
-    if(lens_info.lens_focal_min == lens_info.lens_focal_max)
+    if(!lens_info.lens_focal_min || !lens_info.lens_focal_max)
+    {
+        MENU_SET_VALUE("%d %s", (int)(lens_info.focal_len * factor), unit);
+    }
+    else if(lens_info.lens_focal_min == lens_info.lens_focal_max)
     {
         MENU_SET_VALUE("%d %s", (int)(lens_info.lens_focal_min * factor), unit);
     }
@@ -1914,6 +1918,7 @@ static struct menu_entry tweak_menus[] = {
    {
         .name = "Lens Info Prefs",
         .select   = menu_open_submenu,
+	.submenu_width = 700,
         .children =  (struct menu_entry[]) {
             #ifndef CONFIG_FULLFRAME
             {

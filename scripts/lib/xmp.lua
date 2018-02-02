@@ -30,6 +30,7 @@ xmp.property_format = [[
 
 -- predefined xmp properties
 xmp.lens_name = { name = "aux:Lens" }
+xmp.lens_serial = { name = "aux:SerialNumber" }
 xmp.focal_length = { name = "exif:FocalLength", format = "%d/1"}
 xmp.aperture = { name = "exif:FNumber", format = "%d/10" }
 
