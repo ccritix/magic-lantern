@@ -272,3 +272,7 @@
 #define DISPLAY_ORIENTATION MEM(0x7B464) // read-only; string: UpdateReverseTFT.
 
 #define JUDGE_BOTTOM_INFO_DISP_TIMER_STATE    0x9FCCC
+
+// temperature convertion from raw-temperature to celsius
+// http://www.magiclantern.fm/forum/index.php?topic=9673.0
+#define EFIC_CELSIUS ((int)efic_temp * 50 / 100 - 57)
