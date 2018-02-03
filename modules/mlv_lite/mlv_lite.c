@@ -335,10 +335,9 @@ static GUARDED_BY(LiveViewTask) int writing_queue[COUNT(slots)+1];  /* queue of 
 static GUARDED_BY(LiveViewTask) int writing_queue_tail = 0;         /* place captured frames here */
 static GUARDED_BY(RawRecTask)   int writing_queue_head = 0;         /* extract frames to be written from here */ 
 
-static GUARDED_BY(LiveViewTask) int frame_count = 0;                /* current video frame */
-static GUARDED_BY(LiveViewTask) int total_frame_count = 0;          /* how many frames we have processed */
-static GUARDED_BY(LiveViewTask) int skipped_frames = 0;             /* how many frames we had to drop (only done during pre-recording) */
-static GUARDED_BY(RawRecTask)   int chunk_frame_count = 0;          /* how many frames in the current file chunk */
+static GUARDED_BY(LiveViewTask) int frame_count = 0;                /* how many video frames we have processed */
+static GUARDED_BY(LiveViewTask) int skipped_frames = 0;             /* how many video frames we had to drop (only done during pre-recording) */
+static GUARDED_BY(RawRecTask)   int chunk_frame_count = 0;          /* how many video frames in the current file chunk */
 static volatile                 int buffer_full = 0;                /* true when the memory becomes full */
        GUARDED_BY(RawRecTask)   char * raw_movie_filename = 0;      /* file name for current (or last) movie */
 static GUARDED_BY(RawRecTask)   char * chunk_filename = 0;          /* file name for current movie chunk */
@@ -2079,7 +2078,7 @@ void mlv_rec_release_slot(int32_t slot, uint32_t write)
     if(write)
     {
         slots[slot].status = SLOT_FULL;
-        slots[slot].frame_number = total_frame_count;
+        slots[slot].frame_number = -1;  /* not a video frame */
 
         /* these things are normally updated by LiveViewTask (vsync hook)
          * that task runs with high priority, so we are not going to interrupt it,
@@ -2087,7 +2086,6 @@ void mlv_rec_release_slot(int32_t slot, uint32_t write)
          * (not exactly clean; there are a bunch of thread safety warnings, for good reason)
          */
         int old = cli();
-        total_frame_count++;
         writing_queue[writing_queue_tail] = slot;
         INC_MOD(writing_queue_tail, COUNT(writing_queue));
         sei(old);
@@ -2320,10 +2318,10 @@ void FAST pre_record_discard_frame()
             {
                 free_slot(i);
                 frame_count--;
-                total_frame_count--;
             }
             else if (slots[i].frame_number > pre_record_first_frame)
             {
+                ASSERT(slots[i].frame_number > 1);
                 slots[i].frame_number--;
                 ((mlv_vidf_hdr_t*)slots[i].ptr)->frameNumber
                     = slots[i].frame_number - 1;
@@ -2702,7 +2700,6 @@ void process_frame(int next_fullsize_buffer_pos)
     if (frame_count <= 0)
     {
         frame_count++;
-        total_frame_count++;
         return;
     }
     
@@ -2735,7 +2732,7 @@ void process_frame(int next_fullsize_buffer_pos)
     if (capture_slot >= 0)
     {
         /* okay */
-        slots[capture_slot].frame_number = total_frame_count;
+        slots[capture_slot].frame_number = frame_count;
         slots[capture_slot].status = SLOT_CAPTURING;
         frame_add_checks(capture_slot);
 
@@ -2778,7 +2775,6 @@ void process_frame(int next_fullsize_buffer_pos)
 
     /* advance to next frame */
     frame_count++;
-    total_frame_count++;
     
     return;
 }
@@ -3149,7 +3145,6 @@ static REQUIRES(LiveViewTask)
 void init_vsync_vars()
 {
     frame_count = use_h264_proxy() ? -1 : 0;    /* see setparam_cbr */
-    total_frame_count = frame_count;
     capture_slot = -1;
     fullsize_buffer_pos = 0;
     edmac_active = 0;
