@@ -38,7 +38,7 @@
 #endif
 
 /* plenty of memory available */
-#if defined(CONFIG_5D2) || defined(CONFIG_5D3) || defined(CONFIG_50D) || defined(CONFIG_500D)
+#if defined(CONFIG_5D2) || defined(CONFIG_5D3) || defined(CONFIG_50D) || defined(CONFIG_500D) || defined(CONFIG_100D) || defined(CONFIG_70D)
 #define BUF_SIZE_MALLOC (2048*1024)
 #endif
 
