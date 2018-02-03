@@ -120,10 +120,12 @@ struct prop_lv_lens
         uint32_t                off_0x35;
         uint32_t                off_0x39;
         uint8_t                 off_0x3d;
+        uint8_t                 off_0x3e;
+        uint8_t                 off_0x3f;
 
 } __attribute__((packed));
 
-SIZE_CHECK_STRUCT( prop_lv_lens, 62 );
+SIZE_CHECK_STRUCT( prop_lv_lens, 64 );
 
 #elif defined(CONFIG_EOSM)
 struct prop_lv_lens
@@ -145,12 +147,13 @@ struct prop_lv_lens
         uint16_t                focus_dist; // One FD; off_0x30
         uint16_t                focus_dist2;// off_0x32
         uint16_t                off_0x34;
-        uint32_t                off_0x36;
-        uint8_t                 off_0x3a;
-        
+        uint16_t                off_0x36;
+        uint16_t                off_0x38;
+        uint16_t                off_0x3a;
+        uint8_t                 off_0x3c;
 } __attribute__((packed));
 
-SIZE_CHECK_STRUCT( prop_lv_lens, 59 );
+SIZE_CHECK_STRUCT( prop_lv_lens, 61 );
 
 #else
 struct prop_lv_lens
@@ -253,19 +256,24 @@ lens_focus(
 );
 
 /** Format a distance in mm into something useful */
-extern const char *
-lens_format_dist(
-        unsigned                mm
-);
+/** FIXME: not thread-safe */
+const char * lens_format_dist(unsigned mm);
 
 /** Pretty prints the shutter speed given the raw shutter value as input */
-char* lens_format_shutter(int tv);
+/** FIXME: not thread-safe */
+const char * lens_format_shutter(int raw_shutter);
 
 /** Pretty prints the shutter speed given the shutter reciprocal (times 1000) as input */
-char* lens_format_shutter_reciprocal(int shutter_reciprocal_x1000, int digits);
+/** FIXME: not thread-safe */
+const char * lens_format_shutter_reciprocal(int shutter_reciprocal_x1000, int digits);
 
 /** Pretty prints the aperture given the raw value as input */
-char* lens_format_aperture(int av);
+/** FIXME: not thread-safe */
+const char * lens_format_aperture(int raw_aperture);
+
+/** Pretty prints the ISO given the raw value as input */
+/** FIXME: not thread-safe */
+const char * lens_format_iso(int raw_iso);
 
 #define KELVIN_MIN 1500
 #define KELVIN_MAX 15000
@@ -545,5 +553,8 @@ void set_htp(int value);
 /* camera ready to take a picture or change shooting settings? */
 int job_state_ready_to_take_pic();
 void lens_wait_readytotakepic();
+
+/* force an update of PROP_LV_LENS outside LiveView */
+void _prop_lv_lens_request_update();
 
 #endif /* _lens_h_ */

@@ -56,7 +56,7 @@ uint32_t edmac_write_chan = 0x04;
 #endif
 
 /* both channels get connected to this... lets call it service. it will just output the data it gets as input */
-uint32_t dmaConnection = 7;
+uint32_t dmaConnection = 6;
 
 /* see wiki, register map, EDMAC what the flags mean. they are for setting up copy block size */
 #if defined(CONFIG_7D)
@@ -86,6 +86,9 @@ static void edmac_memcpy_init()
     resLock = CreateResLockEntry(resIds, 4);
     
     ASSERT(resLock);
+
+    /* just to make sure we have this stub */
+    static int AbortEDmac_check __attribute__((used)) = &AbortEDmac;
 }
 
 INIT_FUNC("edmac_memcpy", edmac_memcpy_init);

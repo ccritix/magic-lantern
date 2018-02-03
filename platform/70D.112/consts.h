@@ -261,6 +261,7 @@
 
 #define MALLOC_STRUCT 0xAFBB8
 #define MALLOC_FREE_MEMORY (MEM(MALLOC_STRUCT + 8) - MEM(MALLOC_STRUCT + 0x1C)) // "Total Size" - "Allocated Size"
+#define SRM_BUFFER_SIZE 0x2314000
 
 //TODO: Check if this hack works again or not :(
 #define UNAVI_BASE (0x9FC74)
@@ -272,3 +273,7 @@
 #define DISPLAY_ORIENTATION MEM(0x7B464) // read-only; string: UpdateReverseTFT.
 
 #define JUDGE_BOTTOM_INFO_DISP_TIMER_STATE    0x9FCCC
+
+// temperature convertion from raw-temperature to celsius
+// http://www.magiclantern.fm/forum/index.php?topic=9673.0
+#define EFIC_CELSIUS ((int)efic_temp * 50 / 100 - 57)

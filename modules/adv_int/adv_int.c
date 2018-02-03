@@ -470,13 +470,13 @@ static MENU_UPDATE_FUNC(aperture_menu_update)
     //copied/modified from shoot.c
     
     int a = lens_info.aperture;
-    if (!a || !lens_info.name[0]) // for unchipped lenses, always display zero
+    if (!a || !lens_info.lens_exists) // for unchipped lenses, always display zero
         a = 0;
     MENU_SET_RINFO(SYM_F_SLASH"%d.%d", a / 10, a % 10);
     
     if (!lens_info.aperture)
     {
-        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, lens_info.name[0] ? "Aperture is automatic - cannot adjust manually." : "Manual lens - cannot adjust aperture.");
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, lens_info.lens_exists ? "Aperture is automatic - cannot adjust manually." : "Manual lens - cannot adjust aperture.");
     }
 }
 
@@ -512,7 +512,7 @@ static MENU_UPDATE_FUNC(aperture_display)
 {
     int a = lens_info.aperture;
     int av = APEX_AV(lens_info.raw_aperture) * 10/8;
-    if (!a || !lens_info.name[0]) // for unchipped lenses, always display zero
+    if (!a || !lens_info.lens_exists) // for unchipped lenses, always display zero
         a = av = 0;
     MENU_SET_VALUE(SYM_F_SLASH"%d.%d",a / 10,a % 10,av / 8,(av % 8) * 10/8);
     
@@ -522,7 +522,7 @@ static MENU_UPDATE_FUNC(aperture_display)
     }
     if (!lens_info.aperture)
     {
-        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, lens_info.name[0] ? "Aperture is automatic - cannot adjust manually." : "Manual lens - cannot adjust aperture.");
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, lens_info.lens_exists ? "Aperture is automatic - cannot adjust manually." : "Manual lens - cannot adjust aperture.");
         MENU_SET_ICON(MNI_PERCENT_OFF, 0);
     }
     else
@@ -890,7 +890,7 @@ static struct menu_entry adv_int_menu[] =
                                 .select     = shutter_toggle,
                                 .icon_type  = IT_PERCENT,
                                 .help = "Fine-tune shutter value. Displays APEX Tv or degrees equiv.",
-                                .edit_mode = EM_MANY_VALUES_LV,
+                                .edit_mode = EM_SHOW_LIVEVIEW,
                             },
                             MENU_EOL
                         }
@@ -920,7 +920,7 @@ static struct menu_entry adv_int_menu[] =
                                 .icon_type  = IT_PERCENT,
                                 .help = "Adjust aperture. Also displays APEX aperture (Av) in stops.",
                                 .depends_on = DEP_CHIPPED_LENS,
-                                .edit_mode = EM_MANY_VALUES_LV,
+                                .edit_mode = EM_SHOW_LIVEVIEW,
                             },
                             MENU_EOL
                         }
@@ -947,7 +947,7 @@ static struct menu_entry adv_int_menu[] =
                                 .update = iso_display,
                                 .select = iso_toggle,
                                 .help  = "Adjust and fine-tune ISO. Also displays APEX Sv value.",
-                                .edit_mode = EM_MANY_VALUES_LV,
+                                .edit_mode = EM_SHOW_LIVEVIEW,
                             },
                             MENU_EOL
                         }

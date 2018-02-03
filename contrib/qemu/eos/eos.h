@@ -120,6 +120,7 @@ typedef struct
     uint32_t dma_count;
     uint32_t dma_read;
     uint32_t dma_written;
+    int dma_wait;
 } CFState;
 
 struct palette_entry
@@ -154,12 +155,24 @@ struct HPTimer
     int triggered;
 };
 
+typedef enum 
+{
+    RTC_WRITE_BURST  = 0x00,
+    RTC_WRITE_BURST2 = 0x01,
+    RTC_WRITE_SINGLE = 0x08,
+    RTC_READ_BURST   = 0x04,
+    RTC_READ_BURST2  = 0x09,
+    RTC_READ_SINGLE  = 0x0C,
+    RTC_INACTIVE     = 0xFE,
+    RTC_READY        = 0xFF
+} rtc_command_state;
+
 #define HPTIMER_INTERRUPT s->model->hptimer_interrupt
 
 struct mpu_init_spell
 {
   uint16_t in_spell[128];
-  uint16_t out_spells[128][128];
+  uint16_t out_spells[256][128];
   const char * description;
 };
 
@@ -181,6 +194,7 @@ typedef struct
     int sq_head;                /* for extracting items */
     int sq_tail;                /* for inserting (queueing) items */
 
+    Notifier powerdown_notifier;
 } MPUState;
 
 typedef struct
@@ -273,6 +287,7 @@ typedef struct
     SDIOState sd;
     CFState cf;
     DigicUartState uart;
+    int uart_just_received;
     MPUState mpu;
     EDMACState edmac;
     PreproState prepro;
@@ -335,10 +350,13 @@ typedef struct
 unsigned int eos_handle_rom ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_flashctrl ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_dma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_xdmac ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_ram ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_sio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_i2c ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_cartridge ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_uart_dma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_timers ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_timers_ ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_digic_timer ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
@@ -364,6 +382,7 @@ unsigned int eos_handle_power_control ( unsigned int parm, EOSState *s, unsigned
 unsigned int eos_handle_adc ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_jpcore( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_eeko_comm( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_memdiv( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 
 unsigned int eos_handle_digic6 ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 
@@ -381,6 +400,7 @@ unsigned int eos_trigger_int(EOSState *s, unsigned int id, unsigned int delay);
 unsigned int flash_get_blocksize(unsigned int rom, unsigned int size, unsigned int word_offset);
 
 void eos_load_image(EOSState *s, const char* file, int offset, int max_size, uint32_t addr, int swap_endian);
+const char * eos_get_cam_path(EOSState *s, const char * file_rel);
 
 void io_log(const char * module_name, EOSState *s, unsigned int address, unsigned char type, unsigned int in_value, unsigned int out_value, const char * msg, intptr_t msg_arg1, intptr_t msg_arg2);
 

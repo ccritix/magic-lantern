@@ -9,7 +9,6 @@
 #include "zebra.h"
 #include "shoot.h"
 #include "alloca.h"
-#include "qemu-util.h"
 
 #ifndef CONFIG_CONSOLE
 #error Something went wrong CONFIg_CONSOLE should be defined
@@ -191,7 +190,7 @@ static void console_draw(int tiny)
     
     if (1)
     {
-        skipped_lines = CONSOLE_H - (tiny ? 3 : 15);
+        skipped_lines = MAX(skipped_lines, CONSOLE_H - (tiny ? 3 : 15));
     }
     
     /* chop empty columns from the right */

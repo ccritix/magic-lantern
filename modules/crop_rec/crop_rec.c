@@ -10,6 +10,7 @@
 #include <powersave.h>
 #include <raw.h>
 #include <fps.h>
+#include <shoot.h>
 
 #undef CROP_DEBUG
 
@@ -1382,18 +1383,28 @@ static MENU_UPDATE_FUNC(crop_update)
         {
             if (lv_dispsize == 1)
             {
-                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use this mode, please enable the x5 zoom in LiveView.");
+                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use this mode, exit ML menu and press the zoom button (set to x5).");
             }
         }
         else /* non-zoom modes */
         {
             if (!is_supported_mode())
             {
-                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This feature only works in 1080p and 720p video modes.");
+                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in 1080p and 720p video modes.");
             }
             else if (lv_dispsize != 1)
             {
-                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use this mode, please disable the LiveView zoom.");
+                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use this mode, exit ML menu and press the zoom button (set to x1).");
+            }
+            else if (!is_720p())
+            {
+                if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X ||
+                    CROP_PRESET_MENU == CROP_PRESET_3x3_1X_48p)
+                {
+                    /* these presets only have effect in 720p mode */
+                    MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in the 720p 50/60 fps modes from Canon menu.");
+                    return;
+                }
             }
         }
     }
@@ -1520,6 +1531,21 @@ static void center_canon_preview()
     uint32_t pos2 = shamem_read(0xc0f383dc);
     int raw_xc = (146 + 3744) / 2 / 4;  /* hardcoded for 5D3 */
     int raw_yc = ( 60 + 1380) / 2;      /* values from old raw.c */
+    if (1)
+    {
+        /* use the focus box position for moving the preview window around */
+        /* don't do that while recording! */
+        dbg_printf("[crop_rec] %d,%d ", raw_xc, raw_yc);
+        raw_xc -= 146 / 2 / 4;  raw_yc -= 60 / 2;
+        /* this won't change the position if the focus box is centered */
+        get_afframe_pos(raw_xc * 2, raw_yc * 2, &raw_xc, &raw_yc);
+        raw_xc += 146 / 2 / 4;  raw_yc += 60 / 2;
+        raw_xc &= ~1;   /* just for consistency */
+        raw_yc &= ~1;   /* this must be even, otherwise the image turns pink */
+        raw_xc = COERCE(raw_xc, 176, 770);  /* trial and error; image pitch changes if we push to the right */
+        raw_yc = COERCE(raw_yc, 444, 950);  /* trial and error; broken image at the edges, outside these limits */
+        dbg_printf("-> %d,%d using focus box position\n", raw_xc, raw_yc);
+    }
     int x1 = pos1 & 0xFFFF;
     int x2 = pos2 & 0xFFFF;
     int y1 = pos1 >> 16;

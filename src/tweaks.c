@@ -209,7 +209,7 @@ static MENU_UPDATE_FUNC(expsim_display)
                 MENU_SET_WARNING(MENU_WARN_ADVICE, "Expo Override is active, LiveView exposure may be incorrect.");
             }
         }
-        else if (shooting_mode == SHOOTMODE_M && !lens_info.name[0])  /* Canon's LiveView underexposure bug with manual lenses */
+        else if (shooting_mode == SHOOTMODE_M && !lens_info.lens_exists)  /* Canon's LiveView underexposure bug with manual lenses */
         {
             MENU_SET_WARNING(MENU_WARN_ADVICE, "LiveView exposure may be incorrect. Enable expo override to fix it.");
         }
@@ -406,45 +406,6 @@ static void playback_set_wheel_action(int dir)
     {};
 }
 #endif
-
-int is_pure_play_photo_mode() // no other dialogs active (such as delete)
-{
-    if (!PLAY_MODE) return 0;
-#ifdef CONFIG_5DC
-    return 1;
-#else
-    extern thunk PlayMain_handler;
-    return (intptr_t)get_current_dialog_handler() == (intptr_t)&PlayMain_handler;
-#endif
-}
-
-int is_pure_play_movie_mode() // no other dialogs active (such as delete)
-{
-    if (!PLAY_MODE) return 0;
-#ifdef CONFIG_VXWORKS
-    return 0;
-#else
-    extern thunk PlayMovieGuideApp_handler;
-    return (intptr_t)get_current_dialog_handler() == (intptr_t)&PlayMovieGuideApp_handler;
-#endif
-}
-
-int is_pure_play_photo_or_movie_mode() { return is_pure_play_photo_mode() || is_pure_play_movie_mode(); }
-
-int is_play_or_qr_mode()
-{
-    return PLAY_OR_QR_MODE;
-}
-
-int is_play_mode()
-{
-    return PLAY_MODE;
-}
-
-int is_menu_mode()
-{
-    return MENU_MODE;
-}
 
 #ifdef FEATURE_SET_MAINDIAL
 
@@ -3457,7 +3418,7 @@ static struct menu_entry display_menus[] = {
                 .min = 0,
                 #ifdef FEATURE_LV_SATURATION
                 .max = 3,   /* to get raw values, set .max = 0x1000, .unit = UNIT_HEX and comment out .choices */
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 #else
                 .max = 1,   /* the other options require saturation controls available */
                 #endif
@@ -3473,7 +3434,7 @@ static struct menu_entry display_menus[] = {
                 .max = 2,
                 .help = "For LiveView preview only. Does not affect recording.",
                 .update = preview_brightness_display,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .choices = (const char *[]) {"Normal", "High", "Very high"},
                 .depends_on = DEP_LIVEVIEW,
                 .icon_type = IT_PERCENT_OFF,
@@ -3485,7 +3446,7 @@ static struct menu_entry display_menus[] = {
                 .max = 3,
                 .update = preview_contrast_display,
                 .help = "For LiveView preview only. Does not affect recording.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .choices = (const char *[]) {"Zero", "Very low", "Low", "Normal", "High", "Very high", "Auto"},
                 .depends_on = DEP_LIVEVIEW,
                 .icon_type = IT_PERCENT_OFF,
@@ -3505,7 +3466,7 @@ static struct menu_entry display_menus[] = {
                          " \n"
                          " \n"
                          "Boost on WB: increase saturation when you are adjusting WB.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .choices = (const char *[]) {"Grayscale", "Low", "Normal", "High", "Very high", "Boost on WB adjust"},
                 .depends_on = DEP_LIVEVIEW,
                 .icon_type = IT_PERCENT_OFF,
@@ -3533,7 +3494,7 @@ static struct menu_entry display_menus[] = {
                 .icon_type = IT_PERCENT_OFF,
                 .help   = "Makes LiveView usable in complete darkness (photo mode).",
                 .help2  = "Tip: if it gets really dark, also enable FPS override.",
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .depends_on = DEP_LIVEVIEW | DEP_PHOTO_MODE,
             },
             #endif
@@ -3707,7 +3668,7 @@ static struct menu_entry display_menus[] = {
                 .priv     = &preview_crazy,
                 .min = 0,
                 .max = 2,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .choices = (const char *[]) {"OFF", "Swap U-V", "Extreme Chroma"},
                 .depends_on = DEP_LIVEVIEW,
                 .icon_type = IT_PERCENT_OFF,
@@ -3915,7 +3876,6 @@ static struct menu_entry play_menus[] = {
             .help = "What to do when you press SET and turn the scrollwheel.",
             //.essential = FOR_PHOTO,
             .icon_type = IT_BOOL,
-            //~ .edit_mode = EM_MANY_VALUES,
         },
 };
 #endif

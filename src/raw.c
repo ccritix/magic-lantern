@@ -41,7 +41,7 @@
 #ifdef RAW_DEBUG
 #define dbg_printf(fmt,...) { printf(fmt, ## __VA_ARGS__); }
 #else
-#define dbg_printf(fmt,...) {}
+#define dbg_printf(fmt,...) { qprintf(fmt, ## __VA_ARGS__); }
 #endif
 
 static struct semaphore * raw_sem = 0;
@@ -86,6 +86,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_60D
 #define DEFAULT_RAW_BUFFER MEM(MEM(0x5028))
+#define DEFAULT_RAW_BUFFER_SIZE (0x49F00000 - 0x48332200)   /* ~28MB, really? */
 #endif
 
 #ifdef CONFIG_600D
@@ -93,27 +94,22 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #endif
 
 #ifdef CONFIG_5D3_113
-//~ #define DEFAULT_RAW_BUFFER MEM(0x2600C + 0x2c)
-//~ #define DEFAULT_RAW_BUFFER_SIZE (9*1024*1024)
+/* MEM(0x2600C + 0x2c) = 0x4B152000; appears free until 0x4CE00000 */
+#define DEFAULT_RAW_BUFFER MEM(0x2600C + 0x2c)
+#define DEFAULT_RAW_BUFFER_SIZE (0x4CDF0000 - 0x4B152000)
 #endif
 
 #ifdef CONFIG_5D3_123
-//~ #define DEFAULT_RAW_BUFFER MEM(0x25f1c + 0x34)
-//~ #define DEFAULT_RAW_BUFFER_SIZE (9*1024*1024)   /* incorrect? */
+/* MEM(0x25f1c + 0x34) (0x4d31a000) is used near 0x4d600000 in photo mode
+ * that's probably just because the memory layout changes
+ * next buffer is at 0x4ee00000; can we assume it can be safely reused by us?
+ * (Free Memory dialog, memory map with CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP)
+ */
+#define DEFAULT_RAW_BUFFER MEM(0x25f1c + 0x34)
+#define DEFAULT_RAW_BUFFER_SIZE (0x4e000000 - 0x4d31a000)
 #endif
 
 #ifdef CONFIG_5D3
-/* MEM(0x25f1c + 0x34) (0x4d31a000) is used near 0x4d600000 in photo mode
- * that means, after 2.9MB (in the middle of our raw buffer)
- * the data structure appears to be re-initialized as soon as leaving LiveView
- * let's use from 0x4d600100; next buffer is at 0x4ee00000
- * to check: our raw buffer shouldn't be overwritten when pausing LiveView
- * or when recording H.264 or when doing anything else in LiveView
- * (it will be overwritten when taking a sequence of burst pictures) 
- */
-#define DEFAULT_RAW_BUFFER  0x4d600100
-#define DEFAULT_RAW_BUFFER_SIZE (0x4ee00000 - 0x4d600100)
-
 /* for higher resolutions we'll allocate a new buffer, as needed */
 #define CONFIG_ALLOCATE_RAW_LV_BUFFER
 /* buffer size for a full-res LiveView image */
@@ -123,17 +119,16 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_650D
 #define DEFAULT_RAW_BUFFER MEM(0x25B00 + 0x3C)
-#define DEFAULT_RAW_BUFFER_SIZE (0x4ee00000 - 0x4d600100)
 #endif
 
 #ifdef CONFIG_700D
 #define DEFAULT_RAW_BUFFER MEM(0x25B0C + 0x3C)
-#define DEFAULT_RAW_BUFFER_SIZE (0x4ee00000 - 0x4d600100)
+#define DEFAULT_RAW_BUFFER_SIZE (0x47F00000 - 0x46798080)
 #endif
 
 #ifdef CONFIG_EOSM
 #define DEFAULT_RAW_BUFFER MEM(0x404E4 + 0x44)
-#define DEFAULT_RAW_BUFFER_SIZE (0x4ee00000 - 0x4d600100)
+#define DEFAULT_RAW_BUFFER_SIZE (0x47F00000 - 0x46798080)
 #endif
 
 #ifdef CONFIG_6D
@@ -146,15 +141,21 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_100D
 #define DEFAULT_RAW_BUFFER MEM(0x6733C + 0x40)
-#define DEFAULT_RAW_BUFFER_SIZE (0x4ee00000 - 0x4d600100)
 #endif
 
 #ifdef CONFIG_1100D
-#define RAW_LV_BUFFER_ALLOC_SIZE (3906*968)
+#define DEFAULT_RAW_BUFFER MEM(MEM(0x4C64))     /* how much do we have allocated? */
+#define DEFAULT_RAW_BUFFER_SIZE 8*1024*1024     /* is this really overwritten by other code? needs some investigation */
+#endif
+
+#ifndef DEFAULT_RAW_BUFFER_SIZE
+/* todo: figure out how much Canon code allocates for their LV RAW buffer - how? */
+#warning FIXME: using dummy DEFAULT_RAW_BUFFER_SIZE
+#define DEFAULT_RAW_BUFFER_SIZE (9*1024*1024)
 #endif
 
 
-#else // "Traditional" RAW LV buffer detection
+#else // "Traditional" RAW LV buffer detection (no CONFIG_EDMAC_RAW_SLURP)
 
 /**
  * LiveView raw buffer address
@@ -174,7 +175,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_LV_EDMAC 0xC0F26208
 #endif
 
-#endif
+#endif  /* no CONFIG_EDMAC_RAW_SLURP */
 
 /**
  * Photo-mode raw buffer address
@@ -239,7 +240,7 @@ static int get_default_white_level()
     {
         int default_white = WHITE_LEVEL;
 
-        #ifdef CONFIG_100D
+        #if defined(CONFIG_100D) || defined(CONFIG_700D) /* other models? */
         /* http://www.magiclantern.fm/forum/index.php?topic=16040.msg191131#msg191131 */
         /* 100 units below measured value = about 0.01 EV */
         default_white = (lens_info.raw_iso == ISO_100) ? 13400 : 15200;
@@ -484,10 +485,12 @@ extern void reverse_bytes_order(char* buf, int count);
 
 #ifdef CONFIG_RAW_LIVEVIEW
 
+#ifdef CONFIG_EDMAC_RAW_SLURP
 /* can be either allocated by us or Canon's default */
 static void * raw_allocated_lv_buffer = 0;
 static void * raw_lv_buffer = 0;
 static int raw_lv_buffer_size = 0;
+#endif
 
 /* our default LiveView buffer (which can be DEFAULT_RAW_BUFFER or allocated) */
 static void* raw_get_default_lv_buffer()
@@ -534,12 +537,17 @@ static int raw_lv_get_resolution(int* width, int* height)
     *height = (bot_right >> 16)     - (top_left >> 16);
 
     /* height may be a little different; 5D3 needs to subtract 1,
-     * EOS M needs to add 1, 100D usually gives exact value
+     * EOSM/700D/650D needs to add 1, 100D usually gives exact value
+     * but tests show better results if we subtract 1.
      * is it really important to have exact height?
      * for some raw types, yes! */
 
-#ifdef CONFIG_5D3
+#if defined(CONFIG_5D3) || defined(CONFIG_100D)
     (*height)--;
+#endif
+
+#if defined(CONFIG_700D) || defined(CONFIG_650D)
+    (*height)++;
 #endif
 
 #ifdef CONFIG_EOSM
@@ -549,6 +557,7 @@ static int raw_lv_get_resolution(int* width, int* height)
     {
         *height = 727;
     }
+    else (*height)++;
 #endif
 
     return 1;
@@ -567,6 +576,15 @@ static int raw_lv_get_resolution(int* width, int* height)
     return 1;
 #endif
 }
+
+/* We can only do custom buffer allocations with CONFIG_EDMAC_RAW_SLURP,
+ * where the process of transferring the raw image to RAM is under our control.
+ * 
+ * Even without CONFIG_ALLOCATE_RAW_LV_BUFFER, we'll use these routines to check Canon buffer size
+ * on models where it's known, and throw an assertion if they are not large enough.
+ * This will be especially useful for implementing 3K, 4K and full-res LiveView.
+ */
+#ifdef CONFIG_EDMAC_RAW_SLURP
 
 /* requires raw_sem */
 static void raw_lv_free_buffer()
@@ -645,6 +663,8 @@ static void raw_lv_realloc_buffer()
      * or find some other way to reserve memory for the RAW LV buffer */
     ASSERT(0);
 }
+
+#endif  /* CONFIG_EDMAC_RAW_SLURP */
 #endif /* CONFIG_RAW_LIVEVIEW */
 
 static REQUIRES(raw_sem)
@@ -699,7 +719,10 @@ int raw_update_params_work()
         }
         #endif
 
+        #ifdef CONFIG_EDMAC_RAW_SLURP
         raw_lv_realloc_buffer();
+        #endif
+
         raw_info.buffer = raw_get_default_lv_buffer();
         
         if (!raw_info.buffer)
@@ -762,6 +785,11 @@ int raw_update_params_work()
         skip_right  = zoom ? 0 : 2;
         #endif
 
+        #ifdef CONFIG_1100D
+        skip_top = 16;
+        skip_left = zoom ? 72 : 68;
+        #endif
+
         #ifdef CONFIG_60D
         skip_top    = 26;
         skip_left   = zoom ? 0 : mv640crop ? 150 : 152;
@@ -776,10 +804,10 @@ int raw_update_params_work()
         #endif
 
         #if defined(CONFIG_EOSM) || defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_100D)
-        skip_top    = 28;
+        skip_top    = zoom ? 26 : 28;
         skip_left   = 72;
         skip_right  = 0;
-        skip_bottom = zoom ? 0 : mv1080crop ? 0 : 4;
+        skip_bottom = zoom ? 0 : mv1080crop ? 2 : 4;
         #endif
 
         #ifdef CONFIG_7D
@@ -806,6 +834,7 @@ int raw_update_params_work()
 
         if (!can_use_raw_overlays_photo())
         {
+            dbg_printf("Picture quality not RAW\n");
             return 0;
         }
         
@@ -820,7 +849,8 @@ int raw_update_params_work()
         /* autodetect image size from EDMAC */
         width  = shamem_read(RAW_PHOTO_EDMAC + 8) * 8 / 14; /* size B */
         height = shamem_read(RAW_PHOTO_EDMAC + 4) + 1;     /* size N */
-        
+        height &= ~1; /* force it to be always even - https://www.magiclantern.fm/forum/index.php?topic=19300.msg196786#msg196786 */
+
         /* in photo mode, raw buffer size is from ~12 Mpix (1100D) to ~24 Mpix (5D3) */
         /* (this EDMAC may be reused for something else, usually smaller, or with a different size encoding - refuse to run if this happens) */
         if ((width & 0xFFFFE000) || (height & 0xFFFFE000) || (width*height < 10e6) || (width*height > 30e6))
@@ -969,6 +999,7 @@ int raw_update_params_work()
             /* reset black level to force recomputing */
             raw_info.black_level = 0;
             
+            dbg_printf("LV raw dimensions changed\n");
             return 0;
         }
     }
@@ -1047,6 +1078,7 @@ int raw_update_params_work()
             }
         }
 
+        dbg_printf("Black check error\n");
         return 0;
     }
 
@@ -1095,8 +1127,11 @@ int raw_update_params_work()
         static int last_iso = 0;
         if (!iso) iso = last_iso;
         last_iso = iso;
-        if (!iso) return 0;
-        
+        if (!iso)
+        {
+            dbg_printf("ISO error\n");
+            return 0;
+        }
         int iso2 = dual_iso_get_recovery_iso();
         if (iso2) iso = MIN(iso, iso2);
         int dr_boost = dual_iso_get_dr_improvement();
@@ -1869,12 +1904,22 @@ int raw_lv_settings_still_valid()
 
 static void FAST raw_preview_color_work(void* raw_buffer, void* lv_buffer, int y1, int y2)
 {
+    dbg_printf("Raw color preview...\n");
+
     uint16_t* lv16 = CACHEABLE(lv_buffer);
     uint32_t* lv32 = (uint32_t*) lv16;
-    if (!lv16) return;
-    
+    if (!lv16)
+    {
+        dbg_printf("No YUV buffer\n");
+        return;
+    }
+
     struct raw_pixblock * raw = CACHEABLE(raw_buffer);
-    if (!raw) return;
+    if (!raw)
+    {
+        dbg_printf("No RAW buffer\n");
+        return;
+    }
 
     /* scale useful range (black...white) to 0...1023 or less */
     int black = raw_info.black_level;
@@ -1979,12 +2024,22 @@ static void FAST raw_preview_color_work(void* raw_buffer, void* lv_buffer, int y
 
 static void FAST raw_preview_fast_work(void* raw_buffer, void* lv_buffer, int y1, int y2)
 {
+    dbg_printf("Raw grayscale preview...\n");
+
     uint16_t* lv16 = CACHEABLE(lv_buffer);
     uint64_t* lv64 = (uint64_t*) lv16;
-    if (!lv16) return;
-    
+    if (!lv16)
+    {
+        dbg_printf("No YUV buffer\n");
+        return;
+    }
+
     struct raw_pixblock * raw = CACHEABLE(raw_buffer);
-    if (!raw) return;
+    if (!raw)
+    {
+        dbg_printf("No RAW buffer\n");
+        return;
+    }
 
     /* scale useful range (black...white) to 0...1023 or less */
     int black = raw_info.black_level;
@@ -2112,16 +2167,17 @@ static void raw_lv_enable()
         first_time = 0;
         info_led_on();
         uint32_t start = DEFAULT_RAW_BUFFER;
-        uint32_t end = start + DEFAULT_RAW_BUFFER_SIZE;
-        printf("Checking %x-%x...\n", start, end);
+        uint32_t end = start + 64*1024*1024;
+        printf("Raw buffer guess: %X-", start, end);
         for (uint32_t a = start; a < end; a += 4)
         {
             if (MEM(a) != 0x124B1DE0)
             {
-                ASSERT(0);
-                printf("%x: %x\n", a, MEM(a));
-                first_time = 1; /* check again */
-                return;
+                end = a - 4;
+                printf("%X (%s, ", end, format_memory_size(end - start));
+                printf("using %s %s)\n", format_memory_size(DEFAULT_RAW_BUFFER_SIZE),
+                       (end > start + DEFAULT_RAW_BUFFER_SIZE) ? "OK" : "FIXME");
+                break;
             }
         }
         info_led_off();
@@ -2129,7 +2185,9 @@ static void raw_lv_enable()
 #endif
 #endif
 
+#ifdef CONFIG_EDMAC_RAW_SLURP
     raw_lv_realloc_buffer();
+#endif
 }
 
 static void raw_lv_disable()
