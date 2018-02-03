@@ -335,7 +335,7 @@ static GUARDED_BY(LiveViewTask) int writing_queue[COUNT(slots)+1];  /* queue of 
 static GUARDED_BY(LiveViewTask) int writing_queue_tail = 0;         /* place captured frames here */
 static GUARDED_BY(RawRecTask)   int writing_queue_head = 0;         /* extract frames to be written from here */ 
 
-static GUARDED_BY(LiveViewTask) int video_frame_count = 0;          /* current video frame */
+static GUARDED_BY(LiveViewTask) int frame_count = 0;                /* current video frame */
 static GUARDED_BY(LiveViewTask) int total_frame_count = 0;          /* how many frames we have processed */
 static GUARDED_BY(LiveViewTask) int skipped_frames = 0;             /* how many frames we had to drop (only done during pre-recording) */
 static GUARDED_BY(RawRecTask)   int chunk_frame_count = 0;          /* how many frames in the current file chunk */
@@ -378,13 +378,13 @@ static inline int pre_recording_buffer_full()
     /* fixme: not very accurate with variable frame sizes */
     return 
         raw_recording_state == RAW_PRE_RECORDING &&
-        video_frame_count - pre_record_first_frame >= pre_record_num_frames;
+        frame_count - pre_record_first_frame >= pre_record_num_frames;
 }
 
 static inline int pre_recorded_frames()
 {
     return (raw_recording_state == RAW_PRE_RECORDING)
-        ? video_frame_count - pre_record_first_frame
+        ? frame_count - pre_record_first_frame
         : 0;
 }
 
@@ -1472,7 +1472,7 @@ static void show_buffer_status()
     else
     {
         int free = count_free_slots();
-        int x = video_frame_count % 720;
+        int x = frame_count % 720;
         int ymin = 120;
         int ymax = 400;
         int y = ymin + free * (ymax - ymin) / valid_slot_count;
@@ -1578,7 +1578,7 @@ static int update_status(char * buffer, int buffer_size)
     /* Calculate the stats */
     int fps = fps_get_current_x1000();  /* FPS x1000 */
     int p = pre_recorded_frames();      /* pre-recorded frames */
-    int r = (video_frame_count - 1 - p);      /* recorded frames */
+    int r = (frame_count - 1 - p);      /* recorded frames */
     int t = (r * 1000) / fps;           /* recorded time - truncated */
 
     /* estimate how many number of frames we can record from now on */
@@ -1652,7 +1652,7 @@ static int update_status(char * buffer, int buffer_size)
     else 
     {
         /* recording stopped - show number of frames */ 
-        len = snprintf(buffer, buffer_size, "%d frames", video_frame_count - 1);
+        len = snprintf(buffer, buffer_size, "%d frames", frame_count - 1);
         return COLOR_DARK_RED;
     }
 }
@@ -1878,7 +1878,7 @@ void FAST hack_liveview_vsync()
     
     if (!PREVIEW_HACKED) return;
     
-    if (RAW_IS_RECORDING && video_frame_count == 0)
+    if (RAW_IS_RECORDING && frame_count == 0)
     {
         for (int channel = 0; channel < 32; channel++)
         {
@@ -2305,7 +2305,7 @@ static REQUIRES(LiveViewTask)
 void FAST pre_record_discard_frame()
 {
     /* discard old frames */
-    /* also adjust video_frame_count so all frames start from 1,
+    /* also adjust frame_count so all frames start from 1,
      * just like the rest of the code assumes */
 
     for (int i = 0; i < total_slot_count; i++)
@@ -2319,7 +2319,7 @@ void FAST pre_record_discard_frame()
             if (slots[i].frame_number == pre_record_first_frame)
             {
                 free_slot(i);
-                video_frame_count--;
+                frame_count--;
                 total_frame_count--;
             }
             else if (slots[i].frame_number > pre_record_first_frame)
@@ -2336,12 +2336,12 @@ static REQUIRES(LiveViewTask)
 void FAST pre_record_queue_frames()
 {
     /* queue all captured frames for writing */
-    /* (they are numbered from 1 to video_frame_count-1; frame 0 is skipped) */
+    /* (they are numbered from 1 to frame_count-1; frame 0 is skipped) */
     /* they are not ordered, which complicates things a bit */
-    printf("Pre-rec: queueing frames %d to %d.\n", pre_record_first_frame, video_frame_count-1);
+    printf("Pre-rec: queueing frames %d to %d.\n", pre_record_first_frame, frame_count-1);
 
     int i = 0;
-    for (int current_frame = pre_record_first_frame; current_frame < video_frame_count; current_frame++)
+    for (int current_frame = pre_record_first_frame; current_frame < frame_count; current_frame++)
     {
         /* consecutive frames tend to be grouped, 
          * so this loop will not run every time */
@@ -2378,7 +2378,7 @@ void FAST pre_record_vsync_step()
         if (!pre_record_triggered)
         {
             /* return to pre-recording state */
-            pre_record_first_frame = video_frame_count;
+            pre_record_first_frame = frame_count;
             raw_recording_state = RAW_PRE_RECORDING;
             printf("Pre-rec: back to pre-recording (frame %d).\n", pre_record_first_frame);
             /* fall through the next block */
@@ -2392,7 +2392,7 @@ void FAST pre_record_vsync_step()
         if (!pre_record_first_frame)
         {
             /* start pre-recording (first attempt) */
-            pre_record_first_frame = video_frame_count;
+            pre_record_first_frame = frame_count;
             printf("Pre-rec: starting from frame %d.\n", pre_record_first_frame);
         }
 
@@ -2413,7 +2413,7 @@ void FAST pre_record_vsync_step()
                 /* do not resume recording; just start a new pre-recording "session" */
                 /* trick to allow reusing all frames for pre-recording */
                 pre_record_triggered = 0;
-                pre_record_first_frame = video_frame_count;
+                pre_record_first_frame = frame_count;
             }
         }
         else if (pre_recording_buffer_full())
@@ -2640,7 +2640,7 @@ static void compress_task()
              * unlikely to cause actual trouble - silence them for now */
             if (compressed_size < 0 && !RAW_IS_IDLE)
             {
-                printf("Compression error %d at frame %d\n", compressed_size, video_frame_count-1);
+                printf("Compression error %d at frame %d\n", compressed_size, frame_count-1);
                 ASSERT(0);
             }
 
@@ -2699,9 +2699,9 @@ static REQUIRES(LiveViewTask) FAST
 void process_frame(int next_fullsize_buffer_pos)
 {
     /* skip the first frame(s) */
-    if (video_frame_count <= 0)
+    if (frame_count <= 0)
     {
-        video_frame_count++;
+        frame_count++;
         total_frame_count++;
         return;
     }
@@ -2768,7 +2768,7 @@ void process_frame(int next_fullsize_buffer_pos)
     vidf_hdr.panPosY = skip_y;
     *(mlv_vidf_hdr_t*)(slots[capture_slot].ptr) = vidf_hdr;
 
-    //~ printf("saving frame %d: slot %d ptr %x\n", video_frame_count, capture_slot, ptr);
+    //~ printf("saving frame %d: slot %d ptr %x\n", frame_count, capture_slot, ptr);
 
     /* copy current frame to our buffer and crop it to its final size */
     /* for some reason, compression cannot be started from vsync */
@@ -2777,7 +2777,7 @@ void process_frame(int next_fullsize_buffer_pos)
     msg_queue_post(compress_mq, capture_slot | (next_fullsize_buffer_pos << 16));
 
     /* advance to next frame */
-    video_frame_count++;
+    frame_count++;
     total_frame_count++;
     
     return;
@@ -2821,7 +2821,7 @@ unsigned int FAST raw_rec_vsync_setparam_cbr(unsigned int unused)
         /* H.264 might contain a few more frames; important? */
         /* note: the new setting applies to next LiveView frame
          * so the first RAW frame would also end up black;
-         * to skip it, we initialize video_frame_count with -1 */
+         * to skip it, we initialize frame_count with -1 */
         set_frame_shutter_timer(0);
         return CBR_RET_STOP;
     }
@@ -3148,8 +3148,8 @@ extern thunk ErrCardForLVApp_handler;
 static REQUIRES(LiveViewTask)
 void init_vsync_vars()
 {
-    video_frame_count = use_h264_proxy() ? -1 : 0;    /* see setparam_cbr */
-    total_frame_count = video_frame_count;
+    frame_count = use_h264_proxy() ? -1 : 0;    /* see setparam_cbr */
+    total_frame_count = frame_count;
     capture_slot = -1;
     fullsize_buffer_pos = 0;
     edmac_active = 0;
