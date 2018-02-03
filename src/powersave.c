@@ -70,11 +70,11 @@ int ResumeLiveView()
         int x = 0;
         BMP_LOCK(
             prop_request_change_wait(PROP_LV_ACTION, &x, 4, 1000);
-            int iter = 10; while (!DISPLAY_IS_ON && iter--) msleep(100);
+            int iter = 10; while (!DISPLAY_IS_ON && iter--) msleep(20);
         )
         while (sensor_cleaning) msleep(100);
         if (lv) set_lv_zoom(lv_zoom_before_pause);
-        msleep(100);
+        wait_lv_frames(1);
         ans = 1;
     }
     lv_paused = 0;
@@ -609,7 +609,6 @@ static struct menu_entry powersave_menus[] = {
             .max            = 900,
             .icon_type      = IT_PERCENT_LOG_OFF,
             .help = "Turn off GlobalDraw when idle, to save some CPU cycles.",
-            //~ .edit_mode = EM_MANY_VALUES,
         },
         MENU_EOL
     },

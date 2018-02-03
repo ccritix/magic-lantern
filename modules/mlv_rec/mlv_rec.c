@@ -111,6 +111,9 @@ static uint32_t cam_650d = 0;
 static uint32_t cam_7d = 0;
 static uint32_t cam_700d = 0;
 static uint32_t cam_60d = 0;
+static uint32_t cam_70d = 0;
+static uint32_t cam_100d = 0;
+static uint32_t cam_1100d = 0;
 
 static uint32_t cam_5d3 = 0;
 static uint32_t cam_5d3_113 = 0;
@@ -1559,7 +1562,7 @@ static unsigned int raw_rec_polling_cbr(unsigned int unused)
                 
                 int rl_icon_width=0;
                 /* Draw the movie camera icon */
-                rl_icon_width = bfnt_draw_char(ICON_ML_MOVIE, MLV_ICON_X, MLV_ICON_Y, rl_color, COLOR_BG_DARK);
+                rl_icon_width = bfnt_draw_char(ICON_ML_MOVIE, MLV_ICON_X, MLV_ICON_Y, rl_color, NO_BG_ERASE);
                 
                 /* Display the Status */
                 bmp_printf(FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), MLV_ICON_X+rl_icon_width+5, MLV_ICON_Y+5, "%02d:%02d", t/60, t%60);
@@ -1799,7 +1802,10 @@ static void hack_liveview(int32_t unhack)
             cam_700d ? 0xFF52BB60 :
             cam_7d  ? 0xFF345788 :
             cam_60d ? 0xff36fa3c :
+            cam_70d ? 0xFF558FF0 :
+            cam_100d ? 0xFF542580 :
             cam_500d ? 0xFF2ABEF8 :
+            cam_1100d ? 0xFF373384 :
             /* ... */
             0;
         uint32_t dialog_refresh_timer_orig_instr = 0xe3a00032; /* mov r0, #50 */
@@ -2514,7 +2520,18 @@ static int32_t mlv_write_rawc(FILE* f)
     mlv_set_type((mlv_hdr_t *)&rawc, "RAWC");
     mlv_set_timestamp((mlv_hdr_t *)&rawc, mlv_start_timestamp);
     rawc.blockSize = sizeof(mlv_rawc_hdr_t);
-    rawc.raw_capture_info = raw_capture_info;
+
+    /* copy all fields from raw_capture_info */
+    rawc.sensor_res_x = raw_capture_info.sensor_res_x;
+    rawc.sensor_res_y = raw_capture_info.sensor_res_y;
+    rawc.sensor_crop  = raw_capture_info.sensor_crop;
+    rawc.reserved     = raw_capture_info.reserved;
+    rawc.binning_x    = raw_capture_info.binning_x;
+    rawc.skipping_x   = raw_capture_info.skipping_x;
+    rawc.binning_y    = raw_capture_info.binning_y;
+    rawc.skipping_y   = raw_capture_info.skipping_y;
+    rawc.offset_x     = raw_capture_info.offset_x;
+    rawc.offset_y     = raw_capture_info.offset_y;
 
     return mlv_write_hdr(f, (mlv_hdr_t *)&rawc);
 }
@@ -2616,73 +2633,6 @@ static uint32_t raw_get_next_filenum()
     return fileNum;
 }
 
-static int write_mlv_vers_blocks(FILE *f)
-{
-    int mod = -1;
-    int error = 0;
-    
-    do
-    {
-        /* get next loaded module id */
-        mod = module_get_next_loaded(mod);
-        
-        /* make sure thats a valid one */
-        if(mod >= 0)
-        {
-            /* fetch information from module loader */
-            const char *mod_name = module_get_name(mod);
-            const char *mod_build_date = module_get_string(mod, "Build date");
-            const char *mod_last_update = module_get_string(mod, "Last update");
-            
-            if(mod_name != NULL)
-            {
-                /* just in case that ever happens */
-                if(mod_build_date == NULL)
-                {
-                    mod_build_date = "(no build date)";
-                }
-                if(mod_last_update == NULL)
-                {
-                    mod_last_update = "(no version)";
-                }
-                
-                /* separating the format string allows us to measure its length for malloc */
-                const char *fmt_string = "%s built %s; commit %s";
-                int buf_length = strlen(fmt_string) + strlen(mod_name) + strlen(mod_build_date) + strlen(mod_last_update) + 1;
-                char *version_string = malloc(buf_length);
-                
-                /* now build the string */
-                snprintf(version_string, buf_length, fmt_string, mod_name, mod_build_date, mod_last_update);
-                
-                /* and finally remove any newlines, they are annoying */
-                for(unsigned int pos = 0; pos < strlen(version_string); pos++)
-                {
-                    if(version_string[pos] == '\n')
-                    {
-                        version_string[pos] = ' ';
-                    }
-                }
-                
-                /* let the mlv helpers build the block for us */
-                mlv_vers_hdr_t *hdr = NULL;
-                mlv_build_vers(&hdr, mlv_start_timestamp, version_string);
-                
-                /* try to write to output file */
-                if(FIO_WriteFile(f, hdr, hdr->blockSize) != (int)hdr->blockSize)
-                {
-                    error = 1;
-                }
-                
-                /* free both temporary string and allocated mlv block */
-                free(version_string);
-                free(hdr);
-            }
-        }
-    } while(mod >= 0 && !error);
-    
-    return error;
-}
-
 static void raw_prepare_chunk(FILE *f, mlv_file_hdr_t *hdr)
 {
     if(f == NULL)
@@ -2727,7 +2677,7 @@ static void raw_prepare_chunk(FILE *f, mlv_file_hdr_t *hdr)
         mlv_write_hdr(f, (mlv_hdr_t *)&idnt_hdr);
         mlv_write_hdr(f, (mlv_hdr_t *)&wbal_hdr);
         mlv_write_hdr(f, (mlv_hdr_t *)&styl_hdr);
-        write_mlv_vers_blocks(f);
+        mlv_write_vers_blocks(f, mlv_start_timestamp);
     }
     
     /* insert a null block so the header size is multiple of 512 bytes */
@@ -3322,7 +3272,7 @@ static void raw_video_rec_task()
     }
     else if(DISPLAY_REC_INFO_ICON)
     {
-        uint32_t width = bfnt_draw_char(ICON_ML_MOVIE, MLV_ICON_X, MLV_ICON_Y, COLOR_WHITE, COLOR_BG_DARK);
+        uint32_t width = bfnt_draw_char(ICON_ML_MOVIE, MLV_ICON_X, MLV_ICON_Y, COLOR_WHITE, NO_BG_ERASE);
         bmp_printf(FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), MLV_ICON_X + width, MLV_ICON_Y + 5, "Prepare");
     }
     
@@ -4321,8 +4271,8 @@ static unsigned int raw_rec_update_preview(unsigned int ctx)
     struct display_filter_buffers * buffers = (struct display_filter_buffers *) ctx;
 
     raw_previewing = 1;
-    raw_set_preview_rect(skip_x, skip_y, res_x, res_y);
-    raw_force_aspect_ratio_1to1();
+    raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
+    raw_force_aspect_ratio(1,1);
     raw_preview_fast_ex(
         (void*)-1,
         (PREVIEW_HACKED && RAW_RECORDING) ? (void*)-1 : buffers->dst_buf,
@@ -4372,9 +4322,12 @@ static unsigned int raw_rec_init()
     cam_600d  = is_camera("600D", "1.0.2");
     cam_650d  = is_camera("650D", "1.0.4");
     cam_7d    = is_camera("7D",   "2.0.3");
-    cam_700d  = is_camera("700D", "1.1.4");
+    cam_700d  = is_camera("700D", "1.1.5");
     cam_60d   = is_camera("60D",  "1.1.1");
+    cam_70d   = is_camera("70D",  "1.1.2");
+    cam_100d  = is_camera("100D", "1.0.1");
     cam_500d  = is_camera("500D", "1.1.1");
+    cam_1100d = is_camera("1100D", "1.0.5");
 
     cam_5d3_113 = is_camera("5D3",  "1.1.3");
     cam_5d3_123 = is_camera("5D3",  "1.2.3");

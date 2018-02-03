@@ -51,15 +51,15 @@ NSTUB(   0x250D4,  additional_version)
 NSTUB(0xFF1CA3FC,  FIO_CloseFile)
 NSTUB(0xFF1CB3CC,  FIO_FindClose)                           // called with ret_FIO_FindFirstEx after finishing the dir scanning loop
 NSTUB(0xFF1CB2EC,  FIO_FindNextEx)
-NSTUB(0xFF1CA1AC,  FIO_ReadFile)
+NSTUB(0xFF1CA1AC, _FIO_ReadFile)
 NSTUB(0xFF1CA25C,  FIO_SeekSkipFile)                        /* present on 5D3.113, EOSM.202 */
-NSTUB(0xFF1CA34C,  FIO_WriteFile)
+NSTUB(0xFF1CA34C, _FIO_WriteFile)
 NSTUB(0xFF1CAC38, _FIO_CreateDirectory)
 NSTUB(0xFF1CA058, _FIO_CreateFile)
 NSTUB(0xFF1CB1F8, _FIO_FindFirstEx)
 NSTUB(0xFF1CA578, _FIO_GetFileSize)
 NSTUB(0xFF1C9F9C, _FIO_OpenFile)
-NSTUB(0xFF1CA104, _FIO_RemoveFile)                          // after _FIO_CreateFile, before FIO_ReadFile
+NSTUB(0xFF1CA104, _FIO_RemoveFile)                          // after _FIO_CreateFile, before_FIO_ReadFile
 NSTUB(0xFF1CAA70, _FIO_RenameFile)
 
 /** GUI **/
@@ -311,7 +311,6 @@ NSTUB(0xFF1DA530,  vsnprintf)
 
 /** Unused stubs or porting notes **/
 ///NSTUB( 0xFF538000, AJ_memset_R0_addr_R1_Len_R2_byteVal ) // bzero32+4
-///NSTUB( 0xff06f7c4, AllocateMemory_do ) // this one won't throw ERR70 on failure
 ///NSTUB( 0xff06f7c4, AllocateMemory_do ) // this one won't throw ERR70 on failure
 ///NSTUB( 0xff06f7c4, AllocateMemory_do ) // this one won't throw ERR70 on failure
 ///NSTUB(0xFF37479C,  CancelBottomInfoDispTimer)

@@ -349,7 +349,7 @@ static MENU_SELECT_FUNC(reg_clear_override)
             .select = reg_toggle, \
             .select_Q = reg_clear_override, \
             .update = reg_update, \
-            .edit_mode = EM_MANY_VALUES_LV, \
+            .edit_mode = EM_SHOW_LIVEVIEW, \
             .shidden = 1, \
         }
 
@@ -1033,6 +1033,14 @@ static unsigned int adtg_gui_init()
         ADTG_WRITE_FUNC = 0xFF2C9788; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0xFF2C997C; //"[REG] ############ Start CMOS"
     }
+    else if (is_camera("70D", "1.1.2"))
+    {
+        ADTG_WRITE_FUNC = 0x2684c; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
+        CMOS_WRITE_FUNC = 0x26B54; //"[REG] ############ Start CMOS"
+        // following work on iso-research branch
+        // ENGIO_WRITE_FUNC = 0xFF2BC6C4;  // from stubs
+        // ENG_DRV_OUT_FUNC = 0xFF2BC3AC;
+    }
     else if (is_camera("50D", "1.0.9")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg63322#msg63322
     {
         ADTG_WRITE_FUNC = 0xFFA11FDC;
@@ -1060,11 +1068,18 @@ static unsigned int adtg_gui_init()
         ADTG_WRITE_FUNC = 0x178FC; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0x17A1C; //"[REG] ############ Start CMOS"
     }
-    else if (is_camera("700D", "1.1.4"))
+    else if (is_camera("700D", "1.1.5"))
     {
         ADTG_WRITE_FUNC = 0x178FC; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0x17A1C; //"[REG] ############ Start CMOS"
-    }    
+    }
+    else if (is_camera("100D", "1.0.1"))
+    {
+        ADTG_WRITE_FUNC = 0x47144; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
+        CMOS_WRITE_FUNC = 0x475B8; //"[REG] ############ Start CMOS"
+        ENGIO_WRITE_FUNC = 0xFF2B2460;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF2B2148;
+    }
     else return CBR_RET_ERROR;
 
     

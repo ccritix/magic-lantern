@@ -48,9 +48,9 @@ NSTUB(0xFF0C5438,  init_task)
 NSTUB(0xFF33297C,  FIO_CloseFile)
 NSTUB(0xFF333974,  FIO_FindClose)                           // proper name: FindClose
 NSTUB(0xFF333894,  FIO_FindNextEx)
-NSTUB(0xFF33272C,  FIO_ReadFile)
+NSTUB(0xFF33272C, _FIO_ReadFile)
 NSTUB(0xFF3327DC,  FIO_SeekSkipFile)
-NSTUB(0xFF3328CC,  FIO_WriteFile)
+NSTUB(0xFF3328CC, _FIO_WriteFile)
 NSTUB(0xFF3331D8, _FIO_CreateDirectory)
 NSTUB(0xFF3325D8, _FIO_CreateFile)
 NSTUB(0xFF3337A0, _FIO_FindFirstEx)
@@ -82,7 +82,7 @@ NSTUB(0xFF11D0E4,  SetNextASIFADCBuffer)
 NSTUB(0xFF11D2CC,  SetNextASIFDACBuffer)                    // From Event Generating Functions
 NSTUB(0xFF142DDC,  SetSamplingRate)                         // AudioIC.c_SetRate_hHPTimer Identical
 NSTUB(0xFF11E64C,  SoundDevActiveIn)
-NSTUB(0xFF11C874,  SoundDevShutDownIn)
+NSTUB(0xFF11E8A4,  SoundDevShutDownIn)
 NSTUB(0xFF11C5C8,  StartASIFDMAADC)
 NSTUB(0xFF11C99C,  StartASIFDMADAC)
 NSTUB(0xFF11C874,  StopASIFDMAADC)
@@ -145,7 +145,7 @@ NSTUB(0xFF53A39C,  ShootOlcApp_handler)                     // AJ_DIALOG.HANDLER
 // NSTUB(    ???,  ReverseDisplay)                          /* present on 60D.111, 600D.102, 650D.104, 550D.109, 1100D.105, 700D.113 */
 
 /** EDMAC **/
-NSTUB(0xFFCF7BBC - RAM_OFFSET,  AbortEDmac)
+NSTUB(0xFFD06210 - RAM_OFFSET,  AbortEDmac)
 NSTUB(0xFFD05D64 - RAM_OFFSET,  ConnectReadEDmac)
 NSTUB(0xFFD05CA0 - RAM_OFFSET,  ConnectWriteEDmac)
 NSTUB(0xFFD06344 - RAM_OFFSET,  RegisterEDmacAbortCBR)
@@ -281,7 +281,7 @@ NSTUB(0xFFCDAD80 - RAM_OFFSET,  give_semaphore)
 NSTUB(0xFFCDAC94 - RAM_OFFSET,  take_semaphore)
 
 /** Task info **/
-NSTUB(   0x75F58,  task_max)
+NSTUB(   0x75F5C,  task_max)
 NSTUB(0xFFD1D5F4 - RAM_OFFSET,  is_taskid_valid)            // AJ_task_trampoline_related_p10
 NSTUB(   0x74C28,  current_task)
 NSTUB(     0x64C,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
@@ -290,7 +290,7 @@ NSTUB(     0x64C,  current_interrupt)                       // in interrupt hand
 NSTUB(0xFFCDB170 - RAM_OFFSET,  msleep)
 
 /** Tasks **/
-NSTUB(   0x74B1C,  task_dispatch_hook)
+NSTUB(   0x74C3C,  task_dispatch_hook)                      /* from task_trampoline -> last sub -> if (arg0 == CURRENT_TASK) call_new_task_dispatch_hook() */
 NSTUB(0xFFCDB224 - RAM_OFFSET,  task_create)
 NSTUB(0xFFCE0548 - RAM_OFFSET,  task_trampoline)
 // NSTUB(    ???,  current_task_ctx)                        /* present on 7D.203 */

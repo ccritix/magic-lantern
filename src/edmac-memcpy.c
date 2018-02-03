@@ -2,6 +2,7 @@
 #include "dryos.h"
 #include "edmac.h"
 #include "bmp.h"
+#include "math.h"
 #include "platform/state-object.h"
 
 #ifdef CONFIG_EDMAC_MEMCPY
@@ -29,6 +30,11 @@ uint32_t edmac_write_chan = 0x06; /* 1, 4, 6, 10 */
 #elif defined(CONFIG_6D) || defined(CONFIG_5D3)
 uint32_t edmac_read_chan = 0x19;  /* Read: 0 5 7 11 14 15 */
 uint32_t edmac_write_chan = 0x11; /* Write: 6 8 15 */
+// 70D uses same read and write channels as 6D and 5D3
+// just keep it separate with the comments
+#elif defined(CONFIG_70D)
+uint32_t edmac_read_chan = 0x19;  /* Read decimal: 8 25 29 42 43 - hex: 0x08 0x19 0x1D 0x2A 0x2B*/
+uint32_t edmac_write_chan = 0x11; /* Write decimal: 6 17 33 - hex: 0x06 0x11 0x21*/
 #elif defined(CONFIG_7D)
 uint32_t edmac_read_chan = 0x0A;  /*Read 0x19 0x0D 0x0B 0x0A(82MB/S)*/
 uint32_t edmac_write_chan = 0x06; /* Write 0x5 0x6 0x4 (LV) */
@@ -51,6 +57,13 @@ uint32_t edmac_write_chan = 0x04;
 
 /* both channels get connected to this... lets call it service. it will just output the data it gets as input */
 uint32_t dmaConnection = 6;
+
+/* see wiki, register map, EDMAC what the flags mean. they are for setting up copy block size */
+#if defined(CONFIG_7D)
+uint32_t edmac_memcpy_flags = EDMAC_2_BYTES_PER_TRANSFER; //Original are faster on 7D
+#else   
+uint32_t edmac_memcpy_flags = EDMAC_16_BYTES_PER_TRANSFER; //Enhanced
+#endif 
 
 static struct LockEntry * resLock = 0;
 
@@ -112,21 +125,25 @@ void* edmac_copy_rectangle_cbr_start(void* dst, void* src, int src_width, int sr
      *
      * Do not remove this check, or risk permanent camera bricking.
      */
-    if ((w * h) % 16)
+    uint32_t bpt = edmac_bytes_per_transfer(edmac_memcpy_flags);
+    if ((w * h) % bpt)
     {
-        printf("Invalid EDMAC output size: %d x %d (mod16 = %d)\n", w, h, (w * h) % 16);
+        printf("Invalid EDMAC output size: %d x %d (mod%d = %d)\n", w, h, bpt, (w * h) % bpt);
         return 0;
     }
 
+    /* make sure we are writing to uncacheable memory */
+    ASSERT(dst == UNCACHEABLE(dst));
+
+    /* clean the cache before reading from regular (cacheable) memory */
+    /* see FIO_WriteFile for more info */
+    if (src == CACHEABLE(src))
+    {
+        clean_d_cache();
+    }
+
     take_semaphore(edmac_memcpy_sem, 0);
-    
-    /* see wiki, register map, EDMAC what the flags mean. they are for setting up copy block size */
-    #if defined(CONFIG_7D)
-    uint32_t dmaFlags = 0x20001000; //Original are faster on 7D
-    #else   
-    uint32_t dmaFlags = 0x40001000; //Enhanced
-    #endif 
-    
+
     /* create a memory suite from a already existing (continuous) memory block with given size. */
     uint32_t src_adjusted = ((uint32_t)src & 0x1FFFFFFF) + src_x + src_y * src_width;
     uint32_t dst_adjusted = ((uint32_t)dst & 0x1FFFFFFF) + dst_x + dst_y * dst_width;
@@ -159,8 +176,8 @@ void* edmac_copy_rectangle_cbr_start(void* dst, void* src, int src_width, int sr
         .off1b = dst_width - w,
     };
     
-    SetEDmac(edmac_read_chan, (void*)src_adjusted, &src_edmac_info, dmaFlags);
-    SetEDmac(edmac_write_chan, (void*)dst_adjusted, &dst_edmac_info, dmaFlags);
+    SetEDmac(edmac_read_chan, (void*)src_adjusted, &src_edmac_info, edmac_memcpy_flags);
+    SetEDmac(edmac_write_chan, (void*)dst_adjusted, &dst_edmac_info, edmac_memcpy_flags);
     
     /* start transfer. no flags for write, 2 for read channels */
     StartEDmac(edmac_write_chan, 0);
@@ -222,7 +239,7 @@ void* edmac_copy_rectangle_start(void* dst, void* src, int src_width, int x, int
 
 void edmac_copy_rectangle_finish()
 {
-    return edmac_copy_rectangle_adv_finish();
+    edmac_copy_rectangle_adv_finish();
 }
 
 void* edmac_memset(void* dst, int value, size_t length)
@@ -261,47 +278,45 @@ void* edmac_memset(void* dst, int value, size_t length)
     return dst;
 }
 
-uint32_t edmac_find_divider(size_t length)
+uint32_t edmac_find_divider(size_t length, size_t transfer_size)
 {
-    int blocksize = 4096;
-    
-    /* find a fitting 2^x divider */
-    while((blocksize > 0) && (length % blocksize))
+    uint32_t max_width = (uint32_t) sqrtf(length);
+
+    /* find a fitting divider for length = width * height */
+    /* note: (width * height) % (bytes per transfer) must be 0 */
+    if (!transfer_size)
     {
-        blocksize >>= 1;
+        transfer_size = edmac_bytes_per_transfer(edmac_memcpy_flags);
     }
-    
-    /* could not find a fitting divider */
-    if(!blocksize)
+
+    if (length % transfer_size)
     {
+        /* this will crash */
         return 0;
     }
-    
-    return blocksize;
-}
 
-void* edmac_memcpy(void* dst, void* src, size_t length)
-{
-    int blocksize = edmac_find_divider(length);
-    
-    if(!blocksize)
+    for (uint32_t width = max_width; width > 0; width--)
     {
-        return memcpy(dst, src, length);
+        if (length % width == 0)
+        {
+            return width;
+        }
     }
-    
-    return edmac_copy_rectangle_adv(dst, src, blocksize, 0, 0, blocksize, 0, 0, blocksize, length / blocksize);
+
+    /* should be unreachable */
+    return 0;
 }
 
 void* edmac_memcpy_start(void* dst, void* src, size_t length)
 {
-    int blocksize = edmac_find_divider(length);
-    
-    if(!blocksize)
+    int blocksize = edmac_find_divider(length, 0);
+
+    if (!blocksize)
     {
+        printf("[edmac] warning: using memcpy (size=%d)\n", length);
         void * ret = memcpy(dst, src, length);
         /* simulate a started copy operation */
         take_semaphore(edmac_memcpy_sem, 0);
-        LockEngineResources(resLock);
         give_semaphore(edmac_read_done_sem);
         return ret;
     }
@@ -311,7 +326,15 @@ void* edmac_memcpy_start(void* dst, void* src, size_t length)
 
 void edmac_memcpy_finish()
 {
-    return edmac_copy_rectangle_adv_finish();
+    edmac_copy_rectangle_adv_finish();
+}
+
+
+void* edmac_memcpy(void* dst, void* src, size_t length)
+{
+    void * ans = edmac_memcpy_start(dst, src, length);
+    edmac_memcpy_finish();
+    return ans;
 }
 
 #endif
@@ -337,14 +360,14 @@ static void edmac_slurp_complete_cbr (void* ctx)
 void edmac_raw_slurp(void* dst, int w, int h)
 {
     /* see wiki, register map, EDMAC what the flags mean. they are for setting up copy block size */
-#if defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM)
-    uint32_t dmaFlags = 0x20000000;
+#if defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM) || defined(CONFIG_100D)
+    uint32_t dmaFlags = EDMAC_2_BYTES_PER_TRANSFER;
 #elif defined(CONFIG_6D)
-    uint32_t dmaFlags = 0x40000000;
+    uint32_t dmaFlags = EDMAC_4_BYTES_PER_TRANSFER;
 #else
-    uint32_t dmaFlags = 0x20001000;
+    uint32_t dmaFlags = EDMAC_8_BYTES_PER_TRANSFER;
 #endif
-    
+
     /* @g3gg0: this callback does get called */
     RegisterEDmacCompleteCBR(raw_write_chan, &edmac_slurp_complete_cbr, 0);
     RegisterEDmacAbortCBR(raw_write_chan, &edmac_slurp_complete_cbr, 0);

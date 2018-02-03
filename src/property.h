@@ -113,7 +113,7 @@
 #if defined(CONFIG_60D) || defined(CONFIG_7D)
     #define DRIVE_HISPEED_CONTINUOUS 4
     #define DRIVE_CONTINUOUS 5
-#elif defined(CONFIG_5D3)
+#elif defined(CONFIG_5D3) || defined(CONFIG_70D)
     #define DRIVE_HISPEED_CONTINUOUS 4
     #define DRIVE_CONTINUOUS 5
     #define DRIVE_SILENT 0x13
@@ -316,6 +316,15 @@
 #define PROP_GPS PROP_WB_MODE_PH
 #endif
 
+#endif
+
+// verified with prop spy
+#ifdef CONFIG_70D
+#define PROP_HI_ISO_NR 0x80000049
+#define PROP_HTP 0x8000004a
+#define PROP_MULTIPLE_EXPOSURE 0x0202000c
+#define PROP_MULTIPLE_EXPOSURE_SETTING 0x8000003F
+#define PROP_MLU 0x80000047
 #endif
 
 #ifdef CONFIG_6D //May work for others.
@@ -610,6 +619,8 @@ void prop_reset_registration(void);
 /* only re-register handlers in case it was updated in meantime */
 void prop_update_registration(void);
 
+THREAD_ROLE(PropMgrTask);
+
 /** Register a property handler with automated token function. module.h will define it for modules */
 #if !defined(MODULE)
 #define REGISTER_PROP_HANDLER_EX( id, func, length ) \
@@ -626,13 +637,12 @@ static struct prop_handler _prop_handler_##id##_block = { \
 #define PROP_HANDLER(id) \
 static void _prop_handler_##id(); \
 REGISTER_PROP_HANDLER( id, _prop_handler_##id ); \
-void _prop_handler_##id( \
+void REQUIRES(PropMgrTask) _prop_handler_##id( \
         unsigned                property, \
         void *                  token, \
         uint32_t *              buf, \
         unsigned                len \
 ) \
-
 
 #define PROP_INT(id,name) \
 volatile uint32_t name; \

@@ -10,9 +10,12 @@
 #include <timer.h>
 #include <console.h>
 #include <ml_rpc.h>
+#include <edmac.h>
 #include <edmac-memcpy.h>
 #include <screenshot.h>
 #include <powersave.h>
+#include <focus.h>
+#include <alloca.h>
 
 /* optional routines */
 extern WEAK_FUNC(ret_0) uint32_t ml_rpc_send(uint32_t command, uint32_t parm1, uint32_t parm2, uint32_t parm3, uint32_t wait);
@@ -106,7 +109,7 @@ static void next_tick_cbr(int arg1, void* arg2)
     SetHPTimerNextTick(arg1, 100000, timer_cbr, overrun_cbr, 0);
 }
 
-#define TEST_MSG(fmt, ...) { if (!stub_silence || !stub_ok) stub_log_len += snprintf(stub_log_buf + stub_log_len, stub_max_log_len - stub_log_len, fmt, ## __VA_ARGS__); printf(fmt, ## __VA_ARGS__); }
+#define TEST_MSG(fmt, ...) { if (!stub_silence || !stub_ok) { stub_log_len += snprintf(stub_log_buf + stub_log_len, stub_max_log_len - stub_log_len, fmt, ## __VA_ARGS__); printf(fmt, ## __VA_ARGS__); } }
 #define TEST_VOID(x) { x; stub_ok = 1; TEST_MSG("       %s\n", #x); }
 #define TEST_FUNC(x) { int ans = (int)(x); stub_ok = 1; TEST_MSG("       %s => 0x%x\n", #x, ans); }
 #define TEST_FUNC_CHECK(x, condition) { int ans = (int)(x); stub_ok = ans condition; TEST_MSG("[%s] %s => 0x%x\n", stub_ok ? "Pass" : "FAIL", #x, ans); if (stub_ok) stub_passed_tests++; else stub_failed_tests++; }
@@ -119,6 +122,471 @@ static int stub_silence = 0;
 static int stub_ok = 1;
 static int stub_passed_tests = 0;
 static int stub_failed_tests = 0;
+
+static void stub_test_edmac()
+{
+    int size = 8*1024*1024;
+    uint32_t *src, *dst;
+    TEST_FUNC_CHECK(src = fio_malloc(size), != 0);
+    TEST_FUNC_CHECK(dst = fio_malloc(size), != 0);
+
+    if (src && dst)
+    {
+        /* fill source data */
+        for (int i = 0; i < size/4; i++)
+        {
+            src[i] = rand();
+        }
+
+        /* force a fallback to memcpy */
+        TEST_FUNC_CHECK(memcmp(dst, src, 4097), != 0);
+        TEST_FUNC_CHECK(edmac_memcpy(dst, src, 4097), == (int) dst);
+        TEST_FUNC_CHECK(memcmp(dst, src, 4097), == 0);
+        TEST_FUNC_CHECK(edmac_memcpy(dst, src, 4097), == (int) dst);
+
+        /* use fast EDMAC copying */
+        TEST_FUNC_CHECK(memcmp(dst, src, size), != 0);
+        TEST_FUNC_CHECK(edmac_memcpy(dst, src, size), == (int) dst);
+        TEST_FUNC_CHECK(memcmp(dst, src, size), == 0);
+
+        /* fill source data again */
+        for (int i = 0; i < size/4; i++)
+        {
+            src[i] = rand();
+        }
+
+        /* abort in the middle of copying */
+        TEST_FUNC_CHECK(memcmp(dst, src, size), != 0);
+        TEST_FUNC_CHECK(edmac_memcpy_start(dst, src, size), == (int) dst);
+
+        /* fixme: global */
+        extern uint32_t edmac_write_chan;
+
+        /* wait until the middle of the buffer */
+        /* caveat: busy waiting; do not use in practice */
+        /* here, waiting for ~10ms may be too much, as EDMAC is very fast */
+        uint32_t mid = (uint32_t)CACHEABLE(dst) + size / 2;
+        uint64_t t0 = get_us_clock_value();
+        while (edmac_get_pointer(edmac_write_chan) < mid)
+            ;
+        uint64_t t1 = get_us_clock_value();
+
+        /* stop here */
+        AbortEDmac(edmac_write_chan);
+
+        /* report how long we had to wait */
+        int dt = t1 - t0;
+        TEST_FUNC(dt);
+
+        /* how much did it copy? */
+        int copied = edmac_get_pointer(edmac_write_chan) - (uint32_t)CACHEABLE(dst);
+        TEST_FUNC_CHECK(copied, >= size/2);
+        TEST_FUNC_CHECK(copied, < size*3/2);
+
+        /* did it actually stop? */
+        msleep(100);
+        int copied2 = edmac_get_pointer(edmac_write_chan) - (uint32_t)CACHEABLE(dst);
+        TEST_FUNC_CHECK(copied, == copied2);
+
+        /* did it copy as much as it reported? */
+        TEST_FUNC_CHECK(memcmp(dst, src, copied), == 0);
+        TEST_FUNC_CHECK(memcmp(dst, src, copied + 16), != 0);
+        TEST_VOID(edmac_memcpy_finish());
+    }
+
+    TEST_VOID(free(src));
+    TEST_VOID(free(dst));
+}
+
+/* delay with interrupts disabled */
+static void busy_wait_ms(int ms)
+{
+    int t0 = get_ms_clock_value();
+    while (get_ms_clock_value() - t0 < ms)
+        ;
+}
+
+/* this checks whether clean_d_cache actually writes the data to physical memory
+ * so other devices (such as DMA controllers) will see the same memory contents as the CPU */
+static void stub_test_cache_bmp()
+{
+    TEST_MSG("Cache test A (EDMAC on BMP buffer)...\n");
+
+    void * bmp;
+    TEST_FUNC_CHECK(bmp = bmp_load("ML/CROPMKS/CINESCO2.BMP", 1), != 0);
+    if (!bmp) return;
+
+    uint8_t * const bvram_mirror = get_bvram_mirror();
+    if (!bvram_mirror) return;
+
+    /* perform the test twice:
+     * one without cache cleaning, expected to fail,
+     * and one with cache cleaning, expected to succeed */
+    for (int k = 0; k < 2; k++)
+    {
+        /* perform this test with interrupts disabled */
+        int old = cli();
+        int dis = cli();
+        TEST_FUNC_CHECK(old, != dis);
+
+        /* draw a cropmark */
+        clrscr();
+        bmp_draw_scaled_ex(bmp, os.x0, os.y0, os.x_ex, os.y_ex, bvram_mirror);
+
+        /* copy the image to idle buffer using EDMAC */
+        uint8_t * src = bmp_vram_real();
+        uint8_t * dst = bmp_vram_idle();
+
+        ASSERT(src == CACHEABLE(src));
+        ASSERT(dst == CACHEABLE(dst));
+
+        if (k == 0)
+        {
+            /* trick the copying routine so it doesn't handle caching issues.
+             * these pointers are actually cacheable (for speed reasons);
+             * flagging them as uncacheable has no effect on DMA behavior.
+             * this test should fail. */
+            src = UNCACHEABLE(src);
+        }
+
+        /* mark destination as uncacheable (the EDMAC routine expects it this way) */
+        /* this is generally incorrect; you should use fio_malloc instead. */
+        dst = UNCACHEABLE(dst);
+
+        edmac_copy_rectangle_adv_start(dst, src, 960, 0, 0, 960, 0, 0, 720, 480);
+
+        /* wait for EDMAC transfer to finish */
+        /* probably not needed, as take_semaphore will re-enable interrupts */
+        busy_wait_ms(1000);
+
+        /* cleanup EDMAC transfer */
+        edmac_copy_rectangle_finish();
+
+        /* interrupts are disabled again - from DryOS context switch */
+        /* now compare the image buffers */
+        int differences = 0;
+        for (int y = 0; y < 480; y++)
+        {
+            for (int x = 0; x < 720; x++)
+            {
+                int i = x + y * 960;
+                if (src[i] != dst[i])
+                {
+                    differences++;
+                }
+            }
+        }
+
+        info_led_on();
+        busy_wait_ms(1000);
+        info_led_off();
+
+        /* do we still have interrupts disabled? */
+        int irq = cli();
+        TEST_FUNC_CHECK(irq, == dis);
+
+        if (k)
+        {
+            /* expect to succeed */
+            TEST_FUNC_CHECK(differences, == 0);
+        }
+        else
+        {
+            /* expect to fail */
+            TEST_FUNC_CHECK(differences, > 100);
+        }
+
+        /* interrupts no longer needed */
+        sei(old);
+    }
+}
+
+static int stub_test_cache_fio_do(int handle_cache)
+{
+    /* prefer CF card if present */
+    char * test_file = is_dir("A:/") ? "A:/test.dat" : "test.dat";
+    FILE * f;
+    TEST_FUNC_CHECK(f = FIO_CreateFile(test_file), != 0);
+
+    /* result */
+    int fail = -1;
+
+    /* cacheable buffer that will fit the entire cache */
+    /* placed at some random stack offset */
+    /* note: we have 32K stack */
+    const int size = 8192;
+    uint8_t * pad = alloca(MOD(rand(), size));
+    uint8_t * buf = alloca(size);
+
+    /* make sure pad gets allocated above buf
+     * therefore moving "buf" on the stack at some random offset */
+    ASSERT(buf + 8192 <= pad);
+
+    /* fill the buffer (this should bring it into cache) */
+    for (int i = 0; i < size; i++)
+    {
+        buf[i] = i;
+    }
+
+    /* fill the buffer again; hoping some values won't reach the physical memory */
+    for (int i = 0; i < size; i++)
+    {
+        buf[i] = i + 1;
+    }
+
+    /* save it to card */
+    if (handle_cache & 1)
+    {
+        /* let the wrapper handle the cacheable buffer */
+        TEST_FUNC_CHECK(FIO_WriteFile(f, buf, size), == size);
+    }
+    else
+    {
+        /* Trick the wrapper into calling Canon stub directly,
+         * so it will no longer clean the cache before writing.
+         * This should fail - do not use it in practice.
+         * The uncacheable flag has no effect on DMA.
+         * You should either use fio_malloc (which returns uncacheable buffers)
+         * or pass regular (cacheable) pointers and let the wrapper handle them. */
+        TEST_FUNC_CHECK(FIO_WriteFile(f, UNCACHEABLE(buf), size), == size);
+    }
+
+    TEST_VOID(FIO_CloseFile(f));
+
+    /* reopen the file for reading */
+    TEST_FUNC_CHECK(f = FIO_OpenFile(test_file, O_RDONLY | O_SYNC), != 0);
+
+    /* read the file into uncacheable memory (this one will be read correctly) */
+    uint8_t * ubuf = fio_malloc(size);
+    TEST_FUNC_CHECK(ubuf, != 0);
+    if (!ubuf) goto cleanup;
+
+    TEST_FUNC_CHECK(FIO_ReadFile(f, ubuf, size), == size);
+    FIO_SeekSkipFile(f, 0, SEEK_SET);
+
+    /* alter the buffer contents; hoping some values will be only in cache */
+    for (int i = 0; i < size; i++)
+    {
+        buf[i] = i + 2;
+    }
+
+    /* read the file into regular (cacheable) memory */
+    if (handle_cache & 2)
+    {
+        /* let the wrapper handle the cacheable buffer */
+        TEST_FUNC_CHECK(FIO_ReadFile(f, buf, size), == size);
+    }
+    else
+    {
+        /* Trick the wrapper into calling Canon stub directly.
+         * This should fail (same as with FIO_WriteFile). */
+        TEST_FUNC_CHECK(FIO_ReadFile(f, UNCACHEABLE(buf), size), == size);
+    }
+
+    /* check the results */
+    int a = 0, b = 0, c = 0, r = 0;
+    for (int i = 0; i < size; i++)
+    {
+        a += (ubuf[i] == (uint8_t)(i));
+        b += (ubuf[i] == (uint8_t)(i + 1));
+        c += (ubuf[i] == (uint8_t)(i + 2));
+        r += (ubuf[i] == buf[i]);
+    }
+
+    free(ubuf);
+
+    /* don't report success/failure yet, as this test is not deterministic
+     * just log the values and return the status */
+    TEST_FUNC(a);
+    TEST_FUNC(b);
+    TEST_FUNC(c);
+    TEST_FUNC(a + b + c);
+    TEST_FUNC(r);
+
+    /* which part of the test failed? read or write? */
+    int fail_r = (r != size);
+    int fail_w = (a != 0) || (b != size) || (c != 0);
+    fail = (fail_r << 1) | fail_w;
+
+cleanup:
+    /* cleanup */
+    TEST_VOID(FIO_CloseFile(f));
+    TEST_FUNC_CHECK(FIO_RemoveFile(test_file), == 0);
+    return fail;
+}
+
+static void stub_test_cache_fio()
+{
+    TEST_MSG("Cache test B (FIO on 8K buffer)...\n");
+
+    /* non-deterministic test - run many times */
+    stub_silence = 1;
+
+    int tries[4] = {0};
+    int times[4] = {0};
+    int failr[4] = {0};
+    int failw[4] = {0};
+
+    for (int i = 0; i < 1000; i++)
+    {
+        /* select whether the FIO_WriteFile wrapper (1) and/or
+         * FIO_ReadFile (2) wrapper should handle caching issues */
+        int handle_cache = rand() & 3;
+
+        /* run one iteration and time it */
+        int t0 = get_ms_clock_value();
+        int fail = stub_test_cache_fio_do(handle_cache);
+        int t1 = get_ms_clock_value();
+        ASSERT(fail == (fail & 3));
+
+        /* count the stats */
+        tries[handle_cache]++;
+        times[handle_cache] += (t1 - t0);
+        if (fail & 1) failw[handle_cache]++;
+        if (fail & 2) failr[handle_cache]++;
+
+        /* progress indicator */
+        if (i % 100 == 0)
+        {
+            printf(".");
+        }
+    }
+    stub_silence = 0;
+    printf("\n");
+
+    /* report how many tests were performed in each case */
+    TEST_FUNC_CHECK(tries[0], > 100);
+    TEST_FUNC_CHECK(tries[1], > 100);
+    TEST_FUNC_CHECK(tries[2], > 100);
+    TEST_FUNC_CHECK(tries[3], > 100);
+
+    /* each test (read or write) should succeed only
+     * if the corresponding wrapper (FIO_WriteFile
+     * and FIO_ReadFile) is allowed to handle caching
+     * for regular buffers; it should fail otherwise,
+     * at least a few times. This also implies both tests
+     * (R and W) should succeed if and only if both routines
+     * are allowed to handle caching. */
+    TEST_FUNC_CHECK(failr[0], > 10);
+    TEST_FUNC_CHECK(failw[0], > 10);
+    TEST_FUNC_CHECK(failr[1], > 10);
+    TEST_FUNC_CHECK(failw[1], == 0);
+    TEST_FUNC_CHECK(failr[2], == 0);
+    TEST_FUNC_CHECK(failw[2], > 10);
+    TEST_FUNC_CHECK(failr[3], == 0);
+    TEST_FUNC_CHECK(failw[3], == 0);
+
+    /* check whether cache cleaning causes any slowdown */
+    TEST_FUNC(times[0] / tries[0]);
+    TEST_FUNC(times[1] / tries[1]);
+    TEST_FUNC(times[2] / tries[2]);
+    TEST_FUNC(times[3] / tries[3]);
+}
+
+static void stub_test_cache()
+{
+    stub_test_cache_bmp();
+    stub_test_cache_fio();
+
+    TEST_MSG("Cache tests finished.\n\n");
+}
+
+static int wait_focus_status(int timeout, int value)
+{
+    int t0 = get_ms_clock_value();
+
+    while (get_ms_clock_value() - t0 < timeout)
+    {
+        msleep(10);
+
+        if (lv_focus_status == value)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void stub_test_af()
+{
+    /* Autofocus (with or without LiveView) */
+    int lv0 = lv;
+
+    /* test this loop 10 times */
+    for (int k = 0; k < 10; k++)
+    {
+        if (k < 5) force_liveview();
+        else close_liveview();
+
+        while (is_manual_focus())
+        {
+            NotifyBox(2000, 
+                "Please enable autofocus.\n"
+                "Press half-shutter to skip."
+            );
+            msleep(1000);
+
+            if (HALFSHUTTER_PRESSED)
+            {
+                return;
+            }
+        }
+
+        /* assume half-shutter is not pressed before starting the test */
+        TEST_FUNC_CHECK(HALFSHUTTER_PRESSED, == 0);
+
+        /* enable autofocus on half-shutter */
+        /* lv_focus_status expected to be 3 when focusing and 1 or 2 when idle */
+        lens_setup_af(AF_ENABLE);
+        module_send_keypress(MODULE_KEY_PRESS_HALFSHUTTER);
+        msleep(200);
+        TEST_FUNC_CHECK(HALFSHUTTER_PRESSED, == 1);
+        if (lv) {
+            TEST_FUNC_CHECK(wait_focus_status(1000, 3), == 1);
+            TEST_FUNC_CHECK(lv_focus_status, == 3)
+        } else {
+            msleep(1000);
+            TEST_FUNC_CHECK(get_focus_confirmation(), != 0);
+        }
+
+        module_send_keypress(MODULE_KEY_UNPRESS_HALFSHUTTER);
+        msleep(500);
+        TEST_FUNC_CHECK(HALFSHUTTER_PRESSED, == 0);
+        if (lv) {
+            TEST_FUNC_CHECK(wait_focus_status(1000, 3), == 0);
+            TEST_FUNC_CHECK(lv_focus_status, != 3)
+        } else {
+            TEST_FUNC_CHECK(get_focus_confirmation(), == 0);
+        }
+        lens_cleanup_af();
+
+        /* disable autofocus on half-shutter */
+        /* this time, autofocus should fail */
+        lens_setup_af(AF_DISABLE);
+        module_send_keypress(MODULE_KEY_PRESS_HALFSHUTTER);
+        TEST_FUNC_CHECK(HALFSHUTTER_PRESSED, == 1);
+        if (lv)
+        {
+            TEST_FUNC_CHECK(wait_focus_status(1000, 3), == 0);
+        }
+        else
+        {
+            msleep(1000);
+            TEST_FUNC_CHECK(get_focus_confirmation(), == 0);
+        }
+        module_send_keypress(MODULE_KEY_UNPRESS_HALFSHUTTER);
+        msleep(500);
+        TEST_FUNC_CHECK(HALFSHUTTER_PRESSED, == 0);
+        TEST_FUNC_CHECK(lv_focus_status, != 3)
+        lens_cleanup_af();
+    }
+
+    if (lv0)
+    {
+        /* if the test was started from LiveView, return to LV */
+        force_liveview();
+    }
+}
 
 static void stub_test_file_io()
 {
@@ -193,8 +661,17 @@ static void stub_test_file_io()
         fio_free(buf);
     }
 
+    TEST_FUNC_CHECK(is_file("test.dat"), != 0);
     TEST_FUNC_CHECK(FIO_RemoveFile("test.dat"), == 0);
+    TEST_FUNC_CHECK(is_file("test.dat"), == 0);
 }
+
+/* microsecond timer wraps around at 1048576 */
+static int DeltaT(int a, int b)
+{
+    return MOD(a - b, 1048576);
+}
+
 
 static void stub_test_gui_timers()
 {
@@ -231,12 +708,6 @@ static void stub_test_gui_timers()
         TEST_FUNC_CHECK(timer_func, == 0);  /* ta0 + 1500 => CBR should be not be called, and we'll cancel it early */
         TEST_VOID(msleep(1500));
         TEST_FUNC_CHECK(timer_func, == 0);  /* ta0 + 3000 => CBR should be not be called, because it was canceled */
-    }
-    
-    /* microsecond timer wraps around at 1048576 */
-    int DeltaT(int a, int b)
-    {
-        return MOD(a - b, 1048576);
     }
 
     /* SetHPTimerNextTick, SetHPTimerAfterTimeout, SetHPTimerAfterNow */
@@ -335,24 +806,24 @@ static void stub_test_malloc_n_allocmem()
         TEST_FUNC_CHECK(ABS(m0-m2), < 2048);
 
         TEST_FUNC(m0 = GetFreeMemForAllocateMemory());
-        TEST_FUNC_CHECK(p = (void*)_AllocateMemory(256*1024), != 0);
+        TEST_FUNC_CHECK(p = (void*)_AllocateMemory(128*1024), != 0);
         TEST_FUNC_CHECK(CACHEABLE(p), == (int)p);
         TEST_FUNC(m1 = GetFreeMemForAllocateMemory());
         TEST_VOID(_FreeMemory(p));
         TEST_FUNC(m2 = GetFreeMemForAllocateMemory());
-        TEST_FUNC_CHECK(ABS((m0-m1) - 256*1024), < 2048);
+        TEST_FUNC_CHECK(ABS((m0-m1) - 128*1024), < 2048);
         TEST_FUNC_CHECK(ABS(m0-m2), < 2048);
 
         // these buffers may be from different memory pools, just check for leaks in main pools
         int m01, m02, m11, m12;
         TEST_FUNC(m01 = MALLOC_FREE_MEMORY);
         TEST_FUNC(m02 = GetFreeMemForAllocateMemory());
-        TEST_FUNC_CHECK(p = (void*)_alloc_dma_memory(256*1024), != 0);
+        TEST_FUNC_CHECK(p = (void*)_alloc_dma_memory(128*1024), != 0);
         TEST_FUNC_CHECK(UNCACHEABLE(p), == (int)p);
         TEST_FUNC_CHECK(CACHEABLE(p), != (int)p);
         TEST_FUNC_CHECK(UNCACHEABLE(CACHEABLE(p)), == (int)p);
         TEST_VOID(_free_dma_memory(p));
-        TEST_FUNC_CHECK(p = (void*)_shoot_malloc(24*1024*1024), != 0);
+        TEST_FUNC_CHECK(p = (void*)_shoot_malloc(16*1024*1024), != 0);
         TEST_FUNC_CHECK(UNCACHEABLE(p), == (int)p);
         TEST_VOID(_shoot_free(p));
         TEST_FUNC(m11 = MALLOC_FREE_MEMORY);
@@ -376,34 +847,38 @@ static void stub_test_exmem()
         int total = 0;
 
         // contiguous allocation
-        TEST_FUNC_CHECK(suite = shoot_malloc_suite_contig(24*1024*1024), != 0);
+        // assume we can allocate at least 16MB continuously
+        TEST_FUNC_CHECK(suite = shoot_malloc_suite_contig(16*1024*1024), != 0);
         TEST_FUNC_CHECK_STR(suite->signature, "MemSuite");
         TEST_FUNC_CHECK(suite->num_chunks, == 1);
-        TEST_FUNC_CHECK(suite->size, == 24*1024*1024);
+        TEST_FUNC_CHECK(suite->size, == 16*1024*1024);
         TEST_FUNC_CHECK(chunk = GetFirstChunkFromSuite(suite), != 0);
         TEST_FUNC_CHECK_STR(chunk->signature, "MemChunk");
-        TEST_FUNC_CHECK(chunk->size, == 24*1024*1024);
+        TEST_FUNC_CHECK(chunk->size, == 16*1024*1024);
         TEST_FUNC_CHECK(p = GetMemoryAddressOfMemoryChunk(chunk), != 0);
         TEST_FUNC_CHECK(UNCACHEABLE(p), == (int)p);
         TEST_VOID(shoot_free_suite(suite); suite = 0; chunk = 0;);
 
         // contiguous allocation, largest block
+        int largest_shoot_block = 0;
         TEST_FUNC_CHECK(suite = shoot_malloc_suite_contig(0), != 0);
         TEST_FUNC_CHECK_STR(suite->signature, "MemSuite");
         TEST_FUNC_CHECK(suite->num_chunks, == 1);
-        TEST_FUNC_CHECK(suite->size, > 24*1024*1024);
+        TEST_FUNC_CHECK(suite->size, > 16*1024*1024);
         TEST_FUNC_CHECK(chunk = GetFirstChunkFromSuite(suite), != 0);
         TEST_FUNC_CHECK_STR(chunk->signature, "MemChunk");
         TEST_FUNC_CHECK(chunk->size, == suite->size);
         TEST_FUNC_CHECK(p = GetMemoryAddressOfMemoryChunk(chunk), != 0);
         TEST_FUNC_CHECK(UNCACHEABLE(p), == (int)p);
+        TEST_FUNC(largest_shoot_block = suite->size);
+        TEST_MSG("[INFO] largest_shoot_block: %s\n", format_memory_size(largest_shoot_block));
         TEST_VOID(shoot_free_suite(suite); suite = 0; chunk = 0;);
 
         // fragmented allocation
-        TEST_FUNC_CHECK(suite = shoot_malloc_suite(64*1024*1024), != 0);
+        TEST_FUNC_CHECK(suite = shoot_malloc_suite(largest_shoot_block + 1024*1024), != 0);
         TEST_FUNC_CHECK_STR(suite->signature, "MemSuite");
         TEST_FUNC_CHECK(suite->num_chunks, > 1);
-        TEST_FUNC_CHECK(suite->size, == 64*1024*1024);
+        TEST_FUNC_CHECK(suite->size, == largest_shoot_block + 1024*1024);
 
         // iterating through chunks
         total = 0;
@@ -411,19 +886,19 @@ static void stub_test_exmem()
         while(chunk)
         {
             TEST_FUNC_CHECK_STR(chunk->signature, "MemChunk");
-            TEST_FUNC_CHECK(total += chunk->size, <= 64*1024*1024);
+            TEST_FUNC_CHECK(total += chunk->size, <= largest_shoot_block + 1024*1024);
             TEST_FUNC_CHECK(p = GetMemoryAddressOfMemoryChunk(chunk), != 0);
             TEST_FUNC_CHECK(UNCACHEABLE(p), == (int)p);
             TEST_FUNC(chunk = GetNextMemoryChunk(suite, chunk));
         }
-        TEST_FUNC_CHECK(total, == 64*1024*1024);
+        TEST_FUNC_CHECK(total, == largest_shoot_block + 1024*1024);
         TEST_VOID(shoot_free_suite(suite); suite = 0; chunk = 0; );
 
         // fragmented allocation, max size
         TEST_FUNC_CHECK(suite = shoot_malloc_suite(0), != 0);
         TEST_FUNC_CHECK_STR(suite->signature, "MemSuite");
         TEST_FUNC_CHECK(suite->num_chunks, > 1);
-        TEST_FUNC_CHECK(suite->size, > 64*1024*1024);
+        TEST_FUNC_CHECK(suite->size, >= largest_shoot_block + 1024*1024);
 
         // iterating through chunks
         total = 0;
@@ -618,15 +1093,27 @@ static void stub_test_dryos()
     TEST_FUNC_CHECK(ReleaseRecursiveLock(rlock), != 0);
 }
 
+static void stub_test_save_log()
+{
+    FILE* log = FIO_CreateFile("ML/LOGS/stubtest.log");
+    if (log)
+    {
+        FIO_WriteFile(log, stub_log_buf, stub_log_len);
+        FIO_CloseFile(log);
+    }
+}
+
 static void stub_test_task(void* arg)
 {
     if (stub_log_buf) return;
     stub_log_buf = fio_malloc(stub_max_log_len);
     if (!stub_log_buf) return;
-    
+
     msleep(1000);
-    
     console_show();
+
+    stub_passed_tests = 0;
+    stub_failed_tests = 0;
     
     enter_play_mode();
     TEST_FUNC_CHECK(is_play_mode(), != 0);
@@ -636,38 +1123,218 @@ static void stub_test_task(void* arg)
     msleep(1000);
     info_led_on();
 
+    /* save log after each sub-test */
     for (int i=0; i < n; i++)
     {
-        stub_test_file_io();
-        stub_test_gui_timers();
-        stub_test_other_timers();
-        stub_test_malloc_n_allocmem();
-        stub_test_exmem();
-        stub_test_strings();
-        stub_test_engio();
-        stub_test_display();
-        stub_test_dryos();
-        stub_test_gui();
+        stub_test_edmac();                  stub_test_save_log();
+        stub_test_cache();                  stub_test_save_log();
+        stub_test_af();                     stub_test_save_log();
+        stub_test_file_io();                stub_test_save_log();
+        stub_test_gui_timers();             stub_test_save_log();
+        stub_test_other_timers();           stub_test_save_log();
+        stub_test_malloc_n_allocmem();      stub_test_save_log();
+        stub_test_exmem();                  stub_test_save_log();
+        stub_test_strings();                stub_test_save_log();
+        stub_test_engio();                  stub_test_save_log();
+        stub_test_display();                stub_test_save_log();
+        stub_test_dryos();                  stub_test_save_log();
+        stub_test_gui();                    stub_test_save_log();
 
         beep();
     }
 
     enter_play_mode();
 
-    FILE* log = FIO_CreateFile( "stubtest.log" );
-    if (log)
-    {
-        FIO_WriteFile(log, stub_log_buf, stub_log_len);
-        FIO_CloseFile(log);
-    }
-    fio_free(stub_log_buf);
-    stub_log_buf = 0;
-
-    printf(
+    TEST_MSG(
         "=========================================================\n"
         "Test complete, %d passed, %d failed.\n.",
         stub_passed_tests, stub_failed_tests
     );
+
+    stub_test_save_log();
+    fio_free(stub_log_buf);
+    stub_log_buf = 0;
+}
+
+static volatile int threading_errors = 0;
+
+static void nop_test(int task_id)
+{
+    for (volatile int x = 0; x < 20000000; x++)
+    {
+        asm("nop");
+    }
+}
+
+static void puts_test()
+{
+    puts(get_current_task_name());
+}
+
+static void rtc_test(int task_id)
+{
+    struct tm now;
+    LoadCalendarFromRTC(&now);
+#if 0
+    printf(
+        "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b"
+        "%d: %04d/%02d/%02d %02d:%02d:%02d",
+        task_id,
+        now.tm_year + 1900,
+        now.tm_mon + 1,
+        now.tm_mday,
+        now.tm_hour,
+        now.tm_min,
+        now.tm_sec
+    );
+#endif
+}
+
+static void lens_format_dist_test(int task_id)
+{
+    int dist = (task_id == 1) ? 1234 : 567;
+    const char * expected = 
+        (task_id == 1) ? "1.23" SYM_SMALL_M
+                       : "56" SYM_SMALL_C SYM_SMALL_M ;
+
+    /* this should fail, as it's not thread-safe */
+    const char * dist_str = lens_format_dist(dist);
+    threading_errors += !streq(dist_str, expected);
+}
+
+static void pause_lv_test(int task_id)
+{
+    PauseLiveView();
+    ResumeLiveView();
+}
+
+static volatile int tests_running = 0;
+static volatile int calls_per_task[2];
+static volatile int switched_calls[2];
+static volatile int switched_contexts[2];
+
+/* DryOS tasks with identical priority appear to never interrupt each other,
+ * unless each task voluntarily yields somehow (msleep, take_semaphore,
+ * msg_queue_receive, event flags etc).
+ * 
+ * Tasks with higher priority will always interrupt a lower-priority one,
+ * even if the latter never yields.
+ */
+
+/* define this to test the behavior of DryOS tasks with identical priority */
+#undef TEST_EQUAL_PRIO
+
+static void DUMP_ASM test_loop(void (*func)(int))
+{
+    tests_running++;
+    int id = get_current_task_name()[0] - 'A';
+
+    /* task 1 (higher priority) will start later, to interrupt task 0 */
+    msleep(id ? 300 : 200);
+
+    int t0 = get_ms_clock_value();
+    while (get_ms_clock_value() - t0 < 500)
+    {
+        /* assume there are 2 tasks running, with IDs 0 and 1 */
+        /* record how many times the other task ran during our test function */
+        int c0 = calls_per_task[!id];
+
+        /* call the tested function */
+        func(id);
+
+        /* update stats */
+        int c1 = calls_per_task[!id];
+        switched_contexts[id] += (c1 - c0);
+        switched_calls[id] += (c1 != c0);
+        calls_per_task[id]++;
+
+#if !defined(TEST_EQUAL_PRIO)
+        /* task 1 has higher priority, so it will never be interrupted by task 0 */
+        /* unless we call msleep or some other waiting function (sem, mq, event) */
+        if (id)
+        {
+            msleep(rand() % 20);
+        }
+#endif
+    }
+
+    tests_running--;
+}
+
+static void test_2_tasks(char * func_name, void (*func)(int))
+{
+    printf("\n%s ", func_name);
+
+    /* reset stats */
+    switched_calls[0] = switched_calls[1] = 0;
+    calls_per_task[0] = calls_per_task[1] = 0;
+    switched_contexts[0] = switched_contexts[1] = 0;
+    threading_errors = 0;
+
+    for (int k = 0; k < 5 && !threading_errors; k++)
+    {
+        /* note: the main test task is started with priority 0x1a */
+
+#if defined(TEST_EQUAL_PRIO)
+        /* test for tasks with equal priority */
+        task_create("A", 0x18, 0x8000, test_loop, func);
+        task_create("B", 0x18, 0x8000, test_loop, func);
+#else
+        /* task B runs with higher priority (lower number) */
+        task_create("A", 0x19, 0x8000, test_loop, func);
+        task_create("B", 0x18, 0x8000, test_loop, func);
+#endif
+
+        /* wait for the two tasks to start (tests not running yet) */
+        msleep(100);
+        ASSERT(tests_running == 2);
+
+        /* speed up DryOS timer from 10ms to 0.2ms to get more context switches */
+        /* (OK outside LiveView; very small values will result in lockup) */
+        MEM(0xC0210208) = 200;
+
+        info_led_on();
+        while (tests_running)
+        {
+            msleep(100);
+        }
+        info_led_off();
+
+        /* set DryOS timer back to 10ms */
+        MEM(0xC0210208) = 9999;
+
+        /* progress indicator */
+        printf(".");
+        msleep(500);
+    }
+
+    printf("\n");
+
+    if (threading_errors)
+    {
+        printf(" !!! %d errors !!!\n", threading_errors);
+    }
+
+    printf(
+        " %d+%d calls, %d+%d with context switched,\n"
+        " %d+%d context switches in the test function.\n",
+        calls_per_task[0], calls_per_task[1],
+        switched_calls[0], switched_calls[1],
+        switched_contexts[0], switched_contexts[1]
+    );
+}
+
+static void thread_test_task(void* arg)
+{
+    msleep(1000);
+    console_show();
+
+#ifdef TEST_EQUAL_PRIO
+    test_2_tasks("nop", nop_test);
+#endif
+    test_2_tasks("lens_format_dist", lens_format_dist_test);
+    test_2_tasks("LoadCalendarFromRTC", rtc_test);
+    test_2_tasks("PauseLiveView", pause_lv_test);
 }
 
 static void rpc_test_task(void* unused)
@@ -1552,6 +2219,132 @@ static void edmac_test_task()
     edmac_memcpy_res_unlock();
 }
 
+static void __attribute__((optimize("-fno-delete-null-pointer-checks")))
+null_pointer_task()
+{
+    msleep(1000);
+    console_clear();
+    printf("Testing null pointer checker...\n");
+    console_show();
+    msleep(1000);
+
+    /* find the last crash log number - will trigger a new one */
+    char log_filename[100];
+    int log_number;
+    for (log_number = 99; log_number >= 0; log_number--)
+    {
+        snprintf(log_filename, sizeof(log_filename), "CRASH%02d.LOG", log_number);
+        if (is_file(log_filename))
+        {
+            ASSERT(log_number < 99);
+            break;
+        }
+    }
+
+    /* this should trigger a crash log */
+    /* the error will be noticed when DryOS switches to the next task */
+    uint32_t old = cli();
+    *(volatile uint32_t *) 0x0 = 0xBAADBAAD;
+    printf("MEM(0) = %X %s\n", MEM(0), MEM(0) == 0xBAADBAAD ? "OK" : "ERR");
+    sei(old);
+
+    msleep(1000);
+
+    /* this should be restored to the old value */
+    printf("MEM(0) = %X %s\n", MEM(0), MEM(0) == 0xBAADBAAD ? "ERR" : "OK");
+
+    /* does the new crash log look sane? */
+    snprintf(log_filename, sizeof(log_filename), "CRASH%02d.LOG", log_number + 1);
+    if (!is_file(log_filename))
+    {
+        printf("%s not saved - please report.\n", log_filename);
+    }
+    else
+    {
+        /* crash log was saved */
+        int size;
+        char * log = (char *) read_entire_file(log_filename, &size);
+        if (strstr(log, "baadbaad") && strstr(log, "run_test: NULL PTR"))
+        {
+            printf("%s looks OK.\n", log_filename);
+        }
+        else
+        {
+            printf("%s not good - please report.\n", log_filename);
+        }
+        free(log);
+    }
+
+    /* hide the crash log prompt(s) */
+    printf("Please wait; ignore any flashing prompts    ");
+    for (int i = 0; i <= 100; i++)
+    {
+        NotifyBoxHide();
+        msleep(50);
+        printf("\b\b\b(%d)", 5 - i / 20);
+    }
+
+    /* finished */
+    printf("\nNull pointer test completed.\n");
+    msleep(2000);
+    console_hide();
+}
+
+static void frozen_task()
+{
+    NotifyBox(2000, "while(1);");
+    msleep(3000);
+    while(1);
+}
+
+static void lockup_task()
+{
+    NotifyBox(2000, "cli(); while(1);");
+    msleep(3000);
+    cli();
+    while(1);
+}
+
+static void freeze_gui_task()
+{
+    NotifyBox(2000, "GUI task locked up.");
+    while(1) msleep(1000);
+}
+
+static void divzero_task()
+{
+    for (int i = -10; i < 10; i++)
+    {
+        console_show();
+        printf("1000/%d = %d = %d\n", i, 1000/i, (int)(1000.0 / (float)i));
+        msleep(500);
+    }
+}
+
+static void alloc_1M_task()
+{
+    console_show();
+    msleep(2000);
+
+    /* after a few calls, this will fail with ERR70 */
+    void * ptr = _AllocateMemory(1024 * 1024);
+
+    /* do something with "ptr" to prevent a tail call (to test the stack trace) */
+    printf("AllocateMemory 1MB => %x\n", ptr);
+
+    /* do not free it */
+}
+
+static void alloc_10M_task()
+{
+    console_show();
+    msleep(2000);
+
+    void * ptr = malloc(10 * 1024 * 1024);
+    printf("Alloc 10MB => %x\n", ptr);
+    /* do not free it */
+}
+
 static struct menu_entry selftest_menu[] =
 {
     {
@@ -1565,6 +2358,12 @@ static struct menu_entry selftest_menu[] =
                 .select     = run_in_separate_task,
                 .priv       = stub_test_task,
                 .help       = "Tests Canon functions called by ML. SET=once, PLAY=100x."
+            },
+            {
+                .name       = "Thread safety test",
+                .select     = run_in_separate_task,
+                .priv       = thread_test_task,
+                .help       = "Tests various functions for thread safety. WIP."
             },
             {
                 .name       = "RPC reliability test (infinite)",
@@ -1628,42 +2427,64 @@ static struct menu_entry selftest_menu[] =
                 .help       = "Shift the entire display left and right with EDMAC routines.",
                 .help2      = "Fixme: this will lock up if you change the video mode during the test.",
             },
+            {
+                .name       = "Null pointer test (quick)",
+                .select     = run_in_separate_task,
+                .priv       = null_pointer_task,
+                .help       = "Writes 0xBAADBAAD to address 0 (simulating a null pointer error).",
+                .help2      = "ML should save a crash log about 0xBAADBAAD and should not crash.",
+            },
             MENU_EOL,
         }
     },
-    #if 0
     {
-        .name       = "Fault emulation...",
+        .name       = "Fault emulation",
         .select     = menu_open_submenu,
         .help       = "Causes intentionally wrong behavior to see DryOS reaction.",
+        .help2      = "You'll have to take the battery out after running most of these.",
         .children   = (struct menu_entry[]) {
             {
                 .name       = "Create a stuck task",
                 .select     = run_in_separate_task,
                 .priv       = frozen_task,
-                .help       = "Creates a task which will become stuck in an infinite loop."
+                .help       = "Creates a task which will become stuck in an infinite loop.",
+                .help2      = "Low priority tasks (prio >= 0x1A) will no longer be able to run.",
             },
             {
-                .name       = "Freeze GUI task",
+                .name       = "Freeze the GUI task",
                 .select     = freeze_gui_task,
-                .help       = "Freezes main GUI task. Camera will stop reacting to buttons."
+                .help       = "Freezes main GUI task. Camera will stop reacting to buttons.",
+            },
+            {
+                .name       = "Lock-up the ARM CPU",
+                .select     = run_in_separate_task,
+                .priv       = lockup_task,
+                .help       = "Creates a task which will clear the interrupts and execute while(1).",
+                .help2      = "Anything still running after that would be secondary CPUs or hardware.",
             },
             {
                 .name       = "Division by zero",
                 .select     = run_in_separate_task,
                 .priv       = divzero_task,
-                .help       = "Performs some math operations which will divide by zero."
+                .help       = "Performs some math operations which will divide by zero.",
             },
             {
-                .name       = "Allocate 1MB of RAM",
+                .name       = "AllocateMemory 1MB",
                 .select     = run_in_separate_task,
                 .priv       = alloc_1M_task,
-                .help       = "Allocates 1MB RAM from system memory, without freeing it."
+                .help       = "Allocates 1MB RAM using AllocateMemory, without freeing it.",
+                .help2      = "After running this a few times, you'll get ERR70.",
+            },
+            {
+                .name       = "Allocate 10MB of RAM",
+                .select     = run_in_separate_task,
+                .priv       = alloc_10M_task,
+                .help       = "Allocates 1MB RAM from any source, without freeing it.",
+                .help2      = "After running this a few times, you'll run out of memory.",
             },
             MENU_EOL,
         }
     },
-    #endif
 };
 
 static struct menu_entry * selftest_menu_entry(const char* entry_name)

@@ -15,6 +15,8 @@
 #include <string.h>
 #include <battery.h>
 #include <powersave.h>
+#include <fps.h>
+#include <chdk-dng.h>
 #include "../lv_rec/lv_rec.h"
 #include "../mlv_rec/mlv.h"
 #include "lossless.h"
@@ -44,6 +46,7 @@ extern WEAK_FUNC(ret_0) int GetBatteryDrainRate();
 static CONFIG_INT( "silent.pic", silent_pic_enabled, 0 );
 static CONFIG_INT( "silent.pic.mode", silent_pic_mode, 0 );
 static CONFIG_INT( "silent.pic.slitscan.mode", silent_pic_slitscan_mode, 0 );
+static CONFIG_INT( "silent.pic.fullres.trigger", silent_pic_fullres_trigger_mode, 0 );
 static CONFIG_INT( "silent.pic.file_format", silent_pic_file_format, 0 );
 #define SILENT_PIC_MODE_SIMPLE 0
 #define SILENT_PIC_MODE_BURST 1
@@ -51,6 +54,7 @@ static CONFIG_INT( "silent.pic.file_format", silent_pic_file_format, 0 );
 #define SILENT_PIC_MODE_BEST_FOCUS 3
 #define SILENT_PIC_MODE_SLITSCAN 4
 #define SILENT_PIC_MODE_FULLRES 5
+#define SILENT_PIC_MODE_FULLRES_LV 6
 
 #define SILENT_PIC_FILE_FORMAT_DNG 0
 #define SILENT_PIC_FILE_FORMAT_MLV 1
@@ -80,6 +84,9 @@ static MENU_UPDATE_FUNC(silent_pic_mode_update)
     /* reveal options for the current shooting mode, if any */
     silent_menu[0].children[1].shidden =
         (silent_pic_mode != SILENT_PIC_MODE_SLITSCAN);
+
+    silent_menu[0].children[2].shidden =
+        (silent_pic_mode != SILENT_PIC_MODE_FULLRES);
 }
 
 static MENU_UPDATE_FUNC(silent_pic_check_mlv)
@@ -133,6 +140,10 @@ static MENU_UPDATE_FUNC(silent_pic_display)
         case SILENT_PIC_MODE_FULLRES:
             MENU_SET_VALUE("Full-res");
             break;
+
+        case SILENT_PIC_MODE_FULLRES_LV:
+            MENU_SET_VALUE("Full-res LV");
+            break;
     }
 
     switch (silent_pic_file_format)
@@ -157,7 +168,12 @@ static MENU_UPDATE_FUNC(silent_pic_display)
     {
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Full-res pictures only work in Manual (M) photo mode.");
     }
-    
+
+    if (silent_pic_mode == SILENT_PIC_MODE_FULLRES_LV && menu_get_value_from_script("Movie", "Crop mode") == INT_MIN)
+    {
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Full-res LV requires the crop_rec module loaded.");
+    }
+
     silent_pic_check_mlv(entry, info);
 }
 
@@ -197,6 +213,52 @@ static char* silent_pic_get_name()
     }
     bmp_printf(FONT_MED, 0, 37, "%s    ", image_file_name);
     return image_file_name;
+}
+
+/* metadata */
+static struct
+{
+    int iso;        /* human-readable */
+    int tvr;        /* reciprocal x1000, e.g. 1/50 -> 1/50000, 32" -> 31 */
+    int aperture;   /* human-readable x10 */
+    int fps;        /* x1000 */
+    int focal_len;  /* mm */
+} metadata;
+
+static void silent_capture_lv_metadata()
+{
+    /* prefer low-level exposure settings from LiveView, if available */
+    int iso = get_frame_iso();
+    if (!iso) iso = lens_info.raw_iso;
+    metadata.iso = raw2iso(iso);
+
+    metadata.tvr = get_current_shutter_reciprocal_x1000();
+
+    int av = get_frame_aperture();
+    if (!av) av = lens_info.raw_aperture;
+    metadata.aperture = RAW2VALUE(aperture, av);
+
+    metadata.fps = fps_get_current_x1000();
+    metadata.focal_len = lens_info.focal_len;
+    /* todo: focus distance etc */
+}
+
+static void silent_capture_fullres_metadata(int prop_iso, int capture_time_ms)
+{
+    /* only override values that were changed from LiveView */
+    metadata.iso = raw2iso(prop_iso);
+    metadata.tvr = 1000000 / capture_time_ms;
+
+    metadata.fps = 1000;    /* dummy */
+}
+
+static void silent_set_dng_metadata()
+{
+    dng_set_iso(metadata.iso);
+    dng_set_shutter(1000, metadata.tvr);
+    dng_set_aperture(metadata.aperture, 10);
+    dng_set_framerate(metadata.fps);
+    dng_set_focal(metadata.focal_len, 1);
 }
 
 static int silent_write_mlv_chunk_headers(FILE* save_file, struct raw_info * raw_info, uint16_t file_num)
@@ -293,7 +355,7 @@ static FILE *open_mlv_file(char *base_filename, uint32_t max_filesize)
 
 /* save using the MLV file format  */
 /* returns 1 on success, 0 on error */
-static int save_mlv(struct raw_info * raw_info, int capture_time_ms)
+static int save_mlv(struct raw_info * raw_info)
 {
     if (!silent_pic_mlv_available)
     {
@@ -416,11 +478,10 @@ static int save_mlv(struct raw_info * raw_info, int capture_time_ms)
     mlv_fill_rtci(&rtci_hdr, mlv_start_timestamp);
     mlv_fill_expo(&expo_hdr, mlv_start_timestamp);
     mlv_fill_lens(&lens_hdr, mlv_start_timestamp);
-    
-    if(capture_time_ms > 0)
-    {
-        expo_hdr.shutterValue = 1000 * capture_time_ms;
-    }
+
+    expo_hdr.isoValue = metadata.iso;
+    expo_hdr.shutterValue = 1000000000 / metadata.tvr;
+    lens_hdr.aperture = metadata.aperture * 10;
     
     if (FIO_WriteFile(save_file, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) goto write_error;
     if (FIO_WriteFile(save_file, &expo_hdr, expo_hdr.blockSize) != (int)expo_hdr.blockSize) goto write_error;
@@ -456,41 +517,58 @@ static int save_lossless_dng(char * filename, struct raw_info * raw_info)
 
     ASSERT(out_raw_info.bits_per_pixel == 14);
 
-    /* compress the image in-place */
+    /* fixme: not all models are able to allocate such a large contiguous chunk */
+    int max_compressed_size = ((uint64_t) raw_info->frame_size * 80 / 100) & ~0xFFF;
+    struct memSuite * out_suite = shoot_malloc_suite_contig(max_compressed_size);
 
-    /* skip the top bar (that way, we'll be able to avoid race conditions) */
-    int dy = out_raw_info.active_area.y1;
-    int dm = dy * out_raw_info.pitch;
-    void * output_buffer = out_raw_info.buffer;     /* output buffer = real buffer */
-    out_raw_info.buffer += dm;                      /* input buffer = real buffer + top bar size */
-    out_raw_info.frame_size -= dm;
-    out_raw_info.height -= dy;
-    out_raw_info.active_area.y1 -= dy;
-    out_raw_info.active_area.y2 -= dy;
+    if (!out_suite)
+    {
+        bmp_printf( FONT_MED, 0, 83, "Out of memory");
+        return 0;
+    }
 
-    struct memSuite * out_suite = CreateMemorySuite(output_buffer, raw_info->frame_size & ~0xFFF, 0);
+    ASSERT(out_suite->size == max_compressed_size);
+
     out_raw_info.frame_size = lossless_compress_raw(&out_raw_info, out_suite);
-    ASSERT(out_raw_info.frame_size < raw_info->frame_size);
-    out_raw_info.buffer = output_buffer;
-    DeleteMemorySuite(out_suite);
 
-    int ok = save_dng(filename, &out_raw_info);
-    if (!ok) bmp_printf( FONT_MED, 0, 83, "DNG save error (card full?)");
+    if (out_raw_info.frame_size > out_suite->size)
+    {
+        bmp_printf( FONT_MED, 0, 83, "Warning: output truncated (%s)", format_memory_size(out_suite->size));
+        out_raw_info.frame_size = out_suite->size;
+    }
 
-    return ok;
+    if (out_raw_info.frame_size > 0)
+    {
+        out_raw_info.buffer = GetMemoryAddressOfMemoryChunk(GetFirstChunkFromSuite(out_suite));
+
+        if (!save_dng(filename, &out_raw_info))
+        {
+            bmp_printf( FONT_MED, 0, 83, "DNG save error (card full?)");
+            return 0;
+        }
+    }
+    else
+    {
+        bmp_printf( FONT_MED, 0, 83, "Lossless compression error: %d", out_raw_info.frame_size);
+    }
+
+    shoot_free_suite(out_suite);
+
+    return 1;
 }
 
-static int silent_pic_save_file(struct raw_info * raw_info, int capture_time_ms)
+static int silent_pic_save_file(struct raw_info * raw_info)
 {
     switch (silent_pic_file_format)
     {
         case SILENT_PIC_FILE_FORMAT_MLV:
         {
-            return save_mlv(raw_info, capture_time_ms);
+            return save_mlv(raw_info);
         }
 
         case SILENT_PIC_FILE_FORMAT_DNG:
         {
+            silent_set_dng_metadata();
             char* filename = silent_pic_get_name();
             int ok = save_dng(filename, raw_info);
             if (!ok) bmp_printf( FONT_MED, 0, 83, "DNG save error (card full?)");
@@ -499,6 +577,7 @@ static int silent_pic_save_file(struct raw_info * raw_info, int capture_time_ms)
 
         case SILENT_PIC_FILE_FORMAT_LOSSLESS_DNG:
         {
+            silent_set_dng_metadata();
             char* filename = silent_pic_get_name();
             return save_lossless_dng(filename, raw_info);
         }
@@ -525,7 +604,7 @@ silent_pic_take_lv(int interactive)
 
     /* save it to card */
     bmp_printf(FONT_MED, 0, 60, "Saving %d x %d...", raw_info.jpeg.width, raw_info.jpeg.height);
-    int ok = silent_pic_save_file(&raw_info, 0, 0);
+    int ok = silent_pic_save_file(&raw_info);
     redraw();
     
     return ok;
@@ -865,12 +944,6 @@ static int silent_pic_raw_prepare_buffers(struct memSuite * mem_suite, int initi
             int size = GetSizeOfMemoryChunk(chunk);
             intptr_t ptr = (intptr_t) GetMemoryAddressOfMemoryChunk(chunk);
 
-            /* use-after-free from raw backend? skip this chunk */
-            if ((void*)ptr + 0x100 == raw_info.buffer)
-            {
-                goto next;
-            }
-            
             /* align pointer at 64 bytes */
             intptr_t ptr_raw = ptr;
             ptr   = (ptr + 63) & ~63;
@@ -884,8 +957,7 @@ static int silent_pic_raw_prepare_buffers(struct memSuite * mem_suite, int initi
                 size -= max_frame_size;
                 count++;
             }
-        
-        next:
+
             /* next chunk */
             chunk = GetNextMemoryChunk(mem_suite, chunk);
         }
@@ -904,6 +976,16 @@ silent_pic_take_lv(int interactive)
 
     bmp_printf(FONT_MED, 0, 37, "Preparing...");
     int ok = 1;
+
+    if (silent_pic_mode == SILENT_PIC_MODE_FULLRES_LV)
+    {
+        /* turn on Full-res LiveView from crop_rec and refresh the display */
+        /* also prevent zoom (x5/x10) from being restored by ResumeLiveView */
+        lv_dispsize = 1;
+        PauseLiveView();
+        menu_set_str_value_from_script("Movie", "Crop mode", "Full-res LiveView", INT_MIN);
+        ResumeLiveView();
+    }
 
     struct memSuite * hSuite1 = 0;
     struct memSuite * hSuite2 = 0;
@@ -933,17 +1015,40 @@ silent_pic_take_lv(int interactive)
         case SILENT_PIC_MODE_BURST_END_TRIGGER:
         case SILENT_PIC_MODE_BEST_FOCUS:
         {
+            /* when using lossless DNG, we need temporary storage for compression */
+            /* since we will allocate the entire shoot/SRM memory, we need to reserve it somehow */
+            /* fixme: ugly, hackish, duplicate code... */
+            struct memSuite * tmp_suite = 0;
+            int max_compressed_size = ((uint64_t) raw_info.frame_size * 80 / 100) & ~0xFFF;
+            if (silent_pic_file_format == SILENT_PIC_FILE_FORMAT_LOSSLESS_DNG)
+            {
+                tmp_suite = shoot_malloc_suite_contig(max_compressed_size);
+            }
+
             hSuite1 = srm_malloc_suite(0);
             /* fixme: allocating shoot memory during picture taking causes lockup */
-            if (lens_info.job_state) break;
-            hSuite2 = shoot_malloc_suite(0);
+            if (!lens_info.job_state)
+            {
+                hSuite2 = shoot_malloc_suite(0);
+            }
+
+            if (silent_pic_file_format == SILENT_PIC_FILE_FORMAT_LOSSLESS_DNG)
+            {
+                shoot_free_suite(tmp_suite);
+
+                /* make sure we can allocate it back */
+                tmp_suite = shoot_malloc_suite_contig(max_compressed_size);
+                ASSERT(tmp_suite);
+                if (tmp_suite) shoot_free_suite(tmp_suite);
+            }
             break;
         }
         
         /* allocate only one frame in simple and slitscan modes */
         case SILENT_PIC_MODE_SIMPLE:
         case SILENT_PIC_MODE_SLITSCAN:
-            hSuite1 = srm_malloc_suite(2);
+        case SILENT_PIC_MODE_FULLRES_LV:
+            hSuite1 = srm_malloc_suite(1);
             break;
     }
 
@@ -1004,6 +1109,7 @@ silent_pic_take_lv(int interactive)
     {
         case SILENT_PIC_MODE_SIMPLE:
         case SILENT_PIC_MODE_SLITSCAN:
+        case SILENT_PIC_MODE_FULLRES_LV:
             sp_max_frames = 1;
             break;
 
@@ -1065,8 +1171,11 @@ silent_pic_take_lv(int interactive)
         }
     }
 
+    /* get metadata (same for all pictures in this set) */
+    silent_capture_lv_metadata();
+
     /* save the image(s) to card */
-    if (sp_num_frames > 1 || silent_pic_mode == SILENT_PIC_MODE_SLITSCAN)
+    if (1)
     {
         /* this will take a while; pause the liveview and block the buttons to make sure the user won't do something stupid */
         PauseLiveView();
@@ -1082,17 +1191,27 @@ silent_pic_take_lv(int interactive)
         
         for (int i = i0; i < sp_num_frames; i++)
         {
-            bmp_printf(FONT_MED, 0, 60, "Saving image %d of %d (%dx%d)...", i+1, sp_num_frames, raw_info.jpeg.width, raw_info.jpeg.height);
+            bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 37,
+                SYM_ISO"%d %s "SYM_F_SLASH"%d.%d",
+                metadata.iso,
+                lens_format_shutter_reciprocal(metadata.tvr, 2),
+                metadata.aperture / 10, metadata.aperture % 10
+            );
+            bmp_printf(FONT_MED, 0, 60,
+                "Saving image %d of %d (%dx%d)...",
+                i+1, sp_num_frames,
+                raw_info.jpeg.width, raw_info.jpeg.height
+            );
 
             if (silent_pic_mode == SILENT_PIC_MODE_BEST_FOCUS)
                 silent_pic_raw_show_focus(i);
 
             local_raw_info.buffer = sp_frames[i % sp_buffer_count];
-            raw_set_preview_rect(raw_info.active_area.x1, raw_info.active_area.y1, raw_info.active_area.x2 - raw_info.active_area.x1, raw_info.active_area.y2 - raw_info.active_area.y1, 1);
+            raw_set_preview_rect(raw_info.active_area.x1, raw_info.active_area.y1, raw_info.active_area.x2 - raw_info.active_area.x1, raw_info.active_area.y2 - raw_info.active_area.y1, 0);
             raw_force_aspect_ratio(0, 0);
             raw_preview_fast_ex(local_raw_info.buffer, (void*)-1, -1, -1, -1);
             
-            ok = silent_pic_save_file(&local_raw_info, 0);
+            ok = silent_pic_save_file(&local_raw_info);
             if (!ok) break;
             
             if ((get_halfshutter_pressed() || !LV_PAUSED) && i > i0)
@@ -1114,25 +1233,12 @@ silent_pic_take_lv(int interactive)
             while (!get_halfshutter_pressed())
                 msleep(20);
         }
-        
-        if (LV_PAUSED) ResumeLiveView();
-        else redraw();
-        
+
         if (sp_num_frames > 1)
         {
             /* was it a burst sequence? reset the MLV frame counter to start a new file */
             mlv_file_frame_number = 0;
         }
-    }
-    else
-    {
-        if (is_intervalometer_running())
-            idle_force_powersave_now();
-        
-        local_raw_info.buffer = sp_frames[0];
-        bmp_printf(FONT_MED, 0, 60, "Saving %d x %d...", local_raw_info.jpeg.width, local_raw_info.jpeg.height);
-        ok = silent_pic_save_file(&local_raw_info, 0);
-        redraw();
     }
     
 cleanup:
@@ -1141,6 +1247,29 @@ cleanup:
     if (hSuite1) srm_free_suite(hSuite1);
     if (hSuite2) shoot_free_suite(hSuite2);
     if (raw_flag) raw_lv_release();
+
+    if (image_review_time)
+    {
+        /* image review setting from Canon menu */
+        /* fixme: use the same code as "classic" full-res pics */
+        int preview_delay = image_review_time * 1000;
+        int t0 = get_ms_clock_value();
+        while (get_ms_clock_value() - t0 < preview_delay &&
+               !get_halfshutter_pressed())
+        {
+            msleep(10);
+        }
+    }
+
+    if (silent_pic_mode == SILENT_PIC_MODE_FULLRES_LV)
+    {
+        /* turn off Full-res LiveView from crop_rec */
+        PauseLiveView();
+        menu_set_value_from_script("Movie", "Crop mode", 0);
+    }
+
+    ResumeLiveView();
+
     return ok;
 }
 #endif
@@ -1169,26 +1298,13 @@ static void show_battery_status()
 static PROP_INT(PROP_ISO, prop_iso);
 static PROP_INT(PROP_SHUTTER, prop_shutter);
 
-/* this will check (poll) if we are still in QR (or paused LV) mode, every 100ms,
+/* used to check (in polling_cbr) whether we are still in QR (or paused LV) mode,
  * until preview_time expires or until you get out of QR, whichever happens first
- * if we didn't leave QR mode, it will turn off the display
+ * if we didn't leave QR mode, it will return to LiveView or turn off the display
+ * depending on powersave settings.
  */
-static void display_off_if_qr_mode(int unused, int preview_time)
-{
-    if (is_play_or_qr_mode() || LV_PAUSED)
-    {
-        if (preview_time > 0)
-        {
-            /* OK for now, re-check after 100ms */
-            delayed_call(100, display_off_if_qr_mode, (void*)(preview_time - 100));
-        }
-        else
-        {
-            /* preview_time expired */
-            display_off();
-        }
-    }
-}
+static int image_review_duration = 0;   /* ms */
+static int image_review_start_time = 0; /* ms_clock_value */
 
 static uint32_t SLOWEST_SHUTTER = SHUTTER_15s;
 
@@ -1217,9 +1333,33 @@ static int
 silent_pic_take_fullres(int interactive)
 {
     int ok = 1;
-    
+
+    /* capture metadata from LiveView; will override invalid values later */
+    silent_capture_lv_metadata();
+
     /* get out of LiveView, but leave the shutter open */
     PauseLiveView();
+
+    if (interactive && silent_pic_fullres_trigger_mode)
+    {
+        /* trigger on shutter release? */
+        while (get_halfshutter_pressed())
+        {
+            bmp_printf(FONT_MED, 0, 0, "Half-shutter...");
+            msleep(10);
+        }
+
+        /* wait after shutter release? */
+        if (silent_pic_fullres_trigger_mode == 2)
+        {
+            /* also trigger half-shutter to activate IS */
+            info_led_on();
+            SW1(1, 0);
+            msleep(2000);
+            SW1(0, 0);
+            info_led_off();
+        }
+    }
     
     /* block all keys until finished, to avoid errors */
     gui_uilock(UILOCK_EVERYTHING);
@@ -1309,6 +1449,8 @@ silent_pic_take_fullres(int interactive)
     info_led_off();
     lens_info.job_state = 0;
 
+    silent_capture_fullres_metadata(prop_iso, capture_time);
+
     if (image_review_time)
     {
         /* only preview if Image Review is enabled in Canon menu */
@@ -1367,6 +1509,9 @@ silent_pic_take_fullres(int interactive)
         }
     }
 
+    /* image review timeout starts here */
+    image_review_start_time = get_ms_clock_value();
+
     /* prepare to save the file */
     struct raw_info local_raw_info = raw_info;
     
@@ -1387,6 +1532,14 @@ silent_pic_take_fullres(int interactive)
     int save_time;
     
     {
+        /* fixme: duplicate code */
+        bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 37,
+            SYM_ISO"%d %s "SYM_F_SLASH"%d.%d",
+            metadata.iso,
+            lens_format_shutter_reciprocal(metadata.tvr, 2),
+            metadata.aperture / 10, metadata.aperture % 10
+        );
+
         bmp_printf(FONT_MED, 0, 60, "Saving %d x %d...", local_raw_info.jpeg.width, local_raw_info.jpeg.height);
         bmp_printf(FONT_MED, 0, 83, "Captured in %d ms.", capture_time);
         
@@ -1398,7 +1551,7 @@ silent_pic_take_fullres(int interactive)
             memcpy(local_raw_info.buffer, raw_info.buffer, local_raw_info.frame_size);
         }
 
-        ok = silent_pic_save_file(&local_raw_info, capture_time);
+        ok = silent_pic_save_file(&local_raw_info);
         int t1 = get_ms_clock_value();
         save_time = t1 - t0;
      
@@ -1418,16 +1571,14 @@ silent_pic_take_fullres(int interactive)
         /* (will set a timer - if we are still in QR mode, turn off the display) */
         int intervalometer_delay = get_interval_time() * 1000;
         int intervalometer_remaining = intervalometer_delay - capture_time - save_time - 2000;
-        int preview_delay = 
-            image_review_time ? COERCE(intervalometer_remaining, 0, image_review_time * 1000 - save_time) 
+        image_review_duration = 
+            image_review_time ? COERCE(intervalometer_remaining, 0, image_review_time * 1000) 
                               : 0;
-        delayed_call(100, display_off_if_qr_mode, (void*)preview_delay);
     }
     else
     {
         bmp_printf(FONT_MED, 0, 106, "Long half-shutter will take another picture.");
-        int preview_delay = MAX(1000, image_review_time * 1000 - save_time);
-        delayed_call(100, display_off_if_qr_mode, (void*)preview_delay);
+        image_review_duration = MAX(1000, image_review_time * 1000);
     }
 
 cleanup:
@@ -1508,6 +1659,7 @@ static unsigned int silent_pic_polling_cbr(unsigned int ctx)
     if (silent_pic_mode == SILENT_PIC_MODE_FULLRES && (shooting_mode != SHOOTMODE_M || is_movie_mode()))
         return 0;
 
+    /* don't trigger a silent picture when pressing half-shutter to exit some menu */
     static int silent_pic_countdown;
     if (!display_idle())
     {
@@ -1517,6 +1669,25 @@ static unsigned int silent_pic_polling_cbr(unsigned int ctx)
     {
         if (silent_pic_countdown)
             silent_pic_countdown--;
+    }
+
+    /* after the image review time, return to LiveView or turn off the display */
+    if (image_review_duration && get_ms_clock_value() - image_review_start_time > image_review_duration)
+    {
+        /* do this only once */
+        image_review_duration = 0;
+
+        extern int idle_display_turn_off_after;
+        if (is_intervalometer_running() || idle_display_turn_off_after)
+        {
+            /* prefer turning off the display to save power */
+            display_off();
+        }
+        else
+        {
+            /* prefer going back to LiveView (more user-friendly) */
+            force_liveview();
+        }
     }
 
     if (lv && get_halfshutter_pressed())
@@ -1556,7 +1727,18 @@ static unsigned int silent_pic_polling_cbr(unsigned int ctx)
                 }
             }
         }
-        
+
+        if (lv && lens_info.IS)
+        {
+            /* if enabled on the lens, wait until the half-shutter activates it (500ms timeout) */
+            /* fixme: with a short half-shutter press, IS may not be activated */
+            for (int i = 0; i < 50 && get_halfshutter_pressed() && lens_info.IS != 0xE; i++)
+            {
+                bmp_printf(FONT_MED, 0, 37, "Waiting for IS...");
+                msleep(10);
+            }
+        }
+
         silent_pic_take(1);
     }
     
@@ -1592,13 +1774,13 @@ static struct menu_entry silent_menu[] = {
         .depends_on = DEP_LIVEVIEW | DEP_CFN_AF_BACK_BUTTON,
         .help  = "Take pics in LiveView without moving the shutter mechanism.",
         #ifdef FEATURE_SILENT_PIC_RAW_BURST
-        .submenu_width = 650,
+        .submenu_width = 700,
         .children =  (struct menu_entry[]) {
             {
                 .name = "Silent Mode",
                 .priv = &silent_pic_mode,
                 .update = silent_pic_mode_update,
-                .max = 5,
+                .max = 6,
                 .choices = CHOICES(
                     "Simple",
                     "Burst",
@@ -1606,6 +1788,7 @@ static struct menu_entry silent_menu[] = {
                     "Best Focus",
                     "Slit-Scan",
                     "Full-res",
+                    "Full-res LV",
                 ),
                 .help = "Choose the silent picture mode:",
                 .help2 = 
@@ -1614,7 +1797,8 @@ static struct menu_entry silent_menu[] = {
                     "Take pictures continuously, save the last few pics to card.\n"
                     "Take pictures continuously, save the images with best focus.\n"
                     "Distorted pictures for funky effects.\n"
-                    "Experimental full-resolution pictures.\n",
+                    "Full-resolution pictures (limited to long exposures).\n"
+                    "Full-resolution pictures (LiveView snapshots, with crop_rec).\n",
             },
             {
                 .name = "Slit-Scan Mode",
@@ -1635,6 +1819,22 @@ static struct menu_entry silent_menu[] = {
                     "Scan from right to left.\n"
                     "Keep scan line in middle of frame, horizontally.\n",
                 .shidden = 1,   /* enabled only when choosing slit-scan */
+            },
+            {
+                .name = "Trigger Mode",
+                .priv = &silent_pic_fullres_trigger_mode,
+                .max = 2,
+                .choices = CHOICES(
+                    "Half-shutter press",
+                    "Half-shutter release",
+                    "Delayed",
+                ),
+                .help = "Choose when to capture the image:",
+                .help2 =
+                    "Start image capture on half-shutter press (quick).\n"
+                    "Start image capture on half-shutter release (end trigger).\n"
+                    "Start image capture 2 seconds after half-shutter release.\n",
+                .shidden = 1,   /* enabled only when choosing full-res */
             },
             {
                 .name = "File Format",
@@ -1701,6 +1901,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(silent_pic_enabled)
     MODULE_CONFIG(silent_pic_mode)
     MODULE_CONFIG(silent_pic_slitscan_mode)
+    MODULE_CONFIG(silent_pic_fullres_trigger_mode)
     MODULE_CONFIG(silent_pic_file_format)
 MODULE_CONFIGS_END()
 

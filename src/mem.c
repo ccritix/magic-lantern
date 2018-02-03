@@ -20,6 +20,7 @@
 #include "menu.h"
 #include "edmac.h"
 #include "util.h"
+#include "raw.h"
 
 #ifdef MEM_DEBUG
 #define dbg_printf(fmt,...) { printf(fmt, ## __VA_ARGS__); }
@@ -27,7 +28,8 @@
 #define dbg_printf(fmt,...) {}
 #endif
 
-#define MEM_SEC_ZONE 32
+#define MEMCHECK_CHECK          /* disable if running in qemu with -d memcheck */
+#define MEM_SEC_ZONE 16
 #define MEMCHECK_ENTRIES 256
 #define HISTORY_ENTRIES 256
 #define TASK_NAME_SIZE 12
@@ -88,7 +90,7 @@ struct mem_allocator
     int preferred_min_alloc_size;           /* if size is outside this range, it will try from other allocators */
     int preferred_max_alloc_size;           /* (but if it can't find any, it may still use this buffer) */
     int preferred_free_space;               /* if free space would drop under this, will try from other allocators first */
-    int minimum_free_space;                 /* will never allocate if free space would drop under this */
+    int minimum_free_space;                 /* will only use as a last resort if free space would drop under this */
     int minimum_alloc_size;                 /* will never allocate a buffer smaller than this */
     int maximum_blocks;                     /* will never allocate more than N buffers */
     
@@ -175,7 +177,6 @@ static struct mem_allocator allocators[] = {
     },
 #endif
 
-#if !defined(CONFIG_QEMU)
     /* must be completely free when navigating Canon menus, so only use it as a last resort */
     {
         .name = "shoot_malloc",
@@ -196,7 +197,6 @@ static struct mem_allocator allocators[] = {
         .preferred_max_alloc_size = 20 * 1024 * 1024,
         .minimum_alloc_size = 5 * 1024,
     },
-#endif
 
 #if 1
     /* large buffers (30-40 MB), but you can't even take a picture with one of those allocated */
@@ -212,7 +212,8 @@ static struct mem_allocator allocators[] = {
         .is_preferred_for_temporary_space = 2,  /* prefer not to use it, use shoot_malloc if you can */
 
         /* only use it for huge buffers */
-        .minimum_alloc_size = 20 * 1024 * 1024,
+        .preferred_min_alloc_size = 20 * 1024 * 1024,
+        .minimum_alloc_size = 1024 * 1024,
     },
 #endif
 #endif  /* CONFIG_INSTALLER */
@@ -239,10 +240,10 @@ static int history_index = 0;
 
 struct memcheck_hdr
 {
-    unsigned int id;
-    unsigned int length;
-    uint16_t allocator;
+    uint16_t allocator;     /* this is overwritten after calling free */
     uint16_t flags;
+    unsigned int length;    /* maybe this too, depending on allocator */
+    unsigned int id;        /* on double free attempts, we will read this one after free */
 };
 
 struct memcheck_entry
@@ -332,6 +333,10 @@ static const char * format_memory_size_and_flags( unsigned size, unsigned flags)
 /* second arg is optional, -1 if not available */
 static unsigned int memcheck_check(unsigned int ptr, unsigned int entry)
 {
+#ifndef MEMCHECK_CHECK
+    return 0;
+#endif
+
     unsigned int failed = 0;
     unsigned int failed_pos = 0;
     
@@ -456,6 +461,10 @@ static unsigned int memcheck_get_failed()
 
 static void memcheck_add(unsigned int ptr, const char *file, unsigned int line)
 {
+#ifndef MEMCHECK_CHECK
+    return;
+#endif
+
     int tries = MEMCHECK_ENTRIES;
     
     unsigned int state = cli();
@@ -485,6 +494,10 @@ static void memcheck_add(unsigned int ptr, const char *file, unsigned int line)
 
 static void memcheck_remove(unsigned int ptr, unsigned int failed)
 {
+#ifndef MEMCHECK_CHECK
+    return;
+#endif
+
     unsigned int buf_pos = ((struct memcheck_hdr *)ptr)->id;
     ((struct memcheck_hdr *)ptr)->id = JUST_FREED;
     
@@ -534,7 +547,8 @@ static void *memcheck_malloc( unsigned int len, const char *file, unsigned int l
     /* some allocators may return invalid ptr; discard it and return 0, as C malloc does */
     if ((intptr_t)ptr & 1) return 0;
     if (!ptr) return 0;
-    
+
+#ifdef MEMCHECK_CHECK
     /* fill MEM_SEC_ZONE with 0xA5 */
     for(unsigned pos = 0; pos < MEM_SEC_ZONE; pos++)
     {
@@ -545,7 +559,8 @@ static void *memcheck_malloc( unsigned int len, const char *file, unsigned int l
     {
         ((unsigned char *)ptr)[pos] = 0xA5;
     }
-    
+#endif
+
     /* did our allocator return a cacheable or uncacheable pointer? */
     unsigned int uncacheable_flag = (ptr == (unsigned int) UNCACHEABLE(ptr)) ? UNCACHEABLE_FLAG : 0;
     
@@ -602,6 +617,10 @@ static void memcheck_free( void * buf, int allocator_index, unsigned int flags)
     {
         allocators[allocator_index].free((void*)ptr);
     }
+
+    /* make sure we can still detect double-free bugs */
+    /* (the deallocator may overwrite it) */
+    //ASSERT(((struct memcheck_hdr *)ptr)->id == JUST_FREED);
 }
 
 static int search_for_allocator(int size, int require_preferred_size, int require_preferred_free_space, int require_tmp, int require_dma)
@@ -667,13 +686,14 @@ static int search_for_allocator(int size, int require_preferred_size, int requir
         if (!(
                 (
                     /* preferred free space is... well... optional */
-                    !require_preferred_free_space ||
+                    (require_preferred_free_space <= 0) ||
                     (free_space - size - 1024 > allocators[a].preferred_free_space)
                 )
                 &&
                 (
-                    /* minimum_free_space is mandatory */
-                    free_space - size - 1024 > allocators[a].minimum_free_space
+                    /* minimum_free_space is important, but can be relaxed as a last resort, for small buffers */
+                    (require_preferred_free_space == -1 && size < allocators[a].minimum_free_space / 16) ||
+                    (free_space - size - 1024 > allocators[a].minimum_free_space)
                 )
            ))
         {
@@ -742,7 +762,12 @@ static int choose_allocator(int size, unsigned int flags)
     }
     
     /* DMA is mandatory, don't relax it */
-    
+
+    /* for small buffers, let's try an allocator with large minimum_free_space */
+    /* where breaking this constraint is unlikely to cause issues */
+    a = search_for_allocator(size, 0, -1, 0, needs_dma);
+    if (a >= 0) return a;
+
     /* if we arrive here, you should probably solder some memory chips on the mainboard */
     return -1;
 }
@@ -752,6 +777,7 @@ static int choose_allocator(int size, unsigned int flags)
 /* returns 0 if it couldn't allocate */
 void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned int line)
 {
+    ASSERT(mem_sem);
     take_semaphore(mem_sem, 0);
 
     dbg_printf("alloc(%s) from %s:%d task %s\n", format_memory_size_and_flags(size, flags), file, line, get_current_task_name());
@@ -809,6 +835,8 @@ void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned i
 
 void __mem_free(void* buf)
 {
+    if (!buf) return;
+
     take_semaphore(mem_sem, 0);
 
     unsigned int ptr = (unsigned int)buf - MEM_SEC_ZONE;
@@ -875,8 +903,8 @@ struct memSuite * shoot_malloc_suite_contig(size_t size)
 
 
 /* initialize memory pools, if any of them needs that */
-/* (called as the first init func => mem.o should be first in the Makefile.src (well, after boot-hack) */
-static void mem_init()
+/* should be called before any mallocs */
+void _mem_init()
 {
     mem_sem = create_named_semaphore("mem_sem", 1);
 
@@ -888,8 +916,6 @@ static void mem_init()
         }
     }
 }
-
-INIT_FUNC(__FILE__, mem_init);
 
 
 /* GUI stuff */
@@ -940,35 +966,35 @@ static void guess_free_mem_task(void* priv, int delta)
     take_semaphore(mem_sem, 0);
 
     {
-        struct memSuite * hSuite = _shoot_malloc_suite_contig(0);
-        if (!hSuite)
+        struct memSuite * shoot_suite = _shoot_malloc_suite_contig(0);
+        if (!shoot_suite)
         {
             beep();
             guess_mem_running = 0;
             give_semaphore(mem_sem);
             return;
         }
-        ASSERT(hSuite->num_chunks == 1);
-        max_shoot_malloc_mem = hSuite->size;
-        _shoot_free_suite(hSuite);
+        ASSERT(shoot_suite->num_chunks == 1);
+        max_shoot_malloc_mem = shoot_suite->size;
+        _shoot_free_suite(shoot_suite);
     }
 
-    struct memSuite * hSuite = _shoot_malloc_suite(0);
-    if (!hSuite)
+    struct memSuite * shoot_suite = _shoot_malloc_suite(0);
+    if (!shoot_suite)
     {
         beep();
         guess_mem_running = 0;
         give_semaphore(mem_sem);
         return;
     }
-    max_shoot_malloc_frag_mem = hSuite->size;
+    max_shoot_malloc_frag_mem = shoot_suite->size;
 
     struct memChunk *currentChunk;
     int chunkAvail;
     void* chunkAddress;
     int total = 0;
 
-    currentChunk = GetFirstChunkFromSuite(hSuite);
+    currentChunk = GetFirstChunkFromSuite(shoot_suite);
 
     snprintf(shoot_malloc_frag_desc, sizeof(shoot_malloc_frag_desc), "");
     memset(memory_map, 0, sizeof(memory_map));
@@ -977,6 +1003,7 @@ static void guess_free_mem_task(void* priv, int delta)
     {
         chunkAvail = GetSizeOfMemoryChunk(currentChunk);
         chunkAddress = (void*)GetMemoryAddressOfMemoryChunk(currentChunk);
+        printf("shoot buffer: %x ... %x\n", chunkAddress, chunkAddress + chunkAvail - 1);
 
         int mb = 10*chunkAvail/1024/1024;
         STR_APPEND(shoot_malloc_frag_desc, mb%10 ? "%s%d.%d" : "%s%d", total ? "+" : "", mb/10, mb%10);
@@ -986,19 +1013,17 @@ static void guess_free_mem_task(void* priv, int delta)
         int width = MEMORY_MAP_ADDRESS_TO_INDEX(chunkAvail);
         memset(memory_map + start, COLOR_GREEN1, width);
 
-        currentChunk = GetNextMemoryChunk(hSuite, currentChunk);
+        currentChunk = GetNextMemoryChunk(shoot_suite, currentChunk);
     }
     STR_APPEND(shoot_malloc_frag_desc, " MB.");
     ASSERT(max_shoot_malloc_frag_mem == total);
 
-    exmem_clear(hSuite, 0);
-
-    _shoot_free_suite(hSuite);
+    exmem_clear(shoot_suite, 0);
 
     /* test the new SRM job allocator */
-    hSuite = _srm_malloc_suite(0);
+    struct memSuite * srm_suite = _srm_malloc_suite(0);
     
-    if (!hSuite)
+    if (!srm_suite)
     {
         beep();
         guess_mem_running = 0;
@@ -1006,8 +1031,8 @@ static void guess_free_mem_task(void* priv, int delta)
         return;
     }
     
-    srm_num_buffers = hSuite->num_chunks;
-    currentChunk = GetFirstChunkFromSuite(hSuite);
+    srm_num_buffers = srm_suite->num_chunks;
+    currentChunk = GetFirstChunkFromSuite(srm_suite);
     srm_buffer_size = GetSizeOfMemoryChunk(currentChunk);
 
     while(currentChunk)
@@ -1015,17 +1040,21 @@ static void guess_free_mem_task(void* priv, int delta)
         chunkAvail = GetSizeOfMemoryChunk(currentChunk);
         chunkAddress = (void*)GetMemoryAddressOfMemoryChunk(currentChunk);
         ASSERT(chunkAvail == srm_buffer_size);
+        printf("srm buffer: %x ... %x\n", chunkAddress, chunkAddress + chunkAvail - 1);
 
         int start = MEMORY_MAP_ADDRESS_TO_INDEX(chunkAddress);
         int width = MEMORY_MAP_ADDRESS_TO_INDEX(chunkAvail);
         memset(memory_map + start, COLOR_CYAN, width);
 
-        currentChunk = GetNextMemoryChunk(hSuite, currentChunk);
+        currentChunk = GetNextMemoryChunk(srm_suite, currentChunk);
     }
 
-    ASSERT(srm_buffer_size * srm_num_buffers == hSuite->size);
+    ASSERT(srm_buffer_size * srm_num_buffers == srm_suite->size);
+
+    exmem_clear(srm_suite, 0);
     
-    _srm_free_suite(hSuite);
+    _shoot_free_suite(shoot_suite);
+    _srm_free_suite(srm_suite);
 
     /* mallocs can resume now */
     give_semaphore(mem_sem);
@@ -1067,15 +1096,6 @@ static void guess_free_mem()
 }
 
 static MENU_UPDATE_FUNC(mem_error_display);
-
-static struct { uint32_t addr; char* name; } common_addresses[] = {
-    { RESTARTSTART,         "RST"},
-    { YUV422_HD_BUFFER_1,   "HD1"},
-    { YUV422_HD_BUFFER_1,   "HD2"},
-    { YUV422_LV_BUFFER_1,   "LV1"},
-    { YUV422_LV_BUFFER_2,   "LV2"},
-    { YUV422_LV_BUFFER_3,   "LV3"},
-};
 
 static MENU_UPDATE_FUNC(meminfo_display)
 {
@@ -1137,6 +1157,16 @@ static MENU_UPDATE_FUNC(meminfo_display)
                     draw_line(i, 400, i, 410, memory_map[i]);
             
             /* show some common addresses on the memory map */
+            struct { uint32_t addr; char* name; } common_addresses[] = {
+                { RESTARTSTART,                         "ML"  },    /* where ML is loaded */
+                { (uint32_t) raw_info.buffer,           "RAW" },    /* raw buffer */
+                { (uint32_t) bmp_vram_idle(),           "BMI" },    /* "idle" BMP buffer (back buffer) */
+                { (uint32_t) bmp_vram_real(),           "BMP" },    /* current BMP buffer (displayed on the screen) */
+                { YUV422_LV_BUFFER_DISPLAY_ADDR,        "LVD" },    /* current LV YUV buffer (displayed) */
+                { shamem_read(REG_EDMAC_WRITE_LV_ADDR), "LVW" },    /* LV YUV buffer being written by EDMAC */
+                { shamem_read(REG_EDMAC_WRITE_HD_ADDR), "HDW" },    /* HD YUV buffer being written by EDMAC */
+            };
+
             for (int i = 0; i < COUNT(common_addresses); i++)
             {
                 int c = MEMORY_MAP_ADDRESS_TO_INDEX(common_addresses[i].addr);

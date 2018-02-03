@@ -184,7 +184,7 @@ static void cmos16_log(breakpoint_t *bkpt)
 void adtg_log_task()
 {
     adtg_buf_pos_max = 128 * 1024;
-    adtg_buf = fio_malloc(adtg_buf_pos_max * 4 + 0x100);
+    adtg_buf = malloc(adtg_buf_pos_max * 4 + 0x100);
     
     if(!adtg_buf)
     {   
@@ -253,7 +253,7 @@ void adtg_log_task()
     /* free buffer */
     void *buf = adtg_buf;
     adtg_buf = NULL;
-    fio_free(buf);
+    free(buf);
 }
 
 static MENU_SELECT_FUNC(adtg_log_toggle)
@@ -281,56 +281,56 @@ static struct menu_entry adtg_log_menu[] =
             {
                 .name = "cmos[0]",
                 .priv = cmos_delta,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .min = -1000,
                 .max = 1000,
             },
             {
                 .name = "cmos[1]",
                 .priv = cmos_delta+1,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .min = -1000,
                 .max = 1000,
             },
             {
                 .name = "cmos[2]",
                 .priv = cmos_delta+2,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .min = -1000,
                 .max = 1000,
             },
             {
                 .name = "cmos[3]",
                 .priv = cmos_delta+3,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .min = -1000,
                 .max = 1000,
             },
             {
                 .name = "cmos[4]",
                 .priv = cmos_delta+4,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .min = -1000,
                 .max = 1000,
             },
             {
                 .name = "cmos[5]",
                 .priv = cmos_delta+5,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .min = -1000,
                 .max = 1000,
             },
             {
                 .name = "cmos[6]",
                 .priv = cmos_delta+6,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .min = -1000,
                 .max = 1000,
             },
             {
                 .name = "cmos[7]",
                 .priv = cmos_delta+7,
-                .edit_mode = EM_MANY_VALUES_LV,
+                .edit_mode = EM_SHOW_LIVEVIEW,
                 .min = -1000,
                 .max = 1000,
             },

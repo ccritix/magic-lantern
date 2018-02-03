@@ -71,7 +71,7 @@ int get_free_space_32k(const struct card_info* card)
 
 
 static CONFIG_INT("card.test", card_test_enabled, 1);
-static CONFIG_INT("card.force_type", card_force_type, 1);
+static CONFIG_INT("card.force_type", card_force_type, 0);
 
 #ifndef CONFIG_INSTALLER
 #ifdef CONFIG_5D3
@@ -407,8 +407,8 @@ int FIO_CreateDirectory(const char * dirname)
 }
 
 #if defined(CONFIG_FIO_RENAMEFILE_WORKS)
-int _FIO_RenameFile(char *src,char *dst);
-int FIO_RenameFile(char *src,char *dst)
+int _FIO_RenameFile(const char * src, const char * dst);
+int FIO_RenameFile(const char * src, const char * dst)
 {
     char newSrc[FIO_MAX_PATH_LENGTH];
     char newDst[FIO_MAX_PATH_LENGTH];
@@ -417,7 +417,7 @@ int FIO_RenameFile(char *src,char *dst)
     return _FIO_RenameFile(newSrc, newDst);
 }
 #else
-int FIO_RenameFile(char* src, char* dst)
+int FIO_RenameFile(const char * src, const char * dst)
 {
     // FIO_RenameFile not known, or doesn't work
     // emulate it by copy + erase (poor man's rename :P )
@@ -502,11 +502,59 @@ static FILE* _FIO_CreateFileEx(const char* name)
     /* return 0 on error, just like in plain C */
     return 0;
 }
+
 FILE* FIO_CreateFile(const char* name)
 {
     char new_name[FIO_MAX_PATH_LENGTH];
     fixup_filename(new_name, name, sizeof(new_name));
     return _FIO_CreateFileEx(new_name);
+}
+
+/* Canon stubs */
+extern int _FIO_ReadFile( FILE* stream, void* ptr, size_t count );
+extern int _FIO_WriteFile( FILE* stream, const void* ptr, size_t count );
+
+int FIO_ReadFile( FILE* stream, void* ptr, size_t count )
+{
+    if (ptr == CACHEABLE(ptr))
+    {
+        /* there's a lot of existing code (e.g. mlv_play) that's hard to refactor */
+        /* workaround: allocate DMA memory here (for small buffers only)
+         * code that operates on large buffers should be already correct */
+        if (!streq(current_task->name, "run_test"))
+        {
+            printf("fixme: please use fio_malloc (in %s)\n", current_task->name);
+        }
+        ASSERT(count <= 8192);
+        void * ubuf = fio_malloc(count);
+        if (!ubuf)
+        {
+            ASSERT(0);
+            return 0;
+        }
+        int ans = _FIO_ReadFile(stream, ubuf, count);
+        memcpy(ptr, ubuf, count);
+        free(ubuf);
+        return ans;
+    }
+
+    return _FIO_ReadFile(stream, ptr, count);
+}
+
+int FIO_WriteFile( FILE* stream, const void* ptr, size_t count )
+{
+    /* we often assumed that the FIO routines will somehow care for buffers being still in cache.
+       proven by the fact that even canon calls FIO_WriteFile with cached memory as source.
+       that was simply incorrect. force cache flush if the buffer is a cachable one.
+    */
+    if (ptr == CACHEABLE(ptr))
+    {
+        /* write back all data to RAM */
+        /* overhead is minimal (see selfcheck.mo for benchmark) */
+        clean_d_cache();
+    }
+
+    return _FIO_WriteFile(stream, ptr, count);
 }
 
 FILE* FIO_CreateFileOrAppend(const char* name)
@@ -524,7 +572,7 @@ FILE* FIO_CreateFileOrAppend(const char* name)
     return f;
 }
 
-int FIO_CopyFile(char *src,char *dst)
+int FIO_CopyFile(const char * src, const char * dst)
 {
     FILE* f = FIO_OpenFile(src, O_RDONLY | O_SYNC);
     if (!f) return -1;
@@ -563,7 +611,7 @@ int FIO_CopyFile(char *src,char *dst)
     return 0;
 }
 
-int FIO_MoveFile(char *src,char *dst)
+int FIO_MoveFile(const char * src, const char * dst)
 {
     int err = FIO_CopyFile(src,dst);
     if (!err)
@@ -694,6 +742,29 @@ getfilesize_fail:
     return NULL;
 }
 
+// sometimes gcc likes very much the default fprintf and uses that one
+// => renamed to my_fprintf to force it to use this one
+int
+my_fprintf(
+    FILE *          file,
+    const char *        fmt,
+    ...
+)
+{
+    va_list         ap;
+    int len = 0;
+    
+    const int maxlen = 512;
+    char buf[maxlen];
+
+    va_start( ap, fmt );
+    len = vsnprintf( buf, maxlen-1, fmt, ap );
+    va_end( ap );
+    FIO_WriteFile( file, buf, len );
+    
+    return len;
+}
+
 #ifdef CONFIG_DUAL_SLOT
 struct menu_entry card_menus[] = {
     {
@@ -729,7 +800,8 @@ struct menu_entry card_menus[] = {
                 .min = 0,
                 .max = 2,
                 .choices = CHOICES("OFF", "CF", "SD"),
-                .help = "Make sure your preferred card is selected at startup."
+                .help  = "Make sure your preferred card is selected at startup.",
+                .help2 = "This changes Canon card selection at startup - nothing else."
             },
             MENU_EOL,
         }

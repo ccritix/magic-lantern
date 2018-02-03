@@ -47,7 +47,7 @@ const char * format_memory_size(uint64_t size); /* e.g. 2.0GB, 32MB, 2.4kB... */
 #define tmp_malloc(len)       __mem_malloc(len, MEM_TEMPORARY, __FILE__, __LINE__)
 #define tmp_free            free
 
-/* allocate temporary memory for reading files */
+/* allocate temporary memory for reading files or for DMA operations */
 /* (very large buffers will prefer SRM, smaller ones will use shoot_malloc / alloc_dma_memory) */
 #define fio_malloc(len)     __mem_malloc(len, (len > 20*1024*1024 ? MEM_SRM : MEM_TEMPORARY) | MEM_DMA, __FILE__, __LINE__)
 #define fio_free            free
@@ -58,7 +58,8 @@ const char * format_memory_size(uint64_t size); /* e.g. 2.0GB, 32MB, 2.4kB... */
 
 #endif
 
-
+/* initialization */
+void _mem_init();
 
 
 /* general-purpose memory-related routines (not routed through the backend) */
@@ -66,6 +67,7 @@ const char * format_memory_size(uint64_t size); /* e.g. 2.0GB, 32MB, 2.4kB... */
 
 /* in posix.c */
 extern void * realloc( void * buf, size_t newlen );
+extern void * calloc(size_t nmemb, size_t size);
 
 #define IS_ML_PTR(val) (((uintptr_t)(val) > (uintptr_t)0x1000) && ((uintptr_t)(val) < (uintptr_t)0x20000000))
 #define IS_ROM_PTR(val) ((uintptr_t)(val) > (uintptr_t)0xF0000000)

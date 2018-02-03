@@ -5,7 +5,19 @@
  * the %pc relative addressing modes. These will be fixed-up to allow
  * the function to be run from a new location.
  */
-#ifndef __ARM__
+#ifdef CONFIG_MAGICLANTERN
+
+#ifdef CONFIG_QEMU
+    /* redirect all printf's to QEMU console */
+    #include <dryos.h>
+    #define printf qprintf
+#else
+    /* by default, quiet all printf's */
+    #define printf(...)
+#endif
+
+#else /* for host PC */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -13,12 +25,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #endif
 
 #include "reloc.h"
-#include "patch.h"
-
-int verbose = 1;
+#include <patch.h>
 
 #define REG_PC      15
 #define LOAD_MASK   0x0C000000
@@ -34,6 +45,7 @@ int verbose = 1;
 /**
  * Search through a memory region, looking for branch instructions
  * Returns a pointer to the new func_offset address.
+ * Requires 64 bytes for fixups.
  */
 uintptr_t
 reloc(
@@ -44,28 +56,23 @@ reloc(
     uintptr_t       new_pc
 )
 {
-    uintptr_t       pc;
     uint8_t * const     mem = ((uint8_t*) buf) - load_addr;
     // const uintptr_t      func_len = func_end - func_offset;
 
-#ifndef __ARM__
     printf( "Fixing from %08x to %08x\n", func_offset, func_end );
-#endif
 
-    // Add up to 16 bytes of fixups
+    // Add up to 64 bytes of fixups
     uintptr_t fixups = new_pc;
-    uintptr_t entry = new_pc += 16;
+    uintptr_t entry = new_pc += 64;
 
-    for( pc=func_offset ; pc<=func_end ; pc += 4, new_pc += 4 )
+    for (uintptr_t pc = func_offset; pc < func_end; pc += 4, new_pc += 4)
     {
         uint32_t instr = *(uint32_t*)( mem+pc );
         uint32_t branch = instr & BRANCH_MASK;
         uint32_t load = instr & LOAD_MASK;
 
-#ifdef __ARM__
         // The default is to just copy the instruction
         *(uint32_t*) new_pc = instr;
-#endif
 
         // Check for branch
         if( branch == BRANCH_LINK
@@ -82,8 +89,6 @@ reloc(
             if( func_offset <= dest && dest < func_end )
                 continue;
 
-#ifndef __ARM__
-            if( verbose )
             printf( "%08x: %08x B%s %08x => %08x\n",
                 pc,
                 instr,
@@ -91,7 +96,6 @@ reloc(
                 offset,
                 dest
             );
-#endif
 
             // Can we make this work?
             int32_t new_jump = (dest - new_pc - 8);
@@ -99,7 +103,6 @@ reloc(
             if( new_jump >= +0x00800000
             ||  new_jump <= -0x00800000
             ) {
-#ifndef __ARM__
                 printf( "%08x: !!!! can not fixup jump from %08x to %08x (offset %s%08x)\n",
                     pc,
                     new_pc,
@@ -107,7 +110,6 @@ reloc(
                     new_jump < 0 ? "-" : "+",
                     new_jump < 0 ? -new_jump : new_jump
                 );
-#endif
                 continue;
             }
 
@@ -115,8 +117,6 @@ reloc(
                 | (instr & ~BRANCH_OFFSET)
                 | (new_jump & BRANCH_OFFSET);
 
-#ifndef __ARM__
-            if(0)
             printf( "%08x: %08x => %08x fixup offset %08x => %s%08x\n",
                 pc,
                 instr,
@@ -125,7 +125,6 @@ reloc(
                 new_jump < 0 ? "-" : "+",
                 new_jump < 0 ? -new_jump : new_jump
             );
-#endif
 
 #ifdef __ARM__
             // Write the new instruction into memory
@@ -158,9 +157,7 @@ reloc(
             {
                 // Not an immediate 12-bit value;
                 // update the offset
-#ifndef __ARM__
                 printf( "%08x: unknown mode?\n", pc );
-#endif
                 continue;
             }
 
@@ -170,11 +167,36 @@ reloc(
                 offset |= imm << (32 - shift);
             uint32_t dest = pc + 8 + offset;
 
-            // Ignore offetss inside the reloc space
+            // Ignore offsets inside the reloc space
             if( func_offset <= dest && dest < func_end )
                 continue;
-#ifndef __ARM__
-            printf( "%08x: %08x add pc shift=%1x imm=%2x offset=%x => %08x\n",
+
+            // Find the data that is being used and
+            // compute a new offset so that it can be
+            // accessed from the relocated space.
+            // Replace with a LDR instruction:
+            // ADR PC, something => LDR PC, =address_of_something
+            uint32_t data = dest;
+            int32_t new_offset = fixups - new_pc - 8;
+            uint32_t sign_bit = (1 << 23);
+            if ( new_offset < 0 )
+            {
+                // Set offset to negative
+                sign_bit = 0;
+                new_offset = -new_offset;
+            }
+
+            // Turn ADR into LDR; keep condition flags
+            // and destination register from old instruction
+            uint32_t new_instr = 0
+                | ( instr &  0xF000F000 )
+                | ( /*LDR*/  0x051F0000 )
+                | ( sign_bit & 0x800000 )
+                | ( new_offset &  0xFFF )
+                ;
+
+
+            printf( "%08x: %08x add pc shift=%x imm=%2x offset=%x => %08x\n",
                 pc,
                 instr,
                 shift,
@@ -182,7 +204,13 @@ reloc(
                 offset,
                 dest
             );
+#ifdef __ARM__
+            // Copy the data to the offset location
+            *(uint32_t*) fixups = data;
+            *(uint32_t*) new_pc = new_instr;
 #endif
+            fixups += 4;
+
             continue;
         }
 
@@ -190,7 +218,7 @@ reloc(
         if( load == LOAD_INSTR )
         {
             uint32_t reg_base   = (instr >> 16) & 0xF;
-            // uint32_t reg_dest    = (instr >> 12) & 0xF;
+            uint32_t reg_dest   = (instr >> 12) & 0xF;
             int32_t offset      = (instr >>  0) & 0xFFF;
 
             if( reg_base != REG_PC )
@@ -212,18 +240,20 @@ reloc(
             // accessed from the relocated space.
             uint32_t data = *(uint32_t*)( dest + mem );
             int32_t new_offset = fixups - new_pc - 8;
+            uint32_t sign_bit = (1 << 23);
             if( new_offset < 0 )
             {
                 // Set offset to negative
-                instr &= ~(1<<23);
+                sign_bit = 0;
                 new_offset = -new_offset;
             }
 
             uint32_t new_instr = 0
-                | ( instr & ~0xFFF )
-                | ( new_offset & 0xFFF )
+                | ( instr &  0xFF7FF000 )
+                | ( sign_bit & 0x800000 )
+                | ( new_offset &  0xFFF )
                 ;
-#ifndef __ARM__
+
             // This is one that will need to be copied
             // but we currently don't do anything!
             printf( "%08x: %08x LD %d, %d, %d => %08x: %08x %d data=%08x\n",
@@ -237,7 +267,8 @@ reloc(
                 new_offset,
                 data
             );
-#else
+
+#ifdef __ARM__
             // Copy the data to the offset location
             *(uint32_t*) fixups = data;
             *(uint32_t*) new_pc = new_instr;
@@ -248,9 +279,7 @@ reloc(
         }
     }
 
-#ifdef RELOC_PRINT
     printf( "Fixups=%x entry=%x free_space=%x\n", fixups, entry, entry - fixups);
-#endif
 
 #ifdef __ARM__
     /* don't return if executable code was overwritten by fixups */

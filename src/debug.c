@@ -79,25 +79,15 @@ draw_prop_reset( void * priv )
 }
 #endif
 
-#if defined(CONFIG_7D) // pel: Checked. That's how it works in the 7D firmware
-void _card_led_on()  //See sub_FF32B410 -> sub_FF0800A4
+void _card_led_on()
 {
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x800c00;
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x138000;
+    *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDON);
 }
-void _card_led_off()  //See sub_FF32B424 -> sub_FF0800B8
+
+void _card_led_off()
 {
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x800c00;
-    *(volatile uint32_t*) (CARD_LED_ADDRESS) = 0x38400;
+    *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDOFF);
 }
-//TODO: Check if this is correct, because reboot.c said 0x838C00
-#elif defined(CARD_LED_ADDRESS) && defined(LEDON) && defined(LEDOFF)
-void _card_led_on()  { *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDON); }
-void _card_led_off() { *(volatile uint32_t*) (CARD_LED_ADDRESS) = (LEDOFF); }
-#else
-void _card_led_on()  { return; }
-void _card_led_off() { return; }
-#endif
 
 void info_led_on()
 {
@@ -301,7 +291,7 @@ void scan_A5A5()
             }
         }
 
-        if (a >= 0xF8F80000 && a < 0xF8FA0000)
+        if (a >= 0xF8F80000 && a < 0xF8FB0000)
         {
             /* last debug log - ignore */
             continue;
@@ -510,7 +500,7 @@ static void save_crash_log()
     FILE* f = FIO_CreateFile(log_filename);
     if (f)
     {
-        my_fprintf(f, "%s\n\n", get_assert_msg());
+        my_fprintf(f, "%s\n", get_assert_msg());
         my_fprintf(f,
             "Magic Lantern version : %s\n"
             "Mercurial changeset   : %s\n"
@@ -629,8 +619,6 @@ static void screenshot_start(void* priv, int delta)
 {
     screenshot_sec = 10;
 }
-
-static int draw_event = 0;
 
 #ifdef FEATURE_SHOW_IMAGE_BUFFERS_INFO
 static MENU_UPDATE_FUNC(image_buf_display)
@@ -802,12 +790,14 @@ void menu_kill_flicker()
 #endif
 
 
-extern void menu_open_submenu();
 extern MENU_UPDATE_FUNC(tasks_print);
 extern MENU_UPDATE_FUNC(batt_display);
 extern MENU_SELECT_FUNC(tasks_toggle_flags);
 
 extern int show_cpu_usage_flag;
+
+static int gui_events_show = 0;
+static MENU_SELECT_FUNC(gui_events_toggle);
 
 static struct menu_entry debug_menus[] = {
     MENU_PLACEHOLDER("File Manager"),
@@ -979,11 +969,11 @@ static struct menu_entry debug_menus[] = {
 #endif
 #ifdef FEATURE_SHOW_GUI_EVENTS
     {
-        .name = "Show GUI evts",
-        .priv = &draw_event,
-        .max = 2,
-        .choices = (const char *[]) {"OFF", "ON", "ON + delay 300ms"},
-        .help = "Display GUI events (button codes).",
+        .name   = "Show GUI events",
+        .priv   = &gui_events_show,
+        .select = gui_events_toggle,
+        .max    = 1,
+        .help   = "Display GUI events (button codes).",
     },
 #endif
 #ifdef FEATURE_GUIMODE_TEST
@@ -1718,23 +1708,28 @@ void debug_menu_init()
     movie_tweak_menu_init();
 }
 
+static MENU_SELECT_FUNC(gui_events_toggle)
+{
+    gui_events_show = !gui_events_show;
+
+    if (gui_events_show) {
+        console_show();
+    } else {
+        console_hide();
+    }
+}
+
 void spy_event(struct event * event)
 {
-    if (draw_event)
+    if (gui_events_show)
     {
-        static int kev = 0;
-        static int y = 250;
-        kev++;
-        bmp_printf(FONT_MONO_20, 0, y, "Ev%d: p=%8x *o=%8x/%8x/%8x a=%8x\n                                                           ",
-            kev,
+        printf("Event param=%8x *obj=%8x/%8x/%8x arg=%8x\n",
             event->param,
             event->obj ? ((int)event->obj & 0xf0000000 ? (int)event->obj : *(int*)(event->obj)) : 0,
             event->obj ? ((int)event->obj & 0xf0000000 ? (int)event->obj : *(int*)(event->obj + 4)) : 0,
             event->obj ? ((int)event->obj & 0xf0000000 ? (int)event->obj : *(int*)(event->obj + 8)) : 0,
-            event->arg);
-        y += 20;
-        if (y > 350) y = 250;
-        if (draw_event == 2) msleep(300);
+            event->arg
+        );
     }
 }
 
@@ -1812,10 +1807,6 @@ int handle_tricky_canon_calls(struct event * event)
 // engio functions may fail and lock the camera
 void EngDrvOut(uint32_t reg, uint32_t value)
 {
-    #ifdef CONFIG_QEMU
-    if (!reg) return;   /* fixme: LCD palette not initialized */
-    #endif
-
     if (ml_shutdown_requested) return;
     if (!(MEM(0xC0400008) & 0x2)) return; // this routine requires LCLK enabled
     _EngDrvOut(reg, value);

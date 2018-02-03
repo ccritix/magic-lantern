@@ -45,6 +45,8 @@
 #include "../file_man/file_man.h"
 #include "../lv_rec/lv_rec.h"
 #include "../raw_twk/raw_twk.h"
+#include "../silent/lossless.h"
+#include "console.h"
 
 /* uncomment for live debug messages */
 //~ #define trace_write(trace, fmt, ...) { printf(fmt, ## __VA_ARGS__); printf("\n"); msleep(500); }
@@ -146,6 +148,7 @@ typedef struct
     uint16_t yRes;
     uint16_t bitDepth;
     uint16_t blackLevel;
+    uint16_t whiteLevel;
 } frame_buf_t;
 
 /* set up two queues - one with empty buffers and one with buffers to render */
@@ -171,40 +174,6 @@ static uint32_t mlv_play_should_stop();
 /* microsecond durations for one frame */
 static uint32_t mlv_play_frame_div_pos = 0;
 static uint32_t mlv_play_frame_dividers[3];
-
-/* decompression stuff wizardry goes here */
-struct struc_DecodeLosslessSetup
-{
-    void *address;
-    int depth_type;
-    int is_not_16bpp;
-    int x_2;
-    int x_1;
-    int x_mul;
-    int y_2;
-    int ysize_raw;
-    int y_mul;
-};
-
-void (*Setup_DecodeLosslessRawPath) (struct struc_DecodeLosslessSetup *args, void (*read_cbr)(int *), void (*done_cbr)(int *), int *cbr_ctx, int *a5) = NULL;
-void (*Start_DecodeLosslessPath) (struct memSuite *a1) = NULL;
-void (*Cleanup_DecodeLosslessPath) (void) = NULL;
-void *mlv_play_decomp_buf = NULL;
-static struct semaphore *mlv_play_decomp_sem = NULL;
-struct memSuite *mlv_play_decomp_suite = NULL;
-
-/* this one is called when decompression is done */
-void mlv_play_decomp_DoneCBR(int *done)
-{
-    give_semaphore(mlv_play_decomp_sem);
-}
-
-/* the read cbr is not used */
-void mlv_play_decomp_ReadCBR(int *done)
-{
-}
-
-
 
 
 static void mlv_play_flush_queue(struct msg_queue *queue)
@@ -1001,7 +970,7 @@ static mlv_xref_hdr_t *mlv_play_load_index(char *base_filename)
         /* we should check the MLVI header for matching UID value to make sure its the right index... */
         if(!memcmp(buf.blockType, "XREF", 4))
         {
-            block_hdr = malloc(buf.blockSize);
+            block_hdr = fio_malloc(buf.blockSize);
 
             if(FIO_ReadFile(in_file, block_hdr, buf.blockSize) != (int32_t)buf.blockSize)
             {
@@ -1408,11 +1377,62 @@ static void mlv_play_close_chunks(FILE **chunk_files, uint32_t chunk_count)
     }
 }
 
+/* just don't run it on overexposed footage :) */
+static void check_dup_frame(frame_buf_t *buffer)
+{
+    /* extremely unlikely to get identical values
+     * in subsequent frames, because of the noise
+     * exception: overexposed areas
+     * checking a small number of pixels should be
+     * enough for non-overexposed footage, and very fast */
+
+    struct sample
+    {
+        int pixels[5][5];
+    } __attribute__((packed));
+
+    /* store a small sample from current frame and also last 3 frames */
+    static struct sample prev_samples[4] = {
+        { { { -1 } } },
+        { { { -2 } } },
+        { { { -3 } } },
+        { { { -4 } } },
+    };
+
+    prev_samples[3] = prev_samples[2];
+    prev_samples[2] = prev_samples[1];
+    prev_samples[1] = prev_samples[0];
+
+    /* sample the current frame (all channels) */
+    for (int i = -2; i <= 2; i++)
+    {
+        for (int j = -2; j <= 2; j++)
+        {
+            prev_samples[0].pixels[i+2][j+2] = 
+                raw_get_pixel_ex(
+                    buffer->frameBufferAligned,
+                    buffer->xRes / 2 + j * 49,
+                    buffer->yRes / 2 + i * 49
+                );
+        }
+    }
+
+    /* compare current frame with past samples */
+    for (int i = 1; i <= 3; i++)
+    {
+        if (memcmp(&prev_samples[0], &prev_samples[i], sizeof(prev_samples[0])) == 0)
+        {
+            printf("Duplicate frame (%d)\n", i);
+        }
+    }
+}
+
 static void mlv_play_render_frame(frame_buf_t *buffer)
 {
     raw_info.buffer = buffer->frameBufferAligned;
     raw_info.bits_per_pixel = buffer->bitDepth;
     raw_info.black_level = buffer->blackLevel;
+    raw_info.white_level = buffer->whiteLevel;
     raw_set_geometry(buffer->xRes, buffer->yRes, 0, 0, 0, 0);
 
     /* fixme: read aspect ratio from metadata */
@@ -1425,6 +1445,11 @@ static void mlv_play_render_frame(frame_buf_t *buffer)
     else
     {
         raw_preview_fast_ex((void*)-1,(void*)-1,-1,-1,mlv_play_quality);
+
+        if (!mlv_play_paused)
+        {
+            check_dup_frame(buffer);
+        }
     }
 }
 
@@ -1662,7 +1687,10 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
     mlv_rtci_hdr_t wavi_block;
     mlv_rtci_hdr_t rtci_block;
     mlv_file_hdr_t main_header;
-    
+
+    void *mlv_play_decomp_buf = NULL;
+    struct memSuite *mlv_play_decomp_suite = NULL;
+
     /* make sure there is no crap in stack variables */
     memset(&lens_block, 0x00, sizeof(mlv_lens_hdr_t));
     memset(&rawi_block, 0x00, sizeof(mlv_rawi_hdr_t));
@@ -1914,7 +1942,7 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
                     int mem_size = (buffer->frameSize + 0x1000) & ~0xFFF;
                     
                     /* keep in mind the address must be aligned, alloc a few k more */
-                    mlv_play_decomp_buf = malloc(mem_size + 0x1000);
+                    mlv_play_decomp_buf = fio_malloc(mem_size + 0x1000);
                     if(!mlv_play_decomp_buf)
                     {
                         bmp_printf(FONT_MED, 20, 100, "failed to alloc mlv_play_decomp_buf");
@@ -1961,45 +1989,29 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
             buffer->yRes = rawi_block.yRes;
             buffer->bitDepth = rawi_block.raw_info.bits_per_pixel;
             buffer->blackLevel = rawi_block.raw_info.black_level;
+            buffer->whiteLevel = rawi_block.raw_info.white_level;
 
             if(main_header.videoClass & MLV_VIDEO_CLASS_FLAG_LJ92)
             {
-                if(!mlv_play_decomp_sem)
+                int output_bpp = raw_twk_available() ? 16 : 14;
+                int r = lossless_decompress_raw(
+                    mlv_play_decomp_suite, buffer->frameBufferAligned,
+                    rawi_block.xRes, rawi_block.yRes, 
+                    output_bpp
+                );
+
+                if (r == -1)
                 {
                     bmp_printf(FONT_MED, 20, 300, "(no decompression on this model)");
                 }
-                else
+
+                /* when we have lossless data, we decompressed it already to 16 bpp for raw_twk */
+                if (output_bpp == 16)
                 {
-                    struct struc_DecodeLosslessSetup decode_opts;
-                    
-                    decode_opts.address = buffer->frameBufferAligned;
-                    decode_opts.depth_type = 4;
-                    decode_opts.is_not_16bpp = raw_twk_available() ? 0 : 1;
-                    decode_opts.x_1 = rawi_block.xRes;
-                    decode_opts.x_2 = 0;
-                    decode_opts.x_mul = 0;
-                    decode_opts.ysize_raw = rawi_block.yRes;
-                    decode_opts.y_2 = 0;
-                    decode_opts.y_mul = 0;
-                    
-                    /* we dont use that one */
-                    int done = 0;
-                    Setup_DecodeLosslessRawPath(&decode_opts, mlv_play_decomp_ReadCBR, mlv_play_decomp_DoneCBR, &done, &done);
-                    Start_DecodeLosslessPath(mlv_play_decomp_suite);
-                    
-                    /* wait for decompression to finish */
-                    take_semaphore(mlv_play_decomp_sem, 0);
-                    
-                    /* clean up */
-                    Cleanup_DecodeLosslessPath();
-                    
-                    /* when we have lossless data, we decompressed it already to 16 bpp for raw_twk */
-                    if(!decode_opts.is_not_16bpp)
-                    {
-                        /* also raise black level */
-                        buffer->blackLevel = rawi_block.raw_info.black_level << (16 - rawi_block.raw_info.bits_per_pixel);
-                        buffer->bitDepth = 16;
-                    }
+                    /* also raise black and white levels */
+                    buffer->blackLevel = rawi_block.raw_info.black_level << (16 - rawi_block.raw_info.bits_per_pixel);
+                    buffer->whiteLevel = rawi_block.raw_info.white_level << (16 - rawi_block.raw_info.bits_per_pixel);
+                    buffer->bitDepth = 16;
                 }
             }
             
@@ -2278,6 +2290,7 @@ static void mlv_play_raw(char *filename, FILE **chunk_files, uint32_t chunk_coun
         buffer->yRes = res_y;
         buffer->bitDepth = 14;
         buffer->blackLevel = raw_info.black_level;
+        buffer->whiteLevel = raw_info.white_level;
         
         if (mlv_play_exact_fps)
         {
@@ -2563,6 +2576,7 @@ static void mlv_play_task(void *priv)
 {
     /* we will later restore that value */
     int old_black_level = raw_info.black_level;
+    int old_white_level = raw_info.white_level;
     int old_bits_per_pixel = raw_info.bits_per_pixel;
     
     if (take_semaphore(mlv_play_sem, 100))
@@ -2682,8 +2696,9 @@ cleanup:
     mlv_play_osd_delete_selected = 0;
     give_semaphore(mlv_play_sem);
     
-    /* undo black level change */
+    /* undo black and white level change */
     raw_info.black_level = old_black_level;
+    raw_info.white_level = old_white_level;
     raw_info.bits_per_pixel = old_bits_per_pixel;
 }
 
@@ -2841,21 +2856,7 @@ static unsigned int mlv_play_init()
     fileman_register_type("MLV", "MLV Video", mlv_play_filehandler);
     
     mlv_play_sem = create_named_semaphore("mlv_play_running", 1);
-    
-    /* now check for the needed decompression functions */
-    if (is_camera("5D3", "1.1.3"))
-    {
-        Setup_DecodeLosslessRawPath = (void*)0xFF3CB010;
-        Start_DecodeLosslessPath = (void*)0xFF3CB0D8;
-        Cleanup_DecodeLosslessPath = (void*)0xFF3CB23C;
-    }
-    
-    /* all functions known? having the semaphore is an indicator we can decompress */
-    if(Setup_DecodeLosslessRawPath && Start_DecodeLosslessPath && Cleanup_DecodeLosslessPath)
-    {
-        mlv_play_decomp_sem = create_named_semaphore("mlv_play_decomp_sem", 0);
-    }
-    
+
     return 0;
 }
 

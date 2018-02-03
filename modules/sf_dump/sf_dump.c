@@ -83,7 +83,7 @@ static unsigned int sf_dump_init()
         SF_flash_size       = 0x1000000;
     }
 
-    if (is_camera("700D", "1.1.4"))
+    if (is_camera("700D", "1.1.5"))
     {
         SF_CreateSerial     = (void*) 0xFF139578;
         SF_readSerialFlash  = (void*) 0xFF139520;
@@ -97,6 +97,21 @@ static unsigned int sf_dump_init()
         SF_readSerialFlash  = (void*) 0xFF138554;
         SF_Destroy          = (void*) 0xFF13AF5C;
         SF_flash_size       = 0x800000;
+    }
+
+    if (is_camera("6D", "1.1.6"))
+    {
+        SF_CreateSerial     = (void*) 0xFF1471CC;
+        SF_readSerialFlash  = (void*) 0xFF147174;
+        SF_Destroy          = (void*) 0xFF149BB8;
+        SF_flash_size       = 0x800000;
+    }
+
+    if (is_camera("70D", "1.1.2"))
+    {
+        SF_CreateSerial     = (void*) 0xFF144D2C;
+        SF_readSerialFlash  = (void*) 0xFF144CD4;
+        SF_Destroy          = (void*) 0xFF14771C;
     }
 
     if (!SF_CreateSerial || !SF_readSerialFlash || !SF_Destroy)

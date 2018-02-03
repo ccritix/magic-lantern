@@ -127,10 +127,11 @@ static int fps_values_x1000[] = {
     150, 200, 250, 333, 400, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000,
     5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 12500, 14000, 15000, 16000,
     17000, 18000, 19000, 20000, 21000, 22000, 23000, 23976, 24000, 25000, 26000, 27000,
-    28000, 29000, 29970, 30000, 31000, 32000, 33000, 33333, 34000, 35000
+    28000, 29000, 29970, 30000, 31000, 32000, 33000, 33333, 34000, 35000,
     // restrict max fps to 35 for 1100D, 5D2, 50D, 500D (others?)
     #if !defined(CONFIG_1100D) && !defined(CONFIG_5D2) && !defined(CONFIG_50D) && !defined(CONFIG_500D)
-    , 37000, 38000, 39000, 40000, 41000, 42000, 43000, 44000, 45000, 48000, 50000, 60000, 65000, 70000
+    36000, 37000, 38000, 39000, 40000, 41000, 42000, 43000, 44000, 45000, 46000, 47000, 48000,
+    50000, 55000, 59940, 60000, 61000, 62000, 63000, 64000, 65000, 70000
     #endif
 };
 
@@ -211,7 +212,9 @@ static void fps_read_current_timer_values();
 //~ #define FPS_TIMER_B_MIN (fps_timer_b_orig-100)
 #define FPS_TIMER_B_MIN fps_timer_b_orig // it might go lower than that, but it causes trouble high shutter speeds
 
-#define ZOOM (lv_dispsize > 1)
+// 70D (and probably 6D too) as stated also in raw.c:
+// ... reports 129 = 0x81 for zoom x1, and it behaves just like plain (unzoomed) LiveView
+#define ZOOM (lv_dispsize > 1 && lv_dispsize < 129)
 #define MV1080 (is_movie_mode() && video_mode_resolution == 0)
 #define MV720 (is_movie_mode() && video_mode_resolution == 1)
 #define MV480 (is_movie_mode() && video_mode_resolution == 2)
@@ -231,7 +234,7 @@ static void fps_read_current_timer_values();
     #define FPS_TIMER_B_MIN (fps_timer_b_orig - (ZOOM ? 44 : MV720 ? 0 : 70)) /* you can push LiveView until 68fps (timer_b_orig - 50), but good luck recording that */
 #elif defined(CONFIG_EOSM)
     #define TG_FREQ_BASE 32000000
-    #define FPS_TIMER_A_MIN (ZOOM ? 666 : MV1080CROP ? 532 : 520)
+    #define FPS_TIMER_A_MIN (ZOOM ? 716 : MV1080CROP ? 532 : 520)
     #undef FPS_TIMER_B_MIN
     #define FPS_TIMER_B_MIN ( \
     RECORDING_H264 ? (MV1080CROP ? 1750 : MV720 ? 990 : 1970) \
@@ -247,6 +250,16 @@ static void fps_read_current_timer_values();
 #elif defined(CONFIG_700D)
     #define TG_FREQ_BASE 32000000 //copy from 650D
     #define FPS_TIMER_A_MIN (fps_timer_a_orig)
+#elif defined(CONFIG_100D)
+    #define TG_FREQ_BASE 32000000
+    #define FPS_TIMER_A_MIN (ZOOM ? 676 : MV1080CROP ? 540 : 520)
+    #undef FPS_TIMER_B_MIN
+    // no need to cause confusions as recording speed cannot handle such high fps in crop mode
+    // (ZOOM || MV1080CROP ? 1288 : 1970)) <-- these are ok while not recording.
+    // Hybrid CMOS AF II uses 60fps by default in LV/MV for the camera display
+    // to achieve a "snappy" autofocus by doubling the fps
+    // MV720 is not LV so we need to extend the definition for the LCD.
+    #define FPS_TIMER_B_MIN (ZOOM ? 1450 : MV1080CROP ? 1750 : MV720 || (lv && lv_dispsize==1 && !is_movie_mode()) ? 990 : 1970)
 #elif defined(CONFIG_500D)
     #define TG_FREQ_BASE 32000000    // not 100% sure
     #define FPS_TIMER_A_MIN MIN(fps_timer_a_orig - (ZOOM ? 0 : 10), ZOOM ? 1400 : video_mode_resolution == 0 ? 1284 : 1348)
@@ -256,6 +269,9 @@ static void fps_read_current_timer_values();
 #elif defined(CONFIG_550D) || defined(CONFIG_600D) || defined(CONFIG_60D)
     #define TG_FREQ_BASE 28800000
     #define FPS_TIMER_A_MIN MIN(fps_timer_a_orig - (ZOOM ? 0 : 10), ZOOM ? 734 : video_mode_crop ? (video_mode_resolution == 2 ? 400 : 560) : 0x21A)
+#elif defined(CONFIG_70D)
+    #define TG_FREQ_BASE 32000000
+    #define FPS_TIMER_A_MIN (fps_timer_a_orig)
 #endif
 
 // these can change timer B with another method, more suitable for high FPS
@@ -451,12 +467,28 @@ int get_current_shutter_reciprocal_x1000()
     #else
     int blanking = nrzi_decode(FRAME_SHUTTER_BLANKING_READ);
     #endif
-    int max = fps_timer_b;
+
+    /* read the FPS timer B directly from ENGIO shadow memory to have the latest value */
+    int timerB = (FPS_REGISTER_B_VALUE & 0xFFFF) + 1;
+    int max = timerB;
+
+    if (blanking == max - 1)
+    {
+        /* fixme: when blanking is max - 1, exposure time is 0
+         * however, if we adjust either of these two terms by 1,
+         * neither 1/33.333 nor 1/50.000 will give exact values
+         * which is right? (todo: compare some test images to find out) */
+        blanking = max;
+    }
+
     float frame_duration = 1000.0 / fps_get_current_x1000();
     float shutter = frame_duration * (max - blanking) / max;
     return (int)(1.0 / shutter * 1000);
-    
-#elif defined(FRAME_SHUTTER_TIMER)
+
+// ToDo: Cleanup 70D once fps override feature is fixed
+// till then use the fallback. Do it this way to have fast ettr
+// and keep frame_shutter timer enabled in consts.h
+#elif defined(FRAME_SHUTTER_TIMER) && !defined(CONFIG_70D)
     int timer = FRAME_SHUTTER_TIMER;
 
     #ifdef FEATURE_SHUTTER_FINE_TUNING
@@ -498,8 +530,12 @@ int get_current_shutter_reciprocal_x1000()
     //
     // This function returns 1/EA and does all calculations on integer numbers, so actual computations differ slightly.
 
+    #warning FIXME: consider defining FRAME_SHUTTER_BLANKING_READ
+    /* this might use old FPS timer values updated by fps_task */
+    /* it's not thread-safe to re-read them here again */
     return get_shutter_reciprocal_x1000(shutter_r_x1000, fps_timer_a, fps_timer_a_orig, fps_timer_b, fps_timer_b_orig);
 #else
+    #warning FIXME: consider defining FRAME_SHUTTER_BLANKING_READ
     // fallback to APEX units
     if (!lens_info.raw_shutter) return 0;
     return (int) roundf(powf(2.0f, (lens_info.raw_shutter - 136) / 8.0f) * 1000.0f * 1000.0f);
@@ -1537,10 +1573,8 @@ static void fps_read_current_timer_values()
 {
     if (!lv) { fps_timer_a = fps_timer_b = 0; return; }
 
-    int VA = FPS_REGISTER_A_VALUE;
-    int VB = FPS_REGISTER_B_VALUE;
-    fps_timer_a = (VA & 0xFFFF) + 1;
-    fps_timer_b = (VB & 0xFFFF) + 1;
+    fps_timer_a = (FPS_REGISTER_A_VALUE & 0xFFFF) + 1;
+    fps_timer_b = (FPS_REGISTER_B_VALUE & 0xFFFF) + 1;
 }
 
 /*static int fps_check_if_current_timer_values_changed()
@@ -2107,9 +2141,9 @@ void set_frame_shutter_timer(int timer)
 {
     #ifdef CONFIG_FRAME_SHUTTER_OVERRIDE
         #ifdef CONFIG_DIGIC_V
-        FRAME_SHUTTER_TIMER = MAX(timer, 2);
-        #else
         FRAME_SHUTTER_TIMER = MAX(timer, 1);
+        #else
+        FRAME_SHUTTER_TIMER = MAX(timer, 0);
         #endif
     #endif
 }
@@ -2132,3 +2166,11 @@ int can_set_frame_shutter_timer()
     #endif
 }
 
+int get_frame_aperture()
+{
+    #ifdef FRAME_APERTURE
+    return FRAME_APERTURE & 0xFF;
+    #else
+    return 0;
+    #endif
+}
