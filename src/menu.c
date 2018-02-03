@@ -2318,9 +2318,10 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
     /* all submenu entries depend on the master entry, if any */
     if (IS_SUBMENU(entry->parent_menu))
     {
-        if (entry->parent && IS_ML_PTR(entry->parent->priv))
+        if (entry->parent && IS_ML_PTR(entry->parent->priv) &&  /* does it have a parent with a valid priv field? */
+            entry->parent->priv != entry->priv)         /* priv different from our own? (cannot depend on itself) */
         {
-            if (!MENU_INT(entry->parent))
+            if (!MENU_INT(entry->parent))   /* is the master menu entry disabled? if so, gray out the entire submenu */
             {
                 int is_plural = entry->parent->name[strlen(entry->parent->name)-1] == 's';
                 snprintf(warning, MENU_MAX_WARNING_LEN, "%s %s disabled.", entry->parent->name, is_plural ? "are" : "is");
@@ -2356,7 +2357,7 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
         //~ snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires ExpSim disabled.");
     else if (DEPENDS_ON(DEP_MANUAL_FOCUS) && !is_manual_focus())
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires manual focus.");
-    else if (DEPENDS_ON(DEP_CHIPPED_LENS) && !lens_info.name[0])
+    else if (DEPENDS_ON(DEP_CHIPPED_LENS) && !lens_info.lens_exists)
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires a chipped (electronic) lens.");
     else if (DEPENDS_ON(DEP_M_MODE) && shooting_mode != SHOOTMODE_M)
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires Manual (M) mode.");
@@ -2461,7 +2462,9 @@ entry_default_display_info(
         STR_APPEND(value, "%s", entry->choices[SELECTED_INDEX(entry)]);
     }
 
-    else if (IS_ML_PTR(entry->priv) && entry->select != run_in_separate_task)
+    else if (IS_ML_PTR(entry->priv) &&
+            entry->icon_type != IT_ACTION &&    /* no default value for actions */
+            entry->icon_type != IT_SUBMENU)     /* no default value for submenus */
     {
         if (entry->min == 0 && entry->max == 1)
         {
@@ -5848,106 +5851,142 @@ static void menu_show_version(void)
         build_user);
 }
 
-#ifdef CONFIG_JOY_CENTER_ACTIONS
-static int joystick_pressed = 0;
-static int joystick_longpress = 0;
-static int joy_center_action_disabled = 0;
+struct longpress
+{
+    int pressed;            /* boolean - is the key still pressed? */
+    int count;              /* number of iterations since it was pressed */
+    int action_disabled;    /* boolean - if something unexpected happened (such as joystick direction press while holding the center button), skip the long-press event */
+    int long_btn_press;     /* what button code to send for a long press event */
+    int long_btn_unpress;   /* optional: unpress code */
+    int short_btn_press;    /* optional: what button code to send for a short press event */
+    int short_btn_unpress;  /* optional: unpress code */
+    int pos_x;              /* where to draw the animated indicator */
+    int pos_y;              /* coords: BMP space (0,0 - 720,480 on most models) */
+};
+
+static void draw_longpress_indicator(struct longpress * longpress)
+{
+    /* longpress->count goes from 0 to 25; if < 15; it's considered a short press */
+    /* in practice, it seems to behave as if were < 13, figure out why */
+
+    int n = longpress->count / 2;
+    int x0 = longpress->pos_x;
+    int y0 = longpress->pos_y;
+    int pressed = longpress->pressed;
+
+    for (int i = 0; i < MIN(n, 12); i++)
+    {
+        /* a = 360 * i / 12 * pi / 180 - pi/2; x = round(15 * cos(a)); y = round(15 * sin(a)) */
+        const int8_t sin_table[12] = { -15, -13, -8, 0, 7, 13, 15, 13, 8, 0, -8, -13 };
+        int x = x0 + sin_table[MOD(i+3, 12)];
+        int y = y0 + sin_table[MOD(i, 12)];
+
+        int color = (!pressed)  ? COLOR_GRAY(50) :  /* button just released */
+                    (n >= 25/2) ? COLOR_ORANGE   :  /* long press event fired */
+                    (i <= 12/2) ? COLOR_GREEN1   :  /* interpreted short press if released */
+                                  COLOR_YELLOW   ;  /* on the way to long press */
+        fill_circle(x, y, 2, color);
+    }
+}
 
 /* called from GUI timers */
-static void joystick_longpress_check()
+static void longpress_check(int timer, void * opaque)
 {
-    if (joy_center_action_disabled)
+    struct longpress * longpress = opaque;
+
+    if (longpress->action_disabled)
     {
+        /* erase the indicator and stop here */
+        redraw();
         return;
     }
     
-    if (joystick_pressed)
+    if (longpress->pressed)
     {
-        joystick_longpress++;
-        delayed_call(100, joystick_longpress_check, 0);
+        longpress->count++;
+        delayed_call(20, longpress_check, opaque);
     }
-    
-    //~ bmp_printf(FONT_MED, 50, 50, "%d ", joystick_longpress);
-    
-    if (joystick_longpress == 5)
+    else
     {
-        /* long press opens ML menu or submenus */
-        fake_simple_button(MLEV_JOYSTICK_LONG);
-        
+        /* erase the indicator and keep processing */
+        redraw();
+    }
+
+    draw_longpress_indicator(longpress);
+
+    if (longpress->count == 25)
+    {
+        /* long press (500ms) */
+        ASSERT(longpress->long_btn_press);
+        fake_simple_button(longpress->long_btn_press);
+
+        /* optional unpress event */
+        if (longpress->long_btn_unpress)
+        {
+            fake_simple_button(longpress->long_btn_unpress);
+        }
+
         /* make sure it won't re-trigger */
-        joystick_longpress++;
+        longpress->count++;
     }
-    else if (joystick_longpress < 2 && !joystick_pressed && gui_menu_shown())
+    else if (longpress->count < 15 && !longpress->pressed)
     {
-        /* short press in menu => do a regular SET */
-        fake_simple_button(BGMT_PRESS_SET);
-        fake_simple_button(BGMT_UNPRESS_UDLR);
+        /* optional short press ( < 300 ms) */
+        if (longpress->short_btn_press)
+        {
+            fake_simple_button(longpress->short_btn_press);
+        }
+
+        /* optional unpress event */
+        if (longpress->short_btn_unpress)
+        {
+            fake_simple_button(longpress->long_btn_unpress);
+        }
     }
 }
+
+#ifdef CONFIG_LONG_PRESS_JOYSTICK_MENU
+static struct longpress joystick_longpress = {
+    .long_btn_press     = MLEV_JOYSTICK_LONG,   /* long press (500ms) opens ML menu */
+    .short_btn_press    = BGMT_PRESS_SET,       /* short press is the same as SET in ML menu */
+    #ifdef BGMT_UNPRESS_UDLR
+    .short_btn_unpress  = BGMT_UNPRESS_UDLR,    /* fixme: still needed? */
+    #endif
+    .pos_x = 690,   /* both ML menu and Q screen; updated on trigger */
+    .pos_y = 400,
+};
+#endif
+
+#ifdef CONFIG_LONG_PRESS_SET_MENU
+static struct longpress set_longpress = {
+    .long_btn_press     = BGMT_Q,               /* long press (500ms) is interpreted as Q */
+    .short_btn_press    = BGMT_PRESS_SET,       /* short press is interpreted as SET */
+    #ifdef BGMT_UNPRESS_UDLR
+    .short_btn_unpress  = BGMT_UNPRESS_UDLR,    /* fixme: UNPRESS_SET will be sent to the underlying Canon menu */
+    #endif
+    .pos_x = 690,
+    .pos_y = 400,
+};
 #endif
 
 #ifdef CONFIG_EOSM
-static int erase_pressed = 0;
-static int erase_longpress = 0;
-
-/* called from GUI timers */
-static void erase_longpress_check()
-{
-    if (erase_pressed)
-    {
-        erase_longpress++;
-        delayed_call(100, erase_longpress_check, 0);
-    }
-    
-    //~ bmp_printf(FONT_MED, 50, 50, "%d ", erase_longpress);
-    
-    if (erase_longpress == 5)
-    {
-        /* long press opens ML menu */
-        fake_simple_button(BGMT_TRASH);
-        
-        /* make sure it won't re-trigger */
-        erase_longpress++;
-    }
-    else if (erase_longpress <= 2 && !erase_pressed)
-    {
-        /* short press => do a regular "down/erase" */
-        fake_simple_button(BGMT_PRESS_DOWN);
-        fake_simple_button(BGMT_UNPRESS_DOWN);
-    }
-}
+static struct longpress erase_longpress = {
+    .long_btn_press     = BGMT_TRASH,           /* long press (500ms) opens ML menu */
+    .short_btn_press    = BGMT_PRESS_DOWN,      /* short press => do a regular "down/erase" */
+    .short_btn_unpress  = BGMT_UNPRESS_DOWN,
+    .pos_x = 680,   /* in LiveView */
+    .pos_y = 350,   /* above ExpSim */
+};
 #endif
 
 #ifdef CONFIG_100D
-static int qset_pressed = 0;
-static int qset_longpress = 0;
-
-/* called from GUI timers */
-static void qset_longpress_check()
-{
-    if (qset_pressed)
-    {
-        qset_longpress++;
-        delayed_call(20, qset_longpress_check, 0);
-    }
-    
-    //~ bmp_printf(FONT_MED, 50, 50, "%d ", qset_longpress);
-    
-    if (qset_longpress == 50)
-    {
-        /* long press opens Q-menu */
-        fake_simple_button(BGMT_Q);
-        
-        /* make sure it won't re-trigger */
-        qset_longpress++;
-    }
-    else if (qset_longpress <= 15 && !qset_pressed)
-    {
-        /* short press => fake SET button (centering AF Frame in LV etc...) */
-        fake_simple_button(BGMT_PRESS_SET);
-        return;
-    }
-}
+static struct longpress qset_longpress = {
+    .long_btn_press     = BGMT_Q_SET,           /* long press opens Q-menu */
+    .short_btn_press    = BGMT_PRESS_SET,       /* short press => fake SET button (centering AF Frame in LV etc...) */
+    .short_btn_unpress  = BGMT_UNPRESS_SET,
+    .pos_x = 670,   /* outside ML menu, on the Q screen */
+    .pos_y = 343,
+};
 #endif
 
 // this should work on most cameras
@@ -5982,45 +6021,94 @@ int handle_ml_menu_erase(struct event * event)
             return 0;
         }
     }
-    
-    
-#ifdef CONFIG_JOY_CENTER_ACTIONS
+
+    return 1;
+}
+
+int handle_longpress_events(struct event * event)
+{    
+#ifdef CONFIG_LONG_PRESS_JOYSTICK_MENU
     /* also trigger menu by a long joystick press */
-    if (event->param == BGMT_JOY_CENTER)
+    switch (event->param)
     {
-        if (joy_center_action_disabled)
+        #ifdef BGMT_JOY_CENTER
+        case BGMT_JOY_CENTER:
         {
-            return gui_menu_shown() ? 0 : 1;
+            if (joystick_longpress.action_disabled)
+            {
+                return gui_menu_shown() ? 0 : 1;
+            }
+
+            if (is_submenu_or_edit_mode_active())
+            {
+                /* in submenus, a short press goes back to main menu (since you can edit with left and right) */
+                fake_simple_button(MLEV_JOYSTICK_LONG);
+                return 0;
+            }
+            else if (gui_state == GUISTATE_IDLE || gui_state == GUISTATE_QMENU || gui_menu_shown())
+            {
+                /* if we can make use of a long joystick press, check it */
+                joystick_longpress.pressed = 1;
+                joystick_longpress.count = 0;
+                joystick_longpress.pos_x = gui_menu_shown() ? 690 : 480;    /* checked 5D3, 5D2, 50D */
+                joystick_longpress.pos_y = gui_menu_shown() ? 400 : 420;    /* could be fine-tuned for each model, but... */
+                delayed_call(20, longpress_check, &joystick_longpress);
+                if (gui_menu_shown()) return 0;
+            }
+            break;
         }
-        
-        if (is_submenu_or_edit_mode_active())
+        #endif
+
+        #ifdef BGMT_UNPRESS_UDLR
+        case BGMT_UNPRESS_UDLR:
+        #endif
+        #ifdef BGMT_UNPRESS_LEFT
+        case BGMT_UNPRESS_LEFT:
+        case BGMT_UNPRESS_RIGHT:
+        case BGMT_UNPRESS_UP:
+        case BGMT_UNPRESS_DOWN:
+        #endif
         {
-            /* in submenus, a short press goes back to main menu (since you can edit with left and right) */
-            fake_simple_button(MLEV_JOYSTICK_LONG);
+            joystick_longpress.pressed = 0;
+            joystick_longpress.action_disabled = 0;
+            break;
+        }
+
+        case BGMT_PRESS_LEFT:
+        case BGMT_PRESS_RIGHT:
+        case BGMT_PRESS_DOWN:
+        case BGMT_PRESS_UP:
+        #ifdef BGMT_PRESS_UP_LEFT
+        case BGMT_PRESS_UP_LEFT:
+        case BGMT_PRESS_UP_RIGHT:
+        case BGMT_PRESS_DOWN_LEFT:
+        case BGMT_PRESS_DOWN_RIGHT:
+        #endif
+        {
+            joystick_longpress.action_disabled = 1;
+            break;
+        }
+    }
+#endif
+
+#ifdef CONFIG_LONG_PRESS_SET_MENU
+    /* open submenus with a long press on SET */
+    /* note: if you enable this, the regular actions will be triggered
+     * when de-pressing SET, which may feel a little sluggish */
+    if (event->param == BGMT_PRESS_SET && !IS_FAKE(event))
+    {
+        if (gui_menu_shown())
+        {
+            set_longpress.pressed = 1;
+            set_longpress.count = 0;
+            delayed_call(20, longpress_check, &set_longpress);
             return 0;
         }
-        else if (gui_state == GUISTATE_IDLE || gui_state == GUISTATE_QMENU || gui_menu_shown())
-        {
-            /* if we can make use of a long joystick press, check it */
-            joystick_pressed = 1;
-            joystick_longpress = 0;
-            delayed_call(100, joystick_longpress_check, 0);
-            if (gui_menu_shown()) return 0;
-        }
     }
-    else if (event->param == BGMT_UNPRESS_UDLR)
+    else if (event->param == BGMT_UNPRESS_SET)
     {
-        joystick_pressed = 0;
-        joy_center_action_disabled = 0;
+        set_longpress.pressed = 0;
     }
-    else if (event->param == BGMT_PRESS_LEFT      || event->param == BGMT_PRESS_RIGHT        ||
-             event->param == BGMT_PRESS_DOWN      || event->param == BGMT_PRESS_UP           ||
-             event->param == BGMT_PRESS_UP_LEFT   || event->param == BGMT_PRESS_UP_RIGHT     ||
-             event->param == BGMT_PRESS_DOWN_LEFT || event->param == BGMT_PRESS_DOWN_RIGHT)
-    {
-        joy_center_action_disabled = 1;
-    }
-
 #endif
 
 #ifdef CONFIG_EOSM
@@ -6029,15 +6117,15 @@ int handle_ml_menu_erase(struct event * event)
     {
         if (gui_state == GUISTATE_IDLE && !gui_menu_shown() && !IS_FAKE(event))
         {
-            erase_pressed = 1;
-            erase_longpress = 0;
-            delayed_call(100, erase_longpress_check, 0);
+            erase_longpress.pressed = 1;
+            erase_longpress.count = 0;
+            delayed_call(20, longpress_check, &erase_longpress);
             return 0;
         }
     }
     else if (event->param == BGMT_UNPRESS_DOWN)
     {
-        erase_pressed = 0;
+        erase_longpress.pressed = 0;
     }
 #endif
 
@@ -6071,19 +6159,19 @@ int handle_ml_menu_erase(struct event * event)
 
 #ifdef CONFIG_100D
     /* triggers Q-menu by a long press on the combined q/set button */
-    if (event->param == BGMT_Q)
+    if (event->param == BGMT_Q_SET)
     {
         if (gui_state == GUISTATE_IDLE && !gui_menu_shown() && !IS_FAKE(event))
         {
-            qset_pressed = 1;
-            qset_longpress = 0;
-            delayed_call(20, qset_longpress_check, 0);
+            qset_longpress.pressed = 1;
+            qset_longpress.count = 0;
+            delayed_call(20, longpress_check, &qset_longpress);
             return 0;
         }
     }
     else if (event->param == BGMT_UNPRESS_SET)
     {
-        qset_pressed = 0;
+        qset_longpress.pressed = 0;
     }
 #endif
 

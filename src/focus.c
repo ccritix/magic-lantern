@@ -160,7 +160,7 @@ void focus_calc_dof()
 
     // Estimate diffraction
     const uint64_t  freq = 550; // mid vis diffraction freq in nm (use 850 if IR)
-    const uint64_t  diff = (244*freq*lens_info.aperture)/1000000; // Diffraction blur at infinity in tenths of a micron
+    const uint64_t  diff = (244*freq*lens_info.aperture)/100000; // Diffraction blur at infinity in tenths of a micron
 
     int dof_flags = 0;
 
@@ -195,7 +195,9 @@ void focus_calc_dof()
     }
     else
     {
-        lens_info.dof_far = fl + (fd*H - 2*fl*fd + fl2)/(H-fd); // in mm relative to the sensor plane
+        /* the result may exceed the int32_t range */
+        uint64_t dof_far = fl + (fd*H - 2*fl*fd + fl2)/(H-fd); // in mm relative to the sensor plane
+        lens_info.dof_far = MIN(dof_far, 1000 * 1000);
     }
 
     // update DOF flags
@@ -260,7 +262,7 @@ display_lens_hyperfocal()
     y += 10;
     y += height;
 
-    if (!lens_info.name[0])
+    if (!lens_info.lens_exists)
     {
         y += height;
         bmp_printf( font, x, y,
@@ -276,16 +278,7 @@ display_lens_hyperfocal()
         lens_info.aperture / 10,
         lens_info.aperture % 10
     );
-    
-    if (!lv)
-    {
-        y += height;
-        bmp_printf( font, x, y,
-            "Focus distance info is only available in LiveView."
-        );
-        return;
-    }
-    
+
     if (!lens_info.focus_dist)
     {
         y += height;
@@ -1053,7 +1046,7 @@ TASK_CREATE( "focus_misc_task", focus_misc_task, 0, 0x1e, 0x1000 );
 static MENU_UPDATE_FUNC(trap_focus_display)
 {
     int t = CURRENT_VALUE;
-    if (!lv && !lens_info.name[0])
+    if (!lv && !lens_info.lens_exists)
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Trap focus outside LiveView requires a chipped lens");
     if (t == 2 && cfn_get_af_button_assignment() != AF_BTN_HALFSHUTTER)
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Assign AF button to half-shutter from CFn!");

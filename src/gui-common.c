@@ -435,6 +435,9 @@ int handle_common_events_by_feature(struct event * event)
     // common to most cameras
     // there may be exceptions
 
+    /* log button codes, if enabled from the Debug menu */
+    spy_event(event);
+
 #ifdef FEATURE_POWERSAVE_LIVEVIEW
     // these are required for correct shutdown from "LV paused" state
     if (event->param == GMT_GUICMD_START_AS_CHECK || 
@@ -473,6 +476,10 @@ int handle_common_events_by_feature(struct event * event)
     if (handle_av_short_for_menu(event) == 0) return 0;
     #endif
 
+    /* before module_keys, to be able to process long-press SET/Q events and forward them to modules/scripts
+     * (that also means the modules are unable to trap the delete button, when we use it to open ML menu) */
+    if (handle_longpress_events(event) == 0) return 0;
+
     #ifdef FEATURE_MAGIC_ZOOM
     /* must be before handle_module_keys to allow zoom while recording raw,
      * but also let the raw recording modules block the zoom keys to avoid crashing */
@@ -504,8 +511,6 @@ int handle_common_events_by_feature(struct event * event)
     #ifdef CONFIG_DIGIC_POKE
     if (handle_digic_poke(event) == 0) return 0;
     #endif
-    
-    spy_event(event); // for debugging only
     
     #ifdef FEATURE_MLU_HANDHELD
     if (handle_mlu_handheld(event) == 0) return 0;
