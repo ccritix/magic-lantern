@@ -331,6 +331,8 @@ static GUARDED_BY(settings_sem) int valid_slot_count = 0;           /* total min
 static GUARDED_BY(LiveViewTask) int capture_slot = -1;              /* in what slot are we capturing now (index) */
 static volatile                 int force_new_buffer = 0;           /* if some other task decides it's better to search for a new buffer */
 
+#define IS_VIDF(slot_index) (!memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4))
+
 static GUARDED_BY(LiveViewTask) int writing_queue[COUNT(slots)+1];  /* queue of completed frames (slot indices) waiting to be saved */
 static GUARDED_BY(LiveViewTask) int writing_queue_tail = 0;         /* place captured frames here */
 static GUARDED_BY(RawRecTask)   int writing_queue_head = 0;         /* extract frames to be written from here */ 
@@ -2446,30 +2448,28 @@ static void frame_fake_edmac_check(int slot_index)
     *(volatile uint32_t*) after_frame = FRAME_SENTINEL;
 }
 
+/* only for VIDF frames */
 static REQUIRES(RawRecTask)
 int frame_check_saved(int slot_index)
 {
     ASSERT(slots[slot_index].ptr);
-    /* Only do frame validation on video frames. */
-    if (!memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4))
+
+    void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
+    uint32_t edmac_size = (slots[slot_index].payload_size + 3) & ~3;
+    uint32_t* frame_end = ptr + edmac_size - 4;
+    uint32_t* after_frame = ptr + edmac_size;
+    if (*(volatile uint32_t*) after_frame != FRAME_SENTINEL)
     {
-
-        void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
-        uint32_t edmac_size = (slots[slot_index].payload_size + 3) & ~3;
-        uint32_t* frame_end = ptr + edmac_size - 4;
-        uint32_t* after_frame = ptr + edmac_size;
-        if (*(volatile uint32_t*) after_frame != FRAME_SENTINEL)
-        {
-            /* EDMAC overflow */
-            return -1;
-        }
-
-        if (*(volatile uint32_t*) frame_end == FRAME_SENTINEL)
-        {
-            /* frame not yet complete */
-            return 0;
-        }
+        /* EDMAC overflow */
+        return -1;
     }
+
+    if (*(volatile uint32_t*) frame_end == FRAME_SENTINEL)
+    {
+        /* frame not yet complete */
+        return 0;
+    }
+
     /* looks alright */
     return 1;
 }
@@ -3270,7 +3270,7 @@ void raw_video_rec_task()
     
     int fps = fps_get_current_x1000();
     
-    int last_processed_frame = 0;
+    int last_processed_video_frame = 0;
     
     /* main recording loop */
     while (RAW_IS_RECORDING && lv)
@@ -3339,13 +3339,14 @@ void raw_video_rec_task()
                 break;
             }
             
-            if (!memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4)) {
+            if (IS_VIDF(slot_index))
+            {
                 /* consistency checks */
                 ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockSize == (uint32_t) slots[slot_index].size);
-//                ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->frameNumber == (uint32_t) slots[slot_index].frame_number - 1);
+                ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->frameNumber == (uint32_t) slots[slot_index].frame_number - 1);
             }
 
-            if (OUTPUT_COMPRESSION && !memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4))
+            if (OUTPUT_COMPRESSION && IS_VIDF(slot_index))
             {
                 ASSERT(slots[slot_index].size < max_frame_size);
             }
@@ -3400,7 +3401,7 @@ void raw_video_rec_task()
         {
             int slot_index = writing_queue[i];
 
-            if (OUTPUT_COMPRESSION && !memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4))
+            if (OUTPUT_COMPRESSION && IS_VIDF(slot_index))
             {
                 ASSERT(slots[slot_index].size < max_frame_size);
             }
@@ -3444,22 +3445,27 @@ void raw_video_rec_task()
             
             int slot_index = writing_queue[i];
 
-            if (frame_check_saved(slot_index) != 1)
+            /* frame validation only for VIDF frames */
+            if (IS_VIDF(slot_index))
             {
-                bmp_printf( FONT_MED, 30, 110, 
-                    "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number
-                );
-                beep();
+                if (frame_check_saved(slot_index) != 1)
+                {
+                    bmp_printf( FONT_MED, 30, 110, 
+                        "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number
+                    );
+                    beep();
+                }
+                
+                if (slots[slot_index].frame_number != last_processed_video_frame + 1)
+                {
+                    bmp_printf( FONT_MED, 30, 110, 
+                        "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_video_frame + 1
+                    );
+                    beep();
+                }
+
+                last_processed_video_frame++;
             }
-            
-            if (slots[slot_index].frame_number != last_processed_frame + 1)
-            {
-                bmp_printf( FONT_MED, 30, 110, 
-                    "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1
-                );
-                beep();
-            }
-            last_processed_frame++;
 
             free_slot(slot_index);
         }
@@ -3542,25 +3548,30 @@ abort_and_check_early_stop:
             beep();
         }
 
-        if (frame_check_saved(slot_index) != 1)
+        /* frame validation only for VIDF frames */
+        if (IS_VIDF(slot_index))
         {
-            bmp_printf( FONT_MED, 30, 110, 
-                "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number
-            );
-            beep();
-        }
+            if (frame_check_saved(slot_index) != 1)
+            {
+                bmp_printf( FONT_MED, 30, 110, 
+                    "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number
+                );
+                beep();
+            }
 
-        if (slots[slot_index].frame_number != last_processed_frame + 1)
-        {
-            bmp_printf( FONT_MED, 30, 110, 
-                "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1
-            );
-            beep();
+            if (slots[slot_index].frame_number != last_processed_video_frame + 1)
+            {
+                bmp_printf( FONT_MED, 30, 110, 
+                    "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_video_frame + 1
+                );
+                beep();
+            }
+
+            last_processed_video_frame++;
         }
-        last_processed_frame++;
 
         slots[slot_index].status = SLOT_WRITING;
-        if (OUTPUT_COMPRESSION && !memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4))
+        if (OUTPUT_COMPRESSION && IS_VIDF(slot_index))
         {
             ASSERT(slots[slot_index].size < max_frame_size);
         }
