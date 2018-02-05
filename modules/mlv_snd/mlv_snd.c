@@ -35,7 +35,10 @@
 #include "../trace/trace.h"
 #include "../mlv_rec/mlv.h"
 
-#define MLV_SND_BUFFERS 4
+/* allocate that many frame slots to be used for WAVI blocks. two is the minimum to maintain operation */
+#define MLV_SND_SLOTS              2
+/* maximum number of WAVI blocks per slot. the larger, the longer queues will get. should we use more? */
+#define MLV_SND_BLOCKS_PER_SLOT  256
 
 static uint32_t trace_ctx = TRACE_ERROR;
 
@@ -280,7 +283,7 @@ static void mlv_snd_queue_slot()
     }
     
     /* make sure that there is still place for a NULL block */
-    while((used + block_size + sizeof(mlv_hdr_t) < size) && (queued < 128))
+    while((used + block_size + sizeof(mlv_hdr_t) < size) && (queued < MLV_SND_BLOCKS_PER_SLOT))
     {
         /* setup AUDF header for that block */
         mlv_audf_hdr_t *hdr = (mlv_audf_hdr_t *)((uint32_t)address + used);
@@ -308,7 +311,7 @@ static void mlv_snd_queue_slot()
         entry->mlv_slot_end = 0;
         
         /* check if this was the last frame and set end flag if so */
-        if((used + block_size + sizeof(mlv_hdr_t) >= size) || (queued >= 127))
+        if((used + block_size + sizeof(mlv_hdr_t) >= size) || (queued >= (MLV_SND_BLOCKS_PER_SLOT - 1)))
         {
             /* this tells the writer task that the buffer is filled with that entry being done and can be committed */
             entry->mlv_slot_end = 1;
@@ -350,8 +353,10 @@ static void mlv_snd_alloc_buffers()
     mlv_snd_in_buffer_size = (mlv_snd_in_sample_rate * (mlv_snd_in_bits_per_sample / 8) * mlv_snd_in_channels) / fps;
     trace_write(trace_ctx, "mlv_snd_alloc_buffers: mlv_snd_in_buffer_size = %d", mlv_snd_in_buffer_size);
     
-    mlv_snd_queue_slot();
-    mlv_snd_queue_slot();
+    for(int slot = 0; slot < MLV_SND_SLOTS; slot++)
+    {
+        mlv_snd_queue_slot();
+    }
 }
 
 static void mlv_snd_writer(int unused)
@@ -646,8 +651,8 @@ static unsigned int mlv_snd_init()
     //}
     
     trace_write(trace_ctx, "mlv_snd_init: init queues");
-    mlv_snd_buffers_empty = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_empty", 300);
-    mlv_snd_buffers_done = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_done", 300);
+    mlv_snd_buffers_empty = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_empty", MLV_SND_BLOCKS_PER_SLOT * MLV_SND_SLOTS);
+    mlv_snd_buffers_done = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_done", MLV_SND_BLOCKS_PER_SLOT * MLV_SND_SLOTS);
 
     /* will the same menu work in both submenus? probably not */
     if (menu_get_value_from_script("Movie", "RAW video") != INT_MIN)
