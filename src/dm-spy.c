@@ -16,6 +16,7 @@
 //~ #define PRINT_STACK /* also print the stack contents for each message */
 
 #include "dm-spy.h"
+#include "io_trace.h"
 #include "dryos.h"
 #include "bmp.h"
 #include "beep.h"
@@ -266,8 +267,10 @@ void debug_intercept()
         
         buf = staticbuf;
         buf_size = BUF_SIZE_STATIC;
-        
+
         dm_spy_extra_install();
+        io_trace_install();
+
         patch_instruction(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
             MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
@@ -277,6 +280,7 @@ void debug_intercept()
     }
     else // subsequent call, uninstall the hook and save log to file
     {
+        io_trace_uninstall();
         dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
         
