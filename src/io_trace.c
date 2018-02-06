@@ -9,6 +9,14 @@
 
 #include <dryos.h>
 
+/* select the MMIO range to be logged:
+ * mask FFFFF000: base address
+ *      0000001E: region size
+ *      00000001: enabled
+ * ARM946E-S TRM, 2.3.9 Register 6, Protection Region Base and Size Registers
+ */
+extern unsigned int io_trace_protected_region;
+
 #define IO_TRACE_STACK_SIZE 128
 
 extern unsigned int io_trace_irq_end_part_calls;
@@ -32,7 +40,8 @@ unsigned int io_trace_hook_part = 0;
 
 void __attribute__ ((naked)) io_trace_trap()
 {
-    /* data abort exception occurred. switch stacks, call handler and skip trapping instruction */
+    /* data abort exception occurred. switch stacks, log the access,
+     * enable permissions and re-execute trapping instruction */
     asm(
         "STR     SP, io_trace_trap_stackptr_bak\n"
         "LDR     SP, io_trace_trap_stackptr\n"
@@ -49,11 +58,13 @@ void __attribute__ ((naked)) io_trace_trap()
         "STR     R0, io_trace_trap_count\n"
         "SUB     R0, R14, #8\n"
         "STR     R0, io_trace_trap_addr\n"
-        
-        /* was it the irq handler? in that case allow writes */
-        "CMP     R0, #0x01000\n"
-        "BGT     io_trace_trap_nowrite\n"
-        
+
+#ifdef CONFIG_QEMU
+        /* disassemble the instruction */
+        "LDR     R1, =0xCF123010\n"
+        "STR     R0, [R1]\n"
+#endif
+
         /* enable full access to memory */
         "MOV     R0, #0x00\n"
         "MCR     p15, 0, r0, c6, c7, 0\n"
@@ -66,14 +77,8 @@ void __attribute__ ((naked)) io_trace_trap()
         
         /* ------------------------------------------ */
         
-        /* skip over instruction */
-        "io_trace_trap_nowrite:\n"
-        "LDMFD   SP!, {R0-R12, LR}\n"
-        "LDR     SP, io_trace_trap_stackptr_bak\n"
-        "SUBS    PC, R14, #4\n"
-        
-        /* ------------------------------------------ */
-        
+        "io_trace_protected_region:\n"
+        ".word 0xC0820017\n"
         "io_trace_trap_stackptr:\n"
         ".word 0x00000000\n"
         "io_trace_trap_stackptr_bak:\n"
@@ -140,7 +145,7 @@ void __attribute__ ((naked)) io_trace_irq_end_full()
         "bne    io_trace_irq_end_full_nested\n"
         
         /* enable memory protection again */
-        "mov    r0, #0x17\n"
+        "ldr    r0, io_trace_protected_region\n"
         "mcr    p15, 0, r0, c6, c7, 0\n"
         
         "io_trace_irq_end_full_nested:\n"
@@ -180,7 +185,7 @@ void __attribute__ ((naked)) io_trace_irq_end_part()
         "bne    io_trace_irq_end_part_nested\n"
         
         /* enable memory protection again */
-        "mov    r0, #0x17\n"
+        "ldr    r0, io_trace_protected_region\n"
         "mcr    p15, 0, r0, c6, c7, 0\n"
         
         "io_trace_irq_end_part_nested:\n"
@@ -349,33 +354,29 @@ void io_trace_install()
     /* set up its own stack */
     io_trace_trap_stackptr = (unsigned int)&io_trace_trap_stack[IO_TRACE_STACK_SIZE];
     
-    
-    /* set range 0x00000000 - 0x00001000 buffer/cache bits. protection will get enabled after next interrupt */
+    /* set buffer/cache bits for the logged region
+     * protection will get enabled after next interrupt */
     asm(
-        /* set area cachable */
+        /* set area uncacheable (already set up that way, but...) */
         "mrc    p15, 0, R4, c2, c0, 0\n"
-        "orr    r4, #0x80\n"
+        "bic    r4, #0x80\n"
         "mcr    p15, 0, R4, c2, c0, 0\n"
         "mrc    p15, 0, R4, c2, c0, 1\n"
-        "orr    r4, #0x80\n"
+        "bic    r4, #0x80\n"
         "mcr    p15, 0, R4, c2, c0, 1\n"
         
-        /* set area bufferable */
+        /* set area non-bufferable (already set up that way, but...) */
         "mrc    p15, 0, R4, c3, c0, 0\n"
-        "orr    r4, #0x80\n"
+        "bic    r4, #0x80\n"
         "mcr    p15, 0, R4, c3, c0, 0\n"
         
-        /* set access permissions */
+        /* set access permissions (disable access in the protected area) */
         "mrc    p15, 0, R4, c5, c0, 2\n"
-        "lsl    R4, #0x04\n"
-        "lsr    R4, #0x04\n"
-        "orr    R4, #0x60000000\n"
+        "bic    R4, #0xF0000000\n"
         "mcr    p15, 0, R4, c5, c0, 2\n"
         
         "mrc    p15, 0, R4, c5, c0, 3\n"
-        "lsl    R4, #0x04\n"
-        "lsr    R4, #0x04\n"
-        "orr    R4, #0x60000000\n"
+        "bic    R4, #0xF0000000\n"
         "mcr    p15, 0, R4, c5, c0, 3\n"
         
         : : : "r4"
