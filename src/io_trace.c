@@ -9,42 +9,44 @@
 
 #include <dryos.h>
 
+#define ASM_VAR  __attribute__((section(".text"))) __attribute__((used))
+
 /* select the MMIO range to be logged:
  * mask FFFFF000: base address
  *      0000001E: region size
  *      00000001: enabled
  * ARM946E-S TRM, 2.3.9 Register 6, Protection Region Base and Size Registers
  */
-extern unsigned int io_trace_protected_region;
+static ASM_VAR uint32_t protected_region = 0xC0820017;
 
 #define IO_TRACE_STACK_SIZE 128
 
-extern unsigned int io_trace_irq_end_part_calls;
-extern unsigned int io_trace_irq_end_full_calls;
-extern unsigned int io_trace_irq_entry_calls;
-extern unsigned int io_trace_irq_depth;
+static ASM_VAR uint32_t irq_end_part_calls;
+static ASM_VAR uint32_t irq_end_full_calls;
+static ASM_VAR uint32_t irq_entry_calls;
+static ASM_VAR uint32_t irq_depth;
 
-extern unsigned int io_trace_trap_count;
-extern unsigned int io_trace_trap_addr;
-extern unsigned int io_trace_trap_task;
+static ASM_VAR uint32_t trap_count;
+static ASM_VAR uint32_t trap_addr;
+static ASM_VAR uint32_t trap_task;
 
-extern unsigned int io_trace_irq_orig;
-extern unsigned int io_trace_trap_stackptr;
-unsigned int io_trace_trap_stack[IO_TRACE_STACK_SIZE];
+static ASM_VAR uint32_t irq_orig;
+static ASM_VAR uint32_t trap_stackptr;
+static uint32_t trap_stack[IO_TRACE_STACK_SIZE];
 
-unsigned int io_trace_trap_orig = 0;
-unsigned int io_trace_irq_end_full_addr = 0;
-unsigned int io_trace_irq_end_part_addr = 0;
-unsigned int io_trace_hook_full = 0;
-unsigned int io_trace_hook_part = 0;
+static uint32_t trap_orig = 0;
+static uint32_t irq_end_full_addr = 0;
+static uint32_t irq_end_part_addr = 0;
+static uint32_t hook_full = 0;
+static uint32_t hook_part = 0;
 
-void __attribute__ ((naked)) io_trace_trap()
+static void __attribute__ ((naked)) trap()
 {
     /* data abort exception occurred. switch stacks, log the access,
      * enable permissions and re-execute trapping instruction */
     asm(
-        "STR    SP, io_trace_trap_stackptr_bak\n"
-        "LDR    SP, io_trace_trap_stackptr\n"
+        "STR    SP, trap_stackptr_bak\n"
+        "LDR    SP, trap_stackptr\n"
 
         "STMFD  SP!, {R0-R12, LR}\n"
 
@@ -52,12 +54,12 @@ void __attribute__ ((naked)) io_trace_trap()
         "LDR    R0, =current_task\n"
         "LDR    R0, [R0]\n"
         "LDR    R0, [R0, #64]\n"               /* task ID */
-        "STR    R0, io_trace_trap_task\n"
-        "LDR    R0, io_trace_trap_count\n"
+        "STR    R0, trap_task\n"
+        "LDR    R0, trap_count\n"
         "ADD    R0, #0x01\n"
-        "STR    R0, io_trace_trap_count\n"
+        "STR    R0, trap_count\n"
         "SUB    R0, R14, #8\n"
-        "STR    R0, io_trace_trap_addr\n"
+        "STR    R0, trap_addr\n"
 
 #ifdef CONFIG_QEMU
         /* disassemble the instruction */
@@ -70,61 +72,47 @@ void __attribute__ ((naked)) io_trace_trap()
         "MCR    p15, 0, r0, c6, c7, 0\n"
 
         "LDMFD  SP!, {R0-R12, LR}\n"
-        "LDR    SP, io_trace_trap_stackptr_bak\n"
+        "LDR    SP, trap_stackptr_bak\n"
 
         /* execute instruction again */
         "SUBS   PC, R14, #8\n"
 
         /* ------------------------------------------ */
 
-        "io_trace_protected_region:\n"
-        ".word 0xC0820017\n"
-        "io_trace_trap_stackptr:\n"
-        ".word 0x00000000\n"
-        "io_trace_trap_stackptr_bak:\n"
-        ".word 0x00000000\n"
-        "io_trace_trap_count:\n"
-        ".word 0x00000000\n"
-        "io_trace_trap_addr:\n"
-        ".word 0x00000000\n"
-        "io_trace_trap_task:\n"
+        "trap_stackptr_bak:\n"
         ".word 0x00000000\n"
     );
 }
 
-void __attribute__ ((naked)) io_trace_irq_entry()
+static void __attribute__ ((naked)) irq_entry()
 {
     /* irq code is being called. disable protection. */
     asm(
         /* first save scratch register to buffer */
-        "str    r0, io_trace_irq_tmp\n"
+        "str    r0, irq_tmp\n"
 
         /* enable full access to memory as the IRQ handler relies on it */
         "mov    r0, #0x00\n"
         "mcr    p15, 0, r0, c6, c7, 0\n"
 
         /* update some counters */
-        "ldr    r0, io_trace_irq_entry_calls\n"
+        "ldr    r0, irq_entry_calls\n"
         "add    r0, #0x01\n"
-        "str    r0, io_trace_irq_entry_calls\n"
-        "ldr    r0, io_trace_irq_depth\n"
+        "str    r0, irq_entry_calls\n"
+        "ldr    r0, irq_depth\n"
         "add    r0, #0x01\n"
-        "str    r0, io_trace_irq_depth\n"
+        "str    r0, irq_depth\n"
 
         /* now restore scratch and jump to IRQ handler */
-        "ldr    r0, io_trace_irq_tmp\n"
-        "ldr    pc, io_trace_irq_orig\n"
+        "ldr    r0, irq_tmp\n"
+        "ldr    pc, irq_orig\n"
 
-        "io_trace_irq_tmp:\n"
-        ".word 0x00000000\n"
-        "io_trace_irq_orig:\n"
-        ".word 0x00000000\n"
-        "io_trace_irq_entry_calls:\n"
+        "irq_tmp:\n"
         ".word 0x00000000\n"
     );
 }
 
-void __attribute__ ((naked)) io_trace_irq_end_full()
+static void __attribute__ ((naked)) irq_end_full()
 {
     asm(
         /* save int flags and disable all interrupts */
@@ -134,21 +122,21 @@ void __attribute__ ((naked)) io_trace_irq_end_full()
         "and    r2, r2, #0xC0\n"
 
         /* update some counters */
-        "ldr    r0, io_trace_irq_end_full_calls\n"
+        "ldr    r0, irq_end_full_calls\n"
         "add    r0, #0x01\n"
-        "str    r0, io_trace_irq_end_full_calls\n"
-        "ldr    r0, io_trace_irq_depth\n"
+        "str    r0, irq_end_full_calls\n"
+        "ldr    r0, irq_depth\n"
         "sub    r0, #0x01\n"
-        "str    r0, io_trace_irq_depth\n"
+        "str    r0, irq_depth\n"
 
         "cmp    r0, #0x00\n"
-        "bne    io_trace_irq_end_full_nested\n"
+        "bne    irq_end_full_nested\n"
 
         /* enable memory protection again */
-        "ldr    r0, io_trace_protected_region\n"
+        "ldr    r0, protected_region\n"
         "mcr    p15, 0, r0, c6, c7, 0\n"
 
-        "io_trace_irq_end_full_nested:\n"
+        "irq_end_full_nested:\n"
 
         /* restore int flags */
         "mrs    r1, CPSR\n"
@@ -158,13 +146,10 @@ void __attribute__ ((naked)) io_trace_irq_end_full()
         "msr    CPSR_c, r1\n"
 
         "LDMFD  SP!, {R0-R12,LR,PC}^\n"
-
-        "io_trace_irq_end_full_calls:\n"
-        ".word 0x00000000\n"
     );
 }
 
-void __attribute__ ((naked)) io_trace_irq_end_part()
+static void __attribute__ ((naked)) irq_end_part()
 {
     asm(
         /* save int flags and disable all interrupts */
@@ -174,21 +159,21 @@ void __attribute__ ((naked)) io_trace_irq_end_part()
         "and    r2, r2, #0xC0\n"
 
         /* update some counters */
-        "ldr    r0, io_trace_irq_end_part_calls\n"
+        "ldr    r0, irq_end_part_calls\n"
         "add    r0, #0x01\n"
-        "str    r0, io_trace_irq_end_part_calls\n"
-        "ldr    r0, io_trace_irq_depth\n"
+        "str    r0, irq_end_part_calls\n"
+        "ldr    r0, irq_depth\n"
         "sub    r0, #0x01\n"
-        "str    r0, io_trace_irq_depth\n"
+        "str    r0, irq_depth\n"
 
         "cmp    r0, #0x00\n"
-        "bne    io_trace_irq_end_part_nested\n"
+        "bne    irq_end_part_nested\n"
 
         /* enable memory protection again */
-        "ldr    r0, io_trace_protected_region\n"
+        "ldr    r0, protected_region\n"
         "mcr    p15, 0, r0, c6, c7, 0\n"
 
-        "io_trace_irq_end_part_nested:\n"
+        "irq_end_part_nested:\n"
 
         /* restore int flags */
         "mrs    r1, CPSR\n"
@@ -198,36 +183,31 @@ void __attribute__ ((naked)) io_trace_irq_end_part()
         "msr    CPSR_c, r1\n"
 
         "LDMFD   SP!, {R0-R4,R12,PC}^\n"
-
-        "io_trace_irq_end_part_calls:\n"
-        ".word 0x00000000\n"
-        "io_trace_irq_depth:\n"
-        ".word 0x00000000\n"
     );
 }
 
 
-unsigned int io_trace_find_hooks()
+static uint32_t find_hooks()
 {
-    unsigned int addr = MEM(0x00000030);
+    uint32_t addr = MEM(0x00000030);
 
     while(MEM(addr) != 0xEEEEEEEE && addr < 0x1000)
     {
         if(MEM(addr) == 0xE8FDDFFF)
         {
-            if(io_trace_hook_full)
+            if(hook_full)
             {
                 return 1;
             }
-            io_trace_hook_full = addr;
+            hook_full = addr;
         }
         if(MEM(addr) == 0xE8FD901F)
         {
-            if(io_trace_hook_part)
+            if(hook_part)
             {
                 return 2;
             }
-            io_trace_hook_part = addr;
+            hook_part = addr;
         }
         addr += 4;
     }
@@ -236,17 +216,17 @@ unsigned int io_trace_find_hooks()
     if(addr >= 0x1000)
     {
         /* use free space in IV for our pointers. vectors RESET and BKPT are not used. */
-        io_trace_irq_end_full_addr = 0x00;
-        io_trace_irq_end_part_addr = 0x14;
+        irq_end_full_addr = 0x00;
+        irq_end_part_addr = 0x14;
     }
     else
     {
         /* leave some space to prevent false stack overflow alarms (if someone ever checked...) */
-        io_trace_irq_end_full_addr = addr + 0x100;
-        io_trace_irq_end_part_addr = addr + 0x104;
+        irq_end_full_addr = addr + 0x100;
+        irq_end_part_addr = addr + 0x104;
     }
 
-    if(io_trace_hook_full && io_trace_hook_part)
+    if(hook_full && hook_part)
     {
         return 0;
     }
@@ -254,7 +234,7 @@ unsigned int io_trace_find_hooks()
     return 4;
 }
 
-void io_trace_ins_ldr(unsigned int pos, unsigned int dest)
+static void ins_ldr(uint32_t pos, uint32_t dest)
 {
     int offset = dest - (pos + 8);
 
@@ -271,17 +251,17 @@ void io_trace_ins_ldr(unsigned int pos, unsigned int dest)
 
 void io_trace_uninstall()
 {
-    unsigned int int_status = cli();
+    uint32_t int_status = cli();
 
     /* restore original irq handler */
-    MEM(0x00000030) = io_trace_irq_orig;
+    MEM(0x00000030) = irq_orig;
 
     /* unhook os irq handler */
-    MEM(io_trace_hook_full) = 0xE8FDDFFF;
-    MEM(io_trace_hook_part) = 0xE8FD901F;
+    MEM(hook_full) = 0xE8FDDFFF;
+    MEM(hook_part) = 0xE8FD901F;
 
     /* remove our trap handler */
-    MEM(0x0000002C) = (unsigned int)io_trace_trap_orig;
+    MEM(0x0000002C) = (uint32_t)trap_orig;
 
     /* set range 0x00000000 - 0x00001000 buffer/cache bits */
     asm(
@@ -323,7 +303,7 @@ void io_trace_install()
 {
     qprintf("[io_trace] installing...\n");
 
-    unsigned int err = io_trace_find_hooks();
+    uint32_t err = find_hooks();
 
     if(err)
     {
@@ -331,28 +311,28 @@ void io_trace_install()
         return;
     }
 
-    qprintf("[io_trace] irq_end: %x, %x.\n", io_trace_irq_end_full_addr, io_trace_irq_end_part_addr);
+    qprintf("[io_trace] irq_end: %x, %x.\n", irq_end_full_addr, irq_end_part_addr);
 
-    unsigned int int_status = cli();
+    uint32_t int_status = cli();
 
     /* place jumps to our interrupt end code */
-    MEM(io_trace_irq_end_full_addr) = &io_trace_irq_end_full;
-    MEM(io_trace_irq_end_part_addr) = &io_trace_irq_end_part;
+    MEM(irq_end_full_addr) = &irq_end_full;
+    MEM(irq_end_part_addr) = &irq_end_part;
 
     /* install pre-irq hook */
-    io_trace_irq_orig = MEM(0x00000030);
-    MEM(0x00000030) = (unsigned int)&io_trace_irq_entry;
+    irq_orig = MEM(0x00000030);
+    MEM(0x00000030) = (uint32_t) &irq_entry;
 
     /* place a LDR PC, [PC, rel_offset] at irq end to jump to our code */
-    io_trace_ins_ldr(io_trace_hook_full, io_trace_irq_end_full_addr);
-    io_trace_ins_ldr(io_trace_hook_part, io_trace_irq_end_part_addr);
+    ins_ldr(hook_full, irq_end_full_addr);
+    ins_ldr(hook_part, irq_end_part_addr);
 
     /* install data abort handler */
-    io_trace_trap_orig = MEM(0x0000002C);
-    MEM(0x0000002C) = (unsigned int)&io_trace_trap;
+    trap_orig = MEM(0x0000002C);
+    MEM(0x0000002C) = (uint32_t) &trap;
 
     /* set up its own stack */
-    io_trace_trap_stackptr = (unsigned int)&io_trace_trap_stack[IO_TRACE_STACK_SIZE];
+    trap_stackptr = (uint32_t) &trap_stack[IO_TRACE_STACK_SIZE];
 
     /* set buffer/cache bits for the logged region
      * protection will get enabled after next interrupt */
