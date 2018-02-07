@@ -8,6 +8,7 @@
  */
 
 #include <dryos.h>
+#include <dm-spy.h>
 
 #define ASM_VAR  __attribute__((section(".text"))) __attribute__((used))
 
@@ -17,17 +18,12 @@
  *      00000001: enabled
  * ARM946E-S TRM, 2.3.9 Register 6, Protection Region Base and Size Registers
  */
-static ASM_VAR uint32_t protected_region = 0xC0820017;
+static ASM_VAR uint32_t protected_region = 0xC022001F;
 
 static ASM_VAR uint32_t irq_end_part_calls;
 static ASM_VAR uint32_t irq_end_full_calls;
 static ASM_VAR uint32_t irq_entry_calls;
 static ASM_VAR uint32_t irq_depth;
-
-static ASM_VAR uint32_t trap_count;
-static ASM_VAR uint32_t trap_addr;
-static ASM_VAR uint32_t trap_task;
-
 static ASM_VAR uint32_t irq_orig;
 
 static uint32_t trap_orig = 0;
@@ -35,6 +31,9 @@ static uint32_t irq_end_full_addr = 0;
 static uint32_t irq_end_part_addr = 0;
 static uint32_t hook_full = 0;
 static uint32_t hook_part = 0;
+
+static uint32_t buffer[1024+8] __attribute__((used));
+static ASM_VAR uint32_t buffer_index = 0;
 
 static void __attribute__ ((naked)) trap()
 {
@@ -44,22 +43,49 @@ static void __attribute__ ((naked)) trap()
         /* save context */
         "STMFD  SP!, {R0-R12, LR}\n"
 
-        /* save information about trapping code */
-        "LDR    R0, =current_task\n"
-        "LDR    R0, [R0]\n"
-        "LDR    R0, [R0, #64]\n"               /* task ID */
-        "STR    R0, trap_task\n"
-        "LDR    R0, trap_count\n"
-        "ADD    R0, #0x01\n"
-        "STR    R0, trap_count\n"
-        "SUB    R0, R14, #8\n"
-        "STR    R0, trap_addr\n"
+        /* prepare to save information about trapping code */
+        "LDR    R4, =buffer\n"          /* load buffer address */
+        "LDR    R2, buffer_index\n"     /* load buffer index from memory */
+
+        /* store the program counter */
+        "SUB    R0, LR, #8\n"           /* retrieve PC where the exception happened */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store PC */
+        "ADD    R2, #1\n"               /* increment index */
 
 #ifdef CONFIG_QEMU
         /* disassemble the instruction */
-        "LDR    R1, =0xCF123010\n"
-        "STR    R0, [R1]\n"
+        "LDR    R3, =0xCF123010\n"
+        "STR    R0, [R3]\n"
 #endif
+
+        /* get and store DryOS task name */
+        "LDR    R0, =current_task\n"
+        "LDR    R0, [R0]\n"
+        "LDR    R0, [R0, #0x24]\n"
+
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store task name */
+        "ADD    R2, #1\n"               /* increment index */
+
+        /* prepare to re-execute the old instruction */
+        "SUB    R0, LR, #8\n"
+        "LDR    R0, [R0]\n"
+        /* copy it to uncacheable memory - will this work? */
+        "LDR    R1, =trapped_instruction\n"
+        "ORR    R1, #0x40000000\n"
+        "STR    R0, [R1]\n"
+
+        /* find the source and destination registers */
+        "MOV    R1, R0, LSR#12\n"       /* extract destination register */
+        "AND    R1, #0xF\n"
+        "STR    R1, destination\n"      /* store it to memory; will use it later */
+
+        "MOV    R1, R0, LSR#16\n"       /* extract source register */
+        "AND    R1, #0xF\n"
+        "LDR    R0, [SP, R1, LSL#2]\n"  /* load source register contents from stack */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store source register */
+        "ADD    R2, #1\n"               /* increment index */
+
+        "STR    R2, buffer_index\n"     /* store buffer index to memory */
 
         /* sync caches - unsure */
         "mov    r0, #0\n"
@@ -73,10 +99,46 @@ static void __attribute__ ((naked)) trap()
         /* restore context */
         "LDMFD  SP!, {R0-R12, LR}\n"
 
-        /* execute instruction again */
-        "SUBS   PC, R14, #8\n"
+        /* placeholder for executing the old instruction */
+        "trapped_instruction:\n"
+        ".word 0x00000000\n"
+
+        /* save context once again */
+        "STMFD  SP!, {R0-R12, LR}\n"
+
+#ifdef CONFIG_QEMU
+        /* print the register and value loaded from MMIO */
+        "LDR    R3, =0xCF123000\n"
+        "LDR    R0, destination\n"
+        "LDR    R0, [SP, R0, LSL#2]\n"
+        "STR    R0, [R3,#0xC]\n"
+        "MOV    R0, #10\n"
+        "STR    R0, [R3]\n"
+#endif
+
+        "LDR    R4, =buffer\n"          /* load buffer address */
+        "LDR    R2, buffer_index\n"     /* load buffer index from memory */
+        "LDR    R0, destination\n"      /* load destination register index from memory */
+        "LDR    R0, [SP, R0, LSL#2]\n"  /* load destination register contents from stack */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store destination register */
+        "ADD    R2, #1\n"               /* increment index */
+        "BIC    R2, #0x0003FC00\n"      /* avoid writing outside array bounds */
+        "STR    R2, buffer_index\n"     /* store buffer index to memory */
+
+        /* re-enable memory protection */
+        "LDR    R0, protected_region\n"
+        "MCR    p15, 0, R0, c6, c7, 0\n"
+
+        /* restore context */
+        "LDMFD  SP!, {R0-R12, LR}\n"
+
+        /* continue the execution after the trapped instruction */
+        "SUBS   PC, LR, #4\n"
 
         /* ------------------------------------------ */
+
+        "destination:\n"
+        ".word 0x00000000\n"
     );
 }
 
@@ -360,4 +422,36 @@ void io_trace_install()
     sei(int_status);
 
     qprintf("[io_trace] installed.\n");
+}
+
+void io_trace_log_flush()
+{
+    uint32_t old = cli();
+
+    for (uint32_t i = 0; i < buffer_index; i += 4)
+    {
+        debug_logstr("MMIO: ");
+        debug_logstr((char*)buffer[i+1]);   /* task name */
+        debug_logstr(":");
+        debug_loghex(buffer[i]);            /* PC */
+        debug_logstr(" ");
+        debug_loghex(MEM(buffer[i]));       /* instruction */
+        debug_logstr(" ");
+        debug_loghex(buffer[i+2]);          /* Rn - MMIO register (to be interpreted after disassembling the instruction) */
+        debug_logstr(" ");
+        debug_loghex(buffer[i+3]);          /* Rd - destination register (MMIO register value) */
+        debug_logstr("\n");
+    }
+    if (buffer_index > COUNT(buffer) / 2)
+    {
+        /* warn if our buffer is too small */
+        debug_logstr("Used: ");
+        debug_loghex(buffer_index);
+        debug_logstr("/");
+        debug_loghex(COUNT(buffer));
+        debug_logstr("\n");
+    }
+    buffer_index = 0;
+
+    sei(old);
 }

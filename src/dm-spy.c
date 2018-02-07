@@ -60,6 +60,7 @@ void debug_logstr(const char * str)
     uint32_t old = cli();
 
     int copied_chars = MIN(strlen(str), buf_size - len - 1);
+    copied_chars = (copied_chars > 0) ? copied_chars : 0;
     memcpy(buf + len, str, copied_chars);
     len += copied_chars;
     buf[len] = '\0';
@@ -123,6 +124,8 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     va_list            ap;
 
     uint32_t old = cli();
+
+    io_trace_log_flush();
     
     char* msg = buf+len;
     
