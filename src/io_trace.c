@@ -28,10 +28,11 @@
  * REGION(0xC0210000, 0x001000): timers (activity visible only with early startup logging, as in da607f7 or !1dd2792)
  * REGION(0xC0243000, 0x001000): HPTimer (high resolution timers)
  * REGION(0xC0200000, 0x002000): interrupt controller (it works! interrupts are interrupted!)
- * REGION(0xC0F00000, 0x010000): EDMAC #0-15 and many others (may lock up during startup, works fine afterwards)
- * REGION(0xC0F00000, 0x100000): EDMAC (all) and many others (locks up in LiveView, works in play mode)
+ * REGION(0xC0F00000, 0x010000): EDMAC #0-15 and many others
+ * REGION(0xC0F00000, 0x100000): EDMAC (all), display (C0F14) and many others (more likely to crash)
  * REGION(0xC0C00000, 0x100000): SDIO/SFIO (also paired with SDDMA/SFDMA, unsure whether they can be logged at the same time)
  * REGION(0xC0500000, 0x100000): SDDMA/SFDMA/CFDMA
+ * REGION(0xC0E20000, 0x010000): JPCORE (JP57, lossless)
  */
 static ASM_VAR uint32_t protected_region = REGION(0xC0220000, 0x010000);
 
@@ -53,10 +54,11 @@ static void __attribute__ ((naked)) trap()
         /* prepare to save information about trapping code */
         "LDR    R4, =buffer\n"          /* load buffer address */
         "LDR    R2, buffer_index\n"     /* load buffer index from memory */
+        "BIC    R2, #0x0003FC00\n"      /* avoid writing outside array bounds */
 
         /* store the program counter */
         "SUB    R0, LR, #8\n"           /* retrieve PC where the exception happened */
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store PC */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store PC at index [0] */
         "ADD    R2, #1\n"               /* increment index */
 
 #ifdef CONFIG_QEMU
@@ -65,17 +67,25 @@ static void __attribute__ ((naked)) trap()
         "STR    R0, [R3]\n"
 #endif
 
-        /* get and store DryOS task name */
+        /* get and store DryOS task name and interrupt ID */
         "LDR    R0, =current_task\n"
+        "LDR    R1, [R0, #4]\n"         /* 1 if running in interrupt, 0 otherwise; other values? */
         "LDR    R0, [R0]\n"
         "LDR    R0, [R0, #0x24]\n"
 
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store task name */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store task name at index [1] */
+        "ADD    R2, #1\n"               /* increment index */
+
+        "LDR    R0, =current_interrupt\n"
+        "LDR    R0, [R0]\n"             /* interrupt ID is shifted by 2 */
+        "ORR    R0, R1\n"               /* store whether the interrupt ID is valid, in the LSB */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store interrupt ID at index [2] */
         "ADD    R2, #1\n"               /* increment index */
 
         /* prepare to re-execute the old instruction */
         "SUB    R0, LR, #8\n"
         "LDR    R0, [R0]\n"
+
         /* copy it to uncacheable memory - will this work? */
         "LDR    R1, =trapped_instruction\n"
         "ORR    R1, #0x40000000\n"
@@ -89,7 +99,7 @@ static void __attribute__ ((naked)) trap()
         "MOV    R1, R0, LSR#16\n"       /* extract source register */
         "AND    R1, #0xF\n"
         "LDR    R0, [SP, R1, LSL#2]\n"  /* load source register contents from stack */
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store source register */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store source register at index [3] */
         "ADD    R2, #1\n"               /* increment index */
 
         "STR    R2, buffer_index\n"     /* store buffer index to memory */
@@ -123,13 +133,19 @@ static void __attribute__ ((naked)) trap()
         "STR    R0, [R3]\n"
 #endif
 
+        /* store the result (value read from / written to MMIO) */
         "LDR    R4, =buffer\n"          /* load buffer address */
         "LDR    R2, buffer_index\n"     /* load buffer index from memory */
         "LDR    R0, destination\n"      /* load destination register index from memory */
         "LDR    R0, [SP, R0, LSL#2]\n"  /* load destination register contents from stack */
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store destination register */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store destination register at index [4] */
         "ADD    R2, #1\n"               /* increment index */
-        "BIC    R2, #0x0003FC00\n"      /* avoid writing outside array bounds */
+
+        /* timestamp the event (requires MMIO access; do this before re-enabling memory protection) */
+        "LDR    R0, =0xC0242014\n"      /* 20-bit microsecond timer */
+        "LDR    R0, [R0]\n"
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store timestamp at index[5]; will be unwrapped in post */
+        "ADD    R2, #3\n"               /* increment index (total 8, two positions reserved for future use) */
         "STR    R2, buffer_index\n"     /* store buffer index to memory */
 
         /* re-enable memory protection */
@@ -216,22 +232,79 @@ void io_trace_install()
     qprintf("[io_trace] installed.\n");
 }
 
+static const char * interrupt_name(int i)
+{
+    static char name[] = "INT-00h";
+    int i0 = (i & 0xF);
+    int i1 = (i >> 4) & 0xF;
+    int i2 = (i >> 8) & 0xF;
+    name[3] = i2 ? '0' + i2 : '-';
+    name[4] = i1 < 10 ? '0' + i1 : 'A' + i1 - 10;
+    name[5] = i0 < 10 ? '0' + i0 : 'A' + i0 - 10;
+    return name;
+}
+
 void io_trace_log_flush()
 {
     uint32_t old = cli();
 
-    for (uint32_t i = 0; i < buffer_index; i += 4)
+    for (uint32_t i = 0; i < buffer_index; i += 8)
     {
-        debug_logstr("MMIO: ");
-        debug_logstr((char*)buffer[i+1]);   /* task name */
+        uint32_t pc = buffer[i];
+        uint32_t insn = MEM(pc);
+        uint32_t Rn = buffer[i+3];
+        uint32_t Rd = buffer[i+4];
+        char *   task_name = (char *) buffer[i+1];
+        uint32_t interrupt = buffer[i+2];
+        uint32_t timestamp = buffer[i+5];
+
+        uint32_t is_ldr = insn & (1 << 20);
+        uint32_t offset = 0;
+        if ((insn & 0x0F200000) == 0x05000000)
+        {
+            /* ARM ARM: A5.2.2 Load and Store Word or Unsigned Byte - Immediate offset */
+            offset = (insn & 0xFFF);
+            if (!(insn & (1 << 23)))
+            {
+                offset = -offset;
+            }
+        }
+        
+        debug_loghex2(timestamp, 5);
+        debug_logstr("> ");
+        if (buffer[i+2] & 1)
+        {
+            /* interrupt */
+            int interrupt_id = interrupt >> 2;
+            debug_logstr("**");
+            debug_logstr(interrupt_name(interrupt_id));
+            debug_logstr("*");
+        }
+        else
+        {
+            /* task name, padded */
+            char task_nam[] = "          ";
+            int pad = strlen(task_nam) - strlen(task_name);
+            pad = (pad > 0) ? pad : 0;
+            memcpy(task_nam + pad, task_name, sizeof(task_nam) - pad);
+            task_nam[sizeof(task_nam)-1] = 0;
+            debug_logstr(task_nam);
+        }
         debug_logstr(":");
-        debug_loghex(buffer[i]);            /* PC */
-        debug_logstr(" ");
-        debug_loghex(MEM(buffer[i]));       /* instruction */
-        debug_logstr(" ");
-        debug_loghex(buffer[i+2]);          /* Rn - MMIO register (to be interpreted after disassembling the instruction) */
-        debug_logstr(" ");
-        debug_loghex(buffer[i+3]);          /* Rd - destination register (MMIO register value) */
+        debug_loghex(pc);           /* PC */
+        debug_logstr(":MMIO:  [0x");
+        debug_loghex(Rn + offset);  /* Rn - MMIO register (to be interpreted after disassembling the instruction) */
+        debug_logstr(is_ldr ? "] -> 0x" : "] <- 0x");   /* assume LDR or STR; can you find a counterexample? */
+        debug_loghex(Rd);           /* Rd - destination register (MMIO register value) */
+        if ((insn & 0xFFF) && !offset)
+        {
+            /* likely unhandled case; print raw values */
+            debug_logstr(" (");
+            debug_loghex(insn);         /* instruction */
+            debug_logstr(",");
+            debug_loghex(Rn);           /* raw Rn */
+            debug_logstr(")");
+        }
         debug_logstr("\n");
     }
     if (buffer_index > COUNT(buffer) / 2)
