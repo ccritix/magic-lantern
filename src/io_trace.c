@@ -14,11 +14,26 @@
 
 /* select the MMIO range to be logged:
  * mask FFFFF000: base address
- *      0000001E: region size
- *      00000001: enabled
+ *      0000001E: region size (min. 4096, power of 2)
+ *      00000001: enabled (must be 1)
  * ARM946E-S TRM, 2.3.9 Register 6, Protection Region Base and Size Registers
  */
-static ASM_VAR uint32_t protected_region = 0xC022001F;
+#define REGION(base, size) ((base & 0xFFFFF000) | (LOG2(size/2) << 1) | 1)
+
+/* address ranges can be found at magiclantern.wikia.com/wiki/Register_Map
+ * or in QEMU source: contrib/qemu/eos/eos.c, eos_handlers
+ * examples:
+ * REGION(0xC0220000, 0x010000): GPIO (LEDs, chip select signals etc)
+ * REGION(0xC0820000, 0x001000): SIO communication (SPI)
+ * REGION(0xC0210000, 0x001000): timers (activity visible only with early startup logging, as in da607f7 or !1dd2792)
+ * REGION(0xC0243000, 0x001000): HPTimer (high resolution timers)
+ * REGION(0xC0200000, 0x002000): interrupt controller (it works! interrupts are interrupted!)
+ * REGION(0xC0F00000, 0x010000): EDMAC #0-15 and many others (may lock up during startup, works fine afterwards)
+ * REGION(0xC0F00000, 0x100000): EDMAC (all) and many others (locks up in LiveView, works in play mode)
+ * REGION(0xC0C00000, 0x100000): SDIO/SFIO (also paired with SDDMA/SFDMA, unsure whether they can be logged at the same time)
+ * REGION(0xC0500000, 0x100000): SDDMA/SFDMA/CFDMA
+ */
+static ASM_VAR uint32_t protected_region = REGION(0xC0220000, 0x010000);
 
 static ASM_VAR uint32_t irq_orig;
 
