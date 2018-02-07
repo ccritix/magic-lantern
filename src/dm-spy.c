@@ -125,8 +125,10 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
 
     uint32_t old = cli();
 
+    #ifdef CONFIG_MMIO_TRACE
     io_trace_log_flush();
-    
+    #endif
+
     char* msg = buf+len;
     
     #ifdef PRINT_STACK
@@ -272,7 +274,9 @@ void debug_intercept()
         buf_size = BUF_SIZE_STATIC;
 
         dm_spy_extra_install();
+        #ifdef CONFIG_MMIO_TRACE
         io_trace_install();
+        #endif
 
         patch_instruction(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
@@ -283,7 +287,9 @@ void debug_intercept()
     }
     else // subsequent call, uninstall the hook and save log to file
     {
+        #ifdef CONFIG_MMIO_TRACE
         io_trace_uninstall();
+        #endif
         dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
         
@@ -314,7 +320,10 @@ void debug_intercept()
         buf_size = BUF_SIZE_MALLOC;
         
         dm_spy_extra_install();
-        
+        #ifdef CONFIG_MMIO_TRACE
+        io_trace_install();
+        #endif
+
         int err = patch_instruction(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
             MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
@@ -333,6 +342,9 @@ void debug_intercept()
     }
     else // subsequent call, uninstall the hook and save log to file
     {
+        #ifdef CONFIG_MMIO_TRACE
+        io_trace_uninstall();
+        #endif
         dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
         buf[len] = 0;
