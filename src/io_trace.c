@@ -67,6 +67,11 @@ static void __attribute__ ((naked)) trap()
         "STR    R0, [R1]\n"
 #endif
 
+        /* sync caches - unsure */
+        "mov    r0, #0\n"
+        "mcr    p15, 0, r0, c7, c10, 4\n" // drain write buffer
+        "mcr    p15, 0, r0, c7, c5, 0\n" // flush I cache
+
         /* enable full access to memory */
         "MOV    R0, #0x00\n"
         "MCR    p15, 0, r0, c6, c7, 0\n"
