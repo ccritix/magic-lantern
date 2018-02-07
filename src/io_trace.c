@@ -321,35 +321,12 @@ void io_trace_uninstall()
     /* remove our trap handler */
     MEM(0x0000002C) = (uint32_t)trap_orig;
 
-    /* set range 0x00000000 - 0x00001000 buffer/cache bits */
+    sync_caches();
+
     asm(
-        /* set area cachable */
-        "mrc    p15, 0, R4, c2, c0, 0\n"
-        "and    r4, #0x7F\n"
-        "mcr    p15, 0, R4, c2, c0, 0\n"
-        "mrc    p15, 0, R4, c2, c0, 1\n"
-        "and    r4, #0x7F\n"
-        "mcr    p15, 0, R4, c2, c0, 1\n"
-
-        /* set area bufferable */
-        "mrc    p15, 0, R4, c3, c0, 0\n"
-        "and    r4, #0x7F\n"
-        "mcr    p15, 0, R4, c3, c0, 0\n"
-
-        /* set access permissions */
-        "mrc    p15, 0, R4, c5, c0, 2\n"
-        "lsl    R4, #0x04\n"
-        "lsr    R4, #0x04\n"
-        "orr    R4, #0x30000000\n"
-        "mcr    p15, 0, R4, c5, c0, 2\n"
-
-        "mrc    p15, 0, R4, c5, c0, 3\n"
-        "lsl    R4, #0x04\n"
-        "lsr    R4, #0x04\n"
-        "orr    R4, #0x30000000\n"
-        "mcr    p15, 0, R4, c5, c0, 3\n"
-
-        : : : "r4"
+        /* enable full access to memory */
+        "MOV     R0, #0x00\n"
+        "MCR     p15, 0, r0, c6, c7, 0\n"
     );
 
     sync_caches();
@@ -389,6 +366,9 @@ void io_trace_install()
     trap_orig = MEM(0x0000002C);
     MEM(0x0000002C) = (uint32_t) &trap;
 
+    /* also needed before? */
+    sync_caches();
+
     /* set buffer/cache bits for the logged region
      * protection will get enabled after next interrupt */
     asm(
@@ -405,14 +385,10 @@ void io_trace_install()
         "bic    r4, #0x80\n"
         "mcr    p15, 0, R4, c3, c0, 0\n"
 
-        /* set access permissions (disable access in the protected area) */
+        /* set access permissions (disable data access in the protected area) */
         "mrc    p15, 0, R4, c5, c0, 2\n"
         "bic    R4, #0xF0000000\n"
         "mcr    p15, 0, R4, c5, c0, 2\n"
-
-        "mrc    p15, 0, R4, c5, c0, 3\n"
-        "bic    R4, #0xF0000000\n"
-        "mcr    p15, 0, R4, c5, c0, 3\n"
 
         : : : "r4"
     );
