@@ -19,8 +19,6 @@
  */
 static ASM_VAR uint32_t protected_region = 0xC0820017;
 
-#define IO_TRACE_STACK_SIZE 128
-
 static ASM_VAR uint32_t irq_end_part_calls;
 static ASM_VAR uint32_t irq_end_full_calls;
 static ASM_VAR uint32_t irq_entry_calls;
@@ -31,8 +29,6 @@ static ASM_VAR uint32_t trap_addr;
 static ASM_VAR uint32_t trap_task;
 
 static ASM_VAR uint32_t irq_orig;
-static ASM_VAR uint32_t trap_stackptr;
-static uint32_t trap_stack[IO_TRACE_STACK_SIZE];
 
 static uint32_t trap_orig = 0;
 static uint32_t irq_end_full_addr = 0;
@@ -45,9 +41,7 @@ static void __attribute__ ((naked)) trap()
     /* data abort exception occurred. switch stacks, log the access,
      * enable permissions and re-execute trapping instruction */
     asm(
-        "STR    SP, trap_stackptr_bak\n"
-        "LDR    SP, trap_stackptr\n"
-
+        /* save context */
         "STMFD  SP!, {R0-R12, LR}\n"
 
         /* save information about trapping code */
@@ -76,16 +70,13 @@ static void __attribute__ ((naked)) trap()
         "MOV    R0, #0x00\n"
         "MCR    p15, 0, r0, c6, c7, 0\n"
 
+        /* restore context */
         "LDMFD  SP!, {R0-R12, LR}\n"
-        "LDR    SP, trap_stackptr_bak\n"
 
         /* execute instruction again */
         "SUBS   PC, R14, #8\n"
 
         /* ------------------------------------------ */
-
-        "trap_stackptr_bak:\n"
-        ".word 0x00000000\n"
     );
 }
 
@@ -335,9 +326,6 @@ void io_trace_install()
     /* install data abort handler */
     trap_orig = MEM(0x0000002C);
     MEM(0x0000002C) = (uint32_t) &trap;
-
-    /* set up its own stack */
-    trap_stackptr = (uint32_t) &trap_stack[IO_TRACE_STACK_SIZE];
 
     /* set buffer/cache bits for the logged region
      * protection will get enabled after next interrupt */
