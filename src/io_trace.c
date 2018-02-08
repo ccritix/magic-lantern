@@ -36,11 +36,13 @@
  */
 static ASM_VAR uint32_t protected_region = REGION(0xC0220000, 0x010000);
 
-static ASM_VAR uint32_t irq_orig;
+/* number of 32-bit integers recorded for one MMIO event (power of 2) */
+#define RECORD_SIZE 8
 
 static uint32_t trap_orig = 0;
 
-static uint32_t buffer[1024+8] __attribute__((used));
+/* buffer size must be power of 2 and multiple of RECORD_SIZE, to simplify bounds checking */
+static uint32_t buffer[4096] __attribute__((used)) = {0};
 static ASM_VAR uint32_t buffer_index = 0;
 
 static void __attribute__ ((naked)) trap()
@@ -54,7 +56,7 @@ static void __attribute__ ((naked)) trap()
         /* prepare to save information about trapping code */
         "LDR    R4, =buffer\n"          /* load buffer address */
         "LDR    R2, buffer_index\n"     /* load buffer index from memory */
-        "BIC    R2, #0x0003FC00\n"      /* avoid writing outside array bounds */
+        "BIC    R2, #0x000FF000\n"      /* avoid writing outside array bounds (mask should match buffer size) */
 
         /* store the program counter */
         "SUB    R0, LR, #8\n"           /* retrieve PC where the exception happened */
@@ -145,7 +147,7 @@ static void __attribute__ ((naked)) trap()
         "LDR    R0, =0xC0242014\n"      /* 20-bit microsecond timer */
         "LDR    R0, [R0]\n"
         "STR    R0, [R4, R2, LSL#2]\n"  /* store timestamp at index[5]; will be unwrapped in post */
-        "ADD    R2, #3\n"               /* increment index (total 8, two positions reserved for future use) */
+        "ADD    R2, #3\n"               /* increment index (total 8 = RECORD_SIZE, two positions reserved for future use) */
         "STR    R2, buffer_index\n"     /* store buffer index to memory */
 
         /* re-enable memory protection */
@@ -248,7 +250,7 @@ void io_trace_log_flush()
 {
     uint32_t old = cli();
 
-    for (uint32_t i = 0; i < buffer_index; i += 8)
+    for (uint32_t i = 0; i < buffer_index; i += RECORD_SIZE)
     {
         uint32_t pc = buffer[i];
         uint32_t insn = MEM(pc);
@@ -307,15 +309,32 @@ void io_trace_log_flush()
         }
         debug_logstr("\n");
     }
-    if (buffer_index > COUNT(buffer) / 2)
+
+    if (buffer_index > COUNT(buffer) / 2 || buffer[COUNT(buffer) - RECORD_SIZE])
     {
         /* warn if our buffer is too small */
-        debug_logstr("Used: ");
+        debug_logstr("[MMIO] Used: ");
         debug_loghex(buffer_index);
         debug_logstr("/");
         debug_loghex(COUNT(buffer));
+        for (int j = COUNT(buffer) - RECORD_SIZE; j >= 0; j -= RECORD_SIZE)
+        {
+            if (buffer[j])
+            {
+                debug_logstr("; peak: ");
+                debug_loghex(j + RECORD_SIZE);
+                break;
+            }
+        }
         debug_logstr("\n");
     }
+
+    if (buffer[COUNT(buffer) - RECORD_SIZE])
+    {
+        debug_logstr("[MMIO] WARNING: lost data (try increasing buffer size)\n");
+        buffer[COUNT(buffer) - RECORD_SIZE] = 0;
+    }
+
     buffer_index = 0;
 
     sei(old);
