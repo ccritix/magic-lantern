@@ -116,13 +116,17 @@ static void __attribute__ ((naked)) trap()
         "MCR    p15, 0, r0, c6, c7, 0\n"
 
         /* restore context */
+        /* FIXME: some instructions may change LR; this will give incorrect result, but at least it appears not to crash */
+        /* 5D3 113: 0x1C370 LDMIA R1!, {R3,R4,R12,LR} on REGION(0xC0F19000, 0x001000) when entering LiveView */
         "LDMFD  SP!, {R0-R12, LR}\n"
+        "STMFD  SP!, {LR}\n"
 
         /* placeholder for executing the old instruction */
         "trapped_instruction:\n"
         ".word 0x00000000\n"
 
         /* save context once again */
+        "LDMFD  SP!, {LR}\n"
         "STMFD  SP!, {R0-R12, LR}\n"
 
 #ifdef CONFIG_QEMU
