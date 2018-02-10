@@ -17,6 +17,7 @@ ML_MODULES ?= \
 	bench \
 	selftest \
 	adv_int \
+	edmac \
 	crop_rec \
 	adtg_gui \
  	iso_regs \

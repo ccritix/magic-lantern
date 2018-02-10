@@ -9,13 +9,17 @@ test_log = nil
 
 function printf(s,...)
     test_log:writef(s,...)
+
+    if not console.visible then
+        display.notify_box(s:format(...), 5000)
+    end
 end
 
 function request_mode(mode, mode_str)
     while camera.mode ~= mode do
         printf("Please switch to %s mode.\n", mode_str, mode)
         while camera.mode ~= mode do
-            console.show()
+            console.show(); assert(console.visible)
             msleep(1000)
         end
     end
@@ -226,8 +230,89 @@ function test_io()
     printf("\n")
 end
 
+function test_camera_gui()
+    printf("Testing Canon GUI functions...\n")
+
+    camera.gui.play = true
+    assert(camera.gui.play == true)
+    assert(camera.gui.mode == 1)
+
+    -- half-shutter should exit playback mode
+    key.press(KEY.HALFSHUTTER)
+    msleep(1000)
+    assert(camera.gui.play == false)
+    assert(camera.gui.mode == 0)
+    key.press(KEY.UNPRESS_HALFSHUTTER)
+
+    -- randomly switch between PLAY, MENU and IDLE (with or without LiveView)
+    for i = 1,100 do
+        -- we can request MENU or PLAY mode from anywhere
+        -- we can only exit these modes if we are already there
+        if math.random(1,2) == 1 then
+            if math.random(1,2) == 1 then
+                printf("Enter PLAY mode...\n");
+                camera.gui.play = true
+                assert(camera.gui.play == true)
+                assert(camera.gui.menu == false)
+                assert(camera.gui.idle == false)
+                assert(camera.gui.mode == 1)
+            elseif camera.gui.play then
+                printf("Exit PLAY mode...\n");
+                camera.gui.play = false
+                assert(camera.gui.play == false)
+                assert(camera.gui.menu == false)
+                assert(camera.gui.idle == true)
+                assert(camera.gui.mode == 0)
+            end
+        else
+            if math.random(1,2) == 1 then
+                printf("Enter MENU mode...\n");
+                camera.gui.menu = true
+                assert(camera.gui.menu == true)
+                assert(camera.gui.play == false)
+                assert(camera.gui.idle == false)
+                assert(camera.gui.mode == 2)
+            elseif camera.gui.menu then
+                printf("Exit MENU mode...\n");
+                camera.gui.menu = false
+                assert(camera.gui.menu == false)
+                assert(camera.gui.play == false)
+                assert(camera.gui.idle == true)
+                assert(camera.gui.mode == 0)
+            end
+        end
+
+        -- also play around with LiveView
+        if camera.gui.menu == false and camera.gui.play == false then
+            if math.random(1,2) == 1 then
+                -- do something with LiveView, but not as often as switching MENU/PLAY
+                if not lv.enabled then
+                    printf("Start LiveView...\n");
+                    lv.start()
+                elseif lv.paused then
+                    printf("Resume LiveView...\n");
+                    lv.resume()
+                elseif math.random(1,10) < 9 then
+                    -- this gets taken less often than the next one, why?
+                    -- fixme: biased random?
+                    printf("Pause LiveView...\n");
+                    lv.pause()
+                else
+                    printf("Stop LiveView...\n");
+                    lv.stop()
+                end
+            end
+        end
+    end
+
+    lv.stop()
+
+    printf("Canon GUI tests completed.\n")
+    printf("\n")
+end
+
 function test_menu()
-    printf("Testing menu API...\n")
+    printf("Testing ML menu API...\n")
 
     menu.open()
     assert(menu.select("Expo", "ISO"))
@@ -249,16 +334,16 @@ function test_menu()
     -- picture styles should be set-able as string
     -- numeric works too, as it sets the internal index
     assert(menu.set("Expo", "Picture Style", "Portrait"))
-    assert(menu.get("Expo", "Picture Style", "") == "Portrait")
+    assert(menu.get("Expo", "Picture Style") == "Portrait")
     msleep(1000)
     assert(menu.set("Expo", "Picture Style", 5)) -- OK, selects Neutral
     -- skip string test, as other camera models may use different indices
     msleep(1000)
     assert(menu.set("Expo", "Picture Style", "Landscape"))
-    assert(menu.get("Expo", "Picture Style", "") == "Landscape")
+    assert(menu.get("Expo", "Picture Style") == "Landscape")
     msleep(1000)
     assert(menu.set("Expo", "Picture Style", 1234) == false) -- should fail, out of range
-    assert(menu.get("Expo", "Picture Style", "") == "Landscape") -- old selection should not change
+    assert(menu.get("Expo", "Picture Style") == "Landscape") -- old selection should not change
     msleep(1000)
 
     assert(menu.select("Overlay"))
@@ -269,24 +354,24 @@ function test_menu()
 
     -- boolean items should be set-able as int (0 or 1)
     assert(menu.set("Shoot", "Advanced Bracket", 1))
-    assert(menu.get("Shoot", "Advanced Bracket") == 1)
+    assert(menu.get("Shoot", "Advanced Bracket", 0) == 1)
     msleep(1000)
 
     -- or as string (if the user interface displays "ON" or "OFF")
     -- here, actual string will be "ON, 10s" or similar (also accepted)
     assert(menu.set("Shoot", "Intervalometer", "ON"))
-    assert(menu.get("Shoot", "Intervalometer") == 1)
+    assert(menu.get("Shoot", "Intervalometer", 0) == 1)
     msleep(1000)
 
     -- turning off should be straightforward
     assert(menu.set("Shoot", "Advanced Bracket", "OFF"))
-    assert(menu.get("Shoot", "Advanced Bracket") == 0)
-    assert(menu.get("Shoot", "Advanced Bracket", "") == "OFF")
+    assert(menu.get("Shoot", "Advanced Bracket", 0) == 0)
+    assert(menu.get("Shoot", "Advanced Bracket") == "OFF")
     msleep(1000)
 
     assert(menu.set("Shoot", "Intervalometer", 0))
-    assert(menu.get("Shoot", "Intervalometer") == 0)
-    assert(menu.get("Shoot", "Intervalometer", "") == "OFF")
+    assert(menu.get("Shoot", "Intervalometer", 0) == 0)
+    assert(menu.get("Shoot", "Intervalometer") == "OFF")
     msleep(1000)
 
     -- move to Intervalometer menu
@@ -303,26 +388,26 @@ function test_menu()
     -- for speed reasons (so entering 1m10s will fail)
     -- smaller ranges are OK for trying every single value
     assert(menu.set("Intervalometer", "Take a pic every", "1m30s"))
-    assert(menu.get("Intervalometer", "Take a pic every") == 90)
-    assert(menu.get("Intervalometer", "Take a pic every", "") == "1m30s")
+    assert(menu.get("Intervalometer", "Take a pic every", 0) == 90)
+    assert(menu.get("Intervalometer", "Take a pic every") == "1m30s")
     msleep(1000)
 
     -- actual string will be 10s
     assert(menu.set("Intervalometer", "Take a pic every", "10"))
-    assert(menu.get("Intervalometer", "Take a pic every") == 10)
-    assert(menu.get("Intervalometer", "Take a pic every", "") == "10s")
+    assert(menu.get("Intervalometer", "Take a pic every", 0) == 10)
+    assert(menu.get("Intervalometer", "Take a pic every") == "10s")
     msleep(1000)
 
     -- integer should work as well - e.g. 1m10s should work now
     assert(menu.set("Intervalometer", "Take a pic every", 70))
-    assert(menu.get("Intervalometer", "Take a pic every") == 70)
-    assert(menu.get("Intervalometer", "Take a pic every", "") == "1m10s")
+    assert(menu.get("Intervalometer", "Take a pic every", 0) == 70)
+    assert(menu.get("Intervalometer", "Take a pic every") == "1m10s")
     msleep(1000)
 
     -- out of range, should fail
     assert(menu.set("Intervalometer", "Take a pic every", 7000000) == false)
-    assert(menu.get("Intervalometer", "Take a pic every") == 70)
-    assert(menu.get("Intervalometer", "Take a pic every", "") == "1m10s")
+    assert(menu.get("Intervalometer", "Take a pic every", 0) == 70)
+    assert(menu.get("Intervalometer", "Take a pic every") == "1m10s")
     msleep(1000)
 
     -- exit submenu
@@ -373,8 +458,8 @@ function test_menu()
     assert(menu.select("Shoot", "Crocodile") == false)
 
     -- menu.get/set return nil if the menu was not found
-    assert(menu.get("Shoot", "Introvolometer") == nil)
-    assert(menu.get("Shoot", "Brack", "") == nil)
+    assert(menu.get("Shoot", "Introvolometer", 0) == nil)
+    assert(menu.get("Shoot", "Brack") == nil)
     assert(menu.set("Shoot", "Introvolometer", 1) == nil)
     assert(menu.set("Shoot", "Introvolometer", "OFF") == nil)
 
@@ -383,7 +468,9 @@ function test_menu()
     -- exercise the menu backend a bit
     for i = 1,5 do
         menu.open()
+        assert(camera.gui.idle == false)
         menu.close()
+        assert(camera.gui.idle == true)
     end
 
     printf("Menu tests completed.\n")
@@ -456,16 +543,17 @@ function test_keys()
     printf("Testing half-shutter...\n")
     for i = 1,10 do
         -- open Canon menu
-        key.press(KEY.MENU)
+        camera.gui.menu = true
         msleep(1000)
-        -- fixme: expose things like QR_MODE, PLAY_MODE, enter_play_mode...
-        assert(camera.state == 1)
+        assert(camera.gui.menu == true)
+        assert(camera.gui.idle == false)
         key.press(KEY.HALFSHUTTER)
         msleep(200)
         assert(key.last == KEY.HALFSHUTTER)
         msleep(1000)
         -- half-shutter should close Canon menu
-        assert(camera.state == 0)
+        assert(camera.gui.menu == false)
+        assert(camera.gui.idle == true)
         key.press(KEY.UNPRESS_HALFSHUTTER)
         msleep(200)
         assert(key.last == KEY.UNPRESS_HALFSHUTTER)
@@ -852,6 +940,13 @@ function test_camera_take_pics()
     local size_jpg = print_file_size(image_path_jpg)
     assert(size_cr2 or size_jpg)
 
+    -- let's review it
+    assert(camera.gui.qr or camera.gui.idle)
+    camera.gui.play = true
+    assert(camera.gui.play == true)
+    assert(camera.gui.play_photo == true)
+    assert(camera.gui.play_movie == false)
+
     msleep(2000)
 
     printf("Two burst pictures...\n")
@@ -947,6 +1042,8 @@ function test_camera_take_pics()
 end
 
 function test_lv()
+    request_mode(MODE.M, "M")
+
     printf("Testing module 'lv'...\n")
     if lv.enabled then
         printf("LiveView is running; stopping...\n")
@@ -955,16 +1052,64 @@ function test_lv()
         msleep(2000)
     end
 
+    assert(not lv.enabled)
+    assert(lv.vidmode == "PH-NOLV")
+
     printf("Starting LiveView...\n")
     lv.start()
     assert(lv.enabled, "LiveView did not start")
+    assert(not lens.autofocusing)
+    assert(lv.vidmode == "PH-LV")
+    assert(camera.gui.idle == true)
 
     msleep(2000)
-    
+
+    -- lv.overlays status
+    local function print_overlays_status()
+        -- 1 = Canon overlays, 2 = ML overlays (when global draw is on), false = no overlays enabled
+        -- using false instead of 0 to allow using in a conditional expression: if lv.overlays then ...
+        printf("Overlays: %s\n", lv.overlays == 1 and "Canon" or lv.overlays == 2 and "ML" or "disabled");
+    end
+
+    console.hide(); assert(not console.visible)
+    local old_gdr = menu.get("Overlay", "Global Draw")
+    for i=1,10 do
+        key.press(KEY.INFO)
+        msleep(200); print_overlays_status()
+        msleep(1000)
+        if lv.overlays ~= 1 then
+            -- Canon overlays disabled?
+            -- Enable ML overlays
+            assert(menu.set("Overlay", "Global Draw", "ON"))
+            msleep(200); print_overlays_status()
+            assert(lv.overlays == 2)
+            msleep(1000)
+            -- Disable ML overlays
+            assert(menu.set("Overlay", "Global Draw", "OFF"))
+            msleep(200); print_overlays_status()
+            assert(lv.overlays == false)
+            msleep(1000)
+        end
+    end
+    -- restore original Global Draw setting
+    assert(menu.set("Overlay", "Global Draw", old_gdr))
+    assert(menu.get("Overlay", "Global Draw") == old_gdr)
+    msleep(200); print_overlays_status()
+    console.show(); assert(console.visible)
+
+    msleep(2000)
+
     for i,z in pairs{1, 5, 10, 5, 1, 10, 1} do
         printf("Setting zoom to x%d...\n", z)
         lv.zoom = z
         assert(lv.zoom == z, "Could not set zoom in LiveView ")
+        if z == 5 then
+            assert(lv.vidmode == "ZOOM-X5");
+        elseif z == 10 then
+            assert(lv.vidmode == "ZOOM-X10");
+        else
+            assert(lv.vidmode == "PH-LV")
+        end
         lv.wait(5)
     end
 
@@ -972,6 +1117,8 @@ function test_lv()
     lv.pause()
     assert(lv.enabled, "LiveView stopped")
     assert(lv.paused, "LiveView could not be paused")
+    assert(not lens.autofocusing)
+    assert(lv.vidmode == "PAUSED-LV");
 
     msleep(2000)
 
@@ -979,6 +1126,8 @@ function test_lv()
     lv.resume()
     assert(lv.enabled, "LiveView stopped")
     assert(not lv.paused, "LiveView could not be resumed")
+    assert(not lens.autofocusing)
+    assert(lv.vidmode == "PH-LV");
 
     msleep(2000)
 
@@ -988,6 +1137,8 @@ function test_lv()
     assert(not lv.enabled, "LiveView did not stop")
     assert(not lv.paused,  "LiveView is disabled, can't be paused")
     assert(not lv.running, "LiveView is disabled, can't be running")
+    assert(not lens.autofocusing)
+    assert(lv.vidmode == "PH-NOLV")
 
     msleep(1000)
 
@@ -1009,7 +1160,7 @@ function test_lens_focus()
         printf("Please enable autofocus.\n")
         printf("(or, remove the lens from the camera to skip this test)\n")
         while not lens.af and lens.name ~= "" do
-            console.show()
+            console.show(); assert(console.visible)
             msleep(1000)
         end
         msleep(1000)
@@ -1032,8 +1183,33 @@ function test_lens_focus()
         printf("Focus distance: %s\n",  lens.focus_distance)
 
         printf("Autofocus in LiveView...\n")
+        assert(not lens.autofocusing)
         assert(lens.autofocus())
+        assert(not lens.autofocusing)
 
+        printf("Please trigger autofocus (half-shutter / AF-ON / * ).\n")
+        for i = 1,2000 do
+            msleep(10)
+            if lens.autofocusing then
+                printf("Autofocus triggered.\n")
+                while lens.autofocusing do
+                    msleep(10)
+                end
+                printf("Autofocus completed.\n")
+                break
+            end
+            if i % 100 == 0 then
+                printf("\b\b\b\b\b%d...", 20 - i // 100)
+                io.flush()
+            end
+            if i // 100 == 20 then
+                printf("\b\b\b\b\b")
+                io.flush()
+                assert(false, "Autofocus not triggered.\n")
+            end
+        end
+
+        msleep(1000)
         printf("Focus distance: %s\n",  lens.focus_distance)
 
         -- note: focus direction is not consistent
@@ -1132,13 +1308,20 @@ function test_movie()
 
     -- now it should work
     -- hide the console for a nicer look
-    console.hide()
+    console.hide(); assert(not console.visible)
     movie.start()
     assert(movie.recording)
     msleep(1000)
     movie.stop()
     assert(not movie.recording)
-    console.show()
+    console.show(); assert(console.visible)
+
+    -- let's review it
+    assert(camera.gui.idle == true)
+    camera.gui.play = true
+    assert(camera.gui.play == true)
+    assert(camera.gui.play_movie == true)
+    assert(camera.gui.play_photo == false)
 
     printf("Movie recording tests completed.\n")
     printf("\n")
@@ -1156,6 +1339,7 @@ function api_tests()
     
     printf("Module tests...\n")
     test_io()
+    test_camera_gui()
     test_menu()
     test_camera_take_pics()
     msleep(1000)

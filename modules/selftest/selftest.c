@@ -805,24 +805,24 @@ static void stub_test_malloc_n_allocmem()
         TEST_FUNC_CHECK(ABS(m0-m2), < 2048);
 
         TEST_FUNC(m0 = GetFreeMemForAllocateMemory());
-        TEST_FUNC_CHECK(p = (void*)_AllocateMemory(256*1024), != 0);
+        TEST_FUNC_CHECK(p = (void*)_AllocateMemory(128*1024), != 0);
         TEST_FUNC_CHECK(CACHEABLE(p), == (int)p);
         TEST_FUNC(m1 = GetFreeMemForAllocateMemory());
         TEST_VOID(_FreeMemory(p));
         TEST_FUNC(m2 = GetFreeMemForAllocateMemory());
-        TEST_FUNC_CHECK(ABS((m0-m1) - 256*1024), < 2048);
+        TEST_FUNC_CHECK(ABS((m0-m1) - 128*1024), < 2048);
         TEST_FUNC_CHECK(ABS(m0-m2), < 2048);
 
         // these buffers may be from different memory pools, just check for leaks in main pools
         int m01, m02, m11, m12;
         TEST_FUNC(m01 = MALLOC_FREE_MEMORY);
         TEST_FUNC(m02 = GetFreeMemForAllocateMemory());
-        TEST_FUNC_CHECK(p = (void*)_alloc_dma_memory(256*1024), != 0);
+        TEST_FUNC_CHECK(p = (void*)_alloc_dma_memory(128*1024), != 0);
         TEST_FUNC_CHECK(UNCACHEABLE(p), == (int)p);
         TEST_FUNC_CHECK(CACHEABLE(p), != (int)p);
         TEST_FUNC_CHECK(UNCACHEABLE(CACHEABLE(p)), == (int)p);
         TEST_VOID(_free_dma_memory(p));
-        TEST_FUNC_CHECK(p = (void*)_shoot_malloc(24*1024*1024), != 0);
+        TEST_FUNC_CHECK(p = (void*)_shoot_malloc(16*1024*1024), != 0);
         TEST_FUNC_CHECK(UNCACHEABLE(p), == (int)p);
         TEST_VOID(_shoot_free(p));
         TEST_FUNC(m11 = MALLOC_FREE_MEMORY);
@@ -846,34 +846,38 @@ static void stub_test_exmem()
         int total = 0;
 
         // contiguous allocation
-        TEST_FUNC_CHECK(suite = shoot_malloc_suite_contig(24*1024*1024), != 0);
+        // assume we can allocate at least 16MB continuously
+        TEST_FUNC_CHECK(suite = shoot_malloc_suite_contig(16*1024*1024), != 0);
         TEST_FUNC_CHECK_STR(suite->signature, "MemSuite");
         TEST_FUNC_CHECK(suite->num_chunks, == 1);
-        TEST_FUNC_CHECK(suite->size, == 24*1024*1024);
+        TEST_FUNC_CHECK(suite->size, == 16*1024*1024);
         TEST_FUNC_CHECK(chunk = GetFirstChunkFromSuite(suite), != 0);
         TEST_FUNC_CHECK_STR(chunk->signature, "MemChunk");
-        TEST_FUNC_CHECK(chunk->size, == 24*1024*1024);
+        TEST_FUNC_CHECK(chunk->size, == 16*1024*1024);
         TEST_FUNC_CHECK(p = GetMemoryAddressOfMemoryChunk(chunk), != 0);
         TEST_FUNC_CHECK(UNCACHEABLE(p), == (int)p);
         TEST_VOID(shoot_free_suite(suite); suite = 0; chunk = 0;);
 
         // contiguous allocation, largest block
+        int largest_shoot_block = 0;
         TEST_FUNC_CHECK(suite = shoot_malloc_suite_contig(0), != 0);
         TEST_FUNC_CHECK_STR(suite->signature, "MemSuite");
         TEST_FUNC_CHECK(suite->num_chunks, == 1);
-        TEST_FUNC_CHECK(suite->size, > 24*1024*1024);
+        TEST_FUNC_CHECK(suite->size, > 16*1024*1024);
         TEST_FUNC_CHECK(chunk = GetFirstChunkFromSuite(suite), != 0);
         TEST_FUNC_CHECK_STR(chunk->signature, "MemChunk");
         TEST_FUNC_CHECK(chunk->size, == suite->size);
         TEST_FUNC_CHECK(p = GetMemoryAddressOfMemoryChunk(chunk), != 0);
         TEST_FUNC_CHECK(UNCACHEABLE(p), == (int)p);
+        TEST_FUNC(largest_shoot_block = suite->size);
+        TEST_MSG("[INFO] largest_shoot_block: %s\n", format_memory_size(largest_shoot_block));
         TEST_VOID(shoot_free_suite(suite); suite = 0; chunk = 0;);
 
         // fragmented allocation
-        TEST_FUNC_CHECK(suite = shoot_malloc_suite(64*1024*1024), != 0);
+        TEST_FUNC_CHECK(suite = shoot_malloc_suite(largest_shoot_block + 1024*1024), != 0);
         TEST_FUNC_CHECK_STR(suite->signature, "MemSuite");
         TEST_FUNC_CHECK(suite->num_chunks, > 1);
-        TEST_FUNC_CHECK(suite->size, == 64*1024*1024);
+        TEST_FUNC_CHECK(suite->size, == largest_shoot_block + 1024*1024);
 
         // iterating through chunks
         total = 0;
@@ -881,19 +885,19 @@ static void stub_test_exmem()
         while(chunk)
         {
             TEST_FUNC_CHECK_STR(chunk->signature, "MemChunk");
-            TEST_FUNC_CHECK(total += chunk->size, <= 64*1024*1024);
+            TEST_FUNC_CHECK(total += chunk->size, <= largest_shoot_block + 1024*1024);
             TEST_FUNC_CHECK(p = GetMemoryAddressOfMemoryChunk(chunk), != 0);
             TEST_FUNC_CHECK(UNCACHEABLE(p), == (int)p);
             TEST_FUNC(chunk = GetNextMemoryChunk(suite, chunk));
         }
-        TEST_FUNC_CHECK(total, == 64*1024*1024);
+        TEST_FUNC_CHECK(total, == largest_shoot_block + 1024*1024);
         TEST_VOID(shoot_free_suite(suite); suite = 0; chunk = 0; );
 
         // fragmented allocation, max size
         TEST_FUNC_CHECK(suite = shoot_malloc_suite(0), != 0);
         TEST_FUNC_CHECK_STR(suite->signature, "MemSuite");
         TEST_FUNC_CHECK(suite->num_chunks, > 1);
-        TEST_FUNC_CHECK(suite->size, > 64*1024*1024);
+        TEST_FUNC_CHECK(suite->size, >= largest_shoot_block + 1024*1024);
 
         // iterating through chunks
         total = 0;
@@ -1055,7 +1059,8 @@ static void stub_test_dryos()
     msleep(100);
     TEST_FUNC_CHECK(test_task_created, == 1);
     TEST_FUNC_CHECK_STR(get_current_task_name(), "run_test");
-    
+    TEST_FUNC_CHECK_STR(get_task_name_from_id(current_task->taskId), "run_test");
+
     extern int task_max;
     TEST_FUNC_CHECK(task_max, >= 104);    /* so far, task_max is 104 on most cameras */
     TEST_FUNC_CHECK(task_max, <= 512);    /* I guess it's not higher than that */
@@ -2033,6 +2038,77 @@ static void edmac_test_task()
     edmac_memcpy_res_unlock();
 }
 
+static void __attribute__((optimize("-fno-delete-null-pointer-checks")))
+null_pointer_task()
+{
+    msleep(1000);
+    console_clear();
+    printf("Testing null pointer checker...\n");
+    console_show();
+    msleep(1000);
+
+    /* find the last crash log number - will trigger a new one */
+    char log_filename[100];
+    int log_number;
+    for (log_number = 99; log_number >= 0; log_number--)
+    {
+        snprintf(log_filename, sizeof(log_filename), "CRASH%02d.LOG", log_number);
+        if (is_file(log_filename))
+        {
+            ASSERT(log_number < 99);
+            break;
+        }
+    }
+
+    /* this should trigger a crash log */
+    /* the error will be noticed when DryOS switches to the next task */
+    uint32_t old = cli();
+    *(volatile uint32_t *) 0x0 = 0xBAADBAAD;
+    printf("MEM(0) = %X %s\n", MEM(0), MEM(0) == 0xBAADBAAD ? "OK" : "ERR");
+    sei(old);
+
+    msleep(1000);
+
+    /* this should be restored to the old value */
+    printf("MEM(0) = %X %s\n", MEM(0), MEM(0) == 0xBAADBAAD ? "ERR" : "OK");
+
+    /* does the new crash log look sane? */
+    snprintf(log_filename, sizeof(log_filename), "CRASH%02d.LOG", log_number + 1);
+    if (!is_file(log_filename))
+    {
+        printf("%s not saved - please report.\n", log_filename);
+    }
+    else
+    {
+        /* crash log was saved */
+        int size;
+        char * log = (char *) read_entire_file(log_filename, &size);
+        if (strstr(log, "baadbaad") && strstr(log, "run_test: NULL PTR"))
+        {
+            printf("%s looks OK.\n", log_filename);
+        }
+        else
+        {
+            printf("%s not good - please report.\n", log_filename);
+        }
+        free(log);
+    }
+
+    /* hide the crash log prompt(s) */
+    printf("Please wait; ignore any flashing prompts    ");
+    for (int i = 0; i <= 100; i++)
+    {
+        NotifyBoxHide();
+        msleep(50);
+        printf("\b\b\b(%d)", 5 - i / 20);
+    }
+
+    /* finished */
+    printf("\nNull pointer test completed.\n");
+    msleep(2000);
+    console_hide();
+}
+
 static void frozen_task()
 {
     NotifyBox(2000, "while(1);");
@@ -2163,6 +2239,13 @@ static struct menu_entry selftest_menu[] =
                 .priv       = edmac_test_task,
                 .help       = "Shift the entire display left and right with EDMAC routines.",
                 .help2      = "Fixme: this will lock up if you change the video mode during the test.",
+            },
+            {
+                .name       = "Null pointer test (quick)",
+                .select     = run_in_separate_task,
+                .priv       = null_pointer_task,
+                .help       = "Writes 0xBAADBAAD to address 0 (simulating a null pointer error).",
+                .help2      = "ML should save a crash log about 0xBAADBAAD and should not crash.",
             },
             MENU_EOL,
         }

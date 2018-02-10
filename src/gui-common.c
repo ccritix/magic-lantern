@@ -168,7 +168,7 @@ int handle_common_events_startup(struct event * event)
 
     extern int ml_started;
     if (!ml_started)    {
-#ifdef CONFIG_EOSM // EOSM has a combined Q/SET button, SET button event is not sent properly
+#if defined(CONFIG_EOSM) || defined(CONFIG_100D) // these have a combined Q/SET button, SET button event is not sent properly
         if (event->param == BGMT_INFO) { _disable_ml_startup(); return 0;} // don't load ML
 #else
         if (event->param == BGMT_PRESS_SET) { _disable_ml_startup(); return 0;} // don't load ML
@@ -258,11 +258,11 @@ static int handle_Q_button_equiv(struct event * event)
 
     switch (event->param)
     {
+#ifdef BGMT_Q_ALT
+    #error please use BGMT_Q
+#endif
 #ifdef BGMT_RATE
     case BGMT_RATE:
-#endif
-#ifdef BGMT_Q_ALT
-    case BGMT_Q_ALT:
 #endif
 #if defined(CONFIG_5D2) || defined(CONFIG_7D)
     case BGMT_PICSTYLE:
@@ -435,6 +435,9 @@ int handle_common_events_by_feature(struct event * event)
     // common to most cameras
     // there may be exceptions
 
+    /* log button codes, if enabled from the Debug menu */
+    spy_event(event);
+
 #ifdef FEATURE_POWERSAVE_LIVEVIEW
     // these are required for correct shutdown from "LV paused" state
     if (event->param == GMT_GUICMD_START_AS_CHECK || 
@@ -475,6 +478,9 @@ int handle_common_events_by_feature(struct event * event)
     if (handle_av_short_for_menu(event) == 0) return 0;
     #endif
 
+    /* before module_keys, to be able to process long-press SET/Q events and forward them to modules/scripts */
+    if (handle_longpress_events(event) == 0) return 0;
+
     #ifdef FEATURE_MAGIC_ZOOM
     /* must be before handle_module_keys to allow zoom while recording raw,
      * but also let the raw recording modules block the zoom keys to avoid crashing */
@@ -506,8 +512,6 @@ int handle_common_events_by_feature(struct event * event)
     #ifdef CONFIG_DIGIC_POKE
     if (handle_digic_poke(event) == 0) return 0;
     #endif
-    
-    spy_event(event); // for debugging only
     
     #ifdef FEATURE_MLU_HANDHELD
     if (handle_mlu_handheld(event) == 0) return 0;
@@ -651,13 +655,21 @@ char* get_info_button_name() { return INFO_BTN_NAME; }
 
 void gui_uilock(int what)
 {
+    int old = icu_uilock;
+
+    if ((icu_uilock & 0xFFFF) != UILOCK_NONE && what != UILOCK_NONE)
+    {
+        /* this is needed when going from some locked state to a different locked state */
+        int unlocked = UILOCK_REQUEST | (UILOCK_NONE & 0xFFFF);
+        prop_request_change_wait(PROP_ICU_UILOCK, &unlocked, 4, 2000);
+    }
+
     /* change just the lower 16 bits, to ensure correct requests;
      * the higher bits appear to be for requesting the change */
-    int unlocked = UILOCK_REQUEST | (UILOCK_NONE & 0xFFFF);
-    prop_request_change_wait(PROP_ICU_UILOCK, &unlocked, 4, 2000);
-    
     what = UILOCK_REQUEST | (what & 0xFFFF);
     prop_request_change_wait(PROP_ICU_UILOCK, &what, 4, 2000);
+
+    printf("UILock: %08x -> %08x => %08x %s\n", old, what, icu_uilock, (icu_uilock & 0xFFFF) != (what & 0xFFFF) ? "(!!!)" : "");
 }
 
 void fake_simple_button(int bgmt_code)
@@ -665,6 +677,7 @@ void fake_simple_button(int bgmt_code)
     if ((icu_uilock & 0xFFFF) && (bgmt_code >= 0))
     {
         // Canon events may not be safe to send when UI is locked; ML events are (and should be sent)
+        printf("fake_simple_button(%d): UI locked (%x)\n", bgmt_code, icu_uilock);
         return;
     }
 
@@ -696,4 +709,138 @@ int get_gui_mode()
 {
     /* this is GUIMode from SetGUIRequestMode */
     return CURRENT_GUI_MODE;
+}
+
+/* enter PLAY mode */
+void enter_play_mode()
+{
+    if (PLAY_MODE) return;
+    
+    /* request new mode */
+    SetGUIRequestMode(GUIMODE_PLAY);
+
+    /* wait up to 2 seconds to enter the PLAY mode */
+    for (int i = 0; i < 20 && !PLAY_MODE; i++)
+    {
+        msleep(100);
+    }
+
+    /* also wait for display to come up, up to 1 second */
+    for (int i = 0; i < 10 && !DISPLAY_IS_ON; i++)
+    {
+        msleep(100);
+    }
+    
+    /* wait a little extra for the new mode to settle */
+    msleep(500);
+}
+
+/* fixme: duplicate code (similar to enter_play_mode) */
+void enter_menu_mode()
+{
+    if (MENU_MODE) return;
+    
+    /* request new mode */
+    SetGUIRequestMode(GUIMODE_MENU);
+
+    /* wait up to 2 seconds to enter the MENU mode */
+    for (int i = 0; i < 20 && !MENU_MODE; i++)
+    {
+        msleep(100);
+    }
+
+    /* also wait for display to come up, up to 1 second */
+    for (int i = 0; i < 10 && !DISPLAY_IS_ON; i++)
+    {
+        msleep(100);
+    }
+    
+    /* wait a little extra for the new mode to settle */
+    msleep(500);
+}
+
+/* exit from PLAY/QR/MENU modes (to LiveView or plain photo mode) */
+void exit_play_qr_menu_mode()
+{
+    /* request new mode */
+    SetGUIRequestMode(0);
+
+    /* wait up to 2 seconds */
+    for (int i = 0; i < 20 && PLAY_OR_QR_MODE; i++)
+    {
+        msleep(100);
+    }
+
+    /* if in LiveView, wait for the first frame */
+    if (lv)
+    {
+        wait_lv_frames(1);
+    }
+
+    /* wait for any remaining GUI stuff to settle */
+    for (int i = 0; i < 10 && !display_idle(); i++)
+    {
+        msleep(100);
+    }
+
+    /* also wait for display to come up, up to 1 second */
+    for (int i = 0; i < 10 && !DISPLAY_IS_ON; i++)
+    {
+        msleep(100);
+    }
+}
+
+/* same as above, but only from PLAY or QR modes */
+void exit_play_qr_mode()
+{
+    /* not there? */
+    if (!PLAY_OR_QR_MODE) return;
+    exit_play_qr_menu_mode();
+}
+
+/* same as above, but only from MENU mode */
+void exit_menu_mode()
+{
+    /* not there? */
+    if (!MENU_MODE) return;
+    exit_play_qr_menu_mode();
+}
+
+int is_pure_play_photo_mode() // no other dialogs active (such as delete)
+{
+    if (!PLAY_MODE) return 0;
+#ifdef CONFIG_5DC
+    return 1;
+#else
+    extern thunk PlayMain_handler;
+    return (intptr_t)get_current_dialog_handler() == (intptr_t)&PlayMain_handler;
+#endif
+}
+
+int is_pure_play_movie_mode() // no other dialogs active (such as delete)
+{
+    if (!PLAY_MODE) return 0;
+#ifdef CONFIG_VXWORKS
+    return 0;
+#else
+    extern thunk PlayMovieGuideApp_handler;
+    return (intptr_t)get_current_dialog_handler() == (intptr_t)&PlayMovieGuideApp_handler;
+#endif
+}
+
+int is_pure_play_photo_or_movie_mode() { return is_pure_play_photo_mode() || is_pure_play_movie_mode(); }
+
+int is_play_or_qr_mode()
+{
+    return PLAY_OR_QR_MODE;
+}
+
+int is_play_mode()
+{
+    return PLAY_MODE;
+}
+
+int is_menu_mode()
+{
+    return MENU_MODE;
 }

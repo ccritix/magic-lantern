@@ -854,6 +854,7 @@ static MENU_UPDATE_FUNC(raw_zebra_update)
 }
 #endif
 
+/* used for auto bracketing */
 int get_under_and_over_exposure(int thr_lo, int thr_hi, int* under, int* over)
 {
     *under = -1;
@@ -865,16 +866,16 @@ int get_under_and_over_exposure(int thr_lo, int thr_hi, int* under, int* over)
     *over = 0;
     int total = 0;
     void* vram = lv->vram;
-    int x,y;
-    for( y = os.y0 ; y < os.y_max; y ++ )
+
+    bmp_draw_rect(COLOR_GRAY(50), os.x0 + 20, os.y0 + 20, os.x_ex - 40, os.y_ex - 40);
+    for (int y = os.y0 + 20 ; y < os.y_max - 20; y++)
     {
         uint32_t * const v_row = (uint32_t*)( vram + BM2LV_R(y) );
-        for( x = os.x0 ; x < os.x_max ; x += 2 )
+        for (int x = os.x0 + 20 ; x < os.x_max - 20; x += 2)
         {
             uint32_t pixel = v_row[x >> 1];
             
             int Y, R, G, B;
-            //~ uyvy2yrgb(pixel, &Y, &R, &G, &B);
             COMPUTE_UYVY2YRGB(pixel, Y, R, G, B);
             
             int M = MAX(R,G);
@@ -2686,7 +2687,6 @@ struct menu_entry zebra_menus[] = {
         .select_Q   = toggle_disp_mode_menu,
         .update    = global_draw_display,
         .icon_type = IT_DICE_OFF,
-        .edit_mode = EM_MANY_VALUES,
         .choices = (const char *[]) {"OFF", "LiveView", "QuickReview", "ON, all modes"},
         .help = "Enable/disable ML overlay graphics (zebra, cropmarks...)",
         //.essential = FOR_LIVEVIEW,
@@ -4525,10 +4525,6 @@ static void make_overlay()
 
 static void show_overlay()
 {
-    //~ bvram_mirror_init();
-    //~ struct vram_info * vram = get_yuv422_vram();
-    //~ uint8_t * const lvram = vram->vram;
-    //~ int lvpitch = YUV422_LV_PITCH;
     get_yuv422_vram();
     uint8_t * const bvram = bmp_vram_real();
     if (!bvram) return;
@@ -4536,42 +4532,38 @@ static void show_overlay()
     clrscr();
 
     int size = 0;
-    void * tmp = read_entire_file("ML/DATA/overlay.dat", &size);
-    if (tmp)
+    void * overlay = read_entire_file("ML/DATA/overlay.dat", &size);
+    if (!overlay)
     {
-        ASSERT(size == BVRAM_MIRROR_SIZE);
-        memcpy(bvram_mirror, tmp, BVRAM_MIRROR_SIZE);
-        free(tmp); tmp = NULL;
+        ASSERT(0);
+        return;
     }
 
     for (int y = os.y0; y < os.y_max; y++)
     {
         int yn = BM2N_Y(y);
         int ym = yn - (int)transparent_overlay_offy; // normalized with offset applied
-        //~ int k;
-        //~ uint16_t * const v_row = (uint16_t*)( lvram + y * lvpitch );        // 1 pixel
-        uint8_t * const b_row = (uint8_t*)( bvram + y * BMPPITCH);          // 1 pixel
-        uint8_t * const m_row = (uint8_t*)( bvram_mirror + ym * BMPPITCH);   // 1 pixel
+        uint8_t * const b_row = (uint8_t*)( bvram + y * BMPPITCH);     // 1 pixel
+        uint8_t * const m_row = (uint8_t*)( overlay + ym * BMPPITCH);  // 1 pixel
         uint8_t* bp;  // through bmp vram
-        uint8_t* mp;  //through bmp vram mirror
+        uint8_t* mp;  // through our overlay
         if (ym < 0 || ym > 480) continue;
-        //~ int offm = 0;
-        //~ int offb = 0;
-        //~ if (transparent_overlay == 2) offm = 720/2;
-        //~ if (transparent_overlay == 3) offb = 720/2;
+
         for (int x = os.x0; x < os.x_max; x++)
         {
             int xn = BM2N_X(x);
             int xm = xn - (int)transparent_overlay_offx;
             bp = b_row + x;
             mp = m_row + xm;
-            if (((x+y) % 2) && xm >= 0 && xm <= 720)
+            if (((x+y) % 2) && xm >= 0 && xm < 720)
                 *bp = *mp;
         }
     }
-    
+
     bvram_mirror_clear();
     afframe_clr_dirty();
+
+    free(overlay);
 }
 
 static void transparent_overlay_from_play()

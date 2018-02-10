@@ -22,6 +22,7 @@
  */
 
 #include "dryos.h"
+#include "math.h"
 #include "version.h"
 #include "bmp.h"
 #include "gui.h"
@@ -38,10 +39,6 @@
 #include "debug.h"
 #include "lvinfo.h"
 #include "powersave.h"
-
-#ifdef CONFIG_QEMU
-#define GUIMODE_ML_MENU 0
-#endif
 
 #define CONFIG_MENU_ICONS
 //~ #define CONFIG_MENU_DIM_HACKS
@@ -274,10 +271,6 @@ int beta_should_warn() { return 0; }
 CONFIG_INT("beta.warn", beta_warn, 0);
 static int get_beta_timestamp()
 {
-    #ifdef CONFIG_QEMU
-    return 1;
-    #endif
-    
     struct tm now;
     LoadCalendarFromRTC(&now);
     return now.tm_mday;
@@ -445,8 +438,36 @@ struct menu * menu_get_root() {
   return menus;
 }
 
+// 1-2-5 series - https://en.wikipedia.org/wiki/Preferred_number#1-2-5_series
+static int round_to_125(int val)
+{
+    if (val < 0)
+    {
+        return -round_to_125(-val);
+    }
+    
+    int mag = 1;
+    while (val >= 30)
+    {
+        val /= 10;
+        mag *= 10;
+    }
+    
+    if (val <= 2)
+        {}
+    else if (val <= 3)
+        val = 2;
+    else if (val <= 7)
+        val = 5;
+    else if (val <= 14)
+        val = 10;
+    else
+        val = 20;
+    
+    return val * mag;
+}
+
 // ISO 3 R10": 10, 12, 15, 20, 25, 30, 40, 50, 60, 80, 100
-/*
 static int round_to_R10(int val)
 {
     if (val < 0)
@@ -477,7 +498,7 @@ static int round_to_R10(int val)
         val = 30;
     
     return val * mag;
-}*/
+}
 
 // ISO 3 R20": 10, 11, 12, 14, 15, 18, 20, 22, 25, 28, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100
 static int round_to_R20(int val)
@@ -526,7 +547,13 @@ static int round_to_R20(int val)
     return val * mag;
 }
 
-static void menu_numeric_toggle_R20(int* val, int delta, int min, int max)
+static int round_to_pow2(int val)
+{
+    int stops = (int)roundf(log2f(val));
+    return (int)roundf(powf(2, stops));
+}
+
+static void menu_numeric_toggle_rounded(int* val, int delta, int min, int max, int (*round_func)(int))
 {
     ASSERT(IS_ML_PTR(val));
 
@@ -538,19 +565,39 @@ static void menu_numeric_toggle_R20(int* val, int delta, int min, int max)
         v = max;
     else
     {
-        int v0 = round_to_R20(v);
+        int v0 = round_func(v);
         if (v0 != v && SGN(v0 - v) == SGN(delta)) // did we round in the correct direction? if so, stop here
         {
             *val = v0;
             return;
         }
         // slow, but works (fast enough for numbers like 5000)
-        while (v0 == round_to_R20(v))
+        while (v0 == round_func(v))
             v += delta;
-        v = COERCE(round_to_R20(v), min, max);
+        v = COERCE(round_func(v), min, max);
     }
     
     set_config_var_ptr(val, v);
+}
+
+static void menu_numeric_toggle_R10(int* val, int delta, int min, int max)
+{
+    return menu_numeric_toggle_rounded(val, delta, min, max, round_to_R10);
+}
+
+static void menu_numeric_toggle_R20(int* val, int delta, int min, int max)
+{
+    return menu_numeric_toggle_rounded(val, delta, min, max, round_to_R20);
+}
+
+static void menu_numeric_toggle_125(int* val, int delta, int min, int max)
+{
+    return menu_numeric_toggle_rounded(val, delta, min, max, round_to_125);
+}
+
+static void menu_numeric_toggle_pow2(int* val, int delta, int min, int max)
+{
+    return menu_numeric_toggle_rounded(val, delta, min, max, round_to_pow2);
 }
 
 static void menu_numeric_toggle_long_range(int* val, int delta, int min, int max)
@@ -587,30 +634,46 @@ static void menu_numeric_toggle_long_range(int* val, int delta, int min, int max
 }
 
 /* for editing with caret */
-static int get_delta(struct menu_entry * entry, int sign)
+static int get_caret_delta(struct menu_entry * entry, int sign)
 {
     if(!EDIT_OR_TRANSPARENT)
-        return sign;
-    else if(entry->unit == UNIT_DEC)
-        return sign * powi(10, caret_position);
-    else if(entry->unit == UNIT_HEX)
-        return sign * powi(16, caret_position);
-    else if(entry->unit == UNIT_TIME)
     {
-        if(caret_position == 2) return sign * 10;
-        else if(caret_position == 4) return sign * 60;
-        else if(caret_position == 5) return sign * 600;
-        else if(caret_position == 7) return sign * 3600;
-        else if(caret_position == 8) return sign * 36000;
+        return sign;
     }
-    return sign;
+
+    switch (entry->unit)
+    {
+        case UNIT_DEC:
+        case UNIT_TIME_MS:
+        case UNIT_TIME_US:
+        {
+            return sign * powi(10, caret_position);
+        }
+
+        case UNIT_HEX:
+        {
+            return sign * powi(16, caret_position);
+        }
+
+        case UNIT_TIME:
+        {
+            const int increments[] = { 0, 1, 10, 0, 60, 600, 0, 3600, 36000 };
+            return sign * increments[caret_position];
+        }
+
+        default:
+        {
+            return sign;
+        }
+    }
 }
 
 static int uses_caret_editing(struct menu_entry * entry)
 {
     return 
         entry->select == 0 &&   /* caret editing requires its own toggle logic */
-        (entry->unit == UNIT_DEC || entry->unit == UNIT_HEX  || entry->unit == UNIT_TIME);  /* only these caret edit modes are supported */
+        (entry->unit == UNIT_DEC || entry->unit == UNIT_HEX  || entry->unit == UNIT_TIME ||
+         entry->unit == UNIT_TIME_MS || entry->unit == UNIT_TIME_US);  /* only these caret edit modes are supported */
 }
 
 static int editing_with_caret(struct menu_entry * entry)
@@ -620,9 +683,9 @@ static int editing_with_caret(struct menu_entry * entry)
 
 static void caret_move(struct menu_entry * entry, int delta)
 {
-    int max = (entry->unit == UNIT_HEX)  ? log2i(MAX(ABS(entry->max),ABS(entry->min)))/4 :
-              (entry->unit == UNIT_DEC)  ? log10i(MAX(ABS(entry->max),ABS(entry->min))/2)  :
-              (entry->unit == UNIT_TIME) ? 7 : 0;
+    int max = (entry->unit == UNIT_TIME) ? 7 :
+              (entry->unit == UNIT_HEX)  ? log2i(MAX(ABS(entry->max),ABS(entry->min)))/4
+                                         : log10i(MAX(ABS(entry->max),ABS(entry->min))/2) ;
 
     menu_numeric_toggle(&caret_position, delta, 0, max);
 
@@ -655,24 +718,44 @@ void menu_numeric_toggle_time(int * val, int delta, int min, int max)
     set_config_var_ptr(val, new_val);
 }
 
-static void menu_numeric_toggle_fast(int* val, int delta, int min, int max, int is_time, int ignore_timing)
+static void menu_numeric_toggle_fast(int* val, int delta, int min, int max, int unit, int edit_mode, int ignore_timing)
 {
     ASSERT(IS_ML_PTR(val));
     
     static int prev_t = 0;
     static int prev_delta = 1000;
     int t = get_ms_clock_value();
-    
-    if(is_time)
+
+    if (unit == UNIT_TIME)
     {
         menu_numeric_toggle_time(val, delta, min, max);
+    }
+    else if (edit_mode & EM_ROUND_ISO_R10)
+    {
+        menu_numeric_toggle_R10(val, delta, min, max);
+    }
+    else if (edit_mode & EM_ROUND_ISO_R20)
+    {
+        menu_numeric_toggle_R20(val, delta, min, max);
+    }
+    else if (edit_mode & EM_ROUND_1_2_5_10)
+    {
+        menu_numeric_toggle_125(val, delta, min, max);
+    }
+    else if (edit_mode & EM_ROUND_POWER_OF_2)
+    {
+        menu_numeric_toggle_pow2(val, delta, min, max);
     }
     else if (max - min > 20)
     {
         if (t - prev_t < 200 && prev_delta < 200 && !ignore_timing)
+        {
             menu_numeric_toggle_R20(val, delta, min, max);
+        }
         else
+        {
             menu_numeric_toggle_long_range(val, delta, min, max);
+        }
     }
     else
     {
@@ -2233,9 +2316,10 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
     /* all submenu entries depend on the master entry, if any */
     if (IS_SUBMENU(entry->parent_menu))
     {
-        if (entry->parent && IS_ML_PTR(entry->parent->priv))
+        if (entry->parent && IS_ML_PTR(entry->parent->priv) &&  /* does it have a parent with a valid priv field? */
+            entry->parent->priv != entry->priv)         /* priv different from our own? (cannot depend on itself) */
         {
-            if (!MENU_INT(entry->parent))
+            if (!MENU_INT(entry->parent))   /* is the master menu entry disabled? if so, gray out the entire submenu */
             {
                 int is_plural = entry->parent->name[strlen(entry->parent->name)-1] == 's';
                 snprintf(warning, MENU_MAX_WARNING_LEN, "%s %s disabled.", entry->parent->name, is_plural ? "are" : "is");
@@ -2271,7 +2355,7 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
         //~ snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires ExpSim disabled.");
     else if (DEPENDS_ON(DEP_MANUAL_FOCUS) && !is_manual_focus())
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires manual focus.");
-    else if (DEPENDS_ON(DEP_CHIPPED_LENS) && !lens_info.name[0])
+    else if (DEPENDS_ON(DEP_CHIPPED_LENS) && !lens_info.lens_exists)
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires a chipped (electronic) lens.");
     else if (DEPENDS_ON(DEP_M_MODE) && shooting_mode != SHOOTMODE_M)
         snprintf(warning, MENU_MAX_WARNING_LEN, "This feature requires Manual (M) mode.");
@@ -2376,7 +2460,9 @@ entry_default_display_info(
         STR_APPEND(value, "%s", entry->choices[SELECTED_INDEX(entry)]);
     }
 
-    else if (IS_ML_PTR(entry->priv) && entry->select != run_in_separate_task)
+    else if (IS_ML_PTR(entry->priv) &&
+            entry->icon_type != IT_ACTION &&    /* no default value for actions */
+            entry->icon_type != IT_SUBMENU)     /* no default value for submenus */
     {
         if (entry->min == 0 && entry->max == 1)
         {
@@ -2460,8 +2546,25 @@ entry_default_display_info(
                     {
                         STR_APPEND(value,"%ds", MEM(entry->priv));
                     }
+                    break;                    
+                }
+                case UNIT_TIME_MS:
+                case UNIT_TIME_US:
+                {
+                    if(edit_mode)
+                    {
+                        char* zero_pad = "00000000";
+                        STR_APPEND(value, "%s%d", (zero_pad + COERCE(8-(caret_position - log10i(MEM(entry->priv))),0,8)), MEM(entry->priv));
+                    }
+                    else
+                    {
+                        if (entry->unit == UNIT_TIME_MS) {
+                            STR_APPEND(value, "%d ms", MEM(entry->priv));
+                        } else {
+                            STR_APPEND(value, "%d " SYM_MICRO "s", MEM(entry->priv));
+                        }
+                    }
                     break;
-                    
                 }
                 default:
                 {
@@ -4227,9 +4330,9 @@ menu_entry_select(
             /* .priv is a variable? in edit mode, increment according to caret_position, otherwise use exponential R20 toggle */
             /* exception: hex fields are never fast-toggled */
             if (editing_with_caret(entry) || (entry->unit == UNIT_HEX))
-                menu_numeric_toggle(entry->priv, get_delta(entry,-1), entry->min, entry->max);
+                menu_numeric_toggle(entry->priv, get_caret_delta(entry,-1), entry->min, entry->max);
             else
-                menu_numeric_toggle_fast(entry->priv, -1, entry->min, entry->max, entry->unit == UNIT_TIME, 0);
+                menu_numeric_toggle_fast(entry->priv, -1, entry->min, entry->max, entry->unit, entry->edit_mode, 0);
         }
         entry_used = 1;
     }
@@ -4281,12 +4384,23 @@ menu_entry_select(
                 edit_mode = 0;
                 submenu_level = MAX(submenu_level - 1, 0);
             }
-            else if (edit_mode) edit_mode = 0;
-            else if (menu_lv_transparent_mode && entry->icon_type != IT_ACTION) menu_lv_transparent_mode = 0;
-            else if (entry->edit_mode == EM_MANY_VALUES) edit_mode = !edit_mode;
-            else if (entry->edit_mode == EM_MANY_VALUES_LV && lv) menu_lv_transparent_mode = !menu_lv_transparent_mode;
-            else if (entry->edit_mode == EM_MANY_VALUES_LV && !lv) edit_mode = !edit_mode;
-            else if (SHOULD_USE_EDIT_MODE(entry)) edit_mode = !edit_mode;
+            else if (edit_mode)
+            {
+                edit_mode = 0;
+            }
+            else if (menu_lv_transparent_mode && entry->icon_type != IT_ACTION)
+            {
+                menu_lv_transparent_mode = 0;
+            }
+            else if (entry->edit_mode & EM_SHOW_LIVEVIEW)
+            {
+                if (lv) menu_lv_transparent_mode = !menu_lv_transparent_mode;
+                else edit_mode = !edit_mode;
+            }
+            else if (SHOULD_USE_EDIT_MODE(entry))
+            {
+                edit_mode = !edit_mode;
+            }
             else if (entry->select)
             {
                 entry->select( entry->priv, 1);
@@ -4294,7 +4408,7 @@ menu_entry_select(
             }
             else if IS_ML_PTR(entry->priv)
             {
-                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit == UNIT_TIME, 0);
+                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit, entry->edit_mode, 0);
                 entry_used = 1;
             }
         }
@@ -4308,9 +4422,9 @@ menu_entry_select(
         else if (IS_ML_PTR(entry->priv))
         {
             if (editing_with_caret(entry) || (entry->unit == UNIT_HEX))
-                menu_numeric_toggle(entry->priv, get_delta(entry,1), entry->min, entry->max);
+                menu_numeric_toggle(entry->priv, get_caret_delta(entry,1), entry->min, entry->max);
             else
-                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit == UNIT_TIME, 0);
+                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit, entry->edit_mode, 0);
         }
 
         entry_used = 1;
@@ -5733,74 +5847,142 @@ static void menu_show_version(void)
         build_user);
 }
 
-#ifdef CONFIG_JOY_CENTER_ACTIONS
-static int joystick_pressed = 0;
-static int joystick_longpress = 0;
-static int joy_center_action_disabled = 0;
+struct longpress
+{
+    int pressed;            /* boolean - is the key still pressed? */
+    int count;              /* number of iterations since it was pressed */
+    int action_disabled;    /* boolean - if something unexpected happened (such as joystick direction press while holding the center button), skip the long-press event */
+    int long_btn_press;     /* what button code to send for a long press event */
+    int long_btn_unpress;   /* optional: unpress code */
+    int short_btn_press;    /* optional: what button code to send for a short press event */
+    int short_btn_unpress;  /* optional: unpress code */
+    int pos_x;              /* where to draw the animated indicator */
+    int pos_y;              /* coords: BMP space (0,0 - 720,480 on most models) */
+};
+
+static void draw_longpress_indicator(struct longpress * longpress)
+{
+    /* longpress->count goes from 0 to 25; if < 15; it's considered a short press */
+    /* in practice, it seems to behave as if were < 13, figure out why */
+
+    int n = longpress->count / 2;
+    int x0 = longpress->pos_x;
+    int y0 = longpress->pos_y;
+    int pressed = longpress->pressed;
+
+    for (int i = 0; i < MIN(n, 12); i++)
+    {
+        /* a = 360 * i / 12 * pi / 180 - pi/2; x = round(15 * cos(a)); y = round(15 * sin(a)) */
+        const int8_t sin_table[12] = { -15, -13, -8, 0, 7, 13, 15, 13, 8, 0, -8, -13 };
+        int x = x0 + sin_table[MOD(i+3, 12)];
+        int y = y0 + sin_table[MOD(i, 12)];
+
+        int color = (!pressed)  ? COLOR_GRAY(50) :  /* button just released */
+                    (n >= 25/2) ? COLOR_ORANGE   :  /* long press event fired */
+                    (i <= 12/2) ? COLOR_GREEN1   :  /* interpreted short press if released */
+                                  COLOR_YELLOW   ;  /* on the way to long press */
+        fill_circle(x, y, 2, color);
+    }
+}
 
 /* called from GUI timers */
-static void joystick_longpress_check()
+static void longpress_check(int timer, void * opaque)
 {
-    if (joy_center_action_disabled)
+    struct longpress * longpress = opaque;
+
+    if (longpress->action_disabled)
     {
+        /* erase the indicator and stop here */
+        redraw();
         return;
     }
     
-    if (joystick_pressed)
+    if (longpress->pressed)
     {
-        joystick_longpress++;
-        delayed_call(100, joystick_longpress_check, 0);
+        longpress->count++;
+        delayed_call(20, longpress_check, opaque);
     }
-    
-    //~ bmp_printf(FONT_MED, 50, 50, "%d ", joystick_longpress);
-    
-    if (joystick_longpress == 5)
+    else
     {
-        /* long press opens ML menu or submenus */
-        fake_simple_button(MLEV_JOYSTICK_LONG);
-        
+        /* erase the indicator and keep processing */
+        redraw();
+    }
+
+    draw_longpress_indicator(longpress);
+
+    if (longpress->count == 25)
+    {
+        /* long press (500ms) */
+        ASSERT(longpress->long_btn_press);
+        fake_simple_button(longpress->long_btn_press);
+
+        /* optional unpress event */
+        if (longpress->long_btn_unpress)
+        {
+            fake_simple_button(longpress->long_btn_unpress);
+        }
+
         /* make sure it won't re-trigger */
-        joystick_longpress++;
+        longpress->count++;
     }
-    else if (joystick_longpress < 2 && !joystick_pressed && gui_menu_shown())
+    else if (longpress->count < 15 && !longpress->pressed)
     {
-        /* short press in menu => do a regular SET */
-        fake_simple_button(BGMT_PRESS_SET);
-        fake_simple_button(BGMT_UNPRESS_UDLR);
+        /* optional short press ( < 300 ms) */
+        if (longpress->short_btn_press)
+        {
+            fake_simple_button(longpress->short_btn_press);
+        }
+
+        /* optional unpress event */
+        if (longpress->short_btn_unpress)
+        {
+            fake_simple_button(longpress->long_btn_unpress);
+        }
     }
 }
+
+#ifdef CONFIG_LONG_PRESS_JOYSTICK_MENU
+static struct longpress joystick_longpress = {
+    .long_btn_press     = MLEV_JOYSTICK_LONG,   /* long press (500ms) opens ML menu */
+    .short_btn_press    = BGMT_PRESS_SET,       /* short press is the same as SET in ML menu */
+    #ifdef BGMT_UNPRESS_UDLR
+    .short_btn_unpress  = BGMT_UNPRESS_UDLR,    /* fixme: still needed? */
+    #endif
+    .pos_x = 690,   /* both ML menu and Q screen; updated on trigger */
+    .pos_y = 400,
+};
+#endif
+
+#ifdef CONFIG_LONG_PRESS_SET_MENU
+static struct longpress set_longpress = {
+    .long_btn_press     = BGMT_Q,               /* long press (500ms) is interpreted as Q */
+    .short_btn_press    = BGMT_PRESS_SET,       /* short press is interpreted as SET */
+    #ifdef BGMT_UNPRESS_UDLR
+    .short_btn_unpress  = BGMT_UNPRESS_UDLR,    /* fixme: UNPRESS_SET will be sent to the underlying Canon menu */
+    #endif
+    .pos_x = 690,
+    .pos_y = 400,
+};
 #endif
 
 #ifdef CONFIG_EOSM
-static int erase_pressed = 0;
-static int erase_longpress = 0;
+static struct longpress erase_longpress = {
+    .long_btn_press     = BGMT_TRASH,           /* long press (500ms) opens ML menu */
+    .short_btn_press    = BGMT_PRESS_DOWN,      /* short press => do a regular "down/erase" */
+    .short_btn_unpress  = BGMT_UNPRESS_DOWN,
+    .pos_x = 680,   /* in LiveView */
+    .pos_y = 350,   /* above ExpSim */
+};
+#endif
 
-/* called from GUI timers */
-static void erase_longpress_check()
-{
-    if (erase_pressed)
-    {
-        erase_longpress++;
-        delayed_call(100, erase_longpress_check, 0);
-    }
-    
-    //~ bmp_printf(FONT_MED, 50, 50, "%d ", erase_longpress);
-    
-    if (erase_longpress == 5)
-    {
-        /* long press opens ML menu */
-        fake_simple_button(BGMT_TRASH);
-        
-        /* make sure it won't re-trigger */
-        erase_longpress++;
-    }
-    else if (erase_longpress <= 2 && !erase_pressed)
-    {
-        /* short press => do a regular "down/erase" */
-        fake_simple_button(BGMT_PRESS_DOWN);
-        fake_simple_button(BGMT_UNPRESS_DOWN);
-    }
-}
+#ifdef CONFIG_100D
+static struct longpress qset_longpress = {
+    .long_btn_press     = BGMT_Q_SET,           /* long press opens Q-menu */
+    .short_btn_press    = BGMT_PRESS_SET,       /* short press => fake SET button (centering AF Frame in LV etc...) */
+    .short_btn_unpress  = BGMT_UNPRESS_SET,
+    .pos_x = 670,   /* outside ML menu, on the Q screen */
+    .pos_y = 343,
+};
 #endif
 
 // this should work on most cameras
@@ -5814,6 +5996,11 @@ int handle_ml_menu_erase(struct event * event)
         #endif
        0)
     {
+        #if defined(CONFIG_QEMU) && (defined(CONFIG_EOSM) || defined(CONFIG_EOSM2))
+        /* allow opening ML menu from anywhere, since the emulation doesn't enter LiveView */
+        int gui_state = GUISTATE_IDLE;
+        #endif
+
         if (gui_state == GUISTATE_IDLE || (gui_menu_shown() && !beta_should_warn()))
         {
             give_semaphore( gui_sem );
@@ -5830,45 +6017,94 @@ int handle_ml_menu_erase(struct event * event)
             return 0;
         }
     }
-    
-    
-#ifdef CONFIG_JOY_CENTER_ACTIONS
+
+    return 1;
+}
+
+int handle_longpress_events(struct event * event)
+{    
+#ifdef CONFIG_LONG_PRESS_JOYSTICK_MENU
     /* also trigger menu by a long joystick press */
-    if (event->param == BGMT_JOY_CENTER)
+    switch (event->param)
     {
-        if (joy_center_action_disabled)
+        #ifdef BGMT_JOY_CENTER
+        case BGMT_JOY_CENTER:
         {
-            return gui_menu_shown() ? 0 : 1;
+            if (joystick_longpress.action_disabled)
+            {
+                return gui_menu_shown() ? 0 : 1;
+            }
+
+            if (is_submenu_or_edit_mode_active())
+            {
+                /* in submenus, a short press goes back to main menu (since you can edit with left and right) */
+                fake_simple_button(MLEV_JOYSTICK_LONG);
+                return 0;
+            }
+            else if (gui_state == GUISTATE_IDLE || gui_state == GUISTATE_QMENU || gui_menu_shown())
+            {
+                /* if we can make use of a long joystick press, check it */
+                joystick_longpress.pressed = 1;
+                joystick_longpress.count = 0;
+                joystick_longpress.pos_x = gui_menu_shown() ? 690 : 480;    /* checked 5D3, 5D2, 50D */
+                joystick_longpress.pos_y = gui_menu_shown() ? 400 : 420;    /* could be fine-tuned for each model, but... */
+                delayed_call(20, longpress_check, &joystick_longpress);
+                if (gui_menu_shown()) return 0;
+            }
+            break;
         }
-        
-        if (is_submenu_or_edit_mode_active())
+        #endif
+
+        #ifdef BGMT_UNPRESS_UDLR
+        case BGMT_UNPRESS_UDLR:
+        #endif
+        #ifdef BGMT_UNPRESS_LEFT
+        case BGMT_UNPRESS_LEFT:
+        case BGMT_UNPRESS_RIGHT:
+        case BGMT_UNPRESS_UP:
+        case BGMT_UNPRESS_DOWN:
+        #endif
         {
-            /* in submenus, a short press goes back to main menu (since you can edit with left and right) */
-            fake_simple_button(MLEV_JOYSTICK_LONG);
+            joystick_longpress.pressed = 0;
+            joystick_longpress.action_disabled = 0;
+            break;
+        }
+
+        case BGMT_PRESS_LEFT:
+        case BGMT_PRESS_RIGHT:
+        case BGMT_PRESS_DOWN:
+        case BGMT_PRESS_UP:
+        #ifdef BGMT_PRESS_UP_LEFT
+        case BGMT_PRESS_UP_LEFT:
+        case BGMT_PRESS_UP_RIGHT:
+        case BGMT_PRESS_DOWN_LEFT:
+        case BGMT_PRESS_DOWN_RIGHT:
+        #endif
+        {
+            joystick_longpress.action_disabled = 1;
+            break;
+        }
+    }
+#endif
+
+#ifdef CONFIG_LONG_PRESS_SET_MENU
+    /* open submenus with a long press on SET */
+    /* note: if you enable this, the regular actions will be triggered
+     * when de-pressing SET, which may feel a little sluggish */
+    if (event->param == BGMT_PRESS_SET && !IS_FAKE(event))
+    {
+        if (gui_menu_shown())
+        {
+            set_longpress.pressed = 1;
+            set_longpress.count = 0;
+            delayed_call(20, longpress_check, &set_longpress);
             return 0;
         }
-        else if (gui_state == GUISTATE_IDLE || gui_state == GUISTATE_QMENU || gui_menu_shown())
-        {
-            /* if we can make use of a long joystick press, check it */
-            joystick_pressed = 1;
-            joystick_longpress = 0;
-            delayed_call(100, joystick_longpress_check, 0);
-            if (gui_menu_shown()) return 0;
-        }
     }
-    else if (event->param == BGMT_UNPRESS_UDLR)
+    else if (event->param == BGMT_UNPRESS_SET)
     {
-        joystick_pressed = 0;
-        joy_center_action_disabled = 0;
+        set_longpress.pressed = 0;
     }
-    else if (event->param == BGMT_PRESS_LEFT      || event->param == BGMT_PRESS_RIGHT        ||
-             event->param == BGMT_PRESS_DOWN      || event->param == BGMT_PRESS_UP           ||
-             event->param == BGMT_PRESS_UP_LEFT   || event->param == BGMT_PRESS_UP_RIGHT     ||
-             event->param == BGMT_PRESS_DOWN_LEFT || event->param == BGMT_PRESS_DOWN_RIGHT)
-    {
-        joy_center_action_disabled = 1;
-    }
-
 #endif
 
 #ifdef CONFIG_EOSM
@@ -5877,15 +6113,61 @@ int handle_ml_menu_erase(struct event * event)
     {
         if (gui_state == GUISTATE_IDLE && !gui_menu_shown() && !IS_FAKE(event))
         {
-            erase_pressed = 1;
-            erase_longpress = 0;
-            delayed_call(100, erase_longpress_check, 0);
+            erase_longpress.pressed = 1;
+            erase_longpress.count = 0;
+            delayed_call(20, longpress_check, &erase_longpress);
             return 0;
         }
     }
     else if (event->param == BGMT_UNPRESS_DOWN)
     {
-        erase_pressed = 0;
+        erase_longpress.pressed = 0;
+    }
+#endif
+
+/* probably not the best place to implement this but let us avoid dirty hacks for now  */
+/* the combined q/set button needs to return 0 for a short press and we bring back     */
+/* its functionality of calling "Quick Control screen" by a long press.                */
+/* canon menu C.Fn IV / Assign SET button needs to be set to 0:Quick control screen    */
+/* unallowed options are 1,2,3,4,5 */
+/* to avoid unnecessary discussions we could check and override it at ML boot          */
+/* it will also accept a fake value */
+/* ----------------------------------------------------------------------------------- */
+/* this c.Fn does work for 100D on ML boot:                                            */
+/* int cfn_get_setbtn_assignment()                                                     */
+/* {                                                                                   */
+/*     return GetCFnData(0, 7);                                                        */
+/* }                                                                                   */
+/*                                                                                     */
+/* void cfn_set_setbtn(int value)                                                      */
+/* {                                                                                   */
+/*     SetCFnData(0, 7, value);                                                        */
+/* }                                                                                   */
+/* ---------------- below would move to boot-hack.c ---------------------------------- */
+/*  100D has six options from 0 to 5                                                   */
+/*  we check and assign the value to 0                                                 */
+/*  #if defined(CONFIG_100D)                                                           */
+/*     extern int cfn_get_setbtn_assignment();                                         */
+/*     void cfn_set_setbtn(int value);                                                 */
+/*     if(cfn_get_setbtn_assignment()!=0)                                              */
+/*         cfn_set_setbtn(0);                                                          */
+/*  #endif                                                                             */
+
+#ifdef CONFIG_100D
+    /* triggers Q-menu by a long press on the combined q/set button */
+    if (event->param == BGMT_Q_SET)
+    {
+        if (gui_state == GUISTATE_IDLE && !gui_menu_shown() && !IS_FAKE(event))
+        {
+            qset_longpress.pressed = 1;
+            qset_longpress.count = 0;
+            delayed_call(20, longpress_check, &qset_longpress);
+            return 0;
+        }
+    }
+    else if (event->param == BGMT_UNPRESS_SET)
+    {
+        qset_longpress.pressed = 0;
     }
 #endif
 
@@ -5924,11 +6206,7 @@ int handle_quick_access_menu_items(struct event * event)
 /* only for cameras with a native (not emulated) Q button */
 #if defined(BGMT_Q) && BGMT_Q > 0
     // quick access to some menu items
-    #ifdef BGMT_Q_ALT
-    if (event->param == BGMT_Q_ALT && !gui_menu_shown())
-    #else
     if (event->param == BGMT_Q && !gui_menu_shown())
-    #endif
     {
         #ifdef ISO_ADJUSTMENT_ACTIVE
         if (ISO_ADJUSTMENT_ACTIVE)
@@ -6341,7 +6619,7 @@ int menu_set_str_value_from_script(const char* name, const char* entry_name, cha
             if (entry->max - entry->min > 1000)
             {
                 /* for very long min-max ranges, don't try every single value */
-                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit == UNIT_TIME, 1);
+                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit, entry->edit_mode, 1);
             }
             else
             {

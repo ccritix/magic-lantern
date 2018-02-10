@@ -188,15 +188,24 @@ static int get_index_for_choices(struct menu_entry * menu_entry, const char * va
 /// Get the value of some existing ML menu entry.
 // @tparam string menu name of the parent menu ('Audio', 'Expo', 'Overlay', 'Shoot', 'Movie', etc)
 // @tparam string entry name of the menu entry
-// @tparam[opt] string as_string pass empty string "" to get the result as string (default is int)
+// @tparam[opt] ?int|string ret_type desired return type (optional, default string)
+// 
+// By default, this function returns a string (the current menu text).
+//
+// Pass any integer to get the result as int, i.e. the internal integer value for this menu entry.
+// Usually, 0 = OFF and 1 = ON, numeric values "just work", pickbox indices are from 0,
+// but each menu entry may define its own meaning - YMMV).
+//
+// You may also pass a string (for compatibility reasons); this will not change the default behavior.
 // @treturn ?int|string|nil the current value of the requested menu entry (nil if menu entry not found)
 // @function get
 static int luaCB_menu_get(lua_State * L)
 {
     LUA_PARAM_STRING(menu, 1);
     LUA_PARAM_STRING(entry, 2);
-    LUA_PARAM_STRING_OPTIONAL(as_string, 3, NULL);
-    
+
+    int as_string = lua_gettop(L) < 3 || lua_type(L, 3) == LUA_TSTRING;
+
     if (as_string)
     {
         struct menu_display_info info;
@@ -245,6 +254,7 @@ static int luaCB_menu_set(lua_State * L)
 }
 
 /// Open ML menu.
+// @function open
 static int luaCB_menu_open(lua_State * L)
 {
     gui_open_menu();
@@ -446,12 +456,14 @@ static int luaCB_menu_instance_index(lua_State * L)
     else if(!strcmp(key, "help2")) lua_pushstring(L, script_entry->menu_entry->help2);
     /// Advanced setting in submenus.
     // @tfield bool advanced
-    else if(!strcmp(key, "advanced")) lua_pushinteger(L, script_entry->menu_entry->advanced);
+    else if(!strcmp(key, "advanced")) lua_pushboolean(L, script_entry->menu_entry->advanced);
     /// Dependencies for this menu item.
     // If the dependecies are not met, the item will be greyed out and a warning will appear at the bottom of the screen.
     // @tfield int depends_on @{constants.DEPENDS_ON}
     else if(!strcmp(key, "depends_on")) lua_pushinteger(L, script_entry->menu_entry->depends_on);
     /// Editing mode for the menu item.
+    ///
+    /// Set to 1 to show the LiveView image while changing values in this menu.
     // @tfield int edit_mode
     else if(!strcmp(key, "edit_mode")) lua_pushinteger(L, script_entry->menu_entry->edit_mode);
     /// The type of icon to use for this menu item (override only if the default choice is not good).
@@ -548,7 +560,7 @@ static int luaCB_menu_instance_newindex(lua_State * L)
     else if(!strcmp(key, "name")) { LUA_PARAM_STRING(value, 3); set_string(&(script_entry->menu_entry->name),value); }
     else if(!strcmp(key, "help")) { LUA_PARAM_STRING(value, 3); set_string(&(script_entry->menu_entry->help),value); }
     else if(!strcmp(key, "help2")) { LUA_PARAM_STRING(value, 3); set_string(&(script_entry->menu_entry->help2),value); }
-    else if(!strcmp(key, "advanced")) { LUA_PARAM_INT(value, 3); script_entry->menu_entry->advanced = value; }
+    else if(!strcmp(key, "advanced")) { LUA_PARAM_BOOL(value, 3); script_entry->menu_entry->advanced = value; }
     else if(!strcmp(key, "depends_on")) { LUA_PARAM_INT(value, 3); script_entry->menu_entry->depends_on = value; }
     else if(!strcmp(key, "edit_mode")) { LUA_PARAM_INT(value, 3); script_entry->menu_entry->edit_mode = value; }
     else if(!strcmp(key, "icon_type")) { LUA_PARAM_INT(value, 3); script_entry->menu_entry->icon_type = value; }
@@ -670,7 +682,9 @@ static void load_menu_entry(lua_State * L, struct script_menu_entry * script_ent
     menu_entry->name = LUA_FIELD_STRING("name", default_name);
     menu_entry->help = LUA_FIELD_STRING("help", "");
     menu_entry->help2 = LUA_FIELD_STRING("help2", "");
+    menu_entry->advanced = LUA_FIELD_BOOL("advanced", 0);
     menu_entry->depends_on = LUA_FIELD_INT("depends_on", 0);
+    menu_entry->edit_mode = LUA_FIELD_INT("edit_mode", 0);
 
     /* menu items with a select function, that don't seem to be a value item or a submenu item,
      * are displayed as actions (ICON_TYPE.ACTION) by default */
@@ -688,7 +702,8 @@ static void load_menu_entry(lua_State * L, struct script_menu_entry * script_ent
     menu_entry->works_best_in = LUA_FIELD_INT("works_best_in", 0);
     menu_entry->submenu_width = LUA_FIELD_INT("submenu_width", 0);
     menu_entry->submenu_height = LUA_FIELD_INT("submenu_height", 0);
-    menu_entry->hidden = LUA_FIELD_BOOL("shidden", 0);
+    //menu_entry->selected = LUA_FIELD_BOOL("selected", 0);
+    menu_entry->shidden = LUA_FIELD_BOOL("hidden", 0);
     /// List of strings to display as choices in the menu item.
     // @tfield table choices
     if(lua_getfield(L, -1, "choices") == LUA_TTABLE)

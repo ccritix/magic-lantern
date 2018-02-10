@@ -14,6 +14,7 @@
 #include <bmp.h>
 #include <imath.h>
 #include <math.h>
+#include <zebra.h>
 
 #include "lua_common.h"
 
@@ -42,6 +43,8 @@ static int luaCB_fec_index(lua_State * L);
 static int luaCB_fec_newindex(lua_State * L);
 static int luaCB_fec_tostring(lua_State * L);
 
+static int luaCB_gui_index(lua_State * L);
+static int luaCB_gui_newindex(lua_State * L);
 
 static const char * lua_camera_shutter_fields[] =
 {
@@ -82,6 +85,17 @@ static const char * lua_camera_ec_fields[] =
 {
     "raw",
     "value",
+    NULL
+};
+
+static const char * lua_camera_gui_fields[] =
+{
+    "menu",
+    "play",
+    "play_photo",
+    "play_movie",
+    "qr",
+    "idle",
     NULL
 };
 
@@ -184,7 +198,7 @@ static int luaCB_camera_index(lua_State * L)
     /// Get the current camera mode, possible values defined in @{constants.MODE}.
     ///
     /// Note: for cameras without a dedicated video mode, it will return MODE.MOVIE
-    /// whenever your camera is configured to record videos.
+    /// whenever your camera is configured to record videos (usually from Canon menu).
     // @tfield int mode
     else if(!strcmp(key, "mode"))
     {
@@ -214,11 +228,22 @@ static int luaCB_camera_index(lua_State * L)
     /// TODO: Celsius.
     // @tfield int temperature readonly
     else if(!strcmp(key, "temperature")) lua_pushinteger(L, efic_temp);
-    /// Get the current Canon GUI state of the camera (PLAY, QR etc; see gui-common.h).
-    ///
-    /// TODO: add constants; expose functions to change GUI mode.
-    // @tfield int state readonly
-    else if(!strcmp(key, "state")) lua_pushinteger(L, gui_state);
+    /// Gets a @{gui} object that controls Canon GUI state (PLAY, MENU, QR, various dialogs)
+    // @tfield gui gui
+    else if(!strcmp(key, "gui"))
+    {
+        lua_newtable(L);
+        lua_newtable(L);
+        lua_pushcfunction(L, luaCB_gui_index);
+        lua_setfield(L, -2, "__index");
+        lua_pushcfunction(L, luaCB_gui_newindex);
+        lua_setfield(L, -2, "__newindex");
+        lua_pushcfunction(L, luaCB_pairs);
+        lua_setfield(L, -2, "__pairs");
+        lua_pushlightuserdata(L, lua_camera_gui_fields);
+        lua_setfield(L, -2, "fields");
+        lua_setmetatable(L, -2);
+    }
     else lua_rawget(L, 1);
     return 1;
 }
@@ -289,6 +314,7 @@ static int luaCB_camera_shoot(lua_State * L)
  
  Normally, camera.shoot() returns as soon as the next picture can be taken,
  while image compression and saving happen in background.
+ @function wait
  */
 static int luaCB_camera_wait(lua_State * L)
 {
@@ -366,7 +392,9 @@ static int luaCB_shutter_index(lua_State * L)
 //@function __tostring
 static int luaCB_shutter_tostring(lua_State * L)
 {
+    int old = cli();
     lua_pushstring(L, lens_format_shutter(lens_info.raw_shutter));
+    sei(old);
     return 1;
 }
 
@@ -494,19 +522,25 @@ static int luaCB_max_aperture_index(lua_State * L)
 //@function __tostring
 static int luaCB_aperture_tostring(lua_State * L)
 {
-    lua_pushfstring(L, lens_format_aperture(lens_info.raw_aperture));
+    int old = cli();
+    lua_pushstring(L, lens_format_aperture(lens_info.raw_aperture));
+    sei(old);
     return 1;
 }
 
 static int luaCB_min_aperture_tostring(lua_State * L)
 {
-    lua_pushfstring(L, lens_format_aperture(lens_info.raw_aperture_min));
+    int old = cli();
+    lua_pushstring(L, lens_format_aperture(lens_info.raw_aperture_min));
+    sei(old);
     return 1;
 }
 
 static int luaCB_max_aperture_tostring(lua_State * L)
 {
-    lua_pushfstring(L, lens_format_aperture(lens_info.raw_aperture_max));
+    int old = cli();
+    lua_pushstring(L, lens_format_aperture(lens_info.raw_aperture_max));
+    sei(old);
     return 1;
 }
 
@@ -568,14 +602,9 @@ static int luaCB_iso_index(lua_State * L)
 //@function __tostring
 static int luaCB_iso_tostring(lua_State * L)
 {
-    if(lens_info.raw_iso)
-    {
-        lua_pushfstring(L, "%d", raw2iso(lens_info.raw_iso));
-    }
-    else
-    {
-        lua_pushstring(L, "AutoISO");
-    }
+    int old = cli();
+    lua_pushstring(L, lens_format_iso(lens_info.raw_iso));
+    sei(old);
     return 1;
 }
 
@@ -695,6 +724,99 @@ static int luaCB_fec_newindex(lua_State * L)
     return 0;
 }
 
+/// Canon GUI controls (PLAY, MENU, QR and so on) 
+//@type gui
+
+static int luaCB_gui_index(lua_State * L)
+{
+    LUA_PARAM_STRING_OPTIONAL(key, 2, "");
+    /// Get/Set whether Canon menu is active or not.
+    ///
+    /// Can also be used to enter Canon menu: camera.gui.menu = true;
+    // @tfield bool menu
+    if(!strcmp(key,"menu")) lua_pushboolean(L, is_menu_mode());
+    /// Get/Set whether the camera is in PLAY mode (image or video review).
+    ///
+    /// Can also be used to enter PLAY mode: camera.gui.menu = true;
+    // @tfield bool play
+    else if(!strcmp(key,"play")) lua_pushboolean(L, is_play_mode());
+    /// Get whether the camera is in PLAY mode with a still photo selected.
+    // @tfield bool play_photo
+    else if(!strcmp(key,"play_photo")) lua_pushboolean(L, is_pure_play_photo_mode());
+    /// Get whether the camera is in PLAY mode with a H.264 movie selected.
+    // @tfield bool play_movie
+    else if(!strcmp(key,"play_movie")) lua_pushboolean(L, is_pure_play_movie_mode());
+    /// Get whether the camera is in QR (QuickReview) mode.
+    ///
+    /// QuickReview is the image review mode used right after taking a picture.
+    ///
+    /// It is not the same as the regular PLAY mode, even though they are similar at first sight (both are used for reviewing an image).
+    /// Important difference: in QR mode, ML has access to raw image data from the last captured picture; this data is not available in PLAY mode.
+    ///
+    // @tfield bool qr
+    else if(!strcmp(key,"qr")) lua_pushboolean(L, !is_play_mode() && is_play_or_qr_mode());
+    /// Get whether the camera is "idle" (in standby, with no other dialogs active)
+    // @tfield bool idle
+    else if(!strcmp(key,"idle")) lua_pushboolean(L, display_idle());
+    /// Get/Set current GUI mode from Canon (model-dependent).
+    /// 
+    /// On most models, 0 is "idle" (not exactly identical to what ML considers idle), 1 is PLAY, 2 is MENU.
+    // @tfield int mode
+    else if(!strcmp(key,"mode")) lua_pushinteger(L, get_gui_mode());
+    else lua_rawget(L, 1);
+    return 1;
+}
+
+static int luaCB_gui_tostring(lua_State * L)
+{
+    char status[50] = "";
+    if (is_menu_mode())                 { STR_APPEND(status, "MENU"); }
+    else if (is_play_mode())            { STR_APPEND(status, "PLAY"); }
+    else if (is_pure_play_photo_mode()) { STR_APPEND(status, "PLAY,PH"); }
+    else if (is_pure_play_movie_mode()) { STR_APPEND(status, "PLAY,MV"); }
+    else if (is_play_mode())            { STR_APPEND(status, "PLAY"); }
+    else
+    {
+        if (display_idle())             { STR_APPEND(status, "IDLE,"); }
+        else                            { STR_APPEND(status, "BUSY,"); }
+
+        if (is_movie_mode())            { STR_APPEND(status, "MV"); }
+        else if (lv)                    { STR_APPEND(status, "LV"); }
+        else                            { STR_APPEND(status, "PH"); }
+    }
+    lua_pushfstring(L, status);
+    return 0;
+}
+
+static int luaCB_gui_newindex(lua_State * L)
+{
+    LUA_PARAM_STRING_OPTIONAL(key, 2, "");
+    int status = 1;
+    if(!strcmp(key, "mode"))
+    {
+        LUA_PARAM_INT(value, 3);
+        SetGUIRequestMode(value);
+        msleep(500);
+        status = (get_gui_mode() == value);
+    }
+    else if(!strcmp(key, "play"))
+    {
+        LUA_PARAM_BOOL(value, 3);
+        if (value) enter_play_mode();
+        else exit_play_qr_mode();
+        status = (is_play_mode() == value);
+    }
+    else if(!strcmp(key, "menu"))
+    {
+        LUA_PARAM_BOOL(value, 3);
+        if (value) enter_menu_mode();
+        else exit_menu_mode();
+        status = (is_menu_mode() == value);
+    }
+    if(!status) return luaL_error(L, "set 'camera.gui.%s' failed", key);
+    return 0;
+}
+
 static const char * lua_camera_fields[] =
 {
     "shutter",
@@ -710,7 +832,7 @@ static const char * lua_camera_fields[] =
     "model_short",
     "firmware",
     "temperature",
-    "state",
+    "gui",
     NULL
 };
 
