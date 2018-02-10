@@ -88,6 +88,10 @@ static char last_error[70];
 static void check_cache_lock_still_needed();
 static int patch_sync_cache(int also_data);
 
+/* re-apply the ROM (cache) patches */
+/* call this after you have flushed the caches, for example */
+int _reapply_cache_patches();
+
 /* lock or unlock the cache as needed */
 static void cache_require(int lock)
 {
@@ -140,7 +144,7 @@ static int patch_sync_cache(int also_data)
     if (locked)
     {
         cache_lock();
-        err = reapply_cache_patches();
+        err = _reapply_cache_patches();
     }
     
     return err;
@@ -386,7 +390,7 @@ static int reapply_cache_patch(int p)
     return 0;
 }
 
-int reapply_cache_patches()
+int _reapply_cache_patches()
 {
 #ifdef CONFIG_QEMU
     return 0;
@@ -505,7 +509,7 @@ int unpatch_memory(uintptr_t _addr)
         /* unlock and re-apply only the remaining patches */
         cache_unlock();
         cache_lock();
-        err = reapply_cache_patches();
+        err = _reapply_cache_patches();
     }
     else if (patches[p].is_instruction)
     {
