@@ -10,7 +10,6 @@
 #include "beep.h"
 #include "bmp.h"
 #include "ml-cbr.h"
-#include "patch.h"
 
 #ifndef CONFIG_MODULES_MODEL_SYM
 #error Not defined file name with symbols
