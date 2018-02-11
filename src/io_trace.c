@@ -399,3 +399,35 @@ int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
 
     return len;
 }
+
+/* get timer value without logging it as MMIO access */
+uint32_t io_trace_get_timer()
+{
+    uint32_t old = cli();
+
+    if (!TRAP_INSTALLED)
+    {
+        uint32_t timer = MEM(0xC0242014);
+        sei(old);
+        return timer;
+    }
+
+    asm volatile (
+        /* enable full access to memory */
+        "MOV     r4, #0x00\n"
+        "MCR     p15, 0, r4, c6, c7, 0\n"
+        ::: "r4"
+    );
+
+    uint32_t timer = MEM(0xC0242014);
+
+    asm volatile (
+        /* re-enable memory protection */
+        "LDR    R4, protected_region\n"
+        "MCR    p15, 0, r4, c6, c7, 0\n"
+        ::: "r4"
+    );
+
+    sei(old);
+    return timer;
+}

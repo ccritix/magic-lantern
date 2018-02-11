@@ -9,3 +9,6 @@ uint32_t io_trace_log_get_index();
 /* note: msg_buffer and msg_size can be either used directly, or passed to debug_format_msg */
 /* extra care required if you want to mix these two methods */
 int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size);
+
+/* get timer value without logging it as MMIO access */
+uint32_t io_trace_get_timer();

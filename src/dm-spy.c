@@ -125,9 +125,11 @@ void debug_log_line(const char * str)
     *(struct debug_msg *)(buf + len) = (struct debug_msg) {
         .block_size     = block_size,
         .msg            = buf + len + sizeof(struct debug_msg),
-        .us_timer       = MEM(0xC0242014),      /* to be unwrapped later */
         #ifdef CONFIG_MMIO_TRACE
         .mmio_index     = io_trace_log_get_index() + 1,
+        .us_timer       = io_trace_get_timer(),
+        #else
+        .us_timer       = MEM(0xC0242014),      /* to be unwrapped later */
         #endif
     };
 
@@ -263,7 +265,6 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     *(struct debug_msg *)(buf + len) = (struct debug_msg) {
         .block_size     = block_size,
         .msg            = msg,
-        .us_timer       = MEM(0xC0242014),      /* to be unwrapped later */
         .class          = class,
         .level          = level,
         .pc             = lr - 4,               /* where we got called from */
@@ -271,6 +272,9 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
         .interrupt      = current_interrupt | MEM((uintptr_t)&current_task + 4),
         #ifdef CONFIG_MMIO_TRACE
         .mmio_index     = io_trace_log_get_index() + 1,
+        .us_timer       = io_trace_get_timer(),
+        #else
+        .us_timer       = MEM(0xC0242014),      /* to be unwrapped later */
         #endif
       //.edmac_index    = ... (TODO, edmac.mo) */
     };
