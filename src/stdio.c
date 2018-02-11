@@ -70,6 +70,8 @@ snprintf(
     
     // Canon vsnprintf will write max_len + 1 bytes, so we need to pass max_len - 1.
 
+    ASSERT((int)max_len > 0);
+
     va_list         ap;
     va_start( ap, fmt );
     int len = vsnprintf( buf, max_len - 1, fmt, ap );
