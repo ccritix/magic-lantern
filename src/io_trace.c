@@ -35,7 +35,8 @@
  * REGION(0xC0E20000, 0x010000): JPCORE (JP57, lossless)
  * REGION(0xC0000000, 0x1000000): everything except EEKO? (DIGIC <= 5)
  */
-static ASM_VAR uint32_t protected_region = REGION(0xC0220000, 0x010000);
+static ASM_VAR uint32_t protected_region = REGION(0xC0000000, 
+                                                   0x1000000);
 
 /* number of 32-bit integers recorded for one MMIO event (power of 2) */
 #define RECORD_SIZE 8
