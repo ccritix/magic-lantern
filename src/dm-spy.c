@@ -209,8 +209,7 @@ int debug_intercept_running()
     return (buf != 0);
 }
 
-#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP /* for researching the startup process */
-
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
 /* use a small buffer until the memory backend gets initialized */
 static char staticbuf[BUF_SIZE_STATIC] = {0};
 
@@ -258,8 +257,8 @@ void debug_realloc()
          * or look for unused memory areas in RscMgr */
     }
 }
+#endif /* CONFIG_DEBUG_INTERCEPT_STARTUP */
 
-// call this from boot-hack.c
 void debug_intercept()
 {
     uint32_t DebugMsg_addr = (uint32_t)&DryosDebugMsg;
@@ -270,55 +269,14 @@ void debug_intercept()
         blink_init();
         #endif
         
-        buf = staticbuf;
+        #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+        buf = staticbuf;                                /* malloc not working yet, use a static buffer instead */
         buf_size = BUF_SIZE_STATIC;
-
-        dm_spy_extra_install();
-        #ifdef CONFIG_MMIO_TRACE
-        io_trace_install();
-        #endif
-
-        patch_instruction(
-            DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
-            MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
-            B_INSTR(DebugMsg_addr, my_DebugMsg),        /* replace all calls to DebugMsg with our own function (no need to call the original) */
-            "dm-spy: log all DebugMsg calls"
-        );
-    }
-    else // subsequent call, uninstall the hook and save log to file
-    {
-        #ifdef CONFIG_MMIO_TRACE
-        io_trace_uninstall();
-        #endif
-        dm_spy_extra_uninstall();
-        unpatch_memory(DebugMsg_addr);
-        
-        #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
-            blink_init();
-            blink_str(staticbuf);
         #else
-            char log_filename[100];
-            get_numbered_file_name("dm-%04d.log", 9999, log_filename, sizeof(log_filename));
-            dump_seg(buf, len, log_filename);
-            NotifyBox(2000, "%s: saved %d bytes.", log_filename, len);
-        #endif
-        buf = 0;
-        len = 0;
-    }
-}
-
-#else /* for regular use */
-
-// call this from "don't click me"
-void debug_intercept()
-{
-    uint32_t DebugMsg_addr = (uint32_t)&DryosDebugMsg;
-    
-    if (!buf) // first call, intercept debug messages
-    {
         buf = malloc(BUF_SIZE_MALLOC);                  /* allocate memory for our logs (it's huge) */
         buf_size = BUF_SIZE_MALLOC;
-        
+        #endif
+
         dm_spy_extra_install();
         #ifdef CONFIG_MMIO_TRACE
         io_trace_install();
@@ -330,15 +288,14 @@ void debug_intercept()
             B_INSTR(DebugMsg_addr, my_DebugMsg),        /* replace all calls to DebugMsg with our own function (no need to call the original) */
             "dm-spy: log all DebugMsg calls"
         );
-        
-        if (err)
-        {
+
+        #ifndef CONFIG_DEBUG_INTERCEPT_STARTUP
+        if (err) {
             NotifyBox(2000, "Could not hack DebugMsg (%x)", err);
-        }
-        else
-        {
+        } else {
             NotifyBox(2000, "Now logging... ALL DebugMsg's :)");
         }
+        #endif
     }
     else // subsequent call, uninstall the hook and save log to file
     {
@@ -347,18 +304,26 @@ void debug_intercept()
         #endif
         dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
-        buf[len] = 0;
-        clean_d_cache();
+
+        #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
+        blink_init();
+        blink_str(staticbuf);
+        #endif
+
+        ASSERT(len < buf_size);
         char log_filename[100];
         get_numbered_file_name("dm-%04d.log", 9999, log_filename, sizeof(log_filename));
         dump_seg(buf, len, log_filename);
         NotifyBox(2000, "%s: saved %d bytes.", log_filename, len);
-        len = 0;
+
+        #ifndef CONFIG_DEBUG_INTERCEPT_STARTUP
         fio_free(buf);
+        #endif
+
         buf = 0;
+        len = 0;
     }
-    
+
+    /* finished! */
     beep();
 }
-
-#endif
