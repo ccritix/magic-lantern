@@ -503,8 +503,7 @@ static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
         static char msg[512];
         backtrace_getstr(msg, sizeof(msg));
-        debug_logstr(msg);
-        debug_logstr("\n");
+        debug_log_line(msg);
     }
 }
 
@@ -926,9 +925,8 @@ static void pre_isr_log(uint32_t isr)
 
     char* name = isr_names[isr & 0x1FF];
 
-    uint32_t us_timer = MEM(0xC0242014);
-    debug_loghex2(us_timer, 5);
-    debug_logstr(">    >>> ");
+    uint32_t old = cli();
+    debug_logstr(">>> ");
     debug_logstr(interrupt_name(isr));
     debug_logstr(" ");
     debug_logstr(name);
@@ -937,6 +935,7 @@ static void pre_isr_log(uint32_t isr)
     debug_logstr("(");
     debug_loghex(arg);
     debug_logstr(")\n");
+    sei(old);
 
 #if 0
     if (name)
@@ -959,11 +958,11 @@ static void pre_isr_log(uint32_t isr)
 
 static void post_isr_log(uint32_t isr)
 {
-    uint32_t us_timer = MEM(0xC0242014);
-    debug_loghex2(us_timer, 5);
-    debug_logstr(">    <<< ");
+    uint32_t old = cli();
+    debug_logstr("<<< ");
     debug_logstr(interrupt_name(isr));
     debug_logstr(" done\n");
+    sei(old);
 }
 
 static int check_no_conflicts(int i)

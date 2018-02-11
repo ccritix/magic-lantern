@@ -44,8 +44,9 @@ static ASM_VAR uint32_t protected_region = REGION(0xC0000000,
 static uint32_t trap_orig = 0;
 
 /* buffer size must be power of 2 and multiple of RECORD_SIZE, to simplify bounds checking */
-static uint32_t buffer[4096] __attribute__((used)) = {0};
+static ASM_VAR uint32_t * buffer = 0;
 static ASM_VAR uint32_t buffer_index = 0;
+static uint32_t buffer_count = 0;   /* how many uint32_t's we have allocated */
 
 /*
  * TCM usage in main firmware
@@ -93,9 +94,9 @@ static void __attribute__ ((naked)) trap()
         "STMFD  SP!, {R0-R12, LR}\n"
 
         /* prepare to save information about trapping code */
-        "LDR    R4, =buffer\n"          /* load buffer address */
+        "LDR    R4, buffer\n"           /* load buffer address */
         "LDR    R2, buffer_index\n"     /* load buffer index from memory */
-        "BIC    R2, #0x000FF000\n"      /* avoid writing outside array bounds (mask should match buffer size) */
+        "BIC    R2, #0x3FC00000\n"      /* avoid writing outside array bounds (mask should match buffer size) */
 
         /* store the program counter */
         "SUB    R5, LR, #8\n"           /* retrieve PC where the exception happened */
@@ -175,7 +176,7 @@ static void __attribute__ ((naked)) trap()
 #endif
 
         /* store the result (value read from / written to MMIO) */
-        "LDR    R4, =buffer\n"          /* load buffer address */
+        "LDR    R4, buffer\n"           /* load buffer address */
         "LDR    R2, buffer_index\n"     /* load buffer index from memory */
         "LDR    R0, destination\n"      /* load destination register index from memory */
         "LDR    R0, [SP, R0, LSL#2]\n"  /* load destination register contents from stack */
@@ -206,8 +207,20 @@ static void __attribute__ ((naked)) trap()
     );
 }
 
+#define TRAP_INSTALLED (MEM(0x0000002C) == (uint32_t) &trap)
+
 void io_trace_uninstall()
 {
+    ASSERT(buffer);
+    ASSERT(trap_orig);
+    ASSERT(TRAP_INSTALLED);
+
+    if (!TRAP_INSTALLED)
+    {
+        /* not installed, nothing to do */
+        return;
+    }
+
     uint32_t int_status = cli();
 
     /* remove our trap handler */
@@ -226,8 +239,40 @@ void io_trace_uninstall()
     sei(int_status);
 }
 
+/* to be called after uninstallation, to free the buffer */
+void io_trace_cleanup()
+{
+    ASSERT(buffer);
+    ASSERT(!TRAP_INSTALLED);
+
+    if (TRAP_INSTALLED)
+    {
+        /* called at the wrong moment; don't do more damage */
+        return;
+    }
+
+    free(buffer);
+    buffer = 0;
+}
+
 void io_trace_install()
 {
+    extern int ml_started;
+    if (!ml_started)
+    {
+        qprintf("[io_trace] FIXME: large allocators not available\n");
+        return;
+    }
+
+    qprintf("[io_trace] allocating memory...\n");
+
+    /* allocate RAM */
+    buffer_count = 4*1024*1024;
+    ASSERT(!buffer);
+    buffer = malloc(buffer_count * sizeof(buffer[0]));
+    if (!buffer) return;
+    memset(buffer, 0, buffer_count * sizeof(buffer[0]));
+
     qprintf("[io_trace] installing...\n");
 
     uint32_t int_status = cli();
@@ -285,96 +330,72 @@ static const char * interrupt_name(int i)
     return name;
 }
 
-void io_trace_log_flush()
+uint32_t io_trace_log_get_index()
 {
-    uint32_t old = cli();
+    return buffer_index / RECORD_SIZE;
+}
 
-    for (uint32_t i = 0; i < buffer_index; i += RECORD_SIZE)
+int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
+{
+    uint32_t i = msg_index * RECORD_SIZE;
+    if (i >= buffer_index) return 0;
+
+    uint32_t pc = buffer[i];
+    uint32_t insn = MEM(pc);
+    uint32_t Rn = buffer[i+3];
+    uint32_t Rd = buffer[i+4];
+    char *   task_name = (char *) buffer[i+1];
+    uint32_t interrupt = buffer[i+2];
+    uint32_t us_timer = buffer[i+5];
+
+    uint32_t is_ldr = insn & (1 << 20);
+    uint32_t offset = 0;
+    if ((insn & 0x0F200000) == 0x05000000)
     {
-        uint32_t pc = buffer[i];
-        uint32_t insn = MEM(pc);
-        uint32_t Rn = buffer[i+3];
-        uint32_t Rd = buffer[i+4];
-        char *   task_name = (char *) buffer[i+1];
-        uint32_t interrupt = buffer[i+2];
-        uint32_t timestamp = buffer[i+5];
-
-        uint32_t is_ldr = insn & (1 << 20);
-        uint32_t offset = 0;
-        if ((insn & 0x0F200000) == 0x05000000)
+        /* ARM ARM: A5.2.2 Load and Store Word or Unsigned Byte - Immediate offset */
+        offset = (insn & 0xFFF);
+        if (!(insn & (1 << 23)))
         {
-            /* ARM ARM: A5.2.2 Load and Store Word or Unsigned Byte - Immediate offset */
-            offset = (insn & 0xFFF);
-            if (!(insn & (1 << 23)))
-            {
-                offset = -offset;
-            }
+            offset = -offset;
         }
-        
-        debug_loghex2(timestamp, 5);
-        debug_logstr("> ");
-        if (buffer[i+2] & 1)
-        {
-            /* interrupt */
-            int interrupt_id = interrupt >> 2;
-            debug_logstr("**");
-            debug_logstr(interrupt_name(interrupt_id));
-            debug_logstr("*");
-        }
-        else
-        {
-            /* task name, padded */
-            char task_nam[] = "          ";
-            int pad = strlen(task_nam) - strlen(task_name);
-            pad = (pad > 0) ? pad : 0;
-            memcpy(task_nam + pad, task_name, sizeof(task_nam) - pad);
-            task_nam[sizeof(task_nam)-1] = 0;
-            debug_logstr(task_nam);
-        }
-        debug_logstr(":");
-        debug_loghex(pc);           /* PC */
-        debug_logstr(":MMIO:  [0x");
-        debug_loghex(Rn + offset);  /* Rn - MMIO register (to be interpreted after disassembling the instruction) */
-        debug_logstr(is_ldr ? "] -> 0x" : "] <- 0x");   /* assume LDR or STR; can you find a counterexample? */
-        debug_loghex(Rd);           /* Rd - destination register (MMIO register value) */
-        if ((insn & 0xFFF) && !offset)
-        {
-            /* likely unhandled case; print raw values */
-            debug_logstr(" (");
-            debug_loghex(insn);         /* instruction */
-            debug_logstr(",");
-            debug_loghex(Rn);           /* raw Rn */
-            debug_logstr(")");
-        }
-        debug_logstr("\n");
     }
 
-    if (buffer_index > COUNT(buffer) / 2 || buffer[COUNT(buffer) - RECORD_SIZE])
+    char raw[64] = "";
+    if ((insn & 0xFFF) && !offset)
     {
-        /* warn if our buffer is too small */
-        debug_logstr("[MMIO] Used: ");
-        debug_loghex(buffer_index);
-        debug_logstr("/");
-        debug_loghex(COUNT(buffer));
-        for (int j = COUNT(buffer) - RECORD_SIZE; j >= 0; j -= RECORD_SIZE)
-        {
-            if (buffer[j])
-            {
-                debug_logstr("; peak: ");
-                debug_loghex(j + RECORD_SIZE);
-                break;
-            }
-        }
-        debug_logstr("\n");
+        /* likely unhandled case; print raw values to assist troubleshooting */
+        snprintf(raw, sizeof(raw), "(%08X, %08X)", insn, Rn);
     }
 
-    if (buffer[COUNT(buffer) - RECORD_SIZE])
+    char msg[128];
+    snprintf(msg, sizeof(msg),
+        "[0x%08X] %s 0x%08X%s",
+        Rn + offset,            /* Rn - MMIO register (to be interpreted after disassembling the instruction) */
+        is_ldr ? "->" : "<-",   /* assume LDR or STR; can you find a counterexample? */
+        Rd,                     /* Rd - destination register (MMIO register value) */
+        raw                     /* optional raw values */
+    );
+
+    /* we don't store this in the "blockchain", so we don't really need block_size */
+    struct debug_msg dm = {
+        .msg            = msg,
+        .class_name     = "MMIO",
+        .us_timer       = us_timer,
+        .pc             = pc,
+        .task_name      = task_name,
+        .interrupt      = interrupt,
+    };
+
+    int len = debug_format_msg(&dm, msg_buffer, msg_size);
+
+    if (buffer[buffer_count - RECORD_SIZE])
     {
-        debug_logstr("[MMIO] WARNING: lost data (try increasing buffer size)\n");
-        buffer[COUNT(buffer) - RECORD_SIZE] = 0;
+        /* index wrapped around? */
+        printf("[MMIO] WARNING: lost data (try increasing buffer size)\n");
+        len += snprintf(msg_buffer + len, msg_size - len,
+            "[MMIO] WARNING: lost data (try increasing buffer size)\n");
+        buffer[buffer_count - RECORD_SIZE] = 0;
     }
 
-    buffer_index = 0;
-
-    sei(old);
+    return len;
 }
