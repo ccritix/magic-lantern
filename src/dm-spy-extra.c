@@ -935,6 +935,17 @@ static void pre_isr_log(uint32_t isr)
     debug_logstr("(");
     debug_loghex(arg);
     debug_logstr(")\n");
+
+    /* set context (what task was interrupted) */
+    /* fixme: only correct for first-level interrupts and likely only on specific models */
+    struct debug_msg * dm = debug_get_last_block();
+    if (dm)
+    {
+        dm->pc = MEM(0xFFC);
+        dm->task_name = current_task->name;
+        qprintf(">>> interrupted %s:%x\n", dm->task_name, dm->pc);
+    }
+
     sei(old);
 
 #if 0
@@ -959,9 +970,21 @@ static void pre_isr_log(uint32_t isr)
 static void post_isr_log(uint32_t isr)
 {
     uint32_t old = cli();
+
     debug_logstr("<<< ");
     debug_logstr(interrupt_name(isr));
     debug_logstr(" done\n");
+
+    /* set context (what task we are going to return to) */
+    /* fixme: how to find it? the task switch logic appears to be after this hook */
+    struct debug_msg * dm = debug_get_last_block();
+    if (dm)
+    {
+        dm->pc = MEM(0xFFC);
+        dm->task_name = current_task->name;
+        qprintf("<<< return to %s:%x\n", dm->task_name, dm->pc);
+    }
+
     sei(old);
 }
 

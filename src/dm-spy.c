@@ -109,8 +109,15 @@ static void * buf = 0;      /* will hold struct debug_msg's, but variable-sized 
 static int buf_size = 0;    /* variable, model-specific */
 static int len = 0;         /* 32-bit aligned */
 
+static struct debug_msg * last_block = 0;
+
 extern void dm_spy_extra_install();
 extern void dm_spy_extra_uninstall();
+
+struct debug_msg * debug_get_last_block()
+{
+    return last_block;
+}
 
 void debug_log_line(const char * str)
 {
@@ -122,7 +129,7 @@ void debug_log_line(const char * str)
     int block_size = sizeof(struct debug_msg) + ALIGN32SUP(str_len + 1);
     if (len + block_size > buf_size) return;
 
-    *(struct debug_msg *)(buf + len) = (struct debug_msg) {
+    *(last_block = buf + len) = (struct debug_msg) {
         .block_size     = block_size,
         .msg            = buf + len + sizeof(struct debug_msg),
         #ifdef CONFIG_MMIO_TRACE
@@ -262,7 +269,7 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
 
     block_size = ALIGN32SUP(block_size);
 
-    *(struct debug_msg *)(buf + len) = (struct debug_msg) {
+    *(last_block = buf + len) = (struct debug_msg) {
         .block_size     = block_size,
         .msg            = msg,
         .class          = class,
