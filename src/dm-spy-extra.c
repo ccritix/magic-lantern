@@ -946,25 +946,34 @@ static void pre_isr_log(uint32_t isr)
         qprintf(">>> interrupted %s:%x\n", dm->task_name, dm->pc);
     }
 
-    sei(old);
-
-#if 0
+#if 1
     if (name)
     {
         if (strncmp(name, "EDMAC#", 6) == 0)
         {
             int ch = atoi(name + 6);
             struct edmac_info edmac_info = edmac_get_info(ch);
-            DryosDebugMsg(0, 0,
-                "    addr %x, ptr %x, size %s, flags %x",
-                edmac_get_address(ch),
-                edmac_get_pointer(ch),
-                edmac_format_size(&edmac_info),
-                edmac_get_flags(ch)
-            );
+            debug_logstr("    addr ");
+            debug_loghex(edmac_get_address(ch));
+            debug_logstr(", ptr ");
+            debug_loghex(edmac_get_pointer(ch));
+            debug_logstr(", size ");
+            debug_logstr(edmac_format_size(&edmac_info));
+            debug_logstr(", flags ");
+            debug_loghex(edmac_get_flags(ch));
+            debug_logstr("\n");
+
+            struct debug_msg * dm = debug_get_last_block();
+            if (dm)
+            {
+                dm->pc = MEM(0xFFC);
+                dm->task_name = current_task->name;
+            }
         }
     }
 #endif
+
+    sei(old);
 }
 
 static void post_isr_log(uint32_t isr)
