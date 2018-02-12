@@ -106,11 +106,6 @@ static void __attribute__ ((naked)) trap()
 
         "STR    R2, buffer_index\n"     /* store buffer index to memory */
 
-        /* sync caches - unsure */
-        "mov    r0, #0\n"
-        "mcr    p15, 0, r0, c7, c10, 4\n" // drain write buffer
-        "mcr    p15, 0, r0, c7, c5, 0\n" // flush I cache
-
         /* enable full access to memory */
         "MOV    R0, #0x00\n"
         "MCR    p15, 0, r0, c6, c7, 0\n"
@@ -121,9 +116,19 @@ static void __attribute__ ((naked)) trap()
         "LDMFD  SP!, {R0-R12, LR}\n"
         "STMFD  SP!, {LR}\n"
 
+        /* jump to uncacheable memory */
+        /* trick to run self-modifying code without clearing the caches */
+        /* this method doesn't interfere with our cache hacks :) */
+        "ORR    PC, PC, #0x40000000\n"
+        "NOP\n"
+
         /* placeholder for executing the old instruction */
         "trapped_instruction:\n"
         ".word 0x00000000\n"
+
+        /* back to cacheable memory */
+        "BIC    PC, PC, #0x40000000\n"
+        "NOP\n"
 
         /* save context once again */
         "LDMFD  SP!, {LR}\n"
