@@ -33,6 +33,7 @@
  * REGION(0xC0C00000, 0x100000): SDIO/SFIO (also paired with SDDMA/SFDMA, unsure whether they can be logged at the same time)
  * REGION(0xC0500000, 0x100000): SDDMA/SFDMA/CFDMA
  * REGION(0xC0E20000, 0x010000): JPCORE (JP57, lossless)
+ * REGION(0xC0000000, 0x1000000): everything except EEKO? (DIGIC <= 5)
  */
 static ASM_VAR uint32_t protected_region = REGION(0xC0220000, 0x010000);
 
@@ -59,8 +60,8 @@ static void __attribute__ ((naked)) trap()
         "BIC    R2, #0x000FF000\n"      /* avoid writing outside array bounds (mask should match buffer size) */
 
         /* store the program counter */
-        "SUB    R0, LR, #8\n"           /* retrieve PC where the exception happened */
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store PC at index [0] */
+        "SUB    R5, LR, #8\n"           /* retrieve PC where the exception happened */
+        "STR    R5, [R4, R2, LSL#2]\n"  /* store PC at index [0] */
         "ADD    R2, #1\n"               /* increment index */
 
 #ifdef CONFIG_QEMU
@@ -85,20 +86,25 @@ static void __attribute__ ((naked)) trap()
         "ADD    R2, #1\n"               /* increment index */
 
         /* prepare to re-execute the old instruction */
-        "SUB    R0, LR, #8\n"
-        "LDR    R0, [R0]\n"
+        /* copy it into this routine (cacheable memory) */
+        "LDR    R6, [R5]\n"
+        "ADR    R1, trapped_instruction\n"
+        "STR    R6, [R1]\n"
 
-        /* copy it to uncacheable memory - will this work? */
-        "LDR    R1, =trapped_instruction\n"
-        "ORR    R1, #0x40000000\n"
-        "STR    R0, [R1]\n"
+        /* clean the cache for this address (without touching the cache hacks),
+         * then disable our memory protection region temporarily for re-execution */
+        "MOV    R0, #0x00\n"
+        "MCR    p15, 0, R1, c7, c10, 1\n"   /* first clean that address in dcache */
+        "MCR    p15, 0, R0, c7, c10, 4\n"   /* then drain write buffer */
+        "MCR    p15, 0, R1, c7, c5, 1\n"    /* flush icache line for that address */
+        "MCR    p15, 0, R0, c6, c7, 0\n"    /* enable full access to memory */
 
         /* find the source and destination registers */
-        "MOV    R1, R0, LSR#12\n"       /* extract destination register */
+        "MOV    R1, R6, LSR#12\n"       /* extract destination register */
         "AND    R1, #0xF\n"
         "STR    R1, destination\n"      /* store it to memory; will use it later */
 
-        "MOV    R1, R0, LSR#16\n"       /* extract source register */
+        "MOV    R1, R6, LSR#16\n"       /* extract source register */
         "AND    R1, #0xF\n"
         "LDR    R0, [SP, R1, LSL#2]\n"  /* load source register contents from stack */
         "STR    R0, [R4, R2, LSL#2]\n"  /* store source register at index [3] */
@@ -106,29 +112,15 @@ static void __attribute__ ((naked)) trap()
 
         "STR    R2, buffer_index\n"     /* store buffer index to memory */
 
-        /* enable full access to memory */
-        "MOV    R0, #0x00\n"
-        "MCR    p15, 0, r0, c6, c7, 0\n"
-
         /* restore context */
         /* FIXME: some instructions may change LR; this will give incorrect result, but at least it appears not to crash */
         /* 5D3 113: 0x1C370 LDMIA R1!, {R3,R4,R12,LR} on REGION(0xC0F19000, 0x001000) when entering LiveView */
         "LDMFD  SP!, {R0-R12, LR}\n"
         "STMFD  SP!, {LR}\n"
 
-        /* jump to uncacheable memory */
-        /* trick to run self-modifying code without clearing the caches */
-        /* this method doesn't interfere with our cache hacks :) */
-        "ORR    PC, PC, #0x40000000\n"
-        "NOP\n"
-
         /* placeholder for executing the old instruction */
         "trapped_instruction:\n"
         ".word 0x00000000\n"
-
-        /* back to cacheable memory */
-        "BIC    PC, PC, #0x40000000\n"
-        "NOP\n"
 
         /* save context once again */
         "LDMFD  SP!, {LR}\n"
