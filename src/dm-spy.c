@@ -93,6 +93,13 @@ void debug_loghex(uint32_t x)
 
 static void my_DebugMsg(int class, int level, char* fmt, ...)
 {
+    #ifdef PRINT_STACK
+    uintptr_t sp = read_sp();
+    int len0 = len;
+    #endif
+    
+    uintptr_t lr = read_lr();
+
     if (!buf) return;
         
     if (class == 21) // engio, lots of messages
@@ -130,14 +137,7 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     #endif
 
     char* msg = buf+len;
-    
-    #ifdef PRINT_STACK
-    int len0 = len;
-    uintptr_t sp = read_sp();
-    #endif
-    
-    uintptr_t lr = read_lr();
-    
+
     //~ char* classname = dm_names[class]; /* not working, some names are gibberish; todo: check for printable characters? */
     
     /* can be replaced with get_us_clock_value, with a slightly higher overhead */
