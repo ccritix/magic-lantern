@@ -46,12 +46,27 @@ static uint32_t trap_orig = 0;
 static uint32_t buffer[4096] __attribute__((used)) = {0};
 static ASM_VAR uint32_t buffer_index = 0;
 
-/* TCM usage in main firmware
+/*
+ * TCM usage in main firmware
+ * ==========================
+ *
  * checked 60D, 500D, 5D2, 50D, 1300D, 5D3, 70D, 700D, 100D, EOSM in QEMU
  * procedure:
- *   - fill both TCMs with 0xBADCAFFE when PC reaches F8010000 or F80C0000 (doable from QEMU dbi/logging.c)
+ *   - fill both TCMs with 0xBADCAFFE when PC reaches F8010000 or F80C0000
+ *     (doable from either QEMU dbi/logging.c or GDB breakpoint)
  *   - confirm that it still boots the GUI and you can navigate Canon menus
  *   - examine TCM contents with 'x/1024 0' and 'x/1024 0x40000000' in GDB
+ *
+ * DIGIC 4:
+ * 400006F8-40000AF7 ISR handler table (256 entries?)
+ * 40000AF8-40000EF7 ISR argument table
+ * 40000000-400006F7 possibly unused (no code reads/writes it in QEMU)
+ * 40000EF8-40000FFF possibly unused
+ *
+ * DIGIC 5 and 1300D:
+ * 40000000-400007FF ISR handler table (512 entries, some unused?)
+ * 40000800-40000FFF ISR argument table
+ * 40000E00-40000FFF possibly unused ISR entries? probably best not to rely on it
  *
  * DIGIC 4 and 5:
  * 00000000-00000020 exception vectors (0x18 = IRQ, 0x10 = Data Abort etc)
@@ -60,19 +75,9 @@ static ASM_VAR uint32_t buffer_index = 0;
  * 000004B0-000006C0 interrupt handler (code jumps there from 0x18; end address may vary slightly)
  * 000006C4-00001000 interrupt stack (start address may vary slightly; used until about 0xf00)
  *
- * DIGIC 4:
- * 400006F8-40000AF7 ISR handler table (256 entries?)
- * 40000AF8-40000EF7 ISR argument table
- * 40000000-400006F7 possibly unused (no code reads/writes it in QEMU)
- * 40000EF8-40000FFF possibly unused
- * 
- * DIGIC 5 and 1300D:
- * 40000000-400007FF ISR handler table (512 entries, some unused?)
- * 40000800-40000FFF ISR argument table
- * 40000E00-40000FFF possibly unused ISR entries? probably best not to rely on it
- *
- * other exception stacks are at UND:400007fc FIQ:4000077c ABT:400007bc SYS/USR:4000057c, set up from bootloader, no longer valid
- * pick SP just below the ISR handler table at 0x400006F8
+ * other exception stacks are at UND:400007fc FIQ:4000077c ABT:400007bc SYS/USR:4000057c (IRQ was 4000067c)
+ * these were set up from bootloader, but they are no longer valid in main firmware
+ * pick SP at the bottom of the interrupt stack, roughly 0x700-0x740
  */
 
 static void __attribute__ ((naked)) trap()
