@@ -12,3 +12,7 @@ int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size);
 
 /* get timer value without logging it as MMIO access */
 uint32_t io_trace_get_timer();
+
+/* temporarily pause/resume MMIO logging */
+void io_trace_pause();
+void io_trace_resume();

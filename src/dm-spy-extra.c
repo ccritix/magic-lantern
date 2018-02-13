@@ -21,6 +21,7 @@
 #include "propvalues.h"
 #include "dm-spy.h"
 #include "backtrace.h"
+#include "io_trace.h"
 
 /* this needs pre_isr_hook/post_isr_hook stubs */
 #define LOG_INTERRUPTS
@@ -956,7 +957,9 @@ static void pre_isr_log(uint32_t isr)
             debug_logstr("    addr ");
             debug_loghex(edmac_get_address(ch));
             debug_logstr(", ptr ");
+            io_trace_pause();
             debug_loghex(edmac_get_pointer(ch));
+            io_trace_resume();
             debug_logstr(", size ");
             debug_logstr(edmac_format_size(&edmac_info));
             debug_logstr(", flags ");
