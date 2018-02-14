@@ -53,6 +53,7 @@ static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void register_interrupt_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
+static void SetEDmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void StartEDmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void TryPostEvent_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 
@@ -115,7 +116,7 @@ static struct logged_func logged_functions[] = {
     STUB_ENTRY(ConnectReadEDmac, 2),
     STUB_ENTRY(ConnectWriteEDmac, 2),
     STUB_ENTRY(RegisterEDmacCompleteCBR, 3),
-    STUB_ENTRY(SetEDmac, 4),
+    STUB_ENTRY(SetEDmac, 4, SetEDmac_log),
     STUB_ENTRY(StartEDmac, 2, StartEDmac_log),
     //STUB_ENTRY(AbortEDmac, 1),
 
@@ -205,7 +206,7 @@ static struct logged_func logged_functions[] = {
     { 0xFF9A462C, "ConnectReadEDmac", 2 },
     { 0xFF9A4604, "ConnectWriteEDmac", 2 },
     { 0xFF9A4798, "RegisterEDmacCompleteCBR", 3 },
-    //~ { 0xFF9A45E8, "SetEDmac", 4 },                          // conflicts with RegisterHead1InterruptHandler
+    //~ { 0xFF9A45E8, "SetEDmac", 4, SetEDmac_log},             // conflicts with RegisterHead1InterruptHandler
     { 0xFF9A464C, "StartEDmac", 2, StartEDmac_log },
     
     { 0xff9b3cb4, "register_interrupt", 4, register_interrupt_log },
@@ -230,7 +231,7 @@ static struct logged_func logged_functions[] = {
     { 0xFF1C8B98, "LockEngineResources", 1, LockEngineResources_log },
     { 0xFF1C8CD4, "UnLockEngineResources", 1, UnLockEngineResources_log },
     { 0xFF1C45A8, "StartEDmac", 2, StartEDmac_log },
-    { 0xFF1C42A8, "SetEDmac", 4 },
+    { 0xFF1C42A8, "SetEDmac", 4, SetEDmac_log },
     { 0xFF06E534, "take_semaphore", 2 },
     { 0xFF06E61C, "give_semaphore", 1 },
     { 0xFF1C8C00, "resinfo_wait_smth", R(0) },
@@ -245,7 +246,7 @@ static struct logged_func logged_functions[] = {
     { 0xff1c00c0, "ConnectReadEDmac", 2 },
     { 0xff1bfffc, "ConnectWriteEDmac", 2 },
     { 0xFF1C0418, "RegisterEDmacCompleteCBR", 3 },
-    { 0xff1bff44, "SetEDmac", 4 },
+    { 0xff1bff44, "SetEDmac", 4, SetEDmac_log },
     { 0xff1c024c, "StartEDmac", 2, StartEDmac_log },
     
     { 0xff1d2944, "register_interrupt", 4, register_interrupt_log },
@@ -264,7 +265,7 @@ static struct logged_func logged_functions[] = {
     { 0xff18fb90, "ConnectReadEDmac", 2 },
     { 0xff18fb68, "ConnectWriteEDmac", 2 },
     { 0xff18fd60, "RegisterEDmacCompleteCBR", 3 },
-    { 0xff18fb4c, "SetEDmac", 4 },
+    { 0xff18fb4c, "SetEDmac", 4, SetEDmac_log },
     { 0xff18fbf0, "StartEDmac", 2, StartEDmac_log },
     
     //~ { 0xff1a0b90, "register_interrupt", 4, register_interrupt_log }, // conflicts with ConnectReadEDmac
@@ -789,6 +790,24 @@ static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     eeko_dump();
 }
 
+static void SetEDmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    /* we will want two messages together */
+    uint32_t old = cli();
+
+    /* log the original call as usual */
+    generic_log(regs, stack, pc);
+    
+    struct edmac_info * edmac_info = (struct edmac_info *) regs[2];
+    if (edmac_info)
+    {
+        char * size_fmt = edmac_format_size(edmac_info);
+        DryosDebugMsg(0, 0, "    size %s", size_fmt ? size_fmt : "(please load edmac.mo)");
+    }
+
+    sei(old);
+}
+
 static void StartEDmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     /* we will want two messages together */
@@ -799,11 +818,15 @@ static void StartEDmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     
     int ch = regs[0];
     struct edmac_info edmac_info = edmac_get_info(ch);
+    char * size_fmt = edmac_format_size(&edmac_info);
+    uint32_t edmac_address = edmac_get_address(ch);
+    io_trace_pause();
+    uint32_t edmac_pointer = edmac_get_pointer(ch);
+    io_trace_resume();
     DryosDebugMsg(0, 0,
         "    addr %x, ptr %x, size %s",
-        edmac_get_address(ch),
-        edmac_get_pointer(ch),
-        edmac_format_size(&edmac_info)
+        edmac_address, edmac_pointer,
+        size_fmt ? size_fmt : "(please load edmac.mo)"
     );
     DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
 
@@ -955,7 +978,8 @@ static void pre_isr_log(uint32_t isr)
             debug_loghex(edmac_get_pointer(ch));
             io_trace_resume();
             debug_logstr(", size ");
-            debug_logstr(edmac_format_size(&edmac_info));
+            char * size_fmt = edmac_format_size(&edmac_info);
+            debug_logstr(size_fmt ? size_fmt : "(please load edmac.mo)");
             debug_logstr(", flags ");
             debug_loghex(edmac_get_flags(ch));
             debug_logstr("\n");
