@@ -56,6 +56,13 @@ static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void StartEDmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 static void TryPostEvent_log(uint32_t* regs, uint32_t* stack, uint32_t pc);
 
+#define DM_OVERRIDE(field, new_value) \
+    do { \
+        struct debug_msg * dm = debug_get_last_block(); \
+        if (dm) dm->field = (new_value); \
+    } while (0)
+
+
 struct logged_func
 {
     uint32_t addr;                              /* Logged address (usually at the start of the function; will be passed to gdb_add_watchpoint) */
@@ -386,7 +393,8 @@ static uint32_t last_result_pc = 0;
 /* temporary hook, for logging the return value of a function */
 static void result_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    DryosDebugMsg(0, 0, "==> 0x%x, from %x", regs[0], pc-4);
+    DryosDebugMsg(0, 0, "==> 0x%x", regs[0]);
+    DM_OVERRIDE(pc, pc - 4);
 
     /* we can't disable this hook right now, as it's still executing */
     /* workaround: we'll just disable the previous one */
@@ -400,8 +408,6 @@ static void result_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    uint32_t caller = PATCH_HOOK_CALLER();
-
     uint32_t args = 0;
     int num_args = 0;
     int log_result = 0;
@@ -421,7 +427,7 @@ static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     log_result = args & RET;
 
     /* this is too large to be placed on the stack (init_task) */
-    /* allocate it statically and giard it with cli/sei */
+    /* allocate it statically and guard it with cli/sei */
     static char msg[200];
     int old = cli();
     int len = (func_name)
@@ -449,9 +455,10 @@ static void generic_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
         }
     }
 
-    len += snprintf(msg + len, sizeof(msg) - len, "), from %x", caller);
-    
+    len += snprintf(msg + len, sizeof(msg) - len, ")");
+
     DryosDebugMsg(0, 0, "%s", msg);
+    DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
     sei(old);
 
     if (args & PTR)
@@ -581,6 +588,7 @@ static void state_transition_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
         "%x (x=%x z=%x t=%x)", state_name, old_state, input, next_state,
         next_function, regs[1], regs[3], stack[0]
     );
+    DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
 }
 
 static void EngineResources_list(uint32_t* resIds, int resNum)
@@ -621,8 +629,8 @@ static void CreateResLockEntry_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     uint32_t* resIds = (void*) regs[0];
     int resNum = regs[1];
-    uint32_t caller = PATCH_HOOK_CALLER();
-    DryosDebugMsg(0, 0, "*** CreateResLockEntry(%x, %d) from %x:", resIds, resNum, caller);
+    DryosDebugMsg(0, 0, "*** CreateResLockEntry(%x, %d)", resIds, resNum);
+    DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
     EngineResources_list(resIds, resNum);
 }
 
@@ -632,8 +640,8 @@ static void LockEngineResources_log_base(uint32_t* regs, char* name, uint32_t* a
     uint32_t* resLock = arg0;
     uint32_t* resIds = (void*) resLock[5];
     int resNum = resLock[6];
-    uint32_t caller = PATCH_HOOK_CALLER();
-    DryosDebugMsg(0, 0, "*** %s(%x) x%d from %x:", name, resLock, resNum, caller);
+    DryosDebugMsg(0, 0, "*** %s(%x) x%d:", name, resLock, resNum);
+    DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
     EngineResources_list(resIds, resNum);
 }
 
@@ -669,10 +677,10 @@ static void fps_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     uint32_t* data_buf = (uint32_t*) regs[0];
-    uint32_t caller = PATCH_HOOK_CALLER();
 
-    DryosDebugMsg(0, 0, "*** engio_write(%x) from %x:", data_buf, caller);
-    
+    DryosDebugMsg(0, 0, "*** engio_write(%x):", data_buf);
+    DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
+
     /* log all ENGIO register writes */
     while(*data_buf != 0xFFFFFFFF)
     {
@@ -686,9 +694,8 @@ static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 static void engdrvbits_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    uint32_t caller = PATCH_HOOK_CALLER();
-
-    DryosDebugMsg(0, 0, "*** EngDrvBits(0x%x, 0x%08x, 0x%x) => 0x%x, from %x", regs[0], regs[1], regs[2], shamem_read(regs[0]), caller);
+    DryosDebugMsg(0, 0, "*** EngDrvBits(0x%x, 0x%08x, 0x%x) => 0x%x", regs[0], regs[1], regs[2], shamem_read(regs[0]));
+    DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
 }
 
 static void mpu_decode(char* in, char* out, int max_len)
@@ -737,25 +744,25 @@ static void mpu_send_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
   }
 #endif
 
-    uint32_t caller = PATCH_HOOK_CALLER();
     char* buf = (char*) regs[0];
     int size = regs[1];                 /* message size */
     int size_ex = (size + 2) & 0xFE;    /* packet size, prepended to the message */
                                         /* must be multiple of 2, so it's either size+1 or size+2 */
     char msg[256];
     mpu_decode(buf, msg, sizeof(msg));
-    DryosDebugMsg(0, 0, "*** mpu_send(%02x %s), from %x", size_ex, msg, caller);
+    DryosDebugMsg(0, 0, "*** mpu_send(%02x %s)", size_ex, msg);
+    DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
     last_mpu_timestamp = MEM(0xC0242014);
 }
 
 static void mpu_recv_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    uint32_t caller = PATCH_HOOK_CALLER();
     char* buf = (char*) regs[0];
     int size = buf[-1];
     char msg[256];
     mpu_decode(buf, msg, sizeof(msg));
-    DryosDebugMsg(0, 0, "*** mpu_recv(%02x %s), from %x", size, msg, caller);
+    DryosDebugMsg(0, 0, "*** mpu_recv(%02x %s)", size, msg);
+    DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
     last_mpu_timestamp = MEM(0xC0242014);
 }
 
@@ -792,6 +799,7 @@ static void eeko_dump()
 static void eeko_wakeup_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     DryosDebugMsg(0, 0, "*** Eeko about to wake up; dumping RAM...");
+    DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
     eeko_dump();
 }
 
@@ -811,24 +819,24 @@ static void StartEDmac_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
         edmac_get_pointer(ch),
         edmac_format_size(&edmac_info)
     );
+    DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
 
     sei(old);
 }
 
 static void TryPostEvent_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    uint32_t caller = PATCH_HOOK_CALLER();
     const char * class = (const char *) MEM(regs[0]);
     const char * event_prefix =
         streq(class, "StageClass") ? "Stage" :
         streq(class, "TaskClass" ) ? ""      :
                                      class   ;
     DryosDebugMsg(0, 0,
-        "*** TryPost%sEvent(%s, 0x%x, 0x%x, 0x%x), from %x",
+        "*** TryPost%sEvent(%s, 0x%x, 0x%x, 0x%x)",
         event_prefix,
-        MEM(regs[1]), regs[2], regs[3], MEM(stack),
-        caller
+        MEM(regs[1]), regs[2], regs[3], MEM(stack)
     );
+    DM_OVERRIDE(pc, PATCH_HOOK_CALLER());
 }
 
 static char* isr_names[0x200] = {

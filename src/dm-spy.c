@@ -208,6 +208,11 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
 {
     uintptr_t lr = read_lr();
 
+    /* if this message is omitted for any reason, we shouldn't be able to override older messages any more
+     * (overriding is done for the last message only, but guest code may not know whether that last message
+     * was actually logged or not, as it's calling Canon's DebugMsg; instead, it finds out from debug_get_last_block) */
+    last_block = 0;
+
     if (!buf) return;
     if (len + (int) sizeof(struct debug_msg) >= buf_size - 1) return;
 
