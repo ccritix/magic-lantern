@@ -57,15 +57,48 @@ static const char * task_interrupt_name(int i)
     return name;
 }
 
+static uint64_t unwrap_timer(uint32_t timer_20bit)
+{
+    static uint32_t initial_value = 0;
+    static uint32_t prev_timer_20bit = 0;
+    static uint32_t overflows = 0;
+
+    if (timer_20bit == 0xFFFFFFFF)
+    {
+        /* reset state */
+        prev_timer_20bit = timer_20bit;
+        return 0;
+    }
+
+    if (prev_timer_20bit == 0xFFFFFFFF)
+    {
+        /* first call with a timer value */
+        prev_timer_20bit = initial_value = timer_20bit;
+    }
+
+    int dt = (int) timer_20bit - (int) prev_timer_20bit;
+    prev_timer_20bit = timer_20bit;
+
+    /* overflow check; leave a small tolerance for slightly out of order events */
+    if (dt < -1000)
+    {
+        overflows++;
+    }
+
+    return ((uint64_t) overflows << 20) + timer_20bit - initial_value;
+}
 
 int debug_format_msg(struct debug_msg * dm, char * msg, int size)
 {
+    int us = unwrap_timer(dm->us_timer);
+
     if (!dm->task_name && !dm->pc)
     {
         /* assume we only have a timestamped message with no context info */
+        /* these logs are generally short-lived; unlikely to go beyond a few seconds */
         return snprintf(msg, size,
-            "%05X> %s\n",
-            dm->us_timer,
+            "%2d.%03d.%03d  %s\n",
+            us/1000000, (us/1000)%1000, us%1000,
             dm->msg
         );
     }
@@ -103,9 +136,10 @@ int debug_format_msg(struct debug_msg * dm, char * msg, int size)
 
     /* format the message */
     return snprintf(msg, size,
-        "%05X> %s:%08x:%s %s\n",
-        dm->us_timer, task_name_padded,
-        dm->pc, class_str, dm->msg
+        "%2d.%03d.%03d  %s:%08x:%s %s\n",
+        us/1000000, (us/1000)%1000, us%1000,
+        task_name_padded, dm->pc,
+        class_str, dm->msg
     );
 }
 
@@ -418,6 +452,9 @@ void debug_intercept()
         int msg_max_size = GetSizeOfMemoryChunk(GetFirstChunkFromSuite(msg_suite));
         printf("[dm-spy] output buffer: %s\n", format_memory_size(msg_max_size));
         int msg_len = 0;
+
+        /* reset timer unwrap state (our log will start at 0) */
+        unwrap_timer(0xFFFFFFFF);
 
         #ifdef CONFIG_MMIO_TRACE
         uint32_t mmio_idx = 0;
