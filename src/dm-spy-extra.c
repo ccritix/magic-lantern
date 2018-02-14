@@ -203,11 +203,11 @@ static struct logged_func logged_functions[] = {
     { 0xff9b989c, "TryPostEvent", 5, TryPostEvent_log },
     //~ { 0xff9b8f24, "TryPostStageEvent", 5, TryPostEvent_log },                 // conflicts with SetHPTimerAfter
 
-    { 0xFF9A462C, "ConnectReadEDmac", 2 },
-    { 0xFF9A4604, "ConnectWriteEDmac", 2 },
-    { 0xFF9A4798, "RegisterEDmacCompleteCBR", 3 },
-    //~ { 0xFF9A45E8, "SetEDmac", 4, SetEDmac_log},             // conflicts with RegisterHead1InterruptHandler
-    { 0xFF9A464C, "StartEDmac", 2, StartEDmac_log },
+    STUB_ENTRY(ConnectReadEDmac, 2),
+    STUB_ENTRY(ConnectWriteEDmac, 2),
+    STUB_ENTRY(RegisterEDmacCompleteCBR, 3),
+    //~ STUB_ENTRY(SetEDmac, 4, SetEDmac_log),             // conflicts with RegisterHead1InterruptHandler
+    STUB_ENTRY(StartEDmac, 2, StartEDmac_log),
     
     { 0xff9b3cb4, "register_interrupt", 4, register_interrupt_log },
     //~ { 0xffb277c8, "register_obinteg_cbr", 2 },              // conflicts with UnLockEngineResources
@@ -230,8 +230,8 @@ static struct logged_func logged_functions[] = {
     { 0xFF1C8658, "CreateResLockEntry", 2, CreateResLockEntry_log },
     { 0xFF1C8B98, "LockEngineResources", 1, LockEngineResources_log },
     { 0xFF1C8CD4, "UnLockEngineResources", 1, UnLockEngineResources_log },
-    { 0xFF1C45A8, "StartEDmac", 2, StartEDmac_log },
-    { 0xFF1C42A8, "SetEDmac", 4, SetEDmac_log },
+    STUB_ENTRY(StartEDmac, 2, StartEDmac_log),
+    STUB_ENTRY(SetEDmac, 4, SetEDmac_log),
     { 0xFF06E534, "take_semaphore", 2 },
     { 0xFF06E61C, "give_semaphore", 1 },
     { 0xFF1C8C00, "resinfo_wait_smth", R(0) },
@@ -243,11 +243,11 @@ static struct logged_func logged_functions[] = {
     { 0xff1d8c30, "TryPostEvent", 5, TryPostEvent_log },
     { 0xff1d82b8, "TryPostStageEvent", 5, TryPostEvent_log },
 
-    { 0xff1c00c0, "ConnectReadEDmac", 2 },
-    { 0xff1bfffc, "ConnectWriteEDmac", 2 },
-    { 0xFF1C0418, "RegisterEDmacCompleteCBR", 3 },
-    { 0xff1bff44, "SetEDmac", 4, SetEDmac_log },
-    { 0xff1c024c, "StartEDmac", 2, StartEDmac_log },
+    STUB_ENTRY(ConnectReadEDmac, 2),
+    STUB_ENTRY(ConnectWriteEDmac, 2),
+    STUB_ENTRY(RegisterEDmacCompleteCBR, 3),
+    STUB_ENTRY(SetEDmac, 4, SetEDmac_log),
+    STUB_ENTRY(StartEDmac, 2, StartEDmac_log),
     
     { 0xff1d2944, "register_interrupt", 4, register_interrupt_log },
     { 0xff2806f8, "RegisterHead1InterruptHandler", 3 },
@@ -262,11 +262,11 @@ static struct logged_func logged_functions[] = {
     { 0xff1a69a4, "TryPostEvent", 5, TryPostEvent_log },
     { 0xff1a602c, "TryPostStageEvent", 5, TryPostEvent_log },
 
-    { 0xff18fb90, "ConnectReadEDmac", 2 },
-    { 0xff18fb68, "ConnectWriteEDmac", 2 },
-    { 0xff18fd60, "RegisterEDmacCompleteCBR", 3 },
-    { 0xff18fb4c, "SetEDmac", 4, SetEDmac_log },
-    { 0xff18fbf0, "StartEDmac", 2, StartEDmac_log },
+    STUB_ENTRY(ConnectReadEDmac, 2),
+    STUB_ENTRY(ConnectWriteEDmac, 2),
+    STUB_ENTRY(RegisterEDmacCompleteCBR, 3),
+    STUB_ENTRY(SetEDmac, 4, SetEDmac_log),
+    STUB_ENTRY(StartEDmac, 2, StartEDmac_log),
     
     //~ { 0xff1a0b90, "register_interrupt", 4, register_interrupt_log }, // conflicts with ConnectReadEDmac
     //~ { 0xff32646c, "register_obinteg_cbr", 2 },              // conflicts with set_digital_gain_and_related
