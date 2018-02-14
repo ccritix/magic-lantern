@@ -2,6 +2,7 @@ void io_trace_install();
 void io_trace_uninstall();
 void io_trace_cleanup();
 
+#ifdef CONFIG_MMIO_TRACE
 /* return its (next) index, for syncing with dm-spy (from 0 to N-1, consecutive) */
 uint32_t io_trace_log_get_index();
 
@@ -16,3 +17,10 @@ uint32_t io_trace_get_timer();
 /* temporarily pause/resume MMIO logging */
 void io_trace_pause();
 void io_trace_resume();
+
+#else /* dummy stubs */
+static uint32_t io_trace_log_get_index() { return 0xFFFFFFFF; }
+static uint32_t io_trace_get_timer() { return MEM(0xC0242014); }
+static void io_trace_pause() { }
+static void io_trace_resume() { }
+#endif
