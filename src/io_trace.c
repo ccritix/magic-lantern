@@ -149,6 +149,11 @@ static void __attribute__ ((naked)) trap()
         "STR    R0, [R4, R2, LSL#2]\n"  /* store source register at index [3] */
         "ADD    R2, #1\n"               /* increment index */
 
+        "AND    R1, R6, #0xF\n"         /* extract index register (only valid in "register offset" addressing modes; will decode later) */
+        "LDR    R0, [SP, R1, LSL#2]\n"  /* load index register contents from stack */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store index register at index [4] */
+        "ADD    R2, #1\n"               /* increment index */
+
         "STR    R2, buffer_index\n"     /* store buffer index to memory */
 
         /* restore context */
@@ -180,14 +185,14 @@ static void __attribute__ ((naked)) trap()
         "LDR    R2, buffer_index\n"     /* load buffer index from memory */
         "LDR    R0, destination\n"      /* load destination register index from memory */
         "LDR    R0, [SP, R0, LSL#2]\n"  /* load destination register contents from stack */
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store destination register at index [4] */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store destination register at index [5] */
         "ADD    R2, #1\n"               /* increment index */
 
         /* timestamp the event (requires MMIO access; do this before re-enabling memory protection) */
         "LDR    R0, =0xC0242014\n"      /* 20-bit microsecond timer */
         "LDR    R0, [R0]\n"
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store timestamp at index[5]; will be unwrapped in post */
-        "ADD    R2, #3\n"               /* increment index (total 8 = RECORD_SIZE, two positions reserved for future use) */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store timestamp at index[6]; will be unwrapped in post */
+        "ADD    R2, #2\n"               /* increment index (total 8 = RECORD_SIZE, one position reserved for future use) */
         "STR    R2, buffer_index\n"     /* store buffer index to memory */
 
         /* re-enable memory protection */
@@ -335,6 +340,11 @@ uint32_t io_trace_log_get_index()
     return buffer_index / RECORD_SIZE;
 }
 
+static uint32_t ror(uint32_t word, uint32_t count)
+{
+    return word >> count | word << (32 - count);
+}
+
 int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
 {
     uint32_t i = msg_index * RECORD_SIZE;
@@ -343,28 +353,78 @@ int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
     uint32_t pc = buffer[i];
     uint32_t insn = MEM(pc);
     uint32_t Rn = buffer[i+3];
-    uint32_t Rd = buffer[i+4];
+    uint32_t Rm = buffer[i+4];
+    uint32_t Rd = buffer[i+5];
     char *   task_name = (char *) buffer[i+1];
     uint32_t interrupt = buffer[i+2];
-    uint32_t us_timer = buffer[i+5];
+    uint32_t us_timer = buffer[i+6];
 
     uint32_t is_ldr = insn & (1 << 20);
     uint32_t offset = 0;
-    if ((insn & 0x0F200000) == 0x05000000)
+    char raw[48] = "";
+
+    if ((insn & 0x0F000000) == 0x05000000 ||
+        (insn & 0x0F200000) == 0x04000000)
     {
-        /* ARM ARM: A5.2.2 Load and Store Word or Unsigned Byte - Immediate offset */
+        /* ARM ARM:
+         * A5.2.2 Load and Store Word or Unsigned Byte - Immediate offset
+         * A5.2.5 Load and Store Word or Unsigned Byte - Immediate pre-indexed
+         * A5.2.8 Load and Store Word or Unsigned Byte - Immediate post-indexed
+         */
+
         offset = (insn & 0xFFF);
-        if (!(insn & (1 << 23)))
+    }
+    else if ((insn & 0x0F000000) == 0x07000000 ||
+             (insn & 0x0F200000) == 0x06000000)
+    {
+        /* A5.2.3 Load and Store Word or Unsigned Byte - Register offset
+         * A5.2.4 Load and Store Word or Unsigned Byte - Scaled register offset
+         * A5.2.6 Load and Store Word or Unsigned Byte - Register pre-indexed
+         * A5.2.7 Load and Store Word or Unsigned Byte - Scaled register pre-indexed
+         * A5.2.9 Load and Store Word or Unsigned Byte - Register post-indexed
+         * A5.2.10 Load and Store Word or Unsigned Byte - Scaled register post-indexed
+         */
+        uint32_t shift = (insn >> 5) & 0x3;
+        uint32_t shift_imm = (insn >> 7) & 0x1F;
+
+        /* index == offset */
+        switch (shift)
         {
-            offset = -offset;
+            case 0b00:  /* LSL */
+                offset = Rm << shift_imm;
+                qprintf("%x: %x [Rn, Rm, LSL#%d] => %x\n", pc, insn, shift_imm, offset);
+                break;
+            case 0b01:  /* LSR */
+                offset = Rm >> (shift_imm ? shift_imm : 32);
+                qprintf("%x: %x [Rn, Rm, LSR#%d] => %x\n", pc, insn, shift_imm, offset);
+                break;
+            case 0b10:  /* ASR */
+                offset = (int32_t) Rm >> (shift_imm ? shift_imm : 32);
+                qprintf("%x: %x [Rn, Rm, ASR#%d] => %x\n", pc, insn, shift_imm, offset);
+                break;
+            case 0b11:  /* ROR or RRX */
+                offset = (shift_imm) ? ror(Rm, shift_imm) : 0 /* FIXME: C not saved; important? */;
+                qprintf("%x: %x [Rn, Rm, ROR#%d] => %x\n", pc, insn, shift_imm, offset);
+                ASSERT(shift_imm);
+                break;
         }
     }
-
-    char raw[64] = "";
-    if ((insn & 0xFFF) && !offset)
+    else if ((insn & 0x0F600F90) == 0x01000090)
     {
-        /* likely unhandled case; print raw values to assist troubleshooting */
-        snprintf(raw, sizeof(raw), "(%08X, %08X)", insn, Rn);
+        /* A5.3.3 Miscellaneous Loads and Stores - Register offset */
+        offset = Rm;
+    }
+    else
+    {
+        /* unhandled case; print raw values to assist troubleshooting */
+        snprintf(raw, sizeof(raw), " (%08X, Rn=%08X, Rm=%08X)", insn, Rn, Rm);
+        qprintf("%x: %x ???\n", pc, insn);
+    }
+
+    /* all of the above may use the sign bit */
+    if (!(insn & (1 << 23)))
+    {
+        offset = -offset;
     }
 
     char msg[128];
