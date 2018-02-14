@@ -33,7 +33,7 @@
 #undef LOG_MALLOC_CALLS
 
 /* log some common function calls that are usually in RAM */
-#undef LOG_COMMON_RAM_FUNCTIONS
+#define LOG_COMMON_RAM_FUNCTIONS
 
 extern void (*pre_isr_hook)();
 extern void (*post_isr_hook)();
@@ -288,16 +288,18 @@ static struct logged_func logged_functions[] = {
     { 0x83b8, "register_interrupt", 4, register_interrupt_log },
     { 0x178ec, "StateTransition", 4 , state_transition_log },
 
+    { 0xFF290B94, "CreateResLockEntry", 2, CreateResLockEntry_log },
+    { 0xFF29105C, "LockEngineResources", 1, LockEngineResources_log },
+    { 0xFF291200, "UnLockEngineResources", 1, UnLockEngineResources_log },
+
+    { 0x17d54, "TryPostEvent", 5, TryPostEvent_log },
+    { 0x17674, "TryPostStageEvent", 5, TryPostEvent_log },
+
+    { 0x4588, "SetTgNextState", 2 },
+
     //~ { 0xFF6B4E2C, "DryEFatFormat", 7 },
     //~ { 0xFF729BDC, "sd_choose_filesystem", 2 },
     //~ { 0xFF729FC4, "sd_choose_filesystem_ret", 1 },
-    //~ { 0xFF290B94, "CreateResLockEntry", 2, CreateResLockEntry_log },
-    //~ { 0xFF29105C, "LockEngineResources", 1, LockEngineResources_log },
-    //~ { 0xFF291200, "UnLockEngineResources", 1, UnLockEngineResources_log }
-    //~ { 0x17d54, "TryPostEvent", 5, TryPostEvent_log },
-    //~ { 0x17674, "TryPostStageEvent", 5, TryPostEvent_log },
-    //~ { 0x4588, "SetTgNextState", 2 },
-    //~ { 0x7218, "SetHPTimerAfter", 4 },
     //~ { 0xFF508F78, "Eeko WakeUp", 0, eeko_wakeup_log },
 #endif
 
