@@ -96,6 +96,10 @@ int debug_format_msg(struct debug_msg * dm, char * msg, int size)
             class_str[i] = ' ';
         }
     }
+    else
+    {
+        snprintf(class_str, sizeof(class_str), "%02x:%02x:", dm->class, dm->level);
+    }
 
     /* format the message */
     return snprintf(msg, size,
