@@ -19,7 +19,9 @@
  * - use this if there may be more than 1 second between messages (otherwise the timestamps will be incorrect)
  * - this option is incompatible with MMIO logging, but unlikely to be required in this case (since MMIO events happen very often)
  * - logs captured without SPARSE_MESSAGES can be corrected manually by adding multiples of 1.048576 seconds as needed */
-#undef SPARSE_MESSAGES
+#ifndef CONFIG_MMIO_TRACE
+#define SPARSE_MESSAGES
+#endif
 
 #include "dm-spy.h"
 #include "io_trace.h"
