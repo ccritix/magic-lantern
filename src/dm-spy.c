@@ -80,6 +80,7 @@ static uint64_t unwrap_timer(uint32_t timer_20bit)
     {
         /* first call with a timer value */
         prev_timer_20bit = initial_value = timer_20bit;
+        overflows = timer_20bit >> 20;
     }
 
     int dt = (int) timer_20bit - (int) prev_timer_20bit;
