@@ -434,6 +434,7 @@ void debug_intercept()
         dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
 
+        info_led_on();
         printf("[dm-spy] captured %s of messages\n", format_memory_size(len));
         NotifyBox(10000, "Pretty-printing... (%s)", format_memory_size(len));
         msleep(200);
@@ -470,6 +471,7 @@ void debug_intercept()
             if ((s = get_seconds_clock()) != prev_s)
             {
                 /* progress indicator - this may take a few seconds */
+                info_led_on();
                 int remain = len - ((void *) dm - buf);
                 printf("[dm-spy] pretty-printing: %s left\n", format_memory_size(remain));
                 NotifyBox(10000, "Pretty-printing... (%s left)", format_memory_size(remain));
@@ -520,6 +522,8 @@ void debug_intercept()
         #ifdef CONFIG_MMIO_TRACE
         io_trace_cleanup();
         #endif
+
+        info_led_off();
 
         /* output by blinking? */
         #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
