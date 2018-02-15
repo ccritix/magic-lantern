@@ -15,6 +15,12 @@
 //~ #define PRINT_EACH_MESSAGE  /* also print each message as soon as it's received (on the screen or via card LED) */
 //~ #define PRINT_STACK /* also print the stack contents for each message */
 
+/* SPARSE_MESSAGES
+ * - use this if there may be more than 1 second between messages (otherwise the timestamps will be incorrect)
+ * - this option is incompatible with MMIO logging, but unlikely to be required in this case (since MMIO events happen very often)
+ * - logs captured without SPARSE_MESSAGES can be corrected manually by adding multiples of 1.048576 seconds as needed */
+#undef SPARSE_MESSAGES
+
 #include "dm-spy.h"
 #include "io_trace.h"
 #include "dryos.h"
@@ -90,7 +96,11 @@ static uint64_t unwrap_timer(uint32_t timer_20bit)
 
 int debug_format_msg(struct debug_msg * dm, char * msg, int size)
 {
+    #ifdef SPARSE_MESSAGES
+    int us = dm->us_timer;  /* already unwrapped */
+    #else
     int us = unwrap_timer(dm->us_timer);
+    #endif
 
     if (!dm->task_name && !dm->pc)
     {
@@ -171,7 +181,11 @@ void debug_log_line(const char * str)
         .block_size     = block_size,
         .msg            = buf + len + sizeof(struct debug_msg),
         .mmio_index     = io_trace_log_get_index() + 1,
+        #ifdef SPARSE_MESSAGES
+        .us_timer       = get_us_clock_value(),
+        #else
         .us_timer       = io_trace_get_timer(),
+        #endif
     };
 
     memcpy(buf + len + sizeof(struct debug_msg), str, str_len + 1);
@@ -317,7 +331,11 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
         .task_name      = current_task->name,
         .interrupt      = current_interrupt | MEM((uintptr_t)&current_task + 4),
         .mmio_index     = io_trace_log_get_index() + 1,
+        #ifdef SPARSE_MESSAGES
+        .us_timer       = get_us_clock_value(),
+        #else
         .us_timer       = io_trace_get_timer(),
+        #endif
       //.edmac_index    = ... (TODO, edmac.mo) */
     };
 
