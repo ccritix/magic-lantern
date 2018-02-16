@@ -99,7 +99,7 @@ static int luaCB_lens_newindex(lua_State * L)
     if(!strcmp(key, "name"))
     {
         LUA_PARAM_STRING(value, 3);
-        strncpy(lens_info.name, value, 31);
+        strncpy(lens_info.name, value, sizeof(lens_info.name)-1);
     }
     else if(!strcmp(key, "exists"))
     {

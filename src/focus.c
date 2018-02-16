@@ -269,14 +269,31 @@ display_lens_hyperfocal()
         return;
     }
 
-    bmp_printf( font, x, y,
-        "Lens: %s, %dmm f/%d.%d",
-        lens_info.name,
-        lens_info.focal_len, 
-        lens_info.aperture / 10,
-        lens_info.aperture % 10
-    );
-    
+    // TODO: Check if can be replaced with %.42s after merging vsnprintf from dietlibc
+    if(strlen(lens_info.name) > 42)
+    {
+      char lensName[42];
+      snprintf(lensName, 42, "%s", lens_info.name);
+
+      bmp_printf( font, x, y,
+          "Lens: %s..., %dmm f/%d.%d",
+          lensName,
+          lens_info.focal_len,
+          lens_info.aperture / 10,
+          lens_info.aperture % 10
+      );
+    }
+    else
+    {
+      bmp_printf( font, x, y,
+          "Lens: %s, %dmm f/%d.%d",
+          lens_info.name,
+          lens_info.focal_len,
+          lens_info.aperture / 10,
+          lens_info.aperture % 10
+      );
+    }
+
     if (!lv)
     {
         y += height;

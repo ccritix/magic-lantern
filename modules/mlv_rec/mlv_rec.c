@@ -189,6 +189,7 @@ static int32_t mlv_update_wbal = 0;
 
 static mlv_expo_hdr_t last_expo_hdr;
 static mlv_lens_hdr_t last_lens_hdr;
+static mlv_elns_hdr_t last_elns_hdr;
 static mlv_wbal_hdr_t last_wbal_hdr;
 static mlv_styl_hdr_t last_styl_hdr;
 
@@ -1442,14 +1443,17 @@ static unsigned int raw_rec_polling_cbr(unsigned int unused)
             trace_write(raw_rec_trace_ctx, "[polling_cbr] queueing INFO blocks");
             mlv_expo_hdr_t *expo_hdr = malloc(sizeof(mlv_expo_hdr_t));
             mlv_lens_hdr_t *lens_hdr = malloc(sizeof(mlv_lens_hdr_t));
+            mlv_elns_hdr_t *elns_hdr = malloc(sizeof(mlv_elns_hdr_t));
             mlv_wbal_hdr_t *wbal_hdr = malloc(sizeof(mlv_wbal_hdr_t));
 
             mlv_fill_expo(expo_hdr, mlv_start_timestamp);
             mlv_fill_lens(lens_hdr, mlv_start_timestamp);
+            mlv_fill_elns(elns_hdr, mlv_start_timestamp);
             mlv_fill_wbal(wbal_hdr, mlv_start_timestamp);
 
             msg_queue_post(mlv_block_queue, (uint32_t) expo_hdr);
             msg_queue_post(mlv_block_queue, (uint32_t) lens_hdr);
+            msg_queue_post(mlv_block_queue, (uint32_t) elns_hdr);
             msg_queue_post(mlv_block_queue, (uint32_t) wbal_hdr);
         }
 
@@ -2562,6 +2566,7 @@ static void raw_prepare_chunk(FILE *f, mlv_file_hdr_t *hdr)
         mlv_rtci_hdr_t rtci_hdr;
         mlv_expo_hdr_t expo_hdr;
         mlv_lens_hdr_t lens_hdr;
+        mlv_elns_hdr_t elns_hdr;
         mlv_idnt_hdr_t idnt_hdr;
         mlv_wbal_hdr_t wbal_hdr;
         mlv_styl_hdr_t styl_hdr;
@@ -2569,6 +2574,7 @@ static void raw_prepare_chunk(FILE *f, mlv_file_hdr_t *hdr)
         mlv_fill_rtci(&rtci_hdr, mlv_start_timestamp);
         mlv_fill_expo(&expo_hdr, mlv_start_timestamp);
         mlv_fill_lens(&lens_hdr, mlv_start_timestamp);
+        mlv_fill_elns(&elns_hdr, mlv_start_timestamp);
         mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);
         mlv_fill_wbal(&wbal_hdr, mlv_start_timestamp);
         mlv_fill_styl(&styl_hdr, mlv_start_timestamp);
@@ -2580,10 +2586,12 @@ static void raw_prepare_chunk(FILE *f, mlv_file_hdr_t *hdr)
         idnt_hdr.timestamp = 4;
         wbal_hdr.timestamp = 5;
         styl_hdr.timestamp = 6;
+        elns_hdr.timestamp = 7;
 
         mlv_write_hdr(f, (mlv_hdr_t *)&rtci_hdr);
         mlv_write_hdr(f, (mlv_hdr_t *)&expo_hdr);
         mlv_write_hdr(f, (mlv_hdr_t *)&lens_hdr);
+        mlv_write_hdr(f, (mlv_hdr_t *)&elns_hdr);
         mlv_write_hdr(f, (mlv_hdr_t *)&idnt_hdr);
         mlv_write_hdr(f, (mlv_hdr_t *)&wbal_hdr);
         mlv_write_hdr(f, (mlv_hdr_t *)&styl_hdr);
@@ -3092,13 +3100,16 @@ static void mlv_rec_queue_blocks()
 
         mlv_expo_hdr_t old_expo = last_expo_hdr;
         mlv_lens_hdr_t old_lens = last_lens_hdr;
+        mlv_elns_hdr_t old_elns = last_elns_hdr;
 
         mlv_fill_expo(&last_expo_hdr, mlv_start_timestamp);
         mlv_fill_lens(&last_lens_hdr, mlv_start_timestamp);
+        mlv_fill_elns(&last_elns_hdr, mlv_start_timestamp);
 
         /* update timestamp for comparing content changes */
         old_expo.timestamp = last_expo_hdr.timestamp;
         old_lens.timestamp = last_lens_hdr.timestamp;
+        old_elns.timestamp = last_elns_hdr.timestamp;
 
         /* write new state if something changed */
         if(memcmp(&last_expo_hdr, &old_expo, sizeof(mlv_expo_hdr_t)))
@@ -3113,6 +3124,20 @@ static void mlv_rec_queue_blocks()
         {
             mlv_hdr_t *hdr = malloc(sizeof(mlv_lens_hdr_t));
             memcpy(hdr, &last_lens_hdr, sizeof(mlv_lens_hdr_t));
+            msg_queue_post(mlv_block_queue, (uint32_t) hdr);
+        }
+        /* write new state if something changed */
+        if(memcmp(&last_elns_hdr, &old_elns, sizeof(mlv_elns_hdr_t)))
+        {
+            mlv_hdr_t *hdr = malloc(sizeof(mlv_elns_hdr_t));
+            memcpy(hdr, &last_elns_hdr, sizeof(mlv_elns_hdr_t));
+            msg_queue_post(mlv_block_queue, (uint32_t) hdr);
+        }
+        /* write new state if something changed */
+        if(memcmp(&last_elns_hdr, &old_elns, sizeof(mlv_elns_hdr_t)))
+        {
+            mlv_hdr_t *hdr = malloc(sizeof(mlv_elns_hdr_t));
+            memcpy(hdr, &last_elns_hdr, sizeof(mlv_elns_hdr_t));
             msg_queue_post(mlv_block_queue, (uint32_t) hdr);
         }
     }

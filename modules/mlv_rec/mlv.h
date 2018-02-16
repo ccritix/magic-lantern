@@ -161,7 +161,23 @@ typedef struct {
     uint32_t    lensID;    /* hexadecimal lens ID (delivered by properties?) */
     uint8_t     lensName[32];    /* full lens string */
     uint8_t     lensSerial[32]; /* full lens serial number */
+    // TODO: Review Specs
 }  mlv_lens_hdr_t;
+
+typedef struct {
+    uint8_t     blockType[4];    /* ELNS - Extended LENS block with longer lens name and optional fields, depending on camera */
+    uint32_t    blockSize;
+    uint64_t    timestamp;
+    uint16_t    focalLengthMin;  /* shortest focal length in mm                       */
+    uint16_t    focalLengthMax;  /* longest focal length in mm                        */
+    uint16_t    apertureMin;     /* lowest f-number * 100                             */
+    uint16_t    apertureMax;     /* highest f-number * 100                            */
+    uint32_t    version;         /* lens internal version number, if available        */
+    uint8_t     extenderInfo;    /* extender information, if provided by camera       */
+    uint8_t     capabilities;    /* capability information, if provided by camera     */
+    uint8_t     chipped;         /* when not zero, lens is communicating with camera  */
+    uint8_t     lensName[64];     /* full lens string, null terminated                 */
+}  mlv_elns_hdr_t;
 
 typedef struct {
     uint8_t     blockType[4];
@@ -286,6 +302,7 @@ typedef struct {
 void mlv_fill_rtci(mlv_rtci_hdr_t *hdr, uint64_t start_timestamp);
 void mlv_fill_expo(mlv_expo_hdr_t *hdr, uint64_t start_timestamp);
 void mlv_fill_lens(mlv_lens_hdr_t *hdr, uint64_t start_timestamp);
+void mlv_fill_elns(mlv_elns_hdr_t *hdr, uint64_t start_timestamp);
 void mlv_fill_idnt(mlv_idnt_hdr_t *hdr, uint64_t start_timestamp);
 void mlv_fill_wbal(mlv_wbal_hdr_t *hdr, uint64_t start_timestamp);
 void mlv_fill_styl(mlv_styl_hdr_t *hdr, uint64_t start_timestamp);

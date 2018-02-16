@@ -224,6 +224,7 @@ static GUARDED_BY(RawRecTask)   mlv_rawc_hdr_t rawc_hdr;
 static GUARDED_BY(RawRecTask)   mlv_idnt_hdr_t idnt_hdr;
 static GUARDED_BY(RawRecTask)   mlv_expo_hdr_t expo_hdr;
 static GUARDED_BY(RawRecTask)   mlv_lens_hdr_t lens_hdr;
+static GUARDED_BY(RawRecTask)   mlv_elns_hdr_t elns_hdr;
 static GUARDED_BY(RawRecTask)   mlv_rtci_hdr_t rtci_hdr;
 static GUARDED_BY(RawRecTask)   mlv_wbal_hdr_t wbal_hdr;
 static GUARDED_BY(RawRecTask)   uint64_t mlv_start_timestamp = 0;
@@ -1645,6 +1646,7 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);
     mlv_fill_expo(&expo_hdr, mlv_start_timestamp);
     mlv_fill_lens(&lens_hdr, mlv_start_timestamp);
+    mlv_fill_elns(&elns_hdr, mlv_start_timestamp);
     mlv_fill_rtci(&rtci_hdr, mlv_start_timestamp);
     mlv_fill_wbal(&wbal_hdr, mlv_start_timestamp);
 }
@@ -1658,6 +1660,7 @@ int write_mlv_chunk_headers(FILE* f)
     if (FIO_WriteFile(f, &idnt_hdr, idnt_hdr.blockSize) != (int)idnt_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &expo_hdr, expo_hdr.blockSize) != (int)expo_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &lens_hdr, lens_hdr.blockSize) != (int)lens_hdr.blockSize) return 0;
+    if (FIO_WriteFile(f, &elns_hdr, elns_hdr.blockSize) != (int)elns_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &wbal_hdr, wbal_hdr.blockSize) != (int)wbal_hdr.blockSize) return 0;
     if (mlv_write_vers_blocks(f, mlv_start_timestamp)) return 0;
