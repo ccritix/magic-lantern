@@ -19,21 +19,9 @@ lenses =
 --  serial          -> Lens Serial Number (optional)
 --  f_values        -> Available f-stop for selected lens (optional)
 
-{ name = "My Lens", focal_length = 50, serial = 123456789 },
-{ name = "My Other Lens", focal_length = 25, manual_aperture = 2.8, f_values = {"2.8","4","5.6","8"} },
-{ name = "My Zoom Lens", focal_length = 25, manual_aperture = 4, focal_length = 105, focal_min = 70, focal_max = 200 },
-{ name = "Yashica ML 50mm f1.9", focal_length = 50, serial = 123, manual_aperture = 5 },
-{ name = "Portrait 85mm", focal_length = 85, manual_aperture = 2 },
-{ name = "Portrait 105mm", focal_length = 105, focal_min = 105, focal_max = 105, manual_aperture = 8 },
-{ name = "Pentax SMC 80-200mm f4,5", focal_length = 200, manual_aperture = 4.5, serial = 123456789 },
-{ name = "Pentax SMC 80-200mm f4,5 with focal length min-max", focal_length = 200, focal_min = 80, focal_max = 200, manual_aperture = 4.5, serial = 123456789 },
-{ name = "Portrait 125mm 2.8", focal_length = 125, manual_aperture = 2.8 },
-{ name = "Portrait 200mm 5.6", focal_length = 200, focal_min = 200, focal_max = 200, manual_aperture = 5.6 },
-{ name = "Portrait 125mm 1.4", focal_length = 125, manual_aperture = 1.4 },
-{ name = "Carl Zeiss Vario-Sonnar T* 100-300 mm f/ 4.5-5.6 C/Y", focal_length = 150, focal_min = 100, focal_max = 300, manual_aperture = 4.5, f_values = {"4.5","8","11","16","22","32"}, serial = 123456789 },
-{ name = "Carl Zeiss Jena 28-70mm f/3.5-4.5 MC Macro Jenazoom Super", focal_length = 35, focal_min = 24, focal_max = 70, manual_aperture = 3.5, f_values = {"3.5","4.5","8","11","16","22","32"}, serial = 123456789 },
-{ name = "Lorem_ipsum_dolor_sit_amet,_te_vel_omnis_saepe_laoreet,_ne_pera", focal_length = 35, focal_min = 24, focal_max = 70, manual_aperture = 3.5, f_values = {"3.5","4.5","8","11","16","22","32"}, serial = 123456789 },
-{ name = "ALorem_ipsum_dolor_sit_amet,_te_vel_omnis_saepe_laoreet,_ne_peras", focal_length = 35, focal_min = 24, focal_max = 70, manual_aperture = 3.5, f_values = {"3.5","4.5","8","11","16","22","32"}, serial = 123456789 },
+    { name = "My Lens", focal_length = 50 },
+    { name = "My Other Lens", focal_length = 25, manual_aperture = 2.8, f_values = {"2.8","4","5.6","8"} },
+    { name = "My Zoom Lens", focal_length = 105, manual_aperture = 4, focal_min = 70, focal_max = 200, serial = 123456789 },
 
 --  Zeiss ZF.2 manual lenses Nikon mount - these work with the lens profiles that ship with Adobe Camera Raw
 
@@ -284,9 +272,9 @@ lens_menu = menu.new
           warning = function()
                       if lensSelected == false then
                         return "No lens selected"
-                      else if is_manual_lens() == false then
+                      elseif is_manual_lens() == false then
                         return "Chipped Lens detected. Only manual lens with AF Chip can change this."
-                      end end
+                      end
                     end,
         },
         {
@@ -308,11 +296,11 @@ lens_menu = menu.new
             warning = function()
                         if is_manual_lens() == false then
                           return "Chipped Lens detected. Only manual lens with AF Chip can change this."
-                        else if lensSelected == false then
+                        elseif lensSelected == false then
                           return "No lens selected"
-                        else if lens.focal_min == lens.focal_max then
+                        elseif lens.focal_min == lens.focal_max then
                           return "Chan be changed only for manual-focus Zoom lens"
-                        end end end
+                        end
                       end,
         },
         {
@@ -330,9 +318,9 @@ lens_menu = menu.new
             warning = function()
                         if is_manual_lens() == false then
                           return "Chipped Lens detected. Only manual lens with AF Chip can change this."
-                        else if lensSelected == false then
+                        elseif lensSelected == false then
                           return "No lens selected"
-                        end end
+                        end
                       end,
         }
     },

@@ -120,7 +120,7 @@ function config.create(default)
     -- Create a config from scratch
     cfg = {}
     cfg.filename = filename
-  --  cfg.default = default -- TODO:
+    cfg.default = default -- TODO: Replicate .data's structure
     cfg.data = {}
     -- check for existing .cfg to load
     setmetatable(cfg,config)
@@ -164,7 +164,7 @@ function config.create_from_menu(m)
     if cfg ~= nil then
       -- Already present in config.configs, append menu
       if cfg.data[m.name] ~= nil then
-        -- Avoid to overwrite values when loading config form .cfg
+        -- Avoid overwriting values when loading config form .cfg
         cfg.data[m.name].menu = m
         recursiveLoad(m,cfg.data[m.name])
       else
@@ -174,7 +174,7 @@ function config.create_from_menu(m)
       -- Create a config from scratch
       cfg = {}
       cfg.filename = filename
-      cfg.default[m.name] = default
+      cfg.default = default -- TODO: Replicate .data's structure
       cfg.data = {}
       -- check for existing .cfg to load
       setmetatable(cfg,config)
