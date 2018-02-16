@@ -57,8 +57,7 @@ static int show_metered_areas = 0;
 extern WEAK_FUNC(ret_0) void raw_lv_request();
 extern WEAK_FUNC(ret_0) void raw_lv_release();
 extern WEAK_FUNC(ret_0) int  raw_lv_is_enabled();
-// 70D temporary solution to allow compiling the
-// ettr module when FEATURE_RAW_ZEBRAS is undefined
+// allow compiling module if FEATURE_RAW_ZEBRAS is undefined
 extern WEAK_FUNC(ret_0) void zebra_highlight_raw_advanced(struct raw_highlight_info * raw_highlight_info);
 
 /* optional beeps */
@@ -1066,7 +1065,7 @@ static int auto_ettr_prepare_lv(int reset, int force_expsim_and_zoom)
         /* temporarily enable get_expsim() while metering */
         if (force_expsim_and_zoom)
         {
-            if (shooting_mode == SHOOTMODE_M && !lens_info.name[0])
+            if (shooting_mode == SHOOTMODE_M && !lens_info.lens_exists)
             {
                 /* workaround for Canon's manual lens underexposure bug */
                 /* use expo override instead of ExpSim */
@@ -1155,7 +1154,7 @@ static void auto_ettr_on_request_task_fast()
         float ev = raw_to_ev(raw);
         int x = 360 + delta * 3;
         int y = 100 - ev * 24; /* multiplier must be 8 x the one from delta */
-        dot(x-16, y-16, COLOR_BLUE, 3);
+        draw_circle(x, y, 2, COLOR_BLUE);
         draw_angled_line(360, y0, 300, 1800-450, COLOR_RED);
         draw_angled_line(360, y0, 300, -450, COLOR_RED);
         draw_angled_line(0, 100, 720, 0, COLOR_RED);
