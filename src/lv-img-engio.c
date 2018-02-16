@@ -12,6 +12,8 @@
 #include "math.h"
 #include "fps.h"
 #include "raw.h"
+#include "focus.h"
+#include "beep.h"
 
 #if defined(CONFIG_7D)
 #include "ml_rpc.h"

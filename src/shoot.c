@@ -57,6 +57,8 @@
 #include "tskmon.h"
 #include "module.h"
 
+static struct recursive_lock * shoot_task_rlock = NULL;
+
 static CONFIG_INT( "shoot.num", pics_to_take_at_once, 0);
 static CONFIG_INT( "shoot.af",  shoot_use_af, 0 );
 static int snap_sim = 0;
@@ -2788,7 +2790,11 @@ void ensure_bulb_mode()
 {
 #ifdef CONFIG_BULB
 
-    while (lens_info.job_state) msleep(100);
+    while (!job_state_ready_to_take_pic()) {
+        msleep(20);
+    }
+
+    AcquireRecursiveLock(shoot_task_rlock, 0);
 
     #ifdef CONFIG_SEPARATE_BULB_MODE
         int a = lens_info.raw_aperture;
@@ -2805,7 +2811,9 @@ void ensure_bulb_mode()
     
     SetGUIRequestMode(0);
     while (!display_idle()) msleep(100);
-    
+
+    ReleaseRecursiveLock(shoot_task_rlock);
+
 #endif
 }
 
@@ -2834,10 +2842,17 @@ int set_drive_single()
 int
 bulb_take_pic(int duration)
 {
+    AcquireRecursiveLock(shoot_task_rlock, 0);
+
     int canceled = 0;
 #ifdef CONFIG_BULB
     extern int ml_taking_pic;
-    if (ml_taking_pic) return 1;
+    if (ml_taking_pic)
+    {
+        /* fixme: make this unreachable */
+        ReleaseRecursiveLock(shoot_task_rlock);
+        return 1;
+    }
     ml_taking_pic = 1;
 
     printf("[BULB] taking picture @ %s %d.%d\" %s\n",
@@ -2988,6 +3003,8 @@ bulb_take_pic(int duration)
     
     ml_taking_pic = 0;
 #endif
+
+    ReleaseRecursiveLock(shoot_task_rlock);
     return canceled;
 }
 
@@ -4533,6 +4550,8 @@ void interval_create_script(int f0)
 // returns zero if successful, nonzero otherwise (user canceled, module error, etc)
 int take_a_pic(int should_af)
 {
+    AcquireRecursiveLock(shoot_task_rlock, 0);
+
     int canceled = 0;
     #ifdef FEATURE_SNAP_SIM
     if (snap_sim) {
@@ -4543,10 +4562,11 @@ int take_a_pic(int should_af)
         display_on();
         _card_led_off();
         msleep(100);
+        ReleaseRecursiveLock(shoot_task_rlock);
         return canceled;
     }
     #endif
-    
+
     #ifdef CONFIG_MODULES
     int cbr_result = 0;
     if ((cbr_result = module_exec_cbr(CBR_CUSTOM_PICTURE_TAKING)) == CBR_RET_CONTINUE)
@@ -4565,10 +4585,13 @@ int take_a_pic(int should_af)
 #ifdef CONFIG_MODULES
     else
     {
+        ReleaseRecursiveLock(shoot_task_rlock);
         return cbr_result != CBR_RET_STOP;
     }
 #endif
     lens_wait_readytotakepic(64);
+
+    ReleaseRecursiveLock(shoot_task_rlock);
     return canceled;
 }
 
@@ -4623,7 +4646,7 @@ static void hdr_iso_shift_restore()
 static int hdr_shutter_release(int ev_x8)
 {
     int ans = 1;
-    //~ NotifyBox(2000, "hdr_shutter_release: %d", ev_x8); msleep(2000);
+    //printf("hdr_shutter_release: %d\n", ev_x8);
     lens_wait_readytotakepic(64);
 
     int manual = (shooting_mode == SHOOTMODE_M || is_movie_mode() || is_bulb_mode());
@@ -4703,7 +4726,7 @@ static int hdr_shutter_release(int ev_x8)
         int expsim0 = get_expsim();
         #endif
         
-        //~ NotifyBox(2000, "ms=%d msc=%d rs=%x rc=%x", ms,msc,rs,rc); msleep(2000);
+        //printf("ms=%d msc=%d rs=%x rc=%x\n", ms,msc,rs,rc);
 
 #ifdef CONFIG_BULB
         // then choose the best option (bulb for long exposures, regular for short exposures)
@@ -4943,7 +4966,7 @@ static void hdr_take_pics(int steps, int step_size, int skip0)
         hdr_auto_take_pics(step_size, skip0);
         return;
     }
-    //~ NotifyBox(2000, "hdr_take_pics: %d, %d, %d", steps, step_size, skip0); msleep(2000);
+    //printf("hdr_take_pics: %d, %d, %d\n", steps, step_size, skip0);
     int i;
     
     // make sure it won't autofocus
@@ -5107,7 +5130,7 @@ void hdr_shot(int skip0, int wait)
 #ifdef FEATURE_HDR_BRACKETING
     if (is_hdr_bracketing_enabled())
     {
-        //~ NotifyBox(1000, "HDR shot (%dx%dEV)...", hdr_steps, hdr_stepsize/8); msleep(1000);
+        printf("[ABRK] HDR sequence (%dx%dEV)...\n", hdr_steps, hdr_stepsize/8);
         lens_wait_readytotakepic(64);
 
         int drive_mode_bak = set_drive_single();
@@ -5116,6 +5139,7 @@ void hdr_shot(int skip0, int wait)
 
         lens_wait_readytotakepic(64);
         if (drive_mode_bak >= 0) lens_set_drivemode(drive_mode_bak);
+        printf("[ABRK] HDR sequence finished.\n");
     }
     else // regular pic (not HDR)
 #endif
@@ -5153,11 +5177,7 @@ void remote_shot(int wait)
     }
     else
     #endif
-    if (is_movie_mode())
-    {
-        movie_start();
-    }
-    else if (is_hdr_bracketing_enabled())
+    if (is_hdr_bracketing_enabled())
     {
         hdr_shot(0, wait);
     }
@@ -5443,6 +5463,8 @@ int is_continuous_drive()
 
 int take_fast_pictures( int number )
 {
+    AcquireRecursiveLock(shoot_task_rlock, 0);
+
     int canceled = 0;
     // take fast pictures
 #ifdef CONFIG_PROP_REQUEST_CHANGE
@@ -5481,6 +5503,8 @@ int take_fast_pictures( int number )
             if(canceled) break;
         }
     }
+
+    ReleaseRecursiveLock(shoot_task_rlock);
     return canceled;
 }
 
@@ -5611,7 +5635,12 @@ shoot_task( void* unused )
 
     /* creating a message queue primarily for interrupting sleep to repaint immediately */
     shoot_task_mqueue = (void*)msg_queue_create("shoot_task_mqueue", 1);
-    
+
+    /* use a recursive lock for photo capture functions that may be called both from this task, or from other tasks */
+    /* fixme: refactor and use semaphores, with thread safety annotations */
+    shoot_task_rlock = CreateRecursiveLock(1);
+    AcquireRecursiveLock(shoot_task_rlock, 0);
+
     #ifdef FEATURE_MLU
     mlu_selftimer_update();
     #endif
@@ -5643,7 +5672,11 @@ shoot_task( void* unused )
         {
             delay = MIN_MSLEEP;
         }
+
+        /* allow other tasks to take pictures while we are sleeping */
+        ReleaseRecursiveLock(shoot_task_rlock);
         int err = msg_queue_receive(shoot_task_mqueue, (struct event**)&msg, delay);        
+        AcquireRecursiveLock(shoot_task_rlock, 0);
 
         priority_feature_enabled = 0;
 
@@ -5810,7 +5843,7 @@ shoot_task( void* unused )
             }
         }
         #endif
-        
+
         if (picture_was_taken_flag) // just took a picture, maybe we should take another one
         {
             if (NOT_RECORDING)
@@ -5819,7 +5852,7 @@ shoot_task( void* unused )
                 if (is_hdr_bracketing_enabled())
                 {
                     lens_wait_readytotakepic(64);
-                    hdr_shot(1,1); // skip the middle exposure, which was just taken
+                    hdr_shot(1,1); // skip the first image, which was just taken
                     lens_wait_readytotakepic(64); 
                 }
                 #endif
@@ -6174,7 +6207,10 @@ shoot_task( void* unused )
             while (SECONDS_REMAINING > 0 && !ml_shutdown_requested)
             {
                 int dt = get_interval_time();
+                /* allow other tasks to take pictures while we are sleeping */
+                ReleaseRecursiveLock(shoot_task_rlock);
                 msleep(dt < 5 ? 20 : 300);
+                AcquireRecursiveLock(shoot_task_rlock, 0);
 
                 intervalometer_check_trigger();
                 if (!intervalometer_running) break; // from inner loop only
