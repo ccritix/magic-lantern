@@ -920,13 +920,13 @@ int raw_update_params_work()
         skip_left = 158;
         skip_top = 50;
         #endif
-		
+
         #ifdef CONFIG_70D
         skip_left = 142;        
         skip_top = 52;
         skip_right = 8;
         #endif
-		
+
         dbg_printf("Photo raw buffer: %x (%dx%d)\n", raw_info.buffer, width, height);
         dbg_printf("Skip left:%d right:%d top:%d bottom:%d\n", skip_left, skip_right, skip_top, skip_bottom);
 #endif
