@@ -2889,46 +2889,6 @@ read_headers:
                     }
                 }
             }
-            else if(!memcmp(buf.blockType, "ELNS", 4))
-            {
-                uint32_t hdr_size = MIN(sizeof(mlv_elns_hdr_t), buf.blockSize);
-
-                if(fread(&elns_info, hdr_size, 1, in_file) != 1)
-                {
-                    print_msg(MSG_ERROR, "File ends in the middle of a block\n");
-                    goto abort;
-                  }
-
-                /* skip remaining data, if there is any */
-                file_set_pos(in_file, position + elns_info.blockSize, SEEK_SET);
-
-                lua_handle_hdr(lua_state, buf.blockType, &elns_info, sizeof(elns_info));
-
-                if(verbose)
-                {
-                    //TODO: Check Aperture Min/Max and if other fields are needed
-                    print_msg(MSG_INFO, "     Name:                '%s'\n", elns_info.lensName);
-                    print_msg(MSG_INFO, "     Focal Length Min:    %d mm\n", elns_info.focalLengthMin);
-                    print_msg(MSG_INFO, "     Focal Length Max:    %d mm\n", elns_info.focalLengthMax);
-                    print_msg(MSG_INFO, "     Aperture Min:        f/%.2f\n", (double)elns_info.apertureMin);
-                    print_msg(MSG_INFO, "     Aperture Max:        f/%.2f\n", (double)elns_info.apertureMax);
-                    print_msg(MSG_INFO, "     Version:             %d\n", elns_info.version);
-                    print_msg(MSG_INFO, "     Extender Info:       0x%02X\n", elns_info.extenderInfo);
-                    print_msg(MSG_INFO, "     Capabilities:        0x%02X\n", elns_info.capabilities);
-                    print_msg(MSG_INFO, "     Chipped:             0x%02X\n", elns_info.chipped);
-                }
-
-                if(mlv_output && !no_metadata_mode && (!extract_block || !strncasecmp(extract_block, (char*)elns_info.blockType, 4)))
-                {
-                    /* correct header size if needed */
-                    elns_info.blockSize = sizeof(mlv_elns_hdr_t);
-                    if(fwrite(&elns_info, elns_info.blockSize, 1, out_file) != 1)
-                    {
-                        print_msg(MSG_ERROR, "Failed writing into .MLV file\n");
-                        goto abort;
-                    }
-                }
-            }
             else if(!memcmp(buf.blockType, "INFO", 4))
             {
                 mlv_info_hdr_t block_hdr;

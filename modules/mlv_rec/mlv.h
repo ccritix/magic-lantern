@@ -161,7 +161,6 @@ typedef struct {
     uint32_t    lensID;    /* hexadecimal lens ID (delivered by properties?) */
     uint8_t     lensName[32];    /* full lens string */
     uint8_t     lensSerial[32]; /* full lens serial number */
-    // TODO: Review Specs
 }  mlv_lens_hdr_t;
 
 typedef struct {
@@ -177,6 +176,7 @@ typedef struct {
     uint8_t     capabilities;    /* capability information, if provided by camera     */
     uint8_t     chipped;         /* when not zero, lens is communicating with camera  */
     uint8_t     lensName[64];     /* full lens string, null terminated                 */
+    // TODO: Review Specs
 }  mlv_elns_hdr_t;
 
 typedef struct {
