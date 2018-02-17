@@ -120,10 +120,12 @@ struct prop_lv_lens
         uint32_t                off_0x35;
         uint32_t                off_0x39;
         uint8_t                 off_0x3d;
+        uint8_t                 off_0x3e;
+        uint8_t                 off_0x3f;
 
 } __attribute__((packed));
 
-SIZE_CHECK_STRUCT( prop_lv_lens, 62 );
+SIZE_CHECK_STRUCT( prop_lv_lens, 64 );
 
 #elif defined(CONFIG_EOSM)
 struct prop_lv_lens
@@ -145,12 +147,13 @@ struct prop_lv_lens
         uint16_t                focus_dist; // One FD; off_0x30
         uint16_t                focus_dist2;// off_0x32
         uint16_t                off_0x34;
-        uint32_t                off_0x36;
-        uint8_t                 off_0x3a;
-        
+        uint16_t                off_0x36;
+        uint16_t                off_0x38;
+        uint16_t                off_0x3a;
+        uint8_t                 off_0x3c;
 } __attribute__((packed));
 
-SIZE_CHECK_STRUCT( prop_lv_lens, 59 );
+SIZE_CHECK_STRUCT( prop_lv_lens, 61 );
 
 #else
 struct prop_lv_lens
@@ -240,8 +243,8 @@ extern int hdr_set_rawaperture(int aperture);
 extern int hdr_set_ae(int ae);
 extern int hdr_set_flash_ae(int ae);
 
-int lens_take_picture( int wait, int allow_af );
-int lens_take_pictures( int wait, int allow_af, int duration );
+int lens_take_picture( int wait_to_finish, int allow_af );
+int lens_take_pictures( int wait_to_finish, int allow_af, int duration );
 
 /** Will return 1 on success, 0 on error */
 extern int
@@ -550,5 +553,8 @@ void set_htp(int value);
 /* camera ready to take a picture or change shooting settings? */
 int job_state_ready_to_take_pic();
 void lens_wait_readytotakepic();
+
+/* force an update of PROP_LV_LENS outside LiveView */
+void _prop_lv_lens_request_update();
 
 #endif /* _lens_h_ */

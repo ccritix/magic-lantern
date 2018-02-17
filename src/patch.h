@@ -127,9 +127,6 @@ int patch_instruction(
 
 /* to undo, use unpatch_memory(addr) */
 
-/* re-apply the ROM (cache) patches */
-/* call this after you have flushed the caches, for example */
-int reapply_cache_patches();
 
 /*****************
  * Logging hooks *

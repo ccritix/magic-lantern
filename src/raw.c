@@ -49,13 +49,13 @@ static struct semaphore * raw_sem = 0;
 /* whether to recompute all the raw parameters (1), or just use cached values(0) */
 static int dirty = 0;
  
-/* if get_ms_clock_value() is less than this, assume the raw data is invalid */
+/* if get_ms_clock() is less than this, assume the raw data is invalid */
 static int next_retry_lv = 0;
 
 /* mark the raw data dirty for the next few ms (raw_update_params_once will return failure, to allow the backend to settle) */
 static void raw_set_dirty_with_timeout(int timeout_ms)
 {
-    next_retry_lv = get_ms_clock_value() + timeout_ms;
+    next_retry_lv = get_ms_clock() + timeout_ms;
     dirty = 1;
 }
 
@@ -123,10 +123,12 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_700D
 #define DEFAULT_RAW_BUFFER MEM(0x25B0C + 0x3C)
+#define DEFAULT_RAW_BUFFER_SIZE (0x47F00000 - 0x46798080)
 #endif
 
 #ifdef CONFIG_EOSM
 #define DEFAULT_RAW_BUFFER MEM(0x404E4 + 0x44)
+#define DEFAULT_RAW_BUFFER_SIZE (0x47F00000 - 0x46798080)
 #endif
 
 #ifdef CONFIG_6D
@@ -702,7 +704,7 @@ int raw_update_params_work()
             return 0;
         }
 
-        if (get_ms_clock_value() < next_retry_lv)
+        if (get_ms_clock() < next_retry_lv)
         {
             /* LiveView raw data is invalid, wait a bit and request a retry */
             dbg_printf("LV raw invalid\n");
@@ -847,7 +849,8 @@ int raw_update_params_work()
         /* autodetect image size from EDMAC */
         width  = shamem_read(RAW_PHOTO_EDMAC + 8) * 8 / 14; /* size B */
         height = shamem_read(RAW_PHOTO_EDMAC + 4) + 1;     /* size N */
-        
+        height &= ~1; /* force it to be always even - https://www.magiclantern.fm/forum/index.php?topic=19300.msg196786#msg196786 */
+
         /* in photo mode, raw buffer size is from ~12 Mpix (1100D) to ~24 Mpix (5D3) */
         /* (this EDMAC may be reused for something else, usually smaller, or with a different size encoding - refuse to run if this happens) */
         if ((width & 0xFFFFE000) || (height & 0xFFFFE000) || (width*height < 10e6) || (width*height > 30e6))
@@ -917,13 +920,13 @@ int raw_update_params_work()
         skip_left = 158;
         skip_top = 50;
         #endif
-		
+
         #ifdef CONFIG_70D
         skip_left = 142;        
         skip_top = 52;
         skip_right = 8;
         #endif
-		
+
         dbg_printf("Photo raw buffer: %x (%dx%d)\n", raw_info.buffer, width, height);
         dbg_printf("Skip left:%d right:%d top:%d bottom:%d\n", skip_left, skip_right, skip_top, skip_bottom);
 #endif
@@ -1181,7 +1184,7 @@ int raw_update_params()
         wait_lv_frames(1);
         
         /* if LV raw settings are marked as "dirty", retrying without waiting will fail for sure */
-        while (get_ms_clock_value() < next_retry_lv)
+        while (get_ms_clock() < next_retry_lv)
         {
             msleep(10);
         }

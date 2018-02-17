@@ -94,8 +94,8 @@
 int get_lv_stopped_by_user();
 
 #define _MOVIE_MODE_NON_LIVEVIEW (!lv && !lv_paused && !get_lv_stopped_by_user() && gui_state == GUISTATE_IDLE && lv_movie_select == LVMS_ENABLE_MOVIE && lens_info.job_state == 0 && !HALFSHUTTER_PRESSED)
-#define GUIMODE_MOVIE_ENSURE_A_LENS_IS_ATTACHED  (_MOVIE_MODE_NON_LIVEVIEW && !lens_info.name[0])
-#define GUIMODE_MOVIE_PRESS_LV_TO_RESUME (_MOVIE_MODE_NON_LIVEVIEW && lens_info.name[0])
+#define GUIMODE_MOVIE_ENSURE_A_LENS_IS_ATTACHED  (_MOVIE_MODE_NON_LIVEVIEW && !lens_info.lens_exists)
+#define GUIMODE_MOVIE_PRESS_LV_TO_RESUME (_MOVIE_MODE_NON_LIVEVIEW && lens_info.lens_exists)
 
 
 
@@ -205,6 +205,7 @@ int get_lv_stopped_by_user();
 // see "Malloc Information"
 #define MALLOC_STRUCT 0x22528
 #define MALLOC_FREE_MEMORY (MEM(MALLOC_STRUCT + 24 + 4) - MEM(MALLOC_STRUCT + 24 + 8)) // "Total Size" - "Allocated Size"
+#define SRM_BUFFER_SIZE 0x25D0000   /* print it from srm_malloc_cbr */
 
 //~ max volume supported for beeps
 #define ASIF_MAX_VOL 5
