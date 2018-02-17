@@ -36,8 +36,14 @@
 #define SIG_700D_111 0x645D8FD5
 #define SIG_700D_113 0x5AE36B51
 #define SIG_700D_114 0x4b35ce13
-// TODO: multiple 100D.100 out there :(
-#define SIG_100D_100 0x34443B7F
+#define SIG_700D_115 0x4c2d9f68
+#define SIG_100D_100A 0x2EBD343C
+#define SIG_100D_100B 0x34443B7F
+#define SIG_100D_100C 0x31eb5dfa
+#define SIG_100D_101 0x3b82b55e
+#define SIG_70D_111A 0xDC6591AD
+#define SIG_70D_111B 0xDD6F9EB3
+#define SIG_70D_112 0xD8698F05
 
 static int compute_signature(int* start, int num)
 {
@@ -49,10 +55,5 @@ static int compute_signature(int* start, int num)
     }
     return c;
 }
-
-#ifdef CONFIG_QEMU
-/* we are using patched ROMs, so the signature will fail for sure; skip it */
-#undef CURRENT_CAMERA_SIGNATURE
-#endif
 
 #endif //_fw_signature_h_

@@ -30,12 +30,16 @@
 #include <beep.h>
 #include <propvalues.h>
 #include <raw.h>
+#include <ml-cbr.h>
 
 #include "../trace/trace.h"
 #include "../mlv_rec/mlv.h"
 #include "../mlv_rec/mlv_rec_interface.h"
 
-#define MLV_SND_BUFFERS 4
+/* allocate that many frame slots to be used for WAVI blocks. two is the minimum to maintain operation */
+#define MLV_SND_SLOTS              2
+/* maximum number of WAVI blocks per slot. the larger, the longer queues will get. should we use more? */
+#define MLV_SND_BLOCKS_PER_SLOT  256
 
 static uint32_t trace_ctx = TRACE_ERROR;
 
@@ -45,11 +49,6 @@ static CONFIG_INT("mlv.snd.bit.depth", mlv_snd_in_bits_per_sample, 16);
 static CONFIG_INT("mlv.snd.sample.rate", mlv_snd_in_sample_rate, 48000);
 static CONFIG_INT("mlv.snd.sample.rate.selection", mlv_snd_rate_sel, 0);
 
-int mlv_snd_is_enabled()
-{
-    return mlv_snd_enabled;
-}
-
 extern int StartASIFDMAADC(void *, uint32_t, void *, uint32_t, void (*)(), uint32_t);
 extern int SetNextASIFADCBuffer(void *, uint32_t);
 extern WEAK_FUNC(ret_0) int PowerAudioOutput();
@@ -57,8 +56,9 @@ extern WEAK_FUNC(ret_0) void audio_configure(int);
 extern WEAK_FUNC(ret_0) int SetAudioVolumeOut(uint32_t);
 extern WEAK_FUNC(ret_0) int SoundDevActiveIn(uint32_t);
 extern WEAK_FUNC(ret_0) int SoundDevShutDownIn();
+extern WEAK_FUNC(ret_0) int StopASIFDMAADC();
 extern void SetSamplingRate(int sample_rate, int channels);
-extern uint64_t get_us_clock_value();
+extern uint64_t get_us_clock();
 
 extern void mlv_rec_get_slot_info(int32_t slot, uint32_t *size, void **address);
 extern int32_t mlv_rec_get_free_slot();
@@ -104,12 +104,26 @@ audio_data_t *mlv_snd_next_buffer = NULL;
 
 static uint32_t mlv_snd_state = MLV_SND_STATE_IDLE;
 
+/* this tells the audio backend that we are going to record sound */
+static ml_cbr_action mlv_snd_snd_rec_cbr (const char *event, void *data)
+{
+    uint32_t *status = (uint32_t*)data;
+    
+    if(mlv_snd_enabled)
+    {
+        *status = 1;
+        return ML_CBR_STOP;
+    }
+    
+    return ML_CBR_CONTINUE;
+}
+
 static void mlv_snd_asif_in_cbr()
 {
     /* the next buffer is now being filled, so update timestamp. do this first to be closer to real start. */
     if(mlv_snd_next_buffer)
     {
-        mlv_snd_next_buffer->timestamp = get_us_clock_value();
+        mlv_snd_next_buffer->timestamp = get_us_clock();
     }
     
     /* and pass the filled buffer into done queue */
@@ -235,7 +249,8 @@ static void mlv_snd_stop()
     }
     
     /* some models may need this */
-    SoundDevShutDownIn();
+    StopASIFDMAADC();
+    // SoundDevShutDownIn();  /* no model seems to need this */
     audio_configure(1);
     
     /* now flush the buffers */
@@ -269,7 +284,7 @@ static void mlv_snd_queue_slot()
     }
     
     /* make sure that there is still place for a NULL block */
-    while((used + block_size + sizeof(mlv_hdr_t) < size) && (queued < 128))
+    while((used + block_size + sizeof(mlv_hdr_t) < size) && (queued < MLV_SND_BLOCKS_PER_SLOT))
     {
         /* setup AUDF header for that block */
         mlv_audf_hdr_t *hdr = (mlv_audf_hdr_t *)((uint32_t)address + used);
@@ -297,7 +312,7 @@ static void mlv_snd_queue_slot()
         entry->mlv_slot_end = 0;
         
         /* check if this was the last frame and set end flag if so */
-        if((used + block_size + sizeof(mlv_hdr_t) >= size) || (queued >= 128))
+        if((used + block_size + sizeof(mlv_hdr_t) >= size) || (queued >= (MLV_SND_BLOCKS_PER_SLOT - 1)))
         {
             /* this tells the writer task that the buffer is filled with that entry being done and can be committed */
             entry->mlv_slot_end = 1;
@@ -339,8 +354,10 @@ static void mlv_snd_alloc_buffers()
     mlv_snd_in_buffer_size = (mlv_snd_in_sample_rate * (mlv_snd_in_bits_per_sample / 8) * mlv_snd_in_channels) / fps;
     trace_write(trace_ctx, "mlv_snd_alloc_buffers: mlv_snd_in_buffer_size = %d", mlv_snd_in_buffer_size);
     
-    mlv_snd_queue_slot();
-    mlv_snd_queue_slot();
+    for(int slot = 0; slot < MLV_SND_SLOTS; slot++)
+    {
+        mlv_snd_queue_slot();
+    }
 
     /* now everything is ready to fire - real output activation happens as soon mlv_snd_running is set to 1 and mlv_snd_vsync() gets called */
     mlv_snd_state = MLV_SND_STATE_READY;
@@ -439,7 +456,7 @@ static void mlv_snd_queue_wavi()
     
     mlv_set_type((mlv_hdr_t*)hdr, "WAVI");
     hdr->blockSize = sizeof(mlv_wavi_hdr_t);
-    mlv_rec_set_rel_timestamp((mlv_hdr_t*)hdr, get_us_clock_value());
+    mlv_rec_set_rel_timestamp((mlv_hdr_t*)hdr, get_us_clock());
     
     /* this part is compatible to RIFF WAVE/fmt header */
     hdr->format = 1;
@@ -550,7 +567,7 @@ static unsigned int mlv_snd_vsync(unsigned int unused)
             StartASIFDMAADC(mlv_snd_current_buffer->data, mlv_snd_current_buffer->length, mlv_snd_next_buffer->data, mlv_snd_next_buffer->length, mlv_snd_asif_in_cbr, 0);
             
             /* the current one will get filled right now */
-            mlv_snd_current_buffer->timestamp = get_us_clock_value();
+            mlv_snd_current_buffer->timestamp = get_us_clock();
             trace_write(trace_ctx, "mlv_snd_vsync: starting audio DONE");
         }
         else
@@ -603,8 +620,8 @@ static unsigned int mlv_snd_init()
     //}
     
     trace_write(trace_ctx, "mlv_snd_init: init queues");
-    mlv_snd_buffers_empty = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_empty", 300);
-    mlv_snd_buffers_done = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_done", 300);
+    mlv_snd_buffers_empty = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_empty", MLV_SND_BLOCKS_PER_SLOT * MLV_SND_SLOTS);
+    mlv_snd_buffers_done = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_done", MLV_SND_BLOCKS_PER_SLOT * MLV_SND_SLOTS);
     
     menu_add("Audio", mlv_snd_menu, COUNT(mlv_snd_menu));
     trace_write(trace_ctx, "mlv_snd_init: done");
@@ -636,6 +653,7 @@ MODULE_INFO_END()
 
 MODULE_CBRS_START()
     MODULE_CBR(CBR_VSYNC, mlv_snd_vsync, 0)
+    MODULE_NAMED_CBR("snd_rec_enabled", mlv_snd_snd_rec_cbr)
 MODULE_CBRS_END()
 
 MODULE_CONFIGS_START()

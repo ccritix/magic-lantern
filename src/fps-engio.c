@@ -127,10 +127,11 @@ static int fps_values_x1000[] = {
     150, 200, 250, 333, 400, 500, 750, 1000, 1500, 2000, 2500, 3000, 4000,
     5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 12500, 14000, 15000, 16000,
     17000, 18000, 19000, 20000, 21000, 22000, 23000, 23976, 24000, 25000, 26000, 27000,
-    28000, 29000, 29970, 30000, 31000, 32000, 33000, 33333, 34000, 35000
+    28000, 29000, 29970, 30000, 31000, 32000, 33000, 33333, 34000, 35000,
     // restrict max fps to 35 for 1100D, 5D2, 50D, 500D (others?)
     #if !defined(CONFIG_1100D) && !defined(CONFIG_5D2) && !defined(CONFIG_50D) && !defined(CONFIG_500D)
-    , 37000, 38000, 39000, 40000, 41000, 42000, 43000, 44000, 45000, 48000, 50000, 60000, 65000, 70000
+    36000, 37000, 38000, 39000, 40000, 41000, 42000, 43000, 44000, 45000, 46000, 47000, 48000,
+    50000, 55000, 59940, 60000, 61000, 62000, 63000, 64000, 65000, 70000
     #endif
 };
 
@@ -211,7 +212,9 @@ static void fps_read_current_timer_values();
 //~ #define FPS_TIMER_B_MIN (fps_timer_b_orig-100)
 #define FPS_TIMER_B_MIN fps_timer_b_orig // it might go lower than that, but it causes trouble high shutter speeds
 
-#define ZOOM (lv_dispsize > 1)
+// 70D (and probably 6D too) as stated also in raw.c:
+// ... reports 129 = 0x81 for zoom x1, and it behaves just like plain (unzoomed) LiveView
+#define ZOOM (lv_dispsize > 1 && lv_dispsize < 129)
 #define MV1080 (is_movie_mode() && video_mode_resolution == 0)
 #define MV720 (is_movie_mode() && video_mode_resolution == 1)
 #define MV480 (is_movie_mode() && video_mode_resolution == 2)
@@ -231,7 +234,7 @@ static void fps_read_current_timer_values();
     #define FPS_TIMER_B_MIN (fps_timer_b_orig - (ZOOM ? 44 : MV720 ? 0 : 70)) /* you can push LiveView until 68fps (timer_b_orig - 50), but good luck recording that */
 #elif defined(CONFIG_EOSM)
     #define TG_FREQ_BASE 32000000
-    #define FPS_TIMER_A_MIN (ZOOM ? 666 : MV1080CROP ? 532 : 520)
+    #define FPS_TIMER_A_MIN (ZOOM ? 716 : MV1080CROP ? 532 : 520)
     #undef FPS_TIMER_B_MIN
     #define FPS_TIMER_B_MIN ( \
     RECORDING_H264 ? (MV1080CROP ? 1750 : MV720 ? 990 : 1970) \
@@ -247,6 +250,16 @@ static void fps_read_current_timer_values();
 #elif defined(CONFIG_700D)
     #define TG_FREQ_BASE 32000000 //copy from 650D
     #define FPS_TIMER_A_MIN (fps_timer_a_orig)
+#elif defined(CONFIG_100D)
+    #define TG_FREQ_BASE 32000000
+    #define FPS_TIMER_A_MIN (ZOOM ? 676 : MV1080CROP ? 540 : 520)
+    #undef FPS_TIMER_B_MIN
+    // no need to cause confusions as recording speed cannot handle such high fps in crop mode
+    // (ZOOM || MV1080CROP ? 1288 : 1970)) <-- these are ok while not recording.
+    // Hybrid CMOS AF II uses 60fps by default in LV/MV for the camera display
+    // to achieve a "snappy" autofocus by doubling the fps
+    // MV720 is not LV so we need to extend the definition for the LCD.
+    #define FPS_TIMER_B_MIN (ZOOM ? 1450 : MV1080CROP ? 1750 : MV720 || (lv && lv_dispsize==1 && !is_movie_mode()) ? 990 : 1970)
 #elif defined(CONFIG_500D)
     #define TG_FREQ_BASE 32000000    // not 100% sure
     #define FPS_TIMER_A_MIN MIN(fps_timer_a_orig - (ZOOM ? 0 : 10), ZOOM ? 1400 : video_mode_resolution == 0 ? 1284 : 1348)
@@ -256,6 +269,9 @@ static void fps_read_current_timer_values();
 #elif defined(CONFIG_550D) || defined(CONFIG_600D) || defined(CONFIG_60D)
     #define TG_FREQ_BASE 28800000
     #define FPS_TIMER_A_MIN MIN(fps_timer_a_orig - (ZOOM ? 0 : 10), ZOOM ? 734 : video_mode_crop ? (video_mode_resolution == 2 ? 400 : 560) : 0x21A)
+#elif defined(CONFIG_70D)
+    #define TG_FREQ_BASE 32000000
+    #define FPS_TIMER_A_MIN (fps_timer_a_orig)
 #endif
 
 // these can change timer B with another method, more suitable for high FPS
@@ -451,12 +467,28 @@ int get_current_shutter_reciprocal_x1000()
     #else
     int blanking = nrzi_decode(FRAME_SHUTTER_BLANKING_READ);
     #endif
-    int max = fps_timer_b;
+
+    /* read the FPS timer B directly from ENGIO shadow memory to have the latest value */
+    int timerB = (FPS_REGISTER_B_VALUE & 0xFFFF) + 1;
+    int max = timerB;
+
+    if (blanking == max - 1)
+    {
+        /* fixme: when blanking is max - 1, exposure time is 0
+         * however, if we adjust either of these two terms by 1,
+         * neither 1/33.333 nor 1/50.000 will give exact values
+         * which is right? (todo: compare some test images to find out) */
+        blanking = max;
+    }
+
     float frame_duration = 1000.0 / fps_get_current_x1000();
     float shutter = frame_duration * (max - blanking) / max;
     return (int)(1.0 / shutter * 1000);
-    
-#elif defined(FRAME_SHUTTER_TIMER)
+
+// ToDo: Cleanup 70D once fps override feature is fixed
+// till then use the fallback. Do it this way to have fast ettr
+// and keep frame_shutter timer enabled in consts.h
+#elif defined(FRAME_SHUTTER_TIMER) && !defined(CONFIG_70D)
     int timer = FRAME_SHUTTER_TIMER;
 
     #ifdef FEATURE_SHUTTER_FINE_TUNING
@@ -498,8 +530,12 @@ int get_current_shutter_reciprocal_x1000()
     //
     // This function returns 1/EA and does all calculations on integer numbers, so actual computations differ slightly.
 
+    #warning FIXME: consider defining FRAME_SHUTTER_BLANKING_READ
+    /* this might use old FPS timer values updated by fps_task */
+    /* it's not thread-safe to re-read them here again */
     return get_shutter_reciprocal_x1000(shutter_r_x1000, fps_timer_a, fps_timer_a_orig, fps_timer_b, fps_timer_b_orig);
 #else
+    #warning FIXME: consider defining FRAME_SHUTTER_BLANKING_READ
     // fallback to APEX units
     if (!lens_info.raw_shutter) return 0;
     return (int) roundf(powf(2.0f, (lens_info.raw_shutter - 136) / 8.0f) * 1000.0f * 1000.0f);
@@ -757,18 +793,28 @@ int fps_get_current_x1000()
     return fps_x1000;
 }
 
+static void calc_rolling_shutter(int * line_ns, int * frame_us, int * frame_percent, int * xres, int * yres);
+
 static MENU_UPDATE_FUNC(fps_print)
 {
     static int last_inactive = 0;
-    int t = get_ms_clock_value_fast();
-    
+    int t = get_ms_clock();
+
+    int frame_readout_time_percent;
+    calc_rolling_shutter(0, 0, &frame_readout_time_percent, 0, 0);
+
     if (fps_override)
     {
         int current_fps = fps_get_current_x1000();
         MENU_SET_VALUE("%d.%03d", 
             current_fps/1000, current_fps%1000
         );
-        
+
+        if (frame_readout_time_percent)
+        {
+            MENU_SET_RINFO("Roll.sh.%d%%", frame_readout_time_percent);
+        }
+
         /* FPS override will disable sound recording automatically, but not right away (only at next update step) */
         /* if it can't be disabled automatically (timeout 1 second), show a warning so the user can disable it himself */
         if (sound_recording_enabled_canon() && is_movie_mode() && fps_should_disable_sound() && t > last_inactive + 1000)
@@ -782,8 +828,18 @@ static MENU_UPDATE_FUNC(fps_print)
     else
     {
         last_inactive = t;
-    }
     
+        int current_fps = fps_get_current_x1000();
+        MENU_SET_RINFO("%d.%03d", 
+            current_fps/1000, current_fps%1000
+        );
+
+        if (frame_readout_time_percent)
+        {
+            MENU_APPEND_RINFO(", Rs.%d%%", frame_readout_time_percent);
+        }
+    }
+
 #ifdef CONFIG_7D
     if (is_movie_mode() && !raw_lv_is_enabled())
     {
@@ -822,7 +878,7 @@ static MENU_UPDATE_FUNC(desired_fps_print)
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "FPS value is computed from photo shutter speed.");
 }
 
-static MENU_UPDATE_FUNC(rolling_shutter_print)
+static void calc_rolling_shutter(int * line_ns, int * frame_us, int * frame_percent, int * xres, int * yres)
 {
     /* Timer A tells us how fast the rows are read out */
     /* Timer A / main clock = time for reading one line */
@@ -830,12 +886,8 @@ static MENU_UPDATE_FUNC(rolling_shutter_print)
 
     int main_clock_div_timer_A = get_current_tg_freq();
     float line_readout_time_us = 1.0e9f / main_clock_div_timer_A;
-    
-    int line_readout_time_us_x10 = (int)roundf(line_readout_time_us * 10.0f);
+    if (line_ns) *line_ns = (int)roundf(line_readout_time_us * 1000.0f);
 
-    /* since we don't know exactly the recording resolution, that's the only reliable value that we can display */
-    MENU_SET_VALUE("%s%d.%d "SYM_MICRO"s / line", FMT_FIXEDPOINT1(line_readout_time_us_x10));
-    
     int vertical_res = 0;
     int horizontal_res = 0;
     
@@ -859,6 +911,30 @@ static MENU_UPDATE_FUNC(rolling_shutter_print)
             vertical_res = MIN(vertical_res, vertical_res_16_9);
         }
     }
+
+    if (xres) *xres = horizontal_res;
+    if (yres) *yres = vertical_res;
+    if (frame_us) *frame_us = 0;
+    if (frame_percent) *frame_percent = 0;
+    
+    if (vertical_res)
+    {
+        int frame_duration_us = (int)roundf(1e9 / fps_get_current_x1000());
+
+        if (frame_us) *frame_us = line_readout_time_us * vertical_res;
+        if (frame_percent) *frame_percent = (int)roundf(line_readout_time_us * vertical_res * 100 / frame_duration_us);
+    }
+}
+
+static MENU_UPDATE_FUNC(rolling_shutter_print)
+{
+    int line_readout_time_ns, frame_readout_time_us, frame_readout_time_percent, horizontal_res, vertical_res;
+    calc_rolling_shutter(&line_readout_time_ns, &frame_readout_time_us, &frame_readout_time_percent, &horizontal_res, &vertical_res);
+   
+    int line_readout_time_us_x10 = line_readout_time_ns / 100;
+
+    /* since we don't know exactly the recording resolution, that's the only reliable value that we can display */
+    MENU_SET_VALUE("%s%d.%d "SYM_MICRO"s / line", FMT_FIXEDPOINT1(line_readout_time_us_x10));
     
     /* trick to display status messages even with FPS override turned off */
     int old_warn = info->warning_level;
@@ -866,9 +942,13 @@ static MENU_UPDATE_FUNC(rolling_shutter_print)
     
     if (vertical_res)
     {
-        int rolling_shutter_ms_x10 = (int)roundf(line_readout_time_us * vertical_res / 100.0f);
+        int rolling_shutter_ms_x10 = frame_readout_time_us / 100;
         
-        MENU_SET_WARNING(MAX(MENU_WARN_INFO, old_warn), "Rolling shutter: %s%d.%d ms at %dx%d.", FMT_FIXEDPOINT1(rolling_shutter_ms_x10), horizontal_res, vertical_res);
+        MENU_SET_WARNING(MAX(MENU_WARN_INFO, old_warn), "Rolling shutter: %s%d.%d ms (%d%%) at %dx%d.",
+            FMT_FIXEDPOINT1(rolling_shutter_ms_x10),
+            frame_readout_time_percent, 0,
+            horizontal_res, vertical_res
+        );
     }
     else
     {
@@ -1493,10 +1573,8 @@ static void fps_read_current_timer_values()
 {
     if (!lv) { fps_timer_a = fps_timer_b = 0; return; }
 
-    int VA = FPS_REGISTER_A_VALUE;
-    int VB = FPS_REGISTER_B_VALUE;
-    fps_timer_a = (VA & 0xFFFF) + 1;
-    fps_timer_b = (VB & 0xFFFF) + 1;
+    fps_timer_a = (FPS_REGISTER_A_VALUE & 0xFFFF) + 1;
+    fps_timer_b = (FPS_REGISTER_B_VALUE & 0xFFFF) + 1;
 }
 
 /*static int fps_check_if_current_timer_values_changed()
@@ -1651,19 +1729,23 @@ static void fps_task()
             continue;
         }
 
+        int default_fps = calc_fps_x1000(fps_timer_a_orig, fps_timer_b_orig);
         int f = fps_values_x1000[fps_override_index];
         
         if (fps_sync_shutter && !is_movie_mode())
         {
-            int default_fps = calc_fps_x1000(fps_timer_a_orig, fps_timer_b_orig);
             f = MIN(1000000 / raw2shutter_ms(lens_info.raw_shutter), default_fps);
+        }
+        
+        if (lv_dispsize == 10 && get_halfshutter_pressed())
+        {
+            /* x10 zoom - disable FPS override to check focus */
+            f = default_fps;
         }
         
         #ifdef FEATURE_FPS_RAMPING
         if (FPS_RAMP) // artistic effect - http://www.magiclantern.fm/forum/index.php?topic=2963.0
         {
-            int default_fps = calc_fps_x1000(fps_timer_a_orig, fps_timer_b_orig);
-
             f = MIN(f, default_fps); // no overcranking possible with FPS ramping
             
             int total_duration = fps_ramp_timings[fps_ramp_duration];
@@ -2059,9 +2141,9 @@ void set_frame_shutter_timer(int timer)
 {
     #ifdef CONFIG_FRAME_SHUTTER_OVERRIDE
         #ifdef CONFIG_DIGIC_V
-        FRAME_SHUTTER_TIMER = MAX(timer, 2);
-        #else
         FRAME_SHUTTER_TIMER = MAX(timer, 1);
+        #else
+        FRAME_SHUTTER_TIMER = MAX(timer, 0);
         #endif
     #endif
 }
@@ -2084,3 +2166,11 @@ int can_set_frame_shutter_timer()
     #endif
 }
 
+int get_frame_aperture()
+{
+    #ifdef FRAME_APERTURE
+    return FRAME_APERTURE & 0xFF;
+    #else
+    return 0;
+    #endif
+}

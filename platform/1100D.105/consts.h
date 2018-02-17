@@ -74,7 +74,7 @@
 #define DIALOG_MnCardFormatBegin   (0x12994+4) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
 #define DIALOG_MnCardFormatExecute (0x1570C+4) // similar
 #define FORMAT_BTN_NAME "[Q]"
-#define FORMAT_BTN BGMT_Q_ALT
+#define FORMAT_BTN BGMT_Q
 #define FORMAT_STR_LOC 11
 
 #define BULB_MIN_EXPOSURE 1000
@@ -123,6 +123,7 @@
 // see "Malloc Information"
 #define MALLOC_STRUCT 0x16fc8
 #define MALLOC_FREE_MEMORY (MEM(MALLOC_STRUCT + 8) - MEM(MALLOC_STRUCT + 0x1C)) // "Total Size" - "Allocated Size"
+#define SRM_BUFFER_SIZE 0x14E8000   /* print it from srm_malloc_cbr */
 
 //~ #define ARROW_MODE_TOGGLE_KEY ""
 

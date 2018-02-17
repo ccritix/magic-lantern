@@ -19,9 +19,9 @@
 #endif
 
 #define SEMAPHORE struct semaphore
-#define SEMAPHORE_INIT(sem) do { sem = create_named_semaphore(#sem"_sem", 0); } while(0)
-#define LOCK(x) do { ASSERT(initialized); take_semaphore((x), 0); } while(0)
-#define UNLOCK give_semaphore
+#define SEMAPHORE_INIT(sem) do { sem = create_named_semaphore(#sem"_sem", 1); } while(0)
+#define LOCK(x)   do { ASSERT(x); take_semaphore((x), 0); } while(0)
+#define UNLOCK(x) do { give_semaphore((x)); } while(0)
 
 #if ML_CBR_DEBUG
 #define dbg_printf(fmt,...) do { printf(fmt, ## __VA_ARGS__); } while(0)
@@ -50,18 +50,14 @@ struct cbr_record_arena {
     struct cbr_record_arena * next;
 } COMPRESSED;
 
-static int initialized = 0;
-
-static struct cbr_node_arena * cbr_node_pool = NULL;
-static struct cbr_record_arena * cbr_record_pool = NULL;
-
 static SEMAPHORE * ml_cbr_lock = NULL;
 
-static inline int fast_compare(const char * fst, const char * snd) {
-    dbg_printf("Checking %s <-> %s\n", fst, snd);
-    return ((*(int64_t*) fst) == (*(int64_t*) snd))
-            &&
-            ((*(int64_t*) fst + 8) == (*(int64_t*) snd + 8));
+static struct cbr_node_arena * GUARDED_BY(ml_cbr_lock) cbr_node_pool = NULL;
+static struct cbr_record_arena * GUARDED_BY(ml_cbr_lock) cbr_record_pool = NULL;
+
+static inline int fast_compare(const char * fst, const char * snd)
+{
+    return strcmp(fst, snd) == 0;
 }
 
 static inline struct cbr_node_arena * create_node_arena()
@@ -80,7 +76,8 @@ static inline struct cbr_record_arena * create_record_arena()
     return result;
 }
 
-static struct cbr_record * find_record(const char * event, unsigned int return_new) {
+static REQUIRES(ml_cbr_lock)
+struct cbr_record * find_record(const char * event, unsigned int return_new) {
     ASSERT(event != NULL);
     struct cbr_record_arena * current = cbr_record_pool;
     struct cbr_record * first_free = NULL;
@@ -109,7 +106,8 @@ static struct cbr_record * find_record(const char * event, unsigned int return_n
     return first_free;
 }
 
-static struct cbr_node * find_free_node() {
+static REQUIRES(ml_cbr_lock)
+struct cbr_node * find_free_node() {
     struct cbr_node_arena * current = cbr_node_pool;
     while (current != NULL) {
         int i;
@@ -123,7 +121,8 @@ static struct cbr_node * find_free_node() {
     return NULL;
 }
 
-static struct cbr_node_arena * expand_cbr_node_pool() {
+static REQUIRES(ml_cbr_lock)
+struct cbr_node_arena * expand_cbr_node_pool() {
     dbg_printf("WARNING EXPANDING CBR NODE POOL\n");
     struct cbr_node_arena * current = cbr_node_pool;
     while (current->next != NULL) {
@@ -133,7 +132,8 @@ static struct cbr_node_arena * expand_cbr_node_pool() {
     return current->next;
 }
 
-static int insert_cbr(struct cbr_record * record, cbr_func cbr, unsigned int prio) {
+static REQUIRES(ml_cbr_lock)
+int insert_cbr(struct cbr_record * record, cbr_func cbr, unsigned int prio) {
     ASSERT(record != NULL && cbr != NULL);
     struct cbr_node * new_node = find_free_node();
     if (new_node == NULL) {
@@ -180,7 +180,8 @@ static int insert_cbr(struct cbr_record * record, cbr_func cbr, unsigned int pri
     return 0;
 }
 
-static struct cbr_record_arena * expand_cbr_record_pool() {
+static REQUIRES(ml_cbr_lock)
+struct cbr_record_arena * expand_cbr_record_pool() {
     dbg_printf("WARNING EXPANDING CBR RECORD POOL\n");
     struct cbr_record_arena * current = cbr_record_pool;
     while (current->next != NULL) {
@@ -190,11 +191,11 @@ static struct cbr_record_arena * expand_cbr_record_pool() {
     return current->next;
 }
 
+EXCLUDES(ml_cbr_lock)
 int ml_register_cbr(const char * event, cbr_func cbr, unsigned int prio) {
     ASSERT(event != NULL && cbr != NULL);
     int retval = -1;
     LOCK(ml_cbr_lock);
-    ml_unregister_cbr(event, cbr);
     struct cbr_record * record = find_record(event, 1);
     if (record == NULL) {
         struct cbr_record_arena * new_arena = expand_cbr_record_pool();
@@ -211,6 +212,7 @@ int ml_register_cbr(const char * event, cbr_func cbr, unsigned int prio) {
     return retval;
 }
 
+EXCLUDES(ml_cbr_lock)
 int ml_unregister_cbr(const char* event, cbr_func cbr) {
     ASSERT(event != NULL && cbr != NULL);
     LOCK(ml_cbr_lock);
@@ -247,25 +249,27 @@ end:
     return retval;
 }
 
+EXCLUDES(ml_cbr_lock)
 void ml_notify_cbr(const char * event, void * data) {
     ASSERT(event != NULL);
     LOCK(ml_cbr_lock);
     struct cbr_record * record = find_record(event, 0);
-    if (record == NULL) {
-        return;
-    }
-    struct cbr_node * call = record->first;
-    while (call != NULL) {
-        if (call->cbr != NULL) {
-            if (call->cbr(event, data) == ML_CBR_STOP) {
-                break;
+    if (record) {
+        struct cbr_node * call = record->first;
+        while (call != NULL) {
+            if (call->cbr != NULL) {
+                if (call->cbr(event, data) == ML_CBR_STOP) {
+                    break;
+                }
             }
+            call = call->next;
         }
-        call = call->next;
     }
+
     UNLOCK(ml_cbr_lock);
 }
 
+EXCLUDES(ml_cbr_lock)
 void debug_cbr_tree(const char * event) {
     ASSERT(event != NULL);
     LOCK(ml_cbr_lock);
@@ -278,13 +282,14 @@ void debug_cbr_tree(const char * event) {
     UNLOCK(ml_cbr_lock);
 }
 
+EXCLUDES(ml_cbr_lock)
 void _ml_cbr_init() {
-    ASSERT(!initialized);
+    ASSERT(!ml_cbr_lock);
+    SEMAPHORE_INIT(ml_cbr_lock);
+    LOCK(ml_cbr_lock);
     ASSERT(cbr_node_pool == NULL);
     ASSERT(cbr_record_pool == NULL);
-    ASSERT(ml_cbr_lock == NULL);
     cbr_node_pool = create_node_arena();
     cbr_record_pool = create_record_arena();
-    SEMAPHORE_INIT(ml_cbr_lock);
-    initialized = 1;
+    UNLOCK(ml_cbr_lock);
 }

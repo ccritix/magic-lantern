@@ -8,10 +8,11 @@ include $(TOP_DIR)/Makefile.top
 
 -include $(TOP_DIR)/Makefile.user
 
+-include $(TOP_DIR)/Makefile.setup.toolchain
 
 ifeq ($(CONFIG_CCACHE), y)
     CC := $(CCACHE) $(CC)
-    HOST_CC := $(CCACHE) $(CC)
+    HOST_CC := $(CCACHE) $(HOST_CC)
 endif	
 
 # Quiet the build process
@@ -33,10 +34,15 @@ define rm_dir
 	@-$(RM) -rf $1
 endef
 
+DEPFLAGS_O=\
+	-Wp,-MMD,$(patsubst %.o,%.d,$(dir $@)$(notdir $@)) \
+	-Wp,-MT,$@
+
+DEPFLAGS_I=\
+	-Wp,-MMD,$(patsubst %.i,%.d,$(dir $@)$(notdir $@)) \
+	-Wp,-MT,$@
 
 FLAGS=\
-	-Wp,-MMD,$(patsubst %.o,%.d,$(dir $@)$(notdir $@)) \
-	-Wp,-MT,$@ \
 	-nostdlib \
 	-fomit-frame-pointer \
 	-fno-strict-aliasing \
@@ -69,6 +75,7 @@ CFLAGS +=\
 	-I$(PLATFORM_INC) \
 	-I$(PLATFORM_INC)/include \
 	-I$(SRC_DIR) \
+	-ggdb3
 
 # The short-double flag is removed in GCC 6+
 GCC_DUMPVERSION := $(shell ${CC} -dumpversion)
@@ -89,9 +96,18 @@ AFLAGS=\
     
 -LFLAGS=
 
+ifeq ($(PYCPARSER),y)
+# both core and modules
+CFLAGS += -DPYCPARSER
+endif
+
 ifdef CONFIG_SMALL_FONTS
 $(error CONFIG_SMALL_FONTS must be renamed to ML_SRC_SMALL_FONTS)
 endif
+
+# some recent Linux distros have this defined
+# we don't use it, but the checks below will get upset and print a warning
+CONFIG_SITE=n
 
 ensureCorrectValue = $(if $(filter $($(1)),y n 1 0), ,$(1)=n $(warning BAD VALUE FOR $(1)=$($(1)) DEFAULTING TO n))
 _defined_configs = $(filter CONFIG_%, $(.VARIABLES))
@@ -149,3 +165,9 @@ prepare_install_dir: install_prepare
 	@$(MKDIR) -p $(INSTALL_CROPMARKS_DIR)
 	@$(MKDIR) -p $(INSTALL_SCRIPTS_DIR)
 	@$(MKDIR) -p $(INSTALL_DOC_DIR)
+
+# disable built-in rules
+.SUFFIXES:
+
+# do not delete these intermediate files
+.PRECIOUS:: %.i

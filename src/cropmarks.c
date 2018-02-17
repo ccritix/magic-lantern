@@ -507,13 +507,13 @@ static void FAST default_movie_cropmarks()
     {
         if(video_mode_resolution > 1) // 4:3
         {
-            crop_x = (os.off_43 << 16) | (os.x_max - os.off_43);
-            crop_y = (os.y0 << 16) | (os.y_max - os.y0);
+            crop_x = ((os.x0 + os.off_43) << 16) | (os.x_max - os.off_43);
+            crop_y = (os.y0 << 16) | os.y_max;
         }
         else
         {
-            crop_x = (os.x0 << 16) | (os.x_max - os.x0);
-            crop_y = (os.off_169 << 16) | (os.y_max - os.off_169);
+            crop_x = (os.x0 << 16) | os.x_max;
+            crop_y = ((os.y0 + os.off_169) << 16) | (os.y_max - os.off_169);
         }
     }
     
@@ -569,9 +569,9 @@ static void FAST default_movie_cropmarks()
 void set_movie_cropmarks(int x, int y, int w, int h)
 {
     x = COERCE(x, os.x0+1, os.x_max-1);
-    y = COERCE(y, os.y0+1, os.y_max-1);
-    w = COERCE(w, 0, os.x_max-1 - x);
-    h = COERCE(h, 0, os.y_max-1 - y);
+    y = COERCE(y, os.y0+2, os.y_max-2);
+    w = COERCE(w, 0, os.x_max-2 - x);
+    h = COERCE(h, 0, os.y_max-4 - y);
     cropmarks_x = (x << 16) | (x + w);
     cropmarks_y = (y << 16) | (y + h);
 }

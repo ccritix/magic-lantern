@@ -134,8 +134,9 @@ int FAST get_y_skip_offset_for_histogram()
 static int is_zoom_mode_so_no_zebras() 
 { 
     if (!lv) return 0;
-    if (lv_dispsize == 1) return 0;
-    if (raw_lv_is_enabled()) return 0; /* exception: in raw mode we can record crop videos */
+    if (lv_dispsize == 1) return 0;     /* always on in x1 */
+    if (lv_dispsize > 5) return 1;      /* always disable in x10 zoom and also in the special x1 mode from some recent models (0x81) */
+    if (raw_lv_is_enabled()) return 0;  /* exception: in raw mode we can record crop videos */
     
     return 1;
 }
@@ -304,7 +305,6 @@ int nondigic_zoom_overlay_enabled()
 static CONFIG_INT( "focus.peaking", focus_peaking, 0);
 //~ static CONFIG_INT( "focus.peaking.method", focus_peaking_method, 1);
 static CONFIG_INT( "focus.peaking.filter.edges", focus_peaking_filter_edges, 0); // prefer texture details rather than strong edges
-static CONFIG_INT( "focus.peaking.lowlight", focus_peaking_lores, 1); // use a low-res image buffer for better results in low light
 static CONFIG_INT( "focus.peaking.thr", focus_peaking_pthr, 5); // 1%
 static CONFIG_INT( "focus.peaking.color", focus_peaking_color, 7); // R,G,B,C,M,Y,cc1,cc2
 CONFIG_INT( "focus.peaking.grayscale", focus_peaking_grayscale, 0); // R,G,B,C,M,Y,cc1,cc2
@@ -421,7 +421,7 @@ int get_global_draw() // menu setting, or off if
     
     #ifdef CONFIG_CONSOLE
     extern int console_visible;
-    if (console_visible) return 0;
+    if (console_visible && !lv) return 0;
     #endif
     
     if (lv && ZEBRAS_IN_LIVEVIEW)
@@ -854,6 +854,7 @@ static MENU_UPDATE_FUNC(raw_zebra_update)
 }
 #endif
 
+/* used for auto bracketing */
 int get_under_and_over_exposure(int thr_lo, int thr_hi, int* under, int* over)
 {
     *under = -1;
@@ -865,16 +866,16 @@ int get_under_and_over_exposure(int thr_lo, int thr_hi, int* under, int* over)
     *over = 0;
     int total = 0;
     void* vram = lv->vram;
-    int x,y;
-    for( y = os.y0 ; y < os.y_max; y ++ )
+
+    bmp_draw_rect(COLOR_GRAY(50), os.x0 + 20, os.y0 + 20, os.x_ex - 40, os.y_ex - 40);
+    for (int y = os.y0 + 20 ; y < os.y_max - 20; y++)
     {
         uint32_t * const v_row = (uint32_t*)( vram + BM2LV_R(y) );
-        for( x = os.x0 ; x < os.x_max ; x += 2 )
+        for (int x = os.x0 + 20 ; x < os.x_max - 20; x += 2)
         {
             uint32_t pixel = v_row[x >> 1];
             
             int Y, R, G, B;
-            //~ uyvy2yrgb(pixel, &Y, &R, &G, &B);
             COMPUTE_UYVY2YRGB(pixel, Y, R, G, B);
             
             int M = MAX(R,G);
@@ -1124,28 +1125,16 @@ static int* dirty_pixels = 0;
 static uint32_t* dirty_pixel_values = 0;
 static int dirty_pixels_num = 0;
 //~ static unsigned int* bm_hd_r_cache = 0;
-static uint16_t bm_hd_x_cache[BMP_W_PLUS - BMP_W_MINUS];
-static int bm_hd_bm2lv_sx = 0;
-static int bm_hd_lv2hd_sx = 0;
-static int old_peak_lores = 0;
+static uint16_t bm_lv_x_cache[BMP_W_PLUS - BMP_W_MINUS];
 
 static void zebra_update_lut()
 {
+    static int prev_bm2lv_sx = 0;
     int rebuild = 0;
-        
-    if(unlikely(bm_hd_bm2lv_sx != bm2lv.sx))
+
+    if(unlikely(prev_bm2lv_sx != bm2lv.sx))
     {
-        bm_hd_bm2lv_sx = bm2lv.sx;
-        rebuild = 1;
-    }
-    if(unlikely(bm_hd_lv2hd_sx != lv2hd.sx))
-    {
-        bm_hd_lv2hd_sx = lv2hd.sx;
-        rebuild = 1;
-    }
-    if (unlikely(focus_peaking_lores != old_peak_lores))
-    {
-        old_peak_lores = focus_peaking_lores;
+        prev_bm2lv_sx = bm2lv.sx;
         rebuild = 1;
     }
     
@@ -1156,7 +1145,7 @@ static void zebra_update_lut()
 
         for (int x = xStart; x < xEnd; x += 1)
         {
-            bm_hd_x_cache[x - BMP_W_MINUS] = ((focus_peaking_lores ? BM2LV_X(x) : BM2HD_X(x)) * 2) + 1;
+            bm_lv_x_cache[x - BMP_W_MINUS] = BM2LV_X(x) * 2 + 1;
         }        
     }
 }
@@ -1478,11 +1467,6 @@ static inline int FAST peak_d2xy(const uint8_t* p8)
     return calc_peak(p8, vram_lv.pitch);
 }
 
-static inline int FAST peak_d2xy_hd(const uint8_t* p8)
-{
-    return calc_peak(p8, vram_hd.pitch);
-}
-
 #ifdef FEATURE_FOCUS_PEAK_DISP_FILTER
 
 //~ static inline int peak_blend_solid(uint32_t* s, int e, int thr) { return 0x4C7F4CD5; }
@@ -1668,10 +1652,6 @@ static void FAST focus_found_pixel(int x, int y, int e, int thr, uint8_t * const
     //~ int color = COLOR_RED;
     color = (color << 8) | color;
     
-#ifdef FEATURE_ANAMORPHIC_PREVIEW
-    y = anamorphic_squeeze_bmp_y(y);
-#endif
-    
     uint16_t * const b_row = (uint16_t*)( bvram + BM_R(y) );   // 2 pixels
     uint16_t * const m_row = (uint16_t*)( bvram_mirror + BM_R(y) );   // 2 pixels
 
@@ -1780,10 +1760,8 @@ draw_zebra_and_focus( int Z, int F )
         }
         dirty_pixels_num = 0;
         
-        struct vram_info *hd_vram = focus_peaking_lores ? get_yuv422_vram() : get_yuv422_hd_vram();
-        uint32_t hdvram = (uint32_t)hd_vram->vram;
-        if (focus_peaking_lores) hdvram = (uint32_t)CACHEABLE(YUV422_LV_BUFFER_DISPLAY_ADDR);
-        if (!hdvram) return 0;
+        uint32_t vram = (uint32_t)CACHEABLE(YUV422_LV_BUFFER_DISPLAY_ADDR);
+        if (!vram) return 0;
         
         int off = get_y_skip_offset_for_overlays();
         int yStart = os.y0 + off + 8;
@@ -1791,7 +1769,12 @@ draw_zebra_and_focus( int Z, int F )
         int xStart = os.x0 + 8;
         int xEnd = os.x_max - 8;
         int n_over = 0;
-        
+
+        #ifdef FEATURE_ANAMORPHIC_PREVIEW
+        yStart = anamorphic_squeeze_bmp_y(yStart);
+        yEnd   = anamorphic_squeeze_bmp_y(yEnd);
+        #endif
+
         const uint8_t* p8; // that's a moving pointer
         
         zebra_update_lut();
@@ -1813,40 +1796,20 @@ draw_zebra_and_focus( int Z, int F )
             n_total = ((yEnd - yStart) * (xEnd - xStart)) / 6;
             for(int y = yStart; y < yEnd; y += 3)
             {
-                uint32_t hd_row = hdvram + (focus_peaking_lores ? BM2LV_R(y) : BM2HD_R(y));
+                uint32_t row = vram + BM2LV_R(y);
                 
-                if (focus_peaking_lores) // use LV buffer
+                for (int x = xStart; x < xEnd; x += 2)
                 {
-                    for (int x = xStart; x < xEnd; x += 2)
+                    p8 = (uint8_t *)(row + bm_lv_x_cache[x - BMP_W_MINUS]);
+                     
+                    int e = peak_d2xy(p8);
+                    
+                    /* executed for 1% of pixels */
+                    if (unlikely(e >= thr))
                     {
-                        p8 = (uint8_t *)(hd_row + bm_hd_x_cache[x - BMP_W_MINUS]); // this was adjusted to hold LV offsets instead of HD
-                         
-                        int e = peak_d2xy(p8);
-                        
-                        /* executed for 1% of pixels */
-                        if (unlikely(e >= thr))
-                        {
-                            n_over++;
-                            if (unlikely(dirty_pixels_num >= MAX_DIRTY_PIXELS)) break; // threshold too low, abort
-                            focus_found_pixel(x, y, e, thr, bvram);
-                        }
-                    }
-                }
-                else // hi-res, use HD buffer
-                {
-                    for (int x = xStart; x < xEnd; x += 2)
-                    {
-                        p8 = (uint8_t *)(hd_row + bm_hd_x_cache[x - BMP_W_MINUS]);
-                         
-                        int e = peak_d2xy_hd(p8);
-                        
-                        /* executed for 1% of pixels */
-                        if (unlikely(e >= thr))
-                        {
-                            n_over++;
-                            if (unlikely(dirty_pixels_num >= MAX_DIRTY_PIXELS)) break; // threshold too low, abort
-                            focus_found_pixel(x, y, e, thr, bvram);
-                        }
+                        n_over++;
+                        if (unlikely(dirty_pixels_num >= MAX_DIRTY_PIXELS)) break; // threshold too low, abort
+                        focus_found_pixel(x, y, e, thr, bvram);
                     }
                 }
             }
@@ -1856,12 +1819,12 @@ draw_zebra_and_focus( int Z, int F )
             n_total = ((yEnd - yStart) * (xEnd - xStart));
             for(int y = yStart; y < yEnd; y ++)
             {
-                uint32_t hd_row = hdvram + BM2HD_R(y);
+                uint32_t row = vram + BM2LV_R(y);
                 
                 for (int x = xStart; x < xEnd; x ++)
                 {
-                    p8 = (uint8_t *)(hd_row + bm_hd_x_cache[x - BMP_W_MINUS]);
-                    int e = peak_d2xy_hd(p8);
+                    p8 = (uint8_t *)(row + bm_lv_x_cache[x - BMP_W_MINUS]);
+                    int e = peak_d2xy(p8);
                     
                     /* executed for 1% of pixels */
                     if (unlikely(e >= thr))
@@ -2724,7 +2687,6 @@ struct menu_entry zebra_menus[] = {
         .select_Q   = toggle_disp_mode_menu,
         .update    = global_draw_display,
         .icon_type = IT_DICE_OFF,
-        .edit_mode = EM_MANY_VALUES,
         .choices = (const char *[]) {"OFF", "LiveView", "QuickReview", "ON, all modes"},
         .help = "Enable/disable ML overlay graphics (zebra, cropmarks...)",
         //.essential = FOR_LIVEVIEW,
@@ -2828,14 +2790,6 @@ struct menu_entry zebra_menus[] = {
                          "Balanced: tries to cover both strong edges and fine details.\n"
                          "Fine details: looks for microcontrast. Needs lots of light.\n",
                 .icon_type = IT_DICE
-            },
-            {
-                .name = "Image buffer",
-                .priv = &focus_peaking_lores,
-                .max = 1,
-                .icon_type = IT_DICE,
-                .choices = CHOICES("High-res", "Low-res"),
-                .help = "Use a low-res image to get better results in low light.",
             },
             /*
             {
@@ -3414,10 +3368,10 @@ static void draw_zoom_overlay(int dirty)
     {
         int timeout_us = timeout_ms * 1000;
         void* old = (void*)shamem_read(hd ? REG_EDMAC_WRITE_HD_ADDR : REG_EDMAC_WRITE_LV_ADDR);
-        int t0 = *(uint32_t*)0xC0242014;
+        int t0 = GET_DIGIC_TIMER();
         while(1)
         {
-            int t1 = *(uint32_t*)0xC0242014;
+            int t1 = GET_DIGIC_TIMER();
             int dt = MOD(t1 - t0, 1048576);
             void* new = (void*)shamem_read(hd ? REG_EDMAC_WRITE_HD_ADDR : REG_EDMAC_WRITE_LV_ADDR);
             if (old != new) break;
@@ -3775,6 +3729,7 @@ void draw_histogram_and_waveform(int allow_play)
 #ifdef FEATURE_HISTOGRAM
     if( hist_draw && !WAVEFORM_FULLSCREEN)
     {
+        extern int console_visible;
         #ifdef CONFIG_4_3_SCREEN
         if (PLAY_OR_QR_MODE)
             BMP_LOCK( hist_draw_image( os.x0 + 500,  1); )
@@ -3782,6 +3737,8 @@ void draw_histogram_and_waveform(int allow_play)
         #endif
         if (should_draw_bottom_graphs())
             BMP_LOCK( hist_draw_image( os.x0 + 50,  480 - hist_height - 1); )
+        else if (console_visible)
+            BMP_LOCK( hist_draw_image( os.x_max - HIST_WIDTH - 5, os.y0 + 70); )
         else if (screen_layout == SCREENLAYOUT_3_2)
             BMP_LOCK( hist_draw_image( os.x_max - HIST_WIDTH - 2,  os.y_max - (lv ? os.off_169 + 10 : 0) - hist_height - 1); )
         else
@@ -4112,7 +4069,11 @@ livev_hipriority_task( void* unused )
         if (raw && lv_dispsize == 1 && !is_movie_mode())
         {
             /* only raw zebras, raw histogram and raw spotmeter are working in LV raw mode */
+            /* 70D has problems with RAW zebras */
+            /* ToDo: Adjust with appropriate internals-config: CONFIG_NO_RAW_ZEBRAS */
+            #if !defined(CONFIG_70D)
             if (zebra_draw && raw_zebra_enable == 1) raw_needed = 1;        /* raw zebras: always */
+            #endif            
             if (hist_draw && RAW_HISTOGRAM_ENABLED) raw_needed = 1;          /* raw hisogram (any kind) */
             if (spotmeter_draw && spotmeter_formula == 3) raw_needed = 1;   /* spotmeter, units: raw */
         }
@@ -4133,7 +4094,7 @@ livev_hipriority_task( void* unused )
 
         int mz = should_draw_zoom_overlay();
 
-        lv_vsync(mz);
+        _lv_vsync(mz);
         guess_fastrefresh_direction();
 
         #ifdef FEATURE_MAGIC_ZOOM
@@ -4555,7 +4516,7 @@ static void make_overlay()
     FILE* f = FIO_CreateFile("ML/DATA/overlay.dat");
     if (f)
     {
-        FIO_WriteFile( f, (const void *) UNCACHEABLE(bvram_mirror), BVRAM_MIRROR_SIZE);
+        FIO_WriteFile( f, (const void *) bvram_mirror, BVRAM_MIRROR_SIZE);
         FIO_CloseFile(f);
         bmp_printf(FONT_MED, 0, 0, "Overlay saved.  ");
     }
@@ -4568,49 +4529,45 @@ static void make_overlay()
 
 static void show_overlay()
 {
-    //~ bvram_mirror_init();
-    //~ struct vram_info * vram = get_yuv422_vram();
-    //~ uint8_t * const lvram = vram->vram;
-    //~ int lvpitch = YUV422_LV_PITCH;
     get_yuv422_vram();
     uint8_t * const bvram = bmp_vram_real();
     if (!bvram) return;
     
     clrscr();
 
-    FILE* f = FIO_OpenFile("ML/DATA/overlay.dat", O_RDONLY | O_SYNC);
-    if (!f) return;
-    FIO_ReadFile(f, bvram_mirror, 960*480 );
-    FIO_CloseFile(f);
+    int size = 0;
+    void * overlay = read_entire_file("ML/DATA/overlay.dat", &size);
+    if (!overlay)
+    {
+        ASSERT(0);
+        return;
+    }
 
     for (int y = os.y0; y < os.y_max; y++)
     {
         int yn = BM2N_Y(y);
         int ym = yn - (int)transparent_overlay_offy; // normalized with offset applied
-        //~ int k;
-        //~ uint16_t * const v_row = (uint16_t*)( lvram + y * lvpitch );        // 1 pixel
-        uint8_t * const b_row = (uint8_t*)( bvram + y * BMPPITCH);          // 1 pixel
-        uint8_t * const m_row = (uint8_t*)( bvram_mirror + ym * BMPPITCH);   // 1 pixel
+        uint8_t * const b_row = (uint8_t*)( bvram + y * BMPPITCH);     // 1 pixel
+        uint8_t * const m_row = (uint8_t*)( overlay + ym * BMPPITCH);  // 1 pixel
         uint8_t* bp;  // through bmp vram
-        uint8_t* mp;  //through bmp vram mirror
+        uint8_t* mp;  // through our overlay
         if (ym < 0 || ym > 480) continue;
-        //~ int offm = 0;
-        //~ int offb = 0;
-        //~ if (transparent_overlay == 2) offm = 720/2;
-        //~ if (transparent_overlay == 3) offb = 720/2;
+
         for (int x = os.x0; x < os.x_max; x++)
         {
             int xn = BM2N_X(x);
             int xm = xn - (int)transparent_overlay_offx;
             bp = b_row + x;
             mp = m_row + xm;
-            if (((x+y) % 2) && xm >= 0 && xm <= 720)
+            if (((x+y) % 2) && xm >= 0 && xm < 720)
                 *bp = *mp;
         }
     }
-    
+
     bvram_mirror_clear();
     afframe_clr_dirty();
+
+    free(overlay);
 }
 
 static void transparent_overlay_from_play()

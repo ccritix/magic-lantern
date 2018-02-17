@@ -52,9 +52,17 @@ void FAST hist_build_raw()
 
     int step = lv ? 4 : 2;
 
+    /* mapping from 14-bit RAW to EV on the 12-bit histogram:
+     * above raw_info.white_level: last bin (HIST_WIDTH-1)
+     * 12 stops below that: first bin (0)
+     * raw_to_ev returns 0 at white level or above,
+     * and negative floating point values below */
     char r2ev[16384];
     for (int i = 0; i < 16384; i++)
+    {
         r2ev[i] = COERCE((raw_to_ev(i) + 12) * (HIST_WIDTH-1) / 12, 0, HIST_WIDTH-1);
+        qprintf("[HIST] RAW %d => %d (white=%d)\n", i, r2ev[i], raw_info.white_level);
+    }
 
     for (int i = os.y0; i < os.y_max; i += step)
     {
@@ -276,9 +284,9 @@ void hist_draw_image(
             int bg = (hist_log ? COLOR_WHITE : COLOR_BLACK);
             if (histogram.is_rgb)
             {
-                unsigned int over_r = histogram.hist_r[i] + histogram.hist_r[i-1];
-                unsigned int over_g = histogram.hist_g[i] + histogram.hist_g[i-1];
-                unsigned int over_b = histogram.hist_b[i] + histogram.hist_b[i-1];
+                unsigned int over_r = histogram.hist_r[i];
+                unsigned int over_g = histogram.hist_g[i];
+                unsigned int over_b = histogram.hist_b[i];
 
                 if (over_r > thr) hist_dot(x_origin + HIST_WIDTH/2 - 25, yw, COLOR_RED,        bg, hist_dot_radius(over_r, histogram.total_px), hist_dot_label(over_r, histogram.total_px));
                 if (over_g > thr) hist_dot(x_origin + HIST_WIDTH/2     , yw, COLOR_GREEN1,     bg, hist_dot_radius(over_g, histogram.total_px), hist_dot_label(over_g, histogram.total_px));
@@ -436,7 +444,7 @@ int FAST raw_hist_get_percentile_levels(int* percentiles_x10, int* output_raw_va
     if (speed == 0 && gray_projection == GRAY_PROJECTION_GREEN)
     {
         /* time: 1-2 seconds on full raw 5D3 */
-        //~ int t0 = get_ms_clock_value();
+        //~ int t0 = get_ms_clock();
         for (struct raw_pixblock * row = (struct raw_pixblock *) raw_info.buffer + raw_info.active_area.y1 * raw_info.width / 8 + (raw_info.active_area.x1 + 7) / 8; (void*)row < (void*)raw_info.buffer + raw_info.pitch * raw_info.active_area.y2; row += 2 * raw_info.width / 8)
         {
             struct raw_pixblock * row2 = row + raw_info.pitch / sizeof(struct raw_pixblock);
@@ -484,7 +492,7 @@ int FAST raw_hist_get_percentile_levels(int* percentiles_x10, int* output_raw_va
                 //~ p->a = rand();
             }
         }
-        //~ int t1 = get_ms_clock_value();
+        //~ int t1 = get_ms_clock();
         //~ NotifyBox(5000, "%d ", t1 - t0);
         //~ save_dng("A:/foo.dng");
     }

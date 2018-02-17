@@ -32,22 +32,25 @@
 
 #include "config-defines.h"
 #include "compiler.h"
+#include "mutex.h"
 #include "dialog.h"
+#include "consts.h"
 #include "gui.h"
 #include "gui-common.h"
 #include "vram.h"
 #include "state-object.h"
 #include "camera.h"
+#include "timer.h"
 #include "tasks.h"
 #include "debug.h"
 #include "audio.h"
-#include "consts.h"
 #include <stdarg.h>
 #include "exmem.h"
 #include "mem.h"
 #include "fio-ml.h"
 #include "imath.h"
 #include "notify_box.h"
+#include "qemu-util.h"
 
 extern float roundf(float x);
 extern float powf(float x, float y);
@@ -69,7 +72,7 @@ extern void *AcquireRecursiveLock(void *lock, int n);
 extern void *CreateRecursiveLock(int n);
 extern void *ReleaseRecursiveLock(void *lock);
 
-struct semaphore;
+struct semaphore {;} CAPABILITY("mutex");
 
 extern struct semaphore *
 create_named_semaphore(
@@ -81,12 +84,12 @@ extern int
 take_semaphore(
         struct semaphore *      semaphore,
         int                     timeout_interval
-);
+) ACQUIRE(semaphore) NO_THREAD_SAFETY_ANALYSIS;
 
 extern int
 give_semaphore(
         struct semaphore *      semaphore
-);
+) RELEASE(semaphore) NO_THREAD_SAFETY_ANALYSIS;
 
 extern void
 bzero32(
@@ -98,14 +101,6 @@ bzero32(
 extern void firmware_entry(void);
 extern void reloc_entry(void);
 extern void __attribute__((noreturn)) cstart(void);
-
-extern int __attribute__((format(printf,2,3)))
-my_fprintf(
-        FILE *                  file,
-        const char *            fmt,
-        ...
-);
-
 
 struct tm {
         int     tm_sec;         /* seconds after the minute [0-60] */
@@ -145,10 +140,14 @@ void ml_assert_handler(char* msg, char* file, int line, const char* func);
 
 int rand (void);
 
+#if !defined(CONFIG_7D_MASTER)
 #define ASSERT(x) { if (!(x)) { ml_assert_handler(#x, __FILE__, __LINE__, __func__); }}
+#else
+#define ASSERT(x) do{}while(0)
+#endif
 //~ #define ASSERT(x) {}
 
-#define STR_APPEND(orig,fmt,...) ({ int _len = strlen(orig); snprintf(orig + _len, sizeof(orig) - _len, fmt, ## __VA_ARGS__); });
+#define STR_APPEND(orig,fmt,...) do { int _len = strlen(orig); snprintf(orig + _len, sizeof(orig) - _len, fmt, ## __VA_ARGS__); } while(0)
 
 #if defined(POSITION_INDEPENDENT)
 extern uint32_t _ml_base_address;
@@ -206,8 +205,6 @@ extern struct msg_queue *msg_queue_create(char *name, uint32_t backlog);
 uint32_t RegisterRPCHandler (uint32_t rpc_id, uint32_t (*handler) (uint8_t *, uint32_t));
 uint32_t RequestRPC (uint32_t id, void* data, uint32_t length, uint32_t cb, uint32_t cb_parm);
 
-const char* get_dcim_dir();
-
 // for optimization
 #define unlikely(exp) __builtin_expect(exp,0)
 #define likely(exp) __builtin_expect(exp,1)
@@ -237,15 +234,6 @@ void info_led_off();
 void info_led_blink(int times, int delay_on, int delay_off);
 void _card_led_on();
 void _card_led_off();
-
-/** timing */
-/* todo: move to a separate file */
-int get_seconds_clock();
-int get_ms_clock_value();
-uint64_t get_us_clock_value();
-int get_ms_clock_value_fast();
-int should_run_polling_action(int period_ms, int* last_updated_time);
-void wait_till_next_second();
 
 /** ENGIO */
 

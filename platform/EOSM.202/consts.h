@@ -26,7 +26,7 @@
 
 // http://magiclantern.wikia.com/wiki/VRAM_ADDR_from_code
 // stateobj_disp[1]
-#define YUV422_LV_BUFFER_DISPLAY_ADDR (*(uint32_t*)(0x3E650+0x11c))
+#define YUV422_LV_BUFFER_DISPLAY_ADDR (*(uint32_t*)(0x3E650+0x118))
 
 #define REG_EDMAC_WRITE_LV_ADDR 0xc0f04208 // SDRAM address of LV buffer (aka VRAM)
 #define REG_EDMAC_WRITE_HD_ADDR 0xc0f04108 // SDRAM address of HD buffer (aka YUV)
@@ -187,6 +187,7 @@
 // see "Malloc Information"
 #define MALLOC_STRUCT 0x668C8
 #define MALLOC_FREE_MEMORY (MEM(MALLOC_STRUCT + 8) - MEM(MALLOC_STRUCT + 0x1C)) // "Total Size" - "Allocated Size"
+#define SRM_BUFFER_SIZE 0x1F24000   /* print it from srm_malloc_cbr */
 
 #define UNAVI (MEM(0x5D408) == 2) // Find with Mem Browser // dec CancelUnaviFeedBackTimer
 #define SCROLLHACK (MEM(0x5D43C) != 0) //-450

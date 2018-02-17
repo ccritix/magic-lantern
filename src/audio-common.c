@@ -3,6 +3,7 @@
 #include "module.h"
 #include "raw.h"
 #include "zebra.h"
+#include "ml-cbr.h"
 
 int sound_recording_enabled_canon()
 {
@@ -10,20 +11,22 @@ int sound_recording_enabled_canon()
     return (sound_recording_mode != 1);
 }
 
-static int (*mlv_snd_is_enabled)() = MODULE_FUNCTION(mlv_snd_is_enabled);
-
 /* TODO: may need check for conditions like raw modules loaded and so on */
 int sound_recording_enabled()
 {
-    if (fps_should_record_wav())
+    uint32_t status = 0;
+    
+    /* ask using ml-cbr */
+    ml_notify_cbr("snd_rec_enabled", &status);
+    
+    if(status)
     {
-        /* this is supposed to work with sound turned off from Canon menu */
         return 1;
     }
     
-    if (mlv_snd_is_enabled())
+    if (fps_should_record_wav())
     {
-        /* check for mlv_snd (it may or may not depend on Canon menu setting - g3gg0? ) */
+        /* this is supposed to work with sound turned off from Canon menu */
         return 1;
     }
     
@@ -37,7 +40,7 @@ int sound_recording_enabled()
     return sound_recording_enabled_canon();
 }
 
-#if defined(CONFIG_500D) || defined(CONFIG_5D3) || defined(CONFIG_100D)
+#if defined(CONFIG_500D) || defined(CONFIG_5D3)
 int audio_thresholds[] = { 0x7fff, 0x7213, 0x65ab, 0x5a9d, 0x50c2, 0x47fa, 0x4026, 0x392c, 0x32f4, 0x2d6a, 0x2879, 0x2412, 0x2026, 0x1ca7, 0x1989, 0x16c2, 0x1449, 0x1214, 0x101d, 0xe5c, 0xccc, 0xb68, 0xa2a, 0x90f, 0x813, 0x732, 0x66a, 0x5b7, 0x518, 0x48a, 0x40c, 0x39b, 0x337, 0x2dd, 0x28d, 0x246, 0x207, 0x1ce, 0x19c, 0x16f, 0x147 };
 #endif
 
@@ -457,7 +460,7 @@ static int audio_meters_step( int reconfig_audio )
         {
             #if defined(CONFIG_600D) || defined(CONFIG_7D)
             audio_configure(1);
-            #elif defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM)
+            #elif defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM) || defined(CONFIG_100D) || defined(CONFIG_70D)
             void PowerMicAmp();
             PowerMicAmp(0);
             #endif
@@ -491,8 +494,8 @@ static void audio_common_task(void * unused)
     audio_levels[0].avg = audio_levels[1].avg = 0;
 
     /* some models require the audio to be enabled using audio_configure() */
-    #if defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM)
-    int reconfig_audio = 0; // Needed to turn on Audio IC at boot, maybe neeed for 100D
+    #if defined(CONFIG_600D) || defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM) || defined(CONFIG_100D) || defined(CONFIG_70D)
+    int reconfig_audio = 0; // Needed to turn on Audio IC at boot, maybe need for 100D
     #else
     int reconfig_audio = 1;
     #endif

@@ -60,7 +60,7 @@ static CONFIG_INT("movie.log", movie_log, 0);
 #ifdef CONFIG_FULLFRAME
 #define SENSORCROPFACTOR 10
 #define crop_info 0
-#elif defined(CONFIG_600D)
+#elif defined(CONFIG_600D) || defined(CONFIG_70D)
 static PROP_INT(PROP_DIGITAL_ZOOM_RATIO, digital_zoom_ratio);
 #define DIGITAL_ZOOM ((is_movie_mode() && video_mode_crop && video_mode_resolution == 0) ? digital_zoom_ratio : 100)
 #define SENSORCROPFACTOR (16 * DIGITAL_ZOOM / 100)
@@ -326,21 +326,67 @@ char* get_shootmode_name_short(int shooting_mode)
                                                 "?"  ;
 }
 
-int FAST get_ml_bottombar_pos()
+int FAST get_ml_topbar_pos()
 {
-    unsigned bottom = 480;
-    int screen_layout = get_screen_layout();
-    
-    if (screen_layout == SCREENLAYOUT_3_2_or_4_3) bottom = os.y_max;
-    else if (screen_layout == SCREENLAYOUT_16_9) bottom = os.y_max - os.off_169;
-    else if (screen_layout == SCREENLAYOUT_16_10) bottom = os.y_max - os.off_1610;
-    else if (screen_layout == SCREENLAYOUT_UNDER_3_2) bottom = MIN(os.y_max + 54, 480);
-    else if (screen_layout == SCREENLAYOUT_UNDER_16_9) bottom = MIN(os.y_max - os.off_169 + 54, 480);
+    const int bar_height = 32;
+    int bmp_ymax = (hdmi_code >= 5) ? 510 : 480;
 
     if (gui_menu_shown())
-        bottom = 480 + (hdmi_code >= 5 ? 40 : 0); // force it at the bottom of menu
+    {
+        return (hdmi_code >= 5) ? 40 : 2; // force it at the top of menu
+    }
+    else
+    {
+        int screen_layout = get_screen_layout();
 
-    return bottom - 34;
+        switch (screen_layout)
+        {
+            case SCREENLAYOUT_16_9:
+                return os.y0 + os.off_169 + 2; // meters just below 16:9 border
+
+            case SCREENLAYOUT_16_10:
+                return os.y0 + os.off_1610 + 2; // meters just below 16:9 border
+
+            case SCREENLAYOUT_UNDER_3_2:
+                return MIN(os.y_max + 2, bmp_ymax - 2*bar_height);
+
+            case SCREENLAYOUT_UNDER_16_9:
+                return MIN(os.y_max - os.off_169 + 4, bmp_ymax - 2*bar_height);
+
+            default:
+                return os.y0 + 2; // just above the 16:9 frame
+        }
+    }
+}
+
+int FAST get_ml_bottombar_pos()
+{
+    const int bar_height = 32;
+
+    if (gui_menu_shown())
+    {
+        return 480 + (hdmi_code >= 5 ? 40 : 0) - bar_height; // force it at the bottom of menu
+    }
+    else
+    {
+        int screen_layout = get_screen_layout();
+
+        switch (screen_layout)
+        {
+            case SCREENLAYOUT_16_9:
+                return os.y_max - os.off_169 - bar_height;
+
+            case SCREENLAYOUT_16_10:
+                return os.y_max - os.off_1610 - bar_height;
+
+            case SCREENLAYOUT_UNDER_3_2:
+            case SCREENLAYOUT_UNDER_16_9:
+                return get_ml_topbar_pos() + bar_height;
+
+            default:
+                return os.y_max - bar_height - 2; // just above the 16:9 frame
+        }
+    }
 }
 
 void draw_ml_bottombar()
@@ -393,12 +439,16 @@ static int round_nicely(int x, int digits)
 
 // Pretty prints the shutter speed given the shutter reciprocal (times 1000) as input
 // To be used in movie mode; it doesn't try too hard to be consistent with Canon values
-char* lens_format_shutter_reciprocal(int shutter_reciprocal_x1000, int digits)
+const char * lens_format_shutter_reciprocal(int shutter_reciprocal_x1000, int digits)
 {
     static char shutter[32];
-    if (shutter_reciprocal_x1000 == 0)
+    if (shutter_reciprocal_x1000 <= 0)
     {
         snprintf(shutter, sizeof(shutter), "N/A");
+    }
+    else if (shutter_reciprocal_x1000 == INT_MAX)
+    {
+        snprintf(shutter, sizeof(shutter), "0.0");
     }
     else if (shutter_reciprocal_x1000 >= 10000000)
     {
@@ -436,16 +486,16 @@ char* lens_format_shutter_reciprocal(int shutter_reciprocal_x1000, int digits)
 
 // Pretty prints the shutter speed given the raw shutter value as input
 // To be used in photo mode; it will try to be somewhat consistent with Canon values
-char* lens_format_shutter(int tv)
+const char * lens_format_shutter(int raw_shutter)
 {
-    static char shutter[32];
-    if(tv >= 70 && tv - 15 < COUNT(values_shutter))
+    static char shutter[16];
+    if(raw_shutter >= 70 && raw_shutter - 15 < COUNT(values_shutter))
     {
-        snprintf(shutter, sizeof(shutter), SYM_1_SLASH"%d", values_shutter[tv-15]);
+        snprintf(shutter, sizeof(shutter), SYM_1_SLASH"%d", values_shutter[raw_shutter-15]);
     }
-    else if(tv >= 15 && tv < 70)
+    else if(raw_shutter >= 15 && raw_shutter < 70)
     {
-        uint16_t value = values_shutter[tv-15];
+        uint16_t value = values_shutter[raw_shutter-15];
         if(value % 10 != 0)
         {
             snprintf(shutter, sizeof(shutter), "%d.%d\"", value / 10, value % 10);
@@ -455,23 +505,23 @@ char* lens_format_shutter(int tv)
             snprintf(shutter, sizeof(shutter), "%d\"", value / 10);
         }
     }
-    else if (tv == SHUTTER_BULB)
+    else if (raw_shutter == SHUTTER_BULB)
     {
         snprintf(shutter, sizeof(shutter), "BULB");
     }
     else
     {
         //this should never happen, but if it does, just print the raw value
-        snprintf(shutter, sizeof(shutter), "RAW:%d", tv);
+        snprintf(shutter, sizeof(shutter), "RAW:%d", raw_shutter);
     }
     return shutter;
 }
 
-char* lens_format_aperture(int raw_aperture)
+const char * lens_format_aperture(int raw_aperture)
 {
     int f = RAW2VALUE(aperture, raw_aperture);
     
-    static char aperture[32];
+    static char aperture[16];
     if (f < 100)
     {
         snprintf(aperture, sizeof(aperture), SYM_F_SLASH"%d.%d", f / 10, f % 10);
@@ -483,24 +533,20 @@ char* lens_format_aperture(int raw_aperture)
     return aperture;
 }
 
-int FAST get_ml_topbar_pos()
+const char * lens_format_iso(int raw_iso)
 {
-    int screen_layout = get_screen_layout();
+    static char iso[16];
 
-    int y = 0;
-    if (gui_menu_shown())
+    if (raw_iso)
     {
-        y = (hdmi_code >= 5 ? 40 : 2); // force it at the top of menu
+        snprintf(iso, sizeof(iso), SYM_ISO"%d", raw2iso(raw_iso));
     }
     else
     {
-        if (screen_layout == SCREENLAYOUT_3_2_or_4_3) y = os.y0 + 2; // just above the 16:9 frame
-        else if (screen_layout == SCREENLAYOUT_16_9) y = os.y0 + os.off_169; // meters just below 16:9 border
-        else if (screen_layout == SCREENLAYOUT_16_10) y = os.y0 + os.off_1610; // meters just below 16:9 border
-        else if (screen_layout == SCREENLAYOUT_UNDER_3_2) y = MIN(os.y_max, 480 - 68);
-        else if (screen_layout == SCREENLAYOUT_UNDER_16_9) y = MIN(os.y_max - os.off_169, 480 - 68);
+        snprintf(iso, sizeof(iso), SYM_ISO"Auto");
     }
-    return y;
+
+    return iso;
 }
 
 void free_space_show_photomode()
@@ -534,6 +580,12 @@ static volatile int lv_focus_requests = 0;
 static volatile int lv_focus_done = 1;
 static volatile int lv_focus_error = 0;
 
+// 70D focus features don't play well with this and
+// soft limit is reached very quickly
+// see http://www.magiclantern.fm/forum/index.php?topic=14309.msg152551#msg152551
+// skipping the check helps but for e.g. focus stacking is still buggy
+// and takes 1 behind and 1 before all others afterwards are before at the same
+// position no matter what's set in menu
 PROP_HANDLER( PROP_LV_FOCUS_DONE )
 {
     /* turn off the LED we enabled in lens_focus */
@@ -543,16 +595,49 @@ PROP_HANDLER( PROP_LV_FOCUS_DONE )
 
     //~ bmp_printf(FONT_MED, 50, 100, "Focus status: 0x%x  ", buf[0]);
     
-    if (buf[0] & 0x1000) 
+    static int last_pos = 0;
+    static int retries = 2;
+    
+    int error_flag = buf[0] & 0x1000;
+    int focus_changed = last_pos != lens_info.focus_pos;
+    int lens_stuck = error_flag && !focus_changed;
+
+    if (lens_stuck)
     {
+        printf("Lens stuck? (%d, %x)\n", retries, buf[0]);
+    }
+    else
+    {
+        printf("Lens moving (%d, %x)\n", lens_info.focus_pos - last_pos, buf[0]);
+    }
+
+    if (lens_stuck && retries == 0)
+    {
+        /* only trigger the error if the lens did not move at all
+         * after 2 retries */
         NotifyBox(1000, "Focus: soft limit reached");
         lv_focus_error = 1;
+        
+        /* assume the error was handled (e.g. by reversing direction)
+         * and allow 2 retries for the next attempt */
+        retries = 2;
     }
     else
     {
         /* assume all is fine (not sure if correct, but seems to work) */
         lv_focus_done = 1;
+        
+        if (lens_stuck)
+        {
+            retries--;
+        }
+        else
+        {
+            retries = 2;
+        }
     }
+
+    last_pos = lens_info.focus_pos;
 }
 
 static void
@@ -585,7 +670,6 @@ lens_focus(
 
     if (!lv) return 0;
     if (is_manual_focus()) return 0;
-    if (lens_info.job_state) return 0;
 
     if (num_steps < 0)
     {
@@ -604,13 +688,30 @@ lens_focus(
             if (wait)
             {
                 lv_focus_done = 0;
-                
-                /* request and wait for confirmation */
                 info_led_on();
+
+#ifdef CONFIG_FOCUS_COMMANDS_PROP_NOT_CONFIRMED
+                /* in old models, each focus command is confirmed by pfAfComplete interrupt */
+                /* it's not safe to send commands before that (camera crashes) */
+                /* properties are not confirmed, so prop_request_change_wait would time out */
+                /* not all cameras having this string require this though (550D, maybe 7D as well) */
+                /* todo: VxWorks cameras may require this too */
+                extern volatile int pfAfComplete_counter;
+                int old = pfAfComplete_counter;
+
+                prop_request_change(PROP_LV_LENS_DRIVE_REMOTE, &focus_cmd, 4);
+
+                while (pfAfComplete_counter == old)
+                {
+                    msleep(10);
+                }
+#else
+                /* request and wait for confirmation */
                 prop_request_change_wait(PROP_LV_LENS_DRIVE_REMOTE, &focus_cmd, 4, 1000);
-                
+
                 /* also wait for confirmation from PROP_LV_FOCUS_DONE */
                 lens_focus_wait();
+#endif
                 
                 /* also wait a little more if user want so (for really stubborn lenses) */
                 if (extra_delay)
@@ -777,7 +878,8 @@ void restore_af_button_assignment_at_shutdown()
     }
 }
 
-int ml_taking_pic = 0;
+/* also used in bulb_take_pic */
+volatile int ml_taking_pic = 0;
 
 int lens_setup_af(int should_af)
 {
@@ -798,16 +900,34 @@ void lens_cleanup_af()
     restore_af_button_assignment();
 }
 
+/* please try to call take_a_pic() instead of this one */
 int
 lens_take_picture(
-    int wait, 
+    int wait_to_finish,
     int should_af
 )
 {
-    if (ml_taking_pic) return -1;
+    if (ml_taking_pic)
+    {
+        return -1;
+    }
+
     ml_taking_pic = 1;
 
-    if (should_af != AF_DONT_CHANGE) lens_setup_af(should_af);
+    printf("[LENS] taking picture @ %s %s %s %s\n",
+        lens_format_iso(lens_info.raw_iso),
+        lens_format_shutter(lens_info.raw_shutter),
+        lens_format_aperture(lens_info.raw_aperture),
+        should_af == AF_ENABLE ? "AF" : should_af == AF_DISABLE ? "no AF" : ""
+    );
+
+    int file_number_before = get_shooting_card()->file_number;
+
+    if (should_af != AF_DONT_CHANGE)
+    {
+        lens_setup_af(should_af);
+    }
+    
     //~ take_semaphore(lens_sem, 0);
     lens_wait_readytotakepic(64);
     
@@ -857,27 +977,58 @@ lens_take_picture(
     SW1(0,0);
     #endif
 
-end:
-    if( !wait )
+end:;
+
+    /* always wait for the photo capture process to start */
+
+    /* additional delays given by drive mode? */
+    switch (drive_mode)
+    {
+        case DRIVE_SELFTIMER_2SEC:
+            msleep(2000);
+            break;
+        case DRIVE_SELFTIMER_REMOTE:
+        case DRIVE_SELFTIMER_CONTINUOUS:
+            msleep(10000);
+            break;
+    }
+
+    /* wait until job_state becomes valid, i.e. exposure started (timeout 2 seconds) */
+    for (int i = 0; i < 100 && lens_info.job_state == 0; i++)
+    {
+        msleep(20);
+    }
+
+    int ret = 0;
+    if( !wait_to_finish )
     {
         //~ give_semaphore(lens_sem);
-        if (should_af != AF_DONT_CHANGE) lens_cleanup_af();
-        ml_taking_pic = 0;
-        return 0;
+        goto finish;
     }
     else
     {
-        msleep(200);
+        /* wait until the camera is ready to take a new image */
+        lens_wait_readytotakepic(wait_to_finish);
 
-        if (drive_mode == DRIVE_SELFTIMER_2SEC) msleep(2000);
-        if (drive_mode == DRIVE_SELFTIMER_REMOTE || drive_mode == DRIVE_SELFTIMER_CONTINUOUS) msleep(10000);
+        /* wait until the image file gets saved (timeout 2 seconds) */
+        for (int i = 0; i < 100 && get_shooting_card()->file_number == file_number_before; i++)
+        {
+            /* reachable? not sure, might be model-dependent */
+            msleep(20);
+        }
 
-        lens_wait_readytotakepic(wait);
         //~ give_semaphore(lens_sem);
-        if (should_af != AF_DONT_CHANGE) lens_cleanup_af();
-        ml_taking_pic = 0;
-        return lens_info.job_state;
+        ret = lens_info.job_state;
+        goto finish;
     }
+
+finish:
+    if (should_af != AF_DONT_CHANGE)
+    {
+        lens_cleanup_af();
+    }
+    ml_taking_pic = 0;
+    return ret;
 }
 
 #ifdef FEATURE_MOVIE_LOGGING
@@ -1096,14 +1247,49 @@ PROP_HANDLER( PROP_LENS_NAME )
 PROP_HANDLER(PROP_LENS)
 {
     uint8_t* info = (uint8_t *) buf;
+    
     #ifdef CONFIG_5DC
+    lens_info.lens_exists = 0;
     lens_info.raw_aperture_min = info[2];
     lens_info.raw_aperture_max = info[3];
     lens_info.lens_id = 0;
+    lens_info.lens_focal_min = 0;
+    lens_info.lens_focal_max = 0;
+    lens_info.lens_extender = 0;
+    lens_info.lens_version = 0;
+    lens_info.lens_capabilities = 0;
     #else
+    lens_info.lens_exists = info[0];
     lens_info.raw_aperture_min = info[1];
     lens_info.raw_aperture_max = info[2];
-    lens_info.lens_id = info[4] | (info[5] << 8);
+    lens_info.lens_id = (info[3] << 8) | info[4];
+    lens_info.lens_focal_min = (info[5] << 8) | info[6];
+    lens_info.lens_focal_max = (info[7] << 8) | info[8];
+    lens_info.lens_extender = info[0xE];
+    
+    /* not all models support this feature */
+    if(len >= 0x1C)
+    {
+        lens_info.lens_version = (info[0x19] << 16) | (info[0x1A] << 8) | info[0x1B];
+        lens_info.lens_capabilities = info[0x1C];
+        
+        /* not sure how big the lens serial is; exiftool shows 5 bytes in htmlDump */
+        uint32_t lens_serial_lo = 
+             info[0x18]        |
+            (info[0x17] << 8)  |
+            (info[0x16] << 16) |
+            (info[0x15] << 24) ;
+        uint32_t lens_serial_hi = 
+             info[0x14]        ;
+        lens_info.lens_serial = 
+             (uint64_t) lens_serial_lo | 
+            ((uint64_t) lens_serial_hi << 32);
+    }
+    else
+    {
+        lens_info.lens_version = 0;
+        lens_info.lens_capabilities = 0;
+    }
     #endif
     
     if (lens_info.raw_aperture < lens_info.raw_aperture_min || lens_info.raw_aperture > lens_info.raw_aperture_max)
@@ -1262,9 +1448,11 @@ PROP_HANDLER( PROP_SHUTTER )
     }
     #ifdef FEATURE_EXPO_OVERRIDE
     else if (buf[0]  // sync expo override to Canon values
+            #if !defined(CONFIG_100D) // any other cameras which need this ?
+                                      // symptoms: http://www.magiclantern.fm/forum/index.php?topic=16040.msg187050#msg187050
             && (ABS(buf[0] - lens_info.raw_shutter) > 3) // some cameras may attempt to round shutter value to 1/2 or 1/3 stops
                                                        // especially when pressing half-shutter
-
+            #endif
         #ifdef CONFIG_MOVIE_EXPO_OVERRIDE_DISABLE_SYNC_WITH_PROPS
         && !is_movie_mode()
         #endif
@@ -1511,40 +1699,36 @@ static void focus_ring_powersave_fix()
     }
 }
 
-#if defined(CONFIG_EOSM)
-PROP_HANDLER( PROP_LV_FOCAL_DISTANCE )
-{
-#ifdef FEATURE_MAGIC_ZOOM
-    if (get_zoom_overlay_trigger_by_focus_ring()) zoom_overlay_set_countdown(300);
-#endif
-    
-    idle_wakeup_reset_counters(-11);
-    lens_display_set_dirty();
-    focus_ring_powersave_fix();
-    
-#ifdef FEATURE_LV_ZOOM_SETTINGS
-    zoom_focus_ring_trigger();
-#endif
-}
-#endif
+/* only used for requesting a refresh of PROP_LV_LENS;
+ * raw data is model-dependent, do not use directly */
+static struct prop_lv_lens lv_lens_raw;
+
 PROP_HANDLER( PROP_LV_LENS )
 {
+    ASSERT(len <= sizeof(lv_lens_raw));
+    memcpy(&lv_lens_raw, buf, sizeof(lv_lens_raw));
+
     const struct prop_lv_lens * const lv_lens = (void*) buf;
-    lens_info.focal_len    = bswap16( lv_lens->focal_len );
+    lens_info.focal_len     = bswap16( lv_lens->focal_len );
     lens_info.focus_dist    = bswap16( lv_lens->focus_dist );
+    lens_info.focus_pos     = (int16_t) bswap16( lv_lens->focus_pos );
     
     if (lens_info.focal_len > 1000) // bogus values
         lens_info.focal_len = 0;
 
     //~ uint32_t lrswap = SWAP_ENDIAN(lv_lens->lens_rotation);
     //~ uint32_t lsswap = SWAP_ENDIAN(lv_lens->lens_step);
-
     //~ lens_info.lens_rotation = *((float*)&lrswap);
     //~ lens_info.lens_step = *((float*)&lsswap);
-#if !defined(CONFIG_EOSM)  
+    
     static unsigned old_focus_dist = 0;
+    static int      old_focus_pos = 0;
     static unsigned old_focal_len = 0;
-    if (lv && (old_focus_dist && lens_info.focus_dist != old_focus_dist) && (old_focal_len && lens_info.focal_len == old_focal_len))
+    int focus_dist_changed = (old_focus_dist && lens_info.focus_dist != old_focus_dist);
+    int focus_pos_changed = (lens_info.focus_pos != old_focus_pos);
+    int lens_not_zoomed = (old_focal_len && lens_info.focal_len == old_focal_len);
+
+    if (lv && lens_not_zoomed && (focus_pos_changed || focus_dist_changed))
     {
         #ifdef FEATURE_MAGIC_ZOOM
         if (get_zoom_overlay_trigger_by_focus_ring()) zoom_overlay_set_countdown(300);
@@ -1559,9 +1743,23 @@ PROP_HANDLER( PROP_LV_LENS )
         #endif
     }
     old_focus_dist = lens_info.focus_dist;
+    old_focus_pos = lens_info.focus_pos;
     old_focal_len = lens_info.focal_len;
-#endif
     update_stuff();
+}
+
+/* called once per second */
+void _prop_lv_lens_request_update()
+{
+    /* this property is normally active only in LiveView
+     * however, the MPU can be tricked into sending its value outside LiveView as well
+     * (Canon code also updates these values outside LiveView, when taking a picture)
+     * the input data should not be used, but... better safe than sorry
+     * this should send MPU message 06 04 09 00 00 
+     * and the MPU is expected to reply with the complete property (much larger)
+     * size is model-specific, but should not be larger than sizeof(lv_lens_raw)
+     */
+    prop_request_change(PROP_LV_LENS, &lv_lens_raw, 0);
 }
 
 /**
@@ -1640,6 +1838,119 @@ static struct menu_entry lens_menus[] = {
     #endif
 };
 
+static MENU_UPDATE_FUNC(lens_name_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    MENU_SET_VALUE("%s", lens_info.name );
+}
+
+static MENU_UPDATE_FUNC(lens_id_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+
+    /* exiftool displays this as decimal */
+    MENU_SET_VALUE("0x%04X (%d)", lens_info.lens_id, lens_info.lens_id);
+}
+
+static MENU_UPDATE_FUNC(lens_serial_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+
+    if(lens_info.lens_serial)
+    {
+        MENU_SET_VALUE(
+            "%02x%08X", /* to match exiftool display */ 
+            (uint32_t)(lens_info.lens_serial >> 32),
+            (uint32_t)lens_info.lens_serial
+        );
+    }
+    else
+    {
+        MENU_SET_VALUE("(none)");
+    }
+}
+
+static MENU_UPDATE_FUNC(lens_extender_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    MENU_SET_VALUE("0x%02X", lens_info.lens_extender );
+}
+
+static MENU_UPDATE_FUNC(lens_version_display)
+{
+    uint8_t v2 = lens_info.lens_version >> 16;
+    uint8_t v1 = lens_info.lens_version >> 8;
+    uint8_t v0 = lens_info.lens_version;
+    
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    
+    if(lens_info.lens_version)
+    {
+        MENU_SET_VALUE("v%d.%d.%d", v2, v1, v0);
+    }
+    else
+    {
+        MENU_SET_VALUE("(none)");
+    }
+}
+
+static MENU_UPDATE_FUNC(lens_capabilities_display)
+{
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    MENU_SET_VALUE("0x%02X", lens_info.lens_capabilities);
+}
+
+static MENU_UPDATE_FUNC(lens_focal_display)
+{
+    char *unit = "mm";
+    float factor = 1.0f;
+    
+    if(!lens_info.lens_exists)
+    {
+        MENU_SET_VALUE("(no lens)");
+        return;
+    }
+    
+    if(focus_units == 1)
+    {
+        unit = "in";
+        factor = 1/2.54;
+    }
+    
+    if(lens_info.lens_focal_min == lens_info.lens_focal_max)
+    {
+        MENU_SET_VALUE("%d %s", (int)(lens_info.lens_focal_min * factor), unit);
+    }
+    else
+    {
+        MENU_SET_VALUE("%d-%d %s", (int)(lens_info.lens_focal_min * factor), (int)(lens_info.lens_focal_max * factor), unit);
+    }
+}
+
 static struct menu_entry tweak_menus[] = {
    {
         .name = "Lens Info Prefs",
@@ -1663,6 +1974,60 @@ static struct menu_entry tweak_menus[] = {
                 .help  = "Can select between Metric and Imperial focus distance units",
             },
             MENU_EOL
+        }
+    }
+};
+
+/* better place for this menu? */
+static struct menu_entry lens_info_menus[] = {
+   {
+        .name = "Lens info",
+        .select   = menu_open_submenu,
+        .submenu_width = 700,
+        .children =  (struct menu_entry[]) {
+            {
+                .name = "Name",
+                .update = &lens_name_display,
+                .help  = "Show current lens name (as reported by your lens or adapter).",
+                .help2 = "Read-only.",
+            },
+            {
+                .name = "Focal len",
+                .update = &lens_focal_display,
+                .help  = "Show current lens focal length.",
+                .help2 = "Read-only. Zoom lenses are only updated in LiveView.",
+            },
+            {
+                .name = "Lens ID",
+                .update = &lens_id_display,
+                .help  = "Show current lens ID. Should match exiftool TEST.CR2 -LensType -b.",
+                .help2 = "Read-only. Lenses from different manufacturers may have the same ID.",
+            },
+            {
+                .name = "Serial num",
+                .update = &lens_serial_display,
+                .help  = "Show current lens serial number. Not all cameras report this.",
+                .help2 = "Read-only. Should match exiftool TEST.CR2 -LensSerialNumber .",
+            },
+            {
+                .name = "Version",
+                .update = &lens_version_display,
+                .help  = "Show current lens version string.",
+                .help2 = "Read-only.",
+            },
+            {
+                .name = "Capability",
+                .update = &lens_capabilities_display,
+                .help  = "Show current lens capability bits.",
+                .help2 = "Read-only.",
+            },
+            {
+                .name = "Extender",
+                .update = &lens_extender_display,
+                .help  = "Show current lens extender information byte.",
+                .help2 = "Read-only.",
+            },
+            MENU_EOL
         },
     }
 };
@@ -1672,6 +2037,12 @@ void
 crop_factor_menu_init()
 {
     menu_add("Prefs", tweak_menus, COUNT(tweak_menus));
+    menu_add("Debug", lens_info_menus, COUNT(lens_info_menus));
+
+    /* hack: lens name is usually long */
+    /* force all submenu values to the left to maintain a nice layout */
+    /* todo: better backend support? */
+    lens_info_menus[0].children[0].parent_menu->split_pos = -10;
 }
 
 static void
@@ -1746,17 +2117,19 @@ LENS_SET_IN_PICSTYLE(color_tone, -4, 4)
 
 void SW1(int v, int wait)
 {
-    //~ int unused;
-    //~ ptpPropButtonSW1(v, 0, &unused);
-    prop_request_change(PROP_REMOTE_SW1, &v, 0);
+    v = COERCE(v, 0, 1);
+    prop_request_change_wait(PROP_REMOTE_SW1, &v, 0, 1000);
+    
+    /* todo: remove the wait argument */
     if (wait) msleep(wait);
 }
 
 void SW2(int v, int wait)
 {
-    //~ int unused;
-    //~ ptpPropButtonSW2(v, 0, &unused);
-    prop_request_change(PROP_REMOTE_SW2, &v, 0);
+    v = COERCE(v, 0, 1);
+    prop_request_change_wait(PROP_REMOTE_SW2, &v, 0, 1000);
+
+    /* todo: remove the wait argument */
     if (wait) msleep(wait);
 }
 
@@ -2433,7 +2806,7 @@ static LVINFO_UPDATE_FUNC(mode_update)
 static LVINFO_UPDATE_FUNC(focal_len_update)
 {
     LVINFO_BUFFER(16);
-    if (lens_info.name[0])
+    if (lens_info.lens_exists)
     {
         snprintf(buffer, sizeof(buffer), "%d%s",
                crop_info ? (lens_info.focal_len * SENSORCROPFACTOR + 5) / 10 : lens_info.focal_len,
@@ -2464,7 +2837,7 @@ static LVINFO_UPDATE_FUNC(av_update)
 {
     LVINFO_BUFFER(8);
 
-    if (lens_info.raw_aperture && lens_info.name[0])
+    if (lens_info.raw_aperture && lens_info.lens_exists)
     {
         snprintf(buffer, sizeof(buffer), lens_format_aperture(lens_info.raw_aperture));
     }
@@ -2575,17 +2948,13 @@ static LVINFO_UPDATE_FUNC(iso_update)
     }
     else /* photo mode */
     {
-        if (lens_info.raw_iso)
-        {
-            snprintf(buffer, sizeof(buffer), SYM_ISO"%d", raw2iso(lens_info.raw_iso));
-        }
-        else if (lens_info.iso_auto)
+        if (!lens_info.raw_iso && lens_info.iso_auto)
         {
             snprintf(buffer, sizeof(buffer), SYM_ISO"A%d", raw2iso(lens_info.raw_iso_auto));
         }
         else
         {
-            snprintf(buffer, sizeof(buffer), SYM_ISO"Auto");
+            snprintf(buffer, sizeof(buffer), "%s", lens_format_iso(lens_info.raw_iso));
         }
     }
 

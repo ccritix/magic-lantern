@@ -35,6 +35,7 @@ asm(
 #include <limits.h>
 #include <sys/types.h>
 #include "compiler.h"
+#include "mutex.h"
 
 typedef void (*thunk)(void);
 
@@ -55,10 +56,17 @@ static inline uint32_t
 read_lr( void )
 {
     uint32_t lr;
-    asm( "mov %0, lr" : "=r"(lr) );
+    asm __volatile__ ( "mov %0, %%lr" : "=&r"(lr) );
     return lr;
 }
 
+static inline uint32_t
+read_sp( void )
+{
+    uint32_t sp;
+    asm __volatile__ ( "mov %0, %%sp" : "=&r"(sp) );
+    return sp;
+}
 
 static inline void
 select_normal_vectors( void )
@@ -121,10 +129,12 @@ static inline void _flush_caches()
 /* write back all data into RAM and mark as invalid in data cache */
 static inline void clean_d_cache()
 {
+    /* assume 8KB data cache */
+    /* http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0092b/ch04s03s04.html */
     uint32_t segment = 0;
     do {
         uint32_t line = 0;
-        for( ; line != 0x400 ; line += 0x20 )
+        for( ; line != 0x800 ; line += 0x20 )
         {
             asm(
                 "mcr p15, 0, %0, c7, c14, 2"
@@ -149,13 +159,6 @@ static inline void flush_i_cache()
         "mcr p15, 0, r0, c7, c5, 0\n" // flush I cache
         : : : "r0"
     );
-}
-
-/* ensure data is written into RAM and the instruction cache is empty so everything will get fetched again */
-static inline void sync_caches()
-{
-    clean_d_cache();
-    flush_i_cache();
 }
 
 // This must be a macro
@@ -204,9 +207,12 @@ set_i_tcm( uint32_t value )
     asm( "mcr p15, 0, %0, c9, c1, 1\n" : : "r"(value) );
 }
 
+/* only used for clang's thread safety analysis */
+typedef int __interrupt_mutex_t CAPABILITY("mutex");
+static __interrupt_mutex_t IRQ_mutex __attribute__((unused));
 
 /** Routines to enable / disable interrupts */
-static inline uint32_t
+static inline uint32_t ACQUIRE(IRQ_mutex) NO_THREAD_SAFETY_ANALYSIS
 cli(void)
 {
     uint32_t old_irq;
@@ -221,7 +227,7 @@ cli(void)
     return old_irq; // return the flag itself
 }
 
-static inline void
+static inline void RELEASE(IRQ_mutex) NO_THREAD_SAFETY_ANALYSIS
 sei( uint32_t old_irq )
 {
     asm __volatile__ (
@@ -230,6 +236,21 @@ sei( uint32_t old_irq )
         "and %0, %0, #0xC0\n"
         "orr r1, r1, %0\n"
         "msr CPSR_c, r1" : : "r"(old_irq) : "r1" );
+}
+
+/* ensure data is written into RAM and the instruction cache is empty so everything will get fetched again */
+/* also reapply cache patches, if needed */
+static inline void sync_caches()
+{
+    uint32_t old = cli();
+    clean_d_cache();
+    flush_i_cache();
+
+    /* this function is only present on main ML (not installer / reboot shim / minimal / etc) */
+    extern int __attribute__((weak)) _reapply_cache_patches ();
+    _reapply_cache_patches();
+
+    sei(old);
 }
 
 /**
@@ -241,8 +262,11 @@ sei( uint32_t old_irq )
 #define LOOP_INSTR    0xeafffffe    // 1: b 1b
 #define NOP_INSTR    0xe1a00000    // mov r0, r0
 #define MOV_R0_0_INSTR 0xe3a00000
-#define MOV_R1_0xC80000_INSTR 0xe3a01732 // mov r1, 0xc80000 
-#define MOV_R1_0xC60000_INSTR 0xE3A018C6 // mov r1, 0xc60000 
+#define MOV_R0_0x450000_INSTR 0xE3A00845
+#define MOV_R1_0xC80000_INSTR 0xE3A01732
+#define MOV_R1_0xC60000_INSTR 0xE3A018C6
+#define MOV_R1_0xC70000_INSTR 0xE3A018C7
+#define MOV_R0_0x4E0000_INSTR 0xE3A0084E
 
 #define MOV_RD_IMM_INSTR(rd,imm)\
     ( 0xE3A00000 \

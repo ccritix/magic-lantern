@@ -17,9 +17,32 @@
 #include "lens.h"
 
 extern int is_taskid_valid(int, int, void*);
-extern int get_obj_attr(void*, unsigned char*, int, int);
 
 int ml_shutdown_requested = 0;
+
+char* get_current_task_name()
+{
+    /* DryOS: right after current_task we have a flag
+     * set to 1 when handling an interrupt */
+    uint32_t interrupt_active = MEM((uintptr_t)&current_task + 4);
+    
+    if (!interrupt_active)
+    {
+        return current_task->name;
+    }
+    else
+    {
+        static char isr[] = "**INT-00h**";
+        int i = current_interrupt >> 2;
+        int i0 = (i & 0xF);
+        int i1 = (i >> 4) & 0xF;
+        int i2 = (i >> 8) & 0xF;
+        isr[5] = i2 ? '0' + i2 : '-';
+        isr[6] = i1 < 10 ? '0' + i1 : 'A' + i1 - 10;
+        isr[7] = i0 < 10 ? '0' + i0 : 'A' + i0 - 10;
+        return isr;
+    }
+}
 
 char* get_task_name_from_id(int id)
 {
@@ -37,7 +60,6 @@ return "?";
     struct task_attr_str task_attr;
     int r = is_taskid_valid(1, c, &task_attr); // ok
     if (r==0) {
-      //~ r = get_obj_attr( &(task_attr.args), &(task_attr.fpu), 0, 0); // buggy ?
       if (task_attr.name!=0) name=task_attr.name;
       else name="?";
     }
@@ -132,7 +154,7 @@ void task_update_loads() // called every second from clock_task
 int task_check_stack()
 {
     struct task_attr_str task_attr;
-    int id = (int)get_current_task() & 0xFF;
+    int id = current_task->taskId;
 
     /* works, gives the same result as DryOS routine, so... let's just use the DryOS one
      *
@@ -261,7 +283,6 @@ MENU_UPDATE_FUNC(tasks_print)
         {
             total_tasks++;
 
-            //r = get_obj_attr( &(task_attr.args), &(task_attr.fpu), 0, 0); // buggy ?
             if (task_attr.name!=0)
             {
                 name=task_attr.name;
@@ -348,6 +369,9 @@ MENU_UPDATE_FUNC(tasks_print)
 #include "gps.h"
 #endif
 
+/* to refactor with CBR */
+extern int module_shutdown();
+
 static void ml_shutdown()
 {
     check_pre_shutdown_flag();
@@ -364,8 +388,6 @@ static void ml_shutdown()
 #endif    
     config_save_at_shutdown();
 #if defined(CONFIG_MODULES)
-    /* to refactor with CBR */
-    extern int module_shutdown();
     module_shutdown();
 #endif
     info_led_on();
@@ -374,8 +396,36 @@ static void ml_shutdown()
 
 PROP_HANDLER(PROP_TERMINATE_SHUT_REQ)
 {
-    //bmp_printf(FONT_MED, 0, 0, "SHUT REQ %d ", buf[0]);
-    if (buf[0] == 0)  ml_shutdown();
+    /* 0=request, 3=execute, 4=cancel */
+    /* 3 appears too late for saving config files */
+    if (buf[0] == 0)
+    {
+        ml_shutdown();
+    }
+}
+
+PROP_HANDLER(PROP_ABORT)
+{
+    /* emergency stop - do not save properties */
+    /* -1 = init, 1 = trigger */
+
+    if (buf[0] == 1)
+    {
+        /* 5D3: this prevents RING and RASEN from being saved
+         * when opening battery door (check with e.g. PROP_VIDEO_SYSTEM) */
+#ifdef CONFIG_5D3
+        extern int terminateAbort_save_settings;
+        terminateAbort_save_settings = 0;
+#endif
+
+        #if defined(CONFIG_MODULES)
+        /* if no hard crash, load the modules after taking the battery out */
+        module_shutdown();
+        #endif
+
+        /* minimalist feedback that battery door event was processed */
+        info_led_on();
+    }
 }
 
 #if 0
@@ -385,7 +435,7 @@ static char func_holding_bmp_lock[50] = "";
 
 int CheckBmpAcquireRecursiveLock(void* lock, int line, const char* func)
 {
-    char* task_name = get_task_name_from_id((int)get_current_task());
+    char* task_name = get_current_task_name();
     
     // just a warning, sometimes we can't get without it (e.g. at redraw), but it's best to avoid
     /*
@@ -413,13 +463,13 @@ int CheckBmpAcquireRecursiveLock(void* lock, int line, const char* func)
     while ((r = (int)AcquireRecursiveLock(lock, wait)))
     {
         char msg[100];
-        snprintf(msg, sizeof(msg), "%s:%s:%d:\nRLock held by %s:%s:%d  ", get_task_name_from_id((int)get_current_task()), func, line, get_task_name_from_id(task_holding_bmp_lock), func_holding_bmp_lock, line_holding_bmp_lock);//, get_task_name_from_id(task_holding_bmp_lock));
+        snprintf(msg, sizeof(msg), "%s:%s:%d:\nRLock held by %s:%s:%d  ", get_current_task_name(), func, line, get_task_name_from_id(task_holding_bmp_lock), func_holding_bmp_lock, line_holding_bmp_lock);//, get_task_name_from_id(task_holding_bmp_lock));
         int x = 100;
         bmp_puts(FONT_MED, (unsigned int *)&x, (unsigned int *)&x, msg);
         ml_assert_handler(msg, __FILE__, __LINE__, __func__);
         wait = 0;
     }
-    task_holding_bmp_lock = ((int)get_current_task()) & 0xFF;
+    task_holding_bmp_lock = current_task->taskId;
     line_holding_bmp_lock = line;
     snprintf(func_holding_bmp_lock, sizeof(func_holding_bmp_lock), func);
     return r;

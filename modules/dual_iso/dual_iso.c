@@ -68,6 +68,7 @@
 #include <math.h>
 #include <fileprefix.h>
 #include <raw.h>
+#include <patch.h>
 #include "../mlv_rec/mlv.h"
 #include "../mlv_rec/mlv_rec_interface.h"
 
@@ -95,7 +96,9 @@ static int is_7d = 0;
 static int is_5d2 = 0;
 static int is_50d = 0;
 static int is_6d = 0;
-static int is_60d = 0; 
+static int is_60d = 0;
+static int is_100d = 0; 
+static int is_70d = 0;
 static int is_500d = 0;
 static int is_550d = 0;
 static int is_600d = 0;
@@ -179,7 +182,7 @@ static void bulk_cb(uint32_t *parm, uint32_t address, uint32_t length)
     *parm = 0;
 }
 
-static int isoless_enable(uint32_t start_addr, int size, int count, uint16_t* backup)
+static int isoless_enable(uint32_t start_addr, int size, int count, uint32_t* backup)
 {
         /* for 7D */
         int start_addr_0 = start_addr;
@@ -191,13 +194,16 @@ static int isoless_enable(uint32_t start_addr, int size, int count, uint16_t* ba
             while(wait) msleep(20);
             start_addr = (uint32_t) local_buf + 2; /* our numbers are aligned at 16 bits, but not at 32 */
         }
+        
+        /* dummy call to get Canon values */
+        patch_memory_array(start_addr, count, size, 0, 0, 0, 0, 0, backup, "dual_iso: CMOS[0] gains");
+        unpatch_memory(start_addr);
     
         /* sanity check first */
-        
         int prev_iso = 0;
         for (int i = 0; i < count; i++)
         {
-            uint16_t raw = *(uint16_t*)(start_addr + i * size);
+            uint16_t raw = backup[i];
             uint32_t flag = raw & CMOS_FLAG_MASK;
             int iso1 = (raw >> CMOS_FLAG_BITS) & CMOS_ISO_MASK;
             int iso2 = (raw >> (CMOS_FLAG_BITS + CMOS_ISO_BITS)) & CMOS_ISO_MASK;
@@ -220,44 +226,32 @@ static int isoless_enable(uint32_t start_addr, int size, int count, uint16_t* ba
             
             prev_iso = iso1;
         }
-        
-        /* backup old values */
-        for (int i = 0; i < count; i++)
+
+        int my_raw = backup[COERCE(isoless_recovery_iso_index(), 0, count-1)];
+
+        /* take one of the ISO fields from recovery index */
+        uint32_t patch_mask = ((1 << CMOS_ISO_BITS) - 1) << CMOS_FLAG_BITS;
+        uint32_t patch_value = my_raw & patch_mask;
+
+        if (is_5d2)
         {
-            uint16_t raw = *(uint16_t*)(start_addr + i * size);
-            backup[i] = raw;
+            /* iso2 is 0 by default, let's just patch that one */
+            patch_mask = ((1 << CMOS_ISO_BITS) - 1) << (CMOS_FLAG_BITS + CMOS_ISO_BITS);
+            patch_value = (my_raw << CMOS_ISO_BITS) & patch_mask;
+            
+            /* enable the dual ISO flag */
+            patch_mask  |= 1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS + CMOS_ISO_BITS);
+            patch_value |= 1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS + CMOS_ISO_BITS);
         }
+
+        if (is_eosm || is_650d || is_700d || is_100d) //TODO: This hack is probably needed on EOSM
+        {
+            /* Clear the MSB to fix line-skipping. 1 -> 8 lines, 0 -> 4 lines */
+            patch_mask |= 0x800;
+        }  
         
         /* apply our custom amplifier gains */
-        for (int i = 0; i < count; i++)
-        {
-            uint16_t raw = *(uint16_t*)(start_addr + i * size);
-            int my_raw = backup[COERCE(isoless_recovery_iso_index(), 0, count-1)];
-            
-            if (is_5d2)
-            {
-                /* iso2 is 0 by default, but our algorithm expects two identical values => let's mangle them */
-                int iso1 = (raw >> CMOS_FLAG_BITS) & CMOS_ISO_MASK;
-                int my_iso1 = (my_raw >> CMOS_FLAG_BITS) & CMOS_ISO_MASK;
-                raw |= (iso1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS));
-                my_raw |= (my_iso1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS));
-                
-                /* enable the dual ISO flag */
-                raw |= 1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS + CMOS_ISO_BITS);
-            }
-
-
-            int my_iso2 = (my_raw >> (CMOS_FLAG_BITS + CMOS_ISO_BITS)) & CMOS_ISO_MASK;
-            raw &= ~(CMOS_ISO_MASK << (CMOS_FLAG_BITS + CMOS_ISO_BITS));
-            raw |= (my_iso2 << (CMOS_FLAG_BITS + CMOS_ISO_BITS));
-
-            if (is_eosm || is_650d || is_700d) //TODO: This hack is probably needed on EOSM and 100D
-            {
-                raw &= 0x7FF; // Clear the MSB to fix line-skipping. 1 -> 8 lines, 0 -> 4 lines
-            }  
-
-            *(uint16_t*)(start_addr + i * size) = raw;
-        }
+        patch_memory_array(start_addr, count, size, 0, 0, patch_mask, 0, patch_value, backup, "dual_iso: CMOS[0] gains");
 
         if (is_7d) /* commit the changes on master */
         {
@@ -270,7 +264,7 @@ static int isoless_enable(uint32_t start_addr, int size, int count, uint16_t* ba
         return 0;
 }
 
-static int isoless_disable(uint32_t start_addr, int size, int count, uint16_t* backup)
+static int isoless_disable(uint32_t start_addr, int size, int count, uint32_t* backup)
 {
     /* for 7D */
     int start_addr_0 = start_addr;
@@ -283,12 +277,9 @@ static int isoless_disable(uint32_t start_addr, int size, int count, uint16_t* b
         start_addr = (uint32_t) local_buf + 2;
     }
 
-    /* just restore saved values */
-    for (int i = 0; i < count; i++)
-    {
-        *(uint16_t*)(start_addr + i * size) = backup[i];
-    }
-
+    /* just undo our patch */
+    unpatch_memory(start_addr);
+    
     if (is_7d) /* commit the changes on master */
     {
         volatile uint32_t wait = 1;
@@ -316,8 +307,8 @@ static unsigned int isoless_refresh(unsigned int ctx)
 
     take_semaphore(isoless_sem, 0);
 
-    static uint16_t backup_lv[20];
-    static uint16_t backup_ph[20];
+    static uint32_t backup_lv[20];
+    static uint32_t backup_ph[20];
     int mv = is_movie_mode() ? 1 : 0;
     int lvi = lv ? 1 : 0;
     int raw_mv = mv && lv && raw_lv_is_enabled();
@@ -797,6 +788,48 @@ static unsigned int isoless_init()
         CMOS_FLAG_BITS = 2;
         CMOS_EXPECTED_FLAG = 0; 
     }
+    else if (is_camera("70D", "1.1.2"))
+    {
+        /* Movie Mode
+        100 - 0x4045349a value (0x3)
+        200 - 0x404534c8
+        400 - 0x404534f6
+        800 - 0x40453524
+        1600 -0x40453552
+        3200 -0x40453580 
+        6400 -0x40453ae value (0xdb) */
+        
+        is_70d = 1;    
+
+        /* FRAME_CMOS_ISO_START = 0x4045349a; // CMOS register 0000 - for LiveView, ISO 100 (check in movie mode, not photo!)
+        FRAME_CMOS_ISO_COUNT =          7; // from ISO 100 to 6400 (last real iso!)
+        FRAME_CMOS_ISO_SIZE  =         46; // distance between ISO 100 and ISO 200 addresses, in bytes */
+        
+        
+        /* WE DO NOT SEEM TO BE ABLE TO USE DUAL ISO IN MOVIE MODE */
+        /* MORE CONFUSING IS THAT WE ARE INDEED ABLE TO USE */
+        /* CMOS[0] OR CMOS[3]. BOTH SEEM TO WORK WELL IN PHOTO MODE */
+        /* FOR NOW LET US OPT FOR CMOS[0] BUT THE QUESTION IS: */
+        /* COULD WE TAKE ADVANTAGE OF USING BOTH AT THE SAME TIME (TRIPLE ISO)? */
+        
+        /* Photo Mode
+        100 - 0x40451664 value (0x3)
+        200 - 0x40451678
+        400 - 0x4045168c
+        800 - 0x404516a0
+        1600 -0x404516b4
+        3200 -0x404516c8 
+        6400 -0x404516dc value (0xdb)
+        12800-0x404516dc value (0xdb) like ISO 6400 */
+        
+        PHOTO_CMOS_ISO_START = 0x40451664; // CMOS register 0000 - for photo mode, ISO 100
+        PHOTO_CMOS_ISO_COUNT =          7; // from ISO 100 to 6400 (last real iso!)
+        PHOTO_CMOS_ISO_SIZE  =         20; // distance between ISO 100 and ISO 200 addresses, in bytes
+
+        CMOS_ISO_BITS = 3;      // unverified
+        CMOS_FLAG_BITS = 2;     // unverified
+        CMOS_EXPECTED_FLAG = 3; // unverified
+    }
     else if (is_camera("500D", "1.1.1"))
     {  
         is_500d = 1;    
@@ -856,7 +889,23 @@ static unsigned int isoless_init()
         CMOS_FLAG_BITS = 2;
         CMOS_EXPECTED_FLAG = 0;
     }
-    else if (is_camera("700D", "1.1.4"))
+    else if (is_camera("100D", "1.0.1"))
+    {
+        is_100d = 1;    
+
+        FRAME_CMOS_ISO_START = 0x416990c4;
+        FRAME_CMOS_ISO_COUNT =          6;
+        FRAME_CMOS_ISO_SIZE  =         34;
+
+        PHOTO_CMOS_ISO_START = 0x4169743e;
+        PHOTO_CMOS_ISO_COUNT =          6;
+        PHOTO_CMOS_ISO_SIZE  =         20;
+
+        CMOS_ISO_BITS = 3;
+        CMOS_FLAG_BITS = 2;
+        CMOS_EXPECTED_FLAG = 3;
+    }
+    else if (is_camera("700D", "1.1.5"))
     {
         is_700d = 1;    
 

@@ -4,29 +4,34 @@ int powi(int base, int power);
 int log2i(int x);
 int log10i(int x);
 
-// mod like in math... x mod n is from 0 to n-1
-//~ #define MOD(x,m) ((((int)x) % ((int)m) + ((int)m)) % ((int)m))
+#ifdef PYCPARSER
+    #define MOD(x,m) ((((int)x) % ((int)m) + ((int)m)) % ((int)m))
+    #define MIN(a,b) ((a) < (b) ? (a) : (b))
+    #define MAX(a,b) ((a) < (b) ? (a) : (b))
+    #define ABS(a)   ((a) >  0  ? (a) :-(a))
+    #define SGN(a)   ((a) >  0  ?  1  : (a) < 0 ? -1 : 0)
+#else
 
+// mod like in math... x mod n is from 0 to n-1
 #define MOD(x,m) \
    ({ int _x = (x); \
       int _m = (m); \
      (_x % _m + _m) % _m; })
 
+/* increment modulo (fast, but x must be already modulo N) */
+/* todo: assert? */
+#define INC_MOD(x,m) \
+    ((x) = ((x)+1 < (m)) ? (x)+1 : (x)+1-(m))
 
 #define MIN(a,b) \
    ({ __typeof__ ((a)+(b)) _a = (a); \
       __typeof__ ((a)+(b)) _b = (b); \
      _a < _b ? _a : _b; })
 
-#define MIN_DUMB(a,b) ((a) < (b) ? (a) : (b))
-
 #define MAX(a,b) \
    ({ __typeof__ ((a)+(b)) _a = (a); \
        __typeof__ ((a)+(b)) _b = (b); \
      _a > _b ? _a : _b; })
-
-#define COERCE(x,lo,hi) MAX(MIN((x),(hi)),(lo))
-
 
 #define ABS(a) \
    ({ __typeof__ (a) _a = (a); \
@@ -35,6 +40,10 @@ int log10i(int x);
 #define SGN(a) \
    ({ __typeof__ (a) _a = (a); \
      _a > 0 ? 1 : _a < 0 ? -1 : 0; })
+
+#endif /* !PYCPARSER */
+
+#define COERCE(x,lo,hi) MAX(MIN((x),(hi)),(lo))
 
 #define SGNX(a) ((a) > 0 ? 1 : -1)
 
@@ -58,13 +67,17 @@ int log10i(int x);
 #define FMT_FIXEDPOINT3(x)  (x) < 0 ? "-" :                 "", ABS(x)/1000, ABS(x)%1000
 #define FMT_FIXEDPOINT3S(x) (x) < 0 ? "-" : (x) > 0 ? "+" : "", ABS(x)/1000, ABS(x)%1000
 
-// to be used with "%s%d.%04d" - for values with three decimal places
+// to be used with "%s%d.%04d" - for values with four decimal places
 #define FMT_FIXEDPOINT4(x)  (x) < 0 ? "-" :                 "", ABS(x)/10000, ABS(x)%10000
 #define FMT_FIXEDPOINT4S(x) (x) < 0 ? "-" : (x) > 0 ? "+" : "", ABS(x)/10000, ABS(x)%10000
 
-// to be used with "%s%d.%05d" - for values with three decimal places
+// to be used with "%s%d.%05d" - for values with five decimal places
 #define FMT_FIXEDPOINT5(x)  (x) < 0 ? "-" :                 "", ABS(x)/100000, ABS(x)%100000
 #define FMT_FIXEDPOINT5S(x) (x) < 0 ? "-" : (x) > 0 ? "+" : "", ABS(x)/100000, ABS(x)%100000
+
+// to be used with "%s%d.%06d" - for values with six decimal places
+#define FMT_FIXEDPOINT6(x)  (x) < 0 ? "-" :                 "", ABS(x)/1000000, ABS(x)%1000000
+#define FMT_FIXEDPOINT6S(x) (x) < 0 ? "-" : (x) > 0 ? "+" : "", ABS(x)/1000000, ABS(x)%1000000
 
 /* log2(x) * 100 */
 uint32_t log_length(int v);

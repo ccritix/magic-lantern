@@ -19,6 +19,7 @@
  */
 
 #include <dryos.h>
+#include <module.h>
 #include <stdint.h>
 #include <lens.h>
 #include <property.h>
@@ -32,7 +33,7 @@
 
 extern uint32_t raw_rec_trace_ctx;
 
-extern uint64_t get_us_clock_value();
+extern uint64_t get_us_clock();
 extern char *strcpy(char *dest, const char *src);
 extern char *strncpy(char *dest, const char *src, int n);
 extern const char* get_picstyle_name(int raw_picstyle);
@@ -54,8 +55,11 @@ void mlv_fill_lens(mlv_lens_hdr_t *hdr, uint64_t start_timestamp)
     hdr->autofocusMode = af_mode;
     hdr->flags = 0;
 
+    char buf[33];
+    snprintf(buf, sizeof(buf), "%X%08X", (uint32_t) (lens_info.lens_serial >> 32), (uint32_t)(lens_info.lens_serial & 0xFFFFFFFF));
+    
     strncpy((char *)hdr->lensName, lens_info.name, 32);
-    strncpy((char *)hdr->lensSerial, "", 32);
+    strncpy((char *)hdr->lensSerial, buf, 32);
 }
 
 void mlv_fill_wbal(mlv_wbal_hdr_t *hdr, uint64_t start_timestamp)
@@ -155,6 +159,23 @@ void mlv_fill_idnt(mlv_idnt_hdr_t *hdr, uint64_t start_timestamp)
     trace_write(raw_rec_trace_ctx, "[IDNT] cameraName: '%s' cameraModel: 0x%08X cameraSerial: '%s'", hdr->cameraName, hdr->cameraModel, hdr->cameraSerial);
 }
 
+void mlv_build_vers(mlv_vers_hdr_t **hdr, uint64_t start_timestamp, const char *version_string)
+{
+    int block_length = (strlen(version_string) + sizeof(mlv_vers_hdr_t) + 1 + 3) & ~3;
+    mlv_vers_hdr_t *header = malloc(block_length);
+    
+    /* prepare header */
+    mlv_set_type((mlv_hdr_t *)header, "VERS");
+    mlv_set_timestamp((mlv_hdr_t *)header, start_timestamp);
+    header->blockSize = block_length;
+    header->length = strlen(version_string);
+    
+    char *vers_hdr_payload = (char *)&header[1];
+    strcpy(vers_hdr_payload, version_string);
+    
+    *hdr = header;
+}
+
 uint64_t mlv_prng_lfsr(uint64_t value)
 {
     uint64_t lfsr = value;
@@ -173,7 +194,7 @@ uint64_t mlv_prng_lfsr(uint64_t value)
 uint64_t mlv_generate_guid()
 {
     struct tm now;
-    uint64_t guid = get_us_clock_value();
+    uint64_t guid = get_us_clock();
     LoadCalendarFromRTC(&now);
 
     /* now run through prng once to shuffle bits */
@@ -185,7 +206,7 @@ uint64_t mlv_generate_guid()
     guid ^= now.tm_hour << 12;
     guid ^= now.tm_yday << 17;
     guid ^= now.tm_year << 26;
-    guid ^= get_us_clock_value() << 37;
+    guid ^= get_us_clock() << 37;
 
     /* now run through final prng pass */
     return mlv_prng_lfsr(guid);
@@ -205,11 +226,78 @@ void mlv_set_type(mlv_hdr_t *hdr, char *type)
 
 uint64_t mlv_set_timestamp(mlv_hdr_t *hdr, uint64_t start)
 {
-    uint64_t timestamp = get_us_clock_value();
+    uint64_t timestamp = get_us_clock();
 
     if(hdr)
     {
         hdr->timestamp = timestamp - start;
     }
     return timestamp;
+}
+
+int mlv_write_vers_blocks(FILE *f, uint64_t mlv_start_timestamp)
+{
+    int mod = -1;
+    int error = 0;
+    
+    do
+    {
+        /* get next loaded module id */
+        mod = module_get_next_loaded(mod);
+        
+        /* make sure thats a valid one */
+        if(mod >= 0)
+        {
+            /* fetch information from module loader */
+            const char *mod_name = module_get_name(mod);
+            const char *mod_build_date = module_get_string(mod, "Build date");
+            const char *mod_last_update = module_get_string(mod, "Last update");
+            
+            if(mod_name != NULL)
+            {
+                /* just in case that ever happens */
+                if(mod_build_date == NULL)
+                {
+                    mod_build_date = "(no build date)";
+                }
+                if(mod_last_update == NULL)
+                {
+                    mod_last_update = "(no version)";
+                }
+                
+                /* separating the format string allows us to measure its length for malloc */
+                const char *fmt_string = "%s built %s; commit %s";
+                int buf_length = strlen(fmt_string) + strlen(mod_name) + strlen(mod_build_date) + strlen(mod_last_update) + 1;
+                char *version_string = malloc(buf_length);
+                
+                /* now build the string */
+                snprintf(version_string, buf_length, fmt_string, mod_name, mod_build_date, mod_last_update);
+                
+                /* and finally remove any newlines, they are annoying */
+                for(unsigned int pos = 0; pos < strlen(version_string); pos++)
+                {
+                    if(version_string[pos] == '\n')
+                    {
+                        version_string[pos] = ' ';
+                    }
+                }
+                
+                /* let the mlv helpers build the block for us */
+                mlv_vers_hdr_t *hdr = NULL;
+                mlv_build_vers(&hdr, mlv_start_timestamp, version_string);
+                
+                /* try to write to output file */
+                if(FIO_WriteFile(f, hdr, hdr->blockSize) != (int)hdr->blockSize)
+                {
+                    error = 1;
+                }
+                
+                /* free both temporary string and allocated mlv block */
+                free(version_string);
+                free(hdr);
+            }
+        }
+    } while(mod >= 0 && !error);
+    
+    return error;
 }

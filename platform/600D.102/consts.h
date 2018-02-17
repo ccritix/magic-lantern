@@ -195,7 +195,7 @@
 #define DIALOG_MnCardFormatBegin   (0x12864+4) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
 #define DIALOG_MnCardFormatExecute (0x158BC+4) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
 #define FORMAT_BTN_NAME "[Q]"
-#define FORMAT_BTN BGMT_Q_ALT
+#define FORMAT_BTN BGMT_Q
 #define FORMAT_STR_LOC 11
 
 #define BULB_MIN_EXPOSURE 1000
@@ -257,6 +257,7 @@
 // see "Malloc Information"
 #define MALLOC_STRUCT 0x172c8
 #define MALLOC_FREE_MEMORY (MEM(MALLOC_STRUCT + 8) - MEM(MALLOC_STRUCT + 0x1C)) // "Total Size" - "Allocated Size"
+#define SRM_BUFFER_SIZE 0x1F68000   /* print it from srm_malloc_cbr */
 
 // for bulb ramping calibration: delay between two exposure readings (increase it if brightness updates slowly)
 // if not defined, default is 500

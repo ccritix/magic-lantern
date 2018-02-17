@@ -11,43 +11,13 @@
 #include "dryos.h"
 //#include <errno.h>
 
-// sometimes gcc likes very much the default fprintf and uses that one
-// => renamed to my_fprintf to force it to use this one
-int
-my_fprintf(
-    FILE *          file,
-    const char *        fmt,
-    ...
-)
-{
-    va_list         ap;
-    int len = 0;
-    
-    int maxlen = 1024;
-    char* buf = fio_malloc(maxlen);
-    
-    if (!buf)
-    {
-        maxlen = 128;
-        buf = fio_malloc(maxlen);
-    }
-    
-    if (buf)
-    {
-        va_start( ap, fmt );
-        len = vsnprintf( buf, maxlen-1, fmt, ap );
-        va_end( ap );
-        FIO_WriteFile( file, buf, len );
-        fio_free(buf);
-    }
-    
-    return len;
-}
-
 // Don't use strcmp since we don't have it
 int
 streq( const char * a, const char * b )
 {
+    ASSERT(a);
+    ASSERT(b);
+
     while( *a && *b )
         if( *a++ != *b++ )
             return 0;

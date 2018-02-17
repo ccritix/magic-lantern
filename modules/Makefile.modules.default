@@ -1,7 +1,6 @@
 MODULE_CFLAGS += -I../../src/
-ML_MODULES_STATIC ?=
-ML_MODULES_DYNAMIC ?= \
-	raw_rec \
+ML_MODULES ?= \
+	mlv_lite \
 	mlv_play \
 	mlv_rec \
 	mlv_snd \
@@ -18,3 +17,5 @@ ML_MODULES_DYNAMIC ?= \
 	bench \
 	selftest \
 	adv_int \
+	crop_rec \
+	edmac \
