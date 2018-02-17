@@ -2695,7 +2695,13 @@ void process_frame(int next_fullsize_buffer_pos)
         frame_count++;
         return;
     }
-    
+
+    if (frame_count == 1)
+    {
+        /* some modules may do some specific stuff right when we started recording */
+        raw_rec_cbr_started();
+    }
+
     if (edmac_active)
     {
         /* EDMAC too slow */
@@ -3248,8 +3254,8 @@ void raw_video_rec_task()
     /* this will enable the vsync CBR and the other task(s) */
     raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
 
-    /* some modules may do some specific stuff right when we started recording */
-    raw_rec_cbr_started();
+    /* note: raw_rec_cbr_started() will be called from the vsync hook,
+     * for the first recorded frame */
     
     /* main recording loop */
     while (RAW_IS_RECORDING && lv)

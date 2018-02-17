@@ -352,9 +352,6 @@ static void mlv_snd_alloc_buffers()
     
     mlv_snd_queue_slot();
     mlv_snd_queue_slot();
-
-    /* now everything is ready to fire - real output activation happens as soon mlv_snd_running is set to 1 and mlv_snd_vsync() gets called */
-    mlv_snd_state = MLV_SND_STATE_READY;
 }
 
 static void mlv_snd_writer(int unused)
@@ -489,18 +486,28 @@ uint32_t raw_rec_cbr_starting()
         trace_write(trace_ctx, "raw_rec_cbr_starting: starting mlv_snd");
         mlv_snd_rec_active = 1;
         mlv_snd_start();
+
+        trace_write(trace_ctx, "raw_rec_cbr_starting: allocating buffers");
+        mlv_snd_alloc_buffers();
     }
     
     return 0;
 }
 
+/* may or may not be called from vsync hook or raw_rec_task */
+/* fixme: provide only one way to do things */
 uint32_t raw_rec_cbr_started()
 {
     if(mlv_snd_state == MLV_SND_STATE_PREPARE)
     {
-        trace_write(trace_ctx, "raw_rec_cbr_started: allocating buffers");
-        mlv_snd_alloc_buffers();
+        trace_write(trace_ctx, "raw_rec_cbr_started");
+
+        /* only used with mlv_rec (dummy mlv_rec_queue_block in mlv_lite) */
         mlv_snd_queue_wavi();
+
+        /* now everything is ready to fire - real output activation happens
+         * as soon as mlv_snd_vsync() switches to MLV_SND_STATE_SOUND_RUNNING */
+        mlv_snd_state = MLV_SND_STATE_READY;
     }
     return 0;
 }
@@ -581,12 +588,14 @@ static unsigned int mlv_snd_vsync(unsigned int unused)
             /* the current one will get filled right now */
             mlv_snd_current_buffer->timestamp = get_us_clock_value();
             trace_write(trace_ctx, "mlv_snd_vsync: starting audio DONE");
-        }
-        else
-        {
-            trace_write(trace_ctx, "mlv_snd_vsync: msg_queue_receive(mlv_snd_buffers_empty, ...) failed, retry next time");
+
+            return;
         }
     }
+
+    /* should not happen */
+    trace_write(trace_ctx, "mlv_snd_vsync: expected at least 2 buffers in mlv_snd_buffers_empty");
+    ASSERT(0);
     
     return 0;
 }

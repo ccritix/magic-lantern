@@ -3209,9 +3209,6 @@ static void raw_video_rec_task()
     /* disable Canon's powersaving (30 min in LiveView) */
     powersave_prohibit();
 
-    /* signal that we are starting, call this before any memory allocation to give CBR the chance to allocate memory */
-    raw_rec_cbr_starting();
-
     /* allocate memory */
     if(!setup_buffers())
     {
@@ -3220,6 +3217,12 @@ static void raw_video_rec_task()
         beep();
         goto cleanup;
     }
+
+    /* signal that we are starting */
+    /* note: previously, this used to be called before memory allocation,
+     * but the reason for doing that apparently went away a long time ago
+     * (at least mlv_snd doesn't seem to do any large mallocs on its own any more) */
+    raw_rec_cbr_starting();
 
     msleep(start_delay * 1000);
 
