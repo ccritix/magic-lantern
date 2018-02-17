@@ -530,7 +530,7 @@ static void *memcheck_malloc( unsigned int len, const char *file, unsigned int l
     unsigned int ptr;
     
     //~ dbg_printf("alloc %d %s:%d\n ", len, file, line);
-    //~ int t0 = get_ms_clock_value();
+    //~ int t0 = get_ms_clock();
 
     int requires_dma = flags & MEM_DMA;
     if (requires_dma)
@@ -542,7 +542,7 @@ static void *memcheck_malloc( unsigned int len, const char *file, unsigned int l
         ptr = (unsigned int) allocators[allocator_index].malloc(len + 2 * MEM_SEC_ZONE);
     }
 
-    //~ int t1 = get_ms_clock_value();
+    //~ int t1 = get_ms_clock();
     //~ dbg_printf("alloc returned %x, took %s%d.%03d s\n", ptr, FMT_FIXEDPOINT3(t1-t0));
     
     /* some allocators may return invalid ptr; discard it and return 0, as C malloc does */
@@ -577,7 +577,7 @@ static void *memcheck_malloc( unsigned int len, const char *file, unsigned int l
     alloc_total += len;
     alloc_total_with_memcheck += len + 2 * MEM_SEC_ZONE;
     alloc_total_peak_with_memcheck = MAX(alloc_total_peak_with_memcheck, alloc_total_with_memcheck);
-    history[history_index].timestamp = get_ms_clock_value();
+    history[history_index].timestamp = get_ms_clock();
     history[history_index].alloc_total = alloc_total_with_memcheck;
     history_index = MOD(history_index + 1, HISTORY_ENTRIES);
     
@@ -604,7 +604,7 @@ static void memcheck_free( void * buf, int allocator_index, unsigned int flags)
     allocators[allocator_index].mem_used -= (len + 2 * MEM_SEC_ZONE);
     alloc_total -= len;
     alloc_total_with_memcheck -= (len + 2 * MEM_SEC_ZONE);
-    history[history_index].timestamp = get_ms_clock_value();
+    history[history_index].timestamp = get_ms_clock();
     history[history_index].alloc_total = alloc_total_with_memcheck;
     history_index = MOD(history_index + 1, HISTORY_ENTRIES);
 
@@ -797,13 +797,13 @@ void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned i
         dbg_printf("using %s (%d blocks)\n", allocators[allocator_index].name, allocators[allocator_index].num_blocks);
         
         #ifdef MEM_DEBUG
-        int t0 = get_ms_clock_value();
+        int t0 = get_ms_clock();
         #endif
         
         void* ptr = memcheck_malloc(size, file, line, allocator_index, flags);
         
         #ifdef MEM_DEBUG
-        int t1 = get_ms_clock_value();
+        int t1 = get_ms_clock();
         #endif
         
         if (!ptr)
@@ -1354,7 +1354,7 @@ static MENU_UPDATE_FUNC(mem_total_display)
             first_index = MOD(first_index + 1, HISTORY_ENTRIES);
         
         int t0 = history[first_index].timestamp;
-        int t_end = get_ms_clock_value();
+        int t_end = get_ms_clock();
         int peak_y = y+10;
         int peak = alloc_total_peak_with_memcheck;
         int total = alloc_total_with_memcheck;

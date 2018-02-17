@@ -1253,8 +1253,8 @@ cleanup:
         /* image review setting from Canon menu */
         /* fixme: use the same code as "classic" full-res pics */
         int preview_delay = image_review_time * 1000;
-        int t0 = get_ms_clock_value();
-        while (get_ms_clock_value() - t0 < preview_delay &&
+        int t0 = get_ms_clock();
+        while (get_ms_clock() - t0 < preview_delay &&
                !get_halfshutter_pressed())
         {
             msleep(10);
@@ -1304,7 +1304,7 @@ static PROP_INT(PROP_SHUTTER, prop_shutter);
  * depending on powersave settings.
  */
 static int image_review_duration = 0;   /* ms */
-static int image_review_start_time = 0; /* ms_clock_value */
+static int image_review_start_time = 0; /* ms_clock */
 
 static uint32_t SLOWEST_SHUTTER = SHUTTER_15s;
 
@@ -1427,7 +1427,7 @@ silent_pic_take_fullres(int interactive)
     
     lens_info.job_state = 1;
     info_led_on();
-    int t0 = get_ms_clock_value();
+    int t0 = get_ms_clock();
     
     /*
      * This one sets PROP_FA_ADJUST_FLAG to 4 (configures scsReleaseData for DARK_MEM1),
@@ -1443,7 +1443,7 @@ silent_pic_take_fullres(int interactive)
      */
     call("FA_CaptureTestImage", job);
     
-    int t1 = get_ms_clock_value();
+    int t1 = get_ms_clock();
     int capture_time = t1 - t0;
 
     info_led_off();
@@ -1510,7 +1510,7 @@ silent_pic_take_fullres(int interactive)
     }
 
     /* image review timeout starts here */
-    image_review_start_time = get_ms_clock_value();
+    image_review_start_time = get_ms_clock();
 
     /* prepare to save the file */
     struct raw_info local_raw_info = raw_info;
@@ -1543,7 +1543,7 @@ silent_pic_take_fullres(int interactive)
         bmp_printf(FONT_MED, 0, 60, "Saving %d x %d...", local_raw_info.jpeg.width, local_raw_info.jpeg.height);
         bmp_printf(FONT_MED, 0, 83, "Captured in %d ms.", capture_time);
         
-        int t0 = get_ms_clock_value();
+        int t0 = get_ms_clock();
         
         if (copy_buf)
         {
@@ -1552,7 +1552,7 @@ silent_pic_take_fullres(int interactive)
         }
 
         ok = silent_pic_save_file(&local_raw_info);
-        int t1 = get_ms_clock_value();
+        int t1 = get_ms_clock();
         save_time = t1 - t0;
      
         if (ok)
@@ -1672,7 +1672,7 @@ static unsigned int silent_pic_polling_cbr(unsigned int ctx)
     }
 
     /* after the image review time, return to LiveView or turn off the display */
-    if (image_review_duration && get_ms_clock_value() - image_review_start_time > image_review_duration)
+    if (image_review_duration && get_ms_clock() - image_review_start_time > image_review_duration)
     {
         /* do this only once */
         image_review_duration = 0;
