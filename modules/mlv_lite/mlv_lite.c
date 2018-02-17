@@ -2163,7 +2163,6 @@ void hack_liveview(int unhack)
     }
 }
 
-/* used by mlv_snd with mlv_rec; nothing to do here */
 static REQUIRES(LiveViewTask) FAST
 int choose_next_capture_slot()
 {
