@@ -11,7 +11,6 @@
 #include "bmp.h"
 #include "lens.h"
 #include "ml-cbr.h"
-#include "patch.h"
 
 #ifndef CONFIG_MODULES_MODEL_SYM
 #error Not defined file name with symbols
@@ -450,10 +449,7 @@ static void _module_load_all(uint32_t list_only)
     }
     
     /* before we execute code, make sure a) data caches are drained and b) instruction caches are clean */
-    int old = cli();
     sync_caches();
-    reapply_cache_patches();
-    sei(old);
     
     /* go through all modules and initialize them */
     printf("Init modules...\n");
@@ -1138,7 +1134,7 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
     static void* prev_selected = 0;
     if (entry->selected && entry != prev_selected)
     {
-        last_menu_activity_time = get_ms_clock_value();
+        last_menu_activity_time = get_ms_clock();
         prev_selected = entry;
     }
 
@@ -1155,7 +1151,7 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
     }
 
     /* clean up offline strings if the module menu is no longer used */
-    if (!entry->selected && get_ms_clock_value() > 3000 + last_menu_activity_time)
+    if (!entry->selected && get_ms_clock() > 3000 + last_menu_activity_time)
     {
         if (
                 !module_list[mod_number].valid &&

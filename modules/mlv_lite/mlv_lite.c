@@ -2506,7 +2506,7 @@ static void FAST edmac_spy_poll(int last_expiry, void* unused)
     if (wr < buf || wr > end) return;
 
     /* plot the read and write pointers */
-    uint32_t clock = MEM(0xC0242014);
+    uint32_t clock = GET_DIGIC_TIMER();
     uint32_t r_active = MEM(edmac_read_base);
     uint32_t w_active = MEM(edmac_wraw_base);
     int x  = 50 + (clock - edmac_start_clock) * 512 / edmac_frame_duration;
@@ -2605,7 +2605,7 @@ static void compress_task()
         void* out_ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
         void* fullSizeBuffer = fullsize_buffers[fullsize_index];
 
-        edmac_start_clock = MEM(0xC0242014);
+        edmac_start_clock = GET_DIGIC_TIMER();
 
         if (OUTPUT_COMPRESSION)
         {
@@ -3396,7 +3396,7 @@ void raw_video_rec_task()
             group_size += slots[slot_index].size;
         }
 
-        int t0 = get_ms_clock_value();
+        int t0 = get_ms_clock();
         if (!last_write_timestamp) last_write_timestamp = t0;
         idle_time += t0 - last_write_timestamp;
 
@@ -3406,7 +3406,7 @@ void raw_video_rec_task()
             goto abort;
         }
         
-        last_write_timestamp = get_ms_clock_value();
+        last_write_timestamp = get_ms_clock();
         writing_time += last_write_timestamp - t0;
 
         /* for detecting early stops */
@@ -4010,7 +4010,7 @@ static int raw_rec_should_preview(void)
     {
         autofocusing = 0;
         long_halfshutter_press = 0;
-        last_hs_unpress = get_ms_clock_value();
+        last_hs_unpress = get_ms_clock();
     }
     else
     {
@@ -4018,7 +4018,7 @@ static int raw_rec_should_preview(void)
         {
             autofocusing = 1;
         }
-        if (get_ms_clock_value() - last_hs_unpress > 500)
+        if (get_ms_clock() - last_hs_unpress > 500)
         {
             long_halfshutter_press = 1;
         }

@@ -161,13 +161,6 @@ static inline void flush_i_cache()
     );
 }
 
-/* ensure data is written into RAM and the instruction cache is empty so everything will get fetched again */
-static inline void sync_caches()
-{
-    clean_d_cache();
-    flush_i_cache();
-}
-
 // This must be a macro
 #define setup_memory_region( region, value ) \
     asm __volatile__ ( "mcr p15, 0, %0, c6, c" #region "\n" : : "r"(value) )
@@ -243,6 +236,21 @@ sei( uint32_t old_irq )
         "and %0, %0, #0xC0\n"
         "orr r1, r1, %0\n"
         "msr CPSR_c, r1" : : "r"(old_irq) : "r1" );
+}
+
+/* ensure data is written into RAM and the instruction cache is empty so everything will get fetched again */
+/* also reapply cache patches, if needed */
+static inline void sync_caches()
+{
+    uint32_t old = cli();
+    clean_d_cache();
+    flush_i_cache();
+
+    /* this function is only present on main ML (not installer / reboot shim / minimal / etc) */
+    extern int __attribute__((weak)) _reapply_cache_patches ();
+    _reapply_cache_patches();
+
+    sei(old);
 }
 
 /**

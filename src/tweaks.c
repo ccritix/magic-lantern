@@ -1409,11 +1409,11 @@ int handle_arrow_keys(struct event * event)
     static int t_press = 0;
     if (BGMT_PRESS_AV)
     {
-        t_press = get_ms_clock_value();
+        t_press = get_ms_clock();
     }
     if (BGMT_UNPRESS_AV)
     {
-        int t_unpress = get_ms_clock_value();
+        int t_unpress = get_ms_clock();
         
         if (t_unpress - t_press < 400)
             arrow_key_mode_toggle();
@@ -1771,7 +1771,7 @@ void zoom_trick_step()
     if (!zoom_trick) return;
     if (!lv && !PLAY_OR_QR_MODE) return;
 
-    int current_timestamp = get_ms_clock_value();
+    int current_timestamp = get_ms_clock();
 
     static int prev_timestamp = 0;
     if (prev_timestamp != current_timestamp)
@@ -1818,7 +1818,7 @@ int handle_zoom_trick_event(struct event * event)
     {
         if (!countdown_for_unknown_button)
         {
-            int t = get_ms_clock_value();
+            int t = get_ms_clock();
             if (t - timestamp_for_unknown_button > 500)
                 numclicks_for_unknown_button = 0;
             
@@ -2401,11 +2401,11 @@ static void preview_contrast_n_saturation_step()
     int halfshutter_pressed = get_halfshutter_pressed();
     if (halfshutter_pressed)
     {
-        peaking_hs_last_press = get_ms_clock_value();
+        peaking_hs_last_press = get_ms_clock();
     }
     int preview_peaking_force_normal_image =
         halfshutter_pressed ||                                  /* show normal image on half-hutter press */
-        get_ms_clock_value() < peaking_hs_last_press + 500;     /* and keep it at least 500ms (avoids flicker with fast toggling) */
+        get_ms_clock() < peaking_hs_last_press + 500;     /* and keep it at least 500ms (avoids flicker with fast toggling) */
 #endif
     
 #ifdef FEATURE_LV_SATURATION
@@ -2657,12 +2657,15 @@ static void alter_bitmap_palette(int dim_factor, int grayscale, int u_shift, int
 
     if (!bmp_is_on()) return;
 
-    for (int i = 0; i < 256; i++)
+    // 255 is reserved for ClearScreen, don't alter it
+    for (int i = 0; i < 255; i++)
     {
         if (i==0 || i==3 || i==0x14) continue; // don't alter transparent entries
 
-        int orig_palette_entry = LCD_Palette[3*i+0x300 + 2];
-
+        int orig_palette_entry = LCD_Palette[3*i + 2];
+        //~ bmp_printf(FONT_LARGE,0,0,"%x ", orig_palette_entry);
+        //~ msleep(300);
+        //~ continue;
         int8_t opacity = (orig_palette_entry >> 24) & 0xFF;
         uint8_t orig_y = (orig_palette_entry >> 16) & 0xFF;
         int8_t  orig_u = (orig_palette_entry >>  8) & 0xFF;
@@ -2678,24 +2681,9 @@ static void alter_bitmap_palette(int dim_factor, int grayscale, int u_shift, int
             ((u       & 0xFF) <<  8) |
             ((v       & 0xFF));
 
-        if (!DISPLAY_IS_ON)
-            return;
-
-        /* make sure we are actually writing to display registers */
-        /* (check whether LCD_Palette stub is right before writing) */
-        /* FIXME: not valid on DIGIC 6 */
-        if ((LCD_Palette[3*i] & 0xFFFFF000) != 0xC0F14000)
-            return;
-
+        if (!DISPLAY_IS_ON) return;
         EngDrvOut(LCD_Palette[3*i], new_palette_entry);
         EngDrvOut(LCD_Palette[3*i+0x300], new_palette_entry);
-
-        /* record the new palette entry, for our screenshots
-         * there are two copies of the palette; 
-         * our modifications (if any) are saved in the first copy,
-         * and the second copy contains the original (Canon) values.
-         */
-        EngDrvOut(LCD_Palette[3*i+2], new_palette_entry);
     }
 #endif
 }
@@ -2708,7 +2696,7 @@ static void grayscale_menus_step()
     if (gui_menu_shown())
     {
         // make the warning text blinking, so beginners will notice it...
-        int t = *(uint32_t*)0xC0242014;
+        int t = GET_DIGIC_TIMER();
         alter_bitmap_palette_entry(MENU_WARNING_COLOR, COLOR_RED, 512 - ABS((t >> 11) - 256), ABS((t >> 11) - 256));
         warning_color_dirty = 1;
     }
