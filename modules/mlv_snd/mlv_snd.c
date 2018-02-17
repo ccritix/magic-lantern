@@ -441,16 +441,18 @@ static void mlv_snd_start()
     mlv_snd_state = MLV_SND_STATE_PREPARE;
 }
 
-static void mlv_snd_queue_wavi()
+void mlv_fill_wavi(mlv_wavi_hdr_t *hdr, uint64_t start_timestamp)
 {
-    trace_write(trace_ctx, "mlv_snd_queue_wavi: queueing a WAVI block");
-    
-    /* queue an WAVI block that contains information about the audio format */
-    mlv_wavi_hdr_t *hdr = malloc(sizeof(mlv_wavi_hdr_t));
-    
     mlv_set_type((mlv_hdr_t*)hdr, "WAVI");
     hdr->blockSize = sizeof(mlv_wavi_hdr_t);
-    mlv_rec_set_rel_timestamp((mlv_hdr_t*)hdr, get_us_clock_value());
+    mlv_set_timestamp((mlv_hdr_t *)hdr, start_timestamp);
+
+    if(!mlv_snd_enabled)
+    {
+        /* not recording sound, don't trick MLV decoders :) */
+        mlv_set_type((mlv_hdr_t*)hdr, "NULL");
+        return;
+    }
     
     /* this part is compatible to RIFF WAVE/fmt header */
     hdr->format = 1;
@@ -459,6 +461,17 @@ static void mlv_snd_queue_wavi()
     hdr->bytesPerSecond = mlv_snd_in_sample_rate * (mlv_snd_in_bits_per_sample / 8) * mlv_snd_in_channels;
     hdr->blockAlign = (mlv_snd_in_bits_per_sample / 8) * mlv_snd_in_channels;
     hdr->bitsPerSample = mlv_snd_in_bits_per_sample;
+}
+
+/* only used with mlv_rec */
+static void mlv_snd_queue_wavi()
+{
+    trace_write(trace_ctx, "mlv_snd_queue_wavi: queueing a WAVI block");
+    
+    /* queue an WAVI block that contains information about the audio format */
+    mlv_wavi_hdr_t *hdr = malloc(sizeof(mlv_wavi_hdr_t));
+    
+    mlv_fill_wavi(hdr, get_us_clock_value());
     
     mlv_rec_queue_block((mlv_hdr_t *)hdr);
 }

@@ -101,11 +101,6 @@ static int cam_5d3 = 0;
 static int cam_5d3_113 = 0;
 static int cam_5d3_123 = 0;
 
-/* store mlv_snd samplingRate in here */
-/* also use it for checking whether we are recording sound */
-static int samplingRate = 0;
-#define RECORDING_SOUND (samplingRate > 0)
-
 /**
  * resolution (in pixels) should be multiple of 16 horizontally (see http://www.magiclantern.fm/forum/index.php?topic=5839.0)
  * furthermore, resolution (in bytes) should be multiple of 8 in order to use the fastest EDMAC flags ( http://magiclantern.wikia.com/wiki/Register_Map#EDMAC ),
@@ -372,6 +367,7 @@ extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_stopping();
 extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_started();
 extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_stopped();
 extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_mlv_block(mlv_hdr_t *hdr);
+extern WEAK_FUNC(ret_0) void mlv_fill_wavi(mlv_wavi_hdr_t *hdr, uint64_t start_timestamp);  /* provided by mlv_snd */
 
 static int raw_rec_should_preview(void);
 
@@ -1968,14 +1964,9 @@ void hack_liveview(int unhack)
     }
 }
 
+/* used by mlv_snd with mlv_rec; nothing to do here */
 void mlv_rec_queue_block(mlv_hdr_t *hdr)
 {
-    if(!memcmp(hdr->blockType, "WAVI", 4))
-    {
-        mlv_wavi_hdr_t *wavi_hdr = (mlv_wavi_hdr_t*)hdr;
-        samplingRate = wavi_hdr->samplingRate;
-        printf("Audio: samplingRate: %d\n", samplingRate);    
-    }
 }
 
 void mlv_rec_set_rel_timestamp(mlv_hdr_t *hdr, uint64_t timestamp)
@@ -2965,22 +2956,9 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     vidf_hdr.blockSize  = max_frame_size;
     vidf_hdr.frameSpace = VIDF_HDR_SIZE - sizeof(mlv_vidf_hdr_t);
 
-    if (RECORDING_SOUND)
-    {
-        memset(&wavi_hdr, 0, sizeof(mlv_wavi_hdr_t));
-
-        mlv_set_type((mlv_hdr_t*)&wavi_hdr, "WAVI");
-        wavi_hdr.blockSize = sizeof(mlv_wavi_hdr_t);
-        mlv_set_timestamp((mlv_hdr_t*)&wavi_hdr, mlv_start_timestamp);
-
-        /* this part is compatible to RIFF WAVE/fmt header */
-        wavi_hdr.format = 1;
-        wavi_hdr.channels = 2;
-        wavi_hdr.samplingRate = samplingRate;
-        wavi_hdr.bytesPerSecond = samplingRate * (16 / 8) * 2;
-        wavi_hdr.blockAlign = (16 / 8) * 2;
-        wavi_hdr.bitsPerSample = 16;
-    }
+    /* WAVI will be valid only if we record sound; otherwise NULL and zeroed out */
+    memset(&wavi_hdr, 0, sizeof(mlv_wavi_hdr_t));
+    mlv_fill_wavi(&wavi_hdr, mlv_start_timestamp);
 }
 
 static REQUIRES(RawRecTask)
@@ -2995,7 +2973,7 @@ int write_mlv_chunk_headers(FILE* f)
     if (FIO_WriteFile(f, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &wbal_hdr, wbal_hdr.blockSize) != (int)wbal_hdr.blockSize) return 0;
 
-    if (RECORDING_SOUND)
+    if (wavi_hdr.samplingRate)
     {
         /* WAVI written only if we record sound */
         if (FIO_WriteFile(f, &wavi_hdr, wavi_hdr.blockSize) != (int)wavi_hdr.blockSize) return 0;
@@ -3243,10 +3221,6 @@ void raw_video_rec_task()
     /* signal that we are starting */
     raw_rec_cbr_starting();
 
-    /* Need to start the recording of audio before the init of the mlv chunk 
-     * or the wavi header isn't initialized before the writing starts. */
-    raw_rec_cbr_started();
-
     init_mlv_chunk_headers(&raw_info);
     written_total = written_chunk = write_mlv_chunk_headers(f);
     if (!written_chunk)
@@ -3257,9 +3231,6 @@ void raw_video_rec_task()
 
     hack_liveview(0);
     liveview_hacked = 1;
-
-    /* this will enable the vsync CBR and the other task(s) */
-    raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
 
     /* try a sync beep (not very precise, but better than nothing) */
     beep();
@@ -3273,6 +3244,12 @@ void raw_video_rec_task()
     int fps = fps_get_current_x1000();
     
     int last_processed_video_frame = 0;
+
+    /* this will enable the vsync CBR and the other task(s) */
+    raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
+
+    /* some modules may do some specific stuff right when we started recording */
+    raw_rec_cbr_started();
     
     /* main recording loop */
     while (RAW_IS_RECORDING && lv)
