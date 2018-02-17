@@ -63,7 +63,8 @@ extern void mlv_rec_get_slot_info(int32_t slot, uint32_t *size, void **address);
 extern int32_t mlv_rec_get_free_slot();
 extern void mlv_rec_release_slot(int32_t slot, uint32_t write);
 extern void mlv_rec_set_rel_timestamp(mlv_hdr_t *hdr, uint64_t timestamp);
-extern void mlv_rec_queue_block(mlv_hdr_t *hdr);
+
+extern WEAK_FUNC(ret_0) void mlv_rec_queue_block(mlv_hdr_t *hdr);
 
 static volatile int32_t mlv_snd_rec_active = 0;
 static struct msg_queue * volatile mlv_snd_buffers_empty = NULL;
@@ -508,7 +509,10 @@ uint32_t raw_rec_cbr_started()
         trace_write(trace_ctx, "raw_rec_cbr_started");
 
         /* only used with mlv_rec (dummy mlv_rec_queue_block in mlv_lite) */
-        mlv_snd_queue_wavi();
+        if ((void *) &mlv_rec_queue_block != (void *) &ret_0)
+        {
+            mlv_snd_queue_wavi();
+        }
 
         /* now everything is ready to fire - real output activation happens
          * as soon as mlv_snd_vsync() switches to MLV_SND_STATE_SOUND_RUNNING */

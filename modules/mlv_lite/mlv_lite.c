@@ -1964,11 +1964,6 @@ void hack_liveview(int unhack)
     }
 }
 
-/* used by mlv_snd with mlv_rec; nothing to do here */
-void mlv_rec_queue_block(mlv_hdr_t *hdr)
-{
-}
-
 void mlv_rec_set_rel_timestamp(mlv_hdr_t *hdr, uint64_t timestamp)
 {
     hdr->timestamp = timestamp - mlv_start_timestamp;
