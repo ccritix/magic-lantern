@@ -104,7 +104,6 @@ static int cam_1100d = 0;
 static int cam_5d3 = 0;
 static int cam_5d3_113 = 0;
 static int cam_5d3_123 = 0;
-
 /**
  * resolution (in pixels) should be multiple of 16 horizontally (see http://www.magiclantern.fm/forum/index.php?topic=5839.0)
  * furthermore, resolution (in bytes) should be multiple of 8 in order to use the fastest EDMAC flags ( http://magiclantern.wikia.com/wiki/Register_Map#EDMAC ),
@@ -333,6 +332,7 @@ static GUARDED_BY(settings_sem) int valid_slot_count = 0;           /* total min
 static GUARDED_BY(LiveViewTask) int capture_slot = -1;              /* in what slot are we capturing now (index) */
 static volatile                 int force_new_buffer = 0;           /* if some other task decides it's better to search for a new buffer */
 
+
 static GUARDED_BY(LiveViewTask) int writing_queue[COUNT(slots)+1];  /* queue of completed frames (slot indices) waiting to be saved */
 static GUARDED_BY(LiveViewTask) int writing_queue_tail = 0;         /* place captured frames here */
 static GUARDED_BY(RawRecTask)   int writing_queue_head = 0;         /* extract frames to be written from here */ 
@@ -361,6 +361,7 @@ static GUARDED_BY(RawRecTask)   mlv_expo_hdr_t expo_hdr;
 static GUARDED_BY(RawRecTask)   mlv_lens_hdr_t lens_hdr;
 static GUARDED_BY(RawRecTask)   mlv_rtci_hdr_t rtci_hdr;
 static GUARDED_BY(RawRecTask)   mlv_wbal_hdr_t wbal_hdr;
+static GUARDED_BY(RawRecTask)   mlv_wavi_hdr_t wavi_hdr;
 static GUARDED_BY(LiveViewTask) mlv_vidf_hdr_t vidf_hdr;
 static GUARDED_BY(RawRecTask)   uint64_t mlv_start_timestamp = 0;
        GUARDED_BY(RawRecTask)   uint32_t raw_rec_trace_ctx = TRACE_ERROR;
@@ -368,6 +369,10 @@ static GUARDED_BY(RawRecTask)   uint64_t mlv_start_timestamp = 0;
 /* interface to other modules: these are called when recording starts or stops  */
 extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_starting();
 extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_stopping();
+extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_started();
+extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_stopped();
+extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_mlv_block(mlv_hdr_t *hdr);
+extern WEAK_FUNC(ret_0) void mlv_fill_wavi(mlv_wavi_hdr_t *hdr, uint64_t start_timestamp);  /* provided by mlv_snd */
 
 static int raw_rec_should_preview(void);
 
@@ -2158,6 +2163,7 @@ void hack_liveview(int unhack)
     }
 }
 
+/* used by mlv_snd with mlv_rec; nothing to do here */
 static REQUIRES(LiveViewTask) FAST
 int choose_next_capture_slot()
 {
@@ -2987,6 +2993,7 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     file_hdr.audioFrameCount = 0;
     file_hdr.sourceFpsNom = fps_get_current_x1000();
     file_hdr.sourceFpsDenom = 1000;
+    raw_rec_cbr_mlv_block((mlv_hdr_t*)&file_hdr);
     
     memset(&rawi_hdr, 0, sizeof(mlv_rawi_hdr_t));
     mlv_set_type((mlv_hdr_t *)&rawi_hdr, "RAWI");
@@ -3035,6 +3042,9 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     mlv_set_type((mlv_hdr_t*)&vidf_hdr, "VIDF");
     vidf_hdr.blockSize  = max_frame_size;
     vidf_hdr.frameSpace = VIDF_HDR_SIZE - sizeof(mlv_vidf_hdr_t);
+    /* WAVI will be valid only if we record sound; otherwise NULL and zeroed out */
+    memset(&wavi_hdr, 0, sizeof(mlv_wavi_hdr_t));
+    mlv_fill_wavi(&wavi_hdr, mlv_start_timestamp);
 }
 
 static REQUIRES(RawRecTask)
@@ -3047,6 +3057,12 @@ int write_mlv_chunk_headers(FILE* f)
     if (!mlv_write_hdr(f, (mlv_hdr_t *)&expo_hdr)) return 0;
     if (!mlv_write_hdr(f, (mlv_hdr_t *)&lens_hdr)) return 0;
     if (!mlv_write_hdr(f, (mlv_hdr_t *)&rtci_hdr)) return 0;
+
+    if (wavi_hdr.samplingRate)
+    {
+        /* WAVI written only if we record sound */
+    	if (!mlv_write_hdr(f, (mlv_hdr_t *)&wavi_hdr)) return 0;
+    }
     if (!mlv_write_hdr(f, (mlv_hdr_t *)&wbal_hdr)) return 0;
     if (mlv_write_vers_blocks(f, mlv_start_timestamp)) return 0;
     
@@ -3289,9 +3305,9 @@ void raw_video_rec_task()
         goto cleanup;
     }
 
-    /* signal that we are starting, call this before any memory allocation to give CBR the chance to allocate memory */
+    /* Need to start the recording of audio before the init of the mlv chunk 
     mlv_rec_call_cbr(MLV_REC_EVENT_STARTING, NULL);
-    
+
     init_mlv_chunk_headers(&raw_info);
     written_total = written_chunk = write_mlv_chunk_headers(f);
     if (!written_chunk)
@@ -3302,9 +3318,6 @@ void raw_video_rec_task()
     
     hack_liveview(0);
     liveview_hacked = 1;
-
-    /* this will enable the vsync CBR and the other task(s) */
-    raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
 
     /* try a sync beep (not very precise, but better than nothing) */
     if(sync_beep)
@@ -3321,6 +3334,12 @@ void raw_video_rec_task()
     int fps = fps_get_current_x1000();
     
     int last_processed_frame = 0;
+
+    /* this will enable the vsync CBR and the other task(s) */
+    raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
+
+    /* some modules may do some specific stuff right when we started recording */
+    raw_rec_cbr_started();
     
     /* main recording loop */
     while (RAW_IS_RECORDING && lv)
