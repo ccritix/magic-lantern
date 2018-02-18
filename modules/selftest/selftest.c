@@ -2094,6 +2094,13 @@ static void srm_test_task()
     console_hide();
 }
 
+extern void * __fast_malloc(size_t size, unsigned int flags, const char* file, unsigned int line);
+
+static void fast_malloc(size_t size)
+{
+    return __fast_malloc(size, 0, __FILE__, __LINE__);
+}
+
 static void malloc_test_task()
 {
     printf("Small-block malloc test...\n");
@@ -2101,9 +2108,22 @@ static void malloc_test_task()
     console_show();
     msleep(1000);
 
-    /* allocate up to 50000 small blocks of RAM, 32K each */
+    for (int i = 0; i < 100; i++)
+    {
+        int size = rand() % 8192;
+        int t0 = get_us_clock();
+        void * ptr = fast_malloc(size);
+        int t1 = get_us_clock();
+        qprintf("fast_malloc(%d) => %x (%d us, free %s)\n", size, ptr, t1 - t0, format_memory_size(GetFreeMemForAllocateMemory()));
+        free(ptr);
+    }
+
+    msleep(1000);
+
+    /* allocate up to 50000 small blocks of RAM, up to 32K each */
+    /* out of these, 1000 blocks will be allocated with fast_malloc, up to 128 bytes each */
     int N = 50000;
-    int blocksize = 32*1024;
+    int F = 1000;
     void** ptr = malloc(N * sizeof(ptr[0]));
     if (ptr)
     {
@@ -2112,25 +2132,54 @@ static void malloc_test_task()
             ptr[i] = 0;
         }
 
+        int total = 0, total_slow = 0, total_fast = 0, allocated = 0;
         for (int i = 0; i < N; i++)
         {
-            ptr[i] = malloc(blocksize);
-            printf("alloc %d %8x (total %s)\n", i, ptr[i], format_memory_size(i * blocksize));
-            if (ptr[i]) memset(ptr[i], rand(), blocksize);
-            else break;
+            int fast = (i % (N/F)) == 0;
+            /* fixme: shoot_malloc crashes for relatively few small blocks,
+             * but works fine for many more larger blocks?!
+             * 5D3:
+             *  (rand() % 32768)            => ~250 blocks (!), crash after
+             *  (rand() % 32768) & ~3       => ~230 blocks (!), crash after
+             *  (rand() % 32768) & ~4095    => ~650 blocks (!), crash after
+             *  (32 * 1024)                 => ~1100 blocks (?!), crash after
+             *  (256 * 1024)                => ~900 blocks, no crash (!)
+             */
+            int blocksize = fast ? (rand() % 256)
+                                 : (32 * 1024);
+            ptr[i] = (fast) ? fast_malloc(blocksize) : malloc(blocksize);
+            if (ptr[i])
+            {
+                memset(ptr[i], rand(), blocksize);
+                total += blocksize;
+                total_slow += (fast ? 0 : blocksize);
+                total_fast += (fast ? blocksize : 0);
+                allocated += 1;
+                qprintf("[%d] alloc 0x%X %s => %8x (total %s = 0x%X + 0x%X)\n", i, blocksize, fast ? "fast" : "slow", ptr[i], format_memory_size(total), total_fast, total_slow);
+            }
+            else
+            {
+                break;
+            }
         }
+        printf("Allocated %d blocks, total %s", allocated, format_memory_size(total));
+        printf(" = %s", format_memory_size(total_fast));
+        printf(" + %s\n", format_memory_size(total_slow));
         
         msleep(2000);
         
+        int freed = 0;
         for (int i = 0; i < N; i++)
         {
             if (ptr[i])
             {
-                printf("free %x\n", ptr[i]);
+                qprintf("free %x\n", ptr[i]);
                 free(ptr[i]);
                 ptr[i] = 0;
+                freed++;
             }
         }
+        printf("Freed %d blocks.\n", freed);
     }
     free(ptr);
 
