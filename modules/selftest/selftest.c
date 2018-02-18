@@ -2136,17 +2136,8 @@ static void malloc_test_task()
         for (int i = 0; i < N; i++)
         {
             int fast = (i % (N/F)) == 0;
-            /* fixme: shoot_malloc crashes for relatively few small blocks,
-             * but works fine for many more larger blocks?!
-             * 5D3:
-             *  (rand() % 32768)            => ~250 blocks (!), crash after
-             *  (rand() % 32768) & ~3       => ~230 blocks (!), crash after
-             *  (rand() % 32768) & ~4095    => ~650 blocks (!), crash after
-             *  (32 * 1024)                 => ~1100 blocks (?!), crash after
-             *  (256 * 1024)                => ~900 blocks, no crash (!)
-             */
             int blocksize = fast ? (rand() % 256)
-                                 : (32 * 1024);
+                                 : (rand() % 32768);
             ptr[i] = (fast) ? fast_malloc(blocksize) : malloc(blocksize);
             if (ptr[i])
             {
