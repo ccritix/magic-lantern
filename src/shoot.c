@@ -57,6 +57,8 @@
 #include "tskmon.h"
 #include "module.h"
 
+static struct recursive_lock * shoot_task_rlock = NULL;
+
 static CONFIG_INT( "shoot.num", pics_to_take_at_once, 0);
 static CONFIG_INT( "shoot.af",  shoot_use_af, 0 );
 static int snap_sim = 0;
@@ -259,17 +261,34 @@ int get_bulb_shutter_raw_equiv()
     return shutterf_to_raw(bulb_duration);
 }
 
-static void seconds_clock_update();
+static inline void seconds_clock_update();
 
-static volatile int seconds_clock = 0;
-static volatile int miliseconds_clock = 0;
 static volatile uint64_t microseconds_clock = 0;
 
-int get_seconds_clock() { return seconds_clock; }
-int get_ms_clock_value() { seconds_clock_update(); return miliseconds_clock; }
-uint64_t get_us_clock_value() { seconds_clock_update(); return microseconds_clock; }
+int get_seconds_clock()
+{
+    seconds_clock_update();
 
-int get_ms_clock_value_fast() { return miliseconds_clock; } // fast, but less accurate
+    /* derived from microseconds_clock */
+    int seconds_clock = microseconds_clock / 1000000;   /* overflow after 68 years */
+    return seconds_clock;
+}
+
+int get_ms_clock()
+{
+    seconds_clock_update();
+
+    /* derived from microseconds_clock */
+    int miliseconds_clock = microseconds_clock / 1000;  /* overflow after 24 days */
+
+    return miliseconds_clock;
+}
+
+uint64_t get_us_clock()
+{
+    seconds_clock_update();
+    return microseconds_clock;
+}
 
 
 /**
@@ -299,6 +318,8 @@ int get_ms_clock_value_fast() { return miliseconds_clock; } // fast, but less ac
  */
 int should_run_polling_action(int period_ms, int* last_updated_time)
 {
+    int miliseconds_clock = get_ms_clock();
+
     if (miliseconds_clock >= (*last_updated_time) + period_ms)
     {
         *last_updated_time = miliseconds_clock;
@@ -350,33 +371,32 @@ static void do_this_every_second() // called every second
         lens_display_set_dirty();
     }
     #endif
+
+    /* update lens info outside LiveView */
+    if (!lv && lens_info.lens_exists)
+    {
+        _prop_lv_lens_request_update();
+    }
 }
 
-#ifndef TIMER_GET_VALUE
-#define TIMER_GET_VALUE() *(volatile uint32_t*)0xC0242014
-#endif
-
-#define TIMER_MAX 1048576
 // called every 200ms or on request
-static void
+static void FAST
 seconds_clock_update()
 {
     /* do not use semaphores as this code should be very fast */
     int old_stat = cli();
     
     static uint32_t prev_timer = 0;
-    uint32_t timer_value = TIMER_GET_VALUE();
+    uint32_t timer_value = GET_DIGIC_TIMER();
     // this timer rolls over every 1048576 ticks
     // and 1000000 ticks = 1 second
     // so 1 rollover is done every 1.05 seconds roughly
     
     /* update microsecond timer with simple overflow handling thanks to the timer overflowing at 2^n */
-    uint32_t usec_delta = (timer_value - prev_timer + TIMER_MAX) & (TIMER_MAX - 1);
+    uint32_t usec_delta = (timer_value - prev_timer + DIGIC_TIMER_MAX) & (DIGIC_TIMER_MAX - 1);
     microseconds_clock += usec_delta;               /* overflow after 584942 years */
     
-    /* msec and seconds clock derieve from high precision counter */
-    miliseconds_clock = microseconds_clock / 1000;  /* overflow after 24 days */
-    seconds_clock = microseconds_clock / 1000000;   /* overflow after 68 years */
+    /* msec and seconds clock will be derived from the high precision counter on request */
     
     prev_timer = timer_value;
     sei(old_stat);
@@ -390,6 +410,8 @@ seconds_clock_task( void* unused )
         seconds_clock_update();
         
         static int prev_s_clock = 0;
+        int seconds_clock = get_seconds_clock();
+
         if (prev_s_clock != seconds_clock)
         {
 #if defined(CONFIG_MODULES)
@@ -1093,7 +1115,7 @@ int handle_lv_afframe_workaround(struct event * event)
     /* most cameras will block the focus box keys in Manual Focus mode while recording */
     /* 6D seems to block them always in MF, https://bitbucket.org/hudson/magic-lantern/issue/1816/cant-move-focus-box-on-6d */
     if (
-        #if !defined(CONFIG_6D) /* others? */
+        #if !defined(CONFIG_6D) && !defined(CONFIG_100D) /* others? */
         RECORDING_H264 &&
         #endif
         liveview_display_idle() &&
@@ -2431,7 +2453,7 @@ void zoom_focus_ring_engage() // called from shoot_task
     if (!DISPLAY_IS_ON) return;
     int zfr = (zoom_focus_ring && is_manual_focus());
     if (!zfr) return;
-    zoom_focus_ring_disable_time = miliseconds_clock + 5000;
+    zoom_focus_ring_disable_time = get_ms_clock() + 5000;
     int zoom = zoom_disable_x10 ? 5 : 10;
     set_lv_zoom(zoom);
 }
@@ -2441,7 +2463,7 @@ static void zoom_focus_ring_step()
     if (!zfr) return;
     if (RECORDING) return;
     if (!DISPLAY_IS_ON) return;
-    if (zoom_focus_ring_disable_time && miliseconds_clock > zoom_focus_ring_disable_time && !get_halfshutter_pressed())
+    if (zoom_focus_ring_disable_time && get_ms_clock() > zoom_focus_ring_disable_time && !get_halfshutter_pressed())
     {
         if (lv_dispsize > 1) set_lv_zoom(1);
         zoom_focus_ring_disable_time = 0;
@@ -2767,7 +2789,11 @@ void ensure_bulb_mode()
 {
 #ifdef CONFIG_BULB
 
-    while (lens_info.job_state) msleep(100);
+    while (!job_state_ready_to_take_pic()) {
+        msleep(20);
+    }
+
+    AcquireRecursiveLock(shoot_task_rlock, 0);
 
     #ifdef CONFIG_SEPARATE_BULB_MODE
         int a = lens_info.raw_aperture;
@@ -2784,7 +2810,9 @@ void ensure_bulb_mode()
     
     SetGUIRequestMode(0);
     while (!display_idle()) msleep(100);
-    
+
+    ReleaseRecursiveLock(shoot_task_rlock);
+
 #endif
 }
 
@@ -2813,10 +2841,17 @@ int set_drive_single()
 int
 bulb_take_pic(int duration)
 {
+    AcquireRecursiveLock(shoot_task_rlock, 0);
+
     int canceled = 0;
 #ifdef CONFIG_BULB
     extern int ml_taking_pic;
-    if (ml_taking_pic) return 1;
+    if (ml_taking_pic)
+    {
+        /* fixme: make this unreachable */
+        ReleaseRecursiveLock(shoot_task_rlock);
+        return 1;
+    }
     ml_taking_pic = 1;
 
     printf("[BULB] taking picture @ %s %d.%d\" %s\n",
@@ -2857,7 +2892,7 @@ bulb_take_pic(int duration)
     
     SW1(1,300);
     
-    int t_start = get_ms_clock_value();
+    int t_start = get_ms_clock();
     int t_end = t_start + duration;
     SW2(1, initial_delay);
     
@@ -2867,13 +2902,13 @@ bulb_take_pic(int duration)
     
     //~ msleep(duration);
     //int d = duration/1000;
-    while (get_ms_clock_value() <= t_end - 1500)
+    while (get_ms_clock() <= t_end - 1500)
     {
         msleep(100);
 
         // number of seconds that passed
         static int prev_s = 0;
-        int s = (get_ms_clock_value() - t_start) / 1000;
+        int s = (get_ms_clock() - t_start) / 1000;
         if (s == prev_s) continue;
         prev_s = s;
         
@@ -2916,7 +2951,7 @@ bulb_take_pic(int duration)
                     snprintf(msg, sizeof(msg),
                              " Intervalometer: %s  \n"
                              " Pictures taken: %d  ",
-                             format_time_hours_minutes_seconds(intervalometer_next_shot_time - seconds_clock),
+                             format_time_hours_minutes_seconds(intervalometer_next_shot_time - get_seconds_clock()),
                              intervalometer_pictures_taken);
                     if (interval_stop_after) { STR_APPEND(msg, "/ %d", interval_stop_after); }
                     bmp_printf(FONT_LARGE, 50, 310, msg);
@@ -2949,7 +2984,7 @@ bulb_take_pic(int duration)
         }
     }
     
-    while (get_ms_clock_value() < t_end && !job_state_ready_to_take_pic())
+    while (get_ms_clock() < t_end && !job_state_ready_to_take_pic())
         msleep(MIN_MSLEEP);
     
     //~ NotifyBox(3000, "BulbEnd");
@@ -2967,6 +3002,8 @@ bulb_take_pic(int duration)
     
     ml_taking_pic = 0;
 #endif
+
+    ReleaseRecursiveLock(shoot_task_rlock);
     return canceled;
 }
 
@@ -4512,6 +4549,8 @@ void interval_create_script(int f0)
 // returns zero if successful, nonzero otherwise (user canceled, module error, etc)
 int take_a_pic(int should_af)
 {
+    AcquireRecursiveLock(shoot_task_rlock, 0);
+
     int canceled = 0;
     #ifdef FEATURE_SNAP_SIM
     if (snap_sim) {
@@ -4522,10 +4561,11 @@ int take_a_pic(int should_af)
         display_on();
         _card_led_off();
         msleep(100);
+        ReleaseRecursiveLock(shoot_task_rlock);
         return canceled;
     }
     #endif
-    
+
     #ifdef CONFIG_MODULES
     int cbr_result = 0;
     if ((cbr_result = module_exec_cbr(CBR_CUSTOM_PICTURE_TAKING)) == CBR_RET_CONTINUE)
@@ -4544,10 +4584,13 @@ int take_a_pic(int should_af)
 #ifdef CONFIG_MODULES
     else
     {
+        ReleaseRecursiveLock(shoot_task_rlock);
         return cbr_result != CBR_RET_STOP;
     }
 #endif
     lens_wait_readytotakepic(64);
+
+    ReleaseRecursiveLock(shoot_task_rlock);
     return canceled;
 }
 
@@ -4602,7 +4645,7 @@ static void hdr_iso_shift_restore()
 static int hdr_shutter_release(int ev_x8)
 {
     int ans = 1;
-    //~ NotifyBox(2000, "hdr_shutter_release: %d", ev_x8); msleep(2000);
+    //printf("hdr_shutter_release: %d\n", ev_x8);
     lens_wait_readytotakepic(64);
 
     int manual = (shooting_mode == SHOOTMODE_M || is_movie_mode() || is_bulb_mode());
@@ -4682,7 +4725,7 @@ static int hdr_shutter_release(int ev_x8)
         int expsim0 = get_expsim();
         #endif
         
-        //~ NotifyBox(2000, "ms=%d msc=%d rs=%x rc=%x", ms,msc,rs,rc); msleep(2000);
+        //printf("ms=%d msc=%d rs=%x rc=%x\n", ms,msc,rs,rc);
 
 #ifdef CONFIG_BULB
         // then choose the best option (bulb for long exposures, regular for short exposures)
@@ -4922,7 +4965,7 @@ static void hdr_take_pics(int steps, int step_size, int skip0)
         hdr_auto_take_pics(step_size, skip0);
         return;
     }
-    //~ NotifyBox(2000, "hdr_take_pics: %d, %d, %d", steps, step_size, skip0); msleep(2000);
+    //printf("hdr_take_pics: %d, %d, %d\n", steps, step_size, skip0);
     int i;
     
     // make sure it won't autofocus
@@ -5086,7 +5129,7 @@ void hdr_shot(int skip0, int wait)
 #ifdef FEATURE_HDR_BRACKETING
     if (is_hdr_bracketing_enabled())
     {
-        //~ NotifyBox(1000, "HDR shot (%dx%dEV)...", hdr_steps, hdr_stepsize/8); msleep(1000);
+        printf("[ABRK] HDR sequence (%dx%dEV)...\n", hdr_steps, hdr_stepsize/8);
         lens_wait_readytotakepic(64);
 
         int drive_mode_bak = set_drive_single();
@@ -5095,6 +5138,7 @@ void hdr_shot(int skip0, int wait)
 
         lens_wait_readytotakepic(64);
         if (drive_mode_bak >= 0) lens_set_drivemode(drive_mode_bak);
+        printf("[ABRK] HDR sequence finished.\n");
     }
     else // regular pic (not HDR)
 #endif
@@ -5132,11 +5176,7 @@ void remote_shot(int wait)
     }
     else
     #endif
-    if (is_movie_mode())
-    {
-        movie_start();
-    }
-    else if (is_hdr_bracketing_enabled())
+    if (is_hdr_bracketing_enabled())
     {
         hdr_shot(0, wait);
     }
@@ -5422,6 +5462,8 @@ int is_continuous_drive()
 
 int take_fast_pictures( int number )
 {
+    AcquireRecursiveLock(shoot_task_rlock, 0);
+
     int canceled = 0;
     // take fast pictures
 #ifdef CONFIG_PROP_REQUEST_CHANGE
@@ -5460,6 +5502,8 @@ int take_fast_pictures( int number )
             if(canceled) break;
         }
     }
+
+    ReleaseRecursiveLock(shoot_task_rlock);
     return canceled;
 }
 
@@ -5590,7 +5634,12 @@ shoot_task( void* unused )
 
     /* creating a message queue primarily for interrupting sleep to repaint immediately */
     shoot_task_mqueue = (void*)msg_queue_create("shoot_task_mqueue", 1);
-    
+
+    /* use a recursive lock for photo capture functions that may be called both from this task, or from other tasks */
+    /* fixme: refactor and use semaphores, with thread safety annotations */
+    shoot_task_rlock = CreateRecursiveLock(1);
+    AcquireRecursiveLock(shoot_task_rlock, 0);
+
     #ifdef FEATURE_MLU
     mlu_selftimer_update();
     #endif
@@ -5602,6 +5651,7 @@ shoot_task( void* unused )
         /* auto-start intervalometer, but wait for at least 15 seconds */
         /* (to give the user a chance to turn it off) */
         intervalometer_running = 1;
+        int seconds_clock = get_seconds_clock();
         intervalometer_next_shot_time = seconds_clock + MAX(interval_start_time, 15);
     }
 #endif
@@ -5622,7 +5672,11 @@ shoot_task( void* unused )
         {
             delay = MIN_MSLEEP;
         }
+
+        /* allow other tasks to take pictures while we are sleeping */
+        ReleaseRecursiveLock(shoot_task_rlock);
         int err = msg_queue_receive(shoot_task_mqueue, (struct event**)&msg, delay);        
+        AcquireRecursiveLock(shoot_task_rlock, 0);
 
         priority_feature_enabled = 0;
 
@@ -5789,7 +5843,7 @@ shoot_task( void* unused )
             }
         }
         #endif
-        
+
         if (picture_was_taken_flag) // just took a picture, maybe we should take another one
         {
             if (NOT_RECORDING)
@@ -5798,7 +5852,7 @@ shoot_task( void* unused )
                 if (is_hdr_bracketing_enabled())
                 {
                     lens_wait_readytotakepic(64);
-                    hdr_shot(1,1); // skip the middle exposure, which was just taken
+                    hdr_shot(1,1); // skip the first image, which was just taken
                     lens_wait_readytotakepic(64); 
                 }
                 #endif
@@ -5808,6 +5862,7 @@ shoot_task( void* unused )
                     intervalometer_running = 1;
                     intervalometer_pictures_taken = 1;
                     int dt = get_interval_time();
+                    int seconds_clock = get_seconds_clock();
                     intervalometer_next_shot_time = COERCE(intervalometer_next_shot_time + dt, seconds_clock, seconds_clock + dt);
 #ifdef CONFIG_MODULES
                     module_exec_cbr(CBR_INTERVALOMETER);
@@ -6139,31 +6194,36 @@ shoot_task( void* unused )
         #endif // motion detect
         
         #ifdef FEATURE_INTERVALOMETER        
-        #define SECONDS_REMAINING (intervalometer_next_shot_time - seconds_clock)
-        #define SECONDS_ELAPSED (seconds_clock - seconds_clock_0)
+        #define SECONDS_REMAINING (intervalometer_next_shot_time - get_seconds_clock())
+        #define SECONDS_ELAPSED (get_seconds_clock() - seconds_clock_0)
         
         intervalometer_check_trigger();
         
         if (intervalometer_running)
         {
-            int seconds_clock_0 = seconds_clock;
+            int seconds_clock_0 = get_seconds_clock();
             int display_turned_off = 0;
             //~ int images_compared = 0;
             msleep(20);
-            while (SECONDS_REMAINING > 0 && !ml_shutdown_requested)
+            while (SECONDS_REMAINING > 1 && !ml_shutdown_requested)
             {
                 int dt = get_interval_time();
-                msleep(dt < 5 ? 20 : 300);
+                /* allow other tasks to take pictures while we are sleeping */
+                ReleaseRecursiveLock(shoot_task_rlock);
+                msleep(200);
+                AcquireRecursiveLock(shoot_task_rlock, 0);
 
                 intervalometer_check_trigger();
                 if (!intervalometer_running) break; // from inner loop only
                 
                 if (gui_menu_shown() || get_halfshutter_pressed())
                 {
+                    /* menu opened or half-shutter pressed? delay the next shot */
                     wait_till_next_second();
 
                     if (intervalometer_pictures_taken == 0)
                     {
+                        int seconds_clock = get_seconds_clock();
                         intervalometer_next_shot_time = seconds_clock + MAX(interval_start_time, 1);
                     }
                     else
@@ -6198,6 +6258,7 @@ shoot_task( void* unused )
                 }
             }
 
+            /* last minute (err, second) checks */
             if (interval_stop_after && (int)intervalometer_pictures_taken >= (int)(interval_stop_after))
                 intervalometer_stop();
 
@@ -6206,7 +6267,14 @@ shoot_task( void* unused )
             if (!intervalometer_running) continue; // back to start of shoot_task loop
             if (gui_menu_shown() || get_halfshutter_pressed()) continue;
 
+            /* last second - try to get slightly better timing */
+            while (SECONDS_REMAINING > 0)
+            {
+                msleep(10);
+            }
+
             int dt = get_interval_time();
+            int seconds_clock = get_seconds_clock();
             // compute the moment for next shot; make sure it stays somewhat in sync with the clock :)
             //~ intervalometer_next_shot_time = intervalometer_next_shot_time + dt;
             intervalometer_next_shot_time = COERCE(intervalometer_next_shot_time + dt, seconds_clock, seconds_clock + dt);
@@ -6257,11 +6325,12 @@ shoot_task( void* unused )
                 interval_create_script(MOD(get_shooting_card()->file_number - intervalometer_pictures_taken + 1, 10000));
             }
             intervalometer_pictures_taken = 0;
+            int seconds_clock = get_seconds_clock();
             intervalometer_next_shot_time = seconds_clock + MAX(interval_start_time, 1);
             #endif
 
 #ifdef FEATURE_AUDIO_REMOTE_SHOT
-#if defined(CONFIG_7D) || defined(CONFIG_6D) || defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM)
+#if defined(CONFIG_7D) || defined(CONFIG_6D) || defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM) || defined(CONFIG_100D)
             /* experimental for 7D now, has to be made generic */
             static int last_audio_release_running = 0;
             

@@ -262,7 +262,7 @@ static void _module_load_all(uint32_t list_only)
             strncpy(module_list[module_cnt].name, module_name, sizeof(module_list[module_cnt].name));
             
             /* check for a .en file that tells the module is enabled */
-            char enable_file[MODULE_FILENAME_LENGTH];
+            char enable_file[FIO_MAX_PATH_LENGTH];
             snprintf(enable_file, sizeof(enable_file), "%s%s.en", get_config_dir(), module_list[module_cnt].name);
             
             /* if enable-file is nonexistent, dont load module */
@@ -1035,12 +1035,13 @@ int module_display_filter_update()
 
 static MENU_SELECT_FUNC(module_menu_update_select)
 {
-    char enable_file[MODULE_FILENAME_LENGTH];
+    char enable_file[FIO_MAX_PATH_LENGTH];
     int mod_number = (int) priv;
     
     module_list[mod_number].enabled = !module_list[mod_number].enabled;
     snprintf(enable_file, sizeof(enable_file), "%s%s.en", get_config_dir(), module_list[mod_number].name);
     config_flag_file_setting_save(enable_file, module_list[mod_number].enabled);
+    ASSERT(is_file(enable_file) == module_list[mod_number].enabled);
 }
 
 static int startswith(const char* str, const char* prefix)
@@ -1133,7 +1134,7 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
     static void* prev_selected = 0;
     if (entry->selected && entry != prev_selected)
     {
-        last_menu_activity_time = get_ms_clock_value();
+        last_menu_activity_time = get_ms_clock();
         prev_selected = entry;
     }
 
@@ -1150,7 +1151,7 @@ static MENU_UPDATE_FUNC(module_menu_update_entry)
     }
 
     /* clean up offline strings if the module menu is no longer used */
-    if (!entry->selected && get_ms_clock_value() > 3000 + last_menu_activity_time)
+    if (!entry->selected && get_ms_clock() > 3000 + last_menu_activity_time)
     {
         if (
                 !module_list[mod_number].valid &&

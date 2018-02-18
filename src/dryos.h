@@ -40,6 +40,7 @@
 #include "vram.h"
 #include "state-object.h"
 #include "camera.h"
+#include "timer.h"
 #include "tasks.h"
 #include "debug.h"
 #include "audio.h"
@@ -100,14 +101,6 @@ bzero32(
 extern void firmware_entry(void);
 extern void reloc_entry(void);
 extern void __attribute__((noreturn)) cstart(void);
-
-extern int __attribute__((format(printf,2,3)))
-my_fprintf(
-        FILE *                  file,
-        const char *            fmt,
-        ...
-);
-
 
 struct tm {
         int     tm_sec;         /* seconds after the minute [0-60] */
@@ -241,15 +234,6 @@ void info_led_off();
 void info_led_blink(int times, int delay_on, int delay_off);
 void _card_led_on();
 void _card_led_off();
-
-/** timing */
-/* todo: move to a separate file */
-int get_seconds_clock();
-int get_ms_clock_value();
-uint64_t get_us_clock_value();
-int get_ms_clock_value_fast();
-int should_run_polling_action(int period_ms, int* last_updated_time);
-void wait_till_next_second();
 
 /** ENGIO */
 

@@ -67,7 +67,7 @@ static void lua_prophandler(unsigned property, void * priv, void * buf, unsigned
                     lua_pushinteger(L, *(uint32_t*)buf & (0xFFFFFFFF >> ((4-len) * 8)) );
                 }
 
-                int t0 = get_us_clock_value();
+                int t0 = get_us_clock();
 
                 if (docall(L, 2, 0))
                 {
@@ -75,7 +75,7 @@ static void lua_prophandler(unsigned property, void * priv, void * buf, unsigned
                     lua_save_last_error(L);
                 }
 
-                int t1 = get_us_clock_value();
+                int t1 = get_us_clock();
 
                 if (t1 - t0 > 10000)
                 {

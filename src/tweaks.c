@@ -475,7 +475,13 @@ int handle_set_wheel_play(struct event * event)
        (play_set_wheel_trigger == PLAY_ACTION_TRIGGER_WHEEL || 
         play_set_wheel_trigger == PLAY_ACTION_TRIGGER_WHEEL_OR_LR))
     {
+      // combined q/set button immediately pops up canon menu
+      // (protect, rotate, rate etc..) so we better use Av button instead
+      #ifdef CONFIG_100D
+        if (event->param == BGMT_PRESS_AV)
+      #else
         if (event->param == BGMT_PRESS_SET)
+      #endif
         {
             // for cameras where SET does not send an unpress event, pressing SET again should do the trick
             set_maindial_action_enabled = !set_maindial_action_enabled;
@@ -484,7 +490,11 @@ int handle_set_wheel_play(struct event * event)
             #endif
             print_set_maindial_hint(set_maindial_action_enabled);
         }
+      #ifdef CONFIG_100D
+        else if (event->param == BGMT_UNPRESS_AV)
+      #else
         else if (event->param == BGMT_UNPRESS_SET)
+      #endif        
         {
             set_maindial_action_enabled = 0;
             print_set_maindial_hint(0);
@@ -1399,11 +1409,11 @@ int handle_arrow_keys(struct event * event)
     static int t_press = 0;
     if (BGMT_PRESS_AV)
     {
-        t_press = get_ms_clock_value();
+        t_press = get_ms_clock();
     }
     if (BGMT_UNPRESS_AV)
     {
-        int t_unpress = get_ms_clock_value();
+        int t_unpress = get_ms_clock();
         
         if (t_unpress - t_press < 400)
             arrow_key_mode_toggle();
@@ -1753,7 +1763,7 @@ void zoom_trick_step()
     if (!zoom_trick) return;
     if (!lv && !PLAY_OR_QR_MODE) return;
 
-    int current_timestamp = get_ms_clock_value();
+    int current_timestamp = get_ms_clock();
 
     static int prev_timestamp = 0;
     if (prev_timestamp != current_timestamp)
@@ -1800,7 +1810,7 @@ int handle_zoom_trick_event(struct event * event)
     {
         if (!countdown_for_unknown_button)
         {
-            int t = get_ms_clock_value();
+            int t = get_ms_clock();
             if (t - timestamp_for_unknown_button > 500)
                 numclicks_for_unknown_button = 0;
             
@@ -2379,11 +2389,11 @@ static void preview_contrast_n_saturation_step()
     int halfshutter_pressed = get_halfshutter_pressed();
     if (halfshutter_pressed)
     {
-        peaking_hs_last_press = get_ms_clock_value();
+        peaking_hs_last_press = get_ms_clock();
     }
     int preview_peaking_force_normal_image =
         halfshutter_pressed ||                                  /* show normal image on half-hutter press */
-        get_ms_clock_value() < peaking_hs_last_press + 500;     /* and keep it at least 500ms (avoids flicker with fast toggling) */
+        get_ms_clock() < peaking_hs_last_press + 500;     /* and keep it at least 500ms (avoids flicker with fast toggling) */
 #endif
     
 #ifdef FEATURE_LV_SATURATION
@@ -2674,7 +2684,7 @@ static void grayscale_menus_step()
     if (gui_menu_shown())
     {
         // make the warning text blinking, so beginners will notice it...
-        int t = *(uint32_t*)0xC0242014;
+        int t = GET_DIGIC_TIMER();
         alter_bitmap_palette_entry(MENU_WARNING_COLOR, COLOR_RED, 512 - ABS((t >> 11) - 256), ABS((t >> 11) - 256));
         warning_color_dirty = 1;
     }
@@ -3696,6 +3706,16 @@ static struct menu_entry play_menus[] = {
                         .help = "Chose the action type to perform when triggered.",
                         .icon_type = IT_PERCENT_OFF,
                     },
+                    #ifdef CONFIG_100D
+                    {
+                        .name = "Trigger key(s)",
+                        .priv = &play_set_wheel_trigger,
+                        .max = 0,
+                        .choices = (const char *[]) {"Av+MainDial"},
+                        .help = "Use Av+MainDial together to perform selected action.",
+                        .icon_type = IT_DICE,
+                    },
+                    #else
                     {
                         .name = "Trigger key(s)",
                         .priv = &play_set_wheel_trigger,
@@ -3704,6 +3724,7 @@ static struct menu_entry play_menus[] = {
                         .help = "Either use a key combination and/or just an easier single keystroke.",
                         .icon_type = IT_DICE,
                     },
+                    #endif
                     MENU_EOL
                 }
             },
