@@ -55,11 +55,33 @@ void mlv_fill_lens(mlv_lens_hdr_t *hdr, uint64_t start_timestamp)
     hdr->autofocusMode = af_mode;
     hdr->flags = 0;
 
+    char name[33];
     char buf[33];
+    snprintf(name, 32, "%s", lens_info.name);
     snprintf(buf, sizeof(buf), "%X%08X", (uint32_t) (lens_info.lens_serial >> 32), (uint32_t)(lens_info.lens_serial & 0xFFFFFFFF));
-    
-    strncpy((char *)hdr->lensName, lens_info.name, 32);
+
+    strncpy((char *)hdr->lensName, name, 32);
     strncpy((char *)hdr->lensSerial, buf, 32);
+}
+
+void mlv_fill_elns(mlv_elns_hdr_t *hdr, uint64_t start_timestamp){
+    /* prepare header */
+    mlv_set_type((mlv_hdr_t *)hdr, "ELNS");
+    mlv_set_timestamp((mlv_hdr_t *)hdr, start_timestamp);
+    hdr->blockSize = sizeof(mlv_elns_hdr_t);
+
+    char bufName[65];
+    snprintf(bufName, 64, "%s", lens_info.name);
+
+    strncpy((char *)hdr->lensName, bufName, 64);
+    hdr->focalLengthMin = lens_info.lens_focal_min;
+    hdr->focalLengthMax = lens_info.lens_focal_max;
+    hdr->apertureMin = RAW2VALUE(aperture, lens_info.raw_aperture_min) / 10.0;
+    hdr->apertureMax = RAW2VALUE(aperture, lens_info.raw_aperture_max) / 10.0;
+    hdr->version = lens_info.lens_version;
+    hdr->extenderInfo = lens_info.lens_extender;
+    hdr->capabilities = lens_info.lens_capabilities;
+    hdr->chipped = lens_info.lens_exists;
 }
 
 void mlv_fill_wbal(mlv_wbal_hdr_t *hdr, uint64_t start_timestamp)
@@ -151,7 +173,7 @@ void mlv_fill_idnt(mlv_idnt_hdr_t *hdr, uint64_t start_timestamp)
     mlv_set_type((mlv_hdr_t *)hdr, "IDNT");
     mlv_set_timestamp((mlv_hdr_t *)hdr, start_timestamp);
     hdr->blockSize = sizeof(mlv_idnt_hdr_t);
-    
+
     hdr->cameraModel = camera_model_id;
     memcpy(hdr->cameraName, camera_model, 32);
     memcpy(hdr->cameraSerial, camera_serial, 32);
@@ -163,16 +185,16 @@ void mlv_build_vers(mlv_vers_hdr_t **hdr, uint64_t start_timestamp, const char *
 {
     int block_length = (strlen(version_string) + sizeof(mlv_vers_hdr_t) + 3) & ~3;
     mlv_vers_hdr_t *header = malloc(block_length);
-    
+
     /* prepare header */
     mlv_set_type((mlv_hdr_t *)header, "VERS");
     mlv_set_timestamp((mlv_hdr_t *)header, start_timestamp);
     header->blockSize = block_length;
     header->length = strlen(version_string);
-    
+
     char *vers_hdr_payload = (char *)&header[1];
     strcpy(vers_hdr_payload, version_string);
-    
+
     *hdr = header;
 }
 
@@ -239,12 +261,12 @@ int mlv_write_vers_blocks(FILE *f, uint64_t mlv_start_timestamp)
 {
     int mod = -1;
     int error = 0;
-    
+
     do
     {
         /* get next loaded module id */
         mod = module_get_next_loaded(mod);
-        
+
         /* make sure thats a valid one */
         if(mod >= 0)
         {
@@ -252,7 +274,7 @@ int mlv_write_vers_blocks(FILE *f, uint64_t mlv_start_timestamp)
             const char *mod_name = module_get_name(mod);
             const char *mod_build_date = module_get_string(mod, "Build date");
             const char *mod_last_update = module_get_string(mod, "Last update");
-            
+
             if(mod_name != NULL)
             {
                 /* just in case that ever happens */
@@ -264,15 +286,15 @@ int mlv_write_vers_blocks(FILE *f, uint64_t mlv_start_timestamp)
                 {
                     mod_last_update = "(no version)";
                 }
-                
+
                 /* separating the format string allows us to measure its length for malloc */
                 const char *fmt_string = "%s built %s; commit %s";
                 int buf_length = strlen(fmt_string) + strlen(mod_name) + strlen(mod_build_date) + strlen(mod_last_update) + 1;
                 char *version_string = malloc(buf_length);
-                
+
                 /* now build the string */
                 snprintf(version_string, buf_length, fmt_string, mod_name, mod_build_date, mod_last_update);
-                
+
                 /* and finally remove any newlines, they are annoying */
                 for(unsigned int pos = 0; pos < strlen(version_string); pos++)
                 {
@@ -281,23 +303,23 @@ int mlv_write_vers_blocks(FILE *f, uint64_t mlv_start_timestamp)
                         version_string[pos] = ' ';
                     }
                 }
-                
+
                 /* let the mlv helpers build the block for us */
                 mlv_vers_hdr_t *hdr = NULL;
                 mlv_build_vers(&hdr, mlv_start_timestamp, version_string);
-                
+
                 /* try to write to output file */
                 if(FIO_WriteFile(f, hdr, hdr->blockSize) != (int)hdr->blockSize)
                 {
                     error = 1;
                 }
-                
+
                 /* free both temporary string and allocated mlv block */
                 free(version_string);
                 free(hdr);
             }
         }
     } while(mod >= 0 && !error);
-    
+
     return error;
 }

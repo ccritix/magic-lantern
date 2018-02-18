@@ -155,15 +155,15 @@ end
 -- Function used to restore lens value of selected lens after changing shooting mode
 -- Get called in property.LENS_NAME:handler() after checking attached lens is manual
 function restore_lens_values()
-  local index = lens_config.data.Lens
-  if (index ~= nil and index ~= 0 and lens_config.data ~= nil) then
+  local index = lens_config.Lens
+  if (index ~= nil and index ~= 0 and lens_config ~= nil) then
     -- Restore Lens Info
     for k,v in pairs(lenses[selector_instance.index]) do
         lens[k] = v
     end
     -- Restore last Aperture and Focal Length used from lens.cfg
-    lens.focal_length = lens_config.data["Focal Length"]
-    lens.manual_aperture = lens_config.data["Aperture"]
+    lens.focal_length = lens_config["Focal Length"]
+    lens.manual_aperture = lens_config["Aperture"]
     lens.exists = true
   end
 end
@@ -272,9 +272,9 @@ lens_menu = menu.new
           warning = function()
                       if lensSelected == false then
                         return "No lens selected"
-                      else if is_manual_lens() == false then
+                      elseif is_manual_lens() == false then
                         return "Chipped Lens detected. Only manual lens with AF Chip can change this."
-                      end end
+                      end
                     end,
         },
         {
@@ -296,11 +296,11 @@ lens_menu = menu.new
             warning = function()
                         if is_manual_lens() == false then
                           return "Chipped Lens detected. Only manual lens with AF Chip can change this."
-                        else if lensSelected == false then
+                        elseif lensSelected == false then
                           return "No lens selected"
-                        else if lens.focal_min == lens.focal_max then
+                        elseif lens.focal_min == lens.focal_max then
                           return "Chan be changed only for manual-focus Zoom lens"
-                        end end end
+                        end
                       end,
         },
         {
@@ -318,15 +318,10 @@ lens_menu = menu.new
             warning = function()
                         if is_manual_lens() == false then
                           return "Chipped Lens detected. Only manual lens with AF Chip can change this."
-                        else if lensSelected == false then
+                        elseif lensSelected == false then
                           return "No lens selected"
-                        end end
+                        end
                       end,
-        },
-        {
-            name = "Autoload Lens",
-            help = "Restore lens config from .cfg after camera Power On/Wake Up",
-            choices = {"Off","On"},
         }
     },
     submenu_width = 700,
@@ -338,6 +333,13 @@ lens_menu = menu.new
             return "Chipped lens is attached"
         end
     end
+}
+autoload_menu = menu.new
+{
+    parent = "Lens Info Prefs",
+    name = "Autoload Lens",
+    help = "Restore lens config from .cfg after camera Power On/Wake Up",
+    choices = {"Off","On"}
 }
 
 -- Helper function for update_menu()
@@ -381,8 +383,8 @@ function update_menu(copy)
   -- Check whenever need to load values from .cfg or not
   if copy == 1 then
     -- Assign Aperture and Focal Length from .cfg
-    lens_menu.submenu["Focal Length"].value = lens_config.data["Focal Length"]
-    lens_menu.submenu["Aperture"].value = lens_config.data["Aperture"]
+    lens_menu.submenu["Focal Length"].value = lens_config["Focal Length"]
+    lens_menu.submenu["Aperture"].value = lens_config["Aperture"]
   else
     -- Assign manual_aperture from lenses as default aperture value when lens is selected
     lens_menu.submenu["Focal Length"].value = lens.focal_length
@@ -392,11 +394,12 @@ end
 
 -- Create lens.cfg base on "Manual Lens" menu field
 lens_config = config.create_from_menu(lens_menu)
+autoload_config = config.create_from_menu(autoload_menu)
 
 -- Check precence of manual lens on start and autoload values if the user enabled autoload
 if is_manual_lens() then
-  local id = tonumber(lens_config.data.Lens)
-  autoload = lens_menu.submenu["Autoload Lens"].value == "On"
+  local id = tonumber(lens_config.Lens)
+  autoload = autoload_menu.value == "On"
 
   if autoload and id ~= 0 then
     selector_instance.index = id

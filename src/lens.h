@@ -37,7 +37,7 @@
 struct lens_info
 {
         void *                  token;
-        char                    name[ 32 ];
+        char                    name[ 64 ];
         unsigned                focal_len; // in mm
         unsigned                focus_dist; // in cm
         unsigned                IS; // PROP_LV_LENS_STABILIZE

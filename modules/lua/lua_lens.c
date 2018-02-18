@@ -80,6 +80,12 @@ static int luaCB_lens_index(lua_State * L)
     /// Use to manually set the lens aperture value for non-chipped lenses (for metadata purposes)
     // @tfield bool manual_aperture
     else if(!strcmp(key, "manual_aperture")) lua_pushnumber(L, lens_info.aperture / 10.0);
+    /// Use to manually set the len's minumum aperture value for non-chipped lenses (for metadata purposes)
+    // @tfield bool aperture_min
+    else if(!strcmp(key, "aperture_min")) lua_pushnumber(L, RAW2VALUE(aperture, lens_info.raw_aperture_min) / 10.0);
+    /// Use to manually set the len's maximum aperture value for non-chipped lenses (for metadata purposes)
+    // @tfield bool aperture_max
+    else if(!strcmp(key, "aperture_max")) lua_pushnumber(L, RAW2VALUE(aperture, lens_info.raw_aperture_max) / 10.0);
     /// Get if the lens chipped
     // @tfield bool is_chipped readonly
     else if(!strcmp(key, "is_chipped")) lua_pushboolean(L, lens_info.lens_exists);
@@ -93,7 +99,7 @@ static int luaCB_lens_newindex(lua_State * L)
     if(!strcmp(key, "name"))
     {
         LUA_PARAM_STRING(value, 3);
-        strncpy(lens_info.name, value, 31);
+        strncpy(lens_info.name, value, sizeof(lens_info.name)-1);
     }
     else if(!strcmp(key, "exists"))
     {
@@ -120,6 +126,18 @@ static int luaCB_lens_newindex(lua_State * L)
         LUA_PARAM_NUMBER(value, 3);
         lens_info.aperture = (int)(value * 10);
         lens_info.raw_aperture = VALUE2RAW(aperture, lens_info.aperture);
+    }
+    else if(!strcmp(key, "aperture_min"))
+    {
+        LUA_PARAM_NUMBER(value, 3);
+        int tmp = (int)(value * 10);
+        lens_info.raw_aperture_min = VALUE2RAW(aperture, tmp);
+    }
+    else if(!strcmp(key, "aperture_max"))
+    {
+        LUA_PARAM_NUMBER(value, 3);
+        int tmp = (int)(value * 10);
+        lens_info.raw_aperture_max = VALUE2RAW(aperture, tmp);
     }
     else if(!strcmp(key, "serial"))
     {
