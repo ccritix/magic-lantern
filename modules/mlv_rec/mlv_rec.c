@@ -3137,13 +3137,6 @@ static void mlv_rec_queue_blocks()
             memcpy(hdr, &last_elns_hdr, sizeof(mlv_elns_hdr_t));
             msg_queue_post(mlv_block_queue, (uint32_t) hdr);
         }
-        /* write new state if something changed */
-        if(memcmp(&last_elns_hdr, &old_elns, sizeof(mlv_elns_hdr_t)))
-        {
-            mlv_hdr_t *hdr = malloc(sizeof(mlv_elns_hdr_t));
-            memcpy(hdr, &last_elns_hdr, sizeof(mlv_elns_hdr_t));
-            msg_queue_post(mlv_block_queue, (uint32_t) hdr);
-        }
     }
 
     if(mlv_update_styl && (mlv_metadata & MLV_METADATA_SPORADIC))
