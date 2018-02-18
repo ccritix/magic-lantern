@@ -108,7 +108,7 @@ Create a new config instance, filename will be determined automagically
 ]]
 function config.create(default)
   local short_name = string.match(debug.getinfo(2,"S").short_src,"/([^/%.]+)%.[^/%.]+$")
-  local filename = string.format("%s%s.cfg", dryos.config_dir.path,short_name)
+  local filename = string.format("%s%s.lcf", dryos.config_dir.path,short_name)
 
   local cfg = config.findConfig(filename)
   if cfg ~= nil then
@@ -158,7 +158,7 @@ function config.create_from_menu(m)
     insertMenu(default,m)
 
     local short_name = string.match(debug.getinfo(2,"S").short_src,"/([^/%.]+)%.[^/%.]+$")
-    local filename = string.format("%s%s.cfg", dryos.config_dir.path,short_name)
+    local filename = string.format("%s%s.lcf", dryos.config_dir.path,short_name)
 
     local cfg = config.findConfig(filename)
     if cfg ~= nil then
@@ -214,7 +214,7 @@ update your config.data when the config is being saved
 ]]
 function config:saving()
 local short_name = string.match(debug.getinfo(2,"S").short_src,"/([^/%.]+)%.[^/%.]+$")
-local filename = string.format("%s%s.cfg", dryos.config_dir.path,short_name)
+local filename = string.format("%s%s.lcf", dryos.config_dir.path,short_name)
 
   -- Copy values of each menu
   for k,v in pairs(self.data) do
