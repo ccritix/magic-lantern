@@ -5468,7 +5468,7 @@ static MENU_UPDATE_FUNC(show_update)
     //~ int err = checktree(regs_tree.root, regs_tree.compar);
     //~ MENU_SET_WARNING(MENU_WARN_ADVICE, "AVL tree %x", err);
     
-    int current_time = get_ms_clock_value();
+    int current_time = get_ms_clock();
     static int last_update = 0;
     static int prev_show_what = 0;
     int show_what_changed = show_what != prev_show_what;
