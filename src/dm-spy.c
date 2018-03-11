@@ -173,7 +173,7 @@ struct debug_msg * debug_get_last_block()
 void debug_log_line(const char * str)
 {
     if (!buf) return;
-    if (!len) return;
+    if (!buf_size) return;
 
     int old = cli();
     int str_len = strlen(str);
