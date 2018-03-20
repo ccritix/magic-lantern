@@ -1420,7 +1420,19 @@ static void analyze_ob_zones()
     int y1 = ob_zones_raw2bm_y(raw_info.active_area.y1);
     int y2 = ob_zones_raw2bm_y(raw_info.active_area.y2);
     bmp_draw_rect(COLOR_CYAN, x1, y1, x2-x1, y2-y1);
-    
+
+    /* round the values to 8-pixel multiples (area usable for raw video) */
+    int x1r = ob_zones_raw2bm_x((raw_info.active_area.x1 + 7) & ~7);
+    int x2r = ob_zones_raw2bm_x((raw_info.active_area.x2 + 0) & ~7);
+    for (int y = y1; y < y2; y++)
+    {
+        if ((y / 4) % 2)
+        {
+            bmp_putpixel(x1r, y, COLOR_CYAN);
+            bmp_putpixel(x2r, y, COLOR_CYAN);
+        }
+    }
+
     /* todo: define zones (camera-specific) and print some info about each zone */
 
     bmp_printf(FONT_MED | FONT_ALIGN_FILL, x1 + 50, y1 + 50,
@@ -1432,9 +1444,11 @@ static void analyze_ob_zones()
     );
     bmp_printf(FONT(FONT_MED, COLOR_CYAN, COLOR_BLACK) | FONT_ALIGN_FILL, x1 + 50, y1 + 50 + font_med.height*3,
         "Active area: %dx%d\n"
-        "(skip L:%d R:%d T:%d B:%d)",
+        "Usable for video: %d\n"
+        "Skip L:%d R:%d T:%d B:%d",
         raw_info.active_area.x2 - raw_info.active_area.x1,
         raw_info.active_area.y2 - raw_info.active_area.y1,
+        (raw_info.active_area.x2 & ~7) - ((raw_info.active_area.x1 + 7) & ~7),
         raw_info.active_area.x1, raw_info.width - raw_info.active_area.x2,
         raw_info.active_area.y1, raw_info.height - raw_info.active_area.y2
     );
