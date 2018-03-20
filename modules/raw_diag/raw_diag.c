@@ -1430,7 +1430,14 @@ static void analyze_ob_zones()
         cam_model, video_mode_name,
         lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture)
     );
-    bmp_printf(FONT(FONT_MED, COLOR_CYAN, COLOR_BLACK), x1 + 50, y1 + 50 + font_med.height*3, "Active area");
+    bmp_printf(FONT(FONT_MED, COLOR_CYAN, COLOR_BLACK) | FONT_ALIGN_FILL, x1 + 50, y1 + 50 + font_med.height*3,
+        "Active area: %dx%d\n"
+        "(skip L:%d R:%d T:%d B:%d)",
+        raw_info.active_area.x2 - raw_info.active_area.x1,
+        raw_info.active_area.y2 - raw_info.active_area.y1,
+        raw_info.active_area.x1, raw_info.width - raw_info.active_area.x2,
+        raw_info.active_area.y1, raw_info.height - raw_info.active_area.y2
+    );
 }
 
 /* todo: print stdev for overall dark frame and FPN components? */
