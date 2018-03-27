@@ -982,14 +982,14 @@ static void darkframe_fpn_xcov()
 
     /* any 100-megapixel cameras out there? */
     int fpn_size = 10000 * sizeof(float);
-    float* fpnv = malloc(2*fpn_size); if (!fpnv) return;
+    float* fpnv = fio_malloc(2*fpn_size); if (!fpnv) return;
     float* fpnh = fpnv + 10000;
     memset(fpnv, 0, fpn_size);
     memset(fpnh, 0, fpn_size);
 
     /* data from previous picture is taken from a file */
     char* prev_filename = "FPN.DAT";
-    float* prev_fpnv = malloc(2*fpn_size); if (!prev_fpnv) return;
+    float* prev_fpnv = fio_malloc(2*fpn_size); if (!prev_fpnv) return;
     float* prev_fpnh = prev_fpnv + 10000;
     int read_size = read_file(prev_filename, prev_fpnv, 2*fpn_size);
     int ok = (read_size == 2*fpn_size);
@@ -1070,11 +1070,11 @@ static void compare_2_shots(int min_adu)
 
     int N = 30000;
     int data_size = N * sizeof(struct test_pixel);
-    struct test_pixel * this = malloc(data_size); if (!this) return;
+    struct test_pixel * this = fio_malloc(data_size); if (!this) return;
 
     /* data from previous picture is taken from a file */
     char* prev_filename = "RAWSAMPL.DAT";
-    struct test_pixel * prev = malloc(data_size); if (!prev) return;
+    struct test_pixel * prev = fio_malloc(data_size); if (!prev) return;
     int read_size = read_file(prev_filename, prev, data_size);
     int ok = (read_size == data_size);
 
