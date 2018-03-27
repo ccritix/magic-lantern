@@ -348,6 +348,7 @@ static int show_what = 0;
 #define SHOW_FPS_TIMERS 5
 #define SHOW_DISPLAY_REGS 6
 #define SHOW_IMAGE_SIZE_REGS 7
+#define SHOW_CMOS_ONLY 8
 
 static int digic_intercept = 0;
 static int photo_only = 0;
@@ -1252,7 +1253,7 @@ static struct menu_entry adtg_gui_menu[] =
                 .name           = "Show",
                 .priv           = &show_what,
                 .update         = show_update,
-                .max            = 7,
+                .max            = 8,
                 .choices        = CHOICES(
                                     "Everything",
                                     "Known regs only",
@@ -1262,6 +1263,7 @@ static struct menu_entry adtg_gui_menu[] =
                                     "FPS timers only",
                                     "Display registers only",
                                     "Image size regs only",
+                                    "CMOS regs only",
                                   ),
                 .help2          =  "Everything: show all registers as soon as they are written.\n"
                                    "Known: show only the registers with a known description.\n"
@@ -1271,6 +1273,7 @@ static struct menu_entry adtg_gui_menu[] =
                                    "FPS timers only: show only FPS timer A and B.\n"
                                    "Display registers only: C0F14000 ... C0F14FFF.\n"
                                    "Image size regs only: registers related to raw image size (resolution).\n"
+                                   "CMOS: registers labeled as such in Canon firmware.\n"
             },
             {
                 .name           = "Advanced",
@@ -5548,6 +5551,11 @@ static MENU_UPDATE_FUNC(show_update)
                         }
                     }
                 }
+                break;
+            }
+            case SHOW_CMOS_ONLY:
+            {
+                visible = (regs[reg].dst == DST_CMOS);
                 break;
             }
             case SHOW_ALL:
