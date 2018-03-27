@@ -1548,7 +1548,7 @@ static void screenshot_if_needed(const char* name)
 }
 
 /* main raw diagnostic task */
-static void raw_diag_task(int corr)
+static void raw_diag_task(int unused)
 {
     int paused_lv = 0;
     
@@ -1688,7 +1688,21 @@ end:
     if (paused_lv && LV_PAUSED)
     {
         /* if we have paused LV, resume it */
-        msleep(2000);
+        if (image_review_time)
+        {
+            /* image review setting from Canon menu */
+            int preview_delay = image_review_time * 1000;
+            int t0 = get_ms_clock();
+            while (get_ms_clock() - t0 < preview_delay &&
+                   !get_halfshutter_pressed())
+            {
+                msleep(10);
+            }
+        }
+        else
+        {
+            msleep(2000);
+        }
         ResumeLiveView();
     }
     raw_diag_running = 0;
