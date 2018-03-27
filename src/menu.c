@@ -4960,6 +4960,10 @@ int handle_ml_menu_keyrepeat(struct event * event)
             case BGMT_PRESS_DOWN_LEFT:
             case BGMT_PRESS_DOWN_RIGHT:
             #endif
+            case BGMT_SILENT_LEFT:
+            case BGMT_SILENT_RIGHT:
+            case BGMT_SILENT_UP:
+            case BGMT_SILENT_DOWN:
                 if (keyrepeat && event->param != keyrepeat) keyrepeat = 0;
                 else keyrepeat = event->param;
                 break;
@@ -4972,6 +4976,7 @@ int handle_ml_menu_keyrepeat(struct event * event)
             case BGMT_UNPRESS_UP:
             case BGMT_UNPRESS_DOWN:
             #endif
+            case BGMT_SILENT_UNPRESS:
                 keyrepeat = 0;
                 keyrep_countdown = 4;
                 keyrep_ack = 0;
@@ -5112,6 +5117,7 @@ handle_ml_menu_keys(struct event * event)
         break;
 
     case BGMT_PRESS_UP:
+    case BGMT_SILENT_UP:
         if (edit_mode && !menu_lv_transparent_mode)
         {
             struct menu_entry * entry = get_selected_menu_entry(menu);
@@ -5135,6 +5141,7 @@ handle_ml_menu_keys(struct event * event)
         break;
 
     case BGMT_PRESS_DOWN:
+    case BGMT_SILENT_DOWN:
         if (edit_mode && !menu_lv_transparent_mode)
         {
             struct menu_entry * entry = get_selected_menu_entry(menu);
@@ -5158,6 +5165,7 @@ handle_ml_menu_keys(struct event * event)
         break;
 
     case BGMT_PRESS_RIGHT:
+    case BGMT_SILENT_RIGHT:
         if(EDIT_OR_TRANSPARENT)
         {
             struct menu_entry * entry = get_selected_menu_entry(menu);
@@ -5177,6 +5185,7 @@ handle_ml_menu_keys(struct event * event)
         break;
 
     case BGMT_PRESS_LEFT:
+    case BGMT_SILENT_LEFT:
         if(EDIT_OR_TRANSPARENT)
         {
             struct menu_entry * entry = get_selected_menu_entry(menu);

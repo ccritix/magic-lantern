@@ -70,4 +70,10 @@
 
 #define GMT_LOCAL_DIALOG_REFRESH_LV 0x36 // event type = 2, gui code = 0x100000BC in 5d3
 
+#define BGMT_SILENT_UP 63
+#define BGMT_SILENT_RIGHT 64
+#define BGMT_SILENT_DOWN 65
+#define BGMT_SILENT_LEFT 66
+#define BGMT_SILENT_UNPRESS 67
+
 #endif
