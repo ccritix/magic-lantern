@@ -4945,7 +4945,7 @@ static struct menu * get_current_menu_or_submenu()
 }
 
 static int keyrepeat = 0;
-static int keyrep_countdown = 4;
+static int keyrep_countdown = 5;
 static int keyrep_ack = 0;
 int handle_ml_menu_keyrepeat(struct event * event)
 {
@@ -4976,7 +4976,7 @@ int handle_ml_menu_keyrepeat(struct event * event)
             case BGMT_UNPRESS_DOWN:
             #endif
                 keyrepeat = 0;
-                keyrep_countdown = 4;
+                keyrep_countdown = 5;
                 keyrep_ack = 0;
                 break;
         }
@@ -5538,7 +5538,7 @@ menu_task( void* unused )
         int dt = 
             (keyrepeat_active)
                 ?   /* repeat delay when holding a key */
-                    COERCE(100 + keyrep_countdown*5, 20, 100)
+                    COERCE(150 + keyrep_countdown*5, 50, 150)
                 :   /* otherwise (no keys held) */
                     (transparent_menu_magic_zoom ? 2000 : 500 );
 
