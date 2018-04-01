@@ -541,8 +541,16 @@
 #define PROP_PLAYMODE_VOL_CHANGE_600D	0x205000F //volume change when playing a video by wheel
 #define PROP_AUDIO_VOL_CHANGE_600D	0x2050017 //volume change finished from Cannon Audio menu
 #define PROP_PLAYMODE_LAUNCH_600D	0x205000D //Playmode and Q(Quick setting menu) launched
-
 #endif
+
+#ifdef CONFIG_5D3
+/* 5D3 silent control (touch sensors on rear scrollwheel) */
+#define PROP_SILENT_CONTROL_SETTING 0x8000004B
+#define PROP_SILENT_CONTROL_STATUS  0x80030047  /* 0 to request; 2 to disable; auto-reset on GUI mode change */
+#endif
+
+#define PROP_Q_POSITION 0x205000D
+
 /** Properties */
 extern void
 prop_register_slave(

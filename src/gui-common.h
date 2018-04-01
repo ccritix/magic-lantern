@@ -283,6 +283,8 @@ int handle_lv_play(struct event * event);
 int handle_fast_zoom_in_play_mode(struct event * event);
 int handle_lv_afframe_workaround(struct event * event);
 int handle_longpress_events(struct event * event);
+int handle_silent_control_events(struct event * event);
+
 
 void spy_event(struct event * event);
 

@@ -154,3 +154,6 @@
 
 /** Hide Canon bottom bar from DebugMsg hook */
 #define CONFIG_LVAPP_HACK_DEBUGMSG
+
+/** Workaround for menu timeout in LiveView (required with silent control) */
+#define CONFIG_MENU_TIMEOUT_FIX

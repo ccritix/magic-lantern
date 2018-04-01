@@ -505,6 +505,10 @@ int handle_common_events_by_feature(struct event * event)
     if (handle_swap_info_play(event) == 0) return 0;
     #endif
 
+    #ifdef CONFIG_5D3
+    if (handle_silent_control_events(event) == 0) return 0;
+    #endif
+
     if (handle_ml_menu_erase(event) == 0) return 0;
     if (handle_ml_menu_keys(event) == 0) return 0;
     
