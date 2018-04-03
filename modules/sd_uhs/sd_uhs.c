@@ -613,6 +613,42 @@ static unsigned int sd_uhs_init()
         SD_ReConfiguration  = (void *) 0xFF791408;
     }
 
+    if (is_camera("EOSM", "2.0.2"))
+    {
+        sd_setup_mode       = 0xFF338D40;
+        sd_setup_mode_in    = 0xFF338DC8;
+        sd_setup_mode_reg   = 1;
+        sd_set_function     = 0xFF63EF60;
+        SD_ReConfiguration  = (void *) 0xFF641314;
+    }
+
+    if (is_camera("100D", "1.0.1"))
+    {
+        sd_setup_mode       = 0xFF3355B0;
+        sd_setup_mode_in    = 0xFF335648;
+        sd_setup_mode_reg   = 1;
+        sd_set_function     = 0xFF6530A4;
+        SD_ReConfiguration  = (void *) 0xFF655458;
+    }
+
+    if (is_camera("650D", "1.0.4"))
+    {
+        sd_setup_mode       = 0xFF334C4C;
+        sd_setup_mode_in    = 0xFF334CD4;
+        sd_setup_mode_reg   = 1;
+        sd_set_function     = 0xFF73FD20;
+        SD_ReConfiguration  = (void *) 0xFF7420D4;
+    }
+
+    if (is_camera("70D", "1.1.2"))
+    {
+        sd_setup_mode       = 0xFF33E078;
+        sd_setup_mode_in    = 0xFF33E100;
+        sd_setup_mode_reg   = 1;
+        sd_set_function     = 0xFF7CE4B8;
+        SD_ReConfiguration  = (void *) 0xFF7D086C;
+    }
+
     if (sd_setup_mode && sd_setup_mode_in &&
         sd_setup_mode_reg != 0xFFFFFFFF &&
         sd_set_function && SD_ReConfiguration)
