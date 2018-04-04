@@ -40,13 +40,13 @@ static uint32_t sd_setup_mode_reg = 0xFFFFFFFF;
 static uint32_t sd_set_function = 0;
 static int (*SD_ReConfiguration)() = 0;
 
-static uint32_t uhs_regs[]     = { 0xC0400600, 0xC0400604,/*C0400608, C040060C*/0xC0400610, 0xC0400614, 0xC0400618, 0xC0400624, 0xC0400628, 0xC040061C, 0xC0400620 };   /* register addresses */
-static uint32_t sdr50_700D[]   = {        0x3,        0x3,                             0x4, 0x1D000301,        0x0,      0x201,      0x201,      0x100,        0x4 };   /* SDR50 values from 700D (96MHz) */
-static uint32_t sdr_80MHz[]    = {        0x3,        0x3,                             0x5, 0x1D000401,        0x0,      0x201,      0x201,      0x100,        0x5 };   /* underclocked values: 80MHz = 96*(4+1)/(5+1) */
-static uint32_t sdr_120MHz[]   = {        0x3,        0x3,                             0x3, 0x1D000201,        0x0,      0x201,      0x201,      0x100,        0x3 };   /* overclocked values: 120MHz = 96*(4+1)/(3+1) */
-static uint32_t sdr_132MHz[]   = {        0x2,        0x2,                             0x2, 0x1D000201,        0x0,      0x100,      0x100,      0x100,        0x2 };   /* overclocked values: 132MHz?! (found by brute-forcing) */
-static uint32_t sdr_160MHz[]   = {        0x2,        0x3,                             0x1, 0x1D000001,        0x0,      0x100,      0x100,      0x100,        0x1 };   /* overclocked values: 160MHz = 96*(4+1)/(2?+1) (found by brute-forcing) */
-static uint32_t sd_tweakable[] = {        0x7,        0x7,                             0x7, 0x00000700,        0x0,      0x300,      0x300,        0x0,        0x7 };   /* what can be tweaked during brute-forcing? (bit mask) */
+static uint32_t uhs_regs[]     = { 0xC0400600, 0xC0400604,/*C0400608, C040060C*/0xC0400610, 0xC0400614, 0xC0400618, 0xC0400624, 0xC0400628, 0xC040061C, 0xC0400620 /*, drv strength */ };   /* register addresses */
+static uint32_t sdr50_700D[]   = {        0x3,        0x3,                             0x4, 0x1D000301,        0x0,      0x201,      0x201,      0x100,        0x4,               0    };   /* SDR50 values from 700D (96MHz) */
+static uint32_t sdr_80MHz[]    = {        0x3,        0x3,                             0x5, 0x1D000401,        0x0,      0x201,      0x201,      0x100,        0x5,               0    };   /* underclocked values: 80MHz = 96*(4+1)/(5+1) */
+static uint32_t sdr_120MHz[]   = {        0x3,        0x3,                             0x3, 0x1D000201,        0x0,      0x201,      0x201,      0x100,        0x3,               0    };   /* overclocked values: 120MHz = 96*(4+1)/(3+1) */
+static uint32_t sdr_132MHz[]   = {        0x2,        0x2,                             0x2, 0x1D000201,        0x0,      0x100,      0x100,      0x100,        0x2,               0    };   /* overclocked values: 132MHz?! (found by brute-forcing) */
+static uint32_t sdr_160MHz[]   = {        0x2,        0x3,                             0x1, 0x1D000001,        0x0,      0x100,      0x100,      0x100,        0x1,               0    };   /* overclocked values: 160MHz = 96*(4+1)/(2?+1) (found by brute-forcing) */
+static uint32_t sd_tweakable[] = {        0x7,        0x7,                             0x7, 0x00000700,        0x0,      0x300,      0x300,        0x0,        0x7,               0    };   /* what can be tweaked during brute-forcing? (bit mask) */
 // 5D3 mode 0                                                                          17F  0x1D004101           0        403F        403F          7F          7F 
 // 5D3 mode 1 16MHz                         3           3          1          1         1D  0x1D001001           0       0xF0E       0xF0E          1D          1D
 // 5D3 mode 2 24MHz                         3           3          1          1         13  0x1D000B01           0       0xA09       0xA09          13          13
@@ -55,9 +55,12 @@ static uint32_t sd_tweakable[] = {        0x7,        0x7,                      
 // 5D3 mode 5 serial flash?                 3                                            7  0x1D000501           0       0x403       0x403       0x403           7
 // 5D3 mode 6 (bench 5.5MB/s)               7                                           13  0x1D000B01           0       0xA09       0xA09          13          13
 
-static uint32_t uhs_vals[COUNT(uhs_regs)];          /* current values */
-static uint32_t uhs_best_vals[COUNT(uhs_regs)];     /* best values */
-static uint32_t uhs_backup_vals[COUNT(uhs_regs)];   /* backup values (for error recovery) */
+/* after registers, we may have some other parameters */
+#define DRV_STRENGTH_IDX COUNT(uhs_regs)
+
+static uint32_t uhs_vals[COUNT(uhs_regs) + 1];          /* current values */
+static uint32_t uhs_best_vals[COUNT(uhs_regs) + 1];     /* best values */
+static uint32_t uhs_backup_vals[COUNT(uhs_regs) + 1];   /* backup values (for error recovery) */
 static int uhs_best_time = INT_MAX;
 
 static int sd_setup_mode_enable = 0;
@@ -99,7 +102,16 @@ static void sd_set_function_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     if (regs[0] == 0xff0002)
     {
         /* force UHS-I SDR104 */
-        regs[0] = 0xff0003;
+        /* also set the driver strength */
+        /* caveat: I don't know what I'm doing */
+        uint32_t drv_strength = uhs_vals[DRV_STRENGTH_IDX] & 0x3;
+        uint32_t access_mode = 3;   /* SDR104 */
+        uint32_t power_limit = 0;   /* default; sounds risky */
+        log_printf("D%x ", drv_strength);
+        regs[0] = 0xff0000 |
+                  (access_mode  << 0) |
+                  (drv_strength << 8) |
+                  (power_limit << 12) ;
     }
 }
 
@@ -290,7 +302,9 @@ static int test_lo()
 static void test()
 {
     /* power-cycle and reconfigure the SD card */
+    /* for some reason, results seem a bit more consistent if resetting twice (why?) */
     /* FIXME: not thread-safe! */
+    SD_ReConfiguration();
     SD_ReConfiguration();
 
     /* low-level read-write test */
@@ -437,24 +451,27 @@ static void sd_overclock_task()
     patch_hook_function(sd_set_function, MEM(sd_set_function), sd_set_function_log, "SDR104");
 
     memcpy(uhs_vals, sdr50_700D, sizeof(uhs_vals));
-    log_printf("SDR104 @ 96MHz : "); test();
-    log_printf("SDR104 @ 96MHz : "); test();
+    uhs_vals[DRV_STRENGTH_IDX] = 0; log_printf("SDR104 @ 96MHz : "); test();
+    uhs_vals[DRV_STRENGTH_IDX] = 1; log_printf("SDR104 @ 96MHz : "); test();
 
     memcpy(uhs_vals, sdr_80MHz, sizeof(uhs_vals));
-    log_printf("SDR104 @ 80MHz : "); test();
-    log_printf("SDR104 @ 80MHz : "); test();
+    uhs_vals[DRV_STRENGTH_IDX] = 0; log_printf("SDR104 @ 80MHz : "); test();
+    uhs_vals[DRV_STRENGTH_IDX] = 1; log_printf("SDR104 @ 80MHz : "); test();
 
     memcpy(uhs_vals, sdr_120MHz, sizeof(uhs_vals));
-    log_printf("SDR104 @ 120MHz: "); test();
-    log_printf("SDR104 @ 120MHz: "); test();
+    uhs_vals[DRV_STRENGTH_IDX] = 0; log_printf("SDR104 @ 120MHz: "); test();
+    uhs_vals[DRV_STRENGTH_IDX] = 1; log_printf("SDR104 @ 120MHz: "); test();
 
     memcpy(uhs_vals, sdr_132MHz, sizeof(uhs_vals));
-    log_printf("SDR104 @ 132MHz: "); test();
-    log_printf("SDR104 @ 132MHz: "); test();
+    uhs_vals[DRV_STRENGTH_IDX] = 0; log_printf("SDR104 @ 132MHz: "); test();
+    uhs_vals[DRV_STRENGTH_IDX] = 1; log_printf("SDR104 @ 132MHz: "); test();
 
     memcpy(uhs_vals, sdr_160MHz, sizeof(uhs_vals));
-    log_printf("SDR104 @ 160MHz: "); test();
-    log_printf("SDR104 @ 160MHz: "); test();
+    for (int d = 0; d < 16; d++)
+    {
+        uhs_vals[DRV_STRENGTH_IDX] = d & 3;
+        log_printf("SDR104 @ 160MHz: "); test();
+    }
 
     if (!get_halfshutter_pressed())
     {
@@ -547,10 +564,11 @@ static void sd_overclock_task()
     }
 
     log_printf("Best parameters: \n");
-    for (int i = 0; i < COUNT(uhs_best_vals); i++)
+    for (int i = 0; i < COUNT(uhs_regs); i++)
     {
         log_printf("[%X]: %X\n", uhs_regs[i], uhs_best_vals[i]);
     }
+    log_printf("Driver strength: %X\n", uhs_best_vals[DRV_STRENGTH_IDX]);
 
 end:
     memcpy(uhs_vals, uhs_best_vals, sizeof(uhs_vals));
