@@ -7,18 +7,44 @@
 #include <patch.h>
 #include <console.h>
 
+/* all log_printf's are logged to file */
+static char * log_buf = NULL;
+static int log_buf_size = 0;
+static int log_len = 0;
+
+extern void console_puts(const char * str);
+
+static int log_printf(const char* fmt, ...)
+{
+    int len = 0;
+
+    if (log_buf && log_buf_size)
+    {
+        char * msg = log_buf + log_len;
+        va_list ap;
+        va_start(ap, fmt);
+        len = vsnprintf(msg, log_buf_size - log_len - 1, fmt, ap);
+        va_end(ap);
+        console_puts(msg);
+    }
+
+    log_len += len;
+    return len;
+}
+
 /* camera-specific parameters */
 static uint32_t sd_enable_18V = 0;
 static uint32_t sd_setup_mode = 0;
 static uint32_t sd_setup_mode_in = 0;
 static uint32_t sd_setup_mode_reg = 0xFFFFFFFF;
 static uint32_t sd_set_function = 0;
+static int (*SD_ReConfiguration)() = 0;
 
 static uint32_t uhs_regs[]     = { 0xC0400600, 0xC0400604,/*C0400608, C040060C*/0xC0400610, 0xC0400614, 0xC0400618, 0xC0400624, 0xC0400628, 0xC040061C, 0xC0400620 };   /* register addresses */
 static uint32_t sdr50_700D[]   = {        0x3,        0x3,                             0x4, 0x1D000301,        0x0,      0x201,      0x201,      0x100,        0x4 };   /* SDR50 values from 700D (96MHz) */
 static uint32_t sdr_80MHz[]    = {        0x3,        0x3,                             0x5, 0x1D000401,        0x0,      0x201,      0x201,      0x100,        0x5 };   /* underclocked values: 80MHz = 96*(4+1)/(5+1) */
 static uint32_t sdr_120MHz[]   = {        0x3,        0x3,                             0x3, 0x1D000201,        0x0,      0x201,      0x201,      0x100,        0x3 };   /* overclocked values: 120MHz = 96*(4+1)/(3+1) */
-static uint32_t sdr_132MHz[]   = {        0x2,        0x2,                             0x2, 0x1D000201,        0x0,      0x100,      0x100,      0x100,        0x2 };   /* overclocked values: 132MHz?! */
+static uint32_t sdr_132MHz[]   = {        0x2,        0x2,                             0x2, 0x1D000201,        0x0,      0x100,      0x100,      0x100,        0x2 };   /* overclocked values: 132MHz?! (found by brute-forcing) */
 static uint32_t sdr_160MHz[]   = {        0x2,        0x3,                             0x1, 0x1D000001,        0x0,      0x100,      0x100,      0x100,        0x1 };   /* overclocked values: 160MHz = 96*(4+1)/(2?+1) (found by brute-forcing) */
 static uint32_t sd_tweakable[] = {        0x7,        0x7,                             0x7, 0x00000700,        0x0,      0x300,      0x300,        0x0,        0x7 };   /* what can be tweaked during brute-forcing? (bit mask) */
 // 5D3 mode 0                                                                          17F  0x1D004101           0        403F        403F          7F          7F 
@@ -29,8 +55,9 @@ static uint32_t sd_tweakable[] = {        0x7,        0x7,                      
 // 5D3 mode 5 serial flash?                 3                                            7  0x1D000501           0       0x403       0x403       0x403           7
 // 5D3 mode 6 (bench 5.5MB/s)               7                                           13  0x1D000B01           0       0xA09       0xA09          13          13
 
-static uint32_t uhs_vals[COUNT(uhs_regs)];  /* current values */
-static uint32_t uhs_best_vals[COUNT(uhs_regs)];  /* best values */
+static uint32_t uhs_vals[COUNT(uhs_regs)];          /* current values */
+static uint32_t uhs_best_vals[COUNT(uhs_regs)];     /* best values */
+static uint32_t uhs_backup_vals[COUNT(uhs_regs)];   /* backup values (for error recovery) */
 static int uhs_best_time = INT_MAX;
 
 static int sd_setup_mode_enable = 0;
@@ -75,32 +102,6 @@ static void sd_set_function_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
         regs[0] = 0xff0003;
     }
 }
-
-/* all log_printf's are logged to file */
-static char * log_buf = NULL;
-static int log_buf_size = 0;
-static int log_len = 0;
-
-extern void console_puts(const char * str);
-
-static int log_printf(const char* fmt, ...)
-{
-    int len = 0;
-
-    if (log_buf && log_buf_size)
-    {
-        char * msg = log_buf + log_len;
-        va_list ap;
-        va_start(ap, fmt);
-        len = vsnprintf(msg, log_buf_size - log_len - 1, fmt, ap);
-        va_end(ap);
-        console_puts(msg);
-    }
-
-    log_len += len;
-    return len;
-}
-
 
 const int buffer_size = 16 * 1024 * 1024;
 
@@ -186,15 +187,27 @@ struct cf_device
     );
 };
 
-static void (*SD_ReConfiguration)() = 0;
-
-
 static void sd_reset(struct cf_device * const dev)
 {
-    log_printf(" [RST] ");
+    log_printf(" [SAFE] ");
 
     /* back to some safe values */
+    memcpy(uhs_backup_vals, uhs_vals, sizeof(uhs_backup_vals));
     memcpy(uhs_vals, sdr50_700D, sizeof(uhs_vals));
+
+    /* clear error flag to allow activity after something went wrong */
+    MEM((uintptr_t)dev + 80) = 0;
+
+    /* re-initialize card */
+    SD_ReConfiguration();
+}
+
+static void sd_restore(struct cf_device * const dev)
+{
+    log_printf(" [BACK] ");
+
+    /* restore old values */
+    memcpy(uhs_vals, uhs_backup_vals, sizeof(uhs_vals));
 
     /* clear error flag to allow activity after something went wrong */
     MEM((uintptr_t)dev + 80) = 0;
@@ -236,6 +249,8 @@ static int test_lo()
             log_printf("!!!");
         }
 
+        sd_restore(dev);
+
         free(buf);
         return -1;
     }
@@ -258,6 +273,8 @@ static int test_lo()
             log_printf("!!!");
         }
 
+        sd_restore(dev);
+
         free(buf);
         return -1;
     }
@@ -272,24 +289,36 @@ static int test_lo()
 
 static void test()
 {
+    /* power-cycle and reconfigure the SD card */
+    /* FIXME: not thread-safe! */
+    SD_ReConfiguration();
+
+    /* low-level read-write test */
     int t = test_lo();
-    if (t > 0)
+    if (t <= 0)
     {
-        int t2 = test_fio();
-        if (t2 > 0)
-        {
-            /* seems OK */
-            if (t < uhs_best_time)
-            {
-                log_printf(" :) ");
-                uhs_best_time = t;
-                memcpy(uhs_best_vals, uhs_vals, sizeof(uhs_best_vals));
-            }
-            else
-            {
-                log_printf(" meh");
-            }
-        }
+        log_printf("\n");
+        return;
+    }
+
+    /* high-level FIO read-write test */
+    int t2 = test_fio();
+    if (t2 <= 0)
+    {
+        log_printf("\n");
+        return;
+    }
+
+    /* seems OK */
+    if (t < uhs_best_time)
+    {
+        log_printf((t < uhs_best_time * 9 / 10) ? " 8) " : " :) ");
+        uhs_best_time = t;
+        memcpy(uhs_best_vals, uhs_vals, sizeof(uhs_best_vals));
+    }
+    else
+    {
+        log_printf((t < uhs_best_time * 11 / 10) ? " ::)" : (t < uhs_best_time * 20 / 10) ? " meh" : " ???");
     }
 
     /* test_lo returns write time in microseconds */
@@ -348,7 +377,7 @@ static int alter_bit(uint32_t pos, int force)
 
 static void sd_overclock_task()
 {
-    msleep(1000);
+    msleep(2000);
     console_clear();
     console_show();
     msleep(1000);
@@ -391,9 +420,6 @@ static void sd_overclock_task()
     patch_hook_function(sd_setup_mode, MEM(sd_setup_mode), sd_setup_mode_log, "SD UHS");
     patch_hook_function(sd_setup_mode_in, MEM(sd_setup_mode_in), sd_setup_mode_in_log, "SD UHS");
 
-    /* power-cycle and reconfigure the SD card */
-    SD_ReConfiguration();
-
     /* test some presets */
     memcpy(uhs_vals, sdr50_700D, sizeof(uhs_vals));
     log_printf("SDR50 @ 96MHz  : "); test();
@@ -409,7 +435,6 @@ static void sd_overclock_task()
 
     /* enable SDR104 */
     patch_hook_function(sd_set_function, MEM(sd_set_function), sd_set_function_log, "SDR104");
-    SD_ReConfiguration();
 
     memcpy(uhs_vals, sdr50_700D, sizeof(uhs_vals));
     log_printf("SDR104 @ 96MHz : "); test();
@@ -526,11 +551,11 @@ static void sd_overclock_task()
     {
         log_printf("[%X]: %X\n", uhs_regs[i], uhs_best_vals[i]);
     }
+
+end:
     memcpy(uhs_vals, uhs_best_vals, sizeof(uhs_vals));
     log_printf("Best: "); test();
     log_printf("Best: "); test();
-
-end:
     log_printf("\n");
     log_printf("Done.\n");
     log_printf("Please run THOROUGH tests before using!!!");
@@ -547,6 +572,13 @@ end:
     log_buf = NULL;
     log_buf_size = 0;
     log_len = 0;
+
+    printf("Press half-shutter to close.\n");
+    while (!get_halfshutter_pressed())
+    {
+        msleep(10);
+    }
+    console_hide();
 }
 
 static MENU_UPDATE_FUNC(sd_overclock_warn)
@@ -563,7 +595,7 @@ static struct menu_entry sd_uhs_menu[] =
         .select = run_in_separate_task,
         .update = sd_overclock_warn,
         .help   = "Run this ONLY if you don't mind playing Russian Roulette with your data.",
-        .help2  = "You have been warned.",
+        .help2  = "No other file I/O should run during the test. You have been warned.",
     }
 };
 
@@ -575,7 +607,7 @@ static unsigned int sd_uhs_init()
          * sdSendCommand: CMD%d  Retry=... -> 
          * sd_configure_device(1) (called after a function without args) ->
          * sd_setup_mode(dev) if dev is 1 or 2 ->
-         * logging hook is placed in the middle of sd_setup_mode_in (not at start)
+         * logging hooks are placed both at start of sd_setup_mode and before the case switch
          */
         sd_setup_mode       = 0xFF47B4C0;   /* start of the function; not strictly needed on 5D3 */
         sd_setup_mode_in    = 0xFF47B4EC;   /* after loading sd_mode in R0, before the switch */
