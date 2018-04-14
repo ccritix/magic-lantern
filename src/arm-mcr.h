@@ -35,6 +35,7 @@ asm(
 #include <limits.h>
 #include <sys/types.h>
 #include "compiler.h"
+#include "internals.h"  /* from platform directory (for CONFIG_DIGIC_VI) */
 
 typedef void (*thunk)(void);
 
@@ -79,7 +80,7 @@ select_normal_vectors( void )
     );
 }
 
-#ifdef CONFIG_DIGIC_VI
+#if defined(CONFIG_DIGIC_VI) || defined(CONFIG_DIGIC_VII)
 /* from https://app.assembla.com/spaces/chdk/subversion/source/HEAD/trunk/lib/armutil/cache.c */
 
 // ARMv7 cache control (based on U-BOOT cache_v7.c, utils.h, armv7.h)
