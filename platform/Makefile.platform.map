@@ -3,6 +3,7 @@ PLATFORM_MAP = \
     5D3.123 \
     5D2.212 \
     5D4.101 \
+    6D.116 \
     7D.203 \
     7D_MASTER.203 \
     7D2.104 \
@@ -10,6 +11,7 @@ PLATFORM_MAP = \
     60D.111 \
     77D.100 \
     80D.102 \
+    200D.101 \
     500D.111 \
     550D.109 \
     600D.102 \
@@ -18,7 +20,6 @@ PLATFORM_MAP = \
     760D.100 \
     EOSM.202 \
     1100D.105 \
-    6D.116
 
 PLATFORM_MAP_UNMAINTAINED = \
     40D.111 \

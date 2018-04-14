@@ -442,10 +442,10 @@ __attribute__ ((section(".dump_asm")))
 cstart( void )
 {
     /* Try guessing the LED address */
-    guess_led(100);
+    //~ guess_led(100);
     
     /* Try blinking the LED at the address defined in platform consts.h */
-    //~ blink(10);
+    blink(10);
     
     /* Try blinking a range of addresses, hoping the LED might be there */
     //~ blink_all(10);
