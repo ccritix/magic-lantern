@@ -68,8 +68,16 @@ static void brute_force_all_regs()
         }
 
         /* restore the display back to working condition */
-        enter_play_mode();
-        exit_play_qr_mode();
+        if (get_gui_mode() == 1 /* GUIMODE_PLAY */)
+        {
+            exit_play_qr_mode();
+            enter_play_mode();
+        }
+        else
+        {
+            enter_play_mode();
+            exit_play_qr_mode();
+        }
     }
 }
 
