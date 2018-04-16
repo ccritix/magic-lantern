@@ -19,3 +19,4 @@ ML_MODULES ?= \
 	adv_int \
 	crop_rec \
 	edmac \
+	sd_uhs \
