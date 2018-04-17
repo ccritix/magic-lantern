@@ -20,3 +20,4 @@ ML_MODULES ?= \
 	crop_rec \
 	edmac \
 	sd_uhs \
+	adtg_gui \
