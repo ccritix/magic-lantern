@@ -1,0 +1,19 @@
+# EOS M50 1.0.0
+
+CANON_NAME_FIR  = CCF18101.FIR
+FIRMWARE_ID     = 0x412
+UPDATE_NAME_FIR = LEDIDM50.FIR
+FIR_BASE        = 0x00800120
+AUTOEXEC_BASE   = 0x00800000
+
+# these are not correct (just to compile)
+RESTARTSTART    = 0x0
+ROMBASEADDR     = 0xE0000000
+
+# these should be removed when porting starts
+ML_SRC_PROFILE  = minimal
+ML_SRC_REBOOT_OBJ = reboot-dumper.o footer.o
+READELF=echo MemSiz
+
+# binaries apparently loaded as Thumb, unlike previous models
+CFLAGS += -mthumb

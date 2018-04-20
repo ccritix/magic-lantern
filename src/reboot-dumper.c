@@ -13,7 +13,7 @@ asm(
     ".globl _start\n"
     "_start:\n"
 
-#ifndef CONFIG_DIGIC_VII
+#if !defined(CONFIG_DIGIC_VII) && !defined(CONFIG_DIGIC_VIII)
     "MRS     R0, CPSR\n"
     "BIC     R0, R0, #0x3F\n"   // Clear I,F,T
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
@@ -89,7 +89,7 @@ static void blink_all(int n)
  */
 static void guess_led(int n)
 {
-#ifdef CONFIG_DIGIC_VII
+#if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
     const int32_t  bits         = 11;
     const int32_t  N            = 1 << bits;
     const uint32_t base_addr    = 0xD2080000;
@@ -445,10 +445,10 @@ __attribute__ ((section(".dump_asm")))
 cstart( void )
 {
     /* Try guessing the LED address */
-    //~ guess_led(100);
+    guess_led(100);
     
     /* Try blinking the LED at the address defined in platform consts.h */
-    blink(10);
+    //~ blink(10);
     
     /* Try blinking a range of addresses, hoping the LED might be there */
     //~ blink_all(10);
