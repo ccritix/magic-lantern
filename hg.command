@@ -387,10 +387,10 @@ clear
     item="$(echo " "$dir"/$repname.dmg")"
 
 #print password to external upload script
-    echo "$user"" $password"" $downloads""$item" > dmg_upload
+    echo "$user"" $password"" $downloads""$item" > ~/dmg_upload
 
 #external upload script. Will be placed in repo folder
-cat <<'EOF' >> dmg_upload
+cat <<'EOF' >> ~/dmg_upload
 
 #!/bin/bash
     usr=$1; pwd=$2; pge=$3; fil=$4
@@ -400,14 +400,14 @@ cat <<'EOF' >> dmg_upload
          --location               `# follow redirects if we are told so                                                                 ` \
          --fail                   `# ensure that we are not succeeding when the server replies okay but with an error code             ` \
          --user "$usr:$pwd"       `# basic auth so that it lets us in                                                                ` \
-         --form files=@"$fil" "https://api.bitbucket.org/2.0/repositories/${pge#/}" 1> tmp1 #
-    rm tmp1 
+         --form files=@"$fil" "https://api.bitbucket.org/2.0/repositories/${pge#/}" 1> ~/tmp1 #
+    rm ~/tmp1 
 
 EOF
     
 #run the upload automation script
-. dmg_upload $(cat dmg_upload | head -1 | tr -d '#')
-rm dmg_upload
+. ~/dmg_upload $(cat ~/dmg_upload | head -1 | tr -d '#')
+rm ~/dmg_upload
 rm "$dir"/$repname.dmg
 
 #back to start
@@ -543,10 +543,10 @@ clear
     item="$(echo " "$dir"/$repname.dmg")"
 
 #print password to external upload script
-    echo "$user"" $password"" $downloads""$item" > dmg_upload
+    echo "$user"" $password"" $downloads""$item" > ~/dmg_upload
 
 #external upload script. Will be placed in repo folder
-cat <<'EOF' >> dmg_upload
+cat <<'EOF' >> ~/dmg_upload
 
 #!/bin/bash
     usr=$1; pwd=$2; pge=$3; fil=$4
@@ -556,14 +556,14 @@ cat <<'EOF' >> dmg_upload
          --location               `# follow redirects if we are told so                                                                 ` \
          --fail                   `# ensure that we are not succeeding when the server replies okay but with an error code             ` \
          --user "$usr:$pwd"       `# basic auth so that it lets us in                                                                ` \
-         --form files=@"$fil" "https://api.bitbucket.org/2.0/repositories/${pge#/}" 1> tmp1 #
-    rm tmp1 
+         --form files=@"$fil" "https://api.bitbucket.org/2.0/repositories/${pge#/}" 1> ~/tmp1 #
+    rm ~/tmp1 
 
 EOF
     
 #run the upload automation script
-. dmg_upload $(cat dmg_upload | head -1 | tr -d '#')
-rm dmg_upload
+. ~/dmg_upload $(cat ~/dmg_upload | head -1 | tr -d '#')
+rm ~/dmg_upload
 rm "$dir"/$repname.dmg
 
 #back to start
