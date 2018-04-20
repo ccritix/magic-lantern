@@ -14,3 +14,6 @@ ROMBASEADDR     = 0xFC000000
 ML_SRC_PROFILE  = minimal
 ML_SRC_REBOOT_OBJ = reboot-dumper.o footer.o
 READELF=echo MemSiz
+
+# binaries apparently loaded as Thumb, unlike previous models
+CFLAGS += -mthumb

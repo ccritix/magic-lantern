@@ -13,10 +13,13 @@ asm(
     ".globl _start\n"
     "_start:\n"
 
+#ifndef CONFIG_DIGIC_VII
     "MRS     R0, CPSR\n"
     "BIC     R0, R0, #0x3F\n"   // Clear I,F,T
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
     "MSR     CPSR, R0\n"
+#endif
+
     "B       cstart\n"
 );
 
