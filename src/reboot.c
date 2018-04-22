@@ -488,6 +488,7 @@ static const struct model_data_s model_data[] =
     { 0x401, "5DSR"  },
     { 0x349, "5D4"   },
     { 0x302, "6D"    },
+    { 0x406, "6D2"   },
     { 0x250, "7D"    },
     { 0x289, "7D2"   },
     { 0x168, "10D"   },
@@ -497,6 +498,7 @@ static const struct model_data_s model_data[] =
     { 0x261, "50D"   },
     { 0x287, "60D"   },
     { 0x325, "70D"   },
+    { 0x408, "77D"   },
     { 0x350, "80D"   },
     { 0x170, "300D"  },
     { 0x189, "350D"  },
@@ -509,13 +511,18 @@ static const struct model_data_s model_data[] =
     { 0x326, "700D"  },
     { 0x393, "750D"  },
     { 0x347, "760D"  },
+    { 0x405, "800D"  },
     { 0x346, "100D"  },
+    { 0x417, "200D"  },
     { 0x254, "1000D" },
     { 0x288, "1100D" },
     { 0x327, "1200D" },
     { 0x404, "1300D" },
-    { 0x331, "EOSM"  },
-    { 0x355, "EOSM2"  },
+    { 0x432, "2000D" },
+    { 0x422, "4000D" },
+    { 0x331, "M"     },
+    { 0x355, "M2"    },
+    { 0x412, "M50"   },
 };
 
 uint32_t get_model_id()
@@ -534,8 +541,15 @@ uint32_t get_model_id()
         return *model_ptr;
     }
 
-    /* even newer models */
+    /* even newer models (DIGIC 6) */
     model_ptr = (uint32_t *)0xFC060014;
+    if(*model_ptr && *model_ptr < 0x00000FFF)
+    {
+        return *model_ptr;
+    }
+
+    /* DIGIC 7 */
+    model_ptr = (uint32_t *)0xE9FF9014;
     if(*model_ptr && *model_ptr < 0x00000FFF)
     {
         return *model_ptr;
