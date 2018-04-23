@@ -5,8 +5,64 @@
 
 #include "compiler.h"
 #include "string.h"
+#include "qemu-util.h"
 
 extern int printf(const char * format, ...);
+
+static inline char hex_digit(uint32_t x)
+{
+    x &= 0xF;
+    if (x < 10)
+    {
+        return '0' + x;
+    }
+
+    return 'A' + x - 10;
+}
+
+static const char * repr(const char * str)
+{
+    static char buf[128];
+    int i = 0;
+    for (const char * p = str; (*p) && i < COUNT(buf)-1; p++)
+    {
+        char c = *p;
+
+        switch (c)
+        {
+            case 32 ... 126:
+                buf[i++] = c;
+                break;
+            case '\n':
+                buf[i++] = '\\';
+                buf[i++] = 'n';
+                break;
+            case '\r':
+                buf[i++] = '\\';
+                buf[i++] = 'r';
+                break;
+            case '\t':
+                buf[i++] = '\\';
+                buf[i++] = 't';
+                break;
+            case '\b':
+                buf[i++] = '\\';
+                buf[i++] = 'b';
+                break;
+            default:
+                buf[i++] = '\\';
+                buf[i++] = 'x';
+                buf[i++] = hex_digit(c >> 4);
+                buf[i++] = hex_digit(c);
+                break;
+        }
+    }
+
+    /* null-terminate */
+    buf[i] = 0;
+
+    return buf;
+}
 
 #define MEM(x) (*(volatile uint32_t *)(x))
 #define STMFD 0xe92d0000
@@ -46,6 +102,8 @@ static uint32_t branch_destination(uint32_t insn, uint32_t pc)
 
 char* asm_guess_func_name_from_string(uint32_t addr)
 {
+    qprintf("asm_guess_func_name_from_string(0x%X)\n", addr);
+
     for (uint32_t i = addr; i < addr + 4 * 20; i += 4 )
     {
         uint32_t insn = MEM(i);
@@ -76,6 +134,8 @@ uint32_t locate_func_start(uint32_t search_from, uint32_t stop_addr)
 
 uint32_t find_func_called_before_string_ref(char* ref_string)
 {
+    qprintf("find_func_called_before_string_ref('%s')\n", repr(ref_string));
+
     /* look for this pattern:
      * fffe1824:    eb0019a5    bl  @fromutil_disp_init
      * fffe1828:    e28f0e2e    add r0, pc, #736    ; *'Other models\n'
@@ -122,6 +182,8 @@ uint32_t find_func_called_before_string_ref(char* ref_string)
 
 uint32_t find_func_from_string(char* string, int Rd, uint32_t max_start_offset)
 {
+    qprintf("find_func_from_string('%s', R%d, max_off=%x)\n", repr(string), Rd, max_start_offset);
+
     /* only scan the bootloader RAM area */
     for (uint32_t i = 0x100000; i < 0x110000; i += 4 )
     {
@@ -183,9 +245,10 @@ static int func_has_tag(uint32_t func, uint32_t tag)
             int offset = decode_immediate_shifter_operand(insn);
             int pc = i;
             int dest = pc + offset + 8;
-            printf(" - %X: tag %x\n", pc, MEM(dest));
+            qprintf("%X: tag %x\n", pc, MEM(dest));
             if (MEM(dest) == tag)
             {
+                printf(" - %X: tag %x\n", pc, MEM(dest));
                 return 1;
             }
         }
@@ -200,11 +263,12 @@ static int func_has_tag(uint32_t func, uint32_t tag)
 
 uint32_t find_func_called_after_string_ref(char * string, uint32_t tag)
 {
+    qprintf("find_func_called_after_string_ref('%s', tag=0x%X)\n", repr(string), tag);
     int found = 0;
     uint32_t answer = 0;
 
     uint32_t start = find_string_ref(string);
-    printf(" - Set flag found at %x\n", start);
+    printf(" - %x: %s\n", start, string);
     if (start)
     {
         for (uint32_t i = start + 4; i < start + 0x100; i += 4)
@@ -215,7 +279,7 @@ uint32_t find_func_called_after_string_ref(char * string, uint32_t tag)
             {
                 uint32_t pc = i;
                 uint32_t func_addr = branch_destination(insn, pc);
-                printf(" - %x: BL %x\n", pc, func_addr);
+                qprintf("%x: BL %x\n", pc, func_addr);
 
                 if (func_addr > 0x100000 && func_addr < 0x110000)
                 {
