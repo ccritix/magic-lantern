@@ -255,14 +255,14 @@ static int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int ver
 static void guess_prop(uint32_t* buffer, uint32_t buffer_len, int active_only, int verbose)
 {
     /* these properties must be aligned, right? */
-    for (int offset = 0; offset < buffer_len; offset += 0x100)
+    for (uint32_t offset = 0; offset < buffer_len; offset += 0x100)
     {
         int status = buffer[offset/4];
         int size = buffer[offset/4 + 1];
 
         if (size > 0 && (size & 3) == 0)                        // size looks 32-bit aligned?
         {
-            int last_pos = offset + size - 4;
+            uint32_t last_pos = offset + size - 4;
             if (last_pos > 12 && last_pos < buffer_len-4)       // not out of range?
             {
                 uint32_t last = buffer[last_pos/4];
@@ -300,6 +300,7 @@ static void print_camera_info()
     printf(" - Camera model: %s\n", cam_info.camera_model);
     printf(" - Firmware version: %s / %s\n", cam_info.firmware_version, cam_info.firmware_subversion);
     printf(" - IMG naming: 100%s/%s%04d.JPG\n", cam_info.dir_suffix, cam_info.file_prefix, cam_info.file_number);
+#if 0
     if (cam_info.artist[0])
     {
         printf(" - Artist: %s\n", cam_info.artist);
@@ -308,6 +309,7 @@ static void print_camera_info()
     {
         printf(" - Copyright: %s\n", cam_info.copyright);
     }
+#endif
     if (cam_info.picstyle_1_name[0] || cam_info.picstyle_2_name[0] || cam_info.picstyle_3_name[0])
     {
         printf(" - User PS: %s %s %s\n", cam_info.picstyle_1_name, cam_info.picstyle_2_name, cam_info.picstyle_3_name);
