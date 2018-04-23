@@ -6,7 +6,7 @@ _CONFIGS_compile_name = _compile
 _CONFIGS_clean_name = _clean
 _CONFIGS_install_name = _install
 
-_CONFIGS_to_filter_out = 
+_CONFIGS_to_filter_out = CONFIG_QEMU
 
 _CONFIGS_to_compile = $(filter-out $(_CONFIGS_to_filter_out), $(ML_SETUP_CONFIGS_WITH_DIR))
 
@@ -77,7 +77,6 @@ prepare_zip: FORCE
 	$(eval export INSTALL_FINISH)
 	$(eval export WIFI_SD)
 	$(call rm_dir, $(INSTALL_DIR)/)
-	$(warning removing $(INSTALL_DIR))
 	$(call rm_files, $(PLATFORM_PATH)/*/magiclantern.sym) # only check module dependencies on current camera model
 	$(warning removing $(PLATFORM_PATH)/*/magiclantern.sym)
 	mkdir -p $(INSTALL_DIR)
@@ -87,7 +86,7 @@ magiclantern-$(VERSION).zip: install installer_check installdoc
 	-$(call rm_files, $@)
 	chmod -x $(INSTALL_DIR)/autoexec.bin
 	cd $(INSTALL_DIR); zip -z ../$@ < \
-		../$(SRC_DIR)/zip.txt -r .\
+		../$(SRC_DIR)/zip.txt -r .
 	$(call rm_dir, $(INSTALL_DIR)/)
 
 zip:: | prepare_zip
@@ -95,7 +94,7 @@ zip:: magiclantern-$(VERSION).zip print_build_info
 
 install_qemu:: | prepare_zip
 install_qemu:: install
-	$(call build,MTOOLS,cd $(TOP_DIR)/../qemu/; ./mtools_copy_ml.sh $(INSTALL_DIR))
+	$(call build,MTOOLS,cd $(QEMU_PATH)/; ./mtools_copy_ml.sh $(INSTALL_DIR))
 
 install_qemu:: | prepare_zip
 install_qemu:: install

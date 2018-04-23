@@ -5,7 +5,7 @@ UNAME:=$(shell uname)
 
 ifeq ($(UNAME), Darwin)
 	# Variable declaration for Mac OS X
-	UMOUNT=hdiutil unmount
+	UMOUNT=hdiutil eject
 	CF_CARD="/Volumes/EOS_DIGITAL"
 	STAT_CMD=stat -f "%N: %z bytes"
 else
@@ -178,6 +178,13 @@ AWK=awk
 PYTHON=python2
 RST2LATEX=rst2latex.py
 
+#
+# QEMU installation directory
+# used for "make install_qemu"
+#
+QEMU_DIR ?= qemu-eos
+QEMU_PATH=$(TOP_DIR)/../$(QEMU_DIR)
+
 # Naming convention for Magic Lantern builds:
 # General rules:
 # - Always specify the camera and its firmware version number in the build name (e.g. 550d.fw109)
@@ -218,10 +225,11 @@ CONFIG_TCC          = y
 CONFIG_MODULES      = y
 CONFIG_TINYPY       = n
 
-# Work in progress - would be nice to run the unmodified autoexec.bin in QEMU, but we are not there yet
-# so, for now, we'll just hack the source code to work around the limitations of the emulator
+# Work in progress - attempt to emulate both Canon firmware and autoexec.bin
+# Emulation should work without having to enable CONFIG_QEMU, 
+# but this may enable workarounds for some corner cases,
+# or some extra tools or tests not meant to be run on the actual camera.
 CONFIG_QEMU         = n
-CONFIG_QEMU_MENU_SCREENSHOTS = n
 
 # Work in progress - load ML as position-independent code (PIC)
 CONFIG_PIC          = n
