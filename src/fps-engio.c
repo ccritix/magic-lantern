@@ -238,7 +238,7 @@ static void fps_read_current_timer_values();
     #undef FPS_TIMER_B_MIN
     #define FPS_TIMER_B_MIN ( \
     RECORDING_H264 ? (MV1080CROP ? 1750 : MV720 ? 990 : 1970) \
-                   : (ZOOM || MV1080CROP ? 1336 : 1970))
+                   : (ZOOM || MV1080CROP ? 1288 : 1970))
 #elif defined(CONFIG_6D)
     #define TG_FREQ_BASE 25600000
     #define FPS_TIMER_A_MIN (fps_timer_a_orig - (ZOOM ? 22 : MV720 ? 10 : 34) ) //, ZOOM ? 708 : 512)
