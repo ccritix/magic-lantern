@@ -253,3 +253,7 @@ CONFIG_BOOT_CPUINFO      ?= n
 
 # enable boot flag from bootloader (DIGIC 6)
 CONFIG_BOOT_BOOTFLAG     ?= n
+
+# enable serial flash dumper from bootloader (DIGIC 6)
+# requires CONFIG_BOOT_DUMPER = y
+CONFIG_BOOT_SROM_DUMPER  ?= n

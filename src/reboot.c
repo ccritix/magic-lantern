@@ -50,6 +50,7 @@
 #include "led_dump.h"
 #include "disp_dump.h"
 #include "prop_diag.h"
+#include "qemu-util.h"
 
 #include "compiler.h"
 #include "consts.h"
@@ -151,11 +152,11 @@ static void save_file(int drive, char* filename, void* addr, int size)
     }
 }
 
-static void dump_md5(int drive, char* filename, uint32_t addr, int size)
+static void dump_md5(int drive, char* filename, void * addr, int size)
 {
     uint8_t md5_bin[16];
     char md5_ascii[50];
-    md5((void *) addr, size, md5_bin);
+    md5(addr, size, md5_bin);
     snprintf(md5_ascii, sizeof(md5_ascii),
         "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x  %s\n",
         md5_bin[0],  md5_bin[1],  md5_bin[2],  md5_bin[3],
@@ -164,10 +165,10 @@ static void dump_md5(int drive, char* filename, uint32_t addr, int size)
         md5_bin[12], md5_bin[13], md5_bin[14], md5_bin[15],
         filename
     );
-    char file_base[10];
+    char file_base[16];
     snprintf(file_base, sizeof(file_base), "%s", filename);
     file_base[strlen(file_base)-4] = 0;
-    char md5file[10];
+    char md5file[16];
     snprintf(md5file, sizeof(md5file), "%s.MD5", file_base);
     md5_ascii[32] = 0;
     printf(" - MD5: %s\n", md5_ascii);
@@ -182,8 +183,8 @@ static void boot_dump(int drive, char* filename, uint32_t addr, int size)
     led_on();
 
     /* save the file and the MD5 checksum */
-    save_file(drive, filename, (void*) addr, size);
-    dump_md5(drive, filename, addr, size);
+    save_file(drive, filename, (void *) addr, size);
+    dump_md5(drive, filename, (void *) addr, size);
 
     /* turn off the LED */
     led_off();
@@ -195,6 +196,8 @@ uint32_t print_y = 20;
 
 void print_line(uint32_t color, uint32_t scale, char *txt)
 {
+    qprint(txt);
+
     int height = scale * (FONTH + 2);
 
     if (print_y + height >= 480)
@@ -689,37 +692,80 @@ static void init_boot_file_io_stubs()
 
 #ifdef CONFIG_BOOT_SROM_DUMPER
 static void (*sf_command_sio)(uint32_t command[], void * out_buffer, int out_buffer_size, int toggle_cs);
+
+/* Canon's serial flash routine outputs bytes in a 32-byte array */
+/* use this wrapper to write them to a "simple" buffer in memory */
+static void sf_read(uint32_t addr, uint8_t * buf, int size)
+{
+    if (!sf_command_sio)
+    {
+        return;
+    }
+
+    /* apparently we can't perform large reads without DMA */
+    /* "You can use several loads with a wheelbarrow, many loads with a bucket, or lots and lots of loads with a spoon" (Absolute FreeBSD, 2nd Ed.) */
+    static uint32_t teaspoon[0x100];
+
+    for (int i = 0; i < size; i++)
+    {
+        if (i % COUNT(teaspoon) == 0)
+        {
+            uint32_t a = addr + i;
+            sf_command_sio((uint32_t[]) {3, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF, -1}, teaspoon, COUNT(teaspoon), 1);
+        }
+
+        if (i % 0x10000 == 0)
+        {
+            /* progress indicator */
+            printf("\b\b\b%2d%%", i * 100 / size);
+        }
+
+        buf[i] = teaspoon[i % COUNT(teaspoon)];
+    }
+
+    printf("\b\b\b100%%\n");
+}
+
 static void sf_dump(int drive)
 {
-  uint32_t SF_SIZE;
-  /* turn on the LED */
-  led_on();
+    /* turn on the LED */
+    led_on();
 
-  switch (get_model_id()) {
-    case 0x350 : //"80D"
-      SF_SIZE = 0x800000;
-      sf_command_sio = (void*)0;// TODO 0x10456C;
-      break;
-    case 0x393 : // "750D"
-      //SF_SIZE = 0x800000;
-      SF_SIZE = 0x1000;
-      sf_command_sio = (void*)0x104DA8;
-      break;
-    default :
-      printf("Serial flash dump not defined for your model\n");
-      led_off();
-      return;
-  }
-  /* save the file  */
-  printf(" - Reading serial flash to memory\n");
-  void (*buffer) = 0x42000000;
-  malloc_init(buffer,SF_SIZE );
-  //char buffer[0x1000];
-  int addr = 0x0;
-  sf_command_sio((uint32_t[]) {3, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF, -1}, buffer, SF_SIZE, 1);
-  printf(" - Writing serial flash to SFDATA.BIN\n");
-  save_file(drive, "SFDATA.BIN", buffer, SF_SIZE);
-  return;
+    /* dumping more than actual size will crash the emulator (possibly the actual camera, too) */
+    /* most models have 0x800000, a few ones have 0x1000000 */
+    uint32_t sf_size = 0x800000;
+
+    switch (get_model_id())
+    {
+        case 0x349: /* 5D4 */
+            sf_size = 0x1000000;
+            break;
+
+        /* 80D, 750D, 760D, 7D2 use 0x800000 */
+    }
+
+    sf_command_sio = (void *) find_func_called_after_string_ref("Read Address[0x%06x-0x%06x]:0x", 0xD20B0000);
+    printf(" - sf_command_sio %X\n", sf_command_sio);
+
+    if (!sf_command_sio)
+    {
+        print_line(COLOR_RED, 2, "- Serial flash stub not found.\n");
+        led_off();
+        return;
+    }
+
+    /* display buffer is at 0x44000000 => we've got 32 MB of space here */
+    void * buffer = (void *) 0x42000000;
+
+    /* save the file  */
+    printf(" - Reading serial flash to memory:    ");
+    sf_read(0, buffer, sf_size);
+
+    printf(" - Writing serial flash to SFDATA.BIN\n");
+    save_file(drive, "SFDATA.BIN", buffer, sf_size);
+
+    /* also compute and save a MD5 checksum */
+    dump_md5(drive, "SFDATA.BIN", buffer, sf_size);
 }
 #endif
 
@@ -763,7 +809,10 @@ static void dump_rom_with_canon_routines()
     if (is_digic6())
     {
         printf(" - Dumping ROM1...\n");
-        //boot_dump(DRIVE_SD, "ROM1.BIN", 0xFC000000, 0x02000000);
+        boot_dump(DRIVE_SD, "ROM1.BIN", 0xFC000000, 0x02000000);
+        #ifdef CONFIG_BOOT_SROM_DUMPER
+        sf_dump(DRIVE_SD);
+        #endif
     }
     else
     {
@@ -866,10 +915,6 @@ cstart( void )
             disp_dump(0xFC000000, 0x02000000);
         #else
             dump_rom_with_canon_routines();
-        #endif
-        #if defined(CONFIG_BOOT_SROM_DUMPER)
-            print_line(COLOR_CYAN, 3, " ----------------------------\n");
-            sf_dump(DRIVE_SD);
         #endif
     #endif
     #if defined(CONFIG_BOOT_BOOTFLAG)

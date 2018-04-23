@@ -79,6 +79,14 @@ static uint32_t decode_immediate_shifter_operand(uint32_t insn)
     return ror(inmed_8, rotate_imm);
 }
 
+static inline int32_t decode_signed_offset12(uint32_t insn)
+{
+    uint32_t off = (insn & 0x00000FFF);
+    if (insn & (1 << 23))
+        return off;
+    return -off;
+}
+
 static int seems_to_be_string(char* addr)
 {
     int len = strlen(addr);
@@ -236,14 +244,13 @@ uint32_t find_string_ref(char* string)
 /* the function must be referencing the tag somehow (a constant value) */
 static int func_has_tag(uint32_t func, uint32_t tag)
 {
-    for (uint32_t i = func; i < func + 0x100; i += 4 )
+    for (uint32_t pc = func; pc < func + 0x100; pc += 4 )
     {
         /* look for: add Rd, pc, #offset */
-        uint32_t insn = MEM(i);
-        if( (insn & 0xFFFF0000) == 0xE59F0000)
+        uint32_t insn = MEM(pc);
+        if( (insn & 0xFF7F0000) == 0xE51F0000)
         {
-            int offset = decode_immediate_shifter_operand(insn);
-            int pc = i;
+            int offset = decode_signed_offset12(insn);
             int dest = pc + offset + 8;
             qprintf("%X: tag %x\n", pc, MEM(dest));
             if (MEM(dest) == tag)
@@ -252,6 +259,18 @@ static int func_has_tag(uint32_t func, uint32_t tag)
                 return 1;
             }
         }
+
+        /* look for: MOV Rd, #imm */
+        if( (insn & 0xFFFF0000) == 0xE3A00000)
+        {
+            uint32_t value = decode_immediate_shifter_operand(insn);
+            if (value == tag)
+            {
+                printf(" - %X: tag imm %x\n", pc, value);
+                return 1;
+            }
+        }
+
         if ((insn & 0xFFFF0000) == 0xe8bd0000)
         {
             /* LDMFD - end of function */
