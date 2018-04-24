@@ -35,6 +35,7 @@ asm(
 #include <limits.h>
 #include <sys/types.h>
 #include "compiler.h"
+#include "internals.h"  /* from platform directory (for CONFIG_DIGIC_VI) */
 
 typedef void (*thunk)(void);
 
@@ -79,60 +80,185 @@ select_normal_vectors( void )
     );
 }
 
-static inline void
-disable_dcache( void )
+#if defined(CONFIG_DIGIC_VI) || defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
+/* from https://app.assembla.com/spaces/chdk/subversion/source/HEAD/trunk/lib/armutil/cache.c */
+
+// ARMv7 cache control (based on U-BOOT cache_v7.c, utils.h, armv7.h)
+
+/* Invalidate entire I-cache and branch predictor array */
+static void __attribute__((naked,noinline)) icache_flush_all(void)
 {
-    uint32_t reg;
-    asm(
-        "mrc p15, 0, %0, c1, c0\n"
-        "bic %0, %0, #0x04\n"
-        "mcr p15, 0, %0, c1, c0\n"
-        : "=r"(reg)
+    /*
+     * Invalidate all instruction caches to PoU.
+     * Also flushes branch target cache.
+     */
+    asm volatile (
+        "mov    r1, #0\n"
+        "mcr    p15, 0, r1, c7, c5, 0\n"
+        "mcr    p15, 0, r1, c7, c5, 6\n"
+        "dsb    sy\n"
+        "isb    sy\n"
+        "bx     lr\n"
     );
 }
 
-static inline void
-disable_icache( void )
+/* Values for Ctype fields in CLIDR */
+#define ARMV7_CLIDR_CTYPE_NO_CACHE      0
+#define ARMV7_CLIDR_CTYPE_INSTRUCTION_ONLY  1
+#define ARMV7_CLIDR_CTYPE_DATA_ONLY     2
+#define ARMV7_CLIDR_CTYPE_INSTRUCTION_DATA  3
+#define ARMV7_CLIDR_CTYPE_UNIFIED       4
+
+#define ARMV7_DCACHE_INVAL_ALL      1
+#define ARMV7_DCACHE_CLEAN_ALL    2
+#define ARMV7_DCACHE_INVAL_RANGE    3
+#define ARMV7_DCACHE_CLEAN_INVAL_RANGE  4
+
+#define ARMV7_CSSELR_IND_DATA_UNIFIED   0
+#define ARMV7_CSSELR_IND_INSTRUCTION    1
+
+#define CCSIDR_LINE_SIZE_OFFSET     0
+#define CCSIDR_LINE_SIZE_MASK       0x7
+#define CCSIDR_ASSOCIATIVITY_OFFSET 3
+#define CCSIDR_ASSOCIATIVITY_MASK   (0x3FF << 3)
+#define CCSIDR_NUM_SETS_OFFSET      13
+#define CCSIDR_NUM_SETS_MASK        (0x7FFF << 13)
+
+typedef unsigned int u32;
+typedef int s32;
+
+static inline s32 log_2_n_round_up(u32 n)
 {
-    uint32_t reg;
-    asm(
-        "mrc p15, 0, %0, c1, c0\n"
-        "bic %0, %0, #0x1000\n"
-        "mcr p15, 0, %0, c1, c0\n"
-        : "=r"(reg)
-    );
+    s32 log2n = -1;
+    u32 temp = n;
+
+    while (temp) {
+        log2n++;
+        temp >>= 1;
+    }
+
+    if (n & (n - 1))
+        return log2n + 1; /* not power of 2 - round up */
+    else
+        return log2n; /* power of 2 */
 }
 
-static inline void
-disable_write_buffer( void )
+static u32 get_clidr(void)
 {
-    uint32_t reg;
-    asm(
-        "mrc p15, 0, %0, c1, c0\n"
-        "bic %0, %0, #0x8\n"
-        "mcr p15, 0, %0, c1, c0\n"
-        : "=r"(reg)
-    );
+    u32 clidr;
+
+    /* Read current CP15 Cache Level ID Register */
+    asm volatile ("mrc p15,1,%0,c0,c0,1" : "=r" (clidr));
+    return clidr;
 }
 
-static inline void disable_all_caches()
+static u32 get_ccsidr(void)
 {
-    asm(
-        "mrc p15, 0, r0, c1, c0, 0\n"   /* read SCTLR */
-        "bic r0, #0x4\n"                /* disable data and unified caches */
-        "bic r0, #0x8\n"                /* disable write buffer */
-        "bic r0, #0x1000\n"             /* disable instruction cache */
-        "mcr p15, 0, r0, c1, c0, 0\n"   /* write back SCTLR */
-        "mov r0, #0\n"
-        "mcr p15, 0, r0, c2, c0, 0\n"   /* disable data cache on all memory regions */
-        "mcr p15, 0, r0, c2, c0, 1\n"   /* disable instruction cache on all memory regions */
-        "mcr p15, 0, r0, c3, c0, 0\n"   /* disable write buffer on all memory regions */
-        : : : "r0"
-    );
+    u32 ccsidr;
+
+    /* Read current CP15 Cache Size ID Register */
+    asm volatile ("mrc p15, 1, %0, c0, c0, 0" : "=r" (ccsidr));
+    return ccsidr;
 }
 
-static inline void disable_caches_region1_ram_d6()
+static void set_csselr(u32 level, u32 type)
+{   u32 csselr = level << 1 | type;
+
+    /* Write to Cache Size Selection Register(CSSELR) */
+    asm volatile ("mcr p15, 2, %0, c0, c0, 0" : : "r" (csselr));
+}
+
+static void v7_clean_dcache_level_setway(u32 level, u32 num_sets,
+                     u32 num_ways, u32 way_shift,
+                     u32 log2_line_len)
 {
+    int way, set, setway;
+
+    /*
+     * For optimal assembly code:
+     *  a. count down
+     *  b. have bigger loop inside
+     */
+    for (way = num_ways - 1; way >= 0 ; way--) {
+        for (set = num_sets - 1; set >= 0; set--) {
+            setway = (level << 1) | (set << log2_line_len) |
+                 (way << way_shift);
+            /* Clean data/unified cache line by set/way */
+            asm volatile (" mcr p15, 0, %0, c7, c10, 2"
+                    : : "r" (setway));
+        }
+    }
+    /* DSB to make sure the operation is complete */
+    asm volatile("dsb sy\n");
+}
+
+static void v7_maint_dcache_level_setway(u32 level, u32 operation)
+{
+    u32 ccsidr;
+    u32 num_sets, num_ways, log2_line_len, log2_num_ways;
+    u32 way_shift;
+
+    set_csselr(level, ARMV7_CSSELR_IND_DATA_UNIFIED);
+
+    ccsidr = get_ccsidr();
+
+    log2_line_len = ((ccsidr & CCSIDR_LINE_SIZE_MASK) >>
+                CCSIDR_LINE_SIZE_OFFSET) + 2;
+    /* Converting from words to bytes */
+    log2_line_len += 2;
+
+    num_ways  = ((ccsidr & CCSIDR_ASSOCIATIVITY_MASK) >>
+            CCSIDR_ASSOCIATIVITY_OFFSET) + 1;
+    num_sets  = ((ccsidr & CCSIDR_NUM_SETS_MASK) >>
+            CCSIDR_NUM_SETS_OFFSET) + 1;
+    /*
+     * According to ARMv7 ARM number of sets and number of ways need
+     * not be a power of 2
+     */
+    log2_num_ways = log_2_n_round_up(num_ways);
+
+    way_shift = (32 - log2_num_ways);
+
+    if (operation == ARMV7_DCACHE_CLEAN_ALL)
+        v7_clean_dcache_level_setway(level, num_sets, num_ways,
+                      way_shift, log2_line_len);
+}
+
+static void v7_maint_dcache_all(u32 operation)
+{
+    u32 level, cache_type, level_start_bit = 0;
+
+    u32 clidr = get_clidr();
+
+    for (level = 0; level < 7; level++) {
+        cache_type = (clidr >> level_start_bit) & 0x7;
+        if ((cache_type == ARMV7_CLIDR_CTYPE_DATA_ONLY) ||
+            (cache_type == ARMV7_CLIDR_CTYPE_INSTRUCTION_DATA) ||
+            (cache_type == ARMV7_CLIDR_CTYPE_UNIFIED))
+            v7_maint_dcache_level_setway(level, operation);
+        level_start_bit += 3;
+    }
+}
+
+static void dcache_clean_all(void) {
+    v7_maint_dcache_all(ARMV7_DCACHE_CLEAN_ALL);
+    /* anything else? */
+}
+
+static inline void sync_caches()
+{
+    /* Self-modifying code (from uncacheable memory) */
+    /* http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.faqs/ka14041.html */
+    /* http://infocenter.arm.com/help/topic/com.arm.doc.ihi0053b/IHI0053B_arm_c_language_extensions_2013.pdf */
+    /* https://app.assembla.com/spaces/chdk/subversion/source/HEAD/trunk/lib/armutil/cache.c */
+    /* http://www.magiclantern.fm/forum/index.php?topic=17360.msg191399#msg191399 */
+    dcache_clean_all(); /* Clean the cache so that the new stuff is written out to memory */
+    icache_flush_all(); /* Invalidate the instruction cache and branch predictor */
+}
+
+static inline void disable_caches_region1_ram()
+{
+    sync_caches();
     asm(
         "mrc p15, 0, r0, c1, c0, 0\n"   /* read SCTLR */
         "bic r0, #0x4\n"                /* disable data and unified caches */
@@ -144,44 +270,10 @@ static inline void disable_caches_region1_ram_d6()
         "mcr p15, 0, r0, c6, c1, 4\n"   /* write DRACR */
         : : : "r0"
     );
+    sync_caches();
 }
 
-static inline void
-enable_dcache( void )
-{
-    uint32_t reg;
-    asm(
-        "mrc p15, 0, %0, c1, c0\n"
-        "orr %0, %0, #0x04\n"
-        "mcr p15, 0, %0, c1, c0\n"
-        : "=r"(reg)
-    );
-}
-
-static inline void
-enable_icache( void )
-{
-    uint32_t reg;
-    asm(
-        "mrc p15, 0, %0, c1, c0\n"
-        "orr %0, %0, #0x1000\n"
-        "mcr p15, 0, %0, c1, c0\n"
-        : "=r"(reg)
-    );
-}
-
-static inline void
-enable_write_buffer( void )
-{
-    uint32_t reg;
-    asm(
-        "mrc p15, 0, %0, c1, c0\n"
-        "orr %0, %0, #0x8\n"
-        "mcr p15, 0, %0, c1, c0\n"
-        : "=r"(reg)
-    );
-}
-
+#else  /* DIGIC 2...5 */
 /*
      naming conventions
     --------------------
@@ -270,6 +362,97 @@ static inline void sync_caches()
     flush_i_cache();
 }
 
+static inline void
+disable_dcache( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "bic %0, %0, #0x04\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+
+static inline void
+disable_icache( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "bic %0, %0, #0x1000\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+
+static inline void
+disable_write_buffer( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "bic %0, %0, #0x8\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+
+static inline void disable_all_caches()
+{
+    asm(
+        "mrc p15, 0, r0, c1, c0, 0\n"   /* read SCTLR */
+        "bic r0, #0x4\n"                /* disable data and unified caches */
+        "bic r0, #0x8\n"                /* disable write buffer */
+        "bic r0, #0x1000\n"             /* disable instruction cache */
+        "mcr p15, 0, r0, c1, c0, 0\n"   /* write back SCTLR */
+        "mov r0, #0\n"
+        "mcr p15, 0, r0, c2, c0, 0\n"   /* disable data cache on all memory regions */
+        "mcr p15, 0, r0, c2, c0, 1\n"   /* disable instruction cache on all memory regions */
+        "mcr p15, 0, r0, c3, c0, 0\n"   /* disable write buffer on all memory regions */
+        : : : "r0"
+    );
+}
+
+static inline void
+enable_dcache( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "orr %0, %0, #0x04\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+
+static inline void
+enable_icache( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "orr %0, %0, #0x1000\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+
+static inline void
+enable_write_buffer( void )
+{
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "orr %0, %0, #0x8\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
+}
+
+#endif
+
+#if 0
 // This must be a macro
 #define setup_memory_region( region, value ) \
     asm __volatile__ ( "mcr p15, 0, %0, c6, c" #region "\n" : : "r"(value) )
@@ -315,7 +498,7 @@ set_i_tcm( uint32_t value )
 {
     asm( "mcr p15, 0, %0, c9, c1, 1\n" : : "r"(value) );
 }
-
+#endif
 
 /** Routines to enable / disable interrupts */
 static inline uint32_t
