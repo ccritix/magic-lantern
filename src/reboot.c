@@ -673,12 +673,14 @@ static void* find_boot_card_init()
         "SD Detect High\n",                 /* 6D, 70D */
     };
 
+    uint32_t (*find_func_from_str)(const char *, uint32_t, uint32_t) = is_digic7() ? find_func_from_string_thumb : find_func_from_string;
+
     /* find a function matching one of those strings */
     /* fail if two matches */
     void* found = 0;
     for (int i = 0; i < COUNT(boot_card_strings); i++)
     {
-        void* match = (void*) find_func_from_string(boot_card_strings[i], 0, 0x100);
+        void* match = (void*) find_func_from_str(boot_card_strings[i], 0, 0x100);
 
         if (match)
         {
@@ -700,7 +702,8 @@ static void* find_boot_card_init()
 static void init_boot_file_io_stubs()
 {
     /* autodetect this one */
-    boot_open_write = (void*) find_func_from_string("Open file for write : %s\n", 0, 0x50);
+    uint32_t (*find_func_from_str)(const char *, uint32_t, uint32_t) = is_digic7() ? find_func_from_string_thumb : find_func_from_string;
+    boot_open_write = (void*) find_func_from_str("Open file for write : %s\n", 0, 0x50);
     boot_card_init = find_boot_card_init();
 
     const char* cam = get_model_string();
@@ -824,7 +827,12 @@ static void dump_rom_with_canon_routines()
         fail();
     }
 
-    if (MEM(boot_open_write)  != 0xe92d47f0)
+    uint32_t boot_open_write_addr = ((uint32_t) boot_open_write) & ~1;
+    uint32_t is_thumb = ((uint32_t) boot_open_write) & 1;
+    uint32_t expected_insn = (is_thumb) ? 0x47f0e92d : 0xe92d47f0;
+    printf(" - Open for write %X %X\n", boot_open_write, MEM(boot_open_write_addr));
+
+    if (MEM(boot_open_write_addr) != expected_insn)
     {
         print_line(COLOR_RED, 2, " - Boot file write stub incorrect.\n");
         printf(" - Address: %X   Value: %X\n", boot_open_write, MEM(boot_open_write));
@@ -966,7 +974,11 @@ cstart( int loaded_as_thumb )
     print_model();
     prop_diag();
     print_bootflags();
-    find_gaonisoy();
+
+    if (!is_digic6() && !is_digic7())
+    {
+        find_gaonisoy();
+    }
 
     #if defined(CONFIG_BOOT_DUMPER)
         /* pick one method for dumping the ROM */
