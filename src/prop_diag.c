@@ -318,11 +318,22 @@ static void print_camera_info()
 
 #ifdef CONFIG_MAGICLANTERN
 /* for running on the camera */
+
+uint32_t is_digic7();
+
 void prop_diag()
 {
-    guess_prop((void*)0xF0000000, 0x1000000, 1, 0);
-    guess_prop((void*)0xF8000000, 0x1000000, 1, 0);
-    guess_prop((void*)0xFC000000, 0x2000000, 1, 0);
+    if (is_digic7())
+    {
+        /* other models may lock up while reading this, so test first */
+        guess_prop((void*)0xE0000000, 0x2000000, 1, 0);
+    }
+    else
+    {
+        guess_prop((void*)0xF0000000, 0x1000000, 1, 0);
+        guess_prop((void*)0xF8000000, 0x1000000, 1, 0);
+        guess_prop((void*)0xFC000000, 0x2000000, 1, 0);
+    }
     print_camera_info();
 }
 #else

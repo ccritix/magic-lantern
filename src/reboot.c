@@ -63,17 +63,37 @@
 /* we need this ASM block to be the first thing in the file */
 #pragma GCC optimize ("-fno-reorder-functions")
 
+/* polyglot startup code that works if loaded as either ARM or Thumb */
 asm(
+    ".syntax unified\n"
     ".text\n"
     ".globl _start\n"
     "_start:\n"
+
+    ".code 16\n"
+    "NOP\n"                     /* as ARM, this is interpreted as: and r4, r11, r0, asr #13 (harmless) */
+    "B loaded_as_thumb\n"       /* as Thumb, this jumps over the next ARM-specific block */
+
+    ".code 32\n"
+    "loaded_as_arm:\n"
     "MRS     R0, CPSR\n"
     "BIC     R0, R0, #0x3F\n"   // Clear I,F,T
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
     "MSR     CPSR, R0\n"
+    "MOV R0, #0\n"              // cstart(0) = loaded as ARM
     "LDR PC, =cstart\n"         // long jump (into the uncacheable version, if linked that way)
 
+    ".code 16\n"
+    "loaded_as_thumb:\n"
+    "LDR R0, =1\n"              // cstart(1) = loaded as Thumb
+    "LDR R1, _cstart_addr\n"    /* long jump into ARM code (uncacheable, if linked that way) */
+    "BX R1\n"
+    "NOP\n"
+    "_cstart_addr:\n"
+    ".word cstart\n"
+
     /* return */
+    ".code 32\n"
     ".globl _vec_data_abort\n"
     "_vec_data_abort:\n"
     "STMFD SP!, {R0-R1}\n"
@@ -88,6 +108,8 @@ asm(
     "_dat_data_abort:\n"
     ".word 0x00000000\n"
 );
+
+static int ml_loaded_as_thumb = 0;
 
 static void busy_wait(int n)
 {
@@ -563,6 +585,11 @@ uint32_t is_digic6()
     return get_model_id() == *(uint32_t *)0xFC060014;
 }
 
+uint32_t is_digic7()
+{
+    return ml_loaded_as_thumb;
+}
+
 uint32_t is_vxworks()
 {
     /* check for Wind (from Wind River Systems, Inc.) */
@@ -590,7 +617,7 @@ static void print_model()
 }
 
 /** Shadow copy of the NVRAM boot flags stored at 0xF8000000
- * (or 0xFC040000 on DIGIC 6) */
+ * (0xFC040000 on DIGIC 6, 0xE1FF8000 on DIGIC 7 ) */
 struct boot_flags
 {
     uint32_t        firmware;   // 0x00
@@ -602,7 +629,9 @@ struct boot_flags
 static void print_bootflags()
 {
     struct boot_flags * const boot_flags = (void*)(
-        is_digic6() ? 0xFC040000 : 0xF8000000
+        is_digic6() ? 0xFC040000 :
+        is_digic7() ? 0xE1FF8000 :
+                      0xF8000000
     );
 
     printf(" - Boot flags: "
@@ -828,6 +857,13 @@ static void dump_rom_with_canon_routines()
         sf_dump(DRIVE_SD);
         #endif
     }
+    else if (is_digic7())
+    {
+        printf(" - Dumping ROM0...\n");
+        boot_dump(DRIVE_SD, "ROM0.BIN", 0xE0000000, 0x02000000);
+        printf(" - Dumping ROM1...\n");
+        boot_dump(DRIVE_SD, "ROM1.BIN", 0xF0000000, 0x01000000);
+    }
     else
     {
         printf(" - Dumping ROM0...\n");
@@ -883,15 +919,20 @@ extern void disable_caches_region1_ram_d6(void);
 
 void
 __attribute__((noreturn))
-cstart( void )
+cstart( int loaded_as_thumb )
 {
-    /* install custom data abort handler */
-    MEM(0x00000024) = (uint32_t)&_vec_data_abort;
-    MEM(0x00000028) = (uint32_t)&_vec_data_abort;
-    MEM(0x0000002C) = (uint32_t)&_vec_data_abort;
-    MEM(0x00000030) = (uint32_t)&_vec_data_abort;
-    MEM(0x00000038) = (uint32_t)&_vec_data_abort;
-    MEM(0x0000003C) = (uint32_t)&_vec_data_abort;
+    ml_loaded_as_thumb = loaded_as_thumb;
+
+    if (!ml_loaded_as_thumb)
+    {
+        /* install custom data abort handler */
+        MEM(0x00000024) = (uint32_t)&_vec_data_abort;
+        MEM(0x00000028) = (uint32_t)&_vec_data_abort;
+        MEM(0x0000002C) = (uint32_t)&_vec_data_abort;
+        MEM(0x00000030) = (uint32_t)&_vec_data_abort;
+        MEM(0x00000038) = (uint32_t)&_vec_data_abort;
+        MEM(0x0000003C) = (uint32_t)&_vec_data_abort;
+    }
 
     disp_init();
 
@@ -908,12 +949,12 @@ cstart( void )
 #ifdef CONFIG_BOOT_DUMPER
     /* Canon bug: their file I/O function ("Open file for write") copies data to CACHEABLE memory before saving!
      * https://www.magiclantern.fm/forum/index.php?topic=16534.msg170417#msg170417
-     * present at least on DIGIC 4, 5 and 6 */
+     * present at least on DIGIC 4, 5 and 6, finally fixed in DIGIC 7! */
     if (is_digic6())
     {
         disable_caches_region1_ram_d6();
     }
-    else
+    else if (!is_digic7())
     {
         disable_all_caches();
     }

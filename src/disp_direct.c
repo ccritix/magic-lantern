@@ -11,6 +11,11 @@
 #include "consts.h"
 #include "asm.h"
 
+extern uint32_t get_model_id();
+extern uint32_t is_digic6();
+extern uint32_t is_digic7();
+extern uint32_t is_vxworks();
+
 #define MEM(x) (*(volatile uint32_t *)(x))
 #define UYVY_PACK(u,y1,v,y2) ((u) & 0xFF) | (((y1) & 0xFF) << 8) | (((v) & 0xFF) << 16) | (((y2) & 0xFF) << 24);
  
@@ -36,6 +41,7 @@ static int disp_current_buf = 0;
 static enum { YUV422, YUV411 } yuv_mode;
 
 static uint32_t BMP_BUF_REG_D6 = 0xD2030108;
+static uint32_t BMP_BUF_REG_D7 = 0xD2060048;
 static uint32_t PALETTE_REG_D6 = 0xD20139A8;
 
 /* 5D4 is different */
@@ -306,10 +312,6 @@ void disp_progress(uint32_t progress)
     font_draw(&x, &y, COLOR_WHITE, 2, text);
 }
 
-void disp_init_dummy (uint32_t buffer)
-{
-}
-
 void* disp_init_autodetect()
 {
     /* Called right before printing the following strings:
@@ -322,10 +324,20 @@ void* disp_init_autodetect()
      * ...
      */
 
-    uint32_t a = find_func_called_before_string_ref("Other models\n");
-    uint32_t b = find_func_called_before_string_ref("File(*.fir) not found\n");
-    uint32_t c = find_func_called_before_string_ref("sum check error or code modify\n");
-    uint32_t d = find_func_called_before_string_ref("Error File(*.fir)\n");
+    uint32_t a = 0, b = 0, c = 0, d = 0;
+    if (is_digic7())
+    {
+        a = find_func_called_before_string_ref_thumb("Other models\n");
+        b = find_func_called_before_string_ref_thumb("File(*.fir) not found\n");
+        c = find_func_called_before_string_ref_thumb("check sum error\n");
+    }
+    else
+    {
+        a = find_func_called_before_string_ref("Other models\n");
+        b = find_func_called_before_string_ref("File(*.fir) not found\n");
+        c = find_func_called_before_string_ref("sum check error or code modify\n");
+        d = find_func_called_before_string_ref("Error File(*.fir)\n");
+    }
 
     /* note: we will do double-checks to avoid jumping to random code */
     if (a && a == b)
@@ -346,12 +358,10 @@ void* disp_init_autodetect()
         return (void*) b;
     }
 
-    return &disp_init_dummy;
-}
 
-extern uint32_t get_model_id();
-extern uint32_t is_digic6();
-extern uint32_t is_vxworks();
+    /* no luck */
+    return 0;
+}
 
 void disp_set_buf(int buf)
 {
@@ -388,7 +398,7 @@ void disp_swap()
 
 void disp_init()
 {
-    if (is_digic6())
+    if (is_digic6() || is_digic7())
     {
         disp_bpp = 8;
     }
@@ -408,6 +418,11 @@ void disp_init()
         PALETTE_REG_D6 = PALETTE_REG_5D4;
     }
 
+    if (is_digic7())
+    {
+        BMP_BUF_REG_D6 = BMP_BUF_REG_D7;
+    }
+
     if (is_vxworks())
     {
         caching_bit = 0x10000000;
@@ -422,6 +437,12 @@ void disp_init()
     /* this should cover most (if not all) ML-supported cameras */
     /* and maybe most unsupported cameras as well :) */
     void (*fromutil_disp_init)(uint32_t) = disp_init_autodetect();
+
+    /* do not continue if fromutil_disp_init could not be found */
+    if (!fromutil_disp_init)
+    {
+        while(1);
+    }
 
     /* this one initializes everyhting that is needed for display usage. PWM, PWR, GPIO, SIO and DISPLAY */
     fromutil_disp_init(0);

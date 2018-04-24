@@ -188,6 +188,60 @@ uint32_t find_func_called_before_string_ref(char* ref_string)
     return 0;
 }
 
+uint32_t find_func_called_before_string_ref_thumb(char* ref_string)
+{
+    qprintf("find_func_called_before_string_ref_thumb('%s')\n", repr(ref_string));
+
+    /* look for this pattern:
+     * E0010BFE 01 F0 82 FD    BL disp_init         ; E0012706
+     * E0010C02 B3 A0          ADR  R0, #718        ; "File(*.fir) not found\n"
+     */
+   
+    int found = 0;
+    uint32_t answer = 0;
+   
+    /* only scan the bootloader RAM area */
+    for (uint32_t i = 0x100000; i < 0x110000; i += 2 )
+    {
+        uint32_t this = MEM(i);
+        uint32_t next = MEM(i+4);
+        int is_bl         = ((this & 0xF800FC00) == 0xF800F000);    /* T2S p.134 (simplified) */
+        int is_string_ref = ((next & 0x0000FF00) == 0x0000A000);    /* T2S p.112: ADR R0, #offset */
+        if (is_bl && is_string_ref)
+        {
+            uint32_t string_offset = (next & 0xFF) << 2;
+            uint32_t pc = (i + 4 + 4) & ~3;    /* not sure */
+            char* string_addr = (char*)(pc + string_offset);
+            //qprintf("%x: %x %s\n", i + 4, string_addr, repr(string_addr));
+            if (strcmp(string_addr, ref_string) == 0)
+            {
+                /* bingo? */
+                found++;
+                uint32_t pc = (i + 4);
+                uint32_t imm10 = this & 0x3FF;
+                uint32_t imm11 = (this >> 16) & 0x7FF;
+                uint32_t func_offset = (imm11 << 1) | (imm10 << 12);
+                uint32_t func_addr = pc + func_offset;
+                qprintf("%x: BL %x\n", i, func_addr);
+                if (func_addr > 0x100000 && func_addr < 0x110000)
+                {
+                    /* looks ok? */
+                    answer = func_addr + 1;
+                }
+            }
+        }
+    }
+   
+    if (found == 1)
+    {
+        /* only return success if there's a single match (no ambiguity) */
+        return answer;
+    }
+   
+    return 0;
+}
+
+
 uint32_t find_func_from_string(char* string, int Rd, uint32_t max_start_offset)
 {
     qprintf("find_func_from_string('%s', R%d, max_off=%x)\n", repr(string), Rd, max_start_offset);
