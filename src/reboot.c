@@ -892,7 +892,7 @@ cstart( void )
 
     if (is_digic6())
     {
-        disable_all_caches_d6();
+        disable_caches_region1_ram_d6();
     }
     else
     {

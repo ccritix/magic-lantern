@@ -131,7 +131,7 @@ static inline void disable_all_caches()
     );
 }
 
-static inline void disable_all_caches_d6()
+static inline void disable_caches_region1_ram_d6()
 {
     asm(
         "mrc p15, 0, r0, c1, c0, 0\n"   /* read SCTLR */
@@ -140,7 +140,7 @@ static inline void disable_all_caches_d6()
         "mcr p15, 0, r0, c1, c0, 0\n"   /* write back SCTLR */
         "mov r0, #1\n"                  /* adjust memory region #1 (RAM) */
         "mcr p15, 0, r0, c6, c2, 0\n"   /* write RGNR */
-        "mov r0, #0x320\n"              /* R/W, inner/outer non-cacheable */
+        "mov r0, #0x324\n"              /* R/W, inner/outer non-cacheable, shareable */
         "mcr p15, 0, r0, c6, c1, 4\n"   /* write DRACR */
         : : : "r0"
     );
