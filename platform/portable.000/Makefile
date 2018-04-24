@@ -22,3 +22,6 @@ magiclantern:
 
 magiclantern.sym:
 	touch magiclantern.sym
+
+cache_d6.o: $(PLATFORM_DIR)/cache_d6.c
+	$(call build,CC,$(CC) $(CFLAGS) -march=armv7-r -c -o $@ $<)

@@ -865,6 +865,7 @@ static void enable_bootflag()
 
 
 extern void cpuinfo_print(void);
+extern void disable_caches_region1_ram_d6(void);
 
 void
 __attribute__((noreturn))
@@ -890,6 +891,10 @@ cstart( void )
     //~ disable_icache();
     //~ disable_write_buffer();
 
+#ifdef CONFIG_BOOT_DUMPER
+    /* Canon bug: their file I/O function ("Open file for write") copies data to CACHEABLE memory before saving!
+     * https://www.magiclantern.fm/forum/index.php?topic=16534.msg170417#msg170417
+     * present at least on DIGIC 4, 5 and 6 */
     if (is_digic6())
     {
         disable_caches_region1_ram_d6();
@@ -898,6 +903,7 @@ cstart( void )
     {
         disable_all_caches();
     }
+#endif
 
     print_line(COLOR_CYAN, 3, "  Magic Lantern Rescue\n");
     print_line(COLOR_CYAN, 3, " ----------------------------\n");
