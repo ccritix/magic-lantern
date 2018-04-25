@@ -111,6 +111,19 @@ asm(
 
 static int ml_loaded_as_thumb = 0;
 
+/** Specified by the linker */
+extern uint32_t __bss_start__[], __bss_end__[];
+
+static inline void
+zero_bss( void )
+{
+    qprintf("BSS %X - %X\n", __bss_start__, __bss_end__);
+
+    uint32_t *bss = __bss_start__;
+    while( bss < __bss_end__ )
+        *(bss++) = 0;
+}
+
 static void busy_wait(int n)
 {
     int i,j;
@@ -119,7 +132,6 @@ static void busy_wait(int n)
         for (j = 0; j < 100000; j++)
             k++;
 }
-
 
 void led_on()
 {
@@ -929,6 +941,8 @@ void
 __attribute__((noreturn))
 cstart( int loaded_as_thumb )
 {
+    zero_bss();
+ 
     ml_loaded_as_thumb = loaded_as_thumb;
 
     if (!ml_loaded_as_thumb)
