@@ -26,9 +26,12 @@ extern uint32_t is_vxworks();
 #define ABS(a) ({ __typeof__ (a) _a = (a); _a > 0 ? _a : -_a; })
 
 /* the image buffers will be made uncacheable in display_init */
-static uint8_t *disp_framebuf = (uint8_t *)0x04000000;
-static uint8_t *disp_framebuf_mirror = (uint8_t *)0x04080000;
-static uint8_t *disp_yuvbuf = (uint8_t *)0x04800000;
+static uint8_t __attribute__((aligned(4096))) __disp_framebuf_alloc[720*480];
+static uint8_t __attribute__((aligned(4096))) __disp_framebuf_mirror_alloc[720*480];
+static uint8_t __attribute__((aligned(4096))) __disp_yuvbuf_alloc[720*480*2];
+static uint8_t *disp_framebuf = __disp_framebuf_alloc;
+static uint8_t *disp_framebuf_mirror = __disp_framebuf_mirror_alloc;
+static uint8_t *disp_yuvbuf = __disp_yuvbuf_alloc;
 static uint32_t caching_bit = 0x40000000;
 
 static int disp_yres = 480;
