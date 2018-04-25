@@ -812,11 +812,13 @@ static void sf_dump(int drive)
         return;
     }
 
-    /* display buffer is at 0x44000000 => we've got 32 MB of space here */
-    void * buffer = (void *) 0x42000000;
+    /* allocate max size statically and hope for the best */
+    static uint8_t __buffer_alloc[0x1000000];
+    uint8_t * buffer = (uint8_t *)((uint32_t) __buffer_alloc | 0x40000000);
 
     /* save the file  */
     printf(" - Reading serial flash to memory:    ");
+    qprintf("Serial flash buffer %X - %X\n", buffer, buffer + sf_size);
     sf_read(0, buffer, sf_size);
 
     printf(" - Writing serial flash to SFDATA.BIN\n");
