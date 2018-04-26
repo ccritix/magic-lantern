@@ -152,7 +152,7 @@ static int guess_firmware_version()
             RESTARTSTART = (void*)RESTARTSTART_1100;
             *(int*)0xC0220134 = 0x46;  // SD card LED on
             return 1;
-        case SIG_1200D_100:
+        case SIG_1200D_102:
             blob_start = &blob_start_1200;
             blob_end = &blob_end_1200;
             RESTARTSTART = (void*)RESTARTSTART_1200;
@@ -219,7 +219,7 @@ asm(
 
     ".globl blob_start_1200\n"
     "blob_start_1200:\n"
-    ".incbin \"../1200D.100/magiclantern.bin\"\n" // 
+    ".incbin \"../1200D.102/magiclantern.bin\"\n" // 
     ".align 12\n"
     "blob_end_1200:"
     ".globl blob_end_1200\n"

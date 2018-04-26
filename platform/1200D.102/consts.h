@@ -1,5 +1,5 @@
 /*
- *  1200D 1.0.0 consts
+ *  1200D 1.0.2 consts
  */
 
 #define CANON_SHUTTER_RATING 100000
@@ -139,7 +139,7 @@
 
 // for gui_main_task (1100d 105)
 #define GMT_NFUNCS 7
-#define GMT_FUNCTABLE 0xFF6295F8
+#define GMT_FUNCTABLE 0xFF6295FC
 
 #define DIALOG_MnCardFormatBegin   (0x1218C+4) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
 #define DIALOG_MnCardFormatExecute (0x15174+4) // similar
