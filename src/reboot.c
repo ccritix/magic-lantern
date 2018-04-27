@@ -264,6 +264,14 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
     font_draw(&print_x, &print_y, color, scale, txt);
 }
 
+/* only for lines where '\n' was not yet printed */
+static void clear_line()
+{
+    printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
+    printf("                                            ");
+    printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
+}
+
 int printf(const char * fmt, ...)
 {
     va_list            ap;
@@ -492,6 +500,154 @@ static uint32_t data_abort_occurred()
     _dat_data_abort = 0;
 
     return ret;
+}
+
+static int check_read(const void * a)
+{
+    uint32_t x1 = MEM(a);
+    uint32_t y1 = MEM(a + 4);
+    uint32_t x2 = MEM(a);
+    uint32_t y2 = MEM(a + 4);
+    if (x1 != x2 || y1 != y2)
+    {
+        clear_line();
+        printf(" - %08X: inconsistent!\n", a);
+        return 0;
+    }
+    return 1;
+}
+
+static int memcmp64(const void * a, const void * b, int n)
+{
+    if (n % 8)
+    {
+        return memcmp(a, b, n);
+    }
+
+    for (int i = 0; i < n / 8; i++)
+    {
+        if (((uint64_t *)a)[i] != ((uint64_t *)b)[i])
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/* memcmp with progress indicator */
+int memcmp_v(const void * a, const void * b, int n, int n0)
+{
+    const int block_size = 0x100000;
+
+    if (n > block_size)
+    {
+        static char progress[] = "|/-\\";
+        static int status = 0;
+        int p = (uint64_t) (n0 - n) * 100ULL / n0;
+        printf("\b\b\b\b\b\b%3d%% %c", p, progress[(status++) & 3]);
+        if (memcmp64(a, b, block_size) == 0)
+        {
+            /* this gets optimized as tail call :) */
+            return memcmp_v(a + block_size, b + block_size, n - block_size, n0);
+        }
+    }
+
+    return memcmp64(a, b, n);
+}
+
+static int check_rom_mirroring(void * buf, int size, int full_size)
+{
+    clear_line();
+    printf(" - %08X-%08X: %08X...      ", buf, buf + full_size - 1, size);
+
+    if (size / 2 == 0)
+    {
+        return 0;
+    }
+
+    if (!check_read(buf))
+    {
+        /* try the upper half, hopefully that's valid */
+        return check_rom_mirroring(buf + size / 2, size / 2, size / 2);
+    }
+
+    if (!check_read(buf + size / 2))
+    {
+        /* unlikely */
+        return 0;
+    }
+
+    if (memcmp_v(buf, buf + size / 2, size / 2, size / 2) == 0)
+    {
+        /* identical halves? check recursively to find the lowest size with unique data */
+        if (!check_rom_mirroring(buf, size / 2, full_size))
+        {
+            clear_line();
+            printf(" - %08X-%08X: uniq 0x%X x 0x%X\n", buf, buf + full_size - 1, size / 2, full_size / (size / 2));
+        }
+        return 1;
+    }
+    else
+    {
+        /* different halves, let's check them */
+        if (size / 2 >= 0x100000)
+        {
+            check_rom_mirroring(buf, size / 2, size / 2);
+            check_rom_mirroring(buf + size / 2, size / 2, size / 2);
+        }
+        return 0;
+    }
+}
+
+static void print_rom_layout()
+{
+    if (0)
+    {
+        /* useful as initial diagnostic, or if it locks up */
+        uint32_t start_addrs[] = { 0xFF800000, 0xFF000000, 0xFE000000, 0xFC000000, 0xF8000000, 0xF7000000, 0xF0000000, 0xE0000000, 0xE8000000 };
+        for (int i = 0; i < COUNT(start_addrs); i++)
+        {
+            uint32_t a = start_addrs[i];
+
+            /* print just the address, in case it locks up */
+            printf(" - %08X-%08X: ", a, a + 4);
+
+            if (1)
+            {
+                uint32_t x1 = MEM(a);
+                uint32_t y1 = MEM(a + 4);
+                uint32_t x2 = MEM(a);
+                uint32_t y2 = MEM(a + 4);
+                if (x1 != x2 || y1 != y2)
+                {
+                    printf("inconsistent!\n");
+                }
+                else
+                {
+                    printf("%08X %08X\n", x1, y1);
+                }
+            }
+
+            if (0)
+            {
+                /* split this, just in case it locks up */
+                printf("%08X %08X %08X\n", MEM(a), MEM(a + 4), MEM(a));
+
+                /* let's try a larger size */
+                for (int size = 2; size < 0x10000000; size *= 2)
+                {
+                    printf(" - %08X-%08X: ", a, a + size - 1);
+                    printf("%d (%x,%x)\n", memcmp((void *) a, (void *) a + size/2, size/2), MEM(a), MEM(a + size/2));
+                }
+            }
+        }
+    }
+
+    /* is this generic enough? will it work on all models without locking up? */
+    /* 5D3: reading 0xE0000000 on 5D3 is very slow and gives different values every time */
+    /* appears to read back some of the address bits */
+    check_rom_mirroring((void *) 0xE0000000, 0x20000000, 0x20000000);
 }
 
 static uint32_t find_firmware_start()
@@ -1022,6 +1178,10 @@ cstart( int loaded_as_thumb )
     prop_diag();
     print_bootflags();
     print_firmware_start();
+
+    #if defined(CONFIG_BOOT_ROM_LAYOUT)
+    print_rom_layout();
+    #endif
 
     #if defined(CONFIG_BOOT_DUMPER)
         /* pick one method for dumping the ROM */
