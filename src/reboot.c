@@ -494,17 +494,48 @@ static uint32_t data_abort_occurred()
     return ret;
 }
 
-static void find_gaonisoy()
+static uint32_t find_firmware_start()
 {
-    for (uint32_t start = 0xFF000000; start < 0xFFFFFFF0; start += 4)
+    for (uint32_t start = 0xFFFF0000; start >= 0xE0000000; start -= 0x10000)
     {
-        if (MEM(start+4) == 0x6e6f6167 && MEM(start+8) == 0x796f7369) // gaonisoy
+        /* DIGIC 2/3: Wind River Systems */
+        if (MEM(start + 0x3C) == 0x646E6957 && MEM(start + 0x40) == 0x76695220)
         {
-            printf(" - ROMBASEADDR: 0x%X\n", start);
+            return start;
+        }
+
+        /* DIGIC 4/5: gaonisoy */
+        if (MEM(start + 4) == 0x6e6f6167 && MEM(start + 8) == 0x796f7369)
+        {
+            return start;
+        }
+
+        /* DIGIC 6: add r0, pc, #4; orr r0, r0, #1; bx r0 */
+        if (MEM(start + 0) == 0xE28F0004 &&
+            MEM(start + 4) == 0xE3800001 &&
+            MEM(start + 8) == 0xE12FFF10)
+        {
+            return start;
+        }
+
+        /* DIGIC 7: MCR p15, 0, R0,c12,c0, 0 (set VBAR - Vector Base Address Register) */
+        if (MEM(start + 2) == 0x0F10EE0C)
+        {
+            return start;
         }
     }
+
+    return 0;
 }
 
+static void print_firmware_start()
+{
+    uint32_t start = find_firmware_start();
+    if (start)
+    {
+        printf(" - ROMBASEADDR: 0x%08X\n", start);
+    }
+}
 
 struct model_data_s
 {
@@ -990,11 +1021,7 @@ cstart( int loaded_as_thumb )
     print_model();
     prop_diag();
     print_bootflags();
-
-    if (!is_digic6() && !is_digic7())
-    {
-        find_gaonisoy();
-    }
+    print_firmware_start();
 
     #if defined(CONFIG_BOOT_DUMPER)
         /* pick one method for dumping the ROM */
