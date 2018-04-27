@@ -83,17 +83,22 @@ static void disp_set_palette()
     else if (disp_bpp == 8)
     {
         /* DIGIC 6 */
-        static uint32_t __attribute__((aligned(16))) palette[16];
-        
+        /* the palette should be in uncacheable memory
+         * this trick only makes a difference when running as cacheable
+         * e.g. from 0x00800000 / 0x00800120 (AUTOEXEC / FIR) */
+        static uint32_t __attribute__((aligned(16))) palette_alloc[16];
+        uint32_t * palette = (void *)((uint32_t) palette_alloc | caching_bit);
+                
         for(uint32_t i = 0; i < 16; i++)
         {
             palette[i] = (palette_pb[i] << 8) | 0xFF;
             uint8_t* ovuy = (uint8_t*) &palette[i];
             ovuy[1] += 128; ovuy[2] += 128;
         }
-        
+
+        /* possibly just a DSB SY needed; to be tested */
         sync_caches();
-        
+
         MEM(PALETTE_REG_D6) = (uint32_t) palette >> 4;
         MEM(PALETTE_REG_D6-8) = 1;
     }
