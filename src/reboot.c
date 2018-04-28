@@ -287,10 +287,9 @@ static void fail()
 }
 
 /* file I/O stubs */
-static int (*boot_open_write)(int drive, char* filename, void* buf, uint32_t size) = 0;
-static int (*boot_card_init)() = 0;
-
-enum { DRIVE_CF, DRIVE_SD } boot_drive;
+enum boot_drive { DRIVE_CF, DRIVE_SD };
+static int (*boot_open_write)(int drive, char* filename, void* buf, uint32_t size);
+static int (*boot_card_init)();
 
 /* for intercepting Canon messages */
 static int (*boot_putchar)(int ch) = 0;
@@ -347,9 +346,8 @@ static void boot_dump(int drive, char* filename, uint32_t addr, int size)
     led_off();
 }
 
-struct sd_ctx sd_ctx;
-uint32_t print_x = 0;
-uint32_t print_y = 20;
+static uint32_t print_x = 0;
+static uint32_t print_y = 20;
 
 void print_line(uint32_t color, uint32_t scale, char *txt)
 {
@@ -424,6 +422,8 @@ static void print_err(FF_ERROR err)
         print_line(COLOR_RED, 1, text);
     }
 }
+
+static struct sd_ctx sd_ctx;
 
 static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
@@ -608,8 +608,9 @@ static void dump_rom(FF_IOMAN *ioman)
 }
 #endif
 
-void malloc_init(void *ptr, uint32_t size);
-void _vec_data_abort();
+extern void malloc_init(void *ptr, uint32_t size);
+
+extern void _vec_data_abort();
 extern uint32_t _dat_data_abort;
 
 static uint32_t data_abort_occurred()
@@ -1120,6 +1121,8 @@ static void dump_rom_with_fullfat()
 
     printf(" - Umount FAT\n");
     fat_deinit(ioman);
+#else
+    print_line(COLOR_RED, 2, " - FullFAT unsupported.\n");
 #endif
 }
 #endif
