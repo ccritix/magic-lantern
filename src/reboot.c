@@ -124,6 +124,129 @@ zero_bss( void )
         *(bss++) = 0;
 }
 
+
+struct model_data_s
+{
+    uint16_t id;
+    const char *name;
+};
+
+static const struct model_data_s model_data[] =
+{
+    { 0x000, "ERROR" },
+    { 0x213, "5D"    },
+    { 0x218, "5D2"   },
+    { 0x285, "5D3"   },
+    { 0x382, "5DS"   },
+    { 0x401, "5DSR"  },
+    { 0x349, "5D4"   },
+    { 0x302, "6D"    },
+    { 0x406, "6D2"   },
+    { 0x250, "7D"    },
+    { 0x289, "7D2"   },
+    { 0x168, "10D"   },
+    { 0x175, "20D"   },
+    { 0x234, "30D"   },
+    { 0x190, "40D"   },
+    { 0x261, "50D"   },
+    { 0x287, "60D"   },
+    { 0x325, "70D"   },
+    { 0x408, "77D"   },
+    { 0x350, "80D"   },
+    { 0x170, "300D"  },
+    { 0x189, "350D"  },
+    { 0x236, "400D"  },
+    { 0x176, "450D"  },
+    { 0x252, "500D"  },
+    { 0x270, "550D"  },
+    { 0x286, "600D"  },
+    { 0x301, "650D"  },
+    { 0x326, "700D"  },
+    { 0x393, "750D"  },
+    { 0x347, "760D"  },
+    { 0x405, "800D"  },
+    { 0x346, "100D"  },
+    { 0x417, "200D"  },
+    { 0x254, "1000D" },
+    { 0x288, "1100D" },
+    { 0x327, "1200D" },
+    { 0x404, "1300D" },
+    { 0x432, "2000D" },
+    { 0x422, "4000D" },
+    { 0x331, "M"     },
+    { 0x355, "M2"    },
+    { 0x412, "M50"   },
+};
+
+uint32_t get_model_id()
+{
+    uint32_t *model_ptr = (uint32_t *)0xF8002014;
+
+    if(*model_ptr && *model_ptr < 0x00000FFF)
+    {
+        return *model_ptr;
+    }
+
+    /* newer models */
+    model_ptr = (uint32_t *)0xF8020014;
+    if(*model_ptr && *model_ptr < 0x00000FFF)
+    {
+        return *model_ptr;
+    }
+
+    /* even newer models (DIGIC 6) */
+    model_ptr = (uint32_t *)0xFC060014;
+    if(*model_ptr && *model_ptr < 0x00000FFF)
+    {
+        return *model_ptr;
+    }
+
+    /* DIGIC 7 */
+    model_ptr = (uint32_t *)0xE9FF9014;
+    if(*model_ptr && *model_ptr < 0x00000FFF)
+    {
+        return *model_ptr;
+    }
+
+    return 0;
+}
+
+uint32_t is_digic6()
+{
+    return get_model_id() == *(uint32_t *)0xFC060014;
+}
+
+uint32_t is_digic7()
+{
+    return ml_loaded_as_thumb;
+}
+
+uint32_t is_vxworks()
+{
+    /* check for Wind (from Wind River Systems, Inc.) */
+    return MEM(0xFF81003C) == 0x646E6957;
+}
+
+static const char *get_model_string()
+{
+    uint32_t model = get_model_id();
+
+    for(int pos = 0; pos < COUNT(model_data); pos++)
+    {
+        if(model_data[pos].id == model)
+        {
+            return model_data[pos].name;
+        }
+    }
+
+    return "unknown";
+}
+
+static void print_model()
+{
+    printf(" - Model ID: 0x%X %s\n", get_model_id(), get_model_string());
+}
+
 static void busy_wait(int n)
 {
     int i,j;
@@ -691,128 +814,6 @@ static void print_firmware_start()
     {
         printf(" - ROMBASEADDR: 0x%08X\n", start);
     }
-}
-
-struct model_data_s
-{
-    uint16_t id;
-    const char *name;
-};
-
-static const struct model_data_s model_data[] =
-{
-    { 0x000, "ERROR" },
-    { 0x213, "5D"    },
-    { 0x218, "5D2"   },
-    { 0x285, "5D3"   },
-    { 0x382, "5DS"   },
-    { 0x401, "5DSR"  },
-    { 0x349, "5D4"   },
-    { 0x302, "6D"    },
-    { 0x406, "6D2"   },
-    { 0x250, "7D"    },
-    { 0x289, "7D2"   },
-    { 0x168, "10D"   },
-    { 0x175, "20D"   },
-    { 0x234, "30D"   },
-    { 0x190, "40D"   },
-    { 0x261, "50D"   },
-    { 0x287, "60D"   },
-    { 0x325, "70D"   },
-    { 0x408, "77D"   },
-    { 0x350, "80D"   },
-    { 0x170, "300D"  },
-    { 0x189, "350D"  },
-    { 0x236, "400D"  },
-    { 0x176, "450D"  },
-    { 0x252, "500D"  },
-    { 0x270, "550D"  },
-    { 0x286, "600D"  },
-    { 0x301, "650D"  },
-    { 0x326, "700D"  },
-    { 0x393, "750D"  },
-    { 0x347, "760D"  },
-    { 0x405, "800D"  },
-    { 0x346, "100D"  },
-    { 0x417, "200D"  },
-    { 0x254, "1000D" },
-    { 0x288, "1100D" },
-    { 0x327, "1200D" },
-    { 0x404, "1300D" },
-    { 0x432, "2000D" },
-    { 0x422, "4000D" },
-    { 0x331, "M"     },
-    { 0x355, "M2"    },
-    { 0x412, "M50"   },
-};
-
-uint32_t get_model_id()
-{
-    uint32_t *model_ptr = (uint32_t *)0xF8002014;
-
-    if(*model_ptr && *model_ptr < 0x00000FFF)
-    {
-        return *model_ptr;
-    }
-
-    /* newer models */
-    model_ptr = (uint32_t *)0xF8020014;
-    if(*model_ptr && *model_ptr < 0x00000FFF)
-    {
-        return *model_ptr;
-    }
-
-    /* even newer models (DIGIC 6) */
-    model_ptr = (uint32_t *)0xFC060014;
-    if(*model_ptr && *model_ptr < 0x00000FFF)
-    {
-        return *model_ptr;
-    }
-
-    /* DIGIC 7 */
-    model_ptr = (uint32_t *)0xE9FF9014;
-    if(*model_ptr && *model_ptr < 0x00000FFF)
-    {
-        return *model_ptr;
-    }
-
-    return 0;
-}
-
-uint32_t is_digic6()
-{
-    return get_model_id() == *(uint32_t *)0xFC060014;
-}
-
-uint32_t is_digic7()
-{
-    return ml_loaded_as_thumb;
-}
-
-uint32_t is_vxworks()
-{
-    /* check for Wind (from Wind River Systems, Inc.) */
-    return MEM(0xFF81003C) == 0x646E6957;
-}
-
-static const char *get_model_string()
-{
-    uint32_t model = get_model_id();
-
-    for(int pos = 0; pos < COUNT(model_data); pos++)
-    {
-        if(model_data[pos].id == model)
-        {
-            return model_data[pos].name;
-        }
-    }
-
-    return "unknown";
-}
-
-static void print_model()
-{
-    printf(" - Model ID: 0x%X %s\n", get_model_id(), get_model_string());
 }
 
 /** Shadow copy of the NVRAM boot flags stored at 0xF8000000
