@@ -691,8 +691,16 @@ static int check_rom_mirroring(void * buf, int size, int full_size)
 
     if (!check_read(buf))
     {
-        /* try the upper half, hopefully that's valid */
-        return check_rom_mirroring(buf + size / 2, size / 2, size / 2);
+        if (size / 2 >= 0x1000)
+        {
+            /* try the upper half, hopefully that's valid */
+            return check_rom_mirroring(buf + size / 2, size / 2, size / 2);
+        }
+        else
+        {
+            /* nevermind */
+            return 0;
+        }
     }
 
     if (!check_read(buf + size / 2))
@@ -768,9 +776,20 @@ static void print_rom_layout()
     }
 
     /* is this generic enough? will it work on all models without locking up? */
-    /* 5D3: reading 0xE0000000 on 5D3 is very slow and gives different values every time */
-    /* appears to read back some of the address bits */
-    check_rom_mirroring((void *) 0xE0000000, 0x20000000, 0x20000000);
+    /* DIGIC 4: reading 0xE0000000 usually (but not always!) returns the same byte repeated over and over */
+    /* DIGIC 5: reading 0xE0000000 is very slow and gives different values every time */
+    /*          it appears to read back some of the address bits */
+    /* DIGIC 6: locks up when reading 0xE0000000 or 0xEE000000, though bootloader configures the latter */
+    /* DIGIC 7: the main ROM is at 0xE0000000 and there is another one at 0xF0000000, so it should be OK */
+
+    if (is_digic7())
+    {
+        check_rom_mirroring((void *) 0xE0000000, 0x20000000, 0x20000000);
+    }
+    else
+    {
+        check_rom_mirroring((void *) 0xF0000000, 0x10000000, 0x10000000);
+    }
 }
 
 static uint32_t find_firmware_start()
