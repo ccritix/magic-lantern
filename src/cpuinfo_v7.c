@@ -383,6 +383,7 @@ const struct cpuinfo_word_desc_s cpuinfo_desc[]={
     {"ACTLR", cpuinf_generic },
     {"ACTLR2", cpuinf_generic },
     {"CPACR", cpuinf_generic },
+#if 0   /* not working on DIGIC 7 */
     {"Build options 1", cpuinf_generic },
     {"Build options 2", cpuinf_generic },
     {"ATCM region reg", cpuinf_tcmreg },
@@ -411,6 +412,7 @@ const struct cpuinfo_word_desc_s cpuinfo_desc[]={
     {"MPU region 7 base", cpuinf_mpubase },
     {"MPU region 7 size & enable", cpuinf_mpusizeen },
     {"MPU region 7 access control", cpuinf_accesscontrol },
+#endif
     //{"Floating Point System ID register", cpuinf_generic },
     //{"Media and VFP Feature Register 0", cpuinf_generic },
     //{"Media and VFP Feature Register 1", cpuinf_generic },
@@ -535,6 +537,7 @@ void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) {
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
+#if 0   /* not working on DIGIC 7 */
         "MRC    p15, 0, R1,c15,c2,0\n" // Build options 1 reg
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
@@ -654,6 +657,7 @@ void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) {
         "MRC    p15, 0, R1,c6,c1,4\n" // MPU Region Access Control Register
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
+#endif
 
         //".word  0xEEF01A10\n" //"VMRS   R1, FPSID\n" // Floating Point System ID register
         //"ADD    R0, R0, #4\n"
