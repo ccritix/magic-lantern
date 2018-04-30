@@ -4213,7 +4213,7 @@ static unsigned int raw_rec_init()
     cam_700d  = is_camera("700D", "1.1.5");
     cam_60d   = is_camera("60D",  "1.1.1");
     cam_500d  = is_camera("500D", "1.1.1");
-    cam_1200d = is_camera("1200D", "1.0.1");
+    cam_1200d = is_camera("1200D", "1.0.2");
 
     cam_5d3_113 = is_camera("5D3",  "1.1.3");
     cam_5d3_123 = is_camera("5D3",  "1.2.3");

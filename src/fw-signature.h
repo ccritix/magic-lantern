@@ -21,6 +21,7 @@
 #define SIG_5D2_212  0xae78b938 // from FF010000
 #define SIG_1100D_105 0x46de7624 // from FF010000
 #define SIG_1200D_101 0x9d618f81 // identical to 1.0.0, except version and build date
+#define SIG_1200D_102 0xba19c526 // QEMU
 #define SIG_6D_112   0x6D677512
 #define SIG_6D_113   0x6B6A9C6F
 #define SIG_6D_116   0x11cb1ed2
