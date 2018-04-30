@@ -37,9 +37,9 @@ static void blink(int n)
     while (1)
     {
 #if defined(CARD_LED_ADDRESS) && defined(LEDON) && defined(LEDOFF)
-        *(volatile int*)(CARD_LED_ADDRESS) = (LEDON);
+        *(volatile uint32_t *)(CARD_LED_ADDRESS) = (LEDON);
         busy_wait(n);
-        *(volatile int*)(CARD_LED_ADDRESS) = (LEDOFF);
+        *(volatile uint32_t *)(CARD_LED_ADDRESS) = (LEDOFF);
         busy_wait(n);
 #else
     #warning LED address unknown
@@ -53,7 +53,7 @@ static void blink_all(int n)
      * https://chdk.setepontos.com/index.php?topic=1493.msg13469#msg13469
      * 7D2 LED is at 0xd20b0c34 (i=269).
      */
-    volatile int* leds = (volatile int*) 0xd20b0800;
+    volatile uint32_t * leds = (volatile uint32_t *) 0xd20b0800;
 
     while (1)
     {
@@ -105,7 +105,7 @@ static void guess_led(int n)
     const uint32_t led_off      = 0x4C0003;
 #endif
 
-    volatile int* leds = (volatile int*) base_addr;
+    volatile uint32_t * leds = (volatile uint32_t *) base_addr;
     
     while (1)
     {
