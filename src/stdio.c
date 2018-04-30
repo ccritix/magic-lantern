@@ -11,33 +11,13 @@
 #include "dryos.h"
 //#include <errno.h>
 
-// sometimes gcc likes very much the default fprintf and uses that one
-// => renamed to my_fprintf to force it to use this one
-int
-my_fprintf(
-    FILE *          file,
-    const char *        fmt,
-    ...
-)
-{
-    va_list         ap;
-    int len = 0;
-    
-    const int maxlen = 512;
-    char buf[maxlen];
-
-    va_start( ap, fmt );
-    len = vsnprintf( buf, maxlen-1, fmt, ap );
-    va_end( ap );
-    FIO_WriteFile( file, buf, len );
-    
-    return len;
-}
-
 // Don't use strcmp since we don't have it
 int
 streq( const char * a, const char * b )
 {
+    ASSERT(a);
+    ASSERT(b);
+
     while( *a && *b )
         if( *a++ != *b++ )
             return 0;
@@ -106,19 +86,18 @@ snprintf(
  * memset64     : 194MB/s (!)   130MB/s
  */
 
+/* this duplicates 32-bit integers, unlike memset, which converts to char first */
 void* FAST memset64(void* dest, int val, size_t n)
 {
-    size_t i = 0;
-    if ((intptr_t)dest & 7)
-    {
-        dest = (void*)((intptr_t)dest & ~7) + 8;
-        i++;
-        n -= 8 - ((intptr_t)dest & 7);
-    }
-    uint64_t* dst = (uint64_t*) dest;
+    /* seems to accept 32-bit aligned pointers */
+    ASSERT(((intptr_t)dest & 3) == 0);
+    ASSERT((n & 7) == 0);
+
     uint64_t v1 = ((uint64_t) val) & 0xFFFFFFFFull;
     uint64_t v = v1 << 32 | v1;
-    for(; i < n/8; i++)
+
+    uint64_t* dst = (uint64_t*) dest;
+    for(size_t i = 0; i < n/8; i++)
         *dst++ = v;
     return (void*)dest;
 }
@@ -130,23 +109,17 @@ void* FAST memset64(void* dest, int val, size_t n)
  * memcpy64     : 80MB/s        32MB/s
  */
 
-void* FAST memcpy64(void* dest, void* srce, size_t n)
+void * FAST memcpy64(void* dest, void* srce, size_t n)
 {
-    size_t i = 0;
-    if ((intptr_t)dest & 7)
-    {
-        srce = (void*)((intptr_t) srce & ~7) + 8;
-        i++;
-        n -= 8 - ((intptr_t)dest & 7);
-    }
-    if ((intptr_t)dest & 7)
-    {
-        dest = (void*)((intptr_t) dest & ~7) + 8;
-    }
+    /* seems to accept 32-bit aligned pointers */
+    ASSERT(((intptr_t)dest & 3) == 0);
+    ASSERT(((intptr_t)srce & 3) == 0);
+    ASSERT((n & 7) == 0);
+
     uint64_t* dst = (uint64_t*) dest;
     uint64_t* src = (uint64_t*) srce;
-    for(; i < n/8; i++)
+    for(size_t i = 0; i < n/8; i++)
         *dst++ = *src++;
     
-    return (void*)dest;
+    return (void*)dst;
 }

@@ -29,6 +29,7 @@
 #include "fw-signature.h"
 #include "disp_direct.h"
 #include <string.h>
+#include <qemu-util.h>
 
 /* this magic is a BX R3 */
 #define FOOTER_MAGIC 0xE12FFF13
@@ -214,6 +215,8 @@ cstart( void )
     uint32_t expected_signature = CURRENT_CAMERA_SIGNATURE;
     if (s != expected_signature)
     {
+        qprint("[boot] firmware signature: "); qprintn(s); qprint("\n");
+        qprint("                 expected: "); qprintn(expected_signature); qprint("\n");
         fail();
     }
 #endif
@@ -256,6 +259,7 @@ cstart( void )
        sooner or later. So, we have copied it to RESTARTSTART, and will tell Canon code not to touch it
        (usually by resizing some memory allocation pool and choosing RESTARTSTART in the newly created space).
     */
+    qprint("[boot] copy_and_restart "); qprintn(RESTARTSTART); qprint("\n");
     void __attribute__((long_call)) (*copy_and_restart)() = (void*) RESTARTSTART;
     copy_and_restart();
 
