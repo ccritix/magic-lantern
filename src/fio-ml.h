@@ -1,17 +1,21 @@
 #ifndef fio_5d3_h
 #define fio_5d3_h
 
+#include <stdio.h>
+
 #define CARD_A 0
 #define CARD_B 1
 #define CARD_C 2
 
 struct card_info {
     char * drive_letter;
-    char * type;
+    char * type;            /* SD/CF/EXT */
     int cluster_size;
     int free_space_raw;
     int file_number;
     int folder_number;
+    char * maker;           /* only for some cameras; NULL otherwise */
+    char * model;
 };
 
 struct card_info * get_ml_card();
@@ -39,8 +43,6 @@ int is_dir(const char* path);
  * - if all the files numbered from 0 to nmax are used, the function will return -1 and the filename string will be numbered with 0.
  */
 int get_numbered_file_name(const char* pattern, int nmax, char* filename, int maxlen);
-
-typedef struct _file * FILE;
 
 /** \name File I/O flags.
  *
@@ -139,5 +141,8 @@ void dump_big_seg(int k, char* filename);
 size_t read_file( const char * filename, void * buf, size_t size);
 
 uint8_t* read_entire_file(const char * filename, int* buf_size);
+
+const char* get_dcim_dir();
+const char* get_dcim_dir_suffix();
 
 #endif

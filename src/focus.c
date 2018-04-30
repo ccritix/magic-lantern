@@ -70,13 +70,6 @@ int LensFocus2(int num_steps, int step_size)
     return lens_focus(num_steps, step_size, lens_focus_waitflag, lens_focus_delay*10);
 }
 
-void LensFocusSetup(int stepsize, int stepdelay, int wait)
-{
-    lens_focus_stepsize = COERCE(stepsize, 1, 3);
-    lens_focus_waitflag = wait;
-    lens_focus_delay = stepdelay/10;
-}
-
 static int focus_stack_enabled = 0;
 //~ CONFIG_INT( "focus.stack", focus_stack_enabled, 0);
 
@@ -129,9 +122,14 @@ int get_follow_focus_dir_h() { return follow_focus_reverse_h ? -1 : 1; }
  * Compute the depth of field, accounting for diffraction.
  *
  * See:
- *      http://www.largeformatphotography.info/articles/DoFinDepth.pdf
+ *      The INs and OUTs of FOCUS: An Alternative Way to Estimate Depth-of-Field and Sharpness in the Photographic Image 
+ *      by
+ *      Harold M. Merklinger - Page 15 
  * 
- * Assumes a ‘generic’ FF or Crop sensor, ie pixel density
+ *      Note the equations used in the above are referenced to the lens princpal of the lens, ie about a focal length difference
+ *      which is important for macro work
+ *
+ * Assumes a 'generic' FF or Crop sensor, ie pixel density
  *
  * Makes the reasonable assumption that pupillary ratio can be ignored, ie use symmetric lens equations,
  * as this only introduces a very small correction for non-macro imaging (hence what follows does
@@ -145,10 +143,10 @@ int get_follow_focus_dir_h() { return follow_focus_reverse_h ? -1 : 1; }
 void focus_calc_dof()
 {
     // Total (defocus + diffraction) blur dia in microns
-    uint64_t        coc = dof_info_coc;
+    uint64_t        coc = dof_info_coc * 10; //User CoC in tenths of a micron
 
-    const uint64_t  fd = lens_info.focus_dist * 10; // into mm
     const uint64_t  fl = lens_info.focal_len; // already in mm
+    const uint64_t  fd = lens_info.focus_dist * 10 - fl; // convert focus relative to approx principal plane, ie not sensor
     
     // If we have no aperture value then we can't compute any of this
     // Also not all lenses report the focus length or distance
@@ -160,10 +158,9 @@ void focus_calc_dof()
         return;
     }
 
-    // Set up some dof info
-    const uint64_t  freq = 550;         // mid vis diffraction freq in nm (use 850 if IR)
-    const uint64_t  imag = (fd-fl)/fl;  // inverse of magnification (to keep as integer)
-    const uint64_t  diff = (244*freq*lens_info.aperture*(1+imag)/imag)/1000000; // Diffraction blur in microns
+    // Estimate diffraction
+    const uint64_t  freq = 550; // mid vis diffraction freq in nm (use 850 if IR)
+    const uint64_t  diff = (244*freq*lens_info.aperture)/100000; // Diffraction blur at infinity in tenths of a micron
 
     int dof_flags = 0;
 
@@ -180,25 +177,27 @@ void focus_calc_dof()
         {
             // calculate defocus only blur in microns
             const uint64_t sq = (coc*coc - diff*diff);
-            coc = (int) sqrtf(sq); // Defocus only blur
+            coc = (int) sqrtf(sq); // Defocus only blur in tenths of a micron
         }
     }
 
     const uint64_t        fl2 = fl * fl;
 
     // Calculate hyperfocal distance H 
-    const uint64_t H = coc ? fl + ((10000 * fl2) / (lens_info.aperture  * coc)) : 1000 * 1000;
-    lens_info.hyperfocal = H;
+    const uint64_t H = coc ? fl + ((100000 * fl2) / (lens_info.aperture * coc)) : 1000 * 1000; // H referenced to the lens principal plane
+    lens_info.hyperfocal = H + fl; // in mm referenced to the sensor
   
     // Calculate near and far dofs
-    lens_info.dof_near = (fd*fl*10000)/(10000*fl + imag*lens_info.aperture*coc); // in mm
+    lens_info.dof_near = fl + (fd*H-fl2)/(H+fd-2*fl); // in mm relative to the sensor plane
     if( fd >= H )
     {
         lens_info.dof_far = 1000 * 1000; // infinity
     }
     else
     {
-        lens_info.dof_far = (fd*fl*10000)/(10000*fl - imag*lens_info.aperture*coc); // in mm
+        /* the result may exceed the int32_t range */
+        uint64_t dof_far = fl + (fd*H - 2*fl*fd + fl2)/(H-fd); // in mm relative to the sensor plane
+        lens_info.dof_far = MIN(dof_far, 1000 * 1000);
     }
 
     // update DOF flags
@@ -208,7 +207,7 @@ void focus_calc_dof()
     lens_info.dof_near = MAX(lens_info.dof_near, 1);
     lens_info.dof_far = MAX(lens_info.dof_far, 1);
 
-    lens_info.dof_diffraction_blur = (int) diff;
+    lens_info.dof_diffraction_blur = (int) diff/10; //Return to microns
 }
 
 LVINFO_UPDATE_FUNC(focus_dist_update)
@@ -371,7 +370,7 @@ static int focus_stack_should_stop = 0;
 static int focus_stack_check_stop()
 {
     if (gui_menu_shown()) focus_stack_should_stop = 1;
-    if (CURRENT_DIALOG_MAYBE == 2) focus_stack_should_stop = 1; // Canon menu open
+    if (CURRENT_GUI_MODE == 2) focus_stack_should_stop = 1; // Canon menu open
     return focus_stack_should_stop;
 }
 
@@ -383,7 +382,7 @@ static void focus_stack_ensure_preconditions()
         while (!lv)
         {
             focus_stack_check_stop();
-            get_out_of_play_mode(500);
+            exit_play_qr_mode();
             focus_stack_check_stop();
             if (!lv) force_liveview();
             if (lv) break;
@@ -466,7 +465,7 @@ focus_stack(
         focus_stack_ensure_preconditions();
         if (focus_stack_check_stop()) break;
 
-        if (gui_menu_shown() || CURRENT_DIALOG_MAYBE == 2) break; // menu open? stop here
+        if (gui_menu_shown() || CURRENT_GUI_MODE == 2) break; // menu open? stop here
 
         if (!(
             (!is_bracket && skip_frame && (i == 0)) ||              // first frame in SNAP-stack
@@ -753,7 +752,6 @@ focus_task( void* unused )
 {
     TASK_LOOP
     {
-        msleep(50);
         int err = take_semaphore( focus_task_sem, 500 );
         if (err) continue;
         
@@ -1027,9 +1025,9 @@ focus_misc_task(void* unused)
         }
         
 #ifdef CONFIG_60D
-        if (CURRENT_DIALOG_MAYBE_2 == DLG2_FOCUS_MODE && is_manual_focus())
+        if (CURRENT_GUI_MODE_2 == DLG2_FOCUS_MODE && is_manual_focus())
 #else
-        if (CURRENT_DIALOG_MAYBE == DLG_FOCUS_MODE && is_manual_focus())
+        if (CURRENT_GUI_MODE == GUIMODE_FOCUS_MODE && is_manual_focus())
 #endif
         {   
             #ifdef FEATURE_TRAP_FOCUS
@@ -1037,9 +1035,9 @@ focus_misc_task(void* unused)
             #endif
             
             #ifdef CONFIG_60D
-            while (CURRENT_DIALOG_MAYBE_2 == DLG2_FOCUS_MODE) msleep(100);
+            while (CURRENT_GUI_MODE_2 == DLG2_FOCUS_MODE) msleep(100);
             #else
-            while (CURRENT_DIALOG_MAYBE == DLG_FOCUS_MODE) msleep(100);
+            while (CURRENT_GUI_MODE == GUIMODE_FOCUS_MODE) msleep(100);
             #endif
         }
     }
@@ -1248,10 +1246,9 @@ static struct menu_entry focus_menu[] = {
                 .name = "Step Delay",
                 .priv = &lens_focus_delay,
                 .update = focus_delay_update,
-                .min = 1,
+                .min = 0,
                 .max = 100,
                 .icon_type = IT_PERCENT_LOG,
-                //~ .choices = CHOICES("10ms", "20ms", "40ms", "80ms", "160ms", "320ms", "640ms"),
                 .help = "Delay between two successive focus commands.",
             },
             {

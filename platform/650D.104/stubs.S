@@ -48,8 +48,9 @@ NSTUB(0xFF0C5430,  init_task)
 NSTUB(0xFF34290C,  FIO_CloseFile)                           // from Indy
 NSTUB(0xFF343904,  FIO_FindClose)                           // proper name: FindClose
 NSTUB(0xFF343824,  FIO_FindNextEx)
-NSTUB(0xFF3426BC,  FIO_ReadFile)
-NSTUB(0xFF34285C,  FIO_WriteFile)                           // from Indy
+NSTUB(0xFF3426BC, _FIO_ReadFile)
+NSTUB(0xFF34276C,  FIO_SeekSkipFile)                        /* took relative offset of 700D entry points and compared them to 650Ds. Tests are OK. */
+NSTUB(0xFF34285C, _FIO_WriteFile)                           // from Indy
 NSTUB(0xFF343168, _FIO_CreateDirectory)
 NSTUB(0xFF342568, _FIO_CreateFile)                          // from Indy
 NSTUB(0xFF343730, _FIO_FindFirstEx)
@@ -57,7 +58,6 @@ NSTUB(0xFF342A88, _FIO_GetFileSize)
 NSTUB(0xFF3424AC, _FIO_OpenFile)
 NSTUB(0xFF342614, _FIO_RemoveFile)
 NSTUB(0xFF342FA0, _FIO_RenameFile)
-NSTUB(0xFF34276C,  FIO_SeekSkipFile)                        /* took relative offset of 700D entry points and compared them to 650Ds. Tests are OK. */
 
 /** GUI **/
 NSTUB(   0x236A8,  gui_main_struct)
@@ -82,12 +82,12 @@ NSTUB(0xFF108E98,  SetNextASIFADCBuffer)
 NSTUB(0xFF108F4C,  SetNextASIFDACBuffer)
 NSTUB(0xFF132D30,  SetSamplingRate)
 NSTUB(0xFF10AEBC,  SoundDevActiveIn)
-NSTUB(0xFF10B0D8,  SoundDevShutDownIn)
 NSTUB(0xFF108764,  StartASIFDMAADC)
 NSTUB(0xFF10891C,  StartASIFDMADAC)
 NSTUB(0xFF1089F4,  StopASIFDMADAC)
+// NSTUB(0xFF1088E0,  StopASIFDMAADC)                       /* breaks the audio meters */
+// NSTUB(0xFF10B0D8,  SoundDevShutDownIn)                   /* breaks the audio meters */
 // NSTUB(    ???,  SetASIFMode)                             /* present on 700D.113 */
-// NSTUB(    ???,  StopASIFDMAADC)                          /* present on 7D.203, 6D.113, EOSM.202 */
 
 /** Audio **/
 NSTUB(   0x239E4,  sounddev)
@@ -96,6 +96,7 @@ NSTUB(0xFF335394, _audio_ic_write)
 NSTUB(0xFF7F27F4,  audio_thresholds)
 NSTUB(0xFF10AEBC,  sounddev_active_in)
 NSTUB(0xFF10A9D0,  sounddev_task)
+// NSTUB(    ???, _audio_ic_write_bulk)                     /* present on 6D.116 */
 
 /** Bitmap **/
 NSTUB(   0x505EC,  LCD_Palette)                             // in InitializeBitmapDisplayDevice, right after 0xc0f14800
@@ -131,7 +132,7 @@ NSTUB(0xFF5295C0,  LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState)
 NSTUB(0xFF52A8C4,  LiveViewApp_handler_end)                 // start of next function
 NSTUB(0xFF6E056C,  LiveViewShutterApp_handler)
 NSTUB(0xFF6F9D74,  PlayMain_handler)
-NSTUB(0xFF666C4C,  PlayMovieGuideApp_handler)
+NSTUB(0xFF542BA0,  PlayMovieGuideApp_handler)
 NSTUB(0xFF52EFE8,  ShootOlcApp_handler)                     // AJ_DIALOG.HANDLER_DlgShootOlcInfo.c
 // NSTUB(    ???,  LiveViewLevelApp_handler)                /* present on 5D3.113 */
 // NSTUB(    ???,  LiveViewWbApp_handler)                   /* present on 7D.203, 5D3.113, 5D2.212 */
@@ -145,6 +146,7 @@ NSTUB(0xFF4D56E8,  NormalDisplay)                           // xref: Normal star
 NSTUB(0xFF4D56B8,  ReverseDisplay)                          // xref: Reverse start
 
 /** EDMAC **/
+NSTUB(0xFFA5EBC4 - RAM_OFFSET,  AbortEDmac)
 NSTUB(0xFFA5E8D0 - RAM_OFFSET,  ConnectReadEDmac)
 NSTUB(0xFFA5E80C - RAM_OFFSET,  ConnectWriteEDmac)
 NSTUB(0xFFA5ED4C - RAM_OFFSET,  RegisterEDmacAbortCBR)
@@ -200,11 +202,11 @@ NSTUB(0xFF0EA5B8,  SRM_FreeMemoryResourceFor1stJob)
 // NSTUB(    ???,  gui_timer_struct)                        /* present on 7D.203, 500D.111, 60D.111, 50D.109, 5D2.212, 600D.102, 550D.109, 1100D.105 */
 
 /** GUI timers **/
+NSTUB(0xFF51DBD8,  CancelDateTimer)                         /* present on 7D.203, 6D.113, 5D3.113 */
 NSTUB(0xFFA589B8 - RAM_OFFSET,  CancelTimer)
 NSTUB(0xFFA522B8 - RAM_OFFSET,  SetHPTimerAfterNow)
 NSTUB(0xFFA523A8 - RAM_OFFSET,  SetHPTimerNextTick)
 NSTUB(0xFFA587B8 - RAM_OFFSET,  SetTimerAfter)
-NSTUB(0xFF51DBD8,  CancelDateTimer)                         /* present on 7D.203, 6D.113, 5D3.113 */
 
 /** H264 Encoder **/
 NSTUB(   0x31424,  mvr_config)
@@ -227,6 +229,7 @@ NSTUB(0xFF145480,  DispSensorStart)
 NSTUB(   0x48B6C,  sd_device)
 NSTUB(0xFF62B124,  fsuDecodePartitionTable)                 // AJ_fsuGetPart_related
 //NSTUB(   0x20890, cf_device) idk...
+// NSTUB(    ???,  cf_device_ptr)                           /* present on 5D3.113 */
 
 /** Memory allocation **/
 NSTUB(0xFFA54778 - RAM_OFFSET,  GetMemoryInformation)
@@ -280,9 +283,9 @@ NSTUB(0xFFA535B8 - RAM_OFFSET,  take_semaphore)
 
 /** Task info **/
 NSTUB(   0x247A4,  task_max)                                // Not so sure....
-NSTUB(0xFFA4F80C - RAM_OFFSET,  get_current_task)
-NSTUB(0xFFA5B96C - RAM_OFFSET,  get_obj_attr)               // AJ_checks_if_Process_id_created_by_Dryos
 NSTUB(0xFFA66C0C - RAM_OFFSET,  is_taskid_valid)            // AJ_task_trampoline_related_p10
+NSTUB(   0x233D8,  current_task)
+NSTUB(     0x674,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
 
 /** Task sleep **/
 NSTUB(0xFFA53A94 - RAM_OFFSET,  msleep)
@@ -298,12 +301,12 @@ NSTUB(0xFFA58E60 - RAM_OFFSET,  task_trampoline)
 NSTUB(0xFF130A44,  LoadCalendarFromRTC)                     // xref: called by exceptionhandlercbr
 NSTUB(0xFFA621C4 - RAM_OFFSET,  vsnprintf)                  // not sure it gets called from RAM
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
+// NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  lv_path_struct)                          /* present on 60D.111, 600D.102, 550D.109, 1100D.105 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
 
 /** Unused stubs or porting notes **/
-///NSTUB(   0x118E4,  AbortEDmac)
 ///NSTUB(0xFF4B341C,  CreateDialogBox)
 ///NSTUB(0xFF4B23E4,  DeleteDialogBox)
 ///NSTUB(0xFF511E88, ErrCardApp_handler) // Unused
