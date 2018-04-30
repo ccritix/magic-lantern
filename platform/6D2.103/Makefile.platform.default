@@ -1,0 +1,18 @@
+# 6D2 1.0.3
+
+CANON_NAME_FIR  = 6D200103.FIR
+FIRMWARE_ID     = 0x80000406
+UPDATE_NAME_FIR = BLNK_6D2.FIR
+FIR_BASE        = 0x00800120
+AUTOEXEC_BASE   = 0x00800000
+
+# these are not correct (just to compile)
+RESTARTSTART    = 0x0
+ROMBASEADDR     = 0xFC000000
+
+# these should be removed when porting starts
+ML_SRC_PROFILE  = minimal
+ML_SRC_REBOOT_OBJ = reboot-dumper.o footer.o
+
+# binaries apparently loaded as Thumb, unlike previous models
+CFLAGS += -mthumb
