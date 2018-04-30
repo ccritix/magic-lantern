@@ -53,12 +53,14 @@ static void blink_all(int n)
      * https://chdk.setepontos.com/index.php?topic=1493.msg13469#msg13469
      * 7D2 LED is at 0xd20b0c34 (i=269).
      */
+    volatile int* leds = (volatile int*) 0xd20b0800;
+
     while (1)
     {
         // turn all led on all addresses on
         for (int i = 0; i < 512; i++)
         {
-            *(volatile int*)(0xd20b0800 + i * 4) = 0x4c0003;
+            leds[i] = 0x4c0003;
         }
 
         busy_wait(n);
@@ -66,7 +68,7 @@ static void blink_all(int n)
         // turn led off on all addresses
         for (int i = 0; i < 512; i++)
         {
-            *(volatile int*)(0xd20b0800 + i * 4) = 0x4d0002;
+            leds[i] = 0x4d0002;
         }
 
         busy_wait(n);
@@ -102,6 +104,8 @@ static void guess_led(int n)
     const uint32_t led_on       = 0x4D0002;
     const uint32_t led_off      = 0x4C0003;
 #endif
+
+    volatile int* leds = (volatile int*) base_addr;
     
     while (1)
     {
@@ -110,7 +114,7 @@ static void guess_led(int n)
             // turn all led on all addresses on
             for (int i = 0; i < N; ++i)
             {
-                *(volatile int*)(base_addr + i * 4) = led_on;
+                leds[i] = led_on;
             }
             
             // sleep short
@@ -122,7 +126,7 @@ static void guess_led(int n)
                 int shortBlink = (i & (1<<bit)) == 0;
                 if (shortBlink)
                 {
-                    *(volatile int*)(base_addr + i * 4) = led_off;
+                    leds[i] = led_off;
                 }
             }
 
@@ -133,7 +137,7 @@ static void guess_led(int n)
             // turn led off on all addresses
             for (int i = 0; i < N; ++i)
             {
-                *(volatile int*)(base_addr + i * 4) = led_off;
+                leds[i] = led_off;
             }
             
             // pause between blinking
