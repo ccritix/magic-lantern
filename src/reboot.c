@@ -680,6 +680,37 @@ int memcmp_v(const void * a, const void * b, int n, int n0)
     return memcmp64(a, b, n);
 }
 
+static int repeated_byte(uint32_t * buf, int size, int full_size)
+{
+    if (size % 4)
+    {
+        /* should not happen */
+        while(1);
+    }
+
+    uint32_t dword = buf[0];
+    uint32_t rbyte = dword & 0xFF;
+    rbyte |= (rbyte << 8);
+    rbyte |= (rbyte << 16);
+    if (dword != rbyte)
+    {
+        return 0;
+    }
+
+    clear_line();
+    printf(" - %08X-%08X: %08X REP? ...    ", buf, buf + full_size - 1, size);
+
+    for (int i = 0; i < size / 4; i++)
+    {
+        if (buf[i] != rbyte)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 static int check_rom_mirroring(void * buf, int size, int full_size)
 {
     clear_line();
@@ -712,11 +743,25 @@ static int check_rom_mirroring(void * buf, int size, int full_size)
 
     if (memcmp_v(buf, buf + size / 2, size / 2, size / 2) == 0)
     {
-        /* identical halves? check recursively to find the lowest size with unique data */
-        if (!check_rom_mirroring(buf, size / 2, full_size))
+        /* identical halves? */
+
+        /* maybe same byte repeated over and over?
+         * check this particular case now, as otherwise it would use a lot of stack space,
+         * possibly overflowing the stack on certain models */
+        if (size % 4 == 0 && repeated_byte(buf, size, full_size))
         {
+            int byte = MEM(buf) & 0xFF;
             clear_line();
-            printf(" - %08X-%08X: uniq 0x%X x 0x%X\n", buf, buf + full_size - 1, size / 2, full_size / (size / 2));
+            printf(" - %08X-%08X: byte 0x%X x 0x%X\n", buf, buf + full_size - 1, byte, size);
+        }
+        else
+        {
+            /* check recursively to find the lowest size with unique data */
+            if (!check_rom_mirroring(buf, size / 2, full_size))
+            {
+                clear_line();
+                printf(" - %08X-%08X: uniq 0x%X x 0x%X\n", buf, buf + full_size - 1, size / 2, full_size / (size / 2));
+            }
         }
         return 1;
     }
