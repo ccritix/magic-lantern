@@ -842,6 +842,21 @@ static uint32_t find_firmware_start()
 {
     printf(" - ROMBASEADDR...           ");
 
+    if (is_digic7())
+    {
+        for (uint32_t start = 0xE0000000; start < 0xF0000000; start += 0x10000)
+        {
+            printf("\b\b\b\b\b\b\b\b\b\b0x%08X", start);
+
+            /* DIGIC 7: MCR p15, 0, R0,c12,c0, 0 (set VBAR - Vector Base Address Register) */
+            if ((MEM(start + 0) >> 16)    == 0xEE0C &&
+                (MEM(start + 4) & 0xFFFF) == 0x0F10)
+            {
+                return start;
+            }
+        }
+    }
+
     for (uint32_t start = 0xFFFF0000; start >= 0xE0000000; start -= 0x10000)
     {
         printf("\b\b\b\b\b\b\b\b\b\b0x%08X", start);
@@ -862,13 +877,6 @@ static uint32_t find_firmware_start()
         if (MEM(start + 0) == 0xE28F0004 &&
             MEM(start + 4) == 0xE3800001 &&
             MEM(start + 8) == 0xE12FFF10)
-        {
-            return start;
-        }
-
-        /* DIGIC 7: MCR p15, 0, R0,c12,c0, 0 (set VBAR - Vector Base Address Register) */
-        if ((MEM(start + 0) >> 16)    == 0xEE0C &&
-            (MEM(start + 4) & 0xFFFF) == 0x0F10)
         {
             return start;
         }
