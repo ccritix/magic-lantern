@@ -16,6 +16,7 @@
 //~ #define PRINT_STACK /* also print the stack contents for each message */
 
 #include "dm-spy.h"
+#include "io_trace.h"
 #include "dryos.h"
 #include "bmp.h"
 #include "beep.h"
@@ -59,6 +60,7 @@ void debug_logstr(const char * str)
     uint32_t old = cli();
 
     int copied_chars = MIN(strlen(str), buf_size - len - 1);
+    copied_chars = (copied_chars > 0) ? copied_chars : 0;
     memcpy(buf + len, str, copied_chars);
     len += copied_chars;
     buf[len] = '\0';
@@ -91,6 +93,13 @@ void debug_loghex(uint32_t x)
 
 static void my_DebugMsg(int class, int level, char* fmt, ...)
 {
+    #ifdef PRINT_STACK
+    uintptr_t sp = read_sp();
+    int len0 = len;
+    #endif
+    
+    uintptr_t lr = read_lr();
+
     if (!buf) return;
         
     if (class == 21) // engio, lots of messages
@@ -122,16 +131,13 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     va_list            ap;
 
     uint32_t old = cli();
-    
-    char* msg = buf+len;
-    
-    #ifdef PRINT_STACK
-    int len0 = len;
-    uintptr_t sp = read_sp();
+
+    #ifdef CONFIG_MMIO_TRACE
+    io_trace_log_flush();
     #endif
-    
-    uintptr_t lr = read_lr();
-    
+
+    char* msg = buf+len;
+
     //~ char* classname = dm_names[class]; /* not working, some names are gibberish; todo: check for printable characters? */
     
     /* can be replaced with get_us_clock_value, with a slightly higher overhead */
@@ -266,8 +272,12 @@ void debug_intercept()
         
         buf = staticbuf;
         buf_size = BUF_SIZE_STATIC;
-        
+
         dm_spy_extra_install();
+        #ifdef CONFIG_MMIO_TRACE
+        io_trace_install();
+        #endif
+
         patch_instruction(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
             MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
@@ -277,6 +287,9 @@ void debug_intercept()
     }
     else // subsequent call, uninstall the hook and save log to file
     {
+        #ifdef CONFIG_MMIO_TRACE
+        io_trace_uninstall();
+        #endif
         dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
         
@@ -307,7 +320,10 @@ void debug_intercept()
         buf_size = BUF_SIZE_MALLOC;
         
         dm_spy_extra_install();
-        
+        #ifdef CONFIG_MMIO_TRACE
+        io_trace_install();
+        #endif
+
         int err = patch_instruction(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
             MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
@@ -326,6 +342,9 @@ void debug_intercept()
     }
     else // subsequent call, uninstall the hook and save log to file
     {
+        #ifdef CONFIG_MMIO_TRACE
+        io_trace_uninstall();
+        #endif
         dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
         buf[len] = 0;
