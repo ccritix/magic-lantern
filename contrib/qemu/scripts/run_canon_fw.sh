@@ -9,26 +9,7 @@ GREP=${GREP:=grep}
 QEMU_PATH=${QEMU_PATH:=qemu-2.5.0}
 MAKE=${MAKE:=make}
 
-function is_mounted
-{
-    # better way to check whether a disk image is mounted?
-    # or, how to tell QEMU to use exclusive access for the disk images?
-    SD_DEV=`losetup -j $1 | $GREP -Po "(?<=/dev/)[^ ]*(?=:)"`
-    if [ $? == 0 ]; then
-        if cat /proc/mounts | $GREP /dev/mapper/$SD_DEV; then
-            return 0
-        fi
-    fi
-    return 1
-}
-
 if [ $(uname) == "Darwin" ]; then
-    if [[ -n $(ls /Volumes | $GREP EOS_DIGITAL*) ]]; then
-        echo
-        echo "Error: please unmount EOS_DIGITAL."
-        exit 1
-    fi
-    
     if [[ -n $(which ggrep) ]]; then
         GREP=ggrep
     else
@@ -37,27 +18,94 @@ if [ $(uname) == "Darwin" ]; then
         echo "brew install grep"
         exit 1
     fi
-else
-    if is_mounted sd.img; then
-        echo
-        echo "Error: please unmount the SD image."
-        exit 1
+fi
+
+# better way to check whether a disk image is mounted?
+# or, how to tell QEMU to use exclusive access for the disk images?
+function is_mounted
+{
+    # try lsof first
+    # check whether QEMU is started with or without -snapshot
+    # accept -snapshot and --snapshot, but not ---snapshot or -snapshots or -other-snapshot
+    if [[ " ${BASH_ARGV[*]} " =~ .*\ --?snapshot\ .* ]]; then
+        # started with -snapshot
+        # run if other processes have the SD/CF image file opened as read-only
+        # fail if other processes have the SD/CF image file opened with write access
+        # http://unix.stackexchange.com/a/115722
+        if lsof +c 0 "$1" 2>/dev/null | awk '$4~/[0-9]+[uw -]/' | $GREP -F "$1"; then
+            return 0
+        fi
+    else
+        # started without -snapshot
+        # fail if other processes have the SD/CF image file opened, no matter what kind of access
+        if lsof +c 0 "$1" 2>/dev/null | $GREP -F "$1"; then
+            return 0
+        fi
     fi
 
-    if is_mounted cf.img; then
-        echo
-        echo "Error: please unmount the CF image."
-        exit 1
+    if [ $(uname) == "Darwin" ]; then
+        # on Mac, lsof is enough
+        # further checks are Linux-only anyway
+        return 1
     fi
+
+    # now find out whether the image file is mounted
+    # lsof doesn't seem to cover this case, why?
+
+    # use losetup if available
+    if command -v losetup; then
+        # this finds out whether the image file is mounted and where
+        SD_DEV=`losetup -j "$1" | $GREP -Po "(?<=/dev/)[^ ]*(?=:)"`
+        if [ $? == 0 ]; then
+            # this may return multiple matches; try them all
+            for sd_dev in $SD_DEV; do
+                if cat /proc/mounts | $GREP /dev/$sd_dev; then
+                    return 0
+                fi
+                if cat /proc/mounts | $GREP /dev/mapper/$sd_dev; then
+                    return 0
+                fi
+            done
+        fi
+    else
+        # try to guess from mount output (approximate)
+        if mount | $GREP -F "$(realpath $1)"; then
+            # this matches images mounted manually with:
+            # mount -o loop,offset=... sd.img /mount/point
+            return 0
+        fi
+        if mount | $GREP -o /dev/mapper/loop.*EOS_DIGITAL; then
+            # this matches kpartx mounts, but can't tell whether SD or CF
+            # or maybe some other EOS_DIGITAL image is mounted
+            echo "Might be a different image, please check."
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+if is_mounted sd.img; then
+    echo
+    echo "Error: please unmount the SD image."
+    exit 1
+fi
+
+if is_mounted cf.img; then
+    echo
+    echo "Error: please unmount the CF image."
+    exit 1
 fi
 
 # recompile QEMU
 $MAKE -C $QEMU_PATH || exit 2
 
-# clear the terminal
-# (since the logs are very large, being able to scroll at the beginning is helpful)
-# note: "tput reset" may crash when running as a background job, figure out why
-printf '\ec\e[3J'
+if [ -t 1 ] ; then
+    # clear the terminal (only if running in interactive mode, not when redirected to logs)
+    # (since the logs are very large, being able to scroll at the beginning is helpful)
+    # note: "tput reset" may crash when running as a background job, figure out why
+    printf '\ec\e[3J'
+fi
 
 # print the invocation
 # https://unix.stackexchange.com/a/118468
@@ -67,7 +115,8 @@ case $(ps -o stat= -p $$) in
 esac
 
 # also print the command-line of arm-none-eabi-gdb, if any
-gdb_pid=$(pgrep -nx arm-none-eabi-gdb)
+# some systems limit process names to 15 chars; match the full command line
+gdb_pid=$(pgrep -P $PPID -nf arm-none-eabi-gdb)
 if [ "$gdb_pid" != "" ]; then
   gdb_cmd=$(ps -p $gdb_pid -o args | tail -n1)
   case $(ps -o stat= -p $gdb_pid) in
@@ -86,6 +135,13 @@ else
     echo "DebugMsg=$QEMU_EOS_DEBUGMSG (overriden)"
 fi
 
+# Mac: bring QEMU window to foreground
+# fixme: easier way?
+# fixme: doesn't work with multiple instances
+if [ -t 1 ] && [ $(uname) == "Darwin" ]; then
+    ( sleep 0.5; osascript -e 'tell application "System Events" to tell process "qemu-system-arm" to set frontmost to true' &>/dev/null ) &
+fi
+
 # run the emulation
 env QEMU_EOS_DEBUGMSG="$QEMU_EOS_DEBUGMSG" \
   $QEMU_PATH/arm-softmmu/qemu-system-arm \
@@ -93,6 +149,7 @@ env QEMU_EOS_DEBUGMSG="$QEMU_EOS_DEBUGMSG" \
     -drive if=ide,format=raw,file=cf.img \
     -chardev socket,server,nowait,path=qemu.monitor$QEMU_JOB_ID,id=monsock \
     -mon chardev=monsock,mode=readline \
+    -name $CAM \
     -M $*
 
 # note: QEMU monitor is redirected to Unix socket qemu.monitor

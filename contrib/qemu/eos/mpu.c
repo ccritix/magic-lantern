@@ -46,6 +46,8 @@ static int mpu_init_spell_count = 0;
 #include "mpu_spells/100D.h"
 #include "mpu_spells/EOSM.h"
 #include "mpu_spells/EOSM2.h"
+#include "mpu_spells/generic.h"
+#include "mpu_spells/bruteforce.h"
 
 #include "mpu_spells/known_spells.h"
 
@@ -94,7 +96,8 @@ static void mpu_send_next_spell(EOSState *s)
         s->mpu.out_char = -2;
 
         /* request a SIO3 interrupt */
-        eos_trigger_int(s, 0x36, 0);
+        /* use 100 here if brute-forcing MPU spells, to avoid overflowing Canon buffers */
+        eos_trigger_int(s, s->model->mpu_sio3_interrupt, 0);
     }
     else
     {
@@ -171,7 +174,7 @@ static void mpu_start_sending(EOSState *s)
         s->mpu.sending = 1;
         
         /* request a MREQ interrupt */
-        eos_trigger_int(s, s->model->mpu_request_interrupt, 0);
+        eos_trigger_int(s, s->model->mpu_mreq_interrupt, 0);
     }
 }
 
@@ -300,7 +303,7 @@ void mpu_handle_sio3_interrupt(EOSState *s)
                 
                 if (s->mpu.out_char + 2 < num_chars)
                 {
-                    eos_trigger_int(s, 0x36, 0);   /* SIO3 */
+                    eos_trigger_int(s, s->model->mpu_sio3_interrupt, 0);   /* SIO3 */
                 }
                 else
                 {
@@ -309,7 +312,7 @@ void mpu_handle_sio3_interrupt(EOSState *s)
                     if (s->mpu.sq_head != s->mpu.sq_tail)
                     {
                         MPU_DPRINTF("Requesting next spell\n");
-                        eos_trigger_int(s, s->model->mpu_request_interrupt, 1);   /* MREQ */
+                        eos_trigger_int(s, s->model->mpu_mreq_interrupt, 1);   /* MREQ */
                     }
                     else
                     {
@@ -330,7 +333,7 @@ void mpu_handle_sio3_interrupt(EOSState *s)
         {
             /* more data to receive */
             MPU_DPRINTF("Request more data\n");
-            eos_trigger_int(s, 0x36, 0);   /* SIO3 */
+            eos_trigger_int(s, s->model->mpu_sio3_interrupt, 0);   /* SIO3 */
         }
     }
 }
@@ -354,7 +357,7 @@ void mpu_handle_mreq_interrupt(EOSState *s)
             /* it appears to be harmless,  but I'm not sure what happens with more than 1 message queued */
             MPU_DPRINTF("next message was started in SIO3\n");
         }
-        eos_trigger_int(s, 0x36, 0);   /* SIO3 */
+        eos_trigger_int(s, s->model->mpu_sio3_interrupt, 0);   /* SIO3 */
     }
 }
 
@@ -368,7 +371,9 @@ unsigned int eos_handle_mpu(unsigned int parm, EOSState *s, unsigned int address
      * - should return 0x44 when sending data to MPU
      * - and 0x47 when receiving data from MPU
      * - 1300D uses 0x83DC00 = reqest to send, 0x93D800 idle
-     * - 1300D: status reg is 0xC022F484, tested for 0x40000 instead of 2 
+     * - 1300D: status reg is 0xC022F484, tested for 0x40000 instead of 2
+     * - 80D: request 0xD20B0884: 0xC0003 = request to send, 0x4D00B2 idle
+     * - 80D: status 0xD20B0084, tested for 0x10000
      */
     
     int ret = 0;
@@ -384,7 +389,7 @@ unsigned int eos_handle_mpu(unsigned int parm, EOSState *s, unsigned int address
         int prev_value = s->mpu.status;
         s->mpu.status = value;
         
-        if (value & 0x100002)
+        if (value & s->model->mpu_request_bitmask)
         {
             if (s->mpu.receiving)
             {
@@ -411,7 +416,7 @@ unsigned int eos_handle_mpu(unsigned int parm, EOSState *s, unsigned int address
                 }
             }
         }
-        else if (prev_value & 0x100002)
+        else if (prev_value & s->model->mpu_request_bitmask)
         {
             /* receive request: transition of bit (1<<1) from high to low */
             msg = "Receive request %s";
@@ -431,7 +436,7 @@ unsigned int eos_handle_mpu(unsigned int parm, EOSState *s, unsigned int address
             {
                 s->mpu.receiving = 1;
                 s->mpu.recv_index = 0;
-                eos_trigger_int(s, s->model->mpu_request_interrupt, 0);   /* MREQ */
+                eos_trigger_int(s, s->model->mpu_mreq_interrupt, 0);   /* MREQ */
                 /* next steps in eos_handle_mreq -> mpu_handle_mreq_interrupt */
             }
         }
@@ -445,13 +450,19 @@ unsigned int eos_handle_mpu(unsigned int parm, EOSState *s, unsigned int address
             /* last two chars sent, finished */
             s->mpu.sending = 0;
         }
-        
-        ret = (s->mpu.sending && !s->mpu.receiving) ? 0x40003 :  /* I have data to send */
-              (!s->mpu.sending && s->mpu.receiving) ? 0x00000 :  /* I'm ready to receive data */
-              (s->mpu.sending && s->mpu.receiving)  ? 0x00001 :  /* I'm ready to send and receive data */
-                                                      0x40002 ;  /* I believe this is some error code */
-        ret |= (s->mpu.status & 0xFFFBFFFC);                     /* The other bits are unknown;
-                                                                    they are set to 0x44 by writing to the register */
+
+        /* actual return value doesn't seem to matter much
+         * Canon code only tests a flag that appears to signal some sort of error
+         * returning anything other than that flag has no effect
+         * the following is just a guess that hopefully matches the D4/5 hardware
+         */
+
+        ret = (s->mpu.sending) ? 1 : 0;
+
+        if (s->model->mpu_request_register == s->model->mpu_status_register)
+        {
+            ret |= s->mpu.status & ~1;
+        }
 
         msg = "status (sending=%d, receiving=%d)";
         msg_arg1 = s->mpu.sending;
@@ -573,6 +584,7 @@ unsigned int eos_handle_sio3( unsigned int parm, EOSState *s, unsigned int addre
             break;
 
         case 0x1C:  /* C082031C - data coming from MPU */
+        case 0x1D:  /* 40D uses 8-bit reads */
         
             if(type & MODE_WRITE)
             {
@@ -584,7 +596,8 @@ unsigned int eos_handle_sio3( unsigned int parm, EOSState *s, unsigned int addre
                 {
                     int hi = 0, lo = 0;
                     if (mpu_handle_get_data(s, &hi, &lo)) {
-                        ret = (hi << 8) | lo;
+                        /* 40D uses 8-bit reads (fixme: cleaner way to handle this) */
+                        ret = ((hi << 8) | lo) >> ((address & 1) ? 8 : 0);
                         msg = "Data from MPU";
                     } else {
                         msg = "From MPU -> out of range (char %d of %d)";
@@ -638,12 +651,16 @@ unsigned int eos_handle_mreq( unsigned int parm, EOSState *s, unsigned int addre
             msg = "CTL register -> idk, sending 0xC";
             ret = 0xC;
         }
+
+        if (qemu_loglevel_mask(EOS_LOG_MPU))
+        {
+            io_log("MREQ", s, address, type, value, ret, msg, msg_arg1, msg_arg2);
+        }
+        return ret;
     }
 
-    if (qemu_loglevel_mask(EOS_LOG_MPU))
-    {
-        io_log("MREQ", s, address, type, value, ret, msg, msg_arg1, msg_arg2);
-    }
+    /* not handled here; unknown */
+    io_log("???", s, address, type, value, ret, msg, msg_arg1, msg_arg2);
     return ret;
 }
 
@@ -703,6 +720,7 @@ static struct {
     { 0x0017,   BGMT_INFO,              "I",            "INFO/DISP",                    },
     { 0x0097,   BGMT_UNPRESS_INFO,                                                      },
     { 0x0010,   BGMT_Q,                 "Q",            "guess",                        },
+    { 0x0090,   BGMT_UNPRESS_Q,                                                         },
     { 0x0026,   BGMT_LV,                "L",            "LiveView",                     },
     { 0x0021,   BGMT_FUNC,              "F",            "FUNC",                         },
     { 0x0024,   BGMT_JUMP,              "J",            "JUMP",                         },
@@ -711,10 +729,20 @@ static struct {
     { 0x0011,   BGMT_PICSTYLE,          "W",            "Pic.Style",                    },
     { 0x001E,   BGMT_PRESS_AV,          "A",            "Av",                           },
     { 0x009E,   BGMT_UNPRESS_AV,                                                        },
-    { 0x002A,   BGMT_PRESS_HALFSHUTTER,     "Shift",    "Half-shutter"                  },
+    { 0x002C,   BGMT_PRESS_MAGNIFY_BUTTON,   "Z",       "Zoom in",                      },
+    { 0x00AC,   BGMT_UNPRESS_MAGNIFY_BUTTON,                                            },
+    { 0x002C,   BGMT_PRESS_ZOOM_IN,          "Z/X",     "Zoom in/out",                  },
+    { 0x00AC,   BGMT_UNPRESS_ZOOM_IN,                                                   },
+    { 0x002D,   BGMT_PRESS_ZOOM_OUT,                                                    },
+    { 0x00AD,   BGMT_UNPRESS_ZOOM_OUT,                                                  },
+    { 0x002A,   BGMT_PRESS_HALFSHUTTER, "Shift",        "Half-shutter"                  },
     { 0x0036,   BGMT_PRESS_HALFSHUTTER,                                                 },
     { 0x00AA,   BGMT_UNPRESS_HALFSHUTTER,                                               },
     { 0x00B6,   BGMT_UNPRESS_HALFSHUTTER,                                               },
+
+    { 0x000B,   MPU_NEXT_SHOOTING_MODE, "0/9",          "Mode dial"                     },
+    { 0x000A,   MPU_PREV_SHOOTING_MODE,                                                 },
+    { 0x002F,   MPU_ENTER_MOVIE_MODE,   "V",            "Movie mode"                    },
 
     /* the following unpress events are just tricks for sending two events
      * with a small - apparently non-critical - delay between them */
@@ -752,12 +780,21 @@ static int translate_scancode_2(int scancode, int first_code, int allow_auto_rep
         {
             switch (key_map[i].gui_code)
             {
+                case MPU_EVENT_DISABLED:
+                {
+                    ret = 0;
+                    break;
+                }
+
                 case BGMT_PRESS_HALFSHUTTER:
                 case BGMT_UNPRESS_HALFSHUTTER:
                 case BGMT_PRESS_FULLSHUTTER:
                 case BGMT_UNPRESS_FULLSHUTTER:
                 case MPU_SEND_SHUTDOWN_REQUEST:
                 case MPU_SEND_ABORT_REQUEST:
+                case MPU_NEXT_SHOOTING_MODE:
+                case MPU_PREV_SHOOTING_MODE:
+                case MPU_ENTER_MOVIE_MODE:
                 {
                     /* special: return the raw gui code */
                     ret = 0x0E0E0000 | key_map[i].gui_code;
@@ -792,6 +829,12 @@ static int translate_scancode_2(int scancode, int first_code, int allow_auto_rep
                     ret = button_codes[key_map[i].gui_code];
                     break;
                 }
+            }
+
+            if (ret > 0)
+            {
+                /* valid code found? stop here */
+                break;
             }
         }
     }
@@ -830,11 +873,13 @@ static int translate_scancode(int scancode)
     return translate_scancode_2(scancode, 0, 0);
 }
 
-static int key_avail(int scancode)
+static int key_avail(int scancode, int gui_code)
 {
     /* check whether a given key is available on current camera model */
     /* disable autorepeat checking */
-    return translate_scancode_2(scancode & 0xFF, scancode >> 8, 1) > 0;
+    int raw = translate_scancode_2(scancode & 0xFF, scancode >> 8, 1);
+    if (raw <= 0) return 0;
+    return ((raw & 0xFFFF0000) == 0x0E0E0000) || (raw == button_codes[gui_code]);
 }
 
 static void show_keyboard_help(void)
@@ -848,7 +893,7 @@ static void show_keyboard_help(void)
     {
         if (key_map[i].pc_key_name)
         {
-            last_status = key_avail(key_map[i].scancode);
+            last_status = key_avail(key_map[i].scancode, key_map[i].gui_code);
             if (last_status)
             {
                 int unpress_available = 0;
@@ -856,7 +901,7 @@ static void show_keyboard_help(void)
                 {
                     if ((key_map[i].scancode & 0x80) == 0 &&
                         (key_map[i].scancode | 0x80) == key_map[j].scancode &&
-                        (key_avail(key_map[j].scancode)))
+                        (key_avail(key_map[j].scancode, key_map[j].gui_code)))
                     {
                         unpress_available = 1;
                     }
@@ -871,12 +916,14 @@ static void show_keyboard_help(void)
         {
             /* for grouped keys, make sure all codes are available */
             if (key_map[i].gui_code == BGMT_UNPRESS_SET ||
-                key_map[i].gui_code == BGMT_UNPRESS_INFO)
+                key_map[i].gui_code == BGMT_UNPRESS_INFO ||
+                key_map[i].gui_code == BGMT_UNPRESS_Q)
             {
                 /* exception: UNPRESS_SET on VxWorks models */
                 /* 5D3 has UNPRESS_INFO - others? */
+                /* only 100D sends UNPRESS_SET when releasing Q */
             }
-            else if (!key_avail(key_map[i].scancode))
+            else if (!key_avail(key_map[i].scancode, key_map[i].gui_code))
             {
                 MPU_EPRINTF("key code missing: %x %x\n", key_map[i].scancode, key_map[i].gui_code);
                 exit(1);
@@ -973,6 +1020,95 @@ void mpu_send_keypress(EOSState *s, int keycode)
                     { 0x06, 0x04, 0x02, 0x0c, 0x00, 0x00 },
                 };
                 MPU_SEND_SPELLS(abort_request);
+                break;
+            }
+
+            case MPU_NEXT_SHOOTING_MODE:
+            case MPU_PREV_SHOOTING_MODE:
+            {
+                int delta = (key & 0xFFFF) == MPU_NEXT_SHOOTING_MODE ? 1 : -1;
+                /* this request covers many other properties, some model-specific, some require storing state variables */
+                /* look up the mode change request for this model and patch it */
+
+                for (int k = 0; k < mpu_init_spell_count && mpu_init_spells[0].out_spells[k][0]; k++)
+                {
+                    uint16_t * spell = mpu_init_spells[0].out_spells[k];
+
+                    if (spell[2] == 0x02 && (spell[3] == 0x00 || spell[3] == 0x0e))
+                    {
+                        int old_mode = spell[4];
+
+                        /* any valid mode beyond 31? */
+                        int new_mode = (old_mode + delta) & 0x1F;
+
+                        MPU_EPRINTF("using reply #1.%d for mode switch (%d -> %d).\n", k+1, old_mode, new_mode);
+
+                        /* not 100% sure it's right */
+                        spell[4] = spell[5] = new_mode;
+                        mpu_enqueue_spell_generic(s, spell);
+                        mpu_start_sending(s);
+
+                        break;
+                    }
+                }
+                break;
+            }
+
+            case MPU_ENTER_MOVIE_MODE:
+            {
+                if (s->model->dedicated_movie_mode)
+                {
+                    /* fixme: duplicate code */
+                    for (int k = 0; k < mpu_init_spell_count && mpu_init_spells[0].out_spells[k][0]; k++)
+                    {
+                        uint16_t * spell = mpu_init_spells[0].out_spells[k];
+
+                        if (spell[2] == 0x02 && (spell[3] == 0x00 || spell[3] == 0x0e))
+                        {
+                            /* toggle between M and Movie */
+                            int old_mode = spell[4];
+                            int new_mode = (old_mode == 0x14) ? 0x3 : 0x14;
+
+                            MPU_EPRINTF("using reply #1.%d for mode switch (%d -> %d).\n", k+1, old_mode, new_mode);
+                            spell[4] = spell[5] = new_mode;
+                            mpu_enqueue_spell_generic(s, spell);
+                            mpu_start_sending(s);
+
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    static int mv = 0;  /* fixme: get current state from properties */
+                    if (mv)
+                    {
+                        /* exit movie mode (back to photo mode) */
+                        uint16_t movie_mode_request[][8] = {
+                            { 0x06, 0x05, 0x03, 0x37, 0x01, 0x00 },         /* PROP_MIRROR_DOWN_IN_MOVIE_MODE */
+                            { 0x06, 0x05, 0x01, 0x48, 0x01, 0x00 },         /* PROP_LIVE_VIEW_MOVIE_SELECT */
+                            { 0x06, 0x05, 0x01, 0x4f, 0x00, 0x00 },         /* PROP_FIXED_MOVIE */
+                            { 0x06, 0x05, 0x01, 0x4b, 0x01, 0x00 },         /* PROP_LIVE_VIEW_VIEWTYPE_SELECT */
+                            { 0x06, 0x05, 0x03, 0x37, 0x00, 0x00 },         /* PROP_MIRROR_DOWN_IN_MOVIE_MODE */
+                          //{ 0x08, 0x06, 0x04, 0x0c, 0x03, 0x00, 0x01 }    /* PROP_SHOOTING_TYPE */
+                        };
+                        MPU_SEND_SPELLS(movie_mode_request);
+                    }
+                    else
+                    {
+                        /* enter movie mode */
+                        uint16_t movie_mode_request[][8] = {
+                            { 0x06, 0x05, 0x03, 0x37, 0x01, 0x00 },         /* PROP_MIRROR_DOWN_IN_MOVIE_MODE */
+                            { 0x06, 0x05, 0x01, 0x48, 0x02, 0x00 },         /* PROP_LIVE_VIEW_MOVIE_SELECT */
+                            { 0x06, 0x05, 0x01, 0x4f, 0x01, 0x00 },         /* PROP_FIXED_MOVIE */
+                            { 0x06, 0x05, 0x01, 0x4b, 0x02, 0x00 },         /* PROP_LIVE_VIEW_VIEWTYPE_SELECT */
+                            { 0x06, 0x05, 0x03, 0x37, 0x00, 0x00 },         /* PROP_MIRROR_DOWN_IN_MOVIE_MODE */
+                          //{ 0x08, 0x06, 0x04, 0x0c, 0x03, 0x00, 0x01 }    /* PROP_SHOOTING_TYPE */
+                        };
+                        MPU_SEND_SPELLS(movie_mode_request);
+                    }
+                    mv = !mv;
+                }
                 break;
             }
 
@@ -1095,19 +1231,27 @@ void mpu_spells_init(EOSState *s)
     MPU_SPELL_SET_OTHER_CAM(1000D, 450D)
     MPU_SPELL_SET_OTHER_CAM(1100D, 60D)
     MPU_SPELL_SET_OTHER_CAM(1200D, 60D)
-    MPU_SPELL_SET_OTHER_CAM(1300D, 60D)
+    MPU_SPELL_SET_OTHER_CAM(1300D, 600D)
+    MPU_SPELL_SET_OTHER_CAM(40D, 50D)
 
     MPU_SPELL_SET_OTHER_CAM(650D, 700D)
 
     if (!mpu_init_spell_count)
     {
-        MPU_EPRINTF("FIXME: no MPU spells for %s.\n", s->model->name);
+        MPU_EPRINTF("FIXME: using generic MPU spells for %s.\n", s->model->name);
+        mpu_init_spells = mpu_init_spells_generic;
+        mpu_init_spell_count = COUNT(mpu_init_spells_generic);
         /* how to get them: http://magiclantern.fm/forum/index.php?topic=2864.msg166938#msg166938 */
     }
-    else
+
+    if (0)
     {
-        mpu_check_duplicate_spells(s);
+        MPU_EPRINTF("WARNING: using bruteforce MPU spells for %s.\n", s->model->name);
+        mpu_init_spells = mpu_init_spells_bruteforce;
+        mpu_init_spell_count = COUNT(mpu_init_spells_bruteforce);
     }
+
+    mpu_check_duplicate_spells(s);
 
 #define MPU_BUTTON_CODES(cam) \
     if (strcmp(s->model->name, #cam) == 0) { \
@@ -1121,9 +1265,11 @@ void mpu_spells_init(EOSState *s)
 
     MPU_BUTTON_CODES(100D)
     MPU_BUTTON_CODES(1100D)
-    MPU_BUTTON_CODES_OTHER_CAM(1200D, 1100D)
+    MPU_BUTTON_CODES(1200D)
+    MPU_BUTTON_CODES_OTHER_CAM(1300D, 1200D)
     MPU_BUTTON_CODES(450D)
     MPU_BUTTON_CODES_OTHER_CAM(1000D, 450D)
+    MPU_BUTTON_CODES(40D)
     MPU_BUTTON_CODES(500D)
     MPU_BUTTON_CODES(550D)
     MPU_BUTTON_CODES(50D)
@@ -1156,6 +1302,15 @@ void mpu_spells_init(EOSState *s)
         button_codes[BGMT_UNPRESS_DOWN]  = 
         button_codes[BGMT_UNPRESS_LEFT]  = 
         button_codes[BGMT_UNPRESS_RIGHT] = button_codes[BGMT_UNPRESS_UDLR];
+    }
+
+    for (int i = 0; i < COUNT(key_map); i++)
+    {
+        if (key_map[i].gui_code == MPU_ENTER_MOVIE_MODE && s->model->dedicated_movie_mode == -1)
+        {
+            /* no movie mode on this model */
+            key_map[i].gui_code = MPU_EVENT_DISABLED;
+        }
     }
 
     show_keyboard_help();

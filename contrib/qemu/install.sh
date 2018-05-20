@@ -2,8 +2,13 @@
 
 set -e
 
+QEMU_DIR=${QEMU_DIR:=qemu-eos}
+
+# paths relative to QEMU_DIR (where it will be installed)
 QEMU_NAME=${QEMU_NAME:=qemu-2.5.0}
-ML=${ML:=magic-lantern}
+ML_PATH=${ML_PATH:=../magic-lantern}
+
+ML_NAME=${ML_PATH##*/}
 GREP=${GREP:=grep}
 ALLOW_64BIT_GDB=n
 
@@ -21,15 +26,26 @@ function install_gdb {
     echo "    https://developer.arm.com/open-source/gnu-toolchain/gnu-rm"
     echo
 
-    TOOLCHAIN=gcc-arm-none-eabi-5_4-2016q3
-    DOWNLOAD=https://launchpad.net/gcc-arm-embedded/5.0/5-2016-q3-update/+download/
-    MIRROR=https://developer.arm.com/-/media/Files/downloads/gnu-rm/5_4-2016q3/
     UNTAR="tar -jxf"
 
     if [ $(uname) == "Darwin" ]; then
-        TARBALL=gcc-arm-none-eabi-5_4-2016q3-20160926-mac.tar.bz2
+        # 64-bit (fixme: compile a 32-bit GDB)
+        TOOLCHAIN=gcc-arm-none-eabi-7-2017-q4-major
+        DOWNLOAD=https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-rm/7-2017q4/
+        MIRROR="$DOWNLOAD"
+        TARBALL=$TOOLCHAIN-mac.tar.bz2
+    elif [  -n "$(uname -a | grep Microsoft)" ]; then
+        # WSL
+        TOOLCHAIN=gcc-arm-none-eabi-7-2017-q4-major
+        DOWNLOAD=https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-rm/7-2017q4/
+        MIRROR="$DOWNLOAD"
+        TARBALL=$TOOLCHAIN-linux.tar.bz2
     else
-        TARBALL=gcc-arm-none-eabi-5_4-2016q3-20160926-linux.tar.bz2
+        # Linux (other than WSL) - use a 32-bit build (preferred, even though it's older)
+        TOOLCHAIN=gcc-arm-none-eabi-5_4-2016q3
+        DOWNLOAD=https://launchpad.net/gcc-arm-embedded/5.0/5-2016-q3-update/+download/
+        MIRROR=https://developer.arm.com/-/media/Files/downloads/gnu-rm/5_4-2016q3/
+        TARBALL=$TOOLCHAIN-20160926-linux.tar.bz2
     fi
 
     if [ ! -f ~/$TOOLCHAIN/bin/arm-none-eabi-gdb ]; then
@@ -57,9 +73,19 @@ function valid_arm_gdb {
 
     if [ "$ALLOW_64BIT_GDB" != "y" ]; then
         if arm-none-eabi-gdb -v | grep -q "host=x86_64"; then
-            # 64-bit version - doesn't work
-            # fixme: this may get printed more than once
-            echo "*** WARNING: 64-bit GDB is known not to work."
+            # 64-bit version - doesn't work well
+
+            if [ $(uname) == "Darwin" ] || [  -n "$(uname -a | grep Microsoft)" ]; then
+                # we don't have a 64-bit option on these systems
+                # just warn about it (--strict is used for that), but consider it valid
+                if [ "$1" != "--strict" ]; then
+                    return 0
+                fi
+            fi
+
+            # systems assumed to be able to run a 32-bit GDB
+            # consider the 64-bit one invalid
+            echo "*** WARNING: 64-bit GDB is known to have issues."
             return 1
         fi
     fi
@@ -94,16 +120,16 @@ if [ $(uname) == "Darwin" ]; then
     if ! brew -v &> /dev/null; then
         ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
     fi
-    
+
     packages="python wget mercurial xz grep pkg-config glib automake libtool pixman mtools"
     for pkg in $packages; do
         brew list $pkg &> /dev/null || brew install $pkg
     done
-    
+
     GREP=ggrep
 fi
 
-if [  -n "$(uname -a | grep Ubuntu)" ]; then
+if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
     # Ubuntu-based system? (including WSL)
     # install these packages, if not already
     # only request sudo if any of them is missing
@@ -118,40 +144,59 @@ if [  -n "$(uname -a | grep Ubuntu)" ]; then
     # otherwise, we'll try to install something
     if ! valid_arm_gdb || ! valid_arm_gcc; then
         echo "*** You do not seem to have an usable arm-none-eabi-gcc and/or gdb installed."
-        echo "*** 64-bit GDB is known not to work, so you'll have to install a 32-bit one for now."
+        echo "*** 64-bit GDB is known to have issues, so you may want to install a 32-bit version."
         echo
         echo "*** You have a few options:"
         echo
-        echo "1 - Install gdb-arm-none-eabi:i386 and gcc-arm-none-eabi from Ubuntu repo (recommended)"
-        echo "    This will install 32-bit binaries - will not work under Windows Subsystem for Linux."
-        echo 
-        echo "2 - Download a 32-bit gcc-arm-embedded and install it without the package manager."
-        echo "    Will be installed in your home directory; to move it, you must edit the Makefiles."
-        echo "    This will install 32-bit binaries - will not work under Windows Subsystem for Linux."
-        echo
-        if dpkg -l binutils-arm-none-eabi 2>/dev/null | grep -q '^.i'; then
-            echo "3 - Remove Ubuntu toolchain and install the one from gcc-arm-embedded PPA (gcc 6.x)"
-            echo "    This will:"
-            echo "    - sudo apt-get remove gcc-arm-none-eabi gdb-arm-none-eabi \\"
-            echo "           binutils-arm-none-eabi libnewlib-arm-none-eabi"
-        else
-            echo "3 - Install the toolchain from gcc-arm-embedded PPA (gcc 6.x)"
-            echo "    This will:"
-        fi
-        echo "    - sudo add-apt-repository ppa:team-gcc-arm-embedded/ppa"
-        echo "    - install the gcc-arm-embedded:i386 package."
-        echo "    This will install 32-bit binaries - will not work under Windows Subsystem for Linux."
-        echo
-        echo "4 - Install gdb-arm-none-eabi and gcc-arm-none-eabi from Ubuntu repository (64-bit)"
-        echo "    WARNING: this will not be able to run all our GDB scripts."
-        echo 
-        echo "5 - Manually install arm-none-eabi-gdb from https://launchpad.net/gcc-arm-embedded"
-        echo "    or any other source, make sure it is in PATH, then run this script again."
 
-        if ! arm-none-eabi-gdb -v &> /dev/null; then
+        # 32-bit binaries not working under WSL - hide these options
+        # fixme: hidden options can still be selected
+        if [  -z "$(uname -a | grep Microsoft)" ]; then
+            echo "1 - Install gdb-arm-none-eabi:i386 and gcc-arm-none-eabi from Ubuntu repo (recommended)"
+            echo "    This will install 32-bit binaries."
+            echo
+            echo "2 - Download a 32-bit gcc-arm-embedded and install it without the package manager."
+            echo "    Will be installed in your home directory; to move it, you must edit the Makefiles."
+            echo "    This will install 32-bit binaries."
+            echo
+            if dpkg -l binutils-arm-none-eabi 2>/dev/null | grep -q '^.i'; then
+                echo "3 - Remove Ubuntu toolchain and install the one from gcc-arm-embedded PPA (gcc 6.x)"
+                echo "    This will:"
+                echo "    - sudo apt-get remove gcc-arm-none-eabi gdb-arm-none-eabi \\"
+                echo "           binutils-arm-none-eabi libnewlib-arm-none-eabi"
+            else
+                echo "3 - Install the toolchain from gcc-arm-embedded PPA (gcc 6.x)"
+                echo "    This will:"
+            fi
+            echo "    - sudo add-apt-repository ppa:team-gcc-arm-embedded/ppa"
+            echo "    - install the gcc-arm-embedded:i386 package."
+            echo "    This will install 32-bit binaries."
+            echo
+            echo "4 - Install gdb-arm-none-eabi and gcc-arm-none-eabi from Ubuntu repository (64-bit)"
+            echo "    WARNING: this may not be able to run all our GDB scripts."
+            echo
+            echo "5 - Manually install arm-none-eabi-gdb from https://launchpad.net/gcc-arm-embedded"
+            echo "    or any other source, make sure it is in PATH, then run this script again."
             echo
         else
+            # WSL
+            echo "1-3: options not available on Windows 10 WSL (32-bit Linux binaries not supported)."
             echo
+            echo "4 - Install gdb-arm-none-eabi and gcc-arm-none-eabi from Ubuntu repository (64-bit)"
+            echo "    WARNING: this may not be able to run all our GDB scripts."
+            echo "    Sorry, we don't have a better option yet -> this is the recommended choice."
+            echo
+            echo "5 - Manually install arm-none-eabi-gdb from https://launchpad.net/gcc-arm-embedded"
+            echo "    or any other source (choose 64-bit Linux binaries),"
+            echo "    make sure it is in PATH, then run this script again."
+            echo "    WARNING: this may not be able to run all our GDB scripts."
+            echo
+            echo "    You may also try the Win32 GDB build from gcc-arm-embedded,"
+            echo "    but getting it to work is not straightforward (contribution welcome)."
+            echo
+        fi
+
+        if arm-none-eabi-gdb -v &> /dev/null; then
             echo "6 - Just use the current 64-bit toolchain."
             echo "    WARNING: this will not be able to run all our GDB scripts."
         fi
@@ -200,7 +245,7 @@ if [  -n "$(uname -a | grep Ubuntu)" ]; then
                 exit 0
                 ;;
             6)
-                # use the installed version, even though it's known not to work
+                # use the installed version, even though it's known not to work well
                 ALLOW_64BIT_GDB=y
                 ;;
             *)
@@ -230,7 +275,7 @@ if [  -n "$(uname -a | grep Ubuntu)" ]; then
         echo
         if [[ "$packages" == *i386* ]]; then
             sudo dpkg --add-architecture i386
-        fi 
+        fi
         sudo apt-get update
         sudo apt-get install $packages
         echo
@@ -264,7 +309,7 @@ if ! valid_arm_gdb; then
 fi
 
 # make sure we have a valid arm-none-eabi-gdb (regardless of operating system)
-if ! valid_arm_gdb; then
+if ! valid_arm_gdb --strict; then
     if ! arm-none-eabi-gdb -v &> /dev/null; then
         echo "*** Please set up a valid arm-none-eabi-gdb before continuing."
         exit 1
@@ -300,23 +345,46 @@ pip2 list | grep vncdotool || vncdotool -h > /dev/null || pip2 install vncdotool
 
 function die { echo "${1:-"Unknown Error"}" 1>&2 ; exit 1; }
 
-pwd | grep $ML/contrib/qemu > /dev/null || die "error: we should be in $ML/contrib/qemu"
+pwd | grep $ML_NAME/contrib/qemu > /dev/null || die "error: we should be in $ML_NAME/contrib/qemu"
 
 # go to the parent of magic-lantern folder
 cd ../../..
-ls | $GREP $ML > /dev/null || die "error: expecting to find $ML here"
+ls | $GREP $ML_NAME > /dev/null || die "error: expecting to find $ML_NAME here"
 
-mkdir -p qemu
-cd qemu
+mkdir -p $QEMU_DIR
+cd $QEMU_DIR
 
 echo
 echo "*** Setting up QEMU in $(pwd)..."
 echo
 
 if [ -d $QEMU_NAME ]; then
+  DATE=`date '+%Y-%m-%d_%H-%M-%S'`
   echo "*** Directory $(pwd)/$QEMU_NAME already exists."
-  echo "*** To reinstall, please rename or delete it, then run this script again."
-  exit 1
+  echo "*** To reinstall, please rename or delete it first."
+  echo ""
+  echo "  - R or r        : rename to $(pwd)/${QEMU_NAME}_$DATE/"
+  echo "  - C or c        : make clean & rename to $(pwd)/${QEMU_NAME}_$DATE/"
+  echo "  - uppercase D   : delete $(pwd)/$QEMU_NAME/ without confirmation (!)"
+  echo "  - any other key : cancel the operation (exit the script)"
+  echo ""
+  echo -n "Your choice? "
+  read answer
+  case "$answer" in
+      D)
+        rm -Rf $QEMU_NAME
+        ;;
+      R|r)
+        mv $QEMU_NAME ${QEMU_NAME}_$DATE
+        ;;
+      C|c)
+        make -C $QEMU_NAME clean
+        mv $QEMU_NAME ${QEMU_NAME}_$DATE
+        ;;
+      *)
+        exit 1
+        ;;
+  esac
 fi
 
 # get qemu
@@ -330,7 +398,8 @@ cd $QEMU_NAME
 if [ ! -d .git ]; then
   git init
   # git requires a valid email; if not setup, add one for this directory only
-  git config user.email || git config user.email qemu@magiclantern.fm
+  git config user.email || git config user.email qemu-eos@magiclantern.fm
+  git config user.name || git config user.name qemu-eos
   git add . && git commit -q -m "$QEMU_NAME vanilla"
 fi
 cd ..
@@ -338,25 +407,25 @@ cd ..
 echo "Copying files..."
 
 # copy our helper scripts
-cp -r ../$ML/contrib/qemu/scripts/* .
+cp -r $ML_PATH/contrib/qemu/scripts/* .
 chmod +x *.sh
 
 # copy our testing scripts
 mkdir -p tests
-cp -r ../$ML/contrib/qemu/tests/* tests/
+cp -r $ML_PATH/contrib/qemu/tests/* tests/
 chmod +x tests/*.sh
 
 # apply our patch
 cd ${QEMU_NAME}
 mkdir -p hw/eos
-cp -r ../../$ML/contrib/qemu/eos/* hw/eos/
-cp -r ../../$ML/src/backtrace.[ch] hw/eos/dbi/
+cp -r ../$ML_PATH/contrib/qemu/eos/* hw/eos/
+cp -r ../$ML_PATH/src/backtrace.[ch] hw/eos/dbi/
 if gcc -v 2>&1 | grep -q "gcc version 7"; then
-  patch -N -p1 < ../../$ML/contrib/qemu/$QEMU_NAME-gcc7.patch
+  patch -N -p1 < ../$ML_PATH/contrib/qemu/$QEMU_NAME-gcc7.patch
   git add -u . && git commit -q -m "$QEMU_NAME patched for gcc 7.x"
 fi
 
-patch -N -p1 < ../../$ML/contrib/qemu/$QEMU_NAME.patch
+patch -N -p1 < ../$ML_PATH/contrib/qemu/$QEMU_NAME.patch
 # don't commit this one - we'll use "git diff" to update the above patch
 
 cd ..
@@ -364,7 +433,7 @@ cd ..
 # setup the card image
 if [ ! -f "sd.img" ]; then
     echo "Setting up SD card image..."
-    cp -v ../$ML/contrib/qemu/sd.img.xz .
+    cp -v $ML_PATH/contrib/qemu/sd.img.xz .
     unxz -v sd.img.xz
 else
     echo "SD image already exists, skipping."
@@ -387,6 +456,33 @@ echo "   cd `pwd`/${QEMU_NAME}"
 echo "   ../configure_eos.sh"
 echo "   make -j`$GREP -c processor /proc/cpuinfo 2> /dev/null || sysctl -n hw.ncpu 2> /dev/null || echo 1`"
 echo
+echo -n "Shall this script attempt to compile QEMU now? [y/n] "
+read answer
+if test "$answer" == "Y" -o "$answer" == "y"
+ then
+    cd `pwd`/${QEMU_NAME}
+    ../configure_eos.sh
+    if make -j`$GREP -c processor /proc/cpuinfo 2> /dev/null || sysctl -n hw.ncpu 2> /dev/null || echo 1`; then
+        cd ..
+        echo
+        echo "*** Done compiling."
+        echo
+        echo
+        echo "Next steps:"
+        echo "==========="
+        echo
+        echo "1) Go to QEMU directory"
+        echo
+        echo "   cd `pwd`/"
+    else
+        cd ..
+        echo
+        echo "*** Compilation failed."
+        echo "*** Please check what went wrong, try to fix it and report back."
+        exit 1
+    fi
+fi
+echo
 echo "2) Grab a copy of the Canon firmware from your own camera"
 echo "   (don't request one and don't share it online - it's copyrighted)"
 echo
@@ -397,15 +493,12 @@ echo
 echo "   For models that use a serial flash, you may have to dump its contents"
 echo "   using the sf_dump module, then copy SFDATA.BIN as well."
 echo
-echo "3) Mount the included SD (or CF) image (you may use mount.sh)"
-echo "   and install ML on it, as usual. The card image must be bootable as well."
+echo "3) Install Magic Lantern on your SD/CF card image:"
+echo
+echo "   make -C ../magic-lantern 60D_install_qemu "
 echo
 echo "   The included card image is bootable and contains a small autoexec.bin"
-echo "   that runs on all DIGIC 4/5 cameras and prints some basic info."
-echo
-echo "   To create your own SD/CF image, you need to copy the raw contents"
-echo "   of the entire card, not just one partition. For example:"
-echo "   dd if=/dev/mmcblk0 of=sd.img"
+echo "   that runs on all supported EOS cameras and prints some basic info."
 echo
 echo "4) Start emulation with:"
 echo
@@ -415,7 +508,7 @@ echo
 echo "   This will recompile QEMU, but not ML."
 echo
 echo "   Note: Canon GUI emulation (menu navigation, no LiveView) only works on:"
-echo -n "   "; echo $($GREP --color=never -oPz "(?<=GUI_CAMS=\( )[^()]*(?=\))" tests/run_tests.sh);
+echo -n "   "; echo $($GREP --color=never -oPz "(?<=GUI_CAMS=\( )[^()]*(?=\))" tests/run_tests.sh | tr '\0' '\n');
 echo
 echo "5) Tips & tricks:"
 echo "   - to enable or disable the boot flag in ROM, use something like:"
@@ -427,17 +520,24 @@ echo "     ./run_canon_fw.sh 60D -d io,int"
 echo "   - to show the executed ASM code, step by step, use:"
 echo "     ./run_canon_fw.sh 60D -d exec,int -singlestep"
 echo "   - to trace debug messages and various functions in the firmware, use:"
-echo "     ./run_canon_fw.sh 60D -s -S & arm-none-eabi-gdb -x 60D/debugmsg.gdb"
-echo "   - if the above is too slow, compile the dm-spy-experiments branch "
-echo "     with CONFIG_QEMU=y and CONFIG_DEBUG_INTERCEPT_STARTUP=y and try:"
-echo "     ./run_canon_fw.sh 60D,firmware=\"boot=1\" -d io,int"
+echo "     ./run_canon_fw.sh 60D -d debugmsg -s -S & arm-none-eabi-gdb -x 60D/debugmsg.gdb"
 echo "   - some camera models require GDB patches to bypass tricky code sequences:"
-echo "     ./run_canon_fw.sh 700D -s -S & arm-none-eabi-gdb -x 700D/patches.gdb"
-echo "   - to trace all function calls and export them to IDA:"
-echo "     ./run_canon_fw.sh 60D -d calls -singlestep"
-echo "   - you may enable additional debug code (such as printing to QEMU console)"
-echo "     by compiling ML with CONFIG_QEMU=y in your Makefile.user (also run make clean)."
-echo "   - caveat: you cannot run autoexec.bin compiled with CONFIG_QEMU on the camera." 
-
+echo "     ./run_canon_fw.sh EOSM -s -S & arm-none-eabi-gdb -x EOSM/patches.gdb"
+echo
+echo
+echo "Online documentation: "
+echo
+echo "   https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/README.rst"
+echo "   https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/HACKING.rst"
 echo
 echo "Enjoy!"
+echo
+
+if ! [[ $DISPLAY ]]; then
+    echo "P.S. To run the GUI, please make sure you have a valid DISPLAY."
+    if [  -n "$(uname -a | grep Microsoft)" ]; then
+        echo "Under Windows, you may install either VcXsrv or XMing."
+        echo "Start it, then type the following into the terminal:"
+        echo "    export DISPLAY=:0"
+    fi
+fi

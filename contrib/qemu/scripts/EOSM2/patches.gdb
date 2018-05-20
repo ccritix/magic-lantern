@@ -1,4 +1,4 @@
-# ./run_canon_fw.sh EOSM2 -s -S & arm-none-eabi-gdb -x EOSM2/patches.gdb
+# ./run_canon_fw.sh EOSM2 -s -S & arm-none-eabi-gdb -x EOSM2/patches.gdb -ex quit
 # Only patches required for emulation
 
 source patch-header.gdb
@@ -15,9 +15,6 @@ set *(int*)0xFF356E28 = 0xe12fff1e
 set *(int*)0xFF344F40 = 0xe1a0000b
 # ExecuteSIO32
 set *(int*)0xFF345148 = 0xe1a0000b
-
-# skip SerialFlash version check
-set *(int*)0xFF0C4278 = 0xe3a00000
 
 # break infinite loop at Wait LeoLens Complete
 b *0xFF0C5144

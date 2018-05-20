@@ -261,10 +261,6 @@ int beta_should_warn() { return 0; }
 CONFIG_INT("beta.warn", beta_warn, 0);
 static int get_beta_timestamp()
 {
-    #ifdef CONFIG_QEMU
-    return 1;
-    #endif
-    
     struct tm now;
     LoadCalendarFromRTC(&now);
     return now.tm_mday;
