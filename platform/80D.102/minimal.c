@@ -41,7 +41,7 @@ static inline uint32_t thumb_branch_instr(uint32_t pc, uint32_t dest, uint32_t o
     INSTR( rom_addr ) = THUMB_BLX_INSTR( &INSTR( rom_addr ), (dest_addr) )
 
 /** Specified by the linker */
-extern uint32_t _bss_start[], _bss_end[];
+extern uint32_t _bss_start[], _bss_end[], _text_start;
 
 static inline void
 zero_bss( void )
@@ -85,14 +85,21 @@ copy_and_restart( int offset )
     // so we adjust both values in order to keep things close to the traditional ML boot process
     // (alternative: we could adjust only the size, and place ML at the end of malloc buffer)
     uint32_t ml_reserved_mem = (uintptr_t) _bss_end - INSTR( HIJACK_INSTR_BSS_END );
+    qprint("[BOOT] reserving memory:"); qprintn(ml_reserved_mem); qprint("\n");
+    qprint("before: user_mem_start = "); qprintn(INSTR( HIJACK_INSTR_BSS_END));
+    qprint("size = "); qprintn(INSTR( HIJACK_INSTR_BSS_END + 4 )); qprint("\n");
     INSTR( HIJACK_INSTR_BSS_END     ) += ml_reserved_mem;
     INSTR( HIJACK_INSTR_BSS_END + 4 ) -= ml_reserved_mem;
+    qprint(" after: user_mem_start = "); qprintn(INSTR( HIJACK_INSTR_BSS_END));
+    qprint("size = "); qprintn(INSTR( HIJACK_INSTR_BSS_END + 4 )); qprint("\n");
 
     // Fix the calls to bzero32() and create_init_task()
     FIXUP_BRANCH( HIJACK_FIXBR_BZERO32, my_bzero32 );
     FIXUP_BRANCH( HIJACK_FIXBR_CREATE_ITASK, my_create_init_task );
 
     // Set our init task to run instead of the firmware one
+    qprint("[BOOT] changing init_task from "); qprintn(INSTR( HIJACK_INSTR_MY_ITASK ));
+    qprint("to "); qprintn((uint32_t) my_init_task); qprint("\n");
     INSTR( HIJACK_INSTR_MY_ITASK ) = (uint32_t) my_init_task;
     
     // Make sure that our self-modifying code clears the cache
@@ -143,6 +150,8 @@ static void DUMP_ASM dump_task()
 static void
 my_init_task(int a, int b, int c, int d)
 {
+    qprintf("[BOOT] autoexec.bin loaded at %X - %X.\n", &_text_start, &_bss_end);
+
     init_task(a,b,c,d);
 
     log_start();
