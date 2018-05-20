@@ -363,26 +363,29 @@ int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
     uint32_t offset = 0;
     char raw[48] = "";
 
-    if ((insn & 0x0F000000) == 0x05000000 ||
-        (insn & 0x0F200000) == 0x04000000)
+    if ((insn & 0x0F000000) == 0x05000000)
     {
         /* ARM ARM:
          * A5.2.2 Load and Store Word or Unsigned Byte - Immediate offset
          * A5.2.5 Load and Store Word or Unsigned Byte - Immediate pre-indexed
-         * A5.2.8 Load and Store Word or Unsigned Byte - Immediate post-indexed
          */
 
         offset = (insn & 0xFFF);
     }
-    else if ((insn & 0x0F000000) == 0x07000000 ||
-             (insn & 0x0F200000) == 0x06000000)
+    else if ((insn & 0x0D200000) == 0x04000000)
+    {
+        /* A5.2.8  Load and Store Word or Unsigned Byte - Immediate post-indexed
+         * A5.2.9  Load and Store Word or Unsigned Byte - Register post-indexed
+         * A5.2.10 Load and Store Word or Unsigned Byte - Scaled register post-indexed
+         */
+        offset = 0;
+    }
+    else if ((insn & 0x0F000000) == 0x07000000)
     {
         /* A5.2.3 Load and Store Word or Unsigned Byte - Register offset
          * A5.2.4 Load and Store Word or Unsigned Byte - Scaled register offset
          * A5.2.6 Load and Store Word or Unsigned Byte - Register pre-indexed
          * A5.2.7 Load and Store Word or Unsigned Byte - Scaled register pre-indexed
-         * A5.2.9 Load and Store Word or Unsigned Byte - Register post-indexed
-         * A5.2.10 Load and Store Word or Unsigned Byte - Scaled register post-indexed
          */
         uint32_t shift = (insn >> 5) & 0x3;
         uint32_t shift_imm = (insn >> 7) & 0x1F;
