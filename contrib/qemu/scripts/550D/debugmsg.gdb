@@ -3,11 +3,13 @@
 
 source -v debug-logging.gdb
 
-# To get debugging symbols from Magic Lantern, uncomment this:
+# To get debugging symbols from Magic Lantern, uncomment one of these:
 #symbol-file ../magic-lantern/platform/550D.109/magiclantern
+#symbol-file ../magic-lantern/platform/550D.109/autoexec
+#symbol-file ../magic-lantern/platform/550D.109/stubs.o
 
 macro define CURRENT_TASK 0x1a20
-macro define CURRENT_ISR  (*(int*)0x670 ? (*(int*)0x674) >> 2 : 0)
+macro define CURRENT_ISR  (MEM(0x670) ? MEM(0x674) >> 2 : 0)
 
 # GDB hook is very slow; -d debugmsg is much faster
 # ./run_canon_fw.sh will use this address, don't delete it
@@ -41,6 +43,21 @@ if 0
   mpu_recv_log
 end
 
+# properties
+if 0
+  b *0xFF056E38
+  prop_request_change_log
+
+  b *0xFF1B712C
+  mpu_analyze_recv_data_log
+
+  b *0xFF1B66D4
+  prop_lookup_maybe_log
+
+  b *0xFF1BAAC0
+  mpu_prop_lookup_log
+end
+
 # semaphores
 if 0
   b *0xFF069D10
@@ -54,6 +71,12 @@ if 0
 
   b *0xFF069F58
   give_semaphore_log
+end
+
+# state objects
+if 1
+  b *0xff1d84f4
+  state_transition_log
 end
 
 # image processing engine

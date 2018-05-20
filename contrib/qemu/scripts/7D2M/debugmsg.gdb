@@ -2,12 +2,15 @@
 # ./run_canon_fw.sh 7D2M -d debugmsg -s -S & arm-none-eabi-gdb -x 7D2M/debugmsg.gdb
 
 source -v debug-logging.gdb
+source -v 7D2M/patches.gdb
 
-# To get debugging symbols from Magic Lantern, uncomment this:
-#symbol-file ../magic-lantern/platform/7D2M.104/magiclantern
+# To get debugging symbols from Magic Lantern, uncomment one of these:
+#symbol-file ../magic-lantern/platform/7D2.104/magiclantern
+#symbol-file ../magic-lantern/platform/7D2.104/autoexec
+#symbol-file ../magic-lantern/platform/7D2.104/stubs.o
 
 macro define CURRENT_TASK 0x28568
-macro define CURRENT_ISR  (*(int*)0x28544 ? (*(int*)0x28548) : 0)
+macro define CURRENT_ISR  (MEM(0x28544) ? MEM(0x28548) : 0)
 
 # GDB hook is very slow; -d debugmsg is much faster
 # ./run_canon_fw.sh will use this address, don't delete it

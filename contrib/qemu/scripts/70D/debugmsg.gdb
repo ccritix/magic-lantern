@@ -5,11 +5,13 @@
 source -v debug-logging.gdb
 source -v 70D/patches.gdb
 
-# To get debugging symbols from Magic Lantern, uncomment this:
+# To get debugging symbols from Magic Lantern, uncomment one of these:
 #symbol-file ../magic-lantern/platform/70D.112/magiclantern
+#symbol-file ../magic-lantern/platform/70D.112/autoexec
+#symbol-file ../magic-lantern/platform/70D.112/stubs.o
 
 macro define CURRENT_TASK 0x7AAC0
-macro define CURRENT_ISR  (*(int*)0x648 ? (*(int*)0x64C) >> 2 : 0)
+macro define CURRENT_ISR  (MEM(0x648) ? MEM(0x64C) >> 2 : 0)
 
 # GDB hook is very slow; -d debugmsg is much faster
 # ./run_canon_fw.sh will use this address, don't delete it
@@ -32,6 +34,21 @@ if 0
 
   b *0x5ed0
   mpu_recv_log
+end
+
+# properties
+if 0
+  b *0xFF12AB14
+  prop_request_change_log
+
+  b *0xFF31E250
+  mpu_analyze_recv_data_log
+
+  b *0xFF31B408
+  prop_lookup_maybe_log
+
+  b *0xFF3247B8
+  mpu_prop_lookup_log
 end
 
 # message queues (incomplete)

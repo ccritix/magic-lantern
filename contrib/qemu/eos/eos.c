@@ -156,12 +156,13 @@ EOSRegionHandler eos_handlers[] =
     { "Interrupt",    0xD5011000, 0xD5011FFF, eos_handle_intengine, 2 },    /* second core in D7 */
     { "Interrupt",    0xD02C0200, 0xD02C02FF, eos_handle_intengine, 3 },    /* 5D3 eeko */
     { "Interrupt",    0xC1000000, 0xC100FFFF, eos_handle_intengine_gic, 7 },/* D7 */
-    { "Timers",       0xC0210000, 0xC0210FFF, eos_handle_timers, 0 },
-    { "Timers",       0xD4000240, 0xD4000410, eos_handle_timers, 1 },
-    { "Timers",       0xD02C1500, 0xD02C15FF, eos_handle_timers, 2 },
+    { "Timers",       0xC0210000, 0xC0210FFF, eos_handle_timers, 0 },       /* DIGIC 4/5/6 countdown timers */
+    { "Timers",       0xD02C1500, 0xD02C15FF, eos_handle_timers, 2 },       /* Eeko countdown timer */
     { "Timer",        0xC0242014, 0xC0242014, eos_handle_digic_timer, 0 },
-    { "Timer",        0xD400000C, 0xD400000C, eos_handle_digic_timer, 1 },  /* not sure */
-    { "HPTimer",      0xC0243000, 0xC0243FFF, eos_handle_hptimer, 0 },
+    { "Timer",        0xD400000C, 0xD400000C, eos_handle_digic_timer, 1 },
+    { "Timer",        0xD9820014, 0xD9820014, eos_handle_digic_timer, 2 },  /* D7: maybe? firmware waits for this register to change */
+    { "UTimer",       0xD4000240, 0xD4000440, eos_handle_utimer, 1 },       /* D6: timers 9...16 */
+    { "HPTimer",      0xC0243000, 0xC0243FFF, eos_handle_hptimer, 0 },      /* DIGIC 2/3/4/5/6 HPTimers */
     { "GPIO",         0xC0220000, 0xC022FFFF, eos_handle_gpio, 0 },
     { "Basic",        0xC0100000, 0xC0100FFF, eos_handle_basic, 0 },
     { "Basic",        0xC0400000, 0xC0400FFF, eos_handle_basic, 1 },
@@ -170,24 +171,36 @@ EOSRegionHandler eos_handlers[] =
     { "SDIO1",        0xC0C10000, 0xC0C10FFF, eos_handle_sdio, 1 },
     { "SDIO2",        0xC0C20000, 0xC0C20FFF, eos_handle_sdio, 2 },
     { "SFIO4",        0xC0C40000, 0xC0C40FFF, eos_handle_sfio, 4 },
-    { "SDIO6",        0xC8060000, 0xC8060FFF, eos_handle_sdio, 6 },
-    { "CFDMA0",       0xC0500000, 0xC0500FFF, eos_handle_cfdma, 0 },
-    { "SDDMA1",       0xC0510000, 0xC05100FF, eos_handle_sddma, 1 },
-    { "SDDMA3",       0xC0530000, 0xC0530FFF, eos_handle_sddma, 3 },
-    { "SDDMA6",       0xC8020000, 0xC80200FF, eos_handle_sddma, 6 },
+    { "SDIO85",       0xC8050000, 0xC8050FFF, eos_handle_sdio, 0x85 },
+    { "SDIO86",       0xC8060000, 0xC8060FFF, eos_handle_sdio, 0x86 },
+    { "SFIO87",       0xC8070000, 0xC8070FFF, eos_handle_sfio, 0x87 },
+    { "SFIO88",       0xC8080000, 0xC8080FFF, eos_handle_sfio, 0x88 },
+    { "UartDMA",      0xC05000C0, 0xC05000DF, eos_handle_uart_dma, 0 },
+    { "CFDMA0*",      0xC0500000, 0xC05000FF, eos_handle_cfdma, 0x0F },
+    { "CFDMA10",      0xC0510000, 0xC051001F, eos_handle_cfdma, 0x10 },
+    { "SDDMA1*",      0xC0510000, 0xC05100FF, eos_handle_sddma, 0x1F },
+    { "CFDMA30",      0xC0530000, 0xC053001F, eos_handle_cfdma, 0x30 },
+  //{ "SDDMA31",      0xC0530020, 0xC053003F, eos_handle_sddma, 0x31 },
+  //{ "SDDMA32",      0xC0530040, 0xC053005F, eos_handle_sddma, 0x32 },
+    { "SFDMA33",      0xC0530060, 0xC053007F, eos_handle_sfdma, 0x33 },
+    { "SDDMA3*",      0xC0530000, 0xC05300FF, eos_handle_sddma, 0x3F },
+    { "SDDMA82*",     0xC8020000, 0xC80200FF, eos_handle_sddma, 0x82F },
+    { "SFDMA83*",     0xC8030000, 0xC80300FF, eos_handle_sfdma, 0x83F },
+    { "SFDMA84*",     0xC8040000, 0xC80400FF, eos_handle_sfdma, 0x84F },
     { "CFATA0",       0xC0600000, 0xC060FFFF, eos_handle_cfata, 0 },
     { "CFATA2",       0xC0620000, 0xC062FFFF, eos_handle_cfata, 2 },
+    { "CFATA16",      0xC0700000, 0xC070FFFF, eos_handle_cfata, 0x10 },
     { "UART",         0xC0800000, 0xC08000FF, eos_handle_uart, 0 },
     { "UART",         0xC0810000, 0xC08100FF, eos_handle_uart, 1 },
-    { "UART",         0xC0270000, 0xC0270000, eos_handle_uart, 2 },
+    { "UART",         0xC0270000, 0xC027000F, eos_handle_uart, 2 },
     { "I2C",          0xC0090000, 0xC00900FF, eos_handle_i2c, 0 },
     { "SIO0",         0xC0820000, 0xC08200FF, eos_handle_sio, 0 },
     { "SIO1",         0xC0820100, 0xC08201FF, eos_handle_sio, 1 },
     { "SIO2",         0xC0820200, 0xC08202FF, eos_handle_sio, 2 },
     { "SIO3",         0xC0820300, 0xC08203FF, eos_handle_sio3, 3 },
-    { "SIO4",         0xC0820400, 0xC08204FF, eos_handle_sio_serialflash, 4 },
+    { "SIO4",         0xC0820400, 0xC08204FF, eos_handle_sio, 4 },
     { "SIO6",         0xC0820600, 0xC08206FF, eos_handle_sio, 6 },
-    { "SIO7",         0xC0820700, 0xC08207FF, eos_handle_sio_serialflash, 7 },
+    { "SIO7",         0xC0820700, 0xC08207FF, eos_handle_sio, 7 },
     { "SIO8",         0xC0820800, 0xC08208FF, eos_handle_sio, 8 },
     { "MREQ",         0xC0203000, 0xC02030FF, eos_handle_mreq, 0 },
     { "DMA1",         0xC0A10000, 0xC0A100FF, eos_handle_dma, 1 },
@@ -221,17 +234,32 @@ EOSRegionHandler eos_handlers[] =
 
     /* generic catch-all for everything unhandled from this range */
     { "ENGIO",        0xC0F00000, 0xC0FFFFFF, eos_handle_engio, 0 },
-    
+
+    { "XDMAC",        0xD6030000, 0xD603002F, eos_handle_xdmac, 0 },
+    { "XDMAC",        0xD6030030, 0xD603005F, eos_handle_xdmac, 1 },
+    { "XDMAC",        0xD6030060, 0xD603008F, eos_handle_xdmac, 2 },
+    { "XDMAC",        0xD6030090, 0xD60300BF, eos_handle_xdmac, 3 },
+    { "XDMAC7",       0xC9200000, 0xC920003F, eos_handle_xdmac7, 0 },
+    { "XDMAC7",       0xC9200040, 0xC920007F, eos_handle_xdmac7, 1 },
+    { "XDMAC7",       0xC9200080, 0xC92000BF, eos_handle_xdmac7, 2 },
+
+    { "MEMDIV",       0xD9001600, 0xD900FFFF, eos_handle_memdiv, 0 },
+
+    { "ROMID",        0xBFE01FD0, 0xBFE01FDF, eos_handle_rom_id, 0 },
+    { "ROMID",        0xD5100010, 0xD5100010, eos_handle_rom_id, 1 },
+
     { "DIGIC6",       0xD0000000, 0xDFFFFFFF, eos_handle_digic6, 0 },
     { "DIGIC6",       0xC8100000, 0xC8100FFF, eos_handle_digic6, 1 },
-    
-    { "ML helpers",   0xCF123000, 0xCF123EFF, eos_handle_ml_helpers, 0 },
+
+    { "ML helpers",   0xCF123000, 0xCF1230FF, eos_handle_ml_helpers, 0 },
+    { "ML helpers",   0xC0123400, 0xC01234FF, eos_handle_ml_helpers, 1 },
 };
 
 /* io range access */
 static uint64_t eos_io_read(void *opaque, hwaddr addr, uint32_t size)
 {
-    addr += IO_MEM_START;
+    EOSState* s = (EOSState*) opaque;
+    addr += MMIO_ADDR;
 
     uint32_t type = MODE_READ;
 
@@ -240,14 +268,15 @@ static uint64_t eos_io_read(void *opaque, hwaddr addr, uint32_t size)
 
 static void eos_io_write(void *opaque, hwaddr addr, uint64_t val, uint32_t size)
 {
-    addr += IO_MEM_START;
+    EOSState* s = (EOSState*) opaque;
+    addr += MMIO_ADDR;
 
     uint32_t type = MODE_WRITE;
 
     eos_handler ( opaque, addr, type, val );
 }
 
-static const MemoryRegionOps iomem_ops = {
+static const MemoryRegionOps mmio_ops = {
     .read = eos_io_read,
     .write = eos_io_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
@@ -365,6 +394,23 @@ const char * eos_get_cam_path(EOSState *s, const char * file_rel)
     return file;
 }
 
+static int check_rom_mirroring(void * buf, int size, int full_size)
+{
+    if (size / 2 && memcmp(buf, buf + size / 2, size / 2) == 0)
+    {
+        /* identical halves? check recursively to find the lowest size with unique data */
+        if (!check_rom_mirroring(buf, size / 2, full_size))
+        {
+            fprintf(stderr, "[EOS] mirrored data; unique 0x%X bytes repeated 0x%X times\n", size / 2, full_size / (size / 2));
+        }
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 void eos_load_image(EOSState *s, const char * file_rel, int offset, int max_size, uint32_t addr, int swap_endian)
 {
     const char * file = eos_get_cam_path(s, file_rel);
@@ -415,7 +461,9 @@ void eos_load_image(EOSState *s, const char * file_rel, int offset, int max_size
     }
     
     fprintf(stderr, "\n");
-    
+
+    check_rom_mirroring(buf + offset, size, size);
+
     if (swap_endian) {
         reverse_bytes_order(buf + offset, size);
     }
@@ -499,6 +547,23 @@ static void eos_interrupt_timer_body(EOSState *s)
             if(s->irq_schedule[pos] > 1)
             {
                 s->irq_schedule[pos]--;
+            }
+        }
+
+        /* check all UTimers */
+        int utimer_interrupts[COUNT(s->UTimers)] = {
+            0x0E, 0x1E, 0x2E, 0x3E, 0x4E, 0x5E, 0x6E, 0x7E,
+        };
+
+        for (int id = 0; id < COUNT(s->UTimers); id++)
+        {
+            if (s->UTimers[id].active && s->UTimers[id].output_compare == s->digic_timer)
+            {
+                if (qemu_loglevel_mask(EOS_LOG_IO)) {
+                    fprintf(stderr, "[TIMER] Firing UTimer #%d\n", id);
+                }
+                s->UTimers[id].triggered = 1;
+                eos_trigger_int(s, utimer_interrupts[id], 0);
             }
         }
 
@@ -766,26 +831,53 @@ static void draw_line4_32(void *opaque,
 static void draw_line8_32_bmp_yuv(void *opaque,
                 uint8_t *d, const uint8_t *bmp, const uint8_t *yuv, int width, int deststep, int yuvstep)
 {
-    uint8_t v, r, g, b;
     EOSState* ws = (EOSState*) opaque;
     
     do {
-        v = ldub_p((void *) bmp);
-        if (v)
+        uint8_t v = ldub_p((void *) bmp);
+        int r = ws->disp.palette_8bit[v].R;
+        int g = ws->disp.palette_8bit[v].G;
+        int b = ws->disp.palette_8bit[v].B;
+        int o = ws->disp.palette_8bit[v].opacity;
+
+        if (o == 3)
         {
-            r = ws->disp.palette_8bit[v].R;
-            g = ws->disp.palette_8bit[v].G;
-            b = ws->disp.palette_8bit[v].B;
+            /* opaque */
             ((uint32_t *) d)[0] = rgb_to_pixel32(r, g, b);
         }
         else
         {
+            /* some sort of transparency */
             uint32_t uyvy =  ldl_p((void*)((uintptr_t)yuv & ~3));
             int Y = (uintptr_t)yuv & 3 ? UYVY_GET_Y2(uyvy) : UYVY_GET_Y1(uyvy);
             int U = UYVY_GET_U(uyvy);
             int V = UYVY_GET_V(uyvy);
             int R, G, B;
             yuv2rgb(Y, U, V, &R, &G, &B);
+            
+            if (o == 0 && r == 255 && g == 255 && b == 255)
+            {
+                /* fully transparent (nothing to do) */
+                /* is this an edge case in Canon firmware? */
+            }
+            else
+            {
+                /* assume semi-transparent */
+                /* 5D3: 2 bits, 4 transparency levels
+                 * 0 = somewhat transparent, 3 = opaque,
+                 * 0 with Y=255 (R=G=B=255) = fully transparent
+                 * black image => bitmap overlay looks as if it were opaque
+                 * (colors not altered, except for the fully transparent special case)
+                 * white image => bitmap overlay washed out (except for o=3)
+                 * red image => bitmap overlay hue-shifted (except for o=3)
+                 * the following is just a rough approximation that looks reasonably well */
+                int bmp_weight = (o & 3) + 2;
+                int yuv_weight = 5 - bmp_weight;
+                R = (R * yuv_weight + r * bmp_weight) / 5;
+                G = (G * yuv_weight + g * bmp_weight) / 5;
+                B = (B * yuv_weight + b * bmp_weight) / 5;
+            }
+
             ((uint32_t *) d)[0] = rgb_to_pixel32(R, G, B);
         }
         bmp ++;
@@ -1116,6 +1208,16 @@ enum {
 static int eos_uart_can_rx(void *opaque)
 {
     DigicUartState *s = opaque;
+    EOSState *es = (EOSState *)(opaque - offsetof(EOSState, uart));
+
+    /* fixme: make it work without this workaround */
+    if (es->uart_just_received)
+    {
+        /* extra wait states to work around buffer issues; test code follows */
+        /* ( sleep 5; echo "akashimorino" ) | ./run_canon_fw.sh 750D -serial stdio */
+        es->uart_just_received--;
+        return 0;
+    }
 
     return !(s->reg_st & ST_RX_RDY);
 }
@@ -1124,10 +1226,13 @@ static void eos_uart_rx(void *opaque, const uint8_t *buf, int size)
 {
     DigicUartState *s = opaque;
 
+    assert(size == 1);
     assert(eos_uart_can_rx(opaque));
 
     s->reg_st |= ST_RX_RDY;
     s->reg_rx = *buf;
+
+    assert(!eos_uart_can_rx(opaque));
 
     EOSState *es = (EOSState *)(opaque - offsetof(EOSState, uart));
     assert(es->model->uart_rx_interrupt);
@@ -1182,9 +1287,9 @@ static EOSState *eos_init_cpu(struct eos_model_desc * model)
     if (!s->workdir) s->workdir = ".";
 
     const char* cpu_name = 
-        (s->model->digic_version <= 5) ? "arm946eos" :
-        (s->model->digic_version == 7) ? "cortex-a9" :
-        (s->model->digic_version >= 6) ? "arm-digic6-eos" :
+        (s->model->digic_version <= 5) ? "arm946-eos" :
+        (s->model->digic_version == 7) ? "cortex-a9-eos" :
+        (s->model->digic_version >= 6) ? "cortex-r4-eos" :
                                          "arm946";
     
     s->cpu0 = cpu_arm_init(cpu_name);
@@ -1226,7 +1331,8 @@ static EOSState *eos_init_cpu(struct eos_model_desc * model)
          * when they have different sizes */
         assert(ATCM_SIZE == BTCM_SIZE);
     }
-    
+
+    assert(RAM_SIZE);
     memory_region_init_ram(&s->ram, NULL, "eos.ram", RAM_SIZE - ATCM_SIZE, &error_abort);
     memory_region_add_subregion(s->system_mem, 0 + ATCM_SIZE, &s->ram);
     memory_region_init_alias(&s->ram_uncached, NULL, "eos.ram_uncached", &s->ram, 0x00000000, RAM_SIZE - ATCM_SIZE);
@@ -1260,8 +1366,8 @@ static EOSState *eos_init_cpu(struct eos_model_desc * model)
     //memory_region_add_subregion(s->system_mem, 0xF0000000, &s->rom1);
 
     /* set up io space */
-    memory_region_init_io(&s->iomem, NULL, &iomem_ops, s, "eos.iomem", s->model->io_mem_size);
-    memory_region_add_subregion(s->system_mem, IO_MEM_START, &s->iomem);
+    memory_region_init_io(&s->mmio, NULL, &mmio_ops, s, "eos.mmio", MMIO_SIZE);
+    memory_region_add_subregion(s->system_mem, MMIO_ADDR, &s->mmio);
 
     /*ROMState *rom0 = eos_rom_register(0xF8000000, NULL, "ROM1", ROM1_SIZE,
                                 NULL,
@@ -1285,6 +1391,12 @@ static EOSState *eos_init_cpu(struct eos_model_desc * model)
     s->rtc.regs[0x0E] = 0x20;                           /* Control Register 1: 24-hour mode, no alarms */
     s->rtc.regs[0x0F] = s->model->rtc_control_reg_2;    /* Control Register 2: XST (model-specific), PON... */
 
+    if (strcmp(s->model->name, "400D") == 0)
+    {
+        /* fixme: RTC protocol unknown, but returning 0xC everywhere brings the GUI */
+        s->rtc.regs[0x00] = 0xC;
+    }
+
     int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     s->interrupt_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, eos_interrupt_timer_cb, s);
     timer_mod_anticipate_ns(s->interrupt_timer, now + DIGIC_TIMER_STEP * 1000);
@@ -1303,43 +1415,14 @@ static EOSState *eos_init_cpu(struct eos_model_desc * model)
     return s;
 }
 
-static void patch_7D2(EOSState *s)
-{
-    int is_7d2m = (eos_get_mem_w(s, 0xFE106062) == 0x0F31EE19);
-
-    if (is_7d2m)
-    {
-        uint32_t nop = 0x8000F3AF;
-        uint32_t ret = 0x00004770;
-        uint32_t one = 1;
-
-        fprintf(stderr, "Patching 0x%X (enabling TIO on 7D2M)\n", 0xFEC4DCBC);
-        MEM_WRITE_ROM(0xFEC4DCBC, (uint8_t*) &one, 4);
-        
-        MEM_WRITE_ROM(0xFE0A3024, (uint8_t*) &nop, 4);
-        fprintf(stderr, "Patching 0x%X (idk, it fails)\n", 0xFE0A3024);
-        
-        MEM_WRITE_ROM(0xFE102B5A, (uint8_t*) &ret, 4);
-        fprintf(stderr, "Patching 0x%X (PROPAD_CreateFROMPropertyHandle)\n", 0xFE102B5A);
-    }
-    else
-    {
-        fprintf(stderr, "This ROM doesn't look like a 7D2M\n");
-    }
-}
-
 static void patch_EOSM3(EOSState *s)
 {
     fprintf(stderr, "Patching 0xFCC637A8 (enabling TIO)\n");
     uint32_t one = 1;
     MEM_WRITE_ROM(0xFCC637A8, (uint8_t*) &one, 4);
 
-    /* fixme: timer issue? some interrupt that needs triggered? */
-    fprintf(stderr, "Patching 0xFC1F0116 (usleep)\n");
-    uint32_t bx_lr = 0x4770;
-    MEM_WRITE_ROM(0xFC1F0116, (uint8_t*) &bx_lr, 2);
-
     fprintf(stderr, "Patching 0xFC0F45B8 (InitExDrivers, locks up)\n");
+    uint32_t bx_lr = 0x4770;
     MEM_WRITE_ROM(0xFC0F45B8, (uint8_t*) &bx_lr, 2);
 
     fprintf(stderr, "Patching 0xFC1F455C (DcdcDrv, assert i2c)\n");
@@ -1381,11 +1464,6 @@ static void patch_EOSM10(EOSState *s)
     fprintf(stderr, "Patching 0xFCE642A8 (enabling TIO)\n");
     uint32_t one = 1;
     MEM_WRITE_ROM(0xFCE642A8, (uint8_t*) &one, 4);
-    
-    /* fixme: timer issue? some interrupt that needs triggered? */
-    fprintf(stderr, "Patching 0xFE1ED4D6 (usleep)\n");
-    uint32_t bx_lr = 0x4770;
-    MEM_WRITE_ROM(0xFE1ED4D6, (uint8_t*) &bx_lr, 2);
 }
 
 static void patch_EOSM5(EOSState *s)
@@ -1477,13 +1555,6 @@ static void eos_init_common(MachineState *machine)
         fprintf(stderr, "Disabling IPC (boot flag 0x24)\n");
         uint32_t flag = 0;
         MEM_WRITE_ROM(s->model->bootflags_addr + 0x24, (uint8_t*) &flag, 4);
-    }
-
-    if ((strcmp(s->model->name, "7D2M") == 0) ||
-        (strcmp(s->model->name, "7D2S") == 0))
-    {
-        /* 7D2 experiments */
-        patch_7D2(s);
     }
     
     if (strcmp(s->model->name, "EOSM3") == 0)
@@ -1728,7 +1799,7 @@ void io_log(const char * module_name, EOSState *s, unsigned int address, unsigne
     }
     else
     {
-        snprintf(mod_name_and_pc, sizeof(mod_name_and_pc), "%-10s at 0x%08X:%08X", mod_name, pc, lr);
+        snprintf(mod_name_and_pc, sizeof(mod_name_and_pc), "%-14s at 0x%08X:%08X", mod_name, pc, lr);
     }
     
     /* description may have two optional integer arguments */
@@ -1747,10 +1818,8 @@ void io_log(const char * module_name, EOSState *s, unsigned int address, unsigne
     );
 
     /* print MMIO reads as dm-spy entries (dm-spy-experiments branch)
-     * so you can cross-check the values with the ones from actual hardware
-     * this requires -d io,nochain -singlestep (or -d io,callstack)
-     * does it really need a dedicated option? */
-    if (!(type & MODE_WRITE) && singlestep && qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN))
+     * so you can cross-check the values with the ones from actual hardware */
+    if (qemu_loglevel_mask(EOS_LOG_IO_LOG))
     {
         uint32_t insn;
         cpu_physical_memory_read(pc, &insn, sizeof(insn));
@@ -1860,6 +1929,8 @@ unsigned int eos_handler ( EOSState *s, unsigned int address, unsigned char type
 
 unsigned int eos_trigger_int(EOSState *s, unsigned int id, unsigned int delay)
 {
+    assert(id);
+
     if(!delay && s->irq_enabled[id] && !s->irq_id)
     {
         if (qemu_loglevel_mask(CPU_LOG_INT)) {
@@ -1963,12 +2034,6 @@ unsigned int eos_handle_intengine ( unsigned int parm, EOSState *s, unsigned int
                 msg_arg1 = s->irq_id << 2;
                 msg_arg2 = s->irq_id;
                 ret = s->irq_id << ((address & 0xF) ? 2 : 0);
-                
-                if (s->model->digic_version > 3)
-                {
-                    /* 1000D doesn't like this... */
-                    assert(ret);
-                }
 
                 /* this register resets on read (subsequent reads should report 0) */
                 s->irq_id = 0;
@@ -2151,11 +2216,11 @@ unsigned int eos_handle_timers ( unsigned int parm, EOSState *s, unsigned int ad
     int msg_arg2 = 0;
 
     int timer_id = 
-        (parm == 0) ? ((address & 0xF00) >> 8)     :    /* DIGIC 4/5 timers (0,1,2)*/
-        (parm == 1) ? ((address & 0xFC0) >> 6) - 6 :    /* DIGIC 6 timers (3,4,5,6,7,8,9,10)*/
+        (parm == 0) ? ((address & 0xF00) >> 8)     :    /* DIGIC 4/5 timers (0,1,2...5) */
         (parm == 2) ? 11 :                              /* 5D3 Eeko DryOS timer */
-                      0  ;
-    
+                      -1 ;
+    assert(timer_id >= 0);
+
     msg_arg1 = timer_id;
     
     if (timer_id < COUNT(s->timer_enabled))
@@ -2167,7 +2232,7 @@ unsigned int eos_handle_timers ( unsigned int parm, EOSState *s, unsigned int ad
                 {
                     if(value & 1)
                     {
-                        if (timer_id == DRYOS_TIMER_ID)
+                        if (DRYOS_TIMER_ID && timer_id == DRYOS_TIMER_ID)
                         {
                             msg = "Timer #%d: starting triggering";
                             eos_trigger_int(s, TIMER_INTERRUPT, s->timer_reload_value[timer_id] >> 8);   /* digic timer */
@@ -2220,6 +2285,78 @@ unsigned int eos_handle_timers ( unsigned int parm, EOSState *s, unsigned int ad
     return ret;
 }
 
+/* DIGIC 6 UTimer (they look like regular timers, but behave like HPTimers) */
+unsigned int eos_handle_utimer ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+{
+    const char * msg = "UTimer #%d: ???";
+    int msg_arg1 = 0;
+    int msg_arg2 = 0;
+    
+    unsigned int ret = 0;
+    int timer_id = ((address & 0xFC0) >> 6) - 9;
+    msg_arg1 = timer_id;
+
+    switch(address & 0x3F)
+    {
+
+        case 0x00:
+            MMIO_VAR(s->UTimers[timer_id].active);
+            msg = value == 1 ? "UTimer #%d: active" :
+                  value == 0 ? "UTimer #%d: inactive" :
+                               "UTimer #%d: ?!";
+            break;
+
+        case 0x08:
+            /* fixme: duplicate code (same as HPTimer offset 1x4) */
+            if(type & MODE_WRITE)
+            {
+                /* upper rounding, to test for equality with digic_timer */
+                int rounded = (value + DIGIC_TIMER_STEP) & DIGIC_TIMER_MASK;
+                s->UTimers[timer_id].output_compare = rounded;
+
+                /* for some reason, the value set to output compare
+                 * is sometimes a little behind digic_timer */
+                int actual_delay = ((int32_t)(rounded - s->digic_timer) << 12) >> 12;
+
+                if (actual_delay < 0)
+                {
+                    /* workaround: when this happens, trigger right away */
+                    s->UTimers[timer_id].output_compare = s->digic_timer + DIGIC_TIMER_STEP;
+                }
+
+                msg = "UTimer #%d: output compare (delay %d microseconds)";
+                msg_arg2 = value - s->digic_timer_last_read;
+            }
+            else
+            {
+                ret = s->UTimers[timer_id].output_compare;
+                msg = "UTimer #%d: output compare";
+            }
+            break;
+
+        case 0x0C:
+            if(type & MODE_WRITE)
+            {
+                msg = value == 1 ? "UTimer #%d: start" :
+                      value == 0 ? "UTimer #%d: stop" :
+                                   "UTimer #%d: ?!";
+            }
+            else
+            {
+                msg = "UTimer #%d: status";
+            }
+            break;
+
+        case 0x10:
+            MMIO_VAR(s->UTimers[timer_id].triggered);
+            msg = "UTimer #%d: triggered?";
+            break;
+    }
+
+    io_log("TIMER", s, address, type, value, ret, msg, msg_arg1, msg_arg2);
+    return ret;
+}
+
 unsigned int eos_handle_hptimer ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
     const char * msg = 0;
@@ -2233,13 +2370,11 @@ unsigned int eos_handle_hptimer ( unsigned int parm, EOSState *s, unsigned int a
     switch(address & 0xF0F)
     {
         case 0x100:
-            MMIO_VAR(s->HPTimers[timer_id].active);
-
             if(type & MODE_WRITE)
             {
-                msg = value == 1 ? "HPTimer #%d: active" :
-                      value == 0 ? "HPTimer #%d: inactive" :
-                                   "???";
+                msg = value == 1 ? "HPTimer #%d: enabled?" :
+                      value == 0 ? "HPTimer #%d: disabled?" :
+                                   "HPTimer #%d: ?!";
             }
             else
             {
@@ -2252,12 +2387,10 @@ unsigned int eos_handle_hptimer ( unsigned int parm, EOSState *s, unsigned int a
             {
                 /* upper rounding, to test for equality with digic_timer */
                 int rounded = (value + DIGIC_TIMER_STEP) & DIGIC_TIMER_MASK;
-                int old = s->HPTimers[timer_id].output_compare;
                 s->HPTimers[timer_id].output_compare = rounded;
                 
                 /* for some reason, the value set to output compare
                  * is sometimes a little behind digic_timer */
-                int delay_since_last = ((int32_t)(value - old) << 12) >> 12;
                 int actual_delay = ((int32_t)(rounded - s->digic_timer) << 12) >> 12;
 
                 if (actual_delay < 0)
@@ -2265,17 +2398,9 @@ unsigned int eos_handle_hptimer ( unsigned int parm, EOSState *s, unsigned int a
                     /* workaround: when this happens, trigger right away */
                     s->HPTimers[timer_id].output_compare = s->digic_timer + DIGIC_TIMER_STEP;
                 }
-                
-                if (old)
-                {
-                    msg = "HPTimer #%d: output compare (%d microseconds since last)";
-                    msg_arg2 = delay_since_last;
-                }
-                else
-                {
-                    msg = "HPTimer #%d: output compare (delay %d microseconds)";
-                    msg_arg2 = actual_delay;
-                }
+
+                msg = "HPTimer #%d: output compare (delay %d microseconds)";
+                msg_arg2 = value - s->digic_timer_last_read;
             }
             else
             {
@@ -2285,7 +2410,11 @@ unsigned int eos_handle_hptimer ( unsigned int parm, EOSState *s, unsigned int a
             break;
 
         case 0x200:
-            msg = "HPTimer #%d: ?!";
+            MMIO_VAR(s->HPTimers[timer_id].active);
+            msg = value == 1 ? "HPTimer #%d: active" :
+                  value == 0 ? "HPTimer #%d: inactive" :
+                  value == 3 ? "HPTimer #%d: periodic?" :
+                               "HPTimer #%d: ?!";
             break;
 
         case 0x204:
@@ -2377,7 +2506,8 @@ static int eos_handle_card_led( unsigned int parm, EOSState *s, unsigned int add
 
     if (type & MODE_WRITE)
     {
-        if (s->model->digic_version == 6)
+        if (s->model->digic_version == 6 ||
+            s->model->digic_version == 7)
         {
             s->card_led = 
                 ((value & 0x0F000F) == 0x0D0002) ?  1 :
@@ -2428,6 +2558,20 @@ static int eos_handle_rtc_cs( unsigned int parm, EOSState *s, unsigned int addre
     return ret;
 }
 
+static int eos_handle_serial_flash_cs( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+{
+    const char * msg = "Serial flash CS";
+    unsigned int ret = 0;
+
+    if (type & MODE_WRITE)
+    {
+        serial_flash_set_CS(s->sf, (value & s->model->serial_flash_cs_bitmask) ? 1 : 0);
+    }
+
+    io_log("GPIO", s, address, type, value, ret, msg, 0, 0);
+    return ret;
+}
+
 unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
     unsigned int ret = 1;
@@ -2452,6 +2596,12 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
     if (address == s->model->rtc_cs_register)
     {
         return eos_handle_rtc_cs(parm, s, address, type, value);
+    }
+
+    /* 0xC022002C, 0xC022C0D4 */
+    if (s->sf && address == s->model->serial_flash_cs_register)
+    {
+        return eos_handle_serial_flash_cs(parm, s, address, type, value);
     }
 
     switch (address & 0xFFFF)
@@ -2516,6 +2666,8 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
                 {
                     ret = 0x40000 | 0x80000;
                     msg = "VSW_STATUS";
+                    /* 70D: SD detect (0x10)
+                     * 100D: SD detect (0x8) */
                 }
             }
 #ifdef IGNORE_CONNECT_POLL
@@ -2534,7 +2686,9 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
             else 
             {        
                 /* 6D: return -1 here to launch "System & Display Check & Adjustment program" */
-                msg = "70D/6D SD detect?";
+                /* 6D SD detect (0x2) */
+                /* 70D IFE init (0x108) */
+                msg = "System check, SD detect, IFE init";
                 ret = 0x10C;
             }
             break;
@@ -2606,37 +2760,16 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
             ret = 0;
             break;
 
-        case 0xC0D4:
-            /* Serial flash on 100D */
-            msg = "SPI";
-            if (s->sf)
-            {
-                serial_flash_set_CS(s->sf, (value & 0x100000) ? 1 : 0);
-            }
-            if (!qemu_loglevel_mask(EOS_LOG_SFLASH))
-            {
-                if (value == 0x83DC00 || value == 0x93D800)
-                    return 0; // Quiet
-            }
-            ret = 0;
-            break;
-        
-        case 0x002C:
-            /* Serial flash on 70D */
-            msg = "SPI";
-            if (s->sf)
-            {
-                serial_flash_set_CS(s->sf, (value & 0x2) ? 1 : 0);
-            }
-            if (!qemu_loglevel_mask(EOS_LOG_SFLASH))
-            {
-                if (value == 0x46 || value == 0x44)
-                    return 0; // Quiet
-            }
-            ret = 0;
-            break;
-
         case 0x0098:
+        {
+            static int last_value = 1;
+            MMIO_VAR(last_value);
+            msg = (value & 0x02) ? "SRM_SetBusy" 
+                                 : "SRM_ClearBusy" ;
+            break;
+        }
+
+        case 0x00B8:
         {
             static int last_value = 1;
             MMIO_VAR(last_value);
@@ -2656,10 +2789,15 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
             break;
         
         
-        case 0x301C:    /* 40D, 5D2 */
+        case 0x301C:    /* D3, D4, older D5, 5D3 CF */
+            /* set low => CF/SD present */
+            msg = "CF/SD detect";
+            ret = 0;
+            break;
+
         case 0x3020:    /* 5D3 */
-            /* set low => CF present */
-            msg = "CF detect";
+            /* set low => SD present */
+            msg = "SD detect";
             ret = 0;
             break;
 
@@ -2672,6 +2810,14 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
                 ret = 0;
             }
 
+            break;
+
+        case 0x011C:    /* 40D, 450D */
+            msg = "VIDEO CONNECT";
+            ret = (strcmp(s->model->name, "40D") == 0) ? 0 : 1;
+#ifdef IGNORE_CONNECT_POLL
+            return ret;
+#endif
             break;
 
         case 0x0070:    /* 600D, 60D */
@@ -2697,9 +2843,18 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
         
         case 0x015C:
         case 0x017C:    /* 5D3 */
-        case 0x0130:    /* EOSM */
+        case 0x0130:    /* EOSM; 40D erase switch */
+        case 0x0100:    /* 40D, 450D, 1000D */
             msg = "USB CONNECT";
             ret = 0;
+#ifdef IGNORE_CONNECT_POLL
+            return ret;
+#endif
+            break;
+
+        case 0x0128:    /* 40D TOE (Ceres) */
+            msg = "TOE CONNECT";
+            ret = 1;
 #ifdef IGNORE_CONNECT_POLL
             return ret;
 #endif
@@ -2842,7 +2997,7 @@ unsigned int eos_handle_dma ( unsigned int parm, EOSState *s, unsigned int addre
             {
                 if(value & 1)
                 {
-                    /* Start DMA */
+                    msg = "Start DMA";
                     fprintf(stderr, "[DMA%i] Copy [0x%08X] -> [0x%08X], length [0x%08X], flags [0x%08X]\r\n", parm, srcAddr, dstAddr, count, value);
 
                     uint32_t blocksize = 8192;
@@ -2877,10 +3032,6 @@ unsigned int eos_handle_dma ( unsigned int parm, EOSState *s, unsigned int addre
                     }
                 }
             }
-            else
-            {
-                ret = 0;
-            }
             break;
 
         case 0x18:
@@ -2903,9 +3054,153 @@ unsigned int eos_handle_dma ( unsigned int parm, EOSState *s, unsigned int addre
     snprintf(dma_name, sizeof(dma_name), "DMA%i", parm);
     io_log(dma_name, s, address, type, value, ret, msg, 0, 0);
 
-    return 0;
+    return ret;
 }
 
+unsigned int eos_handle_xdmac ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+{
+    const char * msg = 0;
+    unsigned int ret = 0;
+    static unsigned int srcAddr = 0;
+    static unsigned int dstAddr = 0;
+    static unsigned int count = 0;
+    unsigned int interruptId[] = { 0x13E, 0x14E, 0x15E, 0x16E };
+
+    switch ((address & 0xFF) % 0x30)
+    {
+        case 0x00:
+        {
+            static int last = 0;
+            MMIO_VAR(last);
+            break;
+        }
+
+        case 0x28:
+            if(type & MODE_WRITE)
+            {
+                if(value & 1)
+                {
+                    msg = "Start DMA";
+                    fprintf(stderr, "[XDMAC%i] Copy [0x%08X] -> [0x%08X], length [0x%08X], flags [0x%08X]\r\n", parm, srcAddr, dstAddr, count, value);
+
+                    uint32_t blocksize = 8192;
+                    uint8_t *buf = malloc(blocksize);
+                    uint32_t remain = count;
+                    
+                    uint32_t src = srcAddr;
+                    uint32_t dst = dstAddr;
+
+                    while(remain)
+                    {
+                        uint32_t transfer = (remain > blocksize) ? blocksize : remain;
+
+                        eos_mem_read(s, src, buf, transfer);
+                        eos_mem_write(s, dst, buf, transfer);
+
+                        remain -= transfer;
+                        src += transfer;
+                        dst += transfer;
+                    }
+                    free(buf);
+
+                    fprintf(stderr, "[XDMAC%i] OK\n", parm);
+
+                    eos_trigger_int(s, interruptId[parm], count / 10000);
+                }
+            }
+            break;
+
+        case 0x14:
+            msg = "srcAddr";
+            MMIO_VAR(srcAddr);
+            break;
+
+        case 0x18:
+            msg = "dstAddr";
+            MMIO_VAR(dstAddr);
+            break;
+
+        case 0x10:
+            msg = "count";
+            MMIO_VAR(count);
+            break;
+    }
+
+    char dma_name[16];
+    snprintf(dma_name, sizeof(dma_name), "XDMAC%i", parm);
+    io_log(dma_name, s, address, type, value, ret, msg, 0, 0);
+
+    return ret;
+}
+
+unsigned int eos_handle_xdmac7 ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+{
+    const char * msg = 0;
+    unsigned int ret = 0;
+    static unsigned int srcAddr = 0;
+    static unsigned int dstAddr = 0;
+    static unsigned int count = 0;
+    unsigned int interruptId[] = { 0x11E, 0x12E, 0x13E };
+
+    switch (address & 0x3F)
+    {
+        case 0x28:
+            if(type & MODE_WRITE)
+            {
+                if(value & 1)
+                {
+                    msg = "Start DMA";
+                    fprintf(stderr, "[XDMAC%i] Copy [0x%08X] -> [0x%08X], length [0x%08X], flags [0x%08X]\r\n", parm, srcAddr, dstAddr, count, value);
+
+                    uint32_t blocksize = 8192;
+                    uint8_t *buf = malloc(blocksize);
+                    uint32_t remain = count;
+                    
+                    uint32_t src = srcAddr;
+                    uint32_t dst = dstAddr;
+
+                    while(remain)
+                    {
+                        uint32_t transfer = (remain > blocksize) ? blocksize : remain;
+
+                        eos_mem_read(s, src, buf, transfer);
+                        eos_mem_write(s, dst, buf, transfer);
+
+                        remain -= transfer;
+                        src += transfer;
+                        dst += transfer;
+                    }
+                    free(buf);
+
+                    fprintf(stderr, "[XDMAC%i] OK\n", parm);
+
+                    eos_trigger_int(s, interruptId[parm], count / 10000);
+                }
+            }
+            break;
+
+        case 0x00:
+            msg = "srcAddr";
+            MMIO_VAR(srcAddr);
+            break;
+
+        case 0x04:
+            msg = "dstAddr";
+            MMIO_VAR(dstAddr);
+            break;
+
+        case 0x08:
+            msg = "count";
+            MMIO_VAR(count);
+            break;
+    }
+
+    char dma_name[16];
+    snprintf(dma_name, sizeof(dma_name), "XDMAC%i", parm);
+    io_log(dma_name, s, address, type, value, ret, msg, 0, 0);
+
+    return ret;
+}
 
 unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
@@ -2915,15 +3210,11 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
     static int enable_tio_interrupt = 0;
     static int flags = 0;
 
-    if (address == 0xC0270000 && value == 0x80000000)
+    if ((address & ~0xF) == 0xC0270000)
     {
-        msg = "TIO enable flag on EOS M3?";
-        goto end;
-    }
-
-    if (address == 0xC0270000 && value != (value & 0xFF))
-    {
-        /* unknown, probably not TIO */
+        /* this looks like a 16-char ring buffer (?!) */
+        static uint32_t uart_buf[16];
+        MMIO_VAR(uart_buf[address & 0xF]);
         goto end;
     }
 
@@ -2950,6 +3241,17 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
                 /* 0 written during initialization */
                 if (enable_tio_interrupt)
                 {
+                    static int warned = 0;
+                    if (!s->model->uart_tx_interrupt)
+                    {
+                        if (!warned)
+                        {
+                            fprintf(stderr, "FIXME: uart_tx_interrupt unknown\n");
+                            warned = 1;
+                        }
+                        break;
+                    }
+
                     eos_trigger_int(s, s->model->uart_tx_interrupt, 1);
                 }
             }
@@ -2980,6 +3282,7 @@ unsigned int eos_handle_uart ( unsigned int parm, EOSState *s, unsigned int addr
                 {
                     msg = "Reset RX indicator";
                     s->uart.reg_st &= ~(ST_RX_RDY);
+                    s->uart_just_received = 100;
                 }
                 else
                 {
@@ -3246,7 +3549,9 @@ static unsigned int eos_handle_rtc ( unsigned int parm, EOSState *s, unsigned in
                     {
                         uint8_t cmd = last_sio_txdata & 0x0F;
                         uint8_t reg = (last_sio_txdata>>4) & 0x0F;
-                        if (!strcmp(s->model->name, "5D2") || !strcmp(s->model->name, "50D"))
+                        if (!strcmp(s->model->name, "5D2") ||
+                            !strcmp(s->model->name, "50D") ||
+                            !strcmp(s->model->name, "40D"))
                         {
                             reg = last_sio_txdata & 0x0F;
                             cmd = (last_sio_txdata>>4) & 0x0F;
@@ -3368,6 +3673,12 @@ static unsigned int eos_handle_rtc ( unsigned int parm, EOSState *s, unsigned in
 
 unsigned int eos_handle_sio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
+    if (s->sf && parm == s->model->serial_flash_sio_ch)
+    {
+        /* serial flash (SFIO) */
+        return eos_handle_sio_serialflash(parm, s, address, type, value);
+    }
+
     if (s->rtc.transfer_format != RTC_INACTIVE)
     {
         /* RTC CS active? */
@@ -3439,7 +3750,7 @@ unsigned int eos_handle_digic_timer ( unsigned int parm, EOSState *s, unsigned i
     }
     else
     {
-        ret = s->digic_timer;
+        ret = s->digic_timer_last_read = s->digic_timer;
 
         if (!(qemu_loglevel_mask(CPU_LOG_INT) &&
               qemu_loglevel_mask(EOS_LOG_VERBOSE)))
@@ -3478,7 +3789,7 @@ static void sdio_send_command(SDIOState *sd)
     if (rlen < 0)
         goto error;
 
-    if (sd->cmd_flags != 0x11 && sd->cmd_flags != 0x1) {
+    if (sd->cmd_flags != 0x11) {
 #define RWORD(n) (((uint32_t)response[n] << 24) | (response[n + 1] << 16) \
                   | (response[n + 2] << 8) | response[n + 3])
         if (rlen == 0)
@@ -3602,7 +3913,7 @@ static void sdio_trigger_interrupt(EOSState *s)
     SDIOState *sd = &s->sd;
 
     /* after a successful operation, trigger interrupt if requested */
-    if ((sd->cmd_flags == 0x13 || sd->cmd_flags == 0x14 || sd->cmd_flags == 0x04)
+    if ((sd->cmd_flags == 0x13 || sd->cmd_flags == 0x14)
         && !(sd->status & SDIO_STATUS_DATA_AVAILABLE))
     {
         /* if the current command does a data transfer, don't trigger until complete */
@@ -3682,7 +3993,7 @@ unsigned int eos_handle_sdio ( unsigned int parm, EOSState *s, unsigned int addr
                 }
                 else
                 {
-                    if (value == 0x13)  /* also 0x03? */
+                    if (value == 0x13)
                     {
                         /* write transfer */
                         s->sd.pio_transferred_bytes = 0;
@@ -3692,6 +4003,10 @@ unsigned int eos_handle_sdio ( unsigned int parm, EOSState *s, unsigned int addr
                     /* non-data or write transfer */
                     sdio_trigger_interrupt(s);
                 }
+            }
+            else
+            {
+                ret = 0x10;
             }
             break;
 
@@ -3718,10 +4033,9 @@ unsigned int eos_handle_sdio ( unsigned int parm, EOSState *s, unsigned int addr
             MMIO_VAR(s->sd.irq_flags);
 
             /* sometimes, a write command ends with this register
-             * other times, it ends with SDDMA register 0x78/0x38
+             * other times, it ends with SDDMA register 0x10 (mask 0x1F)
              */
-            
-            if (s->sd.cmd_flags == 0x13 && s->sd.dma_enabled && value)
+            if (s->sd.cmd_flags == 0x13 && value)
             {
                 sdio_write_data(s);
             }
@@ -3859,14 +4173,6 @@ unsigned int eos_handle_sdio ( unsigned int parm, EOSState *s, unsigned int addr
 
 unsigned int eos_handle_sddma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
-    if (strcmp(s->model->name, "5D2") == 0 ||
-        strcmp(s->model->name, "50D") == 0)
-    {
-        /* other models use SDDMA on the same address */
-        /* todo: make it generic? */
-        return eos_handle_cfdma(parm, s, address, type, value);
-    }
-    
     unsigned int ret = 0;
     const char * msg = 0;
 
@@ -3893,10 +4199,17 @@ unsigned int eos_handle_sddma ( unsigned int parm, EOSState *s, unsigned int add
             }
             break;
         case 0x10:
-            msg = "Flags/Status";
+            msg = "Command/Status?";
             if (type & MODE_WRITE)
             {
                 s->sd.dma_enabled = value & 1;
+
+                /* DMA transfer? */
+                if (s->sd.cmd_flags == 0x13 && s->sd.dma_enabled)
+                {
+                    sdio_write_data(s);
+                    sdio_trigger_interrupt(s);
+                }
             }
             break;
         case 0x14:
@@ -3904,15 +4217,6 @@ unsigned int eos_handle_sddma ( unsigned int parm, EOSState *s, unsigned int add
             ret = (s->sd.dma_enabled) ? 0x81 : 0;
             break;
         case 0x18:
-            msg = "Transfer start?";
-
-            /* DMA transfer? */
-            if (s->sd.cmd_flags == 0x13)
-            {
-                sdio_write_data(s);
-                sdio_trigger_interrupt(s);
-            }
-
             break;
     }
 
@@ -3932,7 +4236,7 @@ unsigned int eos_handle_sddma ( unsigned int parm, EOSState *s, unsigned int add
 static int cfdma_read_data(EOSState *s, CFState *cf)
 {
     CFD_DPRINTF("Reading %d of %d bytes to %x\n", cf->dma_count - cf->dma_read, cf->dma_count, cf->dma_addr + cf->dma_read);
-    
+
     assert(cf->dma_count % 4 == 0);
     
     /* for some reason, reading many values in a loop sometimes fails */
@@ -3948,13 +4252,16 @@ static int cfdma_read_data(EOSState *s, CFState *cf)
         cf->dma_read += 4;
     }
 
-    if (cf->dma_read == cf->dma_count)
+    cf->dma_wait--;
+
+    if (cf->dma_read == cf->dma_count && cf->dma_wait <= 0)
     {
         /* finished? */
+        assert(cf->dma_wait == 0 || !use_icount);
         cfdma_trigger_interrupt(s);
         return 0;
     }
-    
+
     return 1;
 }
 
@@ -3975,9 +4282,12 @@ static int cfdma_write_data(EOSState *s, CFState *cf)
         cf->dma_written += 4;
     }
 
-    if (cf->dma_written == cf->dma_count)
+    cf->dma_wait--;
+
+    if (cf->dma_written == cf->dma_count && cf->dma_wait <= 0)
     {
         /* finished? */
+        assert(cf->dma_wait == 0 || !use_icount);
         cfdma_trigger_interrupt(s);
         return 0;
     }
@@ -4002,7 +4312,7 @@ static void cfdma_trigger_interrupt(EOSState *s)
     }
 }
 
-static unsigned int eos_handle_uart_dma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+unsigned int eos_handle_uart_dma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
     unsigned int ret = 0;
     const char * msg = 0;
@@ -4038,6 +4348,12 @@ static unsigned int eos_handle_uart_dma ( unsigned int parm, EOSState *s, unsign
                 static int first_time = 1;
                 if (first_time)
                 {
+                    if (!s->model->uart_rx_interrupt)
+                    {
+                        fprintf(stderr, "FIXME: uart_rx_interrupt unknown\n");
+                        break;
+                    }
+
                     eos_trigger_int(s, s->model->uart_rx_interrupt, 0);
                     first_time = 0;
                 }
@@ -4060,11 +4376,6 @@ static unsigned int eos_handle_uart_dma ( unsigned int parm, EOSState *s, unsign
 
 unsigned int eos_handle_cfdma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
-    if (parm == 0 && s->model->digic_version >= 4)
-    {
-        return eos_handle_uart_dma(parm, s, address, type, value);
-    }
-
     unsigned int ret = 0;
     const char * msg = 0;
 
@@ -4079,6 +4390,13 @@ unsigned int eos_handle_cfdma ( unsigned int parm, EOSState *s, unsigned int add
             if(type & MODE_WRITE)
             {
                 s->cf.dma_count = value;
+
+                /* each iteration of cfdma_read_data / cfdma_write_data usually processes 1 block (512 bytes)
+                 * however, a few iterations will just wait, nondeterministically, for unclear reasons
+                 * to get deterministic execution with -icount, required for tests, we'll slow down the execution
+                 * by forcing some more iterations than actually needed, so total times would be deterministic
+                 * note: under heavy I/O load (e.g. parallel tests) we need to slow down a lot more! */
+                s->cf.dma_wait = (use_icount) ? value / 512 * 2 + 10 : 0;
             }
             else
             {
@@ -4090,13 +4408,13 @@ unsigned int eos_handle_cfdma ( unsigned int parm, EOSState *s, unsigned int add
             
             if(type & MODE_WRITE)
             {
-                if (value == 0x3D)
+                if (value == 0x3D || value == 0x2D)
                 {
                     msg = "DMA write start";
                     s->cf.dma_written = 0;
                     s->cf.dma_write_request = 1;
                 }
-                else if (value == 0x39 || value == 0x21)
+                else if (value == 0x39 || value == 0x29 || value == 0x21)
                 {
                     msg = "DMA read start";
                     s->cf.dma_read = 0;
@@ -4137,7 +4455,7 @@ unsigned int eos_handle_cfata ( unsigned int parm, EOSState *s, unsigned int add
             msg = "Interrupt enable?";
             MMIO_VAR(s->cf.interrupt_enabled);
             break;
-            
+        
         case 0x8044:
             msg = "Interrupt related?";
             if(type & MODE_WRITE)
@@ -4147,6 +4465,18 @@ unsigned int eos_handle_cfata ( unsigned int parm, EOSState *s, unsigned int add
             {
                 /* should return what was written to 0x8040?! */
                 ret = s->cf.interrupt_enabled;
+            }
+            break;
+
+        case 0x8048:
+            msg = "DMA interrupt enable?";
+            if(type & MODE_WRITE)
+            {
+                if (value & 1) {
+                    s->cf.interrupt_enabled |= 0x10000;
+                } else {
+                    s->cf.interrupt_enabled &= ~0x10000;
+                }
             }
             break;
 
@@ -4215,7 +4545,8 @@ unsigned int eos_handle_cfata ( unsigned int parm, EOSState *s, unsigned int add
                 if (offset == 7)
                 {
                     /* reading the status register clears peding interrupt */
-                    s->cf.pending_interrupt = 0;
+                    /* unsure actually - 40D doesn't like this */
+                    //s->cf.pending_interrupt = 0;
                 }
             }
             break;
@@ -4280,10 +4611,32 @@ unsigned int eos_handle_basic ( unsigned int parm, EOSState *s, unsigned int add
     /* from C0100000 */
     if (parm == 0)
     {
-        if ((address & 0xFFF) == 0x1C)
+        switch(address & 0xFFF)
         {
-            /* 5D classic: expects 1 at 0xFFFF01A4 */
-            ret = 1;
+            case 0x00C:
+            {
+                /* 40D: expects 2 at 0xFF819AA0 */
+                /* GUI locks up without it after entering PowerSave */
+                msg = "Powersave related?";
+                ret = 2;
+                break;
+            }
+
+            case 0x01C:
+            {
+                /* 5D classic: expects 1 at 0xFFFF01A4 */
+                ret = 1;
+                break;
+            }
+
+            case 0x110:
+            {
+                /* 1300D: expects 0x80000000 at 0xFE0C038C */
+                /* GUI locks up without it after entering PowerSave */
+                msg = "Powersave related?";
+                ret = 0x80000000;
+                break;
+            }
         }
         io_log("BASIC", s, address, type, value, ret, msg, 0, 0);
         return ret;
@@ -4367,23 +4720,18 @@ static void process_palette_entry(uint32_t value, struct palette_entry * palette
     int R, G, B;
     yuv2rgb(Y, U, V, &R, &G, &B);
 
-    static char msg_pal[50];
+    static char msg_pal[64];
 
-    if (value)
-    {
-        snprintf(msg_pal, sizeof(msg_pal), 
-            "Palette[%X] -> R%03d G%03d B%03d %s",
-            palette_index, R, G, B,
-            opacity != 3 ? "transparent?" : ""
-        );
-    }
-    else
-    {
-        snprintf(msg_pal, sizeof(msg_pal), 
-            "Palette[%X] -> empty",
-            palette_index
-        );
-    }
+    snprintf(msg_pal, sizeof(msg_pal), 
+        "Palette[%X] -> R%03d G%03d B%03d %s",
+        palette_index, R, G, B,
+        opacity == 3 ? "" : 
+            pal == 0x00FF0000 ? "transparent" :
+            pal == 0x00000000 ? "transparent black" :
+            opacity == 1 &&
+             R == G && G == B ? "transparent gray" :
+                                "transparent?"
+    );
     *msg = msg_pal;
 
     palette_entry->R = R;
@@ -4851,6 +5199,79 @@ unsigned int eos_handle_eeko_comm( unsigned int parm, EOSState *s, unsigned int 
     return ret;
 }
 
+unsigned int eos_handle_memdiv( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+{
+    const char * msg = 0;
+    unsigned int ret = 0;
+
+    switch (address & 0xFFFF)
+    {
+        case 0x1604:
+        {
+            msg = "MEMDIV_SETUP";
+            ret = 0x5A;
+            break;
+        }
+        default:
+        {
+            /* 0x1600 ... 0xFFFF */
+            /* firmware expects to read back what it has written earlier? */
+            static uint32_t shm[0x10000];
+            MMIO_VAR(shm[address & (COUNT(shm)-1)]);
+        }
+    }
+
+    io_log("MEMDIV", s, address, type, value, ret, msg, 0, 0);
+    return ret;
+}
+
+unsigned int eos_handle_rom_id( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+{
+    const char * msg = 0;
+    unsigned int ret = 0;
+
+    switch (address)
+    {
+        case 0xBFE01FD0:
+            msg = "SROM ID";
+            ret = 0x0020;
+            break;
+
+        case 0xBFE01FD2:
+            msg = "SROM ID";
+            ret = 0x00BB;
+            break;
+
+        case 0xBFE01FD4:
+            msg = "SROM ID";
+            ret = 0x0019;
+            break;
+
+        case 0xD5100010:
+        {
+            msg = "ROM ID";
+            const int rom_id[3] = { 0x20, 0xBB, 0x18 };
+            static int i = 0;
+            if (type & MODE_WRITE)
+            {
+                if (value == 0x9F)
+                {
+                    i = 0;
+                }
+            }
+            else
+            {
+                ret = rom_id[i % 3];
+                i++;
+            }
+        }
+    }
+
+    io_log("ROMID", s, address, type, value, ret, msg, 0, 0);
+    return ret;
+}
+
+
 unsigned int eos_handle_digic6 ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
     const char * msg = 0;
@@ -4862,6 +5283,25 @@ unsigned int eos_handle_digic6 ( unsigned int parm, EOSState *s, unsigned int ad
     if (address == s->model->card_led_address)
     {
         return eos_handle_card_led(parm, s, address, type, value);
+    }
+
+    /* 0xD20B0884/084, 0xD20B02A4/22A4 */
+    if (address == s->model->mpu_request_register ||
+        address == s->model->mpu_status_register)
+    {
+        return eos_handle_mpu(parm, s, address, type, value);
+    }
+
+    /* 0xD4013008, 0xD4013048 */
+    if (address == s->model->mpu_control_register)
+    {
+        return eos_handle_mreq(parm, s, address, type, value);
+    }
+
+    /* 0xD20B0D8C, 0xD20B037C */
+    if (s->sf && address == s->model->serial_flash_cs_register)
+    {
+        return eos_handle_serial_flash_cs(parm, s, address, type, value);
     }
 
     switch (address)
@@ -4881,11 +5321,13 @@ unsigned int eos_handle_digic6 ( unsigned int parm, EOSState *s, unsigned int ad
         case 0xD2018200:    /* 5D4 */
         case 0xD2018230:    /* 5D4 */
         case 0xD20138BC:    /* M3 */
+        case 0xD2060044:    /* D7 */
             msg = "Display resolution";
             MMIO_VAR_2x16(s->disp.width, s->disp.height);
             break;
         
         case 0xD2030108:    /* D6 */
+        case 0xD2060048:    /* D7 */
             if (strcmp(s->model->name, "EOSM3") == 0)
             {
                 if ((value != 0x17410) && (value != 0x18010)) s->disp.bmp_vram = value << 8;
@@ -4952,6 +5394,11 @@ unsigned int eos_handle_digic6 ( unsigned int parm, EOSState *s, unsigned int ad
             }
             break;
         }
+
+        case 0xD20822E8:
+            msg = "D7 System Adjustment";
+            //ret = 0x10000;
+            break;
 
         case 0xD2090008: /* CLOCK_ENABLE */
             msg = "CLOCK_ENABLE";

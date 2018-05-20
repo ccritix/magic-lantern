@@ -45,6 +45,7 @@ static const char * eos_lookup_symbol(uint32_t pc)
     return name;
 }
 
+/* whether the addresses from this memory region should be analyzed (by any logging tools) */
 static inline int should_log_memory_region(MemoryRegion * mr, int is_write)
 {
     int is_read = !is_write;
@@ -61,6 +62,46 @@ static inline int should_log_memory_region(MemoryRegion * mr, int is_write)
             (is_write && qemu_loglevel_mask(EOS_LOG_ROM_W))) {
             return 1;
         }
+    }
+
+    if (mr->name == NULL)
+    {
+        /* unmapped? */
+        assert(!mr->ram);
+        assert(!mr->rom_device);
+        return 1;
+    }
+
+    return 0;
+}
+
+/* whether the addresses from this memory region should be printed in logs */
+/* same as above, but with the EOS_PR[int] modifier */
+/* fixme: duplicate code */
+static inline int should_log_memory_region_verbosely(MemoryRegion * mr, int is_write)
+{
+    int is_read = !is_write;
+
+    if (mr->ram && qemu_loglevel_mask(EOS_PR(EOS_LOG_RAM))) {
+        if ((is_read  && qemu_loglevel_mask(EOS_PR(EOS_LOG_RAM_R))) ||
+            (is_write && qemu_loglevel_mask(EOS_PR(EOS_LOG_RAM_W)))) {
+            return 1;
+        }
+    }
+
+    if (mr->rom_device && qemu_loglevel_mask(EOS_PR(EOS_LOG_ROM))) {
+        if ((is_read  && qemu_loglevel_mask(EOS_PR(EOS_LOG_ROM_R))) ||
+            (is_write && qemu_loglevel_mask(EOS_PR(EOS_LOG_ROM_W)))) {
+            return 1;
+        }
+    }
+
+    if (mr->name == NULL)
+    {
+        /* unmapped? */
+        assert(!mr->ram);
+        assert(!mr->rom_device);
+        return 1;
     }
 
     return 0;
@@ -153,7 +194,6 @@ void eos_log_mem(void * opaque, hwaddr addr, uint64_t value, uint32_t size, int 
     }
 
     EOSState* s = (EOSState*) opaque;
-    bool some_tool_executed = false;
 
     if (qemu_loglevel_mask(EOS_LOG_RAM_DBG))
     {
@@ -161,7 +201,6 @@ void eos_log_mem(void * opaque, hwaddr addr, uint64_t value, uint32_t size, int 
          * all memory write events correctly (not sure how to check reads)
          */
         eos_log_selftest(s, addr, value, size, flags);
-        some_tool_executed = true;
     }
 
     if (qemu_loglevel_mask(EOS_LOG_CALLSTACK))
@@ -171,29 +210,24 @@ void eos_log_mem(void * opaque, hwaddr addr, uint64_t value, uint32_t size, int 
 
     if (qemu_loglevel_mask(EOS_LOG_CALLS))
     {
-        /* note: calls implies callstack */
-        some_tool_executed = true;
+        /* calls implies callstack; nothing to do here */
+        /* will just print the function calls as they happen */
     }
 
     if (qemu_loglevel_mask(EOS_LOG_ROMCPY))
     {
         eos_romcpy_log_mem(s, mr, addr, value, size, flags);
-        some_tool_executed = true;
     }
 
     if (qemu_loglevel_mask(EOS_LOG_RAM_MEMCHK))
     {
         /* in memcheck.c */
         eos_memcheck_log_mem(s, addr, value, size, flags);
-        some_tool_executed = true;
     }
 
-    if (some_tool_executed && !(qemu_loglevel_mask(EOS_LOG_VERBOSE) &&
-                                qemu_loglevel_mask(EOS_LOG_IO)))
+    if (!should_log_memory_region_verbosely(mr, is_write))
     {
-        /* when executing some memory checking tool,
-         * do not log messages unless -d io,verbose is specified
-         */
+        /* only print the items specifically asked by the user */
         return;
     }
 
@@ -228,8 +262,9 @@ void eos_log_mem(void * opaque, hwaddr addr, uint64_t value, uint32_t size, int 
     }
 
     /* all our memory region names start with eos. */
-    assert(strncmp(mr->name, "eos.", 4) == 0);
-    io_log(mr->name + 4, s, addr, mode, value, value, msg, msg_arg1, msg_arg2);
+    assert(!mr->name || strncmp(mr->name, "eos.", 4) == 0);
+    const char * name = (mr->name) ? mr->name + 4 : KLRED"UNMAPPED"KRESET;
+    io_log(name, s, addr, mode, value, value, msg, msg_arg1, msg_arg2);
 }
 
 
@@ -562,7 +597,8 @@ void eos_callstack_print_verbose(EOSState *s)
             len += eos_indent(len, CALLSTACK_RIGHT_ALIGN);
             eos_print_location(s, ret, sp, " at ", "\n");
             uint32_t pc0 = pc & ~1;
-            assert(pc0 == 0x18);
+            uint32_t vbar = CURRENT_CPU->env.cp15.vbar_s;
+            assert(pc0 == vbar + 0x18);
         }
         else
         {
@@ -621,6 +657,11 @@ int eos_print_location_gdb(EOSState *s)
         int level = call_stack_num[id] - 1;
         uint32_t stack_lr = level >= 0 ? call_stacks[id][level].lr : 0;
         ret = stack_lr - 4;
+    }
+
+    /* on multicore machines, print CPU index for each message */
+    if (CPU_NEXT(first_cpu)) {
+        fprintf(stderr, "[CPU%d] ", current_cpu->cpu_index);
     }
 
     if (interrupt_level) {
@@ -965,6 +1006,9 @@ static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock 
     uint32_t lr0 = lr & ~1;
     uint32_t prev_pc0 = prev_pc & ~1;
 
+    uint32_t vbar = env->cp15.vbar_s;
+    assert(vbar == 0 || s->model->digic_version == 7);
+
     /* tb->pc always has the Thumb bit cleared */
     assert(pc0 == tb->pc);
 
@@ -987,7 +1031,7 @@ static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock 
         goto end;
     }
 
-    if (pc0 == 0x18)
+    if (pc0 == vbar + 0x18)
     {
         /* handle interrupt jumps first */
 
@@ -997,7 +1041,7 @@ static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock 
              * save the previous state (we'll need to restore it when returning from interrupt) */
             uint8_t id = get_stackid(s);
             assert(id != 0xFE);
-            //fprintf(stderr, "Saving state: pc %x, lr %x, sp %x, size %x\n", prev_pc, prev_lr, prev_sp, prev_size);
+            //fprintf(stderr, "Saving state [%x]: pc %x, lr %x, sp %x, size %x\n", id, prev_pc, prev_lr, prev_sp, prev_size);
             cs_exec_states[id] = (struct call_stack_exec_state) {
                 .pc = prev_pc,
                 .lr = prev_lr,
@@ -1022,7 +1066,7 @@ static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock 
         goto end;
     }
 
-    if (prev_pc0 == 0x18)
+    if (prev_pc0 == vbar + 0x18)
     {
         /* jump from the interrupt vector - ignore */
         goto end;
@@ -1276,11 +1320,24 @@ recheck:
                  * VxWorks: LDMIA R4, {R0-PC}^
                  * They can be called from interrupts or from regular code. */
             maybe_task_switch:
-                 if (interrupt_level == 0) {
-                     goto end;
-                 } else {
-                     goto reti;
-                 }
+                if (interrupt_level == 0) {
+                    /* DryOS task switch outside interrupts? save the previous state
+                     * we'll need to restore it when returning from interrupt back to this task
+                     * fixme: duplicate code */
+                    uint8_t id = get_stackid(s);
+                    assert(id != 0xFE);
+                    //fprintf(stderr, "Saving state [%x]: pc %x, lr %x, sp %x, size %x\n", id, prev_pc, prev_lr, prev_sp, prev_size);
+                    cs_exec_states[id] = (struct call_stack_exec_state) {
+                        .pc = prev_pc,
+                        .lr = prev_lr,
+                        .sp = prev_sp,
+                        .size = prev_size
+                    };
+                    goto end;
+                } else {
+                    /* return from interrupt to a DryOS task */
+                    goto reti;
+                }
             }
 
             if (insn == 0xe8fd901f || insn == 0xe8fd800f)
@@ -1365,7 +1422,7 @@ recheck:
                     prev_lr   = cs_exec_states[id].lr;
                     prev_sp   = cs_exec_states[id].sp;
                     prev_size = cs_exec_states[id].size;
-                    //fprintf(stderr, "Restoring state: pc %x->%x lr %x->%x sp %x->%x size %x->%x\n", prev_pc, pc, prev_lr, lr, prev_sp, sp, prev_size, tb->size);
+                    //fprintf(stderr, "Restoring state [%x]: pc %x->%x lr %x->%x sp %x->%x size %x->%x\n", id, prev_pc, pc, prev_lr, lr, prev_sp, sp, prev_size, tb->size);
 
                     if (pc != prev_pc && pc != prev_pc + 4)
                     {
@@ -1505,6 +1562,7 @@ recheck:
                 call_stack_indent(id, 0, 0);
                 /* hm, target_disas used to look at flags for ARM or Thumb... */
                 int t0 = env->thumb; env->thumb = prev_pc & 1;
+                assert(prev_size);
                 target_disas(stderr, CPU(arm_env_get_cpu(env)), prev_pc0, prev_size, 0);
                 env->thumb = t0;
             }
@@ -1560,6 +1618,8 @@ static void eos_tasks_log_exec(EOSState *s, CPUState *cpu, TranslationBlock *tb)
     prev_lr = lr;
 }
 
+#ifdef __SIZEOF_INT128__
+
 static uint32_t block_start;        /* destination address */
 static uint32_t block_size;
 static uint32_t block_offset;       /* start + offset = source address */
@@ -1571,14 +1631,54 @@ static uint32_t last_write_addr;
 static uint32_t last_write_size;
 static __uint128_t last_write_value;
 
-static void romcpy_log_n_reset_block(void)
+static char dd_path[100];
+static FILE * dd = 0;
+
+static void close_dd(void)
+{
+    fclose(dd); dd = 0;
+    fprintf(stderr, "%s saved.\n", dd_path);
+}
+
+static void romcpy_log_block(EOSState *s)
+{
+    uint32_t block_rom_start = block_start + block_offset;
+
+    fprintf(stderr, "[ROMCPY] 0x%-8X -> 0x%-8X size 0x%-8X at 0x%-8X\n",
+        block_rom_start, block_start, block_size, block_pc
+    );
+
+    hwaddr l = block_size;
+    hwaddr block_rom_start_rel;
+    MemoryRegion * mr = address_space_translate(&address_space_memory, block_rom_start, &block_rom_start_rel, &l, 0);
+    assert(l == block_size);
+
+    if (strcmp(mr->name, "eos.rom0") == 0 ||
+        strcmp(mr->name, "eos.rom1") == 0)
+    {
+        if (!dd)
+        {
+            snprintf(dd_path, sizeof(dd_path), "%s/romcpy.sh", s->model->name);
+            fprintf(stderr, "Logging ROM-copied blocks to %s.\n", idc_path);
+            dd = fopen(dd_path, "w");
+            assert(dd);
+            atexit(close_dd);
+        }
+
+        /* fixme: dd executes a bit slow with bs=1 */
+        fprintf(dd, "dd if=ROM%c.BIN of=%s.0x%X.bin bs=1 skip=$((0x%X)) count=$((0x%X))\n",
+            mr->name[7],
+            s->model->name, block_start, (int)block_rom_start_rel, block_size
+        );
+    }
+}
+
+static void romcpy_log_n_reset_block(EOSState *s)
 {
     if (block_size >= 64)
     {
         /* block large enough to report? */
-        fprintf(stderr, "[ROMCPY] 0x%-8X -> 0x%-8X size 0x%-8X at 0x%-8X\n",
-            block_start + block_offset, block_start, block_size, block_pc
-        );
+        romcpy_log_block(s);
     }
 
     /* reset block */
@@ -1684,7 +1784,7 @@ static void eos_romcpy_log_mem(EOSState *s, MemoryRegion *mr, hwaddr _addr, uint
                     /* not growing current block; assume a new one might have been started */
                     qemu_log_mask(EOS_LOG_VERBOSE, "new block (previous %x-%x)\n", block_start, block_start + block_size);
                     uint32_t pc = CURRENT_CPU->env.regs[15];
-                    romcpy_log_n_reset_block();
+                    romcpy_log_n_reset_block(s);
                     romcpy_new_block(last_write_addr, last_read_addr, item_size, pc);
                 }
             }
@@ -1692,15 +1792,29 @@ static void eos_romcpy_log_mem(EOSState *s, MemoryRegion *mr, hwaddr _addr, uint
         else /* some other value written to memory */
         {
             qemu_log_mask(EOS_LOG_VERBOSE, "reset block (previous %x-%x)\n", block_start, block_size);
-            romcpy_log_n_reset_block();
+            romcpy_log_n_reset_block(s);
         }
     }
 }
+
+#else /* no int128_t available */
+
+static void eos_romcpy_log_mem(EOSState *s, MemoryRegion *mr, hwaddr _addr, uint64_t _value, uint32_t size, int flags)
+{
+	fprintf(stderr, "FIXME: ROMCPY not supported on this platform.\n");
+}
+#endif
 
 static uint64_t saved_loglevel = 0;
 
 static void tb_exec_cb(void *opaque, CPUState *cpu, TranslationBlock *tb)
 {
+    if (current_cpu->cpu_index)
+    {
+        /* ignore CPU1 for now */
+        return;
+    }
+
     if (qemu_loglevel_mask(EOS_LOG_AUTOEXEC) &&
         saved_loglevel != 0 &&
         saved_loglevel != qemu_loglevel)
@@ -1759,7 +1873,7 @@ static void load_symbols(const char * elf_filename)
     fprintf(stderr, "[EOS] loading symbols from %s ", elf_filename);
     uint64_t lo, hi;
     int size = load_elf(elf_filename, 0, 0, 0, &lo, &hi, 0, EM_ARM, 1);
-    fprintf(stderr, "(%lX-%lX)\n", lo, hi);
+    fprintf(stderr, "(%X - %X)\n", (int) lo, (int) hi);
     assert(size > 0);
 }
 
@@ -1794,11 +1908,22 @@ void eos_logging_init(EOSState *s)
 
     if (qemu_loglevel_mask(EOS_LOG_MEM))
     {
-        fprintf(stderr, "[EOS] enabling memory access logging.\n");
         int mem_access_mode =
             (qemu_loglevel_mask(EOS_LOG_MEM_R) ? PROT_READ : 0) |
             (qemu_loglevel_mask(EOS_LOG_MEM_W) ? PROT_WRITE : 0);
+
+        fprintf(stderr, "[EOS] enabling memory access logging (%s%s).\n",
+            (mem_access_mode & PROT_READ) ? "R" : "",
+            (mem_access_mode & PROT_WRITE) ? "W" : ""
+        );
+
         memory_set_access_logging_cb(eos_log_mem, s, mem_access_mode);
+
+        /* make sure the backends are enabled */
+        if (qemu_loglevel_mask(EOS_PR(EOS_LOG_RAM_R))) assert(qemu_loglevel_mask(EOS_LOG_RAM_R));
+        if (qemu_loglevel_mask(EOS_PR(EOS_LOG_RAM_W))) assert(qemu_loglevel_mask(EOS_LOG_RAM_W));
+        if (qemu_loglevel_mask(EOS_PR(EOS_LOG_ROM_R))) assert(qemu_loglevel_mask(EOS_LOG_ROM_R));
+        if (qemu_loglevel_mask(EOS_PR(EOS_LOG_ROM_W))) assert(qemu_loglevel_mask(EOS_LOG_ROM_W));
     }
 
     if (qemu_loglevel_mask(EOS_LOG_RAM_MEMCHK))
@@ -1806,7 +1931,7 @@ void eos_logging_init(EOSState *s)
         eos_memcheck_init(s);
     }
 
-    if (qemu_loglevel_mask(EOS_LOG_CALLSTACK))
+    if (qemu_loglevel_mask(CPU_LOG_TB_NOCHAIN))
     {
         fprintf(stderr, "[EOS] enabling singlestep.\n");
         singlestep = 1;
@@ -1829,15 +1954,9 @@ void eos_logging_init(EOSState *s)
             EOS_LOG_VERBOSE |
             EOS_LOG_CALLS   |
             EOS_LOG_IO      |
-            EOS_LOG_ROM     |
+            EOS_LOG_MEM     |
             CPU_LOG_EXEC    |
         0);
-        if (!qemu_loglevel_mask(EOS_LOG_RAM_MEMCHK))
-        {
-            /* note: memchk must be enabled from the beginning,
-             * otherwise you'll get lots of warnings about uninitialized memory */
-            qemu_loglevel &= ~(EOS_LOG_RAM);
-        }
 
         if (saved_loglevel != qemu_loglevel)
         {
