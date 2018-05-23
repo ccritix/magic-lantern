@@ -376,7 +376,7 @@ static void sd_overclock_task()
     log_printf("===================\n");
 
     /* benchmark without the hack */
-    log_printf("Before the hack: "); test();
+    log_printf("This will enable SD overclock: "); test();
 
     /* install the hack */
     memcpy(uhs_vals, sdr50_700D, sizeof(uhs_vals));
@@ -498,10 +498,10 @@ static void sd_overclock_task()
     log_printf("Best: "); test();
 
 end:
-    log_printf("\n");
+ /* log_printf("\n");
     log_printf("Done.\n");
     log_printf("Please run THOROUGH tests before using!!!");
-    log_printf("\n");
+    log_printf("\n"); */
 
     /* save log file */
     ASSERT(log_buf && log_buf_size && log_len);

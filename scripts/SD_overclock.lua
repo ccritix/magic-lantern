@@ -2,7 +2,6 @@
 
     if menu.get("Debug", "SD overclock", "OFF") 
     then
-    console.hide()
     menu.set("Debug", "SD overclock", "ON")
     else
     console.show()
