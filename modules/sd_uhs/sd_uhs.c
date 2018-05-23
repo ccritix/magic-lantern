@@ -571,6 +571,15 @@ static unsigned int sd_uhs_init()
         SD_ReConfiguration  = (void *) 0xFF74B35C;
     }
 
+    if (is_camera("6D", "1.1.6"))
+    {
+        sd_setup_mode       = 0xFF325A20;
+        sd_setup_mode_in    = 0xFF325AA8;
+        sd_setup_mode_reg   = 1;            /* switch variable is in R1 (likely all D5 other than 5D3) */
+        sd_set_function     = 0xFF78F308;
+        SD_ReConfiguration  = (void *) 0xFF791408;
+    }
+
     if (is_camera("EOSM", "2.0.2"))
     {
         sd_setup_mode       = 0xFF338D40;
@@ -589,13 +598,22 @@ static unsigned int sd_uhs_init()
         SD_ReConfiguration  = (void *) 0xFF655458;
     }
 
-    if (is_camera("6D", "1.1.6"))
+    if (is_camera("650D", "1.0.4"))
     {
-        sd_setup_mode       = 0xFF325A20;
-        sd_setup_mode_in    = 0xFF325AA8;
-        sd_setup_mode_reg   = 1;            /* switch variable is in R1 (likely all D5 other than 5D3) */
-        sd_set_function     = 0xFF78F308;
-        SD_ReConfiguration  = (void *) 0xFF791408;
+        sd_setup_mode       = 0xFF334C4C;
+        sd_setup_mode_in    = 0xFF334CD4;
+        sd_setup_mode_reg   = 1;
+        sd_set_function     = 0xFF73FD20;
+        SD_ReConfiguration  = (void *) 0xFF7420D4;
+    }
+
+    if (is_camera("70D", "1.1.2"))
+    {
+        sd_setup_mode       = 0xFF33E078;
+        sd_setup_mode_in    = 0xFF33E100;
+        sd_setup_mode_reg   = 1;
+        sd_set_function     = 0xFF7CE4B8;
+        SD_ReConfiguration  = (void *) 0xFF7D086C;
     }
 
     if (sd_setup_mode && sd_setup_mode_in &&
