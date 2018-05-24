@@ -1,12 +1,35 @@
 -- enable SD overclocking
 
-    if menu.get("Debug", "SD overclock", "OFF") 
-    then
-    menu.set("Debug", "SD overclock", "ON")
-    else
-    console.show()
-    print("Please enable sd_uhs.mo before running this script again.")
-    msleep(5000)
     console.hide()
+    if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA LOSS"
+    then
+    if menu.get("Movie", "RAW video", "") == "OFF" 
+    then
+    display.notify_box("enabling of SD overclocking")
+    menu.set("Debug", "SD overclock", "ON")
+    msleep(1000)
+    display.notify_box("please wait...")
+    msleep(2000)
+    display.notify_box("patching...")
+    msleep(2000)
+    display.notify_box("done!")
+    else
+    menu.set("Movie", "RAW video", "OFF")
+    display.notify_box("enabling of SD overclocking")
+    menu.set("Debug", "SD overclock", "ON")
+    msleep(1000)
+    display.notify_box("please wait...")
+    msleep(2000)
+    display.notify_box("patching...")
+    msleep(3000)
+    menu.set("Movie", "RAW video", "ON")
+    display.notify_box("done!")
+    end
+    else
+    display.notify_box("Please enable sd_uhs.mo")
+    msleep(2000)
+    display.notify_box("Please enable sd_uhs.mo")
+    msleep(2000)
     return
     end
+
