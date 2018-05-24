@@ -206,8 +206,8 @@ NSTUB(0xFE1544A8,  gui_other_post)
 /** GUI timers **/
 NSTUB(0xFE482FE0,  CancelDateTimer)                         /* present on 7D.203, 6D.113, 5D3.113 */
 NSTUB(0xFE129078,  CancelTimer)
-// NSTUB(0xFF06FCE4,  SetHPTimerAfterNow)
-// NSTUB(0xFF06FDD8,  SetHPTimerNextTick)
+NSTUB(0xFE120CEC,  SetHPTimerAfterNow)
+NSTUB(0xFE120DDC,  SetHPTimerNextTick)
 NSTUB(0xFE128FA8,  SetTimerAfter)
 
 /** H264 Encoder **/
