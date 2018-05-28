@@ -160,10 +160,14 @@ static CONFIG_INT("raw.output_format", output_format, 3);
 #define OUTPUT_14BIT_LOSSLESS 3
 #define OUTPUT_12BIT_LOSSLESS 4
 #define OUTPUT_AUTO_BIT_LOSSLESS 5
+#define OUTPUT_11BIT_LOSSLESS 6
+#define OUTPUT_10BIT_LOSSLESS 7
+#define OUTPUT_9BIT_LOSSLESS 8
+#define OUTPUT_8BIT_LOSSLESS 9
 #define OUTPUT_COMPRESSION (output_format>2)
 
 /* container BPP (variable for uncompressed, always 14 for lossless JPEG) */
-static const int bpp_container[] = { 14, 12, 10, 14, 14, 14, 14, 14, 14 };
+static const int bpp_container[] = { 14, 12, 10, 14, 14, 14, 14, 14, 14, 14 };
 
 /* "fake" lower bit depths using digital gain (for lossless JPEG) */
 //static const int bpp_digi_gain[] = { 14, 14, 14, 14, 12, 11, 10,  9,  8 };
@@ -182,6 +186,27 @@ static int bpp_digital_gain()
     {
         return 12;
     }
+
+    if (output_format == OUTPUT_11BIT_LOSSLESS)
+    {
+        return 11;
+    }
+
+    if (output_format == OUTPUT_10BIT_LOSSLESS)
+    {
+        return 10;
+    }
+
+    if (output_format == OUTPUT_9BIT_LOSSLESS)
+    {
+        return 9;
+    }
+
+    if (output_format == OUTPUT_8BIT_LOSSLESS)
+    {
+        return 8;
+    }
+
 
     /* auto, depending on ISO */
     /* 5D3 noise levels (raw_diag, dark frame, 1/50, ISO 100-25600, ~50C):
@@ -615,6 +640,14 @@ static int get_estimated_compression_ratio()
             return 60;
         case OUTPUT_12BIT_LOSSLESS:
             return 52;
+        case OUTPUT_11BIT_LOSSLESS:
+            return 50;
+        case OUTPUT_10BIT_LOSSLESS:
+            return 50;
+        case OUTPUT_9BIT_LOSSLESS:
+            return 50;
+        case OUTPUT_8BIT_LOSSLESS:
+            return 50;
         default:
             /* handle possible overflows from old config */
             output_format = OUTPUT_AUTO_BIT_LOSSLESS;
@@ -3690,7 +3723,7 @@ static struct menu_entry raw_video_menu[] =
             {
                 .name       = "Data format",
                 .priv       = &output_format,
-                .max        = 5,
+                .max        = 9,
                 .update     = output_format_update,
                 .choices    = CHOICES(
                                 "14-bit",
@@ -3699,6 +3732,10 @@ static struct menu_entry raw_video_menu[] =
                                 "14-bit lossless",
                                 "12-bit lossless",
                                 "11...8-bit lossless",
+                                "11-bit lossless",
+                                "10-bit lossless",
+                                "9-bit lossless",
+                                "8-bit lossless",
                               ),
                 .help       = "Choose the output format (bit depth, compression) for the raw stream:",
                 .help2      = "14-bit: native uncompressed format used in Canon firmware.\n"
@@ -3707,6 +3744,10 @@ static struct menu_entry raw_video_menu[] =
                               "14-bit compressed with Canon's Lossless JPEG. Recommended ISO < 100.\n"
                               "Signal divided by 4 before compression. Recommended ISO 100-1600.\n"
                               "Signal divided by 8/16/32/64 before compression, depending on ISO.\n"
+                              "Signal divided by 8 before compression.\n"
+                              "Signal divided by 16 before compression.\n"
+                              "Signal divided by 32 before compression.\n"
+                              "Signal divided by 64 before compression.\n"
             },
             {
                 .name = "Preview",
