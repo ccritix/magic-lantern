@@ -182,7 +182,7 @@ int lossless_init()
         TTL_RegisterCBR = (void *) 0xFF43748C;  /* RegisterTwoInTwoOutLosslessPathCompleteCBR */
         TTL_SetFlags    = (void *) 0xFF372AE8;  /* called next, with PictureType as arguments */
         TTL_Start       = (void *) 0xFF438474;  /* called next; starts the EDmac transfers */
-        TTL_Stop        = (void *) 0xFF4384AC;  /* called right after sssStopMem1ToRawPath */
+        TTL_Stop        = (void *) 0xFF42D0AC;  /* called right after sssStopMem1ToRawPath */
         TTL_Finish      = (void *) 0xFF4384E4;  /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
     }
 
