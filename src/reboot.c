@@ -1022,7 +1022,8 @@ static void init_boot_file_io_stubs()
 }
 
 #ifdef CONFIG_BOOT_SROM_DUMPER
-static void (*sf_command_sio)(uint32_t command[], void * out_buffer, int out_buffer_size, int toggle_cs);
+static void (*sf_init)(void) = NULL;
+static void (*sf_command_sio)(uint32_t command[], void * out_buffer, int out_buffer_size, int toggle_cs) = NULL;
 
 /* Canon's serial flash routine outputs bytes in a 32-byte array */
 /* use this wrapper to write them to a "simple" buffer in memory */
@@ -1075,15 +1076,29 @@ static void sf_dump(int drive)
         /* 80D, 750D, 760D, 7D2 use 0x800000 */
     }
 
+    sf_init = (void *) find_func_called_near_string_ref("\n**** SROM(SIO%d) Menu ****\n", 0xC0820200, -0x10);
+
+    if (!sf_init)
+    {
+        /* 5D4? */
+        sf_init = (void *) find_func_called_near_string_ref("\n**** SROM(", 0xD2090000, -0x10);
+    }
+
+    printf(" - sf_init %X\n", sf_init);
+
     sf_command_sio = (void *) find_func_called_near_string_ref("Read Address[0x%06x-0x%06x]:0x", 0xD20B0000, 0x100);
     printf(" - sf_command_sio %X\n", sf_command_sio);
 
-    if (!sf_command_sio)
+    if (!sf_init || !sf_command_sio)
     {
-        print_line(COLOR_RED, 2, "- Serial flash stub not found.\n");
+        print_line(COLOR_RED, 2, "- Serial flash stubs not found.\n");
         led_off();
         return;
     }
+
+    /* hardware initialization */
+    MEM(0xD2090008) |= 0x200000;
+    sf_init();
 
     /* allocate max size statically and hope for the best */
     static uint8_t __buffer_alloc[0x1000000];
