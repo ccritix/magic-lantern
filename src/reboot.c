@@ -1075,7 +1075,7 @@ static void sf_dump(int drive)
         /* 80D, 750D, 760D, 7D2 use 0x800000 */
     }
 
-    sf_command_sio = (void *) find_func_called_after_string_ref("Read Address[0x%06x-0x%06x]:0x", 0xD20B0000);
+    sf_command_sio = (void *) find_func_called_near_string_ref("Read Address[0x%06x-0x%06x]:0x", 0xD20B0000, 0x100);
     printf(" - sf_command_sio %X\n", sf_command_sio);
 
     if (!sf_command_sio)
@@ -1198,7 +1198,7 @@ static void enable_bootflag()
 {
     const char * SetFlag_str = "Set flag?(Y=ON(0x%08x)/N=OFF(0x%08x))? :";
     uint32_t set_flag_i = find_func_from_string(SetFlag_str, 0, 0x100);
-    set_bootflag = (void*) find_func_called_after_string_ref(SetFlag_str, 0xFC040000);
+    set_bootflag = (void*) find_func_called_near_string_ref(SetFlag_str, 0xFC040000, 0x100);
 
     printf(" - set_bootflag %X (interactive %X)\n", set_bootflag, set_flag_i);
 

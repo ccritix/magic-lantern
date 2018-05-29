@@ -5,6 +5,7 @@
 
 #include "compiler.h"
 #include "string.h"
+#include "imath.h"
 #include "qemu-util.h"
 
 extern int printf(const char * format, ...);
@@ -324,7 +325,7 @@ uint32_t find_func_from_string_thumb(const char * ref_string, uint32_t Rd, uint3
     return 0;
 }
 
-uint32_t find_string_ref(char* string)
+uint32_t find_string_ref(const char * string)
 {
     /* only scan the bootloader RAM area */
     for (uint32_t i = 0x100000; i < 0x110000; i += 4 )
@@ -386,23 +387,23 @@ static int func_has_tag(uint32_t func, uint32_t tag)
     return 0;
 }
 
-uint32_t find_func_called_after_string_ref(char * string, uint32_t tag)
+uint32_t find_func_called_near_string_ref(char * string, uint32_t tag, int max_offset)
 {
-    qprintf("find_func_called_after_string_ref('%s', tag=0x%X)\n", repr(string), tag);
+    qprintf("find_func_called_near_string_ref('%s', tag=0x%X, max_offset=0x%x)\n", repr(string), tag, max_offset);
     int found = 0;
     uint32_t answer = 0;
 
     uint32_t start = find_string_ref(string);
-    printf(" - %x: %s\n", start, string);
+    printf(" - %x: %s\n", start, repr(string));
     if (start)
     {
-        for (uint32_t i = start + 4; i < start + 0x100; i += 4)
+        for (uint32_t d = 4; d < start + ABS(max_offset); d += 4)
         {
-            uint32_t insn = MEM(i);
+            uint32_t pc = start + d * SGN(max_offset);
+            uint32_t insn = MEM(pc);
             int is_bl = ((insn & 0xFF000000) == 0xEB000000);
             if (is_bl)
             {
-                uint32_t pc = i;
                 uint32_t func_addr = branch_destination(insn, pc);
                 qprintf("%x: BL %x\n", pc, func_addr);
 
