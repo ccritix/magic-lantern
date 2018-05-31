@@ -1,4 +1,4 @@
--- 10bit_5x_iso100_2.5k_24fps
+-- 10bit_5x_iso100_2.5k
 
 menu.set("Overlay", "Global Draw", "OFF")
 console.hide()
@@ -17,17 +17,8 @@ while menu.get("Sound recording", "Enable sound", "") ~= "ON" do
    msleep(1000)
 end
 
-if menu.get("FPS override", "Desired FPS", "") ~= "24 (from 30)" then
-   menu.close()
-   display.notify_box("Set Desired FPS to 24")
-   msleep(2000)
-   display.notify_box("then rerun this script")
-   msleep(2000)
-   return
-   else
    display.notify_box("FPS override ON?")
    msleep(1000)
-end
 
     menu.set("Movie", "RAW video", "ON")   
     camera.shutter.value = 1/50
