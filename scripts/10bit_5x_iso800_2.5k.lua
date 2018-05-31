@@ -23,7 +23,7 @@ end
     menu.set("Movie", "RAW video", "ON")  
     menu.set("RAW video", "Resolution", 2560)
     menu.set("RAW video", "Data format", "10-bit lossless")
-    menu.set("RAW video", "Preview", "Framing") 
+    menu.set("RAW video", "Preview", "Real-time") 
     camera.shutter.value = 1/50
     camera.iso.value=800
     lv.zoom = 5
