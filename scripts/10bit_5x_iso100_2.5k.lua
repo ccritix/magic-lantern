@@ -8,17 +8,11 @@ while camera.mode ~= MODE.MOVIE do
    msleep(1000)
 end
 
-   display.notify_box("10bit_5x_iso100_2.5k")
-   msleep(1000)
-
     menu.set("Sound recording", "Enable sound", "ON")
 while menu.get("Sound recording", "Enable sound", "") ~= "ON" do
    display.notify_box("enable mlv_snd.mo and restart to record sound")
    msleep(1000)
 end
-
-   display.notify_box("FPS override ON?")
-   msleep(1000)
 
     menu.set("Movie", "RAW video", "ON")   
     menu.set("RAW video", "Resolution", 2560)
