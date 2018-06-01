@@ -115,6 +115,8 @@ static char* isr_names[0x200] = {
     [0xA5] = "EDMAC#43",
 };
 
+static void mpu_decode(char* in, char* out, int max_len);
+
 static void pre_isr_log(uint32_t isr)
 {
 #ifdef CONFIG_DIGIC_VI
@@ -129,10 +131,43 @@ static void pre_isr_log(uint32_t isr)
     if (name) return;
 
     DryosDebugMsg(0, 15, "INT-%03Xh %X(%X)", isr, handler, arg);
+
+    if (isr == 0x2A || isr == 0x12A || isr == 0x147)
+    {
+        /* SIO3/MREQ */
+        extern char * mpu_send_ring_buffer[50];
+        static int last_printed = 0;
+        char * last_message = 0;
+        while (last_message = &mpu_send_ring_buffer[last_printed][4], last_message[2])
+        {
+            char msg[256];
+            mpu_decode(last_message, msg, sizeof(msg));
+            //qprintf("[%d] mpu_send(%s)\n", last_printed, msg);
+            DryosDebugMsg(0, 15, "mpu_send(%s)", msg);
+            last_printed = MOD(last_printed + 1, COUNT(mpu_send_ring_buffer));
+        }
+    }
 }
 
 static void post_isr_log(uint32_t isr)
 {
+    if (isr == 0x147)
+    {
+        /* expecting at most one message fully received at the end of this interrupt */
+        extern char * mpu_recv_ring_buffer[80];
+        extern int mpu_recv_ring_buffer_tail;
+        static int last_tail = 0;
+
+        if (last_tail != mpu_recv_ring_buffer_tail)
+        {
+            char * last_message = &mpu_recv_ring_buffer[last_tail][4];
+            char msg[256];
+            mpu_decode(last_message, msg, sizeof(msg));
+            //qprintf("[%d] mpu_recv(%s)\n", last_tail, msg);
+            DryosDebugMsg(0, 15, "mpu_recv(%s)", msg);
+            last_tail = mpu_recv_ring_buffer_tail;
+        }
+    }
 }
 
 extern void (*pre_isr_hook)();
@@ -153,6 +188,7 @@ static void mpu_decode(char* in, char* out, int max_len)
     if (len) out[len-1] = 0;
 }
 
+#if 0
 extern int (*mpu_recv_cbr)(char * buf, int size);
 extern int __attribute__((long_call)) mpu_recv(char * buf);
 
@@ -166,6 +202,7 @@ static int mpu_recv_log(char * buf, int size_unused)
     /* call the original */
     return mpu_recv(buf);
 }
+#endif
 
 int GetFreeMemForAllocateMemory()
 {
@@ -198,6 +235,7 @@ void log_start()
     pre_isr_hook = &pre_isr_log;
     post_isr_hook = &post_isr_log;
 
+#if 0
     /* wait for InitializeIntercom to complete
      * then install our own hook quickly
      * this assumes Canon's init_task is already running */
@@ -206,6 +244,7 @@ void log_start()
         msleep(10);
     }
     mpu_recv_cbr = &mpu_recv_log;
+#endif
 
     //dm_set_store_level(255, 1);
     DryosDebugMsg(0, 15, "Logging started.");

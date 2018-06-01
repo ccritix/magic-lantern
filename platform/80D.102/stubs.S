@@ -70,7 +70,10 @@ NSTUB(   0x19F18,  isr_table_param)
 NSTUB(0xFE253C0F,  mpu_send)                                // Thumb
 NSTUB(0xFE5475CF,  mpu_recv)                                // Thumb
 NSTUB(    0x890C,  mpu_recv_cbr)
-NSTUB(0x80007BB8,  called_by_mpu_send)
+NSTUB(   0x400C0,  mpu_send_ring_buffer)                    // ring buffer used in mpu_send
+NSTUB(    0x88F0,  mpu_send_ring_buffer_tail)               // ring buffer index incremented in mpu_send
+NSTUB(   0x3FF80,  mpu_recv_ring_buffer)                    // ring buffer used in SIO3_ISR, subroutine that processes two chars at a time
+NSTUB(    0x88E8,  mpu_recv_ring_buffer_tail)               // ring buffer index incremented in the above subroutine
 
 /** Misc **/
 NSTUB(0x800054AD,  vsnprintf)                               // Thumb
