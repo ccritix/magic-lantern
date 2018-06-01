@@ -38,6 +38,8 @@ if menu.get("FPS override", "Actual FPS", "") >= "24" then
    msleep(1000)
    display.notify_box("Set FPS override to 24 or you´re in deep shit.")
    msleep(1000)
+   display.notify_box("Set FPS override to 24 or you´re in deep shit.")
+   msleep(1000)
 end
 
     menu.set("Overlay", "Global Draw", "LiveView")
