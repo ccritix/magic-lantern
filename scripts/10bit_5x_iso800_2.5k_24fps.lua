@@ -14,14 +14,7 @@ while menu.get("Sound recording", "Enable sound", "") ~= "ON" do
    msleep(1000)
 end
 
-    menu.set("Movie", "RAW video", "ON")  
-    menu.set("RAW video", "Resolution", 2560)
-    menu.set("RAW video", "Data format", "10-bit lossless")
-    menu.set("RAW video", "Preview", "Real-time") 
-    camera.shutter.value = 1/50
-    camera.iso.value=800
     lv.zoom = 5
-    menu.set("Display", "Clear overlays", "OFF")
     menu.set("Overlay", "Zebras", "OFF")
     menu.set("Overlay", "Magic Zoom", "OFF")
     menu.set("Overlay", "Cropmarks", "OFF")
@@ -32,4 +25,11 @@ end
     menu.set("Overlay", "Vectorscope", "OFF")
     menu.set("Display", "Clear overlays", "OFF")
     menu.set("Overlay", "Global Draw", "LiveView")
+
+    menu.set("Movie", "RAW video", "ON")
+    menu.set("RAW video", "Resolution", 2560)
+    menu.set("RAW video", "Data format", "10-bit lossless")
+    menu.set("RAW video", "Preview", "Real-time") 
+    camera.shutter.value = 1/50
+    camera.iso.value=800
     menu.close()
