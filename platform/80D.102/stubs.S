@@ -37,9 +37,16 @@ NSTUB(0xFE0D3385,  init_task)                               // Thumb
 /** Tasks **/
 NSTUB(0xFE3FC0EC,  task_create)
 NSTUB(0xFE3FC1D4,  msleep)
+NSTUB(    0x44F4,  current_task)
 
 /** Dumper **/
 NSTUB(0xFE2E4AEB,  dump_file)                               // Thumb
+
+/** Memory allocation **/
+NSTUB(0xFE3FBEF4,  GetMemoryInformation)
+NSTUB(0xFE3FBEA0,  GetSizeOfMaxRegion)
+NSTUB(0xFE3FC1CC, _AllocateMemory)
+NSTUB(0xFE3FC1DC, _FreeMemory)
 
 /** Memory info **/
 NSTUB(0xFE2DB8AD,  malloc_info)                             // Thumb
@@ -47,7 +54,7 @@ NSTUB(0xFE2DB945,  sysmem_info)                             // Thumb
 NSTUB(0xFE15F747,  smemShowFix)                             // Thumb
 
 /** Debug messages **/
-NSTUB(0xFE3FC214,  DryosDebugMsg)
+NSTUB(0x800035E1,  DryosDebugMsg)                           // Thumb
 NSTUB(0xFE3FBEEC,  dm_set_store_level)
 
 /** Eventprocs (call by name) **/

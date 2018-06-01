@@ -3,6 +3,51 @@
 
 #include "dryos.h"
 
+/* fixme */
+extern __attribute__((long_call)) void DryosDebugMsg(int,int,const char *,...);
+extern void dump_file(char* name, uint32_t addr, uint32_t size);
+extern void * _AllocateMemory(size_t);
+extern void _FreeMemory(void *);
+extern int GetMemoryInformation(int *, int *);
+
+/* custom logging buffer */
+static char * buf;
+static int buf_size = 0;
+static int len = 0;
+
+/* override Canon's DebugMsg to save all messages */
+static void my_DebugMsg(int class, int level, char* fmt, ...)
+{
+    uintptr_t lr = read_lr();
+
+    if (!buf) return;
+    if (buf_size - len < 100) return;
+
+    uint32_t old = cli();
+   
+    uint32_t us_timer = MEM(0xD400000C);
+
+    char* task_name = current_task->name;
+    
+    /* Canon's vsnprintf doesn't know %20s */
+    char task_name_padded[11] = "           ";
+    int spaces = 10 - strlen(task_name);
+    if (spaces < 0) spaces = 0;
+    snprintf(task_name_padded + spaces, 11 - spaces, "%s", task_name);
+
+    len += snprintf( buf+len, buf_size-len, "%05X> %s:%08x:%02x:%02x: ", us_timer, task_name_padded, lr-4, class, level );
+
+    va_list ap;
+    va_start( ap, fmt );
+    len += vsnprintf( buf+len, buf_size-len-1, fmt, ap );
+    va_end( ap );
+
+    len += snprintf( buf+len, buf_size-len, "\n" );
+
+    sei(old);
+}
+
+
 /* comment out one of these to see anything in QEMU */
 /* on real hardware, more interrupts are expected */
 static char* isr_names[0x200] = {
@@ -111,7 +156,7 @@ static void mpu_decode(char* in, char* out, int max_len)
 extern int (*mpu_recv_cbr)(char * buf, int size);
 extern int __attribute__((long_call)) mpu_recv(char * buf);
 
-static int mpu_recv_log(char * buf)
+static int mpu_recv_log(char * buf, int size_unused)
 {
     int size = buf[-1];
     char msg[256];
@@ -122,10 +167,36 @@ static int mpu_recv_log(char * buf)
     return mpu_recv(buf);
 }
 
+int GetFreeMemForAllocateMemory()
+{
+    int a,b;
+    GetMemoryInformation(&a,&b);
+    return b;
+}
+
 void log_start()
 {
-    //pre_isr_hook = &pre_isr_log;
-    //post_isr_hook = &post_isr_log;
+    /* allocate memory for our logging buffer */
+    buf_size = 1024 * 1024;
+    qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
+    buf = _AllocateMemory(buf_size);
+    qprintf("Logging buffer: %X - %X\n", buf, buf + buf_size - 1);
+    qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
+    while (!buf);
+
+    /* override Canon's DebugMsg (requires RAM address) */
+    uint32_t old_int = cli();
+    uint32_t DebugMsg_addr = (uint32_t) &DryosDebugMsg & ~1;
+    qprintf("Replacing %X DebugMsg with %X...\n", DebugMsg_addr, &my_DebugMsg);
+    MEM(DebugMsg_addr)     = 0xC004F8DF;    /* ldr.w  r12, [pc, #4] */
+    MEM(DebugMsg_addr + 4) = 0x00004760;    /* bx r12 */
+    MEM(DebugMsg_addr + 8) = (uint32_t) &my_DebugMsg;
+    sync_caches();
+    sei(old_int);
+
+    /* install hooks before and after each hardware interrupt */
+    pre_isr_hook = &pre_isr_log;
+    post_isr_hook = &post_isr_log;
 
     /* wait for InitializeIntercom to complete
      * then install our own hook quickly
@@ -136,17 +207,23 @@ void log_start()
     }
     mpu_recv_cbr = &mpu_recv_log;
 
-    dm_set_store_level(255, 1);
+    //dm_set_store_level(255, 1);
     DryosDebugMsg(0, 15, "Logging started.");
+    DryosDebugMsg(0, 15, "Free memory: %d bytes.", GetFreeMemForAllocateMemory());
 
     sync_caches();
 }
 
 void log_finish()
 {
+    //dm_set_store_level(255, 15);
+    DryosDebugMsg(0, 15, "Logging finished.");
+    DryosDebugMsg(0, 15, "Free memory: %d bytes.", GetFreeMemForAllocateMemory());
+
+    qprintf("Saving log %X size %X...\n", buf, len);
+    dump_file("DEBUGMSG.LOG", (uint32_t) buf, len);
+
     pre_isr_hook = 0;
     post_isr_hook = 0;
     sync_caches();
-    dm_set_store_level(255, 15);
-    DryosDebugMsg(0, 15, "Logging finished.");
 }
