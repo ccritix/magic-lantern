@@ -38,6 +38,7 @@ NSTUB(0xFE0D3385,  init_task)                               // Thumb
 NSTUB(0xFE3FC0EC,  task_create)
 NSTUB(0xFE3FC1D4,  msleep)
 NSTUB(    0x44F4,  current_task)
+NSTUB(    0x44D4,  current_interrupt)
 
 /** Dumper **/
 NSTUB(0xFE2E4AEB,  dump_file)                               // Thumb
