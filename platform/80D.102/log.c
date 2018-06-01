@@ -47,6 +47,12 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     if (!buf) return;
     if (buf_size - len < 100) return;
 
+    if ((class != 0 || level != 15) && level < 3)
+    {
+        /* skip "unimportant" messages */
+        return;
+    }
+
     uint32_t old = cli();
    
     uint32_t us_timer = MEM(0xD400000C);
@@ -165,7 +171,7 @@ static void pre_isr_log(uint32_t isr)
 #endif
 
     char* name = isr_names[isr & 0x1FF];
-    DryosDebugMsg(0, 15, "INT-%03Xh %s %X(%X)", isr, name ? name : "", handler, arg);
+    //DryosDebugMsg(0, 15, "INT-%03Xh %s %X(%X)", isr, name ? name : "", handler, arg);
 
     if (isr == 0x2A || isr == 0x12A || isr == 0x147)
     {
