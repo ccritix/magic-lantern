@@ -24,7 +24,6 @@ end
     menu.set("Overlay", "Waveform", "OFF")
     menu.set("Overlay", "Vectorscope", "OFF")
     menu.set("Display", "Clear overlays", "OFF")
-    menu.set("Overlay", "Global Draw", "LiveView")
 
     menu.set("Movie", "RAW video", "ON")
     menu.set("RAW video", "Resolution", 2560)
@@ -33,3 +32,12 @@ end
     camera.shutter.value = 1/50
     camera.iso.value=800
     menu.close()
+
+if menu.get("FPS override", "Actual FPS", "") >= "24" then
+   display.notify_box("Set FPS override to 24 or you´re in deep shit.")
+   msleep(1000)
+   display.notify_box("Set FPS override to 24 or you´re in deep shit.")
+   msleep(1000)
+end
+
+    menu.set("Overlay", "Global Draw", "LiveView")
