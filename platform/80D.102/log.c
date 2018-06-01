@@ -6,13 +6,13 @@
 /* fixme */
 extern __attribute__((long_call)) void DryosDebugMsg(int,int,const char *,...);
 extern void dump_file(char* name, uint32_t addr, uint32_t size);
-extern void * _AllocateMemory(size_t);
-extern void _FreeMemory(void *);
+//extern void * _AllocateMemory(size_t);
+//extern void _FreeMemory(void *);
 extern int GetMemoryInformation(int *, int *);
 
 /* custom logging buffer */
-static char * buf;
-static int buf_size = 0;
+static char buf[256 * 1024];        /* adjust this until it runs out of memory (512 might work, maybe more) */
+static int buf_size = sizeof(buf);
 static int len = 0;
 
 /* override Canon's DebugMsg to save all messages */
@@ -214,11 +214,11 @@ int GetFreeMemForAllocateMemory()
 void log_start()
 {
     /* allocate memory for our logging buffer */
-    buf_size = 1024 * 1024;
-    qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
-    buf = _AllocateMemory(buf_size);
+    //buf_size = 1024 * 1024;
+    //qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
+    //buf = _AllocateMemory(buf_size);
     qprintf("Logging buffer: %X - %X\n", buf, buf + buf_size - 1);
-    qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
+    //qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
     while (!buf);
 
     /* override Canon's DebugMsg (requires RAM address) */
@@ -248,7 +248,7 @@ void log_start()
 
     //dm_set_store_level(255, 1);
     DryosDebugMsg(0, 15, "Logging started.");
-    DryosDebugMsg(0, 15, "Free memory: %d bytes.", GetFreeMemForAllocateMemory());
+    //DryosDebugMsg(0, 15, "Free memory: %d bytes.", GetFreeMemForAllocateMemory());
 
     sync_caches();
 }

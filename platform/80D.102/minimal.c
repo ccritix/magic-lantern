@@ -152,9 +152,9 @@ my_init_task(int a, int b, int c, int d)
 {
     qprintf("[BOOT] autoexec.bin loaded at %X - %X.\n", &_text_start, &_bss_end);
 
-    init_task(a,b,c,d);
-
     log_start();
+
+    init_task(a,b,c,d);
 
     msleep(1000);
 
