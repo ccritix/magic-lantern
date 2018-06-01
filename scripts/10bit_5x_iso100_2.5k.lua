@@ -33,7 +33,7 @@ end
     camera.iso.value=100
     menu.close()
 
-if menu.get("FPS override", "Actual FPS", "") >= "24" then
+if menu.get("FPS override", "Actual FPS", "") >= "24.999" then
    display.notify_box("Set FPS override to 24 or you´re in deep shit.")
    msleep(1000)
    display.notify_box("Set FPS override to 24 or you´re in deep shit.")
