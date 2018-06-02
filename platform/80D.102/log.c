@@ -173,19 +173,20 @@ static void pre_isr_log(uint32_t isr)
     char* name = isr_names[isr & 0x1FF];
     //DryosDebugMsg(0, 15, "INT-%03Xh %s %X(%X)", isr, name ? name : "", handler, arg);
 
-    if (isr == 0x2A || isr == 0x12A || isr == 0x147)
+    if (isr == 0x2A || isr == 0x12A || isr == 0x147 || isr == 0x1B)
     {
-        /* SIO3/MREQ */
+        /* SIO3/MREQ; also check on timer interrupt */
         extern char * mpu_send_ring_buffer[50];
-        static int last_printed = 0;
-        char * last_message = 0;
-        while (last_message = &mpu_send_ring_buffer[last_printed][4], last_message[2])
+        extern int mpu_send_ring_buffer_tail;
+        static int last_tail = 0;
+        while (last_tail != mpu_send_ring_buffer_tail)
         {
+            char * last_message = &mpu_send_ring_buffer[last_tail][4];
             char msg[256];
             mpu_decode(last_message, msg, sizeof(msg));
-            //qprintf("[%d] mpu_send(%s)\n", last_printed, msg);
-            DryosDebugMsg(0, 15, "mpu_send(%s)", msg);
-            last_printed = MOD(last_printed + 1, COUNT(mpu_send_ring_buffer));
+            //qprintf("[%d] mpu_send(%s)%s\n", last_tail, msg, last_message[-2] == 1 ? "" : " ?!?");
+            DryosDebugMsg(0, 15, "[%d] *** mpu_send(%s)%s", last_tail, msg, last_message[-2] == 1 ? "" : " ?!?");
+            last_tail = MOD(last_tail + 1, COUNT(mpu_send_ring_buffer));
         }
     }
 }
@@ -205,7 +206,7 @@ static void post_isr_log(uint32_t isr)
             char msg[256];
             mpu_decode(last_message, msg, sizeof(msg));
             //qprintf("[%d] mpu_recv(%s)\n", last_tail, msg);
-            DryosDebugMsg(0, 15, "mpu_recv(%s)", msg);
+            DryosDebugMsg(0, 15, "[%d] *** mpu_recv(%s)", last_tail, msg);
             last_tail = mpu_recv_ring_buffer_tail;
         }
     }
