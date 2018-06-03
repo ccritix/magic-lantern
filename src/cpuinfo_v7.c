@@ -356,6 +356,69 @@ static const struct cpuinfo_bitfield_desc_s cpuinf_generic[] = {
     {}
 };
 
+static const char * dbg_version(unsigned val) {
+    switch(val) {
+        case 0b0001: return "v6";
+        case 0b0010: return "v6.1";
+        case 0b0011: return "v7 full";
+        case 0b0100: return "v7 basic";
+        case 0b0101: return "v7.1";
+        case 0b0110: return "v8";
+        case 0b0111: return "v8.1";
+        case 0b1000: return "v8.2";
+    }
+    return "???";
+}
+
+static const struct cpuinfo_bitfield_desc_s cpuinf_dbgdidr[] = {
+    {4,"Revision"},
+    {4,"Variant"},
+    {8,"- (RAZ)"},
+    {4,"Version",dbg_version},
+    {4,"Context",ccsidr_plusone},
+    {4,"BRP",ccsidr_plusone},
+    {4,"WRP",ccsidr_plusone},
+    {}
+};
+
+static const struct cpuinfo_bitfield_desc_s cpuinf_dbgd_address[] = {
+    {2,"Valid"},
+    {10,"- (UNK)"},
+    {20,"Address",cache_tcm_addr_str},
+    {}
+};
+
+static const struct cpuinfo_bitfield_desc_s cpuinf_dbgdscr[] = {
+    {1,"HALTED"},
+    {1,"RESTARTED"},
+    {4,"MOE"},
+    {1,"SDABORT_l"},
+    {1,"ADABORT_l"},
+    {1,"UND_l"},
+    {1,"FS"},
+    {1,"DBGack"},
+    {1,"INTdis"},
+    {1,"UDCCdis"},
+    {1,"ITRen"},
+    {1,"HDBGen"},
+    {1,"MDBGen"},
+    {1,"SPIDdis"},
+    {1,"SPNIDdis"},
+    {1,"NS"},
+    {1,"ADAdiscard"},
+    {2,"ExtDCCmode"},
+    {2,"- (SBZ)"},
+    {1,"InstrCompl_l"},
+    {1,"PipeAdv"},
+    {1,"TXfull_l"},
+    {1,"RXfull_l"},
+    {1,"- (SBZ)"},
+    {1,"TXfull"},
+    {1,"RXfull"},
+    {1,"- (SBZ)"},
+    {}
+};
+
 static const struct cpuinfo_word_desc_s cpuinfo_desc[]={
     {"ID", cpuinf_id },
     {"Cache type", cpuinf_ctr },
@@ -413,10 +476,10 @@ static const struct cpuinfo_word_desc_s cpuinfo_desc[]={
     {"MPU region 7 size & enable", cpuinf_mpusizeen },
     {"MPU region 7 access control", cpuinf_accesscontrol },
 #endif
-    {"DBGDIDR", cpuinf_generic },
-    {"DBGDRAR", cpuinf_generic },
-    {"DBGDSAR", cpuinf_generic },
-    //{"DBGDSCR", cpuinf_generic },
+    {"DBGDIDR", cpuinf_dbgdidr },
+    {"DBGDRAR", cpuinf_dbgd_address },
+    {"DBGDSAR", cpuinf_dbgd_address },
+    {"DBGDSCR", cpuinf_dbgdscr },
     //{"Floating Point System ID register", cpuinf_generic },
     //{"Media and VFP Feature Register 0", cpuinf_generic },
     //{"Media and VFP Feature Register 1", cpuinf_generic },
@@ -675,9 +738,9 @@ static void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) 
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-        //"MRC    p14, 0, R1,c0,c1,0\n" // DBGDSCR
-        //"ADD    R0, R0, #4\n"
-        //"STR    R1, [R0]\n"
+        "MRC    p14, 0, R1,c0,c1,0\n" // DBGDSCR
+        "ADD    R0, R0, #4\n"
+        "STR    R1, [R0]\n"
 
         //".word  0xEEF01A10\n" //"VMRS   R1, FPSID\n" // Floating Point System ID register
         //"ADD    R0, R0, #4\n"
