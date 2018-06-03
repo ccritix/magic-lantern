@@ -1266,11 +1266,6 @@ cstart( int loaded_as_thumb )
 
     disp_init();
 
-#ifdef CONFIG_BOOT_CPUINFO
-    printf("CHDK CPU info for 0x%X %s\n", get_model_id(), get_model_string());
-    printf("------------------------------\n");
-    cpuinfo_print();
-#else
     /* disable caching (seems to interfere with ROM dumping) */
     //~ disable_dcache();
     //~ disable_icache();
@@ -1316,9 +1311,14 @@ cstart( int loaded_as_thumb )
         enable_bootflag();
         print_bootflags();
     #endif
+    #if defined(CONFIG_BOOT_CPUINFO)
+        printf("\n");
+        printf("CHDK CPU info for 0x%X %s\n", get_model_id(), get_model_string());
+        printf("------------------------------\n");
+        cpuinfo_print();
+    #endif
 
     printf(" - DONE!\n");
-#endif
 
     if (boot_open_write && log_buffer)
     {
