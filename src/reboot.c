@@ -278,12 +278,23 @@ static void blink(int n)
     busy_wait(n);
 }
 
+static char log_buffer_alloc[16384];
+static char * log_buffer = 0;
+static int log_length = 0;
+
 static uint32_t print_x = 0;
 static uint32_t print_y = 20;
 
 void print_line(uint32_t color, uint32_t scale, char *txt)
 {
     qprint(txt);
+
+    if (!log_buffer)
+    {
+        uint32_t caching_bit = (is_vxworks()) ? 0x10000000 : 0x40000000;
+        log_buffer = (uintptr_t) log_buffer_alloc | caching_bit;
+    }
+    log_length += snprintf(log_buffer + log_length, sizeof(log_buffer_alloc) - log_length, "%s", txt);
 
     int height = scale * (FONTH + 2);
 
@@ -1308,6 +1319,13 @@ cstart( int loaded_as_thumb )
 
     printf(" - DONE!\n");
 #endif
+
+    if (boot_open_write && log_buffer)
+    {
+        int saved_length = log_length;  /* save until here */
+        printf(" - Saving RESCUE.LOG ...\n");
+        save_file(DRIVE_SD, "RESCUE.LOG", log_buffer, saved_length);
+    }
 
     printf("\n");
     print_line(COLOR_WHITE, 2, " You may now remove the battery.\n");
