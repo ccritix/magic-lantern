@@ -413,6 +413,10 @@ static const struct cpuinfo_word_desc_s cpuinfo_desc[]={
     {"MPU region 7 size & enable", cpuinf_mpusizeen },
     {"MPU region 7 access control", cpuinf_accesscontrol },
 #endif
+    {"DBGDIDR", cpuinf_generic },
+    {"DBGDRAR", cpuinf_generic },
+    {"DBGDSAR", cpuinf_generic },
+    //{"DBGDSCR", cpuinf_generic },
     //{"Floating Point System ID register", cpuinf_generic },
     //{"Media and VFP Feature Register 0", cpuinf_generic },
     //{"Media and VFP Feature Register 1", cpuinf_generic },
@@ -658,6 +662,22 @@ static void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) 
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 #endif
+
+        "MRC    p14, 0, R1,c0,c0,0\n" // DBGDIDR
+        "ADD    R0, R0, #4\n"
+        "STR    R1, [R0]\n"
+
+        "MRC    p14, 0, R1,c1,c0,0\n" // DBGDRAR
+        "ADD    R0, R0, #4\n"
+        "STR    R1, [R0]\n"
+
+        "MRC    p14, 0, R1,c2,c0,0\n" // DBGDSAR
+        "ADD    R0, R0, #4\n"
+        "STR    R1, [R0]\n"
+
+        //"MRC    p14, 0, R1,c0,c1,0\n" // DBGDSCR
+        //"ADD    R0, R0, #4\n"
+        //"STR    R1, [R0]\n"
 
         //".word  0xEEF01A10\n" //"VMRS   R1, FPSID\n" // Floating Point System ID register
         //"ADD    R0, R0, #4\n"
