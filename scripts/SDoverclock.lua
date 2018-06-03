@@ -1,6 +1,5 @@
 -- enable SD overclocking
 
-    menu.set("Overlay", "Global Draw", "OFF")
     console.hide()
     menu.close()
     if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA LOSS"
