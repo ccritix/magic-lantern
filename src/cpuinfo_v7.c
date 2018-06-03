@@ -26,7 +26,7 @@ static const char *two_on_nth_granule(unsigned val) {
     return "invalid";
 }
 
-const struct cpuinfo_bitfield_desc_s cpuinf_feat0[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_feat0[] = {
     {4,"ARM inst set"},
     {4,"Thumb inst set"},
     {4,"Jazelle inst set"},
@@ -35,7 +35,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_feat0[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_feat1[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_feat1[] = {
     {4,"Programmers' model"},
     {4,"Security extensions"},
     {4,"Microcontr. prog model"},
@@ -43,7 +43,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_feat1[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_mmfr0[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_mmfr0[] = {
     {4,"VMSA support"},
     {4,"PMSA support"},
     {4,"Cache coherence"},
@@ -55,7 +55,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_mmfr0[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_mmfr1[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_mmfr1[] = {
     {4,"L1 Harvard cache VA"},
     {4,"L1 unified cache VA"},
     {4,"L1 Harvard cache s/w"},
@@ -67,7 +67,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_mmfr1[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_mmfr2[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_mmfr2[] = {
     {4,"L1 Harvard fg prefetch"},
     {4,"L1 Harvard bg prefetch"},
     {4,"L1 Harvard range"},
@@ -79,7 +79,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_mmfr2[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_mmfr3[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_mmfr3[] = {
     {4,"Cache maintain MVA"},
     {4,"Cache maintain s/w"},
     {4,"BP maintain"},
@@ -88,7 +88,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_mmfr3[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_isar0[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_isar0[] = {
     {4,"Swap instrs"},
     {4,"Bitcount instrs"},
     {4,"Bitfield instrs"},
@@ -100,7 +100,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_isar0[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_isar1[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_isar1[] = {
     {4,"Endian instrs"},
     {4,"Exception instrs"},
     {4,"Exception AR instrs"},
@@ -112,7 +112,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_isar1[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_isar2[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_isar2[] = {
     {4,"LoadStore instrs"},
     {4,"Memhint instrs"},
     {4,"MultiAccess Interruptible instructions"},
@@ -124,7 +124,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_isar2[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_isar3[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_isar3[] = {
     {4,"Saturate instrs"},
     {4,"SIMD instrs"},
     {4,"SVC instrs"},
@@ -136,7 +136,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_isar3[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_isar4[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_isar4[] = {
     {4,"Unprivileged instrs"},
     {4,"WithShifts instrs"},
     {4,"Writeback instrs"},
@@ -148,12 +148,12 @@ const struct cpuinfo_bitfield_desc_s cpuinf_isar4[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_isar5[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_isar5[] = {
     {32,"-"},
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_ctr[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_ctr[] = {
     {4,"Icache min words/line", two_on_nth},
     {10,"(zero)"},
     {2,"L1 Icache policy"},
@@ -176,7 +176,7 @@ static const char *ctype_str(unsigned val) {
     return "-";
 }
 
-const struct cpuinfo_bitfield_desc_s cpuinf_clidr[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_clidr[] = {
     {3,"Cache type, level1", ctype_str},
     {3,"Cache type, level2", ctype_str},
     {3,"Cache type, level3", ctype_str},
@@ -191,7 +191,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_clidr[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_csselr[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_csselr[] = {
     {1,"Instruction, not data"},
     {3,"Level"},
     {28,"(unknown)"},
@@ -207,7 +207,7 @@ static const char *ccsidr_plusone(unsigned val) {
     return linebuf;
 }
 
-const struct cpuinfo_bitfield_desc_s cpuinf_ccsidr[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_ccsidr[] = {
     {3,"Line size in words", ccsidr_linesize},
     {10,"Associativity", ccsidr_plusone},
     {15,"Number of sets", ccsidr_plusone},
@@ -231,7 +231,7 @@ static const char *cache_tcm_addr_str(unsigned val) {
     return linebuf;
 }
 
-const struct cpuinfo_bitfield_desc_s cpuinf_tcmreg[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_tcmreg[] = {
     {1,"Enabled"},
     {1,"-"},
     {5,"Size", cache_tcm_size_str},
@@ -240,14 +240,14 @@ const struct cpuinfo_bitfield_desc_s cpuinf_tcmreg[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_mputype[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_mputype[] = {
     {1,"S"},
     {7,"-"},
     {8,"Num of MPU regions"},
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_mpubase[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_mpubase[] = {
     {32,"Base address"},
     {}
 };
@@ -269,7 +269,7 @@ static const char *bitfield8(unsigned val) {
     return linebuf;
 }
 
-const struct cpuinfo_bitfield_desc_s cpuinf_mpusizeen[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_mpusizeen[] = {
     {1,"Enabled"},
     {5,"Size", mpu_region_size_str},
     {2,"-"},
@@ -313,7 +313,7 @@ static const char *mpu_rattr(unsigned val) {
     return linebuf;
 }
 
-const struct cpuinfo_bitfield_desc_s cpuinf_accesscontrol[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_accesscontrol[] = {
     {6,"Region attributes", mpu_rattr},
     {2,"-"},
     {3,"Access permission", regperm_str},
@@ -322,7 +322,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_accesscontrol[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_sctlr[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_sctlr[] = {
     {1,"MPU Enable"},
     {1,"Strict Align"},
     {1,"L1 DCache Enable"},
@@ -351,7 +351,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_sctlr[] = {
     {}
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_generic[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_generic[] = {
     {32,"(raw value)"},
     {}
 };
@@ -383,7 +383,7 @@ static const struct cpuinfo_word_desc_s cpuinfo_desc[]={
     {"ACTLR", cpuinf_generic },
     {"ACTLR2", cpuinf_generic },
     {"CPACR", cpuinf_generic },
-#if 0   /* not working on DIGIC 7 */
+#ifdef CONFIG_DIGIC_VI   /* not working on DIGIC 7 */
     {"Build options 1", cpuinf_generic },
     {"Build options 2", cpuinf_generic },
     {"ATCM region reg", cpuinf_tcmreg },
@@ -537,7 +537,7 @@ static void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) 
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"
 
-#if 0   /* not working on DIGIC 7 */
+#ifdef CONFIG_DIGIC_VI   /* not working on DIGIC 7 */
         "MRC    p15, 0, R1,c15,c2,0\n" // Build options 1 reg
         "ADD    R0, R0, #4\n"
         "STR    R1, [R0]\n"

@@ -54,7 +54,11 @@ void cpuinfo_finish(unsigned dummy);
 void cpuinfo_get_info(unsigned *results);
 
 #ifdef THUMB_FW
-void cpuinfo_print_v7(void) {
+#ifdef CONFIG_DIGIC_VI
+void cpuinfo_print_v7p(void) {
+#else
+void cpuinfo_print_v7v(void) {
+#endif
 #else
 void cpuinfo_print_v5(void) {
 #endif

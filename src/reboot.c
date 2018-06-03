@@ -1240,14 +1240,15 @@ static void enable_bootflag()
 
 static void cpuinfo_print(void)
 {
-    extern void cpuinfo_print_v5(void);
-    extern void cpuinfo_print_v7(void);
-    if (is_digic6() || is_digic7())
-    {
-        cpuinfo_print_v7();
-    }
-    else
-    {
+    extern void cpuinfo_print_v5(void);     /* ARMv5TE (DIGIC 2..5) */
+    extern void cpuinfo_print_v7p(void);    /* ARMv7 PMSA (DIGIC 6) */
+    extern void cpuinfo_print_v7v(void);    /* ARMv7 VMSA (DIGIC 7) */
+
+    if (is_digic6()) {
+        cpuinfo_print_v7p();
+    } else if (is_digic7()) {
+        cpuinfo_print_v7v();
+    } else {
         cpuinfo_print_v5();
     }
 }
