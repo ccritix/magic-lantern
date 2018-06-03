@@ -217,7 +217,11 @@ ML_SRC_REBOOT_OBJ += cache_d6.o
 
 ifeq ($(CONFIG_BOOT_CPUINFO),y)
 CFLAGS += -DCONFIG_BOOT_CPUINFO
-ML_SRC_REBOOT_OBJ += cpuinfo.o
+ML_SRC_REBOOT_OBJ += cpuinfo_v5_main.o cpuinfo_v7_main.o
+cpuinfo_v5_main.o: $(SRC_DIR)/cpuinfo.c
+	$(call build,CC,$(CC) $(CFLAGS) -c -o $@ $<)
+cpuinfo_v7_main.o: $(SRC_DIR)/cpuinfo.c
+	$(call build,CC,$(CC) $(CFLAGS) -DTHUMB_FW -c -o $@ $<)
 endif
 
 ifeq ($(CONFIG_BOOT_FULLFAT),y)

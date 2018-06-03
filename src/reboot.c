@@ -1238,8 +1238,20 @@ static void enable_bootflag()
     }
 }
 
+static void cpuinfo_print(void)
+{
+    extern void cpuinfo_print_v5(void);
+    extern void cpuinfo_print_v7(void);
+    if (is_digic6() || is_digic7())
+    {
+        cpuinfo_print_v7();
+    }
+    else
+    {
+        cpuinfo_print_v5();
+    }
+}
 
-extern void cpuinfo_print(void);
 extern void disable_caches_region1_ram_d6(void);
 
 void

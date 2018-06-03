@@ -356,7 +356,7 @@ const struct cpuinfo_bitfield_desc_s cpuinf_generic[] = {
     {}
 };
 
-const struct cpuinfo_word_desc_s cpuinfo_desc[]={
+static const struct cpuinfo_word_desc_s cpuinfo_desc[]={
     {"ID", cpuinf_id },
     {"Cache type", cpuinf_ctr },
     {"TCM type", cpuinf_generic },
@@ -420,7 +420,7 @@ const struct cpuinfo_word_desc_s cpuinfo_desc[]={
 };
 
 
-void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) {
+static void __attribute__((naked,noinline)) cpuinfo_get_info(unsigned *results) {
     asm (
         ".syntax unified\n"
         ".code 16\n"

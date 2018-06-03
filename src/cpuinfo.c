@@ -2,9 +2,6 @@
 #include "stdlib.h"
 #include "string.h"
 
-/* for DIGIC 6 */
-#define THUMB_FW
-
 struct cpuinfo_bitfield_desc_s {
     unsigned bits;
     const char *name;
@@ -16,7 +13,7 @@ struct cpuinfo_word_desc_s {
     const struct cpuinfo_bitfield_desc_s *fields;
 };
 
-const struct cpuinfo_bitfield_desc_s cpuinf_id[] = {
+static const struct cpuinfo_bitfield_desc_s cpuinf_id[] = {
     {4,"Revision"},
     {12,"Part"},
     {4,"ARM Arch"},
@@ -56,13 +53,15 @@ static const char *regperm_str(unsigned val) {
 void cpuinfo_finish(unsigned dummy);
 void cpuinfo_get_info(unsigned *results);
 
-void cpuinfo_print(void) {
+#ifdef THUMB_FW
+void cpuinfo_print_v7(void) {
+#else
+void cpuinfo_print_v5(void) {
+#endif
     unsigned cpuinfo[NUM_CPUINFO_WORDS];
     int i,j;
     unsigned fieldval,wordval;
     unsigned mask,bits;
-    FILE *finfo;
-    char *p;
     cpuinfo_get_info(cpuinfo);
     for(i = 0; cpuinfo_desc[i].name; i++) {
         wordval = cpuinfo[i];
