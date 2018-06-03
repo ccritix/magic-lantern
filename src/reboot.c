@@ -26,15 +26,9 @@
 
 /* various settings */
 #undef PAGE_SCROLL
-#define PRINTF_FONT_SIZE 2
-#define PRINTF_FONT_COLOR COLOR_CYAN
 
-#if defined(CONFIG_BOOT_CPUINFO)
+#if defined(CONFIG_BOOT_CPUINFO) && !defined(CONFIG_BOOT_DUMPER)
 #define PAGE_SCROLL
-#undef  PRINTF_FONT_SIZE
-#define PRINTF_FONT_SIZE 1
-#undef  PRINTF_FONT_COLOR
-#define PRINTF_FONT_COLOR COLOR_WHITE
 #endif
 
 #include <string.h>
@@ -282,6 +276,9 @@ static char log_buffer_alloc[16384];
 static char * log_buffer = 0;
 static int log_length = 0;
 
+static int printf_font_size = 2;
+static int printf_font_color = COLOR_CYAN;
+
 static uint32_t print_x = 0;
 static uint32_t print_y = 20;
 
@@ -343,7 +340,7 @@ int printf(const char * fmt, ...)
     va_start( ap, fmt );
     vsnprintf( buf, sizeof(buf)-1, fmt, ap );
     va_end( ap );
-    print_line(PRINTF_FONT_COLOR, PRINTF_FONT_SIZE, buf);
+    print_line(printf_font_color, printf_font_size, buf);
     return 0;
 }
 
@@ -1315,7 +1312,12 @@ cstart( int loaded_as_thumb )
         printf("\n");
         printf("CHDK CPU info for 0x%X %s\n", get_model_id(), get_model_string());
         printf("------------------------------\n");
+        int old_size = printf_font_size; printf_font_size = 1;
+        int old_color = printf_font_color; printf_font_color = COLOR_WHITE;
         cpuinfo_print();
+        printf("\n");
+        printf_font_size = old_size;
+        printf_font_color = old_color;
     #endif
 
     printf(" - DONE!\n");
