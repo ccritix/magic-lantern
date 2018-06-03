@@ -278,74 +278,6 @@ static void blink(int n)
     busy_wait(n);
 }
 
-static void fail()
-{
-    while (1)
-    {
-        blink(20);
-    }
-}
-
-/* file I/O stubs */
-enum boot_drive { DRIVE_CF, DRIVE_SD };
-static int (*boot_open_write)(int drive, char* filename, void* buf, uint32_t size);
-static int (*boot_card_init)();
-
-/* for intercepting Canon messages */
-static int (*boot_putchar)(int ch) = 0;
-
-static void save_file(int drive, char* filename, void* addr, int size)
-{
-    /* check whether our stubs were initialized */
-    if (!boot_open_write)
-    {
-        fail();
-    }
-
-    if (boot_open_write(drive, filename, (void*) addr, size) == -1)
-    {
-        fail();
-    }
-}
-
-static void dump_md5(int drive, char* filename, void * addr, int size)
-{
-    uint8_t md5_bin[16];
-    char md5_ascii[50];
-    md5(addr, size, md5_bin);
-    snprintf(md5_ascii, sizeof(md5_ascii),
-        "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x  %s\n",
-        md5_bin[0],  md5_bin[1],  md5_bin[2],  md5_bin[3],
-        md5_bin[4],  md5_bin[5],  md5_bin[6],  md5_bin[7],
-        md5_bin[8],  md5_bin[9],  md5_bin[10], md5_bin[11],
-        md5_bin[12], md5_bin[13], md5_bin[14], md5_bin[15],
-        filename
-    );
-    char file_base[16];
-    snprintf(file_base, sizeof(file_base), "%s", filename);
-    file_base[strlen(file_base)-4] = 0;
-    char md5file[16];
-    snprintf(md5file, sizeof(md5file), "%s.MD5", file_base);
-    md5_ascii[32] = 0;
-    printf(" - MD5: %s\n", md5_ascii);
-    md5_ascii[32] = ' ';
-
-    save_file(drive, md5file, (void*) md5_ascii, strlen(md5_ascii));
-}
-
-static void boot_dump(int drive, char* filename, uint32_t addr, int size)
-{
-    /* turn on the LED */
-    led_on();
-
-    /* save the file and the MD5 checksum */
-    save_file(drive, filename, (void *) addr, size);
-    dump_md5(drive, filename, (void *) addr, size);
-
-    /* turn off the LED */
-    led_off();
-}
-
 static uint32_t print_x = 0;
 static uint32_t print_y = 20;
 
@@ -402,6 +334,79 @@ int printf(const char * fmt, ...)
     va_end( ap );
     print_line(PRINTF_FONT_COLOR, PRINTF_FONT_SIZE, buf);
     return 0;
+}
+
+static void fail()
+{
+    printf("\n");
+    print_line(COLOR_RED, 2, " You may now remove the battery.\n");
+
+    while (1)
+    {
+        blink(20);
+    }
+}
+
+/* file I/O stubs */
+enum boot_drive { DRIVE_CF, DRIVE_SD };
+static int (*boot_open_write)(int drive, char* filename, void* buf, uint32_t size);
+static int (*boot_card_init)();
+
+/* for intercepting Canon messages */
+static int (*boot_putchar)(int ch) = 0;
+
+static void save_file(int drive, char* filename, void* addr, int size)
+{
+    /* check whether our stubs were initialized */
+    if (!boot_open_write)
+    {
+        print_line(COLOR_RED, 2, " - Boot file write stub not set.\n");
+        fail();
+    }
+
+    if (boot_open_write(drive, filename, (void*) addr, size) == -1)
+    {
+        print_line(COLOR_RED, 2, " - Boot file write error.\n");
+        fail();
+    }
+}
+
+static void dump_md5(int drive, char* filename, void * addr, int size)
+{
+    uint8_t md5_bin[16];
+    char md5_ascii[50];
+    md5(addr, size, md5_bin);
+    snprintf(md5_ascii, sizeof(md5_ascii),
+        "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x  %s\n",
+        md5_bin[0],  md5_bin[1],  md5_bin[2],  md5_bin[3],
+        md5_bin[4],  md5_bin[5],  md5_bin[6],  md5_bin[7],
+        md5_bin[8],  md5_bin[9],  md5_bin[10], md5_bin[11],
+        md5_bin[12], md5_bin[13], md5_bin[14], md5_bin[15],
+        filename
+    );
+    char file_base[16];
+    snprintf(file_base, sizeof(file_base), "%s", filename);
+    file_base[strlen(file_base)-4] = 0;
+    char md5file[16];
+    snprintf(md5file, sizeof(md5file), "%s.MD5", file_base);
+    md5_ascii[32] = 0;
+    printf(" - MD5: %s\n", md5_ascii);
+    md5_ascii[32] = ' ';
+
+    save_file(drive, md5file, (void*) md5_ascii, strlen(md5_ascii));
+}
+
+static void boot_dump(int drive, char* filename, uint32_t addr, int size)
+{
+    /* turn on the LED */
+    led_on();
+
+    /* save the file and the MD5 checksum */
+    save_file(drive, filename, (void *) addr, size);
+    dump_md5(drive, filename, (void *) addr, size);
+
+    /* turn off the LED */
+    led_off();
 }
 
 #ifdef CONFIG_BOOT_FULLFAT
