@@ -15,10 +15,13 @@ end
    msleep(400)
 
 -- enable sound
-    menu.set("Sound recording", "Enable sound", "ON")
-while menu.get("Sound recording", "Enable sound", "") ~= "ON" do
+   menu.set("Sound recording", "Enable sound", "ON")
+if menu.get("Sound recording", "Enable sound", "") ~= "ON" then
    display.notify_box("enable mlv_snd.mo and restart to record sound")
    msleep(1000)
+   display.notify_box("enable mlv_snd.mo and restart to record sound")
+   msleep(1000)
+   return
 end
 
 -- warn if in mv720p
@@ -91,3 +94,6 @@ end
 
 -- done, turn on global draw
    menu.set("Overlay", "Global Draw", "LiveView")
+
+-- go back to menu origin
+   menu.select("Scripts")
