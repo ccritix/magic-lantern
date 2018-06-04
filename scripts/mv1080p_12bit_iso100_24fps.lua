@@ -1,9 +1,9 @@
--- 5x_2.5k_10bit_iso100_24fps
+-- mv1080p_12bit_iso100_24fps
 
 -- warn if not movie mode
-   menu.set("Overlay", "Global Draw", "OFF")
-   console.hide()
-   menu.close()
+menu.set("Overlay", "Global Draw", "OFF")
+console.hide()
+menu.close()
 while camera.mode ~= MODE.MOVIE do
    display.notify_box("enable MOVIE mode")
    msleep(1000)
@@ -16,12 +16,9 @@ end
 
 -- enable sound
     menu.set("Sound recording", "Enable sound", "ON")
-if menu.get("Sound recording", "Enable sound", "") ~= "ON" then
+while menu.get("Sound recording", "Enable sound", "") ~= "ON" do
    display.notify_box("enable mlv_snd.mo and restart to record sound")
    msleep(1000)
-   display.notify_box("enable mlv_snd.mo and restart to record sound")
-   msleep(1000)
-   return
 end
 
 -- warn if in mv720p
@@ -51,9 +48,6 @@ elseif menu.get("FPS override", "Actual FPS", "") >= "59" and menu.get("FPS over
    camera.shutter.value = 1/60
 end
 
--- let´s go into zoom mode
-   lv.zoom = 5
-
 -- now turn FPS override to on
    menu.select("Movie", "FPS override")
    menu.open()     -- open ML menu
@@ -61,24 +55,29 @@ end
    menu.close()
 
 -- Overlay
-   menu.set("Overlay", "Zebras", "OFF")
-   menu.set("Overlay", "Magic Zoom", "OFF")
-   menu.set("Overlay", "Cropmarks", "OFF")
-   menu.set("Overlay", "Spotmeter", "OFF")
-   menu.set("Overlay", "False color", "OFF")
-   menu.set("Overlay", "Histogram", "OFF")
-   menu.set("Overlay", "Waveform", "OFF")
-   menu.set("Overlay", "Vectorscope", "OFF")
-   menu.set("Display", "Clear overlays", "OFF")
+    menu.set("Overlay", "Focus Peak", "OFF")
+    menu.set("Overlay", "Zebras", "OFF")
+
+-- magic zoom quite stubborn one to set(two step operation)
+    menu.set("Magic Zoom", "Trigger mode", "HalfShutter")
+    menu.set("Overlay", "Magic Zoom", "HalfS, Med, TL, 2:1")
+
+    menu.set("Overlay", "Cropmarks", "OFF")
+    menu.set("Overlay", "Spotmeter", "OFF")
+    menu.set("Overlay", "False color", "OFF")
+    menu.set("Overlay", "Histogram", "OFF")
+    menu.set("Overlay", "Waveform", "OFF")
+    menu.set("Overlay", "Vectorscope", "OFF")
+    menu.set("Display", "Clear overlays", "OFF")
 
 -- Movie
-   menu.set("Movie", "RAW video", "ON")
-   menu.set("Movie", "HDR video", "OFF")
-   menu.set("RAW video", "Resolution", 2560)
-   menu.set("RAW video", "Data format", "10-bit lossless")
-   menu.set("RAW video", "Preview", "Real-time")
-   camera.iso.value=100
-   menu.close()
+    menu.set("Movie", "RAW video", "ON") 
+    menu.set("Movie", "HDR video", "OFF")
+    menu.set("RAW video", "Resolution", 1920)
+    menu.set("RAW video", "Data format", "12-bit lossless") 
+    menu.set("RAW video", "Preview", "Auto")
+    camera.iso.value=100
+    menu.close()
 
 -- warn if FPS override still is wrongly set
 if menu.get("FPS override", "Actual FPS", "") >= "24.999" then

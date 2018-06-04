@@ -1,6 +1,5 @@
 -- 5x_2.5k_10bit_iso800_24fps
 
-
 -- warn if not movie mode
    menu.set("Overlay", "Global Draw", "OFF")
    console.hide()
@@ -13,7 +12,7 @@ end
 -- set regular live view and turn FPS override OFF
    lv.zoom = 1
    menu.set("Movie", "FPS override", "OFF")
-   msleep(200)
+   msleep(400)
 
 -- enable sound
     menu.set("Sound recording", "Enable sound", "ON")
@@ -51,7 +50,6 @@ elseif menu.get("FPS override", "Actual FPS", "") >= "59" and menu.get("FPS over
    menu.set("FPS override", "Desired FPS", "24 (from 60)")
    camera.shutter.value = 1/60
 end
-
 
 -- let´s go into zoom mode
    lv.zoom = 5
