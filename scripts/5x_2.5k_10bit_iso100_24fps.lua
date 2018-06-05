@@ -1,7 +1,6 @@
 -- 5x_2.5k_10bit_iso100_24fps
 
 -- warn if not movie mode
-   menu.set("Overlay", "Global Draw", "OFF")
    console.hide()
    menu.close()
 while camera.mode ~= MODE.MOVIE do
@@ -9,14 +8,10 @@ while camera.mode ~= MODE.MOVIE do
    msleep(1000)
 end
 
--- set regular live view and turn FPS override OFF
-   lv.zoom = 1
-   menu.set("Movie", "FPS override", "OFF")
-   msleep(400)
-
 -- enable sound
    menu.set("Sound recording", "Enable sound", "ON")
 if menu.get("Sound recording", "Enable sound", "") ~= "ON" then
+   menu.set("Overlay", "Global Draw", "OFF")
    display.notify_box("enable mlv_snd.mo and restart to record sound")
    msleep(1000)
    display.notify_box("enable mlv_snd.mo and restart to record sound")
@@ -26,6 +21,7 @@ end
 
 -- warn if in mv720p
 if menu.get("FPS override", "Actual FPS", "") >= "49" and menu.get("FPS override", "Actual FPS", "") <= "61" then
+   menu.set("Overlay", "Global Draw", "OFF")
    display.notify_box("Set cam to mv1080p and run script again")
    msleep(1000)
    display.notify_box("Set cam to mv1080p and run script again")
@@ -33,7 +29,12 @@ if menu.get("FPS override", "Actual FPS", "") >= "49" and menu.get("FPS override
    return
 end
 
--- workaround by range check to be able to set FPS override numbers
+-- workaround. May need an extra pass(if higher fps than actual)
+while menu.get("FPS override", "Actual FPS", "") <= "23" or menu.get("FPS override", "Actual FPS", "") >= "25" or menu.get("Movie", "FPS override", "") == "OFF" do 
+   lv.zoom = 1
+   menu.set("Movie", "FPS override", "OFF")
+   msleep(1000)
+
 if menu.get("FPS override", "Actual FPS", "") >= "23" and menu.get("FPS override", "Actual FPS", "") <= "24" then
    menu.set("FPS override", "Desired FPS", "24 (from 24)")
    camera.shutter.value = 1/50
@@ -51,14 +52,15 @@ elseif menu.get("FPS override", "Actual FPS", "") >= "59" and menu.get("FPS over
    camera.shutter.value = 1/60
 end
 
--- let´s go into zoom mode
-   lv.zoom = 5
-
 -- now turn FPS override to on
    menu.select("Movie", "FPS override")
    menu.open()     -- open ML menu
    key.press(KEY.SET)
    menu.close()
+end
+
+-- let´s go into zoom mode
+   lv.zoom = 5
 
 -- Overlay
    menu.set("Overlay", "Zebras", "OFF")
@@ -79,16 +81,6 @@ end
    menu.set("RAW video", "Preview", "Real-time")
    camera.iso.value=100
    menu.close()
-
--- warn if FPS override still is wrongly set
-if menu.get("FPS override", "Actual FPS", "") >= "24.999" then
-   display.notify_box("Set FPS override to 24 or you´re in deep shit.")
-   msleep(1000)
-   display.notify_box("Set FPS override to 24 or you´re in deep shit.")
-   msleep(1000)
-   display.notify_box("Set FPS override to 24 or you´re in deep shit.")
-   msleep(1000)
-end
 
 -- done, turn on global draw
    menu.set("Overlay", "Global Draw", "LiveView")
