@@ -6,28 +6,18 @@
    menu.close()
 
 -- warnings 
-if menu.get("FPS override", "Actual FPS", "") >= "49" and menu.get("FPS override", "Actual FPS", "") <= "61" then
-   menu.set("Overlay", "Global Draw", "OFF")
-   display.notify_box("Set cam to mv1080p and run script again")
-   msleep(1000)
-   display.notify_box("Set cam to mv1080p and run script again")
-   msleep(1000)
-   return
-end
-
-if camera.model_short ~= "EOSM" then
-  if camera.mode ~= MODE.M then
-    display.notify_box("set camera to 'M' and run script again")
-    msleep(1000)
-    display.notify_box("set camera to 'M' and run script again")
-    msleep(1000)
-    return
-  end
-end
-
 while camera.mode ~= MODE.MOVIE do
   display.notify_box("enable MOVIE mode")
   msleep(1000)
+end
+
+if menu.get("FPS override", "Actual FPS", "") >= "49" and menu.get("FPS override", "Actual FPS", "") <= "61" then
+  menu.set("Overlay", "Global Draw", "OFF")
+  display.notify_box("Set cam to mv1080p and run script again")
+  msleep(1000)
+  display.notify_box("Set cam to mv1080p and run script again")
+  msleep(1000)
+  return
 end
 
 -- enable sound
