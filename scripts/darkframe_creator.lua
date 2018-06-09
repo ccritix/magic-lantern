@@ -438,7 +438,6 @@ end
 
 -- Starting point
   camera.iso.value=100
-  camera.shutter.value = 1/50
   menu.set("RAW video", "Data format", "12-bit lossless")
 
 
