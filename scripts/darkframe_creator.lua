@@ -24,6 +24,8 @@ while camera.mode ~= MODE.MOVIE do
   msleep(1000)
 end
 
+  menu.set("Movie", "FPS override", "OFF")
+  msleep(1000)
 if menu.get("FPS override", "Actual FPS", "") >= "49" and menu.get("FPS override", "Actual FPS", "") <= "61" then
   menu.set("Overlay", "Global Draw", "OFF")
   display.notify_box("Set cam to mv1080p and run script again")
@@ -53,12 +55,20 @@ if menu.get("Movie", "Movie crop mode", "") == "ON" then
   key.press(KEY.SET)
   menu.close()
 end
+
+-- if we´re in crop mode
+  if menu.get("Movie", "Crop mode", "") == "3x3 720p" then
+    menu.select("Movie", "Crop mode")
+    menu.open()     -- open ML menu
+    key.press(KEY.SET)
+    menu.close()
+  end
+
+-- Movie settings
   camera.iso.value=100
   camera.shutter.value = 1/50
   menu.set("RAW video", "Data format", "12-bit lossless")
   menu.set("Sound recording", "Enable sound", "OFF")
-
--- Movie settings
   menu.set("Movie", "HDR video", "OFF")
   menu.set("Movie", "RAW video", "ON") 
   menu.set("RAW video", "Resolution", 1920)
@@ -99,19 +109,19 @@ end
 --------------------------------------  
 -- mv1080p (1920x1080) 24 FPS override
 -------------------------------------- 
-   display.notify_box("12-bit lossless mv1080p")
+  display.notify_box("12-bit lossless mv1080p")
+  msleep(2000)
 while menu.get("RAW video", "Data format", "") ~= "14-bit" do 
-   camera.iso.value=(i)
-   key.press(KEY.REC)
-   msleep(4000)
-   movie.stop()
-   msleep(3000)
+  camera.iso.value=(i)
+  key.press(KEY.REC)
+  msleep(4000)
+  movie.stop()
+  msleep(3000)
   if menu.get("ISO", "Equivalent ISO", "") ~= "6400" then
     i = i * 2
   else
     i = 100
-    if
-      menu.get("RAW video", "Data format", "") == "12-bit lossless" then
+    if menu.get("RAW video", "Data format", "") == "12-bit lossless" then
       display.notify_box("14-bit lossless mv1080p")
       menu.set("RAW video", "Data format", "14-bit lossless")
     elseif
@@ -158,6 +168,7 @@ end
   menu.set("RAW video", "Resolution", 2880)
   display.notify_box("12-bit lossless 5xzoom")
 
+  msleep(2000)
 while menu.get("RAW video", "Data format", "") ~= "12-bit" do 
   camera.iso.value=(i)
   key.press(KEY.REC)
@@ -218,6 +229,7 @@ if menu.get("Movie", "Movie crop mode", "") == "OFF" then
   menu.close()
   display.notify_box("12-bit lossless Movie crop mode")
 
+  msleep(2000)
 while menu.get("RAW video", "Data format", "") ~= "12-bit" do 
   camera.iso.value=(i)
   key.press(KEY.REC)
@@ -275,3 +287,170 @@ end
   camera.iso.value=100
   camera.shutter.value = 1/50
   menu.set("RAW video", "Data format", "12-bit lossless")
+----------------------------------
+-- Crop mode 24 FPS override EOSM
+----------------------------------
+  display.notify_box("12-bit lossless Crop mode")
+if camera.model_short == "EOSM" then
+  lv.zoom = 1
+  i = 100
+  camera.iso.value=100
+  camera.shutter.value = 1/60
+  menu.set("RAW video", "Data format", "12-bit lossless")
+  if menu.get("Movie", "Crop mode", "") == "OFF" then
+    menu.select("Movie", "Crop mode")
+    menu.open()     -- open ML menu
+    key.press(KEY.SET)
+    menu.close()
+    display.notify_box("12-bit lossless Crop mode")
+
+    msleep(2000)
+while menu.get("RAW video", "Data format", "") ~= "14-bit" do 
+  camera.iso.value=(i)
+  key.press(KEY.REC)
+  msleep(4000)
+  movie.stop()
+  msleep(3000)
+  if menu.get("ISO", "Equivalent ISO", "") ~= "6400" then
+    i = i * 2
+  else
+    i = 100
+    if menu.get("RAW video", "Data format", "") == "12-bit lossless" then
+      display.notify_box("14-bit Croprec")
+      menu.set("RAW video", "Data format", "14-bit lossless")
+    elseif
+      menu.get("RAW video", "Data format", "") == "14-bit lossless" then
+      display.notify_box("12-bit Croprec")
+      menu.set("RAW video", "Data format", "12-bit")
+    elseif
+      menu.get("RAW video", "Data format", "") == "12-bit" then
+      display.notify_box("14-bit Croprec")
+      menu.set("RAW video", "Data format", "14-bit")
+    end
+  end
+end
+
+-- last darkframe round 14-bit
+if camera.model_short == "5D3" then
+  i = 100
+  camera.iso.value=100
+  while menu.get("ISO", "Equivalent ISO", "") ~= "6400" do 
+    key.press(KEY.REC)
+    msleep(4000)
+    movie.stop()
+    msleep(3000)
+    i = i * 2
+    camera.iso.value=(i)
+    msleep(1000)
+  end
+-- last 6400 iso
+  if menu.get("ISO", "Equivalent ISO", "") == "6400" then
+    key.press(KEY.REC)
+    msleep(4000)
+    movie.stop()
+    msleep(3000)
+  end
+end
+
+-- disable Crop mode
+   menu.open()     -- open ML menu
+   key.press(KEY.SET)
+   menu.close()
+end
+
+-- Starting point
+  camera.iso.value=100
+  camera.shutter.value = 1/50
+  menu.set("RAW video", "Data format", "12-bit lossless")
+end
+----------------------------------
+-- Crop mode 24 FPS override other cameras
+----------------------------------
+if menu.get("Movie", "Crop mode", "") ~= "OFF" then
+  display.notify_box("Crop_rec module not enabled, all done!")
+  msleep(1000)
+  display.notify_box("Crop_rec module not enabled, all done!")
+  msleep(2000)
+  return
+end
+
+while menu.get("Movie", "Crop mode", "") == "OFF" do
+  display.notify_box("set cam to mv720p then turn on Crop mode")
+  msleep(1000)
+end
+
+  menu.close()
+  msleep(2000)
+while menu.get("RAW video", "Data format", "") ~= "14-bit" do 
+  camera.iso.value=(i)
+  key.press(KEY.REC)
+  msleep(4000)
+  movie.stop()
+  msleep(3000)
+  if menu.get("ISO", "Equivalent ISO", "") ~= "6400" then
+    i = i * 2
+  else
+    i = 100
+    if menu.get("RAW video", "Data format", "") == "12-bit lossless" then
+      display.notify_box("14-bit Croprec")
+      menu.set("RAW video", "Data format", "14-bit lossless")
+    elseif
+      menu.get("RAW video", "Data format", "") == "14-bit lossless" then
+      display.notify_box("12-bit Croprec")
+      menu.set("RAW video", "Data format", "12-bit")
+    elseif
+      menu.get("RAW video", "Data format", "") == "12-bit" then
+      display.notify_box("14-bit Croprec")
+      menu.set("RAW video", "Data format", "14-bit")
+    end
+  end
+end
+
+-- last darkframe round 14-bit
+if camera.model_short == "5D3" then
+  i = 100
+  camera.iso.value=100
+  while menu.get("ISO", "Equivalent ISO", "") ~= "6400" do 
+    key.press(KEY.REC)
+    msleep(4000)
+    movie.stop()
+    msleep(3000)
+    i = i * 2
+    camera.iso.value=(i)
+    msleep(1000)
+  end
+-- last 6400 iso
+  if menu.get("ISO", "Equivalent ISO", "") == "6400" then
+    key.press(KEY.REC)
+    msleep(4000)
+    movie.stop()
+    msleep(3000)
+  end
+end
+
+-- disable Crop mode
+   menu.open()     -- open ML menu
+   key.press(KEY.SET)
+   menu.close()
+
+-- Starting point
+  camera.iso.value=100
+  camera.shutter.value = 1/50
+  menu.set("RAW video", "Data format", "12-bit lossless")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
