@@ -222,12 +222,14 @@ end
   camera.iso.value=100
   camera.shutter.value = 1/50
   menu.set("RAW video", "Data format", "12-bit lossless")
-if menu.get("Movie", "Movie crop mode", "") == "OFF" then
-  menu.select("Movie", "Movie crop mode")
-  menu.open()     -- open ML menu
-  key.press(KEY.SET)
-  menu.close()
-  display.notify_box("12-bit lossless Movie crop mode")
+-- 100D is buggy here
+if camera.model_short ~= "100D" then
+ if menu.get("Movie", "Movie crop mode", "") == "OFF" then
+   menu.select("Movie", "Movie crop mode")
+   menu.open()     -- open ML menu
+   key.press(KEY.SET)
+   menu.close()
+   display.notify_box("12-bit lossless Movie crop mode")
 
   msleep(2000)
 while menu.get("RAW video", "Data format", "") ~= "12-bit" do 
@@ -275,11 +277,12 @@ if camera.model_short == "5D3" then
   end
 end
 
- if menu.get("Movie", "Movie crop mode", "") == "ON" then
-   menu.select("Movie", "Movie crop mode")
-   menu.open()     -- open ML menu
-   key.press(KEY.SET)
-   menu.close()
+  if menu.get("Movie", "Movie crop mode", "") == "ON" then
+    menu.select("Movie", "Movie crop mode")
+    menu.open()     -- open ML menu
+    key.press(KEY.SET)
+    menu.close()
+  end
  end
 end
 
