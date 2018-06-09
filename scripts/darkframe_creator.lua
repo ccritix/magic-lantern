@@ -369,13 +369,14 @@ end
 ----------------------------------
 -- Crop mode 24 FPS override other cameras
 ----------------------------------
-if menu.get("Movie", "Crop mode", "") ~= "OFF" then
-  display.notify_box("Crop_rec module not enabled, all done!")
-  msleep(1000)
-  display.notify_box("Crop_rec module not enabled, all done!")
-  msleep(2000)
-  return
-end
+if camera.model_short ~= "EOSM" then
+  if menu.get("Movie", "Crop mode", "") ~= "OFF" then
+    display.notify_box("Crop_rec module not enabled, all done!")
+    msleep(1000)
+    display.notify_box("Crop_rec module not enabled, all done!")
+    msleep(2000)
+    return
+  end
 
 while menu.get("Movie", "Crop mode", "") == "OFF" do
   display.notify_box("set cam to mv720p then turn on Crop mode")
@@ -435,6 +436,7 @@ end
    menu.open()     -- open ML menu
    key.press(KEY.SET)
    menu.close()
+end
 
 -- Starting point
   camera.iso.value=100
