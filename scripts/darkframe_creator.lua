@@ -139,13 +139,13 @@ if camera.model_short == "5D3" then
     camera.iso.value=(i)
     msleep(1000)
   end
-end
 -- last 6400 iso
-if menu.get("ISO", "Equivalent ISO", "") == "6400" then
-  key.press(KEY.REC)
-  msleep(4000)
-  movie.stop()
-  msleep(3000)
+  if menu.get("ISO", "Equivalent ISO", "") == "6400" then
+    key.press(KEY.REC)
+    msleep(4000)
+    movie.stop()
+    msleep(3000)
+  end
 end
 -----------------------------------------  
 -- 5xZoom highest setting 24 FPS override 
