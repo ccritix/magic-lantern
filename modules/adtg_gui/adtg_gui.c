@@ -57,62 +57,6 @@ static struct known_reg known_regs[] = {
     {DST_ADTG, 0x8884, 0, "ISO ADTG gain (per column, mod 4 or mod 8)"},
     {DST_ADTG, 0x8886, 0, "ISO ADTG gain (per column, mod 4 or mod 8)"},
     {DST_ADTG, 0x8888, 0, "ISO ADTG gain (per column, mod 4 or mod 8)"},
-    {DST_ADTG,    0x8, 0, "ADTG preamp (per column, mod 4 or mod 8)"},
-    {DST_ADTG,    0x9, 0, "ADTG preamp (per column, mod 4 or mod 8)"},
-    {DST_ADTG,    0xA, 0, "ADTG preamp (per column, mod 4 or mod 8)"},
-    {DST_ADTG,    0xB, 0, "ADTG preamp (per column, mod 4 or mod 8)"},
-
-    {DST_ADTG,   0xFE, 0, "Yet another ADTG gain"},
-
-    {DST_ADTG, 0x105F, 1, "Shutter blanking for x5/x10 zoom"},
-    {DST_ADTG, 0x106E, 1, "Shutter blanking for LiveView 1x"},
-
-    {DST_ADTG,   0x14, 1, "ISO related"},
-    {DST_ADTG,   0x15, 1, "ISO related"},
-
-    {DST_ADTG, 0x1179, 1, "Top optical black bar size (5D2)"},
-
-    {0xC021,   0x0000, 0, "Timer 0 (unused)"},
-    {0xC021,   0x0100, 0, "Timer 1 (unused)"},
-    {0xC021,   0x0200, 0, "Timer 2 (10ms system timer)"},
-    {0xC021,   0x0204, 0, "Timer 2 related"},
-    {0xC021,   0x0208, 0, "Timer 2 reload value (microseconds)"},
-    {0xC021,   0x0210, 0, "Timer 2 interrupt enable?"},
-    {0xC021,   0x0214, 0, "Timer 2 related"},
-
-    {0xC024,   0x2010, 0, "Another timer"},
-    {0xC024,   0x2014, 0, "12-bit counter, used for task load measurement"},
-
-    {0xc040,   0x0004, 0, "Clock selection"},
-    {0xc040,   0x0008, 0, "Clock control"},
-    {0xc040,   0x0010, 0, "Timer 0?"},
-    {0xc040,   0x0014, 0, "Timer 1?"},
-    {0xc040,   0x0018, 0, "Timer 2?"},
-
-    {0xc040,   0x0044, 0, "HClk (from 5D classic)"},
-    {0xc040,   0x0048, 0, "LClk (from 5D classic)"},
-    {0xc040,   0x004C, 0, "MClk (from 5D classic)"},
-
-    {0xc040,   0x0088, 0, "USB PHY - written with 0x030101 (\"Xtalless DD\")"},
-    {0xc040,   0x008C, 0, "USB PHY - written with 0x000001"},
-
-    {0xc020,   0x3000, 0, "Timer 0 related?"},
-    {0xc020,   0x3004, 0, "Timer 1 related?"},
-    {0xc020,   0x3008, 0, "Timer 2 related?"},
-
-    {0xC0F0,   0x3074, 0, "Playback: horizontal banding (500D only?)"},
-    {0xC0F0,   0x3050, 0, "Playback: vertical banding / darken?"},
-
-    {0xC0F0,   0x8024, 0, "ISO related? (SHAD_MODE) (5D2: used for ISO 25600)"},
-    {0xC0F0,   0x8030, 0, "Digital gain for ISO (SHAD_GAIN)"},
-    {0xC0F0,   0x8034, 0, "Black level in LiveView / BW offset in photo mode (SHAD_PRESETUP)"},
-    //~ {0xC0F0,   0x8038, 0, "ISO related?"},
-    //~ {0xC0F0,   0x8050, 0, "ISO related?"},
-    //~ {0xC0F0,   0x814c, 0, "ISO related?"},
-    {0xC0F0,   0x819c, 0, "Saturate Offset (photo mode) (HIV_POST_SETUP)"},
-    {0xC0F1,   0x2054, 0, "White level?"},
-    
-    
     {0xC0F0,   0x6000, 0, "FPS register for confirming changes"},
     {0xC0F0,   0x6004, 0, "FPS related, SetHeadForReadout"},
     {0xC0F0,   0x6008, 0, "FPS register A"},
@@ -122,45 +66,16 @@ static struct known_reg known_regs[] = {
     {0xC0F0,   0x6018, 0, "FPS related"},
     {0xC0F0,   0x601C, 0, "FPS related"},
     {0xC0F0,   0x6020, 0, "FPS related"},
-
-    /* Resolution
-     * 
-     * 5D2 photo:
-     * 0xC0F06088.hi - 0xC0F06084.hi is the vertical resolution (3804)
-     * 0xC0F06084.hi shifts the image in one-line increments, so it must be the first scanned line
-     * (0xC0F06088.lo - 0xC0F06084.lo) * 2 is the horizontal resolution (5792)
-     * 
-     * 600D movie:
-     * (1070 - 0x7e) * 2 = 1888
-     * (1102 - 0x7e) * 2 = 1952
-     * Bingo :)
-     */
     {0xC0F0,   0x6084, 0, "RAW first line|column. Column is / 2. 600D: 0x0001007E."},
     {0xC0F0,   0x6088, 0, "RAW last line|column. 600D: FHD 1182|1070, 3x 1048|1102, HD 720|1070"},
 
     {0xC0F0,   0x6800, 0, "RAW first line|column. Column is / 8 on 5D3 (parallel readout?)"},
     {0xC0F0,   0x6804, 0, "RAW last line|column. 5D3: f6e|2fe, first 1|18 => 5936x3950"},
-
-    {0xc0f0,   0x7000, 0, "HEAD timers (SSG counter, 0x01 to restart)"},
-    {0xc0f0,   0x7004, 0, "HEAD timers"},
-    {0xc0f0,   0x700C, 0, "HEAD timers, 0x01 to stop/standby"},
-    {0xc0f0,   0x7010, 0, "HEAD timers"},
-    {0xc0f0,   0x7014, 0, "HEAD timers"},
-    {0xc0f0,   0x7018, 0, "HEAD timers"},
-    {0xc0f0,   0x701C, 0, "HEAD timers"},
-    {0xc0f0,   0x7038, 0, "HEAD timers, 0x01 <- stops processing?"},
-    {0xc0f0,   0x707C, 0, "HEAD timers"},
-    {0xc0f0,   0x71AC, 0, "HEAD timers"},
-    {0xc0f0,   0x70C8, 0, "HEAD timers, State 2 Register / VCount?"},
-
-    {0xc0f0,   0x7048, 0, "HEAD1 timer (start?)"},
-    {0xc0f0,   0x704C, 0, "HEAD1 timer"},
-    {0xc0f0,   0x7050, 0, "HEAD1 timer (ticks?)"},
-
-    {0xc0f0,   0x705C, 0, "HEAD2 timer (start?)"},
-    {0xc0f0,   0x7060, 0, "HEAD2 timer"},
-    {0xc0f0,   0x7064, 0, "HEAD2 timer (ticks?)"},
-
+    {0xC0F0,   0x6824, 0, " "},
+    {0xC0F0,   0x6828, 0, " "},
+    {0xC0F0,   0x682C, 0, " "},
+    {0xC0F0,   0x6830, 0, " "},
+   
     {0xc0f0,   0x7134, 0, "HEAD3 timer (start?)"},
     {0xc0f0,   0x7138, 0, "HEAD3 timer"},
     {0xc0f0,   0x713C, 0, "HEAD3 timer (ticks?)"},
@@ -168,173 +83,6 @@ static struct known_reg known_regs[] = {
     {0xc0f0,   0x7148, 0, "HEAD4 timer (start?)"},
     {0xc0f0,   0x714c, 0, "HEAD4 timer"},
     {0xc0f0,   0x7150, 0, "HEAD4 timer (ticks?)"},
-
-    {0xC0F0,   0x8D1C, 0, "Vignetting correction data (DIGIC V)"},
-    {0xC0F0,   0x8D24, 0, "Vignetting correction data (DIGIC V)"},
-    {0xC0F0,   0x8578, 0, "Vignetting correction data (DIGIC IV)"},
-    {0xC0F0,   0x857C, 0, "Vignetting correction data (DIGIC IV)"},
-    
-    {0xC0F1,   0x40c4, 0, "Display saturation"},
-    {0xC0F1,   0x41B8, 0, "Display brightness and contrast"},
-    {0xC0F1,   0x4140, 0, "Display filter (EnableFilter, DIGIC peaking)"},
-    {0xC0F1,   0x4164, 0, "Display position (vertical shift)"},
-    {0xC0F1,   0x40cc, 0, "Display zebras (used for fast zebras in ML)"},
-    
-    {0xC0F3,   0x7ae4, 0, "ISO digital gain (5D3 photo mode)"},
-    {0xC0F3,   0x7af0, 0, "ISO digital gain (5D3 photo mode)"},
-    {0xC0F3,   0x7afc, 0, "ISO digital gain (5D3 photo mode)"},
-    {0xC0F3,   0x7b08, 0, "ISO digital gain (5D3 photo mode)"},
-
-    {0xC0F3,   0x7ae0, 0, "ISO black/white offset (5D3 photo mode)"},
-    {0xC0F3,   0x7aec, 0, "ISO black/white offset (5D3 photo mode)"},
-    {0xC0F3,   0x7af8, 0, "ISO black/white offset (5D3 photo mode)"},
-    {0xC0F3,   0x7b04, 0, "ISO black/white offset (5D3 photo mode)"},
-    
-    /* from http://magiclantern.wikia.com/wiki/Register_Map#Misc_Registers */
-    {0xC0F0,   0x8004, 0, "DARK_MODE (bitmask of bits 0x113117F)"},
-    {0xC0F0,   0x8008, 0, "DARK_SETUP (mask 0x7FF signed) (brightns/darkens frame)"},
-    {0xC0F0,   0x800C, 0, "DARK_LIMIT (mask 0x3FFF) (no noticeable change)"},
-    {0xC0F0,   0x8010, 0, "DARK_SETUP_14_12 (mask 0x07FF) (brighten, overwrites DARK_SETUP)"},
-    {0xC0F0,   0x8014, 0, "DARK_LIMIT_14_12 (0x0000 - 0x0FFF) (no noticeable change)"},
-    {0xC0F0,   0x8018, 0, "DARK_SAT_LIMIT (0x0000 - 0x3FFF) (no noticeable change)"},
-    {0xC0F0,   0x82A0, 0, "DARK_KZMK_SAV_A (0/1) (causes white or black screen)"},
-    {0xC0F0,   0x82A4, 0, "DARK_KZMK_SAV_B (0/1) (no noticeable change)"},
-
-    {0xC0F0,   0x8100, 0, "CCDSEL (0-1)"},
-    {0xC0F0,   0x8104, 0, "DS_SEL (0-1)"},
-    {0xC0F0,   0x8108, 0, "OBWB_ISEL (0-7)"},
-    {0xC0F0,   0x810C, 0, "PROC24_ISEL (0-7)"},
-    {0xC0F0,   0x8110, 0, "DPCME_ISEL (0-15)"},
-    //{0xC0F0,   0x8114, 0, "PACK32_ISEL (0-15)"},
-    {0xC0F0,   0x82D0, 0, "PACK16_ISEL (0-15)"},
-    {0xC0F0,   0x82D4, 0, "WDMAC32_ISEL (0-7)"},
-    {0xC0F0,   0x82D8, 0, "WDMAC16_ISEL (0-1)"},
-    {0xC0F0,   0x82DC, 0, "OBINTG_ISEL (0-15)"},
-    {0xC0F0,   0x82E0, 0, "AFFINE_ISEL (0-15)"},
-    {0xC0F0,   0x8390, 0, "OBWB_ISEL2 (0-1)"},
-    {0xC0F0,   0x8394, 0, "PROC24_ISEL2 (0-1)"},
-    {0xC0F0,   0x8398, 0, "PACK32_ISEL2 (0-3)"},
-    {0xC0F0,   0x839C, 0, "PACK16_ISEL2 (0-3)"},
-    {0xC0F0,   0x83A0, 0, "TAIWAN_ISEL (0-3)"},
-
-    {0xC0F0,   0x8220, 0, "ADKIZ_ENABLE?"},
-    {0xC0F0,   0x8224, 0, "ADKIZ_THRESHOLD"},
-    {0xC0F0,   0x8238, 0, "ADKIZ_INTR_CLR"},
-    {0xC0F0,   0x825C, 0, "ADKIZ_THRESHOLD_14_12"},
-    {0xC0F0,   0x8234, 0, "ADKIZ_TOTAL_SIZE"},
-    {0xC0F0,   0x823C, 0, "ADKIZ_INTR_EN"},
-
-    {0xC0F0,   0x8060, 0, "DSUNPACK_ENB?"},
-    {0xC0F0,   0x8064, 0, "DSUNPACK_MODE"},
-    {0xC0F0,   0x8274, 0, "DSUNPACK_DM_EN"},
-
-    {0xC0F0,   0x8130, 0, "DEFM_ENABLE?"},
-    {0xC0F0,   0x8138, 0, "DEFM_MODE"},
-    {0xC0F0,   0x8140, 0, "DEFM_INTR_NUM"},
-    {0xC0F0,   0x814C, 0, "DEFM_GRADE"},        // RealtimeDefectsGrade
-    {0xC0F0,   0x8150, 0, "DEFM_DAT_TH"},
-    {0xC0F0,   0x8154, 0, "DEFM_INTR_CLR"},
-    {0xC0F0,   0x8158, 0, "DEFM_INTR_EN"},
-    {0xC0F0,   0x815C, 0, "DEFM_14_12_SEL"},
-    {0xC0F0,   0x8160, 0, "DEFM_DAT_TH_14_12"},
-    {0xC0F0,   0x816C, 0, "DEFM_X2MODE"},
-
-    {0xC0F0,   0x8180, 0, "HIV_ENB"},
-    //~ {0xC0F0,   0x8184, 0, "HIV_V_SIZE"},
-    //~ {0xC0F0,   0x8188, 0, "HIV_H_SIZE"},
-    {0xC0F0,   0x818C, 0, "HIV_POS_V_OFST"},
-    {0xC0F0,   0x8190, 0, "HIV_POS_H_OFST"},
-    //{0xC0F0,   0x819C, 0, "HIV_POST_SETUP"},
-    {0xC0F0,   0x8420, 0, "HIV_BASE_OFST"},
-    {0xC0F0,   0x8428, 0, "HIV_GAIN_DIV"},
-    {0xC0F0,   0x842C, 0, "HIV_PATH"},
-    {0xC0F0,   0x8218, 0, "HIV_IN_SEL"},
-    {0xC0F0,   0x8214, 0, "HIV_PPR_EZ"},
-    {0xC0F0,   0x82C4, 0, "HIV_DEFMARK_CANCEL"},
-
-    {0xC0F0,   0x8240, 0, "ADMERG_INTR_EN"},
-    {0xC0F0,   0x8244, 0, "ADMERG_TOTAL_SIZE"},
-    {0xC0F0,   0x8250, 0, "ADMERG_2_IN_SE"},
-
-    {0xC0F0,   0x8020, 0, "SHAD_ENABLE?"},
-    //{0xC0F0,   0x8024, 0, "SHAD_MODE"},
-    {0xC0F0,   0x8028, 0, "SHADE_PRESETUP"},
-    {0xC0F0,   0x802C, 0, "SHAD_POSTSETUP"},
-    //{0xC0F0,   0x8030, 0, "SHAD_GAIN"},
-    //{0xC0F0,   0x8034, 0, "SHAD_PRESETUP_14_12"},
-    {0xC0F0,   0x8038, 0, "SHAD_POSTSETUP_14_12"},
-    {0xC0F0,   0x8280, 0, "SHAD_CBIT"},
-    {0xC0F0,   0x8284, 0, "SHAD_C8MODE"},
-    {0xC0F0,   0x8288, 0, "SHAD_C12MODE"},
-    {0xC0F0,   0x8290, 0, "SHAD_COF_SEL"},
-    {0xC0F0,   0x828C, 0, "SHAD_RMODE"},
-    {0xC0F0,   0x82A8, 0, "SHAD_KZMK_SAV"},
-
-    {0xC0F0,   0x8040, 0, "TWOADD_ENABLE"},
-    {0xC0F0,   0x8044, 0, "TWOADD_MODE"},
-    {0xC0F0,   0x8050, 0, "TWOADD_SETUP_14_12"},
-    {0xC0F0,   0x8054, 0, "TWOADD_LIMIT_14_12"},
-    {0xC0F0,   0x8048, 0, "TWOADD_SETUP"},
-    {0xC0F0,   0x804C, 0, "TWOADD_LIMIT"},
-    {0xC0F0,   0x8058, 0, "TWOADD_SAT_LIMIT"},
-    {0xC0F0,   0x82AC, 0, "TWOA_KZMK_SAV_A"},
-    {0xC0F0,   0x82B0, 0, "TWOA_KZMK_SAV_B"},
-    
-    {0xc0f0,   0x8114, 0, "LV raw type (see lv_af_raw, lv_set_raw) - DIGIC IV (PACK32_ISEL)"},
-    {0xc0f3,   0x7014, 0, "LV raw type (see lv_af_raw, lv_set_raw) - DIGIC V"},
-
-/*
-    550D:
-              1080p     720p        5x          10x
-    c0f10064: 49d075f   2cf075f     45109d7
-    c0f080b0: 49d075f   2cf075f     45109d7
-    c0f08184:     49d   2cf         451
-    c0f08188:     75f   75f         9d7
-    c0f08194:     75f   75f         9d7
-    c0f08198:     75f   75f         9d7
-    c0f0d014: 49d0760   2cf0760     2b30418
-    c0f11394: 47706b7   2ab06b7     2af0407
-    c0f1151c: 47706b7   2ab06b7     2af0407
-    c0f1a00c: 6b70477   6b702ab     40702af
-    c0f25054: 6b7       6b7         407
-    c0f2500c: 6b7       6b7         407
-    c0f1155c: 477041f   2ab03ff     2af03ff
-    c0f112d4: 477035c   2ab035c     2af0408     1df0fff
-    c0f11314: 47702cf   2ab02cf     2af02cf     fff0205
-
-    c0f08548: dd7161d   e0b161d     45109d7
-*/
-    {0xC0F1,   0x0064, 0, "LV resolution (RAW.height | RAW.width)"},     // OK, full raw buffer including optial black
-    {0xC0F0,   0x80B0, 0, "LV resolution (RAW.height | RAW.width)"},     // values matches EDMAC size
-    {0xC0F0,   0x8184, 0, "LV resolution (RAW.height) aka HIV_V_SIZE "}, // however, changing them has either no effect or camera locks up :(
-    {0xC0F0,   0x8188, 0, "LV resolution (RAW.width) aka HIV_H_SIZE "},
-    {0xC0F0,   0x8194, 0, "LV resolution (RAW.width)"},
-    {0xC0F0,   0x8198, 0, "LV resolution (RAW.width)"},
-    
-    {0xC0F1,   0xD014, 0, "LV resolution (raw.j.height? | raw.j.width?)"},  // values a little larger than active area (?)
-    {0xC0F1,   0x1394, 0, "LV resolution (raw.j.height | raw.j.width)"},
-    {0xC0F1,   0x151c, 0, "LV resolution (raw.j.height | raw.j.width)"},
-    {0xC0F1,   0xa00c, 0, "LV resolution (raw.j.width | raw.j.height)"},
-    {0xC0F2,   0x5054, 0, "LV resolution (raw.j.width)"},
-    {0xC0F2,   0x500c, 0, "LV resolution (raw.j.width)"},
-    {0xC0F1,   0x155c, 0, "LV resolution (raw.j.height | hd.width)"},
-    {0xC0F1,   0x12d4, 0, "LV resolution (raw.j.height | ?) before upsampling?"},           // these two also change at 5x->10x zoom
-    {0xC0F1,   0x1314, 0, "LV resolution (raw.j.height | lv.width) before upsampling?"},    // ratio is around 1.4, so maybe some upsampling is applied afterwards
-
-    {0xC0F0,   0x8548, 0, "LV resolution * downsize factor? (RAW.height * D | RAW.width * D)"},
-
-    {0xC0F0,   0x9050, 0, "Aewb metering area (y1|x1)"},
-    {0xC0F0,   0x9054, 0, "Aewb metering area (y2|x2)"},
-
-    {0xc0f3,   0x83d4, 0, "Preview area (y1 | x1/4)"},  /* similar to raw_info.active_area */
-    {0xc0f3,   0x83dc, 0, "Preview area (y2 | x2/4)"},
-
-    {DST_DFE,  0x180e, 0, "Blue LED"},
-    {DST_DFE,  0x1810, 0, "LightMeasure"},
-    {DST_DFE,  0x1d02, 0, "DFE gain (similar to ADTG 888x)"},
-    {DST_DFE,  0x1d04, 0, "DFE gain (similar to ADTG 888x)"},
-    {DST_DFE,  0x1d06, 0, "DFE gain (similar to ADTG 888x)"},
-    {DST_DFE,  0x1d08, 0, "DFE gain (similar to ADTG 888x)"},
 };
 
 static int adtg_enabled = 0;
@@ -859,8 +607,8 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (CMOS2_WRITE_FUNC)  patch_hook_function(CMOS2_WRITE_FUNC, MEM(CMOS2_WRITE_FUNC), &cmos_log, "cmos_log");
         if (CMOS16_WRITE_FUNC) patch_hook_function(CMOS16_WRITE_FUNC, MEM(CMOS16_WRITE_FUNC), &cmos16_log, "cmos16_log");
         if (ENGIO_WRITE_FUNC)  patch_hook_function(ENGIO_WRITE_FUNC, MEM(ENGIO_WRITE_FUNC), &engio_write_log, "engio_write_log");
-        if (ENG_DRV_OUT_FUNC)  patch_hook_function(ENG_DRV_OUT_FUNC, MEM(ENG_DRV_OUT_FUNC), &EngDrvOut_log, "EngDrvOut_log");
-        if (ENG_DRV_OUTS_FUNC) patch_hook_function(ENG_DRV_OUTS_FUNC, MEM(ENG_DRV_OUTS_FUNC), &EngDrvOuts_log, "EngDrvOuts_log");
+       // if (ENG_DRV_OUT_FUNC)  patch_hook_function(ENG_DRV_OUT_FUNC, MEM(ENG_DRV_OUT_FUNC), &EngDrvOut_log, "EngDrvOut_log"); //
+       // if (ENG_DRV_OUTS_FUNC) patch_hook_function(ENG_DRV_OUTS_FUNC, MEM(ENG_DRV_OUTS_FUNC), &EngDrvOuts_log, "EngDrvOuts_log"); //
         if (SEND_DATA_TO_DFE_FUNC) patch_hook_function(SEND_DATA_TO_DFE_FUNC, MEM(SEND_DATA_TO_DFE_FUNC), &SendDataToDfe_log, "SendDataToDfe_log");
         if (SCS_DUMMY_READOUT_DONE_FUNC) patch_hook_function(SCS_DUMMY_READOUT_DONE_FUNC, MEM(SCS_DUMMY_READOUT_DONE_FUNC), &dummy_readout_log, "dummy_readout_log");
     }
@@ -872,8 +620,8 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (CMOS2_WRITE_FUNC)  unpatch_memory(CMOS2_WRITE_FUNC);
         if (CMOS16_WRITE_FUNC) unpatch_memory(CMOS16_WRITE_FUNC);
         if (ENGIO_WRITE_FUNC)  unpatch_memory(ENGIO_WRITE_FUNC);
-        if (ENG_DRV_OUT_FUNC)  unpatch_memory(ENG_DRV_OUT_FUNC);
-        if (ENG_DRV_OUTS_FUNC) unpatch_memory(ENG_DRV_OUTS_FUNC);
+       // if (ENG_DRV_OUT_FUNC)  unpatch_memory(ENG_DRV_OUT_FUNC); //
+       // if (ENG_DRV_OUTS_FUNC) unpatch_memory(ENG_DRV_OUTS_FUNC); //
         if (SEND_DATA_TO_DFE_FUNC) unpatch_memory(SEND_DATA_TO_DFE_FUNC);
         if (SCS_DUMMY_READOUT_DONE_FUNC) unpatch_memory(SCS_DUMMY_READOUT_DONE_FUNC);
     }
