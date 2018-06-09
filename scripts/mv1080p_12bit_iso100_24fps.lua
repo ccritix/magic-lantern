@@ -1,5 +1,6 @@
 -- mv1080p_12bit_iso100_24fps
 
+   lv.start()
    lv.zoom = 1
    console.hide()
    menu.close()
@@ -15,9 +16,12 @@ if menu.get("FPS override", "Actual FPS", "") >= "49" and menu.get("FPS override
 end
 
 if camera.model_short ~= "EOSM" then
-  while camera.mode ~= MODE.M do
-    display.notify_box("set camera to 'M' manual")
+  if camera.mode ~= MODE.M then
+    display.notify_box("set camera to 'M' and run script again")
     msleep(1000)
+    display.notify_box("set camera to 'M' and run script again")
+    msleep(1000)
+    return
   end
 end
 

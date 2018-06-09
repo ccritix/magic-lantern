@@ -13,6 +13,7 @@ Will create 3 second MLV files with following settings:
 * don´t forget to film with your lens cap on
 --]]
 
+  lv.start()
   lv.zoom = 1
   console.hide()
   menu.close()
@@ -28,9 +29,12 @@ if menu.get("FPS override", "Actual FPS", "") >= "49" and menu.get("FPS override
 end
 
 if camera.model_short ~= "EOSM" then
-  while camera.mode ~= MODE.M do
-    display.notify_box("set camera to 'M' manual")
+  if camera.mode ~= MODE.M then
+    display.notify_box("set camera to 'M' and run script again")
     msleep(1000)
+    display.notify_box("set camera to 'M' and run script again")
+    msleep(1000)
+    return
   end
 end
 
