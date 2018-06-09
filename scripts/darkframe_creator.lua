@@ -127,18 +127,19 @@ while menu.get("RAW video", "Data format", "") ~= "14-bit" do
 end
 
 -- last darkframe round 14-bit
+if camera.model_short == "5D3" then
   i = 100
   camera.iso.value=100
-while menu.get("ISO", "Equivalent ISO", "") ~= "6400" do 
-  key.press(KEY.REC)
-  msleep(4000)
-  movie.stop()
-  msleep(3000)
-  i = i * 2
-  camera.iso.value=(i)
-  msleep(1000)
+  while menu.get("ISO", "Equivalent ISO", "") ~= "6400" do 
+    key.press(KEY.REC)
+    msleep(4000)
+    movie.stop()
+    msleep(3000)
+    i = i * 2
+    camera.iso.value=(i)
+    msleep(1000)
+  end
 end
-
 -- last 6400 iso
 if menu.get("ISO", "Equivalent ISO", "") == "6400" then
   key.press(KEY.REC)
@@ -158,11 +159,11 @@ end
   display.notify_box("12-bit lossless 5xzoom")
 
 while menu.get("RAW video", "Data format", "") ~= "12-bit" do 
-   camera.iso.value=(i)
-   key.press(KEY.REC)
-   msleep(4000)
-   movie.stop()
-   msleep(3000)
+  camera.iso.value=(i)
+  key.press(KEY.REC)
+  msleep(4000)
+  movie.stop()
+  msleep(3000)
   if menu.get("ISO", "Equivalent ISO", "") ~= "6400" then
     i = i * 2
   else
@@ -218,11 +219,11 @@ if menu.get("Movie", "Movie crop mode", "") == "OFF" then
   display.notify_box("12-bit lossless Movie crop mode")
 
 while menu.get("RAW video", "Data format", "") ~= "12-bit" do 
-   camera.iso.value=(i)
-   key.press(KEY.REC)
-   msleep(4000)
-   movie.stop()
-   msleep(3000)
+  camera.iso.value=(i)
+  key.press(KEY.REC)
+  msleep(4000)
+  movie.stop()
+  msleep(3000)
   if menu.get("ISO", "Equivalent ISO", "") ~= "6400" then
     i = i * 2
   else
