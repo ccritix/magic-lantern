@@ -879,6 +879,10 @@ static int res3k_reg(int reg)
                return 0x36b;
             case 0x6014:
                return 0x66b;
+            case 0x7150:
+              return 0x428;
+            case 0x713c:
+               return 0x455;
          
          }
     }
@@ -888,14 +892,11 @@ static int res3k_reg(int reg)
         {
            case 0x8172:
                return 0x457;
-            case 0x713c:
-               return 0x455;
             case 0x8178:
                return 0x457;
             case 0x8179:
                return 0x587;
-            case 0x7150:
-               return 0x428;
+
         }
     }
 
