@@ -872,12 +872,30 @@ static int res3k_reg(int reg)
             case 0x6830:
                return 0x4ca;
             case 0x6008:
-               return 0x34b034b;
+               return 0x36b036b;
             case 0x600c:
-               return 0x34b034b;
+               return 0x36b036b;
             case 0x6010:
-               return 0x34b;
-
+               return 0x36b;
+            case 0x6014:
+               return 0x66b;
+         
+         }
+    }
+       else if (regs[reg].dst == 2)        /* ADTG 2 */
+    {
+        switch (regs[reg].reg)
+        {
+           case 0x8172:
+               return 0x457;
+            case 0x713c:
+               return 0x455;
+            case 0x8178:
+               return 0x457;
+            case 0x8179:
+               return 0x587;
+            case 0x7150:
+               return 0x428;
         }
     }
 
