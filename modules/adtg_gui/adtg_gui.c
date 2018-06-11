@@ -852,29 +852,7 @@ static MENU_SELECT_FUNC(lock_displayed_registers)
 
 static int crop_mode_reg(int reg)
 {
-    if (regs[reg].dst == DST_CMOS)
-    {
-        switch (regs[reg].reg)
-        {
-            case 1:                     /* CMOS[1]: vertical position and size */
-                return (video_mode_resolution)
-                    ? PACK12(14,10)     /* 720p,  almost centered */
-                    : PACK12(11,11);    /* 1080p, almost centered */
-
-            case 2: return 0x10E;       /* CMOS[2]: horizontal position and downsizing factor */
-            case 6: return 0x170;       /* CMOS[6]: ISO related? */
-        }
-    }
-    else if (regs[reg].dst == 2)        /* ADTG 2 */
-    {
-        switch (regs[reg].reg)
-        {
-            case 0x8000: return 5;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
-            case 0x8806: return 0x6088; /* without this, you get some weird artifacts; this should only go to ADTG2, not 4 */
-        }
-    }
-
-    return 0;
+       return 0;
 }
 
 static int res3k_reg(int reg)
@@ -884,7 +862,22 @@ static int res3k_reg(int reg)
         switch (regs[reg].reg)
         {
             case 0x6804:                /* C0F06804 - raw resolution */
-                return 0x52801AB;       /* from 0x528011B -> 3072px in raw_rec */
+                return 0x4580311;       /* from 0x528011B -> 3072px in raw_rec */
+            case 0x6824:
+               return 0x4ca;
+            case 0x6828:
+               return 0x4ca;
+            case 0x682c:
+               return 0x4ca;
+            case 0x6830:
+               return 0x4ca;
+            case 0x6008:
+               return 0x34b034b;
+            case 0x600c:
+               return 0x34b034b;
+            case 0x6010:
+               return 0x34b;
+
         }
     }
 
