@@ -874,13 +874,13 @@ static int res3k_reg(int reg)
             case 0x6830:
                return 0x4ca;
             case 0x6008:
-               return 0x36b036b;
+               return 0x35b035b;
             case 0x600c:
-               return 0x36b036b;
+               return 0x35b035b;
             case 0x6010:
-               return 0x36b;
+               return 0x35b;
             case 0x6014:
-               return 0x66b;
+               return 0x60b;
             case 0x7150:
               return 0x428;
             case 0x713c:
