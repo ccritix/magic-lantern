@@ -861,8 +861,10 @@ static int res3k_reg(int reg)
     {
         switch (regs[reg].reg)
         {
+            case 0x6800:                /* C0F06804 - raw resolution */
+                return 0x40019;
             case 0x6804:                /* C0F06804 - raw resolution */
-                return 0x4580311;       /* from 0x528011B -> 3072px in raw_rec */
+                return 0x5080301;       /* from 0x528011B -> 3072px in raw_rec */
             case 0x6824:
                return 0x4ca;
             case 0x6828:
@@ -882,7 +884,7 @@ static int res3k_reg(int reg)
             case 0x7150:
               return 0x428;
             case 0x713c:
-               return 0x455;
+               return 0x505;
          
          }
     }
@@ -891,9 +893,9 @@ static int res3k_reg(int reg)
         switch (regs[reg].reg)
         {
            case 0x8172:
-               return 0x457;
+               return 0x437;
             case 0x8178:
-               return 0x457;
+               return 0x437;
             case 0x8179:
                return 0x587;
 
