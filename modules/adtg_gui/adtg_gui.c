@@ -916,8 +916,8 @@ static int res3k_reg(int reg)
             case 0x6800:                /* C0F06804 - raw resolution */
                 return 0x10010;
             case 0x6804:                /* C0F06804 - raw resolution */
-                return 0x5040328;       /* Valid liveview 2520x1248 24fps 14-bit lossless */
-             /* return 0x5040328;       /* Valid liveview 3096x1256 24fps 14-bit lossless */
+                return 0x5040298;       /* Valid liveview 2520x1248 24fps 14-bit lossless */
+             /* return 0x5040328;       /* crushed liveview 3096x1256 24fps 14-bit lossless */
 
             case 0x6824:
                return 0x4ca;
