@@ -858,109 +858,116 @@ static int crop_mode_reg(int reg)
 static int res3k_reg(int reg)
 {
 
-    if (regs[reg].dst == 0xC0F0)
+    if (is_camera("100D", "1.0.1"))
     {
 
+       if (regs[reg].dst == 0xC0F0)
+       {
 
-      if (is_camera("100D", "1.0.1"))
-      {
-        switch (regs[reg].reg)
-        {
-            case 0x6800:                /* C0F06804 - raw resolution */
-                return 0x40019;
-            case 0x6804:                /* C0F06804 - raw resolution */
-                return 0x50802a1;       /* Valid liveview 2520x1248 24fps 14-bit lossless */
-             /* return 0x5080301;       2904x1248 24fps crushed liveview 14-bit lossless from 0x528011B -> 3072px in raw_rec */
-
-            case 0x6824:
-               return 0x4ca;
-            case 0x6828:
-               return 0x4ca;
-            case 0x682c:
-               return 0x4ca;
-            case 0x6830:
-               return 0x4ca;
-            case 0x6008:
-               return 0x35b035b;
-            case 0x600c:
-               return 0x35b035b;
-            case 0x6010:
-               return 0x35b;
-            case 0x6014:
-               return 0x60b;
-            case 0x7150:
-              return 0x428;
-            case 0x713c:
-               return 0x505;
-         
-         }
-    }
-       else if (regs[reg].dst == 2)        /* ADTG 2 */
-    {
-        switch (regs[reg].reg)
-        {
-           case 0x8172:
-               return 0x437;
-            case 0x8178:
-               return 0x437;
-            case 0x8179:
-               return 0x587;
+           switch (regs[reg].reg)
+           {
+                case 0x6800:                /* C0F06804 - raw resolution */
+                    return 0x40019;
+                case 0x6804:                /* C0F06804 - raw resolution */
+                    return 0x50802a1;       /* Valid liveview 2520x1248 24fps 14-bit lossless */
+                 /* return 0x5080301;       2904x1248 24fps crushed liveview 14-bit lossless from 0x528011B -> 3072px in raw_rec */ 
+                case 0x6824:
+                   return 0x4ca;
+                case 0x6828:
+                   return 0x4ca;
+                case 0x682c:
+                   return 0x4ca;
+                case 0x6830:
+                   return 0x4ca;
+                case 0x6008:
+                   return 0x35b035b;
+                case 0x600c:
+                   return 0x35b035b;
+                case 0x6010:
+                   return 0x35b;
+                case 0x6014:
+                   return 0x60b;
+                case 0x7150:
+                  return 0x428;
+                case 0x713c:
+                   return 0x505;  
+      
+            }
 
         }
-      }
+        else if (regs[reg].dst == 2)        /* ADTG 2 */
+        { 
+            switch (regs[reg].reg)
+            {
+                case 0x8172:
+                   return 0x437;
+                case 0x8178:
+                   return 0x437;
+                case 0x8179:
+                   return 0x587;
 
-      if (is_camera("EOSM", "2.0.2"))
-      {
-        switch (regs[reg].reg)
-        {
-            case 0x6800:                /* C0F06804 - raw resolution */
-                return 0x10010;
-            case 0x6804:                /* C0F06804 - raw resolution */
-                return 0x5040298;       /* Valid liveview 2520x1248 24fps 14-bit lossless */
-             /* return 0x5040328;       /* crushed liveview 3096x1256 24fps 14-bit lossless */
-
-            case 0x6824:
-               return 0x4ca;
-            case 0x6828:
-               return 0x4ca;
-            case 0x682c:
-               return 0x4ca;
-            case 0x6830:
-               return 0x4ca;
-            case 0x6008:
-               return 0x35b035b;
-            case 0x600c:
-               return 0x35b035b;
-            case 0x6010:
-               return 0x35b;
-            case 0x6014:
-               return 0x60b; 
-            case 0x7150:
-              return 0x428;
-            case 0x713c:
-               return 0x505;
-         
-         }
-    }
-       else if (regs[reg].dst == 2)        /* ADTG 2 */
-    {
-        switch (regs[reg].reg)
-        {
-           case 0x8172:
-               return 0x437;
-            case 0x8178:
-               return 0x437;
-            case 0x8179:
-               return 0x5a5;  
+            }
 
         }
-      }
+
+    }
+
+    else if (is_camera("EOSM", "2.0.2"))
+    {
+
+       if (regs[reg].dst == 0xC0F0)
+       {
+
+           switch (regs[reg].reg)
+           {
+                case 0x6800:                /* C0F06804 - raw resolution */
+                    return 0x10010;
+                case 0x6804:                /* C0F06804 - raw resolution */
+                    return 0x5040298;       /* Valid liveview 2520x1248 24fps 14-bit lossless */
+                 /* return 0x5040328;       /* crushed liveview 3096x1256 24fps 14-bit lossless */
+                case 0x6824:
+                   return 0x4ca;
+                case 0x6828:
+                   return 0x4ca;
+                case 0x682c:
+                   return 0x4ca;
+                case 0x6830:
+                   return 0x4ca;
+                case 0x6008:
+                   return 0x35b035b;
+                case 0x600c:
+                   return 0x35b035b;
+                case 0x6010:
+                   return 0x35b;
+                case 0x6014:
+                   return 0x60b; 
+                case 0x7150:
+                  return 0x428;
+                case 0x713c:
+                   return 0x505;
+      
+            }
+
+        }
+        else if (regs[reg].dst == 2)        /* ADTG 2 */
+        { 
+            switch (regs[reg].reg)
+            {
+                 case 0x8172:
+                    return 0x437;
+                 case 0x8178:
+                    return 0x437;
+                 case 0x8179:
+                    return 0x5a5;
+
+            }
+
+        }
 
     }
 
     return 0;
 }
-
 static void apply_preset(int(*get_preset_reg)(int))
 {
     for (int reg = 0; reg < reg_num; reg++)
