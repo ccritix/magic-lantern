@@ -899,11 +899,11 @@ static int res3k_reg(int reg)
         { 
             switch (regs[reg].reg)
             {
-                case 0x8172:
-                   return 0x437;
-                case 0x8178:
-                   return 0x437;
-                case 0x8179:
+                 case 0x8172:
+                    return 0x437;
+                 case 0x8178:
+                    return 0x437;
+                 case 0x8179:
                    return 0x587;
 
             }
@@ -978,8 +978,8 @@ static int res3k_reg(int reg)
                     return 0x5840298;       /* Valid liveview 2520x1248 24fps 14-bit lossless */
                 case 0x6014:
                    return 0x747; 
-                case 0x6713c:
-                   return 0x535;
+                case 0x713c:
+                   return 0x516;
       
             }
 
@@ -994,6 +994,41 @@ static int res3k_reg(int reg)
                     return 0x87c;
                  case 0x82b6:
                     return 0x08f4;
+
+            }
+
+        }
+
+    }
+
+    else if (is_camera("6D", "1.1.6"))
+    {
+
+       if (regs[reg].dst == 0xC0F0)
+       {
+
+           switch (regs[reg].reg)
+           {
+                case 0x6804:               
+                    return 0x5040298;       
+                case 0x6014:
+                   return 0x747; 
+                case 0x6713c:
+                   return 0x535;
+      
+            }
+
+        }
+        else if (regs[reg].dst == 2)        /* ADTG 2 */
+        { 
+            switch (regs[reg].reg)
+            {
+                 case 0x8172:
+                    return 0x4e6;
+                 case 0x8178:
+                    return 0x4e6;
+                 case 0x8000:
+                    return 0x5;
 
             }
 
