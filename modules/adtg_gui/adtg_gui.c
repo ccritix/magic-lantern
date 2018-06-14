@@ -966,6 +966,41 @@ static int res3k_reg(int reg)
 
     }
 
+    else if (is_camera("700D", "1.1.5"))
+    {
+
+       if (regs[reg].dst == 0xC0F0)
+       {
+
+           switch (regs[reg].reg)
+           {
+                case 0x6804:                /* C0F06804 - raw resolution */
+                    return 0x5840298;       /* Valid liveview 2520x1248 24fps 14-bit lossless */
+                case 0x6014:
+                   return 0x747; 
+                case 0x6713c:
+                   return 0x535;
+      
+            }
+
+        }
+        else if (regs[reg].dst == 2)        /* ADTG 2 */
+        { 
+            switch (regs[reg].reg)
+            {
+                 case 0x8172:
+                    return 0x87c;
+                 case 0x8178:
+                    return 0x87c;
+                 case 0x82b6:
+                    return 0x08f4;
+
+            }
+
+        }
+
+    }
+
     return 0;
 }
 static void apply_preset(int(*get_preset_reg)(int))
