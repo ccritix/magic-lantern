@@ -923,7 +923,9 @@ static MENU_UPDATE_FUNC(reg_update)
         sei(old);
     }
     
-    char dst_name[10];
+    char dst_name[10] = "";
+    uint32_t reg_full = regs[reg].reg;
+
     if (regs[reg].dst == DST_DFE)
     {
         snprintf(dst_name, sizeof(dst_name), "DFE");
@@ -941,8 +943,8 @@ static MENU_UPDATE_FUNC(reg_update)
     }
     else if (regs[reg].dst & 0xFFF0)
     {
-        snprintf(dst_name, sizeof(dst_name), "%X", regs[reg].dst);
         entry->max = 0x40000000; /* fixme: menu backend freezes at higher values */
+        reg_full |= (uint32_t) regs[reg].dst << 16;
     }
     else
     {
@@ -957,13 +959,17 @@ static MENU_UPDATE_FUNC(reg_update)
             regs[reg].is_nrzi = known_regs[i].is_nrzi;
         }
     }
-    
-    MENU_SET_NAME("%s[%x]%s", dst_name, regs[reg].reg, regs[reg].is_nrzi ? " N" : "");
+
+    if (dst_name[0]) {
+        MENU_SET_NAME("%s[%x]%s", dst_name, reg_full, regs[reg].is_nrzi ? " N" : "");
+    } else {
+        MENU_SET_NAME("%x%s", reg_full, regs[reg].is_nrzi ? " N" : "");
+    }
     
     if (show_what == SHOW_MODIFIED_SINCE_TIMESTAMP && !regs[reg].override_enabled)
     {
         MENU_SET_VALUE(
-            "0x%x (was 0x%x)",
+            "%x (was %x)",
             regs[reg].is_nrzi ? nrzi_decode(regs[reg].val) : regs[reg].val,
             regs[reg].is_nrzi ? nrzi_decode(regs[reg].prev_val) : regs[reg].prev_val
         );
