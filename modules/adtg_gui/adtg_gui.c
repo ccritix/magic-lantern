@@ -1281,10 +1281,10 @@ static struct menu_entry adtg_gui_menu[] =
                 .children       = (struct menu_entry[])
                 {
                     {
-                        .name           = "DIGIC Registers",
+                        .name           = "ENGIO Registers",
                         .priv           = &digic_intercept,
                         .max            = 1,
-                        .help           = "Also intercept DIGIC registers (EngDrvOut and engio_write).",
+                        .help           = "Also intercept ENGIO registers (EngDrvOut and engio_write).",
                     },
                     {
                         .name           = "Unique Key",
