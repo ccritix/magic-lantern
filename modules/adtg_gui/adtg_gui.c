@@ -18,6 +18,8 @@
 #define DST_CMOS    0x00F0
 #define DST_ADTG    0x000F      /* any ADTG */
 #define DST_ANY     0xFFFF
+#define DST_ENGIO       0xC0F0
+#define DST_ENGIO_MASK  0xFFF0
 
 struct known_reg
 {
@@ -408,6 +410,7 @@ static int reg_num = 0;
 /* we need very fast insertion */
 /* tiny delays in ADTG or ENGIO may result in broken images */
 static struct avl_tree regs_tree;
+static struct reg_entry * engio_regs[0x40000] = {0};
 
 static int known_match(int i, int reg)
 {
@@ -487,13 +490,25 @@ static int reg_total = 0;
 static struct reg_entry * reg_find(uint16_t dst, uint16_t reg, uint32_t context)
 {
     reg_total++;
-    struct reg_entry ref = {{0}};
-    ref.dst = dst;
-    ref.reg = reg;
-    ref.context = context;
-    found_reg = 0;
-    avl_search(&regs_tree, (struct avl *) &ref, reg_iter);
-    
+
+    if (unique_key == UNIQUE_REG && (dst & DST_ENGIO_MASK) == DST_ENGIO)
+    {
+        /* ENGIO registers are assumed to be from 0xC0F00000 to C0FFFFFF */
+        /* store them outside the AVL for O(1) lookups (we need the extra speed in e.g. 1080p50) */
+        uint32_t off = ((((uint32_t) dst << 16) | (uint32_t) reg) & 0x000FFFFC) >> 2;
+        return engio_regs[off];
+    }
+    else
+    {
+        struct reg_entry ref = {{0}};
+        ref.dst = dst;
+        ref.reg = reg;
+        ref.context = context;
+        found_reg = 0;
+        avl_search(&regs_tree, (struct avl *) &ref, reg_iter);
+        return (struct reg_entry *) found_reg;
+    }
+
     /* unoptimized code, for reference/troubleshooting */
     /*
     struct reg_entry * found = 0;
@@ -513,8 +528,6 @@ static struct reg_entry * reg_find(uint16_t dst, uint16_t reg, uint32_t context)
     }
     return (struct reg_entry *) found;
     */
-    
-    return (struct reg_entry *) found_reg;
 }
 
 static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint16_t* val_ptr, uint32_t reg_shift, uint32_t is_nrzi, uint32_t caller_task, uint32_t caller_pc)
@@ -546,6 +559,7 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint16_t*
         re->prev_val = val;
         re->num_changes = 0;
         re->context = context;
+        /* all 16-bit registers are stored in the AVL */
         avl_insert(&regs_tree, (struct avl *) re);
         reg_num++;
     }
@@ -605,7 +619,12 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* addr, uin
         re->prev_val = val;
         re->num_changes = 0;
         re->context = context;
-        avl_insert(&regs_tree, (struct avl *) re);
+        if (unique_key == UNIQUE_REG && (dst & DST_ENGIO_MASK) == DST_ENGIO) {
+            uint32_t off = ((((uint32_t) dst << 16) | (uint32_t) reg) & 0x000FFFFC) >> 2;
+            engio_regs[off] = re;
+        } else {
+            avl_insert(&regs_tree, (struct avl *) re);
+        }
         reg_num++;
     }
     sei(old);
