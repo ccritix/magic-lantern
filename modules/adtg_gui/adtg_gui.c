@@ -908,10 +908,8 @@ static int res3k_reg(int reg)
        {
            switch (regs[reg].reg)
            {
-		case 5:
-	  	    return 0x280;       /* CMOS[5]: ISO related? */
                  case 7:
-		    return 0xa89;       /* CMOS[7]: ISO related? */
+		    return 0xaa9;       /* CMOS[7]: ISO related? */
            }
        }
        if (regs[reg].dst == 0xC0F0)
@@ -920,25 +918,11 @@ static int res3k_reg(int reg)
            switch (regs[reg].reg)
            {
             case 0x6804:                /* C0F06804 - raw resolution */
-               return 0x5340322;       /* from 0x528011B -> 3072px in raw_rec */
-	    case 0x6824:
-		return 0x3ca;
-	    case 0x6828:
-		return 0x3ca;
-	    case 0x682c:
-		return 0x3ca;
-	    case 0x6830:
-		return 0x3ca;
-	    case 0x6008:
-		return 0x37b037b;
-	    case 0x600c:
-		return 0x37b037b;
-	    case 0x6010: 	
-		return 0x37b;
-	    case 0x6014:
-		return 0x6d7;
-	    case 0x713c:
-		return 0x555;
+               return 0x5590298;       /* 2520x1336 */
+                case 0x6014:
+                    return 0x745;
+	    	case 0x713c:
+		    return 0x535;
             }
 
         }
@@ -947,11 +931,12 @@ static int res3k_reg(int reg)
             switch (regs[reg].reg)
             {
             case 0x82b6:
-	       return 0x7f4;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
+	       return 0x8f4;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
             case 0x8172:
-	       return 0x77c; /* without this, you get some weird artifacts; this should only go to ADTG2, not 4 */
+	       return 0x87c; /* without this, you get some weird artifacts; this should only go to ADTG2, not 4 */
 	    case 0x8178:
-	       return 0x77c;
+	       return 0x87c;
+
             }
 
         }
