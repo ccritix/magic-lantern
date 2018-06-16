@@ -915,11 +915,20 @@ static int res3k_reg(int reg)
     else if (is_camera("EOSM", "2.0.2"))
     {
 
-       if (regs[reg].dst == 0xC0F0)
+       if (regs[reg].dst == DST_CMOS)
+       {
+           switch (regs[reg].reg)
+           {
+                 case 7: return 0xaa9;       /* CMOS[7]: ISO related? */
+           }
+       }
+
+       if (regs[reg].dst == 0xC0F0 && DST_CMOS)
        {
 
            switch (regs[reg].reg)
            {
+                case 7: return 0xaa9;       /* CMOS[7]: ISO related? */
                 case 0x6804:                /* C0F06804 - raw resolution */
                     return 0x5840298;       /* Valid liveview 2520x1248 24fps 14-bit lossless */
                  /* return 0x5040328;       /* crushed liveview 3096x1256 24fps 14-bit lossless */
