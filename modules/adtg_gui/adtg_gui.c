@@ -918,7 +918,8 @@ static int res3k_reg(int reg)
            switch (regs[reg].reg)
            {
             case 0x6804:                /* C0F06804 - raw resolution */
-               return 0x5590298;       /* 2520x1336 */
+               return 0x5490298;       /* 2520x1320, works */
+            /* return 0x5590298;        2520x1336, corruption */
                 case 0x6014:
                     return 0x745;
 	    	case 0x713c:
