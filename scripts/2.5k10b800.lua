@@ -1,7 +1,6 @@
--- mv1080p_12bit_iso800_24fps
+-- 5x_2.5k_10bit_iso800_24fps
 
   lv.start()
-  lv.zoom = 1
   console.hide()
   menu.close()
 
@@ -19,6 +18,14 @@ if menu.get("FPS override", "Actual FPS", "") >= "49" and menu.get("FPS override
   msleep(1000)
   return
 end
+
+-- if we´re in crop mode
+  if menu.get("Movie", "Crop mode", "") == "3x3 720p" then
+    menu.select("Movie", "Crop mode")
+    menu.open()     -- open ML menu
+    key.press(KEY.SET)
+    menu.close()
+  end
 
 -- enable sound
   menu.set("Sound recording", "Enable sound", "ON")
@@ -61,14 +68,12 @@ while menu.get("FPS override", "Actual FPS", "") <= "23" or menu.get("FPS overri
   menu.close()
 end
 
+-- let´s go into zoom mode
+  lv.zoom = 5
+
 -- Overlay
-  menu.set("Overlay", "Focus Peak", "OFF")
   menu.set("Overlay", "Zebras", "OFF")
-
--- magic zoom quite stubborn one to set(two step operation)
-  menu.set("Magic Zoom", "Trigger mode", "HalfShutter")
-  menu.set("Overlay", "Magic Zoom", "HalfS, Med, TL, 2:1")
-
+  menu.set("Overlay", "Magic Zoom", "OFF")
   menu.set("Overlay", "Cropmarks", "OFF")
   menu.set("Overlay", "Spotmeter", "OFF")
   menu.set("Overlay", "False color", "OFF")
@@ -78,11 +83,11 @@ end
   menu.set("Display", "Clear overlays", "OFF")
 
 -- Movie
-  menu.set("Movie", "RAW video", "ON") 
+  menu.set("Movie", "RAW video", "ON")
   menu.set("Movie", "HDR video", "OFF")
-  menu.set("RAW video", "Resolution", 1920)
-  menu.set("RAW video", "Data format", "12-bit lossless") 
-  menu.set("RAW video", "Preview", "Auto")
+  menu.set("RAW video", "Resolution", 2560)
+  menu.set("RAW video", "Data format", "10-bit lossless")
+  menu.set("RAW video", "Preview", "Real-time")
   camera.iso.value=800
   menu.close()
 

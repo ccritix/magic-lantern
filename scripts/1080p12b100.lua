@@ -1,9 +1,9 @@
 -- mv1080p_12bit_iso100_24fps
 
-   lv.start()
-   lv.zoom = 1
-   console.hide()
-   menu.close()
+  lv.start()
+  lv.zoom = 1
+  console.hide()
+  menu.close()
 
 -- warnings 
 while camera.mode ~= MODE.MOVIE do
@@ -20,15 +20,23 @@ if menu.get("FPS override", "Actual FPS", "") >= "49" and menu.get("FPS override
   return
 end
 
+-- if we´re in crop mode
+  if menu.get("Movie", "Crop mode", "") == "3x3 720p" then
+    menu.select("Movie", "Crop mode")
+    menu.open()     -- open ML menu
+    key.press(KEY.SET)
+    menu.close()
+  end
+
 -- enable sound
-   menu.set("Sound recording", "Enable sound", "ON")
+  menu.set("Sound recording", "Enable sound", "ON")
 if menu.get("Sound recording", "Enable sound", "") ~= "ON" then
-   menu.set("Overlay", "Global Draw", "OFF")
-   display.notify_box("enable mlv_snd.mo and restart to record sound")
-   msleep(1000)
-   display.notify_box("enable mlv_snd.mo and restart to record sound")
-   msleep(1000)
-   return
+  menu.set("Overlay", "Global Draw", "OFF")
+  display.notify_box("enable mlv_snd.mo and restart to record sound")
+  msleep(1000)
+  display.notify_box("enable mlv_snd.mo and restart to record sound")
+  msleep(1000)
+  return
 end
 
 -- workaround. May need an extra pass(if higher fps than actual)

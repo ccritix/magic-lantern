@@ -19,6 +19,14 @@ if menu.get("FPS override", "Actual FPS", "") >= "49" and menu.get("FPS override
   return
 end
 
+-- if we´re in crop mode
+  if menu.get("Movie", "Crop mode", "") == "3x3 720p" then
+    menu.select("Movie", "Crop mode")
+    menu.open()     -- open ML menu
+    key.press(KEY.SET)
+    menu.close()
+  end
+
 -- enable sound
   menu.set("Sound recording", "Enable sound", "ON")
 if menu.get("Sound recording", "Enable sound", "") ~= "ON" then
