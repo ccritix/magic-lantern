@@ -42,6 +42,8 @@
  * Boston, MA  02110-1301, USA.
  */
 
+#define __MLV_LITE_C__
+
 #include <module.h>
 #include <dryos.h>
 #include <property.h>
@@ -64,11 +66,13 @@
 #include "focus.h"
 #include "fps.h"
 #include "../mlv_rec/mlv.h"
+#include "../mlv_rec/mlv_rec_interface.h"
 #include "../trace/trace.h"
 #include "powersave.h"
 #include "shoot.h"
 #include "fileprefix.h"
 #include "timer.h"
+#include "ml-cbr.h"
 #include "../silent/lossless.h"
 #include "ml-cbr.h"
 
@@ -160,14 +164,10 @@ static CONFIG_INT("raw.output_format", output_format, 3);
 #define OUTPUT_14BIT_LOSSLESS 3
 #define OUTPUT_12BIT_LOSSLESS 4
 #define OUTPUT_AUTO_BIT_LOSSLESS 5
-#define OUTPUT_11BIT_LOSSLESS 6
-#define OUTPUT_10BIT_LOSSLESS 7
-#define OUTPUT_9BIT_LOSSLESS 8
-#define OUTPUT_8BIT_LOSSLESS 9
 #define OUTPUT_COMPRESSION (output_format>2)
 
 /* container BPP (variable for uncompressed, always 14 for lossless JPEG) */
-static const int bpp_container[] = { 14, 12, 10, 14, 14, 14, 14, 14, 14, 14 };
+static const int bpp_container[] = { 14, 12, 10, 14, 14, 14, 14, 14, 14 };
 
 /* "fake" lower bit depths using digital gain (for lossless JPEG) */
 //static const int bpp_digi_gain[] = { 14, 14, 14, 14, 12, 11, 10,  9,  8 };
@@ -186,27 +186,6 @@ static int bpp_digital_gain()
     {
         return 12;
     }
-
-    if (output_format == OUTPUT_11BIT_LOSSLESS)
-    {
-        return 11;
-    }
-
-    if (output_format == OUTPUT_10BIT_LOSSLESS)
-    {
-        return 10;
-    }
-
-    if (output_format == OUTPUT_9BIT_LOSSLESS)
-    {
-        return 9;
-    }
-
-    if (output_format == OUTPUT_8BIT_LOSSLESS)
-    {
-        return 8;
-    }
-
 
     /* auto, depending on ISO */
     /* 5D3 noise levels (raw_diag, dark frame, 1/50, ISO 100-25600, ~50C):
@@ -331,14 +310,18 @@ struct frame_slot
     int payload_size;   /* size effectively used by image data */
     int frame_number;   /* from 0 to n */
     enum {
-        SLOT_FREE,          /* available for image capture */
-        SLOT_RESERVED,      /* it may become available when resizing the previous slots */
-        SLOT_CAPTURING,     /* in progress */
-        SLOT_FULL,          /* contains fully captured image data */
-        SLOT_WRITING,       /* it's being saved to card */
-        SLOT_LOCKED         /* in use by mlv_snd */
+        SLOT_FREE = 0x00,          /* available for image capture */
+        SLOT_RESERVED = 0x01,      /* it may become available when resizing the previous slots */
+        SLOT_CAPTURING = 0x02,     /* in progress */
+        SLOT_LOCKED = 0x03,        /* locked by some other module */
+        SLOT_FULL = 0x04,          /* contains fully captured image data */
+        SLOT_WRITING = 0x05,       /* it's being saved to card */
+        SLOT_FULL_META = 0x14,     /* contains fully captured meta data */
     } status;
 };
+
+/* introduced to detect both SLOT_FULL/SLOT_FULL_META */
+#define SLOT_MASK(x) ((x) & 0x0F)
 
 static GUARDED_BY(settings_sem) struct memSuite * shoot_mem_suite = 0;  /* memory suite for our buffers */
 static GUARDED_BY(settings_sem) struct memSuite * srm_mem_suite = 0;
@@ -352,15 +335,13 @@ static GUARDED_BY(settings_sem) int valid_slot_count = 0;           /* total min
 static GUARDED_BY(LiveViewTask) int capture_slot = -1;              /* in what slot are we capturing now (index) */
 static volatile                 int force_new_buffer = 0;           /* if some other task decides it's better to search for a new buffer */
 
-#define IS_VIDF(slot_index) (!memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4))
-
 static GUARDED_BY(LiveViewTask) int writing_queue[COUNT(slots)+1];  /* queue of completed frames (slot indices) waiting to be saved */
 static GUARDED_BY(LiveViewTask) int writing_queue_tail = 0;         /* place captured frames here */
 static GUARDED_BY(RawRecTask)   int writing_queue_head = 0;         /* extract frames to be written from here */ 
 
-static GUARDED_BY(LiveViewTask) int frame_count = 0;                /* how many video frames we have processed */
-static GUARDED_BY(LiveViewTask) int skipped_frames = 0;             /* how many video frames we had to drop (only done during pre-recording) */
-static GUARDED_BY(RawRecTask)   int chunk_frame_count = 0;          /* how many video frames in the current file chunk */
+static GUARDED_BY(LiveViewTask) int frame_count = 0;                /* how many frames we have processed */
+static GUARDED_BY(LiveViewTask) int skipped_frames = 0;             /* how many frames we had to drop (only done during pre-recording) */
+static GUARDED_BY(RawRecTask)   int chunk_frame_count = 0;          /* how many frames in the current file chunk */
 static volatile                 int buffer_full = 0;                /* true when the memory becomes full */
        GUARDED_BY(RawRecTask)   char * raw_movie_filename = 0;      /* file name for current (or last) movie */
 static GUARDED_BY(RawRecTask)   char * chunk_filename = 0;          /* file name for current movie chunk */
@@ -381,7 +362,6 @@ static GUARDED_BY(RawRecTask)   mlv_expo_hdr_t expo_hdr;
 static GUARDED_BY(RawRecTask)   mlv_lens_hdr_t lens_hdr;
 static GUARDED_BY(RawRecTask)   mlv_rtci_hdr_t rtci_hdr;
 static GUARDED_BY(RawRecTask)   mlv_wbal_hdr_t wbal_hdr;
-static GUARDED_BY(RawRecTask)   mlv_wavi_hdr_t wavi_hdr;
 static GUARDED_BY(LiveViewTask) mlv_vidf_hdr_t vidf_hdr;
 static GUARDED_BY(RawRecTask)   uint64_t mlv_start_timestamp = 0;
        GUARDED_BY(RawRecTask)   uint32_t raw_rec_trace_ctx = TRACE_ERROR;
@@ -389,12 +369,189 @@ static GUARDED_BY(RawRecTask)   uint64_t mlv_start_timestamp = 0;
 /* interface to other modules: these are called when recording starts or stops  */
 extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_starting();
 extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_stopping();
-extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_started();
-extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_stopped();
-extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_mlv_block(mlv_hdr_t *hdr);
-extern WEAK_FUNC(ret_0) void mlv_fill_wavi(mlv_wavi_hdr_t *hdr, uint64_t start_timestamp);  /* provided by mlv_snd */
 
 static int raw_rec_should_preview(void);
+
+/* old mlv_rec interface stuff here */
+struct msg_queue *mlv_block_queue = NULL;
+/* registry of all other modules CBRs */
+static cbr_entry_t registered_cbrs[32];
+
+/* register a callback function that is called when one of the events specified happens.
+   event can be a OR'ed list of the events specified in mlv_rec_interface.h
+ */
+uint32_t mlv_rec_register_cbr(uint32_t event, event_cbr_t cbr, void *ctx)
+{
+    if(RAW_IS_RECORDING)
+    {
+        return 0;
+    }
+    
+    uint32_t ret = 0;
+    uint32_t old_int = cli();
+    for(int pos = 0; pos < COUNT(registered_cbrs); pos++)
+    {
+        if(registered_cbrs[pos].cbr == NULL)
+        {
+            registered_cbrs[pos].event = event;
+            registered_cbrs[pos].cbr = cbr;
+            registered_cbrs[pos].ctx = ctx;
+            ret = 1;
+            break;
+        }
+    }
+    sei(old_int);
+    
+    return ret;
+}
+
+/* unregister the specified CBR from all registered events */
+uint32_t mlv_rec_unregister_cbr(event_cbr_t cbr)
+{
+    if(RAW_IS_RECORDING)
+    {
+        return 0;
+    }
+    
+    uint32_t ret = 0;
+    uint32_t old_int = cli();
+    for(int pos = 0; (registered_cbrs[pos].cbr != NULL) && (pos < COUNT(registered_cbrs)); pos++)
+    {
+        /* is this the callback routine to be unregistered? */
+        if(registered_cbrs[pos].cbr == cbr)
+        {
+            /* if so, just shift all entries below one entry up. this keeps a void-less list with all CBRs to improve performance */
+            int32_t remaining = COUNT(registered_cbrs) - pos - 1;
+            
+            registered_cbrs[pos].cbr = NULL;
+            
+            if(remaining > 0)
+            {
+                memcpy(&registered_cbrs[pos], &registered_cbrs[pos + 1], remaining * sizeof(cbr_entry_t));
+                registered_cbrs[COUNT(registered_cbrs)-1].ctx = NULL;
+                ret = 1;
+                break;
+            }
+        }
+    }
+    sei(old_int);
+    
+    return ret;
+}
+
+/* call registered callbacks for the events specified */
+static void mlv_rec_call_cbr(uint32_t event, mlv_hdr_t *hdr)
+{
+    for(int pos = 0; (registered_cbrs[pos].cbr != NULL) && (pos < COUNT(registered_cbrs)); pos++)
+    {
+        /* there is still a possible race condition - if a module unregisters it's CBR during this function being called.
+           while this is unlikely to ever happen (all current modules register their CBRs upon init and not within a CBR,
+           this is still something that should be hardened. locks might be a bit too expensive.
+           copying every entry to stack also a bit costly, but will cause other side effects.
+        */
+        if(registered_cbrs[pos].event & event)
+        {
+            registered_cbrs[pos].cbr(event, registered_cbrs[pos].ctx, hdr);
+        }
+    }
+}
+
+/* helper to write a MLV block into a FILE* and return if successful */
+static int32_t mlv_write_hdr(FILE* f, mlv_hdr_t *hdr)
+{
+    mlv_rec_call_cbr(MLV_REC_EVENT_BLOCK, hdr);
+
+    uint32_t written = FIO_WriteFile(f, hdr, hdr->blockSize);
+
+    return written == hdr->blockSize;
+}
+
+/* return details about allocated slot */
+void mlv_rec_get_slot_info(int32_t slot, uint32_t *size, void **address)
+{
+    if(slot < 0 || slot >= total_slot_count)
+    {
+        *address = NULL;
+        *size = 0;
+        return;
+    }
+    
+    *address = slots[slot].ptr;
+    *size = slots[slot].size;
+}
+
+/* this can be called from anywhere to get a free memory slot. must be submitted using mlv_rec_release_slot() */
+int32_t mlv_rec_get_free_slot()
+{
+    int32_t ret = -1;
+    
+    for (int i = 0; (i < total_slot_count) && (ret == -1); i++)
+    {
+        uint32_t old_int = cli();
+        if (slots[i].status == SLOT_FREE)
+        {
+            slots[i].status = SLOT_LOCKED;
+            ret = i;
+        }
+        sei(old_int);
+    }
+    
+    return ret;
+}
+
+/* mark a previously with mlv_rec_get_free_slot() allocated slot for being reused or written into the file */
+void mlv_rec_release_slot(int32_t slot, uint32_t write)
+{
+    if(slot < 0 || slot >= total_slot_count)
+    {
+        return;
+    }
+
+    if(write)
+    {
+        uint32_t old_int = cli();
+        slots[slot].status = SLOT_FULL_META;
+        writing_queue[writing_queue_tail] = slot;
+        INC_MOD(writing_queue_tail, COUNT(writing_queue));
+        sei(old_int);
+    }
+    else
+    {
+        slots[slot].status = SLOT_FREE;
+    }
+}
+
+/* set the timestamp relative to recording start */
+void mlv_rec_set_rel_timestamp(mlv_hdr_t *hdr, uint64_t timestamp)
+{
+    hdr->timestamp = timestamp - mlv_start_timestamp;
+}
+
+/* queuing of blocks from other modules */
+uint32_t mlv_rec_queue_block(mlv_hdr_t *hdr)
+{
+    mlv_set_timestamp(hdr, mlv_start_timestamp);
+    msg_queue_post(mlv_block_queue, (uint32_t) hdr);
+    
+    return 1;
+}
+
+/* clear the queue specified, free'ing all received elements */
+static void flush_queue(struct msg_queue *queue)
+{
+    uint32_t messages = 0;
+
+    msg_queue_count(queue, &messages);
+    while(messages > 0)
+    {
+        void *tmp_buf = 0;
+        msg_queue_receive(queue, &tmp_buf, 0);
+        free(tmp_buf);
+        msg_queue_count(queue, &messages);
+    }
+}
+
+
 
 static inline int pre_recording_buffer_full()
 {
@@ -640,14 +797,6 @@ static int get_estimated_compression_ratio()
             return 60;
         case OUTPUT_12BIT_LOSSLESS:
             return 52;
-        case OUTPUT_11BIT_LOSSLESS:
-            return 50;
-        case OUTPUT_10BIT_LOSSLESS:
-            return 50;
-        case OUTPUT_9BIT_LOSSLESS:
-            return 50;
-        case OUTPUT_8BIT_LOSSLESS:
-            return 50;
         default:
             /* handle possible overflows from old config */
             output_format = OUTPUT_AUTO_BIT_LOSSLESS;
@@ -1482,7 +1631,9 @@ static void show_buffer_status()
             int color = slots[i].status == SLOT_FREE      ? COLOR_GRAY(10) :
                         slots[i].status == SLOT_WRITING   ? COLOR_GREEN1 :
                         slots[i].status == SLOT_FULL      ? COLOR_LIGHT_BLUE :
+                        slots[i].status == SLOT_FULL_META ? COLOR_BLUE :
                         slots[i].status == SLOT_RESERVED  ? COLOR_GRAY(50) :
+                        slots[i].status == SLOT_LOCKED    ? COLOR_YELLOW :
                                                             COLOR_RED ;
 
             uint32_t x1 = (uint32_t) slots[i].ptr - chunk_start;
@@ -1997,128 +2148,6 @@ void hack_liveview(int unhack)
     }
 }
 
-void mlv_rec_set_rel_timestamp(mlv_hdr_t *hdr, uint64_t timestamp)
-{
-    hdr->timestamp = timestamp - mlv_start_timestamp;
-}
-
-/* this can be called from anywhere to get a free memory slot. must be submitted using mlv_rec_release_slot() */
-int32_t mlv_rec_get_free_slot()
-{
-    uint32_t retries = 0;
-    int32_t allocated_slot = -1;
-
-retry_find:
-    allocated_slot = -1;
-
-    for (int i = 0; i < total_slot_count; i++)
-    {
-        if (slots[i].status == SLOT_FREE)
-        {
-            {
-                allocated_slot = i;
-                break;
-            }
-        }
-
-        /* already found one? */
-        if(allocated_slot >= 0)
-        {
-            break;
-        }
-    }
-
-    /* now try to mark this slot as being used */
-    if(allocated_slot >= 0)
-    {
-        uint32_t old_int = cli();
-        if(slots[allocated_slot].status == SLOT_FREE)
-        {
-            slots[allocated_slot].status = SLOT_LOCKED;
-        }
-        else
-        {
-            allocated_slot = -1;
-        }
-        sei(old_int);
-    }
-
-    /* ok now check if allocation was successful and retry */
-    if(allocated_slot < 0)
-    {
-        retries++;
-        if(retries < 5)
-        {
-            goto retry_find;
-        }
-        else
-        {
-            return -1;
-        }
-    }
-
-    return allocated_slot;
-}
-
-void mlv_rec_get_slot_info(int32_t slot, uint32_t *size, void **address)
-{
-    if(slot < 0 || slot >= total_slot_count)
-    {
-        *address = NULL;
-        *size = 0;
-        return;
-    }
-
-    /* as the caller will use the slot for anything, we have to save out VIDF frame header
-       (it contains padding and stuff that we dont want to recalculate)
-       we are using a NULL block with some data in it to store the VIDF.
-    */
-
-    mlv_vidf_hdr_t *vidf = slots[slot].ptr;
-
-    /* set old header to a skipped header format */
-    mlv_set_type((mlv_hdr_t *)vidf, "NULL");
-
-    /* backup old size into free space */
-    ((uint32_t*) vidf)[sizeof(mlv_vidf_hdr_t)/4] = vidf->blockSize;
-
-    /* then set the header to be totally skipped */
-    vidf->blockSize = 0x100;
-
-    /* ok now return the shrunk buffer address */
-    *address = (void*)((uint32_t)slots[slot].ptr + 0x100);
-    *size = slots[slot].size - vidf->blockSize;
-}
-
-/* mark a previously with mlv_rec_get_free_slot() allocated slot for being reused or written into the file */
-void mlv_rec_release_slot(int32_t slot, uint32_t write)
-{
-    if(slot < 0 || slot >= total_slot_count)
-    {
-        return;
-    }
-
-    if(write)
-    {
-        slots[slot].status = SLOT_FULL;
-        slots[slot].frame_number = -1;  /* not a video frame */
-
-        /* these things are normally updated by LiveViewTask (vsync hook)
-         * that task runs with high priority, so we are not going to interrupt it,
-         * but it might interrupt us, at least in theory; clear interrupts for now
-         * (not exactly clean; there are a bunch of thread safety warnings, for good reason)
-         */
-        int old = cli();
-        writing_queue[writing_queue_tail] = slot;
-        INC_MOD(writing_queue_tail, COUNT(writing_queue));
-        sei(old);
-    }
-    else
-    {
-        slots[slot].status = SLOT_FREE;
-    }
-}
-
 static REQUIRES(LiveViewTask) FAST
 int choose_next_capture_slot()
 {
@@ -2344,7 +2373,6 @@ void FAST pre_record_discard_frame()
             }
             else if (slots[i].frame_number > pre_record_first_frame)
             {
-                ASSERT(slots[i].frame_number > 1);
                 slots[i].frame_number--;
                 ((mlv_vidf_hdr_t*)slots[i].ptr)->frameNumber
                     = slots[i].frame_number - 1;
@@ -2366,7 +2394,7 @@ void FAST pre_record_queue_frames()
     {
         /* consecutive frames tend to be grouped, 
          * so this loop will not run every time */
-        while (slots[i].status != SLOT_FULL || slots[i].frame_number != current_frame)
+        while (SLOT_MASK(slots[i].status) != SLOT_FULL || slots[i].frame_number != current_frame)
         {
             INC_MOD(i, total_slot_count);
         }
@@ -2401,6 +2429,7 @@ void FAST pre_record_vsync_step()
             /* return to pre-recording state */
             pre_record_first_frame = frame_count;
             raw_recording_state = RAW_PRE_RECORDING;
+            mlv_rec_call_cbr(MLV_REC_EVENT_STARTED, NULL);
             printf("Pre-rec: back to pre-recording (frame %d).\n", pre_record_first_frame);
             /* fall through the next block */
         }
@@ -2428,6 +2457,7 @@ void FAST pre_record_vsync_step()
             {
                 /* done, from now on we can just record normally */
                 raw_recording_state = RAW_RECORDING;
+                mlv_rec_call_cbr(MLV_REC_EVENT_STARTED, NULL);
             }
             else
             {
@@ -2469,12 +2499,10 @@ static void frame_fake_edmac_check(int slot_index)
     *(volatile uint32_t*) after_frame = FRAME_SENTINEL;
 }
 
-/* only for VIDF frames */
 static REQUIRES(RawRecTask)
 int frame_check_saved(int slot_index)
 {
     ASSERT(slots[slot_index].ptr);
-
     void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
     uint32_t edmac_size = (slots[slot_index].payload_size + 3) & ~3;
     uint32_t* frame_end = ptr + edmac_size - 4;
@@ -2484,13 +2512,13 @@ int frame_check_saved(int slot_index)
         /* EDMAC overflow */
         return -1;
     }
-
+    
     if (*(volatile uint32_t*) frame_end == FRAME_SENTINEL)
     {
         /* frame not yet complete */
         return 0;
     }
-
+    
     /* looks alright */
     return 1;
 }
@@ -2723,13 +2751,7 @@ void process_frame(int next_fullsize_buffer_pos)
         frame_count++;
         return;
     }
-
-    if (frame_count == 1)
-    {
-        /* some modules may do some specific stuff right when we started recording */
-        raw_rec_cbr_started();
-    }
-
+    
     if (edmac_active)
     {
         /* EDMAC too slow */
@@ -2802,7 +2824,7 @@ void process_frame(int next_fullsize_buffer_pos)
 
     /* advance to next frame */
     frame_count++;
-    
+
     return;
 }
 
@@ -2819,7 +2841,7 @@ unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
     panning_update();
 
     if (!RAW_IS_RECORDING) return 0;
-    if (!raw_lv_settings_still_valid()) { raw_recording_state = RAW_FINISHING; return 0; }
+    if (!raw_lv_settings_still_valid()) { raw_recording_state = RAW_FINISHING; mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL); return 0; }
     if (buffer_full) return 0;
 
     /* double-buffering */
@@ -2940,7 +2962,6 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     file_hdr.audioFrameCount = 0;
     file_hdr.sourceFpsNom = fps_get_current_x1000();
     file_hdr.sourceFpsDenom = 1000;
-    raw_rec_cbr_mlv_block((mlv_hdr_t*)&file_hdr);
     
     memset(&rawi_hdr, 0, sizeof(mlv_rawi_hdr_t));
     mlv_set_type((mlv_hdr_t *)&rawi_hdr, "RAWI");
@@ -2989,30 +3010,19 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     mlv_set_type((mlv_hdr_t*)&vidf_hdr, "VIDF");
     vidf_hdr.blockSize  = max_frame_size;
     vidf_hdr.frameSpace = VIDF_HDR_SIZE - sizeof(mlv_vidf_hdr_t);
-
-    /* WAVI will be valid only if we record sound; otherwise NULL and zeroed out */
-    memset(&wavi_hdr, 0, sizeof(mlv_wavi_hdr_t));
-    mlv_fill_wavi(&wavi_hdr, mlv_start_timestamp);
 }
 
 static REQUIRES(RawRecTask)
 int write_mlv_chunk_headers(FILE* f)
 {
-    if (FIO_WriteFile(f, &file_hdr, file_hdr.blockSize) != (int)file_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &rawi_hdr, rawi_hdr.blockSize) != (int)rawi_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &rawc_hdr, rawc_hdr.blockSize) != (int)rawc_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &idnt_hdr, idnt_hdr.blockSize) != (int)idnt_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &expo_hdr, expo_hdr.blockSize) != (int)expo_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &lens_hdr, lens_hdr.blockSize) != (int)lens_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) return 0;
-    if (FIO_WriteFile(f, &wbal_hdr, wbal_hdr.blockSize) != (int)wbal_hdr.blockSize) return 0;
-
-    if (wavi_hdr.samplingRate)
-    {
-        /* WAVI written only if we record sound */
-        if (FIO_WriteFile(f, &wavi_hdr, wavi_hdr.blockSize) != (int)wavi_hdr.blockSize) return 0;
-    }
-
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&file_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&rawi_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&rawc_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&idnt_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&expo_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&lens_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&rtci_hdr)) return 0;
+    if (!mlv_write_hdr(f, (mlv_hdr_t *)&wbal_hdr)) return 0;
     if (mlv_write_vers_blocks(f, mlv_start_timestamp)) return 0;
     
     int hdr_size = FIO_SeekSkipFile(f, 0, SEEK_CUR);
@@ -3035,10 +3045,6 @@ static REQUIRES(RawRecTask)
 void finish_chunk(FILE* f)
 {
     file_hdr.videoFrameCount = chunk_frame_count;
-
-    /* get Audio frameCount from mlv_snd.c */
-    raw_rec_cbr_mlv_block((mlv_hdr_t*)&file_hdr);
-
     FIO_SeekSkipFile(f, 0, SEEK_SET);
     FIO_WriteFile(f, &file_hdr, file_hdr.blockSize);
     FIO_CloseFile(f);
@@ -3252,9 +3258,6 @@ void raw_video_rec_task()
         goto cleanup;
     }
 
-    /* signal that we are starting */
-    raw_rec_cbr_starting();
-
     init_mlv_chunk_headers(&raw_info);
     written_total = written_chunk = write_mlv_chunk_headers(f);
     if (!written_chunk)
@@ -3263,11 +3266,23 @@ void raw_video_rec_task()
         goto cleanup;
     }
 
+    /* signal that we are starting, call this before any memory allocation to give CBR the chance to allocate memory */
+    mlv_rec_call_cbr(MLV_REC_EVENT_STARTING, NULL);
+    
     hack_liveview(0);
     liveview_hacked = 1;
 
+    /* this will enable the vsync CBR and the other task(s) */
+    raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
+
     /* try a sync beep (not very precise, but better than nothing) */
     beep();
+
+    /* some modules may do some specific stuff right when we started recording */
+    if(!pre_record)
+    {
+        mlv_rec_call_cbr(MLV_REC_EVENT_STARTED, NULL);
+    }
 
     /* signal start of recording to the compression task */
     msg_queue_post(compress_mq, INT_MAX);
@@ -3277,13 +3292,7 @@ void raw_video_rec_task()
     
     int fps = fps_get_current_x1000();
     
-    int last_processed_video_frame = 0;
-
-    /* this will enable the vsync CBR and the other task(s) */
-    raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
-
-    /* note: raw_rec_cbr_started() will be called from the vsync hook,
-     * for the first recorded frame */
+    int last_processed_frame = 0;
     
     /* main recording loop */
     while (RAW_IS_RECORDING && lv)
@@ -3310,6 +3319,7 @@ void raw_video_rec_task()
                 /* the video will be incomplete */
                 NotifyBox(5000, "Emergency Stop");
                 raw_recording_state = RAW_FINISHING;
+                mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
                 wait_lv_frames(2);
                 writing_queue_head = writing_queue_tail;
                 break;
@@ -3331,7 +3341,7 @@ void raw_video_rec_task()
         /* check whether the first frame was filled by EDMAC (it may be sent in advance) */
         /* we need at least one valid frame */
         
-        if (slots[first_slot].status != SLOT_FULL)
+        if (SLOT_MASK(slots[first_slot].status) != SLOT_FULL)
         {
             msleep(20);
             continue;
@@ -3345,23 +3355,23 @@ void raw_video_rec_task()
         {
             int slot_index = writing_queue[i];
 
-            if (slots[slot_index].status != SLOT_FULL)
+            if (SLOT_MASK(slots[slot_index].status) != SLOT_FULL)
             {
                 /* frame not yet ready - stop here */
                 ASSERT(i != w_head);
                 break;
             }
-            
-            if (IS_VIDF(slot_index))
+
+            /* consistency checks for VIDF slots */
+            if (slots[slot_index].status != SLOT_FULL_META)
             {
-                /* consistency checks */
                 ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockSize == (uint32_t) slots[slot_index].size);
                 ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->frameNumber == (uint32_t) slots[slot_index].frame_number - 1);
-            }
-
-            if (OUTPUT_COMPRESSION && IS_VIDF(slot_index))
-            {
-                ASSERT(slots[slot_index].size < max_frame_size);
+                
+                if (OUTPUT_COMPRESSION)
+                {
+                    ASSERT(slots[slot_index].size < max_frame_size);
+                }
             }
 
             /* TBH, I don't care if these are part of the same group or not,
@@ -3414,12 +3424,12 @@ void raw_video_rec_task()
         {
             int slot_index = writing_queue[i];
 
-            if (OUTPUT_COMPRESSION && IS_VIDF(slot_index))
+            if (OUTPUT_COMPRESSION)
             {
                 ASSERT(slots[slot_index].size < max_frame_size);
             }
 
-            if (slots[slot_index].status != SLOT_FULL)
+            if (SLOT_MASK(slots[slot_index].status) != SLOT_FULL)
             {
                 bmp_printf(FONT_LARGE, 30, 70, "Slot check error");
                 beep();
@@ -3439,6 +3449,28 @@ void raw_video_rec_task()
             goto abort;
         }
         
+        /* write all queued blocks, if any */
+        uint32_t msg_count = 0;
+        msg_queue_count(mlv_block_queue, &msg_count);
+        
+        for(uint32_t msg = 0; msg < msg_count; msg++)
+        {
+            mlv_hdr_t *block = NULL;
+
+            /* there is a block in the queue, try to get that block */
+            if(!msg_queue_receive(mlv_block_queue, &block, 0))
+            {
+                /* when this block will get written, call the CBR */
+                mlv_rec_call_cbr(MLV_REC_EVENT_BLOCK, block);
+                
+                /* use the write func to write the block */
+                write_frames(&f, block, block->blockSize, 0);
+                
+                /* free the block */
+                free(block);
+            }
+        }
+        
         last_write_timestamp = get_ms_clock();
         writing_time += last_write_timestamp - t0;
 
@@ -3450,36 +3482,27 @@ void raw_video_rec_task()
         {
             if (i == writing_queue_tail)
             {
-                bmp_printf( FONT_MED, 30, 110, 
-                    "Queue overflow"
-                );
+                bmp_printf(FONT_MED, 30, 110, "Queue overflow");
                 beep();
             }
             
             int slot_index = writing_queue[i];
 
-            /* frame validation only for VIDF frames */
-            if (IS_VIDF(slot_index))
+            if (slots[slot_index].status != SLOT_FULL_META)
             {
                 if (frame_check_saved(slot_index) != 1)
                 {
-                    bmp_printf( FONT_MED, 30, 110, 
-                        "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number
-                    );
+                    bmp_printf(FONT_MED, 30, 110, "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number);
                     beep();
                 }
                 
-                if (slots[slot_index].frame_number != last_processed_video_frame + 1)
+                if (slots[slot_index].frame_number != last_processed_frame + 1)
                 {
-                    bmp_printf( FONT_MED, 30, 110, 
-                        "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_video_frame + 1
-                    );
+                    bmp_printf(FONT_MED, 30, 110, "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1);
                     beep();
                 }
-
-                last_processed_video_frame++;
+                last_processed_frame++;
             }
-
             free_slot(slot_index);
         }
         
@@ -3502,16 +3525,12 @@ abort_and_check_early_stop:
 
             if (last_block_size > 3)
             {
-                bmp_printf( FONT_MED, 30, 90, 
-                    "Early stop (%d). Should have recorded a few more frames.", last_block_size
-                );
+                bmp_printf(FONT_MED, 30, 90, "Early stop (%d). Should have recorded a few more frames.", last_block_size);
                 beep_times(last_block_size);
             }
             else
             {
-                bmp_printf( FONT_MED, 30, 90, 
-                    "Movie recording stopped automagically         "
-                );
+                bmp_printf(FONT_MED, 30, 90, "Movie recording stopped automagically         ");
                 /* this is error beep, not audio sync beep */
                 beep_times(2);
             }
@@ -3527,12 +3546,16 @@ abort_and_check_early_stop:
     
     /* done, this will stop the vsync CBR and the copying task */
     raw_recording_state = RAW_FINISHING;
+    mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
 
     /* wait until the other tasks calm down */
     wait_lv_frames(2);
 
     /* signal end of recording to the compression task */
     msg_queue_post(compress_mq, INT_MIN);
+    
+    /* clear blocks still in queue */
+    flush_queue(mlv_block_queue);
 
     set_recording_custom(CUSTOM_RECORDING_NOT_RECORDING);
 
@@ -3556,41 +3579,37 @@ abort_and_check_early_stop:
 
         int slot_index = writing_queue[writing_queue_head];
 
-        if (slots[slot_index].status != SLOT_FULL)
+        if (SLOT_MASK(slots[slot_index].status) != SLOT_FULL)
         {
-            bmp_printf( FONT_MED, 30, 110, 
-                "Slot %d: frame %d not saved ", slot_index, slots[slot_index].frame_number
-            );
+            bmp_printf(FONT_MED, 30, 110, "Slot %d: frame %d not saved ", slot_index, slots[slot_index].frame_number);
             beep();
         }
 
-        /* frame validation only for VIDF frames */
-        if (IS_VIDF(slot_index))
+        /* video frame consistency checks only for VIDF */
+        if(slots[slot_index].status != SLOT_FULL_META)
         {
             if (frame_check_saved(slot_index) != 1)
             {
-                bmp_printf( FONT_MED, 30, 110, 
-                    "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number
-                );
+                bmp_printf( FONT_MED, 30, 110, "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number);
                 beep();
             }
 
-            if (slots[slot_index].frame_number != last_processed_video_frame + 1)
+            if (slots[slot_index].frame_number != last_processed_frame + 1)
             {
-                bmp_printf( FONT_MED, 30, 110, 
-                    "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_video_frame + 1
-                );
+                bmp_printf(FONT_MED, 30, 110, "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1);
                 beep();
             }
-
-            last_processed_video_frame++;
+            last_processed_frame++;
+            
+            /* if it's a VIDF, then it should be smaller than the max frame size when compression is enabled */
+            if (OUTPUT_COMPRESSION)
+            {
+                ASSERT(slots[slot_index].size < max_frame_size);
+            }
         }
-
+        
         slots[slot_index].status = SLOT_WRITING;
-        if (OUTPUT_COMPRESSION && IS_VIDF(slot_index))
-        {
-            ASSERT(slots[slot_index].size < max_frame_size);
-        }
+        
         if (indicator_display == INDICATOR_RAW_BUFFER) show_buffer_status();
         if (!write_frames(&f, slots[slot_index].ptr, slots[slot_index].size, 1))
         {
@@ -3611,8 +3630,6 @@ abort_and_check_early_stop:
     }
 
 cleanup:
-    raw_rec_cbr_stopped();
-
     if (f) finish_chunk(f);
     if (!written_total)
     {
@@ -3649,6 +3666,7 @@ cleanup:
     ResumeLiveView();
     redraw();
     raw_recording_state = RAW_IDLE;
+    mlv_rec_call_cbr(MLV_REC_EVENT_STOPPED, NULL);
 }
 
 static REQUIRES(GuiMainTask)
@@ -3658,6 +3676,7 @@ void raw_start_stop()
     {
         printf("Stopping raw recording...\n");
         raw_recording_state = RAW_FINISHING;
+        mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
         beep();
     }
     else
@@ -3723,7 +3742,7 @@ static struct menu_entry raw_video_menu[] =
             {
                 .name       = "Data format",
                 .priv       = &output_format,
-                .max        = 9,
+                .max        = 5,
                 .update     = output_format_update,
                 .choices    = CHOICES(
                                 "14-bit",
@@ -3732,10 +3751,6 @@ static struct menu_entry raw_video_menu[] =
                                 "14-bit lossless",
                                 "12-bit lossless",
                                 "11...8-bit lossless",
-                                "11-bit lossless",
-                                "10-bit lossless",
-                                "9-bit lossless",
-                                "8-bit lossless",
                               ),
                 .help       = "Choose the output format (bit depth, compression) for the raw stream:",
                 .help2      = "14-bit: native uncompressed format used in Canon firmware.\n"
@@ -3744,10 +3759,6 @@ static struct menu_entry raw_video_menu[] =
                               "14-bit compressed with Canon's Lossless JPEG. Recommended ISO < 100.\n"
                               "Signal divided by 4 before compression. Recommended ISO 100-1600.\n"
                               "Signal divided by 8/16/32/64 before compression, depending on ISO.\n"
-                              "Signal divided by 8 before compression.\n"
-                              "Signal divided by 16 before compression.\n"
-                              "Signal divided by 32 before compression.\n"
-                              "Signal divided by 64 before compression.\n"
             },
             {
                 .name = "Preview",
@@ -4217,13 +4228,16 @@ static unsigned int raw_rec_init()
         }
         NotifyBoxHide();
     }
+    
+    /* allocate queue that other modules will fill with blocks to write to the current file */
+    mlv_block_queue = (struct msg_queue *) msg_queue_create("mlv_block_queue", 100);
 
     lossless_init();
 
     settings_sem = create_named_semaphore(0, 1);
 
     ASSERT(((uint32_t)task_create("compress_task", 0x0F, 0x1000, compress_task, (void*)0) & 1) == 0);
-
+    
     return 0;
 }
 
