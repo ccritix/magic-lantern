@@ -21,9 +21,11 @@
 #endif
 
 static int is_5D3 = 0;
+static int is_6D = 0;
 static int is_basic = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
+static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -155,7 +157,7 @@ static int is_supported_mode()
         /* note: zoom check is also covered by check_cmos_vidmode */
         /* (we need to apply CMOS settings before PROP_LV_DISPSIZE fires) */
         case CROP_PRESET_CENTER_Z:
-            return lv_dispsize < 10;
+            return 1;
 
         default:
             return is_1080p() || is_720p();
@@ -346,7 +348,7 @@ static int FAST check_cmos_vidmode(uint16_t* data_buf)
             }
         }
         
-        if (is_basic)
+        if (is_basic && !is_6D)
         {
             if (reg == 7)
             {
@@ -523,7 +525,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         {
             case CROP_PRESET_3x3_1X:
                 /* start/stop scanning line, very large increments */
-                cmos_new[7] = PACK12(6,29);
+                cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
                 break;            
         }
     }
@@ -643,15 +645,14 @@ static int adjust_shutter_blanking(int old)
     float orig_shutter = frame_duration_orig * current_exposure / fps_timer_b_orig;
 
     float new_shutter =
-        (current_fps == default_fps) ?
+        (shutter_range == 0) ?
         ({
-            /* same FPS? adjust to match the original shutter speed */
+            /* original shutter speed from the altered video mode */
             orig_shutter;
         }) :
         ({
-            /* in modes with different FPS, map the available range
-             * of 1/4000...1/30 (24-30p) or 1/4000...1/60 (50-60p)
-             * from minimum allowed (1/15000) to 1/fps */
+            /* map the available range of 1/4000...1/30 (24-30p) or 1/4000...1/60 (50-60p)
+             * from minimum allowed (1/15000 with full-res LV) to 1/fps */
             int max_fps_shutter = (video_mode_fps <= 30) ? 33333 : 64000;
             int default_fps_adj = 1e9 / (1e9 / max_fps_shutter - 250);
             (orig_shutter - 250e-6) * default_fps_adj / current_fps;
@@ -1269,6 +1270,59 @@ static inline uint32_t reg_override_40_fps(uint32_t reg, uint32_t old_val)
     return 0;
 }
 
+static inline uint32_t reg_override_fps_nocheck(uint32_t reg, uint32_t timerA, uint32_t timerB, uint32_t old_val)
+{
+    /* hardware register requires timer-1 */
+    timerA--;
+    timerB--;
+
+    switch (reg)
+    {
+        case 0xC0F06824:
+        case 0xC0F06828:
+        case 0xC0F0682C:
+        case 0xC0F06830:
+        case 0xC0F06010:
+        {
+            return timerA;
+        }
+        
+        case 0xC0F06008:
+        case 0xC0F0600C:
+        {
+            return timerA | (timerA << 16);
+        }
+
+        case 0xC0F06014:
+        {
+            return timerB;
+        }
+    }
+
+    return 0;
+}
+
+static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
+{
+    /* attempt to reconfigure the x5 zoom at the FPS selected in Canon menu */
+    int timerA = 
+        (video_mode_fps == 24) ? 512 :
+        (video_mode_fps == 25) ? 512 :
+        (video_mode_fps == 30) ? 520 :
+        (video_mode_fps == 50) ? 512 :  /* cannot get 50, use 25 */
+        (video_mode_fps == 60) ? 520 :  /* cannot get 60, use 30 */
+                                  -1 ;
+    int timerB =
+        (video_mode_fps == 24) ? 1955 :
+        (video_mode_fps == 25) ? 1875 :
+        (video_mode_fps == 30) ? 1540 :
+        (video_mode_fps == 50) ? 1875 :
+        (video_mode_fps == 60) ? 1540 :
+                                   -1 ;
+
+    return reg_override_fps_nocheck(reg, timerA, timerB, old_val);
+}
+
 static int engio_vidmode_ok = 0;
 
 static void * get_engio_reg_override_func()
@@ -1283,6 +1337,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_UHD)        ? reg_override_UHD        :
         (crop_preset == CROP_PRESET_40_FPS)     ? reg_override_40_fps     :
         (crop_preset == CROP_PRESET_FULLRES_LV) ? reg_override_fullres_lv :
+        (crop_preset == CROP_PRESET_CENTER_Z)   ? reg_override_zoom_fps   :
                                                   0                       ;
     return reg_override_func;
 }
@@ -1305,8 +1360,9 @@ static void FAST engio_write_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         uint32_t old = *(buf+1);
         if (reg == 0xC0F06804)
         {
-            engio_vidmode_ok =
-                (old == 0x528011B || old == 0x2B6011B);
+            engio_vidmode_ok = (crop_preset == CROP_PRESET_CENTER_Z)
+                ? (old == 0x56601EB)                        /* x5 zoom */
+                : (old == 0x528011B || old == 0x2B6011B);   /* 1080p or 720p */
         }
     }
 
@@ -1375,6 +1431,12 @@ PROP_HANDLER(PROP_LV_ACTION)
     update_patch();
 }
 
+/* also try when switching zoom modes */
+PROP_HANDLER(PROP_LV_DISPSIZE)
+{
+    update_patch();
+}
+
 static MENU_UPDATE_FUNC(crop_update)
 {
     if (CROP_PRESET_MENU && lv)
@@ -1383,7 +1445,7 @@ static MENU_UPDATE_FUNC(crop_update)
         {
             if (lv_dispsize == 1)
             {
-                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use this mode, exit ML menu and press the zoom button (set to x5).");
+                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use this mode, exit ML menu & press the zoom button (set to x5/x10).");
             }
         }
         else /* non-zoom modes */
@@ -1424,6 +1486,15 @@ static struct menu_entry crop_rec_menu[] =
         .depends_on = DEP_LIVEVIEW,
         .children =  (struct menu_entry[]) {
             {
+                .name       = "Shutter range",
+                .priv       = &shutter_range,
+                .max        = 1,
+                .choices    = CHOICES("Original", "Full range"),
+                .help       = "Choose the available shutter speed range:",
+                .help2      = "Original: default range used by Canon in selected video mode.\n"
+                              "Full range: from 1/FPS to minimum exposure time allowed by hardware."
+            },
+            {
                 .name   = "Target YRES",
                 .priv   = &target_yres,
                 .update = target_yres_update,
@@ -1440,6 +1511,7 @@ static struct menu_entry crop_rec_menu[] =
                 .unit   = UNIT_DEC,
                 .help   = "ADTG 0x8178, 0x8196, 0x82F8",
                 .help2  = "May help pushing the resolution a little. Start with small increments.",
+                .advanced = 1,
             },
             {
                 .name   = "Delta ADTG 1",
@@ -1449,6 +1521,7 @@ static struct menu_entry crop_rec_menu[] =
                 .unit   = UNIT_DEC,
                 .help   = "ADTG 0x8179, 0x8197, 0x82F9",
                 .help2  = "May help pushing the resolution a little. Start with small increments.",
+                .advanced = 1,
             },
             {
                 .name   = "Delta HEAD3",
@@ -1457,6 +1530,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help2  = "May help pushing the resolution a little. Start with small increments.",
+                .advanced = 1,
             },
             {
                 .name   = "Delta HEAD4",
@@ -1465,6 +1539,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help2  = "May help pushing the resolution a little. Start with small increments.",
+                .advanced = 1,
             },
             {
                 .name   = "CMOS[1] lo",
@@ -1472,6 +1547,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 63,
                 .unit   = UNIT_DEC,
                 .help   = "Start scanline (very rough). Use for vertical positioning.",
+                .advanced = 1,
             },
             {
                 .name   = "CMOS[1] hi",
@@ -1480,6 +1556,7 @@ static struct menu_entry crop_rec_menu[] =
                 .unit   = UNIT_DEC,
                 .help   = "End scanline (very rough). Increase if white bar at bottom.",
                 .help2  = "Decrease if you get strange colors as you move the camera.",
+                .advanced = 1,
             },
             {
                 .name   = "CMOS[2]",
@@ -1488,7 +1565,9 @@ static struct menu_entry crop_rec_menu[] =
                 .unit   = UNIT_HEX,
                 .help   = "Horizontal position / binning.",
                 .help2  = "Use for horizontal centering.",
+                .advanced = 1,
             },
+            MENU_ADVANCED_TOGGLE,
             MENU_EOL,
         },
     },
@@ -1527,10 +1606,34 @@ static void center_canon_preview()
     /* center the preview window on the raw buffer */
     /* overriding these registers once will do the trick...
      * ... until the focus box is moved by the user */
+    int old = cli();
+
     uint32_t pos1 = shamem_read(0xc0f383d4);
     uint32_t pos2 = shamem_read(0xc0f383dc);
+
+    if ((pos1 & 0x80008000) == 0x80008000 &&
+        (pos2 & 0x80008000) == 0x80008000)
+    {
+        /* already centered */
+        sei(old);
+        return;
+    }
+
+    int x1 = pos1 & 0xFFFF;
+    int x2 = pos2 & 0xFFFF;
+    int y1 = pos1 >> 16;
+    int y2 = pos2 >> 16;
+
+    if (x2 - x1 != 299 && y2 - y1 != 792)
+    {
+        /* not x5/x10 (values hardcoded for 5D3) */
+        sei(old);
+        return;
+    }
+
     int raw_xc = (146 + 3744) / 2 / 4;  /* hardcoded for 5D3 */
     int raw_yc = ( 60 + 1380) / 2;      /* values from old raw.c */
+
     if (1)
     {
         /* use the focus box position for moving the preview window around */
@@ -1546,10 +1649,6 @@ static void center_canon_preview()
         raw_yc = COERCE(raw_yc, 444, 950);  /* trial and error; broken image at the edges, outside these limits */
         dbg_printf("-> %d,%d using focus box position\n", raw_xc, raw_yc);
     }
-    int x1 = pos1 & 0xFFFF;
-    int x2 = pos2 & 0xFFFF;
-    int y1 = pos1 >> 16;
-    int y2 = pos2 >> 16;
     int current_xc = (x1 + x2) / 2;
     int current_yc = (y1 + y2) / 2;
     int dx = raw_xc - current_xc;
@@ -1564,7 +1663,21 @@ static void center_canon_preview()
         EngDrvOutLV(0xc0f383d4, PACK32(x1 + dx, y1 + dy) | 0x80008000);
         EngDrvOutLV(0xc0f383dc, PACK32(x2 + dx, y2 + dy) | 0x80008000);
     }
+
+    sei(old);
 }
+
+/* faster version than the one from ML core */
+static void set_zoom(int zoom)
+{
+    if (!lv) return;
+    if (RECORDING) return;
+    if (is_movie_mode() && video_mode_crop) return;
+    zoom = COERCE(zoom, 1, 10);
+    if (zoom > 1 && zoom < 10) zoom = 5;
+    prop_request_change_wait(PROP_LV_DISPSIZE, &zoom, 4, 1000);
+}
+
 
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
@@ -1599,8 +1712,9 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             {
                 info_led_on();
                 gui_uilock(UILOCK_EVERYTHING);
-                PauseLiveView();
-                ResumeLiveView();
+                int old_zoom = lv_dispsize;
+                set_zoom(lv_dispsize == 1 ? 5 : 1);
+                set_zoom(old_zoom);
                 gui_uilock(UILOCK_NONE);
                 info_led_off();
             }
@@ -1608,7 +1722,8 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         lv_dirty = 0;
     }
 
-    if (lv_dispsize == 5 && crop_preset == CROP_PRESET_CENTER_Z)
+    if (crop_preset == CROP_PRESET_CENTER_Z &&
+        (lv_dispsize == 5 || lv_dispsize == 10))
     {
         center_canon_preview();
     }
@@ -1854,6 +1969,22 @@ static unsigned int crop_rec_init()
         crop_rec_menu[0].help       = crop_choices_help_basic;
         crop_rec_menu[0].help2      = crop_choices_help2_basic;
     }       
+    else if (is_camera("6D", "1.1.6"))
+    {
+        CMOS_WRITE = 0x2420C;
+        MEM_CMOS_WRITE = 0xE92D41F0;        
+        
+        ADTG_WRITE = 0x24108;
+        MEM_ADTG_WRITE = 0xE92D41F0;
+        
+        is_6D = 1;
+        is_basic = 1;
+        crop_presets                = crop_presets_basic;
+        crop_rec_menu[0].choices    = crop_choices_basic;
+        crop_rec_menu[0].max        = COUNT(crop_choices_basic) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_basic;
+        crop_rec_menu[0].help2      = crop_choices_help2_basic;
+    }      
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
     lvinfo_add_items (info_items, COUNT(info_items));
 
@@ -1872,6 +2003,7 @@ MODULE_INFO_END()
 
 MODULE_CONFIGS_START()
     MODULE_CONFIG(crop_preset_index)
+    MODULE_CONFIG(shutter_range)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
@@ -1881,4 +2013,5 @@ MODULE_CBRS_END()
 
 MODULE_PROPHANDLERS_START()
     MODULE_PROPHANDLER(PROP_LV_ACTION)
+    MODULE_PROPHANDLER(PROP_LV_DISPSIZE)
 MODULE_PROPHANDLERS_END()

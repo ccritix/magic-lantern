@@ -601,7 +601,14 @@ static int calc_res_y(int res_x, int max_res_y, int num, int den, float squeeze)
     }
     
     res_y = MIN(res_y, max_res_y);
-    
+
+    if (OUTPUT_COMPRESSION)
+    {
+        /* no W*H alignment restrictions in this case */
+        /* just make sure res_y is even */
+        return res_y & ~1;
+    }
+
     /* res_x * res_y must be modulo 16 bytes */
     switch (MOD(res_x * BPP / 8, 8))
     {
@@ -693,8 +700,11 @@ void update_resolution_params()
     int den = aspect_ratio_presets_den[aspect_ratio_index];
     res_y = calc_res_y(res_x, max_res_y, num, den, squeeze_factor);
 
-    /* check EDMAC restrictions (W * H multiple of 16 bytes) */
-    ASSERT((res_x * BPP / 8 * res_y) % 16 == 0);
+    if (!OUTPUT_COMPRESSION)
+    {
+        /* check EDMAC restrictions (W * H multiple of 16 bytes) */
+        ASSERT((res_x * BPP / 8 * res_y) % 16 == 0);
+    }
 
     /* frame size */
     /* should be multiple of 512, so there's no write speed penalty (see http://chdk.setepontos.com/index.php?topic=9970 ; confirmed by benchmarks) */
@@ -712,8 +722,18 @@ void update_resolution_params()
 
     if (OUTPUT_COMPRESSION)
     {
-        /* assume the compressed output will not exceed this */
-        max_frame_size = (max_frame_size / 100 * 85) & ~4095;
+        /* assume the compressed output will not exceed uncompressed frame size */
+        /* max frame size for the lossless routine also has unusual alignment requirements */
+        if (max_frame_size > 10*1024*1024)
+        {
+            /* at very high resolutions, restricting compressed frame size to 85%
+             * (relative to uncompressed size) will help allocating more buffers */
+            max_frame_size = (max_frame_size / 100 * 85) & ~4095;
+        }
+        else
+        {
+            max_frame_size &= ~4095;
+        }
     }
 
     update_cropping_offsets();
@@ -2678,7 +2698,7 @@ static void compress_task()
 
             int compressed_size = lossless_compress_raw_rectangle(
                 outSuite, fullSizeBuffer,
-                raw_info.width, skip_x, skip_y,
+                raw_info.width, (skip_x + 7) & ~7, skip_y & ~1,
                 res_x, res_y
             );
 

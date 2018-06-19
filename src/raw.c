@@ -109,16 +109,9 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define DEFAULT_RAW_BUFFER_SIZE (0x4e000000 - 0x4d31a000)
 #endif
 
-#ifdef CONFIG_5D3
-/* for higher resolutions we'll allocate a new buffer, as needed */
-#define CONFIG_ALLOCATE_RAW_LV_BUFFER
-/* buffer size for a full-res LiveView image */
-#define RAW_LV_BUFFER_ALLOC_SIZE ((0x527 + 2612) * (0x2FE - 0x18)*8 * 14/8)
-#endif
-
-
 #ifdef CONFIG_650D
 #define DEFAULT_RAW_BUFFER MEM(0x25B00 + 0x3C)
+#define DEFAULT_RAW_BUFFER_SIZE (0x47F00000 - 0x46798080)
 #endif
 
 #ifdef CONFIG_700D
@@ -133,6 +126,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_6D
 #define DEFAULT_RAW_BUFFER MEM(0x76d6c + 0x2C)
+#define DEFAULT_RAW_BUFFER_SIZE (0x4CFF0000 - 0x4B328000)
 #endif
 
 #ifdef CONFIG_70D
@@ -141,6 +135,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_100D
 #define DEFAULT_RAW_BUFFER MEM(0x6733C + 0x40)
+#define DEFAULT_RAW_BUFFER_SIZE (0x46CC0000 - 0x46798100)
 #endif
 
 #ifdef CONFIG_1100D
@@ -153,6 +148,12 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #warning FIXME: using dummy DEFAULT_RAW_BUFFER_SIZE
 #define DEFAULT_RAW_BUFFER_SIZE (9*1024*1024)
 #endif
+
+/* for higher resolutions we'll allocate a new buffer, as needed */
+/* all cameras using CONFIG_EDMAC_RAW_SLURP should be able to handle this */
+/* SRM_BUFFER_SIZE matches the full-res image size, as 14-bit uncompressed (actually a bit larger, but not much) */
+#define CONFIG_ALLOCATE_RAW_LV_BUFFER
+#define RAW_LV_BUFFER_ALLOC_SIZE (SRM_BUFFER_SIZE - 0x1000)
 
 
 #else // "Traditional" RAW LV buffer detection (no CONFIG_EDMAC_RAW_SLURP)
@@ -536,18 +537,22 @@ static int raw_lv_get_resolution(int* width, int* height)
     *width  = ((bot_right & 0xFFFF) - (top_left & 0xFFFF)) * column_factor;
     *height = (bot_right >> 16)     - (top_left >> 16);
 
-    /* height may be a little different; 5D3 needs to subtract 1,
-     * EOSM/700D/650D needs to add 1, 100D usually gives exact value
-     * but tests show better results if we subtract 1.
-     * is it really important to have exact height?
-     * for some raw types, yes! */
+    /* height may be a little different
+     * 5D3 needs to subtract 1 to match EDMAC; without height-1, raw type DEFCORRE
+     *      (8..12-bit lossless) will only work every other frame (also OK at lower heights)
+     * 100D/M2 report exact value (matches EDMAC), but this results in hiccups in x5 zoom
+     *      these hiccups disappear when using height-1 or lower
+     *      (100D 720p: top=28 active=696 y2=724 above=727 adjusted=726)
+     * EOSM/700D/650D needs to add 1 to match EDMAC - no hiccups reported
+     *      however, height+1 would give 3 invalid lines at the bottom
+     *      (650D 720p: top=28 active=696 y2=724 above=726 adjusted=725)
+     * see also https://a1ex.magiclantern.fm/bleeding-edge/raw/raw_res.txt */
 
-#if defined(CONFIG_5D3) || defined(CONFIG_100D)
-    (*height)--;
-#endif
-
-#if defined(CONFIG_700D) || defined(CONFIG_650D)
+#if defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_EOSM)
+    /* required to squeeze 1080p in x5 zoom */
     (*height)++;
+#elif defined(CONFIG_DIGIC_V)
+    (*height)--;
 #endif
 
 #ifdef CONFIG_EOSM
@@ -557,7 +562,6 @@ static int raw_lv_get_resolution(int* width, int* height)
     {
         *height = 727;
     }
-    else (*height)++;
 #endif
 
     return 1;
@@ -800,14 +804,23 @@ int raw_update_params_work()
         skip_top    =  26;
         skip_left   =  zoom ? 64: 74;
         skip_right  = 0;
-        skip_bottom = 0;
         #endif
 
         #if defined(CONFIG_EOSM) || defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_100D)
-        skip_top    = zoom ? 26 : 28;
+        skip_top    = 28;
         skip_left   = 72;
         skip_right  = 0;
-        skip_bottom = zoom ? 0 : mv1080crop ? 2 : 4;
+        #ifdef CONFIG_100D
+        /* 720p: H=727-1, last valid line at y=723, 2 white lines at bottom */
+        /* VRAM dumps, please: http://www.magiclantern.fm/forum/index.php?topic=12375.0 */
+        skip_bottom = zoom ? 0 : mv1080crop ? 0 : mv720 ? 2 : 0;
+        #else
+        /* 720p: H=726+1, last valid line at y=723, 3 white lines at bottom */
+        /* 1080p: H=1189+1, 2 white lines at bottom */
+        /* x5 zoom: H=1107+1, no bad lines at bottom; 1108-28=1080 */
+        /* 1080 crop: H=1059+1, no bad lines at bottom */
+        skip_bottom = zoom ? 0 : mv1080crop ? 0 : mv720 ? 3 : 2;
+        #endif
         #endif
 
         #ifdef CONFIG_7D
@@ -944,7 +957,7 @@ int raw_update_params_work()
     skip_left   &= ~1;
     skip_right  &= ~1;
     skip_top    &= ~1;
-    skip_bottom &= ~1;
+    //skip_bottom &= ~1;
 
     if (width != raw_info.width || height != raw_info.height)
     {
