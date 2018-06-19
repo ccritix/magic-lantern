@@ -310,6 +310,7 @@ struct frame_slot
                            max_frame_size for uncompressed data, lower for compressed */
     int payload_size;   /* size effectively used by image data */
     int frame_number;   /* from 0 to n */
+    int is_meta;        /* when used by some other module and does not contain VIDF, disables consistency checks used for video frame slots */
     enum {
         SLOT_FREE = 0x00,          /* available for image capture */
         SLOT_RESERVED = 0x01,      /* it may become available when resizing the previous slots */
@@ -317,12 +318,9 @@ struct frame_slot
         SLOT_LOCKED = 0x03,        /* locked by some other module */
         SLOT_FULL = 0x04,          /* contains fully captured image data */
         SLOT_WRITING = 0x05,       /* it's being saved to card */
-        SLOT_FULL_META = 0x14,     /* contains fully captured meta data */
     } status;
 };
 
-/* introduced to detect both SLOT_FULL/SLOT_FULL_META */
-#define SLOT_MASK(x) ((x) & 0x0F)
 
 static GUARDED_BY(settings_sem) struct memSuite * shoot_mem_suite = 0;  /* memory suite for our buffers */
 static GUARDED_BY(settings_sem) struct memSuite * srm_mem_suite = 0;
@@ -511,7 +509,8 @@ void mlv_rec_release_slot(int32_t slot, uint32_t write)
     if(write)
     {
         uint32_t old_int = cli();
-        slots[slot].status = SLOT_FULL_META;
+        slots[slot].status = SLOT_FULL;
+        slots[slot].is_meta = 1;
         writing_queue[writing_queue_tail] = slot;
         INC_MOD(writing_queue_tail, COUNT(writing_queue));
         sei(old_int);
@@ -1652,7 +1651,7 @@ static void show_buffer_status()
             int color = slots[i].status == SLOT_FREE      ? COLOR_GRAY(10) :
                         slots[i].status == SLOT_WRITING   ? COLOR_GREEN1 :
                         slots[i].status == SLOT_FULL      ? COLOR_LIGHT_BLUE :
-                        slots[i].status == SLOT_FULL_META ? COLOR_BLUE :
+                        slots[i].is_meta                  ? COLOR_BLUE :
                         slots[i].status == SLOT_RESERVED  ? COLOR_GRAY(50) :
                         slots[i].status == SLOT_LOCKED    ? COLOR_YELLOW :
                                                             COLOR_RED ;
@@ -2415,7 +2414,7 @@ void FAST pre_record_queue_frames()
     {
         /* consecutive frames tend to be grouped, 
          * so this loop will not run every time */
-        while (SLOT_MASK(slots[i].status) != SLOT_FULL || slots[i].frame_number != current_frame)
+        while (slots[i].status != SLOT_FULL || slots[i].frame_number != current_frame)
         {
             INC_MOD(i, total_slot_count);
         }
@@ -3365,7 +3364,7 @@ void raw_video_rec_task()
         /* check whether the first frame was filled by EDMAC (it may be sent in advance) */
         /* we need at least one valid frame */
         
-        if (SLOT_MASK(slots[first_slot].status) != SLOT_FULL)
+        if (slots[first_slot].status != SLOT_FULL)
         {
             msleep(20);
             continue;
@@ -3379,7 +3378,7 @@ void raw_video_rec_task()
         {
             int slot_index = writing_queue[i];
 
-            if (SLOT_MASK(slots[slot_index].status) != SLOT_FULL)
+            if (slots[slot_index].status != SLOT_FULL)
             {
                 /* frame not yet ready - stop here */
                 ASSERT(i != w_head);
@@ -3387,7 +3386,7 @@ void raw_video_rec_task()
             }
 
             /* consistency checks for VIDF slots */
-            if (slots[slot_index].status != SLOT_FULL_META)
+            if (!slots[slot_index].is_meta)
             {
                 ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockSize == (uint32_t) slots[slot_index].size);
                 ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->frameNumber == (uint32_t) slots[slot_index].frame_number - 1);
@@ -3448,12 +3447,12 @@ void raw_video_rec_task()
         {
             int slot_index = writing_queue[i];
 
-            if (OUTPUT_COMPRESSION)
+            if (OUTPUT_COMPRESSION && !slots[slot_index].is_meta)
             {
                 ASSERT(slots[slot_index].size < max_frame_size);
             }
 
-            if (SLOT_MASK(slots[slot_index].status) != SLOT_FULL)
+            if (slots[slot_index].status != SLOT_FULL)
             {
                 bmp_printf(FONT_LARGE, 30, 70, "Slot check error");
                 beep();
@@ -3512,7 +3511,7 @@ void raw_video_rec_task()
             
             int slot_index = writing_queue[i];
 
-            if (slots[slot_index].status != SLOT_FULL_META)
+            if (!slots[slot_index].is_meta)
             {
                 if (frame_check_saved(slot_index) != 1)
                 {
@@ -3522,11 +3521,16 @@ void raw_video_rec_task()
                 
                 if (slots[slot_index].frame_number != last_processed_frame + 1)
                 {
-                    bmp_printf(FONT_MED, 30, 110, "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1);
+                    bmp_printf(FONT_MED, 30, 110, "Frame order error: slot %d, state: %d, frame %d, expected %d ", slot_index, slots[slot_index].status, slots[slot_index].frame_number, last_processed_frame + 1);
                     beep();
                 }
                 last_processed_frame++;
             }
+            else
+            {
+                slots[slot_index].is_meta = 0;
+            }
+            
             free_slot(slot_index);
         }
         
@@ -3603,14 +3607,14 @@ abort_and_check_early_stop:
 
         int slot_index = writing_queue[writing_queue_head];
 
-        if (SLOT_MASK(slots[slot_index].status) != SLOT_FULL)
+        if (slots[slot_index].status != SLOT_FULL)
         {
             bmp_printf(FONT_MED, 30, 110, "Slot %d: frame %d not saved ", slot_index, slots[slot_index].frame_number);
             beep();
         }
 
         /* video frame consistency checks only for VIDF */
-        if(slots[slot_index].status != SLOT_FULL_META)
+        if(!slots[slot_index].is_meta)
         {
             if (frame_check_saved(slot_index) != 1)
             {
