@@ -156,6 +156,7 @@ static CONFIG_INT("raw.use.srm.memory", use_srm_memory, 1);
 static CONFIG_INT("raw.small.hacks", small_hacks, 1);
 
 static CONFIG_INT("raw.h264.proxy", h264_proxy_menu, 0);
+static CONFIG_INT("raw.sync_beep", sync_beep, 1);
 
 static CONFIG_INT("raw.output_format", output_format, 3);
 #define OUTPUT_14BIT_NATIVE 0
@@ -3296,7 +3297,10 @@ void raw_video_rec_task()
     raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
 
     /* try a sync beep (not very precise, but better than nothing) */
-    beep();
+    if(sync_beep)
+    {
+        beep();
+    }
 
     /* some modules may do some specific stuff right when we started recording */
     if(!pre_record)
@@ -3861,6 +3865,13 @@ static struct menu_entry raw_video_menu[] =
                 .advanced = 1,
             },
             {
+                .name = "Sync beep",
+                .priv = &sync_beep,
+                .max    = 1,
+                .help = "Beeps on recording start for better sync.",
+                .advanced = 1,
+            },
+            {
                 .name   = "Show EDMAC",
                 .priv   = &show_edmac,
                 .max    = 1,
@@ -4293,6 +4304,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(use_srm_memory)
     MODULE_CONFIG(small_hacks)
     MODULE_CONFIG(warm_up)
+    MODULE_CONFIG(sync_beep)
     MODULE_CONFIG(output_format)
     MODULE_CONFIG(h264_proxy_menu)
 MODULE_CONFIGS_END()
