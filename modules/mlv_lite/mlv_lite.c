@@ -2861,7 +2861,7 @@ unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
     panning_update();
 
     if (!RAW_IS_RECORDING) return 0;
-    if (!raw_lv_settings_still_valid()) { raw_recording_state = RAW_FINISHING; mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL); return 0; }
+    if (!raw_lv_settings_still_valid()) { raw_recording_state = RAW_FINISHING; return 0; }
     if (buffer_full) return 0;
 
     /* double-buffering */
@@ -3342,7 +3342,6 @@ void raw_video_rec_task()
                 /* the video will be incomplete */
                 NotifyBox(5000, "Emergency Stop");
                 raw_recording_state = RAW_FINISHING;
-                mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
                 wait_lv_frames(2);
                 writing_queue_head = writing_queue_tail;
                 break;
@@ -3704,7 +3703,6 @@ void raw_start_stop()
     {
         printf("Stopping raw recording...\n");
         raw_recording_state = RAW_FINISHING;
-        mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
         beep();
     }
     else
