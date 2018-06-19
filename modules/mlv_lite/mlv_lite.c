@@ -349,6 +349,7 @@ static GUARDED_BY(RawRecTask)   int64_t written_chunk = 0;          /* same for 
 static GUARDED_BY(RawRecTask)   int writing_time = 0;               /* time spent by raw_video_rec_task in FIO_WriteFile calls */
 static GUARDED_BY(RawRecTask)   int idle_time = 0;                  /* time spent by raw_video_rec_task doing something else */
 static volatile                 uint32_t edmac_active = 0;
+static volatile                 uint32_t skip_frames = 0;
 
 /* for compress_task */
 static struct msg_queue * compress_mq = 0;
@@ -375,6 +376,13 @@ static int raw_rec_should_preview(void);
 struct msg_queue *mlv_block_queue = NULL;
 /* registry of all other modules CBRs */
 static cbr_entry_t registered_cbrs[32];
+
+
+/* allow modules to set how many frames should be skipped */
+void mlv_rec_skip_frames(uint32_t count)
+{
+    skip_frames = count;
+}
 
 /* register a callback function that is called when one of the events specified happens.
    event can be a OR'ed list of the events specified in mlv_rec_interface.h
@@ -2863,6 +2871,12 @@ unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
     if (!RAW_IS_RECORDING) return 0;
     if (!raw_lv_settings_still_valid()) { raw_recording_state = RAW_FINISHING; return 0; }
     if (buffer_full) return 0;
+    
+    if(skip_frames > 0)
+    {
+        skip_frames--;
+        return 0;
+    }
 
     /* double-buffering */
     raw_lv_redirect_edmac(fullsize_buffers[fullsize_buffer_pos % 2]);
