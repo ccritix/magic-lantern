@@ -156,4 +156,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
 
 /* to undo, use unpatch_memory(addr) */
 
+/* cache sync helper */
+int _patch_sync_caches(int also_data);
+
 #endif
