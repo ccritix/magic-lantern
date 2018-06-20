@@ -877,7 +877,7 @@ static int res3k_reg(int reg)
 
            switch (regs[reg].reg)
            {
-                case 0x6804:                
+                case 0x6804:               
                     return 0xa1b0421;       /* 4056x2552 9fps 14-bit lossless */
 	    	case 0x6824:
 		    return 0x4ca;
@@ -907,7 +907,7 @@ static int res3k_reg(int reg)
             case 0x82b6:
 	       return 0xbf4;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
             case 0x8172:
-	       return 0x8fd; 
+	       return 0x8fd;
       	    case 0x8178:
 	       return 0x8fd;
 
@@ -923,22 +923,38 @@ static int res3k_reg(int reg)
        {
            switch (regs[reg].reg)
            {
+		case 5:
+	  	    return 0x200;       /* CMOS[5]: ISO related? */
                  case 7:
-		    return 0xaa9;       /* CMOS[7]: ISO related? */
+		    return 0xf20;       /* CMOS[7]: ISO related? */
            }
        }
+
        if (regs[reg].dst == 0xC0F0)
        {
 
            switch (regs[reg].reg)
            {
-                case 0x6804:                /* C0F06804 - raw resolution */
-                   return 0x5490298;       /* 2520x1320, works */
-                /* return 0x5590298;        2520x1336, corruption */
-                case 0x6014:
-                    return 0x745;
+                case 0x6804:               
+                    return 0xa1b0422;       /* 4096x2552 9fps 14-bit lossless */
+	    	case 0x6824:
+		    return 0x4ca;
+	    	case 0x6828:
+		    return 0x4ca;
+	    	case 0x682c:
+		    return 0x4ca;
+	    	case 0x6830:
+		    return 0x4ca;
+	    	case 0x6008:
+		    return 0x45b045b;
+	    	case 0x600c:
+		    return 0x45b045b;
+	    	case 0x6010: 	
+		    return 0x45b;
+	    	case 0x6014:
+		    return 0xbd4;
 	    	case 0x713c:
-		    return 0x535;
+		    return 0xa55;
             }
 
         }
@@ -946,12 +962,13 @@ static int res3k_reg(int reg)
         {
             switch (regs[reg].reg)
             {
-                case 0x82b6:
-	           return 0x8f4;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
-            	case 0x8172:
-	           return 0x87c; /* without this, you get some weird artifacts; this should only go to ADTG2, not 4 */
-	    	case 0x8178:
-	           return 0x87c;
+            case 0x82b6:
+	       return 0xbf4;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
+            case 0x8172:
+	       return 0x8fd;
+      	    case 0x8178:
+	       return 0x8fd;
+
             }
 
         }
