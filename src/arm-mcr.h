@@ -126,7 +126,7 @@ static inline void _flush_caches()
 }
 
 /* write back all data into RAM and mark as invalid in data cache */
-static inline void clean_d_cache()
+static inline void _clean_d_cache()
 {
     /* assume 8KB data cache */
     /* http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0092b/ch04s03s04.html */
@@ -151,7 +151,7 @@ static inline void clean_d_cache()
 }
 
 /* mark all entries in I cache as invalid */
-static inline void flush_i_cache()
+static inline void _flush_i_cache()
 {
     asm(
         "mov r0, #0\n"
@@ -235,16 +235,29 @@ sei( uint32_t old_irq )
 }
 
 /* ensure data is written into RAM and the instruction cache is empty so everything will get fetched again */
+static inline void _sync_caches()
+{
+    uint32_t old = cli();
+    _clean_d_cache();
+    _flush_i_cache();
+    sei(old);
+}
+
 /* also reapply cache patches, if needed */
 static inline void sync_caches()
 {
     uint32_t old = cli();
-    clean_d_cache();
-    flush_i_cache();
 
     /* this function is only present on main ML (not installer / reboot shim / minimal / etc) */
-    extern int __attribute__((weak)) _reapply_cache_patches ();
-    _reapply_cache_patches();
+    extern int __attribute__((weak)) _patch_sync_caches(int also_data);
+    if (_patch_sync_caches)
+    {
+        _patch_sync_caches(1);
+    }
+    else
+    {
+        _sync_caches();
+    }
 
     sei(old);
 }
