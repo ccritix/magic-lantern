@@ -175,10 +175,19 @@ static int autodetect_white_level()
 
 static void FAST ob_mean_stdev(float* mean, float* stdev)
 {
+    /* try looking at the left black bar first */
     int x1 = 16;
     int x2 = raw_info.active_area.x1 - 24;
     int y1 = raw_info.active_area.y1 + 20;
     int y2 = raw_info.active_area.y2 - 20;
+
+    if (x1 >= x2)
+    {
+        /* left bar too small? try the top one */
+        x2 = raw_info.active_area.x2 - 16;
+        y1 = 4;
+        y2 = raw_info.active_area.y1 - 8;
+    }
 
     autodetect_black_level_calc(x1, x2, y1, y2, 1, 1, mean, stdev, 0);
 }
