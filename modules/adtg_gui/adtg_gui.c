@@ -38,20 +38,25 @@ static struct known_reg known_regs[] = {
     {DST_CMOS,      4, 0, "ISO-related?"},
     {DST_CMOS,      5, 0, "Fine vertical offset, black area maybe"},
     {DST_CMOS,      6, 0, "ISO 50 or timing related: FFF => darker image"},
-    {DST_CMOS,      7, 0, "Looks like the cmos is dieing (g3gg0)"},
-    {DST_ADTG, 0x8000, 0, "Causes interlacing (g3gg0)"},
+    {DST_CMOS,      7, 0, "5D3: image fading out; 6D, 700D: vertical offset"},
+    {DST_CMOS,      8, 0, "Unknown, used on 6D"},
+    {DST_ADTG, 0x8000, 0, "6 = pixel binning (1x), 5 = 1:1 crop"},
     {DST_ADTG, 0x8806, 0, "Causes interlacing artifacts"},
     {DST_ADTG, 0x800C, 0, "Line skipping factor (2 = 1080p, 4 = 720p, 0 = zoom)"},
     {DST_ADTG, 0x805E, 1, "Shutter blanking for x5/x10 zoom"},
+    {DST_ADTG, 0x805F, 1, "Shutter blanking for x5/x10 zoom"},
     {DST_ADTG, 0x8060, 1, "Shutter blanking for LiveView 1x"},
-    {DST_ADTG, 0x8172, 1, "Line count to sample. same as video resolution (g3gg0)"},
-    {DST_ADTG, 0x8178, 1, "dwSrFstAdtg1[4], Line count + 1"},
-    {DST_ADTG, 0x8179, 1, "dwSrFstAdtg1[5]"},
-    {DST_ADTG, 0x8196, 1, "dwSrFstAdtg1[2], Line count + 1"},
-    {DST_ADTG, 0x8197, 1, "dwSrFstAdtg1[3]"},
-    {DST_ADTG, 0x82F9, 1, "dwSrFstAdtg1 and FPS related"},
+    {DST_ADTG, 0x8061, 1, "Shutter blanking for LiveView 1x"},
+    {DST_ADTG, 0x8172, 1, "PowerSaveTiming 'on', set to Line count + 1"},   /* 6D, 700D */
+    {DST_ADTG, 0x8178, 1, "PowerSaveTiming 'on', set to Line count + 1"},   /* 5D3, 6D, 700D */
+    {DST_ADTG, 0x8196, 1, "PowerSaveTiming 'on', set to Line count + 1"},   /* 5D3 */
+    {DST_ADTG, 0x82B6, 1, "PowerSaveTiming 'on'? set to Line count - 1"},   /* 700D */
+    {DST_ADTG, 0x8173, 1, "PowerSaveTiming 'off', should be slightly below FPS timer B"},   /* 6D, 700D */
+    {DST_ADTG, 0x8179, 1, "PowerSaveTiming 'off', should be slightly below FPS timer B"},   /* 5D3, 6D, 700D */
+    {DST_ADTG, 0x8197, 1, "PowerSaveTiming 'off', should be slightly below FPS timer B"},   /* 5D3 */
+    {DST_ADTG, 0x82F8, 1, "ReadOutTiming, set to Line count, darker image below"},
+    {DST_ADTG, 0x82F9, 1, "ReadOutTiming related, set to FPS timer B - 1"},
     {DST_ADTG, 0x82F3, 1, "Line count that gets darker (top optical black related)"},
-    {DST_ADTG, 0x82F8, 1, "Line count"},
     {DST_ADTG, 0x8830, 0, "Only slightly changes the color of the image (g3gg0)"},
     {DST_ADTG, 0x8880, 0, "Black level (reference value for the feedback loop?)"},
 
@@ -5569,6 +5574,8 @@ static MENU_UPDATE_FUNC(show_update)
                             strstr(known_regs[i].description, "eight") ||
                             strstr(known_regs[i].description, "ine count") ||
                             strstr(known_regs[i].description, "dwSrFstAdtg") ||
+                            strstr(known_regs[i].description, "Timing") ||
+                            strstr(known_regs[i].description, "HEAD") ||
                         0)
                         {
                             visible = 1;
