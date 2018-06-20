@@ -978,8 +978,17 @@ static int res3k_reg(int reg)
 
     }
 
-    else if (is_camera("6D", "1.1.6"))
+else if (is_camera("6D", "1.1.6"))
     {
+
+ if (regs[reg].dst == DST_CMOS)
+       {
+           switch (regs[reg].reg)
+           {
+                 case 7:
+		    return 0x268;       /* CMOS[7]: White bar at the bottom removement */
+           }
+       }
 
        if (regs[reg].dst == 0xC0F0)
        {
@@ -987,23 +996,40 @@ static int res3k_reg(int reg)
            switch (regs[reg].reg)
            {
                 case 0x6804:               
-                    return 0x5040298;       
+                    return 0x4e502a0;       
                 case 0x6014:
-                   return 0x747; 
-                case 0x6713c:
-                   return 0x535;
-      
+                   return 0x5ba;
+                case 0x713c:               
+                    return 0x516;       
+                case 0x7150:
+                   return 0x4e5;
+                case 0x6010:               
+                    return 0x2b9;       
+                case 0x6008:
+                   return 0x2b902b9;
+                case 0x600c:
+                   return 0x2b902b9;
+             
+               
             }
 
         }
         else if (regs[reg].dst == 2)        /* ADTG 2 */
-        { 
+        {
             switch (regs[reg].reg)
             {
                  case 0x8172:
-                    return 0x4e6;
+                    return 0x695;
                  case 0x8178:
-                    return 0x4e6;
+                    return 0x695;
+                 case 0x82f8:
+                    return 0x697;
+                 case 0x8179:
+                    return 0x51c;
+                 case 0x82f9:
+                    return 0x560;
+                 case 0x800c:
+                    return 0x0;
                  case 0x8000:
                     return 0x5;
 
