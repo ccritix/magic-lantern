@@ -889,13 +889,12 @@ static int res3k_reg(int reg)
         {
             switch (regs[reg].reg)
             {
-            case 0x82b6:
-	       return 0x8f4;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
-            case 0x8172:
-	       return 0x87c; /* without this, you get some weird artifacts; this should only go to ADTG2, not 4 */
-	    case 0x8178:
-	       return 0x87c;
-
+            	case 0x82b6:
+	       	    return 0x8f4;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
+            	case 0x8172:
+	           return 0x87c; /* without this, you get some weird artifacts; this should only go to ADTG2, not 4 */
+	    	case 0x8178:
+	           return 0x87c;
             }
 
         }
@@ -917,9 +916,9 @@ static int res3k_reg(int reg)
 
            switch (regs[reg].reg)
            {
-            case 0x6804:                /* C0F06804 - raw resolution */
-               return 0x5490298;       /* 2520x1320, works */
-            /* return 0x5590298;        2520x1336, corruption */
+                case 0x6804:                /* C0F06804 - raw resolution */
+                   return 0x5490298;       /* 2520x1320, works */
+                /* return 0x5590298;        2520x1336, corruption */
                 case 0x6014:
                     return 0x745;
 	    	case 0x713c:
@@ -931,13 +930,12 @@ static int res3k_reg(int reg)
         {
             switch (regs[reg].reg)
             {
-            case 0x82b6:
-	       return 0x8f4;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
-            case 0x8172:
-	       return 0x87c; /* without this, you get some weird artifacts; this should only go to ADTG2, not 4 */
-	    case 0x8178:
-	       return 0x87c;
-
+                case 0x82b6:
+	           return 0x8f4;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
+            	case 0x8172:
+	           return 0x87c; /* without this, you get some weird artifacts; this should only go to ADTG2, not 4 */
+	    	case 0x8178:
+	           return 0x87c;
             }
 
         }
@@ -977,18 +975,17 @@ static int res3k_reg(int reg)
         }
 
     }
-
-else if (is_camera("6D", "1.1.6"))
+    else if (is_camera("6D", "1.1.6"))
     {
 
- if (regs[reg].dst == DST_CMOS)
-       {
+     if (regs[reg].dst == DST_CMOS)
+         {
            switch (regs[reg].reg)
            {
                  case 7:
 		    return 0x268;       /* CMOS[7]: White bar at the bottom removement */
            }
-       }
+         }
 
        if (regs[reg].dst == 0xC0F0)
        {
@@ -1008,8 +1005,7 @@ else if (is_camera("6D", "1.1.6"))
                 case 0x6008:
                    return 0x2b902b9;
                 case 0x600c:
-                   return 0x2b902b9;
-             
+                   return 0x2b902b9;            
                
             }
 
