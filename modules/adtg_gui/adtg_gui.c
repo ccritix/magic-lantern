@@ -603,6 +603,15 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* addr, uin
         return;
     }
 
+    if ((dst == 0xC0F0 && (reg & 0xF000) == 0x4000) ||  /* EDMAC block 1: 0xC0F04xnn */
+        (dst == 0xC0F2 && (reg & 0xF000) == 0x6000) ||  /* EDMAC block 2: 0xC0F26xnn */
+        (dst == 0xC0F3 && (reg & 0xF000) == 0x0000) ||  /* EDMAC block 3: 0xC0F30xnn */
+        0)
+    {
+        /* ignore EDMAC activity */
+        return;
+    }
+
     int32_t val = *(int32_t*)val_ptr;
     uint32_t context = 
         unique_key == UNIQUE_REG_AND_CALLER_PC ? caller_pc :
