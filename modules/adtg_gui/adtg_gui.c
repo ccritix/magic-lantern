@@ -860,7 +860,7 @@ static int res3k_reg(int reg)
 
     if (is_camera("100D", "1.0.1"))
     {
-
+/* Resolutions https://www.magiclantern.fm/forum/index.php?topic=16040.msg202808#msg202808 */
        if (regs[reg].dst == DST_CMOS)
        {
            switch (regs[reg].reg)
@@ -902,7 +902,7 @@ static int res3k_reg(int reg)
     }
     else if (is_camera("EOSM", "2.0.2"))
     {
-
+/* Resolutions https://www.magiclantern.fm/forum/index.php?topic=9741.msg202983#msg202983 */
        if (regs[reg].dst == DST_CMOS)
        {
            switch (regs[reg].reg)
