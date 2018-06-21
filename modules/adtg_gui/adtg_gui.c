@@ -17,7 +17,6 @@
 #define DST_CMOS16  0x0F00
 #define DST_CMOS    0x00F0
 #define DST_ADTG    0x000F      /* any ADTG */
-#define DST_ANY     0xFFFF
 #define DST_ENGIO       0xC0F0
 #define DST_ENGIO_MASK  0xFFF0
 
@@ -422,8 +421,7 @@ static int known_match(int i, int reg)
     return
         (
             (known_regs[i].dst == regs[reg].dst) || 
-            (known_regs[i].dst == DST_ADTG && regs[reg].dst == (regs[reg].dst & 0xF)) || 
-            (known_regs[i].dst == DST_ANY)
+            (known_regs[i].dst == DST_ADTG && regs[reg].dst == (regs[reg].dst & 0xF))
         )
         &&
         (
