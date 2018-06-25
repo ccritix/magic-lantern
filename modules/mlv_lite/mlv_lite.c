@@ -3068,7 +3068,9 @@ void finish_chunk(FILE* f)
     chunk_frame_count = 0;
 }
 
-/* This saves a group of frames, also taking care of file splitting if required */
+/* This saves a group of frames, also taking care of file splitting if required.
+   Parameter num_frames is meant for counting the VIDF blocks for updating MLVI header.
+ */
 static REQUIRES(RawRecTask)
 int write_frames(FILE** pf, void* ptr, int group_size, int num_frames)
 {
@@ -3373,6 +3375,7 @@ void raw_video_rec_task()
         int last_grouped = w_head;
         
         int group_size = 0;
+        int meta_slots = 0;
         for (int i = w_head; i != w_tail; INC_MOD(i, COUNT(writing_queue)))
         {
             int slot_index = writing_queue[i];
@@ -3394,6 +3397,11 @@ void raw_video_rec_task()
                 {
                     ASSERT(slots[slot_index].size < max_frame_size);
                 }
+            }
+            else
+            {
+                /* count the number of slots being non-VIDF */
+                meta_slots++;
             }
 
             /* TBH, I don't care if these are part of the same group or not,
@@ -3466,7 +3474,7 @@ void raw_video_rec_task()
         idle_time += t0 - last_write_timestamp;
 
         /* save a group of frames and measure execution time */
-        if (!write_frames(&f, ptr, group_size, num_frames))
+        if (!write_frames(&f, ptr, group_size, num_frames - meta_slots))
         {
             goto abort;
         }
@@ -3673,7 +3681,7 @@ abort_and_check_early_stop:
         slots[slot_index].status = SLOT_WRITING;
         
         if (indicator_display == INDICATOR_RAW_BUFFER) show_buffer_status();
-        if (!write_frames(&f, slots[slot_index].ptr, slots[slot_index].size, 1))
+        if (!write_frames(&f, slots[slot_index].ptr, slots[slot_index].size, slots[slot_index].is_meta ? 0 : 1))
         {
             NotifyBox(5000, "Card Full");
             beep();
