@@ -3064,7 +3064,7 @@ void finish_chunk(FILE* f)
     file_hdr.videoFrameCount = chunk_frame_count;
     
     /* call the CBRs which may update fields */
-    mlv_rec_call_cbr(MLV_REC_EVENT_BLOCK, &file_hdr);
+    mlv_rec_call_cbr(MLV_REC_EVENT_BLOCK, (mlv_hdr_t *)&file_hdr);
     
     FIO_SeekSkipFile(f, 0, SEEK_SET);
     FIO_WriteFile(f, &file_hdr, file_hdr.blockSize);
