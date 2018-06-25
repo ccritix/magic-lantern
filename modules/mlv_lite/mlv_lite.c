@@ -3281,6 +3281,9 @@ void raw_video_rec_task()
         goto cleanup;
     }
 
+    /* signal that we are starting, call this before any memory allocation to give CBR the chance to allocate memory */
+    mlv_rec_call_cbr(MLV_REC_EVENT_STARTING, NULL);
+    
     init_mlv_chunk_headers(&raw_info);
     written_total = written_chunk = write_mlv_chunk_headers(f);
     if (!written_chunk)
@@ -3288,9 +3291,6 @@ void raw_video_rec_task()
         NotifyBox(5000, "Card Full");
         goto cleanup;
     }
-
-    /* signal that we are starting, call this before any memory allocation to give CBR the chance to allocate memory */
-    mlv_rec_call_cbr(MLV_REC_EVENT_STARTING, NULL);
     
     hack_liveview(0);
     liveview_hacked = 1;
