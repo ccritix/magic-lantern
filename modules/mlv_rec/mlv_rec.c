@@ -126,6 +126,8 @@ static uint32_t mlv_rec_dma_active = 0;
 static uint32_t mlv_writer_threads = 2;
 static uint32_t mlv_max_filesize = 0xFFFFFFFF;
 static uint32_t abort_test = 0;
+static uint32_t skip_frames = 0;
+
 
 uint32_t raw_rec_trace_ctx = TRACE_ERROR;
 
@@ -323,6 +325,12 @@ static void mlv_rec_call_cbr(uint32_t event, mlv_hdr_t *hdr)
             registered_cbrs[pos].cbr(event, registered_cbrs[pos].ctx, hdr);
         }
     }
+}
+
+/* allow modules to set how many frames should be skipped */
+void mlv_rec_skip_frames(uint32_t count)
+{
+    skip_frames = count;
 }
 
 
@@ -2228,6 +2236,11 @@ static int32_t FAST process_frame()
         frame_count++;
         return 0;
     }
+    
+    if(frame_count == 1)
+    {
+        mlv_rec_call_cbr(MLV_REC_EVENT_STARTED, NULL);
+    }
 
     /* where to save the next frame? */
     capture_slot = choose_next_capture_slot(capture_slot);
@@ -2298,6 +2311,13 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
         return 0;
     }
     
+	/* other modules can ask for some frames to skip, e.g. for syncing audio */
+    if(skip_frames > 0)
+    {
+        skip_frames--;
+        return 0;
+    }
+    
     /* if previous DMA isn't finished yet, skip frame */
     if(mlv_rec_dma_active)
     {
@@ -2310,7 +2330,6 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
         {
             edmac_timeouts = 0;
             raw_recording_state = RAW_FINISHING;
-            mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
         }
         return 0;
     }
@@ -2329,7 +2348,6 @@ static unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
     if(!raw_lv_settings_still_valid())
     {
         raw_recording_state = RAW_FINISHING;
-        mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
         return 0;
     }
     
@@ -2980,7 +2998,6 @@ static void raw_writer_task(uint32_t writer)
         {
 abort:
             raw_recording_state = RAW_FINISHING;
-            mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
             NotifyBox(5000, "Recording stopped:\n '%s'", error_message);
             /* this is error beep, not audio sync beep */
             beep_times(2);
@@ -3296,7 +3313,7 @@ static void raw_video_rec_task()
     
     /* disable Canon's powersaving (30 min in LiveView) */
     powersave_prohibit();
-
+    
     /* allocate memory */
     if(!setup_buffers())
     {
@@ -3409,9 +3426,6 @@ static void raw_video_rec_task()
         /* this will enable the vsync CBR and the other task(s) */
         raw_recording_state = RAW_RECORDING;
 
-        /* some modules may do some specific stuff right when we started recording */
-        mlv_rec_call_cbr(MLV_REC_EVENT_STARTED, NULL);
-
         while((raw_recording_state == RAW_RECORDING) || (used_slots > 0))
         {
             /* on shutdown or writers that aborted, abort even if there are unwritten slots */
@@ -3444,7 +3458,6 @@ static void raw_video_rec_task()
                 NotifyBox(5000, "Frame skipped. Stopping");
                 trace_write(raw_rec_trace_ctx, "<-- stopped recording, frame was skipped");
                 raw_recording_state = RAW_FINISHING;
-                mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
             }
 
             /* how fast are we writing? does this speed match our benchmarks? */
@@ -3562,7 +3575,6 @@ static void raw_video_rec_task()
                             /* try to free up some space and exit */
                             mlv_rec_release_dummies();
                             raw_recording_state = RAW_FINISHING;
-                            mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
                         }
                         raw_prepare_chunk(handle->file_handle, &handle->file_header);
                     }
@@ -3614,6 +3626,8 @@ static void raw_video_rec_task()
                 show_buffer_status();
             }
         }
+        
+        mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
         
         /* now close all queued files */
         while(1)
@@ -3679,7 +3693,6 @@ static void raw_video_rec_task()
 
         /* done, this will stop the vsync CBR and the copying task */
         raw_recording_state = RAW_FINISHING;
-        mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
 
         /* queue two aborts to cancel tasks */
         msg_queue_receive(mlv_job_alloc_queue, &write_job, 0);
@@ -3756,7 +3769,6 @@ static MENU_SELECT_FUNC(raw_start_stop)
     {
         abort_test = 1;
         raw_recording_state = RAW_FINISHING;
-        mlv_rec_call_cbr(MLV_REC_EVENT_STOPPING, NULL);
     }
     else
     {
