@@ -3266,6 +3266,8 @@ static void raw_video_rec_task()
     /* init stuff */
     raw_recording_state = RAW_PREPARING;
 
+    mlv_rec_call_cbr(MLV_REC_EVENT_PREPARING, NULL);
+
     if(DISPLAY_REC_INFO_DEBUG)
     {
         bmp_printf(FONT_MED, 30, 50, "Prepare recording...");
