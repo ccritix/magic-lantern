@@ -3227,6 +3227,7 @@ void raw_video_rec_task()
     raw_recording_state = RAW_PREPARING;
     give_semaphore(settings_sem);
 
+    mlv_rec_call_cbr(MLV_REC_EVENT_PREPARING, NULL);
     /* locals */
     FILE* f = 0;
     int last_block_size = 0; /* for detecting early stops */
