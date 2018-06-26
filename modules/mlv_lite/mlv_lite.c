@@ -2761,6 +2761,14 @@ void process_frame(int next_fullsize_buffer_pos)
         frame_count++;
         return;
     }
+
+    /* some modules may do some specific stuff right when we started recording */
+    if (frame_count == 1)
+    {
+        mlv_rec_call_cbr(MLV_REC_EVENT_STARTED, NULL);
+        /* shall we still support the old interface? */
+        raw_rec_cbr_starting();
+    }
     
     if (edmac_active)
     {
@@ -3303,15 +3311,6 @@ void raw_video_rec_task()
     {
         beep();
     }
-
-    /* some modules may do some specific stuff right when we started recording */
-    if(!pre_record)
-    {
-        mlv_rec_call_cbr(MLV_REC_EVENT_STARTED, NULL);
-    }
-	
-	/* shall we still support the old interface? */
-    raw_rec_cbr_starting();
 
     /* signal start of recording to the compression task */
     msg_queue_post(compress_mq, INT_MAX);
