@@ -441,7 +441,7 @@ static int FAST check_cmos_vidmode(uint16_t* data_buf)
             }
         }
         
-        if (is_basic && !is_6D && !is_700D)
+        if (is_basic && !is_6D && !is_700D && !is_100D)
         {
             if (reg == 7)
             {
