@@ -1008,9 +1008,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			}
                 break;
             }
-	}
-    }
 
+    }
     if (is_basic)
     {
         switch (crop_preset)
