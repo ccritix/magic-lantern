@@ -24,6 +24,7 @@ static int is_5D3 = 0;
 static int is_6D = 0;
 static int is_700D = 0;
 static int is_100D = 0;
+static int is_EOSM = 0;
 static int is_basic = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
@@ -36,13 +37,16 @@ enum crop_preset {
 	CROP_PRESET_3X_TALL_700D,
 	CROP_PRESET_2520_1384,
 	CROP_PRESET_2K_100D,
+	CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K,
 	CROP_PRESET_3K_700D,
 	CROP_PRESET_3K_100D,
+	CROP_PRESET_3K_EOSM,
 	CROP_PRESET_3540_700D,
     CROP_PRESET_4K_HFPS,
 	CROP_PRESET_4K_700D,
 	CROP_PRESET_4K_100D,
+	CROP_PRESET_4K_EOSM,
     CROP_PRESET_UHD,
 	CROP_PRESET_UHD_700D,
     CROP_PRESET_FULLRES_LV,
@@ -200,6 +204,33 @@ static const char crop_choices_help_100d[] =
     "Change 1080p and 720p movie modes into crop modes (select one)";
 
 static const char crop_choices_help2_100d[] =
+    "\n"
+    "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
+    "1:1 3K crop (3072x1304 @ 20p, square raw pixels, preview broken)\n"
+    "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
+    "3x3 binning in 720p (square pixels in RAW, vertical crop)\n";
+
+	/* menu choices for EOSM */
+static enum crop_preset crop_presets_eosm[] = {
+    CROP_PRESET_OFF,
+    CROP_PRESET_2K_EOSM,
+    CROP_PRESET_3K_EOSM,
+    CROP_PRESET_4K_EOSM,
+    CROP_PRESET_3x3_1X,
+};
+
+static const char * crop_choices_eosm[] = {
+    "OFF",
+    "2.5K 2520x1320",
+    "3K 3072x1304", 
+    "4K 4096x2558",
+    "3x3 720p",
+};
+
+static const char crop_choices_help_eosm[] =
+    "Change 1080p and 720p movie modes into crop modes (select one)";
+
+static const char crop_choices_help2_eosm[] =
     "\n"
     "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
     "1:1 3K crop (3072x1304 @ 20p, square raw pixels, preview broken)\n"
@@ -363,6 +394,9 @@ static int max_resolutions[NUM_CROP_PRESETS][5] = {
     [CROP_PRESET_2K_100D]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_3K_100D]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_4K_100D]          = { 3072, 3072, 2500, 1440, 1200 },
+    [CROP_PRESET_2K_EOSM]          = { 1304, 1104,  904,  704,  504 },
+    [CROP_PRESET_3K_EOSM]          = { 1304, 1104,  904,  704,  504 },
+    [CROP_PRESET_4K_EOSM]          = { 3072, 3072, 2500, 1440, 1200 },
 
 };
 
@@ -441,7 +475,7 @@ static int FAST check_cmos_vidmode(uint16_t* data_buf)
             }
         }
         
-        if (is_basic && !is_6D && !is_700D && !is_100D)
+        if (is_basic && !is_6D && !is_700D && !is_100D && !is_EOSM)
         {
             if (reg == 7)
             {
@@ -622,9 +656,8 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
                 break;            
         }
-    }
-	
-	if (is_700D)
+    }	
+    if (is_700D)
     {
         switch (crop_preset)
         {
@@ -668,8 +701,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;
         }
     }
-
-	if (is_100D)
+    if (is_100D)
     {
         switch (crop_preset)
         {
@@ -690,8 +722,31 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_4K_100D:
                 cmos_new[5] = 0x200;            /* vertical (first|last) */
                 cmos_new[7] = 0xf20;
+                break;		
+        }
+    }
+    if (is_EOSM)
+    {
+        switch (crop_preset)
+        {
+            case CROP_PRESET_3x3_1X:
+                /* start/stop scanning line, very large increments */
+                cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
+                break;         
+			
+			case CROP_PRESET_2K_EOSM:
+                cmos_new[7] = 0xaa9;    /* pink highlights without this */
                 break;
 				
+			case CROP_PRESET_3K_EOSM:
+                cmos_new[5] = 0x280;             /* vertical (first|last) */
+                cmos_new[7] = 0xa89;            /* horizontal offset (mask 0xFF0) */
+                break;	
+			
+			case CROP_PRESET_4K_EOSM:
+                cmos_new[5] = 0x200;            /* vertical (first|last) */
+                cmos_new[7] = 0xf20;
+                break;		
         }
     }
 
@@ -1020,8 +1075,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
                 break;
         }
-    }
-	
+    }	
     if (is_700D)
     {
         switch (crop_preset)
@@ -1073,7 +1127,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;		
 		}
     }
-
     if (is_100D)
     {
         switch (crop_preset)
@@ -1090,6 +1143,49 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_2K_100D:		
 			case CROP_PRESET_3K_100D:
 			case CROP_PRESET_4K_100D:
+			{
+				 /* assuming FPS timer B was overridden before this */
+                int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
+                int readout_end = shamem_read(0xC0F06804) >> 16;    /* fixme: D5 only */
+
+                /* PowerSaveTiming registers */
+                /* after readout is finished, we can turn off the sensor until the next frame */
+                /* we could also set these to 0; it will work, but the sensor will run a bit hotter */
+                /* to be tested to find out exactly how much */
+                adtg_new[4]  = (struct adtg_new) {6, 0x8172, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (6D/700D) */
+                adtg_new[5]  = (struct adtg_new) {6, 0x8178, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3/6D/700D) */
+                adtg_new[6]  = (struct adtg_new) {6, 0x8196, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3) */
+
+                adtg_new[7]  = (struct adtg_new) {6, 0x8173, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (6D/700D) */
+                adtg_new[8]  = (struct adtg_new) {6, 0x8179, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3/6D/700D) */
+                adtg_new[9]  = (struct adtg_new) {6, 0x8197, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3) */
+
+                adtg_new[10] = (struct adtg_new) {6, 0x82B6, nrzi_encode(readout_end - 1) }; /* PowerSaveTiming ON? (700D); 2 units below the "ON" timing from above */
+
+                /* ReadOutTiming registers */
+                /* these shouldn't be 0, as they affect the image */
+                adtg_new[11] = (struct adtg_new) {6, 0x82F8, nrzi_encode(readout_end + 1) }; /* ReadOutTiming */
+                adtg_new[12] = (struct adtg_new) {6, 0x82F9, nrzi_encode(fps_timer_b - 1) }; /* ReadOutTiming end? */
+			}
+                break;		
+		}
+    }
+    if (is_EOSM)
+    {
+        switch (crop_preset)
+        {
+            /* 3x3 binning in 720p (in 1080p it's already 3x3) */
+            case CROP_PRESET_3x3_1X:
+                /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
+                adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+                break;
+        }
+		
+		switch (crop_preset)
+		{
+			case CROP_PRESET_2K_EOSM:		
+			case CROP_PRESET_3K_EOSM:
+			case CROP_PRESET_4K_EOSM:
 			{
 				 /* assuming FPS timer B was overridden before this */
                 int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
@@ -1680,7 +1776,6 @@ static inline uint32_t reg_override_fullres_lv_700d(uint32_t reg, uint32_t old_v
 
 
 /* Values for 100D */
-
 static inline uint32_t reg_override_2K_100d(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
@@ -1726,6 +1821,70 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
         case 0xC0F06804: return 0xa1b0421; // 4096x2560  x5 Mode;
+
+        case 0xC0F06824: return 0x4ca;
+        case 0xC0F06828: return 0x4ca;
+        case 0xC0F0682C: return 0x4ca;
+        case 0xC0F06830: return 0x4ca;
+       
+        case 0xC0F06010: return 0x45b;
+        case 0xC0F06008: return 0x45b045b;
+        case 0xC0F0600C: return 0x45b045b;
+
+        case 0xC0F06014: return 0xbd4;
+        case 0xC0F0713c: return 0xA55;
+    }
+
+    return 0;
+}
+
+/* Values for EOSM */
+static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
+        case 0xC0F06804: return 0x5490298; /* 2520x1320  x5 Mode; */
+        case 0xC0F06014: return 0x747;
+        case 0xC0F07150: return 0x428;
+        case 0xC0F0713c: return 0x535;
+    }
+
+    return 0;
+}
+
+static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
+        case 0xC0F06804: return 0x5340322; // 3072x1304  x5 Mode;
+
+        case 0xC0F06824: return 0x3ca;
+        case 0xC0F06828: return 0x3ca;
+        case 0xC0F0682C: return 0x3ca;
+        case 0xC0F06830: return 0x3ca;
+       
+        case 0xC0F06010: return 0x37b;
+        case 0xC0F06008: return 0x37b037b;
+        case 0xC0F0600C: return 0x37b037b;
+
+        case 0xC0F06014: return 0x6d7;
+        case 0xC0F0713c: return 0x555;
+    }
+
+    return 0;
+}
+
+static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
+        case 0xC0F06804: return 0xa1b0422; // 4096x2558  x5 Mode;
 
         case 0xC0F06824: return 0x4ca;
         case 0xC0F06828: return 0x4ca;
@@ -1820,6 +1979,9 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_2K_100D)         ? reg_override_2K_100d         :    
         (crop_preset == CROP_PRESET_3K_100D)         ? reg_override_3K_100d         : 
         (crop_preset == CROP_PRESET_4K_100D) 	     ? reg_override_4K_100d         :
+        (crop_preset == CROP_PRESET_2K_EOSM)         ? reg_override_2K_eosm         :    
+        (crop_preset == CROP_PRESET_3K_EOSM)         ? reg_override_3K_eosm         : 
+        (crop_preset == CROP_PRESET_4K_EOSM) 	     ? reg_override_4K_eosm         :
                                                   0                                 ;
     return reg_override_func;
 }
@@ -1860,7 +2022,12 @@ static void FAST engio_write_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			    engio_vidmode_ok = 
                   (old == 0x4540298) ||/* x5 zoom */ (old == 0x4a601d4 || old == 0x2d701d4);   /* 1080p or 720p */
 			}
-            
+			if (is_EOSM)
+			{
+			    engio_vidmode_ok = 
+                  (old == 0x4540298) ||/* x5 zoom */ (old == 0x4a601d4 || old == 0x2d701d4);   /* 1080p or 720p */
+			}
+           
         }
     }
 
@@ -2441,12 +2608,12 @@ static unsigned int crop_rec_init()
         MEM_ENGIO_WRITE = 0xE51FC15C;
 		
         
-        is_700D = 1;
-        crop_presets                = crop_presets_700d;
-        crop_rec_menu[0].choices    = crop_choices_700d;
-        crop_rec_menu[0].max        = COUNT(crop_choices_700d) - 1;
-        crop_rec_menu[0].help       = crop_choices_help_700d;
-        crop_rec_menu[0].help2      = crop_choices_help2_700d;
+        is_EOSM = 1;
+        crop_presets                = crop_presets_eosm;
+        crop_rec_menu[0].choices    = crop_choices_eosm;
+        crop_rec_menu[0].max        = COUNT(crop_choices_eosm) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_eosm;
+        crop_rec_menu[0].help2      = crop_choices_help2_eosm;
     }
     else if (is_camera("650D", "1.0.4"))
     {
