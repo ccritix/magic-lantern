@@ -38,6 +38,7 @@ enum crop_preset {
 	CROP_PRESET_2520_1384,
 	CROP_PRESET_2K_100D,
 	CROP_PRESET_2K_EOSM,
+	CROP_PRESET_3x3_mv1080_EOSM,
     CROP_PRESET_3K,
 	CROP_PRESET_3K_700D,
 	CROP_PRESET_3K_100D,
@@ -217,6 +218,7 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
     CROP_PRESET_3x3_1X,
+    CROP_PRESET_3x3_mv1080_EOSM
 };
 
 static const char * crop_choices_eosm[] = {
@@ -225,6 +227,7 @@ static const char * crop_choices_eosm[] = {
     "3K 3072x1304", 
     "4K 4038x2558",
     "3x3 720p",
+    "3x3_mv1080_EOSM",
 };
 
 static const char crop_choices_help_eosm[] =
@@ -397,6 +400,7 @@ static int max_resolutions[NUM_CROP_PRESETS][5] = {
     [CROP_PRESET_2K_EOSM]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_3K_EOSM]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_4K_EOSM]          = { 3072, 3072, 2500, 1440, 1200 },
+    [CROP_PRESET_3x3_mv1080_EOSM]  = { 1290, 1290, 1290,  960,  800 },
 
 };
 
@@ -746,7 +750,12 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_4K_EOSM:
                 cmos_new[5] = 0x200;            /* vertical (first|last) */
                 cmos_new[7] = 0xf20;
-                break;		
+                break;	
+
+			case CROP_PRESET_3x3_mv1080_EOSM:
+	        cmos_new[8] = 0x400; 
+                break;	
+	
         }
     }
 
@@ -1180,12 +1189,29 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
                 break;
         }
+
+
+			switch (crop_preset)
+		        {
+		 	case CROP_PRESET_3x3_mv1080_EOSM:
+			    adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+				adtg_new[1] = (struct adtg_new) {2, 0x8172, 0x6fd};
+				adtg_new[2] = (struct adtg_new) {2, 0x8173, 0x453};
+				adtg_new[3] = (struct adtg_new) {2, 0x8178, 0x6fd};
+				adtg_new[4] = (struct adtg_new) {2, 0x8179, 0x453};
+				adtg_new[5] = (struct adtg_new) {2, 0x8196, 0x12e};
+				adtg_new[6] = (struct adtg_new) {2, 0x8197, 0x38c};
+				adtg_new[7] = (struct adtg_new) {2, 0x82b6, 0x6f4};
+				break;
+			}
 		
+
 		switch (crop_preset)
 		{
 			case CROP_PRESET_2K_EOSM:		
 			case CROP_PRESET_3K_EOSM:
 			case CROP_PRESET_4K_EOSM:
+			case CROP_PRESET_3x3_mv1080_EOSM:
 			{
 				 /* assuming FPS timer B was overridden before this */
                 int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
@@ -1902,6 +1928,26 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
     return 0;
 }
 
+static inline uint32_t reg_override_3x3_eosm(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
+        case 0xC0F06804: return 0x4a601d4; // 2520x1386  x5 Mode;
+
+        case 0xC0F06014: return 0x7cf;
+		case 0xC0F0600c: return 0x27f027f;
+		case 0xC0F06008: return 0x27f027f;
+		case 0xC0F06010: return 0x27f;
+
+        case 0xC0F0713c: return 0x4a7;
+		case 0xC0F07150: return 0x475;
+    }
+
+    return 0;
+}
+
 static inline uint32_t reg_override_fps_nocheck(uint32_t reg, uint32_t timerA, uint32_t timerB, uint32_t old_val)
 {
     /* hardware register requires timer-1 */
@@ -1982,6 +2028,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_2K_EOSM)         ? reg_override_2K_eosm         :    
         (crop_preset == CROP_PRESET_3K_EOSM)         ? reg_override_3K_eosm         : 
         (crop_preset == CROP_PRESET_4K_EOSM) 	     ? reg_override_4K_eosm         :
+        (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_eosm        :
                                                   0                                 ;
     return reg_override_func;
 }
