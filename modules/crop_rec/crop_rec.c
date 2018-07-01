@@ -221,9 +221,9 @@ static enum crop_preset crop_presets_eosm[] = {
 
 static const char * crop_choices_eosm[] = {
     "OFF",
-    "2.5K 2520x1320",
+    "2.5K 2520x1304",
     "3K 3072x1304", 
-    "4K 4096x2558",
+    "4K 4038x2558",
     "3x3 720p",
 };
 
@@ -1845,7 +1845,7 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x5490298; /* 2520x1320  x5 Mode; */
+        case 0xC0F06804: return 0x5390298; /* 2520x1304  x5 Mode; */
         case 0xC0F06014: return 0x747;
         case 0xC0F07150: return 0x428;
         case 0xC0F0713c: return 0x535;
@@ -1884,7 +1884,7 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0xa1b0422; // 4096x2558  x5 Mode;
+        case 0xC0F06804: return 0xa1b0412; // 4032x2558  x5 Mode;
 
         case 0xC0F06824: return 0x4ca;
         case 0xC0F06828: return 0x4ca;
