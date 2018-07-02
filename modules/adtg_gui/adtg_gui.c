@@ -2,6 +2,8 @@
  * ADTG register editing GUI
  */
 
+#define ENGIO_USE_IO_TRACE        /* experimental backend for ENGIO writes */
+
 #include <module.h>
 #include <dryos.h>
 #include <property.h>
@@ -12,6 +14,10 @@
 
 #include "avl.h"
 #include "avl.c"    /* unusual include in order to avoid exporting the AVL symbols (keep the namespace clean) */
+
+#ifdef ENGIO_USE_IO_TRACE
+#include "io_trace.c"
+#endif
 
 #define DST_DFE     0xF000
 #define DST_CMOS16  0x0F00
@@ -843,6 +849,24 @@ static void EngDrvOuts_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 }
 
+#ifdef ENGIO_USE_IO_TRACE
+static void mmio_handler(uint32_t pc, uint32_t * regs)
+{
+    if (photo_only && lv) return;
+    if (!digic_intercept) return;
+
+    uint32_t reg, val, Rd;
+    if (decode_mmio_str(pc, regs, &reg, &val, &Rd))
+    {
+        /* forward this MMIO write to adtg_gui */
+        reg_update_unique_32(reg >> 16, reg & 0xFFFF, (void *) pc, &val, current_task->taskId, pc);
+
+        /* override the value written to this register */
+        regs[Rd] = val;
+    }
+}
+#endif
+
 static void SendDataToDfe_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     if (photo_only && lv) return;
@@ -882,7 +906,7 @@ static void dummy_readout_log(uint32_t* _regs, uint32_t* stack, uint32_t pc)
 static MENU_SELECT_FUNC(adtg_toggle)
 {
     adtg_enabled = !adtg_enabled;
-    
+
     if (adtg_enabled)
     {
         /* set hooks at ADTG and CMOS writes */
@@ -890,9 +914,13 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (CMOS_WRITE_FUNC)   patch_hook_function(CMOS_WRITE_FUNC, MEM(CMOS_WRITE_FUNC), &cmos_log, "cmos_log");
         if (CMOS2_WRITE_FUNC)  patch_hook_function(CMOS2_WRITE_FUNC, MEM(CMOS2_WRITE_FUNC), &cmos_log, "cmos_log");
         if (CMOS16_WRITE_FUNC) patch_hook_function(CMOS16_WRITE_FUNC, MEM(CMOS16_WRITE_FUNC), &cmos16_log, "cmos16_log");
+#ifdef ENGIO_USE_IO_TRACE
+        io_trace_install();
+#else
         if (ENGIO_WRITE_FUNC)  patch_hook_function(ENGIO_WRITE_FUNC, MEM(ENGIO_WRITE_FUNC), &engio_write_log, "engio_write_log");
         if (ENG_DRV_OUT_FUNC)  patch_hook_function(ENG_DRV_OUT_FUNC, MEM(ENG_DRV_OUT_FUNC), &EngDrvOut_log, "EngDrvOut_log");
         if (ENG_DRV_OUTS_FUNC) patch_hook_function(ENG_DRV_OUTS_FUNC, MEM(ENG_DRV_OUTS_FUNC), &EngDrvOuts_log, "EngDrvOuts_log");
+#endif
         if (SEND_DATA_TO_DFE_FUNC) patch_hook_function(SEND_DATA_TO_DFE_FUNC, MEM(SEND_DATA_TO_DFE_FUNC), &SendDataToDfe_log, "SendDataToDfe_log");
         if (SCS_DUMMY_READOUT_DONE_FUNC) patch_hook_function(SCS_DUMMY_READOUT_DONE_FUNC, MEM(SCS_DUMMY_READOUT_DONE_FUNC), &dummy_readout_log, "dummy_readout_log");
     }
@@ -903,9 +931,13 @@ static MENU_SELECT_FUNC(adtg_toggle)
         if (CMOS_WRITE_FUNC)   unpatch_memory(CMOS_WRITE_FUNC);
         if (CMOS2_WRITE_FUNC)  unpatch_memory(CMOS2_WRITE_FUNC);
         if (CMOS16_WRITE_FUNC) unpatch_memory(CMOS16_WRITE_FUNC);
+#ifdef ENGIO_USE_IO_TRACE
+        io_trace_uninstall();
+#else
         if (ENGIO_WRITE_FUNC)  unpatch_memory(ENGIO_WRITE_FUNC);
         if (ENG_DRV_OUT_FUNC)  unpatch_memory(ENG_DRV_OUT_FUNC);
         if (ENG_DRV_OUTS_FUNC) unpatch_memory(ENG_DRV_OUTS_FUNC);
+#endif
         if (SEND_DATA_TO_DFE_FUNC) unpatch_memory(SEND_DATA_TO_DFE_FUNC);
         if (SCS_DUMMY_READOUT_DONE_FUNC) unpatch_memory(SCS_DUMMY_READOUT_DONE_FUNC);
     }
@@ -1322,6 +1354,11 @@ static struct menu_entry adtg_gui_menu[] =
                         .priv           = &digic_intercept,
                         .max            = 1,
                         .help           = "Also intercept ENGIO registers (EngDrvOut and engio_write).",
+                        #ifdef ENGIO_USE_IO_TRACE
+                        .help2          = "Backend: io_trace.",
+                        #else
+                        .help2          = "Backend: function hooks.",
+                        #endif
                     },
                     {
                         .name           = "Unique Key",
