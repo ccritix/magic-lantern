@@ -243,24 +243,8 @@ static inline void _sync_caches()
     sei(old);
 }
 
-/* also reapply cache patches, if needed */
-static inline void sync_caches()
-{
-    uint32_t old = cli();
-
-    /* this function is only present on main ML (not installer / reboot shim / minimal / etc) */
-    extern int __attribute__((weak)) _patch_sync_caches(int also_data);
-    if (_patch_sync_caches)
-    {
-        _patch_sync_caches(1);
-    }
-    else
-    {
-        _sync_caches();
-    }
-
-    sei(old);
-}
+/* in patch.c; this also reapplies cache patches, if needed */
+extern void sync_caches();
 
 /**
  * Some common instructions.

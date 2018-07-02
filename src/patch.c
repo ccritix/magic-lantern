@@ -150,6 +150,13 @@ int _patch_sync_caches(int also_data)
     return err;
 }
 
+void sync_caches()
+{
+    uint32_t old = cli();
+    _patch_sync_caches(1);
+    sei(old);
+}
+
 /* low-level routines */
 static uint32_t read_value(uint32_t* addr, int is_instruction)
 {
