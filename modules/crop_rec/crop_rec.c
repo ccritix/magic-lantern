@@ -1194,7 +1194,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			switch (crop_preset)
 		        {
 		 	case CROP_PRESET_3x3_mv1080_EOSM:
-			    adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+			        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
 				adtg_new[1] = (struct adtg_new) {2, 0x8172, 0x6fd};
 				adtg_new[2] = (struct adtg_new) {2, 0x8173, 0x453};
 				adtg_new[3] = (struct adtg_new) {2, 0x8178, 0x6fd};
