@@ -218,7 +218,7 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
     CROP_PRESET_3x3_1X,
-    CROP_PRESET_3x3_mv1080_EOSM
+    CROP_PRESET_3x3_mv1080_EOSM,
 };
 
 static const char * crop_choices_eosm[] = {
