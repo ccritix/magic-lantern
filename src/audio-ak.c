@@ -414,10 +414,15 @@ static CONFIG_VAR_CHANGE_FUNC(dgain_on_change)
 
 #ifdef FEATURE_DIGITAL_GAIN
 
+static MENU_SELECT_FUNC(audio_dgain_toggle)
+{
+    menu_numeric_toggle(priv, delta * 6, 0, 41);
+}
+
 static MENU_UPDATE_FUNC(audio_dgain_display)
 {
     unsigned val = CURRENT_VALUE;
-    MENU_SET_RINFO("(dB)");
+    MENU_SET_VALUE("%d dB", val);
     if (alc_enable)
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "AGC is enabled.");
     MENU_SET_ENABLED(val);
@@ -478,7 +483,7 @@ static struct menu_entry audio_menus[] = {
                 .priv           = &dgain_l,
                 .max            = 36,
                 .icon_type      = IT_PERCENT_OFF,
-                .unit           = UNIT_DEC,
+                .select         = audio_dgain_toggle,
                 .update         = audio_dgain_display,
                 .help = "Digital gain (LEFT). Any nonzero value reduces quality.",
             },
@@ -487,7 +492,7 @@ static struct menu_entry audio_menus[] = {
                 .priv           = &dgain_r,
                 .max            = 36,
                 .icon_type      = IT_PERCENT_OFF,
-                .unit           = UNIT_DEC,
+                .select         = audio_dgain_toggle,
                 .update         = audio_dgain_display,
                 .help = "Digital gain (RIGHT). Any nonzero value reduces quality.",
             },
