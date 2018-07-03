@@ -1190,7 +1190,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;
         }
 
-
 			switch (crop_preset)
 		        {
 		 	case CROP_PRESET_3x3_mv1080_EOSM:
@@ -1932,23 +1931,46 @@ static inline uint32_t reg_override_3x3_eosm(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
     {
-        /* raw resolution (end line/column) */
-        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x4a601d4; // 2520x1386  x5 Mode;
+        	case 0xC0F06804: return 0x4a601d4; 
 
-        case 0xC0F06014: return 0x7cf;
+        	case 0xC0F06014: return 0x7cf;
 		case 0xC0F0600c: return 0x27f027f;
 		case 0xC0F06008: return 0x27f027f;
 		case 0xC0F06010: return 0x27f;
 		case 0xC0F37014: return 0xe;
 
-
-        case 0xC0F0713c: return 0x4a7;
+        	case 0xC0F0713c: return 0x4a7;
 		case 0xC0F07150: return 0x475;
+
+	/* other frame rates(700D) */
+		/* 30fps
+		C0F06014 = 0x7e6
+		C0F06008 = 0x20f020f
+		C0F0600c = 0x20f020f
+		C0F06010 = 0x20f */
+
+		/* other frame rates(700D) */
+		/* 25fps
+		C0F06014 = 0x7cf
+		C0F06008 = 0x27f027f
+		C0F0600c = 0x27f027f
+		C0F06010 = 0x27f */
+
+		/* other frame rates(700D) */
+		/* 24fps
+		C0F06014 = 0x9de
+		C0F06008 = 0x20f020f
+		C0F0600c = 0x20f020f
+		C0F06010 = 0x20f */
+
+	/* todo: check for breakage
+	   https://www.magiclantern.fm/forum/index.php?topic=9741.msg203541#msg203541 */
+
     }
 
     return 0;
 }
+
 
 static inline uint32_t reg_override_fps_nocheck(uint32_t reg, uint32_t timerA, uint32_t timerB, uint32_t old_val)
 {
