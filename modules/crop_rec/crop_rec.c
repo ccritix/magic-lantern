@@ -20,6 +20,8 @@
 #define dbg_printf(fmt,...) {}
 #endif
 
+static int is_digic4 = 0;
+static int is_digic5 = 0;
 static int is_5D3 = 0;
 static int is_6D = 0;
 static int is_EOSM = 0;
@@ -818,45 +820,33 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 }
                 break;
         }
+    }
 
-        /* PowerSaveTiming & ReadOutTiming registers */
-        /* these need changing in all modes with higher vertical resolution */
-        switch (crop_preset)
-        {
-            case CROP_PRESET_3X_TALL:
-            case CROP_PRESET_3x3_1X:
-            case CROP_PRESET_3x3_1X_48p:
-            case CROP_PRESET_3K:
-            case CROP_PRESET_UHD:
-            case CROP_PRESET_4K_HFPS:
-            case CROP_PRESET_FULLRES_LV:
-            case CROP_PRESET_40_FPS:
-            {
-                /* assuming FPS timer B was overridden before this */
-                int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
-                int readout_end = shamem_read(0xC0F06804) >> 16;    /* fixme: D5 only */
+    /* these should work on all presets, on all DIGIC 5 models and also on recent DIGIC 4 */
+    if (1)
+    {
+        /* assuming FPS timer B was overridden before this */
+        int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
+        int readout_end = shamem_read(is_digic4 ? 0xC0F06088 : 0xC0F06804) >> 16;
 
-                /* PowerSaveTiming registers */
-                /* after readout is finished, we can turn off the sensor until the next frame */
-                /* we could also set these to 0; it will work, but the sensor will run a bit hotter */
-                /* to be tested to find out exactly how much */
-                adtg_new[4]  = (struct adtg_new) {6, 0x8172, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (6D/700D) */
-                adtg_new[5]  = (struct adtg_new) {6, 0x8178, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3/6D/700D) */
-                adtg_new[6]  = (struct adtg_new) {6, 0x8196, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3) */
+        /* PowerSaveTiming registers */
+        /* after readout is finished, we can turn off the sensor until the next frame */
+        /* we could also set these to 0; it will work, but the sensor will run a bit hotter */
+        /* to be tested to find out exactly how much */
+        adtg_new[4]  = (struct adtg_new) {6, 0x8172, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (6D/700D) */
+        adtg_new[5]  = (struct adtg_new) {6, 0x8178, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3/6D/700D) */
+        adtg_new[6]  = (struct adtg_new) {6, 0x8196, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3) */
 
-                adtg_new[7]  = (struct adtg_new) {6, 0x8173, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (6D/700D) */
-                adtg_new[8]  = (struct adtg_new) {6, 0x8179, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3/6D/700D) */
-                adtg_new[9]  = (struct adtg_new) {6, 0x8197, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3) */
+        adtg_new[7]  = (struct adtg_new) {6, 0x8173, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (6D/700D) */
+        adtg_new[8]  = (struct adtg_new) {6, 0x8179, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3/6D/700D) */
+        adtg_new[9]  = (struct adtg_new) {6, 0x8197, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3) */
 
-                adtg_new[10] = (struct adtg_new) {6, 0x82B6, nrzi_encode(readout_end - 1) }; /* PowerSaveTiming ON? (700D); 2 units below the "ON" timing from above */
+        adtg_new[10] = (struct adtg_new) {6, 0x82B6, nrzi_encode(readout_end - 1) }; /* PowerSaveTiming ON? (700D); 2 units below the "ON" timing from above */
 
-                /* ReadOutTiming registers */
-                /* these shouldn't be 0, as they affect the image */
-                adtg_new[11] = (struct adtg_new) {6, 0x82F8, nrzi_encode(readout_end + 1) }; /* ReadOutTiming */
-                adtg_new[12] = (struct adtg_new) {6, 0x82F9, nrzi_encode(fps_timer_b - 1) }; /* ReadOutTiming end? */
-                break;
-            }
-        }
+        /* ReadOutTiming registers */
+        /* these shouldn't be 0, as they affect the image */
+        adtg_new[11] = (struct adtg_new) {6, 0x82F8, nrzi_encode(readout_end + 1) }; /* ReadOutTiming */
+        adtg_new[12] = (struct adtg_new) {6, 0x82F9, nrzi_encode(fps_timer_b - 1) }; /* ReadOutTiming end? */
     }
 
     while(*data_buf != 0xFFFFFFFF)
@@ -1918,6 +1908,9 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 
 static unsigned int crop_rec_init()
 {
+    is_digic4 = is_camera("DIGIC", "4");
+    is_digic5 = is_camera("DIGIC", "5");
+
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
     {
         /* same addresses on both 1.1.3 and 1.2.3 */
