@@ -485,60 +485,8 @@ int get_current_shutter_reciprocal_x1000()
     float shutter = frame_duration * (max - blanking) / max;
     return (int)(1.0 / shutter * 1000);
 
-// ToDo: Cleanup 70D once fps override feature is fixed
-// till then use the fallback. Do it this way to have fast ettr
-// and keep frame_shutter timer enabled in consts.h
-#elif defined(FRAME_SHUTTER_TIMER) && !defined(CONFIG_70D)
-    int timer = FRAME_SHUTTER_TIMER;
-
-    #ifdef FEATURE_SHUTTER_FINE_TUNING
-    extern int shutter_finetune_get_adjusted_timer(); /* lv-img-engio.c, to be cleaned up somehow */
-    timer = shutter_finetune_get_adjusted_timer();
-    #endif
-    
-    //~ NotifyBox(1000, "%d ", timer);
-    int shutter_r_x1000 = TIMER_TO_SHUTTER_x1000(timer);
-    
-    // shutter speed can't be slower than 1/fps
-    //~ shutter_r_x1000 = MAX(shutter_r_x1000, fps_get_current_x1000());
-    
-    // FPS override will alter shutter speed (exposure time)
-    // FPS "difference" from C0F06014 will be added as a constant term to exposure time
-    // FPS factor from C0F06008 will multiply the exposure time (as scalar gain)
-    
-    // TG = base timer (28.8 MHz on most cams)
-    // Ta = current value from C0F06008
-    // Tb = current value from C0F06014
-    // Ta0, Tb0 = original values
-    //
-    // FC = current fps = TG / Ta / Tb
-    // F0 = factory fps = TG / Ta0 / Tb0
-    //
-    // E0 = exposure time (shutter speed) as indicated by Canon user interface
-    // EA = actual exposure time, after FPS modifications (usually higher)
-    //
-    // If we only change Tb => Fb = TG / Ta0 / Tb
-    //
-    // delta_fps = 1/Fb - 1/F0 => this quantity is added to exposure time
-    //
-    // If we only change Ta => exposure time is multiplied by Ta/Ta0.
-    //
-    // If we change both, Tb "effect" is applied first, then Ta.
-    // 
-    // So...
-    // EA = (E0 + (1/Fb - 1/F0)) * Ta / Ta0
-    //
-    // This function returns 1/EA and does all calculations on integer numbers, so actual computations differ slightly.
-
-    #warning FIXME: consider defining FRAME_SHUTTER_BLANKING_READ
-    /* this might use old FPS timer values updated by fps_task */
-    /* it's not thread-safe to re-read them here again */
-    return get_shutter_reciprocal_x1000(shutter_r_x1000, fps_timer_a, fps_timer_a_orig, fps_timer_b, fps_timer_b_orig);
 #else
-    #warning FIXME: consider defining FRAME_SHUTTER_BLANKING_READ
-    // fallback to APEX units
-    if (!lens_info.raw_shutter) return 0;
-    return (int) roundf(powf(2.0f, (lens_info.raw_shutter - 136) / 8.0f) * 1000.0f * 1000.0f);
+    #error FIXME: please define FRAME_SHUTTER_BLANKING_READ
 #endif
 }
 
