@@ -98,8 +98,8 @@ NSTUB(   0x1D3E0,  bmp_vram_info)
 /** CFN **/
 NSTUB(0xFF5FB8F0,  GetCFnData)
 NSTUB(0xFF5FBB1C,  SetCFnData)
-NSTUB(0xFF42AEE0,  GUI_SetCFnForTab4)                      /* ??? present on 7D.203 */
-//NSTUB(    ???,  GUI_GetCFnForTab4)                       /* ??? present on 7D.203 */
+// NSTUB(0xFF42AEE0,  GUI_SetCFnForTab4)                    /* present on 7D.203 */
+// NSTUB(0xFF42AF38,  GUI_GetCFnForTab4)                    /* present on 7D.203 */
 
 /** Camera interface? **/
 NSTUB(0xC0220000,  camera_engine)
