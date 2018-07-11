@@ -5643,8 +5643,23 @@ static MENU_UPDATE_FUNC(show_update)
         
         if (regs[reg].num_changes > 100 && !regs[reg].override_enabled)
         {
-            /* das ist noise */
-            visible = 0;
+            /* possibly noise; double-checking */
+            int is_known = 0;
+
+            for (int i = 0; i < COUNT(known_regs); i++)
+            {
+                if (known_match(i, reg))
+                {
+                    is_known = 1;
+                    break;
+                }
+            }
+
+            if (!is_known)
+            {
+                /* very likely to be noise */
+                visible = 0;
+            }
         }
         
         if (!digic_intercept && (regs[reg].dst & 0xF000) == 0xC000)
