@@ -7,6 +7,7 @@
 #include <module.h>
 #include <dryos.h>
 #include <property.h>
+#include <lens.h>
 #include <bmp.h>
 #include <menu.h>
 #include <config.h>
@@ -904,6 +905,75 @@ static void dummy_readout_log(uint32_t* _regs, uint32_t* stack, uint32_t pc)
     }
 }
 
+/* forward reference */
+static struct menu_entry adtg_gui_menu[];
+
+static int log_all_regs = 0;
+static volatile int log_iso_regs_running = 0;
+
+static void log_iso_regs()
+{
+    log_iso_regs_running = 1;
+    
+    msleep(1000);
+    int size = 1024*1024;
+    char* msg = fio_malloc(size);
+    if (!msg) return;
+    msg[0] = 0;
+    int len = 0;
+    int saved_regs = 0;
+
+    len += snprintf(msg+len, size-len, "%s %s\n", camera_model, firmware_version);
+    for (int i = 0; i < reg_num; i++)
+    {
+        /* XXX: change this if you ever add or remove menu entries */
+        /* fixme: duplicate code */
+        struct menu_entry * entry = &(adtg_gui_menu[0].children[i + 2]);
+        
+        if (entry->shidden)
+            continue;
+
+        len += snprintf(msg+len, size-len, "%04x%04x:%8x ", regs[i].dst, regs[i].reg, regs[i].val);
+        if (regs[i].val != regs[i].prev_val)
+        {
+            snprintf(msg+len, size-len, "(was %x)         ", regs[i].prev_val);
+            len += 5 + 8 + 2;
+        }
+        len += snprintf(msg+len, size-len, "ISO=%d Tv=%d Av=%d ", raw2iso(lens_info.raw_iso), lens_info.shutter, lens_info.aperture);
+        len += snprintf(msg+len, size-len, "lv=%d zoom=%d mv=%d res=%d crop=%d ", lv, lv_dispsize, is_movie_mode(), is_movie_mode() ? video_mode_resolution : -1, is_movie_mode() ? video_mode_crop : -1);
+        len += snprintf(msg+len, size-len, "task=%s pc=%x addr=%x ", get_task_name_from_id(regs[i].caller_task), regs[i].caller_pc, regs[i].addr);
+
+        for (int j = 0; j < COUNT(known_regs); j++)
+            if (known_match(j, i))
+                len += snprintf(msg+len, size-len, "%s", known_regs[j].description);
+
+        len += snprintf(msg+len, size-len, "\n");
+        
+        saved_regs++;
+    }
+
+    len += snprintf(msg+len, size-len, "==================================================================\n");
+
+    FILE * f = FIO_CreateFileOrAppend("ML/LOGS/adtg.log");
+    FIO_WriteFile(f, msg, len);
+    FIO_CloseFile(f);
+    fio_free(msg);
+    NotifyBox(2000, "Saved %d regs, %d bytes", saved_regs, len);
+    log_iso_regs_running = 0;
+}
+
+PROP_HANDLER(PROP_GUI_STATE)
+{
+    if (buf[0] == GUISTATE_QR)
+    {
+        if (log_all_regs && adtg_enabled && !log_iso_regs_running)
+        {
+            log_iso_regs_running = 1;
+            task_create("log_iso_regs", 0x1c, 0x1000, log_iso_regs, 0);
+        }
+    }
+}
+
 static MENU_SELECT_FUNC(adtg_toggle)
 {
     adtg_enabled = !adtg_enabled;
@@ -1147,8 +1217,6 @@ static MENU_UPDATE_FUNC(unique_key_update)
     }
 }
 
-static struct menu_entry adtg_gui_menu[];
-
 static MENU_SELECT_FUNC(lock_displayed_registers)
 {
     for (int reg = 0; reg < reg_num; reg++)
@@ -1240,70 +1308,173 @@ static MENU_SELECT_FUNC(crop_mode_overrides_3k)
     menu_toggle_submenu();
 }
 
-#include <lens.h>
-static int log_all_regs = 0;
-static volatile int log_iso_regs_running = 0;
-
-static void log_iso_regs()
+static MENU_UPDATE_FUNC(show_update)
 {
-    log_iso_regs_running = 1;
-    
-    msleep(1000);
-    int size = 1024*1024;
-    char* msg = fio_malloc(size);
-    if (!msg) return;
-    msg[0] = 0;
-    int len = 0;
-    int saved_regs = 0;
+    static struct tm tm;
+    if (show_what == SHOW_MODIFIED_SINCE_TIMESTAMP)
+        MENU_SET_VALUE("Modified since %02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
+    else
+        LoadCalendarFromRTC(&tm);
 
-    len += snprintf(msg+len, size-len, "%s %s\n", camera_model, firmware_version);
-    for (int i = 0; i < reg_num; i++)
+    int changed = 0;
+    
+    //~ int err = checktree(regs_tree.root, regs_tree.compar);
+    //~ MENU_SET_WARNING(MENU_WARN_ADVICE, "AVL tree %x", err);
+    
+    int current_time = get_ms_clock();
+    static int last_update = 0;
+    static int prev_show_what = 0;
+    int show_what_changed = show_what != prev_show_what;
+    prev_show_what = show_what;
+    
+    for (int reg = 0; reg < reg_num; reg++)
     {
         /* XXX: change this if you ever add or remove menu entries */
-        /* fixme: duplicate code */
-        struct menu_entry * entry = &(adtg_gui_menu[0].children[i + 2]);
+        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 2]);
         
-        if (entry->shidden)
-            continue;
+        if (get_reg_from_priv(entry->priv) != reg)
+            break;
 
-        len += snprintf(msg+len, size-len, "%04x%04x:%8x ", regs[i].dst, regs[i].reg, regs[i].val);
-        if (regs[i].val != regs[i].prev_val)
+        int visible = 0;
+
+        switch (show_what)
         {
-            snprintf(msg+len, size-len, "(was %x)         ", regs[i].prev_val);
-            len += 5 + 8 + 2;
+            case SHOW_KNOWN_ONLY:
+            {
+                for (int i = 0; i < COUNT(known_regs); i++)
+                {
+                    if (known_match(i, reg))
+                    {
+                        visible = 1;
+                        break;
+                    }
+                }
+                break;
+            }
+            case SHOW_MODIFIED_SINCE_TIMESTAMP:
+            {
+                visible = regs[reg].val != regs[reg].prev_val;
+                break;
+            }
+            case SHOW_MODIFIED_AT_LEAST_TWICE:
+            {
+                visible = regs[reg].num_changes > 1;
+                break;
+            }
+            case SHOW_OVERRIDEN:
+            {
+                visible = regs[reg].override_enabled;
+                break;
+            }
+            case SHOW_FPS_TIMERS:
+            {
+                visible = (regs[reg].dst == 0xC0F0) && (regs[reg].reg == 0x6014 || regs[reg].reg == 0x6008);
+                break;
+            }
+            case SHOW_DISPLAY_REGS:
+            {
+                /* C0F14nnn */
+                visible = (regs[reg].dst == 0xC0F1) && ((regs[reg].reg & 0xF000) == 0x4000);
+                break;
+            }
+            case SHOW_IMAGE_SIZE_REGS:
+            {
+                if ((regs[reg].dst == 0xC0F0) && ((regs[reg].reg & 0xF000) == 0x6000))
+                {
+                    visible = 1;
+                    break;
+                }
+                for (int i = 0; i < COUNT(known_regs); i++)
+                {
+                    if (known_match(i, reg))
+                    {
+                        if (
+                            strstr(known_regs[i].description, "esolution") ||
+                            strstr(known_regs[i].description, "idth") ||
+                            strstr(known_regs[i].description, "eight") ||
+                            strstr(known_regs[i].description, "ine count") ||
+                            strstr(known_regs[i].description, "dwSrFstAdtg") ||
+                            strstr(known_regs[i].description, "Timing") ||
+                            strstr(known_regs[i].description, "HEAD") ||
+                        0)
+                        {
+                            visible = 1;
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+            case SHOW_ADTG_ONLY:
+            {
+                visible = (regs[reg].dst & ~DST_ADTG) == 0;
+                break;
+            }
+            case SHOW_CMOS_ONLY:
+            {
+                visible = (regs[reg].dst == DST_CMOS) || (regs[reg].dst == DST_CMOS16);
+                break;
+            }
+            case SHOW_ALL:
+            {
+                visible = 1;
+                break;
+            }
         }
-        len += snprintf(msg+len, size-len, "ISO=%d Tv=%d Av=%d ", raw2iso(lens_info.raw_iso), lens_info.shutter, lens_info.aperture);
-        len += snprintf(msg+len, size-len, "lv=%d zoom=%d mv=%d res=%d crop=%d ", lv, lv_dispsize, is_movie_mode(), is_movie_mode() ? video_mode_resolution : -1, is_movie_mode() ? video_mode_crop : -1);
-        len += snprintf(msg+len, size-len, "task=%s pc=%x addr=%x ", get_task_name_from_id(regs[i].caller_task), regs[i].caller_pc, regs[i].addr);
-
-        for (int j = 0; j < COUNT(known_regs); j++)
-            if (known_match(j, i))
-                len += snprintf(msg+len, size-len, "%s", known_regs[j].description);
-
-        len += snprintf(msg+len, size-len, "\n");
         
-        saved_regs++;
+        if (regs[reg].num_changes > 100 && !regs[reg].override_enabled)
+        {
+            /* possibly noise; double-checking */
+            int is_known = 0;
+
+            for (int i = 0; i < COUNT(known_regs); i++)
+            {
+                if (known_match(i, reg))
+                {
+                    is_known = 1;
+                    break;
+                }
+            }
+
+            if (!is_known)
+            {
+                /* very likely to be noise */
+                visible = 0;
+            }
+        }
+        
+        if (!digic_intercept && (regs[reg].dst & 0xF000) == 0xC000)
+        {
+            /* hide previously-intercepted DIGIC registers if we disabled the option */
+            visible = 0;
+        }
+
+        if (entry->shidden != !visible)
+        {
+            if (current_time - last_update < 3000 && !show_what_changed)
+            {
+                /* prevent update flood in menu */
+                MENU_SET_RINFO("Wait");
+                return;
+            }
+
+            entry->shidden = !visible;
+            changed = 1;
+        }
+
+        if (show_what != SHOW_MODIFIED_SINCE_TIMESTAMP)
+        {
+            regs[reg].prev_val = regs[reg].val;
+        }
     }
-
-    len += snprintf(msg+len, size-len, "==================================================================\n");
-
-    FILE * f = FIO_CreateFileOrAppend("ML/LOGS/adtg.log");
-    FIO_WriteFile(f, msg, len);
-    FIO_CloseFile(f);
-    fio_free(msg);
-    NotifyBox(2000, "Saved %d regs, %d bytes", saved_regs, len);
-    log_iso_regs_running = 0;
-}
-
-PROP_HANDLER(PROP_GUI_STATE)
-{
-    if (buf[0] == GUISTATE_QR)
+    
+    if (changed && info->can_custom_draw)
     {
-        if (log_all_regs && adtg_enabled && !log_iso_regs_running)
-        {
-            log_iso_regs_running = 1;
-            task_create("log_iso_regs", 0x1c, 0x1000, log_iso_regs, 0);
-        }
+        /* just a little trick to avoid transient redrawing artifacts */
+        /* todo: better backend support for dynamic menus? */
+        info->custom_drawing = CUSTOM_DRAW_THIS_MENU;
+        bmp_printf(FONT_LARGE, info->x, info->y, "Updating...");
+        last_update = current_time;
     }
 }
 
@@ -5534,176 +5705,6 @@ static struct menu_entry adtg_gui_menu[] =
         }
     }
 };
-
-static MENU_UPDATE_FUNC(show_update)
-{
-    static struct tm tm;
-    if (show_what == SHOW_MODIFIED_SINCE_TIMESTAMP)
-        MENU_SET_VALUE("Modified since %02d:%02d:%02d", tm.tm_hour, tm.tm_min, tm.tm_sec);
-    else
-        LoadCalendarFromRTC(&tm);
-
-    int changed = 0;
-    
-    //~ int err = checktree(regs_tree.root, regs_tree.compar);
-    //~ MENU_SET_WARNING(MENU_WARN_ADVICE, "AVL tree %x", err);
-    
-    int current_time = get_ms_clock();
-    static int last_update = 0;
-    static int prev_show_what = 0;
-    int show_what_changed = show_what != prev_show_what;
-    prev_show_what = show_what;
-    
-    for (int reg = 0; reg < reg_num; reg++)
-    {
-        /* XXX: change this if you ever add or remove menu entries */
-        struct menu_entry * entry = &(adtg_gui_menu[0].children[reg + 2]);
-        
-        if (get_reg_from_priv(entry->priv) != reg)
-            break;
-
-        int visible = 0;
-
-        switch (show_what)
-        {
-            case SHOW_KNOWN_ONLY:
-            {
-                for (int i = 0; i < COUNT(known_regs); i++)
-                {
-                    if (known_match(i, reg))
-                    {
-                        visible = 1;
-                        break;
-                    }
-                }
-                break;
-            }
-            case SHOW_MODIFIED_SINCE_TIMESTAMP:
-            {
-                visible = regs[reg].val != regs[reg].prev_val;
-                break;
-            }
-            case SHOW_MODIFIED_AT_LEAST_TWICE:
-            {
-                visible = regs[reg].num_changes > 1;
-                break;
-            }
-            case SHOW_OVERRIDEN:
-            {
-                visible = regs[reg].override_enabled;
-                break;
-            }
-            case SHOW_FPS_TIMERS:
-            {
-                visible = (regs[reg].dst == 0xC0F0) && (regs[reg].reg == 0x6014 || regs[reg].reg == 0x6008);
-                break;
-            }
-            case SHOW_DISPLAY_REGS:
-            {
-                /* C0F14nnn */
-                visible = (regs[reg].dst == 0xC0F1) && ((regs[reg].reg & 0xF000) == 0x4000);
-                break;
-            }
-            case SHOW_IMAGE_SIZE_REGS:
-            {
-                if ((regs[reg].dst == 0xC0F0) && ((regs[reg].reg & 0xF000) == 0x6000))
-                {
-                    visible = 1;
-                    break;
-                }
-                for (int i = 0; i < COUNT(known_regs); i++)
-                {
-                    if (known_match(i, reg))
-                    {
-                        if (
-                            strstr(known_regs[i].description, "esolution") ||
-                            strstr(known_regs[i].description, "idth") ||
-                            strstr(known_regs[i].description, "eight") ||
-                            strstr(known_regs[i].description, "ine count") ||
-                            strstr(known_regs[i].description, "dwSrFstAdtg") ||
-                            strstr(known_regs[i].description, "Timing") ||
-                            strstr(known_regs[i].description, "HEAD") ||
-                        0)
-                        {
-                            visible = 1;
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
-            case SHOW_ADTG_ONLY:
-            {
-                visible = (regs[reg].dst & ~DST_ADTG) == 0;
-                break;
-            }
-            case SHOW_CMOS_ONLY:
-            {
-                visible = (regs[reg].dst == DST_CMOS) || (regs[reg].dst == DST_CMOS16);
-                break;
-            }
-            case SHOW_ALL:
-            {
-                visible = 1;
-                break;
-            }
-        }
-        
-        if (regs[reg].num_changes > 100 && !regs[reg].override_enabled)
-        {
-            /* possibly noise; double-checking */
-            int is_known = 0;
-
-            for (int i = 0; i < COUNT(known_regs); i++)
-            {
-                if (known_match(i, reg))
-                {
-                    is_known = 1;
-                    break;
-                }
-            }
-
-            if (!is_known)
-            {
-                /* very likely to be noise */
-                visible = 0;
-            }
-        }
-        
-        if (!digic_intercept && (regs[reg].dst & 0xF000) == 0xC000)
-        {
-            /* hide previously-intercepted DIGIC registers if we disabled the option */
-            visible = 0;
-        }
-
-        if (entry->shidden != !visible)
-        {
-            if (current_time - last_update < 3000 && !show_what_changed)
-            {
-                /* prevent update flood in menu */
-                MENU_SET_RINFO("Wait");
-                return;
-            }
-
-            entry->shidden = !visible;
-            changed = 1;
-        }
-
-        if (show_what != SHOW_MODIFIED_SINCE_TIMESTAMP)
-        {
-            regs[reg].prev_val = regs[reg].val;
-        }
-    }
-    
-    if (changed && info->can_custom_draw)
-    {
-        /* just a little trick to avoid transient redrawing artifacts */
-        /* todo: better backend support for dynamic menus? */
-        info->custom_drawing = CUSTOM_DRAW_THIS_MENU;
-        bmp_printf(FONT_LARGE, info->x, info->y, "Updating...");
-        last_update = current_time;
-    }
-}
 
 static unsigned int adtg_gui_init()
 {
