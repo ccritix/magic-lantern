@@ -729,9 +729,8 @@ static void adtg_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     while(*data_buf != 0xFFFFFFFF)
     {
         *copy_ptr = *data_buf;
-        if (dst & 1) reg_update_unique(1, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
-        if (dst & 2) reg_update_unique(2, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
-        if (dst & 4) reg_update_unique(4, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
+        /* note: dst is a bit field (5D3: ADTG 2 and 4, some values written to both, others to just one of them) */
+        reg_update_unique(dst, data_buf, *data_buf, (uint16_t*)copy_ptr, 16, 0, caller_task, caller_pc);
         INCREMENT(data_buf, copy_ptr, copy_end);
     }
     *copy_ptr = 0xFFFFFFFF;
@@ -1091,7 +1090,14 @@ static MENU_UPDATE_FUNC(reg_update)
     }
     else
     {
-        snprintf(dst_name, sizeof(dst_name), "ADTG%d", regs[reg].dst);
+        snprintf(dst_name, sizeof(dst_name), "ADTG");
+        for (int i = 0; i < 4; i++)
+        {
+            if (regs[reg].dst & (1 << i))
+            {
+                STR_APPEND(dst_name, "%d", 1 << i);
+            }
+        }
         entry->max = 0xFFFF;
     }
 
