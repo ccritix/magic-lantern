@@ -1483,8 +1483,10 @@ static MENU_UPDATE_FUNC(show_update)
                 break;
             }
         }
-        
-        if (regs[reg].num_changes > 100 && !regs[reg].override_enabled)
+
+        if (show_what == SHOW_MODIFIED_SINCE_TIMESTAMP &&
+            regs[reg].num_changes > 100 &&
+            !regs[reg].override_enabled)
         {
             /* possibly noise; double-checking */
             int is_known = 0;
@@ -1504,7 +1506,7 @@ static MENU_UPDATE_FUNC(show_update)
                 visible = 0;
             }
         }
-        
+
         if (!digic_intercept && (regs[reg].dst & 0xF000) == 0xC000)
         {
             /* hide previously-intercepted DIGIC registers if we disabled the option */
