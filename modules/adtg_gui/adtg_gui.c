@@ -402,6 +402,7 @@ struct reg_entry
     };
     int32_t val;
     int32_t ref_val;            /* reference value, used when diff'ing two configurations */
+    int32_t prev_vals[4];       /* previous values (for registers modified multiple times) */
     int override;
     void* addr;
     uint32_t caller_task;
@@ -568,8 +569,8 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint16_t*
         re->override = INVALID_VAL;
         re->override_enabled = 0;
         re->is_nrzi = is_nrzi; /* initial guess; may be overriden */
-        re->val = INVALID_VAL;
-        re->ref_val = val;
+        re->val = re->ref_val = INVALID_VAL;
+        re->prev_vals[0] = re->prev_vals[1] = re->prev_vals[2] = re->prev_vals[3] = INVALID_VAL;
         re->num_changes = 0;
         re->context = context;
         /* all 16-bit registers are stored in the AVL */
@@ -591,6 +592,10 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint16_t*
     {
         int old = cli();
         re->num_changes++;
+        re->prev_vals[3] = re->prev_vals[2];
+        re->prev_vals[2] = re->prev_vals[1];
+        re->prev_vals[1] = re->prev_vals[0];
+        re->prev_vals[0] = re->val;
         re->val = val;
         if (!re->override_enabled)
         {
@@ -637,8 +642,8 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* addr, uin
         re->override = INVALID_VAL;
         re->override_enabled = 0;
         re->is_nrzi = 0;
-        re->val = INVALID_VAL;
-        re->ref_val = val;
+        re->val = re->ref_val = INVALID_VAL;
+        re->prev_vals[0] = re->prev_vals[1] = re->prev_vals[2] = re->prev_vals[3] = INVALID_VAL;
         re->num_changes = 0;
         re->context = context;
         if (unique_key == UNIQUE_REG && (dst & DST_ENGIO_MASK) == DST_ENGIO) {
@@ -670,6 +675,10 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* addr, uin
     {
         int old = cli();
         re->num_changes++;
+        re->prev_vals[3] = re->prev_vals[2];
+        re->prev_vals[2] = re->prev_vals[1];
+        re->prev_vals[1] = re->prev_vals[0];
+        re->prev_vals[0] = re->val;
         re->val = val;
         if (!re->override_enabled)
         {
@@ -1082,7 +1091,9 @@ static MENU_UPDATE_FUNC(reg_update)
     } else {
         MENU_SET_NAME("%x%s", reg_full, regs[reg].is_nrzi ? " N" : "");
     }
-    
+
+    char msg_prev_vals[128] = "";
+
     if (show_what == SHOW_MODIFIED_SINCE_TIMESTAMP && !regs[reg].override_enabled)
     {
         MENU_SET_VALUE(
@@ -1097,6 +1108,22 @@ static MENU_UPDATE_FUNC(reg_update)
             "0x%x",
             regs[reg].is_nrzi ? nrzi_decode(regs[reg].val) : regs[reg].val
         );
+
+        if (regs[reg].val != regs[reg].prev_vals[0] && regs[reg].prev_vals[0] != INVALID_VAL)
+        {
+            STR_APPEND(msg_prev_vals, "Was");
+            for (int i = 0; i < COUNT(regs[reg].prev_vals); i++)
+            {
+                if (regs[reg].prev_vals[i] != INVALID_VAL)
+                {
+                    int val = regs[reg].prev_vals[i];
+                    int dec = regs[reg].is_nrzi ? nrzi_decode(val) : val;
+                    STR_APPEND(msg_prev_vals, " %X,", dec);
+                }
+            }
+            msg_prev_vals[strlen(msg_prev_vals)-1] = 0;
+            STR_APPEND(msg_prev_vals, ". ");
+        }
     }
     
     MENU_SET_HELP("%s:%x:%x v=%d(0x%x) nrzi_dec=%d(0x%x).", get_task_name_from_id(regs[reg].caller_task), regs[reg].caller_pc, regs[reg].addr, regs[reg].val, regs[reg].val, nrzi_decode(regs[reg].val), nrzi_decode(regs[reg].val));
@@ -1131,7 +1158,7 @@ static MENU_UPDATE_FUNC(reg_update)
         {
             if (known_match(i, reg))
             {
-                MENU_SET_WARNING(MENU_WARN_INFO, "%s.", known_regs[i].description);
+                MENU_SET_WARNING(MENU_WARN_INFO, "%s%s.", msg_prev_vals, known_regs[i].description);
                 
                 if (show_what != SHOW_MODIFIED_SINCE_TIMESTAMP) /* do we have enough space to show a shortened description? */
                 {
@@ -1153,6 +1180,9 @@ static MENU_UPDATE_FUNC(reg_update)
         {
             MENU_APPEND_RINFO(" "SYM_TIMES"%d", regs[reg].num_changes);
         }
+
+        /* if it wasn't set earlier */
+        MENU_SET_WARNING(MENU_WARN_INFO, "%s", msg_prev_vals);
     }
 }
 
