@@ -379,6 +379,11 @@ static int random_pokes = 0;
 /* number of LiveView frames captured with logging enabled */
 static unsigned int adtg_lv_frames = 0;
 
+/* last register changed from menu */
+static uint32_t last_changed_reg = 0;
+static uint32_t last_changed_val = 0;
+static int skip_logging = 0;
+
 static uint32_t ADTG_WRITE_FUNC = 0;
 static uint32_t CMOS_WRITE_FUNC = 0;
 static uint32_t CMOS2_WRITE_FUNC = 0;
@@ -711,6 +716,7 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* addr, uin
 
 static void adtg_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
+    if (skip_logging) return;
     if (photo_only && lv) return;
     
     uint32_t cs = regs[0];
@@ -741,6 +747,7 @@ static void adtg_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
+    if (skip_logging) return;
     if (photo_only && lv) return;
 
     uint16_t *data_buf = (uint16_t *) regs[0];
@@ -770,6 +777,7 @@ static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 static void cmos16_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
+    if (skip_logging) return;
     if (photo_only && lv) return;
 
     uint16_t *data_buf = (uint16_t *) regs[0];
@@ -799,7 +807,7 @@ static void cmos16_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
-    /* fixme: use nondestructive overriding */
+    if (skip_logging) return;
     if (photo_only && lv) return;
     if (!digic_intercept) return;
     
@@ -832,6 +840,7 @@ static void engio_write_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 static void EngDrvOut_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
+    if (skip_logging) return;
     if (photo_only && lv) return;
     if (!digic_intercept) return;
 
@@ -849,6 +858,7 @@ static void EngDrvOut_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 static void EngDrvOuts_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
+    if (skip_logging) return;
     if (photo_only && lv) return;
     if (!digic_intercept) return;
 
@@ -871,6 +881,7 @@ static void EngDrvOuts_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 #ifdef ENGIO_USE_IO_TRACE
 static void mmio_handler(uint32_t pc, uint32_t * regs)
 {
+    if (skip_logging) return;
     if (photo_only && lv) return;
     if (!digic_intercept) return;
 
@@ -888,6 +899,7 @@ static void mmio_handler(uint32_t pc, uint32_t * regs)
 
 static void SendDataToDfe_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
+    if (skip_logging) return;
     if (photo_only && lv) return;
     
     uint32_t *data_buf = (uint32_t *) regs[0];
@@ -928,6 +940,41 @@ static unsigned int adtg_vsync_cbr(unsigned int unused)
     if (adtg_enabled)
     {
         adtg_lv_frames++;
+    }
+    return 0;
+}
+
+static unsigned int adtg_vsync_setparam_cbr(unsigned int unused)
+{
+    if (last_changed_reg)
+    {
+        uint16_t dst = last_changed_reg >> 16;
+        if (dst == DST_DFE)
+        {
+            /* TODO? */
+        }
+        else if (dst == DST_CMOS)
+        {
+            /* not needed; these registers are refreshed continuously during LiveView */
+        }
+        else if ((dst & ~DST_ADTG) == 0)
+        {
+            int old = cli();
+            skip_logging = 1;
+            void (*adtg_write)(int, uint32_t *) = (void *) ADTG_WRITE_FUNC;
+            adtg_write(dst, (uint32_t []) { (last_changed_reg << 16) | last_changed_val, 0xFFFFFFFF });
+            skip_logging = 0;
+            sei(old);
+        }
+        else if ((dst & DST_ENGIO_MASK) == DST_ENGIO)
+        {
+            int old = cli();
+            skip_logging = 1;
+            MEM(last_changed_reg) = last_changed_val;
+            skip_logging = 0;
+            sei(old);
+        }
+        last_changed_reg = 0;
     }
     return 0;
 }
@@ -1052,7 +1099,13 @@ static MENU_UPDATE_FUNC(reg_update)
     int reg = get_reg_from_priv(entry->priv);
     if (reg < 0 || reg >= COUNT(regs))
         return;
-    
+
+    if (entry->selected && regs[reg].override_enabled)
+    {
+        last_changed_reg = ((uint32_t) regs[reg].dst << 16) | regs[reg].reg;
+        last_changed_val = regs[reg].override;
+    }
+
     if (entry->selected && regs[reg].override != regs[reg].val)
     {
         /* this assummes override and val are always kept in sync by the log functions (atomic updates) */
@@ -1227,6 +1280,8 @@ static MENU_SELECT_FUNC(reg_toggle_override)
     {
         regs[reg].override = regs[reg].val;
         regs[reg].override_enabled = 0;
+        last_changed_reg = ((uint32_t) regs[reg].dst << 16) | regs[reg].reg;
+        last_changed_val = regs[reg].val;
     }
     else
     {
@@ -5782,7 +5837,7 @@ static unsigned int adtg_gui_init()
 {
     if (is_camera("5D3", "1.1.3"))
     {
-        ADTG_WRITE_FUNC = 0x11644;
+        ADTG_WRITE_FUNC = 0x11640;
         CMOS_WRITE_FUNC = 0x119CC;
         CMOS2_WRITE_FUNC = 0x11784;
         CMOS16_WRITE_FUNC = 0x11AB8;
@@ -5918,6 +5973,7 @@ MODULE_INFO_END()
 
 MODULE_CBRS_START()
     MODULE_CBR(CBR_VSYNC, adtg_vsync_cbr, 0)
+    MODULE_CBR(CBR_VSYNC_SETPARAM, adtg_vsync_setparam_cbr, 0)
 MODULE_CBRS_END()
 
 MODULE_PROPHANDLERS_START()
