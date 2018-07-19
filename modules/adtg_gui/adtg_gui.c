@@ -355,14 +355,15 @@ static int show_what = 0;
 
 #define SHOW_ALL 0
 #define SHOW_KNOWN_ONLY 1
-#define SHOW_MODIFIED_AT_LEAST_TWICE 2
-#define SHOW_MODIFIED_SINCE_TIMESTAMP 3
-#define SHOW_OVERRIDEN 4
-#define SHOW_FPS_TIMERS 5
-#define SHOW_DISPLAY_REGS 6
-#define SHOW_IMAGE_SIZE_REGS 7
-#define SHOW_ADTG_ONLY 8
-#define SHOW_CMOS_ONLY 9
+#define SHOW_MODIFIED_SINCE_TIMESTAMP 2
+#define SHOW_MODIFIED_AT_LEAST_TWICE 3
+#define SHOW_UPDATED_IN_LIVEVIEW 4
+#define SHOW_OVERRIDEN 5
+#define SHOW_FPS_TIMERS 6
+#define SHOW_DISPLAY_REGS 7
+#define SHOW_IMAGE_SIZE_REGS 8
+#define SHOW_ADTG_ONLY 9
+#define SHOW_CMOS_ONLY 10
 
 static int digic_intercept = 0;
 static int photo_only = 0;
@@ -374,6 +375,9 @@ static int unique_key = 0;
 #define UNIQUE_REG_AND_CALLER_PC 2
 
 static int random_pokes = 0;
+
+/* number of LiveView frames captured with logging enabled */
+static unsigned int adtg_lv_frames = 0;
 
 static uint32_t ADTG_WRITE_FUNC = 0;
 static uint32_t CMOS_WRITE_FUNC = 0;
@@ -398,7 +402,7 @@ struct reg_entry
             uint16_t reg;       /* register offset */
             uint16_t dst;       /* register "class" */
         };
-        int64_t key;           /* key in the AVL tree */
+        int64_t key;            /* key in the AVL tree */
     };
     int32_t val;
     int32_t ref_val;            /* reference value, used when diff'ing two configurations */
@@ -407,7 +411,8 @@ struct reg_entry
     void* addr;
     uint32_t caller_task;
     uint32_t caller_pc;
-    uint32_t num_changes;
+    uint32_t num_pokes;         /* how many times a value was written to this register */
+    uint32_t num_changes;       /* how many times a *different* value was written to this register */
     unsigned is_nrzi:1;
     unsigned override_enabled:1;
 };
@@ -571,7 +576,7 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint16_t*
         re->is_nrzi = is_nrzi; /* initial guess; may be overriden */
         re->val = re->ref_val = INVALID_VAL;
         re->prev_vals[0] = re->prev_vals[1] = re->prev_vals[2] = re->prev_vals[3] = INVALID_VAL;
-        re->num_changes = 0;
+        re->num_changes = re->num_pokes = 0;
         re->context = context;
         /* all 16-bit registers are stored in the AVL */
         avl_insert(&regs_tree, (struct avl *) re);
@@ -604,6 +609,7 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint16_t*
         sei(old);
     }
 
+    re->num_pokes++;
     re->addr = addr;
     re->caller_task = caller_task;
     re->caller_pc = caller_pc;
@@ -644,7 +650,7 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* addr, uin
         re->is_nrzi = 0;
         re->val = re->ref_val = INVALID_VAL;
         re->prev_vals[0] = re->prev_vals[1] = re->prev_vals[2] = re->prev_vals[3] = INVALID_VAL;
-        re->num_changes = 0;
+        re->num_changes = re->num_pokes = 0;
         re->context = context;
         if (unique_key == UNIQUE_REG && (dst & DST_ENGIO_MASK) == DST_ENGIO) {
             uint32_t off = ((((uint32_t) dst << 16) | (uint32_t) reg) & 0x000FFFFC) >> 2;
@@ -686,7 +692,8 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* addr, uin
         }
         sei(old);
     }
-    
+
+    re->num_pokes++;
     re->addr = addr;
     re->caller_task = caller_task;
     re->caller_pc = caller_pc;
@@ -914,6 +921,16 @@ static void dummy_readout_log(uint32_t* _regs, uint32_t* stack, uint32_t pc)
     {
         regs[reg].ref_val = regs[reg].val;
     }
+}
+
+/* called once every LiveView frame */
+static unsigned int adtg_vsync_cbr(unsigned int unused)
+{
+    if (adtg_enabled)
+    {
+        adtg_lv_frames++;
+    }
+    return 0;
 }
 
 /* forward reference */
@@ -1178,7 +1195,15 @@ static MENU_UPDATE_FUNC(reg_update)
         }
         if (regs[reg].num_changes > 1)
         {
-            MENU_APPEND_RINFO(" "SYM_TIMES"%d", regs[reg].num_changes);
+            int num = (regs[reg].num_changes * 10 + 5) / adtg_lv_frames;
+
+            if (num % 10 && num < 5) {
+                MENU_APPEND_RINFO(" "SYM_TIMES"%s%d.%d/f", FMT_FIXEDPOINT1(num));
+            } else if (num > 0) {
+                MENU_APPEND_RINFO(" "SYM_TIMES"%d/f", (num + 5) / 10);
+            } else {
+                MENU_APPEND_RINFO(" "SYM_TIMES"%d", regs[reg].num_changes);
+            }
         }
 
         /* if it wasn't set earlier */
@@ -1393,6 +1418,11 @@ static MENU_UPDATE_FUNC(show_update)
                 visible = regs[reg].num_changes > 1;
                 break;
             }
+            case SHOW_UPDATED_IN_LIVEVIEW:
+            {
+                visible = regs[reg].num_pokes >= adtg_lv_frames / 10;
+                break;
+            }
             case SHOW_OVERRIDEN:
             {
                 visible = regs[reg].override_enabled;
@@ -1526,12 +1556,13 @@ static struct menu_entry adtg_gui_menu[] =
                 .name           = "Show",
                 .priv           = &show_what,
                 .update         = show_update,
-                .max            = 9,
+                .max            = 10,
                 .choices        = CHOICES(
                                     "Everything",
                                     "Known regs only",
-                                    "Modified at least twice",
                                     "Modified from now on",
+                                    "Modified at least twice",
+                                    "Updated in LiveView",
                                     "Overriden regs only",
                                     "FPS timers only",
                                     "Display registers only",
@@ -1541,8 +1572,9 @@ static struct menu_entry adtg_gui_menu[] =
                                   ),
                 .help2          =  "Everything: show all registers as soon as they are written.\n"
                                    "Known: show only the registers with a known description.\n"
-                                   "Modified at least twice: only regs that were changed more than once.\n"
                                    "Modified from now on: only regs where final value was modified.\n"
+                                   "Modified at least twice: only regs that were changed more than once.\n"
+                                   "Updated in LiveView: regs touched (not necessarily changed) in LV.\n"
                                    "Overriden: show only regs where you have changed the value.\n"
                                    "FPS timers only: show only FPS timer A and B.\n"
                                    "Display registers only: C0F14000 ... C0F14FFF.\n"
@@ -5875,6 +5907,10 @@ MODULE_INFO_START()
     MODULE_INIT(adtg_gui_init)
     MODULE_DEINIT(adtg_gui_deinit)
 MODULE_INFO_END()
+
+MODULE_CBRS_START()
+    MODULE_CBR(CBR_VSYNC, adtg_vsync_cbr, 0)
+MODULE_CBRS_END()
 
 MODULE_PROPHANDLERS_START()
     MODULE_PROPHANDLER(PROP_GUI_STATE)
