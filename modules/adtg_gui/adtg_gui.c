@@ -360,7 +360,8 @@ static int show_what = 0;
 #define SHOW_FPS_TIMERS 5
 #define SHOW_DISPLAY_REGS 6
 #define SHOW_IMAGE_SIZE_REGS 7
-#define SHOW_CMOS_ONLY 8
+#define SHOW_ADTG_ONLY 8
+#define SHOW_CMOS_ONLY 9
 
 static int digic_intercept = 0;
 static int photo_only = 0;
@@ -1322,7 +1323,7 @@ static struct menu_entry adtg_gui_menu[] =
                 .name           = "Show",
                 .priv           = &show_what,
                 .update         = show_update,
-                .max            = 8,
+                .max            = 9,
                 .choices        = CHOICES(
                                     "Everything",
                                     "Known regs only",
@@ -1332,6 +1333,7 @@ static struct menu_entry adtg_gui_menu[] =
                                     "FPS timers only",
                                     "Display registers only",
                                     "Image size regs only",
+                                    "ADTG regs only",
                                     "CMOS regs only",
                                   ),
                 .help2          =  "Everything: show all registers as soon as they are written.\n"
@@ -1342,6 +1344,7 @@ static struct menu_entry adtg_gui_menu[] =
                                    "FPS timers only: show only FPS timer A and B.\n"
                                    "Display registers only: C0F14000 ... C0F14FFF.\n"
                                    "Image size regs only: registers related to raw image size (resolution).\n"
+                                   "ADTG: registers labeled as such in Canon firmware.\n"
                                    "CMOS: registers labeled as such in Canon firmware.\n"
             },
             {
@@ -5629,9 +5632,14 @@ static MENU_UPDATE_FUNC(show_update)
                 }
                 break;
             }
+            case SHOW_ADTG_ONLY:
+            {
+                visible = (regs[reg].dst & ~DST_ADTG) == 0;
+                break;
+            }
             case SHOW_CMOS_ONLY:
             {
-                visible = (regs[reg].dst == DST_CMOS);
+                visible = (regs[reg].dst == DST_CMOS) || (regs[reg].dst == DST_CMOS16);
                 break;
             }
             case SHOW_ALL:
