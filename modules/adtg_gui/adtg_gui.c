@@ -385,6 +385,8 @@ static uint32_t ENG_DRV_OUTS_FUNC = 0;
 static uint32_t SEND_DATA_TO_DFE_FUNC = 0;
 static uint32_t SCS_DUMMY_READOUT_DONE_FUNC = 0;
 
+#define INVALID_VAL ((int)0xBADCAFFE)
+
 struct reg_entry
 {
     struct avl avl;
@@ -563,10 +565,10 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint16_t*
         re = &regs[reg_num];
         re->dst = dst;
         re->reg = reg;
-        re->override = INT_MIN;
+        re->override = INVALID_VAL;
         re->override_enabled = 0;
         re->is_nrzi = is_nrzi; /* initial guess; may be overriden */
-        re->val = INT_MIN;
+        re->val = INVALID_VAL;
         re->prev_val = val;
         re->num_changes = 0;
         re->context = context;
@@ -632,10 +634,10 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* addr, uin
         re = &regs[reg_num];
         re->dst = dst;
         re->reg = reg;
-        re->override = INT_MIN;
+        re->override = INVALID_VAL;
         re->override_enabled = 0;
         re->is_nrzi = 0;
-        re->val = INT_MIN;
+        re->val = INVALID_VAL;
         re->prev_val = val;
         re->num_changes = 0;
         re->context = context;
