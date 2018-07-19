@@ -401,7 +401,7 @@ struct reg_entry
         int64_t key;           /* key in the AVL tree */
     };
     int32_t val;
-    int32_t prev_val;
+    int32_t ref_val;            /* reference value, used when diff'ing two configurations */
     int override;
     void* addr;
     uint32_t caller_task;
@@ -569,7 +569,7 @@ static void reg_update_unique(uint16_t dst, void* addr, uint32_t data, uint16_t*
         re->override_enabled = 0;
         re->is_nrzi = is_nrzi; /* initial guess; may be overriden */
         re->val = INVALID_VAL;
-        re->prev_val = val;
+        re->ref_val = val;
         re->num_changes = 0;
         re->context = context;
         /* all 16-bit registers are stored in the AVL */
@@ -638,7 +638,7 @@ static void reg_update_unique_32(uint16_t dst, uint16_t reg, uint32_t* addr, uin
         re->override_enabled = 0;
         re->is_nrzi = 0;
         re->val = INVALID_VAL;
-        re->prev_val = val;
+        re->ref_val = val;
         re->num_changes = 0;
         re->context = context;
         if (unique_key == UNIQUE_REG && (dst & DST_ENGIO_MASK) == DST_ENGIO) {
@@ -903,7 +903,7 @@ static void dummy_readout_log(uint32_t* _regs, uint32_t* stack, uint32_t pc)
     /* fixme: naming conflict */
     for (int reg = 0; reg < reg_num; reg++)
     {
-        regs[reg].prev_val = regs[reg].val;
+        regs[reg].ref_val = regs[reg].val;
     }
 }
 
@@ -936,9 +936,9 @@ static void log_iso_regs()
             continue;
 
         len += snprintf(msg+len, size-len, "%04x%04x:%8x ", regs[i].dst, regs[i].reg, regs[i].val);
-        if (regs[i].val != regs[i].prev_val)
+        if (regs[i].val != regs[i].ref_val)
         {
-            snprintf(msg+len, size-len, "(was %x)         ", regs[i].prev_val);
+            snprintf(msg+len, size-len, "(was %x)         ", regs[i].ref_val);
             len += 5 + 8 + 2;
         }
         len += snprintf(msg+len, size-len, "ISO=%d Tv=%d Av=%d ", raw2iso(lens_info.raw_iso), lens_info.shutter, lens_info.aperture);
@@ -1088,7 +1088,7 @@ static MENU_UPDATE_FUNC(reg_update)
         MENU_SET_VALUE(
             "%x (was %x)",
             regs[reg].is_nrzi ? nrzi_decode(regs[reg].val) : regs[reg].val,
-            regs[reg].is_nrzi ? nrzi_decode(regs[reg].prev_val) : regs[reg].prev_val
+            regs[reg].is_nrzi ? nrzi_decode(regs[reg].ref_val) : regs[reg].ref_val
         );
     }
     else
@@ -1355,7 +1355,7 @@ static MENU_UPDATE_FUNC(show_update)
             }
             case SHOW_MODIFIED_SINCE_TIMESTAMP:
             {
-                visible = regs[reg].val != regs[reg].prev_val;
+                visible = regs[reg].val != regs[reg].ref_val;
                 break;
             }
             case SHOW_MODIFIED_AT_LEAST_TWICE:
@@ -1466,7 +1466,7 @@ static MENU_UPDATE_FUNC(show_update)
 
         if (show_what != SHOW_MODIFIED_SINCE_TIMESTAMP)
         {
-            regs[reg].prev_val = regs[reg].val;
+            regs[reg].ref_val = regs[reg].val;
         }
     }
     
