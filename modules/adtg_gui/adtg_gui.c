@@ -2,7 +2,7 @@
  * ADTG register editing GUI
  */
 
-#define ENGIO_USE_IO_TRACE        /* experimental backend for ENGIO writes */
+#undef ENGIO_USE_IO_TRACE        /* experimental backend for ENGIO writes */
 
 #include <module.h>
 #include <dryos.h>
