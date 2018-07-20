@@ -70,6 +70,7 @@ static struct known_reg known_regs[] = {
     {DST_ADTG, 0x8884, 0, "ISO ADTG gain (per column, mod 4 or mod 8)"},
     {DST_ADTG, 0x8886, 0, "ISO ADTG gain (per column, mod 4 or mod 8)"},
     {DST_ADTG, 0x8888, 0, "ISO ADTG gain (per column, mod 4 or mod 8)"},
+    {DST_ADTG,    0x7, 0, "ADTG preamp (4 2-bit column gains; clean image at 00, 55, AA and FF)"},
     {DST_ADTG,    0x8, 0, "ADTG preamp (per column, mod 4 or mod 8)"},
     {DST_ADTG,    0x9, 0, "ADTG preamp (per column, mod 4 or mod 8)"},
     {DST_ADTG,    0xA, 0, "ADTG preamp (per column, mod 4 or mod 8)"},
