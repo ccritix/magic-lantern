@@ -1072,9 +1072,41 @@ static MENU_SELECT_FUNC(adtg_toggle)
 #endif
         if (SEND_DATA_TO_DFE_FUNC) patch_hook_function(SEND_DATA_TO_DFE_FUNC, MEM(SEND_DATA_TO_DFE_FUNC), &SendDataToDfe_log, "SendDataToDfe_log");
         if (SCS_DUMMY_READOUT_DONE_FUNC) patch_hook_function(SCS_DUMMY_READOUT_DONE_FUNC, MEM(SCS_DUMMY_READOUT_DONE_FUNC), &dummy_readout_log, "dummy_readout_log");
+
+        if (lv)
+        {
+            /* set overridden registers, if any */
+            /* FIXME: change all of them at once */
+            for (int i = 0; i < reg_num; i++)
+            {
+                if (regs[i].override_enabled)
+                {
+                    while (last_changed_reg) msleep(10);
+                    last_changed_reg = ((uint32_t) regs[i].dst << 16) | regs[i].reg;
+                    last_changed_val = regs[i].override;
+                    while (last_changed_reg) msleep(10);
+                }
+            }
+        }
     }
     else
     {
+        if (lv)
+        {
+            /* restore overridden registers, if any */
+            /* FIXME: change all of them at once */
+            for (int i = 0; i < reg_num; i++)
+            {
+                if (regs[i].override_enabled)
+                {
+                    while (last_changed_reg) msleep(10);
+                    last_changed_reg = ((uint32_t) regs[i].dst << 16) | regs[i].reg;
+                    last_changed_val = regs[i].val;
+                    while (last_changed_reg) msleep(10);
+                }
+            }
+        }
+
         /* uninstall watchpoints */
         if (ADTG_WRITE_FUNC)   unpatch_memory(ADTG_WRITE_FUNC);
         if (CMOS_WRITE_FUNC)   unpatch_memory(CMOS_WRITE_FUNC);
