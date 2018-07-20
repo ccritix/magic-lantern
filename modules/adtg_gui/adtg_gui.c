@@ -362,8 +362,9 @@ static int show_what = 0;
 #define SHOW_FPS_TIMERS 6
 #define SHOW_DISPLAY_REGS 7
 #define SHOW_IMAGE_SIZE_REGS 8
-#define SHOW_ADTG_ONLY 9
-#define SHOW_CMOS_ONLY 10
+#define SHOW_ISO_GAIN_REGS 9
+#define SHOW_ADTG_ONLY 10
+#define SHOW_CMOS_ONLY 11
 
 static int digic_intercept = 0;
 static int photo_only = 0;
@@ -1528,6 +1529,25 @@ static MENU_UPDATE_FUNC(show_update)
                 }
                 break;
             }
+            case SHOW_ISO_GAIN_REGS:
+            {
+                for (int i = 0; i < COUNT(known_regs); i++)
+                {
+                    if (known_match(i, reg))
+                    {
+                        if (
+                            strstr(known_regs[i].description, "ISO") ||
+                            strstr(known_regs[i].description, "gain") ||
+                            strstr(known_regs[i].description, "preamp") ||
+                        0)
+                        {
+                            visible = 1;
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
             case SHOW_ADTG_ONLY:
             {
                 visible = (regs[reg].dst & ~DST_ADTG) == 0;
@@ -1619,7 +1639,7 @@ static struct menu_entry adtg_gui_menu[] =
                 .name           = "Show",
                 .priv           = &show_what,
                 .update         = show_update,
-                .max            = 10,
+                .max            = 11,
                 .choices        = CHOICES(
                                     "Everything",
                                     "Known regs only",
@@ -1630,6 +1650,7 @@ static struct menu_entry adtg_gui_menu[] =
                                     "FPS timers only",
                                     "Display registers only",
                                     "Image size regs only",
+                                    "ISO gain regs only",
                                     "ADTG regs only",
                                     "CMOS regs only",
                                   ),
@@ -1642,6 +1663,7 @@ static struct menu_entry adtg_gui_menu[] =
                                    "FPS timers only: show only FPS timer A and B.\n"
                                    "Display registers only: C0F14000 ... C0F14FFF.\n"
                                    "Image size regs only: registers related to raw image size (resolution).\n"
+                                   "ISO gain regs only: registers known to adjust image capture gains.\n"
                                    "ADTG: registers labeled as such in Canon firmware.\n"
                                    "CMOS: registers labeled as such in Canon firmware.\n"
             },
