@@ -78,6 +78,8 @@ static struct known_reg known_regs[] = {
 
     {DST_ADTG,   0xFE, 0, "Yet another ADTG gain"},
 
+    {DST_ADTG,   0x1B, 0, "Strong negative gain (default 0x320, dark image with 0x310)"},
+
     {DST_ADTG, 0x105F, 1, "Shutter blanking for x5/x10 zoom"},
     {DST_ADTG, 0x106E, 1, "Shutter blanking for LiveView 1x"},
 
