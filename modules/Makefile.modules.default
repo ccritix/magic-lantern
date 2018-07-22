@@ -3,7 +3,9 @@ ML_MODULES ?= \
 	mlv_lite \
 	mlv_play \
 	mlv_snd \
+	file_man \
 	dual_iso \
 	silent \
 	lua \
 	crop_rec \
+	sd_uhs \
