@@ -9,3 +9,4 @@ ML_MODULES ?= \
 	lua \
 	crop_rec \
 	sd_uhs \
+        iso_regs \
