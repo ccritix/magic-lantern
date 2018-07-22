@@ -318,13 +318,15 @@ static void cmos_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 /* enable/disable the hack */
 static MENU_SELECT_FUNC(iso_regs_toggle)
 {
-    int is_113 = streq(firmware_version, "1.1.3");
-    uint32_t ADTG_WRITE_FUNC  = 0x11640;
-    uint32_t CMOS_WRITE_FUNC  = 0x119CC;
-    uint32_t CMOS2_WRITE_FUNC = 0x11784;
-    uint32_t ENGIO_WRITE_FUNC = is_113 ? 0xFF28CC3C : 0xFF290F98;
+
+    int is_eosm = streq(firmware_version, "2.0.2");
+    uint32_t ADTG_WRITE_FUNC  = 0x2986C;
+    uint32_t CMOS_WRITE_FUNC  = 0x2998C;
+    uint32_t CMOS2_WRITE_FUNC = 0x2998C;
+    uint32_t ENGIO_WRITE_FUNC = 0xFF2C19AC;
 
     hooks_enabled = !hooks_enabled;
+
 
     if (hooks_enabled)
     {
@@ -726,7 +728,7 @@ static struct menu_entry iso_regs_menu[] =
 
 static unsigned int iso_regs_init()
 {
-    if (!is_camera("5D3", "1.1.3") && !is_camera("5D3", "1.2.3"))
+    if (!is_camera("EOSM", "2.0.2"))
     {
         return CBR_RET_ERROR;
     }
