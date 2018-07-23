@@ -1230,6 +1230,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	
 	/* will add 10bit through analog gain */
 	/* switch (crop_preset)
+	}
 			case CROP_PRESET_2K_EOSM:		
 			case CROP_PRESET_3K_EOSM:
 			case CROP_PRESET_4K_EOSM:
