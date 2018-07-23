@@ -1161,6 +1161,13 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 /* after readout is finished, we can turn off the sensor until the next frame */
                 /* we could also set these to 0; it will work, but the sensor will run a bit hotter */
                 /* to be tested to find out exactly how much */
+
+	/* will add 10bit through analog gain */
+	/* adtg_new[0] = (struct adtg_new) {2, 0x8882, 0x46};
+	adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x47};
+	adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x46};
+	adtg_new[3] = (struct adtg_new) {2, 0x8888, 0x45}; */
+
                 adtg_new[4]  = (struct adtg_new) {6, 0x8172, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (6D/700D) */
                 adtg_new[5]  = (struct adtg_new) {6, 0x8178, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3/6D/700D) */
                 adtg_new[6]  = (struct adtg_new) {6, 0x8196, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3) */
@@ -1220,6 +1227,19 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 /* after readout is finished, we can turn off the sensor until the next frame */
                 /* we could also set these to 0; it will work, but the sensor will run a bit hotter */
                 /* to be tested to find out exactly how much */
+	
+	/* will add 10bit through analog gain */
+	/* switch (crop_preset)
+			case CROP_PRESET_2K_EOSM:		
+			case CROP_PRESET_3K_EOSM:
+			case CROP_PRESET_4K_EOSM:
+	adtg_new[0] = (struct adtg_new) {2, 0x8882, 0x46};
+	adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x47};
+	adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x46};
+	adtg_new[3] = (struct adtg_new) {2, 0x8888, 0x45};
+        break;		
+	} */
+
                 adtg_new[4]  = (struct adtg_new) {6, 0x8172, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (6D/700D) */
                 adtg_new[5]  = (struct adtg_new) {6, 0x8178, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3/6D/700D) */
                 adtg_new[6]  = (struct adtg_new) {6, 0x8196, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3) */
@@ -1874,6 +1894,7 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06014: return 0x747;
         case 0xC0F07150: return 0x428;
         case 0xC0F0713c: return 0x535;
+
     }
 
     return 0;
