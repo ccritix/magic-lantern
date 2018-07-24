@@ -1168,6 +1168,12 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x46};
 	adtg_new[3] = (struct adtg_new) {2, 0x8888, 0x45};
 
+	/* even lower bits */
+	/* 	adtg_new[0] = (struct adtg_new) {2, 0x8882, 0x14};
+	adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x15};
+	adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x14};
+	adtg_new[3] = (struct adtg_new) {2, 0x8888, 0x13}; */
+
                 adtg_new[4]  = (struct adtg_new) {6, 0x8172, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (6D/700D) */
                 adtg_new[5]  = (struct adtg_new) {6, 0x8178, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3/6D/700D) */
                 adtg_new[6]  = (struct adtg_new) {6, 0x8196, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3) */
@@ -1238,6 +1244,13 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x47};
 	adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x46};
 	adtg_new[3] = (struct adtg_new) {2, 0x8888, 0x45};
+
+	/* even lower bits */
+	/* 	adtg_new[0] = (struct adtg_new) {2, 0x8882, 0x14};
+	adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x15};
+	adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x14};
+	adtg_new[3] = (struct adtg_new) {2, 0x8888, 0x13}; */
+
         break;		
 	} 
 
