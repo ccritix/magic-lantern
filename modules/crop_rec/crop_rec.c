@@ -38,7 +38,9 @@ enum crop_preset {
 	CROP_PRESET_2520_1384,
 	CROP_PRESET_1080K_100D,
 	CROP_PRESET_2K_100D,
+	CROP_PRESET_2K10bit_100D,
 	CROP_PRESET_2K_EOSM,
+	CROP_PRESET_2K10bit_EOSM,
 	CROP_PRESET_3x3_mv1080_EOSM,
     CROP_PRESET_3K,
 	CROP_PRESET_3K_700D,
@@ -192,7 +194,8 @@ static enum crop_preset crop_presets_100d[] = {
     CROP_PRESET_3K_100D,
     CROP_PRESET_4K_100D,
     CROP_PRESET_3x3_1X,
-    CROP_PRESET_1080K_100D
+    CROP_PRESET_1080K_100D,
+    CROP_PRESET_2K10bit_100D,
 };
 
 static const char * crop_choices_100d[] = {
@@ -202,6 +205,7 @@ static const char * crop_choices_100d[] = {
     "4K 4056x2552",
     "3x3 720p",
     "2K 2520x1080p",
+    "2.5K 10bit 2520x1304",
 };
 
 static const char crop_choices_help_100d[] =
@@ -213,7 +217,8 @@ static const char crop_choices_help2_100d[] =
     "1:1 3K crop (3072x1304 @ 20p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
     "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
-    "2K 1920x1080p (usually 1920x1078, works with all bits!)\n";
+    "2K 1920x1080p (usually 1920x1078, works with all bits!)\n"
+    "1:1 2.5K 10bit crop (experimental)\n";
 
 	/* menu choices for EOSM */
 static enum crop_preset crop_presets_eosm[] = {
@@ -223,6 +228,7 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_4K_EOSM,
     CROP_PRESET_3x3_1X,
     CROP_PRESET_3x3_mv1080_EOSM,
+    CROP_PRESET_2K10bit_EOSM,
 };
 
 static const char * crop_choices_eosm[] = {
@@ -232,6 +238,7 @@ static const char * crop_choices_eosm[] = {
     "4K 4038x2558",
     "3x3 720p",
     "3x3_mv1080_EOSM",
+    "2.5K 10bit 2520x1304",
 };
 
 static const char crop_choices_help_eosm[] =
@@ -242,7 +249,8 @@ static const char crop_choices_help2_eosm[] =
     "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
     "1:1 3K crop (3072x1304 @ 20p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
-    "3x3 binning in 720p (square pixels in RAW, vertical crop)\n";	
+    "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
+    "1:1 2.5K 10bit crop (experimental)\n";	
 
 /* camera-specific parameters */
 static uint32_t CMOS_WRITE      = 0;
@@ -402,10 +410,12 @@ static int max_resolutions[NUM_CROP_PRESETS][5] = {
     [CROP_PRESET_3K_100D]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_4K_100D]          = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_1080K_100D]       = { 1304, 1104,  904,  704,  504 },
+    [CROP_PRESET_2K10bit_100D]     = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_2K_EOSM]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_3K_EOSM]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_4K_EOSM]          = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_3x3_mv1080_EOSM]  = { 1290, 1290, 1290,  960,  800 },
+    [CROP_PRESET_2K10bit_EOSM]          = { 1304, 1104,  904,  704,  504 },
 
 };
 
@@ -731,7 +741,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_4K_100D:
                 cmos_new[5] = 0x200;            /* vertical (first|last) */
                 cmos_new[7] = 0xf20;
-                break;		
+                break;	
+
+			case CROP_PRESET_2K10bit_100D:
+                cmos_new[7] = 0xaa9;    /* pink highlights without this */
+                break;	
         }
     }
     if (is_EOSM)
@@ -760,6 +774,10 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_3x3_mv1080_EOSM:
 	        cmos_new[8] = 0x400; 
                 break;	
+
+			case CROP_PRESET_2K10bit_EOSM:
+                cmos_new[7] = 0xaa9;    /* pink highlights without this */
+                break;
 	
         }
     }
@@ -1158,6 +1176,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_3K_100D:
 			case CROP_PRESET_4K_100D:
 			case CROP_PRESET_1080K_100D:
+			case CROP_PRESET_2K10bit_100D:
 			{
 				 /* assuming FPS timer B was overridden before this */
                 int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
@@ -1171,9 +1190,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	/* will add 10bit through analog gain */
 	switch (crop_preset)
 	{
-			case CROP_PRESET_2K_100D:		
-			case CROP_PRESET_3K_100D:
-			case CROP_PRESET_4K_100D:
+			case CROP_PRESET_2K10bit_100D:
 	adtg_new[0] = (struct adtg_new) {2, 0x8882, 0x46};
 	adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x47};
 	adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x46};
@@ -1238,6 +1255,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_3K_EOSM:
 			case CROP_PRESET_4K_EOSM:
 			case CROP_PRESET_3x3_mv1080_EOSM:
+			case CROP_PRESET_2K10bit_EOSM:
 			{
 				 /* assuming FPS timer B was overridden before this */
                 int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
@@ -1251,9 +1269,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	/* will add 10bit through analog gain */
 	switch (crop_preset)
 	{
-			case CROP_PRESET_2K_EOSM:		
-			case CROP_PRESET_3K_EOSM:
-			case CROP_PRESET_4K_EOSM:
+			case CROP_PRESET_2K10bit_EOSM:
 	adtg_new[0] = (struct adtg_new) {2, 0x8882, 0x46};
 	adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x47};
 	adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x46};
@@ -1858,9 +1874,6 @@ static inline uint32_t reg_override_2K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F06804: return 0x53902a1; // 2520x1304  x5 Mode;
         case 0xC0F06014: return 0x71c;
         case 0xC0F0713c: return 0x535;
-
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
     }
 
     return 0;
@@ -1885,9 +1898,6 @@ static inline uint32_t reg_override_3K_100d(uint32_t reg, uint32_t old_val)
 
         case 0xC0F06014: return 0x6d7;
         case 0xC0F0713c: return 0x555;
-
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
     }
 
     return 0;
@@ -1912,9 +1922,6 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
 
         case 0xC0F06014: return 0xbd4;
         case 0xC0F0713c: return 0xA55;
-
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
     }
 
     return 0;
@@ -1930,6 +1937,23 @@ static inline uint32_t reg_override_1080p_100d(uint32_t reg, uint32_t old_val)
     return 0;
 } 
 
+static inline uint32_t reg_override_2K10bit_100d(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
+        case 0xC0F06804: return 0x53902a1; // 2520x1304  x5 Mode;
+        case 0xC0F06014: return 0x71c;
+        case 0xC0F0713c: return 0x535;
+
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x4040404;
+    }
+
+    return 0;
+}
+
 /* Values for EOSM */
 static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
 {
@@ -1941,11 +1965,6 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06014: return 0x747;
         case 0xC0F07150: return 0x428;
         case 0xC0F0713c: return 0x535;
-
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-
-
     }
 
     return 0;
@@ -1970,9 +1989,6 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
 
         case 0xC0F06014: return 0x6d7;
         case 0xC0F0713c: return 0x555;
-
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
     }
 
     return 0;
@@ -1997,9 +2013,6 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
 
         case 0xC0F06014: return 0xbd4;
         case 0xC0F0713c: return 0xA55;
-
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
     }
 
     return 0;
@@ -2044,6 +2057,24 @@ static inline uint32_t reg_override_3x3_eosm(uint32_t reg, uint32_t old_val)
 	/* todo: check for breakage
 	   https://www.magiclantern.fm/forum/index.php?topic=9741.msg203541#msg203541 */
 
+    }
+
+    return 0;
+}
+
+static inline uint32_t reg_override_2K10bit_eosm(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
+        case 0xC0F06804: return 0x5390298; /* 2520x1304  x5 Mode; */
+        case 0xC0F06014: return 0x747;
+        case 0xC0F07150: return 0x428;
+        case 0xC0F0713c: return 0x535;
+
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x4040404;
     }
 
     return 0;
@@ -2127,11 +2158,13 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_2K_100D)         ? reg_override_2K_100d         :    
         (crop_preset == CROP_PRESET_3K_100D)         ? reg_override_3K_100d         : 
         (crop_preset == CROP_PRESET_4K_100D) 	     ? reg_override_4K_100d         :
-        (crop_preset == CROP_PRESET_1080K_100D)	     ? reg_override_1080p_100d         :
+        (crop_preset == CROP_PRESET_1080K_100D)	     ? reg_override_1080p_100d      :
+        (crop_preset == CROP_PRESET_2K10bit_100D)    ? reg_override_2K10bit_100d    : 
         (crop_preset == CROP_PRESET_2K_EOSM)         ? reg_override_2K_eosm         :    
         (crop_preset == CROP_PRESET_3K_EOSM)         ? reg_override_3K_eosm         : 
         (crop_preset == CROP_PRESET_4K_EOSM) 	     ? reg_override_4K_eosm         :
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_eosm        :
+        (crop_preset == CROP_PRESET_2K10bit_EOSM)    ? reg_override_2K10bit_eosm    : 
                                                   0                                 ;
     return reg_override_func;
 }
