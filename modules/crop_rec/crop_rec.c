@@ -1169,6 +1169,11 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 /* to be tested to find out exactly how much */
 
 	/* will add 10bit through analog gain */
+	switch (crop_preset)
+	{
+			case CROP_PRESET_2K_100D:		
+			case CROP_PRESET_3K_100D:
+			case CROP_PRESET_4K_100D:
 	adtg_new[0] = (struct adtg_new) {2, 0x8882, 0x46};
 	adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x47};
 	adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x46};
@@ -1179,6 +1184,9 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x15};
 	adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x14};
 	adtg_new[3] = (struct adtg_new) {2, 0x8888, 0x13}; */
+
+        break;		
+	} 
 
                 adtg_new[4]  = (struct adtg_new) {6, 0x8172, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (6D/700D) */
                 adtg_new[5]  = (struct adtg_new) {6, 0x8178, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3/6D/700D) */
@@ -1852,7 +1860,7 @@ static inline uint32_t reg_override_2K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F0713c: return 0x535;
 
 	/* correct liveview brightness */
-	/* case 0xC0F42744: return 0x4040404; */
+	case 0xC0F42744: return 0x4040404;
     }
 
     return 0;
@@ -1879,7 +1887,7 @@ static inline uint32_t reg_override_3K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F0713c: return 0x555;
 
 	/* correct liveview brightness */
-	/* case 0xC0F42744: return 0x4040404; */
+	case 0xC0F42744: return 0x4040404;
     }
 
     return 0;
@@ -1906,7 +1914,7 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F0713c: return 0xA55;
 
 	/* correct liveview brightness */
-	/* case 0xC0F42744: return 0x4040404; */
+	case 0xC0F42744: return 0x4040404;
     }
 
     return 0;
@@ -1935,7 +1943,7 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F0713c: return 0x535;
 
 	/* correct liveview brightness */
-	/* case 0xC0F42744: return 0x4040404; */
+	case 0xC0F42744: return 0x4040404;
 
 
     }
@@ -1964,7 +1972,7 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F0713c: return 0x555;
 
 	/* correct liveview brightness */
-	/* case 0xC0F42744: return 0x4040404; */
+	case 0xC0F42744: return 0x4040404;
     }
 
     return 0;
@@ -1991,7 +1999,7 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F0713c: return 0xA55;
 
 	/* correct liveview brightness */
-	/* case 0xC0F42744: return 0x4040404; */
+	case 0xC0F42744: return 0x4040404;
     }
 
     return 0;
