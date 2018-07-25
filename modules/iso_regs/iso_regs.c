@@ -324,6 +324,7 @@ static MENU_SELECT_FUNC(iso_regs_toggle)
     uint32_t CMOS_WRITE_FUNC  = 0x2998C;
     uint32_t CMOS2_WRITE_FUNC = 0x2998C;
     uint32_t ENGIO_WRITE_FUNC = 0xFF2C19AC;
+          /* ENG_DRV_OUT_FUNC = 0xff2c1694; */
 
     hooks_enabled = !hooks_enabled;
 
