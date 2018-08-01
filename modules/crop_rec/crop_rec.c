@@ -1198,9 +1198,9 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 	/* even lower bits */
 	/* adtg_new[0] = (struct adtg_new) {2, 0x8882, 0x14};
-	adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x15};
-	adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x14};
-	adtg_new[3] = (struct adtg_new) {2, 0x8888, 0x13}; */
+	* adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x15};
+	* adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x14};
+	* adtg_new[3] = (struct adtg_new) {2, 0x8888, 0x13}; */
 
         break;		
 	} 
