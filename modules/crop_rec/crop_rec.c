@@ -2719,6 +2719,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_3x3_1X:
             case CROP_PRESET_3x3_1X_48p:
             case CROP_PRESET_1x3:
+	    case CROP_PRESET_3x3_mv1080_EOSM:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
                 break;
         }
@@ -2739,6 +2740,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_3x3_1X:
             case CROP_PRESET_3x3_1X_48p:
             case CROP_PRESET_3x1:
+	    case CROP_PRESET_3x3_mv1080_EOSM:
             {
                 int b = (is_5D3) ? 3 : 1;
                 int s = (is_5D3) ? 0 : 2;
