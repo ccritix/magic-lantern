@@ -2024,12 +2024,13 @@ static inline uint32_t reg_override_3x3_eosm(uint32_t reg, uint32_t old_val)
     {
         	case 0xC0F06804: return 0x4a601d4; 
 
-        	case 0xC0F06014: return 0x7cf;
-		case 0xC0F0600c: return 0x27f027f;
-		case 0xC0F06008: return 0x27f027f;
-		case 0xC0F06010: return 0x27f;
-		case 0xC0F37014: return 0xe;
-
+        /* Actually hardcoding values not necessary
+        	* case 0xC0F06014: return 0x7cf;
+		* case 0xC0F0600c: return 0x27f027f;
+		* case 0xC0F06008: return 0x27f027f;
+		  case 0xC0F06010: return 0x27f; */
+		
+		case 0xC0F37014: return 0xe; 
         	case 0xC0F0713c: return 0x4a7;
 		case 0xC0F07150: return 0x475;
 
