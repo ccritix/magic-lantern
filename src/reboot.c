@@ -1225,8 +1225,18 @@ static int (*set_bootflag)(int flag, int value) = 0;
 static void enable_bootflag()
 {
     const char * SetFlag_str = "Set flag?(Y=ON(0x%08x)/N=OFF(0x%08x))? :";
-    uint32_t set_flag_i = find_func_from_string(SetFlag_str, 0, 0x100);
-    set_bootflag = (void*) find_func_called_near_string_ref(SetFlag_str, 0xFC040000, 0x100);
+    uint32_t set_flag_i = 0;
+
+    if (is_digic7())
+    {
+        set_flag_i = find_func_from_string_thumb(SetFlag_str, 0, 0x100);
+        set_bootflag = (void*) find_func_called_after_string_ref_thumb(SetFlag_str, 2);
+    }
+    else
+    {
+        set_flag_i = find_func_from_string(SetFlag_str, 0, 0x100);
+        set_bootflag = (void*) find_func_called_near_string_ref(SetFlag_str, 0xFC040000, 0x100);
+    }
 
     printf(" - set_bootflag %X (interactive %X)\n", set_bootflag, set_flag_i);
 

@@ -348,6 +348,29 @@ uint32_t find_string_ref(const char * string)
     return 0;
 }
 
+uint32_t find_string_ref_thumb(char* ref_string)
+{
+    /* only scan the bootloader RAM area */
+    for (uint32_t i = 0x100000; i < 0x110000; i += 2 )
+    {
+        /* look for: add Rd, pc, #offset */
+        uint32_t insn = MEM(i);
+        if ((insn & 0x0000FF00) == (0x0000A000)) /* T2S p.112: ADR R0, #offset */
+        {
+            /* let's check if it refers to our string */
+            uint32_t string_offset = (insn & 0xFF) << 2;
+            uint32_t pc = (i + 4) & ~3;    /* not sure */
+            char * found_string = (char *)(pc + string_offset);
+            if (strcmp(found_string, ref_string) == 0)
+            {
+                return i;
+            }
+        }
+    }
+
+    return 0;
+}
+
 /* the function must be referencing the tag somehow (a constant value) */
 static int func_has_tag(uint32_t func, uint32_t tag)
 {
@@ -430,6 +453,47 @@ uint32_t find_func_called_near_string_ref(char * string, uint32_t tag, int max_o
     {
         /* only return success if there's a single match (no ambiguity) */
         return answer;
+    }
+
+    return 0;
+}
+
+uint32_t find_func_called_after_string_ref_thumb(char * string, int skip)
+{
+    qprintf("find_func_called_after_string_ref_thumb('%s', skip=%d)\n", repr(string), skip);
+
+    uint32_t start = find_string_ref_thumb(string);
+    printf(" - %x: %s\n", start, string);
+    if (start)
+    {
+        for (uint32_t i = start + 2; i < start + 0x100; i += 2)
+        {
+            uint32_t insn = MEM(i);
+            int is_bl = ((insn & 0xF800FC00) == 0xF800F000);    /* T2S p.134 (simplified) */
+            if (is_bl)
+            {
+                uint32_t pc = (i + 4);
+                uint32_t imm10 = insn & 0x3FF;
+                uint32_t imm11 = (insn >> 16) & 0x7FF;
+                uint32_t func_offset = (imm11 << 1) | (imm10 << 12);
+                uint32_t func_addr = pc + func_offset;
+                qprintf("%x: BL %x\n", i, func_addr);
+
+                if (func_addr > 0x100000 && func_addr < 0x110000)
+                {
+                    if (skip == 0) {
+                        return func_addr + 1;
+                    } else {
+                        skip--;
+                    }
+                }
+            }
+            if ((insn & 0xFFFF0000) == 0xe8bd0000)
+            {
+                /* LDMFD - end of function */
+                break;
+            }
+        }
     }
 
     return 0;
