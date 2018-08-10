@@ -1,18 +1,20 @@
 # EOS M50 1.0.1
 
 CANON_NAME_FIR  = CCF19101.FIR
-UPDATE_NAME_FIR = LEDIDM50.FIR
-FIR_BASE        = 0x00800120
-AUTOEXEC_BASE   = 0x00800000
+FIRMWARE_ID     = 0x00000412
+UPDATE_NAME_FIR = DUMP_M50.FIR
+ROMBASEADDR     = 0xE0040000
 
-# these are not correct (just to compile)
-RESTARTSTART    = 0x0
-ROMBASEADDR     = 0xE0000000
+# Shrink Canon's malloc heap by changing its end address
+#          ("meminfo -m" in drysh)    ("memmap" in drysh)
+# Default: 0x000dc878 - 0x001f0ec0, 0x000dc870 - 0x001f1190 (total size 0x114920)
+# Patched: 0x000dc878 - 0x001b0ec0, 0x000dc870 - 0x001b1190 (256K reserved for ML)
+RESTARTSTART    = 0x001B0FC0
 
 # these should be removed when porting starts
 ML_SRC_PROFILE  = minimal
-ML_SRC_REBOOT_OBJ = reboot-dumper.o footer.o
-READELF=echo MemSiz
+ML_MINIMAL_OBJ  = minimal-d7.o
 
 # binaries apparently loaded as Thumb, unlike previous models
-CFLAGS += -mthumb
+# Cortex A9 or similar
+CFLAGS += -mthumb -march=armv7-r -mlong-calls
