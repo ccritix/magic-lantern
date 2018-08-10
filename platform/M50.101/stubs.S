@@ -54,8 +54,7 @@ NSTUB(0xE009DE99,  memmap_info)            /* Exception vector, DRYOS system mem
 NSTUB(0xE0146F97,  smemShowFix)            /* Common Lower, Common Upper etc */
 
 /** Debug messages **/
-NSTUB(0xE0577EC5,  DryosDebugMsg)
-NSTUB(0xE05782A5,  dm_set_store_level)     /* called by dmstore */
+NSTUB(0xE0577EC5,  DryosDebugMsg)          /* lots of debug messages; format string is third argument */
 
 /** Eventprocs (call by name) **/
 NSTUB(0xE05721BB,  call)                   /* many functions called by name (lv_start, lv_stop etc) */
