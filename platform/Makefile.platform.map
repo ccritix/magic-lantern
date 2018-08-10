@@ -21,7 +21,7 @@ PLATFORM_MAP = \
     760D.100 \
     1100D.105 \
     EOSM.202 \
-    M50.100 \
+    M50.101 \
 
 PLATFORM_MAP_UNMAINTAINED = \
     40D.111 \
