@@ -41,11 +41,26 @@
 /* we need this ASM block to be the first thing in the file */
 #pragma GCC optimize ("-fno-reorder-functions")
 
+/* polyglot startup code that works if loaded as either ARM or Thumb */
 asm(
     ".text\n"
     ".globl _start\n"
     "_start:\n"
-    
+
+    ".code 16\n"
+    "NOP\n"                     /* as ARM, this is interpreted as: and r4, r1, r0, asr #13 (harmless) */
+    "B loaded_as_thumb\n"       /* as Thumb, this will eventually switch to ARM mode */
+
+    ".code 32\n"
+    "loaded_as_arm:\n"          /* you may insert ARM-specific code here */
+    "B xor_check\n"             /* this will jump over the Thumb code */
+
+    ".code 16\n"
+    "loaded_as_thumb:\n"        /* you may insert Thumb-specific code here */
+    "BLX xor_check\n"           /* LR doesn't matter much, as we'll never return to caller */
+
+    ".code 32\n"                /* from now on, we've got generic code for all platforms */
+    "xor_check:\n"
     /* first comes the check if we were loaded successfully, efficiently packed into 0x20 bytes */
     "ADD   R4, PC, #0x0C\n"
     "LDM   R4, {R1-R3}\n"
