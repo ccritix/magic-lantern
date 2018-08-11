@@ -22,11 +22,10 @@ int ml_shutdown_requested = 0;
 
 char* get_current_task_name()
 {
-    /* DryOS: right after current_task we have a flag
-     * set to 1 when handling an interrupt */
-    uint32_t interrupt_active = MEM((uintptr_t)&current_task + 4);
-    
-    if (!interrupt_active)
+    /* DryOS: right before interrupt_active we have a counter showing the interrupt nesting level */
+    uint32_t interrupt_level = MEM((uintptr_t)&current_interrupt - 4);
+
+    if (!interrupt_level)
     {
         return current_task->name;
     }
