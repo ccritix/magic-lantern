@@ -14,5 +14,6 @@ ROMBASEADDR     = 0xFC000000
 ML_SRC_PROFILE  = minimal
 ML_SRC_REBOOT_OBJ = reboot-dumper.o footer.o
 
-# binaries apparently loaded as Thumb, unlike previous models
-CFLAGS += -mthumb
+# Cortex A9
+# binaries are loaded as Thumb, unlike previous models
+CFLAG_USER = -mthumb -march=armv7-r -mlong-calls
