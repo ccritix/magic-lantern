@@ -1,11 +1,12 @@
 /** \file
- * Minimal startup code and ROM dumper for DIGIC 7
+ * Minimal startup code for DIGIC 7 & 8
  */
 
 #include "dryos.h"
+#include "boot.h"
 
 /** These are called when new tasks are created */
-static void my_init_task(int a, int b, int c, int d);
+static int my_init_task(int a, int b, int c, int d);
 
 /** This just goes into the bss */
 #define RELOCSIZE 0x1000 // look in HIJACK macros for the highest address, and subtract ROMBASEADDR
@@ -42,9 +43,6 @@ static inline uint32_t thumb_branch_instr(uint32_t pc, uint32_t dest, uint32_t o
     qprint("[BOOT] fixing up branch at "); qprintn((uint32_t) &INSTR( rom_addr )); \
     qprint(" (ROM: "); qprintn(rom_addr); qprint(") to "); qprintn((uint32_t)(dest_addr)); qprint("\n"); \
     INSTR( rom_addr ) = THUMB_BL_INSTR( &INSTR( rom_addr ), (dest_addr) )
-
-/** Specified by the linker */
-extern uint32_t _bss_start[], _bss_end[], _text_start;
 
 static inline void
 zero_bss( void )
@@ -137,66 +135,4 @@ copy_and_restart( int offset )
     // Unreachable
     while(1)
         ;
-}
-
-extern void dump_file(char* name, uint32_t addr, uint32_t size);
-extern void memmap_info(void);
-extern void malloc_info(void);
-extern void sysmem_info(void);
-extern void smemShowFix(void);
-
-static void led_blink(int times, int delay_on, int delay_off)
-{
-    for (int i = 0; i < times; i++)
-    {
-        MEM(CARD_LED_ADDRESS) = LEDON;
-        msleep(delay_on);
-        MEM(CARD_LED_ADDRESS) = LEDOFF;
-        msleep(delay_off);
-    }
-}
-
-static void DUMP_ASM dump_task()
-{
-    /* print memory info on QEMU console */
-    memmap_info();
-    malloc_info();
-    sysmem_info();
-    smemShowFix();
-
-    /* LED blinking test */
-    led_blink(5, 500, 500);
-
-    /* dump ROM */
-    dump_file("ROM0.BIN", 0xE0000000, 0x02000000);
-  //dump_file("ROM1.BIN", 0xF0000000, 0x02000000); // - might be slow
-
-    /* dump RAM */
-  //dump_file("RAM4.BIN", 0x40000000, 0x40000000); // - large file; decrease size if it locks up
-  //dump_file("DF00.BIN", 0xDF000000, 0x00010000); // - size unknown; try increasing
- 
-    /* attempt to take a picture */
-    call("Release");
-    msleep(2000);
-
-    /* save a diagnostic log */
-    call("dumpf");
-}
-
-static void
-my_init_task(int a, int b, int c, int d)
-{
-    qprintf("[BOOT] autoexec.bin loaded at %X - %X.\n", &_text_start, &_bss_end);
-
-    init_task(a,b,c,d);
-
-    msleep(1000);
-
-    task_create("dump", 0x1e, 0x1000, dump_task, 0 );
-}
-
-/* used by font_draw */
-/* we don't have a valid display buffer yet */
-void disp_set_pixel(int x, int y, int c)
-{
 }

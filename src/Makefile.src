@@ -68,6 +68,10 @@ else ifndef ML_ENTRY_OBJ
 ML_ENTRY_OBJ = entry.o
 endif
 
+ifndef ML_BOOT_OBJ
+ML_BOOT_OBJ = boot-d45.o
+endif
+
 ifndef ML_MINIMAL_OBJ
 ML_MINIMAL_OBJ = minimal.o
 endif
@@ -76,6 +80,7 @@ ifeq ($(ML_SRC_PROFILE),minimal)
 ML_OBJS-y = \
 	magiclantern.lds \
 	$(ML_ENTRY_OBJ) \
+	$(ML_BOOT_OBJ) \
 	$(ML_MINIMAL_OBJ) \
 	font_direct.o \
 	$(PLATFORM_DIR)/stubs.o
@@ -84,6 +89,7 @@ else ifeq ($(ML_SRC_PROFILE),installer)
 ML_INSTALLER_OBJS = \
 	magiclantern.lds \
 	$(ML_ENTRY_OBJ) \
+	$(ML_BOOT_OBJ) \
 	$(PLATFORM_DIR)/stubs.o \
 	installer.o \
 	version.o \

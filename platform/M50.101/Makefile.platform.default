@@ -14,8 +14,10 @@ RESTARTSTART    = 0x001B0FC0
 # these should be removed when porting starts
 ifeq ($(ML_SRC_PROFILE),generic)
 ML_SRC_PROFILE  = minimal
-ML_MINIMAL_OBJ  = minimal-d7.o
+ML_MINIMAL_OBJ  = minimal-d78.o
 endif
+
+ML_BOOT_OBJ     = boot-d78.o
 
 # Cortex A9 or similar
 # binaries are loaded as Thumb, unlike previous models
