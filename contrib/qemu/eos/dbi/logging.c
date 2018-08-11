@@ -279,7 +279,7 @@ static FILE * idc = NULL;
 static void close_idc(void)
 {
     fprintf(idc, "}\n");
-    fclose(idc);
+    fclose(idc); idc = 0;
     fprintf(stderr, "%s saved.\n", idc_path);
 }
 
@@ -290,7 +290,7 @@ static void eos_idc_log_call(EOSState *s, CPUState *cpu, CPUARMState *env,
 
     if (!idc)
     {
-        snprintf(idc_path, sizeof(idc_path), "%s.idc", MACHINE_GET_CLASS(current_machine)->name);
+        snprintf(idc_path, sizeof(idc_path), "%s/calls.idc", s->model->name);
         fprintf(stderr, "Exporting called functions to %s.\n", idc_path);
         idc = fopen(idc_path, "w");
         assert(idc);
@@ -1501,10 +1501,10 @@ recheck:
                         /* assume tail call
                          * fixme: in IDC, these must be defined before their caller,
                          * as IDA frequently gets them wrong */
-                        if (qemu_loglevel_mask(EOS_LOG_TAIL_CALLS)) {
+                        if (!qemu_loglevel_mask(EOS_LOG_NO_TAIL_CALLS)) {
                             goto function_call;
                         }
-                        /* without -d tail, report as jump */
+                        /* with -d notail, report as jump */
                     }
                     else
                     {
@@ -1523,8 +1523,8 @@ recheck:
                      * note: most cases appear to be valid tail calls,
                      * but not identified properly because of
                      * a missed function call right before this */
-                    if (qemu_loglevel_mask(EOS_LOG_TAIL_CALLS)) {
-                        /* note: many warnings without -d tail */
+                    if (!qemu_loglevel_mask(EOS_LOG_NO_TAIL_CALLS)) {
+                        /* note: many warnings with -d notail */
                         /* there's also a false warning at first jump */
                         if (!(id == 0x7F && call_stack_num[id] == 0))
                         {
@@ -1539,7 +1539,7 @@ recheck:
                         if (abs((int)pc - (int)prev_pc) > 0x100)
                         {
                             goto function_call;
-                            /* without -d tail, report as jump */
+                            /* with -d notail, report as jump */
                         }
                     }
                 }
@@ -1659,7 +1659,7 @@ static void romcpy_log_block(EOSState *s)
         if (!dd)
         {
             snprintf(dd_path, sizeof(dd_path), "%s/romcpy.sh", s->model->name);
-            fprintf(stderr, "Logging ROM-copied blocks to %s.\n", idc_path);
+            fprintf(stderr, "Logging ROM-copied blocks to %s.\n", dd_path);
             dd = fopen(dd_path, "w");
             assert(dd);
             atexit(close_dd);

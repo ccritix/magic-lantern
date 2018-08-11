@@ -12,7 +12,7 @@
 
 EOS_CAMS=( 5D 5D2 5D3 5D4 6D 6D2 7D 7D2M
            40D 50D 60D 70D 77D 80D
-           400D 450D 500D 550D 600D 650D 700D 750D 760D
+           400D 450D 500D 550D 600D 650D 700D 750D 760D 800D
            100D 200D 1000D 1100D 1200D 1300D EOSM EOSM2 )
 
 POWERSHOT_CAMS=( EOSM3 EOSM10 EOSM5 A1100 )
@@ -26,16 +26,27 @@ GUI_CAMS=( 5D2 5D3 6D 40D 50D 60D 70D
 
 # cameras with a SD card
 SD_CAMS=( 5D3 5D4 6D 6D2 60D 70D 77D 80D
-          450D 500D 550D 600D 650D 700D 750D 760D
+          450D 500D 550D 600D 650D 700D 750D 760D 800D
           100D 200D 1000D 1100D 1200D 1300D EOSM EOSM2 )
 
 # cameras with a CF card
 CF_CAMS=( 5D 5D2 5D3 5D4 7D 7D2M 40D 50D 400D )
 
-# cameras able to run the FA_CaptureTestImage test (full-res silent picture backend)
-FRSP_CAMS=( 5D3 500D 550D 50D 60D 1100D 1200D )
-
 ML_PATH=${ML_PATH:=../magic-lantern}
+
+# cameras not yet in mainline
+declare -A CAM_BRANCH
+CAM_BRANCH=( 
+    [5D]=vxworks    [40D]=vxworks   [450D]=vxworks  [1000D]=vxworks
+    [1200D]=1200D                   [1300D]=1300D
+    [100D]=100D_merge_fw101         [70D]=70D_merge_fw112
+#   [EOSM2]=EOSM2.103_wip
+    [80D]=digic6-dumper     [750D]=digic6-dumper    [760D]=digic6-dumper
+    [7D2]=digic6-dumper     [5D4]=digic6-dumper     [5DS]=digic6-dumper
+    [77D]=digic6-dumper     [6D2]=digic6-dumper
+    [200D]=digic6-dumper    [800D]=digic6-dumper
+    [M50]=digic6-dumper
+)
 
 # newer openbsd netcat requires -N (since 1.111)
 # older openbsd netcat does not have -N (prints error if we attempt to use it)
@@ -70,7 +81,6 @@ if (( $# > 0 )) && has_upper_args "$@"; then
     GUI_CAMS=($(join <(printf %s\\n "${REQ_CAMS[@]}" | sort -u) <(printf %s\\n "${GUI_CAMS[@]}" | sort -u) | sort -n))
     SD_CAMS=($(join <(printf %s\\n "${REQ_CAMS[@]}" | sort -u) <(printf %s\\n "${SD_CAMS[@]}" | sort -u) | sort -n))
     CF_CAMS=($(join <(printf %s\\n "${REQ_CAMS[@]}" | sort -u) <(printf %s\\n "${CF_CAMS[@]}" | sort -u) | sort -n))
-    FRSP_CAMS=($(join <(printf %s\\n "${FRSP_CAMS[@]}" | sort -u) <(printf %s\\n "${FRSP_CAMS[@]}" | sort -u) | sort -n))
     EOS_SECONDARY_CORES=($(join <(printf %s\\n "${REQ_CAMS[@]}" | sort -u) <(printf %s\\n "${EOS_SECONDARY_CORES[@]}" | sort -u) | sort -n))
 fi
 
@@ -115,7 +125,7 @@ MENU_SEQUENCE[1100D]="f1 i i m i i left m p p down right space right right space
 MENU_SEQUENCE[1200D]="f1 i i m i i space m m p p down right space right right space up right space 9 q 9 q 9 l i q space [ space q l" # drive mode not working
 MENU_SEQUENCE[1300D]="f1 i i m i i up up up space m up up space right space down space i m space space m left up space down space m left right space right left space q right space right i q up p p 9 q 9 q 9 l i i q space l"
 MENU_SEQUENCE[EOSM]="m up up up space m up space m up space m left down down down space space p p 0 9 9 9 m m i i p p space" # starts in LiveView; Q button not working
-MENU_SEQUENCE[EOSM2]="m space space space up up space m up space m up space m up space m right space space m m m i q q 9 0 space i i m" # starts in LiveView
+MENU_SEQUENCE[EOSM2]="m space space space up up space m up space m up space m up space m right space space m m m l i q q 9 0 space i i m" # starts in LiveView
 
 FMT_SEQ="space right space f1 space"
 FMT_SEQ_5D3="space space right space f1 space space"
@@ -559,7 +569,7 @@ function test_calls_main {
     # fixme: execution under gdb is not deterministic, even with -icount
     # ansi2txt used here (only once) because it's very slow
     ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -icount 5 \
-        -display none -d calls,idc,tasks \
+        -display none -d calls,notail,idc,tasks \
         -serial file:tests/$CAM/$TEST-uart.log \
         |& ansi2txt > tests/$CAM/$TEST-raw.log &
 
@@ -577,7 +587,7 @@ function test_calls_main {
     echo -n ' '
 
     # wait until it the IDC no longer grows, up to 5 minutes
-    ./wait_log.sh $CAM.idc 300 5 -q "^}" 
+    ./wait_log.sh $CAM/calls.idc 300 5 -q "^}" 
     echo
     echo -n "                          "
 
@@ -593,7 +603,7 @@ function test_calls_main {
     # let's trim until matching the MD5 of $TEST-basic.idc
     # this assumes the needles (expected test results) were created on a slower PC and/or using a smaller timeout
 
-    cat $CAM.idc | grep -o "MakeFunction(.*)" \
+    cat $CAM/calls.idc | grep -o "MakeFunction(.*)" \
         > tests/$CAM/$TEST-basic.idc
 
     # compute the MD5 of $TEST-basic.idc, line by line, until it matches its reference MD5
@@ -636,8 +646,8 @@ function test_calls_main {
     # also copy the IDC file for checking its MD5
     # this works on old CF models too (40D), even if some nondeterminism is present
     # the IDC needs trimming, too, as it doesn't always stop at the same line
-    cat $CAM.idc | sed -n "1,/MakeFunction($last_call/ p" > tests/$CAM/$TEST.idc
-    cat $CAM.idc | tail -n 2 >> tests/$CAM/$TEST.idc
+    cat $CAM/calls.idc | sed -n "1,/MakeFunction($last_call/ p" > tests/$CAM/$TEST.idc
+    cat $CAM/calls.idc | tail -n 2 >> tests/$CAM/$TEST.idc
 
     # extract only the call address from IDC
     # useful for checking when some additional info changes (e.g. comments)
@@ -710,7 +720,7 @@ function test_calls_from {
 
     # log all function calls/returns and export to IDC
     ./run_canon_fw.sh $CAM,firmware="boot=1" -snapshot \
-        -display none -d calls,idc \
+        -display none -d calls,notail,idc \
         -serial file:tests/$CAM/$TEST-uart.log \
         &> tests/$CAM/$TEST-raw.log &
 
@@ -741,7 +751,7 @@ function test_calls_from {
 
     # also copy the IDC file for checking its MD5
     # this works on CF models too, even if some nondeterminism is present
-    cp $CAM.idc tests/$CAM/$TEST.idc
+    cp $CAM/calls.idc tests/$CAM/$TEST.idc
 
     # extract only the call address from IDC
     # useful for checking when some additional info changes (e.g. comments)
@@ -788,11 +798,11 @@ function test_frsp {
     # compile it from ML dir, for each camera
     FRSP_PATH=$ML_PATH/minimal/qemu-frsp
     rm -f $FRSP_PATH/autoexec.bin
-    [ $CAM == "1200D" ] && (cd $FRSP_PATH; hg up qemu -C; hg merge 1200D; cd $OLDPWD) &>> tests/$CAM/$TEST-build.log
+    [ "${CAM_BRANCH[$CAM]}" != "" ] && (cd $FRSP_PATH; hg up qemu -C; hg merge ${CAM_BRANCH[$CAM]}; cd $OLDPWD) &>> tests/$CAM/$TEST-build.log
     make MODEL=$CAM -C $FRSP_PATH clean         &>> tests/$CAM/$TEST-build.log
     make MODEL=$CAM -C $FRSP_PATH CONFIG_QEMU=y &>> tests/$CAM/$TEST-build.log
-    [ $CAM == "1200D" ] && (cd $FRSP_PATH; hg up qemu -C; cd $OLDPWD) &>> tests/$CAM/$TEST-build.log
-    
+    (cd $FRSP_PATH; hg up qemu -C; cd $OLDPWD)  &>> tests/$CAM/$TEST-build.log
+
     if [ ! -f $FRSP_PATH/autoexec.bin ]; then
         echo -e "\e[31mCompile error\e[0m"
         return
@@ -816,6 +826,18 @@ function test_frsp {
         -serial file:tests/$CAM/$TEST-uart.log \
     ) &> tests/$CAM/$TEST.log
 
+    if grep -q "Image Power Failure\|Img Pwr Fail" tests/$CAM/$TEST-uart.log; then
+        echo -en "\e[33mImage Power Failure\e[0m "
+    fi
+
+    if grep -q "ImgPowDet( 0 )" tests/$CAM/$TEST.log; then
+        echo -en "\e[33mImgPowDet( 0 )\e[0m "
+    fi
+
+    if grep -q "S_SCS_E_SENSOR_LATCHUP" tests/$CAM/$TEST-uart.log; then
+        echo -en "\e[33mS_SCS_E_SENSOR_LATCHUP\e[0m "
+    fi
+
     tests/check_grep.sh tests/$CAM/$TEST-uart.log \
         -qm1 "FA_CreateTestImage Fin"  || return
 
@@ -835,7 +857,7 @@ function test_frsp {
 echo
 echo "Testing FA_CaptureTestImage..."
 # this requires a custom build; cannot run in parallel
-for CAM in ${FRSP_CAMS[*]}; do
+for CAM in ${GUI_CAMS[*]}; do
     ((QEMU_JOB_ID++))
     run_test frsp $CAM
 done; cleanup
@@ -1058,7 +1080,7 @@ echo "Testing file I/O (DCIM directory)..."
 # Currently works only on models that can boot Canon GUI,
 # also on single-core DIGIC 6 models, and on DIGIC 7 too.
 # we need to check the card contents; cannot run in parallel
-for CAM in ${GUI_CAMS[*]} 80D 750D 760D 77D 200D 6D2; do
+for CAM in ${GUI_CAMS[*]} 80D 750D 760D 77D 200D 6D2 800D; do
     ((QEMU_JOB_ID++))
     run_test dcim $CAM
 done; cleanup
@@ -1153,8 +1175,10 @@ function test_hptimer {
     # compile it from ML dir, for each camera
     HPTIMER_PATH=$ML_PATH/minimal/qemu-hptimer
     rm -f $HPTIMER_PATH/autoexec.bin
+    [ "${CAM_BRANCH[$CAM]}" != "" ] && (cd $HPTIMER_PATH; hg up qemu -C; hg merge ${CAM_BRANCH[$CAM]}; cd $OLDPWD) &>> tests/$CAM/$TEST-build.log
     make MODEL=$CAM -C $HPTIMER_PATH clean         &>> tests/$CAM/$TEST-build.log
     make MODEL=$CAM -C $HPTIMER_PATH CONFIG_QEMU=y &>> tests/$CAM/$TEST-build.log
+    (cd $HPTIMER_PATH; hg up qemu -C; cd $OLDPWD)  &>> tests/$CAM/$TEST-build.log
     
     if [ ! -f $HPTIMER_PATH/autoexec.bin ]; then
         echo -e "\e[31mCompile error\e[0m"
@@ -1177,9 +1201,9 @@ function test_hptimer {
     stop_qemu_expect_running
 
     tests/check_grep.sh tests/$CAM/$TEST.log -m1 "Hello from task run_test"
-    printf "       "
+    printf "         "
     tests/check_grep.sh tests/$CAM/$TEST.log -m1 "Hello from HPTimer" && return
-    printf "       "
+    printf "         "
     tests/check_grep.sh tests/$CAM/$TEST.log -m1 "Hello from task init" && return
 }
 
@@ -1244,13 +1268,13 @@ function test_calls_cstack {
     if [ -f $CAM/patches.gdb ]; then
         (
             ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot \
-                -display none -d calls,tasks,debugmsg,v -S -gdb tcp::$GDB_PORT \
+                -display none -d calls,notail,tasks,debugmsg,v -S -gdb tcp::$GDB_PORT \
                 -serial file:tests/$CAM/$TEST-uart.log &
             arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/patches.gdb -ex quit &
         ) &> tests/$CAM/$TEST-raw.log
     else
         ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot \
-            -display none -d calls,tasks,debugmsg,v \
+            -display none -d calls,notail,tasks,debugmsg,v \
             -serial file:tests/$CAM/calls-cstack-uart.log \
             &> tests/$CAM/$TEST-raw.log &
     fi

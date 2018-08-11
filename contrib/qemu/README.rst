@@ -21,7 +21,7 @@ Current state
 
 What works:
 
-- Canon GUI with menu navigation — most DIGIC 3, 4 and 5 models,
+- Canon GUI with menu navigation — most DIGIC 3, 4 and 5 models
 - Limited support for DIGIC 2, 6 and 7 models
 - Limited support for some PowerShot models (including recent EOS M models)
 - Limited support for secondary DryOS cores (such as Eeko or 5D4 AE processor)
@@ -34,7 +34,7 @@ What works:
 - DryOS/VxWorks timer (heartbeat) and task switching (all supported models)
 - UART emulation (DryOS shell aka Dry-shell or DrySh on DIGIC 4, 5, 6 and 7 models)
 - Deterministic execution with the ``-icount`` option (except CF PIO)
-- Cache hacks are emulated to some extent (but "uninstalling" them does not work)
+- Cache hacks are emulated to some extent, but not exactly accurate
 - EDMAC memcpy, including geometry parameters (matches the hardware closely, but not perfectly)
 - Debugging with GDB:
 
@@ -62,7 +62,7 @@ What works:
   - log hardware devices: ``-d mpu/sflash/sdcf/uart/int``
   - log all debug messages from Canon: ``-d debugmsg``
   - log all memory accesses: ``-d rom/ram/romr/ramw/etc``
-  - log all function calls: ``-d calls``, ``-d calls,tail``
+  - log all function calls: ``-d calls``
   - log all DryOS/VxWorks task switches: ``-d tasks``
   - track all function calls to provide a stack trace: ``-d callstack``
   - export all called functions to IDC script: ``-d idc``
@@ -94,13 +94,6 @@ Common issues and workarounds
   - quicker: press ``C`` to `"open" the card door`__ => also clean shutdown.
 
 __ `Opening the card door`_
-
-- dm-spy-experiments: saving the log and anything executed afterwards may not work
-
-  - issue: cache hacks are not emulated very well
-  - workaround: compile with ``CONFIG_QEMU=y``
-
-  |
 
 .. _netcat-issue:
 
@@ -222,7 +215,7 @@ the `boot flag <http://magiclantern.wikia.com/wiki/Bootflags>`_ is disabled:
   ./run_canon_fw.sh 60D,firmware="boot=0"
 
 Some models may need additional patches to run — these are stored under ``CAM/patches.gdb``.
-To emulate these models, you will also need arm-none-eabi-gdb:
+To emulate these models, you will also need ``arm-none-eabi-gdb`` or ``gdb-multiarch``:
 
 .. code:: shell
 
@@ -247,6 +240,7 @@ __ `Debugging with GDB`_
 .. code:: shell
 
   ./run_canon_fw.sh 60D,firmware="boot=0" -s -S & arm-none-eabi-gdb -x 60D/debugmsg.gdb
+  ./run_canon_fw.sh 60D,firmware="boot=0" -s -S & gdb-multiarch -x 60D/debugmsg.gdb
 
 Running Magic Lantern
 ---------------------
@@ -896,17 +890,11 @@ Memory access trace (ROM reads, RAM writes) — very verbose:
 
   ./run_canon_fw.sh 60D,firmware="boot=0" -d romr,ramw
 
-Call/return trace (not including tail function calls):
+Call/return trace, redirected to a log file:
 
 .. code:: shell
 
-  ./run_canon_fw.sh 60D,firmware="boot=0" -d calls
-
-Also with tail calls, redirected to a log file:
-
-.. code:: shell
-
-  ./run_canon_fw.sh 60D,firmware="boot=0" -d calls,tail &> calls.log
+  ./run_canon_fw.sh 60D,firmware="boot=0" -d calls &> calls.log
 
 Tip: set your editor to highlight the log file as if it were Python code.
 You'll get collapse markers for free :)
@@ -915,7 +903,7 @@ Also with debug messages, I/O events and interrupts, redirected to file
 
 .. code:: shell
 
-  ./run_canon_fw.sh 60D,firmware="boot=0" -d debugmsg,calls,tail,io,int &> full.log
+  ./run_canon_fw.sh 60D,firmware="boot=0" -d debugmsg,calls,io,int &> full.log
 
 Filter the logs with grep:
 
@@ -1017,7 +1005,7 @@ Printing call stack from GDB
 
 The ``callstack`` option from QEMU (``eos/dbi/logging.c``) can be very useful to find where a function was called from.
 This works even when gdb's ``backtrace`` command cannot figure it out from the stack contents, does not require any debugging symbols,
-but you need to run the emulation with instrumentation enabled: ``-d callstack`` or ``-d callstack,tail``.
+but you need to run the emulation with instrumentation enabled: ``-d callstack``.
 
 Then, in GDB, use ``print_current_location_with_callstack`` to see the call stack for the current DryOS task.
 
@@ -1089,7 +1077,7 @@ The instrumentation framework provides the following features:
 
 - log all debug messages from Canon: ``-d debugmsg``
 - log all memory accesses: ``-d rom/ram/romr/ramw/etc``
-- log all function calls: ``-d calls``, ``-d calls,tail``
+- log all function calls: ``-d calls``
 - log all DryOS/VxWorks task switches: ``-d tasks``
 - track all function calls to provide a stack trace: ``-d callstack``
 - export all called functions to IDC script: ``-d idc``

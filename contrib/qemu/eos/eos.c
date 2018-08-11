@@ -175,6 +175,7 @@ EOSRegionHandler eos_handlers[] =
     { "SDIO86",       0xC8060000, 0xC8060FFF, eos_handle_sdio, 0x86 },
     { "SFIO87",       0xC8070000, 0xC8070FFF, eos_handle_sfio, 0x87 },
     { "SFIO88",       0xC8080000, 0xC8080FFF, eos_handle_sfio, 0x88 },
+    { "ADTGDMA",      0xC0500060, 0xC050007F, eos_handle_adtg_dma, 0 },
     { "UartDMA",      0xC05000C0, 0xC05000DF, eos_handle_uart_dma, 0 },
     { "CFDMA0*",      0xC0500000, 0xC05000FF, eos_handle_cfdma, 0x0F },
     { "CFDMA10",      0xC0510000, 0xC051001F, eos_handle_cfdma, 0x10 },
@@ -1053,6 +1054,12 @@ static void eos_update_display(void *parm)
         assert(out_height == height * height_multiplier);
     }
 
+    if (strcmp(s->model->name, "1100D") == 0)
+    {
+        /* half-size YUV buffer */
+        yuv_height /= 2;
+    }
+
     if (s->disp.width && s->disp.height)
     {
         /* did we manage to get them from registers? override the above stuff */
@@ -1781,8 +1788,8 @@ void io_log(const char * module_name, EOSState *s, unsigned int address, unsigne
     const char * color = io_highlight(address, type, module_name, task_name)
         ? (type & MODE_WRITE ? KYLW : KLGRN) : "";
 
-    char mod_name[50];
-    char mod_name_and_pc[50];
+    char mod_name[24];
+    char mod_name_and_pc[72];
     int indent = eos_callstack_get_indent(s);
     char indent_spaces[] = "                ";
     indent_spaces[MIN(indent, sizeof(indent_spaces)-1)] = 0;
@@ -2572,6 +2579,50 @@ static int eos_handle_serial_flash_cs( unsigned int parm, EOSState *s, unsigned 
     return ret;
 }
 
+static unsigned int eos_handle_imgpowdet( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+{
+    const char * msg = 0;
+    unsigned int ret = 0;
+
+    static uint32_t imgpowcfg_written = 0;
+    static uint32_t imgpowdet_written = 0;
+    static uint32_t imgpowdet_enabled = 0;
+
+    if (address == s->model->imgpowdet_register)
+    {
+        msg = "ImgPowDet";
+        MMIO_VAR(imgpowdet_written);
+
+        if (!(type & MODE_WRITE))
+        {
+            ret = (imgpowdet_written & ~s->model->imgpowdet_register_bit) |
+                  (imgpowdet_enabled &  s->model->imgpowdet_register_bit) ;
+        }
+    }
+
+    if (address == s->model->imgpowcfg_register)
+    {
+        msg = "InitializePcfgPort";
+        MMIO_VAR(imgpowcfg_written);
+
+        if (type & MODE_WRITE)
+        {
+            /* to double-check: if you swap the values here,
+             * all the FRSP tests should print "Image Power Failure" */
+            imgpowdet_enabled = (value & s->model->imgpowcfg_register_bit)
+                ? s->model->imgpowdet_register_bit : 0;
+
+            if (imgpowdet_enabled && s->model->imgpowdet_interrupt)
+            {
+                eos_trigger_int(s, s->model->imgpowdet_interrupt, 1);
+            }
+        }
+    }
+    
+    io_log("IMGPOW", s, address, type, value, ret, msg, 0, 0);
+    return ret;
+}
+
 unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
     unsigned int ret = 1;
@@ -2602,6 +2653,13 @@ unsigned int eos_handle_gpio ( unsigned int parm, EOSState *s, unsigned int addr
     if (s->sf && address == s->model->serial_flash_cs_register)
     {
         return eos_handle_serial_flash_cs(parm, s, address, type, value);
+    }
+
+    /* 0xC0220008, 0xC022001C, 0xC0220124; 0xC0220118 */
+    if (address == s->model->imgpowdet_register ||
+        address == s->model->imgpowcfg_register)
+    {
+        return eos_handle_imgpowdet(parm, s, address, type, value);
     }
 
     switch (address & 0xFFFF)
@@ -2930,6 +2988,11 @@ unsigned int eos_handle_ram ( unsigned int parm, EOSState *s, unsigned int addre
 
 unsigned int eos_handle_power_control ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
+    if (address == s->model->imgpowcfg_register)
+    {
+        return eos_handle_imgpowdet(parm, s, address, type, value);
+    }
+
     unsigned int ret = 0;
     static uint32_t data[0x100 >> 2];
     uint32_t index = (address & 0xFF) >> 2;
@@ -4374,6 +4437,47 @@ unsigned int eos_handle_uart_dma ( unsigned int parm, EOSState *s, unsigned int 
     return ret;
 }
 
+unsigned int eos_handle_adtg_dma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
+{
+    unsigned int ret = 0;
+    const char * msg = 0;
+
+    static uint32_t addr;
+    static uint32_t count;
+    static uint32_t status;
+
+    switch(address & 0x1F)
+    {
+        case 0x00:
+        case 0x08:
+            msg = "Transfer memory address";
+            MMIO_VAR(addr);
+            break;
+
+        case 0x04:
+        case 0x0C:
+            msg = "Transfer byte count";
+            MMIO_VAR(count);
+            break;
+
+        case 0x10:
+            msg = "Transfer command / status?";
+            if (value == 0x3000025)
+            {
+                eos_trigger_int(s, 0x37, 100);
+            }
+            break;
+
+        case 0x14:
+            msg = "DMA status?";
+            MMIO_VAR(status);
+            break;
+    }
+
+    io_log("ADTGDMA", s, address, type, value, ret, msg, 0, 0);
+    return ret;
+}
+
 unsigned int eos_handle_cfdma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value )
 {
     unsigned int ret = 0;
@@ -5302,6 +5406,13 @@ unsigned int eos_handle_digic6 ( unsigned int parm, EOSState *s, unsigned int ad
     if (s->sf && address == s->model->serial_flash_cs_register)
     {
         return eos_handle_serial_flash_cs(parm, s, address, type, value);
+    }
+
+    /* 0xD20B004C, 0xD20B2294, 0xD20B21DC */
+    if (address == s->model->imgpowdet_register ||
+        address == s->model->imgpowcfg_register)
+    {
+        return eos_handle_imgpowdet(parm, s, address, type, value);
     }
 
     switch (address)

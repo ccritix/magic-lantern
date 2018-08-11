@@ -106,10 +106,18 @@ copy_and_restart( int offset )
         ;
 }
 
+extern void _prop_request_change(unsigned property, const void* addr, size_t len);
+
 static void run_test()
 {
     /* clear the screen - hopefully nobody will overwrite us */
     clrscr();
+
+    /* make sure we've got some sane exposure settings */
+    int iso = ISO_100;
+    int shutter = SHUTTER_1_50;
+    _prop_request_change(PROP_ISO, &iso, 4);
+    _prop_request_change(PROP_SHUTTER, &shutter, 4);
 
     /* capture a full-res silent picture */
     /* (on real camera, you won't see anything, unless you start in LV PLAY mode */
@@ -161,6 +169,19 @@ my_init_task(int a, int b, int c, int d)
      * and generally it's hard to draw over this screen without trickery. */
     SetGUIRequestMode(GUIMODE_PLAY);
     msleep(1000);
+
+    /* some cameras don't initialize the YUV buffer right away - but we need it! */
+    if (!YUV422_LV_BUFFER_DISPLAY_ADDR)
+    {
+        /* let's hope this works... */
+        extern void * _AllocateMemory(size_t);
+        int size = 720 * 480 * 2;
+        void * buf = _AllocateMemory(720 * 480 * 2);
+        while (!buf);   /* lock up on error */
+        memset(buf, 0, size);
+        MEM(0xC0F140E0) = YUV422_LV_BUFFER_DISPLAY_ADDR = (uint32_t) buf;
+        qprintf("Allocated YUV buffer: %X\n", YUV422_LV_BUFFER_DISPLAY_ADDR);
+    }
 #else
     /* for running on real camera: wait for user to enter LiveView,
      * then switch to PLAY mode (otherwise you'll capture a dark frame) */
@@ -251,4 +272,11 @@ int raw2iso(int raw_iso)
 {
     int iso = (int) roundf(100.0f * powf(2.0f, (raw_iso - 72.0f)/8.0f));
     return iso;
+}
+
+const char * format_memory_size(uint64_t size)
+{
+    static char buf[32];
+    snprintf(buf, sizeof(buf), "%d", size);
+    return buf;
 }
