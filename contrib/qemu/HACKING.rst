@@ -1,3 +1,5 @@
+.. If you see this (unformatted) text on Bitbucket, please try reloading the page.
+
 EOS firmware in QEMU - development and reverse engineering guide
 ================================================================
 
@@ -8,34 +10,283 @@ For "user" documentation and installation guide, please see the main `README.rst
 This is bleeding-edge development used primarily for reverse engineering.
 You will want to modify the sources, sooner or later.
 
+.. contents::
+
 How is this code organazized?
 `````````````````````````````
+
+By default, the install script sets up QEMU by creating a ``qemu-eos`` subdirectory
+"near" the ``magic-lantern`` directory (so both directories will end up at the same level).
+The default directory structure looks like this::
+
+  .
+  ├── magic-lantern/            # Magic Lantern working directory
+  │   │
+  │   ├── src/                      # main ML source files
+  │   │
+  │   ├── platform/                 # camera-specific (platform) directories
+  │   │   ├── 5D3.113                   # camera model . firmware version
+  │   │   ├── EOSM.202                  # here you would run "make", "make install_qemu" etc
+  │   │   └── ...
+  │   │
+  │   ├── minimal/                  # minimal targets, for experiments
+  │   │   ├── hello-world           # these will use other files from the platform directory
+  │   │   ├── qemu-frsp             # compile with "make MODEL=EOSM" or "make MODEL=5D3 FW_VERSION=123"
+  │   │   └── ...
+  │   │
+  │   ├── installer/                # for building ML-SETUP.FIR (which enables/disables the boot flag)
+  │   └── ...
+  │
+  └── qemu-eos/                 # QEMU working directory
+      │
+      ├── qemu-2.5.0/               # QEMU sources and binaries
+      │
+      ├── 60D/                      # camera-specific subdirectories
+      │   ├── ROM*.BIN                  # ROM files (user-supplied)
+      │   └── debugmsg.gdb              # GDB script
+      ├── EOSM2/
+      │   ├── ROM*.BIN                  # ROM files (user-supplied)
+      │   ├── SFDATA.BIN                # serial flash contents (recent models use one)
+      │   ├── patches.gdb               # patches required for emulation (for tricky models)
+      │   └── debugmsg.gdb              # GDB script
+      ├── 5D3/
+      │   ├── 113/                      # firmware-specific files
+      │   │   └── ROM*.BIN              # ROM files (user-supplied)
+      │   ├── 123/
+      │   │   └── ROM*.BIN              # ROM files (user-supplied)
+      │   └── debugmsg.gdb              # GDB script (common)
+      │
+      ├── ...
+      ├── tests/                    # our test suite
+      │   ├── 60D/                      # model-specific test files
+      │   └── ...                       # (expected and actual results)
+      │
+      ├── run_canon_fw.sh           # main script for running the emulation
+      └── ...                       # other scripts / utilities
+
+The sources are stored in the Magic Lantern tree, under ``contrib/qemu``. Our modifications to QEMU sources
+are stored as a patch file (``qemu-2.5.0.patch``), while the new files are stored directly. The install script
+copies the following files:
+
 .. code:: shell
 
-  magic-lantern/contrib/qemu/eos/ -> qemu/qemu-2.5.0/hw/eos/  (emulation sources)
-  magic-lantern/contrib/qemu/eos/mpu_spells/ -> qemu/qemu-2.5.0/hw/eos/mpu_spells/  (MPU messages, button codes)
-  magic-lantern/contrib/qemu/eos/dbi/ -> qemu/qemu-2.5.0/hw/eos/dbi/ (instrumentation)
-  magic-lantern/src/backtrace.[ch] -> qemu/qemu-2.5.0/hw/eos/dbi/backtrace.[ch] (shared with ML)
-  magic-lantern/contrib/qemu/scripts/ -> qemu/ (helper scripts, such as run_canon_fw.sh)
-  magic-lantern/contrib/qemu/scripts/*/debugmsg.gdb -> qemu/*/debugmsg.gdb (GDB scripts for reverse engineering)
-  magic-lantern/contrib/qemu/scripts/*/patches.gdb -> qemu/*/patches.gdb (patches required for emulation — only on some models)
-  magic-lantern/contrib/qemu/tests -> qemu/tests (guess)
+  magic-lantern/contrib/qemu/eos/ -> qemu-eos/qemu-2.5.0/hw/eos/  (emulation sources)
+  magic-lantern/contrib/qemu/eos/mpu_spells/ -> qemu-eos/qemu-2.5.0/hw/eos/mpu_spells/  (MPU messages, button codes)
+  magic-lantern/contrib/qemu/eos/dbi/ -> qemu-eos/qemu-2.5.0/hw/eos/dbi/ (instrumentation)
+  magic-lantern/src/backtrace.[ch] -> qemu-eos/qemu-2.5.0/hw/eos/dbi/backtrace.[ch] (shared with ML)
+  magic-lantern/contrib/qemu/scripts/ -> qemu-eos/ (helper scripts, such as run_canon_fw.sh)
+  magic-lantern/contrib/qemu/scripts/*/debugmsg.gdb -> qemu-eos/*/debugmsg.gdb (GDB scripts for reverse engineering)
+  magic-lantern/contrib/qemu/scripts/*/patches.gdb -> qemu-eos/*/patches.gdb (patches required for emulation — only on some models)
+  magic-lantern/contrib/qemu/tests -> qemu-eos/tests (guess)
 
-Model-specific parameters: eos/model_list.c (todo: move all hardcoded stuff there).
+Customizing directories
+'''''''''''''''''''''''
 
-MMIO handlers: eos_handle_whatever (with io_log for debug messages).
+Once QEMU is compiled into some subdirectory (such as ``/path/to/qemu-eos/qemu-2.5.0/``),
+it will no longer work elsewhere (you will not be able to rename/move this directory
+without a full reconfiguration and recompilation).
 
-Useful: eos_get_current_task_name/id/stack, eos_mem_read/write.
+Should you want to customize these paths, you may set the following environment variables:
 
-To extract MPU messages from a `startup log <http://builds.magiclantern.fm/jenkins/view/Experiments/job/startup-log/>`_,
-use `extract_init_spells.py <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/eos/mpu_spells/extract_init_spells.py>`_ (see `MPU communication`_).
+- ``QEMU_DIR``: defaults to ``qemu-eos`` (QEMU working directory, created near ``magic-lantern``)
+- ``QEMU_NAME``: defaults to ``qemu-2.5.0`` (a subdirectory under your ``qemu-eos`` directory)
+- ``ML_PATH``: defaults to ``../magic-lantern``, relative to your ``qemu`` directory.
 
-To customize keys or add support for new buttons or GUI events,
-edit `mpu.c <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/eos/mpu.c>`_,
-`button_codes.h <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/eos/mpu_spells/button_codes.h>`_
-and `extract_button_codes.py <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/eos/mpu_spells/extract_button_codes.py>`_.
+Tip: after installation, you may change ``ML_PATH`` to emulate ML from other directories, located anywhere in the filesystem.
 
-Known MPU messages and properties are exported to `known_spells.h <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/eos/mpu_spells/known_spells.h>`_.
+When using ``make install_qemu``, the Makefiles will also find the QEMU working directory from ``QEMU_DIR``.
+
+Basic concepts
+``````````````
+
+Some parts were adapted from `Jake Sandler's excellent operating system tutorial for Raspberry Pi <https://jsandler18.github.io>`_.
+
+Memory-mapped I/O, peripherals and registers
+''''''''''''''''''''''''''''''''''''''''''''
+
+Adapted from https://jsandler18.github.io/extra/peripheral.html
+
+**Memory-mapped I/O** or **MMIO** is a way of interacting with hardware devices
+by reading from and writing to predefined memory addresses.
+All interactions with the DIGIC hardware happen using MMIO.
+
+.. _peripheral:
+
+A **Peripheral** is a `hardware device <https://barrgroup.com/Embedded-Systems/Books/Programming-Embedded-Systems/Peripherals-Device-Drivers>`_
+used in embedded systems, in addition to processor and memory. Some peripherals, such as timers or interrupt controller,
+are often included in the same chip as the processor; others, such as the real-time clock or LCD controller, are usually external.
+The firmware interacts with peripherals through specific MMIO address(es) in the memory space.
+
+Each peripheral has a (hardcoded) range of memory addresses. On Canon hardware, this region is generally located
+somewhere within ``0xC0000000 - 0xDFFFFFFF`` (with variations: ``C0000000 - CFFFFFFF``, ``C0000000 - C0FFFFFF`` and so on).
+
+A **Register** is a 32-bit wide (4-byte) location in some peripheral's address range, used to control that peripheral.
+These registers are at predefined offsets from the peripheral’s base address.
+It is quite common for at least one register to be a control register,
+where each bit in the register corresponds to a certain behavior that the hardware should have.
+Another common register is a write register, where anything written in it gets sent off to the hardware.
+Some peripherals also have a status register (which may be either read-only or shared with a control register).
+
+For example, there are 8 DMA channels placed at ``0xC0A10000-0xC0A100FF``,
+``0xC0A20000-0xC0A200FF``, ..., ``0xC0A80000-0xC0A800FF``. All these DMA channels
+share the same behavior; moreover, they are controlled by registers located in the above ranges.
+For example, at offset ``0x08`` you will find the control register (``0xC0A10008``, ``0xC0A20008``, ..., ``0xC0A80008``),
+offset ``0x18`` is the source address, ``0x1C`` is the destination address
+and offset ``0x20`` is the transfer size (see ``eos_handle_dma`` in ``eos.c``).
+
+Figuring out where all the peripherals are, what registers they have
+and how to use them, is difficult — there's no documentation on DIGIC hardware.
+One may start analyzing Canon code that uses these peripherals (what values are written to them,
+what values are expected to be read, what the hardware is supposed to do with them)
+and by `cross-checking the register values with those obtained on physical hardware`__ (by logging what Canon code does).
+Generally, the behavior of these peripherals is common across many camera models; very often,
+compatibility is maintained across many generations of the hardware. For example, a 20-bit microsecond timer
+("DIGIC timer") can be read from register ``0xC0242014`` on all EOS and PowerShot models from DIGIC 2 to DIGIC 5.
+
+__ `Cross-checking the emulation with actual hardware`_
+
+See `Working out all the way to Canon GUI`_ for some examples of figuring out what certain peripherals are supposed to do.
+
+Hardware interfaces are generally compatible between EOS and PowerShot models. For example,
+EDMAC (image processing DMA) works the same at hardware level on both EOS and PowerShot
+(therefore, the same emulation code can be reused for both platforms);
+however, the front-end functions used in the firmware are different
+(that makes porting CHDK on EOS models or Magic Lantern on PowerShot models a non-trivial task).
+
+Documentation for certain off-the-shelf peripherals (such as RTC, audio chip, serial flash)
+is available (`Datasheets <http://magiclantern.wikia.com/wiki/Datasheets>`_,
+`Circuit boards <http://magiclantern.wikia.com/wiki/Circuit_boards>`_ and `photo-parts.ua <https://photo-parts.com.ua/parts/?part=550D>`_).
+For this purpose, high-resolution pictures of (your) camera mainboards are always welcome.
+
+MMIO register activity can be logged by running the emulation with ``-d io``.
+
+What we know about these registers can be found in emulator sources, starting at the ``eos_handlers`` table,
+and on the `Register Map <http://magiclantern.wikia.com/wiki/Register_Map>`_ wiki page.
+
+Interrupts and exceptions
+'''''''''''''''''''''''''
+
+Adapted from https://jsandler18.github.io/extra/interrupts.html
+
+An **Exception** is an event that is triggered when something exceptional occurs
+during normal program execution. Examples of such exceptional occurrences include hardware devices
+presenting new data to the CPU, user code asking to perform a privileged action, and a bad instruction
+was encountered.
+
+On ARM processors, when an exception occurs, a specific address is loaded into the program counter register,
+branching execution to this point. At this location, the firmware contains branch instructions
+to routines that handle the exceptions. This set of addresses, also known as the Vector Table,
+usually starts at address 0 (in RAM) or 0xFFFF0000 (configuration known as `HIVECS <https://developer.arm.com/docs/ddi0363/e/programmers-model/exceptions/exception-vectors>`_), but on recent models
+it can be located anywhere in the system memory.
+
+Below is a table that describes the exceptions interesting to us:
+
+========  ============================  ===========================================================
+Offset    Exception name                What happened
+========  ============================  ===========================================================
+0x00      Reset                         Execution starts here at power on (see `Initial firmware analysis`_)
+0x04      Undefined Instruction         Attempted to execute an invalid instruction
+0x0C      Prefetch Abort                Attempted to read an instruction from non-executable memory
+0x10      Data Abort                    Attempted to read data from a privileged memory region
+**0x18**  **Interrupt Request (IRQ)**   Hardware wants to make the CPU aware of something
+0x1C      Fast Interrupt Request (FIQ)  One select hardware can do the above faster than all others
+========  ============================  ===========================================================
+
+
+An **Interrupt Request** or **IRQ** is a notification to the processor
+that something happened to some hardware that the processor should know about.
+This can take many forms, for example, a character was received on the serial line
+or a file I/O transfer was completed. The operating system (DryOS, VxWorks) uses a periodic timer interrupt
+(`heartbeat <https://sites.google.com/site/rtosmifmim/home/timer-functions>`_) that usually fires every 10ms;
+many other peripherals use interrupts to signal various events.
+
+In order to find out which hardware devices are allowed to trigger interrupts,
+and which device triggered an interrupt, we need to look at the interrupt controller
+(``eos_handle_intengine``, which comes in many shapes and sizes, depending on camera generation).
+
+For emulation purposes, we need to know when the firmware expects an interrupt for each peripheral
+(for example, after completing a DMA transfer, or when a timer overflows, or when a `secondary CPU`__ wants to talk, and so on)
+and how to react to MMIO activity from the interrupt handling routine
+(for example, the firmware may check the status of the peripheral to figure out why the interrupt was triggered, or what to do next).
+
+__ `Secondary processors`_
+
+Interrupt activity can be logged by running the emulation with ``-d int``.
+When troubleshooting interrupt issues, you will also want to log MMIO activity,
+as well as some additional messages that are hidden by default: ``-d io,int,v``.
+
+The interrupt IDs are mostly common across EOS models, but there are exceptions.
+Model-specific interrupts can be found in ``model_list.c``, while generic ones
+are hardcoded throughout the source.
+
+A good janitor project would be to `document all the registers, interrupts and other model-specific constants
+<http://www.magiclantern.fm/forum/index.php?topic=14656.0>`_,
+in a way that's easy to read, reuse and doesn't go out of sync with the source code.
+
+GPIO ports
+''''''''''
+
+These work much like the I/O ports on a Raspberry Pi or Arduino —
+signal lines that you can switch high or low from software (outputs)
+or whose input state (high or low) can be read by the processor (inputs).
+
+__ `WriteProtect switch`_
+
+Example: the SD card LED is driven by a GPIO output (by setting specific bits within the GPIO's register).
+The `write-protect switch`__ state is read from a GPIO input (by reading back other bits).
+Events from `hot-pluggable devices`__ (USB, external monitors, microphone etc) are usually detected
+by reading some GPIO registers in a loop (but they may as well expect interrupts, e.g. ``MICDetectISR``).
+
+__ `HotPlug events`_
+
+GPIO ports are also used as `chip select <https://en.wikipedia.org/wiki/Chip_select>`_ signals
+for various hardware devices that use the SPI protocol (examples below),
+or as signalling lines to `secondary processors`_ for communication purposes.
+
+Usual register values for driving GPIO ports: ``0x46/0x44``, ``0x138800/0x838C00``, ``0xD0002/0xC0003``.
+More details `on the wiki <http://magiclantern.wikia.com/wiki/Register_Map#GPIO_Ports>`_.
+
+Serial communication
+''''''''''''''''''''
+
+Some peripherals use the well-known
+`I2C and SPI <https://www.byteparadigm.com/applications/introduction-to-i2c-and-spi-protocols/>`_ interfaces.
+While their low-level communication uses MMIO registers and (sometimes) interrupts, one has to understand
+the high-level protocol in order to emulate — or interact with — these peripherals.
+
+Examples:
+
+- `RTC chip <http://www.magiclantern.fm/forum/index.php?topic=2864.msg190823#msg190823>`_ (real-time clock)
+- `ADTG and CMOS registers <http://magiclantern.wikia.com/wiki/ADTG>`_ (image capture hardware)
+- `TFT SIO registers <http://www.magiclantern.fm/forum/index.php?topic=21108>`_ (built-in LCD controller)
+- `HDMI CEC <http://www.magiclantern.fm/forum/index.php?topic=12022.msg136689#msg136689>`_ (Ctrl over HDMI)
+- `Touch screen controller <http://www.magiclantern.fm/forum/index.php?topic=15895.msg187011#msg187011>`_
+- `MPU communication`_ (see below).
+
+Secondary processors
+''''''''''''''''''''
+
+Canon cameras are generally multiprocessor systems. Since our understanding of all these processors
+is quite limited, we attempt to emulate only one of them at a time (at least for the time being)
+and model the secondary processors as regular `peripherals`__.
+
+__ `peripheral`_
+
+Common secondary processors:
+
+- the `MPU`__ (I/O microcontroller on EOS models, `TX19A <http://magiclantern.wikia.com/wiki/Tx19a>`_ on DIGIC 4)
+- the `Eeko <http://www.magiclantern.fm/forum/index.php?topic=13408.msg175656#msg175656>`_ (on DIGIC 5, emulated as ``5D3eeko``)
+  and `Omar <http://www.magiclantern.fm/forum/index.php?topic=13408.msg194424#msg194424>`_ (on DIGIC 6)
+  cores likely used for image processing
+- the `JPCORE <http://www.magiclantern.fm/forum/index.php?topic=18443.msg177082#msg177082>`_ (JPEG/LJ92 and H.264 encoders, likely CPU-based)
+- the AE processor on 5D Mark IV (``K349AE``, emulated as ``5D4AE``)
+- the secondary ARM core on 7D (``K250M``, emulated as ``7DM``), 7D Mark II (``K289S``, emulated as ``7D2S``) and other Dual DIGIC models
+- the `Zico <http://chdk.setepontos.com/index.php?topic=11316.msg129104#msg129104>`_ 
+  `GPU <http://chdk.setepontos.com/index.php?topic=12788.0>`_ on DIGIC 6 and 7 models (Xtensa)
+- the `lens MCU <http://www.magiclantern.fm/forum/index.php?topic=20969>`_ (firmware upgradeable on recent models).
+
+__ `MPU communication`_
+
 
 Adding support for a new camera model
 `````````````````````````````````````
@@ -51,11 +302,19 @@ Initial firmware analysis
    DIGIC 5 and earlier models will start the bootloader at ``0xFFFF0000`` (HIVECS)
    and will jump to main firmware at ``0xFF810000``, ``0xFF010000`` or ``0xFF0C0000``.
    There is one main ROM (ROM1) at ``0xF8000000``, 4/8/16/32 MiB mirrored until ``0xFFFFFFFF``,
-   and there may be a second ROM (ROM0) at 0xF0000000, mirrored until ``0xF8000000 - 1 = 0xF7FFFFFF``.
+   and there may be a second ROM (ROM0) at ``0xF0000000``, mirrored until ``0xF8000000 - 1 = 0xF7FFFFFF``.
+   Some DIGIC 5 models also use a serial flash for storing properties (persistent settings).
 
-   DIGIC 6 will start at ``*(uint32_t*)0xFC000000``,
+   DIGIC 6 models will start at ``*(uint32_t*)0xFC000000``,
    bootloader is at 0xFE020000 and main firmware starts at 0xFE0A0000. There is
    a 32 MiB ROM mirrored at 0xFC000000 and 0xFE000000 (there may be others).
+   There is a serial flash as well, used for storing properties.
+
+   DIGIC 7 models will start at ``0xE0000000`` in ARM mode
+   and will jump to main firmware at ``0xE0040000`` in Thumb mode.
+   There is a 32 MiB ROM (ROM0) at ``0xE0000000``, mirrored until ``0xEFFFFFFF``,
+   and an unusually slow 16 MiB ROM (ROM1) at ``0xF0000000``, mirrored until ``0xFFFFFFFF``.
+   No serial flash was identified.
 
    The ROM load address is the one you have used when dumping it (usually one of the mirrors).
    The memory map is printed when starting QEMU — you'll see where each ROM is loaded
@@ -70,6 +329,8 @@ Initial firmware analysis
    - DIGIC 6: Cortex R4 `[2] <http://chdk.setepontos.com/index.php?topic=11316.msg124273#msg124273>`_ -- `ARM ARM v7 A&R <https://www.cs.utexas.edu/~simon/378/resources/ARMv7-AR_TRM.pdf>`_ and `Cortex R4 TRM <http://infocenter.arm.com/help/topic/com.arm.doc.ddi0363g/DDI0363G_cortex_r4_r1p4_trm.pdf>`_;
    - DIGIC 7: Cortex A9 `[3] <http://chdk.setepontos.com/index.php?topic=13014.msg131110#msg131110>`_ -- `ARM ARM v7 A&R <https://www.cs.utexas.edu/~simon/378/resources/ARMv7-AR_TRM.pdf>`_ and `Cortex A9 TRM <http://infocenter.arm.com/help/topic/com.arm.doc.ddi0388f/DDI0388F_cortex_a9_r2p2_trm.pdf>`_.
 
+   |
+
 2) (Re)load the code in the disassembler at the correct address:
 
    - `Loading into IDA <http://www.magiclantern.fm/forum/index.php?topic=6785.0>`_
@@ -82,17 +343,7 @@ Initial firmware analysis
 3) Add a very simple definition for your camera and get an `initial test run`_.
    Try to guess some missing bits from the error messages, if possible.
 
-4) (optional) Export the functions called during your test run:
-
-   .. code:: shell
-
-     ./run_canon_fw.sh EOSM2,firmware="boot=0" -d idc
-     ...
-     EOSM2.idc saved.
-
-   Load the IDC script into IDA, or convert it if you are using a different disassembler.
-
-5) Code blocks copied from ROM to RAM
+4) Code blocks copied from ROM to RAM
 
    .. code:: shell
   
@@ -113,6 +364,30 @@ Initial firmware analysis
 
    If you are analyzing the bootloader, extract and load the first two blobs in the same way.
    Other models may have slightly different configurations, so YMMV.
+
+5) Export the functions called during your test run:
+
+   .. code:: shell
+
+     ./run_canon_fw.sh EOSM2,firmware="boot=0" -d idc
+     ...
+     EOSM2.idc saved.
+
+   Load the IDC script into IDA, or convert it if you are using a different disassembler.
+
+   Locate ``task_create``, ``register_func``, ``register_interrupt`` and ``CreateStateObject``
+   and add GDB stubs for them in ``CAM/debugmsg.gdb``. Run the firmware under GDB
+   to identify some (thousands of) named functions.
+
+   .. code:: shell
+
+     ./run_canon_fw.sh EOSM2,firmware="boot=0" -d debugmsg -s -S & arm-none-eabi-gdb -x EOSM2/debugmsg.gdb
+     ...
+     named_functions.idc saved.
+
+   Load the new IDC script into IDA and start hacking!
+
+   Repeat this procedure as the emulation is getting better, to identify new functions.
 
    |
 
@@ -324,10 +599,10 @@ In a few cases, the bootloader may use interrupts as well
 To analyze them, place a breakpoint at 0x18 and see what happens from there.
 
 The second goal — loading ``AUTOEXEC.BIN`` from the card — requires emulation of the SD or CF card.
-If it doesn't already work, look at MMIO activity (``-d io``) and try to make sense of the SD or CF
+If it doesn't already work, look at MMIO activity (``-d io,sdcf``) and try to make sense of the SD or CF
 initialization sequences (both protocols are documented online). The emulation has to be able
 to read arbitrary sectors from the virtual card — once you provide the low-level block transfer
-functionality, Canon firmware whould be able to handle the rest (filesystem drivers etc).
+functionality, Canon firmware would be able to handle the rest (filesystem drivers etc).
 In other words, you shouldn't have to adjust anything in order to emulate EXFAT, for example.
 
 Getting the main firmware to run
@@ -337,7 +612,7 @@ Step by step:
 
 - get debug messages
 
-  - identify DebugMsg (lots of calls, format string is third argument), add the stub to CAM/debugmsg.gdb, run with ``-d debugmsg``
+  - identify DebugMsg (lots of calls, format string is third argument), add the stub to ``CAM/debugmsg.gdb``, run with ``-d debugmsg``
   - identify other functions used to print errors (uart_printf, variants of DebugMsg with format string at second argument etc — look for strings)
   - identify any other strings that might be helpful (tip: run with ``-d calls`` and look for something that makes even a tiny bit of sense)
   
@@ -350,7 +625,7 @@ Step by step:
   - make sure you get periodical interrupts when running with ``-d io,int``, even when all DryOS tasks are idle
 
   Example: 1300D (comment out ``dryos_timer_id`` and ``dryos_timer_interrupt`` from the 1300D section
-  in model_list.c to get the state before `7f1a436 <https://bitbucket.org/hudson/magic-lantern/commits/7f1a436>`_)::
+  in ``model_list.c`` to get the state before `7f1a436 <https://bitbucket.org/hudson/magic-lantern/commits/7f1a436#chg-contrib/qemu/eos/model_list.c>`_)::
 
     [INT]      at 0xFE0C3E10:FE0C0C18 [0xC0201010] <- 0x9       : Enabled interrupt 09h
     ...
@@ -365,27 +640,21 @@ Step by step:
 
   Therefore, please do not assume this works, even if you think it does — double-check!
 
-  |
-
 - get some tasks running
 
-  - identify task_create (in debugmsg.gdb — same as in ML ``stubs.S``) and run the firmware under GDB
+  - identify ``task_create`` (in ``debugmsg.gdb`` — same as in ML ``stubs.S``) and run the firmware under GDB
   - identify the pointer to current DryOS task
 
-    This is called current_task_addr in model_list.c, CURRENT_TASK in debugmsg.gdb or current_task in ML stubs —
+    This is called ``current_task_addr`` in ``model_list.c``, ``CURRENT_TASK`` in ``debugmsg.gdb`` or ``current_task`` in ML stubs —
     see `debug-logging.gdb <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/scripts/debug-logging.gdb#debug-logging.gdb>`_
     for further hints.
 
-    |
-
   - identify where the current interrupt is stored
   
-    Look in the interrupt handler — breakpoint at 0x18 to find it — and find CURRENT_ISR in
+    Look in the interrupt handler — breakpoint at 0x18 to find it — and find ``CURRENT_ISR`` in
     `debug-logging.gdb <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/scripts/debug-logging.gdb#debug-logging.gdb>`_,
     or current_interrupt in ML stubs.
     If you can't find it, you may set it to 0, but if you do, please take task names with a grain of salt if they are printed from some interrupt handler.
-  
-    |
 
   - run with ``-d tasks`` and watch the DryOS task switches.
 
@@ -426,14 +695,14 @@ to know where things are finished. Let's look at its debug messages::
    [       DpMgr:ff02b9f8 ] (00:03) [SEQ] NotifyComplete (Cur = 5, 0x200, Flag = 0x200)
    ...
 
-Notice the pattern? Every time a component is initialized, it calls NotifyComplete with some binary flag.
+Notice the pattern? Every time a component is initialized, it calls ``NotifyComplete`` with some binary flag.
 The bits from this flag are cleared from the middle number, so this number must indicate what processes
 still have to do their initialization. Once this number reaches 0 (not printed),
 the startup sequence advances to the next stage.
 
 **What if it gets stuck?**
 
-You need to figure it out: Difficulty: anywhere within [0 — infinity); a great dose of luck will help.
+You will need to figure it out. Difficulty: anywhere within [0 — infinity); a great dose of luck will help.
 
 Let's look at an example — 1300D::
 
@@ -447,9 +716,9 @@ Let's look at an example — 1300D::
    [     Startup:fe0d4054 ] (00:03) [SEQ] NotifyComplete (Cur = 3, 0x20110, Flag = 0x100)
    [     FileMgr:fe0d4054 ] (00:03) [SEQ] NotifyComplete (Cur = 3, 0x20010, Flag = 0x10)
 
-It got stuck because somebody has yet to call NotifyComplete with Flag = 0x20000.
+It got stuck because somebody has yet to call ``NotifyComplete`` with ``Flag = 0x20000``.
 
-Who's supposed to call that? Either look in the disassembly to find who calls NotifyComplete with the right argument,
+Who's supposed to call that? Either look in the disassembly to find who calls ``NotifyComplete`` with the right argument,
 or — if not obvious — look in the startup logs of other camera models from the same generation, where the flag is likely the same.
 
 Why it didn't get called? Most of the time:
@@ -459,11 +728,14 @@ Why it didn't get called? Most of the time:
 - it may expect some message from the MPU
 - other (some task stuck in a loop, some prerequisite code did not run etc)
 
-How to solve? There's no fixed recipe; generally, try to steer the code towards calling NotifyComplete with the missing flag.
+How to solve? There's no fixed recipe; generally, try to steer the code towards calling ``NotifyComplete`` with the missing flag.
 You'll need to figure out where it gets stuck and how to fix it. Some things to try:
 
-- check whether the task supposed to call the troublesome NotifyComplete is waiting
-  (not advancing past a take_semaphore / msg_queue_receive / wait_for_event_flag; ``extask`` in Dry-shell may help)
+- check whether the task supposed to call the troublesome ``NotifyComplete`` is waiting
+  (not advancing past a ``take_semaphore`` / ``msg_queue_receive`` / ``wait_for_event_flag``; 
+  the ``extask`` command in `Dry-shell`__ may help)
+
+__ `Serial console`_
 
 - check who calls the corresponding give_semaphore / msg_queue_send etc and why it doesn't run
   (it may be some callback, it may be expected to run from an interrupt, it may wait for some peripheral and so on)
@@ -475,7 +747,7 @@ The DryOS timer interrupt (heartbeat) was different from *all other* DIGIC 4 and
 the emulation to go **that** far without a valid heartbeat (that way, we've lost many hours of debugging).
 Now scroll up and read that section again ;)
 
-Fixing that and a few other things (commit `7f1a436 <https://bitbucket.org/hudson/magic-lantern/commits/7f1a436>`_)
+Fixing that and a few other things (`commit 7f1a436 <https://bitbucket.org/hudson/magic-lantern/commits/7f1a436>`_)
 were enough to bring the GUI on 1300D.
 
 PowerShot firmware startup sequence
@@ -706,7 +978,7 @@ Serial flash
 ''''''''''''
 
 To enable serial flash emulation (if your camera needs it, you'll see some relevant startup messages),
-define ``.serial_flash_size`` in model_list.c and a few other parameters:
+define ``.serial_flash_size`` in ``model_list.c`` and a few other parameters:
 
 - chip select signal (CS): some GPIO register toggled before and after serial flash access
 - SIO channel (used for SPI transfers)
@@ -886,11 +1158,24 @@ Checking interrupts from actual hardware
 
 LOG_INTERRUPTS in dm-spy-experiments.
 
-MPU messages
-''''''''''''
+Misc notes
+``````````
 
-`mpu_send/recv <http://www.magiclantern.fm/forum/index.php?topic=2864.msg166938#msg166938>`_ in dm-spy-experiments
-(`startup-log <http://builds.magiclantern.fm/jenkins/view/Experiments/job/startup-log/>`_ builds.). See `MPU Communication`_.
+Model-specific parameters: ``eos/model_list.c`` (todo: move all hardcoded stuff there).
+
+MMIO handlers: ``eos_handlers`` -> ``eos_handle_whatever`` (with ``io_log`` for debug messages).
+
+Useful: ``eos_get_current_task_name/id/stack``, ``eos_mem_read/write``.
+
+To extract MPU messages from a `startup log <http://builds.magiclantern.fm/jenkins/view/Experiments/job/startup-log/>`_,
+use `extract_init_spells.py <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/eos/mpu_spells/extract_init_spells.py>`_ (see `MPU communication`_).
+
+To customize keys or add support for new buttons or GUI events,
+edit `mpu.c <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/eos/mpu.c>`_,
+`button_codes.h <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/eos/mpu_spells/button_codes.h>`_
+and `extract_button_codes.py <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/eos/mpu_spells/extract_button_codes.py>`_.
+
+Known MPU messages and properties are exported to `known_spells.h <https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/eos/mpu_spells/known_spells.h>`_.
 
 Committing your changes
 ```````````````````````
@@ -928,14 +1213,14 @@ you may try a script similar to the following:
     #!/bin/bash
     
     QEMU_PATH=${QEMU_PATH:=qemu-2.5.0}
-    ML=${ML:=magic-lantern}
-    
-    cp -v ../$ML/contrib/qemu/eos/* $QEMU_PATH/hw/eos/
-    cp -v ../$ML/contrib/qemu/eos/mpu_spells/* $QEMU_PATH/hw/eos/mpu_spells/
-    cp -v ../$ML/contrib/qemu/eos/dbi/* $QEMU_PATH/hw/eos/dbi/
-    cp -v ../$ML/src/backtrace.[ch] $QEMU_PATH/hw/eos/dbi/
-    cp -vr ../$ML/contrib/qemu/tests/* tests/
-    cp -vr ../magic-lantern/contrib/qemu/scripts/* .
+    ML_PATH=${ML_PATH:=../magic-lantern}
+
+    cp -v $ML_PATH/contrib/qemu/eos/* $QEMU_PATH/hw/eos/
+    cp -v $ML_PATH/contrib/qemu/eos/mpu_spells/* $QEMU_PATH/hw/eos/mpu_spells/
+    cp -v $ML_PATH/contrib/qemu/eos/dbi/* $QEMU_PATH/hw/eos/dbi/
+    cp -v $ML_PATH/src/backtrace.[ch] $QEMU_PATH/hw/eos/dbi/
+    cp -vr $ML_PATH/contrib/qemu/tests/* tests/
+    cp -vr $ML_PATH/contrib/qemu/scripts/* .
 
 
 Test suite

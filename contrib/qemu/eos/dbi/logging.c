@@ -279,7 +279,7 @@ static FILE * idc = NULL;
 static void close_idc(void)
 {
     fprintf(idc, "}\n");
-    fclose(idc);
+    fclose(idc); idc = 0;
     fprintf(stderr, "%s saved.\n", idc_path);
 }
 
@@ -290,7 +290,7 @@ static void eos_idc_log_call(EOSState *s, CPUState *cpu, CPUARMState *env,
 
     if (!idc)
     {
-        snprintf(idc_path, sizeof(idc_path), "%s.idc", MACHINE_GET_CLASS(current_machine)->name);
+        snprintf(idc_path, sizeof(idc_path), "%s/calls.idc", s->model->name);
         fprintf(stderr, "Exporting called functions to %s.\n", idc_path);
         idc = fopen(idc_path, "w");
         assert(idc);
@@ -597,7 +597,8 @@ void eos_callstack_print_verbose(EOSState *s)
             len += eos_indent(len, CALLSTACK_RIGHT_ALIGN);
             eos_print_location(s, ret, sp, " at ", "\n");
             uint32_t pc0 = pc & ~1;
-            assert(pc0 == 0x18);
+            uint32_t vbar = CURRENT_CPU->env.cp15.vbar_s;
+            assert(pc0 == vbar + 0x18);
         }
         else
         {
@@ -656,6 +657,11 @@ int eos_print_location_gdb(EOSState *s)
         int level = call_stack_num[id] - 1;
         uint32_t stack_lr = level >= 0 ? call_stacks[id][level].lr : 0;
         ret = stack_lr - 4;
+    }
+
+    /* on multicore machines, print CPU index for each message */
+    if (CPU_NEXT(first_cpu)) {
+        fprintf(stderr, "[CPU%d] ", current_cpu->cpu_index);
     }
 
     if (interrupt_level) {
@@ -1000,6 +1006,9 @@ static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock 
     uint32_t lr0 = lr & ~1;
     uint32_t prev_pc0 = prev_pc & ~1;
 
+    uint32_t vbar = env->cp15.vbar_s;
+    assert(vbar == 0 || s->model->digic_version == 7);
+
     /* tb->pc always has the Thumb bit cleared */
     assert(pc0 == tb->pc);
 
@@ -1022,7 +1031,7 @@ static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock 
         goto end;
     }
 
-    if (pc0 == 0x18)
+    if (pc0 == vbar + 0x18)
     {
         /* handle interrupt jumps first */
 
@@ -1057,7 +1066,7 @@ static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock 
         goto end;
     }
 
-    if (prev_pc0 == 0x18)
+    if (prev_pc0 == vbar + 0x18)
     {
         /* jump from the interrupt vector - ignore */
         goto end;
@@ -1492,10 +1501,10 @@ recheck:
                         /* assume tail call
                          * fixme: in IDC, these must be defined before their caller,
                          * as IDA frequently gets them wrong */
-                        if (qemu_loglevel_mask(EOS_LOG_TAIL_CALLS)) {
+                        if (!qemu_loglevel_mask(EOS_LOG_NO_TAIL_CALLS)) {
                             goto function_call;
                         }
-                        /* without -d tail, report as jump */
+                        /* with -d notail, report as jump */
                     }
                     else
                     {
@@ -1514,8 +1523,8 @@ recheck:
                      * note: most cases appear to be valid tail calls,
                      * but not identified properly because of
                      * a missed function call right before this */
-                    if (qemu_loglevel_mask(EOS_LOG_TAIL_CALLS)) {
-                        /* note: many warnings without -d tail */
+                    if (!qemu_loglevel_mask(EOS_LOG_NO_TAIL_CALLS)) {
+                        /* note: many warnings with -d notail */
                         /* there's also a false warning at first jump */
                         if (!(id == 0x7F && call_stack_num[id] == 0))
                         {
@@ -1530,7 +1539,7 @@ recheck:
                         if (abs((int)pc - (int)prev_pc) > 0x100)
                         {
                             goto function_call;
-                            /* without -d tail, report as jump */
+                            /* with -d notail, report as jump */
                         }
                     }
                 }
@@ -1609,6 +1618,8 @@ static void eos_tasks_log_exec(EOSState *s, CPUState *cpu, TranslationBlock *tb)
     prev_lr = lr;
 }
 
+#ifdef __SIZEOF_INT128__
+
 static uint32_t block_start;        /* destination address */
 static uint32_t block_size;
 static uint32_t block_offset;       /* start + offset = source address */
@@ -1620,14 +1631,54 @@ static uint32_t last_write_addr;
 static uint32_t last_write_size;
 static __uint128_t last_write_value;
 
-static void romcpy_log_n_reset_block(void)
+static char dd_path[100];
+static FILE * dd = 0;
+
+static void close_dd(void)
+{
+    fclose(dd); dd = 0;
+    fprintf(stderr, "%s saved.\n", dd_path);
+}
+
+static void romcpy_log_block(EOSState *s)
+{
+    uint32_t block_rom_start = block_start + block_offset;
+
+    fprintf(stderr, "[ROMCPY] 0x%-8X -> 0x%-8X size 0x%-8X at 0x%-8X\n",
+        block_rom_start, block_start, block_size, block_pc
+    );
+
+    hwaddr l = block_size;
+    hwaddr block_rom_start_rel;
+    MemoryRegion * mr = address_space_translate(&address_space_memory, block_rom_start, &block_rom_start_rel, &l, 0);
+    assert(l == block_size);
+
+    if (strcmp(mr->name, "eos.rom0") == 0 ||
+        strcmp(mr->name, "eos.rom1") == 0)
+    {
+        if (!dd)
+        {
+            snprintf(dd_path, sizeof(dd_path), "%s/romcpy.sh", s->model->name);
+            fprintf(stderr, "Logging ROM-copied blocks to %s.\n", dd_path);
+            dd = fopen(dd_path, "w");
+            assert(dd);
+            atexit(close_dd);
+        }
+
+        /* fixme: dd executes a bit slow with bs=1 */
+        fprintf(dd, "dd if=ROM%c.BIN of=%s.0x%X.bin bs=1 skip=$((0x%X)) count=$((0x%X))\n",
+            mr->name[7],
+            s->model->name, block_start, (int)block_rom_start_rel, block_size
+        );
+    }
+}
+
+static void romcpy_log_n_reset_block(EOSState *s)
 {
     if (block_size >= 64)
     {
         /* block large enough to report? */
-        fprintf(stderr, "[ROMCPY] 0x%-8X -> 0x%-8X size 0x%-8X at 0x%-8X\n",
-            block_start + block_offset, block_start, block_size, block_pc
-        );
+        romcpy_log_block(s);
     }
 
     /* reset block */
@@ -1733,7 +1784,7 @@ static void eos_romcpy_log_mem(EOSState *s, MemoryRegion *mr, hwaddr _addr, uint
                     /* not growing current block; assume a new one might have been started */
                     qemu_log_mask(EOS_LOG_VERBOSE, "new block (previous %x-%x)\n", block_start, block_start + block_size);
                     uint32_t pc = CURRENT_CPU->env.regs[15];
-                    romcpy_log_n_reset_block();
+                    romcpy_log_n_reset_block(s);
                     romcpy_new_block(last_write_addr, last_read_addr, item_size, pc);
                 }
             }
@@ -1741,15 +1792,29 @@ static void eos_romcpy_log_mem(EOSState *s, MemoryRegion *mr, hwaddr _addr, uint
         else /* some other value written to memory */
         {
             qemu_log_mask(EOS_LOG_VERBOSE, "reset block (previous %x-%x)\n", block_start, block_size);
-            romcpy_log_n_reset_block();
+            romcpy_log_n_reset_block(s);
         }
     }
 }
+
+#else /* no int128_t available */
+
+static void eos_romcpy_log_mem(EOSState *s, MemoryRegion *mr, hwaddr _addr, uint64_t _value, uint32_t size, int flags)
+{
+	fprintf(stderr, "FIXME: ROMCPY not supported on this platform.\n");
+}
+#endif
 
 static uint64_t saved_loglevel = 0;
 
 static void tb_exec_cb(void *opaque, CPUState *cpu, TranslationBlock *tb)
 {
+    if (current_cpu->cpu_index)
+    {
+        /* ignore CPU1 for now */
+        return;
+    }
+
     if (qemu_loglevel_mask(EOS_LOG_AUTOEXEC) &&
         saved_loglevel != 0 &&
         saved_loglevel != qemu_loglevel)
@@ -1808,7 +1873,7 @@ static void load_symbols(const char * elf_filename)
     fprintf(stderr, "[EOS] loading symbols from %s ", elf_filename);
     uint64_t lo, hi;
     int size = load_elf(elf_filename, 0, 0, 0, &lo, &hi, 0, EM_ARM, 1);
-    fprintf(stderr, "(%lX-%lX)\n", lo, hi);
+    fprintf(stderr, "(%X - %X)\n", (int) lo, (int) hi);
     assert(size > 0);
 }
 

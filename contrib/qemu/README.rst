@@ -1,9 +1,9 @@
+.. If you see this (unformatted) text on Bitbucket, please try reloading the page.
+
 How can I run Magic Lantern in QEMU?
 ====================================
 
 This guide shows you how to emulate Magic Lantern (or plain Canon firmware) in QEMU.
-
-Eager to get started? Scroll down to `Installation`_.
 
 .. class:: align-center
 
@@ -14,25 +14,27 @@ Eager to get started? Scroll down to `Installation`_.
 .. |pic2| image:: doc/img/qemu-M2-hello.jpg
     :width: 32.3 %
 
+.. contents::
+
 Current state
 -------------
 
 What works:
 
-- Canon GUI with menu navigation — most DIGIC 3, 4 and 5 models,
+- Canon GUI with menu navigation — most DIGIC 3, 4 and 5 models
 - Limited support for DIGIC 2, 6 and 7 models
 - Limited support for some PowerShot models (including recent EOS M models)
 - Limited support for secondary DryOS cores (such as Eeko or 5D4 AE processor)
 - File I/O works on most models (both SD and CF); might be unreliable
 - Bootloader emulation works on all supported models (from DIGIC 2 to DIGIC 7)
-- Loading AUTOEXEC.BIN / DISKBOOT.BIN from the virtual SD/CF card (from DIGIC 2 to DIGIC 6)
+- Loading AUTOEXEC.BIN / DISKBOOT.BIN from the virtual SD/CF card (from DIGIC 2 to DIGIC 7)
 - Unmodified autoexec.bin works on many single-core camera models
   (and, with major limitations, on dual-core models)
 - ML modules and Lua scripts (within the limitations of the emulation)
 - DryOS/VxWorks timer (heartbeat) and task switching (all supported models)
-- UART emulation (DryOS shell aka Dry-shell or DrySh on DIGIC 4, 5 and 6 models)
+- UART emulation (DryOS shell aka Dry-shell or DrySh on DIGIC 4, 5, 6 and 7 models)
 - Deterministic execution with the ``-icount`` option (except CF PIO)
-- Cache hacks are emulated to some extent (but "uninstalling" them does not work)
+- Cache hacks are emulated to some extent, but not exactly accurate
 - EDMAC memcpy, including geometry parameters (matches the hardware closely, but not perfectly)
 - Debugging with GDB:
 
@@ -60,7 +62,7 @@ What works:
   - log hardware devices: ``-d mpu/sflash/sdcf/uart/int``
   - log all debug messages from Canon: ``-d debugmsg``
   - log all memory accesses: ``-d rom/ram/romr/ramw/etc``
-  - log all function calls: ``-d calls``, ``-d calls,tail``
+  - log all function calls: ``-d calls``
   - log all DryOS/VxWorks task switches: ``-d tasks``
   - track all function calls to provide a stack trace: ``-d callstack``
   - export all called functions to IDC script: ``-d idc``
@@ -92,13 +94,6 @@ Common issues and workarounds
   - quicker: press ``C`` to `"open" the card door`__ => also clean shutdown.
 
 __ `Opening the card door`_
-
-- dm-spy-experiments: saving the log and anything executed afterwards may not work
-
-  - issue: cache hacks are not emulated very well
-  - workaround: compile with ``CONFIG_QEMU=y``
-
-  |
 
 .. _netcat-issue:
 
@@ -139,6 +134,11 @@ without additional gymnastics (you will **not** have to merge ``qemu`` into your
      /path/to/magic-lantern$  cd contrib/qemu
      /path/to/magic-lantern/contrib/qemu$  ./install.sh
 
+   By default, QEMU will be installed in the ``qemu-eos`` directory,
+   near the ``magic-lantern`` one, at the same level - e.g. ``/path/to/qemu-eos``.
+   Please refer to `HACKING.rst <HACKING.rst#rst-header-how-is-this-code-organazized>`__
+   for details on the directory structure and how to change the installation directory.
+
    |
 
 3. Follow the instructions; you will have to supply your ROM files and compile QEMU:
@@ -146,11 +146,11 @@ without additional gymnastics (you will **not** have to merge ``qemu`` into your
    .. code:: shell
 
      # replace camera model (60D) with yours
-     /path/to/qemu$  cp /path/to/sdcard/ML/LOGS/ROM*.BIN 60D/
-     /path/to/qemu$  cd qemu-2.5.0
-     /path/to/qemu/qemu-2.5.0$  ../configure_eos.sh
-     /path/to/qemu/qemu-2.5.0$  make -j2
-     /path/to/qemu/qemu-2.5.0$  cd ..
+     /path/to/qemu-eos$  cp /path/to/sdcard/ML/LOGS/ROM*.BIN 60D/
+     /path/to/qemu-eos$  cd qemu-2.5.0
+     /path/to/qemu-eos/qemu-2.5.0$  ../configure_eos.sh
+     /path/to/qemu-eos/qemu-2.5.0$  make -j2
+     /path/to/qemu-eos/qemu-2.5.0$  cd ..
 
    Some recent camera models also use a serial flash. To list them, run this command:
 
@@ -176,7 +176,7 @@ without additional gymnastics (you will **not** have to merge ``qemu`` into your
    .. code:: shell
  
      # all EOS models should run this without any trickery
-     /path/to/qemu$  ./run_canon_fw.sh 60D,firmware="boot=1"
+     /path/to/qemu-eos$  ./run_canon_fw.sh 60D,firmware="boot=1"
 
    |
 
@@ -185,13 +185,13 @@ without additional gymnastics (you will **not** have to merge ``qemu`` into your
    .. code:: shell
 
      # from the QEMU directory
-     /path/to/qemu$  make -C ../magic-lantern 60D_install_qemu
+     /path/to/qemu-eos$  make -C ../magic-lantern 60D_install_qemu
      
      # some models will work only with this:
-     /path/to/qemu$  ./run_canon_fw.sh 60D,firmware="boot=1"
+     /path/to/qemu-eos$  ./run_canon_fw.sh 60D,firmware="boot=1"
 
      # some models require running under GDB (they won't boot the GUI otherwise)
-     /path/to/qemu$  ./run_canon_fw.sh EOSM,firmware="boot=1" -s -S & arm-none-eabi-gdb -x EOSM/patches.gdb -ex quit
+     /path/to/qemu-eos$  ./run_canon_fw.sh EOSM,firmware="boot=1" -s -S & arm-none-eabi-gdb -x EOSM/patches.gdb -ex quit
 
    |
 
@@ -206,16 +206,16 @@ it is possible to install QEMU and ML development tools
 Running Canon firmware
 ----------------------
 
-From the QEMU directory, use the ``run_canon_fw.sh`` script and make sure
+From the ``qemu-eos`` directory, use the ``run_canon_fw.sh`` script and make sure
 the `boot flag <http://magiclantern.wikia.com/wiki/Bootflags>`_ is disabled:
 
 .. code:: shell
 
-  # from the qemu directory
+  # from the qemu-eos directory
   ./run_canon_fw.sh 60D,firmware="boot=0"
 
 Some models may need additional patches to run — these are stored under ``CAM/patches.gdb``.
-To emulate these models, you will also need arm-none-eabi-gdb:
+To emulate these models, you will also need ``arm-none-eabi-gdb`` or ``gdb-multiarch``:
 
 .. code:: shell
 
@@ -240,6 +240,7 @@ __ `Debugging with GDB`_
 .. code:: shell
 
   ./run_canon_fw.sh 60D,firmware="boot=0" -s -S & arm-none-eabi-gdb -x 60D/debugmsg.gdb
+  ./run_canon_fw.sh 60D,firmware="boot=0" -s -S & gdb-multiarch -x 60D/debugmsg.gdb
 
 Running Magic Lantern
 ---------------------
@@ -284,33 +285,33 @@ To install Magic Lantern to the virtual card, you may:
     make 60D_clean
     make 60D_install_qemu
 
-  They also work from the qemu directory:
+  They also work from the ``qemu-eos`` directory:
 
   .. code:: shell
 
-    # from the qemu directory
+    # from the qemu-eos directory
     make -C ../magic-lantern/platform/60D.111 clean
     make -C ../magic-lantern/platform/60D.111 install_qemu
 
   .. code:: shell
 
-    # from the qemu directory
+    # from the qemu-eos directory
     make -C ../magic-lantern 5D3.113_clean
     make -C ../magic-lantern 5D3.113_install_qemu
 
   Please note: ``make install_qemu`` is a recent addition and may not be available in all branches.
   In this case, you may either use the first method, or sync with the "unified" branch (``hg merge unified``),
-  or manually import changeset `27f4105 <https://bitbucket.org/hudson/magic-lantern/commits/27f4105cfa83>`_.
+  or manually import changeset `d5ad86f <https://bitbucket.org/hudson/magic-lantern/commits/d5ad86f0d284>`_.
   Unfortunately, these rules won't work from ``Makefile.user``.
 
 The included card images are already bootable for EOS firmwares (but not for PowerShots).
 
-After you have copied Magic Lantern to the card, you may run it from the ``qemu`` directory
+After you have copied Magic Lantern to the card, you may run it from the ``qemu-eos`` directory
 (near the ``magic-lantern`` one, at the same level):
 
 .. code:: shell
 
-  # from the qemu directory
+  # from the qemu-eos directory
   ./run_canon_fw.sh 60D,firmware="boot=1"
   
   # or, if your camera requires patches.gdb:
@@ -401,7 +402,7 @@ Running ML Lua scripts
 
   .. code:: shell
 
-    # from the qemu directory
+    # from the qemu-eos directory
     wget http://builds.magiclantern.fm/jenkins/job/lua_fix/431/artifact/platform/60D.111/magiclantern-lua_fix.2017Dec23.60D111.zip
     unzip magiclantern-lua_fix.2017Dec23.60D111.zip -d ml-tmp
     ./mtools_copy_ml.sh ml-tmp
@@ -444,19 +445,19 @@ The invocation looks like this (notice the ``113``):
 
 And the directory layout should be like this::
 
-  /path/to/qemu/5D3/113/ROM0.BIN
-  /path/to/qemu/5D3/113/ROM1.BIN
-  /path/to/qemu/5D3/123/ROM0.BIN
-  /path/to/qemu/5D3/123/ROM1.BIN
-  /path/to/qemu/5D3/113/ROM0.BIN
-  /path/to/qemu/5D3/debugmsg.gdb  # common to both versions
-  /path/to/qemu/5D3/patches.gdb   # common to both versions
+  /path/to/qemu-eos/5D3/113/ROM0.BIN
+  /path/to/qemu-eos/5D3/113/ROM1.BIN
+  /path/to/qemu-eos/5D3/123/ROM0.BIN
+  /path/to/qemu-eos/5D3/123/ROM1.BIN
+  /path/to/qemu-eos/5D3/113/ROM0.BIN
+  /path/to/qemu-eos/5D3/debugmsg.gdb  # common to both versions
+  /path/to/qemu-eos/5D3/patches.gdb   # common to both versions
 
 Compare this to a camera model where only one firmware version is supported::
 
-  /path/to/qemu/60D/ROM0.BIN
-  /path/to/qemu/60D/ROM1.BIN
-  /path/to/qemu/5D3/patches.gdb
+  /path/to/qemu-eos/60D/ROM0.BIN
+  /path/to/qemu-eos/60D/ROM1.BIN
+  /path/to/qemu-eos/5D3/patches.gdb
 
 You may also store ``debugmsg.gdb`` and ``patches.gdb`` under the firmware version subdirectory if you prefer, but other QEMU-related scripts won't pick them up.
 
@@ -478,6 +479,20 @@ Note: you need to copy the raw contents of the entire card, not just one partiti
 .. code:: shell
 
   dd if=/dev/mmcblk0 of=sd.img    # not mmcblk0p1
+
+Tip: to save disk space, format the SD card first, copy the desired files,
+then create the image as `qcow2 <https://rwmj.wordpress.com/2010/05/18/tip-compress-raw-disk-images-using-qcow2/>`_:
+
+.. code:: shell
+
+  qemu-img convert -f raw -O qcow2 /dev/mmcblk0 sd.qcow2
+
+then update ``run_canon_fw.sh`` to use the new image::
+
+  -drive if=sd,format=qcow2,file=sd.qcow2
+
+That way, a 64GB card with Magic Lantern installed, after formatting in camera
+with the option to keep ML on the card, will only take up about 15MB as a ``qcow2`` image.
 
 Running from the physical SD/CF card
 ````````````````````````````````````
@@ -712,7 +727,7 @@ This is tricky and not automated. You need to be careful with the following glob
   .. code:: shell
 
     QEMU_MONITOR=qemu.monitor$QEMU_JOB_ID
-    GDB_PORT=$((1234+$QEMU_JOB_ID))
+    GDB_PORT=$((1234+QEMU_JOB_ID))
     ./run_canon_fw.sh EOSM2,firmware="boot=0" -S -gdb tcp::$GDB_PORT &
     arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x EOSM2/patches.gdb -ex quit &
     
@@ -825,10 +840,11 @@ It works for modules as well:
 
     cd modules/lua
     # add some qprintf call in lua_init for testing
-    make clean; make                  # regular build
-    make clean; make CONFIG_QEMU=y    # debug build for QEMU
-    # todo: make install_qemu doesn't work here yet
-
+    make clean; make                            # regular build
+    make clean; make CONFIG_QEMU=y              # debug build for QEMU
+    make clean; make install_qemu               # build and install a regular build to the QEMU SD/CF image
+    make clean; make install_qemu CONFIG_QEMU=y # build and install a QEMU build to the QEMU SD/CF image
+ 
 Tracing guest events (execution, I/O, debug messages, RAM, function calls...)
 `````````````````````````````````````````````````````````````````````````````
 
@@ -874,17 +890,11 @@ Memory access trace (ROM reads, RAM writes) — very verbose:
 
   ./run_canon_fw.sh 60D,firmware="boot=0" -d romr,ramw
 
-Call/return trace (not including tail function calls):
+Call/return trace, redirected to a log file:
 
 .. code:: shell
 
-  ./run_canon_fw.sh 60D,firmware="boot=0" -d calls
-
-Also with tail calls, redirected to a log file:
-
-.. code:: shell
-
-  ./run_canon_fw.sh 60D,firmware="boot=0" -d calls,tail &> calls.log
+  ./run_canon_fw.sh 60D,firmware="boot=0" -d calls &> calls.log
 
 Tip: set your editor to highlight the log file as if it were Python code.
 You'll get collapse markers for free :)
@@ -893,7 +903,7 @@ Also with debug messages, I/O events and interrupts, redirected to file
 
 .. code:: shell
 
-  ./run_canon_fw.sh 60D,firmware="boot=0" -d debugmsg,calls,tail,io,int &> full.log
+  ./run_canon_fw.sh 60D,firmware="boot=0" -d debugmsg,calls,io,int &> full.log
 
 Filter the logs with grep:
 
@@ -995,7 +1005,7 @@ Printing call stack from GDB
 
 The ``callstack`` option from QEMU (``eos/dbi/logging.c``) can be very useful to find where a function was called from.
 This works even when gdb's ``backtrace`` command cannot figure it out from the stack contents, does not require any debugging symbols,
-but you need to run the emulation with instrumentation enabled: ``-d callstack`` or ``-d callstack,tail``.
+but you need to run the emulation with instrumentation enabled: ``-d callstack``.
 
 Then, in GDB, use ``print_current_location_with_callstack`` to see the call stack for the current DryOS task.
 
@@ -1063,9 +1073,23 @@ Instrumentation
 
 `TODO (see QEMU forum thread) <http://www.magiclantern.fm/forum/index.php?topic=2864.msg184125#msg184125>`_
 
+The instrumentation framework provides the following features:
 
-Hacking
--------
+- log all debug messages from Canon: ``-d debugmsg``
+- log all memory accesses: ``-d rom/ram/romr/ramw/etc``
+- log all function calls: ``-d calls``
+- log all DryOS/VxWorks task switches: ``-d tasks``
+- track all function calls to provide a stack trace: ``-d callstack``
+- export all called functions to IDC script: ``-d idc``
+- identify memory blocks copied from ROM to RAM: ``-d romcpy``
+- check for memory errors (a la valgrind): ``-d memchk``
+
+Debugging symbols from ML can be made available to instrumentation routines from environment variables (see ``export_ml_syms.sh``).
+
+The address of DebugMsg is exported by ``run_canon_fw.sh`` (extracted from the GDB script, where it's commented out for speed reasons).
+
+Development and reverse engineering guide
+-----------------------------------------
 
 For the following topics, please see `HACKING.rst <HACKING.rst>`_:
 
@@ -1089,15 +1113,19 @@ History
 :2015: `100D emulation, serial flash and GDB scripts from nkls <http://www.magiclantern.fm/forum/index.php?topic=2864.msg153064#msg153064>`_
 :2016: `More EOS models boot Canon GUI (no menus yet) <http://www.magiclantern.fm/forum/index.php?topic=2864.msg168603#msg168603>`_
 :2016: `Low-level button codes and GUI modes understood <http://www.magiclantern.fm/forum/index.php?topic=2864.msg169517#msg169517>`_
-:2016: `Users start wondering why the heck are we spending most of our time on this <http://www.magiclantern.fm/forum/index.php?topic=2864.msg169970#msg169970>`_
+:2016: `Users start wondering why the heck are we wasting our time on this <http://www.magiclantern.fm/forum/index.php?topic=2864.msg169970#msg169970>`_
 :2016: `Leegong from Nikon Hacker starts documenting MPU messages <http://www.magiclantern.fm/forum/index.php?topic=17596.msg171304#msg171304>`_
 :2017: `500D menu navigation! (Greg) <http://www.magiclantern.fm/forum/index.php?topic=2864.msg179867#msg179867>`_
 :2017: `nkls solves an important issue that was very hard to track down! <http://www.magiclantern.fm/forum/index.php?topic=2864.msg183311#msg183311>`_
-:2017: `Menu navigation works on most D4 and 5 models <http://www.magiclantern.fm/forum/index.php?topic=2864.msg181786#msg181786>`_
+:2017: `Menu navigation works on most DIGIC 4 and 5 models <http://www.magiclantern.fm/forum/index.php?topic=2864.msg181786#msg181786>`_
 :2017:  Working on `Mac (dfort) <http://www.magiclantern.fm/forum/index.php?topic=2864.msg184981#msg184981>`_ 
         and `Windows 10 / Linux subsystem (g3gg0) <http://www.magiclantern.fm/forum/index.php?topic=20214.0>`_
 :2017: `EOS M2 porting walkthrough <http://www.magiclantern.fm/forum/index.php?topic=15895.msg185103#msg185103>`_
 :2017: `Automated tests for ML builds in QEMU <http://www.magiclantern.fm/forum/index.php?topic=20560>`_
+:2017: `RTC emulation, many patches no longer needed <http://www.magiclantern.fm/forum/index.php?topic=2864.msg190823#msg190823>`_ (g3gg0)
+:2017: `Major progress with DIGIC 6 emulation <http://www.magiclantern.fm/forum/index.php?topic=17360.msg194898#msg194898>`_
+:2017: `Menu navigation works on 20 EOS models! (DIGIC 3-5) <http://www.magiclantern.fm/forum/index.php?topic=2864.msg195117#msg195117>`_
+:2018: `Initial support for DIGIC 7 EOS models (77D, 200D, 6D Mark II) <https://www.magiclantern.fm/forum/index.php?topic=19737.msg200799#msg200799>`_
 
 
 

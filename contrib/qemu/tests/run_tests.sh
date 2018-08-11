@@ -10,10 +10,10 @@
 # Caveat: this assumes no other qemu-system-arm or
 # arm-none-eabi-gdb processes are running during the tests
 
-EOS_CAMS=( 5D 5D2 5D3 5D4 6D 7D 7D2M
-           40D 50D 60D 70D 80D
-           400D 450D 500D 550D 600D 650D 700D 750D 760D
-           100D 1000D 1100D 1200D 1300D EOSM EOSM2 )
+EOS_CAMS=( 5D 5D2 5D3 5D4 6D 6D2 7D 7D2M
+           40D 50D 60D 70D 77D 80D
+           400D 450D 500D 550D 600D 650D 700D 750D 760D 800D
+           100D 200D 1000D 1100D 1200D 1300D EOSM EOSM2 )
 
 POWERSHOT_CAMS=( EOSM3 EOSM10 EOSM5 A1100 )
 
@@ -25,15 +25,28 @@ GUI_CAMS=( 5D2 5D3 6D 40D 50D 60D 70D
            100D 1000D 1100D 1200D 1300D EOSM EOSM2 )
 
 # cameras with a SD card
-SD_CAMS=( 5D3 5D4 6D 60D 70D 80D
-          450D 500D 550D 600D 650D 700D 750D 760D
-          100D 1000D 1100D 1200D 1300D EOSM EOSM2 )
+SD_CAMS=( 5D3 5D4 6D 6D2 60D 70D 77D 80D
+          450D 500D 550D 600D 650D 700D 750D 760D 800D
+          100D 200D 1000D 1100D 1200D 1300D EOSM EOSM2 )
 
 # cameras with a CF card
 CF_CAMS=( 5D 5D2 5D3 5D4 7D 7D2M 40D 50D 400D )
 
-# cameras able to run the FA_CaptureTestImage test (full-res silent picture backend)
-FRSP_CAMS=( 5D3 500D 550D 50D 60D 1100D 1200D )
+ML_PATH=${ML_PATH:=../magic-lantern}
+
+# cameras not yet in mainline
+declare -A CAM_BRANCH
+CAM_BRANCH=( 
+    [5D]=vxworks    [40D]=vxworks   [450D]=vxworks  [1000D]=vxworks
+    [1200D]=1200D                   [1300D]=1300D
+    [100D]=100D_merge_fw101         [70D]=70D_merge_fw112
+#   [EOSM2]=EOSM2.103_wip
+    [80D]=digic6-dumper     [750D]=digic6-dumper    [760D]=digic6-dumper
+    [7D2]=digic6-dumper     [5D4]=digic6-dumper     [5DS]=digic6-dumper
+    [77D]=digic6-dumper     [6D2]=digic6-dumper
+    [200D]=digic6-dumper    [800D]=digic6-dumper
+    [M50]=digic6-dumper
+)
 
 # newer openbsd netcat requires -N (since 1.111)
 # older openbsd netcat does not have -N (prints error if we attempt to use it)
@@ -68,7 +81,6 @@ if (( $# > 0 )) && has_upper_args "$@"; then
     GUI_CAMS=($(join <(printf %s\\n "${REQ_CAMS[@]}" | sort -u) <(printf %s\\n "${GUI_CAMS[@]}" | sort -u) | sort -n))
     SD_CAMS=($(join <(printf %s\\n "${REQ_CAMS[@]}" | sort -u) <(printf %s\\n "${SD_CAMS[@]}" | sort -u) | sort -n))
     CF_CAMS=($(join <(printf %s\\n "${REQ_CAMS[@]}" | sort -u) <(printf %s\\n "${CF_CAMS[@]}" | sort -u) | sort -n))
-    FRSP_CAMS=($(join <(printf %s\\n "${FRSP_CAMS[@]}" | sort -u) <(printf %s\\n "${FRSP_CAMS[@]}" | sort -u) | sort -n))
     EOS_SECONDARY_CORES=($(join <(printf %s\\n "${REQ_CAMS[@]}" | sort -u) <(printf %s\\n "${EOS_SECONDARY_CORES[@]}" | sort -u) | sort -n))
 fi
 
@@ -94,26 +106,26 @@ function test_selected {
 }
 
 declare -A MENU_SEQUENCE
-MENU_SEQUENCE[5D2]="f1 i i i m up up up space m m w w 9 9 9 0 0 0 0 0 p p"
-MENU_SEQUENCE[5D3]="f1 i i i f1 i m left down down down space m m p p q space m right right space pgup m down space ] ] ] m q 9 q left space pgdn pgdn m down space i ] m 9 9 0 0 0 0 0 0 0 0 0 q"
-MENU_SEQUENCE[6D]="m left left up space space down space m right down space down space up up space down space m i i i q right space right space space space m m left space ] m up space right m left left space right right right m q 9 9 9 p p"
-MENU_SEQUENCE[40D]="m left down down down space up space up space m left space space m i i p p w w" # mode switch not working
-MENU_SEQUENCE[50D]="f1 i i i m up space space m w w 0 0 0 0 0 p p"
-MENU_SEQUENCE[60D]="f1 i i i i m left left up space m m i i q up right space right i down down left left left space right right i 9 up space left left left i 0 q 0 0 0 0 0 0 0 0 0 0 0 0 p p"
-MENU_SEQUENCE[70D]="m left down space down space down down down space down space m p p i i i i i q up up up space right right i right space ] ] m right space i m down space left m q 9 q left space right right right m q 9 q q 9 q q"
-MENU_SEQUENCE[450D]="f1 m up up space m left left i p p w down down space m down space down space m right right space 9 m j" # LiveView overlays also working, but the tests would crash at shutdown; mode switch has issues
-MENU_SEQUENCE[500D]="f1 m i i right right up m right right space 0 0 0 0 0 0 0 0 0 0 0 0 p p"
-MENU_SEQUENCE[550D]="m i i right right down down down space space p p" # info screen not working, could not test mode switch
-MENU_SEQUENCE[600D]="i i m right right right right up space down down space up up space down space m p p q up right space right i up right space right i 9 down left space right right right i q 9 q 9 q" # starts with sensor cleaning animation; no info screen unless we enable it
-MENU_SEQUENCE[650D]="f1 m right right p p" # starts in movie mode, no lens; mode switch not working
-MENU_SEQUENCE[700D]="f1 m right down space right space p p" # starts in movie mode, no lens; mode switch not working
-MENU_SEQUENCE[100D]="f1 i i i m left left left up up left left left left left left left up up space up space p p 9 q down space left i up up up space left left i right space right i 9 q 9"
-MENU_SEQUENCE[1000D]="f1 i w w i p p m space space up up space m left i m m right left space 9 9 0 0 0 m j"
-MENU_SEQUENCE[1100D]="f1 i i m i i left m p p down right space right right space up right space 9 q 9 q 9" # drive mode not working
-MENU_SEQUENCE[1200D]="f1 i i m i i space m m p p down right space right right space up right space 9 q 9 q 9" # drive mode not working
-MENU_SEQUENCE[1300D]="f1 i i m i i up up up space m up up space right space down space i m space space m left up space down space m q right space i q down p p 9 q 9 q 9"
-MENU_SEQUENCE[EOSM]="f1 m up up up space m up space m up space m left down down down space space p p 0 9 9 9 m m " # only menu works
-MENU_SEQUENCE[EOSM2]="f1 m space space space up up space m up space m up space m up space m right space space m m" # only menu works; no mode switch
+MENU_SEQUENCE[5D2]="f1 i i i m up up up space m m w w 9 9 9 0 0 0 0 0 p p l i i p p m m l"
+MENU_SEQUENCE[5D3]="f1 i i i f1 i m left down down down space m m p p q space m right right space pgup m down space ] ] ] m q 9 q left space pgdn pgdn m down space i ] m l p p i i q down space space q right up 0 9 9 0 l 9 9 0 0 0 0 q"
+MENU_SEQUENCE[6D]="m left left up space space down space m right down space down space up up space down space m i i i q right space right space space space m m left space ] m up space right m left left space right right right m q 9 9 9 p p" # LV works too, but shows a RAM dump instead of raw buffer => nondeterministic screenshots
+MENU_SEQUENCE[40D]="m left down down down space up space up space m left space space left up up space space down space m m i i p p space w space space w p" # mode switch not working; LiveView works, but has to be enabled from menu first
+MENU_SEQUENCE[50D]="f1 i i i m up space space m w w 0 0 0 l i i w pgdn ] ] i pgup [ w l 0 0 p p" # screen flickers
+MENU_SEQUENCE[60D]="f1 i i i i m left left up space m m i i q up right space right i down down left left left space right right i 9 up space left left left i 0 q 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 q up q m m 9 l q l"
+MENU_SEQUENCE[70D]="m left down space down space down down down space down space m p p i i i i i q up up up space right right i right space ] ] m right space i m down space left m q 9 q left space right right right m q 9 q q 9 q q l p p i q down p"
+MENU_SEQUENCE[450D]="f1 m up up space m left left i p p w down down space m down space down space m right right space 9 m j m space w space space"
+MENU_SEQUENCE[500D]="f1 m i i right right up m right right space 0 0 0 0 0 0 0 0 0 0 0 0 l i p l"
+MENU_SEQUENCE[550D]="m i i right right down down down space space p p l i q p" # info screen not working, could not test mode switch
+MENU_SEQUENCE[600D]="i i m right right right right up space down down space up up space down space m p p q up right space right i up right space right i 9 down left space right right right i q 9 q 9 q l i i q down space space q 0" # starts with sensor cleaning animation; no info screen unless we enable it
+MENU_SEQUENCE[650D]="f1 m right right p p l p p i i 9 q space" # starts in movie mode, no lens; mode switch only works in LiveView, but can't get out
+MENU_SEQUENCE[700D]="f1 m right down space right space p p l p p i i q up space" # same as 650D
+MENU_SEQUENCE[100D]="f1 i i i m left left left up up left left left left left left left up up space up space p p 9 q down space left i up up up space left left i right space right i 9 q 9 l p p i i q q l q"
+MENU_SEQUENCE[1000D]="f1 i w w i p p m space space up up space m left i m m right left space 9 9 0 0 0 m j m space i i space"
+MENU_SEQUENCE[1100D]="f1 i i m i i left m p p down right space right right space up right space 9 q 9 q 9 l i i q space right space q l" # drive mode not working
+MENU_SEQUENCE[1200D]="f1 i i m i i space m m p p down right space right right space up right space 9 q 9 q 9 l i q space [ space q l" # drive mode not working
+MENU_SEQUENCE[1300D]="f1 i i m i i up up up space m up up space right space down space i m space space m left up space down space m left right space right left space q right space right i q up p p 9 q 9 q 9 l i i q space l"
+MENU_SEQUENCE[EOSM]="m up up up space m up space m up space m left down down down space space p p 0 9 9 9 m m i i p p space" # starts in LiveView; Q button not working
+MENU_SEQUENCE[EOSM2]="m space space space up up space m up space m up space m up space m right space space m m m l i q q 9 0 space i i m" # starts in LiveView
 
 FMT_SEQ="space right space f1 space"
 FMT_SEQ_5D3="space space right space f1 space space"
@@ -186,7 +198,7 @@ mv cf.img cf-user.img
 trap sd_restore EXIT
 trap - SIGINT
 
-cp -v ../magic-lantern/contrib/qemu/sd.img.xz .
+cp -v $ML_PATH/contrib/qemu/sd.img.xz .
 unxz -k sd.img.xz
 cp sd.img cf.img
 
@@ -223,6 +235,7 @@ function vncexpect {
 
     # do everything in one command, for speed
     local vnc_log=$(vncdotool -s $VNC_DISP -v -v -t $3 key $1 pause 0.5 expect-md5 $2 capture $4 2>&1)
+
     if [ $? == 0 ] && [ -f $4 ]; then
 
         # looks OK?
@@ -443,7 +456,7 @@ function test_menu {
     set_gui_timeout
     sleep $GUI_TIMEOUT
 
-    send_menu_sequence 0.5 2 "${MENU_SEQUENCE[$CAM]}"
+    send_menu_sequence 0.5 3 "${MENU_SEQUENCE[$CAM]}"
 
     shutdown_qemu
 
@@ -518,8 +531,9 @@ function test_gdb {
     touch tests/$CAM/$TEST.log
     ( timeout 2 tail -f -n100000 tests/$CAM/$TEST.log & ) | grep --binary-files=text -qP "task_create\("
 
-    # let it run for 1 second
-    sleep 1
+    # let it run for 10 seconds
+    # (logs will be used later to find interrupt IDs)
+    sleep 10
     stop_qemu_expect_running
 
     tac tests/$CAM/$TEST.log > tmp
@@ -555,7 +569,7 @@ function test_calls_main {
     # fixme: execution under gdb is not deterministic, even with -icount
     # ansi2txt used here (only once) because it's very slow
     ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -icount 5 \
-        -display none -d calls,idc,tasks \
+        -display none -d calls,notail,idc,tasks \
         -serial file:tests/$CAM/$TEST-uart.log \
         |& ansi2txt > tests/$CAM/$TEST-raw.log &
 
@@ -564,8 +578,8 @@ function test_calls_main {
     sleep 1
 
     # check for boot message
-    if grep -qE "([KR].* (READY|AECU)|Dry|Boot)" tests/$CAM/$TEST-uart.log; then
-      msg=`grep --text -oEm1 "([KR].* (READY|AECU)|Dry|Boot)[a-zA-Z >]*" tests/$CAM/$TEST-uart.log`
+    if grep -qE "([KR].* (READY|AECU)|Dry|BootL)" tests/$CAM/$TEST-uart.log; then
+      msg=`grep --text -oEm1 "([KR].* (READY|AECU)|Dry|BootL)[a-zA-Z >]*" tests/$CAM/$TEST-uart.log`
       printf "%-16s" "$msg"
     else
       echo -en "\e[33mBad output\e[0m      "
@@ -573,7 +587,7 @@ function test_calls_main {
     echo -n ' '
 
     # wait until it the IDC no longer grows, up to 5 minutes
-    ./wait_log.sh $CAM.idc 300 5 -q "^}" 
+    ./wait_log.sh $CAM/calls.idc 300 5 -q "^}" 
     echo
     echo -n "                          "
 
@@ -589,7 +603,7 @@ function test_calls_main {
     # let's trim until matching the MD5 of $TEST-basic.idc
     # this assumes the needles (expected test results) were created on a slower PC and/or using a smaller timeout
 
-    cat $CAM.idc | grep -o "MakeFunction(.*)" \
+    cat $CAM/calls.idc | grep -o "MakeFunction(.*)" \
         > tests/$CAM/$TEST-basic.idc
 
     # compute the MD5 of $TEST-basic.idc, line by line, until it matches its reference MD5
@@ -632,8 +646,8 @@ function test_calls_main {
     # also copy the IDC file for checking its MD5
     # this works on old CF models too (40D), even if some nondeterminism is present
     # the IDC needs trimming, too, as it doesn't always stop at the same line
-    cat $CAM.idc | sed -n "1,/MakeFunction($last_call/ p" > tests/$CAM/$TEST.idc
-    cat $CAM.idc | tail -n 2 >> tests/$CAM/$TEST.idc
+    cat $CAM/calls.idc | sed -n "1,/MakeFunction($last_call/ p" > tests/$CAM/$TEST.idc
+    cat $CAM/calls.idc | tail -n 2 >> tests/$CAM/$TEST.idc
 
     # extract only the call address from IDC
     # useful for checking when some additional info changes (e.g. comments)
@@ -706,7 +720,7 @@ function test_calls_from {
 
     # log all function calls/returns and export to IDC
     ./run_canon_fw.sh $CAM,firmware="boot=1" -snapshot \
-        -display none -d calls,idc \
+        -display none -d calls,notail,idc \
         -serial file:tests/$CAM/$TEST-uart.log \
         &> tests/$CAM/$TEST-raw.log &
 
@@ -737,7 +751,7 @@ function test_calls_from {
 
     # also copy the IDC file for checking its MD5
     # this works on CF models too, even if some nondeterminism is present
-    cp $CAM.idc tests/$CAM/$TEST.idc
+    cp $CAM/calls.idc tests/$CAM/$TEST.idc
 
     # extract only the call address from IDC
     # useful for checking when some additional info changes (e.g. comments)
@@ -782,13 +796,13 @@ done; cleanup
 function test_frsp {
 
     # compile it from ML dir, for each camera
-    FRSP_PATH=../magic-lantern/minimal/qemu-frsp
+    FRSP_PATH=$ML_PATH/minimal/qemu-frsp
     rm -f $FRSP_PATH/autoexec.bin
-    [ $CAM == "1200D" ] && (cd $FRSP_PATH; hg up qemu -C; hg merge 1200D; cd $OLDPWD) &>> tests/$CAM/$TEST-build.log
-    make MODEL=$CAM -C $FRSP_PATH clean &>> tests/$CAM/$TEST-build.log
-    make MODEL=$CAM -C $FRSP_PATH       &>> tests/$CAM/$TEST-build.log
-    [ $CAM == "1200D" ] && (cd $FRSP_PATH; hg up qemu -C; cd $OLDPWD) &>> tests/$CAM/$TEST-build.log
-    
+    [ "${CAM_BRANCH[$CAM]}" != "" ] && (cd $FRSP_PATH; hg up qemu -C; hg merge ${CAM_BRANCH[$CAM]}; cd $OLDPWD) &>> tests/$CAM/$TEST-build.log
+    make MODEL=$CAM -C $FRSP_PATH clean         &>> tests/$CAM/$TEST-build.log
+    make MODEL=$CAM -C $FRSP_PATH CONFIG_QEMU=y &>> tests/$CAM/$TEST-build.log
+    (cd $FRSP_PATH; hg up qemu -C; cd $OLDPWD)  &>> tests/$CAM/$TEST-build.log
+
     if [ ! -f $FRSP_PATH/autoexec.bin ]; then
         echo -e "\e[31mCompile error\e[0m"
         return
@@ -812,6 +826,18 @@ function test_frsp {
         -serial file:tests/$CAM/$TEST-uart.log \
     ) &> tests/$CAM/$TEST.log
 
+    if grep -q "Image Power Failure\|Img Pwr Fail" tests/$CAM/$TEST-uart.log; then
+        echo -en "\e[33mImage Power Failure\e[0m "
+    fi
+
+    if grep -q "ImgPowDet( 0 )" tests/$CAM/$TEST.log; then
+        echo -en "\e[33mImgPowDet( 0 )\e[0m "
+    fi
+
+    if grep -q "S_SCS_E_SENSOR_LATCHUP" tests/$CAM/$TEST-uart.log; then
+        echo -en "\e[33mS_SCS_E_SENSOR_LATCHUP\e[0m "
+    fi
+
     tests/check_grep.sh tests/$CAM/$TEST-uart.log \
         -qm1 "FA_CreateTestImage Fin"  || return
 
@@ -831,7 +857,7 @@ function test_frsp {
 echo
 echo "Testing FA_CaptureTestImage..."
 # this requires a custom build; cannot run in parallel
-for CAM in ${FRSP_CAMS[*]}; do
+for CAM in ${GUI_CAMS[*]}; do
     ((QEMU_JOB_ID++))
     run_test frsp $CAM
 done; cleanup
@@ -1052,9 +1078,9 @@ function test_dcim {
 echo
 echo "Testing file I/O (DCIM directory)..."
 # Currently works only on models that can boot Canon GUI,
-# and also on single-core DIGIC 6 models.
+# also on single-core DIGIC 6 models, and on DIGIC 7 too.
 # we need to check the card contents; cannot run in parallel
-for CAM in ${GUI_CAMS[*]} 80D 750D 760D; do
+for CAM in ${GUI_CAMS[*]} 80D 750D 760D 77D 200D 6D2 800D; do
     ((QEMU_JOB_ID++))
     run_test dcim $CAM
 done; cleanup
@@ -1094,9 +1120,9 @@ function test_fmtrestore {
         # fixme: how to align these nicely?
         MAIN_SCREEN=2f2febde0863e435fabaed2915661528
         MENU_FORMAT=cae4d8a555d5aa3cc004bd234d3edd74
-        FMT_KEEP_ML=bb059110a57ede04a08058b7684a9f15
-        FMT_RMOV_ML=f6078e94ddc1c39452dc666f9e4f88f1
-        FMT_KEEP_OK=9929e014d9273324633e489a20fb0879
+        FMT_KEEP_ML=077adcdd48ce3c275d94e467f0114045
+        FMT_RMOV_ML=a418b9f5d2565f0989910156cbe47c60
+        FMT_KEEP_OK=7cdf0d8dd2dde291bca0276cf68694b0
         ML_RESTORED=1a287dd9c3fc75ee82bdb5ba1b30a339
         RESTARTING_=3044730d98d5da3e5e5f27642adf878a
 
@@ -1147,10 +1173,12 @@ done; cleanup
 function test_hptimer {
 
     # compile it from ML dir, for each camera
-    HPTIMER_PATH=../magic-lantern/minimal/qemu-hptimer
+    HPTIMER_PATH=$ML_PATH/minimal/qemu-hptimer
     rm -f $HPTIMER_PATH/autoexec.bin
-    make MODEL=$CAM -C $HPTIMER_PATH clean &>> tests/$CAM/$TEST-build.log
-    make MODEL=$CAM -C $HPTIMER_PATH       &>> tests/$CAM/$TEST-build.log
+    [ "${CAM_BRANCH[$CAM]}" != "" ] && (cd $HPTIMER_PATH; hg up qemu -C; hg merge ${CAM_BRANCH[$CAM]}; cd $OLDPWD) &>> tests/$CAM/$TEST-build.log
+    make MODEL=$CAM -C $HPTIMER_PATH clean         &>> tests/$CAM/$TEST-build.log
+    make MODEL=$CAM -C $HPTIMER_PATH CONFIG_QEMU=y &>> tests/$CAM/$TEST-build.log
+    (cd $HPTIMER_PATH; hg up qemu -C; cd $OLDPWD)  &>> tests/$CAM/$TEST-build.log
     
     if [ ! -f $HPTIMER_PATH/autoexec.bin ]; then
         echo -e "\e[31mCompile error\e[0m"
@@ -1173,9 +1201,9 @@ function test_hptimer {
     stop_qemu_expect_running
 
     tests/check_grep.sh tests/$CAM/$TEST.log -m1 "Hello from task run_test"
-    printf "       "
+    printf "         "
     tests/check_grep.sh tests/$CAM/$TEST.log -m1 "Hello from HPTimer" && return
-    printf "       "
+    printf "         "
     tests/check_grep.sh tests/$CAM/$TEST.log -m1 "Hello from task init" && return
 }
 
@@ -1207,7 +1235,7 @@ function test_menu_callstack {
     set_gui_timeout
     sleep $(( 2*GUI_TIMEOUT ))
 
-    send_menu_sequence 0.5 8 "${MENU_SEQUENCE[$CAM]}"
+    send_menu_sequence 0.5 10 "${MENU_SEQUENCE[$CAM]}"
 
     shutdown_qemu
 
@@ -1240,13 +1268,13 @@ function test_calls_cstack {
     if [ -f $CAM/patches.gdb ]; then
         (
             ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot \
-                -display none -d calls,tasks,debugmsg,v -S -gdb tcp::$GDB_PORT \
+                -display none -d calls,notail,tasks,debugmsg,v -S -gdb tcp::$GDB_PORT \
                 -serial file:tests/$CAM/$TEST-uart.log &
             arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/patches.gdb -ex quit &
         ) &> tests/$CAM/$TEST-raw.log
     else
         ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot \
-            -display none -d calls,tasks,debugmsg,v \
+            -display none -d calls,notail,tasks,debugmsg,v \
             -serial file:tests/$CAM/calls-cstack-uart.log \
             &> tests/$CAM/$TEST-raw.log &
     fi
@@ -1311,20 +1339,28 @@ function check_rom_md5 {
         return
     fi
 
+    if [ "$DEV" == "$MCF" ]; then
+        echo -n "CF: "
+    elif [ "$DEV" == "$MSD" ]; then
+        echo -n "SD: "
+    else
+        echo -en "\e[31m??\e[0m"
+    fi
+
     # copy the ROM files locally to check them
-    rm -f $TMP/ROM*
-    mcopy -i $DEV ::ROM* $TMP/
+    rm -f $TMP/*.BIN $TMP/*.MD5
+    mcopy -i $DEV ::*.BIN ::*.MD5 $TMP/
 
     # check the MD5 sums
     cd $TMP/
     if md5sum --strict --status -c *.MD5; then
         # OK: print MD5 output normally
-        md5sum -c ROM*.MD5 | tr '\n' '\t'
+        md5sum -c *.MD5 | tr '\n' '\t'
         echo ""
     else
         # not OK: print the status of each file, in red
         echo -n -e "\e[31m"
-        md5sum -c ROM*.MD5 2>/dev/null | tr '\n' '\t'
+        md5sum -c *.MD5 2>/dev/null | tr '\n' '\t'
         echo -e "\e[0m"
     fi
     cd $OLDPWD
@@ -1332,6 +1368,8 @@ function check_rom_md5 {
     # delete the ROM files from the SD/CF images
     if mdir -i $MSD ::ROM* &> /dev/null; then mdel -i $MSD ::ROM*; fi
     if mdir -i $MCF ::ROM* &> /dev/null; then mdel -i $MCF ::ROM*; fi
+    if mdir -i $MSD ::SFDATA* &> /dev/null; then mdel -i $MSD ::SFDATA*; fi
+    if mdir -i $MCF ::SFDATA* &> /dev/null; then mdel -i $MCF ::SFDATA*; fi
 
     # check whether other files were created/modified (shouldn't be any)
     mdir -i $MSD > $TMP/sd2.lst
@@ -1359,11 +1397,14 @@ function test_romdump {
         return
     fi
 
-    # for some reason, 7D is slower
-    [ $CAM == "7D" ] && timeout=40 || timeout=20
+    ./run_canon_fw.sh $CAM,firmware="boot=1" -display none -monitor stdio -d sdcf,sflash &> tests/$CAM/$TEST.log &
 
-    (sleep $timeout; echo screendump tests/$CAM/$TEST.ppm; echo quit) \
-      | ./run_canon_fw.sh $CAM,firmware="boot=1" -display none -monitor stdio &> tests/$CAM/$TEST.log
+    # wait until the log file no longer grows, up to 1 minute
+    ./wait_log.sh tests/$CAM/$TEST.log 60 5 -q "just-wait-until-the-log-stops-growing" &> /dev/null
+
+    sleep 1
+    echo "screendump tests/$CAM/$TEST.ppm" | $NC -U $QEMU_MONITOR &> /dev/null
+    stop_qemu_expect_running
     
     check_rom_md5 $CAM
 }
