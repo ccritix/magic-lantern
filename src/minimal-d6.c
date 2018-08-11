@@ -1,14 +1,16 @@
 /** \file
- * 7D2 dumper
+ * Minimal test code for DIGIC 6
+ * ROM dumper & other experiments
  */
 
 #include "dryos.h"
+#include "log-d6.h"
 
 /** These are called when new tasks are created */
 static void my_init_task(int a, int b, int c, int d);
 
 /** This just goes into the bss */
-#define RELOCSIZE 0x3000 // look in HIJACK macros for the highest address, and subtract ROMBASEADDR
+#define RELOCSIZE 0x40000 // look in HIJACK macros for the highest address, and subtract ROMBASEADDR
 static uint8_t _reloc[ RELOCSIZE ];
 #define RELOCADDR ((uintptr_t) _reloc)
 
@@ -33,26 +35,14 @@ static inline uint32_t thumb_branch_instr(uint32_t pc, uint32_t dest, uint32_t o
 #define THUMB_B_W_INSTR(pc,dest)    thumb_branch_instr((uint32_t)(pc), (uint32_t)(dest), 0x9000f000)
 #define THUMB_BLX_INSTR(pc,dest)    thumb_branch_instr((uint32_t)(pc), (uint32_t)(dest), 0xc000f000)
 
-/**
- * We will write to unaligned address; not sure if the target CPU supports it.
- * On DIGIC 4/5 it doesn't, so let's just play safe.
- */
-struct uint32_p { uint32_t val; } __attribute__((packed,aligned(2)));
-
-void DUMP_ASM test(struct uint32_p * p)
-{
-    p->val = 0x12345678;
-}
-
-/** Translate a firmware address into a relocated address */
-#define INSTR( addr ) ((struct uint32_p *)( (addr) - ROMBASEADDR + RELOCADDR ))->val
+#define INSTR( addr ) ( *(uint32_t*)( (addr) - ROMBASEADDR + RELOCADDR ) )
 
 /** Fix a branch instruction in the relocated firmware image */
 #define FIXUP_BRANCH( rom_addr, dest_addr ) \
     INSTR( rom_addr ) = THUMB_BLX_INSTR( &INSTR( rom_addr ), (dest_addr) )
 
 /** Specified by the linker */
-extern uint32_t _bss_start[], _bss_end[];
+extern uint32_t _bss_start[], _bss_end[], _text_start;
 
 static inline void
 zero_bss( void )
@@ -96,14 +86,21 @@ copy_and_restart( int offset )
     // so we adjust both values in order to keep things close to the traditional ML boot process
     // (alternative: we could adjust only the size, and place ML at the end of malloc buffer)
     uint32_t ml_reserved_mem = (uintptr_t) _bss_end - INSTR( HIJACK_INSTR_BSS_END );
+    qprint("[BOOT] reserving memory:"); qprintn(ml_reserved_mem); qprint("\n");
+    qprint("before: user_mem_start = "); qprintn(INSTR( HIJACK_INSTR_BSS_END));
+    qprint("size = "); qprintn(INSTR( HIJACK_INSTR_BSS_END + 4 )); qprint("\n");
     INSTR( HIJACK_INSTR_BSS_END     ) += ml_reserved_mem;
     INSTR( HIJACK_INSTR_BSS_END + 4 ) -= ml_reserved_mem;
+    qprint(" after: user_mem_start = "); qprintn(INSTR( HIJACK_INSTR_BSS_END));
+    qprint("size = "); qprintn(INSTR( HIJACK_INSTR_BSS_END + 4 )); qprint("\n");
 
     // Fix the calls to bzero32() and create_init_task()
     FIXUP_BRANCH( HIJACK_FIXBR_BZERO32, my_bzero32 );
     FIXUP_BRANCH( HIJACK_FIXBR_CREATE_ITASK, my_create_init_task );
 
     // Set our init task to run instead of the firmware one
+    qprint("[BOOT] changing init_task from "); qprintn(INSTR( HIJACK_INSTR_MY_ITASK ));
+    qprint("to "); qprintn((uint32_t) my_init_task); qprint("\n");
     INSTR( HIJACK_INSTR_MY_ITASK ) = (uint32_t) my_init_task;
     
     // Make sure that our self-modifying code clears the cache
@@ -121,14 +118,14 @@ copy_and_restart( int offset )
         ;
 }
 
-extern void __attribute__((long_call)) dump_file(char* name, uint32_t addr, uint32_t size);
-extern void __attribute__((long_call)) malloc_info(void);
-extern void __attribute__((long_call)) sysmem_info(void);
-extern void __attribute__((long_call)) smemShowFix(void);
-extern int  __attribute__((long_call)) call( const char* name, ... );
+extern void dump_file(char* name, uint32_t addr, uint32_t size);
+extern void malloc_info(void);
+extern void sysmem_info(void);
+extern void smemShowFix(void);
 
 static void DUMP_ASM dump_task()
 {
+#if 0
     /* print memory info on QEMU console */
     malloc_info();
     sysmem_info();
@@ -137,16 +134,30 @@ static void DUMP_ASM dump_task()
     /* dump ROM1 */
     dump_file("ROM1.BIN", 0xFC000000, 0x02000000);
 
+    /* dump RAM */
+    dump_file("ATCM.BIN", 0x00000000, 0x00004000);
+    dump_file("BTCM.BIN", 0x80000000, 0x00010000);
+  //dump_file("RAM4.BIN", 0x40000000, 0x40000000);    - runs out of space in QEMU
+    dump_file("BFE0.BIN", 0xBFE00000, 0x00200000);
+    dump_file("DFE0.BIN", 0xDFE00000, 0x00200000);
+  //dump_file("EE00.BIN", 0xEE000000, 0x02000000);    - unknown, may crash 
+#endif
+
     /* save a diagnostic log */
-    //call("dumpf");
+    log_finish();
+    call("dumpf");
 }
 
 static void
 my_init_task(int a, int b, int c, int d)
 {
+    qprintf("[BOOT] autoexec.bin loaded at %X - %X.\n", &_text_start, &_bss_end);
+
+    log_start();
+
     init_task(a,b,c,d);
-    
-    msleep(2000);
+
+    msleep(1000);
 
     task_create("dump", 0x1e, 0x1000, dump_task, 0 );
 }
@@ -156,3 +167,6 @@ my_init_task(int a, int b, int c, int d)
 void disp_set_pixel(int x, int y, int c)
 {
 }
+
+/* dummy */
+int FIO_WriteFile( FILE* stream, const void* ptr, size_t count ) { };
