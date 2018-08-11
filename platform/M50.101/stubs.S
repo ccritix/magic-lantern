@@ -59,5 +59,11 @@ NSTUB(0xE0577EC5,  DryosDebugMsg)          /* lots of debug messages; format str
 /** Eventprocs (call by name) **/
 NSTUB(0xE05721BB,  call)                   /* many functions called by name (lv_start, lv_stop etc) */
 
+/** GUI timers **/
+NSTUB(0xE054CEBE,  CancelTimer)            /* CancelRefreshTimer, CancelPlayTimer */
+NSTUB(0xE0732957,  SetHPTimerAfterNow)     /* from error message */
+NSTUB(0xE07329B7,  SetHPTimerNextTick)     /* same "worker" function as SetHPTimerAfterNow */
+NSTUB(0xE054CE09,  SetTimerAfter)          /* from error message */
+
 /** Misc **/
 NSTUB(0xE0096041,  vsnprintf)              /* called by LogFile_printf(..., "*Data Lost*\n", ...); the one called by DebugMsg only knows %s */

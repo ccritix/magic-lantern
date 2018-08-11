@@ -61,6 +61,12 @@ NSTUB(0xFE3FBEEC,  dm_set_store_level)
 /** Eventprocs (call by name) **/
 NSTUB(0xFE48422F,  call)                                    // Thumb
 
+/** GUI timers **/
+NSTUB(0xFE48405B,  CancelTimer)                             // Thumb; from error message
+NSTUB(0xFE4B3A73,  SetHPTimerAfterNow)                      // Thumb; from error message
+NSTUB(0xFE4B3AC3,  SetHPTimerNextTick)                      // Thumb; same "worker" function as SetHPTimerAfterNow
+NSTUB(0xFE483FE5,  SetTimerAfter)                           // Thumb; from error message
+
 /** Interrupts **/
 NSTUB(    0x44B0,  pre_isr_hook)
 NSTUB(    0x44B4,  post_isr_hook)

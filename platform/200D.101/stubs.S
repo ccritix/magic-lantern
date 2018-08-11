@@ -59,5 +59,11 @@ NSTUB(0xDF006E6D,  DryosDebugMsg)          /* lots of debug messages; format str
 /** Eventprocs (call by name) **/
 NSTUB(0xE04BDB8F,  call)                   /* many functions called by name (lv_start, lv_stop etc) */
 
+/** GUI timers **/
+NSTUB(0xE04B9A3B,  CancelTimer)            /* from error message */
+NSTUB(0xE05301DF,  SetHPTimerAfterNow)     /* from error message */
+NSTUB(0xE0530233,  SetHPTimerNextTick)     /* same "worker" function as SetHPTimerAfterNow */
+NSTUB(0xE04B9985,  SetTimerAfter)          /* from error message */
+
 /** Misc **/
 NSTUB(0xE00764F1,  vsnprintf)              /* references "01234567", "0123456789", "0123456789abcdef" and "0123456789ABCDEF"; second arg is size; the one called by DebugMsg only knows %s */
