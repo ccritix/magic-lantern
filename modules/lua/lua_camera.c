@@ -174,6 +174,26 @@ static int luaCB_camera_index(lua_State * L)
         lua_setfield(L, -2, "fields");
         lua_setmetatable(L, -2);
     }
+    /// Get/set whether the flash is enabled.
+    ///
+    /// Possible values: true, false, "auto", "unknown".
+    ///
+    /// Flash can only be changed from script in simple (non-automatic) modes.
+    ///
+    /// Not tested with external flashes; it may work or it may not.
+    // @tfield ?bool|string flash
+    else if(!strcmp(key, "flash"))
+    {
+        if (strobo_firing == 0) {
+            lua_pushboolean(L, 1); /* reversed */
+        } else if (strobo_firing == 1) {
+            lua_pushboolean(L, 0);
+        } else if (strobo_firing == 2) {
+            lua_pushstring(L, "auto");
+        } else {
+            lua_pushstring(L, "unknown");
+        }
+    }
     /// Gets an @{ec} object that represents flash exposure compensation.
     // @tfield ec flash_ec
     else if(!strcmp(key, "flash_ec"))
@@ -274,6 +294,18 @@ static int luaCB_camera_newindex(lua_State * L)
         LUA_PARAM_NUMBER(value, 3);
         status = lens_set_ae(APEX1000_EC2RAW((int)roundf(value * 1000)));
     }
+    else if(!strcmp(key, "flash"))
+    {
+        if (strobo_firing == 0 || strobo_firing == 1)
+        {
+            LUA_PARAM_BOOL(value, 3);
+            set_flash_firing(value ? 0 : 1);
+        }
+        else
+        {
+            return luaL_error(L, "set 'camera.flash' failed");
+        }
+    }
     else if(!strcmp(key, "flash_ec"))
     {
         LUA_PARAM_NUMBER(value, 3);
@@ -314,6 +346,7 @@ static int luaCB_camera_shoot(lua_State * L)
  
  Normally, camera.shoot() returns as soon as the next picture can be taken,
  while image compression and saving happen in background.
+ @function wait
  */
 static int luaCB_camera_wait(lua_State * L)
 {
@@ -391,7 +424,9 @@ static int luaCB_shutter_index(lua_State * L)
 //@function __tostring
 static int luaCB_shutter_tostring(lua_State * L)
 {
+    int old = cli();
     lua_pushstring(L, lens_format_shutter(lens_info.raw_shutter));
+    sei(old);
     return 1;
 }
 
@@ -519,19 +554,25 @@ static int luaCB_max_aperture_index(lua_State * L)
 //@function __tostring
 static int luaCB_aperture_tostring(lua_State * L)
 {
-    lua_pushfstring(L, lens_format_aperture(lens_info.raw_aperture));
+    int old = cli();
+    lua_pushstring(L, lens_format_aperture(lens_info.raw_aperture));
+    sei(old);
     return 1;
 }
 
 static int luaCB_min_aperture_tostring(lua_State * L)
 {
-    lua_pushfstring(L, lens_format_aperture(lens_info.raw_aperture_min));
+    int old = cli();
+    lua_pushstring(L, lens_format_aperture(lens_info.raw_aperture_min));
+    sei(old);
     return 1;
 }
 
 static int luaCB_max_aperture_tostring(lua_State * L)
 {
-    lua_pushfstring(L, lens_format_aperture(lens_info.raw_aperture_max));
+    int old = cli();
+    lua_pushstring(L, lens_format_aperture(lens_info.raw_aperture_max));
+    sei(old);
     return 1;
 }
 
@@ -593,14 +634,9 @@ static int luaCB_iso_index(lua_State * L)
 //@function __tostring
 static int luaCB_iso_tostring(lua_State * L)
 {
-    if(lens_info.raw_iso)
-    {
-        lua_pushfstring(L, "%d", raw2iso(lens_info.raw_iso));
-    }
-    else
-    {
-        lua_pushstring(L, "AutoISO");
-    }
+    int old = cli();
+    lua_pushstring(L, lens_format_iso(lens_info.raw_iso));
+    sei(old);
     return 1;
 }
 
@@ -819,6 +855,7 @@ static const char * lua_camera_fields[] =
     "aperture",
     "iso",
     "ec",
+    "flash",
     "flash_ec",
     "kelvin",
     "mode",

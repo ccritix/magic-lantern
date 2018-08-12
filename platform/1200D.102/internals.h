@@ -1,5 +1,5 @@
 /**
- * Camera internals for 1200D 1.0.0
+ * Camera internals for 1200D 1.0.2
  */
 
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
@@ -95,8 +95,8 @@
 /** We do know how to use edmac_memcpy. This one is really fast (600MB/s!) */
 #define CONFIG_EDMAC_MEMCPY
 
-/** We should't warn the user if movie exposure is Auto **/
-//~ #define CONFIG_MOVIE_AE_WARNING
+/** We should warn the user if movie exposure is Auto **/
+#define CONFIG_MOVIE_AE_WARNING
 
 /** We can display some extra info in photo mode (not LiveView) **/
 #define CONFIG_PHOTO_MODE_INFO_DISPLAY

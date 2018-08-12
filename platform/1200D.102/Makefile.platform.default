@@ -1,7 +1,7 @@
-#Makefile.setup.platform for 1200D 1.0.1
+#Makefile.setup.platform for 1200D 1.0.2
 
 ML_MODULES_SYM_NAME=t5_$(FW_VERSION).sym
-CANON_NAME_FIR=CCF15101.FIR
+CANON_NAME_FIR=CCF15102.FIR
 
 ROMBASEADDR	= 0xFF0C0000
 

@@ -2,11 +2,11 @@
  * Entry points into the firmware image.
  *
  * These are the functions that we can call from our tasks
- * in the Canon 1.0.1 firmware for the 1200d / Rebel T5.
+ * in the Canon 1.0.2 firmware for the 1200D / Rebel T5.
  *
  */
 /*
- * Copyright (C) 2012 Magic Lantern Team
+ * Copyright (C) 2018 Magic Lantern Team
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -32,7 +32,7 @@
 /** Startup **/
 NSTUB( ROMBASEADDR, firmware_entry )       //0xff0c0000
 NSTUB(0xFF0C1028,  cstart)
-NSTUB(0xFF623B5C,  bzero32)
+NSTUB(0xFF623B60,  bzero32)
 NSTUB(0xFF0C7DF0,  create_init_task)
 NSTUB(0xFF0C9648,  init_task)
 NSTUB(    0x7B98,  additional_version)
@@ -86,7 +86,7 @@ NSTUB(0xFF106444,  StopASIFDMADAC)
 NSTUB(    0x1E50,  sounddev)
 NSTUB(0xFF2AD554, _audio_ic_read)
 NSTUB(0xFF2AD25C, _audio_ic_write)
-NSTUB(0xFF69B488,  audio_thresholds)
+NSTUB(0xFF69B490,  audio_thresholds)
 NSTUB(0xFF10888C,  sounddev_active_in)
 NSTUB(0xFF108488,  sounddev_task)
 // NSTUB(    ???, _audio_ic_write_bulk)                     /* present on 6D.116 */
@@ -96,10 +96,10 @@ NSTUB(   0x1BBE0,  LCD_Palette)
 NSTUB(   0x1D3E0,  bmp_vram_info)
 
 /** CFN **/
-NSTUB(0xFF5FB8EC,  GetCFnData)
-NSTUB(0xFF5FBB18,  SetCFnData)
-NSTUB(0xFF42AEE0,  GUI_SetCFnForTab4)                      /* ??? present on 7D.203 */
-//NSTUB(    ???,  GUI_GetCFnForTab4)                       /* ??? present on 7D.203 */
+NSTUB(0xFF5FB8F0,  GetCFnData)
+NSTUB(0xFF5FBB1C,  SetCFnData)
+// NSTUB(0xFF42AEE0,  GUI_SetCFnForTab4)                    /* present on 7D.203 */
+// NSTUB(0xFF42AF38,  GUI_GetCFnForTab4)                    /* present on 7D.203 */
 
 /** Camera interface? **/
 NSTUB(0xC0220000,  camera_engine)
@@ -117,7 +117,7 @@ NSTUB(0xFF3E63A4,  dialog_redraw)
 NSTUB(0xFF2F5E1C,  dialog_set_property_str)
 
 /** Dialog handlers **/
-NSTUB(0xFF532004,  ErrCardForLVApp_handler)
+NSTUB(0xFF532008,  ErrCardForLVApp_handler)
 NSTUB(0xFF4250E0,  ErrForCamera_handler)
 NSTUB(0xFF43C08C,  HideUnaviFeedBack_maybe)
 NSTUB(0xFF440B90,  LiveViewApp_handler)
@@ -125,10 +125,10 @@ NSTUB(0xFF441218,  LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState)
 NSTUB(0xFF442864,  LiveViewApp_handler_end)                 // mk11174
 NSTUB(0xFF44E238,  LiveViewWbApp_handler)                   /* present on 7D.203, 5D3.113, 5D2.212 */
 NSTUB(0xFF45BDB4,  PlayMain_handler)
-NSTUB(0xFF56C228,  PlayMovieGuideApp_handler)               // mk11174
+NSTUB(0xFF56C22C,  PlayMovieGuideApp_handler)               // mk11174
 NSTUB(0xFF44F9DC,  ShootOlcApp_handler)
-NSTUB(0xFF56D8AC,  StartPlayProtectGuideApp)                /* present on 7D.203, 5D2.212 */
-NSTUB(0xFF56D4CC,  StopPlayProtectGuideApp)                 /* present on 7D.203, 5D2.212 */
+NSTUB(0xFF56D8B0,  StartPlayProtectGuideApp)                /* present on 7D.203, 5D2.212 */
+NSTUB(0xFF56D4D0,  StopPlayProtectGuideApp)                 /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  LiveViewLevelApp_handler)                /* present on 5D3.113 */
 // NSTUB(    ???,  LiveViewShutterApp_handler)
 // NSTUB(    ???,  LiveViewWifiApp_handler)                 /* present on 6D.113 */
@@ -221,7 +221,7 @@ NSTUB(0xFF134BB8,  DispSensorStart)
 /** Making the card bootable **/
 NSTUB(   0x14FEC,  cf_device)                               // mk11174
 NSTUB(   0x15010,  sd_device)                               // mk11174 (0x15010)
-NSTUB(0xFF4F93E8,  fsuDecodePartitionTable)
+NSTUB(0xFF4F93EC,  fsuDecodePartitionTable)
 // NSTUB(    ???,  cf_device_ptr)                           /* present on 5D3.113 */
 
 /** Memory allocation **/
@@ -299,4 +299,4 @@ NSTUB(0xFF2B74D8,  vsnprintf)
 
 /** Unused stubs or porting notes **/
 //NSTUB(0xFF10D50C,  PROPAD_GetPropertyData)               /* present on 7D.203, 60D.111, 6D.113, 5D3.113, 50D.109, 5D2.212, 600D.102, 550D.109 */
-//NSTUB(0xFF623900,  memcpy)                               /* present on 7D_MASTER.203 */
+//NSTUB(0xFF623904,  memcpy)                               /* present on 7D_MASTER.203 */

@@ -439,7 +439,7 @@ static int round_nicely(int x, int digits)
 
 // Pretty prints the shutter speed given the shutter reciprocal (times 1000) as input
 // To be used in movie mode; it doesn't try too hard to be consistent with Canon values
-char* lens_format_shutter_reciprocal(int shutter_reciprocal_x1000, int digits)
+const char * lens_format_shutter_reciprocal(int shutter_reciprocal_x1000, int digits)
 {
     static char shutter[32];
     if (shutter_reciprocal_x1000 == 0)
@@ -482,16 +482,16 @@ char* lens_format_shutter_reciprocal(int shutter_reciprocal_x1000, int digits)
 
 // Pretty prints the shutter speed given the raw shutter value as input
 // To be used in photo mode; it will try to be somewhat consistent with Canon values
-char* lens_format_shutter(int tv)
+const char * lens_format_shutter(int raw_shutter)
 {
-    static char shutter[32];
-    if(tv >= 70 && tv - 15 < COUNT(values_shutter))
+    static char shutter[16];
+    if(raw_shutter >= 70 && raw_shutter - 15 < COUNT(values_shutter))
     {
-        snprintf(shutter, sizeof(shutter), SYM_1_SLASH"%d", values_shutter[tv-15]);
+        snprintf(shutter, sizeof(shutter), SYM_1_SLASH"%d", values_shutter[raw_shutter-15]);
     }
-    else if(tv >= 15 && tv < 70)
+    else if(raw_shutter >= 15 && raw_shutter < 70)
     {
-        uint16_t value = values_shutter[tv-15];
+        uint16_t value = values_shutter[raw_shutter-15];
         if(value % 10 != 0)
         {
             snprintf(shutter, sizeof(shutter), "%d.%d\"", value / 10, value % 10);
@@ -501,23 +501,23 @@ char* lens_format_shutter(int tv)
             snprintf(shutter, sizeof(shutter), "%d\"", value / 10);
         }
     }
-    else if (tv == SHUTTER_BULB)
+    else if (raw_shutter == SHUTTER_BULB)
     {
         snprintf(shutter, sizeof(shutter), "BULB");
     }
     else
     {
         //this should never happen, but if it does, just print the raw value
-        snprintf(shutter, sizeof(shutter), "RAW:%d", tv);
+        snprintf(shutter, sizeof(shutter), "RAW:%d", raw_shutter);
     }
     return shutter;
 }
 
-char* lens_format_aperture(int raw_aperture)
+const char * lens_format_aperture(int raw_aperture)
 {
     int f = RAW2VALUE(aperture, raw_aperture);
     
-    static char aperture[32];
+    static char aperture[16];
     if (f < 100)
     {
         snprintf(aperture, sizeof(aperture), SYM_F_SLASH"%d.%d", f / 10, f % 10);
@@ -527,6 +527,22 @@ char* lens_format_aperture(int raw_aperture)
         snprintf(aperture, sizeof(aperture), SYM_F_SLASH"%d", f / 10);
     }
     return aperture;
+}
+
+const char * lens_format_iso(int raw_iso)
+{
+    static char iso[16];
+
+    if (raw_iso)
+    {
+        snprintf(iso, sizeof(iso), SYM_ISO"%d", raw2iso(raw_iso));
+    }
+    else
+    {
+        snprintf(iso, sizeof(iso), SYM_ISO"Auto");
+    }
+
+    return iso;
 }
 
 void free_space_show_photomode()
@@ -852,7 +868,8 @@ void restore_af_button_assignment_at_shutdown()
     }
 }
 
-int ml_taking_pic = 0;
+/* also used in bulb_take_pic */
+volatile int ml_taking_pic = 0;
 
 int lens_setup_af(int should_af)
 {
@@ -873,9 +890,10 @@ void lens_cleanup_af()
     restore_af_button_assignment();
 }
 
+/* please try to call take_a_pic() instead of this one */
 int
 lens_take_picture(
-    int wait, 
+    int wait_to_finish,
     int should_af
 )
 {
@@ -885,6 +903,13 @@ lens_take_picture(
     }
 
     ml_taking_pic = 1;
+
+    printf("[LENS] taking picture @ %s %s %s %s\n",
+        lens_format_iso(lens_info.raw_iso),
+        lens_format_shutter(lens_info.raw_shutter),
+        lens_format_aperture(lens_info.raw_aperture),
+        should_af == AF_ENABLE ? "AF" : should_af == AF_DISABLE ? "no AF" : ""
+    );
 
     int file_number_before = get_shooting_card()->file_number;
 
@@ -943,30 +968,43 @@ lens_take_picture(
     #endif
 
 end:;
+
+    /* always wait for the photo capture process to start */
+
+    /* additional delays given by drive mode? */
+    switch (drive_mode)
+    {
+        case DRIVE_SELFTIMER_2SEC:
+            msleep(2000);
+            break;
+        case DRIVE_SELFTIMER_REMOTE:
+        case DRIVE_SELFTIMER_CONTINUOUS:
+            msleep(10000);
+            break;
+    }
+
+    /* wait until job_state becomes valid, i.e. exposure started (timeout 2 seconds) */
+    for (int i = 0; i < 100 && lens_info.job_state == 0; i++)
+    {
+        msleep(20);
+    }
+
     int ret = 0;
-    if( !wait )
+    if( !wait_to_finish )
     {
         //~ give_semaphore(lens_sem);
         goto finish;
     }
     else
     {
-        msleep(200);
+        /* wait until the camera is ready to take a new image */
+        lens_wait_readytotakepic(wait_to_finish);
 
-        if (drive_mode == DRIVE_SELFTIMER_2SEC)
+        /* wait until the image file gets saved (timeout 2 seconds) */
+        for (int i = 0; i < 100 && get_shooting_card()->file_number == file_number_before; i++)
         {
-            msleep(2000);
-        }
-        if (drive_mode == DRIVE_SELFTIMER_REMOTE || drive_mode == DRIVE_SELFTIMER_CONTINUOUS)
-        {
-            msleep(10000);
-        }
-
-        lens_wait_readytotakepic(wait);
-
-        while (get_shooting_card()->file_number == file_number_before)
-        {
-            msleep(50);
+            /* reachable? not sure, might be model-dependent */
+            msleep(20);
         }
 
         //~ give_semaphore(lens_sem);
@@ -1400,9 +1438,11 @@ PROP_HANDLER( PROP_SHUTTER )
     }
     #ifdef FEATURE_EXPO_OVERRIDE
     else if (buf[0]  // sync expo override to Canon values
+            #if !defined(CONFIG_100D) // any other cameras which need this ?
+                                      // symptoms: http://www.magiclantern.fm/forum/index.php?topic=16040.msg187050#msg187050
             && (ABS(buf[0] - lens_info.raw_shutter) > 3) // some cameras may attempt to round shutter value to 1/2 or 1/3 stops
                                                        // especially when pressing half-shutter
-
+            #endif
         #ifdef CONFIG_MOVIE_EXPO_OVERRIDE_DISABLE_SYNC_WITH_PROPS
         && !is_movie_mode()
         #endif
@@ -1649,8 +1689,15 @@ static void focus_ring_powersave_fix()
     }
 }
 
+/* only used for requesting a refresh of PROP_LV_LENS;
+ * raw data is model-dependent, do not use directly */
+static struct prop_lv_lens lv_lens_raw;
+
 PROP_HANDLER( PROP_LV_LENS )
 {
+    ASSERT(len <= sizeof(lv_lens_raw));
+    memcpy(&lv_lens_raw, buf, sizeof(lv_lens_raw));
+
     const struct prop_lv_lens * const lv_lens = (void*) buf;
     lens_info.focal_len     = bswap16( lv_lens->focal_len );
     lens_info.focus_dist    = bswap16( lv_lens->focus_dist );
@@ -1689,6 +1736,20 @@ PROP_HANDLER( PROP_LV_LENS )
     old_focus_pos = lens_info.focus_pos;
     old_focal_len = lens_info.focal_len;
     update_stuff();
+}
+
+/* called once per second */
+void _prop_lv_lens_request_update()
+{
+    /* this property is normally active only in LiveView
+     * however, the MPU can be tricked into sending its value outside LiveView as well
+     * (Canon code also updates these values outside LiveView, when taking a picture)
+     * the input data should not be used, but... better safe than sorry
+     * this should send MPU message 06 04 09 00 00 
+     * and the MPU is expected to reply with the complete property (much larger)
+     * size is model-specific, but should not be larger than sizeof(lv_lens_raw)
+     */
+    prop_request_change(PROP_LV_LENS, &lv_lens_raw, 0);
 }
 
 /**
@@ -2735,7 +2796,7 @@ static LVINFO_UPDATE_FUNC(mode_update)
 static LVINFO_UPDATE_FUNC(focal_len_update)
 {
     LVINFO_BUFFER(16);
-    if (lens_info.name[0])
+    if (lens_info.lens_exists)
     {
         snprintf(buffer, sizeof(buffer), "%d%s",
                crop_info ? (lens_info.focal_len * SENSORCROPFACTOR + 5) / 10 : lens_info.focal_len,
@@ -2766,7 +2827,7 @@ static LVINFO_UPDATE_FUNC(av_update)
 {
     LVINFO_BUFFER(8);
 
-    if (lens_info.raw_aperture && lens_info.name[0])
+    if (lens_info.raw_aperture && lens_info.lens_exists)
     {
         snprintf(buffer, sizeof(buffer), lens_format_aperture(lens_info.raw_aperture));
     }
@@ -2877,17 +2938,13 @@ static LVINFO_UPDATE_FUNC(iso_update)
     }
     else /* photo mode */
     {
-        if (lens_info.raw_iso)
-        {
-            snprintf(buffer, sizeof(buffer), SYM_ISO"%d", raw2iso(lens_info.raw_iso));
-        }
-        else if (lens_info.iso_auto)
+        if (!lens_info.raw_iso && lens_info.iso_auto)
         {
             snprintf(buffer, sizeof(buffer), SYM_ISO"A%d", raw2iso(lens_info.raw_iso_auto));
         }
         else
         {
-            snprintf(buffer, sizeof(buffer), SYM_ISO"Auto");
+            snprintf(buffer, sizeof(buffer), "%s", lens_format_iso(lens_info.raw_iso));
         }
     }
 

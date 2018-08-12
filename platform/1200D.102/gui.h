@@ -13,8 +13,7 @@
 #define BGMT_PLAY 0xB // was 9
 #define BGMT_ZOOM_OUT 0xE // new
 
-#define BGMT_Q 0x1C // was 8
-#define BGMT_Q_ALT 0x13
+#define BGMT_Q 0x1C
 #define BGMT_LV 0x1D // new
 
 #define BGMT_WHEEL_LEFT 2
@@ -39,7 +38,7 @@
 // AV / AE COMP button 
 /// See gui.c for the actual press/unpress handling
 #define BGMT_AV (event->type == 0 && event->param == 0x61 && ( \
-			(is_movie_mode() && event->arg == 0xe) || \
+			(is_movie_mode() && (event->arg == 0xe || event->arg == 0xa)) || \
 			(shooting_mode == SHOOTMODE_P && event->arg == 0xa) || \
 			(shooting_mode == SHOOTMODE_ADEP && event->arg == 0xa) || \
 			(shooting_mode == SHOOTMODE_AV && event->arg == 0xf) || \
