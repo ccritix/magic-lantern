@@ -261,6 +261,10 @@ cstart( void )
         *(volatile int*)0xC0A00024 = 0x80000010; // send SSTAT for master processor, so it is in right state for rebooting
     #endif
 
+    #ifdef CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
+        memset64(0x00D00000, 0x124B1DE0 /* RA(W)VIDEO*/, 0x1FE00000 - 0x00D00000);
+    #endif
+
     /* Jump into the newly relocated code
        Q: Why target/compiler-specific attribute long_call?
        A: If in any case the base address passed to linker (-Ttext 0x40800000) doesnt fit because we

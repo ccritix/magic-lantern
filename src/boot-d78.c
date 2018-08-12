@@ -1,5 +1,5 @@
 /** \file
- * Minimal startup code for DIGIC 7 & 8
+ * Startup code for DIGIC 7 & 8
  */
 
 #include "dryos.h"
@@ -43,14 +43,6 @@ static inline uint32_t thumb_branch_instr(uint32_t pc, uint32_t dest, uint32_t o
     qprint("[BOOT] fixing up branch at "); qprintn((uint32_t) &INSTR( rom_addr )); \
     qprint(" (ROM: "); qprintn(rom_addr); qprint(") to "); qprintn((uint32_t)(dest_addr)); qprint("\n"); \
     INSTR( rom_addr ) = THUMB_BL_INSTR( &INSTR( rom_addr ), (dest_addr) )
-
-static inline void
-zero_bss( void )
-{
-    uint32_t *bss = _bss_start;
-    while( bss < _bss_end )
-        *(bss++) = 0;
-}
 
 static void my_bzero32(void* buf, size_t len)
 {
@@ -96,7 +88,7 @@ copy_and_restart( int offset )
     // Note: unlike most (all?) DIGIC 4/5 cameras,
     // the malloc heap is specified as start + size (not start + end)
     // easiest way is to reduce its size and load ML right after it
-    uint32_t ml_reserved_mem = 0x40000;
+    ml_reserved_mem = 0x40000;
     qprint("[BOOT] reserving memory: "); qprintn(ml_reserved_mem); qprint("\n");
     qprint("before: user_mem_size = "); qprintn(INSTR(HIJACK_INSTR_HEAP_SIZE)); qprint("\n");
     INSTR( HIJACK_INSTR_HEAP_SIZE ) -= ml_reserved_mem;

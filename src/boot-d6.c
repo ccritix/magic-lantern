@@ -1,5 +1,5 @@
 /** \file
- * Minimal startup code for DIGIC 6
+ * Startup code for DIGIC 6
  */
 
 #include "dryos.h"
@@ -40,14 +40,6 @@ static inline uint32_t thumb_branch_instr(uint32_t pc, uint32_t dest, uint32_t o
 #define FIXUP_BRANCH( rom_addr, dest_addr ) \
     INSTR( rom_addr ) = THUMB_BLX_INSTR( &INSTR( rom_addr ), (dest_addr) )
 
-static inline void
-zero_bss( void )
-{
-    uint32_t *bss = _bss_start;
-    while( bss < _bss_end )
-        *(bss++) = 0;
-}
-
 static void my_bzero32(void* buf, size_t len)
 {
     bzero32(buf, len);
@@ -81,8 +73,8 @@ copy_and_restart( int offset )
     // the malloc buffer is specified as start + size (not start + end)
     // so we adjust both values in order to keep things close to the traditional ML boot process
     // (alternative: we could adjust only the size, and place ML at the end of malloc buffer)
-    uint32_t ml_reserved_mem = (uintptr_t) _bss_end - INSTR( HIJACK_INSTR_BSS_END );
-    qprint("[BOOT] reserving memory:"); qprintn(ml_reserved_mem); qprint("\n");
+    ml_reserved_mem = (uintptr_t) _bss_end - INSTR( HIJACK_INSTR_BSS_END );
+    qprint("[BOOT] reserving memory: "); qprintn(ml_reserved_mem); qprint("\n");
     qprint("before: user_mem_start = "); qprintn(INSTR( HIJACK_INSTR_BSS_END));
     qprint("size = "); qprintn(INSTR( HIJACK_INSTR_BSS_END + 4 )); qprint("\n");
     INSTR( HIJACK_INSTR_BSS_END     ) += ml_reserved_mem;

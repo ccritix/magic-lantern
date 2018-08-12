@@ -485,8 +485,6 @@ void config_save(){};
 int get_ms_clock_value() { return 0; }
 char * get_task_name_from_id(int id) { return ""; }
 void beep() {} ;
-uint32_t ml_used_mem = 0;
-uint32_t ml_reserved_mem = 0;
 void menu_redraw() {} ;
 int should_run_polling_action(int period_ms, int* last_updated_time) { return 0; }
 void menu_add( const char * name, struct menu_entry * new_entry, int count ) {} 

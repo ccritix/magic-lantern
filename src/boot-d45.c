@@ -1,5 +1,5 @@
 /** \file
- * Minimal startup code for DIGIC 4 and 5
+ * Startup code for DIGIC 4 and 5
  * ("Classic" boot process)
  */
 
@@ -20,14 +20,6 @@ static uint8_t _reloc[ RELOCSIZE ];
 /** Fix a branch instruction in the relocated firmware image */
 #define FIXUP_BRANCH( rom_addr, dest_addr ) \
     INSTR( rom_addr ) = BL_INSTR( &INSTR( rom_addr ), (dest_addr) )
-
-static inline void
-zero_bss( void )
-{
-    uint32_t *bss = _bss_start;
-    while( bss < _bss_end )
-        *(bss++) = 0;
-}
 
 void
 __attribute__((noreturn,noinline,naked))
@@ -64,6 +56,7 @@ copy_and_restart( int offset )
     qprint("[BOOT] changing user_mem_start from "); qprintn(INSTR(HIJACK_INSTR_BSS_END));
     qprint("to "); qprintn((uintptr_t)_bss_end); qprint("\n");
     INSTR( HIJACK_INSTR_BSS_END ) = (uintptr_t) _bss_end;
+    ml_reserved_mem = (uintptr_t)_bss_end - RESTARTSTART;
 
     // Fix the calls to bzero32() and create_init_task()
     FIXUP_BRANCH( HIJACK_FIXBR_BZERO32, bzero32 );
