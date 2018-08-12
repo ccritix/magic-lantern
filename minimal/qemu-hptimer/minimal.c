@@ -9,11 +9,17 @@
 
 char* get_current_task_name()
 {
+#if 0
     /* DryOS: right after current_task we have a flag
      * set to 1 when handling an interrupt */
+    /* this doesn't work on DIGIC 7 */
     uint32_t interrupt_active = MEM((uintptr_t)&current_task + 4);
-    
-    if (!interrupt_active)
+#endif
+
+    /* DryOS: right before interrupt_active we have a counter showing the interrupt nesting level */
+    uint32_t interrupt_level = MEM((uintptr_t)&current_interrupt - 4);
+
+    if (!interrupt_level)
     {
         return current_task->name;
     }
