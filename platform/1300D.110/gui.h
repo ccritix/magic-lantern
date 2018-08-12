@@ -9,7 +9,6 @@
 #define BGMT_PLAY 0xB
 
 #define BGMT_Q 0x1C
-#define BGMT_Q_ALT 0x13
 #define BGMT_LV 0x1D
 
 #define BGMT_PRESS_SET 4
