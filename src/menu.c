@@ -572,15 +572,16 @@ static void menu_numeric_toggle_rounded(int* val, int delta, int min, int max, i
         int v0 = round_func(v);
         if (v0 != v && SGN(v0 - v) == SGN(delta)) // did we round in the correct direction? if so, stop here
         {
-            *val = v0;
-            return;
+            v = v0;
+            goto end;
         }
         // slow, but works (fast enough for numbers like 5000)
         while (v0 == round_func(v))
             v += delta;
         v = COERCE(round_func(v), min, max);
     }
-    
+
+end:
     set_config_var_ptr(val, v);
 }
 
@@ -5874,6 +5875,8 @@ struct longpress
     int long_btn_unpress;   /* optional: unpress code */
     int short_btn_press;    /* optional: what button code to send for a short press event */
     int short_btn_unpress;  /* optional: unpress code */
+    int (*long_cbr)();      /* optional: function to tell whether long press/unpress should be sent */
+    int (*short_cbr)();     /* optional: function to tell whether short press/unpress should be sent */
     int pos_x;              /* where to draw the animated indicator */
     int pos_y;              /* coords: BMP space (0,0 - 720,480 on most models) */
 };
@@ -5930,14 +5933,17 @@ static void longpress_check(int timer, void * opaque)
 
     if (longpress->count == 25)
     {
-        /* long press (500ms) */
-        ASSERT(longpress->long_btn_press);
-        fake_simple_button(longpress->long_btn_press);
-
-        /* optional unpress event */
-        if (longpress->long_btn_unpress)
+        if (!longpress->long_cbr || longpress->long_cbr())
         {
-            fake_simple_button(longpress->long_btn_unpress);
+            /* long press (500ms) */
+            ASSERT(longpress->long_btn_press);
+            fake_simple_button(longpress->long_btn_press);
+
+            /* optional unpress event */
+            if (longpress->long_btn_unpress)
+            {
+                fake_simple_button(longpress->long_btn_unpress);
+            }
         }
 
         /* make sure it won't re-trigger */
@@ -5945,16 +5951,24 @@ static void longpress_check(int timer, void * opaque)
     }
     else if (longpress->count < 15 && !longpress->pressed)
     {
-        /* optional short press ( < 300 ms) */
-        if (longpress->short_btn_press)
+        if (!gui_menu_shown())
         {
-            fake_simple_button(longpress->short_btn_press);
+            return;
         }
 
-        /* optional unpress event */
-        if (longpress->short_btn_unpress)
+        if (!longpress->short_cbr || longpress->short_cbr())
         {
-            fake_simple_button(longpress->short_btn_unpress);
+            /* optional short press ( < 300 ms) */
+            if (longpress->short_btn_press)
+            {
+                fake_simple_button(longpress->short_btn_press);
+            }
+
+            /* optional unpress event */
+            if (longpress->short_btn_unpress)
+            {
+                fake_simple_button(longpress->short_btn_unpress);
+            }
         }
     }
 }
@@ -5966,6 +5980,7 @@ static struct longpress joystick_longpress = {
     #ifdef BGMT_UNPRESS_UDLR
     .short_btn_unpress  = BGMT_UNPRESS_UDLR,    /* fixme: still needed? */
     #endif
+    .short_cbr          = gui_menu_shown,       /* short press only inside ML menu */
     .pos_x = 690,   /* both ML menu and Q screen; updated on trigger */
     .pos_y = 400,
 };

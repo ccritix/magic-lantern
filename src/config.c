@@ -371,10 +371,10 @@ static int set_config_var_struct(struct config_var * var, int new_value)
     if(var && var->value)
     {
         //check if the callback routine exists
-        if(var->update)
+        if (var->change_cbr)
         {
             //run the callback routine
-            int cbr_result = var->update(var, *(var->value), new_value);
+            int cbr_result = var->change_cbr(var, *(var->value), new_value);
             //if the cbr returns false, it means we are not allowed to change the value
             if(cbr_result)
             {
@@ -658,7 +658,7 @@ static void config_preset_scan()
     }
     
     /* update the Config Presets menu */
-    cfg_menus[0].children[0].max = config_preset_num - 1;
+    cfg_menus[0].children[1].max = config_preset_num - 1;
 }
 
 static MENU_SELECT_FUNC(config_save_select)
@@ -668,7 +668,7 @@ static MENU_SELECT_FUNC(config_save_select)
 
 static MENU_SELECT_FUNC(config_preset_toggle)
 {
-    menu_numeric_toggle(&config_new_preset_index, delta, 0, config_preset_num);
+    menu_numeric_toggle(&config_new_preset_index, delta, 0, config_preset_num - 1);
     
     if (!config_new_preset_index)
     {
