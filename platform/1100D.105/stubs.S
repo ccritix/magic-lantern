@@ -111,7 +111,6 @@ NSTUB(0xC0220000,  camera_engine)
 NSTUB(0xFF073EB0,  dma_memcpy)                              // Look for [HPC ERROR] Nothing DMA ch now!
 
 /** Debug messages **/
-NSTUB(    0x28E4,  dm_names)                                // in DebugMsg, before the 1st loop target
 NSTUB(0xFF06C914,  DryosDebugMsg)                           // might be good (dumps=1, score=1.1e+03)
 NSTUB(0xFF06CC74,  dm_set_store_level)                      // might be good (dumps=1, score=15)
 

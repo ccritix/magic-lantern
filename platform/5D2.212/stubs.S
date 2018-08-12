@@ -111,7 +111,6 @@ NSTUB(0xC0220000,  camera_engine)
 // NSTUB(    ???,  dma_memcpy)                              /* present on 7D.203, 6D.113, 50D.109, 600D.102, 650D.104, 1100D.105, EOSM.202, 700D.113 */
 
 /** Debug messages **/
-NSTUB(    0x2BA0,  dm_names)
 NSTUB(0xFF86AF64,  DryosDebugMsg)
 NSTUB(0xFF86B2B0,  dm_set_store_level)
 

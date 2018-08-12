@@ -111,7 +111,6 @@ NSTUB(0xC0220000,  camera_engine)
 NSTUB(0xFF080224,  dma_memcpy)
 
 /** Debug messages **/
-NSTUB(    0x2B18,  dm_names)
 NSTUB(0xFF0776AC,  DryosDebugMsg)
 NSTUB(0xFF077990,  dm_set_store_level)
 

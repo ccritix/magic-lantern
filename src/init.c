@@ -428,9 +428,6 @@ void boot_post_init_task(void)
     old_assert_handler = (void*)MEM(DRYOS_ASSERT_HANDLER);
     *(void**)(DRYOS_ASSERT_HANDLER) = (void*)my_assert_handler;
 #endif // (CONFIG_CRASH_LOG)
-    
-    // Overwrite the PTPCOM message
-    dm_names[ DM_MAGIC ] = "[MAGIC] ";
 
     DebugMsg( DM_MAGIC, 3, "Magic Lantern %s (%s)",
         build_version,
