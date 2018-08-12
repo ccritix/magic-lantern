@@ -68,16 +68,31 @@ read_sp( void )
     return sp;
 }
 
-static inline void
-select_normal_vectors( void )
+/** Routines to enable / disable interrupts */
+static inline uint32_t
+cli(void)
 {
-    uint32_t reg;
-    asm(
-        "mrc p15, 0, %0, c1, c0\n"
-        "bic %0, %0, #0x2000\n"
-        "mcr p15, 0, %0, c1, c0\n"
-        : "=r"(reg)
+    uint32_t old_irq;
+    
+    asm __volatile__ (
+        "mrs %0, CPSR\n"
+        "orr r1, %0, #0xC0\n" // set I flag to disable IRQ
+        "msr CPSR_c, r1\n"
+        "and %0, %0, #0xC0\n"
+        : "=r"(old_irq) : : "r1"
     );
+    return old_irq; // return the flag itself
+}
+
+static inline void
+sei( uint32_t old_irq )
+{
+    asm __volatile__ (
+        "mrs r1, CPSR\n"
+        "bic r1, r1, #0xC0\n"
+        "and %0, %0, #0xC0\n"
+        "orr r1, r1, %0\n"
+        "msr CPSR_c, r1" : : "r"(old_irq) : "r1" );
 }
 
 #if defined(CONFIG_DIGIC_VI) || defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
@@ -86,7 +101,7 @@ select_normal_vectors( void )
 // ARMv7 cache control (based on U-BOOT cache_v7.c, utils.h, armv7.h)
 
 /* Invalidate entire I-cache and branch predictor array */
-static void __attribute__((naked,noinline)) icache_flush_all(void)
+static void __attribute__((naked,noinline)) _icache_flush_all(void)
 {
     /*
      * Invalidate all instruction caches to PoU.
@@ -244,7 +259,7 @@ static void v7_maint_dcache_all(u32 operation)
     }
 }
 
-static void dcache_clean_all(void) {
+static void _dcache_clean_all(void) {
     asm volatile("dsb sy\n");
     v7_maint_dcache_all(ARMV7_DCACHE_CLEAN_ALL);
     /* anything else? */
@@ -257,15 +272,17 @@ static void dcache_clean_all(void) {
     #endif
 }
 
-static inline void sync_caches()
+static inline void _sync_caches()
 {
     /* Self-modifying code (from uncacheable memory) */
     /* http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.faqs/ka14041.html */
     /* http://infocenter.arm.com/help/topic/com.arm.doc.ihi0053b/IHI0053B_arm_c_language_extensions_2013.pdf */
     /* https://app.assembla.com/spaces/chdk/subversion/source/HEAD/trunk/lib/armutil/cache.c */
     /* http://www.magiclantern.fm/forum/index.php?topic=17360.msg191399#msg191399 */
-    dcache_clean_all(); /* Clean the cache so that the new stuff is written out to memory */
-    icache_flush_all(); /* Invalidate the instruction cache and branch predictor */
+    uint32_t old = cli();
+    _dcache_clean_all(); /* Clean the cache so that the new stuff is written out to memory */
+    _icache_flush_all(); /* Invalidate the instruction cache and branch predictor */
+    sei(old);
 }
 
 #else  /* DIGIC 2...5 */
@@ -316,7 +333,7 @@ static inline void _flush_caches()
 }
 
 /* write back all data into RAM and mark as invalid in data cache */
-static inline void clean_d_cache()
+static inline void _clean_d_cache()
 {
     /* assume 8KB data cache */
     /* http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0092b/ch04s03s04.html */
@@ -341,7 +358,7 @@ static inline void clean_d_cache()
 }
 
 /* mark all entries in I cache as invalid */
-static inline void flush_i_cache()
+static inline void _flush_i_cache()
 {
     asm(
         "mov r0, #0\n"
@@ -351,13 +368,18 @@ static inline void flush_i_cache()
 }
 
 /* ensure data is written into RAM and the instruction cache is empty so everything will get fetched again */
-static inline void sync_caches()
+static inline void _sync_caches()
 {
-    clean_d_cache();
-    flush_i_cache();
+    uint32_t old = cli();
+    _clean_d_cache();
+    _flush_i_cache();
+    sei(old);
 }
 
 #endif
+
+/* in patch.c; this also reapplies cache patches, if needed */
+extern void sync_caches();
 
 #if 0
 // This must be a macro
@@ -405,34 +427,19 @@ set_i_tcm( uint32_t value )
 {
     asm( "mcr p15, 0, %0, c9, c1, 1\n" : : "r"(value) );
 }
-#endif
-
-/** Routines to enable / disable interrupts */
-static inline uint32_t
-cli(void)
-{
-    uint32_t old_irq;
-    
-    asm __volatile__ (
-        "mrs %0, CPSR\n"
-        "orr r1, %0, #0xC0\n" // set I flag to disable IRQ
-        "msr CPSR_c, r1\n"
-        "and %0, %0, #0xC0\n"
-        : "=r"(old_irq) : : "r1"
-    );
-    return old_irq; // return the flag itself
-}
 
 static inline void
-sei( uint32_t old_irq )
+select_normal_vectors( void )
 {
-    asm __volatile__ (
-        "mrs r1, CPSR\n"
-        "bic r1, r1, #0xC0\n"
-        "and %0, %0, #0xC0\n"
-        "orr r1, r1, %0\n"
-        "msr CPSR_c, r1" : : "r"(old_irq) : "r1" );
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "bic %0, %0, #0x2000\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
 }
+#endif
 
 /**
  * Some common instructions.
