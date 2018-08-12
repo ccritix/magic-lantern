@@ -66,8 +66,8 @@
 #define ATCM_SIZE     s->model->atcm_size
 #define RAM_SIZE      s->model->ram_size
 #define CACHING_BIT   s->model->caching_bit
-
-#define IO_MEM_START  0xC0000000    /* common to all DIGICs */
+#define MMIO_ADDR     s->model->mmio_addr
+#define MMIO_SIZE     s->model->mmio_size
 
 /* defines for memory/register access */
 #define INT_ENTRIES 0x200
@@ -225,9 +225,9 @@ typedef struct
 typedef struct
 {
     EDmacChState ch[64];
-    uint32_t read_conn[48];     /* each connection can get data from a single read channel */
+    uint32_t read_conn[64];     /* each connection can get data from a single read channel */
     uint32_t write_conn[64];    /* each write channel can get data from a single connection */
-    EDmacData conn_data[48];    /* for each connection: memory contents transferred via EDMAC (malloc'd) */
+    EDmacData conn_data[64];    /* for each connection: memory contents transferred via EDMAC (malloc'd) */
     uint32_t pending[64];       /* for each channel: true if a transfer is scheduled */
 } EDMACState;
 
@@ -266,7 +266,7 @@ typedef struct
     MemoryRegion ram_extra;
     MemoryRegion rom0;
     MemoryRegion rom1;
-    MemoryRegion iomem;
+    MemoryRegion mmio;
     qemu_irq interrupt;
     QemuThread interrupt_thread_id;
     uint32_t verbosity;
@@ -275,9 +275,11 @@ typedef struct
     uint32_t irq_schedule[INT_ENTRIES];
     uint32_t irq_id;
     uint32_t digic_timer;
+    uint32_t digic_timer_last_read;
     uint32_t timer_reload_value[20];
     uint32_t timer_current_value[20];
     uint32_t timer_enabled[20];
+    struct HPTimer UTimers[8];
     struct HPTimer HPTimers[16];
     uint32_t clock_enable;
     uint32_t clock_enable_6;
@@ -351,6 +353,7 @@ unsigned int eos_handle_rom ( unsigned int parm, EOSState *s, unsigned int addre
 unsigned int eos_handle_flashctrl ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_dma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_xdmac ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_xdmac7 ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_ram ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_sio ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_i2c ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
@@ -360,6 +363,7 @@ unsigned int eos_handle_uart_dma ( unsigned int parm, EOSState *s, unsigned int 
 unsigned int eos_handle_timers ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_timers_ ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_digic_timer ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_utimer ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_hptimer ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_intengine ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_intengine_vx ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
@@ -383,6 +387,8 @@ unsigned int eos_handle_adc ( unsigned int parm, EOSState *s, unsigned int addre
 unsigned int eos_handle_jpcore( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_eeko_comm( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 unsigned int eos_handle_memdiv( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_rom_id( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
+unsigned int eos_handle_adtg_dma ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 
 unsigned int eos_handle_digic6 ( unsigned int parm, EOSState *s, unsigned int address, unsigned char type, unsigned int value );
 
