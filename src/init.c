@@ -50,8 +50,6 @@ static int _hold_your_horses = 1; // 0 after config is read
 int ml_started = 0; // 1 after ML is fully loaded
 int ml_gui_initialized = 0; // 1 after gui_main_task is started 
 
-#ifndef CONFIG_EARLY_PORT
-
 /**
  * Called by DryOS when it is dispatching (or creating?)
  * a new task.
@@ -173,9 +171,6 @@ call_init_funcs()
         entry();
     }
 }
-
-
-#endif // !CONFIG_EARLY_PORT
 
 static void nop( void ) { }
 void menu_init( void ) __attribute__((weak,alias("nop")));
@@ -415,7 +410,7 @@ void ml_crash_message(char* msg)
 /* called before Canon's init_task */
 void boot_pre_init_task()
 {
-#if !defined(CONFIG_EARLY_PORT) && !defined(CONFIG_HELLO_WORLD) && !defined(CONFIG_DUMPER_BOOTFLAG)
+#if !defined(CONFIG_HELLO_WORLD) && !defined(CONFIG_DUMPER_BOOTFLAG)
     // Install our task creation hooks
     qprint("[BOOT] installing task dispatch hook at "); qprintn((int)&task_dispatch_hook); qprint("\n");
     task_dispatch_hook = my_task_dispatch_hook;
@@ -434,7 +429,6 @@ void boot_post_init_task(void)
     *(void**)(DRYOS_ASSERT_HANDLER) = (void*)my_assert_handler;
 #endif // (CONFIG_CRASH_LOG)
     
-#ifndef CONFIG_EARLY_PORT
     // Overwrite the PTPCOM message
     dm_names[ DM_MAGIC ] = "[MAGIC] ";
 
@@ -447,7 +441,6 @@ void boot_post_init_task(void)
         build_date,
         build_user
     );
-#endif // !CONFIG_EARLY_PORT
 
 #if !defined(CONFIG_NO_ADDITIONAL_VERSION)
     // Re-write the version string.
@@ -469,8 +462,6 @@ void boot_post_init_task(void)
     additional_version[12] = build_version[8];
     additional_version[13] = '\0';
 #endif
-
-#ifndef CONFIG_EARLY_PORT
 
     // wait for firmware to initialize
     while (!bmp_vram_raw()) msleep(100);
@@ -511,7 +502,6 @@ void boot_post_init_task(void)
     task_create("ml_init", 0x1e, 0x4000, my_big_init_task, 0 );
 
     return;
-#endif // !CONFIG_EARLY_PORT
 }
 
 
