@@ -58,3 +58,5 @@ void disp_set_pixel(int x, int y, int c)
 
 /* dummy */
 int FIO_WriteFile( FILE* stream, const void* ptr, size_t count ) { };
+
+void ml_assert_handler(char* msg, char* file, int line, const char* func) { };
