@@ -94,8 +94,12 @@ static void __attribute__((naked,noinline)) icache_flush_all(void)
      */
     asm volatile (
         "mov    r1, #0\n"
-        "mcr    p15, 0, r1, c7, c5, 0\n"
-        "mcr    p15, 0, r1, c7, c5, 6\n"
+#if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
+        "mcr    p15, 0, r1, c7, c1, 0\n"        /* Invalidate entire instruction cache Inner Shareable (Multiprocessing Extensions) */
+#else
+        "mcr    p15, 0, r1, c7, c5, 0\n"        /* Instruction cache invalidate all to PoU */
+#endif
+        "mcr    p15, 0, r1, c7, c5, 6\n"        /* Invalidate all branch predictors */
         "dsb    sy\n"
         "isb    sy\n"
         "bx     lr\n"
@@ -241,8 +245,16 @@ static void v7_maint_dcache_all(u32 operation)
 }
 
 static void dcache_clean_all(void) {
+    asm volatile("dsb sy\n");
     v7_maint_dcache_all(ARMV7_DCACHE_CLEAN_ALL);
     /* anything else? */
+
+    #if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
+    /* guess: tell the other CPU to do the same? (see B2.2.5 in ARM ARM v7) */
+    asm volatile("dsb sy\n");
+    *(volatile uint32_t *)0xC1100730 = 0;
+    asm volatile("dsb sy\n");
+    #endif
 }
 
 static inline void sync_caches()
