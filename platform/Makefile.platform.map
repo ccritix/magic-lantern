@@ -19,6 +19,7 @@ PLATFORM_MAP = \
     650D.104 \
     700D.115 \
     760D.100 \
+    100D.101 \
     1100D.105 \
     EOSM.202 \
     M50.101 \
@@ -26,7 +27,6 @@ PLATFORM_MAP = \
 PLATFORM_MAP_UNMAINTAINED = \
     40D.111 \
     5DC.111 \
-    100D.100 \
 
 
 # call this with 1 parameter, e.g. 5D2 (without firmware version) to get the firmware version from PLATFORM_MAP

@@ -18,7 +18,7 @@ static int my_init_task(int a, int b, int c, int d);
 
 /** This just goes into the bss */
 #define RELOCSIZE 0x3000 // look in HIJACK macros for the highest address, and subtract ROMBASEADDR
-static uint8_t _reloc[ RELOCSIZE ];
+static uint32_t _reloc[ RELOCSIZE / 4 ];
 #define RELOCADDR ((uintptr_t) _reloc)
 
 /** Translate a firmware address into a relocated address */
@@ -155,9 +155,9 @@ init_task_func init_task_patched(void)
         while(1);                                       /* refuse to boot */
     }
 
-    #if defined(CONFIG_6D)
+    #if defined(CONFIG_6D) || defined(CONFIG_100D)
     /* R0: 0x44C000 (start address, easier to patch, change to 0x4E0000 => reserve 592K for ML) */
-    /* R1: 0xD3C000 (end address, unchanged) */
+    /* R1: 0xD3C000 [6D] / 0xC3C000 [100D] (end address, unchanged) */
     addr_AllocMem_end[1] = MOV_R0_0x4E0000_INSTR;
     ml_reserved_mem = 0x4E0000 - RESTARTSTART;
     #elif defined(CONFIG_550D) || defined(CONFIG_600D)

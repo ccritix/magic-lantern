@@ -176,9 +176,10 @@ static void nop( void ) { }
 void menu_init( void ) __attribute__((weak,alias("nop")));
 void debug_init( void ) __attribute__((weak,alias("nop")));
 
-static unsigned short int magic_off = 0; // Set to 1 to disable ML
-static unsigned short int magic_off_request = 0;
-unsigned short int magic_is_off() 
+static int magic_off = 0; // Set to 1 to disable ML
+static int magic_off_request = 0;
+
+int magic_is_off() 
 {
     return magic_off; 
 }
@@ -242,7 +243,7 @@ static void backup_rom_task()
 #ifdef CONFIG_HELLO_WORLD
 static void hello_world()
 {
-    uint32_t sig = compute_signature((void*)SIG_START, SIG_LEN);
+    int sig = compute_signature((int*)SIG_START, 0x10000);
     while(1)
     {
         bmp_printf(FONT_LARGE, 50, 50, "Hello, World!");
@@ -284,12 +285,58 @@ static void dumper_bootflag()
 }
 #endif
 
+static void led_fade(int arg1, void * on)
+{
+    /* emulate a fade-out PWM using a HPTimer */
+    static int k = 16000;
+    if (k > 0)
+    {
+        if (on) _card_led_on(); else _card_led_off();
+        int next_delay = (on ? k : 16000 - k);   /* cycle: 16000 us => 62.5 Hz */
+        SetHPTimerNextTick(arg1, next_delay, led_fade, led_fade, (void *) !on);
+        k -= MAX(16, k/32);  /* adjust fading speed and shape here */
+    }
+}
+
 /* This runs ML initialization routines and starts user tasks.
  * Unlike init_task, from here we can do file I/O and others.
  */
 static void my_big_init_task()
 {
+    _mem_init();
     _find_ml_card();
+
+    /* should we require SET for loading ML, or not? */
+    extern int _set_at_startup;
+    _set_at_startup = config_flag_file_setting_load("ML/SETTINGS/REQUIRE.SET");
+
+    // at this point, gui_main_task should be started and should be able to tell whether SET was pressed at startup
+    if (magic_off_request != _set_at_startup)
+    {
+        /* should we bypass loading ML? */
+        /* (pressing SET after this point will be ignored) */
+        magic_off = 1;
+
+    #if !defined(CONFIG_NO_ADDITIONAL_VERSION)
+        /* fixme: enable on all models */
+        extern char additional_version[];
+        additional_version[0] = '-';
+        additional_version[1] = 'm';
+        additional_version[2] = 'l';
+        additional_version[3] = '-';
+        additional_version[4] = 'o';
+        additional_version[5] = 'f';
+        additional_version[6] = 'f';
+        additional_version[7] = '\0';
+    #endif
+
+        /* some very basic feedback - fade out the SD led */
+        SetHPTimerAfterNow(1000, led_fade, led_fade, 0);
+
+        /* do not continue loading ML */
+        return;
+    }
+
     _load_fonts();
 
 #ifdef CONFIG_HELLO_WORLD
@@ -464,37 +511,12 @@ void boot_post_init_task(void)
     while (!bmp_vram_raw()) msleep(100);
     
     // wait for overriden gui_main_task (but use a timeout so it doesn't break if you disable that for debugging)
-    for (int i = 0; i < 30; i++)
+    for (int i = 0; i < 50; i++)
     {
         if (ml_gui_initialized) break;
-        msleep(100);
+        msleep(50);
     }
-    msleep(200);
-
-    // at this point, gui_main_start should be started and should be able to tell whether SET was pressed at startup
-    if (magic_off_request)
-    {
-        magic_off = 1;  // magic off request might be sent later (until ml is fully started), but will be ignored
-        for (int i = 0; i < 10; i++)
-        {
-            if (DISPLAY_IS_ON) break;
-            msleep(100);
-        }
-        bmp_printf(FONT_CANON, 0, 0, "Magic OFF");
-        info_led_off();
-    #if !defined(CONFIG_NO_ADDITIONAL_VERSION)
-        extern char additional_version[];
-        additional_version[0] = '-';
-        additional_version[1] = 'm';
-        additional_version[2] = 'l';
-        additional_version[3] = '-';
-        additional_version[4] = 'o';
-        additional_version[5] = 'f';
-        additional_version[6] = 'f';
-        additional_version[7] = '\0';
-    #endif
-        return;
-    }
+    msleep(50);
 
     task_create("ml_init", 0x1e, 0x4000, my_big_init_task, 0 );
 
