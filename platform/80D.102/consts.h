@@ -6,7 +6,6 @@
 #define LEDON                       0x4D0002
 #define LEDOFF                      0x4C0003
 
-#define HIJACK_INSTR_BL_CSTART      0xFE0A00FE
 #define HIJACK_INSTR_BSS_END        0xFE0D31F8
 #define HIJACK_FIXBR_BZERO32        0xFE0D318A
 #define HIJACK_FIXBR_CREATE_ITASK   0xFE0D31DE

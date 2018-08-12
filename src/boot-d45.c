@@ -35,13 +35,6 @@ copy_and_restart( int offset )
     blob_memcpy( new_image, firmware_start, firmware_start + firmware_len );
 
     /*
-     * in entry2() (0xff010134) make this change to
-     * return to our code before calling cstart().
-     * This should be a "BL cstart" instruction.
-     */
-    INSTR( HIJACK_INSTR_BL_CSTART ) = RET_INSTR;
-
-    /*
      * in cstart() (0xff010ff4) make these changes:
      * calls bzero(), then loads bs_end and calls
      * create_init_task
@@ -74,29 +67,6 @@ copy_and_restart( int offset )
     // relocation jump that is at the head of the data
     thunk reloc_entry = (thunk)( RELOCADDR + 0xC );
     reloc_entry();
-
-    /*
-    * We're back!
-    * The RAM copy of the firmware startup has:
-    * 1. Poked the DMA engine with what ever it does
-    * 2. Copied the rw_data segment to 0x1900 through 0x20740
-    * 3. Zeroed the BSS from 0x20740 through 0x47550
-    * 4. Copied the interrupt handlers to 0x0
-    * 5. Copied irq 4 to 0x480.
-    * 6. Installed the stack pointers for CPSR mode D2 and D3
-    * (we are still in D3, with a %sp of 0x1000)
-    * 7. Returned to us.
-    *
-    * Now is our chance to fix any data segment things, or
-    * install our own handlers.
-    */
-
-    // This will jump into the RAM version of the firmware,
-    // but the last branch instruction at the end of this
-    // has been modified to jump into the ROM version
-    // instead.
-    void (*ram_cstart)(void) = (void*) &INSTR( cstart );
-    ram_cstart();
 
     // Unreachable
     while(1)

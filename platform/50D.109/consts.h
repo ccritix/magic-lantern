@@ -9,7 +9,6 @@
 #define LEDOFF 0x44
 
 //~ Reloc Boot
-#define HIJACK_INSTR_BL_CSTART  0xff812ae8
 #define HIJACK_INSTR_BSS_END 0xff81093c //Maloc
 //~ #define HIJACK_INSTR_BSS_END 0xFF813230 //Allocate
 #define HIJACK_FIXBR_BZERO32 0xff8108a4
