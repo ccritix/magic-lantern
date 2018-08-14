@@ -127,7 +127,11 @@ static int caret_position = 0;
 static struct menu_entry * entry_being_updated = 0;
 static int entry_removed_itself = 0;
 
+#ifdef FEATURE_JUNKIE_MENU
 static CONFIG_INT("menu.junkie", junkie_mode, 0);
+#else
+#define junkie_mode 0   /* let the compiler optimize out this code */
+#endif
 //~ static CONFIG_INT("menu.set", set_action, 2);
 //~ static CONFIG_INT("menu.start.my", start_in_my_menu, 0);
 
@@ -568,15 +572,16 @@ static void menu_numeric_toggle_rounded(int* val, int delta, int min, int max, i
         int v0 = round_func(v);
         if (v0 != v && SGN(v0 - v) == SGN(delta)) // did we round in the correct direction? if so, stop here
         {
-            *val = v0;
-            return;
+            v = v0;
+            goto end;
         }
         // slow, but works (fast enough for numbers like 5000)
         while (v0 == round_func(v))
             v += delta;
         v = COERCE(round_func(v), min, max);
     }
-    
+
+end:
     set_config_var_ptr(val, v);
 }
 
@@ -4784,16 +4789,22 @@ static int menu_ensure_canon_dialog()
     {
         if (redraw_flood_stop)
         {
-            // Canon dialog timed out?
-#if defined(CONFIG_MENU_TIMEOUT_FIX)
-            // force dialog change when canon dialog times out (EOSM, 6D etc)
-            start_redraw_flood();
-            SetGUIRequestMode(GUIMODE_ML_MENU);
-#else
+            // Canon dialog changed?
             return 0;
-#endif
         }
     }
+
+#if defined(CONFIG_MENU_TIMEOUT_FIX)
+    // refresh Canon dialog before it times out (EOSM, 6D etc)
+    // apparently it's the MPU that decides to turn off the underlying Canon dialog
+    // so we have to keep poking it to stay awake
+    static int last_refresh = 0;
+    if (lv && should_run_polling_action(2000, &last_refresh))
+    {
+        SetGUIRequestMode(GUIMODE_ML_MENU);
+    }
+#endif
+
 #endif
     return 1;
 }
@@ -5064,10 +5075,15 @@ handle_ml_menu_keys(struct event * event)
         }
         else
         {
+            #ifdef FEATURE_JUNKIE_MENU
             // each MENU press adjusts number of Junkie items
             // (off, 10, 20); 3 = show all (unused)
             junkie_mode = MOD(junkie_mode+1, 3);
             my_menu_dirty = 1;
+            #else
+            // close ML menu
+            give_semaphore(gui_sem);
+            #endif
         }
         break;
     }
@@ -5220,6 +5236,7 @@ handle_ml_menu_keys(struct event * event)
         //~ menu_hidden_should_display_help = 0;
         break;
 
+#if 0
     case BGMT_PLAY:
         if (menu_help_active) { menu_help_active = 0; /* menu_damage = 1; */ break; }
         menu_entry_select( menu, 1 ); // decrement
@@ -5227,6 +5244,7 @@ handle_ml_menu_keys(struct event * event)
         //~ menu_damage = 1;
         //~ menu_hidden_should_display_help = 0;
         break;
+#endif
 #ifdef CONFIG_TOUCHSCREEN
     case BGMT_TOUCH_1_FINGER:
     case BGMT_TOUCH_2_FINGER:
@@ -5238,6 +5256,7 @@ handle_ml_menu_keys(struct event * event)
     /* Q is always defined */
     case BGMT_Q:
     case MLEV_JOYSTICK_LONG:
+    case BGMT_PLAY:
         if (menu_help_active) { menu_help_active = 0; /* menu_damage = 1; */ break; }
         menu_entry_select( menu, 2 ); // Q action select
         menu_needs_full_redraw = 1;
@@ -5860,6 +5879,8 @@ struct longpress
     int long_btn_unpress;   /* optional: unpress code */
     int short_btn_press;    /* optional: what button code to send for a short press event */
     int short_btn_unpress;  /* optional: unpress code */
+    int (*long_cbr)();      /* optional: function to tell whether long press/unpress should be sent */
+    int (*short_cbr)();     /* optional: function to tell whether short press/unpress should be sent */
     int pos_x;              /* where to draw the animated indicator */
     int pos_y;              /* coords: BMP space (0,0 - 720,480 on most models) */
 };
@@ -5916,14 +5937,17 @@ static void longpress_check(int timer, void * opaque)
 
     if (longpress->count == 25)
     {
-        /* long press (500ms) */
-        ASSERT(longpress->long_btn_press);
-        fake_simple_button(longpress->long_btn_press);
-
-        /* optional unpress event */
-        if (longpress->long_btn_unpress)
+        if (!longpress->long_cbr || longpress->long_cbr())
         {
-            fake_simple_button(longpress->long_btn_unpress);
+            /* long press (500ms) */
+            ASSERT(longpress->long_btn_press);
+            fake_simple_button(longpress->long_btn_press);
+
+            /* optional unpress event */
+            if (longpress->long_btn_unpress)
+            {
+                fake_simple_button(longpress->long_btn_unpress);
+            }
         }
 
         /* make sure it won't re-trigger */
@@ -5931,16 +5955,24 @@ static void longpress_check(int timer, void * opaque)
     }
     else if (longpress->count < 15 && !longpress->pressed)
     {
-        /* optional short press ( < 300 ms) */
-        if (longpress->short_btn_press)
+        if (!gui_menu_shown())
         {
-            fake_simple_button(longpress->short_btn_press);
+            return;
         }
 
-        /* optional unpress event */
-        if (longpress->short_btn_unpress)
+        if (!longpress->short_cbr || longpress->short_cbr())
         {
-            fake_simple_button(longpress->short_btn_unpress);
+            /* optional short press ( < 300 ms) */
+            if (longpress->short_btn_press)
+            {
+                fake_simple_button(longpress->short_btn_press);
+            }
+
+            /* optional unpress event */
+            if (longpress->short_btn_unpress)
+            {
+                fake_simple_button(longpress->short_btn_unpress);
+            }
         }
     }
 }
@@ -5952,6 +5984,7 @@ static struct longpress joystick_longpress = {
     #ifdef BGMT_UNPRESS_UDLR
     .short_btn_unpress  = BGMT_UNPRESS_UDLR,    /* fixme: still needed? */
     #endif
+    .short_cbr          = gui_menu_shown,       /* short press only inside ML menu */
     .pos_x = 690,   /* both ML menu and Q screen; updated on trigger */
     .pos_y = 400,
 };
@@ -5979,7 +6012,7 @@ static struct longpress erase_longpress = {
 };
 #endif
 
-#ifdef CONFIG_100D
+#ifdef BGMT_Q_SET
 static struct longpress qset_longpress = {
     .long_btn_press     = BGMT_Q_SET,           /* long press opens Q-menu */
     .short_btn_press    = BGMT_PRESS_SET,       /* short press => fake SET button (centering AF Frame in LV etc...) */
@@ -6157,7 +6190,7 @@ int handle_longpress_events(struct event * event)
 /*         cfn_set_setbtn(0);                                                          */
 /*  #endif                                                                             */
 
-#ifdef CONFIG_100D
+#ifdef BGMT_Q_SET
     /* triggers Q-menu by a long press on the combined q/set button */
     if (event->param == BGMT_Q_SET)
     {
