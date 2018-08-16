@@ -476,6 +476,13 @@ static void save_crash_log()
         FIO_CloseFile(f);
     }
 
+#ifdef CONFIG_DEBUG_INTERCEPT
+    if (debug_intercept_running())
+    {
+        debug_intercept();
+    }
+#endif
+
     msleep(1000);
 
     if (crash_log_requested == 1)

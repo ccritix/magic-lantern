@@ -48,8 +48,13 @@
 #endif
 
 /* plenty of memory available */
-#if defined(CONFIG_5D2) || defined(CONFIG_5D3) || defined(CONFIG_50D) || defined(CONFIG_500D) || defined(CONFIG_100D) || defined(CONFIG_70D)
+#if defined(CONFIG_5D2) || defined(CONFIG_5D3) || defined(CONFIG_50D) || defined(CONFIG_500D) || defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_100D) || defined(CONFIG_70D)
 #define BUF_SIZE_MALLOC (2048*1024)
+#endif
+
+#ifndef CONFIG_DEBUG_INTERCEPT_STARTUP
+/* large allocators available */
+#define BUF_SIZE_MALLOC (8192*1024)
 #endif
 
 /* for consistency with interrupt_name from dm-spy-extra.c */
