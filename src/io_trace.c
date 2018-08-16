@@ -33,10 +33,12 @@
  * REGION(0xC0C00000, 0x100000): SDIO/SFIO (also paired with SDDMA/SFDMA, unsure whether they can be logged at the same time)
  * REGION(0xC0500000, 0x100000): SDDMA/SFDMA/CFDMA
  * REGION(0xC0E20000, 0x010000): JPCORE (JP57, lossless)
- * REGION(0xC0000000, 0x1000000): everything except EEKO? (DIGIC <= 5)
+ * REGION(0xC0000000, 0x1000000): nearly everything except EEKO? (DIGIC <= 5)
+ * REGION(0xC0000000, 0x20000000): everything including EEKO? (DIGIC 5)
+ * REGION(0xE0000000, 0x1000): DFE (5D2, 50D); untested
  */
 static ASM_VAR uint32_t protected_region = REGION(0xC0000000, 
-                                                   0x1000000);
+                                                  0x20000000);
 
 /* number of 32-bit integers recorded for one MMIO event (power of 2) */
 #define RECORD_SIZE 8
