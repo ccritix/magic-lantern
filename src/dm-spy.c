@@ -43,6 +43,11 @@
 #define BUF_SIZE_MALLOC (2048*1024)
 #endif
 
+#ifndef CONFIG_DEBUG_INTERCEPT_STARTUP
+/* large allocators available */
+#define BUF_SIZE_MALLOC (8192*1024)
+#endif
+
 static char * volatile buf = 0;
 static volatile int buf_size = 0;
 static volatile int len = 0;
