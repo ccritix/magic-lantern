@@ -272,6 +272,7 @@ void io_trace_install()
     qprintf("[io_trace] allocating memory...\n");
 
     /* allocate RAM */
+    buffer_index = 0;
     buffer_count = 4*1024*1024;
     ASSERT(!buffer);
     buffer = malloc(buffer_count * sizeof(buffer[0]));
