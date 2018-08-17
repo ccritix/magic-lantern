@@ -105,9 +105,9 @@ static uint64_t unwrap_timer(uint32_t timer_20bit)
 int debug_format_msg(struct debug_msg * dm, char * msg, int size)
 {
     #ifdef SPARSE_MESSAGES
-    int us = dm->us_timer;  /* already unwrapped */
+    uint32_t us = dm->us_timer;  /* already unwrapped */
     #else
-    int us = unwrap_timer(dm->us_timer);
+    uint32_t us = unwrap_timer(dm->us_timer);
     #endif
 
     if (!dm->task_name && !dm->pc)
@@ -115,7 +115,8 @@ int debug_format_msg(struct debug_msg * dm, char * msg, int size)
         /* assume we only have a timestamped message with no context info */
         /* these logs are generally short-lived; unlikely to go beyond a few seconds */
         return snprintf(msg, size,
-            "%2d.%03d.%03d  %s\n",
+            (us/1000000 < 100) ? "%2d.%03d.%03d  %s\n"   /* typically used for short experiments */ 
+                               :  "%d.%03d.%03d  %s\n",  /* unlikely, but %2d will just fail */
             us/1000000, (us/1000)%1000, us%1000,
             dm->msg
         );
@@ -154,7 +155,8 @@ int debug_format_msg(struct debug_msg * dm, char * msg, int size)
 
     /* format the message */
     return snprintf(msg, size,
-        "%2d.%03d.%03d  %s:%08x:%s %s\n",
+        (us/1000000 < 100) ? "%2d.%03d.%03d  %s:%08x:%s %s\n"   /* typically used for short experiments */ 
+                           :  "%d.%03d.%03d  %s:%08x:%s %s\n",  /* unlikely, but %2d will just fail */
         us/1000000, (us/1000)%1000, us%1000,
         task_name_padded, dm->pc,
         class_str, dm->msg
