@@ -423,7 +423,7 @@ void debug_intercept()
         buf = staticbuf;                                /* malloc not working yet, use a static buffer instead */
         buf_size = BUF_SIZE_STATIC;
         #else
-        buf = malloc(BUF_SIZE_MALLOC);                  /* allocate memory for our logs (it's huge) */
+        buf = malloc(BUF_SIZE_MALLOC);                  /* allocate memory for our log (it's huge) */
         buf_size = BUF_SIZE_MALLOC;
         #endif
 
@@ -470,6 +470,7 @@ void debug_intercept()
         /* assume we've got large malloc by now */
         /* we don't know in advance how big the formatted buffer will be
          * allocate the largest contiguous block from shoot_malloc - should be large enough */
+        /* edit: no, it's not (8MB binary log + 16MB MMIO log => ~ 40MB formatted log) */
         struct memSuite * msg_suite = shoot_malloc_suite_contig(0);
         if (!msg_suite)
         {
@@ -481,6 +482,17 @@ void debug_intercept()
         int msg_max_size = GetSizeOfMemoryChunk(GetFirstChunkFromSuite(msg_suite));
         printf("[dm-spy] output buffer: %s\n", format_memory_size(msg_max_size));
         int msg_len = 0;
+
+        /* create the log file */
+        uint32_t written = 0;
+        char log_filename[100];
+        get_numbered_file_name("dm-%04d.log", 9999, log_filename, sizeof(log_filename));
+        FILE * log_file = FIO_CreateFile(log_filename);
+        if (!log_file)
+        {
+            NotifyBox(2000, "fcreate error");
+            return;
+        }
 
         /* reset timer unwrap state (our log will start at 0) */
         unwrap_timer(0xFFFFFFFF);
@@ -529,9 +541,10 @@ void debug_intercept()
 
             if (msg_len >= msg_max_size - 1000)
             {
-                printf("[dm-spy] output full after %s\n", format_memory_size((void*) dm - buf));
-                console_show();
-                break;
+                printf("[dm-spy] output full after %s", format_memory_size((void*) dm - buf));
+                printf(" out of %s\n", format_memory_size(len));
+                written += FIO_WriteFile(log_file, msg_buf, msg_len);
+                msg_len = 0;
             }
         }
 
@@ -560,12 +573,9 @@ void debug_intercept()
         #endif
 
         /* output to file? */
-        char log_filename[100];
-        get_numbered_file_name("dm-%04d.log", 9999, log_filename, sizeof(log_filename));
-        NotifyBox(2000, "%s: saving...", log_filename);
-        dump_seg(msg_buf, msg_len, log_filename);
-        NotifyBox(2000, "%s: saved %d bytes.", log_filename, msg_len);
-        printf("%s: saved %d bytes.\n", log_filename, msg_len);
+        written += FIO_WriteFile(log_file, msg_buf, msg_len);
+        NotifyBox(2000, "%s: saved %d bytes.", log_filename, written);
+        printf("%s: saved %d bytes.\n", log_filename, written);
 
         /* cleanup */
         shoot_free_suite(msg_suite);
