@@ -258,6 +258,45 @@ void debug_loghex(uint32_t x)
     return debug_loghex2(x, 8);
 }
 
+static void draw_bar(int p, int y1, int y2)
+{
+    p = COERCE(p, 0, 718);
+
+    const int colors[4] = { COLOR_GREEN1, COLOR_YELLOW, COLOR_ORANGE, COLOR_RED };
+
+    draw_line(0, y1, 719, y1, COLOR_BLACK);
+
+    for (int y = y1+1; y < y2; y++)
+    {
+        draw_line(0, y, p, y, colors[p / 180]);
+        draw_line(p+1, y, 719, y, COLOR_BLACK);
+    }
+
+    draw_line(0, y2, 719, y2, COLOR_BLACK);
+}
+
+static void debug_show_progress()
+{
+    /* only print progress from regular tasks */
+    uint32_t interrupt_active = MEM((uintptr_t)&current_task + 4);
+    if (interrupt_active) return;
+
+    /* update the screen at most 10 times per second */
+    static int last = 0;
+    if (!should_run_polling_action(100, &last)) return;
+
+    /* regular progress bar (for debug messages) */
+    int p = (uint64_t) len * 720ull / buf_size;
+    int y0 = lv ? 40 : 24;
+    draw_bar(p, y0, y0 + 3);
+
+#ifdef CONFIG_MMIO_TRACE
+    /* MMIO progress bar */
+    p = (uint64_t) io_trace_log_get_index() * 720ull / io_trace_log_get_nmax();
+    draw_bar(p, y0 + 3, y0 + 6);
+#endif
+}
+
 static void my_DebugMsg(int class, int level, char* fmt, ...)
 {
     uintptr_t lr = read_lr();
@@ -268,7 +307,10 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     last_block = 0;
 
     if (!buf) return;
-    if (len + (int) sizeof(struct debug_msg) >= buf_size - 1) return;
+    if (len + (int) sizeof(struct debug_msg) >= buf_size - 1) {
+        debug_show_progress();
+        return;
+    }
 
     if (class == 21) // engio, lots of messages
         return;
@@ -295,6 +337,8 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
             return;
         }
     }
+
+    debug_show_progress();
 
     uint32_t old = cli();
 

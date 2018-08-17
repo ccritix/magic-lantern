@@ -343,6 +343,11 @@ uint32_t io_trace_log_get_index()
     return buffer_index / RECORD_SIZE;
 }
 
+uint32_t io_trace_log_get_nmax()
+{
+    return buffer_count / RECORD_SIZE;
+}
+
 static uint32_t ror(uint32_t word, uint32_t count)
 {
     return word >> count | word << (32 - count);

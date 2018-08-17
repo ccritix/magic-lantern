@@ -6,6 +6,9 @@ void io_trace_cleanup();
 /* return its (next) index, for syncing with dm-spy (from 0 to N-1, consecutive) */
 uint32_t io_trace_log_get_index();
 
+/* return maximum number of MMIO entries */
+uint32_t io_trace_log_get_nmax();
+
 /* log message given by index (will be called from 0 to what the above returned - 1) */
 /* note: msg_buffer and msg_size can be either used directly, or passed to debug_format_msg */
 /* extra care required if you want to mix these two methods */
@@ -20,6 +23,7 @@ void io_trace_resume();
 
 #else /* dummy stubs */
 static uint32_t io_trace_log_get_index() { return 0xFFFFFFFF; }
+static uint32_t io_trace_log_get_nmax() { return 0; }
 static uint32_t io_trace_get_timer() { return MEM(0xC0242014); }
 static void io_trace_pause() { }
 static void io_trace_resume() { }
