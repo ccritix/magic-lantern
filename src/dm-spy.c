@@ -34,6 +34,7 @@
 #include "qemu-util.h"
 #include "propvalues.h"
 #include "console.h"
+#include "powersave.h"
 
 #define BUF_SIZE_STATIC (16*1024)
 
@@ -506,6 +507,14 @@ void debug_intercept()
         dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
 
+        int lv_was_paused = 0;
+        if (lv)
+        {
+            /* faster that way */
+            PauseLiveView();
+            lv_was_paused = 1;
+        }
+
         info_led_on();
         printf("[dm-spy] captured %s of messages\n", format_memory_size(len));
         NotifyBox(10000, "Pretty-printing... (%s)", format_memory_size(len));
@@ -625,6 +634,11 @@ void debug_intercept()
         shoot_free_suite(msg_suite);
         msg_buf = 0;
         msg_len = 0;
+
+        if (lv_was_paused && LV_PAUSED)
+        {
+            ResumeLiveView();
+        }
     }
 
     /* finished! */
