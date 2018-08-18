@@ -98,7 +98,10 @@ static void __attribute__ ((naked)) trap()
         /* prepare to save information about trapping code */
         "LDR    R4, buffer\n"           /* load buffer address */
         "LDR    R2, buffer_index\n"     /* load buffer index from memory */
-        "BIC    R2, #0x3FC00000\n"      /* avoid writing outside array bounds (mask should match buffer size) */
+        "MRS    R0, CPSR\n"             /* save flags */
+        "TST    R2, #0x3FC00000\n"      /* check for buffer overflow (16MB buffer) */
+        "MOVNE  R2, #0x00400000\n"      /* we have allocated 0x400000+8 words (0x80000+1 records) */
+        "MSR    CPSR_f, R0\n"           /* restore flags */
 
         /* store the program counter */
         "SUB    R5, LR, #8\n"           /* retrieve PC where the exception happened */
@@ -108,7 +111,7 @@ static void __attribute__ ((naked)) trap()
 #ifdef CONFIG_QEMU
         /* disassemble the instruction */
         "LDR    R3, =0xCF123010\n"
-        "STR    R0, [R3]\n"
+        "STR    R5, [R3]\n"
 #endif
 
         /* get and store DryOS task name and interrupt ID */
@@ -276,10 +279,11 @@ void io_trace_install()
     /* allocate RAM */
     buffer_index = 0;
     buffer_count = 4*1024*1024;
+    int alloc_size = (buffer_count + RECORD_SIZE) * sizeof(buffer[0]);
     ASSERT(!buffer);
-    buffer = malloc(buffer_count * sizeof(buffer[0]));
+    buffer = malloc(alloc_size);
     if (!buffer) return;
-    memset(buffer, 0, buffer_count * sizeof(buffer[0]));
+    memset(buffer, 0, alloc_size);
 
     qprintf("[io_trace] installing...\n");
 
@@ -462,9 +466,9 @@ int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
     if (buffer[buffer_count - RECORD_SIZE])
     {
         /* index wrapped around? */
-        printf("[MMIO] WARNING: lost data (try increasing buffer size)\n");
+        printf("[MMIO] warning: buffer full\n");
         len += snprintf(msg_buffer + len, msg_size - len,
-            "[MMIO] WARNING: lost data (try increasing buffer size)\n");
+            "[MMIO] warning: buffer full\n");
         buffer[buffer_count - RECORD_SIZE] = 0;
     }
 
