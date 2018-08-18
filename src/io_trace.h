@@ -1,5 +1,14 @@
+/* prepare to install the MMIO tracing hooks (allocate memory etc) */
+void io_trace_prepare();
+
+/* install the MMIO tracing hooks */
+/* can be done with interrupts disabled, if desired */
 void io_trace_install();
+
+/* uninstall the MMIO tracing hooks; logging buffer is still available for reading */
 void io_trace_uninstall();
+
+/* free the logging buffer, completing the uninstallation */
 void io_trace_cleanup();
 
 #ifdef CONFIG_MMIO_TRACE

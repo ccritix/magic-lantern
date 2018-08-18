@@ -265,7 +265,7 @@ void io_trace_cleanup()
     buffer = 0;
 }
 
-void io_trace_install()
+void io_trace_prepare()
 {
     extern int ml_started;
     if (!ml_started)
@@ -284,7 +284,10 @@ void io_trace_install()
     buffer = malloc(alloc_size);
     if (!buffer) return;
     memset(buffer, 0, alloc_size);
+}
 
+void io_trace_install()
+{
     qprintf("[io_trace] installing...\n");
 
     uint32_t int_status = cli();

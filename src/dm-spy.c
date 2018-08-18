@@ -472,10 +472,21 @@ void debug_intercept()
         buf_size = BUF_SIZE_MALLOC;
         #endif
 
-        dm_spy_extra_install();
+        #ifdef CONFIG_MMIO_TRACE
+        io_trace_prepare();
+        #endif
+
+        /* interrupts are cleared to make sure "Logging started"
+         * is going to be the first message in the log file
+         * in other words, no other tasks/interrupts will run
+         * until we finish installing all our hooks */
+        int int_status = cli();
+
         #ifdef CONFIG_MMIO_TRACE
         io_trace_install();
         #endif
+
+        dm_spy_extra_install();
 
         int err = patch_instruction(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
@@ -483,6 +494,10 @@ void debug_intercept()
             B_INSTR(DebugMsg_addr, my_DebugMsg),        /* replace all calls to DebugMsg with our own function (no need to call the original) */
             "dm-spy: log all DebugMsg calls"
         );
+
+        DryosDebugMsg(0, 0, "Logging started.");
+
+        sei(int_status);
 
         #ifndef CONFIG_DEBUG_INTERCEPT_STARTUP
         if (err) {
@@ -497,7 +512,6 @@ void debug_intercept()
         ASSERT(len <= buf_size);
 
         printf("[dm-spy] stop logging...\n");
-
         /* stop the loggers */
         #ifdef CONFIG_MMIO_TRACE
         io_trace_uninstall();
@@ -505,7 +519,11 @@ void debug_intercept()
         printf("[MMIO] captured %d events (%s)\n", mmio_index, format_memory_size(mmio_index * 8 * 4));
         #endif
         dm_spy_extra_uninstall();
+
+        int int_status = cli();
+        DryosDebugMsg(0, 0, "Logging finished.");
         unpatch_memory(DebugMsg_addr);
+        sei(int_status);
 
         int lv_was_paused = 0;
         if (lv)
