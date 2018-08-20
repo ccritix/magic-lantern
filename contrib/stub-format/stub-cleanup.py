@@ -28,6 +28,7 @@ force_unused = [
     "StartFactoryMenuApp",   # RE only
     "prop_request_icu_auto_poweroff", # antique
     "dumpf", "dmstart", "dmstop",   # eventprocs
+    "dm_names", # obsolete
     "bootdisk_enable", "bootdisk_disable", # eventprocs
     "GUI_CONTROL",
     "EngDrvIn",
