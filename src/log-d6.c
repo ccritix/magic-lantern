@@ -182,11 +182,11 @@ static void pre_isr_log(uint32_t isr)
         while (last_tail != mpu_send_ring_buffer_tail)
         {
             char * last_message = &mpu_send_ring_buffer[last_tail][4];
-            char msg[256];
+            static char msg[256];
             mpu_decode(last_message, msg, sizeof(msg));
             //qprintf("[%d] mpu_send(%s)%s\n", last_tail, msg, last_message[-2] == 1 ? "" : " ?!?");
             DryosDebugMsg(0, 15, "[%d] *** mpu_send(%s)%s", last_tail, msg, last_message[-2] == 1 ? "" : " ?!?");
-            last_tail = MOD(last_tail + 1, COUNT(mpu_send_ring_buffer));
+            INC_MOD(last_tail, COUNT(mpu_send_ring_buffer));
         }
     }
 }
@@ -203,7 +203,7 @@ static void post_isr_log(uint32_t isr)
         if (last_tail != mpu_recv_ring_buffer_tail)
         {
             const char * last_message = &mpu_recv_ring_buffer[last_tail][4];
-            char msg[256];
+            static char msg[256];
             mpu_decode(last_message, msg, sizeof(msg));
             //qprintf("[%d] mpu_recv(%s)\n", last_tail, msg);
             DryosDebugMsg(0, 15, "[%d] *** mpu_recv(%s)", last_tail, msg);
