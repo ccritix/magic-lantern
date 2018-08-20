@@ -2,7 +2,7 @@
 
 CANON_NAME_FIR  = CCF18101.FIR
 FIRMWARE_ID     = 0x80000417
-UPDATE_NAME_FIR = DUMP200D.FIR
+UPDATE_NAME_FIR = LOG_200D.FIR
 ROMBASEADDR     = 0xE0040000
 
 # Shrink Canon's malloc heap by changing its end address
@@ -14,7 +14,8 @@ RESTARTSTART    = 0x001B6300
 # these should be removed when porting starts
 ifeq ($(ML_SRC_PROFILE),generic)
 ML_SRC_PROFILE  = minimal
-ML_MINIMAL_OBJ  = minimal-d78.o
+ML_MINIMAL_OBJ  = minimal-d6.o
+ML_SRC_EXTRA_OBJS += log-d6.o stdio.o
 endif
 
 ML_BOOT_OBJ     = boot-d78.o

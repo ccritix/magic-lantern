@@ -53,6 +53,9 @@ NSTUB(0xE023D461,  sysmem_info)            /* System Memory Information */
 NSTUB(0xE01CA9C9,  memmap_info)            /* Exception vector, DRYOS system memory etc */
 NSTUB(0xE0148E3B,  smemShowFix)            /* Common Lower, Common Upper etc */
 
+/** Memory allocation **/
+NSTUB(0xDF0079E3,  GetMemoryInformation)   /* called from AllocateMemory */
+
 /** Debug messages **/
 NSTUB(0xDF006E6D,  DryosDebugMsg)          /* lots of debug messages; format string is third argument */
 
@@ -64,6 +67,21 @@ NSTUB(0xE04B9A3B,  CancelTimer)            /* from error message */
 NSTUB(0xE05301DF,  SetHPTimerAfterNow)     /* from error message */
 NSTUB(0xE0530233,  SetHPTimerNextTick)     /* same "worker" function as SetHPTimerAfterNow */
 NSTUB(0xE04B9985,  SetTimerAfter)          /* from error message */
+
+/** Interrupts **/
+NSTUB(    0x4030,  pre_isr_hook)
+NSTUB(    0x4034,  post_isr_hook)
+NSTUB(   0x6CC10,  isr_table_handler)
+NSTUB(   0x6CC14,  isr_table_param)
+
+/** MPU communication **/
+NSTUB(0xE01C7657,  mpu_send)                  // "dwSize < TXBD_DATA_SIZE"
+NSTUB(0xE056314F,  mpu_recv)                  // passed as last argument by InitializeIntercom and eventually stored into mpu_recv_cbr
+NSTUB(    0x79C0,  mpu_recv_cbr)              // mpu_recv is called indirectly through this function pointer
+NSTUB(   0x87AD8,  mpu_send_ring_buffer)      // ring buffer used in mpu_send
+NSTUB(    0x79A4,  mpu_send_ring_buffer_tail) // ring buffer index incremented in mpu_send
+NSTUB(   0x87998,  mpu_recv_ring_buffer)      // ring buffer used in SIO3_ISR, subroutine that processes two chars at a time
+NSTUB(    0x799C,  mpu_recv_ring_buffer_tail) // ring buffer index incremented in the above subroutine
 
 /** Misc **/
 NSTUB(0xE00764F1,  vsnprintf)              /* references "01234567", "0123456789", "0123456789abcdef" and "0123456789ABCDEF"; second arg is size; the one called by DebugMsg only knows %s */

@@ -11,7 +11,7 @@ extern void dump_file(char* name, uint32_t addr, uint32_t size);
 extern int GetMemoryInformation(int *, int *);
 
 /* custom logging buffer */
-static char buf[256 * 1024];        /* adjust this until it runs out of memory (512 might work, maybe more) */
+static char buf[192 * 1024];        /* adjust this until it runs out of memory (512 might work, maybe more) */
 static int buf_size = sizeof(buf);
 static int len = 0;
 
@@ -163,12 +163,12 @@ static void mpu_decode(const char * in, char * out, int max_len);
 
 static void pre_isr_log(uint32_t isr)
 {
-#ifdef CONFIG_DIGIC_VI
+//#ifdef CONFIG_DIGIC_VI
     extern const uint32_t isr_table_handler[];
     extern const uint32_t isr_table_param[];
     uint32_t handler = isr_table_handler[2 * isr];
     uint32_t arg     = isr_table_param  [2 * isr];
-#endif
+//#endif
 
     const char * name = isr_names[isr & 0x1FF];
     //DryosDebugMsg(0, 15, "INT-%03Xh %s %X(%X)", isr, name ? name : "", handler, arg);
