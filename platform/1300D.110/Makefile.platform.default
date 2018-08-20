@@ -7,15 +7,7 @@ FIRMWARE_ID         = 0x80000404
 # the only DIGIC 4 model with 32MB ROM
 ROMBASEADDR         = 0xFE0C0000
 
-# For small targets (minimal, installer):
-# Load ML at user_mem_start (aka heap start / DRY_HEAP_START / malloc memory pool)
-# The malloc memory pool will be pushed to the right, so it will start after our BSS.
-# Default 0xBF400 - 0x14B400, patched to _bss_end - 0x14B400 (variable size).
-# note: unusual initialization sequence; will require custom patching code or different boot method.
-RESTARTSTART        = 0xBF500
-
-ifeq ($(ML_SRC_PROFILE),generic)
 # Load ML at the end of the AllocateMemory pool
 # Default 0x2D0000 - 0xD00000, patched to 0x2D0000 - 0xC80000 (512K for us).
 RESTARTSTART        = 0xC80000
-endif
+ML_BOOT_OBJ         = boot-d45-ch.o
