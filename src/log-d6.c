@@ -159,25 +159,25 @@ static char* isr_names[0x200] = {
     [0x18B] = "WdtInt",
 };
 
-static void mpu_decode(char* in, char* out, int max_len);
+static void mpu_decode(const char * in, char * out, int max_len);
 
 static void pre_isr_log(uint32_t isr)
 {
 #ifdef CONFIG_DIGIC_VI
-    extern uint32_t isr_table_handler[];
-    extern uint32_t isr_table_param[];
+    extern const uint32_t isr_table_handler[];
+    extern const uint32_t isr_table_param[];
     uint32_t handler = isr_table_handler[2 * isr];
     uint32_t arg     = isr_table_param  [2 * isr];
 #endif
 
-    char* name = isr_names[isr & 0x1FF];
+    const char * name = isr_names[isr & 0x1FF];
     //DryosDebugMsg(0, 15, "INT-%03Xh %s %X(%X)", isr, name ? name : "", handler, arg);
 
     if (isr == 0x2A || isr == 0x12A || isr == 0x147 || isr == 0x1B)
     {
         /* SIO3/MREQ; also check on timer interrupt */
-        extern char * mpu_send_ring_buffer[50];
-        extern int mpu_send_ring_buffer_tail;
+        extern const char * const mpu_send_ring_buffer[50];
+        extern const int mpu_send_ring_buffer_tail;
         static int last_tail = 0;
         while (last_tail != mpu_send_ring_buffer_tail)
         {
@@ -196,13 +196,13 @@ static void post_isr_log(uint32_t isr)
     if (isr == 0x147)
     {
         /* expecting at most one message fully received at the end of this interrupt */
-        extern char * mpu_recv_ring_buffer[80];
-        extern int mpu_recv_ring_buffer_tail;
+        extern const char * const mpu_recv_ring_buffer[80];
+        extern const int mpu_recv_ring_buffer_tail;
         static int last_tail = 0;
 
         if (last_tail != mpu_recv_ring_buffer_tail)
         {
-            char * last_message = &mpu_recv_ring_buffer[last_tail][4];
+            const char * last_message = &mpu_recv_ring_buffer[last_tail][4];
             char msg[256];
             mpu_decode(last_message, msg, sizeof(msg));
             //qprintf("[%d] mpu_recv(%s)\n", last_tail, msg);
@@ -215,13 +215,13 @@ static void post_isr_log(uint32_t isr)
 extern void (*pre_isr_hook)();
 extern void (*post_isr_hook)();
 
-static void mpu_decode(char* in, char* out, int max_len)
+static void mpu_decode(const char * in, char * out, int max_len)
 {
     int len = 0;
     int size = in[0];
 
     /* print each byte as hex */
-    for (char* c = in; c < in + size; c++)
+    for (const char * c = in; c < in + size; c++)
     {
         len += snprintf(out+len, max_len-len, "%02x ", *c);
     }
