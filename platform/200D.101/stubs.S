@@ -84,4 +84,4 @@ NSTUB(   0x87998,  mpu_recv_ring_buffer)      // ring buffer used in SIO3_ISR, s
 NSTUB(    0x799C,  mpu_recv_ring_buffer_tail) // ring buffer index incremented in the above subroutine
 
 /** Misc **/
-NSTUB(0xE00764F1,  vsnprintf)              /* references "01234567", "0123456789", "0123456789abcdef" and "0123456789ABCDEF"; second arg is size; the one called by DebugMsg only knows %s */
+NSTUB(0xE11C7CF9,  vsnprintf)              /* called near dmstart; references "01234567", "0123456789", "0123456789abcdef" and "0123456789ABCDEF"; second arg is size; the one called by DebugMsg only knows %s */
