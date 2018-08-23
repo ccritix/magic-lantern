@@ -97,7 +97,7 @@ volatile PROP_INT(PROP_AF_MODE, af_mode);
 volatile PROP_INT(PROP_METERING_MODE, metering_mode);
 volatile PROP_INT(PROP_DRIVE, drive_mode);
 volatile PROP_INT(PROP_STROBO_FIRING, strobo_firing);
-volatile PROP_INT(PROP_LVAF_MODE, lvaf_mode);
+volatile PROP_INT(PROP_LIVE_VIEW_AF_SYSTEM, lv_af_mode);
 volatile PROP_INT(PROP_IMAGE_REVIEW_TIME, image_review_time);
 volatile PROP_INT(PROP_MIRROR_DOWN, mirror_down);
 volatile PROP_INT(PROP_LCD_BRIGHTNESS, backlight_level);
