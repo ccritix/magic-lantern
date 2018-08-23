@@ -897,6 +897,13 @@ int is_manual_focus()
     return (af_mode & 0xF) == AF_MODE_MANUAL_FOCUS;
 }
 
+int is_continuous_af()
+{
+    if (!lv) return 0;
+    if (is_manual_focus()) return 0;
+    return is_movie_mode() ? continuous_af_movie : continuous_af_photo;
+}
+
 static int trap_focus_autoscaling = 1;
 
 #ifdef FEATURE_TRAP_FOCUS
