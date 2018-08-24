@@ -278,6 +278,10 @@ static void draw_bar(int p, int y1, int y2)
 
 static void debug_show_progress()
 {
+    extern int ml_started;
+    if (!ml_started) return;
+    if (!DISPLAY_IS_ON) return;
+
     /* only print progress from regular tasks */
     uint32_t interrupt_active = MEM((uintptr_t)&current_task + 4);
     if (interrupt_active) return;
