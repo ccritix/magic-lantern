@@ -79,7 +79,7 @@ asm(
 
     ".code 16\n"
     "loaded_as_thumb:\n"
-    "LDR R0, =1\n"              // cstart(1) = loaded as Thumb
+    "MOVS R0, #1\n"             // cstart(1) = loaded as Thumb; MOV fails
     "LDR R1, _cstart_addr\n"    /* long jump into ARM code (uncacheable, if linked that way) */
     "BX R1\n"
     "NOP\n"
