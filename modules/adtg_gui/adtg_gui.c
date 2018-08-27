@@ -974,7 +974,12 @@ static unsigned int adtg_vsync_setparam_cbr(unsigned int unused)
         {
             int old = cli();
             skip_logging = 1;
-            MEM(last_changed_reg) = last_changed_val;
+            EngDrvOut(last_changed_reg, last_changed_val);
+            if ((last_changed_reg & 0xFFFFFF00) == 0xC0F06000) /* 0xC0F060xx */
+            {
+                /* some models require this for overriding FPS and image capture resolution registers */
+                MEM(0xC0F06000) = 1;
+            }
             skip_logging = 0;
             sei(old);
         }
