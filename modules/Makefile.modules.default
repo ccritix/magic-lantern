@@ -14,6 +14,7 @@ ML_MODULES_DYNAMIC ?= \
 	autoexpo \
 	arkanoid \
 	deflick \
+	img_name \
 	lua \
 	bench \
 	selftest \
