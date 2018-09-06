@@ -11,8 +11,22 @@ extern void malloc_info(void);
 extern void sysmem_info(void);
 extern void smemShowFix(void);
 
+static void led_blink(int times, int delay_on, int delay_off)
+{
+    for (int i = 0; i < times; i++)
+    {
+        MEM(CARD_LED_ADDRESS) = LEDON;
+        msleep(delay_on);
+        MEM(CARD_LED_ADDRESS) = LEDOFF;
+        msleep(delay_off);
+    }
+}
+
 static void DUMP_ASM dump_task()
 {
+    /* LED blinking test */
+    led_blink(5, 500, 500);
+
 #if 0
     /* print memory info on QEMU console */
     malloc_info();
