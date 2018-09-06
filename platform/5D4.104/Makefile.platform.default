@@ -16,3 +16,5 @@ READELF=echo MemSiz
 
 # Cortex R4
 CFLAG_USER += -march=armv7-r -mlong-calls
+
+ML_BOOT_OBJ     = minimal.o
