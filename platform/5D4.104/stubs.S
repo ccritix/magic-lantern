@@ -205,3 +205,20 @@ NSTUB(     0x6D9,  task_create)
 NSTUB(0xFE4C205D,  FSUunMountDevice)
 NSTUB(0xFE35DB17,  LoadCalendarFromRTC)
 NSTUB(0xFE959E11,  vsnprintf)
+
+/** Logging experiments */
+NSTUB(0xFE1296EF, dump_file)
+
+/** MPU communication **/
+NSTUB(0xFE290297,  mpu_send)                  // "dwSize < TXBD_DATA_SIZE"
+NSTUB(0xFE3254CB,  mpu_recv)                  // passed as last argument by InitializeIntercom and eventually stored into mpu_recv_cbr
+NSTUB(    0x7A4C,  mpu_recv_cbr)              // mpu_recv is called indirectly through this function pointer
+NSTUB(   0x32D0C,  mpu_send_ring_buffer)      // ring buffer used in mpu_send
+NSTUB(    0x7A30,  mpu_send_ring_buffer_tail) // ring buffer index incremented in mpu_send
+NSTUB(   0x32BCC,  mpu_recv_ring_buffer)      // ring buffer used in SIO3_ISR, subroutine that processes two chars at a time
+NSTUB(    0x7A28,  mpu_recv_ring_buffer_tail) // ring buffer index incremented in the above subroutine
+
+/** Memory info **/
+NSTUB(0xFE29EDAD,  malloc_info)                             // Thumb
+NSTUB(0xFE29EE45,  sysmem_info)                             // Thumb
+NSTUB(0xFE2DF101,  smemShowFix)                             // Thumb

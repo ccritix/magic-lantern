@@ -97,7 +97,14 @@ copy_and_restart( int offset )
     // We enter after the signature, avoiding the
     // relocation jump that is at the head of the data
     // this is Thumb code
+#ifdef CONFIG_5D4
+    MEM(0xD20B0270) = 0xC0003;
+    MEM(0xD20B0274) = 0xC0003;
+    MEM(0xD20B0278) = 0xC0003;
+    MEM(0xD20B027C) = 0xC0003;
+#else
     MEM(0xD20C0084) = 0;
+#endif
     thunk __attribute__((long_call)) reloc_entry = (thunk)( RELOCADDR + 0xC + 1 );
     reloc_entry();
 
