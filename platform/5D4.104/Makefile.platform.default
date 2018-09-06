@@ -1,4 +1,5 @@
-#Makefile.setup.platform for 80D
+# 5D Mark IV 1.0.4
+
 CANON_NAME_FIR  = 5D300133.FIR
 FIRMWARE_ID     = 0x80000349
 UPDATE_NAME_FIR = DUMP_5D4.FIR
