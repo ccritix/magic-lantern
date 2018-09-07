@@ -53,12 +53,18 @@ static void DUMP_ASM dump_task()
 /* called before Canon's init_task */
 void boot_pre_init_task(void)
 {
+#ifdef LOG_EARLY_STARTUP
     log_start();
+#endif
 }
 
 /* called right after Canon's init_task, while their initialization continues in background */
 void boot_post_init_task(void)
 {
+#ifndef LOG_EARLY_STARTUP
+    log_start();
+#endif
+
     msleep(1000);
 
     task_create("dump", 0x1e, 0x1000, dump_task, 0 );

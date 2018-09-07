@@ -2,17 +2,23 @@
  * based on dm-spy-experiments  code */
 
 #include "dryos.h"
+#include "log-d6.h"
 
 /* fixme */
 extern __attribute__((long_call)) void DryosDebugMsg(int,int,const char *,...);
 extern void dump_file(char* name, uint32_t addr, uint32_t size);
-//extern void * _AllocateMemory(size_t);
-//extern void _FreeMemory(void *);
 extern int GetMemoryInformation(int *, int *);
 
 /* custom logging buffer */
+#ifdef LOG_EARLY_STARTUP
 static char buf[192 * 1024];        /* adjust this until it runs out of memory (512 might work, maybe more) */
 static int buf_size = sizeof(buf);
+#else
+static char * buf;                  /* we've got malloc */
+static int buf_size = 0;
+extern void * _AllocateMemory(size_t);
+extern void _FreeMemory(void *);
+#endif
 static int len = 0;
 
 char* get_current_task_name()
@@ -256,11 +262,13 @@ int GetFreeMemForAllocateMemory()
 void log_start()
 {
     /* allocate memory for our logging buffer */
-    //buf_size = 1024 * 1024;
-    //qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
-    //buf = _AllocateMemory(buf_size);
+#ifndef LOG_EARLY_STARTUP
+    buf_size = 2 * 1024 * 1024;
+    qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
+    buf = _AllocateMemory(buf_size);
+#endif
     qprintf("Logging buffer: %X - %X\n", buf, buf + buf_size - 1);
-    //qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
+    qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
     while (!buf);
 
     /* override Canon's DebugMsg (requires RAM address) */
