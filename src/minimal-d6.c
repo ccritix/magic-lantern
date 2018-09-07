@@ -45,6 +45,18 @@ static void DUMP_ASM dump_task()
   //dump_file("EE00.BIN", 0xEE000000, 0x02000000);    - unknown, may crash 
 #endif
 
+#if 0
+    #ifdef CONFIG_5D4   /* 1.0.4 */
+    DryosDebugMsg(0, 15, "Raw buffer size: %d x %d", MEM(0x133FC), MEM(0x13400));
+    DryosDebugMsg(0, 15, "FPS timer B: %d", MEM(0x12D10));
+    #endif
+    call("lv_raw_dump", 14);        /* the argument is for 80D; not used on 5D4 */
+    call("lv_raw2_dump", 14);       /* same here */
+    call("lv_yuv_dump", 0);         /* 0 = automatic size; 5D4: saved 0 byte files; to be re-tested while recording */
+    call("lv_vram_dump", 0);        /* saves 6 .422 files; 5D4: size 881600 in 4k30 / 1113600 in 1080p60; 3 of them are 928x475 / 920x600; the other 3 are 1920 wide, but incomplete */
+    call("lv_hdr_dump", 0);         /* saved 0 byte files */
+#endif
+
     /* save a diagnostic log */
     log_finish();
     call("dumpf");
