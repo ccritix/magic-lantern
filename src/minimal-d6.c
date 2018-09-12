@@ -45,16 +45,30 @@ static void DUMP_ASM dump_task()
   //dump_file("EE00.BIN", 0xEE000000, 0x02000000);    - unknown, may crash 
 #endif
 
+/* LiveView RAW experiments */
 #if 0
     #ifdef CONFIG_5D4   /* 1.0.4 */
-    DryosDebugMsg(0, 15, "Raw buffer size: %d x %d", MEM(0x133FC), MEM(0x13400));
-    DryosDebugMsg(0, 15, "FPS timer B: %d", MEM(0x12D10));
-    #endif
+    call("lv_save_raw", 1);         /* enable LiveView RAW image capture */
+    call("lv_set_raw_wp", 2);       /* raw type HIVSHD; HEAD has some unusual layout (?!) */
+    msleep(1000);                   /* wait for the raw stream to appear */
+    DryosDebugMsg(0, 15, "Raw buffer size: %d x %d", MEM(0x133FC), MEM(0x13400));   /* from lv_raw_dump */
+    DryosDebugMsg(0, 15, "FPS timer B: %d", MEM(0x12D10));          /* SetVDFrameLiveViewDevice, AccumH */
+    void * buf = MEM(0x7C78);                   /* buffer address from lv_raw_dump */
+    dump_file("LV.RAW", buf, 20 * 1024 * 1024); /* buffer size incorrect? there's more valid data than what's reported */
+    
+    #else /* all other models */
+
+    call("lv_save_raw", 1);         /* enable LiveView RAW image capture */
+    call("lv_set_raw_wp", 0);       /* raw type HEAD (first stage in the pipeline?) */
+    msleep(1000);                   /* wait for the raw stream to appear */
     call("lv_raw_dump", 14);        /* the argument is for 80D; not used on 5D4 */
-    call("lv_raw2_dump", 14);       /* same here */
+    call("lv_raw_dump2", 14);       /* same here */
+    call("lv_raw_dump3");           /* M50 only */
     call("lv_yuv_dump", 0);         /* 0 = automatic size; 5D4: saved 0 byte files; to be re-tested while recording */
     call("lv_vram_dump", 0);        /* saves 6 .422 files; 5D4: size 881600 in 4k30 / 1113600 in 1080p60; 3 of them are 928x475 / 920x600; the other 3 are 1920 wide, but incomplete */
     call("lv_hdr_dump", 0);         /* saved 0 byte files */
+
+    #endif
 #endif
 
     /* save a diagnostic log */
