@@ -2096,7 +2096,7 @@ static void srm_test_task()
 
 extern void * __fast_malloc(size_t size, unsigned int flags, const char* file, unsigned int line);
 
-static void fast_malloc(size_t size)
+static void * fast_malloc(size_t size)
 {
     return __fast_malloc(size, 0, __FILE__, __LINE__);
 }
