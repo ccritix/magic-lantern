@@ -55,6 +55,8 @@ NSTUB(0xE0148E3B,  smemShowFix)            /* Common Lower, Common Upper etc */
 
 /** Memory allocation **/
 NSTUB(0xDF0079E3,  GetMemoryInformation)   /* called from AllocateMemory */
+NSTUB(0xE11C6376,  GetSizeOfMaxRegion)
+NSTUB(0xE11C6518,  _AllocateMemory)
 
 /** Debug messages **/
 NSTUB(0xDF006E6D,  DryosDebugMsg)          /* lots of debug messages; format string is third argument */
@@ -67,6 +69,7 @@ NSTUB(0xE04B9A3B,  CancelTimer)            /* from error message */
 NSTUB(0xE05301DF,  SetHPTimerAfterNow)     /* from error message */
 NSTUB(0xE0530233,  SetHPTimerNextTick)     /* same "worker" function as SetHPTimerAfterNow */
 NSTUB(0xE04B9985,  SetTimerAfter)          /* from error message */
+NSTUB(0xE05F9DB4,  CancelDateTimer) 
 
 /** Interrupts **/
 NSTUB(    0x4030,  pre_isr_hook)
@@ -85,3 +88,21 @@ NSTUB(    0x799C,  mpu_recv_ring_buffer_tail) // ring buffer index incremented i
 
 /** Misc **/
 NSTUB(0xE11C7CF9,  vsnprintf)              /* called near dmstart; references "01234567", "0123456789", "0123456789abcdef" and "0123456789ABCDEF"; second arg is size; the one called by DebugMsg only knows %s */
+
+/** GUI **/
+NSTUB(0xE00C54AA,  GUI_ChangeMode)
+NSTUB(0xE00C5414,  GUI_Control)
+NSTUB(0xE04A7EF4,  SetGUIRequestMode)
+NSTUB(0xE00921DC,  gui_init_end)
+NSTUB(0xE00C5266,  gui_main_task)
+NSTUB(0xE02D1D50,  gui_massive_event_loop)
+
+/** GUI for old cameras **/
+NSTUB(0xE02D35AA,  gui_change_mode)
+
+/** ASIF **/
+NSTUB(0xE05305D6,  PowerAudioOutput)
+NSTUB(0xE0546DE2,  SetAudioVolumeOut)
+
+/** DMA **/
+NSTUB(0xE01B3296,  dma_memcpy)
