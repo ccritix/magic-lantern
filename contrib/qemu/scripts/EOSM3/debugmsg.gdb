@@ -4,7 +4,7 @@
 source -v debug-logging.gdb
 
 macro define CURRENT_TASK 0x803C
-macro define CURRENT_ISR  (*(int*)0x8160 ? (*(int*)0x8164) : 0)
+macro define CURRENT_ISR  (MEM(0x8160) ? MEM(0x8164) : 0)
 
 # GDB hook is very slow; -d debugmsg is much faster
 # ./run_canon_fw.sh will use this address, don't delete it
@@ -29,6 +29,9 @@ msleep_log
 
 b *0xBFE14EF4
 register_interrupt_log
+
+b *0xFC327C18
+register_func_log
 
 # semaphores
 if 0
