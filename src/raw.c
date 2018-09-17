@@ -449,7 +449,6 @@ static void* raw_get_default_lv_buffer()
 /* returns 1 on success */
 static int raw_lv_get_resolution(int* width, int* height)
 {
-#ifdef CONFIG_EDMAC_RAW_SLURP
     /*
      * from adtg_gui.c:
      * {0xC0F0,   0x6800, 0, "RAW first line|column. Column is / 8 on 5D3 (parallel readout?)"},
@@ -500,20 +499,6 @@ static int raw_lv_get_resolution(int* width, int* height)
 #endif
 
     return 1;
-
-#else
-    /* autodetect raw size from EDMAC */
-    uint32_t lv_raw_height = shamem_read(RAW_LV_EDMAC+4);
-    uint32_t lv_raw_size = shamem_read(RAW_LV_EDMAC+8);
-    if (!lv_raw_size) return 0;
-
-    int pitch = lv_raw_size & 0xFFFF;
-    *width = pitch * 8 / 14;
-    
-    /* 5D2 uses lv_raw_size >> 16, 5D3 uses lv_raw_height, so this hopefully covers both cases */
-    *height = MAX((lv_raw_height & 0xFFFF) + 1, ((lv_raw_size >> 16) & 0xFFFF) + 1);
-    return 1;
-#endif
 }
 
 /* We can only do custom buffer allocations with CONFIG_EDMAC_RAW_SLURP,
