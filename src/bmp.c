@@ -149,25 +149,6 @@ inline void bmp_putpixel_fast(uint8_t * const bvram, int x, int y, uint8_t color
     #else
     bvram[x + y * BMPPITCH] = color;
     #endif
-
-     #ifdef CONFIG_500D // err70?!
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-     #endif
 }
 
 
@@ -385,26 +366,6 @@ bmp_fill(
 #else
         memset(row, color, w);
 #endif
-
-     #ifdef CONFIG_500D // err70?!
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-        asm("nop");
-     #endif
-
     }
 }
 
