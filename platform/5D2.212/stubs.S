@@ -221,6 +221,10 @@ NSTUB(0xFF990188,  mvrSetDefQScale)
 NSTUB(0xFF9D8250,  DispSensorStart)
 NSTUB(0xFF9B1BE0,  LightMeasure_n_Callback_r0)
 
+/** LiveView RAW patches **/
+NSTUB(0xFFA08008, StartImagePass_x1_SetEDmac)               /* right before the SetEDmac call from StartImagePass_x1/x5 CrawAddr / KindOfCraw */
+NSTUB(0xFFA08B24, StartImagePass_x5_SetEDmac)               /* FIXME: why it fails when the hook is placed on the BL instruction?! */
+
 /** Making the card bootable **/
 NSTUB(   0x20890,  cf_device)
 NSTUB(   0x208D8,  sd_device)

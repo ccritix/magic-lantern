@@ -31,6 +31,11 @@
 #include "console.h"
 #include "fps.h"
 
+#ifdef CONFIG_EDMAC_RAW_PATCH
+#include "patch.h"
+#include "edmac.h"
+#endif
+
 #undef RAW_DEBUG        /* define it to help with porting */
 #undef RAW_DEBUG_DUMP   /* if you want to save the raw image buffer and the DNG from here */
 #undef RAW_DEBUG_BLACK  /* for checking black level calibration */
@@ -1704,9 +1709,11 @@ void FAST raw_lv_redirect_edmac(void* ptr)
     #endif
 }
 
-#ifdef CONFIG_EDMAC_RAW_SLURP
-
+#if defined(CONFIG_EDMAC_RAW_SLURP) || defined(CONFIG_EDMAC_RAW_PATCH)
 static int lv_raw_type = PREFERRED_RAW_TYPE;
+#endif
+
+#ifdef CONFIG_EDMAC_RAW_SLURP
 
 void FAST raw_lv_vsync()
 {
@@ -1733,6 +1740,31 @@ void FAST raw_lv_vsync()
     
     /* overriding the buffer is only valid for one frame */
     redirected_raw_buffer = 0;
+}
+#endif
+
+#ifdef CONFIG_EDMAC_RAW_PATCH
+static void raw_lv_setedmac_patch(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    /* R0: EDMAC channel */
+    /* R1: output buffer */
+    /* R2: EDMAC info (geometry) */
+    /* R3: flags */
+
+    int width, height;
+    int ok = raw_lv_get_resolution(&width, &height);
+    if (ok)
+    {
+        /* update EDMAC image size */
+        int pitch = width * raw_info.bits_per_pixel / 8;
+        static struct edmac_info dst_edmac_info;
+        dst_edmac_info.xb = pitch;
+        dst_edmac_info.yb = height - 1;
+        regs[2] = (uint32_t) &dst_edmac_info;
+
+        /* we can override this here */
+        EngDrvOut(RAW_TYPE_REGISTER, lv_raw_type);
+    }
 }
 
 #endif
@@ -1972,6 +2004,12 @@ void FAST raw_preview_fast()
 }
 
 #ifdef CONFIG_RAW_LIVEVIEW
+
+#ifdef CONFIG_EDMAC_RAW_PATCH
+extern thunk StartImagePass_x1_SetEDmac;
+extern thunk StartImagePass_x5_SetEDmac;
+#endif
+
 static void raw_lv_enable()
 {
     /* make sure LiveView is fully started before enabling the raw flag */
@@ -1982,6 +2020,10 @@ static void raw_lv_enable()
 
 #ifndef CONFIG_EDMAC_RAW_SLURP
     call("lv_save_raw", 1);
+#ifdef CONFIG_EDMAC_RAW_PATCH
+    patch_hook_function((uint32_t) &StartImagePass_x1_SetEDmac, 0xE3A03202, raw_lv_setedmac_patch, "RAW LV x1");
+    patch_hook_function((uint32_t) &StartImagePass_x5_SetEDmac, 0xE3A03202, raw_lv_setedmac_patch, "RAW LV x5");
+#endif
 #endif
 
 #ifdef DEFAULT_RAW_BUFFER
@@ -2023,6 +2065,10 @@ static void raw_lv_disable()
 
 #ifndef CONFIG_EDMAC_RAW_SLURP
     call("lv_save_raw", 0);
+#ifdef CONFIG_EDMAC_RAW_PATCH
+    unpatch_memory((uint32_t) &StartImagePass_x1_SetEDmac);
+    unpatch_memory((uint32_t) &StartImagePass_x5_SetEDmac);
+#endif
 #endif
 
 #ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
