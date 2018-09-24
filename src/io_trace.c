@@ -108,12 +108,6 @@ static void __attribute__ ((naked)) trap()
         "STR    R5, [R4, R2, LSL#2]\n"  /* store PC at index [0] */
         "ADD    R2, #1\n"               /* increment index */
 
-#ifdef CONFIG_QEMU
-        /* disassemble the instruction */
-        "LDR    R3, =0xCF123010\n"
-        "STR    R5, [R3]\n"
-#endif
-
         /* get and store DryOS task name and interrupt ID */
         "LDR    R0, =current_task\n"
         "LDR    R1, [R0, #4]\n"         /* 1 if running in interrupt, 0 otherwise; other values? */
@@ -142,6 +136,12 @@ static void __attribute__ ((naked)) trap()
         "MCR    p15, 0, R0, c7, c10, 4\n"   /* then drain write buffer */
         "MCR    p15, 0, R1, c7, c5, 1\n"    /* flush icache line for that address */
         "MCR    p15, 0, R0, c6, c7, 0\n"    /* enable full access to memory */
+
+#ifdef CONFIG_QEMU
+        /* disassemble the instruction */
+        "LDR    R3, =0xCF123010\n"
+        "STR    R5, [R3]\n"
+#endif
 
         /* find the source and destination registers */
         "MOV    R1, R6, LSR#12\n"       /* extract destination register */
