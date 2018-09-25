@@ -364,10 +364,11 @@ static int show_what = 0;
 #define SHOW_OVERRIDEN 5
 #define SHOW_FPS_TIMERS 6
 #define SHOW_DISPLAY_REGS 7
-#define SHOW_IMAGE_SIZE_REGS 8
-#define SHOW_ISO_GAIN_REGS 9
-#define SHOW_ADTG_ONLY 10
-#define SHOW_CMOS_ONLY 11
+#define SHOW_CAPTURE_SIZE_REGS 8
+#define SHOW_PREVIEW_SIZE_REGS 9
+#define SHOW_ISO_GAIN_REGS 10
+#define SHOW_ADTG_ONLY 11
+#define SHOW_CMOS_ONLY 12
 
 static int digic_intercept = 0;
 static int photo_only = 0;
@@ -1541,29 +1542,89 @@ static MENU_UPDATE_FUNC(show_update)
                 visible = (regs[reg].dst == 0xC0F1) && ((regs[reg].reg & 0xF000) == 0x4000);
                 break;
             }
-            case SHOW_IMAGE_SIZE_REGS:
+            case SHOW_CAPTURE_SIZE_REGS:
+            case SHOW_PREVIEW_SIZE_REGS:
             {
-                if ((regs[reg].dst == 0xC0F0) && ((regs[reg].reg & 0xF000) == 0x6000))
+                if (regs[reg].dst == 0xC0F0)
                 {
-                    visible = 1;
-                    break;
-                }
-                for (int i = 0; i < COUNT(known_regs); i++)
-                {
-                    if (known_match(i, reg))
+                    if (
+                        regs[reg].reg == 0x6008 ||  /* timer A */
+                        regs[reg].reg == 0x600C ||  /* timer A mirror */
+                        regs[reg].reg == 0x6010 ||  /* timer A mirror */
+                        regs[reg].reg == 0x6824 ||  /* timer A related? */
+                        regs[reg].reg == 0x6828 ||  /* timer A related? */
+                        regs[reg].reg == 0x682C ||  /* timer A related? */
+                        regs[reg].reg == 0x6830 ||  /* timer A related? */
+                        regs[reg].reg == 0x6014 ||  /* timer B */
+                        regs[reg].reg == 0x6084 ||  /* first line/column (D4) */
+                        regs[reg].reg == 0x6088 ||  /* last line/column (D4) */
+                        regs[reg].reg == 0x6800 ||  /* first line/column (D5) */
+                        regs[reg].reg == 0x6804 ||  /* last line/column (D4) */
+                        regs[reg].reg == 0x713C ||  /* HEAD3 */
+                        regs[reg].reg == 0x7150 ||  /* HEAD4 */
+                        regs[reg].reg == 0x7050 ||  /* HEAD1 (used?) */
+                        regs[reg].reg == 0x7064 ||  /* HEAD2 (used?) */
+                    0)
                     {
-                        if (
-                            strstr(known_regs[i].description, "esolution") ||
-                            strstr(known_regs[i].description, "idth") ||
-                            strstr(known_regs[i].description, "eight") ||
-                            strstr(known_regs[i].description, "ine count") ||
-                            strstr(known_regs[i].description, "dwSrFstAdtg") ||
-                            strstr(known_regs[i].description, "Timing") ||
-                            strstr(known_regs[i].description, "HEAD") ||
-                        0)
+                        visible = 1;
+                    }
+                }
+                else if ((regs[reg].dst & ~DST_ADTG) == 0)
+                {
+                    if (
+                        regs[reg].reg == 0x8172 ||  /* PowerSaveTiming ON (6D/700D) */
+                        regs[reg].reg == 0x8178 ||  /* PowerSaveTiming ON (5D3/6D/700D) */
+                        regs[reg].reg == 0x8196 ||  /* PowerSaveTiming ON (5D3) */
+                        regs[reg].reg == 0x8173 ||  /* PowerSaveTiming OFF (6D/700D) */
+                        regs[reg].reg == 0x8179 ||  /* PowerSaveTiming OFF (5D3/6D/700D) */
+                        regs[reg].reg == 0x8197 ||  /* PowerSaveTiming OFF (5D3) */
+                        regs[reg].reg == 0x82B6 ||  /* PowerSaveTiming ON? (700D) */
+                        regs[reg].reg == 0x82F8 ||  /* ReadOutTiming */
+                        regs[reg].reg == 0x82F9 ||  /* ReadOutTiming end? */
+                        regs[reg].reg == 0x8000 ||  /* 6 = pixel binning, 5 = 1:1 crop */
+                        regs[reg].reg == 0x800C ||  /* number of lines skipped / binned */
+                        regs[reg].reg == 0x1000 ||  /* equivalent of 0x8000 for old DIGIC 4 */
+                        regs[reg].reg == 0x100C ||  /* equivalent of 0x800C for old DIGIC 4 */
+                    0)
+                    {
+                        visible = 1;
+                    }
+                }
+                else if (regs[reg].dst == DST_CMOS)
+                {
+                    /* show these, too */
+                    visible = 1;
+                }
+
+                if (show_what == SHOW_PREVIEW_SIZE_REGS)
+                {
+                    if (visible)
+                    {
+                        /* selected for capture size? skip it */
+                        visible = 0;
+                        break;
+                    }
+
+                    /* heuristic to select registers possibly related to preview size */
+                    if ((regs[reg].dst & DST_ENGIO_MASK) == DST_ENGIO)
+                    {
+                        if ((regs[reg].dst == 0xC0F1) && ((regs[reg].reg & 0xF000) == 0x4000))
                         {
-                            visible = 1;
-                            break;
+                            /* display register; not interested */
+                        }
+                        else
+                        {
+                            uint32_t val = regs[reg].val;
+                            if ((val & 0xFFFFE000) == 0 && ((val & 0x1FF0) != 0))
+                            {
+                                /* one small value (but not tiny numbers) */
+                                visible = 1;
+                            }
+                            if ((val & 0xE000E000) == 0 && ((val & 0x1FF0) != 0) && ((val & 0x1FF00000) != 0))
+                            {
+                                /* two values that might be resolution-related */
+                                visible = 1;
+                            }
                         }
                     }
                 }
@@ -1679,7 +1740,7 @@ static struct menu_entry adtg_gui_menu[] =
                 .name           = "Show",
                 .priv           = &show_what,
                 .update         = show_update,
-                .max            = 11,
+                .max            = 12,
                 .choices        = CHOICES(
                                     "Everything",
                                     "Known regs only",
@@ -1689,7 +1750,8 @@ static struct menu_entry adtg_gui_menu[] =
                                     "Overriden regs only",
                                     "FPS timers only",
                                     "Display registers only",
-                                    "Image size regs only",
+                                    "Capture size regs only",
+                                    "Preview size regs only",
                                     "ISO gain regs only",
                                     "ADTG regs only",
                                     "CMOS regs only",
@@ -1702,7 +1764,8 @@ static struct menu_entry adtg_gui_menu[] =
                                    "Overriden: show only regs where you have changed the value.\n"
                                    "FPS timers only: show only FPS timer A and B.\n"
                                    "Display registers only: C0F14000 ... C0F14FFF.\n"
-                                   "Image size regs only: registers related to raw image size (resolution).\n"
+                                   "Capture size regs only: for overriding resolution of captured image.\n"
+                                   "Preview size regs only: for overriding resolution of LiveView image.\n"
                                    "ISO gain regs only: registers known to adjust image capture gains.\n"
                                    "ADTG: registers labeled as such in Canon firmware.\n"
                                    "CMOS: registers labeled as such in Canon firmware.\n"
