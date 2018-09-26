@@ -6,6 +6,7 @@
 #undef FEATURE_MLU_HANDHELD   // Not needed, Canon's silent mode is much better
 #undef FEATURE_SHUTTER_LOCK   // Canon has a dedicated button for it
 #undef FEATURE_IMAGE_POSITION // assume it is not needed with a variangle display
+#undef FEATURE_ARROW_SHORTCUTS // No suitable button found
 
 // Really, this simply doesn't work
 // Tried it for a felt hundred hours
