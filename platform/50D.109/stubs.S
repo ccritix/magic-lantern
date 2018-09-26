@@ -230,6 +230,10 @@ NSTUB(0xFF9686C8,  mvrSetFullHDOptSize)                     // d
 NSTUB(0xFF9ADD28,  DispSensorStart)                         // d
 // NSTUB(    ???,  LightMeasure_n_Callback_r0)              /* present on 7D.203, 5D2.212 */
 
+/** LiveView RAW patches **/
+NSTUB(0xff9db254, StartImagePass_x1_SetEDmac)               /* right before the SetEDmac call from StartImagePass_x1/x5 CrawAddr / KindOfCraw */
+NSTUB(0xff9dbce8, StartImagePass_x5_SetEDmac)               /* FIXME: why it fails when the hook is placed on the BL instruction?! */
+
 /** Making the card bootable **/
 NSTUB(   0x1D6FC,  cf_device)                               // in cfReadBlk
 NSTUB(   0x1D744,  sd_device)                               // in sdReadBlk

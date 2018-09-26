@@ -138,5 +138,8 @@
 #define CONFIG_RAW_DISABLE_IN_10X_ZOOM
 #define CONFIG_RAW_DISABLE_IN_10X_ZOOM_WEAK
 
+/** experimental - patch raw buffer parameters in Canon code */
+#define CONFIG_EDMAC_RAW_PATCH
+
 /** Use joystick for one-finger menu navigation */
 #define CONFIG_JOY_CENTER_ACTIONS
