@@ -1127,10 +1127,24 @@ static void sf_dump(int drive)
             sf_size = 0x1000000;
             break;
 
-        /* 80D, 750D, 760D, 7D2 use 0x800000 */
-        /* 70D, 650D, 700D, EOSM and 6D, too */
-        default:
+        case 0x350: /* 80D */
+        case 0x393: /* 750D */
+        case 0x347: /* 760D */
+      //case 0x289: /* 7D2: serial flash is on the other CPU (slave) */
+        case 0x325: /* 70D */
+        case 0x301: /* 650D */
+        case 0x326: /* 700D */
+        case 0x331: /* EOSM */
+        case 0x302: /* 6D */
             sf_size = 0x800000;
+            break;
+    }
+
+    if (!sf_size)
+    {
+        /* assuming no serial flash on this model */
+        printf(" - No serial flash.\n");
+        return;
     }
 
     if (get_model_id() == 0x349)
