@@ -406,6 +406,12 @@ static int func_has_tag(uint32_t func, uint32_t tag)
             /* LDMFD - end of function */
             break;
         }
+
+        if (insn == 0xE12FFF1E)
+        {
+            /* BX LR - end of function */
+            break;
+        }
     }
     return 0;
 }

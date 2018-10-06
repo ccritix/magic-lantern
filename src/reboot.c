@@ -1078,28 +1078,44 @@ static void sf_dump(int drive)
 
     /* dumping more than actual size will crash the emulator (possibly the actual camera, too) */
     /* most models have 0x800000, a few ones have 0x1000000 */
-    uint32_t sf_size = 0x800000;
+    uint32_t sf_size = 0;
 
     switch (get_model_id())
     {
         case 0x349: /* 5D4 */
+        case 0x346: /* 100D */
+        case 0x355: /* EOSM2 */
             sf_size = 0x1000000;
             break;
 
         /* 80D, 750D, 760D, 7D2 use 0x800000 */
+        /* 70D, 650D, 700D, EOSM and 6D, too */
+        default:
+            sf_size = 0x800000;
     }
 
-    sf_init = (void *) find_func_called_near_string_ref("\n**** SROM(SIO%d) Menu ****\n", 0xC0820200, -0x10);
-
-    if (!sf_init)
+    if (get_model_id() == 0x349)
     {
-        /* 5D4? */
+        /* 5D4 */
         sf_init = (void *) find_func_called_near_string_ref("\n**** SROM(", 0xD2090000, -0x10);
     }
+    else
+    {
+        /* DIGIC 5 & 6 */
+        uint32_t srom_tag = is_digic6() ? 0xC0820200 : 0xC0400000;
+        sf_init = (void *) find_func_called_near_string_ref("\n**** SROM(SIO%d) Menu ****\n", srom_tag, -0x10);
 
+        if (!sf_init)
+        {
+            /* 700D, 650D, EOSM */
+            srom_tag = 0xC022C000;
+            sf_init = (void *) find_func_called_near_string_ref("\n**** SROM Menu ****\n", srom_tag, -0x10);
+        }
+    }
     printf(" - sf_init %X\n", sf_init);
 
-    sf_command_sio = (void *) find_func_called_near_string_ref("Read Address[0x%06x-0x%06x]:0x", 0xD20B0000, 0x100);
+    uint32_t sf_cmd_tag = is_digic6() ? 0xD20B0000 : 0xC0820000;
+    sf_command_sio = (void *) find_func_called_near_string_ref("Read Address[0x%06x-0x%06x]:0x", sf_cmd_tag, 0x100);
     printf(" - sf_command_sio %X\n", sf_command_sio);
 
     if (!sf_init || !sf_command_sio)
@@ -1110,7 +1126,8 @@ static void sf_dump(int drive)
     }
 
     /* hardware initialization */
-    MEM(0xD2090008) |= 0x200000;
+    uint32_t clock_reg = is_digic6() ? 0xD2090008 : 0xC0400008;
+    MEM(clock_reg) |= 0x200000;
     sf_init();
 
     /* allocate max size statically and hope for the best */
@@ -1176,9 +1193,6 @@ static void dump_rom_with_canon_routines()
     {
         printf(" - Dumping ROM1...\n");
         boot_dump(DRIVE_SD, "ROM1.BIN", 0xFC000000, 0x02000000);
-        #ifdef CONFIG_BOOT_SROM_DUMPER
-        sf_dump(DRIVE_SD);
-        #endif
     }
     else if (is_digic7())
     {
@@ -1194,6 +1208,10 @@ static void dump_rom_with_canon_routines()
         printf(" - Dumping ROM1...\n");
         boot_dump(DRIVE_SD, "ROM1.BIN", 0xF8000000, 0x01000000);
     }
+
+    #ifdef CONFIG_BOOT_SROM_DUMPER
+    sf_dump(DRIVE_SD);
+    #endif
 }
 
 #ifdef CONFIG_BOOT_FULLFAT
