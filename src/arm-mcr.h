@@ -67,16 +67,31 @@ read_sp( void )
     return sp;
 }
 
-static inline void
-select_normal_vectors( void )
+/** Routines to enable / disable interrupts */
+static inline uint32_t
+cli(void)
 {
-    uint32_t reg;
-    asm(
-        "mrc p15, 0, %0, c1, c0\n"
-        "bic %0, %0, #0x2000\n"
-        "mcr p15, 0, %0, c1, c0\n"
-        : "=r"(reg)
+    uint32_t old_irq;
+    
+    asm __volatile__ (
+        "mrs %0, CPSR\n"
+        "orr r1, %0, #0xC0\n" // set I flag to disable IRQ
+        "msr CPSR_c, r1\n"
+        "and %0, %0, #0xC0\n"
+        : "=r"(old_irq) : : "r1"
     );
+    return old_irq; // return the flag itself
+}
+
+static inline void
+sei( uint32_t old_irq )
+{
+    asm __volatile__ (
+        "mrs r1, CPSR\n"
+        "bic r1, r1, #0xC0\n"
+        "and %0, %0, #0xC0\n"
+        "orr r1, r1, %0\n"
+        "msr CPSR_c, r1" : : "r"(old_irq) : "r1" );
 }
 
 /*
@@ -126,7 +141,7 @@ static inline void _flush_caches()
 }
 
 /* write back all data into RAM and mark as invalid in data cache */
-static inline void clean_d_cache()
+static inline void _clean_d_cache()
 {
     /* assume 8KB data cache */
     /* http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0092b/ch04s03s04.html */
@@ -151,7 +166,7 @@ static inline void clean_d_cache()
 }
 
 /* mark all entries in I cache as invalid */
-static inline void flush_i_cache()
+static inline void _flush_i_cache()
 {
     asm(
         "mov r0, #0\n"
@@ -160,6 +175,19 @@ static inline void flush_i_cache()
     );
 }
 
+/* ensure data is written into RAM and the instruction cache is empty so everything will get fetched again */
+static inline void _sync_caches()
+{
+    uint32_t old = cli();
+    _clean_d_cache();
+    _flush_i_cache();
+    sei(old);
+}
+
+/* in patch.c; this also reapplies cache patches, if needed */
+extern void sync_caches();
+
+#if 0
 // This must be a macro
 #define setup_memory_region( region, value ) \
     asm __volatile__ ( "mcr p15, 0, %0, c6, c" #region "\n" : : "r"(value) )
@@ -206,48 +234,18 @@ set_i_tcm( uint32_t value )
     asm( "mcr p15, 0, %0, c9, c1, 1\n" : : "r"(value) );
 }
 
-
-/** Routines to enable / disable interrupts */
-static inline uint32_t
-cli(void)
-{
-    uint32_t old_irq;
-    
-    asm __volatile__ (
-        "mrs %0, CPSR\n"
-        "orr r1, %0, #0xC0\n" // set I flag to disable IRQ
-        "msr CPSR_c, r1\n"
-        "and %0, %0, #0xC0\n"
-        : "=r"(old_irq) : : "r1"
-    );
-    return old_irq; // return the flag itself
-}
-
 static inline void
-sei( uint32_t old_irq )
+select_normal_vectors( void )
 {
-    asm __volatile__ (
-        "mrs r1, CPSR\n"
-        "bic r1, r1, #0xC0\n"
-        "and %0, %0, #0xC0\n"
-        "orr r1, r1, %0\n"
-        "msr CPSR_c, r1" : : "r"(old_irq) : "r1" );
+    uint32_t reg;
+    asm(
+        "mrc p15, 0, %0, c1, c0\n"
+        "bic %0, %0, #0x2000\n"
+        "mcr p15, 0, %0, c1, c0\n"
+        : "=r"(reg)
+    );
 }
-
-/* ensure data is written into RAM and the instruction cache is empty so everything will get fetched again */
-/* also reapply cache patches, if needed */
-static inline void sync_caches()
-{
-    uint32_t old = cli();
-    clean_d_cache();
-    flush_i_cache();
-
-    /* this function is only present on main ML (not installer / reboot shim / minimal / etc) */
-    extern int __attribute__((weak)) _reapply_cache_patches ();
-    _reapply_cache_patches();
-
-    sei(old);
-}
+#endif
 
 /**
  * Some common instructions.
