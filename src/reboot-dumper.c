@@ -2,24 +2,37 @@
  * ROM dumper using LED blinks
  */
 
-#include "arm-mcr.h"
+#include "compiler.h"
 #include "consts.h"
 
 /* we need this ASM block to be the first thing in the file */
 #pragma GCC optimize ("-fno-reorder-functions")
 
+/* polyglot startup code that works if loaded as either ARM or Thumb */
 asm(
     ".text\n"
     ".globl _start\n"
     "_start:\n"
 
-#if !defined(CONFIG_DIGIC_VII) && !defined(CONFIG_DIGIC_VIII)
+    ".code 16\n"
+    "NOP\n"                     /* as ARM, this is interpreted as: and r4, r1, r0, asr #13 (harmless) */
+    "B loaded_as_thumb\n"       /* as Thumb, this will eventually switch to ARM mode */
+
+    ".code 32\n"
+    "loaded_as_arm:\n"          /* you may insert ARM-specific code here */
+    "B load_ok\n"               /* this will jump over the Thumb code */
+
+    ".code 16\n"
+    "loaded_as_thumb:\n"        /* you may insert Thumb-specific code here */
+    "BLX load_ok\n"             /* LR doesn't matter much, as we'll never return to caller */
+
+    ".code 32\n"                /* from now on, we've got generic code for all platforms */
+    ".align 2\n"
+    "load_ok:\n"
     "MRS     R0, CPSR\n"
     "BIC     R0, R0, #0x3F\n"   // Clear I,F,T
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
     "MSR     CPSR, R0\n"
-#endif
-
     "B       cstart\n"
 );
 
