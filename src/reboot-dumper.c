@@ -104,20 +104,26 @@ static void blink_all(int n)
  */
 static void guess_led(int n)
 {
-#if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
+#if defined(CONFIG_DIGIC_VIII)
+    const int32_t  bits         = 7;
+    const uint32_t base_addr    = 0xD0130000;
+    const uint32_t led_on       = 0xD0002;
+    const uint32_t led_off      = 0xC0003;
+#endif
+#if defined(CONFIG_DIGIC_VII)
     const int32_t  bits         = 11;
-    const int32_t  N            = 1 << bits;
     const uint32_t base_addr    = 0xD2080000;
     const uint32_t led_on       = 0x20D0002;
     const uint32_t led_off      = 0x20C0003;
-#else
+#endif
+#if defined(CONFIG_DIGIC_VI)
     const int32_t  bits         = 11;
-    const int32_t  N            = 1 << bits;
     const uint32_t base_addr    = 0xD20B0000;
     const uint32_t led_on       = 0x4D0002;
     const uint32_t led_off      = 0x4C0003;
 #endif
 
+    const int32_t  N            = 1 << bits;
     volatile uint32_t * leds = (volatile uint32_t *) base_addr;
     
     while (1)
