@@ -233,7 +233,7 @@ static int lv_raw_gain = 0;
  * one size fits all: 16200 may sacrifice up to 0.02 EV of highlights
  * that is, log2((16382-2048) / (16000-2048))
  */
-#define WHITE_LEVEL 16200
+#define WHITE_LEVEL 3000
 
 static int get_default_white_level()
 {
