@@ -1296,10 +1296,10 @@ static inline uint32_t reg_override_1x3_10bit(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
         case 0xC0F0713c:
-            return 0x97e;
+            return 0x96e;
         
         case 0xC0F06804:
-            return 0x97e011b;
+            return 0x96e011b;
 
         case 0xC0F06008:
         case 0xC0F0600C:
