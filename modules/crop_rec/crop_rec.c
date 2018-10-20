@@ -1303,13 +1303,13 @@ static inline uint32_t reg_override_1x3_10bit(uint32_t reg, uint32_t old_val)
 
         case 0xC0F06008:
         case 0xC0F0600C:
-            return 0x1800180;
+            return 0x1820182;
 
         case 0xC0F06010:
-            return 0x180;
+            return 0x182;
 
         case 0xC0F06014:
-            return 0xa27;
+            return 0xa20;
 
 	/* correct liveview brightness */
 	case 0xC0F42744: return 0x4040404;
