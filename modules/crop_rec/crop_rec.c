@@ -856,15 +856,15 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[11] = (struct adtg_new) {6, 0x82F8, nrzi_encode(readout_end + 1) }; /* ReadOutTiming */
                 adtg_new[12] = (struct adtg_new) {6, 0x82F9, nrzi_encode(fps_timer_b - 1) }; /* ReadOutTiming end? */
 
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 40};
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 40};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 40};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 40};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 200};
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 200};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 200};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 200};
 
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 40};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 40};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 40};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 40};
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 200};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 200};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 200};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 200};
                 break;
             }
         }
@@ -1315,8 +1315,7 @@ static inline uint32_t reg_override_1x3_10bit(uint32_t reg, uint32_t old_val)
             return 0x9ff;
 
 	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-
+	case 0xC0F42744: return 0x2020202;
 
         /* 1920x2400 23.4fps */
         /*case 0xC0F0713c:*/
