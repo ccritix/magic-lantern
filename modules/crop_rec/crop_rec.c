@@ -514,6 +514,9 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_1x3_10bit:
                 /* start/stop scanning line, very large increments */
                 cmos_new[1] = 0x280;
+/* 1920x2400 */
+/* cmos_new[1] = 0x2a0; */
+
                 cmos_new[6] = 0x170;    /* pink highlights without this */
                 break;
 
@@ -1313,6 +1316,24 @@ static inline uint32_t reg_override_1x3_10bit(uint32_t reg, uint32_t old_val)
 
 	/* correct liveview brightness */
 	case 0xC0F42744: return 0x4040404;
+
+
+        /* 1920x2400 23.4fps */
+        /*case 0xC0F0713c:*/
+        /*    return 0x99e;*/
+        
+        /*case 0xC0F06804:*/
+        /*    return 0x99e011b;*/
+
+        /*case 0xC0F06008:*/
+       /*case 0xC0F0600C:*/
+        /*    return 0x1840184;*/
+
+       /* case 0xC0F06010:*/
+         /*   return 0x184;*/
+
+        /*case 0xC0F06014:*/
+         /*   return 0xa48;*/
 
     }
 
