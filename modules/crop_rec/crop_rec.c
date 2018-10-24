@@ -1328,7 +1328,7 @@ static inline uint32_t reg_override_1x3_10bit(uint32_t reg, uint32_t old_val)
        /*case 0xC0F0600C:*/
         /*    return 0x1840184;*/
 
-       /* case 0xC0F06010:*/
+        /*case 0xC0F06010:*/
          /*   return 0x184;*/
 
         /*case 0xC0F06014:*/
