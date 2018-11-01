@@ -1445,24 +1445,28 @@ static inline uint32_t reg_override_1x3_12bit_17fps(uint32_t reg, uint32_t old_v
     switch (reg)
     {
         case 0xC0F0713c:
-            return 0xd0e;
+            return 0xce6;
         
-        case 0xC0F06804:	/* 1920x3280 */
-            return 0xd0e011b;
+        case 0xC0F06804:	/* 1920x3240(perfect 1920x1080) */
+            return 0xce6011b;
 
         case 0xC0F06008:
         case 0xC0F0600C:
-            return 0x1880188;
+            return 0x1970197;
 
         case 0xC0F06010:
-            return 0x188;
+            return 0x197;
 
         case 0xC0F06014:
-            return 0xde2;
+            return 0xd83;
 
 	/* correct liveview brightness */
 	case 0xC0F42744: return 0x2020202;
 
+/* how to count */
+/* d80,7f */
+/* d7a,d79 */
+/* d7f,d80 */
     }
 
     return 0;
