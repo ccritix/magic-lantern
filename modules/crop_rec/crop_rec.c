@@ -41,6 +41,7 @@ enum crop_preset {
     CROP_PRESET_1x3_10bit,
     CROP_PRESET_1x3_12bit,
     CROP_PRESET_1x3_14bit,
+    CROP_PRESET_1x3_12bit_17fps,
     CROP_PRESET_3x1,
     CROP_PRESET_40_FPS,
     CROP_PRESET_CENTER_Z,
@@ -73,6 +74,7 @@ static enum crop_preset crop_presets_5d3[] = {
     CROP_PRESET_1x3_10bit,
     CROP_PRESET_1x3_12bit,
     CROP_PRESET_1x3_14bit,
+    CROP_PRESET_1x3_12bit_17fps,
   //CROP_PRESET_3x1,
   //CROP_PRESET_40_FPS,
 };
@@ -91,6 +93,7 @@ static const char * crop_choices_5d3[] = {
     "1x3_10bit binning",
     "1x3_12bit binning",
     "1x3_14bit binning",
+    "1x3_12bit_17fps binning",
   //"3x1 binning",      /* doesn't work well */
   //"40 fps",
 };
@@ -112,6 +115,7 @@ static const char crop_choices_help2_5d3[] =
     "1x3_10bit binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1x3_12bit binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1x3_14bit binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
+    "1x3_12bit_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "3x1 binning: bin every 3 lines, read all columns (extreme anamorphic)\n"
     "FPS override test\n";
 
@@ -238,6 +242,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         case CROP_PRESET_1x3_10bit:
         case CROP_PRESET_1x3_12bit:
         case CROP_PRESET_1x3_14bit:
+        case CROP_PRESET_1x3_12bit_17fps:
             skip_top        = 60;
             break;
 
@@ -529,6 +534,13 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 /* 1920x2400 */
 /* cmos_new[1] = 0x2a0; */
 
+                cmos_new[6] = 0x170;    /* pink highlights without this */
+                break;
+
+            /* 1x3 binning (read every line, bin every 3 columns) */
+            case CROP_PRESET_1x3_12bit_17fps:
+                /* start/stop scanning line, very large increments */
+                cmos_new[1] = 0x380;
                 cmos_new[6] = 0x170;    /* pink highlights without this */
                 break;
 
@@ -829,6 +841,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;
 
             case CROP_PRESET_1x3_12bit:
+	    case CROP_PRESET_1x3_12bit_17fps:
                 /* ADTG2/4[0x800C] = 0: read every line */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
 
@@ -876,6 +889,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_1x3_10bit: //*Add this line*//
 			case CROP_PRESET_1x3_12bit:
 			case CROP_PRESET_1x3_14bit:
+			case CROP_PRESET_1x3_12bit_17fps:
             {
                 /* assuming FPS timer B was overridden before this */
                 int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
@@ -1426,6 +1440,34 @@ static inline uint32_t reg_override_1x3_14bit(uint32_t reg, uint32_t old_val)
     return 0;
 }
 
+static inline uint32_t reg_override_1x3_12bit_17fps(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        case 0xC0F0713c:
+            return 0xd0e;
+        
+        case 0xC0F06804:	/* 1920x3280 */
+            return 0xd0e011b;
+
+        case 0xC0F06008:
+        case 0xC0F0600C:
+            return 0x1880188;
+
+        case 0xC0F06010:
+            return 0x188;
+
+        case 0xC0F06014:
+            return 0xde2;
+
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x2020202;
+
+    }
+
+    return 0;
+}
+
 
 static inline uint32_t reg_override_fps_nocheck(uint32_t reg, uint32_t timerA, uint32_t timerB, uint32_t old_val)
 {
@@ -1498,6 +1540,7 @@ static void * get_engio_reg_override_func()
 		(crop_preset == CROP_PRESET_1x3_10bit)        ? reg_override_1x3_10bit : //*add this line*//
 		(crop_preset == CROP_PRESET_1x3_12bit)        ? reg_override_1x3_12bit :
 		(crop_preset == CROP_PRESET_1x3_14bit)        ? reg_override_1x3_14bit :
+		(crop_preset == CROP_PRESET_1x3_12bit_17fps)        ? reg_override_1x3_12bit_17fps :
                                                   0                       ;
     return reg_override_func;
 }
@@ -2026,6 +2069,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_1x3_10bit:
             case CROP_PRESET_1x3_12bit:
             case CROP_PRESET_1x3_14bit:
+            case CROP_PRESET_1x3_12bit_17fps:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
                 break;
         }
@@ -2042,6 +2086,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_1x3_10bit:
             case CROP_PRESET_1x3_12bit:
             case CROP_PRESET_1x3_14bit:
+            case CROP_PRESET_1x3_12bit_17fps:
                 raw_capture_info.binning_y = 1; raw_capture_info.skipping_y = 0;
                 break;
 
