@@ -1376,7 +1376,7 @@ static inline uint32_t reg_override_1x3_10bit(uint32_t reg, uint32_t old_val)
             return 0x180;
 
         case 0xC0F06014:
-            return 0xa25;
+            return 0xa27;
 
 	/* correct liveview brightness */
 	case 0xC0F42744: return 0x4040404;
@@ -1421,7 +1421,7 @@ static inline uint32_t reg_override_1x3_12bit(uint32_t reg, uint32_t old_val)
             return 0x180;
 
         case 0xC0F06014:
-            return 0xa25;
+            return 0xa27;
 
 	/* correct liveview brightness */
 	case 0xC0F42744: return 0x2020202;
@@ -1449,7 +1449,7 @@ static inline uint32_t reg_override_1x3_14bit(uint32_t reg, uint32_t old_val)
             return 0x180;
 
         case 0xC0F06014:
-            return 0xa25;
+            return 0xa27;
 
     }
 
