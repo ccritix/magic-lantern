@@ -109,6 +109,12 @@ static const char crop_choices_help_5d3[] =
 
 static const char crop_choices_help2_5d3[] =
     "\n"
+    "1x3_12bit binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
+    "1x3_12bit_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
+    "1x3_10bit binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
+    "1x3_10bit_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
+    "1x3_14bit binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
+    "1x3_14bit_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1:1 sensor readout (square raw pixels, 3x crop, good preview in 1080p)\n"
     "1:1 crop, higher vertical resolution (1920x1920 @ 24p, cropped preview)\n"
     "1920x960 @ 50p, 1920x800 @ 60p (3x3 binning, cropped preview)\n"
@@ -118,12 +124,6 @@ static const char crop_choices_help2_5d3[] =
     "1:1 4K crop (4096x3072 @ 12.5 fps, half frame rate, preview broken)\n"
     "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
     "Full resolution LiveView (5796x3870 @ 7.4 fps, 5784x3864, preview broken)\n"
-    "1x3_12bit binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
-    "1x3_12bit_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
-    "1x3_10bit binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
-    "1x3_10bit_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
-    "1x3_14bit binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
-    "1x3_14bit_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "3x1 binning: bin every 3 lines, read all columns (extreme anamorphic)\n"
     "FPS override test\n";
 
@@ -908,7 +908,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_1x3_14bit_17fps:
             {
                 /* assuming FPS timer B was overridden before this */
-                int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) - 3;
+                int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
                 int readout_end = shamem_read(0xC0F06804) >> 16;    /* fixme: D5 only */
 
                 /* PowerSaveTiming registers */
@@ -920,8 +920,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[6]  = (struct adtg_new) {6, 0x8196, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3) */
 
                 adtg_new[7]  = (struct adtg_new) {6, 0x8173, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (6D/700D) */
-                adtg_new[8]  = (struct adtg_new) {6, 0x8179, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3/6D/700D) */
-                adtg_new[9]  = (struct adtg_new) {6, 0x8197, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3) */
+                adtg_new[8]  = (struct adtg_new) {6, 0x8179, nrzi_encode(fps_timer_b - 5) }; /* PowerSaveTiming OFF (5D3/6D/700D) */
+                adtg_new[9]  = (struct adtg_new) {6, 0x8197, nrzi_encode(fps_timer_b - 5) }; /* PowerSaveTiming OFF (5D3) */
 
                 adtg_new[10] = (struct adtg_new) {6, 0x82B6, nrzi_encode(readout_end - 1) }; /* PowerSaveTiming ON? (700D); 2 units below the "ON" timing from above */
 
