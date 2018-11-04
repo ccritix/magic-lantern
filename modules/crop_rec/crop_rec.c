@@ -38,6 +38,12 @@ enum crop_preset {
     CROP_PRESET_FULLRES_LV,
     CROP_PRESET_3x3_1X,
     CROP_PRESET_3x3_1X_48p,
+    CROP_PRESET_mv1080p_iso100,
+    CROP_PRESET_mv1080p_iso200,
+    CROP_PRESET_mv1080p_iso400,
+    CROP_PRESET_mv1080p_iso800,
+    CROP_PRESET_mv1080p_iso1600,
+    CROP_PRESET_mv1080p_iso3200,
     CROP_PRESET_1x3_10bit,
     CROP_PRESET_1x3_10bit_17fps,
     CROP_PRESET_1x3_12bit,
@@ -73,6 +79,12 @@ static enum crop_preset crop_presets_5d3[] = {
     //CROP_PRESET_4K_HFPS,
     //CROP_PRESET_CENTER_Z,
     //CROP_PRESET_FULLRES_LV,
+    CROP_PRESET_mv1080p_iso100,
+    CROP_PRESET_mv1080p_iso200,
+    CROP_PRESET_mv1080p_iso400,
+    CROP_PRESET_mv1080p_iso800,
+    CROP_PRESET_mv1080p_iso1600,
+    CROP_PRESET_mv1080p_iso3200,
     CROP_PRESET_1x3_12bit,
     CROP_PRESET_1x3_12bit_17fps,
     CROP_PRESET_1x3_10bit,
@@ -94,6 +106,12 @@ static const char * crop_choices_5d3[] = {
     //"4K 1:1 half-fps",
     //"3.5K 1:1 centered x5",
     //"Full-res LiveView",
+    "mv1080p_iso100",
+    "mv1080p_iso200",
+    "mv1080p_iso400",
+    "mv1080p_iso800",
+    "mv1080p_iso1600",
+    "mv1080p_iso3200",
     "1x3_12bit_1920x2352",
     "1x3_12bit_17fps_1920x3240",
     "1x3_10bit_1920x2352",
@@ -109,6 +127,12 @@ static const char crop_choices_help_5d3[] =
 
 static const char crop_choices_help2_5d3[] =
     "\n"
+    "mv1080p_iso100: clean iso 100\n"
+    "mv1080p_iso100: clean iso 200\n"
+    "mv1080p_iso100: clean iso 400\n"
+    "mv1080p_iso100: clean iso 800\n"
+    "mv1080p_iso100: clean iso 1600\n"
+    "mv1080p_iso100: clean iso 3200\n"
     "1x3_12bit binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1x3_12bit_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1x3_10bit binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
@@ -547,6 +571,48 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[6] = 0x170;    /* pink highlights without this */
                 break;
 
+            /* clean iso 100 */
+
+            case CROP_PRESET_mv1080p_iso100:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0x222;
+                break;
+
+            /* clean iso 200 */
+
+            case CROP_PRESET_mv1080p_iso200:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0x333;
+                break;
+
+         /* clean iso 400 */
+
+            case CROP_PRESET_mv1080p_iso400:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0x443;
+                break;
+
+         /* clean iso 800 */
+
+            case CROP_PRESET_mv1080p_iso800:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0x553;
+                break;
+
+         /* clean iso 1600 */
+
+            case CROP_PRESET_mv1080p_iso1600:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0xddd;
+                break;
+
+            /* clean iso 3200 */
+
+            case CROP_PRESET_mv1080p_iso3200:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0xfff;
+                break;
+
             /* 1x3 binning (read every line, bin every 3 columns) */
             case CROP_PRESET_1x3_12bit_17fps:
             case CROP_PRESET_1x3_10bit_17fps:
@@ -770,7 +836,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     };
     
     /* expand this as required */
-    struct adtg_new adtg_new[21] = {{0}};
+    struct adtg_new adtg_new[22] = {{0}};
 
     /* scan for shutter blanking and make both zoom and non-zoom value equal */
     /* (the values are different when using FPS override with ADTG shutter override) */
@@ -874,6 +940,24 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 /* ADTG2/4[0x800C] = 0: read every line */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
                 break;
+
+	    case CROP_PRESET_mv1080p_iso100:
+	    case CROP_PRESET_mv1080p_iso200:
+	    case CROP_PRESET_mv1080p_iso400:
+	    case CROP_PRESET_mv1080p_iso800:
+	    case CROP_PRESET_mv1080p_iso1600:
+	    case CROP_PRESET_mv1080p_iso3200:
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250};
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250};
+
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 250};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 250};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 250};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
+                break;
+
 
             /* 3x1 binning (bin every 3 lines, read every column) */
             /* doesn't work well, figure out why */
@@ -1357,6 +1441,7 @@ static inline uint32_t reg_override_40_fps(uint32_t reg, uint32_t old_val)
 
     return 0;
 }
+
 
 static inline uint32_t reg_override_1x3_10bit(uint32_t reg, uint32_t old_val)
 {
