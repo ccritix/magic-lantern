@@ -166,6 +166,12 @@ static enum crop_preset crop_presets_100d[] = {
     CROP_PRESET_3x3_1X,
     CROP_PRESET_1080K_100D,
     CROP_PRESET_2K10bit_100D,
+    CROP_PRESET_mv1080p_iso100,
+    CROP_PRESET_mv1080p_iso200,
+    CROP_PRESET_mv1080p_iso400,
+    CROP_PRESET_mv1080p_iso800,
+    CROP_PRESET_mv1080p_iso1600,
+    CROP_PRESET_mv1080p_iso3200,
 };
 
 static const char * crop_choices_100d[] = {
@@ -176,6 +182,12 @@ static const char * crop_choices_100d[] = {
     "3x3 720p",
     "2K 2520x1080p",
     "2.5K 10bit 2520x1304",
+    "mv1080p_iso100",
+    "mv1080p_iso200",
+    "mv1080p_iso400",
+    "mv1080p_iso800",
+    "mv1080p_iso1600",
+    "mv1080p_iso3200",
 };
 
 static const char crop_choices_help_100d[] =
@@ -188,7 +200,13 @@ static const char crop_choices_help2_100d[] =
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
     "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
     "2K 1920x1080p (usually 1920x1078, works with all bits!)\n"
-    "1:1 2.5K 10bit crop (experimental)\n";
+    "1:1 2.5K 10bit crop (experimental)\n"
+    "mv1080p_iso100: clean iso 100\n"
+    "mv1080p_iso100: clean iso 200\n"
+    "mv1080p_iso100: clean iso 400\n"
+    "mv1080p_iso100: clean iso 800\n"
+    "mv1080p_iso100: clean iso 1600\n"
+    "mv1080p_iso100: clean iso 3200\n";
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
 static enum crop_preset crop_presets_basic[] = {
@@ -701,6 +719,50 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_2K10bit_100D:
                 cmos_new[7] = 0xaa9;    /* pink highlights without this */
                 break;	
+
+            /* clean iso 100 */
+
+            case CROP_PRESET_mv1080p_iso100:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0xd4a;
+                break;
+
+            /* clean iso 200 */
+
+            case CROP_PRESET_mv1080p_iso200:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0xd6d;
+                break;
+
+         /* clean iso 400 */
+
+            case CROP_PRESET_mv1080p_iso400:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0x191;
+                break;
+
+         /* clean iso 800 */
+
+            case CROP_PRESET_mv1080p_iso800:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0xadb;
+                break;
+
+         /* clean iso 1600 */
+
+            case CROP_PRESET_mv1080p_iso1600:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0xddd;
+                break;
+
+            /* clean iso 3200 */
+
+            case CROP_PRESET_mv1080p_iso3200:
+                /* start/stop scanning line, very large increments */
+                cmos_new[0] = 0xfff;
+                break;
+
+
         }
     }
 
@@ -1010,6 +1072,10 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
                 break;
 
+
+
+      if (is_5D3)
+         {
 	    case CROP_PRESET_mv1080p_iso100:
 	    case CROP_PRESET_mv1080p_iso200:
 	    case CROP_PRESET_mv1080p_iso400:
@@ -1026,7 +1092,21 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[19] = (struct adtg_new) {6, 0x8886, 250};
                 adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
                 break;
+         }
+         else
+         {
 
+           if (is_100D)
+             {
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 135};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 135};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 135};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 135};
+                break;
+             }
+
+	  }
+  
 	    case CROP_PRESET_2K10bit_100D:
 		adtg_new[0] = (struct adtg_new) {2, 0x8882, 0x46};
 		adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x47};
