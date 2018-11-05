@@ -1027,7 +1027,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
                 break;
 
-	    case CROP_PRESET_1080K_100D:
+	    case CROP_PRESET_2K10bit_100D:
 		adtg_new[0] = (struct adtg_new) {2, 0x8882, 0x46};
 		adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x47};
 		adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x46};
@@ -1917,8 +1917,9 @@ static void FAST engio_write_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			}
     }
 
-    if (!is_supported_mode() || !engio_vidmode_ok)
+    if (!is_supported_mode() || !engio_vidmode_ok && !is_100D)
     {
+/* exclude 100D for now, not sure about numbers (temp disable) */
         /* don't patch other video modes */
         return;
     }
@@ -1990,7 +1991,7 @@ PROP_HANDLER(PROP_LV_DISPSIZE)
 
 static MENU_UPDATE_FUNC(crop_update)
 {
-    if (CROP_PRESET_MENU && lv)
+    if (CROP_PRESET_MENU && lv && !is_100D)        	 /* exclude 100D for now, not sure about numbers (temp disable) */
     {
         if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z)
         {
