@@ -1039,15 +1039,15 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 /* ADTG2/4[0x800C] = 0: read every line */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
 
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 0x40};
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 0x40};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 0x40};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 0x40};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 40};
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 40};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 40};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 40};
 
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 0x40};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 0x40};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 0x40};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 0x40};
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 40};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 40};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 40};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 40};
                 break;
 
             case CROP_PRESET_1x3_12bit:
@@ -1055,15 +1055,15 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 /* ADTG2/4[0x800C] = 0: read every line */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
 
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 0x200};
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 0x200};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 0x200};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 0x200};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250};
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250};
 
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 0x200};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 0x200};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 0x200};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 0x200};
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 250};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 250};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 250};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
                 break;
 
             case CROP_PRESET_1x3_14bit:
@@ -1082,7 +1082,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	    case CROP_PRESET_mv1080p_iso800:
 	    case CROP_PRESET_mv1080p_iso1600:
 	    case CROP_PRESET_mv1080p_iso3200:
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 0x200};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 0x200}; /* more like 13bit. Write 250 for 12bit */
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 0x200};
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 0x200};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 0x200};
