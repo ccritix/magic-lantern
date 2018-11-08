@@ -79,11 +79,11 @@ static enum crop_preset crop_presets_5d3[] = {
     //CROP_PRESET_3X,
     //CROP_PRESET_3X_TALL,
     //CROP_PRESET_3x3_1X,
-    //CROP_PRESET_3x3_1X_48p,
+    CROP_PRESET_3x3_1X_48p,
     //CROP_PRESET_3K,
     //CROP_PRESET_UHD,
     //CROP_PRESET_4K_HFPS,
-    //CROP_PRESET_CENTER_Z,
+    CROP_PRESET_CENTER_Z,
     //CROP_PRESET_FULLRES_LV,
     CROP_PRESET_mv1080p_iso100,
     CROP_PRESET_mv1080p_iso200,
@@ -106,11 +106,11 @@ static const char * crop_choices_5d3[] = {
     //"1920 1:1",
     //"1920 1:1 tall",
     //"1920 50/60 3x3",
-    //"1080p45/1040p48 3x3",
+    "1080p45/1040p48 3x3",
     //"3K 1:1",
     //"UHD 1:1",
     //"4K 1:1 half-fps",
-    //"3.5K 1:1 centered x5",
+    "3.5K 1:1 centered x5",
     //"Full-res LiveView",
     "mv1080p_iso100",
     "mv1080p_iso200",
@@ -387,7 +387,7 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
                                 /*   24p   25p   30p   50p   60p   x5 */
     [CROP_PRESET_3X_TALL]       = { 1920, 1728, 1536,  960,  800, 1320 },
     [CROP_PRESET_3x3_1X]        = { 1290, 1290, 1290,  960,  800, 1320 },
-    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1040, 1320 }, /* 1080p45/48 */
+    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1080, 1320 }, /* 1080p45/48 */
     [CROP_PRESET_3K]            = { 1920, 1728, 1504,  760,  680, 1320 },
     [CROP_PRESET_UHD]           = { 1536, 1472, 1120,  640,  540, 1320 },
     [CROP_PRESET_4K_HFPS]       = { 3072, 3072, 2500, 1440, 1200, 1320 },
@@ -1020,6 +1020,17 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 /* ADTG2/4[0x8000] = 5 (set in one call) */
                 /* ADTG2[0x8806] = 0x6088 on 5D3 (artifacts without it) */
                 adtg_new[2] = (struct adtg_new) {6, 0x8000, 5};
+
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 0x200}; /* more like 13bit. Write 250 for 12bit */
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 0x200};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 0x200};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 0x200};
+
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 0x200};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 0x200};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 0x200};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 0x200};
+
                 if (is_5D3) {
                     /* this register is model-specific */
                     adtg_new[3] = (struct adtg_new) {2, 0x8806, 0x6088};
@@ -1031,7 +1042,18 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x3_1X_48p:
                 /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 2};
+
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 0x200}; /* more like 13bit. Write 250 for 12bit */
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 0x200};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 0x200};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 0x200};
+
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 0x200};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 0x200};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 0x200};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 0x200};
                 break;
+
 
             /* 1x3 binning (read every line, bin every 3 columns) */
             case CROP_PRESET_1x3_10bit:
@@ -1451,12 +1473,12 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
         /* HEAD3 timer */
         /* 2E6 in 50p, 2B4 in 60p */
         case 0xC0F0713C:
-            return 0x2B4 + YRES_DELTA + delta_head3;
+            return 0x2A4 + YRES_DELTA + delta_head3;
 
         /* HEAD4 timer */
         /* 2B4 in 50p, 26D in 60p */
         case 0xC0F07150:
-            return 0x26D + YRES_DELTA + delta_head4;
+            return 0x22D + YRES_DELTA + delta_head4;
     }
 
     return reg_override_common(reg, old_val);
