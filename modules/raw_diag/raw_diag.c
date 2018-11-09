@@ -198,8 +198,19 @@ static void FAST quick_analysis_lv()
     int white = autodetect_white_level();
 
     /* black and noise stdev */
-    float black, noise;
-    ob_mean_stdev(&black, &noise);
+    /* read 5 times (from different LiveView frames) and use the median value */
+    /* this is slow, but the estimated DR is a lot more consistent */
+    int blacks[5], noises[5];
+    for (int i = 0; i < COUNT(blacks); i++)
+    {
+        float b, n;
+        ob_mean_stdev(&b, &n);
+        blacks[i] = b * 1000;
+        noises[i] = n * 1000;
+        msleep(100);
+    }
+    float black = median_int_wirth(blacks, COUNT(blacks)) / 1000.0;
+    float noise = median_int_wirth(noises, COUNT(noises)) / 1000.0;
 
     /* dynamic range approximation, without considering noise model */
     int dr_x100 = (int)roundf((log2f(white - black) - log2f(noise)) * 100.0);
@@ -1776,7 +1787,7 @@ static unsigned int raw_diag_poll(unsigned int unused)
         !get_halfshutter_pressed() &&                   /* ... during idle times, i.e. when full analysis is not triggered */
         raw_lv_is_enabled() &&                          /* ... if raw video is enabled */
         !gui_menu_shown() &&                            /* ... outside ML menu (it's quickly erased otherwise) */
-        should_run_polling_action(1000, &last_check))   /* ... no more often than once per second */
+        should_run_polling_action(2000, &last_check))   /* ... no more often than once every 2 seconds */
     {
         raw_lv_request();
         if (raw_update_params())
