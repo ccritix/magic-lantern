@@ -6037,21 +6037,29 @@ static unsigned int adtg_gui_init()
     {
         ADTG_WRITE_FUNC = 0x2986C;
         CMOS_WRITE_FUNC = 0x2998C;
+        ENGIO_WRITE_FUNC = 0xFF2C19AC;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF2C1694;
     }
     else if (is_camera("600D", "1.0.2")) // from 1% TL 2.0
     {
         ADTG_WRITE_FUNC = 0xFF2DCEF4; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0xFF2DD0E8; //"[REG] ############ Start CMOS"
+        ENGIO_WRITE_FUNC = 0xFF1E1D20;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF1E195C;
     }
     else if (is_camera("650D", "1.0.4"))
     {
         ADTG_WRITE_FUNC = 0x178FC; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0x17A1C; //"[REG] ############ Start CMOS"
+        ENGIO_WRITE_FUNC = 0xFF2C0778;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF2C0460;
     }
     else if (is_camera("700D", "1.1.5"))
     {
         ADTG_WRITE_FUNC = 0x178FC; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
         CMOS_WRITE_FUNC = 0x17A1C; //"[REG] ############ Start CMOS"
+        ENGIO_WRITE_FUNC = 0xFF2C2D00;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF2C29E8;
     }
     else if (is_camera("100D", "1.0.1"))
     {
