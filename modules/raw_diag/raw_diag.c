@@ -192,6 +192,28 @@ static void FAST ob_mean_stdev(float* mean, float* stdev)
     autodetect_black_level_calc(x1, x2, y1, y2, 1, 1, mean, stdev, 0);
 }
 
+static void FAST quick_analysis_lv()
+{
+    /* white level autodetection */
+    int white = autodetect_white_level();
+
+    /* black and noise stdev */
+    float black, noise;
+    ob_mean_stdev(&black, &noise);
+
+    /* dynamic range approximation, without considering noise model */
+    int dr_x100 = (int)roundf((log2f(white - black) - log2f(noise)) * 100.0);
+
+    bmp_printf(
+        FONT_MED | FONT_ALIGN_RIGHT | FONT_ALIGN_FILL,
+        720, 50,
+        "  %d..%d\n"
+        "  ~ %s%d.%02d EV",
+        (int) black, white,
+        FMT_FIXEDPOINT2(dr_x100)
+    );
+}
+
 /* large histogram of the left optical black area */
 static void FAST black_histogram(int ob)
 {
@@ -1747,7 +1769,23 @@ static unsigned int raw_diag_poll(unsigned int unused)
         /* no backend support for LiveView */
         return CBR_RET_CONTINUE;
     }
-    
+
+    /* quick analysis in LiveView */
+    static int last_check = 0;
+    if (raw_diag_enabled && lv &&                       /* enabled in LiveVew ... */
+        !get_halfshutter_pressed() &&                   /* ... during idle times, i.e. when full analysis is not triggered */
+        raw_lv_is_enabled() &&                          /* ... if raw video is enabled */
+        !gui_menu_shown() &&                            /* ... outside ML menu (it's quickly erased otherwise) */
+        should_run_polling_action(1000, &last_check))   /* ... no more often than once per second */
+    {
+        raw_lv_request();
+        if (raw_update_params())
+        {
+            quick_analysis_lv();
+        }
+        raw_lv_release();
+    }
+
     if (raw_diag_enabled && lv && get_halfshutter_pressed())
     {
         msleep(500);
