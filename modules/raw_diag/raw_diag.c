@@ -103,7 +103,8 @@ static void FAST autodetect_black_level_calc(
 /* a slower version of the one from raw.c (crop_rec_4k) */
 /* scans more pixels (every line, 2 pixels from every raw_pixblock)
  * and does not use a lower bound for white level */
-static int autodetect_white_level()
+/* optionally compute overexposure percentage */
+static int autodetect_white_level(int * overexposure_percentage_x100)
 {
     int initial_guess = 0;
     int white = initial_guess;
@@ -169,6 +170,20 @@ static int autodetect_white_level()
         acc += hist[i];
     }
 
+    if (overexposure_percentage_x100)
+    {
+        int total = 0;
+        int clipped = 0;
+        for (int i = 0; i < (16384 >> bin); i++)
+        {
+            if ((i << bin) >= white)
+            {
+                clipped += hist[i];
+            }
+            total += hist[i];
+        }
+        *overexposure_percentage_x100 = (uint64_t) clipped * (uint64_t) 10000 / total;
+    }
     free(hist);
     return white;
 }
@@ -194,8 +209,9 @@ static void FAST ob_mean_stdev(float* mean, float* stdev)
 
 static void FAST quick_analysis_lv()
 {
-    /* white level autodetection */
-    int white = autodetect_white_level();
+    /* white level & overexposure autodetection */
+    int over_x100 = -1;
+    int white = autodetect_white_level(&over_x100);
 
     /* black and noise stdev */
     /* read 5 times (from different LiveView frames) and use the median value */
@@ -219,8 +235,10 @@ static void FAST quick_analysis_lv()
         FONT_MED | FONT_ALIGN_RIGHT | FONT_ALIGN_FILL,
         720, 50,
         "  %d..%d\n"
+        "  %s%d.%02d%% over\n"
         "  ~ %s%d.%02d EV",
         (int) black, white,
+        FMT_FIXEDPOINT2(over_x100), 0,
         FMT_FIXEDPOINT2(dr_x100)
     );
 }
@@ -251,14 +269,15 @@ static void FAST black_histogram(int ob)
     /* print basic statistics */
     int mean_r = (int)roundf(mean);
     int stdev_r = (int)roundf(stdev * 100);
-    int white = autodetect_white_level();
-    int canon_white = shamem_read(0xC0F12054) >> 16;
+    int over_x100 = -1;
+    int white = autodetect_white_level(&over_x100);
+    //int canon_white = shamem_read(0xC0F12054) >> 16;
     
     if (ob)
     {
         bmp_printf(FONT_MED, 0, 0, "Optical black: mean %d, stdev %s%d.%02d ", mean_r, FMT_FIXEDPOINT2(stdev_r));
         int dr = (int)roundf((log2f(white - mean) - log2f(stdev)) * 1000.0);
-        bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, "White level: %d (%d) ", white, canon_white);
+        bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, 0, "White: %d (%s%d.%02d%% over) ", white, FMT_FIXEDPOINT2(over_x100));
         bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 720, font_med.height, "Dyn. range: %s%d.%03d EV ", FMT_FIXEDPOINT3(dr));
         bmp_printf(FONT_MED, 0, font_med.height, "%s, %s, ISO %d %s "SYM_F_SLASH"%s%d.%d", cam_model, video_mode_name, lens_info.iso, lens_format_shutter(lens_info.raw_shutter), FMT_FIXEDPOINT1((int)lens_info.aperture));
     }
@@ -493,7 +512,7 @@ static void snr_graph_2_shots(int noise_curve)
     float black, ob_noise;
     ob_mean_stdev(&black, &ob_noise);
     
-    int white = autodetect_white_level();
+    int white = autodetect_white_level(NULL);
 
     const float full_well = 14;
     const int y_step = 35;
@@ -1098,7 +1117,7 @@ static void compare_2_shots(int min_adu)
     ob_mean_stdev(&black, &noise);
 
     /* get white level */
-    int white = autodetect_white_level();
+    int white = autodetect_white_level(NULL);
 
     /* values from previous shot */
     static float black_prev;
