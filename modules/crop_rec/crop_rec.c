@@ -80,7 +80,7 @@ static enum crop_preset crop_presets_5d3[] = {
 static const char * crop_choices_5d3[] = {
     "OFF",
     "mv1080p_mv720p",
-    "1080p45/1040p48 3x3",
+    "1080p45/1080p48 3x3",
     "3.5K 1:1 centered x5",
     "1x3_1920x2352",
     "1x3_17fps_1920x3240",
