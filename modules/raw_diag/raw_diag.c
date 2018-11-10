@@ -109,19 +109,15 @@ static int autodetect_white_level(int * overexposure_percentage_x100)
     int initial_guess = 0;
     int white = initial_guess;
 
-    /* build a temporary 8-bit histogram, binning every 2^6 = 64 levels */
-    /* the clipping may not be harsh (especially at long exposures)
-     * if we reduce the bit depth, the clipping point will span
-     * only one or two levels - easier to detect */
-    const int bin = 6;
-    int * hist = malloc((16384 >> bin) * sizeof(hist[0]));
+    /* build a temporary histogram for the entire image */
+    int * hist = malloc(16384 * sizeof(hist[0]));
     if (!hist)
     {
         /* oops */
         ASSERT(0);
         return initial_guess;
     }
-    memset(hist, 0, (16384 >> bin) * sizeof(hist[0]));
+    memset(hist, 0, 16384 * sizeof(hist[0]));
 
     int raw_height = raw_info.active_area.y2 - raw_info.active_area.y1;
     for (int y = raw_info.active_area.y1 + raw_height/10; y < raw_info.active_area.y2 - raw_height/10; y++)
@@ -137,51 +133,75 @@ static int autodetect_white_level(int * overexposure_percentage_x100)
             /* a is red or green, b is green or blue */
             int a = p->a;
             int b = p->h;
-            hist[a >> bin]++;
-            hist[b >> bin]++;
+            hist[a]++;
+            hist[b]++;
         }
     }
 
+    /* compute the cdf (replace the histogram) */
+    int * cdf = hist;
     int acc = 0;
-    for (int i = (16384 >> bin) - 1; i >= MAX(initial_guess >> bin, 5); i--)
+    for (int i = 0; i < 16384; i++)
     {
-        //qprintf("[WL] %d: %d\n", i << bin, hist[i]);
-        /* the peak should be much bigger than what's after it,
-         * and at least 10 overexposed pixels */
-        if (hist[i] + hist[i-1] > 10 + acc * 100)
-        {
-            printf("[WL] peak at %d:%d (count=%d+%d above=%d left=%d,%d,%d)\n", i << bin, (i+1) << bin, hist[i-1], hist[i], acc, hist[i-2], hist[i-3], hist[i-4]);
-            /* the peak should also be much bigger than what's before it */
-            if (hist[i-2] + hist[i-3] + hist[i-4] < (hist[i] + hist[i-1]) / 10)
-            {
-                printf("[WL] peak confirmed.\n");
-                white = (i - 3) << bin;
-                break;
-            }
-        }
-
-        if (acc == 0 && hist[i] != 0)
-        {
-            /* if we are not going to find a peak,
-             * assume the image is not overexposed */
-            white = (i + 1) << bin;
-        }
-
         acc += hist[i];
+        cdf[i] = acc;
     }
+
+    int total = cdf[16383];
+
+    if (0)
+    {
+        /* for debugging */
+        char fn[100];
+        get_numbered_file_name("CDF%05d.bin", 99999, fn, sizeof(fn));
+        FILE * f = FIO_CreateFile(fn);
+        FIO_WriteFile(f, cdf, 16384 * sizeof(cdf[0]));
+        FIO_CloseFile(f);
+    }
+
+    int last = 16383;
+    float peak = 0;
+    for (int i = 16382; i >= raw_info.black_level + 256; i--)
+    {
+        /* attempt to find the steepest slope on the right side, */
+        /* relative to what's on the left side (heuristic) */
+
+        /* right side of the peak; allow at least 10 overexposed pixels */
+        int possibly_clipped = total - cdf[i];
+        while (last > i + 1 && cdf[last] > total - possibly_clipped / 100 - 10)
+        {
+            last--;
+        }
+
+        /* left side of the peak */
+        /* include at least 200 px, or twice as big as the peak itself */
+        int first = i - (last - i) * 2 - 200;
+        if (first < 0) break;
+
+        float slope_right = (float) (cdf[last] - cdf[i]) / (last - i);
+        float slope_left = (float) (cdf[i] - cdf[first]) / (i - first);
+        if (slope_left < 1e-5) continue;
+        float slope_ratio = slope_right / slope_left;
+
+        int p_x100 = (uint64_t) cdf[i] * (uint64_t) 10000 / total;
+        qprintf("%d: %s%d.%02d %d-%d %d/%d %d\n", i, FMT_FIXEDPOINT2(p_x100), first, last, (int)(slope_left * 100), (int)(slope_right * 100), (int)(slope_ratio * 100));
+
+        if (slope_ratio > peak)
+        {
+            peak = slope_ratio;
+
+            /* use a small margin when choosing the white level, as the autodetection might not be very exact */
+            /* 0.005 EV would give about 100 units at W=16382 and B=2048. */
+            white = (i - raw_info.black_level) * 16270 / 16384 + raw_info.black_level;
+        }
+    }
+
+    int clipped = total - cdf[white];
+
+    printf("WL: %d (%d/%d clipped pixels)\n", white, clipped, total);
 
     if (overexposure_percentage_x100)
     {
-        int total = 0;
-        int clipped = 0;
-        for (int i = 0; i < (16384 >> bin); i++)
-        {
-            if ((i << bin) >= white)
-            {
-                clipped += hist[i];
-            }
-            total += hist[i];
-        }
         *overexposure_percentage_x100 = (uint64_t) clipped * (uint64_t) 10000 / total;
     }
     free(hist);
