@@ -86,8 +86,8 @@ static const char * crop_choices_5d3[] = {
     "mv1080p_mv720p",
     "1080p45/1080p48 3x3",
     "3.5K 1:1 centered x5",
-    "1x3_1920x2352",
-    "1x3_1920x2352_12bit",
+    "1x3_1920x2348",
+    "1x3_1920x2348_12bit",
     "1x3_17fps_1920x3240",
     "1x3_17fps_1920x3240_12bit",
     "1920 1:1",
@@ -595,92 +595,64 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     if (iso100)
     {
         cmos_new[0] = 0x113;
-     if (bit12)
+     if (bit12 || bit10)
      {
         cmos_new[0] = 0x223;
      }
-      if (bit10)
-      {
-        cmos_new[0] = 0x443;
-      }
     }
 
     if (iso200)
     {
         cmos_new[0] = 0x223;
-     if (bit12)
+     if (bit12 || bit10)
      {
         cmos_new[0] = 0x333;
      }
-      if (bit10)
-      {
-        cmos_new[0] = 0x553;
-      }
     }
 
     if (iso400)
     {
         cmos_new[0] = 0x333;
-     if (bit12)
+     if (bit12 || bit10)
      {
         cmos_new[0] = 0x443;
      }
-      if (bit10)
-      {
-        cmos_new[0] = 0xdd3;
-      }
     }
 
     if (iso800)
     {
         cmos_new[0] = 0x443;
-     if (bit12)
+     if (bit12 || bit10)
      {
         cmos_new[0] = 0x553;
      }
-      if (bit10)
-      {
-        cmos_new[0] = 0xff3;
-      }
     }
 
     if (iso1600)
     {
         cmos_new[0] = 0x553;
-     if (bit12)
+     if (bit12 || bit10)
      {
         cmos_new[0] = 0xdd3;
      }
-      if (bit10)
-      {
-        cmos_new[0] = 0xff3;
-      }
     }
 
     if (iso3200)
     {
         cmos_new[0] = 0xdd3;
-     if (bit12)
+     if (bit12 || bit10)
      {
         cmos_new[0] = 0xff3;
      }
-      if (bit10)
-      {
-        cmos_new[0] = 0xff3;
-      }
     }
 
     if (iso6400)
     {
         cmos_new[0] = 0xff3;
-     if (bit12)
+     if (bit12 || bit10)
      {
         cmos_new[0] = 0xff3;
      }
-      if (bit10)
-      {
-        cmos_new[0] = 0xff3;
-      }
     }
 
     /* copy data into a buffer, to make the override temporary */
