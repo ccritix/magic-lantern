@@ -1548,10 +1548,8 @@ static inline uint32_t reg_override_1x3_12bit(uint32_t reg, uint32_t old_val)
         case 0xC0F06014:
             return 0xa27;
 
-
 	/* correct liveview brightness */
 	/*case 0xC0F42744: return 0x4040404;*/
-
 
 	/* correct liveview brightness */
 	case 0xC0F42744: return 0x2020202;
@@ -1562,8 +1560,6 @@ static inline uint32_t reg_override_1x3_12bit(uint32_t reg, uint32_t old_val)
 /* d7f,d80 */
 /* d93,da3 */
 /* df3,e03 */
-
-
 
     }
 
