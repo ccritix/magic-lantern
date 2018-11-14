@@ -24,6 +24,7 @@ static int is_5D3 = 0;
 static int is_6D = 0;
 static int is_EOSM = 0;
 static int is_basic = 0;
+static int is_100D = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
@@ -46,6 +47,7 @@ enum crop_preset {
     CROP_PRESET_3x3_1X,
     CROP_PRESET_3x1,
     CROP_PRESET_40_FPS,
+	CROP_PRESET_1x3_100D,
     NUM_CROP_PRESETS
 };
 
@@ -140,6 +142,23 @@ static const char crop_choices_help_basic[] =
 static const char crop_choices_help2_basic[] =
     "3x3 binning in 720p (square pixels in RAW, vertical crop)";
 
+	/* menu choices for 100D */
+static enum crop_preset crop_presets_100d[] = {
+    CROP_PRESET_OFF,
+    CROP_PRESET_1x3_100D,
+};
+
+static const char * crop_choices_100d[] = {
+    "OFF",
+    "1x3_1736x1188",
+};
+
+static const char crop_choices_help_100d[] =
+    "Change 1080p and 720p movie modes into crop modes (select one)";
+
+static const char crop_choices_help2_100d[] =
+    "\n"
+    "1x3 binning mode\n";
 
 /* camera-specific parameters */
 static uint32_t CMOS_WRITE      = 0;
@@ -314,6 +333,7 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_UHD]           = { 1536, 1472, 1120,  640,  540, 1320 },
     [CROP_PRESET_4K_HFPS]       = { 3072, 3072, 2500, 1440, 1200, 1320 },
     [CROP_PRESET_FULLRES_LV]    = { 3870, 3870, 3870, 3870, 3870, 1320 },
+    [CROP_PRESET_1x3_100D]    = { 1304, 1104,  904,  704,  504 },
 };
 
 /* 5D3 vertical resolution increments over default configuration */
@@ -390,7 +410,7 @@ static int FAST check_cmos_vidmode(uint16_t* data_buf)
             }
         }
         
-        if (is_basic && !is_6D)
+        if (is_basic && !is_6D && !is_100D)
         {
             if (reg == 7)
             {
@@ -578,6 +598,17 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 /* start/stop scanning line, very large increments */
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
                 break;            
+        }
+    }
+
+    if (is_100D)
+    {
+        switch (crop_preset)
+        {
+       			
+	    case CROP_PRESET_1x3_100D:
+                cmos_new[7] = 0x600;    /* pink highlights without this */
+                break;	
         }
     }
 
@@ -863,7 +894,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
     /* should probably be made generic */
-    if (is_5D3)
+    if (is_5D3 || is_100D)
     {
         /* all modes may want to override shutter speed */
         /* ADTG[0x8060]: shutter blanking for 3x3 mode  */
@@ -944,6 +975,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
             case CROP_PRESET_1x3:
 	    case CROP_PRESET_1x3_17fps:
+	    case CROP_PRESET_1x3_100D:
                 /* ADTG2/4[0x800C] = 0: read every line */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
                 break;
@@ -1035,6 +1067,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_1x3_12bit:
 			case CROP_PRESET_1x3_17fps:
 	    		case CROP_PRESET_1x3_17fps_12bit:
+			case CROP_PRESET_1x3_100D:
             {
                 /* assuming FPS timer B was overridden before this */
                 int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
@@ -1620,6 +1653,25 @@ static inline uint32_t reg_override_1x3_17fps_12bit(uint32_t reg, uint32_t old_v
     return 0;
 }
 
+static inline uint32_t reg_override_1x3_100d(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+
+        case 0xC0F0713c:
+            return 0x4c2;
+        
+        case 0xC0F06804:	
+            return 0x4c201d7;
+
+        case 0xC0F06014:
+            return 0xa06;
+
+    }
+
+    return 0;
+} 
+
 static inline uint32_t reg_override_fps_nocheck(uint32_t reg, uint32_t timerA, uint32_t timerB, uint32_t old_val)
 {
     /* hardware register requires timer-1 */
@@ -1692,6 +1744,7 @@ static void * get_engio_reg_override_func()
 		(crop_preset == CROP_PRESET_1x3_12bit)        ? reg_override_1x3_12bit :
 		(crop_preset == CROP_PRESET_1x3_17fps)        ? reg_override_1x3_17fps :
 		(crop_preset == CROP_PRESET_1x3_17fps_12bit)        ? reg_override_1x3_17fps_12bit :
+        	(crop_preset == CROP_PRESET_1x3_100D)	     ? reg_override_1x3_100d      :
                                                   0                       ;
     return reg_override_func;
 }
@@ -1714,14 +1767,21 @@ static void FAST engio_write_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         uint32_t old = *(buf+1);
         if (reg == 0xC0F06804)
         {
-            engio_vidmode_ok = (crop_preset == CROP_PRESET_CENTER_Z)
-                ? (old == 0x56601EB)                        /* x5 zoom */
-                : (old == 0x528011B || old == 0x2B6011B);   /* 1080p or 720p */
-        }
-
+	   if (is_5D3)
+	   {
+	     engio_vidmode_ok = (crop_preset == CROP_PRESET_CENTER_Z)
+             ? (old == 0x56601EB)                        /* x5 zoom */
+             : (old == 0x528011B || old == 0x2B6011B);   /* 1080p or 720p */	
+	   }
+	   if (is_100D)
+	   {
+       	     engio_vidmode_ok = 
+             (old == 0x45802A1) ||/* x5 zoom */ (old == 0x4A701D7 || old == 0x2D801D7);   /* 1080p or 720p */
+           }
+	}
     }
 
-    if (!is_supported_mode() || !engio_vidmode_ok)
+    if (!is_supported_mode() || (!engio_vidmode_ok))
     {
         /* don't patch other video modes */
         return;
@@ -2395,7 +2455,25 @@ static unsigned int crop_rec_init()
         crop_rec_menu[0].max        = COUNT(crop_choices_basic) - 1;
         crop_rec_menu[0].help       = crop_choices_help_basic;
         crop_rec_menu[0].help2      = crop_choices_help2_basic;
-    }     
+    }
+    else if (is_camera("100D", "1.0.1"))
+    {
+        CMOS_WRITE = 0x475B8;
+        MEM_CMOS_WRITE = 0xE92D41F0;
+        
+        ADTG_WRITE = 0x47144;
+        MEM_ADTG_WRITE = 0xE92D43F8;
+
+        ENGIO_WRITE = 0xFF2B2460;
+        MEM_ENGIO_WRITE = 0xE51FC15C;
+        
+        is_100D = 1;
+        crop_presets                = crop_presets_100d;
+        crop_rec_menu[0].choices    = crop_choices_100d;
+        crop_rec_menu[0].max        = COUNT(crop_choices_100d) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_100d;
+        crop_rec_menu[0].help2      = crop_choices_help2_100d;
+    }      
     else if (is_camera("6D", "1.1.6"))
     {
         CMOS_WRITE = 0x2420C;
