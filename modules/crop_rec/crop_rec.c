@@ -43,10 +43,14 @@ enum crop_preset {
     CROP_PRESET_FULLRES_LV,
     CROP_PRESET_3x3_1X,
     CROP_PRESET_3x3_1X_48p,
-    CROP_PRESET_1x3,
     CROP_PRESET_3x1,
     CROP_PRESET_40_FPS,
     CROP_PRESET_CENTER_Z,
+    CROP_PRESET_mv1080_mv720p,
+    CROP_PRESET_1x3,
+    CROP_PRESET_1x3_12bit,
+    CROP_PRESET_1x3_17fps,
+    CROP_PRESET_1x3_17fps_12bit,
     NUM_CROP_PRESETS
 };
 
@@ -73,6 +77,11 @@ static enum crop_preset crop_presets_5d3[] = {
     CROP_PRESET_4K_HFPS,
     CROP_PRESET_CENTER_Z,
     CROP_PRESET_FULLRES_LV,
+    CROP_PRESET_mv1080_mv720p,
+    CROP_PRESET_1x3,
+    CROP_PRESET_1x3_12bit,
+    CROP_PRESET_1x3_17fps,
+    CROP_PRESET_1x3_17fps_12bit,
   //CROP_PRESET_1x3,
   //CROP_PRESET_3x1,
   //CROP_PRESET_40_FPS,
@@ -83,12 +92,17 @@ static const char * crop_choices_5d3[] = {
     "1920 1:1",
     "1920 1:1 tall",
     "1920 50/60 3x3",
-    "1080p45/1040p48 3x3",
+    "1080p45/1080p48 3x3",
     "3K 1:1",
     "UHD 1:1",
     "4K 1:1 half-fps",
     "3.5K 1:1 centered x5",
     "Full-res LiveView",
+    "mv1080p_mv720p",
+    "1x3_1920x2348",
+    "1x3_1920x2348_12bit",
+    "1x3_17fps_1920x3240",
+    "1x3_17fps_1920x3240_12bit",
   //"1x3 binning",
   //"3x1 binning",      /* doesn't work well */
   //"40 fps",
@@ -108,6 +122,11 @@ static const char crop_choices_help2_5d3[] =
     "1:1 4K crop (4096x3072 @ 12.5 fps, half frame rate, preview broken)\n"
     "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
     "Full resolution LiveView (5796x3870 @ 7.4 fps, 5784x3864, preview broken)\n"
+    "mv1080_mv720p clean"
+    "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
+    "1x3 binning: 12bit\n"
+    "1x3_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
+    "1x3 binning: 12bit\n"
     "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "3x1 binning: bin every 3 lines, read all columns (extreme anamorphic)\n"
     "FPS override test\n";
@@ -191,6 +210,15 @@ static int32_t  delta_head3 = 0;
 static int32_t  delta_head4 = 0;
 static uint32_t cmos1_lo = 0, cmos1_hi = 0;
 static uint32_t cmos2 = 0;
+static uint32_t bit10 = 0;
+static uint32_t bit12 = 0;
+static uint32_t iso100 = 0;
+static uint32_t iso200 = 0;
+static uint32_t iso400 = 0;
+static uint32_t iso800 = 0;
+static uint32_t iso1600 = 0;
+static uint32_t iso3200 = 0;
+static uint32_t iso6400 = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -266,6 +294,9 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
 
         case CROP_PRESET_3X:
         case CROP_PRESET_1x3:
+        case CROP_PRESET_1x3_12bit:
+        case CROP_PRESET_1x3_17fps:
+        case CROP_PRESET_1x3_17fps_12bit:
             skip_top        = 60;
             break;
 
@@ -319,7 +350,7 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
                                 /*   24p   25p   30p   50p   60p   x5 */
     [CROP_PRESET_3X_TALL]       = { 1920, 1728, 1536,  960,  800, 1320 },
     [CROP_PRESET_3x3_1X]        = { 1290, 1290, 1290,  960,  800, 1320 },
-    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1040, 1320 }, /* 1080p45/48 */
+    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1080, 1320 }, /* 1080p45/48 */
     [CROP_PRESET_3K]            = { 1920, 1728, 1504,  760,  680, 1320 },
     [CROP_PRESET_UHD]           = { 1536, 1472, 1120,  640,  540, 1320 },
     [CROP_PRESET_4K_HFPS]       = { 3072, 3072, 2500, 1440, 1200, 1320 },
@@ -550,11 +581,20 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
             /* 1x3 binning (read every line, bin every 3 columns) */
             case CROP_PRESET_1x3:
+            case CROP_PRESET_1x3_12bit:
                 /* start/stop scanning line, very large increments */
-                cmos_new[1] = (is_720p())
-                    ? PACK12(14,10)     /* 720p,  almost centered */
-                    : PACK12(11,11);    /* 1080p, almost centered */
-                
+                cmos_new[1] = 0x280;
+/* 1920x2400 */
+/* cmos_new[1] = 0x2a0; */
+
+                cmos_new[6] = 0x170;    /* pink highlights without this */
+                break;
+
+            /* 1x3 binning (read every line, bin every 3 columns) */
+            case CROP_PRESET_1x3_17fps:
+            case CROP_PRESET_1x3_17fps_12bit:
+                /* start/stop scanning line, very large increments */
+                cmos_new[1] = 0x380;
                 cmos_new[6] = 0x170;    /* pink highlights without this */
                 break;
 
@@ -591,6 +631,69 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     if (cmos2)
     {
         cmos_new[2] = cmos2;
+    }
+
+    if (iso100)
+    {
+        cmos_new[0] = 0x113;
+     if (bit12 || bit10)
+     {
+        cmos_new[0] = 0x223;
+     }
+    }
+
+    if (iso200)
+    {
+        cmos_new[0] = 0x223;
+     if (bit12 || bit10)
+     {
+        cmos_new[0] = 0x333;
+     }
+    }
+
+    if (iso400)
+    {
+        cmos_new[0] = 0x333;
+     if (bit12 || bit10)
+     {
+        cmos_new[0] = 0x443;
+     }
+    }
+
+    if (iso800)
+    {
+        cmos_new[0] = 0x443;
+     if (bit12 || bit10)
+     {
+        cmos_new[0] = 0x553;
+     }
+    }
+
+    if (iso1600)
+    {
+        cmos_new[0] = 0x553;
+     if (bit12 || bit10)
+     {
+        cmos_new[0] = 0xdd3;
+     }
+    }
+
+    if (iso3200)
+    {
+        cmos_new[0] = 0xdd3;
+     if (bit12 || bit10)
+     {
+        cmos_new[0] = 0xff3;
+     }
+    }
+
+    if (iso6400)
+    {
+        cmos_new[0] = 0xff3;
+     if (bit12 || bit10)
+     {
+        cmos_new[0] = 0xff3;
+     }
     }
     
     /* copy data into a buffer, to make the override temporary */
@@ -766,7 +869,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     };
     
     /* expand this as required */
-    struct adtg_new adtg_new[13] = {{0}};
+    struct adtg_new adtg_new[22] = {{0}};
 
     const int blanking_reg_zoom   = (is_5D3) ? 0x805E : 0x805F;
     const int blanking_reg_nozoom = (is_5D3) ? 0x8060 : 0x8061;
@@ -795,6 +898,56 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         {
             shutter_blanking = adjust_shutter_blanking(shutter_blanking);
         }
+    }
+
+    /* should probably be made generic */
+    if (is_5D3)
+    {
+        /* all modes may want to override shutter speed */
+        /* ADTG[0x8060]: shutter blanking for 3x3 mode  */
+        /* ADTG[0x805E]: shutter blanking for zoom mode  */
+        adtg_new[0] = (struct adtg_new) {6, 0x8060, shutter_blanking};
+        adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
+
+    		if (iso100 || iso200 || iso400 || iso800 || iso1600 || iso3200 || iso6400)
+    		{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 0x200}; /* more like 13bit. Write 250 for 12bit */
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 0x200};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 0x200};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 0x200};
+
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 0x200};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 0x200};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 0x200};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 0x200};
+		}
+
+    		if (bit12)
+    		{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250};
+
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 250};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 250};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 250};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
+		}
+
+    		if (bit10)
+    		{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60};
+
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 60};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 60};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 60};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 60};
+		}
+
     }
 
     /* all modes may want to override shutter speed */
@@ -831,11 +984,70 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 2};
                 break;
 
-            /* 1x3 binning (read every line, bin every 3 columns) */
+
             case CROP_PRESET_1x3:
+	    case CROP_PRESET_1x3_17fps:
                 /* ADTG2/4[0x800C] = 0: read every line */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
                 break;
+
+	    case CROP_PRESET_1x3_17fps_12bit:
+                /* ADTG2/4[0x800C] = 0: read every line */
+                adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
+
+		/* 12bit */
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250};
+
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 250};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 250};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 250};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
+
+    		if (bit10)
+    		{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60};
+
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 60};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 60};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 60};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 60};
+		}
+                break;  
+
+	    case CROP_PRESET_1x3_12bit:
+                /* ADTG2/4[0x800C] = 0: read every line */
+                adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
+
+		/* 12bit */
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250};
+
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 250};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 250};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 250};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
+
+    		if (bit10)
+    		{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60};
+
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 60};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 60};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 60};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 60};
+		}
+                break; 
 
             /* 3x1 binning (bin every 3 lines, read every column) */
             /* doesn't work well, figure out why */
@@ -867,8 +1079,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[6]  = (struct adtg_new) {6, 0x8196, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3) */
 
         adtg_new[7]  = (struct adtg_new) {6, 0x8173, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (6D/700D) */
-        adtg_new[8]  = (struct adtg_new) {6, 0x8179, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3/6D/700D) */
-        adtg_new[9]  = (struct adtg_new) {6, 0x8197, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3) */
+        adtg_new[8]  = (struct adtg_new) {6, 0x8179, nrzi_encode(fps_timer_b - 5) }; /* PowerSaveTiming OFF (5D3/6D/700D) */
+        adtg_new[9]  = (struct adtg_new) {6, 0x8197, nrzi_encode(fps_timer_b - 5) }; /* PowerSaveTiming OFF (5D3) */
 
         adtg_new[10] = (struct adtg_new) {6, 0x82B6, nrzi_encode(readout_end - 1) }; /* PowerSaveTiming ON? (700D); 2 units below the "ON" timing from above */
 
@@ -1144,12 +1356,12 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
         /* HEAD3 timer */
         /* 2E6 in 50p, 2B4 in 60p */
         case 0xC0F0713C:
-            return 0x2B4 + YRES_DELTA + delta_head3;
+            return 0x2A4 + YRES_DELTA + delta_head3;
 
         /* HEAD4 timer */
         /* 2B4 in 50p, 26D in 60p */
         case 0xC0F07150:
-            return 0x26D + YRES_DELTA + delta_head4;
+            return 0x22D + YRES_DELTA + delta_head4;
     }
 
     return reg_override_common(reg, old_val);
@@ -1302,6 +1514,138 @@ static inline uint32_t reg_override_40_fps(uint32_t reg, uint32_t old_val)
     return 0;
 }
 
+static inline uint32_t reg_override_1x3(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        case 0xC0F0713c:
+            return 0x96e;
+        
+        case 0xC0F06804:
+            return 0x96a011b;
+
+        case 0xC0F06008:
+        case 0xC0F0600C:
+            return 0x1800180;
+
+        case 0xC0F06010:
+            return 0x180;
+
+        case 0xC0F06014:
+            return 0xa27;
+
+
+	/* correct liveview brightness */
+	/*case 0xC0F42744: return 0x4040404;*/
+
+
+	/* correct liveview brightness */
+	/*case 0xC0F42744: return 0x2020202;*/
+
+/* how to count */
+/* d80,7f */
+/* d7a,d79 */
+/* d7f,d80 */
+/* d93,da3 */
+/* df3,e03 */
+
+    }
+
+    return 0;
+}
+
+static inline uint32_t reg_override_1x3_12bit(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        case 0xC0F0713c:
+            return 0x96e;
+        
+        case 0xC0F06804:
+            return 0x96a011b;
+
+        case 0xC0F06008:
+        case 0xC0F0600C:
+            return 0x1800180;
+
+        case 0xC0F06010:
+            return 0x180;
+
+        case 0xC0F06014:
+            return 0xa27;
+
+	/* correct liveview brightness */
+	/*case 0xC0F42744: return 0x4040404;*/
+
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x2020202;
+
+/* how to count */
+/* d80,7f */
+/* d7a,d79 */
+/* d7f,d80 */
+/* d93,da3 */
+/* df3,e03 */
+
+    }
+
+    return 0;
+}
+
+
+static inline uint32_t reg_override_1x3_17fps(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        case 0xC0F0713c:
+            return 0xce6;
+        
+        case 0xC0F06804:	/* 1920x3240(perfect 1920x1080) */
+            return 0xce6011b;
+
+        case 0xC0F06008:
+        case 0xC0F0600C:
+            return 0x1800180;
+
+        case 0xC0F06010:
+            return 0x180;
+
+        case 0xC0F06014:
+            return 0xd9f;
+
+    }
+
+    return 0;
+}
+
+static inline uint32_t reg_override_1x3_17fps_12bit(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        case 0xC0F0713c:
+            return 0xce6;
+        
+        case 0xC0F06804:	/* 1920x3240(perfect 1920x1080) */
+            return 0xce6011b;
+
+        case 0xC0F06008:
+        case 0xC0F0600C:
+            return 0x1800180;
+
+        case 0xC0F06010:
+            return 0x180;
+
+        case 0xC0F06014:
+            return 0xd9f;
+
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x2020202;
+
+    }
+
+    return 0;
+}
+
 static inline uint32_t reg_override_fps_nocheck(uint32_t reg, uint32_t timerA, uint32_t timerB, uint32_t old_val)
 {
     /* hardware register requires timer-1 */
@@ -1370,6 +1714,10 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_40_FPS)     ? reg_override_40_fps     :
         (crop_preset == CROP_PRESET_FULLRES_LV) ? reg_override_fullres_lv :
         (crop_preset == CROP_PRESET_CENTER_Z)   ? reg_override_zoom_fps   :
+	(crop_preset == CROP_PRESET_1x3)        ? reg_override_1x3 :
+	(crop_preset == CROP_PRESET_1x3_12bit)  ? reg_override_1x3_12bit :
+	(crop_preset == CROP_PRESET_1x3_17fps)  ? reg_override_1x3_17fps :
+	(crop_preset == CROP_PRESET_1x3_17fps_12bit)  ? reg_override_1x3_17fps_12bit :
                                                   0                       ;
     return reg_override_func;
 }
@@ -1598,6 +1946,87 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Horizontal position / binning.",
                 .help2  = "Use for horizontal centering.",
                 .advanced = 1,
+            },
+            {
+                .name   = "10bit",
+                .priv   = &bit10,
+                .max    = 0x1,
+                .unit   = UNIT_HEX,
+                .help   = "Horizontal position / binning.",
+                .help2  = "Use for horizontal centering.",
+                .advanced = 0,
+            },
+            {
+                .name   = "12bit",
+                .priv   = &bit12,
+                .max    = 0x1,
+                .unit   = UNIT_HEX,
+                .help   = "Horizontal position / binning.",
+                .help2  = "Use for horizontal centering.",
+                .advanced = 0,
+            },
+            {
+                .name   = "iso100",
+                .priv   = &iso100,
+                .max    = 0x1,
+                .unit   = UNIT_HEX,
+                .help   = "Horizontal position / binning.",
+                .help2  = "Use for horizontal centering.",
+                .advanced = 0,
+            },
+            {
+                .name   = "iso200",
+                .priv   = &iso200,
+                .max    = 0x1,
+                .unit   = UNIT_HEX,
+                .help   = "Horizontal position / binning.",
+                .help2  = "Use for horizontal centering.",
+                .advanced = 0,
+            },
+            {
+                .name   = "iso400",
+                .priv   = &iso400,
+                .max    = 0x1,
+                .unit   = UNIT_HEX,
+                .help   = "Horizontal position / binning.",
+                .help2  = "Use for horizontal centering.",
+                .advanced = 0,
+            },
+            {
+                .name   = "iso800",
+                .priv   = &iso800,
+                .max    = 0x1,
+                .unit   = UNIT_HEX,
+                .help   = "Horizontal position / binning.",
+                .help2  = "Use for horizontal centering.",
+                .advanced = 0,
+            },
+            {
+                .name   = "iso1600(14bit,12bit)",
+                .priv   = &iso1600,
+                .max    = 0x1,
+                .unit   = UNIT_HEX,
+                .help   = "Horizontal position / binning.",
+                .help2  = "Use for horizontal centering.",
+                .advanced = 0,
+            },
+            {
+                .name   = "iso3200(14bit,12bit)",
+                .priv   = &iso3200,
+                .max    = 0x1,
+                .unit   = UNIT_HEX,
+                .help   = "Horizontal position / binning.",
+                .help2  = "Use for horizontal centering.",
+                .advanced = 0,
+            },
+            {
+                .name   = "iso6400(only14bit)",
+                .priv   = &iso6400,
+                .max    = 0x1,
+                .unit   = UNIT_HEX,
+                .help   = "Horizontal position / binning.",
+                .help2  = "Use for horizontal centering.",
+                .advanced = 0,
             },
             MENU_ADVANCED_TOGGLE,
             MENU_EOL,
@@ -1896,6 +2325,9 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_3x3_1X:
             case CROP_PRESET_3x3_1X_48p:
             case CROP_PRESET_1x3:
+            case CROP_PRESET_1x3_12bit:
+            case CROP_PRESET_1x3_17fps:
+            case CROP_PRESET_1x3_17fps_12bit:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
                 break;
         }
@@ -1910,6 +2342,9 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_UHD:
             case CROP_PRESET_FULLRES_LV:
             case CROP_PRESET_1x3:
+            case CROP_PRESET_1x3_12bit:
+            case CROP_PRESET_1x3_17fps:
+            case CROP_PRESET_1x3_17fps_12bit:
                 raw_capture_info.binning_y = 1; raw_capture_info.skipping_y = 0;
                 break;
 
