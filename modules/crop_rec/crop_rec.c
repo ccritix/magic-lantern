@@ -1361,7 +1361,7 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
         /* HEAD4 timer */
         /* 2B4 in 50p, 26D in 60p */
         case 0xC0F07150:
-            return 0x22a + YRES_DELTA + delta_head4;
+            return 0x22f + YRES_DELTA + delta_head4;
     }
 
     return reg_override_common(reg, old_val);
