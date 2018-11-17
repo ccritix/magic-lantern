@@ -212,13 +212,6 @@ static uint32_t cmos1_lo = 0, cmos1_hi = 0;
 static uint32_t cmos2 = 0;
 static uint32_t bit10 = 0;
 static uint32_t bit12 = 0;
-static uint32_t iso100 = 0;
-static uint32_t iso200 = 0;
-static uint32_t iso400 = 0;
-static uint32_t iso800 = 0;
-static uint32_t iso1600 = 0;
-static uint32_t iso3200 = 0;
-static uint32_t iso6400 = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -632,69 +625,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
         cmos_new[2] = cmos2;
     }
-
-    if (iso100)
-    {
-        cmos_new[0] = 0x113;
-     if (bit12 || bit10)
-     {
-        cmos_new[0] = 0x223;
-     }
-    }
-
-    if (iso200)
-    {
-        cmos_new[0] = 0x223;
-     if (bit12 || bit10)
-     {
-        cmos_new[0] = 0x333;
-     }
-    }
-
-    if (iso400)
-    {
-        cmos_new[0] = 0x333;
-     if (bit12 || bit10)
-     {
-        cmos_new[0] = 0x443;
-     }
-    }
-
-    if (iso800)
-    {
-        cmos_new[0] = 0x443;
-     if (bit12 || bit10)
-     {
-        cmos_new[0] = 0x553;
-     }
-    }
-
-    if (iso1600)
-    {
-        cmos_new[0] = 0x553;
-     if (bit12 || bit10)
-     {
-        cmos_new[0] = 0xdd3;
-     }
-    }
-
-    if (iso3200)
-    {
-        cmos_new[0] = 0xdd3;
-     if (bit12 || bit10)
-     {
-        cmos_new[0] = 0xff3;
-     }
-    }
-
-    if (iso6400)
-    {
-        cmos_new[0] = 0xff3;
-     if (bit12 || bit10)
-     {
-        cmos_new[0] = 0xff3;
-     }
-    }
     
     /* copy data into a buffer, to make the override temporary */
     /* that means: as soon as we stop executing the hooks, values are back to normal */
@@ -908,19 +838,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         /* ADTG[0x805E]: shutter blanking for zoom mode  */
         adtg_new[0] = (struct adtg_new) {6, 0x8060, shutter_blanking};
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
-
-    		if (iso100 || iso200 || iso400 || iso800 || iso1600 || iso3200 || iso6400)
-    		{
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 0x200}; /* more like 13bit. Write 250 for 12bit */
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 0x200};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 0x200};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 0x200};
-
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 0x200};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 0x200};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 0x200};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 0x200};
-		}
 
     		if (bit12)
     		{
@@ -1959,69 +1876,6 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "12bit",
                 .priv   = &bit12,
-                .max    = 0x1,
-                .unit   = UNIT_HEX,
-                .help   = "Horizontal position / binning.",
-                .help2  = "Use for horizontal centering.",
-                .advanced = 0,
-            },
-            {
-                .name   = "iso100",
-                .priv   = &iso100,
-                .max    = 0x1,
-                .unit   = UNIT_HEX,
-                .help   = "Horizontal position / binning.",
-                .help2  = "Use for horizontal centering.",
-                .advanced = 0,
-            },
-            {
-                .name   = "iso200",
-                .priv   = &iso200,
-                .max    = 0x1,
-                .unit   = UNIT_HEX,
-                .help   = "Horizontal position / binning.",
-                .help2  = "Use for horizontal centering.",
-                .advanced = 0,
-            },
-            {
-                .name   = "iso400",
-                .priv   = &iso400,
-                .max    = 0x1,
-                .unit   = UNIT_HEX,
-                .help   = "Horizontal position / binning.",
-                .help2  = "Use for horizontal centering.",
-                .advanced = 0,
-            },
-            {
-                .name   = "iso800",
-                .priv   = &iso800,
-                .max    = 0x1,
-                .unit   = UNIT_HEX,
-                .help   = "Horizontal position / binning.",
-                .help2  = "Use for horizontal centering.",
-                .advanced = 0,
-            },
-            {
-                .name   = "iso1600(14bit,12bit)",
-                .priv   = &iso1600,
-                .max    = 0x1,
-                .unit   = UNIT_HEX,
-                .help   = "Horizontal position / binning.",
-                .help2  = "Use for horizontal centering.",
-                .advanced = 0,
-            },
-            {
-                .name   = "iso3200(14bit,12bit)",
-                .priv   = &iso3200,
-                .max    = 0x1,
-                .unit   = UNIT_HEX,
-                .help   = "Horizontal position / binning.",
-                .help2  = "Use for horizontal centering.",
-                .advanced = 0,
-            },
-            {
-                .name   = "iso6400(only14bit)",
-                .priv   = &iso6400,
                 .max    = 0x1,
                 .unit   = UNIT_HEX,
                 .help   = "Horizontal position / binning.",
