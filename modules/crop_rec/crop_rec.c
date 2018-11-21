@@ -51,6 +51,7 @@ enum crop_preset {
     CROP_PRESET_1x3_12bit,
     CROP_PRESET_1x3_17fps,
     CROP_PRESET_1x3_17fps_12bit,
+    CROP_PRESET_3x3_1X_100D,
     CROP_PRESET_1080K_100D,
     CROP_PRESET_2K_100D,
     CROP_PRESET_2K10bit_100D, 
@@ -142,7 +143,7 @@ static enum crop_preset crop_presets_100d[] = {
     CROP_PRESET_2K_100D,
     CROP_PRESET_3K_100D,
     CROP_PRESET_4K_100D,
-    CROP_PRESET_3x3_1X,
+    CROP_PRESET_3x3_1X_100D,
     CROP_PRESET_1080K_100D,
     CROP_PRESET_2K10bit_100D,
 };
@@ -332,6 +333,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
             break;
 
         case CROP_PRESET_3x3_1X:
+        case CROP_PRESET_3x3_1X_100D:
         case CROP_PRESET_3x3_1X_48p:
             if (is_720p()) skip_top = 0;
             break;
@@ -351,6 +353,7 @@ static int get_top_bar_adjustment()
         case CROP_PRESET_FULLRES_LV:
             return 0;                   /* 0x10018: photo mode value, unchanged */
         case CROP_PRESET_3x3_1X:
+        case CROP_PRESET_3x3_1X_100D:
         case CROP_PRESET_3x3_1X_48p:
             if (is_720p()) return 28;   /* 0x1D0017 from 0x10017 */
             /* fall through */
@@ -560,6 +563,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             /* 3x3 binning in 720p */
             /* 1080p it's already 3x3, don't change it */
             case CROP_PRESET_3x3_1X:
+            case CROP_PRESET_3x3_1X_100D:
             case CROP_PRESET_3x3_1X_48p:
                 if (is_720p())
                 {
@@ -670,6 +674,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_2K10bit_100D:
                 cmos_new[7] = 0xaa9;    /* pink highlights without this */
                 break;	
+
+            		case CROP_PRESET_3x3_1X_100D:
+                /* start/stop scanning line, very large increments */
+                cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
+                break;   
          }
      }
 
@@ -837,7 +846,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
     if (!is_720p())
     {
-        if (crop_preset == CROP_PRESET_3x3_1X ||
+        if (crop_preset == CROP_PRESET_3x3_1X || 
+            crop_preset == CROP_PRESET_3x3_1X_100D ||       
             crop_preset == CROP_PRESET_3x3_1X_48p)
         {
             /* these presets only have effect in 720p mode */
@@ -965,6 +975,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
             /* 3x3 binning in 720p (in 1080p it's already 3x3) */
             case CROP_PRESET_3x3_1X:
+            case CROP_PRESET_3x3_1X_100D:
             case CROP_PRESET_3x3_1X_48p:
                 /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 2};
@@ -2356,6 +2367,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
                 break;
 
             case CROP_PRESET_3x3_1X:
+            case CROP_PRESET_3x3_1X_100D:
             case CROP_PRESET_3x3_1X_48p:
             case CROP_PRESET_1x3:
             case CROP_PRESET_1x3_12bit:
@@ -2382,6 +2394,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
                 break;
 
             case CROP_PRESET_3x3_1X:
+            case CROP_PRESET_3x3_1X_100D:
             case CROP_PRESET_3x3_1X_48p:
             case CROP_PRESET_3x1:
             {
