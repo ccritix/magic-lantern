@@ -239,8 +239,10 @@
 #define FRAME_SHUTTER_TIMER (*(uint16_t*)(VIDEO_PARAMETERS_SRC_3+6))
 #define FRAME_BV ((int)FRAME_SHUTTER + (int)FRAME_APERTURE - (int)FRAME_ISO)
 
-#define FRAME_SHUTTER_BLANKING_ZOOM   (*(uint16_t*)0x41697784) // ADTG register 805e
-#define FRAME_SHUTTER_BLANKING_NOZOOM (*(uint16_t*)0x41697ac0) // ADTG register 8060
+/* let´s roll below numbers for now and see what happens */
+/* https://www.magiclantern.fm/forum/index.php?topic=19300.msg208549#msg208549 */
+#define FRAME_SHUTTER_BLANKING_ZOOM   (*(uint16_t*)0x41697bc4) // ADTG register 805f
+#define FRAME_SHUTTER_BLANKING_NOZOOM (*(uint16_t*)0x41697bc8) // ADTG register 8061
 #define FRAME_SHUTTER_BLANKING_READ   (lv_dispsize > 1 ? FRAME_SHUTTER_BLANKING_NOZOOM : FRAME_SHUTTER_BLANKING_ZOOM)
 #define FRAME_SHUTTER_BLANKING_WRITE  (lv_dispsize > 1 ? &FRAME_SHUTTER_BLANKING_ZOOM : &FRAME_SHUTTER_BLANKING_NOZOOM)
 
