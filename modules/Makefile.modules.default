@@ -8,3 +8,4 @@ ML_MODULES ?= \
 	lua \
 	crop_rec \
 	raw_twk \
+	sd_uhs \
