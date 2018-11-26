@@ -652,11 +652,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         }
     }
 
-    if (is_100D)
+
+    if (is_basic || is_100D)
     {
         switch (crop_preset)
         {
-       			
 			case CROP_PRESET_2K_100D:
                 cmos_new[7] = 0xaa9;    /* pink highlights without this */
                 break;
@@ -678,14 +678,8 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             		case CROP_PRESET_3x3_1X_100D:
                 /* start/stop scanning line, very large increments */
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
-                break;   
-         }
-     }
+                break; 
 
-    if (is_basic)
-    {
-        switch (crop_preset)
-        {
             case CROP_PRESET_3x3_1X:
                 /* start/stop scanning line, very large increments */
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
