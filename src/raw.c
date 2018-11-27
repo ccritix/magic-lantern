@@ -560,7 +560,8 @@ static int raw_lv_get_resolution(int* width, int* height)
     /* http://www.magiclantern.fm/forum/index.php?topic=16608.msg176023#msg176023 */
     if (lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264)
     {
-        *height = 727;
+/* crop_rec version regarding eosm. All else will truly fail */
+        *height = 1150;
     }
 #endif
 

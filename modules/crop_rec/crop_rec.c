@@ -57,10 +57,11 @@ enum crop_preset {
     CROP_PRESET_2K10bit_100D, 
     CROP_PRESET_3K_100D,
     CROP_PRESET_4K_100D,
+    CROP_PRESET_3x3_mv1080_EOSM,
+    CROP_PRESET_1x3_EOSM,
     CROP_PRESET_3x3_1X_EOSM,
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_2K10bit_EOSM,
-    CROP_PRESET_3x3_mv1080_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
     NUM_CROP_PRESETS
@@ -179,21 +180,23 @@ static const char crop_choices_help2_100d[] =
 	/* menu choices for EOSM */
 static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_OFF,
+    CROP_PRESET_3x3_mv1080_EOSM,
+    CROP_PRESET_1x3_EOSM,
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
-    CROP_PRESET_3x3_1X_EOSM,
-    CROP_PRESET_3x3_mv1080_EOSM,
+    //CROP_PRESET_3x3_1X_EOSM,
     CROP_PRESET_2K10bit_EOSM,
 };
 
 static const char * crop_choices_eosm[] = {
     "OFF",
+    "mv1080p_1736x1120",
+    "1x3_1736x1120",
     "2.5K 2520x1304",
     "3K 3072x1304", 
     "4K 4038x2558",
-    "3x3 720p",
-    "3x3_mv1080_EOSM",
+    //"3x3 720p",
     "2.5K 10bit 2520x1304",
 };
 
@@ -202,10 +205,12 @@ static const char crop_choices_help_eosm[] =
 
 static const char crop_choices_help2_eosm[] =
     "\n"
+    "mv1080p derived from 3x3 (square pixels in RAW, vertical crop)\n"
+    "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
     "1:1 3K crop (3072x1304 @ 20p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
-    "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
+    //"3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
     "1:1 2.5K 10bit crop (experimental)\n";
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
@@ -749,6 +754,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[7] = 0xaa9;    /* pink highlights without this */
                 break;
 
+			case CROP_PRESET_1x3_EOSM:
+			    cmos_new[7] = 0x260;   
+			    cmos_new[8] = 0x400; 
+                break;	
+
             		case CROP_PRESET_3x3_1X:
                 /* start/stop scanning line, very large increments */
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
@@ -910,8 +920,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     if (!is_720p())
     {
         if (crop_preset == CROP_PRESET_3x3_1X || 
-            crop_preset == CROP_PRESET_3x3_1X_100D ||   
-            crop_preset == CROP_PRESET_3x3_1X_EOSM ||    
+            crop_preset == CROP_PRESET_3x3_1X_100D ||       
             crop_preset == CROP_PRESET_3x3_1X_48p)
         {
             /* these presets only have effect in 720p mode */
@@ -1119,6 +1128,14 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		adtg_new[3] = (struct adtg_new) {2, 0x8888, 0x45};
                 break;
 
+	     case CROP_PRESET_3x3_mv1080_EOSM:
+		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+		break;
+
+	     case CROP_PRESET_1x3_EOSM:
+	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
+		break;
+
             /* 3x1 binning (bin every 3 lines, read every column) */
             /* doesn't work well, figure out why */
             case CROP_PRESET_3x1:
@@ -1139,20 +1156,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         /* assuming FPS timer B was overridden before this */
         int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
         int readout_end = shamem_read(is_digic4 ? 0xC0F06088 : 0xC0F06804) >> 16;
-
-			switch (crop_preset)
-		        {
-		 	case CROP_PRESET_3x3_mv1080_EOSM:
-			        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
-				adtg_new[1] = (struct adtg_new) {2, 0x8172, 0x6fd};
-				adtg_new[2] = (struct adtg_new) {2, 0x8173, 0x453};
-				adtg_new[3] = (struct adtg_new) {2, 0x8178, 0x6fd};
-				adtg_new[4] = (struct adtg_new) {2, 0x8179, 0x453};
-				adtg_new[5] = (struct adtg_new) {2, 0x8196, 0x12e};
-				adtg_new[6] = (struct adtg_new) {2, 0x8197, 0x38c};
-				adtg_new[7] = (struct adtg_new) {2, 0x82b6, 0x6f4};
-				break;
-			}
 
         /* PowerSaveTiming registers */
         /* after readout is finished, we can turn off the sensor until the next frame */
@@ -1979,6 +1982,30 @@ static inline uint32_t reg_override_2K10bit_eosm(uint32_t reg, uint32_t old_val)
     return 0;
 }
 
+static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        	case 0xC0F06804: return 0x4a601d4; 
+
+        	case 0xC0F06014: return 0x9df;
+		case 0xC0F0600c: return 0x20f020f;
+		case 0xC0F06008: return 0x20f020f;
+		case 0xC0F06010: return 0x20f;
+		
+		case 0xC0F37014: return 0xe; 
+        	case 0xC0F0713c: return 0x4a7;
+		case 0xC0F07150: return 0x475;
+
+
+	/* todo: check for breakage
+	   https://www.magiclantern.fm/forum/index.php?topic=9741.msg203541#msg203541 */
+
+    }
+
+    return 0;
+}
+
 static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
 {
     /* attempt to reconfigure the x5 zoom at the FPS selected in Canon menu */
@@ -2028,7 +2055,8 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_3K_EOSM)         ? reg_override_3K_eosm         : 
         (crop_preset == CROP_PRESET_4K_EOSM) 	     ? reg_override_4K_eosm         :
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_eosm        :
-        (crop_preset == CROP_PRESET_2K10bit_EOSM)    ? reg_override_2K10bit_eosm    : 
+        (crop_preset == CROP_PRESET_2K10bit_EOSM)    ? reg_override_2K10bit_eosm    :
+        (crop_preset == CROP_PRESET_1x3_EOSM) ? reg_override_1x3_eosm        : 
                                                   0                       ;
     return reg_override_func;
 }
@@ -2592,6 +2620,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_1x3_17fps:
             case CROP_PRESET_1x3_17fps_12bit:
 	    case CROP_PRESET_3x3_mv1080_EOSM:
+ 	    case CROP_PRESET_1x3_EOSM:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
                 break;
         }
@@ -2609,6 +2638,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_1x3_12bit:
             case CROP_PRESET_1x3_17fps:
             case CROP_PRESET_1x3_17fps_12bit:
+ 	    case CROP_PRESET_1x3_EOSM:
                 raw_capture_info.binning_y = 1; raw_capture_info.skipping_y = 0;
                 break;
 
