@@ -237,6 +237,7 @@ static int lv_raw_gain = 0;
 
 static int get_default_white_level()
 {
+
     if (lv_raw_gain)
     {
         int default_white = WHITE_LEVEL;
@@ -250,6 +251,13 @@ static int get_default_white_level()
         /* fixme: hardcoded black level */
         return (default_white - 2048) * lv_raw_gain / 4096 + 2048;
     }
+
+        if (shamem_read(0xC0F42744) == 0x4040404)
+        {	
+	    /* 10bit by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = 3000);   
+        }
     
     return WHITE_LEVEL;
 }
@@ -560,8 +568,15 @@ static int raw_lv_get_resolution(int* width, int* height)
     /* http://www.magiclantern.fm/forum/index.php?topic=16608.msg176023#msg176023 */
     if (lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264)
     {
-/* crop_rec version regarding eosm. All else will truly fail */
-        *height = 1150;
+        if (shamem_read(0xC0F07150) == 0x475)
+        {	
+        /* mv1080p and 1x3 mode crop_rec.c */
+            *height = 1150;
+        }
+        else
+        {
+            *height = 727;    
+        }
     }
 #endif
 

@@ -185,7 +185,7 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
-    //CROP_PRESET_3x3_1X_EOSM,
+    CROP_PRESET_3x3_1X_EOSM,
     CROP_PRESET_2K10bit_EOSM,
 };
 
@@ -196,7 +196,7 @@ static const char * crop_choices_eosm[] = {
     "2.5K 2520x1304",
     "3K 3072x1304", 
     "4K 4038x2558",
-    //"3x3 720p",
+    "3x3 720p",
     "2.5K 10bit 2520x1304",
 };
 
@@ -210,7 +210,7 @@ static const char crop_choices_help2_eosm[] =
     "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
     "1:1 3K crop (3072x1304 @ 20p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
-    //"3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
+    "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
     "1:1 2.5K 10bit crop (experimental)\n";
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
