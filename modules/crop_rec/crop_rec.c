@@ -801,6 +801,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[5] = 0x200;            /* vertical (first|last) */
                 cmos_new[7] = 0xf20;
         	}
+       	        if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
+                {
+		cmos_new[7] = 0x260;   
+		cmos_new[8] = 0x400;
+        	} 
      	        break;
        
         }
@@ -1214,6 +1219,10 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
         	}
+       	        if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
+                {
+	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
+        	} 
      	        break;
 
 
@@ -1705,12 +1714,6 @@ static inline uint32_t reg_override_1x3(uint32_t reg, uint32_t old_val)
 
 	/* correct liveview brightness */
 	/*case 0xC0F42744: return 0x4040404;*/
-
-    		if (bit10)
-    		{
-	        case 0xC0F42744: return 0x4040404;
-		}
-
 
 	/* correct liveview brightness */
 	/*case 0xC0F42744: return 0x2020202;*/
@@ -2216,6 +2219,22 @@ static inline uint32_t reg_override_10bit(uint32_t reg, uint32_t old_val)
         	case 0xC0F0713c: return 0xA55;
     		}
    	     }
+
+      	 if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
+         {
+    	     switch (reg)
+	     {
+             case 0xC0F06804: return 0x4a601d4; 
+             case 0xC0F06014: return 0x9df;
+	     case 0xC0F0600c: return 0x20f020f;
+	     case 0xC0F06008: return 0x20f020f;
+	     case 0xC0F06010: return 0x20f;
+	     case 0xC0F37014: return 0xe; 
+             case 0xC0F0713c: return 0x4a7;
+             case 0xC0F07150: return 0x475;
+    	     }
+    	  }
+
 
     return 0;
 }
@@ -2845,7 +2864,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_1x3_100D:
     if (bit10)
     {
-       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_100D)
+       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_100D || CROP_PRESET_1x3_EOSM)
         {
 	case CROP_PRESET_10bit:  
  	crop_preset = CROP_PRESET_10bit;
@@ -2873,7 +2892,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_1x3_100D:
     if (bit10)
     {
-       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_100D)
+       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_100D || CROP_PRESET_1x3_EOSM)
         {
 	case CROP_PRESET_10bit:  
  	crop_preset = CROP_PRESET_10bit;
