@@ -792,7 +792,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
 		cmos_new[7] = 0x200;  
         	}
-       	        if (CROP_PRESET_MENU == CROP_PRESET_2K_100D || CROP_PRESET_2K10bit_100D)
+       	        if (CROP_PRESET_MENU == CROP_PRESET_2K_100D)
+                {
+                cmos_new[7] = 0xaa9;   
+        	}
+       	        if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_100D)
                 {
                 cmos_new[7] = 0xaa9;   
         	}
@@ -817,7 +821,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		cmos_new[7] = 0x260;   
 		cmos_new[8] = 0x400;
         	} 
-       	        if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || CROP_PRESET_2K10bit_EOSM)
+       	        if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
+                {
+                cmos_new[7] = 0xaa9;    
+        	}
+       	        if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_EOSM)
                 {
                 cmos_new[7] = 0xaa9;    
         	}
@@ -839,7 +847,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
 		cmos_new[7] = 0x200;  
         	}
-       	        if (CROP_PRESET_MENU == CROP_PRESET_2K_100D || CROP_PRESET_2K10bit_100D)
+       	        if (CROP_PRESET_MENU == CROP_PRESET_2K_100D)
+                {
+                cmos_new[7] = 0xaa9;   
+        	}
+       	        if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_100D)
                 {
                 cmos_new[7] = 0xaa9;   
         	}
@@ -864,7 +876,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		cmos_new[7] = 0x260;   
 		cmos_new[8] = 0x400;
         	} 
-       	        if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || CROP_PRESET_2K10bit_EOSM)
+       	        if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
+                {
+                cmos_new[7] = 0xaa9;    
+        	}
+       	        if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_EOSM)
                 {
                 cmos_new[7] = 0xaa9;    
         	}
