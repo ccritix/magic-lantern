@@ -2888,8 +2888,6 @@ static struct lvinfo_item info_items[] = {
 static unsigned int raw_info_update_cbr(unsigned int unused)
 {
 
-  if (bit10 || bit12)
-  {
 	/* 100D */
        	   if (CROP_PRESET_MENU == CROP_PRESET_1x3_100D)
            {
@@ -2953,8 +2951,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
            {
  	   crop_preset = CROP_PRESET_1x3;
            }
-  }
-    
+ 
 
     if (patch_active)
     {
