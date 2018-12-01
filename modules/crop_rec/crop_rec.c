@@ -51,9 +51,7 @@ enum crop_preset {
     CROP_PRESET_mv1080_mv720p,
     CROP_PRESET_1x3,
     CROP_PRESET_1x3_10bit,
-    CROP_PRESET_1x3_12bit,
     CROP_PRESET_1x3_17fps,
-    CROP_PRESET_1x3_17fps_12bit,
     CROP_PRESET_3x3_1X_100D,
     CROP_PRESET_1080K_100D,
     CROP_PRESET_2K_100D,
@@ -93,15 +91,13 @@ static enum crop_preset crop_presets_5d3[] = {
     CROP_PRESET_UHD,
     CROP_PRESET_4K_HFPS,
     CROP_PRESET_CENTER_Z,
-    CROP_PRESET_10bit,
-    CROP_PRESET_12bit,
     CROP_PRESET_FULLRES_LV,
     CROP_PRESET_mv1080_mv720p,
     CROP_PRESET_1x3,
     CROP_PRESET_1x3_10bit,
-    CROP_PRESET_1x3_12bit,
     CROP_PRESET_1x3_17fps,
-    CROP_PRESET_1x3_17fps_12bit,
+    CROP_PRESET_10bit,
+    CROP_PRESET_12bit,
   //CROP_PRESET_1x3,
   //CROP_PRESET_3x1,
   //CROP_PRESET_40_FPS,
@@ -121,9 +117,7 @@ static const char * crop_choices_5d3[] = {
     "mv1080p_mv720p",
     "1x3_1920x2348",
     "1x3_1920x2348_10bit",
-    "1x3_1920x2348_12bit",
     "1x3_17fps_1920x3240",
-    "1x3_17fps_1920x3240_12bit",
   //"1x3 binning",
   //"3x1 binning",      /* doesn't work well */
   //"40 fps",
@@ -146,9 +140,7 @@ static const char crop_choices_help2_5d3[] =
     "mv1080_mv720p clean"
     "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1x3 binning: 10bit\n"
-    "1x3 binning: 12bit\n"
     "1x3_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
-    "1x3 binning: 12bit\n"
     "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "3x1 binning: bin every 3 lines, read all columns (extreme anamorphic)\n"
     "FPS override test\n";
@@ -386,9 +378,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         case CROP_PRESET_3X:
         case CROP_PRESET_1x3:
         case CROP_PRESET_1x3_10bit:
-        case CROP_PRESET_1x3_12bit:
         case CROP_PRESET_1x3_17fps:
-        case CROP_PRESET_1x3_17fps_12bit:
             skip_top        = 60;
             break;
 
@@ -690,7 +680,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             /* 1x3 binning (read every line, bin every 3 columns) */
             case CROP_PRESET_1x3:
             case CROP_PRESET_1x3_10bit:
-            case CROP_PRESET_1x3_12bit:
                 /* start/stop scanning line, very large increments */
                 cmos_new[1] = 0x280;
 /* 1920x2400 */
@@ -701,7 +690,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
             /* 1x3 binning (read every line, bin every 3 columns) */
             case CROP_PRESET_1x3_17fps:
-            case CROP_PRESET_1x3_17fps_12bit:
                 /* start/stop scanning line, very large increments */
                 cmos_new[1] = 0x380;
                 cmos_new[6] = 0x170;    /* pink highlights without this */
@@ -716,6 +704,23 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_CENTER_Z:
                 cmos_new[1] = PACK12(9+2,42+1); /* vertical (first|last) */
                 cmos_new[2] = 0x09E;            /* horizontal offset (mask 0xFF0) */
+                break;
+
+
+	    		 case CROP_PRESET_10bit:
+       	        if (CROP_PRESET_MENU == CROP_PRESET_1x3)
+                {
+                cmos_new[1] = 0x280;
+                cmos_new[6] = 0x170;    /* pink highlights without this */
+        	} 
+                break;
+
+	    		 case CROP_PRESET_12bit:
+       	        if (CROP_PRESET_MENU == CROP_PRESET_1x3)
+                {
+                cmos_new[1] = 0x280;
+                cmos_new[6] = 0x170;    /* pink highlights without this */
+        	} 
                 break;
 
         }
@@ -1197,36 +1202,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	    case CROP_PRESET_1x3_17fps:
                 /* ADTG2/4[0x800C] = 0: read every line */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
-                break;
-
-	    case CROP_PRESET_1x3_17fps_12bit:
-                /* ADTG2/4[0x800C] = 0: read every line */
-                adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
-
-		/* 12bit */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250};
-
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 250};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 250};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 250};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
-
-    		if (bit10)
-    		{
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60};
-
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 60};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 60};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 60};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 60};
-		}
-                break;  
+                break; 
 
 	    case CROP_PRESET_1x3_10bit:
                 /* ADTG2/4[0x800C] = 0: read every line */
@@ -1254,35 +1230,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[18] = (struct adtg_new) {6, 0x8884, 250};
                 adtg_new[19] = (struct adtg_new) {6, 0x8886, 250};
                 adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
-		}
-                break; 
-
-	    case CROP_PRESET_1x3_12bit:
-                /* ADTG2/4[0x800C] = 0: read every line */
-                adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
-
-		/* 12bit */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250};
-
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 250};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 250};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 250};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
-
-    		if (bit10)
-    		{
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60};
-
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 60};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 60};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 60};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 60};
 		}
                 break; 
 
@@ -1320,6 +1267,11 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
         	} 
+	    /* 5D3 */
+       	        if (CROP_PRESET_MENU == CROP_PRESET_1x3)
+                {
+	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
+                }
      	        break;
 
 	     case CROP_PRESET_12bit:
@@ -1339,6 +1291,11 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
         	} 
+	    /* 5D3 */
+       	        if (CROP_PRESET_MENU == CROP_PRESET_1x3)
+                {
+	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
+                }
      	        break;
 
 
@@ -1874,45 +1831,6 @@ static inline uint32_t reg_override_1x3_10bit(uint32_t reg, uint32_t old_val)
     return 0;
 }
 
-static inline uint32_t reg_override_1x3_12bit(uint32_t reg, uint32_t old_val)
-{
-    switch (reg)
-    {
-        case 0xC0F0713c:
-            return 0x96e;
-        
-        case 0xC0F06804:
-            return 0x96a011b;
-
-        case 0xC0F06008:
-        case 0xC0F0600C:
-            return 0x1800180;
-
-        case 0xC0F06010:
-            return 0x180;
-
-        case 0xC0F06014:
-            return 0xa27;
-
-	/* correct liveview brightness */
-	/*case 0xC0F42744: return 0x4040404;*/
-
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-
-/* how to count */
-/* d80,7f */
-/* d7a,d79 */
-/* d7f,d80 */
-/* d93,da3 */
-/* df3,e03 */
-
-    }
-
-    return 0;
-}
-
-
 static inline uint32_t reg_override_1x3_17fps(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
@@ -1932,34 +1850,6 @@ static inline uint32_t reg_override_1x3_17fps(uint32_t reg, uint32_t old_val)
 
         case 0xC0F06014:
             return 0xd9f;
-
-    }
-
-    return 0;
-}
-
-static inline uint32_t reg_override_1x3_17fps_12bit(uint32_t reg, uint32_t old_val)
-{
-    switch (reg)
-    {
-        case 0xC0F0713c:
-            return 0xce6;
-        
-        case 0xC0F06804:	/* 1920x3240(perfect 1920x1080) */
-            return 0xce6011b;
-
-        case 0xC0F06008:
-        case 0xC0F0600C:
-            return 0x1800180;
-
-        case 0xC0F06010:
-            return 0x180;
-
-        case 0xC0F06014:
-            return 0xd9f;
-
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
 
     }
 
@@ -2328,6 +2218,12 @@ static inline uint32_t reg_override_10bit(uint32_t reg, uint32_t old_val)
 	        return reg_override_2K10bit_eosm(reg, old_val);
              }
 
+	/* 5D3 */
+       	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
+           {
+ 	   return reg_override_1x3(reg, old_val);
+           }
+
     return 0;
 }
 
@@ -2397,6 +2293,12 @@ static inline uint32_t reg_override_12bit(uint32_t reg, uint32_t old_val)
 	        return reg_override_2K10bit_eosm(reg, old_val);
              }
 
+	/* 5D3 */
+       	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
+           {
+ 	   return reg_override_1x3(reg, old_val);
+           }
+
     return 0;
 }
 
@@ -2442,10 +2344,8 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_10bit)         ? reg_override_10bit   :
         (crop_preset == CROP_PRESET_12bit)         ? reg_override_12bit   :
 	(crop_preset == CROP_PRESET_1x3)        ? reg_override_1x3 :
-	(crop_preset == CROP_PRESET_1x3_12bit)  ? reg_override_1x3_12bit :
 	(crop_preset == CROP_PRESET_1x3_10bit)  ? reg_override_1x3_10bit :
 	(crop_preset == CROP_PRESET_1x3_17fps)  ? reg_override_1x3_17fps :
-	(crop_preset == CROP_PRESET_1x3_17fps_12bit)  ? reg_override_1x3_17fps_12bit :
         (crop_preset == CROP_PRESET_2K_100D)    ? reg_override_2K_100d         :    
         (crop_preset == CROP_PRESET_3K_100D)    ? reg_override_3K_100d         : 
         (crop_preset == CROP_PRESET_4K_100D)    ? reg_override_4K_100d         :
@@ -3048,6 +2948,11 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
                  {
                  crop_preset = CROP_PRESET_2K10bit_EOSM;
    	         }
+	/* 5D3 */
+       	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
+           {
+ 	   crop_preset = CROP_PRESET_1x3;
+           }
   }
     
 
@@ -3082,9 +2987,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_3x3_1X_48p:
             case CROP_PRESET_1x3:
             case CROP_PRESET_1x3_10bit:
-            case CROP_PRESET_1x3_12bit:
             case CROP_PRESET_1x3_17fps:
-            case CROP_PRESET_1x3_17fps_12bit:
 	    case CROP_PRESET_3x3_mv1080_EOSM:
  	    case CROP_PRESET_1x3_EOSM:
 	    case CROP_PRESET_1x3_100D:
@@ -3103,9 +3006,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_FULLRES_LV:
             case CROP_PRESET_1x3:
             case CROP_PRESET_1x3_10bit:
-            case CROP_PRESET_1x3_12bit:
             case CROP_PRESET_1x3_17fps:
-            case CROP_PRESET_1x3_17fps_12bit:
  	    case CROP_PRESET_1x3_EOSM:
 	    case CROP_PRESET_1x3_100D:
                 raw_capture_info.binning_y = 1; raw_capture_info.skipping_y = 0;
