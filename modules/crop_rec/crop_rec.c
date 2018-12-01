@@ -1267,6 +1267,10 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
         	} 
+       	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
+                {
+	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+        	} 
 	    /* 5D3 */
        	        if (CROP_PRESET_MENU == CROP_PRESET_1x3)
                 {
@@ -1288,6 +1292,10 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
         	} 
        	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
+                {
+	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+        	} 
+       	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
         	} 
@@ -2217,6 +2225,10 @@ static inline uint32_t reg_override_10bit(uint32_t reg, uint32_t old_val)
              {
 	        return reg_override_2K10bit_eosm(reg, old_val);
              }
+      	if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
+        {
+	   return reg_override_3x3_eosm(reg, old_val);
+    	}
 
 	/* 5D3 */
        	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
@@ -2293,6 +2305,10 @@ static inline uint32_t reg_override_12bit(uint32_t reg, uint32_t old_val)
 	        return reg_override_2K10bit_eosm(reg, old_val);
              }
 
+      	if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
+        {
+	   return reg_override_3x3_eosm(reg, old_val);
+    	}
 	/* 5D3 */
        	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
            {
@@ -2946,6 +2962,11 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
                  {
                  crop_preset = CROP_PRESET_2K10bit_EOSM;
    	         }
+
+       	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
+                {
+                crop_preset = CROP_PRESET_3x3_mv1080_EOSM;
+   	        }
 	/* 5D3 */
        	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
            {
