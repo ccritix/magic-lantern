@@ -3077,59 +3077,22 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
            {
  	   crop_preset = CROP_PRESET_1x3_100D;
            }
-       	     if (CROP_PRESET_MENU == CROP_PRESET_2K_100D)
-             {
-             crop_preset = CROP_PRESET_2K_100D;
-   	     }
 
-       	      if (CROP_PRESET_MENU == CROP_PRESET_3K_100D)
-              {
-              crop_preset = CROP_PRESET_3K_100D;
-   	      }
-
-       	       if (CROP_PRESET_MENU == CROP_PRESET_4K_100D)
-               {
-               crop_preset = CROP_PRESET_4K_100D;
-   	       }
-
-       	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
+      	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
                 {
                 crop_preset = CROP_PRESET_3x3_1X_100D;
    	        }
 
-       	         if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_100D)
-                 {
-                 crop_preset = CROP_PRESET_2K10bit_100D;
-   	         }
 	/* EOSM */
        	   if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
            {
  	   crop_preset = CROP_PRESET_1x3_EOSM;
            }
-       	     if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
-             {
-             crop_preset = CROP_PRESET_2K_EOSM;
-   	     }
-
-       	      if (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM)
-              {
-              crop_preset = CROP_PRESET_3K_EOSM;
-   	      }
-
-       	       if (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
-               {
-               crop_preset = CROP_PRESET_4K_EOSM;
-   	       }
 
        	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
                 {
                 crop_preset = CROP_PRESET_3x3_1X_EOSM;
    	        }
-
-       	         if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_EOSM)
-                 {
-                 crop_preset = CROP_PRESET_2K10bit_EOSM;
-   	         }
 
        	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
                 {
@@ -3219,6 +3182,21 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             raw_set_geometry(raw_info.width, raw_info.height, skip_left, skip_right, skip_top, skip_bottom);
         }
     }
+
+/* patch bits */
+  if (bit9)
+  {
+  crop_preset = CROP_PRESET_9bit;
+  }
+  if (bit10)
+  {
+  crop_preset = CROP_PRESET_10bit;
+  }
+  if (bit12)
+  {
+  crop_preset = CROP_PRESET_12bit;
+  }
+
     return 0;
 }
 
