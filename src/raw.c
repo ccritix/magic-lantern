@@ -256,7 +256,7 @@ static int get_default_white_level()
         {	
 	    /* 10bit by checking pushed liveview gain register set in crop_rec.c */
             int default_white = WHITE_LEVEL;
-            return (default_white = 2700);   
+            return (default_white = 2550);   
         }
 
         if (shamem_read(0xC0F42744) == 0x4040404)

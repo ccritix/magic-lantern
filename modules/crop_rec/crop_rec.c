@@ -1198,15 +1198,15 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     		{
 		/* 9bit roundtrip */
  		crop_preset = CROP_PRESET_9bit;
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 40}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 40};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 40};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 40};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 30}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 30};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 30};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 30};
 
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 40};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 40};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 40};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 40};
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 30};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 30};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 30};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 30};
 		}
 
    		if (bitrate == 0x2)
