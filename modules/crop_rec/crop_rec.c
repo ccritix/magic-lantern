@@ -1196,7 +1196,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
    		if (bitrate == 0x1)
     		{
-		/* 10bit roundtrip */
+		/* 9bit roundtrip */
  		crop_preset = CROP_PRESET_9bit;
 		adtg_new[13] = (struct adtg_new) {6, 0x8882, 40}; 
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 40};
