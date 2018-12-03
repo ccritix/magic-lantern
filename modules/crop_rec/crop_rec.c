@@ -32,6 +32,7 @@ static int is_basic = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
+static CONFIG_INT("crop.bitrate", bitrate, 0);
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -304,7 +305,6 @@ static int32_t  delta_head3 = 0;
 static int32_t  delta_head4 = 0;
 static uint32_t cmos1_lo = 0, cmos1_hi = 0;
 static uint32_t cmos2 = 0;
-static uint32_t bitrate = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -3184,6 +3184,23 @@ static unsigned int crop_rec_init()
     is_digic4 = is_camera("DIGIC", "4");
     is_digic5 = is_camera("DIGIC", "5");
 
+/* notify if different bitrate is set */
+    if (is_movie_mode())
+    {
+   	if (bitrate == 0x1)
+    	{
+	NotifyBox(3000, "bitrate is set to 9bit");
+	}
+  	if (bitrate == 0x2)
+    	{
+	NotifyBox(3000, "bitrate is set to 10bit");
+	}
+ 	if (bitrate == 0x3)
+    	{
+	NotifyBox(3000, "bitrate is set to 12bit");
+	}
+    }
+
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
     {
         /* same addresses on both 1.1.3 and 1.2.3 */
@@ -3359,6 +3376,7 @@ MODULE_INFO_END()
 MODULE_CONFIGS_START()
     MODULE_CONFIG(crop_preset_index)
     MODULE_CONFIG(shutter_range)
+    MODULE_CONFIG(bitrate)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
