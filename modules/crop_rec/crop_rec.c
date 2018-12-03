@@ -1239,7 +1239,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
 		}
 
-NotifyBox(5000, "bitrate 0x%x", bitrate);
 
     }
 
