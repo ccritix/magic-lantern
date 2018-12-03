@@ -2693,6 +2693,13 @@ static struct menu_entry crop_rec_menu[] =
         .depends_on = DEP_LIVEVIEW,
         .children =  (struct menu_entry[]) {
             {
+                .name   = "bitrate",
+                .priv   = &bitrate,
+                .max    = 3,
+                .choices = CHOICES("OFF", " 9 bit", "10 bit", "12 bit"),
+                .help   = "Alter bitrate\n"
+            },
+            {
                 .name       = "Shutter range",
                 .priv       = &shutter_range,
                 .max        = 1,
@@ -2773,13 +2780,6 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Horizontal position / binning.",
                 .help2  = "Use for horizontal centering.",
                 .advanced = 1,
-            },
-            {
-                .name   = "bitrate",
-                .priv   = &bitrate,
-                .max    = 3,
-                .choices = CHOICES("OFF", " 9 bit", "10 bit", "12 bit"),
-                .help   = "Alter bitrate\n"
             },
             MENU_ADVANCED_TOGGLE,
             MENU_EOL,
@@ -3185,21 +3185,19 @@ static unsigned int crop_rec_init()
     is_digic5 = is_camera("DIGIC", "5");
 
 /* notify if different bitrate is set */
-    if (is_movie_mode())
-    {
+
    	if (bitrate == 0x1)
     	{
-	NotifyBox(3000, "bitrate is set to 9bit");
+	NotifyBox(3000, "crop_rec bitrate is set to 9bit");
 	}
   	if (bitrate == 0x2)
     	{
-	NotifyBox(3000, "bitrate is set to 10bit");
+	NotifyBox(3000, "crop_rec bitrate is set to 10bit");
 	}
  	if (bitrate == 0x3)
     	{
-	NotifyBox(3000, "bitrate is set to 12bit");
+	NotifyBox(3000, "crop_rec bitrate is set to 12bit");
 	}
-    }
 
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
     {
