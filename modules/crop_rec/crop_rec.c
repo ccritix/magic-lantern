@@ -2794,6 +2794,12 @@ static int crop_rec_needs_lv_refresh()
         return 0;
     }
 
+/* let´s automate liveview start off setting */
+if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) || (CROP_PRESET_MENU == CROP_PRESET_2K10bit_100D) || (CROP_PRESET_MENU == CROP_PRESET_3K_100D) || (CROP_PRESET_MENU == CROP_PRESET_4K_100D) || (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) || (CROP_PRESET_MENU == CROP_PRESET_2K10bit_EOSM) || (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) || (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) || (CROP_PRESET_MENU == CROP_PRESET_1080K_100D))
+{
+lv_dispsize = 5;
+}
+
     if (CROP_PRESET_MENU)
     {
         if (is_supported_mode())
