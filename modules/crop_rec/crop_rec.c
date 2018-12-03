@@ -304,9 +304,7 @@ static int32_t  delta_head3 = 0;
 static int32_t  delta_head4 = 0;
 static uint32_t cmos1_lo = 0, cmos1_hi = 0;
 static uint32_t cmos2 = 0;
-static uint32_t bit9 = 0;
-static uint32_t bit10 = 0;
-static uint32_t bit12 = 0;
+static uint32_t bitrate = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -1196,7 +1194,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[0] = (struct adtg_new) {6, 0x8060, shutter_blanking};
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
 
-   		if (bit9)
+   		if (bitrate == 0x1)
     		{
 		/* 10bit roundtrip */
  		crop_preset = CROP_PRESET_9bit;
@@ -1211,7 +1209,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[20] = (struct adtg_new) {6, 0x8888, 40};
 		}
 
-   		if (bit10)
+   		if (bitrate == 0x2)
     		{
 		/* 10bit roundtrip */
  		crop_preset = CROP_PRESET_10bit;
@@ -1226,7 +1224,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[20] = (struct adtg_new) {6, 0x8888, 60};
 		}
 
-    		if (bit12)
+    		if (bitrate == 0x3)
     		{
 		/* 12bit roundtrip */
  		crop_preset = CROP_PRESET_12bit;
@@ -1240,6 +1238,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[19] = (struct adtg_new) {6, 0x8886, 250};
                 adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
 		}
+
+NotifyBox(5000, "bitrate 0x%x", bitrate);
 
     }
 
@@ -1301,7 +1301,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[19] = (struct adtg_new) {6, 0x8886, 60};
                 adtg_new[20] = (struct adtg_new) {6, 0x8888, 60};
 
-    		if (bit12)
+    		if (bitrate == 0x3)
     		{
 		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250}; 
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 250};
@@ -2776,31 +2776,11 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
-                .name   = "9bit",
-                .priv   = &bit9,
-                .max    = 0x1,
-                .unit   = UNIT_HEX,
-                .help   = "Horizontal position / binning.",
-                .help2  = "Use for horizontal centering.",
-                .advanced = 0,
-            },
-            {
-                .name   = "10bit",
-                .priv   = &bit10,
-                .max    = 0x1,
-                .unit   = UNIT_HEX,
-                .help   = "Horizontal position / binning.",
-                .help2  = "Use for horizontal centering.",
-                .advanced = 0,
-            },
-            {
-                .name   = "12bit",
-                .priv   = &bit12,
-                .max    = 0x1,
-                .unit   = UNIT_HEX,
-                .help   = "Horizontal position / binning.",
-                .help2  = "Use for horizontal centering.",
-                .advanced = 0,
+                .name   = "bitrate",
+                .priv   = &bitrate,
+                .max    = 3,
+                .choices = CHOICES("OFF", " 9 bit", "10 bit", "12 bit"),
+                .help   = "Alter bitrate\n"
             },
             MENU_ADVANCED_TOGGLE,
             MENU_EOL,
@@ -3184,15 +3164,15 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
     }
 
 /* patch bits */
-  if (bit9)
+  if (bitrate == 0x1)
   {
   crop_preset = CROP_PRESET_9bit;
   }
-  if (bit10)
+  if (bitrate == 0x2)
   {
   crop_preset = CROP_PRESET_10bit;
   }
-  if (bit12)
+  if (bitrate == 0x3)
   {
   crop_preset = CROP_PRESET_12bit;
   }
