@@ -3286,7 +3286,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 /* patch bits */
 
 
-if (is_100D || is_EOSM)
+if (((is_100D || is_EOSM) && (bitrate == 0x1)) || (bitrate == 0x2) || (bitrate == 0x3))
 {
   if ((CROP_PRESET_MENU == CROP_PRESET_1x3_100D) || 
   (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM))
@@ -3295,9 +3295,9 @@ if (is_100D || is_EOSM)
   }
 }
 
-if (is_5D3)
+if (((is_5D3) && (bitrate == 0x1)) || (bitrate == 0x2) || (bitrate == 0x3))
 {
-crop_preset = CROP_PRESET_MENU;
+  crop_preset = CROP_PRESET_MENU;
 }
 
     if (patch_active)
