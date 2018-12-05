@@ -57,7 +57,18 @@ asm(
 
     ".code 16\n"
     "loaded_as_thumb:\n"        /* you may insert Thumb-specific code here */
-    "BLX xor_check\n"           /* LR doesn't matter much, as we'll never return to caller */
+
+/* this does not compile on DIGIC 5 and earlier */
+#if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
+    "MRC    p15,0,R0,c0,c0,5\n" /* refuse to run on cores other than #0 */
+    "ANDS.W R0, R0, #3\n"       /* read the lowest 2 bits of the MPIDR register */
+    "ITTT   NE\n"               /* check if CPU ID is nonzero (i.e. other cores) */
+    "LDRNE  R0, rombaseaddr\n"  /* jump to main firmware if running from other cores */
+    "ORRNE  R0, R0, #1\n"       /* assuming Thumb code at ROMBASEADDR (DIGIC 7 & 8) */
+    "BLXNE  R0\n"               /* not expected to return, but... */
+#endif
+
+    "BLX    xor_check\n"        /* LR doesn't matter much, as we'll never return to caller */
 
     ".code 32\n"                /* from now on, we've got generic code for all platforms */
     "xor_check:\n"
@@ -72,6 +83,7 @@ asm(
     "reset:\n"
     "BX    R3\n"                    /* -> R1 (magic 0xE12FFF13) */
     ".word   autoexec_bin_footer\n" /* -> R2 (footer address) */
+    "rombaseaddr:\n"
     ".word   "STR(ROMBASEADDR)"\n"  /* -> R3 (reset address) */
     
     /* embed some human-readable version info */
