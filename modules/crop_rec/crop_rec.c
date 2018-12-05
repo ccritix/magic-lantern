@@ -3284,8 +3284,21 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 {
 
 /* patch bits */
- 	crop_preset = CROP_PRESET_MENU;
 
+
+if (is_100D || is_EOSM)
+{
+  if ((CROP_PRESET_MENU == CROP_PRESET_1x3_100D) || 
+  (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM))
+  {
+  crop_preset = CROP_PRESET_MENU;
+  }
+}
+
+if (is_5D3)
+{
+crop_preset = CROP_PRESET_MENU;
+}
 
     if (patch_active)
     {
