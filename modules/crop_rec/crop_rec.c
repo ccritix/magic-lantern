@@ -56,7 +56,6 @@ enum crop_preset {
     CROP_PRESET_3x3_1X_100D,
     CROP_PRESET_1080K_100D,
     CROP_PRESET_2K_100D,
-    CROP_PRESET_2K10bit_100D,
     CROP_PRESET_3K_100D,
     CROP_PRESET_4K_100D,
     CROP_PRESET_1x3_100D,
@@ -64,7 +63,6 @@ enum crop_preset {
     CROP_PRESET_1x3_EOSM,
     CROP_PRESET_3x3_1X_EOSM,
     CROP_PRESET_2K_EOSM,
-    CROP_PRESET_2K10bit_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
     NUM_CROP_PRESETS
@@ -152,7 +150,6 @@ static enum crop_preset crop_presets_100d[] = {
     CROP_PRESET_4K_100D,
     CROP_PRESET_3x3_1X_100D,
     CROP_PRESET_1080K_100D,
-    CROP_PRESET_2K10bit_100D,
     CROP_PRESET_1x3_100D,
     CROP_PRESET_9bit,
     CROP_PRESET_10bit,
@@ -166,7 +163,6 @@ static const char * crop_choices_100d[] = {
     "4K 4056x2552",
     "3x3 720p",
     "2K 2520x1080p",
-    "2.5K 10bit 2520x1304",
     "1x3_1736x1188",
 };
 
@@ -180,7 +176,6 @@ static const char crop_choices_help2_100d[] =
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
     "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
     "2K 1920x1080p (usually 1920x1078, works with all bits!)\n"
-    "1:1 2.5K 10bit crop (experimental)\n"
     "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n";
 
 	/* menu choices for EOSM */
@@ -192,7 +187,6 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
     CROP_PRESET_3x3_1X_EOSM,
-    CROP_PRESET_2K10bit_EOSM,
     CROP_PRESET_9bit,
     CROP_PRESET_10bit,
     CROP_PRESET_12bit,
@@ -206,7 +200,6 @@ static const char * crop_choices_eosm[] = {
     "3K 3072x1304", 
     "4K 4038x2558",
     "3x3 720p",
-    "2.5K 10bit 2520x1304",
 };
 
 static const char crop_choices_help_eosm[] =
@@ -219,8 +212,7 @@ static const char crop_choices_help2_eosm[] =
     "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
     "1:1 3K crop (3072x1304 @ 20p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
-    "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
-    "1:1 2.5K 10bit crop (experimental)\n";
+    "3x3 binning in 720p (square pixels in RAW, vertical crop)\n";
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
 static enum crop_preset crop_presets_basic[] = {
@@ -443,12 +435,10 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_3K_100D]       = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_4K_100D]       = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_1080K_100D]    = { 1304, 1104,  904,  704,  504 },
-    [CROP_PRESET_2K10bit_100D]  = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_2K_EOSM]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_3K_EOSM]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_4K_EOSM]          = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_3x3_mv1080_EOSM]  = { 1290, 1290, 1290,  960,  800 },
-    [CROP_PRESET_2K10bit_EOSM]     = { 1304, 1104,  904,  704,  504 },
 };
 
 /* 5D3 vertical resolution increments over default configuration */
@@ -925,10 +915,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[5] = 0x200;            /* vertical (first|last) */
                 cmos_new[7] = 0xf20;
                 break;	
-
-			case CROP_PRESET_2K10bit_100D:
-                cmos_new[7] = 0xaa9;    /* pink highlights without this */
-                break;
 	
 			case CROP_PRESET_1x3_100D:
 		cmos_new[7] = 0x200;   
@@ -958,10 +944,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	        cmos_new[8] = 0x400; 
                 break;	
 
-			case CROP_PRESET_2K10bit_EOSM:
-                cmos_new[7] = 0xaa9;    /* pink highlights without this */
-                break;
-
 			case CROP_PRESET_1x3_EOSM:
 			    cmos_new[7] = 0x260;   
 			    cmos_new[8] = 0x400; 
@@ -979,10 +961,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		cmos_new[7] = 0x200;  
         	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_2K_100D)
-                {
-                cmos_new[7] = 0xaa9;   
-        	}
-       	        if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_100D)
                 {
                 cmos_new[7] = 0xaa9;   
         	}
@@ -1008,10 +986,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		cmos_new[8] = 0x400;
         	} 
        	        if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
-                {
-                cmos_new[7] = 0xaa9;    
-        	}
-       	        if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_EOSM)
                 {
                 cmos_new[7] = 0xaa9;    
         	}
@@ -1037,10 +1011,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
                 cmos_new[7] = 0xaa9;   
         	}
-       	        if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_100D)
-                {
-                cmos_new[7] = 0xaa9;   
-        	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_3K_100D)
                 {
                 cmos_new[5] = 0x280;         
@@ -1063,10 +1033,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		cmos_new[8] = 0x400;
         	} 
        	        if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
-                {
-                cmos_new[7] = 0xaa9;    
-        	}
-       	        if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_EOSM)
                 {
                 cmos_new[7] = 0xaa9;    
         	}
@@ -1092,10 +1058,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
                 cmos_new[7] = 0xaa9;   
         	}
-       	        if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_100D)
-                {
-                cmos_new[7] = 0xaa9;   
-        	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_3K_100D)
                 {
                 cmos_new[5] = 0x280;         
@@ -1118,10 +1080,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		cmos_new[8] = 0x400;
         	} 
        	        if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
-                {
-                cmos_new[7] = 0xaa9;    
-        	}
-       	        if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_EOSM)
                 {
                 cmos_new[7] = 0xaa9;    
         	}
@@ -1484,14 +1442,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 /* ADTG2/4[0x800C] = 0: read every line */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
                 break; 
-
-	    case CROP_PRESET_2K10bit_100D:
-	    case CROP_PRESET_2K10bit_EOSM:
-		adtg_new[0] = (struct adtg_new) {2, 0x8882, 0x45};
-		adtg_new[1] = (struct adtg_new) {2, 0x8884, 0x45};
-		adtg_new[2] = (struct adtg_new) {2, 0x8886, 0x45};
-		adtg_new[3] = (struct adtg_new) {2, 0x8888, 0x45};
-                break;
 
 	     case CROP_PRESET_3x3_mv1080_EOSM:
 		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
@@ -2272,23 +2222,6 @@ static inline uint32_t reg_override_1080p_100d(uint32_t reg, uint32_t old_val)
     return 0;
 } 
 
-static inline uint32_t reg_override_2K10bit_100d(uint32_t reg, uint32_t old_val)
-{
-    switch (reg)
-    {
-        /* raw resolution (end line/column) */
-        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x53902a1; // 2520x1304  x5 Mode;
-        case 0xC0F06014: return 0x71c;
-        case 0xC0F0713c: return 0x535;
-
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-
-    return 0;
-}
-
 static inline uint32_t reg_override_1x3_100d(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
@@ -2389,24 +2322,6 @@ static inline uint32_t reg_override_3x3_eosm(uint32_t reg, uint32_t old_val)
 
 }
 
-static inline uint32_t reg_override_2K10bit_eosm(uint32_t reg, uint32_t old_val)
-{
-    switch (reg)
-    {
-        /* raw resolution (end line/column) */
-        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x5390298; /* 2520x1304  x5 Mode; */
-        case 0xC0F06014: return 0x747;
-        case 0xC0F07150: return 0x428;
-        case 0xC0F0713c: return 0x535;
-
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-
-    return 0;
-}
-
 static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
@@ -2486,12 +2401,6 @@ static inline uint32_t reg_override_9bit(uint32_t reg, uint32_t old_val)
              {
 		return reg_override_4K_100d(reg, old_val);
    	     }
-
-       	   if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_100D)
-           {
-              return reg_override_2K10bit_100d(reg, old_val);
-   	   }
-
 /* EOSM */
       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
         {
@@ -2513,10 +2422,6 @@ static inline uint32_t reg_override_9bit(uint32_t reg, uint32_t old_val)
 		   return reg_override_4K_eosm(reg, old_val);
    	        }
 
-       	     if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_EOSM)
-             {
-	        return reg_override_2K10bit_eosm(reg, old_val);
-             }
       	if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
         {
 	   return reg_override_3x3_eosm(reg, old_val);
@@ -2614,12 +2519,6 @@ static inline uint32_t reg_override_10bit(uint32_t reg, uint32_t old_val)
              {
 		return reg_override_4K_100d(reg, old_val);
    	     }
-
-       	   if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_100D)
-           {
-              return reg_override_2K10bit_100d(reg, old_val);
-   	   }
-
 /* EOSM */
       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
         {
@@ -2641,10 +2540,6 @@ static inline uint32_t reg_override_10bit(uint32_t reg, uint32_t old_val)
 		   return reg_override_4K_eosm(reg, old_val);
    	        }
 
-       	     if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_EOSM)
-             {
-	        return reg_override_2K10bit_eosm(reg, old_val);
-             }
       	if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
         {
 	   return reg_override_3x3_eosm(reg, old_val);
@@ -2742,12 +2637,6 @@ static inline uint32_t reg_override_12bit(uint32_t reg, uint32_t old_val)
              {
 		return reg_override_4K_100d(reg, old_val);
    	     }
-
-       	   if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_100D)
-           {
-              return reg_override_2K10bit_100d(reg, old_val);
-   	   }
-
 /* EOSM */
       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
         {
@@ -2768,11 +2657,6 @@ static inline uint32_t reg_override_12bit(uint32_t reg, uint32_t old_val)
                 {
 		   return reg_override_4K_eosm(reg, old_val);
    	        }
-
-       	     if (CROP_PRESET_MENU == CROP_PRESET_2K10bit_EOSM)
-             {
-	        return reg_override_2K10bit_eosm(reg, old_val);
-             }
 
       	if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
         {
@@ -2861,13 +2745,11 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_3K_100D)    ? reg_override_3K_100d         : 
         (crop_preset == CROP_PRESET_4K_100D)    ? reg_override_4K_100d         :
         (crop_preset == CROP_PRESET_1080K_100D)	     ? reg_override_1080p_100d      :
-        (crop_preset == CROP_PRESET_2K10bit_100D)    ? reg_override_2K10bit_100d    : 
         (crop_preset == CROP_PRESET_1x3_100D) ? reg_override_1x3_100d        : 
         (crop_preset == CROP_PRESET_2K_EOSM)         ? reg_override_2K_eosm         :    
         (crop_preset == CROP_PRESET_3K_EOSM)         ? reg_override_3K_eosm         : 
         (crop_preset == CROP_PRESET_4K_EOSM) 	     ? reg_override_4K_eosm         :
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_eosm        :
-        (crop_preset == CROP_PRESET_2K10bit_EOSM)    ? reg_override_2K10bit_eosm    :
         (crop_preset == CROP_PRESET_1x3_EOSM) ? reg_override_1x3_eosm        : 
                                                   0                       ;
     return reg_override_func;
@@ -3134,11 +3016,9 @@ static int crop_rec_needs_lv_refresh()
 
 /* let´s automate liveview start off setting */
 if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) || 
-(CROP_PRESET_MENU == CROP_PRESET_2K10bit_100D) || 
 (CROP_PRESET_MENU == CROP_PRESET_3K_100D) || 
 (CROP_PRESET_MENU == CROP_PRESET_4K_100D) || 
 (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) || 
-(CROP_PRESET_MENU == CROP_PRESET_2K10bit_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_1080K_100D))
