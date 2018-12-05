@@ -999,6 +999,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[5] = 0x200;         
                 cmos_new[7] = 0xf20;
         	}
+       	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
+                {
+                /* start/stop scanning line, very large increments */
+                cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
+        	}
      	        break;
 
 	    		 case CROP_PRESET_10bit:
@@ -1046,6 +1051,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[5] = 0x200;         
                 cmos_new[7] = 0xf20;
         	}
+       	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
+                {
+                /* start/stop scanning line, very large increments */
+                cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
+        	}
      	        break;
 
 	    		 case CROP_PRESET_12bit:
@@ -1092,6 +1102,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
                 cmos_new[5] = 0x200;         
                 cmos_new[7] = 0xf20;
+        	}
+       	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
+                {
+                /* start/stop scanning line, very large increments */
+                cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
         	}
      	        break;
        
@@ -2244,6 +2259,16 @@ static inline uint32_t reg_override_1x3_100d(uint32_t reg, uint32_t old_val)
 }
 
 
+static inline uint32_t reg_override_3x3_1X_dummy(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+	/* case 0xC0F42744: return 0x4040404; */ 
+    }
+
+    return 0;
+}
+
 /* Values for EOSM */
 static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
 {
@@ -2401,6 +2426,10 @@ static inline uint32_t reg_override_9bit(uint32_t reg, uint32_t old_val)
              {
 		return reg_override_4K_100d(reg, old_val);
    	     }
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
+  {
+    return reg_override_3x3_1X_dummy(reg, old_val);
+  }
 /* EOSM */
       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
         {
@@ -2427,6 +2456,10 @@ static inline uint32_t reg_override_9bit(uint32_t reg, uint32_t old_val)
 	   return reg_override_3x3_eosm(reg, old_val);
     	}
 
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
+  {
+    return reg_override_3x3_1X_dummy(reg, old_val);
+  }
 	/* 5D3 */
        	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
            {
@@ -2519,6 +2552,10 @@ static inline uint32_t reg_override_10bit(uint32_t reg, uint32_t old_val)
              {
 		return reg_override_4K_100d(reg, old_val);
    	     }
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
+  {
+    return reg_override_3x3_1X_dummy(reg, old_val);
+  }
 /* EOSM */
       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
         {
@@ -2544,7 +2581,10 @@ static inline uint32_t reg_override_10bit(uint32_t reg, uint32_t old_val)
         {
 	   return reg_override_3x3_eosm(reg, old_val);
     	}
-
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
+  {
+    return reg_override_3x3_1X_dummy(reg, old_val);
+  }
 	/* 5D3 */
        	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
            {
@@ -2637,6 +2677,10 @@ static inline uint32_t reg_override_12bit(uint32_t reg, uint32_t old_val)
              {
 		return reg_override_4K_100d(reg, old_val);
    	     }
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
+  {
+    return reg_override_3x3_1X_dummy(reg, old_val);
+  }
 /* EOSM */
       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
         {
@@ -2662,6 +2706,10 @@ static inline uint32_t reg_override_12bit(uint32_t reg, uint32_t old_val)
         {
 	   return reg_override_3x3_eosm(reg, old_val);
     	}
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
+  {
+    return reg_override_3x3_1X_dummy(reg, old_val);
+  }
 	/* 5D3 */
        	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
            {
@@ -2746,6 +2794,8 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_4K_100D)    ? reg_override_4K_100d         :
         (crop_preset == CROP_PRESET_1080K_100D)	     ? reg_override_1080p_100d      :
         (crop_preset == CROP_PRESET_1x3_100D) ? reg_override_1x3_100d        : 
+        (crop_preset == CROP_PRESET_3x3_1X_100D) ? reg_override_3x3_1X_dummy        : 
+        (crop_preset == CROP_PRESET_3x3_1X_EOSM) ? reg_override_3x3_1X_dummy        : 
         (crop_preset == CROP_PRESET_2K_EOSM)         ? reg_override_2K_eosm         :    
         (crop_preset == CROP_PRESET_3K_EOSM)         ? reg_override_3K_eosm         : 
         (crop_preset == CROP_PRESET_4K_EOSM) 	     ? reg_override_4K_eosm         :
@@ -3197,6 +3247,20 @@ static LVINFO_UPDATE_FUNC(crop_info)
         {
             switch (crop_preset)
             {
+
+/* patch bits */
+  if (bitrate == 0x1)
+  {
+  crop_preset = CROP_PRESET_9bit;
+  }
+  if (bitrate == 0x2)
+  {
+  crop_preset = CROP_PRESET_10bit;
+  }
+  if (bitrate == 0x3)
+  {
+  crop_preset = CROP_PRESET_12bit;
+  }
                 case CROP_PRESET_3X:
                     /* In movie mode, we are interested in recording sensor pixels
                      * without any binning (that is, with 1:1 mapping);
@@ -3208,12 +3272,6 @@ static LVINFO_UPDATE_FUNC(crop_info)
                      * We aren't actually previewing at 1:1 at pixel level,
                      * so printing 1:1 is a little incorrect.
                      */
-                    if (!is_movie_mode())
-                    {
-                        snprintf(buffer, sizeof(buffer), "3x");
-                        goto warn;
-                    }
-                    break;
 
                 case CROP_PRESET_3X_TALL:
                     snprintf(buffer, sizeof(buffer), "T");
@@ -3234,9 +3292,72 @@ static LVINFO_UPDATE_FUNC(crop_info)
                 case CROP_PRESET_FULLRES_LV:
                     snprintf(buffer, sizeof(buffer), "FLV");
                     break;
+
             }
         }
     }
+
+/* 100D */
+  if (CROP_PRESET_MENU == CROP_PRESET_1x3_100D)
+  {
+    snprintf(buffer, sizeof(buffer), "1x3_binning");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_1080K_100D)
+  {
+    snprintf(buffer, sizeof(buffer), "2520x1080");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_2K_100D)
+  {
+    snprintf(buffer, sizeof(buffer), "2520x1304");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_3K_100D)
+  {
+    snprintf(buffer, sizeof(buffer), "3096x1320");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_4K_100D)
+  {
+    snprintf(buffer, sizeof(buffer), "4056x2552");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
+  {
+    snprintf(buffer, sizeof(buffer), "3x3 720p");
+  }
+
+/* EOSM */
+  if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
+  {
+    snprintf(buffer, sizeof(buffer), "1x3_binning");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
+  {
+    snprintf(buffer, sizeof(buffer), "2520x1304");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM)
+  {
+    snprintf(buffer, sizeof(buffer), "3072x1304");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
+  {
+    snprintf(buffer, sizeof(buffer), "4K 4038x2558");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
+  {
+    snprintf(buffer, sizeof(buffer), "mv1080p");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
+  {
+    snprintf(buffer, sizeof(buffer), "3x3 720p");
+  }
 
     /* append info about current binning mode */
 
@@ -3244,30 +3365,13 @@ static LVINFO_UPDATE_FUNC(crop_info)
     {
         /* fixme: raw_capture_info is only updated when LV RAW is active */
 
-        if (raw_capture_info.binning_x + raw_capture_info.skipping_x == 1 &&
-            raw_capture_info.binning_y + raw_capture_info.skipping_y == 1)
-        {
-            STR_APPEND(buffer, "%s1:1", buffer[0] ? " " : "");
-        }
-        else
-        {
-            STR_APPEND(buffer, "%s%dx%d",
+            STR_APPEND("%s%dx%d",
                 buffer[0] ? " " : "",
                 raw_capture_info.binning_x + raw_capture_info.skipping_x,
                 raw_capture_info.binning_y + raw_capture_info.skipping_y
             );
-        }
     }
 
-warn:
-    if (crop_rec_needs_lv_refresh())
-    {
-        if (!streq(buffer, SYM_WARNING))
-        {
-            STR_APPEND(buffer, " " SYM_WARNING);
-        }
-        item->color_fg = COLOR_YELLOW;
-    }
 }
 
 static struct lvinfo_item info_items[] = {
