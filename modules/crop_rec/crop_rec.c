@@ -2491,6 +2491,10 @@ static inline uint32_t reg_override_9bit(uint32_t reg, uint32_t old_val)
     }
 
 /* 100D */
+  if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
+  {
+     return reg_override_3xcropmode_100d(reg, old_val);
+  }
       if (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D)
       {
          return reg_override_3xcropmode_100d(reg, old_val);
@@ -2621,6 +2625,10 @@ static inline uint32_t reg_override_10bit(uint32_t reg, uint32_t old_val)
     }
 
 /* 100D */
+  if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
+  {
+     return reg_override_3xcropmode_100d(reg, old_val);
+  }
       if (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D)
       {
          return reg_override_3xcropmode_100d(reg, old_val);
@@ -2750,6 +2758,10 @@ static inline uint32_t reg_override_12bit(uint32_t reg, uint32_t old_val)
     }
 
 /* 100D */
+  if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
+  {
+     return reg_override_3xcropmode_100d(reg, old_val);
+  }
       if (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D)
       {
          return reg_override_3xcropmode_100d(reg, old_val);
@@ -2890,6 +2902,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_12bit)         ? reg_override_12bit   :
 	(crop_preset == CROP_PRESET_1x3)        ? reg_override_1x3 :
 	(crop_preset == CROP_PRESET_1x3_17fps)  ? reg_override_1x3_17fps :
+        (crop_preset == CROP_PRESET_mv1080p_100D)    ? reg_override_3xcropmode_100d  :
         (crop_preset == CROP_PRESET_3xcropmode_100D)    ? reg_override_3xcropmode_100d  :
         (crop_preset == CROP_PRESET_2K_100D)    ? reg_override_2K_100d         :    
         (crop_preset == CROP_PRESET_3K_100D)    ? reg_override_3K_100d         : 
