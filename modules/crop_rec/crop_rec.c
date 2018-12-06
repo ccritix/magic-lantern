@@ -3248,19 +3248,6 @@ static LVINFO_UPDATE_FUNC(crop_info)
             switch (crop_preset)
             {
 
-/* patch bits */
-  if (bitrate == 0x1)
-  {
-  crop_preset = CROP_PRESET_9bit;
-  }
-  if (bitrate == 0x2)
-  {
-  crop_preset = CROP_PRESET_10bit;
-  }
-  if (bitrate == 0x3)
-  {
-  crop_preset = CROP_PRESET_12bit;
-  }
                 case CROP_PRESET_3X:
                     /* In movie mode, we are interested in recording sensor pixels
                      * without any binning (that is, with 1:1 mapping);
@@ -3390,16 +3377,14 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 /* patch bits */
 
 
-if (((is_100D || is_EOSM) && (bitrate == 0x1)) || (bitrate == 0x2) || (bitrate == 0x3))
-{
   if ((CROP_PRESET_MENU == CROP_PRESET_1x3_100D) || 
   (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM))
   {
   crop_preset = CROP_PRESET_MENU;
   }
-}
 
-if (((is_5D3) && (bitrate == 0x1)) || (bitrate == 0x2) || (bitrate == 0x3))
+
+if (is_5D3)
 {
   crop_preset = CROP_PRESET_MENU;
 }
