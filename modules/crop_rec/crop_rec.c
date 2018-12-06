@@ -910,9 +910,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
         switch (crop_preset)
         {
-			case CROP_PRESET_mv1080p_100D:
-	        cmos_new[8] = 0x400; 
-                break;
 			case CROP_PRESET_3xcropmode_100D:
                 cmos_new[5] = 0x200;            /* vertical (first|last) */
                 cmos_new[7] = 0x200;
@@ -972,10 +969,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 	    		 case CROP_PRESET_9bit:
 	/* 100D */
-       	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
-                {
-	        cmos_new[8] = 0x400; 
-        	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D)
                 {
                 cmos_new[5] = 0x200;            /* vertical (first|last) */
@@ -1033,10 +1026,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 	    		 case CROP_PRESET_10bit:
 	/* 100D */
-       	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
-                {
-	        cmos_new[8] = 0x400; 
-        	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D)
                 {
                 cmos_new[5] = 0x200;            /* vertical (first|last) */
@@ -1094,10 +1083,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 	    		 case CROP_PRESET_12bit:
 	/* 100D */
-       	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
-                {
-	        cmos_new[8] = 0x400; 
-        	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D)
                 {
                 cmos_new[5] = 0x200;            /* vertical (first|last) */
@@ -1515,10 +1500,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
 		break;
 
-	     case CROP_PRESET_mv1080p_100D:
-		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
-		break;
-
 	     case CROP_PRESET_1x3_EOSM:
 	     case CROP_PRESET_1x3_100D:
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
@@ -1534,10 +1515,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
         	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
-                {
-	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
-        	} 
-      	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
         	} 
@@ -1590,10 +1567,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
         	} 
-      	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
-                {
-	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
-        	} 
        	        if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
@@ -1640,10 +1613,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
         	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
-                {
-	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
-        	} 
-      	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
         	} 
