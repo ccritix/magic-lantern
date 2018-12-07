@@ -2347,17 +2347,6 @@ static inline uint32_t reg_override_1x3_100d(uint32_t reg, uint32_t old_val)
     return 0;
 }
 
-
-static inline uint32_t reg_override_3x3_1X_dummy(uint32_t reg, uint32_t old_val)
-{
-    switch (reg)
-    {
-	/* case 0xC0F42744: return 0x4040404; */ 
-    }
-
-    return 0;
-}
-
 /* Values for EOSM */
 static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
 {
@@ -2523,10 +2512,6 @@ static inline uint32_t reg_override_9bit(uint32_t reg, uint32_t old_val)
              {
 		return reg_override_4K_100d(reg, old_val);
    	     }
-  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
-  {
-    return reg_override_3x3_1X_dummy(reg, old_val);
-  }
 /* EOSM */
       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
         {
@@ -2553,10 +2538,6 @@ static inline uint32_t reg_override_9bit(uint32_t reg, uint32_t old_val)
 	   return reg_override_3x3_eosm(reg, old_val);
     	}
 
-  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
-  {
-    return reg_override_3x3_1X_dummy(reg, old_val);
-  }
 	/* 5D3 */
        	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
            {
@@ -2657,10 +2638,6 @@ static inline uint32_t reg_override_10bit(uint32_t reg, uint32_t old_val)
              {
 		return reg_override_4K_100d(reg, old_val);
    	     }
-  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
-  {
-    return reg_override_3x3_1X_dummy(reg, old_val);
-  }
 /* EOSM */
       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
         {
@@ -2686,10 +2663,6 @@ static inline uint32_t reg_override_10bit(uint32_t reg, uint32_t old_val)
         {
 	   return reg_override_3x3_eosm(reg, old_val);
     	}
-  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
-  {
-    return reg_override_3x3_1X_dummy(reg, old_val);
-  }
 	/* 5D3 */
        	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
            {
@@ -2790,10 +2763,6 @@ static inline uint32_t reg_override_12bit(uint32_t reg, uint32_t old_val)
              {
 		return reg_override_4K_100d(reg, old_val);
    	     }
-  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
-  {
-    return reg_override_3x3_1X_dummy(reg, old_val);
-  }
 /* EOSM */
       	if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
         {
@@ -2819,10 +2788,6 @@ static inline uint32_t reg_override_12bit(uint32_t reg, uint32_t old_val)
         {
 	   return reg_override_3x3_eosm(reg, old_val);
     	}
-  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
-  {
-    return reg_override_3x3_1X_dummy(reg, old_val);
-  }
 	/* 5D3 */
        	   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
            {
@@ -2908,9 +2873,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_3K_100D)    ? reg_override_3K_100d         : 
         (crop_preset == CROP_PRESET_4K_100D)    ? reg_override_4K_100d         :
         (crop_preset == CROP_PRESET_1080K_100D)	     ? reg_override_1080p_100d      :
-        (crop_preset == CROP_PRESET_1x3_100D) ? reg_override_1x3_100d        : 
-        (crop_preset == CROP_PRESET_3x3_1X_100D) ? reg_override_3x3_1X_dummy        : 
-        (crop_preset == CROP_PRESET_3x3_1X_EOSM) ? reg_override_3x3_1X_dummy        : 
+        (crop_preset == CROP_PRESET_1x3_100D) ? reg_override_1x3_100d        :  
         (crop_preset == CROP_PRESET_2K_EOSM)         ? reg_override_2K_eosm         :    
         (crop_preset == CROP_PRESET_3K_EOSM)         ? reg_override_3K_eosm         : 
         (crop_preset == CROP_PRESET_4K_EOSM) 	     ? reg_override_4K_eosm         :
