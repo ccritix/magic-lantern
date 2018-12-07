@@ -162,7 +162,7 @@ static enum crop_preset crop_presets_100d[] = {
 
 static const char * crop_choices_100d[] = {
     "OFF",
-    "mv1080p mode",
+    "mv1080p_mv720p mode",
     "3x crop mode",
     "2.5K 2520x1304",
     "3K 3096x1320", 
@@ -2765,7 +2765,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
 /* 100D */
   if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
   {
-    snprintf(buffer, sizeof(buffer), "mv1080p mode");
+    snprintf(buffer, sizeof(buffer), "mv1080p_mv720p mode");
   }
   if (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D)
   {
