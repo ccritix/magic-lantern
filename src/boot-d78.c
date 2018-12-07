@@ -54,17 +54,20 @@ static void my_create_init_task(uint32_t a, uint32_t b, uint32_t c)
     create_init_task(a, b, c);
 }
 
-static void my_dcache_clean(uint32_t addr, uint32_t size)
+/* M50: Canon code calling these cache functions expects R3 to be preserved after the call */
+/* trick to prevent our C compiler for overwriting R3: two unused parameters */
+static void my_dcache_clean(uint32_t addr, uint32_t size, uint32_t keep1, uint32_t keep2)
 {
-    extern void dcache_clean(uint32_t, uint32_t);
-    dcache_clean(addr, size);
+    extern void dcache_clean(uint32_t, uint32_t, uint32_t, uint32_t);
+    dcache_clean(addr, size, keep1, keep2);
 }
 
-static void my_icache_invalidate(uint32_t addr, uint32_t size)
+static void my_icache_invalidate(uint32_t addr, uint32_t size, uint32_t keep1, uint32_t keep2)
 {
-    extern void icache_invalidate(uint32_t, uint32_t);
-    icache_invalidate(addr, size);
+    extern void icache_invalidate(uint32_t, uint32_t, uint32_t, uint32_t);
+    icache_invalidate(addr, size, keep1, keep2);
 }
+
 
 void
 __attribute__((noreturn,noinline,naked))
