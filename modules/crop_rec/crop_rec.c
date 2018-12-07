@@ -1262,10 +1262,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
 		break;
 
-	     case CROP_PRESET_mv1080p_100D:
-		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
-		break;
-
 	     case CROP_PRESET_1x3_EOSM:
 	     case CROP_PRESET_1x3_100D:
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
@@ -1283,10 +1279,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
         	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
-                {
-	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
-        	} 
-      	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
         	} 
@@ -1890,10 +1882,25 @@ static inline uint32_t reg_override_fps_nocheck(uint32_t reg, uint32_t timerA, u
 /* Values for 100D */
 static inline uint32_t reg_override_3xcropmode_100d(uint32_t reg, uint32_t old_val)
 {
+
+    if (is_1080p())
+    {
     switch (reg)
     {
         	case 0xC0F06804: return 0x4a701d7; 
     }
+        return 0;
+    }
+
+    if (is_720p())
+    {
+    switch (reg)
+    {
+        	case 0xC0F06804: return 0x2d801d7; 
+    }
+        return 0;
+    }
+
 
     return 0;
 }
