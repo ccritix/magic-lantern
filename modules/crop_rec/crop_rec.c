@@ -1699,7 +1699,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
     /* these should work on all presets, on all DIGIC 5 models and also on recent DIGIC 4 */
-    if (1)
+    if ((1) && (CROP_PRESET_MENU == !CROP_PRESET_mv1080p_100D) && (CROP_PRESET_MENU == !CROP_PRESET_3xcropmode_100D)) 
     {
         /* assuming FPS timer B was overridden before this */
         int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
