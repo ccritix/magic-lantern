@@ -53,7 +53,7 @@ enum crop_preset {
     CROP_PRESET_mv1080_mv720p,
     CROP_PRESET_1x3,
     CROP_PRESET_1x3_17fps,
-    CROP_PRESET_mv1080p_100D,
+    CROP_PRESET_mv1080p_mv720p_100D,
     CROP_PRESET_3xcropmode_100D,
     CROP_PRESET_3x3_1X_100D,
     CROP_PRESET_1080K_100D,
@@ -147,7 +147,7 @@ static const char crop_choices_help2_5d3[] =
 	/* menu choices for 100D */
 static enum crop_preset crop_presets_100d[] = {
     CROP_PRESET_OFF,
-    CROP_PRESET_mv1080p_100D,
+    CROP_PRESET_mv1080p_mv720p_100D,
     CROP_PRESET_3xcropmode_100D,
     CROP_PRESET_2K_100D,
     CROP_PRESET_3K_100D,
@@ -776,7 +776,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
         switch (crop_preset)
         {
-			case CROP_PRESET_mv1080p_100D:
+			case CROP_PRESET_mv1080p_mv720p_100D:
 	        cmos_new[8] = 0x400; 
                 break;
 			case CROP_PRESET_3xcropmode_100D:
@@ -841,7 +841,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	    		 case CROP_PRESET_10bit:
 	    		 case CROP_PRESET_12bit:
 	/* 100D */
-       	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
+       	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D)
                 {
 	        cmos_new[8] = 0x400; 
         	}
@@ -1138,7 +1138,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) ||
-	       (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM))
             {
@@ -1165,7 +1165,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) ||
-	       (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM))
             {
@@ -1192,7 +1192,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) ||
-	       (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM))
             {
@@ -1262,8 +1262,15 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
 		break;
 
-	     case CROP_PRESET_mv1080p_100D:
-		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+	     case CROP_PRESET_mv1080p_mv720p_100D:
+   	 	   if (is_1080p())
+    		   {
+	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+    		   }
+    		   if (is_720p())
+    		   {
+	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 4};
+   		   }		
 		break;
 
 	     case CROP_PRESET_1x3_EOSM:
@@ -1286,10 +1293,17 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
         	} 
-      	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
-                {
-	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
-        	} 
+      	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D)
+		{
+   	 	   if (is_1080p())
+    		   {
+	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+    		   }
+    		   if (is_720p())
+    		   {
+	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 4};
+   		}
+		}
        	        if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
@@ -1341,7 +1355,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
     /* these should work on all presets, on all DIGIC 5 models and also on recent DIGIC 4 */
-    if ((1) && !(CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D) && !(CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D))
+    if ((1) && !(CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) && !(CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D))
     {
         /* assuming FPS timer B was overridden before this */
         int fps_timer_b = (shamem_read(0xC0F06014) & 0xFFFF) + 1;
@@ -2157,7 +2171,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
   }
 
 /* 100D */
-  if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
+  if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D)
   {
      return reg_override_3xcropmode_100d(reg, old_val);
   }
@@ -2275,7 +2289,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_12bit)         ? reg_override_bits   :
 	(crop_preset == CROP_PRESET_1x3)        ? reg_override_1x3 :
 	(crop_preset == CROP_PRESET_1x3_17fps)  ? reg_override_1x3_17fps :
-        (crop_preset == CROP_PRESET_mv1080p_100D)    ? reg_override_3xcropmode_100d  :
+        (crop_preset == CROP_PRESET_mv1080p_mv720p_100D)    ? reg_override_3xcropmode_100d  :
         (crop_preset == CROP_PRESET_3xcropmode_100D)    ? reg_override_3xcropmode_100d  :
         (crop_preset == CROP_PRESET_2K_100D)    ? reg_override_2K_100d         :    
         (crop_preset == CROP_PRESET_3K_100D)    ? reg_override_3K_100d         : 
@@ -2771,7 +2785,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
     }
 
 /* 100D */
-  if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
+  if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D)
   {
     snprintf(buffer, sizeof(buffer), "mv1080p_mv720p mode");
   }
