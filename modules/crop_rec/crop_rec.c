@@ -1262,6 +1262,10 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
 		break;
 
+	     case CROP_PRESET_mv1080p_100D:
+		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+		break;
+
 	     case CROP_PRESET_1x3_EOSM:
 	     case CROP_PRESET_1x3_100D:
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
@@ -1279,6 +1283,10 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
         	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
+                {
+	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+        	} 
+      	        if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_100D)
                 {
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
         	} 
