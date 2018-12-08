@@ -2,7 +2,7 @@
 
 CANON_NAME_FIR  = CCF19101.FIR
 FIRMWARE_ID     = 0x00000412
-UPDATE_NAME_FIR = DUMP_M50.FIR
+UPDATE_NAME_FIR = D_M50101.FIR
 ROMBASEADDR     = 0xE0040000
 
 # Shrink Canon's malloc heap by changing its end address
