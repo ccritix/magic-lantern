@@ -47,6 +47,16 @@ NSTUB(    0x1010,  current_interrupt)      /* from interrupt handler (VBAR + 0x1
 /** Dumper **/
 NSTUB(0xE0085F61,  dump_file)              /* tries to save a file to either "A:/%s" or "B:/%s"; calls FIO_RemoveFile/CreateFile/WriteFile/CloseFile/Flush */
 
+/** Memory allocation **/
+NSTUB(0xE055AF89, _AllocateMemory)
+NSTUB(0xE055B141, _FreeMemory)
+NSTUB(0xE055AE13,  GetMemoryInformation)
+NSTUB(0xE055ADE7,  GetSizeOfMaxRegion)
+NSTUB(0xE055A9E9, _alloc_dma_memory)
+NSTUB(0xE055AA1D, _free_dma_memory)
+NSTUB(0xE03C2307,  malloc)
+NSTUB(0xE03C233F,  free)
+
 /** Memory info **/
 NSTUB(0xE00F1BD9,  malloc_info)            /* Malloc Information */
 NSTUB(0xE00F1C71,  sysmem_info)            /* System Memory Information */
