@@ -2930,7 +2930,8 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 
 
   if ((CROP_PRESET_MENU == CROP_PRESET_1x3_100D) || 
-  (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM))
+     (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM) ||
+     (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM))
   {
   crop_preset = CROP_PRESET_MENU;
   }
