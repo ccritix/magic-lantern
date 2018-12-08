@@ -252,9 +252,16 @@ static int get_default_white_level()
         return (default_white - 2048) * lv_raw_gain / 4096 + 2048;
     }
 
+        if (shamem_read(0xC0F42744) == 0x6060606)
+        {	
+	    /* 8bit by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = 2250);   
+        }
+
         if (shamem_read(0xC0F42744) == 0x5050505)
         {	
-	    /* 10bit by checking pushed liveview gain register set in crop_rec.c */
+	    /* 9bit by checking pushed liveview gain register set in crop_rec.c */
             int default_white = WHITE_LEVEL;
             return (default_white = 2550);   
         }

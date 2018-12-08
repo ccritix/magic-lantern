@@ -47,6 +47,7 @@ enum crop_preset {
     CROP_PRESET_3x1,
     CROP_PRESET_40_FPS,
     CROP_PRESET_CENTER_Z,
+    CROP_PRESET_8bit,
     CROP_PRESET_9bit,
     CROP_PRESET_10bit,
     CROP_PRESET_12bit,
@@ -96,6 +97,7 @@ static enum crop_preset crop_presets_5d3[] = {
     CROP_PRESET_mv1080_mv720p,
     CROP_PRESET_1x3,
     CROP_PRESET_1x3_17fps,
+    CROP_PRESET_8bit,
     CROP_PRESET_9bit,
     CROP_PRESET_10bit,
     CROP_PRESET_12bit,
@@ -155,6 +157,7 @@ static enum crop_preset crop_presets_100d[] = {
     CROP_PRESET_3x3_1X_100D,
     CROP_PRESET_1080K_100D,
     CROP_PRESET_1x3_100D,
+    CROP_PRESET_8bit,
     CROP_PRESET_9bit,
     CROP_PRESET_10bit,
     CROP_PRESET_12bit,
@@ -195,6 +198,7 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
     CROP_PRESET_3x3_1X_EOSM,
+    CROP_PRESET_8bit,
     CROP_PRESET_9bit,
     CROP_PRESET_10bit,
     CROP_PRESET_12bit,
@@ -701,6 +705,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[2] = 0x09E;            /* horizontal offset (mask 0xFF0) */
                 break;
 
+	    		 case CROP_PRESET_8bit:
 	    		 case CROP_PRESET_9bit:
 	    		 case CROP_PRESET_10bit:
 	    		 case CROP_PRESET_12bit:
@@ -836,7 +841,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
                 break;  
 
-
+	    		 case CROP_PRESET_8bit:
 	    		 case CROP_PRESET_9bit:
 	    		 case CROP_PRESET_10bit:
 	    		 case CROP_PRESET_12bit:
@@ -1128,7 +1133,35 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[0] = (struct adtg_new) {6, 0x8060, shutter_blanking};
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
 
+
    		if (bitrate == 0x1)
+    		{
+		/* 8bit roundtrip only not applied here with following set ups */
+       	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_4K_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_3K_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM))
+            {
+	        crop_preset = CROP_PRESET_8bit;
+	    }
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 12}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 12};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 12};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 12};
+
+		adtg_new[17] = (struct adtg_new) {6, 0x8882, 12};
+                adtg_new[18] = (struct adtg_new) {6, 0x8884, 12};
+                adtg_new[19] = (struct adtg_new) {6, 0x8886, 12};
+                adtg_new[20] = (struct adtg_new) {6, 0x8888, 12};
+		}
+
+   		if (bitrate == 0x2)
     		{
 		/* 9bit roundtrip only not applied here with following set ups */
        	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
@@ -1155,7 +1188,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[20] = (struct adtg_new) {6, 0x8888, 30};
 		}
 
-   		if (bitrate == 0x2)
+   		if (bitrate == 0x3)
     		{
 		/* 10bit roundtrip only not applied here with following set ups */
        	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
@@ -1182,7 +1215,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[20] = (struct adtg_new) {6, 0x8888, 60};
 		}
 
-    		if (bitrate == 0x3)
+    		if (bitrate == 0x4)
     		{
 		/* 12bit roundtrip only not applied here with following set ups */
        	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
@@ -1278,6 +1311,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
      	        break;
 
+	     case CROP_PRESET_8bit:
 	     case CROP_PRESET_9bit:
 	     case CROP_PRESET_10bit:
 	     case CROP_PRESET_12bit:
@@ -2149,7 +2183,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
 	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
+	case 0xC0F42744: return 0x6060606;
     }
   }
 
@@ -2158,10 +2192,19 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
 	/* correct liveview brightness */
+	case 0xC0F42744: return 0x5050505;
+    }
+  }
+
+  if (bitrate == 0x3)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x3)
+  if (bitrate == 0x4)
   {
     switch (reg)
     {
@@ -2284,6 +2327,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_40_FPS)     ? reg_override_40_fps     :
         (crop_preset == CROP_PRESET_FULLRES_LV) ? reg_override_fullres_lv :
         (crop_preset == CROP_PRESET_CENTER_Z)   ? reg_override_zoom_fps   :
+        (crop_preset == CROP_PRESET_8bit)         ? reg_override_bits   :
         (crop_preset == CROP_PRESET_9bit)         ? reg_override_bits   :
         (crop_preset == CROP_PRESET_10bit)         ? reg_override_bits   :
         (crop_preset == CROP_PRESET_12bit)         ? reg_override_bits   :
@@ -2465,8 +2509,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "bitrate",
                 .priv   = &bitrate,
-                .max    = 3,
-                .choices = CHOICES("OFF", " 9 bit", "10 bit", "12 bit"),
+                .max    = 4,
+                .choices = CHOICES("OFF", " 8 bit", " 9 bit", "10 bit", "12 bit"),
                 .help   = "Alter bitrate\n"
             },
             {
@@ -2979,13 +3023,17 @@ if (is_5D3)
 /* patch bits */
   if (bitrate == 0x1)
   {
-  crop_preset = CROP_PRESET_9bit;
+  crop_preset = CROP_PRESET_8bit;
   }
   if (bitrate == 0x2)
   {
-  crop_preset = CROP_PRESET_10bit;
+  crop_preset = CROP_PRESET_9bit;
   }
   if (bitrate == 0x3)
+  {
+  crop_preset = CROP_PRESET_10bit;
+  }
+  if (bitrate == 0x4)
   {
   crop_preset = CROP_PRESET_12bit;
   }
@@ -3002,13 +3050,17 @@ static unsigned int crop_rec_init()
 
    	if (bitrate == 0x1)
     	{
-	NotifyBox(3000, "crop_rec bitrate is set to 9bit");
+	NotifyBox(3000, "crop_rec bitrate is set to 8bit");
 	}
   	if (bitrate == 0x2)
     	{
-	NotifyBox(3000, "crop_rec bitrate is set to 10bit");
+	NotifyBox(3000, "crop_rec bitrate is set to 9bit");
 	}
  	if (bitrate == 0x3)
+    	{
+	NotifyBox(3000, "crop_rec bitrate is set to 10bit");
+	}
+ 	if (bitrate == 0x4)
     	{
 	NotifyBox(3000, "crop_rec bitrate is set to 12bit");
 	}
