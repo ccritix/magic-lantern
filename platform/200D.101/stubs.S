@@ -69,6 +69,22 @@ NSTUB(0xDF006E6D,  DryosDebugMsg)          /* lots of debug messages; format str
 /** Eventprocs (call by name) **/
 NSTUB(0xE04BDB8F,  call)                   /* many functions called by name (lv_start, lv_stop etc) */
 
+/** File I/O **/
+NSTUB(0xE04BC1ED, _FIO_OpenFile)
+NSTUB(0xE04BC257, _FIO_CreateFile)
+NSTUB(0xE04BC311, _FIO_ReadFile)
+NSTUB(0xE04BC3B7, _FIO_WriteFile)
+NSTUB(0xE04BD935,  FIO_SeekSkipFile)
+NSTUB(0xE04BC429,  FIO_CloseFile)
+NSTUB(0xE04BCD51, _FIO_CreateDirectory)
+NSTUB(0xE04BD061, _FIO_FindFirstEx)
+NSTUB(0xE04BD0EF,  FIO_FindNextEx)
+NSTUB(0xE04BD15B,  FIO_FindClose)
+NSTUB(0xE04BC547, _FIO_GetFileSize)
+NSTUB(0xE04BC2C5, _FIO_RemoveFile)
+NSTUB(0xE04BCBCB, _FIO_RenameFile)
+NSTUB(0xE04BCE75,  FIO_Flush)               // to be called after FIO_CloseFile?
+
 /** GUI timers **/
 NSTUB(0xE04B9A3B,  CancelTimer)            /* from error message */
 NSTUB(0xE05301DF,  SetHPTimerAfterNow)     /* from error message */
