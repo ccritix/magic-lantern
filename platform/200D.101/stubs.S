@@ -54,7 +54,14 @@ NSTUB(0xE01CA9C9,  memmap_info)            /* Exception vector, DRYOS system mem
 NSTUB(0xE0148E3B,  smemShowFix)            /* Common Lower, Common Upper etc */
 
 /** Memory allocation **/
+NSTUB(0xDF007B59, _AllocateMemory)
+NSTUB(0xDF007D11, _FreeMemory)
 NSTUB(0xDF0079E3,  GetMemoryInformation)   /* called from AllocateMemory */
+NSTUB(0xDF0079B7,  GetSizeOfMaxRegion)
+NSTUB(0xDF00AC55, _alloc_dma_memory)
+NSTUB(0xDF00AC81, _free_dma_memory)
+NSTUB(0xE0693B23,  malloc)
+NSTUB(0xE0693B5B,  free)
 
 /** Debug messages **/
 NSTUB(0xDF006E6D,  DryosDebugMsg)          /* lots of debug messages; format string is third argument */
