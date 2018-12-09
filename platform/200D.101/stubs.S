@@ -66,6 +66,9 @@ NSTUB(0xE0693B5B,  free)
 /** Debug messages **/
 NSTUB(0xDF006E6D,  DryosDebugMsg)          /* lots of debug messages; format string is third argument */
 
+/** DMA **/
+NSTUB(0xE01B3297,  dma_memcpy)
+
 /** Eventprocs (call by name) **/
 NSTUB(0xE04BDB8F,  call)                   /* many functions called by name (lv_start, lv_stop etc) */
 
@@ -85,11 +88,18 @@ NSTUB(0xE04BC2C5, _FIO_RemoveFile)
 NSTUB(0xE04BCBCB, _FIO_RenameFile)
 NSTUB(0xE04BCE75,  FIO_Flush)               // to be called after FIO_CloseFile?
 
+/** GUI **/
+NSTUB(0xE00C5415,  GUI_Control)
+NSTUB(0xE04A7EF5,  SetGUIRequestMode)
+NSTUB(0xE00921DD,  gui_init_end)
+NSTUB(0xE00C526B,  gui_main_task)
+
 /** GUI timers **/
 NSTUB(0xE04B9A3B,  CancelTimer)            /* from error message */
 NSTUB(0xE05301DF,  SetHPTimerAfterNow)     /* from error message */
 NSTUB(0xE0530233,  SetHPTimerNextTick)     /* same "worker" function as SetHPTimerAfterNow */
 NSTUB(0xE04B9985,  SetTimerAfter)          /* from error message */
+NSTUB(0xE05F9DB5,  CancelDateTimer) 
 
 /** Interrupts **/
 NSTUB(    0x4030,  pre_isr_hook)
