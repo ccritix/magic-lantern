@@ -96,11 +96,11 @@ static enum crop_preset crop_presets_5d3[] = {
     CROP_PRESET_FULLRES_LV,
     CROP_PRESET_mv1080_mv720p,
     CROP_PRESET_1x3_17fps,
+  //CROP_PRESET_3X_TALL,
     CROP_PRESET_8bit,
     CROP_PRESET_9bit,
     CROP_PRESET_10bit,
     CROP_PRESET_12bit,
-    CROP_PRESET_3X_TALL,
   //CROP_PRESET_1x3,
   //CROP_PRESET_3x1,
   //CROP_PRESET_40_FPS,
@@ -119,7 +119,7 @@ static const char * crop_choices_5d3[] = {
     "Full-res LiveView",
     "mv1080p_mv720p",
     "1x3_17fps_1920x3240",
-    "1920 1:1 tall",
+  //"1920 1:1 tall",
   //"1x3 binning",
   //"3x1 binning",      /* doesn't work well */
   //"40 fps",
@@ -143,7 +143,7 @@ static const char crop_choices_help2_5d3[] =
     "1x3_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1:1 crop, higher vertical resolution (1920x1920 @ 24p, cropped preview)\n"
-    "3x1 binning: bin every 3 lines, read all columns (extreme anamorphic)\n"
+  //"3x1 binning: bin every 3 lines, read all columns (extreme anamorphic)\n"
     "FPS override test\n";
 
 	/* menu choices for 100D */
@@ -720,6 +720,18 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[2] = 0x10E;    /* read every column, centered crop */
                 cmos_new[6] = 0x170;    /* pink highlights without this */
         	} 
+       	        if (CROP_PRESET_MENU == CROP_PRESET_3X_TALL)
+                {
+                cmos_new[1] =           /* vertical centering (trial and error) */
+                    (video_mode_fps == 24) ? PACK12(8,13)  :
+                    (video_mode_fps == 25) ? PACK12(8,12)  :
+                    (video_mode_fps == 30) ? PACK12(9,11)  :
+                    (video_mode_fps == 50) ? PACK12(12,10) :
+                    (video_mode_fps == 60) ? PACK12(13,10) :
+                                             (uint32_t) -1 ;
+                cmos_new[2] = 0x10E;    /* horizontal centering (trial and error) */
+                cmos_new[6] = 0x170;    /* pink highlights without this */
+        	} 
        	        if (CROP_PRESET_MENU == CROP_PRESET_1x3)
                 {
                 cmos_new[1] = 0x280;
@@ -1150,6 +1162,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		/* 8bit roundtrip only not applied here with following set ups */
        	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3X) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_3X_TALL) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_4K_100D) ||
@@ -1178,6 +1191,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		/* 9bit roundtrip only not applied here with following set ups */
        	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3X) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_3X_TALL) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_4K_100D) ||
@@ -1206,6 +1220,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		/* 10bit roundtrip only not applied here with following set ups */
        	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3X) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_3X_TALL) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_4K_100D) ||
@@ -1234,6 +1249,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		/* 12bit roundtrip only not applied here with following set ups */
        	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3X) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_3X_TALL) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_4K_100D) ||
@@ -1378,6 +1394,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		(CROP_PRESET_MENU == CROP_PRESET_UHD) ||
 		(CROP_PRESET_MENU == CROP_PRESET_4K_HFPS) ||
 		(CROP_PRESET_MENU == CROP_PRESET_3X) ||
+	        (CROP_PRESET_MENU == CROP_PRESET_3X_TALL) ||
 		(CROP_PRESET_MENU == CROP_PRESET_FULLRES_LV))
                 {
                 /* ADTG2/4[0x8000] = 5 (set in one call) */
@@ -2812,6 +2829,10 @@ static LVINFO_UPDATE_FUNC(crop_info)
   if (CROP_PRESET_MENU == CROP_PRESET_3X)
   {
     snprintf(buffer, sizeof(buffer), "1x1 mv1080p");
+  }
+  if (CROP_PRESET_MENU == CROP_PRESET_3X_TALL)
+  {
+    snprintf(buffer, sizeof(buffer), "3x_Tall");
   }
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_48p)
   {
