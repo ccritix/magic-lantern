@@ -85,22 +85,22 @@ static enum crop_preset * crop_presets = 0;
 /* menu choices for 5D3 */
 static enum crop_preset crop_presets_5d3[] = {
     CROP_PRESET_OFF,
-    CROP_PRESET_3X,
-    CROP_PRESET_3X_TALL,
-    CROP_PRESET_3x3_1X,
-    CROP_PRESET_3x3_1X_48p,
+    CROP_PRESET_1x3,
     CROP_PRESET_3K,
+    CROP_PRESET_3x3_1X_48p,
+    CROP_PRESET_3X,
+    CROP_PRESET_CENTER_Z,
+    CROP_PRESET_3x3_1X,
     CROP_PRESET_UHD,
     CROP_PRESET_4K_HFPS,
-    CROP_PRESET_CENTER_Z,
     CROP_PRESET_FULLRES_LV,
     CROP_PRESET_mv1080_mv720p,
-    CROP_PRESET_1x3,
     CROP_PRESET_1x3_17fps,
     CROP_PRESET_8bit,
     CROP_PRESET_9bit,
     CROP_PRESET_10bit,
     CROP_PRESET_12bit,
+    CROP_PRESET_3X_TALL,
   //CROP_PRESET_1x3,
   //CROP_PRESET_3x1,
   //CROP_PRESET_40_FPS,
@@ -108,18 +108,18 @@ static enum crop_preset crop_presets_5d3[] = {
 
 static const char * crop_choices_5d3[] = {
     "OFF",
-    "1920 1:1",
-    "1920 1:1 tall",
-    "1920 50/60 3x3",
-    "1080p45/1080p48 3x3",
+    "1x3_1920x2348",
     "3K 1:1",
+    "1080p45/1080p48 3x3",
+    "1920 1:1",
+    "3.5K 1:1 centered x5",
+    "1920 50/60 3x3",
     "UHD 1:1",
     "4K 1:1 half-fps",
-    "3.5K 1:1 centered x5",
     "Full-res LiveView",
     "mv1080p_mv720p",
-    "1x3_1920x2348",
     "1x3_17fps_1920x3240",
+    "1920 1:1 tall",
   //"1x3 binning",
   //"3x1 binning",      /* doesn't work well */
   //"40 fps",
@@ -130,19 +130,19 @@ static const char crop_choices_help_5d3[] =
 
 static const char crop_choices_help2_5d3[] =
     "\n"
-    "1:1 sensor readout (square raw pixels, 3x crop, good preview in 1080p)\n"
-    "1:1 crop, higher vertical resolution (1920x1920 @ 24p, cropped preview)\n"
-    "1920x960 @ 50p, 1920x800 @ 60p (3x3 binning, cropped preview)\n"
-    "1920x1080 @ 45p, 1920x1040 @ 48p, 3x3 binning (50/60 FPS in Canon menu)\n"
+    "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1:1 3K crop (3072x1920 @ 24p, square raw pixels, preview broken)\n"
+    "1920x1080 @ 45p, 1920x1080 @ 48p, 3x3 binning (50/60 FPS in Canon menu)\n"
+    "1:1 sensor readout (square raw pixels, 3x crop, good preview in 1080p)\n"
+    "1920x960 @ 50p, 1920x800 @ 60p (3x3 binning, cropped preview)\n"
     "1:1 4K UHD crop (3840x1600 @ 24p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x3072 @ 12.5 fps, half frame rate, preview broken)\n"
     "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
     "Full resolution LiveView (5796x3870 @ 7.4 fps, 5784x3864, preview broken)\n"
     "mv1080_mv720p clean"
-    "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1x3_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
+    "1:1 crop, higher vertical resolution (1920x1920 @ 24p, cropped preview)\n"
     "3x1 binning: bin every 3 lines, read all columns (extreme anamorphic)\n"
     "FPS override test\n";
 
@@ -2787,46 +2787,47 @@ static LVINFO_UPDATE_FUNC(crop_info)
                     break;
             }
         }
-        else
-        {
-            switch (crop_preset)
-            {
-
-                case CROP_PRESET_3X:
-                    /* In movie mode, we are interested in recording sensor pixels
-                     * without any binning (that is, with 1:1 mapping);
-                     * the actual crop factor varies with raw video resolution.
-                     * So, printing 3x is not very accurate, but 1:1 is.
-                     * 
-                     * In photo mode (mild zoom), what changes is the magnification
-                     * of the preview screen; the raw image is not affected.
-                     * We aren't actually previewing at 1:1 at pixel level,
-                     * so printing 1:1 is a little incorrect.
-                     */
-
-                case CROP_PRESET_3X_TALL:
-                    snprintf(buffer, sizeof(buffer), "T");
-                    break;
-
-                case CROP_PRESET_3K:
-                    snprintf(buffer, sizeof(buffer), "3K");
-                    break;
-
-                case CROP_PRESET_4K_HFPS:
-                    snprintf(buffer, sizeof(buffer), "4K");
-                    break;
-
-                case CROP_PRESET_UHD:
-                    snprintf(buffer, sizeof(buffer), "UHD");
-                    break;
-
-                case CROP_PRESET_FULLRES_LV:
-                    snprintf(buffer, sizeof(buffer), "FLV");
-                    break;
-
-            }
-        }
     }
+
+/* 5D3 */
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X)
+  {
+    snprintf(buffer, sizeof(buffer), "3x3 mv1080p");
+  }
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_48p)
+  {
+    snprintf(buffer, sizeof(buffer), "mv1080p 48fps");
+  }
+  if (CROP_PRESET_MENU == CROP_PRESET_3K)
+  {
+    snprintf(buffer, sizeof(buffer), "3K");
+  }
+
+  if (CROP_PRESET_MENU ==CROP_PRESET_UHD)
+  {
+    snprintf(buffer, sizeof(buffer), "UHD");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_mv1080_mv720p)
+  {
+    snprintf(buffer, sizeof(buffer), "passthrough");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_1x3)
+  {
+    snprintf(buffer, sizeof(buffer), "1x3 2:35.1");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_1x3_17fps)
+  {
+    snprintf(buffer, sizeof(buffer), "1x3 mv1080p");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_FULLRES_LV)
+  {
+    snprintf(buffer, sizeof(buffer), "fullres");
+  }
+
 
 /* 100D */
   if (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D)
@@ -2937,7 +2938,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
   }
 
 
-if (is_5D3)
+if (is_5D3 && (bitrate == 0x1 || bitrate == 0x2 || bitrate == 0x3 || bitrate == 0x4))
 {
   crop_preset = CROP_PRESET_MENU;
 }
