@@ -785,7 +785,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	        cmos_new[8] = 0x400; 
                 break;
 			case CROP_PRESET_3xcropmode_100D:
-                cmos_new[5] = 0x200;            /* vertical (first|last) */
+                cmos_new[5] = 0x300;            /* vertical (first|last) */
                 cmos_new[7] = 0x200;
                 break;
 
@@ -852,7 +852,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D)
                 {
-                cmos_new[5] = 0x200;            /* vertical (first|last) */
+                cmos_new[5] = 0x300;            /* vertical (first|last) */
                 cmos_new[7] = 0x200;
         	}
        	        if (CROP_PRESET_MENU == CROP_PRESET_1x3_100D)
