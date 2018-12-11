@@ -262,7 +262,7 @@ void set_recording_custom(int state)
 
 int lv_disp_mode;
 
-#ifndef CONFIG_EOSM //~ we update lv_disp_mode from 
+#if !defined(CONFIG_EOSM) || !defined(CONFIG_EOSM2) //~ we update lv_disp_mode from 
 PROP_HANDLER(PROP_HOUTPUT_TYPE)
 {
     #if defined(CONFIG_5D3)

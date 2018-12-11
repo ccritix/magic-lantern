@@ -934,7 +934,7 @@ lens_take_picture(
     // in some cases, the MLU setting is ignored; if ML can't detect this properly, this call will actually take a picture
     // if it happens (e.g. with LV active, but camera in QR mode), that's it, we won't try taking another one
     // side effects should be minimal
-#if defined(CONFIG_EOSM)
+#if (defined(CONFIG_EOSM) || defined(CONFIG_EOSM2))
     call("Release"); //EOSM is mirrorless no need to check for MLU
     goto end;
 #else

@@ -75,6 +75,10 @@ if camera.model_short == "EOSM" then
   menu.set("Overlay", "Global Draw", "LiveView")
   menu.set("RAW video", "Preview", "Auto")
 end
+if camera.model_short == "EOSM2" then
+  menu.set("Overlay", "Global Draw", "LiveView")
+  menu.set("RAW video", "Preview", "Auto")
+end
 
 -- go back to menu origin
   menu.select("Debug", "ADTG Registers")

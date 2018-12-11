@@ -294,7 +294,7 @@ end
 -- Crop mode 24 FPS override EOSM
 ----------------------------------
   display.notify_box("12-bit lossless Crop mode")
-if camera.model_short == "EOSM" then
+if camera.model_short == "EOSM" or camera.model_short == "EOSM2" then
   lv.zoom = 1
   i = 100
   camera.iso.value=100
@@ -369,7 +369,7 @@ end
 ----------------------------------
 -- Crop mode 24 FPS override other cameras
 ----------------------------------
-if camera.model_short ~= "EOSM" then
+if camera.model_short ~= "EOSM" or camera.model_short ~= "EOSM2" then
   if menu.get("Movie", "Crop mode", "") ~= "OFF" then
     display.notify_box("Crop_rec module not enabled, all done!")
     msleep(1000)

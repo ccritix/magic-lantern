@@ -101,6 +101,7 @@
 /* camera-specific tricks */
 /* todo: maybe add generic functions like is_digic_v, is_5d2 or stuff like that? */
 static uint32_t cam_eos_m = 0;
+static uint32_t cam_eos_m2 = 0;
 static uint32_t cam_5d2 = 0;
 static uint32_t cam_50d = 0;
 static uint32_t cam_500d = 0;
@@ -1807,7 +1808,8 @@ static void hack_liveview(int32_t unhack)
             cam_650d ? 0xFF527E38 :
             cam_6d   ? 0xFF52C684 :
             cam_eos_m ? 0xFF539C1C :
-            cam_700d ? 0xFF52BB60 :
+            cam_eos_m2 ? 0xFF6C4118 :
+	    cam_700d ? 0xFF52BB60 :
             cam_7d  ? 0xFF345788 :
             cam_60d ? 0xff36fa3c :
             cam_70d ? 0xFF558FF0 :
@@ -4329,6 +4331,7 @@ static unsigned int raw_rec_init()
     strcpy(raw_tag_str, "");
 
     cam_eos_m = is_camera("EOSM", "2.0.2");
+    cam_eos_m2= is_camera("EOSM2","1.0.3");
     cam_5d2   = is_camera("5D2",  "2.1.2");
     cam_50d   = is_camera("50D",  "1.0.9");
     cam_550d  = is_camera("550D", "1.0.9");
@@ -4359,6 +4362,8 @@ static unsigned int raw_rec_init()
     {
         /* customize menus for each camera here (e.g. hide what doesn't work) */
         if (cam_eos_m && streq(e->name, "Digital dolly") )
+            e->shidden = 1;
+        if (cam_eos_m2 && streq(e->name, "Digital dolly") )
             e->shidden = 1;
 
         if (!cam_5d3 && streq(e->name, "CF-only Buffers") )

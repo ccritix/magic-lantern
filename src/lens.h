@@ -127,7 +127,7 @@ struct prop_lv_lens
 
 SIZE_CHECK_STRUCT( prop_lv_lens, 64 );
 
-#elif defined(CONFIG_EOSM)
+#elif defined(CONFIG_EOSM) || defined(CONFIG_EOSM2)
 struct prop_lv_lens
 {
         uint32_t                lens_rotation;

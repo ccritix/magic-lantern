@@ -589,6 +589,15 @@ static unsigned int sd_uhs_init()
         SD_ReConfiguration  = (void *) 0xFF641314;
     }
 
+    if (is_camera("EOSM2", "1.0.3"))
+    {
+        sd_setup_mode       = 0xFF349550;
+        sd_setup_mode_in    = 0xFF349624;
+        sd_setup_mode_reg   = 1;
+        sd_set_function     = 0xFF692D7C;
+        SD_ReConfiguration  = (void *) 0xFF695130;
+    }
+
     if (is_camera("100D", "1.0.1"))
     {
         sd_setup_mode       = 0xFF3355B0;

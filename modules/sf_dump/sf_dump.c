@@ -106,7 +106,13 @@ static unsigned int sf_dump_init()
         SF_Destroy          = (void*) 0xFF13AF5C;
         SF_flash_size       = 0x800000;
     }
-
+   if (is_camera("EOSM2", "1.0.3"))
+    {
+        SF_CreateSerial     = (void*) 0xFF147844;
+        SF_readSerialFlash  = (void*) 0xFF1477EC;
+        SF_Destroy          = (void*) 0xFF14A234;
+        SF_flash_size       = 0x1000000;
+    }
     if (is_camera("6D", "1.1.6"))
     {
         SF_CreateSerial     = (void*) 0xFF1471CC;

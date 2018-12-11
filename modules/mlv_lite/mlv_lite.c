@@ -87,6 +87,7 @@ extern WEAK_FUNC(ret_0) void mlv_play_file(char *filename);
 
 /* camera-specific tricks */
 static int cam_eos_m = 0;
+static int cam_eos_m2 = 0;
 static int cam_5d2 = 0;
 static int cam_50d = 0;
 static int cam_500d = 0;
@@ -2119,7 +2120,8 @@ void hack_liveview(int unhack)
             cam_650d ? 0xFF527E38 :
             cam_6d   ? 0xFF52C684 :
             cam_eos_m ? 0xFF539C1C :
-            cam_700d ? 0xFF52BB60 :
+            cam_eos_m2 ? 0xFF6C4118 :
+	    cam_700d ? 0xFF52BB60 :
             cam_7d  ? 0xFF345788 :
             cam_60d ? 0xff36fa3c :
             cam_70d ? 0xFF558FF0 :
@@ -4261,6 +4263,7 @@ static struct lvinfo_item info_items[] = {
 static unsigned int raw_rec_init()
 {
     cam_eos_m = is_camera("EOSM", "2.0.2");
+    cam_eos_m2= is_camera("EOSM2","1.0.3"); 
     cam_5d2   = is_camera("5D2",  "2.1.2");
     cam_50d   = is_camera("50D",  "1.0.9");
     cam_550d  = is_camera("550D", "1.0.9");

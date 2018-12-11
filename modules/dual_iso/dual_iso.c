@@ -105,6 +105,7 @@ static int is_600d = 0;
 static int is_650d = 0;
 static int is_700d = 0;
 static int is_eosm = 0;
+static int is_eosm2 = 0;
 static int is_1100d = 0;
 
 static uint32_t FRAME_CMOS_ISO_START = 0;
@@ -244,7 +245,7 @@ static int isoless_enable(uint32_t start_addr, int size, int count, uint32_t* ba
             patch_value |= 1 << (CMOS_FLAG_BITS + CMOS_ISO_BITS + CMOS_ISO_BITS);
         }
 
-        if (is_eosm || is_650d || is_700d || is_100d) //TODO: This hack is probably needed on EOSM
+        if (is_eosm2 ||is_eosm || is_650d || is_700d || is_100d) //TODO: This hack is probably needed on EOSM
         {
             /* Clear the MSB to fix line-skipping. 1 -> 8 lines, 0 -> 4 lines */
             patch_mask |= 0x800;
@@ -967,6 +968,22 @@ static unsigned int isoless_init()
         PHOTO_CMOS_ISO_START = 0x4048124C;
         PHOTO_CMOS_ISO_COUNT =          6; // from ISO 100 to 3200
         PHOTO_CMOS_ISO_SIZE  =         16;
+
+        CMOS_ISO_BITS = 3;
+        CMOS_FLAG_BITS = 2;
+        CMOS_EXPECTED_FLAG = 3;
+    }
+    else if (is_camera("EOSM2", "1.0.3")) // WIP found movie mode but photo mode is taken from EOSM
+    {
+        is_eosm2 = 1;
+
+        FRAME_CMOS_ISO_START = 0x416D93F0; // CMOS register 0000 - for LiveView, ISO 100 (check in movie mode, not photo!)
+        FRAME_CMOS_ISO_COUNT =          6; // from ISO 100 to 3200
+        FRAME_CMOS_ISO_SIZE  =         34; // distance between ISO 100 and ISO 200 addresses, in bytes
+
+        PHOTO_CMOS_ISO_START = 0x416D71F2; // CMOS register 0000 - for photo mode, ISO 100
+        PHOTO_CMOS_ISO_COUNT =          6; // from ISO 100 to 3200
+        PHOTO_CMOS_ISO_SIZE  =         16; // distance between ISO 100 and ISO 200 addresses, in bytes
 
         CMOS_ISO_BITS = 3;
         CMOS_FLAG_BITS = 2;

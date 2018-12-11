@@ -1058,6 +1058,11 @@ static unsigned int adtg_gui_init()
         ADTG_WRITE_FUNC = 0x2986C;
         CMOS_WRITE_FUNC = 0x2998C;
     }
+    else if (is_camera("EOSM2", "1.0.3"))
+    {
+        ADTG_WRITE_FUNC = 0x42E34; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx:%lx]" FFD60618 - RAM_OFFSET
+        CMOS_WRITE_FUNC = 0x432A4; //"[REG] ############ Start CMOS"             FFD60A88 - RAM_OFFSET
+    }
     else if (is_camera("600D", "1.0.2")) // from 1% TL 2.0
     {
         ADTG_WRITE_FUNC = 0xFF2DCEF4; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"

@@ -124,6 +124,11 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define DEFAULT_RAW_BUFFER_SIZE (0x47F00000 - 0x46798080)
 #endif
 
+#ifdef CONFIG_EOSM2
+#define DEFAULT_RAW_BUFFER MEM(0x91CF0 + 0x78)
+#define DEFAULT_RAW_BUFFER_SIZE (0x48C00000 - 0x48798100)
+#endif
+
 #ifdef CONFIG_6D
 #define DEFAULT_RAW_BUFFER MEM(0x76d6c + 0x2C)
 #define DEFAULT_RAW_BUFFER_SIZE (0x4CFF0000 - 0x4B328000)
@@ -198,7 +203,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_PHOTO_EDMAC 0xc0f04208
 #endif
 
-#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_70D) || defined(CONFIG_100D)
+#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM2) || defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_70D) || defined(CONFIG_100D)
 #define RAW_PHOTO_EDMAC 0xc0f04008
 #endif
 
@@ -252,16 +257,9 @@ static int get_default_white_level()
         return (default_white - 2048) * lv_raw_gain / 4096 + 2048;
     }
 
-        if (shamem_read(0xC0F42744) == 0x6060606)
-        {	
-	    /* 8bit by checking pushed liveview gain register set in crop_rec.c */
-            int default_white = WHITE_LEVEL;
-            return (default_white = 2250);   
-        }
-
         if (shamem_read(0xC0F42744) == 0x5050505)
         {	
-	    /* 9bit by checking pushed liveview gain register set in crop_rec.c */
+	    /* 10bit by checking pushed liveview gain register set in crop_rec.c */
             int default_white = WHITE_LEVEL;
             return (default_white = 2550);   
         }
@@ -377,7 +375,7 @@ static int get_default_white_level()
     -1774, 10000,     3178, 10000,    7005, 10000
 #endif
 	
-#if defined(CONFIG_650D) || defined(CONFIG_EOSM) || defined(CONFIG_700D) || defined(CONFIG_100D) // Same sensor
+#if defined(CONFIG_650D) || defined(CONFIG_EOSM2) || defined(CONFIG_EOSM) || defined(CONFIG_700D) || defined(CONFIG_100D) // Same sensor
     //~ { "Canon EOS 650D", 0, 0x354d,
     //~ { "Canon EOS M", 0, 0,
     //~ { 6602,-841,-939,-4472,12458,2247,-975,2039,6148 } },
@@ -498,6 +496,10 @@ static int dynamic_ranges[] = {1100, 1094, 1060, 1005, 919, 826, 726, 633};
 static int dynamic_ranges[] = {1060, 1063, 1037, 982, 901, 831, 718, 622, 536};
 #endif
 
+#ifdef CONFIG_EOSM2 /* using EOSM values as a starting place */
+static int dynamic_ranges[] = {1060, 1063, 1037, 982, 901, 831, 718, 622, 536};
+#endif
+
 #ifdef CONFIG_7D
 static int dynamic_ranges[] = {1112, 1108, 1076, 1010, 902, 826, 709, 622};
 #endif
@@ -577,14 +579,14 @@ static int raw_lv_get_resolution(int* width, int* height)
      *      (650D 720p: top=28 active=696 y2=724 above=726 adjusted=725)
      * see also https://a1ex.magiclantern.fm/bleeding-edge/raw/raw_res.txt */
 
-#if defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_EOSM)
+#if defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_EOSM) || defined(CONFIG_EOSM2)
     /* required to squeeze 1080p in x5 zoom */
     (*height)++;
 #elif defined(CONFIG_DIGIC_V)
     (*height)--;
 #endif
 
-#ifdef CONFIG_EOSM
+#if defined(CONFIG_EOSM) || defined(CONFIG_EOSM2)
     /* EOS M exception */
     /* http://www.magiclantern.fm/forum/index.php?topic=16608.msg176023#msg176023 */
     if (lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264)
@@ -843,7 +845,7 @@ int raw_update_params_work()
         skip_right  = 0;
         #endif
 
-        #if defined(CONFIG_EOSM) || defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_100D)
+        #if defined(CONFIG_EOSM2) || defined(CONFIG_EOSM) || defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_100D)
         skip_top    = 28;
         skip_left   = 72;
         skip_right  = 0;
@@ -961,7 +963,7 @@ int raw_update_params_work()
         skip_top = 54;
         #endif 
 
-        #if defined(CONFIG_650D) || defined(CONFIG_EOSM) || defined(CONFIG_700D) || defined(CONFIG_100D)
+        #if defined(CONFIG_650D) || defined(CONFIG_EOSM2) || defined(CONFIG_EOSM) || defined(CONFIG_700D) || defined(CONFIG_100D)
         skip_left = 72;
         skip_top = 52;
         #endif
@@ -1018,6 +1020,8 @@ int raw_update_params_work()
 #ifdef CONFIG_5D3
         raw_capture_info.skipping_y = 0; raw_capture_info.binning_y  = mv720 ? 5 : 3;
 #elif CONFIG_EOSM
+        raw_capture_info.binning_y  = 1; raw_capture_info.skipping_y = (mv720 || !RECORDING_H264) ? 4 : 2;
+#elif CONFIG_EOSM2
         raw_capture_info.binning_y  = 1; raw_capture_info.skipping_y = (mv720 || !RECORDING_H264) ? 4 : 2;
 #else
         raw_capture_info.binning_y  = 1; raw_capture_info.skipping_y = mv720 ? 4 : 2;

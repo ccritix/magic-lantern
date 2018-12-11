@@ -11,6 +11,7 @@ SUPPORTED_INSTALLERS := \
     6D.116 \
     700D.115 \
     EOSM.202 \
+    EOSM2.103 \
     7D.203 \
     100D.101 \
     70D.112 \
