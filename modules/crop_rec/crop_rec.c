@@ -1164,8 +1164,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    		if (bitrate == 0x1)
     		{
 		/* 8bit roundtrip only not applied here with following set ups */
-       	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
-	       (CROP_PRESET_MENU == CROP_PRESET_3X) ||
+       	    if ((CROP_PRESET_MENU == CROP_PRESET_3X) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3X_TALL) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
@@ -1194,8 +1193,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    		if (bitrate == 0x2)
     		{
 		/* 9bit roundtrip only not applied here with following set ups */
-       	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
-	       (CROP_PRESET_MENU == CROP_PRESET_3X) ||
+       	    if ((CROP_PRESET_MENU == CROP_PRESET_3X) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3X_TALL) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
@@ -1224,8 +1222,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    		if (bitrate == 0x3)
     		{
 		/* 10bit roundtrip only not applied here with following set ups */
-       	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
-	       (CROP_PRESET_MENU == CROP_PRESET_3X) ||
+       	    if ((CROP_PRESET_MENU == CROP_PRESET_3X) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3X_TALL) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
@@ -1254,8 +1251,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     		if (bitrate == 0x4)
     		{
 		/* 12bit roundtrip only not applied here with following set ups */
-       	    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) ||
-	       (CROP_PRESET_MENU == CROP_PRESET_3X) ||
+       	    if ((CROP_PRESET_MENU == CROP_PRESET_3X) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3X_TALL) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
@@ -2194,27 +2190,6 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
     return 0;
 }
 
-static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
-{
-    /* attempt to reconfigure the x5 zoom at the FPS selected in Canon menu */
-    int timerA = 
-        (video_mode_fps == 24) ? 512 :
-        (video_mode_fps == 25) ? 512 :
-        (video_mode_fps == 30) ? 520 :
-        (video_mode_fps == 50) ? 512 :  /* cannot get 50, use 25 */
-        (video_mode_fps == 60) ? 520 :  /* cannot get 60, use 30 */
-                                  -1 ;
-    int timerB =
-        (video_mode_fps == 24) ? 1955 :
-        (video_mode_fps == 25) ? 1875 :
-        (video_mode_fps == 30) ? 1540 :
-        (video_mode_fps == 50) ? 1875 :
-        (video_mode_fps == 60) ? 1540 :
-                                   -1 ;
-
-    return reg_override_fps_nocheck(reg, timerA, timerB, old_val);
-}
-
 static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
@@ -2344,12 +2319,65 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
   {
        return reg_override_fullres_lv(reg, old_val);
   }
-  if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z)
-  {
-       return reg_override_zoom_fps(reg, old_val);
-  }
 
     return 0;
+}
+
+static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
+{
+    /* attempt to reconfigure the x5 zoom at the FPS selected in Canon menu */
+    int timerA = 
+        (video_mode_fps == 24) ? 512 :
+        (video_mode_fps == 25) ? 512 :
+        (video_mode_fps == 30) ? 520 :
+        (video_mode_fps == 50) ? 512 :  /* cannot get 50, use 25 */
+        (video_mode_fps == 60) ? 520 :  /* cannot get 60, use 30 */
+                                  -1 ;
+    int timerB =
+        (video_mode_fps == 24) ? 1955 :
+        (video_mode_fps == 25) ? 1875 :
+        (video_mode_fps == 30) ? 1540 :
+        (video_mode_fps == 50) ? 1875 :
+        (video_mode_fps == 60) ? 1540 :
+                                   -1 ;
+
+/* if changing bitrate */
+  if (bitrate == 0x1)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x6060606;
+    }
+  }
+
+  if (bitrate == 0x2)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x5050505;
+    }
+  }
+
+  if (bitrate == 0x3)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x4040404;
+    }
+  }
+  if (bitrate == 0x4)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x2020202;
+    }
+  }
+
+    return reg_override_fps_nocheck(reg, timerA, timerB, old_val);
 }
 
 static int engio_vidmode_ok = 0;
@@ -2985,7 +3013,6 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
   crop_preset = CROP_PRESET_MENU;
   }
 
-
 if (is_5D3 && (bitrate == 0x1 || bitrate == 0x2 || bitrate == 0x3 || bitrate == 0x4))
 {
   crop_preset = CROP_PRESET_MENU;
@@ -3070,6 +3097,7 @@ if (is_5D3 && (bitrate == 0x1 || bitrate == 0x2 || bitrate == 0x3 || bitrate == 
         }
     }
 
+
 /* patch bits */
   if (bitrate == 0x1)
   {
@@ -3086,6 +3114,12 @@ if (is_5D3 && (bitrate == 0x1 || bitrate == 0x2 || bitrate == 0x3 || bitrate == 
   if (bitrate == 0x4)
   {
   crop_preset = CROP_PRESET_12bit;
+  }
+
+/* needs some more testing */
+  if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z)
+  {
+    crop_preset = CROP_PRESET_MENU;
   }
 
     return 0;
