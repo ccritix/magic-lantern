@@ -902,6 +902,10 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
         	}
 	/* EOSM */
+       	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
+                {
+	        cmos_new[8] = 0x400; 
+        	} 
        	        if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)
                 {
 		cmos_new[7] = 0x260;   
@@ -1167,6 +1171,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_4K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) ||
@@ -1196,6 +1201,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_4K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) ||
@@ -1225,6 +1231,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_4K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) ||
@@ -1254,6 +1261,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_4K_100D) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_100D) ||
+	       (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) ||
 	       (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) ||
