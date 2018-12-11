@@ -799,7 +799,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
             /* 3x3 binning in 720p */
             /* 1080p it's already 3x3, don't change it */           
-       	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X)
+       	        if ((CROP_PRESET_MENU == CROP_PRESET_3x3_1X) || (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_48p))
                 {
                 if (is_720p())
                 {
@@ -1725,6 +1725,42 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
         int a = reg_override_fps(reg, timerA, timerB, old_val);
         if (a) return a;
     }
+
+/* if changing bitrate */
+  if (bitrate == 0x1)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x6060606;
+    }
+  }
+
+  if (bitrate == 0x2)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x5050505;
+    }
+  }
+
+  if (bitrate == 0x3)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x4040404;
+    }
+  }
+  if (bitrate == 0x4)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x2020202;
+    }
+  }
 
     switch (reg)
     {
@@ -3140,7 +3176,7 @@ if (is_5D3 && (bitrate == 0x1 || bitrate == 0x2 || bitrate == 0x3 || bitrate == 
   }
 
 /* needs some more testing */
-  if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z)
+  if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z) || (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_48p))
   {
     crop_preset = CROP_PRESET_MENU;
   }
