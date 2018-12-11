@@ -796,6 +796,22 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[1] = PACK12(9+2,42+1); /* vertical (first|last) */
                 cmos_new[2] = 0x09E;            /* horizontal offset (mask 0xFF0) */
         	} 
+
+            /* 3x3 binning in 720p */
+            /* 1080p it's already 3x3, don't change it */           
+       	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X)
+                {
+                if (is_720p())
+                {
+                    /* start/stop scanning line, very large increments */
+                    cmos_new[1] =
+                        (crop_preset == CROP_PRESET_3x3_1X_48p) ? PACK12(3,15) :
+                        (video_mode_fps == 50)                  ? PACK12(4,14) :
+                        (video_mode_fps == 60)                  ? PACK12(6,14) :
+                                                                 (uint32_t) -1 ;
+                    cmos_new[6] = 0x370;    /* pink highlights without this */
+                }
+		}
                 break;
         }
     }
@@ -1409,7 +1425,14 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                     adtg_new[3] = (struct adtg_new) {2, 0x8806, 0x6088};
                    }
                 }
+            /* 3x3 binning in 720p (in 1080p it's already 3x3) */
+       	        if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X)
+                {
+                /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
+                adtg_new[2] = (struct adtg_new) {6, 0x800C, 2};
+		}
      	        break;
+
             /* 3x1 binning (bin every 3 lines, read every column) */
             /* doesn't work well, figure out why */
             case CROP_PRESET_3x1:
