@@ -2804,6 +2804,8 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_4K_EOSM) 	     ? reg_override_4K_eosm         :
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_eosm        :
         (crop_preset == CROP_PRESET_1x3_EOSM) ? reg_override_1x3_eosm        : 
+        (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
+        (crop_preset == CROP_PRESET_3x3_1X_100D)    ? reg_override_mv1080_mv720p  :
                                                   0                       ;
     return reg_override_func;
 }
