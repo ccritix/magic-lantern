@@ -1893,18 +1893,17 @@ void FAST raw_lv_vsync()
             EngDrvOut(SHAD_GAIN_REGISTER, lv_raw_gain);
         }
 
-/* uncommenting keeps EOSM2 liveview from freezing */
         /* pull the raw data into "buf" */
-        int width, height;
-       /* int ok = raw_lv_get_resolution(&width, &height); */
-       /* if (ok) */
-       /* { */
-           int pitch = width * raw_info.bits_per_pixel / 8;
-          /*  if (raw_lv_buffer_size >= pitch * height) */
-          /*  { */
-                /* edmac_raw_slurp(CACHEABLE(buf), pitch, height); */
-           /* } */
-       /* } */
+        int width, height; 
+        int ok = raw_lv_get_resolution(&width, &height); 
+        if (ok) 
+        { 
+            int pitch = width * raw_info.bits_per_pixel / 8; 
+            if (raw_lv_buffer_size >= pitch * height) 
+            { 
+                edmac_raw_slurp(CACHEABLE(buf), pitch, height); 
+            } 
+        } 
     }
     
     /* overriding the buffer is only valid for one frame */
