@@ -1705,8 +1705,9 @@ static struct prop_lv_lens lv_lens_raw;
 
 PROP_HANDLER( PROP_LV_LENS )
 {
-    ASSERT(len <= sizeof(lv_lens_raw));
-    memcpy(&lv_lens_raw, buf, sizeof(lv_lens_raw));
+/* silence this for now(EOSM2) */
+   /* ASSERT(len <= sizeof(lv_lens_raw)); */
+   /* memcpy(&lv_lens_raw, buf, sizeof(lv_lens_raw)); */
 
     const struct prop_lv_lens * const lv_lens = (void*) buf;
     lens_info.focal_len     = bswap16( lv_lens->focal_len );

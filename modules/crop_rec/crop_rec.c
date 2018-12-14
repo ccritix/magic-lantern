@@ -2686,10 +2686,15 @@ static void FAST engio_write_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
        	     engio_vidmode_ok = 
              (old == 0x45802A1) ||/* x5 zoom */ (old == 0x4A701D7 || old == 0x2D801D7);   /* 1080p or 720p */
            }
-	   if (is_EOSM || is_EOSM2)
+	   if (is_EOSM)
 	   {
 	     engio_vidmode_ok = 
              (old == 0x4540298) ||/* x5 zoom */ (old == 0x4a601d4 || old == 0x2d701d4);   /* 1080p or 720p */
+	   }
+	   if (is_EOSM2)
+	   {
+	     engio_vidmode_ok = 
+             (old == 0x45802a1) ||/* x5 zoom */ (old == 0x2d801d7);   /* 1080p or 720p */
 	   }
         }
     }
@@ -2697,7 +2702,7 @@ static void FAST engio_write_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     if (!is_supported_mode() || !engio_vidmode_ok)
     {
         /* don't patch other video modes */
-        return;
+           return; 
     }
 
     for (uint32_t * buf = (uint32_t *) regs[0]; *buf != 0xFFFFFFFF; buf += 2)
@@ -3479,7 +3484,7 @@ static unsigned int crop_rec_init()
 		ENGIO_WRITE = 0XFF2C6C20;
         MEM_ENGIO_WRITE = 0XE59F11C8;
 
-        is_basic = 1;
+        is_EOSM2 = 1;
         crop_presets                = crop_presets_eosm2;
         crop_rec_menu[0].choices    = crop_choices_eosm2;
         crop_rec_menu[0].max        = COUNT(crop_choices_eosm2) - 1;
