@@ -2216,7 +2216,7 @@ static inline uint32_t reg_override_2K_100d(uint32_t reg, uint32_t old_val)
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
         case 0xC0F06804: return 0x53902a1; // 2520x1304  x5 Mode;
-        case 0xC0F06014: return 0x71c;
+
         case 0xC0F0713c: return 0x535;
     }
 
