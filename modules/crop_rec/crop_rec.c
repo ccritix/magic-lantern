@@ -156,7 +156,7 @@ static const char * crop_choices_100d[] = {
     "mv1080p_mv720p mode",
     "3x crop mode",
     "2.5K 2520x1304",
-    "3K 3096x1320", 
+    "3K 3000x1432", 
     "4K 4056x2552",
     "3x3 720p",
     "2K 2520x1080p",
@@ -2265,19 +2265,19 @@ static inline uint32_t reg_override_3K_100d(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x5490331; // 3096x1320 24fps x5 Mode;
+        case 0xC0F06804: return 0x5b90319; // 3000x1432 24fps x5 Mode;
 
         case 0xC0F06824: return 0x3ca;
         case 0xC0F06828: return 0x3ca;
         case 0xC0F0682C: return 0x3ca;
         case 0xC0F06830: return 0x3ca;
        
-        case 0xC0F06010: return 0x35b;
-        case 0xC0F06008: return 0x35b035b;
-        case 0xC0F0600C: return 0x35b035b;
+        case 0xC0F06010: return 0x34b;
+        case 0xC0F06008: return 0x34b034b;
+        case 0xC0F0600C: return 0x34b034b;
 
-        case 0xC0F06014: return 0x60f;
-        case 0xC0F0713c: return 0x545;
+        case 0xC0F06014: return 0x62c;
+        case 0xC0F0713c: return 0x5b9;
     }
 
     return 0;
