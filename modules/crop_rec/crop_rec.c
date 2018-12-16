@@ -156,7 +156,7 @@ static const char * crop_choices_100d[] = {
     "mv1080p_mv720p mode",
     "3x crop mode",
     "2.5K 2520x1304",
-    "3K 3096x1320", 
+    "3K 2936x1416", 
     "4K 4056x2552",
     "3x3 720p",
     "2K 2520x1080p",
@@ -709,7 +709,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 				
 			case CROP_PRESET_3K_100D:
                 cmos_new[5] = 0x280;             /* vertical (first|last) */
-                cmos_new[7] = 0xa89;            /* horizontal offset (mask 0xFF0) */
+                cmos_new[7] = 0xaa9;            /* horizontal offset (mask 0xFF0) */
                 break;	
 			
 			case CROP_PRESET_4K_100D:
@@ -2265,19 +2265,19 @@ static inline uint32_t reg_override_3K_100d(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x5490331; // 3072x1320  x5 Mode;
+        case 0xC0F06804: return 0x5a90309; // 2936x1416 24fps x5 Mode;
 
         case 0xC0F06824: return 0x3ca;
         case 0xC0F06828: return 0x3ca;
         case 0xC0F0682C: return 0x3ca;
         case 0xC0F06830: return 0x3ca;
        
-        case 0xC0F06010: return 0x37b;
-        case 0xC0F06008: return 0x37b037b;
-        case 0xC0F0600C: return 0x37b037b;
+        case 0xC0F06010: return 0x33b;
+        case 0xC0F06008: return 0x33b033b;
+        case 0xC0F0600C: return 0x33b033b;
 
-        case 0xC0F06014: return 0x6d7;
-        case 0xC0F0713c: return 0x555;
+        case 0xC0F06014: return 0x64b;
+        case 0xC0F0713c: return 0x5a5;
     }
 
     return 0;
