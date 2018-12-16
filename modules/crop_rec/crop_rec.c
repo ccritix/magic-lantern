@@ -3324,7 +3324,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
 
   if (CROP_PRESET_MENU == CROP_PRESET_3K_100D)
   {
-    snprintf(buffer, sizeof(buffer), "3096x1320");
+    snprintf(buffer, sizeof(buffer), "3000x1432");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_4K_100D)
