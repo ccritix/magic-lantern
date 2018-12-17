@@ -171,7 +171,7 @@ static const char crop_choices_help2_100d[] =
     "regular mv1080p mode\n"
     "1:1 x3 crop mode\n"
     "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
-    "1:1 3K crop (3072x1304 @ 20p, square raw pixels, preview broken)\n"
+    "1:1 3K crop (3000x1432 @ 24p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
     "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
     "2K 1920x1080p (usually 1920x1078, works with all bits!)\n"
@@ -193,7 +193,7 @@ static const char * crop_choices_eosm[] = {
     "mv1080p_1736x1120",
     "1x3_1736x1120",
     "2.5K 2520x1304",
-    "3K 3072x1304", 
+    "3K 3032x1436", 
     "4K 4038x2558",
     "3x3 720p",
 };
@@ -206,7 +206,7 @@ static const char crop_choices_help2_eosm[] =
     "mv1080p derived from 3x3 (square pixels in RAW, vertical crop)\n"
     "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
-    "1:1 3K crop (3072x1304 @ 20p, square raw pixels, preview broken)\n"
+    "1:1 3K crop (3032x1436 @ 24p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
     "3x3 binning in 720p (square pixels in RAW, vertical crop)\n";
 
@@ -2484,7 +2484,7 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
         case 0xC0F06804: return 0x5390298; /* 2520x1304  x5 Mode; */
-        case 0xC0F06014: return 0x747;
+
         case 0xC0F07150: return 0x428;
         case 0xC0F0713c: return 0x535;
     }
@@ -2531,7 +2531,7 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
   }
     switch (reg)
     {
-        case 0xC0F06804: return 0x5a40317; // 3072x1304  x5 Mode;
+        case 0xC0F06804: return 0x5b90318; // 3032x1436  x5 Mode;
 
         case 0xC0F06824: return 0x3ca;
         case 0xC0F06828: return 0x3ca;
@@ -2543,7 +2543,7 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F0600C: return 0x34b034b;
 
         case 0xC0F06014: return 0x62c;
-        case 0xC0F0713c: return 0x5a4;
+        case 0xC0F0713c: return 0x5b9;
     }
 
     return 0;
@@ -3346,7 +3346,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
 
   if (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM)
   {
-    snprintf(buffer, sizeof(buffer), "3072x1304");
+    snprintf(buffer, sizeof(buffer), "3032x1436");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
