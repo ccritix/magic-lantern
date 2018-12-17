@@ -1403,25 +1403,37 @@ static MENU_SELECT_FUNC(lock_displayed_registers)
 
 static int crop_mode_reg(int reg)
 {
-    if (regs[reg].dst == DST_CMOS)
+    if ((regs[reg].dst == DST_CMOS) || (regs[reg].dst == 0xC0F0))
     {
         switch (regs[reg].reg)
         {
-            case 1:                     /* CMOS[1]: vertical position and size */
-                return (video_mode_resolution)
-                    ? PACK12(14,10)     /* 720p,  almost centered */
-                    : PACK12(11,11);    /* 1080p, almost centered */
+            case 5: return 0x280;                    /* CMOS[1]: vertical position and size */
+            case 7: return 0xaa9;
 
-            case 2: return 0x10E;       /* CMOS[2]: horizontal position and downsizing factor */
-            case 6: return 0x170;       /* CMOS[6]: ISO related? */
+        case 0x6804: return 0x5b90319; // 3000x1432 24fps x5 Mode;
+
+        case 0x6824: return 0x3ca;
+        case 0x6828: return 0x3ca;
+        case 0x682C: return 0x3ca;
+        case 0x6830: return 0x3ca;
+       
+        case 0x6010: return 0x34b;
+        case 0x6008: return 0x34b034b;
+        case 0x600C: return 0x34b034b;
+
+        case 0x6014: return 0x62c;
+        case 0x713c: return 0x5b9;
+
         }
     }
-    else if (regs[reg].dst == 2)        /* ADTG 2 */
+
+
+    if (regs[reg].dst == 2)        /* ADTG 2 */
     {
         switch (regs[reg].reg)
         {
-            case 0x8000: return 5;      /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */
-            case 0x8806: return 0x6088; /* without this, you get some weird artifacts; this should only go to ADTG2, not 4 */
+           /*  case 0x8000: return 5; */    /* it's 5 in zoom mode and 6 in 1080p; this also overrides ADTG4 */ 
+           /*  case 0x8806: return 0x6088 */ /* without this, you get some weird artifacts; this should only go to ADTG2, not 4 */ 
         }
     }
 
