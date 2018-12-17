@@ -733,7 +733,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 				
 			case CROP_PRESET_3K_EOSM:
                 cmos_new[5] = 0x280;             /* vertical (first|last) */
-                cmos_new[7] = 0xa89;            /* horizontal offset (mask 0xFF0) */
+                cmos_new[7] = 0xaa9;            /* horizontal offset (mask 0xFF0) */
                 break;	
 			
 			case CROP_PRESET_4K_EOSM:
@@ -2263,8 +2263,6 @@ static inline uint32_t reg_override_3K_100d(uint32_t reg, uint32_t old_val)
 
     switch (reg)
     {
-        /* raw resolution (end line/column) */
-        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
         case 0xC0F06804: return 0x5b90319; // 3000x1432 24fps x5 Mode;
 
         case 0xC0F06824: return 0x3ca;
@@ -2533,21 +2531,19 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
   }
     switch (reg)
     {
-        /* raw resolution (end line/column) */
-        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x5340322; // 3072x1304  x5 Mode;
+        case 0xC0F06804: return 0x5a40317; // 3072x1304  x5 Mode;
 
         case 0xC0F06824: return 0x3ca;
         case 0xC0F06828: return 0x3ca;
         case 0xC0F0682C: return 0x3ca;
         case 0xC0F06830: return 0x3ca;
        
-        case 0xC0F06010: return 0x37b;
-        case 0xC0F06008: return 0x37b037b;
-        case 0xC0F0600C: return 0x37b037b;
+        case 0xC0F06010: return 0x34b;
+        case 0xC0F06008: return 0x34b034b;
+        case 0xC0F0600C: return 0x34b034b;
 
-        case 0xC0F06014: return 0x6d7;
-        case 0xC0F0713c: return 0x555;
+        case 0xC0F06014: return 0x62c;
+        case 0xC0F0713c: return 0x5a4;
     }
 
     return 0;
