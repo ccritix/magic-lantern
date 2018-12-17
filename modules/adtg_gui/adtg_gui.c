@@ -5988,6 +5988,14 @@ static unsigned int adtg_gui_init()
         SEND_DATA_TO_DFE_FUNC = 0xff9b1d94;
         //~ SCS_DUMMY_READOUT_DONE_FUNC = 0xff880600;
     }
+    else if (is_camera("7D", "2.0.3"))
+    {
+        ADTG_WRITE_FUNC = 0xFF2C0944; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
+        CMOS_WRITE_FUNC = 0xFF2C0B3C; //"[REG] ############ Start CMOS"
+        ENGIO_WRITE_FUNC = 0xFF1F6B20;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xFF1F675C;
+        SEND_DATA_TO_DFE_FUNC = 0xFF32B800; //"[REG] DFE:[%#lx]"
+    }
     else if (is_camera("500D", "1.1.1")) // http://www.magiclantern.fm/forum/index.php?topic=6751.msg70325#msg70325
     {
         ADTG_WRITE_FUNC = 0xFF22F8F4; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"
