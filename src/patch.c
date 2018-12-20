@@ -1005,11 +1005,12 @@ end:
     return err;
 }
 
-/**
- * GUI code
- * ========
- **/
+#ifdef FEATURE_PATCH_MANAGER_GUI
 
+/**
+ * GUI code (optional)
+ * ===================
+ **/
 static MENU_UPDATE_FUNC(patch_update)
 {
     int p = (int) entry->priv;
@@ -1341,4 +1342,6 @@ static void patch_simple_init()
 }
 
 INIT_FUNC("patch", patch_simple_init);
+
+#endif /* FEATURE_PATCH_MANAGER_GUI */
 
