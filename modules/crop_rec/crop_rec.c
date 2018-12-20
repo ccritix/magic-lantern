@@ -33,6 +33,7 @@ static int is_basic = 0;
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitrate", bitrate, 0);
+static CONFIG_INT("crop.ratios", ratios, 0);
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -183,22 +184,22 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_OFF,
     CROP_PRESET_3x3_mv1080_EOSM,
     CROP_PRESET_3x3_mv1080_45fps_EOSM,
-    CROP_PRESET_1x3_EOSM,
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
     CROP_PRESET_3x3_1X_EOSM,
+    CROP_PRESET_1x3_EOSM,
 };
 
 static const char * crop_choices_eosm[] = {
     "OFF",
     "mv1080p 1736x1120",
     "mv1080p 1736x976 45fps",
-    "1x3 1736x1120",
     "2.5K 2520x1304",
     "3K 3032x1436", 
     "4K 4038x2558",
     "3x3 720p",
+    "1x3 1736x1120",
 };
 
 static const char crop_choices_help_eosm[] =
@@ -208,11 +209,12 @@ static const char crop_choices_help2_eosm[] =
     "\n"
     "mv1080p derived from 3x3 (square pixels in RAW, vertical crop)\n"
     "mv1080p 45fps\n"
-    "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
     "1:1 3K crop (3032x1436 @ 24p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
-    "3x3 binning in 720p (square pixels in RAW, vertical crop)\n";
+    "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
+    "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n";
+
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
 static enum crop_preset crop_presets_basic[] = {
@@ -347,6 +349,14 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     int skip_top        = 28;
     int skip_bottom     = 0;
 
+    if (is_EOSM)
+    {
+    skip_left       = 72;
+    skip_right      = 0;
+    skip_top        = 30;
+    skip_bottom     = 0;
+    }
+
     switch (crop_preset)
     {
         case CROP_PRESET_FULLRES_LV:
@@ -374,10 +384,32 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
 
         case CROP_PRESET_3x3_1X:
         case CROP_PRESET_3x3_1X_100D:
-        case CROP_PRESET_3x3_1X_EOSM:
         case CROP_PRESET_3x3_1X_48p:
             if (is_720p()) skip_top = 0;
             break;
+
+	case CROP_PRESET_3x3_mv1080_EOSM:
+    	/* set ratio preset */
+    	if (ratios == 0x1)
+    	{
+      	skip_bottom     = 381;
+    	}
+    	if (ratios == 0x2)
+    	{
+      	skip_bottom     = 143;
+    	}
+            break;
+
+ 	case CROP_PRESET_3x3_mv1080_45fps_EOSM:
+    	if (ratios == 0x1)
+    	{
+      	skip_bottom     = 237;
+    	}
+    	if (ratios == 0x2)
+    	{
+      	skip_bottom     = 0;
+    	}
+
     }
 
     if (p_skip_left)   *p_skip_left    = skip_left;
@@ -2487,15 +2519,26 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
     }
   }
 
+  if (ratios == 0x1)
+  {
     switch (reg)
     {
-        /* raw resolution (end line/column) */
-        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
+        case 0xC0F06804: return 0x44c0298; /* 2520x1304  x5 Mode; */
+        case 0xC0F07150: return 0x428;
+        case 0xC0F0713c: return 0x44c;
+        case 0xC0F06014: return 0x747;
+    }
+  }
+  else
+  {
+    switch (reg)
+    {
         case 0xC0F06804: return 0x5390298; /* 2520x1304  x5 Mode; */
-
         case 0xC0F07150: return 0x428;
         case 0xC0F0713c: return 0x535;
+        case 0xC0F06014: return 0x747;
     }
+  }
 
     return 0;
 }
@@ -2539,20 +2582,33 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
   }
     switch (reg)
     {
-        case 0xC0F06804: return 0x5b90318; // 3032x1436  x5 Mode;
-
         case 0xC0F06824: return 0x3ca;
         case 0xC0F06828: return 0x3ca;
         case 0xC0F0682C: return 0x3ca;
-        case 0xC0F06830: return 0x3ca;
-       
+        case 0xC0F06830: return 0x3ca;      
         case 0xC0F06010: return 0x34b;
         case 0xC0F06008: return 0x34b034b;
         case 0xC0F0600C: return 0x34b034b;
-
         case 0xC0F06014: return 0x62c;
+
+    }
+
+  if (ratios == 0x1)
+  {
+    switch (reg)
+    {
+        case 0xC0F06804: return 0x5290318; /* 3032x1292  x5 Mode(2.35:1) */
+        case 0xC0F0713c: return 0x529;
+    }
+  }
+  else
+  {
+    switch (reg)
+    {
+        case 0xC0F06804: return 0x5b90318; // 3032x1436  x5 Mode;
         case 0xC0F0713c: return 0x5b9;
     }
+  }
 
     return 0;
 }
@@ -2654,6 +2710,18 @@ static inline uint32_t reg_override_3x3_eosm(uint32_t reg, uint32_t old_val)
     }
   }
 
+/* 24 fps */
+  if ((ratios == 0x1) || (ratios == 0x2))
+  {
+    switch (reg)
+    {
+        	case 0xC0F06014: return 0x9dc;
+		case 0xC0F0600c: return 0x20f020f;
+		case 0xC0F06008: return 0x20f020f;
+		case 0xC0F06010: return 0x20f;
+    }
+  }
+
     switch (reg)
     {
         	case 0xC0F06804: return 0x4a601d4; 		
@@ -2703,7 +2771,6 @@ static inline uint32_t reg_override_3x3_45fps_eosm(uint32_t reg, uint32_t old_va
 	case 0xC0F42744: return 0x2020202;
     }
   }
-
 
     switch (reg)
     {
@@ -3029,6 +3096,13 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &bitrate,
                 .max    = 4,
                 .choices = CHOICES("OFF", " 8 bit", " 9 bit", "10 bit", "12 bit"),
+                .help   = "Alter bitrate\n"
+            },
+            {
+                .name   = "ratios",
+                .priv   = &ratios,
+                .max    = 2,
+                .choices = CHOICES("OFF", "2.35:1", "16:9(mv1080p)"),
                 .help   = "Alter bitrate\n"
             },
             {
@@ -3530,7 +3604,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             }
         }
 
-        if (is_5D3)
+        if ((is_5D3) || (is_EOSM))
         {
             /* update skip offsets */
             int skip_left, skip_right, skip_top, skip_bottom;
@@ -3742,6 +3816,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(crop_preset_index)
     MODULE_CONFIG(shutter_range)
     MODULE_CONFIG(bitrate)
+    MODULE_CONFIG(ratios)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
