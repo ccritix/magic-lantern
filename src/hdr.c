@@ -17,7 +17,7 @@
 
 #ifdef CONFIG_FRAME_SHUTTER_OVERRIDE
 /* todo: refactor it with a menu that actually makes sense */
-//~ #define FEATURE_HDR_EXTENDED
+#define FEATURE_HDR_EXTENDED
 #endif
 
 #ifdef FEATURE_HDR_EXTENDED

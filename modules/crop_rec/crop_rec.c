@@ -2589,16 +2589,16 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06010: return 0x34b;
         case 0xC0F06008: return 0x34b034b;
         case 0xC0F0600C: return 0x34b034b;
-        case 0xC0F06014: return 0x62c;
-
     }
 
   if (ratios == 0x1)
   {
     switch (reg)
     {
-        case 0xC0F06804: return 0x5290318; /* 3032x1292  x5 Mode(2.35:1) */
+/* will change to 19fps for continous action */
+        case 0xC0F06804: return 0x51d0312; /* 3008x1280 19fps  x5 Mode(2.35:1) */
         case 0xC0F0713c: return 0x529;
+        case 0xC0F06014: return 0x7ca;
     }
   }
   else
@@ -2607,6 +2607,7 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
     {
         case 0xC0F06804: return 0x5b90318; // 3032x1436  x5 Mode;
         case 0xC0F0713c: return 0x5b9;
+        case 0xC0F06014: return 0x62c;
     }
   }
 
