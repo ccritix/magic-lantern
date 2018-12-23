@@ -161,8 +161,6 @@ static int show_lv_fps = 0; // for debugging
 
 #define WAVEFORM_FULLSCREEN (waveform_draw && waveform_size == 2)
 
-#define BVRAM_MIRROR_SIZE (BMPPITCH*540)
-
 CONFIG_INT("lv.disp.profiles", disp_profiles_0, 0);
 
 static CONFIG_INT("disp.mode", disp_mode, 0);
@@ -1009,16 +1007,6 @@ waveform_draw_image(
                 // Draw the pixel, rounding down to the nearest
                 // quad word write (and then nop to avoid err70).
                 *(uint32_t*) ALIGN32(row + i) = pixel;
-                #ifdef CONFIG_500D // err70?!
-                asm( "nop" );
-                asm( "nop" );
-                asm( "nop" );
-                asm( "nop" );
-                asm( "nop" );
-                asm( "nop" );
-                asm( "nop" );
-                asm( "nop" );
-                #endif
                 pixel = 0;
             }
         }
@@ -3137,12 +3125,6 @@ void copy_zebras_from_mirror()
             uint32_t m = M[BM(j,i)/4];
             if (p != 0) continue;
             B[BM(j,i)/4] = m & ~0x80808080;
-            #ifdef CONFIG_500D
-            asm("nop");
-            asm("nop");
-            asm("nop");
-            asm("nop");
-            #endif
         }
     }
 }
@@ -3158,12 +3140,6 @@ void clear_zebras_from_mirror()
             uint8_t m = M[BM(j,i)];
             if (m & 0x80) continue;
             M[BM(j,i)] = 0;
-            #ifdef CONFIG_500D
-            asm("nop");
-            asm("nop");
-            asm("nop");
-            asm("nop");
-            #endif
         }
     }
 }
@@ -3436,6 +3412,9 @@ static void draw_zoom_overlay(int dirty)
             break;
     }
 
+    /* (W<<1) should be 64-bit aligned for memset64 */
+    W &= ~3;
+
     // Magnification factor
     int X = zoom_overlay_x + 1;
 
@@ -3479,8 +3458,9 @@ static void draw_zoom_overlay(int dirty)
         #endif
         w /= X;
         h /= X;
+        w &= ~3;    /* (w<<1) should be 64-bit aligned for memset64 */
         const int val_in_coerce_w = aff_x0_lv - (w>>1);
-        const int coerce_w = COERCE(val_in_coerce_w, 0, 720-w);
+        const int coerce_w = COERCE(val_in_coerce_w, 0, 720-w) & ~1;    /* should be 32-bit (2px) aligned for memset64 */
         const int val_in_coerce_h1 = aff_y0_lv - (h>>1);
         const int val_in_coerce_h2 = aff_y0_lv + (h>>1);
 
@@ -3492,7 +3472,7 @@ static void draw_zoom_overlay(int dirty)
 
     //~ draw_circle(x0,y0,45,COLOR_WHITE);
     int y;
-    int x0c = COERCE(zb_x0_lv - (W>>1), 0, lv->width-W);
+    int x0c = COERCE(zb_x0_lv - (W>>1), 0, lv->width-W) & ~1;   /* should be 32-bit (2px) aligned for memset64 */
     int y0c = COERCE(zb_y0_lv - (H>>1), 0, lv->height-H);
 
     extern int focus_value;
@@ -3527,6 +3507,7 @@ static void draw_zoom_overlay(int dirty)
     #ifdef CONFIG_1100D
     H /= 2; //LCD res fix (half height)
     #endif
+
     memset64(lvr + x0c + COERCE(0   + y0c, 0, 720) * lv->width, rawoff ? MZ_BLACK : MZ_GREEN, W<<1);
     memset64(lvr + x0c + COERCE(1   + y0c, 0, 720) * lv->width, rawoff ? MZ_WHITE : MZ_GREEN, W<<1);
     if (!rawoff) {
@@ -4474,9 +4455,6 @@ INIT_FUNC(__FILE__, zebra_init);
 
 static void make_overlay()
 {
-    //~ draw_cropmark_area();
-    msleep(1000);
-    //~ bvram_mirror_init();
     clrscr();
 
     bmp_printf(FONT_MED, 0, 0, "Saving overlay...");
@@ -4512,19 +4490,27 @@ static void make_overlay()
     FILE* f = FIO_CreateFile("ML/DATA/overlay.dat");
     if (f)
     {
-        FIO_WriteFile( f, (const void *) bvram_mirror, BVRAM_MIRROR_SIZE);
+        /* note: bvram_mirror's size is smaller than BMP_VRAM_SIZE */
+        FIO_WriteFile( f, (const void *) bvram_mirror, BMPPITCH * 480);
         FIO_CloseFile(f);
-        bmp_printf(FONT_MED, 0, 0, "Overlay saved.  ");
+        bmp_printf(FONT_MED, 0, 0, "Overlay saved.   ");
     }
     else
     {
-        bmp_printf(FONT_MED, 0, 0, "Overlay error.  ");
+        bmp_printf(FONT_MED, 0, 0, "Overlay error.   ");
     }
     msleep(1000);
 }
 
 static void show_overlay()
 {
+    const char * overlay_filename = "ML/DATA/overlay.dat";
+    if (!is_file(overlay_filename))
+    {
+        /* no overlay configured yet */
+        return;
+    }
+
     get_yuv422_vram();
     uint8_t * const bvram = bmp_vram_real();
     if (!bvram) return;
@@ -4532,7 +4518,7 @@ static void show_overlay()
     clrscr();
 
     int size = 0;
-    void * overlay = read_entire_file("ML/DATA/overlay.dat", &size);
+    void * overlay = read_entire_file(overlay_filename, &size);
     if (!overlay)
     {
         ASSERT(0);
@@ -4547,7 +4533,7 @@ static void show_overlay()
         uint8_t * const m_row = (uint8_t*)( overlay + ym * BMPPITCH);  // 1 pixel
         uint8_t* bp;  // through bmp vram
         uint8_t* mp;  // through our overlay
-        if (ym < 0 || ym > 480) continue;
+        if (ym < 0 || ym >= 480) continue;
 
         for (int x = os.x0; x < os.x_max; x++)
         {
@@ -4593,6 +4579,15 @@ PROP_HANDLER(PROP_LV_ACTION)
     
     #ifdef FEATURE_LV_ZOOM_SETTINGS
     zoom_sharpen_step();
+    #endif
+
+    #ifdef CONFIG_500D
+    if (buf[0] == 0 && !is_manual_focus())
+    {
+        /* disable the "Perform autofocus with AE lock <*> button" message in LiveView */
+        extern void FirstWarningTimer_CBR(void);
+        FirstWarningTimer_CBR();
+    }
     #endif
 }
 

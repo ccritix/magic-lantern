@@ -1094,6 +1094,40 @@ static void stub_test_dryos()
     TEST_FUNC_CHECK(ReleaseRecursiveLock(rlock), != 0);
 }
 
+static void stub_test_model_id()
+{
+    // model, firmware version
+    TEST_MSG("[INFO] Camera model: %s %s (0x%X %s)\n", camera_model, firmware_version, camera_model_id, __camera_model_short);
+
+    TEST_FUNC_CHECK(is_camera("DIGIC", "*"), == 1);
+    TEST_FUNC_CHECK(is_camera(__camera_model_short, firmware_version), == 1);
+
+    if (is_camera("5D3", "*"))
+    {
+        TEST_FUNC_CHECK(is_camera("5D2", "*"), == 0);
+        TEST_FUNC_CHECK(is_camera("DIGIC", "4"), == 0);
+        TEST_FUNC_CHECK(is_camera("DIGIC", "5"), == 1);
+    }
+    else if (is_camera("60D", "*"))
+    {
+        TEST_FUNC_CHECK(is_camera("600D", "*"), == 0);
+        TEST_FUNC_CHECK(is_camera("DIGIC", "5"), == 0);
+        TEST_FUNC_CHECK(is_camera("DIGIC", "4"), == 1);
+    }
+    else if (is_camera("80D", "*"))
+    {
+        TEST_FUNC_CHECK(is_camera("70D", "*"), == 0);
+        TEST_FUNC_CHECK(is_camera("DIGIC", "5"), == 0);
+        TEST_FUNC_CHECK(is_camera("DIGIC", "6"), == 1);
+    }
+    else if (is_camera("200D", "*"))
+    {
+        TEST_FUNC_CHECK(is_camera("100D", "*"), == 0);
+        TEST_FUNC_CHECK(is_camera("DIGIC", "6"), == 0);
+        TEST_FUNC_CHECK(is_camera("DIGIC", "7"), == 1);
+    }
+}
+
 static void stub_test_save_log()
 {
     FILE* log = FIO_CreateFile("ML/LOGS/stubtest.log");
@@ -1127,6 +1161,7 @@ static void stub_test_task(void* arg)
     /* save log after each sub-test */
     for (int i=0; i < n; i++)
     {
+        stub_test_model_id();               stub_test_save_log();
         stub_test_edmac();                  stub_test_save_log();
         stub_test_cache();                  stub_test_save_log();
         stub_test_af();                     stub_test_save_log();
@@ -1904,6 +1939,16 @@ static void bmp_fill_test_task()
     }
 }
 
+static void info_screen_test_task()
+{
+    msleep(2000);
+    while(1)
+    {
+        fake_simple_button(BGMT_INFO);
+        msleep(rand() % 100);
+    }
+}
+
 #if 0
 static void menu_duplicate_test()
 {
@@ -2409,6 +2454,13 @@ static struct menu_entry selftest_menu[] =
                 .select     = run_in_separate_task,
                 .priv       = bmp_fill_test_task,
                 .help       = "Stresses graphics bandwith. Run this while recording.",
+            },
+            {
+                .name       = "Info screen test (infinite)",
+                .select     = run_in_separate_task,
+                .priv       = info_screen_test_task,
+                .help       = "Switches INFO screens very quickly.",
+                .help2      = "This used to crash the 500D if the test was run while recording.",
             },
             {
                 .name       = "SRM memory test (5 minutes)",

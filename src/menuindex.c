@@ -25,6 +25,9 @@ static MENU_UPDATE_FUNC(set_scrollwheel_display)
     }
 }
 
+/* config.c */
+extern int _set_at_startup;
+
 static struct menu_entry help_menus[] = {
     {
         .select = menu_nav_help_open,
@@ -34,25 +37,25 @@ static struct menu_entry help_menus[] = {
     {
         .select = menu_nav_help_open,
         #if defined(CONFIG_500D)
-        .name = "Press LiveView " SYM_LV,
+        .name = "Press " SYM_LV " / PLAY",
         .choices = CHOICES("Open submenu (Q)"),
         #elif defined(CONFIG_50D)
-        .name = "Press FUNC",
+        .name = "Press FUNC / PLAY",
         .choices = CHOICES("Open submenu (Q)"),
         #elif defined(CONFIG_5D2)
-        .name = "Press Pict.Style",
+        .name = "Pict.Style / PLAY",
         .choices = CHOICES("Open submenu (Q)"),
         #elif defined(CONFIG_5DC) || defined(CONFIG_40D)
-        .name = "Press JUMP",
+        .name = "Press JUMP / PLAY",
         .choices = CHOICES("Open submenu (Q)"),
         #elif defined(CONFIG_EOSM)
-        .name = "1-finger Tap",
+        .name = "Tap or press PLAY",
         .choices = CHOICES("Open submenu (Q)"),
         #elif defined(CONFIG_100D)
-        .name = "Press Av",
+        .name = "Press Av / PLAY",
         .choices = CHOICES("Open submenu (Q)"),
         #else
-        .name = "Press Q",
+        .name = "Press Q / PLAY",
         .choices = CHOICES("Open submenu"),
         #endif
         
@@ -92,11 +95,13 @@ static struct menu_entry help_menus[] = {
         #endif
         .choices = CHOICES("Edit in LiveView"),
     },
+    #if FEATURE_JUNKIE_MENU
     {
         .select = menu_nav_help_open,
         .name = "Press MENU",
         .choices = CHOICES("Junkie mode"),
     },
+    #endif
     #if defined(FEATURE_OVERLAYS_IN_PLAYBACK_MODE) && defined(BTN_ZEBRAS_FOR_PLAYBACK_NAME) && defined(BTN_ZEBRAS_FOR_PLAYBACK)
     /* if BTN_ZEBRAS_FOR_PLAYBACK_NAME is undefined, you must define it (or undefine FEATURE_OVERLAYS_IN_PLAYBACK_MODE) */
     {
@@ -112,6 +117,15 @@ static struct menu_entry help_menus[] = {
         .choices = CHOICES("Shortcuts (LV only)"),
     },
     #endif
+    {
+        .select = menu_nav_help_open,
+        .name = "SET at startup",
+        .priv = &_set_at_startup,
+        .max  = 1,
+        .icon_type = IT_ACTION,
+        .choices = CHOICES("Bypass loading ML", "Required to load ML"),
+        .help = "To change this setting: Prefs -> Config options",
+    },
     {
         .name = "Key Shortcuts",
         .select = menu_help_go_to_label,

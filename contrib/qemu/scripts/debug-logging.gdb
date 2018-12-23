@@ -5,6 +5,11 @@
 # To use gdb, start emulation with, for example:
 #    ./run_canon_fw.sh 60D -s -S & arm-none-eabi-gdb -x 60D/debugmsg.gdb
 
+# misc preferences
+set pagination off
+set output-radix 16
+
+set architecture arm
 set tcp connect-timeout 300
 
 if $_isvoid($TCP_PORT)
@@ -28,7 +33,7 @@ end
 #   - on DIGIC 6,   interrupt ID is MEM(0xD4011000)
 #   To find the expression, look at the interrupt handler code (PC=0x18).
 #   Example for 70D:
-#      macro define CURRENT_ISR  (*(int*)0x648 ? (*(int*)0x64C) >> 2 : 0)
+#      macro define CURRENT_ISR  (MEM(0x648) ? MEM(0x64C) >> 2 : 0)
 #
 # RTC_VALID_FLAG:
 #   Only needed if you use load_default_date_time_log.
@@ -52,13 +57,35 @@ macro define RTC_VALID_FLAG ((int)0xFFFFFFFF)
 macro define NUM_CORES      1
 macro define PRINT_CALLSTACK 0
 
-# misc preferences
-set pagination off
-set output-radix 16
+# some of the firmware-specific constants can be found by pattern matching
+define find_rom_string
+  if $_isvoid($_)
+    find /1 0xFE000000, 0xFFFFFFF0, $arg0
+  end
+  if $_isvoid($_)
+    find /1 0xE0000000, 0xFFFFFFF0, $arg0
+  end
+end
+
+if $_isvoid($NULL_STR)
+  # only look this up if not defined in CAM/debugmsg.gdb
+  find_rom_string "(null)"
+  set $NULL_STR = $_
+end
+
+# helper to dereference strings
+macro define STR(x) ((x) ? (x) : $NULL_STR)
+
+# helper to read an uint32_t from memory (used in ML as well)
+macro define MEM(x) (*(unsigned int*)(x))
+
+# helper to print a hex char (lowest 4 bits)
+macro define HEX_DIGIT(x) (char)((((x)&0xF) < 10) ? 48 + ((x)&0xF) : 55 + ((x)&0xF))
 
 define hook-quit
   set confirm off
   show convenience
+  named_func_hook_quit
   kill inferiors 1
   KRESET
 end
@@ -94,7 +121,7 @@ macro define CURRENT_TASK_NAME (((int*)CURRENT_TASK)[0] ? ((char***)CURRENT_TASK
 # requires -d callstack, for example:
 # ./run_canon_fw 1300D,firmware="boot=0" -d callstack -s -S & arm-none-eabi-gdb -x 1300D/debugmsg.gdb
 define print_callstack
-  set $_ = *0xCF123030
+  set $_ = *0xC0123430
 end
 
 # print current task name and return address
@@ -116,23 +143,26 @@ define print_current_location
     printf "[CPU%d] ", ($_thread-1)
   end
 
-  if $argc == 1
-    set $i = $arg0
-  else
-    set $i = $lr - 4
-  end
-
   printf "["
   if CURRENT_ISR > 0
     KRED
-    printf "     INT-%02Xh:%08x ", CURRENT_ISR, $i
+    if CURRENT_ISR >= 0x100
+      printf "    INT-%03Xh", CURRENT_ISR
+    else
+      printf "     INT-%02Xh", CURRENT_ISR
+    end
   else
     if $_thread == 1
       KCYN
     else
       KYLW
     end
-    printf "%12s:%08x ", CURRENT_TASK_NAME, $i
+    printf "%12s", CURRENT_TASK_NAME
+  end
+  if $argc == 1
+    printf ":%08x ", $arg0
+  else
+    printf ":%08x ", $lr - 4
   end
   KRESET
   printf "] "
@@ -145,6 +175,13 @@ define print_current_location_with_callstack
   print_current_location
 end
 
+# helper for unknown data structures
+define try_expand_ram_struct
+    if $arg0 > 0x1000 && $arg0 < 0x1000000
+        printf "                         "
+        printf "*0x%x = { %x %x %x %x %x ... }\n", $arg0, MEM($arg0), MEM($arg0+4), MEM($arg0+8), MEM($arg0+12), MEM($arg0+16)
+    end
+end
 
 define print_formatted_string
   # count how many % characters we have
@@ -213,7 +250,7 @@ define DebugMsg_log
     silent
     print_current_location
     printf "(%02x:%02x) ", $r0, $r1
-    print_formatted_string $r2 $r3 *(int*)$sp *(int*)($sp+4) *(int*)($sp+8) *(int*)($sp+12) *(int*)($sp+16) *(int*)($sp+20) *(int*)($sp+24)
+    print_formatted_string $r2 $r3 MEM($sp) MEM($sp+4) MEM($sp+8) MEM($sp+12) MEM($sp+16) MEM($sp+20) MEM($sp+24)
     c
   end
 end
@@ -224,7 +261,7 @@ define DebugMsg1_log
     silent
     print_current_location
     printf "(%02x) ", $r0
-    print_formatted_string $r1 $r2 $r3 *(int*)$sp *(int*)($sp+4) *(int*)($sp+8) *(int*)($sp+12) *(int*)($sp+16) *(int*)($sp+20)
+    print_formatted_string $r1 $r2 $r3 MEM($sp) MEM($sp+4) MEM($sp+8) MEM($sp+12) MEM($sp+16) MEM($sp+20)
     c
   end
 end
@@ -233,10 +270,133 @@ define printf_log
   commands
     silent
     print_current_location
-    print_formatted_string $r1 $r2 $r3 *(int*)$sp *(int*)($sp+4) *(int*)($sp+8) *(int*)($sp+12) *(int*)($sp+16) *(int*)($sp+20)
+    print_formatted_string $r1 $r2 $r3 MEM($sp) MEM($sp+4) MEM($sp+8) MEM($sp+12) MEM($sp+16) MEM($sp+20)
     c
   end
 end
+
+
+# Export named functions to IDC (for IDA)
+#########################################
+
+set $named_func_first_time = 1
+
+# log some named function
+# names can come from anywhere (register_func, task_create etc)
+# arguments: function address, pointer to name string, optional suffix chars
+define named_func_add
+  set logging file named_functions.idc
+  set logging redirect on
+  set logging on
+  if $named_func_first_time == 1
+    set logging off
+    set logging overwrite on
+    set logging on
+    printf "/* List of named functions identified during execution. */\n"
+    set logging off
+    set logging overwrite off
+    set logging on
+    printf "/* Generated from QEMU+GDB. */\n"
+    printf "\n"
+    printf "#include <idc.idc>\n"
+    printf "\n"
+    printf "static MakeAutoName(ea,name)\n"
+    printf "{\n"
+    printf "    auto p; while ((p = strstr(name, \" \")) >= 0) name[p] = \"_\";\n"
+    printf "    if (!hasUserName(GetFlags(ea))) {\n"
+    printf "      if (!(MakeNameEx(ea,name,SN_AUTO|SN_CHECK))) {\n"
+    printf "      if (!(MakeNameEx(ea,name+\"_0\",SN_AUTO|SN_CHECK))) {\n"
+    printf "      if (!(MakeNameEx(ea,name+\"_1\",SN_AUTO|SN_CHECK))) {\n"
+    printf "      if (!(MakeNameEx(ea,name+\"_2\",SN_AUTO|SN_CHECK))) {\n"
+    printf "      if (!(MakeNameEx(ea,name+\"_3\",SN_AUTO|SN_CHECK))) {\n"
+    printf "         MakeRptCmt(ea,name); }}}}}\n"
+    printf "    } else {\n"
+    printf "      Message(\"Already named: %%X %%s -- %%s\\n\", ea, name, Name(ea));\n"
+    printf "      MakeRptCmt(ea,name);\n"
+    printf "    }\n"
+    printf "}\n"
+    printf "\n"
+    printf "static MakeAutoNamedFunc(ea,name)\n"
+    printf "{\n"
+    printf "    SetReg(ea, \"T\", ea & 1);\n"
+    printf "    MakeCode(ea & ~1);\n"
+    printf "    MakeFunction(ea & ~1, BADADDR);\n"
+    printf "    MakeAutoName(ea & ~1, name);\n"
+    printf "}\n"
+    printf "\n"
+    printf "static main()\n"
+    printf "{\n"
+    set $named_func_first_time = 0
+  end
+
+  printf "  MakeAutoNamedFunc(0x%08X, \"", $arg0
+
+  # name prefix
+  if $arg1
+    printf "%s", $arg1
+    if $argc >= 3
+      printf "_"
+    end
+  end
+
+  # name suffix
+  # fixme: cannot pass arbitrary strings as arguments, but chars work fine
+  if $argc == 3
+    printf "%c", $arg2
+  end
+  if $argc == 4
+    printf "%c%c", $arg2, $arg3
+  end
+  if $argc == 5
+    printf "%c%c%c", $arg2, $arg3, $arg4
+  end
+  if $argc == 6
+    printf "%c%c%c%c", $arg2, $arg3, $arg4, $arg5
+  end
+  if $argc == 7
+    printf "%c%c%c%c%c", $arg2, $arg3, $arg4, $arg5, $arg6
+  end
+  if $argc == 8
+    printf "%c%c%c%c%c%c", $arg2, $arg3, $arg4, $arg5, $arg6, $arg7
+  end
+  if $argc == 9
+    printf "%c%c%c%c%c%c%c", $arg2, $arg3, $arg4, $arg5, $arg6, $arg7, $arg8
+  end
+  if $argc == 10
+    printf "%c%c%c%c%c%c%c%c", $arg2, $arg3, $arg4, $arg5, $arg6, $arg7, $arg8, $arg9
+  end
+
+  if $argc <= 10
+    printf "\");"
+  else
+    set logging off
+    KRED
+    printf "FIXME: too many args\n"
+    KRESET
+    quit
+  end
+  printf "\n"
+  set logging off
+end
+
+# all of this just to close the brace :)
+define named_func_hook_quit
+  if $named_func_first_time == 0
+    set logging file named_functions.idc
+    set logging redirect on
+    set logging on
+    printf "}\n"
+    set logging off
+    KRED
+    printf "\nnamed_functions.idc saved.\n"
+    KRESET
+    printf "If it looks good, consider renaming or moving it, for future use.\n\n"
+  end
+end
+
+# Named function code ends here
+# calls to named_func_add be made from various loggers
+######################################################
 
 # log task_create calls
 define task_create_log
@@ -244,8 +404,9 @@ define task_create_log
     silent
     print_current_location
     KBLU
-    printf "task_create(%s, prio=%x, stack=%x, entry=%x, arg=%x)\n", $r0, $r1, $r2, $r3, *(int*)$sp
+    printf "task_create(%s, prio=%x, stack=%x, entry=%x, arg=%x)\n", STR($r0), $r1, $r2, $r3, MEM($sp)
     KRESET
+    named_func_add $r3 $r0 't' 'a' 's' 'k'
     c
   end
 end
@@ -280,11 +441,7 @@ define assert_log
     printf "ASSERT"
     KRESET
     printf "] "
-    if $r0
-      printf "%s at %s:%d, %x\n", $r0, $r1, $r2, $lr
-    else
-      printf "at %s:%d, %x\n", $r1, $r2, $lr
-    end
+    printf "%s at %s:%d, %x\n", STR($r0), STR($r1), $r2, $lr
     c
   end
 end
@@ -298,7 +455,7 @@ define assert0_log
     printf "ASSERT"
     KRESET
     printf "] "
-    printf " at %s:%d\n", $r0, $r1
+    printf " at %s:%d\n", STR($r0), $r1
     c
   end
 end
@@ -310,7 +467,7 @@ define create_semaphore_log
     silent
     print_current_location
     KBLU
-    printf "create_semaphore('%s', %d)\n", $r0, $r1
+    printf "create_semaphore('%s', %d)\n", STR($r0), $r1
     KRESET
     set $sem_cr_name = $r0
     tbreak *($lr & ~1)
@@ -324,7 +481,35 @@ define create_semaphore_log
         print "create semaphore: race condition?"
         KRESET
       end
-      printf "*** Created semaphore 0x%x: %x '%s'\n", $r0, $sem_cr_name, $sem_cr_name
+      printf "*** Created semaphore 0x%x: %x '%s'\n", $r0, $sem_cr_name, STR($sem_cr_name)
+      eval "set $sem_%x_name = $sem_cr_name", $r0
+      set $sem_cr_name = -1234
+      c
+    end
+    c
+  end
+end
+
+define create_semaphore_n3_log
+  commands
+    silent
+    print_current_location
+    KBLU
+    printf "create_semaphore(%d, %d, '%s')\n", $r0, $r1, STR($r2)
+    set $sem_cr_name = $r2
+    KRESET
+    tbreak *($lr & ~1)
+    commands
+      silent
+      if $sem_cr_name == -1234
+        KRED
+        # fixme: create_semaphore is not atomic,
+        # so if two tasks create semaphores at the same time, we may mix them up
+        # (maybe call cli/sei from gdb, or is this check enough?)
+        print "create semaphore: race condition?"
+        KRESET
+      end
+      printf "*** Created semaphore 0x%x: %x '%s'\n", $r0, $sem_cr_name, STR($sem_cr_name)
       eval "set $sem_%x_name = $sem_cr_name", $r0
       set $sem_cr_name = -1234
       c
@@ -416,7 +601,7 @@ define create_msg_queue_log
     silent
     print_current_location
     KBLU
-    printf "create_msg_queue('%s', %d)\n", $r0, $r1
+    printf "create_msg_queue('%s', %d)\n", STR($r0), $r1
     KRESET
     set $mq_cr_name = $r0
     tbreak *($lr & ~1)
@@ -430,7 +615,7 @@ define create_msg_queue_log
         print "create message queue: race condition?"
         KRESET
       end
-      printf "*** Created message queue 0x%x: %x '%s'\n", $r0, $mq_cr_name, $mq_cr_name
+      printf "*** Created message queue 0x%x: %x '%s'\n", $r0, $mq_cr_name, STR($mq_cr_name)
       eval "set $mq_%x_name = $mq_cr_name", $r0
       set $mq_cr_name = -1234
       c
@@ -506,7 +691,7 @@ define try_receive_msg_queue_log
       KRESET
       printf "%d (pc=%x)\n", $r0, $pc
       eval "try_expand_ram_struct $mq_%s_buf", CURRENT_TASK_NAME
-      eval "try_expand_ram_struct *(int*)$mq_%s_buf", CURRENT_TASK_NAME
+      eval "try_expand_ram_struct MEM($mq_%s_buf)", CURRENT_TASK_NAME
       eval "set $task_%s = \"ready\"", CURRENT_TASK_NAME
       c
     end
@@ -553,8 +738,11 @@ define register_interrupt_log
   commands
     silent
     print_current_location
-    if $r0
+    if $r0 && ((char*)$r0)[0]
       printf "register_interrupt(%s, 0x%x, 0x%x, 0x%x)\n", $r0, $r1, $r2, $r3
+      if (unsigned int) $r2 > 0x1000
+        named_func_add $r2 $r0 'I' 'S' 'R'
+      end
     else
       printf "register_interrupt(null, 0x%x, 0x%x, 0x%x)\n", $r1, $r2, $r3
     end
@@ -563,6 +751,7 @@ define register_interrupt_log
 end
 
 # eventprocs (functions that can be called by name)
+# RegisterEventProcedure on some models
 define register_func_log
   commands
     silent
@@ -570,10 +759,23 @@ define register_func_log
     KBLU
     printf "register_func('%s', %x, %x)\n", $r0, $r1, $r2
     KRESET
+    named_func_add $r1 $r0
     c
   end
 end
 
+# named functions registered to the DryOS shell
+define register_cmd_log
+  commands
+    silent
+    print_current_location
+    KBLU
+    printf "register_cmd('%s', %x, '%s')\n", $r2, $r3, MEM($sp)
+    KRESET
+    named_func_add $r3 $r2
+    c
+  end
+end
 
 define mpu_decode
   set $buf = $arg0
@@ -621,8 +823,8 @@ define mpu_analyze_recv_data_log
     #print_current_location
     #printf "AnalyzeMpuReceiveData %x %x %x %x\n", $r0, $r1, $r2, $r3
     print_current_location
-    printf "MPU property: %02x %02x ", *(int*)$r1, *(int*)($r1+4)
-    mpu_decode *(int*)($r1+8) *(int*)($r1+12)
+    printf "MPU property: %02x %02x ", MEM($r1), MEM($r1+4)
+    mpu_decode MEM($r1+8) MEM($r1+12)
     printf "\n"
     c
   end
@@ -644,10 +846,10 @@ define mpu_prop_lookup_log
   commands
     silent
     print_current_location
-    #printf "mpu_prop_lookup (%02x %02x) %x, %x, %x, %x %x %x %x\n", $r3, *(int*)$sp, $r0, $r1, $r2, $r3, *(int*)$sp, *(int*)($sp+4), *(int*)($sp+8)
+    #printf "mpu_prop_lookup (%02x %02x) %x, %x, %x, %x %x %x %x\n", $r3, MEM($sp), $r0, $r1, $r2, $r3, MEM($sp), MEM($sp+4), MEM($sp+8)
     set $mpl_r0 = $r0
     set $mpl_id1 = $r3
-    set $mpl_id2 = *(int*)$sp
+    set $mpl_id2 = MEM($sp)
     tbreak *($lr & ~1)
     commands
       silent
@@ -701,32 +903,25 @@ define prop_deliver_log
     KRED
     printf "prop_deliver"
     KRESET
-    printf " %08X { ", *(int*)$r0
+    printf " %08X { ", MEM($r0)
     prop_print_data $r1 $r2
     printf "}\n"
     c
   end
 end
 
-define try_expand_ram_struct
-    if $arg0 > 0x1000 && $arg0 < 0x1000000
-        printf "                       "
-        printf "*0x%x = { %x %x %x %x %x ... }\n", $arg0, *(int*)$arg0, *(int*)($arg0+4), *(int*)($arg0+8), *(int*)($arg0+12), *(int*)($arg0+16)
-    end
-end
-
 define try_post_event_log
   commands
     silent
     print_current_location
-    printf "TryPostEvent('%s', '%s', 0x%x, 0x%x, 0x%x)\n", *(int*)$r0, *(int*)$r1, $r2, $r3, *(int*)$sp
+    printf "TryPostEvent('%s', '%s', 0x%x, 0x%x, 0x%x)\n", STR(MEM($r0)), STR(MEM($r1)), $r2, $r3, MEM($sp)
     try_expand_ram_struct $r3
-    try_expand_ram_struct *(int*)($r3)
-    try_expand_ram_struct *(int*)($r3+4)
-    try_expand_ram_struct *(int*)($r3+8)
-    try_expand_ram_struct *(int*)($r3+12)
-    try_expand_ram_struct *(int*)($r3+16)
-    try_expand_ram_struct *(int*)$sp
+    try_expand_ram_struct MEM($r3)
+    try_expand_ram_struct MEM($r3+4)
+    try_expand_ram_struct MEM($r3+8)
+    try_expand_ram_struct MEM($r3+12)
+    try_expand_ram_struct MEM($r3+16)
+    try_expand_ram_struct MEM($sp)
     c
   end
 end
@@ -779,7 +974,7 @@ define SetHPTimerNextTick_log
   commands
     silent
     print_current_location
-    printf "SetHPTimerNextTick(last_expiry=%d, offset=%d, cbr=%x, overrun=%x, arg=%x)\n", $r0, $r1, $r2, $r3, *(int*)$sp
+    printf "SetHPTimerNextTick(last_expiry=%d, offset=%d, cbr=%x, overrun=%x, arg=%x)\n", $r0, $r1, $r2, $r3, MEM($sp)
     c
   end
 end
@@ -911,8 +1106,8 @@ define SetEDmac_log
     KBLU
     printf "SetEDmac(%d, 0x%x, 0x%x, 0x%x)\n", $r0, $r1, $r2, $r3
     if $r2
-      printf "                       "
-      printf "{ %dx%d %dx%d %dx%d %d %d %d %d %d }\n", *(int*)($r2+0x14), *(int*)($r2+0x1c), *(int*)($r2+0x18), *(int*)($r2+0x20), *(int*)($r2+0x24), *(int*)($r2+0x28), *(int*)($r2+0x00), *(int*)($r2+0x04), *(int*)($r2+0x08), *(int*)($r2+0x0c), *(int*)($r2+0x10)
+      printf "                         "
+      printf "{ %dx%d %dx%d %dx%d %d %d %d %d %d }\n", MEM($r2+0x14), MEM($r2+0x1c), MEM($r2+0x18), MEM($r2+0x20), MEM($r2+0x24), MEM($r2+0x28), MEM($r2+0x00), MEM($r2+0x04), MEM($r2+0x08), MEM($r2+0x0c), MEM($r2+0x10)
       # xa*ya xb*yb xn*yn off1a off1b off2a off2b off3
     end
     KRESET
@@ -1001,7 +1196,28 @@ define CreateStateObject_log
   commands
     silent
     print_current_location
-    printf "CreateStateObject(%s, 0x%x, inputs=%d, states=%d)\n", $r0, $r2, $r3, *(int*)$sp
+    printf "CreateStateObject(%s, 0x%x, inputs=%d, states=%d)\n", $r0, $r2, $r3, MEM($sp)
+
+    # enumerate all functions from this state machine
+    set $state_name = (char *) $r0
+    set $state_matrix = (int *) $r2
+    set $max_inputs = $r3
+    set $max_states = MEM($sp)
+    set $old_state = 0
+    while $old_state < $max_states
+      set $input = 0
+      while $input < $max_inputs
+        set $next_state   = $state_matrix[($old_state + $max_states * $input) * 2]
+        set $next_func    = $state_matrix[($old_state + $max_states * $input) * 2 + 1]
+        if $next_func
+          #printf "(%d) --%d--> (%d) %x %s_S%d_I%d\n", $old_state, $input, $next_state, $next_func, $state_name, $old_state, $input
+          named_func_add $next_func $state_name 'S' 48+$old_state/10 48+$old_state%10 '_' 'I' 48+$input/10 48+$input%10
+        end
+        set $input = $input + 1
+      end
+      set $old_state = $old_state + 1
+    end
+
     # note: I could have used log_result instead of this block, but wanted to get something easier to grep
     tbreak *($lr & ~1)
     commands
@@ -1032,11 +1248,34 @@ define state_transition_log
     KYLW
     printf "%s: (%d) --%d--> (%d)", $state_name, $old_state, $input, $next_state
     KRESET
-    printf "      %x (x=%x z=%x t=%x)\n", $next_func, $r1, $r3, *(int*)$sp
+    printf "      %x (x=%x z=%x t=%x)\n", $next_func, $r1, $r3, MEM($sp)
     c
   end
 end
 
+# PTP
+
+define ptp_register_handler_log
+  commands
+    silent
+    print_current_location
+    KBLU
+    printf "ptp_register_handler(%x, %x, %x)\n", $r0, $r1, $r2
+    KRESET
+    if $r0 >= 0x1000 && $r0 <= 0xFFFF
+      named_func_add $r1 0 'P' 'T' 'P' '_' HEX_DIGIT($r0>>12) HEX_DIGIT($r0>>8) HEX_DIGIT($r0>>4) HEX_DIGIT($r0)
+    else
+      KRED
+      printf "FIXME: invalid PTP ID\n"
+      KRESET
+    end
+    c
+  end
+end
+
+
+# Generic helpers
+#################
 
 # log return value of current function
 # (temporary breakpoint on LR)

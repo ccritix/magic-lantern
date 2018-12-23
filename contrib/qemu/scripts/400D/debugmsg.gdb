@@ -29,4 +29,10 @@ msleep_log
 b *0xFFB0CF20
 register_interrupt_log
 
+b *0xFFB06568
+register_func_log
+
+b *0xFFB21890
+CreateStateObject_log
+
 cont

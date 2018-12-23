@@ -117,6 +117,17 @@ int lua_msg_queue_receive(lua_State * L, uint32_t * msg, int timeout)
     return msg_queue_receive(script->key_mq, msg, timeout);
 }
 
+static void lua_print_free_mem(void)
+{
+    extern int core_reallocs;    /* ml-lua-shim.c */
+    extern int core_reallocs_size;
+    printf("[Lua] free umm_heap : %s\n", format_memory_size(umm_free_heap_size()));
+    if (core_reallocs)
+    {
+        printf("[Lua] core reallocs : %d (%s)\n", core_reallocs, format_memory_size(core_reallocs_size));
+    }
+}
+
 /*
  Determines if a string ends in some string
  */
@@ -197,8 +208,12 @@ static unsigned int lua_do_cbr(unsigned int ctx, struct script_event_entry * eve
                         }
                         
                     }
+                    lua_pop(L, 1);
                 }
-                lua_pop(L,1);
+                else
+                {
+                    ASSERT(0);
+                }
                 give_semaphore(sem);
             }
             else
@@ -853,6 +868,9 @@ static void load_script(struct lua_script * script)
         printf("[%s] script finished.\n\n", script->filename);
     }
 
+    /* print available memory */
+    lua_print_free_mem();
+
     /* script finished or loaded in background; allow auto power off */
     powersave_permit();
 }
@@ -1336,13 +1354,7 @@ static void lua_load_task(int unused)
     
     lua_do_autoload();
     
-    extern int core_reallocs;    /* ml-lua-shim.c */
-    extern int core_reallocs_size;
-    printf("[Lua] free umm_heap : %s\n", format_memory_size(umm_free_heap_size()));
-    if (core_reallocs)
-    {
-        printf("[Lua] core reallocs : %d (%s)\n", core_reallocs, format_memory_size(core_reallocs_size));
-    }
+    lua_print_free_mem();
     printf("[Lua] all scripts loaded.\n");
 
     if (console_visible && !console_was_visible)
@@ -1359,6 +1371,39 @@ static void lua_load_task(int unused)
         waiting_for_keypress = -1;
         console_hide();
     }
+}
+
+/* http://www.lua.org/pil/24.2.3.html */
+void lua_stack_dump(lua_State *L)
+{
+  int i;
+  int top = lua_gettop(L);
+  printf("Stack[%d] = { ", top);
+  for (i = top; i >= 0; i--) {  /* repeat for each level */
+    int t = lua_type(L, i);
+    printf("%d:", i);
+    switch (t) {
+
+      case LUA_TSTRING:  /* strings */
+        printf("'%s'", lua_tostring(L, i));
+        break;
+
+      case LUA_TBOOLEAN:  /* booleans */
+        printf(lua_toboolean(L, i) ? "true" : "false");
+        break;
+
+      case LUA_TNUMBER:  /* numbers */
+        printf("%d", lua_tointeger(L, i));
+        break;
+
+      default:  /* other values */
+        printf("%s", lua_typename(L, t));
+        break;
+
+    }
+    printf("  ");  /* put a separator */
+  }
+  printf(" }\n");  /* end the listing */
 }
 
 static unsigned int lua_init()

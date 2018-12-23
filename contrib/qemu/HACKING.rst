@@ -30,8 +30,8 @@ The default directory structure looks like this::
   │   │   └── ...
   │   │
   │   ├── minimal/                  # minimal targets, for experiments
-  │   │   ├── 5D3.113                   # these will use other files from the platform directory
-  │   │   ├── EOSM                      # if only one firmware version is supported, it can be omitted
+  │   │   ├── hello-world           # these will use other files from the platform directory
+  │   │   ├── qemu-frsp             # compile with "make MODEL=EOSM" or "make MODEL=5D3 FW_VERSION=123"
   │   │   └── ...
   │   │
   │   ├── installer/                # for building ML-SETUP.FIR (which enables/disables the boot flag)
@@ -302,11 +302,19 @@ Initial firmware analysis
    DIGIC 5 and earlier models will start the bootloader at ``0xFFFF0000`` (HIVECS)
    and will jump to main firmware at ``0xFF810000``, ``0xFF010000`` or ``0xFF0C0000``.
    There is one main ROM (ROM1) at ``0xF8000000``, 4/8/16/32 MiB mirrored until ``0xFFFFFFFF``,
-   and there may be a second ROM (ROM0) at 0xF0000000, mirrored until ``0xF8000000 - 1 = 0xF7FFFFFF``.
+   and there may be a second ROM (ROM0) at ``0xF0000000``, mirrored until ``0xF8000000 - 1 = 0xF7FFFFFF``.
+   Some DIGIC 5 models also use a serial flash for storing properties (persistent settings).
 
-   DIGIC 6 will start at ``*(uint32_t*)0xFC000000``,
+   DIGIC 6 models will start at ``*(uint32_t*)0xFC000000``,
    bootloader is at 0xFE020000 and main firmware starts at 0xFE0A0000. There is
    a 32 MiB ROM mirrored at 0xFC000000 and 0xFE000000 (there may be others).
+   There is a serial flash as well, used for storing properties.
+
+   DIGIC 7 models will start at ``0xE0000000`` in ARM mode
+   and will jump to main firmware at ``0xE0040000`` in Thumb mode.
+   There is a 32 MiB ROM (ROM0) at ``0xE0000000``, mirrored until ``0xEFFFFFFF``,
+   and an unusually slow 16 MiB ROM (ROM1) at ``0xF0000000``, mirrored until ``0xFFFFFFFF``.
+   No serial flash was identified.
 
    The ROM load address is the one you have used when dumping it (usually one of the mirrors).
    The memory map is printed when starting QEMU — you'll see where each ROM is loaded
@@ -335,17 +343,7 @@ Initial firmware analysis
 3) Add a very simple definition for your camera and get an `initial test run`_.
    Try to guess some missing bits from the error messages, if possible.
 
-4) (optional) Export the functions called during your test run:
-
-   .. code:: shell
-
-     ./run_canon_fw.sh EOSM2,firmware="boot=0" -d idc
-     ...
-     EOSM2.idc saved.
-
-   Load the IDC script into IDA, or convert it if you are using a different disassembler.
-
-5) Code blocks copied from ROM to RAM
+4) Code blocks copied from ROM to RAM
 
    .. code:: shell
   
@@ -366,6 +364,30 @@ Initial firmware analysis
 
    If you are analyzing the bootloader, extract and load the first two blobs in the same way.
    Other models may have slightly different configurations, so YMMV.
+
+5) Export the functions called during your test run:
+
+   .. code:: shell
+
+     ./run_canon_fw.sh EOSM2,firmware="boot=0" -d idc
+     ...
+     EOSM2.idc saved.
+
+   Load the IDC script into IDA, or convert it if you are using a different disassembler.
+
+   Locate ``task_create``, ``register_func``, ``register_interrupt`` and ``CreateStateObject``
+   and add GDB stubs for them in ``CAM/debugmsg.gdb``. Run the firmware under GDB
+   to identify some (thousands of) named functions.
+
+   .. code:: shell
+
+     ./run_canon_fw.sh EOSM2,firmware="boot=0" -d debugmsg -s -S & arm-none-eabi-gdb -x EOSM2/debugmsg.gdb
+     ...
+     named_functions.idc saved.
+
+   Load the new IDC script into IDA and start hacking!
+
+   Repeat this procedure as the emulation is getting better, to identify new functions.
 
    |
 

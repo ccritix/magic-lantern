@@ -431,7 +431,12 @@ static void print_set_maindial_hint(int set)
         else
         {
             info_led_off();
+            #ifdef CONFIG_TOUCHSCREEN
+            #warning FIXME: dialog_redraw breaks touchscreen functionality in PLAY mode, why?! (issue #2901)
+            bmp_idle_copy(1, 0);
+            #else
             redraw();
+            #endif
         }
     }
 }
@@ -496,8 +501,12 @@ int handle_set_wheel_play(struct event * event)
         else if (event->param == BGMT_UNPRESS_SET)
       #endif        
         {
-            set_maindial_action_enabled = 0;
-            print_set_maindial_hint(0);
+            /* only clear the display if something was printed */
+            if (set_maindial_action_enabled)
+            {
+                set_maindial_action_enabled = 0;
+                print_set_maindial_hint(0);
+            }
         }
     
         // make sure the display is updated, just in case
@@ -2716,18 +2725,43 @@ static void grayscale_menus_step()
 
     prev_sig = sig;
 
-    #ifdef CONFIG_5D3
-    if (get_yuv422_vram()->vram == 0 && !lv)
+    #ifdef CONFIG_5D3_123
+    if (!lv)
     {
-        /* 5D3-123 quirk: YUV422 RAM is not initialized until going to LiveView or Playback mode
-         * (and even there, you need a valid image first)
-         * Workaround: if YUV422 was not yet initialized by Canon, remove the transparency from color 0 (make it black).
-         * 
-         * Any other cameras requiring this? Probably not, since the quirk is likely related to the dual monitor support.
-         * 
-         * Note: alter_bitmap_palette will not affect color 0, so it will not break this workaround (yet).
-         */
-        alter_bitmap_palette_entry(0, COLOR_BLACK, 256, 256);
+        static int dirty = 0;
+        if (get_yuv422_vram()->vram == 0)
+        {
+            /* 5D3-123 quirk: YUV422 RAM is not initialized until going to LiveView or Playback mode
+             * (and even there, you need a valid image first)
+             * Workaround: if YUV422 was not yet initialized by Canon, remove the transparency from color 0 (make it black).
+             * 
+             * Any other cameras requiring this? 
+             * Probably not, since the quirk is likely related to the dual monitor support.
+             * 6D shows artifacts in QEMU when running benchmarks
+             * or playing Arkanoid, but apparently clean when running on hardware.
+             * 700D and 1100D also have uninitialized buffer.
+             * 700D and 5D3 1.1.3 do not show any artifacts at startup; 5D3 1.2.3 does.
+             * 550D and 600D are OK.
+             * 
+             * Side effects: issue #2901.
+             * 
+             * Note: alter_bitmap_palette will not affect color 0, so it will not break this workaround (yet).
+             */
+            if (!dirty)
+            {
+                alter_bitmap_palette_entry(0, COLOR_BLACK, 256, 256);
+                dirty = 1;
+            }
+        }
+        else
+        {
+            /* undo our hack */
+            if (dirty)
+            {
+                alter_bitmap_palette_entry(0, 0, 256, 256);
+                dirty = 0;
+            }
+        }
     }
     #endif
 

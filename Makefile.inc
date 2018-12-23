@@ -6,7 +6,7 @@ _CONFIGS_compile_name = _compile
 _CONFIGS_clean_name = _clean
 _CONFIGS_install_name = _install
 
-_CONFIGS_to_filter_out = 
+_CONFIGS_to_filter_out = CONFIG_QEMU
 
 _CONFIGS_to_compile = $(filter-out $(_CONFIGS_to_filter_out), $(ML_SETUP_CONFIGS_WITH_DIR))
 
@@ -82,7 +82,7 @@ prepare_zip: FORCE
 	mkdir -p $(INSTALL_DIR)
 
 # zip.txt must be the first item on the list!
-magiclantern-$(VERSION).zip: install installer_check installdoc
+magiclantern-$(VERSION).zip: install installer_check installdoc minimal_check
 	-$(call rm_files, $@)
 	chmod -x $(INSTALL_DIR)/autoexec.bin
 	cd $(INSTALL_DIR); zip -z ../$@ < \

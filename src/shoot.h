@@ -115,6 +115,9 @@ int set_mlu();
 int get_mlu_delay(int raw);
 int mlu_lock_mirror_if_needed(); /* implemented in lens.c */
 
+/* flash */
+void set_flash_firing(int mode);
+
 /* trap focus */
 int get_trap_focus();
 
@@ -134,6 +137,9 @@ void display_trap_focus_info();
 void free_space_show_photomode();
 
 const char* format_time_hours_minutes_seconds(int seconds);
+
+/* after IMG_9999, Canon wraps around to IMG_0001 */
+#define DCIM_WRAP(x) (MOD((x) - 1, 9999) + 1)
 
 #endif // __SHOOT_H_
 
