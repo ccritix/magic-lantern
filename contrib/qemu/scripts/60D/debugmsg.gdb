@@ -9,7 +9,7 @@ source -v debug-logging.gdb
 #symbol-file ../magic-lantern/platform/60D.111/stubs.o
 
 macro define CURRENT_TASK 0x1a2c
-macro define CURRENT_ISR  (*(int*)0x670 ? (*(int*)0x674) >> 2 : 0)
+macro define CURRENT_ISR  (MEM(0x670) ? MEM(0x674) >> 2 : 0)
 
 # GDB hook is very slow; -d debugmsg is much faster
 # ./run_canon_fw.sh will use this address, don't delete it
@@ -21,6 +21,12 @@ task_create_log
 
 b *0xFF1D68C0
 register_interrupt_log
+
+b *0xFF06C6C8
+register_func_log
+
+b *0xFF1DC6CC
+CreateStateObject_log
 
 # MPU communication
 if 0
@@ -68,9 +74,6 @@ if 0
 end
 
 if 0
-  b *0xFF1DC6CC
-  CreateStateObject_log
-
   b *0xFF1DC614
   state_transition_log
 

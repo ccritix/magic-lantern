@@ -15,14 +15,23 @@ function printf(s,...)
     end
 end
 
+function alert()
+    display.off()
+    beep()
+    display.on()
+end
+
 function request_mode(mode, mode_str)
-    while camera.mode ~= mode do
+    if camera.mode ~= mode or not camera.gui.idle then
         printf("Please switch to %s mode.\n", mode_str, mode)
-        while camera.mode ~= mode do
+
+        while camera.mode ~= mode or not camera.gui.idle do
             console.show(); assert(console.visible)
-            msleep(1000)
+            if camera.gui.idle then alert() end
+            sleep(1)
         end
     end
+    sleep(2)
 end
 
 function round(x)
@@ -218,6 +227,41 @@ function rename_test(src, dst)
     printf("Rename test OK\n")
 end
 
+function list_dir(dir, prefix)
+    prefix = prefix or "- "
+    local i, d, f
+    for i,d in pairs(dir:children()) do
+       printf("%s%s\n", prefix, d)
+       list_dir(d, "  " .. prefix)
+    end
+    for i,f in pairs(dir:files()) do
+       printf("%s%s\n", prefix, f)
+    end
+end
+
+function card_test()
+    if dryos.cf_card then
+        printf("CF card (%s) present\n", dryos.cf_card.path)
+        printf("- free space: %d MiB\n", dryos.cf_card.free_space)
+        printf("- next image: %s\n", dryos.cf_card:image_path(1))
+        printf("- DCIM dir. : %s\n", dryos.cf_card.dcim_dir)
+        assert(dryos.cf_card.path == "A:/")
+        assert(dryos.cf_card.type == "CF")
+        list_dir(dryos.cf_card.dcim_dir)
+        list_dir(dryos.directory(dryos.cf_card.path))
+    end
+    if dryos.sd_card then
+        printf("SD card (%s) present\n", dryos.sd_card.path)
+        printf("- free space: %d MiB\n", dryos.sd_card.free_space)
+        printf("- next image: %s\n", dryos.sd_card:image_path(1))
+        printf("- DCIM dir. : %s\n", dryos.sd_card.dcim_dir)
+        assert(dryos.sd_card.path == "B:/")
+        assert(dryos.sd_card.type == "SD")
+        list_dir(dryos.sd_card.dcim_dir)
+        list_dir(dryos.directory(dryos.sd_card.path))
+    end
+end
+
 function test_io()
     printf("Testing file I/O...\n")
     stdio_test()
@@ -225,6 +269,7 @@ function test_io()
     append_test("tmp.txt")
     rename_test("apple.txt", "banana.txt")
     rename_test("apple.txt", "ML/banana.txt")
+    card_test()
 
     printf("File I/O tests completed.\n")
     printf("\n")
@@ -239,7 +284,7 @@ function test_camera_gui()
 
     -- half-shutter should exit playback mode
     key.press(KEY.HALFSHUTTER)
-    msleep(1000)
+    sleep(1)
     assert(camera.gui.play == false)
     assert(camera.gui.mode == 0)
     key.press(KEY.UNPRESS_HALFSHUTTER)
@@ -306,6 +351,7 @@ function test_camera_gui()
     end
 
     lv.stop()
+    assert(not lv.enabled)
 
     printf("Canon GUI tests completed.\n")
     printf("\n")
@@ -321,12 +367,12 @@ function test_menu()
     -- or as integer (internal value)
     assert(menu.set("Expo", "ISO", "200"))
     assert(camera.iso.value == 200)
-    msleep(1000)
+    sleep(1)
 
     -- int should be promoted to string because of custom logic in Expo->ISO menu
     assert(menu.set("Expo", "ISO", 1600))
     assert(camera.iso.value == 1600)
-    msleep(1000)
+    sleep(1)
 
     -- move selection (not required for set to work; just for user interface)
     assert(menu.select("Expo", "Picture Style"))
@@ -335,123 +381,176 @@ function test_menu()
     -- numeric works too, as it sets the internal index
     assert(menu.set("Expo", "Picture Style", "Portrait"))
     assert(menu.get("Expo", "Picture Style") == "Portrait")
-    msleep(1000)
+    sleep(1)
     assert(menu.set("Expo", "Picture Style", 5)) -- OK, selects Neutral
     -- skip string test, as other camera models may use different indices
-    msleep(1000)
+    sleep(1)
     assert(menu.set("Expo", "Picture Style", "Landscape"))
     assert(menu.get("Expo", "Picture Style") == "Landscape")
-    msleep(1000)
+    sleep(1)
     assert(menu.set("Expo", "Picture Style", 1234) == false) -- should fail, out of range
     assert(menu.get("Expo", "Picture Style") == "Landscape") -- old selection should not change
-    msleep(1000)
+    sleep(1)
 
     assert(menu.select("Overlay"))
-    assert(menu.select("Movie"))
-    assert(menu.select("Shoot"))
 
+    assert(menu.select("Movie"))
+
+    -- only run this test if FPS override is available in menu
+    if menu.get("Movie", "FPS override") ~= nil then
+        -- perform the next test in LiveView
+        menu.close()
+        lv.start()
+        assert(lv.enabled)
+        assert(lv.running)
+        menu.open()
+
+        assert(menu.select("Movie", "FPS override"))
+        assert(menu.set("Movie", "FPS override", "OFF"))            -- "OFF" and "ON" are boolean matches for zero/nonzero internal state
+        assert(menu.get("Movie", "FPS override") == "OFF")
+        assert(menu.set("FPS override", "Desired FPS", "23.976"))   -- this menu entry will print "23.976 (from 25)" or something like that
+        assert(menu.get("FPS override", "Desired FPS"):sub(1,13) == "23.976 (from ")
+        assert(menu.set("FPS override", "Desired FPS", "5"))        -- this menu entry will print "5 (from 30)" or something like that
+        assert(menu.get("FPS override", "Desired FPS"):sub(1,8) == "5 (from ")
+        assert(menu.set("FPS override", "Desired FPS", "10"))       -- this menu entry will print "10 (from 25)" or something like that
+        assert(menu.get("FPS override", "Desired FPS"):sub(1,9) == "10 (from ")
+        assert(menu.set("FPS override", "Optimize for", "Exact FPS")) -- nothing fancy here, just request exact frame rate
+        assert(menu.get("FPS override", "Optimize for") == "Exact FPS")
+        assert(menu.set("Movie", "FPS override", "ON"))             -- enable FPS override
+        assert(menu.get("Movie", "FPS override") ~= "ON")           -- the menu entry will print something else
+        sleep(2)                                                    -- switching the frame rate takes a while
+        assert(menu.get("Movie", "FPS override") == "10.000")       -- it should eventually settle to our requested value
+        assert(menu.get("FPS override", "Actual FPS") == "10.000")  -- current FPS value can be read from here
+        assert(menu.set("Movie", "FPS override", "OFF"))            -- that was it
+        assert(menu.get("Movie", "FPS override") == "OFF")          -- make sure it's turned off
+
+        -- LiveView test completed
+        menu.close()
+        lv.stop()
+        assert(not lv.running)
+        assert(not lv.enabled)
+        menu.open()
+    end
+
+    assert(menu.select("Shoot"))
     assert(menu.select("Shoot", "Advanced Bracket"))
 
     -- boolean items should be set-able as int (0 or 1)
     assert(menu.set("Shoot", "Advanced Bracket", 1))
     assert(menu.get("Shoot", "Advanced Bracket", 0) == 1)
-    msleep(1000)
+    sleep(1)
 
     -- or as string (if the user interface displays "ON" or "OFF")
     -- here, actual string will be "ON, 10s" or similar (also accepted)
     assert(menu.set("Shoot", "Intervalometer", "ON"))
     assert(menu.get("Shoot", "Intervalometer", 0) == 1)
-    msleep(1000)
+    sleep(1)
 
     -- turning off should be straightforward
     assert(menu.set("Shoot", "Advanced Bracket", "OFF"))
     assert(menu.get("Shoot", "Advanced Bracket", 0) == 0)
     assert(menu.get("Shoot", "Advanced Bracket") == "OFF")
-    msleep(1000)
+    sleep(1)
+
+    -- "ON" and "OFF" are interpreted as booleans,
+    -- even if the menu entry doesn't display exactly this string
+    assert(menu.set("Shoot", "Advanced Bracket", "ON"))
+    assert(menu.get("Shoot", "Advanced Bracket") ~= "ON")
+    assert(menu.get("Shoot", "Advanced Bracket") ~= "OFF")
+    assert(menu.set("Shoot", "Advanced Bracket", "OFF"))
+    assert(menu.get("Shoot", "Advanced Bracket") == "OFF")
 
     assert(menu.set("Shoot", "Intervalometer", 0))
     assert(menu.get("Shoot", "Intervalometer", 0) == 0)
     assert(menu.get("Shoot", "Intervalometer") == "OFF")
-    msleep(1000)
+    sleep(1)
 
     -- move to Intervalometer menu
     assert(menu.select("Shoot", "Intervalometer"))
-    msleep(1000)
+    sleep(1)
 
     -- enter the submenu
     assert(menu.select("Intervalometer", "Take a pic every"))
-    msleep(1000)
+    sleep(1)
 
     -- note: setting menu by string works by brute force
     -- that is, trying every possible value and comparing the string
-    -- the range for this menu is huge, so it only checks round values
-    -- for speed reasons (so entering 1m10s will fail)
-    -- smaller ranges are OK for trying every single value
+    assert(menu.set("Intervalometer", "Take a pic every", "1m10s"))
+    assert(menu.get("Intervalometer", "Take a pic every", 0) == 70)
+    assert(menu.get("Intervalometer", "Take a pic every") == "1m10s")
+
+    -- going from 1m10s to 1m30s should be easy
     assert(menu.set("Intervalometer", "Take a pic every", "1m30s"))
     assert(menu.get("Intervalometer", "Take a pic every", 0) == 90)
     assert(menu.get("Intervalometer", "Take a pic every") == "1m30s")
-    msleep(1000)
+
+    -- going back to 1m10s would have to go through LOTS of intermediate values
+    assert(menu.set("Intervalometer", "Take a pic every", "1m10s"))
+    assert(menu.get("Intervalometer", "Take a pic every", 0) == 70)
+    assert(menu.get("Intervalometer", "Take a pic every") == "1m10s")
+    sleep(1)
 
     -- actual string will be 10s
     assert(menu.set("Intervalometer", "Take a pic every", "10"))
     assert(menu.get("Intervalometer", "Take a pic every", 0) == 10)
     assert(menu.get("Intervalometer", "Take a pic every") == "10s")
-    msleep(1000)
+    sleep(1)
 
-    -- integer should work as well - e.g. 1m10s should work now
+    -- integer should work as well, as long as the internal state variable matches the menu value
+    -- on other menus, where internal state is some index, integer argument may not be the best choice
     assert(menu.set("Intervalometer", "Take a pic every", 70))
     assert(menu.get("Intervalometer", "Take a pic every", 0) == 70)
     assert(menu.get("Intervalometer", "Take a pic every") == "1m10s")
-    msleep(1000)
+    sleep(1)
 
     -- out of range, should fail
     assert(menu.set("Intervalometer", "Take a pic every", 7000000) == false)
     assert(menu.get("Intervalometer", "Take a pic every", 0) == 70)
     assert(menu.get("Intervalometer", "Take a pic every") == "1m10s")
-    msleep(1000)
+    sleep(1)
 
     -- exit submenu
     assert(menu.select("Shoot", "Intervalometer"))
-    msleep(1000)
+    sleep(1)
 
     -- let's try some more submenus
     -- todo: more multi-level submenus
-    assert(menu.select("Advanced Bracket", "Frames")); msleep(1000)
-    assert(menu.select("Advanced Bracket", "Sequence")); msleep(1000)
-    assert(menu.select("Advanced Bracket", "ISO shifting")); msleep(1000)
-    assert(menu.select("Bulb Timer", "Exposure duration")); msleep(1000)
-    assert(menu.select("Shoot Preferences", "Snap Simulation")); msleep(1000)
-    assert(menu.select("Misc key settings", "Sticky HalfShutter")); msleep(1000)
-    assert(menu.select("Play mode actions", "Trigger key(s)")); msleep(1000)
-    assert(menu.select("LiveView zoom tweaks", "Zoom on HalfShutter")); msleep(1000)
-    assert(menu.select("Lens info", "Lens ID")); msleep(1000)
-    assert(menu.select("Shoot", "Intervalometer")); msleep(1000)
+    assert(menu.select("Advanced Bracket", "Frames")); sleep(1)
+    assert(menu.select("Advanced Bracket", "Sequence")); sleep(1)
+    assert(menu.select("Advanced Bracket", "ISO shifting")); sleep(1)
+    assert(menu.select("Bulb Timer", "Exposure duration")); sleep(1)
+    assert(menu.select("Shoot Preferences", "Snap Simulation")); sleep(1)
+    assert(menu.select("Misc key settings", "Sticky HalfShutter")); sleep(1)
+    assert(menu.select("Play mode actions", "Trigger key(s)")); sleep(1)
+    assert(menu.select("LiveView zoom tweaks", "Zoom on HalfShutter")); sleep(1)
+    assert(menu.select("Lens info", "Lens ID")); sleep(1)
+    assert(menu.select("Shoot", "Intervalometer")); sleep(1)
 
     -- selection in the Modified menu
     -- note: we have already modified "Take a pic every"
     -- so at least this setting should appear there
-    assert(menu.set("Shoot", "Intervalometer", "ON")); msleep(1000)
-    assert(menu.select("Modified", "Intervalometer")); msleep(1000)             -- we should find Intervalometer in the Modified menu
-    assert(menu.select("Modified", "Take a pic every")); msleep(1000)           -- same for "Take pic every" (smaller font)
-    assert(menu.select("Modified", "Intervalometer")); msleep(1000)             -- scroll back to intervalometer
-    assert(menu.set("Shoot", "Intervalometer", "OFF")); msleep(1000)            -- turn it off
-    assert(menu.select("Modified", "Take a pic every") == false); msleep(1000)  -- now "Take a pic every" should disappear (submenus are only expanded when the main entry is on)
-    assert(menu.set("Shoot", "Intervalometer", "ON")); msleep(1000)             -- re-enable intervalometer
-    assert(menu.select("Modified", "Take a pic every")); msleep(1000)           -- now "Take a pic every" should re-appear
-    assert(menu.set("Intervalometer", "Take a pic every", 10)); msleep(1000)    -- set "Take a pic every" back to default
-    assert(menu.select("Modified", "Intervalometer")); msleep(1000)             -- scroll back to intervalometer
-    assert(menu.set("Shoot", "Intervalometer", "OFF")); msleep(1000)            -- turn it off
-    assert(menu.select("Modified", "Take a pic every") == false); msleep(1000)  -- now "Take a pic every" should disappear
-    assert(menu.select("Shoot", "Intervalometer")); msleep(1000)                -- move back to Shoot -> Intervalometer
-    assert(menu.select("Intervalometer", "Take a pic every")); msleep(1000)     -- set other intervalometer settings to default (just in case)
-    assert(menu.select("Intervalometer", "Start trigger")); msleep(1000)        -- the menu.select calls are just for visual effect
-    assert(menu.set("Intervalometer", "Start trigger", "Leave Menu")); msleep(500);
-    assert(menu.select("Intervalometer", "Start after")); msleep(500)
-    assert(menu.set("Intervalometer", "Start after", "3s")); msleep(500);
-    assert(menu.select("Intervalometer", "Stop after")); msleep(500)
-    assert(menu.set("Intervalometer", "Stop after", "Disabled")); msleep(500);
-    assert(menu.select("Shoot", "Intervalometer")); msleep(1000)
-    assert(menu.select("Modified", "Intervalometer") == false); msleep(1000)    -- now Modified -> Intervalometer should disappear
+    assert(menu.set("Shoot", "Intervalometer", "ON")); sleep(1)
+    assert(menu.select("Modified", "Intervalometer")); sleep(1)             -- we should find Intervalometer in the Modified menu
+    assert(menu.select("Modified", "Take a pic every")); sleep(1)           -- same for "Take pic every" (smaller font)
+    assert(menu.select("Modified", "Intervalometer")); sleep(1)             -- scroll back to intervalometer
+    assert(menu.set("Shoot", "Intervalometer", "OFF")); sleep(1)            -- turn it off
+    assert(menu.select("Modified", "Take a pic every") == false); sleep(1)  -- now "Take a pic every" should disappear (submenus are only expanded when the main entry is on)
+    assert(menu.set("Shoot", "Intervalometer", "ON")); sleep(1)             -- re-enable intervalometer
+    assert(menu.select("Modified", "Take a pic every")); sleep(1)           -- now "Take a pic every" should re-appear
+    assert(menu.set("Intervalometer", "Take a pic every", 10)); sleep(1)    -- set "Take a pic every" back to default
+    assert(menu.select("Modified", "Intervalometer")); sleep(1)             -- scroll back to intervalometer
+    assert(menu.set("Shoot", "Intervalometer", "OFF")); sleep(1)            -- turn it off
+    assert(menu.select("Modified", "Take a pic every") == false); sleep(1)  -- now "Take a pic every" should disappear
+    assert(menu.select("Shoot", "Intervalometer")); sleep(1)                -- move back to Shoot -> Intervalometer
+    assert(menu.select("Intervalometer", "Take a pic every")); sleep(1)     -- set other intervalometer settings to default (just in case)
+    assert(menu.select("Intervalometer", "Start trigger")); sleep(1)        -- the menu.select calls are just for visual effect
+    assert(menu.set("Intervalometer", "Start trigger", "Leave Menu")); sleep(0.5);
+    assert(menu.select("Intervalometer", "Start after")); sleep(0.5)
+    assert(menu.set("Intervalometer", "Start after", "3s")); sleep(0.5);
+    assert(menu.select("Intervalometer", "Stop after")); sleep(0.5)
+    assert(menu.set("Intervalometer", "Stop after", "Disabled")); sleep(0.5);
+    assert(menu.select("Shoot", "Intervalometer")); sleep(1)
+    assert(menu.select("Modified", "Intervalometer") == false); sleep(1)    -- now Modified -> Intervalometer should disappear
 
     -- non-existent menus; should fail
     assert(menu.select("Dinosaur") == false)
@@ -544,19 +643,23 @@ function test_keys()
     for i = 1,10 do
         -- open Canon menu
         camera.gui.menu = true
-        msleep(1000)
+        sleep(1)
         assert(camera.gui.menu == true)
         assert(camera.gui.idle == false)
         key.press(KEY.HALFSHUTTER)
-        msleep(200)
-        assert(key.last == KEY.HALFSHUTTER)
-        msleep(1000)
+        sleep(0.2)
+        if key.last ~= KEY.HALFSHUTTER then
+            printf("warning: last key not half-shutter, but %d\n", key.last)
+        end
+        sleep(1)
         -- half-shutter should close Canon menu
         assert(camera.gui.menu == false)
         assert(camera.gui.idle == true)
         key.press(KEY.UNPRESS_HALFSHUTTER)
-        msleep(200)
-        assert(key.last == KEY.UNPRESS_HALFSHUTTER)
+        sleep(0.2)
+        if key.last ~= KEY.UNPRESS_HALFSHUTTER then
+            printf("warning: last key not unpress half-shutter, but %d\n", key.last)
+        end
     end
     printf("Half-shutter test OK.\n")
     
@@ -668,8 +771,9 @@ function test_camera_exposure()
     for k = 1,100 do
         local method = math.random(1,3)
         local d = nil
+        -- 500D: max ISO 3200
         if method == 1 then
-            local iso = math.random(100, 6400)
+            local iso = math.random(100, 3200)
             if math.random(1,2) == 1 then
                 camera.iso.value = iso
             else
@@ -677,11 +781,11 @@ function test_camera_exposure()
             end
             d = math.abs(math.log(camera.iso.value,2) - math.log(iso,2))
         elseif method == 2 then
-            local apex = math.random(5*100,11*100)/100
+            local apex = math.random(5*100,10*100)/100
             camera.iso.apex = apex
             d = math.abs(camera.iso.apex - apex)
         elseif method == 3 then
-            local raw = math.random(72, 120)
+            local raw = math.random(72, 112)
             camera.iso.raw = raw
             d = math.abs(camera.iso.raw - raw) / 8
         end
@@ -905,36 +1009,53 @@ end
 
 function test_camera_take_pics()
     printf("Testing picture taking functions...\n")
-    local initial_file_num
 
     request_mode(MODE.M, "M")
     camera.shutter = 1/50
-    msleep(2000)
+    sleep(2)
     
     printf("Snap simulation test...\n")
     assert(menu.set("Shoot Preferences", "Snap Simulation", 1))
-    initial_file_num = dryos.shooting_card.file_number
+    local initial_file_num = dryos.shooting_card.file_number
     camera.shoot()
     assert(dryos.shooting_card.file_number == initial_file_num)
     assert(menu.set("Shoot Preferences", "Snap Simulation", 0))
 
-    msleep(2000)
+    sleep(2)
 
     printf("Single picture...\n")
     -- let's also check if we can find the image file
-    -- fixme: a way to check these routines when the image number wraps around at 10000
     initial_file_num = dryos.shooting_card.file_number
-    local image_path = dryos.dcim_dir.path ..  dryos.image_prefix .. string.format("%04d", (initial_file_num + 1) % 10000)
-    local image_path_cr2 = image_path .. ".CR2"
-    local image_path_jpg = image_path .. ".JPG"
+    local image_path_cr2 = dryos.shooting_card:image_path(1, ".CR2") -- next image (assume CR2)
+    local image_path_jpg = dryos.shooting_card:image_path(1, ".JPG") -- next image (assume JPG)
+    local image_path_auto = dryos.shooting_card:image_path(1)        -- next image (autodetect extension)
+    assert(dryos.shooting_card:image_path(1, nil) == image_path_auto)
+    assert(image_path_auto == image_path_cr2 or image_path_auto == image_path_jpg)
+    assert(dryos.shooting_card:image_path(1, "") .. ".CR2" == image_path_cr2)
+    assert(dryos.shooting_card:image_path(1, "") .. ".JPG" == image_path_jpg)
+
     -- the image file(s) should not be present before taking the picture :)
     assert(io.open(image_path_cr2, "rb") == nil)
     assert(io.open(image_path_jpg, "rb") == nil)
 
     camera.shoot()
 
+    assert(dryos.shooting_card:image_path(0) == image_path_auto) -- last captured image
+    assert(dryos.shooting_card:image_path() == image_path_auto)  -- that's the default
+
+    -- manually build last image path name
+    -- next image path is harder to build manually, as you need to take care
+    -- of wrapping around (100CANON/IMG_9999.CR2 -> 101CANON/IMG_0001.CR2)
+    -- this is why dryos.shooting_card:image_path is preferred -- it handles these edge cases for you
+    assert(dryos.shooting_card.dcim_dir.path == tostring(dryos.shooting_card.dcim_dir))
+    local image_path_dcim =
+        dryos.shooting_card.dcim_dir.path ..
+        dryos.image_prefix ..
+        string.format("%04d", dryos.shooting_card.file_number)
+    assert(image_path_dcim == dryos.shooting_card:image_path(0, ""))
+
     -- but either CR2 or JPG should be there afterwards (or maybe both)
-    assert((dryos.shooting_card.file_number - initial_file_num) % 10000 == 1)
+    assert((dryos.shooting_card.file_number - initial_file_num) % 9999 == 1)
     camera.wait()
     local size_cr2 = print_file_size(image_path_cr2)
     local size_jpg = print_file_size(image_path_jpg)
@@ -947,7 +1068,7 @@ function test_camera_take_pics()
     assert(camera.gui.play_photo == true)
     assert(camera.gui.play_movie == false)
 
-    msleep(2000)
+    sleep(2)
 
     printf("Two burst pictures...\n")
     printf("Ideally, the camera should be in some continuous shooting mode (not checked).\n")
@@ -957,12 +1078,12 @@ function test_camera_take_pics()
     local old_prefix = dryos.image_prefix
     dryos.image_prefix = "ABC_"
     assert(dryos.image_prefix == "ABC_")
-    local image1_path = dryos.dcim_dir.path ..  dryos.image_prefix .. string.format("%04d", (initial_file_num + 1) % 10000)
-    local image1_path_cr2 = image1_path .. ".CR2"
-    local image1_path_jpg = image1_path .. ".JPG"
-    local image2_path = dryos.dcim_dir.path ..  dryos.image_prefix .. string.format("%04d", (initial_file_num + 2) % 10000)
-    local image2_path_cr2 = image2_path .. ".CR2"
-    local image2_path_jpg = image2_path .. ".JPG"
+    -- edge case if image number is 9997 (next image 9998) before running api_test.lua
+    -- (image1 will be 100CANON/IMG_9999 and image2 should be 101CANON/IMG_0001)
+    local image1_path_cr2 = dryos.shooting_card:image_path(1, ".CR2")
+    local image1_path_jpg = dryos.shooting_card:image_path(1, ".JPG")
+    local image2_path_cr2 = dryos.shooting_card:image_path(2, ".CR2")
+    local image2_path_jpg = dryos.shooting_card:image_path(2, ".JPG")
     assert(io.open(image1_path_cr2, "rb") == nil)
     assert(io.open(image1_path_jpg, "rb") == nil)
     assert(io.open(image2_path_cr2, "rb") == nil)
@@ -970,7 +1091,7 @@ function test_camera_take_pics()
 
     camera.burst(2)
 
-    assert((dryos.shooting_card.file_number - initial_file_num) % 10000 == 2)
+    assert((dryos.shooting_card.file_number - initial_file_num) % 9999 == 2)
     camera.wait()
     local size1_cr2 = print_file_size(image1_path_cr2)
     local size1_jpg = print_file_size(image1_path_jpg)
@@ -991,6 +1112,11 @@ function test_camera_take_pics()
     dryos.image_prefix = ""
     assert(dryos.image_prefix == old_prefix)
 
+    -- edge case if image number is 9994/9995 (next image 9995/9996) before running api_test.lua
+    -- images from previous tests will be either (9995, 9996, 9997), or (9996, 9997, 9998)
+    -- the next 3 images will be either (100CANON/IMG_9998, 100CANON/IMG_9999, 101CANON/IMG_0001)
+    -- or (100CANON/IMG_9999, 101CANON/IMG_0001, 101CANON/IMG_0002)
+    -- dryos.shooting_card:image_path takes care of this
     printf("Bracketed pictures...\n")
     initial_file_num = dryos.shooting_card.file_number
     camera.shutter.value = 1/500
@@ -999,26 +1125,24 @@ function test_camera_take_pics()
     camera.shoot()
     camera.shutter.value = 1/5
     camera.shoot()
-    assert((dryos.shooting_card.file_number - initial_file_num) % 10000 == 3)
+    assert((dryos.shooting_card.file_number - initial_file_num) % 9999 == 3)
     camera.wait()
     -- fixme: how to check metadata in the files?
-    for i = dryos.shooting_card.file_number - 2, dryos.shooting_card.file_number do
-        image_path = dryos.dcim_dir.path ..  dryos.image_prefix .. string.format("%04d", i % 10000)
-        image_path_cr2 = image_path .. ".CR2"
-        image_path_jpg = image_path .. ".JPG"
+    for i = -2,0 do
+        image_path_cr2 = dryos.shooting_card:image_path(i, ".CR2")
+        image_path_jpg = dryos.shooting_card:image_path(i, ".JPG")
         local size_cr2 = print_file_size(image_path_cr2)
         local size_jpg = print_file_size(image_path_jpg)
         assert(size_cr2 or size_jpg)
     end
 
-    msleep(2000)
+    sleep(2)
 
     printf("Bulb picture...\n")
     local t0 = dryos.ms_clock
     initial_file_num = dryos.shooting_card.file_number
-    image_path = dryos.dcim_dir.path ..  dryos.image_prefix .. string.format("%04d", (initial_file_num + 1) % 10000)
-    image_path_cr2 = image_path .. ".CR2"
-    image_path_jpg = image_path .. ".JPG"
+    image_path_cr2 = dryos.shooting_card:image_path(1, ".CR2")
+    image_path_jpg = dryos.shooting_card:image_path(1, ".JPG")
     assert(io.open(image_path_cr2, "rb") == nil)
     assert(io.open(image_path_jpg, "rb") == nil)
 
@@ -1030,7 +1154,7 @@ function test_camera_take_pics()
     -- we can't measure this time accurately, so we only do a very rough check
     -- slow cards may be an issue, so let's allow a wide error margin
     assert(elapsed > 9900 and elapsed < 30000)
-    assert((dryos.shooting_card.file_number - initial_file_num) % 10000 == 1)
+    assert((dryos.shooting_card.file_number - initial_file_num) % 9999 == 1)
     camera.wait()
     local size_cr2 = print_file_size(image_path_cr2)
     local size_jpg = print_file_size(image_path_jpg)
@@ -1038,7 +1162,7 @@ function test_camera_take_pics()
 
     printf("Picture taking tests completed.\n")
     printf("\n")
-    msleep(5000)
+    sleep(5)
 end
 
 function test_lv()
@@ -1049,7 +1173,7 @@ function test_lv()
         printf("LiveView is running; stopping...\n")
         lv.stop()
         assert(not lv.enabled, "LiveView did not stop")
-        msleep(2000)
+        sleep(2)
     end
 
     assert(not lv.enabled)
@@ -1062,7 +1186,7 @@ function test_lv()
     assert(lv.vidmode == "PH-LV")
     assert(camera.gui.idle == true)
 
-    msleep(2000)
+    sleep(2)
 
     -- lv.overlays status
     local function print_overlays_status()
@@ -1073,31 +1197,32 @@ function test_lv()
 
     console.hide(); assert(not console.visible)
     local old_gdr = menu.get("Overlay", "Global Draw")
-    for i=1,10 do
+    for i=1,16 do
         key.press(KEY.INFO)
-        msleep(200); print_overlays_status()
-        msleep(1000)
+        sleep(0.2); print_overlays_status()
+        sleep(1)
         if lv.overlays ~= 1 then
             -- Canon overlays disabled?
             -- Enable ML overlays
             assert(menu.set("Overlay", "Global Draw", "ON"))
-            msleep(200); print_overlays_status()
+            sleep(0.2); print_overlays_status()
             assert(lv.overlays == 2)
-            msleep(1000)
+            sleep(1)
             -- Disable ML overlays
             assert(menu.set("Overlay", "Global Draw", "OFF"))
-            msleep(200); print_overlays_status()
+            sleep(0.2); print_overlays_status()
             assert(lv.overlays == false)
-            msleep(1000)
+            sleep(1)
+            if i > 8 then break end
         end
     end
     -- restore original Global Draw setting
     assert(menu.set("Overlay", "Global Draw", old_gdr))
     assert(menu.get("Overlay", "Global Draw") == old_gdr)
-    msleep(200); print_overlays_status()
+    sleep(0.2); print_overlays_status()
     console.show(); assert(console.visible)
 
-    msleep(2000)
+    sleep(2)
 
     for i,z in pairs{1, 5, 10, 5, 1, 10, 1} do
         printf("Setting zoom to x%d...\n", z)
@@ -1117,10 +1242,11 @@ function test_lv()
     lv.pause()
     assert(lv.enabled, "LiveView stopped")
     assert(lv.paused, "LiveView could not be paused")
+    assert(not lv.running, "LiveView should not be running")
     assert(not lens.autofocusing)
     assert(lv.vidmode == "PAUSED-LV");
 
-    msleep(2000)
+    sleep(2)
 
     printf("Resuming LiveView...\n")
     lv.resume()
@@ -1129,7 +1255,7 @@ function test_lv()
     assert(not lens.autofocusing)
     assert(lv.vidmode == "PH-LV");
 
-    msleep(2000)
+    sleep(2)
 
     printf("Stopping LiveView...\n")
     lv.stop()
@@ -1140,7 +1266,7 @@ function test_lv()
     assert(not lens.autofocusing)
     assert(lv.vidmode == "PH-NOLV")
 
-    msleep(1000)
+    sleep(1)
 
     printf("LiveView tests completed.\n")
     printf("\n")
@@ -1161,18 +1287,37 @@ function test_lens_focus()
         printf("(or, remove the lens from the camera to skip this test)\n")
         while not lens.af and lens.name ~= "" do
             console.show(); assert(console.visible)
-            msleep(1000)
+            sleep(1)
+            alert()
         end
-        msleep(1000)
+        sleep(1)
     end
 
     -- note: some lenses may be able to AF only in LiveView
     -- so let's check each mode regardless of the other
 
+    local function try_autofocus()
+        if lens.autofocus() then
+            return
+        end
+
+        -- if it didn't work, it's likely because the subject is hard to focus on
+        -- (camera might be pointed to a blank wall, or with lens cap on or whatever)
+        printf("Is there something to focus on?\n")
+        for i = 1,30 do
+            alert()
+            printf("\b\b\b\b\b%d...", 30 - i)
+            io.flush()
+            sleep(1)
+            if lens.autofocus() then return end
+        end
+        assert(false, "could not autofocus")
+    end
+
     if not lv.running then
         if lens.af then
             printf("Autofocus outside LiveView...\n")
-            assert(lens.autofocus())
+            try_autofocus()
         end
 
         lv.start()
@@ -1184,11 +1329,11 @@ function test_lens_focus()
 
         printf("Autofocus in LiveView...\n")
         assert(not lens.autofocusing)
-        assert(lens.autofocus())
+        try_autofocus()
         assert(not lens.autofocusing)
 
         printf("Please trigger autofocus (half-shutter / AF-ON / * ).\n")
-        for i = 1,2000 do
+        for i = 1,6000 do
             msleep(10)
             if lens.autofocusing then
                 printf("Autofocus triggered.\n")
@@ -1199,18 +1344,22 @@ function test_lens_focus()
                 break
             end
             if i % 100 == 0 then
-                printf("\b\b\b\b\b%d...", 20 - i // 100)
+                printf("\b\b\b\b\b%d...", 60 - i // 100)
                 io.flush()
+                alert()
             end
-            if i // 100 == 20 then
+            if i // 100 == 60 then
                 printf("\b\b\b\b\b")
                 io.flush()
                 assert(false, "Autofocus not triggered.\n")
             end
         end
 
-        msleep(1000)
+        sleep(1)
         printf("Focus distance: %s\n",  lens.focus_distance)
+
+        -- just in case user presses AF twice by mistake
+        sleep(5)
 
         -- note: focus direction is not consistent
         -- some lenses will focus to infinity, others to macro
@@ -1218,12 +1367,13 @@ function test_lens_focus()
         while lens.focus(-1,3,true) do end
 
         -- note: focus distance and position may not be reported right away
-        msleep(500)
+        sleep(0.5)
 
         printf("Focus distance: %s\n",  lens.focus_distance)
         printf("Focus motor position: %d\n", lens.focus_pos)
-        
-        for i,step in pairs{3,2,1} do
+
+        -- step size 1 may be too slow or may fail on certain lenses
+        for i,step in pairs{3,2} do   -- pairs{3,2,1} to run the full test
             for j,wait in pairs{true,false} do
                 printf("Focusing forward with step size %d, wait=%s...\n", step, wait)
                 local steps_front = 0
@@ -1233,14 +1383,14 @@ function test_lens_focus()
                     steps_front = steps_front + 1
                 end
                 
-                msleep(500)
+                sleep(0.5)
 
                 printf("\n")
                 printf("Focus distance: %s\n",  lens.focus_distance)
                 printf("Focus motor position: %d\n", lens.focus_pos)
                 local focus_pos_1 = lens.focus_pos
 
-                msleep(500)
+                sleep(0.5)
                 
                 printf("Focusing backward with step size %d, wait=%s...\n", step, wait)
                 local steps_back = 0
@@ -1249,14 +1399,14 @@ function test_lens_focus()
                     steps_back = steps_back + 1
                 end
                 
-                msleep(500)
+                sleep(0.5)
 
                 printf("\n")
                 printf("Focus distance: %s\n",  lens.focus_distance)
                 printf("Focus motor position: %d\n", lens.focus_pos)
                 local focus_pos_2 = lens.focus_pos
 
-                msleep(500)
+                sleep(0.5)
 
                 local motor_steps_front = math.abs(focus_pos_1 - focus_pos_0)
                 local motor_steps_back  = math.abs(focus_pos_2 - focus_pos_1)
@@ -1264,7 +1414,7 @@ function test_lens_focus()
                 printf("Focus range: %s steps forward, %s steps backward. \n",  steps_front, steps_back)
                 printf("Motor steps: %s forward, %s backward, %s lost. \n",  motor_steps_front, motor_steps_back, motor_steps_lost)
 
-                msleep(500)
+                sleep(0.5)
             end
         end
         printf("\nFocus test completed.\n")
@@ -1294,7 +1444,7 @@ function test_movie()
     lv.pause()
     local s,e = pcall(movie.start)
     assert(s == false)
-    assert(e:find("LiveView"))
+    assert(e:find("LiveView") or e:find("movie mode"))
     menu.close()
     lv.resume()
 
@@ -1311,7 +1461,7 @@ function test_movie()
     console.hide(); assert(not console.visible)
     movie.start()
     assert(movie.recording)
-    msleep(1000)
+    sleep(1)
     movie.stop()
     assert(not movie.recording)
     console.show(); assert(console.visible)
@@ -1320,8 +1470,12 @@ function test_movie()
     assert(camera.gui.idle == true)
     camera.gui.play = true
     assert(camera.gui.play == true)
-    assert(camera.gui.play_movie == true)
-    assert(camera.gui.play_photo == false)
+
+    -- 50D is the only camera without video playback functionality
+    if camera.model ~= "50D" then
+        assert(camera.gui.play_movie == true)
+        assert(camera.gui.play_photo == false)
+    end
 
     printf("Movie recording tests completed.\n")
     printf("\n")
@@ -1331,30 +1485,41 @@ function api_tests()
     menu.close()
     console.clear()
     console.show()
-    test_log = logger("LUATEST.LOG")
+    test_log = logger("ML/LOGS/LUATEST.LOG")
 
-    -- note: each test routine must print a blank line at the end
-    strict_tests()
-    generic_tests()
-    
-    printf("Module tests...\n")
-    test_io()
-    test_camera_gui()
-    test_menu()
-    test_camera_take_pics()
-    msleep(1000)
-    test_multitasking()
-    test_keys()
-    test_lv()
-    test_lens_focus()
-    test_camera_exposure()
-    test_movie()
-    
-    printf("Done!\n")
-    
-    test_log:close()
-    key.wait()
-    console.hide()
+    local s,e = xpcall(function()
+
+        -- note: each test routine must print a blank line at the end
+        strict_tests()
+        generic_tests()
+        
+        printf("Module tests...\n")
+        test_io()
+        test_camera_gui()
+        test_menu()
+        test_camera_take_pics()
+        sleep(1)
+        test_multitasking()
+        test_keys()
+        test_lv()
+        test_lens_focus()
+        test_camera_exposure()
+        test_movie()
+        printf("Done!\n")
+
+    end, debug.traceback)
+
+    if s == false then
+        -- log the error message and keep console open
+        test_log:write("\n")
+        test_log:write(e)
+        test_log:close()
+    else
+        -- close the log file; hide the console on keypress
+        test_log:close()
+        key.wait()
+        console.hide()
+    end
 end
 
 -- check script arguments

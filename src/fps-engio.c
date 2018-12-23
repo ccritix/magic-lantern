@@ -251,7 +251,7 @@ static void fps_read_current_timer_values();
     #define FPS_TIMER_A_MIN (fps_timer_a_orig)
 #elif defined(CONFIG_100D)
     #define TG_FREQ_BASE 32000000
-    #define FPS_TIMER_A_MIN (ZOOM ? 676 : MV1080CROP ? 540 : 520)
+    #define FPS_TIMER_A_MIN (ZOOM ? 724 : MV1080CROP ? 540 : 520)
     #undef FPS_TIMER_B_MIN
     // no need to cause confusions as recording speed cannot handle such high fps in crop mode
     // (ZOOM || MV1080CROP ? 1288 : 1970)) <-- these are ok while not recording.
@@ -780,7 +780,7 @@ static void calc_rolling_shutter(int * line_ns, int * frame_us, int * frame_perc
 static MENU_UPDATE_FUNC(fps_print)
 {
     static int last_inactive = 0;
-    int t = get_ms_clock_value_fast();
+    int t = get_ms_clock();
 
     int frame_readout_time_percent;
     calc_rolling_shutter(0, 0, &frame_readout_time_percent, 0, 0);

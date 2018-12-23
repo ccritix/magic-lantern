@@ -431,7 +431,12 @@ static void print_set_maindial_hint(int set)
         else
         {
             info_led_off();
+            #ifdef CONFIG_TOUCHSCREEN
+            #warning FIXME: dialog_redraw breaks touchscreen functionality in PLAY mode, why?! (issue #2901)
+            bmp_idle_copy(1, 0);
+            #else
             redraw();
+            #endif
         }
     }
 }
@@ -496,8 +501,12 @@ int handle_set_wheel_play(struct event * event)
         else if (event->param == BGMT_UNPRESS_SET)
       #endif        
         {
-            set_maindial_action_enabled = 0;
-            print_set_maindial_hint(0);
+            /* only clear the display if something was printed */
+            if (set_maindial_action_enabled)
+            {
+                set_maindial_action_enabled = 0;
+                print_set_maindial_hint(0);
+            }
         }
     
         // make sure the display is updated, just in case
@@ -1409,11 +1418,11 @@ int handle_arrow_keys(struct event * event)
     static int t_press = 0;
     if (BGMT_PRESS_AV)
     {
-        t_press = get_ms_clock_value();
+        t_press = get_ms_clock();
     }
     if (BGMT_UNPRESS_AV)
     {
-        int t_unpress = get_ms_clock_value();
+        int t_unpress = get_ms_clock();
         
         if (t_unpress - t_press < 400)
             arrow_key_mode_toggle();
@@ -1763,7 +1772,7 @@ void zoom_trick_step()
     if (!zoom_trick) return;
     if (!lv && !PLAY_OR_QR_MODE) return;
 
-    int current_timestamp = get_ms_clock_value();
+    int current_timestamp = get_ms_clock();
 
     static int prev_timestamp = 0;
     if (prev_timestamp != current_timestamp)
@@ -1810,7 +1819,7 @@ int handle_zoom_trick_event(struct event * event)
     {
         if (!countdown_for_unknown_button)
         {
-            int t = get_ms_clock_value();
+            int t = get_ms_clock();
             if (t - timestamp_for_unknown_button > 500)
                 numclicks_for_unknown_button = 0;
             
@@ -2389,11 +2398,11 @@ static void preview_contrast_n_saturation_step()
     int halfshutter_pressed = get_halfshutter_pressed();
     if (halfshutter_pressed)
     {
-        peaking_hs_last_press = get_ms_clock_value();
+        peaking_hs_last_press = get_ms_clock();
     }
     int preview_peaking_force_normal_image =
         halfshutter_pressed ||                                  /* show normal image on half-hutter press */
-        get_ms_clock_value() < peaking_hs_last_press + 500;     /* and keep it at least 500ms (avoids flicker with fast toggling) */
+        get_ms_clock() < peaking_hs_last_press + 500;     /* and keep it at least 500ms (avoids flicker with fast toggling) */
 #endif
     
 #ifdef FEATURE_LV_SATURATION
@@ -2684,7 +2693,7 @@ static void grayscale_menus_step()
     if (gui_menu_shown())
     {
         // make the warning text blinking, so beginners will notice it...
-        int t = *(uint32_t*)0xC0242014;
+        int t = GET_DIGIC_TIMER();
         alter_bitmap_palette_entry(MENU_WARNING_COLOR, COLOR_RED, 512 - ABS((t >> 11) - 256), ABS((t >> 11) - 256));
         warning_color_dirty = 1;
     }
@@ -2716,18 +2725,43 @@ static void grayscale_menus_step()
 
     prev_sig = sig;
 
-    #ifdef CONFIG_5D3
-    if (get_yuv422_vram()->vram == 0 && !lv)
+    #ifdef CONFIG_5D3_123
+    if (!lv)
     {
-        /* 5D3-123 quirk: YUV422 RAM is not initialized until going to LiveView or Playback mode
-         * (and even there, you need a valid image first)
-         * Workaround: if YUV422 was not yet initialized by Canon, remove the transparency from color 0 (make it black).
-         * 
-         * Any other cameras requiring this? Probably not, since the quirk is likely related to the dual monitor support.
-         * 
-         * Note: alter_bitmap_palette will not affect color 0, so it will not break this workaround (yet).
-         */
-        alter_bitmap_palette_entry(0, COLOR_BLACK, 256, 256);
+        static int dirty = 0;
+        if (get_yuv422_vram()->vram == 0)
+        {
+            /* 5D3-123 quirk: YUV422 RAM is not initialized until going to LiveView or Playback mode
+             * (and even there, you need a valid image first)
+             * Workaround: if YUV422 was not yet initialized by Canon, remove the transparency from color 0 (make it black).
+             * 
+             * Any other cameras requiring this? 
+             * Probably not, since the quirk is likely related to the dual monitor support.
+             * 6D shows artifacts in QEMU when running benchmarks
+             * or playing Arkanoid, but apparently clean when running on hardware.
+             * 700D and 1100D also have uninitialized buffer.
+             * 700D and 5D3 1.1.3 do not show any artifacts at startup; 5D3 1.2.3 does.
+             * 550D and 600D are OK.
+             * 
+             * Side effects: issue #2901.
+             * 
+             * Note: alter_bitmap_palette will not affect color 0, so it will not break this workaround (yet).
+             */
+            if (!dirty)
+            {
+                alter_bitmap_palette_entry(0, COLOR_BLACK, 256, 256);
+                dirty = 1;
+            }
+        }
+        else
+        {
+            /* undo our hack */
+            if (dirty)
+            {
+                alter_bitmap_palette_entry(0, 0, 256, 256);
+                dirty = 0;
+            }
+        }
     }
     #endif
 
