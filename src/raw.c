@@ -863,6 +863,15 @@ int raw_update_params_work()
         #endif
         #endif
 
+/* work in progress */
+        #ifdef CONFIG_EOSM
+	if (mv1080crop)
+	{
+        skip_bottom = 56;
+        skip_left = 132;
+	}
+        #endif
+
         #ifdef CONFIG_7D
         #warning FIXME: are these values correct for 720p and crop modes?
         skip_top    = 26;
