@@ -867,7 +867,7 @@ int raw_update_params_work()
         #ifdef CONFIG_EOSM
 	if (mv1080crop)
 	{
-        skip_top = 56;
+        skip_top = 84;
         skip_right = 60;
 	}
         #endif
