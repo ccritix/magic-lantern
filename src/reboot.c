@@ -1250,6 +1250,13 @@ static void enable_bootflag()
         set_flag_i = find_func_from_string_thumb(SetFlag_str, 0, 0x100);
         set_bootflag = (void*) find_func_called_after_string_ref_thumb(SetFlag_str, 2);
     }
+    else if (strcmp(get_model_string(), "5D4") == 0)
+    {
+        /* this one is harder to autodetect */
+        set_bootflag = (void*) 0x102704;
+        set_flag_i = find_func_from_string(SetFlag_str, 0, 0x100);
+        if (set_flag_i != 0x101510) fail();
+    }
     else
     {
         set_flag_i = find_func_from_string(SetFlag_str, 0, 0x100);
