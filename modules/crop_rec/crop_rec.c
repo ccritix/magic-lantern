@@ -66,7 +66,7 @@ enum crop_preset {
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
-    CROP_PRESET_4KsqueezeEOSM,
+    CROP_PRESET_4K_3x1_EOSM,
     NUM_CROP_PRESETS
 };
 
@@ -187,7 +187,7 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_3x3_mv1080_45fps_EOSM,
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
-    CROP_PRESET_4KsqueezeEOSM,
+    CROP_PRESET_4K_3x1_EOSM,
     CROP_PRESET_4K_EOSM,
     CROP_PRESET_3x3_1X_EOSM,
     CROP_PRESET_1x3_EOSM,
@@ -414,15 +414,11 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
       	skip_bottom     = 0;
     	}
 
- 	case CROP_PRESET_4KsqueezeEOSM:
+ 	case CROP_PRESET_4K_3x1_EOSM:
       	skip_bottom     = 2;
     	if (ratios == 0x1)
     	{
-      	skip_bottom     = 357;
-    	}
-    	if (ratios == 0x2)
-    	{
-      	skip_bottom     = 247;
+      	skip_bottom     = 128;
     	}
         break;
 
@@ -488,7 +484,7 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_2K_EOSM]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_3K_EOSM]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_4K_EOSM]          = { 3072, 3072, 2500, 1440, 1200 },
-    [CROP_PRESET_4KsqueezeEOSM]          = { 3072, 3072, 2500, 1440, 1200 },
+    [CROP_PRESET_4K_3x1_EOSM]          = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_3x3_mv1080_EOSM]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_3x3_mv1080_45fps_EOSM]  = { 1290, 1290, 1290,  960,  800 },
 
@@ -798,8 +794,10 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 cmos_new[7] = 0xf20;
                 break;		
 			
-			case CROP_PRESET_4KsqueezeEOSM:
-                cmos_new[5] = 0x280;            /* vertical (first|last) */
+			case CROP_PRESET_4K_3x1_EOSM:
+                cmos_new[5] = 0x200;            /* vertical (first|last) */
+                cmos_new[7] = 0xf20;
+
                 break;	
 
 			case CROP_PRESET_3x3_mv1080_EOSM:
@@ -1153,6 +1151,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 	     case CROP_PRESET_3x3_mv1080_EOSM:
   	     case CROP_PRESET_3x3_mv1080_45fps_EOSM:
+	     case CROP_PRESET_4K_3x1_EOSM:
 		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
 		break;
 
@@ -2697,7 +2696,7 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
     return 0;
 }
 
-static inline uint32_t reg_override_4Ksqueezeeosm(uint32_t reg, uint32_t old_val)
+static inline uint32_t reg_override_4K_3x1_EOSM(uint32_t reg, uint32_t old_val)
 {
 
   if (bitrate == 0x1)
@@ -2736,7 +2735,7 @@ static inline uint32_t reg_override_4Ksqueezeeosm(uint32_t reg, uint32_t old_val
   }
     switch (reg)
     {
-        case 0xC0F06804: return 0x2d7040a; 
+        case 0xC0F06804: return 0x4a6040a; 
         case 0xC0F06824: return 0x4ca;
         case 0xC0F06828: return 0x4ca;
         case 0xC0F0682C: return 0x4ca;
@@ -3013,7 +3012,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_2K_EOSM)         ? reg_override_2K_eosm         :    
         (crop_preset == CROP_PRESET_3K_EOSM)         ? reg_override_3K_eosm         : 
         (crop_preset == CROP_PRESET_4K_EOSM) 	     ? reg_override_4K_eosm         :
-        (crop_preset == CROP_PRESET_4KsqueezeEOSM) 	     ? reg_override_4Ksqueezeeosm        :
+        (crop_preset == CROP_PRESET_4K_3x1_EOSM) 	     ? reg_override_4K_3x1_EOSM        :
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_eosm        :
         (crop_preset == CROP_PRESET_3x3_mv1080_45fps_EOSM) ? reg_override_3x3_45fps_eosm        :
         (crop_preset == CROP_PRESET_1x3_EOSM) ? reg_override_1x3_eosm        : 
@@ -3578,9 +3577,9 @@ static LVINFO_UPDATE_FUNC(crop_info)
     snprintf(buffer, sizeof(buffer), "4K 4038x2558");
   }
 
-  if (CROP_PRESET_MENU == CROP_PRESET_4KsqueezeEOSM)
+  if (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM)
   {
-    snprintf(buffer, sizeof(buffer), "4K squeeze 5x1");
+    snprintf(buffer, sizeof(buffer), "4K squeeze 3x1");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
@@ -3665,8 +3664,10 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
                 break;
 
-	    case CROP_PRESET_4KsqueezeEOSM:
+	    case CROP_PRESET_4K_3x1_EOSM:
                 raw_capture_info.binning_x = 1; raw_capture_info.skipping_x = 0;
+                raw_capture_info.binning_y = 3; raw_capture_info.skipping_y = 0;
+
                 break;
         }
 
