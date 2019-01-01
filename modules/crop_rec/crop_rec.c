@@ -214,7 +214,7 @@ static const char crop_choices_help2_eosm[] =
     "mv1080p 45fps\n"
     "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
     "1:1 3K crop (3032x1436 @ 24p, square raw pixels, preview broken)\n"
-    "5:1 4K crop squeeze, preview broken\n"
+    "3:1 4K crop squeeze, preview broken\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
     "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
     "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n";
