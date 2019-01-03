@@ -189,7 +189,7 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_3x1_EOSM,
-    CROP_PRESET_4K_5x1_EOSM,
+   // CROP_PRESET_4K_5x1_EOSM,
     CROP_PRESET_4K_EOSM,
     CROP_PRESET_3x3_1X_EOSM,
     CROP_PRESET_1x3_EOSM,
@@ -202,7 +202,7 @@ static const char * crop_choices_eosm[] = {
     "2.5K 2520x1304",
     "3K 3032x1436", 
     "4K 3x1 24fps",
-    "4K 5x1 24fps",
+   // "4K 5x1 24fps",
     "4K 4038x2558",
     "3x3 720p",
     "1x3 1736x1120",
@@ -217,8 +217,8 @@ static const char crop_choices_help2_eosm[] =
     "mv1080p 45fps\n"
     "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
     "1:1 3K crop (3032x1436 @ 24p, square raw pixels, preview broken)\n"
-    "3:1 4K crop squeeze, preview broken\n"
-    "5:1 4K crop squeeze, preview broken\n"
+    "3:1 4K crop squeeze, Set cam to x5 zoom and mv720p 50 or 60 fps!!\n"
+   // "5:1 4K crop squeeze, preview broken\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
     "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
     "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n";
@@ -1168,7 +1168,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_3x3_mv1080_EOSM:
   	     case CROP_PRESET_3x3_mv1080_45fps_EOSM:
 	     case CROP_PRESET_4K_3x1_EOSM:
-		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
 		break;
 
 	     case CROP_PRESET_4K_5x1_EOSM:
@@ -2755,7 +2756,7 @@ static inline uint32_t reg_override_4K_3x1_EOSM(uint32_t reg, uint32_t old_val)
   }
     switch (reg)
     {
-        case 0xC0F06804: return 0x4a6040a; 
+        case 0xC0F06804: return 0x2d7040a; 
         case 0xC0F06824: return 0x4ca;
         case 0xC0F06828: return 0x4ca;
         case 0xC0F0682C: return 0x4ca;
@@ -3371,7 +3372,8 @@ if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_100D) || 
 (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) || 
-(CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) || 
+(CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) ||
+(CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_1080K_100D))
 {
 lv_dispsize = 5;
@@ -3712,7 +3714,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
         /* not implemented yet */
         raw_capture_info.offset_x = raw_capture_info.offset_y   = SHRT_MIN;
 
-        if (lv_dispsize > 1)
+        if ((lv_dispsize > 1) && !(CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM))
         {
             /* raw backend gets it right */
             return 0;
@@ -3824,7 +3826,6 @@ static unsigned int crop_rec_init()
     	{
 	NotifyBox(3000, "crop_rec bitrate is set to 12bit");
 	}
-
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
     {
         /* same addresses on both 1.1.3 and 1.2.3 */
