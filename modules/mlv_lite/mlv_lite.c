@@ -4230,7 +4230,7 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
         -1,
         -1,
         (need_for_speed && !get_halfshutter_pressed())
-            ? RAW_PREVIEW_GRAY_ULTRA_FAST
+            ? RAW_PREVIEW_COLOR_HALFRES
             : RAW_PREVIEW_COLOR_HALFRES
     );
 
