@@ -3242,6 +3242,25 @@ static MENU_UPDATE_FUNC(crop_update)
             }
         }
     }
+
+
+  if ((CROP_PRESET_MENU && lv) && (is_EOSM))
+  {
+    if (is_EOSM)
+    { 
+       if (!is_720p())
+       {
+          if (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM)
+          {
+              /* these presets only have effect in 720p mode */
+              MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in the 720p 50/60 fps modes from Canon menu.");
+	      NotifyBox(3000, "Please set cam to mv720p and x5 zoom");
+              return;
+          }
+       }
+    }
+  }
+
 }
 
 static MENU_UPDATE_FUNC(target_yres_update)
@@ -3469,7 +3488,6 @@ static void center_canon_preview()
 /* faster version than the one from ML core */
 static void set_zoom(int zoom)
 {
-    if (!lv) return;
     if (RECORDING) return;
     if (is_movie_mode() && video_mode_crop) return;
     zoom = COERCE(zoom, 1, 10);
@@ -3749,9 +3767,17 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
                 break;
 
 	    case CROP_PRESET_4K_3x1_EOSM:
+                if (lv_dispsize == 1)
+                {
+                raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
+                raw_capture_info.binning_y = 1; raw_capture_info.skipping_y = 0;
+	        }
+		else
+		{
                 raw_capture_info.binning_x = 1; raw_capture_info.skipping_x = 0;
                 raw_capture_info.binning_y = 3; raw_capture_info.skipping_y = 0;
-                break;
+		}
+            break;
 
 	    case CROP_PRESET_4K_5x1_EOSM:
                 raw_capture_info.binning_x = 1; raw_capture_info.skipping_x = 0;
@@ -3812,19 +3838,19 @@ static unsigned int crop_rec_init()
 
    	if (bitrate == 0x1)
     	{
-	NotifyBox(3000, "crop_rec bitrate is set to 8bit");
+	NotifyBox(2000, "crop_rec bitrate is set to 8bit");
 	}
   	if (bitrate == 0x2)
     	{
-	NotifyBox(3000, "crop_rec bitrate is set to 9bit");
+	NotifyBox(2000, "crop_rec bitrate is set to 9bit");
 	}
  	if (bitrate == 0x3)
     	{
-	NotifyBox(3000, "crop_rec bitrate is set to 10bit");
+	NotifyBox(2000, "crop_rec bitrate is set to 10bit");
 	}
  	if (bitrate == 0x4)
     	{
-	NotifyBox(3000, "crop_rec bitrate is set to 12bit");
+	NotifyBox(2000, "crop_rec bitrate is set to 12bit");
 	}
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
     {
