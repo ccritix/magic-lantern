@@ -3246,21 +3246,14 @@ static MENU_UPDATE_FUNC(crop_update)
 
   if ((CROP_PRESET_MENU && lv) && (is_EOSM))
   {
-    if (is_EOSM)
-    { 
-       if (!is_720p())
-       {
-          if (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM)
-          {
-              /* these presets only have effect in 720p mode */
-              MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in the 720p 50/60 fps modes from Canon menu.");
-	      NotifyBox(3000, "Please set cam to mv720p and x5 zoom");
-              return;
-          }
-       }
+    if ((CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) && (lv_dispsize == 1))
+    {
+        /* these presets only have effect in 720p mode */
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in x5 zoom");
+	NotifyBox(3000, "Please set cam to x5 zoom");
+        return;
     }
   }
-
 }
 
 static MENU_UPDATE_FUNC(target_yres_update)
