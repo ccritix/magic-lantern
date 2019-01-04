@@ -3250,7 +3250,6 @@ static MENU_UPDATE_FUNC(crop_update)
     {
         /* these presets only have effect in 720p mode */
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in x5 zoom");
-	NotifyBox(3000, "Please set cam to x5 zoom");
         return;
     }
   }
