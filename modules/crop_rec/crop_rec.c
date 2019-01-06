@@ -3032,7 +3032,7 @@ static inline uint32_t reg_override_3x3_45fps_eosm(uint32_t reg, uint32_t old_va
     {
         	case 0xC0F06804: return 0x4a601d4; 		
 		case 0xC0F37014: return 0xe; 
-        	case 0xC0F0713c: return 0x4aa;
+        	case 0xC0F0713c: return 0x4ab;
 		case 0xC0F07150: return 0x440;
 
 	     /* 45 fps */
@@ -3092,14 +3092,14 @@ static inline uint32_t reg_override_3x3_50fps_eosm(uint32_t reg, uint32_t old_va
     switch (reg)
     {
         	case 0xC0F06804: return 0x4a601d4; 		
-        	case 0xC0F0713c: return 0x340;
+        	case 0xC0F0713c: return 0x310;
 		case 0xC0F07150: return 0x300;
 
 	     /* 50 fps */
-      	        case 0xC0F06014: return 0x4ba; 
-		case 0xC0F0600c: return 0x20f020f;
-		case 0xC0F06008: return 0x20f020f;
-		case 0xC0F06010: return 0x20f; 
+      	        case 0xC0F06014: return 0x4c4; 
+		case 0xC0F0600c: return 0x20b020b;
+		case 0xC0F06008: return 0x20b020b;
+		case 0xC0F06010: return 0x20b; 
 
 		case 0xC0F06824: return 0x206;
 		case 0xC0F06828: return 0x206;
