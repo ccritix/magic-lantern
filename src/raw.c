@@ -591,6 +591,12 @@ static int raw_lv_get_resolution(int* width, int* height)
     {    
             *height = 727;    
 
+        if (shamem_read(0xC0F0713C) == 0x340)
+        {	
+        /* mv1080p 50fps */
+            *height = 769;
+        }
+
         if (shamem_read(0xC0F07150) == 0x440)
         {	
         /* mv1080p 45fps */

@@ -205,7 +205,7 @@ static const char * crop_choices_eosm[] = {
     "OFF",
     "mv1080p 1736x1120",
     "mv1080p 1736x976 45fps",
-    "mv1080p 1736x696 50fps",
+    "mv1080p 1736x738 50fps",
     "2.5K 2520x1304",
     "3K 3032x1436", 
     "4K 3x1 24fps",
@@ -3030,7 +3030,7 @@ static inline uint32_t reg_override_3x3_45fps_eosm(uint32_t reg, uint32_t old_va
 
     switch (reg)
     {
-        	case 0xC0F06804: return 0x4ae01d4; 		
+        	case 0xC0F06804: return 0x4a601d4; 		
 		case 0xC0F37014: return 0xe; 
         	case 0xC0F0713c: return 0x4aa;
 		case 0xC0F07150: return 0x440;
@@ -3091,7 +3091,7 @@ static inline uint32_t reg_override_3x3_50fps_eosm(uint32_t reg, uint32_t old_va
 
     switch (reg)
     {
-        	case 0xC0F06804: return 0x2d701d4; 		
+        	case 0xC0F06804: return 0x4a601d4; 		
         	case 0xC0F0713c: return 0x340;
 		case 0xC0F07150: return 0x300;
 
@@ -3100,6 +3100,11 @@ static inline uint32_t reg_override_3x3_50fps_eosm(uint32_t reg, uint32_t old_va
 		case 0xC0F0600c: return 0x20f020f;
 		case 0xC0F06008: return 0x20f020f;
 		case 0xC0F06010: return 0x20f; 
+
+		case 0xC0F06824: return 0x206;
+		case 0xC0F06828: return 0x206;
+		case 0xC0F0682c: return 0x206;
+		case 0xC0F06830: return 0x206;
     }
 
     return 0;
