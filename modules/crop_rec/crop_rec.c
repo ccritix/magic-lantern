@@ -211,7 +211,7 @@ static const char * crop_choices_eosm[] = {
     "4K 3x1 24fps",
    // "4K 5x1 24fps",
     "4K 4038x2558",
-    "3x3 720p",
+   // "3x3 720p",
     "1x3 1736x1120",
 };
 
@@ -228,7 +228,7 @@ static const char crop_choices_help2_eosm[] =
     "3:1 4K crop squeeze, Set cam to x5\n"
    // "5:1 4K crop squeeze, preview broken\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
-    "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
+   // "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
     "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n";
 
 
