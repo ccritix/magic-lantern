@@ -589,9 +589,9 @@ static int raw_lv_get_resolution(int* width, int* height)
     /* http://www.magiclantern.fm/forum/index.php?topic=16608.msg176023#msg176023 */
     if (lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264)
     {    
-            *height = 769;;    
+            *height = 727;    
 
-        if (shamem_read(0xC0F0713C) == 0x340)
+        if (shamem_read(0xC0F0713C) == 0x310)
         {	
         /* mv1080p 50fps */
             *height = 769;
