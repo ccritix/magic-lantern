@@ -197,7 +197,7 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_4K_3x1_EOSM,
    // CROP_PRESET_4K_5x1_EOSM,
     CROP_PRESET_4K_EOSM,
-    CROP_PRESET_3x3_1X_EOSM,
+   // CROP_PRESET_3x3_1X_EOSM,
     CROP_PRESET_1x3_EOSM,
 };
 
