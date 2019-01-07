@@ -1108,11 +1108,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 12};
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 12};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 12};
-
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 12};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 12};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 12};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 12};
 		}
 
    		if (bitrate == 0x2)
@@ -1122,11 +1117,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 30};
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 30};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 30};
-
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 30};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 30};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 30};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 30};
 		}
 
    		if (bitrate == 0x3)
@@ -1136,11 +1126,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 60};
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 60};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 60};
-
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 60};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 60};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 60};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 60};
 		}
 
     		if (bitrate == 0x4)
@@ -1150,11 +1135,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 250};
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 250};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 250};
-
-		adtg_new[17] = (struct adtg_new) {6, 0x8882, 250};
-                adtg_new[18] = (struct adtg_new) {6, 0x8884, 250};
-                adtg_new[19] = (struct adtg_new) {6, 0x8886, 250};
-                adtg_new[20] = (struct adtg_new) {6, 0x8888, 250};
 		}
 
     }
@@ -3089,17 +3069,24 @@ static inline uint32_t reg_override_3x3_50fps_eosm(uint32_t reg, uint32_t old_va
     }
   }
 
+    /* change FPS timers to increase vertical resolution */
+        int timerA = 542;
+        int timerB = 1180;
+
+        int a = reg_override_fps(reg, timerA, timerB, old_val);
+        if (a) return a;
+
     switch (reg)
     {
         	case 0xC0F06804: return 0x4a601d4; 		
-        	case 0xC0F0713c: return 0x310;
+        	case 0xC0F0713c: return 0x330;
 		case 0xC0F07150: return 0x300;
 
-	     /* 50 fps */
+	     /* 50 fps but running timerA and B above instead
       	        case 0xC0F06014: return 0x4c4; 
 		case 0xC0F0600c: return 0x20b020b;
 		case 0xC0F06008: return 0x20b020b;
-		case 0xC0F06010: return 0x20b; 
+		case 0xC0F06010: return 0x20b; */
 
 		case 0xC0F06824: return 0x206;
 		case 0xC0F06828: return 0x206;
