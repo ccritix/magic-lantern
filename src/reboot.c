@@ -202,6 +202,13 @@ uint32_t get_model_id()
         return *model_ptr;
     }
 
+    /* DIGIC 4+ */
+    model_ptr = (uint32_t *)0xF8001014;
+    if(*model_ptr && *model_ptr < 0x00000FFF)
+    {
+        return *model_ptr;
+    }
+
     return 0;
 }
 
