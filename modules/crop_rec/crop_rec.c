@@ -3062,7 +3062,7 @@ static inline uint32_t reg_override_3x3_50fps_eosm(uint32_t reg, uint32_t old_va
     switch (reg)
     {
         	case 0xC0F06804: return 0x4a601d4; 		
-        	case 0xC0F0713c: return 0x330;
+        	case 0xC0F0713c: return 0x310;
 		case 0xC0F07150: return 0x300;
 
 	     /* 50 fps */
