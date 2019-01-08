@@ -320,11 +320,11 @@ static void print_camera_info()
 /* for running on the camera */
 
 uint32_t is_digic6();
-uint32_t is_digic7();
+uint32_t is_digic78();
 
 void prop_diag()
 {
-    if (is_digic7())
+    if (is_digic78())
     {
         /* other models may lock up while reading this, so test first */
         guess_prop((void*)0xE0000000, 0x2000000, 1, 0);

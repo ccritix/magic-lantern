@@ -170,6 +170,9 @@ static const struct model_data_s model_data[] =
     { 0x331, "M"     },
     { 0x355, "M2"    },
     { 0x412, "M50"   },
+    { 0x424, "R"     },
+    { 0x805, "SX70"  },
+    { 0x801, "SX740" },
 };
 
 uint32_t get_model_id()
@@ -217,8 +220,30 @@ uint32_t is_digic6()
     return get_model_id() == *(uint32_t *)0xFC060014;
 }
 
+uint32_t is_digic8()
+{
+    /* FIXME: generic method to tell apart DIGIC 8 from DIGIC 7 */
+    switch (get_model_id())
+    {
+        case 0x412: /* M50 */
+        case 0x424: /* R */
+        case 0x801: /* SX740 HS */
+        case 0x805: /* SX70 HS */
+            return 1;
+
+        default:
+            return 0;
+    }
+}
+
 uint32_t is_digic7()
 {
+    return is_digic8() ? 0 : ml_loaded_as_thumb;
+}
+
+uint32_t is_digic78()
+{
+    /* either DIGIC 7 or 8 */
     return ml_loaded_as_thumb;
 }
 
@@ -848,7 +873,7 @@ static void print_rom_layout()
     /* DIGIC 6: locks up when reading 0xE0000000 or 0xEE000000, though bootloader configures the latter */
     /* DIGIC 7: the main ROM is at 0xE0000000 and there is another one at 0xF0000000, so it should be OK */
 
-    if (is_digic7())
+    if (is_digic78())
     {
         check_rom_mirroring((void *) 0xE0000000, 0x20000000, 0x20000000);
     }
@@ -862,7 +887,7 @@ static uint32_t find_firmware_start()
 {
     printf(" - ROMBASEADDR...           ");
 
-    if (is_digic7())
+    if (is_digic78())
     {
         for (uint32_t start = 0xE0000000; start < 0xF0000000; start += 0x10000)
         {
@@ -934,9 +959,9 @@ struct boot_flags
 static void print_bootflags()
 {
     struct boot_flags * const boot_flags = (void*)(
-        is_digic6() ? 0xFC040000 :
-        is_digic7() ? 0xE1FF8000 :
-                      0xF8000000
+        is_digic6()  ? 0xFC040000 :
+        is_digic78() ? 0xE1FF8000 :
+                       0xF8000000
     );
 
     printf(" - Boot flags: "
@@ -978,7 +1003,7 @@ static void* find_boot_card_init()
         "SD Detect High\n",                 /* 6D, 70D */
     };
 
-    uint32_t (*find_func_from_str)(const char *, uint32_t, uint32_t) = is_digic7() ? find_func_from_string_thumb : find_func_from_string;
+    uint32_t (*find_func_from_str)(const char *, uint32_t, uint32_t) = is_digic78() ? find_func_from_string_thumb : find_func_from_string;
 
     /* find a function matching one of those strings */
     /* fail if two matches */
@@ -1007,7 +1032,7 @@ static void* find_boot_card_init()
 static void init_boot_file_io_stubs()
 {
     /* autodetect this one */
-    uint32_t (*find_func_from_str)(const char *, uint32_t, uint32_t) = is_digic7() ? find_func_from_string_thumb : find_func_from_string;
+    uint32_t (*find_func_from_str)(const char *, uint32_t, uint32_t) = is_digic78() ? find_func_from_string_thumb : find_func_from_string;
     boot_open_write = (void*) find_func_from_str("Open file for write : %s\n", 0, 0x50);
     boot_card_init = find_boot_card_init();
 
@@ -1201,7 +1226,7 @@ static void dump_rom_with_canon_routines()
         printf(" - Dumping ROM1...\n");
         boot_dump(DRIVE_SD, "ROM1.BIN", 0xFC000000, 0x02000000);
     }
-    else if (is_digic7())
+    else if (is_digic78())
     {
         printf(" - Dumping ROM0...\n");
         boot_dump(DRIVE_SD, "ROM0.BIN", 0xE0000000, 0x02000000);
@@ -1252,7 +1277,7 @@ static void enable_bootflag()
     const char * SetFlag_str = "Set flag?(Y=ON(0x%08x)/N=OFF(0x%08x))? :";
     uint32_t set_flag_i = 0;
 
-    if (is_digic7())
+    if (is_digic78())
     {
         set_flag_i = find_func_from_string_thumb(SetFlag_str, 0, 0x100);
         set_bootflag = (void*) find_func_called_after_string_ref_thumb(SetFlag_str, 2);
@@ -1288,7 +1313,7 @@ static void cpuinfo_print(void)
 
     if (is_digic6()) {
         cpuinfo_print_v7p();
-    } else if (is_digic7()) {
+    } else if (is_digic78()) {
         cpuinfo_print_v7v();
     } else {
         cpuinfo_print_v5();
@@ -1331,7 +1356,7 @@ cstart( int loaded_as_thumb )
     {
         disable_caches_region1_ram_d6();
     }
-    else if (!is_digic7())
+    else if (!is_digic78())
     {
         disable_all_caches();
     }

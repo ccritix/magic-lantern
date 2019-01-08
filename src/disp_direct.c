@@ -14,6 +14,7 @@
 extern uint32_t get_model_id();
 extern uint32_t is_digic6();
 extern uint32_t is_digic7();
+extern uint32_t is_digic8();
 extern uint32_t is_vxworks();
 
 #define MEM(x) (*(volatile uint32_t *)(x))
@@ -26,9 +27,9 @@ extern uint32_t is_vxworks();
 #define ABS(a) ({ __typeof__ (a) _a = (a); _a > 0 ? _a : -_a; })
 
 /* the image buffers will be made uncacheable in display_init */
-static uint8_t __attribute__((aligned(4096))) __disp_framebuf_alloc[928*600];
-static uint8_t __attribute__((aligned(4096))) __disp_framebuf_mirror_alloc[928*600];
-static uint8_t __attribute__((aligned(4096))) __disp_yuvbuf_alloc[928*600*2];
+static uint8_t __attribute__((aligned(4096))) __disp_framebuf_alloc[1024 * 1024];
+static uint8_t __attribute__((aligned(4096))) __disp_framebuf_mirror_alloc[1024 * 1024];
+static uint8_t __attribute__((aligned(4096))) __disp_yuvbuf_alloc[1024 * 1024];
 static uint8_t *disp_framebuf = __disp_framebuf_alloc;
 static uint8_t *disp_framebuf_mirror = __disp_framebuf_mirror_alloc;
 static uint8_t *disp_yuvbuf = __disp_yuvbuf_alloc;
@@ -50,6 +51,10 @@ static uint32_t PALETTE_REG_D6 = 0xD20139A8;
 /* 5D4 is different */
 const uint32_t BMP_BUF_REG_5D4 = 0xD2018228;
 const uint32_t PALETTE_REG_5D4 = 0xD2018398;
+
+/* M50 is even more different, and no longer palette-based */
+const uint32_t BMP_BUF_REG_M50 = 0xD0304230;
+static uint32_t * palette_uyvy = NULL;
 
 static void disp_set_palette()
 {
@@ -88,7 +93,7 @@ static void disp_set_palette()
          * e.g. from 0x00800000 / 0x00800120 (AUTOEXEC / FIR) */
         static uint32_t __attribute__((aligned(16))) palette_alloc[16];
         uint32_t * palette = (void *)((uint32_t) palette_alloc | caching_bit);
-                
+
         for(uint32_t i = 0; i < 16; i++)
         {
             palette[i] = (palette_pb[i] << 8) | 0xFF;
@@ -101,6 +106,24 @@ static void disp_set_palette()
 
         MEM(PALETTE_REG_D6) = (uint32_t) palette >> 4;
         MEM(PALETTE_REG_D6-8) = 1;
+    }
+    else if (disp_bpp == 16)
+    {
+        /* DIGIC 8: some sort of YUV422 */
+        /* Will emulate a palette-based half-res display, to keep things simple */
+
+        static uint32_t __attribute__((aligned(16))) palette_alloc[16];
+        uint32_t * palette = (void *)((uint32_t) palette_alloc | caching_bit);
+
+        for(uint32_t i = 0; i < 16; i++)
+        {
+            uint32_t v = (palette_pb[i])       & 0xFF;
+            uint32_t u = (palette_pb[i] >> 8)  & 0xFF;
+            uint32_t y = (palette_pb[i] >> 16) & 0xFF;
+            palette[i] = UYVY_PACK((u + 0x80) & 0xFF, y, (v + 0x80) & 0xFF, y);
+        }
+
+        palette_uyvy = palette;
     }
 }
 
@@ -151,6 +174,16 @@ uint8_t *disp_get_active_bmp()
     return (disp_current_buf ? disp_framebuf_mirror : disp_framebuf);
 }
 
+static void disp_set_pixel_yuv422(uint8_t * buf, uint32_t pixnum, uint32_t color)
+{
+    uint32_t * buf_uyvy = (uint32_t *) buf;
+    uint32_t old_uyvy = buf_uyvy[pixnum/2];
+    uint32_t new_uyvy = palette_uyvy[color & 0xF];
+    buf_uyvy[pixnum/2] = (pixnum % 2) ?
+        (old_uyvy & 0x0000FF00) | (new_uyvy & 0xFFFF00FF) :
+        (old_uyvy & 0xFF000000) | (new_uyvy & 0x00FFFFFF) ;
+}
+
 void disp_set_pixel_other(uint32_t x, uint32_t y, uint32_t color)
 {
     /* assume the caller uses 720x480 logical coords */
@@ -161,6 +194,10 @@ void disp_set_pixel_other(uint32_t x, uint32_t y, uint32_t color)
     
     switch (disp_bpp)
     {
+        case 16:
+            disp_set_pixel_yuv422(buf, pixnum, color);
+            break;
+
         case 8:
             buf[pixnum] = color;
             break;
@@ -180,9 +217,13 @@ void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color)
 
     uint32_t pixnum = (y * (disp_yres * 2 / 480) / 2) * disp_xres + x;
     uint8_t *buf = disp_get_active_bmp();
-    
+
     switch (disp_bpp)
     {
+        case 16:
+            disp_set_pixel_yuv422(buf, pixnum, color);
+            break;
+
         case 8:
             buf[pixnum] = color;
             break;
@@ -245,19 +286,36 @@ void disp_fill_other(uint32_t color)
     }
 }
 
-void disp_fill(uint32_t color)
+static uint32_t color_word(uint32_t color)
 {
     /* build a 32 bit word */
     uint32_t val = color;
-    uint8_t *buf = disp_get_active_bmp();
-    
+
+    if (disp_bpp == 16)
+    {
+        val = palette_uyvy[color & 0xF];
+    }
+
     if (disp_bpp == 4)
     {
         val |= val << 4;
     }
-    val |= val << 8;
-    val |= val << 16;
-    
+
+    if (disp_bpp <= 8)
+    {
+        val |= val << 8;
+        val |= val << 16;
+    }
+
+    return val;
+}
+
+void disp_fill(uint32_t color)
+{
+    /* build a 32 bit word */
+    uint32_t val = color_word(color);
+    uint8_t *buf = disp_get_active_bmp();
+
     for(int ypos = 0; ypos < disp_yres; ypos++)
     {
         /* we are writing 4 or 8 pixels at once with a 32 bit word */
@@ -333,7 +391,7 @@ void* disp_init_autodetect()
      */
 
     uint32_t a = 0, b = 0, c = 0, d = 0;
-    if (is_digic7())
+    if (is_digic7() || is_digic8())
     {
         a = find_func_called_before_string_ref_thumb("Other models\n");
         b = find_func_called_before_string_ref_thumb("File(*.fir) not found\n");
@@ -374,8 +432,12 @@ void* disp_init_autodetect()
 void disp_set_buf(int buf)
 {
     disp_current_buf = buf;
-    
-    if (disp_bpp == 8)
+
+    if (disp_bpp == 16)
+    {
+        MEM(BMP_BUF_REG_M50) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf) & ~caching_bit;
+    }
+    else if (disp_bpp == 8)
     {
         if (get_model_id() == 0x349)
         {
@@ -386,7 +448,7 @@ void disp_set_buf(int buf)
             MEM(BMP_BUF_REG_D6) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf) >> 8;
         }
     }
-    else
+    else if (disp_bpp == 4)
     {
         /* set frame buffer memory areas */
         MEM(0xC0F140D0) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf) & ~caching_bit;
@@ -431,6 +493,25 @@ void disp_init()
         BMP_BUF_REG_D6 = BMP_BUF_REG_D7;
     }
 
+    if (is_digic8())
+    {
+        disp_bpp = 16;
+
+        switch (get_model_id())
+        {
+            case 0x805: /* SX70 HS */
+            case 0x801: /* SX740 HS, not sure */
+                disp_xres = 640;
+                break;
+            case 0x412: /* M50 */
+                disp_xres = 736;
+                break;
+            case 0x424: /* R */
+                /* TODO */
+                break;
+        }
+    }
+
     if (is_vxworks())
     {
         caching_bit = 0x10000000;
@@ -441,6 +522,12 @@ void disp_init()
     *(uint32_t*)&disp_framebuf |= caching_bit;
     *(uint32_t*)&disp_framebuf_mirror |= caching_bit;
     *(uint32_t*)&disp_yuvbuf   |= caching_bit;
+
+    uint32_t bmp_size = (disp_xres * disp_yres) * disp_bpp / 8;
+    if (bmp_size > sizeof(__disp_framebuf_alloc))
+    {
+        while(1);
+    }
 
     /* this should cover most (if not all) ML-supported cameras */
     /* and maybe most unsupported cameras as well :) */
@@ -470,6 +557,14 @@ void disp_init()
      * will appear on the screen without doing anything special */
 }
 
+static void memset32(uint32_t * buf, uint32_t val, size_t size)
+{
+    for (uint32_t i = 0; i < size / 4; i++)
+    {
+        buf[i] = val;
+    }
+}
+
 uint32_t disp_direct_scroll_up(uint32_t height)
 {
     /* assume the caller uses 720x480 logical coords */
@@ -478,14 +573,10 @@ uint32_t disp_direct_scroll_up(uint32_t height)
     
     uint32_t start = (disp_xres * height) * disp_bpp / 8;
     uint32_t size = (disp_xres * (disp_yres - height)) * disp_bpp / 8;
-    uint32_t color = COLOR_TRANSPARENT_BLACK;
-    if (disp_bpp == 4)
-    {
-        color |= color << 4;
-    }
-    
+    uint32_t color = color_word(COLOR_TRANSPARENT_BLACK);
+
     memcpy(disp_framebuf, &disp_framebuf[start], size);
-    memset(&disp_framebuf[size], color, start);
+    memset32((uint32_t*) &disp_framebuf[size], color, start);
     
     return height;
 }
