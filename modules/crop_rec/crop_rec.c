@@ -206,7 +206,7 @@ static enum crop_preset crop_presets_eosm[] = {
 static const char * crop_choices_eosm[] = {
     "OFF",
     "mv1080p 1736x1120",
-    "2.5K 2520x1304",
+    "2.5K 2520x1418",
     "3K 3032x1436",
     "mv1080p 1736x976 45fps",
     "mv1080p 1736x738 50fps",
@@ -224,7 +224,7 @@ static const char crop_choices_help_eosm[] =
 static const char crop_choices_help2_eosm[] =
     "\n"
     "mv1080p derived from 3x3 (square pixels in RAW, vertical crop)\n"
-    "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
+    "1:1 2.5K crop (2520x1418 16:9 @ 24p, square raw pixels, cropped preview)\n"
     "1:1 3K crop (3032x1436 @ 24p, square raw pixels, preview broken)\n"
     "mv1080p 45fps\n"
     "mv1080p 50fps\n"
@@ -2667,9 +2667,9 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
   {
     switch (reg)
     {
-        case 0xC0F06804: return 0x5390298; /* 2520x1304  x5 Mode; */
+        case 0xC0F06804: return 0x5a70298; /* 2520x1304  x5 Mode; */
         case 0xC0F07150: return 0x428;
-        case 0xC0F0713c: return 0x539;
+        case 0xC0F0713c: return 0x5a7;
         case 0xC0F06014: return 0x747;
     }
   }
@@ -3617,7 +3617,7 @@ lv_dispsize = 5;
     {
         if (is_supported_mode())
         {
-            if (!patch_active || CROP_PRESET_MENU != crop_preset)
+            if (!patch_active || CROP_PRESET_MENU != crop_preset || (ratios == 0x1) || (ratios == 0x2 || (ratios == 0x0)))
             {
                 return 1;
             }
