@@ -3876,7 +3876,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
 
   if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
   {
-    snprintf(buffer, sizeof(buffer), "2520x1304");
+    snprintf(buffer, sizeof(buffer), "2520x1418");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM)
