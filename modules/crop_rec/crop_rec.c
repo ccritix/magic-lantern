@@ -1237,7 +1237,7 @@ lv_dispsize = 5;
 		break;
 
   	     case CROP_PRESET_3x1_mv720_50fps_EOSM:
-		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 4};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
 		break;
 
