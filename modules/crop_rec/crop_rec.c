@@ -163,7 +163,7 @@ static const char * crop_choices_100d[] = {
     "OFF",
     "mv1080p_mv720p mode",
     "3x crop mode",
-    "2.5K 2520x1304",
+    "2.5K 2520x1418",
     "3K 3000x1432", 
     "4K 3x1 24fps",
     "4K 4056x2552",
@@ -179,7 +179,7 @@ static const char crop_choices_help2_100d[] =
     "\n"
     "regular mv1080p mode\n"
     "1:1 x3 crop mode\n"
-    "1:1 2.5K crop (2520x1304 16:9 @ 24p, square raw pixels, cropped preview)\n"
+    "1:1 2.5K crop (2520x1418 16:9 @ 24p, square raw pixels, cropped preview)\n"
     "1:1 3K crop (3000x1432 @ 24p, square raw pixels, preview broken)\n"
     "3:1 4K crop squeeze. Set cam to x5\n"
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
@@ -1105,6 +1105,18 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[0] = (struct adtg_new) {6, 0x8060, shutter_blanking};
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
 
+if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) || 
+(CROP_PRESET_MENU == CROP_PRESET_3K_100D) || 
+(CROP_PRESET_MENU == CROP_PRESET_4K_100D) || 
+(CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) || 
+(CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) || 
+(CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) ||
+(CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) ||
+(CROP_PRESET_MENU == CROP_PRESET_4K_3x1_100D) ||
+(CROP_PRESET_MENU == CROP_PRESET_1080K_100D))
+{
+lv_dispsize = 5;
+}
 
    		if (bitrate == 0x1)
     		{
@@ -2331,10 +2343,9 @@ static inline uint32_t reg_override_2K_100d(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x53902a1; // 2520x1304  x5 Mode;
-
-        case 0xC0F0713c: return 0x539;
-
+        case 0xC0F06804: return 0x5ac02a1; // 2520x1418  x5 Mode;
+        case 0xC0F0713c: return 0x5ac;
+        case 0xC0F06014: return 0x71e;
     }
 
     return 0;
@@ -2657,7 +2668,7 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
   {
     switch (reg)
     {
-        case 0xC0F06804: return 0x44c0298; /* 2520x1304  x5 Mode; */
+        case 0xC0F06804: return 0x44c0298; /* 2520x1072  x5 Mode; */
         case 0xC0F07150: return 0x428;
         case 0xC0F0713c: return 0x44c;
         case 0xC0F06014: return 0x747;
@@ -2667,7 +2678,7 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
   {
     switch (reg)
     {
-        case 0xC0F06804: return 0x5a70298; /* 2520x1304  x5 Mode; */
+        case 0xC0F06804: return 0x5a70298; /* 2520x1418  x5 Mode; */
         case 0xC0F07150: return 0x428;
         case 0xC0F0713c: return 0x5a7;
         case 0xC0F06014: return 0x747;
@@ -3850,7 +3861,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
 
   if (CROP_PRESET_MENU == CROP_PRESET_2K_100D)
   {
-    snprintf(buffer, sizeof(buffer), "2520x1304");
+    snprintf(buffer, sizeof(buffer), "2520x1418");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3K_100D)
