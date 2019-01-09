@@ -3628,7 +3628,7 @@ lv_dispsize = 5;
     {
         if (is_supported_mode())
         {
-            if (!patch_active || CROP_PRESET_MENU != crop_preset || (ratios == 0x1) || (ratios == 0x2 || (ratios == 0x0)))
+            if (!patch_active || CROP_PRESET_MENU != crop_preset)
             {
                 return 1;
             }
