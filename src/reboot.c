@@ -432,6 +432,10 @@ static int (*boot_card_init)();
 /* for intercepting Canon messages */
 static int (*boot_putchar)(int ch) = 0;
 
+/* low-level I/O stubs */
+static int (*boot_read_sector)(uint32_t sector_address, uint32_t num_sectors, void * buffer) = 0;
+static int (*boot_write_sector)(uint32_t sector_address, uint32_t num_sectors, void * buffer) = 0;
+
 static void save_file(int drive, char* filename, void* addr, int size)
 {
     /* check whether our stubs were initialized */
@@ -505,36 +509,41 @@ static void print_err(FF_ERROR err)
     }
 }
 
-static struct sd_ctx sd_ctx;
+//static struct sd_ctx sd_ctx;
 
 static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
-    uint32_t ret = sd_read(&sd_ctx, sector, count, buffer);
+    //printf(" - RD %8X %4X %08X", sector, count, buffer);
+    uint32_t ret = boot_read_sector(sector, count, buffer);
+    //printf(" => %X\n", ret);
 
-    if(ret)
+    if (ret)
     {
         char text[64];
-
-        snprintf(text, 64, "   SD read error: 0x%02X, sector: 0x%08X, count: %d", ret, sector, count);
+        snprintf(text, 64, "   SD read error: %d, sector: 0x%08X, count: %d\n", ret, sector, count);
         print_line(COLOR_RED, 1, text);
+        return FF_ERR_DRIVER_FATAL_ERROR;
     }
 
-    return ret ? FF_ERR_DRIVER_FATAL_ERROR : 0;
+    return 0;
 }
 
 static unsigned long FF_blk_write(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
-    uint32_t ret = sd_write(&sd_ctx, sector, count, buffer);
+    //printf(" - WR %8X %4X %08X", sector, count, buffer);
+    uint32_t ret = boot_write_sector(sector, count, buffer);
+    //printf(" => %X\n", ret);
 
-    if(ret)
+    if (ret)
     {
         char text[64];
 
-        snprintf(text, 64, "   SD write error: 0x%02X, sector: 0x%08X, count: %d", ret, sector, count);
+        snprintf(text, 64, "   SD write error: %d, sector: 0x%08X, count: %d\n", ret, sector, count);
         print_line(COLOR_RED, 1, text);
+        return FF_ERR_DRIVER_FATAL_ERROR;
     }
 
-    return ret ? FF_ERR_DRIVER_FATAL_ERROR : 0;
+    return 0;
 }
 
 static void halt_blink_code(uint32_t speed, uint32_t code)
@@ -549,8 +558,62 @@ static void halt_blink_code(uint32_t speed, uint32_t code)
     }
 }
 
+extern void * memmem(const void * haystack, size_t haystacklen, const void * needle, size_t needle_len);
+
+static void init_sector_io_stubs()
+{
+    if (is_digic8())
+    {
+        /* M50, SX70 */
+        uint16_t boot_rw_sector[] = { 0xB538, 0x4614, 0x460B, 0x2100, 0x4602, 0x9100, 0x2000, 0x4621 };
+
+        printf(" - boot_read_sector ");
+        boot_read_sector = memmem((void *) 0x100000, 0x10000, boot_rw_sector, 16);
+        printf("%x\n", boot_read_sector);
+        if (!boot_read_sector) fail();
+        uint32_t insn = MEM((void *)boot_read_sector + 16);
+        int is_bl = ((insn & 0xF800FC00) == 0xF800F000);
+        if (!is_bl) fail();
+
+        printf(" - boot_write_sector ");
+        boot_write_sector = memmem((void *) boot_read_sector + 16, 32, boot_rw_sector, 16);
+        printf("%x\n", boot_write_sector);
+        if (!boot_read_sector) fail();
+
+        uint32_t i = (uint32_t) boot_write_sector + 16;
+        insn = MEM(i);
+        is_bl = ((insn & 0xF800FC00) == 0xF800F000);
+        if (!is_bl) fail();
+
+        uint32_t pc = (i + 4);
+        uint32_t imm10 = insn & 0x3FF;
+        uint32_t imm11 = (insn >> 16) & 0x7FF;
+        uint32_t func_offset = (imm11 << 1) | (imm10 << 12);
+        uint32_t func_addr = pc + func_offset;
+        printf(" - %x: BL %x\n", i, func_addr);
+        if (func_addr < 0x100000 || func_addr > 0x110000) fail();
+
+        /* add the Thumb bit */
+        boot_read_sector  = (void *)((uintptr_t) boot_read_sector  | 1);
+        boot_write_sector = (void *)((uintptr_t) boot_write_sector | 1);
+    }
+}
+
+static void* find_boot_card_init();
+
 static FF_IOMAN * fat_init()
 {
+    boot_card_init = find_boot_card_init();
+    init_sector_io_stubs();
+
+    if (boot_card_init)
+    {
+        /* not all cameras need this, but some do */
+        printf(" - Init SD... (%X)", boot_card_init);
+        int ret = boot_card_init();
+        printf(" => %x\n", ret);
+    }
+
     FF_IOMAN *ioman = NULL;
     FF_ERROR err = FF_ERR_NONE;
 
@@ -602,24 +665,24 @@ static void fat_deinit(FF_IOMAN *ioman)
     }
 }
 
-static void dump_rom(FF_IOMAN *ioman)
+static void dump_rom(FF_IOMAN *ioman, char * rom_name, char * md5_name, uint32_t base_addr, uint32_t rom_size)
 {
     FF_ERROR err = FF_ERR_NONE;
 
-    print_line(COLOR_CYAN, 1, "   Creating dump file");
+    print_line(COLOR_CYAN, 1, "   Creating dump file\n");
 
-    FF_FILE *file = FF_Open(ioman, "\\ROM.BIN", FF_GetModeBits("w"), &err);
+    FF_FILE *file = FF_Open(ioman, rom_name, FF_GetModeBits("w"), &err);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to create dump file");
+        print_line(COLOR_RED, 1, "   Failed to create dump file\n");
         print_err(err);
         halt_blink_code(10, 5);
     }
 
-    print_line(COLOR_CYAN, 1, "   Dumping...");
+    print_line(COLOR_CYAN, 1, "   Dumping...\n");
 
     uint32_t block_size = 0x2000;
-    uint32_t block_count = 0x01000000 / block_size;
+    uint32_t block_count = rom_size / block_size;
     uint32_t last_progress = 0;
 
     for(uint32_t block = 0; block < block_count; block++)
@@ -632,10 +695,10 @@ static void dump_rom(FF_IOMAN *ioman)
             disp_progress(progress);
         }
 
-        err = FF_Write(file, block_size, 1, (FF_T_UINT8 *) (0xF8000000 + block * block_size));
+        err = FF_Write(file, block_size, 1, (FF_T_UINT8 *) (base_addr + block * block_size));
         if(err <= 0)
         {
-            print_line(COLOR_RED, 1, "   Failed to write dump file");
+            print_line(COLOR_RED, 1, "   Failed to write dump file\n");
             print_err(err);
             FF_Close(file);
             FF_UnmountPartition(ioman);
@@ -648,20 +711,20 @@ static void dump_rom(FF_IOMAN *ioman)
     err = FF_Close(file);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to close dump file");
+        print_line(COLOR_RED, 1, "   Failed to close dump file\n");
         print_err(err);
         halt_blink_code(10, 7);
     }
 
-    print_line(COLOR_CYAN, 1, "   Building checksum file");
+    print_line(COLOR_CYAN, 1, "   Building checksum file\n");
 
     unsigned char md5_output[16];
-    md5((void *)0xF8000000, 0x01000000, md5_output);
+    md5((void *)base_addr, rom_size, md5_output);
 
-    file = FF_Open(ioman, "\\ROM.MD5", FF_GetModeBits("w"), &err);
+    file = FF_Open(ioman, md5_name, FF_GetModeBits("w"), &err);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to create MD5 file");
+        print_line(COLOR_RED, 1, "   Failed to create MD5 file\n");
         print_err(err);
         halt_blink_code(10, 5);
     }
@@ -669,7 +732,7 @@ static void dump_rom(FF_IOMAN *ioman)
     err = FF_Write(file, 16, 1, md5_output);
     if(err <= 0)
     {
-        print_line(COLOR_RED, 1, "   Failed to write MD5 file");
+        print_line(COLOR_RED, 1, "   Failed to write MD5 file\n");
         print_err(err);
         FF_Close(file);
         FF_UnmountPartition(ioman);
@@ -679,12 +742,12 @@ static void dump_rom(FF_IOMAN *ioman)
     err = FF_Close(file);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to close MD5 file");
+        print_line(COLOR_RED, 1, "   Failed to close MD5 file\n");
         print_err(err);
         halt_blink_code(10, 7);
     }
 
-    print_line(COLOR_CYAN, 1, "   Finished, cleaning up");
+    print_line(COLOR_CYAN, 1, "   Finished, cleaning up\n");
 
     FF_UnmountPartition(ioman);
 }
@@ -1300,24 +1363,18 @@ static void dump_rom_with_canon_routines()
 #ifdef CONFIG_BOOT_FULLFAT
 static void dump_rom_with_fullfat()
 {
-#if defined(CONFIG_600D) || defined(CONFIG_5D3)
     /* file I/O only known to work on these cameras */
     malloc_init((void *)0x02000000, 0x02000000);
-
-    printf(" - Init SD/CF\n");
-    sd_init(&sd_ctx);
 
     printf(" - Init FAT\n");
     FF_IOMAN *ioman = fat_init();
 
-    printf(" - Dump ROM\n");
-    dump_rom(ioman);
+    printf(" - Dumping ROM...\n");
+    dump_rom(ioman, "\\ROM0.BIN", "\\ROM0.MD5", 0xE0000000, 0x02000000);
+    dump_rom(ioman, "\\ROM1.BIN", "\\ROM1.MD5", 0xF0000000, 0x01000000);
 
     printf(" - Umount FAT\n");
     fat_deinit(ioman);
-#else
-    print_line(COLOR_RED, 2, " - FullFAT unsupported.\n");
-#endif
 }
 #endif
 

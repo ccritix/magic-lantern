@@ -63,15 +63,7 @@
 #else
 #define wcsicmp wcscasecmp
 
-int tolower(int c)
-{
-    if(c >= 'A' && c <= 'Z')
-    {
-        c |= 0x20;
-    }
-    
-    return c;
-}
+extern int tolower(int c);
 
 int strcasecmp(const char *s1, const char *s2)
 {

@@ -229,7 +229,6 @@ endif
 
 ifeq ($(CONFIG_BOOT_FULLFAT),y)
 CFLAGS += -DCONFIG_BOOT_FULLFAT
-ML_SRC_REBOOT_OBJ += sd_direct.o
 ML_SRC_REBOOT_OBJ += ff_blk.o
 ML_SRC_REBOOT_OBJ += ff_crc.o
 ML_SRC_REBOOT_OBJ += ff_dir.o
@@ -356,6 +355,7 @@ DIET_OBJ = \
 	strchr.o \
 	strstr.o \
 	memcmp.o \
+	memmem.o \
 	memmove.o \
 	atoi.o \
 	atol.o \
