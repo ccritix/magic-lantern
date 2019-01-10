@@ -2354,6 +2354,7 @@ static inline uint32_t reg_override_2K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F06804: return 0x5ac02a1; // 2520x1418  x5 Mode;
         case 0xC0F0713c: return 0x5ac;
         case 0xC0F06014: return 0x71e;
+        case 0xC0F07150: return 0x590;
     }
 
     return 0;
@@ -2790,7 +2791,7 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
         case 0xC0F06804: return 0x44c0298; /* 2520x1072  x5 Mode; */
-        case 0xC0F07150: return 0x428;
+        case 0xC0F07150: return 0x490;
         case 0xC0F0713c: return 0x44c;
         case 0xC0F06014: return 0x747;
     }
