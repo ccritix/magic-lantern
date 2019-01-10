@@ -187,8 +187,8 @@ static const char crop_choices_help2_100d[] =
     "1:1 4K x5 crop, framing preview\n"
     "2K  x5 crop, framing preview\n"
     "regular mv1080p mode\n"
-    "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
-    "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
+    "3x3 binning in 720p\n"
+    "1x3 binning mode(extreme anamorphic)\n"
     "1:1 Movie crop mode\n";
 
 	/* menu choices for EOSM */
