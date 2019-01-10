@@ -173,7 +173,6 @@ static const char * crop_choices_100d[] = {
     "4K 4056x2552",
     "3x3 720p",
     "2K 2520x1080p",
-    "1x3_1736x1188",
 };
 
 static const char crop_choices_help_100d[] =
@@ -201,12 +200,12 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_3x3_mv1080_45fps_EOSM,
     CROP_PRESET_3x3_mv1080_50fps_EOSM,
     CROP_PRESET_3x1_mv720_50fps_EOSM,
+    CROP_PRESET_1x3_EOSM,
     CROP_PRESET_4K_3x1_EOSM,
     CROP_PRESET_5K_3x1_EOSM,
    // CROP_PRESET_4K_5x1_EOSM,
     CROP_PRESET_4K_EOSM,
    // CROP_PRESET_3x3_1X_EOSM,
-    CROP_PRESET_1x3_EOSM,
 };
 
 static const char * crop_choices_eosm[] = {
@@ -217,12 +216,12 @@ static const char * crop_choices_eosm[] = {
     "mv1080p 1736x976 45fps",
     "mv1080p 1736x738 50fps",
     "mv720p 1736x696 50fps", 
+    "1x3 1712x2184",
     "4K 3x1 24fps",
     "5K 3x1 24fps",
    // "4K 5x1 24fps",
     "4K 4038x2558",
    // "3x3 720p",
-    "1x3 1736x1120",
 };
 
 static const char crop_choices_help_eosm[] =
@@ -236,13 +235,12 @@ static const char crop_choices_help2_eosm[] =
     "mv1080p 45fps\n"
     "mv1080p 50fps\n"
     "mv720p 50fps\n"
+    "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
     "3:1 4K crop squeeze. Set cam to x5\n"
     "3:1 5K crop squeeze. Set cam to x5\n"
    // "5:1 4K crop squeeze, preview broken\n"
-    "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
+    "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n";
    // "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
-    "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n";
-
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
 static enum crop_preset crop_presets_basic[] = {
@@ -1125,20 +1123,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[0] = (struct adtg_new) {6, 0x8060, shutter_blanking};
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
 
-if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) || 
-(CROP_PRESET_MENU == CROP_PRESET_3K_100D) || 
-(CROP_PRESET_MENU == CROP_PRESET_4K_100D) || 
-(CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) || 
-(CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) || 
-(CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) ||
-(CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) ||
-(CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM) ||
-(CROP_PRESET_MENU == CROP_PRESET_4K_3x1_100D) ||
-(CROP_PRESET_MENU == CROP_PRESET_5K_3x1_100D) ||
-(CROP_PRESET_MENU == CROP_PRESET_1080K_100D))
-{
-lv_dispsize = 5;
-}
 
    		if (bitrate == 0x1)
     		{
@@ -3402,7 +3386,7 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
 
     switch (reg)
     {
-        	case 0xC0F06804: return 0x4a601d4; 
+        	case 0xC0F06804: return 0x8a601ce; 
 
         	case 0xC0F06014: return 0x9df;
 		case 0xC0F0600c: return 0x20f020f;
@@ -3410,9 +3394,8 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
 		case 0xC0F06010: return 0x20f;
 		
 		case 0xC0F37014: return 0xe; 
-        	case 0xC0F0713c: return 0x4a7;
-		case 0xC0F07150: return 0x475;
-
+        	case 0xC0F0713c: return 0x8a7;
+		case 0xC0F07150: return 0x895;
     }
 
     return 0;
