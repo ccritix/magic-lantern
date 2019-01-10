@@ -180,7 +180,7 @@ static const char crop_choices_help_100d[] =
     "Free registers if needed with canon menu button and back...";
 static const char crop_choices_help2_100d[] =
     "\n"
-    "1:1 2.5K x5crop\n"
+    "1:1 2.5K x5crop, real time preview\n"
     "1:1 3K x5crop, framing preview\n"
     "3:1 4K x5 crop, framing preview\n"
     "3:1 5K x5 crop, framing preview\n"
@@ -194,52 +194,52 @@ static const char crop_choices_help2_100d[] =
 	/* menu choices for EOSM */
 static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_OFF,
-    CROP_PRESET_3x3_mv1080_EOSM,
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
+    CROP_PRESET_4K_EOSM,
+    CROP_PRESET_4K_3x1_EOSM,
+    CROP_PRESET_5K_3x1_EOSM,
+    CROP_PRESET_3x3_mv1080_EOSM,
     CROP_PRESET_3x3_mv1080_45fps_EOSM,
     CROP_PRESET_3x3_mv1080_50fps_EOSM,
     CROP_PRESET_3x1_mv720_50fps_EOSM,
     CROP_PRESET_1x3_EOSM,
-    CROP_PRESET_4K_3x1_EOSM,
-    CROP_PRESET_5K_3x1_EOSM,
    // CROP_PRESET_4K_5x1_EOSM,
-    CROP_PRESET_4K_EOSM,
    // CROP_PRESET_3x3_1X_EOSM,
 };
 
 static const char * crop_choices_eosm[] = {
     "OFF",
-    "mv1080p 1736x1120",
     "2.5K 2520x1418",
     "3K 3032x1436",
+    "4K 4038x2558",
+    "4K 3x1 24fps",
+    "5K 3x1 24fps",
+    "mv1080p 1736x1120",
     "mv1080p 1736x976 45fps",
     "mv1080p 1736x738 50fps",
     "mv720p 1736x696 50fps", 
     "1x3 1712x2184",
-    "4K 3x1 24fps",
-    "5K 3x1 24fps",
    // "4K 5x1 24fps",
-    "4K 4038x2558",
    // "3x3 720p",
 };
 
 static const char crop_choices_help_eosm[] =
-    "Change 1080p and 720p movie modes into crop modes (select one)";
+    "Free registers if needed with canon menu button and back...";
 
 static const char crop_choices_help2_eosm[] =
     "\n"
-    "mv1080p derived from 3x3 (square pixels in RAW, vertical crop)\n"
-    "1:1 2.5K crop (2520x1418 16:9 @ 24p, square raw pixels, cropped preview)\n"
-    "1:1 3K crop (3032x1436 @ 24p, square raw pixels, preview broken)\n"
+    "1:1 2K x5crop, real time preview\n"
+    "1:1 3K x5crop, framing preview\n"
+    "1:1 4K x5crop, framing preview\n"
+    "3:1 4K x5crop, framing preview\n"
+    "3:1 5K x5crop, framing preview\n"
+    "mv1080p bypass mv720p idle mode\n"
     "mv1080p 45fps\n"
     "mv1080p 50fps\n"
     "mv720p 50fps\n"
-    "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
-    "3:1 4K crop squeeze. Set cam to x5\n"
-    "3:1 5K crop squeeze. Set cam to x5\n"
+    "1x3 binning mode(extreme anamorphic)\n";
    // "5:1 4K crop squeeze, preview broken\n"
-    "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n";
    // "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
@@ -3645,14 +3645,32 @@ static MENU_UPDATE_FUNC(crop_update)
         }
     }
 
-
   if ((CROP_PRESET_MENU && lv) && (is_EOSM))
   {
-    if ((lv_dispsize == 1) && ((CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) || (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM)))
+
+    if ((lv_dispsize == 1) && 
+((CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) 
+|| (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM)
+|| (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
+|| (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM)
+|| (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
+|| (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM)))
     {
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in x5 zoom");
         return;
     }
+
+    if ((lv_dispsize > 1) && 
+((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
+|| (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_45fps_EOSM) 
+|| (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_50fps_EOSM)
+|| (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
+|| (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM)))
+    {
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in x1 movie mode");
+        return;
+    }
+
   }
 
   if ((CROP_PRESET_MENU && lv) && (is_100D))
