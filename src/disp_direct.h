@@ -24,5 +24,7 @@ void disp_init();
 void disp_set_buf(int buf);
 void disp_swap();
 uint32_t disp_direct_scroll_up(uint32_t height);
+uint32_t disp_direct_get_xres();
+uint32_t disp_direct_get_yres();
 
 #endif

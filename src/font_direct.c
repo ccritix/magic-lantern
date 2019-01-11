@@ -127,13 +127,14 @@ void font_draw(uint32_t *x_pos, uint32_t *y_pos, uint32_t color, uint32_t scale,
     uint32_t ypos = *y_pos;
     
     uint32_t count = strlen(text);
+    uint32_t disp_xres = disp_direct_get_xres();
     
     for(uint32_t i = 0; i < count; i++)
     {
-        if (xpos + char_width > 720)
+        if (xpos + char_width > disp_xres)
         {
             /* wrap long strings and right-justify them */
-            xpos = MAX(0, 720 - (count-i) * char_width);
+            xpos = MAX(0, disp_xres - (count-i) * char_width);
             ypos += char_height;
         }
         

@@ -327,7 +327,7 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
 
     int height = scale * (FONTH + 2);
 
-    if (print_y + height >= 480)
+    if (print_y + height >= disp_direct_get_yres() - height)
     {
 #ifdef PAGE_SCROLL
         /* wait for user to read the current page */
@@ -335,7 +335,7 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
         /* note: adjust the timings if running with cache disabled */
         for (int i = 9; i > 0; i--)
         {
-            uint32_t x = 710; uint32_t y = 0;
+            uint32_t x = disp_direct_get_xres() - 10; uint32_t y = 0;
             char msg[] = "0"; msg[0] = '0' + i;
             font_draw(&x, &y, COLOR_WHITE, 1, (char*) &msg);
             busy_wait(100);
@@ -360,9 +360,16 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
 /* only for lines where '\n' was not yet printed */
 static void clear_line()
 {
-    printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-    printf("                                            ");
-    printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
+    int max_chars = disp_direct_get_xres() / FONTW / printf_font_size - 1;
+    for (int i = 0; i < max_chars; i++) {
+        print_line(printf_font_color, printf_font_size, "\b");
+    }
+    for (int i = 0; i < max_chars; i++) {
+        print_line(printf_font_color, printf_font_size, " ");
+    }
+    for (int i = 0; i < max_chars; i++) {
+        print_line(printf_font_color, printf_font_size, "\b");
+    }
 }
 
 int printf(const char * fmt, ...)

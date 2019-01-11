@@ -35,9 +35,23 @@ static uint8_t *disp_framebuf_mirror = __disp_framebuf_mirror_alloc;
 static uint8_t *disp_yuvbuf = __disp_yuvbuf_alloc;
 static uint32_t caching_bit = 0x40000000;
 
-static int disp_yres = 480;
-static int disp_xres = 720;
-static int disp_bpp  = 4;
+static int disp_yres = 480;     /* buffer Y resolution */
+static int disp_yratio = 1;     /* for displays with non-square pixels, e.g. VxWorks models */
+static int disp_xres = 720;     /* buffer X resolution, including any padding (this is actually pitch) */
+static int disp_xpad = 0;       /* horizontal padding on the right side (to be subtracted from xres) */
+static int disp_bpp  = 4;       /* 4 (16-color palette), 8 (256-color palette) or 16 (YUV422) */
+
+uint32_t disp_direct_get_xres()
+{
+    /* return the usable xres, without the padding */
+    return disp_xres - disp_xpad;
+}
+
+uint32_t disp_direct_get_yres()
+{
+    /* return logical yres (i.e. 480 for VxWorks 720x240 models) */
+    return disp_yres * disp_yratio;
+}
 
 static int disp_current_buf = 0;
 
@@ -186,10 +200,8 @@ static void disp_set_pixel_yuv422(uint8_t * buf, uint32_t pixnum, uint32_t color
 
 void disp_set_pixel_other(uint32_t x, uint32_t y, uint32_t color)
 {
-    /* assume the caller uses 720x480 logical coords */
-    /* (handle 720x240 buffers as well, but don't stretch 900x600) */
-
-    uint32_t pixnum = (y * (disp_yres * 2 / 480) / 2) * disp_xres + x;
+    /* some displays have non-square pixels */
+    uint32_t pixnum = (y / disp_yratio) * disp_xres + x;
     uint8_t *buf = disp_get_other_bmp();
     
     switch (disp_bpp)
@@ -212,10 +224,8 @@ void disp_set_pixel_other(uint32_t x, uint32_t y, uint32_t color)
 
 void disp_set_pixel(uint32_t x, uint32_t y, uint32_t color)
 {
-    /* assume the caller uses 720x480 logical coords */
-    /* (handle 720x240 buffers as well, but don't stretch 900x600) */
-
-    uint32_t pixnum = (y * (disp_yres * 2 / 480) / 2) * disp_xres + x;
+    /* some displays have non-square pixels */
+    uint32_t pixnum = (y / disp_yratio) * disp_xres + x;
     uint8_t *buf = disp_get_active_bmp();
 
     switch (disp_bpp)
@@ -484,6 +494,7 @@ void disp_init()
     {
         /* 5D4 */
         disp_xres = 928;    /* fixme: 900 displayed */
+        disp_xpad = 28;
         disp_yres = 600;
         PALETTE_REG_D6 = PALETTE_REG_5D4;
     }
@@ -505,6 +516,7 @@ void disp_init()
                 break;
             case 0x412: /* M50 */
                 disp_xres = 736;
+                disp_xpad = 16;     /* 720 displayed */
                 break;
             case 0x424: /* R */
                 /* TODO */
@@ -516,6 +528,7 @@ void disp_init()
     {
         caching_bit = 0x10000000;
         disp_yres = 240;
+        disp_yratio = 2;
     }
     
     /* make the image buffers uncacheable */
@@ -567,10 +580,9 @@ static void memset32(uint32_t * buf, uint32_t val, size_t size)
 
 uint32_t disp_direct_scroll_up(uint32_t height)
 {
-    /* assume the caller uses 720x480 logical coords */
-    /* (handle 720x240 buffers as well, but don't stretch 900x600) */
-    height = height * (disp_yres * 2 / 480) / 2;
-    
+    /* some displays have non-square pixels */
+    height /= disp_yratio;
+
     uint32_t start = (disp_xres * height) * disp_bpp / 8;
     uint32_t size = (disp_xres * (disp_yres - height)) * disp_bpp / 8;
     uint32_t color = color_word(COLOR_TRANSPARENT_BLACK);
