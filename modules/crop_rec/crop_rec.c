@@ -2352,9 +2352,9 @@ static inline uint32_t reg_override_2K_100d(uint32_t reg, uint32_t old_val)
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
         case 0xC0F06804: return 0x5ac02a1; // 2520x1418  x5 Mode;
-        case 0xC0F0713c: return 0x5ac;
         case 0xC0F06014: return 0x71e;
-        case 0xC0F07150: return 0x590;
+        case 0xC0F0713c: return 0x5ac; 
+        case 0xC0F07150: return 0x58c;
     }
 
     return 0;
@@ -2412,7 +2412,7 @@ static inline uint32_t reg_override_3K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F0600C: return 0x34b034b;
 
         case 0xC0F06014: return 0x62c;
-        case 0xC0F0713c: return 0x5b9;
+        case 0xC0F0713c: return 0x5ba;
     }
 
     return 0;
@@ -2471,7 +2471,7 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F0600C: return 0x45b045b;
 
         case 0xC0F06014: return 0xbd4;
-        case 0xC0F0713c: return 0xA55;
+        case 0xC0F0713c: return 0xa55;
     }
 
     return 0;
@@ -2584,8 +2584,8 @@ static inline uint32_t reg_override_4K_3x1_100D(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x45f050f;
         case 0xC0F0600C: return 0x45f045f;
         case 0xC0F06014: return 0x405;
-        case 0xC0F0713c: return 0x320;
-	case 0xC0F07150: return 0x300;
+        case 0xC0F0713c: return 0x310;
+	case 0xC0F07150: return 0x305;
 
     }
 
@@ -2640,8 +2640,8 @@ static inline uint32_t reg_override_5K_3x1_100D(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x57b057b;
         case 0xC0F0600C: return 0x57b057b;
         case 0xC0F06014: return 0x3b5;
-        case 0xC0F0713c: return 0x310;
-	case 0xC0F07150: return 0x29b;
+        case 0xC0F0713c: return 0x2e8; 
+        case 0xC0F07150: return 0x2e2;
     }
 
     return 0;
@@ -2688,6 +2688,8 @@ static inline uint32_t reg_override_1080p_100d(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
         case 0xC0F06804: return 0x45902a1;
+         case 0xC0F0713c: return 0x459; // I keep this register 1 value higher then first three digits in 6804 register(vertical resolution), so changed this one back to 0x2d8
+         case 0xC0F07150: return 0x450;
     }
 
     return 0;
@@ -2791,8 +2793,8 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
         case 0xC0F06804: return 0x44c0298; /* 2520x1072  x5 Mode; */
-        case 0xC0F07150: return 0x490;
         case 0xC0F0713c: return 0x44c;
+        case 0xC0F07150: return 0x435;
         case 0xC0F06014: return 0x747;
     }
   }
@@ -2801,8 +2803,8 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
         case 0xC0F06804: return 0x5a70298; /* 2520x1418  x5 Mode; */
-        case 0xC0F07150: return 0x428;
         case 0xC0F0713c: return 0x5a7;
+        case 0xC0F07150: return 0x5a0;
         case 0xC0F06014: return 0x747;
     }
   }
@@ -3044,8 +3046,8 @@ static inline uint32_t reg_override_5K_3x1_EOSM(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x57b057b;
         case 0xC0F0600C: return 0x57b057b;
         case 0xC0F06014: return 0x3b5;
-        case 0xC0F0713c: return 0x310;
-	case 0xC0F07150: return 0x300;
+        case 0xC0F0713c: return 0x2e4;
+	case 0xC0F07150: return 0x2ee;
     }
 
     return 0;
