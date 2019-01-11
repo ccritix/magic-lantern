@@ -589,7 +589,7 @@ static int raw_lv_get_resolution(int* width, int* height)
     /* http://www.magiclantern.fm/forum/index.php?topic=16608.msg176023#msg176023 */
     if ((lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264) && (shamem_read(0xC0F06804) != 0x89f01cc)) /* for 1x3 binning */
     {    
-            *height = 727;    
+            *height = 727; 
 
         if (shamem_read(0xC0F0713C) == 0x310)
         {	
@@ -602,10 +602,10 @@ static int raw_lv_get_resolution(int* width, int* height)
         /* mv1080p 45fps */
             *height = 1006;
         }
-        if (shamem_read(0xC0F07150) == 0x475)
+        if (shamem_read(0xC0F07150) == 0x499)
         {	
         /* mv1080p mode crop_rec.c */
-            *height = 1150;
+            *height = 1190;
         }
 
     }

@@ -215,7 +215,7 @@ static const char * crop_choices_eosm[] = {
     "4K 4038x2558",
     "4K 3x1 24fps",
     "5K 3x1 24fps",
-    "mv1080p 1736x1120",
+    "mv1080p 1736x1160",
     "mv1080p 1736x976 45fps",
     "mv1080p 1736x738 50fps",
     "mv720p 1736x696 50fps", 
@@ -426,11 +426,11 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	/* set ratio preset */
     	if (ratios == 0x1)
     	{
-      	skip_bottom     = 381;
+      	skip_bottom     = 422;
     	}
     	if (ratios == 0x2)
     	{
-      	skip_bottom     = 143;
+      	skip_bottom     = 184;
     	}
         break;
 
@@ -3164,7 +3164,7 @@ static inline uint32_t reg_override_3x3_eosm(uint32_t reg, uint32_t old_val)
         	case 0xC0F06804: return 0x4a601d4; 		
 		case 0xC0F37014: return 0xe; 
         	case 0xC0F0713c: return 0x4a7;
-		case 0xC0F07150: return 0x475;
+		case 0xC0F07150: return 0x499;
     }
 
     return 0;
