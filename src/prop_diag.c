@@ -62,6 +62,7 @@ struct nesting_level levels[] = {
 struct
 {
     char* camera_model;
+    char* camera_model_alt;
     char* firmware_version;
     char* firmware_subversion;
     char* artist;
@@ -73,7 +74,7 @@ struct
     char* dir_suffix;
     int file_number;
 } cam_info = {
-    "???", "???", "???", "???", "???",
+    "???", "???", "???", "???", "???", "???",
     "???", "???", "???", "????", "?????", 0
 };
 
@@ -90,6 +91,10 @@ static void process_property(uint32_t property, union prop_data * data, uint32_t
     {
         case PROP_CAM_MODEL:
             cam_info.camera_model = data->str;
+            break;
+
+        case 0x1000010:
+            cam_info.camera_model_alt = data->str;
             break;
         
         case PROP_FIRMWARE_VER:
@@ -356,7 +361,28 @@ static void guess_prop(uint32_t * buffer, uint32_t buffer_len, int active_only, 
 
 static void print_camera_info()
 {
-    printf(" - Camera model: %s\n", cam_info.camera_model);
+    if (strcmp(cam_info.camera_model, cam_info.camera_model_alt) == 0 ||
+        strcmp(cam_info.camera_model_alt, "???") == 0 ||
+        strcmp(cam_info.camera_model_alt, "Canon EOS 60D") == 0)    /* 5D3 quirk */
+    {
+        /* many models use only this one */
+        printf(" - Camera model: %s\n", cam_info.camera_model);
+    }
+    else if (strcmp(cam_info.camera_model, "???") == 0)
+    {
+        /* a few models use only this one */
+        printf(" - Camera model: %s\n", cam_info.camera_model_alt);
+    }
+    else
+    {
+        /* some models have two names, e.g. "Canon EOS 6D Mark II" and "Canon EOS K406" */
+        /* any of them might be the code name or the market name, so... let's just print both */
+        /* FIXME: result not pretty if one of the names is prefix of the other */
+        int common = 0;
+        while (toupper(cam_info.camera_model[common]) == toupper(cam_info.camera_model_alt[common])) common++;
+        printf(" - Camera model: %s / %s\n", cam_info.camera_model_alt, cam_info.camera_model + common);
+    }
+
     printf(" - Firmware version: %s / %s\n", cam_info.firmware_version, cam_info.firmware_subversion);
     printf(" - IMG naming: 100%s/%s%04d.JPG\n", cam_info.dir_suffix, cam_info.file_prefix, cam_info.file_number);
 #if 0
