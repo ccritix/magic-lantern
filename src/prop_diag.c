@@ -154,20 +154,180 @@ static void process_property(uint32_t property, union prop_data * data, uint32_t
     }
 }
 
-/* parse a property buffer (status, size, data) */
+#ifndef CONFIG_MAGICLANTERN
+/* Pretty-printer for raw property data */
+/* FIXME: standalone only */
+
+/* fixme: move this into a library */
+static inline char hex_digit(uint32_t x)
+{
+    x &= 0xF;
+    if (x < 10)
+    {
+        return '0' + x;
+    }
+
+    return 'A' + x - 10;
+}
+
+/* fixme: move this into a library */
+static int likely_string(const char * str, int min_len)
+{
+    for (int i = 0; i < min_len; i++)
+    {
+        /* should match the switch in prop_dump */
+        switch (str[i])
+        {
+            case 32 ... 126:
+            case '\n':
+            case '\r':
+            case '\t':
+            case '\b':
+                break;
+            default:
+                return 0;
+        }
+    }
+    return 1;
+}
+
+/* fixme: move this into a library */
+static int is_empty(const char * str, int len)
+{
+    for (int i = 0; i < len; i++)
+    {
+        if (str[i]) return 0;
+    }
+    return 1;
+}
+
+/* Attempts to guess strings, otherwise perform a hex dump.
+ * FIXME: refactor without reinventing the wheel. */
+const char * prop_dump(const char * data, int len)
+{
+    static char msg[64];
+    int i = 0;
+    for (const char * p = data; p < data + len && i < COUNT(msg)-16; p++)
+    {
+        char c = *p;
+        int parsed = p - data;
+        int remain = len - parsed;
+
+        switch (c)
+        {
+            #define NEW_PRINTABLE_CHAR() \
+                if (i > 0 && msg[i-1] == '"') { i--; }                      /* append to previous string */ \
+                else if (likely_string(p, 4)) { msg[i++] = ' '; msg[i++] = '"'; }  /* start a new string */ \
+                else { goto hexdump; }          /* don't start a new string just for 1-2 printable chars */
+
+            case '"':
+                NEW_PRINTABLE_CHAR();
+                msg[i++] = '\\';
+                msg[i++] = '"';
+                msg[i++] = '"';
+                break;
+
+            case '\0':
+                if (is_empty(p, remain)) {
+                    /* skip trailing zeros */
+                    goto end;
+                } else {
+                    goto hexdump;
+                }
+                break;
+
+            case 32 ... '"'-1:
+            case '"'+1 ... 126:
+                NEW_PRINTABLE_CHAR();
+                msg[i++] = c;
+                msg[i++] = '"';
+                break;
+            case '\n':
+                NEW_PRINTABLE_CHAR();
+                msg[i++] = '\\';
+                msg[i++] = 'n';
+                msg[i++] = '"';
+                break;
+            case '\r':
+                NEW_PRINTABLE_CHAR();
+                msg[i++] = '\\';
+                msg[i++] = 'r';
+                msg[i++] = '"';
+                break;
+            case '\t':
+                NEW_PRINTABLE_CHAR();
+                msg[i++] = '\\';
+                msg[i++] = 't';
+                msg[i++] = '"';
+                break;
+            case '\b':
+                NEW_PRINTABLE_CHAR();
+                msg[i++] = '\\';
+                msg[i++] = 'b';
+                msg[i++] = '"';
+                break;
+            default:
+            hexdump:
+                msg[i++] = ' ';
+                if (remain >= 4 && parsed % 4 == 0) {
+                    uint32_t val = *(uint32_t *)(p);
+                    i += sprintf(msg + i, "%08X", val);
+
+                    int count = 0;
+                    for (int k = 0; k < remain / 4; k++)
+                    {
+                        if (((uint32_t *)p)[k] == val) {
+                            count++;
+                        } else {
+                            break;
+                        }
+                    }
+                    if (count > 1)
+                    {
+                        i += sprintf(msg + i, "*%d", count);
+                    }
+                    p += count * 4 - 1;
+                } else {
+                    msg[i++] = hex_digit(c >> 4);
+                    msg[i++] = hex_digit(c);
+                }
+                break;
+        }
+        //msg[i] = 0; printf("%s\n", msg);
+    }
+
+end:
+    if (i >= COUNT(msg) - 16)
+    {
+        while (i < COUNT(msg) - 4)
+            msg[i++] = ' ';
+        msg[i++] = '.';
+        msg[i++] = '.';
+        msg[i++] = '.';
+    }
+
+    /* null-terminate */
+    while(i >= COUNT(msg));
+    msg[i] = 0;
+
+    return msg;
+}
+#endif
+
+/* parse a property buffer (prop_id, size, data) */
 /* buffer_len is always in bytes */
 static void parse_property(uint32_t * buffer, uint32_t buffer_len)
 {
-    uint32_t status = buffer[0];
+    uint32_t prop_id = buffer[0];
     uint32_t size = buffer[1] - 8;
     uint32_t * data = &buffer[2];
     // assert len(data) == size
     
     #ifndef CONFIG_MAGICLANTERN
-    printf("Prop %10x %6d %s\n", status, size, (char*)data);
+    printf("Prop %8x %6d %s\n", prop_id, size, prop_dump((char*)data, size));
     #endif
 
-    process_property(status, (union prop_data *) data, size);
+    process_property(prop_id, (union prop_data *) data, size);
 }
 
 static int check_terminator(int level, uint32_t tail, int verbose)
