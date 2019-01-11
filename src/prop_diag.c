@@ -209,6 +209,13 @@ static int parse_prop_group(uint32_t * buffer, int buffer_len, int status_idx, i
         return 0;
     }
 
+    if (buffer_len == 4)
+    {
+        /* found in M50/SX70 */
+        if (verbose) printf("%s empty?\n", levels[level].name);
+        return 1;
+    }
+
     if (buffer_len < size_idx * 4 + 4)
     {
         if (verbose) printf("%s buffer len error (0x%x, expected at least 0x%x)\n", levels[level].name, buffer_len, size_idx * 4 + 4);
@@ -217,7 +224,14 @@ static int parse_prop_group(uint32_t * buffer, int buffer_len, int status_idx, i
 
     uint32_t status = buffer[status_idx];
     int size = buffer[size_idx];
-    
+
+    if (size == 0 && status == 0)
+    {
+        /* found in 500D */
+        if (verbose) printf("%s empty?\n", levels[level].name);
+        return 1;
+    }
+
     if (size < size_idx * 4 + 8 || size > buffer_len)
     {
         if (verbose) printf("%s size error (0x%x, expected between 0x0c and 0x%x)\n", levels[level].name, size, buffer_len);
@@ -294,6 +308,7 @@ static void guess_offsets(uint32_t * buffer, uint32_t * status_idx, uint32_t * s
 static void guess_prop(uint32_t * buffer, uint32_t buffer_len, int active_only, int verbose)
 {
     /* these properties must be aligned, right? */
+    //~ for (uint32_t offset = 0x8fa000; offset; offset = 0)    /* for testing with some particular offset */
     for (uint32_t offset = 0; offset < buffer_len; offset += 0x100)
     {
         uint32_t status_idx, size_idx, active_flag;
