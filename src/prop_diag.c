@@ -34,12 +34,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
+#include <ctype.h>
+#include "compiler.h"
+#define bool int
 #else
-extern int printf(const char* fmt, ... );
+#include "dryos.h"
 #endif
 
-#define bool int
-#include "compiler.h"
 #include "property.h"
 
 struct nesting_level
