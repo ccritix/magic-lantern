@@ -26,6 +26,8 @@
  * as "active" (status = 0xFFFF); this is probably (just a guess) used for wear leveling
  * and maybe also to save a "last known good" configuration (or that's just a side effect).
  * 
+ * New models may have different header structure for the main blocks;
+ * in particular, status and size are no longer the first items.
  */
 
 #ifndef CONFIG_MAGICLANTERN
@@ -147,11 +149,11 @@ static void process_property(uint32_t property, union prop_data * data, uint32_t
 
 /* parse a property buffer (status, size, data) */
 /* buffer_len is always in bytes */
-static void parse_property(uint32_t* buffer, uint32_t buffer_len)
+static void parse_property(uint32_t * buffer, uint32_t buffer_len)
 {
     uint32_t status = buffer[0];
     uint32_t size = buffer[1] - 8;
-    uint32_t* data = &buffer[2];
+    uint32_t * data = &buffer[2];
     // assert len(data) == size
     
     #ifndef CONFIG_MAGICLANTERN
@@ -197,13 +199,26 @@ static int check_terminator(int level, uint32_t tail, int verbose)
 }
 
 /* parse a class of groups of subgroups of properties (recursive) */
-static int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int verbose, int output)
+static int parse_prop_group(uint32_t * buffer, int buffer_len, int status_idx, int size_idx, int level, int verbose, int output)
 {
     //~ printf("parse prop group %p %x %d\n", buffer, buffer_len, level);
-    uint32_t status = buffer[0];
-    int size = buffer[1];
+
+    if (buffer_len % 4)
+    {
+        if (verbose) printf("%s buffer len align error (0x%x)\n", levels[level].name, buffer_len);
+        return 0;
+    }
+
+    if (buffer_len < size_idx * 4 + 4)
+    {
+        if (verbose) printf("%s buffer len error (0x%x, expected at least 0x%x)\n", levels[level].name, buffer_len, size_idx * 4 + 4);
+        return 0;
+    }
+
+    uint32_t status = buffer[status_idx];
+    int size = buffer[size_idx];
     
-    if (size < 12 || size > buffer_len)
+    if (size < size_idx * 4 + 8 || size > buffer_len)
     {
         if (verbose) printf("%s size error (0x%x, expected between 0x0c and 0x%x)\n", levels[level].name, size, buffer_len);
         return 0;
@@ -225,7 +240,7 @@ static int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int ver
     {
         if (level+1 < COUNT(levels))
         {
-            int ok = parse_prop_group(buffer+2, size-8, level+1, verbose, output);
+            int ok = parse_prop_group(buffer + (size_idx+1), size - (size_idx+1)*4, 0, 1, level+1, verbose, output);
             if (!ok)
             {
                 if (verbose) printf("%s: check failed\n", levels[level+1].name);
@@ -247,25 +262,50 @@ static int parse_prop_group(uint32_t* buffer, int buffer_len, int level, int ver
     else
     {
         if (verbose) printf("%s: 0x%x bytes remaining\n", levels[level].name, buffer_len - size);
-        return parse_prop_group(buffer + size/4, buffer_len - size, level, verbose, output);
+        return parse_prop_group(buffer + size/4, buffer_len - size, status_idx, size_idx, level, verbose, output);
     }
 
     return 1;
 }
 
+static void guess_offsets(uint32_t * buffer, uint32_t * status_idx, uint32_t * size_idx, uint32_t * active_flag)
+{
+    /* most models have their property data structures starting with "status" and "size" */
+    *status_idx  = 0;
+    *size_idx    = 1;
+    *active_flag = 0xFFFF;
+
+    if (buffer[0] == 2)
+    {
+        /* 1300D data structure starts with 2 */
+        *status_idx = 3;
+        *size_idx   = 4;
+    }
+    else if (buffer[1] == 0xFFFFFFFF)
+    {
+        /* M50 has a bunch of fields before size, mostly FFFFFFFF */
+        *status_idx  = 4;
+        *size_idx    = 12;
+        *active_flag = 0xFFFFFFFF;
+    }
+}
+
 /* Brute force: find the offsets that look like valid property data structures */
-static void guess_prop(uint32_t* buffer, uint32_t buffer_len, int active_only, int verbose)
+static void guess_prop(uint32_t * buffer, uint32_t buffer_len, int active_only, int verbose)
 {
     /* these properties must be aligned, right? */
     for (uint32_t offset = 0; offset < buffer_len; offset += 0x100)
     {
-        int status = buffer[offset/4];
-        int size = buffer[offset/4 + 1];
+        uint32_t status_idx, size_idx, active_flag;
+        guess_offsets(&buffer[offset/4], &status_idx, &size_idx, &active_flag);
+        uint32_t status = buffer[offset/4 + status_idx];
+        uint32_t size = buffer[offset/4 + size_idx];
 
         if (size > 0 && (size & 3) == 0)                        // size looks 32-bit aligned?
         {
             uint32_t last_pos = offset + size - 4;
-            if (last_pos > 12 && last_pos < buffer_len-4)       // not out of range?
+            if (last_pos > size_idx * 4 + 8 &&
+                last_pos < buffer_len-4)                        // not out of range?
             {
                 uint32_t last = buffer[last_pos/4];
                 if (check_terminator(0, last, 0))               // terminator OK?
@@ -277,9 +317,9 @@ static void guess_prop(uint32_t* buffer, uint32_t buffer_len, int active_only, i
 
                     /* let's try to parse it quietly, without any messages */
                     /* if successful, will parse again with output enabled */
-                    if (parse_prop_group(buffer + offset/4, size+4, 0, verbose == 2, 0))
+                    if (parse_prop_group(buffer + offset/4, size+4, status_idx, size_idx, 0, verbose == 2, 0))
                     {
-                        if (active_only && status != 0xFFFF)
+                        if (active_only && status != active_flag)
                         {
                             /* skip inactive block */
                             if (verbose)
@@ -289,7 +329,7 @@ static void guess_prop(uint32_t* buffer, uint32_t buffer_len, int active_only, i
                             continue;
                         }
 
-                        parse_prop_group(buffer + offset/4, size+4, 0, verbose == 2, 1);
+                        parse_prop_group(buffer + offset/4, size+4, status_idx, size_idx, 0, verbose == 2, 1);
                     }
                 }
             }
@@ -337,8 +377,8 @@ void prop_diag()
     }
     else
     {
-        guess_prop((void*)0xF0000000, 0x1000000, 1, 0);
-        guess_prop((void*)0xF8000000, 0x1000000, 1, 0);
+        guess_prop((void*)0xF0000000, 0x2000000, 1, 0);
+        guess_prop((void*)0xF8000000, 0x2000000, 1, 0);
     }
     print_camera_info();
 }
