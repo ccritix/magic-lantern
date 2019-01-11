@@ -2,8 +2,10 @@
  * Property parsing code inspired from g3gg0's Property Editor and Indy's parse_prop.py,
  * but rewritten from scratch :)
  * 
- * This tool can also be built as a standalone program:
+ * This tool can also be built as a standalone program, from the "src" directory:
  *    gcc prop_diag.c -o prop_diag
+ * or:
+ *    make prop_diag
  * 
  * Python version available on request.
  * 
@@ -28,7 +30,7 @@
 
 #ifndef CONFIG_MAGICLANTERN
 #include <stdio.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <stdint.h>
 #else
 extern int printf(const char* fmt, ... );
@@ -342,12 +344,12 @@ void prop_diag()
 }
 #else
 /* for offline testing */
-void main(int argc, char** argv)
+int main(int argc, char** argv)
 {
     if (argc < 2)
     {
         printf("usage: %s ROM0.BIN\n", argv[0]);
-        return;
+        return 1;
     }
     printf("Loading %s...\n", argv[1]);
     char* filename = argv[1];
@@ -357,7 +359,7 @@ void main(int argc, char** argv)
         fseek(f, 0, SEEK_END);
         int len = ftell(f);
         fseek(f, 0, SEEK_SET);
-        int* buf = malloc(len);
+        uint32_t * buf = malloc(len);
         fread(buf, len, 1, f);
         fclose(f);
         
@@ -365,5 +367,6 @@ void main(int argc, char** argv)
         guess_prop(buf, len, 1, 1);
         print_camera_info();
     }
+    return 0;
 }
 #endif

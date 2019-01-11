@@ -60,7 +60,7 @@
 #elif __GNUC__
 typedef void (*thunk)(void);
 
-#include <features.h>
+//#include <features.h>
 #include <stdint.h>
 #include <limits.h>
 #include <sys/types.h>
