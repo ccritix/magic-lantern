@@ -357,7 +357,7 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
 
     int height = scale * (FONTH + 2);
 
-    if (print_y + height >= disp_direct_get_yres() - height)
+    while (print_y + height >= disp_direct_get_yres())
     {
 #ifdef PAGE_SCROLL
         /* wait for user to read the current page */
@@ -490,6 +490,7 @@ static int boot_read_sector_3to4(uint32_t sector_address, uint32_t num_sectors, 
     /* drive is ignored on most models, but not all */
     return boot_read_sector_4(1, sector_address, num_sectors, buffer);
 }
+
 static int boot_write_sector_3to4(uint32_t sector_address, uint32_t num_sectors, void * buffer)
 {
     return boot_write_sector_4(1, sector_address, num_sectors, buffer);
@@ -626,22 +627,25 @@ static void check_sector_io_stubs()
     }
 }
 
-static void print_err(FF_ERROR err)
+static void print_err(FF_ERROR err, char * our_msg)
 {
+    print_line(COLOR_RED, 2, "\n - ");
+    print_line(COLOR_RED, 2, our_msg);
+    print_line(COLOR_RED, 2, "\n   ");
+
     char *message = (char*)FF_GetErrMessage(err);
 
     if(message)
     {
-        print_line(COLOR_RED, 1, "   Error code:");
-        print_line(COLOR_RED, 1, message);
+        print_line(COLOR_RED, 2, message);
     }
     else
     {
         char text[32];
-
         snprintf(text, 32, "   Error code: 0x%08X", err);
-        print_line(COLOR_RED, 1, text);
+        print_line(COLOR_RED, 2, text);
     }
+    printf("\n");
 }
 
 static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
@@ -698,24 +702,21 @@ static FF_IOMAN * fat_init()
     ioman = FF_CreateIOMAN(NULL, 0x4000, 0x200, &err);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to init driver");
-        print_err(err);
+        print_err(err, "Failed to init driver");
         halt_blink_code(10, 2);
     }
 
     FF_RegisterBlkDevice(ioman, 0x200, (FF_WRITE_BLOCKS) &FF_blk_write, (FF_READ_BLOCKS) &FF_blk_read, &err);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to register driver");
-        print_err(err);
+        print_err(err, "Failed to register driver");
         halt_blink_code(10, 3);
     }
 
     err = FF_MountPartition(ioman, 0);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to mount partition");
-        print_err(err);
+        print_err(err, "Failed to mount partition");
         halt_blink_code(10, 4);
     }
 
@@ -729,20 +730,20 @@ static void fat_deinit(FF_IOMAN *ioman)
     err = FF_UnmountPartition(ioman);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to unmount partition");
-        print_err(err);
+        print_err(err, "Failed to unmount partition");
         halt_blink_code(10, 8);
     }
 
     err = FF_DestroyIOMAN(ioman);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to deinit driver");
-        print_err(err);
+        print_err(err, "Failed to deinit driver");
         halt_blink_code(10, 9);
     }
 }
 
+/* previous line should be printed without \n, for the progress bar */
+/* this routine will add a newline on its own */
 static void save_file(const char * filename, void * addr, int size)
 {
     FF_IOMAN *ioman = fat_init();
@@ -754,40 +755,50 @@ static void save_file(const char * filename, void * addr, int size)
     FF_FILE *file = FF_Open(ioman, filename_ex, FF_GetModeBits("w"), &err);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to create dump file");
-        print_err(err);
+        print_err(err, "Failed to create dump file");
         fat_deinit(ioman);
         halt_blink_code(10, 5);
     }
 
-    uint32_t block_size = 0x2000;
+    uint32_t block_size = 0x10000;
     while (size % block_size) block_size--;
     uint32_t block_count = size / block_size;
+
+    if (block_count > 1)
+    {
+        /* are we going to print a progress indicator? */
+        printf("    ");
+    }
 
     for(uint32_t block = 0; block < block_count; block++)
     {
         err = FF_Write(file, block_size, 1, (FF_T_UINT8 *) (addr + block * block_size));
         if(err <= 0)
         {
-            print_line(COLOR_RED, 1, "   Failed to write dump file");
-            print_err(err);
+            print_err(err, "Failed to write dump file");
             FF_Close(file);
             fat_deinit(ioman);
             halt_blink_code(10, 6);
+        }
+        if (block_count > 1)
+        {
+            /* 100% will be printed just once */
+            uint32_t progress = (block + 1) * 100 / block_count;
+            printf("\b\b\b%2d%%", progress);
         }
     }
 
     err = FF_Close(file);
     if(err)
     {
-        print_line(COLOR_RED, 1, "   Failed to close dump file");
-        print_err(err);
+        print_err(err, "Failed to close dump file");
         fat_deinit(ioman);
         halt_blink_code(10, 7);
     }
 
     //print_line(COLOR_CYAN, 1, "   Finished, cleaning up");
     fat_deinit(ioman);
+    printf("\n");
 }
 
 static void init_file_io()
@@ -915,6 +926,8 @@ static void init_file_io()
     init_card();
 }
 
+/* previous line should be printed without \n, for compatibility with the FULLFAT version */
+/* this routine will add a newline on its own */
 static void save_file(const char * filename, void * addr, int size)
 {
     int drive = DRIVE_SD;
@@ -922,15 +935,19 @@ static void save_file(const char * filename, void * addr, int size)
     /* check whether our stubs were initialized */
     if (!boot_open_write)
     {
+        printf("\n");
         print_line(COLOR_RED, 2, " - Boot file write stub not set.\n");
         fail();
     }
 
     if (boot_open_write(drive, filename, (void*) addr, size) == -1)
     {
+        printf("\n");
         print_line(COLOR_RED, 2, " - Boot file write error.\n");
         fail();
     }
+
+    printf("\n");
 }
 
 #endif  /* Canon bootloader I/O */
@@ -939,6 +956,7 @@ static void dump_md5(const char * filename, void * addr, int size)
 {
     uint8_t md5_bin[16];
     char md5_ascii[50];
+    printf(" - MD5: ");
     md5(addr, size, md5_bin);
     snprintf(md5_ascii, sizeof(md5_ascii),
         "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x  %s\n",
@@ -954,12 +972,13 @@ static void dump_md5(const char * filename, void * addr, int size)
     char md5file[16];
     snprintf(md5file, sizeof(md5file), "%s.MD5", file_base);
     md5_ascii[32] = 0;
-    printf(" - MD5: %s\n", md5_ascii);
+    printf("%s", md5_ascii);   /* newline printed by save_file */
     md5_ascii[32] = ' ';
 
     save_file(md5file, (void*) md5_ascii, strlen(md5_ascii));
 }
 
+/* previous line should be without newline */
 static void boot_dump(char* filename, uint32_t addr, int size)
 {
     /* turn on the LED */
@@ -1409,11 +1428,11 @@ static void sf_dump()
     uint8_t * buffer = (uint8_t *)((uint32_t) __buffer_alloc | 0x40000000);
 
     /* save the file  */
-    printf(" - Reading serial flash to memory:    ");
+    printf(" - Reading serial flash...    ");
     qprintf("Serial flash buffer %X - %X\n", buffer, buffer + sf_size);
     sf_read(0, buffer, sf_size);
 
-    printf(" - Writing serial flash to SFDATA.BIN\n");
+    printf(" - Writing SFDATA.BIN...");
     save_file("SFDATA.BIN", buffer, sf_size);
 
     /* also compute and save a MD5 checksum */
@@ -1425,23 +1444,25 @@ static void dump_rom_to_file()
 {
     init_file_io();
 
+    /* note: boot_dump is going to print the newlines */
+
     if (is_digic6())
     {
-        printf(" - Dumping ROM1...\n");
+        printf(" - Dumping ROM1...");
         boot_dump("ROM1.BIN", 0xFC000000, 0x02000000);
     }
     else if (is_digic78())
     {
-        printf(" - Dumping ROM0...\n");
+        printf(" - Dumping ROM0...");
         boot_dump("ROM0.BIN", 0xE0000000, 0x02000000);
-        printf(" - Dumping ROM1...\n");
+        printf(" - Dumping ROM1...");
         boot_dump("ROM1.BIN", 0xF0000000, 0x01000000);
     }
     else
     {
-        printf(" - Dumping ROM0...\n");
+        printf(" - Dumping ROM0...");
         boot_dump("ROM0.BIN", 0xF0000000, 0x01000000);
-        printf(" - Dumping ROM1...\n");
+        printf(" - Dumping ROM1...");
         boot_dump("ROM1.BIN", 0xF8000000, 0x01000000);
     }
 
