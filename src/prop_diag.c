@@ -573,6 +573,7 @@ void prop_diag()
     {
         /* other models may lock up while reading this, so test first */
         guess_prop((void*)0xE0000000, 0x2000000, 1, 0);
+        guess_prop((void*)0xF0000000, 0x1000000, 1, 0);
     }
     else if (is_digic6())
     {
