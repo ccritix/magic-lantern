@@ -332,7 +332,7 @@ uint32_t find_string_ref(const char * string)
     {
         /* look for: add Rd, pc, #offset */
         uint32_t insn = MEM(i);
-        if ((insn & 0xFFFF0000) == 0xe28f0000)
+        if ((insn & 0x0FFF0000) == 0x028f0000)
         {
             /* let's check if it refers to our string */
             int offset = decode_immediate_shifter_operand(insn);
@@ -355,7 +355,7 @@ uint32_t find_string_ref_thumb(char* ref_string)
     {
         /* look for: add Rd, pc, #offset */
         uint32_t insn = MEM(i);
-        if ((insn & 0x0000FF00) == (0x0000A000)) /* T2S p.112: ADR R0, #offset */
+        if ((insn & 0x0000FE00) == (0x0000A000)) /* T2S p.112: ADR R0/R1, #offset */
         {
             /* let's check if it refers to our string */
             uint32_t string_offset = (insn & 0xFF) << 2;
@@ -426,7 +426,7 @@ uint32_t find_func_called_near_string_ref(char * string, uint32_t tag, int max_o
     printf(" - %x: %s\n", start, repr(string));
     if (start)
     {
-        for (uint32_t d = 4; d < start + ABS(max_offset); d += 4)
+        for (uint32_t d = 4; d < ABS(max_offset); d += 4)
         {
             uint32_t pc = start + d * SGN(max_offset);
             uint32_t insn = MEM(pc);
@@ -438,12 +438,13 @@ uint32_t find_func_called_near_string_ref(char * string, uint32_t tag, int max_o
 
                 if (func_addr > 0x100000 && func_addr < 0x110000)
                 {
-                    if (func_has_tag(func_addr, tag))
+                    if (!tag || func_has_tag(func_addr, tag))
                     {
                         if (func_addr != answer) {
                             found++;
                         }
                         answer = func_addr;
+                        if (!tag) break;
                     }
                 }
             }
@@ -502,5 +503,45 @@ uint32_t find_func_called_after_string_ref_thumb(char * string, int skip)
         }
     }
 
+    return 0;
+}
+
+uint32_t find_func_call(uint32_t start, int max_offset, int skip, uint32_t tag, uint32_t before, uint32_t after, uint32_t * call_address)
+{
+    qprintf("find_func_call(%x...%x, skip=%d, tag=%x, before=%x, after=%x)\n", start, start + max_offset, skip, tag, before, after);
+
+    for (uint32_t d = 0; d < ABS(max_offset); d += 4)
+    {
+        uint32_t pc = start + d * SGN(max_offset);
+        uint32_t insn = MEM(pc);
+        int is_bl = ((insn & 0xFF000000) == 0xEB000000);
+        if (is_bl)
+        {
+            uint32_t func_addr = branch_destination(insn, pc);
+            qprintf("%x: BL %x\n", pc, func_addr);
+
+            if (func_addr > 0x100000 && func_addr < 0x110000)
+            {
+                if ((!tag    || func_has_tag(func_addr, tag)) &&
+                    (!before || MEM(pc - 4) == before) &&
+                    (!after  || MEM(pc + 4) == after))
+                {
+                    if (skip == 0) {
+                        if (call_address) *call_address = pc;
+                        return func_addr;
+                    } else {
+                        skip--;
+                    }
+                }
+            }
+        }
+        if ((insn & 0xFFFF0000) == 0xe8bd0000)
+        {
+            /* LDMFD - end of function */
+            break;
+        }
+    }
+
+    if (call_address) *call_address = 0;
     return 0;
 }

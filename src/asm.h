@@ -10,5 +10,6 @@ uint32_t find_func_from_string(const char * ref_string, uint32_t Rd, uint32_t ma
 uint32_t find_func_from_string_thumb(const char * ref_string, uint32_t Rd, uint32_t max_start_offset);
 uint32_t find_func_called_near_string_ref(const char * string, uint32_t tag, int max_offset);
 uint32_t find_func_called_after_string_ref_thumb(const char * string, int skip);
+uint32_t find_func_call(uint32_t start, int max_offset, int skip, uint32_t tag, uint32_t before, uint32_t after, uint32_t * call_address);
 
 #endif

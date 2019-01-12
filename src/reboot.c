@@ -436,6 +436,21 @@ static int (*boot_putchar)(int ch) = 0;
 static int (*boot_read_sector)(uint32_t sector_address, uint32_t num_sectors, void * buffer) = 0;
 static int (*boot_write_sector)(uint32_t sector_address, uint32_t num_sectors, void * buffer) = 0;
 
+/* some models use these instead */
+static int (*boot_read_sector_4)(uint32_t drive, uint32_t sector_address, uint32_t num_sectors, void * buffer) = 0;
+static int (*boot_write_sector_4)(uint32_t drive, uint32_t sector_address, uint32_t num_sectors, void * buffer) = 0;
+
+static int boot_read_sector_3to4(uint32_t sector_address, uint32_t num_sectors, void * buffer)
+{
+    /* drive is ignored on most models, but not all */
+    return boot_read_sector_4(1, sector_address, num_sectors, buffer);
+}
+
+static int boot_write_sector_3to4(uint32_t sector_address, uint32_t num_sectors, void * buffer)
+{
+    return boot_write_sector_4(1, sector_address, num_sectors, buffer);
+}
+
 static void save_file(int drive, char* filename, void* addr, int size)
 {
     /* check whether our stubs were initialized */
@@ -562,6 +577,80 @@ extern void * memmem(const void * haystack, size_t haystacklen, const void * nee
 
 static void init_sector_io_stubs()
 {
+    /* DIGIC 7 & 5D4 */
+    uint32_t (*find_func_from_str)(const char *, uint32_t, uint32_t) = is_digic78() ? find_func_from_string_thumb : find_func_from_string;
+    void (*get_read_sector)(int drive, void * result) = (void *) find_func_from_str("Read_Sector drive=%d FS1=%d FS2=%d FS3=%d\n", 0, 64);
+    void (*get_write_sector)(int drive, void * result) = (void *) find_func_from_str("Write_Sector drive=%d FS1=%d FS2=%d FS3=%d\n", 0, 64);
+    if (get_read_sector && get_write_sector)
+    {
+        get_read_sector(1, &boot_read_sector);
+        get_write_sector(1, &boot_write_sector);
+        printf(" - boot_read/write_sector %x %x\n", boot_read_sector, boot_write_sector);
+        return;
+    }
+
+    if (!is_digic78())
+    {
+        void (*card_bootflags1)(int mode) = (void *) find_func_from_string("EOS_DEVELOP", 1, 1024);
+        void (*card_bootflags2)(int mode) = (void *) find_func_from_string("BOOTDISK", 1, 1024);
+        if (card_bootflags1 && card_bootflags1 == card_bootflags2)
+        {
+            printf(" - card_bootflags %x\n", card_bootflags1);
+
+            /* some old models use 3 arguments for read/write_sector */
+            /* if this is the case, first call to read_sector is preceded by "MOV R0, #0" (i.e. read sector 0) */
+            uint32_t read_sector = find_func_call((uint32_t) card_bootflags1, 512, 0, 0, 0xE3A00000, 0, NULL);
+
+            /* the call to write_sector is followed by "CMP R0, #0" */
+            uint32_t bootdisk_ref = find_string_ref("BOOTDISK");
+            if (bootdisk_ref < (uint32_t) card_bootflags1) fail();
+            uint32_t write_sector = find_func_call(bootdisk_ref, 512, 0, 0, 0, 0xE3500000, NULL);
+
+            if (read_sector)
+            {
+                /* using 3 arguments */
+                boot_read_sector  = (void *) read_sector;
+                boot_write_sector = (void *) write_sector;
+            }
+            else
+            {
+                /* using 4 arguments */
+                /* this is called somewhere at the beginning of card_bootflags */
+                /* first call would have the second argument set to 0 (i.e. read sector 0) */
+                /* and the body of the function is located right before write_sector in memory */
+                for (int i = 0; i < 5; i++)
+                {
+                    uint32_t call_address = 0;
+                    read_sector = find_func_call((uint32_t) card_bootflags1, 512, i, 0, 0, 0, &call_address);
+
+                    if (read_sector < write_sector &&               /* function body before write_sector */
+                        read_sector > write_sector - 1024 &&        /* but not too far from it */
+                        (MEM(call_address - 4) == 0xE3A01000 ||     /* MOV R1, #0 (read first sector) */
+                         MEM(call_address - 8) == 0xE3A01000))      /* it might be right before the function, or a little earlier */
+                    {
+                        /* let's hope this is the one */
+                        break;
+                    }
+                }
+
+                boot_read_sector_4  = (void *) read_sector;
+                boot_write_sector_4 = (void *) write_sector;
+                boot_read_sector    = boot_read_sector_3to4;
+                boot_write_sector   = boot_write_sector_3to4;
+            }
+
+            printf(" - boot_read/write_sector %x %x\n", read_sector, write_sector);
+
+            /* some consistency checks */
+            if (read_sector == write_sector) fail();
+            if (read_sector  < 0x100000 || read_sector  > 0x110000) fail();
+            if (write_sector < 0x100000 || write_sector > 0x110000) fail();
+            if (write_sector < read_sector) fail();
+            if (write_sector > read_sector + 1024) fail();
+            return;
+        }
+    }
+
     if (is_digic8())
     {
         /* M50, SX70 */
