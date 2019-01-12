@@ -52,6 +52,26 @@
 #include "md5.h"
 #include "asm.h"
 
+/** Memory map
+ * - available size: at least 64MB (1000D)
+ * - Canon code is free to use anything from the RAM space
+ * - we just hope a reasonably large area after 0x00800000 is unused
+ * - 0x00000000 - 0x007FFFFF: area below AUTOEXEC.BIN (reserved for Canon routines)
+ * - 0x00100000 - 0x00120000: Canon bootloader (128K)
+ * - 0x00800000 - 0x01F00000: AUTOEXEC.BIN (max 24 MB; includes display buffers, serial flash buffer etc)
+ * - 0x01F00000 - 0x02000000: our stack (1 MB)
+ * - 0x02000000 - 0x04000000: our heap (32 MB)
+ * - 0x10000000: uncacheable bit (VxWorks models)
+ * - 0x40000000: uncacheable bit (all recent models)
+ * - 0xC0000000 - 0xC1000000: MMIO (basic range)
+ * - 0xC0000000 - 0xDFFFFFFF: MMIO (extended; some models have TCM at the top of this range)
+ * - 0xE0000000 - 0xEFFFFFFF: ROM0, mirrored (DIGIC 7 & 8) [main ROM]
+ * - 0xF0000000 - 0xFFFFFFFF: ROM1, mirrored (DIGIC 7 & 8) [optional, secondary ROM, very slow]
+ * - 0xF0000000 - 0xF7FFFFFF: ROM0, mirrored (DIGIC <= 5)  [optional, secondary ROM]
+ * - 0xF8000000 - 0xFFFFFFFF: ROM1, mirrored (DIGIC <= 5)  [main ROM]
+ * - 0xFC000000 - 0xFFFFFFFF: ROM1, mirrored (DIGIC 6) [only one ROM?]
+ */
+
 #define MEM(x) (*(volatile uint32_t *)(x))
 
 /* we need this ASM block to be the first thing in the file */
@@ -75,16 +95,21 @@ asm(
     "ORR     R0, R0, #0xD3\n"   // Set I,T, M=10011 == supervisor
     "MSR     CPSR, R0\n"
     "MOV R0, #0\n"              // cstart(0) = loaded as ARM
-    "LDR PC, =cstart\n"         // long jump (into the uncacheable version, if linked that way)
+    "LDR SP, _sp_addr\n"        // load stack pointer
+    "LDR PC, _cstart_addr\n"    // long jump (into the uncacheable version, if linked that way)
 
     ".code 16\n"
     "loaded_as_thumb:\n"
     "MOVS R0, #1\n"             // cstart(1) = loaded as Thumb; MOV fails
-    "LDR R1, _cstart_addr\n"    /* long jump into ARM code (uncacheable, if linked that way) */
+    "LDR R1, _cstart_addr\n"    // long jump into ARM code (uncacheable, if linked that way)
+    "LDR R2, _sp_addr\n"        // load stack pointer
+    "MOV SP, R2\n"
     "BX R1\n"
     "NOP\n"
     "_cstart_addr:\n"
     ".word cstart\n"
+    "_sp_addr:\n"
+    ".word 0x02000000\n"        // see memory map
 
     /* return */
     ".code 32\n"
@@ -112,6 +137,11 @@ static inline void
 zero_bss( void )
 {
     qprintf("BSS %X - %X\n", __bss_start__, __bss_end__);
+    if ((uint32_t)__bss_end__ > 0x01F00000)
+    {
+        qprintf("BSS overflow, please change the memory map.\n");
+        while(1);
+    }
 
     uint32_t *bss = __bss_start__;
     while( bss < __bss_end__ )
@@ -1272,7 +1302,7 @@ static void dump_rom_with_fullfat()
 {
 #if defined(CONFIG_600D) || defined(CONFIG_5D3)
     /* file I/O only known to work on these cameras */
-    malloc_init((void *)0x42000000, 0x02000000);
+    malloc_init((void *)0x02000000, 0x02000000);
 
     printf(" - Init SD/CF\n");
     sd_init(&sd_ctx);
