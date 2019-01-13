@@ -46,6 +46,7 @@
 #include "prop_diag.h"
 #include "qemu-util.h"
 
+#include "scnprintf.h"
 #include "compiler.h"
 #include "consts.h"
 #include "fullfat.h"
@@ -353,7 +354,7 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
         uint32_t caching_bit = (is_vxworks()) ? 0x10000000 : 0x40000000;
         log_buffer = (void *)((uintptr_t) log_buffer_alloc | caching_bit);
     }
-    log_length += snprintf(log_buffer + log_length, sizeof(log_buffer_alloc) - log_length, "%s", txt);
+    log_length += scnprintf(log_buffer + log_length, sizeof(log_buffer_alloc) - log_length, "%s", txt);
 
     int height = scale * (FONTH + 2);
 
