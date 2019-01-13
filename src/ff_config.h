@@ -85,7 +85,7 @@
 #define FF_CACHE_WRITE_THROUGH
 
 //---------- WRITE BOTH FATS
-#define FF_WRITE_BOTH_FATS				// Writes the 2nd FAT (backup) at runtime. Disabling this can improve performance. 
+//#define FF_WRITE_BOTH_FATS			// Writes the 2nd FAT (backup) at runtime. Disabling this can improve performance. 
 										// However, leaving it enabled guarantees that both FATs will match, and fs checkers
 										// will not complain. (More compliant).
 
