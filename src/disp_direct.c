@@ -29,7 +29,7 @@ extern uint32_t is_vxworks();
 /* the image buffers will be made uncacheable in display_init */
 static uint8_t __attribute__((aligned(4096))) __disp_framebuf_alloc[1024 * 1024];
 static uint8_t __attribute__((aligned(4096))) __disp_framebuf_mirror_alloc[1024 * 1024];
-static uint8_t __attribute__((aligned(4096))) __disp_yuvbuf_alloc[1024 * 1024];
+static uint8_t __attribute__((aligned(4096))) __disp_yuvbuf_alloc[2 * 1024 * 1024];
 static uint8_t *disp_framebuf = __disp_framebuf_alloc;
 static uint8_t *disp_framebuf_mirror = __disp_framebuf_mirror_alloc;
 static uint8_t *disp_yuvbuf = __disp_yuvbuf_alloc;
@@ -538,6 +538,12 @@ void disp_init()
 
     uint32_t bmp_size = (disp_xres * disp_yres) * disp_bpp / 8;
     if (bmp_size > sizeof(__disp_framebuf_alloc))
+    {
+        while(1);
+    }
+
+    uint32_t yuv_size = (disp_xres * disp_yres) * (yuv_mode == YUV411 ? 12 : 16) / 8;
+    if (yuv_size > sizeof(__disp_yuvbuf_alloc))
     {
         while(1);
     }
