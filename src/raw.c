@@ -605,7 +605,7 @@ static int raw_lv_get_resolution(int* width, int* height)
         if (shamem_read(0xC0F07150) == 0x499)
         {	
         /* mv1080p mode crop_rec.c */
-            *height = 1190;
+            *height = 1188;
         }
 
     }
