@@ -54,13 +54,13 @@
 
 
 //---------- LFN (Long File-name) SUPPORT
-#define FF_LFN_SUPPORT					// Comment this out if you don't want to worry about Patent Issues.
+//#define FF_LFN_SUPPORT				// Comment this out if you don't want to worry about Patent Issues.
 										// FullFAT works great with LFNs and without. You choose, its your project!
 
 //#define FF_INCLUDE_SHORT_NAME			// HT addition, in 'FF_DIRENT', beside FileName, ShortName will be filled as well
                                      	// Useful for debugging, but also some situations its useful to know both.
 //---------- SHORTNAMES CAN USE THE CASE BITS
-#define FF_SHORTNAME_CASE				// Works for XP+ e.g. short.TXT or SHORT.txt.
+//#define FF_SHORTNAME_CASE				// Works for XP+ e.g. short.TXT or SHORT.txt.
 
 
 //---------- UNICODE SUPPORT
@@ -82,7 +82,7 @@
 										// If your system is not memory constrained, you should enable this to reduce accesses
 										// to the underlying block device.
 
-//#define FF_CACHE_WRITE_THROUGH
+#define FF_CACHE_WRITE_THROUGH
 
 //---------- WRITE BOTH FATS
 #define FF_WRITE_BOTH_FATS				// Writes the 2nd FAT (backup) at runtime. Disabling this can improve performance. 
@@ -93,21 +93,21 @@
 										// This is usually expensive in terms of time but will ensure that all FAT copies
 										// are consistent. (If you can guarantee an unmount operation, use this while disabling FF_WRITE_BOTH_FATS).
 
-//#define FF_WRITE_FREE_COUNT				// Enabling this option will modify the FreeCount on the disk at runtime.
+#define FF_WRITE_FREE_COUNT				// Enabling this option will modify the FreeCount on the disk at runtime.
 										// This incurs a small performance penalty, and is not required. (All filesystems should not
 										// trust the on-disk value anyway.
 
 //---------- TIME SUPPORT
-//#define FF_TIME_SUPPORT					// Should FullFAT use time stamping. Only if you have provided the relevant time drivers in ff_time.c
+//#define FF_TIME_SUPPORT				// Should FullFAT use time stamping. Only if you have provided the relevant time drivers in ff_time.c
 										// Note, by default ff_time.c is set-up for the Windows Demonstration. Please see ff_time.c to disable.
 
-//#define FF_REMOVABLE_MEDIA				// Enable removable media support.
+//#define FF_REMOVABLE_MEDIA			// Enable removable media support.
 
 
 //---------- FILE SPACE ALLOCATION PERFORMANCE
 										// Uncomment the prefered method. (Can only choose a single method).
-//#define FF_ALLOC_DEFAULT				// Only allocate as much as is needed. (Provides good performance, without wasting space).
-#define FF_ALLOC_DOUBLE				// Doubles the size of a file each time allocation is required. (When high-performance writing is required).
+#define FF_ALLOC_DEFAULT				// Only allocate as much as is needed. (Provides good performance, without wasting space).
+//#define FF_ALLOC_DOUBLE				// Doubles the size of a file each time allocation is required. (When high-performance writing is required).
 
 
 //---------- Use Native STDIO.h
@@ -115,12 +115,12 @@
 
 
 //---------- FREE SPACE CALCULATION
-//#define FF_MOUNT_FIND_FREE				// Uncomment this option to check for Freespace on a volume mount. (Performance Penalty while mounting).
+//#define FF_MOUNT_FIND_FREE			// Uncomment this option to check for Freespace on a volume mount. (Performance Penalty while mounting).
 										// If not done in the mount, it will be done on the first call to FF_GetFreeSize() function.
 
 
 //---------- FIND API WILD-CARD SUPPORT
-//#define FF_FINDAPI_ALLOW_WILDCARDS		// Defined to enable Wild-cards in the API. Disabling this, makes the API consistent with 1.0.x series.
+//#define FF_FINDAPI_ALLOW_WILDCARDS	// Defined to enable Wild-cards in the API. Disabling this, makes the API consistent with 1.0.x series.
 
 #define FF_WILDCARD_CASE_INSENSITIVE	// Alter the case insensitivity of the Wild-card checking behaviour.
 
@@ -141,7 +141,7 @@
 
 
 //---------- BLKDEV USES SEMAPHORE
-//#define FF_BLKDEV_USES_SEM				// When defined, each call to fnReadBlocks and fnWriteBlocks will be done while semaphore is locked
+//#define FF_BLKDEV_USES_SEM			// When defined, each call to fnReadBlocks and fnWriteBlocks will be done while semaphore is locked
 										// See also ff_safety.c
 										// (HT addition) - Thanks to Hein Tibosch
 
