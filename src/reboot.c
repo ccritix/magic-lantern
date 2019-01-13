@@ -580,15 +580,17 @@ static int (*boot_write_sector)(uint32_t sector_address, uint32_t num_sectors, v
 static int (*boot_read_sector_4)(uint32_t drive, uint32_t sector_address, uint32_t num_sectors, void * buffer) = 0;
 static int (*boot_write_sector_4)(uint32_t drive, uint32_t sector_address, uint32_t num_sectors, void * buffer) = 0;
 
+/* drive is ignored on most models, but not all */
+static int boot_drive = 1;
+
 static int boot_read_sector_3to4(uint32_t sector_address, uint32_t num_sectors, void * buffer)
 {
-    /* drive is ignored on most models, but not all */
-    return boot_read_sector_4(1, sector_address, num_sectors, buffer);
+    return boot_read_sector_4(boot_drive, sector_address, num_sectors, buffer);
 }
 
 static int boot_write_sector_3to4(uint32_t sector_address, uint32_t num_sectors, void * buffer)
 {
-    return boot_write_sector_4(1, sector_address, num_sectors, buffer);
+    return boot_write_sector_4(boot_drive, sector_address, num_sectors, buffer);
 }
 
 extern void * memmem(const void * haystack, size_t haystacklen, const void * needle, size_t needle_len);
@@ -665,6 +667,14 @@ static void init_sector_io_stubs()
             if (write_sector < 0x100000 || write_sector > 0x110000) fail();
             if (write_sector < read_sector) fail();
             if (write_sector > read_sector + 1024) fail();
+
+            if (strcmp(get_model_string(), "7D2") == 0)
+            {
+                /* https://www.magiclantern.fm/forum/index.php?topic=13746.msg205531#msg205531 */
+                /* 1 = CF (not working); 2 = SD; 0 also works, why? */
+                boot_drive = 2;
+            }
+
             return;
         }
     }
@@ -1026,6 +1036,13 @@ static void init_file_io()
 static void save_file(const char * filename, void * addr, int size)
 {
     int drive = DRIVE_SD;
+
+    if (strcmp(get_model_string(), "7D2") == 0)
+    {
+        /* https://www.magiclantern.fm/forum/index.php?topic=13746.msg205531#msg205531 */
+        /* 1 = CF (not working); 2 = SD; 0 also works, why? */
+        drive = 2;
+    }
 
     /* check whether our stubs were initialized */
     if (!boot_open_write)
