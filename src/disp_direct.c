@@ -158,20 +158,20 @@ static uint32_t rgb2yuv411(int R, int G, int B, uint32_t addr)
 
     // 4 6  8 A  0 2 
     // uYvY yYuY vYyY
-    addr = addr & ~3; // multiple of 4
+    while(addr & 3); // must be multiple of 4
         
-    // multiples of 12, offset 0: vYyY u
-    // multiples of 12, offset 4: uYvY
-    // multiples of 12, offset 8: yYuY v
+    // multiples of 12, offset 0: uYvY
+    // multiples of 12, offset 4: yYuY v
+    // multiples of 12, offset 8: vYyY u
 
     switch ((addr/4) % 3)
     {
         case 0:
-            return UYVY_PACK(V,Y,Y,Y);
-        case 1:
             return UYVY_PACK(U,Y,V,Y);
-        case 2:
+        case 1:
             return UYVY_PACK(Y,Y,U,Y);
+        case 2:
+            return UYVY_PACK(V,Y,Y,Y);
     }
     
     /* unreachable */
@@ -257,8 +257,8 @@ void disp_set_rgb_pixel(uint32_t x, uint32_t y, uint32_t R, uint32_t G, uint32_t
     if (yuv_mode == YUV411)
     {
         /* 12 bytes per 8 pixels */
-        uint32_t *ptr = (uint32_t *)&disp_yuvbuf[pixnum * 12 / 8];  
-        *ptr = rgb2yuv411(R, G, B, (uint32_t)ptr);
+        uint32_t *ptr = (uint32_t *)&disp_yuvbuf[pixnum * 12 / 8 / 4 * 4];
+        *ptr = rgb2yuv411(R, G, B, (uint32_t)ptr - (uint32_t)disp_yuvbuf);
     }
     else
     {
