@@ -337,7 +337,7 @@ static void blink(int n)
 
 static char log_buffer_alloc[16384];
 static char * log_buffer = 0;
-static int log_length = 0;
+static unsigned int log_length = 0;
 
 static int printf_font_size = 2;
 static int printf_font_color = COLOR_CYAN;
@@ -354,7 +354,22 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
         uint32_t caching_bit = (is_vxworks()) ? 0x10000000 : 0x40000000;
         log_buffer = (void *)((uintptr_t) log_buffer_alloc | caching_bit);
     }
-    log_length += scnprintf(log_buffer + log_length, sizeof(log_buffer_alloc) - log_length, "%s", txt);
+
+    /* copy the printed text into log buffer, except for backspaces */
+    for (char * c = txt; *c && log_length < sizeof(log_buffer_alloc); c++)
+    {
+        switch (*c)
+        {
+            case '\b':
+                if (log_length > 0 && log_buffer[log_length - 1] != '\n')
+                {
+                    log_buffer[--log_length] = '\0';
+                }
+                break;
+            default:
+                log_buffer[log_length++] = *c;
+        }
+    }
 
     int height = scale * (FONTH + 2);
 
