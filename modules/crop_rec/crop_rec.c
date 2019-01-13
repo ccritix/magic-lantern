@@ -3480,7 +3480,7 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
 		
 		case 0xC0F37014: return 0xe; 
         	case 0xC0F0713c: return 0x89e;
-		case 0xC0F07150: return 0x899;
+		case 0xC0F07150: return 0x898;
     }
   }
 
