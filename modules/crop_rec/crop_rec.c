@@ -219,7 +219,7 @@ static const char * crop_choices_eosm[] = {
     "mv1080p 1736x976 45fps",
     "mv1080p 1736x738 50fps",
     "mv720p 1736x696 50fps", 
-    "1x3 1704x2176",
+    "1x3 1736x2176",
    // "4K 5x1 24fps",
    // "3x3 720p",
 };
@@ -427,6 +427,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	if (ratios == 0x1)
     	{
       	skip_bottom     = 420;
+        skip_left       = 72;
     	}
     	if (ratios == 0x2)
     	{
@@ -453,10 +454,25 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	}
 	break;
 
+ 	case CROP_PRESET_3x3_mv1080_50fps_EOSM:
+    	if (ratios == 0x1)
+    	{
+      	skip_right     = 10;
+      	skip_bottom     = 8;
+    	}
+	break;
+
  	case CROP_PRESET_4K_3x1_EOSM:
     	if (ratios == 0x1)
     	{
       	skip_bottom     = 182;
+    	}
+        break;
+
+ 	case CROP_PRESET_1x3_EOSM:
+    	if (ratios == 0x1)
+    	{
+        skip_left       = 304;
     	}
         break;
 
@@ -478,6 +494,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
       	skip_bottom     = 182;
     	}
         break;
+
     }
 
     if (p_skip_left)   *p_skip_left    = skip_left;
@@ -2865,9 +2882,9 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
 /* will change to 19fps for continous action */
-        case 0xC0F06804: return 0x51d0312; /* 3008x1280 19fps  x5 Mode(2.35:1) */
-        case 0xC0F0713c: return 0x529;
-        case 0xC0F06014: return 0x7ca;
+        case 0xC0F06804: return 0x5190310; /* 3008x1280 19fps  x5 Mode(2.35:1) */
+        case 0xC0F0713c: return 0x519;
+        case 0xC0F06014: return 0x7cd;
     }
   }
   else
@@ -2920,6 +2937,29 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x2020202;
     }
   }
+
+  if (ratios == 0x1)
+  {
+    switch (reg)
+    {
+
+        case 0xC0F06804: return 0x6c2040a; // 4032x2558  x5 Mode;
+
+        case 0xC0F06824: return 0x4ca;
+        case 0xC0F06828: return 0x4ca;
+        case 0xC0F0682C: return 0x4ca;
+        case 0xC0F06830: return 0x4ca;
+       
+        case 0xC0F06010: return 0x45b;
+        case 0xC0F06008: return 0x45b045b;
+        case 0xC0F0600C: return 0x45b045b;
+
+        case 0xC0F06014: return 0xc70;
+        case 0xC0F0713c: return 0x6c2;
+    }
+  }
+  else
+  {
     switch (reg)
     {
 
@@ -2934,10 +2974,11 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x45b045b;
         case 0xC0F0600C: return 0x45b045b;
 
-        case 0xC0F06014: return 0xbd4;
+        case 0xC0F06014: return 0xc70;
         case 0xC0F0713c: return 0xA55;
 
     }
+  }
 
     return 0;
 }
@@ -3035,6 +3076,27 @@ static inline uint32_t reg_override_5K_3x1_EOSM(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x2020202;
     }
   }
+
+
+  if (ratios == 0x1)
+  {
+    switch (reg)
+    {
+        case 0xC0F06804: return 0x2e20504; 
+        case 0xC0F06824: return 0x56a;
+        case 0xC0F06828: return 0x56a;
+        case 0xC0F0682C: return 0x56a;
+        case 0xC0F06830: return 0x56a;      
+        case 0xC0F06010: return 0x57b;
+        case 0xC0F06008: return 0x57b057b;
+        case 0xC0F0600C: return 0x57b057b;
+        case 0xC0F06014: return 0x4b5;
+        case 0xC0F0713c: return 0x2e0;
+	case 0xC0F07150: return 0x299;
+    }
+  }
+  else
+  {
     switch (reg)
     {
         case 0xC0F06804: return 0x2e40506; 
@@ -3048,7 +3110,9 @@ static inline uint32_t reg_override_5K_3x1_EOSM(uint32_t reg, uint32_t old_val)
         case 0xC0F06014: return 0x3b5;
         case 0xC0F0713c: return 0x2e4;
 	case 0xC0F07150: return 0x2ee;
+
     }
+  }
 
     return 0;
 }
@@ -3272,7 +3336,7 @@ static inline uint32_t reg_override_3x3_50fps_eosm(uint32_t reg, uint32_t old_va
     switch (reg)
     {
         	case 0xC0F06804: return 0x4a601d4; 		
-        	case 0xC0F0713c: return 0x310;
+        	case 0xC0F0713c: return 0x305;
 		case 0xC0F07150: return 0x300;
 
 	     /* 50 fps */
@@ -3387,19 +3451,38 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
     }
   }
 
+  if (ratios == 0x1)
+  {
     switch (reg)
     {
-        	case 0xC0F06804: return 0x89f01cc; 
+        	case 0xC0F06804: return 0x79e01d4; 
 
         	case 0xC0F06014: return 0x9df;
-		case 0xC0F0600c: return 0x20f020f;
+		case 0xC0F0600c: return 0x21f020f;
 		case 0xC0F06008: return 0x20f020f;
 		case 0xC0F06010: return 0x20f;
 		
 		case 0xC0F37014: return 0xe; 
-        	case 0xC0F0713c: return 0x89f;
+        	case 0xC0F0713c: return 0x79e;
+		case 0xC0F07150: return 0x799;
+    }
+  }
+  else
+  {
+    switch (reg)
+    {
+        	case 0xC0F06804: return 0x89e01d4; 
+
+        	case 0xC0F06014: return 0x9df;
+		case 0xC0F0600c: return 0x21f020f;
+		case 0xC0F06008: return 0x20f020f;
+		case 0xC0F06010: return 0x20f;
+		
+		case 0xC0F37014: return 0xe; 
+        	case 0xC0F0713c: return 0x89e;
 		case 0xC0F07150: return 0x899;
     }
+  }
 
     return 0;
 }
