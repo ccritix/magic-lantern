@@ -545,3 +545,27 @@ uint32_t find_func_call(uint32_t start, int max_offset, int skip, uint32_t tag, 
     if (call_address) *call_address = 0;
     return 0;
 }
+
+uint32_t find_call_address(uint32_t start, int max_offset, uint32_t ref_func)
+{
+    qprintf("find_call_address(%x...%x, skip=%d, func=%x)\n", start, start + max_offset, ref_func);
+
+    for (uint32_t d = 0; d < ABS(max_offset); d += 4)
+    {
+        uint32_t pc = start + d * SGN(max_offset);
+        uint32_t insn = MEM(pc);
+        int is_bl = ((insn & 0xFF000000) == 0xEB000000);
+        if (is_bl)
+        {
+            uint32_t func_addr = branch_destination(insn, pc);
+
+            if (func_addr == ref_func)
+            {
+                qprintf("%x: BL %x\n", pc, func_addr);
+                return pc;
+            }
+        }
+    }
+
+    return 0;
+}

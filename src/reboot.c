@@ -425,8 +425,9 @@ static void fail()
 }
 
 /* this is used with both FullFAT and Canon I/O routines */
-static void * find_boot_card_init()
+static void * find_boot_card_init(int * ret_failed)
 {
+    *ret_failed = 0;
     char * boot_card_strings[] = {
         "cf_ready (Not SD Detect High)\n",  /* most cameras */
         "cf_ready (Not CD Detect High)\n",  /* 5D2, 50D */
@@ -457,18 +458,96 @@ static void * find_boot_card_init()
         }
     }
 
+    if (!found)
+    {
+        /* very old models (400D, 5D) */
+        void * a = (void *) find_func_called_near_string_ref("cf_dir (cfata_init error)\n", 0, -32);
+        void * b = (void *) find_func_called_near_string_ref("cf_read_dma (cfata_init error)\n", 0, -32);
+        if (a == b)
+        {
+            *ret_failed = -1;
+            return a;
+        }
+    }
+
     return found;
+}
+
+static void patch_init_card(uint32_t card_init_addr, int max_offset)
+{
+    /* some old models use a flag that prevents the card init routines from running twice */
+    /* however, the firmware forgets to reset that flag on card deinit */
+    /* result: after loading our code, Canon bootloader turns off the card,
+     * and we cannot turn it back on just by calling the init function */
+    /* let's try to reset that flag */
+    for (int i = 0; i < max_offset; i++)
+    {
+        uint32_t addr = card_init_addr + i * 4;
+        if ((MEM(addr) & 0xFFFCFFFF) == 0xE3500001)
+        {
+            /* CMP R[0..3], #1 -> change it into CMP Rn, #0 */
+            printf(" - Patching %X from %x", addr, MEM(addr));
+            MEM(addr) &= ~1;
+            printf(" to %x\n", MEM(addr));
+        }
+    }
 }
 
 static void init_card()
 {
-    int (*boot_card_init)(void) = find_boot_card_init();
+    int card_init_failed = 0;
+    int (*boot_card_init)(void) = find_boot_card_init(&card_init_failed);
+
+    /* some models have a low-level routine called just before it */
+    /* the procedure that finds it is not very robust and may come up with false positives */
+    /* let's whitelist it on models known to require this */
+    const char * cam = get_model_string();
+    if (strcmp(cam, "5D2") == 0 ||
+        strcmp(cam, "50D") == 0 ||
+        strcmp(cam, "40D") == 0 ||
+        strcmp(cam, "7D") == 0)
+    {
+        uint32_t call_addr = find_call_address(0x100000, 0x10000, (uint32_t)boot_card_init);
+        int (*boot_card_init_ll)(void) = (void *) find_func_call(call_addr - 4, 4, 0, 0, 0, 0, NULL);
+
+        /* double-check */
+        uint32_t call_addr2 = find_call_address(call_addr + 4, 0x10000, (uint32_t)boot_card_init);
+        int (*boot_card_init_ll2)(void) = (void *) find_func_call(call_addr2 - 4, 4, 0, 0, 0, 0, NULL);
+
+        if (boot_card_init_ll && boot_card_init_ll == boot_card_init_ll2)
+        {
+            /* this one needs patching for sure, otherwise it does nothing */
+            patch_init_card((uint32_t)boot_card_init_ll, 20);
+            printf(" - %X Card low-level init...", boot_card_init_ll);
+            int ans = boot_card_init_ll();
+            printf("\b\b\b => %X\n", ans);
+        }
+    }
 
     if (boot_card_init)
     {
         /* not all cameras need this, but some do */
-        printf(" - Init SD... (%X)\n", boot_card_init);
-        boot_card_init();
+        printf(" - %X Card init...", boot_card_init);
+        int ans = boot_card_init();
+        printf("\b\b\b => %X\n", ans);
+        if (ans == card_init_failed)
+        {
+            /* didn't seem to work */
+            patch_init_card((uint32_t)boot_card_init, 10);
+            printf(" - %X Card init #2...", boot_card_init);
+            ans = boot_card_init();
+            printf("\b\b\b => %X\n", ans);
+        }
+        if (ans == card_init_failed)
+        {
+            print_line(COLOR_YELLOW, 2, " - Card init error?\n");
+            fail();
+        }
+    }
+    else
+    {
+        print_line(COLOR_RED, 2, " - Card init stub not found.\n");
+        fail();
     }
 }
 
