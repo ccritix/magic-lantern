@@ -3395,7 +3395,7 @@ static inline uint32_t reg_override_3x1_mv720_50fps_eosm(uint32_t reg, uint32_t 
     switch (reg)
     {
         	case 0xC0F06804: return 0x2d701d4; 		
-        	case 0xC0F0713c: return 0x305;
+        	case 0xC0F0713c: return 0x306;
 		case 0xC0F07150: return 0x300;
 
 	     /* 50 fps */
