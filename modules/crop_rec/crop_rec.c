@@ -219,7 +219,7 @@ static const char * crop_choices_eosm[] = {
     "mv1080p 1736x976 45fps",
     "mv1080p 1736x738 50fps",
     "mv720p 1736x696 50fps", 
-    "1x3 1736x2176",
+    "1x3 1736x2160",
    // "4K 5x1 24fps",
    // "3x3 720p",
 };
@@ -470,6 +470,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         break;
 
  	case CROP_PRESET_1x3_EOSM:
+        skip_bottom     = 16;
     	if (ratios == 0x1)
     	{
         skip_right      = 232;
@@ -3480,7 +3481,7 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
 		
 		case 0xC0F37014: return 0xe; 
         	case 0xC0F0713c: return 0x89e;
-		case 0xC0F07150: return 0x898;
+		case 0xC0F07150: return 0x899;
     }
   }
 
