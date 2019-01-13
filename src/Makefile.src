@@ -213,7 +213,6 @@ ML_SRC_REBOOT_OBJ += led_dump.o
 ML_SRC_REBOOT_OBJ += prop_diag.o
 ML_SRC_REBOOT_OBJ += malloc.o
 ML_SRC_REBOOT_OBJ += asm.o
-ML_SRC_REBOOT_OBJ += stdio.o
 ML_SRC_REBOOT_OBJ += cache_d6.o
 
 ifeq ($(CONFIG_BOOT_CPUINFO),y)
@@ -344,6 +343,8 @@ DIET_OBJ = \
 	isspace.o \
 	isspace.o \
 	isxdigit.o \
+	toupper.o \
+	tolower.o \
 	strcpy.o \
 	strcmp.o \
 	strcasecmp.o \
