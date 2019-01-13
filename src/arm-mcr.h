@@ -258,7 +258,6 @@ static inline void sync_caches()
 
 static inline void disable_caches_region1_ram()
 {
-    sync_caches();
     asm(
         "mrc p15, 0, r0, c1, c0, 0\n"   /* read SCTLR */
         "bic r0, #0x4\n"                /* disable data and unified caches */
@@ -270,7 +269,6 @@ static inline void disable_caches_region1_ram()
         "mcr p15, 0, r0, c6, c1, 4\n"   /* write DRACR */
         : : : "r0"
     );
-    sync_caches();
 }
 
 #else  /* DIGIC 2...5 */

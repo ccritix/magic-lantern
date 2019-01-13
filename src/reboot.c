@@ -1616,6 +1616,7 @@ static void cpuinfo_print(void)
     }
 }
 
+extern void sync_caches_d6(void);
 extern void disable_caches_region1_ram_d6(void);
 
 void
@@ -1649,10 +1650,12 @@ cstart( int loaded_as_thumb )
      * present at least on DIGIC 4, 5 and 6, finally fixed in DIGIC 7! */
     if (is_digic6())
     {
+        sync_caches_d6();
         disable_caches_region1_ram_d6();
     }
     else if (!is_digic78())
     {
+        sync_caches();
         disable_all_caches();
     }
 #endif
