@@ -472,7 +472,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
  	case CROP_PRESET_1x3_EOSM:
     	if (ratios == 0x1)
     	{
-        skip_left       = 304;
+        skip_right      = 232;
     	}
         break;
 
@@ -3457,11 +3457,11 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
     {
         	case 0xC0F06804: return 0x79e01d4; 
 
-        	case 0xC0F06014: return 0x9df;
-		case 0xC0F0600c: return 0x20f020f;
-		case 0xC0F06008: return 0x20f020f;
-		case 0xC0F06010: return 0x20f;
-		
+        	case 0xC0F06014: return 0x95f;
+		case 0xC0F0600c: return 0x22b022b;
+		case 0xC0F06008: return 0x22b022b;
+		case 0xC0F06010: return 0x22b;
+
 		case 0xC0F37014: return 0xe; 
         	case 0xC0F0713c: return 0x79e;
 		case 0xC0F07150: return 0x799;
@@ -3474,7 +3474,7 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
         	case 0xC0F06804: return 0x89e01d4; 
 
         	case 0xC0F06014: return 0x9df;
-		case 0xC0F0600c: return 0x21f020f;
+		case 0xC0F0600c: return 0x20f020f;
 		case 0xC0F06008: return 0x20f020f;
 		case 0xC0F06010: return 0x20f;
 		
