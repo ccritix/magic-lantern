@@ -135,7 +135,7 @@ void font_draw(uint32_t *x_pos, uint32_t *y_pos, uint32_t color, uint32_t scale,
         {
             /* wrap long strings and right-justify them */
             xpos = MAX(0, disp_xres - (count-i) * char_width);
-            ypos += char_height;
+            if (text[i] != '\n') ypos += char_height;
         }
         
         if(text[i] == '\n')
