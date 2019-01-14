@@ -3462,7 +3462,6 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
 		case 0xC0F06008: return 0x22b022b;
 		case 0xC0F06010: return 0x22b;
 
-		case 0xC0F37014: return 0xe; 
         	case 0xC0F0713c: return 0x79e;
 		case 0xC0F07150: return 0x799;
     }
@@ -3478,7 +3477,6 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
 		case 0xC0F06008: return 0x21d021d;
 		case 0xC0F06010: return 0x21d;
 		
-		case 0xC0F37014: return 0xe; 
         	case 0xC0F0713c: return 0x885;
 		case 0xC0F07150: return 0x880;
     }
