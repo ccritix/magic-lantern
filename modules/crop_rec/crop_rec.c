@@ -3474,7 +3474,7 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
         	case 0xC0F06804: return 0x88501d4; 
 
         	case 0xC0F06014: return 0x99d;
-		case 0xC0F0600c: return 0x22d021d;
+		case 0xC0F0600c: return 0x21d021d;
 		case 0xC0F06008: return 0x21d021d;
 		case 0xC0F06010: return 0x21d;
 		
