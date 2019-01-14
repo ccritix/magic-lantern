@@ -309,7 +309,7 @@ static void busy_wait(int n)
     int i,j;
     static volatile int k = 0;
     for (i = 0; i < n; i++)
-        for (j = 0; j < 5000; j++)    /* 100000 with caching enabled */
+        for (j = 0; j < 100000; j++)    /* 5000 with caching disabled, 100000 with it enabled */
             k++;
 }
 
@@ -335,8 +335,29 @@ static void blink(int n)
     busy_wait(n);
 }
 
-static char log_buffer_alloc[16384];
-static char * log_buffer = 0;
+/*------- cache routines ------------*/
+
+extern void sync_caches_d6(void);
+extern void disable_caches_region1_ram_d6(void);
+
+static void sync_caches_portable()
+{
+    if (is_digic6() || is_digic78())
+    {
+        /* Cortex R4 (DIGIC 6) */
+        /* Cortex A9 dual core (DIGIC 7/8) */
+        /* will this be enough on DIGIC 7/8 when running on single core? */
+        sync_caches_d6();
+    }
+    else
+    {
+        /* ARM946E-S */
+        sync_caches();
+    }
+}
+/*------- cache routines end --------*/
+
+static char log_buffer[16384];
 static unsigned int log_length = 0;
 
 static int printf_font_size = 2;
@@ -349,14 +370,8 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
 {
     qprint(txt);
 
-    if (!log_buffer)
-    {
-        uint32_t caching_bit = (is_vxworks()) ? 0x10000000 : 0x40000000;
-        log_buffer = (void *)((uintptr_t) log_buffer_alloc | caching_bit);
-    }
-
     /* copy the printed text into log buffer, except for backspaces */
-    for (char * c = txt; *c && log_length < sizeof(log_buffer_alloc); c++)
+    for (char * c = txt; *c && log_length < sizeof(log_buffer); c++)
     {
         switch (*c)
         {
@@ -401,6 +416,9 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
     }
 
     font_draw(&print_x, &print_y, color, scale, txt);
+
+    /* make sure the display DMA can pick the correct image */
+    sync_caches_portable();
 }
 
 /* only for lines where '\n' was not yet printed */
@@ -755,9 +773,12 @@ static void print_err(FF_ERROR err, char * our_msg)
 
 static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
+    /* FIXME: not sure what to do here, but this appears to work */
+    sync_caches_portable();
+
     //printf(" - RD %08X %4X %08X", sector, count, buffer);
     uint32_t ret = boot_read_sector(sector, count, buffer);
-    //printf("=> %X\n", ret);
+    //printf(" => %X\n", ret);
 
     if (ret)
     {
@@ -772,9 +793,12 @@ static unsigned long FF_blk_read(unsigned char *buffer, unsigned long sector, un
 
 static unsigned long FF_blk_write(unsigned char *buffer, unsigned long sector, unsigned short count, void *priv)
 {
+    /* probably overkill, but... */
+    sync_caches_portable();
+
     //printf(" - WR %08X %4X %08X", sector, count, buffer);
     uint32_t ret = boot_write_sector(sector, count, buffer);
-    //printf("=> %X\n", ret);
+    //printf(" => %X\n", ret);
 
     if (ret)
     {
@@ -906,6 +930,66 @@ static void save_file(const char * filename, void * addr, int size)
     printf("\n");
 }
 
+/* this function should be repeated a couple of times */
+/* to see the cache coherency issues, run this test with caches enabled, 
+ * but comment out the contents of sync_caches_portable() */
+static void cache_file_read_test_do(FF_IOMAN *ioman)
+{
+    FF_ERROR err = FF_ERR_NONE;
+
+    /* cacheable buffer that will fit the entire cache */
+    /* placed at different offsets, to increase the likelihood of cache coherency issues */
+    /* this will make the data in cache very different from what we are going to read from card */
+    static uint8_t buf[8192 * 2];               /* will slide the actual buffer through this one */
+    const size_t size = sizeof(buf) / 2;        /* only use half of this buffer for actual reads */
+    static int off = 0; off += 4;               /* unaligned buffers may work, too */
+    if (off + size >= sizeof(buf)) off = 0;     /* wrap around, if many tests are requested */
+
+    /* read a small part from our own code and check its MD5 */
+    FF_FILE *file = FF_Open(ioman, "\\AUTOEXEC.BIN", FF_GetModeBits("r"), &err);
+    if(err)
+    {
+        print_err(err, "Failed to open file");
+        fat_deinit(ioman);
+        halt_blink_code(10, 5);
+    }
+
+    err = FF_Read(file, size, 1, (FF_T_UINT8 *) buf + off);
+    if(err <= 0)
+    {
+        print_err(err, "Failed to read file");
+        FF_Close(file);
+        fat_deinit(ioman);
+        halt_blink_code(10, 6);
+    }
+
+    err = FF_Close(file);
+
+    /* just check visually whether the sums are the same */
+    uint8_t md5_bin[16];
+    char md5_ascii[50];
+    printf("%8x:", buf + off);
+    md5(buf + off, size, md5_bin);
+    snprintf(md5_ascii, sizeof(md5_ascii),
+        "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+        md5_bin[0],  md5_bin[1],  md5_bin[2],  md5_bin[3],
+        md5_bin[4],  md5_bin[5],  md5_bin[6],  md5_bin[7],
+        md5_bin[8],  md5_bin[9],  md5_bin[10], md5_bin[11],
+        md5_bin[12], md5_bin[13], md5_bin[14], md5_bin[15]
+    );
+    printf("%s", md5_ascii);
+}
+
+static void cache_file_read_test()
+{
+    FF_IOMAN *ioman = fat_init();
+    for (int i = 0; i < 50; i++)
+    {
+        cache_file_read_test_do(ioman);
+    }
+    fat_deinit(ioman);
+}
+
 static void init_file_io()
 {
     /* run only once */
@@ -926,6 +1010,12 @@ static void init_file_io()
 
     /* FAT library will be initialized on the fly,
      * for each file, to keep things simple */
+
+#if 0
+    /* check whether we are syncing the caches properly */
+    /* see also stub_test_cache_fio in selftest.c */
+    cache_file_read_test();
+#endif
 }
 
 #else
@@ -1633,9 +1723,6 @@ static void cpuinfo_print(void)
     }
 }
 
-extern void sync_caches_d6(void);
-extern void disable_caches_region1_ram_d6(void);
-
 void
 __attribute__((noreturn))
 cstart( int loaded_as_thumb )
@@ -1667,6 +1754,7 @@ cstart( int loaded_as_thumb )
      * present at least on DIGIC 4, 5 and 6, finally fixed in DIGIC 7! */
 #endif
 
+#ifndef CONFIG_BOOT_FULLFAT
     if (is_digic6())
     {
         sync_caches_d6();
@@ -1677,6 +1765,7 @@ cstart( int loaded_as_thumb )
         sync_caches();
         disable_all_caches();
     }
+#endif
 
     print_line(COLOR_CYAN, 3, "  Magic Lantern Rescue\n");
     print_line(COLOR_CYAN, 3, " ----------------------------\n");
@@ -1716,7 +1805,7 @@ cstart( int loaded_as_thumb )
 
     printf(" - DONE!\n");
 
-    if (log_buffer)
+    if (1)
     {
         int saved_length = log_length;  /* save until here */
         init_file_io();
