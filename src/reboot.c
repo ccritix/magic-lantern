@@ -524,6 +524,12 @@ static void patch_init_card(uint32_t card_init_addr, int max_offset)
             printf(" - Patching %X from %x", addr, MEM(addr));
             MEM(addr) &= ~1;
             printf(" to %x\n", MEM(addr));
+
+            /* Make sure our self-modifying code clears the cache */
+            sync_caches_portable();
+
+            /* only patch the first matching instruction */
+            return;
         }
     }
 }
