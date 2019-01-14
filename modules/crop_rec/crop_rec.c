@@ -3652,7 +3652,7 @@ static unsigned int crop_rec_init()
         ADTG_WRITE = 0x42E34;
         MEM_ADTG_WRITE = 0xE51F7224;
 
-		ENGIO_WRITE = 0xFF2C6C20;
+		ENGIO_WRITE = 0xFF2C6F44;
         MEM_ENGIO_WRITE = 0xE59F11C8;
 
         is_EOSM2 = 1;
