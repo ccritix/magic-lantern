@@ -340,7 +340,7 @@ static void blink(int n)
 extern void sync_caches_d6(void);
 extern void disable_caches_region1_ram_d6(void);
 
-static void sync_caches_portable()
+void sync_caches_portable()
 {
     if (is_digic6() || is_digic78())
     {
@@ -399,6 +399,7 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
             uint32_t x = disp_direct_get_xres() - 10; uint32_t y = 0;
             char msg[] = "0"; msg[0] = '0' + i;
             font_draw(&x, &y, COLOR_WHITE, 1, (char*) &msg);
+            sync_caches_portable();
             busy_wait(100);
         }
 

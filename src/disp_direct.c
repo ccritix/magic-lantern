@@ -33,7 +33,6 @@ static uint8_t __attribute__((aligned(4096))) __disp_yuvbuf_alloc[2 * 1024 * 102
 static uint8_t *disp_framebuf = __disp_framebuf_alloc;
 static uint8_t *disp_framebuf_mirror = __disp_framebuf_mirror_alloc;
 static uint8_t *disp_yuvbuf = __disp_yuvbuf_alloc;
-static uint32_t caching_bit = 0x40000000;
 
 static int disp_yres = 480;     /* buffer Y resolution */
 static int disp_yratio = 1;     /* for displays with non-square pixels, e.g. VxWorks models */
@@ -70,6 +69,10 @@ const uint32_t PALETTE_REG_5D4 = 0xD2018398;
 const uint32_t BMP_BUF_REG_M50 = 0xD0304230;
 static uint32_t * palette_uyvy = NULL;
 
+/* we may have to make sure the display DMA picks the correct image
+ * or palette configuration etc */
+extern void sync_caches_portable(void);
+
 static void disp_set_palette()
 {
     // transparent
@@ -102,11 +105,7 @@ static void disp_set_palette()
     else if (disp_bpp == 8)
     {
         /* DIGIC 6 */
-        /* the palette should be in uncacheable memory
-         * this trick only makes a difference when running as cacheable
-         * e.g. from 0x00800000 / 0x00800120 (AUTOEXEC / FIR) */
-        static uint32_t __attribute__((aligned(16))) palette_alloc[16];
-        uint32_t * palette = (void *)((uint32_t) palette_alloc | caching_bit);
+        static uint32_t __attribute__((aligned(16))) palette[16];
 
         for(uint32_t i = 0; i < 16; i++)
         {
@@ -116,7 +115,7 @@ static void disp_set_palette()
         }
 
         /* possibly just a DSB SY needed; to be tested */
-        sync_caches();
+        sync_caches_portable();
 
         MEM(PALETTE_REG_D6) = (uint32_t) palette >> 4;
         MEM(PALETTE_REG_D6-8) = 1;
@@ -126,8 +125,7 @@ static void disp_set_palette()
         /* DIGIC 8: some sort of YUV422 */
         /* Will emulate a palette-based half-res display, to keep things simple */
 
-        static uint32_t __attribute__((aligned(16))) palette_alloc[16];
-        uint32_t * palette = (void *)((uint32_t) palette_alloc | caching_bit);
+        static uint32_t __attribute__((aligned(16))) palette[16];
 
         for(uint32_t i = 0; i < 16; i++)
         {
@@ -445,13 +443,13 @@ void disp_set_buf(int buf)
 
     if (disp_bpp == 16)
     {
-        MEM(BMP_BUF_REG_M50) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf) & ~caching_bit;
+        MEM(BMP_BUF_REG_M50) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf);
     }
     else if (disp_bpp == 8)
     {
         if (get_model_id() == 0x349)
         {
-            MEM(BMP_BUF_REG_5D4) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf) & ~caching_bit;
+            MEM(BMP_BUF_REG_5D4) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf);
         }
         else
         {
@@ -461,10 +459,10 @@ void disp_set_buf(int buf)
     else if (disp_bpp == 4)
     {
         /* set frame buffer memory areas */
-        MEM(0xC0F140D0) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf) & ~caching_bit;
-        MEM(0xC0F140D4) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf) & ~caching_bit;
-        MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf & ~caching_bit;
-        MEM(0xC0F140E4) = (uint32_t)disp_yuvbuf & ~caching_bit;
+        MEM(0xC0F140D0) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf);
+        MEM(0xC0F140D4) = (uint32_t)(buf ? disp_framebuf_mirror : disp_framebuf);
+        MEM(0xC0F140E0) = (uint32_t)disp_yuvbuf;
+        MEM(0xC0F140E4) = (uint32_t)disp_yuvbuf;
         
         /* trigger a display update */
         MEM(0xC0F14000) = 1;
@@ -526,15 +524,9 @@ void disp_init()
 
     if (is_vxworks())
     {
-        caching_bit = 0x10000000;
         disp_yres = 240;
         disp_yratio = 2;
     }
-    
-    /* make the image buffers uncacheable */
-    *(uint32_t*)&disp_framebuf |= caching_bit;
-    *(uint32_t*)&disp_framebuf_mirror |= caching_bit;
-    *(uint32_t*)&disp_yuvbuf   |= caching_bit;
 
     uint32_t bmp_size = (disp_xres * disp_yres) * disp_bpp / 8;
     if (bmp_size > sizeof(__disp_framebuf_alloc))
@@ -563,17 +555,21 @@ void disp_init()
 
     /* we want our own palette */
     disp_set_palette();
-    
+
     /* BMP foreground is transparent */
     disp_fill(COLOR_TRANSPARENT_BLACK);
-    
+
     /* make a funny pattern in the YUV buffer*/
     disp_fill_yuv_gradient();
-    
+
+    /* make sure the DMA picks up our changes */
+    sync_caches_portable();
+
     disp_set_buf(0);
-    
+
     /* from now on, everything you write on the display buffers
-     * will appear on the screen without doing anything special */
+     * will appear on the screen without doing anything special,
+     * other than maybe syncing the caches. */
 }
 
 static void memset32(uint32_t * buf, uint32_t val, size_t size)
@@ -595,6 +591,9 @@ uint32_t disp_direct_scroll_up(uint32_t height)
 
     memcpy(disp_framebuf, &disp_framebuf[start], size);
     memset32((uint32_t*) &disp_framebuf[size], color, start);
-    
+
+    /* make sure the DMA picks up our changes */
+    sync_caches_portable();
+
     return height;
 }
