@@ -1009,8 +1009,9 @@ static void init_file_io()
     check_sector_io_stubs();
 
     /* FullFAT will require malloc */
+    uint32_t caching_bit = (is_vxworks()) ? 0x10000000 : 0x40000000;
     extern void malloc_init(void *ptr, uint32_t size);
-    malloc_init((void *)0x02000000, 0x02000000);
+    malloc_init((void *)(0x2000000 | caching_bit), 0x02000000);
 
     /* call Canon's card initialization routine */
     init_card();
