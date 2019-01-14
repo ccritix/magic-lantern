@@ -4,7 +4,8 @@
 
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
 /** The 1300D port is very early, so I think we should not enable properties. **/
-#undef CONFIG_PROP_REQUEST_CHANGE
+//#undef CONFIG_PROP_REQUEST_CHANGE
+#define CONFIG_PROP_REQUEST_CHANGE
 
 /** 
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 
@@ -138,7 +139,7 @@
 #define CONFIG_MENU_WITH_AV
 
 /** We don't have access to Raw data (yet) */
-//~ #define CONFIG_RAW_LIVEVIEW
+#define CONFIG_RAW_LIVEVIEW
 #define CONFIG_RAW_PHOTO
 
 
@@ -151,3 +152,5 @@
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
 /** FIXME: long calls during relocation **/
 //~ #define CONFIG_LVAPP_HACK_RELOC
+
+//#define CONFIG_HELLO_WORLD

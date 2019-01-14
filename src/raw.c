@@ -161,7 +161,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_LV_EDMAC 0xC0F04508
 #endif
 
-#if defined(CONFIG_500D) || defined(CONFIG_550D) || defined(CONFIG_7D)
+#if defined(CONFIG_500D) || defined(CONFIG_550D) || defined(CONFIG_7D) || defined(CONFIG_1300D)
 #define RAW_LV_EDMAC 0xC0F26008
 #endif
 

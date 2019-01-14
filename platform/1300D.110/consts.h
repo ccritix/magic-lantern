@@ -22,6 +22,15 @@
 #define HIJACK_FIXBR_CREATE_ITASK 0xFE0C3AF8
 #define HIJACK_INSTR_MY_ITASK 0xFE0C3B20
 
+// Used in boot-hack.c with CONFIG_ALLOCATE_MEMORY_POOL
+#define ROM_ITASK_START 0xFE1296C8
+#define ROM_ITASK_END 0xFE1296C8//0xfe129bd8 // 0xFE1298A0 //fe12b8bc FE1298A0
+#define ROM_CREATETASK_MAIN_START 0xfe0c1b60 
+#define ROM_CREATETASK_MAIN_END 0xfe0c1eb0
+#define ROM_ALLOCMEM_END 0xfe0c1b74
+#define ROM_ALLOCMEM_INIT 0xfe0c1b7c //(ROM_ALLOCMEM_END + 8) 
+#define ROM_B_CREATETASK_MAIN 0xfe129760
+
 /* new-style DryOS hooks? */
 //#define HIJACK_TASK_ADDR 0x31170
 
@@ -30,7 +39,7 @@
 #define DRYOS_ASSERT_HANDLER 0x35888 // dec TH_assert or assert_0 // not sure
 
 // these were found in ROM, but not tested yet
-#define MVR_992_STRUCT (*(void**)0x315E0) // look in MVR_Initialize for AllocateMemory call
+#define MVR_992_STRUCT (*(void**)(0x315dc+0x4)) // look in MVR_Initialize for AllocateMemory call
 
 #define div_maybe(a,b) ((a)/(b))
 
@@ -40,8 +49,8 @@
 #define MVR_BUFFER_USAGE_SOUND div_maybe(-100*MEM(544 + MVR_992_STRUCT) + 100*MEM(532 + MVR_992_STRUCT), 0xa)
 #define MVR_BUFFER_USAGE MAX(MVR_BUFFER_USAGE_FRAME, MVR_BUFFER_USAGE_SOUND)
 
-#define MVR_FRAME_NUMBER (*(int*)(332 + MVR_992_STRUCT))
-#define MVR_BYTES_WRITTEN MEM((296 + MVR_992_STRUCT))
+#define MVR_FRAME_NUMBER (*(int*)(332 + MVR_992_STRUCT)) // in mvrSMEncodeDone 0x14C=332
+#define MVR_BYTES_WRITTEN MEM((296 + MVR_992_STRUCT)) //in mvrSMEncodeDone
 
 #define MOV_RES_AND_FPS_COMBINATIONS 9
 #define MOV_OPT_NUM_PARAMS 2
@@ -74,13 +83,14 @@
 
 
 // guess
- #define FOCUS_CONFIRMATION (*(int*)0x479C)
-#define HALFSHUTTER_PRESSED (*(int*)0x31308) // same as 60D
+#define FOCUS_CONFIRMATION (*(int*)(0x36EC0 + 0x4)) // see "focusinfo" and Wiki:Struct_Guessing
+#define HALFSHUTTER_PRESSED (*(int*)(0x359A0 + 0x1C)) // look for string "[MC] permit LV instant"
+
 //~ #define AF_BUTTON_PRESSED_LV 0
 
 //~ #define DISPLAY_SENSOR (*(int*)0x2dec)
 //~ #define DISPLAY_SENSOR_ACTIVE (*(int*)0xC0220104)
-#define DISPLAY_SENSOR_POWERED (*(int*)0x3138)  // looks broken. there is code TODO: investigate, why there is code copied
+#define DISPLAY_SENSOR_POWERED (*(int*)(0x359A0 + 0x18))  // Look up *"ForceDisableDisplay (%d)"
 
 // for gui_main_task
 #define GMT_NFUNCS 7
@@ -209,8 +219,8 @@
 
 #define IMGPLAY_ZOOM_LEVEL_ADDR (0x3B088+12) // dec GuiImageZoomDown and look for a negative counter
 #define IMGPLAY_ZOOM_LEVEL_MAX 14
-#define IMGPLAY_ZOOM_POS_X MEM(0x6FCA4) // Zoom CentrePos
-#define IMGPLAY_ZOOM_POS_Y MEM(0x6FD14)
+#define IMGPLAY_ZOOM_POS_X MEM(0x6FCC4) // Zoom CentrePos Look up *"CentrePos x:%ld y:%ld"
+#define IMGPLAY_ZOOM_POS_Y MEM(0x6FCC4+0x4) // Look up *"CentrePos x:%ld y:%ld"
 #define IMGPLAY_ZOOM_POS_X_CENTER 0x144
 #define IMGPLAY_ZOOM_POS_Y_CENTER 0xd8
 #define IMGPLAY_ZOOM_POS_DELTA_X (0x144 - 0x93)
@@ -237,14 +247,14 @@
 
 #define MIN_MSLEEP 20
 
-#define INFO_BTN_NAME "INFO"
+#define INFO_BTN_NAME "DISP"
 #define Q_BTN_NAME (RECORDING ? "INFO" : "[Q]")
-#define ARROW_MODE_TOGGLE_KEY "DISP"
+#define ARROW_MODE_TOGGLE_KEY ""
 
 #define DISPLAY_STATEOBJ (*(struct state_object **)0x318B8)
 #define DISPLAY_IS_ON (DISPLAY_STATEOBJ->current_state != 0)
 
-#define VIDEO_PARAMETERS_SRC_3 0x70AE8 // notation from g3gg0 // NOT FOUND .. 
+#define VIDEO_PARAMETERS_SRC_3 0x6A95C 
 #define FRAME_SHUTTER_TIMER (*(uint16_t*)(VIDEO_PARAMETERS_SRC_3+0xC))
 #define FRAME_ISO (*(uint8_t*)(VIDEO_PARAMETERS_SRC_3+0x8))
 #define FRAME_APERTURE (*(uint8_t*)(VIDEO_PARAMETERS_SRC_3+0x9))
