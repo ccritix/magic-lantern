@@ -309,7 +309,7 @@ static void busy_wait(int n)
     int i,j;
     static volatile int k = 0;
     for (i = 0; i < n; i++)
-        for (j = 0; j < 100000; j++)
+        for (j = 0; j < 5000; j++)    /* 100000 with caching enabled */
             k++;
 }
 
@@ -1665,17 +1665,18 @@ cstart( int loaded_as_thumb )
     /* Canon bug: their file I/O function ("Open file for write") copies data to CACHEABLE memory before saving!
      * https://www.magiclantern.fm/forum/index.php?topic=16534.msg170417#msg170417
      * present at least on DIGIC 4, 5 and 6, finally fixed in DIGIC 7! */
+#endif
+
     if (is_digic6())
     {
         sync_caches_d6();
         disable_caches_region1_ram_d6();
     }
-    else if (!is_digic78())
+    else
     {
         sync_caches();
         disable_all_caches();
     }
-#endif
 
     print_line(COLOR_CYAN, 3, "  Magic Lantern Rescue\n");
     print_line(COLOR_CYAN, 3, " ----------------------------\n");
