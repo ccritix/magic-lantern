@@ -4136,6 +4136,13 @@ static int raw_rec_should_preview(void)
     static int last_hs_unpress = 0;
     static int autofocusing = 0;
 
+/* fix for stuck realtime preview when wanting framing */
+    if (cam_eos_m || cam_100d)
+    {
+    raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
+    raw_force_aspect_ratio(0, 0);
+    }
+
     if (!get_halfshutter_pressed())
     {
         autofocusing = 0;
@@ -4229,9 +4236,10 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
         PREVIEW_HACKED && RAW_IS_RECORDING ? (void*)-1 : buffers->dst_buf,
         -1,
         -1,
-        (need_for_speed && !get_halfshutter_pressed())
-            ? RAW_PREVIEW_GRAY_ULTRA_FAST
-            : RAW_PREVIEW_COLOR_HALFRES
+        (need_for_speed && !get_halfshutter_pressed()) 
+	? RAW_PREVIEW_GRAY_ULTRA_FAST 
+	: cam_eos_m && RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST 
+        : RAW_PREVIEW_COLOR_HALFRES 
     );
 
     give_semaphore(settings_sem);
@@ -4239,8 +4247,8 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
     /* be gentle with the CPU, save it for recording (especially if the buffer is almost full) */
     msleep(
         (need_for_speed)
-            ? ((queued_frames > valid_slot_count / 2) ? 1000 : 500)
-            : 50
+            ? ((queued_frames > valid_slot_count / 2) ? cam_eos_m ? 1150 : 1000 : cam_eos_m ? 650 : 500)
+            : cam_eos_m ? 65 : 50
     );
 
     preview_dirty = 1;
