@@ -1819,16 +1819,14 @@ cstart( int loaded_as_thumb )
         printf_font_color = old_color;
     #endif
 
-    printf(" - DONE!\n");
-
     if (1)
     {
-        int saved_length = log_length;  /* save until here */
         init_file_io();
         printf(" - Saving RESCUE.LOG ...");
-        save_file("RESCUE.LOG", log_buffer, saved_length);
+        save_file("RESCUE.LOG", log_buffer, log_length);
     }
 
+    printf(" - DONE!\n");
     printf("\n");
     print_line(COLOR_WHITE, 2, " You may now remove the battery.\n");
 
