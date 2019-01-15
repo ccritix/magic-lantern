@@ -51,15 +51,15 @@
     #define FEATURE_WHITE_BALANCE
     #define FEATURE_EXPO_ISO
     #define FEATURE_EXPO_SHUTTER
-//    #define FEATURE_EXPO_APERTURE
+    #define FEATURE_EXPO_APERTURE
     //~ #define FEATURE_INTERMEDIATE_ISO_PHOTO_DISPLAY // only for rebels, not for high-end bodies
     //~ #define FEATURE_INTERMEDIATE_ISO_INTERCEPT_SCROLLWHEEL // 550D trick
 
     #define FEATURE_PICSTYLE
     #define FEATURE_REC_PICSTYLE
 
-//    #define FEATURE_EXPO_LOCK
-//    #define FEATURE_EXPO_PRESET
+    #define FEATURE_EXPO_LOCK
+    #define FEATURE_EXPO_PRESET
 
 #ifdef CONFIG_EXPSIM
     #define FEATURE_EXPSIM
@@ -147,7 +147,7 @@
 /** Shoot menu **/
 
 #ifdef CONFIG_PROP_REQUEST_CHANGE
-//    #define FEATURE_HDR_BRACKETING
+    #define FEATURE_HDR_BRACKETING
 #endif
     #define FEATURE_INTERVALOMETER
     //~ #define FEATURE_INTERVALOMETER_MOVIE // will be moved to scripts
@@ -189,9 +189,9 @@
     #define FEATURE_TRAP_FOCUS
 
 #ifdef CONFIG_PROP_REQUEST_CHANGE
-//    #define FEATURE_FOLLOW_FOCUS
-//    #define FEATURE_RACK_FOCUS
-//    #define FEATURE_FOCUS_STACKING
+    #define FEATURE_FOLLOW_FOCUS
+    #define FEATURE_RACK_FOCUS
+    #define FEATURE_FOCUS_STACKING
     #define FEATURE_AF_PATTERNS
 #endif
 
@@ -248,15 +248,15 @@
     #define FEATURE_QUICK_ERASE
 
 #ifdef CONFIG_PROP_REQUEST_CHANGE
-//    #define FEATURE_LV_ZOOM_SETTINGS
-//    #define FEATURE_LV_ZOOM_SHARP_CONTRAST
-//    #ifdef CONFIG_EXPSIM
-//    #define FEATURE_LV_ZOOM_AUTO_EXPOSURE
-//    #endif
+    #define FEATURE_LV_ZOOM_SETTINGS
+    #define FEATURE_LV_ZOOM_SHARP_CONTRAST
+    #ifdef CONFIG_EXPSIM
+		#define FEATURE_LV_ZOOM_AUTO_EXPOSURE
+    #endif
     //~ #define FEATURE_ZOOM_TRICK_5D3 // not reliable
 
-//    #define FEATURE_LV_FOCUS_BOX_FAST
-//    #define FEATURE_LV_FOCUS_BOX_SNAP
+    #define FEATURE_LV_FOCUS_BOX_FAST
+    #define FEATURE_LV_FOCUS_BOX_SNAP
     //~ #define FEATURE_LV_FOCUS_BOX_SNAP_TO_X5_RAW
     #define FEATURE_LV_FOCUS_BOX_AUTOHIDE
 
@@ -272,7 +272,7 @@
     #define FEATURE_WARNINGS_FOR_BAD_SETTINGS
 
 #ifdef CONFIG_PROP_REQUEST_CHANGE
-//    #define FEATURE_POWERSAVE_LIVEVIEW
+    #define FEATURE_POWERSAVE_LIVEVIEW
 #endif
 
     #define FEATURE_LV_DISPLAY_PRESETS
