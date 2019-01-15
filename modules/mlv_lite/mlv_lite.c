@@ -974,7 +974,9 @@ static int setup_buffers();
 static EXCLUDES(settings_sem)
 void refresh_raw_settings(int force)
 {
-    if (!lv) return;
+
+/* 1x3 binning mode test */
+   /* if (!lv) return; */
     
     if (!RAW_IS_IDLE) return;
 
