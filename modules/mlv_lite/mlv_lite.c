@@ -946,7 +946,8 @@ static void measure_compression_ratio()
     if (valid_slot_count == 0)
     {
         /* no valid buffers yet? */
-        return;
+/* 1x3 binning mode test */
+       /* return; */
     }
     
     ASSERT(slots[0].ptr);
@@ -998,7 +999,8 @@ void refresh_raw_settings(int force)
             /* update compression ratio once every 2 seconds */
             if (OUTPUT_COMPRESSION && compress_mq && should_run_polling_action(2000, &aux2))
             {
-                measure_compression_ratio();
+/* 1x3 binning mode test */
+                /* measure_compression_ratio(); */
             }
         }
     }
