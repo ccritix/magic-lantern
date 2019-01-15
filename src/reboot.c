@@ -565,6 +565,14 @@ static void init_card()
         }
     }
 
+    if (strcmp(cam, "7D") == 0)
+    {
+        /* 7D: screen goes dark right away (guess: after calling the card low-level init routine) */
+        /* from the I/O trace, this is the only register set by the display_init routine,
+         * and modified by the card low-level init routine. */
+        MEM(0xC0220038) = 0x44;
+    }
+
     if (boot_card_init)
     {
         /* not all cameras need this, but some do */
