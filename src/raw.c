@@ -424,8 +424,7 @@ static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO
 #endif
 
 #ifdef CONFIG_1300D
-// Placeholder copied from 1100D (1300D also does not support ISO12800)
-static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO 12800 available
+static int dynamic_ranges[] = {1112, 1080, 1038, 984, 917, 834, 733, 655};
 #endif
 
 #ifdef CONFIG_650D
