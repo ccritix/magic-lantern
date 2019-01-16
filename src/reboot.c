@@ -1759,24 +1759,17 @@ cstart( int loaded_as_thumb )
     }
 
     disp_init();
-    /* disable caching (seems to interfere with ROM dumping) */
-    //~ disable_dcache();
-    //~ disable_icache();
-    //~ disable_write_buffer();
 
-#ifdef CONFIG_BOOT_DUMPER
+#if !defined(CONFIG_BOOT_FULLFAT) && (defined(CONFIG_BOOT_DUMPER) || defined(CONFIG_BOOT_CPUINFO))
     /* Canon bug: their file I/O function ("Open file for write") copies data to CACHEABLE memory before saving!
      * https://www.magiclantern.fm/forum/index.php?topic=16534.msg170417#msg170417
      * present at least on DIGIC 4, 5 and 6, finally fixed in DIGIC 7! */
-#endif
-
-#ifndef CONFIG_BOOT_FULLFAT
     if (is_digic6())
     {
         sync_caches_d6();
         disable_caches_region1_ram_d6();
     }
-    else
+    else if (!is_digic78())
     {
         sync_caches();
         disable_all_caches();
