@@ -67,6 +67,7 @@ enum crop_preset {
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
     CROP_PRESET_3x3_mv1080_EOSM2,
+    CROP_PRESET_1x3_EOSM2,
     NUM_CROP_PRESETS
 };
 
@@ -219,11 +220,13 @@ static const char crop_choices_help2_eosm[] =
 static enum crop_preset crop_presets_eosm2[] = {
     CROP_PRESET_OFF,
     CROP_PRESET_3x3_mv1080_EOSM2,
+    CROP_PRESET_1x3_EOSM2,
 };
 
 static const char * crop_choices_eosm2[] = {
     "OFF",
     "mv1080p_1736x1120",
+    "1x3 binning",
 };
 
 static const char crop_choices_help_eosm2[] =
@@ -231,7 +234,8 @@ static const char crop_choices_help_eosm2[] =
 
 static const char crop_choices_help2_eosm2[] =
     "\n"
-    "mv1080p derived from 3x3 (square pixels in RAW, vertical crop)\n";
+    "mv1080p derived from 3x3 (square pixels in RAW, vertical crop)\n"
+    "1x3 binning\n";
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
 static enum crop_preset crop_presets_basic[] = {
@@ -774,6 +778,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;	
 
 			case CROP_PRESET_1x3_EOSM:
+			case CROP_PRESET_1x3_EOSM2:
 			    cmos_new[7] = 0x260;   
 			    cmos_new[8] = 0x400; 
                 break;	
@@ -1135,6 +1140,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		break;
 
 	     case CROP_PRESET_1x3_EOSM:
+	     case CROP_PRESET_1x3_EOSM2:
 	     case CROP_PRESET_1x3_100D:
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
      	        break;
@@ -2795,6 +2801,62 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
     return 0;
 }
 
+static inline uint32_t reg_override_1x3_eosm2(uint32_t reg, uint32_t old_val)
+{
+
+  if (bitrate == 0x1)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x6060606;
+    }
+  }
+
+  if (bitrate == 0x2)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x5050505;
+    }
+  }
+
+  if (bitrate == 0x3)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x4040404;
+    }
+  }
+  if (bitrate == 0x4)
+  {
+    switch (reg)
+    {
+	/* correct liveview brightness */
+	case 0xC0F42744: return 0x2020202;
+    }
+  }
+
+    switch (reg)
+    {
+        	case 0xC0F06804: return 0x4a601d4; 
+
+        	case 0xC0F06014: return 0x9df;
+		case 0xC0F0600c: return 0x20f020f;
+		case 0xC0F06008: return 0x20f020f;
+		case 0xC0F06010: return 0x20f;
+		
+		case 0xC0F37014: return 0xe; 
+        	case 0xC0F0713c: return 0x4a7;
+		case 0xC0F07150: return 0x475;
+
+    }
+
+    return 0;
+}
+
 static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
 {
     /* attempt to reconfigure the x5 zoom at the FPS selected in Canon menu */
@@ -2883,7 +2945,8 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_eosm        :
         (crop_preset == CROP_PRESET_3x3_mv1080_45fps_EOSM) ? reg_override_3x3_45fps_eosm        :
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM2) ? reg_override_3x3_eosm        :
-        (crop_preset == CROP_PRESET_1x3_EOSM) ? reg_override_1x3_eosm        : 
+        (crop_preset == CROP_PRESET_1x3_EOSM) ? reg_override_1x3_eosm        :
+        (crop_preset == CROP_PRESET_1x3_EOSM2) ? reg_override_1x3_eosm2        : 
         (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_3x3_1X_100D)    ? reg_override_mv1080_mv720p  :
                                                   0                       ;
@@ -3428,6 +3491,11 @@ static LVINFO_UPDATE_FUNC(crop_info)
     snprintf(buffer, sizeof(buffer), "1x3_binning");
   }
 
+  if (CROP_PRESET_MENU == CROP_PRESET_1x3_EOSM2)
+  {
+    snprintf(buffer, sizeof(buffer), "1x3_binning");
+  }
+
   if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
   {
     snprintf(buffer, sizeof(buffer), "2520x1304");
@@ -3527,6 +3595,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_3x3_mv1080_45fps_EOSM:
 	    case CROP_PRESET_3x3_mv1080_EOSM2:
  	    case CROP_PRESET_1x3_EOSM:
+ 	    case CROP_PRESET_1x3_EOSM2:
 	    case CROP_PRESET_1x3_100D:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
                 break;
@@ -3544,6 +3613,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_1x3:
             case CROP_PRESET_1x3_17fps:
  	    case CROP_PRESET_1x3_EOSM:
+ 	    case CROP_PRESET_1x3_EOSM2:
 	    case CROP_PRESET_1x3_100D:
             case CROP_PRESET_3xcropmode_100D:
                 raw_capture_info.binning_y = 1; raw_capture_info.skipping_y = 0;
