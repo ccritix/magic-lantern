@@ -4249,8 +4249,8 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
     /* be gentle with the CPU, save it for recording (especially if the buffer is almost full) */
     msleep(
         (need_for_speed)
-            ? ((queued_frames > valid_slot_count / 2) ? cam_eos_m ? 1100 : 1000 : cam_eos_m ? 600 : 500)
-            : cam_eos_m ? 60 : 50 /* 1x3 binning mode test */
+            ? ((queued_frames > valid_slot_count / 1) ? cam_eos_m ? 1150 : 1000 : cam_eos_m ? 650 : 500)
+            : cam_eos_m ? 65 : 50 /* 1x3 binning mode test */
     );
 
     preview_dirty = 1;
