@@ -903,7 +903,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;	
 
 			case CROP_PRESET_1x3_EOSM:
-			    cmos_new[7] = 0x260;   
+		            cmos_new[7] = 0x2c4;   
 			    cmos_new[8] = 0x400; 
                 break;	
 
