@@ -251,7 +251,7 @@
     #define FEATURE_LV_ZOOM_SETTINGS
     #define FEATURE_LV_ZOOM_SHARP_CONTRAST
     #ifdef CONFIG_EXPSIM
-		#define FEATURE_LV_ZOOM_AUTO_EXPOSURE
+	#define FEATURE_LV_ZOOM_AUTO_EXPOSURE
     #endif
     //~ #define FEATURE_ZOOM_TRICK_5D3 // not reliable
 
