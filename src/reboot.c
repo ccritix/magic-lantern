@@ -1819,12 +1819,11 @@ cstart( int loaded_as_thumb )
         printf_font_color = old_color;
     #endif
 
-    if (1)
-    {
-        init_file_io();
-        printf(" - Saving RESCUE.LOG ...");
-        save_file("RESCUE.LOG", log_buffer, log_length);
-    }
+#if defined(CONFIG_BOOT_FULLFAT) || defined(CONFIG_BOOT_DUMPER) || defined(CONFIG_BOOT_CPUINFO)
+    init_file_io();
+    printf(" - Saving RESCUE.LOG ...");
+    save_file("RESCUE.LOG", log_buffer, log_length);
+#endif
 
     printf(" - DONE!\n");
     printf("\n");
