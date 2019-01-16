@@ -946,8 +946,7 @@ static void measure_compression_ratio()
     if (valid_slot_count == 0)
     {
         /* no valid buffers yet? */
-/* 1x3 binning mode test */
-       /* return; */
+	return; 
     }
     
     ASSERT(slots[0].ptr);
@@ -978,13 +977,14 @@ void refresh_raw_settings(int force)
 /* 1x3 binning mode test */
    /* if (!lv) return; */
     
-    if (!RAW_IS_IDLE) return;
+	if (!RAW_IS_IDLE) return; 
 
     take_semaphore(settings_sem, 0);
 
     /* if we got the semaphore before raw_rec_task started, all fine */
     /* if we got it afterwards, RAW_IS_IDLE is no longer true => stop */
     /* raw_rec_task is unable to change the state while we have the semaphore */
+
     if (!RAW_IS_IDLE) goto end;
 
     /* autodetect the resolution (update 4 times per second) */
@@ -1001,8 +1001,7 @@ void refresh_raw_settings(int force)
             /* update compression ratio once every 2 seconds */
             if (OUTPUT_COMPRESSION && compress_mq && should_run_polling_action(2000, &aux2))
             {
-/* 1x3 binning mode test */
-                /* measure_compression_ratio(); */
+		measure_compression_ratio(); 
             }
         }
     }
@@ -4111,6 +4110,7 @@ static int preview_dirty = 0;
 
 static int raw_rec_should_preview(void)
 {
+
     if (!raw_video_enabled) return 0;
     if (!is_movie_mode()) return 0;
 
@@ -4141,11 +4141,8 @@ static int raw_rec_should_preview(void)
     static int autofocusing = 0;
 
 /* fix for stuck realtime preview when wanting framing */
-    if (cam_eos_m || cam_100d)
-    {
     raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
     raw_force_aspect_ratio(0, 0);
-    }
 
     if (!get_halfshutter_pressed())
     {
@@ -4227,6 +4224,7 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
      * resulting in some sort of flicker.
      * We'll take care of our own updates with settings_sem.
      * Raw overlays (histogram etc) seem to be well-behaved. */
+
     take_semaphore(settings_sem, 0);
 
     raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
@@ -4242,7 +4240,7 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
         -1,
         (need_for_speed && !get_halfshutter_pressed()) 
 	? RAW_PREVIEW_GRAY_ULTRA_FAST 
-	: cam_eos_m && RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST 
+	: cam_eos_m && RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST /* 1x3 binning mode test */
         : RAW_PREVIEW_COLOR_HALFRES 
     );
 
@@ -4251,8 +4249,8 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
     /* be gentle with the CPU, save it for recording (especially if the buffer is almost full) */
     msleep(
         (need_for_speed)
-            ? ((queued_frames > valid_slot_count / 2) ? cam_eos_m ? 1150 : 1000 : cam_eos_m ? 650 : 500)
-            : cam_eos_m ? 65 : 50
+            ? ((queued_frames > valid_slot_count / 2) ? cam_eos_m ? 1100 : 1000 : cam_eos_m ? 600 : 500)
+            : cam_eos_m ? 60 : 50 /* 1x3 binning mode test */
     );
 
     preview_dirty = 1;
