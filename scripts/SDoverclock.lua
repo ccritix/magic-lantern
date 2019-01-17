@@ -23,7 +23,7 @@ if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA L
             menu.set("Display", "Clear overlays", "HalfShutter")
              menu.set("RAW video", "Preview", "Framing")
            display.notify_box("enabling GD Halfshutter")
-          msleep(500) 
+          msleep(1500) 
         end
       end
  display.notify_box("SD overclocking, please wait...")
