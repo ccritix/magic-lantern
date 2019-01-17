@@ -246,6 +246,11 @@ uint32_t get_model_id()
     return 0;
 }
 
+uint32_t is_digic4plus()
+{
+    return get_model_id() == *(uint32_t *)0xF8001014;
+}
+
 uint32_t is_digic6()
 {
     return get_model_id() == *(uint32_t *)0xFC060014;
@@ -1675,6 +1680,13 @@ static void dump_rom_to_file()
         boot_dump("ROM0.BIN", 0xE0000000, 0x02000000);
         printf(" - Dumping ROM1...");
         boot_dump("ROM1.BIN", 0xF0000000, 0x01000000);
+    }
+    else if (is_digic4plus())
+    {
+        printf(" - Dumping ROM0...");
+        boot_dump("ROM0.BIN", 0xF0000000, 0x02000000);
+        printf(" - Dumping ROM1...");
+        boot_dump("ROM1.BIN", 0xF8000000, 0x02000000);
     }
     else
     {
