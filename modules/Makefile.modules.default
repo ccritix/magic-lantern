@@ -7,6 +7,5 @@ ML_MODULES ?= \
 	silent \
 	lua \
 	crop_rec \
-	// raw_twk \
 	file_man \
 	sd_uhs \
