@@ -1,0 +1,13 @@
+# 1300D 1.1.0
+
+# no 1300D firmware yet?
+CANON_NAME_FIR      = 5D300133.FIR
+FIRMWARE_ID         = 0x80000404
+
+# the only DIGIC 4 model with 32MB ROM
+ROMBASEADDR         = 0xFE0C0000
+
+# Load ML at the end of the AllocateMemory pool
+# Default 0x2D0000 - 0xD00000, patched to 0x2D0000 - 0xC80000 (512K for us).
+RESTARTSTART        = 0xC80000
+ML_BOOT_OBJ         = boot-d45-ch.o

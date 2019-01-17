@@ -113,5 +113,8 @@
 /** LV RAW has trouble with 10x zoom, disable it */
 #define CONFIG_RAW_DISABLE_IN_10X_ZOOM
 
-/** Patch LiveViewApp dialog hander to hide Canon bottom bar */
-#define CONFIG_LVAPP_HACK_PATCH
+/** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
+#define CONFIG_LVAPP_HACK_RELOC
+
+/** Focus commands are confirmed in LiveView, even though the pfAfComplete stub is present... */
+//~ #define CONFIG_FOCUS_COMMANDS_PROP_NOT_CONFIRMED

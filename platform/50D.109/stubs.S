@@ -120,7 +120,6 @@ NSTUB(0xC0220000,  camera_engine)                           // d
 NSTUB(0xFF86B278,  dma_memcpy)                              // Str HPC
 
 /** Debug messages **/
-NSTUB(    0x2C48,  dm_names)                                // in DebugMsg, before the 1st loop target
 NSTUB(0xFF863B10,  DryosDebugMsg)                           // d
 NSTUB(0xFF863E5C,  dm_set_store_level)                      // called by "dmstore"											// d
 
@@ -310,6 +309,8 @@ NSTUB(0xFF86F990,  task_trampoline)
 NSTUB(0xFF85E90C,  EnableImagePhysicalScreenParameter)
 NSTUB(0xFF86334C,  LoadCalendarFromRTC)
 NSTUB(0xFF98E1E4,  vsnprintf)                               // d
+NSTUB(    0x46CC,  pfAfComplete_counter)
+
 //NSTUB( 0xffa86684, ChangeHDMIOutputSizeToFULLHD)														//d
 //NSTUB( 0xffa855f4, ChangeHDMIOutputSizeToVGA)														//d
 // NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */

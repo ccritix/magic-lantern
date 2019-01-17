@@ -129,7 +129,6 @@ NSTUB(0xC0220000,  camera_engine)
 NSTUB(0xFF075934,  dma_memcpy)
 
 /** Debug messages **/
-NSTUB(    0x2E0C,  dm_names)                                // in DebugMsg, before the 1st loop target
 NSTUB(0xFF06E398,  DryosDebugMsg)
 NSTUB(0xFF06E6F8,  dm_set_store_level)                      // called by "dmstore"
 

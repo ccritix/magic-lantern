@@ -128,8 +128,8 @@ static int fps_values_x1000[] = {
     5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 12500, 14000, 15000, 16000,
     17000, 18000, 19000, 20000, 21000, 22000, 23000, 23976, 24000, 25000, 26000, 27000,
     28000, 29000, 29970, 30000, 31000, 32000, 33000, 33333, 34000, 35000
-    // restrict max fps to 35 for 1100D, 5D2, 50D, 500D (others?)
-    #if !defined(CONFIG_1100D) && !defined(CONFIG_5D2) && !defined(CONFIG_50D) && !defined(CONFIG_500D)
+    // restrict max fps to 35 for 1200D, 1100D, 5D2, 50D, 500D (others?)
+    #if !defined(CONFIG_1100D) && !defined(CONFIG_1200D) && !defined(CONFIG_5D2) && !defined(CONFIG_50D) && !defined(CONFIG_500D)
     , 37000, 38000, 39000, 40000, 41000, 42000, 43000, 44000, 45000, 48000, 50000, 60000, 65000, 70000
     #endif
 };
@@ -265,7 +265,7 @@ static void fps_read_current_timer_values();
 #elif defined(CONFIG_50D)
     #define TG_FREQ_BASE 28800000
     #define FPS_TIMER_A_MIN MIN(fps_timer_a_orig - (ZOOM ? 0 : 10), ZOOM ? 630 : 688 )
-#elif defined(CONFIG_550D) || defined(CONFIG_600D) || defined(CONFIG_60D)
+#elif defined(CONFIG_550D) || defined(CONFIG_600D) || defined(CONFIG_60D) || defined(CONFIG_1300D)
     #define TG_FREQ_BASE 28800000
     #define FPS_TIMER_A_MIN MIN(fps_timer_a_orig - (ZOOM ? 0 : 10), ZOOM ? 734 : video_mode_crop ? (video_mode_resolution == 2 ? 400 : 560) : 0x21A)
 #elif defined(CONFIG_70D)
@@ -296,6 +296,15 @@ static void fps_read_current_timer_values();
     #define FPS_TIMER_B_MIN 1050
     #define SENSOR_TIMING_TABLE MEM(0xce98)
     #define VIDEO_PARAMETERS_SRC_3 0x70C0C
+#elif defined(CONFIG_1200D)
+    #define NEW_FPS_METHOD 1
+    #define SENSOR_TIMING_TABLE MEM(0xC470)
+    #define VIDEO_PARAMETERS_SRC_3 0x72944
+    #define TG_FREQ_BASE 28800000
+    #undef FPS_TIMER_A_MIN
+    #define FPS_TIMER_A_MIN (ZOOM ? 734 : MV1080 ? 546 :576)
+    #undef FPS_TIMER_B_MIN
+    #define FPS_TIMER_B_MIN (ZOOM ? 1312 : MV480 ? 2000 : MV720 ? 1000 : 2200)
 #elif defined(CONFIG_5D3)
     #define NEW_FPS_METHOD 1
     #ifdef CONFIG_5D3_123
@@ -780,7 +789,7 @@ static void calc_rolling_shutter(int * line_ns, int * frame_us, int * frame_perc
 static MENU_UPDATE_FUNC(fps_print)
 {
     static int last_inactive = 0;
-    int t = get_ms_clock_value_fast();
+    int t = get_ms_clock();
 
     int frame_readout_time_percent;
     calc_rolling_shutter(0, 0, &frame_readout_time_percent, 0, 0);
@@ -963,10 +972,10 @@ static void flip_zoom_twostage(int stage)
                 f0 = video_mode[2];
                 video_mode[2] = 
                     f0 == 24 ? 25 : 
-#ifndef CONFIG_1100D
-                    f0 == 25 ? 24 : 
-#else
+#if defined(CONFIG_1100D) || defined(CONFIG_1200D)
                     f0 == 25 ? 30 :
+#else
+                    f0 == 25 ? 24 : 
 #endif
                     f0 == 30 ? 25 : 
                     f0 == 50 ? 60 :

@@ -48,13 +48,13 @@ static struct semaphore * raw_sem = 0;
 /* whether to recompute all the raw parameters (1), or just use cached values(0) */
 static int dirty = 0;
  
-/* if get_ms_clock_value() is less than this, assume the raw data is invalid */
+/* if get_ms_clock() is less than this, assume the raw data is invalid */
 static int next_retry_lv = 0;
 
 /* mark the raw data dirty for the next few ms (raw_update_params_once will return failure, to allow the backend to settle) */
 static void raw_set_dirty_with_timeout(int timeout_ms)
 {
-    next_retry_lv = get_ms_clock_value() + timeout_ms;
+    next_retry_lv = get_ms_clock() + timeout_ms;
     dirty = 1;
 }
 
@@ -69,24 +69,6 @@ static int (*dual_iso_get_recovery_iso)() = MODULE_FUNCTION(dual_iso_get_recover
 static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_improvement);
 
 /*********************** Camera-specific constants ****************************/
-
-/**
- * LiveView raw buffer address
- * To find it, call("lv_save_raw") and look for an EDMAC channel that becomes active (Debug menu)
- **/
-
-#if defined(CONFIG_5D2) || defined(CONFIG_50D)
-#define RAW_LV_EDMAC 0xC0F04508
-#endif
-
-#if defined(CONFIG_500D) || defined(CONFIG_550D) || defined(CONFIG_7D)
-#define RAW_LV_EDMAC 0xC0F26008
-#endif
-
-#if defined(CONFIG_DIGIC_V) || defined(CONFIG_600D) || defined(CONFIG_60D)
-/* probably all new cameras use this address */
-#define RAW_LV_EDMAC 0xC0F26208
-#endif
 
 #ifdef CONFIG_EDMAC_RAW_SLURP
 /* undefine so we don't use it by mistake */
@@ -103,6 +85,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_60D
 #define DEFAULT_RAW_BUFFER MEM(MEM(0x5028))
+#define DEFAULT_RAW_BUFFER_SIZE (0x49F00000 - 0x48332200)   /* ~28MB, really? */
 #endif
 
 #ifdef CONFIG_600D
@@ -110,12 +93,28 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #endif
 
 #ifdef CONFIG_5D3_113
+/* MEM(0x2600C + 0x2c) = 0x4B152000; appears free until 0x4CE00000 */
 #define DEFAULT_RAW_BUFFER MEM(0x2600C + 0x2c)
+#define DEFAULT_RAW_BUFFER_SIZE (0x4CDF0000 - 0x4B152000)
 #endif
 
 #ifdef CONFIG_5D3_123
+/* MEM(0x25f1c + 0x34) (0x4d31a000) is used near 0x4d600000 in photo mode
+ * that's probably just because the memory layout changes
+ * next buffer is at 0x4ee00000; can we assume it can be safely reused by us?
+ * (Free Memory dialog, memory map with CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP)
+ */
 #define DEFAULT_RAW_BUFFER MEM(0x25f1c + 0x34)
+#define DEFAULT_RAW_BUFFER_SIZE (0x4e000000 - 0x4d31a000)
 #endif
+
+#ifdef CONFIG_5D3
+/* for higher resolutions we'll allocate a new buffer, as needed */
+#define CONFIG_ALLOCATE_RAW_LV_BUFFER
+/* buffer size for a full-res LiveView image */
+#define RAW_LV_BUFFER_ALLOC_SIZE ((0x527 + 2612) * (0x2FE - 0x18)*8 * 14/8)
+#endif
+
 
 #ifdef CONFIG_650D
 #define DEFAULT_RAW_BUFFER MEM(0x25B00 + 0x3C)
@@ -123,30 +122,53 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_700D
 #define DEFAULT_RAW_BUFFER MEM(0x25B0C + 0x3C)
+#define DEFAULT_RAW_BUFFER_SIZE (0x47F00000 - 0x46798080)
 #endif
 
 #ifdef CONFIG_EOSM
 #define DEFAULT_RAW_BUFFER MEM(0x404E4 + 0x44)
+#define DEFAULT_RAW_BUFFER_SIZE (0x47F00000 - 0x46798080)
 #endif
 
 #ifdef CONFIG_6D
 #define DEFAULT_RAW_BUFFER MEM(0x76d6c + 0x2C)
 #endif
 
-#ifdef CONFIG_70D
-#define DEFAULT_RAW_BUFFER MEM(0x7CFEC + 0x30)
-#endif
-
-#ifdef CONFIG_100D
-#define DEFAULT_RAW_BUFFER MEM(0x6733C + 0x40)
-#endif
-
 #else
 
-/* with Canon lv_save_raw, just read it from EDMAC */
-#define DEFAULT_RAW_BUFFER shamem_read(RAW_LV_EDMAC)
-
+#ifdef CONFIG_1100D
+#define DEFAULT_RAW_BUFFER MEM(MEM(0x4C64))     /* how much do we have allocated? */
+#define DEFAULT_RAW_BUFFER_SIZE 8*1024*1024     /* is this really overwritten by other code? needs some investigation */
 #endif
+
+#ifndef DEFAULT_RAW_BUFFER_SIZE
+/* todo: figure out how much Canon code allocates for their LV RAW buffer - how? */
+#warning FIXME: using dummy DEFAULT_RAW_BUFFER_SIZE
+#define DEFAULT_RAW_BUFFER_SIZE (9*1024*1024)
+#endif
+
+
+#else // "Traditional" RAW LV buffer detection (no CONFIG_EDMAC_RAW_SLURP)
+
+/**
+ * LiveView raw buffer address
+ * To find it, call("lv_save_raw") and look for an EDMAC channel that becomes active (Debug menu)
+ **/
+
+#if defined(CONFIG_5D2) || defined(CONFIG_50D)
+#define RAW_LV_EDMAC 0xC0F04508
+#endif
+
+#if defined(CONFIG_500D) || defined(CONFIG_550D) || defined(CONFIG_7D) || defined(CONFIG_1300D)
+#define RAW_LV_EDMAC 0xC0F26008
+#endif
+
+#if defined(CONFIG_DIGIC_V) || defined(CONFIG_600D) || defined(CONFIG_60D) || defined(CONFIG_1200D)
+/* probably all new cameras use this address */
+#define RAW_LV_EDMAC 0xC0F26208
+#endif
+
+#endif  /* no CONFIG_EDMAC_RAW_SLURP */
 
 /**
  * Photo-mode raw buffer address
@@ -164,11 +186,11 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
  * and http://a1ex.bitbucket.org/ML/states/ for state diagrams.
  */
 
-#if defined(CONFIG_5D2) || defined(CONFIG_50D) || defined(CONFIG_60D) || defined(CONFIG_550D) || defined(CONFIG_500D) || defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_7D)
+#if defined(CONFIG_5D2) || defined(CONFIG_50D) || defined(CONFIG_60D) || defined(CONFIG_550D) || defined(CONFIG_500D) || defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_1200D) || defined(CONFIG_7D)
 #define RAW_PHOTO_EDMAC 0xc0f04208
 #endif
 
-#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_70D) || defined(CONFIG_100D)
+#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_70D) || defined(CONFIG_100D) || defined(CONFIG_1300D)
 #define RAW_PHOTO_EDMAC 0xc0f04008
 #endif
 
@@ -269,6 +291,15 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
      -903, 10000,     2016, 10000,    6728, 10000
 #endif
 
+#ifdef CONFIG_1200D
+    //~  { "Canon EOS 1200D", 0, 0x3510,
+    //~  { 6444,-904,-893,-4563,12308,2535,-903,2016,6728 } },
+    #define CAM_COLORMATRIX1                       \
+      6444, 10000,     -904, 10000,    -893, 10000,\
+    -4563, 10000,    12308, 10000,    2535, 10000, \
+     -903, 10000,     2016, 10000,    6728, 10000
+#endif
+
 #ifdef CONFIG_60D
         //~ { "Canon EOS 60D", 0, 0x2ff7,
         //~ {  6719,-994,-925,-4408,12426,2211,-887,2129,6051 } },
@@ -306,14 +337,16 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
      -593, 10000,     1772, 10000,    6198, 10000
 #endif
 
-#ifdef CONFIG_70D
-    //~ { "Canon EOS 70D", 0, 0x3bc7,
-    //~ { 7034,-804,-1014,-4420,12564,2058,-851,1994,5758 } },
-    #define CAM_COLORMATRIX1                     \
-     7034, 10000,     -804, 10000,    -1014, 10000,\
-    -4420, 10000,    12564, 10000,    2058, 10000, \
-     -851, 10000,     1994, 10000,    5758, 10000
+#ifdef CONFIG_1300D
+	// PLACEHOLDER DATA FROM 600D TO BUILD HELLOWORLD
+        //~ { "Canon EOS 1300D", 0, 0x3510,
+        //~ { 6461,-907,-882,-4300,12184,2378,-819,1944,5931 } },
+    #define CAM_COLORMATRIX1                       \
+      6461, 10000,     -907, 10000,    -882, 10000,\
+    -4300, 10000,    12184, 10000,    2378, 10000, \
+     -819, 10000,     1944, 10000,    5931, 10000
 #endif
+
 
 struct raw_info raw_info = {
     .api_version = 1,
@@ -384,6 +417,14 @@ static int dynamic_ranges[] = {1146, 1139, 1116, 1061, 980, 898, 806, 728};
 static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO 12800 available
 #endif
 
+#ifdef CONFIG_1200D
+static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO 12800 available
+#endif
+
+#ifdef CONFIG_1300D
+static int dynamic_ranges[] = {1112, 1080, 1038, 984, 917, 834, 733, 655};
+#endif
+
 #ifdef CONFIG_650D
 static int dynamic_ranges[] = {1062, 1047, 1021, 963,  888, 804, 695, 623, 548};
 #endif
@@ -424,6 +465,23 @@ static int autodetect_white_level(int initial_guess);
 extern void reverse_bytes_order(char* buf, int count);
 
 #ifdef CONFIG_RAW_LIVEVIEW
+
+#ifdef CONFIG_EDMAC_RAW_SLURP
+/* can be either allocated by us or Canon's default */
+static void * raw_allocated_lv_buffer = 0;
+static void * raw_lv_buffer = 0;
+static int raw_lv_buffer_size = 0;
+#endif
+
+/* our default LiveView buffer (which can be DEFAULT_RAW_BUFFER or allocated) */
+static void* raw_get_default_lv_buffer()
+{
+#if !defined(CONFIG_EDMAC_RAW_SLURP)
+    return (void*) shamem_read(RAW_LV_EDMAC);
+#else
+    return raw_lv_buffer;
+#endif
+}
 /* returns 1 on success */
 static int raw_lv_get_resolution(int* width, int* height)
 {
@@ -493,7 +551,96 @@ static int raw_lv_get_resolution(int* width, int* height)
     return 1;
 #endif
 }
-#endif
+
+/* We can only do custom buffer allocations with CONFIG_EDMAC_RAW_SLURP,
+ * where the process of transferring the raw image to RAM is under our control.
+ * 
+ * Even without CONFIG_ALLOCATE_RAW_LV_BUFFER, we'll use these routines to check Canon buffer size
+ * on models where it's known, and throw an assertion if they are not large enough.
+ * This will be especially useful for implementing 3K, 4K and full-res LiveView.
+ */
+#ifdef CONFIG_EDMAC_RAW_SLURP
+
+/* requires raw_sem */
+static void raw_lv_free_buffer()
+{
+    printf("Freeing LV raw buffer %x.\n", raw_lv_buffer);
+    if(raw_allocated_lv_buffer) {
+        free(raw_allocated_lv_buffer);
+        raw_allocated_lv_buffer = 0;
+    }
+    raw_lv_buffer = 0;
+    raw_lv_buffer_size = 0;
+}
+
+/* requires raw_sem */
+static void raw_lv_realloc_buffer()
+{
+    int width, height;
+    int ok = raw_lv_get_resolution(&width, &height);
+    if (!ok)
+    {
+        ASSERT(0);
+        return;
+    }
+
+    int required_size = width * height * 14/8;
+    if (DEFAULT_RAW_BUFFER_SIZE >= required_size)
+    {
+        /* no need for a larger buffer */
+        if (raw_lv_buffer != (void *) DEFAULT_RAW_BUFFER)
+        {
+            printf("Default raw buffer OK for %dx%d (%s)", width, height, format_memory_size(required_size));
+
+            if (raw_lv_buffer && raw_lv_buffer == raw_allocated_lv_buffer)
+            {
+                printf(" - back to default.\n");
+                raw_lv_free_buffer();
+            }
+            else if (raw_lv_buffer)
+            {
+                printf(": %x -> %x\n", raw_lv_buffer, DEFAULT_RAW_BUFFER);
+            }
+            else
+            {
+                printf(".\n");
+            }
+        }
+
+        raw_lv_buffer = (void *) DEFAULT_RAW_BUFFER;
+        raw_lv_buffer_size = DEFAULT_RAW_BUFFER_SIZE;
+        return;
+    }
+
+    if (raw_lv_buffer_size >= required_size)
+    {
+        /* no need for a larger buffer */
+        return;
+    }
+
+    printf("Default raw buffer too small (%s", format_memory_size(raw_lv_buffer_size));
+    printf(", need %dx%d %s) - reallocating.\n", width, height, format_memory_size(required_size));
+
+    if (raw_lv_buffer && raw_lv_buffer != (void *) DEFAULT_RAW_BUFFER)
+    {
+        ASSERT(0);
+        return;
+    }
+
+#ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
+    raw_allocated_lv_buffer = fio_malloc(RAW_LV_BUFFER_ALLOC_SIZE);
+    raw_lv_buffer = raw_allocated_lv_buffer;
+    raw_lv_buffer_size = RAW_LV_BUFFER_ALLOC_SIZE;
+    return;
+#endif /* CONFIG_ALLOCATE_RAW_LV_BUFFER */
+
+    /* you should enable CONFIG_ALLOCATE_RAW_LV_BUFFER
+     * or find some other way to reserve memory for the RAW LV buffer */
+    ASSERT(0);
+}
+
+#endif  /* CONFIG_EDMAC_RAW_SLURP */
+#endif /* CONFIG_RAW_LIVEVIEW */
 
 static int raw_update_params_work()
 {
@@ -512,15 +659,15 @@ static int raw_update_params_work()
     
     /* params useful for hardcoding buffer sizes, according to video mode */
     int mv = is_movie_mode();
+    int mv640 = mv && video_mode_resolution == 2;
     int mv720 = mv && video_mode_resolution == 1;
     int mv1080 = mv && video_mode_resolution == 0;
-    int mv640 = mv && video_mode_resolution == 2;
     int mv1080crop = mv && video_mode_resolution == 0 && video_mode_crop;
     int mv640crop = mv && video_mode_resolution == 2 && video_mode_crop;
     int zoom = lv_dispsize > 1;
     
     /* silence warnings; not all cameras have all these modes */
-    (void)mv640; (void)mv720; (void)mv1080; (void)mv640; (void)mv1080crop; (void)mv640crop; (void)zoom;
+    (void)mv640; (void)mv720; (void)mv1080; (void)mv1080crop; (void)mv640crop; (void)zoom;
 
     if (lv)
     {
@@ -531,7 +678,7 @@ static int raw_update_params_work()
             return 0;
         }
 
-        if (get_ms_clock_value() < next_retry_lv)
+        if (get_ms_clock() < next_retry_lv)
         {
             /* LiveView raw data is invalid, wait a bit and request a retry */
             dbg_printf("LV raw invalid\n");
@@ -546,7 +693,11 @@ static int raw_update_params_work()
         }
         #endif
 
-        raw_info.buffer = (void*) DEFAULT_RAW_BUFFER;
+        #ifdef CONFIG_EDMAC_RAW_SLURP
+        raw_lv_realloc_buffer();
+        #endif
+
+        raw_info.buffer = raw_get_default_lv_buffer();
         
         if (!raw_info.buffer)
         {
@@ -608,6 +759,11 @@ static int raw_update_params_work()
         skip_right  = zoom ? 0 : 2;
         #endif
 
+        #ifdef CONFIG_1100D
+        skip_top = 16;
+        skip_left = zoom ? 72 : 68;
+        #endif
+
         #ifdef CONFIG_60D
         skip_top    = 26;
         skip_left   = zoom ? 0 : mv640crop ? 150 : 152;
@@ -644,12 +800,6 @@ static int raw_update_params_work()
         skip_left   = zoom ? 0 : 256;
         #endif
 
-        #if defined(CONFIG_70D)
-        skip_top    = 28;
-        skip_left   = 144; // 146 could work, too
-        skip_right  = zoom ? 0 : 8;
-        #endif
-		
         dbg_printf("LV raw buffer: %x (%dx%d)\n", raw_info.buffer, width, height);
         dbg_printf("Skip left:%d right:%d top:%d bottom:%d\n", skip_left, skip_right, skip_top, skip_bottom);
 #else
@@ -715,7 +865,7 @@ static int raw_update_params_work()
         height--;
         #endif
 
-        #if defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_600D)
+        #if defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_600D) || defined(CONFIG_1200D)
         skip_left = 142;
         skip_top = 52;
         #endif
@@ -732,7 +882,13 @@ static int raw_update_params_work()
         skip_right = 0;
         skip_top = 52;
         #endif
-      
+
+        #ifdef CONFIG_6D
+        skip_left = 72;
+        skip_right = 0;
+        skip_top = 52;
+        #endif
+
         #if defined(CONFIG_50D)
         skip_left = 64;
         skip_top = 54;
@@ -1019,7 +1175,7 @@ int raw_update_params()
         wait_lv_frames(1);
         
         /* if LV raw settings are marked as "dirty", retrying without waiting will fail for sure */
-        while (get_ms_clock_value() < next_retry_lv)
+        while (get_ms_clock() < next_retry_lv)
         {
             msleep(10);
         }
@@ -1622,7 +1778,7 @@ static int lv_raw_type = PREFERRED_RAW_TYPE;
 void FAST raw_lv_vsync()
 {
     /* where should we save the raw data? */
-    void* buf = redirected_raw_buffer ? redirected_raw_buffer : (void*) DEFAULT_RAW_BUFFER;
+    void* buf = redirected_raw_buffer ? redirected_raw_buffer : raw_get_default_lv_buffer();
     
     if (buf && lv_raw_enabled)
     {
@@ -1635,7 +1791,10 @@ void FAST raw_lv_vsync()
         if (ok)
         {
             int pitch = width * 14/8;
-            edmac_raw_slurp(CACHEABLE(buf), pitch, height);
+            if (raw_lv_buffer_size >= pitch * height)
+            {
+                edmac_raw_slurp(CACHEABLE(buf), pitch, height);
+            }
         }
     }
     
@@ -1897,7 +2056,6 @@ void FAST raw_preview_fast()
 }
 
 #ifdef CONFIG_RAW_LIVEVIEW
-
 static void raw_lv_enable()
 {
     /* make sure LiveView is fully started before enabling the raw flag */
@@ -1909,14 +2067,50 @@ static void raw_lv_enable()
 #ifndef CONFIG_EDMAC_RAW_SLURP
     call("lv_save_raw", 1);
 #endif
+
+#ifdef DEFAULT_RAW_BUFFER
+#ifdef CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
+    /* is it really unused? check on first use */
+    static int first_time = 1;
+    if (first_time)
+    {
+        first_time = 0;
+        info_led_on();
+        uint32_t start = DEFAULT_RAW_BUFFER;
+        uint32_t end = start + 64*1024*1024;
+        printf("Raw buffer guess: %X-", start, end);
+        for (uint32_t a = start; a < end; a += 4)
+        {
+            if (MEM(a) != 0x124B1DE0)
+            {
+                end = a - 4;
+                printf("%X (%s, ", end, format_memory_size(end - start));
+                printf("using %s %s)\n", format_memory_size(DEFAULT_RAW_BUFFER_SIZE),
+                       (end > start + DEFAULT_RAW_BUFFER_SIZE) ? "OK" : "FIXME");
+                break;
+            }
+        }
+        info_led_off();
+    }
+#endif
+#endif
+
+#ifdef CONFIG_EDMAC_RAW_SLURP
+    raw_lv_realloc_buffer();
+#endif
 }
 
 static void raw_lv_disable()
 {
     lv_raw_enabled = 0;
-    
+    raw_info.buffer = 0;
+
 #ifndef CONFIG_EDMAC_RAW_SLURP
     call("lv_save_raw", 0);
+#endif
+
+#ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER
+    raw_lv_free_buffer();
 #endif
 }
 

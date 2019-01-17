@@ -51,6 +51,12 @@ uint32_t edmac_write_chan = 0x06;
 #elif defined(CONFIG_1100D)
 uint32_t edmac_read_chan = 0x19;
 uint32_t edmac_write_chan = 0x04;
+#elif defined(CONFIG_1200D)
+uint32_t edmac_read_chan = 0x19;
+uint32_t edmac_write_chan = 0x04;
+#elif defined(CONFIG_1300D)
+uint32_t edmac_read_chan = 0x19;
+uint32_t edmac_write_chan = 0x04;
 #else
 #error Please find some free EDMAC channels for your camera.
 #endif
@@ -142,7 +148,7 @@ void* edmac_copy_rectangle_cbr_start(void* dst, void* src, int src_width, int sr
     /* see FIO_WriteFile for more info */
     if (src == CACHEABLE(src))
     {
-        clean_d_cache();
+        sync_caches();
     }
 
     take_semaphore(edmac_memcpy_sem, 0);

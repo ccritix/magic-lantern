@@ -115,7 +115,6 @@ NSTUB(0xC0220000,  camera_engine)                           /** Camera interface
 // NSTUB(    ???,  dma_memcpy)                              /* present on 7D.203, 6D.113, 50D.109, 600D.102, 650D.104, 1100D.105, EOSM.202, 700D.113 */
 
 /** Debug messages **/
-NSTUB(    0x2D18,  dm_names)                                // in DebugMsg, before the 1st loop target
 NSTUB(0xFF066A98,  DryosDebugMsg)                           /** Look for the normal printf strings */
 NSTUB(0xFF066DE4,  dm_set_store_level)                      // called by "dmstore"
 
@@ -304,6 +303,7 @@ NSTUB(0xFF072B30,  task_trampoline)
 /** Misc **/
 NSTUB(0xFF0642D0,  LoadCalendarFromRTC)
 NSTUB(0xFF1A442C,  vsnprintf)                               /** Look in DebugMsg, near the bottom.  It calls vsnprintf() -- with a buffer size of 0x4C. */
+NSTUB(    0x49B4,  pfAfComplete_counter)
 // NSTUB(    ???,  EnableImagePhysicalScreenParameter)      /* present on 7D.203, 50D.109, 5D2.212 */
 // NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */

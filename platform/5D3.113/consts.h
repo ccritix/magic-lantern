@@ -15,7 +15,6 @@
 //#define CARD_B_LABEL 0x
 
 // thanks Indy
-#define HIJACK_INSTR_BL_CSTART  0xff0c0d7c
 #define HIJACK_INSTR_BSS_END 0xff0c1cb8
 #define HIJACK_FIXBR_BZERO32 0xff0c1c1c
 #define HIJACK_FIXBR_CREATE_ITASK 0xff0c1ca8

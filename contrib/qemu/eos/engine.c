@@ -500,6 +500,9 @@ static int edmac_do_transfer(EOSState *s, int channel)
         (((xa + off1a) * yb + xa + off2b) * xn +
           (xb + off1b) * yb + xb + off3);
 
+    /* we must have some valid address configured */
+    assert(s->edmac.ch[channel].addr);
+
     if (channel & 8)
     {
         /* from memory to image processing modules */
@@ -565,7 +568,20 @@ static int edmac_do_transfer(EOSState *s, int channel)
                 load_fullres_14bit_raw(s, s->edmac.conn_data[conn].buf, raw_width, raw_height);
             }
         }
-        
+        else if (conn == 6 || conn == 7)
+        {
+            /* pass-through; wait for data sent by some other channel on the same connection */
+            /* nothing to do here */
+        }
+        else
+        {
+            fprintf(stderr, "[ENGINE] FIXME: returning dummy data on <%d>\n", conn);
+            s->edmac.conn_data[conn].buf = malloc(transfer_data_size);
+            assert(s->edmac.conn_data[conn].buf);
+            s->edmac.conn_data[conn].data_size = transfer_data_size;
+            memset(s->edmac.conn_data[conn].buf, 0, transfer_data_size);
+        }
+
         if (s->edmac.conn_data[conn].data_size < transfer_data_size)
         {
             fprintf(stderr, "[EDMAC#%d] Data %s; will try again later.\n", channel,
@@ -865,8 +881,14 @@ unsigned int eos_handle_edmac_chsw ( unsigned int parm, EOSState *s, unsigned in
     unsigned int ret = 0;
     
     /* fixme: reads not implemented */
-    assert(type & MODE_WRITE);
-    
+    if (!(type & MODE_WRITE))
+    {
+        /* apparently these reads are just bugs in Canon code */
+        msg = KLRED"unexpected read"KRESET;
+        // assert(0);
+        goto end;
+    }
+
     if (value == 0x80000000)
     {
         /* ?! used on M3 */

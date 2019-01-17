@@ -5,6 +5,7 @@
 # To use gdb, start emulation with, for example:
 #    ./run_canon_fw.sh 60D -s -S & arm-none-eabi-gdb -x 60D/debugmsg.gdb
 
+set architecture arm
 set tcp connect-timeout 300
 
 if $_isvoid($TCP_PORT)
@@ -155,6 +156,13 @@ define print_current_location_with_callstack
   print_current_location
 end
 
+# helper for unknown data structures
+define try_expand_ram_struct
+    if $arg0 > 0x1000 && $arg0 < 0x1000000
+        printf "                         "
+        printf "*0x%x = { %x %x %x %x %x ... }\n", $arg0, MEM($arg0), MEM($arg0+4), MEM($arg0+8), MEM($arg0+12), MEM($arg0+16)
+    end
+end
 
 define print_formatted_string
   # count how many % characters we have
@@ -275,6 +283,7 @@ define named_func_add
     printf "\n"
     printf "static MakeAutoName(ea,name)\n"
     printf "{\n"
+    printf "    auto p; while ((p = strstr(name, \" \")) >= 0) name[p] = \"_\";\n"
     printf "    if (!hasUserName(GetFlags(ea))) {\n"
     printf "      if (!(MakeNameEx(ea,name,SN_AUTO|SN_CHECK))) {\n"
     printf "      if (!(MakeNameEx(ea,name+\"_0\",SN_AUTO|SN_CHECK))) {\n"
@@ -845,13 +854,6 @@ define prop_deliver_log
   end
 end
 
-define try_expand_ram_struct
-    if $arg0 > 0x1000 && $arg0 < 0x1000000
-        printf "                       "
-        printf "*0x%x = { %x %x %x %x %x ... }\n", $arg0, MEM($arg0), MEM($arg0+4), MEM($arg0+8), MEM($arg0+12), MEM($arg0+16)
-    end
-end
-
 define try_post_event_log
   commands
     silent
@@ -1048,7 +1050,7 @@ define SetEDmac_log
     KBLU
     printf "SetEDmac(%d, 0x%x, 0x%x, 0x%x)\n", $r0, $r1, $r2, $r3
     if $r2
-      printf "                       "
+      printf "                         "
       printf "{ %dx%d %dx%d %dx%d %d %d %d %d %d }\n", MEM($r2+0x14), MEM($r2+0x1c), MEM($r2+0x18), MEM($r2+0x20), MEM($r2+0x24), MEM($r2+0x28), MEM($r2+0x00), MEM($r2+0x04), MEM($r2+0x08), MEM($r2+0x0c), MEM($r2+0x10)
       # xa*ya xb*yb xn*yn off1a off1b off2a off2b off3
     end

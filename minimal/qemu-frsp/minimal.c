@@ -1,5 +1,5 @@
 /** \file
- * Minimal ML - for debugging
+ * FA_CaptureTestImage - minimal code for QEMU
  */
 
 #include "dryos.h"
@@ -9,107 +9,20 @@
 #include "font_direct.h"
 #include "raw.h"
 
-/** These are called when new tasks are created */
-static int my_init_task(int a, int b, int c, int d);
+extern void _prop_request_change(unsigned property, const void* addr, size_t len);
 
-/** This just goes into the bss */
-#define RELOCSIZE 0x3000 // look in HIJACK macros for the highest address, and subtract ROMBASEADDR
-static uint8_t _reloc[ RELOCSIZE ];
-#define RELOCADDR ((uintptr_t) _reloc)
-
-/** Translate a firmware address into a relocated address */
-#define INSTR( addr ) ( *(uint32_t*)( (addr) - ROMBASEADDR + RELOCADDR ) )
-
-/** Fix a branch instruction in the relocated firmware image */
-#define FIXUP_BRANCH( rom_addr, dest_addr ) \
-    INSTR( rom_addr ) = BL_INSTR( &INSTR( rom_addr ), (dest_addr) )
-
-/** Specified by the linker */
-extern uint32_t _bss_start[], _bss_end[];
-
-static inline void
-zero_bss( void )
-{
-    uint32_t *bss = _bss_start;
-    while( bss < _bss_end )
-        *(bss++) = 0;
-}
-
-void
-__attribute__((noreturn,noinline,naked))
-copy_and_restart( int offset )
-{
-    zero_bss();
-
-    // Copy the firmware to somewhere safe in memory
-    const uint8_t * const firmware_start = (void*) ROMBASEADDR;
-    const uint32_t firmware_len = RELOCSIZE;
-    uint32_t * const new_image = (void*) RELOCADDR;
-
-    blob_memcpy( new_image, firmware_start, firmware_start + firmware_len );
-
-    /*
-     * in entry2() (0xff010134) make this change to
-     * return to our code before calling cstart().
-     * This should be a "BL cstart" instruction.
-     */
-    INSTR( HIJACK_INSTR_BL_CSTART ) = RET_INSTR;
-
-    /*
-     * in cstart() (0xff010ff4) make these changes:
-     * calls bzero(), then loads bs_end and calls
-     * create_init_task
-     */
-    // Reserve memory after the BSS for our application
-    INSTR( HIJACK_INSTR_BSS_END ) = (uintptr_t) _bss_end;
-
-    // Fix the calls to bzero32() and create_init_task()
-    FIXUP_BRANCH( HIJACK_FIXBR_BZERO32, bzero32 );
-    FIXUP_BRANCH( HIJACK_FIXBR_CREATE_ITASK, create_init_task );
-
-    // Set our init task to run instead of the firmware one
-    INSTR( HIJACK_INSTR_MY_ITASK ) = (uint32_t) my_init_task;
-    
-    // Make sure that our self-modifying code clears the cache
-    sync_caches();
-
-    // We enter after the signature, avoiding the
-    // relocation jump that is at the head of the data
-    thunk reloc_entry = (thunk)( RELOCADDR + 0xC );
-    reloc_entry();
-
-    /*
-    * We're back!
-    * The RAM copy of the firmware startup has:
-    * 1. Poked the DMA engine with what ever it does
-    * 2. Copied the rw_data segment to 0x1900 through 0x20740
-    * 3. Zeroed the BSS from 0x20740 through 0x47550
-    * 4. Copied the interrupt handlers to 0x0
-    * 5. Copied irq 4 to 0x480.
-    * 6. Installed the stack pointers for CPSR mode D2 and D3
-    * (we are still in D3, with a %sp of 0x1000)
-    * 7. Returned to us.
-    *
-    * Now is our chance to fix any data segment things, or
-    * install our own handlers.
-    */
-
-    // This will jump into the RAM version of the firmware,
-    // but the last branch instruction at the end of this
-    // has been modified to jump into the ROM version
-    // instead.
-    void (*ram_cstart)(void) = (void*) &INSTR( cstart );
-    ram_cstart();
-
-    // Unreachable
-    while(1)
-        ;
-}
+extern void _prop_request_change(unsigned property, const void* addr, size_t len);
 
 static void run_test()
 {
     /* clear the screen - hopefully nobody will overwrite us */
     clrscr();
+
+    /* make sure we've got some sane exposure settings */
+    int iso = ISO_100;
+    int shutter = SHUTTER_1_50;
+    _prop_request_change(PROP_ISO, &iso, 4);
+    _prop_request_change(PROP_SHUTTER, &shutter, 4);
 
     /* capture a full-res silent picture */
     /* (on real camera, you won't see anything, unless you start in LV PLAY mode */
@@ -132,17 +45,15 @@ static void run_test()
     }
 }
 
-/** Initial task setup.
- *
- * This is called instead of the task at 0xFF811DBC.
- * It does all of the stuff to bring up the debug manager,
- * the terminal drivers, stdio, stdlib and armlib.
- */
-static int
-my_init_task(int a, int b, int c, int d)
+/* called before Canon's init_task */
+void boot_pre_init_task(void)
 {
-    init_task(a,b,c,d);
-    
+    /* nothing to do */
+}
+
+/* called right after Canon's init_task, while their initialization continues in background */
+void boot_post_init_task(void)
+{
     /* wait for display to initialize */
     while (!bmp_vram_info[1].vram2)
     {
@@ -161,6 +72,19 @@ my_init_task(int a, int b, int c, int d)
      * and generally it's hard to draw over this screen without trickery. */
     SetGUIRequestMode(GUIMODE_PLAY);
     msleep(1000);
+
+    /* some cameras don't initialize the YUV buffer right away - but we need it! */
+    if (!YUV422_LV_BUFFER_DISPLAY_ADDR)
+    {
+        /* let's hope this works... */
+        extern void * _AllocateMemory(size_t);
+        int size = 720 * 480 * 2;
+        void * buf = _AllocateMemory(720 * 480 * 2);
+        while (!buf);   /* lock up on error */
+        memset(buf, 0, size);
+        MEM(0xC0F140E0) = YUV422_LV_BUFFER_DISPLAY_ADDR = (uint32_t) buf;
+        qprintf("Allocated YUV buffer: %X\n", YUV422_LV_BUFFER_DISPLAY_ADDR);
+    }
 #else
     /* for running on real camera: wait for user to enter LiveView,
      * then switch to PLAY mode (otherwise you'll capture a dark frame) */
@@ -177,8 +101,6 @@ my_init_task(int a, int b, int c, int d)
 #endif
 
     task_create("run_test", 0x1e, 0x4000, run_test, 0 );
-
-    return 0;
 }
 
 /* used by font_draw */
@@ -197,7 +119,7 @@ void clrscr()
 
 /* dummy stubs to include raw.c */
 
-int get_ms_clock_value()
+int get_ms_clock()
 {
     static int ms = 0;
     ms += 10;
@@ -251,4 +173,11 @@ int raw2iso(int raw_iso)
 {
     int iso = (int) roundf(100.0f * powf(2.0f, (raw_iso - 72.0f)/8.0f));
     return iso;
+}
+
+const char * format_memory_size(uint64_t size)
+{
+    static char buf[32];
+    snprintf(buf, sizeof(buf), "%d", size);
+    return buf;
 }

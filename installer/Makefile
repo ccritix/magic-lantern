@@ -1,5 +1,7 @@
 SUPPORTED_INSTALLERS := \
     1100D.105 \
+    1200D.102 \
+    1300.110 \
     500D.111 \
     50D.109 \
     550D.109 \
@@ -13,7 +15,6 @@ SUPPORTED_INSTALLERS := \
     EOSM.202 \
     7D.203 \
     100D.101 \
-    70D.112 \
 
 # this need some more work: 5DC.111
 

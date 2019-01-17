@@ -128,10 +128,7 @@
 #define CONFIG_RAW_DISABLE_IN_10X_ZOOM
 
 /** Use joystick for one-finger menu navigation */
-#define CONFIG_JOY_CENTER_ACTIONS
+#define CONFIG_LONG_PRESS_JOYSTICK_MENU
 
-/** This camera loads ML into the AllocateMemory pool **/
-#define CONFIG_ALLOCATE_MEMORY_POOL
-
-/** Use memory that appears unused by RscMgr */
-#define CONFIG_RSCMGR_UNUSED_SPACE
+/** likely similar to 550D, but not tested */
+//~ #define CONFIG_FOCUS_COMMANDS_PROP_NOT_CONFIRMED

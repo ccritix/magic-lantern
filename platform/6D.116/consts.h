@@ -11,7 +11,6 @@
 // max volume supported for beeps
 #define ASIF_MAX_VOL 10
 
-#define HIJACK_INSTR_BL_CSTART  0xFF0C0D90
 #define HIJACK_INSTR_BSS_END 0xFF0C1C64
 #define HIJACK_FIXBR_BZERO32 0xFF0C1BB8
 #define HIJACK_FIXBR_CREATE_ITASK 0xFF0C1C54
@@ -278,3 +277,4 @@ Output size: 5496 x 3670
 // http://www.magiclantern.fm/forum/index.php?topic=9673.0
 #define EFIC_CELSIUS ((int)efic_temp * 80 / 100 - 93)
 
+#define JUDGE_BOTTOM_INFO_DISP_TIMER_STATE  0x84210
