@@ -4,7 +4,7 @@
   msleep(200) -- let´s start off with a nap
 if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA LOSS" then
   if menu.get("Movie", "RAW video", "") == "OFF" then
-      if camera.model_short == "EOSM" then
+      if camera.model_short == "EOSM" and menu.get("Movie", "Crop mode", "") == "1x3 1736x2150" then
         if menu.get("Display", "Clear overlays", "") ~= "HalfShutter" then
             menu.set("Display", "Clear overlays", "HalfShutter")
            display.notify_box("enabling GD Halfshutter")
@@ -18,7 +18,7 @@ if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA L
     msleep(1000)
  else
     menu.set("Movie", "RAW video", "OFF")
-      if camera.model_short == "EOSM" then
+      if camera.model_short == "EOSM" and menu.get("Movie", "Crop mode", "") == "1x3 1736x2150" then
         if menu.get("Display", "Clear overlays", "") ~= "HalfShutter" then
             menu.set("Display", "Clear overlays", "HalfShutter")
              menu.set("RAW video", "Preview", "Framing")
