@@ -3539,10 +3539,11 @@ void raw_video_rec_task()
                 
                 if (slots[slot_index].frame_number != last_processed_frame + 1)
                 {
-                    bmp_printf( FONT_MED, 30, 110, 
+/* 1x3 binning eosm activates this too often. Let´s erase it for now */
+                 /*   bmp_printf( FONT_MED, 30, 110, 
                         "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1
                     );
-                    beep();
+                    beep(); */
                 }
                 last_processed_frame++;
             }
