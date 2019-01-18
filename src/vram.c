@@ -138,6 +138,8 @@ void vram_params_set_dirty()
 
 static uint32_t hd_size = 0;
 
+/* This completely locks framing preview in mlv_lite.c on various occasions */
+
 static void vram_params_update_if_dirty()
 {
     #ifdef REG_EDMAC_WRITE_LV_ADDR
@@ -154,8 +156,8 @@ static void vram_params_update_if_dirty()
         BMP_LOCK( 
             if (vram_params_dirty)
             {
-                _update_vram_params(); 
-                vram_params_dirty = 0;
+              /*  _update_vram_params(); */
+               /* vram_params_dirty = 0; */
             }
         )
     }
