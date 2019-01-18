@@ -29,8 +29,10 @@ if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA L
     menu.set("Debug", "SD overclock", "ON")
     msleep(3000)
     menu.select("Movie", "RAW video")
+    msleep(100)
     menu.open()     -- open ML menu
     key.press(KEY.SET)
+    msleep(100)
     menu.close()
  display.notify_box("patched")
   end
