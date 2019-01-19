@@ -474,6 +474,10 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	{
         skip_right      = 232;
     	}
+    	if (ratios == 0x2)
+    	{
+        skip_right      = 550;
+    	}
         break;
 
  	case CROP_PRESET_4K_5x1_EOSM:
@@ -3476,8 +3480,27 @@ only gotten one single corrupted frame from below but keep on testing */
    case 0xC0F06008: return 0x22b023f+ delta_head4; */
 
     }
+
   }
-  else
+
+  if (ratios == 0x2)
+  {
+    switch (reg)
+    {
+        	case 0xC0F06804: return 0x7ef01d4; 
+
+        	case 0xC0F06014: return 0x8ec+ delta_head3;
+		case 0xC0F0600c: return 0x22b022b;
+		case 0xC0F06008: return 0x22b0247+ delta_head4;
+		case 0xC0F06010: return 0x22b;
+
+        	case 0xC0F0713c: return 0x7ef;
+		case 0xC0F07150: return 0x7ec;
+    }
+
+  }
+
+  if ((ratios != 0x1) && (ratios != 0x2))
   {
     switch (reg)
     {
@@ -3492,6 +3515,7 @@ only gotten one single corrupted frame from below but keep on testing */
 		case 0xC0F07150: return 0x880;
 		case 0xC0F37014: return 0xe;
     }
+
   }
 
     return 0;
