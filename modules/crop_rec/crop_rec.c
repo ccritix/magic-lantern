@@ -2888,6 +2888,7 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
 /* will change to 19fps for continous action */
         case 0xC0F06804: return 0x5190310; /* 3008x1280 19fps  x5 Mode(2.35:1) */
         case 0xC0F0713c: return 0x519;
+        case 0xC0F07150: return 0x514;
         case 0xC0F06014: return 0x7cd;
     }
   }
@@ -2896,8 +2897,8 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
         case 0xC0F06804: return 0x5b90318; // 3032x1436  x5 Mode;
+        case 0xC0F06014: return 0x62c+ delta_head4;
         case 0xC0F0713c: return 0x5b9;
-        case 0xC0F06014: return 0x62c;
     }
   }
 
