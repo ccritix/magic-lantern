@@ -919,9 +919,23 @@ static void save_file(const char * filename, void * addr, int size)
         printf("    ");
     }
 
+    /* we need to copy things into (uncacheable) RAM;
+     * some models may lock up if trying to save directly from ROM */
+    FF_T_UINT8 * buffer = malloc(block_size);
+    if(err)
+    {
+        print_err(err, "Failed to allocate memory");
+        fat_deinit(ioman);
+        halt_blink_code(10, 10);
+    }
+
     for(uint32_t block = 0; block < block_count; block++)
     {
-        err = FF_Write(file, block_size, 1, (FF_T_UINT8 *) (addr + block * block_size));
+        /* copy data into (uncacheable) RAM */
+        memcpy(buffer, addr + block * block_size, block_size);
+
+        /* save it to card */
+        err = FF_Write(file, block_size, 1, buffer);
         if(err <= 0)
         {
             print_err(err, "Failed to write dump file");
@@ -936,6 +950,8 @@ static void save_file(const char * filename, void * addr, int size)
             printf("\b\b\b%2d%%", progress);
         }
     }
+
+    free(buffer); buffer = NULL;
 
     err = FF_Close(file);
     if(err)
