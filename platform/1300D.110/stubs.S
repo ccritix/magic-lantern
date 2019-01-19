@@ -67,7 +67,7 @@ NSTUB(0xFE14EF88,  SetGUIRequestMode)
 NSTUB(0xFE0CCEFC,  gui_init_end)                            // EndGuiInit
 NSTUB(0xFE0CC4BC,  gui_main_task)                           // message at 0x30, counter at 0x0c
 NSTUB(0xFE151800,  gui_massive_event_loop)                  // GUI_Control_Post
-NSTUB(0xFE2RB7F8,  GUI_SetLvMode)                           /* present on 500D.111, 50D.109, 5D2.212 */
+NSTUB(0xFE2EB7F8,  GUI_SetLvMode)                           /* present on 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  GUI_SetMovieSize_a)                      /* present on 50D.109 */
 // NSTUB(    ???,  GUI_SetMovieSize_b)                      /* present on 50D.109 */
 // NSTUB(0xFE2EBA2C,  Gui_SetSoundRecord)                   /* present on 6D.113, 5D2.212 */
