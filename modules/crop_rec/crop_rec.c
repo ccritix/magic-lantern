@@ -3467,7 +3467,7 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
 		case 0xC0F06008: return 0x22b0247+ delta_head4;
 		case 0xC0F06010: return 0x22b;
 
-        	case 0xC0F0713c: return 0x795;
+        	case 0xC0F0713c: return 0x797;
 		case 0xC0F07150: return 0x791;
 
 /* 1st successful test. Pushing timers seems to do the trick. 
@@ -3479,6 +3479,10 @@ only gotten one single corrupted frame from below but keep on testing */
 only gotten one single corrupted frame from below but keep on testing */
 /* case 0xC0F06014: return 0x90d+ delta_head3;
    case 0xC0F06008: return 0x22b023f+ delta_head4; */
+
+/* Third attempt(hick up at one spot masc)
+   case 0xC0F0713c: return 0x795;
+   case 0xC0F07150: return 0x791; */
 
     }
 
