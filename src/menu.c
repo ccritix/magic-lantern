@@ -7025,9 +7025,9 @@ static void check_duplicate_entries()
             if (IS_SUBMENU(menu))
             {
                 /* this entry must be linked to its parent */
-//                ASSERT(entry->parent);
+                ASSERT(entry->parent);
                 ASSERT(entry->parent_menu == menu);
-//                ASSERT(streq(entry->parent->name, menu->name));
+                ASSERT(streq(entry->parent->name, menu->name));
             }
         }
     }
