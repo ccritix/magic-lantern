@@ -34,10 +34,6 @@
 #include "consts.h"
 #include "tskmon.h"
 
-#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
-#include "dm-spy.h"
-#endif
-
 #include "boot-hack.h"
 #include "ml-cbr.h"
 #include "backtrace.h"
@@ -53,17 +49,6 @@
 static int _hold_your_horses = 1; // 0 after config is read
 int ml_started = 0; // 1 after ML is fully loaded
 int ml_gui_initialized = 0; // 1 after gui_main_task is started 
-
-#ifndef CONFIG_EARLY_PORT
-
-/** This task does nothing */
-static void
-null_task( void )
-{
-    DebugMsg( DM_SYS, 3, "%s created (and exiting)", __func__ );
-    return;
-}
-
 
 /**
  * Called by DryOS when it is dispatching (or creating?)
@@ -415,12 +400,6 @@ static void my_big_init_task()
     
     msleep(500);
     ml_started = 1;
-
-
-#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
-    info_led_blink(20,500,500);
-    debug_intercept();
-#endif
 }
 
 /** Blocks execution until config is read */
@@ -498,11 +477,6 @@ void boot_post_init_task(void)
     old_assert_handler = (void*)MEM(DRYOS_ASSERT_HANDLER);
     *(void**)(DRYOS_ASSERT_HANDLER) = (void*)my_assert_handler;
 #endif // (CONFIG_CRASH_LOG)
-    
-#ifndef CONFIG_EARLY_PORT
-    // Overwrite the PTPCOM message
-    dm_names[ DM_MAGIC ] = "[MAGIC] ";
-    //~ dmstart(); // already called by firmware?
 
     DebugMsg( DM_MAGIC, 3, "Magic Lantern %s (%s)",
         build_version,
@@ -535,12 +509,6 @@ void boot_post_init_task(void)
     additional_version[13] = '\0';
 #endif
 
-#ifndef CONFIG_EARLY_PORT
-
-#ifdef CONFIG_QEMU
-    qemu_cam_init();
-#endif
-
     // wait for firmware to initialize
     while (!bmp_vram_raw()) msleep(100);
     
@@ -554,13 +522,7 @@ void boot_post_init_task(void)
 
     task_create("ml_init", 0x1e, 0x4000, my_big_init_task, 0 );
 
-#ifdef CONFIG_QEMU  /* fixme: Canon GUI task is not started */
-    extern void ml_gui_main_task();
-    task_create("GuiMainTask", 0x17, 0x2000, ml_gui_main_task, 0);
-#endif
-
-    return ans;
-#endif // !CONFIG_EARLY_PORT
+    return;
 }
 
 

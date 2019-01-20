@@ -6,6 +6,14 @@
 #define SIG_START ROMBASEADDR
 #define SIG_LEN 0x10000
 
+//#if defined(CONFIG_DIGIC_V)
+//#define SIG_START 0xFF0C0000
+//#elif defined(CONFIG_7D) || defined(CONFIG_7D_MASTER)
+//#define SIG_START 0xF8010000
+//#else
+//#define SIG_START 0xFF010000
+//#endif
+
 #define SIG_60D_111  0xaf91b602 // from FF010000
 #define SIG_550D_109 0x851320e6 // from FF010000
 #define SIG_600D_102 0x27fc03de // from FF010000

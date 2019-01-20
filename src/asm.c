@@ -65,7 +65,19 @@ int looks_like_string(uint32_t addr)
     }
     return 0;
 }
-
+static int seems_to_be_string(char* addr)
+{
+    int len = strlen(addr);
+    if (len > 4 && len < 100)
+    {
+        for (char* c = addr; *c; c++)
+        {
+            if (*c < 7 || *c > 127) return 0;
+        }
+        return 1;
+    }
+    return 0;
+}
 char* asm_guess_func_name_from_string(uint32_t addr)
 {
     for (uint32_t i = addr; i < addr + 4 * 20; i += 4 )

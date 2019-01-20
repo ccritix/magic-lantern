@@ -280,13 +280,13 @@ error:
 
 int config_autosave = 1;
 
-int config_flag_file_setting_load(const char * file)
+int config_flag_file_setting_load(char* file)
 {
     uint32_t size;
     return ( FIO_GetFileSize( file, &size ) == 0 );
 }
 
-void config_flag_file_setting_save(const char * file, int setting)
+void config_flag_file_setting_save(char* file, int setting)
 {
     FIO_RemoveFile(file);
     if (setting)
@@ -302,6 +302,7 @@ static MENU_SELECT_FUNC(config_autosave_toggle)
     
     snprintf(autosave_flag_file, sizeof(autosave_flag_file), "%sAUTOSAVE.NEG", get_config_dir());
     config_flag_file_setting_save(autosave_flag_file, !!config_autosave);
+    msleep(50);
     config_autosave = !config_flag_file_setting_load(autosave_flag_file);
 }
 
@@ -371,10 +372,10 @@ static int set_config_var_struct(struct config_var * var, int new_value)
     if(var && var->value)
     {
         //check if the callback routine exists
-        if (var->change_cbr)
+        if(var->update)
         {
             //run the callback routine
-            int cbr_result = var->change_cbr(var, *(var->value), new_value);
+            int cbr_result = var->update(var, *(var->value), new_value);
             //if the cbr returns false, it means we are not allowed to change the value
             if(cbr_result)
             {
@@ -658,7 +659,7 @@ static void config_preset_scan()
     }
     
     /* update the Config Presets menu */
-    cfg_menus[0].children[1].max = config_preset_num - 1;
+    cfg_menus[0].children[0].max = config_preset_num - 1;
 }
 
 static MENU_SELECT_FUNC(config_save_select)
@@ -668,7 +669,7 @@ static MENU_SELECT_FUNC(config_save_select)
 
 static MENU_SELECT_FUNC(config_preset_toggle)
 {
-    menu_numeric_toggle(&config_new_preset_index, delta, 0, config_preset_num - 1);
+    menu_numeric_toggle(&config_new_preset_index, delta, 0, config_preset_num);
     
     if (!config_new_preset_index)
     {
@@ -694,11 +695,7 @@ static MENU_UPDATE_FUNC(config_preset_update)
 {
     int preset_changed = (config_new_preset_index != config_preset_index);
     char* current_preset_name = get_config_preset_name();
-
-    if (current_preset_name)
-    {
-        MENU_SET_RINFO(current_preset_name);
-    }
+    MENU_SET_RINFO(current_preset_name);
 
     if (config_new_preset_index == 1) /* startup shooting mode */
     {
@@ -868,7 +865,7 @@ static MENU_SELECT_FUNC(set_at_startup_toggle)
 
 static struct menu_entry cfg_menus[] = {
 {
-    .name = "Config options",
+    .name = "Config files",
     .select = menu_open_submenu,
     .update = config_preset_update,
     .submenu_width = 710,

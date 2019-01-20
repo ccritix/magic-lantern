@@ -73,7 +73,7 @@ struct menu_display_info
 };
 
 #define MENU_MAX_NAME_LEN 35
-#define MENU_MAX_VALUE_LEN 35
+#define MENU_MAX_VALUE_LEN 25
 #define MENU_MAX_SHORT_NAME_LEN 15
 #define MENU_MAX_SHORT_VALUE_LEN 15
 #define MENU_MAX_HELP_LEN 100
@@ -205,6 +205,9 @@ struct menu_entry
 #define NUM_CHOICES(entry) ((entry)->max - (entry)->min + 1)
 #define CHOICES(...) (const char *[]) { __VA_ARGS__ }
 
+#define EM_FEW_VALUES 0
+#define EM_MANY_VALUES 1
+#define EM_MANY_VALUES_LV 2
 #define EM_AUTO 0
 #define EM_SHOW_LIVEVIEW 1
 
@@ -213,6 +216,11 @@ struct menu_entry
 #define EM_ROUND_ISO_R20    0x20      /* ISO 3 R"20: 10, 11, 12, 14, 15, 18, 20, 22, 25, 28, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100 ... */
 #define EM_ROUND_1_2_5_10   0x40      /* 1, 2, 5, 10, 20, 50, 100 ... (modified ISO 3 R3?) */
 #define EM_ROUND_POWER_OF_2 0x80      /* 1, 2, 4, 8, 16... */
+
+/*#define EM_FEW_VALUES 0
+#define EM_MANY_VALUES 0
+#define EM_MANY_VALUES_LV 0*/
+
 
 #define IT_AUTO 0
 #define IT_BOOL 1
@@ -306,6 +314,7 @@ extern void menu_numeric_toggle(int* val, int delta, int min, int max);
 extern void run_in_separate_task(void* routine, int argument);
 
 extern void menu_add( const char * name, struct menu_entry * new_entry, int count );
+extern void menu_add_base( const char * name, struct menu_entry * new_entry, int count, bool update_placeholders );
 
 extern void menu_remove(const char * name, struct menu_entry * old_entry, int count);
 

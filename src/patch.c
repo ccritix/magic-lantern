@@ -86,6 +86,7 @@ static union logging_hook_code logging_hooks[MAX_LOGGING_HOOKS];
 static char last_error[70];
 
 static void check_cache_lock_still_needed();
+static int patch_sync_cache(int also_data);
 
 /* re-apply the ROM (cache) patches */
 /* call this after you have flushed the caches, for example */

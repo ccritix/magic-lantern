@@ -889,6 +889,8 @@ void digic_iso_step()
 #endif
 }
 
+void menu_open_submenu();
+
 static struct menu_entry lv_img_menu[] = {
     #ifdef FEATURE_VIGNETTING_CORRECTION
     {
@@ -953,7 +955,7 @@ static struct menu_entry lv_img_menu[] = {
                 .update = digic_iso_print_movie,
                 .select = digic_iso_toggle_movie,
                 .help = "ISO tweaks. Negative gain has better highlight roll-off.",
-                .edit_mode = EM_SHOW_LIVEVIEW,
+                .edit_mode = EM_MANY_VALUES_LV,
                 .depends_on = DEP_MOVIE_MODE | DEP_MANUAL_ISO,
                 .icon_type = IT_DICE_OFF,
             },
@@ -964,7 +966,7 @@ static struct menu_entry lv_img_menu[] = {
                 .max = 100,
                 .update = digic_black_print,
                 .icon_type = IT_PERCENT_LOG_OFF,
-                .edit_mode = EM_SHOW_LIVEVIEW,
+                .edit_mode = EM_MANY_VALUES_LV,
                 .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
                 .help = "Adjust dark level, as with 'dcraw -k'. Fixes green shadows.",
             },
@@ -978,7 +980,7 @@ static struct menu_entry lv_img_menu[] = {
                 .min = -500,
                 .max = 500,
                 .icon_type = IT_PERCENT_LOG_OFF,
-                .edit_mode = EM_SHOW_LIVEVIEW,
+                .edit_mode = EM_MANY_VALUES_LV,
                 .help = "Fine-tune shutter speed in approx 20-microsecond increments.",
                 .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
             },

@@ -216,12 +216,15 @@ static void menu_show_version(void);
 static struct menu * get_current_submenu();
 static struct menu * get_current_menu_or_submenu();
 static struct menu * get_selected_toplevel_menu();
+static struct menu * get_selected_menu();
 static void menu_make_sure_selection_is_valid();
 static void config_menu_reload_flags();
+static void config_menu_load_flags();
 static int guess_submenu_enabled(struct menu_entry * entry);
 static void menu_draw_icon(int x, int y, int type, intptr_t arg, int warn); // private
 static struct menu_entry * entry_find_by_name(const char* name, const char* entry_name);
 static struct menu_entry * get_selected_menu_entry(struct menu * menu);
+static struct menu_entry * get_selected_entry(struct menu * menu);
 static void submenu_display(struct menu * submenu);
 static void start_redraw_flood();
 static struct menu * menu_find_by_name(const char * name,  int icon);
@@ -322,6 +325,13 @@ static int is_customize_selected(struct menu * menu) // argument is optional, ju
             .hidden = 1, \
             .jhidden = 1, \
         },
+
+static MENU_UPDATE_FUNC(menu_placeholder_unused_update)
+{
+    info->custom_drawing = CUSTOM_DRAW_THIS_ENTRY; // do not draw it at all
+    if (entry->selected && !junkie_mode)
+        bmp_printf(FONT(FONT_LARGE, 45, COLOR_BLACK), 250, info->y, "(empty)");
+}
 
 static struct menu_entry my_menu_placeholders[] = {
     MY_MENU_ENTRY
@@ -556,7 +566,35 @@ static int round_to_pow2(int val)
     int stops = (int)roundf(log2f(val));
     return (int)roundf(powf(2, stops));
 }
+/*
+static void menu_numeric_toggle_R20(int* val, int delta, int min, int max)
+{
+    ASSERT(IS_ML_PTR(val));
 
+    int v = *val;
+
+    if (v >= max && delta > 0)
+        v = min;
+    else if (v <= min && delta < 0)
+        v = max;
+    else
+    {
+        int v0 = round_to_R20(v);
+        if (v0 != v && SGN(v0 - v) == SGN(delta)) // did we round in the correct direction? if so, stop here
+        {
+            *val = v0;
+            goto end;
+        }
+        // slow, but works (fast enough for numbers like 5000)
+        while (v0 == round_to_R20(v))
+            v += delta;
+        v = COERCE(round_to_R20(v), min, max);
+    }
+
+end:
+    set_config_var_ptr(val, v);
+}
+*/
 static void menu_numeric_toggle_rounded(int* val, int delta, int min, int max, int (*round_func)(int))
 {
     ASSERT(IS_ML_PTR(val));
@@ -672,6 +710,24 @@ static int get_caret_delta(struct menu_entry * entry, int sign)
         }
     }
 }
+static int get_delta(struct menu_entry * entry, int sign)
+{
+    if(!EDIT_OR_TRANSPARENT)
+        return sign;
+    else if(entry->unit == UNIT_DEC)
+        return sign * powi(10, caret_position);
+    else if(entry->unit == UNIT_HEX)
+        return sign * powi(16, caret_position);
+    else if(entry->unit == UNIT_TIME)
+    {
+        if(caret_position == 2) return sign * 10;
+        else if(caret_position == 4) return sign * 60;
+        else if(caret_position == 5) return sign * 600;
+        else if(caret_position == 7) return sign * 3600;
+        else if(caret_position == 8) return sign * 36000;
+    }
+    return sign;
+}
 
 static int uses_caret_editing(struct menu_entry * entry)
 {
@@ -729,7 +785,7 @@ static void menu_numeric_toggle_fast(int* val, int delta, int min, int max, int 
     
     static int prev_t = 0;
     static int prev_delta = 1000;
-    int t = get_ms_clock();
+    int t = get_ms_clock_value();
 
     if (unit == UNIT_TIME)
     {
@@ -1016,6 +1072,7 @@ menu_find_by_name_internal(
         if( streq( menu->name, name ) )
         {
             if (icon && !menu->icon) menu->icon = icon;
+            give_semaphore( menu_sem );
             return menu;
         }
 
@@ -1028,6 +1085,7 @@ menu_find_by_name_internal(
     struct menu * new_menu = malloc( sizeof(*new_menu) );
     if( !new_menu )
     {
+        give_semaphore( menu_sem );
         return NULL;
     }
 
@@ -1036,8 +1094,12 @@ menu_find_by_name_internal(
     new_menu->icon      = icon;
     new_menu->prev      = menu;
     new_menu->next      = NULL; // Inserting at end
+    new_menu->children  = NULL;
+    new_menu->submenu_width = 0;
+    new_menu->submenu_height = 0;
     new_menu->split_pos = -16;
-
+    new_menu->scroll_pos = 0;
+    new_menu->advanced = 0;
     // menu points to the last entry or NULL if there are none
     if( menu )
     {
@@ -1050,6 +1112,7 @@ menu_find_by_name_internal(
         new_menu->selected  = 1;
     }
 
+    give_semaphore( menu_sem );
     return new_menu;
 }
 
@@ -1069,6 +1132,7 @@ menu_find_by_name(
 
 static int get_menu_visible_count(struct menu * menu)
 {
+  //  struct menu_entry * entry = menu->children;
     int n = 0;
     for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
     {
@@ -1082,6 +1146,7 @@ static int get_menu_visible_count(struct menu * menu)
 
 static int get_menu_selected_pos(struct menu * menu)
 {
+//    struct menu_entry * entry = menu->children;
     int n = 0;
     for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
     {
@@ -1091,6 +1156,7 @@ static int get_menu_selected_pos(struct menu * menu)
             if (entry->selected)
                 return n;
         }
+        //entry = entry->next;
     }
     return 0;
 }
@@ -1101,6 +1167,9 @@ menu_has_visible_items(struct menu * menu)
     if (junkie_mode) // hide Modules, Help and Modified
     {
         if (
+      //      streq(menu->name, "Debug") ||
+      //      streq(menu->name, "Help") ||
+      //      //~ streq(menu->name, "Scripts") ||
             streq(menu->name, "Modules") ||
             streq(menu->name, "Help") ||
             streq(menu->name, MOD_MENU_NAME) ||
@@ -1131,6 +1200,7 @@ are_there_any_visible_menus()
         {
             return 1;
         }
+  //      menu = menu->next;
     }
     return 0;
 }
@@ -1388,6 +1458,131 @@ menu_add_internal(
     }
 }
 
+void
+menu_add_base(
+    const char *        name,
+    struct menu_entry * new_entry,
+    int         count,
+    bool update_placeholders
+)
+{
+#if defined(POSITION_INDEPENDENT)
+    menu_fixup_pic(new_entry, count);
+#endif
+
+    // There is nothing to display. Sounds crazy (but might result from ifdef's)
+    if ( count == 0 )
+        return;
+
+    // Walk the menu list to find a menu
+    struct menu *       menu = menu_find_by_name( name, 0);
+    if( !menu )
+        return;
+
+    struct menu_entry * parent = NULL;
+
+    if (IS_SUBMENU(menu))
+    {
+        /* all submenus should have some valid parent */
+        /* note: some submenus might be used by more than one menu entry;
+         * in this case, any of them is valid; all of them will have the same name */
+        ASSERT(menu->parent_menu);
+        ASSERT(menu->parent_entry);
+        ASSERT(streq(name, menu->parent_entry->name));
+
+        /* all entries from the submenu should be linked to the parent menu entry */
+        parent = menu->parent_entry;
+        ASSERT(streq(parent->name, name));
+    }
+
+    menu_flags_load_dirty = 1;
+    duplicate_check_dirty = 1;
+    
+    int count0 = count; // for submenus
+
+    take_semaphore( menu_sem, 0 );
+
+    struct menu_entry * head = menu->children;
+    if( !head )
+    {
+        // First one -- insert it as the selected item
+        head = menu->children = new_entry;
+        ASSERT(new_entry->name);
+        ASSERT(new_entry->next == NULL);
+        ASSERT(new_entry->prev == NULL);
+        ASSERT((parent == NULL) ^ IS_SUBMENU(menu));
+        ASSERT(new_entry->parent_menu == NULL);
+        new_entry->parent = parent;
+        new_entry->depends_on    |= (parent ? parent->depends_on : 0); // inherit dependencies
+        new_entry->works_best_in |= (parent ? parent->works_best_in : 0);
+        new_entry->parent_menu = menu;
+        new_entry->selected = 1;
+        menu_update_split_pos(menu, new_entry);
+        entry_guess_icon_type(new_entry);
+        menu_update_placeholder(menu, new_entry);
+        new_entry++;
+        count--;
+    }
+
+    // Find the end of the entries on the menu already
+    while( head->next )
+        head = head->next;
+
+    for (int i = 0; i < count; i++)
+    {
+        ASSERT(new_entry->name);
+        ASSERT(new_entry->next == NULL);
+        ASSERT(new_entry->prev == NULL);
+        ASSERT((parent == NULL) ^ IS_SUBMENU(menu));
+        ASSERT(new_entry->parent_menu == NULL);
+        new_entry->parent = parent;
+        new_entry->depends_on    |= (parent ? parent->depends_on : 0); // inherit dependencies
+        new_entry->works_best_in |= (parent ? parent->works_best_in : 0);
+        new_entry->parent_menu = menu;
+        new_entry->selected = 0;
+        new_entry->prev = head;
+        head->next      = new_entry;
+        head            = new_entry;
+        menu_update_split_pos(menu, new_entry);
+        entry_guess_icon_type(new_entry);
+        menu_update_placeholder(menu, new_entry);
+        new_entry++;
+    }
+    
+    give_semaphore( menu_sem );
+
+
+    // create submenus
+
+    struct menu_entry * entry = head;
+    for (int i = 0; i < count0; i++)
+    {
+        if (entry->children)
+        {
+            int count = 0;
+            struct menu_entry * child = entry->children;
+            while (!MENU_IS_EOL(child)) 
+            { 
+                child->depends_on |= entry->depends_on; // inherit dependencies
+                child->works_best_in |= entry->works_best_in;
+                count++; 
+                child++;
+            }
+            struct menu * submenu = menu_find_by_name( entry->name, ICON_ML_SUBMENU);
+            if (submenu->children != entry->children) // submenu is reused, do not add it twice
+                menu_add(entry->name, entry->children, count);
+            submenu->submenu_width = entry->submenu_width;
+            submenu->submenu_height = entry->submenu_height;
+            
+            /* ensure the "children" field always points to the very first item in the submenu */
+            /* (important when merging 2 submenus) */
+            while (entry->children->prev) entry->children = entry->children->prev;
+        }
+        entry = entry->prev;
+        if (!entry) break;
+    }
+}
+
 void 
 menu_add(
     const char *        name,
@@ -1461,6 +1656,8 @@ menu_remove(
     struct menu * menu = menu_find_by_name( name, 0);
     if( !menu )
         return;
+    
+//    menu_flags_load_dirty = 1;
 
     int removed = 0;
 
@@ -1542,7 +1739,7 @@ static void menu_update_usage_counters(struct menu_entry * entry)
      * should count as one */
     static struct menu_entry * prev_entry = 0;
     static int prev_timestamp = 0;
-    int ms_clock = get_ms_clock();
+    int ms_clock = get_ms_clock_value();
     if (entry == prev_entry)
     {
         int elapsed = ms_clock - prev_timestamp;
@@ -2459,6 +2656,12 @@ entry_default_display_info(
     info->warning_level = check_default_warnings(entry, warning);
     
     snprintf(name, sizeof(name), "%s", entry->name);
+    
+    /* for junkie mode, short_name will get copied, short_value is empty by default */
+    /*if(entry->short_name && strlen(entry->short_name))
+    {
+        snprintf(short_name, sizeof(short_name), "%s", entry->short_name);
+    }*/
 
     if (entry->choices && SELECTED_INDEX(entry) >= 0 && SELECTED_INDEX(entry) < NUM_CHOICES(entry))
     {
@@ -3772,6 +3975,7 @@ static int junkie_get_selection_y(struct menu * menu, int* h)
             space_left -= dh;
             num--;
         }
+    //    entry = entry->next;
     }
     return 0;
 }
@@ -3836,6 +4040,8 @@ menu_display_junkie(
             space_left -= dh;
             num--;
         }
+
+    //    entry = entry->next;
     }
 
     // all menus displayed, now some extra stuff
@@ -3865,6 +4071,7 @@ show_hidden_items(struct menu * menu, int force_clear)
                 hidden_msg[MIN(len+15, (int)sizeof(hidden_msg)-1)] = '\0';
                 hidden_count++;
             }
+     //       entry = entry->next;
         }
         STR_APPEND(hidden_msg, customize_mode ? "." : " (Prefs->Customize).");
         
@@ -4680,6 +4887,8 @@ menu_redraw_do()
                 bmp_fill(COLOR_BLACK, 0, 40, 720, 400 );
             }
             //~ prev_z = z;
+
+        //    menu_make_sure_selection_is_valid();
             
             menus_display( menus, 0, 0 ); 
 
@@ -4769,13 +4978,13 @@ void menu_benchmark()
 {
     SetGUIRequestMode(1);
     msleep(1000);
-    int t0 = get_ms_clock();
+    int t0 = get_ms_clock_value();
     for (int i = 0; i < 500; i++)
     {
         menu_redraw_do();
         bmp_printf(FONT_MED, 0, 0, "%d%% ", i/5);
     }
-    int t1 = get_ms_clock();
+    int t1 = get_ms_clock_value();
     clrscr();
     NotifyBox(20000, "Elapsed time: %d ms", t1 - t0);
 }
@@ -4787,8 +4996,14 @@ static int menu_ensure_canon_dialog()
     {
         if (redraw_flood_stop)
         {
-            // Canon dialog changed?
+            // Canon dialog timed out?
+#if defined(CONFIG_MENU_TIMEOUT_FIX)
+            // force dialog change when canon dialog times out (EOSM, 6D etc)
+            start_redraw_flood();
+            SetGUIRequestMode(GUIMODE_ML_MENU);
+#else
             return 0;
+#endif
         }
     }
 
@@ -4918,6 +5133,9 @@ static struct menu * get_current_submenu()
         //return entry->children->parent_menu;
     }
 
+    // no submenu, fall back to edit mode
+  //  submenu_level--;
+  //  edit_mode = 1;
     return 0;
 }
 
@@ -5074,8 +5292,14 @@ handle_ml_menu_keys(struct event * event)
         else
         {
             #ifdef FEATURE_JUNKIE_MENU
-            // each MENU press adjusts number of Junkie items
-            // (off, 10, 20); 3 = show all (unused)
+            // double click will go to "extra junkie" mode (nothing hidden)
+            //static int last_t = 0;
+            //int t = get_ms_clock_value();
+            //if (t > last_t && t < last_t + 300)
+            //    junkie_mode = !junkie_mode*2;
+            //else
+            //    junkie_mode = !junkie_mode;
+            //last_t = t;
             junkie_mode = MOD(junkie_mode+1, 3);
             my_menu_dirty = 1;
             #else
@@ -5250,9 +5474,15 @@ handle_ml_menu_keys(struct event * event)
     case BGMT_UNTOUCH_2_FINGER:
         return handle_ml_menu_touch(event);
 #endif
-
-    /* Q is always defined */
+#ifdef BGMT_RATE
+    case BGMT_RATE:
+#endif
+#if defined(BGMT_Q)
     case BGMT_Q:
+#endif
+#ifdef BGMT_Q_ALT
+    case BGMT_Q_ALT:
+#endif
     case MLEV_JOYSTICK_LONG:
     case BGMT_PLAY:
         if (menu_help_active) { menu_help_active = 0; /* menu_damage = 1; */ break; }
@@ -5299,6 +5529,7 @@ menu_init( void )
     gui_sem = create_named_semaphore( "gui", 0 );
     menu_redraw_sem = create_named_semaphore( "menu_r", 1);
 
+//    struct menu * m = NULL;
     menu_find_by_name( "Audio",     ICON_ML_AUDIO   );
     menu_find_by_name( "Expo",      ICON_ML_EXPO    );
     menu_find_by_name( "Overlay",   ICON_ML_OVERLAY );
@@ -5524,6 +5755,9 @@ menu_task( void* unused )
     
     int initial_mode = 0; // shooting mode when menu was opened (if changed, menu should close)
     
+    select_menu_by_icon(menu_first_by_icon);
+    menu_make_sure_selection_is_valid();
+    
     TASK_LOOP
     {
         int keyrepeat_active = keyrepeat &&
@@ -5570,7 +5804,7 @@ menu_task( void* unused )
             }
 
             /* executed once at startup,
-             * and whenever new menus appear (after menu_add) */
+             * and whenever new menus appear/disappear */
             if (menu_flags_load_dirty)
             {
                 config_menu_reload_flags();
@@ -5819,10 +6053,36 @@ static struct menu_entry * entry_find_by_name(const char* menu_name, const char*
         printf("Duplicate menu: %s -> %s (%d)\n", menu_name, entry_name, count);
         return 0;
     }
-
     return ans;
 }
+static void hide_menu_by_name(char* name, char* entry_name)
+{
+    struct menu * menu = menu_find_by_name(name, 0);
+    struct menu_entry * entry = entry_find_by_name(name, entry_name);
+    if (menu && entry)
+    {
+        entry->hidden = 1;
+    }
+}
 
+static void jhide_menu_by_name(char* name, char* entry_name)
+{
+    struct menu * menu = menu_find_by_name(name, 0);
+    struct menu_entry * entry = entry_find_by_name(name, entry_name);
+    if (menu && entry)
+    {
+        entry->jhidden = 1;
+    }
+}
+
+static void star_menu_by_name(char* name, char* entry_name)
+{
+    struct menu_entry * entry = entry_find_by_name(name, entry_name);
+    if (entry)
+    {
+        entry->starred = 1;
+    }
+}
 static void select_menu_by_icon(int icon)
 {
     take_semaphore(menu_sem, 0);
@@ -5929,6 +6189,9 @@ static void longpress_check(int timer, void * opaque)
         redraw();
     }
 
+
+
+
     draw_longpress_indicator(longpress);
 
     if (longpress->count == 25)
@@ -6016,38 +6279,6 @@ static struct longpress qset_longpress = {
     .pos_x = 670,   /* outside ML menu, on the Q screen */
     .pos_y = 343,
 };
-#endif
-
-#ifdef CONFIG_100D
-static int qset_pressed = 0;
-static int qset_longpress = 0;
-
-/* called from GUI timers */
-static void qset_longpress_check()
-{
-    if (qset_pressed)
-    {
-        qset_longpress++;
-        delayed_call(20, qset_longpress_check, 0);
-    }
-    
-    //~ bmp_printf(FONT_MED, 50, 50, "%d ", qset_longpress);
-    
-    if (qset_longpress == 50)
-    {
-        /* long press opens Q-menu */
-        fake_simple_button(BGMT_Q);
-        
-        /* make sure it won't re-trigger */
-        qset_longpress++;
-    }
-    else if (qset_longpress <= 15 && !qset_pressed)
-    {
-        /* short press => fake SET button (centering AF Frame in LV etc...) */
-        fake_simple_button(BGMT_PRESS_SET);
-        return;
-    }
-}
 #endif
 
 // this should work on most cameras
@@ -6165,6 +6396,7 @@ int handle_longpress_events(struct event * event)
     {
         set_longpress.pressed = 0;
     }
+
 #endif
 
 #ifdef CONFIG_EOSM
@@ -6173,15 +6405,15 @@ int handle_longpress_events(struct event * event)
     {
         if (gui_state == GUISTATE_IDLE && !gui_menu_shown() && !IS_FAKE(event))
         {
-            erase_longpress.pressed = 1;
-            erase_longpress.count = 0;
-            delayed_call(20, longpress_check, &erase_longpress);
+            erase_pressed = 1;
+            erase_longpress = 0;
+            delayed_call(100, erase_longpress_check, 0);
             return 0;
         }
     }
     else if (event->param == BGMT_UNPRESS_DOWN)
     {
-        erase_longpress.pressed = 0;
+        erase_pressed = 0;
     }
 #endif
 
@@ -6214,52 +6446,6 @@ int handle_longpress_events(struct event * event)
 /*  #endif                                                                             */
 
 #ifdef BGMT_Q_SET
-    /* triggers Q-menu by a long press on the combined q/set button */
-    if (event->param == BGMT_Q_SET)
-    {
-        if (gui_state == GUISTATE_IDLE && !gui_menu_shown() && !IS_FAKE(event))
-        {
-            qset_longpress.pressed = 1;
-            qset_longpress.count = 0;
-            delayed_call(20, longpress_check, &qset_longpress);
-            return 0;
-        }
-    }
-    else if (event->param == BGMT_UNPRESS_SET)
-    {
-        qset_longpress.pressed = 0;
-    }
-#endif
-
-/* probably not the best place to implement this but let us avoid dirty hacks for now  */
-/* the combined q/set button needs to return 0 for a short press and we bring back     */
-/* its functionality of calling "Quick Control screen" by a long press.                */
-/* canon menu C.Fn IV / Assign SET button needs to be set to 0:Quick control screen    */
-/* unallowed options are 1,2,3,4,5 */
-/* to avoid unnecessary discussions we could check and override it at ML boot          */
-/* it will also accept a fake value */
-/* ----------------------------------------------------------------------------------- */
-/* this c.Fn does work for 100D on ML boot:                                            */
-/* int cfn_get_setbtn_assignment()                                                     */
-/* {                                                                                   */
-/*     return GetCFnData(0, 7);                                                        */
-/* }                                                                                   */
-/*                                                                                     */
-/* void cfn_set_setbtn(int value)                                                      */
-/* {                                                                                   */
-/*     SetCFnData(0, 7, value);                                                        */
-/* }                                                                                   */
-/* ---------------- below would move to boot-hack.c ---------------------------------- */
-/*  100D has six options from 0 to 5                                                   */
-/*  we check and assign the value to 0                                                 */
-/*  #if defined(CONFIG_100D)                                                           */
-/*     extern int cfn_get_setbtn_assignment();                                         */
-/*     void cfn_set_setbtn(int value);                                                 */
-/*     if(cfn_get_setbtn_assignment()!=0)                                              */
-/*         cfn_set_setbtn(0);                                                          */
-/*  #endif                                                                             */
-
-#ifdef CONFIG_100D
     /* triggers Q-menu by a long press on the combined q/set button */
     if (event->param == BGMT_Q)
     {
@@ -6312,7 +6498,11 @@ int handle_quick_access_menu_items(struct event * event)
 /* only for cameras with a native (not emulated) Q button */
 #if defined(BGMT_Q) && BGMT_Q > 0
     // quick access to some menu items
+    #ifdef BGMT_Q_ALT
+    if (event->param == BGMT_Q_ALT && !gui_menu_shown())
+    #else
     if (event->param == BGMT_Q && !gui_menu_shown())
+    #endif
     {
         #ifdef ISO_ADJUSTMENT_ACTIVE
         if (ISO_ADJUSTMENT_ACTIVE)
@@ -6339,12 +6529,9 @@ int handle_quick_access_menu_items(struct event * event)
     return 1;
 }
 
-static int menu_pack_flags(struct menu_entry * entry)
+static int menu_get_flags(struct menu_entry * entry)
 {
-    return
-        entry->starred * 1 +
-        entry->hidden  * 2 +
-        entry->jhidden * 4 ;
+    return entry->starred + entry->hidden*2 + entry->jhidden*4;
 }
 
 static void menu_unpack_flags(struct menu_entry * entry, uint32_t flags)
@@ -6357,6 +6544,18 @@ static void menu_unpack_flags(struct menu_entry * entry, uint32_t flags)
         entry->jhidden = 1;
 }
 
+static void menu_set_flags(char* menu_name, char* entry_name, int flags)
+{
+    if (flags & 1)
+        star_menu_by_name(menu_name, entry_name);
+    if (flags & 2)
+        hide_menu_by_name(menu_name, entry_name);
+    if (flags & 4)
+        jhide_menu_by_name(menu_name, entry_name);
+}
+
+#define CFG_APPEND(fmt, ...) ({ lastlen = snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); cfglen += lastlen; })
+#define CFG_SIZE 32768
 static int menu_parse_flags_line(
     char * buf, int i, int size, int *prev,
     char ** menu_name,
@@ -6469,31 +6668,27 @@ static void menu_save_flags(char* filename)
     char* cfg = malloc(CFG_SIZE);
     cfg[0] = '\0';
     int cfglen = 0;
+    int lastlen = 0;
 
-    cfglen = menu_save_unloaded_flags(filename, cfg, cfglen);
-
-    for (struct menu * menu = menus; menu; menu = menu->next)
+    struct menu * menu = menus;
+    for( ; menu ; menu = menu->next )
     {
-        if (menu->no_name_lookup)
-            continue;
-
-        for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
+        if (menu == my_menu) continue;
+        if (menu == mod_menu) continue;
+        
+        struct menu_entry * entry = menu->children;
+        
+        int i;
+        for(i = 0 ; entry ; entry = entry->next, i++ )
         {
             if (!entry->name) continue;
             if (!entry->name[0]) continue;
             if (MENU_IS_PLACEHOLDER(entry)) continue;
 
-            uint32_t flags = menu_pack_flags(entry);
-
-            if (flags || entry->usage_counters)
+            int flags = menu_get_flags(entry);
+            if (flags)
             {
-                CFG_APPEND("%d %08X %08X %s\\%s\n",
-                    flags,
-                    entry->usage_counter_long_term_raw,
-                    entry->usage_counter_short_term_raw,
-                    menu->name,
-                    entry->name
-                );
+                CFG_APPEND("%d %s\\%s\n", flags, menu->name, entry->name);
             }
         }
     }
@@ -6518,11 +6713,51 @@ static void config_menu_reload_flags()
     my_menu_dirty = 1;
 }
 
+static void menu_load_flags(char* filename)
+{
+    int size = 0;
+    char* buf = (char*)read_entire_file(filename , &size);
+    if (!size) return;
+    if (!buf) return;
+    int prev = -1;
+    int sep = 0;
+    for (int i = 0; i < size; i++)
+    {
+        if (buf[i] == '\\') sep = i;
+        else if (buf[i] == '\n')
+        {
+            //~ NotifyBox(2000, "%d %d %d ", prev, sep, i);
+            if (prev < sep-2 && sep < i-2)
+            {
+                buf[i] = 0;
+                buf[sep] = 0;
+                char* menu_name = &buf[prev+3];
+                char* entry_name = &buf[sep+1];
+                int flags = buf[prev+1] - '0';
+                //~ NotifyBox(2000, "%s -> %s", menu_name, entry_name); msleep(2000);
+                
+                menu_set_flags(menu_name, entry_name, flags);
+            }
+            prev = i;
+        }
+    }
+    fio_free(buf);
+}
+
+
+static void config_menu_load_flags()
+{
+    char menu_config_file[0x80];
+    snprintf(menu_config_file, sizeof(menu_config_file), "%sMENU.CFG", get_config_dir());
+    menu_load_flags(menu_config_file);
+    my_menu_dirty = 1;
+}
+
 void config_menu_save_flags()
 {
     if (!menu_flags_save_dirty) return;
     char menu_config_file[0x80];
-    snprintf(menu_config_file, sizeof(menu_config_file), "%sMENUS.CFG", get_config_dir());
+    snprintf(menu_config_file, sizeof(menu_config_file), "%sMENU.CFG", get_config_dir());
     menu_save_flags(menu_config_file);
 }
 
@@ -6533,9 +6768,13 @@ void config_menu_save_flags()
     cfg[0] = '\0';
 
     int unnamed = 0;
-    for (struct menu * menu = menus; menu; menu = menu->next)
+    struct menu * menu = menus;
+    for( ; menu ; menu = menu->next )
     {
-        for (struct menu_entry * entry = menu->children; entry; entry = entry->next)
+        struct menu_entry * entry = menu->children;
+        
+        int i;
+        for(i = 0 ; entry ; entry = entry->next, i++ )
         {
             CFG_APPEND("%s\\%s\n", menu->name, entry->name);
             if (strlen(entry->name) == 0 || strlen(menu->name) == 0) unnamed++;
@@ -6558,11 +6797,7 @@ end:
 int menu_get_value_from_script(const char* name, const char* entry_name)
 {
     struct menu_entry * entry = entry_find_by_name(name, entry_name);
-    if (!entry)
-    {
-        printf("Menu not found: %s -> %s\n", name, entry_name);
-        return INT_MIN;
-    }
+    if (!entry) { printf("Menu not found: %s -> %s\n", name, entry_name); return 0; }
     
     return CURRENT_VALUE;
 }
@@ -6595,30 +6830,9 @@ char* menu_get_str_value_from_script(const char* name, const char* entry_name, s
 int menu_set_str_value_from_script(const char* name, const char* entry_name, char* value, int value_int)
 {
     struct menu_entry * entry = entry_find_by_name(name, entry_name);
-    if (!entry)
-    {
-        printf("Menu not found: %s -> %s\n", name, entry_name);
-        return INT_MIN;
-    }
+    if (!entry) { printf("Menu not found: %s -> %s\n", name, entry_name); return 0; }
 
-    /* if the menu item has multiple choices defined,
-     * or just a valid min/max range, it's easy */
-    if (IS_ML_PTR(entry->priv) && (entry->choices || (entry->max > entry->min)))
-    {
-        for (int i = entry->min; i < entry->max; i++)
-        {
-            if (streq(value, pickbox_string(entry, i)))
-            {
-                *(int*)(entry->priv) = i;
-                return 1;
-            }
-        }
-    }
-
-    /* otherwise, we need to check the hard way -
-     * maybe the menu logic sets some custom values that are not easy to guess */
-
-    // entry_default_display_info is not thread safe
+    // we will need exclusive access to menu_display_info
     take_semaphore(menu_sem, 0);
     
     // if it doesn't seem to cycle, cancel earlier
@@ -6626,73 +6840,22 @@ int menu_set_str_value_from_script(const char* name, const char* entry_name, cha
     char last[MENU_MAX_VALUE_LEN];
     struct menu_display_info info;
     snprintf(first, sizeof(first), "%s", menu_get_str_value_from_script_do(name, entry_name, &info));
-    snprintf(last, sizeof(last), "%s", menu_get_str_value_from_script_do(name, entry_name, &info));
-
-    /* keep cycling until we get the desired value */
-    /* other stop conditions:
-     * - repeats the same value
-     * - goes back to initial value
-     * - timeout 2 seconds
-     */
-    int wait_retries = 0;
-    int tstart = get_ms_clock();
-    for (int i = 0; get_ms_clock() - tstart < 2000; i++)
+    snprintf(last, sizeof(last), "%s", menu_get_str_value_from_script_do(name, entry_name, &info));    
+    for (int i = 0; i < 500; i++) // keep cycling until we get the desired value (or until it repeats the same value)
     {
         char* current = menu_get_str_value_from_script_do(name, entry_name, &info);
         if (streq(current, value))
-        {
-            //~ printf("menu_set('%s', '%s'): match str (%s)\n", entry_name, value, current);
             goto ok; // success!!
-        }
 
-        /* optional argument to allow numeric match? */
-        if (value_int != INT_MIN && IS_ML_PTR(entry->priv) && CURRENT_VALUE == value_int)
-        {
-            //~ printf("menu_set('%s', '%s'): match int (%d, %s)\n", entry_name, value, value_int, current);
-            goto ok; // also success!
-        }
-
-        /* accept 3500 instead of 3500K, or ON instead of ON,blahblah
-         * but not 160 instead of 1600, or 1m instead of 1m10s */
-        int len_val = strlen(value);
-        int len_cur = strlen(current);
-        if (len_val < len_cur && startswith(current, value))
-        {
-            /* comma after the requested value? ok, assume separator */
-            if (current[len_val] == ',')
-            {
-                //~ printf("menu_set('%s', '%s'): match comma (%s)\n", entry_name, value, current);
-                goto ok;
-            }
-            
-            /* requested 10, got 10m? accept (but refuse 105) */
-            if (len_cur == len_val + 1 && !isdigit(current[len_val]))
-            {
-                //~ printf("menu_set('%s', '%s'): match 1-chr suffix (%s)\n", entry_name, value, current);
-                goto ok;
-            }
-
-            /* requested 10, got 10cm? accept (but refuse 10.5) */
-            if (len_cur == len_val + 2 && !isdigit(current[len_val]) && !isdigit(current[len_val+1]))
-            {
-                //~ printf("menu_set('%s', '%s'): match 2-chr suffix (%s)\n", entry_name, value, current);
-                goto ok;
-            }
-        }
+        if (startswith(current, value) && !isdigit(current[strlen(value)]))
+            goto ok; // accept 3500 instead of 3500K, or ON instead of ON,blahblah, but not 160 instead of 1600
         
-        if (i > 0 && streq(current, last)) // value not changing?
+        if (IS_ML_PTR(entry->priv) && CURRENT_VALUE == value_int)
+            goto ok; // also success!
+
+        if (i > 0 && streq(current, last)) // value not changing? stop here
         {
-            if (wait_retries < 5)
-            {
-                /* we may need to wait for other tasks */
-                //~ printf("menu_set('%s', '%s'): wait (%s, %d)\n", entry_name, value, current, retries);
-                msleep(100);
-                wait_retries++;
-                /* check the current string again */
-                continue;
-            }
-            
-            printf("menu_set('%s', '%s'): value not changing (%s)\n", entry_name, value, current);
+            printf("Value not changing: %s.\n", current);
             break;
         }
         
@@ -6704,45 +6867,15 @@ int menu_set_str_value_from_script(const char* name, const char* entry_name, cha
         
         // for debugging, print this always
         if (i > 50 && i % 10 == 0) // it's getting fishy, maybe it's good to show some progress
-        {
-            printf("menu_set('%s', '%s') [%d]: trying %s (%d), was %s...\n", entry_name, value, i, current, CURRENT_VALUE, last);
-        }
+            printf("menu_set_str('%s', '%s', '%s'): trying %s (%d), was %s...\n", name, entry_name, value, current, CURRENT_VALUE, last);
 
         snprintf(last, sizeof(last), "%s", current);
-        wait_retries = 0;
-
-        if (entry->select)
-        {
-            /* custom menu selection logic */
-            entry->select( entry->priv, 1);
-            /* fixme: will crash in file_man */
-
-            /* the custom logic might rely on other tasks to update */
-            msleep(50);
-        }
-        else if IS_ML_PTR(entry->priv)
-        {
-            if (entry->max - entry->min > 1000)
-            {
-                /* for very long min-max ranges, don't try every single value */
-                menu_numeric_toggle_fast(entry->priv, 1, entry->min, entry->max, entry->unit, entry->edit_mode, 1);
-            }
-            else
-            {
-                /* for reasonable min-max ranges, try every single value */
-                (*(int*)(entry->priv))++;
-                
-                if (*(int*)(entry->priv) > entry->max)
-                {
-                    *(int*)(entry->priv) = entry->min;
-                }
-            }
-        }
-        else
-        {
-            printf("menu_set('%s', '%s') don't know how to toggle\n", entry_name, value);
-            break;
-        }
+        
+        if (entry->select) entry->select( entry->priv, 1);
+        else if IS_ML_PTR(entry->priv) menu_numeric_toggle_long_range(entry->priv, 1, entry->min, entry->max);
+        else break;
+        
+        msleep(20); // we may need to wait for property handlers to update
     }
     printf("Could not set value '%s' for menu %s -> %s\n", value, name, entry_name);
     give_semaphore(menu_sem);
@@ -6756,11 +6889,7 @@ ok:
 int menu_set_value_from_script(const char* name, const char* entry_name, int value)
 {
     struct menu_entry * entry = entry_find_by_name(name, entry_name);
-    if (!entry)
-    {
-        printf("Menu not found: %s -> %s\n", name, entry_name);
-        return INT_MIN;
-    }
+    if (!entry) { printf("Menu not found: %s -> %s\n", name, entry_name); return 0; }
     
     if( entry->select ) // special item, we need some heuristics
     {
@@ -6792,7 +6921,7 @@ int menu_set_value_from_script(const char* name, const char* entry_name, int val
 int menu_request_image_backend()
 {
     static int last_guimode_request = 0;
-    int t = get_ms_clock();
+    int t = get_ms_clock_value();
     
     if (CURRENT_GUI_MODE != GUIMODE_PLAY)
     {
@@ -6824,6 +6953,7 @@ int menu_request_image_backend()
     /* not yet ready, please retry */
     return 0;
 }
+
 
 MENU_SELECT_FUNC(menu_advanced_toggle)
 {
@@ -6895,9 +7025,9 @@ static void check_duplicate_entries()
             if (IS_SUBMENU(menu))
             {
                 /* this entry must be linked to its parent */
-                ASSERT(entry->parent);
+//                ASSERT(entry->parent);
                 ASSERT(entry->parent_menu == menu);
-                ASSERT(streq(entry->parent->name, menu->name));
+//                ASSERT(streq(entry->parent->name, menu->name));
             }
         }
     }

@@ -37,11 +37,6 @@
 #define STRx(x) #x
 
 #ifdef __ARM__
-
-/* we need this ASM block to be the first thing in the file */
-#pragma GCC optimize ("-fno-reorder-functions")
-
-/* polyglot startup code that works if loaded as either ARM or Thumb */
 asm(
     ".text\n"
     ".globl _start\n"
@@ -223,6 +218,8 @@ static void fail()
     while(1);
 }
 
+//extern int compute_signature(int* start, int num);
+
 void
 __attribute__((noreturn))
 cstart( void )
@@ -259,10 +256,6 @@ cstart( void )
 
     #if defined(CONFIG_7D)
         *(volatile int*)0xC0A00024 = 0x80000010; // send SSTAT for master processor, so it is in right state for rebooting
-    #endif
-
-    #ifdef CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
-        memset64(0x00D00000, 0x124B1DE0 /* RA(W)VIDEO*/, 0x1FE00000 - 0x00D00000);
     #endif
 
     /* Jump into the newly relocated code

@@ -8,7 +8,10 @@
  * Enable these for early ports
  */
 
-    /** Load fonts and print Hello World; will not start any other ML tasks, handlers etc. */
+    /** If CONFIG_EARLY_PORT is defined, only a few things will be enabled (e.g. changing version string) */
+    //~ #define CONFIG_EARLY_PORT
+
+    /** Load fonts and print Hello World (disable CONFIG_EARLY_PORT); will not start any other ML tasks, handlers etc. */
     //~ #define CONFIG_HELLO_WORLD
     
     /** Create a developer FIR for enabling the bootflag and dumping the ROM. */

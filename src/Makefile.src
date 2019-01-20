@@ -19,11 +19,11 @@ CFLAGS += \
 	-DCONFIG_FW_VERSION=$(FW_VERSION) \
 	-DCURRENT_CAMERA_SIGNATURE=SIG_$(MODEL)_$(FW_VERSION)
 
-ifeq ($(ML_INIT_OBJ), n)
-ML_INIT_OBJ =
-else ifndef ML_INIT_OBJ
+#ifeq ($(ML_INIT_OBJ), n)
+#ML_INIT_OBJ =
+#else ifndef ML_INIT_OBJ
 ML_INIT_OBJ = init.o
-endif
+#endif
 
 ifeq ($(ML_PICSTYLE_AUTO), n)
 ML_PICSTYLE_OBJ = picstyle-noauto.o
@@ -120,7 +120,7 @@ ML_OBJS-y += \
 ML_SRC_OBJS = \
 	backtrace.o \
 	$(ML_BOOT_OBJ) \
-	$(ML_INIT_OBJ) \
+	init.o \
 	fio-ml.o \
 	mem.o \
 	ico.o \
@@ -148,7 +148,6 @@ ML_SRC_OBJS = \
 	property.o \
 	propvalues.o \
 	gui-common.o \
-	liveview.o \
 	chdk-gui_draw.o \
 	movtweaks.o \
 	menuhelp.o \
@@ -188,7 +187,8 @@ ML_SRC_OBJS = \
 	chdk-dng.o \
 	edmac-memcpy.o \
 	patch.o \
-	asm.o \
+	liveview.o \
+        asm.o \
 
 
 ML_OBJS-y += $(ML_SRC_OBJS)
