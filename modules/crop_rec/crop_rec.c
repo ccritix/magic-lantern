@@ -3500,7 +3500,7 @@ only gotten one single corrupted frame from below but keep on testing */
 		case 0xC0F06010: return 0x247;
 
         	case 0xC0F0713c: return 0x7ef;
-		case 0xC0F07150: return 0x7ee+ delta_head3;
+		case 0xC0F07150: return 0x7ee;
     }
 
   }
