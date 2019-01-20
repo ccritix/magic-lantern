@@ -3345,9 +3345,9 @@ static inline uint32_t reg_override_3x3_50fps_eosm(uint32_t reg, uint32_t old_va
 		case 0xC0F07150: return 0x300;
 
 	     /* 50 fps */
-      	        case 0xC0F06014: return 0x4bb; 
+      	        case 0xC0F06014: return 0x4bb+ delta_head3; 
 		case 0xC0F0600c: return 0x20f020f;
-		case 0xC0F06008: return 0x20f020f;
+		case 0xC0F06008: return 0x20f020f+ delta_head4;
 		case 0xC0F06010: return 0x20f;
 
 		case 0xC0F06824: return 0x206;
@@ -3463,9 +3463,9 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
         	case 0xC0F06804: return 0x79e01d4; 
 
         	case 0xC0F06014: return 0x8ec+ delta_head3;
-		case 0xC0F0600c: return 0x22b022b;
-		case 0xC0F06008: return 0x22b0247+ delta_head4;
-		case 0xC0F06010: return 0x22b;
+		case 0xC0F0600c: return 0x2470247;
+		case 0xC0F06008: return 0x2470247+ delta_head4;
+		case 0xC0F06010: return 0x247;
 
         	case 0xC0F0713c: return 0x797;
 		case 0xC0F07150: return 0x791;
@@ -3494,13 +3494,13 @@ only gotten one single corrupted frame from below but keep on testing */
     {
         	case 0xC0F06804: return 0x7ef01d4; 
 
-        	case 0xC0F06014: return 0x8ec+ delta_head3;
-		case 0xC0F0600c: return 0x22b022b;
-		case 0xC0F06008: return 0x22b0247+ delta_head4;
-		case 0xC0F06010: return 0x22b;
+        	case 0xC0F06014: return 0x8ec;
+		case 0xC0F0600c: return 0x2470247;
+		case 0xC0F06008: return 0x2470247;
+		case 0xC0F06010: return 0x247;
 
         	case 0xC0F0713c: return 0x7ef;
-		case 0xC0F07150: return 0x7ec;
+		case 0xC0F07150: return 0x7ee+ delta_head3;
     }
 
   }
