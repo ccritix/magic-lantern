@@ -3345,9 +3345,9 @@ static inline uint32_t reg_override_3x3_50fps_eosm(uint32_t reg, uint32_t old_va
 		case 0xC0F07150: return 0x300;
 
 	     /* 50 fps */
-      	        case 0xC0F06014: return 0x4bb+ delta_head3; 
+      	        case 0xC0F06014: return 0x4bb; 
 		case 0xC0F0600c: return 0x20f020f;
-		case 0xC0F06008: return 0x20f020f+ delta_head4;
+		case 0xC0F06008: return 0x20f020f;
 		case 0xC0F06010: return 0x20f;
 
 		case 0xC0F06824: return 0x206;
@@ -3499,8 +3499,8 @@ only gotten one single corrupted frame from below but keep on testing */
 		case 0xC0F06008: return 0x2470247;
 		case 0xC0F06010: return 0x247;
 
-        	case 0xC0F0713c: return 0x7ef;
-		case 0xC0F07150: return 0x7ee;
+        	case 0xC0F0713c: return 0x7ef+ delta_head3;
+		case 0xC0F07150: return 0x7ed+ delta_head4;
     }
 
   }
