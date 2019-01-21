@@ -3447,10 +3447,10 @@ static inline uint32_t reg_override_3x1_mv720_50fps_eosm(uint32_t reg, uint32_t 
 		case 0xC0F07150: return 0x300+ reg_7150;
 
 	     /* 50 fps */
-      	        case 0xC0F06014: return 0x4bb+ reg_6014; 
-		case 0xC0F0600c: return 0x20f020f + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x20f020f + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x20f + reg_6008 + (reg_6008 << 16);
+      	        case 0xC0F06014: return 0x4c5+ reg_6014; 
+		case 0xC0F0600c: return 0x20b020b + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x20b020b + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x20b + reg_6008 + (reg_6008 << 16);
 
 		case 0xC0F06824: return 0x206;
 		case 0xC0F06828: return 0x206;
