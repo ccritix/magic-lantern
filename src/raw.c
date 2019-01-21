@@ -587,29 +587,27 @@ static int raw_lv_get_resolution(int* width, int* height)
 #ifdef CONFIG_EOSM
     /* EOS M exception */
     /* http://www.magiclantern.fm/forum/index.php?topic=16608.msg176023#msg176023 */
-    if ((lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264) && 
-	(shamem_read(0xC0F06804) != 0x79e01d4) && 
-	(shamem_read(0xC0F06804) != 0x88501d4) &&
-	(shamem_read(0xC0F06804) != 0x7ef01d4)) /* for 1x3 binning */
+    if ((lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264) && (shamem_read(0xC0f0b13c)) != 0xd) /* for 1x3 binning */
 
     {    
             *height = 727; 
 
-        if (shamem_read(0xC0F0713C) == 0x305)
+        if (shamem_read(0xC0f0b13c) == 0xa)
         {	
-        /* mv1080p 50fps */
-            *height = 769;
+        /* mv1080p mode crop_rec.c */
+            *height = 1188;
         }
 
-        if (shamem_read(0xC0F07150) == 0x440)
+        if (shamem_read(0xC0f0b13c) == 0xb)
         {	
         /* mv1080p 45fps */
             *height = 1006;
         }
-        if (shamem_read(0xC0F07150) == 0x499)
+
+        if (shamem_read(0xC0f0b13c) == 0xc)
         {	
-        /* mv1080p mode crop_rec.c */
-            *height = 1188;
+        /* mv1080p 50fps */
+            *height = 769;
         }
 
     }
