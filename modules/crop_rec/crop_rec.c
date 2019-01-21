@@ -454,6 +454,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         break;
 
  	case CROP_PRESET_3x1_mv720_50fps_EOSM:
+        skip_bottom     = 2;
     	if (ratios == 0x1)
     	{
       	skip_top     = 102;
