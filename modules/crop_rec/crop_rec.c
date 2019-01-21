@@ -3933,6 +3933,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help  = "Corruption? Combine with reg_7150",
+                .advanced = 1,
             },
             {
                 .name   = "reg_7150",
@@ -3941,6 +3942,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help  = "Corruption issues? Combine with reg_713c",
+                .advanced = 1,
             },
             {
                 .name   = "reg_6014",
@@ -3949,6 +3951,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help  = "Alter frame rate. Combine with reg_6008",
+                .advanced = 1,
             },
             {
                 .name   = "reg_6008",
@@ -3957,6 +3960,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help  = "Alter frame rate. Combine with reg_6014",
+                .advanced = 1,
             },
             {
                 .name   = "reg_6804_height",
@@ -3965,6 +3969,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help  = "Alter height.",
+                .advanced = 1,
             },
             {
                 .name   = "reg_6804_width",
@@ -3973,6 +3978,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help  = "Alter width. Scrambles preview",
+                .advanced = 1,
             },
             {
                 .name       = "Shutter range",
@@ -3981,7 +3987,8 @@ static struct menu_entry crop_rec_menu[] =
                 .choices    = CHOICES("Original", "Full range"),
                 .help       = "Choose the available shutter speed range:",
                 .help2      = "Original: default range used by Canon in selected video mode.\n"
-                              "Full range: from 1/FPS to minimum exposure time allowed by hardware."
+                              "Full range: from 1/FPS to minimum exposure time allowed by hardware.",
+                .advanced = 1,
             },
             {
                 .name   = "Target YRES",
@@ -3991,6 +3998,7 @@ static struct menu_entry crop_rec_menu[] =
                 .unit   = UNIT_DEC,
                 .help   = "Desired vertical resolution (only for presets with higher resolution).",
                 .help2  = "Decrease if you get corrupted frames (dial the desired resolution here).",
+                .advanced = 1,
             },
             {
                 .name   = "Delta ADTG 0",
