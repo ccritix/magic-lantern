@@ -319,6 +319,12 @@ static int32_t  delta_adtg0 = 0;
 static int32_t  delta_adtg1 = 0;
 static int32_t  delta_head3 = 0;
 static int32_t  delta_head4 = 0;
+static int32_t  reg_713c = 0;
+static int32_t  reg_7150 = 0;
+static int32_t  reg_6014 = 0;
+static int32_t  reg_6008 = 0;
+static int32_t  reg_6804_height = 0;
+static int32_t  reg_6804_width = 0;
 static uint32_t cmos1_lo = 0, cmos1_hi = 0;
 static uint32_t cmos2 = 0;
 
@@ -2374,8 +2380,8 @@ static inline uint32_t reg_override_2K_100d(uint32_t reg, uint32_t old_val)
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
         case 0xC0F06804: return 0x5ac02a1; // 2520x1418  x5 Mode;
         case 0xC0F06014: return 0x71e;
-        case 0xC0F0713c: return 0x5ac; 
-        case 0xC0F07150: return 0x58c;
+        case 0xC0F0713c: return 0x5ac+ reg_713c; 
+        case 0xC0F07150: return 0x58c+ reg_7150;
     }
 
     return 0;
@@ -2428,12 +2434,12 @@ static inline uint32_t reg_override_3K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F0682C: return 0x3ca;
         case 0xC0F06830: return 0x3ca;
        
-        case 0xC0F06010: return 0x34b;
-        case 0xC0F06008: return 0x34b034b;
-        case 0xC0F0600C: return 0x34b034b;
+        case 0xC0F06010: return 0x34b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x34b034b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x34b034b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0x62c;
-        case 0xC0F0713c: return 0x5ba;
+        case 0xC0F06014: return 0x62c+ reg_6014;
+        case 0xC0F0713c: return 0x5ba+ reg_713c;
     }
 
     return 0;
@@ -2487,12 +2493,12 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F0682C: return 0x4ca;
         case 0xC0F06830: return 0x4ca;
        
-        case 0xC0F06010: return 0x45b;
-        case 0xC0F06008: return 0x45b045b;
-        case 0xC0F0600C: return 0x45b045b;
+        case 0xC0F06010: return 0x45b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0xbd4;
-        case 0xC0F0713c: return 0xa55;
+        case 0xC0F06014: return 0xbd4+ reg_6014;
+        case 0xC0F0713c: return 0xa55+ reg_713c;
     }
 
     return 0;
@@ -2539,14 +2545,14 @@ static inline uint32_t reg_override_3x1_mv720_50fps_100d(uint32_t reg, uint32_t 
     switch (reg)
     {
         	case 0xC0F06804: return 0x2d801d7; 		
-        	case 0xC0F0713c: return 0x305;
-		case 0xC0F07150: return 0x300;
+        	case 0xC0F0713c: return 0x305+ reg_713c;
+		case 0xC0F07150: return 0x300+ reg_7150;
 
 	     /* 50 fps */
-      	        case 0xC0F06014: return 0x4bb; 
-		case 0xC0F0600c: return 0x20f020f;
-		case 0xC0F06008: return 0x20f020f;
-		case 0xC0F06010: return 0x20f;
+      	        case 0xC0F06014: return 0x4bb+ reg_6014; 
+		case 0xC0F0600c: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x20f + reg_6008 + (reg_6008 << 16);
 
 		case 0xC0F06824: return 0x206;
 		case 0xC0F06828: return 0x206;
@@ -2601,12 +2607,12 @@ static inline uint32_t reg_override_4K_3x1_100D(uint32_t reg, uint32_t old_val)
         case 0xC0F06828: return 0x4ca;
         case 0xC0F0682C: return 0x4ca;
         case 0xC0F06830: return 0x4ca;      
-        case 0xC0F06010: return 0x45f;
-        case 0xC0F06008: return 0x45f050f;
-        case 0xC0F0600C: return 0x45f045f;
-        case 0xC0F06014: return 0x405;
-        case 0xC0F0713c: return 0x310;
-	case 0xC0F07150: return 0x305;
+        case 0xC0F06010: return 0x45f + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x45f050f + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x45f045f + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06014: return 0x405+ reg_6014;
+        case 0xC0F0713c: return 0x310+ reg_713c;
+	case 0xC0F07150: return 0x305+ reg_7150;
 
     }
 
@@ -2657,12 +2663,12 @@ static inline uint32_t reg_override_5K_3x1_100D(uint32_t reg, uint32_t old_val)
         case 0xC0F06828: return 0x56a;
         case 0xC0F0682C: return 0x56a;
         case 0xC0F06830: return 0x56a;      
-        case 0xC0F06010: return 0x57b;
-        case 0xC0F06008: return 0x57b057b;
-        case 0xC0F0600C: return 0x57b057b;
-        case 0xC0F06014: return 0x3b5;
-        case 0xC0F0713c: return 0x2e8; 
-        case 0xC0F07150: return 0x2e2;
+        case 0xC0F06010: return 0x57b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x57b057b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x57b057b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06014: return 0x3b5+ reg_6014;
+        case 0xC0F0713c: return 0x2e8+ reg_713c; 
+        case 0xC0F07150: return 0x2e2+ reg_7150;
     }
 
     return 0;
@@ -2709,8 +2715,8 @@ static inline uint32_t reg_override_1080p_100d(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
         case 0xC0F06804: return 0x45902a1;
-         case 0xC0F0713c: return 0x459; // I keep this register 1 value higher then first three digits in 6804 register(vertical resolution), so changed this one back to 0x2d8
-         case 0xC0F07150: return 0x450;
+        case 0xC0F0713c: return 0x459+ reg_713c;
+        case 0xC0F07150: return 0x450+ reg_7150;
     }
 
     return 0;
@@ -2758,12 +2764,12 @@ static inline uint32_t reg_override_1x3_100d(uint32_t reg, uint32_t old_val)
     {
         	case 0xC0F06804: return 0x4c301d7; 
 
-        	case 0xC0F06014: return 0x9df;
-		case 0xC0F0600c: return 0x20f020f;
-		case 0xC0F06008: return 0x20f020f;
-		case 0xC0F06010: return 0x20f;
+        	case 0xC0F06014: return 0x9df+ reg_6014;
+		case 0xC0F0600c: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x20f + reg_6008 + (reg_6008 << 16);
 		
-        	case 0xC0F0713c: return 0x4c3;
+        	case 0xC0F0713c: return 0x4c3+ reg_713c;
 
     }
 
@@ -2814,9 +2820,9 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
         case 0xC0F06804: return 0x44c0298; /* 2520x1072  x5 Mode; */
-        case 0xC0F0713c: return 0x44c;
-        case 0xC0F07150: return 0x435;
-        case 0xC0F06014: return 0x747;
+        case 0xC0F0713c: return 0x44c+ reg_713c;
+        case 0xC0F07150: return 0x435+ reg_7150;
+        case 0xC0F06014: return 0x747+ reg_6014;
     }
   }
   else
@@ -2824,9 +2830,9 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
         case 0xC0F06804: return 0x5a70298; /* 2520x1418  x5 Mode; */
-        case 0xC0F0713c: return 0x5a7;
-        case 0xC0F07150: return 0x5a0;
-        case 0xC0F06014: return 0x747;
+        case 0xC0F0713c: return 0x5a7+ reg_713c;
+        case 0xC0F07150: return 0x5a0+ reg_7150;
+        case 0xC0F06014: return 0x747+ reg_6014;
     }
   }
 
@@ -2876,9 +2882,9 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06828: return 0x3ca;
         case 0xC0F0682C: return 0x3ca;
         case 0xC0F06830: return 0x3ca;      
-        case 0xC0F06010: return 0x34b;
-        case 0xC0F06008: return 0x34b034b;
-        case 0xC0F0600C: return 0x34b034b;
+        case 0xC0F06010: return 0x34b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x34b034b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x34b034b + reg_6008 + (reg_6008 << 16);
     }
 
   if (ratios == 0x1)
@@ -2887,9 +2893,9 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
     {
 /* will change to 19fps for continous action */
         case 0xC0F06804: return 0x5190310; /* 3008x1280 19fps  x5 Mode(2.35:1) */
-        case 0xC0F0713c: return 0x519;
-        case 0xC0F07150: return 0x514;
-        case 0xC0F06014: return 0x7cd;
+        case 0xC0F0713c: return 0x519+ reg_713c;
+        case 0xC0F07150: return 0x514+ reg_7150;
+        case 0xC0F06014: return 0x7cd+ reg_6014;
     }
   }
   else
@@ -2897,8 +2903,8 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
         case 0xC0F06804: return 0x5b90318; // 3032x1436  x5 Mode;
-        case 0xC0F06014: return 0x62c+ delta_head4;
-        case 0xC0F0713c: return 0x5b9;
+        case 0xC0F06014: return 0x62c+ reg_6014;
+        case 0xC0F0713c: return 0x5b9+ reg_713c;
     }
   }
 
@@ -2955,12 +2961,12 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F0682C: return 0x4ca;
         case 0xC0F06830: return 0x4ca;
        
-        case 0xC0F06010: return 0x45b;
-        case 0xC0F06008: return 0x45b045b;
-        case 0xC0F0600C: return 0x45b045b;
+        case 0xC0F06010: return 0x45b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0xc70;
-        case 0xC0F0713c: return 0x6c2;
+        case 0xC0F06014: return 0xc70+ reg_6014;
+        case 0xC0F0713c: return 0x6c2+ reg_713c;
     }
   }
   else
@@ -2975,12 +2981,12 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F0682C: return 0x4ca;
         case 0xC0F06830: return 0x4ca;
        
-        case 0xC0F06010: return 0x45b;
-        case 0xC0F06008: return 0x45b045b;
-        case 0xC0F0600C: return 0x45b045b;
+        case 0xC0F06010: return 0x45b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0xc70;
-        case 0xC0F0713c: return 0xA55;
+        case 0xC0F06014: return 0xc70+ reg_6014;
+        case 0xC0F0713c: return 0xA55+ reg_713c;
 
     }
   }
@@ -3032,12 +3038,12 @@ static inline uint32_t reg_override_4K_3x1_EOSM(uint32_t reg, uint32_t old_val)
         case 0xC0F06828: return 0x4ca;
         case 0xC0F0682C: return 0x4ca;
         case 0xC0F06830: return 0x4ca;      
-        case 0xC0F06010: return 0x45f;
-        case 0xC0F06008: return 0x45f050f;
-        case 0xC0F0600C: return 0x45f045f;
-        case 0xC0F06014: return 0x405;
-        case 0xC0F0713c: return 0x320;
-	case 0xC0F07150: return 0x300;
+        case 0xC0F06010: return 0x45f + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x45f050f + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x45f045f + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06014: return 0x405+ reg_6014;
+        case 0xC0F0713c: return 0x320+ reg_713c;
+	case 0xC0F07150: return 0x300+ reg_7150;
 
     }
 
@@ -3092,12 +3098,12 @@ static inline uint32_t reg_override_5K_3x1_EOSM(uint32_t reg, uint32_t old_val)
         case 0xC0F06828: return 0x56a;
         case 0xC0F0682C: return 0x56a;
         case 0xC0F06830: return 0x56a;      
-        case 0xC0F06010: return 0x57b;
-        case 0xC0F06008: return 0x57b057b;
-        case 0xC0F0600C: return 0x57b057b;
-        case 0xC0F06014: return 0x4b5;
-        case 0xC0F0713c: return 0x2e0;
-	case 0xC0F07150: return 0x299;
+        case 0xC0F06010: return 0x57b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x57b057b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x57b057b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06014: return 0x4b5+ reg_6014;
+        case 0xC0F0713c: return 0x2e0+ reg_713c;
+	case 0xC0F07150: return 0x299+ reg_7150;
     }
   }
   else
@@ -3109,12 +3115,12 @@ static inline uint32_t reg_override_5K_3x1_EOSM(uint32_t reg, uint32_t old_val)
         case 0xC0F06828: return 0x56a;
         case 0xC0F0682C: return 0x56a;
         case 0xC0F06830: return 0x56a;      
-        case 0xC0F06010: return 0x57b;
-        case 0xC0F06008: return 0x57b057b;
-        case 0xC0F0600C: return 0x57b057b;
-        case 0xC0F06014: return 0x3b5;
-        case 0xC0F0713c: return 0x2e4;
-	case 0xC0F07150: return 0x2ee;
+        case 0xC0F06010: return 0x57b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x57b057b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x57b057b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06014: return 0x3b5+ reg_6014;
+        case 0xC0F0713c: return 0x2e4+ reg_713c;
+	case 0xC0F07150: return 0x2ef+ reg_7150;
 
     }
   }
@@ -3166,12 +3172,12 @@ static inline uint32_t reg_override_4K_5x1_EOSM(uint32_t reg, uint32_t old_val)
         case 0xC0F06828: return 0x4ca;
         case 0xC0F0682C: return 0x4ca;
         case 0xC0F06830: return 0x4ca;      
-        case 0xC0F06010: return 0x45f;
-        case 0xC0F06008: return 0x45f050f;
-        case 0xC0F0600C: return 0x45f045f;
-        case 0xC0F06014: return 0x405;
-        case 0xC0F0713c: return 0x320;
-	case 0xC0F07150: return 0x300;
+        case 0xC0F06010: return 0x50f + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x50f050f + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x50f050f + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06014: return 0x405+ reg_6014;
+        case 0xC0F0713c: return 0x320+ reg_713c;
+	case 0xC0F07150: return 0x300+ reg_7150;
 
     }
 
@@ -3221,10 +3227,10 @@ static inline uint32_t reg_override_3x3_eosm(uint32_t reg, uint32_t old_val)
   {
     switch (reg)
     {
-        	case 0xC0F06014: return 0x9dc;
-		case 0xC0F0600c: return 0x20f020f;
-		case 0xC0F06008: return 0x20f020f;
-		case 0xC0F06010: return 0x20f;
+        	case 0xC0F06014: return 0x9dc+ reg_6014;
+		case 0xC0F0600c: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x20f + reg_6008 + (reg_6008 << 16);
     }
   }
 
@@ -3232,8 +3238,8 @@ static inline uint32_t reg_override_3x3_eosm(uint32_t reg, uint32_t old_val)
     {
         	case 0xC0F06804: return 0x4a601d4; 		
 		case 0xC0F37014: return 0xe; 
-        	case 0xC0F0713c: return 0x4a7;
-		case 0xC0F07150: return 0x499;
+        	case 0xC0F0713c: return 0x4a7+ reg_713c;
+		case 0xC0F07150: return 0x499+ reg_7150;
     }
 
     return 0;
@@ -3281,15 +3287,15 @@ static inline uint32_t reg_override_3x3_45fps_eosm(uint32_t reg, uint32_t old_va
     {
         	case 0xC0F06804: return 0x4a601d4; 		
 		case 0xC0F37014: return 0xe; 
-        	case 0xC0F0713c: return 0x4ac;
-		case 0xC0F07150: return 0x440;
+        	case 0xC0F0713c: return 0x4ac+ reg_713c;
+		case 0xC0F07150: return 0x440+ reg_7150;
 
 	     /* 45 fps */
-      	     	case 0xC0F06014: return 0x541; 
+      	     	case 0xC0F06014: return 0x541+ reg_6014; 
  
-		case 0xC0F0600c: return 0x20f020f;
-		case 0xC0F06008: return 0x20f020f;
-		case 0xC0F06010: return 0x20f;
+		case 0xC0F0600c: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x20f + reg_6008 + (reg_6008 << 16);
 
 		case 0xC0F06824: return 0x206;
 		case 0xC0F06828: return 0x206;
@@ -3341,14 +3347,14 @@ static inline uint32_t reg_override_3x3_50fps_eosm(uint32_t reg, uint32_t old_va
     switch (reg)
     {
         	case 0xC0F06804: return 0x4a601d4; 		
-        	case 0xC0F0713c: return 0x305;
-		case 0xC0F07150: return 0x300;
+        	case 0xC0F0713c: return 0x305+ reg_713c;
+		case 0xC0F07150: return 0x300+ reg_7150;
 
 	     /* 50 fps */
-      	        case 0xC0F06014: return 0x4bb; 
-		case 0xC0F0600c: return 0x20f020f;
-		case 0xC0F06008: return 0x20f020f;
-		case 0xC0F06010: return 0x20f;
+      	        case 0xC0F06014: return 0x4bb+ reg_6014; 
+		case 0xC0F0600c: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x20f + reg_6008 + (reg_6008 << 16);
 
 		case 0xC0F06824: return 0x206;
 		case 0xC0F06828: return 0x206;
@@ -3400,14 +3406,14 @@ static inline uint32_t reg_override_3x1_mv720_50fps_eosm(uint32_t reg, uint32_t 
     switch (reg)
     {
         	case 0xC0F06804: return 0x2d701d4; 		
-        	case 0xC0F0713c: return 0x306;
-		case 0xC0F07150: return 0x300;
+        	case 0xC0F0713c: return 0x306+ reg_713c;
+		case 0xC0F07150: return 0x300+ reg_7150;
 
 	     /* 50 fps */
-      	        case 0xC0F06014: return 0x4bb; 
-		case 0xC0F0600c: return 0x20f020f;
-		case 0xC0F06008: return 0x20f020f;
-		case 0xC0F06010: return 0x20f;
+      	        case 0xC0F06014: return 0x4bb+ reg_6014; 
+		case 0xC0F0600c: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x20f + reg_6008 + (reg_6008 << 16);
 
 		case 0xC0F06824: return 0x206;
 		case 0xC0F06828: return 0x206;
@@ -3460,15 +3466,16 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
   {
     switch (reg)
     {
-        	case 0xC0F06804: return 0x79e01d4; 
 
-        	case 0xC0F06014: return 0x8ec+ delta_head3;
-		case 0xC0F0600c: return 0x2470247;
-		case 0xC0F06008: return 0x2470247+ delta_head4;
-		case 0xC0F06010: return 0x247;
+		case 0xC0F06804: return 0x79e01d4 + reg_6804_width + (reg_6804_height << 16);
 
-        	case 0xC0F0713c: return 0x797;
-		case 0xC0F07150: return 0x791;
+        	case 0xC0F06014: return 0x8ec+ reg_6014;
+		case 0xC0F0600c: return 0x2470247 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x2470247 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x247 + reg_6008 + (reg_6008 << 16);
+
+        	case 0xC0F0713c: return 0x797+ reg_713c;
+		case 0xC0F07150: return 0x791+ reg_7150;
 
 /* 1st successful test. Pushing timers seems to do the trick. 
 only gotten one single corrupted frame from below but keep on testing */
@@ -3494,13 +3501,13 @@ only gotten one single corrupted frame from below but keep on testing */
     {
         	case 0xC0F06804: return 0x7ef01d4; 
 
-        	case 0xC0F06014: return 0x8ec;
-		case 0xC0F0600c: return 0x2470247;
-		case 0xC0F06008: return 0x2470247;
-		case 0xC0F06010: return 0x247;
+        	case 0xC0F06014: return 0x8ec+ reg_6014;
+		case 0xC0F0600c: return 0x2470247 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x2470247 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x247 + reg_6008 + (reg_6008 << 16);
 
-        	case 0xC0F0713c: return 0x7ef+ delta_head3;
-		case 0xC0F07150: return 0x7ed+ delta_head4;
+        	case 0xC0F0713c: return 0x7ef+ reg_713c;
+		case 0xC0F07150: return 0x7ed+ reg_7150;
     }
 
   }
@@ -3511,13 +3518,13 @@ only gotten one single corrupted frame from below but keep on testing */
     {
         	case 0xC0F06804: return 0x88501d4; 
 
-        	case 0xC0F06014: return 0x99d;
-		case 0xC0F0600c: return 0x21d021d;
-		case 0xC0F06008: return 0x21d021d;
-		case 0xC0F06010: return 0x21d;
+        	case 0xC0F06014: return 0x99d+ reg_6014;
+		case 0xC0F0600c: return 0x21d021d + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x21d021d + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x21d + reg_6008 + (reg_6008 << 16);
 		
-        	case 0xC0F0713c: return 0x885;
-		case 0xC0F07150: return 0x880;
+        	case 0xC0F0713c: return 0x885+ reg_713c;
+		case 0xC0F07150: return 0x880+ reg_7150;
 		case 0xC0F37014: return 0xe;
     }
 
@@ -3857,6 +3864,54 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 2,
                 .choices = CHOICES("OFF", "2.35:1", "16:9"),
                 .help   = "Alter bitrate\n"
+            },
+            {
+                .name   = "reg_713c",
+                .priv   = &reg_713c,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Corruption? Combine with reg_7150",
+            },
+            {
+                .name   = "reg_7150",
+                .priv   = &reg_7150,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Corruption issues? Combine with reg_713c",
+            },
+            {
+                .name   = "reg_6014",
+                .priv   = &reg_6014,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Alter frame rate. Combine with reg_6008",
+            },
+            {
+                .name   = "reg_6008",
+                .priv   = &reg_6008,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Alter frame rate. Combine with reg_6014",
+            },
+            {
+                .name   = "reg_6804_height",
+                .priv   = &reg_6804_height,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Alter height.",
+            },
+            {
+                .name   = "reg_6804_width",
+                .priv   = &reg_6804_width,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Alter width. Scrambles preview",
             },
             {
                 .name       = "Shutter range",
