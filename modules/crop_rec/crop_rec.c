@@ -3385,10 +3385,10 @@ static inline uint32_t reg_override_3x3_50fps_eosm(uint32_t reg, uint32_t old_va
 		case 0xC0F07150: return 0x2fc+ reg_7150;
 
 	     /* 50 fps */
-      	        case 0xC0F06014: return 0x4a9+ reg_6014; 
-		case 0xC0F0600c: return 0x2170217 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x2170217 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x217 + reg_6008 + (reg_6008 << 16);
+      	        case 0xC0F06014: return 0x49c+ reg_6014; 
+		case 0xC0F0600c: return 0x21d021d + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x21d021d + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x21d + reg_6008 + (reg_6008 << 16);
 
 		case 0xC0F06824: return 0x206;
 		case 0xC0F06828: return 0x206;
@@ -3447,10 +3447,10 @@ static inline uint32_t reg_override_3x1_mv720_50fps_eosm(uint32_t reg, uint32_t 
 		case 0xC0F07150: return 0x300+ reg_7150;
 
 	     /* 50 fps */
-      	        case 0xC0F06014: return 0x4c5+ reg_6014; 
-		case 0xC0F0600c: return 0x20b020b + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x20b020b + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x20b + reg_6008 + (reg_6008 << 16);
+      	        case 0xC0F06014: return 0x4b8+ reg_6014; 
+		case 0xC0F0600c: return 0x2110211 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x2110211 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x211 + reg_6008 + (reg_6008 << 16);
 
 		case 0xC0F06824: return 0x206;
 		case 0xC0F06828: return 0x206;
