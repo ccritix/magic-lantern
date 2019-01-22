@@ -3544,10 +3544,10 @@ only gotten one single corrupted frame from below but keep on testing */
     {
         	case 0xC0F06804: return 0x7ef01d4; 
 
-        	case 0xC0F06014: return 0x8ec+ reg_6014;
-		case 0xC0F0600c: return 0x2470247 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x2470247 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x247 + reg_6008 + (reg_6008 << 16);
+        	case 0xC0F06014: return 0x90b+ reg_6014;
+		case 0xC0F0600c: return 0x23f023f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x23f023f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x23f + reg_6008 + (reg_6008 << 16);
 
         	case 0xC0F0713c: return 0x7ef+ reg_713c;
 		case 0xC0F07150: return 0x7ed+ reg_7150;
