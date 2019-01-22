@@ -324,10 +324,21 @@ static int32_t  reg_713c = 0;
 static int32_t  reg_7150 = 0;
 static int32_t  reg_6014 = 0;
 static int32_t  reg_6008 = 0;
+static int32_t  reg_800c = 0;
+static int32_t  reg_8000 = 0;
 static int32_t  reg_6804_height = 0;
 static int32_t  reg_6804_width = 0;
 static uint32_t cmos1_lo = 0, cmos1_hi = 0;
+static uint32_t cmos0 = 0;
+static uint32_t cmos1 = 0;
 static uint32_t cmos2 = 0;
+static uint32_t cmos3 = 0;
+static uint32_t cmos4 = 0;
+static uint32_t cmos5 = 0;
+static uint32_t cmos6 = 0;
+static uint32_t cmos7 = 0;
+static uint32_t cmos8 = 0;
+static uint32_t cmos9 = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -937,6 +948,41 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
         cmos_new[2] = cmos2;
     }
+
+    if (cmos3)
+    {
+        cmos_new[3] = cmos3;
+    }
+
+    if (cmos4)
+    {
+        cmos_new[4] = cmos4;
+    }
+
+    if (cmos5)
+    {
+        cmos_new[5] = cmos5;
+    }
+
+    if (cmos6)
+    {
+        cmos_new[6] = cmos6;
+    }
+
+    if (cmos7)
+    {
+        cmos_new[7] = cmos7;
+    }
+
+    if (cmos8)
+    {
+        cmos_new[8] = cmos8;
+    }
+
+    if (cmos9)
+    {
+        cmos_new[9] = cmos9;
+    }
     
     /* copy data into a buffer, to make the override temporary */
     /* that means: as soon as we stop executing the hooks, values are back to normal */
@@ -1228,14 +1274,16 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x3_1X_EOSM:
             case CROP_PRESET_3x3_1X_48p:
                 /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
-                adtg_new[2] = (struct adtg_new) {6, 0x800C, 2};
+                adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
                 break;
 
 
             case CROP_PRESET_1x3:
 	    case CROP_PRESET_1x3_17fps:
                 /* ADTG2/4[0x800C] = 0: read every line */
-                adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
+                adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
                 break; 
 
 	     case CROP_PRESET_3x3_mv1080_EOSM:
@@ -1245,33 +1293,37 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_5K_3x1_EOSM:
 	     case CROP_PRESET_4K_3x1_100D:
 	     case CROP_PRESET_5K_3x1_100D:
-		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2};
-                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
 		break;
 
   	     case CROP_PRESET_3x1_mv720_50fps_EOSM:
-		adtg_new[2] = (struct adtg_new) {6, 0x800C, 4};
-                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 4  + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
 		break;
 
 	     case CROP_PRESET_4K_5x1_EOSM:
-		adtg_new[0] = (struct adtg_new) {6, 0x800C, 4};
+		adtg_new[0] = (struct adtg_new) {6, 0x800C, 4  + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
+
 		break;
 
 	     case CROP_PRESET_mv1080p_mv720p_100D:
    	 	   if (is_1080p())
     		   {
-	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
     		   }
     		   if (is_720p())
     		   {
-	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 4};
+	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 4  + reg_800c};
    		   }		
 		break;
 
 	     case CROP_PRESET_1x3_EOSM:
 	     case CROP_PRESET_1x3_100D:
-	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
+	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0  + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
+
      	        break;
 
             /* 3x1 binning (bin every 3 lines, read every column) */
@@ -1279,7 +1331,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x1:
                 /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
                 /* ADTG2[0x8806] = 0x6088 on 5D3 (artifacts worse without it) */
-                adtg_new[2] = (struct adtg_new) {6, 0x800C, 2};
+                adtg_new[2] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
                 if (is_5D3) {
                     /* this register is model-specific */
                     adtg_new[3] = (struct adtg_new) {2, 0x8806, 0x6088};
@@ -3964,6 +4016,24 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
+                .name   = "reg_800c",
+                .priv   = &reg_800c,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "line skipping",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_8000",
+                .priv   = &reg_8000,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "x3zoom",
+                .advanced = 1,
+            },
+            {
                 .name   = "reg_6804_height",
                 .priv   = &reg_6804_height,
                 .min    = -500,
@@ -3979,6 +4049,105 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help  = "Alter width. Scrambles preview",
+                .advanced = 1,
+            },
+
+            {
+                .name   = "CMOS[1] lo",
+                .priv   = &cmos1_lo,
+                .max    = 63,
+                .unit   = UNIT_DEC,
+                .help   = "Start scanline (very rough). Use for vertical positioning.",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[1] hi",
+                .priv   = &cmos1_hi,
+                .max    = 63,
+                .unit   = UNIT_DEC,
+                .help   = "End scanline (very rough). Increase if white bar at bottom.",
+                .help2  = "Decrease if you get strange colors as you move the camera.",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[0]",
+                .priv   = &cmos0,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Analog iso, most cameras",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[1]",
+                .priv   = &cmos1,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Vertical offset",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[2]",
+                .priv   = &cmos2,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Horizontal offset",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[3]",
+                .priv   = &cmos3,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Analog iso on 6D",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[4]",
+                .priv   = &cmos4,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Iso-related?",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[5]",
+                .priv   = &cmos5,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Fine vertical offset, black area maybe",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[6]",
+                .priv   = &cmos6,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Iso 50 or timing related",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[7]",
+                .priv   = &cmos7,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Image fading out; 6D, 700D: vertical offset",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[8]",
+                .priv   = &cmos8,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Unknown, used on 6D",
+                .help2  = "Use for horizontal centering.",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[9]",
+                .priv   = &cmos9,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "?",
                 .advanced = 1,
             },
             {
@@ -4037,32 +4206,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help2  = "May help pushing the resolution a little. Start with small increments.",
-                .advanced = 1,
-            },
-            {
-                .name   = "CMOS[1] lo",
-                .priv   = &cmos1_lo,
-                .max    = 63,
-                .unit   = UNIT_DEC,
-                .help   = "Start scanline (very rough). Use for vertical positioning.",
-                .advanced = 1,
-            },
-            {
-                .name   = "CMOS[1] hi",
-                .priv   = &cmos1_hi,
-                .max    = 63,
-                .unit   = UNIT_DEC,
-                .help   = "End scanline (very rough). Increase if white bar at bottom.",
-                .help2  = "Decrease if you get strange colors as you move the camera.",
-                .advanced = 1,
-            },
-            {
-                .name   = "CMOS[2]",
-                .priv   = &cmos2,
-                .max    = 0xFFF,
-                .unit   = UNIT_HEX,
-                .help   = "Horizontal position / binning.",
-                .help2  = "Use for horizontal centering.",
                 .advanced = 1,
             },
             MENU_ADVANCED_TOGGLE,
