@@ -1860,7 +1860,7 @@ static LVINFO_UPDATE_FUNC(recording_status)
     }
 
     LVINFO_BUFFER(24);
-    
+
     if ((indicator_display != INDICATOR_IN_LVINFO) || RAW_IS_IDLE) return;
     if (!measured_write_speed) return;
 
