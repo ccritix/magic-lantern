@@ -237,6 +237,7 @@ static int lv_raw_gain = 0;
 
 static int get_default_white_level()
 {
+
     if (lv_raw_gain)
     {
         int default_white = WHITE_LEVEL;
@@ -250,6 +251,34 @@ static int get_default_white_level()
         /* fixme: hardcoded black level */
         return (default_white - 2048) * lv_raw_gain / 4096 + 2048;
     }
+
+        if (shamem_read(0xC0F42744) == 0x6060606)
+        {	
+	    /* 8bit by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = 2250);   
+        }
+
+        if (shamem_read(0xC0F42744) == 0x5050505)
+        {	
+	    /* 9bit by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = 2550);   
+        }
+
+        if (shamem_read(0xC0F42744) == 0x4040404)
+        {	
+	    /* 10bit by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = 3000);   
+        }
+
+        if (shamem_read(0xC0F42744) == 0x2020202)
+        {	
+	    /* 12bit by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = 6000);   
+        }
     
     return WHITE_LEVEL;
 }
@@ -558,10 +587,29 @@ static int raw_lv_get_resolution(int* width, int* height)
 #ifdef CONFIG_EOSM
     /* EOS M exception */
     /* http://www.magiclantern.fm/forum/index.php?topic=16608.msg176023#msg176023 */
-    if (lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264)
-    {
-/* breaks mv720p mode but works for mv1080p */
-        *height = 1150;
+    if ((lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264) && (shamem_read(0xC0f0b13c)) != 0xd) /* for 1x3 binning */
+
+    {    
+            *height = 727; 
+
+        if (shamem_read(0xC0f0b13c) == 0xa)
+        {	
+        /* mv1080p mode crop_rec.c */
+            *height = 1188;
+        }
+
+        if (shamem_read(0xC0f0b13c) == 0xb)
+        {	
+        /* mv1080p 45fps */
+            *height = 1006;
+        }
+
+        if (shamem_read(0xC0f0b13c) == 0xc)
+        {	
+        /* mv1080p 50fps */
+            *height = 769;
+        }
+
     }
 #endif
 
@@ -822,6 +870,15 @@ int raw_update_params_work()
         /* 1080 crop: H=1059+1, no bad lines at bottom */
         skip_bottom = zoom ? 0 : mv1080crop ? 0 : mv720 ? 3 : 2;
         #endif
+        #endif
+
+/* work in progress */
+        #ifdef CONFIG_EOSM
+	if (mv1080crop)
+	{
+        skip_top = 84;
+        skip_right = 60;
+	}
         #endif
 
         #ifdef CONFIG_7D

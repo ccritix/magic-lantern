@@ -77,7 +77,7 @@ end
   menu.set("Overlay", "Cropmarks", "OFF")
   menu.set("Overlay", "Spotmeter", "OFF")
   menu.set("Overlay", "False color", "OFF")
-  menu.set("Overlay", "Histogram", "OFF")
+  menu.set("Overlay", "Histogram", "ON")
   menu.set("Overlay", "Waveform", "OFF")
   menu.set("Overlay", "Vectorscope", "OFF")
   menu.set("Display", "Clear overlays", "OFF")

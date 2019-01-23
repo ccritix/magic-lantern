@@ -234,10 +234,8 @@ static void fps_read_current_timer_values();
     #define FPS_TIMER_B_MIN (fps_timer_b_orig - (ZOOM ? 44 : MV720 ? 0 : 70)) /* you can push LiveView until 68fps (timer_b_orig - 50), but good luck recording that */
 #elif defined(CONFIG_EOSM)
     #define TG_FREQ_BASE 32000000
-    #define FPS_TIMER_A_MIN (ZOOM ? 716 : MV1080CROP ? 532 : 520)
-    #undef FPS_TIMER_B_MIN
-/* testing overriding fps. 38fps seems max */
-    #define FPS_TIMER_B_MIN (ZOOM || MV1080 || MV1080CROP ? 1288 : MV720 || (lv && lv_dispsize==1 && !is_movie_mode()) ? 990 : 1970)
+    #define FPS_TIMER_A_MIN (ZOOM ? 676 : MV1080CROP ? 572 : 520)
+    #define FPS_TIMER_B_MIN (ZOOM || MV1080 || MV1080CROP ? 1230 : MV720 || (lv && lv_dispsize==1 && !is_movie_mode()) ? 990 : 1970)
 #elif defined(CONFIG_6D)
     #define TG_FREQ_BASE 25600000
     #define FPS_TIMER_A_MIN (fps_timer_a_orig - (ZOOM ? 22 : MV720 ? 10 : 34) ) //, ZOOM ? 708 : 512)
