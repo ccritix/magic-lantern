@@ -3831,7 +3831,7 @@ clearscreen_loop:
             int i;
             for (i = 0; i < (int)clearscreen_delay/20; i++)
             {
-                if (i % 10 == 0 && liveview_display_idle()) BMP_LOCK( update_lens_display(1,1); )
+                if (i % 10 == 0 && liveview_display_idle())
                 msleep(20);
                 if (!(get_halfshutter_pressed() || dofpreview))
                     goto clearscreen_loop;
@@ -3847,7 +3847,8 @@ clearscreen_loop:
         }
         #endif
 
-/* fix for framing preview. Will ususally stuck in real time view otherwise. Change only affects cameras with flashing menus(eosm, 100D) */
+/* fix for framing preview. Will ususally stuck in real time view otherwise. Change only affects cameras with flashing menus(eosm, 100D) 
+Back to drawing board. Not really done here
 	#if defined(CONFIG_MENU_TIMEOUT_FIX) && (clearscreen != 1 && clearscreen != 2 && clearscreen != 3 && clearscreen != 4)
         // clear overlays on shutter halfpress
         if (get_halfshutter_pressed() && !gui_menu_shown())
@@ -3868,7 +3869,7 @@ clearscreen_loop:
             if (get_zoom_overlay_trigger_by_halfshutter()) // this long press should not trigger MZ
                 zoom_overlay_toggle();
             #endif
-	#endif
+	#endif		*/
         
         #ifdef FEATURE_POWERSAVE_LIVEVIEW
         idle_powersave_step();
