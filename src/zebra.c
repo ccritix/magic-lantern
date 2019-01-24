@@ -3846,6 +3846,29 @@ clearscreen_loop:
             #endif
         }
         #endif
+
+/* fix for framing preview. Will ususally stuck in real time view otherwise. Change only affects cameras with flashing menus(eosm, 100D) */
+	#if defined(CONFIG_MENU_TIMEOUT_FIX) && (clearscreen != 1 && clearscreen != 2 && clearscreen != 3 && clearscreen != 4)
+        // clear overlays on shutter halfpress
+        if (get_halfshutter_pressed() && !gui_menu_shown())
+            BMP_LOCK( clrscr_mirror(); )
+            int i;
+            for (i = 0; i < (int)clearscreen_delay/20; i++)
+            {
+                if (i % 10 == 0 && liveview_display_idle()) BMP_LOCK( update_lens_display(1,1); )
+                msleep(20);
+                if (!(get_halfshutter_pressed() || dofpreview))
+                    goto clearscreen_loop;
+            }
+            bmp_off();
+            while ((get_halfshutter_pressed() || dofpreview)) msleep(100);
+            bmp_on();
+            #ifdef CONFIG_ZOOM_BTN_NOT_WORKING_WHILE_RECORDING
+            msleep(100);
+            if (get_zoom_overlay_trigger_by_halfshutter()) // this long press should not trigger MZ
+                zoom_overlay_toggle();
+            #endif
+	#endif
         
         #ifdef FEATURE_POWERSAVE_LIVEVIEW
         idle_powersave_step();
@@ -3856,6 +3879,7 @@ clearscreen_loop:
         cropmark_step();
         #endif
     }
+
 }
 
 TASK_CREATE( "cls_task", clearscreen_task, 0, 0x1a, 0x2000 );

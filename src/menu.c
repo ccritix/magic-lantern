@@ -4798,14 +4798,11 @@ static int menu_ensure_canon_dialog()
     // refresh Canon dialog before it times out (EOSM, 6D etc)
     // apparently it's the MPU that decides to turn off the underlying Canon dialog
     // so we have to keep poking it to stay awake
- if (CURRENT_GUI_MODE == GUIMODE_ML_MENU)
- {
     static int last_refresh = 0;
     if (lv && should_run_polling_action(2000, &last_refresh))
     {
         SetGUIRequestMode(GUIMODE_ML_MENU);
     }
- }
 #endif
 
 #endif
