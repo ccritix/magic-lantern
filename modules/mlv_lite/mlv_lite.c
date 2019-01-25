@@ -4149,6 +4149,11 @@ static int raw_rec_should_preview(void)
         autofocusing = 0;
         long_halfshutter_press = 0;
         last_hs_unpress = get_ms_clock();
+/* trying a fix for stuck real time preview(only affects framing) */
+        if ((PREVIEW_ML) && (cam_eos_m || cam_100d))
+        {
+        bmp_on();
+        }
     }
     else
     {
@@ -4159,6 +4164,11 @@ static int raw_rec_should_preview(void)
         if (get_ms_clock() - last_hs_unpress > 500)
         {
             long_halfshutter_press = 1;
+        }
+/* trying a fix for stuck real time preview(only affects framing) */
+        if ((PREVIEW_ML) && (cam_eos_m || cam_100d))
+        {
+        bmp_off();
         }
     }
 
