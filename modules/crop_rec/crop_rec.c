@@ -2827,7 +2827,7 @@ static inline uint32_t reg_override_1x3_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
 
-		case 0xC0F06804: return 0x79e01d4 + reg_6804_width + (reg_6804_height << 16);
+		case 0xC0F06804: return 0x79f01d4 + reg_6804_width + (reg_6804_height << 16);
 
         	case 0xC0F06014: return 0x8ec+ reg_6014;
 		case 0xC0F0600c: return 0x2470247 + reg_6008 + (reg_6008 << 16);
