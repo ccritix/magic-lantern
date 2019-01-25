@@ -103,7 +103,6 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_60D
 #define DEFAULT_RAW_BUFFER MEM(MEM(0x5028))
-#define DEFAULT_RAW_BUFFER_SIZE (0x49F00000 - 0x48332200)   /* ~28MB, really? */
 #endif
 
 #ifdef CONFIG_600D
@@ -111,19 +110,11 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #endif
 
 #ifdef CONFIG_5D3_113
-/* MEM(0x2600C + 0x2c) = 0x4B152000; appears free until 0x4CE00000 */
 #define DEFAULT_RAW_BUFFER MEM(0x2600C + 0x2c)
-#define DEFAULT_RAW_BUFFER_SIZE (0x4CDF0000 - 0x4B152000)
 #endif
 
 #ifdef CONFIG_5D3_123
-/* MEM(0x25f1c + 0x34) (0x4d31a000) is used near 0x4d600000 in photo mode
- * that's probably just because the memory layout changes
- * next buffer is at 0x4ee00000; can we assume it can be safely reused by us?
- * (Free Memory dialog, memory map with CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP)
- */
 #define DEFAULT_RAW_BUFFER MEM(0x25f1c + 0x34)
-#define DEFAULT_RAW_BUFFER_SIZE (0x4e000000 - 0x4d31a000)
 #endif
 
 #ifdef CONFIG_650D
@@ -132,12 +123,10 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_700D
 #define DEFAULT_RAW_BUFFER MEM(0x25B0C + 0x3C)
-#define DEFAULT_RAW_BUFFER_SIZE (0x47F00000 - 0x46798080)
 #endif
 
 #ifdef CONFIG_EOSM
 #define DEFAULT_RAW_BUFFER MEM(0x404E4 + 0x44)
-#define DEFAULT_RAW_BUFFER_SIZE (0x47F00000 - 0x46798080)
 #endif
 
 #ifdef CONFIG_6D
@@ -152,39 +141,16 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define DEFAULT_RAW_BUFFER MEM(0x6733C + 0x40)
 #endif
 
-#ifdef CONFIG_1100D
-#define DEFAULT_RAW_BUFFER MEM(MEM(0x4C64))     /* how much do we have allocated? */
-#define DEFAULT_RAW_BUFFER_SIZE 8*1024*1024     /* is this really overwritten by other code? needs some investigation */
-#endif
+#else
 
-#ifndef DEFAULT_RAW_BUFFER_SIZE
-/* todo: figure out how much Canon code allocates for their LV RAW buffer - how? */
-#warning FIXME: using dummy DEFAULT_RAW_BUFFER_SIZE
-#define DEFAULT_RAW_BUFFER_SIZE (9*1024*1024)
-#endif
-
-
-#else // "Traditional" RAW LV buffer detection (no CONFIG_EDMAC_RAW_SLURP)
-
-/**
- * LiveView raw buffer address
- * To find it, call("lv_save_raw") and look for an EDMAC channel that becomes active (Debug menu)
- **/
-
-#if defined(CONFIG_5D2) || defined(CONFIG_50D)
-#define RAW_LV_EDMAC 0xC0F04508
-#endif
+/* with Canon lv_save_raw, just read it from EDMAC */
+#define DEFAULT_RAW_BUFFER shamem_read(RAW_LV_EDMAC)
 
 #if defined(CONFIG_500D) || defined(CONFIG_550D) || defined(CONFIG_7D) || defined(CONFIG_1300D)
 #define RAW_LV_EDMAC 0xC0F26008
 #endif
 
-#if defined(CONFIG_DIGIC_V) || defined(CONFIG_600D) || defined(CONFIG_60D) || defined(CONFIG_1200D)
-/* probably all new cameras use this address */
-#define RAW_LV_EDMAC 0xC0F26208
 #endif
-
-#endif  /* no CONFIG_EDMAC_RAW_SLURP */
 
 /**
  * Photo-mode raw buffer address
@@ -354,6 +320,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
      -819, 10000,     1944, 10000,    5931, 10000
 #endif
 
+
 struct raw_info raw_info = {
     .api_version = 1,
     .bits_per_pixel = 14,
@@ -471,23 +438,6 @@ static int autodetect_white_level(int initial_guess);
 extern void reverse_bytes_order(char* buf, int count);
 
 #ifdef CONFIG_RAW_LIVEVIEW
-
-#ifdef CONFIG_EDMAC_RAW_SLURP
-/* can be either allocated by us or Canon's default */
-static void * raw_allocated_lv_buffer = 0;
-static void * raw_lv_buffer = 0;
-static int raw_lv_buffer_size = 0;
-#endif
-
-/* our default LiveView buffer (which can be DEFAULT_RAW_BUFFER or allocated) */
-static void* raw_get_default_lv_buffer()
-{
-#if !defined(CONFIG_EDMAC_RAW_SLURP)
-    return (void*) shamem_read(RAW_LV_EDMAC);
-#else
-    return raw_lv_buffer;
-#endif
-}
 /* returns 1 on success */
 static int raw_lv_get_resolution(int* width, int* height)
 {
@@ -610,11 +560,7 @@ static int raw_update_params_work()
         }
         #endif
 
-        #ifdef CONFIG_EDMAC_RAW_SLURP
-        raw_lv_realloc_buffer();
-        #endif
-
-        raw_info.buffer = raw_get_default_lv_buffer();
+        raw_info.buffer = (void*) DEFAULT_RAW_BUFFER;
         
         if (!raw_info.buffer)
         {
@@ -1690,7 +1636,7 @@ static int lv_raw_type = PREFERRED_RAW_TYPE;
 void FAST raw_lv_vsync()
 {
     /* where should we save the raw data? */
-    void* buf = redirected_raw_buffer ? redirected_raw_buffer : raw_get_default_lv_buffer();
+    void* buf = redirected_raw_buffer ? redirected_raw_buffer : (void*) DEFAULT_RAW_BUFFER;
     
     if (buf && lv_raw_enabled)
     {

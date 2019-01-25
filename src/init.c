@@ -33,6 +33,7 @@
 #include "property.h"
 #include "consts.h"
 #include "tskmon.h"
+#include "timer.h"
 
 #include "boot-hack.h"
 #include "ml-cbr.h"

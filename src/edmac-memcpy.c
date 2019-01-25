@@ -148,7 +148,7 @@ void* edmac_copy_rectangle_cbr_start(void* dst, void* src, int src_width, int sr
     /* see FIO_WriteFile for more info */
     if (src == CACHEABLE(src))
     {
-        sync_caches();
+        clean_d_cache();
     }
 
     take_semaphore(edmac_memcpy_sem, 0);

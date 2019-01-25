@@ -17,22 +17,6 @@
 #include <af_patterns.h>
 #endif
 
-#if defined(CONFIG_LVAPP_HACK_RELOC) || defined(CONFIG_LVAPP_HACK_DEBUGMSG)
-#define CONFIG_LVAPP_HACK
-#endif
-
-static int bottom_bar_dirty = 0;
-static int last_time_active = 0;
-
-int is_canon_bottom_bar_dirty() { return bottom_bar_dirty; }
-int get_last_time_active() { return last_time_active; }
-
-// disable Canon bottom bar
-
-#if defined(CONFIG_LVAPP_HACK_DEBUGMSG) || defined(CONFIG_LVAPP_HACK)
-static int bottom_bar_hack = 0;
-#endif
-
 /* misc hacks, to be cleaned up */
 #if defined(CONFIG_DEBUGMSG_HACK)
 
@@ -42,13 +26,6 @@ extern int cf_card_workaround;
 
 static void hacked_DebugMsg(int class, int level, char* fmt, ...)
 {
-    #if defined(CONFIG_LVAPP_HACK_DEBUGMSG)
-    if (bottom_bar_hack && class == 131 && level == 1)
-    {
-        MEM(JUDGE_BOTTOM_INFO_DISP_TIMER_STATE) = 0;
-    }
-    #endif
-
     #ifdef CONFIG_5D3
     if (cf_card_workaround)
     {
@@ -100,69 +77,10 @@ static void DebugMsg_uninstall()
 INIT_FUNC("debugmsg-hack", DebugMsg_hack);
 
 #endif // CONFIG_DEBUGMSG_HACK
-int handle_other_events(struct event * event)
-{
-    extern int ml_started;
-    if (!ml_started) return 1;
 
-#ifdef CONFIG_LVAPP_HACK
-
-    unsigned short int lv_refreshing = lv && event->type == 2 && event->param == GMT_LOCAL_DIALOG_REFRESH_LV;
-    unsigned short int should_hide = lv_disp_mode == 0 && get_global_draw_setting() && liveview_display_idle() && lv_dispsize == 1;
-    
-    if(lv_refreshing)
-    {
-        if(should_hide)
-        {
-            #ifdef CONFIG_LVAPP_HACK_RELOC
-            extern void reloc_liveviewapp_install();  /* liveview.c */
-            reloc_liveviewapp_install();
-            #endif
-            
-            bottom_bar_hack = 1;
-
-            if (get_halfshutter_pressed()) bottom_bar_dirty = 10;
-
-            #ifdef UNAVI_FEEDBACK_TIMER_ACTIVE
-            /*
-             * Hide Canon's Q menu (aka UNAVI) as soon as the user quits it.
-             * 
-             * By default, this menu remains on screen for a few seconds.
-             * After it disappears, we would have to redraw cropmarks, zebras and so on,
-             * which looks pretty ugly, since our redraw is slow.
-             * Better hide the menu right away, then redraw - it feels a lot less sluggish.
-             */
-            if (UNAVI_FEEDBACK_TIMER_ACTIVE)
-            {
-                /* Canon stub */
-                extern void HideUnaviFeedBack_maybe();
-                HideUnaviFeedBack_maybe();
-                bottom_bar_dirty = 0;
-            }
-            #endif
-        }
-        else
-        {
-            #ifdef CONFIG_LVAPP_HACK_RELOC
-            extern void reloc_liveviewapp_uninstall();  /* liveview.c */
-            reloc_liveviewapp_uninstall();
-            #endif
-
-            bottom_bar_hack  = 0;
-            bottom_bar_dirty = 0;
-        }
-
-        /* Redraw ML bottom bar if Canon bar was displayed over it */
-        if (!liveview_display_idle()) bottom_bar_dirty = 0;
-        if (bottom_bar_dirty) bottom_bar_dirty--;
-        if (bottom_bar_dirty == 1)
-        {
-            lens_display_set_dirty();
-        }
-    }
-#endif
-    return 1;
-}
+// for powersave timers
+static int last_time_active = 0;
+int get_last_time_active() { return last_time_active; }
 
 int handle_common_events_startup(struct event * event)
 {   
@@ -173,8 +91,8 @@ int handle_common_events_startup(struct event * event)
 
     extern int ml_started;
     if (!ml_started)    {
-#if defined(BGMT_Q_SET) // combined Q/SET button?
-        if (event->param == BGMT_Q_SET) { _disable_ml_startup(); return 0;} // don't load ML
+#if defined(CONFIG_EOSM) || defined(CONFIG_100D) // these have a combined Q/SET button, SET button event is not sent properly
+        if (event->param == BGMT_INFO) { _disable_ml_startup(); return 0;} // don't load ML
 #else
         if (event->param == BGMT_PRESS_SET) { _disable_ml_startup(); return 0;} // don't load ML
 #endif
@@ -246,48 +164,6 @@ int handle_scrollwheel_fast_clicks(struct event * event)
     return 1;
 }
 
-/* Q is always defined */
-/* if some models don't have it, we are going to use some other button instead. */
-/* some mappings are valid for cameras with a Q button as well */
-static int handle_Q_button_equiv(struct event * event)
-{
-    if (!gui_menu_shown())
-    {
-        /* only remap other buttons while in ML menu */
-        /* note: in ML menu, these buttons will no longer be available
-         * to other modules/scripts directly (they will be all seen as Q).
-         * outside ML menu, they retain their regular functionality.
-         */
-        return 1;
-    }
-
-    switch (event->param)
-    {
-#ifdef BGMT_Q_ALT
-    #error please use BGMT_Q
-#endif
-#ifdef BGMT_RATE
-    case BGMT_RATE:
-#endif
-#if defined(CONFIG_5D2) || defined(CONFIG_7D)
-    case BGMT_PICSTYLE:
-#endif
-#ifdef CONFIG_50D
-    case BGMT_FUNC:
-#endif
-#ifdef CONFIG_500D
-    case BGMT_LV:
-#endif
-#ifdef CONFIG_5DC
-    case BGMT_JUMP:
-    case BGMT_PRESS_DIRECT_PRINT:
-#endif
-        fake_simple_button(BGMT_Q);
-        return 0;
-    }
-    
-    return 1;
-}
 #ifdef CONFIG_MENU_WITH_AV
 int bgmt_av_status;
 int get_bgmt_av_status() {
@@ -472,15 +348,9 @@ int handle_common_events_by_feature(struct event * event)
     if (event->param != GMT_OLC_INFO_CHANGED)
         last_time_active = get_seconds_clock();
 
-    /* convert Q replacement events into BGMT_Q */
-    if (handle_Q_button_equiv(event) == 0) return 0;
-
     #ifdef CONFIG_MENU_WITH_AV
     if (handle_av_short_for_menu(event) == 0) return 0;
     #endif
-
-    /* before module_keys, to be able to process long-press SET/Q events and forward them to modules/scripts */
-    if (handle_longpress_events(event) == 0) return 0;
 
     #ifdef FEATURE_MAGIC_ZOOM
     /* must be before handle_module_keys to allow zoom while recording raw,
@@ -658,15 +528,6 @@ char* get_info_button_name() { return INFO_BTN_NAME; }
 
 void gui_uilock(int what)
 {
-    int old = icu_uilock;
-
-    if ((icu_uilock & 0xFFFF) != UILOCK_NONE && what != UILOCK_NONE)
-    {
-        /* this is needed when going from some locked state to a different locked state */
-        int unlocked = UILOCK_REQUEST | (UILOCK_NONE & 0xFFFF);
-        prop_request_change_wait(PROP_ICU_UILOCK, &unlocked, 4, 2000);
-    }
-
     /* change just the lower 16 bits, to ensure correct requests;
      * the higher bits appear to be for requesting the change */
     int unlocked = UILOCK_REQUEST | (UILOCK_NONE & 0xFFFF);
@@ -686,7 +547,6 @@ void fake_simple_button(int bgmt_code)
     if ((icu_uilock & 0xFFFF) && (bgmt_code >= 0))
     {
         // Canon events may not be safe to send when UI is locked; ML events are (and should be sent)
-        printf("fake_simple_button(%d): UI locked (%x)\n", bgmt_code, icu_uilock);
         return;
     }
 

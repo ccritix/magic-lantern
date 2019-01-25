@@ -550,8 +550,8 @@ int FIO_WriteFile( FILE* stream, const void* ptr, size_t count )
     if (ptr == CACHEABLE(ptr))
     {
         /* write back all data to RAM */
-        /* overhead is minimal (see selftest.mo for benchmark) */
-        sync_caches();
+        /* overhead is minimal (see selfcheck.mo for benchmark) */
+        clean_d_cache();
     }
 
     return _FIO_WriteFile(stream, ptr, count);

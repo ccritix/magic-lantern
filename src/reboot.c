@@ -41,21 +41,7 @@ asm(
     ".text\n"
     ".globl _start\n"
     "_start:\n"
-
-    ".code 16\n"
-    "NOP\n"                     /* as ARM, this is interpreted as: and r4, r1, r0, asr #13 (harmless) */
-    "B loaded_as_thumb\n"       /* as Thumb, this will eventually switch to ARM mode */
-
-    ".code 32\n"
-    "loaded_as_arm:\n"          /* you may insert ARM-specific code here */
-    "B xor_check\n"             /* this will jump over the Thumb code */
-
-    ".code 16\n"
-    "loaded_as_thumb:\n"        /* you may insert Thumb-specific code here */
-    "BLX xor_check\n"           /* LR doesn't matter much, as we'll never return to caller */
-
-    ".code 32\n"                /* from now on, we've got generic code for all platforms */
-    "xor_check:\n"
+    
     /* first comes the check if we were loaded successfully, efficiently packed into 0x20 bytes */
     "ADD   R4, PC, #0x0C\n"
     "LDM   R4, {R1-R3}\n"
@@ -224,18 +210,18 @@ void
 __attribute__((noreturn))
 cstart( void )
 {
-#if !(CURRENT_CAMERA_SIGNATURE)
+    #if !(CURRENT_CAMERA_SIGNATURE)
     #warning Signature Checking bypassed!! Please use a proper signature
-#else
-    uint32_t s = compute_signature((void*)SIG_START, SIG_LEN);
-    uint32_t expected_signature = CURRENT_CAMERA_SIGNATURE;
-    if (s != expected_signature)
+    #else
+    int s = compute_signature((int*)SIG_START, SIG_LEN);
+    int _signature = (int)CURRENT_CAMERA_SIGNATURE;
+    if (s != _signature)
     {
         qprint("[boot] firmware signature: "); qprintn(s); qprint("\n");
-        qprint("                 expected: "); qprintn(expected_signature); qprint("\n");
+        qprint("                 expected: "); qprintn(_signature); qprint("\n");
         fail();
     }
-#endif
+    #endif
 
 #ifdef __ARM__
     /* turn on the LED as soon as autoexec.bin is loaded (may happen without powering on) */

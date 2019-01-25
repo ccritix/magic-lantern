@@ -3673,7 +3673,7 @@ BMP_LOCK(
     bvram_mirror_clear(); // may remain filled with playback zebras 
 )
 
-    sync_caches(); // to avoid display artifacts
+    clean_d_cache(); // to avoid display artifacts
 
     info_led_off();
     overlays_playback_running = 0;

@@ -114,8 +114,7 @@ static void cache_require(int lock)
     }
 }
 
-/* should be called with interrupts cleared */
-int _patch_sync_caches(int also_data)
+static int patch_sync_cache(int also_data)
 {
 #ifdef CONFIG_QEMU
     return 0;
@@ -134,12 +133,12 @@ int _patch_sync_caches(int also_data)
     if (also_data)
     {
         dbg_printf("Syncing caches...\n");
-        _sync_caches();
+        sync_caches();
     }
     else
     {
         dbg_printf("Flushing ICache...\n");
-        _flush_i_cache();
+        flush_i_cache();
     }
     
     if (locked)
@@ -149,13 +148,6 @@ int _patch_sync_caches(int also_data)
     }
     
     return err;
-}
-
-void sync_caches()
-{
-    uint32_t old = cli();
-    _patch_sync_caches(1);
-    sei(old);
 }
 
 /* low-level routines */
@@ -355,7 +347,7 @@ static int patch_memory_work(
      * but we need to clear the cache and re-apply any existing ROM patches */
     if (is_instruction && !IS_ROM_PTR(addr))
     {
-        err = _patch_sync_caches(0);
+        err = patch_sync_cache(0);
     }
     
     num_patches++;
@@ -521,7 +513,7 @@ int unpatch_memory(uintptr_t _addr)
     }
     else if (patches[p].is_instruction)
     {
-        err = _patch_sync_caches(0);
+        err = patch_sync_cache(0);
     }
 
     check_cache_lock_still_needed();
@@ -989,7 +981,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     }};
 
     /* since we have modified some code in RAM, sync the caches */
-    sync_caches();
+    patch_sync_cache(1);
     
     /* patch the original instruction to jump to the logging code */
     err = patch_instruction(addr, orig_instr, B_INSTR(addr, hook), description);

@@ -19,11 +19,18 @@ CFLAGS += \
 	-DCONFIG_FW_VERSION=$(FW_VERSION) \
 	-DCURRENT_CAMERA_SIGNATURE=SIG_$(MODEL)_$(FW_VERSION)
 
-#ifeq ($(ML_INIT_OBJ), n)
-#ML_INIT_OBJ =
-#else ifndef ML_INIT_OBJ
+ifeq ($(ML_BOOT_HACK_OBJ), n)
+ML_BOOT_HACK_OBJ =
+else ifndef ML_BOOT_HACK_OBJ
+ML_BOOT_HACK_OBJ = boot-hack.o
+endif
+
+
+ifeq ($(ML_INIT_OBJ), n)
+ML_INIT_OBJ =
+else ifndef ML_INIT_OBJ
 ML_INIT_OBJ = init.o
-#endif
+endif
 
 ifeq ($(ML_PICSTYLE_AUTO), n)
 ML_PICSTYLE_OBJ = picstyle-noauto.o
@@ -120,7 +127,7 @@ ML_OBJS-y += \
 ML_SRC_OBJS = \
 	backtrace.o \
 	$(ML_BOOT_OBJ) \
-	init.o \
+	$(ML_INIT_OBJ) \
 	fio-ml.o \
 	mem.o \
 	ico.o \
@@ -148,6 +155,7 @@ ML_SRC_OBJS = \
 	property.o \
 	propvalues.o \
 	gui-common.o \
+	liveview.o \
 	chdk-gui_draw.o \
 	movtweaks.o \
 	menuhelp.o \
@@ -187,9 +195,7 @@ ML_SRC_OBJS = \
 	chdk-dng.o \
 	edmac-memcpy.o \
 	patch.o \
-	liveview.o \
-        asm.o \
-
+	asm.o \
 
 ML_OBJS-y += $(ML_SRC_OBJS)
 
@@ -198,12 +204,6 @@ include $(TOP_DIR)/src/Makefile.src.config
 else ifndef ML_OBJS-y
 $(error ML_OBJS-y is not defined)
 endif
-
-# CONFIG_QEMU applies to all profiles, including minimal and installer
-# (by default, CONFIG options are only used for the generic profile)
-ifeq ($(CONFIG_QEMU),y)
-CFLAGS += -DCONFIG_QEMU
-endif # CONFIG_QEMU
 
 ML_OBJS-y += $(ML_SRC_EXTRA_OBJS)
 
@@ -231,7 +231,6 @@ ifndef ML_SRC_REBOOT_OBJ
 ML_SRC_REBOOT_OBJ = reboot.o \
 	disp_direct.o font_direct.o \
 	strlen.o strcmp.o gcc-libgcc.a \
-	cache.o \
 	footer.o
 endif
 

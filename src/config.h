@@ -73,8 +73,6 @@ struct config_var;
 
 //return false in this cbr to block the value from being changed
 typedef int (*config_var_update_func)(struct config_var *, int old_value, int new_value);
-#define CONFIG_VAR_CHANGE_FUNC(func) \
-    int func(struct config_var * var, int old_value, int new_value)
 
 /** Create an auto-parsed config variable */
 struct config_var

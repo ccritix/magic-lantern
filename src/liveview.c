@@ -46,71 +46,70 @@ extern void HideUnaviFeedBack_maybe();  /* Canon stub */
 #endif
 
 static int bottom_bar_dirty = 0;
-//int is_canon_bottom_bar_dirty() { return bottom_bar_dirty; }
+int is_canon_bottom_bar_dirty() { return bottom_bar_dirty; }
 
 /* note: this receives events other than button codes */
 /* currently it doesn't do anything else, so it's placed here */
+int handle_other_events(struct event * event)
+{
+    extern int ml_started;
+    if (!ml_started) return 1;
 
-//int handle_other_events(struct event * event)
-//{
-//    extern int ml_started;
-//    if (!ml_started) return 1;
-//
-//#ifdef CONFIG_LVAPP_HACK_PATCH
-//
-//    int should_hide =               /* hide Canon bottom bar: */
-//        lv &&                       /* in LiveView, */
-//        lv_disp_mode == 0 &&        /* if Canon overlays are hidden, */
-//        lv_dispsize == 1 &&         /* and zoom is x1, */
-//        get_global_draw_setting();  /* and ML overlays are enabled. */
-//    
-//    if (should_hide)
-//    {
-//        liveviewapp_patch();
-//
-//        if (get_halfshutter_pressed())
-//        {
-//            bottom_bar_dirty = 10;
-//        }
-//
-//        #ifdef UNAVI_FEEDBACK_TIMER_ACTIVE
-//        /*
-//         * Hide Canon's Q menu (aka UNAVI) as soon as the user quits it.
-//         * 
-//         * By default, this menu remains on screen for a few seconds.
-//         * After it disappears, we would have to redraw cropmarks, zebras and so on,
-//         * which looks pretty ugly, since our redraw is slow.
-//         * Better hide the menu right away, then redraw - it feels a lot less sluggish.
-//         */
-//        if (UNAVI_FEEDBACK_TIMER_ACTIVE)
-//        {
-//            HideUnaviFeedBack_maybe();
-//            bottom_bar_dirty = 0;
-//        }
-//        #endif
-//    }
-//    else
-//    {
-//        liveviewapp_unpatch();
-//        bottom_bar_dirty = 0;
-//    }
-//
-//    unsigned short int lv_refreshing = lv && event->type == 2 && event->param == GMT_LOCAL_DIALOG_REFRESH_LV;
-//    if (lv_refreshing)
-//    {
-//        /* Redraw ML bottom bar if Canon bar was displayed over it */
-//        if (!liveview_display_idle()) bottom_bar_dirty = 0;
-//        if (bottom_bar_dirty) bottom_bar_dirty--;
-//        if (bottom_bar_dirty == 1)
-//        {
-//            lens_display_set_dirty();
-//        }
-//    }
-//
-//#endif
-//
-//    return 1;
-//}
+#ifdef CONFIG_LVAPP_HACK_PATCH
+
+    int should_hide =               /* hide Canon bottom bar: */
+        lv &&                       /* in LiveView, */
+        lv_disp_mode == 0 &&        /* if Canon overlays are hidden, */
+        lv_dispsize == 1 &&         /* and zoom is x1, */
+        get_global_draw_setting();  /* and ML overlays are enabled. */
+    
+    if (should_hide)
+    {
+        liveviewapp_patch();
+
+        if (get_halfshutter_pressed())
+        {
+            bottom_bar_dirty = 10;
+        }
+
+        #ifdef UNAVI_FEEDBACK_TIMER_ACTIVE
+        /*
+         * Hide Canon's Q menu (aka UNAVI) as soon as the user quits it.
+         * 
+         * By default, this menu remains on screen for a few seconds.
+         * After it disappears, we would have to redraw cropmarks, zebras and so on,
+         * which looks pretty ugly, since our redraw is slow.
+         * Better hide the menu right away, then redraw - it feels a lot less sluggish.
+         */
+        if (UNAVI_FEEDBACK_TIMER_ACTIVE)
+        {
+            HideUnaviFeedBack_maybe();
+            bottom_bar_dirty = 0;
+        }
+        #endif
+    }
+    else
+    {
+        liveviewapp_unpatch();
+        bottom_bar_dirty = 0;
+    }
+
+    unsigned short int lv_refreshing = lv && event->type == 2 && event->param == GMT_LOCAL_DIALOG_REFRESH_LV;
+    if (lv_refreshing)
+    {
+        /* Redraw ML bottom bar if Canon bar was displayed over it */
+        if (!liveview_display_idle()) bottom_bar_dirty = 0;
+        if (bottom_bar_dirty) bottom_bar_dirty--;
+        if (bottom_bar_dirty == 1)
+        {
+            lens_display_set_dirty();
+        }
+    }
+
+#endif
+
+    return 1;
+}
 
 
 // old code from Trammell's 1080i HDMI, good as documentation
