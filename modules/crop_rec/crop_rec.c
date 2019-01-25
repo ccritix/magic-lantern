@@ -3601,7 +3601,7 @@ only gotten one single corrupted frame from below but keep on testing */
   {
     switch (reg)
     {
-        	case 0xC0F06804: return 0x7ef01d4; 
+        	case 0xC0F06804: return 0x7ef01d4 + reg_6804_width + (reg_6804_height << 16); 
 
         	case 0xC0F06014: return 0x90b+ reg_6014;
 		case 0xC0F0600c: return 0x23f023f + reg_6008 + (reg_6008 << 16);
@@ -3621,7 +3621,7 @@ only gotten one single corrupted frame from below but keep on testing */
   {
     switch (reg)
     {
-        	case 0xC0F06804: return 0x88501d4; 
+        	case 0xC0F06804: return 0x88501d4 + reg_6804_width + (reg_6804_height << 16); 
 
         	case 0xC0F06014: return 0x99d+ reg_6014;
 		case 0xC0F0600c: return 0x21d021d + reg_6008 + (reg_6008 << 16);
