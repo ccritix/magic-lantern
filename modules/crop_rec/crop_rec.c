@@ -2870,7 +2870,7 @@ only gotten one single corrupted frame from below but keep on testing */
 		case 0xC0F06010: return 0x22b + reg_6008;
 
         	case 0xC0F0713c: return 0x7ef+ reg_713c;
-		case 0xC0F07150: return 0x7e6+ reg_7150;
+		case 0xC0F07150: return 0x7e4+ reg_7150;
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xd;
