@@ -2559,7 +2559,7 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
 
-        case 0xC0F06804: return 0x6c2040a + reg_6804_width + (reg_6804_height << 16); // 4032x2558  x5 Mode;
+        case 0xC0F06804: return 0x6c3040a + reg_6804_width + (reg_6804_height << 16); // 4032x2558  x5 Mode;
 
         case 0xC0F06824: return 0x4ca;
         case 0xC0F06828: return 0x4ca;
@@ -2582,7 +2582,7 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
 
-        case 0xC0F06804: return 0xa1b0412 + reg_6804_width + (reg_6804_height << 16); // 4032x2558  x5 Mode;
+        case 0xC0F06804: return 0xa1c0412 + reg_6804_width + (reg_6804_height << 16); // 4032x2558  x5 Mode;
 
         case 0xC0F06824: return 0x4ca;
         case 0xC0F06828: return 0x4ca;
@@ -2609,7 +2609,7 @@ static inline uint32_t reg_override_4K_3x1_EOSM(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
     {
-        case 0xC0F06804: return 0x30d040a + reg_6804_width + (reg_6804_height << 16); 
+        case 0xC0F06804: return 0x30f040a + reg_6804_width + (reg_6804_height << 16); 
         case 0xC0F06824: return 0x4ca;
         case 0xC0F06828: return 0x4ca;
         case 0xC0F0682C: return 0x4ca;
@@ -2636,7 +2636,7 @@ static inline uint32_t reg_override_5K_3x1_EOSM(uint32_t reg, uint32_t old_val)
   {
     switch (reg)
     {
-        case 0xC0F06804: return 0x2e20504 + reg_6804_width + (reg_6804_height << 16); 
+        case 0xC0F06804: return 0x2e30504 + reg_6804_width + (reg_6804_height << 16); 
         case 0xC0F06824: return 0x56a;
         case 0xC0F06828: return 0x56a;
         case 0xC0F0682C: return 0x56a;
@@ -2656,7 +2656,7 @@ static inline uint32_t reg_override_5K_3x1_EOSM(uint32_t reg, uint32_t old_val)
   {
     switch (reg)
     {
-        case 0xC0F06804: return 0x2e40506 + reg_6804_width + (reg_6804_height << 16); 
+        case 0xC0F06804: return 0x2e50506 + reg_6804_width + (reg_6804_height << 16); 
         case 0xC0F06824: return 0x56a;
         case 0xC0F06828: return 0x56a;
         case 0xC0F0682C: return 0x56a;
@@ -2718,7 +2718,7 @@ static inline uint32_t reg_override_3x3_eosm(uint32_t reg, uint32_t old_val)
 
     switch (reg)
     {
-        	case 0xC0F06804: return 0x4a601d4 + reg_6804_width + (reg_6804_height << 16); 		
+        	case 0xC0F06804: return 0x4a701d4 + reg_6804_width + (reg_6804_height << 16); 		
         	case 0xC0F0713c: return 0x4a7+ reg_713c;
 		case 0xC0F07150: return 0x499+ reg_7150;
 
@@ -2734,7 +2734,7 @@ static inline uint32_t reg_override_3x3_45fps_eosm(uint32_t reg, uint32_t old_va
 
     switch (reg)
     {
-        	case 0xC0F06804: return 0x4a601d4 + reg_6804_width + (reg_6804_height << 16); 		
+        	case 0xC0F06804: return 0x4a701d4 + reg_6804_width + (reg_6804_height << 16); 		
         	case 0xC0F0713c: return 0x4ac+ reg_713c;
 		case 0xC0F07150: return 0x440+ reg_7150;
 
@@ -2763,7 +2763,7 @@ static inline uint32_t reg_override_3x3_50fps_eosm(uint32_t reg, uint32_t old_va
 
     switch (reg)
     {
-        	case 0xC0F06804: return 0x4a601d4 + reg_6804_width + (reg_6804_height << 16); 		
+        	case 0xC0F06804: return 0x4a701d4 + reg_6804_width + (reg_6804_height << 16); 		
         	case 0xC0F0713c: return 0x308+ reg_713c;
 		case 0xC0F07150: return 0x301+ reg_7150;
 
