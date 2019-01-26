@@ -2864,13 +2864,13 @@ only gotten one single corrupted frame from below but keep on testing */
     {
         	case 0xC0F06804: return 0x7ef01d4 + reg_6804_width + (reg_6804_height << 16); 
 
-        	case 0xC0F06014: return 0x90b+ reg_6014;
-		case 0xC0F0600c: return 0x23f023f + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x23f023f + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x23f + reg_6008;
+        	case 0xC0F06014: return 0x95d+ reg_6014;
+		case 0xC0F0600c: return 0x22b022b + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x22b022b + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x22b + reg_6008;
 
         	case 0xC0F0713c: return 0x7ef+ reg_713c;
-		case 0xC0F07150: return 0x7ed+ reg_7150;
+		case 0xC0F07150: return 0x7eb+ reg_7150;
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xd;
