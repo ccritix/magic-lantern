@@ -70,8 +70,7 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     int spaces = 10 - strlen(task_name);
     if (spaces < 0) spaces = 0;
     snprintf(task_name_padded + spaces, 11 - spaces, "%s", task_name);
-
-    len += snprintf( buf+len, buf_size-len, "%08X> %s:%08x:%02x:%02x: ", us_timer, task_name_padded, lr-4, class, level );
+    len += snprintf( buf+len, buf_size-len, "%d.%06d  %s:%08x:%02x:%02x: ", us_timer/1000000, us_timer%1000000, task_name_padded, lr-4, class, level );
 
     va_list ap;
     va_start( ap, fmt );
