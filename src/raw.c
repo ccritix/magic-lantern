@@ -1715,7 +1715,7 @@ static int autodetect_black_level(int* black_mean, int* black_stdev_x100)
     int mean2 = 0;
     int stdev2 = 0;
         
-    if (raw_info.active_area.x1 > 50) /* use the left black bar for black calibration */
+    if ((raw_info.active_area.x1 > 50) && (shamem_read(0xC0f0b13c) != 0xd)) /* use the left black bar for black calibration, shamem exception 1x3 binning crop rec.c */
     {
         autodetect_black_level_calc(
             16, raw_info.active_area.x1 - 16,

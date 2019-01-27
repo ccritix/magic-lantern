@@ -489,13 +489,16 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         break;
 
  	case CROP_PRESET_1x3_EOSM:
+/* see autodetect_black_level exception in raw.c */
     	if (ratios == 0x1)
     	{
-        skip_right      = 232;
+        skip_right      = 156;
+        skip_left      = 140;
     	}
     	if (ratios == 0x2)
     	{
-        skip_right      = 550;
+        skip_right      = 324;
+        skip_left      = 292;
     	}
         break;
 
