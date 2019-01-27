@@ -235,6 +235,15 @@ static void fail()
     while(1);
 }
 
+/* this duplicates 32-bit integers, unlike memset, which converts to char first */
+static void memset32(uint32_t * buf, uint32_t val, size_t size)
+{
+    for (uint32_t i = 0; i < size / 4; i++)
+    {
+        buf[i] = val;
+    }
+}
+
 void
 __attribute__((noreturn))
 cstart( void )
@@ -274,7 +283,8 @@ cstart( void )
     #endif
 
     #ifdef CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
-        memset64(0x00D00000, 0x124B1DE0 /* RA(W)VIDEO*/, 0x1FE00000 - 0x00D00000);
+        /* FIXME: only mark the memory actually available on each model */
+        memset32((uint32_t *) 0x00D00000, 0x124B1DE0 /* RA(W)VIDEO*/, 0x40000000 - 0x00D00000);
     #endif
 
     /* Jump into the newly relocated code
