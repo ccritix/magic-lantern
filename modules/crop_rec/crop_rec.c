@@ -495,8 +495,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	}
     	if (ratios == 0x2)
     	{
-        skip_right      = 342;
-        skip_left      = 277;
+        skip_right      = 550;
     	}
         break;
 
