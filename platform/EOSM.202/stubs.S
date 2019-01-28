@@ -62,7 +62,7 @@ NSTUB(0xFF0D7674,  GUI_Control)
 NSTUB(0xFF1A805C,  SetGUIRequestMode)
 NSTUB(0xFF0D7D18,  gui_init_end)
 NSTUB(0xFF0D72A0,  gui_main_task)
-NSTUB(0xff1c4670,  gui_massive_event_loop)
+// NSTUB(0xff1c4670,  gui_massive_event_loop) Let´s pause this
 // NSTUB(    ???,  GUI_SetLvMode)                           /* present on 7D.203, 500D.111, 5D2.212, 50D.109 */
 // NSTUB(    ???,  GUI_SetMovieSize_a)                      /* present on 50D.109 */
 // NSTUB(    ???,  GUI_SetMovieSize_b)                      /* present on 50D.109 */
