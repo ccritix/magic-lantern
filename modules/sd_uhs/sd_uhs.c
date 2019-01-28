@@ -28,7 +28,6 @@ static uint32_t sd_tweakable[] = {        0x7,        0x7,                      
 
 static uint32_t uhs_vals[COUNT(uhs_regs)];  /* current values */
 static uint32_t uhs_best_vals[COUNT(uhs_regs)];  /* best values */
-static int uhs_best_time = INT_MAX;
 
 static int sd_setup_mode_enable = 0;
 
@@ -101,70 +100,6 @@ static int log_printf(const char* fmt, ...)
 
 const int buffer_size = 16 * 1024 * 1024;
 
-static int test_fio()
-{
-    void * buf = fio_malloc(buffer_size);
-    memset(buf, 0x5A, buffer_size);
-
-    log_printf(" W:");
-    int64_t t0 = get_us_clock();
-
-    FILE * f = FIO_CreateFile("B:/test.tmp");
-    if (!f)
-    {
-        log_printf("ERC");
-        return -1;
-    }
-
-    int64_t t1 = get_us_clock();
-    int r = FIO_WriteFile(f, buf, buffer_size);
-    if (r != buffer_size)
-    {
-        log_printf("ERW");
-        return -1;
-    }
-    int64_t t2 = get_us_clock();
-    FIO_CloseFile(f);
-
-    memset(buf, 0x77, buffer_size);
-
-    f = FIO_OpenFile("B:/test.tmp", O_RDONLY | O_SYNC);
-    if (!f)
-    {
-        log_printf("ERO");
-        return -1;
-    }
-
-    log_printf("%s/s ", format_memory_size((uint64_t) buffer_size * 1000000ull / (t2 - t1)));
-    log_printf("R:");
-
-    int64_t t3 = get_us_clock();
-    r = FIO_ReadFile(f, buf, buffer_size);
-    if (r != buffer_size)
-    {
-        log_printf("ERR");
-        return -1;
-    }
-    int64_t t4 = get_us_clock();
-    FIO_CloseFile(f);
-    int64_t t5 = get_us_clock();
-
-    log_printf("%s/s ", format_memory_size((uint64_t) buffer_size * 1000000ull / (t4 - t3)));
-
-    for (int i = 0; i < buffer_size/4; i++)
-    {
-        if (((uint32_t *)buf)[i] != 0x5A5A5A5A)
-        {
-            log_printf("Err!!!");
-            break;
-        }
-    }
-
-    free(buf);
-
-    return (int)(t5 - t0);
-}
-
 struct cf_device
 {
     /* type b always reads from raw sectors */
@@ -200,98 +135,6 @@ static void sd_reset(struct cf_device * const dev)
     SD_ReConfiguration();
 }
 
-static int test_lo()
-{
-    int start = 1024 * 1024 * 1024 / 512;
-    void * buf = fio_malloc(buffer_size);
-    if (!buf)
-    {
-        log_printf("malloc error\n");
-        return -1;
-    }
-
-    extern struct cf_device * const sd_device[];
-    struct cf_device * const dev = (struct cf_device *) sd_device[1];
-    if (!dev)
-    {
-        log_printf("SD dev error\n");
-        return -1;
-    }
-
-    log_printf("r:");
-
-    int64_t t0 = get_us_clock();
-
-    if (dev->read_block(dev, buf, start, buffer_size / 512) != buffer_size / 512)
-    {
-        log_printf("err");
-
-        sd_reset(dev);
-
-        if (dev->read_block(dev, buf, start, buffer_size / 512) != buffer_size / 512)
-        {
-            log_printf("!!!");
-        }
-
-        free(buf);
-        return -1;
-    }
-
-    int64_t t1 = get_us_clock();
-
-    log_printf("%s/s ", format_memory_size((uint64_t) buffer_size * 1000000ull / (t1 - t0)));
-    log_printf("w:");
-
-    int64_t t2 = get_us_clock();
-
-    if (dev->write_block(dev, buf, start, buffer_size / 512) != buffer_size / 512)
-    {
-        log_printf("ERR");
-
-        sd_reset(dev);
-
-        if (dev->write_block(dev, buf, start, buffer_size / 512) != buffer_size / 512)
-        {
-            log_printf("!!!");
-        }
-
-        free(buf);
-        return -1;
-    }
-
-    int64_t t3 = get_us_clock();
-
-    log_printf("%s/s ", format_memory_size((uint64_t) buffer_size * 1000000ull / (t3 - t2)));
-
-    free(buf);
-    return (int)(t3 - t2);
-}
-
-static void test()
-{
-    int t = test_lo();
-    if (t > 0)
-    {
-        int t2 = test_fio();
-        if (t2 > 0)
-        {
-            /* seems OK */
-            if (t < uhs_best_time)
-            {
-                log_printf(" :) ");
-                uhs_best_time = t;
-                memcpy(uhs_best_vals, uhs_vals, sizeof(uhs_best_vals));
-            }
-            else
-            {
-                log_printf(" meh");
-            }
-        }
-    }
-
-    /* test_lo returns write time in microseconds */
-    log_printf(" [best %s/s]\n", format_memory_size((uint64_t) buffer_size * 1000000ull / (uhs_best_time)));
-}
 
 static int alter_byte(uint32_t pos, int delta, int force)
 {
@@ -345,9 +188,7 @@ static int alter_bit(uint32_t pos, int force)
 
 static void sd_overclock_task()
 {
-    msleep(1000);
     console_clear();
-    msleep(1000);
 
     /* init logging */
     ASSERT(log_buf == NULL);
@@ -360,24 +201,6 @@ static void sd_overclock_task()
     log_buf_size = 1024 * 1024;
     log_len = 0;
 
-    struct tm now;
-    LoadCalendarFromRTC( &now );
-
-    log_printf("\n");
-    log_printf("===================\n");
-    log_printf("%4d/%02d/%02d %02d:%02d:%02d\n",
-        now.tm_year + 1900,
-        now.tm_mon + 1,
-        now.tm_mday,
-        now.tm_hour,
-        now.tm_min,
-        now.tm_sec
-    );
-    log_printf("===================\n");
-
-    /* benchmark without the hack */
-    log_printf("This will enable SD overclock: "); test();
-
     /* install the hack */
     memcpy(uhs_vals, sdr50_700D, sizeof(uhs_vals));
     if (sd_enable_18V)
@@ -389,8 +212,6 @@ static void sd_overclock_task()
 
     /* power-cycle and reconfigure the SD card */
     SD_ReConfiguration();
-
-    /* test some presets */
 
     /* enable SDR104 */
     patch_hook_function(sd_set_function, MEM(sd_set_function), sd_set_function_log, "SDR104");
@@ -407,95 +228,9 @@ static void sd_overclock_task()
     /* start optimizing from this configuration */
     /* using "uhs_best_vals" will always tweak the best config found so far,
      * otherwise it will tweak some fixed preset */
-    uint8_t * uhs_ref_vals = (uint8_t *) uhs_best_vals;
 
-    log_printf("Trying all bytes +1...\n");
-    memcpy(uhs_vals, uhs_ref_vals, sizeof(uhs_vals));
-    for (int pos = 0; pos < COUNT(uhs_vals) * 4; pos++)
-    {
-        if (alter_byte(pos, 1, 0)) test();
-    }
 
-    log_printf("Trying all bytes -1...\n");
-    memcpy(uhs_vals, uhs_ref_vals, sizeof(uhs_vals));
-    for (int pos = 0; pos < COUNT(uhs_vals) * 4; pos++)
-    {
-        if (alter_byte(pos, -1, 0)) test();
-    }
-
-    log_printf("Trying one byte...\n");
-    for (int pos = 0; pos < COUNT(uhs_vals) * 4; pos++)
-    {
-        memcpy(uhs_vals, uhs_ref_vals, sizeof(uhs_vals));
-        if (alter_byte(pos, 1, 1)) test();
-        memcpy(uhs_vals, uhs_ref_vals, sizeof(uhs_vals));
-        if (alter_byte(pos, -1, 1)) test();
-    }
-
-    log_printf("Trying two bytes...\n");
-    for (int pos1 = 0; pos1 < COUNT(uhs_vals) * 4; pos1++)
-    {
-        for (int pos2 = pos1 + 1; pos2 < COUNT(uhs_vals) * 4; pos2++)
-        {
-            memcpy(uhs_vals, uhs_ref_vals, sizeof(uhs_vals));
-            if (alter_2_bytes(pos1, pos2, 1)) test();
-            memcpy(uhs_vals, uhs_ref_vals, sizeof(uhs_vals));
-            if (alter_2_bytes(pos1, pos2, -1)) test();
-        }
-    }
-
-    log_printf("Trying random... (half-shutter to stop)\n");
-
-    /* stop random poking on half-shutter press */
-    while (!get_halfshutter_pressed())
-    {
-        for (int k = 0; k < 10; k++)
-        {
-            /* flip random bits (tweakable only) */
-            memcpy(uhs_vals, uhs_ref_vals, sizeof(uhs_vals));
-            /* how many bits to flip? (not too many) */
-            int n = (rand() % COUNT(uhs_vals)) + 1;
-            for (int i = 0; i < n; i++)
-            {
-                while (!alter_bit(rand() % (COUNT(uhs_vals) * 32), 0));
-            }
-            test();
-            if (get_halfshutter_pressed()) break;
-        }
-
-        if (1)
-        {
-            /* flip random bits (try all) */
-            memcpy(uhs_vals, uhs_ref_vals, sizeof(uhs_vals));
-            int n = (rand() % COUNT(uhs_vals)) + 1;
-            for (int i = 0; i < n; i++)
-            {
-                while (!alter_bit(rand() % (COUNT(uhs_vals) * 32), 1));
-            }
-            test();
-        }
-
-        if (1)
-        {
-            /* random bytes +/- 1 */
-            memcpy(uhs_vals, uhs_ref_vals, sizeof(uhs_vals));
-            int n = (rand() % COUNT(uhs_vals) * 4) + 1;
-            for (int i = 0; i < n; i++)
-            {
-                while (!alter_byte(rand() % (COUNT(uhs_vals) * 4), rand() % 2 ? 1 : -1, 1));
-            }
-            test();
-        }
-    }
-
-    log_printf("Best parameters: \n");
-    for (int i = 0; i < COUNT(uhs_best_vals); i++)
-    {
-        log_printf("[%X]: %X\n", uhs_regs[i], uhs_best_vals[i]);
-    }
     memcpy(uhs_vals, uhs_best_vals, sizeof(uhs_vals));
-    log_printf("Best: "); test();
-    log_printf("Best: "); test();
 
 end:
  /* log_printf("\n");
@@ -504,10 +239,10 @@ end:
     log_printf("\n"); */
 
     /* save log file */
-    ASSERT(log_buf && log_buf_size && log_len);
-    FILE * log = FIO_CreateFileOrAppend("ML/LOGS/SD_UHS.LOG");
-    FIO_WriteFile(log, log_buf, log_len);
-    FIO_CloseFile(log);
+   // ASSERT(log_buf && log_buf_size && log_len);
+   // FILE * log = FIO_CreateFileOrAppend("ML/LOGS/SD_UHS.LOG");
+   // FIO_WriteFile(log, log_buf, log_len);
+   // FIO_CloseFile(log);
 
     /* cleanup */
     free(log_buf);
