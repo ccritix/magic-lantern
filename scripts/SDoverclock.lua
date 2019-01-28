@@ -18,9 +18,11 @@ if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA L
     msleep(1000)
     menu.set("Movie", "RAW video", "ON")
     menu.select("Movie", "RAW video")
+  if menu.get("Movie", "Crop mode", "") ~= "OFF" then
     menu.open()
     msleep(100)
     menu.close()
+  end
  display.notify_box("patched")
   end
  else
