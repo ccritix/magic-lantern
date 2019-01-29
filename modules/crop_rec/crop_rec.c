@@ -468,7 +468,6 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	if (ratios == 0x1)
     	{
       	skip_right     = 20;
-      	skip_bottom     = 10;
     	}
 	break;
 
@@ -2818,7 +2817,7 @@ static inline uint32_t reg_override_3x3_48_50fps_eosm(uint32_t reg, uint32_t old
   {
     switch (reg)
     {
-        	case 0xC0F06804: return 0x30101d4 + reg_6804_width + (reg_6804_height << 16); 		
+        	case 0xC0F06804: return 0x2f701d4 + reg_6804_width + (reg_6804_height << 16); 		
         	case 0xC0F0713c: return 0x334+ reg_713c;
 		case 0xC0F07150: return 0x2fa+ reg_7150;
 
@@ -2834,7 +2833,7 @@ static inline uint32_t reg_override_3x3_48_50fps_eosm(uint32_t reg, uint32_t old
 		case 0xC0F06830: return 0x206;
 
 /* dummy reg for height modes eosm in raw.c */
-		case 0xC0f0b13c: return 0xc;
+		case 0xC0f0b13c: return 0xe;
     }
   }
 
