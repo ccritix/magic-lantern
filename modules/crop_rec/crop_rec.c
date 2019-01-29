@@ -2822,10 +2822,10 @@ static inline uint32_t reg_override_3x3_48_50fps_eosm(uint32_t reg, uint32_t old
 		case 0xC0F07150: return 0x2fa+ reg_7150;
 
 	     /* 50 fps with reduced height and bottom */
-      	     	case 0xC0F06014: return 0x4c0+ reg_6014;
-		case 0xC0F0600c: return 0x20d020d + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x20d020d + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x20d + reg_6008;
+      	     	case 0xC0F06014: return 0x4ca+ reg_6014;
+		case 0xC0F0600c: return 0x2090209 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x2090209 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x209 + reg_6008;
 
 		case 0xC0F06824: return 0x206;
 		case 0xC0F06828: return 0x206;
