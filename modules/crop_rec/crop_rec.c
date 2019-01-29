@@ -320,6 +320,7 @@ static int32_t  delta_adtg0 = 0;
 static int32_t  delta_adtg1 = 0;
 static int32_t  delta_head3 = 0;
 static int32_t  delta_head4 = 0;
+static int32_t  reg_bit_depth = 0;
 static int32_t  reg_713c = 0;
 static int32_t  reg_7150 = 0;
 static int32_t  reg_6014 = 0;
@@ -1195,37 +1196,37 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    		if (bitrate == 0x1)
     		{
 		/* 8bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 12}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 12};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 12};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 12};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 12 + reg_bit_depth}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 12 + reg_bit_depth};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 12 + reg_bit_depth};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 12 + reg_bit_depth};
 		}
 
    		if (bitrate == 0x2)
     		{
 		/* 9bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 30}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 30};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 30};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 30};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 30 + reg_bit_depth}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 30 + reg_bit_depth};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 30 + reg_bit_depth};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 30 + reg_bit_depth};
 		}
 
    		if (bitrate == 0x3)
     		{
 		/* 10bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60 + reg_bit_depth}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60 + reg_bit_depth};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60 + reg_bit_depth};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60 + reg_bit_depth};
 		}
 
     		if (bitrate == 0x4)
     		{
 		/* 12bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250 + reg_bit_depth}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250 + reg_bit_depth};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250 + reg_bit_depth};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250 + reg_bit_depth};
 		}
 
     }
@@ -3295,6 +3296,15 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Change aspect ratio\n"
             },
             {
+                .name   = "reg_bit_depth",
+                .priv   = &reg_bit_depth,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Alter bit depth",
+                .advanced = 1,
+            },
+            {
                 .name   = "reg_713c",
                 .priv   = &reg_713c,
                 .min    = -500,
@@ -3384,7 +3394,6 @@ static struct menu_entry crop_rec_menu[] =
                 .help  = "Alter width. Scrambles preview",
                 .advanced = 1,
             },
-
             {
                 .name   = "CMOS[1] lo",
                 .priv   = &cmos1_lo,
