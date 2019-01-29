@@ -2733,7 +2733,7 @@ static inline uint32_t reg_override_3x3_eosm(uint32_t reg, uint32_t old_val)
 static inline uint32_t reg_override_3x3_45fps_eosm(uint32_t reg, uint32_t old_val)
 {
 
-  if ((ratios != 0x1) && (ratios != 0x2))
+  if (ratios != 0x1)
   {
     switch (reg)
     {
@@ -2790,7 +2790,7 @@ static inline uint32_t reg_override_3x3_45fps_eosm(uint32_t reg, uint32_t old_va
 static inline uint32_t reg_override_3x3_48_50fps_eosm(uint32_t reg, uint32_t old_val)
 {
 
-  if ((ratios != 0x1) && (ratios != 0x2))
+  if (ratios != 0x1)
   {
     switch (reg)
     {
