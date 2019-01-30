@@ -2795,8 +2795,8 @@ static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old
     switch (reg)
     {
         	case 0xC0F06804: return 0x3ef01d4 + reg_6804_width + (reg_6804_height << 16); 	
-        	case 0xC0F0713c: return 0x3eb+ reg_713c; 
-		case 0xC0F07150: return 0x3e6+ reg_7150;
+        	case 0xC0F0713c: return 0x3e3+ reg_713c; 
+		case 0xC0F07150: return 0x3dd+ reg_7150;
 
 	     /* 46 fps */
       	     	case 0xC0F06014: return 0x539+ reg_6014;
