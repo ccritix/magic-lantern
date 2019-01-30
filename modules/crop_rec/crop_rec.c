@@ -341,7 +341,7 @@ static int32_t  reg_skip_left = 0;
 static int32_t  reg_skip_right = 0;
 static int32_t  reg_skip_top = 0;
 static int32_t  reg_skip_bottom = 0;
-static int32_t  reg_digital_gain = 0;
+static int32_t  reg_analog_gain = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -1205,37 +1205,37 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    		if (bitrate == 0x1)
     		{
 		/* 8bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 12 + reg_digital_gain}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 12 + reg_digital_gain};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 12 + reg_digital_gain};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 12 + reg_digital_gain};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 12 + reg_analog_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 12 + reg_analog_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 12 + reg_analog_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 12 + reg_analog_gain};
 		}
 
    		if (bitrate == 0x2)
     		{
 		/* 9bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 30 + reg_digital_gain}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 30 + reg_digital_gain};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 30 + reg_digital_gain};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 30 + reg_digital_gain};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 30 + reg_analog_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 30 + reg_analog_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 30 + reg_analog_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 30 + reg_analog_gain};
 		}
 
    		if (bitrate == 0x3)
     		{
 		/* 10bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60 + reg_digital_gain}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60 + reg_digital_gain};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60 + reg_digital_gain};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60 + reg_digital_gain};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60 + reg_analog_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60 + reg_analog_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60 + reg_analog_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60 + reg_analog_gain};
 		}
 
     		if (bitrate == 0x4)
     		{
 		/* 12bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250 + reg_digital_gain}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250 + reg_digital_gain};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250 + reg_digital_gain};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250 + reg_digital_gain};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250 + reg_analog_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250 + reg_analog_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250 + reg_analog_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250 + reg_analog_gain};
 		}
 
     }
@@ -2794,16 +2794,16 @@ static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old
   {
     switch (reg)
     {
-        	case 0xC0F06804: return 0x3ef01d4 + reg_6804_width + (reg_6804_height << 16); 		
+        	case 0xC0F06804: return 0x3ef01d4 + reg_6804_width + (reg_6804_height << 16); 	
         	case 0xC0F0713c: return 0x3e1+ reg_713c; 
 		case 0xC0F07150: return 0x3dc+ reg_7150; 
 
 	     /* 46 fps */
-      	     	case 0xC0F06014: return 0x508+ reg_6014; 
+      	     	case 0xC0F06014: return 0x524+ reg_6014;
  
-		case 0xC0F0600c: return 0x21b021b + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x21b021b + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x21b + reg_6008;
+		case 0xC0F0600c: return 0x20f020f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x20f020f + reg_6008 + (reg_6008 << 16); 
+		case 0xC0F06010: return 0x20f + reg_6008;
 
 		case 0xC0F06824: return 0x206;
 		case 0xC0F06828: return 0x206;
@@ -3442,8 +3442,8 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
-                .name   = "reg_digital_gain",
-                .priv   = &reg_digital_gain,
+                .name   = "reg_analog_gain",
+                .priv   = &reg_analog_gain,
                 .min    = -500,
                 .max    = 500,
                 .unit   = UNIT_DEC,
