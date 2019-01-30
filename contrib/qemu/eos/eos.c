@@ -316,6 +316,19 @@ static void eos_rom_write(void * opaque, hwaddr addr, uint64_t value, uint32_t s
             goto end;
         }
     }
+    if (strcmp(s->model->name, "4000D") == 0)
+    {
+        if (address == 0xF8000000 && size == 1 && value == 6)
+        {
+            /* Reading flash model ID? */
+            /* Startup code writes to this address, but expects to read
+             * different values: C2 25 39, 20 BB 19 or 01 02 19. */
+            msg = "Flash model ID?";
+            uint32_t model_id = 0x003825C2;
+            MEM_WRITE_ROM(address, (uint8_t *) &model_id, 4);
+            goto end;
+        }
+    }
 
     switch(size)
     {

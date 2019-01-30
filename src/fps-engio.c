@@ -263,7 +263,7 @@ static void fps_read_current_timer_values();
 #elif defined(CONFIG_50D)
     #define TG_FREQ_BASE 28800000
     #define FPS_TIMER_A_MIN MIN(fps_timer_a_orig - (ZOOM ? 0 : 10), ZOOM ? 630 : 688 )
-#elif defined(CONFIG_550D) || defined(CONFIG_600D) || defined(CONFIG_60D) || defined(CONFIG_1300D)
+#elif defined(CONFIG_550D) || defined(CONFIG_600D) || defined(CONFIG_60D)
     #define TG_FREQ_BASE 28800000
     #define FPS_TIMER_A_MIN MIN(fps_timer_a_orig - (ZOOM ? 0 : 10), ZOOM ? 734 : video_mode_crop ? (video_mode_resolution == 2 ? 400 : 560) : 0x21A)
 #endif
@@ -295,6 +295,15 @@ static void fps_read_current_timer_values();
     #define NEW_FPS_METHOD 1
     #define SENSOR_TIMING_TABLE MEM(0xC470)
     #define VIDEO_PARAMETERS_SRC_3 0x72944
+    #define TG_FREQ_BASE 28800000
+    #undef FPS_TIMER_A_MIN
+    #define FPS_TIMER_A_MIN (ZOOM ? 734 : MV1080 ? 546 :576)
+    #undef FPS_TIMER_B_MIN
+    #define FPS_TIMER_B_MIN (ZOOM ? 1312 : MV480 ? 2000 : MV720 ? 1000 : 2200)
+#elif defined(CONFIG_1300D) || defined(CONFIG_4000D)
+//    #define NEW_FPS_METHOD 1
+//    #define SENSOR_TIMING_TABLE MEM(0x4015C)
+//    #define VIDEO_PARAMETERS_SRC_3 0x6A95C
     #define TG_FREQ_BASE 28800000
     #undef FPS_TIMER_A_MIN
     #define FPS_TIMER_A_MIN (ZOOM ? 734 : MV1080 ? 546 :576)

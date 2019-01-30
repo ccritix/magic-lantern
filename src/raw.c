@@ -161,7 +161,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_LV_EDMAC 0xC0F04508
 #endif
 
-#if defined(CONFIG_500D) || defined(CONFIG_550D) || defined(CONFIG_7D) || defined(CONFIG_1300D)
+#if defined(CONFIG_500D) || defined(CONFIG_550D) || defined(CONFIG_7D) || defined(CONFIG_1300D) || defined(CONFIG_4000D)
 #define RAW_LV_EDMAC 0xC0F26008
 #endif
 
@@ -192,7 +192,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_PHOTO_EDMAC 0xc0f04208
 #endif
 
-#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_70D) || defined(CONFIG_100D) || defined(CONFIG_1300D)
+#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_70D) || defined(CONFIG_100D) || defined(CONFIG_1300D) || defined(CONFIG_4000D)
 #define RAW_PHOTO_EDMAC 0xc0f04008
 #endif
 
@@ -349,6 +349,17 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
      -819, 10000,     1944, 10000,    5931, 10000
 #endif
 
+#ifdef CONFIG_4000D
+	// PLACEHOLDER DATA FROM 600D TO BUILD HELLOWORLD
+        //~ { "Canon EOS 1300D", 0, 0x3510,
+        //~ { 6461,-907,-882,-4300,12184,2378,-819,1944,5931 } },
+    #define CAM_COLORMATRIX1                       \
+      6461, 10000,     -907, 10000,    -882, 10000,\
+    -4300, 10000,    12184, 10000,    2378, 10000, \
+     -819, 10000,     1944, 10000,    5931, 10000
+#endif
+
+
 
 struct raw_info raw_info = {
     .api_version = 1,
@@ -424,6 +435,10 @@ static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO
 #endif
 
 #ifdef CONFIG_1300D
+static int dynamic_ranges[] = {1112, 1080, 1038, 984, 917, 834, 733, 655};
+#endif
+
+#ifdef CONFIG_4000D
 static int dynamic_ranges[] = {1112, 1080, 1038, 984, 917, 834, 733, 655};
 #endif
 
