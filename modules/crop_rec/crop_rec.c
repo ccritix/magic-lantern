@@ -312,11 +312,10 @@ static int is_supported_mode()
 }
 
 static int32_t  target_yres = 0;
-static int32_t  delta_adtg0 = 0;
-static int32_t  delta_adtg1 = 0;
+// static int32_t  delta_adtg0 = 0;
+// static int32_t  delta_adtg1 = 0;
 static int32_t  delta_head3 = 0;
 static int32_t  delta_head4 = 0;
-static int32_t  reg_bit_depth = 0;
 static int32_t  reg_713c = 0;
 static int32_t  reg_7150 = 0;
 static int32_t  reg_6014 = 0;
@@ -338,6 +337,11 @@ static uint32_t cmos6 = 0;
 static uint32_t cmos7 = 0;
 static uint32_t cmos8 = 0;
 static uint32_t cmos9 = 0;
+static int32_t  reg_skip_left = 0;
+static int32_t  reg_skip_right = 0;
+static int32_t  reg_skip_top = 0;
+static int32_t  reg_skip_bottom = 0;
+static int32_t  reg_digital_gain = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -519,13 +523,12 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
       	skip_bottom     = 182;
     	}
         break;
-
     }
 
-    if (p_skip_left)   *p_skip_left    = skip_left;
-    if (p_skip_right)  *p_skip_right   = skip_right;
-    if (p_skip_top)    *p_skip_top     = skip_top;
-    if (p_skip_bottom) *p_skip_bottom  = skip_bottom;
+    if (p_skip_left)   *p_skip_left    = skip_left + reg_skip_left;
+    if (p_skip_right)  *p_skip_right   = skip_right + reg_skip_right;
+    if (p_skip_top)    *p_skip_top     = skip_top + reg_skip_top;
+    if (p_skip_bottom) *p_skip_bottom  = skip_bottom + reg_skip_bottom;
 }
 
 /* to be in sync with 0xC0F06800 */
@@ -1202,37 +1205,37 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    		if (bitrate == 0x1)
     		{
 		/* 8bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 12 + reg_bit_depth}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 12 + reg_bit_depth};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 12 + reg_bit_depth};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 12 + reg_bit_depth};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 12 + reg_digital_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 12 + reg_digital_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 12 + reg_digital_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 12 + reg_digital_gain};
 		}
 
    		if (bitrate == 0x2)
     		{
 		/* 9bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 30 + reg_bit_depth}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 30 + reg_bit_depth};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 30 + reg_bit_depth};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 30 + reg_bit_depth};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 30 + reg_digital_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 30 + reg_digital_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 30 + reg_digital_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 30 + reg_digital_gain};
 		}
 
    		if (bitrate == 0x3)
     		{
 		/* 10bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60 + reg_bit_depth}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60 + reg_bit_depth};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60 + reg_bit_depth};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60 + reg_bit_depth};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60 + reg_digital_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60 + reg_digital_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60 + reg_digital_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60 + reg_digital_gain};
 		}
 
     		if (bitrate == 0x4)
     		{
 		/* 12bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250 + reg_bit_depth}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250 + reg_bit_depth};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250 + reg_bit_depth};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250 + reg_bit_depth};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250 + reg_digital_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250 + reg_digital_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250 + reg_digital_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250 + reg_digital_gain};
 		}
 
     }
@@ -3268,15 +3271,6 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Change aspect ratio\n"
             },
             {
-                .name   = "reg_bit_depth",
-                .priv   = &reg_bit_depth,
-                .min    = -500,
-                .max    = 500,
-                .unit   = UNIT_DEC,
-                .help  = "Alter bit depth",
-                .advanced = 1,
-            },
-            {
                 .name   = "reg_713c",
                 .priv   = &reg_713c,
                 .min    = -500,
@@ -3367,23 +3361,6 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
-                .name   = "CMOS[1] lo",
-                .priv   = &cmos1_lo,
-                .max    = 63,
-                .unit   = UNIT_DEC,
-                .help   = "Start scanline (very rough). Use for vertical positioning.",
-                .advanced = 1,
-            },
-            {
-                .name   = "CMOS[1] hi",
-                .priv   = &cmos1_hi,
-                .max    = 63,
-                .unit   = UNIT_DEC,
-                .help   = "End scanline (very rough). Increase if white bar at bottom.",
-                .help2  = "Decrease if you get strange colors as you move the camera.",
-                .advanced = 1,
-            },
-            {
                 .name   = "CMOS[0]",
                 .priv   = &cmos0,
                 .max    = 0xFFF,
@@ -3465,6 +3442,51 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
+                .name   = "reg_digital_gain",
+                .priv   = &reg_digital_gain,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Alter bit depth",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_skip_left",
+                .priv   = &reg_skip_left,
+                .min    = -1000,
+                .max    = 1000,
+                .unit   = UNIT_DEC,
+                .help  = "skip left",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_skip_right",
+                .priv   = &reg_skip_right,
+                .min    = -1000,
+                .max    = 1000,
+                .unit   = UNIT_DEC,
+                .help  = "skip right",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_skip_top",
+                .priv   = &reg_skip_top,
+                .min    = -1000,
+                .max    = 1000,
+                .unit   = UNIT_DEC,
+                .help  = "skip top",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_skip_bottom",
+                .priv   = &reg_skip_bottom,
+                .min    = -1000,
+                .max    = 1000,
+                .unit   = UNIT_DEC,
+                .help  = "skip bottom",
+                .advanced = 1,
+            },
+            {
                 .name       = "Shutter range",
                 .priv       = &shutter_range,
                 .max        = 1,
@@ -3474,7 +3496,24 @@ static struct menu_entry crop_rec_menu[] =
                               "Full range: from 1/FPS to minimum exposure time allowed by hardware.",
                 .advanced = 1,
             },
+/* not used atm	{
+                .name   = "CMOS[1] lo",
+                .priv   = &cmos1_lo,
+                .max    = 63,
+                .unit   = UNIT_DEC,
+                .help   = "Start scanline (very rough). Use for vertical positioning.",
+                .advanced = 1,
+            },
             {
+                .name   = "CMOS[1] hi",
+                .priv   = &cmos1_hi,
+                .max    = 63,
+                .unit   = UNIT_DEC,
+                .help   = "End scanline (very rough). Increase if white bar at bottom.",
+                .help2  = "Decrease if you get strange colors as you move the camera.",
+                .advanced = 1,
+            },
+ 	    {
                 .name   = "Target YRES",
                 .priv   = &target_yres,
                 .update = target_yres_update,
@@ -3483,7 +3522,7 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Desired vertical resolution (only for presets with higher resolution).",
                 .help2  = "Decrease if you get corrupted frames (dial the desired resolution here).",
                 .advanced = 1,
-            },
+            }, 
             {
                 .name   = "Delta ADTG 0",
                 .priv   = &delta_adtg0,
@@ -3521,7 +3560,7 @@ static struct menu_entry crop_rec_menu[] =
                 .unit   = UNIT_DEC,
                 .help2  = "May help pushing the resolution a little. Start with small increments.",
                 .advanced = 1,
-            },
+            }, */
             MENU_ADVANCED_TOGGLE,
             MENU_EOL,
         },
