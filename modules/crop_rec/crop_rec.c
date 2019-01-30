@@ -2859,7 +2859,7 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
 		case 0xC0F06008: return 0x2470247 + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x247 + reg_6008;
 
-        	case 0xC0F0713c: return 0x7a1+ reg_713c;
+        	case 0xC0F0713c: return 0x799+ reg_713c;
 		case 0xC0F07150: return 0x791+ reg_7150;
 
 /* dummy reg for height modes eosm in raw.c */
@@ -2894,7 +2894,7 @@ only gotten one single corrupted frame from below but keep on testing */
 		case 0xC0F06008: return 0x22b022b + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x22b + reg_6008;
 
-        	case 0xC0F0713c: return 0x7f9+ reg_713c;
+        	case 0xC0F0713c: return 0x7ef+ reg_713c;
 		case 0xC0F07150: return 0x7e9+ reg_7150;
 
 /* dummy reg for height modes eosm in raw.c */
