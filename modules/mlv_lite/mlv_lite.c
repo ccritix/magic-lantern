@@ -2030,41 +2030,36 @@ static void unhack_liveview_vsync(int unused);
 static REQUIRES(LiveViewTask)
 void FAST hack_liveview_vsync()
 {
-    if (cam_5d2 || cam_50d)
-    {
-        /* try to fix pink preview in zoom mode (5D2/50D) */
-        if (lv_dispsize > 1 && !get_halfshutter_pressed())
-        {
-            if (RAW_IS_IDLE)
-            {
-                /**
-                 * This register seems to be raw type on digic 4; digic 5 has it at c0f37014
-                 * - default is 5 on 5D2 with lv_save_raw, 0xB without, 4 is lv_af_raw
-                 * - don't record this: you will have lots of bad pixels (no big deal if you can remove them)
-                 * - don't record lv_af_raw: you will have random colored dots that contain focus info; their position is not fixed, so you can't remove them
-                 * - use half-shutter heuristic for clean silent pics
-                 * 
-                 * Reason for overriding here:
-                 * - if you use lv_af_raw, you can no longer restore it when you start recording.
-                 * - if you override here, image quality is restored as soon as you stop overriding
-                 * - but pink preview is also restored, you can't have both
-                 */
-                
-                *(volatile uint32_t*)0xc0f08114 = 0;
-            }
-            else
-            {
-                /**
-                 * While recording, we will have pink image
-                 * Make it grayscale and bring the shadows down a bit
-                 * (these registers will only touch the preview, not the recorded image)
-                 */
-                *(volatile uint32_t*)0xc0f0f070 = 0x01000100;
-                //~ *(volatile uint32_t*)0xc0f0e094 = 0;
-                *(volatile uint32_t*)0xc0f0f1c4 = 0xFFFFFFFF;
-            }
-        }
-    }
+/* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */
+  if ((cam_eos_m || cam_100d) && RAW_IS_IDLE)
+  {
+     if (get_halfshutter_pressed())
+     { 
+/* EOSM 3k, 4k, anamorphic. Registry from crop_rec.c */  
+             if (shamem_read(0xC0F06804) == 0x5190310) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
+             if (shamem_read(0xC0F06804) == 0x5b90318) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
+             if (shamem_read(0xC0F06804) == 0x6c3040a) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
+             if (shamem_read(0xC0F06804) == 0xa1c0412) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
+             if (shamem_read(0xC0F06804) == 0x88501c2) *(volatile uint32_t*)0xC0F06804 = 0x88501d4; 
+
+/* 100D 3k, 4k. Registry from crop_rec.c */
+             if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x45802A1;
+             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0x45802A1;
+
+     }
+     if (!get_halfshutter_pressed())
+     { 
+/* EOSM reset regs */ 	
+             if (shamem_read(0xC0F06804) == 0x5190310) *(volatile uint32_t*)0xC0F06804 = 0x5190310; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
+             if (shamem_read(0xC0F06804) == 0x5b90318) *(volatile uint32_t*)0xC0F06804 = 0x5b90318; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
+             if (shamem_read(0xC0F06804) == 0x6c3040a) *(volatile uint32_t*)0xC0F06804 = 0x6c3040a; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
+             if (shamem_read(0xC0F06804) == 0x88501c2) *(volatile uint32_t*)0xC0F06804 = 0x88501c2; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
+             if (shamem_read(0xC0F06804) == 0xa1c0412) *(volatile uint32_t*)0xC0F06804 = 0xa1c0412; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
+/* 100D reset regs */ 	
+             if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x5b90319; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
+             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0xa1b0421; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
+     }
+  }
     
     if (!PREVIEW_HACKED) return;
     
