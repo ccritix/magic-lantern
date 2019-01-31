@@ -10,16 +10,14 @@ extern void dump_file(char* name, uint32_t addr, uint32_t size);
 extern int GetMemoryInformation(int *, int *);
 
 /* custom logging buffer */
-#ifdef LOG_EARLY_STARTUP
-static char buf[192 * 1024];        /* adjust this until it runs out of memory (512 might work, maybe more) */
-static int buf_size = sizeof(buf);
-#else
-static char * buf;                  /* we've got malloc */
+static char * buf;
 static int buf_size = 0;
+static int len = 0;
+
+#ifndef LOG_EARLY_STARTUP                  /* we've got malloc */
 extern void * _AllocateMemory(size_t);
 extern void _FreeMemory(void *);
 #endif
-static int len = 0;
 
 char* get_current_task_name()
 {
@@ -53,11 +51,13 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     if (!buf) return;
     if (buf_size - len < 100) return;
 
+#if 0
     if ((class != 0 || level != 15) && level < 3)
     {
         /* skip "unimportant" messages */
         return;
     }
+#endif
 
     uint32_t old = cli();
    
@@ -176,7 +176,7 @@ static void pre_isr_log(uint32_t isr)
 //#endif
 
     const char * name = isr_names[isr & 0x1FF];
-    //DryosDebugMsg(0, 15, "INT-%03Xh %s %X(%X)", isr, name ? name : "", handler, arg);
+    DryosDebugMsg(0, 15, ">>> INT-%03Xh %s %X(%X)", isr, name ? name : "", handler, arg);
 
     if (isr == 0x2A || isr == 0x12A || isr == 0x147 || isr == 0x1B)
     {
@@ -198,6 +198,9 @@ static void pre_isr_log(uint32_t isr)
 
 static void post_isr_log(uint32_t isr)
 {
+    const char * name = isr_names[isr & 0x1FF];
+    DryosDebugMsg(0, 15, "<<< INT-%03Xh %s", isr, name ? name : "");
+
     if (isr == 0x147)
     {
         /* expecting at most one message fully received at the end of this interrupt */
@@ -265,6 +268,17 @@ void log_start()
     buf_size = 2 * 1024 * 1024;
     qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
     buf = _AllocateMemory(buf_size);
+#else
+    #ifdef CONFIG_80D
+    /* some hardcoded address, likely unused by Canon firmware during startup and light workloads
+     * caveat: heavier workloads like burst pictures are likely to allocate memory from here,
+     * overwriting our logs (or our logs overwriting Canon's data)
+     * https://www.magiclantern.fm/forum/index.php?topic=17360.msg211065#msg211065 */
+    buf = 0x70000000;                   /* try 52B00000, 55600000, 58100000, 68000000, 6AB00000, 6D600000, 70000000, 72B00000 */
+    buf_size = 32 * 1024 * 1024;        /* actually over 40, but we don't really need that much */
+    #endif
+
+    /* other models will require different addresses; to be found experimentally */
 #endif
     qprintf("Logging buffer: %X - %X\n", buf, buf + buf_size - 1);
     qprintf("Free memory: %X\n", GetFreeMemForAllocateMemory());
