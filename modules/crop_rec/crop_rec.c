@@ -322,7 +322,12 @@ static int32_t  reg_6014 = 0;
 static int32_t  reg_6008 = 0;
 static int32_t  reg_800c = 0;
 static int32_t  reg_8000 = 0;
-static int32_t  reg_timing = 0;
+static int32_t  reg_timing1 = 0;
+static int32_t  reg_timing2 = 0;
+static int32_t  reg_timing3 = 0;
+static int32_t  reg_timing4 = 0;
+static int32_t  reg_timing5 = 0;
+static int32_t  reg_timing6 = 0;
 static int32_t  reg_6800 = 0;
 static int32_t  reg_6804_height = 0;
 static int32_t  reg_6804_width = 0;
@@ -1346,27 +1351,27 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     if ((1) && !(CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) && !(CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D))
     {
         /* assuming FPS timer B was overridden before this */
-        int fps_timer_b = (shamem_read(0xC0F06014) & (0xFFFF + reg_timing));
+        int fps_timer_b = (shamem_read(0xC0F06014) & (0xFFFF + reg_timing5));
         int readout_end = shamem_read(is_digic4 ? 0xC0F06088 : 0xC0F06804) >> 16;
 
         /* PowerSaveTiming registers */
         /* after readout is finished, we can turn off the sensor until the next frame */
         /* we could also set these to 0; it will work, but the sensor will run a bit hotter */
         /* to be tested to find out exactly how much */
-        adtg_new[4]  = (struct adtg_new) {6, 0x8172, nrzi_encode(readout_end + 1 + reg_timing) }; /* PowerSaveTiming ON (6D/700D) */
-        adtg_new[5]  = (struct adtg_new) {6, 0x8178, nrzi_encode(readout_end + 1 + reg_timing) }; /* PowerSaveTiming ON (5D3/6D/700D) */
-        adtg_new[6]  = (struct adtg_new) {6, 0x8196, nrzi_encode(readout_end + 1 + reg_timing) }; /* PowerSaveTiming ON (5D3) */
+        adtg_new[4]  = (struct adtg_new) {6, 0x8172, nrzi_encode(readout_end + 1 + reg_timing1) }; /* PowerSaveTiming ON (6D/700D) */
+        adtg_new[5]  = (struct adtg_new) {6, 0x8178, nrzi_encode(readout_end + 1 + reg_timing1) }; /* PowerSaveTiming ON (5D3/6D/700D) */
+        adtg_new[6]  = (struct adtg_new) {6, 0x8196, nrzi_encode(readout_end + 1 + reg_timing1) }; /* PowerSaveTiming ON (5D3) */
 
-        adtg_new[7]  = (struct adtg_new) {6, 0x8173, nrzi_encode(fps_timer_b - 1 + reg_timing) }; /* PowerSaveTiming OFF (6D/700D) */
-        adtg_new[8]  = (struct adtg_new) {6, 0x8179, nrzi_encode(fps_timer_b - 5 + reg_timing) }; /* PowerSaveTiming OFF (5D3/6D/700D) */
-        adtg_new[9]  = (struct adtg_new) {6, 0x8197, nrzi_encode(fps_timer_b - 5 + reg_timing) }; /* PowerSaveTiming OFF (5D3) */
+        adtg_new[7]  = (struct adtg_new) {6, 0x8173, nrzi_encode(fps_timer_b - 1 + reg_timing3) }; /* PowerSaveTiming OFF (6D/700D) */
+        adtg_new[8]  = (struct adtg_new) {6, 0x8179, nrzi_encode(fps_timer_b - 5 + reg_timing2) }; /* PowerSaveTiming OFF (5D3/6D/700D) */
+        adtg_new[9]  = (struct adtg_new) {6, 0x8197, nrzi_encode(fps_timer_b - 5 + reg_timing2) }; /* PowerSaveTiming OFF (5D3) */
 
-        adtg_new[10] = (struct adtg_new) {6, 0x82B6, nrzi_encode(readout_end - 1 + reg_timing) }; /* PowerSaveTiming ON? (700D); 2 units below the "ON" timing from above */
+        adtg_new[10] = (struct adtg_new) {6, 0x82B6, nrzi_encode(readout_end - 1 + reg_timing6) }; /* PowerSaveTiming ON? (700D); 2 units below the "ON" timing from above */
 
         /* ReadOutTiming registers */
         /* these shouldn't be 0, as they affect the image */
-        adtg_new[11] = (struct adtg_new) {6, 0x82F8, nrzi_encode(readout_end + 1 + reg_timing) }; /* ReadOutTiming */
-        adtg_new[12] = (struct adtg_new) {6, 0x82F9, nrzi_encode(fps_timer_b - 1 + reg_timing) }; /* ReadOutTiming end? */
+        adtg_new[11] = (struct adtg_new) {6, 0x82F8, nrzi_encode(readout_end + 1 + reg_timing4) }; /* ReadOutTiming */
+        adtg_new[12] = (struct adtg_new) {6, 0x82F9, nrzi_encode(fps_timer_b - 1 + reg_timing4) }; /* ReadOutTiming end? */
     }
 
     while(*data_buf != 0xFFFFFFFF)
@@ -3325,15 +3330,6 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
-                .name   = "reg_timing",
-                .priv   = &reg_timing,
-                .min    = -500,
-                .max    = 500,
-                .unit   = UNIT_DEC,
-                .help  = "powerSaveTiming registers",
-                .advanced = 1,
-            },
-            {
                 .name   = "reg_6800",
                 .priv   = &reg_6800,
                 .min    = -500,
@@ -3448,6 +3444,60 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help  = "Alter bit depth",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing1",
+                .priv   = &reg_timing1,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 8172, 8178, 8196",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing2",
+                .priv   = &reg_timing2,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 8179, 8197",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing3",
+                .priv   = &reg_timing3,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 8173",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing4",
+                .priv   = &reg_timing4,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 82f8, 82f9",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing5",
+                .priv   = &reg_timing5,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 6014",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing6",
+                .priv   = &reg_timing6,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 82b6",
                 .advanced = 1,
             },
             {
