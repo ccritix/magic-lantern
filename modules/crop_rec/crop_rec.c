@@ -3639,6 +3639,10 @@ if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 {
 lv_dispsize = 5;
 }
+else
+{
+set_lv_zoom(1);
+}
 
     if (CROP_PRESET_MENU)
     {
