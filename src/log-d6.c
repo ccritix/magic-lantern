@@ -274,7 +274,7 @@ void log_start()
      * caveat: heavier workloads like burst pictures are likely to allocate memory from here,
      * overwriting our logs (or our logs overwriting Canon's data)
      * https://www.magiclantern.fm/forum/index.php?topic=17360.msg211065#msg211065 */
-    buf = 0x70000000;                   /* try 52B00000, 55600000, 58100000, 68000000, 6AB00000, 6D600000, 70000000, 72B00000 */
+    buf = 0x30000000;                   /* try 12B00000, 15600000, 18100000, 28000000, 2AB00000, 2D600000, 30000000, 32B00000 */
     buf_size = 32 * 1024 * 1024;        /* actually over 40, but we don't really need that much */
     #endif
 
@@ -323,6 +323,7 @@ void log_finish()
     DryosDebugMsg(0, 15, "Free memory: %d bytes.", GetFreeMemForAllocateMemory());
 
     qprintf("Saving log %X size %X...\n", buf, len);
+    sync_caches();
     dump_file("DEBUGMSG.LOG", (uint32_t) buf, len);
 
     pre_isr_hook = 0;
