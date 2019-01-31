@@ -3636,12 +3636,15 @@ if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_1080K_100D))
-{
-lv_dispsize = 5;
-}
-else
-{
-set_lv_zoom(1);
+  {
+  lv_dispsize = 5;
+  }
+  else
+  {
+  if (is_EOSM || is_100D)
+  {
+  set_lv_zoom(1);
+  }
 }
 
     if (CROP_PRESET_MENU)
