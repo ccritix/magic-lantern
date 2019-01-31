@@ -2718,10 +2718,10 @@ static inline uint32_t reg_override_3x3_mv1080_eosm(uint32_t reg, uint32_t old_v
   {
     switch (reg)
     {
-        	case 0xC0F06014: return 0x9dc+ reg_6014;
-		case 0xC0F0600c: return 0x20f020f + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x20f020f + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x20f + reg_6008;
+        	case 0xC0F06014: return 0xa03+ reg_6014;
+		case 0xC0F0600c: return 0x2070207 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x2070207 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x207 + reg_6008;
     }
   }
 
@@ -2729,7 +2729,7 @@ static inline uint32_t reg_override_3x3_mv1080_eosm(uint32_t reg, uint32_t old_v
     {
         	case 0xC0F06804: return 0x4a701d4 + reg_6804_width + (reg_6804_height << 16); 		
         	case 0xC0F0713c: return 0x4a7+ reg_713c;
-		case 0xC0F07150: return 0x499+ reg_7150;
+		case 0xC0F07150: return 0x4a0+ reg_7150;
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xa;
