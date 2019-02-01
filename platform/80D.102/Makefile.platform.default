@@ -15,6 +15,14 @@ ifeq ($(ML_SRC_PROFILE),generic)
 ML_SRC_PROFILE  = minimal
 ML_MINIMAL_OBJ  = minimal-d6.o
 ML_SRC_EXTRA_OBJS += log-d6.o stdio.o
+
+# CONFIG definitions are not normally used with minimal targets
+# to use this, compile with: make CONFIG_MMIO_TRACE=y
+ifeq ($(CONFIG_MMIO_TRACE),y)
+CFLAG_USER += -DCONFIG_MMIO_TRACE
+ML_SRC_EXTRA_OBJS += io_trace.o
+endif
+
 endif
 
 ML_BOOT_OBJ     = boot-d6.o
