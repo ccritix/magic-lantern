@@ -317,14 +317,14 @@ void log_start()
 #endif
 
     //dm_set_store_level(255, 1);
-    //DryosDebugMsg(0, 15, "Logging started.");
+    DryosDebugMsg(0, 15, "Logging started.");
     //DryosDebugMsg(0, 15, "Free memory: %d bytes.", GetFreeMemForAllocateMemory());
 }
 
 void log_finish()
 {
 #ifdef CONFIG_MMIO_TRACE
-    //io_trace_uninstall();
+    io_trace_uninstall();
 #endif
 
     //dm_set_store_level(255, 15);

@@ -124,7 +124,7 @@ static void __attribute__ ((naked)) trap()
     /* data abort exception occurred. switch stacks, log the access,
      * enable permissions and re-execute trapping instruction */
     asm(
-        /* set up a stack in some unused area in the TCM (we need 56 bytes) */
+        /* set up a stack in some unused area in the TCM (we need 60 bytes) */
 #ifdef CONFIG_DIGIC_VI
         "MOV    SP,     #0x0000FF00\n"
         "ORR    SP, SP, #0x80000000\n"
@@ -132,15 +132,49 @@ static void __attribute__ ((naked)) trap()
         "MOV    SP, #0x740\n"
 #endif
 
-        /* save context */
+        /* save context, including flags */
         "STMFD  SP!, {R0-R12, LR}\n"
+        "MRS    R0,  CPSR\n"
+        "STMFD  SP!, {R0}\n"
 
-        /* retrieve PC where the exception happened */
-        "SUB    R5, LR, #8\n"
+        /* prepare to re-execute the old instruction */
+        /* copy it into this routine (cacheable memory) */
+        "SUB    R5, LR, #8\n"           /* retrieve PC where the exception happened */
+        "LDR    R6, [R5]\n"             /* read the old instruction */
 
-        /* disable our memory protection region for re-execution */
-        /* caveat: it will be permanently disabled for further MMIO events */
+#ifdef CONFIG_DIGIC_VI
+        /* we have 3 cases:
+         * - ARM instruction (4 bytes wide)
+         * - Thumb instruction (2 bytes wide)
+         * - Thumb instruction (4 bytes wide)
+         *
+         * - ARM vs Thumb: bit 5 in SPSR is set in Thumb mode
+         * - Thumb instruction: wide if bits [15:11] of current halfword
+         *   are 0b11101/0b11110/0b11111 (A6.1 in ARMv7-AR)
+         */
+
+        /* ARM or Thumb? */
+        "MRS    R8, SPSR\n"
+        "TST    R8, #0x20\n"
+        "BNE    interrupted_thumb\n"
+#endif /* CONFIG_DIGIC_VI */
+
+        /* ARM code interrupted */
+        "interrupted_arm:\n"
+
+        /* where are we going to copy the old instruction? */
+        "ADR    R1, trapped_instruction_arm\n"
+
+        /* store the old instruction */
+        "STR    R6, [R1]\n"
+
+        /* clean the cache for this address (without touching the cache hacks),
+         * then disable our memory protection region temporarily for re-execution */
         "MOV    R0, #0x00\n"
+        "MCR    p15, 0, R1, c7, c10, 1\n"   /* first clean that address in dcache */
+        "MCR    p15, 0, R0, c7, c10, 4\n"   /* then drain write buffer */
+        "MCR    p15, 0, R1, c7, c5, 1\n"    /* flush icache line for that address */
+
 #ifdef CONFIG_DIGIC_VI
         "MOV    R7, #0x07\n"
         "MCR    p15, 0, R7, c6, c2, 0\n"    /* write RGNR (adjust memory region #7) */
@@ -150,16 +184,135 @@ static void __attribute__ ((naked)) trap()
 #endif
 
 #ifdef CONFIG_QEMU
-        "LDR    R3, =0xCF123010\n"          /* disassemble the trapped instruction */
-        "ORR    R5, R5, #1\n"               /* ... as Thumb code (comment out for ARM code) */
+        /* disassemble the instruction */
+        "LDR    R3, =0xCF123010\n"
         "STR    R5, [R3]\n"
+#endif
+
+        /* restore context */
+        /* FIXME: some instructions may change LR; this will give incorrect result, but at least it appears not to crash */
+        /* 5D3 113: 0x1C370 LDMIA R1!, {R3,R4,R12,LR} on REGION(0xC0F19000, 0x001000) when entering LiveView */
+        "LDMFD  SP!, {R0}\n"
+        "MSR    CPSR_f, R0\n"
+        "LDMFD  SP!, {R0-R12, LR}\n"
+        "STMFD  SP!, {LR}\n"
+
+        /* placeholder for executing the old instruction (as ARM) */
+        "trapped_instruction_arm:\n"
+        ".word 0x00000000\n"
+
+        /* save context once again (sans flags) */
+        "LDMFD  SP!, {LR}\n"
+        "STMFD  SP!, {R0-R12, LR}\n"
+
+        /* re-enable memory protection */
+#ifdef CONFIG_DIGIC_VI
+        "LDR    R0, protected_region_size\n"
+        "MCR    p15, 0, R0, c6, c1, 2\n"
+#else /* DIGIC V and earlier */
+        "LDR    R0, protected_region\n"
+        "MCR    p15, 0, R0, c6, c7, 0\n"
 #endif
 
         /* restore context */
         "LDMFD  SP!, {R0-R12, LR}\n"
 
-        /* retry the trapped instruction */
-        "SUBS   PC, LR, #8\n"
+        /* continue the execution after the trapped instruction */
+        "SUBS   PC, LR, #4\n"
+
+        /* ------------------------------------------ */
+
+        "destination:\n"
+        ".word 0x00000000\n"
+
+        /* ARM code path finished */
+        /* FIXME: reduce amount of duplicate code */
+        /* ----------------------------------------------------- */
+
+#ifdef CONFIG_DIGIC_VI
+        /* Thumb code interrupted */
+        "interrupted_thumb:\n"
+
+        /* where are we going to copy the old instruction? */
+        "ADR    R1, trapped_instruction_thumb\n"
+
+        /* for "narrow" Thumb instructions, replace the upper 16 bits with a NOP */
+        /* the old instruction is in R6 */
+        "AND    R7, R6, #0xF800\n"
+        "CMP    R7, #0xF800\n"
+        "CMPNE  R7, #0xF000\n"
+        "CMPNE  R7, #0xE800\n"
+        "BICNE  R6, #0xFF000000\n"
+        "BICNE  R6, #0x00FF0000\n"
+        "ORRNE  R6, #0xBF000000\n"
+
+        /* store the old instruction */
+        "STR    R6, [R1]\n"
+
+        /* adjust LR for next instruction, if we have interrupted a "narrow" one */
+        "SUBNE  LR, LR, #2\n"
+        "STRNE  LR, [SP, #0x38]\n"
+
+        /* clean the cache for this address (without touching the cache hacks),
+         * then disable our memory protection region temporarily for re-execution */
+        "MOV    R0, #0x00\n"
+        "MCR    p15, 0, R1, c7, c10, 1\n"   /* first clean that address in dcache */
+        "MCR    p15, 0, R0, c7, c10, 4\n"   /* then drain write buffer */
+        "MCR    p15, 0, R1, c7, c5, 1\n"    /* flush icache line for that address */
+        "MOV    R7, #0x07\n"
+        "MCR    p15, 0, R7, c6, c2, 0\n"    /* write RGNR (adjust memory region #7) */
+        "MCR    p15, 0, R0, c6, c1, 2\n"    /* enable full access to memory (disable region #7) */
+
+#ifdef CONFIG_QEMU
+        /* disassemble the instruction (as Thumb) */
+        "LDR    R3, =0xCF123010\n"
+        "ORR    R0, R5, #1\n"
+        "STR    R0, [R3]\n"
+#endif
+
+        /* switch to Thumb mode */
+        "MOV    R12, PC\n"
+        "ADD    R12, #5\n"
+        "BX     R12\n"
+        ".code  16\n"
+        ".syntax unified\n"
+
+        /* restore context */
+        /* FIXME: some instructions may change LR; this will give incorrect result, but at least it appears not to crash */
+        /* 5D3 113: 0x1C370 LDMIA R1!, {R3,R4,R12,LR} on REGION(0xC0F19000, 0x001000) when entering LiveView */
+        "NOP\n"
+        "LDMFD  SP!, {R0}\n"
+        "MSR    CPSR_f, R0\n"
+        "LDMFD  SP!, {R0-R12, LR}\n"
+        "STMFD  SP!, {LR}\n"
+
+        /* placeholder for executing the old instruction (as Thumb) */
+        "trapped_instruction_thumb:\n"
+        ".word 0x00000000\n"
+
+        /* back to ARM mode */
+        /* careful with alignment */
+        "BX     PC\n"
+        ".code  32\n"
+
+        /* save context once again (sans flags) */
+        "LDMFD  SP!, {LR}\n"
+        "STMFD  SP!, {R0-R12, LR}\n"
+
+        /* re-enable memory protection */
+        "LDR    R0, protected_region_size\n"
+        "MCR    p15, 0, R0, c6, c1, 2\n"
+
+        /* restore context */
+        "LDMFD  SP!, {R0-R12, LR}\n"
+
+        /* continue the execution after the trapped instruction */
+        /* note: LR was adjusted earlier for "narrow" instructions */
+        "SUBS   PC, LR, #4\n"
+
+        /* Thumb code path finished */
+        /* ----------------------------------------------------- */
+#endif  /* CONFIG_DIGIC_VI */
     );
 }
 
