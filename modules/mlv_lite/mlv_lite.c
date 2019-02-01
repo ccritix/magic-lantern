@@ -2031,7 +2031,7 @@ static REQUIRES(LiveViewTask)
 void FAST hack_liveview_vsync()
 {
 /* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */
-  if ((cam_eos_m || cam_100d) && RAW_IS_IDLE && PREVIEW_ML)
+  if ((cam_eos_m) && RAW_IS_IDLE && PREVIEW_ML)
   {
      if (get_halfshutter_pressed())
      { 
@@ -2041,10 +2041,9 @@ void FAST hack_liveview_vsync()
              if (shamem_read(0xC0F06804) == 0x6c3040a) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
              if (shamem_read(0xC0F06804) == 0xa1c0412) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
              if (shamem_read(0xC0F06804) == 0x88501c2) *(volatile uint32_t*)0xC0F06804 = 0x88501d4; 
-
-/* 100D 3k, 4k. Registry from crop_rec.c */
+/* 100D 3k, 4k. Registry from crop_rec.c / Needs more tests, not working atm.
              if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x45802A1;
-             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0x45802A1;
+             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0x45802A1; */
 
      }
      if (!get_halfshutter_pressed())
@@ -2055,9 +2054,9 @@ void FAST hack_liveview_vsync()
              if (shamem_read(0xC0F06804) == 0x6c3040a) *(volatile uint32_t*)0xC0F06804 = 0x6c3040a; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
              if (shamem_read(0xC0F06804) == 0x88501c2) *(volatile uint32_t*)0xC0F06804 = 0x88501c2; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
              if (shamem_read(0xC0F06804) == 0xa1c0412) *(volatile uint32_t*)0xC0F06804 = 0xa1c0412; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
-/* 100D reset regs */ 	
+/* 100D reset regs / Needs more tests, not working atm.	
              if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x5b90319; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
-             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0xa1b0421; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
+             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0xa1b0421; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0); */ 
      }
   }
     
