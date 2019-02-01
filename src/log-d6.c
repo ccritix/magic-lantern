@@ -61,8 +61,12 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
 #endif
 
     uint32_t old = cli();
-   
+
+#ifdef CONFIG_MMIO_TRACE
+    uint32_t us_timer = io_trace_get_timer();
+#else
     uint32_t us_timer = MEM(0xD400000C);
+#endif
 
     char* task_name = get_current_task_name();
     
