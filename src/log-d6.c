@@ -186,7 +186,7 @@ static void pre_isr_log(uint32_t isr)
         static int last_tail = 0;
         while (last_tail != mpu_send_ring_buffer_tail)
         {
-            char * last_message = &mpu_send_ring_buffer[last_tail][4];
+            const char * last_message = &mpu_send_ring_buffer[last_tail][4];
             static char msg[256];
             mpu_decode(last_message, msg, sizeof(msg));
             //qprintf("[%d] mpu_send(%s)%s\n", last_tail, msg, last_message[-2] == 1 ? "" : " ?!?");
@@ -274,7 +274,7 @@ void log_start()
      * caveat: heavier workloads like burst pictures are likely to allocate memory from here,
      * overwriting our logs (or our logs overwriting Canon's data)
      * https://www.magiclantern.fm/forum/index.php?topic=17360.msg211065#msg211065 */
-    buf = 0x30000000;                   /* try 12B00000, 15600000, 18100000, 28000000, 2AB00000, 2D600000, 30000000, 32B00000 */
+    buf = (void *) 0x30000000;          /* try 12B00000, 15600000, 18100000, 28000000, 2AB00000, 2D600000, 30000000, 32B00000 */
     buf_size = 32 * 1024 * 1024;        /* actually over 40, but we don't really need that much */
     #endif
 
