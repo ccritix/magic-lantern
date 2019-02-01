@@ -54,8 +54,8 @@
 
 #ifdef CONFIG_DIGIC_VI
 
-static ASM_VAR uint32_t protected_region_base = REGION_BASE(0xD0000000);
-static ASM_VAR uint32_t protected_region_size = REGION_SIZE(0x10000000);
+static ASM_VAR uint32_t protected_region_base = REGION_BASE(0xC0000000);
+static ASM_VAR uint32_t protected_region_size = REGION_SIZE(0x20000000);
 
 #else /* DIGIC V and earlier */
 
@@ -64,7 +64,15 @@ static ASM_VAR uint32_t protected_region = REGION(0xC0000000,
 
 #endif
 
+/* number of 32-bit integers recorded for one MMIO event (power of 2) */
+#define RECORD_SIZE 8
+
 static uint32_t trap_orig = 0;
+
+/* buffer size must be power of 2 and multiple of RECORD_SIZE, to simplify bounds checking */
+static ASM_VAR uint32_t * buffer = 0;
+static ASM_VAR uint32_t buffer_index = 0;
+static uint32_t buffer_count = 0;   /* how many uint32_t's we have allocated */
 
 /*
  * TCM usage in main firmware
@@ -137,6 +145,32 @@ static void __attribute__ ((naked)) trap()
         "MRS    R0,  CPSR\n"
         "STMFD  SP!, {R0}\n"
 
+        /* prepare to save information about trapping code */
+        "LDR    R4, buffer\n"           /* load buffer address */
+        "LDR    R2, buffer_index\n"     /* load buffer index from memory */
+        "TST    R2, #0x3FC00000\n"      /* check for buffer overflow (16MB buffer) */
+        "MOVNE  R2, #0x00400000\n"      /* we have allocated 0x400000+8 words (0x80000+1 records) */
+
+        /* store the program counter */
+        "SUB    R5, LR, #8\n"           /* retrieve PC where the exception happened */
+        "STR    R5, [R4, R2, LSL#2]\n"  /* store PC at index [0] */
+        "ADD    R2, #1\n"               /* increment index */
+
+        /* get and store DryOS task name and interrupt ID */
+        "LDR    R0, =current_task\n"
+        "LDR    R1, [R0, #4]\n"         /* 1 if running in interrupt, 0 otherwise; other values? */
+        "LDR    R0, [R0]\n"
+        "LDR    R0, [R0, #0x24]\n"
+
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store task name at index [1] */
+        "ADD    R2, #1\n"               /* increment index */
+
+        "LDR    R0, =current_interrupt\n"
+        "LDR    R0, [R0]\n"             /* interrupt ID is shifted by 2 on DIGIC 5 and earlier, but not on DIGIC 6 */
+        "ORR    R0, R1, LSL#31\n"       /* store whether the interrupt ID is valid, in the MSB */
+        "STR    R0, [R4, R2, LSL#2]\n"  /* store interrupt ID at index [2] */
+        "ADD    R2, #1\n"               /* increment index */
+
         /* prepare to re-execute the old instruction */
         /* copy it into this routine (cacheable memory) */
         "SUB    R5, LR, #8\n"           /* retrieve PC where the exception happened */
@@ -189,6 +223,37 @@ static void __attribute__ ((naked)) trap()
         "STR    R5, [R3]\n"
 #endif
 
+        /* find the source and destination registers */
+        "MOV    R1, R6, LSR#12\n"           /* extract destination register */
+        "AND    R1, #0xF\n"
+        "STR    R1, destination\n"          /* store it to memory; will use it later */
+
+#ifdef CONFIG_DIGIC_VI
+        "MRC    p15, 0, R0, c5, c0, 0\n"    /* read DFSR */
+        "STR    R0, [R4, R2, LSL#2]\n"      /* store DFSR (fault status) at index [3] */
+        "ADD    R2, #1\n"                   /* increment index */
+
+        "MRC    p15, 0, R0, c6, c0, 0\n"    /* read DFAR */
+        "STR    R0, [R4, R2, LSL#2]\n"      /* store DFAR (fault address) at index [4] */
+        "ADD    R2, #1\n"                   /* increment index */
+
+#else /* DIGIC V and earlier */
+
+        /* no DFAR; we need to manually decode the instruction to figure it out */
+        "MOV    R1, R6, LSR#16\n"           /* extract source register */
+        "AND    R1, #0xF\n"
+        "LDR    R0, [SP, R1, LSL#2]\n"      /* load source register contents from stack */
+        "STR    R0, [R4, R2, LSL#2]\n"      /* store source register at index [3] */
+        "ADD    R2, #1\n"                   /* increment index */
+
+        "AND    R1, R6, #0xF\n"             /* extract index register (only valid in "register offset" addressing modes; will decode later) */
+        "LDR    R0, [SP, R1, LSL#2]\n"      /* load index register contents from stack */
+        "STR    R0, [R4, R2, LSL#2]\n"      /* store index register at index [4] */
+        "ADD    R2, #1\n"                   /* increment index */
+#endif
+
+        "STR    R2, buffer_index\n"         /* store buffer index to memory */
+
         /* restore context */
         /* FIXME: some instructions may change LR; this will give incorrect result, but at least it appears not to crash */
         /* 5D3 113: 0x1C370 LDMIA R1!, {R3,R4,R12,LR} on REGION(0xC0F19000, 0x001000) when entering LiveView */
@@ -204,6 +269,35 @@ static void __attribute__ ((naked)) trap()
         /* save context once again (sans flags) */
         "LDMFD  SP!, {LR}\n"
         "STMFD  SP!, {R0-R12, LR}\n"
+
+#ifdef CONFIG_QEMU
+        /* print the register and value loaded from MMIO */
+        "LDR    R3, =0xCF123000\n"
+        "LDR    R0, destination\n"
+        "LDR    R0, [SP, R0, LSL#2]\n"
+        "STR    R0, [R3,#0xC]\n"
+        "MOV    R0, #10\n"
+        "STR    R0, [R3]\n"
+#endif
+
+        /* store the result (value read from / written to MMIO) */
+        "LDR    R4, buffer\n"               /* load buffer address */
+        "LDR    R2, buffer_index\n"         /* load buffer index from memory */
+        "LDR    R0, destination\n"          /* load destination register index from memory */
+        "LDR    R0, [SP, R0, LSL#2]\n"      /* load destination register contents from stack */
+        "STR    R0, [R4, R2, LSL#2]\n"      /* store destination register at index [5] */
+        "ADD    R2, #1\n"                   /* increment index */
+
+        /* timestamp the event (requires MMIO access; do this before re-enabling memory protection) */
+#ifdef CONFIG_DIGIC_VI
+        "LDR    R0, =0xD400000C\n"          /* 32-bit microsecond timer */
+#else /* DIGIC V and earlier */
+        "LDR    R0, =0xC0242014\n"          /* 20-bit microsecond timer */
+#endif
+        "LDR    R0, [R0]\n"
+        "STR    R0, [R4, R2, LSL#2]\n"      /* store timestamp at index[6]; will be unwrapped in post */
+        "ADD    R2, #2\n"                   /* increment index (total 8 = RECORD_SIZE, one position reserved for future use) */
+        "STR    R2, buffer_index\n"         /* store buffer index to memory */
 
         /* re-enable memory protection */
 #ifdef CONFIG_DIGIC_VI
@@ -270,6 +364,21 @@ static void __attribute__ ((naked)) trap()
         "STR    R0, [R3]\n"
 #endif
 
+        /* find the destination register */
+        "ANDNE  R1, R6, #0x7\n"             /* Rt, for "narrow" instruction (T1 encoding) */
+        "MOVEQ  R1, R6, LSR#28\n"           /* Rt, for "wide" instruction (T2 encoding) */
+        "STR    R1, destination\n"          /* store it to memory; will use it later */
+
+        "MRC    p15, 0, R0, c5, c0, 0\n"    /* read DFSR */
+        "STR    R0, [R4, R2, LSL#2]\n"      /* store DFSR (fault status) at index [3] */
+        "ADD    R2, #1\n"                   /* increment index */
+
+        "MRC    p15, 0, R0, c6, c0, 0\n"    /* read DFAR */
+        "STR    R0, [R4, R2, LSL#2]\n"      /* store DFAR (fault address) at index [4] */
+        "ADD    R2, #1\n"                   /* increment index */
+
+        "STR    R2, buffer_index\n"         /* store buffer index to memory */
+
         /* switch to Thumb mode */
         "MOV    R12, PC\n"
         "ADD    R12, #5\n"
@@ -299,6 +408,31 @@ static void __attribute__ ((naked)) trap()
         "LDMFD  SP!, {LR}\n"
         "STMFD  SP!, {R0-R12, LR}\n"
 
+#ifdef CONFIG_QEMU
+        /* print the register and value loaded from MMIO */
+        "LDR    R3, =0xCF123000\n"
+        "LDR    R0, destination\n"
+        "LDR    R0, [SP, R0, LSL#2]\n"
+        "STR    R0, [R3,#0xC]\n"
+        "MOV    R0, #10\n"
+        "STR    R0, [R3]\n"
+#endif
+
+        /* store the result (value read from / written to MMIO) */
+        "LDR    R4, buffer\n"               /* load buffer address */
+        "LDR    R2, buffer_index\n"         /* load buffer index from memory */
+        "LDR    R0, destination\n"          /* load destination register index from memory */
+        "LDR    R0, [SP, R0, LSL#2]\n"      /* load destination register contents from stack */
+        "STR    R0, [R4, R2, LSL#2]\n"      /* store destination register at index [5] */
+        "ADD    R2, #1\n"                   /* increment index */
+
+        /* timestamp the event (requires MMIO access; do this before re-enabling memory protection) */
+        "LDR    R0, =0xD400000C\n"          /* 32-bit microsecond timer */
+        "LDR    R0, [R0]\n"
+        "STR    R0, [R4, R2, LSL#2]\n"      /* store timestamp at index[6]; will be unwrapped in post */
+        "ADD    R2, #2\n"                   /* increment index (total 8 = RECORD_SIZE, one position reserved for future use) */
+        "STR    R2, buffer_index\n"         /* store buffer index to memory (this requires ARM mode) */
+
         /* re-enable memory protection */
         "LDR    R0, protected_region_size\n"
         "MCR    p15, 0, R0, c6, c1, 2\n"
@@ -320,9 +454,7 @@ static void __attribute__ ((naked)) trap()
 
 void io_trace_uninstall()
 {
-#if 0
     ASSERT(buffer);
-#endif
     ASSERT(trap_orig);
     ASSERT(TRAP_INSTALLED);
 
@@ -361,7 +493,6 @@ void io_trace_uninstall()
 /* to be called after uninstallation, to free the buffer */
 void io_trace_cleanup()
 {
-#if 0
     ASSERT(buffer);
     ASSERT(!TRAP_INSTALLED);
 
@@ -371,6 +502,7 @@ void io_trace_cleanup()
         return;
     }
 
+#if 0
     free(buffer);
     buffer = 0;
 #endif
@@ -385,6 +517,7 @@ void io_trace_prepare()
         qprintf("[io_trace] FIXME: large allocators not available\n");
         return;
     }
+#endif
 
     qprintf("[io_trace] allocating memory...\n");
 
@@ -393,14 +526,29 @@ void io_trace_prepare()
     buffer_count = 4*1024*1024;
     int alloc_size = (buffer_count + RECORD_SIZE) * sizeof(buffer[0]);
     ASSERT(!buffer);
+#if 0
+    /* FIXME: no large allocators yet */
     buffer = malloc(alloc_size);
+#else
+
+    #ifdef CONFIG_80D
+    /* hardcoded address, model-specific, see log_start() for details */
+    buffer = (void *) 0x28000000;
+    #endif
+
+#endif
     if (!buffer) return;
     memset(buffer, 0, alloc_size);
-#endif
 }
 
 void io_trace_install()
 {
+    if (!buffer)
+    {
+        qprintf("[io_trace] no buffer allocated\n");
+        return;
+    }
+
     qprintf("[io_trace] installing...\n");
 
     uint32_t int_status = cli();
@@ -476,16 +624,12 @@ static const char * interrupt_name(int i)
 
 uint32_t io_trace_log_get_index()
 {
-#if 0
     return buffer_index / RECORD_SIZE;
-#endif
 }
 
 uint32_t io_trace_log_get_nmax()
 {
-#if 0
     return buffer_count / RECORD_SIZE;
-#endif
 }
 
 static uint32_t ror(uint32_t word, uint32_t count)
@@ -495,10 +639,41 @@ static uint32_t ror(uint32_t word, uint32_t count)
 
 int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
 {
-#if 0
     uint32_t i = msg_index * RECORD_SIZE;
     if (i >= buffer_index) return 0;
 
+#ifdef CONFIG_DIGIC_VI
+    /* we have enough metadata, no need to decode the instructions manually */
+    uint32_t pc   = buffer[i];
+    uint32_t dfsr = buffer[i+3];
+    uint32_t dfar = buffer[i+4];
+    uint32_t val  = buffer[i+5];
+    uint32_t us   = buffer[i+6];
+
+    const char * task_name = (const char *) buffer[i+1];
+    uint32_t interrupt = buffer[i+2];
+
+    if (interrupt & 0x80000000)
+    {
+        task_name = interrupt_name(interrupt & 0xFFF);
+    }
+
+    char task_name_padded[11] = "           ";
+    int spaces = 10 - strlen(task_name);
+    if (spaces < 0) spaces = 0;
+    snprintf(task_name_padded + spaces, 11 - spaces, "%s", task_name);
+
+    int len = snprintf( msg_buffer, msg_size, "%d.%06d  %s:%08x:MMIO : ", us/1000000, us%1000000, task_name_padded, pc);
+
+    int is_ldr = (dfsr & 0x800) ? 0 : 1;
+
+    len += snprintf(msg_buffer + len, msg_size - len,
+        "[0x%08X] %s 0x%08X\n",
+        dfar,                   /* DFAR - MMIO register address */
+        is_ldr ? "->" : "<-",   /* direction (read or write), from DFSR */
+        val                     /* MMIO register value */
+    );
+#else
     uint32_t pc = buffer[i];
     uint32_t insn = MEM(pc);
     uint32_t Rn = buffer[i+3];
@@ -608,33 +783,43 @@ int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
             "[MMIO] warning: buffer full\n");
         buffer[buffer_count - RECORD_SIZE] = 0;
     }
+#endif
 
     return len;
-#endif
 }
 
 static inline void local_io_trace_pause()
 {
-#if 0
     asm volatile (
         /* enable full access to memory */
-        "MOV     r4, #0x00\n"
-        "MCR     p15, 0, r4, c6, c7, 0\n"
-        ::: "r4"
-    );
+#ifdef CONFIG_DIGIC_VI
+        "MOV    R0, #0x07\n"
+        "MCR    p15, 0, R0, c6, c2, 0\n"    /* write RGNR (adjust memory region #7) */
+        "MOV    R0, #0x00\n"
+        "MCR    p15, 0, R0, c6, c1, 2\n"    /* enable full access to memory (disable region #7) */
+#else /* DIGIC V and earlier */
+        "MOV     R0, #0x00\n"
+        "MCR     p15, 0, R0, c6, c7, 0\n"
 #endif
+        ::: "r0"
+    );
 }
 
 static inline void local_io_trace_resume()
 {
-#if 0
     asm volatile (
         /* re-enable memory protection */
-        "LDR    R4, protected_region\n"
-        "MCR    p15, 0, r4, c6, c7, 0\n"
-        ::: "r4"
-    );
+#ifdef CONFIG_DIGIC_VI
+        "MOV    R0, #0x07\n"
+        "MCR    p15, 0, R0, c6, c2, 0\n"    /* write RGNR (adjust memory region #7) */
+        "LDR    R0, protected_region_size\n"
+        "MCR    p15, 0, R0, c6, c1, 2\n"    /* enable region #7 */
+#else /* DIGIC V and earlier */
+        "LDR    R0, protected_region\n"
+        "MCR    p15, 0, R0, c6, c7, 0\n"
 #endif
+        ::: "r0"
+    );
 }
 
 /* public wrappers */
@@ -665,15 +850,48 @@ uint32_t io_trace_get_timer()
 
     if (!TRAP_INSTALLED)
     {
+#ifdef CONFIG_DIGIC_VI
+        uint32_t timer = MEM(0xD400000C);
+#else
         uint32_t timer = MEM(0xC0242014);
+#endif
         sei(old);
         return timer;
     }
 
     local_io_trace_pause();
+#ifdef CONFIG_DIGIC_VI
+    uint32_t timer = MEM(0xD400000C);
+#else
     uint32_t timer = MEM(0xC0242014);
+#endif
     local_io_trace_resume();
 
     sei(old);
     return timer;
+}
+
+void io_trace_dump()
+{
+    #ifdef CONFIG_80D
+    /* hardcoded address, model-specific, see log_start() for details */
+    char * msg_buffer = (void *) 0x2AB00000;
+    int buffer_size = 32 * 1024 * 1024;
+    #endif
+
+    int msg_len = 0;
+
+    uint32_t n = io_trace_log_get_nmax();
+    msg_len += snprintf(msg_buffer + msg_len, buffer_size - msg_len, "[MMIO] Saving %d events...\n", n);
+
+    for (uint32_t i = 0; i < n; i++)
+    {
+        char * msg = msg_buffer + msg_len;
+        msg_len += io_trace_log_message(i, msg_buffer + msg_len, buffer_size - msg_len);
+        qprintf(msg);
+    }
+
+    qprintf("Saving MMIO log %X size %X...\n", msg_buffer, msg_len);
+    extern void dump_file(char* name, uint32_t addr, uint32_t size);
+    dump_file("MMIO.LOG", (uint32_t) msg_buffer, msg_len);
 }

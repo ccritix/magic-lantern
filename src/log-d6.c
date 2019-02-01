@@ -313,6 +313,7 @@ void log_start()
     sync_caches();
 
 #ifdef CONFIG_MMIO_TRACE
+    io_trace_prepare();
     io_trace_install();
 #endif
 
@@ -325,6 +326,7 @@ void log_finish()
 {
 #ifdef CONFIG_MMIO_TRACE
     io_trace_uninstall();
+    io_trace_dump();
 #endif
 
     //dm_set_store_level(255, 15);

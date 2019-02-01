@@ -11,6 +11,9 @@ void io_trace_uninstall();
 /* free the logging buffer, completing the uninstallation */
 void io_trace_cleanup();
 
+/* dump the MMIO data to a log file */
+void io_trace_dump();
+
 #ifdef CONFIG_MMIO_TRACE
 /* return its (next) index, for syncing with dm-spy (from 0 to N-1, consecutive) */
 uint32_t io_trace_log_get_index();
