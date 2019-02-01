@@ -12,13 +12,27 @@
 
 #define ASM_VAR  __attribute__((section(".text"))) __attribute__((used))
 
-/* select the MMIO range to be logged:
- * mask FFFFF000: base address
- *      0000001E: region size (min. 4096, power of 2)
- *      00000001: enabled (must be 1)
- * ARM946E-S TRM, 2.3.9 Register 6, Protection Region Base and Size Registers
- */
-#define REGION(base, size) ((base & 0xFFFFF000) | (LOG2(size/2) << 1) | 1)
+/* select the MMIO range to be logged: */
+
+#ifdef CONFIG_DIGIC_VI
+    /* DIGIC 6 (Cortex R4):
+     * DRBAR, mask 0xFFFFFFE0: base address
+     *  DRSR, mask 0x0000003E: region size (min. 4096, power of 2)
+     *  DRSR, mask 0x00000001: enabled (must be 1)
+     *  DRSR, mask 0x0000FF00: sub-region disable bits (unused)
+     * Cortex R4 TRM, 4.3.20 c6, MPU memory region programming registers
+     */
+    #define REGION_BASE(base) (base & 0xFFFFFFE0)
+    #define REGION_SIZE(size) ((LOG2(size/2) << 1) | 1)
+#else
+    /* DIGIC V and earlier (ARM946E-S):
+     * PRBSn, mask FFFFF000: base address
+     *             0000001E: region size (min. 4096, power of 2)
+     *             00000001: enabled (must be 1)
+     * ARM946E-S TRM, 2.3.9 Register 6, Protection Region Base and Size Registers
+     */
+    #define REGION(base, size) ((base & 0xFFFFF000) | (LOG2(size/2) << 1) | 1)
+#endif
 
 /* address ranges can be found at magiclantern.wikia.com/wiki/Register_Map
  * or in QEMU source: contrib/qemu/eos/eos.c, eos_handlers
@@ -37,18 +51,20 @@
  * REGION(0xC0000000, 0x20000000): everything including EEKO? (DIGIC 5)
  * REGION(0xE0000000, 0x1000): DFE (5D2, 50D); untested
  */
-static ASM_VAR uint32_t protected_region = REGION(0xC0000000, 
+
+#ifdef CONFIG_DIGIC_VI
+
+static ASM_VAR uint32_t protected_region_base = REGION_BASE(0xD0000000);
+static ASM_VAR uint32_t protected_region_size = REGION_SIZE(0x10000000);
+
+#else /* DIGIC V and earlier */
+
+static ASM_VAR uint32_t protected_region = REGION(0xC0000000,
                                                   0x20000000);
 
-/* number of 32-bit integers recorded for one MMIO event (power of 2) */
-#define RECORD_SIZE 8
+#endif
 
 static uint32_t trap_orig = 0;
-
-/* buffer size must be power of 2 and multiple of RECORD_SIZE, to simplify bounds checking */
-static ASM_VAR uint32_t * buffer = 0;
-static ASM_VAR uint32_t buffer_index = 0;
-static uint32_t buffer_count = 0;   /* how many uint32_t's we have allocated */
 
 /*
  * TCM usage in main firmware
@@ -82,6 +98,25 @@ static uint32_t buffer_count = 0;   /* how many uint32_t's we have allocated */
  * other exception stacks are at UND:400007fc FIQ:4000077c ABT:400007bc SYS/USR:4000057c (IRQ was 4000067c)
  * these were set up from bootloader, but they are no longer valid in main firmware
  * pick SP at the bottom of the interrupt stack, roughly 0x700-0x740
+ *
+ * 80D:
+ * 00000000-00002BFF ATCM, used by Canon code
+ * 00002C00-00003FFF ATCM, unused
+ * 80000000-8000A4BF BTCM, used by Canon code
+ * 8000A4C0-8000FFFF BTCM, unused
+ *
+ * 5D4:
+ * 00000000-0000338F ATCM, used by Canon code
+ * 00003390-00003FFF ATCM, unused
+ * 80000000-80009C7F BTCM, used by Canon code
+ * 80009C80-8000FFFF BTCM, unused
+ *
+ * 750D/760D:
+ * 00000000-00003D4F ATCM, used by Canon code
+ * 00003D50-00003FFF ATCM, unused
+ * 80000000-8000923F BTCM, used by Canon code
+ * 80009240-8000FFFF BTCM, unused
+ *
  */
 
 static void __attribute__ ((naked)) trap()
@@ -90,130 +125,41 @@ static void __attribute__ ((naked)) trap()
      * enable permissions and re-execute trapping instruction */
     asm(
         /* set up a stack in some unused area in the TCM (we need 56 bytes) */
+#ifdef CONFIG_DIGIC_VI
+        "MOV    SP,     #0x0000FF00\n"
+        "ORR    SP, SP, #0x80000000\n"
+#else /* DIGIC V and earlier */
         "MOV    SP, #0x740\n"
+#endif
 
         /* save context */
         "STMFD  SP!, {R0-R12, LR}\n"
 
-        /* prepare to save information about trapping code */
-        "LDR    R4, buffer\n"           /* load buffer address */
-        "LDR    R2, buffer_index\n"     /* load buffer index from memory */
-        "MRS    R0, CPSR\n"             /* save flags */
-        "TST    R2, #0x3FC00000\n"      /* check for buffer overflow (16MB buffer) */
-        "MOVNE  R2, #0x00400000\n"      /* we have allocated 0x400000+8 words (0x80000+1 records) */
-        "MSR    CPSR_f, R0\n"           /* restore flags */
+        /* retrieve PC where the exception happened */
+        "SUB    R5, LR, #8\n"
 
-        /* store the program counter */
-        "SUB    R5, LR, #8\n"           /* retrieve PC where the exception happened */
-        "STR    R5, [R4, R2, LSL#2]\n"  /* store PC at index [0] */
-        "ADD    R2, #1\n"               /* increment index */
-
-        /* get and store DryOS task name and interrupt ID */
-        "LDR    R0, =current_task\n"
-        "LDR    R1, [R0, #4]\n"         /* 1 if running in interrupt, 0 otherwise; other values? */
-        "LDR    R0, [R0]\n"
-        "LDR    R0, [R0, #0x24]\n"
-
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store task name at index [1] */
-        "ADD    R2, #1\n"               /* increment index */
-
-        "LDR    R0, =current_interrupt\n"
-        "LDR    R0, [R0]\n"             /* interrupt ID is shifted by 2 */
-        "ORR    R0, R1\n"               /* store whether the interrupt ID is valid, in the LSB */
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store interrupt ID at index [2] */
-        "ADD    R2, #1\n"               /* increment index */
-
-        /* prepare to re-execute the old instruction */
-        /* copy it into this routine (cacheable memory) */
-        "LDR    R6, [R5]\n"
-        "ADR    R1, trapped_instruction\n"
-        "STR    R6, [R1]\n"
-
-        /* clean the cache for this address (without touching the cache hacks),
-         * then disable our memory protection region temporarily for re-execution */
+        /* disable our memory protection region for re-execution */
+        /* caveat: it will be permanently disabled for further MMIO events */
         "MOV    R0, #0x00\n"
-        "MCR    p15, 0, R1, c7, c10, 1\n"   /* first clean that address in dcache */
-        "MCR    p15, 0, R0, c7, c10, 4\n"   /* then drain write buffer */
-        "MCR    p15, 0, R1, c7, c5, 1\n"    /* flush icache line for that address */
+#ifdef CONFIG_DIGIC_VI
+        "MOV    R7, #0x07\n"
+        "MCR    p15, 0, R7, c6, c2, 0\n"    /* write RGNR (adjust memory region #7) */
+        "MCR    p15, 0, R0, c6, c1, 2\n"    /* enable full access to memory (disable region #7) */
+#else /* DIGIC V and earlier */
         "MCR    p15, 0, R0, c6, c7, 0\n"    /* enable full access to memory */
+#endif
 
 #ifdef CONFIG_QEMU
-        /* disassemble the instruction */
-        "LDR    R3, =0xCF123010\n"
+        "LDR    R3, =0xCF123010\n"          /* disassemble the trapped instruction */
+        "ORR    R5, R5, #1\n"               /* ... as Thumb code (comment out for ARM code) */
         "STR    R5, [R3]\n"
 #endif
 
-        /* find the source and destination registers */
-        "MOV    R1, R6, LSR#12\n"       /* extract destination register */
-        "AND    R1, #0xF\n"
-        "STR    R1, destination\n"      /* store it to memory; will use it later */
-
-        "MOV    R1, R6, LSR#16\n"       /* extract source register */
-        "AND    R1, #0xF\n"
-        "LDR    R0, [SP, R1, LSL#2]\n"  /* load source register contents from stack */
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store source register at index [3] */
-        "ADD    R2, #1\n"               /* increment index */
-
-        "AND    R1, R6, #0xF\n"         /* extract index register (only valid in "register offset" addressing modes; will decode later) */
-        "LDR    R0, [SP, R1, LSL#2]\n"  /* load index register contents from stack */
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store index register at index [4] */
-        "ADD    R2, #1\n"               /* increment index */
-
-        "STR    R2, buffer_index\n"     /* store buffer index to memory */
-
-        /* restore context */
-        /* FIXME: some instructions may change LR; this will give incorrect result, but at least it appears not to crash */
-        /* 5D3 113: 0x1C370 LDMIA R1!, {R3,R4,R12,LR} on REGION(0xC0F19000, 0x001000) when entering LiveView */
-        "LDMFD  SP!, {R0-R12, LR}\n"
-        "STMFD  SP!, {LR}\n"
-
-        /* placeholder for executing the old instruction */
-        "trapped_instruction:\n"
-        ".word 0x00000000\n"
-
-        /* save context once again */
-        "LDMFD  SP!, {LR}\n"
-        "STMFD  SP!, {R0-R12, LR}\n"
-
-#ifdef CONFIG_QEMU
-        /* print the register and value loaded from MMIO */
-        "LDR    R3, =0xCF123000\n"
-        "LDR    R0, destination\n"
-        "LDR    R0, [SP, R0, LSL#2]\n"
-        "STR    R0, [R3,#0xC]\n"
-        "MOV    R0, #10\n"
-        "STR    R0, [R3]\n"
-#endif
-
-        /* store the result (value read from / written to MMIO) */
-        "LDR    R4, buffer\n"           /* load buffer address */
-        "LDR    R2, buffer_index\n"     /* load buffer index from memory */
-        "LDR    R0, destination\n"      /* load destination register index from memory */
-        "LDR    R0, [SP, R0, LSL#2]\n"  /* load destination register contents from stack */
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store destination register at index [5] */
-        "ADD    R2, #1\n"               /* increment index */
-
-        /* timestamp the event (requires MMIO access; do this before re-enabling memory protection) */
-        "LDR    R0, =0xC0242014\n"      /* 20-bit microsecond timer */
-        "LDR    R0, [R0]\n"
-        "STR    R0, [R4, R2, LSL#2]\n"  /* store timestamp at index[6]; will be unwrapped in post */
-        "ADD    R2, #2\n"               /* increment index (total 8 = RECORD_SIZE, one position reserved for future use) */
-        "STR    R2, buffer_index\n"     /* store buffer index to memory */
-
-        /* re-enable memory protection */
-        "LDR    R0, protected_region\n"
-        "MCR    p15, 0, R0, c6, c7, 0\n"
-
         /* restore context */
         "LDMFD  SP!, {R0-R12, LR}\n"
 
-        /* continue the execution after the trapped instruction */
-        "SUBS   PC, LR, #4\n"
-
-        /* ------------------------------------------ */
-
-        "destination:\n"
-        ".word 0x00000000\n"
+        /* retry the trapped instruction */
+        "SUBS   PC, LR, #8\n"
     );
 }
 
@@ -221,7 +167,9 @@ static void __attribute__ ((naked)) trap()
 
 void io_trace_uninstall()
 {
+#if 0
     ASSERT(buffer);
+#endif
     ASSERT(trap_orig);
     ASSERT(TRAP_INSTALLED);
 
@@ -240,8 +188,16 @@ void io_trace_uninstall()
 
     asm(
         /* enable full access to memory */
+#ifdef CONFIG_DIGIC_VI
+        "MOV    R0, #0x07\n"
+        "MCR    p15, 0, R0, c6, c2, 0\n"    /* write RGNR (adjust memory region #7) */
+        "MOV    R0, #0x00\n"
+        "MCR    p15, 0, R0, c6, c1, 2\n"    /* enable full access to memory (disable region #7) */
+#else /* DIGIC V and earlier */
         "MOV     R0, #0x00\n"
         "MCR     p15, 0, r0, c6, c7, 0\n"
+#endif
+        ::: "r0"
     );
 
     sync_caches();
@@ -252,6 +208,7 @@ void io_trace_uninstall()
 /* to be called after uninstallation, to free the buffer */
 void io_trace_cleanup()
 {
+#if 0
     ASSERT(buffer);
     ASSERT(!TRAP_INSTALLED);
 
@@ -263,10 +220,12 @@ void io_trace_cleanup()
 
     free(buffer);
     buffer = 0;
+#endif
 }
 
 void io_trace_prepare()
 {
+#if 0
     extern int ml_started;
     if (!ml_started)
     {
@@ -284,6 +243,7 @@ void io_trace_prepare()
     buffer = malloc(alloc_size);
     if (!buffer) return;
     memset(buffer, 0, alloc_size);
+#endif
 }
 
 void io_trace_install()
@@ -301,6 +261,21 @@ void io_trace_install()
 
     /* set buffer/cache bits for the logged region */
     asm(
+#ifdef CONFIG_DIGIC_VI
+
+        /* enable memory protection */
+        "MOV    R7, #0x07\n"
+        "MCR    p15, 0, R7, c6, c2, 0\n"        /* write RGNR (adjust memory region #7) */
+        "LDR    R0, protected_region_base\n"
+        "MCR    p15, 0, R0, c6, c1, 0\n"        /* write DRBAR (base address) */
+        "LDR    R0, protected_region_size\n"
+        "MCR    p15, 0, R0, c6, c1, 2\n"        /* write DRSR (size and enable register) */
+        "MOV    R0, #0x005\n"                   /* like 0xC0000000, but with AP bits disabled */
+        "MCR    p15, 0, R0, c6, c1, 4\n"        /* write DRACR (access control register) */
+        : : : "r7"
+
+#else /* DIGIC V and earlier */
+
         /* set area uncacheable (already set up that way, but...) */
         "mrc    p15, 0, R4, c2, c0, 0\n"
         "bic    r4, #0x80\n"
@@ -324,6 +299,7 @@ void io_trace_install()
         "mcr    p15, 0, r0, c6, c7, 0\n"
 
         : : : "r4"
+#endif
     );
 
     sync_caches();
@@ -347,12 +323,16 @@ static const char * interrupt_name(int i)
 
 uint32_t io_trace_log_get_index()
 {
+#if 0
     return buffer_index / RECORD_SIZE;
+#endif
 }
 
 uint32_t io_trace_log_get_nmax()
 {
+#if 0
     return buffer_count / RECORD_SIZE;
+#endif
 }
 
 static uint32_t ror(uint32_t word, uint32_t count)
@@ -362,6 +342,7 @@ static uint32_t ror(uint32_t word, uint32_t count)
 
 int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
 {
+#if 0
     uint32_t i = msg_index * RECORD_SIZE;
     if (i >= buffer_index) return 0;
 
@@ -476,26 +457,31 @@ int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
     }
 
     return len;
+#endif
 }
 
 static inline void local_io_trace_pause()
 {
+#if 0
     asm volatile (
         /* enable full access to memory */
         "MOV     r4, #0x00\n"
         "MCR     p15, 0, r4, c6, c7, 0\n"
         ::: "r4"
     );
+#endif
 }
 
 static inline void local_io_trace_resume()
 {
+#if 0
     asm volatile (
         /* re-enable memory protection */
         "LDR    R4, protected_region\n"
         "MCR    p15, 0, r4, c6, c7, 0\n"
         ::: "r4"
     );
+#endif
 }
 
 /* public wrappers */

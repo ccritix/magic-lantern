@@ -3,6 +3,7 @@
 
 #include "dryos.h"
 #include "log-d6.h"
+#include "io_trace.h"
 
 /* fixme */
 extern __attribute__((long_call)) void DryosDebugMsg(int,int,const char *,...);
@@ -309,15 +310,23 @@ void log_start()
     mpu_recv_cbr = &mpu_recv_log;
 #endif
 
-    //dm_set_store_level(255, 1);
-    DryosDebugMsg(0, 15, "Logging started.");
-    //DryosDebugMsg(0, 15, "Free memory: %d bytes.", GetFreeMemForAllocateMemory());
-
     sync_caches();
+
+#ifdef CONFIG_MMIO_TRACE
+    io_trace_install();
+#endif
+
+    //dm_set_store_level(255, 1);
+    //DryosDebugMsg(0, 15, "Logging started.");
+    //DryosDebugMsg(0, 15, "Free memory: %d bytes.", GetFreeMemForAllocateMemory());
 }
 
 void log_finish()
 {
+#ifdef CONFIG_MMIO_TRACE
+    //io_trace_uninstall();
+#endif
+
     //dm_set_store_level(255, 15);
     DryosDebugMsg(0, 15, "Logging finished.");
     DryosDebugMsg(0, 15, "Free memory: %d bytes.", GetFreeMemForAllocateMemory());
