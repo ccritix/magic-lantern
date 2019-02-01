@@ -2031,7 +2031,7 @@ static REQUIRES(LiveViewTask)
 void FAST hack_liveview_vsync()
 {
 /* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */
-  if ((cam_eos_m || cam_100d) && RAW_IS_IDLE)
+  if ((cam_eos_m || cam_100d) && RAW_IS_IDLE && PREVIEW_ML)
   {
      if (get_halfshutter_pressed())
      { 
