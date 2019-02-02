@@ -718,7 +718,8 @@ void update_resolution_params()
         }
         else
         {
-            max_frame_size &= ~4095;
+/* is this working with reduced gain presets in crop_rec.c? Let´s try it out */
+            max_frame_size = (max_frame_size / 100 * 85) & ~4095;
         }
     }
 
