@@ -177,7 +177,7 @@ static const char * crop_choices_100d[] = {
 };
 
 static const char crop_choices_help_100d[] =
-    "Free registers if needed with canon menu button and back...";
+    "Refresh regs if needed by open and exit ML menu...";
 static const char crop_choices_help2_100d[] =
     "\n"
     "1:1 2.5K x5crop, real time preview\n"
@@ -223,7 +223,7 @@ static const char * crop_choices_eosm[] = {
 };
 
 static const char crop_choices_help_eosm[] =
-    "Free registers if needed with canon menu button and back...";
+    "Refresh regs if needed by open and exit ML menu...";
 
 static const char crop_choices_help2_eosm[] =
     "\n"
