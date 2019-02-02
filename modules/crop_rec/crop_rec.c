@@ -4039,7 +4039,6 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_1x3_17fps:
 	    case CROP_PRESET_3x3_mv1080_EOSM:
 	    case CROP_PRESET_3x3_mv1080_46_48fps_EOSM:
-	    case CROP_PRESET_3x1_mv720_50fps_EOSM:
  	    case CROP_PRESET_anamorphic_EOSM:
 	    case CROP_PRESET_1x3_100D:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
@@ -4091,7 +4090,6 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_3x1:
 	    case CROP_PRESET_3x3_mv1080_EOSM:
 	    case CROP_PRESET_3x3_mv1080_46_48fps_EOSM:
-	    case CROP_PRESET_3x1_mv720_50fps_EOSM:
             {
                 int b = (is_5D3) ? 3 : 1;
                 int s = (is_5D3) ? 0 : 2;
