@@ -710,7 +710,8 @@ void update_resolution_params()
     {
         /* assume the compressed output will not exceed uncompressed frame size */
         /* max frame size for the lossless routine also has unusual alignment requirements */
-        if (max_frame_size > 10*1024*1024)
+/* is this working with reduced gain presets in crop_rec.c for 100d and eosm? Let´s try it out */
+        if ((max_frame_size > 10*1024*1024) || (cam_eos_m || cam_100d))
         {
             /* at very high resolutions, restricting compressed frame size to 85%
              * (relative to uncompressed size) will help allocating more buffers */
@@ -718,9 +719,6 @@ void update_resolution_params()
         }
         else
         {
-/* is this working with reduced gain presets in crop_rec.c? Let´s try it out */
-            max_frame_size = (max_frame_size / 100 * 85) & ~4095;
-
           /*  max_frame_size &= ~4095; */
         }
     }
