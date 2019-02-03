@@ -711,7 +711,7 @@ void update_resolution_params()
         /* assume the compressed output will not exceed uncompressed frame size */
         /* max frame size for the lossless routine also has unusual alignment requirements */
 /* is this working with reduced gain presets in crop_rec.c for 100d and eosm? Let´s try it out */
-        if ((max_frame_size > 10*1024*1024) || (cam_eos_m || cam_100d))
+        if ((max_frame_size > 10*1024*1024) || (cam_eos_m))
         {
             /* at very high resolutions, restricting compressed frame size to 85%
              * (relative to uncompressed size) will help allocating more buffers */
@@ -4136,6 +4136,10 @@ static int raw_rec_should_preview(void)
     static int autofocusing = 0;
 
 /* fix for stuck realtime preview when wanting framing */
+    if (cam_eos_m)
+    {
+    msleep(50);
+    }
     raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
     raw_force_aspect_ratio(0, 0);
 
@@ -4145,7 +4149,7 @@ static int raw_rec_should_preview(void)
         long_halfshutter_press = 0;
         last_hs_unpress = get_ms_clock();
 /* trying a fix for stuck real time preview(only affects framing) */
-        if ((PREVIEW_ML) && (cam_eos_m || cam_100d))
+        if ((PREVIEW_ML) && (cam_eos_m))
         {
         bmp_on();
         }
@@ -4161,7 +4165,7 @@ static int raw_rec_should_preview(void)
             long_halfshutter_press = 1;
         }
 /* trying a fix for stuck real time preview(only affects framing) */
-        if ((PREVIEW_ML) && (cam_eos_m || cam_100d))
+        if ((PREVIEW_ML) && (cam_eos_m))
         {
         bmp_off();
         }
@@ -4231,9 +4235,6 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
      * Raw overlays (histogram etc) seem to be well-behaved. */
 
     take_semaphore(settings_sem, 0);
-
-    raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
-    raw_force_aspect_ratio(0, 0);
 
     /* when recording, preview both full-size buffers,
      * to make sure it's not recording every other frame */
