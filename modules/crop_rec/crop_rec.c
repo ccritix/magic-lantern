@@ -328,7 +328,6 @@ static int32_t  reg_timing3 = 0;
 static int32_t  reg_timing4 = 0;
 static int32_t  reg_timing5 = 0;
 static int32_t  reg_timing6 = 0;
-static int32_t  reg_6800 = 0;
 static int32_t  reg_6804_height = 0;
 static int32_t  reg_6804_width = 0;
 static uint32_t cmos1_lo = 0, cmos1_hi = 0;
@@ -1495,13 +1494,6 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x2020202;
     }
   }
-
-/* other regs */
-    switch (reg)
-    {
-        case 0xc0f06800:
-            return 0x10010 + reg_6800;
-    }
 
     return 0;
 }
@@ -3327,15 +3319,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help  = "x3zoom",
-                .advanced = 1,
-            },
-            {
-                .name   = "reg_6800",
-                .priv   = &reg_6800,
-                .min    = -500,
-                .max    = 500,
-                .unit   = UNIT_DEC,
-                .help  = "Top bar",
                 .advanced = 1,
             },
             {
