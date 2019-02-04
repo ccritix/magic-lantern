@@ -144,6 +144,8 @@ static CONFIG_INT("raw.dolly", dolly_mode, 0);
 #define FRAMING_CENTER (dolly_mode == 0)
 #define FRAMING_PANNING (dolly_mode == 1)
 
+static CONFIG_INT("raw.CropRecPreview", prevmode, 0);
+
 static CONFIG_INT("raw.preview", preview_mode, 0);
 #define PREVIEW_AUTO   (preview_mode == 0)
 #define PREVIEW_CANON  (preview_mode == 1)
@@ -2031,6 +2033,24 @@ static void unhack_liveview_vsync(int unused);
 static REQUIRES(LiveViewTask)
 void FAST hack_liveview_vsync()
 {
+
+/* auto set preview modes by reading registers eosm for now */
+   if (prevmode == 1)
+   {
+     /* 48 fps 2.35: real-time */
+	if ((shamem_read(0xC0F06804) == 0x2f701d4) 
+     /* mv720p 50fps 2.35: real-time */
+	|| (shamem_read(0xC0F06804) == 0x2d701d4))
+        {
+        preview_mode = 1;
+	}
+	else
+	{
+     /* anamorphic 2.35:1 framing */
+	preview_mode = 2; 
+	}
+     }
+
 /* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */
   if ((cam_eos_m || cam_100d) && RAW_IS_IDLE && PREVIEW_ML)
   {
@@ -2057,7 +2077,7 @@ void FAST hack_liveview_vsync()
              if (shamem_read(0xC0F06804) == 0xa1c0412) *(volatile uint32_t*)0xC0F06804 = 0xa1c0412; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
 /* 100D reset regs / Needs more tests, not working atm.	*/
              if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x5b90319; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
-             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0xa1b0421; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);  
+             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0xa1b0421; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0); 
      }
   }
     
@@ -3842,6 +3862,14 @@ static struct menu_entry raw_video_menu[] =
                 .depends_on = DEP_GLOBAL_DRAW,
             },
             {
+                .name = "Crop rec preview",
+                .priv = &prevmode,
+                .max = 1,
+                .choices = CHOICES("OFF", "auto mode"),
+                .help  = "Auto mode OFF\n"
+			 "Autoselect preview modes for crop rec presets. Disables Preview menu\n",
+            },
+            {
                 .name    = "Pre-record",
                 .priv    = &pre_record,
                 .max     = 10,
@@ -4362,6 +4390,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(rec_trigger)
     MODULE_CONFIG(dolly_mode)
     MODULE_CONFIG(preview_mode)
+    MODULE_CONFIG(prevmode)
     MODULE_CONFIG(use_srm_memory)
     MODULE_CONFIG(small_hacks)
     MODULE_CONFIG(warm_up)
