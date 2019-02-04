@@ -711,7 +711,7 @@ void update_resolution_params()
         /* assume the compressed output will not exceed uncompressed frame size */
         /* max frame size for the lossless routine also has unusual alignment requirements */
 /* is this working with reduced gain presets in crop_rec.c for 100d and eosm? Let´s try it out */
-        if ((max_frame_size > 10*1024*1024) || (cam_eos_m))
+        if ((max_frame_size > 10*1024*1024) || (cam_eos_m || cam_100d))
         {
             /* at very high resolutions, restricting compressed frame size to 85%
              * (relative to uncompressed size) will help allocating more buffers */
@@ -2032,7 +2032,7 @@ static REQUIRES(LiveViewTask)
 void FAST hack_liveview_vsync()
 {
 /* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */
-  if ((cam_eos_m) && RAW_IS_IDLE && PREVIEW_ML)
+  if ((cam_eos_m || cam_100d) && RAW_IS_IDLE && PREVIEW_ML)
   {
      if (get_halfshutter_pressed())
      { 
@@ -2042,9 +2042,9 @@ void FAST hack_liveview_vsync()
              if (shamem_read(0xC0F06804) == 0x6c3040a) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
              if (shamem_read(0xC0F06804) == 0xa1c0412) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
              if (shamem_read(0xC0F06804) == 0x88501c2) *(volatile uint32_t*)0xC0F06804 = 0x88501d4; 
-/* 100D 3k, 4k. Registry from crop_rec.c / Needs more tests, not working atm.
+/* 100D 3k, 4k. Registry from crop_rec.c / Needs more tests, not working atm. */
              if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x45802A1;
-             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0x45802A1; */
+             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0x45802A1; 
 
      }
      if (!get_halfshutter_pressed())
@@ -2055,9 +2055,9 @@ void FAST hack_liveview_vsync()
              if (shamem_read(0xC0F06804) == 0x6c3040a) *(volatile uint32_t*)0xC0F06804 = 0x6c3040a; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
              if (shamem_read(0xC0F06804) == 0x88501c2) *(volatile uint32_t*)0xC0F06804 = 0x88501c2; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
              if (shamem_read(0xC0F06804) == 0xa1c0412) *(volatile uint32_t*)0xC0F06804 = 0xa1c0412; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
-/* 100D reset regs / Needs more tests, not working atm.	
+/* 100D reset regs / Needs more tests, not working atm.	*/
              if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x5b90319; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
-             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0xa1b0421; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0); */ 
+             if (shamem_read(0xC0F06804) == 0xa1b0421) *(volatile uint32_t*)0xC0F06804 = 0xa1b0421; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);  
      }
   }
     
@@ -4136,10 +4136,6 @@ static int raw_rec_should_preview(void)
     static int autofocusing = 0;
 
 /* fix for stuck realtime preview when wanting framing */
-    if (cam_eos_m)
-    {
-    msleep(50);
-    }
     raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
     raw_force_aspect_ratio(0, 0);
 
@@ -4149,7 +4145,7 @@ static int raw_rec_should_preview(void)
         long_halfshutter_press = 0;
         last_hs_unpress = get_ms_clock();
 /* trying a fix for stuck real time preview(only affects framing) */
-        if ((PREVIEW_ML) && (cam_eos_m))
+        if ((PREVIEW_ML) && (cam_eos_m || cam_100d))
         {
         bmp_on();
         }
@@ -4165,7 +4161,7 @@ static int raw_rec_should_preview(void)
             long_halfshutter_press = 1;
         }
 /* trying a fix for stuck real time preview(only affects framing) */
-        if ((PREVIEW_ML) && (cam_eos_m))
+        if ((PREVIEW_ML) && (cam_eos_m || cam_100d))
         {
         bmp_off();
         }
@@ -4235,6 +4231,8 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
      * Raw overlays (histogram etc) seem to be well-behaved. */
 
     take_semaphore(settings_sem, 0);
+    raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
+    raw_force_aspect_ratio(0, 0);
 
     /* when recording, preview both full-size buffers,
      * to make sure it's not recording every other frame */
