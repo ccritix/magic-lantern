@@ -881,7 +881,7 @@ void io_trace_dump()
 
     int msg_len = 0;
 
-    uint32_t n = io_trace_log_get_nmax();
+    uint32_t n = io_trace_log_get_index();
     msg_len += snprintf(msg_buffer + msg_len, buffer_size - msg_len, "[MMIO] Saving %d events...\n", n);
 
     for (uint32_t i = 0; i < n; i++)
