@@ -132,7 +132,7 @@ static void __attribute__ ((naked)) trap()
     /* data abort exception occurred. switch stacks, log the access,
      * enable permissions and re-execute trapping instruction */
     asm(
-        /* set up a stack in some unused area in the TCM (we need 60 bytes) */
+        /* set up a stack in some unused area in the TCM (we need 64 bytes) */
 #ifdef CONFIG_DIGIC_VI
         "MOV    SP,     #0x0000FF00\n"
         "ORR    SP, SP, #0x80000000\n"
@@ -141,9 +141,19 @@ static void __attribute__ ((naked)) trap()
 #endif
 
         /* save context, including flags */
-        "STMFD  SP!, {R0-R12, LR}\n"
-        "MRS    R0,  CPSR\n"
-        "STMFD  SP!, {R0}\n"
+        "STMFD  SP!, {LR}\n"            /* LR_ABT (where the exception happened) */
+        "STMFD  SP!, {R0-R12, LR}\n"    /* R0-R12,LR of the interrupted mode (LR will be updated later) */
+        "MRS    R0,  CPSR\n"            /* read condition flags (must be done after saving R0) */
+        "STMFD  SP!, {R0}\n"            /* store condition flags on the stack */
+
+        /* save registers from the interrupted mode */
+        "MRS    R8, SPSR\n"             /* CPSR of the interrupted mode */
+        "AND    R1, R8, #0x1F\n"        /* what was the interrupted CPU mode? */
+        "ORR    R1, #0xC0\n"            /* keep the interrupts disabled and stay in ARM mode */
+        "MOV    R12, SP\n"              /* keep the SP_ABT before switching */
+        "MSR    CPSR_c, R1\n"           /* switch to the interrupted mode (it won't be user) */
+        "STR    LR, [R12, #0x38]\n"     /* store LR of the interrupted mode */
+        "MSR    CPSR_c, R0\n"           /* back to Data Abort mode */
 
         /* prepare to save information about trapping code */
         "LDR    R4, buffer\n"           /* load buffer address */
@@ -188,8 +198,7 @@ static void __attribute__ ((naked)) trap()
          */
 
         /* ARM or Thumb? */
-        "MRS    R8, SPSR\n"
-        "TST    R8, #0x20\n"
+        "TST    R8, #0x20\n"            /* R8 contains SPSR */
         "BNE    interrupted_thumb\n"
 #endif /* CONFIG_DIGIC_VI */
 
@@ -254,20 +263,16 @@ static void __attribute__ ((naked)) trap()
 
         "STR    R2, buffer_index\n"         /* store buffer index to memory */
 
-        /* restore context */
-        /* FIXME: some instructions may change LR; this will give incorrect result, but at least it appears not to crash */
-        /* 5D3 113: 0x1C370 LDMIA R1!, {R3,R4,R12,LR} on REGION(0xC0F19000, 0x001000) when entering LiveView */
+        /* restore context, with LR of interuped mode */
         "LDMFD  SP!, {R0}\n"
         "MSR    CPSR_f, R0\n"
         "LDMFD  SP!, {R0-R12, LR}\n"
-        "STMFD  SP!, {LR}\n"
 
         /* placeholder for executing the old instruction (as ARM) */
         "trapped_instruction_arm:\n"
         ".word 0x00000000\n"
 
         /* save context once again (sans flags) */
-        "LDMFD  SP!, {LR}\n"
         "STMFD  SP!, {R0-R12, LR}\n"
 
 #ifdef CONFIG_QEMU
@@ -311,6 +316,9 @@ static void __attribute__ ((naked)) trap()
         /* restore context */
         "LDMFD  SP!, {R0-R12, LR}\n"
 
+        /* restore LR_ABT (where we should continue the execution) */
+        "LDMFD  SP!, {LR}\n"
+
         /* continue the execution after the trapped instruction */
         "SUBS   PC, LR, #4\n"
 
@@ -343,9 +351,9 @@ static void __attribute__ ((naked)) trap()
         /* store the old instruction */
         "STR    R6, [R1]\n"
 
-        /* adjust LR for next instruction, if we have interrupted a "narrow" one */
+        /* adjust LR_ABT for next instruction, if we have interrupted a "narrow" one */
         "SUBNE  LR, LR, #2\n"
-        "STRNE  LR, [SP, #0x38]\n"
+        "STRNE  LR, [SP, #0x3C]\n"
 
         /* clean the cache for this address (without touching the cache hacks),
          * then disable our memory protection region temporarily for re-execution */
@@ -386,14 +394,11 @@ static void __attribute__ ((naked)) trap()
         ".code  16\n"
         ".syntax unified\n"
 
-        /* restore context */
-        /* FIXME: some instructions may change LR; this will give incorrect result, but at least it appears not to crash */
-        /* 5D3 113: 0x1C370 LDMIA R1!, {R3,R4,R12,LR} on REGION(0xC0F19000, 0x001000) when entering LiveView */
+        /* restore context, with LR of interrupted mode */
         "NOP\n"
         "LDMFD  SP!, {R0}\n"
         "MSR    CPSR_f, R0\n"
         "LDMFD  SP!, {R0-R12, LR}\n"
-        "STMFD  SP!, {LR}\n"
 
         /* placeholder for executing the old instruction (as Thumb) */
         "trapped_instruction_thumb:\n"
@@ -405,7 +410,6 @@ static void __attribute__ ((naked)) trap()
         ".code  32\n"
 
         /* save context once again (sans flags) */
-        "LDMFD  SP!, {LR}\n"
         "STMFD  SP!, {R0-R12, LR}\n"
 
 #ifdef CONFIG_QEMU
@@ -439,6 +443,9 @@ static void __attribute__ ((naked)) trap()
 
         /* restore context */
         "LDMFD  SP!, {R0-R12, LR}\n"
+
+        /* restore LR_ABT (where we should continue the execution) */
+        "LDMFD  SP!, {LR}\n"
 
         /* continue the execution after the trapped instruction */
         /* note: LR was adjusted earlier for "narrow" instructions */
