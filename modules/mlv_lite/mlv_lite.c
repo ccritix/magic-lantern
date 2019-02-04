@@ -2038,18 +2038,18 @@ void FAST hack_liveview_vsync()
    if (prevmode == 1)
    {
      /* 48 fps 2.35: real-time */
-	if ((shamem_read(0xC0F06804) == 0x2f701d4) 
-     /* mv720p 50fps 2.35: real-time */
-	|| (shamem_read(0xC0F06804) == 0x2d701d4))
-        {
-        preview_mode = 1;
-	}
-	else
-	{
+	if (shamem_read(0xC0F06804) == 0x2f701d4) preview_mode = 1; 
+	if (shamem_read(0xC0F06804) == 0x2d701d4) preview_mode = 1;
      /* anamorphic 2.35:1 framing */
-	preview_mode = 2; 
-	}
-     }
+	if (shamem_read(0xC0F06804) == 0x79f01d4) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x4a701d4) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x2e30504) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x30f040a) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x6c3040a) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x2e30504) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x5190310) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x44c0298) preview_mode = 2;
+    }
 
 /* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */
   if ((cam_eos_m || cam_100d) && RAW_IS_IDLE && PREVIEW_ML)
@@ -3867,7 +3867,7 @@ static struct menu_entry raw_video_menu[] =
                 .max = 1,
                 .choices = CHOICES("OFF", "auto mode"),
                 .help  = "Auto mode OFF\n"
-			 "Autoselect preview modes for crop rec presets. Disables Preview menu\n",
+			 "Autoselects preview modes for crop rec presets(eosm).\n", 
             },
             {
                 .name    = "Pre-record",
