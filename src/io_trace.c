@@ -301,7 +301,10 @@ static void __attribute__ ((naked)) trap()
 #endif
         "LDR    R0, [R0]\n"
         "STR    R0, [R4, R2, LSL#2]\n"      /* store timestamp at index[6]; will be unwrapped in post */
-        "ADD    R2, #2\n"                   /* increment index (total 8 = RECORD_SIZE, one position reserved for future use) */
+        "ADD    R2, #1\n"                   /* increment index */
+
+        "STR    LR, [R4, R2, LSL#2]\n"      /* store LR of the interrupted mode at index [7] */
+        "ADD    R2, #1\n"                   /* increment index (total 8 = RECORD_SIZE) */
         "STR    R2, buffer_index\n"         /* store buffer index to memory */
 
         /* re-enable memory protection */
@@ -434,7 +437,10 @@ static void __attribute__ ((naked)) trap()
         "LDR    R0, =0xD400000C\n"          /* 32-bit microsecond timer */
         "LDR    R0, [R0]\n"
         "STR    R0, [R4, R2, LSL#2]\n"      /* store timestamp at index[6]; will be unwrapped in post */
-        "ADD    R2, #2\n"                   /* increment index (total 8 = RECORD_SIZE, one position reserved for future use) */
+        "ADD    R2, #1\n"                   /* increment index */
+
+        "STR    LR, [R4, R2, LSL#2]\n"      /* store LR of the interrupted mode at index [7] */
+        "ADD    R2, #1\n"                   /* increment index (total 8 = RECORD_SIZE) */
         "STR    R2, buffer_index\n"         /* store buffer index to memory (this requires ARM mode) */
 
         /* re-enable memory protection */
@@ -656,6 +662,7 @@ int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
     uint32_t dfar = buffer[i+4];
     uint32_t val  = buffer[i+5];
     uint32_t us   = buffer[i+6];
+    uint32_t lr   = buffer[i+7];
 
     const char * task_name = (const char *) buffer[i+1];
     uint32_t interrupt = buffer[i+2];
@@ -670,7 +677,7 @@ int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
     if (spaces < 0) spaces = 0;
     snprintf(task_name_padded + spaces, 11 - spaces, "%s", task_name);
 
-    int len = snprintf( msg_buffer, msg_size, "%d.%06d  %s:%08x:MMIO : ", us/1000000, us%1000000, task_name_padded, pc);
+    int len = snprintf( msg_buffer, msg_size, "%d.%06d  %s:%08x:%08x:MMIO : ", us/1000000, us%1000000, task_name_padded, pc, lr);
 
     int is_ldr = (dfsr & 0x800) ? 0 : 1;
 
