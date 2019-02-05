@@ -30,7 +30,7 @@ if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA L
   msleep(1000)
   menu.set("Movie", "RAW video", "ON")
   msleep(300)
-  menu.set("enable SD overclocking", "Autorun", "ON")
+  menu.set("sd overclock engine", "Autorun", "ON")
  else
  display.notify_box("Please enable sd_uhs.mo")
     msleep(1000)
