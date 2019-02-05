@@ -4163,9 +4163,10 @@ static int raw_rec_should_preview(void)
     static int last_hs_unpress = 0;
     static int autofocusing = 0;
 
-/* fix for stuck realtime preview when wanting framing */
+// let´s skip this for a while. Better preview
+/* fix for stuck realtime preview when wanting framing 
     raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
-    raw_force_aspect_ratio(0, 0);
+    raw_force_aspect_ratio(0, 0); */
 
     if (!get_halfshutter_pressed())
     {
@@ -4259,8 +4260,9 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
      * Raw overlays (histogram etc) seem to be well-behaved. */
 
     take_semaphore(settings_sem, 0);
-    raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
-    raw_force_aspect_ratio(0, 0);
+// let´s skip this for a while. Better preview
+ /* raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
+    raw_force_aspect_ratio(0, 0); */ 
 
     /* when recording, preview both full-size buffers,
      * to make sure it's not recording every other frame */
