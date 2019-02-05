@@ -1,6 +1,6 @@
--- enable SD overclocking
+-- sd overclock engine
 
---[[Script will only work with modified sd_uhs module in crop_rec_4k_mlv_snd_isogain_1x3_presets]]-- 
+-- Works with sd_uhs.mo enabled 
 
   console.hide()
   msleep(200) -- let´s start off with a nap
