@@ -1,6 +1,6 @@
 -- eosm cinema 2:35.1  
 
--- Sets all parameters for anamorphic 2:35:1
+-- Sets all parameters for anamorphic 2:35.1
 
   lv.start()
   lv.zoom = 1
