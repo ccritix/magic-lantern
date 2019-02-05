@@ -161,9 +161,14 @@ static void __attribute__ ((naked)) trap()
         "TST    R2, #0x3FC00000\n"      /* check for buffer overflow (16MB buffer) */
         "MOVNE  R2, #0x00400000\n"      /* we have allocated 0x400000+8 words (0x80000+1 records) */
 
+        /* interrupted code was ARM or Thumb? */
+        "TST    R8, #0x20\n"            /* R8 contains SPSR */
+
         /* store the program counter */
         "SUB    R5, LR, #8\n"           /* retrieve PC where the exception happened */
-        "STR    R5, [R4, R2, LSL#2]\n"  /* store PC at index [0] */
+        "MOVEQ  R6, R5\n"               /* if we have interrupted ARM code, store just the PC */
+        "ORRNE  R6, R5, #1\n"           /* otherwise, store the Thumb bit as well */
+        "STR    R6, [R4, R2, LSL#2]\n"  /* store PC at index [0], possibly with the Thumb bit set */
         "ADD    R2, #1\n"               /* increment index */
 
         /* get and store DryOS task name and interrupt ID */
@@ -197,8 +202,7 @@ static void __attribute__ ((naked)) trap()
          *   are 0b11101/0b11110/0b11111 (A6.1 in ARMv7-AR)
          */
 
-        /* ARM or Thumb? */
-        "TST    R8, #0x20\n"            /* R8 contains SPSR */
+        /* last check was: TST R8, #0x20; R8 contains SPSR */
         "BNE    interrupted_thumb\n"
 #endif /* CONFIG_DIGIC_VI */
 
@@ -688,6 +692,7 @@ int io_trace_log_message(uint32_t msg_index, char * msg_buffer, int msg_size)
         val                     /* MMIO register value */
     );
 #else
+    /* assuming ARM code only */
     uint32_t pc = buffer[i];
     uint32_t insn = MEM(pc);
     uint32_t Rn = buffer[i+3];
