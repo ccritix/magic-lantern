@@ -2041,8 +2041,8 @@ void FAST hack_liveview_vsync()
 	if (shamem_read(0xC0F06804) == 0x2f701d4) preview_mode = 1; 
 	if (shamem_read(0xC0F06804) == 0x2d701d4) preview_mode = 1;
      /* anamorphic 2.35:1 framing */
+	if (shamem_read(0xC0F06804) == 0x4a701d4) preview_mode = 1;
 	if (shamem_read(0xC0F06804) == 0x79f01d4) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0x4a701d4) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x2e30504) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x30f040a) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x6c3040a) preview_mode = 2;
