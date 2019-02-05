@@ -52,8 +52,8 @@ struct nesting_level
 };
 
 struct nesting_level levels[] = {
-    { "class",    0x0F000000, 0x1F000000 },
-    { "group",    0x00FF0000 },
+    { "class",    0x0F000000, 0x1F000000 },     /* DIGIC 6 and newer models use the second one */
+    { "group",    0x00FF0000, 0x00080000 },     /* old 5D uses the second one */
     { "subgroup", 0x0000FFFF },
     { "property", 0x00000000 },
 };
@@ -134,10 +134,14 @@ static void process_property(uint32_t property, union prop_data * data, uint32_t
         case PROP_PC_FLAVOR3_PARAM:
             cam_info.picstyle_3_name = data->str + 4;
             break;
-        
+
+        case 0x1000005:
+        case 0x1000006:
         case PROP_FILE_PREFIX:
         case PROP_USER_FILE_PREFIX:
-            cam_info.file_prefix = data->str;
+            if (strlen(data->str) == 4) {
+                cam_info.file_prefix = data->str;
+            }
             break;
         
         case PROP_DCIM_DIR_SUFFIX:
@@ -449,12 +453,13 @@ static int parse_prop_group(uint32_t * buffer, int buffer_len, int status_idx, i
     return 1;
 }
 
-static void guess_offsets(uint32_t * buffer, uint32_t * status_idx, uint32_t * size_idx, uint32_t * active_flag)
+static void guess_offsets(uint32_t * buffer, uint32_t * status_idx, uint32_t * size_idx, uint32_t * active_flag, uint32_t * initial_level)
 {
     /* most models have their property data structures starting with "status" and "size" */
     *status_idx  = 0;
     *size_idx    = 1;
     *active_flag = 0xFFFF;
+    *initial_level = 0;
 
     if (buffer[0] == 2)
     {
@@ -469,6 +474,14 @@ static void guess_offsets(uint32_t * buffer, uint32_t * status_idx, uint32_t * s
         *size_idx    = 12;
         *active_flag = 0xFFFFFFFF;
     }
+    else if (buffer[1] == 0)
+    {
+        /* old 5D */
+        *status_idx = 1;
+        *size_idx = 0;
+        *active_flag = 0;
+        *initial_level = 1;
+    }
 }
 
 /* Brute force: find the offsets that look like valid property data structures */
@@ -478,8 +491,8 @@ static void guess_prop(uint32_t * buffer, uint32_t buffer_len, int active_only, 
     //~ for (uint32_t offset = 0x8fa000; offset; offset = 0)    /* for testing with some particular offset */
     for (uint32_t offset = 0; offset < buffer_len; offset += 0x100)
     {
-        uint32_t status_idx, size_idx, active_flag;
-        guess_offsets(&buffer[offset/4], &status_idx, &size_idx, &active_flag);
+        uint32_t status_idx, size_idx, active_flag, initial_level;
+        guess_offsets(&buffer[offset/4], &status_idx, &size_idx, &active_flag, &initial_level);
         uint32_t status = buffer[offset/4 + status_idx];
         uint32_t size = buffer[offset/4 + size_idx];
 
@@ -490,7 +503,7 @@ static void guess_prop(uint32_t * buffer, uint32_t buffer_len, int active_only, 
                 last_pos < buffer_len-4)                        // not out of range?
             {
                 uint32_t last = buffer[last_pos/4];
-                if (check_terminator(0, last, 0))               // terminator OK?
+                if (check_terminator(initial_level, last, 0))   // terminator OK?
                 {
                     if (verbose)
                     {
@@ -499,7 +512,7 @@ static void guess_prop(uint32_t * buffer, uint32_t buffer_len, int active_only, 
 
                     /* let's try to parse it quietly, without any messages */
                     /* if successful, will parse again with output enabled */
-                    if (parse_prop_group(buffer + offset/4, size+4, status_idx, size_idx, 0, verbose == 2, 0))
+                    if (parse_prop_group(buffer + offset/4, size+4, status_idx, size_idx, initial_level, verbose == 2, 0))
                     {
                         if (active_only && status != active_flag)
                         {
@@ -511,7 +524,7 @@ static void guess_prop(uint32_t * buffer, uint32_t buffer_len, int active_only, 
                             continue;
                         }
 
-                        parse_prop_group(buffer + offset/4, size+4, status_idx, size_idx, 0, verbose == 2, 1);
+                        parse_prop_group(buffer + offset/4, size+4, status_idx, size_idx, initial_level, verbose == 2, 1);
                     }
                 }
             }
