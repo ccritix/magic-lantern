@@ -532,6 +532,28 @@ static void guess_prop(uint32_t * buffer, uint32_t buffer_len, int active_only, 
     }
 }
 
+static void print_long_short_param(const char * name1, const char * name2, const char * name3, const char * value)
+{
+#ifdef CONFIG_MAGICLANTERN
+    extern uint32_t disp_direct_get_xres();
+    uint32_t nmax = disp_direct_get_xres() / 16;
+#else
+    int nmax = 80;
+#endif
+    if (strlen(name1) + strlen(value) + 5 < nmax)
+    {
+        printf(" - %s: %s\n", name1, value);
+    }
+    else if (strlen(name2) + strlen(value) + 5 < nmax)
+    {
+        printf(" - %s: %s\n", name2, value);
+    }
+    else
+    {
+        printf(" - %s: %s\n", name3, value);
+    }
+}
+
 static void print_camera_info()
 {
     if (strcmp(cam_info.camera_model, cam_info.camera_model_alt) == 0 ||
@@ -539,12 +561,12 @@ static void print_camera_info()
         strcmp(cam_info.camera_model_alt, "Canon EOS 60D") == 0)    /* 5D3 quirk */
     {
         /* many models use only this one */
-        printf(" - Camera model: %s\n", cam_info.camera_model);
+        print_long_short_param("Camera model", "Camera", "Cam", cam_info.camera_model);
     }
     else if (strcmp(cam_info.camera_model, "???") == 0)
     {
         /* a few models use only this one */
-        printf(" - Camera model: %s\n", cam_info.camera_model_alt);
+        print_long_short_param("Camera model", "Camera", "Cam", cam_info.camera_model_alt);
     }
     else
     {
@@ -553,11 +575,26 @@ static void print_camera_info()
         /* FIXME: result not pretty if one of the names is prefix of the other */
         int common = 0;
         while (toupper(cam_info.camera_model[common]) == toupper(cam_info.camera_model_alt[common])) common++;
-        printf(" - Camera model: %s / %s\n", cam_info.camera_model_alt, cam_info.camera_model + common);
+        char model[64];
+        snprintf(model, sizeof(model), "%s / %s", cam_info.camera_model_alt, cam_info.camera_model + common);
+        print_long_short_param("Camera model", "Camera", "Cam", model);
     }
 
-    printf(" - Firmware version: %s / %s\n", cam_info.firmware_version, cam_info.firmware_subversion);
+    if (strcmp(cam_info.firmware_subversion, "???") == 0 ||
+        strcmp(cam_info.firmware_subversion, cam_info.firmware_version) == 0)
+    {
+        /* internal version missing or identical to main version? skip it */
+        print_long_short_param("Firmware version", "Firmware", "FW", cam_info.firmware_version);
+    }
+    else
+    {
+        char fw[64];
+        snprintf(fw, sizeof(fw), "%s / %s", cam_info.firmware_version, cam_info.firmware_subversion);
+        print_long_short_param("Firmware version", "Firmware", "FW", fw);
+    }
+
     printf(" - IMG naming: 100%s/%s%04d.JPG\n", cam_info.dir_suffix, cam_info.file_prefix, cam_info.file_number);
+
 #if 0
     if (cam_info.artist[0])
     {
