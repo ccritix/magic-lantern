@@ -706,7 +706,9 @@ static void init_sector_io_stubs()
             if (write_sector < read_sector) fail();
             if (write_sector > read_sector + 1024) fail();
 
-            if (strcmp(get_model_string(), "7D2") == 0)
+            if (strcmp(get_model_string(), "7D2") == 0 ||
+                strcmp(get_model_string(), "5DS") == 0 ||
+                strcmp(get_model_string(), "5DSR") == 0)
             {
                 /* https://www.magiclantern.fm/forum/index.php?topic=13746.msg205531#msg205531 */
                 /* 1 = CF (not working); 2 = SD; 0 also works, why? */
@@ -1164,7 +1166,9 @@ static void save_file(const char * filename, void * addr, int size)
 {
     int drive = DRIVE_SD;
 
-    if (strcmp(get_model_string(), "7D2") == 0)
+    if (strcmp(get_model_string(), "7D2") == 0 ||
+        strcmp(get_model_string(), "5DS") == 0 ||
+        strcmp(get_model_string(), "5DSR") == 0)
     {
         /* https://www.magiclantern.fm/forum/index.php?topic=13746.msg205531#msg205531 */
         /* 1 = CF (not working); 2 = SD; 0 also works, why? */
