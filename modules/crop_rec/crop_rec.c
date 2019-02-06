@@ -197,8 +197,8 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
-    CROP_PRESET_4K_3x1_EOSM,
-    CROP_PRESET_5K_3x1_EOSM,
+   // CROP_PRESET_4K_3x1_EOSM,
+   // CROP_PRESET_5K_3x1_EOSM,
     CROP_PRESET_3x3_mv1080_EOSM,
     CROP_PRESET_3x3_mv1080_46_48fps_EOSM,
     CROP_PRESET_3x1_mv720_50fps_EOSM,
@@ -212,8 +212,8 @@ static const char * crop_choices_eosm[] = {
     "2.5K 2520x1418",
     "3K 3032x1436",
     "4K 4038x2558",
-    "4K 3x1 24fps",
-    "5K 3x1 24fps",
+   // "4K 3x1 24fps",
+   // "5K 3x1 24fps",
     "mv1080p 1736x1158",
     "mv1080p 1736x976 46/48fps",
     "mv720p 1736x694 50fps", 
@@ -230,8 +230,8 @@ static const char crop_choices_help2_eosm[] =
     "1:1 2K x5crop, real time preview\n"
     "1:1 3K x5crop, framing preview\n"
     "1:1 4K x5crop, framing preview\n"
-    "3:1 4K x5crop, framing preview\n"
-    "3:1 5K x5crop, framing preview\n"
+   // "3:1 4K x5crop, framing preview\n"
+   // "3:1 5K x5crop, framing preview\n"
     "mv1080p bypass mv720p idle mode\n"
     "mv1080p 46/48fps (select 2.35:1 for 48fps)\n"
     "mv720p 50fps 16:9\n"
