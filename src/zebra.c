@@ -3360,7 +3360,7 @@ static void draw_zoom_overlay(int dirty)
     uint16_t*       hdr = (uint16_t*) hd->vram;
 
     // select buffer where MZ should be written (camera-specific, guesswork)
-    #if defined(CONFIG_5D2) || defined(CONFIG_EOSM) ||defined(CONFIG_EOSM2) || defined(CONFIG_50D)
+    #if defined(CONFIG_5D2) || defined(CONFIG_EOSM) || defined(CONFIG_EOSM2) || defined(CONFIG_50D)
     #warning FIXME: this method uses busy waiting, which causes high CPU usage and overheating when using Magic Zoom
     void busy_vsync(int hd, int timeout_ms)
     {
