@@ -1,5 +1,5 @@
 /*
- *  1300D 1.1.0 consts
+ *  4000D 1.0.0 consts
  */
 
 #define CANON_SHUTTER_RATING 100000
@@ -59,8 +59,8 @@
 #define MOV_GOP_OPT_STEP 5
 
  #define AUDIO_MONITORING_HEADPHONES_CONNECTED (!((*(int*)0xc0220070) & 1))
-//#define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0x1a8c // this prop_deliver performs the action for Video Connect and Video Disconnect  // not present on 1300D (see FE0C69C8: taskHotPlug)
-//#define HOTPLUG_VIDEO_OUT_STATUS_ADDR 0x1ac4 // passed as 2nd arg to prop_deliver; 1 = display connected, 0 = not, other values disable this event (trick)  // not present on 1300D (see FE0C69C8: taskHotPlug)
+//#define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0x1a8c // this prop_deliver performs the action for Video Connect and Video Disconnect  // not present on 4000D (see FE0C69C8: taskHotPlug)
+//#define HOTPLUG_VIDEO_OUT_STATUS_ADDR 0x1ac4 // passed as 2nd arg to prop_deliver; 1 = display connected, 0 = not, other values disable this event (trick)  // not present on 4000D (see FE0C69C8: taskHotPlug)
 
 
 // 720x480, changes when external monitor is connected

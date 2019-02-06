@@ -74,7 +74,7 @@ NSTUB(0xFE2EB7F8,  GUI_SetLvMode)                           /* present on 500D.1
 
 /** ASIF **/
 // TODO:
- NSTUB(0XFE108E44,  PowerAudioOutput)                       /* not found */
+ NSTUB(0xFE108E44,  PowerAudioOutput)                       /* not found */
 NSTUB(0xFE11B938,  SetAudioVolumeOut)
 NSTUB(0xFE106A98,  SetNextASIFADCBuffer)
 NSTUB(0xFE106C80,  SetNextASIFDACBuffer)
@@ -83,7 +83,7 @@ NSTUB(0xFE105F7C,  StartASIFDMAADC)
 NSTUB(0xFE106350,  StartASIFDMADAC)
 NSTUB(0xFE1065D0,  StopASIFDMADAC)
 NSTUB(0xFE11CD04,  PowerMicAmp)                             /* present on 650D.104, EOSM.202, 700D.113 */
-// NSTUB(    ???,  SetASIFMode)                             /* present on 700D.113 */
+// NSTUB(0xFE1066F8,  SetASIFMode)                             /* present on 700D.113 */
 NSTUB(0xFE108E10,  SetAudioVolumeIn)                        /* present on 6D.113 */
 NSTUB(0xFE108A70,  SoundDevActiveIn)                        /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
 NSTUB(0xFE108CC8,  SoundDevShutDownIn)                      /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
@@ -105,7 +105,7 @@ NSTUB(   0x56240,  bmp_vram_info)
 
 /** CFN **/
 NSTUB(0xFE71C2A4,  GetCFnData)
-NSTUB(0xFE71C4D0,  SetCFnData)
+NSTUB(0xfe71c4d0,  SetCFnData)
 // NSTUB(    ???,  GUI_GetCFnForTab4)                       /* present on 7D.203 */
 // NSTUB(0xFE4716F0,  GUI_SetCFnForTab4)                    /* present on 7D.203 */
 
@@ -137,14 +137,14 @@ NSTUB(0xFE48D148,  LiveViewApp_handler)
 NSTUB(0xFE48D7B4,  LiveViewApp_handler_BL_JudgeBottomInfoDispTimerState)
 NSTUB(0xFE48EDF0,  LiveViewApp_handler_end)                 // start of next function
 NSTUB(0xFE4A8C24,  PlayMain_handler)
-NSTUB(0xFE5E7BDC,  PlayMovieGuideApp_handler)
+NSTUB(0xFE5DDE7C,  PlayMovieGuideApp_handler)
 NSTUB(0xFE49C300,  ShootOlcApp_handler)
 // NSTUB(    ???,  LiveViewLevelApp_handler)                /* present on 5D3.113 */
 // NSTUB(    ???,  LiveViewShutterApp_handler)              /* present on 6D.113, 650D.104, EOSM.202, 700D.113 */
-// NSTUB(0xFE49AA14,  LiveViewWbApp_handler)                /* present on 7D.203, 5D3.113, 5D2.212 */
+NSTUB(0xFE49AA14,  LiveViewWbApp_handler)                /* present on 7D.203, 5D3.113, 5D2.212 */
 // NSTUB(    ???,  LiveViewWifiApp_handler)                 /* present on 6D.113 */
-// NSTUB(    ???,  StartPlayProtectGuideApp)                /* present on 7D.203, 5D2.212 */
-// NSTUB(    ???,  StopPlayProtectGuideApp)                 /* present on 7D.203, 5D2.212 */
+//NSTUB(0xFE5E91B4,  StartPlayProtectGuideApp)                /* present on 7D.203, 5D2.212 */
+//NSTUB(0xFE5E8E04,  StopPlayProtectGuideApp)                 /* present on 7D.203, 5D2.212 */
 
 /** Display **/
 NSTUB(0xFE40E9E4,  MirrorDisplay)

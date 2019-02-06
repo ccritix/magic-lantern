@@ -1,8 +1,8 @@
-# 1300D 1.1.0
+# 4000D 1.1.0
 
 # no 1300D firmware yet?
-CANON_NAME_FIR      = 5D300133.FIR
-FIRMWARE_ID         = 0x80000404
+CANON_NAME_FIR      = 4000D100.FIR
+FIRMWARE_ID         = 0x80000422
 
 # the only DIGIC 4 model with 32MB ROM
 ROMBASEADDR         = 0xFE0C0000

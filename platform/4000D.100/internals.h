@@ -1,11 +1,11 @@
 /**
- * Camera internals for 1300D 1.1.0
+ * Camera internals for 4000D 1.0.0
  */
 
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
-/** The 1300D port is very early, so I think we should not enable properties. **/
-//#undef CONFIG_PROP_REQUEST_CHANGE
-#define CONFIG_PROP_REQUEST_CHANGE
+/** The 4000D port is very early, so I think we should not enable properties. **/
+#undef CONFIG_PROP_REQUEST_CHANGE
+//#define CONFIG_PROP_REQUEST_CHANGE
 
 /** 
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 

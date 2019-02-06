@@ -348,7 +348,6 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
     -4300, 10000,    12184, 10000,    2378, 10000, \
      -819, 10000,     1944, 10000,    5931, 10000
 #endif
-
 #ifdef CONFIG_4000D
 	// PLACEHOLDER DATA FROM 600D TO BUILD HELLOWORLD
         //~ { "Canon EOS 1300D", 0, 0x3510,
@@ -358,8 +357,6 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
     -4300, 10000,    12184, 10000,    2378, 10000, \
      -819, 10000,     1944, 10000,    5931, 10000
 #endif
-
-
 
 struct raw_info raw_info = {
     .api_version = 1,
@@ -439,7 +436,7 @@ static int dynamic_ranges[] = {1112, 1080, 1038, 984, 917, 834, 733, 655};
 #endif
 
 #ifdef CONFIG_4000D
-static int dynamic_ranges[] = {1112, 1080, 1038, 984, 917, 834, 733, 655};
+static int dynamic_ranges[] = {1073, 1082, 1042, 1002, 926, 837, 728, 642};
 #endif
 
 #ifdef CONFIG_650D

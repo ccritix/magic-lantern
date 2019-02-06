@@ -44,7 +44,7 @@
 
 #define INT_EV_OBJ (*(int*)(event->obj))
 
- #define BGMT_TRASH (0xD) // not present on 1300D
+ #define BGMT_TRASH (0xD) // not present on 4000D
 
 #define BGMT_WHEEL_LEFT 0x2
 #define BGMT_WHEEL_RIGHT 0x3

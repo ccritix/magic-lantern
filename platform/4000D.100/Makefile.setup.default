@@ -1,6 +1,6 @@
-#Makefile for 1300D
+#Makefile for 4000D
 
 #CONFIG_LVAPP_HACK_RELOC = y
 
-# 1300D_101.sym is to long
+# 4000D_101.sym is to long
 ML_MODULES_SYM_NAME=t6_$(FW_VERSION).sym

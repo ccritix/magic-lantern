@@ -1,4 +1,4 @@
-#Makefile for 1300D
+#Makefile for 4000D
 
-MODEL=1300D
+MODEL=4000D
 include ../Makefile.platform
