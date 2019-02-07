@@ -943,19 +943,8 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		}
                 break;	
 
-		        case CROP_PRESET_3x1_mv720_50fps_EOSM:
-		if (x3crop == 0x1)
-		{
-	        cmos_new[5] = 0x400;
-		}
-                break;	
-
 			case CROP_PRESET_anamorphic_EOSM:
 		cmos_new[7] = 0x2c4;   
-		if (x3crop == 0x1)
-		{
-		cmos_new[5] = 0x400; 
-		} 
                 break;	
 		
             		case CROP_PRESET_3x3_1X:
@@ -3297,7 +3286,8 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &x3crop,
                 .max    = 1,
                 .choices = CHOICES("OFF", "x3crop"),
-                .help   = "Turns all x1 modes into x3 crop modes\n"
+                .help   = "Turns mv1080p and mv1080_46_48fps modes into x3 crop modes\n"
+			  "Turns mv1080p and mv1080_46_48fps modes into x3 crop modes\n"
             },
             {
                 .name   = "reg_713c",
@@ -3975,11 +3965,19 @@ static LVINFO_UPDATE_FUNC(crop_info)
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
   {
     snprintf(buffer, sizeof(buffer), "mv1080p");
+    if (x3crop == 0x1)
+    {
+    snprintf(buffer, sizeof(buffer), "mv1080p x3zoom"); 
+    }
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_46_48fps_EOSM)
   {
     snprintf(buffer, sizeof(buffer), "mv1080p_45_48fps");
+    if (x3crop == 0x1)
+    {
+    snprintf(buffer, sizeof(buffer), "45_48fps x3zoom"); 
+    }
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
@@ -4057,10 +4055,6 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
  	    case CROP_PRESET_anamorphic_EOSM:
 	    case CROP_PRESET_1x3_100D:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
-		if (x3crop == 0x1 && is_EOSM)
-		{
-                raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
-		}
                 break;
 
 	    case CROP_PRESET_4K_3x1_EOSM:
@@ -4100,10 +4094,6 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_1x3_100D:
             case CROP_PRESET_3xcropmode_100D:
                 raw_capture_info.binning_y = 1; raw_capture_info.skipping_y = 0;
-		if (x3crop == 0x1 && is_EOSM)
-		{
-                raw_capture_info.binning_y = 3; raw_capture_info.skipping_y = 0;
-		}
                 break;
 
             case CROP_PRESET_3x3_1X:
@@ -4119,15 +4109,6 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
                 raw_capture_info.binning_y = b; raw_capture_info.skipping_y = s;
                 break;
             }
-
-/* x3 zoom, hm, ratio coherency not at all */
-	    case CROP_PRESET_3x1_mv720_50fps_EOSM:
-		if (x3crop == 0x1)
-		{
-                raw_capture_info.binning_x = 1; raw_capture_info.skipping_x = 0;
-                raw_capture_info.binning_y = 5; raw_capture_info.skipping_y = 0;
-		}
-		break;
         }
 
         if ((is_5D3) || (is_EOSM) || (is_100D))
