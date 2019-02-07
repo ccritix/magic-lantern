@@ -34,6 +34,7 @@ static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitrate", bitrate, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
+static CONFIG_INT("crop.x3crop", x3crop, 0);
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -927,16 +928,36 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;	
 
 			case CROP_PRESET_3x3_mv1080_EOSM:
+		if (x3crop == 0x1)
+		{
+	        cmos_new[5] = 0x400;
+	        cmos_new[7] = 0x647;
+		}
+                break;	
+
 		        case CROP_PRESET_3x3_mv1080_46_48fps_EOSM:
+		if (x3crop == 0x1)
+		{
+	        cmos_new[5] = 0x400;
+	        cmos_new[7] = 0x649;
+		}
+                break;	
+
 		        case CROP_PRESET_3x1_mv720_50fps_EOSM:
-	        cmos_new[8] = 0x400; 
+		if (x3crop == 0x1)
+		{
+	        cmos_new[5] = 0x400;
+		}
                 break;	
 
 			case CROP_PRESET_anamorphic_EOSM:
-		            cmos_new[7] = 0x2c4;   
-			    cmos_new[8] = 0x400; 
+		cmos_new[7] = 0x2c4;   
+		if (x3crop == 0x1)
+		{
+		cmos_new[5] = 0x400; 
+		} 
                 break;	
-
+		
             		case CROP_PRESET_3x3_1X:
                 /* start/stop scanning line, very large increments */
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
@@ -1300,6 +1321,10 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_4K_3x1_100D:
 	     case CROP_PRESET_5K_3x1_100D:
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
+		if (x3crop == 0x1)
+		{
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0  + reg_800c};
+		}		
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
 		break;
 
@@ -3268,6 +3293,13 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Change aspect ratio\n"
             },
             {
+                .name   = "x3crop",
+                .priv   = &x3crop,
+                .max    = 1,
+                .choices = CHOICES("OFF", "x3crop"),
+                .help   = "Turns all x1 modes into x3 crop modes\n"
+            },
+            {
                 .name   = "reg_713c",
                 .priv   = &reg_713c,
                 .min    = -500,
@@ -4025,6 +4057,10 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
  	    case CROP_PRESET_anamorphic_EOSM:
 	    case CROP_PRESET_1x3_100D:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
+		if (x3crop == 0x1 && is_EOSM)
+		{
+                raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
+		}
                 break;
 
 	    case CROP_PRESET_4K_3x1_EOSM:
@@ -4064,6 +4100,10 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_1x3_100D:
             case CROP_PRESET_3xcropmode_100D:
                 raw_capture_info.binning_y = 1; raw_capture_info.skipping_y = 0;
+		if (x3crop == 0x1 && is_EOSM)
+		{
+                raw_capture_info.binning_y = 3; raw_capture_info.skipping_y = 0;
+		}
                 break;
 
             case CROP_PRESET_3x3_1X:
@@ -4079,6 +4119,15 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
                 raw_capture_info.binning_y = b; raw_capture_info.skipping_y = s;
                 break;
             }
+
+/* x3 zoom, hm, ratio coherency not at all */
+	    case CROP_PRESET_3x1_mv720_50fps_EOSM:
+		if (x3crop == 0x1)
+		{
+                raw_capture_info.binning_x = 1; raw_capture_info.skipping_x = 0;
+                raw_capture_info.binning_y = 5; raw_capture_info.skipping_y = 0;
+		}
+		break;
         }
 
         if ((is_5D3) || (is_EOSM) || (is_100D))
@@ -4293,6 +4342,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(shutter_range)
     MODULE_CONFIG(bitrate)
     MODULE_CONFIG(ratios)
+    MODULE_CONFIG(x3crop)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
