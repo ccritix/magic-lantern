@@ -2,10 +2,23 @@ MODULE_CFLAGS += -I../../src/
 ML_MODULES ?= \
 	mlv_lite \
 	mlv_play \
+	mlv_rec \
 	mlv_snd \
+	file_man \
+	pic_view \
+	ettr \
 	dual_iso \
 	silent \
+	dot_tune \
+	autoexpo \
+	arkanoid \
+	deflick \
 	lua \
+	bench \
+	selftest \
+	adv_int \
 	crop_rec \
-	file_man \
-	sd_uhs \
+	edmac \
+        adtg_gui \
+        cf_acc \
+  

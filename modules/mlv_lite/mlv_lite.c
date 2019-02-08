@@ -310,8 +310,7 @@ struct frame_slot
         SLOT_RESERVED,      /* it may become available when resizing the previous slots */
         SLOT_CAPTURING,     /* in progress */
         SLOT_FULL,          /* contains fully captured image data */
-        SLOT_WRITING,       /* it's being saved to card */
-        SLOT_LOCKED         /* in use by mlv_snd */
+        SLOT_WRITING        /* it's being saved to card */
     } status;
 };
 
@@ -327,15 +326,13 @@ static GUARDED_BY(settings_sem) int valid_slot_count = 0;           /* total min
 static GUARDED_BY(LiveViewTask) int capture_slot = -1;              /* in what slot are we capturing now (index) */
 static volatile                 int force_new_buffer = 0;           /* if some other task decides it's better to search for a new buffer */
 
-#define IS_VIDF(slot_index) (!memcmp(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockType, "VIDF", 4))
-
 static GUARDED_BY(LiveViewTask) int writing_queue[COUNT(slots)+1];  /* queue of completed frames (slot indices) waiting to be saved */
 static GUARDED_BY(LiveViewTask) int writing_queue_tail = 0;         /* place captured frames here */
 static GUARDED_BY(RawRecTask)   int writing_queue_head = 0;         /* extract frames to be written from here */ 
 
-static GUARDED_BY(LiveViewTask) int frame_count = 0;                /* how many video frames we have processed */
-static GUARDED_BY(LiveViewTask) int skipped_frames = 0;             /* how many video frames we had to drop (only done during pre-recording) */
-static GUARDED_BY(RawRecTask)   int chunk_frame_count = 0;          /* how many video frames in the current file chunk */
+static GUARDED_BY(LiveViewTask) int frame_count = 0;                /* how many frames we have processed */
+static GUARDED_BY(LiveViewTask) int skipped_frames = 0;             /* how many frames we had to drop (only done during pre-recording) */
+static GUARDED_BY(RawRecTask)   int chunk_frame_count = 0;          /* how many frames in the current file chunk */
 static volatile                 int buffer_full = 0;                /* true when the memory becomes full */
        GUARDED_BY(RawRecTask)   char * raw_movie_filename = 0;      /* file name for current (or last) movie */
 static GUARDED_BY(RawRecTask)   char * chunk_filename = 0;          /* file name for current movie chunk */
@@ -356,7 +353,6 @@ static GUARDED_BY(RawRecTask)   mlv_expo_hdr_t expo_hdr;
 static GUARDED_BY(RawRecTask)   mlv_lens_hdr_t lens_hdr;
 static GUARDED_BY(RawRecTask)   mlv_rtci_hdr_t rtci_hdr;
 static GUARDED_BY(RawRecTask)   mlv_wbal_hdr_t wbal_hdr;
-static GUARDED_BY(RawRecTask)   mlv_wavi_hdr_t wavi_hdr;
 static GUARDED_BY(LiveViewTask) mlv_vidf_hdr_t vidf_hdr;
 static GUARDED_BY(RawRecTask)   uint64_t mlv_start_timestamp = 0;
        GUARDED_BY(RawRecTask)   uint32_t raw_rec_trace_ctx = TRACE_ERROR;
@@ -364,10 +360,6 @@ static GUARDED_BY(RawRecTask)   uint64_t mlv_start_timestamp = 0;
 /* interface to other modules: these are called when recording starts or stops  */
 extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_starting();
 extern WEAK_FUNC(ret_0) unsigned int raw_rec_cbr_stopping();
-extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_started();
-extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_stopped();
-extern WEAK_FUNC(ret_0) uint32_t raw_rec_cbr_mlv_block(mlv_hdr_t *hdr);
-extern WEAK_FUNC(ret_0) void mlv_fill_wavi(mlv_wavi_hdr_t *hdr, uint64_t start_timestamp);  /* provided by mlv_snd */
 
 static int raw_rec_should_preview(void);
 
@@ -419,7 +411,14 @@ static int calc_res_y(int res_x, int max_res_y, int num, int den, float squeeze)
     }
     
     res_y = MIN(res_y, max_res_y);
-    
+
+    if (OUTPUT_COMPRESSION)
+    {
+        /* no W*H alignment restrictions in this case */
+        /* just make sure res_y is even */
+        return res_y & ~1;
+    }
+
     /* res_x * res_y must be modulo 16 bytes */
     switch (MOD(res_x * BPP / 8, 8))
     {
@@ -511,8 +510,11 @@ void update_resolution_params()
     int den = aspect_ratio_presets_den[aspect_ratio_index];
     res_y = calc_res_y(res_x, max_res_y, num, den, squeeze_factor);
 
-    /* check EDMAC restrictions (W * H multiple of 16 bytes) */
-    ASSERT((res_x * BPP / 8 * res_y) % 16 == 0);
+    if (!OUTPUT_COMPRESSION)
+    {
+        /* check EDMAC restrictions (W * H multiple of 16 bytes) */
+        ASSERT((res_x * BPP / 8 * res_y) % 16 == 0);
+    }
 
     /* frame size */
     /* should be multiple of 512, so there's no write speed penalty (see http://chdk.setepontos.com/index.php?topic=9970 ; confirmed by benchmarks) */
@@ -785,7 +787,7 @@ static int setup_buffers();
 static EXCLUDES(settings_sem)
 void refresh_raw_settings(int force)
 {
-    // if (!lv) return;
+    if (!lv) return;
     
     if (!RAW_IS_IDLE) return;
 
@@ -1964,128 +1966,6 @@ void hack_liveview(int unhack)
     }
 }
 
-void mlv_rec_set_rel_timestamp(mlv_hdr_t *hdr, uint64_t timestamp)
-{
-    hdr->timestamp = timestamp - mlv_start_timestamp;
-}
-
-/* this can be called from anywhere to get a free memory slot. must be submitted using mlv_rec_release_slot() */
-int32_t mlv_rec_get_free_slot()
-{
-    uint32_t retries = 0;
-    int32_t allocated_slot = -1;
-
-retry_find:
-    allocated_slot = -1;
-
-    for (int i = 0; i < total_slot_count; i++)
-    {
-        if (slots[i].status == SLOT_FREE)
-        {
-            {
-                allocated_slot = i;
-                break;
-            }
-        }
-
-        /* already found one? */
-        if(allocated_slot >= 0)
-        {
-            break;
-        }
-    }
-
-    /* now try to mark this slot as being used */
-    if(allocated_slot >= 0)
-    {
-        uint32_t old_int = cli();
-        if(slots[allocated_slot].status == SLOT_FREE)
-        {
-            slots[allocated_slot].status = SLOT_LOCKED;
-        }
-        else
-        {
-            allocated_slot = -1;
-        }
-        sei(old_int);
-    }
-
-    /* ok now check if allocation was successful and retry */
-    if(allocated_slot < 0)
-    {
-        retries++;
-        if(retries < 5)
-        {
-            goto retry_find;
-        }
-        else
-        {
-            return -1;
-        }
-    }
-
-    return allocated_slot;
-}
-
-void mlv_rec_get_slot_info(int32_t slot, uint32_t *size, void **address)
-{
-    if(slot < 0 || slot >= total_slot_count)
-    {
-        *address = NULL;
-        *size = 0;
-        return;
-    }
-
-    /* as the caller will use the slot for anything, we have to save out VIDF frame header
-       (it contains padding and stuff that we dont want to recalculate)
-       we are using a NULL block with some data in it to store the VIDF.
-    */
-
-    mlv_vidf_hdr_t *vidf = slots[slot].ptr;
-
-    /* set old header to a skipped header format */
-    mlv_set_type((mlv_hdr_t *)vidf, "NULL");
-
-    /* backup old size into free space */
-    ((uint32_t*) vidf)[sizeof(mlv_vidf_hdr_t)/4] = vidf->blockSize;
-
-    /* then set the header to be totally skipped */
-    vidf->blockSize = 0x100;
-
-    /* ok now return the shrunk buffer address */
-    *address = (void*)((uint32_t)slots[slot].ptr + 0x100);
-    *size = slots[slot].size - vidf->blockSize;
-}
-
-/* mark a previously with mlv_rec_get_free_slot() allocated slot for being reused or written into the file */
-void mlv_rec_release_slot(int32_t slot, uint32_t write)
-{
-    if(slot < 0 || slot >= total_slot_count)
-    {
-        return;
-    }
-
-    if(write)
-    {
-        slots[slot].status = SLOT_FULL;
-        slots[slot].frame_number = -1;  /* not a video frame */
-
-        /* these things are normally updated by LiveViewTask (vsync hook)
-         * that task runs with high priority, so we are not going to interrupt it,
-         * but it might interrupt us, at least in theory; clear interrupts for now
-         * (not exactly clean; there are a bunch of thread safety warnings, for good reason)
-         */
-        int old = cli();
-        writing_queue[writing_queue_tail] = slot;
-        INC_MOD(writing_queue_tail, COUNT(writing_queue));
-        sei(old);
-    }
-    else
-    {
-        slots[slot].status = SLOT_FREE;
-    }
-}
-
 static REQUIRES(LiveViewTask) FAST
 int choose_next_capture_slot()
 {
@@ -2311,7 +2191,6 @@ void FAST pre_record_discard_frame()
             }
             else if (slots[i].frame_number > pre_record_first_frame)
             {
-                ASSERT(slots[i].frame_number > 1);
                 slots[i].frame_number--;
                 ((mlv_vidf_hdr_t*)slots[i].ptr)->frameNumber
                     = slots[i].frame_number - 1;
@@ -2436,12 +2315,10 @@ static void frame_fake_edmac_check(int slot_index)
     *(volatile uint32_t*) after_frame = FRAME_SENTINEL;
 }
 
-/* only for VIDF frames */
 static REQUIRES(RawRecTask)
 int frame_check_saved(int slot_index)
 {
     ASSERT(slots[slot_index].ptr);
-
     void* ptr = slots[slot_index].ptr + VIDF_HDR_SIZE;
     uint32_t edmac_size = (slots[slot_index].payload_size + 3) & ~3;
     uint32_t* frame_end = ptr + edmac_size - 4;
@@ -2451,13 +2328,13 @@ int frame_check_saved(int slot_index)
         /* EDMAC overflow */
         return -1;
     }
-
+    
     if (*(volatile uint32_t*) frame_end == FRAME_SENTINEL)
     {
         /* frame not yet complete */
         return 0;
     }
-
+    
     /* looks alright */
     return 1;
 }
@@ -2690,13 +2567,7 @@ void process_frame(int next_fullsize_buffer_pos)
         frame_count++;
         return;
     }
-
-    if (frame_count == 1)
-    {
-        /* some modules may do some specific stuff right when we started recording */
-        raw_rec_cbr_started();
-    }
-
+    
     if (edmac_active)
     {
         /* EDMAC too slow */
@@ -2769,7 +2640,7 @@ void process_frame(int next_fullsize_buffer_pos)
 
     /* advance to next frame */
     frame_count++;
-    
+
     return;
 }
 
@@ -2907,7 +2778,6 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     file_hdr.audioFrameCount = 0;
     file_hdr.sourceFpsNom = fps_get_current_x1000();
     file_hdr.sourceFpsDenom = 1000;
-    raw_rec_cbr_mlv_block((mlv_hdr_t*)&file_hdr);
     
     memset(&rawi_hdr, 0, sizeof(mlv_rawi_hdr_t));
     mlv_set_type((mlv_hdr_t *)&rawi_hdr, "RAWI");
@@ -2956,10 +2826,6 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     mlv_set_type((mlv_hdr_t*)&vidf_hdr, "VIDF");
     vidf_hdr.blockSize  = max_frame_size;
     vidf_hdr.frameSpace = VIDF_HDR_SIZE - sizeof(mlv_vidf_hdr_t);
-
-    /* WAVI will be valid only if we record sound; otherwise NULL and zeroed out */
-    memset(&wavi_hdr, 0, sizeof(mlv_wavi_hdr_t));
-    mlv_fill_wavi(&wavi_hdr, mlv_start_timestamp);
 }
 
 static REQUIRES(RawRecTask)
@@ -2973,13 +2839,6 @@ int write_mlv_chunk_headers(FILE* f)
     if (FIO_WriteFile(f, &lens_hdr, lens_hdr.blockSize) != (int)lens_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &rtci_hdr, rtci_hdr.blockSize) != (int)rtci_hdr.blockSize) return 0;
     if (FIO_WriteFile(f, &wbal_hdr, wbal_hdr.blockSize) != (int)wbal_hdr.blockSize) return 0;
-
-    if (wavi_hdr.samplingRate)
-    {
-        /* WAVI written only if we record sound */
-        if (FIO_WriteFile(f, &wavi_hdr, wavi_hdr.blockSize) != (int)wavi_hdr.blockSize) return 0;
-    }
-
     if (mlv_write_vers_blocks(f, mlv_start_timestamp)) return 0;
     
     int hdr_size = FIO_SeekSkipFile(f, 0, SEEK_CUR);
@@ -3002,10 +2861,6 @@ static REQUIRES(RawRecTask)
 void finish_chunk(FILE* f)
 {
     file_hdr.videoFrameCount = chunk_frame_count;
-
-    /* get Audio frameCount from mlv_snd.c */
-    raw_rec_cbr_mlv_block((mlv_hdr_t*)&file_hdr);
-
     FIO_SeekSkipFile(f, 0, SEEK_SET);
     FIO_WriteFile(f, &file_hdr, file_hdr.blockSize);
     FIO_CloseFile(f);
@@ -3219,9 +3074,6 @@ void raw_video_rec_task()
         goto cleanup;
     }
 
-    /* signal that we are starting */
-    raw_rec_cbr_starting();
-
     init_mlv_chunk_headers(&raw_info);
     written_total = written_chunk = write_mlv_chunk_headers(f);
     if (!written_chunk)
@@ -3233,8 +3085,14 @@ void raw_video_rec_task()
     hack_liveview(0);
     liveview_hacked = 1;
 
+    /* this will enable the vsync CBR and the other task(s) */
+    raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
+
     /* try a sync beep (not very precise, but better than nothing) */
     beep();
+
+    /* signal that we are starting */
+    raw_rec_cbr_starting();
 
     /* signal start of recording to the compression task */
     msg_queue_post(compress_mq, INT_MAX);
@@ -3244,13 +3102,7 @@ void raw_video_rec_task()
     
     int fps = fps_get_current_x1000();
     
-    int last_processed_video_frame = 0;
-
-    /* this will enable the vsync CBR and the other task(s) */
-    raw_recording_state = pre_record ? RAW_PRE_RECORDING : RAW_RECORDING;
-
-    /* note: raw_rec_cbr_started() will be called from the vsync hook,
-     * for the first recorded frame */
+    int last_processed_frame = 0;
     
     /* main recording loop */
     while (RAW_IS_RECORDING && lv)
@@ -3318,15 +3170,12 @@ void raw_video_rec_task()
                 ASSERT(i != w_head);
                 break;
             }
-            
-            if (IS_VIDF(slot_index))
-            {
-                /* consistency checks */
-                ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockSize == (uint32_t) slots[slot_index].size);
-                ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->frameNumber == (uint32_t) slots[slot_index].frame_number - 1);
-            }
 
-            if (OUTPUT_COMPRESSION && IS_VIDF(slot_index))
+            /* consistency checks */
+            ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->blockSize == (uint32_t) slots[slot_index].size);
+            ASSERT(((mlv_vidf_hdr_t*)slots[slot_index].ptr)->frameNumber == (uint32_t) slots[slot_index].frame_number - 1);
+
+            if (OUTPUT_COMPRESSION)
             {
                 ASSERT(slots[slot_index].size < max_frame_size);
             }
@@ -3381,7 +3230,7 @@ void raw_video_rec_task()
         {
             int slot_index = writing_queue[i];
 
-            if (OUTPUT_COMPRESSION && IS_VIDF(slot_index))
+            if (OUTPUT_COMPRESSION)
             {
                 ASSERT(slots[slot_index].size < max_frame_size);
             }
@@ -3425,27 +3274,22 @@ void raw_video_rec_task()
             
             int slot_index = writing_queue[i];
 
-            /* frame validation only for VIDF frames */
-            if (IS_VIDF(slot_index))
+            if (frame_check_saved(slot_index) != 1)
             {
-                if (frame_check_saved(slot_index) != 1)
-                {
-                    bmp_printf( FONT_MED, 30, 110, 
-                        "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number
-                    );
-                    beep();
-                }
-                
-                if (slots[slot_index].frame_number != last_processed_video_frame + 1)
-                {
-                    bmp_printf( FONT_MED, 30, 110, 
-                        "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_video_frame + 1
-                    );
-                    beep();
-                }
-
-                last_processed_video_frame++;
+                bmp_printf( FONT_MED, 30, 110, 
+                    "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number
+                );
+                beep();
             }
+            
+            if (slots[slot_index].frame_number != last_processed_frame + 1)
+            {
+                bmp_printf( FONT_MED, 30, 110, 
+                    "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1
+                );
+                beep();
+            }
+            last_processed_frame++;
 
             free_slot(slot_index);
         }
@@ -3531,30 +3375,25 @@ abort_and_check_early_stop:
             beep();
         }
 
-        /* frame validation only for VIDF frames */
-        if (IS_VIDF(slot_index))
+        if (frame_check_saved(slot_index) != 1)
         {
-            if (frame_check_saved(slot_index) != 1)
-            {
-                bmp_printf( FONT_MED, 30, 110, 
-                    "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number
-                );
-                beep();
-            }
-
-            if (slots[slot_index].frame_number != last_processed_video_frame + 1)
-            {
-                bmp_printf( FONT_MED, 30, 110, 
-                    "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_video_frame + 1
-                );
-                beep();
-            }
-
-            last_processed_video_frame++;
+            bmp_printf( FONT_MED, 30, 110, 
+                "Data corruption at slot %d, frame %d ", slot_index, slots[slot_index].frame_number
+            );
+            beep();
         }
 
+        if (slots[slot_index].frame_number != last_processed_frame + 1)
+        {
+            bmp_printf( FONT_MED, 30, 110, 
+                "Frame order error: slot %d, frame %d, expected %d ", slot_index, slots[slot_index].frame_number, last_processed_frame + 1
+            );
+            beep();
+        }
+        last_processed_frame++;
+
         slots[slot_index].status = SLOT_WRITING;
-        if (OUTPUT_COMPRESSION && IS_VIDF(slot_index))
+        if (OUTPUT_COMPRESSION)
         {
             ASSERT(slots[slot_index].size < max_frame_size);
         }
@@ -3578,8 +3417,6 @@ abort_and_check_early_stop:
     }
 
 cleanup:
-    raw_rec_cbr_stopped();
-
     if (f) finish_chunk(f);
     if (!written_total)
     {
@@ -4006,10 +3843,6 @@ static int raw_rec_should_preview(void)
     static int last_hs_unpress = 0;
     static int autofocusing = 0;
 
-/* fix for stuck realtime preview when wanting framing */
-    raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
-    raw_force_aspect_ratio(0, 0);
-
     if (!get_halfshutter_pressed())
     {
         autofocusing = 0;
@@ -4104,9 +3937,8 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
         -1,
         -1,
         (need_for_speed && !get_halfshutter_pressed())
-	? RAW_PREVIEW_GRAY_ULTRA_FAST 
-	: cam_eos_m && RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST /* 1x3 binning mode test */
-        : RAW_PREVIEW_COLOR_HALFRES 
+            ? RAW_PREVIEW_GRAY_ULTRA_FAST
+            : RAW_PREVIEW_COLOR_HALFRES
     );
 
     give_semaphore(settings_sem);
@@ -4114,8 +3946,8 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
     /* be gentle with the CPU, save it for recording (especially if the buffer is almost full) */
     msleep(
         (need_for_speed)
-            ? ((queued_frames > valid_slot_count / 1) ? cam_eos_m ? 1150 : 1000 : cam_eos_m ? 650 : 500)
-            : cam_eos_m ? 65 : 50 /* 1x3 binning mode test */
+            ? ((queued_frames > valid_slot_count / 2) ? 1000 : 500)
+            : 50
     );
 
     preview_dirty = 1;

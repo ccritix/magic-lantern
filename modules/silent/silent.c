@@ -519,6 +519,7 @@ static int save_lossless_dng(char * filename, struct raw_info * raw_info)
 
     /* fixme: not all models are able to allocate such a large contiguous chunk */
     int max_compressed_size = ((uint64_t) raw_info->frame_size * 80 / 100) & ~0xFFF;
+        
     struct memSuite * out_suite = shoot_malloc_suite_contig(max_compressed_size);
 
     if (!out_suite)
@@ -529,7 +530,7 @@ static int save_lossless_dng(char * filename, struct raw_info * raw_info)
 
     ASSERT(out_suite->size == max_compressed_size);
 
-    out_raw_info.frame_size = lossless_compress_raw(&out_raw_info, out_suite);
+    out_raw_info.frame_size = lossless_compress_raw(&out_raw_info, out_suite); // This is where the 7D is getting stuck
 
     if (out_raw_info.frame_size > out_suite->size)
     {

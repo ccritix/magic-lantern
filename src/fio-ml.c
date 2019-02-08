@@ -551,7 +551,7 @@ int FIO_WriteFile( FILE* stream, const void* ptr, size_t count )
     {
         /* write back all data to RAM */
         /* overhead is minimal (see selfcheck.mo for benchmark) */
-        clean_d_cache();
+      //  clean_d_cache();
     }
 
     return _FIO_WriteFile(stream, ptr, count);

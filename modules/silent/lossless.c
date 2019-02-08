@@ -182,8 +182,33 @@ int lossless_init()
         TTL_RegisterCBR = (void *) 0xFF43748C;  /* RegisterTwoInTwoOutLosslessPathCompleteCBR */
         TTL_SetFlags    = (void *) 0xFF372AE8;  /* called next, with PictureType as arguments */
         TTL_Start       = (void *) 0xFF438474;  /* called next; starts the EDmac transfers */
-        TTL_Stop        = (void *) 0xFF42D0AC;  /* called right after sssStopMem1ToRawPath */
+        TTL_Stop        = (void *) 0xFF4384AC;  /* called right after sssStopMem1ToRawPath */
         TTL_Finish      = (void *) 0xFF4384E4;  /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
+    }
+
+    if (is_camera("7D", "2.0.3"))
+    {
+        TTL_SetArgs     = (void *) 0xFF224324;      /* fills TTJ_Args struct; PictureSize(Mem1ToRaw) */
+        TTL_Prepare     = (void *) 0xFF2DE720;      /* called right after ProcessTwoInTwoOutJpegPath */
+                                                    /* calls [TTJ] GetPathResources and sets up the encoder for RAW/SRAW/MRAW */
+        TTL_RegisterCBR = (void *) 0xFF2DDA1C;      /* RegisterTwoInTwoOutJpegPathCompleteCBR */
+        TTL_SetFlags    = (void *) 0xFF0CA978;      /* called next, with PictureType as arguments */
+        TTL_Start       = (void *) 0xFF2DEA04;      /* called next; starts the EDmac transfers */
+        TTL_Stop        = (void *) 0xFF2DEA3C;      /* called right after sssStopMem1ToRawPath */
+        TTL_Finish      = (void *) 0xFF2DEA74;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
+    }
+    
+        if (is_camera("5D2", "2.1.2"))
+    {
+        /* ProcessTwoInTwoOutJpegPath, 5D2 2.1.2 */
+        TTL_SetArgs     = (void *) 0xFF1BEB18;      /* fills TTJ_Args struct; PictureSize(Mem1ToRaw) */
+        TTL_Prepare     = (void *) 0xFF259B58;      /* called right after ProcessTwoInTwoOutJpegPath */
+                                                    /* calls [TTJ] GetPathResources and sets up the encoder for RAW/SRAW/MRAW */
+        TTL_RegisterCBR = (void *) 0xFF258E70;      /* RegisterTwoInTwoOutJpegPathCompleteCBR */
+        TTL_SetFlags    = (void *) 0xFF0AA9D4;      /* called next, with PictureType as arguments */
+        TTL_Start       = (void *) 0xFF259E3C;      /* called next; starts the EDmac transfers */
+        TTL_Stop        = (void *) 0xFF259E74;      /* called right after sssStopMem1ToRawPath */
+        TTL_Finish      = (void *) 0xFF259EAC;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
     }
 
     lossless_sem = create_named_semaphore(0, 0);
@@ -234,6 +259,30 @@ int lossless_init()
         TTL_ResLock = CreateResLockEntry(resources, COUNT(resources));
     }
     
+    else if (is_camera("7D", "*") || is_camera("5D2", "*"))
+    {
+        uint32_t resources[] = {
+            0x00000 | edmac_channel_to_index(edmac_write_chan),
+            0x10002 | edmac_channel_to_index(edmac_read_chan),
+            0x30000,    /* read  connection  0 */
+            0x20005,    /* write connection  5 */
+            0x20016,    /* write connection 22 */
+            0x50003,
+            0x5000d,
+            0x5000f,
+            0x5001a,
+            0x80000,
+            0x90000,
+            0xa0000,
+            0x160000,
+            0x130003,
+            0x130004,
+            0x130005,
+        };
+        
+        TTL_ResLock = CreateResLockEntry(resources, COUNT(resources));
+    }
+
     /* optionally initialize the decompression routines */
     decompress_init();
 
@@ -512,6 +561,13 @@ static void decompress_init()
         Setup_DecodeLosslessRawPath = (void *) 0xFF4309A4;
         Start_DecodeLosslessPath    = (void *) 0xFF430A6C;
         Cleanup_DecodeLosslessPath  = (void *) 0xFF430BD0;
+    }
+
+    if (is_camera("7D", "2.0.3"))
+    {
+        Setup_DecodeLosslessRawPath = (void *) 0xFF2E8EAC;
+        Start_DecodeLosslessPath    = (void *) 0xFF2E8F5C;
+        Cleanup_DecodeLosslessPath  = (void *) 0xFF2E906C;
     }
 
     /* all functions known? having the semaphore is an indicator we can decompress */

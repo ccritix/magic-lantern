@@ -201,6 +201,11 @@ int get_lv_stopped_by_user();
 #define FRAME_BV *(uint8_t*)(MEM(LV_STRUCT_PTR) + 0x5E)
 #define FRAME_SHUTTER *(uint8_t*)(MEM(LV_STRUCT_PTR) + 0x5A)
 #define FRAME_SHUTTER_TIMER *(uint16_t*)(MEM(LV_STRUCT_PTR) + 0x60)
+  // waza57 to see if it works for 5D2 crop mode
+#define FRAME_SHUTTER_BLANKING_ZOOM   (*(uint16_t*)0x404b4110) // ADTG register 105f
+#define FRAME_SHUTTER_BLANKING_NOZOOM (*(uint16_t*)0x404b4114) // ADTG register 1061
+#define FRAME_SHUTTER_BLANKING_READ   (lv_dispsize > 1 ? FRAME_SHUTTER_BLANKING_NOZOOM : FRAME_SHUTTER_BLANKING_ZOOM) /* when reading, use the other mode, as it contains the original value (not overriden) */
+#define FRAME_SHUTTER_BLANKING_WRITE  (lv_dispsize > 1 ? &FRAME_SHUTTER_BLANKING_ZOOM : &FRAME_SHUTTER_BLANKING_NOZOOM)
 
 // see "Malloc Information"
 #define MALLOC_STRUCT 0x22528

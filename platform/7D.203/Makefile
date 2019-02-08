@@ -22,8 +22,8 @@ FIR-SLAVE: autoexec-fir-slave
 	# $(STAT_CMD) $@.bin;
 	# $(READELF) -l autoexec-fir | grep -C 2 MemSiz
 
-all::
-	$(MAKE) -C $(PLATFORM_PATH)/7D_MASTER.203
+# all::
+	# $(MAKE) -C $(PLATFORM_PATH)/7D_MASTER.203
 
 # special build_fir target
 build_fir: all

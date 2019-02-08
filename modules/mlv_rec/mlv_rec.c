@@ -133,8 +133,8 @@ uint32_t raw_rec_trace_ctx = TRACE_ERROR;
  * => if my math is not broken, this traslates to resolution being multiple of 32 pixels horizontally
  * use roughly 10% increments
  **/
-static uint32_t resolution_presets_x[] = {  640,  960,  1280,  1600,  1920,  2240,  2560,  2880,  3200,  3520 };
-#define  RESOLUTION_CHOICES_X CHOICES(     "640","960","1280","1600","1920","2240","2560","2880","3200","3520")
+static uint32_t resolution_presets_x[] = {  640,  960,  1280,  1600,  1920,  2240,  2560,  2880,  3008,  3200,  3520,  3840,  4096,  5632 };
+#define  RESOLUTION_CHOICES_X CHOICES(     "640","960","1280","1600","1920","2240","2560","2880","3008","3200","3520","3840","4096","5632")
 
 static uint32_t aspect_ratio_presets_num[]      = {   5,    4,    3,       8,      25,     239,     235,      22,    2,     185,     16,    5,    3,    4,    12,    1175,    1,    1 };
 static uint32_t aspect_ratio_presets_den[]      = {   1,    1,    1,       3,      10,     100,     100,      10,    1,     100,      9,    3,    2,    3,    10,    1000,    1,    2 };
@@ -3209,6 +3209,9 @@ static void raw_video_rec_task()
     /* disable Canon's powersaving (30 min in LiveView) */
     powersave_prohibit();
 
+    /* signal that we are starting, call this before any memory allocation to give CBR the chance to allocate memory */
+    raw_rec_cbr_starting();
+
     /* allocate memory */
     if(!setup_buffers())
     {
@@ -3217,12 +3220,6 @@ static void raw_video_rec_task()
         beep();
         goto cleanup;
     }
-
-    /* signal that we are starting */
-    /* note: previously, this used to be called before memory allocation,
-     * but the reason for doing that apparently went away a long time ago
-     * (at least mlv_snd doesn't seem to do any large mallocs on its own any more) */
-    raw_rec_cbr_starting();
 
     msleep(start_delay * 1000);
 

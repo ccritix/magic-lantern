@@ -35,14 +35,11 @@
 #include "../trace/trace.h"
 #include "../mlv_rec/mlv.h"
 
-/* allocate that many frame slots to be used for WAVI blocks. two is the minimum to maintain operation */
-#define MLV_SND_SLOTS              2
-/* maximum number of WAVI blocks per slot. the larger, the longer queues will get. should we use more? */
-#define MLV_SND_BLOCKS_PER_SLOT  256
+#define MLV_SND_BUFFERS 4
 
 static uint32_t trace_ctx = TRACE_ERROR;
 
-static CONFIG_INT("mlv.snd.enabled", mlv_snd_enabled, 1);
+static CONFIG_INT("mlv.snd.enabled", mlv_snd_enabled, 0);
 static CONFIG_INT("mlv.snd.mlv_snd_enable_tracing", mlv_snd_enable_tracing, 0);
 static CONFIG_INT("mlv.snd.bit.depth", mlv_snd_in_bits_per_sample, 16);
 static CONFIG_INT("mlv.snd.sample.rate", mlv_snd_in_sample_rate, 48000);
@@ -63,8 +60,7 @@ extern void mlv_rec_get_slot_info(int32_t slot, uint32_t *size, void **address);
 extern int32_t mlv_rec_get_free_slot();
 extern void mlv_rec_release_slot(int32_t slot, uint32_t write);
 extern void mlv_rec_set_rel_timestamp(mlv_hdr_t *hdr, uint64_t timestamp);
-
-extern WEAK_FUNC(ret_0) void mlv_rec_queue_block(mlv_hdr_t *hdr);
+extern void mlv_rec_queue_block(mlv_hdr_t *hdr);
 
 static volatile int32_t mlv_snd_rec_active = 0;
 static struct msg_queue * volatile mlv_snd_buffers_empty = NULL;
@@ -284,7 +280,7 @@ static void mlv_snd_queue_slot()
     }
     
     /* make sure that there is still place for a NULL block */
-    while((used + block_size + sizeof(mlv_hdr_t) < size) && (queued < MLV_SND_BLOCKS_PER_SLOT))
+    while((used + block_size + sizeof(mlv_hdr_t) < size) && (queued < 128))
     {
         /* setup AUDF header for that block */
         mlv_audf_hdr_t *hdr = (mlv_audf_hdr_t *)((uint32_t)address + used);
@@ -312,7 +308,7 @@ static void mlv_snd_queue_slot()
         entry->mlv_slot_end = 0;
         
         /* check if this was the last frame and set end flag if so */
-        if((used + block_size + sizeof(mlv_hdr_t) >= size) || (queued >= (MLV_SND_BLOCKS_PER_SLOT - 1)))
+        if((used + block_size + sizeof(mlv_hdr_t) >= size) || (queued >= 128))
         {
             /* this tells the writer task that the buffer is filled with that entry being done and can be committed */
             entry->mlv_slot_end = 1;
@@ -354,10 +350,11 @@ static void mlv_snd_alloc_buffers()
     mlv_snd_in_buffer_size = (mlv_snd_in_sample_rate * (mlv_snd_in_bits_per_sample / 8) * mlv_snd_in_channels) / fps;
     trace_write(trace_ctx, "mlv_snd_alloc_buffers: mlv_snd_in_buffer_size = %d", mlv_snd_in_buffer_size);
     
-    for(int slot = 0; slot < MLV_SND_SLOTS; slot++)
-    {
-        mlv_snd_queue_slot();
-    }
+    mlv_snd_queue_slot();
+    mlv_snd_queue_slot();
+
+    /* now everything is ready to fire - real output activation happens as soon mlv_snd_running is set to 1 and mlv_snd_vsync() gets called */
+    mlv_snd_state = MLV_SND_STATE_READY;
 }
 
 static void mlv_snd_writer(int unused)
@@ -444,18 +441,16 @@ static void mlv_snd_start()
     mlv_snd_state = MLV_SND_STATE_PREPARE;
 }
 
-void mlv_fill_wavi(mlv_wavi_hdr_t *hdr, uint64_t start_timestamp)
+static void mlv_snd_queue_wavi()
 {
+    trace_write(trace_ctx, "mlv_snd_queue_wavi: queueing a WAVI block");
+    
+    /* queue an WAVI block that contains information about the audio format */
+    mlv_wavi_hdr_t *hdr = malloc(sizeof(mlv_wavi_hdr_t));
+    
     mlv_set_type((mlv_hdr_t*)hdr, "WAVI");
     hdr->blockSize = sizeof(mlv_wavi_hdr_t);
-    mlv_set_timestamp((mlv_hdr_t *)hdr, start_timestamp);
-
-    if(!mlv_snd_enabled)
-    {
-        /* not recording sound, don't trick MLV decoders :) */
-        mlv_set_type((mlv_hdr_t*)hdr, "NULL");
-        return;
-    }
+    mlv_rec_set_rel_timestamp((mlv_hdr_t*)hdr, get_us_clock());
     
     /* this part is compatible to RIFF WAVE/fmt header */
     hdr->format = 1;
@@ -464,17 +459,6 @@ void mlv_fill_wavi(mlv_wavi_hdr_t *hdr, uint64_t start_timestamp)
     hdr->bytesPerSecond = mlv_snd_in_sample_rate * (mlv_snd_in_bits_per_sample / 8) * mlv_snd_in_channels;
     hdr->blockAlign = (mlv_snd_in_bits_per_sample / 8) * mlv_snd_in_channels;
     hdr->bitsPerSample = mlv_snd_in_bits_per_sample;
-}
-
-/* only used with mlv_rec */
-static void mlv_snd_queue_wavi()
-{
-    trace_write(trace_ctx, "mlv_snd_queue_wavi: queueing a WAVI block");
-    
-    /* queue an WAVI block that contains information about the audio format */
-    mlv_wavi_hdr_t *hdr = malloc(sizeof(mlv_wavi_hdr_t));
-    
-    mlv_fill_wavi(hdr, get_us_clock());
     
     mlv_rec_queue_block((mlv_hdr_t *)hdr);
 }
@@ -492,31 +476,18 @@ uint32_t raw_rec_cbr_starting()
         trace_write(trace_ctx, "raw_rec_cbr_starting: starting mlv_snd");
         mlv_snd_rec_active = 1;
         mlv_snd_start();
-
-        trace_write(trace_ctx, "raw_rec_cbr_starting: allocating buffers");
-        mlv_snd_alloc_buffers();
     }
     
     return 0;
 }
 
-/* may or may not be called from vsync hook or raw_rec_task */
-/* fixme: provide only one way to do things */
 uint32_t raw_rec_cbr_started()
 {
     if(mlv_snd_state == MLV_SND_STATE_PREPARE)
     {
-        trace_write(trace_ctx, "raw_rec_cbr_started");
-
-        /* only used with mlv_rec (dummy mlv_rec_queue_block in mlv_lite) */
-        if ((void *) &mlv_rec_queue_block != (void *) &ret_0)
-        {
-            mlv_snd_queue_wavi();
-        }
-
-        /* now everything is ready to fire - real output activation happens
-         * as soon as mlv_snd_vsync() switches to MLV_SND_STATE_SOUND_RUNNING */
-        mlv_snd_state = MLV_SND_STATE_READY;
+        trace_write(trace_ctx, "raw_rec_cbr_started: allocating buffers");
+        mlv_snd_alloc_buffers();
+        mlv_snd_queue_wavi();
     }
     return 0;
 }
@@ -597,14 +568,12 @@ static unsigned int mlv_snd_vsync(unsigned int unused)
             /* the current one will get filled right now */
             mlv_snd_current_buffer->timestamp = get_us_clock();
             trace_write(trace_ctx, "mlv_snd_vsync: starting audio DONE");
-
-            return;
+        }
+        else
+        {
+            trace_write(trace_ctx, "mlv_snd_vsync: msg_queue_receive(mlv_snd_buffers_empty, ...) failed, retry next time");
         }
     }
-
-    /* should not happen */
-    trace_write(trace_ctx, "mlv_snd_vsync: expected at least 2 buffers in mlv_snd_buffers_empty");
-    ASSERT(0);
     
     return 0;
 }
@@ -612,32 +581,27 @@ static unsigned int mlv_snd_vsync(unsigned int unused)
 static struct menu_entry mlv_snd_menu[] =
 {
     {
-        .name       = "Sound recording",
-        .select     = menu_open_submenu,
-        .priv       = &mlv_snd_enabled,
-        .help       = "Sound recording options provided by mlv_snd.",
-        .children   = (struct menu_entry[])
+        .name = "MLV Sound",
+        .priv = &mlv_snd_enabled,
+        .max = 1,
+        .help = "Enable sound recording for MLV.",
+        .submenu_width = 710,
+        .children = (struct menu_entry[])
         {
             {
-                .name       = "Enable sound",
-                .priv       = &mlv_snd_enabled,
-                .max        = 1,
-                .help       = "[mlv_snd] Enable sound recording for MLV.",
+                .name = "Sampling rate",
+                .priv = &mlv_snd_rate_sel,
+                .min = 0,
+                .max = COUNT(mlv_snd_rates)-1,
+                .choices = CHOICES(MLV_SND_RATE_TEXT),
+                .help = "Select your sampling rate.",
             },
             {
-                .name       = "Sampling rate",
-                .priv       = &mlv_snd_rate_sel,
-                .min        = 0,
-                .max        = COUNT(mlv_snd_rates)-1,
-                .choices    = CHOICES(MLV_SND_RATE_TEXT),
-                .help       = "[mlv_snd] Select your sampling rate.",
-            },
-            {
-                .name       = "Trace output",
-                .priv       = &mlv_snd_enable_tracing,
-                .min        = 0,
-                .max        = 1,
-                .help       = "[mlv_snd] Enable log file tracing. Needs camera restart.",
+                .name = "Trace output",
+                .priv = &mlv_snd_enable_tracing,
+                .min = 0,
+                .max = 1,
+                .help = "Enable log file tracing. Needs camera restart.",
             },
             MENU_EOL,
         },
@@ -655,19 +619,10 @@ static unsigned int mlv_snd_init()
     //}
     
     trace_write(trace_ctx, "mlv_snd_init: init queues");
-    mlv_snd_buffers_empty = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_empty", MLV_SND_BLOCKS_PER_SLOT * MLV_SND_SLOTS);
-    mlv_snd_buffers_done = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_done", MLV_SND_BLOCKS_PER_SLOT * MLV_SND_SLOTS);
-
-    /* will the same menu work in both submenus? probably not */
-    if (menu_get_value_from_script("Movie", "RAW video") != INT_MIN)
-    {
-        menu_add("RAW video", mlv_snd_menu, COUNT(mlv_snd_menu));
-    }
-    else if (menu_get_value_from_script("Movie", "RAW video (MLV)") != INT_MIN)
-    {
-        menu_add("RAW video (MLV)", mlv_snd_menu, COUNT(mlv_snd_menu));
-    }
-
+    mlv_snd_buffers_empty = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_empty", 300);
+    mlv_snd_buffers_done = (struct msg_queue *) msg_queue_create("mlv_snd_buffers_done", 300);
+    
+    menu_add("Audio", mlv_snd_menu, COUNT(mlv_snd_menu));
     trace_write(trace_ctx, "mlv_snd_init: done");
     
     return 0;

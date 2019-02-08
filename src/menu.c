@@ -4784,22 +4784,16 @@ static int menu_ensure_canon_dialog()
     {
         if (redraw_flood_stop)
         {
-            // Canon dialog changed?
+            // Canon dialog timed out?
+#if defined(CONFIG_MENU_TIMEOUT_FIX)
+            // force dialog change when canon dialog times out (EOSM, 6D etc)
+            start_redraw_flood();
+            SetGUIRequestMode(GUIMODE_ML_MENU);
+#else
             return 0;
+#endif
         }
     }
-
-#if defined(CONFIG_MENU_TIMEOUT_FIX)
-    // refresh Canon dialog before it times out (EOSM, 6D etc)
-    // apparently it's the MPU that decides to turn off the underlying Canon dialog
-    // so we have to keep poking it to stay awake
-    static int last_refresh = 0;
-    if (GUIMODE_ML_MENU && lv && should_run_polling_action(2000, &last_refresh))
-    {
-        SetGUIRequestMode(GUIMODE_ML_MENU);
-    }
-#endif
-
 #endif
     return 1;
 }
@@ -5946,7 +5940,7 @@ static void longpress_check(int timer, void * opaque)
         /* optional unpress event */
         if (longpress->short_btn_unpress)
         {
-            fake_simple_button(longpress->long_btn_unpress);
+            fake_simple_button(longpress->short_btn_unpress);
         }
     }
 }

@@ -32,12 +32,17 @@
 #include "fps.h"
 #include "platform/state-object.h"
 
+#ifdef CONFIG_EDMAC_RAW_PATCH
+#include "patch.h"
+#include "edmac.h"
+#endif
+
 #undef RAW_DEBUG        /* define it to help with porting */
 #undef RAW_DEBUG_DUMP   /* if you want to save the raw image buffer and the DNG from here */
 #undef RAW_DEBUG_BLACK  /* for checking black level calibration */
-#undef RAW_DEBUG_TYPE   /* this lets you select the raw type (for PREFERRED_RAW_TYPE) from menu */
+   /* this lets you select the raw type (for PREFERRED_RAW_TYPE) from menu */
 /* see also RAW_ZEBRA_TEST and RAW_SPOTMETER_TEST in zebra.c */
-
+#undef RAW_DEBUG_TYPE
 #ifdef RAW_DEBUG
 #define dbg_printf(fmt,...) { printf(fmt, ## __VA_ARGS__); }
 #else
@@ -221,7 +226,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #define SHAD_GAIN_REGISTER 0xC0F08030
 
-static int lv_raw_type = PREFERRED_RAW_TYPE;
+//static int lv_raw_type = PREFERRED_RAW_TYPE;//
 static int lv_raw_gain = 0;
 
 /** 
@@ -237,7 +242,6 @@ static int lv_raw_gain = 0;
 
 static int get_default_white_level()
 {
-
     if (lv_raw_gain)
     {
         int default_white = WHITE_LEVEL;
@@ -251,34 +255,6 @@ static int get_default_white_level()
         /* fixme: hardcoded black level */
         return (default_white - 2048) * lv_raw_gain / 4096 + 2048;
     }
-
-        if (shamem_read(0xC0F42744) == 0x6060606)
-        {	
-	    /* 8bit by checking pushed liveview gain register set in crop_rec.c */
-            int default_white = WHITE_LEVEL;
-            return (default_white = 2250);   
-        }
-
-        if (shamem_read(0xC0F42744) == 0x5050505)
-        {	
-	    /* 9bit by checking pushed liveview gain register set in crop_rec.c */
-            int default_white = WHITE_LEVEL;
-            return (default_white = 2550);   
-        }
-
-        if (shamem_read(0xC0F42744) == 0x4040404)
-        {	
-	    /* 10bit by checking pushed liveview gain register set in crop_rec.c */
-            int default_white = WHITE_LEVEL;
-            return (default_white = 3000);   
-        }
-
-        if (shamem_read(0xC0F42744) == 0x2020202)
-        {	
-	    /* 12bit by checking pushed liveview gain register set in crop_rec.c */
-            int default_white = WHITE_LEVEL;
-            return (default_white = 6000);   
-        }
     
     return WHITE_LEVEL;
 }
@@ -289,6 +265,10 @@ static int get_default_white_level()
  */
 #if defined(EVF_STATE)  /* 60D and newer */
 #define BLACK_LEVEL 2047
+#endif
+
+#if defined(LV_STATE)  /* older Digic 4 */
+#define BLACK_LEVEL 1792
 #endif
 
 /**
@@ -534,7 +514,7 @@ static void* raw_get_default_lv_buffer()
 /* returns 1 on success */
 static int raw_lv_get_resolution(int* width, int* height)
 {
-#ifdef CONFIG_EDMAC_RAW_SLURP
+#if defined(CONFIG_EDMAC_RAW_SLURP) || defined(CONFIG_5D2)    //waza57 needed for 5D2 but without CONFIG_EDMAC_RAW_SLURP
     /*
      * from adtg_gui.c:
      * {0xC0F0,   0x6800, 0, "RAW first line|column. Column is / 8 on 5D3 (parallel readout?)"},
@@ -573,59 +553,38 @@ static int raw_lv_get_resolution(int* width, int* height)
      *      these hiccups disappear when using height-1 or lower
      *      (100D 720p: top=28 active=696 y2=724 above=727 adjusted=726)
      * EOSM/700D/650D needs to add 1 to match EDMAC - no hiccups reported
-     *      however, height+1 would give 3 invalid lines at the bottom
+     *      however, height+1 would give 4 invalid lines at the bottom
      *      (650D 720p: top=28 active=696 y2=724 above=726 adjusted=725)
      * see also https://a1ex.magiclantern.fm/bleeding-edge/raw/raw_res.txt */
 
-#if defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_EOSM)
-    /* required to squeeze 1080p in x5 zoom */
-    (*height)++;
-#elif defined(CONFIG_DIGIC_V)
+#ifdef CONFIG_DIGIC_V
     (*height)--;
 #endif
 
 #ifdef CONFIG_EOSM
     /* EOS M exception */
     /* http://www.magiclantern.fm/forum/index.php?topic=16608.msg176023#msg176023 */
-    if ((lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264) && (shamem_read(0xC0f0b13c)) != 0xd) /* for 1x3 binning */
-
-    {    
-            *height = 727; 
-
-        if (shamem_read(0xC0f0b13c) == 0xa)
-        {	
-        /* mv1080p mode crop_rec.c */
-            *height = 1188;
-        }
-
-        if (shamem_read(0xC0f0b13c) == 0xb)
-        {	
-        /* mv1080p 45fps */
-            *height = 1006;
-        }
-
-        if (shamem_read(0xC0f0b13c) == 0xc)
-        {	
-        /* mv1080p 50fps */
-            *height = 769;
-        }
-
+    if (lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264)
+    {
+        *height = 727;
     }
 #endif
 
     return 1;
 
 #else
+
     /* autodetect raw size from EDMAC */
     uint32_t lv_raw_height = shamem_read(RAW_LV_EDMAC+4);
     uint32_t lv_raw_size = shamem_read(RAW_LV_EDMAC+8);
     if (!lv_raw_size) return 0;
-
+  
     int pitch = lv_raw_size & 0xFFFF;
     *width = pitch * 8 / 14;
     
     /* 5D2 uses lv_raw_size >> 16, 5D3 uses lv_raw_height, so this hopefully covers both cases */
     *height = MAX((lv_raw_height & 0xFFFF) + 1, ((lv_raw_size >> 16) & 0xFFFF) + 1);
+  
     return 1;
 #endif
 }
@@ -860,25 +819,10 @@ int raw_update_params_work()
         skip_left   = 72;
         skip_right  = 0;
         #ifdef CONFIG_100D
-        /* 720p: H=727-1, last valid line at y=723, 2 white lines at bottom */
-        /* VRAM dumps, please: http://www.magiclantern.fm/forum/index.php?topic=12375.0 */
-        skip_bottom = zoom ? 0 : mv1080crop ? 0 : mv720 ? 2 : 0;
+        skip_bottom = mv720 ? 2 : 0;    /* 720p: H=726, last valid line at y=723, 2 white lines at bottom */
         #else
-        /* 720p: H=726+1, last valid line at y=723, 3 white lines at bottom */
-        /* 1080p: H=1189+1, 2 white lines at bottom */
-        /* x5 zoom: H=1107+1, no bad lines at bottom; 1108-28=1080 */
-        /* 1080 crop: H=1059+1, no bad lines at bottom */
-        skip_bottom = zoom ? 0 : mv1080crop ? 0 : mv720 ? 3 : 2;
+        skip_bottom = mv720 ? 1 : 0;    /* 720p: H=725, last valid line at y=723, 1 white line at bottom */
         #endif
-        #endif
-
-/* work in progress */
-        #ifdef CONFIG_EOSM
-	if (mv1080crop)
-	{
-        skip_top = 84;
-        skip_right = 60;
-	}
         #endif
 
         #ifdef CONFIG_7D
@@ -1308,9 +1252,11 @@ void raw_set_preview_rect(int x, int y, int w, int h, int obey_info_bars)
 
 /* fixme: external calls to this are not exactly thread safe
  * and they can be overwritten any time by raw_update_params */
+
 void REQUIRES(raw_sem)
 raw_set_geometry(int width, int height, int skip_left, int skip_right, int skip_top, int skip_bottom)
 {
+
     raw_info.width = width;
     raw_info.height = height;
     raw_info.pitch = raw_info.width * raw_info.bits_per_pixel / 8;
@@ -1688,7 +1634,7 @@ static int black_level_check_left(int ref_mean, int ref_stdev_x100, int y1, int 
         /* allow the local mean to be within ref_mean +/- 2 * ref_sigma */
         if (ABS(local_mean - ref_mean) > 2 * ref_stdev_x100/100)
         {
-            printf("Black %d/%d: mean too different (%d, ref %d"SYM_PLUSMINUS"%s%d.%02d)\n", i+1, N, local_mean, ref_mean, FMT_FIXEDPOINT2(ref_stdev_x100));
+           printf("Black %d/%d: mean too different (%d, ref %d"SYM_PLUSMINUS"%s%d.%02d)\n", i+1, N, local_mean, ref_mean, FMT_FIXEDPOINT2(ref_stdev_x100));
             return 0;
         }
 
@@ -1715,7 +1661,7 @@ static int autodetect_black_level(int* black_mean, int* black_stdev_x100)
     int mean2 = 0;
     int stdev2 = 0;
         
-    if (raw_info.active_area.x1 > 50) /* use the left black bar for black calibration */
+    if (0) /* use the left black bar for black calibration */  //waza57 for 5D2 cause raw dtect error with if (raw_info.active_area.x1 > 50)  
     {
         autodetect_black_level_calc(
             16, raw_info.active_area.x1 - 16,
@@ -1890,6 +1836,10 @@ void FAST raw_lv_redirect_edmac(void* ptr)
     #endif
 }
 
+#if defined(CONFIG_EDMAC_RAW_SLURP) || defined(CONFIG_EDMAC_RAW_PATCH)
+static int lv_raw_type = PREFERRED_RAW_TYPE;
+#endif
+
 #ifdef CONFIG_EDMAC_RAW_SLURP
 
 void FAST raw_lv_vsync()
@@ -1926,7 +1876,31 @@ void FAST raw_lv_vsync()
     /* overriding the buffer is only valid for one frame */
     redirected_raw_buffer = 0;
 }
+#endif
 
+#ifdef CONFIG_EDMAC_RAW_PATCH
+static void raw_lv_setedmac_patch(uint32_t* regs, uint32_t* stack, uint32_t pc)
+{
+    /* R0: EDMAC channel */
+    /* R1: output buffer */
+    /* R2: EDMAC info (geometry) */
+    /* R3: flags */
+
+   int width, height;
+   int ok = raw_lv_get_resolution(&width, &height);
+   if (ok)
+   {
+      /* update EDMAC image size */
+      int pitch = width * raw_info.bits_per_pixel / 8;
+      static struct edmac_info dst_edmac_info;
+      dst_edmac_info.xb = pitch;
+      dst_edmac_info.yb = height - 1;
+      regs[2] = (uint32_t) &dst_edmac_info;
+
+     /* we can override this here */
+     EngDrvOut(RAW_TYPE_REGISTER, lv_raw_type);
+  }
+}
 /* integer gain used to fix the image darkening caused by lv_raw_gain */
 /* this gain must not (!) change the raw data */
 int _raw_lv_get_iso_post_gain()
@@ -2217,6 +2191,12 @@ void FAST raw_preview_fast()
 }
 
 #ifdef CONFIG_RAW_LIVEVIEW
+
+#ifdef CONFIG_EDMAC_RAW_PATCH
+extern thunk StartImagePass_x1_SetEDmac;
+extern thunk StartImagePass_x5_SetEDmac;
+#endif
+
 static void raw_lv_enable()
 {
     /* make sure LiveView is fully started before enabling the raw flag */
@@ -2227,6 +2207,10 @@ static void raw_lv_enable()
 
 #ifndef CONFIG_EDMAC_RAW_SLURP
     call("lv_save_raw", 1);
+#ifdef CONFIG_EDMAC_RAW_PATCH
+   patch_hook_function((uint32_t) &StartImagePass_x1_SetEDmac, 0xE3A03202, raw_lv_setedmac_patch, "RAW LV x1");
+   patch_hook_function((uint32_t) &StartImagePass_x5_SetEDmac, 0xE3A03202, raw_lv_setedmac_patch, "RAW LV x5");
+#endif
 #endif
 
 #ifdef DEFAULT_RAW_BUFFER
@@ -2269,6 +2253,10 @@ static void raw_lv_disable()
 
 #ifndef CONFIG_EDMAC_RAW_SLURP
     call("lv_save_raw", 0);
+#ifdef CONFIG_EDMAC_RAW_PATCH
+   unpatch_memory((uint32_t) &StartImagePass_x1_SetEDmac);
+   unpatch_memory((uint32_t) &StartImagePass_x5_SetEDmac);
+#endif
 #endif
 
 #ifdef CONFIG_ALLOCATE_RAW_LV_BUFFER

@@ -14,6 +14,7 @@
 #include "raw.h"
 #include "focus.h"
 #include "beep.h"
+#include  "patch.h"
 
 #if defined(CONFIG_7D)
 #include "ml_rpc.h"
@@ -232,12 +233,13 @@ static int calc_movie_gain(int movie_gain, int* boost_stops)
 }
 
 #ifdef CONFIG_DIGIC_POKE
-
+static CONFIG_INT("function.FA", FA_function, 0);
 static CONFIG_INT("digic.poke", digic_poke, 0);
 static CONFIG_INT("digic.reg.bas", digic_register_base, 0xC0F0);
 static CONFIG_INT("digic.reg.mid", digic_register_mid, 0x80);
 static CONFIG_INT("digic.reg.off", digic_register_off, 0x08);
 static CONFIG_INT("digic.alter.mode", digic_alter_mode, 1);
+static CONFIG_INT("digic.value2", digic_value2, 0x0002);
 int digic_register = 0;
 int digic_value = 0;
 
@@ -365,7 +367,43 @@ void digic_poke_step()
         }
     }
 }
+void digic_poke_step2()
+{
+    if (digic_poke && DISPLAY_IS_ON && lv)
+    {
+        digic_register = get_digic_register_addr();
 
+        if (BGMT_PRESS_RIGHT)
+        {
+            if (digic_alter_mode == 0) // rand
+                digic_value2 = rand();
+            else if (digic_alter_mode == 1) // increment 
+                digic_value2 += is_manual_focus() ? 1 : -1;
+            else if (digic_alter_mode == 2) // increment << 8
+                digic_value2 += (is_manual_focus() ? 1 : -1) << 8;
+            else if (digic_alter_mode == 3) // increment << 16
+                digic_value2 += (is_manual_focus() ? 1 : -1) << 16;
+            else if (digic_alter_mode == 4) // increment << 24
+                digic_value2 += (is_manual_focus() ? 1 : -1) << 24;
+            
+        }
+        if (BGMT_PRESS_LEFT)
+        {
+            if (digic_alter_mode == 0) // rand
+                digic_value2 = rand();
+            else if (digic_alter_mode == 1) // increment 
+                digic_value2 -= is_manual_focus() ? 1 : -1;
+            else if (digic_alter_mode == 2) // increment << 8
+                digic_value2 -= (is_manual_focus() ? 1 : -1) << 8;
+            else if (digic_alter_mode == 3) // increment << 16
+                digic_value2 -= (is_manual_focus() ? 1 : -1) << 16;
+            else if (digic_alter_mode == 4) // increment << 24
+                digic_value2 -= (is_manual_focus() ? 1 : -1) << 24;
+            
+        }
+        
+    }
+}
 void hex_toggle_8bit(void* priv, int delta)
 {
     MEM(priv) += 4 * delta;
@@ -377,6 +415,20 @@ void digic_value_toggle(void* priv, int delta)
     digic_value += delta;
 }
 
+void  FA_function_toggle(void* priv, int delta)      
+{
+    if (FA_function == 0)                 
+          {
+         // change4FirstBits", 
+          EngDrvOutLV(digic_register, (MEMX(digic_register) & 0xFFFF0000) + digic_value2);
+          }     
+     else if (FA_function == 1) 
+          //"change4LastBits";;
+          {
+          EngDrvOutLV(digic_register, (MEMX(digic_register) & 0xFFFF) + (digic_value2 << 16));
+          }
+     
+}          
 void digic_random_register(void* priv, int delta)
 {
     digic_register_mid = rand() & 0xFF;
@@ -834,7 +886,7 @@ void digic_iso_step()
     int mv = is_movie_mode();
     if (mv && lens_info.iso == 0) return; // no auto ISO, please
 #endif
-#ifdef FEATURE_EXPO_ISO_DIGIC
+#if defined(FEATURE_EXPO_ISO_DIGIC) && defined(CONFIG_EDMAC_RAW_SLURP)    // waza57 needed to compile for 5D2
     if (mv)
     {
         if (digic_iso_gain_movie_for_gradual_expo == 0) digic_iso_gain_movie_for_gradual_expo = 1024;
@@ -1073,8 +1125,8 @@ static struct menu_entry dbg_menu[] = {
                 .name = "Register family",
                 .priv = &digic_register_base,
                 .unit = UNIT_HEX,
-                .min = 0xC000,
-                .max = 0xCFFF,
+                .min = 0x0000,
+                .max = 0xFFFF,
                 .help = "DIGIC register address, mask=FFFF0000.",
             },
             {
@@ -1100,6 +1152,28 @@ static struct menu_entry dbg_menu[] = {
                 .update = digic_value_print,
                 .select = digic_value_toggle,
                 .help = "Current value of selected register. Change w. HalfShutter.",
+            },
+            {
+                .name = "(funct call by Aplly)",     //waza57 just for utility                                                                     
+                .priv = &FA_function,
+                .max = 5,
+                .choices = (const char *[]) {"change4FirstBits", "change4LastBits"},
+                .help = "select your called function",
+            } ,
+            {
+                .name = "DigicVal        ", 
+                .priv = &digic_value2,
+                .unit = UNIT_HEX,
+                .min = 0x000000,    //waza57 more dangerous for machine! 
+                .max = 0xffffff,
+                
+                .help = "value passed to funct.",
+            },
+            {
+                .name = "Apply       ",
+                
+                .select = FA_function_toggle,
+                .help = "Apply value of DigicVal",
             },
             {
                 .name = "Altering mode  ",

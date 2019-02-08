@@ -4,11 +4,8 @@
 #include "property.h"
 
 #include "crop-mode-hack.h"
-#include "config.h"
 
 #ifdef FEATURE_CROP_MODE_HACK
-
-static CONFIG_INT("movie.crop.mode", movie_crop_mode, 0);
 
 static int video_mode[10];
 PROP_HANDLER(PROP_VIDEO_MODE)
@@ -57,12 +54,10 @@ static void movie_crop_hack_toggle(void* priv, int sign)
         if(!video_mode_crop) 
         {
             movie_crop_hack_enable();
-            movie_crop_mode = 1;
         } 
         else 
         {
             movie_crop_hack_disable();
-            movie_crop_mode = 0;
         }
     }
 }
@@ -94,12 +89,6 @@ static struct menu_entry crop_hack_menus[] = {
 void crop_mode_hack_init()
 {
     menu_add( "Movie", crop_hack_menus, COUNT(crop_hack_menus) );
-    
-    config_load();
-    if (movie_crop_mode)
-    {
-        movie_crop_hack_enable();
-    }
 }
 
 INIT_FUNC(__FILE__, crop_mode_hack_init);
