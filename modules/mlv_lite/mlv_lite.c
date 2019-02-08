@@ -4164,8 +4164,9 @@ static int raw_rec_should_preview(void)
     static int autofocusing = 0;
 
 // let´s skip this for a while. Better preview
-/* fix for stuck realtime preview when wanting framing. Testing refreshing cropmarks. Who knows */
-    reset_movie_cropmarks();
+/* fix for stuck realtime preview when wanting framing 
+    raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
+    raw_force_aspect_ratio(0, 0); */
 
     if (!get_halfshutter_pressed())
     {
