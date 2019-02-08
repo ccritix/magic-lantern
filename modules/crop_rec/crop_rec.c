@@ -75,6 +75,7 @@ enum crop_preset {
     CROP_PRESET_4K_3x1_EOSM,
     CROP_PRESET_5K_3x1_EOSM,
     CROP_PRESET_4K_5x1_EOSM,
+    CROP_PRESET_2K_5D2,
     NUM_CROP_PRESETS
 };
 
@@ -153,10 +154,12 @@ static const char crop_choices_help2_5d3[] =
 static enum crop_preset crop_presets_5d2[] = {
     CROP_PRESET_OFF,
     CROP_PRESET_3X,
+    CROP_PRESET_2K_5D2,
 };
 static const char * crop_choices_5d2[] = {
     "OFF",
     "1920 1:1",
+    "2K",
 };
 
 static const char crop_choices_help_5d2[] =
@@ -165,7 +168,8 @@ static const char crop_choices_help_5d2[] =
 static const char crop_choices_help2_5d2[] =
     "\n"
     "1:1 sensor readout (square raw pixels, 3x crop, good preview in 1080p)\n"
-    "1:1 crop, higher vertical resolution (1920x1920 @ 24p, cropped preview)\n";
+    "1:1 crop, higher vertical resolution (1920x1920 @ 24p, cropped preview)\n"
+    "2K\n";
 
 	/* menu choices for 100D */
 static enum crop_preset crop_presets_100d[] = {
@@ -622,6 +626,7 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_3x3_mv1080_46_48fps_EOSM]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_3x1_mv720_50fps_EOSM]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_anamorphic_EOSM]  = { 1290, 1290, 1290,  960,  800 },
+    [CROP_PRESET_2K_5D2]       = { 1304, 1104,  904,  704,  504 },
 };
 
 /* 5D3 vertical resolution increments over default configuration */
@@ -764,6 +769,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
         switch (crop_preset)
         {
+
+            case CROP_PRESET_2K_5D2:
+                cmos_new[1] = 0xb0d; 
+		break;
+
             /* 1:1 (3x) */
             case CROP_PRESET_3X:
                 /* start/stop scanning line, very large increments */
@@ -3022,6 +3032,25 @@ only gotten one single corrupted frame from below but keep on testing */
 }
 
 
+static inline uint32_t reg_override_2k_5d2(uint32_t reg, uint32_t old_val)
+{
+
+    switch (reg)
+    {
+        	case 0xC0F06088: return 0x4e7058a; 		
+        	case 0xC0F0713c: return 0x500;
+		case 0xC0F07150: return 0x50f;
+        	case 0xC0F06014: return 0x55e;
+		case 0xC0F06008: return 0x27702d7;
+		case 0xC0F08184: return 0x4e2;
+        	case 0xC0F08188: return 0xaa7;
+		case 0xC0F08518: return 0x4e20aa7;
+    }
+
+    return 0;
+}
+
+
 static inline uint32_t reg_override_crop_preset_off_eosm(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
@@ -3073,7 +3102,6 @@ static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
                 case 0xC0F08518:
                    return 0x46C0C67 ;
 
- 
             }
     }
     else
@@ -3138,6 +3166,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_3x3_1X_100D)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_OFF_eosm)    ? reg_override_crop_preset_off_eosm  :
+        (crop_preset == CROP_PRESET_2K_5D2)    ? reg_override_2k_5d2  :
 
                                                   0                       ;
     return reg_override_func;
