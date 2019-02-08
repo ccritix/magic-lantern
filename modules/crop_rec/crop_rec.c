@@ -581,12 +581,14 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_UHD]           = { 1536, 1472, 1120,  640,  540, 1320 },
     [CROP_PRESET_4K_HFPS]       = { 3072, 3072, 2500, 1440, 1200, 1320 },
     [CROP_PRESET_FULLRES_LV]    = { 3870, 3870, 3870, 3870, 3870, 1320 },
+    [CROP_PRESET_mv1080p_mv720p_100D]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_2K_100D]       = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_3K_100D]       = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_4K_3x1_100D]          = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_5K_3x1_100D]          = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_4K_100D]       = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_1080K_100D]    = { 1304, 1104,  904,  704,  504 },
+    [CROP_PRESET_3xcropmode_100D]       = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_2K_EOSM]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_3K_EOSM]          = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_4K_EOSM]          = { 3072, 3072, 2500, 1440, 1200 },
@@ -3656,7 +3658,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
     {
         if (is_supported_mode())
         {
-            if (!patch_active || CROP_PRESET_MENU != crop_preset || ratios == 0x1 || ratios == 0x2 || ratios == 0x0)
+            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D)
             {
                 return 1;
             }
@@ -4023,7 +4025,11 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
         /* not implemented yet */
         raw_capture_info.offset_x = raw_capture_info.offset_y   = SHRT_MIN;
 
-        if ((lv_dispsize > 1) && !((CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) || (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM) || (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_100D) || (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_100D)))
+        if ((lv_dispsize > 1) 
+	&& !((CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) 
+	|| (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM) 
+	|| (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_100D) 
+	|| (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_100D)))
         {
             /* raw backend gets it right */
             return 0;
