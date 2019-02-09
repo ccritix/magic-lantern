@@ -19,7 +19,7 @@
      * DRBAR, mask 0xFFFFFFE0: base address
      *  DRSR, mask 0x0000003E: region size (min. 4096, power of 2)
      *  DRSR, mask 0x00000001: enabled (must be 1)
-     *  DRSR, mask 0x0000FF00: sub-region disable bits (unused)
+     *  DRSR, mask 0x0000FF00: sub-region disable bits
      * Cortex R4 TRM, 4.3.20 c6, MPU memory region programming registers
      */
     #define REGION_BASE(base) (base & 0xFFFFFFE0)
@@ -54,8 +54,27 @@
 
 #ifdef CONFIG_DIGIC_VI
 
-static ASM_VAR uint32_t protected_region_base = REGION_BASE(0xC0000000);
-static ASM_VAR uint32_t protected_region_size = REGION_SIZE(0x20000000);
+//static ASM_VAR uint32_t protected_region_base = REGION_BASE(0xC0000000);
+//static ASM_VAR uint32_t protected_region_size = REGION_SIZE(0x20000000);
+
+/* This logs the entire MMIO activity, from B0000000 to DFFFFFFF:
+ * BFE00000 - BFEFFFFF: used for communicating with Omar
+ * BFF00000 - BFFFFFFF: used for communicating with Zico (MRZM)
+ * C0000000 - DFFFFFFF: regular MMIO range */
+static ASM_VAR uint32_t protected_region_base = REGION_BASE(0x80000000);
+static ASM_VAR uint32_t protected_region_size = REGION_SIZE(0x80000000) | 0xC700;
+
+/* How it works: on DIGIC 6, each memory protection region can be divided
+ * in 8 equal subregions. You may enable/disable any of them (bit set = subregion disabled).
+ * Subregion 80000000 - 8FFFFFFF: disabled (covers BTCM)
+ * Subregion 90000000 - 9FFFFFFF: disabled (unused?)
+ * Subregion A0000000 - AFFFFFFF: disabled (unused?)
+ * Subregion B0000000 - BFFFFFFF: enabled  (Omar/Zico communication)
+ * Subregion C0000000 - CFFFFFFF: enabled  (regular MMIO range - used in earlier models)
+ * Subregion D0000000 - DFFFFFFF: enabled  (regular MMIO range - also used, to a lesser extent, in DIGIC 5)
+ * Subregion E0000000 - EFFFFFFF: disabled (unused? there is a memory region configured as 0xEE000000 - EFFFFFFF)
+ * Subregion F0000000 - FFFFFFFF: disabled (ROM)
+ */
 
 #else /* DIGIC V and earlier */
 
