@@ -3033,6 +3033,19 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     rawi_hdr.raw_info.black_level = (black14 + bpp_scaling/2) / bpp_scaling;
     rawi_hdr.raw_info.white_level = (white14 + bpp_scaling/2) / bpp_scaling;
 
+/* round trip analog gain bits reduction. Only EOSM for now. Setting registry flag. Hopefully not affection output. Connected with raw_lv_settings_still_valid() in raw.c */
+if (cam_eos_m)
+{
+/* 8bit */
+    if (shamem_read(0xc0f0815c) == 0x3) rawi_hdr.raw_info.white_level = 2250; 
+/* 9bit */
+    if (shamem_read(0xc0f0815c) == 0x4) rawi_hdr.raw_info.white_level = 2550; 
+/* 10bit */
+    if (shamem_read(0xc0f0815c) == 0x5) rawi_hdr.raw_info.white_level = 3000; 
+/* 12bit */
+    if (shamem_read(0xc0f0815c) == 0x6) rawi_hdr.raw_info.white_level = 6000; 
+}
+
     mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);
     mlv_fill_expo(&expo_hdr, mlv_start_timestamp);
     mlv_fill_lens(&lens_hdr, mlv_start_timestamp);

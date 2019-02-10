@@ -235,6 +235,8 @@ static int lv_raw_gain = 0;
  */
 #define WHITE_LEVEL 16200
 
+static int is_EOSM = 0;
+
 static int get_default_white_level()
 {
 
@@ -252,6 +254,8 @@ static int get_default_white_level()
         return (default_white - 2048) * lv_raw_gain / 4096 + 2048;
     }
 
+if (!is_EOSM)
+{
         if (shamem_read(0xC0F42744) == 0x6060606)
         {	
 	    /* 8bit by checking pushed liveview gain register set in crop_rec.c */
@@ -279,6 +283,7 @@ static int get_default_white_level()
             int default_white = WHITE_LEVEL;
             return (default_white = 6000);   
         }
+}
     
     return WHITE_LEVEL;
 }
@@ -1951,6 +1956,16 @@ int _raw_lv_get_iso_post_gain()
 
 int raw_lv_settings_still_valid()
 {
+
+/* 8bit */
+    if (shamem_read(0xc0f0815c) == 0x3) raw_info.white_level = 2250;
+/* 9bit */
+    if (shamem_read(0xc0f0815c) == 0x4) raw_info.white_level = 2550; 
+/* 10bit */
+    if (shamem_read(0xc0f0815c) == 0x5) raw_info.white_level = 3000; 
+/* 12bit */
+    if (shamem_read(0xc0f0815c) == 0x6) raw_info.white_level = 6000; 
+
     /* should be fast enough for vsync calls */
     if (!lv_raw_enabled) return 0;
     int w, h;

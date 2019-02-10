@@ -1217,7 +1217,9 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[0] = (struct adtg_new) {6, 0x8060, shutter_blanking};
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
 
-
+	  /* only apply bit reducing while recording, not while idle */
+    	  if (RECORDING)
+	  {
    		if (bitrate == 0x1)
     		{
 		/* 8bit roundtrip only not applied here with following set ups */
@@ -1238,11 +1240,13 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
    		if (bitrate == 0x3)
     		{
+
 		/* 10bit roundtrip only not applied here with following set ups */
 		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60 + reg_analog_gain}; 
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 60 + reg_analog_gain};
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 60 + reg_analog_gain};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 60 + reg_analog_gain};
+
 		}
 
     		if (bitrate == 0x4)
@@ -1253,6 +1257,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 250 + reg_analog_gain};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 250 + reg_analog_gain};
 		}
+
+	  }
 
     }
 
@@ -1476,6 +1482,10 @@ static inline uint32_t reg_override_top_bar(uint32_t reg, uint32_t old_val)
 /* changing bits */
 static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
+
+/* only apply bit reducing while recording, not while idle */
+if ((RECORDING && is_EOSM) || (!RECORDING && !is_EOSM))
+{
   if (bitrate == 0x1)
   {
     switch (reg)
@@ -1510,7 +1520,51 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x2020202;
     }
   }
+}
 
+if (!RECORDING && is_EOSM)
+{
+  if (bitrate == 0x1)
+  {
+    switch (reg)
+    {
+	case 0xc0f0815c: return 0x3;
+    }
+  }
+
+  if (bitrate == 0x2)
+  {
+    switch (reg)
+    {
+	case 0xc0f0815c: return 0x4;
+    }
+  }
+
+  if (bitrate == 0x3)
+  {
+    switch (reg)
+    {
+	case 0xc0f0815c: return 0x5;
+    }
+  }
+
+  if (bitrate == 0x4)
+  {
+    switch (reg)
+    {
+	case 0xc0f0815c: return 0x6;
+    }
+  }
+
+/* reset eosm switch */
+  if (bitrate == 0x0 && is_EOSM)
+  {
+    switch (reg)
+    {
+	case 0xc0f0815c: return 0x2;
+    }
+  }
+}
     return 0;
 }
 
