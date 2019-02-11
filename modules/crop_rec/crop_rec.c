@@ -111,7 +111,7 @@ static enum crop_preset crop_presets_5d3[] = {
 
 static const char * crop_choices_5d3[] = {
     "OFF",
-    "1x3_1920x2348",
+    "anamorphic",
     "3K 1:1",
     "1080p45/1080p48 3x3",
     "1920 1:1",
@@ -133,7 +133,7 @@ static const char crop_choices_help_5d3[] =
 
 static const char crop_choices_help2_5d3[] =
     "\n"
-    "1x3 binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
+    "1x3 binning anamorphic\n"
     "1:1 3K crop (3072x1920 @ 24p, square raw pixels, preview broken)\n"
     "1920x1080 @ 45p, 1920x1080 @ 48p, 3x3 binning (50/60 FPS in Canon menu)\n"
     "1:1 sensor readout (square raw pixels, 3x crop, good preview in 1080p)\n"
