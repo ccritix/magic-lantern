@@ -1222,7 +1222,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
 
 	  /* only apply bit reducing while recording, not while idle */
-    	  if (RECORDING)
+    	  if ((RECORDING && is_EOSM) || (!is_EOSM))
 	  {
    		if (bitrate == 0x1)
     		{
