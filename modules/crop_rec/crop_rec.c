@@ -1232,30 +1232,60 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    		if (bitrate == 0x2)
     		{
 		/* 9bit roundtrip only not applied here with following set ups */
+	if (is_EOSM)
+	{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 3.f + reg_analog_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 4.0 + reg_analog_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 3.f + reg_analog_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 3.f + reg_analog_gain};
+	}
+	else
+	{
 		adtg_new[13] = (struct adtg_new) {6, 0x8882, 30 + reg_analog_gain}; 
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 30 + reg_analog_gain};
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 30 + reg_analog_gain};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 30 + reg_analog_gain};
+	}
 		}
 
    		if (bitrate == 0x3)
     		{
 
 		/* 10bit roundtrip only not applied here with following set ups */
+	if (is_EOSM)
+	{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 6.f + reg_analog_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 7.0 + reg_analog_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 6.f + reg_analog_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 6.f + reg_analog_gain};
+	}
+	else
+	{
 		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60 + reg_analog_gain}; 
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 60 + reg_analog_gain};
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 60 + reg_analog_gain};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 60 + reg_analog_gain};
+	}
 
 		}
 
     		if (bitrate == 0x4)
     		{
 		/* 12bit roundtrip only not applied here with following set ups */
+	if (is_EOSM)
+	{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 25.f + reg_analog_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 26.0 + reg_analog_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 25.f + reg_analog_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 25.f + reg_analog_gain};
+	}
+	else
+	{
 		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250 + reg_analog_gain}; 
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 250 + reg_analog_gain};
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 250 + reg_analog_gain};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 250 + reg_analog_gain};
+	}
 		}
 
 	  }
