@@ -10,8 +10,7 @@ AUTOEXEC_BASE   = 0x00800000
 RESTARTSTART    = 0x0
 ROMBASEADDR     = 0xFC000000
 
-# Cortex A9
-# binaries are loaded as Thumb, unlike previous models
+# Cortex A9, binaries loaded as Thumb
 CFLAG_USER = -mthumb -march=armv7-r -mlong-calls
 
 # these should be removed when porting starts
