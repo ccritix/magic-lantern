@@ -56,7 +56,6 @@ NSTUB(0xFE15F747,  smemShowFix)                             // Thumb
 
 /** Debug messages **/
 NSTUB(0x800035E1,  DryosDebugMsg)                           // Thumb
-NSTUB(0xFE3FBEEC,  dm_set_store_level)
 
 /** Eventprocs (call by name) **/
 NSTUB(0xFE48422F,  call)                                    // Thumb
@@ -74,8 +73,8 @@ NSTUB(   0x19F14,  isr_table_handler)
 NSTUB(   0x19F18,  isr_table_param)
 
 /** MPU communication **/
-NSTUB(0xFE253C0F,  mpu_send)                                // Thumb
-NSTUB(0xFE5475CF,  mpu_recv)                                // Thumb
+NSTUB(0xFE253C0F,  mpu_send)                                // Thumb; "dwSize < TXBD_DATA_SIZE"
+NSTUB(0xFE5475CF,  mpu_recv)                                // Thumb; passed as last argument by InitializeIntercom and eventually stored into mpu_recv_cbr
 NSTUB(    0x890C,  mpu_recv_cbr)
 NSTUB(   0x400C0,  mpu_send_ring_buffer)                    // ring buffer used in mpu_send
 NSTUB(    0x88F0,  mpu_send_ring_buffer_tail)               // ring buffer index incremented in mpu_send
