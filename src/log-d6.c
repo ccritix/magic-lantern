@@ -186,7 +186,11 @@ static void pre_isr_log(uint32_t isr)
     if (isr == 0x2A || isr == 0x12A || isr == 0x147 || isr == 0x1B)
     {
         /* SIO3/MREQ; also check on timer interrupt */
+        #ifdef CONFIG_7D2
+        extern const char * const mpu_send_ring_buffer[20];
+        #else
         extern const char * const mpu_send_ring_buffer[50];
+        #endif
         extern const int mpu_send_ring_buffer_tail;
         static int last_tail = 0;
         while (last_tail != mpu_send_ring_buffer_tail)
@@ -294,8 +298,12 @@ void log_start()
     uint32_t DebugMsg_addr = (uint32_t) &DryosDebugMsg & ~1;
     qprintf("Replacing %X DebugMsg with %X...\n", DebugMsg_addr, &my_DebugMsg);
     MEM(DebugMsg_addr)     = 0xC004F8DF;    /* ldr.w  r12, [pc, #4] */
-    MEM(DebugMsg_addr + 4) = 0x00004760;    /* bx r12 */
-    MEM(DebugMsg_addr + 8) = (uint32_t) &my_DebugMsg;
+    MEM(DebugMsg_addr + 4) = 0xBF004760;    /* bx r12; nop */
+    if (DebugMsg_addr & 2) {
+        MEM(DebugMsg_addr + 6) = (uint32_t) &my_DebugMsg;
+    } else {
+        MEM(DebugMsg_addr + 8) = (uint32_t) &my_DebugMsg;
+    }
     sync_caches();
     sei(old_int);
 

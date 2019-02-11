@@ -1,14 +1,13 @@
-#Makefile.setup.platform for 7D2
+# 7D Mark II 1.0.4
 
-FIRMWARE_ID   = 0x80000289
+CANON_NAME_FIR  = 7D200104.FIR
+FIRMWARE_ID     = 0x80000289
+ROMBASEADDR     = 0xFE0A0000
 
-CANON_NAME_FIR=7D200104.FIR
-ROMBASEADDR   = 0xFE0A0000
-
-# DryOS memory map
-# RESTARTSTART is selected to be at user_mem_start
-# (aka heap start / DRY_HEAP_START / malloc memory pool)
-#
+# Shrink Canon's malloc heap by changing its start address (identical to 80D)
+#          ("meminfo -m" in drysh)    ("memmap" in drysh)
+# Default: 0x001cc408 - 0x002e0c18, 001cc400 - 002e0df4 (total size 0x1149f4)
+# Patched: variable   - 0x002e0c18, variable - 002e0df4 (reserved according to autoexec.bin size + BSS)
 RESTARTSTART    = 0x001CC400
 
 # Cortex R4
