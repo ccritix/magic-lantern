@@ -35,6 +35,7 @@ static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitrate", bitrate, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
+static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -2563,9 +2564,10 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
         case 0xC0F06804: return 0x44c0298 + reg_6804_width + (reg_6804_height << 16); /* 2520x1072  x5 Mode; */
+
         case 0xC0F0713c: return 0x44c+ reg_713c;
         case 0xC0F07150: return 0x435+ reg_7150;
-        case 0xC0F06014: return 0x747+ reg_6014;
+        case 0xC0F06014: return set_25fps == 0x1 ? 0x747 - 76 + reg_6014: 0x747 + reg_6014;
 
 /* reset dummy reg in raw.c */
 	case 0xC0f0b13c: return 0xf;
@@ -2578,7 +2580,7 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06804: return 0x5a70298 + reg_6804_width + (reg_6804_height << 16); /* 2520x1418  x5 Mode; */
         case 0xC0F0713c: return 0x5a7+ reg_713c;
         case 0xC0F07150: return 0x5a0+ reg_7150;
-        case 0xC0F06014: return 0x747+ reg_6014;
+        case 0xC0F06014: return set_25fps == 0x1 ? 0x747 - 76 + reg_6014: 0x747 + reg_6014;
 
 /* reset dummy reg in raw.c */
 	case 0xC0f0b13c: return 0xf;
@@ -2786,7 +2788,7 @@ static inline uint32_t reg_override_3x3_mv1080_eosm(uint32_t reg, uint32_t old_v
   {
     switch (reg)
     {
-        	case 0xC0F06014: return 0xa03+ reg_6014;
+        	case 0xC0F06014: return set_25fps == 0x1 ? 0xa03 - 103 + reg_6014: 0xa03 + reg_6014;
 		case 0xC0F0600c: return 0x2070207 + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06008: return 0x2070207 + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x207 + reg_6008;
@@ -2922,7 +2924,7 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
     {
 		case 0xC0F06804: return 0x79f01d4 + reg_6804_width + (reg_6804_height << 16);
 
-        	case 0xC0F06014: return 0x8ec+ reg_6014;
+        	case 0xC0F06014: return set_25fps == 0x1 ? 0x8ec - 93 + reg_6014: 0x8ec + reg_6014;
 		case 0xC0F0600c: return 0x2470247 + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06008: return 0x2470247 + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x247 + reg_6008;
@@ -2957,7 +2959,7 @@ only gotten one single corrupted frame from below but keep on testing */
     {
         	case 0xC0F06804: return 0x7ef01d4 + reg_6804_width + (reg_6804_height << 16); 
 
-        	case 0xC0F06014: return 0x95d+ reg_6014;
+        	case 0xC0F06014: return set_25fps == 0x1 ? 0x95d - 96 + reg_6014: 0x95d + reg_6014;
 		case 0xC0F0600c: return 0x22b022b + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06008: return 0x22b022b + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x22b + reg_6008;
@@ -3345,6 +3347,14 @@ static struct menu_entry crop_rec_menu[] =
                 .choices = CHOICES("OFF", "x3crop"),
                 .help   = "Turns mv1080p and mv1080_46_48fps modes into x3 crop modes\n"
 			  "Turns mv1080p and mv1080_46_48fps modes into x3 crop modes\n"
+            },
+            {
+                .name   = "set 25fps",
+                .priv   = &set_25fps,
+                .max    = 1,
+                .choices = CHOICES("OFF", "25fps"),
+                .help   = "Sets 2.35:1 and 16:9 modes to 25fps(default 24)\n"
+			  "Sets 2.35:1 and 16:9 modes to 25fps(default 24)\n"
             },
             {
                 .name   = "reg_713c",
@@ -4412,6 +4422,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(bitrate)
     MODULE_CONFIG(ratios)
     MODULE_CONFIG(x3crop)
+    MODULE_CONFIG(set_25fps)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
