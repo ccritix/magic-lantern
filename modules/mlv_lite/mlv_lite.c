@@ -721,7 +721,7 @@ void update_resolution_params()
         }
         else
         {
-          /*  max_frame_size &= ~4095; */
+            max_frame_size &= ~4095;
         }
     }
 
