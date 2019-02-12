@@ -347,10 +347,7 @@ static int32_t  reg_skip_left = 0;
 static int32_t  reg_skip_right = 0;
 static int32_t  reg_skip_top = 0;
 static int32_t  reg_skip_bottom = 0;
-static int32_t  reg_8882_gain = 0;
-static int32_t  reg_8884_gain = 0;
-static int32_t  reg_8886_gain = 0;
-static int32_t  reg_8888_gain = 0;
+static int32_t  reg_gain = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -1227,37 +1224,37 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    		if (bitrate == 0x1)
     		{
 		/* 8bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 12 + reg_8882_gain}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 12 + reg_8884_gain};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 12 + reg_8886_gain};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 12 + reg_8888_gain};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 12 + reg_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 12 + reg_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 12 + reg_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 12 + reg_gain};
 		}
 
    		if (bitrate == 0x2)
     		{
 		/* 9bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 30 + reg_8882_gain}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 30 + reg_8884_gain};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 30 + reg_8886_gain};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 30 + reg_8888_gain};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 30 + reg_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 30 + reg_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 30 + reg_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 30 + reg_gain};
 		}
 
    		if (bitrate == 0x3)
     		{
 		/* 10bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60 + reg_8882_gain}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60 + reg_8884_gain};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60 + reg_8886_gain};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60 + reg_8888_gain};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60 + reg_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 60 + reg_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 60 + reg_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 60 + reg_gain};
 		}
 
     		if (bitrate == 0x4)
     		{
 		/* 12bit roundtrip only not applied here with following set ups */
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250 + reg_8882_gain}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250 + reg_8884_gain};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250 + reg_8886_gain};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250 + reg_8888_gain};
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250 + reg_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 250 + reg_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 250 + reg_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 250 + reg_gain};
 		}
 
 	  }
@@ -3510,8 +3507,8 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
-                .name   = "reg_8882_gain",
-                .priv   = &reg_8882_gain,
+                .name   = "reg_gain",
+                .priv   = &reg_gain,
                 .min    = -500,
                 .max    = 500,
                 .unit   = UNIT_DEC,
@@ -3519,8 +3516,8 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
-                .name   = "reg_8884_gain",
-                .priv   = &reg_8884_gain,
+                .name   = "reg_gain",
+                .priv   = &reg_gain,
                 .min    = -500,
                 .max    = 500,
                 .unit   = UNIT_DEC,
@@ -3528,8 +3525,8 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
-                .name   = "reg_8886_gain",
-                .priv   = &reg_8886_gain,
+                .name   = "reg_gain",
+                .priv   = &reg_gain,
                 .min    = -500,
                 .max    = 500,
                 .unit   = UNIT_DEC,
@@ -3537,8 +3534,8 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
-                .name   = "reg_8888_gain",
-                .priv   = &reg_8888_gain,
+                .name   = "reg_gain",
+                .priv   = &reg_gain,
                 .min    = -500,
                 .max    = 500,
                 .unit   = UNIT_DEC,
