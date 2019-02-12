@@ -1962,7 +1962,7 @@ int raw_lv_settings_still_valid()
 /* 9bit */
     if (shamem_read(0xc0f0815c) == 0x4) raw_info.white_level = 2550; 
 /* 10bit */
-    if (shamem_read(0xc0f0815c) == 0x5) raw_info.white_level = 3000; 
+    if (shamem_read(0xc0f0815c) == 0x5) raw_info.white_level = (lens_info.raw_iso == ISO_100) ? 2840 : 2890;
 /* 12bit */
     if (shamem_read(0xc0f0815c) == 0x6) raw_info.white_level = 6000; 
 

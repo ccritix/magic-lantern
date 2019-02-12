@@ -3037,13 +3037,13 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
 if (cam_eos_m)
 {
 /* 8bit */
-    if (shamem_read(0xc0f0815c) == 0x3) rawi_hdr.raw_info.white_level = 2250; 
+    if (shamem_read(0xc0f0815c) == 0x3) rawi_hdr.raw_info.white_level = 2250;
 /* 9bit */
     if (shamem_read(0xc0f0815c) == 0x4) rawi_hdr.raw_info.white_level = 2550; 
 /* 10bit */
-    if (shamem_read(0xc0f0815c) == 0x5) rawi_hdr.raw_info.white_level = 3000; 
+    if (shamem_read(0xc0f0815c) == 0x5) rawi_hdr.raw_info.white_level = (lens_info.raw_iso == ISO_100) ? 2840 : 2890;
 /* 12bit */
-    if (shamem_read(0xc0f0815c) == 0x6) rawi_hdr.raw_info.white_level = 6000; 
+    if (shamem_read(0xc0f0815c) == 0x6) rawi_hdr.raw_info.white_level = 6000;
 }
 
     mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);
