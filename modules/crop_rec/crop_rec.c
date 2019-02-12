@@ -449,6 +449,35 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
             if (is_720p()) skip_top = 0;
             break;
 
+	case CROP_PRESET_2K_EOSM:
+    	/* set ratio preset */
+    	skip_left       = 72;
+    	skip_right      = 0;
+    	skip_top        = 28;
+    	skip_bottom     = 0;
+    	if (ratios == 0x2)
+    	{
+    	skip_left       = 234;
+    	skip_right      = 160;
+    	skip_top        = 0;
+    	skip_bottom     = 128;
+    	}
+        break;
+
+	case CROP_PRESET_4K_EOSM:
+    	skip_left       = 72;
+    	skip_right      = 0;
+    	skip_top        = 30;
+    	skip_bottom     = 0;
+        break;
+
+	case CROP_PRESET_3K_EOSM:
+    	skip_left       = 72;
+    	skip_right      = 0;
+    	skip_top        = 28;
+    	skip_bottom     = 0;
+        break;
+
 	case CROP_PRESET_3x3_mv1080_EOSM:
     	/* set ratio preset */
     	if (ratios == 0x1)
@@ -4088,11 +4117,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
         /* not implemented yet */
         raw_capture_info.offset_x = raw_capture_info.offset_y   = SHRT_MIN;
 
-        if ((lv_dispsize > 1) 
-	&& !((CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) 
-	|| (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM) 
-	|| (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_100D) 
-	|| (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_100D)))
+        if ((lv_dispsize > 1) && (!is_EOSM))
         {
             /* raw backend gets it right */
             return 0;
