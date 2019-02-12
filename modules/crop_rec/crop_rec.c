@@ -1317,11 +1317,12 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_4K_3x1_100D:
 	     case CROP_PRESET_5K_3x1_100D:
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
 		if (x3crop == 0x1)
 		{
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0  + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 5 + reg_8000};
 		}		
-                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
 		break;
 
   	     case CROP_PRESET_3x1_mv720_50fps_EOSM:
@@ -3974,14 +3975,14 @@ static LVINFO_UPDATE_FUNC(crop_info)
 /* EOSM */
   if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
   {
-    snprintf(buffer, sizeof(buffer), "5K anamorphic");
+    snprintf(buffer, sizeof(buffer), "5K amorph");
   if (ratios == 0x1)
   {
-    snprintf(buffer, sizeof(buffer), "4.5K anamorphic");
+    snprintf(buffer, sizeof(buffer), "4.5K amorph");
   }
   if (ratios == 0x2)
   {
-    snprintf(buffer, sizeof(buffer), "3.5K anamorphic");
+    snprintf(buffer, sizeof(buffer), "3.5K amorph");
   }
 
   }
