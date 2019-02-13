@@ -237,8 +237,8 @@ static void memset32(uint32_t * buf, uint32_t val, size_t size)
     }
 }
 
-#if defined(CONFIG_5DS) || defined(CONFIG_5DSR) || defined(CONFIG_7D2)
-void set_S_TX_DATA(int value)
+#ifdef CONFIG_DUAL_DIGIC
+static void set_S_TX_DATA(int value)
 {
     while (!(MEM(0xD0034020) & 0x10));
     MEM(0xD0034014) = value;
@@ -276,18 +276,20 @@ cstart( void )
     
     sync_caches();
 
-    #if defined(CONFIG_7D)
-        MEM(0xC0A00024) = 0x80000010; // send SSTAT for master processor, so it is in right state for rebooting
-    #endif
-
-    #if defined(CONFIG_5DS) || defined(CONFIG_5DSR) || defined(CONFIG_7D2)
-        set_S_TX_DATA(0x20040);
-        MEM(0xD20C0084) = 0x0;
-    #endif
-
     #ifdef CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
         /* FIXME: only mark the memory actually available on each model */
         memset32((uint32_t *) 0x00D00000, 0x124B1DE0 /* RA(W)VIDEO*/, 0x40000000 - 0x00D00000);
+    #endif
+
+    /* Model-specific MMIO pokes required to start Canon firmware */
+    #ifdef CONFIG_DUAL_DIGIC
+      #ifdef CONFIG_DIGIC_IV    /* 7D */
+        MEM(0xC0A00024) = 0x80000010; // send SSTAT for master processor, so it is in right state for rebooting
+      #endif
+      #ifdef CONFIG_DIGIC_VI    /* 5DS, 5DSR, 7D2 */
+        set_S_TX_DATA(0x20040);
+        MEM(0xD20C0084) = 0x0;
+      #endif
     #endif
 
     /* Jump into the newly relocated code

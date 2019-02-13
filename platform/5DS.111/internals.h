@@ -17,8 +17,9 @@
 /** This camera runs DryOS **/
 //~ #define CONFIG_VXWORKS
 
-/** This camera has a DIGIC VI chip */
+/** This camera has a Dual DIGIC VI chip */
 #define CONFIG_DIGIC_VI
+#define CONFIG_DUAL_DIGIC
 
 /** This camera has an APS-C sensor */
 //~ #define CONFIG_FULLFRAME
