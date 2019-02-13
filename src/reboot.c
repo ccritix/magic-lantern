@@ -101,6 +101,11 @@ asm(
 
     ".code 16\n"
     "loaded_as_thumb:\n"
+
+    ".word 0x0FB0EE10\n"        // MRC    p15,0,R0,c0,c0,5      /* refuse to run on cores other than #0 */
+    ".word 0x0003F010\n"        // ANDS.W R0, R0, #3            /* read the lowest 2 bits of the MPIDR register */
+    ".word 0xE7FEBF18\n"        // IT NE; loop BNE loop         /* check if CPU ID is nonzero (i.e. other cores) */
+
     "MOVS R0, #1\n"             // cstart(1) = loaded as Thumb; MOV fails
     "LDR R1, _cstart_addr\n"    // long jump into ARM code (uncacheable, if linked that way)
     "LDR R2, _sp_addr\n"        // load stack pointer
