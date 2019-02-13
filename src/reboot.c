@@ -375,6 +375,12 @@ void print_line(uint32_t color, uint32_t scale, char *txt)
 {
     qprint(txt);
 
+    if (get_model_id() == 0x424)
+    {
+        void (*boot_puts)() = (void *) 0x1030A7;
+        boot_puts(txt);
+    }
+
     /* copy the printed text into log buffer, except for backspaces */
     for (char * c = txt; *c && log_length < sizeof(log_buffer); c++)
     {
