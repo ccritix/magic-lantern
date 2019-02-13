@@ -9,7 +9,7 @@
 static int my_init_task(int a, int b, int c, int d);
 
 /** This just goes into the bss */
-#define RELOCSIZE 0x40000 // look in HIJACK macros for the highest address, and subtract ROMBASEADDR
+#define RELOCSIZE 0x50000 // look in HIJACK macros for the highest address, and subtract ROMBASEADDR
 static uint32_t _reloc[ RELOCSIZE / 4 ];
 #define RELOCADDR ((uintptr_t) _reloc)
 
@@ -38,6 +38,8 @@ static inline uint32_t thumb_branch_instr(uint32_t pc, uint32_t dest, uint32_t o
 
 /** Fix a branch instruction in the relocated firmware image */
 #define FIXUP_BRANCH( rom_addr, dest_addr ) \
+    qprint("[BOOT] fixing up branch at "); qprintn((uint32_t) &INSTR( rom_addr )); \
+    qprint(" (ROM: "); qprintn(rom_addr); qprint(") to "); qprintn((uint32_t)(dest_addr)); qprint("\n"); \
     INSTR( rom_addr ) = THUMB_BLX_INSTR( &INSTR( rom_addr ), (dest_addr) )
 
 static void my_bzero32(void* buf, size_t len)

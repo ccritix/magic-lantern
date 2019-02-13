@@ -237,7 +237,7 @@ static void memset32(uint32_t * buf, uint32_t val, size_t size)
     }
 }
 
-#if defined(CONFIG_5DS)
+#if defined(CONFIG_5DS) || defined(CONFIG_5DSR)
 void set_S_TX_DATA(int value)
 {
     while (!(MEM(0xD0034020) & 0x10));
@@ -280,7 +280,7 @@ cstart( void )
         MEM(0xC0A00024) = 0x80000010; // send SSTAT for master processor, so it is in right state for rebooting
     #endif
 
-    #if defined(CONFIG_5DS)
+    #if defined(CONFIG_5DS) || defined(CONFIG_5DSR)
         set_S_TX_DATA(0x20040);
         MEM(0xD20C0084) = 0x0;
     #endif
