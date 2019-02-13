@@ -288,7 +288,16 @@ cstart( void )
       #endif
       #ifdef CONFIG_DIGIC_VI    /* 5DS, 5DSR, 7D2 */
         set_S_TX_DATA(0x20040);
-        MEM(0xD20C0084) = 0x0;
+      #endif
+    #endif
+    #ifdef CONFIG_DIGIC_VI
+      #ifdef CONFIG_5D4
+        MEM(0xD20B0270) = 0xC0003;
+        MEM(0xD20B0274) = 0xC0003;
+        MEM(0xD20B0278) = 0xC0003;
+        MEM(0xD20B027C) = 0xC0003;
+      #else
+        MEM(0xD20C0084) = 0;
       #endif
     #endif
 
