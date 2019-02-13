@@ -2,8 +2,6 @@
 
 CANON_NAME_FIR  = 5D400104.FIR
 UPDATE_NAME_FIR = DUMP_5D4.FIR
-FIR_BASE        = 0x00800120
-AUTOEXEC_BASE   = 0x00800000
 ROMBASEADDR     = 0xFE0A0000
 
 # Shrink Canon's malloc heap by changing its start address (identical to 80D)
