@@ -7,6 +7,9 @@ ROMBASEADDR   = 0xFE0A0000
 FIR_BASE      = 0x00800120
 AUTOEXEC_BASE = 0x00800000
 
+# Cortex R4
+CFLAG_USER += -march=armv7-r -mlong-calls
+
 # DryOS memory map
 # RESTARTSTART is selected to be at user_mem_start
 # (aka heap start / DRY_HEAP_START / malloc memory pool)
