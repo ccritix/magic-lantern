@@ -213,39 +213,47 @@ static const struct model_data_s model_data[] =
 
 uint32_t get_model_id()
 {
-    uint32_t *model_ptr = (uint32_t *)0xF8002014;
+    uint32_t * model_ptr = NULL;
 
-    if(*model_ptr && *model_ptr < 0x00000FFF)
+    if (ml_loaded_as_thumb)
     {
-        return *model_ptr;
+        /* DIGIC 7/8 */
+        model_ptr = (uint32_t *)0xE1FF9014;
+        uint32_t model_id = (*model_ptr) & ~0x80000000;
+        if(*model_ptr && model_id < 0x00000FFF)
+        {
+            return model_id;
+        }
     }
-
-    /* newer models */
-    model_ptr = (uint32_t *)0xF8020014;
-    if(*model_ptr && *model_ptr < 0x00000FFF)
+    else
     {
-        return *model_ptr;
-    }
+        /* DIGIC 4 */
+        model_ptr = (uint32_t *)0xF8002014;
+        if(*model_ptr && *model_ptr < 0x00000FFF)
+        {
+            return *model_ptr;
+        }
 
-    /* even newer models (DIGIC 6) */
-    model_ptr = (uint32_t *)0xFC060014;
-    if(*model_ptr && *model_ptr < 0x00000FFF)
-    {
-        return *model_ptr;
-    }
+        /* DIGIC 4+ */
+        model_ptr = (uint32_t *)0xF8001014;
+        if(*model_ptr && *model_ptr < 0x00000FFF)
+        {
+            return *model_ptr;
+        }
 
-    /* DIGIC 7 */
-    model_ptr = (uint32_t *)0xE9FF9014;
-    if(*model_ptr && *model_ptr < 0x00000FFF)
-    {
-        return *model_ptr;
-    }
+        /* DIGIC 5 */
+        model_ptr = (uint32_t *)0xF8020014;
+        if(*model_ptr && *model_ptr < 0x00000FFF)
+        {
+            return *model_ptr;
+        }
 
-    /* DIGIC 4+ */
-    model_ptr = (uint32_t *)0xF8001014;
-    if(*model_ptr && *model_ptr < 0x00000FFF)
-    {
-        return *model_ptr;
+        /* DIGIC 6 */
+        model_ptr = (uint32_t *)0xFC060014;
+        if(*model_ptr && *model_ptr < 0x00000FFF)
+        {
+            return *model_ptr;
+        }
     }
 
     return 0;
