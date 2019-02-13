@@ -468,6 +468,14 @@ static void fail()
 static void * find_boot_card_init(int * ret_failed)
 {
     *ret_failed = 0;
+
+    /* exceptions */
+    switch (get_model_id())
+    {
+        case 0x424: /* EOS R */
+            return (void *) 0x1017CF;
+    }
+
     char * boot_card_strings[] = {
         "cf_ready (Not SD Detect High)\n",  /* most cameras */
         "cf_ready (Not CD Detect High)\n",  /* 5D2, 50D */
@@ -503,7 +511,7 @@ static void * find_boot_card_init(int * ret_failed)
         /* very old models (400D, 5D) */
         void * a = (void *) find_func_called_near_string_ref("cf_dir (cfata_init error)\n", 0, -32);
         void * b = (void *) find_func_called_near_string_ref("cf_read_dma (cfata_init error)\n", 0, -32);
-        if (a == b)
+        if (a && a == b)
         {
             *ret_failed = -1;
             return a;
