@@ -4004,14 +4004,14 @@ static LVINFO_UPDATE_FUNC(crop_info)
 /* EOSM */
   if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
   {
-    snprintf(buffer, sizeof(buffer), "5K amorph");
+    snprintf(buffer, sizeof(buffer), "5K anamorphic");
   if (ratios == 0x1)
   {
-    snprintf(buffer, sizeof(buffer), "4.5K amorph");
+    snprintf(buffer, sizeof(buffer), "4.5K anamorphic");
   }
   if (ratios == 0x2)
   {
-    snprintf(buffer, sizeof(buffer), "3.5K amorph");
+    snprintf(buffer, sizeof(buffer), "3.5K anamorphic");
   }
 
   }
