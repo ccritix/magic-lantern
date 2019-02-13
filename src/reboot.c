@@ -25,19 +25,13 @@
  */
 
 #include "dryos.h"
-#include "compiler.h"
-#include "consts.h"
 #include "fw-signature.h"
 #include "disp_direct.h"
 #include <string.h>
 #include <qemu-util.h>
 
-/* this magic is a BX R3 */
-#define FOOTER_MAGIC 0xE12FFF13
 #define STR(x) STRx(x)
 #define STRx(x) #x
-
-#ifdef __ARM__
 
 /* we need this ASM block to be the first thing in the file */
 #pragma GCC optimize ("-fno-reorder-functions")
@@ -141,8 +135,6 @@ asm(
 extern uint8_t blob_start;
 extern uint8_t blob_end;
 
-#endif /* __ARM__ */
-
 static void busy_wait(int n)
 {
     int i,j;
@@ -157,9 +149,9 @@ static void blink(int n)
     while (1)
     {
         #if defined(CARD_LED_ADDRESS) && defined(LEDON) && defined(LEDOFF)
-        *(volatile int*) (CARD_LED_ADDRESS) = (LEDON);
+        MEM(CARD_LED_ADDRESS) = LEDON;
         busy_wait(n);
-        *(volatile int*)(CARD_LED_ADDRESS) = (LEDOFF);
+        MEM(CARD_LED_ADDRESS) = LEDOFF;
         busy_wait(n);
         #endif
     }
@@ -248,11 +240,11 @@ static void memset32(uint32_t * buf, uint32_t val, size_t size)
 #if defined(CONFIG_5DS)
 void set_S_TX_DATA(int value)
 {
-  while ( !(MEM(0xD0034020) & 0x10) );
-  MEM(0xD0034014) = value;
+    while (!(MEM(0xD0034020) & 0x10));
+    MEM(0xD0034014) = value;
 }
 #endif
-    
+
 
 void
 __attribute__((noreturn))
@@ -271,13 +263,12 @@ cstart( void )
     }
 #endif
 
-#ifdef __ARM__
     /* turn on the LED as soon as autoexec.bin is loaded (may happen without powering on) */
     #if defined(CONFIG_40D) || defined(CONFIG_5DC)
-        *(volatile int*) (LEDBLUE) = (LEDON);
-        *(volatile int*) (LEDRED)  = (LEDON); // do we need the red too ?
+        MEM(LEDBLUE) = LEDON;
+        MEM(LEDRED)  = LEDON; // do we need the red too ?
     #elif defined(CARD_LED_ADDRESS) && defined(LEDON) // A more portable way, hopefully
-        *(volatile int*) (CARD_LED_ADDRESS) = (LEDON);
+        MEM(CARD_LED_ADDRESS) = LEDON;
     #endif
 
     blob_memcpy(
@@ -289,14 +280,14 @@ cstart( void )
     sync_caches();
 
     #if defined(CONFIG_7D)
-        *(volatile int*)0xC0A00024 = 0x80000010; // send SSTAT for master processor, so it is in right state for rebooting
+        MEM(0xC0A00024) = 0x80000010; // send SSTAT for master processor, so it is in right state for rebooting
     #endif
-    
+
     #if defined(CONFIG_5DS)
-    set_S_TX_DATA(0x20040);
-    MEM(0xD20C0084) = 0x0;
+        set_S_TX_DATA(0x20040);
+        MEM(0xD20C0084) = 0x0;
     #endif
-    
+
     #ifdef CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
         /* FIXME: only mark the memory actually available on each model */
         memset32((uint32_t *) 0x00D00000, 0x124B1DE0 /* RA(W)VIDEO*/, 0x40000000 - 0x00D00000);
@@ -322,8 +313,6 @@ cstart( void )
     qprint("[boot] copy_and_restart "); qprintn(RESTARTSTART); qprint("\n");
     void __attribute__((long_call)) (*copy_and_restart)() = (void*) RESTARTSTART;
     copy_and_restart();
-
-#endif /* __ARM__ */
 
     // Unreachable
     while(1)
