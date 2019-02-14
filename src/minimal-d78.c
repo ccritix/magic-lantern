@@ -93,6 +93,18 @@ static void DUMP_ASM dump_task()
     /* LED blinking test */
     led_blink(2, 500, 500);
 
+#if 0
+    void (*SetLED)(int led, int action) = (void *) 0xE0764D59;  /* EOS R 1.1.0 */
+    for (int i = 0; i < 13; i++)
+    {
+        qprintf("LED %d\n", i);
+        SetLED(i, 0);   /* LED ON */
+        msleep(1000);
+        SetLED(i, 1);   /* LED OFF */
+        msleep(1000);
+    }
+#endif
+
     /* print memory info on QEMU console */
     memmap_info();
     malloc_info();
