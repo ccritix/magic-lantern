@@ -22,6 +22,8 @@ static void led_blink(int times, int delay_on, int delay_off)
     }
 }
 
+extern int uart_printf(const char * fmt, ...);
+
 #define BACKUP_BLOCKSIZE 0x0010000
 
 #undef malloc
@@ -94,6 +96,8 @@ static void backup_region(char *file, uint32_t base, uint32_t length)
 
 static void DUMP_ASM dump_task()
 {
+    uart_printf("Hello from %s!\n", current_task->name);
+
     /* LED blinking test */
     led_blink(2, 500, 500);
 
@@ -147,7 +151,7 @@ void boot_post_init_task(void)
 {
     msleep(1000);
 
-    task_create("dump", 0x1e, 0x1000, dump_task, 0 );
+    task_create("dump_task", 0x1e, 0x1000, dump_task, 0 );
 }
 
 /* used by font_draw */

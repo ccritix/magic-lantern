@@ -93,3 +93,4 @@ NSTUB(0xE057BE2D,  SetTimerAfter)          /* from error message */
 
 /** Misc **/
 NSTUB(0xE0064549,  vsnprintf)              /* called by LogFile_printf(..., "*Data Lost*\n", ...); the one called by DebugMsg only knows %s */
+NSTUB(0xE058E62D,  uart_printf)
