@@ -305,6 +305,16 @@ cstart( void )
     MEM(0xBFE01FC4) = 0x10;         /* guess: start the second core at the above address */
     #endif
 
+    #if 0
+      qprint("[boot] jump to main firmware: "); qprintn(ROMBASEADDR); qprint("\n");
+      #if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
+        void __attribute__((long_call)) (*main_firmware)() = (void*) (ROMBASEADDR | 1);
+      #else
+        void __attribute__((long_call)) (*main_firmware)() = (void*) ROMBASEADDR;
+      #endif
+      main_firmware();
+    #endif
+
     /* Jump into the newly relocated code
        Q: Why target/compiler-specific attribute long_call?
        A: If in any case the base address passed to linker (-Ttext 0x40800000) doesnt fit because we
