@@ -300,6 +300,10 @@ cstart( void )
         MEM(0xD20C0084) = 0;
       #endif
     #endif
+    #ifdef CONFIG_DIGIC_VIII
+    MEM(0xBFE01FC8) = ROMBASEADDR;  /* required by EOS R; possibly also by M50 etc */
+    MEM(0xBFE01FC4) = 0x10;         /* guess: start the second core at the above address */
+    #endif
 
     /* Jump into the newly relocated code
        Q: Why target/compiler-specific attribute long_call?
