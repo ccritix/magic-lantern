@@ -41,6 +41,9 @@ extern int _FIO_GetFileSize(const char * filename, uint32_t * size);
 #define FIO_WriteFile _FIO_WriteFile
 extern int _FIO_WriteFile( FILE* stream, const void* ptr, size_t count );
 
+#define FIO_RemoveFile _FIO_RemoveFile
+extern int _FIO_RemoveFile(const char * filename);
+
 extern int FIO_Flush(const char * filename);
 
 static void backup_region(char *file, uint32_t base, uint32_t length)
@@ -60,6 +63,7 @@ static void backup_region(char *file, uint32_t base, uint32_t length)
     void* buf = malloc(BACKUP_BLOCKSIZE);
     if (!buf) return;
 
+    FIO_RemoveFile(file);
     handle = FIO_CreateFile(file);
     if (handle)
     {
