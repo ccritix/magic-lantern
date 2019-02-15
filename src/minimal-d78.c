@@ -138,11 +138,13 @@ static void DUMP_ASM dump_task()
     led_blink(50, 500, 500);
 
     /* what areas of the main memory appears unused? */
-    for (uint32_t i = 0; i < 2048; i++)
+    for (uint32_t i = 0; i < 2047; i++)
     {
+        /* EOS R: all of the RAM above 0x40000000 is uncacheable */
+        /* our UNCACHEABLE macro is not going to work any more */
         uint32_t empty = 1;
-        uint32_t start = UNCACHEABLE(i * 1024 * 1024);
-        uint32_t end = UNCACHEABLE((i+1) * 1024 * 1024 - 1);
+        uint32_t start = (i * 1024 * 1024) + 0x40000000;
+        uint32_t end = ((i+1) * 1024 * 1024 - 1) + 0x40000000;
 
         for (uint32_t p = start; p <= end; p += 4)
         {
