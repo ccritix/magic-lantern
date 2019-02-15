@@ -2855,9 +2855,6 @@ static inline uint32_t reg_override_3x3_mv1080_eosm(uint32_t reg, uint32_t old_v
     return reg_override_bits(reg, old_val);
 }
 
-
-
-
 static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
@@ -2869,10 +2866,6 @@ static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_v
 
     return reg_override_bits(reg, old_val);
 }
-
-
-
-
 
 static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old_val)
 {
