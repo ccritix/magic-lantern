@@ -12,6 +12,8 @@
 #include <fps.h>
 #include <shoot.h>
 
+#include "crop-mode-hack.h"
+
 #undef CROP_DEBUG
 
 #ifdef CROP_DEBUG
@@ -65,6 +67,7 @@ enum crop_preset {
     CROP_PRESET_4K_3x1_100D,
     CROP_PRESET_5K_3x1_100D,
     CROP_PRESET_3x3_mv1080_EOSM,
+    CROP_PRESET_mcm_mv1080_EOSM,
     CROP_PRESET_3x3_mv1080_46_48fps_EOSM,
     CROP_PRESET_3x1_mv720_50fps_EOSM,
     CROP_PRESET_anamorphic_EOSM,
@@ -202,6 +205,7 @@ static enum crop_preset crop_presets_eosm[] = {
    // CROP_PRESET_4K_3x1_EOSM,
    // CROP_PRESET_5K_3x1_EOSM,
     CROP_PRESET_3x3_mv1080_EOSM,
+    CROP_PRESET_mcm_mv1080_EOSM,
     CROP_PRESET_3x3_mv1080_46_48fps_EOSM,
     CROP_PRESET_3x1_mv720_50fps_EOSM,
     CROP_PRESET_anamorphic_EOSM,
@@ -217,6 +221,7 @@ static const char * crop_choices_eosm[] = {
    // "4K 3x1 24fps",
    // "5K 3x1 24fps",
     "mv1080p 1736x1158",
+    "mv1080p MCM rewire",
     "mv1080p 1736x976 46/48fps",
     "mv720p 1736x694 50fps", 
     "5K anamorphic",
@@ -235,6 +240,7 @@ static const char crop_choices_help2_eosm[] =
    // "3:1 4K x5crop, framing preview\n"
    // "3:1 5K x5crop, framing preview\n"
     "mv1080p bypass mv720p idle mode\n"
+    "Enable Movie Crop Mode and push canon MENU button and back\n"
     "mv1080p 46/48fps (select 2.35:1 for 48fps)\n"
     "mv720p 50fps 16:9\n"
     "1x3 binning modes(anamorphic)\n";
@@ -491,6 +497,11 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
       	skip_bottom     = 182;
     	}
         break;
+
+	case CROP_PRESET_mcm_mv1080_EOSM:
+        skip_top = 84;
+        skip_right = 60;		
+	break;
 
  	case CROP_PRESET_3x1_mv720_50fps_EOSM:
         skip_bottom     = 2;
@@ -966,6 +977,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	        cmos_new[5] = 0x400;
 	        cmos_new[7] = 0x647;
 		}
+                break;
+
+			case CROP_PRESET_mcm_mv1080_EOSM:
+	        cmos_new[5] = 0x20;
+	        cmos_new[7] = 0x800;
                 break;	
 
 		        case CROP_PRESET_3x3_mv1080_46_48fps_EOSM:
@@ -1249,7 +1265,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
 
 	  /* only apply bit reducing while recording, not while idle */
-    	  if ((RECORDING && is_EOSM) || (!is_EOSM))
+    	  if ((RECORDING && is_EOSM && (crop_preset != CROP_PRESET_mcm_mv1080_EOSM)) || (!is_EOSM))
 	  {
    		if (bitrate == 0x1)
     		{
@@ -1353,6 +1369,11 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0  + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 5 + reg_8000};
 		}		
+		break;
+
+	     case CROP_PRESET_mcm_mv1080_EOSM:
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};		
 		break;
 
   	     case CROP_PRESET_3x1_mv720_50fps_EOSM:
@@ -1552,7 +1573,7 @@ if ((RECORDING && is_EOSM) || (!RECORDING && !is_EOSM))
   }
 }
 
-if (!RECORDING && is_EOSM)
+if (!RECORDING && is_EOSM && (crop_preset != CROP_PRESET_mcm_mv1080_EOSM))
 {
   if (bitrate == 0x1)
   {
@@ -2836,6 +2857,25 @@ static inline uint32_t reg_override_3x3_mv1080_eosm(uint32_t reg, uint32_t old_v
     return reg_override_bits(reg, old_val);
 }
 
+
+
+
+static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+
+/* reset dummy reg in raw.c */
+	case 0xC0f0b13c: return 0xf;
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
+
+
+
+
 static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old_val)
 {
 
@@ -3127,6 +3167,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_5K_3x1_EOSM) 	     ? reg_override_5K_3x1_EOSM        :
         (crop_preset == CROP_PRESET_4K_5x1_EOSM) 	     ? reg_override_4K_5x1_EOSM        :
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_mv1080_eosm        :
+        (crop_preset == CROP_PRESET_mcm_mv1080_EOSM) ? reg_override_mcm_mv1080_eosm        :
         (crop_preset == CROP_PRESET_3x3_mv1080_46_48fps_EOSM) ? reg_override_3x3_46_48fps_eosm        :
         (crop_preset == CROP_PRESET_3x1_mv720_50fps_EOSM) ? reg_override_3x1_mv720_50fps_eosm        :
         (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        : 
