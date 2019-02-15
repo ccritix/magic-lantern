@@ -12,8 +12,6 @@
 #include <fps.h>
 #include <shoot.h>
 
-#include "crop-mode-hack.h"
-
 #undef CROP_DEBUG
 
 #ifdef CROP_DEBUG
