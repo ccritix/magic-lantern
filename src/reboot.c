@@ -277,8 +277,16 @@ cstart( void )
     sync_caches();
 
     #ifdef CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
+      #ifdef CONFIG_DIGIC_VIII
+        /* EOS R has 2 GiB of RAM, but memory above BFE00000 has special meaning. */
+        /* RscMgr shows used memory regions until BEE10000. */
+        /* Without this trick, RAM content until BFE00000 looks like electrical noise. */
+        /* M50 has only 1 GiB, but MMU configuration is identical. Let's see what happens. */
+        memset32((uint32_t *) 0x41000000, 0x124B1DE0 /* RA(W)VIDEO*/, 0xBFE00000 - 0x41000000);
+      #else
         /* FIXME: only mark the memory actually available on each model */
         memset32((uint32_t *) 0x00D00000, 0x124B1DE0 /* RA(W)VIDEO*/, 0x40000000 - 0x00D00000);
+      #endif
     #endif
 
     /* Model-specific MMIO pokes required to start Canon firmware */

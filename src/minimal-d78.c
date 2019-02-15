@@ -132,6 +132,33 @@ static void DUMP_ASM dump_task()
     //dump_file("RAM4.BIN", 0x40000000, 0x40000000); // - large file; decrease size if it locks up
     //dump_file("DF00.BIN", 0xDF000000, 0x00010000); // - size unknown; try increasing
 
+#ifdef CONFIG_MARK_UNUSED_MEMORY_AT_STARTUP
+    /* wait for the user to exercise the camera a bit */
+    /* e.g. open Canon menu, enter LiveView, take a picture, record a video */
+    led_blink(50, 500, 500);
+
+    /* what areas of the main memory appears unused? */
+    for (uint32_t i = 0; i < 2048; i++)
+    {
+        uint32_t empty = 1;
+        uint32_t start = UNCACHEABLE(i * 1024 * 1024);
+        uint32_t end = UNCACHEABLE((i+1) * 1024 * 1024 - 1);
+
+        for (uint32_t p = start; p <= end; p += 4)
+        {
+            uint32_t v = MEM(p);
+            if (v != 0x124B1DE0 /* RA(W)VIDEO*/)
+            {
+                empty = 0;
+                break;
+            }
+        }
+
+        //DryosDebugMsg(0, 15, "%08X-%08X: %s", start, end, empty ? "maybe unused" : "used");
+        uart_printf("%08X-%08X: %s\n", start, end, empty ? "maybe unused" : "used");
+    }
+#endif
+
     /* attempt to take a picture */
     //call("Release");
     //msleep(2000);
