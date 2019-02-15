@@ -282,7 +282,9 @@ cstart( void )
         /* RscMgr shows used memory regions until BEE10000. */
         /* Without this trick, RAM content until BFE00000 looks like electrical noise. */
         /* M50 has only 1 GiB, but MMU configuration is identical. Let's see what happens. */
-        memset32((uint32_t *) 0x41000000, 0x124B1DE0 /* RA(W)VIDEO*/, 0xBFE00000 - 0x41000000);
+        /* There is a small blob (running DryOS core) copied near 0x82000000. Skip this. */
+        memset32((uint32_t *) 0x41000000, 0x124B1DE0 /* RA(W)VIDEO*/, 0x82000000 - 0x41000000);
+        memset32((uint32_t *) 0x83000000, 0x124B1DE0 /* RA(W)VIDEO*/, 0xBFE00000 - 0x83000000);
       #else
         /* FIXME: only mark the memory actually available on each model */
         memset32((uint32_t *) 0x00D00000, 0x124B1DE0 /* RA(W)VIDEO*/, 0x40000000 - 0x00D00000);
