@@ -221,7 +221,7 @@ static const char * crop_choices_eosm[] = {
    // "4K 3x1 24fps",
    // "5K 3x1 24fps",
     "mv1080p 1736x1158",
-    "mv1080p MCM rewire",
+    "mv1080p MCM rewire 16:9",
     "mv1080p 1736x976 46/48fps",
     "mv720p 1736x694 50fps", 
     "5K anamorphic",
@@ -3339,6 +3339,7 @@ static MENU_UPDATE_FUNC(crop_update)
 
     if ((lv_dispsize > 1) && 
 ((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
+|| (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
 || (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_46_48fps_EOSM) 
 || (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
 || (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)))
@@ -4053,8 +4054,8 @@ static LVINFO_UPDATE_FUNC(crop_info)
   }
 
 /* EOSM */
-  if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
-  {
+if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
+{
     snprintf(buffer, sizeof(buffer), "5K anamorphic");
   if (ratios == 0x1)
   {
@@ -4065,7 +4066,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
     snprintf(buffer, sizeof(buffer), "3.5K anamorphic");
   }
 
-  }
+}
 
   if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
   {
@@ -4114,6 +4115,11 @@ static LVINFO_UPDATE_FUNC(crop_info)
     {
     snprintf(buffer, sizeof(buffer), "mv1080p x3zoom"); 
     }
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
+  {
+    snprintf(buffer, sizeof(buffer), "mv1080p rewire");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_46_48fps_EOSM)
