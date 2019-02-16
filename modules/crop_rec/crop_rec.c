@@ -2524,10 +2524,10 @@ static inline uint32_t reg_override_3x1_mv720_50fps_100d(uint32_t reg, uint32_t 
 		case 0xC0F06008: return 0x20f020f + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x20f + reg_6008;
 
-		case 0xC0F06824: return 0x206 + reg_6824;;
-		case 0xC0F06828: return 0x206 + reg_6824;;
-		case 0xC0F0682c: return 0x206 + reg_6824;;
-		case 0xC0F06830: return 0x206 + reg_6824;;
+		case 0xC0F06824: return 0x206 + reg_6824;
+		case 0xC0F06828: return 0x206 + reg_6824;
+		case 0xC0F0682c: return 0x206 + reg_6824;
+		case 0xC0F06830: return 0x206 + reg_6824;
     }
 
     return reg_override_bits(reg, old_val);
@@ -2886,10 +2886,10 @@ static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old
 		case 0xC0F06008: return 0x20f020f + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x20f + reg_6008;
 
-		case 0xC0F06824: return 0x206 + reg_6824;;
-		case 0xC0F06828: return 0x206 + reg_6824;;
-		case 0xC0F0682c: return 0x206 + reg_6824;;
-		case 0xC0F06830: return 0x206 + reg_6824;;
+		case 0xC0F06824: return 0x206 + reg_6824;
+		case 0xC0F06828: return 0x206 + reg_6824;
+		case 0xC0F0682c: return 0x206 + reg_6824;
+		case 0xC0F06830: return 0x206 + reg_6824;
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xb;
@@ -2910,10 +2910,10 @@ static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old
 		case 0xC0F06008: return 0x2170217 + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x217 + reg_6008;
 
-		case 0xC0F06824: return 0x206 + reg_6824;;
-		case 0xC0F06828: return 0x206 + reg_6824;;
-		case 0xC0F0682c: return 0x206 + reg_6824;;
-		case 0xC0F06830: return 0x206 + reg_6824;;
+		case 0xC0F06824: return 0x206 + reg_6824;
+		case 0xC0F06828: return 0x206 + reg_6824;
+		case 0xC0F0682c: return 0x206 + reg_6824;
+		case 0xC0F06830: return 0x206 + reg_6824;
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xe;
@@ -2935,10 +2935,10 @@ static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old
 		case 0xC0F06008: return 0x2130213 + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x213 + reg_6008;
 
-		case 0xC0F06824: return 0x206 + reg_6824;;
-		case 0xC0F06828: return 0x206 + reg_6824;;
-		case 0xC0F0682c: return 0x206 + reg_6824;;
-		case 0xC0F06830: return 0x206 + reg_6824;;
+		case 0xC0F06824: return 0x206 + reg_6824;
+		case 0xC0F06828: return 0x206 + reg_6824;
+		case 0xC0F0682c: return 0x206 + reg_6824;
+		case 0xC0F06830: return 0x206 + reg_6824;
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xb;
@@ -2963,10 +2963,10 @@ static inline uint32_t reg_override_3x1_mv720_50fps_eosm(uint32_t reg, uint32_t 
 		case 0xC0F06008: return 0x2170217 + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x217 + reg_6008;
 
-		case 0xC0F06824: return 0x206 + reg_6824;;
-		case 0xC0F06828: return 0x206 + reg_6824;;
-		case 0xC0F0682c: return 0x206 + reg_6824;;
-		case 0xC0F06830: return 0x206 + reg_6824;;
+		case 0xC0F06824: return 0x206 + reg_6824;
+		case 0xC0F06828: return 0x206 + reg_6824;
+		case 0xC0F0682c: return 0x206 + reg_6824;
+		case 0xC0F06830: return 0x206 + reg_6824;
 
 	/* reset dummy reg in raw.c */
 	case 0xC0f0b13c: return 0xf;
