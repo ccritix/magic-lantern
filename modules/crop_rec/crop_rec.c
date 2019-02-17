@@ -497,9 +497,9 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         break;
 
 	case CROP_PRESET_mcm_mv1080_EOSM:
-        skip_top = 80;
+        skip_top = 82;
         skip_right = 60;
-    	skip_bottom     = 4;		
+    	skip_bottom = 2;	
 	break;
 
  	case CROP_PRESET_3x1_mv720_50fps_EOSM:
