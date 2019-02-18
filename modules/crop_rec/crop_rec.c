@@ -2856,18 +2856,6 @@ static inline uint32_t reg_override_3x3_mv1080_eosm(uint32_t reg, uint32_t old_v
     return reg_override_bits(reg, old_val);
 }
 
-static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_val)
-{
-    switch (reg)
-    {
-
-/* reset dummy reg in raw.c */
-	case 0xC0f0b13c: return 0xf;
-    }
-
-    return reg_override_bits(reg, old_val);
-}
-
 static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old_val)
 {
 
@@ -3159,7 +3147,6 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_5K_3x1_EOSM) 	     ? reg_override_5K_3x1_EOSM        :
         (crop_preset == CROP_PRESET_4K_5x1_EOSM) 	     ? reg_override_4K_5x1_EOSM        :
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_mv1080_eosm        :
-        (crop_preset == CROP_PRESET_mcm_mv1080_EOSM) ? reg_override_mcm_mv1080_eosm        :
         (crop_preset == CROP_PRESET_3x3_mv1080_46_48fps_EOSM) ? reg_override_3x3_46_48fps_eosm        :
         (crop_preset == CROP_PRESET_3x1_mv720_50fps_EOSM) ? reg_override_3x1_mv720_50fps_eosm        :
         (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        : 
