@@ -67,6 +67,7 @@ enum crop_preset {
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
     CROP_PRESET_3x3_mv1080_EOSM2,
+    CROP_PRESET_mcm_mv1080_EOSM2,
     CROP_PRESET_1x3_EOSM2,
     NUM_CROP_PRESETS
 };
@@ -220,12 +221,14 @@ static const char crop_choices_help2_eosm[] =
 static enum crop_preset crop_presets_eosm2[] = {
     CROP_PRESET_OFF,
     CROP_PRESET_3x3_mv1080_EOSM2,
+    CROP_PRESET_mcm_mv1080_EOSM2,
     CROP_PRESET_1x3_EOSM2,
 };
 
 static const char * crop_choices_eosm2[] = {
     "OFF",
     "mv1080p_1736x1120",
+    "mv1080p_rewire",
     "1x3 binning",
 };
 
@@ -235,6 +238,7 @@ static const char crop_choices_help_eosm2[] =
 static const char crop_choices_help2_eosm2[] =
     "\n"
     "mv1080p derived from 3x3 (square pixels in RAW, vertical crop)\n"
+    "enable also Movie crop mode)\n"
     "1x3 binning\n";
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
@@ -783,6 +787,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			    cmos_new[8] = 0x400; 
                 break;	
 
+			case CROP_PRESET_mcm_mv1080_EOSM2:
+			    cmos_new[5] = 0x20;   
+			    cmos_new[7] = 0x800;
+		break; 
+
             		case CROP_PRESET_3x3_1X:
                 /* start/stop scanning line, very large increments */
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
@@ -1143,6 +1152,11 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_1x3_EOSM2:
 	     case CROP_PRESET_1x3_100D:
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
+     	        break;
+
+	     case CROP_PRESET_mcm_mv1080_EOSM2:
+                adtg_new[2] = (struct adtg_new) {6, 0x800C, 2};
+                adtg_new[0] = (struct adtg_new) {6, 0x8000, 6};
      	        break;
 
             /* 3x1 binning (bin every 3 lines, read every column) */
