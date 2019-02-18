@@ -981,6 +981,8 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_mcm_mv1080_EOSM:
 	        cmos_new[5] = 0x20;
 	        cmos_new[7] = 0x800;
+	        // cmos_new[6] = 0x78b; was 0x789 in digital zoom. Causing pinks.
+	        cmos_new[8] = 0x800; /* unclear if fixing the aliasing issue. Let´s test. */
                 break;	
 
 		        case CROP_PRESET_3x3_mv1080_46_48fps_EOSM:
