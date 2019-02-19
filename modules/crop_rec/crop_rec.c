@@ -219,7 +219,7 @@ static const char * crop_choices_eosm[] = {
    // "4K 3x1 24fps",
    // "5K 3x1 24fps",
     "mv1080p 1736x1158",
-    "mv1080p MCM rewire 16:9",
+    "mv1080p MCM rewire",
     "mv1080p 1736x976 46/48fps",
     "mv720p 1736x694 50fps", 
     "5K anamorphic",
@@ -986,6 +986,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_mcm_mv1080_EOSM:
 	        cmos_new[5] = 0x20;
 	        cmos_new[7] = 0x800;
+		if (x3crop == 0x1)
+		{
+	        cmos_new[5] = 0x380;
+	        cmos_new[7] = 0xa6a;
+		}
                 break;	
 
 		        case CROP_PRESET_3x3_mv1080_46_48fps_EOSM:
@@ -1377,7 +1382,12 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 	     case CROP_PRESET_mcm_mv1080_EOSM:
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
-                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};		
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
+		if (x3crop == 0x1)
+		{	
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0  + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 5 + reg_8000};
+		}	
 		break;
 
   	     case CROP_PRESET_3x1_mv720_50fps_EOSM:
