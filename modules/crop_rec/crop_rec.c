@@ -32,7 +32,7 @@ static int is_basic = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
-static CONFIG_INT("crop.bitrate", bitrate, 0);
+static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
@@ -1271,7 +1271,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	  /* only apply bit reducing while recording, not while idle */
     	  if ((RECORDING && is_EOSM) || (!is_EOSM))
 	  {
-   		if (bitrate == 0x1)
+   		if (bitdepth == 0x1)
     		{
 		/* 8bit roundtrip only not applied here with following set ups */
 		adtg_new[13] = (struct adtg_new) {6, 0x8882, 12 + reg_gain}; 
@@ -1280,7 +1280,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 12 + reg_gain};
 		}
 
-   		if (bitrate == 0x2)
+   		if (bitdepth == 0x2)
     		{
 		/* 9bit roundtrip only not applied here with following set ups */
 		adtg_new[13] = (struct adtg_new) {6, 0x8882, 30 + reg_gain}; 
@@ -1289,7 +1289,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 30 + reg_gain};
 		}
 
-   		if (bitrate == 0x3)
+   		if (bitdepth == 0x3)
     		{
 		/* 10bit roundtrip only not applied here with following set ups */
 		adtg_new[13] = (struct adtg_new) {6, 0x8882, 60 + reg_gain}; 
@@ -1298,7 +1298,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 60 + reg_gain};
 		}
 
-    		if (bitrate == 0x4)
+    		if (bitdepth == 0x4)
     		{
 		/* 12bit roundtrip only not applied here with following set ups */
 		adtg_new[13] = (struct adtg_new) {6, 0x8882, 250 + reg_gain}; 
@@ -1485,8 +1485,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 static inline uint32_t reg_override_top_bar(uint32_t reg, uint32_t old_val)
 {
 
-/* if changing bitrate */
-  if (bitrate == 0x1)
+/* if changing bitdepth */
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -1495,7 +1495,7 @@ static inline uint32_t reg_override_top_bar(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -1504,7 +1504,7 @@ static inline uint32_t reg_override_top_bar(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -1512,7 +1512,7 @@ static inline uint32_t reg_override_top_bar(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -1541,7 +1541,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 /* only apply bit reducing while recording, not while idle */
 if ((RECORDING && is_EOSM) || (is_100D || is_5D3))
 {
-  if (bitrate == 0x1)
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -1550,7 +1550,7 @@ if ((RECORDING && is_EOSM) || (is_100D || is_5D3))
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -1559,7 +1559,7 @@ if ((RECORDING && is_EOSM) || (is_100D || is_5D3))
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -1567,7 +1567,7 @@ if ((RECORDING && is_EOSM) || (is_100D || is_5D3))
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -1579,7 +1579,7 @@ if ((RECORDING && is_EOSM) || (is_100D || is_5D3))
 
 if (!RECORDING && is_EOSM)
 {
-  if (bitrate == 0x1)
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -1587,7 +1587,7 @@ if (!RECORDING && is_EOSM)
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -1595,7 +1595,7 @@ if (!RECORDING && is_EOSM)
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -1603,7 +1603,7 @@ if (!RECORDING && is_EOSM)
     }
   }
 
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -1612,7 +1612,7 @@ if (!RECORDING && is_EOSM)
   }
 
 /* reset eosm switch */
-  if (bitrate == 0x0 && is_EOSM)
+  if (bitdepth == 0x0 && is_EOSM)
   {
     switch (reg)
     {
@@ -1736,8 +1736,8 @@ static inline uint32_t reg_override_3X_tall(uint32_t reg, uint32_t old_val)
         (video_mode_fps == 60) ? -20 :
                                    0 ;
 
-/* if changing bitrate */
-  if (bitrate == 0x1)
+/* if changing bitdepth */
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -1746,7 +1746,7 @@ static inline uint32_t reg_override_3X_tall(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -1755,7 +1755,7 @@ static inline uint32_t reg_override_3X_tall(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -1763,7 +1763,7 @@ static inline uint32_t reg_override_3X_tall(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -1819,8 +1819,8 @@ static inline uint32_t reg_override_3x3_tall(uint32_t reg, uint32_t old_val)
         (video_mode_fps == 60) ? -20 :
                                    0 ;
 
-/* if changing bitrate */
-  if (bitrate == 0x1)
+/* if changing bitdepth */
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -1829,7 +1829,7 @@ static inline uint32_t reg_override_3x3_tall(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -1838,7 +1838,7 @@ static inline uint32_t reg_override_3x3_tall(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -1846,7 +1846,7 @@ static inline uint32_t reg_override_3x3_tall(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -1902,8 +1902,8 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
         if (a) return a;
     }
 
-/* if changing bitrate */
-  if (bitrate == 0x1)
+/* if changing bitdepth */
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -1912,7 +1912,7 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -1921,7 +1921,7 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -1929,7 +1929,7 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -1981,8 +1981,8 @@ static inline uint32_t reg_override_3K(uint32_t reg, uint32_t old_val)
         if (a) return a;
     }
 
-/* if changing bitrate */
-  if (bitrate == 0x1)
+/* if changing bitdepth */
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -1991,7 +1991,7 @@ static inline uint32_t reg_override_3K(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -2000,7 +2000,7 @@ static inline uint32_t reg_override_3K(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -2008,7 +2008,7 @@ static inline uint32_t reg_override_3K(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -2050,8 +2050,8 @@ static inline uint32_t reg_override_4K_hfps(uint32_t reg, uint32_t old_val)
     int a = reg_override_fps(reg, timerA, timerB, old_val);
     if (a) return a;
 
-/* if changing bitrate */
-  if (bitrate == 0x1)
+/* if changing bitdepth */
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -2060,7 +2060,7 @@ static inline uint32_t reg_override_4K_hfps(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -2069,7 +2069,7 @@ static inline uint32_t reg_override_4K_hfps(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -2077,7 +2077,7 @@ static inline uint32_t reg_override_4K_hfps(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -2116,8 +2116,8 @@ static inline uint32_t reg_override_UHD(uint32_t reg, uint32_t old_val)
     int a = reg_override_fps(reg, timerA, timerB, old_val);
     if (a) return a;
 
-/* if changing bitrate */
-  if (bitrate == 0x1)
+/* if changing bitdepth */
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -2126,7 +2126,7 @@ static inline uint32_t reg_override_UHD(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -2135,7 +2135,7 @@ static inline uint32_t reg_override_UHD(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -2143,7 +2143,7 @@ static inline uint32_t reg_override_UHD(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -2166,8 +2166,8 @@ static inline uint32_t reg_override_UHD(uint32_t reg, uint32_t old_val)
 static inline uint32_t reg_override_fullres_lv(uint32_t reg, uint32_t old_val)
 {
 
-/* if changing bitrate */
-  if (bitrate == 0x1)
+/* if changing bitdepth */
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -2176,7 +2176,7 @@ static inline uint32_t reg_override_fullres_lv(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -2185,7 +2185,7 @@ static inline uint32_t reg_override_fullres_lv(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -2193,7 +2193,7 @@ static inline uint32_t reg_override_fullres_lv(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -2236,8 +2236,8 @@ static inline uint32_t reg_override_fullres_lv(uint32_t reg, uint32_t old_val)
 static inline uint32_t reg_override_40_fps(uint32_t reg, uint32_t old_val)
 {
 
-/* if changing bitrate */
-  if (bitrate == 0x1)
+/* if changing bitdepth */
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -2246,7 +2246,7 @@ static inline uint32_t reg_override_40_fps(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -2255,7 +2255,7 @@ static inline uint32_t reg_override_40_fps(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -2263,7 +2263,7 @@ static inline uint32_t reg_override_40_fps(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -2359,7 +2359,7 @@ static inline uint32_t reg_override_1x3_17fps(uint32_t reg, uint32_t old_val)
 static inline uint32_t reg_override_mv1080_mv720p(uint32_t reg, uint32_t old_val)
 {
 
-  if (bitrate == 0x1)
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -2368,7 +2368,7 @@ static inline uint32_t reg_override_mv1080_mv720p(uint32_t reg, uint32_t old_val
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -2377,7 +2377,7 @@ static inline uint32_t reg_override_mv1080_mv720p(uint32_t reg, uint32_t old_val
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -2385,7 +2385,7 @@ static inline uint32_t reg_override_mv1080_mv720p(uint32_t reg, uint32_t old_val
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -3104,8 +3104,8 @@ static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
         (video_mode_fps == 60) ? 1540 :
                                    -1 ;
 
-/* if changing bitrate */
-  if (bitrate == 0x1)
+/* if changing bitdepth */
+  if (bitdepth == 0x1)
   {
     switch (reg)
     {
@@ -3114,7 +3114,7 @@ static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x2)
+  if (bitdepth == 0x2)
   {
     switch (reg)
     {
@@ -3123,7 +3123,7 @@ static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
     }
   }
 
-  if (bitrate == 0x3)
+  if (bitdepth == 0x3)
   {
     switch (reg)
     {
@@ -3131,7 +3131,7 @@ static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
 	case 0xC0F42744: return 0x4040404;
     }
   }
-  if (bitrate == 0x4)
+  if (bitdepth == 0x4)
   {
     switch (reg)
     {
@@ -3407,11 +3407,11 @@ static struct menu_entry crop_rec_menu[] =
         .depends_on = DEP_LIVEVIEW,
         .children =  (struct menu_entry[]) {
             {
-                .name   = "bitrate",
-                .priv   = &bitrate,
+                .name   = "bitdepth",
+                .priv   = &bitdepth,
                 .max    = 4,
                 .choices = CHOICES("OFF", "8 bit", "9 bit", "10 bit", "12 bit"),
-                .help   = "Alter bitrate\n"
+                .help   = "Alter bitdepth\n"
             },
             {
                 .name   = "ratios",
@@ -4289,23 +4289,23 @@ static unsigned int crop_rec_init()
     is_digic4 = is_camera("DIGIC", "4");
     is_digic5 = is_camera("DIGIC", "5");
 
-/* notify if different bitrate is set */
+/* notify if different bitdepth is set */
 
-   	if (bitrate == 0x1)
+   	if (bitdepth == 0x1)
     	{
-	NotifyBox(2000, "crop_rec bitrate is set to 8bit");
+	NotifyBox(2000, "crop_rec bitdepth is set to 8bit");
 	}
-  	if (bitrate == 0x2)
+  	if (bitdepth == 0x2)
     	{
-	NotifyBox(2000, "crop_rec bitrate is set to 9bit");
+	NotifyBox(2000, "crop_rec bitdepth is set to 9bit");
 	}
- 	if (bitrate == 0x3)
+ 	if (bitdepth == 0x3)
     	{
-	NotifyBox(2000, "crop_rec bitrate is set to 10bit");
+	NotifyBox(2000, "crop_rec bitdepth is set to 10bit");
 	}
- 	if (bitrate == 0x4)
+ 	if (bitdepth == 0x4)
     	{
-	NotifyBox(2000, "crop_rec bitrate is set to 12bit");
+	NotifyBox(2000, "crop_rec bitdepth is set to 12bit");
 	}
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
     {
@@ -4482,7 +4482,7 @@ MODULE_INFO_END()
 MODULE_CONFIGS_START()
     MODULE_CONFIG(crop_preset_index)
     MODULE_CONFIG(shutter_range)
-    MODULE_CONFIG(bitrate)
+    MODULE_CONFIG(bitdepth)
     MODULE_CONFIG(ratios)
     MODULE_CONFIG(x3crop)
     MODULE_CONFIG(set_25fps)
