@@ -2856,6 +2856,20 @@ static inline uint32_t reg_override_3x3_mv1080_eosm(uint32_t reg, uint32_t old_v
     return reg_override_bits(reg, old_val);
 }
 
+static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+
+        	case 0xC0F06804: return 0x42401e4 + reg_6804_width + (reg_6804_height << 16); 
+		
+/* reset dummy reg in raw.c */
+	case 0xC0f0b13c: return 0xf;
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
 static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old_val)
 {
 
@@ -3147,6 +3161,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_5K_3x1_EOSM) 	     ? reg_override_5K_3x1_EOSM        :
         (crop_preset == CROP_PRESET_4K_5x1_EOSM) 	     ? reg_override_4K_5x1_EOSM        :
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_mv1080_eosm        :
+        (crop_preset == CROP_PRESET_mcm_mv1080_EOSM) ? reg_override_mcm_mv1080_eosm        :
         (crop_preset == CROP_PRESET_3x3_mv1080_46_48fps_EOSM) ? reg_override_3x3_46_48fps_eosm        :
         (crop_preset == CROP_PRESET_3x1_mv720_50fps_EOSM) ? reg_override_3x1_mv720_50fps_eosm        :
         (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        : 
@@ -3190,7 +3205,7 @@ static void FAST engio_write_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	   if (is_EOSM)
 	   {
 	     engio_vidmode_ok = 
-             (old == 0x4540298) ||/* x5 zoom */ (old == 0x4a601d4 || old == 0x2d701d4);   /* 1080p or 720p */
+             (old == 0x4540298) /* x5 zoom */ || (old == 0x42401e4) /* x3 digital zoom */ || (old == 0x4a601d4) /* 1080p */ || (old == 0x2d701d4 /* 720p */);  
 	   }
         }
     }
@@ -3198,7 +3213,7 @@ static void FAST engio_write_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     if (!is_supported_mode() || !engio_vidmode_ok)
     {
         /* don't patch other video modes */
-        return;
+           return;  
     }
 
     for (uint32_t * buf = (uint32_t *) regs[0]; *buf != 0xFFFFFFFF; buf += 2)
