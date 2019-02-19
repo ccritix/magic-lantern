@@ -12,6 +12,8 @@
 #include <fps.h>
 #include <shoot.h>
 
+#include "crop-mode-hack.h"
+
 #undef CROP_DEBUG
 
 #ifdef CROP_DEBUG
@@ -1272,6 +1274,16 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         /* ADTG[0x805E]: shutter blanking for zoom mode  */
         adtg_new[0] = (struct adtg_new) {6, 0x8060, shutter_blanking};
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
+
+/* always disable Movie crop mode if using crop_rec presets, except for mcm mode */
+    if (crop_preset == CROP_PRESET_mcm_mv1080_EOSM) 
+    {
+        movie_crop_hack_enable();
+    } 
+    else 
+    {
+        movie_crop_hack_disable();
+    }
 
 	  /* only apply bit reducing while recording, not while idle */
     	  if ((RECORDING && is_EOSM) || (!is_EOSM))
@@ -2873,9 +2885,13 @@ static inline uint32_t reg_override_3x3_mv1080_eosm(uint32_t reg, uint32_t old_v
 
 static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_val)
 {
+
+if ((ratios == 0x1) || (set_25fps == 0x1))
+{
+
     switch (reg)
     {
-        	case 0xC0F06804: return 0x42401e4 + reg_6804_width + (reg_6804_height << 16); 
+          	case 0xC0F06804: return 0x42401e4 + reg_6804_width + (reg_6804_height << 16); 
         	case 0xC0F0713c: return 0x425 + reg_713c;
 		case 0xC0F07150: return 0x3ae + reg_7150;
 
@@ -2887,11 +2903,13 @@ static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_v
         	case 0xC0F06824: return 0x222 + reg_6824;
         	case 0xC0F06828: return 0x222 + reg_6824;
         	case 0xC0F0682C: return 0x222 + reg_6824;
-        	case 0xC0F06830: return 0x222 + reg_6824;
+        	case 0xC0F06830: return 0x222 + reg_6824; 
 		
 /* reset dummy reg in raw.c */
 	case 0xC0f0b13c: return 0xf;
     }
+
+}
 
     return reg_override_bits(reg, old_val);
 }
