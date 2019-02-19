@@ -238,7 +238,7 @@ static const char crop_choices_help2_eosm[] =
    // "3:1 4K x5crop, framing preview\n"
    // "3:1 5K x5crop, framing preview\n"
     "mv1080p bypass mv720p idle mode\n"
-    "Enable Movie Crop Mode and push canon MENU button and back\n"
+    "Enable Movie crop mode and push canon MENU button and back\n"
     "mv1080p 46/48fps (select 2.35:1 for 48fps)\n"
     "mv720p 50fps 16:9\n"
     "1x3 binning modes(anamorphic)\n";
