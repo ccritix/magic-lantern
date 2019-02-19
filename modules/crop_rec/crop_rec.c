@@ -487,27 +487,32 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	/* set ratio preset */
     	if (ratios == 0x1)
     	{
-      	skip_bottom     = 420;
-        skip_left       = 72;
+      	skip_bottom = 420;
+        skip_left = 72;
     	}
     	if (ratios == 0x2)
     	{
-      	skip_bottom     = 182;
+      	skip_bottom = 182;
     	}
         break;
 
 	case CROP_PRESET_mcm_mv1080_EOSM:
         skip_top = 82;
         skip_right = 60;
-    	skip_bottom = 2;	
+    	skip_bottom = 2;
+    	if (ratios == 0x1)
+    	{
+      	skip_top = 201;
+        skip_bottom = 121;
+    	}	
 	break;
 
  	case CROP_PRESET_3x1_mv720_50fps_EOSM:
-        skip_bottom     = 2;
+        skip_bottom = 2;
     	if (ratios == 0x1)
     	{
-      	skip_top     = 102;
-      	skip_bottom     = 182;
+      	skip_top = 102;
+      	skip_bottom = 182;
     	}
 	break;
 
@@ -515,58 +520,58 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
 /* see autodetect_black_level exception in raw.c */
     	if (ratios == 0x1)
     	{
-      	skip_right     = 56;
-   	skip_left      = 98;
-      	skip_bottom    =  26;
+      	skip_right = 56;
+   	skip_left = 98;
+      	skip_bottom = 26;
     	}
     	if (ratios == 0x2)
     	{
-   	skip_left       = 196;
-    	skip_right      = 112;
-      	skip_bottom    =  132;
+   	skip_left = 196;
+    	skip_right = 112;
+      	skip_bottom = 132;
     	}
 	break;
 
  	case CROP_PRESET_4K_3x1_EOSM:
     	if (ratios == 0x1)
     	{
-      	skip_bottom     = 182;
+      	skip_bottom = 182;
     	}
         break;
 
  	case CROP_PRESET_anamorphic_EOSM:
 /* see autodetect_black_level exception in raw.c */
-        skip_bottom     = 24;
+        skip_bottom = 24;
     	if (ratios == 0x1)
     	{
-        skip_bottom     = 0;
-        skip_right      = 156;
-        skip_left      = 140;
+        skip_bottom = 0;
+        skip_right = 156;
+        skip_left = 140;
     	}
     	if (ratios == 0x2)
     	{
-        skip_bottom     = 0;
-        skip_right      = 324;
-        skip_left      = 292;
+        skip_bottom = 0;
+        skip_right = 324;
+        skip_left = 292;
     	}
         break;
 
  	case CROP_PRESET_4K_5x1_EOSM:
-       	skip_bottom     = 2;
+       	skip_bottom = 2;
     	if (ratios == 0x1)
     	{
-      	skip_bottom     = 357;
+      	skip_bottom = 357;
     	}
     	if (ratios == 0x2)
     	{
-      	skip_bottom     = 247;
+      	skip_bottom = 247;
     	}
         break;
 
  	case CROP_PRESET_4K_3x1_100D:
     	if (ratios == 0x1)
     	{
-      	skip_bottom     = 182;
+      	skip_bottom = 182;
     	}
         break;
     }
@@ -1264,7 +1269,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
 
 	  /* only apply bit reducing while recording, not while idle */
-    	  if ((RECORDING && is_EOSM && (crop_preset != CROP_PRESET_mcm_mv1080_EOSM)) || (!is_EOSM))
+    	  if ((RECORDING && is_EOSM) || (!is_EOSM))
 	  {
    		if (bitrate == 0x1)
     		{
@@ -1572,7 +1577,7 @@ if ((RECORDING && is_EOSM) || (is_100D || is_5D3))
   }
 }
 
-if (!RECORDING && is_EOSM && (crop_preset != CROP_PRESET_mcm_mv1080_EOSM))
+if (!RECORDING && is_EOSM)
 {
   if (bitrate == 0x1)
   {
@@ -2860,8 +2865,19 @@ static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_v
 {
     switch (reg)
     {
-
         	case 0xC0F06804: return 0x42401e4 + reg_6804_width + (reg_6804_height << 16); 
+        	case 0xC0F0713c: return 0x425 + reg_713c;
+		case 0xC0F07150: return 0x3ae + reg_7150;
+
+        	case 0xC0F06014: return set_25fps == 0x1 ? 0x98c - 101 + reg_6014: 0x98c + reg_6014;
+		case 0xC0F0600c: return 0x2210221 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x2210221 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x221 + reg_6008;
+
+        	case 0xC0F06824: return 0x222 + reg_6824;
+        	case 0xC0F06828: return 0x222 + reg_6824;
+        	case 0xC0F0682C: return 0x222 + reg_6824;
+        	case 0xC0F06830: return 0x222 + reg_6824;
 		
 /* reset dummy reg in raw.c */
 	case 0xC0f0b13c: return 0xf;

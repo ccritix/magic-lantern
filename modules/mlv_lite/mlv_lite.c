@@ -2040,6 +2040,7 @@ void FAST hack_liveview_vsync()
      /* 48 fps 2.35: real-time */
 	if (shamem_read(0xC0F06804) == 0x2f701d4) preview_mode = 1; 
 	if (shamem_read(0xC0F06804) == 0x2d701d4) preview_mode = 1;
+	if (shamem_read(0xC0F06804) == 0x42401e4) preview_mode = 1;
      /* anamorphic 2.35:1 framing */
 	if (shamem_read(0xC0F06804) == 0x4a701d4) preview_mode = 1;
 	if (shamem_read(0xC0F06804) == 0x79f01d4) preview_mode = 2;
