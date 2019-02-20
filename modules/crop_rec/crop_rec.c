@@ -2892,7 +2892,7 @@ static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_v
 	EngDrvOutLV(0xc0f383d4, 0x4f0010 + reg_83d4);
 	EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
 
-if ((ratios == 0x1) || (set_25fps == 0x1))
+if (set_25fps == 0x1)
 {
 
     switch (reg)
@@ -2910,15 +2910,17 @@ if ((ratios == 0x1) || (set_25fps == 0x1))
         	case 0xC0F06828: return 0x222 + reg_6824;
         	case 0xC0F0682C: return 0x222 + reg_6824;
         	case 0xC0F06830: return 0x222 + reg_6824; 
-		
+     }
+
+}
+
+    switch (reg)
+    {
 /* reset dummy reg in raw.c */
 	case 0xC0f0b13c: return 0xf;
 /* cinema cropmarks in mlv_lite.c. Detection reg */
 	case 0xc0f0b134: return ratios == 0x1 ? 0x5: 0x4;
-
     }
-
-}
 
     return reg_override_bits(reg, old_val);
 }
