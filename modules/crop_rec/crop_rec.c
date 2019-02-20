@@ -2886,6 +2886,10 @@ static inline uint32_t reg_override_3x3_mv1080_eosm(uint32_t reg, uint32_t old_v
 static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_val)
 {
 
+/* gets rid of the black border to the right */
+	EngDrvOutLV(0xc0f383d4, 0x4f0010);
+	EngDrvOutLV(0xc0f383dc, 0x42401c6);
+
 if ((ratios == 0x1) || (set_25fps == 0x1))
 {
 
