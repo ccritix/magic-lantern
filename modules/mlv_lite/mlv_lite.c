@@ -568,8 +568,16 @@ static void refresh_cropmarks()
         int y = RAW2BM_Y(skip_y);
         int w = RAW2BM_DX(res_x);
         int h = RAW2BM_DY(res_y);
-        
+
+/* cropmarks specific for 2.35:1 reg_override_mcm_mv1080_eosm in crop_rec.c */     
+    if (shamem_read(0xc0f0b134) == 0x5) 
+    {
+	set_movie_cropmarks(x, y + 93, w, h - 188);
+    }
+    else
+    {
         set_movie_cropmarks(x, y, w, h);
+    }
     }
 }
 

@@ -2907,6 +2907,9 @@ if ((ratios == 0x1) || (set_25fps == 0x1))
 		
 /* reset dummy reg in raw.c */
 	case 0xC0f0b13c: return 0xf;
+/* cinema cropmarks in mlv_lite.c. Detection reg */
+	case 0xc0f0b134: return 0x5;
+
     }
 
 }
