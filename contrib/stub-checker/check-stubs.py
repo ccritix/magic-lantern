@@ -90,31 +90,43 @@ if __name__ == '__main__':
         if max_len < len(new_name): max_len = len(new_name)
 
     print("%s %s    %s %s" % ("STUB".ljust(max_len), "OLD".center(10), "NEW".center(10), "DELTA"))
-    
+
+    last_delta = 0
+
     for (name, positions) in sorted(all_stubs.items(), key=returnNotNone ):
+        warning, color, message = False, None, ""
         old_pos = positions[0]
         new_pos = positions[1]
         if(new_pos is None):
-            warning = True
+            warning, color = True, "red"
             message = ("%s 0x%08x -> %s [?????]" % (name.ljust(max_len), old_pos, "MISSING".ljust(10)))
         elif(old_pos is None):
-            warning = True
+            warning, color = True, "red"
             message = ("%s %s -> 0x%08x [?????]" % (name.ljust(max_len), "MISSING".ljust(10), new_pos))
         elif not args.missing_only:
             delta = abs(old_pos - new_pos)
-            if(not args.skip_delta and ((new_pos < 0xFF000000 and delta > 0) or (delta == 0 and new_pos > 0xFF000000) or (delta > 0x1000))):
-                warning = True
-            else:
-                warning = False
-            message = ("%s 0x%08x -> 0x%08x [0x%03x]" % (name.ljust(max_len), old_pos, new_pos ,delta))
-        else:
-            warning = False
-            message = ""
+            if not args.skip_delta:
+                if (new_pos < 0xE0000000 and delta > 0):
+                    warning, color = True, "cyan"
+                if (delta == 0 and new_pos > 0xE0000000):
+                    warning, color = True, "yellow"
+                if (abs(delta) > 0x10000 or abs(delta - last_delta) > 0x1000):
+                    warning, color = True, "magenta"
+                if last_delta > delta:
+                    warning, color = True, "white"
+                
+            message = ("%s 0x%08x -> 0x%08x [0x%03x]" % (name.ljust(max_len), old_pos, new_pos, delta))
 
-        if(warning):
+        if delta & 1:
+            message += " [PARITY!]"
+            warning, color = True, "red"
+
+        if warning:
             if(args.no_colors or forceNoColor):
                 print(message + " [!!!]")
             else:
-                print(colored(message, 'yellow', attrs=['reverse']))
+                print(colored(message, color, attrs=['reverse']))
         elif len(message) > 0:
             print(message)
+
+        last_delta = delta
