@@ -339,6 +339,8 @@ static int32_t  reg_timing6 = 0;
 static int32_t  reg_6824 = 0;
 static int32_t  reg_6804_height = 0;
 static int32_t  reg_6804_width = 0;
+static int32_t  reg_83d4 = 0;
+static int32_t  reg_83dc = 0;
 static uint32_t cmos1_lo = 0, cmos1_hi = 0;
 static uint32_t cmos0 = 0;
 static uint32_t cmos1 = 0;
@@ -2887,8 +2889,8 @@ static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_v
 {
 
 /* gets rid of the black border to the right */
-	EngDrvOutLV(0xc0f383d4, 0x4f0010);
-	EngDrvOutLV(0xc0f383dc, 0x42401c6);
+	EngDrvOutLV(0xc0f383d4, 0x4f0010 + reg_83d4);
+	EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
 
 if ((ratios == 0x1) || (set_25fps == 0x1))
 {
@@ -3541,6 +3543,24 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help  = "Alter width. Scrambles preview",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_83d4",
+                .priv   = &reg_83d4,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Preview engdrvout",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_83dc",
+                .priv   = &reg_83dc,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Preview engdrvout",
                 .advanced = 1,
             },
             {
