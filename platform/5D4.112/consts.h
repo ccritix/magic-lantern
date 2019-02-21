@@ -1,5 +1,5 @@
 /*
- *  5D Mark IV 1.0.4 consts
+ *  5D Mark IV 1.1.2 consts
  */
 
 #define CARD_LED_ADDRESS            0xD20B0224
