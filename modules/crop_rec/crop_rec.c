@@ -468,8 +468,8 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	{
     	skip_left       = 234;
     	skip_right      = 160;
-    	skip_top        = 0;
-    	skip_bottom     = 212;
+    	skip_top        = 28;
+    	skip_bottom     = 184;
     	}
         break;
 
@@ -4138,6 +4138,10 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
   if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
   {
     snprintf(buffer, sizeof(buffer), "2520x1418");
+  if (ratios == 0x2)
+  {
+    snprintf(buffer, sizeof(buffer), "2192x1234");
+  }
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM)
