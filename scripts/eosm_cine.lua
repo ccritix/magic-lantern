@@ -41,7 +41,7 @@ end
 
 -- crop mode
     menu.set("Movie", "Crop mode", "5K anamorphic")
-    menu.set("Crop mode", "bitrate", "10 bit")
+    menu.set("Crop mode", "bitdepth", "10 bit")
     menu.set("Crop mode", "ratios", "2.35:1")
   msleep(300)
 
