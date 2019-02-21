@@ -170,7 +170,7 @@ void isrlog(uint32_t isr_id)
     master_isr_log[pos].param = isr_table_param[isr_id];
     master_isr_log[pos].count++;
     
-    clean_d_cache();
+    _clean_d_cache();
 }
 
 
