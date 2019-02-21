@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
+from __future__ import print_function
 import argparse
 import re
-import sys
+import sys, os
+from struct import unpack
+from functools import reduce
 
 def isStub(string):
     string = string.strip()
@@ -56,14 +59,35 @@ def returnNotNone(item):
     else: return l
 
 def __get_args():
-    program_desc = "Match two different stubs.S files, highlighting possible errors"
-    parser = argparse.ArgumentParser(description=program_desc)
-    parser.add_argument('old_file', help="path to the old stubs.S file")
-    parser.add_argument('new_file', help="path to the new stubs.S file")
+    program_desc = "Match two different stubs.S files, highlighting possible errors.\n" + \
+        "Example: \n  python check-stubs.py stubs-old.S stubs-new.S \\\n" + \
+        "     -a old/5D/ROM1.BIN   -b new/5D/ROM1.BIN \\\n" + \
+        "     -a old/5D.0x1234.BIN -b new/5D.0x1234.BIN ...\n" + \
+        "\n" + \
+        "ROM files should be created with the portable ROM dumper.\n" + \
+        "RAM files, if any, should be created with romcpy.sh (QEMU: -d romcpy)."
+    parser = argparse.ArgumentParser(description=program_desc, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('old_stubs', help="path to the old stubs.S file")
+    parser.add_argument('new_stubs', help="path to the new stubs.S file")
+    parser.add_argument('-a', action='append', dest="old_dump", help="path to old ROM/RAM file(s)")
+    parser.add_argument('-b', action='append', dest="new_dump", help="path to new ROM/RAM file(s)")
     parser.add_argument('-s', '--skip-delta', action='store_true', help="skips delta checking")
     parser.add_argument('-n', '--no-colors', action='store_true', help="does not use colors")
     parser.add_argument('-m', '--missing-only', action='store_true', help="show only missing stubs")
     return parser.parse_args()
+
+def getLongLE(dump, address):
+   return unpack('<L', dump[address:address+4])[0]
+
+def get_rom_offset(rom):
+
+    if b"MusaPUX" in rom:
+        return 0xE0000000       # DIGIC 7
+
+    if b"WarpPUX" in rom:
+        return 0xE0000000       # DIGIC 8
+
+    return 0x100000000 - len(rom)
 
 if __name__ == '__main__':
     forceNoColor = False
@@ -75,8 +99,32 @@ if __name__ == '__main__':
     
     args = __get_args()
 
-    old_lines = open(args.old_file).readlines()
-    new_lines = open(args.new_file).readlines()
+    old_lines = open(args.old_stubs).readlines()
+    new_lines = open(args.new_stubs).readlines()
+
+    dumps = []
+
+    if args.old_dump:
+        if not args.new_dump or len(args.old_dump) != len(args.new_dump):
+            print("%s: old/new ROM/RAM dumps (arguments -a and -b) must match." % sys.argv[0])
+            exit(2)
+        max_len = reduce(max, [len(filename) for filename in args.old_dump + args.new_dump])
+        fmt = "%%%ds <---> %%-%ds" % (max_len, max_len)
+        for old_fn, new_fn in zip(args.old_dump, args.new_dump):
+            print(fmt % (old_fn, new_fn), end="")
+            old_dump = open(old_fn, "rb").read()
+            new_dump = open(new_fn, "rb").read()
+            old_bn = os.path.basename(old_fn)
+            new_bn = os.path.basename(new_fn)
+            if old_bn.startswith("ROM"):
+                offset = get_rom_offset(old_dump)
+                assert offset == get_rom_offset(old_dump)
+            else:
+                offset = int(old_bn.split(".")[1], 16)
+                assert offset == int(old_bn.split(".")[1], 16)
+            print(" [%08X]" % offset)
+            dumps.append((old_dump, new_dump, offset))
+        print()
 
     defines_old = dict(filter(None, [parseDefine(x) for x in old_lines]))
     defines_new = dict(filter(None, [parseDefine(x) for x in new_lines]))
@@ -120,6 +168,25 @@ if __name__ == '__main__':
         if delta & 1:
             message += " [PARITY!]"
             warning, color = True, "red"
+
+        found = False
+        for old_dump, new_dump, offset in dumps:
+            if old_pos >= offset and old_pos < offset + len(old_dump):
+                found = True
+                bits_changed = 0
+                change_list = []
+                for i in range(0, 8, 4):
+                    old_val = getLongLE(old_dump, (old_pos & ~1) - offset + i)
+                    new_val = getLongLE(new_dump, (new_pos & ~1) - offset + i)
+                    if old_val != new_val:
+                        bits_changed += bin(old_val ^ new_val).count("1")
+                        change_list.append("%d:%08X-%08X" % (i, old_val, new_val))
+                        warning, color = True, ("red" if i == 0 else "yellow")
+                if bits_changed:
+                    message += " [%d bits changed: %s]" % (bits_changed, ", ".join(change_list))
+
+        if not found:
+            message += " [contents not checked]"
 
         if warning:
             if(args.no_colors or forceNoColor):
