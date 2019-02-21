@@ -3496,8 +3496,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "reg_6014",
                 .priv   = &reg_6014,
-                .min    = -500,
-                .max    = 500,
+                .min    = -2000,
+                .max    = 2000,
                 .unit   = UNIT_DEC,
                 .help  = "Alter frame rate. Combine with reg_6008",
                 .advanced = 1,
