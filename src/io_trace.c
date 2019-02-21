@@ -572,6 +572,11 @@ void io_trace_prepare()
     buffer = (void *) 0x28000000;
     #endif
 
+    #ifdef CONFIG_5D4
+    /* let's hope it's OK; appears to be used during bursts */
+    buffer = (void *) 0x20B00000;
+    #endif
+
 #endif
     if (!buffer) return;
     memset(buffer, 0, alloc_size);
@@ -915,6 +920,11 @@ void io_trace_dump()
     /* hardcoded address, model-specific, see log_start() for details */
     char * msg_buffer = (void *) 0x2AB00000;
     int buffer_size = 32 * 1024 * 1024;
+    #endif
+
+    #ifdef CONFIG_5D4
+    char * msg_buffer = (void *) 0x3C500000;
+    int buffer_size = 12 * 1024 * 1024;
     #endif
 
     int msg_len = 0;

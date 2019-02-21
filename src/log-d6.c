@@ -286,7 +286,11 @@ void log_start()
     buf = (void *) 0x30000000;          /* try 12B00000, 15600000, 18100000, 28000000, 2AB00000, 2D600000, 30000000, 32B00000 */
     buf_size = 32 * 1024 * 1024;        /* actually over 40, but we don't really need that much */
     #endif
-
+    #ifdef CONFIG_5D4
+    /* https://www.magiclantern.fm/forum/index.php?topic=17695.msg212320#msg212320 */
+    buf = (void *) 0x0B100000;          /* 42600000-42FFFFFF = 10MB, 4B100000-4BCFFFFF = 12MB, 5D100000-5D6FFFFF = 6MB, 60B00000-614FFFFF = 10MB, 7C500000-7D0FFFFF = 12MB; using cacheable versions */
+    buf_size = 12 * 1024 * 1024;
+    #endif
     /* other models will require different addresses; to be found experimentally */
 #endif
     qprintf("Logging buffer: %X - %X\n", buf, buf + buf_size - 1);

@@ -18,6 +18,10 @@
 #define LOG_EARLY_STARTUP
 #endif
 
+#ifdef CONFIG_5D4
+#define LOG_EARLY_STARTUP
+#endif
+
 void log_start();
 void log_finish();
 
