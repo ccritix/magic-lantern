@@ -203,6 +203,13 @@ ifeq ($(CONFIG_QEMU),y)
 CFLAGS += -DCONFIG_QEMU
 endif # CONFIG_QEMU
 
+# same for CONFIG_MMIO_TRACE
+ifeq ($(CONFIG_MMIO_TRACE),y)
+CFLAGS += -DCONFIG_MMIO_TRACE
+ML_OBJS-y += \
+	io_trace.o
+endif
+
 ML_OBJS-y += $(ML_SRC_EXTRA_OBJS)
 
 ifdef ML_SRC_EXCLUDE_OBJS
