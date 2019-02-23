@@ -2971,9 +2971,13 @@ if (ratios == 0x0 && x3crop == 0x1)
 {
     switch (reg)
     {
-          	case 0xC0F06804: return 0x45601e4 + reg_6804_width + (reg_6804_height << 16); 
+          	case 0xC0F06804: return 0x45601e5 + reg_6804_width + (reg_6804_height << 16); 
         	case 0xC0F0713c: return 0x457 + reg_713c;
 		case 0xC0F07150: return 0x3e0 + reg_7150;
+
+    /* needed for autodetecting black level in mlv_lite.c */
+        	case 0xc0f06800: return 0x10011;
+
     }
 }
 
