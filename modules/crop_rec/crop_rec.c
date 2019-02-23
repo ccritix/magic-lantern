@@ -507,6 +507,12 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	{
       	skip_top = 201;
         skip_bottom = 121;
+    	}
+    	if (ratios == 0x1 && x3crop == 0x1)
+    	{
+        skip_right = 0;
+      	skip_top = 172;
+        skip_bottom = 172;
     	}	
     	if (ratios == 0x2)
     	{
@@ -514,7 +520,17 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         skip_right = 60;
     	skip_bottom = 2;
     	}
+    	if (ratios == 0x2 && x3crop == 0x1)
+    	{
+        skip_top = 84;
+        skip_right = 0;
+    	skip_bottom = 14;
+    	}
 	break;
+
+
+	
+
 
  	case CROP_PRESET_3x1_mv720_50fps_EOSM:
         skip_bottom = 2;
@@ -2907,7 +2923,7 @@ if (ratios == 0x0)
     }
 }
 
-if (ratios == 0x1 || ratios == 0x2)
+if ((ratios == 0x1 || ratios == 0x2) && x3crop == 0x0)
 {
     switch (reg)
     {
@@ -2916,6 +2932,29 @@ if (ratios == 0x1 || ratios == 0x2)
 		case 0xC0F07150: return 0x3ae + reg_7150;
     }
 }
+
+/* x3crop 2.35:1 */
+if (ratios == 0x1 && x3crop == 0x1)
+{
+    switch (reg)
+    {
+          	case 0xC0F06804: return 0x45601e4 + reg_6804_width + (reg_6804_height << 16); 
+        	case 0xC0F0713c: return 0x457 + reg_713c;
+		case 0xC0F07150: return 0x3e0 + reg_7150;
+    }
+}
+
+/* x3crop 16:9 */
+if (ratios == 0x2 && x3crop == 0x1)
+{
+    switch (reg)
+    {
+          	case 0xC0F06804: return 0x45601e4 + reg_6804_width + (reg_6804_height << 16); 
+        	case 0xC0F0713c: return 0x457 + reg_713c;
+		case 0xC0F07150: return 0x3e0 + reg_7150;
+    }
+}
+
 
 if (set_25fps == 0x1)
 {
