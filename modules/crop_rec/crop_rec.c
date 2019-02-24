@@ -1419,35 +1419,34 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_5K_3x1_EOSM:
 	     case CROP_PRESET_4K_3x1_100D:
 	     case CROP_PRESET_5K_3x1_100D:
-		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
 		if (x3crop == 0x1)
 		{
-		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0  + reg_800c};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 5 + reg_8000};
 		}		
 		break;
 
 	     case CROP_PRESET_mcm_mv1080_EOSM:
-		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
                 adtg_new[17] = (struct adtg_new) {6, 0x8183, 0x21 + reg_8183};
                 adtg_new[18] = (struct adtg_new) {6, 0x8184, 0x7b + reg_8184};
-
 		if (x3crop == 0x1)
 		{	
-		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0  + reg_800c};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 5 + reg_8000};
 		}	
 		break;
 
   	     case CROP_PRESET_3x1_mv720_50fps_EOSM:
-		adtg_new[2] = (struct adtg_new) {6, 0x800C, 4  + reg_800c};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 4 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
 		break;
 
 	     case CROP_PRESET_4K_5x1_EOSM:
-		adtg_new[0] = (struct adtg_new) {6, 0x800C, 4  + reg_800c};
+		adtg_new[0] = (struct adtg_new) {6, 0x800C, 4 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
 
 		break;
@@ -1455,17 +1454,17 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_mv1080p_mv720p_100D:
    	 	   if (is_1080p())
     		   {
-	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
+	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
     		   }
     		   if (is_720p())
     		   {
-	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 4  + reg_800c};
+	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 4 + reg_800c};
    		   }		
 		break;
 
 	     case CROP_PRESET_anamorphic_EOSM:
 	     case CROP_PRESET_1x3_100D:
-	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0  + reg_800c};
+	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
 
      	        break;
@@ -1475,7 +1474,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x1:
                 /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
                 /* ADTG2[0x8806] = 0x6088 on 5D3 (artifacts worse without it) */
-                adtg_new[2] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
+                adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
                 if (is_5D3) {
                     /* this register is model-specific */
                     adtg_new[3] = (struct adtg_new) {2, 0x8806, 0x6088};
