@@ -330,6 +330,8 @@ static int32_t  reg_6014 = 0;
 static int32_t  reg_6008 = 0;
 static int32_t  reg_800c = 0;
 static int32_t  reg_8000 = 0;
+static int32_t  reg_8183 = 0;
+static int32_t  reg_8184 = 0;
 static int32_t  reg_timing1 = 0;
 static int32_t  reg_timing2 = 0;
 static int32_t  reg_timing3 = 0;
@@ -1429,6 +1431,9 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_mcm_mv1080_EOSM:
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2  + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
+                adtg_new[17] = (struct adtg_new) {6, 0x8183, 0x21 + reg_8183};
+                adtg_new[18] = (struct adtg_new) {6, 0x8184, 0x7b + reg_8184};
+
 		if (x3crop == 0x1)
 		{	
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0  + reg_800c};
@@ -3611,6 +3616,24 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 500,
                 .unit   = UNIT_DEC,
                 .help  = "x3zoom",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_8183",
+                .priv   = &reg_8183,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Aliasing, moiré mcm rewired mode",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_8184",
+                .priv   = &reg_8184,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Aliasing, moiré mcm rewired mode",
                 .advanced = 1,
             },
             {

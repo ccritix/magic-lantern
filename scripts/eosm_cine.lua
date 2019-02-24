@@ -100,13 +100,14 @@ end
   msleep(200)
   menu.close()
 
--- refresh LiveView
+-- let´s pause this, might have fixed moiré in mcm rewired mode
+--[[ refresh LiveView
    menu.close()
    camera.gui.menu = true
    msleep(1)
    assert(not lv.running)
    camera.gui.menu = false
    sleep(1)
-   assert(lv.running)
+   assert(lv.running) --]]
 
  display.notify_box("4.5K anamorphic is all set")

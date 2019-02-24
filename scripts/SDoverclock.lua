@@ -25,6 +25,8 @@ if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA L
  display.notify_box("patched")
   end
 
+-- let´s pause this, might have fixed moiré in mcm rewired mode
+--[[
 -- are you running Movie crop mode rewire mode?
  if menu.get("Movie", "Crop mode", "") == "mv1080p MCM rewire" then
 -- refresh LiveView
@@ -35,7 +37,7 @@ if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA L
    camera.gui.menu = false
    sleep(1)
    assert(lv.running)
- end
+ end  --]]
 
  else
  display.notify_box("Please enable sd_uhs.mo")
