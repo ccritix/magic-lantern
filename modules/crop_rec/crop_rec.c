@@ -3621,8 +3621,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "reg_8183",
                 .priv   = &reg_8183,
-                .min    = -500,
-                .max    = 500,
+                .min    = -2000,
+                .max    = 2000,
                 .unit   = UNIT_DEC,
                 .help  = "Aliasing, moiré mcm rewired mode",
                 .advanced = 1,
@@ -3630,8 +3630,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "reg_8184",
                 .priv   = &reg_8184,
-                .min    = -500,
-                .max    = 500,
+                .min    = -2000,
+                .max    = 2000,
                 .unit   = UNIT_DEC,
                 .help  = "Aliasing, moiré mcm rewired mode",
                 .advanced = 1,
