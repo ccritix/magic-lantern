@@ -47,6 +47,9 @@ char* get_current_task_name()
 /* override Canon's DebugMsg to save all messages */
 static void my_DebugMsg(int class, int level, char* fmt, ...)
 {
+    /* only run on CPU core 0 */
+    if (get_cpuid()) return;
+
     uintptr_t lr = read_lr();
 
     if (!buf) return;
@@ -173,6 +176,9 @@ static void mpu_decode(const char * in, char * out, int max_len);
 
 static void pre_isr_log(uint32_t isr)
 {
+    /* only run on CPU core 0 */
+    if (get_cpuid()) return;
+
 //#ifdef CONFIG_DIGIC_VI
     extern const uint32_t isr_table_handler[];
     extern const uint32_t isr_table_param[];
@@ -207,6 +213,9 @@ static void pre_isr_log(uint32_t isr)
 
 static void post_isr_log(uint32_t isr)
 {
+    /* only run on CPU core 0 */
+    if (get_cpuid()) return;
+
     const char * name = isr_names[isr & 0x1FF];
     DryosDebugMsg(0, 15, "<<< INT-%03Xh %s", isr, name ? name : "");
 
