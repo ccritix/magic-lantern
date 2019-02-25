@@ -494,4 +494,22 @@ blob_memcpy(
         dest[i] = src[i];
 }
 
+/* get ID of current CPU core
+ * for single-core models, return 0 */
+static inline uint32_t get_cpuid( void )
+{
+#if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
+    /* Dual core Cortex A9 */
+    uint32_t cpuid;
+    asm __volatile__ (
+        "MRC p15, 0, %0, c0, c0, 5\n"
+        "AND %0, %0, #3\n"
+        : "=&r"(cpuid));
+    return cpuid;
+#else
+    /* assuming single-core */
+    return 0;
+#endif
+}
+
 #endif
