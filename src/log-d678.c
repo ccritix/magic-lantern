@@ -45,11 +45,9 @@ char* get_current_task_name()
 }
 
 /* override Canon's DebugMsg to save all messages */
-static void my_DebugMsg(int class, int level, char* fmt, ...)
+/* DIGIC 7/8: this runs on both CPU cores */
+static void DUMP_ASM my_DebugMsg(int class, int level, char* fmt, ...)
 {
-    /* only run on CPU core 0 */
-    if (get_cpu_id()) return;
-
     uintptr_t lr = read_lr();
 
     if (!buf) return;
@@ -64,6 +62,13 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
 #endif
 
     uint32_t old = cli();
+
+#if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
+    static uint32_t lock;
+    __sync_lock_test_and_set(&lock, 1);
+
+    len += snprintf( buf+len, buf_size-len, "[%d] ", get_cpu_id());
+#endif
 
 #ifdef CONFIG_MMIO_TRACE
     uint32_t us_timer = io_trace_get_timer();
@@ -86,6 +91,10 @@ static void my_DebugMsg(int class, int level, char* fmt, ...)
     va_end( ap );
 
     len += snprintf( buf+len, buf_size-len, "\n" );
+
+#if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
+    __sync_lock_release(&lock);
+#endif
 
     sei(old);
 }
@@ -174,11 +183,9 @@ static char* isr_names[0x200] = {
 
 static void mpu_decode(const char * in, char * out, int max_len);
 
+/* DIGIC 7/8: this runs on both CPU cores */
 static void pre_isr_log(uint32_t isr)
 {
-    /* only run on CPU core 0 */
-    if (get_cpu_id()) return;
-
 //#ifdef CONFIG_DIGIC_VI
     extern const uint32_t isr_table_handler[];
     extern const uint32_t isr_table_param[];
@@ -211,11 +218,9 @@ static void pre_isr_log(uint32_t isr)
     }
 }
 
+/* DIGIC 7/8: this runs on both CPU cores */
 static void post_isr_log(uint32_t isr)
 {
-    /* only run on CPU core 0 */
-    if (get_cpu_id()) return;
-
     const char * name = isr_names[isr & 0x1FF];
     DryosDebugMsg(0, 15, "<<< INT-%03Xh %s", isr, name ? name : "");
 
