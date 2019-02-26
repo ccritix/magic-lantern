@@ -206,7 +206,10 @@ static void pre_isr_log(uint32_t isr)
     const char * name = isr_names[isr & 0x1FF];
     DryosDebugMsg(0, 15, ">>> INT-%03Xh %s %X(%X)", isr, name ? name : "", handler, arg);
 
-    if (isr == 0x2A || isr == 0x12A || isr == 0x147 || isr == 0x1B)
+    /* DIGIC 7: MPU messages arrive on the first core only,
+     * but some of these interrupts are also triggered on second core */
+    if ((get_cpu_id() == 0) &&
+        (isr == 0x2A || isr == 0x12A || isr == 0x147 || isr == 0x1B))
     {
         /* SIO3/MREQ; also check on timer interrupt */
         #ifdef CONFIG_7D2
@@ -234,7 +237,8 @@ static void post_isr_log(uint32_t isr)
     const char * name = isr_names[isr & 0x1FF];
     DryosDebugMsg(0, 15, "<<< INT-%03Xh %s", isr, name ? name : "");
 
-    if (isr == 0x147)
+    /* CPU check is here just in case, for future models */
+    if ((isr == 0x147) && (get_cpu_id() == 0))
     {
         /* expecting at most one message fully received at the end of this interrupt */
         extern const char * const mpu_recv_ring_buffer[80];
