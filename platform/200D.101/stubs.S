@@ -106,6 +106,7 @@ NSTUB(    0x4030,  pre_isr_hook)
 NSTUB(    0x4034,  post_isr_hook)
 NSTUB(   0x6CC10,  isr_table_handler)
 NSTUB(   0x6CC14,  isr_table_param)
+NSTUB(0xE0137001,  cli_spin_lock)          /* used in AllocateMemory/FreeMemory and others */
 
 /** MPU communication **/
 NSTUB(0xE01C7657,  mpu_send)                  // "dwSize < TXBD_DATA_SIZE"

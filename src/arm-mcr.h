@@ -523,17 +523,18 @@ static inline uint32_t get_cpu_id( void )
 }
 
 #if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
-/* https://stackoverflow.com/questions/1383363/is-my-spin-lock-implementation-correct-and-optimal/1383501#1383501 */
-static inline void spin_lock(volatile uint32_t * lock)
-{
-    while (__sync_lock_test_and_set(lock, 1))
-        while (*lock)
-            ;
-}
 
-static inline void spin_unlock(volatile uint32_t * lock)
+/* Canon stub; used in AllocateMemory/FreeMemory and others */
+/* it clears the interrupts, does some LDREX/STREX and returns CPSR */
+extern uint32_t cli_spin_lock(volatile uint32_t * lock);
+
+/* unlocking is inlined */
+static inline void sei_spin_unlock(volatile uint32_t * lock, uint32_t old_status)
 {
-    __sync_lock_release(lock);
+    asm volatile ( "DMB" );
+    *lock = 0;
+    asm volatile ( "DSB" );
+    asm volatile ( "MSR CPSR_c, %0" :: "r"(old_status) );
 }
 #endif
 
