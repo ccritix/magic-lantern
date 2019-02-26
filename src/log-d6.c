@@ -48,7 +48,7 @@ char* get_current_task_name()
 static void my_DebugMsg(int class, int level, char* fmt, ...)
 {
     /* only run on CPU core 0 */
-    if (get_cpuid()) return;
+    if (get_cpu_id()) return;
 
     uintptr_t lr = read_lr();
 
@@ -177,7 +177,7 @@ static void mpu_decode(const char * in, char * out, int max_len);
 static void pre_isr_log(uint32_t isr)
 {
     /* only run on CPU core 0 */
-    if (get_cpuid()) return;
+    if (get_cpu_id()) return;
 
 //#ifdef CONFIG_DIGIC_VI
     extern const uint32_t isr_table_handler[];
@@ -214,7 +214,7 @@ static void pre_isr_log(uint32_t isr)
 static void post_isr_log(uint32_t isr)
 {
     /* only run on CPU core 0 */
-    if (get_cpuid()) return;
+    if (get_cpu_id()) return;
 
     const char * name = isr_names[isr & 0x1FF];
     DryosDebugMsg(0, 15, "<<< INT-%03Xh %s", isr, name ? name : "");

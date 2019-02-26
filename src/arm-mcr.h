@@ -496,16 +496,18 @@ blob_memcpy(
 
 /* get ID of current CPU core
  * for single-core models, return 0 */
-static inline uint32_t get_cpuid( void )
+static inline uint32_t get_cpu_id( void )
 {
 #if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
     /* Dual core Cortex A9 */
-    uint32_t cpuid;
+    /* Extract CPU ID bits from the MPIDR register */
+    /* http://infocenter.arm.com/help/topic/com.arm.doc.ddi0388e/CIHEBGFG.html */
+    uint32_t cpu_id;
     asm __volatile__ (
-        "MRC p15, 0, %0, c0, c0, 5\n"
-        "AND %0, %0, #3\n"
-        : "=&r"(cpuid));
-    return cpuid;
+        "MRC p15, 0, %0, c0, c0, 5\n"   /* read MPIDR register */
+        "AND %0, %0, #3\n"              /* Cortex A9: up to 4 CPU cores */
+        : "=&r"(cpu_id));
+    return cpu_id;
 #else
     /* assuming single-core */
     return 0;
