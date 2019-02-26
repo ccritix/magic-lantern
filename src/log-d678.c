@@ -64,7 +64,7 @@ static void DUMP_ASM my_DebugMsg(int class, int level, char* fmt, ...)
     uint32_t old = cli();
 
 #if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
-    static uint32_t lock;
+    static volatile uint32_t lock;
     spin_lock(&lock);
 
     len += snprintf( buf+len, buf_size-len, "[%d] ", get_cpu_id());

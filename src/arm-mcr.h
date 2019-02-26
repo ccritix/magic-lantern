@@ -516,14 +516,14 @@ static inline uint32_t get_cpu_id( void )
 
 #if defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
 /* https://stackoverflow.com/questions/1383363/is-my-spin-lock-implementation-correct-and-optimal/1383501#1383501 */
-static inline void spin_lock(uint32_t * lock)
+static inline void spin_lock(volatile uint32_t * lock)
 {
     while (__sync_lock_test_and_set(lock, 1))
         while (*lock)
             ;
 }
 
-static inline void spin_unlock(uint32_t * lock)
+static inline void spin_unlock(volatile uint32_t * lock)
 {
     __sync_lock_release(lock);
 }
