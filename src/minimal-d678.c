@@ -4,7 +4,7 @@
  */
 
 #include "dryos.h"
-#include "log-d6.h"
+#include "log-d678.h"
 
 extern void dump_file(char* name, uint32_t addr, uint32_t size);
 extern void malloc_info(void);

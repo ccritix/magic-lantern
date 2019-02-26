@@ -1,8 +1,8 @@
-/* DIGIC 6 logging experiments
+/* DIGIC 6/7/8 logging experiments
  * based on dm-spy-experiments  code */
 
 #include "dryos.h"
-#include "log-d6.h"
+#include "log-d678.h"
 #include "io_trace.h"
 
 /* fixme */
