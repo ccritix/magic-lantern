@@ -68,6 +68,14 @@ read_sp( void )
     return sp;
 }
 
+static inline uint32_t
+read_cpsr( void )
+{
+    uint32_t cpsr;
+    asm __volatile__ ( "MRS %0, CPSR" : "=&r"(cpsr) );
+    return cpsr;
+}
+
 /** Routines to enable / disable interrupts */
 static inline uint32_t
 cli(void)
