@@ -339,6 +339,8 @@ static int32_t  reg_timing4 = 0;
 static int32_t  reg_timing5 = 0;
 static int32_t  reg_timing6 = 0;
 static int32_t  reg_6824 = 0;
+static int32_t  reg_6800_height = 0;
+static int32_t  reg_6800_width = 0;
 static int32_t  reg_6804_height = 0;
 static int32_t  reg_6804_width = 0;
 static int32_t  reg_83d4 = 0;
@@ -1679,6 +1681,16 @@ if (!RECORDING && is_EOSM)
 	case 0xc0f0815c: return 0x2;
     }
   }
+}
+
+
+if (is_EOSM)
+{
+    switch (reg)
+    {
+/* not used but might be in the future */
+	case 0xC0F06800: return 0x10010 + reg_6800_width + (reg_6800_height << 16);
+    }
 }
     return 0;
 }
@@ -3635,6 +3647,24 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 2000,
                 .unit   = UNIT_DEC,
                 .help  = "Aliasing, moiré mcm rewired mode",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_6800_height",
+                .priv   = &reg_6800_height,
+                .min    = -2000,
+                .max    = 2000,
+                .unit   = UNIT_DEC,
+                .help  = "height offset",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_6800_width",
+                .priv   = &reg_6800_width,
+                .min    = -2000,
+                .max    = 2000,
+                .unit   = UNIT_DEC,
+                .help  = "width offset",
                 .advanced = 1,
             },
             {
