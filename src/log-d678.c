@@ -192,6 +192,7 @@ static char* isr_names[0x200] = {
 };
 
 static void mpu_decode(const char * in, char * out, int max_len);
+static char mpu_msg[512];
 
 /* DIGIC 7/8: this runs on both CPU cores */
 static void pre_isr_log(uint32_t isr)
@@ -222,10 +223,9 @@ static void pre_isr_log(uint32_t isr)
         while (last_tail != mpu_send_ring_buffer_tail)
         {
             const char * last_message = &mpu_send_ring_buffer[last_tail][4];
-            static char msg[256];
-            mpu_decode(last_message, msg, sizeof(msg));
+            mpu_decode(last_message, mpu_msg, sizeof(mpu_msg));
             //qprintf("[%d] mpu_send(%s)%s\n", last_tail, msg, last_message[-2] == 1 ? "" : " ?!?");
-            DryosDebugMsg(0, 15, "[%d] *** mpu_send(%s)%s", last_tail, msg, last_message[-2] == 1 ? "" : " ?!?");
+            DryosDebugMsg(0, 15, "[%d] *** mpu_send(%s)%s", last_tail, mpu_msg, last_message[-2] == 1 ? "" : " ?!?");
             INC_MOD(last_tail, COUNT(mpu_send_ring_buffer));
         }
     }
@@ -248,10 +248,9 @@ static void post_isr_log(uint32_t isr)
         if (last_tail != mpu_recv_ring_buffer_tail)
         {
             const char * last_message = &mpu_recv_ring_buffer[last_tail][4];
-            static char msg[256];
-            mpu_decode(last_message, msg, sizeof(msg));
+            mpu_decode(last_message, mpu_msg, sizeof(mpu_msg));
             //qprintf("[%d] mpu_recv(%s)\n", last_tail, msg);
-            DryosDebugMsg(0, 15, "[%d] *** mpu_recv(%s)", last_tail, msg);
+            DryosDebugMsg(0, 15, "[%d] *** mpu_recv(%s)", last_tail, mpu_msg);
             last_tail = mpu_recv_ring_buffer_tail;
         }
     }
@@ -282,9 +281,8 @@ extern int __attribute__((long_call)) mpu_recv(char * buf);
 static int mpu_recv_log(char * buf, int size_unused)
 {
     int size = buf[-1];
-    char msg[256];
-    mpu_decode(buf, msg, sizeof(msg));
-    DryosDebugMsg(0, 15, "*** mpu_recv(%02x %s)", size, msg);
+    mpu_decode(buf, mpu_msg, sizeof(mpu_msg));
+    DryosDebugMsg(0, 15, "*** mpu_recv(%02x %s)", size, mpu_msg);
 
     /* call the original */
     return mpu_recv(buf);
