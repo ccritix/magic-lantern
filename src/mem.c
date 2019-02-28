@@ -76,7 +76,7 @@ static struct semaphore * mem_sem = 0;
 
 struct mem_allocator
 {
-    char name[16];                          /* malloc, AllocateMemory, shoot_malloc, task_mem... */
+    const char name[16];                    /* malloc, AllocateMemory, shoot_malloc, task_mem... */
     mem_init_func init;                     /* can be null; called at startup, before all other INIT_FUNCs */
     mem_alloc_func malloc;
     mem_free_func free;
@@ -248,7 +248,7 @@ struct memcheck_hdr
 struct memcheck_entry
 {
     unsigned int ptr;
-    char * file;
+    const char * file;
     uint16_t failed;
     uint16_t line;
     const char * task_name;
@@ -261,10 +261,10 @@ static volatile int last_error = 0;
 static char last_error_msg_short[20] = "";
 static char last_error_msg[100] = "";
 
-static char* file_name_without_path(const char* file)
+static const char * file_name_without_path(const char * file)
 {
     /* only show the file name, not full path */
-    char* fn = (char*)file + strlen(file) - 1;
+    const char * fn = file + strlen(file) - 1;
     while (fn > file && *(fn-1) != '/') fn--;
     return fn;
 }
@@ -393,13 +393,13 @@ static unsigned int memcheck_check(unsigned int ptr, unsigned int entry)
         int size = ((struct memcheck_hdr *)ptr)->length;
         int allocator = ((struct memcheck_hdr *)ptr)->allocator;
 
-        char* file = "unk";
+        const char * file = "unk";
         int line = 0;
         const char * task_name = "unk";
-        char* allocator_name = "unk";
+        const char * allocator_name = "unk";
         if (id_ok)
         {
-            file = (char*) memcheck_entries[id].file;
+            file = memcheck_entries[id].file;
             line = memcheck_entries[id].line;
             task_name = memcheck_entries[id].task_name;
         }
@@ -790,7 +790,7 @@ static int choose_allocator(int size, unsigned int flags)
 /* these two will replace all malloc calls */
 
 /* returns 0 if it couldn't allocate */
-void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned int line)
+void* __mem_malloc(size_t size, unsigned int flags, const char * file, unsigned int line)
 {
     ASSERT(mem_sem);
     take_semaphore(mem_sem, 0);
@@ -1182,7 +1182,7 @@ static MENU_UPDATE_FUNC(meminfo_display)
                     draw_line(i, 400, i, 410, memory_map[i]);
             
             /* show some common addresses on the memory map */
-            struct { uint32_t addr; char* name; } common_addresses[] = {
+            struct { uint32_t addr; const char * name; } common_addresses[] = {
                 { RESTARTSTART,                         "ML"  },    /* where ML is loaded */
                 { (uint32_t) raw_info.buffer,           "RAW" },    /* raw buffer */
                 { (uint32_t) bmp_vram_idle(),           "BMI" },    /* "idle" BMP buffer (back buffer) */
@@ -1208,7 +1208,7 @@ static MENU_UPDATE_FUNC(meminfo_display)
                     int c = MEMORY_MAP_ADDRESS_TO_INDEX(a);
                     draw_line(c, 410, c, 420, COLOR_YELLOW);
                     int msg = i < 10 ? '0'+i : 'a'+i;  /* extended hex to fit in the single character */
-                    bmp_printf(FONT_SMALL | FONT_ALIGN_CENTER, c, 415, "%s", (char*) &msg);
+                    bmp_printf(FONT_SMALL | FONT_ALIGN_CENTER, c, 415, "%s", (const char *) &msg);
                 }
             }
             break;
@@ -1352,10 +1352,10 @@ static MENU_UPDATE_FUNC(mem_total_display)
                 continue;
             }
 
-            char* file = (char*)memcheck_entries[buf_pos].file;
+            const char * file = memcheck_entries[buf_pos].file;
             int line = memcheck_entries[buf_pos].line;
             const char * task_name = memcheck_entries[buf_pos].task_name;
-            char* allocator_name = allocators[allocator].name;
+            const char * allocator_name = allocators[allocator].name;
             bmp_printf(FONT_MED, x, y, "%s%s", memcheck_entries[buf_pos].failed ? "[FAIL] " : "", format_memory_size_and_flags(size, flags));
             bmp_printf(FONT_MED, 180, y, "%s:%d task %s", file, line, task_name);
             bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 710, y, allocator_name);
