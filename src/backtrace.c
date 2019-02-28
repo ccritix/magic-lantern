@@ -18,7 +18,7 @@
 
 static char * eos_get_current_task_name(EOSState *s)
 {
-    return current_task->name;
+    return get_current_task_name();
 }
 
 static int eos_get_current_task_stack(EOSState *s, uint32_t * top, uint32_t * bottom)

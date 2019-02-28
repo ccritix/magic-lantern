@@ -45,7 +45,7 @@ struct task
         uint32_t                off_0x18;
         uint32_t                stackStartAddr;
         uint32_t                stackSize;
-        char *                  name;           // off_0x24;
+        char *                  task_name;      // off_0x24; please use get_current_task_name() instead
         uint32_t                off_0x28;
         uint32_t                off_0x2c;
         uint32_t                self;
@@ -185,7 +185,7 @@ static inline char * get_current_task_name()
 
     if (!interrupt_level)
     {
-        return current_task->name;
+        return current_task->task_name;
     }
     else
     {

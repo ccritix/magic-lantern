@@ -96,7 +96,7 @@ static void backup_region(char *file, uint32_t base, uint32_t length)
 
 static void DUMP_ASM dump_task()
 {
-    uart_printf("Hello from %s!\n", current_task->name);
+    uart_printf("Hello from %s!\n", get_current_task_name());
 
     /* LED blinking test */
     led_blink(2, 500, 500);
