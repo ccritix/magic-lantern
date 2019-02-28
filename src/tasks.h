@@ -190,7 +190,11 @@ static inline char * get_current_task_name()
     else
     {
         static char isr[] = "**INT-00h**";
+#if defined(CONFIG_DIGIC_VI) || defined(CONFIG_DIGIC_VII) || defined(CONFIG_DIGIC_VIII)
+        int i = current_interrupt;
+#else
         int i = current_interrupt >> 2;
+#endif
         int i0 = (i & 0xF);
         int i1 = (i >> 4) & 0xF;
         int i2 = (i >> 8) & 0xF;
