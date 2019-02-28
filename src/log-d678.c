@@ -192,7 +192,7 @@ static char* isr_names[0x200] = {
 };
 
 static void mpu_decode(const char * in, char * out, int max_len);
-static char mpu_msg[512];
+static char mpu_msg[768];   /* max message size: 0xFF * 3 */
 
 /* DIGIC 7/8: this runs on both CPU cores */
 static void pre_isr_log(uint32_t isr)
@@ -262,7 +262,7 @@ extern void (*post_isr_hook)();
 static void mpu_decode(const char * in, char * out, int max_len)
 {
     int len = 0;
-    int size = in[0];
+    int size = (unsigned char) in[0];
 
     /* print each byte as hex */
     for (const char * c = in; c < in + size; c++)
