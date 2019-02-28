@@ -45,7 +45,7 @@ struct task
         uint32_t                off_0x18;
         uint32_t                stackStartAddr;
         uint32_t                stackSize;
-        char *                  task_name;      // off_0x24; please use get_current_task_name() instead
+        const char *            task_name;      // off_0x24; please use get_current_task_name() instead
         uint32_t                off_0x28;
         uint32_t                off_0x2c;
         uint32_t                self;
@@ -169,9 +169,9 @@ extern int ml_shutdown_requested;
 #define TASK_LOOP for (int k = 0; !ml_shutdown_requested ; k++)
 
 
-char * get_task_name_from_id(int id);
+const char * get_task_name_from_id(int id);
 
-static inline char * get_current_task_name()
+static inline const char * get_current_task_name()
 {
 #if 0
     /* DryOS: right after current_task we have a flag

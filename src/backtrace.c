@@ -16,7 +16,7 @@
 #define qemu_loglevel_mask(x) 0
 #define EOSState void
 
-static char * eos_get_current_task_name(EOSState *s)
+static const char * eos_get_current_task_name(EOSState *s)
 {
     return get_current_task_name();
 }

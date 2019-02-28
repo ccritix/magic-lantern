@@ -251,7 +251,7 @@ struct memcheck_entry
     char * file;
     uint16_t failed;
     uint16_t line;
-    char * task_name;
+    const char * task_name;
 };
 
 static struct memcheck_entry memcheck_entries[MEMCHECK_ENTRIES];
@@ -395,7 +395,7 @@ static unsigned int memcheck_check(unsigned int ptr, unsigned int entry)
 
         char* file = "unk";
         int line = 0;
-        char* task_name = "unk";
+        const char * task_name = "unk";
         char* allocator_name = "unk";
         if (id_ok)
         {
@@ -1354,7 +1354,7 @@ static MENU_UPDATE_FUNC(mem_total_display)
 
             char* file = (char*)memcheck_entries[buf_pos].file;
             int line = memcheck_entries[buf_pos].line;
-            char* task_name = memcheck_entries[buf_pos].task_name;
+            const char * task_name = memcheck_entries[buf_pos].task_name;
             char* allocator_name = allocators[allocator].name;
             bmp_printf(FONT_MED, x, y, "%s%s", memcheck_entries[buf_pos].failed ? "[FAIL] " : "", format_memory_size_and_flags(size, flags));
             bmp_printf(FONT_MED, 180, y, "%s:%d task %s", file, line, task_name);
