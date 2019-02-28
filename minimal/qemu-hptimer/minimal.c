@@ -7,36 +7,6 @@
 #include "lens.h"
 #include "timer.h"
 
-char* get_current_task_name()
-{
-#if 0
-    /* DryOS: right after current_task we have a flag
-     * set to 1 when handling an interrupt */
-    /* this doesn't work on DIGIC 7 */
-    uint32_t interrupt_active = MEM((uintptr_t)&current_task + 4);
-#endif
-
-    /* DryOS: right before interrupt_active we have a counter showing the interrupt nesting level */
-    uint32_t interrupt_level = MEM((uintptr_t)&current_interrupt - 4);
-
-    if (!interrupt_level)
-    {
-        return current_task->name;
-    }
-    else
-    {
-        static char isr[] = "**INT-00h**";
-        int i = current_interrupt >> 2;
-        int i0 = (i & 0xF);
-        int i1 = (i >> 4) & 0xF;
-        int i2 = (i >> 8) & 0xF;
-        isr[5] = i2 ? '0' + i2 : '-';
-        isr[6] = i1 < 10 ? '0' + i1 : 'A' + i1 - 10;
-        isr[7] = i0 < 10 ? '0' + i0 : 'A' + i0 - 10;
-        return isr;
-    }
-}
-
 static void hptimer_cbr(int a, void* b)
 {
     qprintf("Hello from HPTimer (%d, %d) %s\n", a, b, get_current_task_name());

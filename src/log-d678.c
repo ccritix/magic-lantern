@@ -20,30 +20,6 @@ extern void * _AllocateMemory(size_t);
 extern void _FreeMemory(void *);
 #endif
 
-char* get_current_task_name()
-{
-    /* DryOS: right after current_task we have a flag
-     * set to 1 when handling an interrupt */
-    uint32_t interrupt_active = MEM((uintptr_t)&current_task + 4);
-    
-    if (!interrupt_active)
-    {
-        return current_task->name;
-    }
-    else
-    {
-        static char isr[] = "**INT-00h**";
-        int i = current_interrupt;
-        int i0 = (i & 0xF);
-        int i1 = (i >> 4) & 0xF;
-        int i2 = (i >> 8) & 0xF;
-        isr[5] = i2 ? '0' + i2 : '-';
-        isr[6] = i1 < 10 ? '0' + i1 : 'A' + i1 - 10;
-        isr[7] = i0 < 10 ? '0' + i0 : 'A' + i0 - 10;
-        return isr;
-    }
-}
-
 /* override Canon's DebugMsg to save all messages */
 /* DIGIC 7/8: this runs on both CPU cores */
 static void DUMP_ASM my_DebugMsg(int class, int level, char* fmt, ...)
