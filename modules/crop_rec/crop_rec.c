@@ -332,6 +332,7 @@ static int32_t  reg_800c = 0;
 static int32_t  reg_8000 = 0;
 static int32_t  reg_8183 = 0;
 static int32_t  reg_8184 = 0;
+static int32_t  reg_81af = 0;
 static int32_t  reg_timing1 = 0;
 static int32_t  reg_timing2 = 0;
 static int32_t  reg_timing3 = 0;
@@ -1048,9 +1049,16 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             		case CROP_PRESET_3x3_1X:
                 /* start/stop scanning line, very large increments */
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
-                break;  
-       
+                break;        
         }
+
+/* all presets */ 
+	if (is_EOSM)
+	{
+/* hot/cold pixels. Ususally 0x2. 0x34 to be tested */ 
+	        cmos_new[4] = 0x34; 
+	}
+		
     }
 
     /* menu overrides */
@@ -1435,6 +1443,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
                 adtg_new[17] = (struct adtg_new) {6, 0x8183, 0x21 + reg_8183};
                 adtg_new[18] = (struct adtg_new) {6, 0x8184, 0x7b + reg_8184};
+                adtg_new[19] = (struct adtg_new) {6, 0x81af, 0xb01 + reg_81af};
 		if (x3crop == 0x1)
 		{	
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
@@ -3650,6 +3659,15 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
+                .name   = "reg_81af",
+                .priv   = &reg_81af,
+                .min    = -2000,
+                .max    = 2000,
+                .unit   = UNIT_DEC,
+                .help  = "focus pixel related?",
+                .advanced = 1,
+            },
+            {
                 .name   = "reg_6800_height",
                 .priv   = &reg_6800_height,
                 .min    = -2000,
@@ -3740,7 +3758,7 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &cmos4,
                 .max    = 0xFFF,
                 .unit   = UNIT_HEX,
-                .help   = "Iso-related?",
+                .help   = "Hot/cold pixel",
                 .advanced = 1,
             },
             {
