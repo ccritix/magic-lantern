@@ -1055,7 +1055,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 /* all presets */ 
 	if (is_EOSM)
 	{
-/* hot/cold pixels. Ususally 0x2. 0x34 to be tested */ 
+/* hot/cold pixels. Usually 0x2. 0x34 to be tested */ 
 	        cmos_new[4] = 0x34; 
 	}
 		
