@@ -1383,6 +1383,14 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     /* hopefully generic; to be tested later */
     if (1)
     {
+
+/* all presets */ 
+	if (is_EOSM)
+	{
+/* hot/cold pixels. Disables dancing pixels higher isos which suddenly sets it to 0x1. Thanks Levas */ 
+                adtg_new[20] = (struct adtg_new) {6, 0x88b0, 0x0};
+	}
+
         switch (crop_preset)
         {
             /* all 1:1 modes (3x, 3K, 4K...) */
