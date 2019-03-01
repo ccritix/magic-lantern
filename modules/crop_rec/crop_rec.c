@@ -202,15 +202,15 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
-   // CROP_PRESET_4K_3x1_EOSM,
-   // CROP_PRESET_5K_3x1_EOSM,
+ // CROP_PRESET_4K_3x1_EOSM,
+ // CROP_PRESET_5K_3x1_EOSM,
     CROP_PRESET_3x3_mv1080_EOSM,
     CROP_PRESET_mcm_mv1080_EOSM,
     CROP_PRESET_3x3_mv1080_46_48fps_EOSM,
     CROP_PRESET_3x1_mv720_50fps_EOSM,
     CROP_PRESET_anamorphic_EOSM,
-   // CROP_PRESET_4K_5x1_EOSM,
-   // CROP_PRESET_3x3_1X_EOSM,
+ // CROP_PRESET_4K_5x1_EOSM,
+ // CROP_PRESET_3x3_1X_EOSM,
 };
 
 static const char * crop_choices_eosm[] = {
