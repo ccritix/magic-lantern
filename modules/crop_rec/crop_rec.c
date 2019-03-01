@@ -332,7 +332,6 @@ static int32_t  reg_800c = 0;
 static int32_t  reg_8000 = 0;
 static int32_t  reg_8183 = 0;
 static int32_t  reg_8184 = 0;
-static int32_t  reg_81af = 0;
 static int32_t  reg_timing1 = 0;
 static int32_t  reg_timing2 = 0;
 static int32_t  reg_timing3 = 0;
@@ -3683,15 +3682,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 2000,
                 .unit   = UNIT_DEC,
                 .help  = "Aliasing, moiré mcm rewired mode",
-                .advanced = 1,
-            },
-            {
-                .name   = "reg_81af",
-                .priv   = &reg_81af,
-                .min    = -2000,
-                .max    = 2000,
-                .unit   = UNIT_DEC,
-                .help  = "focus pixel related?",
                 .advanced = 1,
             },
             {
