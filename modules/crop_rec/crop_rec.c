@@ -307,6 +307,9 @@ static int is_supported_mode()
 {
     if (!lv) return 0;
 
+/* no more crashes when selecing photo mode */
+    if (!is_movie_mode()) return 0;
+
     switch (crop_preset)
     {
         /* note: zoom check is also covered by check_cmos_vidmode */
