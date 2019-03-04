@@ -3180,10 +3180,10 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
     {
 		case 0xC0F06804: return 0x79f01d4 + reg_6804_width + (reg_6804_height << 16);
 
-        	case 0xC0F06014: return set_25fps == 0x1 ? 0x8ec - 93 + reg_6014: 0x8ec + reg_6014;
-		case 0xC0F0600c: return 0x2470247 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x2470247 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x247 + reg_6008;
+        	case 0xC0F06014: return 0x8ec + reg_6014;
+		case 0xC0F0600c: return set_25fps == 0x1 ? 0x2470247 - 24 + reg_6008 + (reg_6008 << 16): 0x2470247 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return set_25fps == 0x1 ? 0x2470247 - 24 + reg_6008 + (reg_6008 << 16): 0x2470247 + reg_6008 + (reg_6008 << 16);		 
+		case 0xC0F06010: return set_25fps == 0x1 ? 0x247 - 24 + reg_6008: 0x247 + reg_6008;
 
         	case 0xC0F0713c: return 0x797 + reg_713c;
 		case 0xC0F07150: return 0x791 + reg_7150;
@@ -3215,10 +3215,11 @@ only gotten one single corrupted frame from below but keep on testing */
     {
         	case 0xC0F06804: return 0x7ef01d4 + reg_6804_width + (reg_6804_height << 16); 
 
-        	case 0xC0F06014: return set_25fps == 0x1 ? 0x95d - 96 + reg_6014: 0x95d + reg_6014;
-		case 0xC0F0600c: return 0x22b022b + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x22b022b + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x22b + reg_6008;
+        	case 0xC0F06014: return 0x95d + reg_6014;
+		case 0xC0F0600c: return set_25fps == 0x1 ? 0x22b022b - 22 + reg_6008 + (reg_6008 << 16): 0x22b022b + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return set_25fps == 0x1 ? 0x22b022b - 22 + reg_6008 + (reg_6008 << 16): 0x22b022b + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return set_25fps == 0x1 ? 0x22b - 24 + reg_6008: 0x22b + reg_6008;
+
 
         	case 0xC0F0713c: return 0x7ef + reg_713c;
 		case 0xC0F07150: return 0x7ed + reg_7150;
