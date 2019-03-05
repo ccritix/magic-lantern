@@ -38,6 +38,7 @@ static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
+static CONFIG_INT("crop.HDR_iso", HDR_iso, 0);
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -1104,6 +1105,78 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
         cmos_new[9] = cmos9;
     }
+
+
+/* HDR workaround eosm */
+    if (cmos0)
+    {
+        cmos_new[0] = cmos0;
+    }
+
+if (((is_EOSM && RECORDING) || (!RECORDING && get_halfshutter_pressed())) && (HDR_iso != 0x0))
+{
+
+/* 100/400 */ 
+  if (HDR_iso == 0x1)
+  {
+    if( cmos0 == 0x84b) 
+    {
+        cmos0 = 0x803;
+        // 100
+    }
+    else
+    {
+        cmos0 = 0x84b; 
+        // 400
+    }
+  }
+
+/* 100/800 */ 
+  if (HDR_iso == 0x2)
+  {
+    if( cmos0 == 0x86f) 
+    {
+        cmos0 = 0x803;
+        // 100
+    }
+    else
+    {
+        cmos0 = 0x86f; 
+        // 800
+    }
+  }
+
+/* 100/1600 */ 
+  if (HDR_iso == 0x3)
+  {
+    if( cmos0 == 0x893) 
+    {
+        cmos0 = 0x803;
+        // 100
+    }
+    else
+    {
+        cmos0 = 0x893; 
+        // 1600
+    }
+  }
+
+/* 100/3200 */ 
+  if (HDR_iso == 0x4)
+  {
+    if( cmos0 == 0x8b7) 
+    {
+        cmos0 = 0x803;
+        // 100
+    }
+    else
+    {
+        cmos0 = 0x8b7; 
+        // 3200
+    }
+  }
+
+}
     
     /* copy data into a buffer, to make the override temporary */
     /* that means: as soon as we stop executing the hooks, values are back to normal */
@@ -3616,6 +3689,14 @@ static struct menu_entry crop_rec_menu[] =
 			  "Sets 2.35:1 and 16:9 modes to 25fps(default 24)\n"
             },
             {
+                .name   = "HDR base iso100",
+                .priv   = &HDR_iso,
+                .max    = 4,
+                .choices = CHOICES("OFF", "iso400", "iso800", "iso1600", "iso3200"),
+                .help   = "HDR workaround eosm\n"
+			  "HDR workaround eosm\n"
+            },
+            {
                 .name   = "reg_713c",
                 .priv   = &reg_713c,
                 .min    = -500,
@@ -4723,6 +4804,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(ratios)
     MODULE_CONFIG(x3crop)
     MODULE_CONFIG(set_25fps)
+    MODULE_CONFIG(HDR_iso)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
