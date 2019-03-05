@@ -1119,7 +1119,7 @@ if (((is_EOSM && RECORDING) || (!RECORDING && get_halfshutter_pressed())) && (HD
 /* 100/400 */ 
   if (HDR_iso == 0x1)
   {
-    if( cmos0 == 0x84b) 
+    if (cmos0 == 0x84b) 
     {
         cmos0 = 0x803;
         // 100
@@ -1134,7 +1134,7 @@ if (((is_EOSM && RECORDING) || (!RECORDING && get_halfshutter_pressed())) && (HD
 /* 100/800 */ 
   if (HDR_iso == 0x2)
   {
-    if( cmos0 == 0x86f) 
+    if (cmos0 == 0x86f) 
     {
         cmos0 = 0x803;
         // 100
@@ -1149,7 +1149,7 @@ if (((is_EOSM && RECORDING) || (!RECORDING && get_halfshutter_pressed())) && (HD
 /* 100/1600 */ 
   if (HDR_iso == 0x3)
   {
-    if( cmos0 == 0x893) 
+    if (cmos0 == 0x893) 
     {
         cmos0 = 0x803;
         // 100
@@ -1164,7 +1164,7 @@ if (((is_EOSM && RECORDING) || (!RECORDING && get_halfshutter_pressed())) && (HD
 /* 100/3200 */ 
   if (HDR_iso == 0x4)
   {
-    if( cmos0 == 0x8b7) 
+    if (cmos0 == 0x8b7) 
     {
         cmos0 = 0x803;
         // 100
