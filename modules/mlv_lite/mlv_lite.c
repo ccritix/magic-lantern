@@ -2043,6 +2043,9 @@ void FAST hack_liveview_vsync()
 {
 
 /* auto set preview modes by reading registers eosm for now */
+     /* HDR flag */
+	if (shamem_read(0xC0F0b0a4) == 0x1) preview_mode = 1;
+
    if (prevmode == 1)
    {
      /* 48 fps 2.35: real-time */

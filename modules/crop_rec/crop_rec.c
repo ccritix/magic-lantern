@@ -1108,15 +1108,14 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 
 /* HDR workaround eosm */
-if (((is_EOSM && RECORDING) || (!RECORDING && get_halfshutter_pressed())) && (HDR_iso != 0x0))
+if ((is_EOSM && RECORDING) || (!RECORDING && HDR_iso != 0x0))
 {
-    if (cmos0)
-    {
+
+/* iso reg */
         cmos_new[0] = cmos0;
-    }
 
 /* 100/400 */ 
-  if (HDR_iso == 0x1)
+  if (HDR_iso == 0x1 && RECORDING)
   {
     if (cmos0 == 0x84b) 
     {
@@ -1131,7 +1130,7 @@ if (((is_EOSM && RECORDING) || (!RECORDING && get_halfshutter_pressed())) && (HD
   }
 
 /* 100/800 */ 
-  if (HDR_iso == 0x2)
+  if (HDR_iso == 0x2 && RECORDING)
   {
     if (cmos0 == 0x86f) 
     {
@@ -1146,7 +1145,7 @@ if (((is_EOSM && RECORDING) || (!RECORDING && get_halfshutter_pressed())) && (HD
   }
 
 /* 100/1600 */ 
-  if (HDR_iso == 0x3)
+  if (HDR_iso == 0x3 && RECORDING)
   {
     if (cmos0 == 0x893) 
     {
@@ -1161,7 +1160,7 @@ if (((is_EOSM && RECORDING) || (!RECORDING && get_halfshutter_pressed())) && (HD
   }
 
 /* 100/3200 */ 
-  if (HDR_iso == 0x4)
+  if (HDR_iso == 0x4 && RECORDING)
   {
     if (cmos0 == 0x8b7) 
     {
@@ -1174,6 +1173,66 @@ if (((is_EOSM && RECORDING) || (!RECORDING && get_halfshutter_pressed())) && (HD
         // 3200
     }
   }
+
+/* previewing */
+/* 100/400 */ 
+ if (HDR_iso == 0x1 && !RECORDING)
+ {
+   if (get_halfshutter_pressed())
+   {
+       cmos0 = 0x803;
+       // 100
+   }
+   else
+   {
+       cmos0 = 0x84b; 
+       // 400
+   }
+ }
+
+/* 100/800 */ 
+ if (HDR_iso == 0x2 && !RECORDING)
+ {
+   if (get_halfshutter_pressed())
+   {
+       cmos0 = 0x803;
+       // 100
+   }
+   else
+   {
+       cmos0 = 0x86f; 
+       // 800
+   }
+ }
+
+/* 100/1600 */ 
+ if (HDR_iso == 0x3 && !RECORDING)
+ {
+   if (get_halfshutter_pressed())
+   {
+        cmos0 = 0x803;
+   }
+   else
+   {
+        cmos0 = 0x893;
+   }
+ }
+
+/* previewing */
+/* 100/3200 */ 
+ if (HDR_iso == 0x4 && !RECORDING)
+ {
+   if (get_halfshutter_pressed())
+   {
+       cmos0 = 0x803;
+       // 100
+   }
+   else
+   {
+       cmos0 = 0x8b7; 
+       // 3200
+   }
+ }
 
 }
     
@@ -1780,7 +1839,27 @@ if (is_EOSM)
 /* not used but might be in the future */
 	case 0xC0F06800: return 0x10010 + reg_6800_width + (reg_6800_height << 16);
     }
+
+/* HDR flag */
+   if (HDR_iso != 0x0)
+   {
+       switch (reg)
+       {
+	   case 0xC0F0b12c: return 0x1;
+       }
+
+   }
+
+   if (HDR_iso == 0x0)
+   {
+       switch (reg)
+       {
+	   case 0xC0F0b12c: return 0x0;
+       }
+   }
+
 }
+
     return 0;
 }
 
