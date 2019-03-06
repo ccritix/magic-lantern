@@ -1108,7 +1108,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 
 /* HDR workaround eosm */
-if ((is_EOSM && RECORDING) || (!RECORDING && HDR_iso != 0x0))
+if ((is_EOSM && RECORDING && HDR_iso != 0x0) || (!RECORDING && HDR_iso != 0x0))
 {
 
 /* iso reg */
