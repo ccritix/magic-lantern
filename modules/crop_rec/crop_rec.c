@@ -40,6 +40,9 @@ static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso", HDR_iso, 0);
 
+static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
+static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
+
 enum crop_preset {
     CROP_PRESET_OFF = 0,
     CROP_PRESET_OFF_eosm = 0,
@@ -1108,131 +1111,72 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 
 /* HDR workaround eosm */
-if ((is_EOSM && RECORDING && HDR_iso != 0x0) || (!RECORDING && HDR_iso != 0x0))
+if ((is_EOSM && RECORDING && HDR_iso_a != 0x0))
 {
 
 /* iso reg */
         cmos_new[0] = cmos0;
 
-/* 100/400 */ 
-  if (HDR_iso == 0x1 && RECORDING)
-  {
-    if (cmos0 == 0x84b) 
+  uint32_t iso_a;
+  uint32_t iso_b;
+
+  if (HDR_iso_a == 0x1) iso_a = 0x803; /* 100 */
+  if (HDR_iso_a == 0x2) iso_a = 0x827; /* 200 */
+  if (HDR_iso_a == 0x3) iso_a = 0x84b; /* 400 */
+  if (HDR_iso_a == 0x4) iso_a = 0x86f; /* 800 */
+  if (HDR_iso_a == 0x5) iso_a = 0x893; /* 1600 */
+  if (HDR_iso_a == 0x6) iso_a = 0x8b7; /* 3200 */
+
+  if (HDR_iso_b == 0x1) iso_b = 0x803;
+  if (HDR_iso_b == 0x2) iso_b = 0x827;
+  if (HDR_iso_b == 0x3) iso_b = 0x84b;
+  if (HDR_iso_b == 0x4) iso_b = 0x86f;
+  if (HDR_iso_b == 0x5) iso_b = 0x893;
+  if (HDR_iso_b == 0x6) iso_b = 0x8b7;
+
+    if (cmos0 == iso_a) 
     {
-        cmos0 = 0x803;
-        // 100
+        cmos0 = iso_b;
     }
     else
     {
-        cmos0 = 0x84b; 
-        // 400
+        cmos0 = iso_a; 
     }
-  }
 
-/* 100/800 */ 
-  if (HDR_iso == 0x2 && RECORDING)
-  {
-    if (cmos0 == 0x86f) 
+}
+
+/* HDR previewing eosm */
+if ((is_EOSM && !RECORDING && HDR_iso_a != 0x0))
+{
+
+/* iso reg */
+        cmos_new[0] = cmos0;
+
+  uint32_t iso_a;
+  uint32_t iso_b;
+
+  if (HDR_iso_a == 0x1) iso_a = 0x803; /* 100 */
+  if (HDR_iso_a == 0x2) iso_a = 0x827; /* 200 */
+  if (HDR_iso_a == 0x3) iso_a = 0x84b; /* 400 */
+  if (HDR_iso_a == 0x4) iso_a = 0x86f; /* 800 */
+  if (HDR_iso_a == 0x5) iso_a = 0x893; /* 1600 */
+  if (HDR_iso_a == 0x6) iso_a = 0x8b7; /* 3200 */
+
+  if (HDR_iso_b == 0x1) iso_b = 0x803;
+  if (HDR_iso_b == 0x2) iso_b = 0x827;
+  if (HDR_iso_b == 0x3) iso_b = 0x84b;
+  if (HDR_iso_b == 0x4) iso_b = 0x86f;
+  if (HDR_iso_b == 0x5) iso_b = 0x893;
+  if (HDR_iso_b == 0x6) iso_b = 0x8b7;
+
+    if (get_halfshutter_pressed())
     {
-        cmos0 = 0x803;
-        // 100
+        cmos0 = iso_b;
     }
     else
     {
-        cmos0 = 0x86f; 
-        // 800
+        cmos0 = iso_a; 
     }
-  }
-
-/* 100/1600 */ 
-  if (HDR_iso == 0x3 && RECORDING)
-  {
-    if (cmos0 == 0x893) 
-    {
-        cmos0 = 0x803;
-        // 100
-    }
-    else
-    {
-        cmos0 = 0x893; 
-        // 1600
-    }
-  }
-
-/* 100/3200 */ 
-  if (HDR_iso == 0x4 && RECORDING)
-  {
-    if (cmos0 == 0x8b7) 
-    {
-        cmos0 = 0x803;
-        // 100
-    }
-    else
-    {
-        cmos0 = 0x8b7; 
-        // 3200
-    }
-  }
-
-/* previewing */
-/* 100/400 */ 
- if (HDR_iso == 0x1 && !RECORDING)
- {
-   if (get_halfshutter_pressed())
-   {
-       cmos0 = 0x803;
-       // 100
-   }
-   else
-   {
-       cmos0 = 0x84b; 
-       // 400
-   }
- }
-
-/* 100/800 */ 
- if (HDR_iso == 0x2 && !RECORDING)
- {
-   if (get_halfshutter_pressed())
-   {
-       cmos0 = 0x803;
-       // 100
-   }
-   else
-   {
-       cmos0 = 0x86f; 
-       // 800
-   }
- }
-
-/* 100/1600 */ 
- if (HDR_iso == 0x3 && !RECORDING)
- {
-   if (get_halfshutter_pressed())
-   {
-        cmos0 = 0x803;
-   }
-   else
-   {
-        cmos0 = 0x893;
-   }
- }
-
-/* previewing */
-/* 100/3200 */ 
- if (HDR_iso == 0x4 && !RECORDING)
- {
-   if (get_halfshutter_pressed())
-   {
-       cmos0 = 0x803;
-       // 100
-   }
-   else
-   {
-       cmos0 = 0x8b7; 
-       // 3200
-   }
- }
 
 }
     
@@ -1841,7 +1785,7 @@ if (is_EOSM)
     }
 
 /* HDR flag */
-   if (HDR_iso != 0x0)
+   if (HDR_iso_a != 0x0)
    {
        switch (reg)
        {
@@ -1850,7 +1794,7 @@ if (is_EOSM)
 
    }
 
-   if (HDR_iso == 0x0)
+   if (HDR_iso_a == 0x0)
    {
        switch (reg)
        {
@@ -3769,8 +3713,24 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "HDR base iso100",
                 .priv   = &HDR_iso,
-                .max    = 4,
-                .choices = CHOICES("OFF", "iso400", "iso800", "iso1600", "iso3200"),
+                .max    = 6,
+                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+                .help   = "HDR workaround eosm\n"
+			  "HDR workaround eosm\n"
+            },
+            {
+                .name   = "hdr iso A",
+                .priv   = &HDR_iso_a,
+                .max    = 6,
+                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+                .help   = "HDR workaround eosm\n"
+			  "HDR workaround eosm\n"
+            },
+            {
+                .name   = "hdr iso B",
+                .priv   = &HDR_iso_b,
+                .max    = 6,
+                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
                 .help   = "HDR workaround eosm\n"
 			  "HDR workaround eosm\n"
             },
@@ -4883,6 +4843,8 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(x3crop)
     MODULE_CONFIG(set_25fps)
     MODULE_CONFIG(HDR_iso)
+    MODULE_CONFIG(HDR_iso_a)
+    MODULE_CONFIG(HDR_iso_b)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
