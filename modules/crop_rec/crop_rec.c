@@ -38,8 +38,6 @@ static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
-static CONFIG_INT("crop.HDR_iso", HDR_iso, 0);
-
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
 
@@ -3711,14 +3709,6 @@ static struct menu_entry crop_rec_menu[] =
 			  "Sets 2.35:1 and 16:9 modes to 25fps(default 24)\n"
             },
             {
-                .name   = "HDR base iso100",
-                .priv   = &HDR_iso,
-                .max    = 6,
-                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
-                .help   = "HDR workaround eosm\n"
-			  "HDR workaround eosm\n"
-            },
-            {
                 .name   = "hdr iso A",
                 .priv   = &HDR_iso_a,
                 .max    = 6,
@@ -4842,7 +4832,6 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(ratios)
     MODULE_CONFIG(x3crop)
     MODULE_CONFIG(set_25fps)
-    MODULE_CONFIG(HDR_iso)
     MODULE_CONFIG(HDR_iso_a)
     MODULE_CONFIG(HDR_iso_b)
 MODULE_CONFIGS_END()
