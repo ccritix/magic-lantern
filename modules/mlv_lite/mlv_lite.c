@@ -2133,7 +2133,7 @@ void hack_liveview(int unhack)
         }
 
         /* disable auto exposure and auto white balance */
-	if (!cam_eos_m)
+	if (cam_eos_m && small_hacks == 0x1)
 	{
         call("aewb_enableaewb", unhack ? 1 : 0);  /* for new cameras */
 	}
@@ -3961,8 +3961,10 @@ static struct menu_entry raw_video_menu[] =
             {
                 .name = "Small hacks",
                 .priv = &small_hacks,
-                .max = 1,
-                .help  = "Slow down Canon GUI, disable auto exposure, white balance...",
+                .max = 2,
+                .choices = CHOICES("OFF", "af off", "af on"),
+                .help  = "Slow down Canon GUI, disable auto exposure and af, white balance...",
+                .help2  = "Set af on to enable auto focus but loose som overhead.",
                 .advanced = 1,
             },
             {
