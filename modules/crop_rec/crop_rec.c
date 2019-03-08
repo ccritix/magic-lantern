@@ -3852,14 +3852,6 @@ static struct menu_entry crop_rec_menu[] =
                 .advanced = 1,
             },
             {
-                .name   = "CMOS[0]",
-                .priv   = &cmos0,
-                .max    = 0xFFF,
-                .unit   = UNIT_HEX,
-                .help   = "Analog iso, most cameras",
-                .advanced = 1,
-            },
-            {
                 .name   = "CMOS[1]",
                 .priv   = &cmos1,
                 .max    = 0xFFF,
