@@ -2044,7 +2044,7 @@ void FAST hack_liveview_vsync()
 
 /* auto set preview modes by reading registers eosm for now */
      /* HDR flag */
-	if (shamem_read(0xc0f0b12c) == 0x1) preview_mode = 1;
+	if (shamem_read(0xc0f0b12c) != 0x0) preview_mode = 1;
 
    if (prevmode == 1)
    {
@@ -3058,7 +3058,12 @@ if (cam_eos_m)
     if (shamem_read(0xc0f0815c) == 0x6) rawi_hdr.raw_info.white_level = 6000;
 
 /* HDR base iso regardless of what is set in camera */
-    if (shamem_read(0xc0f0b12c) == 0x1) lens_info.iso = 100;   
+    if (shamem_read(0xc0f0b12c) == 0x1) lens_info.iso = 100;
+    if (shamem_read(0xc0f0b12c) == 0x2) lens_info.iso = 200; 
+    if (shamem_read(0xc0f0b12c) == 0x3) lens_info.iso = 400; 
+    if (shamem_read(0xc0f0b12c) == 0x4) lens_info.iso = 800;  
+    if (shamem_read(0xc0f0b12c) == 0x5) lens_info.iso = 1600; 
+    if (shamem_read(0xc0f0b12c) == 0x6) lens_info.iso = 3200;  
 }
 
     mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);

@@ -1785,11 +1785,12 @@ if (is_EOSM)
 /* HDR flag */
    if (HDR_iso_a != 0x0)
    {
-       switch (reg)
-       {
-	   case 0xC0F0b12c: return 0x1;
-       }
-
+  	if (HDR_iso_a == 0x1) switch (reg) case 0xC0F0b12c: return 0x1;
+  	if (HDR_iso_a == 0x2) switch (reg) case 0xC0F0b12c: return 0x2;
+  	if (HDR_iso_a == 0x3) switch (reg) case 0xC0F0b12c: return 0x3;
+  	if (HDR_iso_a == 0x4) switch (reg) case 0xC0F0b12c: return 0x4;
+  	if (HDR_iso_a == 0x5) switch (reg) case 0xC0F0b12c: return 0x5;
+  	if (HDR_iso_a == 0x6) switch (reg) case 0xC0F0b12c: return 0x6;
    }
 
    if (HDR_iso_a == 0x0)
