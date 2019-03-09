@@ -224,7 +224,7 @@ static const char * crop_choices_eosm[] = {
    // "5K 3x1 24fps",
     "mv1080p 1736x1158",
     "mv1080p MCM rewire",
-    "mv1080p 1736x976 46/48/50fps",
+    "mv1080p 1736x976 46/48fps",
     "mv720p 1736x694 50fps", 
     "5K anamorphic",
    // "4K 5x1 24fps",
@@ -243,7 +243,7 @@ static const char crop_choices_help2_eosm[] =
    // "3:1 5K x5crop, framing preview\n"
     "mv1080p bypass mv720p idle mode\n"
     "Enable Movie crop mode and push canon MENU button and back\n"
-    "mv1080p 46/48/50fps (select 2.35:1 for 48/50fps)\n"
+    "mv1080p 46/48 (select 2.35:1 for 48)\n"
     "mv720p 50fps 16:9\n"
     "1x3 binning modes(anamorphic)\n";
    // "5:1 4K crop squeeze, preview broken\n"
@@ -3195,10 +3195,10 @@ static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old
 		case 0xC0F07150: return 0x2fa + reg_7150;
 
 	     /* 48 fps */
-        	case 0xC0F06014: return set_25fps == 0x1 ? 0x4db - 27 + reg_6014: 0x4db + reg_6014;
-		case 0xC0F0600c: return set_25fps == 0x1 ? 0x2170217 - 10 + reg_6008 + (reg_6008 << 16): 0x2170217 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return set_25fps == 0x1 ? 0x2170217 - 10 + reg_6008 + (reg_6008 << 16): 0x2170217 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return set_25fps == 0x1 ? 0x217 - 10 + reg_6008: 0x217 + reg_6008;
+        	case 0xC0F06014: return 0x4db + reg_6014;
+		case 0xC0F0600c: return 0x2170217 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x2170217 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x217 + reg_6008;
 
 		case 0xC0F06824: return 0x206 + reg_6824;
 		case 0xC0F06828: return 0x206 + reg_6824;
@@ -4471,7 +4471,6 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
     if (ratios == 0x0) snprintf(buffer, sizeof(buffer), "mv1080p_46fps");
     if (ratios == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_48fps");
     if (ratios == 0x2) snprintf(buffer, sizeof(buffer), "mv1080p_45fps");
-    if (ratios == 0x1 && set_25fps == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_50fps");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
