@@ -3195,10 +3195,10 @@ static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old
 		case 0xC0F07150: return 0x2fa + reg_7150;
 
 	     /* 48 fps */
-      	     	case 0xC0F06014: return 0x4db + reg_6014;
-		case 0xC0F0600c: return 0x2170217 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x2170217 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x217 + reg_6008;
+        	case 0xC0F06014: return set_25fps == 0x1 ? 0x4db - 27 + reg_6014: 0x4db + reg_6014;
+		case 0xC0F0600c: return set_25fps == 0x1 ? 0x2170217 - 10 + reg_6008 + (reg_6008 << 16): 0x2170217 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return set_25fps == 0x1 ? 0x2170217 - 10 + reg_6008 + (reg_6008 << 16): 0x2170217 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return set_25fps == 0x1 ? 0x217 - 10 + reg_6008: 0x217 + reg_6008;
 
 		case 0xC0F06824: return 0x206 + reg_6824;
 		case 0xC0F06828: return 0x206 + reg_6824;
@@ -3313,7 +3313,6 @@ only gotten one single corrupted frame from below but keep on testing */
 		case 0xC0F0600c: return set_25fps == 0x1 ? 0x22b022b - 22 + reg_6008 + (reg_6008 << 16): 0x22b022b + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06008: return set_25fps == 0x1 ? 0x22b022b - 22 + reg_6008 + (reg_6008 << 16): 0x22b022b + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return set_25fps == 0x1 ? 0x22b - 24 + reg_6008: 0x22b + reg_6008;
-
 
         	case 0xC0F0713c: return 0x7ef + reg_713c;
 		case 0xC0F07150: return 0x7ed + reg_7150;
@@ -3706,8 +3705,8 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &set_25fps,
                 .max    = 1,
                 .choices = CHOICES("OFF", "25fps"),
-                .help   = "Sets 2.35:1 and 16:9 modes to 25fps(default 24)\n"
-			  "Sets 2.35:1 and 16:9 modes to 25fps(default 24)\n"
+                .help   = "Sets 2.35:1 and 16:9 modes to 25fps and 48fps to 50fps(default 24/48)\n"
+			  "Sets 2.35:1 and 16:9 modes to 25fps and 48fps to 50fps(default 24/48)\n"
             },
             {
                 .name   = "hdr iso A",
