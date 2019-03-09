@@ -3698,7 +3698,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "x3crop"),
                 .help   = "Turns mv1080p and mv1080_46_48fps modes into x3 crop modes\n"
-			  "Turns mv1080p and mv1080_46_48fps modes into x3 crop modes\n"
             },
             {
                 .name   = "set 25fps",
@@ -3706,7 +3705,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "25fps"),
                 .help   = "Sets 2.35:1 and 16:9 modes to 25fps and 48fps to 50fps(default 24/48)\n"
-			  "Sets 2.35:1 and 16:9 modes to 25fps and 48fps to 50fps(default 24/48)\n"
             },
             {
                 .name   = "hdr iso A",
@@ -3714,7 +3712,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 6,
                 .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
                 .help   = "HDR workaround eosm\n"
-			  "HDR workaround eosm\n"
             },
             {
                 .name   = "hdr iso B",
@@ -3722,7 +3719,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 6,
                 .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
                 .help   = "HDR workaround eosm\n"
-			  "HDR workaround eosm\n"
             },
             {
                 .name   = "reg_713c",
@@ -4472,11 +4468,10 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_46_48fps_EOSM)
   {
-    snprintf(buffer, sizeof(buffer), "mv1080p_45_48fps");
-    if (x3crop == 0x1)
-    {
-    snprintf(buffer, sizeof(buffer), "45_48fps x3zoom"); 
-    }
+    if (ratios == 0x0) snprintf(buffer, sizeof(buffer), "mv1080p_46fps");
+    if (ratios == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_48fps");
+    if (ratios == 0x2) snprintf(buffer, sizeof(buffer), "mv1080p_45fps");
+    if (ratios == 0x1 && set_25fps == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_50fps");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
