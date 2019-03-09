@@ -224,7 +224,7 @@ static const char * crop_choices_eosm[] = {
    // "5K 3x1 24fps",
     "mv1080p 1736x1158",
     "mv1080p MCM rewire",
-    "mv1080p 1736x976 46/48fps",
+    "mv1080p 1736x976 46/48/50fps",
     "mv720p 1736x694 50fps", 
     "5K anamorphic",
    // "4K 5x1 24fps",
@@ -243,7 +243,7 @@ static const char crop_choices_help2_eosm[] =
    // "3:1 5K x5crop, framing preview\n"
     "mv1080p bypass mv720p idle mode\n"
     "Enable Movie crop mode and push canon MENU button and back\n"
-    "mv1080p 46/48fps (select 2.35:1 for 48fps)\n"
+    "mv1080p 46/48/50fps (select 2.35:1 for 48/50fps)\n"
     "mv720p 50fps 16:9\n"
     "1x3 binning modes(anamorphic)\n";
    // "5:1 4K crop squeeze, preview broken\n"
