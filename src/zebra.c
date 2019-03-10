@@ -175,12 +175,13 @@ static CONFIG_INT( "transparent.overlay.y", transparent_overlay_offy, 0);
 static CONFIG_INT( "transparent.overlay.autoupd", transparent_overlay_auto_update, 0);
 static int transparent_overlay_hidden = 0;
 
-static CONFIG_INT( "global.draw",   global_draw, 3 );
+/* starts in liveview mode instead EOSM */
+static CONFIG_INT( "global.draw",   global_draw, 1 );
 
 #define ZEBRAS_IN_QUICKREVIEW (global_draw > 1)
 #define ZEBRAS_IN_LIVEVIEW (global_draw & 1)
 
-static CONFIG_INT( "zebra.draw",    zebra_draw, 1 );
+static CONFIG_INT( "zebra.draw",    zebra_draw, 0 );
 #ifdef FEATURE_ZEBRA_FAST
 static CONFIG_INT( "zebra.colorspace",    zebra_colorspace,   2 );// luma/rgb/lumafast
 #else
@@ -195,8 +196,10 @@ static CONFIG_INT( "zebra.raw.under", zebra_raw_underexposure,  1 );
 #define MZ_ZOOMREC_N_FOCUS_RING 2
 #define MZ_TAKEOVER_ZOOM_IN_BTN 3
 #define MZ_ALWAYS_ON            4
-static CONFIG_INT( "zoom.overlay", zoom_overlay_enabled, 0);
-static CONFIG_INT( "zoom.overlay.trig", zoom_overlay_trigger_mode, MZ_TAKEOVER_ZOOM_IN_BTN);
+/* starting point OFF EOSM */
+static CONFIG_INT( "zoom.overlay", zoom_overlay_enabled, 1);
+/* starting point OFF EOSM */
+static CONFIG_INT( "zoom.overlay.trig", zoom_overlay_trigger_mode, 1);
 static CONFIG_INT( "zoom.overlay.size", zoom_overlay_size, 1);
 static CONFIG_INT( "zoom.overlay.x", zoom_overlay_x, 1);
 #ifdef CONFIG_5D3
@@ -359,7 +362,8 @@ static CONFIG_INT( "clear.preview.delay", clearscreen_delay, 1000); // ms
 //~ #define clearscreen (clearscreen_enabled ? clearscreen_mode+1 : 0)
 
 static CONFIG_INT( "spotmeter.size",        spotmeter_size, 5 );
-static CONFIG_INT( "spotmeter.draw",        spotmeter_draw, 1 );
+/* starting point OFF EOSM */
+static CONFIG_INT( "spotmeter.draw",        spotmeter_draw, 0 );
 static CONFIG_INT( "spotmeter.formula",     spotmeter_formula, 0 ); // 0 percent, 1 IRE AJ, 2 IRE Piers
 static CONFIG_INT( "spotmeter.position",        spotmeter_position, 1 ); // fixed / attached to AF frame
 

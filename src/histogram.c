@@ -23,8 +23,8 @@
 extern int FAST get_y_skip_offset_for_overlays();
 extern int nondigic_zoom_overlay_enabled();
 
-
-CONFIG_INT( "hist.draw", hist_draw,  1 );
+/* starting point OFF */
+CONFIG_INT( "hist.draw", hist_draw,  0 );
 #ifdef FEATURE_RAW_HISTOGRAM
 CONFIG_INT( "hist.type", hist_type,  2 );
 #else
