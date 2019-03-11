@@ -32,12 +32,12 @@ static int is_100D = 0;
 static int is_EOSM = 0;
 static int is_basic = 0;
 
-static CONFIG_INT("crop.preset", crop_preset_index, 0);
+static CONFIG_INT("crop.preset", crop_preset_index, 5);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 0);
-static CONFIG_INT("crop.ratios", ratios, 0);
+static CONFIG_INT("crop.ratios", ratios, 2);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
-static CONFIG_INT("crop.set_25fps", set_25fps, 0);
+static CONFIG_INT("crop.set_25fps", set_25fps, 1);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
 

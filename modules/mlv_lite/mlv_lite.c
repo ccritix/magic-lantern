@@ -121,11 +121,11 @@ static const char * aspect_ratio_choices[] =       {"5:1","4:1","3:1","2.67:1","
 
 /* config variables */
 
-CONFIG_INT("raw.video.enabled", raw_video_enabled, 0);
+CONFIG_INT("raw.video.enabled", raw_video_enabled, 1);
 
-static CONFIG_INT("raw.res_x", resolution_index_x, 4);
+static CONFIG_INT("raw.res_x", resolution_index_x, 11);
 static CONFIG_INT("raw.res_x_fine", res_x_fine, 0);
-static CONFIG_INT("raw.aspect.ratio", aspect_ratio_index, 10);
+static CONFIG_INT("raw.aspect.ratio", aspect_ratio_index, 17);
 
 static CONFIG_INT("raw.write.speed", measured_write_speed, 0);
 static int measured_compression_ratio = 0;
@@ -146,7 +146,7 @@ static CONFIG_INT("raw.dolly", dolly_mode, 0);
 
 static CONFIG_INT("raw.CropRecPreview", prevmode, 0);
 
-static CONFIG_INT("raw.preview", preview_mode, 0);
+static CONFIG_INT("raw.preview", preview_mode, 1);
 #define PREVIEW_AUTO   (preview_mode == 0)
 #define PREVIEW_CANON  (preview_mode == 1)
 #define PREVIEW_ML     (preview_mode == 2)
