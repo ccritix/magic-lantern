@@ -70,7 +70,7 @@ enum crop_preset {
     CROP_PRESET_5K_3x1_100D,
     CROP_PRESET_3x3_mv1080_EOSM,
     CROP_PRESET_mcm_mv1080_EOSM,
-    CROP_PRESET_3x3_mv1080_46_48fps_EOSM,
+    CROP_PRESET_3x3_mv1080_46_EOSM,
     CROP_PRESET_3x1_mv720_50fps_EOSM,
     CROP_PRESET_anamorphic_EOSM,
     CROP_PRESET_3x3_1X_EOSM,
@@ -208,7 +208,7 @@ static enum crop_preset crop_presets_eosm[] = {
    // CROP_PRESET_5K_3x1_EOSM,
     CROP_PRESET_3x3_mv1080_EOSM,
     CROP_PRESET_mcm_mv1080_EOSM,
-    CROP_PRESET_3x3_mv1080_46_48fps_EOSM,
+    CROP_PRESET_3x3_mv1080_46_EOSM,
     CROP_PRESET_3x1_mv720_50fps_EOSM,
     CROP_PRESET_anamorphic_EOSM,
    // CROP_PRESET_4K_5x1_EOSM,
@@ -224,7 +224,7 @@ static const char * crop_choices_eosm[] = {
    // "5K 3x1 24fps",
     "mv1080p 1736x1158",
     "mv1080p MCM rewire",
-    "mv1080p 1736x976 46/48fps",
+    "mv1080p 1736x976 46fps",
     "mv720p 1736x694 50fps", 
     "5K anamorphic",
    // "4K 5x1 24fps",
@@ -243,7 +243,7 @@ static const char crop_choices_help2_eosm[] =
    // "3:1 5K x5crop, framing preview\n"
     "mv1080p bypass mv720p idle mode\n"
     "Enable Movie crop mode and push canon MENU button and back\n"
-    "mv1080p 46/48 (select 2.35:1 for 48)\n"
+    "mv1080p 46\n"
     "mv720p 50fps 16:9\n"
     "1x3 binning modes(anamorphic)\n";
    // "5:1 4K crop squeeze, preview broken\n"
@@ -557,7 +557,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	}
 	break;
 
- 	case CROP_PRESET_3x3_mv1080_46_48fps_EOSM:
+ 	case CROP_PRESET_3x3_mv1080_46_EOSM:
 /* see autodetect_black_level exception in raw.c */
     	if (ratios == 0x1)
     	{
@@ -683,7 +683,7 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_5K_3x1_EOSM]          = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_4K_5x1_EOSM]          = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_3x3_mv1080_EOSM]  = { 1290, 1290, 1290,  960,  800 },
-    [CROP_PRESET_3x3_mv1080_46_48fps_EOSM]  = { 1290, 1290, 1290,  960,  800 },
+    [CROP_PRESET_3x3_mv1080_46_EOSM]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_3x1_mv720_50fps_EOSM]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_anamorphic_EOSM]  = { 1290, 1290, 1290,  960,  800 },
 };
@@ -1034,7 +1034,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		}
                 break;	
 
-		        case CROP_PRESET_3x3_mv1080_46_48fps_EOSM:
+		        case CROP_PRESET_3x3_mv1080_46_EOSM:
 		if (x3crop == 0x1)
 		{
 	        cmos_new[5] = 0x400;
@@ -1506,7 +1506,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break; 
 
 	     case CROP_PRESET_3x3_mv1080_EOSM:
-  	     case CROP_PRESET_3x3_mv1080_46_48fps_EOSM:
+  	     case CROP_PRESET_3x3_mv1080_46_EOSM:
 	     case CROP_PRESET_4K_3x1_EOSM:
 	     case CROP_PRESET_5K_3x1_EOSM:
 	     case CROP_PRESET_4K_3x1_100D:
@@ -3158,7 +3158,7 @@ if (set_25fps == 0x1)
     return reg_override_bits(reg, old_val);
 }
 
-static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old_val)
+static inline uint32_t reg_override_3x3_46_eosm(uint32_t reg, uint32_t old_val)
 {
 
   if ((ratios != 0x1) && (ratios != 0x2))
@@ -3194,8 +3194,8 @@ static inline uint32_t reg_override_3x3_46_48fps_eosm(uint32_t reg, uint32_t old
         	case 0xC0F0713c: return 0x33d + reg_713c;
 		case 0xC0F07150: return 0x2fa + reg_7150;
 
-	     /* 48 fps */
-        	case 0xC0F06014: return 0x4db + reg_6014;
+	     /* 46 fps */
+        	case 0xC0F06014: return 0x511 + reg_6014;
 		case 0xC0F0600c: return 0x2170217 + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06008: return 0x2170217 + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x217 + reg_6008;
@@ -3450,7 +3450,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_4K_5x1_EOSM) 	     ? reg_override_4K_5x1_EOSM        :
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_mv1080_eosm        :
         (crop_preset == CROP_PRESET_mcm_mv1080_EOSM) ? reg_override_mcm_mv1080_eosm        :
-        (crop_preset == CROP_PRESET_3x3_mv1080_46_48fps_EOSM) ? reg_override_3x3_46_48fps_eosm        :
+        (crop_preset == CROP_PRESET_3x3_mv1080_46_EOSM) ? reg_override_3x3_46_eosm        :
         (crop_preset == CROP_PRESET_3x1_mv720_50fps_EOSM) ? reg_override_3x1_mv720_50fps_eosm        :
         (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        : 
         (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
@@ -3622,7 +3622,7 @@ static MENU_UPDATE_FUNC(crop_update)
     if ((lv_dispsize > 1) && 
 ((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
 || (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
-|| (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_46_48fps_EOSM) 
+|| (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_46_EOSM) 
 || (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
 || (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)))
     {
@@ -3697,14 +3697,14 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &x3crop,
                 .max    = 1,
                 .choices = CHOICES("OFF", "x3crop"),
-                .help   = "Turns mv1080p and mv1080_46_48fps modes into x3 crop modes\n"
+                .help   = "Turns mv1080p and mv1080_46fps modes into x3 crop modes\n"
             },
             {
                 .name   = "set 25fps",
                 .priv   = &set_25fps,
                 .max    = 1,
                 .choices = CHOICES("OFF", "25fps"),
-                .help   = "Sets 2.35:1 and 16:9 modes to 25fps and 48fps to 50fps(default 24/48)\n"
+                .help   = "Sets 2.35:1 and 16:9 modes to 25fps\n"
             },
             {
                 .name   = "hdr iso A",
@@ -4466,16 +4466,16 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
     snprintf(buffer, sizeof(buffer), "mv1080p rewire");
   }
 
-  if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_46_48fps_EOSM)
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_46_EOSM)
   {
     if (ratios == 0x0) snprintf(buffer, sizeof(buffer), "mv1080p_46fps");
-    if (ratios == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_48fps");
+    if (ratios == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_46fps");
     if (ratios == 0x2) snprintf(buffer, sizeof(buffer), "mv1080p_45fps");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
   {
-    snprintf(buffer, sizeof(buffer), "mv720p_48fps");
+    snprintf(buffer, sizeof(buffer), "mv720p_50fps");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
@@ -4544,7 +4544,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_1x3:
             case CROP_PRESET_1x3_17fps:
 	    case CROP_PRESET_3x3_mv1080_EOSM:
-	    case CROP_PRESET_3x3_mv1080_46_48fps_EOSM:
+	    case CROP_PRESET_3x3_mv1080_46_EOSM:
  	    case CROP_PRESET_anamorphic_EOSM:
 	    case CROP_PRESET_1x3_100D:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
@@ -4595,7 +4595,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_3x3_1X_48p:
             case CROP_PRESET_3x1:
 	    case CROP_PRESET_3x3_mv1080_EOSM:
-	    case CROP_PRESET_3x3_mv1080_46_48fps_EOSM:
+	    case CROP_PRESET_3x3_mv1080_46_EOSM:
             {
                 int b = (is_5D3) ? 3 : 1;
                 int s = (is_5D3) ? 0 : 2;
