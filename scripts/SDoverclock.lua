@@ -2,6 +2,7 @@
 
 -- Works with sd_uhs.mo enabled 
   console.hide()
+if menu.get("Crop mode", "sd_uhs", "") ~= "enabled" and camera.model_short == "EOSM" then
 if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA LOSS" then
   if menu.get("Movie", "RAW video", "") == "OFF" then
  display.notify_box("SD overclocking, please wait...")
@@ -23,4 +24,5 @@ if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA L
  display.notify_box("Please enable sd_uhs.mo")
     msleep(2000)
     return
+end
 end
