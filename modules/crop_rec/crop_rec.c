@@ -3766,7 +3766,7 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &sd_uhs,
                 .max    = 1,
                 .choices = CHOICES("OFF", "enabled"),
-                .help   = "reconfiguration flag. Use at own risk! Restart needed(EOSM only)\n"
+                .help   = "SD reconfiguration. Use at own risk! Restart needed(EOSM only)\n"
             },
             {
                 .name   = "reg_713c",
