@@ -23,6 +23,7 @@ if menu.get("Sound recording", "Enable sound", "") ~= "ON" then
   return
 end
 
+if menu.get("Crop mode", "sd_uhs", "") ~= "enabled" and camera.model_short == "EOSM" then
 if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA LOSS" then
   menu.set("Movie", "RAW video", "OFF")
   msleep(300)
@@ -37,6 +38,7 @@ if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA L
  display.notify_box("Please enable sd_uhs.mo")
     msleep(1000)
     return
+end
 end
 
 -- crop mode
