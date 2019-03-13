@@ -122,6 +122,8 @@ static const char * aspect_ratio_choices[] =       {"5:1","4:1","3:1","2.67:1","
 /* config variables */
 
 CONFIG_INT("raw.video.enabled", raw_video_enabled, 1);
+static CONFIG_INT("raw.killgd", kill_gd, 0);
+
 
 static CONFIG_INT("raw.res_x", resolution_index_x, 11);
 static CONFIG_INT("raw.res_x_fine", res_x_fine, 0);
@@ -2117,6 +2119,18 @@ void FAST hack_liveview_vsync()
 static REQUIRES(RawRecTask)
 void hack_liveview(int unhack)
 {
+    if (kill_gd)
+    {
+        if (!unhack)
+        {
+            idle_globaldraw_dis();
+            clrscr();
+        }
+        else
+        {
+            idle_globaldraw_en();
+        }
+    }
     if (small_hacks)
     {
         /* disable canon graphics (gains a little speed) */
@@ -3906,6 +3920,14 @@ static struct menu_entry raw_video_menu[] =
 			 "Autoselects preview modes for crop rec presets(eosm).\n", 
             },
             {
+                .name = "Global Draw",
+                .priv = &kill_gd,
+                .max = 1,
+                .choices = CHOICES("ON", "OFF"),
+                .help = "Disable global draw while recording.",
+                .help2 = "May help with performance. Some previews depend on GD.",
+            },
+            {
                 .name    = "Pre-record",
                 .priv    = &pre_record,
                 .max     = 10,
@@ -4420,6 +4442,7 @@ MODULE_CBRS_START()
 MODULE_CBRS_END()
 
 MODULE_CONFIGS_START()
+    MODULE_CONFIG(kill_gd)
     MODULE_CONFIG(raw_video_enabled)
     MODULE_CONFIG(resolution_index_x)
     MODULE_CONFIG(res_x_fine)    
