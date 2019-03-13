@@ -4669,24 +4669,6 @@ static unsigned int crop_rec_init()
     is_digic4 = is_camera("DIGIC", "4");
     is_digic5 = is_camera("DIGIC", "5");
 
-/* notify if different bitdepth is set */
-   	if (bitdepth == 0x1)
-    	{
-	NotifyBox(2000, "crop_rec bitdepth is set to 8bit");
-	}
-  	if (bitdepth == 0x2)
-    	{
-	NotifyBox(2000, "crop_rec bitdepth is set to 9bit");
-	}
- 	if (bitdepth == 0x3)
-    	{
-	NotifyBox(2000, "crop_rec bitdepth is set to 10bit");
-	}
- 	if (bitdepth == 0x4)
-    	{
-	NotifyBox(2000, "crop_rec bitdepth is set to 12bit");
-	}
-
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
     {
         /* same addresses on both 1.1.3 and 1.2.3 */
