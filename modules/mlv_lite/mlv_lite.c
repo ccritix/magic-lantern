@@ -3920,10 +3920,10 @@ static struct menu_entry raw_video_menu[] =
 			 "Autoselects preview modes for crop rec presets(eosm).\n", 
             },
             {
-                .name = "Global Draw",
+                .name = "Kill global draw",
                 .priv = &kill_gd,
                 .max = 1,
-                .choices = CHOICES("ON", "OFF"),
+                .choices = CHOICES("OFF", "ON"),
                 .help = "Disable global draw while recording.",
                 .help2 = "May help with performance. Some previews depend on GD.",
             },
