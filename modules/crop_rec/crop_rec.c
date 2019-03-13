@@ -382,18 +382,44 @@ static int sd_setup_mode_enable = 0;
 static void sd_setup_mode_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     qprintf("sd_setup_mode(dev=%x)\n", regs[0]);
+
+    /* this function is also used for other interfaces, such as serial flash */
+    /* only enable overriding when called with dev=1 */
+    sd_setup_mode_enable = (regs[0] == 1);
 }
 
 /* called right before the case switch in sd_setup_mode (not at the start of the function!) */
 static void sd_setup_mode_in_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     qprintf("sd_setup_mode switch(mode=%x) en=%d\n", regs[sd_setup_mode_reg], sd_setup_mode_enable);
+
+    if (sd_setup_mode_enable && regs[sd_setup_mode_reg] == 4)   /* SDR50? */
+    {
+        /* set our register overrides */
+        for (int i = 0; i < COUNT(uhs_regs); i++)
+        {
+            MEM(uhs_regs[i]) = uhs_vals[i];
+        }
+
+        /* set some invalid mode to bypass the case switch
+         * and keep our register values only */
+        regs[sd_setup_mode_reg] = 0x13;
+    }
 }
 
 static void sd_set_function_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     qprintf("sd_set_function(0x%x)\n", regs[0]);
+
+    /* UHS-I SDR50? */
+    if (regs[0] == 0xff0002)
+    {
+        /* force UHS-I SDR104 */
+        regs[0] = 0xff0003;
+    }
 }
+
+static void (*SD_ReConfiguration)() = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -3575,6 +3601,9 @@ static void update_patch()
     /* enable SDR104 */
     patch_hook_function(sd_set_function, MEM(sd_set_function), sd_set_function_log, "SDR104");
 
+    /* power-cycle and reconfigure the SD card */
+    SD_ReConfiguration();
+
     memcpy(uhs_vals, sdr_160MHz, sizeof(uhs_vals));
     }
 
@@ -4709,6 +4738,7 @@ static unsigned int crop_rec_init()
         sd_setup_mode_in    = 0xFF338DC8;
         sd_setup_mode_reg   = 1;
         sd_set_function     = 0xFF63EF60;
+        SD_ReConfiguration  = (void *) 0xFF641314;
         
         is_EOSM = 1;
         crop_presets                = crop_presets_eosm;
