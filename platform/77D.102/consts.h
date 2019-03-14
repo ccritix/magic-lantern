@@ -1,5 +1,5 @@
 /*
- *  77D 1.0.0 consts
+ *  77D 1.0.2 consts
  */
 
 #define CARD_LED_ADDRESS            0xD208016C

@@ -1,5 +1,5 @@
 /**
- * Camera internals for 77D 1.0.0
+ * Camera internals for 77D 1.0.2
  */
 
 /** This camera has a DIGIC VII chip */
