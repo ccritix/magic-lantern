@@ -419,8 +419,6 @@ static void sd_set_function_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 }
 
-static void (*SD_ReConfiguration)() = 0;
-
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
 {
@@ -3602,8 +3600,6 @@ static void update_patch()
     patch_hook_function(sd_set_function, MEM(sd_set_function), sd_set_function_log, "SDR104");
 
     /* power-cycle and reconfigure the SD card */
-    SD_ReConfiguration();
-
     memcpy(uhs_vals, sdr_160MHz, sizeof(uhs_vals));
     }
 
@@ -4738,7 +4734,6 @@ static unsigned int crop_rec_init()
         sd_setup_mode_in    = 0xFF338DC8;
         sd_setup_mode_reg   = 1;
         sd_set_function     = 0xFF63EF60;
-        SD_ReConfiguration  = (void *) 0xFF641314;
         
         is_EOSM = 1;
         crop_presets                = crop_presets_eosm;
