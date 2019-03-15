@@ -45,11 +45,11 @@ NSTUB(0xDF0087FF,  msleep)                 /* argument is always multiple of 10 
 NSTUB(    0x1020,  current_task)           /* from task_create; pointer to the current task structure */
 NSTUB(    0x1008,  current_interrupt)      /* from interrupt handler (VBAR + 0x18); where the interrupt ID is stored */
 
-// Taken from 200d to make it compile.
-NSTUB(    0x4030,  pre_isr_hook)
-NSTUB(    0x4034,  post_isr_hook)
-NSTUB(   0x6D0C0,  isr_table_handler)
-NSTUB(   0x6D0C4,  isr_table_param)
+/** Interrupts **/
+NSTUB(    0x4030,  pre_isr_hook)           /* from interrupt handler; called before the ISR handler */
+NSTUB(    0x4034,  post_isr_hook)          /* from interrupt handler; called after the ISR handler */
+NSTUB(   0x6D0C0,  isr_table_handler)      /* from interrupt handler; address of the ISR handler */
+NSTUB(   0x6D0C4,  isr_table_param)        /* from interrupt handler; argument of the ISR handler */
 NSTUB(0xe0152eb1,  cli_spin_lock)          /* used in AllocateMemory/FreeMemory and others */
 
 /** Dumper **/
@@ -62,14 +62,14 @@ NSTUB(0xe01eaf81,  memmap_info)            /* Exception vector, DRYOS system mem
 NSTUB(0xe0164ca7,  smemShowFix)            /* Common Lower, Common Upper etc */
 
 /** Memory allocation **/
-NSTUB(0xDF007B49, _AllocateMemory)
-NSTUB(0xDF007D01, _FreeMemory)
+NSTUB(0xDF007B49, _AllocateMemory)         /* "NG AllocateMemory" */
+NSTUB(0xDF007D01, _FreeMemory)             /* from context; worker function operates on the same memory pool */
 NSTUB(0xDF0079D3,  GetMemoryInformation)   /* called from AllocateMemory */
-NSTUB(0xDF0079A7,  GetSizeOfMaxRegion)
-NSTUB(0xDF00AC41, _alloc_dma_memory)
-NSTUB(0xDF00AC6D, _free_dma_memory)
-NSTUB(0xE06CE68F,  malloc)             // from error message
-NSTUB(0xE06CE6C7,  free)
+NSTUB(0xDF0079A7,  GetSizeOfMaxRegion)     /* same */
+NSTUB(0xDF00AC41, _alloc_dma_memory)       /* calls AllocateMemory(size + 64), aligns the pointer, makes it uncacheable, syncs caches */
+NSTUB(0xDF00AC6D, _free_dma_memory)        /* opposite of the above */
+NSTUB(0xE06CE68F,  malloc)                 /* "can't malloc" */
+NSTUB(0xE06CE6C7,  free)                   /* from context */
 
 /** File I/O **/
 NSTUB(0xe04d714d, _FIO_OpenFile)

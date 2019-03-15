@@ -44,6 +44,13 @@ NSTUB(0xDF00880F,  msleep)                 /* argument is always multiple of 10 
 NSTUB(    0x1028,  current_task)           /* from task_create; pointer to the current task structure */
 NSTUB(    0x1010,  current_interrupt)      /* from interrupt handler (VBAR + 0x18); where the interrupt ID is stored */
 
+/** Interrupts **/
+NSTUB(    0x4030,  pre_isr_hook)           /* from interrupt handler; called before the ISR handler */
+NSTUB(    0x4034,  post_isr_hook)          /* from interrupt handler; called after the ISR handler */
+NSTUB(   0x6CC10,  isr_table_handler)      /* from interrupt handler; address of the ISR handler */
+NSTUB(   0x6CC14,  isr_table_param)        /* from interrupt handler; argument of the ISR handler */
+NSTUB(0xE0137001,  cli_spin_lock)          /* used in AllocateMemory/FreeMemory and others */
+
 /** Dumper **/
 NSTUB(0xE007EE5B,  dump_file)              /* tries to save a file to either "A:/%s" or "B:/%s"; calls FIO_RemoveFile/CreateFile/WriteFile/CloseFile/Flush */
 
@@ -54,14 +61,14 @@ NSTUB(0xE01CA9C9,  memmap_info)            /* Exception vector, DRYOS system mem
 NSTUB(0xE0148E3B,  smemShowFix)            /* Common Lower, Common Upper etc */
 
 /** Memory allocation **/
-NSTUB(0xDF007B59, _AllocateMemory)
-NSTUB(0xDF007D11, _FreeMemory)
+NSTUB(0xDF007B59, _AllocateMemory)         /* "NG AllocateMemory" */
+NSTUB(0xDF007D11, _FreeMemory)             /* from context; worker function operates on the same memory pool */
 NSTUB(0xDF0079E3,  GetMemoryInformation)   /* called from AllocateMemory */
-NSTUB(0xDF0079B7,  GetSizeOfMaxRegion)
-NSTUB(0xDF00AC55, _alloc_dma_memory)
-NSTUB(0xDF00AC81, _free_dma_memory)
-NSTUB(0xE0693B23,  malloc)
-NSTUB(0xE0693B5B,  free)
+NSTUB(0xDF0079B7,  GetSizeOfMaxRegion)     /* same */
+NSTUB(0xDF00AC55, _alloc_dma_memory)       /* calls AllocateMemory(size + 64), aligns the pointer, makes it uncacheable, syncs caches */
+NSTUB(0xDF00AC81, _free_dma_memory)        /* opposite of the above */
+NSTUB(0xE0693B23,  malloc)                 /* "can't malloc" */
+NSTUB(0xE0693B5B,  free)                   /* from context */
 
 /** Debug messages **/
 NSTUB(0xDF006E6D,  DryosDebugMsg)          /* lots of debug messages; format string is third argument */
@@ -100,13 +107,6 @@ NSTUB(0xE05301DF,  SetHPTimerAfterNow)     /* from error message */
 NSTUB(0xE0530233,  SetHPTimerNextTick)     /* same "worker" function as SetHPTimerAfterNow */
 NSTUB(0xE04B9985,  SetTimerAfter)          /* from error message */
 NSTUB(0xE05F9DB5,  CancelDateTimer) 
-
-/** Interrupts **/
-NSTUB(    0x4030,  pre_isr_hook)
-NSTUB(    0x4034,  post_isr_hook)
-NSTUB(   0x6CC10,  isr_table_handler)
-NSTUB(   0x6CC14,  isr_table_param)
-NSTUB(0xE0137001,  cli_spin_lock)          /* used in AllocateMemory/FreeMemory and others */
 
 /** MPU communication **/
 NSTUB(0xE01C7657,  mpu_send)                  // "dwSize < TXBD_DATA_SIZE"
