@@ -20,7 +20,7 @@ preferred_categs = [
     "PackMem",
     "Electronic Level",
     "Making the card bootable",
-    "Task info",
+    "Tasks",
     "LCD Sensor",
     "EDMAC",
     "ExMem",
@@ -80,7 +80,7 @@ def parse_stub(inp_file):
         
         # parse categories
         m = re.match(r"/\*\*?(.*)\*/\s*", l)
-        if m:
+        if m and len(l) < 50:
             categ = m.groups()[0].strip(" \t*")
             continue
         
@@ -225,10 +225,14 @@ def print_stubs(stubs, file):
     #~ print categs
     
     # force some important items at the beginning and unimportant ones at the end
-    categs.remove("GUI"); categs = ["GUI"] + categs
-    categs.remove("File I/O"); categs = ["File I/O"] + categs
-    categs.remove("Startup"); categs = ["Startup"] + categs
-    categs.remove("Misc"); categs = categs + ["Misc"]
+    for categ in ["Startup", "Tasks", "Interrupts", "File I/O", "GUI"][::-1]:
+        if categ in categs:
+            categs.remove(categ);
+            categs = [categ] + categs
+    for categ in ["Misc"]:
+        if categ in categs:
+            categs.remove(categ);
+            categs = categs + [categ]
     
     try: categs.remove("Unused"); categs = categs + ["Unused"]
     except: pass
