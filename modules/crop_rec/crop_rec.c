@@ -366,6 +366,7 @@ static int32_t  reg_skip_left = 0;
 static int32_t  reg_skip_right = 0;
 static int32_t  reg_skip_top = 0;
 static int32_t  reg_skip_bottom = 0;
+static int32_t  reg_bl = 0;
 static int32_t  reg_gain = 0;
 
 /* sd_uhs reconfiguration. Check other sd_uhs reconfiguration places */
@@ -1781,6 +1782,15 @@ if ((RECORDING && is_EOSM) || (is_100D || is_5D3))
   }
 }
 
+if (RECORDING && bitdepth != 0x0)
+{
+/* correcting black level a bit. Compensating greenish tint. Only affects preview, not recordings */
+	EngDrvOutLV(0xc0f37aec, 0x73cd + reg_bl);
+	EngDrvOutLV(0xc0f37af8, 0x73cd + reg_bl);
+	EngDrvOutLV(0xc0f37b04, 0x73cd + reg_bl); 
+	EngDrvOutLV(0xc0f37ae0, 0x73cd + reg_bl);
+}
+
 if (!RECORDING && is_EOSM)
 {
   if (bitdepth == 0x1)
@@ -1824,7 +1834,6 @@ if (!RECORDING && is_EOSM)
     }
   }
 }
-
 
 if (is_EOSM)
 {
@@ -4108,6 +4117,15 @@ static struct menu_entry crop_rec_menu[] =
                 .help       = "Choose the available shutter speed range:",
                 .help2      = "Original: default range used by Canon in selected video mode.\n"
                               "Full range: from 1/FPS to minimum exposure time allowed by hardware.",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_bl",
+                .priv   = &reg_bl,
+                .min    = -1000,
+                .max    = 1000,
+                .unit   = UNIT_DEC,
+                .help  = "black level for reduced bitdepths(not affecting recordings)",
                 .advanced = 1,
             },
 /* not used atm	{
