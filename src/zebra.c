@@ -505,6 +505,7 @@ static void hist_add_pixel(uint32_t pixel, int Y)
 #ifdef FEATURE_WAVEFORM
 static inline void waveform_add_pixel(int x, int Y)
 {
+    if (!waveform) return;
     uint8_t* w = &WAVEFORM(((x-os.x0) * WAVEFORM_WIDTH) / os.x_ex, (Y * WAVEFORM_HEIGHT) >> 8);
     if ((*w) < 250) (*w)++;
 }
@@ -941,6 +942,8 @@ waveform_draw_image(
     unsigned        height
 )
 {
+    if (!waveform) return;
+
     if (!PLAY_OR_QR_MODE)
     {
         if (!lv_luma_is_accurate()) return;
@@ -3732,7 +3735,7 @@ void draw_histogram_and_waveform(int allow_play)
     if (is_zoom_mode_so_no_zebras()) return;
         
 #ifdef FEATURE_WAVEFORM
-    if( waveform_draw)
+    if (waveform_draw)
     {
         #ifdef CONFIG_4_3_SCREEN
         if (PLAY_OR_QR_MODE && WAVEFORM_FACTOR == 1)
