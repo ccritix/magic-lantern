@@ -11,6 +11,7 @@
 #include <raw.h>
 #include <fps.h>
 #include <shoot.h>
+#include <lens.h>
 
 #include "crop-mode-hack.h"
 
@@ -1785,10 +1786,14 @@ if ((RECORDING && is_EOSM) || (is_100D || is_5D3))
 if (RECORDING && bitdepth != 0x0)
 {
 /* correcting black level a bit. Compensating greenish tint. Only affects preview, not recordings */
+
+        if (lens_info.raw_iso != 100)
+        {
 	EngDrvOutLV(0xc0f37aec, 0x73cd + reg_bl);
 	EngDrvOutLV(0xc0f37af8, 0x73cd + reg_bl);
 	EngDrvOutLV(0xc0f37b04, 0x73cd + reg_bl); 
-	EngDrvOutLV(0xc0f37ae0, 0x73cd + reg_bl);
+	EngDrvOutLV(0xc0f37ae0, 0x73cd + reg_bl); 
+	}
 }
 
 if (!RECORDING && is_EOSM)
