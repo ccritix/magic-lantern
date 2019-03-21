@@ -3379,7 +3379,7 @@ only gotten one single corrupted frame from below but keep on testing */
 		case 0xC0F06010: return set_25fps == 0x1 ? 0x22b - 24 + reg_6008: 0x22b + reg_6008;
 
         	case 0xC0F0713c: return 0x7ef + reg_713c;
-		case 0xC0F07150: return 0x7ed + reg_7150;
+		case 0xC0F07150: return 0x7dd + reg_7150;
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xd;
