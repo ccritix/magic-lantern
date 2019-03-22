@@ -3259,10 +3259,10 @@ static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_va
 		case 0xC0F07150: return 0x2fa + reg_7150;
 
 	     /* 48 fps */
-        	case 0xC0F06014: return 0x499 + reg_6014;
-		case 0xC0F0600c: return 0x2350235 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x2350235 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x235 + reg_6008;
+        	case 0xC0F06014: return 0x4a2 + reg_6014;
+		case 0xC0F0600c: return 0x2310231 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x2310231 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x231 + reg_6008;
 
 	     /* 46 fps keep if 48fps keeps breaking
         	case 0xC0F06014: return 0x511 + reg_6014;
