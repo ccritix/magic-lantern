@@ -3609,7 +3609,7 @@ static void update_patch()
             }
 
 /* sd_uhs reconfiguration */
-    if (is_EOSM && sd_uhs == 0x1)
+    if ((is_EOSM || is_100D) && sd_uhs == 0x1)
     {
     patch_hook_function(sd_setup_mode, MEM(sd_setup_mode), sd_setup_mode_log, "SD UHS");
     patch_hook_function(sd_setup_mode_in, MEM(sd_setup_mode_in), sd_setup_mode_in_log, "SD UHS");
@@ -4753,7 +4753,7 @@ static unsigned int crop_rec_init()
         ADTG_WRITE = 0x2986C;
         MEM_ADTG_WRITE = 0xE92D43F8;
 		
-	    ENGIO_WRITE = 0xFF2C19AC;
+	ENGIO_WRITE = 0xFF2C19AC;
         MEM_ENGIO_WRITE = 0xE51FC15C;
 
 /* sd_uhs reconfiguration */
@@ -4800,6 +4800,12 @@ static unsigned int crop_rec_init()
 
         ENGIO_WRITE = 0xFF2B2460;
         MEM_ENGIO_WRITE = 0xE51FC15C;
+
+/* sd_uhs reconfiguration */
+        sd_setup_mode       = 0xFF3355B0;
+        sd_setup_mode_in    = 0xFF335648;
+        sd_setup_mode_reg   = 1;
+        sd_set_function     = 0xFF6530A4;
         
         is_100D = 1;
         crop_presets                = crop_presets_100d;
