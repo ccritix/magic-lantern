@@ -82,7 +82,11 @@ int display_idle()
 {
     extern thunk ShootOlcApp_handler;
     if (lv) return liveview_display_idle();
-    else return gui_state == GUISTATE_IDLE && !gui_menu_shown() &&
+    else return
+#ifndef CONFIG_EOSM
+    gui_state == GUISTATE_IDLE &&
+#endif
+    !gui_menu_shown() &&
         ((!DISPLAY_IS_ON && CURRENT_GUI_MODE == 0) || (intptr_t)get_current_dialog_handler() == (intptr_t)&ShootOlcApp_handler);
 }
 
@@ -158,6 +162,9 @@ static CONFIG_INT( "flash_and_no_flash", flash_and_no_flash, 0);
 static CONFIG_INT( "lv_3rd_party_flash", lv_3rd_party_flash, 0);
 
 //~ static CONFIG_INT( "zoom.enable.face", zoom_enable_face, 0);
+#ifdef CONFIG_ZOOM_X1
+static CONFIG_INT( "zoom.disable.x1", zoom_disable_x1, 0);
+#endif
 static CONFIG_INT( "zoom.disable.x5", zoom_disable_x5, 0);
 static CONFIG_INT( "zoom.disable.x10", zoom_disable_x10, 0);
 static CONFIG_INT( "zoom.sharpen", zoom_sharpen, 0);
@@ -676,11 +683,44 @@ static int zoom_was_triggered_by_halfshutter = 0;
 
 PROP_HANDLER(PROP_LV_DISPSIZE)
 {
-    /* note: 129 is a special screen before zooming in, on newer cameras */
-    ASSERT(buf[0] == 1 || buf[0]==129 || buf[0] == 5 || buf[0] == 10);
+    /* note: 0x81 is a special screen before zooming in, on newer cameras */
+    int zoom = buf[0];
+    int new_zoom = zoom;
+    
+    ASSERT(zoom == 1 || zoom == 0x81 || zoom == 5 || zoom == 10);
     zoom_sharpen_step();
     
-    if (buf[0] == 1) zoom_was_triggered_by_halfshutter = 0;
+    if (zoom == 1) zoom_was_triggered_by_halfshutter = 0;
+    
+#ifdef FEATURE_LV_ZOOM_SETTINGS
+#ifdef CONFIG_ZOOM_X1
+    /* FIXME: this duplicates functionality in handle_zoom_x5_x10
+     * that one works well, but only when triggered from the zoom button
+     * for touch-screen controls, this works reasonably well,
+     * but still stays in the disabled zoom mode for a split-second */
+    if (RECORDING) return;
+    
+    if (zoom_disable_x1 && zoom == 0x81)
+    {
+        new_zoom = (zoom_disable_x5 ? 10 : 5);
+    }
+    
+    if (zoom_disable_x5 && zoom == 5)
+    {
+        new_zoom = 10;
+    }
+    
+    if (zoom_disable_x10 && zoom == 10)
+    {
+        new_zoom = 1;
+    }
+    
+    if (new_zoom != zoom)
+    {
+        prop_request_change(PROP_LV_DISPSIZE, &new_zoom, 4);
+    }
+#endif
+#endif
 }
 #endif // FEATURE_LV_ZOOM_SETTINGS
 
@@ -2420,7 +2460,53 @@ static void zoom_halfshutter_step()
     if (!lv) return;
     if (RECORDING) return;
     
-    if (zoom_halfshutter && is_manual_focus())
+    if (!is_manual_focus())
+    {
+        /* AF enabled? we should not interrupt it while autofocusing */
+        /* AF operation is announced via PROP_LV_FOCUS_STATUS, but the notification arrives too late */
+        static int prev_hs = 0;
+        static int press_timestamp = 0;
+        static int autofocused = 0;
+        int hs = get_halfshutter_pressed();
+        int hs_just_pressed = hs && !prev_hs;
+        prev_hs = hs;
+        
+        if (hs_just_pressed)
+        {
+            /* half-shutter pressed, expect AF to start soon */
+            press_timestamp = get_ms_clock();
+            return;
+        }
+        
+        if (lv_focus_status != 1)
+        {
+            /* autofocusing */
+            info_led_on();
+            autofocused = 1;
+            press_timestamp = 0;
+            return;
+        }
+        
+        if (press_timestamp && get_ms_clock() - press_timestamp < 700)
+        {
+            /* too early to tell whether AF started or not */
+            return;
+        }
+        
+        if (!hs)
+        {
+            info_led_off();
+            autofocused = 0;
+        }
+        
+        if (autofocused)
+        {
+            /* once it autofocused, we can no longer switch to x5 zoom (why, Canon?) */
+            return;
+        }
+    }
+    
+    if (zoom_halfshutter)
     {
         int hs = get_halfshutter_pressed();
         if (hs && lv_dispsize == 1 && display_idle())
@@ -4020,7 +4106,7 @@ struct menu_entry tweak_menus_shoot[] = {
                 .priv = &zoom_halfshutter,
                 .max = 1,
                 .help = "Enable zoom when you hold the shutter halfway pressed.",
-                .depends_on = DEP_MANUAL_FOCUS,
+                .help2 = "This feature only works as long as you don't trigger autofocus.",
             },
             {
                 .name = "Zoom with Focus Ring",

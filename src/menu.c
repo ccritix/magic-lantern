@@ -5955,11 +5955,6 @@ static void longpress_check(int timer, void * opaque)
     }
     else if (longpress->count < 15 && !longpress->pressed)
     {
-        if (!gui_menu_shown())
-        {
-            return;
-        }
-
         if (!longpress->short_cbr || longpress->short_cbr())
         {
             /* optional short press ( < 300 ms) */
@@ -6007,14 +6002,15 @@ static struct longpress erase_longpress = {
     .long_btn_press     = BGMT_TRASH,           /* long press (500ms) opens ML menu */
     .short_btn_press    = BGMT_PRESS_DOWN,      /* short press => do a regular "down/erase" */
     .short_btn_unpress  = BGMT_UNPRESS_DOWN,
-    .pos_x = 680,   /* in LiveView */
-    .pos_y = 350,   /* above ExpSim */
+    .pos_x = 670,   /* in LiveView */
+    .pos_y = 343,   /* above ExpSim */
 };
 #endif
 
 #ifdef BGMT_Q_SET
 static struct longpress qset_longpress = {
     .long_btn_press     = BGMT_Q_SET,           /* long press opens Q-menu */
+    .long_btn_unpress   = BGMT_UNPRESS_SET,     /* hack: Q-menu will disable the "unpress SET" event */
     .short_btn_press    = BGMT_PRESS_SET,       /* short press => fake SET button (centering AF Frame in LV etc...) */
     .short_btn_unpress  = BGMT_UNPRESS_SET,
     .pos_x = 670,   /* outside ML menu, on the Q screen */
