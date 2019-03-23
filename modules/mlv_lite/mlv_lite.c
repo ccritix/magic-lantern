@@ -4024,7 +4024,7 @@ static struct menu_entry raw_video_menu[] =
                 .priv = &sd_uhs,
                 .max = 1,
                 .choices = CHOICES("OFF", "enabled"),
-                .help  = "Overclock your SD card(eosm/100D)\n",
+                .help  = "Overclock your SD card(eosm/100D) Bleeding edge!\n",
             },
             {
                 .name = "Kill global draw",
