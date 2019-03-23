@@ -38,4 +38,10 @@
   #define CONFIG_NEW_DRYOS_TASK_HOOKS
 #endif
 
+#if defined(CONFIG_DIGIC_V) || defined(CONFIG_DIGIC_678)
+  /* Assuming all recent models use REC.709 */
+  /* TODO: need a trained eye to check :) */
+  #define CONFIG_REC709
+#endif
+
 #endif /* __internals_common_h__ */
