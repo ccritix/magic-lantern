@@ -29,4 +29,13 @@
   #define CONFIG_DIGIC_678      /* these are also very similar, more often than not */
 #endif
 
+/* Common internals
+ * Careful - they cannot be overridden from internals.h!
+ */
+
+#ifdef CONFIG_DIGIC_678
+  /* All recent models use new-style DryOS task hooks */
+  #define CONFIG_NEW_DRYOS_TASK_HOOKS
+#endif
+
 #endif /* __internals_common_h__ */
