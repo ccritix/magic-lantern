@@ -71,10 +71,11 @@ void disp_set_pixel(int x, int y, int c)
     uint8_t * disp_framebuf = bmp;
 
     // UYVY display, must convert
-    uint32_t color = 0xFFFFFF00;
+    uint32_t color = 0xFFFFFFFF;
     uint32_t uyvy = rgb2yuv422(color >> 24,
                               (color >> 16) & 0xff,
                               (color >> 8) & 0xff);
+    uint8_t alpha = color & 0xff;
 
     if (MARV->opacity_data)
     {
@@ -91,6 +92,7 @@ void disp_set_pixel(int x, int y, int c)
             pixel[0] = (uyvy >>  0) & 0xff; /* U */
             pixel[2] = (uyvy >> 16) & 0xff; /* V */
             pixel[3] = (uyvy >> 24) & 0xff; /* Y */
+            MARV->opacity_data[x + y * disp_xres] = alpha;
         }
         else
         {
@@ -98,6 +100,7 @@ void disp_set_pixel(int x, int y, int c)
             pixel[0] = (uyvy >>  0) & 0xff; /* U */
             pixel[1] = (uyvy >>  8) & 0xff; /* Y */
             pixel[2] = (uyvy >> 16) & 0xff; /* V */
+            MARV->opacity_data[x + y * disp_xres] = alpha;
         }
 
         /* FIXME: opacity buffer not updated */
@@ -114,7 +117,6 @@ void disp_set_pixel(int x, int y, int c)
         uint8_t *offset = disp_framebuf + (x * 3 + y * 3 * buf_xres);
         uint8_t u = uyvy >>  0 & 0xff;
         uint8_t v = uyvy >> 16 & 0xff;
-        uint8_t alpha = color & 0xff;
         if (!(x & 1)) {
             // First pixel in the pair, so we set U, Y1, V, A1
             *offset = u;
