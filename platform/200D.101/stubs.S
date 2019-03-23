@@ -109,8 +109,8 @@ NSTUB(0xDF0079E3,  GetMemoryInformation)   /* called from AllocateMemory */
 NSTUB(0xDF0079B7,  GetSizeOfMaxRegion)     /* same */
 NSTUB(0xDF00AC55, _alloc_dma_memory)       /* calls AllocateMemory(size + 64), aligns the pointer, makes it uncacheable, syncs caches */
 NSTUB(0xDF00AC81, _free_dma_memory)        /* opposite of the above */
-NSTUB(0xE0693B23,  malloc)                 /* "can't malloc" */
-NSTUB(0xE0693B5B,  free)                   /* from context */
+NSTUB(0xE0693B23, _malloc)                 /* "can't malloc" */
+NSTUB(0xE0693B5B, _free)                   /* from context */
 
 /** Memory info **/
 NSTUB(0xE023D3C9,  malloc_info)            /* Malloc Information */

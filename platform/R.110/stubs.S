@@ -83,8 +83,8 @@ NSTUB(0xE05939AF,  GetMemoryInformation)   /* called from AllocateMemory */
 NSTUB(0xE0593983,  GetSizeOfMaxRegion)     /* same */
 NSTUB(0xE0593585, _alloc_dma_memory)       /* allocates 64 bytes more, aligns at 32 and sets the uncacheable bit */
 NSTUB(0xE05935B9, _free_dma_memory)        /* paired with the above; clears the uncacheable bit and frees the raw pointer */
-NSTUB(0xE02A40F9,  malloc)                 /* see "can't malloc"
-NSTUB(0xE02A4131,  free)                   /* next function; paired with the above */
+NSTUB(0xE02A40F9, _malloc)                 /* see "can't malloc"
+NSTUB(0xE02A4131, _free)                   /* next function; paired with the above */
 
 /** Memory info **/
 NSTUB(0xE00CDE11,  malloc_info)            /* Malloc Information */

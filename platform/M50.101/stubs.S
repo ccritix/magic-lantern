@@ -83,8 +83,8 @@ NSTUB(0xE055AE13,  GetMemoryInformation)
 NSTUB(0xE055ADE7,  GetSizeOfMaxRegion)
 NSTUB(0xE055A9E9, _alloc_dma_memory)
 NSTUB(0xE055AA1D, _free_dma_memory)
-NSTUB(0xE03C2307,  malloc)
-NSTUB(0xE03C233F,  free)
+NSTUB(0xE03C2307, _malloc)
+NSTUB(0xE03C233F, _free)
 
 /** Memory info **/
 NSTUB(0xE00F1BD9,  malloc_info)            /* Malloc Information */
