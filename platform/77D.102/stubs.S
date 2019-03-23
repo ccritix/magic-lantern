@@ -68,8 +68,8 @@ NSTUB(0xDF0079D3,  GetMemoryInformation)   /* called from AllocateMemory */
 NSTUB(0xDF0079A7,  GetSizeOfMaxRegion)
 NSTUB(0xDF00AC41, _alloc_dma_memory)
 NSTUB(0xDF00AC6D, _free_dma_memory)
-NSTUB(0xE06CE68E,  malloc)             // from error message
-NSTUB(0xE06CE6C6,  free)
+NSTUB(0xE06CE68F,  malloc)             // from error message
+NSTUB(0xE06CE6C7,  free)
 
 /** File I/O **/
 NSTUB(0xe04d714d, _FIO_OpenFile)
@@ -79,9 +79,9 @@ NSTUB(0xe04d7317, _FIO_WriteFile)
 NSTUB(0xe04d8895,  FIO_SeekSkipFile)
 NSTUB(0xe04d7389,  FIO_CloseFile)
 NSTUB(0xe04d7cb1, _FIO_CreateDirectory)
-NSTUB(0xe04d80db, _FIO_FindFirstEx) /* 0xe04d7fc1 is FIO_FindFirst */
-NSTUB(0xe04d8173,  FIO_FindNextEx) /* 0xe04d804f is FIO_FindNext */
-NSTUB(0xe04d80bb,  FIO_FindClose) /* 0xe04d81de is FIO_FincCloseEx(!) */
+NSTUB(0xe04d80db, _FIO_FindFirstEx)         /* 0xe04d7fc1 is FIO_FindFirst */
+NSTUB(0xe04d8173,  FIO_FindNextEx)          /* 0xe04d804f is FIO_FindNext */
+NSTUB(0xe04d80bb,  FIO_FindClose)           /* 0xe04d81de is FIO_FincCloseEx(!) */
 NSTUB(0xe04d74a7, _FIO_GetFileSize)
 NSTUB(0xe04d7225, _FIO_RemoveFile)
 NSTUB(0xe04d7b2b, _FIO_RenameFile)
