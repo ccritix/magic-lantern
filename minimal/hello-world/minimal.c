@@ -87,19 +87,17 @@ void disp_set_pixel(int x, int y, int c)
         uint8_t *pixel;
         if (x % 2)
         {
-            pixel = disp_framebuf + (x*2 + y*2*disp_xres);
-            *pixel = (uyvy >> 16) & 0xff;
-
-            pixel = disp_framebuf + (x*2 + y*2*disp_xres + 1);
-            *pixel = (uyvy >> 24) & 0xff;
+            pixel = disp_framebuf + ((x & ~1) * 2 + y*2*disp_xres);
+            pixel[0] = (uyvy >>  0) & 0xff; /* U */
+            pixel[2] = (uyvy >> 16) & 0xff; /* V */
+            pixel[3] = (uyvy >> 24) & 0xff; /* Y */
         }
         else
         {
             pixel = disp_framebuf + (x*2 + y*2*disp_xres);
-            *pixel = (uyvy >>  0) & 0xff;
-
-            pixel = disp_framebuf + (x*2 + y*2*disp_xres + 1);
-            *pixel = (uyvy >>  8) & 0xff;
+            pixel[0] = (uyvy >>  0) & 0xff; /* U */
+            pixel[1] = (uyvy >>  8) & 0xff; /* Y */
+            pixel[2] = (uyvy >> 16) & 0xff; /* V */
         }
 
         /* FIXME: opacity buffer not updated */
