@@ -6,7 +6,7 @@
 #include "vram.h"
 #include "bmp.h"
 #include "font_direct.h"
-
+#include "imgconv.h"
 
 #if 0
 /* ROM dumper */
@@ -57,24 +57,6 @@ void boot_post_init_task(void)
     task_create("run_test", 0x1e, 0x4000, hello_world, 0 );
 }
 
-/* from names_are_hard, https://pastebin.com/Vt84t4z1 */
-static uint32_t rgb2yuv422(uint8_t r, uint8_t g, uint8_t b)
-{
-    float R = r;
-    float G = g;
-    float B = b;
-    float Y,U,V;
-    uint8_t y,u,v;
-
-    Y = R *  .299000 + G *  .587000 + B *  .114000;
-    U = R * -.168736 + G * -.331264 + B *  .500000 + 128;
-    V = R *  .500000 + G * -.418688 + B * -.081312 + 128;
-
-    y = Y; u = U; v = V;
-
-    return (u << 24) | (y << 16) | (v << 8) | y;
-}
-
 /* used by font_draw */
 void disp_set_pixel(int x, int y, int c)
 {
@@ -106,18 +88,18 @@ void disp_set_pixel(int x, int y, int c)
         if (x % 2)
         {
             pixel = disp_framebuf + (x*2 + y*2*disp_xres);
-            *pixel = (uyvy >> 8) & 0xff;
+            *pixel = (uyvy >> 16) & 0xff;
 
             pixel = disp_framebuf + (x*2 + y*2*disp_xres + 1);
-            *pixel = uyvy & 0xff;
+            *pixel = (uyvy >> 24) & 0xff;
         }
         else
         {
             pixel = disp_framebuf + (x*2 + y*2*disp_xres);
-            *pixel = (uyvy >> 24) & 0xff;
+            *pixel = (uyvy >>  0) & 0xff;
 
             pixel = disp_framebuf + (x*2 + y*2*disp_xres + 1);
-            *pixel = (uyvy >> 16) & 0xff;
+            *pixel = (uyvy >>  8) & 0xff;
         }
 
         /* FIXME: opacity buffer not updated */
@@ -132,20 +114,20 @@ void disp_set_pixel(int x, int y, int c)
         /* from https://bitbucket.org/chris_miller/ml-fork/src/d1f1cdf978acc06c6fd558221962c827a7dc28f8/src/minimal-d678.c?fileviewer=file-view-default#minimal-d678.c-175 */
         // VRAM layout is UYVYAA (each character is one byte) for pixel pairs
         uint8_t *offset = disp_framebuf + (x * 3 + y * 3 * buf_xres);
-        uint8_t u = uyvy >> 24 & 0xff;
-        uint8_t v = uyvy >> 8 & 0xff;
+        uint8_t u = uyvy >>  0 & 0xff;
+        uint8_t v = uyvy >> 16 & 0xff;
         uint8_t alpha = color & 0xff;
         if (!(x & 1)) {
             // First pixel in the pair, so we set U, Y1, V, A1
             *offset = u;
-            *(offset + 1) = uyvy >> 16 & 0xff;
+            *(offset + 1) = uyvy >> 8 & 0xff;
             *(offset + 2) = v;
             *(offset + 4) = alpha;
         } else {
             // Second pixel in the pair, so we set U, V, Y2, A2
             *(offset - 3) = u;
             *(offset - 1) = v;
-            *offset = uyvy & 0xff;
+            *offset = uyvy >> 24 & 0xff;
             *(offset + 2) = alpha;
         }
     }
