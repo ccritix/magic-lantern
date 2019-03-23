@@ -68,7 +68,6 @@ void disp_set_pixel(int x, int y, int c)
 
 #ifdef CONFIG_DIGIC_678
     struct MARV * MARV = bmp_marv();
-    uint8_t * disp_framebuf = bmp;
 
     // UYVY display, must convert
     uint32_t color = 0xFFFFFFFF;
@@ -80,56 +79,28 @@ void disp_set_pixel(int x, int y, int c)
     if (MARV->opacity_data)
     {
         /* 80D, 200D */
-
-        uint32_t disp_xres = MARV->width;
-        uint32_t disp_yres = MARV->width;
-
-        /* from names_are_hard, https://pastebin.com/Vt84t4z1 */
-        uint8_t *pixel;
-        if (x % 2)
-        {
-            pixel = disp_framebuf + ((x & ~1) * 2 + y*2*disp_xres);
-            pixel[0] = (uyvy >>  0) & 0xff; /* U */
-            pixel[2] = (uyvy >> 16) & 0xff; /* V */
-            pixel[3] = (uyvy >> 24) & 0xff; /* Y */
-            MARV->opacity_data[x + y * disp_xres] = alpha;
+        /* adapted from names_are_hard, https://pastebin.com/Vt84t4z1 */
+        uint32_t * offset = (uint32_t *) &bmp[(x & ~1) * 2 + y * 2 * MARV->width];
+        if (x % 2) {
+            *offset = (*offset & 0x0000FF00) | (uyvy & 0xFFFF00FF);     /* set U, Y2, V, keep Y1 */
+        } else {
+            *offset = (*offset & 0xFF000000) | (uyvy & 0x00FFFFFF);     /* set U, Y1, V, keep Y2 */
         }
-        else
-        {
-            pixel = disp_framebuf + (x*2 + y*2*disp_xres);
-            pixel[0] = (uyvy >>  0) & 0xff; /* U */
-            pixel[1] = (uyvy >>  8) & 0xff; /* Y */
-            pixel[2] = (uyvy >> 16) & 0xff; /* V */
-            MARV->opacity_data[x + y * disp_xres] = alpha;
-        }
-
-        /* FIXME: opacity buffer not updated */
+        MARV->opacity_data[x + y * MARV->width] = alpha;
     }
     else
     {
         /* 5D4, M50 */
-
-        uint32_t buf_xres = MARV->width;
-        uint32_t buf_yres = MARV->width;
-
-        /* from https://bitbucket.org/chris_miller/ml-fork/src/d1f1cdf978acc06c6fd558221962c827a7dc28f8/src/minimal-d678.c?fileviewer=file-view-default#minimal-d678.c-175 */
+        /* adapted from https://bitbucket.org/chris_miller/ml-fork/src/d1f1cdf978acc06c6fd558221962c827a7dc28f8/src/minimal-d678.c?fileviewer=file-view-default#minimal-d678.c-175 */
         // VRAM layout is UYVYAA (each character is one byte) for pixel pairs
-        uint8_t *offset = disp_framebuf + (x * 3 + y * 3 * buf_xres);
-        uint8_t u = uyvy >>  0 & 0xff;
-        uint8_t v = uyvy >> 16 & 0xff;
-        if (!(x & 1)) {
-            // First pixel in the pair, so we set U, Y1, V, A1
-            *offset = u;
-            *(offset + 1) = uyvy >> 8 & 0xff;
-            *(offset + 2) = v;
-            *(offset + 4) = alpha;
+        uint32_t * offset = (uint32_t *) &bmp[(x & ~1) * 3 + y * 3 * MARV->width];   /* unaligned pointer */
+        if (x % 2) {
+            *offset = (*offset & 0x0000FF00) | (uyvy & 0xFFFF00FF);     /* set U, Y2, V, keep Y1 */
         } else {
-            // Second pixel in the pair, so we set U, V, Y2, A2
-            *(offset - 3) = u;
-            *(offset - 1) = v;
-            *offset = uyvy >> 24 & 0xff;
-            *(offset + 2) = alpha;
+            *offset = (*offset & 0xFF000000) | (uyvy & 0x00FFFFFF);     /* set U, Y1, V, keep Y2 */
         }
+        uint8_t * opacity = (uint8_t *) offset + 4 + x % 2;
+        *opacity = alpha;
     }
 #endif
 }
