@@ -7,6 +7,28 @@
   console.hide()
   menu.close()
 
+-- end this script if not eosm
+if camera.model_short ~= "EOSM" then
+   display.notify_box("Script only works for eosm")
+   menu.set("eosm cinema 2:35.1", "Autorun", "OFF")
+  msleep(2000)
+   return
+end
+
+-- this script should never run on Autorun, menu.set not working so running menu.select instead
+if menu.get("eosm cinema 2:35.1", "Autorun", "") == "ON" then
+   menu.select("Scripts", "eosm cinema 2:35.1")
+   menu.open()     -- open ML menu
+   key.press(KEY.SET)
+   key.press(KEY.WHEEL_DOWN)
+   key.press(KEY.WHEEL_DOWN)
+   key.press(KEY.SET)
+   menu.close()
+   display.notify_box("eosm cinema Autorun is now disabled!")
+  msleep(3000)
+   return
+end
+
 -- warnings 
 while camera.mode ~= MODE.MOVIE do
   display.notify_box("enable MOVIE mode")
@@ -23,31 +45,18 @@ if menu.get("Sound recording", "Enable sound", "") ~= "ON" then
   return
 end
 
-if menu.get("Crop mode", "sd_uhs", "") ~= "enabled" and camera.model_short == "EOSM" then
-if menu.get("Debug", "SD overclock", "MAY CAUSE DATA LOSS") == "MAY CAUSE DATA LOSS" then
-  menu.set("Movie", "RAW video", "OFF")
-  msleep(300)
-  menu.set("Debug", "SD overclock", "ON")
-  msleep(1000)
-  menu.set("Movie", "RAW video", "ON")
-  msleep(300)
-  menu.set("sd overclock engine", "Autorun", "ON")
- else
- display.notify_box("Please enable sd_uhs.mo")
-    msleep(1000)
- display.notify_box("Please enable sd_uhs.mo")
-    msleep(1000)
-    return
-end
-end
-
 -- crop mode
     menu.set("Movie", "Crop mode", "5K anamorphic")
     menu.set("Crop mode", "bitdepth", "10 bit")
     menu.set("Crop mode", "ratios", "2.35:1")
   msleep(300)
 
--- enable crop_rec.mo
+-- enable sd_uhs overclocking code placed in crop_rec.c
+if menu.get("RAW video", "sd_uhs", "") == "OFF" and camera.model_short == "EOSM" then
+   menu.set("RAW video", "sd_uhs", "enabled")
+end
+
+-- enable crop_rec.mo. Checking first after trying to enable 5k preset
 if menu.get("Movie", "Crop mode", "") ~= "5K anamorphic" then
   display.notify_box("enable crop_rec.mo")
   msleep(1000)
@@ -56,7 +65,7 @@ if menu.get("Movie", "Crop mode", "") ~= "5K anamorphic" then
   return
 end
 
--- Movie
+-- movie
   menu.set("Movie", "FPS override", "OFF")
   menu.set("Movie", "HDR video", "OFF")
   menu.set("RAW video", "Crop rec preview", "auto mode")
@@ -102,14 +111,5 @@ end
   msleep(200)
   menu.close()
 
--- let´s pause this, might have fixed moiré in mcm rewired mode
---[[ refresh LiveView
-   menu.close()
-   camera.gui.menu = true
-   msleep(1)
-   assert(not lv.running)
-   camera.gui.menu = false
-   sleep(1)
-   assert(lv.running) --]]
-
- display.notify_box("4.5K anamorphic is all set")
+-- success!
+   display.notify_box("4.5K anamorphic is all set")

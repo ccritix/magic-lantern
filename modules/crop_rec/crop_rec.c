@@ -40,7 +40,6 @@ static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.set_25fps", set_25fps, 1);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
-static CONFIG_INT("crop.sd_uhs", sd_uhs, 0);
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -368,57 +367,6 @@ static int32_t  reg_skip_top = 0;
 static int32_t  reg_skip_bottom = 0;
 static int32_t  reg_bl = 0;
 static int32_t  reg_gain = 0;
-
-/* sd_uhs reconfiguration. Check other sd_uhs reconfiguration places */
-static uint32_t sd_setup_mode = 0;
-static uint32_t sd_setup_mode_in = 0;
-static uint32_t sd_setup_mode_reg = 0xFFFFFFFF;
-static uint32_t sd_set_function = 0;
-static uint32_t uhs_regs[]     = { 0xC0400600, 0xC0400604,/*C0400608, C040060C*/0xC0400610, 0xC0400614, 0xC0400618, 0xC0400624, 0xC0400628, 0xC040061C, 0xC0400620 };   /* register addresses */
-static uint32_t sdr_160MHz[]   = {        0x2,        0x3,                             0x1, 0x1D000001,        0x0,      0x100,      0x100,      0x100,        0x1 };   /* overclocked values: 160MHz = 96*(4+1)/(2?+1) (found by brute-forcing) */
-static uint32_t uhs_vals[COUNT(uhs_regs)];  /* current values */
-static int sd_setup_mode_enable = 0;
-
-/* start of the function */
-static void sd_setup_mode_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
-{
-    qprintf("sd_setup_mode(dev=%x)\n", regs[0]);
-
-    /* this function is also used for other interfaces, such as serial flash */
-    /* only enable overriding when called with dev=1 */
-    sd_setup_mode_enable = (regs[0] == 1);
-}
-
-/* called right before the case switch in sd_setup_mode (not at the start of the function!) */
-static void sd_setup_mode_in_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
-{
-    qprintf("sd_setup_mode switch(mode=%x) en=%d\n", regs[sd_setup_mode_reg], sd_setup_mode_enable);
-
-    if (sd_setup_mode_enable && regs[sd_setup_mode_reg] == 4)   /* SDR50? */
-    {
-        /* set our register overrides */
-        for (int i = 0; i < COUNT(uhs_regs); i++)
-        {
-            MEM(uhs_regs[i]) = uhs_vals[i];
-        }
-
-        /* set some invalid mode to bypass the case switch
-         * and keep our register values only */
-        regs[sd_setup_mode_reg] = 0x13;
-    }
-}
-
-static void sd_set_function_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
-{
-    qprintf("sd_set_function(0x%x)\n", regs[0]);
-
-    /* UHS-I SDR50? */
-    if (regs[0] == 0xff0002)
-    {
-        /* force UHS-I SDR104 */
-        regs[0] = 0xff0003;
-    }
-}
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -3608,19 +3556,6 @@ static void update_patch()
                 patch_hook_function(ENGIO_WRITE, MEM_ENGIO_WRITE, engio_write_hook, "crop_rec: video timers hook");
             }
 
-/* sd_uhs reconfiguration */
-    if ((is_EOSM || is_100D) && sd_uhs == 0x1)
-    {
-    patch_hook_function(sd_setup_mode, MEM(sd_setup_mode), sd_setup_mode_log, "SD UHS");
-    patch_hook_function(sd_setup_mode_in, MEM(sd_setup_mode_in), sd_setup_mode_in_log, "SD UHS");
-
-    /* enable SDR104 */
-    patch_hook_function(sd_set_function, MEM(sd_set_function), sd_set_function_log, "SDR104");
-
-    /* power-cycle and reconfigure the SD card */
-    memcpy(uhs_vals, sdr_160MHz, sizeof(uhs_vals));
-    }
-
             patch_active = 1;
         }
     }
@@ -3803,13 +3738,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 6,
                 .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
                 .help   = "HDR workaround eosm\n"
-            },
-            {
-                .name   = "sd_uhs",
-                .priv   = &sd_uhs,
-                .max    = 1,
-                .choices = CHOICES("OFF", "enabled"),
-                .help   = "SD reconfiguration. Use at own risk! Restart needed(EOSM only)\n"
             },
             {
                 .name   = "reg_713c",
@@ -4755,12 +4683,6 @@ static unsigned int crop_rec_init()
 		
 	ENGIO_WRITE = 0xFF2C19AC;
         MEM_ENGIO_WRITE = 0xE51FC15C;
-
-/* sd_uhs reconfiguration */
-        sd_setup_mode       = 0xFF338D40;
-        sd_setup_mode_in    = 0xFF338DC8;
-        sd_setup_mode_reg   = 1;
-        sd_set_function     = 0xFF63EF60;
         
         is_EOSM = 1;
         crop_presets                = crop_presets_eosm;
@@ -4800,12 +4722,6 @@ static unsigned int crop_rec_init()
 
         ENGIO_WRITE = 0xFF2B2460;
         MEM_ENGIO_WRITE = 0xE51FC15C;
-
-/* sd_uhs reconfiguration */
-        sd_setup_mode       = 0xFF3355B0;
-        sd_setup_mode_in    = 0xFF335648;
-        sd_setup_mode_reg   = 1;
-        sd_set_function     = 0xFF6530A4;
         
         is_100D = 1;
         crop_presets                = crop_presets_100d;
@@ -4913,7 +4829,6 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(set_25fps)
     MODULE_CONFIG(HDR_iso_a)
     MODULE_CONFIG(HDR_iso_b)
-    MODULE_CONFIG(sd_uhs)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
