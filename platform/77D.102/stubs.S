@@ -68,6 +68,9 @@ THUMB_FN(0xE04D8172,  FIO_FindNextEx)                       /* 0xe04d804f is FIO
 THUMB_FN(0xE04D80BA,  FIO_FindClose)                        /* 0xe04d81de is FIO_FincCloseEx(!) */
 THUMB_FN(0xE04D7DD4,  FIO_Flush)                            // to be called after FIO_CloseFile?
 
+/** Bitmap **/
+DATA_PTR(   0x10128,  bmp_vram_info)                        /* first VRAM buffer, used right after DISP_SetUpdateOSDVram */
+
 /** Debug messages **/
 THUMB_FN(0xDF006E6C,  DryosDebugMsg)                        /* lots of debug messages; format string is third argument */
 

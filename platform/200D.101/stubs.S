@@ -74,6 +74,9 @@ THUMB_FN(0xE04A7EF4,  SetGUIRequestMode)
 THUMB_FN(0xE00921DC,  gui_init_end)
 THUMB_FN(0xE00C526A,  gui_main_task)
 
+/** Bitmap **/
+DATA_PTR(    0xFD84,  bmp_vram_info)                        /* first VRAM buffer, used right after DISP_SetUpdateOSDVram */
+
 /** DMA **/
 THUMB_FN(0xE01B3296,  dma_memcpy)
 

@@ -54,6 +54,9 @@ THUMB_FN(0xFEE9A840,  FIO_FindNextEx)
 THUMB_FN(0xFEE9A838,  FIO_FindClose)
 // NSTUB(    ???, _FIO_RenameFile)                          /* present on 60D.111, 6D.113, 600D.102, 650D.104, 550D.109, 1100D.105, EOSM.202, 700D.113 */
 
+/** Bitmap **/
+DATA_PTR(    0xDB50,  bmp_vram_info)                        /* first VRAM buffer, used right after UpdateOSDVram */
+
 /** Slave Comm **/
 ARM32_FN(0xFE3F3B04,  BulkInIPCTransfer)
 ARM32_FN(0xFE3F3980,  BulkOutIPCTransfer)

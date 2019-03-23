@@ -47,6 +47,9 @@ DATA_PTR(   0x3BFB8,  isr_table_param)
 DATA_PTR(   0x28528,  post_isr_hook)
 DATA_PTR(   0x28524,  pre_isr_hook)
 
+/** Bitmap **/
+DATA_PTR(   0x2FDB4,  bmp_vram_info)                        /* first VRAM buffer, used right after UpdateOSDVram */
+
 /** Debug messages **/
 THUMB_FN(     0x236,  DryosDebugMsg)
 

@@ -89,6 +89,9 @@ THUMB_FN(0xFE42DD18,  SetAudioVolumeOut)                    // JC Best guess
 //NSTUB(0x????????, _audio_ic_read)
 //NSTUB(0x????????, _audio_ic_write)                          // str:Reg_0x_02X_Data_04x
 
+/** Bitmap **/
+DATA_PTR(    0xFE9C,  bmp_vram_info)                        /* first VRAM buffer, used right after DISP_SetUpdateOSDVram */
+
 /** DMA **/
 // NSTUB(0x????????, dma_memcpy)
 
