@@ -7,5 +7,6 @@ ML_MODULES ?= \
 	silent \
 	lua \
 	crop_rec \
+	sd_uhs \
 	file_man \
 	adtg_gui \

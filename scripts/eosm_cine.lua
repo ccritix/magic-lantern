@@ -51,11 +51,6 @@ end
     menu.set("Crop mode", "ratios", "2.35:1")
   msleep(300)
 
--- enable sd_uhs overclocking code placed in crop_rec.c
-if menu.get("RAW video", "sd_uhs", "") == "OFF" and camera.model_short == "EOSM" then
-   menu.set("RAW video", "sd_uhs", "enabled")
-end
-
 -- enable crop_rec.mo. Checking first after trying to enable 5k preset
 if menu.get("Movie", "Crop mode", "") ~= "5K anamorphic" then
   display.notify_box("enable crop_rec.mo")
