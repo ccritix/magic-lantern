@@ -176,24 +176,25 @@ if __name__ == '__main__':
             message += " [PARITY!]"
             warning, color = True, "red"
 
-        found = False
-        for old_dump, new_dump, offset in dumps:
-            if old_pos >= offset and old_pos < offset + len(old_dump):
-                found = True
-                bits_changed = 0
-                change_list = []
-                for i in range(0, 8, 4):
-                    old_val = getLongLE(old_dump, (old_pos & ~1) - offset + i)
-                    new_val = getLongLE(new_dump, (new_pos & ~1) - offset + i)
-                    if old_val != new_val:
-                        bits_changed += bin(old_val ^ new_val).count("1")
-                        change_list.append("%d:%08X-%08X" % (i, old_val, new_val))
-                        warning, color = True, ("red" if i == 0 else "yellow")
-                if bits_changed:
-                    message += " [%d bits changed: %s]" % (bits_changed, ", ".join(change_list))
+        if new_pos and old_pos:
+            found = False
+            for old_dump, new_dump, offset in dumps:
+                if old_pos >= offset and old_pos < offset + len(old_dump):
+                    found = True
+                    bits_changed = 0
+                    change_list = []
+                    for i in range(0, 8, 4):
+                        old_val = getLongLE(old_dump, (old_pos & ~1) - offset + i)
+                        new_val = getLongLE(new_dump, (new_pos & ~1) - offset + i)
+                        if old_val != new_val:
+                            bits_changed += bin(old_val ^ new_val).count("1")
+                            change_list.append("%d:%08X-%08X" % (i, old_val, new_val))
+                            warning, color = True, ("red" if i == 0 else "yellow")
+                    if bits_changed:
+                        message += " [%d bits changed: %s]" % (bits_changed, ", ".join(change_list))
 
-        if not found:
-            message += " [contents not checked]"
+            if not found:
+                message += " [contents not checked]"
 
         if warning:
             if(args.no_colors or forceNoColor):
