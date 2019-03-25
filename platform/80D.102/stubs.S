@@ -27,6 +27,7 @@
 
 #include <stub.h>
 
+
 /** Startup **/
 NSTUB( ROMBASEADDR, firmware_entry )
 NSTUB(0xFE0D316D,  cstart)                                  // Thumb
@@ -35,51 +36,51 @@ NSTUB(0xFE3FBC78,  create_init_task)
 NSTUB(0xFE0D3385,  init_task)                               // Thumb
 
 /** Tasks **/
-NSTUB(0xFE3FC0EC,  task_create)
-NSTUB(0xFE3FC1D4,  msleep)
-NSTUB(    0x44F4,  current_task)
 NSTUB(    0x44D4,  current_interrupt)
+NSTUB(    0x44F4,  current_task)
+NSTUB(0xFE3FC1D4,  msleep)
+NSTUB(0xFE3FC0EC,  task_create)
 
-/** Dumper **/
-NSTUB(0xFE2E4AEB,  dump_file)                               // Thumb
-
-/** Memory allocation **/
-NSTUB(0xFE3FBEF4,  GetMemoryInformation)
-NSTUB(0xFE3FBEA0,  GetSizeOfMaxRegion)
-NSTUB(0xFE3FC1CC, _AllocateMemory)
-NSTUB(0xFE3FC1DC, _FreeMemory)
-
-/** Memory info **/
-NSTUB(0xFE2DB8AD,  malloc_info)                             // Thumb
-NSTUB(0xFE2DB945,  sysmem_info)                             // Thumb
-NSTUB(0xFE15F747,  smemShowFix)                             // Thumb
+/** Interrupts **/
+NSTUB(   0x19F14,  isr_table_handler)
+NSTUB(   0x19F18,  isr_table_param)
+NSTUB(    0x44B4,  post_isr_hook)
+NSTUB(    0x44B0,  pre_isr_hook)
 
 /** Debug messages **/
 NSTUB(0x800035E1,  DryosDebugMsg)                           // Thumb
+
+/** Dumper **/
+NSTUB(0xFE2E4AEB,  dump_file)                               // Thumb
 
 /** Eventprocs (call by name) **/
 NSTUB(0xFE48422F,  call)                                    // Thumb
 
 /** GUI timers **/
-NSTUB(0xFE48405B,  CancelTimer)                             // Thumb; from error message
-NSTUB(0xFE4B3A73,  SetHPTimerAfterNow)                      // Thumb; from error message
 NSTUB(0xFE4B3AC3,  SetHPTimerNextTick)                      // Thumb; same "worker" function as SetHPTimerAfterNow
+NSTUB(0xFE4B3A73,  SetHPTimerAfterNow)                      // Thumb; from error message
 NSTUB(0xFE483FE5,  SetTimerAfter)                           // Thumb; from error message
-
-/** Interrupts **/
-NSTUB(    0x44B0,  pre_isr_hook)
-NSTUB(    0x44B4,  post_isr_hook)
-NSTUB(   0x19F14,  isr_table_handler)
-NSTUB(   0x19F18,  isr_table_param)
+NSTUB(0xFE48405B,  CancelTimer)                             // Thumb; from error message
 
 /** MPU communication **/
-NSTUB(0xFE253C0F,  mpu_send)                                // Thumb; "dwSize < TXBD_DATA_SIZE"
 NSTUB(0xFE5475CF,  mpu_recv)                                // Thumb; passed as last argument by InitializeIntercom and eventually stored into mpu_recv_cbr
 NSTUB(    0x890C,  mpu_recv_cbr)
-NSTUB(   0x400C0,  mpu_send_ring_buffer)                    // ring buffer used in mpu_send
-NSTUB(    0x88F0,  mpu_send_ring_buffer_tail)               // ring buffer index incremented in mpu_send
 NSTUB(   0x3FF80,  mpu_recv_ring_buffer)                    // ring buffer used in SIO3_ISR, subroutine that processes two chars at a time
 NSTUB(    0x88E8,  mpu_recv_ring_buffer_tail)               // ring buffer index incremented in the above subroutine
+NSTUB(0xFE253C0F,  mpu_send)                                // Thumb; "dwSize < TXBD_DATA_SIZE"
+NSTUB(   0x400C0,  mpu_send_ring_buffer)                    // ring buffer used in mpu_send
+NSTUB(    0x88F0,  mpu_send_ring_buffer_tail)               // ring buffer index incremented in mpu_send
+
+/** Memory allocation **/
+NSTUB(0xFE3FC1CC, _AllocateMemory)
+NSTUB(0xFE3FC1DC, _FreeMemory)
+NSTUB(0xFE3FBEF4,  GetMemoryInformation)
+NSTUB(0xFE3FBEA0,  GetSizeOfMaxRegion)
+
+/** Memory info **/
+NSTUB(0xFE2DB8AD,  malloc_info)                             // Thumb
+NSTUB(0xFE15F747,  smemShowFix)                             // Thumb
+NSTUB(0xFE2DB945,  sysmem_info)                             // Thumb
 
 /** Misc **/
 NSTUB(0x800054AD,  vsnprintf)                               // Thumb

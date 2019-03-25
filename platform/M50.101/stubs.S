@@ -29,23 +29,52 @@
 
 /* All functions are Thumb. The least significant bit needs to be set manually. */
 
+
 /** Startup **/
 NSTUB( ROMBASEADDR, firmware_entry )
 NSTUB(0xE00400FD,  cstart)                 /* calls bzero32 and create_init_task(..., init_task, ...) */
 NSTUB(0xE0578C59,  bzero32)                /* zeros out a data structure */
 NSTUB(0xE0143CBD,  create_init_task)       /* low-level DryOS initialization */
-NSTUB(0xE0040225,  init_task)              /* USER_MEM size checking, dmSetup, termDriverInit, stdlibSetup etc */
 NSTUB(0xE05776C5,  dcache_clean)           /* loop with MCR p15 c7,c10,1; DSB */
 NSTUB(0xE0577799,  icache_invalidate)      /* loop with MCR p15 c7,c5,1; c7,c1,6; c7,c1,0; ISB */
+NSTUB(0xE0040225,  init_task)              /* USER_MEM size checking, dmSetup, termDriverInit, stdlibSetup etc */
 
 /** Tasks **/
-NSTUB(0xE0545DD7,  task_create)            /* used to start TaskMain, GuiMainTask etc */
-NSTUB(0xE05597EF,  msleep)                 /* argument is always multiple of 10 */
-NSTUB(    0x1028,  current_task)           /* from task_create; pointer to the current task structure */
 NSTUB(    0x1010,  current_interrupt)      /* from interrupt handler (VBAR + 0x18); where the interrupt ID is stored */
+NSTUB(    0x1028,  current_task)           /* from task_create; pointer to the current task structure */
+NSTUB(0xE05597EF,  msleep)                 /* argument is always multiple of 10 */
+NSTUB(0xE0545DD7,  task_create)            /* used to start TaskMain, GuiMainTask etc */
+
+/** File I/O **/
+NSTUB(0xE05464DB, _FIO_CreateFile)
+NSTUB(0xE0546429, _FIO_OpenFile)
+NSTUB(0xE0546C4B,  FIO_CloseFile)
+NSTUB(0xE05468AB, _FIO_ReadFile)
+NSTUB(0xE0546A37, _FIO_WriteFile)
+NSTUB(0xE0546977,  FIO_SeekSkipFile)       // guess: Search?!
+NSTUB(0xE0546DE7, _FIO_GetFileSize)        // AcqSize
+NSTUB(0xE0546811, _FIO_RemoveFile)
+NSTUB(0xE054781B, _FIO_RenameFile)
+NSTUB(0xE0547CA5, _FIO_CreateDirectory)
+NSTUB(0xE0548107, _FIO_FindFirstEx)        // FirstEnt
+NSTUB(0xE054820D,  FIO_FindNextEx)         // NextEnt
+NSTUB(0xE05482CF,  FIO_FindClose)          // CloseEnt
+NSTUB(0xE0547E8F,  FIO_Flush)              // to be called after FIO_CloseFile?
+
+/** Debug messages **/
+NSTUB(0xE0577EC5,  DryosDebugMsg)          /* lots of debug messages; format string is third argument */
 
 /** Dumper **/
 NSTUB(0xE0085F61,  dump_file)              /* tries to save a file to either "A:/%s" or "B:/%s"; calls FIO_RemoveFile/CreateFile/WriteFile/CloseFile/Flush */
+
+/** Eventprocs (call by name) **/
+NSTUB(0xE05721BB,  call)                   /* many functions called by name (lv_start, lv_stop etc) */
+
+/** GUI timers **/
+NSTUB(0xE07329B7,  SetHPTimerNextTick)     /* same "worker" function as SetHPTimerAfterNow */
+NSTUB(0xE0732957,  SetHPTimerAfterNow)     /* from error message */
+NSTUB(0xE054CE09,  SetTimerAfter)          /* from error message */
+NSTUB(0xE054CEBE,  CancelTimer)            /* CancelRefreshTimer, CancelPlayTimer */
 
 /** Memory allocation **/
 NSTUB(0xE055AF89, _AllocateMemory)
@@ -59,38 +88,10 @@ NSTUB(0xE03C233F,  free)
 
 /** Memory info **/
 NSTUB(0xE00F1BD9,  malloc_info)            /* Malloc Information */
-NSTUB(0xE00F1C71,  sysmem_info)            /* System Memory Information */
 NSTUB(0xE009DE99,  memmap_info)            /* Exception vector, DRYOS system memory etc */
 NSTUB(0xE0146F97,  smemShowFix)            /* Common Lower, Common Upper etc */
-
-/** Debug messages **/
-NSTUB(0xE0577EC5,  DryosDebugMsg)          /* lots of debug messages; format string is third argument */
-
-/** Eventprocs (call by name) **/
-NSTUB(0xE05721BB,  call)                   /* many functions called by name (lv_start, lv_stop etc) */
-
-/** File I/O **/
-NSTUB(0xE0546429, _FIO_OpenFile)
-NSTUB(0xE05464DB, _FIO_CreateFile)
-NSTUB(0xE05468AB, _FIO_ReadFile)
-NSTUB(0xE0546A37, _FIO_WriteFile)
-NSTUB(0xE0546977,  FIO_SeekSkipFile)       // guess: Search?!
-NSTUB(0xE0546C4B,  FIO_CloseFile)
-NSTUB(0xE0547CA5, _FIO_CreateDirectory)
-NSTUB(0xE0548107, _FIO_FindFirstEx)        // FirstEnt
-NSTUB(0xE054820D,  FIO_FindNextEx)         // NextEnt
-NSTUB(0xE05482CF,  FIO_FindClose)          // CloseEnt
-NSTUB(0xE0546DE7, _FIO_GetFileSize)        // AcqSize
-NSTUB(0xE0546811, _FIO_RemoveFile)
-NSTUB(0xE054781B, _FIO_RenameFile)
-NSTUB(0xE0547E8F,  FIO_Flush)              // to be called after FIO_CloseFile?
-
-/** GUI timers **/
-NSTUB(0xE054CEBE,  CancelTimer)            /* CancelRefreshTimer, CancelPlayTimer */
-NSTUB(0xE0732957,  SetHPTimerAfterNow)     /* from error message */
-NSTUB(0xE07329B7,  SetHPTimerNextTick)     /* same "worker" function as SetHPTimerAfterNow */
-NSTUB(0xE054CE09,  SetTimerAfter)          /* from error message */
+NSTUB(0xE00F1C71,  sysmem_info)            /* System Memory Information */
 
 /** Misc **/
-NSTUB(0xE0096041,  vsnprintf)              /* called by LogFile_printf(..., "*Data Lost*\n", ...); the one called by DebugMsg only knows %s */
 NSTUB(0xE055A7A9,  uart_printf)
+NSTUB(0xE0096041,  vsnprintf)              /* called by LogFile_printf(..., "*Data Lost*\n", ...); the one called by DebugMsg only knows %s */
