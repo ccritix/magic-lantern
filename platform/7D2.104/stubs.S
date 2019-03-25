@@ -83,4 +83,4 @@ NSTUB(0xFE1A3083,  smemShowFix)                             // Thumb
 NSTUB(0xFE0A1B69,  sysmem_info)                             // Thumb
 
 /** Misc **/
-NSTUB(0x3280,  vsnprintf)
+NSTUB(    0x3280,  vsnprintf)

@@ -30,10 +30,10 @@
 
 /** Startup **/
 NSTUB(ROMBASEADDR, firmware_entry )
-NSTUB(0xFE0A0B19,  cstart)              // Thumb
+NSTUB(0xFE0A0B19,  cstart)                                  // Thumb
 NSTUB(0xFE683258,  bzero32)
 NSTUB(0xFE3F3958,  create_init_task)
-NSTUB(0xFE0EE525,  init_task)           // Thumb
+NSTUB(0xFE0EE525,  init_task)                               // Thumb
 
 /** Tasks **/
 NSTUB(0xFE3F3E90,  msleep)
@@ -61,7 +61,7 @@ NSTUB(0xFE3F3980,  BulkOutIPCTransfer)
 /** Misc **/
 NSTUB(0xFE3F3D80,  AllocateUncacheableMemory)
 NSTUB(0xFE3F3E58,  FreeUncachableMemory)
-NSTUB(0x00001C80,  get_current_task_id)
+NSTUB(    0x1C80,  get_current_task_id)
 NSTUB(0xFE221339,  get_task_name)
 NSTUB(0xFE48B081,  sprintf)
-NSTUB(0x00001D70,  vsnprintf)
+NSTUB(    0x1D70,  vsnprintf)

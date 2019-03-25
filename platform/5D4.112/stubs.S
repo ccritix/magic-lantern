@@ -32,10 +32,10 @@
 
 /** Startup **/
 NSTUB( ROMBASEADDR, firmware_entry )
-NSTUB(0xFE0DD4F5,  cstart)                 /* calls bzero32 and create_init_task(..., init_task, ...) */
-NSTUB(0xFE428CD0,  bzero32)                /* zeros out a data structure */
-NSTUB(0xFE428778,  create_init_task)       /* low-level DryOS initialization */
-NSTUB(0xFE0DD70D,  init_task)              /* USER_MEM size checking, dmSetup, termDriverInit, stdlibSetup etc */
+NSTUB(0xFE0DD4F5,  cstart)                                  /* calls bzero32 and create_init_task(..., init_task, ...) */
+NSTUB(0xFE428CD0,  bzero32)                                 /* zeros out a data structure */
+NSTUB(0xFE428778,  create_init_task)                        /* low-level DryOS initialization */
+NSTUB(0xFE0DD70D,  init_task)                               /* USER_MEM size checking, dmSetup, termDriverInit, stdlibSetup etc */
 
 /** Tasks **/
 NSTUB(    0x4584,  current_interrupt)
@@ -69,7 +69,7 @@ NSTUB(0xFE48E699,  FIO_FindClose)
 /** GUI **/
 NSTUB(0xFE171897,  GUI_Control)
 NSTUB(0xFE4A2287,  SetGUIRequestMode)
-NSTUB(0xFE48ED25,  gui_init_end)           /* EndGuiInit */
+NSTUB(0xFE48ED25,  gui_init_end)                            /* EndGuiInit */
 NSTUB(0xFE1716F1,  gui_main_task)
 //NSTUB(0x????????,  gui_main_struct)
 //NSTUB(0x????????,  gui_task_list)
@@ -93,11 +93,11 @@ NSTUB(0xFE42DD19,  SetAudioVolumeOut)                       // JC Best guess
 // NSTUB(0x????????, dma_memcpy)
 
 /** Debug messages **/
-NSTUB(0xC15,       DryosDebugMsg)            /* prefer the RAM version, to override it easily */
+NSTUB(     0xC15,  DryosDebugMsg)                           /* prefer the RAM version, to override it easily */
 
 /** Dialog API **/
-NSTUB(0xFE4BD128,  dialog_redraw)            /* not checked */
-NSTUB(0xFE4BCD60,  dialog_set_property_str)  /* not checked */
+NSTUB(0xFE4BD128,  dialog_redraw)                           /* not checked */
+NSTUB(0xFE4BCD60,  dialog_set_property_str)                 /* not checked */
 
 /** Dialog handlers **/
 NSTUB(0xFE5941E7,  ErrForCamera_handler)                    // ERR70, ERR80 etc (DlgErrForCamera.c, AJ_DIALOG.HANDLER_DlgErrForCamera.c)
@@ -124,7 +124,7 @@ NSTUB(0xFE6E0AFD,  ShootOlcApp_handler)                     // this should be ac
 NSTUB(0xFE4AA6E1,  GUI_SetRollingPitchingLevelStatus)       // JC-C RequestRollingPitching - no side effects :)
 
 /** Engio **/
-NSTUB(0xFE4DFDF8, _engio_write)         /* no mirror?! */
+NSTUB(0xFE4DFDF8, _engio_write)                             /* no mirror?! */
 //NSTUB(0x????????, _EngDrvOut)                               // AJ_EngDrvOut_1xVar_to_ShadowStruct
 //NSTUB(0x????????,  shamem_read)                             // AJ_0x_engio_struct_n_R0_manipulation_to_get_ptr
 
@@ -134,11 +134,11 @@ NSTUB(0xFE48CEEF,  call)
 /** ExMem **/
 NSTUB(0xFE49CFBF,  CreateMemoryChunk)
 NSTUB(0xFE49DA87,  CreateMemorySuite)
-NSTUB(0xFE49D7A1,  DeleteMemorySuite)          // or FEA8E248?
+NSTUB(0xFE49D7A1,  DeleteMemorySuite)                       // or FEA8E248?
 NSTUB(0xFE53DFED,  AllocateContinuousMemoryResource)        // m_pfContAllocMemoryCBR
 NSTUB(0xFE53DFBF,  AllocateMemoryResource)                  // m_pfAllocMemoryCBR
 NSTUB(0xFE53E093,  FreeMemoryResource)                      // m_pfFreeMemoryCBR
-NSTUB(0xFEA944A9,  GetFirstChunkFromSuite)     // or FE49AE88?
+NSTUB(0xFEA944A9,  GetFirstChunkFromSuite)                  // or FE49AE88?
 NSTUB(0xFE49DE8D,  GetNextMemoryChunk)
 NSTUB(0xFE49D411,  GetMemoryAddressOfMemoryChunk)
 NSTUB(0xFE47F6BB,  SRM_AllocateMemoryResourceFor1stJob)
@@ -153,16 +153,16 @@ NSTUB(0xFE562FD5,  CancelDateTimer)                         // Look for "CancelD
 NSTUB(0xFE4A1AAF,  CancelTimer)
 
 /** Logging experiments **/
-NSTUB(0xFE129BEF, dump_file)
+NSTUB(0xFE129BEF,  dump_file)
 
 /** MPU communication **/
-NSTUB(0xFE32693F,  mpu_recv)                  // passed as last argument by InitializeIntercom and eventually stored into mpu_recv_cbr
-NSTUB(    0x7A64,  mpu_recv_cbr)              // mpu_recv is called indirectly through this function pointer
-NSTUB(   0x32DAC,  mpu_recv_ring_buffer)      // ring buffer used in SIO3_ISR, subroutine that processes two chars at a time
-NSTUB(    0x7A40,  mpu_recv_ring_buffer_tail) // ring buffer index incremented in the above subroutine
-NSTUB(0xFE291317,  mpu_send)                  // "dwSize < TXBD_DATA_SIZE"
-NSTUB(   0x32EEC,  mpu_send_ring_buffer)      // ring buffer used in mpu_send
-NSTUB(    0x7A48,  mpu_send_ring_buffer_tail) // ring buffer index incremented in mpu_send
+NSTUB(0xFE32693F,  mpu_recv)                                // passed as last argument by InitializeIntercom and eventually stored into mpu_recv_cbr
+NSTUB(    0x7A64,  mpu_recv_cbr)                            // mpu_recv is called indirectly through this function pointer
+NSTUB(   0x32DAC,  mpu_recv_ring_buffer)                    // ring buffer used in SIO3_ISR, subroutine that processes two chars at a time
+NSTUB(    0x7A40,  mpu_recv_ring_buffer_tail)               // ring buffer index incremented in the above subroutine
+NSTUB(0xFE291317,  mpu_send)                                // "dwSize < TXBD_DATA_SIZE"
+NSTUB(   0x32EEC,  mpu_send_ring_buffer)                    // ring buffer used in mpu_send
+NSTUB(    0x7A48,  mpu_send_ring_buffer_tail)               // ring buffer index incremented in mpu_send
 
 /** Making the card bootable **/
 //NSTUB(0x????????,  fsuDecodePartitionTable)                 // AJ_fsuGetPart_related   - called from loc_FE256364?
@@ -184,19 +184,19 @@ NSTUB(0xFE2E02D1,  smemShowFix)                             // Thumb
 NSTUB(0xFE2A0015,  sysmem_info)                             // Thumb
 
 /** Message queues **/
-NSTUB(    0x1BE1,  msg_queue_create)       /* CreateMessageQueue */
-NSTUB(    0x1E2B,  msg_queue_count)        /* used in "[TASK ERROR] GetNumOfEvent" */
-NSTUB(    0x1DF5,  msg_queue_post)         /* TryPostMessageQueue */
-NSTUB(    0x1CA1,  msg_queue_receive)      /* ReceiveMessageQueue */
+NSTUB(    0x1BE1,  msg_queue_create)                        /* CreateMessageQueue */
+NSTUB(    0x1E2B,  msg_queue_count)                         /* used in "[TASK ERROR] GetNumOfEvent" */
+NSTUB(    0x1DF5,  msg_queue_post)                          /* TryPostMessageQueue */
+NSTUB(    0x1CA1,  msg_queue_receive)                       /* ReceiveMessageQueue */
 
 /** PTP **/
 //NSTUB(0x????????,  ptp_register_handler)
 
 /** Properties **/
-NSTUB(0xFE42CCB7, _prop_request_change)    /* pRequestChange */
-NSTUB(0xFE49EA3B,  prop_register_slave)    /* pRegisterSlave */
-NSTUB(0xFE49EF93,  prop_deliver)           /* pDeliverProperty */
-NSTUB(0xFE49F023, _prop_cleanup)           /* called at the end of property handlers */
+NSTUB(0xFE42CCB7, _prop_request_change)                     /* pRequestChange */
+NSTUB(0xFE49EA3B,  prop_register_slave)                     /* pRegisterSlave */
+NSTUB(0xFE49EF93,  prop_deliver)                            /* pDeliverProperty */
+NSTUB(0xFE49F023, _prop_cleanup)                            /* called at the end of property handlers */
 
 /** Recursive locks **/
 //NSTUB(0x????????,  CreateRecursiveLock)
@@ -209,7 +209,7 @@ NSTUB(0xFE9F6A47,  LockEngineResources)
 NSTUB(0xFE2EE86D,  UnLockEngineResources)
 
 /** Semaphores **/
-NSTUB(     0x1D1,  create_named_semaphore)     /* CreateBinarySemaphore */
+NSTUB(     0x1D1,  create_named_semaphore)                  /* CreateBinarySemaphore */
 NSTUB(     0x33F,  give_semaphore)
 NSTUB(     0x2C7,  take_semaphore)
 
