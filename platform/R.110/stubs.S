@@ -27,71 +27,71 @@
 
 #include <stub.h>
 
-/* All functions are Thumb. The least significant bit needs to be set manually. */
+/* All functions are Thumb. */
 
 
 /** Startup **/
 NSTUB( ROMBASEADDR, firmware_entry )
-NSTUB(0xE00400FD,  cstart)                                  /* calls bzero32 and create_init_task(..., init_task, ...) */
-NSTUB(0xE05A4429,  bzero32)                                 /* zeros out a data structure */
-NSTUB(0xE011E099,  create_init_task)                        /* low-level DryOS initialization */
-NSTUB(0xE031BEE5,  dcache_clean)                            /* loop with MCR p15 c7,c10,1; DSB */
-NSTUB(0xE031BFB9,  icache_invalidate)                       /* loop with MCR p15 c7,c5,1; c7,c1,6; c7,c1,0; ISB */
-NSTUB(0xE0040225,  init_task)                               /* USER_MEM size checking, dmSetup, termDriverInit, stdlibSetup etc */
+THUMB_FN(0xE00400FC,  cstart)                               /* calls bzero32 and create_init_task(..., init_task, ...) */
+THUMB_FN(0xE05A4428,  bzero32)                              /* zeros out a data structure */
+THUMB_FN(0xE011E098,  create_init_task)                     /* low-level DryOS initialization */
+THUMB_FN(0xE031BEE4,  dcache_clean)                         /* loop with MCR p15 c7,c10,1; DSB */
+THUMB_FN(0xE031BFB8,  icache_invalidate)                    /* loop with MCR p15 c7,c5,1; c7,c1,6; c7,c1,0; ISB */
+THUMB_FN(0xE0040224,  init_task)                            /* USER_MEM size checking, dmSetup, termDriverInit, stdlibSetup etc */
 
 /** Tasks **/
-NSTUB(    0x1010,  current_interrupt)                       /* from interrupt handler (VBAR + 0x18); where the interrupt ID is stored */
-NSTUB(    0x1028,  current_task)                            /* from task_create; pointer to the current task structure */
-NSTUB(0xE058AD17,  msleep)                                  /* argument is always multiple of 10 */
-NSTUB(0xE055A663,  task_create)                             /* used to start TaskMain, GuiMainTask etc */
+DATA_PTR(    0x1010,  current_interrupt)                    /* from interrupt handler (VBAR + 0x18); where the interrupt ID is stored */
+DATA_PTR(    0x1028,  current_task)                         /* from task_create; pointer to the current task structure */
+THUMB_FN(0xE058AD16,  msleep)                               /* argument is always multiple of 10 */
+THUMB_FN(0xE055A662,  task_create)                          /* used to start TaskMain, GuiMainTask etc */
 
 /** File I/O **/
-NSTUB(0xE057C3D3, _FIO_CreateFile)
-NSTUB(0xE057C321, _FIO_OpenFile)
-NSTUB(0xE057CB5B,  FIO_CloseFile)
-NSTUB(0xE057C7AB, _FIO_ReadFile)
-NSTUB(0xE057C947, _FIO_WriteFile)
-NSTUB(0xE057C887,  FIO_SeekSkipFile)                        // guess: Search?!
-NSTUB(0xE057CCF7, _FIO_GetFileSize)                         // AcqSize
-NSTUB(0xE057C711, _FIO_RemoveFile)
-NSTUB(0xE057D72D, _FIO_RenameFile)
-NSTUB(0xE057DBB5, _FIO_CreateDirectory)
-NSTUB(0xE057E017, _FIO_FindFirstEx)                         // FirstEnt
-NSTUB(0xE057E10F,  FIO_FindNextEx)                          // NextEnt
-NSTUB(0xE057E1D1,  FIO_FindClose)                           // CloseEnt
-NSTUB(0xE057DD9F,  FIO_Flush)                               // to be called after FIO_CloseFile?
+THUMB_FN(0xE057C3D2, _FIO_CreateFile)
+THUMB_FN(0xE057C320, _FIO_OpenFile)
+THUMB_FN(0xE057CB5A,  FIO_CloseFile)
+THUMB_FN(0xE057C7AA, _FIO_ReadFile)
+THUMB_FN(0xE057C946, _FIO_WriteFile)
+THUMB_FN(0xE057C886,  FIO_SeekSkipFile)                     // guess: Search?!
+THUMB_FN(0xE057CCF6, _FIO_GetFileSize)                      // AcqSize
+THUMB_FN(0xE057C710, _FIO_RemoveFile)
+THUMB_FN(0xE057D72C, _FIO_RenameFile)
+THUMB_FN(0xE057DBB4, _FIO_CreateDirectory)
+THUMB_FN(0xE057E016, _FIO_FindFirstEx)                      // FirstEnt
+THUMB_FN(0xE057E10E,  FIO_FindNextEx)                       // NextEnt
+THUMB_FN(0xE057E1D0,  FIO_FindClose)                        // CloseEnt
+THUMB_FN(0xE057DD9E,  FIO_Flush)                            // to be called after FIO_CloseFile?
 
 /** Debug messages **/
-NSTUB(0xE05A4601,  DryosDebugMsg)                           /* lots of debug messages; format string is third argument */
+THUMB_FN(0xE05A4600,  DryosDebugMsg)                        /* lots of debug messages; format string is third argument */
 
 /** Dumper **/
-NSTUB(0xE00BD653,  dump_file)                               /* tries to save a file to either "A:/%s" or "B:/%s"; calls FIO_RemoveFile/CreateFile/WriteFile/CloseFile/Flush */
+THUMB_FN(0xE00BD652,  dump_file)                            /* tries to save a file to either "A:/%s" or "B:/%s"; calls FIO_RemoveFile/CreateFile/WriteFile/CloseFile/Flush */
 
 /** Eventprocs (call by name) **/
-NSTUB(0xE0594383,  call)                                    /* used in ElectricCurrentFirm */
+THUMB_FN(0xE0594382,  call)                                 /* used in ElectricCurrentFirm */
 
 /** GUI timers **/
-NSTUB(0xE03B65F3,  SetHPTimerNextTick)                      /* next function; same "worker" as SetHPTimerAfterNow */
-NSTUB(0xE03B6593,  SetHPTimerAfterNow)                      /* System::HPTimer.c */
-NSTUB(0xE057BE2D,  SetTimerAfter)                           /* from error message */
-NSTUB(0xE057BEE3,  CancelTimer)                             /* CancelRefreshTimer, CancelPlayTimer */
+THUMB_FN(0xE03B65F2,  SetHPTimerNextTick)                   /* next function; same "worker" as SetHPTimerAfterNow */
+THUMB_FN(0xE03B6592,  SetHPTimerAfterNow)                   /* System::HPTimer.c */
+THUMB_FN(0xE057BE2C,  SetTimerAfter)                        /* from error message */
+THUMB_FN(0xE057BEE2,  CancelTimer)                          /* CancelRefreshTimer, CancelPlayTimer */
 
 /** Memory allocation **/
-NSTUB(0xE0593B25, _AllocateMemory)                          /* NG AllocateMemory */
-NSTUB(0xE0593CDD, _FreeMemory)                              /* uses the same heap */
-NSTUB(0xE05939AF,  GetMemoryInformation)                    /* called from AllocateMemory */
-NSTUB(0xE0593983,  GetSizeOfMaxRegion)                      /* same */
-NSTUB(0xE0593585, _alloc_dma_memory)                        /* allocates 64 bytes more, aligns at 32 and sets the uncacheable bit */
-NSTUB(0xE05935B9, _free_dma_memory)                         /* paired with the above; clears the uncacheable bit and frees the raw pointer */
-NSTUB(0xE02A40F9, _malloc)                                  /* see "can't malloc"
-NSTUB(0xE02A4131, _free)                                    /* next function; paired with the above */
+THUMB_FN(0xE0593B24, _AllocateMemory)                       /* NG AllocateMemory */
+THUMB_FN(0xE0593CDC, _FreeMemory)                           /* uses the same heap */
+THUMB_FN(0xE05939AE,  GetMemoryInformation)                 /* called from AllocateMemory */
+THUMB_FN(0xE0593982,  GetSizeOfMaxRegion)                   /* same */
+THUMB_FN(0xE0593584, _alloc_dma_memory)                     /* allocates 64 bytes more, aligns at 32 and sets the uncacheable bit */
+THUMB_FN(0xE05935B8, _free_dma_memory)                      /* paired with the above; clears the uncacheable bit and frees the raw pointer */
+THUMB_FN(0xE02A40F8, _malloc)                               /* see "can't malloc"
+THUMB_FN(0xE02A4130, _free)                                 /* next function; paired with the above */
 
 /** Memory info **/
-NSTUB(0xE00CDE11,  malloc_info)                             /* Malloc Information */
-NSTUB(0xE008CAC9,  memmap_info)                             /* Exception vector, DRYOS system memory etc */
-NSTUB(0xE0159F8B,  smemShowFix)                             /* Common Lower, Common Upper etc */
-NSTUB(0xE00CDEA9,  sysmem_info)                             /* System Memory Information */
+THUMB_FN(0xE00CDE10,  malloc_info)                          /* Malloc Information */
+THUMB_FN(0xE008CAC8,  memmap_info)                          /* Exception vector, DRYOS system memory etc */
+THUMB_FN(0xE0159F8A,  smemShowFix)                          /* Common Lower, Common Upper etc */
+THUMB_FN(0xE00CDEA8,  sysmem_info)                          /* System Memory Information */
 
 /** Misc **/
-NSTUB(0xE058E62D,  uart_printf)
-NSTUB(0xE0064549,  vsnprintf)                               /* called by LogFile_printf(..., "*Data Lost*\n", ...); the one called by DebugMsg only knows %s */
+THUMB_FN(0xE058E62C,  uart_printf)
+THUMB_FN(0xE0064548,  vsnprintf)                            /* called by LogFile_printf(..., "*Data Lost*\n", ...); the one called by DebugMsg only knows %s */

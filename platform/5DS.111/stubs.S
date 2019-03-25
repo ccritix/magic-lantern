@@ -30,38 +30,38 @@
 
 /** Startup **/
 NSTUB(ROMBASEADDR, firmware_entry )
-NSTUB(0xFE0A0B19,  cstart)                                  // Thumb
-NSTUB(0xFE683258,  bzero32)
-NSTUB(0xFE3F3958,  create_init_task)
-NSTUB(0xFE0EE525,  init_task)                               // Thumb
+THUMB_FN(0xFE0A0B18,  cstart)
+ARM32_FN(0xFE683258,  bzero32)
+ARM32_FN(0xFE3F3958,  create_init_task)
+THUMB_FN(0xFE0EE524,  init_task)
 
 /** Tasks **/
-NSTUB(0xFE3F3E90,  msleep)
-NSTUB(0xFE3F3E08,  task_create)
+ARM32_FN(0xFE3F3E90,  msleep)
+ARM32_FN(0xFE3F3E08,  task_create)
 
 /** File I/O **/
-NSTUB(0xFE46D44F,  FIO_CreateFile)
-NSTUB(0xFE46D3D9,  FIO_OpenFile)                            // or OpenFile?
-NSTUB(0xFE46D6A5,  FIO_CloseFile)
-NSTUB(0xFE46D525,  FIO_ReadFile)
-NSTUB(0xFE46D637,  FIO_WriteFile)
-NSTUB(0xFE46D595,  FIO_SeekSkipFile)
-NSTUB(0xFE46D791,  FIO_GetFileSize)
-NSTUB(0xFE46D4B9,  FIO_RemoveFile)
-NSTUB(0xFE46D707,  FIO_CreateDirectory)
-NSTUB(0xFEE9A849,  FIO_FindFirstEx)
-NSTUB(0xFEE9A841,  FIO_FindNextEx)
-NSTUB(0xFEE9A839,  FIO_FindClose)
+THUMB_FN(0xFE46D44E,  FIO_CreateFile)
+THUMB_FN(0xFE46D3D8,  FIO_OpenFile)                         // or OpenFile?
+THUMB_FN(0xFE46D6A4,  FIO_CloseFile)
+THUMB_FN(0xFE46D524,  FIO_ReadFile)
+THUMB_FN(0xFE46D636,  FIO_WriteFile)
+THUMB_FN(0xFE46D594,  FIO_SeekSkipFile)
+THUMB_FN(0xFE46D790,  FIO_GetFileSize)
+THUMB_FN(0xFE46D4B8,  FIO_RemoveFile)
+THUMB_FN(0xFE46D706,  FIO_CreateDirectory)
+THUMB_FN(0xFEE9A848,  FIO_FindFirstEx)
+THUMB_FN(0xFEE9A840,  FIO_FindNextEx)
+THUMB_FN(0xFEE9A838,  FIO_FindClose)
 // NSTUB(    ???, _FIO_RenameFile)                          /* present on 60D.111, 6D.113, 600D.102, 650D.104, 550D.109, 1100D.105, EOSM.202, 700D.113 */
 
 /** Slave Comm **/
-NSTUB(0xFE3F3B04,  BulkInIPCTransfer)
-NSTUB(0xFE3F3980,  BulkOutIPCTransfer)
+ARM32_FN(0xFE3F3B04,  BulkInIPCTransfer)
+ARM32_FN(0xFE3F3980,  BulkOutIPCTransfer)
 
 /** Misc **/
-NSTUB(0xFE3F3D80,  AllocateUncacheableMemory)
-NSTUB(0xFE3F3E58,  FreeUncachableMemory)
-NSTUB(    0x1C80,  get_current_task_id)
-NSTUB(0xFE221339,  get_task_name)
-NSTUB(0xFE48B081,  sprintf)
-NSTUB(    0x1D70,  vsnprintf)
+ARM32_FN(0xFE3F3D80,  AllocateUncacheableMemory)
+ARM32_FN(0xFE3F3E58,  FreeUncachableMemory)
+ARM32_FN(    0x1C80,  get_current_task_id)
+THUMB_FN(0xFE221338,  get_task_name)
+THUMB_FN(0xFE48B080,  sprintf)
+ARM32_FN(    0x1D70,  vsnprintf)

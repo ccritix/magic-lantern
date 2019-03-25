@@ -100,16 +100,21 @@ def parse_stub(inp_file):
             categ = "Misc"
         
         # parse NSTUB entries
-        m = re.match(r"(.*)\s*NSTUB\s*\(([^,]*),([^\)]*)\)(.*)", l)
+        m = re.match(r"(.*)\s*(NSTUB|ARM32_FN|THUMB_FN|DATA_PTR)\s*\(([^,]*),([^\)]*)\)(.*)", l)
         if m:
             prefix = m.groups()[0]
-            addr_raw = m.groups()[1]
-            name_raw = m.groups()[2]
-            comment = m.groups()[3]
+            stub_type = m.groups()[1]
+            addr_raw = m.groups()[2]
+            name_raw = m.groups()[3]
+            comment = m.groups()[4]
             
             name = name_raw.strip()
-            try: addr = eval(addr_raw)
-            except: addr = 0
+            try:
+                addr = eval(addr_raw)
+                if stub_type == "THUMB_FN": addr |= 1;
+                if stub_type == "ARM32_FN": addr &= ~3;
+            except:
+                addr = 0
             
             try: cam = os.path.split(inp_file)[0]
             except: cam = 0
@@ -117,7 +122,7 @@ def parse_stub(inp_file):
             c = categ
             if l.startswith("///"): c = porting_notes_categ
 
-            stub = Bunch(name=name, addr=addr, categ=c, raw_line=l, camera=cam)
+            stub = Bunch(name=name, addr=addr, categ=c, raw_line=l, camera=cam, type=stub_type)
             
             if name in names2stubs:
                 # abort on consistency errors, rather than screwing up the output
@@ -183,7 +188,7 @@ def lookup_mising_stubs(stubs1, stubs2):
             formatted_name = " " + name
             if formatted_name[1] == '_':
                 formatted_name = formatted_name[1:]
-            code = "// NSTUB(%7s, %s)" % ("???", formatted_name)
+            code = "// %s(0x????????, %s)" % (stub.type, formatted_name)
             dummy_line = "%-60s%s" % (code, "/* present on %s */" % (", ".join(other_cams)))
             
             dummy_stub = Bunch(

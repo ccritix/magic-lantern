@@ -10,20 +10,27 @@ from functools import reduce
 def isStub(string):
     string = string.strip()
     if(len(string) <= 0): return False
-    return string.startswith("NSTUB")
-
+    for prefix in ["NSTUB", "ARM32_FN", "THUMB_FN", "DATA_PTR"]:
+        if string.startswith(prefix):
+            return True
+    return False
 
 def parseStub(stub, defines):
     stub = replaceDefines(stub, defines)
     if not isStub(stub): return None
     stub = stub.strip()
     stub = re.sub(r"(//.*)$","",stub)
-    matcher = re.compile("^NSTUB\s*\(\s*(.+)\s*,\s*(\S+)\s*\).*$")
+    matcher = re.compile("^(NSTUB|ARM32_FN|THUMB_FN|DATA_PTR)\s*\(\s*(.+)\s*,\s*(\S+)\s*\).*$")
     matches = matcher.match(stub)
-    if(matches and len(matches.groups()) >= 2):
+    if(matches and len(matches.groups()) >= 3):
         gs = matches.groups()
         try:
-            return (gs[1].strip(), eval(gs[0]))
+            stub_type = gs[0]
+            name = gs[2].strip()
+            addr = eval(gs[1])
+            if stub_type == "THUMB_FN": addr |= 1;
+            if stub_type == "ARM32_FN": addr &= ~3;
+            return (name, addr)
         except Exception:
             return None
 
