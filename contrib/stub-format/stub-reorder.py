@@ -195,20 +195,40 @@ def lookup_mising_stubs(stubs1, stubs2):
             c2s1[stub.categ].append(dummy_stub)
 
 def stub_sort(stub):
-    key = stub.name
+    key = stub.name.strip("_")
     
     # some exceptions for the startup group
-    custom_keys = {"firmware_entry": "0", "cstart": "1", "additional_version": "z"}
+    custom_keys = {
+        "firmware_entry"        : chr(0),                   # this one should be first
+        "cstart"                : chr(1),                   # this too, in its group
+        "bzero32"               : chr(2),                   # this is next
+        "additional_version"    : "z",                      # this one should be last in its group
+        "free"                  : "malloc1",                # free should be right after malloc
+        "free_dma_memory"       : "alloc_dma_memory1",      # free should be right after malloc
+    }
 
-    if stub.name in custom_keys:
-        key = custom_keys[stub.name]    # forced ordering?
+    # stubs with these substrings should be first/second/last in their (sub-)group
+    should_be_first  = ["createfile", "openfile", "closefile", "readfile", "writefile", "seekskipfile",
+                        "first", "next", "create", "delete", "open", "close"]
+    should_be_last   = ["cancel", "flush"]
+    for i,k in enumerate(should_be_first + should_be_last):
+        if k in key.lower():
+            p = key.lower().index(k)
+            char = (chr(i) if k in should_be_first else "|")
+            key = key[:p] + char + key[p:]
+            break
+
+    if key in custom_keys:
+        key = custom_keys[key]                              # custom keys for certain stubs
     elif "???," in stub.raw_line:
-        key = "zz" + key                # force stubs present on other cameras at the end
+        key = "zz" + key                                    # force stubs present on other cameras at the end
     elif stub.raw_line.strip().startswith("//"):
-        key = "z" + key                 # force unused addresses at the end
-    elif "NSTUB(  " in stub.raw_line:
-        key = "1" + key                 # force small addresses at the beginning
-    
+        key = "z" + key                                     # force unused addresses at the end
+    elif "file" in key.lower():
+        key = "@" + key                                     # file functions should be first
+    elif key.startswith("prop_"):
+        key = [-ord(ch) for ch in key]                      # property functions: logical order is the opposite of alphabetical
+
     return key
 
 def print_stubs(stubs, file):
