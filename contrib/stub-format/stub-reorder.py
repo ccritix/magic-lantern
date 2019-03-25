@@ -299,10 +299,11 @@ for k,s in enumerate(stubs):
     for s2 in orig_stubs:
         merge_stubs(s, s2)  # merging with itself should not change anything
 
-# find stubs present on other cameras
-for k,s in enumerate(stubs):
-    for s2 in stubs:
-        lookup_mising_stubs(s, s2)
+# optional: find stubs present on other cameras
+if False:
+    for k,s in enumerate(stubs):
+        for s2 in stubs:
+            lookup_mising_stubs(s, s2)
 
 # print the results
 for k,s in enumerate(stubs):
