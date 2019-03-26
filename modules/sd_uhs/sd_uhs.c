@@ -94,7 +94,7 @@ static unsigned int sd_uhs_init()
     	sd_uhs_patch();
     }
 
-    if ((!is_camera("EOSM", "2.0.2")) && (!is_camera("100D", "1.0.1")))
+    if ((!is_camera("EOSM", "2.0.2")) && (!is_camera("100D", "1.0.1")) && (is_camera("700D", "1.1.5")))
     {
     	NotifyBox(2000, "sd_uhs.mo only works for eosm and 100D in this build");
     }
@@ -130,7 +130,7 @@ static unsigned int sd_uhs_init()
         sd_setup_mode_in    = 0xFF337770;   /* right before the switch */
         sd_setup_mode_reg   = 1;            /* switch variable is in R1 (likely all D5 other than 5D3) */
         sd_set_function     = 0xFF748F18;
-     /* sd_uhs_patch(); */    }
+        sd_uhs_patch();     }
 
     if (is_camera("6D", "1.1.6"))
     {
