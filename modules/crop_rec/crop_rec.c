@@ -1660,7 +1660,14 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;
 
 	     case CROP_PRESET_3x3_mv1080_700D:
-		adtg_new[0] = (struct adtg_new) {6, 0x800C, 2};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2};
+		adtg_new[3] = (struct adtg_new) {6, 0x8172, 0x6fd};
+		adtg_new[4] = (struct adtg_new) {6, 0x8173, 0x453};
+		adtg_new[5] = (struct adtg_new) {6, 0x8178, 0x6fd};
+		adtg_new[6] = (struct adtg_new) {6, 0x8179, 0x453};
+		adtg_new[7] = (struct adtg_new) {6, 0x8196, 0x12e};
+		adtg_new[8] = (struct adtg_new) {6, 0x8197, 0x38c};
+		adtg_new[9] = (struct adtg_new) {6, 0x82b6, 0x6f4};
 		break;
 
             /* 3x1 binning (bin every 3 lines, read every column) */
@@ -1678,7 +1685,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
     /* these should work on all presets, on all DIGIC 5 models and also on recent DIGIC 4 */
-    if ((1) && !(CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) && !(CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D))
+    if ((1) && (CROP_PRESET_MENU != CROP_PRESET_mv1080p_mv720p_100D) && (CROP_PRESET_MENU != CROP_PRESET_3xcropmode_100D) && (CROP_PRESET_MENU != CROP_PRESET_3x3_mv1080_700D))
     {
         /* assuming FPS timer B was overridden before this */
         int fps_timer_b = (shamem_read(0xC0F06014) & (0xFFFF + reg_timing5));
@@ -4447,7 +4454,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
     {
         if (is_supported_mode())
         {
-            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D)
+            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D)
             {
                 return 1;
             }
