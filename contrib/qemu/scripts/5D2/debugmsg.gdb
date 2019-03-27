@@ -22,4 +22,10 @@ task_create_log
 b *0xFF9B3CB4
 register_interrupt_log
 
+b *0xFF86BC04
+register_func_log
+
+b *0xFF9B9250
+CreateStateObject_log
+
 cont

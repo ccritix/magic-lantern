@@ -20,6 +20,9 @@ macro define CURRENT_ISR  (MEM(0x670) ? MEM(0x674) >> 2 : 0)
 b *0x8b10
 task_create_log
 
+b *0x179A0
+CreateStateObject_log
+
 b *0x83B8
 register_interrupt_log
 
@@ -30,9 +33,15 @@ if MEM(0xFF136C94) == 0xE92D403E
 end
 
 # 1.1.3
-if 0
-  b *0xFF13B630
+if MEM(0xFF6AB08C) == 0xE92D4FFE
+  b *0xFF13B5B0
   register_func_log
+
+  b *0xFF13B68C
+  call_by_name_log
+
+  b *0xFF1425F8
+  register_cmd_log
 end
 
 # semaphores
@@ -87,11 +96,6 @@ if 0
 
   b *0xFF2E8C78
   prop_lookup_maybe_log
-end
-
-if 0
-  b *0x179A0
-  CreateStateObject_log
 end
 
 # 1.1.3

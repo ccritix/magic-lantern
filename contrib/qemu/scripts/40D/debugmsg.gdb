@@ -10,7 +10,7 @@ source -v debug-logging.gdb
 
 macro define CURRENT_TASK 0x22E00
 macro define CURRENT_TASK_NAME (((int*)CURRENT_TASK)[0] ? ((char***)CURRENT_TASK)[0][13] : CURRENT_TASK)
-macro define CURRENT_ISR  0
+macro define CURRENT_ISR  (MEM(0xF050) ? MEM(0x25F80) : 0)
 
 # GDB hook is very slow; -d debugmsg is much faster
 # ./run_canon_fw.sh will use this address, don't delete it
@@ -28,6 +28,12 @@ msleep_log
 
 b *0xFFD427B0
 register_interrupt_log
+
+b *0xFFD3E45C
+register_func_old_log
+
+b *0xFFD4EE48
+CreateStateObject_log
 
 # MPU communication
 if 0

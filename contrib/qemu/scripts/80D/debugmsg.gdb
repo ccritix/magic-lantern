@@ -29,6 +29,12 @@ register_interrupt_log
 b *0xFE4841B4
 register_func_log
 
+b *0xFE48422E
+call_by_name_log
+
+b *0x12AE
+CreateStateObject_log
+
 # MPU communication
 if 0
   b *0xFE253C0E
@@ -38,11 +44,7 @@ if 0
   mpu_recv_log
 end
 
-# state objects
 if 1
-  b *0x12AE
-  CreateStateObject_log
-
   b *0x1224
   state_transition_log
 end

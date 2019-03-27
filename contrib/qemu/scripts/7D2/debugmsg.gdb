@@ -1,8 +1,8 @@
-# ./run_canon_fw.sh 7D2M -d debugmsg
-# ./run_canon_fw.sh 7D2M -d debugmsg -s -S & arm-none-eabi-gdb -x 7D2M/debugmsg.gdb
+# ./run_canon_fw.sh 7D2 -d debugmsg
+# ./run_canon_fw.sh 7D2 -d debugmsg -s -S & arm-none-eabi-gdb -x 7D2/debugmsg.gdb
 
 source -v debug-logging.gdb
-source -v 7D2M/patches.gdb
+source -v 7D2/patches.gdb
 
 # To get debugging symbols from Magic Lantern, uncomment one of these:
 #symbol-file ../magic-lantern/platform/7D2.104/magiclantern
@@ -25,6 +25,12 @@ msleep_log
 
 b *0x16D8
 register_interrupt_log
+
+b *0xFE109834
+register_func_log
+
+b *0x206A
+CreateStateObject_log
 
 # semaphores
 if 0

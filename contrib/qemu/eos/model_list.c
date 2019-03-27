@@ -7,7 +7,7 @@ struct eos_model_desc eos_model_list[] = {
         /* defaults for DIGIC 3 cameras */
         .digic_version          = 3,
         .rom1_addr              = 0xF8000000,
-        .rom1_size              = 0x00800000,
+        .rom1_size              = 0x00800000,   /* 8MB */
       //.ram_size               = 0x08000000,   /* prefer to specify exact size for each model */
         .caching_bit            = 0x10000000,
         .atcm_addr              = 0x00000000,
@@ -48,7 +48,7 @@ struct eos_model_desc eos_model_list[] = {
         .ram_size               = 0x08000000,   /* 128MB (guess) */
         .mmio_size              = 0x20000000,
         .card_led_address       = 0xC02200A0,
-     /* .current_task_addr      = 0x2D2C4  */   /* fixme: it's MEM(0x2D2C4) */
+        .current_task_addr      = 0x2D2C4,
         .dedicated_movie_mode   = -1,
     },
     {
@@ -94,9 +94,9 @@ struct eos_model_desc eos_model_list[] = {
         .digic_version          = 4,
         /* note: some cameras have smaller ROMs, or only one ROM */
         .rom0_addr              = 0xF0000000,
-        .rom0_size              = 0x01000000,
+      //.rom0_size              = 0x01000000,   /* optional, not all cameras have it */
         .rom1_addr              = 0xF8000000,
-        .rom1_size              = 0x01000000,
+        .rom1_size              = 0x01000000,   /* 8MB */
       //.ram_size               = 0x20000000,   /* prefer to specify exact size for each model */
         .caching_bit            = 0x40000000,
         .atcm_addr              = 0x00000000,
@@ -132,6 +132,8 @@ struct eos_model_desc eos_model_list[] = {
     {
         .name                   = "50D",
         .digic_version          = 4,
+        .rom0_size              = 0x00400000,   /* 4MB */
+        .rom1_size              = 0x00800000,   /* 8MB */
         .ram_size               = 0x20000000,   /* 512MB */
         .card_led_address       = 0xC02200BC,
         .cf_driver_interrupt    = 0x82,
@@ -145,6 +147,8 @@ struct eos_model_desc eos_model_list[] = {
     {
         .name                   = "5D2",
         .digic_version          = 4,
+        .rom0_size              = 0x00400000,   /* 4MB */
+        .rom1_size              = 0x00800000,   /* 8MB */
         .ram_size               = 0x20000000,   /* 512MB */
         .firmware_start         = 0xFF810000,
         .card_led_address       = 0xC02200BC,
@@ -220,8 +224,8 @@ struct eos_model_desc eos_model_list[] = {
         .name                   = "1300D",
         .digic_version          = 4,
         .ram_size               = 0x10000000,   /* 256MB */
-        .rom0_size              = 0x02000000,
-        .rom1_size              = 0x02000000,
+        .rom0_size              = 0x02000000,   /* 32MB */
+        .rom1_size              = 0x02000000,   /* 32MB */
         .firmware_start         = 0xFF0C0000,
         .dryos_timer_id         = 1,            /* set to 10ms; run with -d io,int,v to find it */
         .dryos_timer_interrupt  = 0x09,         /* enabled right before setting the timer value */
@@ -235,12 +239,14 @@ struct eos_model_desc eos_model_list[] = {
         .rtc_time_correct       = 0xFD,         /* RTC_TIME_CORRECT_CHANGE */
         .rtc_cs_register        = 0xC022D0B8,   /* GPIO set/cleared in rtc_read */
         .dedicated_movie_mode   = 1,
+      //.imgpowdet_register     = 0xC022F484,   /* Image Power Failure (FIXME: shared with mpu_status_register)  */
+      //.imgpowdet_register_bit = 0x00080000,   /* register and bit checked to print that message */
     },
     {
         .name                   = "A1100",
         .digic_version          = 4,
         .rom0_size              = 0x400000,     /* fixme: unknown */
-        .rom1_size              = 0x400000,
+        .rom1_size              = 0x400000,     /* 4MB */
         .ram_size               = 0x04000000,   /* only 64M */
         .btcm_addr              = 0x80000000,
         .mmio_size              = 0x01000000,
@@ -252,9 +258,9 @@ struct eos_model_desc eos_model_list[] = {
         /* defaults for DIGIC 5 cameras */
         .digic_version          = 5,
         .rom0_addr              = 0xF0000000,
-        .rom0_size              = 0x01000000,
+      //.rom0_size              = 0x01000000,   /* optional, not all cameras have it */
         .rom1_addr              = 0xF8000000,
-        .rom1_size              = 0x01000000,
+        .rom1_size              = 0x01000000,   /* 16MB */
       //.ram_size               = 0x20000000,   /* prefer to specify exact size for each model */
         .caching_bit            = 0x40000000,
         .atcm_addr              = 0x00000000,
@@ -294,6 +300,7 @@ struct eos_model_desc eos_model_list[] = {
     {
         .name                   = "5D3",
         .digic_version          = 5,
+        .rom0_size              = 0x00800000,   /* 8MB */
         .ram_size               = 0x20000000,   /* 512MB */
         .current_task_addr      = 0x23E14,
         .mpu_request_register   = 0xC02200BC,   /* written in mpu_send (run with -d io) */
@@ -330,6 +337,7 @@ struct eos_model_desc eos_model_list[] = {
     {
         .name                   = "6D",
         .digic_version          = 5,
+        .rom0_size              = 0x00800000,   /* 8MB */
         .ram_size               = 0x20000000,   /* 512MB */
         .card_led_address       = 0xC022C184,
         .mpu_request_register   = 0xC02200BC,   /* written in mpu_send (run with -d io) */
@@ -378,6 +386,7 @@ struct eos_model_desc eos_model_list[] = {
     {
         .name                   = "EOSM2",
         .digic_version          = 5,
+        .rom0_size              = 0x01000000,   /* 16MB */
         .ram_size               = 0x10000000,   /* 256MB */
         .current_task_addr      = 0x8FBCC,
         .serial_flash_size      = 0x1000000,
@@ -400,6 +409,7 @@ struct eos_model_desc eos_model_list[] = {
     {
         .name                   = "70D",
         .digic_version          = 5,
+        .rom0_size              = 0x00800000,   /* 8MB */
         .ram_size               = 0x20000000,   /* 512MB */
         .current_task_addr      = 0x7AAC0,
         .mpu_request_register   = 0xC02200BC,   /* written in mpu_send (run with -d io) */
@@ -417,9 +427,9 @@ struct eos_model_desc eos_model_list[] = {
     {
         /* defaults for DIGIC 6 cameras */
         .digic_version          = 6,
-        .rom0_size              = 0,    /* not dumped yet, camera locks up (?!) */
+        .rom0_size              = 0x00000000,   /* unused? */
         .rom1_addr              = 0xFC000000,
-        .rom1_size              = 0x02000000,
+        .rom1_size              = 0x02000000,   /* 32MB */
       //.ram_size               = 0x20000000,   /* prefer to specify exact size for each model */
         .caching_bit            = 0x40000000,
         .atcm_addr              = 0x00000000,
@@ -482,12 +492,12 @@ struct eos_model_desc eos_model_list[] = {
         .serial_flash_sio_ch    = 2,
     },
     {
-        .name                   = "7D2M",
+        .name                   = "7D2",
         .digic_version          = 6,
         .ram_size               = 0x20000000,   /* 512MB */
         .current_task_addr      = 0x28568,
         .card_led_address       = 0xD20B0C34,
-        .ram_manufacturer_id    = 0x18000103,   /* 80D bootloader */
+        .ram_manufacturer_id    = 0x14000101,
     },
     {
         .name                   = "7D2S",
@@ -510,6 +520,7 @@ struct eos_model_desc eos_model_list[] = {
         .mpu_mreq_interrupt     = 0x12A,        /* MREQ_ISR in InitializeIntercom */
         .serial_flash_size      = 0x1000000,
         .serial_flash_sio_ch    = 0,
+        .serial_flash_interrupt = 0x10E,
         .serial_flash_cs_register = 0xD20B037C,
         .imgpowdet_register     = 0xD20B2294,   /* Image Power Failure */
         .imgpowdet_register_bit = 0x00010000,   /* register and bit checked to print that message */
@@ -529,7 +540,7 @@ struct eos_model_desc eos_model_list[] = {
         .ram_size               = 0x20000000,   /* 512MB? */
         .firmware_start         = 0xFC000000,
         .rom0_addr              = 0xFB800000,
-        .rom0_size              = 0x800000,
+        .rom0_size              = 0x800000,     /* 8MB */
         .current_task_addr      = 0x803C,
         .card_led_address       = 0xD20B0994,
     },
@@ -539,7 +550,7 @@ struct eos_model_desc eos_model_list[] = {
         .ram_size               = 0x20000000,   /* 512MB? */
         .firmware_start         = 0xFC000000,
         .rom0_addr              = 0xFB800000,
-        .rom0_size              = 0x800000,
+        .rom0_size              = 0x800000,     /* 8MB */
         .current_task_addr      = 0x803C,
         .card_led_address       = 0xD20B0994,   /* unknown, copied from M3 */
     },
@@ -550,9 +561,9 @@ struct eos_model_desc eos_model_list[] = {
         .firmware_start         = 0xE0040000,
         .bootflags_addr         = 0xE1FF8000,
         .rom0_addr              = 0xE0000000,
-        .rom0_size              = 0x02000000,
+        .rom0_size              = 0x02000000,   /* 32MB (main ROM) */
         .rom1_addr              = 0xF0000000,
-        .rom1_size              = 0x01000000,
+        .rom1_size              = 0x01000000,   /* 16MB (secondary ROM) */
       //.ram_size               = 0x40000000,   /* prefer to specify exact size for each model */
         .caching_bit            = 0x40000000,
         .mmio_addr              = 0xBFE00000,   /* fixme: BFE is configured as regular RAM, but certain values are expected */
@@ -619,15 +630,13 @@ struct eos_model_desc eos_model_list[] = {
         .name                   = "EOSM5",
         .digic_version          = 7,
         .firmware_start         = 0xE0000000,
-        .rom1_addr              = 0xE0000000,
-        .rom1_size              = 0x02000000,
         .ram_size               = 0x40000000,   /* not yet known */
         .caching_bit            = 0x40000000,
         .mmio_addr              = 0xC0000000,
         .mmio_size              = 0x1F000000,
         .ram_extra_addr         = 0xDF000000,
         .ram_extra_size         = 0x01000000,
-        .current_task_addr      = 0x1020,
+        .current_task_addr      = 0x20,         /* fixme: read from virtual memory */
     },
     {
         .name = NULL,

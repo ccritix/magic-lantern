@@ -12,9 +12,9 @@ source -v debug-logging.gdb
 #symbol-file ../magic-lantern/platform/5D.111/autoexec
 #symbol-file ../magic-lantern/platform/5D.111/stubs.o
 
-macro define CURRENT_TASK (MEM(0x2D2C4) ? MEM(0x2D2C4) : 0x2D2C4)
+macro define CURRENT_TASK 0x2D2C4
 macro define CURRENT_TASK_NAME (((int*)CURRENT_TASK)[0] ? ((char***)CURRENT_TASK)[0][13] : CURRENT_TASK)
-macro define CURRENT_ISR 0
+macro define CURRENT_ISR  (MEM(0x10464) ? MEM(0x2f994) : 0)
 
 # GDB hook is very slow; -d debugmsg is much faster
 # ./run_canon_fw.sh will use this address, don't delete it
@@ -32,5 +32,25 @@ msleep_log
 
 b *0xFFB16CDC
 register_interrupt_log
+
+b *0xFFB12930
+register_func_old_log
+
+b *0xFFB22574
+CreateStateObject_log
+
+b *0xFFB4066C
+commands
+  silent
+  if $r3 == 0xF800002D
+    KYLW
+    printf "Workaround to prevent GDB from crashing...\n"
+    # before: F8000000 - F87FFFFF
+    # after:  E0000000 - FFFFFFFF (background region for the entire ROM area)
+    set $r3 = 0xE0000039
+    KRESET
+  end
+  c
+end
 
 cont

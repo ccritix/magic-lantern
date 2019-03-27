@@ -17,6 +17,9 @@ macro define NULL_STR 0xFFE97155
 # b *0xC14
 # DebugMsg_log
 
+b *0xFE35EFC8
+assert_log
+
 b *0x6D8
 task_create_log
 
@@ -26,8 +29,12 @@ register_interrupt_log
 b *0xFE48CE74
 register_func_log
 
+# 104: 0xFE48A7D6
+b *0xFE48CEEC
+call_by_name_log
+
 b *0x80001FC0
-create_semaphore8_log
+create_semaphore_n3_log
 
 b *0x2122
 CreateStateObject_log

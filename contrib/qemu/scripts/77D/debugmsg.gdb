@@ -9,7 +9,7 @@ source -v debug-logging.gdb
 #symbol-file ../magic-lantern/platform/77D.102/stubs.o
 
 macro define CURRENT_TASK 0x1020
-macro define CURRENT_ISR  (*(int*)0x1004 ? (*(int*)0x1008) : 0)
+macro define CURRENT_ISR  (MEM(0x1004) ? MEM(0x1008) : 0)
 macro define NUM_CORES 2
 
 # GDB hook is very slow; -d debugmsg is much faster
@@ -26,8 +26,11 @@ assert_log
 b *0xDF008274
 register_interrupt_log
 
-b *0xE04D8B94
+b *0xE04D8A74
 register_func_log
+
+b *0xDF00A1E6
+CreateStateObject_log
 
 b *0xE01E781E
 mpu_send_log

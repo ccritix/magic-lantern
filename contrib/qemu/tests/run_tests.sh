@@ -10,7 +10,7 @@
 # Caveat: this assumes no other qemu-system-arm or
 # arm-none-eabi-gdb processes are running during the tests
 
-EOS_CAMS=( 5D 5D2 5D3 5D4 6D 6D2 7D 7D2M
+EOS_CAMS=( 5D 5D2 5D3 5D4 6D 6D2 7D 7D2
            40D 50D 60D 70D 77D 80D
            400D 450D 500D 550D 600D 650D 700D 750D 760D 800D
            100D 200D 1000D 1100D 1200D 1300D EOSM EOSM2 )
@@ -30,7 +30,7 @@ SD_CAMS=( 5D3 5D4 6D 6D2 60D 70D 77D 80D
           100D 200D 1000D 1100D 1200D 1300D EOSM EOSM2 )
 
 # cameras with a CF card
-CF_CAMS=( 5D 5D2 5D3 5D4 7D 7D2M 40D 50D 400D )
+CF_CAMS=( 5D 5D2 5D3 5D4 7D 7D2 40D 50D 400D )
 
 ML_PATH=${ML_PATH:=../magic-lantern}
 
@@ -154,8 +154,8 @@ FORMAT_SEQUENCE[EOSM]="m left left left $FMT_SEQ"
 FORMAT_SEQUENCE[EOSM2]="m left left left up $FMT_SEQ"
 
 function set_gui_timeout {
-    if [ $CAM == "100D" ]; then
-        # 100D appears slower, for some reason
+    if [[ " 100D 70D 1100D 1200D 1300D EOSM EOSM2 " == *" $CAM "* ]]; then
+        # some cameras are a bit slower to boot
         GUI_TIMEOUT=10
     else
         # 500D needs less than 2 seconds; let's be a bit conservative
@@ -242,8 +242,36 @@ function vncexpect {
         if [ "$2" == "$(md5sum $4 | cut -d ' ' -f 1)" ]; then
             echo -n "."
             return 0
+
+            # enable this to check the validity of the reference screenshots
+            # i.e. whether they are transient (i.e. from some animation) or not
+            if false; then
+                # let's retry the screenshot, just to make sure it's not transient
+                mkdir -p $(dirname $4)/old
+                mv $4 $(dirname $4)/old/$(basename $4)
+                sleep 0.5
+                vncdotool -s $VNC_DISP -v -v -t $3 expect-md5 $2 capture $4 &> /dev/null
+                if [ $? == 0 ] && [ -f $4 ] && [ "$2" == "$(md5sum $4 | cut -d ' ' -f 1)" ]; then
+                    echo -n "."
+                    return 0
+                else
+                    vncdotool -s $VNC_DISP capture $4 &> /dev/null
+                    echo -ne "\e[31m¡\e[0m"
+                    return 1
+                fi
+            fi
         else
             # doesn't always work - race condition?
+            # 50D's flicker may cause this (Canon GUI keeps refreshing all the time)
+            # let's retry the screenshot a few times
+            local i
+            for i in `seq 1 5`; do
+                vncdotool -s $VNC_DISP -v -v -t $3 expect-md5 $2 capture $4 &> /dev/null
+                if [ "$2" == "$(md5sum $4 | cut -d ' ' -f 1)" ]; then
+                    echo -n ":"
+                    return 0
+                fi
+            done
             echo -ne "\e[31m¿\e[0m"
             return 1
         fi
@@ -314,7 +342,7 @@ function shutdown_qemu {
 function kill_qemu {
 
     if pidof qemu-system-arm > /dev/null; then
-        echo -e "\e[31mQEMU still running"
+        echo -e "\e[31mQEMU still running\e[0m"
     fi
 
     if killall -TERM -w qemu-system-arm 2>/dev/null; then
@@ -536,11 +564,37 @@ function test_gdb {
     sleep 10
     stop_qemu_expect_running
 
-    tac tests/$CAM/$TEST.log > tmp
-    tests/check_grep.sh tmp -Em1 "task_create\("
+    # make sure we've got at least the basics right
+    # these are very useful for auto-naming functions in the firmware 
+    local tmp="tmp$QEMU_JOB_ID"
+    tac tests/$CAM/$TEST.log > $tmp
+    tests/check_grep.sh $tmp -aEm1 "task_create\("
     echo -n "         "
-    tests/check_grep.sh tmp -Em1 "register_interrupt\([^n]"
+    tests/check_grep.sh $tmp -aEm1 "register_interrupt\([^n]"
+    echo -n "         "
+    # this one may get called near shutdown, with incomplete message;
+    # display the second last, just in case
+    tests/check_grep.sh $tmp -aEm2 "register_func\([^n]" | tail -n1
+    if grep -q "CreateStateObject" $CAM/ROM[01].BIN; then
+        echo -n "         "
+        tests/check_grep.sh $tmp -aEm1 "CreateStateObject\([^n]"
+    fi
+    rm $tmp
 }
+
+# FIXME: cannot run the 7D without boot flag yet
+# workaround: will compile minimal ML just to be able to boot the main firmware
+echo
+echo "Preparing GDB script test for 7D..."
+make MODEL=7D -C $ML_PATH/minimal/hello-world clean         &>  tests/7D/gdb-build.log
+make MODEL=7D -C $ML_PATH/minimal/hello-world install_qemu  &>> tests/7D/gdb-build.log
+
+echo
+echo "Testing main GDB script..."
+(sleep 1; echo "help user-defined"; echo "quit") | \
+    ( ./run_canon_fw.sh 500D,firmware=boot=0 -display none -s -S &
+        arm-none-eabi-gdb -x debug-logging.gdb
+    ) 2>&1 | grep -a -- "-- User-defined" && echo -e "\e[31mFAILED!\e[0m" || echo "OK"
 
 echo
 echo "Testing GDB scripts..."
@@ -1080,10 +1134,59 @@ echo "Testing file I/O (DCIM directory)..."
 # Currently works only on models that can boot Canon GUI,
 # also on single-core DIGIC 6 models, and on DIGIC 7 too.
 # we need to check the card contents; cannot run in parallel
-for CAM in ${GUI_CAMS[*]} 80D 750D 760D 77D 200D 6D2 800D; do
+for CAM in ${GUI_CAMS[*]} 5D4 80D 750D 760D 77D 200D 6D2 800D; do
     ((QEMU_JOB_ID++))
     run_test dcim $CAM
 done; cleanup
+
+
+# All EOS cameras should be able to use file I/O functions
+# from the minimal ML codebase
+function test_fio {
+    # compile it from ML dir, for each camera
+    FIO_PATH=$ML_PATH/minimal/qemu-fio
+    rm -f $FIO_PATH/autoexec.bin
+    [ "${CAM_BRANCH[$CAM]}" != "" ] && (cd $FIO_PATH; hg up qemu -C; hg merge ${CAM_BRANCH[$CAM]}; cd $OLDPWD) &>> tests/$CAM/$TEST-build.log
+    make MODEL=$CAM -C $FIO_PATH clean         &>> tests/$CAM/$TEST-build.log
+    make MODEL=$CAM -C $FIO_PATH CONFIG_QEMU=y &>> tests/$CAM/$TEST-build.log
+    (cd $FIO_PATH; hg up qemu -C; cd $OLDPWD)  &>> tests/$CAM/$TEST-build.log
+
+    if [ ! -f $FIO_PATH/autoexec.bin ]; then
+        echo -e "\e[31mCompile error\e[0m"
+        return
+    fi
+
+    # copy autoexec.bin to card images
+    mcopy -o -i $MSD $FIO_PATH/autoexec.bin ::
+    mcopy -o -i $MCF $FIO_PATH/autoexec.bin ::
+
+    # run the FIO test
+    ./run_canon_fw.sh $CAM,firmware="boot=1" -snapshot -display none -d debugmsg &> tests/$CAM/$TEST.log &
+
+    # wait for "timestamp" (header printed by the test program)
+    touch tests/$CAM/$TEST.log
+    ( timeout 20 tail -f -n100000 tests/$CAM/$TEST.log & ) | grep -aq "timestamp"
+
+    # let it run for 5 seconds
+    sleep 5
+    stop_qemu_expect_running
+
+    tac tests/$CAM/$TEST.log > tests/$CAM/$TEST-rev.log
+    tests/check_grep.sh tests/$CAM/$TEST-rev.log -Em1 "Trying (SD|CF) card..."
+    printf "         "; tests/check_grep.sh tests/$CAM/$TEST-rev.log -m1 -- "--> DCIM" || return
+    printf "         "; tests/check_grep.sh tests/$CAM/$TEST-rev.log -m1 -- "--> AUTOEXEC.BIN" || return
+    printf "         "; tests/check_grep.sh tests/$CAM/$TEST-rev.log -m1 -- "FIO_FindClose: completed" || return
+    rm tests/$CAM/$TEST-rev.log
+}
+
+echo
+echo "Testing file I/O (minimal/qemu-fio)..."
+# this requires a custom build; cannot run in parallel
+for CAM in ${EOS_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test fio $CAM
+done; cleanup
+
 
 
 # All GUI cameras should be able to format the virtual card
@@ -1192,9 +1295,9 @@ function test_hptimer {
     # run the HPTimer test
     ./run_canon_fw.sh $CAM,firmware="boot=1" -snapshot -display none &> tests/$CAM/$TEST.log &
 
-    # wait for He (Hello) from qprintf (blue, each char colored) 
+    # wait for "Hello from" (printed with qprintf)
     touch tests/$CAM/$TEST.log
-    ( timeout 1 tail -f -n100000 tests/$CAM/$TEST.log & ) | grep --binary-files=text -qP "\x1B\x5B34mH\x1B\x5B0m\x1B\x5B34me\x1B\x5B0m"
+    ( timeout 5 tail -f -n100000 tests/$CAM/$TEST.log & ) | grep -aqP "Hello from"
 
     # let it run for 1 second
     sleep 1
@@ -1302,11 +1405,10 @@ ROM_DUMPER_BIN=tests/test-progs/portable-rom-dumper/autoexec.bin
 TMP=tests/tmp
 
 mkdir -p $TMP
+rm -f $TMP/*
 
-if [ ! -f $ROM_DUMPER_BIN ]; then
-    mkdir -p `dirname $ROM_DUMPER_BIN`
-    wget -q -O $ROM_DUMPER_BIN http://a1ex.magiclantern.fm/debug/portable-rom-dumper/qemu/autoexec.bin
-fi
+mkdir -p `dirname $ROM_DUMPER_BIN`
+wget -q -O $ROM_DUMPER_BIN https://a1ex.magiclantern.fm/debug/portable-rom-dumper/qemu/autoexec.bin
 
 # we don't know whether the camera will use SD or CF, so prepare both
 mcopy -o -i $MSD $ROM_DUMPER_BIN ::
@@ -1370,22 +1472,18 @@ function check_rom_md5 {
     if mdir -i $MCF ::ROM* &> /dev/null; then mdel -i $MCF ::ROM*; fi
     if mdir -i $MSD ::SFDATA* &> /dev/null; then mdel -i $MSD ::SFDATA*; fi
     if mdir -i $MCF ::SFDATA* &> /dev/null; then mdel -i $MCF ::SFDATA*; fi
+    if mdir -i $MSD ::RESCUE.LOG &> /dev/null; then mdel -i $MSD ::RESCUE.LOG; fi
+    if mdir -i $MCF ::RESCUE.LOG &> /dev/null; then mdel -i $MCF ::RESCUE.LOG; fi
 
     # check whether other files were created/modified (shouldn't be any)
     mdir -i $MSD > $TMP/sd2.lst
     mdir -i $MCF > $TMP/cf2.lst
-    diff -q $TMP/sd.lst $TMP/sd2.lst
-    diff -q $TMP/cf.lst $TMP/cf2.lst
+    diff -u $TMP/sd.lst $TMP/sd2.lst
+    diff -u $TMP/cf.lst $TMP/cf2.lst
 }
 
 # Most EOS cameras should run the portable ROM dumper.
 function test_romdump {
-
-    # The dumper requires the "Open file for write" string present in the firmware.
-    if ! grep -q "Open file for write" $CAM/ROM[01].BIN ; then
-        echo "skipping"
-        return
-    fi
 
     # make sure there are no ROM files on the card
     if mdir -i $MSD ::ROM* &> /dev/null; then

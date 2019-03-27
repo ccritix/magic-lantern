@@ -467,9 +467,9 @@ echo
 cd $QEMU_NAME
 if [ ! -d .git ]; then
   git init
-  # git requires a valid email; if not setup, add one for this directory only
-  git config user.email || git config user.email qemu-eos@magiclantern.fm
-  git config user.name || git config user.name qemu-eos
+  # git requires a valid email; add one for this directory only
+  git config user.email qemu-eos@magiclantern.fm
+  git config user.name qemu-eos
   git add . && git commit -q -m "$QEMU_NAME vanilla"
 fi
 cd ..
@@ -501,20 +501,31 @@ patch -N -p1 < ../$ML_PATH/contrib/qemu/$QEMU_NAME.patch
 
 cd ..
 
-# setup the card image
+echo
+echo "Setting up SD/CF card images..."
+
+if [ -f "sd.img" ] || [ -f "cf.img" ]; then
+    echo -n "Replace (overwrite) old sd.img and cf.img? [y/n] "
+    read answer
+    echo
+    if test "$answer" == "Y" -o "$answer" == "y"; then
+        rm -f sd.img cf.img sd.img.xz
+    fi
+fi
+
+# always overwritten
+cp -v $ML_PATH/contrib/qemu/sd.img.xz .
+
 if [ ! -f "sd.img" ]; then
-    echo "Setting up SD card image..."
-    cp -v $ML_PATH/contrib/qemu/sd.img.xz .
     unxz -v sd.img.xz
 else
-    echo "SD image already exists, skipping."
+    echo "Keeping previous SD image."
 fi
 
 if [ ! -f "cf.img" ]; then
-    echo "Setting up CF card image..."
     cp -v sd.img cf.img
 else
-    echo "CF image already exists, skipping."
+    echo "Keeping previous CF image."
 fi
 
 echo ""

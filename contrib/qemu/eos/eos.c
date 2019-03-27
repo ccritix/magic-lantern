@@ -28,7 +28,8 @@
 #define IGNORE_CONNECT_POLL
 
 #define DIGIC_TIMER_STEP 0x100
-#define DIGIC_TIMER_MASK (0xFFFFF & ~(DIGIC_TIMER_STEP-1))
+#define DIGIC_TIMER20_MASK (0x000FFFFF & ~(DIGIC_TIMER_STEP-1))
+#define DIGIC_TIMER32_MASK (0xFFFFFFFF & ~(DIGIC_TIMER_STEP-1))
 
 /* Machine class */
 
@@ -148,8 +149,8 @@ machine_init(eos_machine_init);
 EOSRegionHandler eos_handlers[] =
 {
     { "FlashControl", 0xC0000000, 0xC0001FFF, eos_handle_flashctrl, 0 },
-    { "ROM0",         0xF8000000, 0xFFFFFFFF, eos_handle_rom, 0 },
-    { "ROM1",         0xF0000000, 0xF7FFFFFF, eos_handle_rom, 1 },
+  //{ "ROM0",         0xF8000000, 0xFFFFFFFF, eos_handle_rom, 0 },
+  //{ "ROM1",         0xF0000000, 0xF7FFFFFF, eos_handle_rom, 1 },
     { "Interrupt",    0xC0200000, 0xC02000FF, eos_handle_intengine_vx, 0 }, /* mostly used on D2/3, but also 60D */
     { "Interrupt",    0xC0201000, 0xC0201FFF, eos_handle_intengine, 0 },    /* <= D5 */
     { "Interrupt",    0xD4011000, 0xD4011FFF, eos_handle_intengine, 1 },    /* D6; first core in D7 */
@@ -403,6 +404,7 @@ static int check_rom_mirroring(void * buf, int size, int full_size)
         if (!check_rom_mirroring(buf, size / 2, full_size))
         {
             fprintf(stderr, "[EOS] mirrored data; unique 0x%X bytes repeated 0x%X times\n", size / 2, full_size / (size / 2));
+            assert(0);
         }
         return 1;
     }
@@ -493,9 +495,11 @@ static void eos_interrupt_timer_body(EOSState *s)
             return;
         }
 
-        s->digic_timer += DIGIC_TIMER_STEP;
-        s->digic_timer &= DIGIC_TIMER_MASK;
-        
+        s->digic_timer20 += DIGIC_TIMER_STEP;
+        s->digic_timer20 &= DIGIC_TIMER20_MASK;
+        s->digic_timer32 += DIGIC_TIMER_STEP;
+        s->digic_timer32 &= DIGIC_TIMER32_MASK;
+
         for (pos = 0; pos < COUNT(s->timer_enabled); pos++)
         {
             if (s->timer_enabled[pos])
@@ -558,7 +562,7 @@ static void eos_interrupt_timer_body(EOSState *s)
 
         for (int id = 0; id < COUNT(s->UTimers); id++)
         {
-            if (s->UTimers[id].active && s->UTimers[id].output_compare == s->digic_timer)
+            if (s->UTimers[id].active && s->UTimers[id].output_compare == s->digic_timer32)
             {
                 if (qemu_loglevel_mask(EOS_LOG_IO)) {
                     fprintf(stderr, "[TIMER] Firing UTimer #%d\n", id);
@@ -579,7 +583,7 @@ static void eos_interrupt_timer_body(EOSState *s)
         
         for (pos = 0; pos < COUNT(s->HPTimers); pos++)
         {
-            if (s->HPTimers[pos].active && s->HPTimers[pos].output_compare == s->digic_timer)
+            if (s->HPTimers[pos].active && s->HPTimers[pos].output_compare == s->digic_timer20)
             {
                 if (qemu_loglevel_mask(EOS_LOG_IO)) {
                     fprintf(stderr, "[HPTimer] Firing HPTimer #%d\n", pos);
@@ -1294,10 +1298,11 @@ static EOSState *eos_init_cpu(struct eos_model_desc * model)
     if (!s->workdir) s->workdir = ".";
 
     const char* cpu_name = 
-        (s->model->digic_version <= 5) ? "arm946-eos" :
-        (s->model->digic_version == 7) ? "cortex-a9-eos" :
-        (s->model->digic_version >= 6) ? "cortex-r4-eos" :
-                                         "arm946";
+        (s->model->digic_version <= 4) ? "arm946-eos"    :  /* apparently the same for DIGIC 2, 3 and 4 */
+        (s->model->digic_version == 5) ? "arm946-eos5"   :  /* minor differences */
+        (s->model->digic_version == 7) ? "cortex-a9-eos" :  /* dual core */
+        (s->model->digic_version >= 6) ? "cortex-r4-eos" :  /* also used on Eeko (fake version 50) */
+                                         "arm946";          /* unused here */
     
     s->cpu0 = cpu_arm_init(cpu_name);
     assert(s->cpu0);
@@ -1913,23 +1918,7 @@ unsigned int eos_handler ( EOSState *s, unsigned int address, unsigned char type
     }
     else
     {
-        static uint32_t last_addr = 0;
-        static uint32_t repeats = 0;
-
-        if(address != last_addr || repeats < 5)
-        {
-            if(address == last_addr)
-            {
-                repeats++;
-            }
-            else
-            {
-                last_addr = address;
-                repeats = 0;
-            }
-
-            io_log("*unk*", s, address, type, value, 0, 0, 0, 0);
-        }
+        io_log("*unk*", s, address, type, value, 0, 0, 0, 0);
     }
     return 0;
 }
@@ -1978,7 +1967,7 @@ unsigned int eos_handle_intengine_vx ( unsigned int parm, EOSState *s, unsigned 
 
                 for (int i = 0; i < 32; i++)
                 {
-                    if (value & (1<<i))
+                    if (value & (1u << i))
                     {
                         msg_arg2 = ((address & 0xF0) >> 1) + i;
                         if (msg_arg2 < COUNT(s->irq_enabled))
@@ -1998,7 +1987,7 @@ unsigned int eos_handle_intengine_vx ( unsigned int parm, EOSState *s, unsigned 
 
                 for (int i = 0; i < 32; i++)
                 {
-                    if (value & (1<<i))
+                    if (value & (1u << i))
                     {
                         msg_arg2 = ((address & 0xF0) >> 1) + i;
                         if (msg_arg2 < COUNT(s->irq_enabled))
@@ -2317,22 +2306,22 @@ unsigned int eos_handle_utimer ( unsigned int parm, EOSState *s, unsigned int ad
             /* fixme: duplicate code (same as HPTimer offset 1x4) */
             if(type & MODE_WRITE)
             {
-                /* upper rounding, to test for equality with digic_timer */
-                int rounded = (value + DIGIC_TIMER_STEP) & DIGIC_TIMER_MASK;
+                /* upper rounding, to test for equality with digic_timer32 */
+                uint32_t rounded = (value + DIGIC_TIMER_STEP) & DIGIC_TIMER32_MASK;
                 s->UTimers[timer_id].output_compare = rounded;
 
                 /* for some reason, the value set to output compare
-                 * is sometimes a little behind digic_timer */
-                int actual_delay = ((int32_t)(rounded - s->digic_timer) << 12) >> 12;
+                 * is sometimes a little behind digic_timer32 */
+                int actual_delay = (int32_t)(rounded - s->digic_timer32);
 
                 if (actual_delay < 0)
                 {
                     /* workaround: when this happens, trigger right away */
-                    s->UTimers[timer_id].output_compare = s->digic_timer + DIGIC_TIMER_STEP;
+                    s->UTimers[timer_id].output_compare = s->digic_timer32 + DIGIC_TIMER_STEP;
                 }
 
                 msg = "UTimer #%d: output compare (delay %d microseconds)";
-                msg_arg2 = value - s->digic_timer_last_read;
+                msg_arg2 = value - s->digic_timer32_last_read;
             }
             else
             {
@@ -2392,22 +2381,22 @@ unsigned int eos_handle_hptimer ( unsigned int parm, EOSState *s, unsigned int a
         case 0x104:
             if(type & MODE_WRITE)
             {
-                /* upper rounding, to test for equality with digic_timer */
-                int rounded = (value + DIGIC_TIMER_STEP) & DIGIC_TIMER_MASK;
+                /* upper rounding, to test for equality with digic_timer20 */
+                int rounded = (value + DIGIC_TIMER_STEP) & DIGIC_TIMER20_MASK;
                 s->HPTimers[timer_id].output_compare = rounded;
                 
                 /* for some reason, the value set to output compare
-                 * is sometimes a little behind digic_timer */
-                int actual_delay = ((int32_t)(rounded - s->digic_timer) << 12) >> 12;
+                 * is sometimes a little behind digic_timer20 */
+                int actual_delay = ((int32_t)(rounded - s->digic_timer20) << 12) >> 12;
 
                 if (actual_delay < 0)
                 {
                     /* workaround: when this happens, trigger right away */
-                    s->HPTimers[timer_id].output_compare = s->digic_timer + DIGIC_TIMER_STEP;
+                    s->HPTimers[timer_id].output_compare = s->digic_timer20 + DIGIC_TIMER_STEP;
                 }
 
                 msg = "HPTimer #%d: output compare (delay %d microseconds)";
-                msg_arg2 = value - s->digic_timer_last_read;
+                msg_arg2 = value - s->digic_timer20_last_read;
             }
             else
             {
@@ -2525,6 +2514,7 @@ static int eos_handle_card_led( unsigned int parm, EOSState *s, unsigned int add
         {
             s->card_led = 
                 (value == 0x46 || value == 0x138800
+                               || value == 0x138000  /* 7D */
                                || value == 0x93D800) ?  1 :
                 (value == 0x44 || value == 0x838C00 ||
                  value == 0x40 || value == 0x038C00
@@ -3813,7 +3803,11 @@ unsigned int eos_handle_digic_timer ( unsigned int parm, EOSState *s, unsigned i
     }
     else
     {
-        ret = s->digic_timer_last_read = s->digic_timer;
+        if (parm) {
+            ret = s->digic_timer32_last_read = s->digic_timer32;
+        } else {
+            ret = s->digic_timer20_last_read = s->digic_timer20;
+        }
 
         if (!(qemu_loglevel_mask(CPU_LOG_INT) &&
               qemu_loglevel_mask(EOS_LOG_VERBOSE)))
@@ -4013,6 +4007,13 @@ unsigned int eos_handle_sdio ( unsigned int parm, EOSState *s, unsigned int addr
     const char * msg = 0;
     intptr_t msg_arg1 = 0;
     intptr_t msg_arg2 = 0;
+
+    if (0)
+    {
+        /* FIXME: only working in bootloader context */
+        assert(s->clock_enable & 0x00000008);   /* DIGIC 3/4 */
+        assert(s->clock_enable & 0x10000000);   /* DIGIC 4, but not 4+ */
+    }
 
     switch(address & 0xFFF)
     {
@@ -4548,6 +4549,13 @@ unsigned int eos_handle_cfata ( unsigned int parm, EOSState *s, unsigned int add
     intptr_t msg_arg1 = 0;
     intptr_t msg_arg2 = 0;
 
+    if (0)
+    {
+        /* DIGIC 4 and earlier */
+        /* FIXME: only working in bootloader context */
+        assert(s->clock_enable & 0x40);
+    }
+
     switch(address & 0xFFFF)
     {
         case 0x8104:
@@ -4686,7 +4694,7 @@ static char* format_clock_enable(int value)
 {
     const char* clock_modules[] = {
         "???",  "LCLK", "ASIF?", "SD1",     // 1 2 4 8
-        "???",  "???",  "???",   "???",     // 10 20 40 80
+        "???",  "???",  "CF",    "???",     // 10 20 40 80
         "PWM",  "???",  "Tmr0",  "Tmr1",    // 100 200 400 800
         "Tmr2", "???",  "???",   "???",     // ...
         "???",  "???",  "???",   "???",
@@ -4699,7 +4707,7 @@ static char* format_clock_enable(int value)
     int i;
     for (i = 0; i < 32; i++)
     {
-        if (value & (1 << i))
+        if (value & (1u << i))
         {
             STR_APPEND(clock_msg, "%s ", clock_modules[i]);
         }
@@ -5417,10 +5425,17 @@ unsigned int eos_handle_digic6 ( unsigned int parm, EOSState *s, unsigned int ad
 
     switch (address)
     {
+        case 0xD20B071C:
+        case 0xD0034068:
+        case 0xD0034020:
+            msg = "7D2 comm";
+            ret = rand();
+            break;
+
         case 0xD203046C:
         case 0xD203086C:
-            ret = 1;
             msg = "7D2 init";
+            ret = 1;
             break;
 
         case 0xD2030000:    /* M3: memif_wait_us */

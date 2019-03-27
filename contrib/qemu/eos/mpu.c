@@ -180,7 +180,8 @@ static void mpu_start_sending(EOSState *s)
 
 static int match_spell(uint16_t * received, uint16_t * in_spell)
 {
-    int n = in_spell[0];
+    int n = MIN(in_spell[0], received[0]);
+
     for (int i = 0; i < n; i++)
     {
         uint8_t in_lo = in_spell[i] & 0xFF;
@@ -274,6 +275,9 @@ static void mpu_interpret_command(EOSState *s)
             {
                 request_shutdown();
             }
+
+            /* next time, start matching from next spell */
+            spell_set = (spell_set+1) % mpu_init_spell_count;
             return;
         }
     }
@@ -727,6 +731,7 @@ static struct {
     { 0x0020,   BGMT_PRESS_DIRECT_PRINT,"D",            "Direct Print",                 },
     { 0x00A0,   BGMT_UNPRESS_DIRECT_PRINT,                                              },
     { 0x0011,   BGMT_PICSTYLE,          "W",            "Pic.Style",                    },
+    { 0x0013,   BGMT_RATE,              "R",            "Rate",                         },
     { 0x001E,   BGMT_PRESS_AV,          "A",            "Av",                           },
     { 0x009E,   BGMT_UNPRESS_AV,                                                        },
     { 0x002C,   BGMT_PRESS_MAGNIFY_BUTTON,   "Z",       "Zoom in",                      },
@@ -1279,11 +1284,11 @@ void mpu_spells_init(EOSState *s)
     MPU_BUTTON_CODES(60D)
     MPU_BUTTON_CODES(6D)
     MPU_BUTTON_CODES(650D)
-    MPU_BUTTON_CODES(700D)
+    MPU_BUTTON_CODES_OTHER_CAM(700D, 650D)
     MPU_BUTTON_CODES(70D)
     MPU_BUTTON_CODES(7D)
     MPU_BUTTON_CODES(EOSM)
-    MPU_BUTTON_CODES(EOSM2)
+    MPU_BUTTON_CODES_OTHER_CAM(EOSM2, EOSM)
 
     if (!button_codes)
     {

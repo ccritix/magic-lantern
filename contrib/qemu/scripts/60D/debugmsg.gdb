@@ -22,6 +22,12 @@ task_create_log
 b *0xFF1D68C0
 register_interrupt_log
 
+b *0xFF06C6C8
+register_func_log
+
+b *0xFF1DC6CC
+CreateStateObject_log
+
 # MPU communication
 if 0
   b *0xFF1BF26C
@@ -68,14 +74,26 @@ if 0
 end
 
 if 0
-  b *0xFF1DC6CC
-  CreateStateObject_log
-
   b *0xFF1DC614
   state_transition_log
 
   b *0xFF05B454
   try_post_event_log
+end
+
+# ENGIO, ADTG, CMOS
+if 0
+    b *0xFF2C9788
+    adtg_write_log
+
+    b *0xFF2C997C
+    cmos_write_log
+
+    b *0xFF1C5A68
+    engio_write_log
+
+    b *0xFF1C56A4
+    EngDrvOut_log
 end
 
 cont

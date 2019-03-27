@@ -23,6 +23,12 @@ task_create_log
 b *0xFF1220D4
 register_interrupt_log
 
+b *0xFF1203C8
+register_func_log
+
+b *0xFF2B968C
+CreateStateObject_log
+
 # MPU communication
 if 0
   b *0xFF297780

@@ -22,6 +22,12 @@ task_create_log
 b *0xFF1E8630
 register_interrupt_log
 
+b *0xFF06D700
+register_func_log
+
+b *0xFF1EE180
+CreateStateObject_log
+
 b *0xFF1D34CC
 SetEDmac_log
 

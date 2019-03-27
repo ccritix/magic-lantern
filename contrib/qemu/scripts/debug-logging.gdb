@@ -5,6 +5,10 @@
 # To use gdb, start emulation with, for example:
 #    ./run_canon_fw.sh 60D -s -S & arm-none-eabi-gdb -x 60D/debugmsg.gdb
 
+# misc preferences
+set pagination off
+set output-radix 16
+
 set architecture arm
 set tcp connect-timeout 300
 
@@ -53,56 +57,116 @@ macro define RTC_VALID_FLAG ((int)0xFFFFFFFF)
 macro define NUM_CORES      1
 macro define PRINT_CALLSTACK 0
 
+# some of the firmware-specific constants can be found by pattern matching
+define find_rom_string
+  if $_isvoid($_)
+    find /1 0xFE000000, 0xFFFFFFF0, $arg0
+  end
+  if $_isvoid($_)
+    find /1 0xE0000000, 0xFFFFFFF0, $arg0
+  end
+end
+document find_rom_string
+Helper to find some constant string in the ROM.
+This is a trick to use strings without defining the address of "malloc", like GDB normally requires.
+end
+
+if $_isvoid($NULL_STR)
+  # only look this up if not defined in CAM/debugmsg.gdb
+  find_rom_string "(null)"
+  set $NULL_STR = $_
+end
+
+# helper to dereference strings
+macro define STR(x) ((x) ? (x) : $NULL_STR)
+
 # helper to read an uint32_t from memory (used in ML as well)
 macro define MEM(x) (*(unsigned int*)(x))
 
 # helper to print a hex char (lowest 4 bits)
 macro define HEX_DIGIT(x) (char)((((x)&0xF) < 10) ? 48 + ((x)&0xF) : 55 + ((x)&0xF))
 
-# misc preferences
-set pagination off
-set output-radix 16
-
 define hook-quit
   set confirm off
   show convenience
   named_func_hook_quit
+  state_objects_hook_quit
   kill inferiors 1
   KRESET
+end
+document hook-quit
+Called at the end of the debugging session.
+end
+
+# Helpers to silence all GDB messages
+define silence_start
+  set logging file /dev/null
+  set logging redirect on
+  set logging on
+end
+document silence_start
+Turn off all GDB messages.
+end
+
+define silence_end
+  set logging off
+end
+document silence_end
+Resume printing GDB messages.
 end
 
 # color output to terminal
 define KRED
     printf "%c[1;31m", 0x1B
 end
+document KRED
+Red text (with ANSI escape codes).
+end
 
 define KCYN
     printf "%c[1;36m", 0x1B
+end
+document KCYN
+Cyan text (with ANSI escape codes).
 end
 
 define KBLU
     printf "%c[1;34m", 0x1B
 end
+document KBLU
+Blue text (with ANSI escape codes).
+end
 
 define KGRN
     printf "%c[1;32m", 0x1B
+end
+document KGRN
+Green text (with ANSI escape codes).
 end
 
 define KYLW
     printf "%c[1;33m", 0x1B
 end
+document KYLW
+Yellow text (with ANSI escape codes).
+end
 
 define KRESET
     printf "%c[0m", 0x1B
+end
+document KRESET
+Back to normal text (reset ANSI color attributes).
 end
 
 # task name for DryOS (only if CURRENT_TASK is a valid pointer; otherwise, empty string)
 macro define CURRENT_TASK_NAME (((int*)CURRENT_TASK)[0] ? ((char***)CURRENT_TASK)[0][9] : CURRENT_TASK)
 
-# requires -d callstack, for example:
-# ./run_canon_fw 1300D,firmware="boot=0" -d callstack -s -S & arm-none-eabi-gdb -x 1300D/debugmsg.gdb
 define print_callstack
   set $_ = *0xC0123430
+end
+document print_callstack
+Helper to trigger a stack trace. Requires -d callstack, for example:
+./run_canon_fw 1300D,firmware="boot=0" -d callstack -s -S & arm-none-eabi-gdb -x 1300D/debugmsg.gdb
 end
 
 # print current task name and return address
@@ -148,6 +212,12 @@ define print_current_location
   KRESET
   printf "] "
 end
+document print_current_location
+Helper to print current location (context info for each debug message):
+- CPU ID (for multi-core machines only)
+- program counter (PC register)
+- task name (where applicable)
+end
 
 define print_current_location_with_callstack
   if PRINT_CALLSTACK != 1
@@ -155,13 +225,29 @@ define print_current_location_with_callstack
   end
   print_current_location
 end
+document print_current_location_with_callstack
+Helper to print current location, including a stack trace.
+end
 
-# helper for unknown data structures
+define print_current_location_placeholder
+  if NUM_CORES > 1
+    printf "       "
+  end
+  printf "                         "
+end
+document print_current_location_placeholder
+Helper to print spaces of the same size as the location info.
+Useful to align multi-line messages.
+end
+
 define try_expand_ram_struct
     if $arg0 > 0x1000 && $arg0 < 0x1000000
-        printf "                         "
+        print_current_location_placeholder
         printf "*0x%x = { %x %x %x %x %x ... }\n", $arg0, MEM($arg0), MEM($arg0+4), MEM($arg0+8), MEM($arg0+12), MEM($arg0+16)
     end
+end
+document try_expand_ram_struct
+Helper to print for unknown data structures.
 end
 
 define print_formatted_string
@@ -224,8 +310,10 @@ define print_formatted_string
   end
   end
 end
+document print_formatted_string
+Helper to print formatted strings (a la printf).
+end
 
-# trace all DebugMsg calls
 define DebugMsg_log
   commands
     silent
@@ -234,6 +322,10 @@ define DebugMsg_log
     print_formatted_string $r2 $r3 MEM($sp) MEM($sp+4) MEM($sp+8) MEM($sp+12) MEM($sp+16) MEM($sp+20) MEM($sp+24)
     c
   end
+end
+document DebugMsg_log
+Log calls to DebugMsg(int class, int level, const char * fmt, ...).
+Used mostly in EOS firmware.
 end
 
 # DebugMsg-like calls with only one extra argument
@@ -246,6 +338,10 @@ define DebugMsg1_log
     c
   end
 end
+document DebugMsg1_log
+Log calls to DebugMsg1(int context, const char * fmt, ...).
+Used mostly in PowerShot firmware.
+end
 
 define printf_log
   commands
@@ -255,16 +351,36 @@ define printf_log
     c
   end
 end
+document printf_log
+Log calls to plain printf.
+end
 
+# helper to decompose a bitfield value
+define print_bits
+    set $i = 0
+    set $b = $arg0
+    while $i < 32
+        if $b & (1 << $i)
+            printf "%d", $b & (1 << $i)
+            set $b &= ~(1 << $i)
+            if $b
+                printf "|"
+            end
+        end
+        set $i = $i + 1
+    end
+end
+document print_bits
+Helper to decompose a bitfield value.
+Example: print_bits 12
+Outputs: 4|8
+end
 
 # Export named functions to IDC (for IDA)
 #########################################
 
 set $named_func_first_time = 1
 
-# log some named function
-# names can come from anywhere (register_func, task_create etc)
-# arguments: function address, pointer to name string, optional suffix chars
 define named_func_add
   set logging file named_functions.idc
   set logging redirect on
@@ -359,6 +475,11 @@ define named_func_add
   printf "\n"
   set logging off
 end
+document named_func_add
+Helper to add a named function into named_functions.idc.
+Names can come from anywhere (register_func, task_create etc)
+Syntax: named_func_add function_address name_string [ optional suffix chars ]
+end
 
 # all of this just to close the brace :)
 define named_func_hook_quit
@@ -374,10 +495,66 @@ define named_func_hook_quit
     printf "If it looks good, consider renaming or moving it, for future use.\n\n"
   end
 end
+document named_func_hook_quit
+Helper to finish writing named_functions.idc.
+end
 
 # Named function code ends here
 # calls to named_func_add be made from various loggers
 ######################################################
+
+# Export state object definitions as Python code
+################################################
+
+set $state_objects_first_time = 1
+
+define state_object_add
+  set logging file state_objects.py
+  set logging redirect on
+  set logging on
+  if $state_objects_first_time == 1
+    set logging off
+    set logging overwrite on
+    set logging on
+    printf "# State object list: (address, states, inputs, name, pc)\n"
+    set logging off
+    set logging overwrite off
+    set logging on
+    printf "# Generated from QEMU+GDB.\n"
+    printf "\n"
+    printf "States = [\n"
+    set $state_objects_first_time = 0
+  end
+
+  printf "  (0x%08X, %2d, %2d, '%s', 0x%08X),\n", $arg0, $arg1, $arg2, $arg3, $pc
+  set logging off
+end
+document state_object_add
+Helper to add a state object definition into state_objects.py.
+Syntax: state_object_add state_matrix_address, num_states, num_inputs, state_machine_name
+end
+
+# all of this just to close the bracket :)
+define state_objects_hook_quit
+  if $state_objects_first_time == 0
+    set logging file state_objects.py
+    set logging redirect on
+    set logging on
+    printf "]\n"
+    set logging off
+    KRED
+    printf "\nstate_objects.py saved.\n"
+    KRESET
+    printf "If it looks good, consider renaming or moving it, for future use.\n\n"
+  end
+end
+document state_objects_hook_quit
+Helper to finish writing state_objects.py.
+end
+
+# State object definitions end here
+# calls to state_object_add be made from CreateStateObject_log or other loggers
+###############################################################################
 
 # log task_create calls
 define task_create_log
@@ -385,14 +562,16 @@ define task_create_log
     silent
     print_current_location
     KBLU
-    printf "task_create(%s, prio=%x, stack=%x, entry=%x, arg=%x)\n", $r0, $r1, $r2, $r3, MEM($sp)
+    printf "task_create(%s, prio=%x, stack=%x, entry=%x, arg=%x)\n", STR($r0), $r1, $r2, $r3, MEM($sp)
     KRESET
     named_func_add $r3 $r0 't' 'a' 's' 'k'
     c
   end
 end
+document task_create_log
+Log calls to task_create(name, prio, stack, entry, arg).
+end
 
-# log task switches (use with watch *CURRENT_TASK)
 define task_switch_log
   commands
     silent
@@ -400,6 +579,12 @@ define task_switch_log
     printf "Task switch\n"
     c
   end
+end
+document task_switch_log
+Log DryOS task (context) switches.
+Usage:
+  watch *CURRENT_TASK
+  task_switch_log
 end
 
 # log msleep calls
@@ -410,6 +595,9 @@ define msleep_log
     printf "*** msleep(%d)\n", $r0
     c
   end
+end
+document msleep_log
+Log calls to msleep(int milliseconds).
 end
 
 # assert
@@ -422,13 +610,13 @@ define assert_log
     printf "ASSERT"
     KRESET
     printf "] "
-    if $r0
-      printf "%s at %s:%d, %x\n", $r0, $r1, $r2, $lr
-    else
-      printf "at %s:%d, %x\n", $r1, $r2, $lr
-    end
+    printf "%s at %s:%d, %x\n", STR($r0), STR($r1), $r2, $lr
     c
   end
+end
+document assert_log
+Log calls to ASSERT(message, file, line), including a stack trace.
+Tip: run emulation with -d callstack.
 end
 
 define assert0_log
@@ -440,9 +628,13 @@ define assert0_log
     printf "ASSERT"
     KRESET
     printf "] "
-    printf " at %s:%d\n", $r0, $r1
+    printf " at %s:%d\n", STR($r0), $r1
     c
   end
+end
+document assert0_log
+Log calls to ASSERT(message, line), including a stack trace.
+Tip: run emulation with -d callstack.
 end
 
 # semaphores
@@ -452,12 +644,14 @@ define create_semaphore_log
     silent
     print_current_location
     KBLU
-    printf "create_semaphore('%s', %d)\n", $r0, $r1
+    printf "create_semaphore('%s', %d)\n", STR($r0), $r1
     KRESET
     set $sem_cr_name = $r0
+    silence_start
     tbreak *($lr & ~1)
     commands
       silent
+      print_current_location $pc
       if $sem_cr_name == -1234
         KRED
         # fixme: create_semaphore is not atomic,
@@ -466,13 +660,53 @@ define create_semaphore_log
         print "create semaphore: race condition?"
         KRESET
       end
-      printf "*** Created semaphore 0x%x: %x '%s'\n", $r0, $sem_cr_name, $sem_cr_name
+      printf "Created semaphore 0x%x: %x '%s'\n", $r0, $sem_cr_name, STR($sem_cr_name)
       eval "set $sem_%x_name = $sem_cr_name", $r0
       set $sem_cr_name = -1234
       c
     end
+    silence_end
     c
   end
+end
+document create_semaphore_log
+Log calls to create_semaphore(const char * name, int initial_value).
+We keep track of these to print their names from other MQ functions.
+end
+
+define create_semaphore_n3_log
+  commands
+    silent
+    print_current_location
+    KBLU
+    printf "create_semaphore(%d, %d, '%s')\n", $r0, $r1, STR($r2)
+    set $sem_cr_name = $r2
+    KRESET
+    silence_start
+    tbreak *($lr & ~1)
+    commands
+      silent
+      print_current_location $pc
+      if $sem_cr_name == -1234
+        KRED
+        # fixme: create_semaphore is not atomic,
+        # so if two tasks create semaphores at the same time, we may mix them up
+        # (maybe call cli/sei from gdb, or is this check enough?)
+        print "create semaphore: race condition?"
+        KRESET
+      end
+      printf "Created semaphore 0x%x: %x '%s'\n", $r0, $sem_cr_name, STR($sem_cr_name)
+      eval "set $sem_%x_name = $sem_cr_name", $r0
+      set $sem_cr_name = -1234
+      c
+    end
+    silence_end
+    c
+  end
+end
+document create_semaphore_n3_log
+Log calls to create_semaphore(int unknown1, int unknown 2, const char * name).
+We keep track of these to print their names from other MQ functions.
 end
 
 define delete_semaphore_log
@@ -483,6 +717,9 @@ define delete_semaphore_log
     eval "set $sem_%x_name = -1", $r0
     c
   end
+end
+document delete_semaphore_log
+Log calls to delete_semaphore(struct semaphore * sem).
 end
 
 define print_sem_name
@@ -506,6 +743,9 @@ define print_sem_name
  end
  end
 end
+document print_sem_name
+Helper to print the name of a semaphore.
+end
 
 define take_semaphore_log
   commands
@@ -518,10 +758,11 @@ define take_semaphore_log
     print_sem_name $r0
     printf ", %d)\n", $r1
     eval "set $task_%s = \"wait_sem 0x%08X\"", CURRENT_TASK_NAME, $r0
+    silence_start
     tbreak *($lr & ~1)
     commands
       silent
-      print_current_location
+      print_current_location $pc
       if $r0
         KRED
       else
@@ -533,8 +774,13 @@ define take_semaphore_log
       eval "set $task_%s = \"ready\"", CURRENT_TASK_NAME
       c
     end
+    silence_end
     c
   end
+end
+document take_semaphore_log
+Log calls to take_semaphore(struct semaphore * sem, int timeout).
+This call is blocking; any tasks waiting for it will be listed at shutdown.
 end
 
 define give_semaphore_log
@@ -550,6 +796,9 @@ define give_semaphore_log
     c
   end
 end
+document give_semaphore_log
+Log calls to give_semaphore(struct semaphore * sem).
+end
 
 # message queues
 
@@ -558,12 +807,14 @@ define create_msg_queue_log
     silent
     print_current_location
     KBLU
-    printf "create_msg_queue('%s', %d)\n", $r0, $r1
+    printf "create_msg_queue('%s', %d)\n", STR($r0), $r1
     KRESET
     set $mq_cr_name = $r0
+    silence_start
     tbreak *($lr & ~1)
     commands
       silent
+      print_current_location $pc
       if $mq_cr_name == -1234
         KRED
         # fixme: create_msg_queue is not atomic,
@@ -572,13 +823,18 @@ define create_msg_queue_log
         print "create message queue: race condition?"
         KRESET
       end
-      printf "*** Created message queue 0x%x: %x '%s'\n", $r0, $mq_cr_name, $mq_cr_name
+      printf "Created message queue 0x%x: %x '%s'\n", $r0, $mq_cr_name, STR($mq_cr_name)
       eval "set $mq_%x_name = $mq_cr_name", $r0
       set $mq_cr_name = -1234
       c
     end
+    silence_end
     c
   end
+end
+document create_msg_queue_log
+Log calls to create_msg_queue(const char * name, int count).
+We keep track of these to print their names from other MQ functions.
 end
 
 # todo: delete_msg_queue_log
@@ -604,6 +860,9 @@ define print_mq_name
  end
  end
 end
+document print_mq_name
+Helper to print the name of a message queue.
+end
 
 # int post_msg_queue(struct msg_queue * queue, int msg);
 # int try_post_msg_queue(struct msg_queue * queue, int msg, int unknown);
@@ -621,8 +880,11 @@ define post_msg_queue_log
     c
   end
 end
+document post_msg_queue_log
+Log calls to post_msg_queue(struct msg_queue * queue, int msg)
+and also try_post_msg_queue(struct msg_queue * queue, int msg, int unknown)
+end
 
-# int try_receive_msg_queue(struct msg_queue *queue, void *buffer, int timeout);
 define try_receive_msg_queue_log
   commands
     silent
@@ -635,10 +897,11 @@ define try_receive_msg_queue_log
     printf ", %x, timeout=%d)\n", $r1, $r2
     eval "set $task_%s = \"wait_mq  0x%08X\"", CURRENT_TASK_NAME, $r0
     eval "set $mq_%s_buf = 0x%x", CURRENT_TASK_NAME, $r1
+    silence_start
     tbreak *($lr & ~1)
     commands
       silent
-      print_current_location
+      print_current_location $pc
       if $r0
         KRED
       else
@@ -652,11 +915,15 @@ define try_receive_msg_queue_log
       eval "set $task_%s = \"ready\"", CURRENT_TASK_NAME
       c
     end
+    silence_end
     c
   end
 end
+document try_receive_msg_queue_log
+Log calls to try_receive_msg_queue(struct msg_queue *queue, void *buffer, int timeout).
+This call is blocking; any tasks waiting for it will be listed at shutdown.
+end
 
-# int receive_msg_queue(struct msg_queue *queue, void *buffer);
 define receive_msg_queue_log
   commands
     silent
@@ -669,10 +936,11 @@ define receive_msg_queue_log
     printf ", %x)\n", $r1
     eval "set $task_%s = \"wait_mq  0x%08X\"", CURRENT_TASK_NAME, $r0
     eval "set $mq_%s_buf = 0x%x", CURRENT_TASK_NAME, $r1
+    silence_start
     tbreak *($lr & ~1)
     commands
       silent
-      print_current_location
+      print_current_location $pc
       if $r0
         KRED
       else
@@ -685,8 +953,13 @@ define receive_msg_queue_log
       eval "set $task_%s = \"ready\"", CURRENT_TASK_NAME
       c
     end
+    silence_end
     c
   end
+end
+document receive_msg_queue_log
+Log calls to receive_msg_queue(struct msg_queue *queue, void *buffer).
+This call is blocking; any tasks waiting for it will be listed at shutdown.
 end
 
 # interrupts
@@ -706,8 +979,15 @@ define register_interrupt_log
     c
   end
 end
+document register_interrupt_log
+Log interrupt registration (some of them are registered by name in Canon firmware).
+These functions will be listed in named_functions.idc.
+end
 
 # eventprocs (functions that can be called by name)
+# RegisterEventProcedure on some models
+
+# new-style, with 3 arguments
 define register_func_log
   commands
     silent
@@ -715,11 +995,68 @@ define register_func_log
     KBLU
     printf "register_func('%s', %x, %x)\n", $r0, $r1, $r2
     KRESET
+    if (unsigned int) $r2 > (unsigned int) 0xE0000000
+        # some functions are registered indirectly, using a wrapper
+        # the actual function is passed as argument
+        named_func_add $r2 $r0
+    else
+        named_func_add $r1 $r0
+    end
+    c
+  end
+end
+document register_func_log
+Log functions registered by name in Canon firmware (aka "event procedures").
+These functions will be listed in named_functions.idc.
+This should be used on DIGIC 4 and newer models; for VxWorks, see register_func_old_log.
+end
+
+# old-style, with 2 arguments (some VxWorks models only)
+define register_func_old_log
+  commands
+    silent
+    print_current_location
+    KBLU
+    printf "register_func('%s', %x)\n", $r0, $r1
+    KRESET
     named_func_add $r1 $r0
     c
   end
 end
+document register_func_old_log
+Same as register_func_log, but for VxWorks models.
+end
 
+define call_by_name_log
+  commands
+    silent
+    print_current_location
+    KYLW
+    printf "call('%s', %x)\n", $r0, $r1
+    KRESET
+    c
+  end
+end
+document call_by_name_log
+Log calls to event procedures (named functions).
+FIXME: only the first argument is printed.
+end
+
+define register_cmd_log
+  commands
+    silent
+    print_current_location
+    KBLU
+    printf "register_cmd('%s', %x, '%s')\n", $r2, $r3, MEM($sp)
+    KRESET
+    named_func_add $r3 $r2
+    c
+  end
+end
+document register_cmd_log
+Log named functions registered to the DryOS shell.
+These functions will be listed in named_functions.idc.
+end
 
 define mpu_decode
   set $buf = $arg0
@@ -734,6 +1071,9 @@ define mpu_decode
     set $i = $i + 1
   end
 end
+document mpu_decode
+Helper to print MPU messages.
+end
 
 define mpu_send_log
   commands
@@ -746,6 +1086,9 @@ define mpu_send_log
     KRESET
     c
   end
+end
+document mpu_send_log
+Log messages sent to the MPU. See "MPU communication" in HACKING.rst.
 end
 
 define mpu_recv_log
@@ -760,6 +1103,9 @@ define mpu_recv_log
     c
   end
 end
+document mpu_recv_log
+Log messages received from the MPU. See "MPU communication" in HACKING.rst.
+end
 
 define mpu_analyze_recv_data_log
   commands
@@ -773,8 +1119,16 @@ define mpu_analyze_recv_data_log
     c
   end
 end
+document mpu_analyze_recv_data_log
+Log calls to AnalyzeMpuReceiveData and list MPU property IDs.
+These will show MPU property messages when they are actually processed.
+They are received in SIO3_ISR and queued until the PropMgr task is able
+to handle them, so it may be hard to match them with other debug messages
+without logging this function.
+Known MPU property IDs:
+https://bitbucket.org/hudson/magic-lantern/src/qemu/contrib/qemu/eos/mpu_spells/known_spells.py
+end
 
-# called many times; string: NOT PROPERTYLIST ID
 define prop_lookup_maybe_log
   commands
     silent
@@ -783,9 +1137,11 @@ define prop_lookup_maybe_log
     c
   end
 end
+document prop_lookup_maybe_log
+Log calls to prop_lookup_maybe.
+This is called called many times; string: "NOT PROPERTYLIST ID".
+end
 
-# called right after DivideCameraInitData and in many other places
-# in a loop, right after a memcpy from a ROM table with MPU IDs
 define mpu_prop_lookup_log
   commands
     silent
@@ -794,17 +1150,24 @@ define mpu_prop_lookup_log
     set $mpl_r0 = $r0
     set $mpl_id1 = $r3
     set $mpl_id2 = MEM($sp)
+    silence_start
     tbreak *($lr & ~1)
     commands
       silent
-      print_current_location
+      print_current_location $pc
       KYLW
       printf "mpu_prop_lookup (%02x %02x) => %x\n", $mpl_id1, $mpl_id2, **(int**)$mpl_r0
       KRESET
       c
     end
+    silence_end
     c
   end
+end
+document mpu_prop_lookup_log
+Log calls to mpu_prop_lookup.
+This is called right after DivideCameraInitData and in many other
+places in a loop, right after a memcpy from a ROM table with MPU IDs.
 end
 
 define prop_print_data
@@ -825,6 +1188,9 @@ define prop_print_data
     printf "%02x ", ((unsigned int *)$buf)[$i] & 0xFF
   end
 end
+document prop_print_data
+Helper to pretty-print property data.
+end
 
 define prop_request_change_log
   commands
@@ -838,6 +1204,9 @@ define prop_request_change_log
     printf "}\n"
     c
   end
+end
+document prop_request_change_log
+Log calls to prop_request_change (arguments: property ID, data, size).
 end
 
 define prop_deliver_log
@@ -853,12 +1222,15 @@ define prop_deliver_log
     c
   end
 end
+document prop_deliver_log
+Log calls to prop_deliver (arguments: pointer to property ID, data, size).
+end
 
 define try_post_event_log
   commands
     silent
     print_current_location
-    printf "TryPostEvent('%s', '%s', 0x%x, 0x%x, 0x%x)\n", MEM($r0), MEM($r1), $r2, $r3, MEM($sp)
+    printf "TryPostEvent('%s', '%s', 0x%x, 0x%x, 0x%x)\n", STR(MEM($r0)), STR(MEM($r1)), $r2, $r3, MEM($sp)
     try_expand_ram_struct $r3
     try_expand_ram_struct MEM($r3)
     try_expand_ram_struct MEM($r3+4)
@@ -869,6 +1241,9 @@ define try_post_event_log
     c
   end
 end
+document try_post_event_log
+Log calls to TryPostEvent (many arguments, including pointers to data structures).
+end
 
 define delayed_call_print_name
   if $arg0
@@ -876,6 +1251,9 @@ define delayed_call_print_name
   else
     printf "SetHPTimerAfterNow"
   end
+end
+document delayed_call_print_name
+Helper for logging calls to SetTimerAfter (0) or SetHPTimerAfterNow (1).
 end
 
 # for SetTimerAfter/SetHPTimerAfterNow
@@ -894,6 +1272,7 @@ define delayed_call_log
       printf "not handled: cbr != overrun\n"
       KRESET
     end
+    silence_start
     tbreak *$r1
     commands
       silent
@@ -902,16 +1281,26 @@ define delayed_call_log
       printf " calling CBR %x(%x,%x)\n", $pc, $r0, $r1
       c
     end
+    silence_end
     c
   end
+end
+document delayed_call_log
+Helper for logging calls to SetTimerAfter (0) or SetHPTimerAfterNow (1).
 end
 
 define SetTimerAfter_log
   delayed_call_log 0
 end
+document SetTimerAfter_log
+Log calls to SetTimerAfter (arguments: delay_ms, cbr, cbr_overrun, arg).
+end
 
 define SetHPTimerAfterNow_log
   delayed_call_log 1
+end
+document SetHPTimerAfterNow_log
+Log calls to SetHPTimerAfterNow (arguments: delay_us, cbr, cbr_overrun, arg).
 end
 
 define SetHPTimerNextTick_log
@@ -922,6 +1311,10 @@ define SetHPTimerNextTick_log
     c
   end
 end
+document SetHPTimerNextTick_log
+Log calls to SetHPTimerNextTick (arguments: last_expiry, offset, cbr, cbr_overrun, arg).
+See selftest.mo, mlv_play.mo and edmac.mo for usage examples.
+end
 
 define CancelTimer_log
   commands
@@ -930,6 +1323,9 @@ define CancelTimer_log
     printf "CancelTimer(%x)\n", $r0
     c
   end
+end
+document CancelTimer_log
+Log calls to CancelTimer (argument: timer object).
 end
 
 define engine_resource_description
@@ -955,15 +1351,22 @@ define engine_resource_description
         printf "Bitmap/ImagePBAccessHandle"
     end
 end
+document engine_resource_description
+Helper to describe resource IDs used by some ResLock.
+end
 
 define engine_resources_list
   set $i = 0
   while $i < $arg1
-    printf "    %2d) %8x ", $i, ((int*)$arg0)[$i]
+    print_current_location_placeholder
+    printf "   %2d) %8x ", $i, ((int*)$arg0)[$i]
     engine_resource_description ((int*)$arg0)[$i]
     printf "\n"
     set $i = $i + 1
   end
+end
+document engine_resources_list
+Helper to list resource IDs used by some ResLock.
 end
 
 define CreateResLockEntry_log
@@ -973,15 +1376,22 @@ define CreateResLockEntry_log
     KBLU
     printf "CreateResLockEntry(%x, %x)\n", $r0, $r1
     KRESET
+    silence_start
     tbreak *($lr & ~1)
     commands
       silent
-      printf "*** Created ResLock 0x%x:'\n", $r0
+      print_current_location $pc
+      printf "Created ResLock 0x%x:'\n", $r0
       engine_resources_list ((int*)$r0)[5] ((int*)$r0)[6]
       c
     end
+    silence_end
     c
   end
+end
+document CreateResLockEntry_log
+Log calls to CreateResLockEntry (arguments: resource ID list, count).
+This will list all resource IDs used by this lock.
 end
 
 define LockEngineResources_log
@@ -992,10 +1402,11 @@ commands
     printf "LockEngineResources(%x)\n", $r0
     KRESET
     eval "set $task_%s = \"wait_rlk 0x%08X\"", CURRENT_TASK_NAME, $r0
+    silence_start
     tbreak *($lr & ~1)
     commands
       silent
-      print_current_location
+      print_current_location $pc
       if $r0
         KRED
       else
@@ -1006,8 +1417,13 @@ commands
       eval "set $task_%s = \"ready\"", CURRENT_TASK_NAME
       c
     end
+    silence_end
     c
   end
+end
+document LockEngineResources_log
+Log calls to LockEngineResources (arguments: resource lock object).
+This call is blocking; any tasks waiting for it will be listed at shutdown.
 end
 
 define AsyncLockEngineResources_log
@@ -1020,6 +1436,9 @@ define AsyncLockEngineResources_log
     c
   end
 end
+document AsyncLockEngineResources_log
+Log calls to AsyncLockEngineResources (arguments: resource lock object, cbr_function, arg).
+end
 
 define UnLockEngineResources_log
   commands
@@ -1030,6 +1449,9 @@ define UnLockEngineResources_log
     KRESET
     c
   end
+end
+document UnLockEngineResources_log
+Log calls to UnLockEngineResources (arguments: resource lock object).
 end
 
 define StartEDmac_log
@@ -1042,6 +1464,10 @@ define StartEDmac_log
     c
   end
 end
+document StartEDmac_log
+Log calls to StartEDmac (arguments: channel, flags).
+EDMAC channels are configured in advance (SetEDmac etc).
+end
 
 define SetEDmac_log
   commands
@@ -1050,13 +1476,19 @@ define SetEDmac_log
     KBLU
     printf "SetEDmac(%d, 0x%x, 0x%x, 0x%x)\n", $r0, $r1, $r2, $r3
     if $r2
-      printf "                         "
+      print_current_location_placeholder
       printf "{ %dx%d %dx%d %dx%d %d %d %d %d %d }\n", MEM($r2+0x14), MEM($r2+0x1c), MEM($r2+0x18), MEM($r2+0x20), MEM($r2+0x24), MEM($r2+0x28), MEM($r2+0x00), MEM($r2+0x04), MEM($r2+0x08), MEM($r2+0x0c), MEM($r2+0x10)
       # xa*ya xb*yb xn*yn off1a off1b off2a off2b off3
     end
     KRESET
     c
   end
+end
+document SetEDmac_log
+Log calls to SetEDmac (arguments: channel, buffer, struct edmac_info *, flags).
+EDMAC info structure: raw numbers are printed, but not interpreted, see:
+- https://www.magiclantern.fm/forum/index.php?topic=18315.0 (EDMAC transfer model)
+- https://bitbucket.org/hudson/magic-lantern/src/unified/modules/edmac/edmac_util.c (edmac_format_size)
 end
 
 # date/time helpers
@@ -1066,6 +1498,9 @@ define print_date_time
     printf "%04d/%02d/%02d %02d:%02d:%02d", \
       ((int*)$arg0)[5] + 1900, ((int*)$arg0)[4] + 1, ((int*)$arg0)[3], \
       ((int*)$arg0)[2], ((int*)$arg0)[1], ((int*)$arg0)[0]
+end
+document print_date_time
+Print date/time from a "struct tm *".
 end
 
 define set_date_time
@@ -1077,6 +1512,9 @@ define set_date_time
     set ((int*)$arg0)[1] = $arg5
     set ((int*)$arg0)[0] = $arg6
 end
+document set_date_time
+Set date/time in a "struct tm *", e.g. in LoadCalendarFromRTC.
+end
 
 # no longer needed - we have RTC emulation
 define load_default_date_time_log
@@ -1086,14 +1524,15 @@ define load_default_date_time_log
     printf "load_default_date_time(%x)\n", $r0
     set $tm = $r0
     print_date_time $tm
+    silence_start
     tbreak *($lr & ~1)
     commands
       silent
-      print_current_location
+      print_current_location $pc
       printf "load_default_date_time => "
       print_date_time $tm
       printf "\n"
-      print_current_location
+      print_current_location $pc
       printf "overriding date/time to : "
       set_date_time $tm 2015 01 15 13 37 00
       if RTC_VALID_FLAG == 0xFFFFFFFF
@@ -1105,8 +1544,16 @@ define load_default_date_time_log
       printf "\n"
       c
     end
+    silence_end
     c
   end
+end
+document load_default_date_time_log
+Old workaround for missing RTC emulation; no longer needed.
+Usage (550D 109):
+  b *0xFF0638FC
+  load_default_date_time_log
+  macro define RTC_VALID_FLAG (*(int*)0x26C4)
 end
 
 define rtc_read_log
@@ -1118,6 +1565,9 @@ define rtc_read_log
     c
   end
 end
+document rtc_read_log
+Log calls to rtc_read (low-level function called from LoadCalendarFromRTC & co.)
+end
 
 define rtc_write_log
   commands
@@ -1127,20 +1577,19 @@ define rtc_write_log
     c
   end
 end
+document rtc_write_log
+Log calls to rtc_write (low-level function called from LoadCalendarFromRTC & co.)
+end
 
 # state objects
-
-# to find state objects:
-# ( ./run_canon_fw.sh 60D,firmware="boot=0" -d ramw -s -S & arm-none-eabi-gdb -x 60D/debugmsg.gdb ) |& grep --text CreateStateObject -A 1 | grep 'CreateStateObject\|ram'
-
-# to find CreateStateObject:
-# ./run_canon_fw.sh 60D,firmware="boot=0" -d calls |& grep -a PropState
 
 define CreateStateObject_log
   commands
     silent
     print_current_location
+    KBLU
     printf "CreateStateObject(%s, 0x%x, inputs=%d, states=%d)\n", $r0, $r2, $r3, MEM($sp)
+    KRESET
 
     # enumerate all functions from this state machine
     set $state_name = (char *) $r0
@@ -1148,6 +1597,10 @@ define CreateStateObject_log
     set $max_inputs = $r3
     set $max_states = MEM($sp)
     set $old_state = 0
+
+    # log this state object
+    state_object_add $state_matrix $max_states $max_inputs $state_name
+
     while $old_state < $max_states
       set $input = 0
       while $input < $max_inputs
@@ -1163,19 +1616,40 @@ define CreateStateObject_log
     end
 
     # note: I could have used log_result instead of this block, but wanted to get something easier to grep
+    silence_start
     tbreak *($lr & ~1)
     commands
       silent
       print_current_location $pc
+      KBLU
       printf "CreateStateObject => %x at %x\n", $r0, $pc
+      KRESET
       c
     end
+    silence_end
     c
   end
 end
+document CreateStateObject_log
+Log calls to CreateStateObject (arguments: name, unknown, matrix, inputs, states)
+and name each function from the state object matrix by the state and input IDs,
+e.g. DisplayState_S01_I25 or SCSState_S04_I13.
 
-# function placed by CreateStateObject in the state object structure
-# see state_transition_log in dm-spy-extra.c (dm-spy-experiments)
+State machine diagrams:
+https://a1ex.bitbucket.io/ML/states/index.html
+
+What is a StateObject?
+Rather than have subroutines with millions of switch statements - it is often simpler to describe a process with a set of states and inputs.
+A program can then been written with the help of a 'State Machine'. It uses a matrix of Inputs and States to move from one state to another.
+A StateObject is a structure that Canon firmware uses to keep track of a state machine.
+
+To find state objects:
+( ./run_canon_fw.sh 60D,firmware="boot=0" -d ramw -s -S & arm-none-eabi-gdb -x 60D/debugmsg.gdb ) |& grep --text CreateStateObject -A 1 | grep 'CreateStateObject\|ram'
+
+To find CreateStateObject:
+./run_canon_fw.sh 60D,firmware="boot=0" -d calls |& grep -a PropState
+end
+
 define state_transition_log
   commands
     silent
@@ -1195,6 +1669,11 @@ define state_transition_log
     printf "      %x (x=%x z=%x t=%x)\n", $next_func, $r1, $r3, MEM($sp)
     c
   end
+end
+document state_transition_log
+Log calls to state_transition (StateObject transitions triggered by inputs)
+This function is placed by CreateStateObject in the state object structure
+See state_transition_log in dm-spy-extra.c (dm-spy-experiments)
 end
 
 # PTP
@@ -1216,14 +1695,102 @@ define ptp_register_handler_log
     c
   end
 end
+document ptp_register_handler_log
+Log calls to ptp_register_handler (arguments: PTP ID, function, arg).
+PTP functions are auto-named by PTP ID (e.g. PTP_101C).
+PTP IDs can be looked up in PIMA 15740:2000, ISO 15740:2005 etc.
+end
 
+# ENGIO, ADTG, CMOS
+
+define EngDrvOut_log
+  commands
+    silent
+    print_current_location
+    KGRN
+    printf "EngDrvOut(0x%X, 0x%X)\n", $r0, $r1
+    KRESET
+    c
+  end
+end
+document EngDrvOut_log
+Log calls to EngDrvOut (arguments: register, value).
+These registers are plain MMIO writes, i.e. directly visible with "-d io".
+end
+
+define engio_write_log
+  commands
+    silent
+    print_current_location
+    KGRN
+    printf "engio_write(0x%X)\n", $r0
+    set $a = $r0
+    while *(int*)$a != -1
+        print_current_location_placeholder
+        printf "    [0x%X] <- 0x%X\n", *(int*)$a, *(int*)($a+4)
+        set $a = $a + 8
+    end
+    KRESET
+    c
+  end
+end
+document engio_write_log
+Log calls to engio_write (argument: list of 32-bit register/value pairs,
+terminated with FFFFFFFF), listing the value of each ENGIO register.
+These registers are plain MMIO writes, i.e. directly visible with "-d io".
+end
+
+define adtg_write_log
+  commands
+    silent
+    print_current_location
+    KGRN
+    printf "adtg_write("
+    print_bits $r0
+    printf ", 0x%X)\n", $r1
+    set $a = $r1
+    while *(int*)$a != -1
+        print_current_location_placeholder
+        printf "    ADTG"
+        print_bits $r0
+        printf "[%04X] <- 0x%X\n", *(unsigned int *) $a >> 16, *(unsigned int *) $a & 0xFFFF
+        set $a = $a + 4
+    end
+    KRESET
+    c
+  end
+end
+document adtg_write_log
+Log calls to adtg_write ([REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]),
+listing the CS bits and the value of each ADTG register.
+end
+
+define cmos_write_log
+  commands
+    silent
+    print_current_location
+    KGRN
+    printf "cmos_write(0x%X)\n", $r0
+    set $a = $r0
+    while *(short*)$a != -1
+        print_current_location_placeholder
+        printf "    CMOS[%X] <- 0x%X\n", *(unsigned short *) $a >> 12, *(unsigned short *) $a & 0xFFF
+        set $a = $a + 2
+    end
+    KRESET
+    c
+  end
+end
+document cmos_write_log
+Log calls to cmos_write ([REG] ############ Start CMOS),
+listing the value of each CMOS register.
+end
 
 # Generic helpers
 #################
 
-# log return value of current function
-# (temporary breakpoint on LR)
 define log_result
+  silence_start
   tbreak *($lr & ~1)
   commands
     silent
@@ -1231,9 +1798,22 @@ define log_result
     printf " => 0x%x\n", $r0
     c
   end
+  silence_end
+end
+document log_result
+Log the return value of any given function.
+It sets up a temporary breakpoint on the LR register.
+Usage:
+  b *0xFF001234
+  commands
+    silent
+    print_current_location
+    printf "foobar(%x, %x)\n", $r0, $r1
+    log_result
+    c
+  end
 end
 
-# print first 4 arguments of any given function
 define generic_log
   commands
     silent
@@ -1244,8 +1824,14 @@ define generic_log
     c
   end
 end
+document generic_log
+Log the first 4 arguments of any given function.
+Usage:
+  b *0xFF001234
+  generic_log
+end
 
-# print first 4 arguments of any given function, and also the return value
+
 define generic_log_with_result
   commands
     silent
@@ -1256,4 +1842,27 @@ define generic_log_with_result
     log_result
     c
   end
+end
+document generic_log_with_result
+Log the first 4 arguments and the return value of any given function.
+Usage:
+  b *0xFF001234
+  generic_log_with_result
+end
+
+
+# hexdump formatted with xxd
+# https://stackoverflow.com/questions/9233095/memory-dump-formatted-like-xxd-from-gdb
+define xxd
+  if $argc == 1
+    dump binary memory dump.tmp ((void*)$arg0) ((void*)$arg0)+0x100
+  else
+    dump binary memory dump.tmp ((void*)$arg0) ((void*)$arg0)+$arg1
+  end
+  eval "shell xxd -e -o 0x%X dump.tmp", ((void*)$arg0)
+end
+
+document xxd
+Memory dump formatted with xxd. Temporary file: dump.tmp.
+Syntax: xxd startaddr [size]
 end

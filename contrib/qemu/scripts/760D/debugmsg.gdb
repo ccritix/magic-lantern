@@ -26,4 +26,10 @@ assert_log
 b *0x1774
 register_interrupt_log
 
+b *0xFE458C84
+register_func_log
+
+b *0x211A
+CreateStateObject_log
+
 cont

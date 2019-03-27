@@ -69,6 +69,32 @@ index c88d0ff..4395bb3 100644
                  }
                  /* see if we can patch the calling TB. When the TB
                     spans two pages, we cannot safely do a direct
+diff --git a/disas/arm.c b/disas/arm.c
+index 7a7354b..95f82cc 100644
+--- a/disas/arm.c
++++ b/disas/arm.c
+@@ -2826,9 +2826,9 @@ print_insn_arm_internal (bfd_vma pc, struct disassemble_info *info, long given)
+ 		      if ((given & 0x02000000) != 0)
+ 			{
+ 			  int rotate = (given & 0xf00) >> 7;
+-			  int immed = (given & 0xff);
+-			  immed = (((immed << (32 - rotate))
+-				    | (immed >> rotate)) & 0xffffffff);
++			  int64_t immed64 = (given & 0xff);
++			  int immed = (((immed64 << (32 - rotate))
++				      | (immed64 >> rotate)) & 0xffffffff);
+ 			  func (stream, "#%d\t; 0x%x", immed, immed);
+ 			}
+ 		      else
+@@ -3868,7 +3868,7 @@ int
+ print_insn_arm (bfd_vma pc, struct disassemble_info *info)
+ {
+   unsigned char b[4];
+-  long		given;
++  unsigned long given;
+   int           status;
+   int           is_thumb = false;
+   int           is_data = false;
 diff --git a/exec.c b/exec.c
 index 0bf0a6e..5eb69de 100644
 --- a/exec.c
@@ -91,6 +117,28 @@ index 0bf0a6e..5eb69de 100644
                  memcpy(buf, ptr, l);
              }
          }
+diff --git a/gdbstub.c b/gdbstub.c
+index 9c29aa0..a95ec8d 100644
+--- a/gdbstub.c
++++ b/gdbstub.c
+@@ -431,6 +431,7 @@ static inline int tohex(int v)
+         return v - 10 + 'a';
+ }
+ 
++/* writes 2*len+1 bytes in buf */
+ static void memtohex(char *buf, const uint8_t *mem, int len)
+ {
+     int i, c;
+@@ -787,8 +788,8 @@ static int gdb_handle_packet(GDBState *s, const char *line_buf)
+     const char *p;
+     uint32_t thread;
+     int ch, reg_size, type, res;
+-    char buf[MAX_PACKET_LENGTH];
+     uint8_t mem_buf[MAX_PACKET_LENGTH];
++    char buf[sizeof(mem_buf) + 1 /* trailing NUL */];
+     uint8_t *registers;
+     target_ulong addr, len;
+ 
 diff --git a/hw/arm/Makefile.objs b/hw/arm/Makefile.objs
 index 2195b60..e3e2c14 100644
 --- a/hw/arm/Makefile.objs
@@ -103,6 +151,32 @@ index 2195b60..e3e2c14 100644
  
  obj-y += armv7m.o exynos4210.o pxa2xx.o pxa2xx_gpio.o pxa2xx_pic.o
  obj-$(CONFIG_DIGIC) += digic.o
+diff --git a/hw/arm/digic.c b/hw/arm/digic.c
+index 90f8190..8e934be 100644
+--- a/hw/arm/digic.c
++++ b/hw/arm/digic.c
+@@ -36,7 +36,7 @@ static void digic_init(Object *obj)
+     object_property_add_child(obj, "cpu", OBJECT(&s->cpu), NULL);
+ 
+     for (i = 0; i < DIGIC4_NB_TIMERS; i++) {
+-#define DIGIC_TIMER_NAME_MLEN    11
++#define DIGIC_TIMER_NAME_MLEN    20
+         char name[DIGIC_TIMER_NAME_MLEN];
+ 
+         object_initialize(&s->timer[i], sizeof(s->timer[i]), TYPE_DIGIC_TIMER);
+diff --git a/hw/display/exynos4210_fimd.c b/hw/display/exynos4210_fimd.c
+index 45239e8..825d6e6 100644
+--- a/hw/display/exynos4210_fimd.c
++++ b/hw/display/exynos4210_fimd.c
+@@ -97,7 +97,7 @@
+ #define FIMD_WINCON_BUFSTATUS       ((1 << 21) | (1 << 31))
+ #define FIMD_WINCON_BUF0_STAT       ((0 << 21) | (0 << 31))
+ #define FIMD_WINCON_BUF1_STAT       ((1 << 21) | (0 << 31))
+-#define FIMD_WINCON_BUF2_STAT       ((0 << 21) | (1 << 31))
++#define FIMD_WINCON_BUF2_STAT       ((0 << 21) | (1U << 31))
+ #define FIMD_WINCON_BUFSELECT       ((1 << 20) | (1 << 30))
+ #define FIMD_WINCON_BUF0_SEL        ((0 << 20) | (0 << 30))
+ #define FIMD_WINCON_BUF1_SEL        ((1 << 20) | (0 << 30))
 diff --git a/hw/ide/qdev.c b/hw/ide/qdev.c
 index 788b361..6aaeced 100644
 --- a/hw/ide/qdev.c
@@ -117,6 +191,20 @@ index 788b361..6aaeced 100644
  }
  
  static int ide_cd_initfn(IDEDevice *dev)
+diff --git a/hw/sd/sd.c b/hw/sd/sd.c
+index 1a9935c..2561560 100644
+--- a/hw/sd/sd.c
++++ b/hw/sd/sd.c
+@@ -1479,6 +1479,9 @@ static void sd_blk_write(SDState *sd, uint64_t addr, uint32_t len)
+ {
+     uint64_t end = addr + len;
+ 
++    DPRINTF("sd_blk_write: addr = 0x%08llx, len = %d\n",
++            (unsigned long long) addr, len);
++
+     if ((addr & 511) || len < 512)
+         if (!sd->blk || blk_read(sd->blk, addr >> 9, sd->buf, 1) < 0) {
+             fprintf(stderr, "sd_blk_write: read error on host side\n");
 diff --git a/include/exec/exec-all.h b/include/exec/exec-all.h
 index d900b0d..1ad5332 100644
 --- a/include/exec/exec-all.h
@@ -446,8 +534,20 @@ index 7cb01a8..7b57b2e 100644
      const char *p, *p1;
  
      p = str;
+diff --git a/target-arm/cpu-qom.h b/target-arm/cpu-qom.h
+index 25fb1ce..c180f78 100644
+--- a/target-arm/cpu-qom.h
++++ b/target-arm/cpu-qom.h
+@@ -141,6 +141,7 @@ typedef struct ARMCPU {
+     uint32_t mvfr1;
+     uint32_t mvfr2;
+     uint32_t ctr;
++    uint32_t tcmtr;
+     uint32_t reset_sctlr;
+     uint32_t id_pfr0;
+     uint32_t id_pfr1;
 diff --git a/target-arm/cpu.c b/target-arm/cpu.c
-index 30739fc..6077632 100644
+index 30739fc..e332483 100644
 --- a/target-arm/cpu.c
 +++ b/target-arm/cpu.c
 @@ -501,6 +501,7 @@ static void arm_cpu_initfn(Object *obj)
@@ -458,21 +558,41 @@ index 30739fc..6077632 100644
  static Property arm_cpu_reset_hivecs_property =
              DEFINE_PROP_BOOL("reset-hivecs", ARMCPU, reset_hivecs, false);
  
-@@ -711,6 +712,45 @@ static void arm926_initfn(Object *obj)
+@@ -513,8 +514,9 @@ static Property arm_cpu_has_el3_property =
+ static Property arm_cpu_has_mpu_property =
+             DEFINE_PROP_BOOL("has-mpu", ARMCPU, has_mpu, true);
+ 
++/* fixme: how to change this property from machine code? */
+ static Property arm_cpu_pmsav7_dregion_property =
+-            DEFINE_PROP_UINT32("pmsav7-dregion", ARMCPU, pmsav7_dregion, 16);
++            DEFINE_PROP_UINT32("pmsav7-dregion", ARMCPU, pmsav7_dregion, 8);
+ 
+ static void arm_cpu_post_init(Object *obj)
+ {
+@@ -711,6 +713,103 @@ static void arm926_initfn(Object *obj)
      cpu->reset_sctlr = 0x00090078;
  }
  
 +static void arm946_eos_initfn(Object *obj)
 +{
++    /* https://chdk.setepontos.com/index.php?topic=2139.msg19836#msg19836 */
 +    ARMCPU *cpu = ARM_CPU(obj);
 +    set_feature(&cpu->env, ARM_FEATURE_V5);
 +    set_feature(&cpu->env, ARM_FEATURE_MPU);
-+    set_feature(&cpu->env, ARM_FEATURE_XSCALE); /* for MCR p15, 0,R0,c9,c1,0 */
-+    cpu->midr = 0x41059461;
-+    cpu->ctr = (7 << 25) | (1 << 24) | (4 << 18) | (4 << 15) \
-+             | (2 << 12) | (4 << 6) | (4 << 3) | (2 << 0);
++    cpu->midr        = 0x41059461;
++    cpu->ctr         = 0x0F112112;                /* DIGIC 5: 0x0F192192 */
++    cpu->tcmtr       = 0x000C00C0;
 +    cpu->reset_sctlr = 0x00000078 | (1 << 13);    /* fixme: how to change the HIVECS property? */
 +    set_feature(&cpu->env, ARM_FEATURE_946EOS);
++}
++
++static void arm946_eos5_initfn(Object *obj)
++{
++    /* mostly identical to DIGIC 2..4, with minor differences */
++    arm946_eos_initfn(obj);
++
++    ARMCPU *cpu = ARM_CPU(obj);
++    cpu->ctr = 0x0F192192;
 +}
 +
 +static void cortex_r5_initfn(Object *obj);
@@ -481,10 +601,34 @@ index 30739fc..6077632 100644
 +{
 +    /* Cortex R4: https://chdk.setepontos.com/index.php?topic=11316.msg124273#msg124273 */
 +    cortex_r5_initfn(obj);
-+    
++
++    /* https://www.magiclantern.fm/forum/index.php?topic=17714.0 */
 +    ARMCPU *cpu = ARM_CPU(obj);
-+    cpu->midr = 0x411FC143;
-+    cpu->reset_sctlr = 0x08ED0878 | (1 << 13);    /* fixme: how to change the HIVECS property? */
++    cpu->midr        = 0x411FC143;
++    cpu->ctr         = 0x8003C003;
++    cpu->tcmtr       = 0x00010001;
++    cpu->id_mmfr3    = 0x00000011;
++    cpu->id_isar0    = 0x01101111;
++    cpu->id_isar2    = 0x21232131;
++    cpu->clidr       = 0x09000003;
++    cpu->ccsidr[0]   = 0xF00FE019;
++    cpu->ccsidr[1]   = 0xF00FE019;
++    cpu->dbgdidr     = 0x77040013;  /* https://www.magiclantern.fm/forum/index.php?topic=17360.msg202322#msg202322 */
++    cpu->reset_sctlr = 0x08E50878 | (1 << 13);    /* fixme: how to change the HIVECS property? */
++    //        1=MPU,        2=align,      4=DCacheL1,  8=SBO        => 8
++    //       10=SBO,       20=SBO,       40=SBO,      80=SBZ        => 7
++    //      100=SBZ,      200=SBZ,      400=SBZ,     800=Z(SBO)     => 8
++    //     1000=ICacheL1,2000=HIVECS,  4000=RR,     8000=SBZ        => 2 (1 << 13)
++    //    10000=SBO,    20000=BR,     40000=SBO,   80000=DZ         => 5
++    //   100000=SBZ,   200000=FI/SBO,400000=SBO,  800000=SBO        => E
++    //  1000000=VE,   2000000=EE,   4000000=SBZ, 8000000=NMFIQ      => 8
++    // 10000000=TRE, 20000000=AFE, 40000000=TE, 80000000=IE         => 0
++    // bic                0x20000   (disable background region)
++    // orr                    0x1   (enable MPU)
++    // bic              0x1002000   (disable HIVECS, VE?!)
++    // orr                   1004   (enable L1 DCache & ICache)
++    // ->reset_sctlr = 0x08E5187D;  /* as printed by CHDK cpuinfo running from bootloader */
++    cpu->reset_auxcr = 0x00000020;  /* ACTLR */
 +    unset_feature(&cpu->env, ARM_FEATURE_V7MP);
 +}
 +
@@ -494,44 +638,74 @@ index 30739fc..6077632 100644
 +{
 +    /* Cortex A9: http://chdk.setepontos.com/index.php?topic=13014.msg131110#msg131110 */
 +    cortex_a9_initfn(obj);
-+    
++
++    /* https://www.magiclantern.fm/forum/index.php?topic=19737.msg200737#msg200737 */
 +    ARMCPU *cpu = ARM_CPU(obj);
-+    cpu->midr = 0x411FC143;
-+    // cpu->reset_sctlr = 0x08ED0878;    /* FIXME: no bootloader yet */
-+    cpu->reset_sctlr = 0x48ED0878;
++    cpu->midr        = 0x414FC091;
++    cpu->ctr         = 0x83338003;
++    cpu->id_pfr0     = 0x00001231;
++    cpu->id_pfr1     = 0x00000011;
++    cpu->id_dfr0     = 0x00010444;
++    cpu->id_mmfr3    = 0x00102111;
++    cpu->id_isar4    = 0x00011142;
++    cpu->clidr       = 0x09200003;
++    cpu->ccsidr[0]   = 0x700FE019;
++    cpu->ccsidr[1]   = 0x200FE019;
++    cpu->reset_sctlr = 0x08C50078;  /* best guess */
++    //        1=MMU,        2=align,      4=DCache,    8=SBO        => 8
++    //       10=SBO,       20=SBO,       40=SBO,      80=SBZ        => 7
++    //      100=SBZ,      200=SBZ,      400=SWP,     800=Z(BP)      => 0 
++    //     1000=ICache,  2000=HIVECS,  4000=RR,     8000=SBZ        => 0
++    //    10000=SBO,    20000=SBZ,    40000=SBO,   80000=SBZ        => 5
++    //   100000=SBZ,   200000=SBZ,   400000=SBO,  800000=SBO        => C
++    //  1000000=SBZ,  2000000=EE,   4000000=SBZ, 8000000=NMFIQ      => 8
++    // 10000000=TRE, 20000000=AFE, 40000000=TE, 80000000=SBZ        => 0
++    // bic              0x1003005   (disable MMU, DCache, ICache, HIVECS, ???)
++    // orr             0x40000800   (enable branch predictor and Thumb exceptions)
++    // orr                   1005   (enable MMU, DCache, ICache)
++    // ->reset_sctlr = 0x48C5187D;  /* as printed by CHDK cpuinfo running from bootloader */
++    cpu->reset_auxcr = 0x00000045;  /* ACTLR */
++    //cpu->actlr2    = 0x00000201;
++    //cpu->cpacr     = 0xC0000000;
++    //cpu->dbgdidr   = TODO;
 +}
 +
  static void arm946_initfn(Object *obj)
  {
      ARMCPU *cpu = ARM_CPU(obj);
-@@ -914,9 +954,16 @@ static void arm_v7m_class_init(ObjectClass *oc, void *data)
+@@ -914,9 +1013,20 @@ static void arm_v7m_class_init(ObjectClass *oc, void *data)
  
  static const ARMCPRegInfo cortexr5_cp_reginfo[] = {
      /* Dummy the TCM region regs for the moment */
 -    { .name = "ATCM", .cp = 15, .opc1 = 0, .crn = 9, .crm = 1, .opc2 = 0,
 +    /* fixme: resetvalue hardcoded for DIGIC 6 */
-+    { .name = "ATCM",       .cp = 15, .opc1 = 0, .crn = 9,  .crm = 1, .opc2 = 0,
++    { .name = "ATCM",       .cp = 15, .opc1 = 0, .crn = 9,  .crm = 1, .opc2 = 1,
 +      .access = PL1_RW,     .fieldoffset = offsetof(CPUARMState, cp15.c15_atcm), .resetvalue = 0x00000015 },
-+    { .name = "BTCM",       .cp = 15, .opc1 = 0, .crn = 9,  .crm = 1, .opc2 = 1,
++    { .name = "BTCM",       .cp = 15, .opc1 = 0, .crn = 9,  .crm = 1, .opc2 = 0,
 +      .access = PL1_RW,     .fieldoffset = offsetof(CPUARMState, cp15.c15_btcm), .resetvalue = 0x8000001D },
 +    { .name = "INV_DCACHE", .cp = 15, .opc1 = 0, .crn = 15, .crm = 5, .opc2 = 0,
 +      .access = PL1_RW, .type = ARM_CP_CONST },
 +    { .name = "BUILDOPTS",  .cp = 15, .opc1 = 0, .crn = 15, .crm = 2, .opc2 = CP_ANY,
        .access = PL1_RW, .type = ARM_CP_CONST },
 -    { .name = "BTCM", .cp = 15, .opc1 = 0, .crn = 9, .crm = 1, .opc2 = 1,
++    { .name = "BUILDOPTS1", .cp = 15, .opc1 = 0, .crn = 15, .crm = 2, .opc2 = 0,
++      .access = PL1_RW, .type = ARM_CP_CONST | ARM_CP_OVERRIDE, .resetvalue = 0x00010000 },
++    { .name = "BUILDOPTS2", .cp = 15, .opc1 = 0, .crn = 15, .crm = 2, .opc2 = 1,
++      .access = PL1_RW, .type = ARM_CP_CONST | ARM_CP_OVERRIDE, .resetvalue = 0x00CFC010 },
 +    { .name = "ACTLR2",     .cp = 15, .opc1 = 0, .crn = 15, .crm = 0, .opc2 = 0,
        .access = PL1_RW, .type = ARM_CP_CONST },
      REGINFO_SENTINEL
  };
-@@ -1329,6 +1376,7 @@ static const ARMCPUInfo arm_cpus[] = {
+@@ -1329,6 +1439,8 @@ static const ARMCPUInfo arm_cpus[] = {
  #if !defined(CONFIG_USER_ONLY) || !defined(TARGET_AARCH64)
      { .name = "arm926",      .initfn = arm926_initfn },
      { .name = "arm946",      .initfn = arm946_initfn },
 +    { .name = "arm946-eos",  .initfn = arm946_eos_initfn },
++    { .name = "arm946-eos5", .initfn = arm946_eos5_initfn },
      { .name = "arm1026",     .initfn = arm1026_initfn },
      /* What QEMU calls "arm1136-r2" is actually the 1136 r0p2, i.e. an
       * older core than plain "arm1136". In particular this does not
-@@ -1342,9 +1390,11 @@ static const ARMCPUInfo arm_cpus[] = {
+@@ -1342,9 +1454,11 @@ static const ARMCPUInfo arm_cpus[] = {
                               .class_init = arm_v7m_class_init },
      { .name = "cortex-m4",   .initfn = cortex_m4_initfn,
                               .class_init = arm_v7m_class_init },
@@ -566,7 +740,7 @@ index 815fef8..74ce4a9 100644
  
  static inline int arm_feature(CPUARMState *env, int feature)
 diff --git a/target-arm/helper.c b/target-arm/helper.c
-index afc4163..1de4d3c 100644
+index afc4163..632ea26 100644
 --- a/target-arm/helper.c
 +++ b/target-arm/helper.c
 @@ -549,6 +549,13 @@ static const ARMCPRegInfo not_v6_cp_reginfo[] = {
@@ -583,10 +757,17 @@ index afc4163..1de4d3c 100644
  static const ARMCPRegInfo not_v7_cp_reginfo[] = {
      /* Standard v6 WFI (also used in some pre-v6 cores); not in v7 (which
       * is UNPREDICTABLE; we choose to NOP as most implementations do).
-@@ -598,6 +605,131 @@ static const ARMCPRegInfo not_v7_cp_reginfo[] = {
+@@ -598,6 +605,138 @@ static const ARMCPRegInfo not_v7_cp_reginfo[] = {
      REGINFO_SENTINEL
  };
  
++static const ARMCPRegInfo eos_tcm_cp_reginfo[] = {
++    { .name = "ITCM",       .cp = 15, .opc1 = 0, .crn = 9,  .crm = 1, .opc2 = 1,
++      .access = PL1_RW,     .fieldoffset = offsetof(CPUARMState, cp15.c15_atcm), .resetvalue = 0x00000006 },
++    { .name = "DTCM",       .cp = 15, .opc1 = 0, .crn = 9,  .crm = 1, .opc2 = 0,
++      .access = PL1_RW,     .fieldoffset = offsetof(CPUARMState, cp15.c15_btcm), .resetvalue = 0x40000006 },
++    REGINFO_SENTINEL
++};
 +
 +/* ARM946E-S (EOS) cache lockdown emulation */
 +/* note: the model is very incomplete, just enough to emulate
@@ -715,7 +896,16 @@ index afc4163..1de4d3c 100644
  static void cpacr_write(CPUARMState *env, const ARMCPRegInfo *ri,
                          uint64_t value)
  {
-@@ -4542,6 +4674,12 @@ void register_cp_regs_for_features(ARMCPU *cpu)
+@@ -4410,7 +4549,7 @@ void register_cp_regs_for_features(ARMCPU *cpu)
+             /* TCMTR and TLBTR exist in v8 but have no 64-bit versions */
+             { .name = "TCMTR",
+               .cp = 15, .crn = 0, .crm = 0, .opc1 = 0, .opc2 = 2,
+-              .access = PL1_R, .type = ARM_CP_CONST, .resetvalue = 0 },
++              .access = PL1_R, .type = ARM_CP_CONST, .resetvalue = cpu->tcmtr },
+             REGINFO_SENTINEL
+         };
+         /* TLBTR is specific to VMSA */
+@@ -4542,6 +4681,13 @@ void register_cp_regs_for_features(ARMCPU *cpu)
          }
          define_one_arm_cp_reg(cpu, &sctlr);
      }
@@ -724,11 +914,30 @@ index afc4163..1de4d3c 100644
 +    if (arm_feature(env, ARM_FEATURE_946EOS)) {
 +        define_arm_cp_regs(cpu, eos_wfi_cp_reginfo);
 +        define_arm_cp_regs(cpu, eos_lockdown_cp_reginfo);
++        define_arm_cp_regs(cpu, eos_tcm_cp_reginfo);
 +    }
  }
  
  ARMCPU *cpu_arm_init(const char *cpu_model)
-@@ -5891,11 +6029,21 @@ void arm_cpu_do_interrupt(CPUState *cs)
+@@ -5422,7 +5568,7 @@ void arm_v7m_cpu_do_interrupt(CPUState *cs)
+     uint32_t lr;
+     uint32_t addr;
+ 
+-    arm_log_exception(cs->exception_index);
++    arm_log_exception(cs->exception_index, env);
+ 
+     lr = 0xfffffff1;
+     if (env->v7m.current_sp)
+@@ -5719,7 +5865,7 @@ void arm_cpu_do_interrupt(CPUState *cs)
+ 
+     assert(!IS_M(env));
+ 
+-    arm_log_exception(cs->exception_index);
++    arm_log_exception(cs->exception_index, env);
+ 
+     if (arm_is_psci_call(cpu, cs->exception_index)) {
+         arm_handle_psci_call(cpu);
+@@ -5891,11 +6037,21 @@ void arm_cpu_do_interrupt(CPUState *cs)
      /* Switch to the new mode, and to the correct instruction set.  */
      env->uncached_cpsr = (env->uncached_cpsr & ~CPSR_M) | new_mode;
      env->daif |= mask;
@@ -773,11 +982,33 @@ index c2a85c7..98aa94b 100644
  DEF_HELPER_3(msr_i_pstate, void, env, i32, i32)
  DEF_HELPER_1(clear_pstate_ss, void, env)
  DEF_HELPER_1(exception_return, void, env)
+diff --git a/target-arm/internals.h b/target-arm/internals.h
+index 347998c..6265345 100644
+--- a/target-arm/internals.h
++++ b/target-arm/internals.h
+@@ -72,7 +72,7 @@ static const char * const excnames[] = {
+     [EXCP_SEMIHOST] = "Semihosting call",
+ };
+ 
+-static inline void arm_log_exception(int idx)
++static inline void arm_log_exception(int idx, CPUARMState *env)
+ {
+     if (qemu_loglevel_mask(CPU_LOG_INT)) {
+         const char *exc = NULL;
+@@ -83,7 +83,7 @@ static inline void arm_log_exception(int idx)
+         if (!exc) {
+             exc = "unknown";
+         }
+-        qemu_log_mask(CPU_LOG_INT, "Taking exception %d [%s]\n", idx, exc);
++        qemu_log_mask(CPU_LOG_INT, "%08X: Taking exception %d [%s]\n", env->regs[15], idx, exc);
+     }
+ }
+ 
 diff --git a/target-arm/op_helper.c b/target-arm/op_helper.c
-index 6cd54c8..ee2ddb7 100644
+index 6cd54c8..055aaf7 100644
 --- a/target-arm/op_helper.c
 +++ b/target-arm/op_helper.c
-@@ -474,6 +474,176 @@ void HELPER(set_cp_reg)(CPUARMState *env, void *rip, uint32_t value)
+@@ -474,6 +474,199 @@ void HELPER(set_cp_reg)(CPUARMState *env, void *rip, uint32_t value)
      ri->writefn(env, ri, value);
  }
  
@@ -875,8 +1106,7 @@ index 6cd54c8..ee2ddb7 100644
 +    }
 +
 +    if (strncmp(ri->name, "946_PRBS", 8) == 0 &&
-+        ri->cp == 15 && ri->crn == 6 && ri->opc1 == 0 && ri->opc2 == 0
-+        && (value & 1))
++        (value & 1))
 +    {
 +        uint64_t base = value & 0xFFFFF000;
 +        uint64_t size = 1ull << (((value >> 1) & 0x1F) + 1);
@@ -889,8 +1119,7 @@ index 6cd54c8..ee2ddb7 100644
 +        tlb_flush(CPU(cpu), 1);
 +    }
 +
-+    if (strncmp(ri->name, "XSCALE", 6) == 0 &&
-+        ri->cp == 15 && ri->crn == 9 && ri->crm == 1 && ri->opc1 == 0)
++    if (strcmp(ri->name+1, "TCM") == 0)
 +    {
 +        uint64_t base = value & 0xFFFFF000;
 +        uint64_t size = 1ull << (((value >> 1) & 0x1F) + 9);
@@ -898,10 +1127,35 @@ index 6cd54c8..ee2ddb7 100644
 +        snprintf(desc, sizeof(desc), "(%08"PRIX64" - %08"PRIX64", 0x%"PRIX64")", base, end, size);
 +    }
 +
-+    if (strcmp(ri->name, "DRSR") == 0)
++    if (strcmp(ri->name, "DRSR") == 0 &&
++        (value & 1))
 +    {
 +        uint64_t size = 1ull << (((value >> 1) & 0x1F) + 1);
 +        snprintf(desc, sizeof(desc), "(0x%"PRIX64")", size);
++
++        uint32_t rgnr = env->cp15.c6_rgnr;
++        uint32_t base = env->pmsav7.drbar[rgnr];
++        assert(base % size == 0);
++
++        /* subregion disable bits */
++        uint32_t subregion_disable = (value & 0xFF00) >> 8;
++        if (subregion_disable)
++        {
++            /* Region sizes of less than 256 bytes do not support subregions
++             * (Cortex R4 TRM, 7.1.1 Memory regions) */
++            assert(size >= 256);
++
++            uint32_t subregion_size = size / 8;
++            for (int i = 0; i < 8; i++)
++            {
++                fprintf(stderr,
++                    "Subregion %08X - %08X: %s\n",
++                    base + subregion_size * i,
++                    base + subregion_size * (i + 1) - 1,
++                    subregion_disable & (1 << i) ? "disabled" : "enabled"
++                );
++            }
++        }
 +    }
 +
 +    if (strcmp(ri->name, "DRACR") == 0)
