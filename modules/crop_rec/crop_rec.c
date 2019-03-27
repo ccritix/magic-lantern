@@ -1486,7 +1486,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
 
 /* always disable Movie crop mode if using crop_rec presets, except for mcm mode */
-    if (crop_preset == CROP_PRESET_mcm_mv1080_EOSM && is_EOSM) 
+    if (crop_preset == CROP_PRESET_mcm_mv1080_EOSM) 
     {
         movie_crop_hack_enable();
     } 
