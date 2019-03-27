@@ -105,6 +105,11 @@ end
   menu.open()
   msleep(200)
   menu.close()
+  msleep(200)
+  key.press(KEY.MENU)
+  msleep(200)
+  key.press(KEY.MENU)
+  msleep(300)
 
 -- success!
    display.notify_box("4.5K anamorphic is all set")
