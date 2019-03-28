@@ -96,7 +96,7 @@ static unsigned int sd_uhs_init()
 
     if ((!is_camera("EOSM", "2.0.2")) && (!is_camera("100D", "1.0.1")) && (is_camera("700D", "1.1.5")))
     {
-    	NotifyBox(2000, "sd_uhs.mo only works for eosm and 100D in this build");
+    	NotifyBox(2000, "sd_uhs.mo is not supported for your camera");
     }
 
 /* Below cams not tested/supported atm. Try it by enabling sd_uhs_patch(); */
