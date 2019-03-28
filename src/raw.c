@@ -274,7 +274,7 @@ if (!is_EOSM)
         {	
 	    /* 10bit by checking pushed liveview gain register set in crop_rec.c */
             int default_white = WHITE_LEVEL;
-            return (default_white = 3000);   
+            return (default_white = (lens_info.raw_iso == ISO_100) ? 2840 : 2890);   
         }
 
         if (shamem_read(0xC0F42744) == 0x2020202)
