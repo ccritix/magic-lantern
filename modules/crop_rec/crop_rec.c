@@ -3727,11 +3727,9 @@ static inline uint32_t reg_override_mv1080_700d(uint32_t reg, uint32_t old_val)
     return reg_override_bits(reg, old_val);
 }
 
-
-
-
 static inline uint32_t reg_override_anamorphic_700d(uint32_t reg, uint32_t old_val)
 {
+/* To be tested and refined */
     switch (reg)
     {
         	case 0xC0F06804: return 0x88501b2 + reg_6804_width + (reg_6804_height << 16); 
@@ -3749,10 +3747,10 @@ static inline uint32_t reg_override_anamorphic_700d(uint32_t reg, uint32_t old_v
     return reg_override_bits(reg, old_val);
 }
 
-
-
-
-
+static inline uint32_t reg_override_center_z_700d(uint32_t reg, uint32_t old_val)
+{
+    return reg_override_bits(reg, old_val);
+}
 
 
 static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
@@ -3861,7 +3859,8 @@ static void * get_engio_reg_override_func()
 	(crop_preset == CROP_PRESET_UHD_700D)        ? reg_override_UHD_700d        :
 	(crop_preset == CROP_PRESET_FULLRES_LV_700D) ? reg_override_fullres_lv_700d :
 	(crop_preset == CROP_PRESET_3x3_mv1080_700D) ? reg_override_mv1080_700d     :
-        (crop_preset == CROP_PRESET_anamorphic_700D) ? reg_override_anamorphic_700d        : 
+        (crop_preset == CROP_PRESET_anamorphic_700D) ? reg_override_anamorphic_700d        :
+        (crop_preset == CROP_PRESET_CENTER_Z_700D) ? reg_override_center_z_700d        : 
 
                                                   0                       ;
     return reg_override_func;
