@@ -1800,7 +1800,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
 /* only apply bit reducing while recording, not while idle */
-if ((RECORDING && is_EOSM) || (is_100D || is_5D3))
+if ((RECORDING && is_EOSM) || (is_100D || is_5D3 || is_700D))
 {
   if (bitdepth == 0x1)
   {
@@ -3490,15 +3490,15 @@ static inline uint32_t reg_override_2520_700d(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x5840298; // 2520x1386  x5 Mode;
+        case 0xC0F06804: return 0x5840298 + reg_6804_width + (reg_6804_height << 16); // 2520x1386  x5 Mode;
 
-        case 0xC0F06014: return 0x747;
+        case 0xC0F06014: return 0x747 + reg_6014;
 
-        case 0xC0F0713c: return 0x5C7;
-        case 0xC0F07150: return 0x59A;
+        case 0xC0F0713c: return 0x5C7 + reg_713c;
+        case 0xC0F07150: return 0x59A + reg_7150;
     }
 
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 static inline uint32_t reg_override_3K_700d(uint32_t reg, uint32_t old_val)
@@ -3507,23 +3507,23 @@ static inline uint32_t reg_override_3K_700d(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x5340322; // 3072x1306  x5 Mode;
+        case 0xC0F06804: return 0x5340322 + reg_6804_width + (reg_6804_height << 16); // 3072x1306  x5 Mode;
 
-        case 0xC0F06824: return 0x3ca;
-        case 0xC0F06828: return 0x3ca;
-        case 0xC0F0682C: return 0x3ca;
-        case 0xC0F06830: return 0x3ca;
+        case 0xC0F06824: return 0x3ca + reg_6824;
+        case 0xC0F06828: return 0x3ca + reg_6824;
+        case 0xC0F0682C: return 0x3ca + reg_6824;
+        case 0xC0F06830: return 0x3ca + reg_6824;
        
-        case 0xC0F06010: return 0x37b;
-        case 0xC0F06008: return 0x37b037b;
-        case 0xC0F0600C: return 0x37b037b;
+        case 0xC0F06010: return 0x37b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x37b037b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x37b037b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0x6d7;
+        case 0xC0F06014: return 0x6d7 + reg_6014;
 
-        case 0xC0F0713c: return 0x555;
+        case 0xC0F0713c: return 0x555 + reg_713c;
     }
 
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 static inline uint32_t reg_override_3540(uint32_t reg, uint32_t old_val)
@@ -3532,20 +3532,20 @@ static inline uint32_t reg_override_3540(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x4540398; // 3544x1080  x5 Mode;
+        case 0xC0F06804: return 0x4540398 + reg_6804_width + (reg_6804_height << 16); // 3544x1080  x5 Mode;
 
-        case 0xC0F06824: return 0x3ca;
-        case 0xC0F06828: return 0x3ca;
-        case 0xC0F0682C: return 0x3ca;
-        case 0xC0F06830: return 0x3ca;
+        case 0xC0F06824: return 0x3ca + reg_6824;
+        case 0xC0F06828: return 0x3ca + reg_6824;
+        case 0xC0F0682C: return 0x3ca + reg_6824;
+        case 0xC0F06830: return 0x3ca + reg_6824;
        
-        case 0xC0F06010: return 0x3cb;
-        case 0xC0F06008: return 0x3cb03cb;
-        case 0xC0F0600C: return 0x3cb03cb;
+        case 0xC0F06010: return 0x3cb + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x3cb03cb + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x3cb03cb + reg_6008 + (reg_6008 << 16);
 
     }
 
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 static inline uint32_t reg_override_UHD_700d(uint32_t reg, uint32_t old_val)
@@ -3554,24 +3554,24 @@ static inline uint32_t reg_override_UHD_700d(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x88d03e2; // 3840x2160  x5 Mode;
+        case 0xC0F06804: return 0x88d03e2 + reg_6804_width + (reg_6804_height << 16); // 3840x2160  x5 Mode;
 
-        case 0xC0F06824: return 0x4ca;
-        case 0xC0F06828: return 0x4ca;
-        case 0xC0F0682C: return 0x4ca;
-        case 0xC0F06830: return 0x4ca;
+        case 0xC0F06824: return 0x4ca + reg_6824;
+        case 0xC0F06828: return 0x4ca + reg_6824;
+        case 0xC0F0682C: return 0x4ca + reg_6824;
+        case 0xC0F06830: return 0x4ca + reg_6824;
        
-        case 0xC0F06010: return 0x43b;
-        case 0xC0F06008: return 0x43b043b;
-        case 0xC0F0600C: return 0x43b043b;
+        case 0xC0F06010: return 0x43b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x43b043b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x43b043b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0x993;
+        case 0xC0F06014: return 0x993 + reg_6014;
 
-        case 0xC0F0713c: return 0x8E7;
-        case 0xC0F07150: return 0x8BA;
+        case 0xC0F0713c: return 0x8E7 + reg_713c;
+        case 0xC0F07150: return 0x8BA + reg_7150;
     }
 
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 static inline uint32_t reg_override_4K_700d(uint32_t reg, uint32_t old_val)
@@ -3580,23 +3580,23 @@ static inline uint32_t reg_override_4K_700d(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0xA1C0422; // 4096x2560  x5 Mode;
+        case 0xC0F06804: return 0xA1C0422 + reg_6804_width + (reg_6804_height << 16); // 4096x2560  x5 Mode;
 
-        case 0xC0F06824: return 0x4ca;
-        case 0xC0F06828: return 0x4ca;
-        case 0xC0F0682C: return 0x4ca;
-        case 0xC0F06830: return 0x4ca;
+        case 0xC0F06824: return 0x4ca + reg_6824;
+        case 0xC0F06828: return 0x4ca + reg_6824;
+        case 0xC0F0682C: return 0x4ca + reg_6824;
+        case 0xC0F06830: return 0x4ca + reg_6824;
        
-        case 0xC0F06010: return 0x45b;
-        case 0xC0F06008: return 0x45b045b;
-        case 0xC0F0600C: return 0x45b045b;
+        case 0xC0F06010: return 0x45b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0xBD3;
+        case 0xC0F06014: return 0xBD3 + reg_6014;
 
-        case 0xC0F0713c: return 0xA55;
+        case 0xC0F0713c: return 0xA55 + reg_713c;
     }
 
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 
@@ -3606,24 +3606,24 @@ static inline uint32_t reg_override_fullres_lv_700d(uint32_t reg, uint32_t old_v
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0xcbc0538; // 2520x1386  x5 Mode;
+        case 0xC0F06804: return 0xcbc0538 + reg_6804_width + (reg_6804_height << 16); // 2520x1386  x5 Mode;
 		case 0xC0F06800: return 0x30010;
 
-        case 0xC0F06824: return 0x56a;
-        case 0xC0F06828: return 0x56a;
-        case 0xC0F0682C: return 0x56a;
-        case 0xC0F06830: return 0x56a;
+        case 0xC0F06824: return 0x56a + reg_6824;
+        case 0xC0F06828: return 0x56a + reg_6824;
+        case 0xC0F0682C: return 0x56a + reg_6824;
+        case 0xC0F06830: return 0x56a + reg_6824;
        
-        case 0xC0F06010: return 0x56b;
-        case 0xC0F06008: return 0x56b056b;
-        case 0xC0F0600C: return 0x56b056b;
+        case 0xC0F06010: return 0x56b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06008: return 0x56b056b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x56b056b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0xdcb;
+        case 0xC0F06014: return 0xdcb + reg_6014;
 
-        case 0xC0F0713c: return 0xca7;
+        case 0xC0F0713c: return 0xca7 + reg_713c;
     }
 
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 static inline uint32_t reg_override_mv1080_700d(uint32_t reg, uint32_t old_val)
@@ -3632,20 +3632,20 @@ static inline uint32_t reg_override_mv1080_700d(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x4a601d4; // 2520x1386  x5 Mode;
+        case 0xC0F06804: return 0x4a601d4 + reg_6804_width + (reg_6804_height << 16); // 2520x1386  x5 Mode;
 
-        case 0xC0F06014: return 0x7cf;
-		case 0xC0F0600c: return 0x27f027f;
-		case 0xC0F06008: return 0x27f027f;
-		case 0xC0F06010: return 0x27f;
+        case 0xC0F06014: return 0x7cf + reg_6014;
+		case 0xC0F0600c: return 0x27f027f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x27f027f + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x27f + reg_6008 + (reg_6008 << 16);
 		
 		case 0xC0F37014: return 0xe;
 
-        case 0xC0F0713c: return 0x4a7;
-		case 0xC0F07150: return 0x475;
+        case 0xC0F0713c: return 0x4a7 + reg_713c;
+		case 0xC0F07150: return 0x475 + reg_7150;
     }
 
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
@@ -4438,13 +4438,17 @@ if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_100D) ||
-(CROP_PRESET_MENU == CROP_PRESET_1080K_100D))
+(CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
+(CROP_PRESET_MENU == CROP_PRESET_2520_1384_700D) ||
+(CROP_PRESET_MENU == CROP_PRESET_3K_700D) ||
+(CROP_PRESET_MENU == CROP_PRESET_3540_700D) ||
+(CROP_PRESET_MENU == CROP_PRESET_4K_700D))
   {
   lv_dispsize = 5;
   }
   else
   {
-  if (is_EOSM || is_100D)
+  if (is_EOSM || is_100D || is_700D)
   {
   set_lv_zoom(1);
   }
@@ -4848,7 +4852,6 @@ static struct lvinfo_item info_items[] = {
 
 static unsigned int raw_info_update_cbr(unsigned int unused)
 {
-
     if (patch_active)
     {
         /* not implemented yet */
@@ -4870,6 +4873,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_UHD:
             case CROP_PRESET_FULLRES_LV:
             case CROP_PRESET_3x1:
+	    case CROP_PRESET_FULLRES_LV_700D:
             case CROP_PRESET_3xcropmode_100D:
                 raw_capture_info.binning_x    = raw_capture_info.binning_y  = 1;
                 raw_capture_info.skipping_x   = raw_capture_info.skipping_y = 0;
@@ -4882,6 +4886,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_1x3:
             case CROP_PRESET_1x3_17fps:
 	    case CROP_PRESET_3x3_mv1080_EOSM:
+	    case CROP_PRESET_3x3_mv1080_700D:
 	    case CROP_PRESET_3x3_mv1080_48fps_EOSM:
  	    case CROP_PRESET_anamorphic_EOSM:
 	    case CROP_PRESET_1x3_100D:
@@ -4919,6 +4924,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_4K_HFPS:
             case CROP_PRESET_UHD:
             case CROP_PRESET_FULLRES_LV:
+	    case CROP_PRESET_FULLRES_LV_700D:
             case CROP_PRESET_1x3:
             case CROP_PRESET_1x3_17fps:
  	    case CROP_PRESET_anamorphic_EOSM:
@@ -4933,6 +4939,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_3x3_1X_48p:
             case CROP_PRESET_3x1:
 	    case CROP_PRESET_3x3_mv1080_EOSM:
+	    case CROP_PRESET_3x3_mv1080_700D:
 	    case CROP_PRESET_3x3_mv1080_48fps_EOSM:
             {
                 int b = (is_5D3) ? 3 : 1;
