@@ -88,6 +88,7 @@ enum crop_preset {
     CROP_PRESET_FULLRES_LV_700D,
     CROP_PRESET_CENTER_Z_700D,
     CROP_PRESET_3x3_mv1080_700D,
+    CROP_PRESET_anamorphic_700D,
     NUM_CROP_PRESETS
 };
 
@@ -269,6 +270,7 @@ static enum crop_preset crop_presets_700d[] = {
     CROP_PRESET_FULLRES_LV_700D,
     CROP_PRESET_CENTER_Z_700D,
     CROP_PRESET_3x3_mv1080_700D,
+    CROP_PRESET_anamorphic_700D,
 };
 
 static const char * crop_choices_700d[] = {
@@ -281,6 +283,7 @@ static const char * crop_choices_700d[] = {
     "Full-res LiveView",
     "2.5K 1:1 centered x5",
     "mv1080",
+    "5K anamorphic",
 };
 
 static const char crop_choices_help_700d[] =
@@ -295,7 +298,8 @@ static const char crop_choices_help2_700d[] =
     "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
     "Full resolution LiveView (5208x3240 @ 6.5 fps, preview broken)\n"
     "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
-    "mv1080(liveview stretched) \n";
+    "mv1080(liveview stretched) \n"
+    "1x3 binning modes(anamorphic)\n";
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
 static enum crop_preset crop_presets_basic[] = {
@@ -741,6 +745,7 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_UHD_700D]        = { 1536, 1472, 1120,  640,  540 },
     [CROP_PRESET_4K_700D]         = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_FULLRES_LV_700D] = { 3240, 3240, 3240, 3240, 3240 },
+    [CROP_PRESET_anamorphic_700D]  = { 1290, 1290, 1290,  960,  800 },
 };
 
 /* 5D3 vertical resolution increments over default configuration */
@@ -1098,6 +1103,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;	
 
 			case CROP_PRESET_anamorphic_EOSM:
+			case CROP_PRESET_anamorphic_700D:
 		cmos_new[7] = 0x2c4;   
                 break;	
 
@@ -1649,6 +1655,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 	     case CROP_PRESET_anamorphic_EOSM:
 	     case CROP_PRESET_1x3_100D:
+	     case CROP_PRESET_anamorphic_700D:
 	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
      	        break;
@@ -3648,6 +3655,34 @@ static inline uint32_t reg_override_mv1080_700d(uint32_t reg, uint32_t old_val)
     return reg_override_bits(reg, old_val);
 }
 
+
+
+
+static inline uint32_t reg_override_anamorphic_700d(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        	case 0xC0F06804: return 0x88501b2 + reg_6804_width + (reg_6804_height << 16); 
+
+        	case 0xC0F06014: return 0x99d + reg_6014;
+		case 0xC0F0600c: return 0x21d021d + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x21d021d + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x21d + reg_6008;
+		
+        	case 0xC0F0713c: return 0x885 + reg_713c;
+		case 0xC0F07150: return 0x880 + reg_7150;
+
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
+
+
+
+
+
+
 static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
 {
     /* attempt to reconfigure the x5 zoom at the FPS selected in Canon menu */
@@ -3753,6 +3788,8 @@ static void * get_engio_reg_override_func()
 	(crop_preset == CROP_PRESET_UHD_700D)        ? reg_override_UHD_700d        :
 	(crop_preset == CROP_PRESET_FULLRES_LV_700D) ? reg_override_fullres_lv_700d :
 	(crop_preset == CROP_PRESET_3x3_mv1080_700D) ? reg_override_mv1080_700d     :
+        (crop_preset == CROP_PRESET_anamorphic_700D) ? reg_override_anamorphic_700d        : 
+
                                                   0                       ;
     return reg_override_func;
 }
@@ -4825,6 +4862,11 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
     snprintf(buffer, sizeof(buffer), "2K");
   }
 
+  if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_700D)
+  {
+    snprintf(buffer, sizeof(buffer), "5K anamorphic");
+  }
+
     /* append info about current binning mode */
 
     if (raw_lv_is_enabled())
@@ -4889,6 +4931,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_3x3_mv1080_700D:
 	    case CROP_PRESET_3x3_mv1080_48fps_EOSM:
  	    case CROP_PRESET_anamorphic_EOSM:
+ 	    case CROP_PRESET_anamorphic_700D:
 	    case CROP_PRESET_1x3_100D:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
                 break;
@@ -4928,6 +4971,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_1x3:
             case CROP_PRESET_1x3_17fps:
  	    case CROP_PRESET_anamorphic_EOSM:
+ 	    case CROP_PRESET_anamorphic_700D:
 	    case CROP_PRESET_1x3_100D:
             case CROP_PRESET_3xcropmode_100D:
                 raw_capture_info.binning_y = 1; raw_capture_info.skipping_y = 0;
