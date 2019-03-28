@@ -1670,7 +1670,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		break;
 
 	     case CROP_PRESET_4K_5x1_EOSM:
-		adtg_new[0] = (struct adtg_new) {6, 0x800C, 4 + reg_800c};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 4 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
 		break;
 
@@ -1688,14 +1688,14 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_anamorphic_EOSM:
 	     case CROP_PRESET_1x3_100D:
 	     case CROP_PRESET_anamorphic_700D:
-	        adtg_new[0] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
+	        adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
      	        break;
 
 	     case CROP_PRESET_FULLRES_LV_700D:
                 /* adjust vertical resolution */
-		adtg_new[0] = (struct adtg_new) {6, 0x800C, 0};
-		adtg_new[1] = (struct adtg_new) {6, 0x8000, 5};
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0};
+		adtg_new[3] = (struct adtg_new) {6, 0x8000, 5};
                 break;
 
 	     case CROP_PRESET_3x3_mv1080_700D:
