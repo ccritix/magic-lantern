@@ -2062,6 +2062,7 @@ void FAST hack_liveview_vsync()
 	if (shamem_read(0xC0F06804) == 0x2e30504) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x5190310) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x44c0298) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x4550298) preview_mode = 2;
     }
 
 /* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */

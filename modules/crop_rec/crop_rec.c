@@ -32,7 +32,7 @@ static int is_100D = 0;
 static int is_EOSM = 0;
 static int is_basic = 0;
 
-static CONFIG_INT("crop.preset", crop_preset_index, 5);
+static CONFIG_INT("crop.preset", crop_preset_index, 6);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 4);
 static CONFIG_INT("crop.ratios", ratios, 2);
@@ -73,6 +73,7 @@ enum crop_preset {
     CROP_PRESET_3x3_mv1080_48fps_EOSM,
     CROP_PRESET_3x1_mv720_50fps_EOSM,
     CROP_PRESET_anamorphic_EOSM,
+    CROP_PRESET_CENTER_Z_EOSM,
     CROP_PRESET_3x3_1X_EOSM,
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
@@ -210,6 +211,7 @@ static const char crop_choices_help2_100d[] =
 	/* menu choices for EOSM */
 static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_OFF_eosm,
+    CROP_PRESET_CENTER_Z_EOSM,
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
@@ -226,6 +228,7 @@ static enum crop_preset crop_presets_eosm[] = {
 
 static const char * crop_choices_eosm[] = {
     "OFF",
+    "2.5K 1:1 centered",
     "2.5K 2520x1418",
     "3K 3032x1436",
     "4K 4038x2558",
@@ -245,6 +248,7 @@ static const char crop_choices_help_eosm[] =
 
 static const char crop_choices_help2_eosm[] =
     "\n"
+    "1:1 x5 zoom mode(centered raw, cropped preview)\n"
     "1:1 2K x5crop, real time preview\n"
     "1:1 3K x5crop, framing preview\n"
     "1:1 4K x5crop, framing preview\n"
@@ -369,8 +373,8 @@ static int is_supported_mode()
         /* note: zoom check is also covered by check_cmos_vidmode */
         /* (we need to apply CMOS settings before PROP_LV_DISPSIZE fires) */
         case CROP_PRESET_CENTER_Z:
-            return 1;
 		case CROP_PRESET_CENTER_Z_700D:
+		case CROP_PRESET_CENTER_Z_EOSM:
             return 1;
 
         default:
@@ -479,8 +483,8 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     {
     skip_left       = 72;
     skip_right      = 0;
-    skip_top        = 30;
-    skip_bottom     = 0;
+    skip_top        = 30; 
+    skip_bottom     = 0; 
     }
 
     if (is_100D)
@@ -521,6 +525,28 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         case CROP_PRESET_3x3_1X_48p:
             if (is_720p()) skip_top = 0;
             break;
+
+	case CROP_PRESET_CENTER_Z_EOSM:
+    	/* set ratio preset */
+    	skip_left       = 72;
+    	skip_right      = 0;
+    	skip_top        = 28;
+    	skip_bottom     = 0;
+    	if (ratios == 0x1)
+    	{
+    	skip_left       = 72;
+    	skip_right      = 0;
+    	skip_top        = 28;
+    	skip_bottom     = 8;
+    	}
+    	if (ratios == 0x2)
+    	{
+    	skip_left       = 332;
+    	skip_right      = 330;
+    	skip_top        = 28;
+    	skip_bottom     = 0;
+    	}
+        break;
 
 	case CROP_PRESET_2K_EOSM:
     	/* set ratio preset */
@@ -1047,6 +1073,12 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 /* start/stop scanning line, very large increments */
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
                 break; 
+
+			/* raw buffer centered in zoom mode */
+            		case CROP_PRESET_CENTER_Z_EOSM:
+                cmos_new[5] = 0x300;             /* vertical (first|last) */
+                cmos_new[7] = 0xa49;            /* horizontal offset (mask 0xFF0) */
+                break;
 
 			case CROP_PRESET_2K_EOSM:
                 cmos_new[7] = 0xaa9;    /* pink highlights without this */
@@ -2920,6 +2952,46 @@ static inline uint32_t reg_override_1x3_100d(uint32_t reg, uint32_t old_val)
 }
 
 /* Values for EOSM */
+static inline uint32_t reg_override_center_z_eosm(uint32_t reg, uint32_t old_val)
+{
+
+    switch (reg)
+    {
+        case 0xC0F06804: return 0x4550298 + reg_6804_width + (reg_6804_height << 16); /* 2520x1072  x5 Mode; */
+    }
+
+  if (ratios == 0x1)
+  {
+    switch (reg)
+    {
+        case 0xC0F06804: return 0x4550298 + reg_6804_width + (reg_6804_height << 16); /* 2520x1072  x5 Mode; */
+    }
+
+  }
+
+  if (ratios == 0x2)
+  {
+    switch (reg)
+    {
+        case 0xC0F06804: return 0x4550298 + reg_6804_width + (reg_6804_height << 16); /* 2520x1072  x5 Mode; */
+    }
+
+  }
+
+/* fps and height window */
+    switch (reg)
+    {
+        case 0xC0F0713c: return 0x455 + reg_713c;
+        case 0xC0F07150: return 0x428 + reg_7150;
+        case 0xC0F06014: return set_25fps == 0x1 ? 0x747 - 76 + reg_6014: 0x747 + reg_6014;
+/* reset dummy reg in raw.c */
+	case 0xC0f0b13c: return 0xf;
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
+/* Values for EOSM */
 static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
 {
   if (ratios == 0x1)
@@ -3766,7 +3838,8 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_4K_3x1_100D) 	     ? reg_override_4K_3x1_100D        :
         (crop_preset == CROP_PRESET_5K_3x1_100D) 	     ? reg_override_5K_3x1_100D        :
         (crop_preset == CROP_PRESET_1080K_100D)	     ? reg_override_1080p_100d      :
-        (crop_preset == CROP_PRESET_1x3_100D) ? reg_override_1x3_100d        :  
+        (crop_preset == CROP_PRESET_CENTER_Z_EOSM) ? reg_override_center_z_eosm        :
+        (crop_preset == CROP_PRESET_2K_EOSM)         ? reg_override_2K_eosm         :   
         (crop_preset == CROP_PRESET_2K_EOSM)         ? reg_override_2K_eosm         :    
         (crop_preset == CROP_PRESET_3K_EOSM)         ? reg_override_3K_eosm         : 
         (crop_preset == CROP_PRESET_4K_EOSM) 	     ? reg_override_4K_eosm         :
@@ -4465,7 +4538,8 @@ static int crop_rec_needs_lv_refresh()
     }
 
 /* let´s automate liveview start off setting */
-if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) || 
+if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) || 
+(CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_3K_100D) || 
 (CROP_PRESET_MENU == CROP_PRESET_4K_100D) || 
 (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) || 
@@ -4479,6 +4553,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_2520_1384_700D) ||
 (CROP_PRESET_MENU == CROP_PRESET_3K_700D) ||
 (CROP_PRESET_MENU == CROP_PRESET_3540_700D) ||
+(CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_700D) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_700D))
   {
   lv_dispsize = 5;
