@@ -479,7 +479,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     int skip_top        = 28;
     int skip_bottom     = 0;
 
-    if (is_EOSM)
+    if (is_EOSM || is_700D)
     {
     skip_left       = 72;
     skip_right      = 0;
@@ -662,6 +662,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         break;
 
  	case CROP_PRESET_anamorphic_EOSM:
+ 	case CROP_PRESET_anamorphic_700D:
 /* see autodetect_black_level exception in raw.c */
         skip_bottom = 24;
     	if (ratios == 0x1)
@@ -3490,20 +3491,6 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xd;
 
-/* 1st successful test. Pushing timers seems to do the trick. 
-only gotten one single corrupted frame from below but keep on testing */
-/* case 0xC0F06014: return 0x90d+ delta_head3;
-   case 0xC0F06008: return 0x22b023f+ delta_head4; */
-
-/* 2nd success pushing timers seems to do the trick. 
-only gotten one single corrupted frame from below but keep on testing */
-/* case 0xC0F06014: return 0x90d+ delta_head3;
-   case 0xC0F06008: return 0x22b023f+ delta_head4; */
-
-/* Third attempt(hick up at one spot masc)
-   case 0xC0F0713c: return 0x795;
-   case 0xC0F07150: return 0x791; */
-
     }
 
   }
@@ -3705,7 +3692,7 @@ static inline uint32_t reg_override_fullres_lv_700d(uint32_t reg, uint32_t old_v
     return reg_override_bits(reg, old_val);
 }
 
-static inline uint32_t reg_override_mv1080_700d(uint32_t reg, uint32_t old_val)
+static inline uint32_t reg_override_3x3_mv1080_700d(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
     {
@@ -3729,7 +3716,60 @@ static inline uint32_t reg_override_mv1080_700d(uint32_t reg, uint32_t old_val)
 
 static inline uint32_t reg_override_anamorphic_700d(uint32_t reg, uint32_t old_val)
 {
-/* To be tested and refined */
+
+  if (ratios == 0x1)
+  {
+    switch (reg)
+    {
+		case 0xC0F06804: return 0x79f01d4 + reg_6804_width + (reg_6804_height << 16);
+
+        	case 0xC0F06014: return 0x8ec + reg_6014;
+		case 0xC0F0600c: return set_25fps == 0x1 ? 0x2470247 - 24 + reg_6008 + (reg_6008 << 16): 0x2470247 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return set_25fps == 0x1 ? 0x2470247 - 24 + reg_6008 + (reg_6008 << 16): 0x2470247 + reg_6008 + (reg_6008 << 16);		 
+		case 0xC0F06010: return set_25fps == 0x1 ? 0x247 - 24 + reg_6008: 0x247 + reg_6008;
+
+        	case 0xC0F0713c: return 0x797 + reg_713c;
+		case 0xC0F07150: return 0x791 + reg_7150;
+    }
+
+  }
+
+  if (ratios == 0x2)
+  {
+    switch (reg)
+    {
+        	case 0xC0F06804: return 0x7ef01d4 + reg_6804_width + (reg_6804_height << 16); 
+
+        	case 0xC0F06014: return 0x95d + reg_6014;
+		case 0xC0F0600c: return set_25fps == 0x1 ? 0x22b022b - 22 + reg_6008 + (reg_6008 << 16): 0x22b022b + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return set_25fps == 0x1 ? 0x22b022b - 22 + reg_6008 + (reg_6008 << 16): 0x22b022b + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return set_25fps == 0x1 ? 0x22b - 24 + reg_6008: 0x22b + reg_6008;
+
+        	case 0xC0F0713c: return 0x7ef + reg_713c;
+		case 0xC0F07150: return 0x7dd + reg_7150;
+    }
+
+  }
+
+  if ((ratios != 0x1) && (ratios != 0x2))
+  {
+    switch (reg)
+    {
+        	case 0xC0F06804: return 0x88501c2 + reg_6804_width + (reg_6804_height << 16); 
+
+        	case 0xC0F06014: return 0x99d + reg_6014;
+		case 0xC0F0600c: return 0x21d021d + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return 0x21d021d + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return 0x21d + reg_6008;
+		
+        	case 0xC0F0713c: return 0x885 + reg_713c;
+		case 0xC0F07150: return 0x880 + reg_7150;
+    }
+
+  }
+
+
+/* To be tested and refined 
     switch (reg)
     {
         	case 0xC0F06804: return 0x88501b2 + reg_6804_width + (reg_6804_height << 16); 
@@ -3741,8 +3781,8 @@ static inline uint32_t reg_override_anamorphic_700d(uint32_t reg, uint32_t old_v
 		
         	case 0xC0F0713c: return 0x885 + reg_713c;
 		case 0xC0F07150: return 0x880 + reg_7150;
-
     }
+*/
 
     return reg_override_bits(reg, old_val);
 }
@@ -3858,10 +3898,9 @@ static void * get_engio_reg_override_func()
 	(crop_preset == CROP_PRESET_4K_700D)         ? reg_override_4K_700d         :
 	(crop_preset == CROP_PRESET_UHD_700D)        ? reg_override_UHD_700d        :
 	(crop_preset == CROP_PRESET_FULLRES_LV_700D) ? reg_override_fullres_lv_700d :
-	(crop_preset == CROP_PRESET_3x3_mv1080_700D) ? reg_override_mv1080_700d     :
+	(crop_preset == CROP_PRESET_3x3_mv1080_700D) ? reg_override_3x3_mv1080_700d     :
         (crop_preset == CROP_PRESET_anamorphic_700D) ? reg_override_anamorphic_700d        :
         (crop_preset == CROP_PRESET_CENTER_Z_700D) ? reg_override_center_z_700d        : 
-
                                                   0                       ;
     return reg_override_func;
 }
@@ -5067,7 +5106,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             }
         }
 
-        if ((is_5D3) || (is_EOSM) || (is_100D))
+        if ((is_5D3) || (is_EOSM) || (is_100D) || (is_700D))
         {
             /* update skip offsets */
             int skip_left, skip_right, skip_top, skip_bottom;

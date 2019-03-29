@@ -94,7 +94,7 @@ static unsigned int sd_uhs_init()
     	sd_uhs_patch();
     }
 
-    if ((!is_camera("EOSM", "2.0.2")) && (!is_camera("100D", "1.0.1")) && (is_camera("700D", "1.1.5")))
+    if ((!is_camera("EOSM", "2.0.2")) && (!is_camera("100D", "1.0.1")) && (!is_camera("700D", "1.1.5")))
     {
     	NotifyBox(2000, "sd_uhs.mo is not supported for your camera");
     }
