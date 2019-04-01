@@ -89,6 +89,7 @@ enum crop_preset {
     CROP_PRESET_FULLRES_LV_700D,
     CROP_PRESET_CENTER_Z_700D,
     CROP_PRESET_3x3_mv1080_700D,
+    CROP_PRESET_3x3_mv1080_48fps_700D,
     CROP_PRESET_anamorphic_700D,
     NUM_CROP_PRESETS
 };
@@ -274,6 +275,7 @@ static enum crop_preset crop_presets_700d[] = {
     CROP_PRESET_FULLRES_LV_700D,
     CROP_PRESET_CENTER_Z_700D,
     CROP_PRESET_3x3_mv1080_700D,
+    CROP_PRESET_3x3_mv1080_48fps_700D,
     CROP_PRESET_anamorphic_700D,
 };
 
@@ -287,6 +289,7 @@ static const char * crop_choices_700d[] = {
     "Full-res LiveView",
     "2.5K 1:1 centered x5",
     "mv1080",
+    "mv1080p 1736x976 46/48fps",
     "5K anamorphic",
 };
 
@@ -303,6 +306,7 @@ static const char crop_choices_help2_700d[] =
     "Full resolution LiveView (5208x3240 @ 6.5 fps, preview broken)\n"
     "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
     "mv1080(liveview stretched) \n"
+    "mv1080p 46/48 fps\n"
     "1x3 binning modes(anamorphic)\n";
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
@@ -639,6 +643,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
 	break;
 
  	case CROP_PRESET_3x3_mv1080_48fps_EOSM:
+	case CROP_PRESET_3x3_mv1080_48fps_700D:
 /* see autodetect_black_level exception in raw.c */
     	if (ratios == 0x1)
     	{
@@ -772,6 +777,7 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_UHD_700D]        = { 1536, 1472, 1120,  640,  540 },
     [CROP_PRESET_4K_700D]         = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_FULLRES_LV_700D] = { 3240, 3240, 3240, 3240, 3240 },
+    [CROP_PRESET_3x3_mv1080_48fps_700D]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_anamorphic_700D]  = { 1290, 1290, 1290,  960,  800 },
 };
 
@@ -1128,6 +1134,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;	
 
 		        case CROP_PRESET_3x3_mv1080_48fps_EOSM:
+			case CROP_PRESET_3x3_mv1080_48fps_700D:
 		if (x3crop == 0x1)
 		{
 	        cmos_new[5] = 0x400;
@@ -1640,6 +1647,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 	     case CROP_PRESET_3x3_mv1080_EOSM:
   	     case CROP_PRESET_3x3_mv1080_48fps_EOSM:
+	     case CROP_PRESET_3x3_mv1080_48fps_700D:
 	     case CROP_PRESET_4K_3x1_EOSM:
 	     case CROP_PRESET_5K_3x1_EOSM:
 	     case CROP_PRESET_4K_3x1_100D:
@@ -3887,6 +3895,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_3x3_mv1080_EOSM) ? reg_override_3x3_mv1080_eosm        :
         (crop_preset == CROP_PRESET_mcm_mv1080_EOSM) ? reg_override_mcm_mv1080_eosm        :
         (crop_preset == CROP_PRESET_3x3_mv1080_48fps_EOSM) ? reg_override_3x3_48fps_eosm        :
+        (crop_preset == CROP_PRESET_3x3_mv1080_48fps_700D) ? reg_override_3x3_48fps_eosm        : //Same as for eosm?
         (crop_preset == CROP_PRESET_3x1_mv720_50fps_EOSM) ? reg_override_3x1_mv720_50fps_eosm        :
         (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        : 
         (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
@@ -4022,7 +4031,7 @@ PROP_HANDLER(PROP_LV_DISPSIZE)
 
 static MENU_UPDATE_FUNC(crop_update)
 {
-    if ((CROP_PRESET_MENU && lv) && !is_100D && !is_EOSM)
+    if ((CROP_PRESET_MENU && lv) && !is_100D && !is_EOSM && !is_700D)
     {
         if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z ||
             crop_preset == CROP_PRESET_CENTER_Z_700D)
@@ -4099,7 +4108,7 @@ static MENU_UPDATE_FUNC(crop_update)
     }
   }
 
-    if (!is_720p() && ((CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)))
+    if (!is_720p() && ((CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D) || (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_700D)))
     {
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in mv720p movie mode");
         return;
@@ -4932,7 +4941,7 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
     snprintf(buffer, sizeof(buffer), "mv1080p rewire");
   }
 
-  if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM)
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_700D)
   {
     if (ratios == 0x0) snprintf(buffer, sizeof(buffer), "mv1080p_46fps");
     if (ratios == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_48fps");
@@ -5043,6 +5052,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_3x3_mv1080_EOSM:
 	    case CROP_PRESET_3x3_mv1080_700D:
 	    case CROP_PRESET_3x3_mv1080_48fps_EOSM:
+	    case CROP_PRESET_3x3_mv1080_48fps_700D:
  	    case CROP_PRESET_anamorphic_EOSM:
  	    case CROP_PRESET_anamorphic_700D:
 	    case CROP_PRESET_1x3_100D:
@@ -5098,6 +5108,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_3x3_mv1080_EOSM:
 	    case CROP_PRESET_3x3_mv1080_700D:
 	    case CROP_PRESET_3x3_mv1080_48fps_EOSM:
+            case CROP_PRESET_3x3_mv1080_48fps_700D:
             {
                 int b = (is_5D3) ? 3 : 1;
                 int s = (is_5D3) ? 0 : 2;
