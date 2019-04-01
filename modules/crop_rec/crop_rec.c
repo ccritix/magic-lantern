@@ -1538,7 +1538,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     } 
     else 
     {
-
      if (is_EOSM) movie_crop_hack_disable();
     }
 
