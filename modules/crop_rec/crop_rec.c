@@ -1633,7 +1633,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x3_1X_48p:
                 /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
-                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
+                if (CROP_PRESET_MENU != CROP_PRESET_3x3_1X_48p) adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
                 break;
 
 
