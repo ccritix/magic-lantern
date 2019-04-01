@@ -2147,7 +2147,7 @@ void hack_liveview(int unhack)
         }
 
         /* disable auto exposure and auto white balance */
-	if (cam_eos_m && small_hacks == 0x1)
+	if ((cam_eos_m && small_hacks == 0x1) || (!cam_eos_m))
 	{
         call("aewb_enableaewb", unhack ? 1 : 0);  /* for new cameras */
 	}
