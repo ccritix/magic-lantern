@@ -81,7 +81,7 @@ enum crop_preset {
     CROP_PRESET_4K_3x1_EOSM,
     CROP_PRESET_5K_3x1_EOSM,
     CROP_PRESET_4K_5x1_EOSM,
-    CROP_PRESET_2520_1384_700D,
+    CROP_PRESET_2520_1418_700D,
     CROP_PRESET_3K_700D,
     CROP_PRESET_3540_700D,
     CROP_PRESET_UHD_700D,
@@ -267,28 +267,28 @@ static const char crop_choices_help2_eosm[] =
 	/* menu choices for 700D */
 static enum crop_preset crop_presets_700d[] = {
     CROP_PRESET_OFF,
-    CROP_PRESET_2520_1384_700D,
+    CROP_PRESET_2520_1418_700D,
     CROP_PRESET_3K_700D,
-    CROP_PRESET_3540_700D,
-    CROP_PRESET_UHD_700D,
+   // CROP_PRESET_3540_700D,
+   // CROP_PRESET_UHD_700D,
     CROP_PRESET_4K_700D,
-    CROP_PRESET_FULLRES_LV_700D,
+   // CROP_PRESET_FULLRES_LV_700D,
     CROP_PRESET_CENTER_Z_700D,
-    CROP_PRESET_3x3_mv1080_700D,
+   // CROP_PRESET_3x3_mv1080_700D,
     CROP_PRESET_3x3_mv1080_48fps_700D,
     CROP_PRESET_anamorphic_700D,
 };
 
 static const char * crop_choices_700d[] = {
     "OFF",
-    "2.5K 2520x1384",
-    "3K 1:1",
-    "3.5K 1:1",
-    "UHD 1:1 half-fps",
-    "4K 1:1",
-    "Full-res LiveView",
+    "2.5K 2520x1418",
+    "3K 3032x1436",
+    // "3.5K 1:1",
+    // "UHD 1:1 half-fps",
+    "4K 4038x2558",
+    // "Full-res LiveView",
     "2.5K 1:1 centered x5",
-    "mv1080",
+    // "mv1080",
     "mv1080p 1736x976 46/48fps",
     "5K anamorphic",
 };
@@ -298,14 +298,14 @@ static const char crop_choices_help_700d[] =
 
 static const char crop_choices_help2_700d[] =
     "\n"
-    "1:1 2.5K crop (2520x1384 16:9 @ 24p, square raw pixels, cropped preview)\n"
+    "1:1 2.5K crop (2520x1418 16:9 @ 24p, square raw pixels, cropped preview)\n"
     "1:1 3K crop (3072x1304 @ 20p, square raw pixels, preview broken)\n"
-    "1:1 3.5K crop (3540x1080 @ 22p, square raw pixels, preview broken)\n"
-    "1:1 4K UHD (3840x2160 @ 12 fps, half frame rate, preview broken)\n"
-    "1:1 4K crop (4096x2560 @ 9.477p, square raw pixels, preview broken)\n"
-    "Full resolution LiveView (5208x3240 @ 6.5 fps, preview broken)\n"
+   // "1:1 3.5K crop (3540x1080 @ 22p, square raw pixels, preview broken)\n"
+   // "1:1 4K UHD (3840x2160 @ 12 fps, half frame rate, preview broken)\n"
+    "1:1 4K crop (4032x2560 @ 9.477p, square raw pixels, preview broken)\n"
+   // "Full resolution LiveView (5208x3240 @ 6.5 fps, preview broken)\n"
     "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
-    "mv1080(liveview stretched) \n"
+   // "mv1080(liveview stretched) \n"
     "mv1080p 46/48 fps\n"
     "1x3 binning modes(anamorphic)\n";
 
@@ -1147,7 +1147,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		cmos_new[7] = 0x2c4;   
                 break;	
 
-		case CROP_PRESET_2520_1384_700D:
+		case CROP_PRESET_2520_1418_700D:
                 cmos_new[7] = 0xaa9;    /* pink highlights without this */
                 break;					
 				
@@ -3369,6 +3369,12 @@ if (set_25fps == 0x1)
 static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_val)
 {
 
+    if (!is_720p())
+    {
+        /* 1080p not patched in 3x3 */
+        return 0;
+    }
+
   if ((ratios != 0x1) && (ratios != 0x2))
   {
     switch (reg)
@@ -3700,13 +3706,53 @@ static inline uint32_t reg_override_fullres_lv_700d(uint32_t reg, uint32_t old_v
     return reg_override_bits(reg, old_val);
 }
 
+/* Values for 700D */
+static inline uint32_t reg_override_center_z_700d(uint32_t reg, uint32_t old_val)
+{
+
+    switch (reg)
+    {
+        case 0xC0F06804: return 0x4550298 + reg_6804_width + (reg_6804_height << 16); /* 2520x1072  x5 Mode; */
+    }
+
+  if (ratios == 0x1)
+  {
+    switch (reg)
+    {
+        case 0xC0F06804: return 0x4550298 + reg_6804_width + (reg_6804_height << 16); /* 2520x1072  x5 Mode; */
+    }
+
+  }
+
+  if (ratios == 0x2)
+  {
+    switch (reg)
+    {
+        case 0xC0F06804: return 0x4550298 + reg_6804_width + (reg_6804_height << 16); /* 2520x1072  x5 Mode; */
+    }
+
+  }
+
+/* fps and height window */
+    switch (reg)
+    {
+        case 0xC0F0713c: return 0x455 + reg_713c;
+        case 0xC0F07150: return 0x428 + reg_7150;
+        case 0xC0F06014: return set_25fps == 0x1 ? 0x747 - 76 + reg_6014: 0x747 + reg_6014;
+/* reset dummy reg in raw.c */
+	case 0xC0f0b13c: return 0xf;
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
 static inline uint32_t reg_override_3x3_mv1080_700d(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x4a601d4 + reg_6804_width + (reg_6804_height << 16); // 2520x1386  x5 Mode;
+        case 0xC0F06804: return 0x4a601d4 + reg_6804_width + (reg_6804_height << 16); 
 
         case 0xC0F06014: return 0x7cf + reg_6014;
 		case 0xC0F0600c: return 0x27f027f + reg_6008 + (reg_6008 << 16);
@@ -3794,12 +3840,6 @@ static inline uint32_t reg_override_anamorphic_700d(uint32_t reg, uint32_t old_v
 
     return reg_override_bits(reg, old_val);
 }
-
-static inline uint32_t reg_override_center_z_700d(uint32_t reg, uint32_t old_val)
-{
-    return reg_override_bits(reg, old_val);
-}
-
 
 static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
 {
@@ -3901,7 +3941,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_3x3_1X_100D)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_OFF_eosm)    ? reg_override_crop_preset_off_eosm  :
-	(crop_preset == CROP_PRESET_2520_1384_700D)       ? reg_override_2520_700d            :
+	(crop_preset == CROP_PRESET_2520_1418_700D)       ? reg_override_2520_700d            :
 	(crop_preset == CROP_PRESET_3K_700D)         ? reg_override_3K_700d         :
 	(crop_preset == CROP_PRESET_3540_700D)       ? reg_override_3540            :
 	(crop_preset == CROP_PRESET_4K_700D)         ? reg_override_4K_700d         :
@@ -4597,7 +4637,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
-(CROP_PRESET_MENU == CROP_PRESET_2520_1384_700D) ||
+(CROP_PRESET_MENU == CROP_PRESET_2520_1418_700D) ||
 (CROP_PRESET_MENU == CROP_PRESET_3K_700D) ||
 (CROP_PRESET_MENU == CROP_PRESET_3540_700D) ||
 (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_700D) ||
@@ -4979,7 +5019,7 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
     snprintf(buffer, sizeof(buffer), "FLV");
   }
 
-  if (CROP_PRESET_MENU == CROP_PRESET_2520_1384_700D)
+  if (CROP_PRESET_MENU == CROP_PRESET_2520_1418_700D)
   {
     snprintf(buffer, sizeof(buffer), "2K");
   }
