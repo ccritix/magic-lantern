@@ -153,10 +153,10 @@ static const char crop_choices_help2_5d3[] =
     "1:1 3K crop (3072x1920 @ 24p, square raw pixels, preview broken)\n"
     "1920x1080 @ 45p, 1920x1080 @ 48p, 3x3 binning (50/60 FPS in Canon menu)\n"
     "1:1 sensor readout (square raw pixels, 3x crop, good preview in 1080p)\n"
+    "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
     "1920x960 @ 50p, 1920x800 @ 60p (3x3 binning, cropped preview)\n"
     "1:1 4K UHD crop (3840x1600 @ 24p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x3072 @ 12.5 fps, half frame rate, preview broken)\n"
-    "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
     "Full resolution LiveView (5796x3870 @ 7.4 fps, 5784x3864, preview broken)\n"
     "mv1080_mv720p clean"
     "1x3_17fps binning: read all lines, bin every 3 columns (extreme anamorphic)\n"
@@ -1531,15 +1531,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[0] = (struct adtg_new) {6, 0x8060, shutter_blanking};
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
 
-/* always disable Movie crop mode if using crop_rec presets, except for mcm mode */
-    if (crop_preset == CROP_PRESET_mcm_mv1080_EOSM) 
-    {
-        movie_crop_hack_enable();
-    } 
-    else 
-    {
-     if (is_EOSM) movie_crop_hack_disable();
-    }
+
 
 
 	  /* only apply bit reducing while recording, not while idle */
