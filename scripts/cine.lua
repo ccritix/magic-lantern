@@ -1,4 +1,4 @@
--- eosm cinema 2:35.1  
+-- cinema 2:35.1  
 
 -- Sets all parameters for anamorphic 2:35.1
 
@@ -8,23 +8,23 @@
   menu.close()
 
 -- end this script if not eosm
-if camera.model_short ~= "EOSM" then
-   display.notify_box("Script only works for eosm")
-   menu.set("eosm cinema 2:35.1", "Autorun", "OFF")
+if camera.model_short ~= "EOSM" and camera.model_short ~= "700D" then
+   display.notify_box("Script only works for eosm/700d")
+   menu.set("cinema 2:35.1", "Autorun", "OFF")
   msleep(2000)
    return
 end
 
 -- this script should never run on Autorun, menu.set not working so running menu.select instead
-if menu.get("eosm cinema 2:35.1", "Autorun", "") == "ON" then
-   menu.select("Scripts", "eosm cinema 2:35.1")
+if menu.get("cinema 2:35.1", "Autorun", "") == "ON" then
+   menu.select("Scripts", "cinema 2:35.1")
    menu.open()     -- open ML menu
    key.press(KEY.SET)
    key.press(KEY.WHEEL_DOWN)
    key.press(KEY.WHEEL_DOWN)
    key.press(KEY.SET)
    menu.close()
-   display.notify_box("eosm cinema Autorun is now disabled!")
+   display.notify_box("cinema Autorun is now disabled!")
   msleep(3000)
    return
 end
