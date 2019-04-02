@@ -272,7 +272,7 @@ static enum crop_preset crop_presets_700d[] = {
    // CROP_PRESET_3540_700D,
    // CROP_PRESET_UHD_700D,
     CROP_PRESET_4K_700D,
-   // CROP_PRESET_FULLRES_LV_700D,
+    CROP_PRESET_FULLRES_LV_700D,
     CROP_PRESET_CENTER_Z_700D,
    // CROP_PRESET_3x3_mv1080_700D,
     CROP_PRESET_3x3_mv1080_48fps_700D,
@@ -281,12 +281,12 @@ static enum crop_preset crop_presets_700d[] = {
 
 static const char * crop_choices_700d[] = {
     "OFF",
-    "2.5K 2520x1418",
-    "3K 3032x1436",
+    "2.5K",
+    "3K",
     // "3.5K 1:1",
     // "UHD 1:1 half-fps",
-    "4K 4038x2558",
-    // "Full-res LiveView",
+    "4K",
+    "Full-res LiveView",
     "2.5K 1:1 centered x5",
     // "mv1080",
     "mv1080p 1736x976 46/48fps",
@@ -298,12 +298,12 @@ static const char crop_choices_help_700d[] =
 
 static const char crop_choices_help2_700d[] =
     "\n"
-    "1:1 2.5K crop (2520x1418 16:9 @ 24p, square raw pixels, cropped preview)\n"
-    "1:1 3K crop (3072x1304 @ 20p, square raw pixels, preview broken)\n"
+    "1:1 2K x5crop, real time preview\n"
+    "1:1 3K x5crop, framing preview\n"
    // "1:1 3.5K crop (3540x1080 @ 22p, square raw pixels, preview broken)\n"
    // "1:1 4K UHD (3840x2160 @ 12 fps, half frame rate, preview broken)\n"
-    "1:1 4K crop (4032x2560 @ 9.477p, square raw pixels, preview broken)\n"
-   // "Full resolution LiveView (5208x3240 @ 6.5 fps, preview broken)\n"
+    "1:1 4K x5crop, framing preview\n"
+    "Full resolution LiveView (preview broken)\n"
     "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
    // "mv1080(liveview stretched) \n"
     "mv1080p 46/48 fps\n"
@@ -702,6 +702,10 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
       	skip_bottom = 182;
     	}
         break;
+
+	case CROP_PRESET_FULLRES_LV_700D:
+	skip_bottom     = 4;
+	break;
     }
 
     if (p_skip_left)   *p_skip_left    = skip_left + reg_skip_left;
