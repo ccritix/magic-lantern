@@ -107,7 +107,7 @@ end
   menu.close()
   msleep(200)
   key.press(KEY.MENU)
-  msleep(200)
+  msleep(600)
   key.press(KEY.MENU)
   msleep(300)
 
