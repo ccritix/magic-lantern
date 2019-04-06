@@ -472,9 +472,7 @@ uint32_t eos_callstack_get_caller_param(EOSState *s, int call_depth, enum param_
         uint32_t frame_size = callstack_frame_size(id, level);
         assert((arg_index - 4) < frame_size / 4);
         uint32_t arg_addr = call_stacks[id][level].sp + (arg_index - 4) * 4;
-        uint32_t arg = 0;
-        cpu_physical_memory_read(arg_addr, &arg, 4);
-        return arg;
+        return eos_get_mem_w(s, arg_addr);
     }
 }
 
@@ -551,7 +549,7 @@ int eos_callstack_print(EOSState *s, const char * prefix, const char * sep, cons
     return len;
 }
 
-static int print_args(uint32_t * regs);
+static int print_args(EOSState *s, uint32_t * regs);
 
 void eos_callstack_print_verbose(EOSState *s)
 {
@@ -619,7 +617,7 @@ void eos_callstack_print_verbose(EOSState *s)
             if (name && name[0]) {
                 len += fprintf(stderr, " %s", name);
             }
-            len += print_args(entry->regs);
+            len += print_args(s, entry->regs);
             len += eos_indent(len, CALLSTACK_RIGHT_ALIGN);
             eos_print_location(s, ret, sp, " at ", " (pc:sp)\n");
         }
@@ -792,7 +790,7 @@ static const char * string_escape(const char * str)
     return buf;
 }
 
-static int print_arg(uint32_t arg)
+static int print_arg(EOSState *s, uint32_t arg)
 {
     int len = fprintf(stderr, "%x", arg);
 
@@ -810,8 +808,8 @@ static int print_arg(uint32_t arg)
 
     if (is_sane_ptr(arg, 4))
     {
-        uint32_t mem_arg;
-        cpu_physical_memory_read(arg, &mem_arg, sizeof(mem_arg));
+        uint32_t mem_arg = eos_get_mem_w(s, arg);
+
         if ((str = looks_like_string(mem_arg)))
         {
             return len + fprintf(stderr, " &\"%s\"", string_escape(str));
@@ -821,18 +819,18 @@ static int print_arg(uint32_t arg)
     return len;
 }
 
-static int print_args(uint32_t * regs)
+static int print_args(EOSState *s, uint32_t * regs)
 {
     /* fixme: guess the number of arguments */
     int len = 0;
     len += fprintf(stderr, "(");
-    len += print_arg(regs[0]);
+    len += print_arg(s, regs[0]);
     len += fprintf(stderr, ", ");
-    len += print_arg(regs[1]);
+    len += print_arg(s, regs[1]);
     len += fprintf(stderr, ", ");
-    len += print_arg(regs[2]);
+    len += print_arg(s, regs[2]);
     len += fprintf(stderr, ", ");
-    len += print_arg(regs[3]);
+    len += print_arg(s, regs[3]);
     len += fprintf(stderr, ")");
     return len;
 }
@@ -891,7 +889,7 @@ static void eos_callstack_log_mem(EOSState *s, hwaddr _addr, uint64_t _value, ui
                         uint32_t lr = CURRENT_CPU->env.regs[14];
                         int len = eos_callstack_indent(s);
                         len += fprintf(stderr, "arg%d = ", arg_num);
-                        len += print_arg(value);
+                        len += print_arg(s, value);
                         len += eos_indent(len, CALLSTACK_RIGHT_ALIGN);
                         print_call_location(s, pc, lr);
                         if (arg_num > 10)
@@ -1169,7 +1167,7 @@ recheck:
             if (name && name[0]) {
                 len += fprintf(stderr, " %s", name);
             }
-            len += print_args(env->regs);
+            len += print_args(s, env->regs);
             len += eos_indent(len, CALLSTACK_RIGHT_ALIGN);
 
             /* print LR from the call stack, so it will always show the caller */
@@ -1201,8 +1199,7 @@ recheck:
     /* skip first instruction (we need valid prev_pc) */
     if (prev_pc != 0xFFFFFFFF)
     {
-        uint32_t insn;
-        cpu_physical_memory_read(prev_pc0, &insn, sizeof(insn));
+        uint32_t insn = eos_get_mem_w(s, prev_pc0);
 
         if (prev_pc & 1)
         {
@@ -1609,9 +1606,9 @@ static void eos_tasks_log_exec(EOSState *s, CPUState *cpu, TranslationBlock *tb)
     {
         /* fixme: this method catches all task switches,
          * but requires reading current_task_ptr from guest memory at every PC jump */
-        uint32_t current_task_ptr;
         static uint32_t previous_task_ptr;
-        cpu_physical_memory_read(s->model->current_task_addr, &current_task_ptr, 4);
+        uint32_t current_task_ptr = eos_get_mem_w(s, s->model->current_task_addr);
+
         if (current_task_ptr != previous_task_ptr)
         {
             previous_task_ptr = current_task_ptr;

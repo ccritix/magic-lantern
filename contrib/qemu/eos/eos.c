@@ -1684,12 +1684,12 @@ char * eos_get_current_task_name(EOSState *s)
         return 0;
     }
     
-    uint32_t current_task_ptr;
-    uint32_t current_task[0x50/4];
-    static char task_name[100];
-    cpu_physical_memory_read(s->model->current_task_addr, &current_task_ptr, 4);
-    if (current_task_ptr && (current_task_ptr & ~s->model->caching_bit) < 0x1000000)
+    uint32_t current_task_ptr = eos_get_mem_w(s, s->model->current_task_addr);
+    if (current_task_ptr > 0x1000 && current_task_ptr < 0x1000000)
     {
+        uint32_t current_task[0x50/4];
+        static char task_name[100];
+
         assert(s->model->current_task_name_offs);
         int off = s->model->current_task_name_offs;
         cpu_physical_memory_read(current_task_ptr, current_task, sizeof(current_task));
@@ -1718,12 +1718,10 @@ uint8_t eos_get_current_task_id(EOSState *s)
         return 0xFF;
     }
     
-    uint32_t current_task_ptr;
-    uint32_t current_task;
-    cpu_physical_memory_read(s->model->current_task_addr, &current_task_ptr, 4);
-    if (current_task_ptr && current_task_ptr < 0x1000000)
+    uint32_t current_task_ptr = eos_get_mem_w(s, s->model->current_task_addr);
+    if (current_task_ptr > 0x1000 && current_task_ptr < 0x1000000)
     {
-        cpu_physical_memory_read(current_task_ptr + 0x40, &current_task, 4);
+        uint32_t current_task = eos_get_mem_w(s, current_task_ptr + 0x40);
         return current_task & 0xFF;
     }
     
@@ -1737,11 +1735,10 @@ int eos_get_current_task_stack(EOSState *s, uint32_t * top, uint32_t * bottom)
         return 0;
     }
     
-    uint32_t current_task_ptr;
-    uint32_t current_stack[2];
-    cpu_physical_memory_read(s->model->current_task_addr, &current_task_ptr, 4);
-    if (current_task_ptr && current_task_ptr < 0x1000000)
+    uint32_t current_task_ptr = eos_get_mem_w(s, s->model->current_task_addr);
+    if (current_task_ptr > 0x1000 && current_task_ptr < 0x1000000)
     {
+        uint32_t current_stack[2];
         cpu_physical_memory_read(current_task_ptr + 0x1c, current_stack, 8);
         *bottom = current_stack[0];
         *top = current_stack[0] + current_stack[1];

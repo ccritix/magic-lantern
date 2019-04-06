@@ -456,9 +456,8 @@ static void exec_log_malloc(EOSState *s, uint32_t pc, CPUARMState *env)
 
     if (pc == stubs.init_malloc)
     {
-        uint32_t start, end;
-        cpu_physical_memory_read(stubs.malloc_struct, &start, 4);
-        cpu_physical_memory_read(stubs.malloc_struct + 4, &end, 4);
+        uint32_t start = eos_get_mem_w(s, stubs.malloc_struct);
+        uint32_t end = eos_get_mem_w(s, stubs.malloc_struct + 4);
 
         fprintf(stderr, "init_malloc %x %x\n", start, end);
         fprintf(stderr, "Checking this heap.\n");
