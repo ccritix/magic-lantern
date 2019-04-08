@@ -388,7 +388,8 @@ function job_limit_auto {
         # trick to avoid undetected overloads and also to avoid slowdowns when there's nothing to do
         sleep 0.2
     fi
-    local max_number=$(nproc)
+    # don't believe the Hyper-Threading hype :)
+    local max_number=$(((`nproc` + 1) * 2 / 3 ))
     while true; do
         # check how many processes are running on the system before deciding to start a new job
         local procs_running=$(cat /proc/stat | grep procs_running | cut -d ' ' -f 2)
