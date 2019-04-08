@@ -8,8 +8,8 @@
   menu.close()
 
 -- end this script if not eosm
-if camera.model_short ~= "EOSM" and camera.model_short ~= "700D" then
-   display.notify_box("Script only works for eosm/700d")
+if camera.model_short ~= "EOSM" and camera.model_short ~= "700D" and camera.model_short ~= "100D" then
+   display.notify_box("Script only works for eosm/700d/100D")
    menu.set("cinema 2:35.1", "Autorun", "OFF")
   msleep(2000)
    return
@@ -47,12 +47,15 @@ end
 
 -- crop mode
     menu.set("Movie", "Crop mode", "5K anamorphic")
+if camera.model_short == "100D" then
+    menu.set("Movie", "Crop mode", "anamorphic rewired")
+end
     menu.set("Crop mode", "bitdepth", "10 bit")
     menu.set("Crop mode", "ratios", "2.35:1")
   msleep(300)
 
 -- enable crop_rec.mo. Checking first after trying to enable 5k preset
-if menu.get("Movie", "Crop mode", "") ~= "5K anamorphic" then
+if menu.get("Movie", "Crop mode", "") ~= "5K anamorphic" and menu.get("Movie", "Crop mode", "") ~= "anamorphic rewired" then
   display.notify_box("enable crop_rec.mo")
   msleep(1000)
   display.notify_box("enable crop_rec.mo")
@@ -105,11 +108,15 @@ end
   menu.open()
   msleep(200)
   menu.close()
-  msleep(200)
+  msleep(600)
   key.press(KEY.MENU)
   msleep(600)
   key.press(KEY.MENU)
-  msleep(300)
+  msleep(600)
 
 -- success!
+if camera.model_short == "100D" then
+   display.notify_box("anamorphic rewired is all set")
+else
    display.notify_box("4.5K anamorphic is all set")
+end
