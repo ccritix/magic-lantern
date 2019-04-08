@@ -362,6 +362,7 @@ struct call_stack_entry
     uint32_t is_tail_call;      /* boolean: whether it's a tail function call */
     uint32_t interrupt_id;      /* 0 = regular code, nonzero = interrupt */
     uint32_t direct_jumps[4];   /* DIGIC 6 code uses many of those */
+    uint64_t icount;            /* right before the function call */
 } __attribute__((packed));
 
 static struct call_stack_entry call_stacks[256][256];
@@ -379,6 +380,7 @@ struct call_stack_exec_state
     uint32_t lr;
     uint32_t sp;
     uint32_t size;
+    uint64_t icount;
     char task_name[32];
 };
 
@@ -468,6 +470,7 @@ static inline void call_stack_push(uint8_t id, uint32_t * regs,
     entry->is_tail_call = is_tail_call;
     entry->interrupt_id = interrupt_id;
     memset(entry->direct_jumps, 0, sizeof(entry->direct_jumps));
+    entry->icount = cpu_get_icount_raw();
     call_stack_num[id]++;
 }
 
@@ -1163,12 +1166,13 @@ static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock 
             uint8_t id = get_stackid(s);
             assert(id != ID_INTERRUPT);
             //eos_print_location_gdb(s);
-            //fprintf(stderr, "[I] Saving state [%02X]: pc %x, lr %x, sp %x, size %x\n", id, prev_pc, prev_lr, prev_sp, prev_size);
+            //fprintf(stderr, "[I] Saving state [%02X]: pc %x, lr %x, sp %x, size %x, icount %"PRIx64"\n", id, prev_pc, prev_lr, prev_sp, prev_size, cpu_get_icount_raw());
             cs_exec_states[id] = (struct call_stack_exec_state) {
                 .pc = prev_pc,
                 .lr = prev_lr,
                 .sp = prev_sp,
                 .size = prev_size,
+                .icount = cpu_get_icount_raw(),
             };
             snprintf(cs_exec_states[id].task_name, sizeof(cs_exec_states[id].task_name), cs_get_current_task_name(s));
         }
@@ -1254,7 +1258,16 @@ recheck:
                     /* print LR from the call stack, so it will always show the caller */
                     int level = call_stack_num[id] - 1;
                     uint32_t stack_lr = level >= 0 ? call_stacks[id][level].lr : 0;
-                    print_call_location(s, prev_pc, stack_lr);
+                    len += eos_print_location(s, prev_pc, stack_lr, " at ", "");
+
+                    if (use_icount)
+                    {
+                        len += eos_indent(len - CALLSTACK_RIGHT_ALIGN, 50);
+                        int64_t icount_elapsed = (cpu_get_icount_raw() - call_stacks[id][k].icount);
+                        len += fprintf(stderr, " [icount %"PRId64"]", icount_elapsed);
+                        assert(icount_elapsed > 0);
+                    }
+                    len += fprintf(stderr, "\n");
                 }
 
                 if (interrupts_found) {
@@ -1501,13 +1514,14 @@ check_insn:
                     }
 
                     //eos_print_location_gdb(s);
-                    //fprintf(stderr, "[T] Saving state [%02X]: pc %x, lr %x, sp %x, size %x\n", cs_prev_stackid, prev_pc, prev_lr, prev_sp, prev_size);
+                    //fprintf(stderr, "[T] Saving state [%02X]: pc %x, lr %x, sp %x, size %x, icount %"PRIx64"\n", cs_prev_stackid, prev_pc, prev_lr, prev_sp, prev_size, cpu_get_icount_raw());
                     assert(cs_prev_stackid != ID_INTERRUPT);
                     cs_exec_states[cs_prev_stackid] = (struct call_stack_exec_state) {
                         .pc = prev_pc,
                         .lr = prev_lr,
                         .sp = prev_sp,
-                        .size = prev_size
+                        .size = prev_size,
+                        .icount = cpu_get_icount_raw(),
                     };
                     snprintf(cs_exec_states[cs_prev_stackid].task_name, sizeof(cs_exec_states[cs_prev_stackid].task_name), cs_prev_task_name);
 
@@ -1524,8 +1538,18 @@ check_insn:
                         prev_sp   = cs_exec_states[id].sp;
                         prev_size = cs_exec_states[id].size;
 
+                        /* adjust icount for the new task, to exclude activity performed by other tasks */
+                        uint64_t delta_icount = cpu_get_icount_raw() - cs_exec_states[id].icount;
+                        for (int level = 0; level < call_stack_num[id]; level++)
+                        {
+                            call_stacks[id][level].icount += delta_icount;
+                        }
+                        //if (use_icount) {
+                        //    eos_print_location_gdb(s);
+                        //    fprintf(stderr, KLRED"[%02X] icount from other tasks: %"PRId64"\n"KRESET, id, delta_icount);
+                        //}
                         //eos_print_location_gdb(s);
-                        //fprintf(stderr, "[T] Restoring state [%02X]: pc %x->%x lr %x->%x sp %x->%x size %x->%x\n", id, prev_pc, cs_exec_states[id].pc, prev_lr, cs_exec_states[id].lr, prev_sp, cs_exec_states[id].sp, prev_size, cs_exec_states[id].size);
+                        //fprintf(stderr, "[T] Restoring state [%02X]: pc %x->%x lr %x->%x sp %x->%x size %x->%x icount %"PRIx64"->%"PRIx64" raw %"PRIx64"\n", id, prev_pc, cs_exec_states[id].pc, prev_lr, cs_exec_states[id].lr, prev_sp, cs_exec_states[id].sp, prev_size, cs_exec_states[id].size, call_stacks[id][call_stack_num[id]-1].icount - delta_icount, call_stacks[id][call_stack_num[id]-1].icount, cpu_get_icount_raw());
 
                         if (pc != prev_pc && pc != prev_pc + 4)
                         {
@@ -1691,8 +1715,19 @@ check_insn:
                         prev_sp   = cs_exec_states[id].sp;
                         prev_size = cs_exec_states[id].size;
 
+                        /* adjust icount for the new task, to exclude activity
+                         * performed by the interrupt, possibly also by other tasks */
+                        uint64_t delta_icount = cpu_get_icount_raw() - cs_exec_states[id].icount;
+                        for (int level = 0; level < call_stack_num[id]; level++)
+                        {
+                            call_stacks[id][level].icount += delta_icount;
+                        }
+                        //if (use_icount) {
+                        //    eos_print_location_gdb(s);
+                        //    fprintf(stderr, KLRED"[%02X] icount from other tasks: %"PRId64"\n"KRESET, id, delta_icount);
+                        //}
                         //eos_print_location_gdb(s);
-                        //fprintf(stderr, "[I] Restoring state [%02X]: pc %x->%x lr %x->%x sp %x->%x size %x->%x\n", id, prev_pc, pc, prev_lr, lr, prev_sp, sp, prev_size, tb->size);
+                        //fprintf(stderr, "[I] Restoring state [%02X]: pc %x->%x lr %x->%x sp %x->%x size %x->%x icount %"PRIx64"->%"PRIx64" raw %"PRIx64"\n", id, prev_pc, pc, prev_lr, lr, prev_sp, sp, prev_size, tb->size, call_stacks[id][call_stack_num[id]-1].icount - delta_icount, call_stacks[id][call_stack_num[id]-1].icount, cpu_get_icount_raw());
 
                         if (pc != prev_pc && pc != prev_pc + 4)
                         {

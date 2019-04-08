@@ -690,6 +690,7 @@ function test_calls_main {
     cat tests/$CAM/$TEST-raw.log \
         | grep -E "call |return |Task switch |interrupt " \
         | sed -n "1,/call $last_call\|call $last_call_thumb/ p" \
+        | sed "s/ *\[icount.*//g" \
         > tests/$CAM/$TEST.log
 
     # extract only the basic info (call address indented, return address)
@@ -1327,12 +1328,12 @@ function test_menu_callstack {
 
     if [ -f $CAM/patches.gdb ]; then
         (
-            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -vnc $VNC_DISP -d callstack -S -gdb tcp::$GDB_PORT &
+            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -vnc $VNC_DISP -d callstack $* -S -gdb tcp::$GDB_PORT &
             arm-none-eabi-gdb -ex "set \$TCP_PORT=$GDB_PORT" -x $CAM/patches.gdb -ex quit &
         ) &> tests/$CAM/$TEST.log
     else
         (
-            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -vnc $VNC_DISP -d callstack &
+            ./run_canon_fw.sh $CAM,firmware="boot=0" -snapshot -vnc $VNC_DISP -d callstack $* &
         ) &> tests/$CAM/$TEST.log
     fi
 
@@ -1347,6 +1348,10 @@ function test_menu_callstack {
     tests/check_md5.sh tests/$CAM/ $TEST
 }
 
+function test_menu_callstack_icount {
+    test_menu_callstack -icount 7
+}
+
 echo
 echo "Testing Canon menu with callstack enabled..."
 for CAM in ${GUI_CAMS[*]}; do
@@ -1355,6 +1360,13 @@ for CAM in ${GUI_CAMS[*]}; do
     job_limit_auto
 done; cleanup
 
+echo
+echo "Testing Canon menu with callstack and icount enabled..."
+for CAM in ${GUI_CAMS[*]}; do
+    ((QEMU_JOB_ID++))
+    run_test menu_callstack_icount $CAM menu &
+    job_limit_auto
+done; cleanup
 
 # At each point, the verbose call stack should match the call/return trace
 # This feature is also exercised in the context of interrupts and DryOS task switches
