@@ -1361,12 +1361,6 @@ done; cleanup
 
 function test_calls_cstack {
 
-    # skip VxWorks models for now
-    if grep -q VxWorks $CAM/ROM1.BIN; then
-        echo "skipping"
-        return
-    fi
-
     # log all function calls/returns, interrupts
     # and DebugMsg calls with call stack for each message
     if [ -f $CAM/patches.gdb ]; then

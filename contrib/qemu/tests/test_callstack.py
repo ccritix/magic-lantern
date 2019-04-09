@@ -71,7 +71,7 @@ for line in lines:
             pass
         else:
             assert line[0] == "["
-            if not startup_workaround or stackid != "Startup":
+            if not startup_workaround or stackid not in ["Startup", "tStartup"]:
                 assert current_stack == callstacks[stackid]
                 match_stacks(current_stack, printed_stack)
             printed_stack = None
@@ -81,9 +81,9 @@ for line in lines:
         call_stacks += 1
         continue
 
-    elif "Task switch" in line:
+    elif "Task switch to" in line:
         task_switches += 1
-        m = re.search(" to ([^: ]*):", line)
+        m = re.search(" to .. ([^: ]*):", line)
         assert m
         if stackid != "interrupt":
             stackid = m.groups()[0]
@@ -105,7 +105,7 @@ for line in lines:
         callstacks[stackid].append(line)
         interrupts += 1
 
-    elif startup_workaround and stackid == "Startup":
+    elif startup_workaround and stackid in ["Startup", "tStartup"]:
         # fixme: some cameras start two different tasks with the same name
         # this confuses our checks; skip it for now
         pass
@@ -115,7 +115,7 @@ for line in lines:
         assert level == len(current_stack)
         current_stack.append(line)
 
-    elif "return " in line:
+    elif "return " in line and "to 0x" in line:
         level = line.index("return ")
         assert level < len(current_stack)
         current_stack = callstacks[stackid] = current_stack[:level]
@@ -135,10 +135,10 @@ for line in lines:
     # fixme: currently, context info is printed for the new (updated) state
     # e.g.  task switch to init:... at [init:...]
     # or:   interrupt 10h ... at [INT-10:...]
-    # todo: task switch to foobar:... at [old_task:...]
-    #       interrupt 10h ... at [old_task:...]
+    # todo: task switch to foobar:... at [old_task:...] (done outside interrupts)
+    #       interrupt 10h ... at [old_task:...]         (not done)
     at = re.search(" at \[(.+):(.+):(.+)\]", line)
-    if at:
+    if at and "Task switch" not in line:                # skip checking "Task switch" lines for now
         at_task, at_a1, at_a2 = at.groups()
         debug("<%s:%s:%s>", at_task, at_a1, at_a2)
         assert stackid == ("interrupt" if at_task.startswith("INT-") else at_task)

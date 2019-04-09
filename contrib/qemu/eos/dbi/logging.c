@@ -325,7 +325,7 @@ static void eos_idc_log_call(EOSState *s, CPUState *cpu, CPUARMState *env,
         dup2(fileno(idc), fileno(stderr));
         fprintf(stderr, "  /* from "); log_target_disas(cpu, prev_pc, prev_size, 0);
         fprintf(stderr, "   *   -> "); log_target_disas(cpu, tb->pc, tb->size, 0);
-        char * task_name = eos_get_current_task_name(s);
+        const char * task_name = eos_get_current_task_name(s);
         fprintf(stderr, "   * %s%sPC:%x->%x LR:%x->%x SP:%x */\n",
             task_name ? task_name : "", task_name ? " " : "",
             prev_pc, pc, prev_lr, lr, sp
@@ -371,13 +371,31 @@ static int call_stack_num[256] = {0};
 #define ID_INVALID   (COUNT(call_stack_num)-1)   /* no DryOS task started yet, or no info available */
 #define ID_INTERRUPT (COUNT(call_stack_num)-2)   /* some interrupt handler (i.e. not a regular DryOS task) */
 
-static uint8_t get_stackid(EOSState *s)
+/* store the exec log state for each task
+ * (to avoid disruption from interrupts) */
+struct call_stack_exec_state
 {
-    if (interrupt_level)
-    {
-        return ID_INTERRUPT;
-    }
+    uint32_t pc;
+    uint32_t lr;
+    uint32_t sp;
+    uint32_t size;
+    char task_name[32];
+};
 
+static struct call_stack_exec_state cs_exec_states[COUNT(call_stacks)];
+
+/* cached values to keep track of DryOS task switches */
+static int  cs_last_stackid = ID_INVALID;   /* current task (or - during a context switch - previous one) */
+static char cs_last_task_name[32] = "";     /* same for task name */
+
+static int  cs_prev_stackid = ID_INVALID;   /* previous task, before last context switch */
+static char cs_prev_task_name[32] = "";     /* same for task name */
+static uint32_t cs_prev_task_ptr;           /* and for the pointer to DryOS task structure */
+
+static int  cs_task_switch_started = 0;
+
+static void update_stackid(EOSState *s)
+{
     uint8_t new_task_id = eos_get_current_task_id(s);
 
     /* ID_INTERRUPT is special; hopefully DryOS never returns this task ID */
@@ -385,10 +403,56 @@ static uint8_t get_stackid(EOSState *s)
 
     /* eos_get_current_task_id() might return 0xFF = invalid/unknown; that's OK */
     if (new_task_id == 0xFF) {
-        assert(new_task_id == ID_INVALID);
+       assert(new_task_id == ID_INVALID);
     }
 
-    return new_task_id & 0xFF;
+    cs_last_stackid = new_task_id;
+
+    //fprintf(stderr, KCYN"Stack ID updated from %s", cs_last_task_name[0] ? cs_last_task_name : "(no task)");
+    snprintf(cs_last_task_name, sizeof(cs_last_task_name), eos_get_current_task_name(s));
+    //fprintf(stderr, " to %s"KRESET"\n", cs_last_task_name);
+}
+
+static uint8_t get_stackid(EOSState *s)
+{
+    if (interrupt_level)
+    {
+        return ID_INTERRUPT;
+    }
+
+    if (!qemu_loglevel_mask(EOS_LOG_CALLSTACK))
+    {
+        /* Without callstack, update stack for every single call */
+        update_stackid(s);
+    }
+    else
+    {
+        /*
+         * With callstack enabled, there is an edge case on context switch
+         * outside interrupts: since the current stack pointer is updated,
+         * we are still operating on the stack of the previous task,
+         * until the switch is complete.
+         * 
+         * During the transition, reading the task ID from the data structure
+         * will give incorrect results (next task, which doesn't match the stack).
+         * 
+         * Solution: use cached values before the task switch, until the task switch is complete.
+         */
+    }
+
+    return cs_last_stackid;
+}
+
+static const char * cs_get_current_task_name(EOSState *s)
+{
+    if (!qemu_loglevel_mask(EOS_LOG_CALLSTACK))
+    {
+        return eos_get_current_task_name(s);
+    }
+    else
+    {
+        return cs_last_task_name;
+    }
 }
 
 static inline void call_stack_push(uint8_t id, uint32_t * regs,
@@ -651,8 +715,8 @@ int eos_print_location(EOSState *s, uint32_t pc, uint32_t lr, const char * prefi
     if (interrupt_level) {
         return fprintf(stderr, "%s[INT-%02X:%x:%x]%s", prefix, s->irq_id, pc, lr, suffix);
     } else {
-        char * task_name = eos_get_current_task_name(s);
-        if (task_name) {
+        const char * task_name = cs_get_current_task_name(s);
+        if (task_name && task_name[0]) {
             return fprintf(stderr, "%s[%s:%x:%x]%s", prefix, task_name, pc, lr, suffix);
         } else {
             return fprintf(stderr, "%s[%x:%x]%s", prefix, pc, lr, suffix);
@@ -680,7 +744,7 @@ int eos_print_location_gdb(EOSState *s)
     if (interrupt_level) {
         len += fprintf(stderr, "[%s     INT-%02Xh:%08x %s] ", KCYN, s->irq_id, ret, KRESET) - strlen(KCYN KRESET);
     } else {
-        const char * task_name = eos_get_current_task_name(s);
+        const char * task_name = cs_get_current_task_name(s);
         if (!task_name) task_name = "";
         len += fprintf(stderr, "[%s%12s:%08x %s] ", KCYN, task_name, ret, KRESET) - strlen(KCYN KRESET);
     }
@@ -988,17 +1052,32 @@ static int check_abi_register_usage(EOSState *s, CPUARMState *env, int id, int k
     return warnings;
 }
 
-/* store the exec log state for each task
- * (to avoid disruption from interrupts) */
-struct call_stack_exec_state
+static void print_task_switch(EOSState *s, uint32_t pc, uint32_t prev_pc, uint32_t prev_lr)
 {
-    uint32_t pc;
-    uint32_t lr;
-    uint32_t sp;
-    uint32_t size;
-};
+    /* any good reason to indent task switch messages? */
+    //int len = eos_callstack_indent(s);
+    int len = 0;
 
-static struct call_stack_exec_state cs_exec_states[COUNT(call_stacks)];
+    len += fprintf(stderr, KCYN"Task switch"KRESET);
+
+    /* FIXME: the "from" part only works for task switches started outside interrupts */
+    //uint32_t old_pc = cs_exec_states[cs_prev_stackid].pc;
+    //len += fprintf(stderr, " from %02X %s:%x %s",
+    //    cs_prev_stackid, cs_prev_task_name,
+    //    old_pc, eos_lookup_symbol(pc)
+    //);
+
+    len += fprintf(stderr, " to %02X %s:%x %s",
+        eos_get_current_task_id(s), eos_get_current_task_name(s),
+        pc, eos_lookup_symbol(pc)
+    );
+
+    /* TODO: always print context info from previous task */
+    /* (currently it only works for task switches done outside interrupts) */
+    len -= strlen(KCYN KRESET);
+    len += eos_indent(len, CALLSTACK_RIGHT_ALIGN);
+    print_call_location(s, prev_pc, prev_lr);
+}
 
 static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock *tb)
 {
@@ -1046,6 +1125,30 @@ static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock 
         goto end;
     }
 
+    uint32_t current_task_ptr = eos_get_mem_w(s, s->model->current_task_addr);
+    if (!interrupt_level)
+    {
+        /* DryOS task structure is still the same, or not? */
+        /* Checking task ID also seems to work, except... when task ID is reused */
+        if (current_task_ptr != cs_prev_task_ptr)
+        {
+            /* print task switch info, if requested */
+            if (qemu_loglevel_mask(EOS_LOG_TASKS))
+            {
+                /* only interesting for debugging */
+                //eos_print_location_gdb(s);
+                //fprintf(stderr, KCYN"Task switch started"KRESET" -> %s (ID:%02X)\n", eos_get_current_task_name(s), eos_get_current_task_id(s));
+            }
+
+            /* DryOS task switch outside interrupts */
+            assert(cs_last_stackid != ID_INTERRUPT);
+            cs_prev_task_ptr = current_task_ptr;
+            cs_prev_stackid = cs_last_stackid;
+            memcpy(cs_prev_task_name, cs_last_task_name, sizeof(cs_prev_task_name));
+            cs_task_switch_started = 1;
+        }
+    }
+
     if (pc0 == vbar + 0x18)
     {
         /* handle interrupt jumps first */
@@ -1053,16 +1156,21 @@ static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock 
         if (interrupt_level == 0)
         {
             /* interrupted a regular DryOS task
-             * save the previous state (we'll need to restore it when returning from interrupt) */
+             * save the previous state (we'll need to restore it when returning from interrupt)
+             * corner case: interrupt happening right after internal data structures are updated,
+             * but before actually switching to the new task (60D.111: FF016B14)
+             * to handle this, we save the state for the task ID of the last function call */
             uint8_t id = get_stackid(s);
             assert(id != ID_INTERRUPT);
-            //fprintf(stderr, "Saving state [%x]: pc %x, lr %x, sp %x, size %x\n", id, prev_pc, prev_lr, prev_sp, prev_size);
+            //eos_print_location_gdb(s);
+            //fprintf(stderr, "[I] Saving state [%02X]: pc %x, lr %x, sp %x, size %x\n", id, prev_pc, prev_lr, prev_sp, prev_size);
             cs_exec_states[id] = (struct call_stack_exec_state) {
                 .pc = prev_pc,
                 .lr = prev_lr,
                 .sp = prev_sp,
-                .size = prev_size
+                .size = prev_size,
             };
+            snprintf(cs_exec_states[id].task_name, sizeof(cs_exec_states[id].task_name), cs_get_current_task_name(s));
         }
 
         interrupt_level++;
@@ -1087,7 +1195,8 @@ static void eos_callstack_log_exec(EOSState *s, CPUState *cpu, TranslationBlock 
         goto end;
     }
 
-/* when returning from interrupt */
+/* recheck when returning from interrupt or from context switch */
+    int rechecking = 0;
 recheck:
 
     /* when returning from a function call,
@@ -1103,6 +1212,19 @@ recheck:
 
     if (pc == lr || sp != prev_sp)
     {
+        /* DryOS task switches can be easily mistaken for function returns */
+        if (!rechecking)
+        {
+            uint32_t insn = eos_get_mem_w(s, prev_pc0);
+
+            if (prev_pc & 1) {
+                if (insn == 0xc000e9bd) goto check_insn;                    /* Thumb */
+            } else {
+                if ((insn & 0xFFFF8000) == 0xe8fd8000 ||
+                    (insn & 0xFFFF8000) == 0xe8d48000) goto check_insn;     /* ARM */
+            }
+        }
+
         uint8_t id = get_stackid(s);
         int interrupts_found = 0;
 
@@ -1122,7 +1244,6 @@ recheck:
                     k--;
                     assert(pc == call_stacks[id][k].lr);
                 }
-
                 call_stack_num[id] = k;
 
                 if (qemu_loglevel_mask(EOS_LOG_CALLS)) {
@@ -1155,6 +1276,15 @@ recheck:
 
                 goto end;
             }
+        }
+
+        /* this may be false alarm (e.g. 60D 111: FF537B20 -> FF537AE8 in a loop, right after a function call) */
+        if (qemu_loglevel_mask(EOS_LOG_CALLS)) {
+            int len = call_stack_indent(id, 0, 0);
+            len += fprintf(stderr, KCYN"Warning: return target not found"KRESET" (%s)", pc == lr ? "returned to LR" : "modified SP");
+            len -= strlen(KCYN KRESET);
+            len += eos_indent(len, CALLSTACK_RIGHT_ALIGN);
+            print_call_location(s, prev_pc, prev_lr);
         }
     }
 
@@ -1209,6 +1339,7 @@ recheck:
         goto end;
     }
 
+check_insn:
     /* check all other PC jumps */
     /* skip first instruction (we need valid prev_pc) */
     if (prev_pc != 0xFFFFFFFF)
@@ -1328,7 +1459,8 @@ recheck:
                 goto jump_instr;
             }
 
-            if (insn == 0xe8fddfff || insn == 0xe8d4ffff)
+            if ((insn & 0xFFFF8000) == 0xe8fd8000 ||
+                (insn & 0xFFFF8000) == 0xe8d48000)
             {
                 /* DryOS:   LDMFD SP!, {R0-R12,LR,PC}^
                  * VxWorks: LDMIA R4, {R0-PC}^
@@ -1338,15 +1470,78 @@ recheck:
                     /* DryOS task switch outside interrupts? save the previous state
                      * we'll need to restore it when returning from interrupt back to this task
                      * fixme: duplicate code */
-                    uint8_t id = get_stackid(s);
-                    assert(id != ID_INTERRUPT);
-                    //fprintf(stderr, "Saving state [%x]: pc %x, lr %x, sp %x, size %x\n", id, prev_pc, prev_lr, prev_sp, prev_size);
-                    cs_exec_states[id] = (struct call_stack_exec_state) {
+
+                    if (rechecking)
+                    {
+                        /* reached here after a task switch (either from interrupt or from another task) */
+                        /* FIXME: convoluted logic */
+                        goto end;
+                    }
+
+                    if (!cs_task_switch_started)
+                    {
+                        /* did we really miss this context switch? */
+                        if (cs_last_stackid == eos_get_current_task_id(s))
+                        {
+                            /* dummy task switch, i.e. to itself?! */
+                            //eos_print_location_gdb(s);
+                            //fprintf(stderr, "[T] Dummy task switch?! [%02X]\n", cs_last_stackid);
+                            goto end;
+                        }
+                    }
+
+                    /* task switch completed */
+                    assert(cs_task_switch_started);
+                    cs_task_switch_started = 0;
+
+                    /* print task switch info, if requested */
+                    if (qemu_loglevel_mask(EOS_LOG_TASKS))
+                    {
+                        print_task_switch(s, pc, prev_pc, prev_lr);
+                    }
+
+                    //eos_print_location_gdb(s);
+                    //fprintf(stderr, "[T] Saving state [%02X]: pc %x, lr %x, sp %x, size %x\n", cs_prev_stackid, prev_pc, prev_lr, prev_sp, prev_size);
+                    assert(cs_prev_stackid != ID_INTERRUPT);
+                    cs_exec_states[cs_prev_stackid] = (struct call_stack_exec_state) {
                         .pc = prev_pc,
                         .lr = prev_lr,
                         .sp = prev_sp,
                         .size = prev_size
                     };
+                    snprintf(cs_exec_states[cs_prev_stackid].task_name, sizeof(cs_exec_states[cs_prev_stackid].task_name), cs_prev_task_name);
+
+                    /* switch to new stack */
+                    update_stackid(s);
+                    uint8_t id = get_stackid(s);
+
+                    /* restore the state for the new task (unless the task was just started) */
+                    if (cs_exec_states[id].size)
+                    {
+                        assert(strcmp(cs_exec_states[id].task_name, cs_get_current_task_name(s)) == 0);
+                        prev_pc   = cs_exec_states[id].pc; prev_pc0 = prev_pc & ~1;
+                        prev_lr   = cs_exec_states[id].lr;
+                        prev_sp   = cs_exec_states[id].sp;
+                        prev_size = cs_exec_states[id].size;
+
+                        //eos_print_location_gdb(s);
+                        //fprintf(stderr, "[T] Restoring state [%02X]: pc %x->%x lr %x->%x sp %x->%x size %x->%x\n", id, prev_pc, cs_exec_states[id].pc, prev_lr, cs_exec_states[id].lr, prev_sp, cs_exec_states[id].sp, prev_size, cs_exec_states[id].size);
+
+                        if (pc != prev_pc && pc != prev_pc + 4)
+                        {
+                            /* PC jump when switching to another task?
+                             * may be a call or a return - check it */
+                            rechecking = 1; goto recheck;
+                        }
+                    }
+                    else
+                    {
+                        /* new task? */
+                        assert(call_stack_num[id] == 0);
+                        //eos_print_location_gdb(s);
+                        //fprintf(stderr, "[T] New task [%02X].\n", id);
+                    }
+
                     goto end;
                 } else {
                     /* return from interrupt to a DryOS task */
@@ -1354,7 +1549,7 @@ recheck:
                 }
             }
 
-            if (insn == 0xe8fd901f || insn == 0xe8fd800f)
+            if ((insn & 0xFFFF8000) == 0xe8fd8000)
             {
                 /* DryOS:   LDMFD SP!, {R0-R4,R12,PC}^
                  * VxWorks: LDMFD SP!, {R0-R3,PC}^  */
@@ -1404,6 +1599,8 @@ recheck:
                     if (pc != old_pc && pc != old_pc + 4) len += fprintf(stderr, " (old=%x)", old_pc);
                     len -= strlen(KCYN KRESET);
                     len += eos_indent(len, CALLSTACK_RIGHT_ALIGN);
+                    /* FIXME: will print context info from previous task,
+                     * even if a task switch was completed during the interrupt */
                     print_call_location(s, prev_pc, prev_lr);
                 }
 
@@ -1428,21 +1625,94 @@ recheck:
                      */
                     assert(old_pc == call_stacks[id][0].last_pc);
 
+                    /* was it really a task switch? */
+                    if (cs_task_switch_started && pc == old_pc)
+                    {
+                        /* guess: interrupted a task switch (yes, it happens) */
+                        eos_print_location_gdb(s);
+                        fprintf(stderr, "[%02X] FIXME: interrupted during task switch.\n", get_stackid(s));
+
+                        /* actual task switch will be completed later
+                         * nothing to do here, just return to previous (cached) task
+                         * as we are still on its stack until the task switch completes
+                         *
+                         * in other words, don't call update_stackid() yet */
+                    }
+                    else
+                    {
+                        /* let's hope the task switch, if any, was fully completed in this interrupt */
+                        if (cs_task_switch_started)
+                        {
+                            if (qemu_loglevel_mask(EOS_LOG_TASKS))
+                            {
+                                /* print task switch info, if requested */
+                                print_task_switch(s, pc, prev_pc, prev_lr);
+                            }
+
+                            cs_task_switch_started = 0;
+                        }
+
+                        /* switch to new stack */
+                        /* this will reveal context switches performed during the interrupt */
+                        uint8_t old_id = get_stackid(s);
+                        assert(old_id != ID_INTERRUPT);
+
+                        update_stackid(s);
+
+                        uint8_t new_id = get_stackid(s);
+                        assert(new_id != ID_INTERRUPT);
+
+                        if (old_id != new_id)
+                        {
+                            //fprintf(stderr, "[%02X -> %02X] task switch in interrupt.\n", old_id, new_id);
+                            if (qemu_loglevel_mask(EOS_LOG_TASKS))
+                            {
+                                /* print task switch info, if requested */
+                                print_task_switch(s, pc, prev_pc, prev_lr);
+                            }
+                        }
+
+                        /* don't trigger a false "task switch start" at next iteration */
+                        cs_prev_task_ptr = current_task_ptr;
+                        cs_prev_stackid = ID_INTERRUPT;         /* ID_INVALID is actually valid here, but ID_INTERRUPT is not */
+                        cs_prev_task_name[0] = '\0';
+                    }
+
                     /* get the new stack ID (a regular DryOS stack) 
                      * and restore our state from there */
                     uint8_t id = get_stackid(s);
                     assert(id != ID_INTERRUPT);
-                    prev_pc   = cs_exec_states[id].pc; prev_pc0 = prev_pc & ~1;
-                    prev_lr   = cs_exec_states[id].lr;
-                    prev_sp   = cs_exec_states[id].sp;
-                    prev_size = cs_exec_states[id].size;
-                    //fprintf(stderr, "Restoring state [%x]: pc %x->%x lr %x->%x sp %x->%x size %x->%x\n", id, prev_pc, pc, prev_lr, lr, prev_sp, sp, prev_size, tb->size);
 
-                    if (pc != prev_pc && pc != prev_pc + 4)
+                    if (cs_exec_states[id].size)
                     {
-                        /* PC jump when returning from interrupt?
-                         * may be a call or a return - check it */
-                        goto recheck;
+                        assert(strcmp(cs_exec_states[id].task_name, cs_get_current_task_name(s)) == 0);
+                        prev_pc   = cs_exec_states[id].pc; prev_pc0 = prev_pc & ~1;
+                        prev_lr   = cs_exec_states[id].lr;
+                        prev_sp   = cs_exec_states[id].sp;
+                        prev_size = cs_exec_states[id].size;
+
+                        //eos_print_location_gdb(s);
+                        //fprintf(stderr, "[I] Restoring state [%02X]: pc %x->%x lr %x->%x sp %x->%x size %x->%x\n", id, prev_pc, pc, prev_lr, lr, prev_sp, sp, prev_size, tb->size);
+
+                        if (pc != prev_pc && pc != prev_pc + 4)
+                        {
+                            /* PC jump when returning from interrupt?
+                             * may be a call or a return - check it */
+                            rechecking = 1; goto recheck;
+                        }
+                    }
+                    else
+                    {
+                        /* new task when returning from interrupt?! */
+                        assert(call_stack_num[id] == 0);
+
+                        //eos_print_location_gdb(s);
+                        //fprintf(stderr, "[I] New task [%02X].\n", id);
+
+                        /* don't trigger a false "task switch start" at next iteration */
+                        cs_prev_task_ptr = current_task_ptr; 
+                        cs_prev_stackid = ID_INTERRUPT;         /* ID_INVALID is actually valid here, but ID_INTERRUPT is not */
+                        cs_prev_task_name[0] = '\0';
                     }
                 }
                 goto end;
@@ -1544,10 +1814,11 @@ recheck:
                             if (!(id == ID_INVALID && call_stack_num[id] == 0))
                             {
                                 int len = call_stack_indent(id, 0, 0);
-                                len += fprintf(stderr, KCYN"Warning: missed function call?"KRESET);
+                                len += fprintf(stderr, KCYN"Warning: missed function call?"KRESET" (%X->%X, expected near %X)", prev_pc, pc, stack_pc);
                                 len -= strlen(KCYN KRESET);
                                 len += eos_indent(len, CALLSTACK_RIGHT_ALIGN);
                                 print_call_location(s, prev_pc, prev_lr);
+                                //eos_callstack_print_verbose(s);
                             }
 
                             /* heuristic: assume large jumps are tail calls */
@@ -1590,18 +1861,6 @@ end:
     prev_lr = lr;
     prev_sp = sp;
     prev_size = tb->size;
-}
-
-static void print_task_switch(EOSState *s, uint32_t pc, uint32_t prev_pc, uint32_t prev_lr)
-{
-    int len = eos_callstack_indent(s);
-    len += fprintf(stderr,
-        KCYN"Task switch"KRESET" to %s:%x %s",
-        eos_get_current_task_name(s), pc, eos_lookup_symbol(pc)
-    );
-    len -= strlen(KCYN KRESET);
-    len += eos_indent(len, CALLSTACK_RIGHT_ALIGN);
-    print_call_location(s, prev_pc, prev_lr);
 }
 
 static void eos_tasks_log_exec(EOSState *s, CPUState *cpu, TranslationBlock *tb)
@@ -1843,7 +2102,10 @@ static void tb_exec_cb(void *opaque, CPUState *cpu, TranslationBlock *tb)
         }
     }
 
-    if (qemu_loglevel_mask(EOS_LOG_TASKS))
+    /* log DryOS task switches
+     * note: "-d calls" also finds context switches; no need to run it twice */
+    if (qemu_loglevel_mask(EOS_LOG_TASKS) &&
+        !qemu_loglevel_mask(EOS_LOG_CALLSTACK))
     {
         eos_tasks_log_exec(opaque, cpu, tb);
     }
