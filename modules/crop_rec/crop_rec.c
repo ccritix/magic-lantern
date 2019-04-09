@@ -2839,23 +2839,23 @@ static inline uint32_t reg_override_fps_nocheck(uint32_t reg, uint32_t timerA, u
 /* Values for 100D */
 static inline uint32_t reg_override_3xcropmode_100d(uint32_t reg, uint32_t old_val)
 {
-    if (is_1080p())
-    {
+  if (is_1080p())
+  {
     switch (reg)
     {
         	case 0xC0F06804: return 0x4a701d7 + reg_6804_width + (reg_6804_height << 16); 
     }
-        return 0;
-    }
 
-    if (is_720p())
-    {
+  }
+
+  if (is_720p())
+  {
     switch (reg)
     {
         	case 0xC0F06804: return 0x2d801d7 + reg_6804_width + (reg_6804_height << 16); 
     }
-        return 0;
-    }
+
+  }
 
     return reg_override_bits(reg, old_val);
 }
