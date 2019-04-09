@@ -80,7 +80,7 @@ static void sd_uhs_patch()
 
 static unsigned int sd_uhs_init()
 {
-    if ((!is_camera("EOSM", "2.0.2")) && (!is_camera("700D", "1.1.5")) && (!is_camera("100D", "1.0.1")))
+    if ((!is_camera("EOSM", "2.0.2")) && (!is_camera("700D", "1.1.5")) && (!is_camera("100D", "1.0.1")) && (!is_camera("6D", "1.1.6")))
     {
     	NotifyBox(2000, "sd_uhs.mo is not supported for your camera");
     }
@@ -111,6 +111,14 @@ static unsigned int sd_uhs_init()
         sd_set_function     = 0xFF748F18;
         sd_uhs_patch();     }
 
+    if (is_camera("6D", "1.1.6"))
+    {
+        sd_setup_mode       = 0xFF325A20;
+        sd_setup_mode_in    = 0xFF325AA8;
+        sd_setup_mode_reg   = 1;            /* switch variable is in R1 (likely all D5 other than 5D3) */
+        sd_set_function     = 0xFF78F308;
+        sd_uhs_patch();     }
+
 /* Below cams not tested/supported atm. Try it by enabling sd_uhs_patch(); */
     if (is_camera("5D3", "1.1.3"))
     {
@@ -134,14 +142,6 @@ static unsigned int sd_uhs_init()
         sd_setup_mode_reg   = 0;
         sd_set_function     = 0xFF6B8FD0;
         sd_enable_18V       = 0xFF48446C;   /* 5D3 only (Set 1.8V Signaling) */
-     /* sd_uhs_patch(); */    }
-
-    if (is_camera("6D", "1.1.6"))
-    {
-        sd_setup_mode       = 0xFF325A20;
-        sd_setup_mode_in    = 0xFF325AA8;
-        sd_setup_mode_reg   = 1;            /* switch variable is in R1 (likely all D5 other than 5D3) */
-        sd_set_function     = 0xFF78F308;
      /* sd_uhs_patch(); */    }
 
     if (is_camera("650D", "1.0.4"))
