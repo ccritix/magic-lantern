@@ -323,8 +323,11 @@ static void eos_idc_log_call(EOSState *s, CPUState *cpu, CPUARMState *env,
         assert(stderr_dup);
         fflush(stderr); fflush(idc);
         dup2(fileno(idc), fileno(stderr));
+        /* target_disas now looks at the Thumb bit, but only if env->thumb is 0, why? */
+        int t0 = env->thumb; env->thumb = 0;
         fprintf(stderr, "  /* from "); log_target_disas(cpu, prev_pc, prev_size, 0);
-        fprintf(stderr, "   *   -> "); log_target_disas(cpu, tb->pc, tb->size, 0);
+        fprintf(stderr, "   *   -> "); log_target_disas(cpu, tb->pc | t0, tb->size, 0);
+        env->thumb = t0;
         const char * task_name = eos_get_current_task_name(s);
         fprintf(stderr, "   * %s%sPC:%x->%x LR:%x->%x SP:%x */\n",
             task_name ? task_name : "", task_name ? " " : "",
@@ -1882,10 +1885,10 @@ check_insn:
                 len += eos_indent(len, CALLSTACK_RIGHT_ALIGN);
                 print_call_location(s, prev_pc, prev_lr);
                 call_stack_indent(id, 0, 0);
-                /* hm, target_disas used to look at flags for ARM or Thumb... */
-                int t0 = env->thumb; env->thumb = prev_pc & 1;
+                /* target_disas now looks at the Thumb bit, but only if env->thumb is 0, why? */
+                int t0 = env->thumb; env->thumb = 0;
                 assert(prev_size);
-                target_disas(stderr, CPU(arm_env_get_cpu(env)), prev_pc0, prev_size, 0);
+                target_disas(stderr, CPU(arm_env_get_cpu(env)), prev_pc, prev_size, 0);
                 env->thumb = t0;
             }
         }

@@ -57,8 +57,11 @@ unsigned int eos_handle_ml_helpers ( unsigned int parm, EOSState *s, unsigned in
                     uint32_t bits = eos_get_mem_h(s, value & ~1) >> 11;
                     size = (bits == 0b11101 || bits == 0b11110 || bits == 0b11111) ? 4 : 2;
                 }
+                /* target_disas now looks at the Thumb bit, but only if env->thumb is 0, why? */
+                int t0 = s->cpu0->env.thumb; s->cpu0->env.thumb = 0;
                 target_disas(stderr, CPU(arm_env_get_cpu(&s->cpu0->env)), value, size, 0);
                 fprintf(stderr, KRESET);
+                s->cpu0->env.thumb = t0;
                 return 0;
         }
     }
