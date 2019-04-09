@@ -248,16 +248,26 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
             echo
         else
             # WSL
-            echo "1-3: options not available on Windows 10 WSL (32-bit Linux binaries not supported)."
+            if apt-cache show gdb-arm-none-eabi &>/dev/null; then
+                echo "1 - option not available on Windows 10 WSL (32-bit Linux binaries not supported)"
+            elif apt-cache show gdb-multiarch &>/dev/null; then
+                echo "1 - Install gdb-multiarch and gcc-arm-none-eabi from Ubuntu repo (recommended)"
+                echo "    GDB 8.1 or later is known to work well."
+            else
+                echo "1 - Sorry, gdb-arm-none-eabi is not available on your distro."
+                echo "    Please pick something else."
+            fi
+            echo
+            echo "2 - option not available on Windows 10 WSL (32-bit Linux binaries not supported)."
+            echo
+            echo "3 - option not available on Windows 10 WSL (32-bit Linux binaries not supported)."
             echo
             echo "4 - Install gcc-arm-none-eabi from Ubuntu repository (64-bit)"
             echo "    and compile arm-none-eabi-gdb 8.1 from source."
-            echo "    Sorry, we don't have a better option yet -> this is the recommended choice."
             echo
-            echo "5 - Manually install arm-none-eabi-gdb from https://launchpad.net/gcc-arm-embedded"
-            echo "    or any other source (choose 64-bit Linux binaries),"
+            echo "5 - Manually install arm-none-eabi-gdb 8.1 or newer from"
+            echo "    https://launchpad.net/gcc-arm-embedded (choose 64-bit Linux binaries),"
             echo "    make sure it is in PATH, then run this script again."
-            echo "    WARNING: this may not be able to run all our GDB scripts."
         fi
 
         echo
