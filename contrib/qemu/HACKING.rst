@@ -1205,23 +1205,20 @@ made outside the magic-lantern directory, you may run the install script
 again. It will not re-download QEMU, but unfortunately you will have to
 recompile QEMU from scratch (which is very slow).
 
-If you have changed only the ``eos`` files, to avoid a full recompilation
-you may try a script similar to the following:
+Alternative, slightly faster:
 
 .. code:: shell
 
-    #!/bin/bash
-    
-    QEMU_PATH=${QEMU_PATH:=qemu-2.5.0}
-    ML_PATH=${ML_PATH:=../magic-lantern}
+  # from the qemu directory
+  ./sure_copy_from_contrib.sh
 
-    cp -v $ML_PATH/contrib/qemu/eos/* $QEMU_PATH/hw/eos/
-    cp -v $ML_PATH/contrib/qemu/eos/mpu_spells/* $QEMU_PATH/hw/eos/mpu_spells/
-    cp -v $ML_PATH/contrib/qemu/eos/dbi/* $QEMU_PATH/hw/eos/dbi/
-    cp -v $ML_PATH/src/backtrace.[ch] $QEMU_PATH/hw/eos/dbi/
-    cp -vr $ML_PATH/contrib/qemu/tests/* tests/
-    cp -vr $ML_PATH/contrib/qemu/scripts/* .
+If you have changed only the ``eos`` files (i.e. no changes to QEMU core),
+use the following command; afterwards, recompilation will be very fast:
 
+.. code:: shell
+
+  # from the qemu directory
+  ./sure_copy_from_contrib.sh -q
 
 Test suite
 ``````````
