@@ -58,6 +58,8 @@ static void sd_set_function_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 }
 
+static int patch_act = 0;
+
 static void sd_uhs_patch()
 {
     if (sd_enable_18V)
@@ -72,10 +74,17 @@ static void sd_uhs_patch()
 
     /* power-cycle and reconfigure the SD card */
     memcpy(uhs_vals, sdr_160MHz, sizeof(uhs_vals));
+
+    patch_act = 1;
 }
 
 static unsigned int sd_uhs_init()
 {
+    if ((!is_camera("EOSM", "2.0.2")) && (!is_camera("700D", "1.1.5")) && (!is_camera("100D", "1.0.1")))
+    {
+    	NotifyBox(2000, "sd_uhs.mo is not supported for your camera");
+    }
+
     if (is_camera("EOSM", "2.0.2"))
     {
         sd_setup_mode       = 0xFF338D40;
@@ -91,13 +100,16 @@ static unsigned int sd_uhs_init()
         sd_setup_mode_in    = 0xFF335648;
         sd_setup_mode_reg   = 1;
         sd_set_function     = 0xFF6530A4;
-     /* sd_uhs_patch(); */ 
+        sd_uhs_patch();  
     }
 
-    if ((!is_camera("EOSM", "2.0.2")) && (!is_camera("700D", "1.1.5")))
+    if (is_camera("700D", "1.1.5"))
     {
-    	NotifyBox(2000, "sd_uhs.mo is not supported for your camera");
-    }
+        sd_setup_mode       = 0xFF3376E8;   /* start of the function */
+        sd_setup_mode_in    = 0xFF337770;   /* right before the switch */
+        sd_setup_mode_reg   = 1;            /* switch variable is in R1 (likely all D5 other than 5D3) */
+        sd_set_function     = 0xFF748F18;
+        sd_uhs_patch();     }
 
 /* Below cams not tested/supported atm. Try it by enabling sd_uhs_patch(); */
     if (is_camera("5D3", "1.1.3"))
@@ -123,14 +135,6 @@ static unsigned int sd_uhs_init()
         sd_set_function     = 0xFF6B8FD0;
         sd_enable_18V       = 0xFF48446C;   /* 5D3 only (Set 1.8V Signaling) */
      /* sd_uhs_patch(); */    }
-
-    if (is_camera("700D", "1.1.5"))
-    {
-        sd_setup_mode       = 0xFF3376E8;   /* start of the function */
-        sd_setup_mode_in    = 0xFF337770;   /* right before the switch */
-        sd_setup_mode_reg   = 1;            /* switch variable is in R1 (likely all D5 other than 5D3) */
-        sd_set_function     = 0xFF748F18;
-        sd_uhs_patch();     }
 
     if (is_camera("6D", "1.1.6"))
     {
