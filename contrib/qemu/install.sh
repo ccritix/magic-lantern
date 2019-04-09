@@ -82,7 +82,7 @@ function install_gdb {
     # we may need to compile a recent GDB
     # the latest pre-built version is buggy (at the time of writing)
     # on Linux, the old 32-bit version works fine, but we can't run it on Mac/WSL
-    GDB_DIR=$HOME/gdb-arm-none-eabi-8_1
+    GDB_DIR=$HOME/gdb-arm-none-eabi-8_2_1
 
     if [ ! -f $GDB_DIR/bin/arm-none-eabi-gdb ]; then
         pushd . > /dev/null
@@ -92,14 +92,14 @@ function install_gdb {
         echo "*** Setting up GDB in $(pwd)/  ..."
         mkdir src
         cd src
-        wget $WGET_OPTS $MIRROR/gdb/gdb-8.1.tar.xz
+        wget $WGET_OPTS $MIRROR/gdb/gdb-8.2.1.tar.xz
         echo
-        tar xJf gdb-8.1.tar.xz || exit 1
+        tar xJf gdb-8.2.1.tar.xz || exit 1
         echo
         mkdir build-gdb
         cd build-gdb
         echo "Configuring arm-none-eabi-gdb... (configure.log)"
-        ../gdb-8.1/configure --target=arm-none-eabi --prefix=$GDB_DIR/ &> configure.log || gdb_error configure.log
+        ../gdb-8.2.1/configure --target=arm-none-eabi --prefix=$GDB_DIR/ &> configure.log || gdb_error configure.log
         echo "Building arm-none-eabi-gdb... (make.log)"
         make &> make.log || gdb_error make.log
         echo "Installing arm-none-eabi-gdb... (install.log)"
@@ -241,7 +241,7 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
             echo "    This will install 32-bit binaries."
             echo
             echo "4 - Install gcc-arm-none-eabi from Ubuntu repository"
-            echo "    and compile arm-none-eabi-gdb 8.1 from source."
+            echo "    and compile arm-none-eabi-gdb 8.2.1 from source."
             echo
             echo "5 - Manually install arm-none-eabi-gdb from https://launchpad.net/gcc-arm-embedded"
             echo "    or any other source, make sure it is in PATH, then run this script again."
@@ -263,7 +263,7 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
             echo "3 - option not available on Windows 10 WSL (32-bit Linux binaries not supported)."
             echo
             echo "4 - Install gcc-arm-none-eabi from Ubuntu repository (64-bit)"
-            echo "    and compile arm-none-eabi-gdb 8.1 from source."
+            echo "    and compile arm-none-eabi-gdb 8.2.1 from source."
             echo
             echo "5 - Manually install arm-none-eabi-gdb 8.1 or newer from"
             echo "    https://launchpad.net/gcc-arm-embedded (choose 64-bit Linux binaries),"
@@ -314,7 +314,7 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
                 ;;
             4)
                 # install native (64 or 32) arm-none-eabi-gcc from package manager
-                # and compile arm-none-eabi-gdb 8.1 from source
+                # and compile arm-none-eabi-gdb 8.2.1 from source
                 packages="$packages gcc-arm-none-eabi libnewlib-arm-none-eabi"
                 ;;
             5)
@@ -387,7 +387,7 @@ fi
 if ! valid_arm_gdb; then
     echo
     echo "*** WARNING: a valid arm-none-eabi-gdb could not be found."
-    echo "*** Will compile gdb 8.1 from source and install it under your home directory."
+    echo "*** Will compile gdb 8.2.1 from source and install it under your home directory."
     echo
     echo -n "Continue? [y/n] "
     read answer
