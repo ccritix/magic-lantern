@@ -172,7 +172,7 @@ function valid_arm_gcc {
         return 1
     fi
 
-    rm arm-gcc-test.c
+    rm arm-gcc-test.c arm-gcc-test.o
     return 0
 }
 
@@ -208,7 +208,7 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
     # otherwise, we'll try to install something
     if ! valid_arm_gdb || ! valid_arm_gcc; then
         echo "*** You do not seem to have an usable arm-none-eabi-gcc and/or gdb installed."
-        echo "*** Old 64-bit GDB versions are known to have issues."
+        echo "*** Some 64-bit GDB versions are known to have issues."
         echo
         echo "*** You have a few options:"
         echo
@@ -247,9 +247,10 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
             echo "4 - Install gcc-arm-none-eabi from Ubuntu repository"
             echo "    and compile arm-none-eabi-gdb 8.1 from source."
             echo
-            echo "5 - Manually install arm-none-eabi-gdb 8.1 (7-2018-q2-update, not latest!)"
-            echo "    from https://launchpad.net/gcc-arm-embedded (choose 64-bit Linux binaries),"
-            echo "    make sure it is in PATH, then run this script again."
+            echo "5 - Manually install the toolchain from https://launchpad.net/gcc-arm-embedded."
+            echo "    Choose either 32-bit binaries (gcc 5.x, recommended 5_4-2016q3),"
+            echo "    or 64-bit with gdb 8.1 (7-2018-q2-update is the only one known to work)."
+            echo "    Make sure the toolchain is in PATH, then run this script again."
             echo
         else
             # WSL
@@ -272,7 +273,7 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
             echo "4 - Install gcc-arm-none-eabi from Ubuntu repository (64-bit binaries)"
             echo "    and compile arm-none-eabi-gdb 8.1 from source. Slower, but known to work."
             echo
-            echo "5 - Manually install arm-none-eabi-gdb 8.1 (7-2018-q2-update, not latest!)"
+            echo "5 - Manually install arm-none-eabi-gcc / gdb 8.1 (7-2018-q2-update, not latest!)"
             echo "    from https://launchpad.net/gcc-arm-embedded (choose 64-bit Linux binaries),"
             echo "    make sure it is in PATH, then run this script again."
         fi
@@ -464,10 +465,10 @@ if [ -d $QEMU_NAME ]; then
   echo "*** Directory $(pwd)/$QEMU_NAME already exists."
   echo "*** To reinstall, please rename or delete it first."
   echo ""
-  echo "  - R or r        : rename to $(pwd)/${QEMU_NAME}_$DATE/"
-  echo "  - C or c        : make clean & rename to $(pwd)/${QEMU_NAME}_$DATE/"
-  echo "  - uppercase D   : delete $(pwd)/$QEMU_NAME/ without confirmation (!)"
-  echo "  - any other key : cancel the operation (exit the script)"
+  echo "- R or r       : rename to $(pwd)/${QEMU_NAME}_$DATE/"
+  echo "- C or c       : make clean & rename to $(pwd)/${QEMU_NAME}_$DATE/"
+  echo "- uppercase D  : delete $(pwd)/$QEMU_NAME/ without confirmation (!)"
+  echo "- any other key: cancel the operation (exit the script)"
   echo ""
   echo -n "Your choice? "
   read answer
