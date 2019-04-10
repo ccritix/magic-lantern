@@ -3038,7 +3038,12 @@ static inline uint32_t reg_override_anamorphic_rewired_100d(uint32_t reg, uint32
 		case 0xC0F06010: return set_25fps == 0x1 ? 0x25b - 24 + reg_6008: 0x25b + reg_6008;
 
         	case 0xC0F0713c: return 0x79f + reg_713c;
-		case 0xC0F07150: return 0x3cf + reg_7150; 
+		case 0xC0F07150: return 0x36c + reg_7150; 
+
+        	case 0xC0F06824: return 0x722 + reg_6824;
+        	case 0xC0F06828: return 0x722 + reg_6824;
+        	case 0xC0F0682C: return 0x722 + reg_6824;
+        	case 0xC0F06830: return 0x722 + reg_6824; 
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xd;
@@ -3060,8 +3065,13 @@ static inline uint32_t reg_override_anamorphic_rewired_100d(uint32_t reg, uint32
 		case 0xC0F06008: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);		 
 		case 0xC0F06010: return set_25fps == 0x1 ? 0x25b - 24 + reg_6008: 0x25b + reg_6008;
 
-        	case 0xC0F0713c: return 0x73c + reg_713c;
-		case 0xC0F07150: return 0x39e + reg_7150; 
+        	case 0xC0F0713c: return 0x73d + reg_713c;
+		case 0xC0F07150: return 0x36c + reg_7150; 
+
+        	case 0xC0F06824: return 0x722 + reg_6824;
+        	case 0xC0F06828: return 0x722 + reg_6824;
+        	case 0xC0F0682C: return 0x722 + reg_6824;
+        	case 0xC0F06830: return 0x722 + reg_6824; 
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xd;
@@ -3082,8 +3092,13 @@ static inline uint32_t reg_override_anamorphic_rewired_100d(uint32_t reg, uint32
 		case 0xC0F06008: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);		 
 		case 0xC0F06010: return set_25fps == 0x1 ? 0x25b - 24 + reg_6008: 0x25b + reg_6008;
 
-        	case 0xC0F0713c: return 0x73c + reg_713c;
-		case 0xC0F07150: return 0x39e + reg_7150; 
+        	case 0xC0F0713c: return 0x73d + reg_713c;
+		case 0xC0F07150: return 0x36c + reg_7150; 
+
+        	case 0xC0F06824: return 0x722 + reg_6824;
+        	case 0xC0F06828: return 0x722 + reg_6824;
+        	case 0xC0F0682C: return 0x722 + reg_6824;
+        	case 0xC0F06830: return 0x722 + reg_6824; 
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xd;
