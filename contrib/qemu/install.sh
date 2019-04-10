@@ -13,6 +13,10 @@ GREP=${GREP:=grep}
 WGET_OPTS="-c -q --show-progress --progress=dot:giga"
 ARM_GDB=
 
+# set to true in order to install the default toolchain,
+# even if some valid version is already installed
+FORCE_INSTALL_GCC=${FORCE_INSTALL_GCC:=false}
+
 echo
 echo "This will setup QEMU for emulating Magic Lantern."
 echo "Thou shalt not be afraid of compiling stuff on Linux ;)"
@@ -297,9 +301,10 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
                 if [  -z "$(uname -a | grep Microsoft)" ]; then
                     # 32-bit toolchain will be downloaded after installing these packages
                     packages="$packages libc6:i386 libncurses5:i386"
+                    FORCE_INSTALL_GCC=true
                 else
-                    # 64-bit toolchain will be downloaded, nothing to do here
-                    true
+                    # 64-bit toolchain will be downloaded
+                    FORCE_INSTALL_GCC=true
                 fi
                 ;;
             3)
@@ -379,6 +384,12 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
 fi
 
 # all systems (including Mac, or Ubuntu if the installation from repositories failed)
+
+if [ "$FORCE_INSTALL_GCC" == "true" ]; then
+    # on Mac and WSL, this will provide a valid gdb as well
+    install_gcc
+fi
+
 if ! valid_arm_gcc; then
     echo
     echo "*** WARNING: a valid arm-none-eabi-gcc could not be found."
