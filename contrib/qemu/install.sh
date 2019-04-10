@@ -254,7 +254,7 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
         else
             # WSL
             if apt-cache show gdb-arm-none-eabi &>/dev/null; then
-                echo "1 - option not available on Windows 10 WSL (32-bit Linux binaries not supported)"
+                echo "1 - Option not available on Windows 10 WSL (32-bit Linux binaries not supported)"
             elif apt-cache show gdb-multiarch &>/dev/null; then
                 echo "1 - Install gdb-multiarch and gcc-arm-none-eabi from Ubuntu repo (recommended)"
                 echo "    GDB 8.1 is known to work well, but 8.2 is unable to run our scripts."
@@ -267,7 +267,7 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
             echo "    Will be installed in your home directory; you will have to modify PATH manually."
             echo "    Recommended."
             echo
-            echo "3 - option not available on Windows 10 WSL (32-bit Linux binaries not supported)."
+            echo "3 - Option not available on Windows 10 WSL (32-bit Linux binaries not supported)."
             echo
             echo "4 - Install gcc-arm-none-eabi from Ubuntu repository (64-bit binaries)"
             echo "    and compile arm-none-eabi-gdb 8.1 from source. Slower, but known to work."
@@ -284,6 +284,7 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
         case $answer in
             1)
                 if apt-cache show gdb-arm-none-eabi &>/dev/null; then
+                    if [ -n "$(uname -a | grep Microsoft)" ]; then exit 1; fi
                     # Ubuntu's 32-bit arm-none-eabi-gdb works fine (if available)
                     packages="$packages gdb-arm-none-eabi:i386 "
                 elif apt-cache show gdb-multiarch &>/dev/null; then
@@ -308,6 +309,7 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
                 fi
                 ;;
             3)
+                if [ -n "$(uname -a | grep Microsoft)" ]; then exit 1; fi
                 # gcc-arm-embedded conflicts with gcc-arm-none-eabi
                 # but the dependencies are not configured properly
                 # so we have to fix the conflict manually...
