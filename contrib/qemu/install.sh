@@ -13,9 +13,11 @@ GREP=${GREP:=grep}
 WGET_OPTS="-c -q --show-progress --progress=dot:giga"
 ARM_GDB=
 
-# set to true in order to install the default toolchain,
-# even if some valid version is already installed
-FORCE_INSTALL_GCC=${FORCE_INSTALL_GCC:=false}
+# valid values: x86, x64
+TOOLCHAIN_ARCH=${TOOLCHAIN_ARCH:=}
+
+# whether to compile GDB 8.1 from source
+COMPILE_GDB=${COMPILE_GDB:=false}
 
 echo
 echo "This will setup QEMU for emulating Magic Lantern."
@@ -25,30 +27,83 @@ read answer
 if test "$answer" != "Y" -a "$answer" != "y"; then exit 0; fi
 echo
 
+function choose_toolchain_ask {
+    echo
+    echo "*** You may choose either a 32-bit or a 64-bit toolchain:"
+    echo
+    echo "1) 32-bit 5_4-2016q3 (recommended; default in ML Makefile)"
+    if [  -z "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
+        # FIXME: auto-install 32-bit dependencies on systems other than Ubuntu?
+        echo "   On 64-bit systems, you may need to install 32-bit libraries manually."
+    fi
+    echo
+    echo "2) 64-bit 7-2018-q2 (known to work, but not thoroughly tested)"
+    echo
+    echo -n "Your choice? "
+    read answer
+    if [ "$answer" == "1" ]; then
+        TOOLCHAIN_ARCH="x86"
+    elif [ "$answer" == "2" ]; then
+        TOOLCHAIN_ARCH="x64"
+    else
+        # invalid choice
+        exit 1
+    fi
+}
+function choose_toolchain {
+    if [ $(uname) == "Darwin" ]; then
+        # Mac, only 64-bit binaries are available for the prebuilt toolchain
+        TOOLCHAIN_ARCH="x64"
+    elif [  -n "$(uname -a | grep Microsoft)" ]; then
+        # WSL, only 64-bit Linux binaries are working
+        TOOLCHAIN_ARCH="x64"
+    elif [[ $(uname -m) =~ i[3-6]86 ]]; then
+        # 32-bit Linux
+        TOOLCHAIN_ARCH="x86"
+    elif [ $(uname -m) == "x86_64" ]; then
+        # 64-bit Linux (other than WSL), can choose either 32-bit or 64-bit binaries
+        if [ -z "$TOOLCHAIN_ARCH" ]; then
+            # only ask once
+            choose_toolchain_ask
+        fi
+    fi
+}
+
 function install_gcc {
+
+    # ask user for preferred toolchain, if not done yet
+    choose_toolchain
+
+    if [ -z "$TOOLCHAIN_ARCH" ]; then
+        echo "Could not find a suitable toolchain for your $(uname -m) system."
+        return
+    fi
 
     UNTAR="tar -jxf"
 
+    # 64-bit (with 64-bit GDB 8.1, known to work on all systems)
+    TOOLCHAIN=gcc-arm-none-eabi-7-2018-q2-update
+    DOWNLOAD=https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-rm/7-2018q2/
+    MIRROR="$DOWNLOAD"
+
     if [ $(uname) == "Darwin" ]; then
-        # Mac: 64-bit (with 64-bit GDB 8.1, known to work)
-        TOOLCHAIN=gcc-arm-none-eabi-7-2018-q2-update
-        DOWNLOAD=https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-rm/7-2018q2/
-        MIRROR="$DOWNLOAD"
+        # Mac, 64-bit binaries
         TARBALL=$TOOLCHAIN-mac.tar.bz2
     elif [  -n "$(uname -a | grep Microsoft)" ]; then
-        # Mac: 64-bit (with 64-bit GDB 8.1, known to work)
-        TOOLCHAIN=gcc-arm-none-eabi-7-2018-q2-update
-        DOWNLOAD=https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-rm/7-2018q2/
-        MIRROR="$DOWNLOAD"
+        # WSL, only 64-bit binaries are working
         TARBALL=$TOOLCHAIN-linux.tar.bz2
-    else
-        # Linux (other than WSL) - use a 32-bit build (preferred, even though it's older)
+    elif [ "$TOOLCHAIN_ARCH" == "x86" ]; then
+        # Linux (other than WSL), 32-bit toolchain
         TOOLCHAIN=gcc-arm-none-eabi-5_4-2016q3
-        DOWNLOAD=https://launchpad.net/gcc-arm-embedded/5.0/5-2016-q3-update/+download/
-        MIRROR=https://developer.arm.com/-/media/Files/downloads/gnu-rm/5_4-2016q3/
+        DOWNLOAD=https://developer.arm.com/-/media/Files/downloads/gnu-rm/5_4-2016q3/
+        MIRROR=https://launchpad.net/gcc-arm-embedded/5.0/5-2016-q3-update/+download/
         TARBALL=$TOOLCHAIN-20160926-linux.tar.bz2
+    else
+        # Linux (other than WSL), 64-bit toolchain (same version used for Mac/WSL)
+        TARBALL=$TOOLCHAIN-linux.tar.bz2
     fi
 
+    echo
     echo "*** Will download $TOOLCHAIN from:"
     echo "    https://developer.arm.com/open-source/gnu-toolchain/gnu-rm"
     echo
@@ -93,6 +148,7 @@ function install_gdb {
         local MIRROR=https://ftp.gnu.org/gnu
         mkdir $GDB_DIR
         cd $GDB_DIR
+        echo
         echo "*** Setting up GDB in $(pwd)/  ..."
         mkdir src
         cd src
@@ -213,32 +269,33 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
         echo "*** You have a few options:"
         echo
 
-        # 32-bit binaries not working under WSL - hide these options
+        # 32-bit binaries not working under WSL
         if [  -z "$(uname -a | grep Microsoft)" ]; then
-            echo "1 - Download a 32-bit gcc-arm-embedded and install it without the package manager."
-            echo "    Will be installed in your home directory; to move it, you must edit the Makefiles."
-            echo "    This will install 32-bit binaries."
+            echo "1) Download a precompiled toolchain (32-bit or 64-bit gcc-arm-embedded)"
+            echo "   and install it into your HOME directory, without the package manager."
+            echo "   Recommended."
             echo
-            echo "2 - Install gcc-arm-none-eabi from Ubuntu repository (native for your system)"
-            echo "    and compile arm-none-eabi-gdb 8.1 from source."
+            echo "2) Install gcc-arm-none-eabi from Ubuntu repository (native for your system)"
+            echo "   and compile arm-none-eabi-gdb 8.1 from source. Slower installation."
             echo
-            echo "3 - Manually install the toolchain from https://launchpad.net/gcc-arm-embedded."
-            echo "    Choose either 32-bit binaries (gcc 5.x, recommended 5_4-2016q3),"
-            echo "    or 64-bit with gdb 8.1 (7-2018-q2 is the only one known to work)."
-            echo "    Make sure the toolchain is in PATH, then run this script again."
+            echo "3) Manually install the toolchain from https://launchpad.net/gcc-arm-embedded."
+            echo "   Choose either 32-bit binaries (gcc 5.x, recommended 5_4-2016q3),"
+            echo "   or 64-bit with gdb 8.1 (7-2018-q2 is the only one known to work)."
+            echo "   Make sure the toolchain is in PATH, then run this script again."
             echo
         else
             # WSL
-            echo "1 - Download a 64-bit gcc-arm-embedded and install it without the package manager."
-            echo "    Will be installed in your home directory; you will have to modify PATH manually."
-            echo "    Recommended."
             echo
-            echo "2 - Install gcc-arm-none-eabi from Ubuntu repository (64-bit binaries)"
-            echo "    and compile arm-none-eabi-gdb 8.1 from source. Slower, but known to work."
+            echo "1) Download a precompiled toolchain (gcc-arm-embedded, 64-bit 7-2018-q2)"
+            echo "   and install it into your HOME directory, without the package manager."
+            echo "   Recommended."
             echo
-            echo "3 - Manually install arm-none-eabi-gcc / gdb 8.1 (7-2018-q2, not latest!)"
-            echo "    from https://launchpad.net/gcc-arm-embedded (choose 64-bit Linux binaries),"
-            echo "    make sure it is in PATH, then run this script again."
+            echo "2) Install gcc-arm-none-eabi from Ubuntu repository (64-bit binaries)"
+            echo "   and compile arm-none-eabi-gdb 8.1 from source. Slower, but known to work."
+            echo
+            echo "3) Manually install arm-none-eabi-gcc / gdb 8.1 (7-2018-q2, not latest!)"
+            echo "   from https://launchpad.net/gcc-arm-embedded (choose 64-bit Linux binaries),"
+            echo "   make sure it is in PATH, then run this script again."
         fi
 
         echo
@@ -248,18 +305,20 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
         case $answer in
             1)
                 if [  -z "$(uname -a | grep Microsoft)" ]; then
-                    # 32-bit toolchain will be downloaded after installing these packages
-                    packages="$packages libc6:i386 libncurses5:i386"
-                    FORCE_INSTALL_GCC=true
-                else
-                    # 64-bit toolchain will be downloaded
-                    FORCE_INSTALL_GCC=true
+                    # ask user for preferred toolchain (non-WSL only)
+                    choose_toolchain
+
+                    if [ "$TOOLCHAIN_ARCH" == "x86" ]; then
+                        # 32-bit toolchain has some additional dependencies
+                        packages="$packages libc6:i386 libncurses5:i386"
+                    fi
                 fi
                 ;;
             2)
                 # install native (64 or 32) arm-none-eabi-gcc from package manager
                 # and compile arm-none-eabi-gdb 8.1 from source
                 packages="$packages gcc-arm-none-eabi libnewlib-arm-none-eabi"
+                COMPILE_GDB=true
                 ;;
             3)
                 # user will install arm-none-eabi-gdb and run the script again
@@ -314,47 +373,70 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
     fi
 fi
 
-# all systems (including Mac, or Ubuntu if the installation from repositories failed)
-
-if [ "$FORCE_INSTALL_GCC" == "true" ]; then
-    # on Mac and WSL, this will provide a valid gdb as well
+if [ -n "$TOOLCHAIN_ARCH" ]; then
+    # toolchain already chosen? don't ask again, just install it
+    # this will provide a valid gdb as well
     install_gcc
 fi
 
-if ! valid_arm_gcc; then
-    echo
-    echo "*** WARNING: a valid arm-none-eabi-gcc could not be found."
-    echo "*** Downloading a toolchain and installing it without the package manager."
-    echo "*** Will be installed in your home directory (Makefile.user.default expects it there)."
-    echo
-    echo -n "Continue? [y/n] "
-    read answer
-    if test "$answer" != "Y" -a "$answer" != "y"; then exit 0; fi
-    echo
-    install_gcc
-fi
-
-if ! valid_arm_gdb; then
-    echo
-    echo "*** WARNING: a valid arm-none-eabi-gdb could not be found."
-    echo "*** Will compile gdb 8.1 from source and install it under your home directory."
-    echo
-    echo -n "Continue? [y/n] "
-    read answer
-    if test "$answer" != "Y" -a "$answer" != "y"; then exit 0; fi
-    echo
+if [ "$COMPILE_GDB" == "true" ]; then
+    # if user already selected to compile GDB from source, don't ask again
     install_gdb
 fi
 
-# make sure we have a valid arm-none-eabi-gdb (regardless of operating system)
-if ! valid_arm_gdb; then
-    echo "*** Please set up a valid arm-none-eabi-gdb or gdb-multiarch before continuing."
+# all systems (including Mac, or Ubuntu/WSL if previous steps failed)
+
+if valid_arm_gcc; then
+    if ! valid_arm_gdb; then
+        echo
+        echo "*** You already have a valid arm-none-eabi-gcc,"
+        echo "*** but you also need arm-none-eabi-gdb. What to do?"
+        echo
+        echo "1) Install the prebuilt ARM toolchain (arm-none-eabi-gcc / gdb)"
+        echo "   from https://developer.arm.com/open-source/gnu-toolchain/gnu-rm"
+        echo "   into your HOME directory. Recommended."
+        echo
+        echo "2) Keep your existing ARM compiler (arm-none-eabi-gcc) and compile"
+        echo "   gdb 8.1 from source. Slower installation, but should work fine."
+        echo
+        echo -n "Your choice? "
+        read answer
+        if [ "$answer" == "1" ]; then
+            # this will provide a valid gdb as well
+            install_gcc
+        elif [ "$answer" == "2" ]; then
+            # compile gdb from sources
+            install_gdb
+        else
+            # invalid choice
+            exit 1
+        fi
+    fi
+else
+    echo
+    echo "*** WARNING: a valid arm-none-eabi-gcc could not be found."
+    echo "*** Downloading a prebuilt toolchain and installing it in your HOME directory."
+    echo
+    echo -n "Continue? [y/n] "
+    read answer
+    if test "$answer" != "Y" -a "$answer" != "y"; then exit 0; fi
+    echo
+
+    # this will provide a valid gdb as well
+    install_gcc
+fi
+
+# make sure we have a valid arm-none-eabi-gcc (regardless of operating system)
+if ! valid_arm_gcc; then
+    echo "*** Please set up a valid arm-none-eabi-gcc before continuing."
+    echo "*** Make sure arm-none-eabi-gcc is in your executable PATH."
     exit 1
 fi
 
-# same for arm-none-eabi-gcc
-if ! valid_arm_gcc; then
-    echo "*** Please set up a valid arm-none-eabi-gcc before continuing."
+# same for arm-none-eabi-gdb
+if ! valid_arm_gdb; then
+    echo "*** Please set up a valid arm-none-eabi-gdb or gdb-multiarch before continuing."
+    echo "*** Make sure either arm-none-eabi-gdb or gdb-multiarch is in your PATH."
     exit 1
 fi
 
