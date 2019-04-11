@@ -80,8 +80,8 @@ enum crop_preset {
     CROP_PRESET_4K_3x1_EOSM,
     CROP_PRESET_5K_3x1_EOSM,
     CROP_PRESET_4K_5x1_EOSM,
-    CROP_PRESET_anamorphic_EOSM,
     CROP_PRESET_anamorphic_rewired_EOSM,
+    CROP_PRESET_anamorphic_EOSM,
     CROP_PRESET_2520_1418_700D,
     CROP_PRESET_3K_700D,
     CROP_PRESET_3540_700D,
@@ -223,8 +223,8 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_mcm_mv1080_EOSM,
     CROP_PRESET_3x3_mv1080_48fps_EOSM,
     CROP_PRESET_3x1_mv720_50fps_EOSM,
+    CROP_PRESET_anamorphic_rewired_EOSM,
     CROP_PRESET_anamorphic_EOSM,
-   //CROP_PRESET_anamorphic_rewired_EOSM,
    // CROP_PRESET_4K_5x1_EOSM,
    // CROP_PRESET_3x3_1X_EOSM,
 };
@@ -241,8 +241,8 @@ static const char * crop_choices_eosm[] = {
     "mv1080p MCM rewire",
     "mv1080p 1736x976 46/48fps",
     "mv720p 1736x694 50fps", 
+    "4K anamorphic rewired",
     "5K anamorphic",
-   //"5K anamorphic rewired",
    // "4K 5x1 24fps",
    // "3x3 720p",
 };
@@ -262,8 +262,8 @@ static const char crop_choices_help2_eosm[] =
     "Enable Movie crop mode and push canon MENU button and back\n"
     "mv1080p 46/48 fps\n"
     "mv720p 50fps 16:9\n"
+    "1x3 binning modes(anamorphic) rewired 2.35:1\n"
     "1x3 binning modes(anamorphic)\n";
-   // "1x3 binning modes(anamorphic) rewired\n"
    // "5:1 4K crop squeeze, preview broken\n"
    // "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
 
@@ -670,6 +670,14 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	}
         break;
 
+	case CROP_PRESET_anamorphic_rewired_EOSM:
+/* see autodetect_black_level exception in raw.c */
+/* only 2.35:1 */
+        skip_bottom = 20;
+        skip_right = 186;
+        skip_left = 190;
+        break;
+
  	case CROP_PRESET_anamorphic_EOSM:
  	case CROP_PRESET_anamorphic_700D:
 /* see autodetect_black_level exception in raw.c */
@@ -685,23 +693,6 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         skip_bottom = 0;
         skip_right = 324;
         skip_left = 292;
-    	}
-        break;
-
-	case CROP_PRESET_anamorphic_rewired_EOSM:
-/* see autodetect_black_level exception in raw.c */
-        skip_bottom = 24;
-    	if (ratios == 0x1)
-    	{
-        skip_bottom = 20;
-        skip_right = 186;
-        skip_left = 190;
-    	}
-    	if (ratios == 0x2)
-    	{
-        skip_bottom = 0;
-        skip_right = 354;
-        skip_left = 322;
     	}
         break;
 
@@ -814,8 +805,8 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_3x3_mv1080_EOSM]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_3x3_mv1080_48fps_EOSM]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_3x1_mv720_50fps_EOSM]  = { 1290, 1290, 1290,  960,  800 },
-    [CROP_PRESET_anamorphic_EOSM]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_anamorphic_rewired_EOSM]  = { 1290, 1290, 1290,  960,  800 },
+    [CROP_PRESET_anamorphic_EOSM]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_3K_700D]         = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_UHD_700D]        = { 1536, 1472, 1120,  640,  540 },
     [CROP_PRESET_4K_700D]         = { 3072, 3072, 2500, 1440, 1200 },
@@ -1186,16 +1177,15 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		}
                 break;	
 
-			case CROP_PRESET_anamorphic_EOSM:
-			case CROP_PRESET_anamorphic_700D:
-		cmos_new[7] = 0x2c4;   
-                break;	
-
 			case CROP_PRESET_anamorphic_rewired_EOSM:
 	        cmos_new[5] = 0x20;
 		cmos_new[7] = 0x2c4; 
 		break;
 
+			case CROP_PRESET_anamorphic_EOSM:
+			case CROP_PRESET_anamorphic_700D:
+		cmos_new[7] = 0x2c4;   
+                break;	
 
 		case CROP_PRESET_2520_1418_700D:
                 cmos_new[7] = 0xaa9;    /* pink highlights without this */
@@ -1743,18 +1733,18 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    		   }		
 		break;
 
-	     case CROP_PRESET_anamorphic_EOSM:
-	     case CROP_PRESET_anamorphic_700D:
-	        adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
-                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
-     	        break;
-
 	     case CROP_PRESET_anamorphic_rewired_EOSM: 
 	     case CROP_PRESET_anamorphic_rewired_100D:
 	        adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
                 adtg_new[17] = (struct adtg_new) {6, 0x8183, 0x21 + reg_8183};
                 adtg_new[18] = (struct adtg_new) {6, 0x8184, 0x7b + reg_8184};
+     	        break;
+
+	     case CROP_PRESET_anamorphic_EOSM:
+	     case CROP_PRESET_anamorphic_700D:
+	        adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
      	        break;
 
 	     case CROP_PRESET_FULLRES_LV_700D:
@@ -3019,11 +3009,9 @@ static inline uint32_t reg_override_1x3_100d(uint32_t reg, uint32_t old_val)
 static inline uint32_t reg_override_anamorphic_rewired_100d(uint32_t reg, uint32_t old_val)
 {
 
-
 /* gets rid of the black border to the right */
 	EngDrvOutLV(0xc0f383d4, 0x4f0010 + reg_83d4);
 	EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
-
 
   if ((ratios != 0x1) && (ratios != 0x2))
   {
@@ -3634,6 +3622,37 @@ static inline uint32_t reg_override_3x1_mv720_50fps_eosm(uint32_t reg, uint32_t 
     return reg_override_bits(reg, old_val);
 }
 
+static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32_t old_val)
+{
+/* gets rid of the black border to the right */
+	EngDrvOutLV(0xc0f383d4, 0x4f0010 + reg_83d4);
+	EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
+
+    switch (reg)
+    {
+/* Only 2.35:1 */
+		case 0xC0F06804: return 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
+
+        	case 0xC0F06014: return set_25fps == 0x1 ? 0x89e + reg_6014: 0x8a1 + reg_6014;
+		case 0xC0F0600c: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);		 
+		case 0xC0F06010: return set_25fps == 0x1 ? 0x25b - 24 + reg_6008: 0x25b + reg_6008;
+
+        	case 0xC0F0713c: return 0x79f + reg_713c;
+
+        	case 0xC0F06824: return 0x79d + reg_6824;
+        	case 0xC0F06828: return 0x79d + reg_6824;
+        	case 0xC0F0682C: return 0x79d + reg_6824;
+        	case 0xC0F06830: return 0x79d + reg_6824; 
+
+/* dummy reg for height modes eosm in raw.c */
+		case 0xC0f0b13c: return 0xd;
+
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
 static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_val)
 {
 
@@ -3663,77 +3682,6 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
     switch (reg)
     {
         	case 0xC0F06804: return 0x7ef01d4 + reg_6804_width + (reg_6804_height << 16); 
-
-        	case 0xC0F06014: return 0x95d + reg_6014;
-		case 0xC0F0600c: return set_25fps == 0x1 ? 0x22b022b - 22 + reg_6008 + (reg_6008 << 16): 0x22b022b + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return set_25fps == 0x1 ? 0x22b022b - 22 + reg_6008 + (reg_6008 << 16): 0x22b022b + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return set_25fps == 0x1 ? 0x22b - 24 + reg_6008: 0x22b + reg_6008;
-
-        	case 0xC0F0713c: return 0x7ef + reg_713c;
-		case 0xC0F07150: return 0x7dd + reg_7150;
-
-/* dummy reg for height modes eosm in raw.c */
-		case 0xC0f0b13c: return 0xd;
-    }
-
-  }
-
-  if ((ratios != 0x1) && (ratios != 0x2))
-  {
-    switch (reg)
-    {
-        	case 0xC0F06804: return 0x88501c2 + reg_6804_width + (reg_6804_height << 16); 
-
-        	case 0xC0F06014: return 0x99d + reg_6014;
-		case 0xC0F0600c: return 0x21d021d + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x21d021d + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x21d + reg_6008;
-		
-        	case 0xC0F0713c: return 0x885 + reg_713c;
-		case 0xC0F07150: return 0x880 + reg_7150;
-
-/* dummy reg for height modes eosm in raw.c */
-		case 0xC0f0b13c: return 0xd;
-    }
-
-  }
-
-    return reg_override_bits(reg, old_val);
-}
-
-static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32_t old_val)
-{
-
-/* gets rid of the black border to the right */
-	EngDrvOutLV(0xc0f383d4, 0x4f0010 + reg_83d4);
-	EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
-
-  if (ratios == 0x1)
-  {
-    switch (reg)
-    {
-		case 0xC0F06804: return 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
-
-        	case 0xC0F06014: return set_25fps == 0x1 ? 0x89e + reg_6014: 0x8a1 + reg_6014;
-		case 0xC0F0600c: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);		 
-		case 0xC0F06010: return set_25fps == 0x1 ? 0x25b - 24 + reg_6008: 0x25b + reg_6008;
-
-        	case 0xC0F0713c: return 0x797 + reg_713c;
-		case 0xC0F07150: return 0x3a9 + reg_7150; // -1000 ???
-
-/* dummy reg for height modes eosm in raw.c */
-		case 0xC0f0b13c: return 0xd;
-
-    }
-
-  }
-
-  if (ratios == 0x2)
-  {
-    switch (reg)
-    {
-        	case 0xC0F06804: return 0x7ef01e4 + reg_6804_width + (reg_6804_height << 16); 
 
         	case 0xC0F06014: return 0x95d + reg_6014;
 		case 0xC0F0600c: return set_25fps == 0x1 ? 0x22b022b - 22 + reg_6008 + (reg_6008 << 16): 0x22b022b + reg_6008 + (reg_6008 << 16);
@@ -4157,8 +4105,8 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_3x3_mv1080_48fps_EOSM) ? reg_override_3x3_48fps_eosm        :
         (crop_preset == CROP_PRESET_3x3_mv1080_48fps_700D) ? reg_override_3x3_48fps_eosm        : //Same as for eosm?
         (crop_preset == CROP_PRESET_3x1_mv720_50fps_EOSM) ? reg_override_3x1_mv720_50fps_eosm        :
-        (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        : 
         (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) ? reg_override_anamorphic_rewired_eosm        : 
+        (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        : 
         (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_3x3_1X_100D)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_OFF_eosm)    ? reg_override_crop_preset_off_eosm  :
@@ -4345,8 +4293,8 @@ static MENU_UPDATE_FUNC(crop_update)
 || (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
 || (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM) 
 || (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
-|| (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
-|| (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)))
+|| (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)
+|| (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)))
     {
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in x1 movie mode");
         return;
@@ -5130,6 +5078,11 @@ static LVINFO_UPDATE_FUNC(crop_info)
     snprintf(buffer, sizeof(buffer), "3x3 720p");
   }
 
+if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)
+{
+    snprintf(buffer, sizeof(buffer), "anamorph 2.35:1");
+}
+
 /* EOSM */
 if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
 {
@@ -5143,11 +5096,6 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
     snprintf(buffer, sizeof(buffer), "3.5K anamorphic");
   }
 
-}
-
-if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)
-{
-    snprintf(buffer, sizeof(buffer), "5K anamorphic REW");
 }
 
   if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
@@ -5320,8 +5268,8 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_3x3_mv1080_700D:
 	    case CROP_PRESET_3x3_mv1080_48fps_EOSM:
 	    case CROP_PRESET_3x3_mv1080_48fps_700D:
- 	    case CROP_PRESET_anamorphic_EOSM:
  	    case CROP_PRESET_anamorphic_rewired_EOSM:
+ 	    case CROP_PRESET_anamorphic_EOSM:
  	    case CROP_PRESET_anamorphic_700D:
 	    case CROP_PRESET_anamorphic_rewired_100D:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
@@ -5361,8 +5309,8 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_FULLRES_LV_700D:
             case CROP_PRESET_1x3:
             case CROP_PRESET_1x3_17fps:
- 	    case CROP_PRESET_anamorphic_EOSM:
  	    case CROP_PRESET_anamorphic_rewired_EOSM:
+ 	    case CROP_PRESET_anamorphic_EOSM:
  	    case CROP_PRESET_anamorphic_700D:
 	    case CROP_PRESET_anamorphic_rewired_100D:
             case CROP_PRESET_3xcropmode_100D:
