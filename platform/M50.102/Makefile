@@ -1,4 +1,4 @@
-# EOS M50 1.0.1
+# EOS M50 1.0.2
 
 MODEL=M50
 include ../Makefile.platform

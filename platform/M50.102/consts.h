@@ -1,5 +1,5 @@
 /*
- *  EOS M50 1.0.1 consts
+ *  EOS M50 1.0.2 consts
  */
 
 #define CARD_LED_ADDRESS            0xD01300E4     /* maybe also 0xD01301A4 */
