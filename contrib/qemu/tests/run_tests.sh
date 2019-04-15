@@ -792,7 +792,7 @@ function test_calls_from {
     # remove infinite loop at the end, if any
     ansi2txt < tests/$CAM/$TEST-raw.log \
         | grep -E "call |return " \
-        | python remove_end_loop.py \
+        | python3 remove_end_loop.py \
         > tests/$CAM/$TEST.log
 
     # count some stats
@@ -1391,7 +1391,7 @@ function test_calls_cstack {
     sleep 10
     stop_qemu_expect_running
 
-    ansi2txt < tests/$CAM/$TEST-raw.log | python tests/test_callstack.py &> tests/$CAM/$TEST-test.log \
+    ansi2txt < tests/$CAM/$TEST-raw.log | python3 tests/test_callstack.py &> tests/$CAM/$TEST-test.log \
         && (tail -n 1 tests/$CAM/$TEST-test.log | tr -d '\n'; echo " OK" ) \
         || (tail -n 1 tests/$CAM/$TEST-test.log | tr -d '\n'; echo -e " \e[31mFAILED!\e[0m" )
 }

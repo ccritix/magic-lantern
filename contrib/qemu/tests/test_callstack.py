@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+
+from __future__ import print_function
 import os, sys, re
 from collections import defaultdict
 
@@ -49,8 +52,8 @@ def match_stacks(current_stack, printed_stack):
         
         if l[:70].rstrip() != p[:70].rstrip():
             warnings += 1
-            print l
-            print p
+            print(l)
+            print(p)
             # only report different arguments as warnings (fixme)
             # but don't allow differences on what functions were called
             if l.strip().split("(")[0] != p.strip().split("(")[0]:
@@ -143,6 +146,6 @@ for line in lines:
         debug("<%s:%s:%s>", at_task, at_a1, at_a2)
         assert stackid == ("interrupt" if at_task.startswith("INT-") else at_task)
 
-print "%d stack traces, %d stacks, %d task switches, %d interrupts" % (call_stacks, len(callstacks.keys()), task_switches, interrupts)
+print("%d stack traces, %d stacks, %d task switches, %d interrupts" % (call_stacks, len(callstacks.keys()), task_switches, interrupts))
 if warnings:
-    print "%d warning(s)" % warnings
+    print("%d warning(s)" % warnings)
