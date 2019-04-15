@@ -241,7 +241,7 @@ if [ $(uname) == "Darwin" ]; then
         ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
     fi
 
-    packages="python wget mercurial xz grep pkg-config glib automake libtool pixman mtools"
+    packages="python2 python3 wget mercurial xz grep pkg-config glib automake libtool pixman mtools"
     for pkg in $packages; do
         brew list $pkg &> /dev/null || brew install $pkg
     done
@@ -258,7 +258,7 @@ if [  -n "$(lsb_release -i 2>/dev/null | grep Ubuntu)" ]; then
         build-essential mercurial pkg-config libtool
         git libglib2.0-dev libpixman-1-dev zlib1g-dev
         libgtk2.0-dev xz-utils mtools netcat-openbsd
-        python python-pip python-docutils"
+        python python3 python3-pip python3-docutils"
 
     # if a valid arm-none-eabi-gcc/gdb is already in PATH, try to use that
     # otherwise, we'll try to install something
@@ -452,8 +452,8 @@ echo
 
 # install docutils (for compiling ML modules) and vncdotool (for test suite)
 # only install if any of them is missing
-pip2 list | grep docutils  || rst2html -h  > /dev/null || pip2 install docutils
-pip2 list | grep vncdotool || vncdotool -h > /dev/null || pip2 install vncdotool
+pip3 list | grep docutils  || rst2html -h  > /dev/null || pip3 install docutils
+pip3 list | grep vncdotool || vncdotool -h > /dev/null || pip3 install vncdotool
 
 function die { echo "${1:-"Unknown Error"}" 1>&2 ; exit 1; }
 
