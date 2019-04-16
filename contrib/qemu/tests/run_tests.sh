@@ -392,13 +392,20 @@ function job_limit_auto {
     local max_number=$(((`nproc` + 1) * 2 / 3 ))
     while true; do
         # check how many processes are running on the system before deciding to start a new job
-        local procs_running=$(cat /proc/stat | grep procs_running | cut -d ' ' -f 2)
-        local procs_blocked=$(cat /proc/stat | grep procs_blocked | cut -d ' ' -f 2)
-        local current_number=$((procs_running + procs_blocked))
-        if [[ $current_number -lt $max_number ]]; then
+        local current_max=0
+        for i in 1 2 3 4 5 6 7 8 9 10; do
+            local proc_stat=$(cat /proc/stat)
+            local procs_running=$(echo "$proc_stat" | grep procs_running | cut -d ' ' -f 2)
+            local procs_blocked=$(echo "$proc_stat" | grep procs_blocked | cut -d ' ' -f 2)
+            local current_number=$((procs_running + procs_blocked)) # at least 1
+            if [[ $current_number -gt $current_max ]]; then
+                current_max=$current_number
+            fi
+            sleep 0.05
+        done
+        if [[ $current_max -le $max_number ]]; then
             break
         fi
-        sleep 0.5
     done
 }
 
