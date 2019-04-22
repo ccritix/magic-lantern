@@ -45,7 +45,7 @@ DATA_PTR(    0x1028,  current_task)                         /* from task_create;
 THUMB_FN(0xE0580C1A,  msleep)                               /* argument is always multiple of 10 */
 THUMB_FN(0xE0550566,  task_create)                          /* used to start TaskMain, GuiMainTask etc */
 
-/** File I/O **/cd ..
+/** File I/O **/
 THUMB_FN(0xE0572966, _FIO_CreateFile)
 THUMB_FN(0xE05728B4, _FIO_OpenFile)
 THUMB_FN(0xE05730EE,  FIO_CloseFile)
