@@ -1,5 +1,5 @@
 /*
- *  EOS R 1.1.0 consts
+ *  EOS R 1.2.0 consts
  */
 
 #define CARD_LED_ADDRESS            0xD01300D4   /* maybe also 0xD01300D8/DC? */
