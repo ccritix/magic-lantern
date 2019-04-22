@@ -2,7 +2,7 @@
  * Entry points into the firmware image.
  *
  * These are the functions that we can call from our tasks
- * in the Canon 1.1.0 firmware for the EOS R.
+ * in the Canon 1.2.0 firmware for the EOS R.
  *
  */
 /*
@@ -45,7 +45,7 @@ DATA_PTR(    0x1028,  current_task)                         /* from task_create;
 THUMB_FN(0xE058AD16,  msleep)                               /* argument is always multiple of 10 */
 THUMB_FN(0xE055A662,  task_create)                          /* used to start TaskMain, GuiMainTask etc */
 
-/** File I/O **/
+/** File I/O **/cd ..
 THUMB_FN(0xE057C3D2, _FIO_CreateFile)
 THUMB_FN(0xE057C320, _FIO_OpenFile)
 THUMB_FN(0xE057CB5A,  FIO_CloseFile)
