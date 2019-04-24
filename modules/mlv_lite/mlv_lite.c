@@ -1049,7 +1049,8 @@ static MENU_UPDATE_FUNC(raw_main_update)
     {
         MENU_SET_VALUE("ON, %dx%d", res_x, res_y);
         int crop_factor = calc_crop_factor();
-        if (crop_factor) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
+/* exclude eosm. Too many inconsistencies due to crop_rec preset */
+        if (crop_factor && !cam_eos_m) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
     }
 
     write_speed_update(entry, info);
@@ -1091,7 +1092,8 @@ static MENU_UPDATE_FUNC(resolution_update)
 
     MENU_SET_VALUE("%dx%d", res_x, res_y);
     int crop_factor = calc_crop_factor();
-    if (crop_factor) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
+/* exclude eosm. Too many inconsistencies due to crop_rec preset */
+    if (crop_factor && !cam_eos_m) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
 
     int selected_x = resolution_presets_x[resolution_index_x] + res_x_fine;
     
