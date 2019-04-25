@@ -59,7 +59,7 @@ THUMB_FN(0xE0574148, _FIO_CreateDirectory)
 THUMB_FN(0xE05745AA, _FIO_FindFirstEx)                      // FirstEnt
 THUMB_FN(0xE05746A2,  FIO_FindNextEx)                       // NextEnt
 THUMB_FN(0xE0574764,  FIO_FindClose)                        // CloseEnt
-THUMB_FN(0xE00C80EA,  FIO_Flush)                            // to be called after FIO_CloseFile?
+THUMB_FN(0xE0574332,  FIO_Flush)                            // to be called after FIO_CloseFile?
 
 /** Bitmap **/
 DATA_PTR(    0xFB1C,  bmp_vram_info)                        /* first VRAM buffer, used right after DISP_SetUpdateOSDVram */
@@ -68,7 +68,7 @@ DATA_PTR(    0xFB1C,  bmp_vram_info)                        /* first VRAM buffer
 THUMB_FN(0xE059A504,  DryosDebugMsg)                        /* lots of debug messages; format string is third argument */
 
 /** Dumper **/
-THUMB_FN(0xE137C5E8,  dump_file)                            /* tries to save a file to either "A:/%s" or "B:/%s"; calls FIO_RemoveFile/CreateFile/WriteFile/CloseFile/Flush */
+THUMB_FN(0xE00BD692,  dump_file)                            /* tries to save a file to either "A:/%s" or "B:/%s"; calls FIO_RemoveFile/CreateFile/WriteFile/CloseFile/Flush */
 
 /** Eventprocs (call by name) **/
 THUMB_FN(0xE058A286,  call)                                 /* used in ElectricCurrentFirm */
@@ -86,7 +86,7 @@ THUMB_FN(0xE05898B2,  GetMemoryInformation)                 /* called from Alloc
 THUMB_FN(0xE0589886,  GetSizeOfMaxRegion)                   /* same */
 THUMB_FN(0xE0589488, _alloc_dma_memory)                     /* allocates 64 bytes more, aligns at 32 and sets the uncacheable bit */
 THUMB_FN(0xE05894BC, _free_dma_memory)                      /* paired with the above; clears the uncacheable bit and frees the raw pointer */
-THUMB_FN(0xE02C8468, _malloc)                               /* see "can't malloc"
+THUMB_FN(0xE02C8468, _malloc)                               /* see "can't malloc" */
 THUMB_FN(0xE02C84A0, _free)                                 /* next function; paired with the above */
 
 /** Memory info **/
@@ -98,4 +98,3 @@ THUMB_FN(0xE00CDEE8,  sysmem_info)                          /* System Memory Inf
 /** Misc **/
 THUMB_FN(0xE0584530,  uart_printf)
 THUMB_FN(0xE006459C,  vsnprintf)                            /* called by LogFile_printf(..., "*Data Lost*\n", ...); the one called by DebugMsg only knows %s */
-
