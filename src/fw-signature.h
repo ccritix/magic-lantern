@@ -26,7 +26,7 @@
 #define SIG_100D_101 0x3b82b55e // from FF0C0000
 #define SIG_200D_101 0xf72c729a // from E0040000
 #define SIG_M50_102  0x3b70901c // from E0040000
-#define SIG_R_120    0x64132108 // from E0040000 // not yet updated
+#define SIG_R_120    0x8C19E5DA // from E0040000
 #define SIG_5D4_112  0xf3316d96 // from FE0A0000
 #define SIG_5DS_111  0x6f867e6a // from FE0A0000
 #define SIG_5DSR_112 0xc60c4679 // from FE0A0000
