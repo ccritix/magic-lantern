@@ -1,4 +1,4 @@
-# EOS R 1.1.0
+# EOS R 1.2.0
 
 MODEL=R
 include ../Makefile.platform
