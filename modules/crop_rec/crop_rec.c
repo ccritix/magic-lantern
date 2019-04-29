@@ -487,7 +487,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     int skip_top        = 28;
     int skip_bottom     = 0;
 
-    if (is_EOSM || is_700D)
+    if (is_EOSM || is_700D || is_650D)
     {
     skip_left       = 72;
     skip_right      = 0;
@@ -889,7 +889,7 @@ static int FAST check_cmos_vidmode(uint16_t* data_buf)
             }
         }
         
-        if (is_basic && !is_6D && !is_100D && !is_EOSM && !is_700D)
+        if (is_basic && !is_6D && !is_100D && !is_EOSM && !is_700D && !is_650D)
         {
             if (reg == 7)
             {
@@ -1069,7 +1069,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         }
     }
 
-    if (is_basic || is_100D || is_EOSM || is_700D)
+    if (is_basic || is_100D || is_EOSM || is_700D || is_650D)
     {
         switch (crop_preset)
         {
@@ -1563,7 +1563,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
     /* should probably be made generic */
-    if (is_5D3 || is_100D || is_EOSM || is_700D)
+    if (is_5D3 || is_100D || is_EOSM || is_700D || is_650D)
     {
         /* all modes may want to override shutter speed */
         /* ADTG[0x8060]: shutter blanking for 3x3 mode  */
@@ -1894,7 +1894,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
 /* only apply bit reducing while recording, not while idle */
-if ((RECORDING && is_EOSM) || (is_100D || is_5D3 || is_700D))
+if ((RECORDING && is_EOSM) || (is_100D || is_5D3 || is_700D || is_650D))
 {
   if (bitdepth == 0x1)
   {
@@ -4162,6 +4162,11 @@ static void FAST engio_write_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
        	     engio_vidmode_ok = 
              (old == 0x4540298) ||/* x5 zoom */ (old == 0x4a601d4 || old == 0x2d701d4);   /* 1080p or 720p */
            }
+	   if (is_650D)
+	   {
+	     engio_vidmode_ok = 
+             (old == 0x4540298) /* x5 zoom */ || (old == 0x42401e4) /* x3 digital zoom */ || (old == 0x4a601d4) /* 1080p */ || (old == 0x2d701d4 /* 720p */); 
+           }
         }
     }
 
@@ -4240,7 +4245,7 @@ PROP_HANDLER(PROP_LV_DISPSIZE)
 
 static MENU_UPDATE_FUNC(crop_update)
 {
-    if ((CROP_PRESET_MENU && lv) && !is_100D && !is_EOSM && !is_700D)
+    if ((CROP_PRESET_MENU && lv) && !is_100D && !is_EOSM && !is_700D && !is_650D)
     {
         if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z ||
             crop_preset == CROP_PRESET_CENTER_Z_700D)
@@ -4817,7 +4822,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
   }
   else
   {
-  if (is_EOSM || is_100D || is_700D)
+  if (is_EOSM || is_100D || is_700D || is_650D)
   {
   set_lv_zoom(1);
   }
@@ -4827,7 +4832,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
     {
         if (is_supported_mode())
         {
-            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D)
+            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D || is_650D)
             {
                 return 1;
             }
@@ -5334,7 +5339,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             }
         }
 
-        if ((is_5D3) || (is_EOSM) || (is_100D) || (is_700D))
+        if ((is_5D3) || (is_EOSM) || (is_100D) || (is_700D) || (is_650D))
         {
             /* update skip offsets */
             int skip_left, skip_right, skip_top, skip_bottom;
@@ -5404,6 +5409,26 @@ static unsigned int crop_rec_init()
         ENGIO_WRITE = 0xFF2C2D00;
         MEM_ENGIO_WRITE = 0xE51FC15C;
         
+        is_700D = 1;
+        crop_presets                = crop_presets_700d;
+        crop_rec_menu[0].choices    = crop_choices_700d;
+        crop_rec_menu[0].max        = COUNT(crop_choices_700d) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_700d;
+        crop_rec_menu[0].help2      = crop_choices_help2_700d;
+    }
+    else if (is_camera("650D", "1.0.4"))
+    {
+        CMOS_WRITE = 0x17A1C;
+        MEM_CMOS_WRITE = 0xE92D41F0;
+        
+        ADTG_WRITE = 0x178FC;
+        MEM_ADTG_WRITE = 0xE92D43F8;
+
+        ENGIO_WRITE = 0xFF2C0778;
+        MEM_ENGIO_WRITE = 0xE51FC15C;
+
+        /* Let's see what happens if we just use the 700D settings on the 650D */
+
         is_700D = 1;
         crop_presets                = crop_presets_700d;
         crop_rec_menu[0].choices    = crop_choices_700d;

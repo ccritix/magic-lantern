@@ -7,9 +7,9 @@
   console.hide()
   menu.close()
 
--- end this script if not eosm
-if camera.model_short ~= "EOSM" and camera.model_short ~= "700D" and camera.model_short ~= "100D" then
-   display.notify_box("Script only works for eosm/700d/100D")
+-- end this script if not eosm/700d/100D/650D
+if camera.model_short ~= "EOSM" and camera.model_short ~= "700D" and camera.model_short ~= "100D" and camera.model_short ~= "650D" then
+   display.notify_box("Script only works for eosm/700d/100D/650D")
    menu.set("cinema 2:35.1", "Autorun", "OFF")
   msleep(2000)
    return
