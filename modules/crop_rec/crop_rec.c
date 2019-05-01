@@ -663,10 +663,8 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	}
     	if (ratios == 0x0 && x3crop == 0x1)
     	{
-	skip_top        = 28;
-    	skip_left       = 134;
-    	skip_right      = 110;
-    	skip_bottom = 2; 
+        skip_right = 60;
+    	skip_bottom = 2;
     	}
     	if (ratios == 0x1 && x3crop == 0x0)
     	{
@@ -1232,6 +1230,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	        cmos_new[5] = 0x380;
 	        cmos_new[7] = 0xa6a;
 		}
+    		if (ratios == 0x0 && x3crop == 0x1)
+    		{
+	        cmos_new[5] = 0x84;
+	        cmos_new[7] = 0x80b;
+    		}
                 break;	
 
 		        case CROP_PRESET_3x3_mv1080_48fps_EOSM:
@@ -3476,7 +3479,7 @@ static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_v
 	EngDrvOutLV(0xc0f383d4, 0x4f0010 + reg_83d4);
 	EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
 
-if (ratios == 0x0 && x3crop == 0x0)
+if ((ratios == 0x0 && x3crop == 0x0) || (ratios == 0x0 && x3crop == 0x1))
 {
     switch (reg)
     {
@@ -3520,18 +3523,6 @@ if (ratios == 0x2 && x3crop == 0x1)
           	case 0xC0F06804: return 0x45601e4 + reg_6804_width + (reg_6804_height << 16); 
         	case 0xC0F0713c: return 0x457 + reg_713c;
 		case 0xC0F07150: return 0x3e0 + reg_7150;
-    }
-}
-
-/* x3crop 3:2 */
-if (ratios == 0x0 && x3crop == 0x1)
-{
-    switch (reg)
-    {
-          	case 0xC0F06804: return 0x45601e4 + reg_6804_width + (reg_6804_height << 16); 
-        	case 0xC0F0713c: return 0x456 + reg_713c; /* slight change to differ from autodetection code in raw.c */
-		case 0xC0F07150: return 0x3e0 + reg_7150;
-
     }
 }
 
