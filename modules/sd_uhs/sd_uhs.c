@@ -32,8 +32,9 @@ static void sd_setup_mode_in_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
 {
     qprintf("sd_setup_mode switch(mode=%x) en=%d\n", regs[sd_setup_mode_reg], sd_setup_mode_enable);
 
-    if (sd_setup_mode_enable && regs[sd_setup_mode_reg] == 4)   /* SDR50? */
-    {
+/* will now patch any card */
+  //  if (sd_setup_mode_enable && regs[sd_setup_mode_reg] == 4)   /* SDR50? */
+  //  {
         /* set our register overrides */
         for (int i = 0; i < COUNT(uhs_regs); i++)
         {
@@ -43,7 +44,7 @@ static void sd_setup_mode_in_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
         /* set some invalid mode to bypass the case switch
          * and keep our register values only */
         regs[sd_setup_mode_reg] = 0x13;
-    }
+   // }
 }
 
 static void sd_set_function_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
@@ -51,11 +52,13 @@ static void sd_set_function_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     qprintf("sd_set_function(0x%x)\n", regs[0]);
 
     /* UHS-I SDR50? */
-    if (regs[0] == 0xff0002)
-    {
+
+/* will now patch any card */
+  //  if (regs[0] == 0xff0002)
+  //  {
         /* force UHS-I SDR104 */
         regs[0] = 0xff0003;
-    }
+  //  }
 }
 
 static int patch_act = 0;
