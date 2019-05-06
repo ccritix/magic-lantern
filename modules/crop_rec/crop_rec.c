@@ -30,6 +30,7 @@ static int is_700D = 0;
 static int is_650D = 0;
 static int is_100D = 0;
 static int is_EOSM = 0;
+static int is_70D = 0;
 static int is_basic = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 6);
@@ -102,6 +103,7 @@ enum crop_preset {
     CROP_PRESET_3x3_mv1080_650D,
     CROP_PRESET_3x3_mv1080_48fps_650D,
     CROP_PRESET_anamorphic_650D,
+    CROP_PRESET_anamorphic_70D,
     NUM_CROP_PRESETS
 };
 
@@ -369,6 +371,24 @@ static const char crop_choices_help2_650d[] =
     "mv1080p 46/48 fps\n"
     "1x3 binning modes(anamorphic)\n";
 
+	/* menu choices for 70D */
+static enum crop_preset crop_presets_70d[] = {
+    CROP_PRESET_OFF,
+    CROP_PRESET_anamorphic_70D,
+};
+
+static const char * crop_choices_70d[] = {
+    "OFF",
+    "5K anamorphic",
+};
+
+static const char crop_choices_help_70d[] =
+    "Change 1080p and 720p movie modes into crop modes (select one)";
+
+static const char crop_choices_help2_70d[] =
+    "\n"
+    "1x3 binning modes(anamorphic)\n";
+
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
 static enum crop_preset crop_presets_basic[] = {
     CROP_PRESET_OFF,
@@ -544,7 +564,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     int skip_top        = 28;
     int skip_bottom     = 0;
 
-    if (is_EOSM || is_700D || is_650D)
+    if (is_EOSM || is_700D || is_650D || is_70D)
     {
     skip_left       = 72;
     skip_right      = 0;
@@ -737,6 +757,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
  	case CROP_PRESET_anamorphic_EOSM:
  	case CROP_PRESET_anamorphic_700D:
  	case CROP_PRESET_anamorphic_650D:
+ 	case CROP_PRESET_anamorphic_70D:
 /* see autodetect_black_level exception in raw.c */
         skip_bottom = 24;
     	if (ratios == 0x1)
@@ -877,6 +898,7 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_FULLRES_LV_650D] = { 3240, 3240, 3240, 3240, 3240 },
     [CROP_PRESET_3x3_mv1080_48fps_650D]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_anamorphic_650D]  = { 1290, 1290, 1290,  960,  800 },
+    [CROP_PRESET_anamorphic_70D]  = { 1290, 1290, 1290,  960,  800 },
 };
 
 /* 5D3 vertical resolution increments over default configuration */
@@ -953,7 +975,7 @@ static int FAST check_cmos_vidmode(uint16_t* data_buf)
             }
         }
         
-        if (is_basic && !is_6D && !is_100D && !is_EOSM && !is_700D && !is_650D)
+        if (is_basic && !is_6D && !is_100D && !is_EOSM && !is_700D && !is_650D && !is_70D)
         {
             if (reg == 7)
             {
@@ -1133,7 +1155,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         }
     }
 
-    if (is_basic || is_100D || is_EOSM || is_700D || is_650D)
+    if (is_basic || is_100D || is_EOSM || is_700D || is_650D || is_70D)
     {
         switch (crop_preset)
         {
@@ -1255,6 +1277,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_anamorphic_EOSM:
 			case CROP_PRESET_anamorphic_700D:
 			case CROP_PRESET_anamorphic_650D:
+			case CROP_PRESET_anamorphic_70D:
 		cmos_new[7] = 0x2c4;   
                 break;	
 
@@ -1642,7 +1665,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
     /* should probably be made generic */
-    if (is_5D3 || is_100D || is_EOSM || is_700D || is_650D)
+    if (is_5D3 || is_100D || is_EOSM || is_700D || is_650D || is_70D)
     {
         /* all modes may want to override shutter speed */
         /* ADTG[0x8060]: shutter blanking for 3x3 mode  */
@@ -1650,6 +1673,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[0] = (struct adtg_new) {6, 0x8060, shutter_blanking};
         adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
 
+#if defined(CONFIG_EOSM) || defined(CONFIG_100D)
 /* always disable Movie crop mode if using crop_rec presets, except for mcm mode */
     if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
     {
@@ -1659,6 +1683,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
      if (is_EOSM || is_100D) movie_crop_hack_disable();
     }
+#endif
 
 	  /* only apply bit reducing while recording, not while idle */
     	  if ((RECORDING && is_EOSM) || (!is_EOSM))
@@ -1824,6 +1849,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_anamorphic_EOSM:
 	     case CROP_PRESET_anamorphic_700D:
 	     case CROP_PRESET_anamorphic_650D:
+	     case CROP_PRESET_anamorphic_70D:
 	        adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
      	        break;
@@ -1977,7 +2003,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
 /* only apply bit reducing while recording, not while idle */
-if ((RECORDING && is_EOSM) || (is_100D || is_5D3 || is_700D || is_650D))
+if ((RECORDING && is_EOSM) || (is_100D || is_5D3 || is_700D || is_650D || is_70D))
 {
   if (bitdepth == 0x1)
   {
@@ -4198,6 +4224,7 @@ static void * get_engio_reg_override_func()
 	(crop_preset == CROP_PRESET_3x3_mv1080_650D) ? reg_override_3x3_mv1080_700d     :
         (crop_preset == CROP_PRESET_anamorphic_700D) ? reg_override_anamorphic_700d        :
         (crop_preset == CROP_PRESET_anamorphic_650D) ? reg_override_anamorphic_700d        :
+        (crop_preset == CROP_PRESET_anamorphic_70D) ? reg_override_anamorphic_700d        :
         (crop_preset == CROP_PRESET_CENTER_Z_700D) ? reg_override_center_z_700d        : 
         (crop_preset == CROP_PRESET_CENTER_Z_650D) ? reg_override_center_z_700d        :
                                                   0                       ;
@@ -4251,7 +4278,7 @@ static void FAST engio_write_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         }
     }
 
-    if (!is_supported_mode() || !engio_vidmode_ok)
+    if ((!is_supported_mode() || !engio_vidmode_ok) && !is_70D)
     {
         /* don't patch other video modes */
            return;  
@@ -4326,7 +4353,7 @@ PROP_HANDLER(PROP_LV_DISPSIZE)
 
 static MENU_UPDATE_FUNC(crop_update)
 {
-    if ((CROP_PRESET_MENU && lv) && !is_100D && !is_EOSM && !is_700D && !is_650D)
+    if ((CROP_PRESET_MENU && lv) && !is_100D && !is_EOSM && !is_700D && !is_650D && !is_70D)
     {
         if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z ||
             crop_preset == CROP_PRESET_CENTER_Z_700D ||
@@ -4909,7 +4936,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
   }
   else
   {
-  if (is_EOSM || is_100D || is_700D || is_650D)
+  if (is_EOSM || is_100D || is_700D || is_650D || is_70D)
   {
   set_lv_zoom(1);
   }
@@ -4919,7 +4946,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
     {
         if (is_supported_mode())
         {
-            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D || is_650D)
+            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D || is_650D || is_70D)
             {
                 return 1;
             }
@@ -5327,6 +5354,11 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
     snprintf(buffer, sizeof(buffer), "5K anamorphic");
   }
 
+  if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_70D)
+  {
+    snprintf(buffer, sizeof(buffer), "5K anamorphic");
+  }
+
     /* append info about current binning mode */
 
     if (raw_lv_is_enabled())
@@ -5398,6 +5430,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
  	    case CROP_PRESET_anamorphic_EOSM:
  	    case CROP_PRESET_anamorphic_700D:
  	    case CROP_PRESET_anamorphic_650D:
+ 	    case CROP_PRESET_anamorphic_70D:
 	    case CROP_PRESET_anamorphic_rewired_100D:
                 raw_capture_info.binning_x = 3; raw_capture_info.skipping_x = 0;
                 break;
@@ -5441,6 +5474,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
  	    case CROP_PRESET_anamorphic_EOSM:
  	    case CROP_PRESET_anamorphic_700D:
  	    case CROP_PRESET_anamorphic_650D:
+ 	    case CROP_PRESET_anamorphic_70D:
 	    case CROP_PRESET_anamorphic_rewired_100D:
             case CROP_PRESET_3xcropmode_100D:
                 raw_capture_info.binning_y = 1; raw_capture_info.skipping_y = 0;
@@ -5465,7 +5499,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             }
         }
 
-        if ((is_5D3) || (is_EOSM) || (is_100D) || (is_700D) || (is_650D))
+        if ((is_5D3) || (is_EOSM) || (is_100D) || (is_700D) || (is_650D || is_70D))
         {
             /* update skip offsets */
             int skip_left, skip_right, skip_top, skip_bottom;
@@ -5577,7 +5611,22 @@ static unsigned int crop_rec_init()
         crop_rec_menu[0].max        = COUNT(crop_choices_100d) - 1;
         crop_rec_menu[0].help       = crop_choices_help_100d;
         crop_rec_menu[0].help2      = crop_choices_help2_100d;
-    }        
+    }   
+    else if (is_camera("70D", "1.1.2"))
+    {
+        CMOS_WRITE = 0x26B54;
+        MEM_CMOS_WRITE = 0xE92D41F0;
+        
+        ADTG_WRITE = 0x2684C;
+        MEM_ADTG_WRITE = 0xE92D47F0;
+        
+        is_70D = 1;
+        crop_presets                = crop_presets_70d;
+        crop_rec_menu[0].choices    = crop_choices_70d;
+        crop_rec_menu[0].max        = COUNT(crop_choices_70d) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_70d;
+        crop_rec_menu[0].help2      = crop_choices_help2_70d;
+    }       
     else if (is_camera("6D", "1.1.6"))
     {
         CMOS_WRITE = 0x2420C;
@@ -5599,10 +5648,10 @@ static unsigned int crop_rec_init()
         memcpy(default_timerA, (int[]) {  546,  640,  546,  640,  520,  730 }, 24);
         memcpy(default_timerB, (int[]) { 1955, 1600, 1564,  800,  821, 1172 }, 24);
                                    /* or 1956        1565         822        2445        1956 */
-    }      
-
+    }
+    
     /* default FPS timers are the same on all these models */
-    if (is_EOSM || is_700D || is_650D || is_100D)
+    if (is_EOSM || is_700D || is_650D || is_100D || is_70D)
     {
         fps_main_clock = 32000000;
                                        /* 24p,  25p,  30p,  50p,  60p,   x5, c24p, c25p, c30p */
