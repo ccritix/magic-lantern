@@ -6,6 +6,7 @@
 #include <dryos.h>
 #include <patch.h>
 #include <console.h>
+#include <gui-common.h>
 
 static uint32_t sd_enable_18V = 0;
 static uint32_t sd_setup_mode = 0;
@@ -16,6 +17,11 @@ static uint32_t uhs_regs[]     = { 0xC0400600, 0xC0400604,/*C0400608, C040060C*/
 static uint32_t sdr_160MHz[]   = {        0x2,        0x3,                             0x1, 0x1D000001,        0x0,      0x100,      0x100,      0x100,        0x1 };   /* overclocked values: 160MHz = 96*(4+1)/(2?+1) (found by brute-forcing) */
 static uint32_t uhs_vals[COUNT(uhs_regs)];  /* current values */
 static int sd_setup_mode_enable = 0;
+
+/* fix for when formatting and still keeping magic lantern(AF-OFF): https://www.magiclantern.fm/forum/index.php?topic=9741.msg216046#msg216046 */
+#ifdef CONFIG_RESTORE_AFTER_FORMAT
+    if (handle_keep_ml_after_format_toggle(event) == 0) return 0;
+#endif
 
 /* start of the function */
 static void sd_setup_mode_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
