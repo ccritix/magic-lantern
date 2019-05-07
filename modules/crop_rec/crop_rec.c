@@ -104,6 +104,7 @@ enum crop_preset {
     CROP_PRESET_3x3_mv1080_48fps_650D,
     CROP_PRESET_anamorphic_650D,
     CROP_PRESET_anamorphic_70D,
+    CROP_PRESET_3x3_1X_70D,
     NUM_CROP_PRESETS
 };
 
@@ -216,7 +217,7 @@ static const char crop_choices_help2_100d[] =
     "3:1 4K x5 crop, framing preview\n"
     "3:1 5K x5 crop, framing preview\n"
     "1:1 4K x5 crop, framing preview\n"
-    "2K  x5 crop, framing preview\n"
+    "2K x5 crop, framing preview\n"
     "regular mv1080p mode\n"
     "3x3 binning in 720p\n"
     "1:1 Movie crop mode\n"
@@ -375,11 +376,13 @@ static const char crop_choices_help2_650d[] =
 static enum crop_preset crop_presets_70d[] = {
     CROP_PRESET_OFF,
     CROP_PRESET_anamorphic_70D,
+    CROP_PRESET_3x3_1X_70D,
 };
 
 static const char * crop_choices_70d[] = {
     "OFF",
     "5K anamorphic",
+    "3x3 720p",
 };
 
 static const char crop_choices_help_70d[] =
@@ -387,7 +390,8 @@ static const char crop_choices_help_70d[] =
 
 static const char crop_choices_help2_70d[] =
     "\n"
-    "1x3 binning modes(anamorphic)\n";
+    "1x3 binning modes(anamorphic)\n"
+    "3x3 binning in 720p\n";
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
 static enum crop_preset crop_presets_basic[] = {
@@ -608,6 +612,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         case CROP_PRESET_3x3_1X:
         case CROP_PRESET_3x3_1X_100D:
         case CROP_PRESET_3x3_1X_48p:
+	case CROP_PRESET_3x3_1X_70D:
             if (is_720p()) skip_top = 0;
             break;
 
@@ -832,6 +837,7 @@ static int get_top_bar_adjustment()
         case CROP_PRESET_3x3_1X_100D:
         case CROP_PRESET_3x3_1X_EOSM:
         case CROP_PRESET_3x3_1X_48p:
+	case CROP_PRESET_3x3_1X_70D:
             if (is_720p()) return 28;   /* 0x1D0017 from 0x10017 */
             /* fall through */
         default:
@@ -1071,6 +1077,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x3_1X_100D:
             case CROP_PRESET_3x3_1X_EOSM:
             case CROP_PRESET_3x3_1X_48p:
+	    case CROP_PRESET_3x3_1X_70D:
                 if (is_720p())
                 {
                     /* start/stop scanning line, very large increments */
@@ -1198,6 +1205,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
             		case CROP_PRESET_3x3_1X_100D:
             		case CROP_PRESET_3x3_1X_EOSM:
+	  		case CROP_PRESET_3x3_1X_70D:
                 /* start/stop scanning line, very large increments */
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
                 break; 
@@ -1602,7 +1610,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     if (!is_720p())
     {
         if (crop_preset == CROP_PRESET_3x3_1X || 
-            crop_preset == CROP_PRESET_3x3_1X_100D ||       
+            crop_preset == CROP_PRESET_3x3_1X_100D ||
+            crop_preset == CROP_PRESET_3x3_1X_70D ||       
             crop_preset == CROP_PRESET_3x3_1X_48p)
         {
             /* these presets only have effect in 720p mode */
@@ -1773,6 +1782,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x3_1X_100D:
             case CROP_PRESET_3x3_1X_EOSM:
             case CROP_PRESET_3x3_1X_48p:
+	    case CROP_PRESET_3x3_1X_70D:
                 /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
                 if (CROP_PRESET_MENU != CROP_PRESET_3x3_1X_48p) adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
@@ -4205,6 +4215,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        : 
         (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_3x3_1X_100D)    ? reg_override_mv1080_mv720p  :
+        (crop_preset == CROP_PRESET_3x3_1X_70D)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_OFF_eosm)    ? reg_override_crop_preset_off_eosm  :
 	(crop_preset == CROP_PRESET_2520_1418_700D)       ? reg_override_2520_700d            :
 	(crop_preset == CROP_PRESET_2520_1418_650D)       ? reg_override_2520_700d            :
@@ -4430,7 +4441,7 @@ static MENU_UPDATE_FUNC(crop_update)
     }
   }
 
-    if (!is_720p() && ((CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D) || (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_700D) || (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_650D)))
+    if (!is_720p() && ((CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D) || (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_700D) || (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_70D) || (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_650D)))
     {
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in mv720p movie mode");
         return;
@@ -4438,7 +4449,8 @@ static MENU_UPDATE_FUNC(crop_update)
 
     if ((lv_dispsize > 1) && 
 ((CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
-|| (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D) 
+|| (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_70D) 
+|| (CROP_PRESET_MENU == CROP_PRESET_mv1080p_mv720p_100D)
 || (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D)
 || (CROP_PRESET_MENU == CROP_PRESET_3xcropmode_100D)))
     {
@@ -5357,6 +5369,11 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
     snprintf(buffer, sizeof(buffer), "5K anamorphic");
   }
 
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_70D)
+  {
+    snprintf(buffer, sizeof(buffer), "3x3 720p");
+  }
+
     /* append info about current binning mode */
 
     if (raw_lv_is_enabled())
@@ -5414,6 +5431,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 
             case CROP_PRESET_3x3_1X:
             case CROP_PRESET_3x3_1X_100D:
+            case CROP_PRESET_3x3_1X_70D:
             case CROP_PRESET_3x3_1X_EOSM:
             case CROP_PRESET_3x3_1X_48p:
             case CROP_PRESET_1x3:
@@ -5480,6 +5498,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 
             case CROP_PRESET_3x3_1X:
             case CROP_PRESET_3x3_1X_100D:
+            case CROP_PRESET_3x3_1X_70D:
             case CROP_PRESET_3x3_1X_EOSM:
             case CROP_PRESET_3x3_1X_48p:
             case CROP_PRESET_3x1:
