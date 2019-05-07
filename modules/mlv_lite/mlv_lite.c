@@ -4236,7 +4236,7 @@ static int raw_rec_should_preview(void)
         long_halfshutter_press = 0;
         last_hs_unpress = get_ms_clock();
 /* trying a fix for stuck real time preview(only affects framing) */
-        if ((PREVIEW_ML) && (cam_eos_m || cam_100d))
+        if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_70d))
         {
         bmp_on();
         }
@@ -4252,7 +4252,7 @@ static int raw_rec_should_preview(void)
             long_halfshutter_press = 1;
         }
 /* trying a fix for stuck real time preview(only affects framing) */
-        if ((PREVIEW_ML) && (cam_eos_m || cam_100d))
+        if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_70d))
         {
         bmp_off();
         }
