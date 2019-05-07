@@ -5497,7 +5497,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             }
         }
 
-        if ((is_5D3) || (is_EOSM) || (is_100D) || (is_700D) || (is_650D || is_70D))
+        if ((is_5D3) || (is_EOSM) || (is_100D) || (is_700D) || (is_650D) || (is_70D))
         {
             /* update skip offsets */
             int skip_left, skip_right, skip_top, skip_bottom;
