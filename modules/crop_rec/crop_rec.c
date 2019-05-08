@@ -30,7 +30,6 @@ static int is_700D = 0;
 static int is_650D = 0;
 static int is_100D = 0;
 static int is_EOSM = 0;
-static int is_70D = 0;
 static int is_basic = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 6);
