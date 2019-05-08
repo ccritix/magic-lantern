@@ -1635,7 +1635,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
         /* FIXME: remove this kind of hardcoded conditions */
         if ((crop_preset == CROP_PRESET_CENTER_Z && lv_dispsize != 1) ||
-            (crop_preset != CROP_PRESET_CENTER_Z && lv_dispsize == 1))
+            (crop_preset != CROP_PRESET_CENTER_Z && lv_dispsize == 1) ||
+	    (!is_5D3))
         {
             shutter_blanking = adjust_shutter_blanking(shutter_blanking);
         }
