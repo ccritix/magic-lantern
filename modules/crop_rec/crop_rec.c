@@ -1232,7 +1232,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		}
     		if (ratios == 0x0 && x3crop == 0x1)
     		{
-	        cmos_new[5] = 0x300;
+	        cmos_new[5] = 0x380;
 	        cmos_new[7] = 0x80b;
     		}
                 break;	
