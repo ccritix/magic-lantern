@@ -1978,7 +1978,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
 /* only apply bit reducing while recording, not while idle */
-if ((RECORDING && is_EOSM) || (is_100D || is_5D3 || is_700D || is_650D))
+if ((RECORDING && is_EOSM) || (!is_EOSM))
 {
   if (bitdepth == 0x1)
   {
