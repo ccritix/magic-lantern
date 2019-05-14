@@ -12,7 +12,6 @@
 #include <fps.h>
 #include <shoot.h>
 #include <lens.h>
-#include <crop-mode-hack.h>
 
 extern WEAK_FUNC(ret_0) unsigned int is_crop_hack_supported();
 extern WEAK_FUNC(ret_0) unsigned int movie_crop_hack_enable();
