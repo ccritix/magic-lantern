@@ -102,6 +102,20 @@ enum crop_preset {
     CROP_PRESET_3x3_mv1080_650D,
     CROP_PRESET_3x3_mv1080_48fps_650D,
     CROP_PRESET_anamorphic_650D,
+    CROP_PRESET_HD_6D,
+    CROP_PRESET_HD100_6D,
+    CROP_PRESET_HD75_6D,
+    CROP_PRESET_HD50_6D,
+    CROP_PRESET_2K_6D,
+    CROP_PRESET_ULTRA_HD_6D,
+    CROP_PRESET_4K_6D,
+    CROP_PRESET_FullRes_6D,
+    CROP_PRESET_1x3_6D,
+    CROP_PRESET_1x3_24FPS_6D,
+    CROP_PRESET_5K_6D,
+    CROP_PRESET_HD2_6D,
+    CROP_PRESET_3x3_1X_6D,
+    CROP_PRESET_3x3_1X_48p_6D,
     NUM_CROP_PRESETS
 };
 
@@ -369,6 +383,56 @@ static const char crop_choices_help2_650d[] =
     "mv1080p 46/48 fps\n"
     "1x3 binning modes(anamorphic)\n";
 
+	/* menu choices for 6D */
+static enum crop_preset crop_presets_6d[] = {
+    CROP_PRESET_HD2_6D,
+    CROP_PRESET_2K_6D,
+    CROP_PRESET_ULTRA_HD_6D,
+//    CROP_PRESET_HD100_6D, //disabled this one, little unstable hit or miss if camera locks and error 70 pops up
+//    CROP_PRESET_HD75_6D,
+//    CROP_PRESET_4K_6D,
+//    CROP_PRESET_5K_6D,
+//    CROP_PRESET_FullRes_6D,
+    CROP_PRESET_1x3_6D,
+    CROP_PRESET_1x3_24FPS_6D,
+    CROP_PRESET_HD50_6D,
+    CROP_PRESET_OFF,   // build starts automatically in preset 6, the first time, so  )
+
+};
+
+static const char * crop_choices_6d[] = {
+    "2480x1396 25fps for 5x zoom mode",
+    "2688x1296 25fps for 5x zoom mode",
+    "2880x1200 25fps for 5x zoom mode",
+//    "1688x392 100fps for 720p mode",
+//    "1688x560 75fps for 720p mode", //disabled this one, interface reacts really slow, more proof of concept, far from pefect
+//    "Max ISO and Gain mode",
+//    "5120x610 25fps for nonzoom mode",
+//    "5464x3072 2.5fps for 5x zoom mode",
+    "1216x2052 1x3 25fps for 5x zoom mode",
+    "1640x2144 1x3 24fps for 5x zoom mode",
+    "1824x818 50fps for 720p mode",
+    "OFF"
+
+};
+
+static const char crop_choices_help_6d[] =
+    "Change 1080p and 720p movie modes into crop modes (select one)";
+
+static const char crop_choices_help2_6d[] =
+    "USE IN 5x ZOOM MODE WITH LIVEVIEW\n"
+    "USE IN 5x ZOOM MODE WITH LIVEVIEW\n"
+    "USE IN 5x ZOOM MODE WITH LIVEVIEW\n"
+//    "DONE IN 3x3 MODE NO VERTICAL UNSTRETCH NEEDED\n"
+//    "DONE IN 3x3 MODE NO VERTICAL UNSTRETCH NEEDED\n"
+//    "NightVision\n"
+//    "USE IN 5x ZOOM MODE ONLY ML PREVIEW\n" 
+//    "USE IN 5x ZOOM MODE ONLY ML PREVIEW\n"
+    "USE IN 5x ZOOM MODE ONLY ML PREVIEW\n"
+    "USE IN 5x ZOOM MODE ONLY ML PREVIEW\n"
+    "DONE IN 3x3 MODE NO VERTICAL UNSTRETCH NEEDED\n"
+    "off\n";
+
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
 static enum crop_preset crop_presets_basic[] = {
     CROP_PRESET_OFF,
@@ -557,6 +621,14 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     skip_left       = 72;
     skip_right      = 0;
     skip_top        = 30;
+    skip_bottom     = 0;
+    }
+
+    if (is_6D)
+    {
+    skip_left       = 80;
+    skip_right      = 8;
+    skip_top        = 28;
     skip_bottom     = 0;
     }
 
@@ -792,6 +864,22 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
 	case CROP_PRESET_FULLRES_LV_650D:
 	skip_bottom     = 4;
 	break;
+
+        case CROP_PRESET_HD100_6D:
+        case CROP_PRESET_HD75_6D:
+        case CROP_PRESET_HD50_6D:
+        case CROP_PRESET_2K_6D:
+        case CROP_PRESET_ULTRA_HD_6D:
+        case CROP_PRESET_4K_6D:
+        case CROP_PRESET_5K_6D:
+        case CROP_PRESET_FullRes_6D:
+        case CROP_PRESET_1x3_6D:
+        case CROP_PRESET_1x3_24FPS_6D:
+        case CROP_PRESET_HD2_6D:
+        case CROP_PRESET_3x3_1X_6D:
+        case CROP_PRESET_3x3_1X_48p_6D:
+            if (is_720p()) skip_top = 28;
+            break;
     }
 
     if (p_skip_left)   *p_skip_left    = skip_left + reg_skip_left;
@@ -877,6 +965,19 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_FULLRES_LV_650D] = { 3240, 3240, 3240, 3240, 3240 },
     [CROP_PRESET_3x3_mv1080_48fps_650D]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_anamorphic_650D]  = { 1290, 1290, 1290,  960,  800 },
+    [CROP_PRESET_3x3_1X_6D]               = { 1216, 1290, 1290,  960,  800 },
+    [CROP_PRESET_3x3_1X_48p_6D]           = { 1216, 1290, 1290, 1080, 1040 }, /* 1080p45/48 */
+    [CROP_PRESET_HD100_6D]                = { 3306, 1824, 1824,  760,  680 },
+    [CROP_PRESET_HD75_6D]                 = { 3306, 1824, 1824,  760,  680 },
+    [CROP_PRESET_HD50_6D]                 = { 3306, 1824, 1824,  760,  680 },
+    [CROP_PRESET_2K_6D]                   = { 3306, 1728, 1384,  760,  680 },
+    [CROP_PRESET_ULTRA_HD_6D]             = { 3306, 1728, 2160,  760,  680 },
+    [CROP_PRESET_4K_6D]                   = { 3306, 1728, 2560,  760,  680 },
+    [CROP_PRESET_5K_6D]                   = { 3306, 1728, 2560,  760,  680 },
+    [CROP_PRESET_FullRes_6D]              = { 3306, 1728, 3490,  760,  680 },
+    [CROP_PRESET_1x3_6D]                  = { 3306, 1728, 3490,  760,  680 },
+    [CROP_PRESET_1x3_24FPS_6D]            = { 3306, 1728, 3490,  760,  680 },
+    [CROP_PRESET_HD2_6D]                  = { 3306, 1728, 3490,  760,  680 },
 };
 
 /* 5D3 vertical resolution increments over default configuration */
@@ -1133,7 +1234,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         }
     }
 
-    if (is_basic || is_100D || is_EOSM || is_700D || is_650D)
+    if (is_basic || is_100D || is_EOSM || is_700D || is_650D || is_6D)
     {
         switch (crop_preset)
         {
@@ -1307,7 +1408,64 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             		case CROP_PRESET_3x3_1X:
                 /* start/stop scanning line, very large increments */
                 cmos_new[7] = (is_6D) ? PACK12(37,10) : PACK12(6,29);
-                break;        
+                break;    
+
+            case CROP_PRESET_HD100_6D:
+                cmos_new[6] = 0x450;
+                cmos_new[7] = 0x268 + delta_head4;
+                break;
+
+            case CROP_PRESET_HD75_6D:
+                cmos_new[6] = 0x400;
+                cmos_new[7] = 0x3cd + delta_head4;
+                break;
+
+            case CROP_PRESET_HD50_6D:
+                cmos_new[6] = 0x400;
+                cmos_new[7] = 0x7 + delta_head4;
+                break;
+
+            case CROP_PRESET_HD2_6D:
+                cmos_new[6] = 0xd0;
+                cmos_new[7] = 0x267 + delta_head4;
+                break;
+
+            case CROP_PRESET_2K_6D:
+                cmos_new[6] = 0xd0;
+                cmos_new[7] = 0x268 + delta_head4;
+                break;
+
+            case CROP_PRESET_ULTRA_HD_6D:
+                cmos_new[6] = 0xd0 + delta_head3;
+                cmos_new[7] = 0x248 + delta_head4;
+                break;
+
+            case CROP_PRESET_4K_6D:
+                //cmos_new[3] = 0x77;
+                //cmos_new[6] = 0x0;
+                //cmos_new[7] = 0xa + delta_head4;
+                break;
+
+            case CROP_PRESET_5K_6D:
+                cmos_new[6] = 0x0;
+                cmos_new[7] = 0xc+ delta_head4;
+                break;
+
+            case CROP_PRESET_FullRes_6D:
+                cmos_new[6] = 0x0;
+                cmos_new[7] = 0x5 + delta_head4;
+                break;
+
+            case CROP_PRESET_1x3_6D:
+                cmos_new[6] = 0x469 + delta_head3;
+                cmos_new[7] = 0x327 + delta_head4; //0xd , 0x261, 0x369 and 0x3cc works
+                break;
+
+            case CROP_PRESET_1x3_24FPS_6D:
+                cmos_new[6] = 0x435 + delta_head3 ;
+                cmos_new[7] = 0x327 + delta_head4 ;
+                break;
+    
         }
 
 /* all presets */ 
@@ -1643,13 +1801,13 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
     /* should probably be made generic */
-    if (is_5D3 || is_100D || is_EOSM || is_700D || is_650D)
+    if (is_5D3 || is_100D || is_EOSM || is_700D || is_650D || is_6D)
     {
         /* all modes may want to override shutter speed */
         /* ADTG[0x8060]: shutter blanking for 3x3 mode  */
         /* ADTG[0x805E]: shutter blanking for zoom mode  */
-        adtg_new[0] = (struct adtg_new) {6, 0x8060, shutter_blanking};
-        adtg_new[1] = (struct adtg_new) {6, 0x805E, shutter_blanking};
+        adtg_new[0] = (struct adtg_new) {6, blanking_reg_zoom, shutter_blanking}; 
+        adtg_new[1] = (struct adtg_new) {6, blanking_reg_nozoom, shutter_blanking};
 
 /* always disable Movie crop mode if using crop_rec presets, except for mcm mode */
     if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
@@ -1847,6 +2005,48 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		adtg_new[8] = (struct adtg_new) {6, 0x8197, 0x38c};
 		adtg_new[9] = (struct adtg_new) {6, 0x82b6, 0x6f4};
 		break;
+
+            case CROP_PRESET_2K_6D:
+            case CROP_PRESET_ULTRA_HD_6D:
+            //case CROP_PRESET_4K_6D:
+            case CROP_PRESET_FullRes_6D:
+            case CROP_PRESET_HD2_6D:
+                adtg_new[18] = (struct adtg_new) {6, 0x8000, 5};
+                adtg_new[19] = (struct adtg_new) {6, 0x800C, 0};
+
+        break;
+        
+            case CROP_PRESET_3x3_1X_6D:
+            case CROP_PRESET_HD100_6D:
+            case CROP_PRESET_HD75_6D:
+            case CROP_PRESET_HD50_6D:
+            adtg_new[18] = (struct adtg_new) {6, 0x8000, 6};
+            adtg_new[19] = (struct adtg_new) {6, 0x800C, 2};
+        break;
+        
+            case CROP_PRESET_1x3_6D:
+            case CROP_PRESET_1x3_24FPS_6D:
+            adtg_new[18] = (struct adtg_new) {6, 0x8000, 6};
+            adtg_new[19] = (struct adtg_new) {6, 0x800C, 0};
+            adtg_new[20] = (struct adtg_new) {6, 0x8183, 0x35};
+            adtg_new[21] = (struct adtg_new) {6, 0x8184, 0x3b};
+        break;
+        
+            case CROP_PRESET_5K_6D:
+            adtg_new[18] = (struct adtg_new) {6, 0x8000, 6};
+            adtg_new[19] = (struct adtg_new) {6, 0x800C, 2};
+        break;
+        
+            //for high ISO mode
+            case CROP_PRESET_4K_6D:
+              //adtg_new[18] = (struct adtg_new) {6, 0x8866, 0x3+delta_head3};
+                adtg_new[19] = (struct adtg_new) {6, 0x88b0, 0x0};
+              //adtg_new[20] = (struct adtg_new) {6, 0x8882, 0x1fff};
+              //adtg_new[21] = (struct adtg_new) {6, 0x8884, 0x1fff};
+              //adtg_new[22] = (struct adtg_new) {6, 0x8886, 0x1fff};
+              //adtg_new[23] = (struct adtg_new) {6, 0x8888, 0x1fff};
+              //adtg_new[24] = (struct adtg_new) {6, 0x7014, 0x12};
+        break;
 
             /* 3x1 binning (bin every 3 lines, read every column) */
             /* doesn't work well, figure out why */
@@ -4080,6 +4280,357 @@ static inline uint32_t reg_override_anamorphic_700d(uint32_t reg, uint32_t old_v
     return reg_override_bits(reg, old_val);
 }
 
+/* Values for 6D */
+static inline uint32_t reg_override_HD100_6D(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        /* case 0xC0F06804: return 0x33f01ec; // 1832 x 869 6d; */
+        case 0xC0F06804: return 0x1a601c8;
+        
+        case 0xC0F08184: return 0x1;
+        case 0xC0F08188: return 0x1;
+        case 0xC0F08194: return 0x1;
+        case 0xC0F08198: return 0x1;
+        
+        case 0xC0F06824: return 0x1da;
+        case 0xC0F06828: return 0x1da;
+        case 0xC0F0682C: return 0x1da;
+        case 0xC0F06830: return 0x1da;
+       
+        case 0xC0F06010: return 0x1dc;
+        case 0xC0F06008: return 0x1dc01dc;
+        case 0xC0F0600C: return 0x1dc01dc;
+
+        case 0xC0F06014: return 0x217;
+        /*case 0xC0F06014: return 0x3df; for 50fps in 720p mode*/
+        /* case 0xC0F06014: return 0x561; for 36 fps */
+        /* case 0xC0F06014: return 0x588; for 35fps */
+
+        case 0xC0F0713c: return 0x1a7; // Same as 6804?; */
+        case 0xC0F07150: return 0x151; // change with vertical res change - 6804->664 by default value for 7150 = 268 */
+        /*case 0xC0F0713c: return 0x384;*/
+        /*case 0xC0F07150: return 0x383;*/
+
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
+//1688x560 at 75fps
+static inline uint32_t reg_override_HD75_6D(uint32_t reg, uint32_t old_val)
+{
+    
+//        EngDrvOutLV(0xc0f38024, 0x24c01bb+delta_head3); // fixes Canon liveview
+
+//EngDrvOutLV(0xc0f37a70, 0x24c0377);
+//EngDrvOutLV(0xc0f37b8c, 0x24c0377);
+//EngDrvOutLV(0xc0f37ad0, 0x24c0377);
+    
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        case 0xC0F06804: return 0x24e01c8;
+        
+        case 0xC0F08184: return 0x1;
+        case 0xC0F08188: return 0x1;
+        case 0xC0F08194: return 0x1;
+        case 0xC0F08198: return 0x1;
+//        case 0xC0F081dc: return 0x378;
+        
+        
+//        case 0xC0F09008: return 0x24c0377+delta_head3;
+        
+        
+        case 0xC0F06824: return 0x1da;
+        case 0xC0F06828: return 0x1da;
+        case 0xC0F0682C: return 0x1da;
+        case 0xC0F06830: return 0x1da;
+       
+        case 0xC0F06010: return 0x1dc;
+        case 0xC0F06008: return 0x1dc01dc;
+        case 0xC0F0600C: return 0x1dc01dc;
+
+        case 0xC0F06014: return 0x2cb;
+
+        case 0xC0F0713c: return 0x24e; // Same as 6804?; */
+        case 0xC0F07150: return 0x151; // change with vertical res change - 6804->664 by default value for 
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
+//6d_1824x818 50fps
+static inline uint32_t reg_override_HD50_6D(uint32_t reg, uint32_t old_val)
+{
+    
+    EngDrvOutLV(0xc0f38024, 0x34f01dd); // fixes Canon liveview
+    
+    switch (reg)
+        {
+        /* raw resolution (end line/column) */
+        case 0xC0F06804: return 0x35101ea; // 1832 x 869 6d; */
+
+        case 0xC0F06824: return 0x201;
+        case 0xC0F06828: return 0x201;
+        case 0xC0F0682C: return 0x201;
+        case 0xC0F06830: return 0x201;
+       
+        case 0xC0F06010: return 0x203;
+        case 0xC0F06008: return 0x2030203;
+        case 0xC0F0600C: return 0x2030203;
+
+        case 0xC0F06014: return 0x3df;
+
+        case 0xC0F0713c: return 0x34f;
+        case 0xC0F07150: return 0x34f;
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
+//6D 1216x2052 1x3 25fps
+static inline uint32_t reg_override_1x3_6D(uint32_t reg, uint32_t old_val)
+{
+//    EngDrvOutLV(0xc0f38024, 0x8210509); //try fixing liveview, can't get it right in this mode
+    
+    switch (reg)
+    {
+        case 0xC0F06804: return 0x8230150; // 1640 x 2052 25 fps
+
+//        case 0xC0F08184: return 0x821;
+//        case 0xC0F08188: return 0xc13;   //a13
+//        case 0xC0F08194: return 0xc13;   //a13
+//        case 0xC0F08198: return 0xc13;   //a13
+
+        case 0xC0F06824: return 0x1ce;
+        case 0xC0F06828: return 0x1ce;
+        case 0xC0F0682C: return 0x1ce;
+        case 0xC0F06830: return 0x1ce;
+       
+        case 0xC0F06010: return 0x1d0;
+        case 0xC0F06008: return 0x1d001d0;
+        case 0xC0F0600C: return 0x1d001d0;
+        
+        case 0xC0F06014: return 0x89a; //25 fps for 3x1
+
+        case 0xC0F0713c: return 0x823;
+        case 0xC0F07150: return 0x823;
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
+//6d 1640 x 2144 24 fps
+static inline uint32_t reg_override_1x3_24FPS_6D(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        case 0xC0F06804: return 0x87f01ba; // 1640 x 2144 24 fps
+
+        case 0xC0F06824: return 0x1ce;
+        case 0xC0F06828: return 0x1ce;
+        case 0xC0F0682C: return 0x1ce;
+        case 0xC0F06830: return 0x1ce;
+       
+        case 0xC0F06010: return 0x1d0;
+        case 0xC0F06008: return 0x1d001d0;
+        case 0xC0F0600C: return 0x1d001d0;
+        
+        case 0xC0F06014: return 0x8F5; //24 fps for 3x1
+
+        case 0xC0F0713c: return 0x87f;
+        case 0xC0F07150: return 0x82f;
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
+//6D - 2688 x 1296 at 25fps
+static inline uint32_t reg_override_2K_6D(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
+        case 0xC0F06804: return 0x52f02c0; // 2688x1296_25fps x5 Mode;
+
+        case 0xC0F06824: return 0x2d7;
+        case 0xC0F06828: return 0x2d7;
+        case 0xC0F0682C: return 0x2d7;
+        case 0xC0F06830: return 0x2d7;
+       
+        case 0xC0F06010: return 0x2d9;
+        case 0xC0F06008: return 0x2d902d9;
+        case 0xC0F0600C: return 0x2d902d9;
+
+        /*case 0xC0F06014: return 0x5b4; for 24fps */ 
+        case 0xC0F06014: return 0x57a; /*  for 25 fps  */
+
+        case 0xC0F0713c: return 0x530;
+        case 0xC0F07150: return 0x51f;
+       
+    }
+ 
+    return reg_override_bits(reg, old_val);
+}
+
+//6D - 2880 x 1200 at 25fps
+static inline uint32_t reg_override_ULTRA_HD_6D(uint32_t reg, uint32_t old_val)
+{
+
+   
+        EngDrvOutLV(0xc0f38024, 0x4dc02e3); //fixes liveview - not correct framing, but working liveview
+
+   switch (reg)
+
+    {
+    
+        case 0xC0F06804: return 0x4ce02f0; // UHD for 6d   was 3dd02c0
+
+        case 0xC0F06824: return 0x303;
+        case 0xC0F06828: return 0x303;
+        case 0xC0F0682C: return 0x303;
+        case 0xC0F06830: return 0x303;
+       
+        case 0xC0F06010: return 0x305;
+        case 0xC0F06008: return 0x3050305;
+        case 0xC0F0600C: return 0x3050305;
+
+        /* case 0xC0F06014: return 0x561; for 24 fps */
+        case 0xC0F06014: return 0x52a; /* for 25 fps */
+
+
+        case 0xC0F0713c: return 0x4ce;
+        case 0xC0F07150: return 0x4ce;
+        
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
+static inline uint32_t reg_override_4K_6D(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw resolution (end line/column)*/ 
+        /* 6804 = 5bf04b0 = 4672 x 1440 raw resolution (end line/column) */
+        /* 6804 = 5bf03e0 = 3840 x 1440 raw resolution (end line/column) */
+        /* 6804 = 5bf04e0 = 4864 x 1440 raw resolution (end line/column) */
+        /* 6804 = 5bf0502 = 5000 x 1440 raw resolution (end line/column) */
+        /* 6814 -> 5f0 -> 16.56fps(end line/column) Corrupted frames*/
+        /* 6814 -> 610 -> 16.224fps(end line/column) NOcorrupted frames*/
+        /* 6008 -> 3f7 -> 16.56fps(end line/column)  2a1 for 25fps 16:9 2.5K ?*/
+        /*MAX about 6014=610 6008=3f7 6804 = 5bf03e0 at 16.2fps*/
+
+        //case 0xC0F06804: return 0x88f03e0; // UHD for 6d
+
+        //case 0xC0F06824: return 0x3f5;
+        //case 0xC0F06828: return 0x3f5;
+        //case 0xC0F0682C: return 0x3f5;
+        //case 0xC0F06830: return 0x3f5;
+       
+        //case 0xC0F06010: return 0x3f7;
+        //case 0xC0F06008: return 0x3f703f7;
+        //case 0xC0F0600C: return 0x3f703f7;
+
+        //case 0xC0F06014: return 0x9d7;
+
+        //case 0xC0F0713c: return 0x88f;
+        /*case 0xC0F07150: return 0xe32;*/
+        //Werkt niet, wordt overruled door raw.c   case 0xC0F37014: return 0x12;
+        
+        
+        
+        
+        
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
+static inline uint32_t reg_override_5K_6D(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        case 0xC0F06804: return 0x2800520; // 5472x3604 5x zoom;
+
+        case 0xC0F06824: return 0x535;
+        case 0xC0F06828: return 0x535;
+        case 0xC0F0682C: return 0x535;
+        case 0xC0F06830: return 0x535;
+       
+        case 0xC0F06010: return 0x537;
+        case 0xC0F06008: return 0x5370537;
+        case 0xC0F0600C: return 0x5370537;
+
+        case 0xC0F06014: return 0x2fe; //8fb;
+
+        case 0xC0F0713c: return 0x280;
+        case 0xC0F07150: return 0x27f;
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+
+//6D 5464x3072 2.5fps 
+static inline uint32_t reg_override_FullRes_6D(uint32_t reg, uint32_t old_val)
+{
+//    EngDrvOutLV(0xc0f38024, 0x4dc0569); //fixes liveview - not correct framing, but working liveview
+
+    switch (reg)
+    {
+        /* raw resolution (end line/column) */
+        case 0xC0F06804: return 0xc1e0576; // 5472x3078 5x zoom;  c24
+
+        case 0xC0F06824: return 0x58d;
+        case 0xC0F06828: return 0x58d;
+        case 0xC0F0682C: return 0x58d;
+        case 0xC0F06830: return 0x58d;
+       
+        case 0xC0F06010: return 0x58f;
+        case 0xC0F06008: return 0x58f058f;
+        case 0xC0F0600C: return 0x58f058f;
+
+        case 0xC0F06014: return 0x1c16; // for 2fps use 0x231c for 5.6 fps 0xc7f;
+
+        case 0xC0F0713c: return 0xc1d;
+        case 0xC0F07150: return 0xc01;
+    }
+
+    return reg_override_bits(reg, old_val);
+}
+//6D - 2480x1396 at 25fps
+static inline uint32_t reg_override_HD2_6D(uint32_t reg, uint32_t old_val)
+{
+        EngDrvOutLV(0xc0f38024, 0x591027f); //fixes liveview - not correct framing, but working liveview
+
+       switch (reg)
+       {
+           case 0xC0F06804: return 0x593028c; // 2480x1396_25fps x5 Mode;
+
+           case 0xC0F06824: return 0x2a3;
+           case 0xC0F06828: return 0x2a3;
+           case 0xC0F0682C: return 0x2a3;
+           case 0xC0F06830: return 0x2a3;
+
+           case 0xC0F06010: return 0x2a5;
+           case 0xC0F06008: return 0x2a502a5;
+           case 0xC0F0600C: return 0x2a502a5;
+
+           case 0xC0F06014: return 0x5e5; /*  for 25 fps  */
+
+           case 0xC0F0713c: return 0x594;
+           case 0xC0F07150: return 0x55f;
+       
+       }
+
+    return reg_override_bits(reg, old_val);
+}
+
 static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
 {
     /* attempt to reconfigure the x5 zoom at the FPS selected in Canon menu */
@@ -4201,6 +4752,17 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_anamorphic_650D) ? reg_override_anamorphic_700d        :
         (crop_preset == CROP_PRESET_CENTER_Z_700D) ? reg_override_center_z_700d        : 
         (crop_preset == CROP_PRESET_CENTER_Z_650D) ? reg_override_center_z_700d        :
+        (crop_preset == CROP_PRESET_HD100_6D)      ? reg_override_HD100_6D      :
+        (crop_preset == CROP_PRESET_HD75_6D)       ? reg_override_HD75_6D       :
+        (crop_preset == CROP_PRESET_HD50_6D)       ? reg_override_HD50_6D       :
+        (crop_preset == CROP_PRESET_1x3_6D)        ? reg_override_1x3_6D        :
+        (crop_preset == CROP_PRESET_1x3_24FPS_6D)  ? reg_override_1x3_24FPS_6D  :
+        (crop_preset == CROP_PRESET_2K_6D)         ? reg_override_2K_6D         :
+        (crop_preset == CROP_PRESET_ULTRA_HD_6D)   ? reg_override_ULTRA_HD_6D   :
+        (crop_preset == CROP_PRESET_4K_6D)         ? reg_override_4K_6D         :
+        (crop_preset == CROP_PRESET_5K_6D)         ? reg_override_5K_6D         :
+        (crop_preset == CROP_PRESET_FullRes_6D)    ? reg_override_FullRes_6D    :
+        (crop_preset == CROP_PRESET_HD2_6D)        ? reg_override_HD2_6D        : 
                                                   0                       ;
     return reg_override_func;
 }
@@ -4249,6 +4811,12 @@ static void FAST engio_write_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     engio_vidmode_ok = 
              (old == 0x4540298) /* x5 zoom */ || (old == 0x42401e4) /* x3 digital zoom */ || (old == 0x4a601d4) /* 1080p */ || (old == 0x2d701d4 /* 720p */); 
            }
+	   if (is_6D)
+	   {
+             engio_vidmode_ok = 
+             (old == 0x3dd02c0) ||/* x5 zoom */ (old == 0x4e501ec || old == 0x29801ec);   /* 1080p or 720p */
+           }
+
         }
     }
 
@@ -4920,7 +5488,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
     {
         if (is_supported_mode())
         {
-            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D || is_650D)
+            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D || is_650D || is_6D)
             {
                 return 1;
             }
@@ -5328,6 +5896,58 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
     snprintf(buffer, sizeof(buffer), "5K anamorphic");
   }
 
+/* 6D */
+  if (CROP_PRESET_MENU == CROP_PRESET_HD100_6D)
+  {
+    snprintf(buffer, sizeof(buffer), "HD100");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_HD75_6D)
+  {
+    snprintf(buffer, sizeof(buffer), "HD75");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_HD50_6D)
+  {
+    snprintf(buffer, sizeof(buffer), "HD50");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_HD2_6D)
+  {
+    snprintf(buffer, sizeof(buffer), "HD2");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_1x3_6D)
+  {
+    snprintf(buffer, sizeof(buffer), "1x3");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_2K_6D)
+  {
+    snprintf(buffer, sizeof(buffer), "2K");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_ULTRA_HD_6D)
+  {
+    snprintf(buffer, sizeof(buffer), "ULTRA HD");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_4K_6D)
+  {
+    snprintf(buffer, sizeof(buffer), "4K");
+  }
+
+  if (CROP_PRESET_MENU == CROP_PRESET_5K_6D)
+  {
+    snprintf(buffer, sizeof(buffer), "5K");
+  }
+
+
+  if (CROP_PRESET_MENU == CROP_PRESET_FullRes_6D)
+  {
+    snprintf(buffer, sizeof(buffer), "FullRes");
+  }
+
     /* append info about current binning mode */
 
     if (raw_lv_is_enabled())
@@ -5423,6 +6043,20 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
                 raw_capture_info.binning_x = 1; raw_capture_info.skipping_x = 0;
                 raw_capture_info.binning_y = 5; raw_capture_info.skipping_y = 0;
                 break;
+
+            case CROP_PRESET_HD100_6D:
+            case CROP_PRESET_HD75_6D:
+            case CROP_PRESET_HD50_6D:
+            case CROP_PRESET_1x3_6D:
+            case CROP_PRESET_1x3_24FPS_6D:
+            case CROP_PRESET_2K_6D:
+            case CROP_PRESET_ULTRA_HD_6D:
+            case CROP_PRESET_4K_6D:
+            case CROP_PRESET_FullRes_6D:
+            case CROP_PRESET_HD2_6D:
+                raw_capture_info.binning_x    = raw_capture_info.binning_y  = 1;
+                raw_capture_info.skipping_x   = raw_capture_info.skipping_y = 0;
+                break;
         }
 
         /* update vertical pixel binning / line skipping parameters */
@@ -5458,6 +6092,16 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_3x3_mv1080_48fps_EOSM:
             case CROP_PRESET_3x3_mv1080_48fps_700D:
             case CROP_PRESET_3x3_mv1080_48fps_650D:
+            case CROP_PRESET_HD100_6D:
+            case CROP_PRESET_HD75_6D:
+            case CROP_PRESET_HD50_6D:
+            case CROP_PRESET_1x3_6D:
+            case CROP_PRESET_1x3_24FPS_6D:
+            case CROP_PRESET_2K_6D:
+            case CROP_PRESET_ULTRA_HD_6D:
+            case CROP_PRESET_4K_6D:
+            case CROP_PRESET_FullRes_6D:
+            case CROP_PRESET_HD2_6D:
             {
                 int b = (is_5D3) ? 3 : 1;
                 int s = (is_5D3) ? 0 : 2;
@@ -5466,7 +6110,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             }
         }
 
-        if ((is_5D3) || (is_EOSM) || (is_100D) || (is_700D) || (is_650D))
+        if ((is_5D3) || (is_EOSM) || (is_100D) || (is_700D) || (is_650D) || (is_6D))
         {
             /* update skip offsets */
             int skip_left, skip_right, skip_top, skip_bottom;
@@ -5601,21 +6245,23 @@ static unsigned int crop_rec_init()
         
         ADTG_WRITE = 0x24108;
         MEM_ADTG_WRITE = 0xE92D41F0;
-        
+                
+        ENGIO_WRITE = 0xFF2AE134;
+        MEM_ENGIO_WRITE = 0xE51FC15C;      
+       
         is_6D = 1;
-        is_basic = 1;
-        crop_presets                = crop_presets_basic;
-        crop_rec_menu[0].choices    = crop_choices_basic;
-        crop_rec_menu[0].max        = COUNT(crop_choices_basic) - 1;
-        crop_rec_menu[0].help       = crop_choices_help_basic;
-        crop_rec_menu[0].help2      = crop_choices_help2_basic;
+        crop_presets                = crop_presets_6d;
+        crop_rec_menu[0].choices    = crop_choices_6d;
+        crop_rec_menu[0].max        = COUNT(crop_choices_6d) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_6d;
+        crop_rec_menu[0].help2      = crop_choices_help2_6d;
 
         fps_main_clock = 25600000;
                                        /* 24p,  25p,  30p,  50p,  60p,   x5 */
         memcpy(default_timerA, (int[]) {  546,  640,  546,  640,  520,  730 }, 24);
         memcpy(default_timerB, (int[]) { 1955, 1600, 1564,  800,  821, 1172 }, 24);
                                    /* or 1956        1565         822        2445        1956 */
-    }
+    } 
     
     /* default FPS timers are the same on all these models */
     if (is_EOSM || is_700D || is_650D || is_100D)
