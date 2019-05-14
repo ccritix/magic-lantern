@@ -12,7 +12,11 @@
 #include <fps.h>
 #include <shoot.h>
 #include <lens.h>
-#include "crop-mode-hack.h"
+#include <crop-mode-hack.h>
+
+extern WEAK_FUNC(ret_0) unsigned int is_crop_hack_supported();
+extern WEAK_FUNC(ret_0) unsigned int movie_crop_hack_enable();
+extern WEAK_FUNC(ret_0) unsigned int movie_crop_hack_disable();
 
 #undef CROP_DEBUG
 
@@ -1812,7 +1816,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 /* always disable Movie crop mode if using crop_rec presets, except for mcm mode */
     if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
     {
-        movie_crop_hack_enable();
+     if (is_EOSM || is_100D) movie_crop_hack_enable();
     } 
     else 
     {
