@@ -1610,7 +1610,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     };
     
     /* expand this as required */
-    struct adtg_new adtg_new[22] = {{0}};
+    struct adtg_new adtg_new[30] = {{0}};
 
     const int blanking_reg_zoom   = (is_5D3) ? 0x805E : 0x805F;
     const int blanking_reg_nozoom = (is_5D3) ? 0x8060 : 0x8061;
@@ -1743,7 +1743,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;
 
             case CROP_PRESET_3xcropmode_100D:
-                adtg_new[0] = (struct adtg_new) {6, 0x8000, 5};
+                adtg_new[22] = (struct adtg_new) {6, 0x8000, 5};
                 break;
 
             /* 3x3 binning in 720p (in 1080p it's already 3x3) */
@@ -1806,11 +1806,11 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_mv1080p_mv720p_100D:
    	 	   if (is_1080p())
     		   {
-	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
+	           adtg_new[22] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
     		   }
     		   if (is_720p())
     		   {
-	           adtg_new[0] = (struct adtg_new) {6, 0x800C, 4 + reg_800c};
+	           adtg_new[22] = (struct adtg_new) {6, 0x800C, 4 + reg_800c};
    		   }		
 		break;
 
