@@ -1813,7 +1813,10 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[0] = (struct adtg_new) {6, blanking_reg_zoom, shutter_blanking}; 
         adtg_new[1] = (struct adtg_new) {6, blanking_reg_nozoom, shutter_blanking};
 
-/* always disable Movie crop mode if using crop_rec presets, except for mcm mode */
+/* always disable Movie crop mode if using crop_rec presets, except for mcm mode, Only eosm and 100D */
+    /* should probably be made generic */
+ if (is_EOSM || is_100D)
+ {
     if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
     {
      if (is_EOSM || is_100D) movie_crop_hack_enable();
@@ -1822,6 +1825,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
      if (is_EOSM || is_100D) movie_crop_hack_disable();
     }
+
+ }
 
 	  /* only apply bit reducing while recording, not while idle */
     	  if ((RECORDING && is_EOSM) || (!is_EOSM))
