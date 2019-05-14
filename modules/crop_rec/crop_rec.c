@@ -1817,6 +1817,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     /* should probably be made generic */
  if (is_EOSM || is_100D)
  {
+/* always disable Movie crop mode if using crop_rec presets, except for mcm mode */
     if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
     {
      if (is_EOSM || is_100D) movie_crop_hack_enable();
@@ -5492,6 +5493,35 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
   set_lv_zoom(1);
   }
 }
+
+/* Update liveview in different ways depending on mcm rewired modes */
+        if ((shamem_read(0xc0f383d4) == 0x4f0010 && 
+	(CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM)) &&
+	(CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM) &&
+	(CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D))
+        {
+/* mimics canon menu push and back. Needed to get mcm rewired regs updated */
+            PauseLiveView(); 
+            ResumeLiveView();
+	}
+
+        if (shamem_read(0xc0f383d4) == 0x4f0010 && (shamem_read(0xc0f06804) == 0x79f01e4) &&
+	(CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM))
+        {
+/* going from CROP_PRESET_anamorphic_rewired_EOSM to CROP_PRESET_mcm_mv1080_EOSM */
+            PauseLiveView(); 
+            ResumeLiveView();
+	}
+
+        if ((shamem_read(0xc0f383d4) == 0x4f0010 && 
+	(shamem_read(0xc0f06804) == 0x45601e4)) ||
+	((shamem_read(0xc0f06804) == 0x4a601e4) && 
+	(CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)))
+        {
+/* going from CROP_PRESET_mcm_mv1080_EOSM to CROP_PRESET_anamorphic_rewired_EOSM */
+            PauseLiveView(); 
+            ResumeLiveView();
+	}
 
     if (CROP_PRESET_MENU)
     {
