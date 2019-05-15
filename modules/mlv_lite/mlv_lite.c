@@ -2045,10 +2045,6 @@ static REQUIRES(LiveViewTask)
 void FAST hack_liveview_vsync()
 {
 
-/* auto set preview modes by reading registers eosm for now */
-     /* HDR flag */
-	if (shamem_read(0xc0f0b12c) != 0x0) preview_mode = 1;
-
    if (prevmode == 1)
    {
      /* 48 fps 2.35:1, 16:9, 4:3 real-time */
@@ -2076,6 +2072,9 @@ void FAST hack_liveview_vsync()
 	if (shamem_read(0xC0F06804) == 0x4550298) preview_mode = 2;
      /* anamorphic rewired mode eosm */
 	if (shamem_read(0xC0F06804) == 0x79f01e4) preview_mode = 2;
+/* auto set preview modes by reading registers eosm for now */
+     /* HDR flag */
+	if (shamem_read(0xc0f0b12c) != 0x0) preview_mode = 1;
     }
 
 /* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */
