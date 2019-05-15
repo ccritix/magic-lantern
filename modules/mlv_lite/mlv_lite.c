@@ -2051,20 +2051,31 @@ void FAST hack_liveview_vsync()
 
    if (prevmode == 1)
    {
-     /* 48 fps 2.35: real-time */
+     /* 48 fps 2.35:1, 16:9, 4:3 real-time */
 	if (shamem_read(0xC0F06804) == 0x2f701d4) preview_mode = 1; 
 	if (shamem_read(0xC0F06804) == 0x2d701d4) preview_mode = 1;
+	if (shamem_read(0xC0F06804) == 0x3ef01d4) preview_mode = 1;
 	if (shamem_read(0xC0F06804) == 0x42401e4) preview_mode = 1;
-     /* anamorphic 2.35:1 framing */
+     /* eosm mcm rewired 2.35:1, 16:9 and 4:3 */
+	if (shamem_read(0xC0F06804) == 0x45601e4) preview_mode = 1;
+	if (shamem_read(0xC0F06804) == 0x4a601e4) preview_mode = 1;
+     /* anamorphic,4k,3k,2k, 2.35:1, 16:9, 4:3 framing */
 	if (shamem_read(0xC0F06804) == 0x4a701d4) preview_mode = 1;
 	if (shamem_read(0xC0F06804) == 0x79f01d4) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x7ef01d4) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x88501c2) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x2e30504) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x30f040a) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x6c3040a) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0xa1c0412) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x2e30504) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x5190310) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x5b90318) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x44c0298) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x5a70298) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x4550298) preview_mode = 2;
+     /* anamorphic rewired mode eosm */
+	if (shamem_read(0xC0F06804) == 0x79f01e4) preview_mode = 2;
     }
 
 /* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */
