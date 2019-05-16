@@ -833,14 +833,14 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	if (ratios == 0x1)
     	{
         skip_bottom = 16;
-        skip_right = 200;
-        skip_left = 260;
+        skip_right = 175;
+        skip_left = 235;
 	}
     	if (ratios == 0x2)
     	{
         skip_bottom = 16;
-        skip_right = 370;
-        skip_left = 430;
+        skip_right = 340;
+        skip_left = 400;
 	}
         break;
 
@@ -3342,14 +3342,14 @@ static inline uint32_t reg_override_anamorphic_rewired_100d(uint32_t reg, uint32
 /* 2.35:1 */
     switch (reg)
     {
-		case 0xC0F06804: return 0x73b01ed + reg_6804_width + (reg_6804_height << 16);
+		case 0xC0F06804: return 0x77701ed + reg_6804_width + (reg_6804_height << 16);
 
         	case 0xC0F06014: return set_25fps == 0x1 ? 0x89e + reg_6014: 0x8a1 + reg_6014;
 		case 0xC0F0600c: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06008: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);		 
 		case 0xC0F06010: return set_25fps == 0x1 ? 0x25b - 24 + reg_6008: 0x25b + reg_6008;
 
-        	case 0xC0F0713c: return 0x73d + reg_713c;
+        	case 0xC0F0713c: return 0x777 + reg_713c;
 		case 0xC0F07150: return 0x36c + reg_7150; 
 
         	case 0xC0F06824: return 0x722 + reg_6824;
@@ -3369,14 +3369,14 @@ static inline uint32_t reg_override_anamorphic_rewired_100d(uint32_t reg, uint32
 /* 16:9 */
     switch (reg)
     {
-		case 0xC0F06804: return 0x73b01ed + reg_6804_width + (reg_6804_height << 16);
+		case 0xC0F06804: return 0x79f01ed + reg_6804_width + (reg_6804_height << 16);
 
         	case 0xC0F06014: return set_25fps == 0x1 ? 0x89e + reg_6014: 0x8a1 + reg_6014;
 		case 0xC0F0600c: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06008: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);		 
 		case 0xC0F06010: return set_25fps == 0x1 ? 0x25b - 24 + reg_6008: 0x25b + reg_6008;
 
-        	case 0xC0F0713c: return 0x73d + reg_713c;
+        	case 0xC0F0713c: return 0x79f + reg_713c;
 		case 0xC0F07150: return 0x36c + reg_7150; 
 
         	case 0xC0F06824: return 0x722 + reg_6824;

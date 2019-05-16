@@ -4249,10 +4249,11 @@ static int raw_rec_should_preview(void)
       {
     /* Will maybe reduce corruption of frames by freezing liveview while in framing mode. To be tested */
 	if ((RAW_IS_RECORDING && (shamem_read(0xC0F06804) == 0x79f01ed)) ||
-		(shamem_read(0xC0F06804) == 0x73b01ed) ||
+		(shamem_read(0xC0F06804) == 0x77701ed) ||
 		(shamem_read(0xC0F06804) == 0x79f01d4) ||
 		(shamem_read(0xC0F06804) == 0x79f01e4) ||
 		(shamem_read(0xC0F06804) == 0x7ef01d4) ||
+		(shamem_read(0xC0F06804) == 0x79f01ed) ||
 		(shamem_read(0xC0F06804) == 0x88501c2))
 	{
 	   EngDrvOutLV(0xc0f383d4, 0x4efffc);
@@ -4276,10 +4277,11 @@ static int raw_rec_should_preview(void)
       {
 	/* might reduce corruption of frames by freezing liveview while in framing mode. Here we are back to real time preview */
 	if ((RAW_IS_RECORDING && (shamem_read(0xC0F06804) == 0x79f01ed)) ||
-		(shamem_read(0xC0F06804) == 0x73b01ed) ||
+		(shamem_read(0xC0F06804) == 0x77701ed) ||
 		(shamem_read(0xC0F06804) == 0x79f01d4) ||
 		(shamem_read(0xC0F06804) == 0x79f01e4) ||
 		(shamem_read(0xC0F06804) == 0x7ef01d4) ||
+		(shamem_read(0xC0F06804) == 0x79f01ed) ||
 		(shamem_read(0xC0F06804) == 0x88501c2))
 	{
 	/* anamorphic rewired mode */
