@@ -4253,7 +4253,6 @@ static int raw_rec_should_preview(void)
 		(shamem_read(0xC0F06804) == 0x79f01d4) ||
 		(shamem_read(0xC0F06804) == 0x79f01e4) ||
 		(shamem_read(0xC0F06804) == 0x7ef01d4) ||
-		(shamem_read(0xC0F06804) == 0x79f01ed) ||
 		(shamem_read(0xC0F06804) == 0x88501c2))
 	{
 	   EngDrvOutLV(0xc0f383d4, 0x4efffc);
@@ -4281,7 +4280,6 @@ static int raw_rec_should_preview(void)
 		(shamem_read(0xC0F06804) == 0x79f01d4) ||
 		(shamem_read(0xC0F06804) == 0x79f01e4) ||
 		(shamem_read(0xC0F06804) == 0x7ef01d4) ||
-		(shamem_read(0xC0F06804) == 0x79f01ed) ||
 		(shamem_read(0xC0F06804) == 0x88501c2))
 	{
 	/* anamorphic rewired mode */
