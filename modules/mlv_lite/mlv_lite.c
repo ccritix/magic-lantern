@@ -4235,7 +4235,6 @@ static int raw_rec_should_preview(void)
     static int last_hs_unpress = 0;
     static int autofocusing = 0;
 
-// let´s skip this for a while. Better preview
 /* fix for stuck realtime preview when wanting framing 
     raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
     raw_force_aspect_ratio(0, 0); */
@@ -4246,10 +4245,21 @@ static int raw_rec_should_preview(void)
         long_halfshutter_press = 0;
         last_hs_unpress = get_ms_clock();
 /* trying a fix for stuck real time preview(only affects framing) */
-        if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_70d))
-        {
+      if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_650d || cam_700d))
+      {
+    /* Will maybe reduce corruption of frames by freezing liveview while in framing mode. To be tested */
+	if ((RAW_IS_RECORDING && (shamem_read(0xC0F06804) == 0x79f01ed)) ||
+		(shamem_read(0xC0F06804) == 0x73b01ed) ||
+		(shamem_read(0xC0F06804) == 0x79f01d4) ||
+		(shamem_read(0xC0F06804) == 0x79f01e4) ||
+		(shamem_read(0xC0F06804) == 0x7ef01d4) ||
+		(shamem_read(0xC0F06804) == 0x88501c2))
+	{
+	   EngDrvOutLV(0xc0f383d4, 0x4efffc);
+	   EngDrvOutLV(0xc0f383dc, 0x42401b2);
+	}
         bmp_on();
-        }
+      }
     }
     else
     {
@@ -4262,10 +4272,40 @@ static int raw_rec_should_preview(void)
             long_halfshutter_press = 1;
         }
 /* trying a fix for stuck real time preview(only affects framing) */
-        if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_70d))
-        {
+      if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_650d || cam_700d))
+      {
+	/* might reduce corruption of frames by freezing liveview while in framing mode. Here we are back to real time preview */
+	if ((RAW_IS_RECORDING && (shamem_read(0xC0F06804) == 0x79f01ed)) ||
+		(shamem_read(0xC0F06804) == 0x73b01ed) ||
+		(shamem_read(0xC0F06804) == 0x79f01d4) ||
+		(shamem_read(0xC0F06804) == 0x79f01e4) ||
+		(shamem_read(0xC0F06804) == 0x7ef01d4) ||
+		(shamem_read(0xC0F06804) == 0x88501c2))
+	{
+	/* anamorphic rewired mode */
+           if (cam_100d)
+           {
+	      EngDrvOutLV(0xc0f383d4, 0x4f0010);
+	      EngDrvOutLV(0xc0f383dc, 0x42401c6);
+	   }
+	/* anamorphic rewired mode */
+              if (cam_eos_m && (shamem_read(0xC0F06804) == 0x79f01e4))
+              {
+		 EngDrvOutLV(0xc0f383d4, 0x4f0010);
+	         EngDrvOutLV(0xc0f383dc, 0x42401c6);
+	      }
+	/* anamorphic mode */
+           if ((cam_eos_m && (shamem_read(0xC0F06804) == 0x7ef01d4)) || 
+		(shamem_read(0xC0F06804) == 0x79f01d4) || 
+		(shamem_read(0xC0F06804) == 0x88501c2))
+           {
+	      EngDrvOutLV(0xc0f383d4, 0x1c000e);
+              EngDrvOutLV(0xc0f383dc, 0x2d701c4);
+           }
         bmp_off();
-        }
+
+	}
+      }
     }
 
     if (autofocusing)
@@ -4345,7 +4385,7 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
         -1,
         (need_for_speed && !get_halfshutter_pressed()) 
 	? RAW_PREVIEW_GRAY_ULTRA_FAST 
-	: cam_eos_m && RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST /* 1x3 binning mode test */
+	: (cam_eos_m || cam_100d || cam_650d || cam_700d) && RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST /* 1x3 binning mode test */
         : RAW_PREVIEW_COLOR_HALFRES 
     );
 
@@ -4354,8 +4394,8 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
     /* be gentle with the CPU, save it for recording (especially if the buffer is almost full) */
     msleep(
         (need_for_speed)
-            ? ((queued_frames > valid_slot_count / 1) ? cam_eos_m ? 1150 : 1000 : cam_eos_m ? 650 : 500)
-            : cam_eos_m ? 65 : 50 /* 1x3 binning mode test */
+            ? ((queued_frames > valid_slot_count / 1) ? (cam_eos_m || cam_100d || cam_650d || cam_700d) ? 1200 : 1000 : (cam_eos_m || cam_100d || cam_650d || cam_700d) ? 700 : 500)
+            : (cam_eos_m || cam_100d || cam_650d || cam_700d) ? 70 : 50 /* 1x3 binning mode test */
     );
 
     preview_dirty = 1;

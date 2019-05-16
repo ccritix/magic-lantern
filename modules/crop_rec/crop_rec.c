@@ -3302,9 +3302,12 @@ static inline uint32_t reg_override_1x3_100d(uint32_t reg, uint32_t old_val)
 static inline uint32_t reg_override_anamorphic_rewired_100d(uint32_t reg, uint32_t old_val)
 {
 
-/* gets rid of the black border to the right */
+/* gets rid of the black border to the right. Connected to mlv_lite which takes over these regs while recording */
+	if (!RECORDING)
+	{
 	EngDrvOutLV(0xc0f383d4, 0x4f0010 + reg_83d4);
 	EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
+	}
 
   if ((ratios != 0x1) && (ratios != 0x2))
   {
@@ -3905,9 +3908,12 @@ static inline uint32_t reg_override_3x1_mv720_50fps_eosm(uint32_t reg, uint32_t 
 
 static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32_t old_val)
 {
-/* gets rid of the black border to the right */
+/* gets rid of the black border to the right. Connected to mlv_lite which takes over these regs while recording */
+	if (!RECORDING)
+	{
 	EngDrvOutLV(0xc0f383d4, 0x4f0010 + reg_83d4);
 	EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
+	}
 
     switch (reg)
     {
@@ -5494,17 +5500,34 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 }
 
 /* Update liveview in different ways depending on mcm rewired modes */
-        if ((shamem_read(0xc0f383d4) == 0x4f0010 && 
+        if (is_EOSM && (shamem_read(0xc0f383d4) == 0x4f0010 && 
 	(CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM)) &&
-	(CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM) &&
-	(CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D))
+	(CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM))
         {
 /* mimics canon menu push and back. Needed to get mcm rewired regs updated */
             PauseLiveView(); 
             ResumeLiveView();
 	}
 
-        if (shamem_read(0xc0f383d4) == 0x4f0010 && (shamem_read(0xc0f06804) == 0x79f01e4) &&
+/* Update liveview in different ways depending on mcm rewired modes */
+        if (is_EOSM && (shamem_read(0xc0f383d4) == 0x4f0010 && (shamem_read(0xc0f06804) == 0x4a601e4) &&
+	(CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)))
+        {
+/* mimics canon menu push and back. Needed to get mcm rewired regs updated */
+            PauseLiveView(); 
+            ResumeLiveView();
+	}
+
+/* Update liveview in different ways depending on mcm rewired modes */
+        if (is_EOSM && (shamem_read(0xc0f383d4) == 0x4f0010 && (shamem_read(0xc0f06804) == 0x45601e4) &&
+	(CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)))
+        {
+/* mimics canon menu push and back. Needed to get mcm rewired regs updated */
+            PauseLiveView(); 
+            ResumeLiveView();
+	}
+
+        if (is_EOSM && shamem_read(0xc0f383d4) == 0x4f0010 && (shamem_read(0xc0f06804) == 0x79f01e4) &&
 	(CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM))
         {
 /* going from CROP_PRESET_anamorphic_rewired_EOSM to CROP_PRESET_mcm_mv1080_EOSM */
@@ -5512,12 +5535,11 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
             ResumeLiveView();
 	}
 
-        if ((shamem_read(0xc0f383d4) == 0x4f0010 && 
-	(shamem_read(0xc0f06804) == 0x45601e4)) ||
-	((shamem_read(0xc0f06804) == 0x4a601e4) && 
-	(CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)))
+/* Update liveview in different ways depending on mcm rewired modes */
+        if (is_100D && shamem_read(0xc0f383d4) == 0x4f0010 && 
+	(CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D))
         {
-/* going from CROP_PRESET_mcm_mv1080_EOSM to CROP_PRESET_anamorphic_rewired_EOSM */
+/* mimics canon menu push and back. Needed to get mcm rewired regs updated */
             PauseLiveView(); 
             ResumeLiveView();
 	}
