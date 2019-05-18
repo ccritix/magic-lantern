@@ -4248,6 +4248,7 @@ static int raw_rec_should_preview(void)
       if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d))
       {
     /* Will maybe reduce corruption of frames by freezing liveview while in framing mode. To be tested */
+    /* rewired modes */
 	if ((RAW_IS_RECORDING && (shamem_read(0xC0F06804) == 0x79f01ed)) ||
 		(shamem_read(0xC0F06804) == 0x77701ed) ||
 		(shamem_read(0xC0F06804) == 0x79f01d4) ||
@@ -4257,9 +4258,27 @@ static int raw_rec_should_preview(void)
 		(shamem_read(0xC0F06804) == 0x8230150) ||
 		(shamem_read(0xC0F06804) == 0x87f01ba))
 	{
-	   EngDrvOutLV(0xc0f383d4, 0x4efffc);
-	   EngDrvOutLV(0xc0f383dc, 0x42401b2);
+	/* anamorphic rewired mode eosm,650d,700d,100d */
+           if ((shamem_read(0xC0F06804) == 0x79f01e4) || (shamem_read(0xC0F06804) == 0x79f01ed))
+           {
+	      EngDrvOutLV(0xc0f383d4, 0x4efffc);
+	      EngDrvOutLV(0xc0f383dc, 0x42401b2);
+	   }
 	}
+	/* anamorphic mode(not rewired,eosm,650d,700d) */
+           if ((shamem_read(0xC0F06804) == 0x7ef01d4) || 
+		(shamem_read(0xC0F06804) == 0x79f01d4) || 
+		(shamem_read(0xC0F06804) == 0x88501c2))
+           {
+	      EngDrvOutLV(0xc0f383d4, 0x1bffaa);
+              EngDrvOutLV(0xc0f383dc, 0x2d70160);
+	   }
+	/* anamorphic not rewired mode */
+           if (cam_6d)
+           {
+	      EngDrvOutLV(0xc0f383d4, 0xa2005b);
+	      EngDrvOutLV(0xc0f383dc, 0x39a017a);
+	   }
         bmp_on();
       }
     }
@@ -4286,32 +4305,26 @@ static int raw_rec_should_preview(void)
 		(shamem_read(0xC0F06804) == 0x8230150) ||
 		(shamem_read(0xC0F06804) == 0x87f01ba))
 	{
-	/* anamorphic rewired mode */
-           if (cam_100d)
+	/* anamorphic rewired mode eosm,650d,700d,100d */
+           if ((shamem_read(0xC0F06804) == 0x79f01e4) || (shamem_read(0xC0F06804) == 0x79f01ed))
            {
 	      EngDrvOutLV(0xc0f383d4, 0x4f0010);
 	      EngDrvOutLV(0xc0f383dc, 0x42401c6);
 	   }
-	/* anamorphic rewired mode */
-           if (cam_6d)
-           {
-	      EngDrvOutLV(0xc0f383d4, 0xa200bf);
-	      EngDrvOutLV(0xc0f383dc, 0x39a01de);
-	   }
-	/* anamorphic rewired mode */
-              if (cam_eos_m && (shamem_read(0xC0F06804) == 0x79f01e4))
-              {
-		 EngDrvOutLV(0xc0f383d4, 0x4f0010);
-	         EngDrvOutLV(0xc0f383dc, 0x42401c6);
-	      }
-	/* anamorphic mode */
-           if ((cam_eos_m && (shamem_read(0xC0F06804) == 0x7ef01d4)) || 
+	/* anamorphic mode(not rewired) */
+           if ((shamem_read(0xC0F06804) == 0x7ef01d4) || 
 		(shamem_read(0xC0F06804) == 0x79f01d4) || 
 		(shamem_read(0xC0F06804) == 0x88501c2))
            {
 	      EngDrvOutLV(0xc0f383d4, 0x1c000e);
               EngDrvOutLV(0xc0f383dc, 0x2d701c4);
            }
+	/* anamorphic not rewired mode */
+           if (cam_6d)
+           {
+	      EngDrvOutLV(0xc0f383d4, 0xa200bf);
+	      EngDrvOutLV(0xc0f383dc, 0x39a01de);
+	   }
         bmp_off();
 
 	}
