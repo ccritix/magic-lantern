@@ -2045,6 +2045,19 @@ static REQUIRES(LiveViewTask)
 void FAST hack_liveview_vsync()
 {
 
+
+/* Finding regs
+if (get_halfshutter_pressed())
+{ 
+     	NotifyBox(5000, "shamem_read(0xc0f383d4) 0x%x", shamem_read(0xc0f383d4));
+}
+else
+{
+	NotifyBox(5000, "shamem_read(0xc0f383dc) 0x%x", shamem_read(0xc0f383dc));
+}
+*/
+
+
    if (prevmode == 1)
    {
      /* 48 fps 2.35:1, 16:9, 4:3 real-time */
@@ -3075,7 +3088,7 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     rawi_hdr.raw_info.white_level = (white14 + bpp_scaling/2) / bpp_scaling;
 
 /* round trip analog gain bits reduction. Only EOSM for now. Setting registry flag. Hopefully not affection output. Connected with raw_lv_settings_still_valid() in raw.c */
-if (cam_eos_m)
+if (cam_eos_m || cam_6d)
 {
 /* 8bit */
     if (shamem_read(0xc0f0815c) == 0x3) rawi_hdr.raw_info.white_level = 2250;
@@ -4247,43 +4260,41 @@ static int raw_rec_should_preview(void)
 /* trying a fix for stuck real time preview(only affects framing) */
       if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d))
       {
-    /* Will maybe reduce corruption of frames by freezing liveview while in framing mode. To be tested */
-    /* rewired modes */
-	if ((RAW_IS_RECORDING && (shamem_read(0xC0F06804) == 0x79f01ed)) ||
-		(shamem_read(0xC0F06804) == 0x77701ed) ||
-		(shamem_read(0xC0F06804) == 0x79f01d4) ||
-		(shamem_read(0xC0F06804) == 0x79f01e4) ||
-		(shamem_read(0xC0F06804) == 0x7ef01d4) ||
-		(shamem_read(0xC0F06804) == 0x88501c2) ||
-		(shamem_read(0xC0F06804) == 0x8230150) ||
-		(shamem_read(0xC0F06804) == 0x87f01ba))
+/* Will maybe reduce corruption of frames by freezing liveview while in framing mode. To be tested */
+/* reg for eosm,650d,700d,100d */
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x4f0010)) // x3 digital zoom
 	{
-	/* anamorphic rewired mode eosm,650d,700d,100d */
-           if ((shamem_read(0xC0F06804) == 0x79f01e4) || (shamem_read(0xC0F06804) == 0x79f01ed))
-           {
 	      EngDrvOutLV(0xc0f383d4, 0x4efffc);
 	      EngDrvOutLV(0xc0f383dc, 0x42401b2);
-	   }
 	}
-	/* anamorphic mode(not rewired,eosm,650d,700d) */
-           if ((shamem_read(0xC0F06804) == 0x7ef01d4) || 
-		(shamem_read(0xC0F06804) == 0x79f01d4) || 
-		(shamem_read(0xC0F06804) == 0x88501c2))
-           {
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x15300af)) // x5 zoom
+	{
+	      EngDrvOutLV(0xc0f383d4, 0x152ff1f);
+	      EngDrvOutLV(0xc0f383dc, 0x423ffbe);
+	}
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x1d000e)) // mv1080p mode
+	{
+	      EngDrvOutLV(0xc0f383d4, 0x1cffaa);
+              EngDrvOutLV(0xc0f383dc, 0x4a60160);
+	}
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x1c000e)) // mv720p mode
+	{
 	      EngDrvOutLV(0xc0f383d4, 0x1bffaa);
               EngDrvOutLV(0xc0f383dc, 0x2d70160);
-	   }
-	/* anamorphic not rewired mode */
-           if (cam_6d)
-           {
-	      EngDrvOutLV(0xc0f383d4, 0xa2005b);
-	      EngDrvOutLV(0xc0f383dc, 0x39a017a);
-	   }
+	}
+/* only 6D */
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0xa200bf)) // x5 zoom cam 6D
+	{
+	      EngDrvOutLV(0xc0f383d4, 0xa1ff2f);
+	      EngDrvOutLV(0xc0f383dc, 0x39a004e);
+	}
         bmp_on();
-      }
-    }
-    else
-    {
+
+       }
+
+     }
+     else
+     {
         if (lv_focus_status == 3)
         {
             autofocusing = 1;
@@ -4295,40 +4306,37 @@ static int raw_rec_should_preview(void)
 /* trying a fix for stuck real time preview(only affects framing) */
       if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d))
       {
-	/* might reduce corruption of frames by freezing liveview while in framing mode. Here we are back to real time preview */
-	if ((RAW_IS_RECORDING && (shamem_read(0xC0F06804) == 0x79f01ed)) ||
-		(shamem_read(0xC0F06804) == 0x77701ed) ||
-		(shamem_read(0xC0F06804) == 0x79f01d4) ||
-		(shamem_read(0xC0F06804) == 0x79f01e4) ||
-		(shamem_read(0xC0F06804) == 0x7ef01d4) ||
-		(shamem_read(0xC0F06804) == 0x88501c2) ||
-		(shamem_read(0xC0F06804) == 0x8230150) ||
-		(shamem_read(0xC0F06804) == 0x87f01ba))
+/* regs for eosm,650d,700d,100d */
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x4efffc)) // x3 digital zoom
 	{
-	/* anamorphic rewired mode eosm,650d,700d,100d */
-           if ((shamem_read(0xC0F06804) == 0x79f01e4) || (shamem_read(0xC0F06804) == 0x79f01ed))
-           {
 	      EngDrvOutLV(0xc0f383d4, 0x4f0010);
 	      EngDrvOutLV(0xc0f383dc, 0x42401c6);
-	   }
-	/* anamorphic mode(not rewired) */
-           if ((shamem_read(0xC0F06804) == 0x7ef01d4) || 
-		(shamem_read(0xC0F06804) == 0x79f01d4) || 
-		(shamem_read(0xC0F06804) == 0x88501c2))
-           {
+	}
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x152ff1f)) // x5 zoom
+	{
+	      EngDrvOutLV(0xc0f383d4, 0x15300af);
+	      EngDrvOutLV(0xc0f383dc, 0x40c01b7);
+	}
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x1cffaa)) // mv1080p mode
+	{
+	      EngDrvOutLV(0xc0f383d4, 0x1d000e);
+              EngDrvOutLV(0xc0f383dc, 0x4a601c4);
+	}
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x1bffaa)) // mv720p mode
+	{
 	      EngDrvOutLV(0xc0f383d4, 0x1c000e);
               EngDrvOutLV(0xc0f383dc, 0x2d701c4);
-           }
-	/* anamorphic not rewired mode */
-           if (cam_6d)
-           {
+        }
+/* only 6D */
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0xa1ff2f)) // x5 zoom cam 6D
+	{
 	      EngDrvOutLV(0xc0f383d4, 0xa200bf);
 	      EngDrvOutLV(0xc0f383dc, 0x39a01de);
-	   }
+	}
         bmp_off();
 
-	}
-      }
+       }
+
     }
 
     if (autofocusing)

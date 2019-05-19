@@ -2187,7 +2187,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
 /* only apply bit reducing while recording, not while idle */
-if ((RECORDING && is_EOSM) || (!is_EOSM))
+if ((RECORDING && (is_EOSM || is_6D)) || (!is_EOSM))
 {
   if (bitdepth == 0x1)
   {
@@ -2237,7 +2237,7 @@ if (RECORDING && bitdepth != 0x0 && is_EOSM)
 	}
 }
 
-if (!RECORDING && is_EOSM)
+if (!RECORDING && (is_EOSM || is_6D))
 {
   if (bitdepth == 0x1)
   {
@@ -2272,7 +2272,7 @@ if (!RECORDING && is_EOSM)
   }
 
 /* reset eosm switch */
-  if (bitdepth == 0x0 && is_EOSM)
+  if (bitdepth == 0x0 && (is_EOSM || is_6D))
   {
     switch (reg)
     {
@@ -5546,9 +5546,9 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 
     if (CROP_PRESET_MENU)
     {
-        if (is_supported_mode())
+        if (is_supported_mode() || is_EOSM || is_100D || is_700D || is_650D || is_6D)
         {
-            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D || is_650D || is_6D)
+            if (!patch_active || CROP_PRESET_MENU != crop_preset)
             {
                 return 1;
             }
