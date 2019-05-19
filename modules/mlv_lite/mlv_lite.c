@@ -3659,7 +3659,9 @@ abort_and_check_early_stop:
             if (!RECORDING_H264)
             {
                 /* faster writing speed that way */
+/* seems to help 100D from going black screen */
                 PauseLiveView();
+		ResumeLiveView();		
             }
 
             if (last_block_size > 3)
@@ -3699,7 +3701,9 @@ abort_and_check_early_stop:
     if (!RECORDING_H264)
     {
         /* faster writing speed that way */
+/* seems to help 100D from going black screen */
         PauseLiveView();
+	ResumeLiveView();
 
         /* PauseLiveView breaks UI locks - why? */
         gui_uilock(UILOCK_EVERYTHING);
