@@ -4271,11 +4271,13 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383d4, 0x4efffc);
 	      EngDrvOutLV(0xc0f383dc, 0x42401b2);
 	}
+/* let´s not assume all modes are working. Needs more testing. Pause it for now
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x15300af)) // x5 zoom
 	{
 	      EngDrvOutLV(0xc0f383d4, 0x152ff1f);
 	      EngDrvOutLV(0xc0f383dc, 0x423ffbe);
 	}
+*/
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x1d000e)) // mv1080p mode
 	{
 	      EngDrvOutLV(0xc0f383d4, 0x1cffaa);
@@ -4287,11 +4289,13 @@ static int raw_rec_should_preview(void)
               EngDrvOutLV(0xc0f383dc, 0x2d70160);
 	}
 /* only 6D */
+/* Levas reporting not getting any better recordings out of this. Let´s take it out for now
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0xa200bf)) // x5 zoom cam 6D
 	{
 	      EngDrvOutLV(0xc0f383d4, 0xa1ff2f);
 	      EngDrvOutLV(0xc0f383dc, 0x39a004e);
 	}
+*/
         bmp_on();
 
        }
@@ -4316,11 +4320,13 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383d4, 0x4f0010);
 	      EngDrvOutLV(0xc0f383dc, 0x42401c6);
 	}
+/* let´s not assume all modes are working. Needs more testing. Pause it for now
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x152ff1f)) // x5 zoom
 	{
 	      EngDrvOutLV(0xc0f383d4, 0x15300af);
 	      EngDrvOutLV(0xc0f383dc, 0x40c01b7);
 	}
+*/
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x1cffaa)) // mv1080p mode
 	{
 	      EngDrvOutLV(0xc0f383d4, 0x1d000e);
@@ -4332,11 +4338,13 @@ static int raw_rec_should_preview(void)
               EngDrvOutLV(0xc0f383dc, 0x2d701c4);
         }
 /* only 6D */
+/* Levas reporting not getting any better recordings out of this. Let´s take it out for now
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0xa1ff2f)) // x5 zoom cam 6D
 	{
 	      EngDrvOutLV(0xc0f383d4, 0xa200bf);
 	      EngDrvOutLV(0xc0f383dc, 0x39a01de);
 	}
+*/
         bmp_off();
 
        }
