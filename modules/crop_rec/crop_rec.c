@@ -198,8 +198,8 @@ static enum crop_preset crop_presets_100d[] = {
     CROP_PRESET_OFF,
     CROP_PRESET_2K_100D,
     CROP_PRESET_3K_100D,
-    CROP_PRESET_4K_3x1_100D,
-    CROP_PRESET_5K_3x1_100D,
+   // CROP_PRESET_4K_3x1_100D,
+   // CROP_PRESET_5K_3x1_100D,
     CROP_PRESET_4K_100D,
     CROP_PRESET_1080K_100D,
     CROP_PRESET_mv1080p_mv720p_100D,
@@ -212,8 +212,8 @@ static const char * crop_choices_100d[] = {
     "OFF",
     "2.5K 2520x1418",
     "3K 3000x1432", 
-    "4K 3x1 24fps",
-    "5K 3x1 24fps",
+  //  "4K 3x1 24fps",
+  //  "5K 3x1 24fps",
     "4K 4056x2552",
     "2K 2520x1080p",
     "mv1080p_mv720p mode",
@@ -228,8 +228,8 @@ static const char crop_choices_help2_100d[] =
     "\n"
     "1:1 2.5K x5crop, real time preview\n"
     "1:1 3K x5crop, framing preview\n"
-    "3:1 4K x5 crop, framing preview\n"
-    "3:1 5K x5 crop, framing preview\n"
+  //  "3:1 4K x5 crop, framing preview\n"
+  //  "3:1 5K x5 crop, framing preview\n"
     "1:1 4K x5 crop, framing preview\n"
     "2K x5 crop, framing preview\n"
     "regular mv1080p mode\n"
@@ -5548,7 +5548,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
     {
         if (is_supported_mode() || is_EOSM || is_100D || is_700D || is_650D || is_6D)
         {
-            if (!patch_active || CROP_PRESET_MENU != crop_preset)
+            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_100D)
             {
                 return 1;
             }
