@@ -61,14 +61,14 @@ enum crop_preset {
     CROP_PRESET_mv1080_mv720p,
     CROP_PRESET_1x3,
     CROP_PRESET_1x3_17fps,
-    CROP_PRESET_mv1080p_mv720p_100D,
-    CROP_PRESET_3x3_1X_100D,
+    CROP_PRESET_anamorphic_rewired_100D,
     CROP_PRESET_1080K_100D,
+    CROP_PRESET_3xcropmode_100D,
+    CROP_PRESET_3x3_1X_100D,
+    CROP_PRESET_mv1080p_mv720p_100D,
     CROP_PRESET_2K_100D,
     CROP_PRESET_3K_100D,
     CROP_PRESET_4K_100D,
-    CROP_PRESET_3xcropmode_100D,
-    CROP_PRESET_anamorphic_rewired_100D,
     CROP_PRESET_4K_3x1_100D,
     CROP_PRESET_5K_3x1_100D,
     CROP_PRESET_3x3_mv1080_EOSM,
@@ -196,46 +196,46 @@ static const char crop_choices_help2_5d3[] =
 	/* menu choices for 100D */
 static enum crop_preset crop_presets_100d[] = {
     CROP_PRESET_OFF,
+    CROP_PRESET_anamorphic_rewired_100D,
+    CROP_PRESET_1080K_100D,
+    CROP_PRESET_3xcropmode_100D,
+    CROP_PRESET_3x3_1X_100D,
+    CROP_PRESET_mv1080p_mv720p_100D,
     CROP_PRESET_2K_100D,
     CROP_PRESET_3K_100D,
+    CROP_PRESET_4K_100D,
    // CROP_PRESET_4K_3x1_100D,
    // CROP_PRESET_5K_3x1_100D,
-    CROP_PRESET_4K_100D,
-    CROP_PRESET_1080K_100D,
-    CROP_PRESET_mv1080p_mv720p_100D,
-    CROP_PRESET_3x3_1X_100D,
-    CROP_PRESET_3xcropmode_100D,
-    CROP_PRESET_anamorphic_rewired_100D,
 };
 
 static const char * crop_choices_100d[] = {
     "OFF",
+    "anamorphic rewired",
+    "2K 2520x1080p",
+    "3x crop mode",
+    "3x3 720p",
+    "mv1080p_mv720p mode",
     "2.5K 2520x1418",
     "3K 3000x1432", 
+    "4K 4056x2552",
   //  "4K 3x1 24fps",
   //  "5K 3x1 24fps",
-    "4K 4056x2552",
-    "2K 2520x1080p",
-    "mv1080p_mv720p mode",
-    "3x3 720p",
-    "3x crop mode",
-    "anamorphic rewired",
 };
 
 static const char crop_choices_help_100d[] =
     "Refresh regs if needed by open and exit ML menu...";
 static const char crop_choices_help2_100d[] =
     "\n"
+    "1x3 binning modes(anamorphic) rewired\n"
     "1:1 2.5K x5crop, real time preview\n"
+    "1:1 Movie crop mode\n"
+    "3x3 binning in 720p\n";
+    "regular mv1080p mode\n"
+    "2K x5 crop, framing preview\n"
     "1:1 3K x5crop, framing preview\n"
+    "1:1 4K x5 crop, framing preview\n"
   //  "3:1 4K x5 crop, framing preview\n"
   //  "3:1 5K x5 crop, framing preview\n"
-    "1:1 4K x5 crop, framing preview\n"
-    "2K x5 crop, framing preview\n"
-    "regular mv1080p mode\n"
-    "3x3 binning in 720p\n"
-    "1:1 Movie crop mode\n"
-    "1x3 binning modes(anamorphic) rewired\n";
 
 	/* menu choices for EOSM */
 static enum crop_preset crop_presets_eosm[] = {
