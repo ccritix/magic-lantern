@@ -5546,9 +5546,9 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 
     if (CROP_PRESET_MENU)
     {
-        if (is_supported_mode() || is_EOSM || is_100D || is_700D || is_650D || is_6D)
+        if (is_supported_mode() || is_100D)
         {
-            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_100D)
+            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D || is_650D || is_6D)
             {
                 return 1;
             }
