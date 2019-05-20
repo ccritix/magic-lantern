@@ -804,10 +804,20 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
 	case CROP_PRESET_anamorphic_rewired_EOSM:
 /* see autodetect_black_level exception in raw.c */
 /* only 2.35:1 */
+  if (ratios == 0x1)
+  {
         skip_bottom = 20;
         skip_right = 186;
         skip_left = 190;
         break;
+  }
+  else
+  {
+        skip_bottom = 20;
+        skip_right = 396;
+        skip_left = 400;
+        break;
+  }
 
  	case CROP_PRESET_anamorphic_EOSM:
  	case CROP_PRESET_anamorphic_700D:
@@ -3915,6 +3925,8 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
 	EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
 	}
 
+  if (ratios == 0x1)
+  {
     switch (reg)
     {
 /* Only 2.35:1 */
@@ -3937,6 +3949,31 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
 
     }
 
+  }
+  else
+  {
+/* 16:9 */
+    switch (reg)
+    {
+		case 0xC0F06804: return 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
+
+        	case 0xC0F06014: return set_25fps == 0x1 ? 0x89e + reg_6014: 0x8a1 + reg_6014;
+		case 0xC0F0600c: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);		 
+		case 0xC0F06010: return set_25fps == 0x1 ? 0x25b - 24 + reg_6008: 0x25b + reg_6008;
+
+        	case 0xC0F0713c: return 0x79f + reg_713c;
+
+        	case 0xC0F06824: return 0x79d + reg_6824;
+        	case 0xC0F06828: return 0x79d + reg_6824;
+        	case 0xC0F0682C: return 0x79d + reg_6824;
+        	case 0xC0F06830: return 0x79d + reg_6824; 
+
+/* dummy reg for height modes eosm in raw.c */
+		case 0xC0f0b13c: return 0xd;
+     }
+
+  }
     return reg_override_bits(reg, old_val);
 }
 
@@ -5801,7 +5838,14 @@ static LVINFO_UPDATE_FUNC(crop_info)
 
 if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)
 {
+  if (ratios == 0x1)
+  {
     snprintf(buffer, sizeof(buffer), "anamorph 2.35:1");
+  }
+  else
+  {
+    snprintf(buffer, sizeof(buffer), "anamorph 16:9");
+  }
 }
 
 /* EOSM */
