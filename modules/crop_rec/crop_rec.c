@@ -3150,6 +3150,14 @@ static inline uint32_t reg_override_3xcropmode_100d(uint32_t reg, uint32_t old_v
 
   }
 
+    	switch (reg)
+    	{
+        case 0xC0F06014: return set_25fps == 0x1 ? 0x89e + reg_6014: 0x8a1 + reg_6014;
+	case 0xC0F0600c: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);
+	case 0xC0F06008: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);		 
+	case 0xC0F06010: return set_25fps == 0x1 ? 0x25b - 24 + reg_6008: 0x25b + reg_6008;
+	}
+
     return reg_override_bits(reg, old_val);
 }
 
@@ -3161,7 +3169,8 @@ static inline uint32_t reg_override_2K_100d(uint32_t reg, uint32_t old_val)
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
         case 0xC0F06804: return 0x5ac02a1 + reg_6804_width + (reg_6804_height << 16); // 2520x1418  x5 Mode;
-        case 0xC0F06014: return 0x71e;
+
+	case 0xC0F06014: return set_25fps == 0x1 ? 0x6d5 + reg_6014: 0x71e + reg_6014;
         case 0xC0F0713c: return 0x5ac + reg_713c; 
         case 0xC0F07150: return 0x58c + reg_7150;
     }
@@ -3286,6 +3295,12 @@ static inline uint32_t reg_override_1080p_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F06804: return 0x45902a1 + reg_6804_width + (reg_6804_height << 16);
         case 0xC0F0713c: return 0x459 + reg_713c;
         case 0xC0F07150: return 0x450 + reg_7150;
+	
+	case 0xC0F06014: return set_25fps == 0x1 ? 0x5ec + reg_6014: 0x62b + reg_6014;
+        case 0xC0F06010: return 0x34b + reg_6008;
+        case 0xC0F06008: return 0x34b034b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x34b034b + reg_6008 + (reg_6008 << 16);
+
     }
 
     return reg_override_bits(reg, old_val);
