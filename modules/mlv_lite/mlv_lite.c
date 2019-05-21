@@ -3661,7 +3661,7 @@ abort_and_check_early_stop:
                 /* faster writing speed that way */
 /* seems to help 100D from going black screen */
                 PauseLiveView();
-		ResumeLiveView();		
+		if (cam_100d) ResumeLiveView();		
             }
 
             if (last_block_size > 3)
@@ -3703,7 +3703,7 @@ abort_and_check_early_stop:
         /* faster writing speed that way */
 /* seems to help 100D from going black screen */
         PauseLiveView();
-	ResumeLiveView();
+	if (cam_100d) ResumeLiveView();
 
         /* PauseLiveView breaks UI locks - why? */
         gui_uilock(UILOCK_EVERYTHING);
