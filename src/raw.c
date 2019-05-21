@@ -236,6 +236,8 @@ static int lv_raw_gain = 0;
 #define WHITE_LEVEL 16200
 
 static int is_EOSM = 0;
+static int is_100D = 0;
+static int is_6D = 0;
 
 static int get_default_white_level()
 {
@@ -254,7 +256,7 @@ static int get_default_white_level()
         return (default_white - 2048) * lv_raw_gain / 4096 + 2048;
     }
 
-if (!is_EOSM)
+if (!is_EOSM && !is_100D && !is_6D)
 {
         if (shamem_read(0xC0F42744) == 0x6060606)
         {	
