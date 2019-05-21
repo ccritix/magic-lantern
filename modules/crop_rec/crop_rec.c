@@ -2235,7 +2235,7 @@ if ((RECORDING && (is_EOSM || is_100D || is_6D)) || (!is_EOSM && !is_100D && !is
   }
 }
 
-if (RECORDING && bitdepth != 0x0 && (is_EOSM || is_100D || is_6D))
+if (RECORDING && bitdepth != 0x0 && (is_EOSM || is_100D))
 {
 /* correcting black level a bit. Compensating greenish tint. Only affects preview, not recordings */
         if (lens_info.raw_iso != 0x48) /* iso 100 excluded, breaks */
