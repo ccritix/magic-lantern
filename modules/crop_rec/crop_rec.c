@@ -5400,7 +5400,18 @@ static LVINFO_UPDATE_FUNC(crop_info)
 
   if (CROP_PRESET_MENU == CROP_PRESET_1x3)
   {
-    snprintf(buffer, sizeof(buffer), "1x3 2.35:1");
+    if (ratios == 0x1)
+    {
+    snprintf(buffer, sizeof(buffer), "anamorph 2.35:1");
+    }
+    if (ratios == 0x2)
+    {
+    snprintf(buffer, sizeof(buffer), "anamorph 16:9");
+    }
+    if (ratios == 0x0)
+    {
+    snprintf(buffer, sizeof(buffer), "anamorphic");
+    }
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_1x3_17fps)
