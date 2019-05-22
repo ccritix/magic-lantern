@@ -967,7 +967,7 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
                                 /*   24p   25p   30p   50p   60p   x5 */
     [CROP_PRESET_3X_TALL]       = { 1920, 1728, 1536,  960,  800, 1320 },
     [CROP_PRESET_3x3_1X]        = { 1290, 1290, 1290,  960,  800, 1320 },
-    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1080, 800 }, /* 1080p45/48 Setting x5 to 800 at least keeps preview from getting stuck after x10 */
+    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1040, 800 }, /* 1080p45/48 Setting x5 to 800 at least keeps preview from getting stuck after x10 */
     [CROP_PRESET_3K]            = { 1920, 1728, 1504,  760,  680, 1320 },
     [CROP_PRESET_UHD]           = { 1536, 1472, 1120,  640,  540, 1320 },
     [CROP_PRESET_4K_HFPS]       = { 3072, 3072, 2500, 1440, 1200, 1320 },
@@ -5343,6 +5343,12 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         (lv_dispsize == 5 || lv_dispsize == 10))
     {
         center_canon_preview();
+    }
+
+    if ((crop_preset == CROP_PRESET_3x3_1X_48p && lv_dispsize == 1) && (shamem_read(0xC0F06804) == 0x33e011b)) 
+    {
+            PauseLiveView(); 
+            ResumeLiveView();
     }
 
     return CBR_RET_CONTINUE;
