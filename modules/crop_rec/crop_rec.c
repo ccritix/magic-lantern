@@ -2163,60 +2163,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     regs[1] = (uint32_t) copy;
 }
 
-/* this is used to cover the black bar at the top of the image in 1:1 modes */
-/* (used in most other presets) */
-static inline uint32_t reg_override_top_bar(uint32_t reg, uint32_t old_val)
-{
-
-/* if changing bitdepth */
-  if (bitdepth == 0x1)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x6060606;
-    }
-  }
-
-  if (bitdepth == 0x2)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
-    }
-  }
-
-  if (bitdepth == 0x3)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-  }
-  if (bitdepth == 0x4)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-    }
-  }
-
-    switch (reg)
-    {
-        /* raw start line/column */
-        /* move start line down by 30 pixels */
-        /* not sure where this offset comes from */
-        case 0xC0F06800:
-            return 0x1F0017;
-    }
-
-    return 0;
-}
-
-
 /* changing bits */
 static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
@@ -2344,10 +2290,24 @@ if (is_EOSM)
    }
 
 }
-
     return 0;
 }
 
+/* this is used to cover the black bar at the top of the image in 1:1 modes */
+/* (used in most other presets) */
+static inline uint32_t reg_override_top_bar(uint32_t reg, uint32_t old_val)
+{
+    switch (reg)
+    {
+        /* raw start line/column */
+        /* move start line down by 30 pixels */
+        /* not sure where this offset comes from */
+        case 0xC0F06800:
+            return 0x1F0017;
+    }
+
+    return reg_override_bits(reg, old_val);
+}
 
 /* these are required for increasing vertical resolution */
 /* (used in most other presets) */
@@ -2364,7 +2324,7 @@ static inline uint32_t reg_override_HEAD34(uint32_t reg, uint32_t old_val)
             return old_val + YRES_DELTA + delta_head4;
     }
 
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 static inline uint32_t reg_override_common(uint32_t reg, uint32_t old_val)
@@ -2375,7 +2335,7 @@ static inline uint32_t reg_override_common(uint32_t reg, uint32_t old_val)
     uint32_t b = reg_override_HEAD34(reg, old_val);
     if (b) return b;
 
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 static inline uint32_t reg_override_fps(uint32_t reg, uint32_t timerA, uint32_t timerB, uint32_t old_val)
@@ -2461,42 +2421,6 @@ static inline uint32_t reg_override_3X_tall(uint32_t reg, uint32_t old_val)
         (video_mode_fps == 60) ? -20 :
                                    0 ;
 
-/* if changing bitdepth */
-  if (bitdepth == 0x1)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x6060606;
-    }
-  }
-
-  if (bitdepth == 0x2)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
-    }
-  }
-
-  if (bitdepth == 0x3)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-  }
-  if (bitdepth == 0x4)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-    }
-  }
-
     switch (reg)
     {
         /* raw resolution (end line/column) */
@@ -2543,42 +2467,6 @@ static inline uint32_t reg_override_3x3_tall(uint32_t reg, uint32_t old_val)
         (video_mode_fps == 50) ? -10 :
         (video_mode_fps == 60) ? -20 :
                                    0 ;
-
-/* if changing bitdepth */
-  if (bitdepth == 0x1)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x6060606;
-    }
-  }
-
-  if (bitdepth == 0x2)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
-    }
-  }
-
-  if (bitdepth == 0x3)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-  }
-  if (bitdepth == 0x4)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-    }
-  }
 
     switch (reg)
     {
@@ -2627,42 +2515,6 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
         if (a) return a;
     }
 
-/* if changing bitdepth */
-  if (bitdepth == 0x1)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x6060606;
-    }
-  }
-
-  if (bitdepth == 0x2)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
-    }
-  }
-
-  if (bitdepth == 0x3)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-  }
-  if (bitdepth == 0x4)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-    }
-  }
-
     switch (reg)
     {
         /* for some reason, top bar disappears with the common overrides */
@@ -2706,42 +2558,6 @@ static inline uint32_t reg_override_3K(uint32_t reg, uint32_t old_val)
         if (a) return a;
     }
 
-/* if changing bitdepth */
-  if (bitdepth == 0x1)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x6060606;
-    }
-  }
-
-  if (bitdepth == 0x2)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
-    }
-  }
-
-  if (bitdepth == 0x3)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-  }
-  if (bitdepth == 0x4)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-    }
-  }
-
     switch (reg)
     {
         /* raw resolution (end line/column) */
@@ -2775,42 +2591,6 @@ static inline uint32_t reg_override_4K_hfps(uint32_t reg, uint32_t old_val)
     int a = reg_override_fps(reg, timerA, timerB, old_val);
     if (a) return a;
 
-/* if changing bitdepth */
-  if (bitdepth == 0x1)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x6060606;
-    }
-  }
-
-  if (bitdepth == 0x2)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
-    }
-  }
-
-  if (bitdepth == 0x3)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-  }
-  if (bitdepth == 0x4)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-    }
-  }
-
     switch (reg)
     {
         /* raw resolution (end line/column) */
@@ -2841,42 +2621,6 @@ static inline uint32_t reg_override_UHD(uint32_t reg, uint32_t old_val)
     int a = reg_override_fps(reg, timerA, timerB, old_val);
     if (a) return a;
 
-/* if changing bitdepth */
-  if (bitdepth == 0x1)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x6060606;
-    }
-  }
-
-  if (bitdepth == 0x2)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
-    }
-  }
-
-  if (bitdepth == 0x3)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-  }
-  if (bitdepth == 0x4)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-    }
-  }
-
     switch (reg)
     {
         /* raw resolution (end line/column) */
@@ -2890,43 +2634,6 @@ static inline uint32_t reg_override_UHD(uint32_t reg, uint32_t old_val)
 
 static inline uint32_t reg_override_fullres_lv(uint32_t reg, uint32_t old_val)
 {
-
-/* if changing bitdepth */
-  if (bitdepth == 0x1)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x6060606;
-    }
-  }
-
-  if (bitdepth == 0x2)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
-    }
-  }
-
-  if (bitdepth == 0x3)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-  }
-  if (bitdepth == 0x4)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-    }
-  }
-
     switch (reg)
     {
         case 0xC0F06800:
@@ -2951,7 +2658,6 @@ static inline uint32_t reg_override_fullres_lv(uint32_t reg, uint32_t old_val)
         case 0xC0F06014:
             return (video_mode_fps > 30 ? 856 : 1482) + YRES_DELTA;   /* up to 7.4 fps */
     }
-
     /* no need to adjust the black bar */
     return reg_override_HEAD34(reg, old_val);
 }
@@ -2960,43 +2666,6 @@ static inline uint32_t reg_override_fullres_lv(uint32_t reg, uint32_t old_val)
 /* (might be useful for FPS override on e.g. 70D) */
 static inline uint32_t reg_override_40_fps(uint32_t reg, uint32_t old_val)
 {
-
-/* if changing bitdepth */
-  if (bitdepth == 0x1)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x6060606;
-    }
-  }
-
-  if (bitdepth == 0x2)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
-    }
-  }
-
-  if (bitdepth == 0x3)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-  }
-  if (bitdepth == 0x4)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-    }
-  }
-
     switch (reg)
     {
         case 0xC0F06824:
@@ -3014,7 +2683,7 @@ static inline uint32_t reg_override_40_fps(uint32_t reg, uint32_t old_val)
             return 0x5DB;
     }
 
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 static inline uint32_t reg_override_1x3(uint32_t reg, uint32_t old_val)
@@ -3063,43 +2732,7 @@ static inline uint32_t reg_override_1x3_17fps(uint32_t reg, uint32_t old_val)
 
 static inline uint32_t reg_override_mv1080_mv720p(uint32_t reg, uint32_t old_val)
 {
-
-  if (bitdepth == 0x1)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x6060606;
-    }
-  }
-
-  if (bitdepth == 0x2)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
-    }
-  }
-
-  if (bitdepth == 0x3)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-  }
-  if (bitdepth == 0x4)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-    }
-  }
-
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 static inline uint32_t reg_override_fps_nocheck(uint32_t reg, uint32_t timerA, uint32_t timerB, uint32_t old_val)
@@ -3131,7 +2764,7 @@ static inline uint32_t reg_override_fps_nocheck(uint32_t reg, uint32_t timerA, u
         }
     }
 
-    return 0;
+    return reg_override_bits(reg, old_val);
 }
 
 /* Values for 100D */
@@ -4720,42 +4353,6 @@ static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
         (video_mode_fps == 50) ? 1875 :
         (video_mode_fps == 60) ? 1540 :
                                    -1 ;
-
-/* if changing bitdepth */
-  if (bitdepth == 0x1)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x6060606;
-    }
-  }
-
-  if (bitdepth == 0x2)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x5050505;
-    }
-  }
-
-  if (bitdepth == 0x3)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
-  }
-  if (bitdepth == 0x4)
-  {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x2020202;
-    }
-  }
 
     return reg_override_fps_nocheck(reg, timerA, timerB, old_val);
 }
