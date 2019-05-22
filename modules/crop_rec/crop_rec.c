@@ -654,8 +654,34 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
             skip_top        = 30;
             break;
 
-        case CROP_PRESET_3X:
         case CROP_PRESET_1x3:
+    	if (ratios == 0x1)
+    	{
+	    skip_left       = 206;
+            skip_right      = 62;
+            skip_top        = 60;
+	}
+    	if (ratios == 0x1 && set_25fps == 0x1)
+    	{
+	    skip_left       = 248;
+            skip_right      = 110;
+            skip_top        = 60;
+	}
+    	if (ratios == 0x2)
+    	{
+	    skip_left       = 426;
+            skip_right      = 282;
+            skip_top        = 60;
+	}
+    	if (ratios == 0x2 && set_25fps == 0x1)
+    	{
+	    skip_left       = 512;
+            skip_right      = 270;
+            skip_top        = 60;
+	}
+            break;
+
+        case CROP_PRESET_3X:
         case CROP_PRESET_1x3_17fps:
             skip_top        = 60;
             break;
@@ -2993,38 +3019,21 @@ static inline uint32_t reg_override_40_fps(uint32_t reg, uint32_t old_val)
 
 static inline uint32_t reg_override_1x3(uint32_t reg, uint32_t old_val)
 {
+
     switch (reg)
     {
+       	case 0xC0F06804:
+         	return set_25fps == 0x1 ? 0x8d6011b + reg_6804_width + (reg_6804_height << 16): 0x93a011b + reg_6804_width + (reg_6804_height << 16);
         case 0xC0F0713c:
-            return 0x96e;
-        
-        case 0xC0F06804:
-            return 0x96a011b;
-
-        case 0xC0F06008:
-        case 0xC0F0600C:
-            return 0x1800180;
-
-        case 0xC0F06010:
-            return 0x180;
+            	return set_25fps == 0x1 ? 0x8da + reg_713c: 0x93e + reg_713c;
 
         case 0xC0F06014:
-            return 0xa27;
-
-
-	/* correct liveview brightness */
-	/*case 0xC0F42744: return 0x4040404;*/
-
-	/* correct liveview brightness */
-	/*case 0xC0F42744: return 0x2020202;*/
-
-/* how to count */
-/* d80,7f */
-/* d7a,d79 */
-/* d7f,d80 */
-/* d93,da3 */
-/* df3,e03 */
-
+            	return set_25fps == 0x1 ? 0x9bd + reg_6014: 0xa27 + reg_6014;
+        case 0xC0F06008:
+        case 0xC0F0600C:
+           	return 0x1800180 + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06010:
+            	return 0x180 + reg_6008;
     }
 
     return reg_override_bits(reg, old_val);
@@ -3033,23 +3042,20 @@ static inline uint32_t reg_override_1x3(uint32_t reg, uint32_t old_val)
 static inline uint32_t reg_override_1x3_17fps(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
-    {
+    {        
+        case 0xC0F06804:	
+            return 0xce6011b + reg_6804_width + (reg_6804_height << 16); /* 1920x3240(perfect 1920x1080) */
+
         case 0xC0F0713c:
-            return 0xce6;
-        
-        case 0xC0F06804:	/* 1920x3240(perfect 1920x1080) */
-            return 0xce6011b;
-
-        case 0xC0F06008:
-        case 0xC0F0600C:
-            return 0x1800180;
-
-        case 0xC0F06010:
-            return 0x180;
+            return 0xce6 + reg_713c;
 
         case 0xC0F06014:
-            return 0xd9f;
-
+            return 0xd9f + reg_6014;
+        case 0xC0F06008:
+        case 0xC0F0600C:
+            return 0x1800180 + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06010:
+            return 0x180 + reg_6008;
     }
 
     return reg_override_bits(reg, old_val);
@@ -5599,7 +5605,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
     {
         if (is_supported_mode() || is_100D)
         {
-            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D || is_650D || is_6D)
+            if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D || is_650D || is_6D || is_5D3)
             {
                 return 1;
             }

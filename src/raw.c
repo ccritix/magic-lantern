@@ -1722,7 +1722,8 @@ static int autodetect_black_level(int* black_mean, int* black_stdev_x100)
      
     if ((raw_info.active_area.x1 > 50) && (shamem_read(0xC0f0b13c) != 0xd) && 
 (shamem_read(0xC0f0b13c) != 0xe) && (shamem_read(0xC0f0b13c) != 0xd) && (shamem_read(0xC0f06804) != 0x5a70298) && 
-(shamem_read(0xC0f0b13c) != 0xb) && (shamem_read(0xc0f0713c) != 0x456) && (shamem_read(0xC0f06804) != 0x4550298)) /* use the left black bar for black calibration, shamem exception anamorphic and high speed frame rates crop rec.c */
+(shamem_read(0xC0f0b13c) != 0xb) && (shamem_read(0xc0f0713c) != 0x456) && (shamem_read(0xC0f06804) != 0x4550298) &&
+(shamem_read(0xC0f06804) != 0x93a011b) && (shamem_read(0xC0f06804) != 0x8d6011b)) /* use the left black bar for black calibration, shamem exception anamorphic and high speed frame rates crop rec.c */
     {
         autodetect_black_level_calc(
             16, raw_info.active_area.x1 - 16,
