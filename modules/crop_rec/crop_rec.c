@@ -5353,7 +5353,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 /* fix for CROP_PRESET_3x3_1X mode */
     static int patch = 0;
 
-    if ((crop_preset == CROP_PRESET_3x3_1X) && (shamem_read(0xC0F06804) == 0x56601EB))
+    if ((crop_preset == CROP_PRESET_3x3_1X) && (shamem_read(0xC0F06804) == 0x56601EB) && lv_dispsize == 5)
     {
 	    patch = 1;
     }
