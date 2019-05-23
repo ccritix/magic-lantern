@@ -835,6 +835,12 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         skip_bottom = 20;
         skip_right = 186;
         skip_left = 190;
+   if (bitdepth == 0x4)
+   {
+        skip_bottom = 20;
+        skip_right = 266;
+        skip_left = 270;
+   }
         break;
   }
   else
@@ -3589,19 +3595,20 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
     switch (reg)
     {
 /* Only 2.35:1 */
-		case 0xC0F06804: return 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
+       	case 0xC0F06804:
+         	return bitdepth == 0x4 ? 0x6d701e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
+        case 0xC0F0713c:
+            	return bitdepth == 0x4 ? 0x6d7 + reg_713c: 0x79f + reg_713c;
+
+        	case 0xC0F06824: return bitdepth == 0x4 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
+        	case 0xC0F06828: return bitdepth == 0x4 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
+        	case 0xC0F0682C: return bitdepth == 0x4 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
+        	case 0xC0F06830: return bitdepth == 0x4 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
 
         	case 0xC0F06014: return set_25fps == 0x1 ? 0x89e + reg_6014: 0x8a1 + reg_6014;
 		case 0xC0F0600c: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06008: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);		 
 		case 0xC0F06010: return set_25fps == 0x1 ? 0x25b - 24 + reg_6008: 0x25b + reg_6008;
-
-        	case 0xC0F0713c: return 0x79f + reg_713c;
-
-        	case 0xC0F06824: return 0x79d + reg_6824;
-        	case 0xC0F06828: return 0x79d + reg_6824;
-        	case 0xC0F0682C: return 0x79d + reg_6824;
-        	case 0xC0F06830: return 0x79d + reg_6824; 
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xd;
