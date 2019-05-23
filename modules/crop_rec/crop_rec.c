@@ -318,8 +318,8 @@ static inline int get_default_skip_top()
 static int max_resolutions[NUM_CROP_PRESETS][6] = {
                                 /*   24p   25p   30p   50p   60p   x5 */
     [CROP_PRESET_3X_TALL]       = { 1920, 1728, 1536,  960,  800, 1320 },
-    [CROP_PRESET_3x3_1X]        = { 1290, 1290, 1290,  960,  800, 1320 },
-    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1040, 1320 }, /* 1080p45/48 */
+    [CROP_PRESET_3x3_1X]        = { 1290, 1290, 1290,  960,  800, 800 },
+    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1040, 800 }, /* 1080p45/48 */
     [CROP_PRESET_3K]            = { 1920, 1728, 1504,  760,  680, 1320 },
     [CROP_PRESET_UHD]           = { 1536, 1472, 1120,  640,  540, 1320 },
     [CROP_PRESET_4K_HFPS]       = { 3072, 3072, 2500, 1440, 1200, 1320 },
@@ -866,9 +866,9 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[5]  = (struct adtg_new) {6, 0x8178, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3/6D/700D) */
         adtg_new[6]  = (struct adtg_new) {6, 0x8196, nrzi_encode(readout_end + 1) }; /* PowerSaveTiming ON (5D3) */
 
-        adtg_new[7]  = (struct adtg_new) {6, 0x8173, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (6D/700D) */
-        adtg_new[8]  = (struct adtg_new) {6, 0x8179, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3/6D/700D) */
-        adtg_new[9]  = (struct adtg_new) {6, 0x8197, nrzi_encode(fps_timer_b - 1) }; /* PowerSaveTiming OFF (5D3) */
+        adtg_new[7]  = (struct adtg_new) {6, 0x8173, nrzi_encode(fps_timer_b - 5) }; /* PowerSaveTiming OFF (6D/700D) */
+        adtg_new[8]  = (struct adtg_new) {6, 0x8179, nrzi_encode(fps_timer_b - 5) }; /* PowerSaveTiming OFF (5D3/6D/700D) */
+        adtg_new[9]  = (struct adtg_new) {6, 0x8197, nrzi_encode(fps_timer_b - 5) }; /* PowerSaveTiming OFF (5D3) */
 
         adtg_new[10] = (struct adtg_new) {6, 0x82B6, nrzi_encode(readout_end - 1) }; /* PowerSaveTiming ON? (700D); 2 units below the "ON" timing from above */
 
@@ -1758,6 +1758,27 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         (lv_dispsize == 5 || lv_dispsize == 10))
     {
         center_canon_preview();
+    }
+
+    if ((crop_preset == CROP_PRESET_3x3_1X_48p && lv_dispsize == 1) && (shamem_read(0xC0F06804) == 0x33e011b)) 
+    {
+            PauseLiveView(); 
+            ResumeLiveView();
+    }
+
+/* fix for CROP_PRESET_3x3_1X mode */
+    static int patch = 0;
+
+    if ((crop_preset == CROP_PRESET_3x3_1X) && (shamem_read(0xC0F06804) == 0x56601EB))
+    {
+	    patch = 1;
+    }
+
+    if ((crop_preset == CROP_PRESET_3x3_1X && patch) && (shamem_read(0xC0F06804) != 0x56601EB) && lv_dispsize == 1)
+    {
+            PauseLiveView(); 
+            ResumeLiveView();
+	    patch = 0;
     }
 
     return CBR_RET_CONTINUE;
