@@ -1762,23 +1762,21 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 
     if ((crop_preset == CROP_PRESET_3x3_1X_48p && lv_dispsize == 1) && (shamem_read(0xC0F06804) == 0x33e011b)) 
     {
-            PauseLiveView(); 
-            ResumeLiveView();
+            lv_dirty = 1;
     }
 
 /* fix for CROP_PRESET_3x3_1X mode */
     static int patch = 0;
 
-    if ((crop_preset == CROP_PRESET_3x3_1X) && (shamem_read(0xC0F06804) == 0x56601EB))
+    if ((crop_preset == CROP_PRESET_3x3_1X) && (shamem_read(0xC0F06804) == 0x56601EB) && lv_dispsize == 5)
     {
 	    patch = 1;
     }
 
     if ((crop_preset == CROP_PRESET_3x3_1X && patch) && (shamem_read(0xC0F06804) != 0x56601EB) && lv_dispsize == 1)
     {
-            PauseLiveView(); 
-            ResumeLiveView();
 	    patch = 0;
+            lv_dirty = 1;
     }
 
     return CBR_RET_CONTINUE;
