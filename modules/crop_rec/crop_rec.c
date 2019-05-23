@@ -966,7 +966,7 @@ static inline int get_default_skip_top()
 static int max_resolutions[NUM_CROP_PRESETS][6] = {
                                 /*   24p   25p   30p   50p   60p   x5 */
     [CROP_PRESET_3X_TALL]       = { 1920, 1728, 1536,  960,  800, 1320 },
-    [CROP_PRESET_3x3_1X]        = { 1290, 1290, 1290,  960,  800, 1320 },
+    [CROP_PRESET_3x3_1X]        = { 1290, 1290, 1290,  960,  800, 800 },
     [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1040, 800 }, /* 1080p45/48 Setting x5 to 800 at least keeps preview from getting stuck after x10 */
     [CROP_PRESET_3K]            = { 1920, 1728, 1504,  760,  680, 1320 },
     [CROP_PRESET_UHD]           = { 1536, 1472, 1120,  640,  540, 1320 },
@@ -1954,8 +1954,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x3_1X_EOSM:
             case CROP_PRESET_3x3_1X_48p:
                 /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
-                adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
-                if (CROP_PRESET_MENU != CROP_PRESET_3x3_1X_48p) adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
+                adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};			
                 break;
 
 
@@ -5349,6 +5348,21 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     {
             PauseLiveView(); 
             ResumeLiveView();
+    }
+
+/* fix for CROP_PRESET_3x3_1X mode */
+    static int patch = 0;
+
+    if ((crop_preset == CROP_PRESET_3x3_1X) && (shamem_read(0xC0F06804) == 0x56601EB))
+    {
+	    patch = 1;
+    }
+
+    if ((crop_preset == CROP_PRESET_3x3_1X && patch) && (shamem_read(0xC0F06804) != 0x56601EB) && lv_dispsize == 1)
+    {
+            PauseLiveView(); 
+            ResumeLiveView();
+	    patch = 0;
     }
 
 if (((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) || 
