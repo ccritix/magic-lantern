@@ -54,6 +54,7 @@ enum crop_preset {
     CROP_PRESET_UHD,
     CROP_PRESET_FULLRES_LV,
     CROP_PRESET_3x3_1X,
+    CROP_PRESET_3x3_1X_45p,
     CROP_PRESET_3x3_1X_48p,
     CROP_PRESET_3x1,
     CROP_PRESET_40_FPS,
@@ -138,6 +139,7 @@ static enum crop_preset crop_presets_5d3[] = {
     CROP_PRESET_OFF,
     CROP_PRESET_1x3,
     CROP_PRESET_3K,
+    CROP_PRESET_3x3_1X_45p,
     CROP_PRESET_3x3_1X_48p,
     CROP_PRESET_3X,
     CROP_PRESET_CENTER_Z,
@@ -157,7 +159,8 @@ static const char * crop_choices_5d3[] = {
     "OFF",
     "anamorphic",
     "3K 1:1",
-    "1080p45/1080p48 3x3",
+    "1080p 45fps",
+    "1060p 48fps",
     "1920 1:1",
     "3.5K 1:1 centered x5",
     "1920 50/60 3x3",
@@ -179,7 +182,8 @@ static const char crop_choices_help2_5d3[] =
     "\n"
     "1x3 binning anamorphic\n"
     "1:1 3K crop (3072x1920 @ 24p, square raw pixels, preview broken)\n"
-    "1920x1080 @ 45p, 1920x1080 @ 48p, 3x3 binning (50/60 FPS in Canon menu)\n"
+    "1920x1080 @ 45p, 3x3 binning (50/60 FPS in Canon menu)\n"
+    "1920x1040 @ 48p, 3x3 binning (50/60 FPS in Canon menu)\n"
     "1:1 sensor readout (square raw pixels, 3x crop, good preview in 1080p)\n"
     "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
     "1920x960 @ 50p, 1920x800 @ 60p (3x3 binning, cropped preview)\n"
@@ -689,6 +693,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         case CROP_PRESET_3x3_1X:
         case CROP_PRESET_3x3_1X_100D:
         case CROP_PRESET_3x3_1X_48p:
+        case CROP_PRESET_3x3_1X_45p:
             if (is_720p()) skip_top = 0;
             break;
 
@@ -951,6 +956,7 @@ static int get_top_bar_adjustment()
         case CROP_PRESET_3x3_1X_100D:
         case CROP_PRESET_3x3_1X_EOSM:
         case CROP_PRESET_3x3_1X_48p:
+        case CROP_PRESET_3x3_1X_45p:
             if (is_720p()) return 28;   /* 0x1D0017 from 0x10017 */
             /* fall through */
         default:
@@ -980,7 +986,8 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
                                 /*   24p   25p   30p   50p   60p   x5 */
     [CROP_PRESET_3X_TALL]       = { 1920, 1728, 1536,  960,  800, 1320 },
     [CROP_PRESET_3x3_1X]        = { 1290, 1290, 1290,  960,  800, 800 },
-    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1040, 800 }, /* 1080p45/48 Setting x5 to 800 at least keeps preview from getting stuck after x10 */
+    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1040, 1040, 800 }, /* 1080p45/48 Setting x5 to 800 at least keeps preview from getting stuck after x10 */
+    [CROP_PRESET_3x3_1X_45p]    = { 1290, 1290, 1290, 1080, 1080, 800 }, /* 1080p45/48 Setting x5 to 800 at least keeps preview from getting stuck after x10 */
     [CROP_PRESET_3K]            = { 1920, 1728, 1504,  760,  680, 1320 },
     [CROP_PRESET_UHD]           = { 1536, 1472, 1120,  640,  540, 1320 },
     [CROP_PRESET_4K_HFPS]       = { 3072, 3072, 2500, 1440, 1200, 1320 },
@@ -1202,13 +1209,14 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x3_1X_100D:
             case CROP_PRESET_3x3_1X_EOSM:
             case CROP_PRESET_3x3_1X_48p:
+            case CROP_PRESET_3x3_1X_45p:
                 if (is_720p())
                 {
                     /* start/stop scanning line, very large increments */
                     cmos_new[1] =
-                        (crop_preset == CROP_PRESET_3x3_1X_48p) ? PACK12(3,15) :
-                        (video_mode_fps == 50)                  ? PACK12(4,14) :
-                        (video_mode_fps == 60)                  ? PACK12(6,14) :
+                        (crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p) ? PACK12(3,15) :
+                        (crop_preset == 50) ? PACK12(4,14) :
+                        (crop_preset == CROP_PRESET_3x3_1X_48p) ? PACK12(6,14) :
                                                                  (uint32_t) -1 ;
                     cmos_new[6] = 0x370;    /* pink highlights without this */
                 }
@@ -1790,6 +1798,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     {
         if (crop_preset == CROP_PRESET_3x3_1X || 
             crop_preset == CROP_PRESET_3x3_1X_100D ||
+            crop_preset == CROP_PRESET_3x3_1X_45p ||
             crop_preset == CROP_PRESET_3x3_1X_48p)
         {
             /* these presets only have effect in 720p mode */
@@ -1966,6 +1975,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x3_1X_100D:
             case CROP_PRESET_3x3_1X_EOSM:
             case CROP_PRESET_3x3_1X_48p:
+            case CROP_PRESET_3x3_1X_45p:
                 /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};			
                 break;
@@ -2514,14 +2524,51 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
     /* change FPS timers to increase vertical resolution */
     if (video_mode_fps >= 50)
     {
-        int timerA =
-            (video_mode_fps == 50) ? 401 :
-            (video_mode_fps == 60) ? 400 :
-                                      -1 ;
-        int timerB =
-            (video_mode_fps == 50) ? 1330 : /* 45p */
-            (video_mode_fps == 60) ? 1250 : /* 48p */
-                                       -1 ;
+        int timerA = 400;
+        int timerB = 1250;
+
+        int a = reg_override_fps(reg, timerA, timerB, old_val);
+        if (a) return a;
+    }
+
+    switch (reg)
+    {
+        /* for some reason, top bar disappears with the common overrides */
+        /* very tight fit - every pixel counts here */
+        case 0xC0F06800:
+            return 0x1D0017;
+
+        /* raw resolution (end line/column) */
+        case 0xC0F06804:
+            return 0x442011b + reg_6804_width + (reg_6804_height << 16);
+
+        /* HEAD3 timer */
+        /* 2E6 in 50p, 2B4 in 60p */
+        case 0xC0F0713C:
+            return 0x2b0 + reg_713c + YRES_DELTA + delta_head3;
+
+        /* HEAD4 timer */
+        /* 2B4 in 50p, 26D in 60p */
+        case 0xC0F07150:
+            return 0x26d  + reg_7150 + YRES_DELTA + delta_head4;
+    }
+
+    return reg_override_common(reg, old_val);
+}
+
+static inline uint32_t reg_override_3x3_45p(uint32_t reg, uint32_t old_val)
+{
+    if (!is_720p())
+    {
+        /* 1080p not patched in 3x3 */
+        return 0;
+    }
+
+    /* change FPS timers to increase vertical resolution */
+    if (video_mode_fps >= 50)
+    {
+        int timerA = 401;
+        int timerB = 1330;
 
         int a = reg_override_fps(reg, timerA, timerB, old_val);
         if (a) return a;
@@ -4380,6 +4427,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_3X)         ? reg_override_mv1080_mv720p     : /* fixme: corrupted image */
         (crop_preset == CROP_PRESET_3X_TALL)    ? reg_override_3X_tall    :
         (crop_preset == CROP_PRESET_3x3_1X)     ? reg_override_3x3_tall   :
+        (crop_preset == CROP_PRESET_3x3_1X_45p) ? reg_override_3x3_45p    :
         (crop_preset == CROP_PRESET_3x3_1X_48p) ? reg_override_3x3_48p    :
         (crop_preset == CROP_PRESET_3K)         ? reg_override_3K         :
         (crop_preset == CROP_PRESET_4K_HFPS)    ? reg_override_4K_hfps    :
@@ -4603,6 +4651,7 @@ static MENU_UPDATE_FUNC(crop_update)
             else if (!is_720p())
             {
                 if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X ||
+                    CROP_PRESET_MENU == CROP_PRESET_3x3_1X_45p ||
                     CROP_PRESET_MENU == CROP_PRESET_3x3_1X_48p)
                 {
                     /* these presets only have effect in 720p mode */
@@ -5360,24 +5409,23 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         center_canon_preview();
     }
 
-    if ((crop_preset == CROP_PRESET_3x3_1X_48p && lv_dispsize == 1) && (shamem_read(0xC0F06804) == 0x33e011b)) 
-    {
-            lv_dirty = 1;
-    }
+/* mv720p modes 5D3. Needs refreshing if iterating through x5,x10 mode */
 
-/* fix for CROP_PRESET_3x3_1X mode */
     static int patch = 0;
 
-    if ((crop_preset == CROP_PRESET_3x3_1X) && (shamem_read(0xC0F06804) == 0x56601EB) && lv_dispsize == 5)
+    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p)) && 
+	(shamem_read(0xC0F06804) == 0x56601EB) && lv_dispsize == 5) 
     {
 	    patch = 1;
     }
 
-    if ((crop_preset == CROP_PRESET_3x3_1X && patch) && (shamem_read(0xC0F06804) != 0x56601EB) && lv_dispsize == 1)
+    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p ) && patch) && 
+	(shamem_read(0xC0F06804) != 0x56601EB) && lv_dispsize == 1)
     {
 	    patch = 0;
             lv_dirty = 1;
     }
+
 
 if (((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
@@ -5444,7 +5492,11 @@ static LVINFO_UPDATE_FUNC(crop_info)
   }
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_48p)
   {
-    snprintf(buffer, sizeof(buffer), "mv1080p 48fps");
+    snprintf(buffer, sizeof(buffer), "mv1060p 48fps");
+  }
+  if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_45p)
+  {
+    snprintf(buffer, sizeof(buffer), "mv1080p 45fps");
   }
   if (CROP_PRESET_MENU == CROP_PRESET_3K)
   {
@@ -5802,6 +5854,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_3x3_1X_100D:
             case CROP_PRESET_3x3_1X_EOSM:
             case CROP_PRESET_3x3_1X_48p:
+            case CROP_PRESET_3x3_1X_45p:
             case CROP_PRESET_1x3:
             case CROP_PRESET_1x3_17fps:
 	    case CROP_PRESET_3x3_mv1080_EOSM:
@@ -5880,6 +5933,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
             case CROP_PRESET_3x3_1X_100D:
             case CROP_PRESET_3x3_1X_EOSM:
             case CROP_PRESET_3x3_1X_48p:
+            case CROP_PRESET_3x3_1X_45p:
             case CROP_PRESET_3x1:
 	    case CROP_PRESET_3x3_mv1080_EOSM:
 	    case CROP_PRESET_3x3_mv1080_700D:
