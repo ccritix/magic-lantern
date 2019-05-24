@@ -5419,10 +5419,11 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 	    patch = 1;
     }
 
-    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p ) && patch) && 
+    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p) && patch) && 
 	(shamem_read(0xC0F06804) != 0x56601EB) && lv_dispsize == 1)
     {
-	    patch = 0;
+            patch = 0;
+            patch_active = 0;
             lv_dirty = 1;
     }
 
