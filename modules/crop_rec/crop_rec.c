@@ -5413,14 +5413,12 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 
     static int patch = 0;
 
-    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p)) && 
-	(shamem_read(0xC0F06804) == 0x56601EB) && lv_dispsize == 5) 
+    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p)) && lv_dispsize == 5) 
     {
 	    patch = 1;
     }
 
-    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p) && patch) && 
-	(shamem_read(0xC0F06804) != 0x56601EB) && lv_dispsize == 1)
+    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p) && patch) && lv_dispsize == 1)
     {
             patch = 0;
             patch_active = 0;
