@@ -1215,8 +1215,8 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                     /* start/stop scanning line, very large increments */
                     cmos_new[1] =
                         (crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p) ? PACK12(3,15) :
-                        (crop_preset == 50) ? PACK12(4,14) :
-                        (crop_preset == CROP_PRESET_3x3_1X_48p) ? PACK12(6,14) :
+                        (video_mode_fps == 50)                  ? PACK12(4,14) :
+                        (video_mode_fps == 60)                  ? PACK12(6,14) :
                                                                  (uint32_t) -1 ;
                     cmos_new[6] = 0x370;    /* pink highlights without this */
                 }
