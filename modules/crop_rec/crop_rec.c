@@ -2241,20 +2241,8 @@ if (RECORDING && bitdepth != 0x0 && (is_EOSM || is_100D))
 	}
 }
 
-if (RECORDING && bitdepth != 0x0 && is_5D3)
-{
-/* trying this for compensating shitty greens reducing analog gains on 5D3 */
-	EngDrvOutLV(0xC0F0819C, 0x80C + reg_bl);
-}
-
 if (!RECORDING && (is_EOSM || is_100D || is_6D || is_5D3))
 {
-
-if (bitdepth != 0x0 && is_5D3)
-{
-/* resetting regs compensating greens reducing analog gains on 5D3s */
-	EngDrvOutLV(0xC0F0819C, 0x800 + reg_bl);
-}
 
   if (bitdepth == 0x1)
   {
