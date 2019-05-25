@@ -2231,7 +2231,7 @@ if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_1
 if (RECORDING && bitdepth != 0x0 && (is_EOSM || is_100D))
 {
 /* correcting black level a bit. Compensating greenish tint. Only affects preview, not recordings */
-        if ((lens_info.raw_iso != 0x48) && (is_EOSM || is_100D)) /* iso 100 excluded, breaks */
+        if (lens_info.raw_iso != 0x48) /* iso 100 excluded, breaks */
         {
 	EngDrvOutLV(0xc0f37aec, 0x73ca + reg_bl);
 	EngDrvOutLV(0xc0f37af8, 0x73ca + reg_bl);
