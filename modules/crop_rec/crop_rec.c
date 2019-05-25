@@ -160,7 +160,7 @@ static const char * crop_choices_5d3[] = {
     "anamorphic",
     "3K 1:1",
     "1080p 45fps",
-    "1060p 48fps",
+    "1050p 48fps",
     "1920 1:1",
     "3.5K 1:1 centered x5",
     "1920 50/60 3x3",
@@ -183,7 +183,7 @@ static const char crop_choices_help2_5d3[] =
     "1x3 binning anamorphic\n"
     "1:1 3K crop (3072x1920 @ 24p, square raw pixels, preview broken)\n"
     "1920x1080 @ 45p, 3x3 binning (50/60 FPS in Canon menu)\n"
-    "1920x1040 @ 48p, 3x3 binning (50/60 FPS in Canon menu)\n"
+    "1920x1050 @ 48p, 3x3 binning (50/60 FPS in Canon menu)\n"
     "1:1 sensor readout (square raw pixels, 3x crop, good preview in 1080p)\n"
     "1:1 readout in x5 zoom mode (centered raw, high res, cropped preview)\n"
     "1920x960 @ 50p, 1920x800 @ 60p (3x3 binning, cropped preview)\n"
@@ -5494,7 +5494,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
   }
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_48p)
   {
-    snprintf(buffer, sizeof(buffer), "mv1060p 48fps");
+    snprintf(buffer, sizeof(buffer), "mv1050p 48fps");
   }
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_45p)
   {
