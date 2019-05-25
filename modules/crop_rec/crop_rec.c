@@ -817,6 +817,12 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
    	skip_left = 98;
       	skip_bottom = 26;
     	}
+    	if (ratios == 0x1 && set_25fps == 0x1)
+    	{
+      	skip_right = 78;
+   	skip_left = 120;
+      	skip_bottom = 44;
+	}
     	if (ratios == 0x2)
     	{
    	skip_left = 196;
@@ -2229,7 +2235,7 @@ if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_1
 }
 
 
-if (RECORDING && bitdepth != 0x0 && ((is_EOSM && CROP_PRESET_MENU != CROP_PRESET_3x3_mv1080_48fps_EOSM) || is_100D))
+if (RECORDING && bitdepth != 0x0 && ((is_EOSM && CROP_PRESET_MENU != CROP_PRESET_3x3_mv1080_48fps_EOSM && is_EOSM) || is_100D))
 {
 /* correcting black level a bit. Compensating greenish tint. Only affects preview, not recordings */
         if (lens_info.raw_iso != 0x48) /* iso 100 excluded, breaks */
@@ -3554,22 +3560,11 @@ static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_va
         	case 0xC0F0713c: return 0x33d + reg_713c;
 		case 0xC0F07150: return 0x2fa + reg_7150;
 
-	     /* 48 fps */
-        	case 0xC0F06014: return 0x4a2 + reg_6014;
-		case 0xC0F0600c: return 0x2310231 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x2310231 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x231 + reg_6008;
-
-	     /* 46 fps keep if 48fps keeps breaking
-        	case 0xC0F06014: return 0x511 + reg_6014;
-		case 0xC0F0600c: return 0x2170217 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06008: return 0x2170217 + reg_6008 + (reg_6008 << 16);
-		case 0xC0F06010: return 0x217 + reg_6008; */
-
-		case 0xC0F06824: return 0x206 + reg_6824;
-		case 0xC0F06828: return 0x206 + reg_6824;
-		case 0xC0F0682c: return 0x206 + reg_6824;
-		case 0xC0F06830: return 0x206 + reg_6824;
+	     /* 48/50fps. 50 if set_25fps is on */
+        	case 0xC0F06014: return set_25fps == 0x1 ? 0x4a1 + reg_6014: 0x4a2 + reg_6014;
+		case 0xC0F0600c: return set_25fps == 0x1 ? 0x21b021b + reg_6008 + (reg_6008 << 16): 0x2310231 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06008: return set_25fps == 0x1 ? 0x21b021b + reg_6008 + (reg_6008 << 16): 0x2310231 + reg_6008 + (reg_6008 << 16);
+		case 0xC0F06010: return set_25fps == 0x1 ? 0x21b + reg_6008: 0x231 + reg_6008;
 
 /* dummy reg for height modes eosm in raw.c */
 		case 0xC0f0b13c: return 0xe;
@@ -5671,6 +5666,7 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
     if (ratios == 0x0) snprintf(buffer, sizeof(buffer), "mv1080p_46fps");
     if (ratios == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_48fps");
     if (ratios == 0x2) snprintf(buffer, sizeof(buffer), "mv1080p_45fps");
+    if (ratios == 0x1 && set_25fps == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_50fps");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
