@@ -2228,6 +2228,7 @@ if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_1
   }
 }
 
+
 if (RECORDING && bitdepth != 0x0 && (is_EOSM || is_100D))
 {
 /* correcting black level a bit. Compensating greenish tint. Only affects preview, not recordings */
@@ -2240,8 +2241,21 @@ if (RECORDING && bitdepth != 0x0 && (is_EOSM || is_100D))
 	}
 }
 
+if (RECORDING && bitdepth != 0x0 && is_5D3)
+{
+/* trying this for compensating shitty greens reducing analog gains on 5D3 */
+	EngDrvOutLV(0xC0F0819C, 0x80C + reg_bl);
+}
+
 if (!RECORDING && (is_EOSM || is_100D || is_6D || is_5D3))
 {
+
+if (bitdepth != 0x0 && is_5D3)
+{
+/* resetting regs compensating greens reducing analog gains on 5D3s */
+	EngDrvOutLV(0xC0F0819C, 0x800 + reg_bl);
+}
+
   if (bitdepth == 0x1)
   {
     switch (reg)
@@ -2551,6 +2565,7 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
         /* 2B4 in 50p, 26D in 60p */
         case 0xC0F07150:
             return 0x26d  + reg_7150 + YRES_DELTA + delta_head4;
+
     }
 
     return reg_override_common(reg, old_val);
