@@ -2235,9 +2235,11 @@ if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_1
 }
 
 
-if (RECORDING && bitdepth != 0x0 && ((is_EOSM && CROP_PRESET_MENU != CROP_PRESET_3x3_mv1080_48fps_EOSM && is_EOSM) || is_100D))
+if (RECORDING && bitdepth != 0x0 && (is_EOSM || is_100D))
 {
 /* correcting black level a bit. Compensating greenish tint. Only affects preview, not recordings */
+   if (CROP_PRESET_MENU != CROP_PRESET_3x3_mv1080_48fps_EOSM)
+   {
         if (lens_info.raw_iso != 0x48) /* iso 100 excluded, breaks */
         {
 	EngDrvOutLV(0xc0f37aec, 0x73ca + reg_bl);
@@ -2245,6 +2247,9 @@ if (RECORDING && bitdepth != 0x0 && ((is_EOSM && CROP_PRESET_MENU != CROP_PRESET
 	EngDrvOutLV(0xc0f37b04, 0x73ca + reg_bl); 
 	EngDrvOutLV(0xc0f37ae0, 0x73ca + reg_bl); 
 	}
+
+   }
+
 }
 
 if (!RECORDING && (is_EOSM || is_100D || is_6D || is_5D3))
