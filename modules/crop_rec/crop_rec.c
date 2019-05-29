@@ -2007,7 +2007,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_4K_3x1_100D:
 	     case CROP_PRESET_5K_3x1_100D:
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
-                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
 		if (x3crop == 0x1)
 		{
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
@@ -5420,12 +5419,16 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 
     static int patch = 0;
 
-    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p)) && lv_dispsize == 5) 
+    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || 
+	crop_preset == CROP_PRESET_3x3_mv1080_48fps_EOSM || 
+	crop_preset == CROP_PRESET_3x3_1X_45p)) && lv_dispsize == 5) 
     {
 	    patch = 1;
     }
 
-    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p) && patch) && lv_dispsize == 1)
+    if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_48p || 
+	crop_preset == CROP_PRESET_3x3_mv1080_48fps_EOSM || 
+	crop_preset == CROP_PRESET_3x3_1X_45p) && patch) && lv_dispsize == 1)
     {
             patch = 0;
             patch_active = 0;
