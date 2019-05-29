@@ -508,10 +508,14 @@ static int is_supported_mode()
         /* note: zoom check is also covered by check_cmos_vidmode */
         /* (we need to apply CMOS settings before PROP_LV_DISPSIZE fires) */
         case CROP_PRESET_CENTER_Z:
-		case CROP_PRESET_CENTER_Z_700D:
-		case CROP_PRESET_CENTER_Z_650D:
-		case CROP_PRESET_CENTER_Z_EOSM:
+	case CROP_PRESET_CENTER_Z_700D:
+	case CROP_PRESET_CENTER_Z_650D:
+	case CROP_PRESET_CENTER_Z_EOSM:
             return 1;
+
+        case CROP_PRESET_3x3_1X_100D:
+	    return is_1080p();
+	break;
 
         default:
             return is_1080p() || is_720p();
