@@ -5376,7 +5376,6 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     if (lv && menu_shown)
     {
         lv_dirty = 1;
-	if (!is_5D3) patch_active = 0; // Fix for rewired modes on eosm. Sometimes regs won´t apply on start up otherwise. Could work on 100d too
     }
     
     if (!lv || menu_shown || RECORDING_RAW)
