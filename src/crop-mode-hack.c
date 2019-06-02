@@ -107,11 +107,12 @@ FILE * file6 = FIO_CreateFile( "ML/SETTINGS/sd_uhs.en" );
 FILE * file7 = FIO_CreateFile( "ML/SETTINGS/adtg_gui.en" );
 FILE * file8 = FIO_CreateFile( "ML/SETTINGS/dual_iso.en" );
 */
-    config_load();
-    if (movie_crop_mode)
-    {
-        movie_crop_hack_enable();
-    }
+// Disabled since it will interfere with crop rec movie crop rewired modes
+   // config_load();
+   // if (movie_crop_mode)
+   // {
+   //     movie_crop_hack_enable();
+   // }
 }
 
 INIT_FUNC(__FILE__, crop_mode_hack_init);
