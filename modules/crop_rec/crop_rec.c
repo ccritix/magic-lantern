@@ -580,14 +580,14 @@ static inline int get_video_mode_index()
         return 2;
     }
 
-    if (is_EOSM)
-    {
-        if (lv_dispsize == 1 && !RECORDING_H264)
-        {
-            /* EOS M stays in 720p30 during standby (same timer values as with 1080p30) */
-            return 2;
-        }
-    }
+   // if (is_EOSM) Hard to say why this is needed. Fps seems correct without it
+   // {
+   //     if (lv_dispsize == 1 && !RECORDING_H264)
+   //     {
+   //         /* EOS M stays in 720p30 during standby (same timer values as with 1080p30) */
+   //         return 2;
+   //     }
+   // }
 
     if (video_mode_crop)
     {
@@ -5268,9 +5268,9 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
             ResumeLiveView();
 	}
 
-    if (CROP_PRESET_MENU)
+    if (CROP_PRESET_MENU || is_EOSM || is_100D) //Let´s at least use this for the rewired modes. Fails randomly at start up otherwise
     {
-        if (is_supported_mode() || is_100D)
+        if (is_supported_mode() || is_100D || is_EOSM)
         {
             if (!patch_active || CROP_PRESET_MENU != crop_preset || is_EOSM || is_100D || is_700D || is_650D || is_6D || is_5D3)
             {
