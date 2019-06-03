@@ -4583,8 +4583,6 @@ static int patch_active = 0;
 static void update_patch()
 {
 
-    if (is_EOSM) msleep(500); /* might help for eosm when starting cam going into mcm rewired mode(sometimes missing regs */
-
     if (CROP_PRESET_MENU)
     {
         /* update preset */

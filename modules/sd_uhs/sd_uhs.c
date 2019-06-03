@@ -162,6 +162,14 @@ static unsigned int sd_uhs_init()
 	return 0;
 }
 
+static unsigned int sd_uhs_deinit()
+{
+    return 0;
+}
+
+
 MODULE_INFO_START()
     MODULE_INIT(sd_uhs_init)
+    MODULE_DEINIT(sd_uhs_deinit)
 MODULE_INFO_END()
+
