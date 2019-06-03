@@ -5268,7 +5268,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
             ResumeLiveView();
 	}
 
-    if (CROP_PRESET_MENU || is_EOSM || is_100D) //Let´s at least use this for the rewired modes. Fails randomly at start up otherwise
+    if (CROP_PRESET_MENU || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)
     {
         if (is_supported_mode() || is_100D || is_EOSM)
         {
