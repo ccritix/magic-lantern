@@ -4583,13 +4583,13 @@ static int patch_active = 0;
 static void update_patch()
 {
 
-    if (CROP_PRESET_MENU)
+    if (CROP_PRESET_MENU || is_EOSM)
     {
         /* update preset */
         crop_preset = CROP_PRESET_MENU;
 
         /* install our hooks, if we haven't already do so */
-        if (!patch_active)
+        if (!patch_active || is_EOSM)
         {
             patch_hook_function(CMOS_WRITE, MEM_CMOS_WRITE, &cmos_hook, "crop_rec: CMOS[1,2,6] parameters hook");
             patch_hook_function(ADTG_WRITE, MEM_ADTG_WRITE, &adtg_hook, "crop_rec: ADTG[8000,8806] parameters hook");
@@ -4604,7 +4604,7 @@ static void update_patch()
     else
     {
         /* undo active patches, if any */
-        if (patch_active)
+        if (patch_active && !is_EOSM)
         {
             unpatch_memory(CMOS_WRITE);
             unpatch_memory(ADTG_WRITE);
