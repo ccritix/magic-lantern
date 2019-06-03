@@ -5251,7 +5251,7 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
             ResumeLiveView();
 	}
 
-        if (is_EOSM && shamem_read(0xc0f383d4) == 0x4f0010 && (shamem_read(0xc0f06804) == 0x79f01e4) &&
+        if (is_EOSM && shamem_read(0xc0f383d4) == 0x4f0010 && (shamem_read(0xC0f0b13c) == 0xd) && 
 	(CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM))
         {
 /* going from CROP_PRESET_anamorphic_rewired_EOSM to CROP_PRESET_mcm_mv1080_EOSM */
