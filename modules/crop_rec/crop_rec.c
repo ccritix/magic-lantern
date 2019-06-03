@@ -4583,17 +4583,19 @@ static int patch_active = 0;
 static void update_patch()
 {
 
-    if (CROP_PRESET_MENU || is_EOSM)
+    if (is_EOSM) msleep(500); /* might help for eosm when starting cam going into mcm rewired mode(sometimes missing regs */
+
+    if (CROP_PRESET_MENU)
     {
         /* update preset */
         crop_preset = CROP_PRESET_MENU;
 
         /* install our hooks, if we haven't already do so */
-        if (!patch_active || is_EOSM)
+        if (!patch_active)
         {
             patch_hook_function(CMOS_WRITE, MEM_CMOS_WRITE, &cmos_hook, "crop_rec: CMOS[1,2,6] parameters hook");
             patch_hook_function(ADTG_WRITE, MEM_ADTG_WRITE, &adtg_hook, "crop_rec: ADTG[8000,8806] parameters hook");
-            if (ENGIO_WRITE || is_EOSM)
+            if (ENGIO_WRITE)
             {
                 patch_hook_function(ENGIO_WRITE, MEM_ENGIO_WRITE, engio_write_hook, "crop_rec: video timers hook");
             }
@@ -4604,7 +4606,7 @@ static void update_patch()
     else
     {
         /* undo active patches, if any */
-        if (patch_active && !is_EOSM)
+        if (patch_active)
         {
             unpatch_memory(CMOS_WRITE);
             unpatch_memory(ADTG_WRITE);
