@@ -780,7 +780,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	{
         skip_right = 60;
       	skip_top = 201;
-        skip_bottom = 251;
+        skip_bottom = 121;
     	}
     	if (ratios == 0x1 && x3crop == 0x1)
     	{
@@ -792,7 +792,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	{
         skip_top = 82;
         skip_right = 60;
-    	skip_bottom = 132;
+    	skip_bottom = 2;
     	}
     	if (ratios == 0x2 && x3crop == 0x1)
     	{
@@ -3445,9 +3445,9 @@ if ((ratios == 0x1 || ratios == 0x2) && x3crop == 0x0)
 {
     switch (reg)
     {
-          	case 0xC0F06804: return 0x4a601e4 + reg_6804_width + (reg_6804_height << 16); 
-        	case 0xC0F0713c: return 0x4a7 + reg_713c;
-		case 0xC0F07150: return 0x430 + reg_7150;
+          	case 0xC0F06804: return 0x42401e4 + reg_6804_width + (reg_6804_height << 16); 
+        	case 0xC0F0713c: return 0x424 + reg_713c;
+		case 0xC0F07150: return 0x3a3 + reg_7150;
 
 /* testing above for the sake of map files */
              // case 0xC0F06804: return 0x42401e4 + reg_6804_width + (reg_6804_height << 16); 
@@ -3488,10 +3488,10 @@ if (set_25fps == 0x1)
 		case 0xC0F06008: return 0x2210221 + reg_6008 + (reg_6008 << 16);
 		case 0xC0F06010: return 0x221 + reg_6008;
 
-        	case 0xC0F06824: return 0x222 + reg_6824;
-        	case 0xC0F06828: return 0x222 + reg_6824;
-        	case 0xC0F0682C: return 0x222 + reg_6824;
-        	case 0xC0F06830: return 0x222 + reg_6824; 
+        	case 0xC0F06824: return 0x21f + reg_6824;
+        	case 0xC0F06828: return 0x21f + reg_6824;
+        	case 0xC0F0682C: return 0x21f + reg_6824;
+        	case 0xC0F06830: return 0x21f + reg_6824; 
      }
 }
 
