@@ -3447,7 +3447,7 @@ if ((ratios == 0x1 || ratios == 0x2) && x3crop == 0x0)
     {
           	case 0xC0F06804: return 0x42401e4 + reg_6804_width + (reg_6804_height << 16); 
         	case 0xC0F0713c: return 0x424 + reg_713c;
-		case 0xC0F07150: return 0x3a3 + reg_7150;
+		case 0xC0F07150: return 0x38f + reg_7150;
 
 /* testing above for the sake of map files */
              // case 0xC0F06804: return 0x42401e4 + reg_6804_width + (reg_6804_height << 16); 
