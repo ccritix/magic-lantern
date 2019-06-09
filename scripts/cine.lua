@@ -1,6 +1,6 @@
--- cinema 2:35.1  
+-- cinema 2:39.1  
 
--- Sets all parameters for anamorphic 2:35.1
+-- Sets all parameters for anamorphic 2:39.1
 
   lv.start()
   lv.zoom = 1
@@ -54,7 +54,7 @@ if camera.model_short == "5D3" then
     menu.set("Movie", "Crop mode", "anamorphic")
 end
     menu.set("Crop mode", "bitdepth", "10 bit")
-    menu.set("Crop mode", "ratios", "2.35:1")
+    menu.set("Crop mode", "ratios", "2.39:1")
   msleep(300)
 
 -- enable crop_rec.mo. Checking first after trying to enable 5k preset
