@@ -16,8 +16,8 @@ if camera.model_short ~= "EOSM" and camera.model_short ~= "700D" and camera.mode
 end
 
 -- this script should never run on Autorun, menu.set not working so running menu.select instead
-if menu.get("cinema 2:35.1", "Autorun", "") == "ON" then
-   menu.select("Scripts", "cinema 2:35.1")
+if menu.get("cinema 2:39.1", "Autorun", "") == "ON" then
+   menu.select("Scripts", "cinema 2:39.1")
    menu.open()     -- open ML menu
    key.press(KEY.SET)
    key.press(KEY.WHEEL_DOWN)
@@ -46,7 +46,9 @@ if menu.get("Sound recording", "Enable sound", "") ~= "ON" then
 end
 
 -- crop mode
-    menu.set("Movie", "Crop mode", "5K anamorphic")
+if camera.model_short == "EOSM" then
+    menu.set("Movie", "Crop mode", "4K anamorphic rewired")
+end
 if camera.model_short == "100D" then
     menu.set("Movie", "Crop mode", "anamorphic rewired")
 end
@@ -58,7 +60,7 @@ end
   msleep(300)
 
 -- enable crop_rec.mo. Checking first after trying to enable 5k preset
-if menu.get("Movie", "Crop mode", "") ~= "5K anamorphic" and menu.get("Movie", "Crop mode", "") ~= "anamorphic rewired" and menu.get("Movie", "Crop mode", "") ~= "anamorphic" then
+if menu.get("Movie", "Crop mode", "") ~= "5K anamorphic" and menu.get("Movie", "Crop mode", "") ~= "anamorphic rewired" and menu.get("Movie", "Crop mode", "") ~= "4K anamorphic rewired" then
   display.notify_box("enable crop_rec.mo")
   msleep(1000)
   display.notify_box("enable crop_rec.mo")
