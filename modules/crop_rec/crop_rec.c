@@ -726,9 +726,16 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	skip_left       = 72;
     	skip_right      = 0;
     	skip_top        = 28;
-    	skip_bottom     = 8;
+    	skip_bottom     = 26;
     	}
     	if (ratios == 0x2)
+    	{
+    	skip_left       = 72;
+    	skip_right      = 0;
+    	skip_top        = 28;
+    	skip_bottom     = 8;
+    	}
+    	if (ratios == 0x3)
     	{
     	skip_left       = 332;
     	skip_right      = 330;
@@ -739,11 +746,21 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
 
 	case CROP_PRESET_2K_EOSM:
     	/* set ratio preset */
+    	if (ratios == 0x1)
+    	{
+    	skip_left       = 72;
+    	skip_right      = 0;
+    	skip_top        = 28;
+    	skip_bottom     = 18;
+    	}
+    	if (ratios == 0x2)
+    	{
     	skip_left       = 72;
     	skip_right      = 0;
     	skip_top        = 28;
     	skip_bottom     = 0;
-    	if (ratios == 0x2)
+    	}
+    	if (ratios == 0x3)
     	{
     	skip_left       = 234;
     	skip_right      = 160;
@@ -752,28 +769,47 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	}
         break;
 
-	case CROP_PRESET_4K_EOSM:
-    	skip_left       = 72;
-    	skip_right      = 0;
-    	skip_top        = 30;
-    	skip_bottom     = 0;
-        break;
-
 	case CROP_PRESET_3K_EOSM:
     	skip_left       = 72;
     	skip_right      = 0;
     	skip_top        = 28;
     	skip_bottom     = 0;
+    	if (ratios == 0x1)
+    	{
+    	skip_left       = 72;
+    	skip_right      = 0;
+    	skip_top        = 28;
+    	skip_bottom     = 20;
+    	}
+        break;
+
+	case CROP_PRESET_4K_EOSM:
+    	skip_left       = 72;
+    	skip_right      = 0;
+    	skip_top        = 30;
+    	skip_bottom     = 0;
+    	if (ratios == 0x1)
+    	{
+    	skip_left       = 72;
+    	skip_right      = 0;
+    	skip_top        = 28;
+    	skip_bottom     = 28;
+    	}
         break;
 
 	case CROP_PRESET_3x3_mv1080_EOSM:
     	/* set ratio preset */
     	if (ratios == 0x1)
     	{
-      	skip_bottom = 420;
+      	skip_bottom = 432;
         skip_left = 72;
     	}
     	if (ratios == 0x2)
+    	{
+      	skip_bottom = 420;
+        skip_left = 72;
+    	}
+    	if (ratios == 0x3)
     	{
       	skip_bottom = 182;
     	}
@@ -831,6 +867,11 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
  	case CROP_PRESET_3x1_mv720_50fps_EOSM:
         skip_bottom = 2;
     	if (ratios == 0x1)
+    	{
+      	skip_top = 102;
+      	skip_bottom = 190;
+    	}
+    	if (ratios == 0x2)
     	{
       	skip_top = 102;
       	skip_bottom = 182;
@@ -3239,7 +3280,7 @@ static inline uint32_t reg_override_center_z_eosm(uint32_t reg, uint32_t old_val
 /* Values for EOSM */
 static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
 {
-  if (ratios == 0x1)
+  if (ratios == 0x1 || ratios == 0x2)
   {
     switch (reg)
     {
@@ -3286,7 +3327,7 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
 	case 0xC0f0b13c: return 0xf;
     }
 
-  if (ratios == 0x1)
+  if (ratios == 0x1 || ratios == 0x2)
   {
     switch (reg)
     {
@@ -3313,7 +3354,7 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
 static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
 {
 
-  if (ratios == 0x1)
+  if (ratios == 0x1 || ratios == 0x2)
   {
     switch (reg)
     {
@@ -3464,7 +3505,7 @@ static inline uint32_t reg_override_3x3_mv1080_eosm(uint32_t reg, uint32_t old_v
 {
 
 /* 24 fps */
-  if ((ratios == 0x1) || (ratios == 0x2))
+  if ((ratios == 0x1) || (ratios == 0x2) || (ratios == 0x3))
   {
     switch (reg)
     {
@@ -4519,7 +4560,6 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_anamorphic_rewired_100D) ? reg_override_anamorphic_rewired_100d        :
         (crop_preset == CROP_PRESET_CENTER_Z_EOSM) ? reg_override_center_z_eosm        :
         (crop_preset == CROP_PRESET_2K_EOSM)         ? reg_override_2K_eosm         :   
-        (crop_preset == CROP_PRESET_2K_EOSM)         ? reg_override_2K_eosm         :    
         (crop_preset == CROP_PRESET_3K_EOSM)         ? reg_override_3K_eosm         : 
         (crop_preset == CROP_PRESET_4K_EOSM) 	     ? reg_override_4K_eosm         :
         (crop_preset == CROP_PRESET_4K_3x1_EOSM) 	     ? reg_override_4K_3x1_EOSM        :
@@ -5692,18 +5732,18 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
     snprintf(buffer, sizeof(buffer), "2520x1418");
   if (ratios == 0x2)
   {
-    snprintf(buffer, sizeof(buffer), "2192x1234");
+    snprintf(buffer, sizeof(buffer), "2K");
   }
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM)
   {
-    snprintf(buffer, sizeof(buffer), "3032x1436");
+    snprintf(buffer, sizeof(buffer), "3K");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
   {
-    snprintf(buffer, sizeof(buffer), "4K 4038x2558");
+    snprintf(buffer, sizeof(buffer), "4K");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM)
