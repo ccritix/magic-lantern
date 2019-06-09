@@ -293,7 +293,7 @@ static const char crop_choices_help2_eosm[] =
     "Enable Movie crop mode and push canon MENU button and back\n"
     "mv1080p 46/48 fps\n"
     "mv720p 50fps 16:9\n"
-    "1x3 binning modes(anamorphic) rewired 2.35:1\n"
+    "1x3 binning modes(anamorphic)\n"
     "1x3 binning modes(anamorphic)\n";
    // "5:1 4K crop squeeze, preview broken\n"
    // "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
@@ -668,20 +668,34 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
 	    skip_left       = 206;
             skip_right      = 62;
             skip_top        = 60;
+    	    skip_bottom     = 30;
 	}
     	if (ratios == 0x1 && set_25fps == 0x1)
     	{
 	    skip_left       = 248;
             skip_right      = 110;
             skip_top        = 60;
+    	    skip_bottom     = 42;
 	}
     	if (ratios == 0x2)
+    	{
+	    skip_left       = 206;
+            skip_right      = 62;
+            skip_top        = 60;
+	}
+    	if (ratios == 0x2 && set_25fps == 0x1)
+    	{
+	    skip_left       = 248;
+            skip_right      = 110;
+            skip_top        = 60;
+	}
+    	if (ratios == 0x3)
     	{
 	    skip_left       = 426;
             skip_right      = 282;
             skip_top        = 60;
 	}
-    	if (ratios == 0x2 && set_25fps == 0x1)
+    	if (ratios == 0x3 && set_25fps == 0x1)
     	{
 	    skip_left       = 512;
             skip_right      = 270;
@@ -780,21 +794,33 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	{
         skip_right = 60;
       	skip_top = 201;
-        skip_bottom = 121;
+        skip_bottom = 133;
     	}
     	if (ratios == 0x1 && x3crop == 0x1)
     	{
         skip_right = 0;
       	skip_top = 172;
+        skip_bottom = 184;
+    	}
+    	if (ratios == 0x2 && x3crop == 0x0)
+    	{
+        skip_right = 60;
+      	skip_top = 201;
+        skip_bottom = 121;
+    	}
+    	if (ratios == 0x2 && x3crop == 0x1)
+    	{
+        skip_right = 0;
+      	skip_top = 172;
         skip_bottom = 172;
     	}	
-    	if (ratios == 0x2 && x3crop == 0x0)
+    	if (ratios == 0x3 && x3crop == 0x0)
     	{
         skip_top = 82;
         skip_right = 60;
     	skip_bottom = 2;
     	}
-    	if (ratios == 0x2 && x3crop == 0x1)
+    	if (ratios == 0x3 && x3crop == 0x1)
     	{
         skip_top = 84;
         skip_right = 0;
@@ -819,15 +845,27 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	{
       	skip_right = 56;
    	skip_left = 98;
-      	skip_bottom = 26;
+      	skip_bottom = 40;
     	}
     	if (ratios == 0x1 && set_25fps == 0x1)
     	{
       	skip_right = 78;
    	skip_left = 120;
-      	skip_bottom = 44;
+      	skip_bottom = 56;
 	}
     	if (ratios == 0x2)
+    	{
+      	skip_right = 56;
+   	skip_left = 98;
+      	skip_bottom = 26;
+    	}
+    	if (ratios == 0x2 && set_25fps == 0x1)
+    	{
+      	skip_right = 78;
+   	skip_left = 120;
+      	skip_bottom = 44;
+	}
+    	if (ratios == 0x3)
     	{
    	skip_left = 196;
     	skip_right = 112;
@@ -844,8 +882,22 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
 
 	case CROP_PRESET_anamorphic_rewired_EOSM:
 /* see autodetect_black_level exception in raw.c */
-/* only 2.35:1 */
+/* 2.39:1 */
   if (ratios == 0x1)
+  {
+        skip_bottom = 54;
+        skip_right = 186;
+        skip_left = 190;
+   if (bitdepth == 0x4)
+   {
+        skip_bottom = 54;
+        skip_right = 266;
+        skip_left = 270;
+   }
+        break;
+  }
+/* 2.35:1 */
+  if (ratios == 0x2)
   {
         skip_bottom = 20;
         skip_right = 186;
@@ -858,7 +910,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
    }
         break;
   }
-  else
+  if (ratios == 0x3)
   {
         skip_bottom = 20;
         skip_right = 370;
@@ -880,11 +932,17 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         skip_bottom = 24;
     	if (ratios == 0x1)
     	{
-        skip_bottom = 20;
+        skip_bottom = 54;
         skip_right = 156;
         skip_left = 160;
     	}
     	if (ratios == 0x2)
+    	{
+        skip_bottom = 20;
+        skip_right = 156;
+        skip_left = 160;
+    	}
+    	if (ratios == 0x3)
     	{
         skip_bottom = 0;
         skip_right = 324;
@@ -896,11 +954,17 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
         skip_right = 60;
     	if (ratios == 0x1)
     	{
-        skip_bottom = 16;
+        skip_bottom = 48;
         skip_right = 175;
         skip_left = 235;
 	}
     	if (ratios == 0x2)
+    	{
+        skip_bottom = 16;
+        skip_right = 175;
+        skip_left = 235;
+	}
+    	if (ratios == 0x3)
     	{
         skip_bottom = 16;
         skip_right = 340;
@@ -3048,7 +3112,7 @@ static inline uint32_t reg_override_anamorphic_rewired_100d(uint32_t reg, uint32
 	EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
 	}
 
-  if ((ratios != 0x1) && (ratios != 0x2))
+  if ((ratios != 0x1) && (ratios != 0x2) && (ratios != 0x3))
   {
 
     switch (reg)
@@ -3076,9 +3140,9 @@ static inline uint32_t reg_override_anamorphic_rewired_100d(uint32_t reg, uint32
    }
 
 
-  if (ratios == 0x1)
+  if (ratios == 0x1 || ratios == 0x2)
   {
-/* 2.35:1 */
+/* 2.39:1 and 2.35:1 */
     switch (reg)
     {
 		case 0xC0F06804: return 0x77701ed + reg_6804_width + (reg_6804_height << 16);
@@ -3103,7 +3167,7 @@ static inline uint32_t reg_override_anamorphic_rewired_100d(uint32_t reg, uint32
 
    }
 
-  if (ratios == 0x2)
+  if (ratios == 0x3)
   {
 /* 16:9 */
     switch (reg)
@@ -3441,7 +3505,7 @@ if ((ratios == 0x0 && x3crop == 0x0) || (ratios == 0x0 && x3crop == 0x1))
     }
 }
 
-if ((ratios == 0x1 || ratios == 0x2) && x3crop == 0x0)
+if ((ratios == 0x1 || ratios == 0x2 || ratios == 0x3) && x3crop == 0x0)
 {
     switch (reg)
     {
@@ -3456,8 +3520,8 @@ if ((ratios == 0x1 || ratios == 0x2) && x3crop == 0x0)
     }
 }
 
-/* x3crop 2.35:1 */
-if (ratios == 0x1 && x3crop == 0x1)
+/* x3crop 2.39:1 and 2.35:1 */
+if ((ratios == 0x1 || ratios == 0x2) && x3crop == 0x1)
 {
     switch (reg)
     {
@@ -3468,7 +3532,7 @@ if (ratios == 0x1 && x3crop == 0x1)
 }
 
 /* x3crop 16:9 */
-if (ratios == 0x2 && x3crop == 0x1)
+if (ratios == 0x3 && x3crop == 0x1)
 {
     switch (reg)
     {
@@ -3500,7 +3564,7 @@ if (set_25fps == 0x1)
 /* reset dummy reg in raw.c */
 	case 0xC0f0b13c: return 0xf;
 /* cinema cropmarks in mlv_lite.c. Detection reg */
-	case 0xc0f0b134: return ratios == 0x1 ? 0x5: 0x4;
+	case 0xc0f0b134: return (ratios == 0x1 || ratios == 0x2) ? 0x5: 0x4;
     }
 
 
@@ -3535,7 +3599,7 @@ static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_va
         return 0;
     }
 
-  if ((ratios != 0x1) && (ratios != 0x2))
+  if ((ratios != 0x1) && (ratios != 0x2) && (ratios != 0x3))
   {
     switch (reg)
     {
@@ -3560,7 +3624,7 @@ static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_va
     }
   }
 
-  if (ratios == 0x1)
+  if (ratios == 0x1 || ratios == 0x2)
   {
     switch (reg)
     {
@@ -3579,7 +3643,7 @@ static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_va
     }
   }
 
-  if (ratios == 0x2)
+  if (ratios == 0x3)
   {
     switch (reg)
     {
@@ -3643,11 +3707,11 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
 	EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
 	}
 
-  if (ratios == 0x1)
+  if (ratios == 0x1 || ratios == 0x2)
   {
     switch (reg)
     {
-/* Only 2.35:1 */
+/* 2.39:1 or 2.35:1 */
        	case 0xC0F06804:
          	return bitdepth == 0x4 ? 0x6d701e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
         case 0xC0F0713c:
@@ -3701,7 +3765,7 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
 static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_val)
 {
 
-  if (ratios == 0x1)
+  if (ratios == 0x1 || ratios == 0x2)
   {
     switch (reg)
     {
@@ -3722,7 +3786,7 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
 
   }
 
-  if (ratios == 0x2)
+  if (ratios == 0x3)
   {
     switch (reg)
     {
@@ -3742,7 +3806,7 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
 
   }
 
-  if ((ratios != 0x1) && (ratios != 0x2))
+  if ((ratios != 0x1) && (ratios != 0x2) && (ratios != 0x3))
   {
     switch (reg)
     {
@@ -4753,8 +4817,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "ratios",
                 .priv   = &ratios,
-                .max    = 2,
-                .choices = CHOICES("OFF", "2.35:1", "16:9"),
+                .max    = 3,
+                .choices = CHOICES("OFF", "2.39:1", "2.35:1", "16:9"),
                 .help   = "Change aspect ratio\n"
             },
             {
@@ -4769,7 +4833,7 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &set_25fps,
                 .max    = 1,
                 .choices = CHOICES("OFF", "25fps"),
-                .help   = "Sets 2.35:1 and 16:9 modes to 25fps\n"
+                .help   = "Sets 2.39:1, 2.35:1 and 16:9 modes to 25fps\n"
             },
             {
                 .name   = "hdr iso A",
@@ -5526,9 +5590,13 @@ static LVINFO_UPDATE_FUNC(crop_info)
   {
     if (ratios == 0x1)
     {
-    snprintf(buffer, sizeof(buffer), "anamorph 2.35:1");
+    snprintf(buffer, sizeof(buffer), "anamorph 2.39:1");
     }
     if (ratios == 0x2)
+    {
+    snprintf(buffer, sizeof(buffer), "anamorph 2.35:1");
+    }
+    if (ratios == 0x3)
     {
     snprintf(buffer, sizeof(buffer), "anamorph 16:9");
     }
@@ -5592,9 +5660,13 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)
 {
   if (ratios == 0x1)
   {
+    snprintf(buffer, sizeof(buffer), "anamorph 2.39:1");
+  }
+  if (ratios == 0x2)
+  {
     snprintf(buffer, sizeof(buffer), "anamorph 2.35:1");
   }
-  else
+  if (ratios == 0x3)
   {
     snprintf(buffer, sizeof(buffer), "anamorph 16:9");
   }
@@ -5604,11 +5676,11 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)
 if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
 {
     snprintf(buffer, sizeof(buffer), "5K anamorphic");
-  if (ratios == 0x1)
+  if (ratios == 0x1 || ratios == 0x2)
   {
     snprintf(buffer, sizeof(buffer), "4.5K anamorphic");
   }
-  if (ratios == 0x2)
+  if (ratios == 0x3)
   {
     snprintf(buffer, sizeof(buffer), "3.5K anamorphic");
   }
@@ -5676,9 +5748,9 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_700D || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_650D)
   {
     if (ratios == 0x0) snprintf(buffer, sizeof(buffer), "mv1080p_46fps");
-    if (ratios == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_48fps");
-    if (ratios == 0x2) snprintf(buffer, sizeof(buffer), "mv1080p_45fps");
-    if (ratios == 0x1 && set_25fps == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_50fps");
+    if (ratios == 0x1 || ratios == 0x2) snprintf(buffer, sizeof(buffer), "mv1080p_48fps");
+    if (ratios == 0x3) snprintf(buffer, sizeof(buffer), "mv1080p_45fps");
+    if ((ratios == 0x1 || ratios == 0x2) && set_25fps == 0x1) snprintf(buffer, sizeof(buffer), "mv1080p_50fps");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
