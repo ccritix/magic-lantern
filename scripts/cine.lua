@@ -1,6 +1,6 @@
--- cinema 2:39.1  
+-- cinema 2.39:1  
 
--- Sets all parameters for anamorphic 2:39.1
+-- Sets all parameters for anamorphic 2.39:1
 
   lv.start()
   lv.zoom = 1
@@ -16,8 +16,8 @@ if camera.model_short ~= "EOSM" and camera.model_short ~= "700D" and camera.mode
 end
 
 -- this script should never run on Autorun, menu.set not working so running menu.select instead
-if menu.get("cinema 2:39.1", "Autorun", "") == "ON" then
-   menu.select("Scripts", "cinema 2:39.1")
+if menu.get("cinema 2.39:1", "Autorun", "") == "ON" then
+   menu.select("Scripts", "cinema 2.39:1")
    menu.open()     -- open ML menu
    key.press(KEY.SET)
    key.press(KEY.WHEEL_DOWN)
