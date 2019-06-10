@@ -5293,6 +5293,9 @@ static int crop_rec_needs_lv_refresh()
         return 0;
     }
 
+/* We don´t want this when in photo mode I assume */
+	if (!is_movie_mode()) return 0;
+
 /* let´s automate liveview start off setting */
 if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
@@ -5318,7 +5321,6 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_650D))
   {
 /* Not enter x5 mode while in photo mode */
-  if (!is_movie_mode()) return 0;
   lv_dispsize = 5;
   }
   else
@@ -5475,6 +5477,9 @@ static void set_zoom(int zoom)
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
+/* We don´t want this when in photo mode I assume */
+	if (!is_movie_mode()) return 0;
+
     /* also check at startup */
     static int lv_dirty = 1;
 
@@ -5567,10 +5572,6 @@ if (((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_650D) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_650D)) && lv_dispsize == 1)
 {
-
-/* Not enter x5 mode while in photo mode */
-	if (!is_movie_mode()) return 0;
-
   	set_lv_zoom(5);
 	lv_dirty = 1;
 	patch_active = 0;
