@@ -5320,7 +5320,6 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_650D) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_650D))
   {
-/* Not enter x5 mode while in photo mode */
   lv_dispsize = 5;
   }
   else
