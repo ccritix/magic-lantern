@@ -5317,6 +5317,8 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_650D) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_650D))
   {
+/* Not enter x5 mode while in photo mode */
+  if (!is_movie_mode()) return 0;
   lv_dispsize = 5;
   }
   else
@@ -5539,6 +5541,8 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             lv_dirty = 1;
     }
 
+/* not entering  more crashes when selecing photo mode */
+
 
 if (((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
@@ -5563,6 +5567,10 @@ if (((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_650D) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_650D)) && lv_dispsize == 1)
 {
+
+/* Not enter x5 mode while in photo mode */
+	if (!is_movie_mode()) return 0;
+
   	set_lv_zoom(5);
 	lv_dirty = 1;
 	patch_active = 0;
