@@ -923,6 +923,11 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
 
 	case CROP_PRESET_anamorphic_rewired_EOSM:
 /* see autodetect_black_level exception in raw.c */
+  if (ratios == 0x0)
+  {
+    skip_right      = 58;
+    break;
+  }
 /* 2.39:1 */
   if (ratios == 0x1)
   {
