@@ -5545,9 +5545,6 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             lv_dirty = 1;
     }
 
-/* not entering  more crashes when selecing photo mode */
-
-
 if (((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_3K_100D) || 
