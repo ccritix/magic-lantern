@@ -221,7 +221,7 @@ static const char * crop_choices_100d[] = {
     "mv1080p_mv720p mode",
     "2.5K 2520x1418",
     "3K 3000x1432", 
-    "4K 4056x2552",
+    "4K 4056x2284",
   //  "4K 3x1 24fps",
   //  "5K 3x1 24fps",
 };
@@ -3030,7 +3030,7 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0xa1b0421 + reg_6804_width + (reg_6804_height << 16); // 4096x2560  x5 Mode;
+        case 0xC0F06804: return 0x90d0421 + reg_6804_width + (reg_6804_height << 16); // 4096x2560  x5 Mode;
 
         case 0xC0F06824: return 0x4ca;
         case 0xC0F06828: return 0x4ca;
@@ -3041,8 +3041,9 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
         case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0xbd4 + reg_6014;
-        case 0xC0F0713c: return 0xa55 + reg_713c;
+        case 0xC0F06014: return 0xfff + reg_6014;
+        case 0xC0F0713c: return 0x90d + reg_713c;
+        case 0xC0F07150: return 0x8f9 + reg_7150;
     }
 
     return reg_override_bits(reg, old_val);
@@ -5698,7 +5699,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
 
   if (CROP_PRESET_MENU == CROP_PRESET_4K_100D)
   {
-    snprintf(buffer, sizeof(buffer), "4056x2552");
+    snprintf(buffer, sizeof(buffer), "4056x2284");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
