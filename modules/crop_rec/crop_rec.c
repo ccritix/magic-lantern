@@ -242,7 +242,7 @@ static const char crop_choices_help2_100d[] =
     "2K x5 crop, framing preview\n"
     "1:1 3K x5crop, framing preview\n"
     "1:1 4K x5 crop, framing preview\n"
-    "1:1 4K timelapse 2.8fps\n";
+    "1:1 4K timelapse 0.4fps\n";
   //  "3:1 4K x5 crop, framing preview\n"
   //  "3:1 5K x5 crop, framing preview\n"
 
