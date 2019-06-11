@@ -43,6 +43,7 @@ static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
+static CONFIG_INT("crop.timelapse", timelapse, 0);
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -3072,7 +3073,12 @@ static inline uint32_t reg_override_4K_100d_tl(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
         case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return (RECORDING) ? 0x270b + reg_6014: 0xbd4;
+        case 0xC0F06014: return (RECORDING && timelapse == 0x0) ? 0xffff:
+				(RECORDING && timelapse == 0x1) ? 0x6ff9:
+				(RECORDING && timelapse == 0x2) ? 0x37ff:
+				(RECORDING && timelapse == 0x3) ? 0x2553:	
+				(RECORDING && timelapse == 0x4) ? 0x1bfe:
+				(RECORDING && timelapse == 0x5) ? 0x1665: 0xbd4  + reg_6014;
         case 0xC0F0713c: return 0x90d + reg_713c;
         case 0xC0F07150: return 0x8f9 + reg_7150;
     }
@@ -4929,6 +4935,13 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "HDR workaround eosm\n"
             },
             {
+                .name   = "4k timelapse",
+                .priv   = &timelapse,
+                .max    = 5,
+                .choices = CHOICES("OFF", "1fps", "2fps", "3fps", "4fps", "5fps"),
+                .help   = "intervals(only 4k timelapse preset)\n"
+            },
+            {
                 .name   = "reg_713c",
                 .priv   = &reg_713c,
                 .min    = -2000,
@@ -4949,8 +4962,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "reg_6014",
                 .priv   = &reg_6014,
-                .min    = -2000,
-                .max    = 2000,
+                .min    = -100000,
+                .max    = 100000,
                 .unit   = UNIT_DEC,
                 .help  = "Alter frame rate. Combine with reg_6008",
                 .advanced = 1,
@@ -5739,7 +5752,12 @@ static LVINFO_UPDATE_FUNC(crop_info)
 
   if (CROP_PRESET_MENU == CROP_PRESET_4K_100D_TL)
   {
-    snprintf(buffer, sizeof(buffer), "Timelapse");
+    if (timelapse == 0x0) snprintf(buffer, sizeof(buffer), "timelapse0.4fps");
+    if (timelapse == 0x1) snprintf(buffer, sizeof(buffer), "timelapse 1fps");
+    if (timelapse == 0x2) snprintf(buffer, sizeof(buffer), "timelapse 2fps");
+    if (timelapse == 0x3) snprintf(buffer, sizeof(buffer), "timelapse 3fps");
+    if (timelapse == 0x4) snprintf(buffer, sizeof(buffer), "timelapse 4fps");
+    if (timelapse == 0x5) snprintf(buffer, sizeof(buffer), "timelapse 5fps");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
@@ -6361,6 +6379,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(set_25fps)
     MODULE_CONFIG(HDR_iso_a)
     MODULE_CONFIG(HDR_iso_b)
+    MODULE_CONFIG(timelapse)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
