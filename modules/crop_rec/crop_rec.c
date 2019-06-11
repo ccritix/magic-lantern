@@ -71,7 +71,6 @@ enum crop_preset {
     CROP_PRESET_2K_100D,
     CROP_PRESET_3K_100D,
     CROP_PRESET_4K_100D,
-    CROP_PRESET_4K_100D_TL,
     CROP_PRESET_4K_3x1_100D,
     CROP_PRESET_5K_3x1_100D,
     CROP_PRESET_3x3_mv1080_EOSM,
@@ -210,7 +209,6 @@ static enum crop_preset crop_presets_100d[] = {
     CROP_PRESET_2K_100D,
     CROP_PRESET_3K_100D,
     CROP_PRESET_4K_100D,
-    CROP_PRESET_4K_100D_TL,
    // CROP_PRESET_4K_3x1_100D,
    // CROP_PRESET_5K_3x1_100D,
 };
@@ -225,7 +223,6 @@ static const char * crop_choices_100d[] = {
     "2.5K 2520x1418",
     "3K 3000x1432", 
     "4K 4056x2284",
-    "4K timelapse",
   //  "4K 3x1 24fps",
   //  "5K 3x1 24fps",
 };
@@ -241,8 +238,7 @@ static const char crop_choices_help2_100d[] =
     "regular mv1080p mode\n"
     "2K x5 crop, framing preview\n"
     "1:1 3K x5crop, framing preview\n"
-    "1:1 4K x5 crop, framing preview\n"
-    "1:1 4K timelapse 0.4fps\n";
+    "1:1 4K x5 crop, framing preview\n";
   //  "3:1 4K x5 crop, framing preview\n"
   //  "3:1 5K x5 crop, framing preview\n"
 
@@ -1123,7 +1119,6 @@ static int max_resolutions[NUM_CROP_PRESETS][6] = {
     [CROP_PRESET_4K_3x1_100D]          = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_5K_3x1_100D]          = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_4K_100D]       = { 3072, 3072, 2500, 1440, 1200 },
-    [CROP_PRESET_4K_100D_TL]       = { 3072, 3072, 2500, 1440, 1200 },
     [CROP_PRESET_1080K_100D]    = { 1304, 1104,  904,  704,  504 },
     [CROP_PRESET_anamorphic_rewired_100D]  = { 1290, 1290, 1290,  960,  800 },
     [CROP_PRESET_3xcropmode_100D]       = { 1304, 1104,  904,  704,  504 },
@@ -1442,7 +1437,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;	
 			
 			case CROP_PRESET_4K_100D:
-			case CROP_PRESET_4K_100D_TL:
                 cmos_new[5] = 0x200;            /* vertical (first|last) */
                 cmos_new[7] = 0xf20;
                 break;	
@@ -3048,37 +3042,13 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
         case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0xfff + reg_6014;
-        case 0xC0F0713c: return 0x90d + reg_713c;
-        case 0xC0F07150: return 0x8f9 + reg_7150;
-    }
+        case 0xC0F06014: return (RECORDING && timelapse == 0x1) ? 0xffff:
+				(RECORDING && timelapse == 0x2) ? 0x6ff9:
+				(RECORDING && timelapse == 0x3) ? 0x37ff:
+				(RECORDING && timelapse == 0x4) ? 0x2553:	
+				(RECORDING && timelapse == 0x5) ? 0x1bfe:
+				(RECORDING && timelapse == 0x6) ? 0x1665: 0xbd4 + reg_6014;
 
-    return reg_override_bits(reg, old_val);
-}
-
-static inline uint32_t reg_override_4K_100d_tl(uint32_t reg, uint32_t old_val)
-{
-    switch (reg)
-    {
-        /* raw resolution (end line/column) */
-        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return 0x90d0421 + reg_6804_width + (reg_6804_height << 16); // 4096x2560  x5 Mode;
-
-        case 0xC0F06824: return 0x4ca;
-        case 0xC0F06828: return 0x4ca;
-        case 0xC0F0682C: return 0x4ca;
-        case 0xC0F06830: return 0x4ca;
-       
-        case 0xC0F06010: return 0x45b + reg_6008;
-        case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
-        case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
-
-        case 0xC0F06014: return (RECORDING && timelapse == 0x0) ? 0xffff:
-				(RECORDING && timelapse == 0x1) ? 0x6ff9:
-				(RECORDING && timelapse == 0x2) ? 0x37ff:
-				(RECORDING && timelapse == 0x3) ? 0x2553:	
-				(RECORDING && timelapse == 0x4) ? 0x1bfe:
-				(RECORDING && timelapse == 0x5) ? 0x1665: 0xbd4  + reg_6014;
         case 0xC0F0713c: return 0x90d + reg_713c;
         case 0xC0F07150: return 0x8f9 + reg_7150;
     }
@@ -3413,7 +3383,13 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
         case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0xc70 + reg_6014;
+        case 0xC0F06014: return (timelapse == 0x1) ? 0xffff:
+				(timelapse == 0x2) ? 0x6ff9:
+				(timelapse == 0x3) ? 0x37ff:
+				(timelapse == 0x4) ? 0x2553:	
+				(timelapse == 0x5) ? 0x1bfe:
+				(timelapse == 0x6) ? 0x1665: 0xc70 + reg_6014;
+
         case 0xC0F0713c: return 0x6c2 + reg_713c;
 
 /* reset dummy reg in raw.c */
@@ -3436,7 +3412,13 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
         case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0xc70 + reg_6014;
+        case 0xC0F06014: return (timelapse == 0x1) ? 0xffff:
+				(timelapse == 0x2) ? 0x6ff9:
+				(timelapse == 0x3) ? 0x37ff:
+				(timelapse == 0x4) ? 0x2553:	
+				(timelapse == 0x5) ? 0x1bfe:
+				(timelapse == 0x6) ? 0x1665: 0xc70 + reg_6014;
+
         case 0xC0F0713c: return 0xA55 + reg_713c;
 
 /* reset dummy reg in raw.c */
@@ -4597,7 +4579,6 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_2K_100D)    ? reg_override_2K_100d         :    
         (crop_preset == CROP_PRESET_3K_100D)    ? reg_override_3K_100d         : 
         (crop_preset == CROP_PRESET_4K_100D)    ? reg_override_4K_100d         :
-        (crop_preset == CROP_PRESET_4K_100D_TL)    ? reg_override_4K_100d_tl         :
         (crop_preset == CROP_PRESET_4K_3x1_100D) 	     ? reg_override_4K_3x1_100D        :
         (crop_preset == CROP_PRESET_5K_3x1_100D) 	     ? reg_override_5K_3x1_100D        :
         (crop_preset == CROP_PRESET_1080K_100D)	     ? reg_override_1080p_100d      :
@@ -4854,7 +4835,6 @@ static MENU_UPDATE_FUNC(crop_update)
 || (CROP_PRESET_MENU == CROP_PRESET_2K_100D)
 || (CROP_PRESET_MENU == CROP_PRESET_3K_100D)
 || (CROP_PRESET_MENU == CROP_PRESET_4K_100D)
-|| (CROP_PRESET_MENU == CROP_PRESET_4K_100D_TL)
 || (CROP_PRESET_MENU == CROP_PRESET_1080K_100D)))
     {
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in x5 zoom");
@@ -4937,9 +4917,9 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "4k timelapse",
                 .priv   = &timelapse,
-                .max    = 5,
-                .choices = CHOICES("OFF", "1fps", "2fps", "3fps", "4fps", "5fps"),
-                .help   = "intervals(only 4k timelapse preset)\n"
+                .max    = 6,
+                .choices = CHOICES("OFF", "0.4fps" ,"1fps", "2fps", "3fps", "4fps", "5fps"),
+                .help   = "intervals(only 4k preset(100D/EOSM)\n"
             },
             {
                 .name   = "reg_713c",
@@ -5353,7 +5333,6 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_3K_100D) || 
 (CROP_PRESET_MENU == CROP_PRESET_4K_100D) || 
-(CROP_PRESET_MENU == CROP_PRESET_4K_100D_TL) || 
 (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) ||
@@ -5602,7 +5581,6 @@ if (((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
 (CROP_PRESET_MENU == CROP_PRESET_3K_100D) || 
 (CROP_PRESET_MENU == CROP_PRESET_4K_100D) || 
-(CROP_PRESET_MENU == CROP_PRESET_4K_100D_TL) || 
 (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) ||
@@ -5748,16 +5726,12 @@ static LVINFO_UPDATE_FUNC(crop_info)
   if (CROP_PRESET_MENU == CROP_PRESET_4K_100D)
   {
     snprintf(buffer, sizeof(buffer), "4056x2284");
-  }
-
-  if (CROP_PRESET_MENU == CROP_PRESET_4K_100D_TL)
-  {
-    if (timelapse == 0x0) snprintf(buffer, sizeof(buffer), "timelapse0.4fps");
-    if (timelapse == 0x1) snprintf(buffer, sizeof(buffer), "timelapse 1fps");
-    if (timelapse == 0x2) snprintf(buffer, sizeof(buffer), "timelapse 2fps");
-    if (timelapse == 0x3) snprintf(buffer, sizeof(buffer), "timelapse 3fps");
-    if (timelapse == 0x4) snprintf(buffer, sizeof(buffer), "timelapse 4fps");
-    if (timelapse == 0x5) snprintf(buffer, sizeof(buffer), "timelapse 5fps");
+    if (timelapse == 0x1) snprintf(buffer, sizeof(buffer), "timelapse0.4fps");
+    if (timelapse == 0x2) snprintf(buffer, sizeof(buffer), "timelapse 1fps");
+    if (timelapse == 0x3) snprintf(buffer, sizeof(buffer), "timelapse 2fps");
+    if (timelapse == 0x4) snprintf(buffer, sizeof(buffer), "timelapse 3fps");
+    if (timelapse == 0x5) snprintf(buffer, sizeof(buffer), "timelapse 4fps");
+    if (timelapse == 0x6) snprintf(buffer, sizeof(buffer), "timelapse 5fps");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_100D)
@@ -5813,6 +5787,12 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
   if (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
   {
     snprintf(buffer, sizeof(buffer), "4K");
+    if (timelapse == 0x1) snprintf(buffer, sizeof(buffer), "timelapse0.4fps");
+    if (timelapse == 0x2) snprintf(buffer, sizeof(buffer), "timelapse 1fps");
+    if (timelapse == 0x3) snprintf(buffer, sizeof(buffer), "timelapse 2fps");
+    if (timelapse == 0x4) snprintf(buffer, sizeof(buffer), "timelapse 3fps");
+    if (timelapse == 0x5) snprintf(buffer, sizeof(buffer), "timelapse 4fps");
+    if (timelapse == 0x6) snprintf(buffer, sizeof(buffer), "timelapse 5fps");
   }
 
   if (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM)
