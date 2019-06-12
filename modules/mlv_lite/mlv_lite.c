@@ -2101,7 +2101,7 @@ else
              if (shamem_read(0xC0F06804) == 0x6c3040a) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
              if (shamem_read(0xC0F06804) == 0xa1c0412) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
              if (shamem_read(0xC0F06804) == 0x88501c2) *(volatile uint32_t*)0xC0F06804 = 0x88501d4; 
-             if (shamem_read(0xC0F06804) == 0xbde0412) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
+             if (shamem_read(0xC0F06804) == 0xbde0412) *(volatile uint32_t*)0xC0F06804 = 0x4540298; 
 /* 100D 3k, 4k. Registry from crop_rec.c / Needs more tests, not working atm. */
              if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x45802a1;
              if (shamem_read(0xC0F06804) == 0x90d0421) *(volatile uint32_t*)0xC0F06804 = 0x45802a1;
