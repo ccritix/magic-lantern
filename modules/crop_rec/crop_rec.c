@@ -3446,7 +3446,7 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {
 
-        case 0xC0F06804: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xbd60412 + reg_6804_width + (reg_6804_height << 16): 0xa1c0412 + reg_6804_width + (reg_6804_height << 16); // 4032x2558  x5 Mode;
+        case 0xC0F06804: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xbd50412 + reg_6804_width + (reg_6804_height << 16): 0xa1c0412 + reg_6804_width + (reg_6804_height << 16); // 4032x2558  x5 Mode;
 
         case 0xC0F06824: return 0x4ca;
         case 0xC0F06828: return 0x4ca;
@@ -3458,8 +3458,8 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
         case 0xC0F06014: return 0xfff + reg_6014;
-        case 0xC0F0713c: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xbd6 + reg_713c: 0xA1c + reg_713c;
-        case 0xC0F07150: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xb56 + reg_7150 :0xa00 + reg_7150;
+        case 0xC0F0713c: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xbd5 + reg_713c: 0xA1c + reg_713c;
+        case 0xC0F07150: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xb55 + reg_7150 :0xa00 + reg_7150;
 
 /* reset dummy reg in raw.c */
 	case 0xC0f0b13c: return 0xf;
