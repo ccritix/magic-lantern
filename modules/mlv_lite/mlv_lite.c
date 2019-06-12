@@ -3098,6 +3098,8 @@ if (cam_eos_m || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
     if (shamem_read(0xc0f0815c) == 0x5) rawi_hdr.raw_info.white_level = (lens_info.raw_iso == ISO_100) ? 2840 : 2890;
 /* 12bit */
     if (shamem_read(0xc0f0815c) == 0x6) rawi_hdr.raw_info.white_level = 6000;
+/* 14bit */
+    if (shamem_read(0xc0f0815c) == 0x7) rawi_hdr.raw_info.white_level = 16200;
 
 /* HDR base iso regardless of what is set in camera */
     if (shamem_read(0xc0f0b12c) == 0x1) lens_info.iso = 100;
