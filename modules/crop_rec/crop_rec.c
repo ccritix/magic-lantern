@@ -3060,7 +3060,7 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
     {
         /* raw resolution (end line/column) */
         /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
-        case 0xC0F06804: return (timelapse != 0x0 && ratios != 0x3) ? 0xa1b0421: 0x90d0421 + reg_6804_width + (reg_6804_height << 16); // 4096x2560  x5 Mode;
+        case 0xC0F06804: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xbdd0421 + reg_6804_width + (reg_6804_height << 16): 0x90d0421 + reg_6804_width + (reg_6804_height << 16); // 4096x2560  x5 Mode;
 
         case 0xC0F06824: return 0x4ca;
         case 0xC0F06828: return 0x4ca;
@@ -3078,8 +3078,8 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
 				(RECORDING && timelapse == 0x5) ? 0x1bfe:
 				(RECORDING && timelapse == 0x6) ? 0x1665: 0xfff + reg_6014;
 
-        case 0xC0F0713c: return (timelapse != 0x0 && ratios != 0x3) ? 0xa55 :0x90d + reg_713c;
-        case 0xC0F07150: return (timelapse != 0x0 && ratios != 0x3) ? 0xa00 :0x8f9 + reg_7150;
+        case 0xC0F0713c: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xc17 + reg_713c :0x90d + reg_713c;
+        case 0xC0F07150: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xb2c + reg_7150 :0x8f9 + reg_7150;
 
     }
 
