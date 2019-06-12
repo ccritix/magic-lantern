@@ -273,6 +273,14 @@ if (!is_EOSM && !is_100D && !is_6D && !is_5D3)
             return (default_white = 2550);   
         }
 
+/* used for 4k timelapse function */
+        if (shamem_read(0xC0F42744) == 0x3030303)
+        {	
+	    /* 12bit kind of by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = (lens_info.raw_iso == ISO_100) ? 4940 : 5000);   
+        }
+
         if (shamem_read(0xC0F42744) == 0x4040404)
         {	
 	    /* 10bit by checking pushed liveview gain register set in crop_rec.c */
@@ -1960,6 +1968,8 @@ int raw_lv_settings_still_valid()
     if (shamem_read(0xc0f0815c) == 0x5) raw_info.white_level = (lens_info.raw_iso == ISO_100) ? 2840 : 2890;
 /* 12bit */
     if (shamem_read(0xc0f0815c) == 0x6) raw_info.white_level = 6000; 
+/* 14bit 4k timelapse only. Flag set in crop_rec.c */
+    if (shamem_read(0xc0f0815c) == 0x7) raw_info.white_level = 16200; 
 
     /* should be fast enough for vsync calls */
     if (!lv_raw_enabled) return 0;

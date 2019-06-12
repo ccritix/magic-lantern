@@ -44,6 +44,7 @@ static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
+static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -1978,7 +1979,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             (crop_preset != CROP_PRESET_CENTER_Z && lv_dispsize == 1) ||
 	    (!is_5D3))
         {
-            shutter_blanking = adjust_shutter_blanking(shutter_blanking);
+            if (slowshutter == 0x0 && (crop_preset == CROP_PRESET_4K_EOSM || crop_preset == CROP_PRESET_4K_100D)) shutter_blanking = adjust_shutter_blanking(shutter_blanking);
         }
     }
 
@@ -2309,6 +2310,16 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
+/* resetting preview regs for 4k timelapse slowshutter mode */
+ if (RECORDING && timelapse != 0x0 && slowshutter == 0x1 && bitdepth == 0x0)
+ {
+    switch (reg)
+    {
+      case 0xC0F42744: return 0x1010101;
+    }
+
+ }
+
 /* only apply bit reducing while recording, not while idle */
 if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_100D && !is_6D && !is_5D3))
 {
@@ -2406,7 +2417,8 @@ if (!RECORDING && (is_EOSM || is_100D || is_6D || is_5D3))
   {
     switch (reg)
     {
-	case 0xc0f0815c: return 0x2;
+/* exception for timelapse function */
+	case 0xc0f0815c: return (timelapse != 0x0 && slowshutter == 0x1 && crop_preset == CROP_PRESET_4K_100D) ? 0x7: 0x2;
     }
   }
 }
@@ -3047,12 +3059,24 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
 				(RECORDING && timelapse == 0x3) ? 0x37ff:
 				(RECORDING && timelapse == 0x4) ? 0x2553:	
 				(RECORDING && timelapse == 0x5) ? 0x1bfe:
-				(RECORDING && timelapse == 0x6) ? 0x1665: 0xbd4 + reg_6014;
+				(RECORDING && timelapse == 0x6) ? 0x1665: 0xfff + reg_6014;
 
         case 0xC0F0713c: return 0x90d + reg_713c;
         case 0xC0F07150: return 0x8f9 + reg_7150;
+
     }
 
+/* 4k timelapse function */
+ if (!RECORDING && timelapse != 0x0 && slowshutter == 0x1)
+ {
+    switch (reg)
+    {
+      case 0xC0F42744: return timelapse == 0x1 ? 0x4040404: 
+	(timelapse == 0x2 || timelapse == 0x3) ? 0x3030303: 
+	(timelapse == 0x4 || timelapse == 0x5 || timelapse == 0x6) ? 0x2020202: 0x1010101;
+    }
+ }
+    
     return reg_override_bits(reg, old_val);
 }
 
@@ -4922,6 +4946,13 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "intervals(only 4k preset(100D/EOSM)\n"
             },
             {
+                .name   = "Slow shutter",
+                .priv   = &slowshutter,
+                .max    = 1,
+                .choices = CHOICES("OFF", "ON"),
+                .help   = "Allows for slow shutter speeds with 4k timelapse presets\n"
+            },
+            {
                 .name   = "reg_713c",
                 .priv   = &reg_713c,
                 .min    = -2000,
@@ -5576,6 +5607,21 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             patch_active = 0;
             lv_dirty = 1;
     }
+
+    static bool once = false;
+
+if (CROP_PRESET_MENU == CROP_PRESET_4K_100D || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
+{
+    if (once == false)
+    {
+      once = true;
+      NotifyBox(4000, "Turn audio OFF if not done already!");	
+    }
+}
+else
+{
+      once = false;
+}
 
 if (((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
@@ -6360,6 +6406,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(HDR_iso_a)
     MODULE_CONFIG(HDR_iso_b)
     MODULE_CONFIG(timelapse)
+    MODULE_CONFIG(slowshutter)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
