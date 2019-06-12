@@ -2080,8 +2080,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     /* all modes may want to override shutter speed */
     /* ADTG[0x8060/61]: shutter blanking for 3x3 mode  */
     /* ADTG[0x805E/5F]: shutter blanking for zoom mode  */
-    adtg_new[0] = (struct adtg_new) {6, blanking_reg_nozoom, shutter_blanking};
-    adtg_new[1] = (struct adtg_new) {6, blanking_reg_zoom, shutter_blanking};
+    adtg_new[25] = (struct adtg_new) {6, blanking_reg_nozoom, shutter_blanking};
+    adtg_new[26] = (struct adtg_new) {6, blanking_reg_zoom, shutter_blanking};
 
     /* hopefully generic; to be tested later */
     if (1)
