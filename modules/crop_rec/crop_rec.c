@@ -2337,16 +2337,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
-/* resetting preview regs for 4k timelapse slowshutter mode */
- if (RECORDING && timelapse != 0x0 && (slowshutter == 0x1 || is_EOSM) && bitdepth == 0x0)
- {
-    switch (reg)
-    {
-      case 0xC0F42744: return 0x1010101;
-    }
-
- }
-
 /* only apply bit reducing while recording, not while idle */
 if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_100D && !is_6D && !is_5D3))
 {
@@ -2445,7 +2435,7 @@ if (!RECORDING && (is_EOSM || is_100D || is_6D || is_5D3))
     switch (reg)
     {
 /* exception for timelapse function */
-	case 0xc0f0815c: return (timelapse != 0x0 && (slowshutter == 0x1 || is_EOSM) && (crop_preset == CROP_PRESET_4K_100D || crop_preset == CROP_PRESET_4K_EOSM)) ? 0x7: 0x2;
+	case 0xc0f0815c: return (timelapse != 0x0 && (crop_preset == CROP_PRESET_4K_100D || crop_preset == CROP_PRESET_4K_EOSM)) ? 0x7: 0x2;
     }
   }
 }
@@ -3103,6 +3093,16 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
 	(timelapse == 0x4 || timelapse == 0x5 || timelapse == 0x6) ? 0x2020202: 0x1010101;
     }
  }
+
+/* resetting preview regs for 4k timelapse mode */
+ if (RECORDING && timelapse != 0x0 && bitdepth == 0x0)
+ {
+    switch (reg)
+    {
+      case 0xC0F42744: return 0x1010101;
+    }
+
+ }
     
     return reg_override_bits(reg, old_val);
 }
@@ -3483,6 +3483,16 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
 	(timelapse == 0x2 || timelapse == 0x3) ? 0x3030303: 
 	(timelapse == 0x4 || timelapse == 0x5 || timelapse == 0x6) ? 0x2020202: 0x1010101;
     }
+ }
+
+/* resetting preview regs for 4k timelapse mode */
+ if (RECORDING && timelapse != 0x0 && bitdepth == 0x0)
+ {
+    switch (reg)
+    {
+      case 0xC0F42744: return 0x1010101;
+    }
+
  }
 
     return reg_override_bits(reg, old_val);
