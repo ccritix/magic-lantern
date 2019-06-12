@@ -3412,7 +3412,7 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
 				(RECORDING && timelapse == 0x3) ? 0x37ff:
 				(RECORDING && timelapse == 0x4) ? 0x2553:	
 				(RECORDING && timelapse == 0x5) ? 0x1bfe:
-				(RECORDING && timelapse == 0x6) ? 0x1665: 0xfff + reg_6014;
+				(RECORDING && timelapse == 0x6) ? 0x1665: 0xbd4 + reg_6014;
 
         case 0xC0F0713c: return 0x6c2 + reg_713c;
 
@@ -3436,12 +3436,12 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
         case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return (timelapse == 0x1) ? 0xffff:
-				(timelapse == 0x2) ? 0x6ff9:
-				(timelapse == 0x3) ? 0x37ff:
-				(timelapse == 0x4) ? 0x2553:	
-				(timelapse == 0x5) ? 0x1bfe:
-				(timelapse == 0x6) ? 0x1665: 0xc70 + reg_6014;
+        case 0xC0F06014: return (RECORDING && timelapse == 0x1) ? 0xffff:
+				(RECORDING && timelapse == 0x2) ? 0x6ff9:
+				(RECORDING && timelapse == 0x3) ? 0x37ff:
+				(RECORDING && timelapse == 0x4) ? 0x2553:	
+				(RECORDING && timelapse == 0x5) ? 0x1bfe:
+				(RECORDING && timelapse == 0x6) ? 0x1665: 0xbd4 + reg_6014;
 
         case 0xC0F0713c: return 0xA55 + reg_713c;
 
