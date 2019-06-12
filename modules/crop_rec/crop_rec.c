@@ -1974,13 +1974,40 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     /* some modes may need adjustments to maintain exposure */
     if (shutter_blanking)
     {
+
+    if (!is_5D3 && !is_EOSM && !is_100D)
+    {
+        {
+            shutter_blanking = adjust_shutter_blanking(shutter_blanking);
+        }
+    }
+
+    if (is_5D3)
+    {
         /* FIXME: remove this kind of hardcoded conditions */
         if ((crop_preset == CROP_PRESET_CENTER_Z && lv_dispsize != 1) ||
-            (crop_preset != CROP_PRESET_CENTER_Z && lv_dispsize == 1) ||
-	    (!is_5D3))
+            (crop_preset != CROP_PRESET_CENTER_Z && lv_dispsize == 1))
         {
-            if (slowshutter == 0x0 && (crop_preset == CROP_PRESET_4K_EOSM || crop_preset == CROP_PRESET_4K_100D)) shutter_blanking = adjust_shutter_blanking(shutter_blanking);
+            shutter_blanking = adjust_shutter_blanking(shutter_blanking);
         }
+    }
+
+    if (is_100D)
+    {
+        {
+            if (slowshutter == 0x0 || (crop_preset != CROP_PRESET_4K_100D && slowshutter == 0x1)) shutter_blanking = adjust_shutter_blanking(shutter_blanking);
+        }
+    }
+
+    if (is_EOSM)
+    {
+        {
+            if ((crop_preset == CROP_PRESET_4K_EOSM && timelapse == 0x0) || 
+	(crop_preset != CROP_PRESET_4K_EOSM && timelapse != 0x0) || 
+	(crop_preset != CROP_PRESET_4K_EOSM)) shutter_blanking = adjust_shutter_blanking(shutter_blanking);
+        }
+    }
+
     }
 
     /* should probably be made generic */
@@ -2311,7 +2338,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
 /* resetting preview regs for 4k timelapse slowshutter mode */
- if (RECORDING && timelapse != 0x0 && slowshutter == 0x1 && bitdepth == 0x0)
+ if (RECORDING && timelapse != 0x0 && (slowshutter == 0x1 || is_EOSM) && bitdepth == 0x0)
  {
     switch (reg)
     {
@@ -2418,7 +2445,7 @@ if (!RECORDING && (is_EOSM || is_100D || is_6D || is_5D3))
     switch (reg)
     {
 /* exception for timelapse function */
-	case 0xc0f0815c: return (timelapse != 0x0 && slowshutter == 0x1 && (crop_preset == CROP_PRESET_4K_100D || crop_preset == CROP_PRESET_4K_EOSM)) ? 0x7: 0x2;
+	case 0xc0f0815c: return (timelapse != 0x0 && (slowshutter == 0x1 || is_EOSM) && (crop_preset == CROP_PRESET_4K_100D || crop_preset == CROP_PRESET_4K_EOSM)) ? 0x7: 0x2;
     }
   }
 }
@@ -3407,13 +3434,7 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
         case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return (RECORDING && timelapse == 0x1) ? 0xffff:
-				(RECORDING && timelapse == 0x2) ? 0x6ff9:
-				(RECORDING && timelapse == 0x3) ? 0x37ff:
-				(RECORDING && timelapse == 0x4) ? 0x2553:	
-				(RECORDING && timelapse == 0x5) ? 0x1bfe:
-				(RECORDING && timelapse == 0x6) ? 0x1665: 0xbd4 + reg_6014;
-
+        case 0xC0F06014: return 0xbd4 + reg_6014;
         case 0xC0F0713c: return 0x6c2 + reg_713c;
 
 /* reset dummy reg in raw.c */
@@ -3436,13 +3457,7 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
         case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return (RECORDING && timelapse == 0x1) ? 0xffff:
-				(RECORDING && timelapse == 0x2) ? 0x6ff9:
-				(RECORDING && timelapse == 0x3) ? 0x37ff:
-				(RECORDING && timelapse == 0x4) ? 0x2553:	
-				(RECORDING && timelapse == 0x5) ? 0x1bfe:
-				(RECORDING && timelapse == 0x6) ? 0x1665: 0xbd4 + reg_6014;
-
+        case 0xC0F06014: return 0xfff + reg_6014;
         case 0xC0F0713c: return 0xA55 + reg_713c;
 
 /* reset dummy reg in raw.c */
@@ -3451,8 +3466,16 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
     }
   }
 
+/* 4k timelapse function. Not acting like 100D so only slow shutter seems to apply for now */
+        if (RECORDING && timelapse == 0x1) *(volatile uint32_t*)0xC0F06014 = 0xffff;
+	if (RECORDING && timelapse == 0x2) *(volatile uint32_t*)0xC0F06014 = 0x6ff9;
+	if (RECORDING && timelapse == 0x3) *(volatile uint32_t*)0xC0F06014 = 0x37ff;
+	if (RECORDING && timelapse == 0x4) *(volatile uint32_t*)0xC0F06014 = 0x2553;	
+	if (RECORDING && timelapse == 0x5) *(volatile uint32_t*)0xC0F06014 = 0x1bfe;
+	if (RECORDING && timelapse == 0x6) *(volatile uint32_t*)0xC0F06014 = 0x1665;
+
 /* 4k timelapse function */
- if (!RECORDING && timelapse != 0x0 && slowshutter == 0x1)
+ if (!RECORDING && timelapse != 0x0)
  {
     switch (reg)
     {
@@ -4961,7 +4984,7 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &slowshutter,
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON"),
-                .help   = "Allows for slow shutter speeds with 4k timelapse presets\n"
+                .help   = "Allows for slow shutter speeds with 4k timelapse(Only 100D).\n"
             },
             {
                 .name   = "reg_713c",
