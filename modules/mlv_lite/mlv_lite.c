@@ -4445,6 +4445,7 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
         -1,
         (need_for_speed && !get_halfshutter_pressed()) 
 	? RAW_PREVIEW_GRAY_ULTRA_FAST 
+	: ((cam_eos_m || cam_100d) && shamem_read(0xc0f0815c) == 0x7) ? RAW_PREVIEW_COLOR_HALFRES
 	: (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d) && RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST /* 1x3 binning mode test */
         : RAW_PREVIEW_COLOR_HALFRES 
     );
