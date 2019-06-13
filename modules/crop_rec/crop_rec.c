@@ -3071,17 +3071,20 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
         case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
         case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return (RECORDING && timelapse == 0x1) ? 0xffff:
-				(RECORDING && timelapse == 0x2) ? 0x6ff9:
-				(RECORDING && timelapse == 0x3) ? 0x37ff:
-				(RECORDING && timelapse == 0x4) ? 0x2553:	
-				(RECORDING && timelapse == 0x5) ? 0x1bfe:
-				(RECORDING && timelapse == 0x6) ? 0x1665: 0xfff + reg_6014;
+        case 0xC0F06014: return 0xfff + reg_6014;
 
         case 0xC0F0713c: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xbd9 + reg_713c :0x90d + reg_713c;
         case 0xC0F07150: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xb28 + reg_7150 :0x8f9 + reg_7150;
 
     }
+
+/* 4k timelapse function. Not acting like 100D so only slow shutter seems to apply for now */
+        if (RECORDING && timelapse == 0x1) *(volatile uint32_t*)0xC0F06014 = 0xffff;
+	if (RECORDING && timelapse == 0x2) *(volatile uint32_t*)0xC0F06014 = 0x6ff9;
+	if (RECORDING && timelapse == 0x3) *(volatile uint32_t*)0xC0F06014 = 0x37ff;
+	if (RECORDING && timelapse == 0x4) *(volatile uint32_t*)0xC0F06014 = 0x2553;	
+	if (RECORDING && timelapse == 0x5) *(volatile uint32_t*)0xC0F06014 = 0x1bfe;
+	if (RECORDING && timelapse == 0x6) *(volatile uint32_t*)0xC0F06014 = 0x1665;
 
 /* 4k timelapse function */
  if (!RECORDING && timelapse != 0x0 && slowshutter == 0x1)
