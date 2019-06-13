@@ -5020,7 +5020,8 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &timelapse,
                 .max    = 9,
                 .choices = CHOICES("OFF", "0.4fps" ,"1fps", "2fps", "3fps", "4fps", "5fps","5K 0.4fps", "5K 1fps", "5K 2fps"),
-                .help   = "intervals(only 4k preset(100D/EOSM)\n"
+                .help   = "fps intervals(only 4k preset(100D/EOSM)\n",
+                .help2  = "Enable REC trigger Half-shutter: start/pause for best performance",
             },
             {
                 .name   = "Slow shutter",
