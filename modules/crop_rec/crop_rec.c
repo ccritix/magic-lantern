@@ -3068,10 +3068,10 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
 	((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x1) ? 0x83504ff + reg_6804_width + (reg_6804_height << 16):
 	((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x2) ? 0x85904ff + reg_6804_width + (reg_6804_height << 16):
 	((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x3) ? 0xaff04ff + reg_6804_width + (reg_6804_height << 16):
-	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios == 0x0) ? 0xbd90427 + reg_6804_width + (reg_6804_height << 16):
-	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios == 0x1) ? 0x6cb0427 + reg_6804_width + (reg_6804_height << 16):
-	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios == 0x2) ? 0x6e90427 + reg_6804_width + (reg_6804_height << 16):
-	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios == 0x3) ? 0x9170427 + reg_6804_width + (reg_6804_height << 16):
+	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x0) ? 0xbd90427 + reg_6804_width + (reg_6804_height << 16):
+	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x1) ? 0x6cb0427 + reg_6804_width + (reg_6804_height << 16):
+	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x2) ? 0x6e90427 + reg_6804_width + (reg_6804_height << 16):
+	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x3) ? 0x9170427 + reg_6804_width + (reg_6804_height << 16):
 	 0x0; //last one will never happen 
 
         case 0xC0F06824: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56a: 0x4ca;
@@ -3096,10 +3096,10 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
 				((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x1) ? 0x835 + reg_713c :
 				((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x2) ? 0x859 + reg_713c :
 				((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x3) ? 0xaff + reg_713c :
-				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios == 0x0) ? 0xbd9 + reg_713c :
-				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios == 0x1) ? 0x6cb + reg_713c :
-				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios == 0x2) ? 0x6e9 + reg_713c :
-				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios == 0x3) ? 0x917 + reg_713c : 0x0; //last one will never happen
+				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x0) ? 0xbd9 + reg_713c :
+				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x1) ? 0x6cb + reg_713c :
+				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x2) ? 0x6e9 + reg_713c :
+				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x3) ? 0x917 + reg_713c : 0x0; //last one will never happen
     }
 
 /* 4k timelapse function. For slowshutter this gives no first dark frame */
