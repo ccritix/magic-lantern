@@ -2104,8 +2104,14 @@ else
              if (shamem_read(0xC0F06804) == 0xbd50428) *(volatile uint32_t*)0xC0F06804 = 0x4540298; 
 /* 100D 3k, 4k. Registry from crop_rec.c / Needs more tests, not working atm. */
              if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x45802a1;
-             if (shamem_read(0xC0F06804) == 0x90d0421) *(volatile uint32_t*)0xC0F06804 = 0x45802a1;
              if (shamem_read(0xC0F06804) == 0xbd90427) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
+             if (shamem_read(0xC0F06804) == 0xbd904ff) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
+             if (shamem_read(0xC0F06804) == 0x83504ff) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
+             if (shamem_read(0xC0F06804) == 0x85904ff) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
+             if (shamem_read(0xC0F06804) == 0xaff04ff) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
+             if (shamem_read(0xC0F06804) == 0x6cb0427) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
+             if (shamem_read(0xC0F06804) == 0x6e90427) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
+             if (shamem_read(0xC0F06804) == 0x9170427) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
      }
      if (!get_halfshutter_pressed())
      { 
@@ -2118,9 +2124,14 @@ else
              if (shamem_read(0xC0F06804) == 0xbd50428) *(volatile uint32_t*)0xC0F06804 = 0xbd60428; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
 /* 100D reset regs / Needs more tests, not working atm.	*/
              if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x5b90319; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
-             if (shamem_read(0xC0F06804) == 0x90d0421) *(volatile uint32_t*)0xC0F06804 = 0x90d0421; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
              if (shamem_read(0xC0F06804) == 0xbd90427) *(volatile uint32_t*)0xC0F06804 = 0xbd90427; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0);
- 
+             if (shamem_read(0xC0F06804) == 0xbd904ff) *(volatile uint32_t*)0xC0F06804 = 0xbd904ff; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0); 
+             if (shamem_read(0xC0F06804) == 0x83504ff) *(volatile uint32_t*)0xC0F06804 = 0x83504ff; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0); 
+             if (shamem_read(0xC0F06804) == 0x85904ff) *(volatile uint32_t*)0xC0F06804 = 0x85904ff; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0); 
+             if (shamem_read(0xC0F06804) == 0xaff04ff) *(volatile uint32_t*)0xC0F06804 = 0xaff04ff; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0); 
+             if (shamem_read(0xC0F06804) == 0x6cb0427) *(volatile uint32_t*)0xC0F06804 = 0x6cb0427; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0); 
+             if (shamem_read(0xC0F06804) == 0x6e90427) *(volatile uint32_t*)0xC0F06804 = 0x6e90427; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0); 
+             if (shamem_read(0xC0F06804) == 0x9170427) *(volatile uint32_t*)0xC0F06804 = 0x9170427; raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1); raw_force_aspect_ratio(0, 0); 
      }
   }
     
