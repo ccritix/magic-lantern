@@ -38,7 +38,7 @@ static int is_basic = 0;
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 4);
-static CONFIG_INT("crop.ratios", ratios, 2);
+static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
@@ -3072,7 +3072,7 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
 	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x1) ? 0x6cb0427 + reg_6804_width + (reg_6804_height << 16):
 	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x2) ? 0x6e90427 + reg_6804_width + (reg_6804_height << 16):
 	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x3) ? 0x9170427 + reg_6804_width + (reg_6804_height << 16):
-	 0x0; //last one will never happen 
+	(ratios == 0x1) ? 0x6cb0427: (ratios == 0x2) ? 0x6e90427: (ratios == 0x3) ? 0x9170427: 0xbd90427; 
 
         case 0xC0F06824: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56a: 0x4ca;
         case 0xC0F06828: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56a: 0x4ca;
@@ -3099,7 +3099,8 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
 				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x0) ? 0xbd9 + reg_713c :
 				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x1) ? 0x6cb + reg_713c :
 				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x2) ? 0x6e9 + reg_713c :
-				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x3) ? 0x917 + reg_713c : 0x0; //last one will never happen
+				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x3) ? 0x917 + reg_713c : 
+				(ratios == 0x1) ? 0x6cb: (ratios == 0x2) ? 0x6e9: (ratios == 0x3) ? 0x917: 0xbd9; 
     }
 
 /* 4k timelapse function. For slowshutter this gives no first dark frame */
