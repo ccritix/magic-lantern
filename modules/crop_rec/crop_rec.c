@@ -1959,7 +1959,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
     const int blanking_reg_zoom   = (is_5D3) ? 0x805E : 0x805F;
     const int blanking_reg_nozoom = (is_5D3) ? 0x8060 : 0x8061;
-    const int blanking_reg = (lv_dispsize == 1) ? blanking_reg_nozoom : blanking_reg_zoom;
+    const int blanking_reg = (lv_dispsize == 1) ? blanking_reg_zoom : blanking_reg_nozoom;
 
     /* scan for shutter blanking and make both zoom and non-zoom value equal */
     /* (the values are different when using FPS override with ADTG shutter override) */
