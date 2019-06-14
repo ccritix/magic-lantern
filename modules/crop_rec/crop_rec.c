@@ -222,8 +222,8 @@ static const char * crop_choices_100d[] = {
     "3x3 720p",
     "mv1080p_mv720p mode",
     "2.5K 2520x1418",
-    "3K", 
-    "4K",
+    "3K 3000x1432", 
+    "4K 4080x3000",
   //  "4K 3x1 24fps",
   //  "5K 3x1 24fps",
 };
@@ -5855,7 +5855,10 @@ static LVINFO_UPDATE_FUNC(crop_info)
 
   if (CROP_PRESET_MENU == CROP_PRESET_4K_100D)
   {
-    snprintf(buffer, sizeof(buffer), "4056x2284");
+    snprintf(buffer, sizeof(buffer), "4080x3000");
+    if (ratios == 0x1 && timelapse == 0x0) snprintf(buffer, sizeof(buffer), "2.39:1");
+    if (ratios == 0x2 && timelapse == 0x0) snprintf(buffer, sizeof(buffer), "2.35:1");
+    if (ratios == 0x3 && timelapse == 0x0) snprintf(buffer, sizeof(buffer), "16:9");
     if (timelapse == 0x1 || timelapse == 0x7) snprintf(buffer, sizeof(buffer), "timelapse0.4fps");
     if (timelapse == 0x2 || timelapse == 0x8) snprintf(buffer, sizeof(buffer), "timelapse 1fps");
     if (timelapse == 0x3 || timelapse == 0x9) snprintf(buffer, sizeof(buffer), "timelapse 2fps");
