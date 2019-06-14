@@ -3135,7 +3135,12 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
     }
 
  }
-    
+
+/* sets dummy reg so we can get RAW_PREVIEW_COLOR_HALFRES in mlv_lite.c */
+ if (RECORDING && timelapse != 0x0) EngDrvOutLV(0xc0f0501c, 0x27);
+/* reset dummy reg */
+ if (!RECORDING && timelapse != 0x0) EngDrvOutLV(0xc0f0501c, 0x28);
+   
     return reg_override_bits(reg, old_val);
 }
 
