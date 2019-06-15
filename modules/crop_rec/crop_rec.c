@@ -3447,8 +3447,6 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
     {
-        /* raw resolution (end line/column) */
-        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
         case 0xC0F06804: return ((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x0) ? 0xbd704fe + reg_6804_width + (reg_6804_height << 16):
 	((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x1) ? 0x84104fe + reg_6804_width + (reg_6804_height << 16):
 	((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x2) ? 0x86504fe + reg_6804_width + (reg_6804_height << 16):
