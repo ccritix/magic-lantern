@@ -267,7 +267,7 @@ static const char * crop_choices_eosm[] = {
     "2.5K 1:1 centered",
     "2.5K 2520x1418",
     "3K 3032x1436",
-    "4K 4038x2558",
+    "4K 4080x3000",
    // "4K 3x1 24fps",
    // "5K 3x1 24fps",
     "mv1080p 1736x1158",
@@ -782,20 +782,6 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
     	skip_right      = 0;
     	skip_top        = 28;
     	skip_bottom     = 20;
-    	}
-        break;
-
-	case CROP_PRESET_4K_EOSM:
-    	skip_left       = 72;
-    	skip_right      = 0;
-    	skip_top        = 30;
-    	skip_bottom     = 0;
-    	if (ratios == 0x1)
-    	{
-    	skip_left       = 72;
-    	skip_right      = 0;
-    	skip_top        = 28;
-    	skip_bottom     = 28;
     	}
         break;
 
@@ -1485,6 +1471,10 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_4K_EOSM:
                 cmos_new[5] = 0x200;            /* vertical (first|last) */
                 cmos_new[7] = 0xf20;
+		if (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) 
+		{
+		cmos_new[5] = 0x80;
+		}
                 break;		
 			
 			case CROP_PRESET_4K_3x1_EOSM:
@@ -3455,57 +3445,52 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
 
 static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
 {
-
-  if (ratios == 0x1 || ratios == 0x2)
-  {
     switch (reg)
     {
+        /* raw resolution (end line/column) */
+        /* X: (3072+140)/8 + 0x17, adjusted for 3072 in raw_rec */
+        case 0xC0F06804: return ((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x0) ? 0xbd704fe + reg_6804_width + (reg_6804_height << 16):
+	((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x1) ? 0x84104fe + reg_6804_width + (reg_6804_height << 16):
+	((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x2) ? 0x86504fe + reg_6804_width + (reg_6804_height << 16):
+	((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x3) ? 0xb0f04fe + reg_6804_width + (reg_6804_height << 16):
+	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x0) ? 0xbd7041e + reg_6804_width + (reg_6804_height << 16):
+	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x1) ? 0x6cb041e + reg_6804_width + (reg_6804_height << 16):
+	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x2) ? 0x6e9041e + reg_6804_width + (reg_6804_height << 16):
+	((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x3) ? 0x917041e + reg_6804_width + (reg_6804_height << 16):
+	(ratios == 0x1) ? 0x6cb041e + reg_6804_width + (reg_6804_height << 16): 
+	(ratios == 0x2) ? 0x6e9041e + reg_6804_width + (reg_6804_height << 16): 
+	(ratios == 0x3) ? 0x917041e + reg_6804_width + (reg_6804_height << 16): 0xbd7041e + reg_6804_width + (reg_6804_height << 16); 
 
-        case 0xC0F06804: return 0x6c3040a + reg_6804_width + (reg_6804_height << 16); // 4032x2558  x5 Mode;
-
-        case 0xC0F06824: return 0x4ca;
-        case 0xC0F06828: return 0x4ca;
-        case 0xC0F0682C: return 0x4ca;
-        case 0xC0F06830: return 0x4ca;
+        case 0xC0F06824: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56a: 0x4ca;
+        case 0xC0F06828: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56a: 0x4ca;
+        case 0xC0F0682C: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56a: 0x4ca;
+        case 0xC0F06830: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56a: 0x4ca;
        
-        case 0xC0F06010: return 0x45b + reg_6008;
-        case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
-        case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F06010: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56b: 0x45b + reg_6008;
+        case 0xC0F06008: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56b056b + reg_6008 + (reg_6008 << 16): 0x45b045b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56b056b + reg_6008 + (reg_6008 << 16): 0x45b045b + reg_6008 + (reg_6008 << 16);
 
-        case 0xC0F06014: return 0xbd4 + reg_6014;
-        case 0xC0F0713c: return 0x6c2 + reg_713c;
+        case 0xC0F06014: return (RECORDING && timelapse == 0x1) ? 0xffff: (RECORDING && timelapse == 0x7) ? 0xffff:
+				(RECORDING && timelapse == 0x2) ? 0x6ff9: (RECORDING && timelapse == 0x8) ? 0x58f7:
+				(RECORDING && timelapse == 0x3) ? 0x37ff: (RECORDING && timelapse == 0x9) ? 0x2c7f:
+				(RECORDING && timelapse == 0x4) ? 0x2553:	
+				(RECORDING && timelapse == 0x5) ? 0x1bfe:
+				(RECORDING && timelapse == 0x6) ? 0x1665: 
+				(timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0xcdc + reg_6014: 0xfff + reg_6014;
 
-/* reset dummy reg in raw.c */
-	case 0xC0f0b13c: return 0xf;
+
+        case 0xC0F0713c: return ((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x0) ? 0xbd7 + reg_713c :
+				((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x1) ? 0x841 + reg_713c :
+				((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x2) ? 0x865 + reg_713c :
+				((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x3) ? 0xb0f + reg_713c :
+				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x0) ? 0xbd7 + reg_713c :
+				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x1) ? 0x6cb + reg_713c :
+				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x2) ? 0x6e9 + reg_713c :
+				((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x3) ? 0x917 + reg_713c : 
+				(ratios == 0x1) ? 0x6cb: (ratios == 0x2) ? 0x6e9: (ratios == 0x3) ? 0x917: 0xbd7; 
     }
-  }
-  else
-  {
-    switch (reg)
-    {
 
-        case 0xC0F06804: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xbd50428 + reg_6804_width + (reg_6804_height << 16): 0xa1c0412 + reg_6804_width + (reg_6804_height << 16); // 4032x2558  x5 Mode;
-
-        case 0xC0F06824: return 0x4ca;
-        case 0xC0F06828: return 0x4ca;
-        case 0xC0F0682C: return 0x4ca;
-        case 0xC0F06830: return 0x4ca;
-       
-        case 0xC0F06010: return 0x45b + reg_6008;
-        case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
-        case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
-
-        case 0xC0F06014: return 0xfff + reg_6014;
-        case 0xC0F0713c: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xbd5 + reg_713c: 0xA1c + reg_713c;
-        case 0xC0F07150: return ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3) && ratios != 0x3) ? 0xb55 + reg_7150 :0xa00 + reg_7150;
-
-/* reset dummy reg in raw.c */
-	case 0xC0f0b13c: return 0xf;
-
-    }
-  }
-
-/* 4k timelapse function. Not acting like 100D so only slow shutter seems to apply for now */
+/* 4k timelapse function */
         if (RECORDING && timelapse == 0x1) *(volatile uint32_t*)0xC0F06014 = 0xffff;
 	if (RECORDING && timelapse == 0x2) *(volatile uint32_t*)0xC0F06014 = 0x6ff9;
 	if (RECORDING && timelapse == 0x3) *(volatile uint32_t*)0xC0F06014 = 0x37ff;
@@ -3513,14 +3498,19 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
 	if (RECORDING && timelapse == 0x5) *(volatile uint32_t*)0xC0F06014 = 0x1bfe;
 	if (RECORDING && timelapse == 0x6) *(volatile uint32_t*)0xC0F06014 = 0x1665;
 
+/* 4k timelapse function. For slowshutter this gives no first dark frame */
+        if (RECORDING && timelapse == 0x7) *(volatile uint32_t*)0xC0F06014 = 0xffff;
+	if (RECORDING && timelapse == 0x8) *(volatile uint32_t*)0xC0F06014 = 0x58f7;
+	if (RECORDING && timelapse == 0x9) *(volatile uint32_t*)0xC0F06014 = 0x2c7f;
+
 /* 4k timelapse function */
  if (!RECORDING && timelapse != 0x0)
  {
     switch (reg)
     {
-      case 0xC0F42744: return timelapse == 0x1 ? 0x4040404: 
-	(timelapse == 0x2 || timelapse == 0x3) ? 0x3030303: 
-	(timelapse == 0x4 || timelapse == 0x5 || timelapse == 0x6) ? 0x2020202: 0x1010101;
+      case 0xC0F42744: return (timelapse == 0x1 || timelapse == 0x7) ? 0x4040404: 
+	(timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x8) ? 0x3030303: 
+	(timelapse == 0x4 || timelapse == 0x5 || timelapse == 0x6 || timelapse == 0x9) ? 0x2020202: 0x1010101;
     }
  }
 
@@ -3534,8 +3524,15 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
 
  }
 
+/* sets dummy reg so we can get RAW_PREVIEW_COLOR_HALFRES in mlv_lite.c */
+ if (RECORDING && timelapse != 0x0) EngDrvOutLV(0xc0f0501c, 0x27);
+/* reset dummy reg */
+ if (!RECORDING && timelapse != 0x0) EngDrvOutLV(0xc0f0501c, 0x28);
+   
     return reg_override_bits(reg, old_val);
 }
+
+
 
 static inline uint32_t reg_override_4K_3x1_EOSM(uint32_t reg, uint32_t old_val)
 {
@@ -5919,10 +5916,13 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
 
   if (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
   {
-    snprintf(buffer, sizeof(buffer), "4K");
-    if (timelapse == 0x1) snprintf(buffer, sizeof(buffer), "timelapse0.4fps");
-    if (timelapse == 0x2) snprintf(buffer, sizeof(buffer), "timelapse 1fps");
-    if (timelapse == 0x3) snprintf(buffer, sizeof(buffer), "timelapse 2fps");
+    snprintf(buffer, sizeof(buffer), "4080x3000");
+    if (ratios == 0x1 && timelapse == 0x0) snprintf(buffer, sizeof(buffer), "2.39:1");
+    if (ratios == 0x2 && timelapse == 0x0) snprintf(buffer, sizeof(buffer), "2.35:1");
+    if (ratios == 0x3 && timelapse == 0x0) snprintf(buffer, sizeof(buffer), "16:9");
+    if (timelapse == 0x1 || timelapse == 0x7) snprintf(buffer, sizeof(buffer), "timelapse0.4fps");
+    if (timelapse == 0x2 || timelapse == 0x8) snprintf(buffer, sizeof(buffer), "timelapse 1fps");
+    if (timelapse == 0x3 || timelapse == 0x9) snprintf(buffer, sizeof(buffer), "timelapse 2fps");
     if (timelapse == 0x4) snprintf(buffer, sizeof(buffer), "timelapse 3fps");
     if (timelapse == 0x5) snprintf(buffer, sizeof(buffer), "timelapse 4fps");
     if (timelapse == 0x6) snprintf(buffer, sizeof(buffer), "timelapse 5fps");
