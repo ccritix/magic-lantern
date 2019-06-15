@@ -1466,6 +1466,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_3K_EOSM:
                 cmos_new[5] = 0x280;             /* vertical (first|last) */
                 cmos_new[7] = 0xaa9;            /* horizontal offset (mask 0xFF0) */
+		if (ratios == 0x3)
+		{
+                cmos_new[5] = 0x200;            /* vertical (first|last) */
+                cmos_new[7] = 0xf20;
+		}
                 break;
 
 			case CROP_PRESET_4K_EOSM:
@@ -3405,12 +3410,18 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
 
 static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
 {
+
+  if (ratios == 0x0)
+  {
     switch (reg)
-    {
+    {     
+        case 0xC0F06804: return 0x5b90318 + reg_6804_width + (reg_6804_height << 16); // 3032x1436  x5 Mode;
+        case 0xC0F06014: return 0x62c + reg_6014;
+        case 0xC0F0713c: return 0x5b9 + reg_713c;
         case 0xC0F06824: return 0x3ca;
         case 0xC0F06828: return 0x3ca;
         case 0xC0F0682C: return 0x3ca;
-        case 0xC0F06830: return 0x3ca;      
+        case 0xC0F06830: return 0x3ca; 
         case 0xC0F06010: return 0x34b + reg_6008;
         case 0xC0F06008: return 0x34b034b + reg_6008 + (reg_6008 << 16);
         case 0xC0F0600C: return 0x34b034b + reg_6008 + (reg_6008 << 16);
@@ -3418,25 +3429,41 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
 /* reset dummy reg in raw.c */
 	case 0xC0f0b13c: return 0xf;
     }
+  }
 
   if (ratios == 0x1 || ratios == 0x2)
   {
     switch (reg)
     {
 /* will change to 19fps for continous action */
-        case 0xC0F06804: return 0x5190310 + reg_6804_width + (reg_6804_height << 16); /* 3008x1280 19fps  x5 Mode(2.35:1) */
+        case 0xC0F06804: return 0x5190310 + reg_6804_width + (reg_6804_height << 16);
         case 0xC0F0713c: return 0x519 + reg_713c;
         case 0xC0F07150: return 0x514 + reg_7150;
-        case 0xC0F06014: return 0x7cd + reg_6014;
+        case 0xC0F06014: return 0x839 + reg_6014;
+        case 0xC0F06824: return 0x3ca;
+        case 0xC0F06828: return 0x3ca;
+        case 0xC0F0682C: return 0x3ca;
+        case 0xC0F06830: return 0x3ca;  
+        case 0xC0F06010: return 0x34b + reg_6008;
+        case 0xC0F06008: return 0x34b034b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x34b034b + reg_6008 + (reg_6008 << 16);
     }
   }
-  else
+
+  if (ratios == 0x3)
   {
     switch (reg)
     {
-        case 0xC0F06804: return 0x5b90318 + reg_6804_width + (reg_6804_height << 16); // 3032x1436  x5 Mode;
-        case 0xC0F06014: return 0x62c + reg_6014;
-        case 0xC0F0713c: return 0x5b9 + reg_713c;
+        case 0xC0F06804: return 0x6b50310 + reg_6804_width + (reg_6804_height << 16);
+        case 0xC0F0713c: return 0x6b5 + reg_713c;
+        case 0xC0F06824: return 0x4ca;
+        case 0xC0F06828: return 0x4ca;
+        case 0xC0F0682C: return 0x4ca;
+        case 0xC0F06830: return 0x4ca;  
+        case 0xC0F06014: return 0xc71 + reg_6014;
+        case 0xC0F06010: return 0x45b + reg_6008;
+        case 0xC0F06008: return 0x45b045b + reg_6008 + (reg_6008 << 16);
+        case 0xC0F0600C: return 0x45b045b + reg_6008 + (reg_6008 << 16);
     }
   }
 
