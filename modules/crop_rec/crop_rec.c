@@ -3473,11 +3473,11 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
         case 0xC0F06014: return (RECORDING && timelapse == 0x1) ? 0xffff: (RECORDING && timelapse == 0x7) ? 0xffff:
 				(RECORDING && timelapse == 0x2) ? 0x6ff9: (RECORDING && timelapse == 0x8) ? 0x58f7:
 				(RECORDING && timelapse == 0x3) ? 0x37ff: (RECORDING && timelapse == 0x9) ? 0x2c7f:
-				(RECORDING && timelapse == 0x4) ? 0x2553:	
-				(RECORDING && timelapse == 0x5) ? 0x1bfe:
+				(RECORDING && timelapse == 0x4) ? 0x2553: (RECORDING && timelapse == 0x5) ? 0x1bfe: 
 				(RECORDING && timelapse == 0x6) ? 0x1665: 
-				(timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0xcdc + reg_6014: 0xfff + reg_6014;
-
+				(timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0xcb7 + reg_6014: 
+				(ratios == 0x1 || ratios == 0x2) ? 0xc71 + reg_6014: 
+				(ratios == 0x0) ? 0x1665 + reg_6014: 0xfff + reg_6014;
 
         case 0xC0F0713c: return ((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x0) ? 0xbd7 + reg_713c :
 				((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x1) ? 0x841 + reg_713c :
@@ -3531,8 +3531,6 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
    
     return reg_override_bits(reg, old_val);
 }
-
-
 
 static inline uint32_t reg_override_4K_3x1_EOSM(uint32_t reg, uint32_t old_val)
 {
