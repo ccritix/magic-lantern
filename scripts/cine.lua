@@ -60,7 +60,7 @@ end
   msleep(300)
 
 -- enable crop_rec.mo. Checking first after trying to enable 5k preset
-if menu.get("Movie", "Crop mode", "") ~= "5K anamorphic" and menu.get("Movie", "Crop mode", "") ~= "anamorphic rewired" and menu.get("Movie", "Crop mode", "") ~= "4K anamorphic rewired" then
+if menu.get("Movie", "Crop mode", "") ~= "anamorphic" and menu.get("Movie", "Crop mode", "") ~= "anamorphic rewired" and menu.get("Movie", "Crop mode", "") ~= "4K anamorphic rewired" then
   display.notify_box("enable crop_rec.mo")
   msleep(1000)
   display.notify_box("enable crop_rec.mo")
