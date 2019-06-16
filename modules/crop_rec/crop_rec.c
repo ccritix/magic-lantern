@@ -37,7 +37,7 @@ static int is_basic = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
-static CONFIG_INT("crop.bitdepth", bitdepth, 4);
+static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
@@ -2076,12 +2076,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
     }
 
-    /* all modes may want to override shutter speed */
-    /* ADTG[0x8060/61]: shutter blanking for 3x3 mode  */
-    /* ADTG[0x805E/5F]: shutter blanking for zoom mode  */
-    adtg_new[25] = (struct adtg_new) {6, blanking_reg_nozoom, shutter_blanking};
-    adtg_new[26] = (struct adtg_new) {6, blanking_reg_zoom, shutter_blanking};
-
     /* hopefully generic; to be tested later */
     if (1)
     {
@@ -2483,7 +2477,7 @@ static inline uint32_t reg_override_top_bar(uint32_t reg, uint32_t old_val)
             return 0x1F0017;
     }
 
-    return reg_override_bits(reg, old_val);
+    return 0;
 }
 
 /* these are required for increasing vertical resolution */
@@ -2501,7 +2495,7 @@ static inline uint32_t reg_override_HEAD34(uint32_t reg, uint32_t old_val)
             return old_val + YRES_DELTA + delta_head4;
     }
 
-    return reg_override_bits(reg, old_val);
+    return 0;
 }
 
 static inline uint32_t reg_override_common(uint32_t reg, uint32_t old_val)
@@ -2512,7 +2506,7 @@ static inline uint32_t reg_override_common(uint32_t reg, uint32_t old_val)
     uint32_t b = reg_override_HEAD34(reg, old_val);
     if (b) return b;
 
-    return reg_override_bits(reg, old_val);
+	return reg_override_bits(reg, old_val);
 }
 
 static inline uint32_t reg_override_fps(uint32_t reg, uint32_t timerA, uint32_t timerB, uint32_t old_val)
