@@ -2832,8 +2832,8 @@ static CONFIG_INT("anamorphic.preview", anamorphic_preview, 0);
 
 #ifdef FEATURE_ANAMORPHIC_PREVIEW
 
-static int anamorphic_ratio_num[10] = {5, 4, 7, 3, 5, 9, 2};
-static int anamorphic_ratio_den[10] = {4, 3, 5, 2, 3, 5, 1};
+static int anamorphic_ratio_num[10] = {5, 4, 7, 3, 5, 9, 2, 3};
+static int anamorphic_ratio_den[10] = {4, 3, 5, 2, 3, 5, 1, 1};
 
 static MENU_UPDATE_FUNC(anamorphic_preview_display)
 {
@@ -3545,8 +3545,8 @@ static struct menu_entry display_menus[] = {
         .name = "Anamorphic",
         .priv     = &anamorphic_preview,
         .update = anamorphic_preview_display, 
-        .max = 7,
-        .choices = (const char *[]) {"OFF", "5:4 (1.25)", "4:3 (1.33)", "7:5 (1.4)", "3:2 (1.5)", "5:3 (1.66)", "9:5 (1.8)", "2:1"},
+        .max = 8,
+        .choices = (const char *[]) {"OFF", "5:4 (1.25)", "4:3 (1.33)", "7:5 (1.4)", "3:2 (1.5)", "5:3 (1.66)", "9:5 (1.8)", "2:1", "3:1"},
         .help = "Stretches LiveView image vertically, for anamorphic lenses.",
         .depends_on = DEP_LIVEVIEW | DEP_GLOBAL_DRAW,
 /*
