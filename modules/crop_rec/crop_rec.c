@@ -318,8 +318,8 @@ static inline int get_default_skip_top()
 static int max_resolutions[NUM_CROP_PRESETS][6] = {
                                 /*   24p   25p   30p   50p   60p   x5 */
     [CROP_PRESET_3X_TALL]       = { 1920, 1728, 1536,  960,  800, 1320 },
-    [CROP_PRESET_3x3_1X]        = { 1290, 1290, 1290,  960,  800, 800 },
-    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1040, 800 }, /* 1080p45/48 */
+    [CROP_PRESET_3x3_1X]        = { 1290, 1290, 1290,  960,  800, 1320 },
+    [CROP_PRESET_3x3_1X_48p]    = { 1290, 1290, 1290, 1080, 1040, 1320 }, 
     [CROP_PRESET_3K]            = { 1920, 1728, 1504,  760,  680, 1320 },
     [CROP_PRESET_UHD]           = { 1536, 1472, 1120,  640,  540, 1320 },
     [CROP_PRESET_4K_HFPS]       = { 3072, 3072, 2500, 1440, 1200, 1320 },
@@ -1072,6 +1072,9 @@ static inline uint32_t reg_override_3x3_tall(uint32_t reg, uint32_t old_val)
             (video_mode_fps == 60) ? 1001 :
                                        -1 ;
 
+    /*  reduce to 30fps temporary to be able to go back from x10 zoom without freezes */
+	if (lv_dispsize != 1) *(volatile uint32_t*)0xC0F06014 = 0x613;
+
         int a = reg_override_fps(reg, timerA, timerB, old_val);
         if (a) return a;
     }
@@ -1125,6 +1128,9 @@ static inline uint32_t reg_override_3x3_48p(uint32_t reg, uint32_t old_val)
             (video_mode_fps == 50) ? 1330 : /* 45p */
             (video_mode_fps == 60) ? 1250 : /* 48p */
                                        -1 ;
+
+    /*  reduce to 30fps temporary to be able to go back from x10 zoom without freezes */
+	if (lv_dispsize != 1) *(volatile uint32_t*)0xC0F06014 = 0x613;
 
         int a = reg_override_fps(reg, timerA, timerB, old_val);
         if (a) return a;
@@ -1772,7 +1778,14 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     {
 	    patch = 0;
 	    patch_active = 0;
-            lv_dirty = 1;
+
+            info_led_on();
+            gui_uilock(UILOCK_EVERYTHING);
+            int old_zoom = lv_dispsize;
+            set_zoom(lv_dispsize == 1 ? 5 : 1);
+            set_zoom(old_zoom);
+            gui_uilock(UILOCK_NONE);
+            info_led_off();
     }
 
     return CBR_RET_CONTINUE;
