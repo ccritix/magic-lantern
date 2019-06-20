@@ -3075,8 +3075,13 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     file_hdr.videoFrameCount = 0; //autodetect
     file_hdr.audioFrameCount = 0;
     file_hdr.sourceFpsNom = fps_get_current_x1000();
-    file_hdr.sourceFpsDenom = 1000;
-    
+/* 4k timelapse function in crop_rec.c */
+  if (cam_eos_m || cam_100d)
+  {
+    file_hdr.sourceFpsNom = shamem_read(0xc0f0501c) == 0x20 ? 400: shamem_read(0xc0f0501c) == 0x21 ? 1000: shamem_read(0xc0f0501c) == 0x22 ? 2000: 
+			    shamem_read(0xc0f0501c) == 0x23 ? 3000: shamem_read(0xc0f0501c) == 0x24 ? 4000: shamem_read(0xc0f0501c) == 0x25 ? 5000: fps_get_current_x1000();
+  }
+    file_hdr.sourceFpsDenom = 1000;    
     memset(&rawi_hdr, 0, sizeof(mlv_rawi_hdr_t));
     mlv_set_type((mlv_hdr_t *)&rawi_hdr, "RAWI");
     mlv_set_timestamp((mlv_hdr_t *)&rawi_hdr, mlv_start_timestamp);
@@ -4456,7 +4461,7 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
         -1,
         (need_for_speed && !get_halfshutter_pressed()) 
 	? RAW_PREVIEW_GRAY_ULTRA_FAST 
-	: ((cam_eos_m || cam_100d) && shamem_read(0xc0f0501c) == 0x27) ? RAW_PREVIEW_COLOR_HALFRES
+	: ((cam_eos_m || cam_100d) && shamem_read(0xc0f0501c) != 0x28) ? RAW_PREVIEW_COLOR_HALFRES
 	: (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d) && RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST /* 1x3 binning mode test */
         : RAW_PREVIEW_COLOR_HALFRES 
     );

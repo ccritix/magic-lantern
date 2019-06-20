@@ -2766,7 +2766,8 @@ static LVINFO_UPDATE_FUNC(fps_update)
 
     if (is_movie_mode())
     {
-        int f = fps_get_current_x1000();
+        int f = shamem_read(0xc0f0501c) == 0x20 ? 400: shamem_read(0xc0f0501c) == 0x21 ? 1000: shamem_read(0xc0f0501c) == 0x22 ? 2000: 
+			    shamem_read(0xc0f0501c) == 0x23 ? 3000: shamem_read(0xc0f0501c) == 0x24 ? 4000: shamem_read(0xc0f0501c) == 0x25 ? 5000: fps_get_current_x1000();
         snprintf(buffer, sizeof(buffer), 
             "%2d.%03d", 
             f / 1000, f % 1000

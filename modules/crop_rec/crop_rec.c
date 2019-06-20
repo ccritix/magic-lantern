@@ -3114,6 +3114,17 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
 	if (RECORDING && timelapse == 0x8 && slowshutter == 0x1) *(volatile uint32_t*)0xC0F06014 = 0x58f7;
 	if (RECORDING && timelapse == 0x9 && slowshutter == 0x1) *(volatile uint32_t*)0xC0F06014 = 0x2c7f;
 
+/* set fps flag for mlv_lite.c */
+        if (timelapse == 0x1) EngDrvOutLV(0xc0f0501c, 0x20);
+	if (timelapse == 0x2) EngDrvOutLV(0xc0f0501c, 0x21);
+	if (timelapse == 0x3) EngDrvOutLV(0xc0f0501c, 0x22);
+	if (timelapse == 0x4) EngDrvOutLV(0xc0f0501c, 0x23);
+	if (timelapse == 0x5) EngDrvOutLV(0xc0f0501c, 0x24);
+	if (timelapse == 0x6) EngDrvOutLV(0xc0f0501c, 0x25);
+        if (timelapse == 0x7) EngDrvOutLV(0xc0f0501c, 0x20);
+	if (timelapse == 0x8) EngDrvOutLV(0xc0f0501c, 0x21);
+	if (timelapse == 0x9) EngDrvOutLV(0xc0f0501c, 0x22);
+
 /* 4k timelapse function */
  if (!RECORDING && timelapse != 0x0 && slowshutter == 0x1)
  {
@@ -3134,11 +3145,6 @@ static inline uint32_t reg_override_4K_100d(uint32_t reg, uint32_t old_val)
     }
 
  }
-
-/* sets dummy reg so we can get RAW_PREVIEW_COLOR_HALFRES in mlv_lite.c */
- if (RECORDING && timelapse != 0x0) EngDrvOutLV(0xc0f0501c, 0x27);
-/* reset dummy reg */
- if (!RECORDING && timelapse != 0x0) EngDrvOutLV(0xc0f0501c, 0x28);
    
     return reg_override_bits(reg, old_val);
 }
@@ -3531,6 +3537,17 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
 	if (RECORDING && timelapse == 0x8) *(volatile uint32_t*)0xC0F06014 = 0x58f7;
 	if (RECORDING && timelapse == 0x9) *(volatile uint32_t*)0xC0F06014 = 0x2c7f;
 
+/* set fps flag for mlv_lite.c */
+        if (timelapse == 0x1) EngDrvOutLV(0xc0f0501c, 0x20);
+	if (timelapse == 0x2) EngDrvOutLV(0xc0f0501c, 0x21);
+	if (timelapse == 0x3) EngDrvOutLV(0xc0f0501c, 0x22);
+	if (timelapse == 0x4) EngDrvOutLV(0xc0f0501c, 0x23);
+	if (timelapse == 0x5) EngDrvOutLV(0xc0f0501c, 0x24);
+	if (timelapse == 0x6) EngDrvOutLV(0xc0f0501c, 0x25);
+        if (timelapse == 0x7) EngDrvOutLV(0xc0f0501c, 0x20);
+	if (timelapse == 0x8) EngDrvOutLV(0xc0f0501c, 0x21);
+	if (timelapse == 0x9) EngDrvOutLV(0xc0f0501c, 0x22);
+
 /* 4k timelapse function */
  if (!RECORDING && timelapse != 0x0)
  {
@@ -3551,12 +3568,6 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
     }
 
  }
-
-/* sets dummy reg so we can get RAW_PREVIEW_COLOR_HALFRES in mlv_lite.c */
- if (RECORDING && timelapse != 0x0) EngDrvOutLV(0xc0f0501c, 0x27);
-/* reset dummy reg */
- if (!RECORDING && timelapse != 0x0) EngDrvOutLV(0xc0f0501c, 0x28);
-   
     return reg_override_bits(reg, old_val);
 }
 
