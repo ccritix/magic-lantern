@@ -2982,7 +2982,7 @@ static inline uint32_t reg_override_fps_nocheck(uint32_t reg, uint32_t timerA, u
         }
     }
 
-    return reg_override_bits(reg, old_val);
+    return 0;
 }
 
 /* Values for 100D */
