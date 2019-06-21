@@ -2145,10 +2145,9 @@ else
              if (shamem_read(0xC0F06804) == 0x9170427) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
      }
   }
+
     
-    if (!PREVIEW_HACKED) return;
-    
-    if (RAW_IS_RECORDING && frame_count == 0)
+    if (RAW_IS_RECORDING && PREVIEW_HACKED && frame_count == 0)
     {
         for (int channel = 0; channel < 32; channel++)
         {
@@ -2162,7 +2161,6 @@ else
             }
         }
     }
-
     /* note: we are pausing and resuming LiveView at the end anyway
      * so undoing this hack is no longer needed */
 }
