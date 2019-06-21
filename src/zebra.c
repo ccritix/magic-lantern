@@ -195,8 +195,7 @@ static CONFIG_INT( "zebra.raw.under", zebra_raw_underexposure,  1 );
 #define MZ_ZOOMREC_N_FOCUS_RING 2
 #define MZ_TAKEOVER_ZOOM_IN_BTN 3
 #define MZ_ALWAYS_ON            4
-/* starting point OFF EOSM */
-static CONFIG_INT( "zoom.overlay", zoom_overlay_enabled, 1);
+static CONFIG_INT( "zoom.overlay", zoom_overlay_enabled, 0);
 /* starting point OFF EOSM */
 static CONFIG_INT( "zoom.overlay.trig", zoom_overlay_trigger_mode, 1);
 static CONFIG_INT( "zoom.overlay.size", zoom_overlay_size, 1);
