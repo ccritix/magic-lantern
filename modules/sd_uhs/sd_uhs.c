@@ -46,17 +46,6 @@ static void sd_setup_mode_in_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 }
 
-static void sd_set_function_log(uint32_t* regs, uint32_t* stack, uint32_t pc)
-{
-    qprintf("sd_set_function(0x%x)\n", regs[0]);
-
-    /* UHS-I SDR50? */
-  //  if (regs[0] == 0xff0002)
-  //  {
-        /* force UHS-I SDR104 */
-        regs[0] = 0xff0003;
-  //  }
-}
 static int patch_act = 0;
 
 static void sd_uhs_patch()
@@ -67,9 +56,6 @@ static void sd_uhs_patch()
     }
     patch_hook_function(sd_setup_mode, MEM(sd_setup_mode), sd_setup_mode_log, "SD UHS");
     patch_hook_function(sd_setup_mode_in, MEM(sd_setup_mode_in), sd_setup_mode_in_log, "SD UHS");
-
-    /* enable SDR104 */
-    patch_hook_function(sd_set_function, MEM(sd_set_function), sd_set_function_log, "SDR104");
 
     /* power-cycle and reconfigure the SD card */
     memcpy(uhs_vals, sdr_160MHz, sizeof(uhs_vals));
