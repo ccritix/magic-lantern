@@ -369,6 +369,13 @@ MENU_UPDATE_FUNC(tasks_print)
 #include "gps.h"
 #endif
 
+static void leds_on()
+{
+    _card_led_on();
+    info_led_on();
+    delayed_call(20, leds_on, 0);
+}
+
 /* to refactor with CBR */
 extern int module_shutdown();
 
@@ -380,8 +387,6 @@ static void ml_shutdown()
 #endif
     ml_shutdown_requested = 1;
     
-    info_led_on();
-    _card_led_on();
     restore_af_button_assignment_at_shutdown();
 #ifdef FEATURE_GPS_TWEAKS
     gps_tweaks_shutdown_hook();
@@ -390,8 +395,6 @@ static void ml_shutdown()
 #if defined(CONFIG_MODULES)
     module_shutdown();
 #endif
-    info_led_on();
-    _card_led_on();
 }
 
 PROP_HANDLER(PROP_TERMINATE_SHUT_REQ)
@@ -400,6 +403,9 @@ PROP_HANDLER(PROP_TERMINATE_SHUT_REQ)
     /* 3 appears too late for saving config files */
     if (buf[0] == 0)
     {
+        /* keep the LEDs on until shutdown completes */
+        delayed_call(20, leds_on, 0);
+
         ml_shutdown();
     }
 }
@@ -411,20 +417,13 @@ PROP_HANDLER(PROP_ABORT)
 
     if (buf[0] == 1)
     {
-        /* 5D3: this prevents RING and RASEN from being saved
-         * when opening battery door (check with e.g. PROP_VIDEO_SYSTEM) */
-#ifdef CONFIG_5D3
-        extern int terminateAbort_save_settings;
-        terminateAbort_save_settings = 0;
-#endif
+        /* keep the LEDs on until shutdown completes */
+        delayed_call(20, leds_on, 0);
 
         #if defined(CONFIG_MODULES)
         /* if no hard crash, load the modules after taking the battery out */
         module_shutdown();
         #endif
-
-        /* minimalist feedback that battery door event was processed */
-        info_led_on();
     }
 }
 

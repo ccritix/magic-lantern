@@ -97,7 +97,7 @@ volatile PROP_INT(PROP_AF_MODE, af_mode);
 volatile PROP_INT(PROP_METERING_MODE, metering_mode);
 volatile PROP_INT(PROP_DRIVE, drive_mode);
 volatile PROP_INT(PROP_STROBO_FIRING, strobo_firing);
-volatile PROP_INT(PROP_LVAF_MODE, lvaf_mode);
+volatile PROP_INT(PROP_LIVE_VIEW_AF_SYSTEM, lv_af_mode);
 volatile PROP_INT(PROP_IMAGE_REVIEW_TIME, image_review_time);
 volatile PROP_INT(PROP_MIRROR_DOWN, mirror_down);
 volatile PROP_INT(PROP_LCD_BRIGHTNESS, backlight_level);
@@ -111,6 +111,8 @@ volatile PROP_INT(PROP_AUTO_POWEROFF_TIME, auto_power_off_time)
 volatile PROP_INT(PROP_VIDEO_SYSTEM, video_system_pal);
 volatile PROP_INT(PROP_LV_FOCUS_STATUS, lv_focus_status);
 volatile PROP_INT(PROP_ICU_UILOCK, icu_uilock);
+volatile PROP_INT(PROP_CONTINUOUS_AF, continuous_af_photo);
+volatile PROP_INT(PROP_MOVIE_SERVO_AF, continuous_af_movie);
 
 #ifdef CONFIG_NO_DEDICATED_MOVIE_MODE
 int ae_mode_movie = 1;
