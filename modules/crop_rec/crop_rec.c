@@ -2034,7 +2034,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
  }
 
 	  /* only apply bit reducing while recording, not while idle */
-    	  if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_100D && !is_6D && !is_5D3))
+    	  if ((RECORDING && (is_EOSM || is_100D || is_6D)) || (!is_EOSM && !is_100D && !is_6D))
 	  {
    		if (bitdepth == 0x1)
     		{
@@ -2331,7 +2331,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
 /* only apply bit reducing while recording, not while idle */
-if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_100D && !is_6D && !is_5D3))
+if ((RECORDING && (is_EOSM || is_100D || is_6D)) || (!is_EOSM && !is_100D && !is_6D))
 {
   if (bitdepth == 0x1)
   {
@@ -2387,7 +2387,7 @@ if (RECORDING && bitdepth != 0x0 && (is_EOSM || is_100D))
 
 }
 
-if (!RECORDING && (is_EOSM || is_100D || is_6D || is_5D3))
+if (!RECORDING && (is_EOSM || is_100D || is_6D))
 {
 
   if (bitdepth == 0x1)
@@ -2423,7 +2423,7 @@ if (!RECORDING && (is_EOSM || is_100D || is_6D || is_5D3))
   }
 
 /* reset eosm switch */
-  if (bitdepth == 0x0 && (is_EOSM || is_100D || is_6D || is_5D3))
+  if (bitdepth == 0x0 && (is_EOSM || is_100D || is_6D))
   {
     switch (reg)
     {
