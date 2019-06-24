@@ -237,6 +237,7 @@ static void fps_read_current_timer_values();
 #elif defined(CONFIG_EOSM)
     #define TG_FREQ_BASE 32000000
     #define FPS_TIMER_A_MIN (ZOOM ? 676 : MV1080CROP ? 572 : 520)
+    #undef FPS_TIMER_B_MIN
     #define FPS_TIMER_B_MIN (ZOOM || MV1080 || MV1080CROP ? 1230 : MV720 || (lv && lv_dispsize==1 && !is_movie_mode()) ? 990 : 1970)
 #elif defined(CONFIG_6D)
     #define TG_FREQ_BASE 25600000
