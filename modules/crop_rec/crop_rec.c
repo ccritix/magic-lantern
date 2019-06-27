@@ -2696,7 +2696,7 @@ static inline uint32_t reg_override_3x3_60p(uint32_t reg, uint32_t old_val)
 
         /* HEAD3 timer */
         case 0xC0F0713C:
-            return 0x338 + reg_713c;
+            return 0x334 + reg_713c;
 
         /* HEAD4 timer */
         case 0xC0F07150:
