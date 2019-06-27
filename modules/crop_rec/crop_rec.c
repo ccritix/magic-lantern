@@ -521,7 +521,7 @@ static int is_supported_mode()
             return 1;
 
         case CROP_PRESET_3x3_1X_100D:
-	    return is_1080p();
+	    return lv_dispsize != 1 ? is_1080p(): is_720p();
 	break;
 
         default:
@@ -5761,15 +5761,16 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 
     if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_50p || 
 	crop_preset == CROP_PRESET_3x3_1X_60p || crop_preset == CROP_PRESET_3x3_1X_48p || 
-	crop_preset == CROP_PRESET_3x3_mv1080_48fps_EOSM || 
+	crop_preset == CROP_PRESET_3x3_mv1080_48fps_EOSM || crop_preset == CROP_PRESET_3x3_1X_100D ||
 	crop_preset == CROP_PRESET_3x3_1X_45p)) && lv_dispsize == 5) 
     {
-    /* workaround for x5,x10 baback to mv1080p mode without freezing */
+    /* workaround for x5,x10 back to mv1080p mode without freezing */
 	    patch = 1;
     }
 
     if (((crop_preset == CROP_PRESET_3x3_1X || crop_preset == CROP_PRESET_3x3_1X_50p || 
-	crop_preset == CROP_PRESET_3x3_1X_60p || crop_preset == CROP_PRESET_3x3_1X_48p ||
+	crop_preset == CROP_PRESET_3x3_1X_60p || crop_preset == CROP_PRESET_3x3_1X_48p || 
+	crop_preset == CROP_PRESET_3x3_mv1080_48fps_EOSM || crop_preset == CROP_PRESET_3x3_1X_100D ||
 	crop_preset == CROP_PRESET_3x3_1X_45p) && patch) && lv_dispsize == 1)
     {
             patch = 0;
