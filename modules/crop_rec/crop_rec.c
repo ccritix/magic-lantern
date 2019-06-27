@@ -2692,11 +2692,11 @@ static inline uint32_t reg_override_3x3_60p(uint32_t reg, uint32_t old_val)
 
         /* raw resolution (end line/column) */
         case 0xC0F06804:
-            return 0x34e011b + reg_6804_width + (reg_6804_height << 16);
+            return 0x34f011b + reg_6804_width + (reg_6804_height << 16);
 
         /* HEAD3 timer */
         case 0xC0F0713C:
-            return 0x334 + reg_713c;
+            return 0x335 + reg_713c;
 
         /* HEAD4 timer */
         case 0xC0F07150:
