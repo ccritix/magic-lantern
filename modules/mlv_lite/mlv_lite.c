@@ -3117,7 +3117,7 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     rawi_hdr.raw_info.white_level = (white14 + bpp_scaling/2) / bpp_scaling;
 
 /* round trip analog gain bits reduction. Only EOSM for now. Setting registry flag. Hopefully not affection output. Connected with raw_lv_settings_still_valid() in raw.c */
-if (cam_eos_m || cam_100d || cam_6d)
+if (cam_eos_m || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
 {
 /* 8bit */
     if (shamem_read(0xc0f0815c) == 0x3) rawi_hdr.raw_info.white_level = 2250;
@@ -4457,7 +4457,7 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
         PREVIEW_HACKED && RAW_IS_RECORDING ? (void*)-1 : buffers->dst_buf,
         -1,
         -1,
-        (need_for_speed && !get_halfshutter_pressed()) 
+        (need_for_speed) 
 	? RAW_PREVIEW_GRAY_ULTRA_FAST 
 	: ((cam_eos_m || cam_100d) && shamem_read(0xc0f0501c) != 0x28) ? RAW_PREVIEW_COLOR_HALFRES
 	: (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d) && RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST /* 1x3 binning mode test */
