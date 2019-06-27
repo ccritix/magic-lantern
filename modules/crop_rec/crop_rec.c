@@ -193,7 +193,7 @@ static const char crop_choices_help2_5d3[] =
     "1920x1080 @ 45p, 3x3 binning (50/60 FPS in Canon menu)\n"
     "1920x1050 @ 48p, 3x3 binning (50/60 FPS in Canon menu)\n"
     "1920x960 @ 50p, 3x3 binning (50/60 FPS in Canon menu)\n"
-    "1920x800 @ 60p, 3x3 binning (50/60 FPS in Canon menu)\n"
+    "1920x816 @ 60p, 3x3 binning (50/60 FPS in Canon menu)\n"
     "1:1 4K UHD crop (3840x1600 @ 24p, square raw pixels, preview broken)\n"
     "1:1 4K crop (4096x3072 @ 12.5 fps, half frame rate, preview broken)\n"
     "Full resolution LiveView (5796x3870 @ 7.4 fps, 5784x3864, preview broken)\n"
@@ -2692,15 +2692,15 @@ static inline uint32_t reg_override_3x3_60p(uint32_t reg, uint32_t old_val)
 
         /* raw resolution (end line/column) */
         case 0xC0F06804:
-            return 0x33e011b;
+            return 0x34e011b + reg_6804_width + (reg_6804_height << 16);
 
         /* HEAD3 timer */
         case 0xC0F0713C:
-            return 0x328;
+            return 0x338 + reg_713c;
 
         /* HEAD4 timer */
         case 0xC0F07150:
-            return 0x2e1;
+            return 0x2f1;
     }
 
     return reg_override_common(reg, old_val);
