@@ -2652,15 +2652,15 @@ static inline uint32_t reg_override_3x3_50p(uint32_t reg, uint32_t old_val)
 
         /* raw resolution (end line/column) */
         case 0xC0F06804:
-            return 0x3de011b;
+            return 0x3de011b + reg_6804_width + (reg_6804_height << 16);
 
         /* HEAD3 timer */
         case 0xC0F0713C:
-            return 0x3de;
+            return 0x3de + reg_713c;
 
         /* HEAD4 timer */
         case 0xC0F07150:
-            return 0x3d2;
+            return 0x3d2 + reg_7150;
     }
 
     return reg_override_common(reg, old_val);
@@ -2700,7 +2700,7 @@ static inline uint32_t reg_override_3x3_60p(uint32_t reg, uint32_t old_val)
 
         /* HEAD4 timer */
         case 0xC0F07150:
-            return 0x2f1;
+            return 0x2f1 + reg_7150;
     }
 
     return reg_override_common(reg, old_val);
