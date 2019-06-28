@@ -2040,23 +2040,19 @@ unsigned int raw_rec_polling_cbr(unsigned int unused)
 }
 
 static void unhack_liveview_vsync(int unused);
+/* Both eosm and 100d sometimes bypass crop_rec registers when starting camera. This patch seems to fix that issue */
+static int crop_patch = 1;
 
 static REQUIRES(LiveViewTask)
 void FAST hack_liveview_vsync()
 {
 
-
-/* Finding regs
-if (get_halfshutter_pressed())
-{ 
-     	NotifyBox(5000, "shamem_read(0xc0f383d4) 0x%x", shamem_read(0xc0f383d4));
-}
-else
+if ((cam_eos_m || cam_100d) && crop_patch) 
 {
-	NotifyBox(5000, "shamem_read(0xc0f383dc) 0x%x", shamem_read(0xc0f383dc));
+     crop_patch = 0;
+     PauseLiveView(); 
+     ResumeLiveView();
 }
-*/
-
 
    if (prevmode == 1)
    {
