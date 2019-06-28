@@ -2047,6 +2047,17 @@ static REQUIRES(LiveViewTask)
 void FAST hack_liveview_vsync()
 {
 
+/* Finding regs
+if (get_halfshutter_pressed())
+{ 
+     	NotifyBox(5000, "shamem_read(0xc0f383d4) 0x%x", shamem_read(0xc0f383d4));
+ }
+else
+{
+	NotifyBox(5000, "shamem_read(0xc0f383dc) 0x%x", shamem_read(0xc0f383dc));
+}
+*/
+
 if ((cam_eos_m || cam_100d) && crop_patch) 
 {
      crop_patch = 0;
