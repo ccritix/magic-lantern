@@ -68,7 +68,7 @@
 #include <util.h>
 #include <edmac.h>
 #include <edmac-memcpy.h>
-#include <patch.h>
+#include <cache_hacks.h>
 #include <string.h>
 #include <shoot.h>
 #include <powersave.h>
@@ -108,8 +108,6 @@ static uint32_t cam_650d = 0;
 static uint32_t cam_7d = 0;
 static uint32_t cam_700d = 0;
 static uint32_t cam_60d = 0;
-static uint32_t cam_100d = 0;
-static uint32_t cam_1100d = 0;
 
 static uint32_t cam_5d3 = 0;
 static uint32_t cam_5d3_113 = 0;
@@ -1480,7 +1478,7 @@ static unsigned int raw_rec_polling_cbr(unsigned int unused)
                 
                 int rl_icon_width=0;
                 /* Draw the movie camera icon */
-                rl_icon_width = bfnt_draw_char(ICON_ML_MOVIE, MLV_ICON_X, MLV_ICON_Y, rl_color, NO_BG_ERASE);
+                rl_icon_width = bfnt_draw_char(ICON_ML_MOVIE, MLV_ICON_X, MLV_ICON_Y, rl_color, COLOR_BG_DARK);
                 
                 /* Display the Status */
                 bmp_printf(FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), MLV_ICON_X+rl_icon_width+5, MLV_ICON_Y+5, "%02d:%02d", t/60, t%60);
@@ -1741,32 +1739,29 @@ static void hack_liveview(int32_t unhack)
             cam_700d ? 0xFF52BB60 :
             cam_7d  ? 0xFF345788 :
             cam_60d ? 0xff36fa3c :
-            cam_100d ? 0xFF542580 :
             cam_500d ? 0xFF2ABEF8 :
-            cam_1100d ? 0xFF373384 :
             /* ... */
             0;
         uint32_t dialog_refresh_timer_orig_instr = 0xe3a00032; /* mov r0, #50 */
         uint32_t dialog_refresh_timer_new_instr  = 0xe3a00a02; /* change to mov r0, #8192 */
 
+        if (*(volatile uint32_t*)dialog_refresh_timer_addr != dialog_refresh_timer_orig_instr)
+        {
+            /* something's wrong */
+            NotifyBox(1000, "Hack error at %x:\nexpected %x, got %x", dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, *(volatile uint32_t*)dialog_refresh_timer_addr);
+            beep_custom(1000, 2000, 1);
+            dialog_refresh_timer_addr = 0;
+        }
+
         if (dialog_refresh_timer_addr)
         {
             if (!unhack) /* hack */
             {
-                int err = patch_instruction(
-                    dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, dialog_refresh_timer_new_instr, 
-                    "mlv_rec: slow down Canon dialog refresh timer"
-                );
-                
-                if (err)
-                {
-                    NotifyBox(1000, "Hack error at %x:\nexpected %x, got %x", dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, *(volatile uint32_t*)dialog_refresh_timer_addr);
-                    beep_custom(1000, 2000, 1);
-                }
+                cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_new_instr, TYPE_ICACHE);
             }
             else /* unhack */
             {
-                unpatch_memory(dialog_refresh_timer_addr);
+                cache_fake(dialog_refresh_timer_addr, dialog_refresh_timer_orig_instr, TYPE_ICACHE);
             }
         }
     }
@@ -2142,7 +2137,7 @@ static void mlv_rec_dma_cbr_r(void *ctx)
     slots[capture_slot].status = SLOT_FULL;
     mlv_rec_dma_active = 0;
     
-    mlv_rec_dma_end = get_us_clock();
+    mlv_rec_dma_end = get_us_clock_value();
     mlv_rec_dma_duration = (uint32_t)(mlv_rec_dma_end - mlv_rec_dma_start);
     
     edmac_copy_rectangle_adv_cleanup();
@@ -2199,7 +2194,7 @@ static int32_t FAST process_frame()
     
     mlv_rec_dma_active = 1;
     edmac_copy_rectangle_cbr_start(ptr, raw_info.buffer, raw_info.pitch, (skip_x+7)/8*14, skip_y/2*2, res_x*14/8, 0, 0, res_x*14/8, res_y, &mlv_rec_dma_cbr_r, &mlv_rec_dma_cbr_w, NULL);
-    mlv_rec_dma_start = get_us_clock();
+    mlv_rec_dma_start = get_us_clock_value();
 
     /* copy current frame to our buffer and crop it to its final size */
     slots[capture_slot].frame_number = frame_count;
@@ -2807,10 +2802,10 @@ static void raw_writer_task(uint32_t writer)
 
                 /* start write and measure times */
                 job->last_time_after = last_time_after;
-                job->time_before = get_us_clock();
+                job->time_before = get_us_clock_value();
                 job->file_offset = FIO_SeekSkipFile(f, 0, SEEK_CUR);
                 int32_t written = FIO_WriteFile(f, job->block_ptr, job->block_size);
-                job->time_after = get_us_clock();
+                job->time_after = get_us_clock_value();
 
                 last_time_after = job->time_after;
 
@@ -3173,7 +3168,7 @@ static void raw_video_rec_task()
     }
     else if(DISPLAY_REC_INFO_ICON)
     {
-        uint32_t width = bfnt_draw_char(ICON_ML_MOVIE, MLV_ICON_X, MLV_ICON_Y, COLOR_WHITE, NO_BG_ERASE);
+        uint32_t width = bfnt_draw_char(ICON_ML_MOVIE, MLV_ICON_X, MLV_ICON_Y, COLOR_WHITE, COLOR_BG_DARK);
         bmp_printf(FONT(FONT_MED, COLOR_WHITE, COLOR_BG_DARK), MLV_ICON_X + width, MLV_ICON_Y + 5, "Prepare");
     }
     
@@ -4215,9 +4210,7 @@ static unsigned int raw_rec_init()
     cam_7d    = is_camera("7D",   "2.0.3");
     cam_700d  = is_camera("700D", "1.1.5");
     cam_60d   = is_camera("60D",  "1.1.1");
-    cam_100d  = is_camera("100D", "1.0.1");
-    cam_500d  = is_camera("500D", "1.1.1");
-    cam_1100d = is_camera("1100D", "1.0.5");
+    cam_500d  = is_camera("500D", "1.1.2");
 
     cam_5d3_113 = is_camera("5D3",  "1.1.3");
     cam_5d3_123 = is_camera("5D3",  "1.2.3");

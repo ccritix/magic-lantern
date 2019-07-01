@@ -2,16 +2,12 @@
 
 ifeq ($(FW_VERSION),203)
 CANON_NAME_FIR=7D000203.FIR
-ROMBASEADDR  = 0xFF010000
+ROMBASEADDR     = 0xF8010000
 
 # DryOSmemory map
 # RESTARTSTART is selected to be just above the end of the bss
 #
-ifeq ($(ML_SRC_PROFILE),generic)
 RESTARTSTART    = 0x1F800100
-ML_BOOT_OBJ     = boot-d45-ch.o
-else
-RESTARTSTART    = 0x88000
-endif
-
+AUTOEXEC_BASE   = 0x40800000
+FIR_BASE        = 0x40800120
 endif

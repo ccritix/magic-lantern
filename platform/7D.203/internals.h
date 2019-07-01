@@ -18,10 +18,6 @@
 /** This camera runs DryOS **/
 //~ #define CONFIG_VXWORKS
 
-/** This camera has a Dual DIGIC IV chip */
-#define CONFIG_DIGIC_IV
-#define CONFIG_DUAL_DIGIC
-
 /** This camera has an APS-C sensor */
 //~ #define CONFIG_FULLFRAME
 
@@ -132,7 +128,4 @@
 #define CONFIG_RAW_DISABLE_IN_10X_ZOOM
 
 /** Use joystick for one-finger menu navigation */
-#define CONFIG_LONG_PRESS_JOYSTICK_MENU
-
-/** likely similar to 550D, but not tested */
-//~ #define CONFIG_FOCUS_COMMANDS_PROP_NOT_CONFIRMED
+#define CONFIG_JOY_CENTER_ACTIONS

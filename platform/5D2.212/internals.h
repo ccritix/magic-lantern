@@ -18,9 +18,6 @@
 /** This camera runs DryOS **/
 //~ #define CONFIG_VXWORKS
 
-/** This camera has a DIGIC IV chip */
-#define CONFIG_DIGIC_IV
-
 /** This camera has a full-frame sensor */
 #define CONFIG_FULLFRAME
 
@@ -135,7 +132,4 @@
 #define CONFIG_RAW_DISABLE_IN_10X_ZOOM_WEAK
 
 /** Use joystick for one-finger menu navigation */
-#define CONFIG_LONG_PRESS_JOYSTICK_MENU
-
-/** Focus commands are not confirmed in LiveView (lens_focus - requires pfAfComplete_counter stub) */
-#define CONFIG_FOCUS_COMMANDS_PROP_NOT_CONFIRMED
+#define CONFIG_JOY_CENTER_ACTIONS

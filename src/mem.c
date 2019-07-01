@@ -20,8 +20,6 @@
 #include "menu.h"
 #include "edmac.h"
 #include "util.h"
-#include "raw.h"
-#include "propvalues.h"
 
 #ifdef MEM_DEBUG
 #define dbg_printf(fmt,...) { printf(fmt, ## __VA_ARGS__); }
@@ -76,7 +74,7 @@ static struct semaphore * mem_sem = 0;
 
 struct mem_allocator
 {
-    const char name[16];                    /* malloc, AllocateMemory, shoot_malloc, task_mem... */
+    char name[16];                          /* malloc, AllocateMemory, shoot_malloc, task_mem... */
     mem_init_func init;                     /* can be null; called at startup, before all other INIT_FUNCs */
     mem_alloc_func malloc;
     mem_free_func free;
@@ -178,6 +176,7 @@ static struct mem_allocator allocators[] = {
     },
 #endif
 
+#if !defined(CONFIG_QEMU)
     /* must be completely free when navigating Canon menus, so only use it as a last resort */
     {
         .name = "shoot_malloc",
@@ -203,6 +202,7 @@ static struct mem_allocator allocators[] = {
         .minimum_alloc_size = 64 * 1024,
         .minimum_free_space = 256 * 1024,
     },
+#endif
 
 #if 1
     /* large buffers (30-40 MB), but you can't even take a picture with one of those allocated */
@@ -248,10 +248,10 @@ struct memcheck_hdr
 struct memcheck_entry
 {
     unsigned int ptr;
-    const char * file;
+    char * file;
     uint16_t failed;
     uint16_t line;
-    const char * task_name;
+    char * task_name;
 };
 
 static struct memcheck_entry memcheck_entries[MEMCHECK_ENTRIES];
@@ -261,10 +261,10 @@ static volatile int last_error = 0;
 static char last_error_msg_short[20] = "";
 static char last_error_msg[100] = "";
 
-static const char * file_name_without_path(const char * file)
+static char* file_name_without_path(const char* file)
 {
     /* only show the file name, not full path */
-    const char * fn = file + strlen(file) - 1;
+    char* fn = (char*)file + strlen(file) - 1;
     while (fn > file && *(fn-1) != '/') fn--;
     return fn;
 }
@@ -393,19 +393,19 @@ static unsigned int memcheck_check(unsigned int ptr, unsigned int entry)
         int size = ((struct memcheck_hdr *)ptr)->length;
         int allocator = ((struct memcheck_hdr *)ptr)->allocator;
 
-        const char * file = "unk";
+        char* file = "unk";
         int line = 0;
-        const char * task_name = "unk";
-        const char * allocator_name = "unk";
+        char* task_name = "unk";
+        char* allocator_name = "unk";
         if (id_ok)
         {
-            file = memcheck_entries[id].file;
+            file = (char*) memcheck_entries[id].file;
             line = memcheck_entries[id].line;
             task_name = memcheck_entries[id].task_name;
         }
         else
         {
-            task_name = get_current_task_name();    
+            task_name = current_task->name;
         }
         
         if (allocator >= 0 && allocator < COUNT(allocators))
@@ -484,11 +484,8 @@ static void memcheck_add(unsigned int ptr, const char *file, unsigned int line)
     memcheck_entries[memcheck_bufpos].failed = 0;
     memcheck_entries[memcheck_bufpos].file = file_name_without_path(file);
     memcheck_entries[memcheck_bufpos].line = line;
-    /* assuming we will never call malloc/free from interrupts,
-     * this will return a pointer to Canon's task name */
-    memcheck_entries[memcheck_bufpos].task_name = get_current_task_name();
-
-
+    memcheck_entries[memcheck_bufpos].task_name = current_task->name;
+    
     ((struct memcheck_hdr *)ptr)->id = memcheck_bufpos;
     
     sei(state);
@@ -543,7 +540,7 @@ static void *memcheck_malloc( unsigned int len, const char *file, unsigned int l
     unsigned int ptr;
     
     //~ dbg_printf("alloc %d %s:%d\n ", len, file, line);
-    //~ int t0 = get_ms_clock();
+    //~ int t0 = get_ms_clock_value();
 
     int requires_dma = flags & MEM_DMA;
     if (requires_dma)
@@ -555,7 +552,7 @@ static void *memcheck_malloc( unsigned int len, const char *file, unsigned int l
         ptr = (unsigned int) allocators[allocator_index].malloc(len + 2 * MEM_SEC_ZONE);
     }
 
-    //~ int t1 = get_ms_clock();
+    //~ int t1 = get_ms_clock_value();
     //~ dbg_printf("alloc returned %x, took %s%d.%03d s\n", ptr, FMT_FIXEDPOINT3(t1-t0));
     
     /* some allocators may return invalid ptr; discard it and return 0, as C malloc does */
@@ -790,12 +787,12 @@ static int choose_allocator(int size, unsigned int flags)
 /* these two will replace all malloc calls */
 
 /* returns 0 if it couldn't allocate */
-void* __mem_malloc(size_t size, unsigned int flags, const char * file, unsigned int line)
+void* __mem_malloc(size_t size, unsigned int flags, const char* file, unsigned int line)
 {
     ASSERT(mem_sem);
     take_semaphore(mem_sem, 0);
 
-    dbg_printf("alloc(%s) from %s:%d task %s\n", format_memory_size_and_flags(size, flags), file, line, get_current_task_name());
+    dbg_printf("alloc(%s) from %s:%d task %s\n", format_memory_size_and_flags(size, flags), file, line, current_task->name);
     
     /* show files without full path in error messages (they are too big) */
     file = file_name_without_path(file);
@@ -816,7 +813,7 @@ void* __mem_malloc(size_t size, unsigned int flags, const char * file, unsigned 
         );
         
         #ifdef MEM_DEBUG
-        int t0 = get_ms_clock();
+        int t0 = get_ms_clock_value();
         #endif
         
         void* ptr = memcheck_malloc(size, file, line, allocator_index, flags);
@@ -827,7 +824,7 @@ void* __mem_malloc(size_t size, unsigned int flags, const char * file, unsigned 
         }
 
         #ifdef MEM_DEBUG
-        int t1 = get_ms_clock();
+        int t1 = get_ms_clock_value();
         #endif
         
         if (!ptr)
@@ -852,7 +849,7 @@ void* __mem_malloc(size_t size, unsigned int flags, const char * file, unsigned 
     
     /* could not find an allocator (maybe out of memory?) */
     snprintf(last_error_msg_short, sizeof(last_error_msg_short), "alloc(%s)", format_memory_size_and_flags(size, flags));
-    snprintf(last_error_msg, sizeof(last_error_msg), "No allocator for %s at %s:%d, %s.", format_memory_size_and_flags(size, flags), file, line, get_current_task_name());
+    snprintf(last_error_msg, sizeof(last_error_msg), "No allocator for %s at %s:%d, %s.", format_memory_size_and_flags(size, flags), file, line, current_task->name);
     dbg_printf("alloc not found\n");
     give_semaphore(mem_sem);
     return 0;
@@ -872,7 +869,7 @@ void __mem_free(void* buf)
     /* make sure the caching flag is the same as returned by the allocator */
     buf = (flags & UNCACHEABLE_FLAG) ? UNCACHEABLE(buf) : CACHEABLE(buf);
 
-    dbg_printf("free(%x %s) from task %s\n", buf, format_memory_size_and_flags(((struct memcheck_hdr *)ptr)->length, flags), get_current_task_name());
+    dbg_printf("free(%x %s) from task %s\n", buf, format_memory_size_and_flags(((struct memcheck_hdr *)ptr)->length, flags), current_task->name);
     
     if (allocator_index >= 0 && allocator_index < COUNT(allocators))
     {
@@ -1122,6 +1119,15 @@ static void guess_free_mem()
 
 static MENU_UPDATE_FUNC(mem_error_display);
 
+static struct { uint32_t addr; char* name; } common_addresses[] = {
+    { RESTARTSTART,         "RST"},
+    { YUV422_HD_BUFFER_1,   "HD1"},
+    { YUV422_HD_BUFFER_1,   "HD2"},
+    { YUV422_LV_BUFFER_1,   "LV1"},
+    { YUV422_LV_BUFFER_2,   "LV2"},
+    { YUV422_LV_BUFFER_3,   "LV3"},
+};
+
 static MENU_UPDATE_FUNC(meminfo_display)
 {
     int M = GetFreeMemForAllocateMemory();
@@ -1182,16 +1188,6 @@ static MENU_UPDATE_FUNC(meminfo_display)
                     draw_line(i, 400, i, 410, memory_map[i]);
             
             /* show some common addresses on the memory map */
-            struct { uint32_t addr; const char * name; } common_addresses[] = {
-                { RESTARTSTART,                         "ML"  },    /* where ML is loaded */
-                { (uint32_t) raw_info.buffer,           "RAW" },    /* raw buffer */
-                { (uint32_t) bmp_vram_idle(),           "BMI" },    /* "idle" BMP buffer (back buffer) */
-                { (uint32_t) bmp_vram_real(),           "BMP" },    /* current BMP buffer (displayed on the screen) */
-                { YUV422_LV_BUFFER_DISPLAY_ADDR,        "LVD" },    /* current LV YUV buffer (displayed) */
-                { shamem_read(REG_EDMAC_WRITE_LV_ADDR), "LVW" },    /* LV YUV buffer being written by EDMAC */
-                { shamem_read(REG_EDMAC_WRITE_HD_ADDR), "HDW" },    /* HD YUV buffer being written by EDMAC */
-            };
-
             for (int i = 0; i < COUNT(common_addresses); i++)
             {
                 int c = MEMORY_MAP_ADDRESS_TO_INDEX(common_addresses[i].addr);
@@ -1208,7 +1204,7 @@ static MENU_UPDATE_FUNC(meminfo_display)
                     int c = MEMORY_MAP_ADDRESS_TO_INDEX(a);
                     draw_line(c, 410, c, 420, COLOR_YELLOW);
                     int msg = i < 10 ? '0'+i : 'a'+i;  /* extended hex to fit in the single character */
-                    bmp_printf(FONT_SMALL | FONT_ALIGN_CENTER, c, 415, "%s", (const char *) &msg);
+                    bmp_printf(FONT_SMALL | FONT_ALIGN_CENTER, c, 415, "%s", (char*) &msg);
                 }
             }
             break;
@@ -1352,10 +1348,10 @@ static MENU_UPDATE_FUNC(mem_total_display)
                 continue;
             }
 
-            const char * file = memcheck_entries[buf_pos].file;
+            char* file = (char*)memcheck_entries[buf_pos].file;
             int line = memcheck_entries[buf_pos].line;
-            const char * task_name = memcheck_entries[buf_pos].task_name;
-            const char * allocator_name = allocators[allocator].name;
+            char* task_name = memcheck_entries[buf_pos].task_name;
+            char* allocator_name = allocators[allocator].name;
             bmp_printf(FONT_MED, x, y, "%s%s", memcheck_entries[buf_pos].failed ? "[FAIL] " : "", format_memory_size_and_flags(size, flags));
             bmp_printf(FONT_MED, 180, y, "%s:%d task %s", file, line, task_name);
             bmp_printf(FONT_MED | FONT_ALIGN_RIGHT, 710, y, allocator_name);

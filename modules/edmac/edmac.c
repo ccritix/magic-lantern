@@ -506,6 +506,18 @@ static void find_free_edmac_channels()
 /* log EDMAC state every X microseconds */
 static CONFIG_INT("log.interval", log_interval, 500);
 
+/* fixme: provide R10 toggle option in the menu backend */
+/* also microsecond units */
+static int log_interval_index = 3;
+static const int    log_interval_values[]  = { 50, 100, 200, 500, 1000, 2000, 5000, 10000 };
+static const char * log_interval_choices[] = { "50 "SYM_MICRO"s", "100 "SYM_MICRO"s", "200 "SYM_MICRO"s", "500 "SYM_MICRO"s", "1 ms", "2 ms", "5 ms", "10 ms" };
+
+static MENU_SELECT_FUNC(log_interval_select)
+{
+    log_interval_index = MOD(log_interval_index + delta, COUNT(log_interval_values));
+    log_interval = log_interval_values[log_interval_index];
+}
+
 /* a little faster when hardcoded */
 /* should match edmac_chanlist from src/edmac.c */
 static const int edmac_regs[] = {
@@ -564,7 +576,7 @@ static int edmac_extra_index = 0;
 
 static void FAST edmac_spy_poll(int last_expiry, void* unused)
 {
-    uint32_t start_clock = GET_DIGIC_TIMER();
+    uint32_t start_clock = MEM(0xC0242014);
 
     if (edmac_index >= COUNT(edmac_states))
     {
@@ -625,8 +637,8 @@ static void FAST edmac_spy_poll(int last_expiry, void* unused)
      *    this step stored extra infos at indices 5 and 6)
      */
     edmac_states[edmac_index][CLK_IDX] = start_clock;
-    edmac_states[edmac_index][TSK_IDX] = (uint32_t) current_task->task_name;
-    edmac_states[edmac_index][OVH_IDX] = GET_DIGIC_TIMER() - start_clock;
+    edmac_states[edmac_index][TSK_IDX] = (uint32_t) current_task->name;
+    edmac_states[edmac_index][OVH_IDX] = MEM(0xC0242014) - start_clock;
     edmac_states[edmac_index][XTR_IDX] = edmac_extra_index;
     edmac_index++;
 }
@@ -774,15 +786,14 @@ static struct menu_entry edmac_menu[] =
                         .help2  = "Press shutter halfway to choose the exact moment.",
                     },
                     {
-                        .name       = "Log every",
-                        .priv       = &log_interval,
-                        .min        = 50,
-                        .max        = 10000,
-                        .update     = log_interval_update,
-                        .unit       = UNIT_TIME_US,
-                        .edit_mode  = EM_ROUND_1_2_5_10,
-                        .help       = "Sampling interval (how often EDMAC channels are polled).",
-                        .help2      = "The logging buffer size is fixed at 2048 samples.",
+                        .name   = "Log every",
+                        .priv   = &log_interval_index,
+                        .max    = COUNT(log_interval_values) - 1,
+                        .select = log_interval_select,
+                        .choices= log_interval_choices,
+                        .update = log_interval_update,
+                        .help   = "Sampling interval (how often EDMAC channels are polled).",
+                        .help2  = "The logging buffer size is fixed at 2048 samples.",
                     },
                     MENU_EOL
                 },
@@ -803,6 +814,7 @@ static unsigned int edmac_init()
 {
     is_5d3 = is_camera("5D3", "*");
     edmac_regs_init();
+    log_interval_select(0, 0);
     menu_add("Debug", edmac_menu, COUNT(edmac_menu));
     return 0;
 }

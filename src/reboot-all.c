@@ -36,9 +36,6 @@
 #define RESTARTSTART_5D2 0x4E000
 #define RESTARTSTART_1100 0xC80100
 
-/* we need this ASM block to be the first thing in the file */
-#pragma GCC optimize ("-fno-reorder-functions")
-
 asm(
 ".text\n"
 ".globl _start\n"
@@ -133,7 +130,7 @@ static int guess_firmware_version()
             ROMSTART = (void *)0xFF810000;
             *(int*)0xC02200BC = 0x46;  // CF card LED on
             return 1;
-        case SIG_500D_111:
+        case SIG_500D_112:
             blob_start = &blob_start_500;
             blob_end = &blob_end_500;
             RESTARTSTART = (void*)RESTARTSTART_500;
@@ -192,7 +189,7 @@ asm(
 
     ".globl blob_start_500\n"
     "blob_start_500:\n"
-    ".incbin \"../500D.111/magiclantern.bin\"\n" // 
+    ".incbin \"../500D.112/magiclantern.bin\"\n" // 
     ".align 12\n"
     "blob_end_500:"
     ".globl blob_end_500\n"

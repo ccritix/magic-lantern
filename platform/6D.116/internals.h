@@ -18,12 +18,6 @@
 /** This camera has a DIGIC V chip */
 #define CONFIG_DIGIC_V
 
-/** This camera loads ML into the AllocateMemory pool **/
-#define CONFIG_ALLOCATE_MEMORY_POOL
-
-/** This camera uses new-style DryOS task hooks */
-#define CONFIG_NEW_DRYOS_TASK_HOOKS
-
 /** This camera has an APS-C sensor */
 #define CONFIG_FULLFRAME
 
@@ -140,6 +134,9 @@
 #define CONFIG_FPS_UPDATE_FROM_EVF_STATE
 /** Aggressive FPS update **/
 //~#define CONFIG_FPS_AGGRESSIVE_UPDATE
+
+/** Use the new Rec.709 for YUV-RGB conversion (undefine for Rec.601) */
+#define CONFIG_REC709
 
 /** We have access to raw data in both photo mode and in LiveView */
 #define CONFIG_RAW_PHOTO

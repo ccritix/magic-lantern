@@ -88,21 +88,10 @@ struct fio_dirent;
 /** Directory entry returned by FIO_FindFirstEx() */
 struct fio_file {
         //! 0x10 == directory, 0x22 
-        uint16_t                mode;           // off_0x00;
-        uint16_t                off_0x02;
-        #ifdef CONFIG_DIGIC_678
-        uint32_t                off_0x04;
-        #endif
+        uint32_t                mode;           // off_0x00;
         uint32_t                size;
-        #ifdef CONFIG_DIGIC_678
-        uint32_t                off_0x0C;
-        #endif
         uint32_t                timestamp;      // off_0x08;
-        #ifdef CONFIG_DIGIC_678
-        uint32_t                timestamp2;
-        #else
         uint32_t                off_0x0c;
-        #endif
         char                    name[ FIO_MAX_PATH_LENGTH ];
         uint32_t                a;
         uint32_t                b;
@@ -122,7 +111,7 @@ extern int FIO_GetFileSize( const char * filename, uint32_t * size );
 extern struct fio_dirent * FIO_FindFirstEx( const char * dirname, struct fio_file * file );
 extern int FIO_FindNextEx( struct fio_dirent * dirent, struct fio_file * file );
 extern void FIO_FindClose( struct fio_dirent * dirent );
-extern int FIO_RenameFile(const char * src, const char * dst);
+extern int FIO_RenameFile(char *src,char *dst);
 extern int FIO_RemoveFile(const char * filename);
 extern int FIO_GetFileSize(const char * filename, uint32_t * size);
 extern uint32_t FIO_GetFileSize_direct(const char * filename);   /* todo: use just this one */
@@ -134,8 +123,8 @@ extern int64_t FIO_SeekSkipFile( FILE* stream, int64_t position, int whence );
 /* ML wrappers */
 extern FILE* FIO_CreateFile( const char* name );
 extern FILE* FIO_CreateFileOrAppend( const char* name );
-extern int FIO_CopyFile(const char * src, const char * dst);
-extern int FIO_MoveFile(const char * src, const char * dst);   /* copy and erase */
+extern int FIO_CopyFile(char *src,char *dst);
+extern int FIO_MoveFile(char *src,char *dst);   /* copy and erase */
 
 extern int FIO_CreateDirectory(const char * dirname);
 
@@ -155,12 +144,5 @@ uint8_t* read_entire_file(const char * filename, int* buf_size);
 
 const char* get_dcim_dir();
 const char* get_dcim_dir_suffix();
-
-extern int __attribute__((format(printf,2,3)))
-my_fprintf(
-        FILE *                  file,
-        const char *            fmt,
-        ...
-);
 
 #endif

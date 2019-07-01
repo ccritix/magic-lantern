@@ -41,8 +41,7 @@
 #define TYPE_ICACHE 1
 
 /* get cache size depending on cache type and processor setup (13 -> 2^13 -> 8192 -> 8KiB) */
-/* fixme: 5D3 index bits seem to be 0x7E0, figure out why */
-#define CACHE_SIZE_BITS(t)          13 //cache_get_size(t)
+#define CACHE_SIZE_BITS(t)          cache_get_size(t)
 
 /* depending on cache size, INDEX has different length */
 #define CACHE_INDEX_BITS(t)         (CACHE_SIZE_BITS(t)-7)
@@ -86,9 +85,7 @@ static uint32_t cache_get_size(uint32_t type)
     uint32_t cache_info = 0;
     
     /* get cache type register
-     * On 550D: 0x0F112112.  8KB I/D Cache. 4 way set associative.
-     * On 5D3:  0x0F192192. 32KB I/D Cache. 4 way set associative.
-     */
+     * On a 550D: 0x0F112112. 8KB I/D Cache. 4 way set associative.*/
     asm volatile ("\
        MRC p15, 0, %0, c0, c0, 1\r\n\
        " : "=r"(cache_info));
@@ -211,16 +208,10 @@ static void cache_get_content(uint32_t segment, uint32_t index, uint32_t word, u
 }
 
 /* check if given address is already used or if it is usable for patching */
-/* optional: get current cached value */
-static uint32_t cache_is_patchable(uint32_t address, uint32_t type, uint32_t* current_value)
+static uint32_t cache_is_patchable(uint32_t address, uint32_t type)
 {
     uint32_t stored_tag_index = 0;
     uint32_t stored_data = 0;
-    
-    if (current_value)
-    {
-        *current_value = 0xFFFFFFFF;
-    }
     
     cache_get_content(0, (address & CACHE_INDEX_ADDRMASK(type))>>CACHE_INDEX_TAGOFFSET(type), (address & CACHE_WORD_ADDRMASK(type))>>CACHE_WORD_TAGOFFSET(type), type, &stored_tag_index, &stored_data);
     
@@ -228,11 +219,6 @@ static uint32_t cache_is_patchable(uint32_t address, uint32_t type, uint32_t* cu
     if((stored_tag_index & 0x10) == 0)
     {
         return 1;
-    }
-
-    if (current_value)
-    {
-        *current_value = stored_data;
     }
     
     /* now check if the TAG RAM content matches with what we expect and valid bit is set */
@@ -460,18 +446,27 @@ static uint32_t cache_locked()
 
 static void cache_lock()
 {
+#if !defined(CONFIG_QEMU)
     icache_lock();
     dcache_lock();
+#endif
 }
 
 static void cache_unlock()
 {
+#if !defined(CONFIG_QEMU)
     icache_unlock();
     dcache_unlock();
+#endif
 }
 
 static uint32_t cache_fake(uint32_t address, uint32_t data, uint32_t type)
 {
+#if defined(CONFIG_QEMU)
+    /* QEMU doesn't seem to model the CPU cache, but we have configured the ROM area as RAM, so it's trivial to patch things */
+    MEM(address) = data;
+    return 0;
+#else    
     /* that word is already patched? return failure */
     /*
     if(!cache_is_patchable(address, type))
@@ -487,6 +482,7 @@ static uint32_t cache_fake(uint32_t address, uint32_t data, uint32_t type)
     }
 
     return cache_patch_single_word(address, data, type);
+#endif
 }
 
 #endif /* __ARM__ */

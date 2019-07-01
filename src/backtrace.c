@@ -12,14 +12,13 @@
 #include "tasks.h"
 #include "backtrace.h"
 
-#define qemu_log_mask(level, fmt, ...) { qprintf(fmt, ## __VA_ARGS__); }
+#define qemu_log_mask(...)
 #define qemu_loglevel_mask(x) 0
 #define EOSState void
-#define scnprintf snprintf /* FIXME */
 
-static const char * eos_get_current_task_name(EOSState *s)
+static char * eos_get_current_task_name(EOSState *s)
 {
-    return get_current_task_name();
+    return current_task->name;
 }
 
 static int eos_get_current_task_stack(EOSState *s, uint32_t * top, uint32_t * bottom)
@@ -765,14 +764,14 @@ void eos_backtrace_rebuild(EOSState *s, char * buf, int size)
 
     if (buf)
     {
-        int len = scnprintf(buf, size,
+        int len = snprintf(buf, size,
             "%s stack: %x [%x-%x]\n",
             eos_get_current_task_name(s),
             sps[0], stack_top, stack_bot
         );
         while (--i >= 0)
         {
-            len += scnprintf(
+            len += snprintf(
                 buf + len, size - len,
                 "%s @ %x:%x\n",
                 called_func(lrs[i] - 4), lrs[i] - 4, sps[i]

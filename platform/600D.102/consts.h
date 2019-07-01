@@ -14,6 +14,7 @@
 #define HIJACK_CACHE_HACK_BSS_END_INSTR  0xE3A01732
 #define HIJACK_CACHE_HACK_INITTASK_ADDR  0xFF0110DC
 
+#define HIJACK_INSTR_BL_CSTART  0xff01019c
 #define HIJACK_INSTR_BSS_END 0xff0110d0
 #define HIJACK_FIXBR_BZERO32 0xff011038
 #define HIJACK_FIXBR_CREATE_ITASK 0xff0110c0
@@ -194,7 +195,7 @@
 #define DIALOG_MnCardFormatBegin   (0x12864+4) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
 #define DIALOG_MnCardFormatExecute (0x158BC+4) // ret_CreateDialogBox(...DlgMnCardFormatBegin_handler...) is stored there
 #define FORMAT_BTN_NAME "[Q]"
-#define FORMAT_BTN BGMT_Q
+#define FORMAT_BTN BGMT_Q_ALT
 #define FORMAT_STR_LOC 11
 
 #define BULB_MIN_EXPOSURE 1000

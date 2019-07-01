@@ -15,9 +15,6 @@
 /** This camera runs DryOS **/
 //~ #define CONFIG_VXWORKS
 
-/** This camera has a DIGIC IV chip */
-#define CONFIG_DIGIC_IV
-
 /** This camera has an APS-C sensor */
 //~ #define CONFIG_FULLFRAME
 
@@ -118,6 +115,3 @@
 
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
 #define CONFIG_LVAPP_HACK_RELOC
-
-/** Focus commands are confirmed in LiveView, even though the pfAfComplete stub is present... */
-//~ #define CONFIG_FOCUS_COMMANDS_PROP_NOT_CONFIRMED

@@ -15,9 +15,6 @@
 /** This camera runs DryOS **/
 //~ #define CONFIG_VXWORKS
 
-/** This camera has a DIGIC IV chip */
-#define CONFIG_DIGIC_IV
-
 /** This camera has an APS-C sensor */
 //~ #define CONFIG_FULLFRAME
 
@@ -127,11 +124,9 @@
 /** This camera uses the exposure comp button to open ML menu */
 #define CONFIG_MENU_WITH_AV
 
-/** We have access to raw data in LiveView and Photo mode */
+/** We don't have access to Raw data (yet) */
+//~ #define CONFIG_RAW_LIVEVIEW
 #define CONFIG_RAW_PHOTO
-#define CONFIG_RAW_LIVEVIEW
-#define CONFIG_EDMAC_MEMCPY
-#define CONFIG_EDMAC_RAW_SLURP
 
 /** There are no manual exposure controls in movie mode => we need expo override */
 #define CONFIG_NO_MANUAL_EXPOSURE_MOVIE

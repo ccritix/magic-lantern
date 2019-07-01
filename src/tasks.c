@@ -20,7 +20,31 @@ extern int is_taskid_valid(int, int, void*);
 
 int ml_shutdown_requested = 0;
 
-const char * get_task_name_from_id(int id)
+char* get_current_task_name()
+{
+    /* DryOS: right after current_task we have a flag
+     * set to 1 when handling an interrupt */
+    uint32_t interrupt_active = MEM((uintptr_t)&current_task + 4);
+    
+    if (!interrupt_active)
+    {
+        return current_task->name;
+    }
+    else
+    {
+        static char isr[] = "**INT-00h**";
+        int i = current_interrupt >> 2;
+        int i0 = (i & 0xF);
+        int i1 = (i >> 4) & 0xF;
+        int i2 = (i >> 8) & 0xF;
+        isr[5] = i2 ? '0' + i2 : '-';
+        isr[6] = i1 < 10 ? '0' + i1 : 'A' + i1 - 10;
+        isr[7] = i0 < 10 ? '0' + i0 : 'A' + i0 - 10;
+        return isr;
+    }
+}
+
+char* get_task_name_from_id(int id)
 {
 #if defined(CONFIG_VXWORKS)
 return "?";
@@ -82,7 +106,7 @@ void task_update_loads() // called every second from clock_task
                 int cpu_percent = show_cpu_usage_flag == 2 ? tskmon_task_loads[i].absolute : tskmon_task_loads[i].relative;
                 if (cpu_percent)
                 {
-                    const char * name = "";
+                    char* name = "";
                     
                     if(i < TSKMON_MAX_TASKS-1)
                     {
