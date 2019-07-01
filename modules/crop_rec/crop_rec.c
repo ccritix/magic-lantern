@@ -1337,16 +1337,16 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 {
                     /* start/stop scanning line, very large increments */
                     cmos_new[1] =
-                        ((crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p) && x3crop == 0x0) ? PACK12(3,15) :
-                 	(x3crop == 0x1 && crop_preset == CROP_PRESET_3x3_1X_50p)                  	 ? PACK12(14,11) :
-                 	(x3crop == 0x1 && crop_preset == CROP_PRESET_3x3_1X_60p)                  	 ? PACK12(15,11) :
-                        (x3crop == 0x1 && (crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p)) ? PACK12(11,10) :
+                        ((crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p) && (x3crop == 0x0 && !crop_patch)) ? PACK12(3,15) :
+                 	((x3crop == 0x1 || crop_patch) && crop_preset == CROP_PRESET_3x3_1X_50p)                  	 ? PACK12(14,11) :
+                 	((x3crop == 0x1 || crop_patch) && crop_preset == CROP_PRESET_3x3_1X_60p)                  	 ? PACK12(15,11) :
+                        ((x3crop == 0x1 || crop_patch) && (crop_preset == CROP_PRESET_3x3_1X_48p || crop_preset == CROP_PRESET_3x3_1X_45p)) ? PACK12(11,10) :
                         (video_mode_fps == 50 || crop_preset == CROP_PRESET_3x3_1X_50p)                  ? PACK12(4,14) :
                         (video_mode_fps == 60 || crop_preset == CROP_PRESET_3x3_1X_60p)                  ? PACK12(6,14) :
                                                                  (uint32_t) -1 ;
 
                     cmos_new[6] = 0x370;    /* pink highlights without this */
-		    if (x3crop == 0x1)
+		    if (x3crop == 0x1 || crop_patch)
 		    {
                	    cmos_new[2] = 0x10E;    /* read every column, centered crop */
              	    cmos_new[6] = 0x170;    /* pink highlights without this */
@@ -2147,7 +2147,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x3_1X_45p:
                 /* ADTG2/4[0x800C] = 2: vertical binning factor = 3 */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
-		if (x3crop == 0x1 && is_5D3)
+		if ((x3crop == 0x1 || crop_patch) && is_5D3)
 		{
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 5 + reg_8000};	
                 adtg_new[17] = (struct adtg_new) {2, 0x8806, 0x6088};	
@@ -5844,8 +5844,6 @@ if (get_ms_clock() - last_hs_unpress > 500 && (!crop_patch && get_halfshutter_pr
     {	
 	    crop_patch = 1;
       	    NotifyBox(1000, "x3crop");
-            patch = 0;
-            patch_active = 0;
             info_led_on();
             gui_uilock(UILOCK_EVERYTHING);
             int old_zoom = lv_dispsize;
@@ -5868,8 +5866,6 @@ if (get_ms_clock() - last_hs_unpress > 500 && (crop_patch && get_halfshutter_pre
             once = false;
             crop_patch = 0;
       	    NotifyBox(1000, "3xcrop disabled");
-            patch = 0;
-            patch_active = 0;
             gui_uilock(UILOCK_EVERYTHING);
             int old_zoom = lv_dispsize;
             set_zoom(lv_dispsize == 1 ? 5 : 1);
