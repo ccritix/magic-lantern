@@ -40,6 +40,7 @@ static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
+static CONFIG_INT("crop.x3toggle", x3toggle, 0);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
@@ -572,6 +573,7 @@ static int32_t  reg_skip_top = 0;
 static int32_t  reg_skip_bottom = 0;
 static int32_t  reg_bl = 0;
 static int32_t  reg_gain = 0;
+static int crop_patch = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -1520,7 +1522,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;	
 
 			case CROP_PRESET_3x3_mv1080_EOSM:
-		if (x3crop == 0x1)
+		if (x3crop == 0x1 || crop_patch)
 		{
 	        cmos_new[5] = 0x400;
 	        cmos_new[7] = 0x647;
@@ -1530,12 +1532,12 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_mcm_mv1080_EOSM:
 	        cmos_new[5] = 0x20;
 	        cmos_new[7] = 0x800;
-		if (x3crop == 0x1)
+		if (x3crop == 0x1 || crop_patch)
 		{
 	        cmos_new[5] = 0x380;
 	        cmos_new[7] = 0xa6a;
 		}
-    		if (ratios == 0x0 && x3crop == 0x1)
+    		if (ratios == 0x0 && (x3crop == 0x1 || crop_patch))
     		{
 	        cmos_new[5] = 0x380;
 	        cmos_new[7] = 0x80b;
@@ -1545,7 +1547,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		        case CROP_PRESET_3x3_mv1080_48fps_EOSM:
 			case CROP_PRESET_3x3_mv1080_48fps_700D:
 			case CROP_PRESET_3x3_mv1080_48fps_650D:
-		if (x3crop == 0x1)
+		if (x3crop == 0x1 || crop_patch)
 		{
 	        cmos_new[5] = 0x400;
 	        cmos_new[7] = 0x649;
@@ -2169,7 +2171,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_4K_3x1_100D:
 	     case CROP_PRESET_5K_3x1_100D:
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
-		if (x3crop == 0x1)
+		if (x3crop == 0x1 || crop_patch)
 		{
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 5 + reg_8000};
@@ -2181,7 +2183,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
                 adtg_new[17] = (struct adtg_new) {6, 0x8183, 0x21 + reg_8183};
                 adtg_new[18] = (struct adtg_new) {6, 0x8184, 0x7b + reg_8184};
-		if (x3crop == 0x1)
+		if (x3crop == 0x1 || crop_patch)
 		{	
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 5 + reg_8000};
@@ -5095,7 +5097,17 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &x3crop,
                 .max    = 1,
                 .choices = CHOICES("OFF", "x3crop"),
-                .help   = "Turns mv1080p and mv1080_46fps modes into x3 crop modes\n"
+                .help   = "Turns mv1080p and mv1080_46fps modes into x3 crop modes)",
+                .help2   = "Cannot be used with x3toggle\n"
+            },
+            {
+                .name   = "x3crop toggle",
+                .priv   = &x3toggle,
+                .max    = 1,
+                .choices = CHOICES("OFF", "x3toggle"),
+                .help   = "Toggle in and out of x3crop by holding halfshutter(all mv1080p modes)",
+                .help2   = "Cannot be used with x3crop. Manual focus\n"
+                          
             },
             {
                 .name   = "set 25fps",
@@ -5814,6 +5826,65 @@ else
 {
       once = false;
 }
+
+/* toggle between x3crop and x1 zoom in mv1080p modes */
+    static int last_hs_unpress = 0;
+    if (!get_halfshutter_pressed()) last_hs_unpress = get_ms_clock();
+    if (x3toggle != 0x1) crop_patch = 0; //disable patch while off
+    if ((x3toggle == 0x1) && (x3crop == 0x1))
+    {
+ 	 x3crop = 0; 
+	 NotifyBox(2000, "x3crop NOT compatible with x3toggle"); //disable patch while off
+    }
+
+if (get_ms_clock() - last_hs_unpress > 500 && (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1))
+{
+
+    if (once == false)
+    {	
+	    crop_patch = 1;
+      	    NotifyBox(1000, "x3crop");
+            patch = 0;
+            patch_active = 0;
+            info_led_on();
+            gui_uilock(UILOCK_EVERYTHING);
+            int old_zoom = lv_dispsize;
+            set_zoom(lv_dispsize == 1 ? 5 : 1);
+            set_zoom(old_zoom);
+            gui_uilock(UILOCK_NONE);
+            info_led_off();
+    }
+	if (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
+	{
+        lv_dirty = 1;
+            PauseLiveView(); 
+            ResumeLiveView();
+	}
+            msleep(3000);
+}
+
+if (get_ms_clock() - last_hs_unpress > 500 && (crop_patch && get_halfshutter_pressed() && x3toggle == 0x1))
+{
+            once = false;
+            crop_patch = 0;
+      	    NotifyBox(1000, "3xcrop disabled");
+            patch = 0;
+            patch_active = 0;
+            gui_uilock(UILOCK_EVERYTHING);
+            int old_zoom = lv_dispsize;
+            set_zoom(lv_dispsize == 1 ? 5 : 1);
+            set_zoom(old_zoom);
+            gui_uilock(UILOCK_NONE);
+            info_led_off();
+
+	if (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
+	{
+            PauseLiveView(); 
+            ResumeLiveView();
+	}
+            msleep(3000);
+}
+
 
 if (((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) || 
 (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
@@ -6606,6 +6677,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(HDR_iso_b)
     MODULE_CONFIG(timelapse)
     MODULE_CONFIG(slowshutter)
+    MODULE_CONFIG(x3toggle)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
