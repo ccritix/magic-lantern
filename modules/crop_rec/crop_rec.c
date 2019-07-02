@@ -5840,6 +5840,17 @@ else
 if (get_ms_clock() - last_hs_unpress > 500 && (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1))
 {
 
+/* exclude presets not used */ 
+	if (CROP_PRESET_MENU != CROP_PRESET_3x3_mv1080_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM && 
+	CROP_PRESET_MENU != CROP_PRESET_3x3_mv1080_48fps_EOSM && CROP_PRESET_MENU != CROP_PRESET_3x3_1X_45p &&
+	CROP_PRESET_MENU != CROP_PRESET_3x3_1X_48p && CROP_PRESET_MENU != CROP_PRESET_3x3_1X_50p && 
+	CROP_PRESET_MENU != CROP_PRESET_3x3_1X_60p)
+	{
+        crop_patch = 0;
+        once = false;
+	return 0;
+	}	 
+
     if (once == false)
     {	
 	    crop_patch = 1;
@@ -5854,7 +5865,6 @@ if (get_ms_clock() - last_hs_unpress > 500 && (!crop_patch && get_halfshutter_pr
     }
 	if (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
 	{
-        lv_dirty = 1;
             PauseLiveView(); 
             ResumeLiveView();
 	}
