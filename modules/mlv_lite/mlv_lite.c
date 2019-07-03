@@ -1,4 +1,4 @@
-/**
+**
  * RAW recording. Similar to lv_rec, with some different internals:
  * 
  * - buffering strategy:
@@ -2206,9 +2206,9 @@ void hack_liveview(int unhack)
 	if (((cam_eos_m || cam_100d) && small_hacks == 0x1) || (!cam_eos_m && !cam_100d))
 	{
         call("aewb_enableaewb", unhack ? 1 : 0);  /* for new cameras */
-	}
         call("lv_ae",           unhack ? 1 : 0);  /* for old cameras */
         call("lv_wb",           unhack ? 1 : 0);
+	}
         
         /* change dialog refresh timer from 50ms to 8192ms */
         uint32_t dialog_refresh_timer_addr = /* in StartDialogRefreshTimer */
