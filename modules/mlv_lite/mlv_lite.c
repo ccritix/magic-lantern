@@ -1,4 +1,4 @@
-**
+/**
  * RAW recording. Similar to lv_rec, with some different internals:
  * 
  * - buffering strategy:
