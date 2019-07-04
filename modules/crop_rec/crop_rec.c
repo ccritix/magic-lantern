@@ -5828,8 +5828,6 @@ else
 }
 
 /* toggle between x3crop and x1 zoom in mv1080p modes */
-    static int last_hs_unpress = 0;
-    if (!get_halfshutter_pressed()) last_hs_unpress = get_ms_clock();
     if (x3toggle != 0x1) crop_patch = 0; //disable patch while off
     if ((x3toggle == 0x1) && (x3crop == 0x1))
     {
@@ -5837,7 +5835,7 @@ else
 	 NotifyBox(2000, "x3crop NOT compatible with x3toggle"); //disable patch while off
     }
 
-if (get_ms_clock() - last_hs_unpress > 200 && (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1))
+if (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
 {
 
 /* exclude presets not used */ 
@@ -5868,10 +5866,10 @@ if (get_ms_clock() - last_hs_unpress > 200 && (!crop_patch && get_halfshutter_pr
             PauseLiveView(); 
             ResumeLiveView();
 	}
-            msleep(2000);
+            msleep(1000);
 }
 
-if (get_ms_clock() - last_hs_unpress > 500 && (crop_patch && get_halfshutter_pressed() && x3toggle == 0x1))
+if (crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
 {
             once = false;
             crop_patch = 0;
