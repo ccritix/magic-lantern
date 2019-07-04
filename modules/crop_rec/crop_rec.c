@@ -5837,7 +5837,7 @@ else
 	 NotifyBox(2000, "x3crop NOT compatible with x3toggle"); //disable patch while off
     }
 
-if (get_ms_clock() - last_hs_unpress > 500 && (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1))
+if (get_ms_clock() - last_hs_unpress > 200 && (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1))
 {
 
 /* exclude presets not used */ 
@@ -5868,7 +5868,7 @@ if (get_ms_clock() - last_hs_unpress > 500 && (!crop_patch && get_halfshutter_pr
             PauseLiveView(); 
             ResumeLiveView();
 	}
-            msleep(3000);
+            msleep(2000);
 }
 
 if (get_ms_clock() - last_hs_unpress > 500 && (crop_patch && get_halfshutter_pressed() && x3toggle == 0x1))
@@ -5888,7 +5888,7 @@ if (get_ms_clock() - last_hs_unpress > 500 && (crop_patch && get_halfshutter_pre
             PauseLiveView(); 
             ResumeLiveView();
 	}
-            msleep(3000);
+            msleep(2000);
 }
 
 
