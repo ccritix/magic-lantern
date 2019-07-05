@@ -1569,7 +1569,13 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_anamorphic_EOSM:
 			case CROP_PRESET_anamorphic_700D:
 			case CROP_PRESET_anamorphic_650D:
-		cmos_new[7] = 0x2c4;   
+		cmos_new[7] = 0x2c4; 
+		if (crop_patch2 && x3toggle == 0x1)
+		{
+		cmos_new[5] = 0x200;  
+		}
+
+ 
                 break;	
 
 		case CROP_PRESET_2520_1418_700D:
@@ -5847,11 +5853,24 @@ else
 
 /* workaround to get correct real time preview in x3crop while selecting x3toggle mode(only anamorphic rewired modes) */
 	if (get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D || 
-	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM) && x3toggle == 0x1)
+	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM) && x3toggle == 0x1)
 	{
             crop_patch2 = 1;
+	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
+	    {
+            info_led_on();
+            gui_uilock(UILOCK_EVERYTHING);
+            int old_zoom = lv_dispsize;
+            set_zoom(lv_dispsize == 1 ? 5 : 1);
+            set_zoom(old_zoom);
+            gui_uilock(UILOCK_NONE);
+            info_led_off();
+	    }
+	    else
+	    {
             PauseLiveView(); 
             ResumeLiveView();
+	    }
 	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D)
 	/* 100D is a stubborn thing, needs an extra round */
 	    {
@@ -5865,11 +5884,25 @@ else
 	}
 
 	if (!get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D || 
-	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM) && x3toggle == 0x1 && crop_patch2)
+	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM) && x3toggle == 0x1 && crop_patch2)
 	{
             crop_patch2 = 0;
+	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
+	    {
+            info_led_on();
+            gui_uilock(UILOCK_EVERYTHING);
+            int old_zoom = lv_dispsize;
+            set_zoom(lv_dispsize == 1 ? 5 : 1);
+            set_zoom(old_zoom);
+            gui_uilock(UILOCK_NONE);
+            info_led_off();
+	    }
+	    else
+	    {
             PauseLiveView(); 
             ResumeLiveView();
+	    }
+	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D)
 	/* 100D is a stubborn thing, needs an extra round */
 	    {
             PauseLiveView(); 
