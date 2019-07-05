@@ -5858,7 +5858,6 @@ else
     }
 	}
 
-
 	if (!get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D || 
 	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM) && x3toggle == 0x1 && crop_patch2)
 	{
@@ -5866,6 +5865,7 @@ else
             PauseLiveView(); 
             ResumeLiveView();
 	}
+
 
 /* toggle between x3crop and x1 zoom in mv1080p modes */
     if (x3toggle != 0x1) crop_patch = 0; //disable patch while off
