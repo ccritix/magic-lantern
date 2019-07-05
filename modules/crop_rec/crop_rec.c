@@ -574,6 +574,7 @@ static int32_t  reg_skip_bottom = 0;
 static int32_t  reg_bl = 0;
 static int32_t  reg_gain = 0;
 static int crop_patch = 0;
+static int crop_patch2 = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -1468,8 +1469,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;
 	
 			case CROP_PRESET_anamorphic_rewired_100D:
+		if ((!crop_patch2 && x3toggle != 0x1) || !crop_patch2)
+		{
 	        cmos_new[5] = 0x20;
-		cmos_new[7] = 0x200;   
+		cmos_new[7] = 0x200; 
+		}  
                 break;	
 
             		case CROP_PRESET_3x3_1X_100D:
@@ -1555,8 +1559,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;	
 
 			case CROP_PRESET_anamorphic_rewired_EOSM:
+		if ((!crop_patch2 && x3toggle != 0x1) || !crop_patch2)
+		{
 	        cmos_new[5] = 0x20;
 		cmos_new[7] = 0x2c4; 
+		}
 		break;
 
 			case CROP_PRESET_anamorphic_EOSM:
@@ -2213,10 +2220,13 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 	     case CROP_PRESET_anamorphic_rewired_EOSM: 
 	     case CROP_PRESET_anamorphic_rewired_100D:
+		if ((!crop_patch2 && x3toggle != 0x1) || !crop_patch2)
+		{
 	        adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
                 adtg_new[17] = (struct adtg_new) {6, 0x8183, 0x21 + reg_8183};
                 adtg_new[18] = (struct adtg_new) {6, 0x8184, 0x7b + reg_8184};
+		}
      	        break;
 
 	     case CROP_PRESET_anamorphic_EOSM:
@@ -5835,6 +5845,28 @@ else
       once = false;
 }
 
+/* workaround to get correct real time preview in x3crop while selecting x3toggle mode(only anamorphic rewired modes) */
+	if (get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D || 
+	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM) && x3toggle == 0x1)
+	{
+            crop_patch2 = 1;
+            PauseLiveView(); 
+            ResumeLiveView();
+    while (get_halfshutter_pressed())
+    {
+        msleep(10);
+    }
+	}
+
+
+	if (!get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D || 
+	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM) && x3toggle == 0x1 && crop_patch2)
+	{
+            crop_patch2 = 0;
+            PauseLiveView(); 
+            ResumeLiveView();
+	}
+
 /* toggle between x3crop and x1 zoom in mv1080p modes */
     if (x3toggle != 0x1) crop_patch = 0; //disable patch while off
     if ((x3toggle == 0x1) && (x3crop == 0x1))
@@ -5874,7 +5906,11 @@ if (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
             PauseLiveView(); 
             ResumeLiveView();
 	}
-            msleep(1000);
+
+    while (get_halfshutter_pressed())
+    {
+        msleep(100);
+    }
 }
 
 if (crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
@@ -5894,7 +5930,11 @@ if (crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
             PauseLiveView(); 
             ResumeLiveView();
 	}
-            msleep(2000);
+
+    while (get_halfshutter_pressed())
+    {
+        msleep(100);
+    }
 }
 
 
