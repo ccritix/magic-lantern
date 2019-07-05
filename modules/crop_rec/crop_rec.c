@@ -5852,6 +5852,12 @@ else
             crop_patch2 = 1;
             PauseLiveView(); 
             ResumeLiveView();
+	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D)
+	/* 100D is a stubborn thing, needs an extra round */
+	    {
+            PauseLiveView(); 
+            ResumeLiveView();
+	    }
     while (get_halfshutter_pressed())
     {
         msleep(10);
@@ -5864,6 +5870,11 @@ else
             crop_patch2 = 0;
             PauseLiveView(); 
             ResumeLiveView();
+	/* 100D is a stubborn thing, needs an extra round */
+	    {
+            PauseLiveView(); 
+            ResumeLiveView();
+	    }
 	}
 
 
