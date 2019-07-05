@@ -5577,13 +5577,21 @@ if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_650D) ||
 (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z))
   {
-  lv_dispsize = 5;
+        info_led_on();
+        gui_uilock(UILOCK_EVERYTHING);
+  	set_lv_zoom(5);
+        gui_uilock(UILOCK_NONE);
+        info_led_off();
   }
   else
   {
   if (is_EOSM || is_100D || is_700D || is_650D)
   {
-  set_lv_zoom(1);
+        info_led_on();
+        gui_uilock(UILOCK_EVERYTHING);
+  	set_lv_zoom(1);
+        gui_uilock(UILOCK_NONE);
+        info_led_off();
   }
 }
 
@@ -5914,6 +5922,13 @@ if (((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
 (CROP_PRESET_MENU == CROP_PRESET_4K_650D) ||
 (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z)) && lv_dispsize == 1)
 {
+        info_led_on();
+        gui_uilock(UILOCK_EVERYTHING);
+        int old_zoom = lv_dispsize;
+        set_zoom(lv_dispsize == 1 ? 5 : 1);
+        set_zoom(old_zoom);
+        gui_uilock(UILOCK_NONE);
+        info_led_off();
   	set_lv_zoom(5);
 }
     return CBR_RET_CONTINUE;
