@@ -2401,11 +2401,22 @@ if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_1
 
   if (bitdepth == 0x3)
   {
-    switch (reg)
-    {
-	/* correct liveview brightness */
-	case 0xC0F42744: return 0x4040404;
-    }
+     if (is_EOSM)
+     {
+        switch (reg)
+        {
+	    /* correct liveview brightness. This reg looks better in 10bit. Testing on eosm */
+	    case 0xC0F085a0: return 0x3;
+        } 
+     }
+     else
+     {
+        switch (reg)
+        {
+	    /* correct liveview brightness */
+	    case 0xC0F42744: return 0x4040404;
+        }
+     }
   }
 
   if (bitdepth == 0x4)
@@ -3795,8 +3806,8 @@ if ((ratios == 0x1 || ratios == 0x2 || ratios == 0x3) && x3crop == 0x0)
     switch (reg)
     {
           	case 0xC0F06804: return 0x42401e4 + reg_6804_width + (reg_6804_height << 16); 
-        	case 0xC0F0713c: return 0x424 + reg_713c;
-		case 0xC0F07150: return 0x38f + reg_7150;
+        	case 0xC0F0713c: return 0x424;
+		case 0xC0F07150: return 0x38f;
 
 /* testing above for the sake of map files */
              // case 0xC0F06804: return 0x42401e4 + reg_6804_width + (reg_6804_height << 16); 
