@@ -5940,7 +5940,6 @@ if (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
 	CROP_PRESET_MENU != CROP_PRESET_3x3_1X_60p)
 	{
         crop_patch = 0;
-        once = false;
 	return 0;
 	}	 
 
