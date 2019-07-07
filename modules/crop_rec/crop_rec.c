@@ -6447,6 +6447,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_3x3_mv1080_EOSM:
 	    case CROP_PRESET_3x3_mv1080_700D:
 	    case CROP_PRESET_3x3_mv1080_650D:
+	    case CROP_PRESET_mcm_mv1080_EOSM:
 	    case CROP_PRESET_3x3_mv1080_48fps_EOSM:
 	    case CROP_PRESET_3x3_mv1080_48fps_700D:
 	    case CROP_PRESET_3x3_mv1080_48fps_650D:
@@ -6527,6 +6528,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 	    case CROP_PRESET_3x3_mv1080_EOSM:
 	    case CROP_PRESET_3x3_mv1080_700D:
 	    case CROP_PRESET_3x3_mv1080_650D:
+	    case CROP_PRESET_mcm_mv1080_EOSM:
 	    case CROP_PRESET_3x3_mv1080_48fps_EOSM:
             case CROP_PRESET_3x3_mv1080_48fps_700D:
             case CROP_PRESET_3x3_mv1080_48fps_650D:
