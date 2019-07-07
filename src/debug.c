@@ -323,8 +323,10 @@ void scan_A5A5()
 
 static void run_test()
 {
-    printf("Gotcha!\n");
-    ASSERT(0);
+    msleep(2000);
+info_led_on();
+raw_lv_request();
+
 }
 
 static void unmount_sd_card()

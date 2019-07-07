@@ -568,7 +568,15 @@ static void refresh_cropmarks()
         int w = RAW2BM_DX(res_x);
         int h = RAW2BM_DY(res_y);
         
+/* cropmarks specific for 2.35:1 reg_override_mcm_mv1080_eosm in crop_rec.c */     
+    if (shamem_read(0xc0f0b134) == 0x5) 
+    {
+	set_movie_cropmarks(x, y + 93, w, h - 188);
+    }
+    else
+    {
         set_movie_cropmarks(x, y, w, h);
+    }
     }
 }
 
@@ -2029,6 +2037,12 @@ static void unhack_liveview_vsync(int unused);
 static REQUIRES(LiveViewTask)
 void FAST hack_liveview_vsync()
 {
+
+
+
+   //NotifyBox(5000, "shamem_read(0xc0f06804) 0x%x", shamem_read(0xc0f06804));
+
+
     if (cam_5d2 || cam_50d)
     {
         /* try to fix pink preview in zoom mode (5D2/50D) */
@@ -2536,7 +2550,7 @@ static uint32_t edmac_start_clock = 0;
 
 /* from edmac-memcpy.c */
 extern uint32_t edmac_read_chan;
-extern uint32_t raw_write_chan;
+//extern uint32_t raw_write_chan;
 
 static uint32_t edmac_read_base;
 static uint32_t edmac_wraw_base;
@@ -2590,7 +2604,7 @@ static void edmac_start_spy()
     /* read from raw buffer is done on edmac_read_chan (edmac-memcpy) or 8 (5D3 lossless) */
     /* write to raw buffer is always done on raw_write_chan (EDMAC_RAW_SLURP) */
     edmac_read_base = edmac_get_base(OUTPUT_COMPRESSION ? 8 : edmac_read_chan);
-    edmac_wraw_base = edmac_get_base(raw_write_chan);
+   // edmac_wraw_base = edmac_get_base(raw_write_chan);
     edmac_frame_duration = 1e9 / fps_get_current_x1000();
     if (show_edmac && !edmac_spy_active && !RAW_IS_IDLE)
     {
@@ -3017,6 +3031,27 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     int bpp_scaling = (1 << (14 - BPP));
     rawi_hdr.raw_info.black_level = (black14 + bpp_scaling/2) / bpp_scaling;
     rawi_hdr.raw_info.white_level = (white14 + bpp_scaling/2) / bpp_scaling;
+
+/* round trip analog gain bits reduction. Only EOSM for now. Setting registry flag. Hopefully not affection output. Connected with raw_lv_settings_still_valid() in raw.c */
+if (cam_eos_m || cam_eos_m2 || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
+{
+/* 8bit */
+    if (shamem_read(0xc0f0815c) == 0x3) rawi_hdr.raw_info.white_level = 2250;
+/* 9bit */
+    if (shamem_read(0xc0f0815c) == 0x4) rawi_hdr.raw_info.white_level = 2550; 
+/* 10bit */
+    if (shamem_read(0xc0f0815c) == 0x5) rawi_hdr.raw_info.white_level = (lens_info.raw_iso == ISO_100) ? 2840 : 2890;
+/* 12bit */
+    if (shamem_read(0xc0f0815c) == 0x6) rawi_hdr.raw_info.white_level = 6000;
+
+/* HDR base iso regardless of what is set in camera */
+    if (shamem_read(0xc0f0b12c) == 0x1) lens_info.iso = 100;
+    if (shamem_read(0xc0f0b12c) == 0x2) lens_info.iso = 200; 
+    if (shamem_read(0xc0f0b12c) == 0x3) lens_info.iso = 400; 
+    if (shamem_read(0xc0f0b12c) == 0x4) lens_info.iso = 800;  
+    if (shamem_read(0xc0f0b12c) == 0x5) lens_info.iso = 1600; 
+    if (shamem_read(0xc0f0b12c) == 0x6) lens_info.iso = 3200;  
+}
 
     mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);
     mlv_fill_expo(&expo_hdr, mlv_start_timestamp);

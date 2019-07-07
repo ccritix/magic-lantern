@@ -844,7 +844,7 @@ void digic_iso_step()
         {
             /* don't touch settings that may alter the raw buffer */
             /* just set the ISO boost register */
-            total_movie_gain *= _raw_lv_get_iso_post_gain();
+           // total_movie_gain *= _raw_lv_get_iso_post_gain();
 
             if (total_movie_gain != 1024)
             {

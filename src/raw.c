@@ -35,7 +35,7 @@
 #undef RAW_DEBUG        /* define it to help with porting */
 #undef RAW_DEBUG_DUMP   /* if you want to save the raw image buffer and the DNG from here */
 #undef RAW_DEBUG_BLACK  /* for checking black level calibration */
-#define RAW_DEBUG_TYPE   /* this lets you select the raw type (for PREFERRED_RAW_TYPE) from menu */
+#undef RAW_DEBUG_TYPE   /* this lets you select the raw type (for PREFERRED_RAW_TYPE) from menu */
 /* see also RAW_ZEBRA_TEST and RAW_SPOTMETER_TEST in zebra.c */
 
 #ifdef RAW_DEBUG
@@ -240,6 +240,12 @@ static int lv_raw_gain = 0;
  */
 #define WHITE_LEVEL 16200
 
+static int is_EOSM = 0;
+static int is_EOSM2 = 0;
+static int is_100D = 0;
+static int is_6D = 0;
+static int is_5D3 = 0;
+
 static int get_default_white_level()
 {
 
@@ -257,9 +263,18 @@ static int get_default_white_level()
         return (default_white - 2048) * lv_raw_gain / 4096 + 2048;
     }
 
+if (!is_EOSM && !is_EOSM2 && !is_100D && !is_6D && !is_5D3)
+{
+        if (shamem_read(0xC0F42744) == 0x6060606)
+        {	
+	    /* 8bit by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = 2250);   
+        }
+
         if (shamem_read(0xC0F42744) == 0x5050505)
         {	
-	    /* 10bit by checking pushed liveview gain register set in crop_rec.c */
+	    /* 9bit by checking pushed liveview gain register set in crop_rec.c */
             int default_white = WHITE_LEVEL;
             return (default_white = 2550);   
         }
@@ -268,7 +283,7 @@ static int get_default_white_level()
         {	
 	    /* 10bit by checking pushed liveview gain register set in crop_rec.c */
             int default_white = WHITE_LEVEL;
-            return (default_white = 3000);   
+            return (default_white = (lens_info.raw_iso == ISO_100) ? 2840 : 2890);   
         }
 
         if (shamem_read(0xC0F42744) == 0x2020202)
@@ -277,9 +292,11 @@ static int get_default_white_level()
             int default_white = WHITE_LEVEL;
             return (default_white = 6000);   
         }
+}
     
     return WHITE_LEVEL;
 }
+
 
 /**
  * Hardcode black level on models where it's fixed.
@@ -589,17 +606,35 @@ static int raw_lv_get_resolution(int* width, int* height)
 #if defined(CONFIG_EOSM) || defined(CONFIG_EOSM2)
     /* EOS M exception */
     /* http://www.magiclantern.fm/forum/index.php?topic=16608.msg176023#msg176023 */
-    if (lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264)
-    {
-        if (shamem_read(0xC0F07150) == 0x475)
+    if ((lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264) && (shamem_read(0xC0f0b13c)) != 0xd) /* for 1x3 binning */
+
+    {    
+            *height = 727; 
+
+        if (shamem_read(0xC0f0b13c) == 0xa)
         {	
-        /* mv1080p and 1x3 mode crop_rec.c */
-            *height = 1150;
+        /* mv1080p mode crop_rec.c */
+            *height = 1188;
         }
-        else
-        {
-            *height = 727;    
+
+        if (shamem_read(0xC0f0b13c) == 0xb)
+        {	
+        /* mv1080p 45fps */
+            *height = 1006;
         }
+
+        if (shamem_read(0xC0f0b13c) == 0xc)
+        {	
+        /* mv1080p 45fps */
+            *height = 769;
+        }
+
+        if (shamem_read(0xC0f0b13c) == 0xe)
+        {	
+        /* mv1080p 50fps */
+            *height = 759;
+        }
+
     }
 #endif
 
@@ -1901,6 +1936,7 @@ void FAST raw_lv_vsync()
             int pitch = width * raw_info.bits_per_pixel / 8; 
             if (raw_lv_buffer_size >= pitch * height) 
             { 
+bmp_printf(FONT_MED, 50, 50, "%d x %d, %x ", width, height, buf);
                 edmac_raw_slurp(CACHEABLE(buf), pitch, height); 
             } 
         } 
@@ -1926,6 +1962,16 @@ int _raw_lv_get_iso_post_gain()
 
 int raw_lv_settings_still_valid()
 {
+
+/* 8bit */
+    if (shamem_read(0xc0f0815c) == 0x3) raw_info.white_level = 2250;
+/* 9bit */
+    if (shamem_read(0xc0f0815c) == 0x4) raw_info.white_level = 2550; 
+/* 10bit */
+    if (shamem_read(0xc0f0815c) == 0x5) raw_info.white_level = (lens_info.raw_iso == ISO_100) ? 2840 : 2890;
+/* 12bit */
+    if (shamem_read(0xc0f0815c) == 0x6) raw_info.white_level = 6000; 
+
     /* should be fast enough for vsync calls */
     if (!lv_raw_enabled) return 0;
     int w, h;
