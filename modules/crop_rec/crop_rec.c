@@ -2405,8 +2405,15 @@ if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_1
      {
         switch (reg)
         {
-	    /* correct liveview brightness. This reg looks better in 10bit. Testing on eosm */
-	    case 0xC0F085a0: return 0x3;
+	    /* correct liveview brightness. This reg looks better in 10bit. Testing on eosm. Not working with x5 zoom */
+	  if (lv_dispsize == 1)
+	  {
+	      case 0xC0F085a0: return 0x3;
+	  }
+	  else
+	  {
+	      case 0xC0F42744: return 0x4040404;
+	  }	
         } 
      }
      else
