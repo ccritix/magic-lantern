@@ -1562,17 +1562,24 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		if ((!crop_patch2 && x3toggle != 0x1) || !crop_patch2)
 		{
 	        cmos_new[5] = 0x20;
-		cmos_new[7] = 0x2c4; 
+		cmos_new[7] = 0xc; 
+		}
+		if ((crop_patch2 && x3toggle == 0x1) || crop_patch2)
+		{
+	        cmos_new[5] = 0x380;
+		cmos_new[7] = 0xc; 
 		}
 		break;
 
 			case CROP_PRESET_anamorphic_EOSM:
 			case CROP_PRESET_anamorphic_700D:
 			case CROP_PRESET_anamorphic_650D:
-		cmos_new[7] = 0x2c4; 
+	        cmos_new[5] = 0x20;
+		cmos_new[7] = 0xc; 
 		if (crop_patch2 && x3toggle == 0x1)
 		{
-		cmos_new[5] = 0x200;  
+	        cmos_new[5] = 0x380;
+		cmos_new[7] = 0xc; 
 		}
 
  
