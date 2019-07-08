@@ -267,7 +267,7 @@ static inline void interpolate_around(uint16_t * image_data, int i, int w, int *
 /* focus pixel helper enums */
 enum pattern { PATTERN_NONE = 0,
                PATTERN_EOSM = 331,
-               PATTERN_EOSM2 = 331,
+               PATTERN_EOSM2 = 355,
                PATTERN_650D = 301,
                PATTERN_700D = 326,
                PATTERN_100D = 346
