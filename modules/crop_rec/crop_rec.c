@@ -2237,16 +2237,18 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_anamorphic_EOSM:
 	     case CROP_PRESET_anamorphic_700D:
 	     case CROP_PRESET_anamorphic_650D:
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
 /* temporarily stay in 3x3 for realtime preview full screen */
      		if (get_halfshutter_pressed() && x3toggle == 0x0)
     		{
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
 		}
      		if (!get_halfshutter_pressed() || (get_halfshutter_pressed() && x3toggle == 0x1))
     		{
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 5};
 		}
-                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
      	        break;
 
 	     case CROP_PRESET_FULLRES_LV_700D:
