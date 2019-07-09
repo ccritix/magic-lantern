@@ -1559,11 +1559,8 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;	
 
 			case CROP_PRESET_anamorphic_rewired_EOSM:
-		if ((!crop_patch2 && x3toggle != 0x1) || !crop_patch2)
-		{
 	        cmos_new[5] = 0x20;
 		cmos_new[7] = 0xc; 
-		}
 		if ((crop_patch2 && x3toggle == 0x1) || crop_patch2)
 		{
 	        cmos_new[5] = 0x380;
@@ -1581,8 +1578,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	        cmos_new[5] = 0x380;
 		cmos_new[7] = 0xc; 
 		}
-
- 
                 break;	
 
 		case CROP_PRESET_2520_1418_700D:
@@ -2233,19 +2228,24 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 	     case CROP_PRESET_anamorphic_rewired_EOSM: 
 	     case CROP_PRESET_anamorphic_rewired_100D:
-		if ((!crop_patch2 && x3toggle != 0x1) || !crop_patch2)
-		{
 	        adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
                 adtg_new[17] = (struct adtg_new) {6, 0x8183, 0x21 + reg_8183};
                 adtg_new[18] = (struct adtg_new) {6, 0x8184, 0x7b + reg_8184};
-		}
      	        break;
 
 	     case CROP_PRESET_anamorphic_EOSM:
 	     case CROP_PRESET_anamorphic_700D:
 	     case CROP_PRESET_anamorphic_650D:
-	        adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
+/* temporarily stay in 3x3 for realtime preview full screen */
+     		if (get_halfshutter_pressed() && x3toggle == 0x0)
+    		{
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
+		}
+     		if (!get_halfshutter_pressed() || (get_halfshutter_pressed() && x3toggle == 0x1))
+    		{
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
+		}
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
      	        break;
 
@@ -4057,6 +4057,9 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
 static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_val)
 {
 
+/* x3toggle but here we enter x10 zoom. Not centered enough. Save for later */
+	//if (crop_patch2 && x3toggle == 0x1) EngDrvOutLV(0xc0f11b8c, 0x0);
+
   if (ratios == 0x1 || ratios == 0x2)
   {
     switch (reg)
@@ -5860,8 +5863,15 @@ else
 
 /* workaround to get correct real time preview in x3crop while selecting x3toggle mode(only anamorphic rewired modes) */
 	if (get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D || 
-	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM) && x3toggle == 0x1)
+	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM))
 	{
+
+/* disable for now. Not working the same as for non rewired mode */
+if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM && x3toggle == 0x0)
+{
+	return 0;
+}
+ 
             crop_patch2 = 1;
 	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
 	    {
@@ -5891,7 +5901,7 @@ else
 	}
 
 	if (!get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D || 
-	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM) && x3toggle == 0x1 && crop_patch2)
+	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM) && crop_patch2)
 	{
             crop_patch2 = 0;
 	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
