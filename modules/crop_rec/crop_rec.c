@@ -1560,11 +1560,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 			case CROP_PRESET_anamorphic_rewired_EOSM:
 	        cmos_new[5] = 0x20;
-		cmos_new[7] = 0xc; 
+        	cmos_new[7] = 0x2c4; 
 		if ((crop_patch2 && x3toggle == 0x1) || crop_patch2)
 		{
 	        cmos_new[5] = 0x380;
-		cmos_new[7] = 0xc; 
+        	cmos_new[7] = 0x2c4; 
 		}
 		break;
 
@@ -1572,11 +1572,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_anamorphic_700D:
 			case CROP_PRESET_anamorphic_650D:
 	        cmos_new[5] = 0x20;
-		cmos_new[7] = 0xc; 
+        	cmos_new[7] = 0x2c4; 
 		if (crop_patch2 && x3toggle == 0x1)
 		{
 	        cmos_new[5] = 0x380;
-		cmos_new[7] = 0xc; 
+	        cmos_new[7] = 0x2c4; 
 		}
                 break;	
 
@@ -4058,7 +4058,7 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
 {
 
 /* x3toggle but here we enter x10 zoom. Not centered enough. Save for later */
-	//if (crop_patch2 && x3toggle == 0x1) EngDrvOutLV(0xc0f11b8c, 0x0);
+	if (crop_patch2 && x3toggle == 0x1) EngDrvOutLV(0xc0f11b8c, 0x0);
 
   if (ratios == 0x1 || ratios == 0x2)
   {
@@ -5894,6 +5894,7 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM && x3toggle == 0x0)
             PauseLiveView(); 
             ResumeLiveView();
 	    }
+
     while (get_halfshutter_pressed())
     {
         msleep(10);
