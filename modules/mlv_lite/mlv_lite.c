@@ -4411,7 +4411,7 @@ static int raw_rec_should_preview(void)
     {
         return long_halfshutter_press;
     }
-    else if (PREVIEW_ML)
+    else if (PREVIEW_ML && !get_halfshutter_pressed())
     {
         return !long_halfshutter_press;
     }
