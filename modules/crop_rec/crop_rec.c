@@ -6015,7 +6015,6 @@ else
             ResumeLiveView();
 	    }
 	}
-
     }
 
 /* toggle between x3crop and x1 zoom in mv1080p modes */
