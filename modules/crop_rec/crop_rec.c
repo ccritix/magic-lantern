@@ -2401,13 +2401,17 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
     static int last_hs_unpress = 0;
+
+if (x10toggle == 0x1 && !RECORDING)
+{
     if (!get_halfshutter_pressed()) last_hs_unpress = get_ms_clock();
 
 /* x10crop preview hack */
-    if (get_ms_clock() - last_hs_unpress > 200 && (get_halfshutter_pressed() && x10toggle == 0x1 && !RECORDING))
+    if (get_ms_clock() - last_hs_unpress > 200 && get_halfshutter_pressed())
     {
 	  crop_preset = CROP_PRESET_x10_EOSM;
     }
+}
 
 /* reset registry. Used for dummy check in mlv_lite.c when using realtime preview */
     if (!get_halfshutter_pressed() && x10toggle == 0x1 && !RECORDING)
