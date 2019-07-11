@@ -2553,23 +2553,6 @@ if (is_EOSM)
 static inline uint32_t reg_override_x10_eosm(uint32_t reg, uint32_t old_val)
 {
 
-/*
-*(volatile uint32_t*)0xc0f11acc = 0x2b003c;
-*(volatile uint32_t*)0xc0f11a8c = 0x2b003c;
-*(volatile uint32_t*)0xc0f118e0 = 0xad0102;
-*(volatile uint32_t*)0xc0f118e4 = 0x2050307;
-*(volatile uint32_t*)0xc0f110e0 = 0x7;
-*(volatile uint32_t*)0xc0f11a88 = 0x1;
-*(volatile uint32_t*)0xc0f11a90 = 0x50222;
-*(volatile uint32_t*)0xc0f11a9c = 0x1df0205;
-*(volatile uint32_t*)0xc0f110e4 = 0x14;
-*(volatile uint32_t*)0xc0f11ac8 = 0x1;
-*(volatile uint32_t*)0xc0f11ad0 = 0x50222;
-*(volatile uint32_t*)0xc0f11590 = 0x1df0205;
-*(volatile uint32_t*)0xc0f11adc = 0xfff0205;
-*(volatile uint32_t*)0xc0f11144 = 0x5;
-*(volatile uint32_t*)0xc0f118d8 = 0x3; */
-
 /* x10 zoom */
 	EngDrvOutLV(0xc0f11acc, 0x2b003c);
 	EngDrvOutLV(0xc0f11a8c, 0x2b003c);
