@@ -4347,7 +4347,13 @@ static int raw_rec_should_preview(void)
         }
         if (get_ms_clock() - last_hs_unpress > 500)
         {
-            long_halfshutter_press = 1;
+     	    long_halfshutter_press = 1;
+/* when using x10toggle mode in crop_rec.c will disable framing preview temporarily*/
+            if (shamem_read(0xc0f11a88) == 0x1) long_halfshutter_press = 0;
+/* let´s disable framing in realtime preview while using mcm rewired mode with eosm */
+            if (shamem_read(0xc0f383d4) == 0x4f0010 && cam_eos_m) long_halfshutter_press = 0;
+/* 48fps mode in crop_rec.c. Affects 2.39:1 and 2.35:1 */
+            if (shamem_read(0xc0f06804) == 0x2f701d4 && cam_eos_m) long_halfshutter_press = 0;
         }
 /* trying a fix for stuck real time preview(only affects framing) */
       if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d))
@@ -4405,7 +4411,7 @@ static int raw_rec_should_preview(void)
     {
         return long_halfshutter_press;
     }
-    else if (PREVIEW_ML)
+    else if (PREVIEW_ML && !get_halfshutter_pressed())
     {
         return !long_halfshutter_press;
     }

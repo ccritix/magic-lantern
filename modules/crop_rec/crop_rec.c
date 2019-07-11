@@ -40,6 +40,7 @@ static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
+static CONFIG_INT("crop.x10toggle", x10toggle, 0);
 static CONFIG_INT("crop.x3toggle", x3toggle, 0);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
@@ -91,6 +92,7 @@ enum crop_preset {
     CROP_PRESET_4K_5x1_EOSM,
     CROP_PRESET_anamorphic_rewired_EOSM,
     CROP_PRESET_anamorphic_EOSM,
+    CROP_PRESET_x10_EOSM,
     CROP_PRESET_2520_1418_700D,
     CROP_PRESET_3K_700D,
     CROP_PRESET_3540_700D,
@@ -1580,6 +1582,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		}
                 break;	
 
+			case CROP_PRESET_x10_EOSM:
+	        cmos_new[5] = 0x300;
+	        cmos_new[7] = 0xa49; 
+                break;	
+
 		case CROP_PRESET_2520_1418_700D:
 		case CROP_PRESET_2520_1418_650D:
                 cmos_new[7] = 0xaa9;    /* pink highlights without this */
@@ -2186,6 +2193,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_4K_3x1_100D:
 	     case CROP_PRESET_5K_3x1_100D:
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
+                adtg_new[17] = (struct adtg_new) {6, 0x8183, 0x21 + reg_8183};
+                adtg_new[18] = (struct adtg_new) {6, 0x8184, 0x7b + reg_8184};
 		if (x3crop == 0x1 || crop_patch)
 		{
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
@@ -2237,19 +2246,22 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     case CROP_PRESET_anamorphic_EOSM:
 	     case CROP_PRESET_anamorphic_700D:
 	     case CROP_PRESET_anamorphic_650D:
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
+                adtg_new[17] = (struct adtg_new) {6, 0x8183, 0x21 + reg_8183};
+                adtg_new[18] = (struct adtg_new) {6, 0x8184, 0x7b + reg_8184};
 /* temporarily stay in 3x3 for realtime preview full screen */
      		if (get_halfshutter_pressed() && x3toggle == 0x0 && !RECORDING)
     		{
 		adtg_new[2] = (struct adtg_new) {6, 0x800C, 2 + reg_800c};
                 adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
 		}
-     		if (!get_halfshutter_pressed() && !RECORDING)
-    		{
-		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
-                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6};
-		}
 		if (get_halfshutter_pressed() && x3toggle == 0x1 && !RECORDING) adtg_new[3] = (struct adtg_new) {6, 0x8000, 5};
+     	        break;
+
+	     case CROP_PRESET_x10_EOSM:
+		adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
+                adtg_new[3] = (struct adtg_new) {6, 0x8000, 5};
      	        break;
 
 	     case CROP_PRESET_FULLRES_LV_700D:
@@ -2388,6 +2400,21 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
 
+    static int last_hs_unpress = 0;
+    if (!get_halfshutter_pressed()) last_hs_unpress = get_ms_clock();
+
+/* x10crop preview hack */
+    if (get_ms_clock() - last_hs_unpress > 200 && (get_halfshutter_pressed() && x10toggle == 0x1 && !RECORDING))
+    {
+	  crop_preset = CROP_PRESET_x10_EOSM;
+    }
+
+/* reset registry. Used for dummy check in mlv_lite.c when using realtime preview */
+    if (!get_halfshutter_pressed() && x10toggle == 0x1 && !RECORDING)
+    {
+	EngDrvOutLV(0xc0f11a88, 0x0);
+    }
+
 /* only apply bit reducing while recording, not while idle */
 if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_100D && !is_6D && !is_5D3))
 {
@@ -2521,6 +2548,53 @@ if (is_EOSM)
 
 }
     return 0;
+}
+
+static inline uint32_t reg_override_x10_eosm(uint32_t reg, uint32_t old_val)
+{
+
+/*
+*(volatile uint32_t*)0xc0f11acc = 0x2b003c;
+*(volatile uint32_t*)0xc0f11a8c = 0x2b003c;
+*(volatile uint32_t*)0xc0f118e0 = 0xad0102;
+*(volatile uint32_t*)0xc0f118e4 = 0x2050307;
+*(volatile uint32_t*)0xc0f110e0 = 0x7;
+*(volatile uint32_t*)0xc0f11a88 = 0x1;
+*(volatile uint32_t*)0xc0f11a90 = 0x50222;
+*(volatile uint32_t*)0xc0f11a9c = 0x1df0205;
+*(volatile uint32_t*)0xc0f110e4 = 0x14;
+*(volatile uint32_t*)0xc0f11ac8 = 0x1;
+*(volatile uint32_t*)0xc0f11ad0 = 0x50222;
+*(volatile uint32_t*)0xc0f11590 = 0x1df0205;
+*(volatile uint32_t*)0xc0f11adc = 0xfff0205;
+*(volatile uint32_t*)0xc0f11144 = 0x5;
+*(volatile uint32_t*)0xc0f118d8 = 0x3; */
+
+/* x10 zoom */
+	EngDrvOutLV(0xc0f11acc, 0x2b003c);
+	EngDrvOutLV(0xc0f11a8c, 0x2b003c);
+/* centre regs */
+	EngDrvOutLV(0xc0f118e0, 0xad0102);
+	EngDrvOutLV(0xc0f118e4, 0x2050307);
+
+	EngDrvOutLV(0xc0f110e0, 0x7);
+	EngDrvOutLV(0xc0f11a88, 0x1);
+	EngDrvOutLV(0xc0f11a90, 0x50222);
+	EngDrvOutLV(0xc0f11a9c, 0x1df0205);
+	EngDrvOutLV(0xc0f110e4, 0x14);
+	EngDrvOutLV(0xc0f11ac8, 0x1);
+	EngDrvOutLV(0xc0f11ad0, 0x50222);
+	EngDrvOutLV(0xc0f11590, 0x1df0205);
+	EngDrvOutLV(0xc0f11adc, 0xfff0205);
+	EngDrvOutLV(0xc0f11144, 0x5);
+	EngDrvOutLV(0xc0f118d8, 0x3); 
+
+//EngDrvOutLV(0xc0f11b8c, 0x0); x5 zoom
+//c0f09050: 20403d8 (was 15802d0)  ISO=400 Tv=50 Av=20 lv=1 zoom=10 mv=1 res=0 crop=0 task=AeWb pc=320dc addr=1ba1b8 Aewb metering area (y1|x1)
+//c0f09054: 35c05d8 (was 40806d8)  ISO=400 Tv=50 Av=20 lv=1 zoom=10 mv=1 res=0 crop=0 task=AeWb pc=320f8 addr=1ba1b8 Aewb metering area (y2|x2)
+//EngDrvOutLV(0xc0f11b9c, 0x2af0407);
+
+   	return reg_override_bits(reg, old_val);	
 }
 
 /* this is used to cover the black bar at the top of the image in 1:1 modes */
@@ -3470,6 +3544,7 @@ static inline uint32_t reg_override_center_z_eosm(uint32_t reg, uint32_t old_val
 /* Values for EOSM */
 static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
 {
+
   if (ratios == 0x1 || ratios == 0x2)
   {
     switch (reg)
@@ -3888,7 +3963,7 @@ if (set_25fps == 0x1)
 static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_val)
 {
 
-    if (!is_720p())
+    if (!is_720p() && !is_EOSM)
     {
         /* 1080p not patched in 3x3 */
         return 0;
@@ -3995,6 +4070,7 @@ static inline uint32_t reg_override_3x1_mv720_50fps_eosm(uint32_t reg, uint32_t 
 
 static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32_t old_val)
 {
+
 /* gets rid of the black border to the right. Connected to mlv_lite which takes over these regs while recording */
 	if (!RECORDING)
 	{
@@ -4830,7 +4906,8 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_3x3_mv1080_48fps_650D) ? reg_override_3x3_48fps_eosm        : //Same as for eosm?
         (crop_preset == CROP_PRESET_3x1_mv720_50fps_EOSM) ? reg_override_3x1_mv720_50fps_eosm        :
         (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) ? reg_override_anamorphic_rewired_eosm        : 
-        (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        : 
+        (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        :
+        (crop_preset == CROP_PRESET_x10_EOSM) ? reg_override_x10_eosm        : 
         (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_3x3_1X_100D)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_OFF_eosm)    ? reg_override_crop_preset_off_eosm  :
@@ -5137,6 +5214,14 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Toggle in and out of x3crop by holding halfshutter(all mv1080p modes)",
                 .help2   = "Cannot be used with x3crop. Manual focus\n"
                           
+            },
+            {
+                .name   = "x10crop toggle",
+                .priv   = &x10toggle,
+                .max    = 1,
+                .choices = CHOICES("OFF", "x10toggle"),
+                .help   = "Toggle in and out of x10crop by holding halfshutter(all presets)",
+                .help2   = "x10 zoom aid.\n"                          
             },
             {
                 .name   = "set 25fps",
@@ -5864,19 +5949,26 @@ else
       once = false;
 }
 
-/* workaround to get correct real time preview in x3crop while selecting x3toggle mode(only anamorphic rewired modes) */
-	if (get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D || 
-	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM))
+/* A shutter press delay also present in reg_override_bits. What's the hurry... */
+    static int last_hs_unpress1 = 0;
+    if (!get_halfshutter_pressed()) last_hs_unpress1 = get_ms_clock();
+
+    if (get_ms_clock() - last_hs_unpress1 > 200 && (!crop_patch2 && get_halfshutter_pressed() && x10toggle == 0x1))
+    {
+
+/* x10toggle aid */
+	if (get_halfshutter_pressed() && x10toggle == 0x1)
 	{
 
-/* disable for now. Not working the same as for non rewired mode */
-if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM && x3toggle == 0x0)
-{
-	return 0;
-}
+	/* disable for now. Not working the same as for non rewired mode */
+		if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM && x3toggle == 0x0 && x10toggle == 0x0)
+		{
+			return 0;
+		}
  
             crop_patch2 = 1;
-	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
+	    if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM && 
+		CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
 	    {
             info_led_on();
             gui_uilock(UILOCK_EVERYTHING);
@@ -5885,11 +5977,14 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM && x3toggle == 0x0)
             set_zoom(old_zoom);
             gui_uilock(UILOCK_NONE);
             info_led_off();
+	    set_lv_zoom(5);
 	    }
 	    else
 	    {
+     	    if (crop_preset == CROP_PRESET_x10_EOSM) movie_crop_hack_disable();
             PauseLiveView(); 
             ResumeLiveView();
+	    set_lv_zoom(5);
 	    }
 	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D)
 	/* 100D is a stubborn thing, needs an extra round */
@@ -5904,11 +5999,11 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM && x3toggle == 0x0)
     }
 	}
 
-	if (!get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D || 
-	   CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM) && crop_patch2)
+	if (!get_halfshutter_pressed() && crop_patch2)
 	{
             crop_patch2 = 0;
-	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)
+	    if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
+		CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
 	    {
             info_led_on();
             gui_uilock(UILOCK_EVERYTHING);
@@ -5917,9 +6012,12 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM && x3toggle == 0x0)
             set_zoom(old_zoom);
             gui_uilock(UILOCK_NONE);
             info_led_off();
+	    set_lv_zoom(1);
 	    }
 	    else
 	    {
+     	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || 
+		CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D) movie_crop_hack_enable();
             PauseLiveView(); 
             ResumeLiveView();
 	    }
@@ -5931,13 +6029,21 @@ if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM && x3toggle == 0x0)
 	    }
 	}
 
+    }
 
 /* toggle between x3crop and x1 zoom in mv1080p modes */
-    if (x3toggle != 0x1) crop_patch = 0; //disable patch while off
-    if ((x3toggle == 0x1) && (x3crop == 0x1))
-    {
- 	 x3crop = 0; 
+    if (x3toggle != 0x1 || x10toggle != 0x0) crop_patch = 0; //disable patch while off
+    if (x3toggle == 0x1 && x3crop == 0x1 && x10toggle == 0x0)
+    {	  
+	 x3crop = 0;
 	 NotifyBox(2000, "x3crop NOT compatible with x3toggle"); //disable patch while off
+    }
+
+    if ((x3toggle == 0x1 && x10toggle == 0x1))
+    {
+	 x3crop = 0; 
+	 x3toggle = 0; 
+	 NotifyBox(2000, "x10crop NOT compatible with x3toggle"); //disable patch while off
     }
 
 if (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
@@ -6803,6 +6909,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(timelapse)
     MODULE_CONFIG(slowshutter)
     MODULE_CONFIG(x3toggle)
+    MODULE_CONFIG(x10toggle)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
