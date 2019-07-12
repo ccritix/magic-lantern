@@ -1585,6 +1585,8 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 			case CROP_PRESET_x10_EOSM:
 	        cmos_new[5] = 0x300;
 	        cmos_new[7] = 0xa49; 
+		if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM) cmos_new[7] = 0xa49 - 102;
+		if (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM) cmos_new[7] = 0xa49 - 98;
 		if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM) cmos_new[7] = 0xa49 - 100; 
 		if (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM) cmos_new[7] = 0xa49 - 98;
 		if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM) cmos_new[7] = 0xa49 - 98;
