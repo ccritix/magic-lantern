@@ -5180,7 +5180,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "x10toggle"),
                 .help   = "Toggle x10zoom mode by holding halfshutter(all presets)",
-                .help2   = "x10 zoom aid while in idle mode. Manual focus.\n"                          
+                .help2   = "also works in photo mode. Manual focus.\n"                          
             },
             {
                 .name   = "set 25fps",
