@@ -5814,11 +5814,48 @@ static void set_zoom(int zoom)
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
+
+/* For when in photo mode and enabled x10 zoom mode */
+if (zoomaid == 0x1 && !is_movie_mode())
+{
+    static int last_hs_photo = 0;
+    static int photo = 0;
+
+    if (!get_halfshutter_pressed()) last_hs_photo = get_ms_clock();
+    if (get_ms_clock() - last_hs_photo > 500 && get_halfshutter_pressed())
+    {
+    	   set_lv_zoom(10);
+           photo = 1;
+    }
+
+    if (!get_halfshutter_pressed() && photo)
+    {
+    	    set_lv_zoom(1);
+            PauseLiveView(); 
+            ResumeLiveView();
+            photo = 0;
+    }
+
+}
+
+    static int once1 = 1;
+    if (once1 && zoomaid == 0x1 && !is_movie_mode())
+    {
+        once1 = 0;
+        NotifyBox(4000, "Crop mode x10 zoom aid active");	
+    }
+/* reset this notification once back in movie mode */
+    if (is_movie_mode())
+    {
+        once1 = 1;
+    }
+
 /* We don´t want this when in photo mode I assume */
 	if (!is_movie_mode() || CROP_PRESET_MENU == CROP_PRESET_OFF) return 0;
 
     /* also check at startup */
     static int lv_dirty = 1;
+
 
     int menu_shown = gui_menu_shown();
     if (lv && menu_shown)
