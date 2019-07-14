@@ -513,6 +513,11 @@ static int is_supported_mode()
 /* no more crashes when selecing photo mode */
     if (!is_movie_mode() || CROP_PRESET_MENU == CROP_PRESET_OFF) return 0;
 
+/* workaround getting below cams working with focus aid */
+    static int last_hs_aid = 0;
+    if (!get_halfshutter_pressed()) last_hs_aid = get_ms_clock();
+    if (get_ms_clock() - last_hs_aid > 300 && get_halfshutter_pressed() && (is_6D || is_5D3) && !RECORDING && zoomaid == 0x1) return 0;
+
     switch (crop_preset)
     {
         /* note: zoom check is also covered by check_cmos_vidmode */
@@ -2189,7 +2194,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	    case CROP_PRESET_1x3_17fps:
                 /* ADTG2/4[0x800C] = 0: read every line */
                 adtg_new[2] = (struct adtg_new) {6, 0x800C, 0 + reg_800c};
-                adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
+               // adtg_new[3] = (struct adtg_new) {6, 0x8000, 6 + reg_8000};
                 break; 
 
 	     case CROP_PRESET_3x3_mv1080_EOSM:
@@ -2405,7 +2410,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 
     static int last_hs_unpress = 0;
 
-if (zoomaid == 0x1 && !RECORDING)
+if (zoomaid == 0x1 && !RECORDING && !is_6D && !is_5D3)
 {
     if (!get_halfshutter_pressed()) last_hs_unpress = get_ms_clock();
 
@@ -5816,7 +5821,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
 
 /* For when in photo mode and enabled x10 zoom mode */
-if (zoomaid == 0x1 && !is_movie_mode())
+if ((zoomaid == 0x1 && !is_movie_mode()) || ((is_6D || is_5D3) && (!RECORDING && zoomaid == 0x1)))
 {
     static int last_hs_photo = 0;
     static int photo = 0;
@@ -5826,14 +5831,17 @@ if (zoomaid == 0x1 && !is_movie_mode())
     {
     	   set_lv_zoom(10);
            photo = 1;
+      while (get_halfshutter_pressed())
+      {
+          msleep(10);
+      }
     }
 
     if (!get_halfshutter_pressed() && photo)
     {
     	    set_lv_zoom(1);
-            PauseLiveView(); 
-            ResumeLiveView();
             photo = 0;
+	    return 0;
     }
 
 }
@@ -5842,7 +5850,7 @@ if (zoomaid == 0x1 && !is_movie_mode())
     if (once1 && zoomaid == 0x1 && !is_movie_mode())
     {
         once1 = 0;
-        NotifyBox(4000, "Crop mode x10 zoom aid active");	
+        NotifyBox(4000, "Crop mode x10 halfshutter focus aid active");	
     }
 /* reset this notification once back in movie mode */
     if (is_movie_mode())
@@ -5949,7 +5957,7 @@ else
     static int last_hs_unpress1 = 0;
     if (!get_halfshutter_pressed()) last_hs_unpress1 = get_ms_clock();
 
-    if (get_ms_clock() - last_hs_unpress1 > 200 && (!crop_patch2 && get_halfshutter_pressed() && zoomaid == 0x1))
+    if (get_ms_clock() - last_hs_unpress1 > 200 && (!crop_patch2 && get_halfshutter_pressed() && zoomaid == 0x1 && !is_6D && !is_5D3))
     {
 
 /* zoomaid */
