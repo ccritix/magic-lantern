@@ -41,7 +41,7 @@ static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.zoomaid", zoomaid, 0);
-static CONFIG_INT("crop.x3toggle", x3toggle, 0);
+static CONFIG_INT("crop.x3toggle", x3toggle, 1);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
@@ -5150,7 +5150,7 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &x3toggle,
                 .max    = 1,
                 .choices = CHOICES("OFF", "x3toggle"),
-                .help   = "In and out of x3crop(all mv1080p modes) always on(EOSM)",                          
+                .help   = "In and out of x3crop(all mv1080p modes)",                          
 		.help2  = "Short press trash can(EOSM). Halfshutter press(5D3)\n"
             },
             {
@@ -5598,7 +5598,9 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
 
 /* x3crop toggle by using short press on thrash can button instead of halfshutter */
-        if (key == MODULE_KEY_PRESS_DOWN && is_EOSM && !RECORDING && lv && is_movie_mode() && !gui_menu_shown())
+        if (key == MODULE_KEY_PRESS_DOWN && is_EOSM && x3toggle == 0x1 && !RECORDING && lv && is_movie_mode() && !gui_menu_shown() &&
+	   (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || 
+	    CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
         {
 		if (x3crop == 0x1)
 		{
