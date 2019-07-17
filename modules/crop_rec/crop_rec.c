@@ -5159,14 +5159,14 @@ static struct menu_entry crop_rec_menu[] =
                 .name   = "x3crop",
                 .priv   = &x3crop,
                 .max    = 1,
-                .choices = CHOICES("OFF", "x3crop"),
+                .choices = CHOICES("OFF", "ON"),
                 .help   = "Turns mv1080p and mv1080_46fps modes into x3 crop modes)",
             },
             {
                 .name   = "x3crop toggle",
                 .priv   = &x3toggle,
                 .max    = 1,
-                .choices = CHOICES("OFF", "x3toggle"),
+                .choices = CHOICES("OFF", "ON"),
                 .help   = "In and out of x3crop(all mv1080p modes)",                          
 		.help2  = "Short press trash can(EOSM). Halfshutter press(5D3)\n"
             },
