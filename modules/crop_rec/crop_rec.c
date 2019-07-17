@@ -516,7 +516,7 @@ static int is_supported_mode()
 /* workaround getting below cams working with focus aid */
     static int last_hs_aid = 0;
     if (!get_halfshutter_pressed()) last_hs_aid = get_ms_clock();
-    if (get_ms_clock() - last_hs_aid > 300 && get_halfshutter_pressed() && (is_6D || is_5D3) && !RECORDING && zoomaid == 0x1) return 0;
+    if (get_ms_clock() - last_hs_aid > 300 && get_halfshutter_pressed() && (is_6D || is_5D3) && !RECORDING && (zoomaid == 0x1 || zoomaid == 0x2)) return 0;
 
     switch (crop_preset)
     {
@@ -2389,7 +2389,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
     static int last_hs_unpress = 0;
 
-if (zoomaid == 0x1 && !RECORDING && !is_6D && !is_5D3)
+if ((zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING && !is_6D && !is_5D3)
 {
     if (!get_halfshutter_pressed()) last_hs_unpress = get_ms_clock();
 
@@ -2404,7 +2404,7 @@ if (zoomaid == 0x1 && !RECORDING && !is_6D && !is_5D3)
 }
 
 /* reset registry. Used for dummy check in mlv_lite.c when using realtime preview */
-    if (!get_halfshutter_pressed() && zoomaid == 0x1 && !RECORDING)
+    if (!get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING)
     {
 	EngDrvOutLV(0xc0f11a88, 0x0);
     }
@@ -4147,6 +4147,19 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
     return reg_override_bits(reg, old_val);
 }
 
+static inline uint32_t reg_override_x10_eosm(uint32_t reg, uint32_t old_val)
+{
+
+/* dark mode */
+   if (zoomaid == 0x2) 
+   {
+	*(volatile uint32_t*)0xc0f06014 = 0xc71;
+	*(volatile uint32_t*)0xc0f140c0 = 0xb0;
+   }
+
+    return 0;
+}
+
 static inline uint32_t reg_override_crop_preset_off_eosm(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
@@ -4853,6 +4866,7 @@ static void * get_engio_reg_override_func()
         (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        :
         (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
         (crop_preset == CROP_PRESET_3x3_1X_100D)    ? reg_override_mv1080_mv720p  :
+        (crop_preset == CROP_PRESET_x10_EOSM)    ? reg_override_x10_eosm  :
         (crop_preset == CROP_PRESET_OFF_eosm)    ? reg_override_crop_preset_off_eosm  :
 	(crop_preset == CROP_PRESET_2520_1418_700D)       ? reg_override_2520_700d            :
 	(crop_preset == CROP_PRESET_2520_1418_650D)       ? reg_override_2520_700d            :
@@ -5159,10 +5173,10 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "focus aid",
                 .priv   = &zoomaid,
-                .max    = 1,
-                .choices = CHOICES("OFF", "x10toggle"),
-                .help   = "Toggle x10zoom mode by holding halfshutter(all presets)",
-                .help2   = "Also works in photo mode. Manual focus.\n"                          
+                .max    = 2,
+                .choices = CHOICES("OFF", "x10toggle", "dark mode"),
+                .help   = "x10zoom mode by holding halfshutter(all presets, manual focus)",
+                .help2   = "Will brighten screen(slower fps)\n"                          
             },
             {
                 .name   = "set 25fps",
@@ -5823,7 +5837,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
 
 /* For when in photo mode and enabled x10 zoom mode */
-if ((zoomaid == 0x1 && !is_movie_mode()) || ((is_6D || is_5D3) && (!RECORDING && zoomaid == 0x1)))
+if (((zoomaid == 0x1 || zoomaid == 0x2) && !is_movie_mode()) || ((is_6D || is_5D3) && (!RECORDING && (zoomaid == 0x1 || zoomaid == 0x2))))
 {
     static int last_hs_photo = 0;
     static int photo = 0;
@@ -5849,7 +5863,7 @@ if ((zoomaid == 0x1 && !is_movie_mode()) || ((is_6D || is_5D3) && (!RECORDING &&
 }
 
     static int once1 = 1;
-    if (once1 && zoomaid == 0x1 && !is_movie_mode())
+    if (once1 && (zoomaid == 0x1 || zoomaid == 0x2) && !is_movie_mode())
     {
         once1 = 0;
         NotifyBox(4000, "Crop mode x10 halfshutter focus aid active");	
@@ -5959,11 +5973,14 @@ else
     static int last_hs_unpress1 = 0;
     if (!get_halfshutter_pressed()) last_hs_unpress1 = get_ms_clock();
 
-    if (get_ms_clock() - last_hs_unpress1 > 200 && (!crop_patch2 && get_halfshutter_pressed() && zoomaid == 0x1 && !is_6D && !is_5D3))
+    if (get_ms_clock() - last_hs_unpress1 > 200 && (!crop_patch2 && get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2) && !is_6D && !is_5D3))
     {
 
+/* dark mode */
+   if (zoomaid == 0x2) NotifyBox(3000, "dark mode");
+
 /* zoomaid */
-	if (get_halfshutter_pressed() && zoomaid == 0x1)
+	if (get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2))
 	{
 
 	/* disable for now. Not working the same as for non rewired mode */
@@ -5983,14 +6000,14 @@ else
             set_zoom(old_zoom);
             gui_uilock(UILOCK_NONE);
             info_led_off();
-	    if (zoomaid == 0x1) set_lv_zoom(10);
+	    if ((zoomaid == 0x1 || zoomaid == 0x2)) set_lv_zoom(10);
 	    }
 	    else
 	    {
      	    if (crop_preset == CROP_PRESET_x10_EOSM) movie_crop_hack_disable();
             PauseLiveView(); 
             ResumeLiveView();
-	    if (zoomaid == 0x1) set_lv_zoom(10);
+	    if (zoomaid == 0x1 || zoomaid == 0x2) set_lv_zoom(10);
 	    }
 	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D)
 	/* 100D is a stubborn thing, needs an extra round */
@@ -6048,7 +6065,7 @@ if (is_5D3)
 	 NotifyBox(2000, "x3crop NOT compatible with x3toggle"); //disable patch while off
     }
 
-    if ((x3toggle == 0x1 && zoomaid == 0x1))
+    if ((x3toggle == 0x1 && (zoomaid == 0x1 || zoomaid == 0x2)))
     {
 	 x3crop = 0; 
 	 x3toggle = 0; 
