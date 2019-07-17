@@ -5174,9 +5174,9 @@ static struct menu_entry crop_rec_menu[] =
                 .name   = "focus aid",
                 .priv   = &zoomaid,
                 .max    = 2,
-                .choices = CHOICES("OFF", "x10toggle", "dark mode"),
-                .help   = "x10zoom mode by holding halfshutter(all presets, manual focus)",
-                .help2   = "Will brighten screen(slower fps)\n"                          
+                .choices = CHOICES("OFF", "default mode", "dark mode"),
+                .help   = "x10 zoom when pressing halfshutter(all presets, manual focus)",
+                .help2   = "Will brighten liveview(slower fps)\n"                          
             },
             {
                 .name   = "set 25fps",
