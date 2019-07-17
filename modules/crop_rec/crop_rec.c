@@ -5182,7 +5182,7 @@ static struct menu_entry crop_rec_menu[] =
                 .name   = "set 25fps",
                 .priv   = &set_25fps,
                 .max    = 1,
-                .choices = CHOICES("OFF", "25fps"),
+                .choices = CHOICES("OFF", "ON"),
                 .help   = "Sets 2.39:1, 2.35:1 and 16:9 modes to 25fps\n"
             },
             {
