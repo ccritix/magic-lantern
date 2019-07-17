@@ -2396,7 +2396,10 @@ if (zoomaid == 0x1 && !RECORDING && !is_6D && !is_5D3)
 /* x10crop preview hack */
     if (get_ms_clock() - last_hs_unpress > 200 && get_halfshutter_pressed())
     {
-	  crop_preset = CROP_PRESET_x10_EOSM;
+/* checking passed 1500ms for when in canon menu. get_ms_clock() seems to be counting with no reset while in canon menu */
+        if (!is_100D && (get_ms_clock() - last_hs_unpress < 1500)) crop_preset = CROP_PRESET_x10_EOSM;
+/* not working on 100D because of double refresh stuff */
+        if (is_100D) crop_preset = CROP_PRESET_x10_EOSM;
     }
 }
 
