@@ -6005,7 +6005,10 @@ else
 	    else
 	    {
      	    if (crop_preset == CROP_PRESET_x10_EOSM) movie_crop_hack_disable();
-            PauseLiveView(); 
+/* fixes interference with autoiso(replacing PauseLiveView();) */
+    	    display_off();
+    	    msleep(300);
+    	    display_on();
             ResumeLiveView();
 	    if (zoomaid == 0x1 || zoomaid == 0x2) set_lv_zoom(10);
 	    }
