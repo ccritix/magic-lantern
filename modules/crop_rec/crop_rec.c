@@ -6012,13 +6012,6 @@ else
             ResumeLiveView();
 	    if (zoomaid == 0x1 || zoomaid == 0x2) set_lv_zoom(10);
 	    }
-	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D)
-	/* 100D is a stubborn thing, needs an extra round */
-	    {
-            PauseLiveView(); 
-            ResumeLiveView();
-	    }
-
     while (get_halfshutter_pressed())
     {
         msleep(10);
