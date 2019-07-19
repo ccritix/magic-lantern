@@ -5871,7 +5871,7 @@ static void set_zoom(int zoom)
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
 
-NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
+//NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
 
 /* For when in photo mode and enabled x10 zoom mode */
 if (((zoomaid == 0x1 || zoomaid == 0x2) && !is_movie_mode()) || ((is_6D || is_5D3) && (!RECORDING && (zoomaid == 0x1 || zoomaid == 0x2))))
