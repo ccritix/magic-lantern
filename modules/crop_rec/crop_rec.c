@@ -2103,16 +2103,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
  }
-
-/*
-		if ((lens_info.raw_iso_auto > 0x5c) && !lens_info.raw_iso && get_halfshutter_pressed() && !RECORDING)
-		{
-		adtg_new[13] = (struct adtg_new) {6, 0x8882, 457}; 
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 456};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 457};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 457};
-		}
-*/
 	  /* only apply bit reducing while recording, not while idle */
           if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_100D && !is_6D && !is_5D3))
 	  {

@@ -3137,6 +3137,16 @@ if (cam_eos_m || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
 /* 14bit */
     if (shamem_read(0xc0f0815c) == 0x7) rawi_hdr.raw_info.white_level = 16200;
 
+/* Set corrected iso when selected max iso preset in crop_rec.c */
+    if (shamem_read(0xc0f0b12c) == 0x7) 
+    {
+	lens_info.iso = 800;	
+    }
+    else
+    {
+	lens_info.iso = lens_info.raw_iso;
+    }
+
 /* HDR base iso regardless of what is set in camera */
     if (shamem_read(0xc0f0b12c) == 0x1) lens_info.iso = 100;
     if (shamem_read(0xc0f0b12c) == 0x2) lens_info.iso = 200; 
@@ -3145,8 +3155,6 @@ if (cam_eos_m || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
     if (shamem_read(0xc0f0b12c) == 0x5) lens_info.iso = 1600; 
     if (shamem_read(0xc0f0b12c) == 0x6) lens_info.iso = 3200;  
 
-/* Set corrected iso when selected max iso preset in crop_rec.c */
-    if (shamem_read(0xc0f0b12c) == 0x7) lens_info.iso = 800;	
 }
 
     mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);
