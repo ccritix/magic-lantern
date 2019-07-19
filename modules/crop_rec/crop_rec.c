@@ -1713,11 +1713,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
 /* restrict max auto iso to 800+ instead of skyrocketing to 6400 */
-	if (isoauto == 0x1 && lens_info.raw_iso_auto > 0x5c && !lens_info.raw_iso)
+	if (isoauto == 0x1 && lens_info.raw_iso_auto > 0x5c && !lens_info.raw_iso && !is_6D)
 	{
 	/* dummy reg */
 	EngDrvOutLV(0xC0F0b12c, 0x7);
-	if (!is_5D3 && !is_6D) cmos_new[0] = 0x86f; // stick to iso 800
+	if (!is_5D3) cmos_new[0] = 0x86f; // stick to iso 800
 	if (is_5D3) cmos_new[0] = 0x333; // stick to iso 800
 	//if (lens_info.raw_iso_auto > 0x64) cmos_new[0] = 0x893; // cut from iso 3200 to iso 1600
 	//if (lens_info.raw_iso_auto > 0x5c && lens_info.raw_iso_auto < 0x63) cmos_new[0] = 0x86f; // iso 800
@@ -2483,7 +2483,7 @@ if (RECORDING && bitdepth != 0x0 && (is_EOSM || is_100D))
 /* correcting black level a bit. Compensating greenish tint. Only affects preview, not recordings */
    if (CROP_PRESET_MENU != CROP_PRESET_3x3_mv1080_48fps_EOSM)
    {
-        if (lens_info.raw_iso != 0x48) /* iso 100 excluded, breaks */
+        if (lens_info.raw_iso != 0x48 && lens_info.raw_iso_auto > 0x4e) /* iso 100 excluded, breaks */
         {
 	EngDrvOutLV(0xc0f37aec, 0x73ca + reg_bl);
 	EngDrvOutLV(0xc0f37af8, 0x73ca + reg_bl);
@@ -5871,7 +5871,7 @@ static void set_zoom(int zoom)
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
 
-//NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
+NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
 
 /* For when in photo mode and enabled x10 zoom mode */
 if (((zoomaid == 0x1 || zoomaid == 0x2) && !is_movie_mode()) || ((is_6D || is_5D3) && (!RECORDING && (zoomaid == 0x1 || zoomaid == 0x2))))

@@ -3144,6 +3144,9 @@ if (cam_eos_m || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
     if (shamem_read(0xc0f0b12c) == 0x4) lens_info.iso = 800;  
     if (shamem_read(0xc0f0b12c) == 0x5) lens_info.iso = 1600; 
     if (shamem_read(0xc0f0b12c) == 0x6) lens_info.iso = 3200;  
+
+/* Set corrected iso when selected max iso preset in crop_rec.c */
+    if (shamem_read(0xc0f0b12c) == 0x7) lens_info.iso = 800;	
 }
 
     mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);
