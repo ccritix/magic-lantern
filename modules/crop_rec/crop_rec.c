@@ -1726,6 +1726,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	//if (lens_info.raw_iso_auto > 0x47 && lens_info.raw_iso_auto < 0x4b) cmos_new[0] = 0x803; // iso 100
 	}
 
+	if (isoauto == 0x1 && lens_info.raw_iso_auto < 0x5c && !lens_info.raw_iso && !is_6D)
+	{
+	EngDrvOutLV(0xC0F0b12c, 0x0);
+	}
+
     /* menu overrides */
     if (cmos1_lo || cmos1_hi)
     {
