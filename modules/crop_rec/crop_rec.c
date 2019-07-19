@@ -45,6 +45,7 @@ static CONFIG_INT("crop.x3toggle", x3toggle, 1);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
+static CONFIG_INT("crop.isoauto", isoauto, 0);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 
@@ -1585,6 +1586,10 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM) cmos_new[7] = 0xa49 - 98;
 		if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM) cmos_new[7] = 0xa49 - 102;
 		if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D) cmos_new[7] = 0xa49 - 102;
+		if (isoauto == 0x1 && !lens_info.raw_iso && !RECORDING)
+		{
+		if (lens_info.raw_iso_auto > 0x5c) cmos_new[0] = 0x86f; // stick to iso 800
+		}
                 break;	
 
 		case CROP_PRESET_2520_1418_700D:
@@ -1707,6 +1712,20 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		
     }
 
+/* restrict max auto iso to 800+ instead of skyrocketing to 6400 */
+	if (isoauto == 0x1 && lens_info.raw_iso_auto > 0x5c && !lens_info.raw_iso)
+	{
+	/* dummy reg */
+	EngDrvOutLV(0xC0F0b12c, 0x7);
+	if (!is_5D3 && !is_6D) cmos_new[0] = 0x86f; // stick to iso 800
+	if (is_5D3) cmos_new[0] = 0x333; // stick to iso 800
+	//if (lens_info.raw_iso_auto > 0x64) cmos_new[0] = 0x893; // cut from iso 3200 to iso 1600
+	//if (lens_info.raw_iso_auto > 0x5c && lens_info.raw_iso_auto < 0x63) cmos_new[0] = 0x86f; // iso 800
+	//if (lens_info.raw_iso_auto > 0x54 && lens_info.raw_iso_auto < 0x5e) cmos_new[0] = 0x84b; // iso 400
+	//if (lens_info.raw_iso_auto > 0x4c && lens_info.raw_iso_auto < 0x53) cmos_new[0] = 0x827; // iso 200
+	//if (lens_info.raw_iso_auto > 0x47 && lens_info.raw_iso_auto < 0x4b) cmos_new[0] = 0x803; // iso 100
+	}
+
     /* menu overrides */
     if (cmos1_lo || cmos1_hi)
     {
@@ -1755,7 +1774,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 
 /* HDR workaround eosm */
-if ((is_EOSM && RECORDING && HDR_iso_a != 0x0))
+if (is_EOSM && RECORDING && HDR_iso_a != 0x0)
 {
 
 /* iso reg */
@@ -1790,7 +1809,7 @@ if ((is_EOSM && RECORDING && HDR_iso_a != 0x0))
 }
 
 /* HDR previewing eosm */
-if ((is_EOSM && !RECORDING && HDR_iso_a != 0x0))
+if (is_EOSM && !RECORDING && HDR_iso_a != 0x0)
 {
 
 /* iso reg */
@@ -2080,6 +2099,15 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
  }
 
+/*
+		if ((lens_info.raw_iso_auto > 0x5c) && !lens_info.raw_iso && get_halfshutter_pressed() && !RECORDING)
+		{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 457}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 456};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 457};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 457};
+		}
+*/
 	  /* only apply bit reducing while recording, not while idle */
           if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_100D && !is_6D && !is_5D3))
 	  {
@@ -2532,7 +2560,7 @@ if (is_EOSM)
   	if (HDR_iso_a == 0x6) switch (reg) case 0xC0F0b12c: return 0x6;
    }
 
-   if (HDR_iso_a == 0x0)
+   if (HDR_iso_a == 0x0 && isoauto == 0x0)
    {
        switch (reg)
        {
@@ -5200,6 +5228,13 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "HDR workaround eosm\n"
             },
             {
+                .name   = "max iso",
+                .priv   = &isoauto,
+                .max    = 1,
+                .choices = CHOICES("OFF", "ON"),
+                .help   = "Restrict auto iso to max 800\n"
+            },
+            {
                 .name   = "4k timelapse",
                 .priv   = &timelapse,
                 .max    = 9,
@@ -5835,6 +5870,8 @@ static void set_zoom(int zoom)
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
+
+//NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
 
 /* For when in photo mode and enabled x10 zoom mode */
 if (((zoomaid == 0x1 || zoomaid == 0x2) && !is_movie_mode()) || ((is_6D || is_5D3) && (!RECORDING && (zoomaid == 0x1 || zoomaid == 0x2))))
@@ -6916,6 +6953,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(set_25fps)
     MODULE_CONFIG(HDR_iso_a)
     MODULE_CONFIG(HDR_iso_b)
+    MODULE_CONFIG(isoauto)
     MODULE_CONFIG(timelapse)
     MODULE_CONFIG(slowshutter)
     MODULE_CONFIG(x3toggle)
