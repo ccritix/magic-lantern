@@ -5227,7 +5227,8 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &isoauto,
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON"),
-                .help   = "Restrict auto iso to max 800\n"
+                .help   = "Restrict auto iso to max 800",
+                .help2  = "max iso 800\n" 
             },
             {
                 .name   = "4k timelapse",
