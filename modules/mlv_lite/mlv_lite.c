@@ -2094,7 +2094,8 @@ if ((cam_eos_m || cam_100d) && crop_patch)
 	if (shamem_read(0xC0F06804) == 0x79f01e4) preview_mode = 2;
 /* auto set preview modes by reading registers eosm for now */
      /* HDR flag */
-	if (shamem_read(0xc0f0b12c) != 0x0) preview_mode = 1;
+	if (shamem_read(0xc0f0b12c) != 0x0 && shamem_read(0xc0f0b12c) != 0x7 && 
+	    shamem_read(0xc0f0b12c) != 0x8 && shamem_read(0xc0f0b12c) != 0x9) preview_mode = 1;
     }
 
 /* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */

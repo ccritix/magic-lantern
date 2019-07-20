@@ -1586,7 +1586,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM) cmos_new[7] = 0xa49 - 98;
 		if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM) cmos_new[7] = 0xa49 - 102;
 		if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D) cmos_new[7] = 0xa49 - 102;
-		if ((isoauto == 0x1 || isoauto == 0x2 || isoauto == 0x3) && lens_info.raw_iso == 0x0 && !RECORDING)
+		if ((isoauto == 0x1 || isoauto == 0x2 || isoauto == 0x3) && lens_info.raw_iso == 0x0 && HDR_iso_a == 0x0)
 		{
 		if (isoauto == 0x1 && lens_info.raw_iso_auto > 0x54) cmos_new[0] = 0x84b; // stick to iso 400
 		if (isoauto == 0x2 && lens_info.raw_iso_auto > 0x5c) cmos_new[0] = 0x86f; // stick to iso 800
@@ -1715,7 +1715,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
 /* restrict max auto iso to 800+ instead of skyrocketing to 6400 */
-	if ((isoauto == 0x1 || isoauto == 0x2 || isoauto == 0x3) && lens_info.raw_iso == 0x0 && !is_6D)
+	if ((isoauto == 0x1 || isoauto == 0x2 || isoauto == 0x3) && (lens_info.raw_iso == 0x0 && !is_6D && HDR_iso_a == 0x0))
 	{
 	/* dummy reg */
 	if (isoauto == 0x1 && lens_info.raw_iso_auto > 0x54) EngDrvOutLV(0xC0F0b12c, 0x7);
@@ -1731,7 +1731,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	if (is_5D3 && isoauto == 0x3 && lens_info.raw_iso_auto > 0x63) cmos_new[0] = 0x443; // stick to iso 1600
 	}
 
-	if ((isoauto == 0x1 || isoauto == 0x2 || isoauto == 0x3) && (lens_info.raw_iso == 0x0 && !is_6D))
+	if ((isoauto == 0x1 || isoauto == 0x2 || isoauto == 0x3) && (lens_info.raw_iso == 0x0 && !is_6D && HDR_iso_a == 0x0))
 	{
 		if (isoauto == 0x1 && lens_info.raw_iso_auto < 0x54) EngDrvOutLV(0xC0F0b12c, 0x0);
 		if (isoauto == 0x2 && lens_info.raw_iso_auto < 0x5c) EngDrvOutLV(0xC0F0b12c, 0x0);
