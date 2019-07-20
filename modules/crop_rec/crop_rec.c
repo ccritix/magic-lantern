@@ -2091,9 +2091,9 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
     }
 
-    /* should probably be made generic */
-    if (is_5D3 || is_100D || is_EOSM || is_700D || is_650D || is_6D)
-    {
+     /* should probably be made generic */
+     if (is_5D3 || is_100D || is_EOSM || is_700D || is_650D || is_6D)
+     {
         /* all modes may want to override shutter speed */
         /* ADTG[0x8060]: shutter blanking for 3x3 mode  */
         /* ADTG[0x805E]: shutter blanking for zoom mode  */
@@ -2114,6 +2114,37 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
  }
+
+	     /* Correct analog gain pushed autoiso wise otherwise. Only 14bit while recording or below applies */
+   	     if (isoauto != 0x0 && (!is_5D3 && !is_6D))
+    	     {
+		/* true iso 400 */
+		if (isoauto == 0x1 && lens_info.raw_iso_auto > 0x54)
+		{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 0x438 + reg_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 0x439 + reg_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 0x439 + reg_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 0x439 + reg_gain};
+		}
+		/* true iso 800 */
+		if (isoauto == 0x2 && lens_info.raw_iso_auto > 0x5c)
+		{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 0x421 + reg_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 0x420 + reg_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 0x421 + reg_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 0x422 + reg_gain};
+		}
+		/* true iso 1600 */
+		if (isoauto == 0x3 && lens_info.raw_iso_auto > 0x63)
+		{
+		adtg_new[13] = (struct adtg_new) {6, 0x8882, 0x457 + reg_gain}; 
+                adtg_new[14] = (struct adtg_new) {6, 0x8884, 0x456 + reg_gain};
+                adtg_new[15] = (struct adtg_new) {6, 0x8886, 0x457 + reg_gain};
+                adtg_new[16] = (struct adtg_new) {6, 0x8888, 0x457 + reg_gain};
+		}
+
+	     }
+
 	  /* only apply bit reducing while recording, not while idle */
           if ((RECORDING && (is_EOSM || is_100D || is_6D || is_5D3)) || (!is_EOSM && !is_100D && !is_6D && !is_5D3))
 	  {
@@ -2152,10 +2183,10 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 250 + reg_gain};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 250 + reg_gain};
 		}
+		
+       	   }
 
-	  }
-
-    }
+      }
 
     /* hopefully generic; to be tested later */
     if (1)
@@ -5237,7 +5268,7 @@ static struct menu_entry crop_rec_menu[] =
                 .name   = "max iso",
                 .priv   = &isoauto,
                 .max    = 3,
-                .choices = CHOICES("OFF", "400+", "800+", "1600+"),
+                .choices = CHOICES("OFF", "400", "800", "1600"),
                 .help   = "Restrict autoiso to max 400/800/1600",
                 .help2  = "Select max iso. Autoiso only\n" 
             },
