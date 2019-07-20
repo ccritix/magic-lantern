@@ -2118,6 +2118,16 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	     /* Correct analog gain pushed autoiso wise otherwise. Only 14bit while recording or below applies */
    	     if (isoauto != 0x0 && (!is_5D3 && !is_6D))
     	     {
+
+		if (!RECORDING)
+		{
+		/* correct black level/tint when previewing */
+		EngDrvOutLV(0xc0f37aec, 0x73ca + reg_bl);
+		EngDrvOutLV(0xc0f37af8, 0x73ca + reg_bl);
+		EngDrvOutLV(0xc0f37b04, 0x73ca + reg_bl); 
+		EngDrvOutLV(0xc0f37ae0, 0x73ca + reg_bl); 
+		}
+
 		/* true iso 400 */
 		if (isoauto == 0x1 && lens_info.raw_iso_auto > 0x54)
 		{
