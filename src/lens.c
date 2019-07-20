@@ -2952,15 +2952,25 @@ static LVINFO_UPDATE_FUNC(iso_update)
             /* think twice before increasing ISO above this value */
             item->color_fg = COLOR_ORANGE;
         }
-/* restricting autoiso for eom, 100D and 5D3. Switch in crop_rec.c */        
-	if (!lens_info.raw_iso && (shamem_read(0xC0F0b12c) == 0x7) && lens_info.raw_iso_auto > 0x64)
-	{
-		STR_APPEND(buffer, "800+");
-	}
-	else
-	{
-		STR_APPEND(buffer, "%d", iso);
-	}
+
+/* restricting autoiso for eom, 100D and 5D3. Switch in crop_rec.c */
+		if (shamem_read(0xC0F0b12c) == 0x7 && lens_info.raw_iso_auto > 0x5d) 
+		{
+			STR_APPEND(buffer, "400+");
+		}
+		else if (shamem_read(0xC0F0b12c) == 0x8 && lens_info.raw_iso_auto > 0x63) 
+		{
+			STR_APPEND(buffer, "800+");
+		}
+		else if (shamem_read(0xC0F0b12c) == 0x9 && lens_info.raw_iso_auto > 0x6d) 
+		{
+			STR_APPEND(buffer, "1600+");
+		}
+		else
+		{
+			STR_APPEND(buffer, "%d", iso);
+		}
+
     }
     else /* photo mode */
     {

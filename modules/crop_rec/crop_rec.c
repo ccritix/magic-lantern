@@ -1586,9 +1586,11 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM) cmos_new[7] = 0xa49 - 98;
 		if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM) cmos_new[7] = 0xa49 - 102;
 		if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D) cmos_new[7] = 0xa49 - 102;
-		if (isoauto == 0x1 && lens_info.raw_iso == 0x0 && !RECORDING)
+		if ((isoauto == 0x1 || isoauto == 0x2 || isoauto == 0x3) && lens_info.raw_iso == 0x0 && !RECORDING)
 		{
-		if (lens_info.raw_iso_auto > 0x5c) cmos_new[0] = 0x86f; // stick to iso 800
+		if (isoauto == 0x1 && lens_info.raw_iso_auto > 0x54) cmos_new[0] = 0x84b; // stick to iso 400
+		if (isoauto == 0x2 && lens_info.raw_iso_auto > 0x5c) cmos_new[0] = 0x86f; // stick to iso 800
+		if (isoauto == 0x3 && lens_info.raw_iso_auto > 0x63) cmos_new[0] = 0x893; // stick to iso 1600
 		}
                 break;	
 
@@ -1713,22 +1715,27 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     }
 
 /* restrict max auto iso to 800+ instead of skyrocketing to 6400 */
-	if (isoauto == 0x1 && lens_info.raw_iso_auto > 0x5c && lens_info.raw_iso == 0x0 && !is_6D)
+	if ((isoauto == 0x1 || isoauto == 0x2 || isoauto == 0x3) && lens_info.raw_iso == 0x0 && !is_6D)
 	{
 	/* dummy reg */
-	EngDrvOutLV(0xC0F0b12c, 0x7);
-	if (!is_5D3) cmos_new[0] = 0x86f; // stick to iso 800
-	if (is_5D3) cmos_new[0] = 0x333; // stick to iso 800
-	//if (lens_info.raw_iso_auto > 0x64) cmos_new[0] = 0x893; // cut from iso 3200 to iso 1600
-	//if (lens_info.raw_iso_auto > 0x5c && lens_info.raw_iso_auto < 0x63) cmos_new[0] = 0x86f; // iso 800
-	//if (lens_info.raw_iso_auto > 0x54 && lens_info.raw_iso_auto < 0x5e) cmos_new[0] = 0x84b; // iso 400
-	//if (lens_info.raw_iso_auto > 0x4c && lens_info.raw_iso_auto < 0x53) cmos_new[0] = 0x827; // iso 200
-	//if (lens_info.raw_iso_auto > 0x47 && lens_info.raw_iso_auto < 0x4b) cmos_new[0] = 0x803; // iso 100
+	if (isoauto == 0x1 && lens_info.raw_iso_auto > 0x54) EngDrvOutLV(0xC0F0b12c, 0x7);
+	if (isoauto == 0x2 && lens_info.raw_iso_auto > 0x5c) EngDrvOutLV(0xC0F0b12c, 0x8);
+	if (isoauto == 0x3 && lens_info.raw_iso_auto > 0x63) EngDrvOutLV(0xC0F0b12c, 0x9);
+
+	if (!is_5D3 && isoauto == 0x1 && lens_info.raw_iso_auto > 0x54) cmos_new[0] = 0x84b; // stick to iso 400
+	if (!is_5D3 && isoauto == 0x2 && lens_info.raw_iso_auto > 0x5c) cmos_new[0] = 0x86f; // stick to iso 800
+	if (!is_5D3 && isoauto == 0x3 && lens_info.raw_iso_auto > 0x63) cmos_new[0] = 0x893; // stick to iso 1600
+
+	if (is_5D3 && isoauto == 0x1 && lens_info.raw_iso_auto > 0x54) cmos_new[0] = 0x223; // stick to iso 400
+	if (is_5D3 && isoauto == 0x2 && lens_info.raw_iso_auto > 0x5c) cmos_new[0] = 0x333; // stick to iso 800
+	if (is_5D3 && isoauto == 0x3 && lens_info.raw_iso_auto > 0x63) cmos_new[0] = 0x443; // stick to iso 1600
 	}
 
-	if (isoauto == 0x1 && lens_info.raw_iso_auto < 0x5c && lens_info.raw_iso == 0x0 && !is_6D)
+	if ((isoauto == 0x1 || isoauto == 0x2 || isoauto == 0x3) && (lens_info.raw_iso == 0x0 && !is_6D))
 	{
-	EngDrvOutLV(0xC0F0b12c, 0x0);
+		if (isoauto == 0x1 && lens_info.raw_iso_auto < 0x54) EngDrvOutLV(0xC0F0b12c, 0x0);
+		if (isoauto == 0x2 && lens_info.raw_iso_auto < 0x5c) EngDrvOutLV(0xC0F0b12c, 0x0);
+		if (isoauto == 0x3 && lens_info.raw_iso_auto < 0x63) EngDrvOutLV(0xC0F0b12c, 0x0);
 	}
 
     /* menu overrides */
@@ -5225,17 +5232,17 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "max iso",
                 .priv   = &isoauto,
-                .max    = 1,
-                .choices = CHOICES("OFF", "ON"),
-                .help   = "Restrict auto iso to max 800",
-                .help2  = "max iso 800\n" 
+                .max    = 3,
+                .choices = CHOICES("OFF", "400+", "800+", "1600+"),
+                .help   = "Restrict autoiso to max 400/800/1600",
+                .help2  = "Select max iso. Autoiso only\n" 
             },
             {
                 .name   = "4k timelapse",
                 .priv   = &timelapse,
                 .max    = 9,
                 .choices = CHOICES("OFF", "0.4fps" ,"1fps", "2fps", "3fps", "4fps", "5fps","5K 0.4fps", "5K 1fps", "5K 2fps"),
-                .help   = "fps intervals(only 4k preset(100D/EOSM)\n",
+                .help   = "Fps intervals(only 4k preset(100D/EOSM)\n",
                 .help2  = "Enable REC trigger Half-shutter: start/pause for best performance",
             },
             {

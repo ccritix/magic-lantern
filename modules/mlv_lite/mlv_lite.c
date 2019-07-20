@@ -3138,9 +3138,11 @@ if (cam_eos_m || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
     if (shamem_read(0xc0f0815c) == 0x7) rawi_hdr.raw_info.white_level = 16200;
 
 /* Set corrected iso when selected max iso preset in crop_rec.c */
-    if (shamem_read(0xc0f0b12c) == 0x7 && lens_info.raw_iso == 0x0) 
+    if (lens_info.raw_iso == 0x0) 
     {
-	lens_info.iso = 800;	
+	if (shamem_read(0xc0f0b12c) == 0x7) lens_info.iso = 400;
+	if (shamem_read(0xc0f0b12c) == 0x8) lens_info.iso = 800;
+	if (shamem_read(0xc0f0b12c) == 0x9) lens_info.iso = 1600;	
     }
     else
     {
