@@ -2119,7 +2119,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    	     if (isoauto != 0x0 && (!is_5D3 && !is_6D))
     	     {
 
-		if (!RECORDING)
+		if (!RECORDING && lens_info.raw_iso_auto > 0x54)
 		{
 		/* correct black level/tint when previewing */
 		EngDrvOutLV(0xc0f37aec, 0x73ca + reg_bl);
