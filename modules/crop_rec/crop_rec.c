@@ -5699,7 +5699,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
 
 /* x3crop toggle by using short press on thrash can button instead of halfshutter */
-        if (is_EOSM && !gui_menu_shown() && !RECORDING && is_movie_mode() && 
+        if (is_EOSM && lv && !gui_menu_shown() && !RECORDING && is_movie_mode() && 
 		((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2)) &&
 	   	(CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || 
 	    	CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
