@@ -2116,10 +2116,10 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
  }
 
 	     /* Correct analog gain pushed autoiso wise otherwise. Only 14bit while recording or below applies */
-   	     if (isoauto != 0x0 && (!is_5D3 && !is_6D))
+   	     if (!RECORDING && isoauto != 0x0 && (!is_5D3 && !is_6D))
     	     {
 
-		if (!RECORDING && lens_info.raw_iso_auto > 0x54)
+		if (lens_info.raw_iso_auto > 0x54)
 		{
 		/* correct black level/tint when previewing */
 		EngDrvOutLV(0xc0f37aec, 0x73ca + reg_bl);
@@ -5241,10 +5241,10 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "x3crop toggle",
                 .priv   = &x3toggle,
-                .max    = 1,
-                .choices = CHOICES("OFF", "ON"),
+                .max    = 2,
+                .choices = CHOICES("OFF", "trashcan", "SET"),
                 .help   = "In and out of x3crop(all mv1080p modes)",                          
-		.help2  = "Short press trash can(EOSM). Halfshutter press(5D3)\n"
+		.help2  = "Select a short press key(EOSM). Halfshutter press(5D3)\n"
             },
             {
                 .name   = "focus aid",
@@ -5699,9 +5699,10 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
 
 /* x3crop toggle by using short press on thrash can button instead of halfshutter */
-        if (key == MODULE_KEY_PRESS_DOWN && is_EOSM && x3toggle == 0x1 && !RECORDING && lv && is_movie_mode() && !gui_menu_shown() &&
-	   (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || 
-	    CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
+        if (is_EOSM && !gui_menu_shown() && !RECORDING && is_movie_mode() && 
+		((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2)) &&
+	   	(CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || 
+	    	CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
         {
 		if (x3crop == 0x1)
 		{
@@ -6136,25 +6137,25 @@ else
     }
 
 
-if (x3toggle != 0x1 || zoomaid != 0x0) crop_patch = 0; //disable patch while off
+if (x3toggle != 0x1 || x3toggle != 0x2 || zoomaid != 0x0) crop_patch = 0; //disable patch while off
 
 /* toggle between x3crop and x1 zoom in mv1080p modes. Only 5D3 for now. EOSM instead remaps trash can button */
 if (is_5D3)
 {
-    if (x3toggle == 0x1 && x3crop == 0x1 && zoomaid == 0x0)
+    if ((x3toggle == 0x1 || x3toggle == 0x2) && x3crop == 0x1 && zoomaid == 0x0)
     {	  
 	 x3crop = 0;
 	 NotifyBox(2000, "x3crop NOT compatible with x3toggle"); //disable patch while off
     }
 
-    if ((x3toggle == 0x1 && (zoomaid == 0x1 || zoomaid == 0x2)))
+    if ((x3toggle == 0x1 || x3toggle == 0x2) && (zoomaid == 0x1 || zoomaid == 0x2))
     {
 	 x3crop = 0; 
 	 x3toggle = 0; 
 	 NotifyBox(2000, "x10crop NOT compatible with x3toggle"); //disable patch while off
     }
 
-if (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
+if (!crop_patch && get_halfshutter_pressed() && (x3toggle == 0x1 || x3toggle == 0x2))
 {
 
 /* exclude presets not used */ 
@@ -6184,7 +6185,7 @@ if (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
       }
   }
 
-  if (crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
+  if (crop_patch && get_halfshutter_pressed() && (x3toggle == 0x1 || x3toggle == 0x2))
   {
             once = false;
             crop_patch = 0;
