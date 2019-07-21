@@ -2466,7 +2466,8 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 
 if ((zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING && !is_6D && !is_5D3)
 {
-    if (!get_halfshutter_pressed()) last_hs_unpress = get_ms_clock();
+/* 100D is a buggy mf! */
+    if (!get_halfshutter_pressed() && !is_100D) last_hs_unpress = get_ms_clock();
 
 /* x10crop preview hack */
     if (get_ms_clock() - last_hs_unpress > 200 && get_halfshutter_pressed())
