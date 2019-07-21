@@ -4348,7 +4348,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383dc, 0x39a004e);
 	}
 */
-        bmp_on();
+        if (RECORDING) bmp_on();
 
        }
 
@@ -4403,7 +4403,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383dc, 0x39a01de);
 	}
 */
-        bmp_off();
+        if (RECORDING) bmp_off();
 
        }
 
