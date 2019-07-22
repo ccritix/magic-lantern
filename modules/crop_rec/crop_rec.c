@@ -5308,8 +5308,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "iso climb",
                 .priv   = &isoclimb,
-                .max    = 6,
-                .choices = CHOICES("OFF", "ON", "", "", "", "", ""),
+                .max    = 1,
+                .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
                 .help   = "Fast access to iso (NOT working with max iso)",
                 .help2  = "Iso climb by pushing INFO button 100-3200 iso\n" 
             },
