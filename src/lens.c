@@ -2966,6 +2966,28 @@ static LVINFO_UPDATE_FUNC(iso_update)
 		{
 			STR_APPEND(buffer, "1600+");
 		}
+
+/* isoclimb preset crop_rec.c */
+		else if (shamem_read(0xC0F0b12c) == 0x12) 
+		{
+			STR_APPEND(buffer, "200"); 
+		}
+		else if (shamem_read(0xC0F0b12c) == 0x13) 
+		{	
+			STR_APPEND(buffer, "400"); 
+		}
+		else if (shamem_read(0xC0F0b12c) == 0x14) 
+		{
+			STR_APPEND(buffer, "800");  
+		}
+		else if (shamem_read(0xC0F0b12c) == 0x15) 
+		{
+			STR_APPEND(buffer, "1600"); 
+    		}	
+		else if (shamem_read(0xC0F0b12c) == 0x16) 
+		{	
+			STR_APPEND(buffer, "3200"); 
+		}
 		else
 		{
 			STR_APPEND(buffer, "%d", iso);

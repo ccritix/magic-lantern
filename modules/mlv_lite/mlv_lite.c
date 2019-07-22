@@ -2093,9 +2093,9 @@ if ((cam_eos_m || cam_100d) && crop_patch)
      /* anamorphic rewired mode eosm */
 	if (shamem_read(0xC0F06804) == 0x79f01e4) preview_mode = 2;
 /* auto set preview modes by reading registers eosm for now */
-     /* HDR flag */
-	if (shamem_read(0xc0f0b12c) != 0x0 && shamem_read(0xc0f0b12c) != 0x7 && 
-	    shamem_read(0xc0f0b12c) != 0x8 && shamem_read(0xc0f0b12c) != 0x9) preview_mode = 1;
+     /* HDR flag. Skip for now. Getting overly complicated */
+	// if (shamem_read(0xc0f0b12c) != 0x0 && shamem_read(0xc0f0b12c) != 0x7 && 
+	//    shamem_read(0xc0f0b12c) != 0x8 && shamem_read(0xc0f0b12c) != 0x9) preview_mode = 1;
     }
 
 /* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */
@@ -3158,6 +3158,13 @@ if (cam_eos_m || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
     if (shamem_read(0xc0f0b12c) == 0x5) lens_info.iso = 1600; 
     if (shamem_read(0xc0f0b12c) == 0x6) lens_info.iso = 3200;  
 
+/* isoclimb preset in crop_rec.c */
+    if (shamem_read(0xC0F0b12c) == 0x0) lens_info.iso = 100;
+    if (shamem_read(0xC0F0b12c) == 0x12) lens_info.iso = 200; 
+    if (shamem_read(0xC0F0b12c) == 0x13) lens_info.iso = 400; 
+    if (shamem_read(0xC0F0b12c) == 0x14) lens_info.iso = 800;  
+    if (shamem_read(0xC0F0b12c) == 0x15) lens_info.iso = 1600; 
+    if (shamem_read(0xC0F0b12c) == 0x16) lens_info.iso = 3200;  
 }
 
     mlv_fill_idnt(&idnt_hdr, mlv_start_timestamp);

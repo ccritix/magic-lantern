@@ -46,6 +46,7 @@ static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
 static CONFIG_INT("crop.isoauto", isoauto, 0);
+static CONFIG_INT("crop.isoclimb", isoclimb, 0);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 
@@ -583,6 +584,7 @@ static int32_t  reg_bl = 0;
 static int32_t  reg_gain = 0;
 static int crop_patch = 0;
 static int crop_patch2 = 0;
+static int isopatch = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -1742,6 +1744,49 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 		if (isoauto == 0x3 && lens_info.raw_iso_auto < 0x63) EngDrvOutLV(0xC0F0b12c, 0x0);
 	}
 
+
+/* fast access to iso with INFO button */
+   if (isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0) 
+   {
+
+   	isopatch = 1;
+	if (isoclimb == 0x2) 
+	{ 
+		cmos_new[0] = 0x827; 
+		EngDrvOutLV(0xC0F0b12c, 0x12);
+	}
+	else if (isoclimb == 0x3) 
+	{
+		isoclimb = 0x3;
+		cmos_new[0] = 0x84b; 
+		EngDrvOutLV(0xC0F0b12c, 0x13);
+	}
+	else if (isoclimb == 0x4) 
+	{
+		isoclimb = 0x4;
+		cmos_new[0] = 0x86f; 
+		EngDrvOutLV(0xC0F0b12c, 0x14);
+	}
+	else if (isoclimb == 0x5) 
+	{
+		isoclimb = 0x5;
+		cmos_new[0] = 0x893; 
+		EngDrvOutLV(0xC0F0b12c, 0x15);
+	}
+	else if (isoclimb == 0x6) 
+	{
+		isoclimb = 0x6;
+		cmos_new[0] = 0x8b7; 
+		EngDrvOutLV(0xC0F0b12c, 0x16);
+	}
+	if (isoclimb == 0x1) 
+	{ 
+		cmos_new[0] = 0x803; 
+		EngDrvOutLV(0xC0F0b12c, 0x0);
+	}
+   }
+	
+
     /* menu overrides */
     if (cmos1_lo || cmos1_hi)
     {
@@ -2607,7 +2652,7 @@ if (is_EOSM)
   	if (HDR_iso_a == 0x6) switch (reg) case 0xC0F0b12c: return 0x6;
    }
 
-   if (HDR_iso_a == 0x0 && isoauto == 0x0)
+   if (HDR_iso_a == 0x0 && isoauto == 0x0 && isoclimb == 0x0)
    {
        switch (reg)
        {
@@ -5261,6 +5306,22 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Sets 2.39:1, 2.35:1 and 16:9 modes to 25fps\n"
             },
             {
+                .name   = "iso climb",
+                .priv   = &isoclimb,
+                .max    = 6,
+                .choices = CHOICES("OFF", "ON", "", "", "", "", ""),
+                .help   = "Fast access to iso (NOT working with max iso)",
+                .help2  = "Iso climb by pushing INFO button 100-3200 iso\n" 
+            },
+            {
+                .name   = "max iso",
+                .priv   = &isoauto,
+                .max    = 3,
+                .choices = CHOICES("OFF", "400", "800", "1600"),
+                .help   = "Restrict autoiso to max 400/800/1600",
+                .help2  = "Select max iso. Autoiso only\n" 
+            },
+            {
                 .name   = "hdr iso A",
                 .priv   = &HDR_iso_a,
                 .max    = 6,
@@ -5273,14 +5334,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 6,
                 .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
                 .help   = "HDR workaround eosm\n"
-            },
-            {
-                .name   = "max iso",
-                .priv   = &isoauto,
-                .max    = 3,
-                .choices = CHOICES("OFF", "400", "800", "1600"),
-                .help   = "Restrict autoiso to max 400/800/1600",
-                .help2  = "Select max iso. Autoiso only\n" 
             },
             {
                 .name   = "4k timelapse",
@@ -5717,8 +5770,42 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 	    	return 0;		
         }
 
+/* x3crop toggle by using short press on thrash can button instead of halfshutter */
+
+        if ((is_EOSM && isopatch && !RECORDING && lv && !gui_menu_shown() && !RECORDING && is_movie_mode()) 
+	&& (key == MODULE_KEY_INFO && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0))
+        {
+		isopatch = 0;
+	if (shamem_read(0xC0F0b12c) == 0x0) 
+	{
+		isoclimb = 0x2;
+	}
+	else if (shamem_read(0xC0F0b12c) == 0x12) 
+	{
+		isoclimb = 0x3;
+	}
+	else if (shamem_read(0xC0F0b12c) == 0x13) 
+	{
+		isoclimb = 0x4;
+	}
+	else if (shamem_read(0xC0F0b12c) == 0x14) 
+	{
+		isoclimb = 0x5;
+	}
+	else if (shamem_read(0xC0F0b12c) == 0x15) 
+	{
+		isoclimb = 0x6;
+	}
+	else if (shamem_read(0xC0F0b12c) == 0x16) 
+	{
+		isoclimb = 0x1;
+	}
+		return 0;	    			
+        }
+
     return 1;
 }
+
 
 static int crop_rec_needs_lv_refresh()
 {
@@ -7003,6 +7090,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(HDR_iso_a)
     MODULE_CONFIG(HDR_iso_b)
     MODULE_CONFIG(isoauto)
+    MODULE_CONFIG(isoclimb)
     MODULE_CONFIG(timelapse)
     MODULE_CONFIG(slowshutter)
     MODULE_CONFIG(x3toggle)
