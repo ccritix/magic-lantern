@@ -1746,42 +1746,48 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 
 /* fast access to iso with INFO button */
-   if (!is_5D3 && !is_6D && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0) 
+   if (!is_6D && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0) 
    {
 
    	isopatch = 1;
 	if (isoclimb == 0x2) 
 	{ 
-		cmos_new[0] = 0x827; 
+		if (!is_5D3 && !is_6D) cmos_new[0] = 0x827; 
+		if (is_5D3) cmos_new[0] = 0x113; 
 		EngDrvOutLV(0xC0F0b12c, 0x12);
 	}
 	else if (isoclimb == 0x3) 
 	{
 		isoclimb = 0x3;
-		cmos_new[0] = 0x84b; 
+		if (!is_5D3 && !is_6D) cmos_new[0] = 0x84b; 
+		if (is_5D3) cmos_new[0] = 0x223; 
 		EngDrvOutLV(0xC0F0b12c, 0x13);
 	}
 	else if (isoclimb == 0x4) 
 	{
 		isoclimb = 0x4;
-		cmos_new[0] = 0x86f; 
+		if (!is_5D3 && !is_6D) cmos_new[0] = 0x86f;
+		if (is_5D3) cmos_new[0] = 0x333;  
 		EngDrvOutLV(0xC0F0b12c, 0x14);
 	}
 	else if (isoclimb == 0x5) 
 	{
 		isoclimb = 0x5;
-		cmos_new[0] = 0x893; 
+		if (!is_5D3 && !is_6D) cmos_new[0] = 0x893; 
+		if (is_5D3) cmos_new[0] = 0x443; 
 		EngDrvOutLV(0xC0F0b12c, 0x15);
 	}
 	else if (isoclimb == 0x6) 
 	{
 		isoclimb = 0x6;
-		cmos_new[0] = 0x8b7; 
+		if (!is_5D3 && !is_6D) cmos_new[0] = 0x8b7; 
+		if (is_5D3) cmos_new[0] = 0x553; 
 		EngDrvOutLV(0xC0F0b12c, 0x16);
 	}
 	if (isoclimb == 0x1) 
 	{ 
-		cmos_new[0] = 0x803; 
+		if (!is_5D3 && !is_6D) cmos_new[0] = 0x803; 
+		if (is_5D3) cmos_new[0] = 0x3; 
 		EngDrvOutLV(0xC0F0b12c, 0x0);
 	}
    }
@@ -5311,7 +5317,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
                 .help   = "Fast access to iso (NOT working with max iso)",
-                .help2  = "Iso climb by pushing INFO(eosm)/SET(100d) button 100-3200 iso\n" 
+                .help2  = "Pushing INFO or SET(100d) button 100-3200 iso\n" 
             },
             {
                 .name   = "max iso",
@@ -5772,8 +5778,8 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 
 /* x3crop toggle by using short press on thrash can button instead of halfshutter */
 
-        if ((!is_5D3 && !is_6D && isopatch && !RECORDING && lv && !gui_menu_shown() && !RECORDING && is_movie_mode()) 
-	&& (((is_EOSM && key == MODULE_KEY_INFO) || (!is_EOSM && key == MODULE_KEY_PRESS_SET)) && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0))
+        if ((!is_6D && isopatch && !RECORDING && lv && !gui_menu_shown() && !RECORDING && is_movie_mode()) 
+	&& ((((is_EOSM || is_5D3) && key == MODULE_KEY_INFO) || ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0))
         {
 		isopatch = 0;
 	if (shamem_read(0xC0F0b12c) == 0x0) 
