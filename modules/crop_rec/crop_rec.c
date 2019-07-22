@@ -1746,7 +1746,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
 
 /* fast access to iso with INFO button */
-   if (isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0) 
+   if (!is_5D3 && !is_6D && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0) 
    {
 
    	isopatch = 1;
@@ -5311,7 +5311,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
                 .help   = "Fast access to iso (NOT working with max iso)",
-                .help2  = "Iso climb by pushing INFO button 100-3200 iso\n" 
+                .help2  = "Iso climb by pushing INFO(eosm)/SET(100d) button 100-3200 iso\n" 
             },
             {
                 .name   = "max iso",
@@ -5772,8 +5772,8 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 
 /* x3crop toggle by using short press on thrash can button instead of halfshutter */
 
-        if ((is_EOSM && isopatch && !RECORDING && lv && !gui_menu_shown() && !RECORDING && is_movie_mode()) 
-	&& (key == MODULE_KEY_INFO && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0))
+        if ((!is_5D3 && !is_6D && isopatch && !RECORDING && lv && !gui_menu_shown() && !RECORDING && is_movie_mode()) 
+	&& (((is_EOSM && key == MODULE_KEY_INFO) || (!is_EOSM && key == MODULE_KEY_PRESS_SET)) && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0))
         {
 		isopatch = 0;
 	if (shamem_read(0xC0F0b12c) == 0x0) 
