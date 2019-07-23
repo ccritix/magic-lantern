@@ -1749,6 +1749,12 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    if (!is_6D && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0) 
    {
 
+/* check if masc selected isoauto in canon menu ;) */
+     if (lens_info.raw_iso == 0x0)
+     {
+        NotifyBox(3000, "Turn off autoiso if using iso climb");
+     }
+
    	isopatch = 1;
 	if (isoclimb == 0x2) 
 	{ 
@@ -5316,7 +5322,7 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &isoclimb,
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
-                .help   = "Fast access to iso (NOT working with max iso)",
+                .help   = "Fast access to iso (NOT working with autoiso)",
                 .help2  = "Pushing INFO or SET(100d) button 100-3200 iso\n" 
             },
             {
