@@ -3145,10 +3145,6 @@ if (cam_eos_m || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
 	if (shamem_read(0xc0f0b12c) == 0x8) lens_info.iso = 800;
 	if (shamem_read(0xc0f0b12c) == 0x9) lens_info.iso = 1600;	
     }
-    else
-    {
-	if (lens_info.raw_iso == 0x0) lens_info.iso = lens_info.raw_iso;
-    }
 
 /* HDR base iso regardless of what is set in camera */
     if (shamem_read(0xc0f0b12c) == 0x1) lens_info.iso = 100;

@@ -2668,7 +2668,7 @@ if (is_EOSM)
   	if (HDR_iso_a == 0x6) switch (reg) case 0xC0F0b12c: return 0x6;
    }
 
-   if (HDR_iso_a == 0x0 && isoauto == 0x0 && isoclimb == 0x0 && !RECORDING)
+   if (HDR_iso_a == 0x0 && isoauto == 0x0 && isoclimb == 0x0)
    {
 	EngDrvOutLV(0xC0F0b12c, 0x0);
    }
@@ -5318,6 +5318,7 @@ static struct menu_entry crop_rec_menu[] =
                 .choices = CHOICES("OFF", "ON"),
                 .help   = "Sets 2.39:1, 2.35:1 and 16:9 modes to 25fps\n"
             },
+/* issues getting normal iso routine turning isoclimb off. Needs more work
             {
                 .name   = "iso climb",
                 .priv   = &isoclimb,
@@ -5326,6 +5327,7 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Fast access to iso (NOT working with autoiso)",
                 .help2  = "press down(eosm), INFO(5D3) or SET(100d) button 100-3200 iso\n" 
             },
+*/
             {
                 .name   = "max iso",
                 .priv   = &isoauto,
