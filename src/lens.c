@@ -2968,6 +2968,10 @@ static LVINFO_UPDATE_FUNC(iso_update)
 		}
 
 /* isoclimb preset crop_rec.c */
+		else if (shamem_read(0xC0F0b12c) == 0x11) 
+		{
+			STR_APPEND(buffer, "100"); 
+		}
 		else if (shamem_read(0xC0F0b12c) == 0x12) 
 		{
 			STR_APPEND(buffer, "200"); 

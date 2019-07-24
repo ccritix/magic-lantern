@@ -1755,6 +1755,10 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         NotifyBox(3000, "Turn off autoiso if using iso climb");
      }
 
+     if (x3toggle == 0x1 && is_EOSM)
+     {
+        NotifyBox(1000, "Use SET with x3crop toggle or turn off iso climb");
+     }
    	isopatch = 1;
 	if (isoclimb == 0x2) 
 	{ 
@@ -1794,7 +1798,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	{ 
 		if (!is_5D3 && !is_6D) cmos_new[0] = 0x803; 
 		if (is_5D3) cmos_new[0] = 0x3; 
-		EngDrvOutLV(0xC0F0b12c, 0x0);
+		EngDrvOutLV(0xC0F0b12c, 0x11);
 	}
    }
 	
@@ -2664,12 +2668,9 @@ if (is_EOSM)
   	if (HDR_iso_a == 0x6) switch (reg) case 0xC0F0b12c: return 0x6;
    }
 
-   if (HDR_iso_a == 0x0 && isoauto == 0x0 && isoclimb == 0x0)
+   if (HDR_iso_a == 0x0 && isoauto == 0x0 && isoclimb == 0x0 && !RECORDING)
    {
-       switch (reg)
-       {
-	   case 0xC0F0b12c: return 0x0;
-       }
+	EngDrvOutLV(0xC0F0b12c, 0x0);
    }
 
 }
@@ -5298,7 +5299,7 @@ static struct menu_entry crop_rec_menu[] =
                 .name   = "x3crop toggle",
                 .priv   = &x3toggle,
                 .max    = 2,
-                .choices = CHOICES("OFF", "trashcan", "SET"),
+                .choices = CHOICES("OFF", "press down", "SET"),
                 .help   = "In and out of x3crop(all mv1080p modes)",                          
 		.help2  = "Select a short press key(EOSM). Halfshutter press(5D3)\n"
             },
@@ -5323,7 +5324,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
                 .help   = "Fast access to iso (NOT working with autoiso)",
-                .help2  = "Pushing INFO or SET(100d) button 100-3200 iso\n" 
+                .help2  = "press down(eosm), INFO(5D3) or SET(100d) button 100-3200 iso\n" 
             },
             {
                 .name   = "max iso",
@@ -5785,10 +5786,10 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 /* x3crop toggle by using short press on thrash can button instead of halfshutter */
 
         if ((!is_6D && isopatch && !RECORDING && lv && !gui_menu_shown() && !RECORDING && is_movie_mode()) 
-	&& ((((is_EOSM || is_5D3) && key == MODULE_KEY_INFO) || ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0))
+	&& (((is_EOSM && key == MODULE_KEY_PRESS_DOWN) || (is_5D3 && key == MODULE_KEY_INFO) || ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0))
         {
 		isopatch = 0;
-	if (shamem_read(0xC0F0b12c) == 0x0) 
+	if (shamem_read(0xC0F0b12c) == 0x11) 
 	{
 		isoclimb = 0x2;
 	}
