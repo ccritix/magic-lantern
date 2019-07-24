@@ -585,6 +585,7 @@ static int32_t  reg_gain = 0;
 static int crop_patch = 0;
 static int crop_patch2 = 0;
 static int isopatch = 0;
+static int isopatchoff = 1;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -1762,43 +1763,39 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    	isopatch = 1;
 	if (isoclimb == 0x2) 
 	{ 
+		EngDrvOutLV(0xC0F0b12c, 0x12);
 		if (!is_5D3 && !is_6D) cmos_new[0] = 0x827; 
 		if (is_5D3) cmos_new[0] = 0x113; 
-		EngDrvOutLV(0xC0F0b12c, 0x12);
 	}
 	else if (isoclimb == 0x3) 
 	{
-		isoclimb = 0x3;
+		EngDrvOutLV(0xC0F0b12c, 0x13);
 		if (!is_5D3 && !is_6D) cmos_new[0] = 0x84b; 
 		if (is_5D3) cmos_new[0] = 0x223; 
-		EngDrvOutLV(0xC0F0b12c, 0x13);
 	}
 	else if (isoclimb == 0x4) 
 	{
-		isoclimb = 0x4;
+		EngDrvOutLV(0xC0F0b12c, 0x14);
 		if (!is_5D3 && !is_6D) cmos_new[0] = 0x86f;
 		if (is_5D3) cmos_new[0] = 0x333;  
-		EngDrvOutLV(0xC0F0b12c, 0x14);
 	}
 	else if (isoclimb == 0x5) 
 	{
-		isoclimb = 0x5;
+		EngDrvOutLV(0xC0F0b12c, 0x15);
 		if (!is_5D3 && !is_6D) cmos_new[0] = 0x893; 
 		if (is_5D3) cmos_new[0] = 0x443; 
-		EngDrvOutLV(0xC0F0b12c, 0x15);
 	}
 	else if (isoclimb == 0x6) 
 	{
-		isoclimb = 0x6;
+		EngDrvOutLV(0xC0F0b12c, 0x16);
 		if (!is_5D3 && !is_6D) cmos_new[0] = 0x8b7; 
 		if (is_5D3) cmos_new[0] = 0x553; 
-		EngDrvOutLV(0xC0F0b12c, 0x16);
 	}
 	if (isoclimb == 0x1) 
-	{ 
+	{
+		EngDrvOutLV(0xC0F0b12c, 0x11); 
 		if (!is_5D3 && !is_6D) cmos_new[0] = 0x803; 
 		if (is_5D3) cmos_new[0] = 0x3; 
-		EngDrvOutLV(0xC0F0b12c, 0x11);
 	}
    }
 	
@@ -5318,7 +5315,6 @@ static struct menu_entry crop_rec_menu[] =
                 .choices = CHOICES("OFF", "ON"),
                 .help   = "Sets 2.39:1, 2.35:1 and 16:9 modes to 25fps\n"
             },
-/* issues getting normal iso routine turning isoclimb off. Needs more work
             {
                 .name   = "iso climb",
                 .priv   = &isoclimb,
@@ -5327,7 +5323,6 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Fast access to iso (NOT working with autoiso)",
                 .help2  = "press down(eosm), INFO(5D3) or SET(100d) button 100-3200 iso\n" 
             },
-*/
             {
                 .name   = "max iso",
                 .priv   = &isoauto,
@@ -5791,6 +5786,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 	&& (((is_EOSM && key == MODULE_KEY_PRESS_DOWN) || (is_5D3 && key == MODULE_KEY_INFO) || ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0))
         {
 		isopatch = 0;
+		isopatchoff = 0;
 	if (shamem_read(0xC0F0b12c) == 0x11) 
 	{
 		isoclimb = 0x2;
@@ -6023,6 +6019,22 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
 
 //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
+
+/* Needs refresh when turning off isoclimb */
+	if (!isoclimb && !isopatchoff && (is_EOSM || is_100D))
+	{
+            isopatchoff = 1;
+ 	    if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || 
+		CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D) 
+	    {
+		movie_crop_hack_disable(); 
+	    }
+	    else
+	    {
+		movie_crop_hack_enable();
+	    }
+	    return 0;
+	}
 
 /* For when in photo mode and enabled x10 zoom mode */
 if (((zoomaid == 0x1 || zoomaid == 0x2) && !is_movie_mode()) || ((is_6D || is_5D3) && (!RECORDING && (zoomaid == 0x1 || zoomaid == 0x2))))
