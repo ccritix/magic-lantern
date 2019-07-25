@@ -47,7 +47,7 @@ end
 
 -- crop mode
 if camera.model_short == "EOSM" then
-    menu.set("Movie", "Crop mode", "4K anamorphic rewired")
+    menu.set("Movie", "Crop mode", "5K anamorphic")
 end
 if camera.model_short == "100D" then
     menu.set("Movie", "Crop mode", "anamorphic rewired")
@@ -60,7 +60,7 @@ end
   msleep(300)
 
 -- enable crop_rec.mo. Checking first after trying to enable 5k preset
-if menu.get("Movie", "Crop mode", "") ~= "anamorphic" and menu.get("Movie", "Crop mode", "") ~= "anamorphic rewired" and menu.get("Movie", "Crop mode", "") ~= "4K anamorphic rewired" then
+if menu.get("Movie", "Crop mode", "") ~= "anamorphic" and menu.get("Movie", "Crop mode", "") ~= "anamorphic rewired" and menu.get("Movie", "Crop mode", "") ~= "5K anamorphic" then
   display.notify_box("enable crop_rec.mo")
   msleep(1000)
   display.notify_box("enable crop_rec.mo")
