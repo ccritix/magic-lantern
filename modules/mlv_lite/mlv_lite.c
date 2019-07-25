@@ -4317,7 +4317,7 @@ static int raw_rec_should_preview(void)
         long_halfshutter_press = 0;
         last_hs_unpress = get_ms_clock();
 /* trying a fix for stuck real time preview(only affects framing) */
-      if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d))
+      if ((PREVIEW_ML && !kill_gd) && (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d))
       {
 /* Will maybe reduce corruption of frames by freezing liveview while in framing mode. To be tested */
 /* reg for eosm,650d,700d,100d */
