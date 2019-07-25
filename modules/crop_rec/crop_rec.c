@@ -1746,8 +1746,8 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 	}
 
 
-/* fast access to iso with INFO button */
-   if (!is_6D && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0) 
+/* fast access to iso with press down button */
+   if (!is_6D && isoclimb != 0x0 && HDR_iso_a == 0x0) 
    {
 
 /* check if masc selected isoauto in canon menu ;) */
@@ -1758,7 +1758,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 
      if (x3toggle == 0x1 && is_EOSM)
      {
-        NotifyBox(1000, "Use SET with x3crop toggle or turn off iso climb");
+        NotifyBox(1000, "Use x3crop toggle SET or turn iso climb off");
      }
    	isopatch = 1;
 	if (isoclimb == 0x2) 
@@ -5329,7 +5329,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 3,
                 .choices = CHOICES("OFF", "400", "800", "1600"),
                 .help   = "Restrict autoiso to max 400/800/1600",
-                .help2  = "Select max iso. Autoiso only\n" 
+                .help2  = "Select max iso. Turn on autoiso\n" 
             },
             {
                 .name   = "hdr iso A",
@@ -5780,10 +5780,10 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 	    	return 0;		
         }
 
-/* x3crop toggle by using short press on thrash can button instead of halfshutter */
-
-        if ((!is_6D && isopatch && !RECORDING && lv && !gui_menu_shown() && !RECORDING && is_movie_mode()) 
-	&& (((is_EOSM && key == MODULE_KEY_PRESS_DOWN) || (is_5D3 && key == MODULE_KEY_INFO) || ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) && isoclimb != 0x0 && HDR_iso_a == 0x0 && isoauto == 0x0))
+/* iso climbing feature */
+        if ((!is_6D && isopatch && !RECORDING && lv && !gui_menu_shown() && !RECORDING && is_movie_mode()) && 
+	   (((is_EOSM && key == MODULE_KEY_PRESS_DOWN) || (is_5D3 && key == MODULE_KEY_INFO) || 
+	   ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) && isoclimb != 0x0 && HDR_iso_a == 0x0))
         {
 		isopatch = 0;
 		isopatchoff = 0;
@@ -6020,7 +6020,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 
 //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
 
-/* Needs refresh when turning off isoclimb */
+/* Needs refresh when turning off isoclimb or iso metadata will still be last selected iso climb setting */
 	if (!isoclimb && !isopatchoff && (is_EOSM || is_100D))
 	{
             isopatchoff = 1;
@@ -6031,6 +6031,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 	    }
 	    else
 	    {
+	/* will try to enable mcm but will immediately be disabled. Side effect it will reset which is what we want. What to do with 5D3? */
 		movie_crop_hack_enable();
 	    }
 	    return 0;
