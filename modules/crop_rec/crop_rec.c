@@ -2176,14 +2176,14 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
    	     if (isoauto != 0x0 && bitdepth == 0x0 && (!is_5D3 && !is_6D))
     	     {
 
-		if (lens_info.raw_iso_auto > 0x54)
-		{
-		/* correct black level/tint when previewing */
-		EngDrvOutLV(0xc0f37aec, 0x73ca + reg_bl);
-		EngDrvOutLV(0xc0f37af8, 0x73ca + reg_bl);
-		EngDrvOutLV(0xc0f37b04, 0x73ca + reg_bl); 
-		EngDrvOutLV(0xc0f37ae0, 0x73ca + reg_bl); 
-		}
+		//if (lens_info.raw_iso_auto > 0x54)
+		//{
+		///* correct black level/tint when previewing */
+		//EngDrvOutLV(0xc0f37aec, 0x73ca + reg_bl);
+		//EngDrvOutLV(0xc0f37af8, 0x73ca + reg_bl);
+		//EngDrvOutLV(0xc0f37b04, 0x73ca + reg_bl); 
+		//EngDrvOutLV(0xc0f37ae0, 0x73ca + reg_bl); 
+		//}
 
 		/* true iso 400 */
 		if (isoauto == 0x1 && lens_info.raw_iso_auto > 0x54)
@@ -2521,7 +2521,12 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
     static int last_hs_unpress = 0;
 
-if ((zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING && !is_6D && !is_5D3)
+if (((zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING && !is_6D && !is_5D3) &&
+    (CROP_PRESET_MENU != CROP_PRESET_CENTER_Z_EOSM && 
+     CROP_PRESET_MENU != CROP_PRESET_3x3_1X_EOSM &&
+     CROP_PRESET_MENU != CROP_PRESET_2K_EOSM && 
+     CROP_PRESET_MENU != CROP_PRESET_3K_EOSM && 
+     CROP_PRESET_MENU != CROP_PRESET_4K_EOSM)) 
 {
 /* 100D is a buggy mf! */
     if (!get_halfshutter_pressed() && !is_100D) last_hs_unpress = get_ms_clock();
@@ -6232,7 +6237,18 @@ else
             set_zoom(old_zoom);
             gui_uilock(UILOCK_NONE);
             info_led_off();
-	    set_lv_zoom(1);
+	  if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM || 
+     		CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM ||
+    	 	CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || 
+     		CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || 
+     		CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
+	  {
+	    	set_lv_zoom(5);
+	  }
+	  else
+	  {
+	    	set_lv_zoom(1);
+	  }
 	    }
 	    else
 	    {
