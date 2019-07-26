@@ -6199,6 +6199,12 @@ else
 	    if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM && 
 		CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
 	    {
+    	  if (CROP_PRESET_MENU != CROP_PRESET_CENTER_Z_EOSM && 
+     		CROP_PRESET_MENU != CROP_PRESET_3x3_1X_EOSM &&
+     		CROP_PRESET_MENU != CROP_PRESET_2K_EOSM && 
+     		CROP_PRESET_MENU != CROP_PRESET_3K_EOSM && 
+     		CROP_PRESET_MENU != CROP_PRESET_4K_EOSM) 
+	  {
             info_led_on();
             gui_uilock(UILOCK_EVERYTHING);
             int old_zoom = lv_dispsize;
@@ -6206,6 +6212,7 @@ else
             set_zoom(old_zoom);
             gui_uilock(UILOCK_NONE);
             info_led_off();
+	  }
 	    if ((zoomaid == 0x1 || zoomaid == 0x2)) set_lv_zoom(10);
 	    }
 	    else
@@ -6230,6 +6237,16 @@ else
 	    if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
 		CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
 	    {
+	  if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM || 
+     		CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM ||
+    	 	CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || 
+     		CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || 
+     		CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
+	  {
+	    set_lv_zoom(5);
+	  }
+	  else
+	  {
             info_led_on();
             gui_uilock(UILOCK_EVERYTHING);
             int old_zoom = lv_dispsize;
@@ -6237,17 +6254,7 @@ else
             set_zoom(old_zoom);
             gui_uilock(UILOCK_NONE);
             info_led_off();
-	  if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM || 
-     		CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM ||
-    	 	CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || 
-     		CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || 
-     		CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
-	  {
-	    	set_lv_zoom(5);
-	  }
-	  else
-	  {
-	    	set_lv_zoom(1);
+	    set_lv_zoom(1);
 	  }
 	    }
 	    else
