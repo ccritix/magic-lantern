@@ -3666,7 +3666,7 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
     switch (reg)
     {     
         case 0xC0F06804: return 0x5b90318 + reg_6804_width + (reg_6804_height << 16); // 3032x1436  x5 Mode;
-        case 0xC0F06014: return 0x62c + reg_6014;
+        case 0xC0F06014: return (get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING) ? 0x839: 0x62c + reg_6014;
         case 0xC0F0713c: return 0x5b9 + reg_713c;
         case 0xC0F06824: return 0x3ca;
         case 0xC0F06828: return 0x3ca;
