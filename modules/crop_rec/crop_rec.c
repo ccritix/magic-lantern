@@ -6175,11 +6175,7 @@ else
       once = false;
 }
 
-/* A shutter press delay also present in reg_override_bits. What's the hurry... */
-    static int last_hs_unpress1 = 0;
-    if (!get_halfshutter_pressed()) last_hs_unpress1 = get_ms_clock();
-
-    if (get_ms_clock() - last_hs_unpress1 > 200 && (!crop_patch2 && get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2) && !is_6D && !is_5D3))
+    if (!crop_patch2 && get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2) && !is_6D && !is_5D3)
     {
 
 /* dark mode */
