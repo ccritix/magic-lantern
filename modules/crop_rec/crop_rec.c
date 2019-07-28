@@ -40,13 +40,13 @@ static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
-static CONFIG_INT("crop.zoomaid", zoomaid, 0);
-static CONFIG_INT("crop.x3toggle", x3toggle, 1);
+static CONFIG_INT("crop.zoomaid", zoomaid, 1);
+static CONFIG_INT("crop.x3toggle", x3toggle, 2);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
 static CONFIG_INT("crop.isoauto", isoauto, 0);
-static CONFIG_INT("crop.isoclimb", isoclimb, 0);
+static CONFIG_INT("crop.isoclimb", isoclimb, 1);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 static CONFIG_INT("crop.presets", presets, 0);
@@ -5361,8 +5361,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "Startoff presets",
                 .priv   = &presets,
-                .max    = 8,
-                .choices = CHOICES("None selected", "mv1080p 12bit 16:9 24fps", "mv1080p 12bit 16:9 25fps", "anamorphic 10bit 2.39:1 24fps", "anamorphic 10bit 2.39:1 25fps", "2.5K 10bit 2.39:1 24fps", "2.5K 10bit 2.39:1 25fps", "mv1080p 10bit 2.39:1 48fps", "mv1080p 10bit 2.39:1 50fps"),
+                .max    = 11,
+                .choices = CHOICES("None selected", "mv1080p 12bit 16:9 24fps", "mv1080p 12bit 2.39:1 24fps", "anamorphic 10bit 2.39:1 24fps", "2.5K 10bit 2.39:1 24fps", "mv1080p 10bit 2.39:1 48fps", " ", "mv1080p 12bit 16:9 25fps", "mv1080p 12bit 2.39:1 25fps", "anamorphic 10bit 2.39:1 25fps", "2.5K 10bit 2.39:1 25fps", "mv1080p 10bit 2.39:1 50fps"),
                 .help   = "Select startoff preset(EOSM only)",
                 .help2  = "Once activated you can still modify settings",
             },
@@ -5936,11 +5936,11 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 
   if (presets == 0x2)
   {
-	NotifyBox(2000, "mv1080p 12bit 16:9 25fps");
+	NotifyBox(2000, "mv1080p 12bit 2.39:1 24fps");
 	crop_preset_index = 6;
 	bitdepth = 0x4;
-	ratios = 0x3;
-	set_25fps = 0x1;
+	ratios = 0x1;
+	set_25fps = 0x0;
 	zoomaid = 0x1;
 	if (isoclimb == 0x0) isoclimb = 0x1;
 	x3crop = 0x0;
@@ -5971,24 +5971,6 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 
   if (presets == 0x4)
   {
-	NotifyBox(2000, "anamorphic 10bit 2.39:1 25fps");
-	crop_preset_index = 10;
-	bitdepth = 0x3;
-	ratios = 0x1;
-	set_25fps = 0x1;
-	zoomaid = 0x1;
-	if (isoclimb == 0x0) isoclimb = 0x1;
-	x3crop = 0x0;
-	x3toggle = 0x2;
-        PauseLiveView(); 
-        ResumeLiveView();
-  	set_lv_zoom(1);
-	presets = 0x0;
-	return 0;
-  }
-
-  if (presets == 0x5)
-  {
 	NotifyBox(2000, "2.5K 10bit 2.39:1 24fps");
 	crop_preset_index = 2;
 	bitdepth = 0x3;
@@ -6004,24 +5986,7 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 	return 0;
   }
 
-  if (presets == 0x6)
-  {
-	NotifyBox(2000, "2.5K 10bit 2.39:1 25fps");
-	crop_preset_index = 2;
-	bitdepth = 0x3;
-	ratios = 0x1;
-	set_25fps = 0x1;
-	zoomaid = 0x1;
-	if (isoclimb == 0x0) isoclimb = 0x1;
-	x3crop = 0x0;
-	x3toggle = 0x2;
-        PauseLiveView(); 
-        ResumeLiveView();
-	presets = 0x0;
-	return 0;
-  }
-
-  if (presets == 0x7)
+  if (presets == 0x5)
   {
 	NotifyBox(2000, "mv1080p 10bit 2.39:1 48fps");
 	crop_preset_index = 7;
@@ -6038,7 +6003,76 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 	return 0;
   }
 
+  if (presets == 0x7)
+  {
+	NotifyBox(2000, "mv1080p 12bit 16:9 25fps");
+	crop_preset_index = 6;
+	bitdepth = 0x4;
+	ratios = 0x3;
+	set_25fps = 0x1;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+        PauseLiveView(); 
+        ResumeLiveView();
+	presets = 0x0;
+	return 0;
+  }
+
   if (presets == 0x8)
+  {
+	NotifyBox(2000, "mv1080p 12bit 2.39:1 25fps");
+	crop_preset_index = 6;
+	bitdepth = 0x4;
+	ratios = 0x1;
+	set_25fps = 0x1;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+        PauseLiveView(); 
+        ResumeLiveView();
+	presets = 0x0;
+	return 0;
+  }
+
+  if (presets == 0x9)
+  {
+	NotifyBox(2000, "anamorphic 10bit 2.39:1 25fps");
+	crop_preset_index = 10;
+	bitdepth = 0x3;
+	ratios = 0x1;
+	set_25fps = 0x1;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+        PauseLiveView(); 
+        ResumeLiveView();
+  	set_lv_zoom(1);
+	presets = 0x0;
+	return 0;
+  }
+
+  if (presets == 10)
+  {
+	NotifyBox(2000, "2.5K 10bit 2.39:1 25fps");
+	crop_preset_index = 2;
+	bitdepth = 0x3;
+	ratios = 0x1;
+	set_25fps = 0x1;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+        PauseLiveView(); 
+        ResumeLiveView();
+	presets = 0x0;
+	return 0;
+  }
+
+  if (presets == 11)
   {
 	NotifyBox(2000, "mv1080p 10bit 2.39:1 50fps");
 	crop_preset_index = 7;
