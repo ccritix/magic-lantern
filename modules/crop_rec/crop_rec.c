@@ -5362,7 +5362,7 @@ static struct menu_entry crop_rec_menu[] =
                 .name   = "Startoff presets",
                 .priv   = &presets,
                 .max    = 11,
-                .choices = CHOICES("None selected", "mv1080p 12bit 16:9 24fps", "mv1080p 12bit 2.39:1 24fps", "anamorphic 10bit 2.39:1 24fps", "2.5K 10bit 2.39:1 24fps", "mv1080p 10bit 2.39:1 48fps", " ", "mv1080p 12bit 16:9 25fps", "mv1080p 12bit 2.39:1 25fps", "anamorphic 10bit 2.39:1 25fps", "2.5K 10bit 2.39:1 25fps", "mv1080p 10bit 2.39:1 50fps"),
+                .choices = CHOICES("None selected", "mv1080p 14bit 16:9 24fps", "mv1080p 14bit 2.39:1 24fps", "anamorphic 10bit 2.39:1 24fps", "2.5K 10bit 2.39:1 24fps", "mv1080p 10bit 2.39:1 48fps", " ", "mv1080p 14bit 16:9 25fps", "mv1080p 14bit 2.39:1 25fps", "anamorphic 10bit 2.39:1 25fps", "2.5K 10bit 2.39:1 25fps", "mv1080p 10bit 2.39:1 50fps"),
                 .help   = "Select startoff preset(EOSM only)",
                 .help2  = "Once activated you can still modify settings",
             },
@@ -5913,15 +5913,15 @@ static int crop_rec_needs_lv_refresh()
         return 0;
     }
 
-/* fallback presets(experimental) */
+/* startoff presets(experimental) */
 if (is_EOSM && presets != 0x0 && !RECORDING)
 {
 
   if (presets == 0x1)
   {
-	NotifyBox(2000, "mv1080p 12bit 16:9 24fps");
+	NotifyBox(2000, "mv1080p 14bit 16:9 24fps");
 	crop_preset_index = 6;
-	bitdepth = 0x4;
+	bitdepth = 0x0;
 	ratios = 0x3;
 	set_25fps = 0x0;
 	zoomaid = 0x1;
@@ -5936,9 +5936,9 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 
   if (presets == 0x2)
   {
-	NotifyBox(2000, "mv1080p 12bit 2.39:1 24fps");
+	NotifyBox(2000, "mv1080p 14bit 2.39:1 24fps");
 	crop_preset_index = 6;
-	bitdepth = 0x4;
+	bitdepth = 0x0;
 	ratios = 0x1;
 	set_25fps = 0x0;
 	zoomaid = 0x1;
@@ -6005,9 +6005,9 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 
   if (presets == 0x7)
   {
-	NotifyBox(2000, "mv1080p 12bit 16:9 25fps");
+	NotifyBox(2000, "mv1080p 14bit 16:9 25fps");
 	crop_preset_index = 6;
-	bitdepth = 0x4;
+	bitdepth = 0x0;
 	ratios = 0x3;
 	set_25fps = 0x1;
 	zoomaid = 0x1;
@@ -6022,9 +6022,9 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 
   if (presets == 0x8)
   {
-	NotifyBox(2000, "mv1080p 12bit 2.39:1 25fps");
+	NotifyBox(2000, "mv1080p 14bit 2.39:1 25fps");
 	crop_preset_index = 6;
-	bitdepth = 0x4;
+	bitdepth = 0x0;
 	ratios = 0x1;
 	set_25fps = 0x1;
 	zoomaid = 0x1;
