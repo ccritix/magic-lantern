@@ -47,9 +47,9 @@ static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
 static CONFIG_INT("crop.isoauto", isoauto, 0);
 static CONFIG_INT("crop.isoclimb", isoclimb, 0);
-static CONFIG_INT("crop.presets", presets, 0);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
+static CONFIG_INT("crop.presets", presets, 0);
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -5341,14 +5341,6 @@ static struct menu_entry crop_rec_menu[] =
                 .help2  = "Select max iso. Turn on autoiso\n" 
             },
             {
-                .name   = "fallback presets",
-                .priv   = &presets,
-                .max    = 3,
-                .choices = CHOICES("OFF", "mv1080p 16:9",  "anamorphic 2.39:1", "2.5K 2.39:1"),
-                .help   = "Select a fallback preset(EOSM only). Use INFO to activate",
-                .help2  = "INFO will activate selected preset whenever you want",
-            },
-            {
                 .name   = "4k timelapse",
                 .priv   = &timelapse,
                 .max    = 9,
@@ -5362,6 +5354,14 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON"),
                 .help   = "Allows for slow shutter speeds with 4k timelapse(Only 100D/EOSM).\n"
+            },
+            {
+                .name   = "Startoff presets",
+                .priv   = &presets,
+                .max    = 3,
+                .choices = CHOICES("None selected", "mv1080p 16:9",  "anamorphic 2.39:1", "2.5K 2.39:1"),
+                .help   = "Select startoff preset",
+                .help2  = "Once activated you can still modify settings",
             },
             {
                 .name   = "hdr iso A",
@@ -5833,7 +5833,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 		return 0;	    			
         }
 
-/* fallback presets(experimental) */
+/* fallback presets(experimental) Let´s pass on it for now
 if (is_EOSM && key == MODULE_KEY_INFO && presets != 0x0 && !RECORDING)
 {
 
@@ -5896,6 +5896,8 @@ if (is_EOSM && key == MODULE_KEY_INFO && presets != 0x0 && !RECORDING)
   }
 
 }
+
+*/
 		
     return 1;
 }
@@ -5908,15 +5910,12 @@ static int crop_rec_needs_lv_refresh()
         return 0;
     }
 
-/* fallback presets(experimental) Let´s pass on this for now. Use INFO button to activate instead
+/* fallback presets(experimental) */
 if (is_EOSM && presets != 0x0 && !RECORDING)
 {
 
-  if (presets == 0x1 && preset1)
+  if (presets == 0x1)
   {
-	preset1 = 0;
-	preset2 = 1;
-	preset3 = 1;
 	NotifyBox(2000, "mv1080p 16:9 24fps 12bit");
 	crop_preset_index = 6;
 	bitdepth = 0x4;
@@ -5928,14 +5927,12 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 	x3toggle = 0x2;
         PauseLiveView(); 
         ResumeLiveView();
+	presets = 0x0;
 	return 0;
   }
 
-  if (presets == 0x2 && preset2)
+  if (presets == 0x2)
   {
-	preset2 = 0;
-	preset1 = 1;
-	preset3 = 1;
 	NotifyBox(2000, "anamorphic 2.39:1 24fps 10bit");
 	crop_preset_index = 10;
 	bitdepth = 0x3;
@@ -5948,14 +5945,12 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
         PauseLiveView(); 
         ResumeLiveView();
   	set_lv_zoom(1);
+	presets = 0x0;
 	return 0;
   }
 
-  if (presets == 0x3 && preset3)
+  if (presets == 0x3)
   {
-	preset3 = 0;
-	preset1 = 1;
-	preset2 = 1;
 	NotifyBox(2000, "2.5K 2.39:1 24fps 10bit");
 	crop_preset_index = 2;
 	bitdepth = 0x3;
@@ -5967,20 +5962,11 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 	x3toggle = 0x2;
         PauseLiveView(); 
         ResumeLiveView();
+	presets = 0x0;
 	return 0;
   }
 
 }
-
-  if (is_EOSM && presets == 0x0 && !RECORDING)
-  {
-	preset1 = 1;
-	preset2 = 1;
-	preset3 = 1;
-  }
-
-*/
-
 
 /* We don´t want this when in photo mode I assume */
 	if (!is_movie_mode()) return 0;
@@ -7290,7 +7276,6 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(HDR_iso_b)
     MODULE_CONFIG(isoauto)
     MODULE_CONFIG(isoclimb)
-    MODULE_CONFIG(presets)
     MODULE_CONFIG(timelapse)
     MODULE_CONFIG(slowshutter)
     MODULE_CONFIG(x3toggle)
