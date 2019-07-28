@@ -145,7 +145,7 @@ static CONFIG_INT("raw.dolly", dolly_mode, 0);
 #define FRAMING_CENTER (dolly_mode == 0)
 #define FRAMING_PANNING (dolly_mode == 1)
 
-static CONFIG_INT("raw.CropRecPreview", prevmode, 0);
+static CONFIG_INT("raw.CropRecPreview", prevmode, 1);
 
 static CONFIG_INT("raw.preview", preview_mode, 1);
 #define PREVIEW_AUTO   (preview_mode == 0)
