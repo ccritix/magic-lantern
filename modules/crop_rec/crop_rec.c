@@ -47,6 +47,7 @@ static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
 static CONFIG_INT("crop.isoauto", isoauto, 0);
 static CONFIG_INT("crop.isoclimb", isoclimb, 0);
+static CONFIG_INT("crop.presets", presets, 0);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 
@@ -586,6 +587,9 @@ static int crop_patch = 0;
 static int crop_patch2 = 0;
 static int isopatch = 0;
 static int isopatchoff = 1;
+static int preset1 = 1;
+static int preset2 = 1;
+static int preset3 = 1;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -5337,18 +5341,12 @@ static struct menu_entry crop_rec_menu[] =
                 .help2  = "Select max iso. Turn on autoiso\n" 
             },
             {
-                .name   = "hdr iso A",
-                .priv   = &HDR_iso_a,
-                .max    = 6,
-                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
-                .help   = "HDR workaround eosm\n"
-            },
-            {
-                .name   = "hdr iso B",
-                .priv   = &HDR_iso_b,
-                .max    = 6,
-                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
-                .help   = "HDR workaround eosm\n"
+                .name   = "fallback presets",
+                .priv   = &presets,
+                .max    = 3,
+                .choices = CHOICES("OFF", "mv1080p 16:9",  "anamorphic 2.39:1", "2.5K 2.39:1"),
+                .help   = "Select a fallback preset(EOSM only). Use INFO to activate",
+                .help2  = "INFO will activate selected preset whenever you want",
             },
             {
                 .name   = "4k timelapse",
@@ -5364,6 +5362,22 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON"),
                 .help   = "Allows for slow shutter speeds with 4k timelapse(Only 100D/EOSM).\n"
+            },
+            {
+                .name   = "hdr iso A",
+                .priv   = &HDR_iso_a,
+                .max    = 6,
+                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+                .help   =  "HDR workaround eosm",
+                .advanced = 1,
+            },
+            {
+                .name   = "hdr iso B",
+                .priv   = &HDR_iso_b,
+                .max    = 6,
+                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+                .help   =  "HDR workaround eosm",
+                .advanced = 1,
             },
             {
                 .name   = "reg_713c",
@@ -5819,6 +5833,70 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 		return 0;	    			
         }
 
+/* fallback presets(experimental) */
+if (is_EOSM && key == MODULE_KEY_INFO && presets != 0x0 && !RECORDING)
+{
+
+  if (presets == 0x1 && (crop_preset_index != 6 || 
+	bitdepth != 0x4 || ratios != 0x3 || 
+	set_25fps != 0x0 || zoomaid != 0x1 || 	
+	x3crop != 0x0 || x3toggle != 0x2))
+  {
+	NotifyBox(2000, "mv1080p 16:9 24fps 12bit");
+	crop_preset_index = 6;
+	bitdepth = 0x4;
+	ratios = 0x3;
+	set_25fps = 0x0;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+        PauseLiveView(); 
+        ResumeLiveView();
+	return 0;
+  }
+
+  if (presets == 0x2 && (crop_preset_index != 0x10 || 
+	bitdepth != 0x3 || ratios != 0x1 || 
+	set_25fps != 0x0 || zoomaid != 0x1 || 
+	x3crop != 0x0 || x3toggle != 0x2))
+  {
+	NotifyBox(2000, "anamorphic 2.39:1 24fps 10bit");
+	crop_preset_index = 10;
+	bitdepth = 0x3;
+	ratios = 0x1;
+	set_25fps = 0x0;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+        PauseLiveView(); 
+        ResumeLiveView();
+  	set_lv_zoom(1);
+	return 0;
+  }
+
+  if (presets == 0x3 && (crop_preset_index != 0x2 || 
+	bitdepth != 0x3 || ratios != 0x3 || 
+	set_25fps != 0x0 || zoomaid != 0x1 || 
+	x3crop != 0x0 || x3toggle != 0x2))
+  {
+	NotifyBox(2000, "2.5K 2.39:1 24fps 10bit");
+	crop_preset_index = 2;
+	bitdepth = 0x3;
+	ratios = 0x3;
+	set_25fps = 0x0;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+        PauseLiveView(); 
+        ResumeLiveView();
+	return 0;
+  }
+
+}
+		
     return 1;
 }
 
@@ -5829,6 +5907,79 @@ static int crop_rec_needs_lv_refresh()
     {
         return 0;
     }
+
+/* fallback presets(experimental) */
+if (is_EOSM && presets != 0x0 && !RECORDING)
+{
+
+  if (presets == 0x1 && preset1)
+  {
+	preset1 = 0;
+	preset2 = 1;
+	preset3 = 1;
+	NotifyBox(2000, "mv1080p 16:9 24fps 12bit");
+	crop_preset_index = 6;
+	bitdepth = 0x4;
+	ratios = 0x3;
+	set_25fps = 0x0;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+        PauseLiveView(); 
+        ResumeLiveView();
+	return 0;
+  }
+
+  if (presets == 0x2 && preset2)
+  {
+	preset2 = 0;
+	preset1 = 1;
+	preset3 = 1;
+	NotifyBox(2000, "anamorphic 2.39:1 24fps 10bit");
+	crop_preset_index = 10;
+	bitdepth = 0x3;
+	ratios = 0x1;
+	set_25fps = 0x0;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+        PauseLiveView(); 
+        ResumeLiveView();
+  	set_lv_zoom(1);
+	return 0;
+  }
+
+  if (presets == 0x3 && preset3)
+  {
+	preset3 = 0;
+	preset1 = 1;
+	preset2 = 1;
+	NotifyBox(2000, "2.5K 2.39:1 24fps 10bit");
+	crop_preset_index = 2;
+	bitdepth = 0x3;
+	ratios = 0x3;
+	set_25fps = 0x0;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+        PauseLiveView(); 
+        ResumeLiveView();
+	return 0;
+  }
+
+}
+
+/* fallback presets(experimental) */
+  if (is_EOSM && presets == 0x0 && !RECORDING)
+  {
+	preset1 = 1;
+	preset2 = 1;
+	preset3 = 1;
+  }
+
 
 /* We don´t want this when in photo mode I assume */
 	if (!is_movie_mode()) return 0;
@@ -7138,6 +7289,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(HDR_iso_b)
     MODULE_CONFIG(isoauto)
     MODULE_CONFIG(isoclimb)
+    MODULE_CONFIG(presets)
     MODULE_CONFIG(timelapse)
     MODULE_CONFIG(slowshutter)
     MODULE_CONFIG(x3toggle)
