@@ -587,9 +587,9 @@ static int crop_patch = 0;
 static int crop_patch2 = 0;
 static int isopatch = 0;
 static int isopatchoff = 1;
-static int preset1 = 1;
-static int preset2 = 1;
-static int preset3 = 1;
+//static int preset1 = 1;
+//static int preset2 = 1;
+//static int preset3 = 1;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -5856,7 +5856,7 @@ if (is_EOSM && key == MODULE_KEY_INFO && presets != 0x0 && !RECORDING)
 	return 0;
   }
 
-  if (presets == 0x2 && (crop_preset_index != 0x10 || 
+  if (presets == 0x2 && (crop_preset_index != 10 || 
 	bitdepth != 0x3 || ratios != 0x1 || 
 	set_25fps != 0x0 || zoomaid != 0x1 || 
 	x3crop != 0x0 || x3toggle != 0x2))
@@ -5876,7 +5876,7 @@ if (is_EOSM && key == MODULE_KEY_INFO && presets != 0x0 && !RECORDING)
 	return 0;
   }
 
-  if (presets == 0x3 && (crop_preset_index != 0x2 || 
+  if (presets == 0x3 && (crop_preset_index != 2 || 
 	bitdepth != 0x3 || ratios != 0x3 || 
 	set_25fps != 0x0 || zoomaid != 0x1 || 
 	x3crop != 0x0 || x3toggle != 0x2))
@@ -5908,7 +5908,7 @@ static int crop_rec_needs_lv_refresh()
         return 0;
     }
 
-/* fallback presets(experimental) */
+/* fallback presets(experimental) Let´s pass on this for now. Use INFO button to activate instead
 if (is_EOSM && presets != 0x0 && !RECORDING)
 {
 
@@ -5972,13 +5972,14 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 
 }
 
-/* fallback presets(experimental) */
   if (is_EOSM && presets == 0x0 && !RECORDING)
   {
 	preset1 = 1;
 	preset2 = 1;
 	preset3 = 1;
   }
+
+*/
 
 
 /* We don´t want this when in photo mode I assume */
