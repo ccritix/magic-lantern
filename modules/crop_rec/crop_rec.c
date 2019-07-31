@@ -5989,6 +5989,7 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 	x3toggle = 0x2;
         PauseLiveView(); 
         ResumeLiveView();
+  	set_lv_zoom(1);
 	presets = 0x0;
 	return 0;
   }
@@ -6004,6 +6005,7 @@ if (is_EOSM && presets != 0x0 && !RECORDING)
 	x3toggle = 0x2;
         PauseLiveView(); 
         ResumeLiveView();
+  	set_lv_zoom(1);
 	presets = 0x0;
 	return 0;
   }
