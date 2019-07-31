@@ -2065,6 +2065,28 @@ if ((cam_eos_m || cam_100d) && crop_patch)
      ResumeLiveView();
 }
 
+/* replace bmp_off and bmp_on with below. Might work better regarding corrupted frames when using PREVIEW_ML */
+    	    static bool once = false;
+
+if ((cam_eos_m || cam_100d) && get_halfshutter_pressed() && RECORDING && PREVIEW_ML && !kill_gd)
+{ 
+    if (once == false)
+    {
+      	    once = true;
+            idle_globaldraw_dis();
+            clrscr();
+    }
+}
+
+if ((cam_eos_m || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIEW_ML && !kill_gd)
+{ 
+    if (once == true)
+    {
+            once = false;
+            idle_globaldraw_en();
+    }
+}
+
    if (prevmode == 1)
    {
      /* 48 fps 2.35:1, 16:9, 4:3 real-time */
@@ -4352,7 +4374,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383dc, 0x39a004e);
 	}
 */
-        if (RECORDING) bmp_on();
+        //if (RECORDING) bmp_on(); Testing idle_globaldraw_en(); instead in void FAST hack_liveview_vsync() function
 
        }
 
@@ -4407,7 +4429,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383dc, 0x39a01de);
 	}
 */
-        if (RECORDING) bmp_off();
+        //if (RECORDING) bmp_off(); Testing idle_globaldraw_dis(); instead in void FAST hack_liveview_vsync() function
 
        }
 
