@@ -2176,7 +2176,8 @@ if ((cam_eos_m || cam_100d) && crop_patch)
 static REQUIRES(RawRecTask)
 void hack_liveview(int unhack)
 {
-    if (kill_gd)
+/* auto sets kill global draw on faster fps (EOSM) in real time preview mode */
+    if (kill_gd || (preview_mode == 1 && (shamem_read(0xC0F06804) == 0x2f701d4 || shamem_read(0xC0F06804) == 0x3ef01d4)))
     {
         if (!unhack)
         {
