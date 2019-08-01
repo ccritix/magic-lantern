@@ -49,7 +49,10 @@ static CONFIG_INT("crop.isoauto", isoauto, 0);
 static CONFIG_INT("crop.isoclimb", isoclimb, 1);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
-static CONFIG_INT("crop.presets", presets, 0);
+static CONFIG_INT("crop.chosen_preset_index", chosen_preset_index, 0); // This value is cleared when a preset has been applied
+static CONFIG_INT("crop.preset_index_slot_a", preset_index_slot_a, 0);
+static CONFIG_INT("crop.preset_index_slot_b", preset_index_slot_b, 0);
+static CONFIG_INT("crop.last_activated_preset_index", last_activated_preset_index, 0); // This value is remembered (also between restarts)
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -311,6 +314,15 @@ static const char crop_choices_help2_eosm[] =
    // "5:1 4K crop squeeze, preview broken\n"
    // "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
 
+static const char * preset_choices_eosm[] = {
+    "None selected",
+    "HD >1.61 crop",
+    "HD >4.66 crop",
+    "5k >1.68 crop",
+    "2K >3.83 crop",
+    "High FPS >1.61 crop",
+    "High FPS >4.66 crop"
+};
 
 	/* menu choices for 700D */
 static enum crop_preset crop_presets_700d[] = {
@@ -5169,6 +5181,139 @@ PROP_HANDLER(PROP_LV_DISPSIZE)
     update_patch();
 }
 
+static void apply_preset_mv1080(){
+	NotifyBox(2000, "mv1080p MCM rewire 14bit");
+	crop_preset_index = 6;
+	bitdepth = 0x0;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+    PauseLiveView(); 
+    ResumeLiveView();
+	chosen_preset_index = 0x0;
+}
+
+static void apply_preset_mv1080_x3crop(){
+	NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
+	crop_preset_index = 6;
+	bitdepth = 0x0;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x1;
+	x3toggle = 0x2;
+    PauseLiveView(); 
+    ResumeLiveView();
+	chosen_preset_index = 0x0;
+}
+
+static void apply_preset_5K_anamorphic(){
+	NotifyBox(2000, "5K anamorphic 10bit");
+	crop_preset_index = 10;
+	bitdepth = 0x3;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+    // Don't change x3crop here, it won't affect recording in this mode anyway 
+    // Allows to jump from one of the preset slots back into x3crop mode with the x3crop toggle button
+	// x3crop = 0x0;
+	x3toggle = 0x2;
+    PauseLiveView(); 
+    ResumeLiveView();
+  	set_lv_zoom(1);
+	chosen_preset_index = 0x0;
+}
+
+static void apply_preset_2K(){
+	NotifyBox(2000, "2.5K 10bit");
+	crop_preset_index = 2;
+	bitdepth = 0x3;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+    // Don't change x3crop here, it won't affect recording in this mode anyway 
+    // Allows to jump from one of the preset slots back into x3crop mode with the x3crop toggle button
+	// x3crop = 0x0;
+	x3toggle = 0x2;
+    PauseLiveView(); 
+    ResumeLiveView();
+	chosen_preset_index = 0x0;
+}
+
+static void apply_preset_mv1080_high_framerate(){
+	NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
+	crop_preset_index = 7;
+	bitdepth = 0x3;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x0;
+	x3toggle = 0x2;
+    PauseLiveView(); 
+    ResumeLiveView();
+    set_lv_zoom(1);
+	chosen_preset_index = 0x0;
+}
+
+static void apply_preset_mv1080_high_framerate_x3crop(){
+	NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
+	crop_preset_index = 7;
+	bitdepth = 0x3;
+	zoomaid = 0x1;
+	if (isoclimb == 0x0) isoclimb = 0x1;
+	x3crop = 0x1;
+	x3toggle = 0x2;
+    PauseLiveView(); 
+    ResumeLiveView();
+    set_lv_zoom(1);
+	chosen_preset_index = 0x0;
+}
+
+static void apply_chosen_preset()
+{
+    if (is_EOSM && chosen_preset_index != 0x0 && !RECORDING)
+    {
+        if (chosen_preset_index == 0x1)
+        {
+            apply_preset_mv1080();
+            return;
+        }
+
+        if (chosen_preset_index == 0x2)
+        {
+            apply_preset_mv1080_x3crop();
+            return;
+        }
+
+        if (chosen_preset_index == 0x3)
+        {
+            apply_preset_5K_anamorphic();
+            return;
+        }
+
+        if (chosen_preset_index == 0x4)
+        {
+            apply_preset_2K();
+            return;
+        }
+
+        if (chosen_preset_index == 0x5)
+        {
+            apply_preset_mv1080_high_framerate();
+            return;
+        }
+
+        if (chosen_preset_index == 0x6)
+        {
+            apply_preset_mv1080_high_framerate_x3crop();
+            return;
+        }
+    }
+}
+
+static MENU_SELECT_FUNC(select_preset)
+{
+    chosen_preset_index = (int) priv;
+    apply_chosen_preset();
+}
+
 static MENU_UPDATE_FUNC(crop_update)
 {
     if ((CROP_PRESET_MENU && lv) && !is_100D && !is_EOSM && !is_700D && !is_650D)
@@ -5275,6 +5420,45 @@ static MENU_UPDATE_FUNC(target_yres_update)
     MENU_SET_RINFO("from %d", max_resolutions[crop_preset][get_video_mode_index()]);
 }
 
+static struct menu_entry presets_toggler_menu[] =
+{
+    {
+        .name       = "Slot A",
+        .priv       = &preset_index_slot_a,
+        .min        = 0,
+    },
+    {
+        .name       = "Slot B",
+        .priv       = &preset_index_slot_b,
+        .min        = 0,
+    },
+    {
+        .select     = select_preset,
+        .priv       = (int *) 1, // Should match index of names in preset_choices_eosm
+    },
+    {
+        .select     = select_preset,
+        .priv       = (int *) 2,
+    },
+    {
+        .select     = select_preset,
+        .priv       = (int *) 3,
+    },
+    {
+        .select     = select_preset,
+        .priv       = (int *) 4,
+    },
+    {
+        .select     = select_preset,
+        .priv       = (int *) 5,
+    },
+    {
+        .select     = select_preset,
+        .priv       = (int *) 6,
+    },
+    MENU_EOL,
+};
+
 static struct menu_entry crop_rec_menu[] =
 {
     {
@@ -5284,11 +5468,11 @@ static struct menu_entry crop_rec_menu[] =
         .depends_on = DEP_LIVEVIEW,
         .children =  (struct menu_entry[]) {
             {
-                .name   = "bitdepth",
-                .priv   = &bitdepth,
-                .max    = 4,
-                .choices = CHOICES("OFF", "8 bit", "9 bit", "10 bit", "12 bit"),
-                .help   = "Alter bitdepth\n"
+                .name   = "set 25fps",
+                .priv   = &set_25fps,
+                .max    = 1,
+                .choices = CHOICES("OFF", "ON"),
+                .help   = "Sets 2.39:1, 2.35:1 and 16:9 modes to 25fps\n"
             },
             {
                 .name   = "ratios",
@@ -5296,6 +5480,19 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 3,
                 .choices = CHOICES("OFF", "2.39:1", "2.35:1", "16:9"),
                 .help   = "Change aspect ratio\n"
+            },
+            {
+                .name       = "Presets Toggler",
+                .select     = menu_open_submenu,
+                .help       = "TODO",
+                .children   = presets_toggler_menu,
+            },
+            {
+                .name   = "bitdepth",
+                .priv   = &bitdepth,
+                .max    = 4,
+                .choices = CHOICES("OFF", "8 bit", "9 bit", "10 bit", "12 bit"),
+                .help   = "Alter bitdepth\n"
             },
             {
                 .name   = "x3crop",
@@ -5310,7 +5507,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 2,
                 .choices = CHOICES("OFF", "press down", "SET"),
                 .help   = "In and out of x3crop(all mv1080p modes)",                          
-		.help2  = "Select a short press key(EOSM). Halfshutter press(5D3)\n"
+		        .help2  = "Select a short press key(EOSM). Halfshutter press(5D3)\n"
             },
             {
                 .name   = "focus aid",
@@ -5319,13 +5516,6 @@ static struct menu_entry crop_rec_menu[] =
                 .choices = CHOICES("OFF", "default mode", "dark mode"),
                 .help   = "x10 zoom when pressing halfshutter(all presets, manual focus)",
                 .help2   = "Will brighten liveview(slower fps)\n"                          
-            },
-            {
-                .name   = "set 25fps",
-                .priv   = &set_25fps,
-                .max    = 1,
-                .choices = CHOICES("OFF", "ON"),
-                .help   = "Sets 2.39:1, 2.35:1 and 16:9 modes to 25fps\n"
             },
             {
                 .name   = "iso climb",
@@ -5357,14 +5547,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON"),
                 .help   = "Allows for slow shutter speeds with 4k timelapse(Only 100D/EOSM).\n"
-            },
-            {
-                .name   = "Startoff presets",
-                .priv   = &presets,
-                .max    = 6,
-                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop"),
-                .help   = "Select startoff preset(EOSM only)",
-                .help2  = "Select ratio and fps in Crop mode submenu",
             },
             {
                 .name   = "hdr iso A",
@@ -5782,27 +5964,45 @@ static struct menu_entry crop_rec_menu[] =
 static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
 
-/* x3crop toggle by using short press on thrash can button instead of halfshutter */
-        if (is_EOSM && lv && !gui_menu_shown() && !RECORDING && is_movie_mode() && 
-		((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2)) &&
-	   	(CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || 
-	    	CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
+    /* x3crop toggle by using short press on thrash can button instead of halfshutter */
+    if (is_EOSM && lv && !gui_menu_shown() && !RECORDING && is_movie_mode() && 
+    ((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2)))
+    {
+        if((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
         {
-		if (x3crop == 0x1)
-		{
- 		x3crop = 0x0;
-		}
-		else
-		{
- 		x3crop = 0x1;
-		}
-                PauseLiveView(); 
-            	ResumeLiveView();
+            // Toggle x3crop
+            if (x3crop == 0x1)
+            {
+                x3crop = 0x0;
+            }
+            else
+            {
+                x3crop = 0x1;
+            }
+            PauseLiveView(); 
+            ResumeLiveView();
+        } else {
+            // Activate mv1080
+            if (x3crop == 0x1)
+            {
+                apply_preset_mv1080_x3crop();
+            }
+            else
+            {
+                apply_preset_mv1080();
+            }
 
-	    	return 0;		
+            // Switch last_activated_preset_index so we go back to the one we came from when pressing INFO
+            if(preset_index_slot_a != 0x0 && preset_index_slot_b != 0x0)
+            {
+                last_activated_preset_index = last_activated_preset_index == preset_index_slot_a ? preset_index_slot_b : preset_index_slot_a;
+            }
+
         }
+        return 0;		
+    }
 
-/* iso climbing feature */
+    /* iso climbing feature */
         if ((!is_6D && isopatch && !RECORDING && lv && !gui_menu_shown() && !RECORDING && is_movie_mode()) && 
 	   (((is_EOSM && key == MODULE_KEY_PRESS_DOWN) || (is_5D3 && key == MODULE_KEY_INFO) || 
 	   ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) && isoclimb != 0x0 && HDR_iso_a == 0x0))
@@ -5836,75 +6036,50 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 		return 0;	    			
         }
 
-/* fallback presets(experimental) Let´s pass on it for now
-if (is_EOSM && key == MODULE_KEY_INFO && presets != 0x0 && !RECORDING)
-{
 
-  if (presets == 0x1 && (crop_preset_index != 6 || 
-	bitdepth != 0x4 || ratios != 0x3 || 
-	set_25fps != 0x0 || zoomaid != 0x1 || 	
-	x3crop != 0x0 || x3toggle != 0x2))
-  {
-	NotifyBox(2000, "mv1080p 16:9 24fps 12bit");
-	crop_preset_index = 6;
-	bitdepth = 0x4;
-	ratios = 0x3;
-	set_25fps = 0x0;
-	zoomaid = 0x1;
-	if (isoclimb == 0x0) isoclimb = 0x1;
-	x3crop = 0x0;
-	x3toggle = 0x2;
-        PauseLiveView(); 
-        ResumeLiveView();
-	return 0;
-  }
+    if (is_EOSM && key == MODULE_KEY_INFO && !RECORDING)
+    {
+        if(preset_index_slot_a == 0x0)
+        {
+            if(preset_index_slot_b != 0x0)
+            {
+                // Only preset slot b is set
+                last_activated_preset_index = chosen_preset_index = preset_index_slot_b;
+            }
+        }
+        else if(preset_index_slot_b == 0x0)
+        {
+            if(preset_index_slot_a != 0x0)
+            {
+                // Only preset slot a is set
+                last_activated_preset_index = chosen_preset_index = preset_index_slot_a;
+            }
+        }
+        else
+        {
+            // Both preset slots are set,
+            // in this case toggle between them
+            if(last_activated_preset_index == preset_index_slot_a)
+            {
+                last_activated_preset_index = chosen_preset_index = preset_index_slot_b;
+            }
+            else if(last_activated_preset_index == preset_index_slot_b)
+            {
+                last_activated_preset_index = chosen_preset_index = preset_index_slot_a;
+            }
+            else {
+                // When the last actived preset isn't one of the chosen_preset_index in the two preset slots,
+                // then default to activating slot a
+                last_activated_preset_index = chosen_preset_index = preset_index_slot_a; 
+            }
+        }
 
-  if (presets == 0x2 && (crop_preset_index != 10 || 
-	bitdepth != 0x3 || ratios != 0x1 || 
-	set_25fps != 0x0 || zoomaid != 0x1 || 
-	x3crop != 0x0 || x3toggle != 0x2))
-  {
-	NotifyBox(2000, "anamorphic 2.39:1 24fps 10bit");
-	crop_preset_index = 10;
-	bitdepth = 0x3;
-	ratios = 0x1;
-	set_25fps = 0x0;
-	zoomaid = 0x1;
-	if (isoclimb == 0x0) isoclimb = 0x1;
-	x3crop = 0x0;
-	x3toggle = 0x2;
-        PauseLiveView(); 
-        ResumeLiveView();
-  	set_lv_zoom(1);
-	return 0;
-  }
-
-  if (presets == 0x3 && (crop_preset_index != 2 || 
-	bitdepth != 0x3 || ratios != 0x3 || 
-	set_25fps != 0x0 || zoomaid != 0x1 || 
-	x3crop != 0x0 || x3toggle != 0x2))
-  {
-	NotifyBox(2000, "2.5K 2.39:1 24fps 10bit");
-	crop_preset_index = 2;
-	bitdepth = 0x3;
-	ratios = 0x3;
-	set_25fps = 0x0;
-	zoomaid = 0x1;
-	if (isoclimb == 0x0) isoclimb = 0x1;
-	x3crop = 0x0;
-	x3toggle = 0x2;
-        PauseLiveView(); 
-        ResumeLiveView();
-	return 0;
-  }
-
-}
-
-*/
-		
+        apply_chosen_preset();
+        // Ignore default action for INFO key
+        return 0;
+    }		
     return 1;
 }
-
 
 static int crop_rec_needs_lv_refresh()
 {
@@ -5913,150 +6088,55 @@ static int crop_rec_needs_lv_refresh()
         return 0;
     }
 
-/* startoff presets(experimental) */
-if (is_EOSM && presets != 0x0 && !RECORDING)
-{
+    apply_chosen_preset();
+    return 0;
 
-  if (presets == 0x1)
-  {
-	NotifyBox(2000, "mv1080p MCM rewire 14bit");
-	crop_preset_index = 6;
-	bitdepth = 0x0;
-	zoomaid = 0x1;
-	if (isoclimb == 0x0) isoclimb = 0x1;
-	x3crop = 0x0;
-	x3toggle = 0x2;
-        PauseLiveView(); 
-        ResumeLiveView();
-	presets = 0x0;
-	return 0;
-  }
 
-  if (presets == 0x2)
-  {
-	NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
-	crop_preset_index = 6;
-	bitdepth = 0x0;
-	zoomaid = 0x1;
-	if (isoclimb == 0x0) isoclimb = 0x1;
-	x3crop = 0x1;
-	x3toggle = 0x2;
-        PauseLiveView(); 
-        ResumeLiveView();
-	presets = 0x0;
-	return 0;
-  }
+    /* We don´t want this when in photo mode I assume */
+        if (!is_movie_mode()) return 0;
 
-  if (presets == 0x3)
-  {
-	NotifyBox(2000, "5K anamorphic 10bit");
-	crop_preset_index = 10;
-	bitdepth = 0x3;
-	zoomaid = 0x1;
-	if (isoclimb == 0x0) isoclimb = 0x1;
-	x3crop = 0x0;
-	x3toggle = 0x2;
-        PauseLiveView(); 
-        ResumeLiveView();
-  	set_lv_zoom(1);
-	presets = 0x0;
-	return 0;
-  }
-
-  if (presets == 0x4)
-  {
-	NotifyBox(2000, "2.5K 10bit");
-	crop_preset_index = 2;
-	bitdepth = 0x3;
-	zoomaid = 0x1;
-	if (isoclimb == 0x0) isoclimb = 0x1;
-	x3crop = 0x0;
-	x3toggle = 0x2;
-        PauseLiveView(); 
-        ResumeLiveView();
-	presets = 0x0;
-	return 0;
-  }
-
-  if (presets == 0x5)
-  {
-	NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
-	crop_preset_index = 7;
-	bitdepth = 0x3;
-	zoomaid = 0x1;
-	if (isoclimb == 0x0) isoclimb = 0x1;
-	x3crop = 0x0;
-	x3toggle = 0x2;
-        PauseLiveView(); 
-        ResumeLiveView();
-  	set_lv_zoom(1);
-	presets = 0x0;
-	return 0;
-  }
-
-  if (presets == 0x6)
-  {
-	NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
-	crop_preset_index = 7;
-	bitdepth = 0x3;
-	zoomaid = 0x1;
-	if (isoclimb == 0x0) isoclimb = 0x1;
-	x3crop = 0x1;
-	x3toggle = 0x2;
-        PauseLiveView(); 
-        ResumeLiveView();
-  	set_lv_zoom(1);
-	presets = 0x0;
-	return 0;
-  }
-
-}
-
-/* We don´t want this when in photo mode I assume */
-	if (!is_movie_mode()) return 0;
-
-/* let´s automate liveview start off setting */
-if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) || 
-(CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
-(CROP_PRESET_MENU == CROP_PRESET_3K_100D) || 
-(CROP_PRESET_MENU == CROP_PRESET_4K_100D) || 
-(CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) || 
-(CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) || 
-(CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) ||
-(CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) ||
-(CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM) ||
-(CROP_PRESET_MENU == CROP_PRESET_4K_3x1_100D) ||
-(CROP_PRESET_MENU == CROP_PRESET_5K_3x1_100D) ||
-(CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
-(CROP_PRESET_MENU == CROP_PRESET_2520_1418_700D) ||
-(CROP_PRESET_MENU == CROP_PRESET_3K_700D) ||
-(CROP_PRESET_MENU == CROP_PRESET_3540_700D) ||
-(CROP_PRESET_MENU == CROP_PRESET_4K_700D) ||
-(CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_700D) ||
-(CROP_PRESET_MENU == CROP_PRESET_2520_1418_650D) ||
-(CROP_PRESET_MENU == CROP_PRESET_3K_650D) ||
-(CROP_PRESET_MENU == CROP_PRESET_3540_650D) ||
-(CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_650D) ||
-(CROP_PRESET_MENU == CROP_PRESET_4K_650D) ||
-(CROP_PRESET_MENU == CROP_PRESET_CENTER_Z))
-  {
-        info_led_on();
-        gui_uilock(UILOCK_EVERYTHING);
-  	set_lv_zoom(5);
-        gui_uilock(UILOCK_NONE);
-        info_led_off();
-  }
-  else
-  {
-  if (is_EOSM || is_100D || is_700D || is_650D)
-  {
-        info_led_on();
-        gui_uilock(UILOCK_EVERYTHING);
-  	set_lv_zoom(1);
-        gui_uilock(UILOCK_NONE);
-        info_led_off();
-  }
-}
+    /* let´s automate liveview start off setting */
+    if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) || 
+    (CROP_PRESET_MENU == CROP_PRESET_2K_100D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_3K_100D) || 
+    (CROP_PRESET_MENU == CROP_PRESET_4K_100D) || 
+    (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) || 
+    (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) || 
+    (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) ||
+    (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) ||
+    (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM) ||
+    (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_100D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_100D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_1080K_100D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_2520_1418_700D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_3K_700D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_3540_700D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_4K_700D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_700D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_2520_1418_650D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_3K_650D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_3540_650D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_650D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_4K_650D) ||
+    (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z))
+    {
+            info_led_on();
+            gui_uilock(UILOCK_EVERYTHING);
+        set_lv_zoom(5);
+            gui_uilock(UILOCK_NONE);
+            info_led_off();
+    }
+    else
+    {
+    if (is_EOSM || is_100D || is_700D || is_650D)
+    {
+            info_led_on();
+            gui_uilock(UILOCK_EVERYTHING);
+        set_lv_zoom(1);
+            gui_uilock(UILOCK_NONE);
+            info_led_off();
+    }
+    }
 
 /* Update liveview in different ways depending on mcm rewired modes */
         if (is_EOSM && (shamem_read(0xc0f383d4) == 0x4f0010 && 
@@ -7147,6 +7227,22 @@ static unsigned int crop_rec_init()
         crop_rec_menu[0].max        = COUNT(crop_choices_eosm) - 1;
         crop_rec_menu[0].help       = crop_choices_help_eosm;
         crop_rec_menu[0].help2      = crop_choices_help2_eosm;
+        
+        // Set the choices for the two preset slots
+        presets_toggler_menu[0].max = presets_toggler_menu[1].max = COUNT(preset_choices_eosm) - 1;
+        presets_toggler_menu[0].choices = presets_toggler_menu[1].choices = preset_choices_eosm;
+
+        // Set the names for the preset activation items
+        // Skip choice at index 0, it's not a preset name (only used for unselected state)
+        int choice_index = 1;
+
+        while( choice_index < COUNT(preset_choices_eosm) ) {
+            // The two preset slots are at menu index 0 and 1
+            // The preset activation items start from index 2
+            int preset_activation_item_index = choice_index + 1;
+            presets_toggler_menu[preset_activation_item_index].name = preset_choices_eosm[choice_index];
+            choice_index++;
+        }
     }
 	else if (is_camera("700D", "1.1.5"))
     {
@@ -7324,6 +7420,9 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(slowshutter)
     MODULE_CONFIG(x3toggle)
     MODULE_CONFIG(zoomaid)
+    MODULE_CONFIG(preset_index_slot_a)
+    MODULE_CONFIG(preset_index_slot_b)
+    MODULE_CONFIG(last_activated_preset_index)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
