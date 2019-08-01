@@ -34,6 +34,8 @@ static int is_650D = 0;
 static int is_100D = 0;
 static int is_EOSM = 0;
 static int is_basic = 0;
+static int info_key_timer = 0;
+static bool handle_info_single_press = false;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
@@ -5961,8 +5963,15 @@ static struct menu_entry crop_rec_menu[] =
     },
 };
 
+static void single_press(int arg){
+    handle_info_single_press = true;
+    fake_simple_button(module_translate_key(MODULE_KEY_INFO, MODULE_KEY_CANON));
+}
+
 static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
+
+    NotifyBox(2000, (char * ) key);
 
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
     if (is_EOSM && lv && !gui_menu_shown() && !RECORDING && is_movie_mode() && 
@@ -6039,49 +6048,70 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 
     if (is_EOSM && key == MODULE_KEY_INFO && !RECORDING && lv && !gui_menu_shown())
     {
-        if(preset_index_slot_a == 0x0)
-        {
-            if(preset_index_slot_b != 0x0)
-            {
-                // Only preset slot b is set
-                last_activated_preset_index = chosen_preset_index = preset_index_slot_b;
-            } else {
-                // Both preset slots empty, handle INFO key as normal
-                return 1;
-            }
-        }
-        else if(preset_index_slot_b == 0x0)
-        {
-            if(preset_index_slot_a != 0x0)
-            {
-                // Only preset slot a is set
-                last_activated_preset_index = chosen_preset_index = preset_index_slot_a;
-            } else {
-                // Both preset slots empty, handle INFO key as normal
-                return 1;
-            }
-        }
-        else
-        {
-            // Both preset slots are set,
-            // in this case toggle between them
-            if(last_activated_preset_index == preset_index_slot_a)
-            {
-                last_activated_preset_index = chosen_preset_index = preset_index_slot_b;
-            }
-            else if(last_activated_preset_index == preset_index_slot_b)
-            {
-                last_activated_preset_index = chosen_preset_index = preset_index_slot_a;
-            }
-            else {
-                // When the last actived preset isn't one of the chosen_preset_index in the two preset slots,
-                // then default to activating slot a
-                last_activated_preset_index = chosen_preset_index = preset_index_slot_a; 
-            }
+        // if(preset_index_slot_a == 0x0)
+        // {
+        //     if(preset_index_slot_b != 0x0)
+        //     {
+        //         // Only preset slot b is set
+        //         last_activated_preset_index = chosen_preset_index = preset_index_slot_b;
+        //     } else {
+        //         // Both preset slots empty, handle INFO key as normal
+        //         return 1;
+        //     }
+        // }
+        // else if(preset_index_slot_b == 0x0)
+        // {
+        //     if(preset_index_slot_a != 0x0)
+        //     {
+        //         // Only preset slot a is set
+        //         last_activated_preset_index = chosen_preset_index = preset_index_slot_a;
+        //     } else {
+        //         // Both preset slots empty, handle INFO key as normal
+        //         return 1;
+        //     }
+        // }
+        // else
+        // {
+        //     // Both preset slots are set,
+        //     // in this case toggle between them
+        //     if(last_activated_preset_index == preset_index_slot_a)
+        //     {
+        //         last_activated_preset_index = chosen_preset_index = preset_index_slot_b;
+        //     }
+        //     else if(last_activated_preset_index == preset_index_slot_b)
+        //     {
+        //         last_activated_preset_index = chosen_preset_index = preset_index_slot_a;
+        //     }
+        //     else {
+        //         // When the last actived preset isn't one of the chosen_preset_index in the two preset slots,
+        //         // then default to activating slot a
+        //         last_activated_preset_index = chosen_preset_index = preset_index_slot_a; 
+        //     }
+        // }
+
+        // apply_chosen_preset();
+        // // Ignore default action for INFO key
+        // return 0;
+
+        if(handle_info_single_press){
+            NotifyBox(2000, "Handle Single");
+            handle_info_single_press = false;
+            info_key_timer = 0;
+            return 0;
         }
 
-        apply_chosen_preset();
-        // Ignore default action for INFO key
+        // If the info_key_timer is > 0, then we still haven't handled the first key press
+        // This means we're in time for a double key press
+        // Cancel handling the single key press and only do stuff for the double press
+        if (info_key_timer){
+            NotifyBox(1000, "Double");
+            CancelTimer(info_key_timer);
+            info_key_timer = 0;
+        } else {
+            NotifyBox(1000, "Schedule Single");
+            info_key_timer = SetTimerAfter(800, (timerCbr_t)single_press, (timerCbr_t)single_press, 0);
+        }
+
         return 0;
     }		
     return 1;
