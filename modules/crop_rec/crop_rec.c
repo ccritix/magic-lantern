@@ -5970,9 +5970,6 @@ static void single_press(int arg){
 
 static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
-
-    NotifyBox(2000, (char * ) key);
-
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
     if (is_EOSM && lv && !gui_menu_shown() && !RECORDING && is_movie_mode() && 
     ((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2)))
