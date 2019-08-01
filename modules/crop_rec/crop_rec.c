@@ -6037,7 +6037,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         }
 
 
-    if (is_EOSM && key == MODULE_KEY_INFO && !RECORDING)
+    if (is_EOSM && key == MODULE_KEY_INFO && !RECORDING && lv && !gui_menu_shown())
     {
         if(preset_index_slot_a == 0x0)
         {
@@ -6045,6 +6045,9 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             {
                 // Only preset slot b is set
                 last_activated_preset_index = chosen_preset_index = preset_index_slot_b;
+            } else {
+                // Both preset slots empty, handle INFO key as normal
+                return 1;
             }
         }
         else if(preset_index_slot_b == 0x0)
@@ -6053,6 +6056,9 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             {
                 // Only preset slot a is set
                 last_activated_preset_index = chosen_preset_index = preset_index_slot_a;
+            } else {
+                // Both preset slots empty, handle INFO key as normal
+                return 1;
             }
         }
         else
