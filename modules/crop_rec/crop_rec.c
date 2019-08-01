@@ -5803,7 +5803,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         }
 
 /* iso climbing feature */
-        if ((!is_6D && isopatch && !RECORDING && lv && !gui_menu_shown() && !RECORDING && is_movie_mode()) && 
+        if ((!is_6D && isopatch && lv && !gui_menu_shown() && is_movie_mode()) && 
 	   (((is_EOSM && key == MODULE_KEY_PRESS_DOWN) || (is_5D3 && key == MODULE_KEY_INFO) || 
 	   ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) && isoclimb != 0x0 && HDR_iso_a == 0x0))
         {
