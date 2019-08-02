@@ -5922,6 +5922,15 @@ static struct menu_entry presets_toggler_menu[] =
             .select = select_preset,
             .priv = (int *)6,
         },
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = "Toggle with SET",
+            .priv = &x3toggle,
+            .max = 1,
+            .choices = CHOICES("OFF", "ON"),
+            .help = "Press SET 1x: Jumps into mv1080p rewire from another preset, or...",
+            .help2 = "...toggle x3crop. Press SET 2x: Toggle high framerate mode."
+        },
         MENU_EOL,
 };
 
@@ -5955,12 +5964,6 @@ static struct menu_entry crop_rec_menu[] =
                     .choices = CHOICES("OFF", "ON"),
                     .help = "Turns mv1080p and mv1080_46fps modes into x3 crop modes)",
                 },
-                {.name = "x3crop toggle",
-                 .priv = &x3toggle,
-                 .max = 1,
-                 .choices = CHOICES("OFF", "ON"),
-                 .help = "In and out of x3crop(all mv1080p modes)",
-                 .help2 = "Select a short press key(EOSM). Halfshutter press(5D3)\n"},
                 {.name = "focus aid",
                  .priv = &zoomaid,
                  .max = 2,
@@ -6426,7 +6429,7 @@ static unsigned int handle_eosm_keys(unsigned int key){
         {
             handle_set_single_press = false;
             set_key_timer = 0;
-            
+
             if ((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
             {
                 // Toggle x3crop
