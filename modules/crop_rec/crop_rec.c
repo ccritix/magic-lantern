@@ -59,7 +59,6 @@ static CONFIG_INT("crop.isoauto", isoauto, 0);
 static CONFIG_INT("crop.isoclimb", isoclimb, 1);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
-static CONFIG_INT("crop.chosen_preset_index", chosen_preset_index, 0); // This value is cleared when a preset has been applied
 static CONFIG_INT("crop.preset_index_slot_a", preset_index_slot_a, 0);
 static CONFIG_INT("crop.preset_index_slot_b", preset_index_slot_b, 0);
 static CONFIG_INT("crop.last_activated_preset_index", last_activated_preset_index, 0); // This value is remembered (also between restarts)
@@ -325,14 +324,10 @@ static const char crop_choices_help2_eosm[] =
 // "5:1 4K crop squeeze, preview broken\n"
 // "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
 
-static const char *preset_choices_eosm[] = {
-    "None selected",
-    "HD >1.61 crop",
-    "HD >4.66 crop",
-    "5k >1.68 crop",
-    "2K >3.83 crop",
-    "High FPS >1.61 crop",
-    "High FPS >4.66 crop"};
+#define PRESET_SLOT_A_NAME "Slot A"
+#define PRESET_SLOT_B_NAME "Slot B"
+#define NR_OF_PRESETS 6 // Array can overflow if we add new presets to menu but forget to increase the size here
+static int choice_index_to_entry_index_mapping[NR_OF_PRESETS];
 
 /* menu choices for 700D */
 static enum crop_preset crop_presets_700d[] = {
@@ -5638,8 +5633,33 @@ PROP_HANDLER(PROP_LV_DISPSIZE)
     update_patch();
 }
 
+static bool can_apply_preset(){
+    if (!is_movie_mode())
+    {
+        NotifyBox(2000, "Turn mode dial to movie mode.");
+        return false;
+    }
+
+    if (!is_EOSM)
+    {
+        NotifyBox(2000, "Works on EOSM only for now.");
+        return false;
+    }
+
+    if (RECORDING)
+    {
+        NotifyBox(2000, "Can't change while recording.");
+        return false;
+    }
+
+    return true;
+}
+
 static void apply_preset_mv1080()
 {
+    if(!can_apply_preset()){
+        return;
+    }
     NotifyBox(2000, "mv1080p MCM rewire 14bit");
     crop_preset_index = 6;
     bitdepth = 0x0;
@@ -5650,11 +5670,13 @@ static void apply_preset_mv1080()
     x3toggle = 0x1;
     PauseLiveView();
     ResumeLiveView();
-    chosen_preset_index = 0x0;
 }
 
 static void apply_preset_mv1080_x3crop()
 {
+    if(!can_apply_preset()){
+        return;
+    }
     NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
     crop_preset_index = 6;
     bitdepth = 0x0;
@@ -5665,11 +5687,13 @@ static void apply_preset_mv1080_x3crop()
     x3toggle = 0x1;
     PauseLiveView();
     ResumeLiveView();
-    chosen_preset_index = 0x0;
 }
 
 static void apply_preset_5K_anamorphic()
 {
+    if(!can_apply_preset()){
+        return;
+    }
     NotifyBox(2000, "5K anamorphic 10bit");
     crop_preset_index = 10;
     bitdepth = 0x3;
@@ -5683,11 +5707,13 @@ static void apply_preset_5K_anamorphic()
     PauseLiveView();
     ResumeLiveView();
     set_lv_zoom(1);
-    chosen_preset_index = 0x0;
 }
 
 static void apply_preset_2K()
 {
+    if(!can_apply_preset()){
+        return;
+    }
     NotifyBox(2000, "2.5K 10bit");
     crop_preset_index = 2;
     bitdepth = 0x3;
@@ -5700,11 +5726,13 @@ static void apply_preset_2K()
     x3toggle = 0x1;
     PauseLiveView();
     ResumeLiveView();
-    chosen_preset_index = 0x0;
 }
 
 static void apply_preset_mv1080_high_framerate()
 {
+    if(!can_apply_preset()){
+        return;
+    }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
     crop_preset_index = 7;
     bitdepth = 0x3;
@@ -5716,11 +5744,13 @@ static void apply_preset_mv1080_high_framerate()
     PauseLiveView();
     ResumeLiveView();
     set_lv_zoom(1);
-    chosen_preset_index = 0x0;
 }
 
 static void apply_preset_mv1080_high_framerate_x3crop()
 {
+    if(!can_apply_preset()){
+        return;
+    }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
     crop_preset_index = 7;
     bitdepth = 0x3;
@@ -5732,60 +5762,6 @@ static void apply_preset_mv1080_high_framerate_x3crop()
     PauseLiveView();
     ResumeLiveView();
     set_lv_zoom(1);
-    chosen_preset_index = 0x0;
-}
-
-static void apply_chosen_preset()
-{
-    if (is_EOSM && chosen_preset_index != 0x0 && !RECORDING)
-    {
-        if (chosen_preset_index == 0x1)
-        {
-            apply_preset_mv1080();
-            return;
-        }
-
-        if (chosen_preset_index == 0x2)
-        {
-            apply_preset_mv1080_x3crop();
-            return;
-        }
-
-        if (chosen_preset_index == 0x3)
-        {
-            apply_preset_5K_anamorphic();
-            return;
-        }
-
-        if (chosen_preset_index == 0x4)
-        {
-            apply_preset_2K();
-            return;
-        }
-
-        if (chosen_preset_index == 0x5)
-        {
-            apply_preset_mv1080_high_framerate();
-            return;
-        }
-
-        if (chosen_preset_index == 0x6)
-        {
-            apply_preset_mv1080_high_framerate_x3crop();
-            return;
-        }
-    }
-}
-
-static MENU_SELECT_FUNC(select_preset)
-{
-    if (!is_movie_mode())
-    {
-        NotifyBox(2000, "Turn mode dial to movie mode.");
-        return;
-    }
-    chosen_preset_index = (int)priv;
-    apply_chosen_preset();
 }
 
 static MENU_UPDATE_FUNC(crop_update)
@@ -5879,37 +5855,43 @@ static struct menu_entry presets_toggler_menu[] =
     {
         {
             .depends_on = DEP_MOVIE_MODE,
-            .select = select_preset,
-            .priv = (int *)1, // Should match index of names in preset_choices_eosm
+            .name = "HD >1.61 crop",
+            .select = apply_preset_mv1080,
+            .priv = "ps_entry", // To identify which entries are presets. We need to extract names later.
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .select = select_preset,
-            .priv = (int *)2,
+            .name = "HD >4.66 crop",
+            .select = apply_preset_mv1080_x3crop,
+            .priv = "ps_entry",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .select = select_preset,
-            .priv = (int *)3,
+            .name = "5k >1.68 crop",
+            .select = apply_preset_5K_anamorphic,
+            .priv = "ps_entry",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .select = select_preset,
-            .priv = (int *)4,
+            .name = "2K >3.83 crop",
+            .select = apply_preset_2K,
+            .priv = "ps_entry",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .select = select_preset,
-            .priv = (int *)5,
+            .name = "High FPS >1.61 crop",
+            .select = apply_preset_mv1080_high_framerate,
+            .priv = "ps_entry",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .select = select_preset,
-            .priv = (int *)6,
+            .name = "High FPS >4.66 crop",
+            .select = apply_preset_mv1080_high_framerate_x3crop,
+            .priv = "ps_entry",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "Slot A",
+            .name = PRESET_SLOT_A_NAME,
             .priv = &preset_index_slot_a,
             .min = 0,
             .help = "Press INFO in LiveView to activate chosen preset.",
@@ -5917,7 +5899,7 @@ static struct menu_entry presets_toggler_menu[] =
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "Slot B",
+            .name = PRESET_SLOT_B_NAME,
             .priv = &preset_index_slot_b,
             .min = 0,
             .help = "Press INFO in LiveView to toggle between chosen presets (Slot A and B).",
@@ -5934,6 +5916,12 @@ static struct menu_entry presets_toggler_menu[] =
         },
         MENU_EOL,
 };
+
+static void apply_chosen_preset(unsigned int choice_index)
+{
+    unsigned int entry_index = choice_index_to_entry_index_mapping[choice_index];
+    presets_toggler_menu[entry_index].select(0, 0);
+}
 
 static struct menu_entry crop_rec_menu[] =
     {
@@ -6515,7 +6503,7 @@ static unsigned int handle_eosm_keys(unsigned int key){
                 if (preset_index_slot_b != 0x0)
                 {
                     // Only preset slot b is set
-                    last_activated_preset_index = chosen_preset_index = preset_index_slot_b;
+                    last_activated_preset_index = preset_index_slot_b;
                 }
                 else
                 {
@@ -6528,7 +6516,7 @@ static unsigned int handle_eosm_keys(unsigned int key){
                 if (preset_index_slot_a != 0x0)
                 {
                     // Only preset slot a is set
-                    last_activated_preset_index = chosen_preset_index = preset_index_slot_a;
+                    last_activated_preset_index = preset_index_slot_a;
                 }
                 else
                 {
@@ -6542,21 +6530,21 @@ static unsigned int handle_eosm_keys(unsigned int key){
                 // in this case toggle between them
                 if (last_activated_preset_index == preset_index_slot_a)
                 {
-                    last_activated_preset_index = chosen_preset_index = preset_index_slot_b;
+                    last_activated_preset_index = preset_index_slot_b;
                 }
                 else if (last_activated_preset_index == preset_index_slot_b)
                 {
-                    last_activated_preset_index = chosen_preset_index = preset_index_slot_a;
+                    last_activated_preset_index = preset_index_slot_a;
                 }
                 else
                 {
                     // When the last actived preset isn't one of the chosen_preset_index in the two preset slots,
                     // then default to activating slot a
-                    last_activated_preset_index = chosen_preset_index = preset_index_slot_a;
+                    last_activated_preset_index = preset_index_slot_a;
                 }
             }
 
-            apply_chosen_preset();
+            apply_chosen_preset(last_activated_preset_index);
             return 0;
         }
 
@@ -6568,7 +6556,7 @@ static unsigned int handle_eosm_keys(unsigned int key){
             CancelTimer(info_key_timer);
             info_key_timer = 0;
 
-            select_menu_by_name("Switch", last_activated_preset_index == preset_index_slot_a ? "Slot A" : "Slot B");
+            select_menu_by_name("Switch", last_activated_preset_index == preset_index_slot_a ? PRESET_SLOT_A_NAME : PRESET_SLOT_B_NAME);
             gui_open_menu();
         }
         else
@@ -7817,29 +7805,56 @@ static unsigned int crop_rec_init()
         crop_rec_menu[0].help = crop_choices_help_eosm;
         crop_rec_menu[0].help2 = crop_choices_help2_eosm;
 
-        int nr_of_choices = COUNT(preset_choices_eosm) - 1;
-        int nr_of_menu_entries = COUNT(presets_toggler_menu);
+        unsigned int nr_of_choices = NR_OF_PRESETS+1;
+        char * preset_choices_tmp[nr_of_choices];
+        preset_choices_tmp[0] = "None selected";
+        unsigned int choice_index = 0;
+        
+        int entry_index_slot_a = -1;
+        int entry_index_slot_b = -1;
 
-        // Set the choices for the two preset slots
-        for( int entry_index = 0; entry_index < nr_of_menu_entries; entry_index++ ){
+        // Find menu entry index of the preset slots by name
+        // And map the menu entry index to the dropdown choice index
+        // Temporarily store the names of the presets in a list,
+        // to assign as dropdown choices later
+        unsigned int nr_of_menu_entries = COUNT(presets_toggler_menu);
+        for(unsigned int entry_index = 0; entry_index < nr_of_menu_entries; entry_index++ ){
             struct menu_entry * entry = &presets_toggler_menu[entry_index];
 
-            if (entry->name != NULL && (streq(entry->name, "Slot A") || streq(entry->name, "Slot B")))
+            if (entry->name != NULL)
             {
-                entry->max = nr_of_choices;
-                entry->choices = preset_choices_eosm;
+                if(streq(entry->name, PRESET_SLOT_A_NAME)){
+                    entry_index_slot_a = entry_index;
+                } else if(streq(entry->name, PRESET_SLOT_B_NAME)){
+                    entry_index_slot_b = entry_index;
+                } else if(streq(entry->priv, "ps_entry")){
+                    // Start at choice_index 1, choice at index 0 doesn't contain a preset name
+                    // instead it's used to disable the preset slot
+                    entry->priv = 0;
+                    choice_index++;
+                    if(choice_index > NR_OF_PRESETS){
+                        NotifyBox(2000, "Too many presets in menu, adjust NR_OF_PRESETS.");
+                        continue;
+                    }
+                    choice_index_to_entry_index_mapping[choice_index] = entry_index;
+                    preset_choices_tmp[choice_index] = (char *) entry->name;
+                }
             }
         }
+        
+        struct menu_entry * slot_a = &presets_toggler_menu[entry_index_slot_a];
+        struct menu_entry * slot_b = &presets_toggler_menu[entry_index_slot_b];
 
-        // Set the names for the preset activation items
-        // Skip choice at index 0, it's not a preset name (only used for unselected state)
-        int choice_index = 1;
-
-        while (choice_index < COUNT(preset_choices_eosm))
+        // Set the choices for the two preset slots
+        slot_a->choices = slot_b->choices = malloc(sizeof(char*) * nr_of_choices);
+        if(slot_a->choices)
         {
-            int preset_activation_item_index = choice_index - 1;
-            presets_toggler_menu[preset_activation_item_index].name = preset_choices_eosm[choice_index];
-            choice_index++;
+            for (choice_index = 0; choice_index < nr_of_choices; choice_index++)
+            {
+                slot_a->choices[choice_index] = slot_b->choices[choice_index] = (char *) preset_choices_tmp[choice_index];
+            }
+            slot_a->min = slot_b->min = 0;
+            slot_a->max = slot_b->max = nr_of_choices - 1;
         }
     }
     else if (is_camera("700D", "1.1.5"))
