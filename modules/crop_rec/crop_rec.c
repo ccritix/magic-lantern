@@ -5428,11 +5428,15 @@ static struct menu_entry presets_toggler_menu[] =
         .name       = "Slot A",
         .priv       = &preset_index_slot_a,
         .min        = 0,
+        .help       = "Press INFO in LiveView to activate chosen preset.",
+        .help2      = "Double press INFO in LV to open this menu.",
     },
     {
         .name       = "Slot B",
         .priv       = &preset_index_slot_b,
         .min        = 0,
+        .help       = "Press INFO in LiveView to toggle between chosen presets (Slot A and B).",
+        .help2      = "Double press INFO in LV to open this menu.",
     },
     {
         .select     = select_preset,
@@ -5482,12 +5486,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 3,
                 .choices = CHOICES("OFF", "2.39:1", "2.35:1", "16:9"),
                 .help   = "Change aspect ratio\n"
-            },
-            {
-                .name       = "Presets Toggler",
-                .select     = menu_open_submenu,
-                .help       = "TODO",
-                .children   = presets_toggler_menu,
             },
             {
                 .name   = "bitdepth",
@@ -6098,9 +6096,11 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         // This means we're in time for a double key press
         // Cancel handling the single key press and only do stuff for the double press
         if (info_key_timer){
-            NotifyBox(1000, "TODO: Open Presets Toggler menu");
             CancelTimer(info_key_timer);
             info_key_timer = 0;
+
+            select_menu_by_name("Switch", last_activated_preset_index == preset_index_slot_a ? "Slot A" : "Slot B");
+            gui_open_menu();
         } else {
             // This is the first INFO key press in a while
             // Wait a bit for another key press, before we handle it as single key press
@@ -7423,6 +7423,7 @@ static unsigned int crop_rec_init()
     }
 
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
+    menu_add("Switch", presets_toggler_menu, COUNT(presets_toggler_menu) - 1);
     lvinfo_add_items (info_items, COUNT(info_items));
 
     return 0;
