@@ -16,7 +16,6 @@
 extern WEAK_FUNC(ret_0) unsigned int is_crop_hack_supported();
 extern WEAK_FUNC(ret_0) unsigned int movie_crop_hack_enable();
 extern WEAK_FUNC(ret_0) unsigned int movie_crop_hack_disable();
-extern WEAK_FUNC(ret_0) struct menu_entry * entry_find_by_name();
 
 #undef CROP_DEBUG
 
