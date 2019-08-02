@@ -6409,11 +6409,10 @@ static void single_press(int arg)
     fake_simple_button(module_translate_key(MODULE_KEY_INFO, MODULE_KEY_CANON));
 }
 
-static unsigned int crop_rec_keypress_cbr(unsigned int key)
-{
+static unsigned int handle_eosm_keys(unsigned int key){
+
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
-    if (is_EOSM && lv && !gui_menu_shown() && !RECORDING && is_movie_mode() &&
-        (key == MODULE_KEY_PRESS_SET && x3toggle == 0x1))
+    if (key == MODULE_KEY_PRESS_SET && x3toggle == 0x1)
     {
         if ((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
         {
@@ -6450,42 +6449,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         return 0;
     }
 
-    /* iso climbing feature */
-    if ((!is_6D && isopatch && lv && !gui_menu_shown() && is_movie_mode()) &&
-        (((is_EOSM && key == MODULE_KEY_PRESS_DOWN) || (is_5D3 && key == MODULE_KEY_INFO) ||
-          ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) &&
-         isoclimb != 0x0 && HDR_iso_a == 0x0))
-    {
-        isopatch = 0;
-        isopatchoff = 0;
-        if (shamem_read(0xC0F0b12c) == 0x11)
-        {
-            isoclimb = 0x2;
-        }
-        else if (shamem_read(0xC0F0b12c) == 0x12)
-        {
-            isoclimb = 0x3;
-        }
-        else if (shamem_read(0xC0F0b12c) == 0x13)
-        {
-            isoclimb = 0x4;
-        }
-        else if (shamem_read(0xC0F0b12c) == 0x14)
-        {
-            isoclimb = 0x5;
-        }
-        else if (shamem_read(0xC0F0b12c) == 0x15)
-        {
-            isoclimb = 0x6;
-        }
-        else if (shamem_read(0xC0F0b12c) == 0x16)
-        {
-            isoclimb = 0x1;
-        }
-        return 0;
-    }
-
-    if (is_EOSM && key == MODULE_KEY_INFO && !RECORDING && lv && !gui_menu_shown() && is_movie_mode())
+    if (key == MODULE_KEY_INFO)
     {
         if (handle_info_single_press)
         {
@@ -6564,6 +6528,58 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 
         return 0;
     }
+
+    // If none of the above conditions apply, handle key normally
+    return 1;
+}
+
+static unsigned int crop_rec_keypress_cbr(unsigned int key)
+{
+    /* iso climbing feature */
+    if ((!is_6D && isopatch && lv && !gui_menu_shown() && is_movie_mode()) &&
+        (((is_EOSM && key == MODULE_KEY_PRESS_DOWN) || (is_5D3 && key == MODULE_KEY_INFO) ||
+          ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) &&
+         isoclimb != 0x0 && HDR_iso_a == 0x0))
+    {
+        isopatch = 0;
+        isopatchoff = 0;
+        if (shamem_read(0xC0F0b12c) == 0x11)
+        {
+            isoclimb = 0x2;
+        }
+        else if (shamem_read(0xC0F0b12c) == 0x12)
+        {
+            isoclimb = 0x3;
+        }
+        else if (shamem_read(0xC0F0b12c) == 0x13)
+        {
+            isoclimb = 0x4;
+        }
+        else if (shamem_read(0xC0F0b12c) == 0x14)
+        {
+            isoclimb = 0x5;
+        }
+        else if (shamem_read(0xC0F0b12c) == 0x15)
+        {
+            isoclimb = 0x6;
+        }
+        else if (shamem_read(0xC0F0b12c) == 0x16)
+        {
+            isoclimb = 0x1;
+        }
+        return 0;
+    }
+
+    // From here only code that should run on a key press in live view, when ML menu is closed, not recording and in movie mode
+    if (!lv || gui_menu_shown() || RECORDING || !is_movie_mode()){
+        // Handle key normally
+        return 1;
+    }
+
+    if(is_EOSM){
+        return handle_eosm_keys(key);
+    }
+
     return 1;
 }
 
