@@ -6424,6 +6424,9 @@ static unsigned int handle_eosm_keys(unsigned int key){
     {
         if (handle_set_single_press)
         {
+            handle_set_single_press = false;
+            set_key_timer = 0;
+            
             if ((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
             {
                 // Toggle x3crop
@@ -6457,8 +6460,6 @@ static unsigned int handle_eosm_keys(unsigned int key){
                 }
             }
 
-            handle_set_single_press = false;
-            set_key_timer = 0;
             return 0;
         }
 
@@ -6502,6 +6503,8 @@ static unsigned int handle_eosm_keys(unsigned int key){
     {
         if (handle_info_single_press)
         {
+            handle_info_single_press = false;
+            info_key_timer = 0;
 
             if (preset_index_slot_a == 0x0)
             {
@@ -6549,8 +6552,6 @@ static unsigned int handle_eosm_keys(unsigned int key){
                 }
             }
 
-            handle_info_single_press = false;
-            info_key_timer = 0;
             apply_chosen_preset();
             return 0;
         }
