@@ -43,7 +43,7 @@ static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.zoomaid", zoomaid, 1);
-static CONFIG_INT("crop.x3toggle", x3toggle, 2);
+static CONFIG_INT("crop.x3toggle", x3toggle, 1);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
@@ -1777,10 +1777,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         NotifyBox(3000, "Turn off autoiso if using iso climb");
      }
 
-     if (x3toggle == 0x1 && is_EOSM)
-     {
-        NotifyBox(1000, "Use x3crop toggle SET or turn iso climb off");
-     }
    	isopatch = 1;
 	if (isoclimb == 0x2) 
 	{ 
@@ -5190,7 +5186,7 @@ static void apply_preset_mv1080(){
 	zoomaid = 0x1;
 	if (isoclimb == 0x0) isoclimb = 0x1;
 	x3crop = 0x0;
-	x3toggle = 0x2;
+	x3toggle = 0x1;
     PauseLiveView(); 
     ResumeLiveView();
 	chosen_preset_index = 0x0;
@@ -5203,7 +5199,7 @@ static void apply_preset_mv1080_x3crop(){
 	zoomaid = 0x1;
 	if (isoclimb == 0x0) isoclimb = 0x1;
 	x3crop = 0x1;
-	x3toggle = 0x2;
+	x3toggle = 0x1;
     PauseLiveView(); 
     ResumeLiveView();
 	chosen_preset_index = 0x0;
@@ -5218,7 +5214,7 @@ static void apply_preset_5K_anamorphic(){
     // Don't change x3crop here, it won't affect recording in this mode anyway 
     // Allows to jump from one of the preset slots back into x3crop mode with the x3crop toggle button
 	// x3crop = 0x0;
-	x3toggle = 0x2;
+	x3toggle = 0x1;
     PauseLiveView(); 
     ResumeLiveView();
   	set_lv_zoom(1);
@@ -5234,7 +5230,7 @@ static void apply_preset_2K(){
     // Don't change x3crop here, it won't affect recording in this mode anyway 
     // Allows to jump from one of the preset slots back into x3crop mode with the x3crop toggle button
 	// x3crop = 0x0;
-	x3toggle = 0x2;
+	x3toggle = 0x1;
     PauseLiveView(); 
     ResumeLiveView();
 	chosen_preset_index = 0x0;
@@ -5247,7 +5243,7 @@ static void apply_preset_mv1080_high_framerate(){
 	zoomaid = 0x1;
 	if (isoclimb == 0x0) isoclimb = 0x1;
 	x3crop = 0x0;
-	x3toggle = 0x2;
+	x3toggle = 0x1;
     PauseLiveView(); 
     ResumeLiveView();
     set_lv_zoom(1);
@@ -5261,7 +5257,7 @@ static void apply_preset_mv1080_high_framerate_x3crop(){
 	zoomaid = 0x1;
 	if (isoclimb == 0x0) isoclimb = 0x1;
 	x3crop = 0x1;
-	x3toggle = 0x2;
+	x3toggle = 0x1;
     PauseLiveView(); 
     ResumeLiveView();
     set_lv_zoom(1);
@@ -5516,8 +5512,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "x3crop toggle",
                 .priv   = &x3toggle,
-                .max    = 2,
-                .choices = CHOICES("OFF", "press down", "SET"),
+                .max    = 1,
+                .choices = CHOICES("OFF", "ON"),
                 .help   = "In and out of x3crop(all mv1080p modes)",                          
 		        .help2  = "Select a short press key(EOSM). Halfshutter press(5D3)\n"
             },
@@ -5982,7 +5978,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
     if (is_EOSM && lv && !gui_menu_shown() && !RECORDING && is_movie_mode() && 
-    ((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2)))
+    (key == MODULE_KEY_PRESS_SET && x3toggle == 0x1))
     {
         if((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
         {
@@ -6577,25 +6573,25 @@ else
     }
 
 
-if (x3toggle != 0x1 || x3toggle != 0x2 || zoomaid != 0x0) crop_patch = 0; //disable patch while off
+if (x3toggle != 0x1 || zoomaid != 0x0) crop_patch = 0; //disable patch while off
 
 /* toggle between x3crop and x1 zoom in mv1080p modes. Only 5D3 for now. EOSM instead remaps trash can button */
 if (is_5D3)
 {
-    if ((x3toggle == 0x1 || x3toggle == 0x2) && x3crop == 0x1 && zoomaid == 0x0)
+    if (x3toggle == 0x1 && x3crop == 0x1 && zoomaid == 0x0)
     {	  
 	 x3crop = 0;
 	 NotifyBox(2000, "x3crop NOT compatible with x3toggle"); //disable patch while off
     }
 
-    if ((x3toggle == 0x1 || x3toggle == 0x2) && (zoomaid == 0x1 || zoomaid == 0x2))
+    if (x3toggle == 0x1 && (zoomaid == 0x1 || zoomaid == 0x2))
     {
 	 x3crop = 0; 
 	 x3toggle = 0; 
 	 NotifyBox(2000, "x10crop NOT compatible with x3toggle"); //disable patch while off
     }
 
-if (!crop_patch && get_halfshutter_pressed() && (x3toggle == 0x1 || x3toggle == 0x2))
+if (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
 {
 
 /* exclude presets not used */ 
@@ -6625,7 +6621,7 @@ if (!crop_patch && get_halfshutter_pressed() && (x3toggle == 0x1 || x3toggle == 
       }
   }
 
-  if (crop_patch && get_halfshutter_pressed() && (x3toggle == 0x1 || x3toggle == 0x2))
+  if (crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
   {
             once = false;
             crop_patch = 0;
