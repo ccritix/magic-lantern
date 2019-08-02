@@ -5312,6 +5312,10 @@ static void apply_chosen_preset()
 
 static MENU_SELECT_FUNC(select_preset)
 {
+    if(!is_movie_mode()){
+        NotifyBox(2000, "Turn mode dial to movie mode.");
+        return;
+    }
     chosen_preset_index = (int) priv;
     apply_chosen_preset();
 }
@@ -5425,6 +5429,7 @@ static MENU_UPDATE_FUNC(target_yres_update)
 static struct menu_entry presets_toggler_menu[] =
 {
     {
+        .depends_on = DEP_MOVIE_MODE,
         .name       = "Slot A",
         .priv       = &preset_index_slot_a,
         .min        = 0,
@@ -5432,6 +5437,7 @@ static struct menu_entry presets_toggler_menu[] =
         .help2      = "Double press INFO in LV to open this menu.",
     },
     {
+        .depends_on = DEP_MOVIE_MODE,
         .name       = "Slot B",
         .priv       = &preset_index_slot_b,
         .min        = 0,
@@ -5439,26 +5445,32 @@ static struct menu_entry presets_toggler_menu[] =
         .help2      = "Double press INFO in LV to open this menu.",
     },
     {
+        .depends_on = DEP_MOVIE_MODE,
         .select     = select_preset,
         .priv       = (int *) 1, // Should match index of names in preset_choices_eosm
     },
     {
+        .depends_on = DEP_MOVIE_MODE,
         .select     = select_preset,
         .priv       = (int *) 2,
     },
     {
+        .depends_on = DEP_MOVIE_MODE,
         .select     = select_preset,
         .priv       = (int *) 3,
     },
     {
+        .depends_on = DEP_MOVIE_MODE,
         .select     = select_preset,
         .priv       = (int *) 4,
     },
     {
+        .depends_on = DEP_MOVIE_MODE,
         .select     = select_preset,
         .priv       = (int *) 5,
     },
     {
+        .depends_on = DEP_MOVIE_MODE,
         .select     = select_preset,
         .priv       = (int *) 6,
     },
@@ -6041,7 +6053,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         }
 
 
-    if (is_EOSM && key == MODULE_KEY_INFO && !RECORDING && lv && !gui_menu_shown())
+    if (is_EOSM && key == MODULE_KEY_INFO && !RECORDING && lv && !gui_menu_shown() && is_movie_mode())
     {
         if(handle_info_single_press){
             
