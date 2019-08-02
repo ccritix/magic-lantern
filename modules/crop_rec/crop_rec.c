@@ -16,6 +16,7 @@
 extern WEAK_FUNC(ret_0) unsigned int is_crop_hack_supported();
 extern WEAK_FUNC(ret_0) unsigned int movie_crop_hack_enable();
 extern WEAK_FUNC(ret_0) unsigned int movie_crop_hack_disable();
+extern WEAK_FUNC(ret_0) struct menu_entry * entry_find_by_name();
 
 #undef CROP_DEBUG
 
@@ -5878,22 +5879,6 @@ static struct menu_entry presets_toggler_menu[] =
     {
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "Slot A",
-            .priv = &preset_index_slot_a,
-            .min = 0,
-            .help = "Press INFO in LiveView to activate chosen preset.",
-            .help2 = "Double press INFO in LV to open this menu.",
-        },
-        {
-            .depends_on = DEP_MOVIE_MODE,
-            .name = "Slot B",
-            .priv = &preset_index_slot_b,
-            .min = 0,
-            .help = "Press INFO in LiveView to toggle between chosen presets (Slot A and B).",
-            .help2 = "Double press INFO in LV to open this menu.",
-        },
-        {
-            .depends_on = DEP_MOVIE_MODE,
             .select = select_preset,
             .priv = (int *)1, // Should match index of names in preset_choices_eosm
         },
@@ -5921,6 +5906,22 @@ static struct menu_entry presets_toggler_menu[] =
             .depends_on = DEP_MOVIE_MODE,
             .select = select_preset,
             .priv = (int *)6,
+        },
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = "Slot A",
+            .priv = &preset_index_slot_a,
+            .min = 0,
+            .help = "Press INFO in LiveView to activate chosen preset.",
+            .help2 = "Double press INFO in LV to open this menu.",
+        },
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = "Slot B",
+            .priv = &preset_index_slot_b,
+            .min = 0,
+            .help = "Press INFO in LiveView to toggle between chosen presets (Slot A and B).",
+            .help2 = "Double press INFO in LV to open this menu.",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
@@ -7819,9 +7820,19 @@ static unsigned int crop_rec_init()
         crop_rec_menu[0].help = crop_choices_help_eosm;
         crop_rec_menu[0].help2 = crop_choices_help2_eosm;
 
+        int nr_of_choices = COUNT(preset_choices_eosm) - 1;
+        int nr_of_menu_entries = COUNT(presets_toggler_menu);
+
         // Set the choices for the two preset slots
-        presets_toggler_menu[0].max = presets_toggler_menu[1].max = COUNT(preset_choices_eosm) - 1;
-        presets_toggler_menu[0].choices = presets_toggler_menu[1].choices = preset_choices_eosm;
+        for( int entry_index = 0; entry_index < nr_of_menu_entries; entry_index++ ){
+            struct menu_entry * entry = &presets_toggler_menu[entry_index];
+
+            if (streq(entry->name, "Slot A") || streq(entry->name, "Slot B"))
+            {
+                entry->max = nr_of_choices;
+                entry->choices = preset_choices_eosm;
+            }
+        }
 
         // Set the names for the preset activation items
         // Skip choice at index 0, it's not a preset name (only used for unselected state)
@@ -7829,9 +7840,7 @@ static unsigned int crop_rec_init()
 
         while (choice_index < COUNT(preset_choices_eosm))
         {
-            // The two preset slots are at menu index 0 and 1
-            // The preset activation items start from index 2
-            int preset_activation_item_index = choice_index + 1;
+            int preset_activation_item_index = choice_index - 1;
             presets_toggler_menu[preset_activation_item_index].name = preset_choices_eosm[choice_index];
             choice_index++;
         }
