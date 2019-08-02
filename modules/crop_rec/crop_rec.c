@@ -6644,9 +6644,6 @@ static int crop_rec_needs_lv_refresh()
         return 0;
     }
 
-    apply_chosen_preset();
-    return 0;
-
     /* We don´t want this when in photo mode I assume */
     if (!is_movie_mode())
         return 0;
