@@ -6450,7 +6450,7 @@ static unsigned int handle_eosm_keys(unsigned int key){
                     apply_preset_mv1080();
                 }
 
-                // Switch last_activated_preset_index so we go back to the one we came from when pressing INFO
+                // Switch last_activated_preset_index so we go back to the one we came from when pressing SET
                 if (preset_index_slot_a != 0x0 && preset_index_slot_b != 0x0)
                 {
                     last_activated_preset_index = last_activated_preset_index == preset_index_slot_a ? preset_index_slot_b : preset_index_slot_a;
@@ -6488,7 +6488,7 @@ static unsigned int handle_eosm_keys(unsigned int key){
         }
         else
         {
-            // This is the first INFO key press in a while
+            // This is the first SET key press in a while
             // Wait a bit for another key press, before we handle it as single key press
             // TODO: already NotifyBox ahead of time the name of the preset we're about to toggle into
             NotifyBox(1000, "Schedule Single");
