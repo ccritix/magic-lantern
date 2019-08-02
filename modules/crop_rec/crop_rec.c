@@ -7824,7 +7824,7 @@ static unsigned int crop_rec_init()
         for( int entry_index = 0; entry_index < nr_of_menu_entries; entry_index++ ){
             struct menu_entry * entry = &presets_toggler_menu[entry_index];
 
-            if (streq(entry->name, "Slot A") || streq(entry->name, "Slot B"))
+            if (entry->name != NULL && (streq(entry->name, "Slot A") || streq(entry->name, "Slot B")))
             {
                 entry->max = nr_of_choices;
                 entry->choices = preset_choices_eosm;
