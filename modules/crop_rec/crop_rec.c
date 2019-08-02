@@ -40,7 +40,9 @@ static int is_100D = 0;
 static int is_EOSM = 0;
 static int is_basic = 0;
 static int info_key_timer = 0;
+static int set_key_timer = 0;
 static bool handle_info_single_press = false;
+static bool handle_set_single_press = false;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
@@ -6403,10 +6405,16 @@ static struct menu_entry crop_rec_menu[] =
         },
 };
 
-static void single_press(int arg)
+static void fake_info_single_press()
 {
     handle_info_single_press = true;
     fake_simple_button(module_translate_key(MODULE_KEY_INFO, MODULE_KEY_CANON));
+}
+
+static void fake_set_single_press()
+{
+    handle_set_single_press = true;
+    fake_simple_button(module_translate_key(MODULE_KEY_PRESS_SET, MODULE_KEY_CANON));
 }
 
 static unsigned int handle_eosm_keys(unsigned int key){
@@ -6414,38 +6422,79 @@ static unsigned int handle_eosm_keys(unsigned int key){
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
     if (key == MODULE_KEY_PRESS_SET && x3toggle == 0x1)
     {
-        if ((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
+        if (handle_set_single_press)
         {
-            // Toggle x3crop
-            if (x3crop == 0x1)
+            if ((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
             {
-                x3crop = 0x0;
+                // Toggle x3crop
+                if (x3crop == 0x1)
+                {
+                    x3crop = 0x0;
+                }
+                else
+                {
+                    x3crop = 0x1;
+                }
+                PauseLiveView();
+                ResumeLiveView();
             }
             else
             {
-                x3crop = 0x1;
+                // Activate mv1080
+                if (x3crop == 0x1)
+                {
+                    apply_preset_mv1080_x3crop();
+                }
+                else
+                {
+                    apply_preset_mv1080();
+                }
+
+                // Switch last_activated_preset_index so we go back to the one we came from when pressing INFO
+                if (preset_index_slot_a != 0x0 && preset_index_slot_b != 0x0)
+                {
+                    last_activated_preset_index = last_activated_preset_index == preset_index_slot_a ? preset_index_slot_b : preset_index_slot_a;
+                }
             }
-            PauseLiveView();
-            ResumeLiveView();
+
+            handle_set_single_press = false;
+            set_key_timer = 0;
+            return 0;
+        }
+
+        // If the set_key_timer is > 0, then we still haven't handled the first key press
+        // This means we're in time for a double key press
+        // Cancel handling the single key press and only do stuff for the double press
+        if (set_key_timer)
+        {
+            CancelTimer(set_key_timer);
+            set_key_timer = 0;
+            
+            // Double press to toggle high frame rate mode on/off
+            // Respects x3crop mode state
+            if(CROP_PRESET_MENU != CROP_PRESET_3x3_mv1080_48fps_EOSM){
+                if (x3crop == 0x1){
+                    apply_preset_mv1080_high_framerate_x3crop();
+                } else {
+                    apply_preset_mv1080_high_framerate();
+                }
+            } else {
+                if (x3crop == 0x1){
+                    apply_preset_mv1080_x3crop();
+                } else {
+                    apply_preset_mv1080();
+                }
+            }
         }
         else
         {
-            // Activate mv1080
-            if (x3crop == 0x1)
-            {
-                apply_preset_mv1080_x3crop();
-            }
-            else
-            {
-                apply_preset_mv1080();
-            }
-
-            // Switch last_activated_preset_index so we go back to the one we came from when pressing INFO
-            if (preset_index_slot_a != 0x0 && preset_index_slot_b != 0x0)
-            {
-                last_activated_preset_index = last_activated_preset_index == preset_index_slot_a ? preset_index_slot_b : preset_index_slot_a;
-            }
+            // This is the first INFO key press in a while
+            // Wait a bit for another key press, before we handle it as single key press
+            // TODO: already NotifyBox ahead of time the name of the preset we're about to toggle into
+            NotifyBox(1000, "Schedule Single");
+            set_key_timer = SetTimerAfter(300, (timerCbr_t)fake_set_single_press, (timerCbr_t)fake_set_single_press, 0);
         }
+
         return 0;
     }
 
@@ -6523,7 +6572,7 @@ static unsigned int handle_eosm_keys(unsigned int key){
             // Wait a bit for another key press, before we handle it as single key press
             // TODO: already NotifyBox ahead of time the name of the preset we're about to toggle into
             NotifyBox(1000, "Schedule Single");
-            info_key_timer = SetTimerAfter(300, (timerCbr_t)single_press, (timerCbr_t)single_press, 0);
+            info_key_timer = SetTimerAfter(300, (timerCbr_t)fake_info_single_press, (timerCbr_t)fake_info_single_press, NULL);
         }
 
         return 0;
