@@ -64,6 +64,14 @@ static CONFIG_INT("crop.switch_menu_enabled", switch_menu_enabled, 1);
 static CONFIG_INT("crop.preset_index_slot_a", preset_index_slot_a, 0);
 static CONFIG_INT("crop.preset_index_slot_b", preset_index_slot_b, 0);
 static CONFIG_INT("crop.last_activated_preset_index", last_activated_preset_index, 0); // This value is remembered (also between restarts)
+static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_mv1080, 3);
+static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_mv1080_x3crop, 3);
+static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_5K_anamorphic, 1);
+static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_2K, 1);
+static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_mv1080_high_framerate, 1);
+static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_mv1080_high_framerate_x3crop, 1);
+
+const char * ratios_choices[] = CHOICES("OFF", "2.39:1", "2.35:1", "16:9");
 
 enum crop_preset
 {
@@ -5692,6 +5700,7 @@ static void apply_preset_mv1080()
         return;
     }
     NotifyBox(2000, "mv1080p MCM rewire 14bit");
+    ratios = ratios_preset_mv1080;
     crop_preset_index = 6;
     bitdepth = 0x0;
     zoomaid = 0x1;
@@ -5708,6 +5717,7 @@ static void apply_preset_mv1080_x3crop()
         return;
     }
     NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
+    ratios = ratios_preset_mv1080_x3crop;
     crop_preset_index = 6;
     bitdepth = 0x0;
     zoomaid = 0x1;
@@ -5724,6 +5734,7 @@ static void apply_preset_5K_anamorphic()
         return;
     }
     NotifyBox(2000, "5K anamorphic 10bit");
+    ratios = ratios_preset_5K_anamorphic;
     crop_preset_index = 10;
     bitdepth = 0x3;
     zoomaid = 0x1;
@@ -5743,6 +5754,7 @@ static void apply_preset_2K()
         return;
     }
     NotifyBox(2000, "2.5K 10bit");
+    ratios = ratios_preset_2K;
     crop_preset_index = 2;
     bitdepth = 0x3;
     zoomaid = 0x1;
@@ -5761,6 +5773,7 @@ static void apply_preset_mv1080_high_framerate()
         return;
     }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
+    ratios = ratios_preset_mv1080_high_framerate;
     crop_preset_index = 7;
     bitdepth = 0x3;
     zoomaid = 0x1;
@@ -5778,6 +5791,7 @@ static void apply_preset_mv1080_high_framerate_x3crop()
         return;
     }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
+    ratios = ratios_preset_mv1080_high_framerate_x3crop;
     crop_preset_index = 7;
     bitdepth = 0x3;
     zoomaid = 0x1;
@@ -5890,6 +5904,16 @@ static struct menu_entry presets_switch_menu[] =
             .priv = "ps_entry", // To identify which entries are presets. We need to extract names later.
             .help = "HD. Crop factor>1.61. 14bit. Aliasing.",
             .help2 = "Realtime preview.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_mv1080,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
         },
         {
             .depends_on = DEP_MOVIE_MODE,
@@ -5898,6 +5922,16 @@ static struct menu_entry presets_switch_menu[] =
             .priv = "ps_entry",
             .help = "HD. Crop factor>4.66. 14bit. Less aliasing.",
             .help2 = "Realtime preview.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_mv1080_x3crop,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
         },
         {
             .depends_on = DEP_MOVIE_MODE,
@@ -5906,6 +5940,16 @@ static struct menu_entry presets_switch_menu[] =
             .priv = "ps_entry",
             .help = "5K. Crop factor>1.68. 10bit. Less aliasing.",
             .help2 = "Slow preview. Desqueeze in post.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_5K_anamorphic,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
         },
         {
             .depends_on = DEP_MOVIE_MODE,
@@ -5914,6 +5958,16 @@ static struct menu_entry presets_switch_menu[] =
             .priv = "ps_entry",
             .help = "2K. Crop factor>3.83. 10bit. Less aliasing.",
             .help2 = "Slow preview.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_2K,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
         },
         {
             .depends_on = DEP_MOVIE_MODE,
@@ -5922,6 +5976,16 @@ static struct menu_entry presets_switch_menu[] =
             .priv = "ps_entry",
             .help = "HD. Crop factor>1.61. 10bit. Aliasing",
             .help2 = "Realtime preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_mv1080_high_framerate,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
         },
         {
             .depends_on = DEP_MOVIE_MODE,
@@ -5930,6 +5994,16 @@ static struct menu_entry presets_switch_menu[] =
             .priv = "ps_entry",
             .help = "HD. Crop factor>4.66. 10bit. Less aliasing.",
             .help2 = "Realtime preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_mv1080_high_framerate_x3crop,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
         },
         {
             .depends_on = DEP_MOVIE_MODE,
@@ -6014,7 +6088,7 @@ static struct menu_entry crop_rec_menu[] =
                 .name   = "ratios",
                 .priv   = &ratios,
                 .max    = 3,
-                .choices = CHOICES("OFF", "2.39:1", "2.35:1", "16:9"),
+                .choices = ratios_choices,
                 .help   = "Change aspect ratio\n"
             },
             {
@@ -8154,6 +8228,12 @@ MODULE_CONFIG(zoomaid)
 MODULE_CONFIG(preset_index_slot_a)
 MODULE_CONFIG(preset_index_slot_b)
 MODULE_CONFIG(last_activated_preset_index)
+MODULE_CONFIG(ratios_preset_mv1080)
+MODULE_CONFIG(ratios_preset_mv1080_x3crop)
+MODULE_CONFIG(ratios_preset_5K_anamorphic)
+MODULE_CONFIG(ratios_preset_2K)
+MODULE_CONFIG(ratios_preset_mv1080_high_framerate)
+MODULE_CONFIG(ratios_preset_mv1080_high_framerate_x3crop)
 MODULE_CONFIG(switch_menu_enabled)
 MODULE_CONFIGS_END()
 
