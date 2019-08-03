@@ -5874,7 +5874,7 @@ static bool eos_m_only(){
     return (bool) is_EOSM;
 }
 
-// TODO: check crop factor in help text. Is it correct? Also depends on selected resolution in RAW video submenu. Ensure it's maxed out.
+// TODO: check crop factor in help text. Is it correct?
 static struct menu_entry presets_switch_menu[] =
     {
         {
