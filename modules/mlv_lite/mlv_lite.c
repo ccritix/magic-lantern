@@ -4132,6 +4132,13 @@ static struct menu_entry raw_video_menu[] =
     }
 };
 
+bool raw_video_res_is_maxed_out(){
+    return (resolution_index_x == COUNT(resolution_presets_x) - 1);
+}
+
+void raw_video_set_res_to_max(){
+    resolution_index_x = COUNT(resolution_presets_x) - 1;
+}
 
 static REQUIRES(GuiMainTask)
 unsigned int raw_rec_keypress_cbr(unsigned int key)

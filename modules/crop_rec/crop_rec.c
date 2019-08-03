@@ -16,6 +16,8 @@
 extern WEAK_FUNC(ret_0) unsigned int is_crop_hack_supported();
 extern WEAK_FUNC(ret_0) unsigned int movie_crop_hack_enable();
 extern WEAK_FUNC(ret_0) unsigned int movie_crop_hack_disable();
+extern WEAK_FUNC(ret_0) bool raw_video_res_is_maxed_out();
+extern WEAK_FUNC(ret_0) void raw_video_set_res_to_max();
 
 #undef CROP_DEBUG
 
@@ -5660,6 +5662,10 @@ static bool before_apply_preset(){
 
     // Put all common code when applying a preset here
     gui_stop_menu(); // Close ML menu before applying to make sure all is set properly
+
+    if(!raw_video_res_is_maxed_out()){
+        raw_video_set_res_to_max();
+    }
 
     return true;
 }
