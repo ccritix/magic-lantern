@@ -50,7 +50,7 @@ static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 0);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.zoomaid", zoomaid, 1);
-static CONFIG_INT("crop.x3toggle", x3toggle, 1);
+static CONFIG_INT("crop.x3toggle", x3toggle, 2);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
@@ -58,6 +58,7 @@ static CONFIG_INT("crop.isoauto", isoauto, 0);
 static CONFIG_INT("crop.isoclimb", isoclimb, 1);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
+static CONFIG_INT("crop.switch_menu_enabled", switch_menu_enabled, 1);
 static CONFIG_INT("crop.preset_index_slot_a", preset_index_slot_a, 0);
 static CONFIG_INT("crop.preset_index_slot_b", preset_index_slot_b, 0);
 static CONFIG_INT("crop.last_activated_preset_index", last_activated_preset_index, 0); // This value is remembered (also between restarts)
@@ -1771,6 +1772,11 @@ static void FAST cmos_hook(uint32_t *regs, uint32_t *stack, uint32_t pc)
         if (lens_info.raw_iso == 0x0)
         {
             NotifyBox(3000, "Turn off autoiso if using iso climb");
+        }
+
+        if (x3toggle == 0x1 && is_EOSM)
+        {
+            NotifyBox(1000, "Use x3crop toggle SET or turn iso climb off");
         }
 
         isopatch = 1;
@@ -5666,7 +5672,7 @@ static void apply_preset_mv1080()
     if (isoclimb == 0x0)
         isoclimb = 0x1;
     x3crop = 0x0;
-    x3toggle = 0x1;
+    x3toggle = 0x2;
     PauseLiveView();
     ResumeLiveView();
 }
@@ -5683,7 +5689,7 @@ static void apply_preset_mv1080_x3crop()
     if (isoclimb == 0x0)
         isoclimb = 0x1;
     x3crop = 0x1;
-    x3toggle = 0x1;
+    x3toggle = 0x2;
     PauseLiveView();
     ResumeLiveView();
 }
@@ -5702,7 +5708,7 @@ static void apply_preset_5K_anamorphic()
     // Don't change x3crop here, it won't affect recording in this mode anyway
     // Allows to jump from one of the preset slots back into x3crop mode with the x3crop toggle button
     // x3crop = 0x0;
-    x3toggle = 0x1;
+    x3toggle = 0x2;
     PauseLiveView();
     ResumeLiveView();
     set_lv_zoom(1);
@@ -5722,7 +5728,7 @@ static void apply_preset_2K()
     // Don't change x3crop here, it won't affect recording in this mode anyway
     // Allows to jump from one of the preset slots back into x3crop mode with the x3crop toggle button
     // x3crop = 0x0;
-    x3toggle = 0x1;
+    x3toggle = 0x2;
     PauseLiveView();
     ResumeLiveView();
 }
@@ -5739,7 +5745,7 @@ static void apply_preset_mv1080_high_framerate()
     if (isoclimb == 0x0)
         isoclimb = 0x1;
     x3crop = 0x0;
-    x3toggle = 0x1;
+    x3toggle = 0x2;
     PauseLiveView();
     ResumeLiveView();
     set_lv_zoom(1);
@@ -5757,7 +5763,7 @@ static void apply_preset_mv1080_high_framerate_x3crop()
     if (isoclimb == 0x0)
         isoclimb = 0x1;
     x3crop = 0x1;
-    x3toggle = 0x1;
+    x3toggle = 0x2;
     PauseLiveView();
     ResumeLiveView();
     set_lv_zoom(1);
@@ -5850,6 +5856,10 @@ static MENU_UPDATE_FUNC(target_yres_update)
     MENU_SET_RINFO("from %d", max_resolutions[crop_preset][get_video_mode_index()]);
 }
 
+static bool eos_m_only(){
+    return (bool) is_EOSM;
+}
+
 static struct menu_entry presets_toggler_menu[] =
     {
         {
@@ -5912,12 +5922,12 @@ static struct menu_entry presets_toggler_menu[] =
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "Toggle with SET",
+            .name = "Toggle mv1080",
             .priv = &x3toggle,
-            .max = 1,
-            .choices = CHOICES("OFF", "ON"),
-            .help = "Press SET 1x: Jumps into mv1080p rewire from another preset, or...",
-            .help2 = "...toggle x3crop. Press SET 2x: Toggle high framerate mode."
+            .max = 2,
+            .choices = CHOICES("OFF", "press down", "SET"),
+            .help = "Press key 1x: Jumps into mv1080p rewire from another preset, or...",
+            .help2 = "...toggle x3crop. Press key 2x: Toggle high framerate mode."
         },
         MENU_EOL,
 };
@@ -5928,410 +5938,472 @@ static void apply_chosen_preset(unsigned int choice_index)
     presets_toggler_menu[entry_index].select(0, 0);
 }
 
-static struct menu_entry crop_rec_menu[] =
+static MENU_SELECT_FUNC(switch_menu_toggle_select)
+{
+    // Toggle switch_menu_enabled
+    switch_menu_enabled = 1 - switch_menu_enabled;
+
+    // Toggle hide flag for all entries from presets_toggler_menu
+    for (struct menu_entry * entry = presets_toggler_menu; entry; entry = entry->next)
     {
-        {
-            .name = "Crop mode",
-            .priv = &crop_preset_index,
-            .update = crop_update,
-            .depends_on = DEP_LIVEVIEW,
-            .children = (struct menu_entry[]){
-                {.name = "set 25fps",
-                 .priv = &set_25fps,
-                 .max = 1,
-                 .choices = CHOICES("OFF", "ON"),
-                 .help = "Sets 2.39:1, 2.35:1 and 16:9 modes to 25fps\n"},
-                {.name = "ratios",
-                 .priv = &ratios,
-                 .max = 3,
-                 .choices = CHOICES("OFF", "2.39:1", "2.35:1", "16:9"),
-                 .help = "Change aspect ratio\n"},
-                {.name = "bitdepth",
-                 .priv = &bitdepth,
-                 .max = 4,
-                 .choices = CHOICES("OFF", "8 bit", "9 bit", "10 bit", "12 bit"),
-                 .help = "Alter bitdepth\n"},
-                {
-                    .name = "x3crop",
-                    .priv = &x3crop,
-                    .max = 1,
-                    .choices = CHOICES("OFF", "ON"),
-                    .help = "Turns mv1080p and mv1080_46fps modes into x3 crop modes)",
-                },
-                {.name = "focus aid",
-                 .priv = &zoomaid,
-                 .max = 2,
-                 .choices = CHOICES("OFF", "default mode", "dark mode"),
-                 .help = "x10 zoom when pressing halfshutter(all presets, manual focus)",
-                 .help2 = "Will brighten liveview(slower fps)\n"},
-                {.name = "iso climb",
-                 .priv = &isoclimb,
-                 .max = 1,
-                 .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
-                 .help = "Fast access to iso (NOT working with autoiso)",
-                 .help2 = "press down(eosm), INFO(5D3) or SET(100d) button 100-3200 iso\n"},
-                {.name = "max iso",
-                 .priv = &isoauto,
-                 .max = 3,
-                 .choices = CHOICES("OFF", "400", "800", "1600"),
-                 .help = "Restrict autoiso to max 400/800/1600",
-                 .help2 = "Select max iso. Turn on autoiso\n"},
-                {
-                    .name = "4k timelapse",
-                    .priv = &timelapse,
-                    .max = 9,
-                    .choices = CHOICES("OFF", "0.4fps", "1fps", "2fps", "3fps", "4fps", "5fps", "5K 0.4fps", "5K 1fps", "5K 2fps"),
-                    .help = "Fps intervals(only 4k preset(100D/EOSM)\n",
-                    .help2 = "Enable REC trigger Half-shutter: start/pause for best performance",
-                },
-                {.name = "Slow shutter",
-                 .priv = &slowshutter,
-                 .max = 1,
-                 .choices = CHOICES("OFF", "ON"),
-                 .help = "Allows for slow shutter speeds with 4k timelapse(Only 100D/EOSM).\n"},
-                {
-                    .name = "hdr iso A",
-                    .priv = &HDR_iso_a,
-                    .max = 6,
-                    .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
-                    .help = "HDR workaround eosm",
-                    .advanced = 1,
-                },
-                {
-                    .name = "hdr iso B",
-                    .priv = &HDR_iso_b,
-                    .max = 6,
-                    .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
-                    .help = "HDR workaround eosm",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_713c",
-                    .priv = &reg_713c,
-                    .min = -2000,
-                    .max = 2000,
-                    .unit = UNIT_DEC,
-                    .help = "Corruption? Combine with reg_7150",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_7150",
-                    .priv = &reg_7150,
-                    .min = -2000,
-                    .max = 2000,
-                    .unit = UNIT_DEC,
-                    .help = "Corruption issues? Combine with reg_713c",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_6014",
-                    .priv = &reg_6014,
-                    .min = -100000,
-                    .max = 100000,
-                    .unit = UNIT_DEC,
-                    .help = "Alter frame rate. Combine with reg_6008",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_6008",
-                    .priv = &reg_6008,
-                    .min = -10000,
-                    .max = 10000,
-                    .unit = UNIT_DEC,
-                    .help = "Alter frame rate. Combine with reg_6014",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_800c",
-                    .priv = &reg_800c,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "line skipping",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_8000",
-                    .priv = &reg_8000,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "x3zoom",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_8183",
-                    .priv = &reg_8183,
-                    .min = -2000,
-                    .max = 2000,
-                    .unit = UNIT_DEC,
-                    .help = "Aliasing, moiré mcm rewired mode",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_8184",
-                    .priv = &reg_8184,
-                    .min = -2000,
-                    .max = 2000,
-                    .unit = UNIT_DEC,
-                    .help = "Aliasing, moiré mcm rewired mode",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_6800_height",
-                    .priv = &reg_6800_height,
-                    .min = -2000,
-                    .max = 2000,
-                    .unit = UNIT_DEC,
-                    .help = "height offset",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_6800_width",
-                    .priv = &reg_6800_width,
-                    .min = -2000,
-                    .max = 2000,
-                    .unit = UNIT_DEC,
-                    .help = "width offset",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_6804_height",
-                    .priv = &reg_6804_height,
-                    .min = -2000,
-                    .max = 2000,
-                    .unit = UNIT_DEC,
-                    .help = "Alter height.",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_6804_width",
-                    .priv = &reg_6804_width,
-                    .min = -2000,
-                    .max = 2000,
-                    .unit = UNIT_DEC,
-                    .help = "Alter width. Scrambles preview",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_83d4",
-                    .priv = &reg_83d4,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "Preview engdrvout",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_83dc",
-                    .priv = &reg_83dc,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "Preview engdrvout",
-                    .advanced = 1,
-                },
-                {
-                    .name = "CMOS[1]",
-                    .priv = &cmos1,
-                    .max = 0xFFF,
-                    .unit = UNIT_HEX,
-                    .help = "Vertical offset",
-                    .advanced = 1,
-                },
-                {
-                    .name = "CMOS[2]",
-                    .priv = &cmos2,
-                    .max = 0xFFF,
-                    .unit = UNIT_HEX,
-                    .help = "Horizontal offset",
-                    .advanced = 1,
-                },
-                {
-                    .name = "CMOS[3]",
-                    .priv = &cmos3,
-                    .max = 0xFFF,
-                    .unit = UNIT_HEX,
-                    .help = "Analog iso on 6D",
-                    .advanced = 1,
-                },
-                {
-                    .name = "CMOS[4]",
-                    .priv = &cmos4,
-                    .max = 0xFFF,
-                    .unit = UNIT_HEX,
-                    .help = "Hot/cold pixel",
-                    .advanced = 1,
-                },
-                {
-                    .name = "CMOS[5]",
-                    .priv = &cmos5,
-                    .max = 0xFFF,
-                    .unit = UNIT_HEX,
-                    .help = "Fine vertical offset, black area maybe",
-                    .advanced = 1,
-                },
-                {
-                    .name = "CMOS[6]",
-                    .priv = &cmos6,
-                    .max = 0xFFF,
-                    .unit = UNIT_HEX,
-                    .help = "Iso 50 or timing related",
-                    .advanced = 1,
-                },
-                {
-                    .name = "CMOS[7]",
-                    .priv = &cmos7,
-                    .max = 0xFFF,
-                    .unit = UNIT_HEX,
-                    .help = "Image fading out; 6D, 700D: vertical offset",
-                    .advanced = 1,
-                },
-                {
-                    .name = "CMOS[8]",
-                    .priv = &cmos8,
-                    .max = 0xFFF,
-                    .unit = UNIT_HEX,
-                    .help = "Unknown, used on 6D",
-                    .help2 = "Use for horizontal centering.",
-                    .advanced = 1,
-                },
-                {
-                    .name = "CMOS[9]",
-                    .priv = &cmos9,
-                    .max = 0xFFF,
-                    .unit = UNIT_HEX,
-                    .help = "?",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_gain",
-                    .priv = &reg_gain,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "Alter bit depth",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_timing1",
-                    .priv = &reg_timing1,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "PowSaveTim reg 8172, 8178, 8196",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_timing2",
-                    .priv = &reg_timing2,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "PowSaveTim reg 8179, 8197",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_timing3",
-                    .priv = &reg_timing3,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "PowSaveTim reg 8173",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_timing4",
-                    .priv = &reg_timing4,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "PowSaveTim reg 82f8, 82f9",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_timing5",
-                    .priv = &reg_timing5,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "PowSaveTim reg 6014",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_timing6",
-                    .priv = &reg_timing6,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "PowSaveTim reg 82b6",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_6824",
-                    .priv = &reg_6824,
-                    .min = -500,
-                    .max = 500,
-                    .unit = UNIT_DEC,
-                    .help = "PowSaveTim reg 6824, 6828, 682c, 6830",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_skip_left",
-                    .priv = &reg_skip_left,
-                    .min = -1000,
-                    .max = 1000,
-                    .unit = UNIT_DEC,
-                    .help = "skip left",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_skip_right",
-                    .priv = &reg_skip_right,
-                    .min = -1000,
-                    .max = 1000,
-                    .unit = UNIT_DEC,
-                    .help = "skip right",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_skip_top",
-                    .priv = &reg_skip_top,
-                    .min = -1000,
-                    .max = 1000,
-                    .unit = UNIT_DEC,
-                    .help = "skip top",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_skip_bottom",
-                    .priv = &reg_skip_bottom,
-                    .min = -1000,
-                    .max = 1000,
-                    .unit = UNIT_DEC,
-                    .help = "skip bottom",
-                    .advanced = 1,
-                },
-                {
-                    .name = "Shutter range",
-                    .priv = &shutter_range,
-                    .max = 1,
-                    .choices = CHOICES("Original", "Full range"),
-                    .help = "Choose the available shutter speed range:",
-                    .help2 = "Original: default range used by Canon in selected video mode.\n"
-                             "Full range: from 1/FPS to minimum exposure time allowed by hardware.",
-                    .advanced = 1,
-                },
-                {
-                    .name = "reg_bl",
-                    .priv = &reg_bl,
-                    .min = -1000,
-                    .max = 1000,
-                    .unit = UNIT_DEC,
-                    .help = "black level for reduced bitdepths(not affecting recordings)",
-                    .advanced = 1,
-                },
-                /* not used atm	{
+        entry->hidden = switch_menu_enabled ? 0 : 1;
+    }
+}
+
+static MENU_UPDATE_FUNC(switch_menu_toggle_update)
+{
+    // Hide this entry on unsupported cameras
+    // Don't use hidden, it will show a warning that it can be re-enabled (which it can't)
+    // TODO: shidden is annoying because the item disappears the first time the menu is opened
+    // and isn't remembered between reboots
+    // Find better way: don't make this item in the first place, or remove it before menu is opened
+    entry->shidden = !is_EOSM;
+    MENU_SET_VALUE(switch_menu_enabled ? "ON" : "OFF");
+}
+
+static MENU_UPDATE_FUNC(x3crop_entry_update)
+{
+    if(switch_menu_enabled){
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This now affects \"Toggle mv1080\" in Switch menu.");
+    }
+}
+
+static struct menu_entry crop_rec_menu[] =
+{
+    {
+        .name       = "Crop mode",
+        .priv       = &crop_preset_index,
+        .update     = crop_update,
+        .depends_on = DEP_LIVEVIEW,
+        .children =  (struct menu_entry[]) {
+            {
+                .name   = "bitdepth",
+                .priv   = &bitdepth,
+                .max    = 4,
+                .choices = CHOICES("OFF", "8 bit", "9 bit", "10 bit", "12 bit"),
+                .help   = "Alter bitdepth\n"
+            },
+            {
+                .name   = "ratios",
+                .priv   = &ratios,
+                .max    = 3,
+                .choices = CHOICES("OFF", "2.39:1", "2.35:1", "16:9"),
+                .help   = "Change aspect ratio\n"
+            },
+            {
+                .name   = "x3crop",
+                .priv   = &x3crop,
+                .max    = 1,
+                .choices = CHOICES("OFF", "ON"),
+                .help   = "Turns mv1080p and mv1080_46fps modes into x3 crop modes)",
+            },
+            {
+                .name   = "x3crop toggle",
+                .priv   = &x3toggle,
+                .max    = 2,
+                .choices = CHOICES("OFF", "press down", "SET"),
+                .update = x3crop_entry_update,
+                .help   = "In and out of x3crop(all mv1080p modes)",
+		        .help2  = "Select a short press key(EOSM). Halfshutter press(5D3)\n"
+            },
+            {
+                .name   = "focus aid",
+                .priv   = &zoomaid,
+                .max    = 2,
+                .choices = CHOICES("OFF", "default mode", "dark mode"),
+                .help   = "x10 zoom when pressing halfshutter(all presets, manual focus)",
+                .help2   = "Will brighten liveview(slower fps)\n"
+            },
+            {
+                .name   = "set 25fps",
+                .priv   = &set_25fps,
+                .max    = 1,
+                .choices = CHOICES("OFF", "ON"),
+                .help   = "Sets 2.39:1, 2.35:1 and 16:9 modes to 25fps\n"
+            },
+            {
+                .name   = "iso climb",
+                .priv   = &isoclimb,
+                .max    = 1,
+                .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
+                .help   = "Fast access to iso (NOT working with autoiso)",
+                .help2  = "press down(eosm), INFO(5D3) or SET(100d) button 100-3200 iso\n"
+            },
+            {
+                .name   = "max iso",
+                .priv   = &isoauto,
+                .max    = 3,
+                .choices = CHOICES("OFF", "400", "800", "1600"),
+                .help   = "Restrict autoiso to max 400/800/1600",
+                .help2  = "Select max iso. Turn on autoiso\n"
+            },
+            {
+                .name   = "4k timelapse",
+                .priv   = &timelapse,
+                .max    = 9,
+                .choices = CHOICES("OFF", "0.4fps" ,"1fps", "2fps", "3fps", "4fps", "5fps","5K 0.4fps", "5K 1fps", "5K 2fps"),
+                .help   = "Fps intervals(only 4k preset(100D/EOSM)\n",
+                .help2  = "Enable REC trigger Half-shutter: start/pause for best performance",
+            },
+            {
+                .name   = "Slow shutter",
+                .priv   = &slowshutter,
+                .max    = 1,
+                .choices = CHOICES("OFF", "ON"),
+                .help   = "Allows for slow shutter speeds with 4k timelapse(Only 100D/EOSM).\n"
+            },
+            {
+                .name   = "Switch menu",
+                .priv   = &switch_menu_enabled,
+                .max    = 1,
+                .select = switch_menu_toggle_select,
+                .update = switch_menu_toggle_update,
+                .help   = "Quickly switch presets using keys.",
+                .help2  = "Or activate fully configured presets from menu.",
+            },
+            {
+                .name   = "hdr iso A",
+                .priv   = &HDR_iso_a,
+                .max    = 6,
+                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+                .help   =  "HDR workaround eosm",
+                .advanced = 1,
+            },
+            {
+                .name   = "hdr iso B",
+                .priv   = &HDR_iso_b,
+                .max    = 6,
+                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+                .help   =  "HDR workaround eosm",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_713c",
+                .priv   = &reg_713c,
+                .min    = -2000,
+                .max    = 2000,
+                .unit   = UNIT_DEC,
+                .help  = "Corruption? Combine with reg_7150",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_7150",
+                .priv   = &reg_7150,
+                .min    = -2000,
+                .max    = 2000,
+                .unit   = UNIT_DEC,
+                .help  = "Corruption issues? Combine with reg_713c",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_6014",
+                .priv   = &reg_6014,
+                .min    = -100000,
+                .max    = 100000,
+                .unit   = UNIT_DEC,
+                .help  = "Alter frame rate. Combine with reg_6008",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_6008",
+                .priv   = &reg_6008,
+                .min    = -10000,
+                .max    = 10000,
+                .unit   = UNIT_DEC,
+                .help  = "Alter frame rate. Combine with reg_6014",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_800c",
+                .priv   = &reg_800c,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "line skipping",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_8000",
+                .priv   = &reg_8000,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "x3zoom",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_8183",
+                .priv   = &reg_8183,
+                .min    = -2000,
+                .max    = 2000,
+                .unit   = UNIT_DEC,
+                .help  = "Aliasing, moiré mcm rewired mode",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_8184",
+                .priv   = &reg_8184,
+                .min    = -2000,
+                .max    = 2000,
+                .unit   = UNIT_DEC,
+                .help  = "Aliasing, moiré mcm rewired mode",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_6800_height",
+                .priv   = &reg_6800_height,
+                .min    = -2000,
+                .max    = 2000,
+                .unit   = UNIT_DEC,
+                .help  = "height offset",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_6800_width",
+                .priv   = &reg_6800_width,
+                .min    = -2000,
+                .max    = 2000,
+                .unit   = UNIT_DEC,
+                .help  = "width offset",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_6804_height",
+                .priv   = &reg_6804_height,
+                .min    = -2000,
+                .max    = 2000,
+                .unit   = UNIT_DEC,
+                .help  = "Alter height.",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_6804_width",
+                .priv   = &reg_6804_width,
+                .min    = -2000,
+                .max    = 2000,
+                .unit   = UNIT_DEC,
+                .help  = "Alter width. Scrambles preview",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_83d4",
+                .priv   = &reg_83d4,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Preview engdrvout",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_83dc",
+                .priv   = &reg_83dc,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Preview engdrvout",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[1]",
+                .priv   = &cmos1,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Vertical offset",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[2]",
+                .priv   = &cmos2,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Horizontal offset",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[3]",
+                .priv   = &cmos3,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Analog iso on 6D",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[4]",
+                .priv   = &cmos4,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Hot/cold pixel",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[5]",
+                .priv   = &cmos5,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Fine vertical offset, black area maybe",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[6]",
+                .priv   = &cmos6,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Iso 50 or timing related",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[7]",
+                .priv   = &cmos7,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Image fading out; 6D, 700D: vertical offset",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[8]",
+                .priv   = &cmos8,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "Unknown, used on 6D",
+                .help2  = "Use for horizontal centering.",
+                .advanced = 1,
+            },
+            {
+                .name   = "CMOS[9]",
+                .priv   = &cmos9,
+                .max    = 0xFFF,
+                .unit   = UNIT_HEX,
+                .help   = "?",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_gain",
+                .priv   = &reg_gain,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "Alter bit depth",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing1",
+                .priv   = &reg_timing1,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 8172, 8178, 8196",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing2",
+                .priv   = &reg_timing2,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 8179, 8197",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing3",
+                .priv   = &reg_timing3,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 8173",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing4",
+                .priv   = &reg_timing4,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 82f8, 82f9",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing5",
+                .priv   = &reg_timing5,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 6014",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_timing6",
+                .priv   = &reg_timing6,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 82b6",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_6824",
+                .priv   = &reg_6824,
+                .min    = -500,
+                .max    = 500,
+                .unit   = UNIT_DEC,
+                .help  = "PowSaveTim reg 6824, 6828, 682c, 6830",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_skip_left",
+                .priv   = &reg_skip_left,
+                .min    = -1000,
+                .max    = 1000,
+                .unit   = UNIT_DEC,
+                .help  = "skip left",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_skip_right",
+                .priv   = &reg_skip_right,
+                .min    = -1000,
+                .max    = 1000,
+                .unit   = UNIT_DEC,
+                .help  = "skip right",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_skip_top",
+                .priv   = &reg_skip_top,
+                .min    = -1000,
+                .max    = 1000,
+                .unit   = UNIT_DEC,
+                .help  = "skip top",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_skip_bottom",
+                .priv   = &reg_skip_bottom,
+                .min    = -1000,
+                .max    = 1000,
+                .unit   = UNIT_DEC,
+                .help  = "skip bottom",
+                .advanced = 1,
+            },
+            {
+                .name       = "Shutter range",
+                .priv       = &shutter_range,
+                .max        = 1,
+                .choices    = CHOICES("Original", "Full range"),
+                .help       = "Choose the available shutter speed range:",
+                .help2      = "Original: default range used by Canon in selected video mode.\n"
+                              "Full range: from 1/FPS to minimum exposure time allowed by hardware.",
+                .advanced = 1,
+            },
+            {
+                .name   = "reg_bl",
+                .priv   = &reg_bl,
+                .min    = -1000,
+                .max    = 1000,
+                .unit   = UNIT_DEC,
+                .help  = "black level for reduced bitdepths(not affecting recordings)",
+                .advanced = 1,
+            },
+/* not used atm	{
                 .name   = "CMOS[1] lo",
                 .priv   = &cmos1_lo,
                 .max    = 63,
@@ -6396,10 +6468,10 @@ static struct menu_entry crop_rec_menu[] =
                 .help2  = "May help pushing the resolution a little. Start with small increments.",
                 .advanced = 1,
             }, */
-                MENU_ADVANCED_TOGGLE,
-                MENU_EOL,
-            },
+            MENU_ADVANCED_TOGGLE,
+            MENU_EOL,
         },
+    },
 };
 
 static void fake_info_single_press()
@@ -6414,10 +6486,9 @@ static void fake_set_single_press()
     fake_simple_button(module_translate_key(MODULE_KEY_PRESS_SET, MODULE_KEY_CANON));
 }
 
-static unsigned int handle_eosm_keys(unsigned int key){
-
+static unsigned int handle_switch_menu_keys(unsigned int key){
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
-    if (key == MODULE_KEY_PRESS_SET && x3toggle == 0x1)
+    if ((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2))
     {
         if (handle_set_single_press)
         {
@@ -6427,14 +6498,7 @@ static unsigned int handle_eosm_keys(unsigned int key){
             if ((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
             {
                 // Toggle x3crop
-                if (x3crop == 0x1)
-                {
-                    x3crop = 0x0;
-                }
-                else
-                {
-                    x3crop = 0x1;
-                }
+                x3crop = 1 - x3crop;
                 PauseLiveView();
                 ResumeLiveView();
             }
@@ -6574,6 +6638,34 @@ static unsigned int handle_eosm_keys(unsigned int key){
         }
 
         return 0;
+    }
+
+    // Handle key normally
+    return 1;
+}
+
+static unsigned int handle_eosm_keys(unsigned int key){
+
+    // Put code here that should always run on key press
+    // regardless of state of switch_menu_enabled
+
+    if(switch_menu_enabled){
+        // Put code that should only run on key press if switch_menu_enabled == true in handle_switch_menu_keys()
+        return handle_switch_menu_keys(key);
+    }
+
+    // Put code here that should only run on key press
+    // only if switch_menu_enabled == false
+
+    /* x3crop toggle by using short press on thrash can button instead of halfshutter */
+    if (((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2)) &&
+        (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
+    {
+        // Toggle x3crop
+        x3crop = 1 - x3crop;
+        PauseLiveView();
+        ResumeLiveView();
+        return 0;		
     }
 
     // If none of the above conditions apply, handle key normally
@@ -7088,26 +7180,27 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         }
     }
 
-    if (x3toggle != 0x1 || zoomaid != 0x0)
+    if (x3toggle != 0x1 || x3toggle != 0x2 || zoomaid != 0x0){
         crop_patch = 0; //disable patch while off
+    }
 
     /* toggle between x3crop and x1 zoom in mv1080p modes. Only 5D3 for now. EOSM instead remaps trash can button */
     if (is_5D3)
     {
-        if (x3toggle == 0x1 && x3crop == 0x1 && zoomaid == 0x0)
+        if ((x3toggle == 0x1 || x3toggle == 0x2) && x3crop == 0x1 && zoomaid == 0x0)
         {
             x3crop = 0;
             NotifyBox(2000, "x3crop NOT compatible with x3toggle"); //disable patch while off
         }
 
-        if (x3toggle == 0x1 && (zoomaid == 0x1 || zoomaid == 0x2))
+        if ((x3toggle == 0x1 || x3toggle == 0x2) && (zoomaid == 0x1 || zoomaid == 0x2))
         {
             x3crop = 0;
             x3toggle = 0;
             NotifyBox(2000, "x10crop NOT compatible with x3toggle"); //disable patch while off
         }
 
-        if (!crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
+        if (!crop_patch && get_halfshutter_pressed() && (x3toggle == 0x1 || x3toggle == 0x2))
         {
 
             /* exclude presets not used */
@@ -7137,7 +7230,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             }
         }
 
-        if (crop_patch && get_halfshutter_pressed() && x3toggle == 0x1)
+        if (crop_patch && get_halfshutter_pressed() && (x3toggle == 0x1 || x3toggle == 0x2))
         {
             once = false;
             crop_patch = 0;
@@ -7825,7 +7918,7 @@ static unsigned int crop_rec_init()
         unsigned int nr_of_menu_entries = COUNT(presets_toggler_menu);
         for(unsigned int entry_index = 0; entry_index < nr_of_menu_entries; entry_index++ ){
             struct menu_entry * entry = &presets_toggler_menu[entry_index];
-
+            
             if (entry->name != NULL)
             {
                 if(streq(entry->name, PRESET_SLOT_A_NAME)){
@@ -7861,6 +7954,8 @@ static unsigned int crop_rec_init()
             slot_a->min = slot_b->min = 0;
             slot_a->max = slot_b->max = nr_of_choices - 1;
         }
+
+        menu_add("Switch", presets_toggler_menu, COUNT(presets_toggler_menu) - 1);
     }
     else if (is_camera("700D", "1.1.5"))
     {
@@ -8008,7 +8103,6 @@ static unsigned int crop_rec_init()
     }
 
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
-    menu_add("Switch", presets_toggler_menu, COUNT(presets_toggler_menu) - 1);
     lvinfo_add_items(info_items, COUNT(info_items));
 
     return 0;
@@ -8042,6 +8136,7 @@ MODULE_CONFIG(zoomaid)
 MODULE_CONFIG(preset_index_slot_a)
 MODULE_CONFIG(preset_index_slot_b)
 MODULE_CONFIG(last_activated_preset_index)
+MODULE_CONFIG(switch_menu_enabled)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
