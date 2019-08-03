@@ -5854,39 +5854,45 @@ static struct menu_entry presets_toggler_menu[] =
     {
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "HD >1.61 crop",
+            .name = "mv1080p MCM rewire",
             .select = apply_preset_mv1080,
             .priv = "ps_entry", // To identify which entries are presets. We need to extract names later.
+            .help = "HD >1.61 crop",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "HD >4.66 crop",
+            .name = "mv1080p MCM rewire x3crop",
             .select = apply_preset_mv1080_x3crop,
             .priv = "ps_entry",
+            .help = "HD >4.66 crop",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "5k >1.68 crop",
+            .name = "5k anamorphic",
             .select = apply_preset_5K_anamorphic,
             .priv = "ps_entry",
+            .help = "5k >1.68 crop",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "2K >3.83 crop",
+            .name = "2.5K",
             .select = apply_preset_2K,
             .priv = "ps_entry",
+            .help = "2K >3.83 crop",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "High FPS >1.61 crop",
+            .name = "mv1080p 45/46/48 fps",
             .select = apply_preset_mv1080_high_framerate,
             .priv = "ps_entry",
+            .help = "High FPS >1.61 crop",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "High FPS >4.66 crop",
+            .name = "mv1080p 45/46/48 fps x3crop",
             .select = apply_preset_mv1080_high_framerate_x3crop,
             .priv = "ps_entry",
+            .help = "High FPS >4.66 crop",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
