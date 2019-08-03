@@ -5664,6 +5664,16 @@ static bool before_apply_preset(){
     return true;
 }
 
+static void PauseThenResumeLiveView(){
+    PauseLiveView();
+    ResumeLiveView();
+}
+
+// Put all common code after applying a preset here
+static void after_apply_preset(){
+    PauseThenResumeLiveView();
+}
+
 static void apply_preset_mv1080()
 {
     if(!before_apply_preset()){
@@ -5677,8 +5687,7 @@ static void apply_preset_mv1080()
         isoclimb = 0x1;
     x3crop = 0x0;
     x3toggle = 0x2;
-    PauseLiveView();
-    ResumeLiveView();
+    after_apply_preset();
 }
 
 static void apply_preset_mv1080_x3crop()
@@ -5694,8 +5703,7 @@ static void apply_preset_mv1080_x3crop()
         isoclimb = 0x1;
     x3crop = 0x1;
     x3toggle = 0x2;
-    PauseLiveView();
-    ResumeLiveView();
+    after_apply_preset();
 }
 
 static void apply_preset_5K_anamorphic()
@@ -5713,8 +5721,7 @@ static void apply_preset_5K_anamorphic()
     // Allows to jump from one of the preset slots back into x3crop mode with the x3crop toggle button
     // x3crop = 0x0;
     x3toggle = 0x2;
-    PauseLiveView();
-    ResumeLiveView();
+    after_apply_preset();
     set_lv_zoom(1);
 }
 
@@ -5733,8 +5740,7 @@ static void apply_preset_2K()
     // Allows to jump from one of the preset slots back into x3crop mode with the x3crop toggle button
     // x3crop = 0x0;
     x3toggle = 0x2;
-    PauseLiveView();
-    ResumeLiveView();
+    after_apply_preset();
 }
 
 static void apply_preset_mv1080_high_framerate()
@@ -5750,8 +5756,7 @@ static void apply_preset_mv1080_high_framerate()
         isoclimb = 0x1;
     x3crop = 0x0;
     x3toggle = 0x2;
-    PauseLiveView();
-    ResumeLiveView();
+    after_apply_preset();
     set_lv_zoom(1);
 }
 
@@ -5768,8 +5773,7 @@ static void apply_preset_mv1080_high_framerate_x3crop()
         isoclimb = 0x1;
     x3crop = 0x1;
     x3toggle = 0x2;
-    PauseLiveView();
-    ResumeLiveView();
+    after_apply_preset();
     set_lv_zoom(1);
 }
 
@@ -6503,8 +6507,7 @@ static unsigned int handle_switch_menu_keys(unsigned int key){
             {
                 // Toggle x3crop
                 x3crop = 1 - x3crop;
-                PauseLiveView();
-                ResumeLiveView();
+                PauseThenResumeLiveView();
             }
             else
             {
@@ -6667,8 +6670,7 @@ static unsigned int handle_eosm_keys(unsigned int key){
     {
         // Toggle x3crop
         x3crop = 1 - x3crop;
-        PauseLiveView();
-        ResumeLiveView();
+        PauseThenResumeLiveView();
         return 0;		
     }
 
@@ -6785,8 +6787,7 @@ static int crop_rec_needs_lv_refresh()
         (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM))
     {
         /* mimics canon menu push and back. Needed to get mcm rewired regs updated */
-        PauseLiveView();
-        ResumeLiveView();
+        PauseThenResumeLiveView();
     }
 
     /* Update liveview in different ways depending on mcm rewired modes */
@@ -6794,8 +6795,7 @@ static int crop_rec_needs_lv_refresh()
                     (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)))
     {
         /* mimics canon menu push and back. Needed to get mcm rewired regs updated */
-        PauseLiveView();
-        ResumeLiveView();
+        PauseThenResumeLiveView();
     }
 
     /* Update liveview in different ways depending on mcm rewired modes */
@@ -6803,16 +6803,14 @@ static int crop_rec_needs_lv_refresh()
                     (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)))
     {
         /* mimics canon menu push and back. Needed to get mcm rewired regs updated */
-        PauseLiveView();
-        ResumeLiveView();
+        PauseThenResumeLiveView();
     }
 
     if (is_EOSM && shamem_read(0xc0f383d4) == 0x4f0010 && (shamem_read(0xC0f0b13c) == 0xd) &&
         (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM))
     {
         /* going from CROP_PRESET_anamorphic_rewired_EOSM to CROP_PRESET_mcm_mv1080_EOSM */
-        PauseLiveView();
-        ResumeLiveView();
+        PauseThenResumeLiveView();
     }
 
     /* Update liveview in different ways depending on mcm rewired modes */
@@ -6820,8 +6818,7 @@ static int crop_rec_needs_lv_refresh()
         (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D))
     {
         /* mimics canon menu push and back. Needed to get mcm rewired regs updated */
-        PauseLiveView();
-        ResumeLiveView();
+        PauseThenResumeLiveView();
     }
 
     if (CROP_PRESET_MENU)
@@ -7172,14 +7169,12 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                 if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D)
                     movie_crop_hack_enable();
-                PauseLiveView();
-                ResumeLiveView();
+                PauseThenResumeLiveView();
             }
             if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D)
             /* 100D is a stubborn thing, needs an extra round */
             {
-                PauseLiveView();
-                ResumeLiveView();
+                PauseThenResumeLiveView();
             }
         }
     }
