@@ -5667,6 +5667,12 @@ static bool before_apply_preset(){
         raw_video_set_res_to_max();
     }
 
+    menu_set_str_value_from_script("Movie", "FPS override", "OFF", 0);
+    menu_set_str_value_from_script("Movie", "HDR video", "OFF", 0);
+    menu_set_str_value_from_script("RAW video", "Crop rec preview", "auto mode", 1);
+    menu_set_str_value_from_script("RAW video", "Data format", "14-bit lossless", 3);
+    menu_set_str_value_from_script("RAW video", "Aspect ratio", "1:2", 17);
+
     return true;
 }
 
