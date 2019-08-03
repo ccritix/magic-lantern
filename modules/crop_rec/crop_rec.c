@@ -5638,7 +5638,8 @@ PROP_HANDLER(PROP_LV_DISPSIZE)
     update_patch();
 }
 
-static bool can_apply_preset(){
+static bool before_apply_preset(){
+
     if (!is_movie_mode())
     {
         NotifyBox(2000, "Turn mode dial to movie mode.");
@@ -5657,12 +5658,15 @@ static bool can_apply_preset(){
         return false;
     }
 
+    // Put all common code when applying a preset here
+    gui_stop_menu(); // Close ML menu before applying to make sure all is set properly
+
     return true;
 }
 
 static void apply_preset_mv1080()
 {
-    if(!can_apply_preset()){
+    if(!before_apply_preset()){
         return;
     }
     NotifyBox(2000, "mv1080p MCM rewire 14bit");
@@ -5679,7 +5683,7 @@ static void apply_preset_mv1080()
 
 static void apply_preset_mv1080_x3crop()
 {
-    if(!can_apply_preset()){
+    if(!before_apply_preset()){
         return;
     }
     NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
@@ -5696,7 +5700,7 @@ static void apply_preset_mv1080_x3crop()
 
 static void apply_preset_5K_anamorphic()
 {
-    if(!can_apply_preset()){
+    if(!before_apply_preset()){
         return;
     }
     NotifyBox(2000, "5K anamorphic 10bit");
@@ -5716,7 +5720,7 @@ static void apply_preset_5K_anamorphic()
 
 static void apply_preset_2K()
 {
-    if(!can_apply_preset()){
+    if(!before_apply_preset()){
         return;
     }
     NotifyBox(2000, "2.5K 10bit");
@@ -5735,7 +5739,7 @@ static void apply_preset_2K()
 
 static void apply_preset_mv1080_high_framerate()
 {
-    if(!can_apply_preset()){
+    if(!before_apply_preset()){
         return;
     }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
@@ -5753,7 +5757,7 @@ static void apply_preset_mv1080_high_framerate()
 
 static void apply_preset_mv1080_high_framerate_x3crop()
 {
-    if(!can_apply_preset()){
+    if(!before_apply_preset()){
         return;
     }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
