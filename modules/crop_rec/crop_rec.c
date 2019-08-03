@@ -6477,13 +6477,13 @@ static struct menu_entry crop_rec_menu[] =
 static void fake_info_single_press()
 {
     handle_info_single_press = true;
-    fake_simple_button(module_translate_key(MODULE_KEY_INFO, MODULE_KEY_CANON));
+    module_send_keypress(MODULE_KEY_INFO);
 }
 
 static void fake_set_single_press()
 {
     handle_set_single_press = true;
-    fake_simple_button(module_translate_key(MODULE_KEY_PRESS_SET, MODULE_KEY_CANON));
+    module_send_keypress(MODULE_KEY_PRESS_SET);
 }
 
 static unsigned int handle_switch_menu_keys(unsigned int key){
