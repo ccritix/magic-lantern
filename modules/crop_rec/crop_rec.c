@@ -5868,6 +5868,7 @@ static bool eos_m_only(){
     return (bool) is_EOSM;
 }
 
+// TODO: check crop factor in help text. Is it correct? Also depends on selected resolution in RAW video submenu. Ensure it's maxed out.
 static struct menu_entry presets_switch_menu[] =
     {
         {
@@ -5875,42 +5876,48 @@ static struct menu_entry presets_switch_menu[] =
             .name = "mv1080p MCM rewire",
             .select = apply_preset_mv1080,
             .priv = "ps_entry", // To identify which entries are presets. We need to extract names later.
-            .help = "HD >1.61 crop",
+            .help = "HD. Crop factor>1.61. 14bit. Aliasing.",
+            .help2 = "Realtime preview.",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
             .name = "mv1080p MCM rewire x3crop",
             .select = apply_preset_mv1080_x3crop,
             .priv = "ps_entry",
-            .help = "HD >4.66 crop",
+            .help = "HD. Crop factor>4.66. 14bit. Less aliasing.",
+            .help2 = "Realtime preview.",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "5k anamorphic",
+            .name = "5K Anamorphic",
             .select = apply_preset_5K_anamorphic,
             .priv = "ps_entry",
-            .help = "5k >1.68 crop",
+            .help = "5K. Crop factor>1.68. 10bit. Less aliasing.",
+            .help2 = "Slow preview. Desqueeze in post.",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
             .name = "2.5K",
             .select = apply_preset_2K,
             .priv = "ps_entry",
-            .help = "2K >3.83 crop",
+            .help = "2K. Crop factor>3.83. 10bit. Less aliasing.",
+            .help2 = "Slow preview.",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "mv1080p 45/46/48 fps",
+            .name = "mv1080p 45/46/48/50fps",
             .select = apply_preset_mv1080_high_framerate,
             .priv = "ps_entry",
-            .help = "High FPS >1.61 crop",
+            .help = "HD. Crop factor>1.61. 10bit. Aliasing",
+            .help2 = "Slow preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
-            .name = "mv1080p 45/46/48 fps x3crop",
+            .name = "mv1080p 45/46/48/50fps x3crop",
             .select = apply_preset_mv1080_high_framerate_x3crop,
             .priv = "ps_entry",
-            .help = "High FPS >4.66 crop",
+            .help = "HD. Crop factor>4.66. 10bit. Less aliasing.",
+            .help2 = "Slow preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
