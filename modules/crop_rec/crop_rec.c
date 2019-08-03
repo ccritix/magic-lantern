@@ -5860,7 +5860,7 @@ static bool eos_m_only(){
     return (bool) is_EOSM;
 }
 
-static struct menu_entry presets_toggler_menu[] =
+static struct menu_entry presets_switch_menu[] =
     {
         {
             .depends_on = DEP_MOVIE_MODE,
@@ -5935,7 +5935,7 @@ static struct menu_entry presets_toggler_menu[] =
 static void apply_chosen_preset(unsigned int choice_index)
 {
     unsigned int entry_index = choice_index_to_entry_index_mapping[choice_index];
-    presets_toggler_menu[entry_index].select(0, 0);
+    presets_switch_menu[entry_index].select(0, 0);
 }
 
 static MENU_SELECT_FUNC(switch_menu_toggle_select)
@@ -5943,8 +5943,8 @@ static MENU_SELECT_FUNC(switch_menu_toggle_select)
     // Toggle switch_menu_enabled
     switch_menu_enabled = 1 - switch_menu_enabled;
 
-    // Toggle hide flag for all entries from presets_toggler_menu
-    for (struct menu_entry * entry = presets_toggler_menu; entry; entry = entry->next)
+    // Toggle hide flag for all entries from presets_switch_menu
+    for (struct menu_entry * entry = presets_switch_menu; entry; entry = entry->next)
     {
         entry->hidden = switch_menu_enabled ? 0 : 1;
     }
@@ -6059,7 +6059,7 @@ static struct menu_entry crop_rec_menu[] =
                 .select = switch_menu_toggle_select,
                 .update = switch_menu_toggle_update,
                 .help   = "Quickly switch presets using keys.",
-                .help2  = "Or activate fully configured presets from menu.",
+                .help2  = "Or activate fully configured presets from Switch menu.",
             },
             {
                 .name   = "hdr iso A",
@@ -7915,9 +7915,9 @@ static unsigned int crop_rec_init()
         // And map the menu entry index to the dropdown choice index
         // Temporarily store the names of the presets in a list,
         // to assign as dropdown choices later
-        unsigned int nr_of_menu_entries = COUNT(presets_toggler_menu);
+        unsigned int nr_of_menu_entries = COUNT(presets_switch_menu);
         for(unsigned int entry_index = 0; entry_index < nr_of_menu_entries; entry_index++ ){
-            struct menu_entry * entry = &presets_toggler_menu[entry_index];
+            struct menu_entry * entry = &presets_switch_menu[entry_index];
             
             if (entry->name != NULL)
             {
@@ -7940,8 +7940,8 @@ static unsigned int crop_rec_init()
             }
         }
         
-        struct menu_entry * slot_a = &presets_toggler_menu[entry_index_slot_a];
-        struct menu_entry * slot_b = &presets_toggler_menu[entry_index_slot_b];
+        struct menu_entry * slot_a = &presets_switch_menu[entry_index_slot_a];
+        struct menu_entry * slot_b = &presets_switch_menu[entry_index_slot_b];
 
         // Set the choices for the two preset slots
         slot_a->choices = slot_b->choices = malloc(sizeof(char*) * nr_of_choices);
@@ -7955,7 +7955,7 @@ static unsigned int crop_rec_init()
             slot_a->max = slot_b->max = nr_of_choices - 1;
         }
 
-        menu_add("Switch", presets_toggler_menu, COUNT(presets_toggler_menu) - 1);
+        menu_add("Switch", presets_switch_menu, COUNT(presets_switch_menu) - 1);
     }
     else if (is_camera("700D", "1.1.5"))
     {
