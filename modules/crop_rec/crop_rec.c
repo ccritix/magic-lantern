@@ -5733,7 +5733,7 @@ static void apply_preset_5K_anamorphic()
     if(!before_apply_preset()){
         return;
     }
-    NotifyBox(2000, "5K anamorphic 10bit");
+    NotifyBox(2000, "5K Anamorphic 10bit");
     ratios = ratios_preset_5K_anamorphic;
     crop_preset_index = 10;
     bitdepth = 0x3;
@@ -6033,10 +6033,14 @@ static struct menu_entry presets_switch_menu[] =
         MENU_EOL,
 };
 
-static void apply_chosen_preset(unsigned int choice_index)
+static void apply_chosen_preset(unsigned int choice_index, bool not_a_test)
 {
     unsigned int entry_index = choice_index_to_entry_index_mapping[choice_index];
-    presets_switch_menu[entry_index].select(0, 0);
+    if(not_a_test){
+        presets_switch_menu[entry_index].select(0, 0);
+    } else {
+        NotifyBox(2000, (char *) presets_switch_menu[entry_index].name);
+    }
 }
 
 static MENU_SELECT_FUNC(switch_menu_toggle_select)
@@ -6587,6 +6591,123 @@ static void fake_set_single_press()
     module_send_keypress(MODULE_KEY_PRESS_SET);
 }
 
+static unsigned int do_single_press_action_for_set_key(bool not_a_test){
+    if ((CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
+    {
+        if(not_a_test){
+            // Toggle x3crop
+            x3crop = 1 - x3crop;
+            PauseThenResumeLiveView();
+        } else {
+            if(x3crop){
+                if(CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM){
+                    NotifyBox(2000, "mv1080p MCM rewire 14bit");
+                } else {
+                    NotifyBox(2000, "mv1080p 45/46/48/50fps");
+                }
+                
+            } else {
+                if(CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM){
+                    NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
+                } else {
+                    NotifyBox(2000, "mv1080p 45/46/48/50fps x3crop");
+                }
+            }
+        }
+    }
+    else
+    {
+        // Activate mv1080
+        if (x3crop == 0x1)
+        {
+            if(not_a_test){
+                apply_preset_mv1080_x3crop();
+            } else {
+                NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
+            }
+        }
+        else
+        {
+            if(not_a_test){
+                apply_preset_mv1080();
+            } else {
+                NotifyBox(2000, "mv1080p MCM rewire 14bit");
+            }
+        }
+
+        // Switch last_activated_preset_index so we go back to the one we came from when pressing SET
+        if (not_a_test && preset_index_slot_a != 0x0 && preset_index_slot_b != 0x0)
+        {
+            last_activated_preset_index = last_activated_preset_index == preset_index_slot_a ? preset_index_slot_b : preset_index_slot_a;
+        }
+    }
+
+    return 0;
+}
+
+static unsigned int do_single_press_action_for_info_key(bool not_a_test){
+    int new_preset_index_tmp;
+
+    if (preset_index_slot_a == 0x0)
+    {
+        if (preset_index_slot_b != 0x0)
+        {
+            // Only preset slot b is set
+            new_preset_index_tmp = preset_index_slot_b;
+        }
+        else
+        {
+            if(!not_a_test){
+                NotifyBox(300, "INFO");
+            }
+            // Both preset slots empty, handle INFO key as normal
+            return 1;
+        }
+    }
+    else if (preset_index_slot_b == 0x0)
+    {
+        if (preset_index_slot_a != 0x0)
+        {
+            // Only preset slot a is set
+            new_preset_index_tmp = preset_index_slot_a;
+        }
+        else
+        {
+            if(!not_a_test){
+                NotifyBox(300, "INFO");
+            }
+            // Both preset slots empty, handle INFO key as normal
+            return 1;
+        }
+    }
+    else
+    {
+        // Both preset slots are set,
+        // in this case toggle between them
+        if (last_activated_preset_index == preset_index_slot_a)
+        {
+            new_preset_index_tmp = preset_index_slot_b;
+        }
+        else if (last_activated_preset_index == preset_index_slot_b)
+        {
+            new_preset_index_tmp = preset_index_slot_a;
+        }
+        else
+        {
+            // When the last actived preset isn't one of the chosen_preset_index in the two preset slots,
+            // then default to activating slot a
+            new_preset_index_tmp = preset_index_slot_a;
+        }
+    }
+
+    if(not_a_test){
+        last_activated_preset_index = new_preset_index_tmp;
+    }
+    
+    apply_chosen_preset(new_preset_index_tmp, not_a_test);
+    return 0;
+}
+
 static unsigned int handle_switch_menu_keys(unsigned int key){
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
     if ((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2))
@@ -6596,32 +6717,7 @@ static unsigned int handle_switch_menu_keys(unsigned int key){
             handle_set_single_press = false;
             set_key_timer = 0;
 
-            if ((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
-            {
-                // Toggle x3crop
-                x3crop = 1 - x3crop;
-                PauseThenResumeLiveView();
-            }
-            else
-            {
-                // Activate mv1080
-                if (x3crop == 0x1)
-                {
-                    apply_preset_mv1080_x3crop();
-                }
-                else
-                {
-                    apply_preset_mv1080();
-                }
-
-                // Switch last_activated_preset_index so we go back to the one we came from when pressing SET
-                if (preset_index_slot_a != 0x0 && preset_index_slot_b != 0x0)
-                {
-                    last_activated_preset_index = last_activated_preset_index == preset_index_slot_a ? preset_index_slot_b : preset_index_slot_a;
-                }
-            }
-
-            return 0;
+            return do_single_press_action_for_set_key(true);
         }
 
         // If the set_key_timer is > 0, then we still haven't handled the first key press
@@ -6652,8 +6748,10 @@ static unsigned int handle_switch_menu_keys(unsigned int key){
         {
             // This is the first SET key press in a while
             // Wait a bit for another key press, before we handle it as single key press
-            // TODO: already NotifyBox ahead of time the name of the preset we're about to toggle into
-            NotifyBox(1000, "Schedule Single");
+            // NotifyBox(1000, "Schedule Single");
+
+            // Already NotifyBox ahead of time the name of the preset we're about to toggle into
+            do_single_press_action_for_set_key(false);
             set_key_timer = SetTimerAfter(300, (timerCbr_t)fake_set_single_press, (timerCbr_t)fake_set_single_press, 0);
         }
 
@@ -6667,54 +6765,7 @@ static unsigned int handle_switch_menu_keys(unsigned int key){
             handle_info_single_press = false;
             info_key_timer = 0;
 
-            if (preset_index_slot_a == 0x0)
-            {
-                if (preset_index_slot_b != 0x0)
-                {
-                    // Only preset slot b is set
-                    last_activated_preset_index = preset_index_slot_b;
-                }
-                else
-                {
-                    // Both preset slots empty, handle INFO key as normal
-                    return 1;
-                }
-            }
-            else if (preset_index_slot_b == 0x0)
-            {
-                if (preset_index_slot_a != 0x0)
-                {
-                    // Only preset slot a is set
-                    last_activated_preset_index = preset_index_slot_a;
-                }
-                else
-                {
-                    // Both preset slots empty, handle INFO key as normal
-                    return 1;
-                }
-            }
-            else
-            {
-                // Both preset slots are set,
-                // in this case toggle between them
-                if (last_activated_preset_index == preset_index_slot_a)
-                {
-                    last_activated_preset_index = preset_index_slot_b;
-                }
-                else if (last_activated_preset_index == preset_index_slot_b)
-                {
-                    last_activated_preset_index = preset_index_slot_a;
-                }
-                else
-                {
-                    // When the last actived preset isn't one of the chosen_preset_index in the two preset slots,
-                    // then default to activating slot a
-                    last_activated_preset_index = preset_index_slot_a;
-                }
-            }
-
-            apply_chosen_preset(last_activated_preset_index);
-            return 0;
+            return do_single_press_action_for_info_key(true);
         }
 
         // If the info_key_timer is > 0, then we still haven't handled the first key press
@@ -6732,8 +6783,10 @@ static unsigned int handle_switch_menu_keys(unsigned int key){
         {
             // This is the first INFO key press in a while
             // Wait a bit for another key press, before we handle it as single key press
-            // TODO: already NotifyBox ahead of time the name of the preset we're about to toggle into
-            NotifyBox(1000, "Schedule Single");
+            // NotifyBox(1000, "Schedule Single");
+
+            // Already NotifyBox ahead of time the name of the preset we're about to toggle into
+            do_single_press_action_for_info_key(false);
             info_key_timer = SetTimerAfter(300, (timerCbr_t)fake_info_single_press, (timerCbr_t)fake_info_single_press, NULL);
         }
 
