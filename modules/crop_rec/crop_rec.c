@@ -5921,7 +5921,7 @@ static struct menu_entry presets_switch_menu[] =
             .select = apply_preset_mv1080_high_framerate,
             .priv = "ps_entry",
             .help = "HD. Crop factor>1.61. 10bit. Aliasing",
-            .help2 = "Slow preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
+            .help2 = "Realtime preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
@@ -5929,7 +5929,7 @@ static struct menu_entry presets_switch_menu[] =
             .select = apply_preset_mv1080_high_framerate_x3crop,
             .priv = "ps_entry",
             .help = "HD. Crop factor>4.66. 10bit. Less aliasing.",
-            .help2 = "Slow preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
+            .help2 = "Realtime preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
         },
         {
             .depends_on = DEP_MOVIE_MODE,
