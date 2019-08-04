@@ -2633,44 +2633,37 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
         
         if (bitdepth == 0x1)
         {
-            switch (reg)
-            {
-                case 0xc0f0815c: return 0x3;
-            }
+                EngDrvOutLV(0xc0f0815c, 0x3);
         }
         
         if (bitdepth == 0x2)
         {
-            switch (reg)
-            {
-                case 0xc0f0815c: return 0x4;
-            }
+                EngDrvOutLV(0xc0f0815c, 0x4);
         }
         
         if (bitdepth == 0x3)
         {
-            switch (reg)
-            {
-                case 0xc0f0815c: return 0x5;
-            }
+                EngDrvOutLV(0xc0f0815c, 0x5);
         }
         
         if (bitdepth == 0x4)
         {
-            switch (reg)
-            {
-                case 0xc0f0815c: return 0x6;
-            }
+                EngDrvOutLV(0xc0f0815c, 0x6);
         }
         
         /* reset eosm switch */
         if (bitdepth == 0x0 && (is_EOSM || is_100D || is_6D || is_5D3))
         {
-            switch (reg)
-            {
-                    /* exception for timelapse function */
-                case 0xc0f0815c: return (timelapse != 0x0 && slowshutter == 0x1 && (crop_preset == CROP_PRESET_4K_100D || crop_preset == CROP_PRESET_4K_EOSM)) ? 0x7: 0x2;
-            }
+
+          if (timelapse != 0x0 && slowshutter == 0x1 && (crop_preset == CROP_PRESET_4K_100D || crop_preset == CROP_PRESET_4K_EOSM))
+          {
+                EngDrvOutLV(0xc0f0815c, 0x7);
+	  }
+	  else
+	  {
+                EngDrvOutLV(0xc0f0815c, 0x2);
+	  }
+
         }
     }
     
