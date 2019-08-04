@@ -6812,17 +6812,18 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         return 0;
     }
 
+    if(RECORDING && key == MODULE_KEY_INFO){
+        // Block INFO key while recording
+        // It will stop recording because the INFO screen disabled Live View
+        // TODO: We can assign some useful function to INFO during recording
+        // Maybe toggle global draw, histogram, magic zoom
+        NotifyBox(2000, "Blocked during recording.");
+        return 0;   
+    }
+
     // From here only code that should run on a key press in live view, when ML menu is closed, not recording and in movie mode
     if (!lv || gui_menu_shown() || RECORDING || !is_movie_mode())
     {
-        if(key == MODULE_KEY_INFO){
-            // Block INFO key while recording
-            // It will stop recording because the INFO screen disabled Live View
-            // TODO: We can assign some useful function to INFO during recording
-            // Maybe toggle global draw, histogram, magic zoom
-            NotifyBox(2000, "Blocked during recording.");
-            return 0;    
-        }
         // Handle key normally
         return 1;
     }
