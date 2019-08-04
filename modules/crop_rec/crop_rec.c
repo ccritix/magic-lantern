@@ -7569,6 +7569,11 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 
 static unsigned int crop_rec_init()
 {
+
+    if(!is_EOSM){
+        switch_menu_enabled = 0;
+    }
+
     is_digic4 = is_camera("DIGIC", "4");
     is_digic5 = is_camera("DIGIC", "5");
     
