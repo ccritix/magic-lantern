@@ -506,8 +506,8 @@ static uint32_t MEM_ENGIO_WRITE = 0;
 /* from SENSOR_TIMING_TABLE (fps-engio.c) or FPS override submenu */
 static int fps_main_clock = 0;
 static int default_timerA[11]; /* 1080p  1080p  1080p   720p   720p   zoom   crop   crop   crop   crop   crop */
-static int default_timerB[11]; /*   24p25p30p50p60p x524p25p30p50p60p */
-static int default_fps_1k[11] = { 23976, 25000, 29970, 50000, 59940, 29970, 23976, 25000, 29970, 50000, 59940 };
+static int default_timerB[11]; /*   24p    25p    30p    50p    60p     x5    24p    25p    30p    50p    60p */
+static int default_fps_1k[11] = {23976, 25000, 29970, 50000, 59940, 29970, 23976, 25000, 29970, 50000, 59940};
 
 /* video modes */
 /* note: zoom mode is identified by checking registers directly */
@@ -547,20 +547,20 @@ static int is_supported_mode()
     
     switch (crop_preset)
     {
-            /* note: zoom check is also covered by check_cmos_vidmode */
-            /* (we need to apply CMOS settings before PROP_LV_DISPSIZE fires) */
-        case CROP_PRESET_CENTER_Z:
-        case CROP_PRESET_CENTER_Z_700D:
-        case CROP_PRESET_CENTER_Z_650D:
-        case CROP_PRESET_CENTER_Z_EOSM:
-            return 1;
-            
-        case CROP_PRESET_3x3_1X_100D:
-            return lv_dispsize != 1 ? is_1080p(): is_720p();
-            break;
-            
-        default:
-            return is_1080p() || is_720p();
+    /* note: zoom check is also covered by check_cmos_vidmode */
+    /* (we need to apply CMOS settings before PROP_LV_DISPSIZE fires) */
+    case CROP_PRESET_CENTER_Z:
+    case CROP_PRESET_CENTER_Z_700D:
+    case CROP_PRESET_CENTER_Z_650D:
+    case CROP_PRESET_CENTER_Z_EOSM:
+        return 1;
+
+    case CROP_PRESET_3x3_1X_100D:
+        return lv_dispsize != 1 ? is_1080p() : is_720p();
+        break;
+
+    default:
+        return is_1080p() || is_720p();
     }
 }
 
@@ -1124,15 +1124,13 @@ static int get_top_bar_adjustment()
 /* (active area only, as seen by mlv_lite) */
 static inline int get_default_yres()
 {
-    return
-    (video_mode_fps <= 30) ? 1290 : 672;
+    return (video_mode_fps <= 30) ? 1290 : 672;
 }
 
 /* skip_top from unmodified video mode (raw.c, LiveView skip offsets) */
 static inline int get_default_skip_top()
 {
-    return
-    (video_mode_fps <= 30) ? 28 : 20;
+    return (video_mode_fps <= 30) ? 28 : 20;
 }
 
 /* max resolution for each video mode (trial and error) */
@@ -2278,9 +2276,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[15] = (struct adtg_new) {6, 0x8886, 250 + reg_gain};
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 250 + reg_gain};
             }
-            
         }
-        
     }
     
     /* hopefully generic; to be tested later */
@@ -3031,7 +3027,7 @@ static inline uint32_t reg_override_3K(uint32_t reg, uint32_t old_val)
     /* FPS timer A, for increasing horizontal resolution */
     /* 25p uses 480 (OK), 24p uses 440 (too small); */
     /* only override in 24p, 30p and 60p modes */
-    if (video_mode_fps != 25 && video_mode_fps !=  50)
+    if (video_mode_fps != 25 && video_mode_fps != 50)
     {
         int timerA = 455;
         int timerB =
@@ -5467,155 +5463,158 @@ static bool eos_m_only(){
 
 // TODO: check crop factor in help text. Is it correct?
 static struct menu_entry presets_switch_menu[] =
-{
     {
-        .depends_on = DEP_MOVIE_MODE,
-        .name = "mv1080p MCM rewire",
-        .select = apply_preset_mv1080,
-        .priv = "ps_entry", // To identify which entries are presets. We need to extract names later.
-        .help = "HD. Crop factor>1.61. 14bit. Aliasing. Continuous recording possible.",
-        .help2 = "Realtime preview. Shoot continuously with SanDisk Extreme Pro 95MB/s.",
-        
-        .children =  (struct menu_entry[]) {
-            {
-                .name   = "ratios",
-                .priv   = &ratios_preset_mv1080,
-                .max    = 3,
-                .choices = ratios_choices,
-                .help   = "Change aspect ratio\n"
-            },
-            MENU_EOL,
-        }
-    },
-    {
-        .depends_on = DEP_MOVIE_MODE,
-        .name = "mv1080p MCM rewire x3crop",
-        .select = apply_preset_mv1080_x3crop,
-        .priv = "ps_entry",
-        .help = "HD. Crop factor>4.66. 14bit. Less aliasing.",
-        .help2 = "Realtime preview.",
-        .children =  (struct menu_entry[]) {
-            {
-                .name   = "ratios",
-                .priv   = &ratios_preset_mv1080_x3crop,
-                .max    = 3,
-                .choices = ratios_choices,
-                .help   = "Change aspect ratio\n"
-            },
-            MENU_EOL,
-        }
-    },
-    {
-        .depends_on = DEP_MOVIE_MODE,
-        .name = "5K Anamorphic",
-        .select = apply_preset_5K_anamorphic,
-        .priv = "ps_entry",
-        .help = "5K. Crop factor>1.68. 10bit. Less aliasing.",
-        .help2 = "Slow preview. Desqueeze in post.",
-        .children =  (struct menu_entry[]) {
-            {
-                .name   = "ratios",
-                .priv   = &ratios_preset_5K_anamorphic,
-                .max    = 3,
-                .choices = ratios_choices,
-                .help   = "Change aspect ratio\n"
-            },
-            MENU_EOL,
-        }
-    },
-    {
-        .depends_on = DEP_MOVIE_MODE,
-        .name = "2.5K",
-        .select = apply_preset_2K,
-        .priv = "ps_entry",
-        .help = "2K. Crop factor>3.83. 10bit. Less aliasing.",
-        .help2 = "Slow preview.",
-        .children =  (struct menu_entry[]) {
-            {
-                .name   = "ratios",
-                .priv   = &ratios_preset_2K,
-                .max    = 3,
-                .choices = ratios_choices,
-                .help   = "Change aspect ratio\n"
-            },
-            MENU_EOL,
-        }
-    },
-    {
-        .depends_on = DEP_MOVIE_MODE,
-        .name = "mv1080p 45/46/48/50fps",
-        .select = apply_preset_mv1080_high_framerate,
-        .priv = "ps_entry",
-        .help = "HD. Crop factor>1.61. 10bit. Aliasing",
-        .help2 = "Realtime preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
-        .children =  (struct menu_entry[]) {
-            {
-                .name   = "ratios",
-                .priv   = &ratios_preset_mv1080_high_framerate,
-                .max    = 3,
-                .choices = ratios_choices,
-                .help   = "Change aspect ratio\n"
-            },
-            MENU_EOL,
-        }
-    },
-    {
-        .depends_on = DEP_MOVIE_MODE,
-        .name = "mv1080p 45/46/48/50fps x3crop",
-        .select = apply_preset_mv1080_high_framerate_x3crop,
-        .priv = "ps_entry",
-        .help = "HD. Crop factor>4.66. 10bit. Less aliasing.",
-        .help2 = "Realtime preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
-        .children =  (struct menu_entry[]) {
-            {
-                .name   = "ratios",
-                .priv   = &ratios_preset_mv1080_high_framerate_x3crop,
-                .max    = 3,
-                .choices = ratios_choices,
-                .help   = "Change aspect ratio\n"
-            },
-            MENU_EOL,
-        }
-    },
-    {
-        .depends_on = DEP_MOVIE_MODE,
-        .name = PRESET_SLOT_A_NAME,
-        .priv = &preset_index_slot_a,
-        .min = 0,
-        .help = "Press INFO in LiveView to activate chosen preset.",
-        .help2 = "Double press INFO in LV to open this menu.",
-    },
-    {
-        .depends_on = DEP_MOVIE_MODE,
-        .name = PRESET_SLOT_B_NAME,
-        .priv = &preset_index_slot_b,
-        .min = 0,
-        .help = "Press INFO in LiveView to toggle between chosen presets (Slot A and B).",
-        .help2 = "Double press INFO in LV to open this menu.",
-    },
-    {
-        .depends_on = DEP_MOVIE_MODE,
-        .name = "Toggle mv1080",
-        .priv = &x3toggle,
-        .max = 2,
-        .choices = CHOICES("OFF", "press down", "SET"),
-        .help = "Press key 1x: Jumps into mv1080p rewire from another preset, or...",
-        .help2 = "...toggle x3crop. Press key 2x: Toggle high framerate mode."
-    },
-    MENU_EOL,
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = "mv1080p MCM rewire",
+            .select = apply_preset_mv1080,
+            .priv = "ps_entry", // To identify which entries are presets. We need to extract names later.
+            .help = "HD. Crop factor>1.61. 14bit. Aliasing. Continuous recording possible.",
+            .help2 = "Realtime preview. Shoot continuously with SanDisk Extreme Pro 95MB/s.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_mv1080,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
+        },
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = "mv1080p MCM rewire x3crop",
+            .select = apply_preset_mv1080_x3crop,
+            .priv = "ps_entry",
+            .help = "HD. Crop factor>4.66. 14bit. Less aliasing. Continuous recording possible.",
+            .help2 = "Realtime preview. Shoot continuously with SanDisk Extreme Pro 95MB/s.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_mv1080_x3crop,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
+        },
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = "5K Anamorphic",
+            .select = apply_preset_5K_anamorphic,
+            .priv = "ps_entry",
+            .help = "5K. Crop factor>1.68. 10bit. Less aliasing. Continuous recording possible.",
+            .help2 = "Slow preview. Desqueeze in post.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_5K_anamorphic,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
+        },
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = "2.5K",
+            .select = apply_preset_2K,
+            .priv = "ps_entry",
+            .help = "2K. Crop factor>3.83. 10bit. Less aliasing. Continuous recording possible.",
+            .help2 = "Slow preview. Shoot continuously with SanDisk Extreme Pro 95MB/s.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_2K,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
+        },
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = "mv1080p 45/46/48/50fps",
+            .select = apply_preset_mv1080_high_framerate,
+            .priv = "ps_entry",
+            .help = "HD. Crop factor>1.61. 10bit. Aliasing. Continuous recording possible.",
+            .help2 = "Realtime preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_mv1080_high_framerate,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
+        },
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = "mv1080p 45/46/48/50fps x3crop",
+            .select = apply_preset_mv1080_high_framerate_x3crop,
+            .priv = "ps_entry",
+            .help = "HD. Crop factor>4.66. 10bit. Less aliasing. Continuous recording possible.",
+            .help2 = "Realtime preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
+            .children =  (struct menu_entry[]) {
+                {
+                    .name   = "ratios",
+                    .priv   = &ratios_preset_mv1080_high_framerate_x3crop,
+                    .max    = 3,
+                    .choices = ratios_choices,
+                    .help   = "Change aspect ratio\n"
+                },
+                MENU_EOL,
+            }
+        },
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = PRESET_SLOT_A_NAME,
+            .priv = &preset_index_slot_a,
+            .min = 0,
+            .help = "Press INFO in LiveView to activate chosen preset.",
+            .help2 = "Double press INFO in LV to open this menu.",
+        },
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = PRESET_SLOT_B_NAME,
+            .priv = &preset_index_slot_b,
+            .min = 0,
+            .help = "Press INFO in LiveView to toggle between chosen presets (Slot A and B).",
+            .help2 = "Double press INFO in LV to open this menu.",
+        },
+        {
+            .depends_on = DEP_MOVIE_MODE,
+            .name = "Toggle mv1080",
+            .priv = &x3toggle,
+            .max = 2,
+            .choices = CHOICES("OFF", "press down", "SET"),
+            .help = "Press key 1x: Jumps into mv1080p rewire from another preset, or...",
+            .help2 = "...toggle x3crop. Press key 2x: Toggle high framerate mode."
+        },
+        MENU_EOL,
 };
 
-static void apply_chosen_preset(unsigned int choice_index)
+static void apply_chosen_preset(unsigned int choice_index, bool not_a_test)
 {
     unsigned int entry_index = choice_index_to_entry_index_mapping[choice_index];
-    presets_switch_menu[entry_index].select(0, 0);
+    if(not_a_test){
+        presets_switch_menu[entry_index].select(0, 0);
+    } else {
+        NotifyBox(2000, (char *) presets_switch_menu[entry_index].name);
+    }
 }
 
 static MENU_SELECT_FUNC(switch_menu_toggle_select)
 {
     // Toggle switch_menu_enabled
     switch_menu_enabled = 1 - switch_menu_enabled;
-    
+
     // Toggle hide flag for all entries from presets_switch_menu
     for (struct menu_entry * entry = presets_switch_menu; entry; entry = entry->next)
     {
@@ -5660,7 +5659,7 @@ static struct menu_entry crop_rec_menu[] =
                 .name   = "ratios",
                 .priv   = &ratios,
                 .max    = 3,
-                .choices = CHOICES("OFF", "2.39:1", "2.35:1", "16:9"),
+                .choices = ratios_choices,
                 .help   = "Change aspect ratio\n"
             },
             {
@@ -5724,6 +5723,15 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON"),
                 .help   = "Allows for slow shutter speeds with 4k timelapse(Only 100D/EOSM).\n"
+            },
+            {
+                .name   = "Switch menu",
+                .priv   = &switch_menu_enabled,
+                .max    = 1,
+                .select = switch_menu_toggle_select,
+                .update = switch_menu_toggle_update,
+                .help   = "Quickly switch presets using keys.",
+                .help2  = "Or activate fully configured presets from Switch menu.",
             },
             {
                 .name   = "hdr iso A",
@@ -6055,7 +6063,7 @@ static struct menu_entry crop_rec_menu[] =
                 .choices    = CHOICES("Original", "Full range"),
                 .help       = "Choose the available shutter speed range:",
                 .help2      = "Original: default range used by Canon in selected video mode.\n"
-                "Full range: from 1/FPS to minimum exposure time allowed by hardware.",
+                              "Full range: from 1/FPS to minimum exposure time allowed by hardware.",
                 .advanced = 1,
             },
             {
@@ -6150,6 +6158,123 @@ static void fake_set_single_press()
     module_send_keypress(MODULE_KEY_PRESS_SET);
 }
 
+static unsigned int do_single_press_action_for_set_key(bool not_a_test){
+    if ((CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
+    {
+        if(not_a_test){
+            // Toggle x3crop
+            x3crop = 1 - x3crop;
+            PauseThenResumeLiveView();
+        } else {
+            if(x3crop){
+                if(CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM){
+                    NotifyBox(2000, "mv1080p MCM rewire 14bit");
+                } else {
+                    NotifyBox(2000, "mv1080p 45/46/48/50fps");
+                }
+                
+            } else {
+                if(CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM){
+                    NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
+                } else {
+                    NotifyBox(2000, "mv1080p 45/46/48/50fps x3crop");
+                }
+            }
+        }
+    }
+    else
+    {
+        // Activate mv1080
+        if (x3crop == 0x1)
+        {
+            if(not_a_test){
+                apply_preset_mv1080_x3crop();
+            } else {
+                NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
+            }
+        }
+        else
+        {
+            if(not_a_test){
+                apply_preset_mv1080();
+            } else {
+                NotifyBox(2000, "mv1080p MCM rewire 14bit");
+            }
+        }
+
+        // Switch last_activated_preset_index so we go back to the one we came from when pressing SET
+        if (not_a_test && preset_index_slot_a != 0x0 && preset_index_slot_b != 0x0)
+        {
+            last_activated_preset_index = last_activated_preset_index == preset_index_slot_a ? preset_index_slot_b : preset_index_slot_a;
+        }
+    }
+
+    return 0;
+}
+
+static unsigned int do_single_press_action_for_info_key(bool not_a_test){
+    int new_preset_index_tmp;
+
+    if (preset_index_slot_a == 0x0)
+    {
+        if (preset_index_slot_b != 0x0)
+        {
+            // Only preset slot b is set
+            new_preset_index_tmp = preset_index_slot_b;
+        }
+        else
+        {
+            if(!not_a_test){
+                NotifyBox(300, "INFO");
+            }
+            // Both preset slots empty, handle INFO key as normal
+            return 1;
+        }
+    }
+    else if (preset_index_slot_b == 0x0)
+    {
+        if (preset_index_slot_a != 0x0)
+        {
+            // Only preset slot a is set
+            new_preset_index_tmp = preset_index_slot_a;
+        }
+        else
+        {
+            if(!not_a_test){
+                NotifyBox(300, "INFO");
+            }
+            // Both preset slots empty, handle INFO key as normal
+            return 1;
+        }
+    }
+    else
+    {
+        // Both preset slots are set,
+        // in this case toggle between them
+        if (last_activated_preset_index == preset_index_slot_a)
+        {
+            new_preset_index_tmp = preset_index_slot_b;
+        }
+        else if (last_activated_preset_index == preset_index_slot_b)
+        {
+            new_preset_index_tmp = preset_index_slot_a;
+        }
+        else
+        {
+            // When the last actived preset isn't one of the chosen_preset_index in the two preset slots,
+            // then default to activating slot a
+            new_preset_index_tmp = preset_index_slot_a;
+        }
+    }
+
+    if(not_a_test){
+        last_activated_preset_index = new_preset_index_tmp;
+    }
+    
+    apply_chosen_preset(new_preset_index_tmp, not_a_test);
+    return 0;
+}
+
 static unsigned int handle_switch_menu_keys(unsigned int key){
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
     if ((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2))
@@ -6158,35 +6283,10 @@ static unsigned int handle_switch_menu_keys(unsigned int key){
         {
             handle_set_single_press = false;
             set_key_timer = 0;
-            
-            if ((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
-            {
-                // Toggle x3crop
-                x3crop = 1 - x3crop;
-                PauseThenResumeLiveView();
-            }
-            else
-            {
-                // Activate mv1080
-                if (x3crop == 0x1)
-                {
-                    apply_preset_mv1080_x3crop();
-                }
-                else
-                {
-                    apply_preset_mv1080();
-                }
-                
-                // Switch last_activated_preset_index so we go back to the one we came from when pressing SET
-                if (preset_index_slot_a != 0x0 && preset_index_slot_b != 0x0)
-                {
-                    last_activated_preset_index = last_activated_preset_index == preset_index_slot_a ? preset_index_slot_b : preset_index_slot_a;
-                }
-            }
-            
-            return 0;
+
+            return do_single_press_action_for_set_key(true);
         }
-        
+
         // If the set_key_timer is > 0, then we still haven't handled the first key press
         // This means we're in time for a double key press
         // Cancel handling the single key press and only do stuff for the double press
@@ -6215,71 +6315,31 @@ static unsigned int handle_switch_menu_keys(unsigned int key){
         {
             // This is the first SET key press in a while
             // Wait a bit for another key press, before we handle it as single key press
-            // TODO: already NotifyBox ahead of time the name of the preset we're about to toggle into
             // NotifyBox(1000, "Schedule Single");
+
+            // Already NotifyBox ahead of time the name of the preset we're about to toggle into
+            do_single_press_action_for_set_key(false);
             set_key_timer = SetTimerAfter(300, (timerCbr_t)fake_set_single_press, (timerCbr_t)fake_set_single_press, 0);
         }
-        
+
         return 0;
     }
-    
+
     if (key == MODULE_KEY_INFO)
     {
+        if(lv_disp_mode != 0){
+            // Use INFO key to cycle LV as normal when not in the LV with ML overlays
+            return 1;
+        }
+
         if (handle_info_single_press)
         {
             handle_info_single_press = false;
             info_key_timer = 0;
-            
-            if (preset_index_slot_a == 0x0)
-            {
-                if (preset_index_slot_b != 0x0)
-                {
-                    // Only preset slot b is set
-                    last_activated_preset_index = preset_index_slot_b;
-                }
-                else
-                {
-                    // Both preset slots empty, handle INFO key as normal
-                    return 1;
-                }
-            }
-            else if (preset_index_slot_b == 0x0)
-            {
-                if (preset_index_slot_a != 0x0)
-                {
-                    // Only preset slot a is set
-                    last_activated_preset_index = preset_index_slot_a;
-                }
-                else
-                {
-                    // Both preset slots empty, handle INFO key as normal
-                    return 1;
-                }
-            }
-            else
-            {
-                // Both preset slots are set,
-                // in this case toggle between them
-                if (last_activated_preset_index == preset_index_slot_a)
-                {
-                    last_activated_preset_index = preset_index_slot_b;
-                }
-                else if (last_activated_preset_index == preset_index_slot_b)
-                {
-                    last_activated_preset_index = preset_index_slot_a;
-                }
-                else
-                {
-                    // When the last actived preset isn't one of the chosen_preset_index in the two preset slots,
-                    // then default to activating slot a
-                    last_activated_preset_index = preset_index_slot_a;
-                }
-            }
-            
-            apply_chosen_preset(last_activated_preset_index);
-            return 0;
+
+            return do_single_press_action_for_info_key(true);
         }
-        
+
         // If the info_key_timer is > 0, then we still haven't handled the first key press
         // This means we're in time for a double key press
         // Cancel handling the single key press and only do stuff for the double press
@@ -6287,7 +6347,7 @@ static unsigned int handle_switch_menu_keys(unsigned int key){
         {
             CancelTimer(info_key_timer);
             info_key_timer = 0;
-            
+
             select_menu_by_name("Switch", last_activated_preset_index == preset_index_slot_a ? PRESET_SLOT_A_NAME : PRESET_SLOT_B_NAME);
             gui_open_menu();
         }
@@ -6295,31 +6355,33 @@ static unsigned int handle_switch_menu_keys(unsigned int key){
         {
             // This is the first INFO key press in a while
             // Wait a bit for another key press, before we handle it as single key press
-            // TODO: already NotifyBox ahead of time the name of the preset we're about to toggle into
             // NotifyBox(1000, "Schedule Single");
+
+            // Already NotifyBox ahead of time the name of the preset we're about to toggle into
+            do_single_press_action_for_info_key(false);
             info_key_timer = SetTimerAfter(300, (timerCbr_t)fake_info_single_press, (timerCbr_t)fake_info_single_press, NULL);
         }
-        
+
         return 0;
     }
-    
+
     // Handle key normally
     return 1;
 }
 
 static unsigned int handle_eosm_keys(unsigned int key){
-    
+
     // Put code here that should always run on key press
     // regardless of state of switch_menu_enabled
-    
+
     if(switch_menu_enabled){
         // Put code that should only run on key press if switch_menu_enabled == true in handle_switch_menu_keys()
         return handle_switch_menu_keys(key);
     }
-    
+
     // Put code here that should only run on key press
     // only if switch_menu_enabled == false
-    
+
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
     if (((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2)) &&
         (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
@@ -6327,9 +6389,9 @@ static unsigned int handle_eosm_keys(unsigned int key){
         // Toggle x3crop
         x3crop = 1 - x3crop;
         PauseThenResumeLiveView();
-        return 0;
+        return 0;		
     }
-    
+
     // If none of the above conditions apply, handle key normally
     return 1;
 }
@@ -6474,8 +6536,7 @@ static int crop_rec_needs_lv_refresh()
         (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM))
     {
         /* mimics canon menu push and back. Needed to get mcm rewired regs updated */
-        PauseLiveView();
-        ResumeLiveView();
+        PauseThenResumeLiveView();
     }
     
     /* Update liveview in different ways depending on mcm rewired modes */
@@ -6483,8 +6544,7 @@ static int crop_rec_needs_lv_refresh()
                     (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)))
     {
         /* mimics canon menu push and back. Needed to get mcm rewired regs updated */
-        PauseLiveView();
-        ResumeLiveView();
+        PauseThenResumeLiveView();
     }
     
     /* Update liveview in different ways depending on mcm rewired modes */
@@ -6492,16 +6552,14 @@ static int crop_rec_needs_lv_refresh()
                     (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)))
     {
         /* mimics canon menu push and back. Needed to get mcm rewired regs updated */
-        PauseLiveView();
-        ResumeLiveView();
+        PauseThenResumeLiveView();
     }
     
     if (is_EOSM && shamem_read(0xc0f383d4) == 0x4f0010 && (shamem_read(0xC0f0b13c) == 0xd) &&
         (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM))
     {
         /* going from CROP_PRESET_anamorphic_rewired_EOSM to CROP_PRESET_mcm_mv1080_EOSM */
-        PauseLiveView();
-        ResumeLiveView();
+        PauseThenResumeLiveView();
     }
     
     /* Update liveview in different ways depending on mcm rewired modes */
@@ -6509,8 +6567,7 @@ static int crop_rec_needs_lv_refresh()
         (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D))
     {
         /* mimics canon menu push and back. Needed to get mcm rewired regs updated */
-        PauseLiveView();
-        ResumeLiveView();
+        PauseThenResumeLiveView();
     }
     
     if (CROP_PRESET_MENU)
@@ -6848,15 +6905,14 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             else
             {
                 if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM ||
-                    CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D) movie_crop_hack_enable();
-                PauseLiveView();
-                ResumeLiveView();
+                    CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D)
+                    movie_crop_hack_enable();
+                PauseThenResumeLiveView();
             }
             if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_100D)
             /* 100D is a stubborn thing, needs an extra round */
             {
-                PauseLiveView();
-                ResumeLiveView();
+                PauseThenResumeLiveView();
             }
         }
     }
