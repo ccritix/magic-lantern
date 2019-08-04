@@ -44,7 +44,8 @@ static bool handle_set_single_press = false;
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 0);
-static CONFIG_INT("crop.ratios", ratios, 0);
+static CONFIG_INT("crop.ratios", ratios, 1);
+static CONFIG_INT("crop.preset_global_ratios", preset_global_ratios, 1);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.zoomaid", zoomaid, 1);
 static CONFIG_INT("crop.x3toggle", x3toggle, 2);
@@ -57,17 +58,34 @@ static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 
 static CONFIG_INT("crop.switch_menu_enabled", switch_menu_enabled, 1);
-static CONFIG_INT("crop.preset_index_slot_a", preset_index_slot_a, 0);
-static CONFIG_INT("crop.preset_index_slot_b", preset_index_slot_b, 0);
+static CONFIG_INT("crop.preset_index_slot_a", preset_index_slot_a, 2); // Assign a default preset to this slot, don't forget to change here if Switch menu is reordered
+static CONFIG_INT("crop.preset_index_slot_b", preset_index_slot_b, 3); // Assign a default preset to this slot, don't forget to change here if Switch menu is reordered
 static CONFIG_INT("crop.last_activated_preset_index", last_activated_preset_index, 0); // This value is remembered (also between restarts)
-static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_mv1080, 3);
-static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_mv1080_x3crop, 3);
-static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_5K_anamorphic, 1);
-static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_2K, 1);
-static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_mv1080_high_framerate, 1);
-static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_mv1080_high_framerate_x3crop, 1);
+static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_mv1080, 0);
+static CONFIG_INT("crop.ratios_preset_mv1080_x3crop", ratios_preset_mv1080_x3crop, 0);
+static CONFIG_INT("crop.ratios_preset_5K_anamorphic", ratios_preset_5K_anamorphic, 0);
+static CONFIG_INT("crop.ratios_preset_2K", ratios_preset_2K, 0);
+static CONFIG_INT("crop.ratios_preset_mv1080_high_framerate", ratios_preset_mv1080_high_framerate, 0);
+static CONFIG_INT("crop.ratios_preset_mv1080_high_framerate_x3crop", ratios_preset_mv1080_high_framerate_x3crop, 0);
 
-const char *ratios_choices[] = CHOICES("OFF", "2.39:1", "2.35:1", "16:9");
+static const char *ratios_choices[] = CHOICES("MAX", "2.39:1", "2.35:1", "16:9");
+static const char ratios_choices_help[] =
+"Highest ratio allowed. Use with caution.\n"
+"\n"
+"\n"
+"\n"
+"\n";
+
+static const char *preset_ratios_choices[] = CHOICES("Global aspect ratio", "MAX", "2.39:1", "2.35:1", "16:9");
+static const char preset_ratios_choices_help[] =
+"Respect \"Global aspect ratio\" set in Switch menu.\n"
+"Highest ratio allowed. Use with caution.\n"
+"\n"
+"\n"
+"\n"
+"\n";
+
+static const char preset_ratios_choices_help2[] = "Use this ratio every time when applying this preset.";
 
 enum crop_preset {
     CROP_PRESET_OFF = 0,
@@ -1783,8 +1801,13 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         }
         
         if (x3toggle == 0x1 && is_EOSM)
-        {
-            NotifyBox(1000, "Use x3crop toggle SET or turn iso climb off");
+        {   
+            if(switch_menu_enabled){
+                NotifyBox(1000, "Use \"Toggle mv1080\" SET\nor turn iso climb off");
+            } else {
+                NotifyBox(1000, "Use x3crop toggle SET or turn iso climb off");
+            }
+            
         }
         isopatch = 1;
         if (isoclimb == 0x2)
@@ -5243,7 +5266,7 @@ static void apply_preset_mv1080()
         return;
     }
     NotifyBox(2000, "mv1080p MCM rewire 14bit");
-    ratios = ratios_preset_mv1080;
+    ratios = ratios_preset_mv1080 ? ratios_preset_mv1080 - 1 : preset_global_ratios;
     crop_preset_index = 6;
     bitdepth = 0x0;
     zoomaid = 0x1;
@@ -5261,7 +5284,7 @@ static void apply_preset_mv1080_x3crop()
         return;
     }
     NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
-    ratios = ratios_preset_mv1080_x3crop;
+    ratios = ratios_preset_mv1080_x3crop ? ratios_preset_mv1080_x3crop - 1 : preset_global_ratios;
     crop_preset_index = 6;
     bitdepth = 0x0;
     zoomaid = 0x1;
@@ -5279,7 +5302,7 @@ static void apply_preset_5K_anamorphic()
         return;
     }
     NotifyBox(2000, "5K Anamorphic 10bit");
-    ratios = ratios_preset_5K_anamorphic;
+    ratios = ratios_preset_5K_anamorphic ? ratios_preset_5K_anamorphic - 1 : preset_global_ratios;
     crop_preset_index = 10;
     bitdepth = 0x3;
     zoomaid = 0x1;
@@ -5300,7 +5323,7 @@ static void apply_preset_2K()
         return;
     }
     NotifyBox(2000, "2.5K 10bit");
-    ratios = ratios_preset_2K;
+    ratios = ratios_preset_2K ? ratios_preset_2K - 1 : preset_global_ratios;
     crop_preset_index = 2;
     bitdepth = 0x3;
     zoomaid = 0x1;
@@ -5320,7 +5343,7 @@ static void apply_preset_mv1080_high_framerate()
         return;
     }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
-    ratios = ratios_preset_mv1080_high_framerate;
+    ratios = ratios_preset_mv1080_high_framerate ? ratios_preset_mv1080_high_framerate - 1 : preset_global_ratios;
     crop_preset_index = 7;
     bitdepth = 0x3;
     zoomaid = 0x1;
@@ -5339,7 +5362,7 @@ static void apply_preset_mv1080_high_framerate_x3crop()
         return;
     }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
-    ratios = ratios_preset_mv1080_high_framerate_x3crop;
+    ratios = ratios_preset_mv1080_high_framerate_x3crop ? ratios_preset_mv1080_high_framerate_x3crop - 1 : preset_global_ratios;
     crop_preset_index = 7;
     bitdepth = 0x3;
     zoomaid = 0x1;
@@ -5475,9 +5498,10 @@ static struct menu_entry presets_switch_menu[] =
                 {
                     .name   = "ratios",
                     .priv   = &ratios_preset_mv1080,
-                    .max    = 3,
-                    .choices = ratios_choices,
-                    .help   = "Change aspect ratio\n"
+                    .choices = preset_ratios_choices,
+                    .max    = COUNT(preset_ratios_choices) - 1,
+                    .help   = preset_ratios_choices_help,
+                    .help2  = preset_ratios_choices_help2
                 },
                 MENU_EOL,
             }
@@ -5493,9 +5517,10 @@ static struct menu_entry presets_switch_menu[] =
                 {
                     .name   = "ratios",
                     .priv   = &ratios_preset_mv1080_x3crop,
-                    .max    = 3,
-                    .choices = ratios_choices,
-                    .help   = "Change aspect ratio\n"
+                    .choices = preset_ratios_choices,
+                    .max    = COUNT(preset_ratios_choices) - 1,
+                    .help   = preset_ratios_choices_help,
+                    .help2  = preset_ratios_choices_help2
                 },
                 MENU_EOL,
             }
@@ -5511,9 +5536,10 @@ static struct menu_entry presets_switch_menu[] =
                 {
                     .name   = "ratios",
                     .priv   = &ratios_preset_5K_anamorphic,
-                    .max    = 3,
-                    .choices = ratios_choices,
-                    .help   = "Change aspect ratio\n"
+                    .choices = preset_ratios_choices,
+                    .max    = COUNT(preset_ratios_choices) - 1,
+                    .help   = preset_ratios_choices_help,
+                    .help2  = preset_ratios_choices_help2
                 },
                 MENU_EOL,
             }
@@ -5529,9 +5555,10 @@ static struct menu_entry presets_switch_menu[] =
                 {
                     .name   = "ratios",
                     .priv   = &ratios_preset_2K,
-                    .max    = 3,
-                    .choices = ratios_choices,
-                    .help   = "Change aspect ratio\n"
+                    .choices = preset_ratios_choices,
+                    .max    = COUNT(preset_ratios_choices) - 1,
+                    .help   = preset_ratios_choices_help,
+                    .help2  = preset_ratios_choices_help2
                 },
                 MENU_EOL,
             }
@@ -5547,9 +5574,10 @@ static struct menu_entry presets_switch_menu[] =
                 {
                     .name   = "ratios",
                     .priv   = &ratios_preset_mv1080_high_framerate,
-                    .max    = 3,
-                    .choices = ratios_choices,
-                    .help   = "Change aspect ratio\n"
+                    .choices = preset_ratios_choices,
+                    .max    = COUNT(preset_ratios_choices) - 1,
+                    .help   = preset_ratios_choices_help,
+                    .help2  = preset_ratios_choices_help2
                 },
                 MENU_EOL,
             }
@@ -5565,9 +5593,10 @@ static struct menu_entry presets_switch_menu[] =
                 {
                     .name   = "ratios",
                     .priv   = &ratios_preset_mv1080_high_framerate_x3crop,
-                    .max    = 3,
-                    .choices = ratios_choices,
-                    .help   = "Change aspect ratio\n"
+                    .choices = preset_ratios_choices,
+                    .max    = COUNT(preset_ratios_choices) - 1,
+                    .help   = preset_ratios_choices_help,
+                    .help2  = preset_ratios_choices_help2
                 },
                 MENU_EOL,
             }
@@ -5596,6 +5625,14 @@ static struct menu_entry presets_switch_menu[] =
             .choices = CHOICES("OFF", "press down", "SET"),
             .help = "Press key 1x: Jumps into mv1080p rewire from another preset, or...",
             .help2 = "...toggle x3crop. Press key 2x: Toggle high framerate mode."
+        },
+        {
+            .name   = "Global aspect ratio",
+            .priv   = &preset_global_ratios,
+            .choices = ratios_choices,
+            .max    = COUNT(ratios_choices) - 1,
+            .help   = ratios_choices_help,
+            .help2  = "Used when applying presets if ratio not set in preset submenu."
         },
         MENU_EOL,
 };
@@ -5660,7 +5697,8 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &ratios,
                 .max    = 3,
                 .choices = ratios_choices,
-                .help   = "Change aspect ratio\n"
+                .help   = ratios_choices_help,
+                .help2   = "Change aspect ratio"
             },
             {
                 .name   = "x3crop",
@@ -6161,21 +6199,31 @@ static void fake_set_single_press()
 static unsigned int do_single_press_action_for_set_key(bool not_a_test){
     if ((CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM || CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM))
     {
-        if(not_a_test){
-            // Toggle x3crop
-            x3crop = 1 - x3crop;
-            PauseThenResumeLiveView();
-        } else {
-            if(x3crop){
-                if(CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM){
+
+        if(x3crop){
+            if(CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM){
+                if(not_a_test){
+                    apply_preset_mv1080();
+                } else {
                     NotifyBox(2000, "mv1080p MCM rewire 14bit");
+                }
+            } else {
+                if(not_a_test){
+                    apply_preset_mv1080_high_framerate();
                 } else {
                     NotifyBox(2000, "mv1080p 45/46/48/50fps");
                 }
-                
-            } else {
-                if(CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM){
+            }
+        } else {
+            if(CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM){
+                if(not_a_test){
+                    apply_preset_mv1080_x3crop();
+                } else {
                     NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
+                }
+            } else {
+                if(not_a_test){
+                    apply_preset_mv1080_high_framerate_x3crop();
                 } else {
                     NotifyBox(2000, "mv1080p 45/46/48/50fps x3crop");
                 }
@@ -7853,6 +7901,7 @@ MODULE_CONFIG(ratios_preset_5K_anamorphic)
 MODULE_CONFIG(ratios_preset_2K)
 MODULE_CONFIG(ratios_preset_mv1080_high_framerate)
 MODULE_CONFIG(ratios_preset_mv1080_high_framerate_x3crop)
+MODULE_CONFIG(preset_global_ratios)
 MODULE_CONFIG(switch_menu_enabled)
 MODULE_CONFIGS_END()
 
