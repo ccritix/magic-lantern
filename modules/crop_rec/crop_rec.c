@@ -5635,7 +5635,7 @@ static MENU_UPDATE_FUNC(switch_menu_toggle_update)
 
 static MENU_UPDATE_FUNC(x3crop_entry_update)
 {
-    if(switch_menu_enabled){
+    if(switch_menu_enabled && is_EOSM){
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This now affects \"Toggle mv1080\" in Switch menu.");
     }
 }
