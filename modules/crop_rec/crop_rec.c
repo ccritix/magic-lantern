@@ -5902,8 +5902,8 @@ static struct menu_entry presets_switch_menu[] =
             .name = "mv1080p MCM rewire",
             .select = apply_preset_mv1080,
             .priv = "ps_entry", // To identify which entries are presets. We need to extract names later.
-            .help = "HD. Crop factor>1.61. 14bit. Aliasing.",
-            .help2 = "Realtime preview.",
+            .help = "HD. Crop factor>1.61. 14bit. Aliasing. Continuous recording possible.",
+            .help2 = "Realtime preview. Shoot continuously with SanDisk Extreme Pro 95MB/s.",
             .children =  (struct menu_entry[]) {
                 {
                     .name   = "ratios",
@@ -5920,8 +5920,8 @@ static struct menu_entry presets_switch_menu[] =
             .name = "mv1080p MCM rewire x3crop",
             .select = apply_preset_mv1080_x3crop,
             .priv = "ps_entry",
-            .help = "HD. Crop factor>4.66. 14bit. Less aliasing.",
-            .help2 = "Realtime preview.",
+            .help = "HD. Crop factor>4.66. 14bit. Less aliasing. Continuous recording possible.",
+            .help2 = "Realtime preview. Shoot continuously with SanDisk Extreme Pro 95MB/s.",
             .children =  (struct menu_entry[]) {
                 {
                     .name   = "ratios",
@@ -5938,7 +5938,7 @@ static struct menu_entry presets_switch_menu[] =
             .name = "5K Anamorphic",
             .select = apply_preset_5K_anamorphic,
             .priv = "ps_entry",
-            .help = "5K. Crop factor>1.68. 10bit. Less aliasing.",
+            .help = "5K. Crop factor>1.68. 10bit. Less aliasing. Continuous recording possible.",
             .help2 = "Slow preview. Desqueeze in post.",
             .children =  (struct menu_entry[]) {
                 {
@@ -5956,8 +5956,8 @@ static struct menu_entry presets_switch_menu[] =
             .name = "2.5K",
             .select = apply_preset_2K,
             .priv = "ps_entry",
-            .help = "2K. Crop factor>3.83. 10bit. Less aliasing.",
-            .help2 = "Slow preview.",
+            .help = "2K. Crop factor>3.83. 10bit. Less aliasing. Continuous recording possible.",
+            .help2 = "Slow preview. Shoot continuously with SanDisk Extreme Pro 95MB/s.",
             .children =  (struct menu_entry[]) {
                 {
                     .name   = "ratios",
@@ -5974,7 +5974,7 @@ static struct menu_entry presets_switch_menu[] =
             .name = "mv1080p 45/46/48/50fps",
             .select = apply_preset_mv1080_high_framerate,
             .priv = "ps_entry",
-            .help = "HD. Crop factor>1.61. 10bit. Aliasing",
+            .help = "HD. Crop factor>1.61. 10bit. Aliasing. Continuous recording possible.",
             .help2 = "Realtime preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
             .children =  (struct menu_entry[]) {
                 {
@@ -5992,7 +5992,7 @@ static struct menu_entry presets_switch_menu[] =
             .name = "mv1080p 45/46/48/50fps x3crop",
             .select = apply_preset_mv1080_high_framerate_x3crop,
             .priv = "ps_entry",
-            .help = "HD. Crop factor>4.66. 10bit. Less aliasing.",
+            .help = "HD. Crop factor>4.66. 10bit. Less aliasing. Continuous recording possible.",
             .help2 = "Realtime preview. 16:9=45fps. 2.35:1&2.39:1=48fps or 50fps if set to 25fps.",
             .children =  (struct menu_entry[]) {
                 {
