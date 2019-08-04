@@ -97,12 +97,12 @@ void crop_mode_hack_init()
 
 // Some fun stuff if we want modules working wihtout enabling from start 
 // in module.c set MENU_SET_SHIDDEN(0); to 1 if we want to hide modules altogether 
-//FILE * file = FIO_CreateFile( "ML/SETTINGS/mlv_lite.en" );
-//FILE * file2 = FIO_CreateFile( "ML/SETTINGS/crop_rec.en" );
-//FILE * file3 = FIO_CreateFile( "ML/SETTINGS/lua.en" );
-//FILE * file4 = FIO_CreateFile( "ML/SETTINGS/mlv_play.en" );
-//FILE * file5 = FIO_CreateFile( "ML/SETTINGS/mlv_snd.en" );
-//FILE * file6 = FIO_CreateFile( "ML/SETTINGS/sd_uhs.en" );
+FILE * file = FIO_CreateFile( "ML/SETTINGS/mlv_lite.en" );
+FILE * file2 = FIO_CreateFile( "ML/SETTINGS/crop_rec.en" );
+FILE * file3 = FIO_CreateFile( "ML/SETTINGS/lua.en" );
+FILE * file4 = FIO_CreateFile( "ML/SETTINGS/mlv_play.en" );
+FILE * file5 = FIO_CreateFile( "ML/SETTINGS/mlv_snd.en" );
+FILE * file6 = FIO_CreateFile( "ML/SETTINGS/sd_uhs.en" );
 //FILE * file7 = FIO_CreateFile( "ML/SETTINGS/adtg_gui.en" );
 //FILE * file8 = FIO_CreateFile( "ML/SETTINGS/dual_iso.en" );
 
