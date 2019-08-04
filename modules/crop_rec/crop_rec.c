@@ -6760,6 +6760,11 @@ static unsigned int handle_switch_menu_keys(unsigned int key){
 
     if (key == MODULE_KEY_INFO)
     {
+        if(lv_disp_mode != 0){
+            // Use INFO key to cycle LV as normal when not in the LV with ML overlays
+            return 1;
+        }
+
         if (handle_info_single_press)
         {
             handle_info_single_press = false;
