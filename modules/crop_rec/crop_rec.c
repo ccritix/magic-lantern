@@ -58,8 +58,8 @@ static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 
 static CONFIG_INT("crop.switch_menu_enabled", switch_menu_enabled, 1);
-static CONFIG_INT("crop.preset_index_slot_a", preset_index_slot_a, 2); // Assign a default preset to this slot, don't forget to change here if Switch menu is reordered
-static CONFIG_INT("crop.preset_index_slot_b", preset_index_slot_b, 3); // Assign a default preset to this slot, don't forget to change here if Switch menu is reordered
+static CONFIG_INT("crop.preset_index_slot_a", preset_index_slot_a, 3); // Assign a default preset to this slot, don't forget to change here if Switch menu is reordered
+static CONFIG_INT("crop.preset_index_slot_b", preset_index_slot_b, 4); // Assign a default preset to this slot, don't forget to change here if Switch menu is reordered
 static CONFIG_INT("crop.last_activated_preset_index", last_activated_preset_index, 0); // This value is remembered (also between restarts)
 static CONFIG_INT("crop.ratios_preset_mv1080", ratios_preset_mv1080, 0);
 static CONFIG_INT("crop.ratios_preset_mv1080_x3crop", ratios_preset_mv1080_x3crop, 0);
