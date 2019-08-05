@@ -315,7 +315,7 @@ static const char crop_choices_help2_eosm[] =
 // "3:1 4K x5crop, framing preview\n"
 // "3:1 5K x5crop, framing preview\n"
 "mv1080p bypass mv720p idle mode\n"
-"Enable Movie crop mode and push canon MENU button and back\n"
+"mv1080p realtime full preview. Works with Canon fps 24/25/30fps\n"
 "mv1080p 46/48 fps\n"
 "mv720p 50fps 16:9\n"
 "1x3 binning modes(anamorphic)\n"
@@ -5525,6 +5525,15 @@ static struct menu_entry presets_switch_menu[] =
     },
     {
         .depends_on = DEP_MOVIE_MODE,
+        .name   = "set 25fps",
+        .priv   = &set_25fps,
+        .max    = 1,
+        .choices = CHOICES("OFF", "ON"),
+        .help   = "OFF = default 24fps, ON = 25fps",
+	.help2  = "Please apply 25fps also in canon menu for correct shutter handling\n"
+    },
+    {
+        .depends_on = DEP_MOVIE_MODE,
         .name   = "ratios",
         .priv   = &ratios,
         .max    = 3,
@@ -5625,7 +5634,8 @@ static struct menu_entry crop_rec_menu[] =
                 .priv   = &set_25fps,
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON"),
-                .help   = "Sets 2.39:1, 2.35:1 and 16:9 modes to 25fps\n"
+                .help   = "OFF = default 24fps, ON = 25fps",
+                .help2  = "Please apply 25fps also in canon menu for correct shutter handling\n"
             },
             {
                 .name   = "iso climb",
