@@ -5235,7 +5235,7 @@ static void apply_preset_mv1080()
         return;
     }
     NotifyBox(2000, "mv1080p MCM rewire 14bit");
-    crop_preset_index = 6;
+    crop_preset_index = 1;
     bitdepth = 0x0;
     zoomaid = 0x1;
     if (isoclimb == 0x0)
@@ -5252,7 +5252,7 @@ static void apply_preset_mv1080_x3crop()
         return;
     }
     NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
-    crop_preset_index = 6;
+    crop_preset_index = 1;
     bitdepth = 0x0;
     zoomaid = 0x1;
     if (isoclimb == 0x0)
@@ -5289,7 +5289,7 @@ static void apply_preset_2K()
         return;
     }
     NotifyBox(2000, "2.5K 10bit");
-    crop_preset_index = 2;
+    crop_preset_index = 6;
     bitdepth = 0x3;
     zoomaid = 0x1;
     if (isoclimb == 0x0)
@@ -5308,7 +5308,7 @@ static void apply_preset_mv1080_high_framerate()
         return;
     }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
-    crop_preset_index = 7;
+    crop_preset_index = 2;
     bitdepth = 0x3;
     zoomaid = 0x1;
     if (isoclimb == 0x0)
@@ -5326,7 +5326,7 @@ static void apply_preset_mv1080_high_framerate_x3crop()
         return;
     }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
-    crop_preset_index = 7;
+    crop_preset_index = 2;
     bitdepth = 0x3;
     zoomaid = 0x1;
     if (isoclimb == 0x0)
