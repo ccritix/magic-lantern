@@ -5530,7 +5530,7 @@ static struct menu_entry presets_switch_menu[] =
         .max    = 1,
         .choices = CHOICES("OFF", "ON"),
         .help   = "OFF = default 24fps, ON = 25fps",
-	.help2  = "Please apply 25fps also in canon menu for correct shutter handling\n"
+        .help2  = "Please apply 25fps also in canon menu for correct shutter handling\n"
     },
     {
         .depends_on = DEP_MOVIE_MODE,
