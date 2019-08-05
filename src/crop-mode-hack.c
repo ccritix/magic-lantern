@@ -8,8 +8,6 @@
 
 #ifdef FEATURE_CROP_MODE_HACK
 
-static CONFIG_INT("movie.crop.first_run", first_run, 1);
-
 static int movie_crop_mode;
 static int video_mode[10];
 
@@ -97,10 +95,18 @@ void crop_mode_hack_init()
 {
     menu_add( "Movie", crop_hack_menus, COUNT(crop_hack_menus) );
     
+    // Load the config, because this will compute the path to the ML config file (even if no config exists)
     config_load();
+    // Get path to ML config file
+    char config_file[0x80];
+    snprintf(config_file, sizeof(config_file), "%smagic.cfg", get_config_dir());
 
-    // Allow for modules to be disabled after first run
-    if(first_run){
+    // If config file doesn't exist, this is the first run: enable modules
+    // Allows for modules to be disabled after first run
+    int first_run = !config_flag_file_setting_load(config_file);
+
+    if(first_run)
+    {
         // Some fun stuff if we want modules working wihtout enabling from start 
         // in module.c set MENU_SET_SHIDDEN(0); to 1 if we want to hide modules altogether 
         FILE * file = FIO_CreateFile( "ML/SETTINGS/mlv_lite.en" );
@@ -111,7 +117,6 @@ void crop_mode_hack_init()
         FILE * file6 = FIO_CreateFile( "ML/SETTINGS/sd_uhs.en" );
         // FILE * file7 = FIO_CreateFile( "ML/SETTINGS/adtg_gui.en" );
         FILE * file8 = FIO_CreateFile( "ML/SETTINGS/dual_iso.en" );
-        first_run = 0;
     }
 }
 
