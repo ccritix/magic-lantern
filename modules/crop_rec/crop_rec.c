@@ -41,10 +41,10 @@ static int set_key_timer = 0;
 static bool handle_info_single_press = false;
 static bool handle_set_single_press = false;
 
-static CONFIG_INT("crop.preset", crop_preset_index, 0);
+static CONFIG_INT("crop.preset", crop_preset_index, 1);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 0);
-static CONFIG_INT("crop.ratios", ratios, 0);
+static CONFIG_INT("crop.ratios", ratios, 3);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.zoomaid", zoomaid, 1);
 static CONFIG_INT("crop.x3toggle", x3toggle, 2);
@@ -276,36 +276,36 @@ static const char crop_choices_help2_100d[] =
 /* menu choices for EOSM */
 static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_OFF_eosm,
+    CROP_PRESET_mcm_mv1080_EOSM,
+    CROP_PRESET_3x3_mv1080_48fps_EOSM,
+    CROP_PRESET_3x3_mv1080_EOSM,
+    CROP_PRESET_3x1_mv720_50fps_EOSM,
     CROP_PRESET_CENTER_Z_EOSM,
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
-    // CROP_PRESET_4K_3x1_EOSM,
-    // CROP_PRESET_5K_3x1_EOSM,
-    CROP_PRESET_3x3_mv1080_EOSM,
-    CROP_PRESET_mcm_mv1080_EOSM,
-    CROP_PRESET_3x3_mv1080_48fps_EOSM,
-    CROP_PRESET_3x1_mv720_50fps_EOSM,
     CROP_PRESET_anamorphic_rewired_EOSM,
     CROP_PRESET_anamorphic_EOSM,
+    // CROP_PRESET_4K_3x1_EOSM,
+    // CROP_PRESET_5K_3x1_EOSM,
     // CROP_PRESET_4K_5x1_EOSM,
     // CROP_PRESET_3x3_1X_EOSM,
 };
 
 static const char * crop_choices_eosm[] = {
     "OFF",
+    "mv1080p MCM rewire",
+    "mv1080p 1736x976 46/48fps",
+    "mv1080p 1736x1158",
+    "mv720p 1736x694 50fps",
     "2.5K 1:1 centered",
     "2.5K 2520x1418",
     "3K 3032x1436",
     "4K 4080x3000",
-    // "4K 3x1 24fps",
-    // "5K 3x1 24fps",
-    "mv1080p 1736x1158",
-    "mv1080p MCM rewire",
-    "mv1080p 1736x976 46/48fps",
-    "mv720p 1736x694 50fps",
     "4K anamorphic rewired",
     "5K anamorphic",
+    // "4K 3x1 24fps",
+    // "5K 3x1 24fps",
     // "4K 5x1 24fps",
     // "3x3 720p",
 };
@@ -315,18 +315,18 @@ static const char crop_choices_help_eosm[] =
 
 static const char crop_choices_help2_eosm[] =
 "\n"
+"mv1080p realtime full preview. Works with Canon fps 24/25/30fps\n"
+"mv1080p 46/48 fps\n"
+"mv1080p bypass mv720p idle mode\n"
+"mv720p 50fps 16:9\n"
 "1:1 x5 zoom mode(centered raw, cropped preview)\n"
 "1:1 2K x5crop, real time preview\n"
 "1:1 3K x5crop, framing preview\n"
 "1:1 4K x5crop, framing preview\n"
-// "3:1 4K x5crop, framing preview\n"
-// "3:1 5K x5crop, framing preview\n"
-"mv1080p bypass mv720p idle mode\n"
-"mv1080p realtime full preview. Works with Canon fps 24/25/30fps\n"
-"mv1080p 46/48 fps\n"
-"mv720p 50fps 16:9\n"
 "1x3 binning modes(anamorphic)\n"
 "1x3 binning modes(anamorphic)\n";
+// "3:1 4K x5crop, framing preview\n"
+// "3:1 5K x5crop, framing preview\n"
 // "5:1 4K crop squeeze, preview broken\n"
 // "3x3 binning in 720p (square pixels in RAW, vertical crop)\n"
 
@@ -5242,7 +5242,7 @@ static void apply_preset_mv1080()
         return;
     }
     NotifyBox(2000, "mv1080p MCM rewire 14bit");
-    crop_preset_index = 6;
+    crop_preset_index = 1;
     bitdepth = 0x0;
     zoomaid = 0x1;
     if (isoclimb == 0x0)
@@ -5259,7 +5259,7 @@ static void apply_preset_mv1080_x3crop()
         return;
     }
     NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
-    crop_preset_index = 6;
+    crop_preset_index = 1;
     bitdepth = 0x0;
     zoomaid = 0x1;
     if (isoclimb == 0x0)
@@ -5296,7 +5296,7 @@ static void apply_preset_2K()
         return;
     }
     NotifyBox(2000, "2.5K 10bit");
-    crop_preset_index = 2;
+    crop_preset_index = 6;
     bitdepth = 0x3;
     zoomaid = 0x1;
     if (isoclimb == 0x0)
@@ -5315,7 +5315,7 @@ static void apply_preset_mv1080_high_framerate()
         return;
     }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
-    crop_preset_index = 7;
+    crop_preset_index = 2;
     bitdepth = 0x3;
     zoomaid = 0x1;
     if (isoclimb == 0x0)
@@ -5333,7 +5333,7 @@ static void apply_preset_mv1080_high_framerate_x3crop()
         return;
     }
     NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
-    crop_preset_index = 7;
+    crop_preset_index = 2;
     bitdepth = 0x3;
     zoomaid = 0x1;
     if (isoclimb == 0x0)
