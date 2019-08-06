@@ -3988,6 +3988,7 @@ static struct menu_entry raw_video_menu[] =
             {
                 .name       = "Data format",
                 .priv       = &output_format,
+                .shidden    = 1,
                 .max        = 5,
                 .update     = output_format_update,
                 .choices    = CHOICES(
