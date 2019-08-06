@@ -5643,7 +5643,7 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
                 .help   = "Fast access to iso (NOT working with autoiso)",
-                .help2  = "press down(eosm), INFO(5D3) or SET(100d) button 100-3200 iso\n"
+                .help2  = "push up/down(eosm), INFO(5D3) or SET(100d) button 100-3200 iso\n"
             },
             {
                 .name   = "max iso",
@@ -6376,34 +6376,40 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     
     /* iso climbing feature */
     if ((!is_6D && isopatch && lv && !gui_menu_shown() && is_movie_mode()) &&
-        (((is_EOSM && key == MODULE_KEY_PRESS_DOWN) || (is_5D3 && key == MODULE_KEY_INFO) ||
+        (((is_EOSM && (key == MODULE_KEY_PRESS_DOWN || key == MODULE_KEY_PRESS_UP)) || (is_5D3 && key == MODULE_KEY_INFO) ||
           ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) && isoclimb != 0x0 && HDR_iso_a == 0x0))
     {
         isopatch = 0;
         isopatchoff = 0;
         if (shamem_read(0xC0F0b12c) == 0x11)
         {
-            isoclimb = 0x2;
+            if (key == MODULE_KEY_PRESS_UP) isoclimb = 0x2;
+            if (key == MODULE_KEY_PRESS_DOWN) isoclimb = 0x6;
         }
         else if (shamem_read(0xC0F0b12c) == 0x12)
         {
-            isoclimb = 0x3;
+            if (key == MODULE_KEY_PRESS_UP) isoclimb = 0x3;
+            if (key == MODULE_KEY_PRESS_DOWN) isoclimb = 0x1;
         }
         else if (shamem_read(0xC0F0b12c) == 0x13)
         {
-            isoclimb = 0x4;
+            if (key == MODULE_KEY_PRESS_UP) isoclimb = 0x4;
+            if (key == MODULE_KEY_PRESS_DOWN) isoclimb = 0x2;
         }
         else if (shamem_read(0xC0F0b12c) == 0x14)
         {
-            isoclimb = 0x5;
+            if (key == MODULE_KEY_PRESS_UP) isoclimb = 0x5;
+            if (key == MODULE_KEY_PRESS_DOWN) isoclimb = 0x3;
         }
         else if (shamem_read(0xC0F0b12c) == 0x15)
         {
-            isoclimb = 0x6;
+            if (key == MODULE_KEY_PRESS_UP) isoclimb = 0x6;
+            if (key == MODULE_KEY_PRESS_DOWN) isoclimb = 0x4;
         }
         else if (shamem_read(0xC0F0b12c) == 0x16)
         {
-            isoclimb = 0x1;
+            if (key == MODULE_KEY_PRESS_UP) isoclimb = 0x1;
+            if (key == MODULE_KEY_PRESS_DOWN) isoclimb = 0x5;
         }
         return 0;
     }
