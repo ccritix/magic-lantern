@@ -22,7 +22,20 @@
 
 static CONFIG_INT( "movie.recording_mode", recording_mode, 0 );
 
-bool should_hide_entry(char * name){
+bool should_hide_entry(struct menu_entry * entry){
+
+    // if(entry->children && COUNT(entry->children) == 0){
+    //     // Hide menu entries that define an empty submenu
+    //     // This will be the case when e.g. Customized Buttons is not filled up by movtweaks, modules, etc.
+    //     return true;
+    // }
+
+    char * name = (char *) entry->name;
+
+    if (!name){
+        return false;
+    }
+    
     if (recording_mode == 0)
     {
         // Raw recording mode
@@ -42,6 +55,7 @@ bool should_hide_entry(char * name){
     {
         // h264 recording mode
         return
+            streq( name, "Ratio" ) ||
             streq( name, "Crop mode" ) ||
             streq( name, "RAW video" );
     }
@@ -50,9 +64,10 @@ bool should_hide_entry(char * name){
 static void hide_recursive(struct menu_entry * menu_children){
     for (struct menu_entry * entry = menu_children; entry; entry = entry->next)
     {
-        if(should_hide_entry((char *) entry->name)){
+        if(should_hide_entry(entry)){
             entry->shidden = 1;
-        } else {
+        } else if(!entry->placeholder){
+            // Show this entry
             entry->shidden = 0;
             // Check children
             hide_recursive(entry->children);
@@ -79,7 +94,8 @@ static struct menu * menu_find_by_name_simple(char * name ){
     return NULL;
 }
 
-void hide_show_movie_menu_entries_for_recording_mode(){
+static void hide_show_movie_menu_entries_for_recording_mode(){
+    
     struct menu * menu = menu_find_by_name_simple("Movie");
 
     if( !menu )
@@ -97,7 +113,48 @@ void hide_show_movie_menu_entries_for_recording_mode(){
     }
 }
 
+// TODO also make placeholders for h264 mode to give them a neat ordering as well
+// TODO fix icons of Movie Tweaks etc, it's green because it doesn't ignore hidden entries
+static struct menu_entry movie_menu_raw_toggle[] =
+{
+    {
+        .name = "Recording mode",
+        .priv = &recording_mode,
+        .max = 1,
+        .choices = CHOICES("RAW", "h264"),
+        .shidden = 1,
+    },
+    {
+        .name = "Ratio",
+        .placeholder = 1,
+        .shidden = 1,
+    },
+    {
+        .name = "FPS override",
+        .placeholder = 1,
+        .shidden = 1,
+    },
+    {
+        .name = "RAW video",
+        .placeholder = 1,
+        .shidden = 1,
+    },
+    {
+        .name = "Crop mode",
+        .placeholder = 1,
+        .shidden = 1,
+    },
+    {
+        .name = "Customized Buttons",
+        .select = menu_open_submenu,
+        .children =  (struct menu_entry[]) {
+            MENU_EOL,
+        },
+    },
+};
+
 MENU_SELECT_FUNC(movie_menu_raw_toggle_select){
+
     recording_mode = 1 - recording_mode;
     hide_show_movie_menu_entries_for_recording_mode();
     
@@ -112,22 +169,30 @@ MENU_SELECT_FUNC(movie_menu_raw_toggle_select){
     }
 }
 
-static struct menu_entry movie_menu_raw_toggle[] = {
-    {
-        .name = "Recording mode",
-        .priv = &recording_mode,
-        .max = 1,
-        .choices = CHOICES("RAW", "h264"),
-        .select = movie_menu_raw_toggle_select,
-    },
-};
-
 static void movie_menu_raw_toggle_init()
 {
+    movie_menu_raw_toggle[0].select = movie_menu_raw_toggle_select;
     menu_add( "Movie", movie_menu_raw_toggle, COUNT(movie_menu_raw_toggle) );
 }
 
-INIT_FUNC(__FILE__, movie_menu_raw_toggle_init);
+// "Recording mode" menu entry is declared as hidden
+// Will be unhidden when this method is called from mlv_lite.c
+// Otherwise it will be shown if modules aren't loaded (and there'll be no RAW)
+void movie_menu_raw_toggle_init_after_modules_loaded()
+{
+    for (struct menu_entry * entry = movie_menu_raw_toggle; entry; entry = entry->next)
+    {
+        char * name = (char *) entry->name;
+        // Check if Customized Buttons has been filled, if not hide it
+        if(name && streq( name, "Customized Buttons" ) && COUNT(entry->children) == 0){
+            entry->shidden = 1;
+            entry->placeholder = 1; // Also set preset state so it won't be unhidden again
+        } else if(name && streq( name, "Recording mode" )){
+            entry->shidden = 0;
+        }
+    }
+    
+    hide_show_movie_menu_entries_for_recording_mode();
+}
 
-// TODO init menu entry hidden first, then call from mlv_lite to unhide 
-// Otherwise it will be there if modules aren't loaded (and there'll be no RAW)
+INIT_FUNC(__FILE__, movie_menu_raw_toggle_init);

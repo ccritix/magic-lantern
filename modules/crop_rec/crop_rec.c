@@ -5269,6 +5269,46 @@ static MENU_UPDATE_FUNC(target_yres_update)
     MENU_SET_RINFO("from %d", max_resolutions[crop_preset][get_video_mode_index()]);
 }
 
+static struct menu_entry custom_buttons_menu[] =
+{
+    {
+        .name   = "x3crop toggle",
+        .priv   = &x3toggle,
+        .max    = 2,
+        .choices = CHOICES("OFF", "press down", "SET"),
+        .help   = "In and out of x3crop(all mv1080p modes)",
+        .help2  = "Select a short press key(EOSM). Halfshutter press(5D3)\n"
+    },
+    {
+        .name   = "focus aid",
+        .priv   = &zoomaid,
+        .max    = 2,
+        .choices = CHOICES("OFF", "default mode", "dark mode"),
+        .help   = "x10 zoom when pressing halfshutter(all presets, manual focus)",
+        .help2   = "Will brighten liveview(slower fps)\n"
+    },
+    {
+        .name   = "iso climb",
+        .priv   = &isoclimb,
+        .max    = 1,
+        .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
+        .help   = "Fast access to iso (NOT working with autoiso)",
+        .help2  = "push up/down(eosm), INFO(5D3) or SET(100d) button 100-3200 iso\n"
+    },
+};
+
+
+static struct menu_entry movie_menu_ratio[] =
+{
+    {
+        .name   = "Ratio",
+        .priv   = &ratios,
+        .max    = 3,
+        .choices = CHOICES("OFF", "2.39:1", "2.35:1", "16:9"),
+        .help   = "Change aspect ratio\n"
+    },
+};
+
 static struct menu_entry crop_rec_menu[] =
 {
     {
@@ -5285,34 +5325,11 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Alter bitdepth\n"
             },
             {
-                .name   = "ratios",
-                .priv   = &ratios,
-                .max    = 3,
-                .choices = CHOICES("OFF", "2.39:1", "2.35:1", "16:9"),
-                .help   = "Change aspect ratio\n"
-            },
-            {
                 .name   = "x3crop",
                 .priv   = &x3crop,
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON"),
                 .help   = "Turns mv1080p and mv1080_46fps modes into x3 crop modes)",
-            },
-            {
-                .name   = "x3crop toggle",
-                .priv   = &x3toggle,
-                .max    = 2,
-                .choices = CHOICES("OFF", "press down", "SET"),
-                .help   = "In and out of x3crop(all mv1080p modes)",
-                .help2  = "Select a short press key(EOSM). Halfshutter press(5D3)\n"
-            },
-            {
-                .name   = "focus aid",
-                .priv   = &zoomaid,
-                .max    = 2,
-                .choices = CHOICES("OFF", "default mode", "dark mode"),
-                .help   = "x10 zoom when pressing halfshutter(all presets, manual focus)",
-                .help2   = "Will brighten liveview(slower fps)\n"
             },
             {
                 .name   = "set 25fps",
@@ -5321,14 +5338,6 @@ static struct menu_entry crop_rec_menu[] =
                 .choices = CHOICES("OFF", "ON"),
                 .help   = "OFF = default 24fps, ON = 25fps",
                 .help2  = "Please apply 25fps also in canon menu for correct shutter handling\n"
-            },
-            {
-                .name   = "iso climb",
-                .priv   = &isoclimb,
-                .max    = 1,
-                .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
-                .help   = "Fast access to iso (NOT working with autoiso)",
-                .help2  = "push up/down(eosm), INFO(5D3) or SET(100d) button 100-3200 iso\n"
             },
             {
                 .name   = "max iso",
@@ -7228,7 +7237,9 @@ static unsigned int crop_rec_init()
         }
     }
     
+    menu_add("Movie", movie_menu_ratio, COUNT(movie_menu_ratio));
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
+    menu_add("Customized Buttons", custom_buttons_menu, COUNT(custom_buttons_menu));
     lvinfo_add_items (info_items, COUNT(info_items));
     
     return 0;

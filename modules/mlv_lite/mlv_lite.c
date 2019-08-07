@@ -84,7 +84,7 @@ static GUARDED_BY(GuiMainTask) int show_edmac = 0;
 
 /* from mlv_play module */
 extern WEAK_FUNC(ret_0) void mlv_play_file(char *filename);
-extern WEAK_FUNC(ret_0) void hide_show_movie_menu_entries_for_recording_mode(); // mlv_lite.c is of of the last RAW related modules to load, so fix menu from here
+extern WEAK_FUNC(ret_0) void movie_menu_raw_toggle_init_after_modules_loaded(); // mlv_lite.c is of of the last RAW related modules to load, so fix menu from here
 
 /* camera-specific tricks */
 static int cam_eos_m = 0;
@@ -4600,7 +4600,7 @@ static unsigned int raw_rec_init()
 
     ASSERT(((uint32_t)task_create("compress_task", 0x0F, 0x1000, compress_task, (void*)0) & 1) == 0);
 
-    hide_show_movie_menu_entries_for_recording_mode();
+    movie_menu_raw_toggle_init_after_modules_loaded();
 
     return 0;
 }

@@ -892,37 +892,6 @@ static struct menu_entry mov_menus[] = {
     },
     #endif
 
-    #ifdef FEATURE_MOVIE_REC_KEY
-    {
-        .name = "REC key",
-        .priv = &movie_rec_key, 
-        .max = 1,
-        .icon_type = IT_BOOL,
-        .choices = CHOICES("OFF", "HalfShutter"),
-        .help = "Start recording by pressing shutter halfway. Wired remote.",
-        .submenu_width = 700,
-        .depends_on = DEP_MOVIE_MODE,
-        .children =  (struct menu_entry[]) {
-            {
-                .name = "Require long press",
-                .priv = &movie_rec_key_long,
-                .max = 1,
-                .icon_type = IT_BOOL,
-                .choices = CHOICES("OFF", "ON (1s)"),
-                .help = "If ON, you have to hold half-shutter pressed for 1 second.",
-            },
-            {
-                .name = "Allowed actions",
-                .priv = &movie_rec_key_action,
-                .max = 2,
-                .icon_type = IT_DICE,
-                .choices = CHOICES("Start/Stop", "Start only", "Stop only"),
-                .help = "Select actions for half-shutter.",
-            },
-            MENU_EOL,
-        },
-    },
-    #endif
     #ifdef FEATURE_GRADUAL_EXPOSURE
     {
         .name = "Gradual Exposure",
@@ -948,7 +917,50 @@ static struct menu_entry mov_menus[] = {
     #endif
 };
 
-static struct menu_entry movie_tweaks_menus[] = {
+static MENU_UPDATE_FUNC(depends_on_rec_key_update)
+{
+    if(!movie_rec_key){
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Depends on REC key being set.");
+    }
+}
+
+#ifdef FEATURE_MOVIE_REC_KEY
+static struct menu_entry custom_buttons_menu[] =
+{
+    {
+        .name = "REC key",
+        .priv = &movie_rec_key, 
+        .max = 1,
+        .icon_type = IT_BOOL,
+        .choices = CHOICES("OFF", "HalfShutter"),
+        .help = "Start recording by pressing shutter halfway. Wired remote.",
+        .depends_on = DEP_MOVIE_MODE,
+    },
+    {
+        .name = "REC key Require long press",
+        .priv = &movie_rec_key_long,
+        .max = 1,
+        .icon_type = IT_BOOL,
+        .choices = CHOICES("OFF", "ON (1s)"),
+        .help = "If ON, you have to hold half-shutter pressed for 1 second.",
+        .depends_on = DEP_MOVIE_MODE,
+        .update = depends_on_rec_key_update,
+    },
+    {
+        .name = "REC key Allowed actions",
+        .priv = &movie_rec_key_action,
+        .max = 2,
+        .icon_type = IT_DICE,
+        .choices = CHOICES("Start/Stop", "Start only", "Stop only"),
+        .help = "Select actions for half-shutter.",
+        .depends_on = DEP_MOVIE_MODE,
+        .update = depends_on_rec_key_update,
+    },
+};
+#endif
+
+static struct menu_entry movie_tweaks_menus[] =
+{
     {
         .name = "Movie Tweaks",
         .select = menu_open_submenu,
@@ -1033,6 +1045,9 @@ struct menu_entry expo_override_menus[] = {
 
 void movie_tweak_menu_init()
 {
+    #ifdef FEATURE_MOVIE_REC_KEY
+    menu_add( "Customized Buttons", custom_buttons_menu, COUNT(custom_buttons_menu) );
+    #endif
     menu_add( "Movie", movie_tweaks_menus, COUNT(movie_tweaks_menus) );
 }
 static void movtweak_init()
