@@ -22,7 +22,6 @@ bool should_hide_entry(char * name){
         // Raw recording mode
         return
             streq( name, "Bit Rate" ) ||
-            streq( name, "Bit Rate" ) ||
             streq( name, "Bit Rate (CBR)" ) ||
             streq( name, "Bit Rate (VBR)" ) ||
             streq( name, "Gradual Exposure" ) || // Does this work properly with RAW video?
@@ -31,7 +30,8 @@ bool should_hide_entry(char * name){
             streq( name, "Movie Logging" ) ||
             streq( name, "Movie Restart" ) ||
             streq( name, "REC/STBY notify" ) ||
-            streq( name, "ML Digital ISO" );
+            streq( name, "ML Digital ISO" ) ||
+            streq( name, "Movie crop mode" );
     } else
     {
         // h264 recording mode
