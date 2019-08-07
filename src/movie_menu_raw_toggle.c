@@ -2,17 +2,23 @@
  * Reorganise Movie menu for RAW/h264 recording modes
  */
 #include "dryos.h"
+#include "math.h"
+#include "version.h"
 #include "bmp.h"
-#include "tasks.h"
-#include "debug.h"
-#include "menu.h"
-#include "property.h"
-#include "config.h"
 #include "gui.h"
+#include "config.h"
+#include "property.h"
 #include "lens.h"
-#include "mvr.h"
+#include "font.h"
+#include "menu.h"
+#include "beep.h"
 #include "zebra.h"
+#include "focus.h"
+#include "menuhelp.h"
+#include "console.h"
+#include "debug.h"
 #include "lvinfo.h"
+#include "powersave.h"
 
 static CONFIG_INT( "movie.recording_mode", recording_mode, 0 );
 
@@ -69,6 +75,8 @@ static struct menu * menu_find_by_name_simple(char * name ){
         if( !menu->next )
             break;
     }
+
+    return NULL;
 }
 
 void hide_show_movie_menu_entries_for_recording_mode(){
@@ -87,13 +95,21 @@ void hide_show_movie_menu_entries_for_recording_mode(){
         menu_set_value_from_script("Movie", "RAW video", 0);
         menu_set_value_from_script("Movie", "Crop mode", 0);
     }
-
-    // TODO: refresh live view when ML menu is closed
 }
 
 MENU_SELECT_FUNC(movie_menu_raw_toggle_select){
     recording_mode = 1 - recording_mode;
     hide_show_movie_menu_entries_for_recording_mode();
+    
+    // TODO: wait for user to exit ML menu, then refresh LV
+    gui_stop_menu();
+    PauseLiveView();
+    ResumeLiveView();
+    if(recording_mode == 0){
+        NotifyBox(2000, "Enabled RAW");
+    } else {
+        NotifyBox(2000, "Enabled h264");
+    }
 }
 
 static struct menu_entry movie_menu_raw_toggle[] = {
@@ -112,3 +128,6 @@ static void movie_menu_raw_toggle_init()
 }
 
 INIT_FUNC(__FILE__, movie_menu_raw_toggle_init);
+
+// TODO init menu entry hidden first, then call from mlv_lite to unhide 
+// Otherwise it will be there if modules aren't loaded (and there'll be no RAW)
