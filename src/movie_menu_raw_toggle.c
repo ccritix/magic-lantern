@@ -21,6 +21,7 @@
 #include "powersave.h"
 
 static CONFIG_INT( "movie.recording_mode", recording_mode, 0 );
+static bool first_open = true;
 
 bool should_hide_entry(struct menu_entry * entry){
 
@@ -109,6 +110,16 @@ static void hide_show_movie_menu_entries_for_recording_mode(){
     }
 }
 
+// TODO: workaround to show/hide all relevant menu items for RAW recording the first time the menu is opened
+// hide_show_movie_menu_entries_for_recording_mode() was already called from mlv_lite.c
+// but still new manu items were added afterwards from movtweaks.c
+static void show_hide_workaround(){
+    if(first_open){
+        hide_show_movie_menu_entries_for_recording_mode();
+        first_open = false;
+    }
+}
+
 // TODO also make placeholders for h264 mode to give them a neat ordering as well
 // TODO fix icons of Movie Tweaks etc, it's green because it doesn't ignore hidden entries
 static struct menu_entry movie_menu_raw_toggle[] =
@@ -119,7 +130,13 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .max = 1,
         .choices = CHOICES("RAW", "h264"),
         .shidden = 1,
+        .update = show_hide_workaround,
     },
+    {
+        .name = "Startoff Presets",
+        .placeholder = 1,
+        .shidden = 1,
+    },    
     {
         .name = "Ratio",
         .placeholder = 1,
@@ -136,6 +153,25 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .shidden = 1,
     },
     {
+        .name = "Customized Buttons",
+        .select = menu_open_submenu,
+        .children =  (struct menu_entry[]) {
+            MENU_EOL,
+        },
+        .placeholder = 1,
+        .shidden = 1,
+    },
+    {
+        .name = "Max ISO",
+        .placeholder = 1,
+        .shidden = 1,
+    },
+    {
+        .name = "HDR video",
+        .placeholder = 1,
+        .shidden = 1,
+    },
+    {
         .name = "RAW video",
         .placeholder = 1,
         .shidden = 1,
@@ -144,14 +180,7 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .name = "Crop mode",
         .placeholder = 1,
         .shidden = 1,
-    },
-    {
-        .name = "Customized Buttons",
-        .select = menu_open_submenu,
-        .children =  (struct menu_entry[]) {
-            MENU_EOL,
-        },
-    },
+    }
 };
 
 MENU_SELECT_FUNC(movie_menu_raw_toggle_select){
@@ -180,7 +209,6 @@ static void movie_menu_raw_toggle_init()
 {
     movie_menu_raw_toggle[0].select = movie_menu_raw_toggle_select;
     menu_add( "Movie", movie_menu_raw_toggle, COUNT(movie_menu_raw_toggle) );
-    // movie_menu = menu_find_by_name_simple("Movie");
 }
 
 // "Recording mode" menu entry is declared as hidden
@@ -195,7 +223,9 @@ void movie_menu_raw_toggle_init_after_modules_loaded()
     // Don't look it up in movie_menu_raw_toggle, that doesn't contain the created submenu
     for( ; menu ; menu = menu->next )
     {
-        ASSERT(menu->name);
+        if(!menu->name){
+            continue;
+        }
 
         if( streq( menu->name, name ) && !menu->children)
         {

@@ -5297,6 +5297,29 @@ static struct menu_entry custom_buttons_menu[] =
     },
 };
 
+static struct menu_entry max_iso_menu[] =
+{
+    {
+        .name   = "Max ISO",
+        .priv   = &isoauto,
+        .max    = 3,
+        .choices = CHOICES("OFF", "400", "800", "1600"),
+        .help   = "Restrict autoiso to max 400/800/1600",
+        .help2  = "Select max iso. Turn on autoiso\n"
+    },
+};
+
+static struct menu_entry startoff_presets_menu[] =
+{
+    {
+        .name   = "Startoff Presets",
+        .priv   = &presets,
+        .max    = 6,
+        .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop"),
+        .help   = "Select startoff preset(EOSM only)",
+        .help2  = "Select ratio and fps in Crop mode submenu",
+    },
+};
 
 static struct menu_entry movie_menu_ratio[] =
 {
@@ -5309,22 +5332,35 @@ static struct menu_entry movie_menu_ratio[] =
     },
 };
 
-            // {
-            //     .name   = "hdr iso A",
-            //     .priv   = &HDR_iso_a,
-            //     .max    = 6,
-            //     .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
-            //     .help   =  "HDR workaround eosm",
-            //     .advanced = 1,
-            // },
-            // {
-            //     .name   = "hdr iso B",
-            //     .priv   = &HDR_iso_b,
-            //     .max    = 6,
-            //     .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
-            //     .help   =  "HDR workaround eosm",
-            //     .advanced = 1,
-            // },
+static struct menu_entry movie_menu_set_25fps[] =
+{
+    {
+        .name   = "Set 25fps",
+        .priv   = &set_25fps,
+        .max    = 1,
+        .choices = CHOICES("OFF", "ON"),
+        .help   = "OFF = default 24fps, ON = 25fps",
+        .help2  = "Please apply 25fps also in canon menu for correct shutter handling\n"
+    },
+};
+
+static struct menu_entry movie_menu_hdr[] =
+{
+    {
+        .name   = "hdr iso A",
+        .priv   = &HDR_iso_a,
+        .max    = 6,
+        .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+        .help   =  "HDR workaround eosm",
+    },
+    {
+        .name   = "hdr iso B",
+        .priv   = &HDR_iso_b,
+        .max    = 6,
+        .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+        .help   =  "HDR workaround eosm",
+    },
+};
 
 static struct menu_entry crop_rec_menu[] =
 {
@@ -5349,22 +5385,6 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Turns mv1080p and mv1080_46fps modes into x3 crop modes)",
             },
             {
-                .name   = "Set 25fps",
-                .priv   = &set_25fps,
-                .max    = 1,
-                .choices = CHOICES("OFF", "ON"),
-                .help   = "OFF = default 24fps, ON = 25fps",
-                .help2  = "Please apply 25fps also in canon menu for correct shutter handling\n"
-            },
-            {
-                .name   = "max iso",
-                .priv   = &isoauto,
-                .max    = 3,
-                .choices = CHOICES("OFF", "400", "800", "1600"),
-                .help   = "Restrict autoiso to max 400/800/1600",
-                .help2  = "Select max iso. Turn on autoiso\n"
-            },
-            {
                 .name   = "4k timelapse",
                 .priv   = &timelapse,
                 .max    = 9,
@@ -5378,14 +5398,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON"),
                 .help   = "Allows for slow shutter speeds with 4k timelapse(Only 100D/EOSM).\n"
-            },
-            {
-                .name   = "Startoff presets",
-                .priv   = &presets,
-                .max    = 6,
-                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop"),
-                .help   = "Select startoff preset(EOSM only)",
-                .help2  = "Select ratio and fps in Crop mode submenu",
             },
             {
                 .name   = "reg_713c",
@@ -7239,8 +7251,12 @@ static unsigned int crop_rec_init()
     }
     
     menu_add("Movie", movie_menu_ratio, COUNT(movie_menu_ratio));
+    menu_add("Movie", movie_menu_set_25fps, COUNT(movie_menu_set_25fps));
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
+    menu_add("Movie", max_iso_menu, COUNT(max_iso_menu));
+    menu_add("Movie", startoff_presets_menu, COUNT(startoff_presets_menu));
     menu_add("Customized Buttons", custom_buttons_menu, COUNT(custom_buttons_menu));
+    menu_add("HDR video", movie_menu_hdr, COUNT(movie_menu_hdr));
     lvinfo_add_items (info_items, COUNT(info_items));
     
     return 0;
