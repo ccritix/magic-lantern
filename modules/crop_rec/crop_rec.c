@@ -5309,6 +5309,23 @@ static struct menu_entry movie_menu_ratio[] =
     },
 };
 
+            // {
+            //     .name   = "hdr iso A",
+            //     .priv   = &HDR_iso_a,
+            //     .max    = 6,
+            //     .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+            //     .help   =  "HDR workaround eosm",
+            //     .advanced = 1,
+            // },
+            // {
+            //     .name   = "hdr iso B",
+            //     .priv   = &HDR_iso_b,
+            //     .max    = 6,
+            //     .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+            //     .help   =  "HDR workaround eosm",
+            //     .advanced = 1,
+            // },
+
 static struct menu_entry crop_rec_menu[] =
 {
     {
@@ -5332,7 +5349,7 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Turns mv1080p and mv1080_46fps modes into x3 crop modes)",
             },
             {
-                .name   = "set 25fps",
+                .name   = "Set 25fps",
                 .priv   = &set_25fps,
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON"),
@@ -5369,22 +5386,6 @@ static struct menu_entry crop_rec_menu[] =
                 .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop"),
                 .help   = "Select startoff preset(EOSM only)",
                 .help2  = "Select ratio and fps in Crop mode submenu",
-            },
-            {
-                .name   = "hdr iso A",
-                .priv   = &HDR_iso_a,
-                .max    = 6,
-                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
-                .help   =  "HDR workaround eosm",
-                .advanced = 1,
-            },
-            {
-                .name   = "hdr iso B",
-                .priv   = &HDR_iso_b,
-                .max    = 6,
-                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
-                .help   =  "HDR workaround eosm",
-                .advanced = 1,
             },
             {
                 .name   = "reg_713c",

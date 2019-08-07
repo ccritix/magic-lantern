@@ -24,12 +24,6 @@ static CONFIG_INT( "movie.recording_mode", recording_mode, 0 );
 
 bool should_hide_entry(struct menu_entry * entry){
 
-    // if(entry->children && COUNT(entry->children) == 0){
-    //     // Hide menu entries that define an empty submenu
-    //     // This will be the case when e.g. Customized Buttons is not filled up by movtweaks, modules, etc.
-    //     return true;
-    // }
-
     char * name = (char *) entry->name;
 
     if (!name){
@@ -56,6 +50,7 @@ bool should_hide_entry(struct menu_entry * entry){
         // h264 recording mode
         return
             streq( name, "Ratio" ) ||
+            streq( name, "Set 25fps" ) ||
             streq( name, "Crop mode" ) ||
             streq( name, "RAW video" );
     }
@@ -110,6 +105,7 @@ static void hide_show_movie_menu_entries_for_recording_mode(){
     } else {
         menu_set_value_from_script("Movie", "RAW video", 0);
         menu_set_value_from_script("Movie", "Crop mode", 0);
+        menu_set_value_from_script("Movie", "Movie crop mode", 0);
     }
 }
 
@@ -126,6 +122,11 @@ static struct menu_entry movie_menu_raw_toggle[] =
     },
     {
         .name = "Ratio",
+        .placeholder = 1,
+        .shidden = 1,
+    },
+    {
+        .name = "Set 25fps",
         .placeholder = 1,
         .shidden = 1,
     },
@@ -159,13 +160,19 @@ MENU_SELECT_FUNC(movie_menu_raw_toggle_select){
     hide_show_movie_menu_entries_for_recording_mode();
     
     // TODO: wait for user to exit ML menu, then refresh LV
-    gui_stop_menu();
-    PauseLiveView();
-    ResumeLiveView();
+    // Or find another way to refresh, commented code below will break LV (black screen on EOSM)
+    // when switching from RAW to h264
+
+    // gui_stop_menu();
+    // PauseLiveView();
+    // ResumeLiveView();
+
+    // Swiching from RAW MCM rewired to h264 works without LV refresh
+    // But e.g. 5k anamorphic mode to h264 doesn't work without LV refresh
     if(recording_mode == 0){
-        NotifyBox(2000, "Enabled RAW");
+        NotifyBox(2000, "Enabled RAW\nOpen and close Canon menu!");
     } else {
-        NotifyBox(2000, "Enabled h264");
+        NotifyBox(2000, "Enabled h264\nOpen and close Canon menu!");
     }
 }
 
@@ -173,6 +180,7 @@ static void movie_menu_raw_toggle_init()
 {
     movie_menu_raw_toggle[0].select = movie_menu_raw_toggle_select;
     menu_add( "Movie", movie_menu_raw_toggle, COUNT(movie_menu_raw_toggle) );
+    // movie_menu = menu_find_by_name_simple("Movie");
 }
 
 // "Recording mode" menu entry is declared as hidden
@@ -180,18 +188,29 @@ static void movie_menu_raw_toggle_init()
 // Otherwise it will be shown if modules aren't loaded (and there'll be no RAW)
 void movie_menu_raw_toggle_init_after_modules_loaded()
 {
-    for (struct menu_entry * entry = movie_menu_raw_toggle; entry; entry = entry->next)
+    struct menu * menu = menu_find_by_name_simple("Movie");
+    const char * name = "Customized Buttons";
+
+    // Traverse all menus, looking for the submenu created for "Customized Buttons"
+    // Don't look it up in movie_menu_raw_toggle, that doesn't contain the created submenu
+    for( ; menu ; menu = menu->next )
     {
-        char * name = (char *) entry->name;
-        // Check if Customized Buttons has been filled, if not hide it
-        if(name && streq( name, "Customized Buttons" ) && COUNT(entry->children) == 0){
-            entry->shidden = 1;
-            entry->placeholder = 1; // Also set preset state so it won't be unhidden again
-        } else if(name && streq( name, "Recording mode" )){
-            entry->shidden = 0;
+        ASSERT(menu->name);
+
+        if( streq( menu->name, name ) && !menu->children)
+        {
+            // Check if Customized Buttons has been filled, if not hide it
+            menu->parent_entry->shidden = 1;
+            menu->parent_entry->placeholder = 1; // Also set preset state so it won't be unhidden again
+  
+            break;
         }
+
+        // Stop just before we get to the end
+        if( !menu->next )
+            break;
     }
-    
+
     hide_show_movie_menu_entries_for_recording_mode();
 }
 
