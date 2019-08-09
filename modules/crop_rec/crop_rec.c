@@ -2151,7 +2151,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         {
             if (slowshutter == 0x0 && crop_preset == CROP_PRESET_4K_EOSM && timelapse != 0x0) shutter_blanking = adjust_shutter_blanking(shutter_blanking);
             if (crop_preset == CROP_PRESET_4K_EOSM && timelapse == 0x0) shutter_blanking = adjust_shutter_blanking(shutter_blanking);
-            if (crop_preset != CROP_PRESET_4K_EOSM) shutter_blanking = adjust_shutter_blanking(shutter_blanking);
+            if (crop_preset != CROP_PRESET_4K_EOSM && crop_preset != CROP_PRESET_mcm_mv1080_EOSM) shutter_blanking = adjust_shutter_blanking(shutter_blanking);
         }
         
     }
