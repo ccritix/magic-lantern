@@ -4007,6 +4007,7 @@ static struct menu_entry raw_video_menu[] =
                 .priv       = &output_format,
                 .max        = 5,
                 .update     = output_format_update,
+                .shidden    = 1, // TODO: only hide this if crop_rec module is enabled?
                 .choices    = CHOICES(
                                 "14-bit",
                                 "12-bit",

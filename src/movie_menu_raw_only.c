@@ -53,7 +53,7 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .placeholder = 1,
     },
     {
-        .name = "Image Fine-tuning",
+        .name = "Shutter fine-tuning",
         .placeholder = 1,
     },
     {

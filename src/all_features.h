@@ -45,7 +45,7 @@
 
 /** Expo menu **/
 
-    #define FEATURE_EXPO_ISO_DIGIC
+    // #define FEATURE_EXPO_ISO_DIGIC
 
 #ifdef CONFIG_PROP_REQUEST_CHANGE
     #define FEATURE_WHITE_BALANCE
