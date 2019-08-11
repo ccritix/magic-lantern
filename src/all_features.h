@@ -127,7 +127,7 @@
     //~ #define FEATURE_FPS_WAV_RECORD
 
 #ifdef CONFIG_FRAME_ISO_OVERRIDE
-    #define FEATURE_HDR_VIDEO
+    //~ #define FEATURE_HDR_VIDEO
     //~ #define FEATURE_HDR_EXTENDED // for experts only
 #endif
 
