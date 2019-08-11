@@ -5325,7 +5325,6 @@ static struct menu_entry startoff_presets_menu[] =
         .max    = 6,
         .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop"),
         .help   = "Select startoff preset(EOSM only)",
-        .help2  = "Select ratio and fps in Crop mode submenu",
     },
 };
 
