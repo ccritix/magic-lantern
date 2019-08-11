@@ -93,7 +93,9 @@ static struct menu_entry crop_hack_menus[] = {
 
 void crop_mode_hack_init()
 {
+    #ifndef FEATURE_RAW_VIDEO_ONLY
     menu_add( "Movie", crop_hack_menus, COUNT(crop_hack_menus) );
+    #endif
     
     // Load the config, because this will compute the path to the ML config file (even if no config exists)
     config_load();
