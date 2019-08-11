@@ -75,6 +75,7 @@
 #include "ml-cbr.h"
 #include "../silent/lossless.h"
 #include "ml-cbr.h"
+#include "mlv_lite.h"
 
 THREAD_ROLE(RawRecTask);            /* our raw recording task */
 THREAD_ROLE(ShootTask);             /* polling CBR */
@@ -119,6 +120,8 @@ static const int aspect_ratio_presets_num[]      = {   5,    4,    3,       8,  
 static const int aspect_ratio_presets_den[]      = {   1,    1,    1,       3,      10,     100,     100,      10,    1,     100,      9,    3,    2,    3,    10,    1000,    1,    2 };
 static const char * aspect_ratio_choices[] =       {"5:1","4:1","3:1","2.67:1","2.50:1","2.39:1","2.35:1","2.20:1","2:1","1.85:1", "16:9","5:3","3:2","4:3","1.2:1","1.175:1","1:1","1:2"};
 
+static int should_restart_recording = 0;
+
 /* config variables */
 
 CONFIG_INT("raw.video.enabled", raw_video_enabled, 1);
@@ -144,6 +147,7 @@ static CONFIG_INT("raw.rec-trigger", rec_trigger, 0);
 static CONFIG_INT("raw.dolly", dolly_mode, 0);
 #define FRAMING_CENTER (dolly_mode == 0)
 #define FRAMING_PANNING (dolly_mode == 1)
+static CONFIG_INT("raw.movie_restart", movie_restart, 0);
 
 static CONFIG_INT("raw.CropRecPreview", prevmode, 1);
 
@@ -3737,9 +3741,9 @@ abort_and_check_early_stop:
             if (!RECORDING_H264)
             {
                 /* faster writing speed that way */
-/* seems to help 100D from going black screen */
+                /* seems to help 100D from going black screen */
                 PauseLiveView();
-		if (cam_100d) ResumeLiveView();		
+		        if (cam_100d) ResumeLiveView();		
             }
 
             if (last_block_size > 3)
@@ -3748,6 +3752,9 @@ abort_and_check_early_stop:
                     "Early stop (%d). Should have recorded a few more frames.", last_block_size
                 );
                 beep_times(last_block_size);
+                if(movie_restart){
+                    should_restart_recording = 1;
+                }
             }
             else
             {
@@ -3756,6 +3763,9 @@ abort_and_check_early_stop:
                 );
                 /* this is error beep, not audio sync beep */
                 beep_times(2);
+                if(movie_restart){
+                    should_restart_recording = 1;
+                }
             }
             break;
         }
@@ -3913,6 +3923,13 @@ cleanup:
     ResumeLiveView();
     redraw();
     raw_recording_state = RAW_IDLE;
+
+    if(should_restart_recording){
+        printf("Restart raw recording...\n");
+        should_restart_recording = 0;
+        raw_start_stop();
+    }
+
     mlv_rec_call_cbr(MLV_REC_EVENT_STOPPED, NULL);
 }
 
@@ -4052,6 +4069,13 @@ static struct menu_entry raw_video_menu[] =
                            "Press half-shutter to start/pause recording within the current clip.\n"
                            "Press and hold the shutter halfway to record (e.g. for short events).\n"
                            "Half-shutter to save only the pre-recorded frames (at least 1 frame).\n",
+            },
+            {
+                .name = "Movie Restart",
+                .priv = &movie_restart,
+                .max        = 1,
+                .help = "Auto-restart movie recording, if it happens to stop.",
+                .depends_on = DEP_MOVIE_MODE,
             },
             {
                 .name = "Digital dolly",
@@ -4631,6 +4655,7 @@ MODULE_CONFIGS_START()
     MODULE_CONFIG(pre_record)
     MODULE_CONFIG(rec_trigger)
     MODULE_CONFIG(dolly_mode)
+    MODULE_CONFIG(movie_restart)
     MODULE_CONFIG(preview_mode)
     MODULE_CONFIG(prevmode)
     MODULE_CONFIG(use_srm_memory)
