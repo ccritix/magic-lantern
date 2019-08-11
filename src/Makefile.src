@@ -129,6 +129,7 @@ ML_SRC_OBJS = \
 	rbf_font.o \
 	config.o \
 	stdio.o \
+	movie_menu_raw_toggle.o \
 	$(ML_BITRATE_OBJ) \
 	lcdsensor.o \
 	tweaks.o \

@@ -3741,9 +3741,9 @@ abort_and_check_early_stop:
             if (!RECORDING_H264)
             {
                 /* faster writing speed that way */
-                /* seems to help 100D from going black screen */
+/* seems to help 100D from going black screen */
                 PauseLiveView();
-		        if (cam_100d) ResumeLiveView();		
+		if (cam_100d) ResumeLiveView();		
             }
 
             if (last_block_size > 3)
