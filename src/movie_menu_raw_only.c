@@ -57,7 +57,7 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .placeholder = 1,
     },
     {
-        .name = "Movie Tweaks",
+        .name = "Shutter Lock",
         .placeholder = 1,
     },
     {

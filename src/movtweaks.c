@@ -959,6 +959,19 @@ static struct menu_entry custom_buttons_menu[] =
 };
 #endif
 
+#if defined(FEATURE_SHUTTER_LOCK) && !defined(FEATURE_MOVIE_RESTART) && !defined(FEATURE_REC_NOTIFY) && !defined(FEATURE_FORCE_LIVEVIEW)
+static struct menu_entry movie_tweaks_menus[] =
+{
+    {
+        .name = "Shutter Lock",
+        .priv = &shutter_lock,
+        .max = 1,
+        .help   = "Lock shutter value in movie mode (change from Expo only).",
+        .help2  = "Tip: it prevents you from changing it by mistake.",
+        .depends_on = DEP_MOVIE_MODE,
+    },
+};
+#else
 static struct menu_entry movie_tweaks_menus[] =
 {
     {
@@ -1027,6 +1040,9 @@ static struct menu_entry movie_tweaks_menus[] =
         }
     },
 };
+#endif
+
+
 
 #ifdef FEATURE_EXPO_OVERRIDE
 struct menu_entry expo_override_menus[] = {
