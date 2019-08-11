@@ -5273,29 +5273,36 @@ static MENU_UPDATE_FUNC(target_yres_update)
 static struct menu_entry custom_buttons_menu[] =
 {
     {
-        .name   = "x3crop toggle",
-        .priv   = &x3toggle,
-        .max    = 2,
-        .choices = CHOICES("OFF", "press down", "SET"),
-        .help   = "In and out of x3crop(all mv1080p modes)",
-        .help2  = "Select a short press key(EOSM). Halfshutter press(5D3)\n"
-    },
-    {
-        .name   = "focus aid",
-        .priv   = &zoomaid,
-        .max    = 2,
-        .choices = CHOICES("OFF", "default mode", "dark mode"),
-        .help   = "x10 zoom when pressing halfshutter(all presets, manual focus)",
-        .help2   = "Will brighten liveview(slower fps)\n"
-    },
-    {
-        .name   = "iso climb",
-        .priv   = &isoclimb,
-        .max    = 1,
-        .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
-        .help   = "Fast access to iso (NOT working with autoiso)",
-        .help2  = "push up/down(eosm), INFO(5D3) or SET(100d) button 100-3200 iso\n"
-    },
+        .name = "Customized Buttons",
+        .select = menu_open_submenu,
+        .children =  (struct menu_entry[]) {
+            {
+                .name   = "x3crop toggle",
+                .priv   = &x3toggle,
+                .max    = 2,
+                .choices = CHOICES("OFF", "press down", "SET"),
+                .help   = "In and out of x3crop(all mv1080p modes)",
+                .help2  = "Select a short press key(EOSM). Halfshutter press(5D3)\n"
+            },
+            {
+                .name   = "focus aid",
+                .priv   = &zoomaid,
+                .max    = 2,
+                .choices = CHOICES("OFF", "default mode", "dark mode"),
+                .help   = "x10 zoom when pressing halfshutter(all presets, manual focus)",
+                .help2   = "Will brighten liveview(slower fps)\n"
+            },
+            {
+                .name   = "iso climb",
+                .priv   = &isoclimb,
+                .max    = 1,
+                .choices = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON"),
+                .help   = "Fast access to iso (NOT working with autoiso)",
+                .help2  = "push up/down(eosm), INFO(5D3) or SET(100d) button 100-3200 iso\n"
+            },            
+            MENU_EOL,
+        },
+    }
 };
 
 static struct menu_entry max_iso_menu[] =
@@ -7238,7 +7245,7 @@ static unsigned int crop_rec_init()
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
     menu_add("Movie", max_iso_menu, COUNT(max_iso_menu));
     menu_add("Movie", startoff_presets_menu, COUNT(startoff_presets_menu));
-    menu_add("Customized Buttons", custom_buttons_menu, COUNT(custom_buttons_menu));
+    menu_add("Movie", custom_buttons_menu, COUNT(custom_buttons_menu));
     lvinfo_add_items (info_items, COUNT(info_items));
     
     return 0;
