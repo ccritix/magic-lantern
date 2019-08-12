@@ -36,7 +36,7 @@ static int is_100D = 0;
 static int is_EOSM = 0;
 static int is_basic = 0;
 
-static CONFIG_INT("crop.preset", crop_preset_index, 1);
+static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 3);
