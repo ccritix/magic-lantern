@@ -5363,6 +5363,20 @@ static struct menu_entry crop_rec_menu[] =
                 .help   = "Allows for slow shutter speeds with 4k timelapse(Only 100D/EOSM).\n"
             },
             {
+                .name   = "hdr iso A",
+                .priv   = &HDR_iso_a,
+                .max    = 6,
+                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+                .help   =  "HDR workaround eosm",
+            },
+            {
+                .name   = "hdr iso B",
+                .priv   = &HDR_iso_b,
+                .max    = 6,
+                .choices = CHOICES("OFF", "iso100", "iso200", "iso400", "iso800", "iso1600", "iso3200"),
+                .help   =  "HDR workaround eosm",
+            },
+            {
                 .name   = "reg_713c",
                 .priv   = &reg_713c,
                 .min    = -2000,
