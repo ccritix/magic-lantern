@@ -5325,6 +5325,17 @@ static struct menu_entry movie_menu_set_25fps[] =
     },
 };
 
+static struct menu_entry movie_menu_bitdepth[] =
+{
+    {
+        .name   = "Bitdepth",
+        .priv   = &bitdepth,
+        .max    = 4,
+        .choices = CHOICES("OFF", "8 bit", "9 bit", "10 bit", "12 bit"),
+        .help   = "Alter bitdepth\n"
+    },
+};
+
 static struct menu_entry crop_rec_menu[] =
 {
     {
@@ -5333,13 +5344,6 @@ static struct menu_entry crop_rec_menu[] =
         .update     = crop_update,
         .depends_on = DEP_LIVEVIEW,
         .children =  (struct menu_entry[]) {
-            {
-                .name   = "bitdepth",
-                .priv   = &bitdepth,
-                .max    = 4,
-                .choices = CHOICES("OFF", "8 bit", "9 bit", "10 bit", "12 bit"),
-                .help   = "Alter bitdepth\n"
-            },
             {
                 .name   = "x3crop",
                 .priv   = &x3crop,
@@ -7265,6 +7269,7 @@ static unsigned int crop_rec_init()
     }
     
     menu_add("Movie", movie_menu_ratio, COUNT(movie_menu_ratio));
+    menu_add("Movie", movie_menu_bitdepth, COUNT(movie_menu_bitdepth));
     menu_add("Movie", movie_menu_set_25fps, COUNT(movie_menu_set_25fps));
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
     menu_add("Movie", max_iso_menu, COUNT(max_iso_menu));

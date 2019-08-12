@@ -25,15 +25,19 @@
 static struct menu_entry movie_menu_raw_toggle[] =
 {
     {
+        .name = "Startoff Presets",
+        .placeholder = 1,
+    },
+    {
         .name = "RAW video",
         .placeholder = 1,
     },
     {
-        .name = "Startoff Presets",
-        .placeholder = 1,
-    },    
-    {
         .name = "Ratio",
+        .placeholder = 1,
+    },
+    {
+        .name = "Bitdepth",
         .placeholder = 1,
     },
     {
@@ -41,15 +45,15 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .placeholder = 1,
     },
     {
+        .name = "Max ISO",
+        .placeholder = 1,
+    },
+    {
         .name = "FPS override",
         .placeholder = 1,
     },
     {
-        .name = "Customized Buttons",
-        .placeholder = 1,
-    },
-    {
-        .name = "Max ISO",
+        .name = "Shutter Lock",
         .placeholder = 1,
     },
     {
@@ -57,7 +61,7 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .placeholder = 1,
     },
     {
-        .name = "Shutter Lock",
+        .name = "Customized Buttons",
         .placeholder = 1,
     },
     {
