@@ -35,6 +35,8 @@ static int is_650D = 0;
 static int is_100D = 0;
 static int is_EOSM = 0;
 static int is_basic = 0;
+static const int iso_steps_count = 6;
+static int iso_climb = 1;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
@@ -47,12 +49,10 @@ static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
 static CONFIG_INT("crop.isoauto", isoauto, 0);
-static CONFIG_INT("crop.exposure_climb", exposure_climb, 1);
+static CONFIG_INT("crop.gain_buttons", gain_buttons, 1);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 static CONFIG_INT("crop.presets", presets, 0);
-
-static const char *exposure_climb_choices[] = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON");
 
 enum crop_preset {
     CROP_PRESET_3X,
@@ -1742,7 +1742,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     
     
     /* fast access to iso with press down button */
-    if (!is_6D && exposure_climb != 0x0 && HDR_iso_a == 0x0)
+    if (!is_6D && gain_buttons != 0x0 && HDR_iso_a == 0x0)
     {
         isopatch = 1;
 
@@ -1754,37 +1754,37 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         // /* check if masc selected isoauto in canon menu ;) */
         if (lens_info.raw_iso != 0x0)
         {
-            if (exposure_climb == 0x2)
+            if (iso_climb == 0x2)
             {
                 EngDrvOutLV(0xC0F0b12c, 0x12);
                 if (!is_5D3 && !is_6D) cmos_new[0] = 0x827;
                 if (is_5D3) cmos_new[0] = 0x113;
             }
-            else if (exposure_climb == 0x3)
+            else if (iso_climb == 0x3)
             {
                 EngDrvOutLV(0xC0F0b12c, 0x13);
                 if (!is_5D3 && !is_6D) cmos_new[0] = 0x84b;
                 if (is_5D3) cmos_new[0] = 0x223;
             }
-            else if (exposure_climb == 0x4)
+            else if (iso_climb == 0x4)
             {
                 EngDrvOutLV(0xC0F0b12c, 0x14);
                 if (!is_5D3 && !is_6D) cmos_new[0] = 0x86f;
                 if (is_5D3) cmos_new[0] = 0x333;
             }
-            else if (exposure_climb == 0x5)
+            else if (iso_climb == 0x5)
             {
                 EngDrvOutLV(0xC0F0b12c, 0x15);
                 if (!is_5D3 && !is_6D) cmos_new[0] = 0x893;
                 if (is_5D3) cmos_new[0] = 0x443;
             }
-            else if (exposure_climb == 0x6)
+            else if (iso_climb == 0x6)
             {
                 EngDrvOutLV(0xC0F0b12c, 0x16);
                 if (!is_5D3 && !is_6D) cmos_new[0] = 0x8b7;
                 if (is_5D3) cmos_new[0] = 0x553;
             }
-            if (exposure_climb == 0x1)
+            if (iso_climb == 0x1)
             {
                 EngDrvOutLV(0xC0F0b12c, 0x11);
                 if (!is_5D3 && !is_6D) cmos_new[0] = 0x803;
@@ -2657,7 +2657,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
             if (HDR_iso_a == 0x6) switch (reg) case 0xC0F0b12c: return 0x6;
         }
         
-        if (HDR_iso_a == 0x0 && isoauto == 0x0 && exposure_climb == 0x0)
+        if (HDR_iso_a == 0x0 && isoauto == 0x0 && gain_buttons == 0x0)
         {
             EngDrvOutLV(0xC0F0b12c, 0x0);
         }
@@ -5267,10 +5267,10 @@ static struct menu_entry custom_buttons_menu[] =
                 .help2   = "Will brighten liveview(slower fps)\n"
             },
             {
-                .name   = "exposure climb",
-                .priv   = &exposure_climb,
-                .max    = 1,
-                .choices = exposure_climb_choices,
+                .name   = "gain",
+                .priv   = &gain_buttons,
+                .max    = 2,
+                .choices = CHOICES("OFF", "ISO", "Aperture + ISO"),
                 .help   = "Press up/down to change exposure with aperture and ISO (eosm).",
                 .help2  = "INFO(5D3) or SET(100d) button 100-3200 iso.\n"
             },            
@@ -5803,11 +5803,11 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     /* iso climbing feature */
     if ((!is_6D && isopatch && lv && !gui_menu_shown() && is_movie_mode()) &&
         (((is_EOSM && (key == MODULE_KEY_PRESS_DOWN || key == MODULE_KEY_PRESS_UP)) || (is_5D3 && key == MODULE_KEY_INFO) ||
-          ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) && exposure_climb != 0x0 && HDR_iso_a == 0x0))
+          ((!is_EOSM && !is_5D3) && key == MODULE_KEY_PRESS_SET)) && gain_buttons && HDR_iso_a == 0x0))
     {
 
         // Increase or decrease exposure with aperture first (for lenses that support it)
-        if (lens_info.raw_aperture && lens_info.lens_exists){
+        if (lens_info.raw_aperture && lens_info.lens_exists && gain_buttons == 2){
             
             int a = lens_info.raw_aperture;
 
@@ -5816,13 +5816,13 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
                     // Increase exposure with aperture first
                     aperture_toggle(0, -1);
                     return 0;
-                } else if(exposure_climb == COUNT(exposure_climb_choices) - 1){
+                } else if(iso_climb == iso_steps_count){
                     // Can't raise exposure further
                     return 0;
                 }
             } else if (key == MODULE_KEY_PRESS_DOWN){
-                // At ISO 100 when exposure_climb == 1
-                if(exposure_climb == 1){
+                // At ISO 100 when iso_climb == 1
+                if(iso_climb == 1){
                     if(a != lens_info.raw_aperture_max){
                         // Decrease exposure with aperture if ISO already at lowest
                         aperture_toggle(0, 1);
@@ -5845,33 +5845,33 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 
         if (shamem_read(0xC0F0b12c) == 0x11)
         {
-            if (key == MODULE_KEY_PRESS_UP) exposure_climb = 0x2;
-            if (key == MODULE_KEY_PRESS_DOWN) exposure_climb = 0x6;
+            if (key == MODULE_KEY_PRESS_UP) iso_climb = 0x2;
+            if (key == MODULE_KEY_PRESS_DOWN) iso_climb = 0x6;
         }
         else if (shamem_read(0xC0F0b12c) == 0x12)
         {
-            if (key == MODULE_KEY_PRESS_UP) exposure_climb = 0x3;
-            if (key == MODULE_KEY_PRESS_DOWN) exposure_climb = 0x1;
+            if (key == MODULE_KEY_PRESS_UP) iso_climb = 0x3;
+            if (key == MODULE_KEY_PRESS_DOWN) iso_climb = 0x1;
         }
         else if (shamem_read(0xC0F0b12c) == 0x13)
         {
-            if (key == MODULE_KEY_PRESS_UP) exposure_climb = 0x4;
-            if (key == MODULE_KEY_PRESS_DOWN) exposure_climb = 0x2;
+            if (key == MODULE_KEY_PRESS_UP) iso_climb = 0x4;
+            if (key == MODULE_KEY_PRESS_DOWN) iso_climb = 0x2;
         }
         else if (shamem_read(0xC0F0b12c) == 0x14)
         {
-            if (key == MODULE_KEY_PRESS_UP) exposure_climb = 0x5;
-            if (key == MODULE_KEY_PRESS_DOWN) exposure_climb = 0x3;
+            if (key == MODULE_KEY_PRESS_UP) iso_climb = 0x5;
+            if (key == MODULE_KEY_PRESS_DOWN) iso_climb = 0x3;
         }
         else if (shamem_read(0xC0F0b12c) == 0x15)
         {
-            if (key == MODULE_KEY_PRESS_UP) exposure_climb = 0x6;
-            if (key == MODULE_KEY_PRESS_DOWN) exposure_climb = 0x4;
+            if (key == MODULE_KEY_PRESS_UP) iso_climb = 0x6;
+            if (key == MODULE_KEY_PRESS_DOWN) iso_climb = 0x4;
         }
         else if (shamem_read(0xC0F0b12c) == 0x16)
         {
-            if (key == MODULE_KEY_PRESS_UP) exposure_climb = 0x1;
-            if (key == MODULE_KEY_PRESS_DOWN) exposure_climb = 0x5;
+            if (key == MODULE_KEY_PRESS_UP) iso_climb = 0x1;
+            if (key == MODULE_KEY_PRESS_DOWN) iso_climb = 0x5;
         }
         
         return 0;
@@ -5898,7 +5898,6 @@ static int crop_rec_needs_lv_refresh()
             crop_preset_index = 0;
             bitdepth = 0x0;
             zoomaid = 0x1;
-            if (exposure_climb == 0x0) exposure_climb = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
             PauseLiveView();
@@ -5913,7 +5912,6 @@ static int crop_rec_needs_lv_refresh()
             crop_preset_index = 0;
             bitdepth = 0x0;
             zoomaid = 0x1;
-            if (exposure_climb == 0x0) exposure_climb = 0x1;
             x3crop = 0x1;
             x3toggle = 0x2;
             PauseLiveView();
@@ -5928,7 +5926,6 @@ static int crop_rec_needs_lv_refresh()
             crop_preset_index = 6;
             bitdepth = 0x3;
             zoomaid = 0x1;
-            if (exposure_climb == 0x0) exposure_climb = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
             PauseLiveView();
@@ -5944,7 +5941,6 @@ static int crop_rec_needs_lv_refresh()
             crop_preset_index = 2;
             bitdepth = 0x3;
             zoomaid = 0x1;
-            if (exposure_climb == 0x0) exposure_climb = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
             PauseLiveView();
@@ -5959,7 +5955,6 @@ static int crop_rec_needs_lv_refresh()
             crop_preset_index = 1;
             bitdepth = 0x3;
             zoomaid = 0x1;
-            if (exposure_climb == 0x0) exposure_climb = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
             PauseLiveView();
@@ -5975,7 +5970,6 @@ static int crop_rec_needs_lv_refresh()
             crop_preset_index = 1;
             bitdepth = 0x3;
             zoomaid = 0x1;
-            if (exposure_climb == 0x0) exposure_climb = 0x1;
             x3crop = 0x1;
             x3toggle = 0x2;
             PauseLiveView();
@@ -6182,8 +6176,8 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     
     //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
     
-    /* Needs refresh when turning off exposure_climb or iso metadata will still be last selected iso climb setting */
-    if (!exposure_climb && !isopatchoff && (is_EOSM || is_100D))
+    /* Needs refresh when turning off gain_buttons or iso metadata will still be last selected iso climb setting */
+    if (!gain_buttons && !isopatchoff && (is_EOSM || is_100D))
     {
         isopatchoff = 1;
         if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM ||
@@ -7300,7 +7294,7 @@ MODULE_CONFIG(set_25fps)
 MODULE_CONFIG(HDR_iso_a)
 MODULE_CONFIG(HDR_iso_b)
 MODULE_CONFIG(isoauto)
-MODULE_CONFIG(exposure_climb)
+MODULE_CONFIG(gain_buttons)
 MODULE_CONFIG(timelapse)
 MODULE_CONFIG(slowshutter)
 MODULE_CONFIG(x3toggle)
