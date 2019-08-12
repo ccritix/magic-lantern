@@ -1051,7 +1051,7 @@ static MENU_UPDATE_FUNC(raw_main_update)
     }
     else
     {
-        MENU_SET_VALUE("ON, %dx%d", res_x, res_y);
+        MENU_SET_VALUE("%dx%d", res_x, res_y);
         int crop_factor = calc_crop_factor();
 /* exclude eosm. Too many inconsistencies due to crop_rec preset */
         if (crop_factor && !cam_eos_m) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
@@ -3979,12 +3979,14 @@ static struct menu_entry raw_video_menu[] =
 {
     {
         .name = "RAW video",
+        .select = menu_open_submenu,
         .priv = &raw_video_enabled,
+        .min = 1,
         .max = 1,
         .update = raw_main_update,
         .submenu_width = 710,
         .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
-        .help = "Record RAW video (MLV format, no sound, basic metadata).",
+        .help = "Record RAW video (MLV format, with sound, basic metadata).",
         .help2 = "Press LiveView to start recording.",
         .children =  (struct menu_entry[]) {
             {
