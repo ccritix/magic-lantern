@@ -255,9 +255,9 @@ static const char crop_choices_help2_100d[] =
 static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_mcm_mv1080_EOSM,
     CROP_PRESET_3x3_mv1080_48fps_EOSM,
-    CROP_PRESET_3x3_mv1080_EOSM,
-    CROP_PRESET_3x1_mv720_50fps_EOSM,
-    CROP_PRESET_CENTER_Z_EOSM,
+    //CROP_PRESET_3x3_mv1080_EOSM,
+    //CROP_PRESET_3x1_mv720_50fps_EOSM,
+    //CROP_PRESET_CENTER_Z_EOSM,
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
@@ -272,9 +272,9 @@ static enum crop_preset crop_presets_eosm[] = {
 static const char * crop_choices_eosm[] = {
     "mv1080p MCM rewire",
     "mv1080p 1736x976 46/48fps",
-    "mv1080p 1736x1158",
-    "mv720p 1736x694 50fps",
-    "2.5K 1:1 centered",
+    //"mv1080p 1736x1158",
+    //"mv720p 1736x694 50fps",
+    //"2.5K 1:1 centered",
     "2.5K 2520x1418",
     "3K 3032x1436",
     "4K 4080x3000",
@@ -293,9 +293,9 @@ static const char crop_choices_help2_eosm[] =
 "\n"
 "mv1080p realtime full preview. Works with Canon fps 24/25/30fps\n"
 "mv1080p 46/48 fps\n"
-"mv1080p bypass mv720p idle mode\n"
-"mv720p 50fps 16:9\n"
-"1:1 x5 zoom mode(centered raw, cropped preview)\n"
+//"mv1080p bypass mv720p idle mode\n"
+//"mv720p 50fps 16:9\n"
+//"1:1 x5 zoom mode(centered raw, cropped preview)\n"
 "1:1 2K x5crop, real time preview\n"
 "1:1 3K x5crop, framing preview\n"
 "1:1 4K x5crop, framing preview\n"
@@ -5925,7 +5925,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x3)
         {
             NotifyBox(2000, "5K anamorphic 10bit");
-            crop_preset_index = 9;
+            crop_preset_index = 6;
             bitdepth = 0x3;
             zoomaid = 0x1;
             if (exposure_climb == 0x0) exposure_climb = 0x1;
@@ -5941,7 +5941,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x4)
         {
             NotifyBox(2000, "2.5K 10bit");
-            crop_preset_index = 5;
+            crop_preset_index = 2;
             bitdepth = 0x3;
             zoomaid = 0x1;
             if (exposure_climb == 0x0) exposure_climb = 0x1;
