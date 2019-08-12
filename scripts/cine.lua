@@ -55,8 +55,8 @@ end
 if camera.model_short == "5D3" then
     menu.set("Movie", "Crop mode", "anamorphic")
 end
-    menu.set("Crop mode", "bitdepth", "10 bit")
-    menu.set("Crop mode", "ratios", "2.39:1")
+    menu.set("Movie", "Bitdepth", "10 bit")
+    menu.set("Movie", "Ratio", "2.39:1")
   msleep(300)
 
 -- enable crop_rec.mo. Checking first after trying to enable 5k preset
@@ -70,9 +70,7 @@ end
 
 -- movie
   menu.set("Movie", "FPS override", "OFF")
-  menu.set("Movie", "HDR video", "OFF")
   menu.set("RAW video", "Crop rec preview", "auto mode")
-  menu.set("RAW video", "Data format", "14-bit lossless") 
   menu.set("RAW video", "Preview", "Framing")
   menu.select("Movie", "RAW video")
   msleep(100)
