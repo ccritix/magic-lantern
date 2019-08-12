@@ -55,8 +55,6 @@ static CONFIG_INT("crop.presets", presets, 0);
 static const char *exposure_climb_choices[] = CHOICES("OFF", "ON", "ON", "ON", "ON", "ON", "ON");
 
 enum crop_preset {
-    CROP_PRESET_OFF = 0,
-    CROP_PRESET_OFF_eosm = 0,
     CROP_PRESET_3X,
     CROP_PRESET_3X_TALL,
     CROP_PRESET_3K,
@@ -149,7 +147,6 @@ static enum crop_preset * crop_presets = 0;
 
 /* menu choices for 5D3 */
 static enum crop_preset crop_presets_5d3[] = {
-    CROP_PRESET_OFF,
     CROP_PRESET_1x3,
     CROP_PRESET_3K,
     CROP_PRESET_3X,
@@ -170,7 +167,6 @@ static enum crop_preset crop_presets_5d3[] = {
 };
 
 static const char * crop_choices_5d3[] = {
-    "OFF",
     "anamorphic",
     "3K 1:1",
     "1920 1:1",
@@ -215,7 +211,6 @@ static const char crop_choices_help2_5d3[] =
 
 /* menu choices for 100D */
 static enum crop_preset crop_presets_100d[] = {
-    CROP_PRESET_OFF,
     CROP_PRESET_anamorphic_rewired_100D,
     CROP_PRESET_1080K_100D,
     CROP_PRESET_3xcropmode_100D,
@@ -229,7 +224,6 @@ static enum crop_preset crop_presets_100d[] = {
 };
 
 static const char * crop_choices_100d[] = {
-    "OFF",
     "anamorphic rewired",
     "2K 2520x1080p",
     "3x crop mode",
@@ -259,7 +253,6 @@ static const char crop_choices_help2_100d[] =
 
 /* menu choices for EOSM */
 static enum crop_preset crop_presets_eosm[] = {
-    CROP_PRESET_OFF_eosm,
     CROP_PRESET_mcm_mv1080_EOSM,
     CROP_PRESET_3x3_mv1080_48fps_EOSM,
     CROP_PRESET_3x3_mv1080_EOSM,
@@ -277,7 +270,6 @@ static enum crop_preset crop_presets_eosm[] = {
 };
 
 static const char * crop_choices_eosm[] = {
-    "OFF",
     "mv1080p MCM rewire",
     "mv1080p 1736x976 46/48fps",
     "mv1080p 1736x1158",
@@ -317,7 +309,6 @@ static const char crop_choices_help2_eosm[] =
 
 /* menu choices for 700D */
 static enum crop_preset crop_presets_700d[] = {
-    CROP_PRESET_OFF,
     CROP_PRESET_2520_1418_700D,
     CROP_PRESET_3K_700D,
     // CROP_PRESET_3540_700D,
@@ -331,7 +322,6 @@ static enum crop_preset crop_presets_700d[] = {
 };
 
 static const char * crop_choices_700d[] = {
-    "OFF",
     "2.5K",
     "3K",
     // "3.5K 1:1",
@@ -363,7 +353,6 @@ static const char crop_choices_help2_700d[] =
 
 /* menu choices for 650D */
 static enum crop_preset crop_presets_650d[] = {
-    CROP_PRESET_OFF,
     CROP_PRESET_2520_1418_650D,
     CROP_PRESET_3K_650D,
     // CROP_PRESET_3540_650D,
@@ -377,7 +366,6 @@ static enum crop_preset crop_presets_650d[] = {
 };
 
 static const char * crop_choices_650d[] = {
-    "OFF",
     "2.5K",
     "3K",
     // "3.5K 1:1",
@@ -419,8 +407,6 @@ static enum crop_preset crop_presets_6d[] = {
     CROP_PRESET_1x3_6D,
     CROP_PRESET_1x3_24FPS_6D,
     CROP_PRESET_HD50_6D,
-    CROP_PRESET_OFF,   // build starts automatically in preset 6, the first time, so  )
-    
 };
 
 static const char * crop_choices_6d[] = {
@@ -458,12 +444,10 @@ static const char crop_choices_help2_6d[] =
 
 /* menu choices for cameras that only have the basic 3x3 crop_rec option */
 static enum crop_preset crop_presets_basic[] = {
-    CROP_PRESET_OFF,
     CROP_PRESET_3x3_1X,
 };
 
 static const char * crop_choices_basic[] = {
-    "OFF",
     "3x3 720p",
 };
 
@@ -517,7 +501,7 @@ static int is_supported_mode()
     if (!lv) return 0;
     
     /* no more crashes when selecing photo mode */
-    if (!is_movie_mode() || CROP_PRESET_MENU == CROP_PRESET_OFF) return 0;
+    if (!is_movie_mode()) return 0;
     
     /* workaround getting below cams working with focus aid */
     static int last_hs_aid = 0;
@@ -4299,17 +4283,6 @@ static inline uint32_t reg_override_x10_eosm(uint32_t reg, uint32_t old_val)
     return 0;
 }
 
-static inline uint32_t reg_override_crop_preset_off_eosm(uint32_t reg, uint32_t old_val)
-{
-    switch (reg)
-    {
-            /* reset height modes eosm. For raw.c */
-        case 0xC0f0b13c: return 0xf;
-    }
-    
-    return 0;
-}
-
 static inline uint32_t reg_override_2520_700d(uint32_t reg, uint32_t old_val)
 {
     switch (reg)
@@ -5006,7 +4979,6 @@ static void * get_engio_reg_override_func()
     (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
     (crop_preset == CROP_PRESET_3x3_1X_100D)    ? reg_override_mv1080_mv720p  :
     (crop_preset == CROP_PRESET_x10_EOSM)    ? reg_override_x10_eosm  :
-    (crop_preset == CROP_PRESET_OFF_eosm)    ? reg_override_crop_preset_off_eosm  :
     (crop_preset == CROP_PRESET_2520_1418_700D)       ? reg_override_2520_700d            :
     (crop_preset == CROP_PRESET_2520_1418_650D)       ? reg_override_2520_700d            :
     (crop_preset == CROP_PRESET_3K_700D)         ? reg_override_3K_700d         :
@@ -5905,7 +5877,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x1)
         {
             NotifyBox(2000, "mv1080p MCM rewire 14bit");
-            crop_preset_index = 1;
+            crop_preset_index = 0;
             bitdepth = 0x0;
             zoomaid = 0x1;
             if (exposure_climb == 0x0) exposure_climb = 0x1;
@@ -5920,7 +5892,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x2)
         {
             NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
-            crop_preset_index = 1;
+            crop_preset_index = 0;
             bitdepth = 0x0;
             zoomaid = 0x1;
             if (exposure_climb == 0x0) exposure_climb = 0x1;
@@ -5935,7 +5907,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x3)
         {
             NotifyBox(2000, "5K anamorphic 10bit");
-            crop_preset_index = 10;
+            crop_preset_index = 9;
             bitdepth = 0x3;
             zoomaid = 0x1;
             if (exposure_climb == 0x0) exposure_climb = 0x1;
@@ -5951,7 +5923,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x4)
         {
             NotifyBox(2000, "2.5K 10bit");
-            crop_preset_index = 6;
+            crop_preset_index = 5;
             bitdepth = 0x3;
             zoomaid = 0x1;
             if (exposure_climb == 0x0) exposure_climb = 0x1;
@@ -5966,7 +5938,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x5)
         {
             NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
-            crop_preset_index = 2;
+            crop_preset_index = 1;
             bitdepth = 0x3;
             zoomaid = 0x1;
             if (exposure_climb == 0x0) exposure_climb = 0x1;
@@ -5982,7 +5954,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x6)
         {
             NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
-            crop_preset_index = 2;
+            crop_preset_index = 1;
             bitdepth = 0x3;
             zoomaid = 0x1;
             if (exposure_climb == 0x0) exposure_climb = 0x1;
@@ -6248,7 +6220,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     }
     
     /* We don´t want this when in photo mode I assume */
-    if (!is_movie_mode() || CROP_PRESET_MENU == CROP_PRESET_OFF) return 0;
+    if (!is_movie_mode()) return 0;
     
     /* also check at startup */
     static int lv_dirty = 1;
