@@ -5247,7 +5247,7 @@ static MENU_UPDATE_FUNC(target_yres_update)
 static struct menu_entry custom_buttons_menu[] =
 {
     {
-        .name = "Customized Buttons",
+        .name = "customized buttons",
         .select = menu_open_submenu,
         .children =  (struct menu_entry[]) {
             {
@@ -5267,7 +5267,7 @@ static struct menu_entry custom_buttons_menu[] =
                 .help2   = "Will brighten liveview(slower fps)\n"
             },
             {
-                .name   = "Exposure climb",
+                .name   = "exposure climb",
                 .priv   = &exposure_climb,
                 .max    = 1,
                 .choices = exposure_climb_choices,
@@ -5282,7 +5282,7 @@ static struct menu_entry custom_buttons_menu[] =
 static struct menu_entry max_iso_menu[] =
 {
     {
-        .name   = "Max ISO",
+        .name   = "max iso",
         .priv   = &isoauto,
         .max    = 3,
         .choices = CHOICES("OFF", "400", "800", "1600"),
@@ -5294,7 +5294,7 @@ static struct menu_entry max_iso_menu[] =
 static struct menu_entry startoff_presets_menu[] =
 {
     {
-        .name   = "Startoff Presets",
+        .name   = "startoff presets",
         .priv   = &presets,
         .max    = 6,
         .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop"),
@@ -5305,7 +5305,7 @@ static struct menu_entry startoff_presets_menu[] =
 static struct menu_entry movie_menu_ratio[] =
 {
     {
-        .name   = "Ratio",
+        .name   = "ratio",
         .priv   = &ratios,
         .max    = 3,
         .choices = CHOICES("OFF", "2.39:1", "2.35:1", "16:9"),
@@ -5316,7 +5316,7 @@ static struct menu_entry movie_menu_ratio[] =
 static struct menu_entry movie_menu_set_25fps[] =
 {
     {
-        .name   = "Set 25fps",
+        .name   = "set 25fps",
         .priv   = &set_25fps,
         .max    = 1,
         .choices = CHOICES("OFF", "ON"),
@@ -5328,7 +5328,7 @@ static struct menu_entry movie_menu_set_25fps[] =
 static struct menu_entry movie_menu_bitdepth[] =
 {
     {
-        .name   = "Bitdepth",
+        .name   = "bitdepth",
         .priv   = &bitdepth,
         .max    = 4,
         .choices = CHOICES("OFF", "8 bit", "9 bit", "10 bit", "12 bit"),
@@ -5339,7 +5339,7 @@ static struct menu_entry movie_menu_bitdepth[] =
 static struct menu_entry crop_rec_menu[] =
 {
     {
-        .name       = "Crop mode",
+        .name       = "all presets",
         .priv       = &crop_preset_index,
         .update     = crop_update,
         .depends_on = DEP_LIVEVIEW,
@@ -5360,7 +5360,7 @@ static struct menu_entry crop_rec_menu[] =
                 .help2  = "Enable REC trigger Half-shutter: start/pause for best performance",
             },
             {
-                .name   = "Slow shutter",
+                .name   = "slow shutter",
                 .priv   = &slowshutter,
                 .max    = 1,
                 .choices = CHOICES("OFF", "ON"),

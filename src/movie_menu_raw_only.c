@@ -25,7 +25,11 @@
 static struct menu_entry movie_menu_raw_toggle[] =
 {
     {
-        .name = "Startoff Presets",
+        .name = "startoff presets",
+        .placeholder = 1,
+    },
+    {
+        .name = "all presets",
         .placeholder = 1,
     },
     {
@@ -33,19 +37,19 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .placeholder = 1,
     },
     {
-        .name = "Ratio",
+        .name = "ratio",
         .placeholder = 1,
     },
     {
-        .name = "Bitdepth",
+        .name = "bitdepth",
         .placeholder = 1,
     },
     {
-        .name = "Set 25fps",
+        .name = "set 25fps",
         .placeholder = 1,
     },
     {
-        .name = "Max ISO",
+        .name = "max iso",
         .placeholder = 1,
     },
     {
@@ -61,11 +65,7 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .placeholder = 1,
     },
     {
-        .name = "Customized Buttons",
-        .placeholder = 1,
-    },
-    {
-        .name = "Crop mode",
+        .name = "customized buttons",
         .placeholder = 1,
     },
 };

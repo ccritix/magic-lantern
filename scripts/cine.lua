@@ -47,20 +47,20 @@ end
 
 -- crop mode
 if camera.model_short == "EOSM" then
-    menu.set("Movie", "Crop mode", "5K anamorphic")
+    menu.set("Movie", "all presets", "5K anamorphic")
 end
 if camera.model_short == "100D" then
-    menu.set("Movie", "Crop mode", "anamorphic rewired")
+    menu.set("Movie", "all presets", "anamorphic rewired")
 end
 if camera.model_short == "5D3" then
-    menu.set("Movie", "Crop mode", "anamorphic")
+    menu.set("Movie", "all presets", "anamorphic")
 end
-    menu.set("Movie", "Bitdepth", "10 bit")
-    menu.set("Movie", "Ratio", "2.39:1")
+    menu.set("Movie", "bitdepth", "10 bit")
+    menu.set("Movie", "ratio", "2.39:1")
   msleep(300)
 
 -- enable crop_rec.mo. Checking first after trying to enable 5k preset
-if menu.get("Movie", "Crop mode", "") ~= "anamorphic" and menu.get("Movie", "Crop mode", "") ~= "anamorphic rewired" and menu.get("Movie", "Crop mode", "") ~= "5K anamorphic" then
+if menu.get("Movie", "all presets", "") ~= "anamorphic" and menu.get("Movie", "all presets", "") ~= "anamorphic rewired" and menu.get("Movie", "all presets", "") ~= "5K anamorphic" then
   display.notify_box("enable crop_rec.mo")
   msleep(1000)
   display.notify_box("enable crop_rec.mo")
@@ -106,7 +106,7 @@ end
   menu.set("Overlay", "Global Draw", "LiveView")
 
 -- go back to menu origin
-  menu.select("Movie", "Crop mode")
+  menu.select("Movie", "all presets")
   msleep(200)
   menu.open()
   msleep(200)
