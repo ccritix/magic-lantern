@@ -69,7 +69,7 @@ if menu.get("Movie", "all presets", "") ~= "anamorphic" and menu.get("Movie", "a
 end
 
 -- movie
-  menu.set("Movie", "FPS override", "OFF")
+  menu.set("Movie", "fps override", "OFF")
   menu.set("RAW video", "Crop rec preview", "auto mode")
   menu.set("RAW video", "Preview", "Framing")
   menu.select("Movie", "RAW video")

@@ -277,7 +277,7 @@ shutter_lock_print(
     bmp_printf(
         selected ? MENU_FONT_SEL : MENU_FONT,
         x, y,
-        "Shutter Lock  : %s",
+        "shutter lock  : %s",
         shutter_lock ? "ON" : "OFF"
     );
 }
@@ -963,7 +963,7 @@ static struct menu_entry custom_buttons_menu[] =
 static struct menu_entry movie_tweaks_menus[] =
 {
     {
-        .name = "Shutter Lock",
+        .name = "shutter lock",
         .priv = &shutter_lock,
         .max = 1,
         .help   = "Lock shutter value in movie mode (change from Expo only).",
@@ -1027,7 +1027,7 @@ static struct menu_entry movie_tweaks_menus[] =
                 #endif
                 #ifdef FEATURE_SHUTTER_LOCK
                 {
-                    .name = "Shutter Lock",
+                    .name = "shutter lock",
                     .priv = &shutter_lock,
                     .max = 1,
                     .help   = "Lock shutter value in movie mode (change from Expo only).",

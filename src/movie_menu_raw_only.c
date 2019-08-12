@@ -33,7 +33,7 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .placeholder = 1,
     },
     {
-        .name = "RAW video",
+        .name = "raw video",
         .placeholder = 1,
     },
     {
@@ -53,15 +53,15 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .placeholder = 1,
     },
     {
-        .name = "Shutter Lock",
+        .name = "shutter lock",
         .placeholder = 1,
     },
     {
-        .name = "Shutter fine-tuning",
+        .name = "shutter fine-tuning",
         .placeholder = 1,
     },
     {
-        .name = "FPS override",
+        .name = "fps override",
         .placeholder = 1,
     },
     {

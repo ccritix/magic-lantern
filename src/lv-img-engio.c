@@ -942,7 +942,7 @@ static struct menu_entry lv_img_menu[] = {
 
     #if defined(FEATURE_SHUTTER_FINE_TUNING) && !defined(FEATURE_IMAGE_EFFECTS) && !defined(FEATURE_EXPO_ISO_DIGIC)
     {
-        .name = "Shutter fine-tuning", 
+        .name = "shutter fine-tuning", 
         .priv = &shutter_finetune,
         .update = shutter_finetune_display,
         .min = -500,
@@ -988,7 +988,7 @@ static struct menu_entry lv_img_menu[] = {
             
             #ifdef FEATURE_SHUTTER_FINE_TUNING
             {
-                .name = "Shutter fine-tuning", 
+                .name = "shutter fine-tuning", 
                 .priv = &shutter_finetune,
                 .update = shutter_finetune_display,
                 .min = -500,

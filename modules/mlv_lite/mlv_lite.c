@@ -3978,7 +3978,7 @@ static MENU_UPDATE_FUNC(raw_playback_update)
 static struct menu_entry raw_video_menu[] =
 {
     {
-        .name = "RAW video",
+        .name = "raw video",
         .select = menu_open_submenu,
         .priv = &raw_video_enabled,
         .min = 1,
@@ -3986,7 +3986,7 @@ static struct menu_entry raw_video_menu[] =
         .update = raw_main_update,
         .submenu_width = 710,
         .depends_on = DEP_LIVEVIEW | DEP_MOVIE_MODE,
-        .help = "Record RAW video (MLV format, with sound, basic metadata).",
+        .help = "Record raw video (MLV format, with sound, basic metadata).",
         .help2 = "Press LiveView to start recording.",
         .children =  (struct menu_entry[]) {
             {
