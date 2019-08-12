@@ -262,7 +262,7 @@ void close_liveview()
 #endif
 }
 
-static CONFIG_INT("shutter.lock", shutter_lock, 1);
+static CONFIG_INT("shutter.lock", shutter_lock, 0);
 static CONFIG_INT("shutter.lock.value", shutter_lock_value, 0);
 
 #ifdef FEATURE_SHUTTER_LOCK
