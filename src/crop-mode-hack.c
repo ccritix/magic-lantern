@@ -117,8 +117,8 @@ void crop_mode_hack_init()
         FIO_CreateFile( "ML/SETTINGS/mlv_play.en" );
         FIO_CreateFile( "ML/SETTINGS/mlv_snd.en" );
         FIO_CreateFile( "ML/SETTINGS/sd_uhs.en" );
-        // FILE * file7 = FIO_CreateFile( "ML/SETTINGS/adtg_gui.en" );
-        FIO_CreateFile( "ML/SETTINGS/dual_iso.en" );
+        //FILE * file7 = FIO_CreateFile( "ML/SETTINGS/adtg_gui.en" );
+        //FIO_CreateFile( "ML/SETTINGS/dual_iso.en" );
     }
 }
 
