@@ -70,9 +70,9 @@ end
 
 -- movie
   menu.set("Movie", "fps override", "OFF")
-  menu.set("RAW video", "Crop rec preview", "auto mode")
-  menu.set("RAW video", "Preview", "Framing")
-  menu.select("Movie", "RAW video")
+  menu.set("raw video", "Crop rec preview", "auto mode")
+  menu.set("raw video", "Preview", "Framing")
+  menu.select("Movie", "raw video")
   msleep(100)
   menu.open()
   msleep(100)
@@ -88,7 +88,7 @@ end
   key.press(KEY.WHEEL_DOWN)
   key.press(KEY.WHEEL_DOWN)
   key.press(KEY.WHEEL_DOWN)
-  menu.set("RAW video", "Aspect ratio", "1:2")
+  menu.set("raw video", "Aspect ratio", "1:2")
 
 -- Overlay
   menu.set("Overlay", "Focus Peak", "OFF")
