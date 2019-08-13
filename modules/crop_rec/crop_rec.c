@@ -574,6 +574,7 @@ static int crop_patch = 0;
 static int crop_patch2 = 0;
 static int isopatch = 0;
 static int isopatchoff = 1;
+static int gain = 0;
 //static int preset1 = 1;
 //static int preset2 = 1;
 //static int preset3 = 1;
@@ -1745,6 +1746,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     if (!is_6D && gain_buttons != 0x0 && HDR_iso_a == 0x0)
     {
         isopatch = 1;
+        gain = 1;
 
         if (x3toggle == 0x1 && is_EOSM)
         {
@@ -6175,6 +6177,28 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
     
     //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
+    
+    if ((!lv || gui_menu_shown()) && iso_climb != 0x0 && gain)
+    {
+        if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1); NotifyBox(2000, "gain ISO refreshing...");
+        if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1); NotifyBox(2000, "gain ISO refreshing...");
+        if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1); NotifyBox(2000, "gain ISO refreshing...");
+        if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1); NotifyBox(2000, "gain ISO refreshing...");
+        if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1); NotifyBox(2000, "gain ISO refreshing...");
+        if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1); NotifyBox(2000, "gain ISO refreshing...");
+        gain = 0;
+    }
+    
+    /* if ((!lv || gui_menu_shown()) && iso_climb != 0x0 && !gain)
+    {
+        if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
+        if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
+        if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
+        if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
+        if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
+        if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
+    }
+     */
     
     /* Needs refresh when turning off gain_buttons or iso metadata will still be last selected iso climb setting */
     if (!gain_buttons && !isopatchoff && (is_EOSM || is_100D))
