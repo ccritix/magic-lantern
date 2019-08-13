@@ -6197,6 +6197,16 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
     }
     
+    if ((!lv || gui_menu_shown()) && iso_climb != 0x0 && !gain)
+    {
+        if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
+        if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
+        if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
+        if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
+        if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
+        if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
+    }
+    
     /* Needs refresh when turning off gain_buttons or iso metadata will still be last selected iso climb setting */
     if (!gain_buttons && !isopatchoff && (is_EOSM || is_100D))
     {
