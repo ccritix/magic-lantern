@@ -6186,19 +6186,20 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
     
     /* refresh canon menu iso */
-    if ((!lv || gui_menu_shown()) && gain_buttons && gain)
+    if (!lv && gain_buttons && gain)
     {
-        gain = 0;
         if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
         if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
         if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
         if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
         if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
         if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+        gain = 0;
     }
     
-    if ((!lv || gui_menu_shown()) && gain_buttons && !gain)
+    if (!lv && gain_buttons && !gain)
     {
+        msleep(1000); // race condition
         if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
         if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
         if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
