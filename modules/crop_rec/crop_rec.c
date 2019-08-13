@@ -6177,6 +6177,8 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
     
     //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
+    
+    /* refresh canon menu iso */
     if ((!lv || gui_menu_shown()) && iso_climb != 0x0 && gain)
     {
         if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
@@ -6188,17 +6190,6 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         NotifyBox(2000, "gain ISO refreshing...");
         gain = 0;
     }
-    
-    /* if ((!lv || gui_menu_shown()) && iso_climb != 0x0 && !gain)
-    {
-        if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
-        if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
-        if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
-        if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
-        if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
-        if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) NotifyBox(2000, "change iso only with button up or down!"); gain = 1;
-    }
-     */
     
     /* Needs refresh when turning off gain_buttons or iso metadata will still be last selected iso climb setting */
     if (!gain_buttons && !isopatchoff && (is_EOSM || is_100D))
