@@ -36,7 +36,6 @@ static int is_100D = 0;
 static int is_EOSM = 0;
 static int is_basic = 0;
 static const int iso_steps_count = 6;
-static int iso_climb = 1;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
@@ -50,6 +49,7 @@ static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
 static CONFIG_INT("crop.isoauto", isoauto, 0);
 static CONFIG_INT("crop.gain_buttons", gain_buttons, 1);
+static CONFIG_INT("crop.iso_climb", iso_climb, 0);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 static CONFIG_INT("crop.presets", presets, 0);
@@ -5275,7 +5275,14 @@ static struct menu_entry custom_buttons_menu[] =
                 .choices = CHOICES("OFF", "ISO", "Aperture + ISO"),
                 .help   = "Press up/down to change exposure with aperture and ISO (eosm).",
                 .help2  = "INFO(5D3) or SET(100d) button 100-3200 iso.\n"
-            },            
+            },
+            {
+                .name   = "iso climb",
+                .priv   = &iso_climb,
+                .max    = 6,
+                .shidden    = 1,
+                .choices = CHOICES("OFF", "100", "200", "400", "800", "1600", "3200"),
+            },
             MENU_EOL,
         },
     }
@@ -6181,14 +6188,13 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     /* refresh canon menu iso */
     if ((!lv || gui_menu_shown()) && iso_climb != 0x0 && gain)
     {
+        gain = 0;
         if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
         if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
         if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
         if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
         if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
         if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
-        NotifyBox(2000, "gain ISO refreshing...");
-        gain = 0;
     }
     
     /* Needs refresh when turning off gain_buttons or iso metadata will still be last selected iso climb setting */
@@ -7090,17 +7096,6 @@ static unsigned int crop_rec_init()
     is_digic4 = is_camera("DIGIC", "4");
     is_digic5 = is_camera("DIGIC", "5");
     
-/* update iso value to what´s set in canon menu */
-    if (iso_climb != 0x0)
-    {
-        if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
-        if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
-        if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
-        if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
-        if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
-        if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
-    }
-    
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
     {
         /* same addresses on both 1.1.3 and 1.2.3 */
@@ -7321,6 +7316,7 @@ MODULE_CONFIG(HDR_iso_a)
 MODULE_CONFIG(HDR_iso_b)
 MODULE_CONFIG(isoauto)
 MODULE_CONFIG(gain_buttons)
+MODULE_CONFIG(iso_climb)
 MODULE_CONFIG(timelapse)
 MODULE_CONFIG(slowshutter)
 MODULE_CONFIG(x3toggle)
