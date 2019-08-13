@@ -6177,15 +6177,15 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
     
     //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
-    
     if ((!lv || gui_menu_shown()) && iso_climb != 0x0 && gain)
     {
-        if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1); NotifyBox(2000, "gain ISO refreshing...");
-        if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1); NotifyBox(2000, "gain ISO refreshing...");
-        if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1); NotifyBox(2000, "gain ISO refreshing...");
-        if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1); NotifyBox(2000, "gain ISO refreshing...");
-        if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1); NotifyBox(2000, "gain ISO refreshing...");
-        if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1); NotifyBox(2000, "gain ISO refreshing...");
+        if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
+        if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
+        if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
+        if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
+        if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
+        if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+        NotifyBox(2000, "gain ISO refreshing...");
         gain = 0;
     }
     
@@ -7098,6 +7098,17 @@ static unsigned int crop_rec_init()
 {
     is_digic4 = is_camera("DIGIC", "4");
     is_digic5 = is_camera("DIGIC", "5");
+    
+/* update iso value to what´s set in canon menu */
+    if (iso_climb != 0x0)
+    {
+        if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
+        if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
+        if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
+        if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
+        if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
+        if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
+    }
     
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
     {
