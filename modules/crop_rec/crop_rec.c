@@ -49,7 +49,7 @@ static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
 static CONFIG_INT("crop.isoauto", isoauto, 0);
 static CONFIG_INT("crop.gain_buttons", gain_buttons, 1);
-static CONFIG_INT("crop.iso_climb", iso_climb, 0);
+static CONFIG_INT("crop.iso_climb", iso_climb, 1);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 static CONFIG_INT("crop.presets", presets, 0);
@@ -6186,7 +6186,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
     
     /* refresh canon menu iso */
-    if ((!lv || gui_menu_shown()) && iso_climb != 0x0 && gain)
+    if ((!lv || gui_menu_shown()) && gain_buttons && gain)
     {
         gain = 0;
         if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
@@ -6197,7 +6197,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
     }
     
-    if ((!lv || gui_menu_shown()) && iso_climb != 0x0 && !gain)
+    if ((!lv || gui_menu_shown()) && gain_buttons && !gain)
     {
         if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
         if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
@@ -6205,6 +6205,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
         if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
         if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
+        if (lens_info.raw_iso == 0x78) iso_climb = 0x6;
     }
     
     /* Needs refresh when turning off gain_buttons or iso metadata will still be last selected iso climb setting */
