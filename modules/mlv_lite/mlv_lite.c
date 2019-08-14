@@ -124,7 +124,7 @@ static int should_restart_recording = 0;
 
 /* config variables */
 
-CONFIG_INT("raw.video.enabled", raw_video_enabled, 1);
+static CONFIG_INT("raw.video.enabled", raw_video_enabled, 1);
 static CONFIG_INT("raw.killgd", kill_gd, 0);
 
 static CONFIG_INT("raw.res_x", resolution_index_x, 11);
@@ -4568,6 +4568,8 @@ static struct lvinfo_item info_items[] = {
 
 static unsigned int raw_rec_init()
 {
+    // Always start with RAW enabled after reboot, also when it was turned off last time
+    raw_video_enabled = 1;
     cam_eos_m = is_camera("EOSM", "2.0.2");
     cam_5d2   = is_camera("5D2",  "2.1.2");
     cam_50d   = is_camera("50D",  "1.0.9");
