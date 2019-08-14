@@ -73,6 +73,7 @@ menu.set("Movie", "fps override", "OFF")
 menu.set("raw video", "Crop rec preview", "auto mode")
 menu.set("raw video", "Preview", "Framing")
 menu.set("raw video", "Resolution Index", 11)
+menu.set("Movie", "raw video", "ON")
 menu.set("raw video", "Aspect ratio", "1:2")
 
 -- Overlay
