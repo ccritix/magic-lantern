@@ -91,13 +91,14 @@ static struct menu_entry crop_hack_menus[] = {
         .depends_on = DEP_MOVIE_MODE,
     },
 };
+#endif
 
 void crop_mode_hack_init()
 {
+    #ifndef FEATURE_RAW_VIDEO_ONLY
     menu_add( "Movie", crop_hack_menus, COUNT(crop_hack_menus) );
-    
+    #endif
 }
-#endif
 
 INIT_FUNC(__FILE__, crop_mode_hack_init);
 
