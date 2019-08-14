@@ -1746,7 +1746,6 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
     if (!is_6D && gain_buttons != 0x0 && HDR_iso_a == 0x0)
     {
         isopatch = 1;
-        gain = 1;
 
         if (x3toggle == 0x1 && is_EOSM)
         {
@@ -5781,6 +5780,10 @@ static struct menu_entry crop_rec_menu[] =
 
 static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
+    if (key == MODULE_KEY_INFO || gain_buttons)
+    {
+        gain = 1;
+    }
     
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
     if (is_EOSM && lv && !gui_menu_shown() && !RECORDING && is_movie_mode() &&
@@ -6182,32 +6185,17 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     if ((!lv || gui_menu_shown()) && gain_buttons && gain)
     {
         if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
-        if (iso_climb == 0x2 && (lens_info.raw_iso != 0x50 || lens_info.raw_iso != 0x4d)) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
-        if (iso_climb == 0x3 && (lens_info.raw_iso != 0x58 || lens_info.raw_iso != 0x55)) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
-        if (iso_climb == 0x4 && (lens_info.raw_iso != 0x60 || lens_info.raw_iso != 0x5d)) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
-        if (iso_climb == 0x5 && (lens_info.raw_iso != 0x68 || lens_info.raw_iso != 0x65)) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
-        if (iso_climb == 0x6 && (lens_info.raw_iso != 0x70 || lens_info.raw_iso != 0x6d || lens_info.raw_iso != 0x75)) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+        if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
+        if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
+        if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
+        if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
+        if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
         
-        msleep(1000); // race condition
-        /*extended isos will be pushed to closest native iso*/
-        if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
-        if (lens_info.raw_iso == 0x50 || lens_info.raw_iso == 0x4d) iso_climb = 0x2;
-        if (lens_info.raw_iso == 0x58 || lens_info.raw_iso == 0x55) iso_climb = 0x3;
-        if (lens_info.raw_iso == 0x60 || lens_info.raw_iso == 0x5d) iso_climb = 0x4;
-        if (lens_info.raw_iso == 0x68 || lens_info.raw_iso == 0x65) iso_climb = 0x5;
-        if (lens_info.raw_iso == 0x70 || lens_info.raw_iso == 0x6d || lens_info.raw_iso == 0x75) iso_climb = 0x6;
-        if (lens_info.raw_iso == 0x78)
+        while (!lv)
         {
-            menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
-            iso_climb = 0x6;
+            msleep(10);
         }
-        gain = 0;
-    }
-    
-    /* needed when starting cam for updating button set iso */
-    if (!lv && gain_buttons && !gain)
-    {
-        msleep(1000); // race condition
+        
         if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
         if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
         if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
@@ -6219,8 +6207,10 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
             iso_climb = 0x6;
         }
-    }
         
+        gain = 0;
+    }
+    
     /* Needs refresh when turning off gain_buttons or iso metadata will still be last selected iso climb setting */
     if (!gain_buttons && !isopatchoff && (is_EOSM || is_100D))
     {
@@ -7119,6 +7109,16 @@ static unsigned int crop_rec_init()
 {
     is_digic4 = is_camera("DIGIC", "4");
     is_digic5 = is_camera("DIGIC", "5");
+    
+    if (gain_buttons)
+    {
+        if (iso_climb == 0x1) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
+        if (iso_climb == 0x2) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
+        if (iso_climb == 0x3) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
+        if (iso_climb == 0x4) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
+        if (iso_climb == 0x5) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
+        if (iso_climb == 0x6) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+    }
     
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
     {
