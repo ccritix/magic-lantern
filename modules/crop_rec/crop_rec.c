@@ -5276,13 +5276,6 @@ static struct menu_entry custom_buttons_menu[] =
                 .help   = "Press up/down to change exposure with aperture and ISO (eosm).",
                 .help2  = "INFO(5D3) or SET(100d) button 100-3200 iso.\n"
             },
-            {
-                .name   = "iso climb",
-                .priv   = &iso_climb,
-                .max    = 6,
-                .shidden    = 1,
-                .choices = CHOICES("OFF", "100", "200", "400", "800", "1600", "3200"),
-            },
             MENU_EOL,
         },
     }
@@ -6186,33 +6179,31 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
     
     /* refresh canon menu iso */
-    if (!lv && gain_buttons && gain)
+    if ((!lv || gui_menu_shown()) && gain_buttons && gain)
     {
         if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
-        if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
-        if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
-        if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
-        if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
-        if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
-        gain = 0;
-    }
-    
-    if (!lv && gain_buttons && !gain)
-    {
+        if (iso_climb == 0x2 && (lens_info.raw_iso != 0x50 || lens_info.raw_iso != 0x4d)) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
+        if (iso_climb == 0x3 && (lens_info.raw_iso != 0x58 || lens_info.raw_iso != 0x55)) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
+        if (iso_climb == 0x4 && (lens_info.raw_iso != 0x60 || lens_info.raw_iso != 0x5d)) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
+        if (iso_climb == 0x5 && (lens_info.raw_iso != 0x68 || lens_info.raw_iso != 0x65)) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
+        if (iso_climb == 0x6 && (lens_info.raw_iso != 0x70 || lens_info.raw_iso != 0x6d || lens_info.raw_iso != 0x75)) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+        
         msleep(1000); // race condition
+        /*extended isos will be pushed to closest native iso*/
         if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
-        if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
-        if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
-        if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
-        if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
-        if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
+        if (lens_info.raw_iso == 0x50 || lens_info.raw_iso == 0x4d) iso_climb = 0x2;
+        if (lens_info.raw_iso == 0x58 || lens_info.raw_iso == 0x55) iso_climb = 0x3;
+        if (lens_info.raw_iso == 0x60 || lens_info.raw_iso == 0x5d) iso_climb = 0x4;
+        if (lens_info.raw_iso == 0x68 || lens_info.raw_iso == 0x65) iso_climb = 0x5;
+        if (lens_info.raw_iso == 0x70 || lens_info.raw_iso == 0x6d || lens_info.raw_iso == 0x75) iso_climb = 0x6;
         if (lens_info.raw_iso == 0x78)
         {
             menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
             iso_climb = 0x6;
         }
+        gain = 0;
     }
-    
+        
     /* Needs refresh when turning off gain_buttons or iso metadata will still be last selected iso climb setting */
     if (!gain_buttons && !isopatchoff && (is_EOSM || is_100D))
     {

@@ -2946,13 +2946,7 @@ static LVINFO_UPDATE_FUNC(iso_update)
         }
         
         int iso = raw2iso(iso_equiv_raw);
-        
-        if (iso > 1600)
-        {
-            /* think twice before increasing ISO above this value */
-            item->color_fg = COLOR_ORANGE;
-        }
-
+    
 /* restricting autoiso for eom, 100D and 5D3. Switch in crop_rec.c */
 		if (shamem_read(0xC0F0b12c) == 0x7 && lens_info.raw_iso_auto > 0x5d) 
 		{
