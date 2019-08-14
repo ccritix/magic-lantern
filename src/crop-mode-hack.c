@@ -79,6 +79,7 @@ static MENU_UPDATE_FUNC(movie_crop_hack_display)
     }
 }
 
+#ifndef FEATURE_RAW_VIDEO_ONLY
 static struct menu_entry crop_hack_menus[] = {
     {
         .name = "Movie crop mode",
@@ -93,10 +94,10 @@ static struct menu_entry crop_hack_menus[] = {
 
 void crop_mode_hack_init()
 {
-    #ifndef FEATURE_RAW_VIDEO_ONLY
     menu_add( "Movie", crop_hack_menus, COUNT(crop_hack_menus) );
-    #endif
+    
 }
+#endif
 
 INIT_FUNC(__FILE__, crop_mode_hack_init);
 
