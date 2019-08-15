@@ -5780,7 +5780,7 @@ static struct menu_entry crop_rec_menu[] =
 
 static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
-    if ((!lv && gain_buttons) || gui_menu_shown())
+    if ((key == MODULE_KEY_INFO && gain_buttons) || gui_menu_shown())
     {
         gain = 1;
     }
