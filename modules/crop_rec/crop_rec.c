@@ -52,7 +52,10 @@ static CONFIG_INT("crop.gain_buttons", gain_buttons, 1);
 static CONFIG_INT("crop.iso_climb", iso_climb, 1);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
-static CONFIG_INT("crop.presets", presets, 0);
+// static CONFIG_INT("crop.presets", presets, 0);
+
+/* must be assigned in crop_rec_init */
+static int last_crop_preset_index = 0;
 
 enum crop_preset {
     CROP_PRESET_3X,
@@ -270,16 +273,16 @@ static enum crop_preset crop_presets_eosm[] = {
 };
 
 static const char * crop_choices_eosm[] = {
-    "mv1080p MCM rewire",
-    "mv1080p 1736x976 46/48fps",
+    "mv1080p MCM rewire 14bit",
+    "mv1080p 1736x976 46/48fps 10bit",
     //"mv1080p 1736x1158",
     //"mv720p 1736x694 50fps",
     //"2.5K 1:1 centered",
-    "2.5K 2520x1418",
-    "3K 3032x1436",
-    "4K 4080x3000",
-    "4K anamorphic rewired",
-    "5K anamorphic",
+    "2.5K 2520x1418 10bit",
+    "3K 3032x1436 10bit",
+    "4K 4080x3000 10bit",
+    "4K anamorphic rewired 10bit",
+    "5K anamorphic 10bit",
     // "4K 3x1 24fps",
     // "5K 3x1 24fps",
     // "4K 5x1 24fps",
@@ -5292,16 +5295,16 @@ static struct menu_entry max_iso_menu[] =
     },
 };
 
-static struct menu_entry startoff_presets_menu[] =
-{
-    {
-        .name   = "startoff presets",
-        .priv   = &presets,
-        .max    = 6,
-        .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop"),
-        .help   = "Select startoff preset(EOSM only)",
-    },
-};
+// static struct menu_entry startoff_presets_menu[] =
+// {
+//     {
+//         .name   = "startoff presets",
+//         .priv   = &presets,
+//         .max    = 6,
+//         .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop"),
+//         .help   = "Select startoff preset(EOSM only)",
+//     },
+// };
 
 static struct menu_entry movie_menu_ratio[] =
 {
@@ -5340,7 +5343,7 @@ static struct menu_entry movie_menu_bitdepth[] =
 static struct menu_entry crop_rec_menu[] =
 {
     {
-        .name       = "all presets",
+        .name       = "presets",
         .priv       = &crop_preset_index,
         .update     = crop_update,
         .depends_on = DEP_LIVEVIEW,
@@ -5893,98 +5896,98 @@ static int crop_rec_needs_lv_refresh()
         return 0;
     }
     
-    /* startoff presets(experimental) */
-    if (is_EOSM && presets != 0x0 && !RECORDING)
-    {
+    // /* startoff presets(experimental) */
+    // if (is_EOSM && presets != 0x0 && !RECORDING)
+    // {
         
-        if (presets == 0x1)
-        {
-            NotifyBox(2000, "mv1080p MCM rewire 14bit");
-            crop_preset_index = 0;
-            bitdepth = 0x0;
-            zoomaid = 0x1;
-            x3crop = 0x0;
-            x3toggle = 0x2;
-            PauseLiveView();
-            ResumeLiveView();
-            presets = 0x0;
-            return 0;
-        }
+    //     if (presets == 0x1)
+    //     {
+    //         NotifyBox(2000, "mv1080p MCM rewire 14bit");
+    //         crop_preset_index = 0;
+    //         bitdepth = 0x0;
+    //         zoomaid = 0x1;
+    //         x3crop = 0x0;
+    //         x3toggle = 0x2;
+    //         PauseLiveView();
+    //         ResumeLiveView();
+    //         presets = 0x0;
+    //         return 0;
+    //     }
         
-        if (presets == 0x2)
-        {
-            NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
-            crop_preset_index = 0;
-            bitdepth = 0x0;
-            zoomaid = 0x1;
-            x3crop = 0x1;
-            x3toggle = 0x2;
-            PauseLiveView();
-            ResumeLiveView();
-            presets = 0x0;
-            return 0;
-        }
+    //     if (presets == 0x2)
+    //     {
+    //         NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
+    //         crop_preset_index = 0;
+    //         bitdepth = 0x0;
+    //         zoomaid = 0x1;
+    //         x3crop = 0x1;
+    //         x3toggle = 0x2;
+    //         PauseLiveView();
+    //         ResumeLiveView();
+    //         presets = 0x0;
+    //         return 0;
+    //     }
         
-        if (presets == 0x3)
-        {
-            NotifyBox(2000, "5K anamorphic 10bit");
-            crop_preset_index = 6;
-            bitdepth = 0x3;
-            zoomaid = 0x1;
-            x3crop = 0x0;
-            x3toggle = 0x2;
-            PauseLiveView();
-            ResumeLiveView();
-            set_lv_zoom(1);
-            presets = 0x0;
-            return 0;
-        }
+    //     if (presets == 0x3)
+    //     {
+    //         NotifyBox(2000, "5K anamorphic 10bit");
+    //         crop_preset_index = 6;
+    //         bitdepth = 0x3;
+    //         zoomaid = 0x1;
+    //         x3crop = 0x0;
+    //         x3toggle = 0x2;
+    //         PauseLiveView();
+    //         ResumeLiveView();
+    //         set_lv_zoom(1);
+    //         presets = 0x0;
+    //         return 0;
+    //     }
         
-        if (presets == 0x4)
-        {
-            NotifyBox(2000, "2.5K 10bit");
-            crop_preset_index = 2;
-            bitdepth = 0x3;
-            zoomaid = 0x1;
-            x3crop = 0x0;
-            x3toggle = 0x2;
-            PauseLiveView();
-            ResumeLiveView();
-            presets = 0x0;
-            return 0;
-        }
+    //     if (presets == 0x4)
+    //     {
+    //         NotifyBox(2000, "2.5K 10bit");
+    //         crop_preset_index = 2;
+    //         bitdepth = 0x3;
+    //         zoomaid = 0x1;
+    //         x3crop = 0x0;
+    //         x3toggle = 0x2;
+    //         PauseLiveView();
+    //         ResumeLiveView();
+    //         presets = 0x0;
+    //         return 0;
+    //     }
         
-        if (presets == 0x5)
-        {
-            NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
-            crop_preset_index = 1;
-            bitdepth = 0x3;
-            zoomaid = 0x1;
-            x3crop = 0x0;
-            x3toggle = 0x2;
-            PauseLiveView();
-            ResumeLiveView();
-            set_lv_zoom(1);
-            presets = 0x0;
-            return 0;
-        }
+    //     if (presets == 0x5)
+    //     {
+    //         NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
+    //         crop_preset_index = 1;
+    //         bitdepth = 0x3;
+    //         zoomaid = 0x1;
+    //         x3crop = 0x0;
+    //         x3toggle = 0x2;
+    //         PauseLiveView();
+    //         ResumeLiveView();
+    //         set_lv_zoom(1);
+    //         presets = 0x0;
+    //         return 0;
+    //     }
         
-        if (presets == 0x6)
-        {
-            NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
-            crop_preset_index = 1;
-            bitdepth = 0x3;
-            zoomaid = 0x1;
-            x3crop = 0x1;
-            x3toggle = 0x2;
-            PauseLiveView();
-            ResumeLiveView();
-            set_lv_zoom(1);
-            presets = 0x0;
-            return 0;
-        }
+    //     if (presets == 0x6)
+    //     {
+    //         NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
+    //         crop_preset_index = 1;
+    //         bitdepth = 0x3;
+    //         zoomaid = 0x1;
+    //         x3crop = 0x1;
+    //         x3toggle = 0x2;
+    //         PauseLiveView();
+    //         ResumeLiveView();
+    //         set_lv_zoom(1);
+    //         presets = 0x0;
+    //         return 0;
+    //     }
         
-    }
+    // }
     
     /* We don´t want this when in photo mode I assume */
     if (!is_movie_mode()) return 0;
@@ -6178,7 +6181,25 @@ static void set_zoom(int zoom)
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
-    
+
+    if(crop_preset_index != last_crop_preset_index){
+        // Apply best bitrate
+        if(is_EOSM) {
+            if(crop_preset_index == 0) {
+                // mv1080p MCM rewire 14bit
+                bitdepth = 0;
+            } else {
+                // Others 10 bit
+                bitdepth = 3;
+            }
+        }
+
+        // Apply max resolution
+        menu_set_value_from_script("raw video", "Resolution Index", 11);
+
+        last_crop_preset_index = crop_preset_index;
+    }
+
     //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
     
     /* refresh canon menu iso */
@@ -7107,6 +7128,8 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 
 static unsigned int crop_rec_init()
 {
+    last_crop_preset_index = crop_preset_index;
+
     is_digic4 = is_camera("DIGIC", "4");
     is_digic5 = is_camera("DIGIC", "5");
     
@@ -7312,7 +7335,7 @@ static unsigned int crop_rec_init()
     menu_add("Movie", movie_menu_set_25fps, COUNT(movie_menu_set_25fps));
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
     menu_add("Movie", max_iso_menu, COUNT(max_iso_menu));
-    menu_add("Movie", startoff_presets_menu, COUNT(startoff_presets_menu));
+    // menu_add("Movie", startoff_presets_menu, COUNT(startoff_presets_menu));
     menu_add("Movie", custom_buttons_menu, COUNT(custom_buttons_menu));
     lvinfo_add_items (info_items, COUNT(info_items));
     

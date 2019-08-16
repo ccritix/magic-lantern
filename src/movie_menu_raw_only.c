@@ -24,12 +24,12 @@
 // Also decides where entries from modules will end up
 static struct menu_entry movie_menu_raw_toggle[] =
 {
+    // {
+    //     .name = "startoff presets",
+    //     .placeholder = 1,
+    // },
     {
-        .name = "startoff presets",
-        .placeholder = 1,
-    },
-    {
-        .name = "all presets",
+        .name = "presets",
         .placeholder = 1,
     },
     {
