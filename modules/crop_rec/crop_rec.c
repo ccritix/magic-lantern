@@ -52,7 +52,7 @@ static CONFIG_INT("crop.gain_buttons", gain_buttons, 1);
 static CONFIG_INT("crop.iso_climb", iso_climb, 1);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
-// static CONFIG_INT("crop.presets", presets, 0);
+static CONFIG_INT("crop.presets", presets, 0);
 
 /* must be assigned in crop_rec_init */
 // static int last_crop_preset_index = 0;
@@ -5248,17 +5248,6 @@ static struct menu_entry max_iso_menu[] =
     },
 };
 
-// static struct menu_entry startoff_presets_menu[] =
-// {
-//     {
-//         .name   = "startoff presets",
-//         .priv   = &presets,
-//         .max    = 6,
-//         .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop"),
-//         .help   = "Select startoff preset(EOSM only)",
-//     },
-// };
-
 static struct menu_entry movie_menu_ratio[] =
 {
     {
@@ -5301,6 +5290,13 @@ static struct menu_entry crop_rec_menu[] =
         .update     = crop_update,
         .depends_on = DEP_LIVEVIEW,
         .children =  (struct menu_entry[]) {
+            {
+                .name   = "startoff presets",
+                .priv   = &presets,
+                .max    = 6,
+                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop"),
+                .help   = "Select startoff preset(EOSM only)",
+            },
             {
                 .name   = "x3crop",
                 .priv   = &x3crop,
@@ -5741,6 +5737,16 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         gain = 1;
     }
     
+    if (key == MODULE_KEY_TOUCH_1_FINGER && !gui_menu_shown() && is_movie_mode() && lv)
+    {
+        if(lv_disp_mode != 0){
+            // Use INFO key to cycle LV as normal when not in the LV with ML overlays
+            return 1;
+        }
+        select_menu_by_name("Movie", 0);
+        gui_open_menu();
+    }
+    
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
     if (is_EOSM && lv && !gui_menu_shown() && !RECORDING && is_movie_mode() &&
         ((key == MODULE_KEY_PRESS_DOWN && x3toggle == 0x1) || (key == MODULE_KEY_PRESS_SET && x3toggle == 0x2)) &&
@@ -5849,98 +5855,98 @@ static int crop_rec_needs_lv_refresh()
         return 0;
     }
     
-    // /* startoff presets(experimental) */
-    // if (is_EOSM && presets != 0x0 && !RECORDING)
-    // {
+     /* startoff presets(experimental) */
+     if (is_EOSM && presets != 0x0 && !RECORDING)
+     {
         
-    //     if (presets == 0x1)
-    //     {
-    //         NotifyBox(2000, "mv1080p MCM rewire 14bit");
-    //         crop_preset_index = 0;
-    //         bitdepth = 0x0;
-    //         zoomaid = 0x1;
-    //         x3crop = 0x0;
-    //         x3toggle = 0x2;
-    //         PauseLiveView();
-    //         ResumeLiveView();
-    //         presets = 0x0;
-    //         return 0;
-    //     }
+         if (presets == 0x1)
+         {
+             NotifyBox(2000, "mv1080p MCM rewire 14bit");
+             crop_preset_index = 0;
+             bitdepth = 0x0;
+             zoomaid = 0x1;
+             x3crop = 0x0;
+             x3toggle = 0x2;
+             PauseLiveView();
+             ResumeLiveView();
+             presets = 0x0;
+             return 0;
+         }
         
-    //     if (presets == 0x2)
-    //     {
-    //         NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
-    //         crop_preset_index = 0;
-    //         bitdepth = 0x0;
-    //         zoomaid = 0x1;
-    //         x3crop = 0x1;
-    //         x3toggle = 0x2;
-    //         PauseLiveView();
-    //         ResumeLiveView();
-    //         presets = 0x0;
-    //         return 0;
-    //     }
+         if (presets == 0x2)
+         {
+             NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
+             crop_preset_index = 0;
+             bitdepth = 0x0;
+             zoomaid = 0x1;
+             x3crop = 0x1;
+             x3toggle = 0x2;
+             PauseLiveView();
+             ResumeLiveView();
+             presets = 0x0;
+             return 0;
+         }
         
-    //     if (presets == 0x3)
-    //     {
-    //         NotifyBox(2000, "5K anamorphic 10bit");
-    //         crop_preset_index = 6;
-    //         bitdepth = 0x3;
-    //         zoomaid = 0x1;
-    //         x3crop = 0x0;
-    //         x3toggle = 0x2;
-    //         PauseLiveView();
-    //         ResumeLiveView();
-    //         set_lv_zoom(1);
-    //         presets = 0x0;
-    //         return 0;
-    //     }
+         if (presets == 0x3)
+         {
+             NotifyBox(2000, "5K anamorphic 10bit");
+             crop_preset_index = 6;
+             bitdepth = 0x3;
+             zoomaid = 0x1;
+             x3crop = 0x0;
+             x3toggle = 0x2;
+             PauseLiveView();
+             ResumeLiveView();
+             set_lv_zoom(1);
+             presets = 0x0;
+             return 0;
+         }
         
-    //     if (presets == 0x4)
-    //     {
-    //         NotifyBox(2000, "2.5K 10bit");
-    //         crop_preset_index = 2;
-    //         bitdepth = 0x3;
-    //         zoomaid = 0x1;
-    //         x3crop = 0x0;
-    //         x3toggle = 0x2;
-    //         PauseLiveView();
-    //         ResumeLiveView();
-    //         presets = 0x0;
-    //         return 0;
-    //     }
+         if (presets == 0x4)
+         {
+             NotifyBox(2000, "2.5K 10bit");
+             crop_preset_index = 2;
+             bitdepth = 0x3;
+             zoomaid = 0x1;
+             x3crop = 0x0;
+             x3toggle = 0x2;
+             PauseLiveView();
+             ResumeLiveView();
+             presets = 0x0;
+             return 0;
+         }
         
-    //     if (presets == 0x5)
-    //     {
-    //         NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
-    //         crop_preset_index = 1;
-    //         bitdepth = 0x3;
-    //         zoomaid = 0x1;
-    //         x3crop = 0x0;
-    //         x3toggle = 0x2;
-    //         PauseLiveView();
-    //         ResumeLiveView();
-    //         set_lv_zoom(1);
-    //         presets = 0x0;
-    //         return 0;
-    //     }
+         if (presets == 0x5)
+         {
+             NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
+             crop_preset_index = 1;
+             bitdepth = 0x3;
+             zoomaid = 0x1;
+             x3crop = 0x0;
+             x3toggle = 0x2;
+             PauseLiveView();
+             ResumeLiveView();
+             set_lv_zoom(1);
+             presets = 0x0;
+             return 0;
+         }
         
-    //     if (presets == 0x6)
-    //     {
-    //         NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
-    //         crop_preset_index = 1;
-    //         bitdepth = 0x3;
-    //         zoomaid = 0x1;
-    //         x3crop = 0x1;
-    //         x3toggle = 0x2;
-    //         PauseLiveView();
-    //         ResumeLiveView();
-    //         set_lv_zoom(1);
-    //         presets = 0x0;
-    //         return 0;
-    //     }
+         if (presets == 0x6)
+         {
+             NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
+             crop_preset_index = 1;
+             bitdepth = 0x3;
+             zoomaid = 0x1;
+             x3crop = 0x1;
+             x3toggle = 0x2;
+             PauseLiveView();
+             ResumeLiveView();
+             set_lv_zoom(1);
+             presets = 0x0;
+             return 0;
+         }
         
-    // }
+     }
     
     /* We don´t want this when in photo mode I assume */
     if (!is_movie_mode()) return 0;
@@ -7289,7 +7295,6 @@ static unsigned int crop_rec_init()
     menu_add("Movie", movie_menu_set_25fps, COUNT(movie_menu_set_25fps));
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
     menu_add("Movie", max_iso_menu, COUNT(max_iso_menu));
-    // menu_add("Movie", startoff_presets_menu, COUNT(startoff_presets_menu));
     menu_add("Movie", custom_buttons_menu, COUNT(custom_buttons_menu));
     lvinfo_add_items (info_items, COUNT(info_items));
     
