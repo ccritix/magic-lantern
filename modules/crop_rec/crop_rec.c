@@ -6147,6 +6147,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     /* connected to MODULE_KEY_TOUCH_1_FINGER for entering Movie tab menu */
     if (gui_menu_shown() && subby)
     {
+        module_send_keypress(MODULE_KEY_Q);
         module_send_keypress(MODULE_KEY_PRESS_SET);
         subby = 0;
     }
