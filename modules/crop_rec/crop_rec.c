@@ -578,6 +578,7 @@ static int crop_patch2 = 0;
 static int isopatch = 0;
 static int isopatchoff = 1;
 static int gain = 0;
+static int subby = 0;
 //static int preset1 = 1;
 //static int preset2 = 1;
 //static int preset3 = 1;
@@ -5737,6 +5738,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         gain = 1;
     }
     
+    /* selects Movie tab menu */
     if (key == MODULE_KEY_TOUCH_1_FINGER && !gui_menu_shown() && is_movie_mode() && lv)
     {
         if(lv_disp_mode != 0){
@@ -5745,6 +5747,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         }
         select_menu_by_name("Movie", 0);
         gui_open_menu();
+        subby = 1;
     }
     
     /* x3crop toggle by using short press on thrash can button instead of halfshutter */
@@ -6140,6 +6143,13 @@ static void set_zoom(int zoom)
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
+    
+    /* connected to MODULE_KEY_TOUCH_1_FINGER for entering Movie tab menu */
+    if (gui_menu_shown() && subby)
+    {
+        module_send_keypress(MODULE_KEY_PRESS_SET);
+        subby = 0;
+    }
 /*
     if(crop_preset_index != last_crop_preset_index){
         // Apply best bitrate
@@ -6163,7 +6173,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
     
     /* refresh canon menu iso */
-    if ((!lv || gui_menu_shown()) && gain_buttons && gain)
+    if ((!lv || gui_menu_shown()) && gain_buttons && gain && !gain)
     {
         if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
         if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
