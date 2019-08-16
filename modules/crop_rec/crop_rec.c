@@ -273,16 +273,16 @@ static enum crop_preset crop_presets_eosm[] = {
 };
 
 static const char * crop_choices_eosm[] = {
-    "mv1080p MCM rewire 14bit",
-    "mv1080p 1736x976 46/48fps 10bit",
+    "mv1080p MCM rewire",
+    "mv1080p 1736x976 46/48fps",
     //"mv1080p 1736x1158",
     //"mv720p 1736x694 50fps",
     //"2.5K 1:1 centered",
-    "2.5K 2520x1418 10bit",
-    "3K 3032x1436 10bit",
-    "4K 4080x3000 10bit",
-    "4K anamorphic rewired 10bit",
-    "5K anamorphic 10bit",
+    "2.5K 2520x1418",
+    "3K 3032x1436",
+    "4K 4080x3000",
+    "4K anamorphic rewired",
+    "5K anamorphic",
     // "4K 3x1 24fps",
     // "5K 3x1 24fps",
     // "4K 5x1 24fps",
@@ -5335,7 +5335,7 @@ static struct menu_entry movie_menu_bitdepth[] =
         .name   = "bitdepth",
         .priv   = &bitdepth,
         .max    = 4,
-        .choices = CHOICES("14 bit", "8 bit", "9 bit", "10 bit", "12 bit"),
+        .choices = CHOICES("OFF", "8 bit", "9 bit", "10 bit", "12 bit"),
         .help   = "Recording bitdepth\n"
     },
 };
@@ -6181,7 +6181,7 @@ static void set_zoom(int zoom)
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
-
+/*
     if(crop_preset_index != last_crop_preset_index){
         // Apply best bitrate
         if(is_EOSM) {
@@ -6199,6 +6199,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
 
         last_crop_preset_index = crop_preset_index;
     }
+ */
 
     //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
     
@@ -7128,7 +7129,7 @@ static unsigned int raw_info_update_cbr(unsigned int unused)
 
 static unsigned int crop_rec_init()
 {
-    last_crop_preset_index = crop_preset_index;
+    //last_crop_preset_index = crop_preset_index;
 
     is_digic4 = is_camera("DIGIC", "4");
     is_digic5 = is_camera("DIGIC", "5");
