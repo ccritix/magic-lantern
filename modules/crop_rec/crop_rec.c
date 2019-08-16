@@ -55,7 +55,7 @@ static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 // static CONFIG_INT("crop.presets", presets, 0);
 
 /* must be assigned in crop_rec_init */
-static int last_crop_preset_index = 0;
+// static int last_crop_preset_index = 0;
 
 enum crop_preset {
     CROP_PRESET_3X,
@@ -938,7 +938,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
                 skip_bottom = 54;
                 skip_right = 186;
                 skip_left = 190;
-                if (bitdepth == 0x4)
+                if (bitdepth == 0x2)
                 {
                     skip_bottom = 54;
                     skip_right = 266;
@@ -952,7 +952,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
                 skip_bottom = 20;
                 skip_right = 186;
                 skip_left = 190;
-                if (bitdepth == 0x4)
+                if (bitdepth == 0x2)
                 {
                     skip_bottom = 20;
                     skip_right = 266;
@@ -965,7 +965,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
                 skip_bottom = 20;
                 skip_right = 370;
                 skip_left = 374;
-                if (bitdepth == 0x4)
+                if (bitdepth == 0x2)
                 {
                     skip_bottom = 20;
                     skip_right = 398;
@@ -2215,24 +2215,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         {
             if (bitdepth == 0x1)
             {
-                /* 8bit roundtrip only not applied here with following set ups */
-                adtg_new[13] = (struct adtg_new) {6, 0x8882, 12 + reg_gain};
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 12 + reg_gain};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 12 + reg_gain};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 12 + reg_gain};
-            }
-            
-            if (bitdepth == 0x2)
-            {
-                /* 9bit roundtrip only not applied here with following set ups */
-                adtg_new[13] = (struct adtg_new) {6, 0x8882, 30 + reg_gain};
-                adtg_new[14] = (struct adtg_new) {6, 0x8884, 30 + reg_gain};
-                adtg_new[15] = (struct adtg_new) {6, 0x8886, 30 + reg_gain};
-                adtg_new[16] = (struct adtg_new) {6, 0x8888, 30 + reg_gain};
-            }
-            
-            if (bitdepth == 0x3)
-            {
                 /* 10bit roundtrip only not applied here with following set ups */
                 adtg_new[13] = (struct adtg_new) {6, 0x8882, 60 + reg_gain};
                 adtg_new[14] = (struct adtg_new) {6, 0x8884, 60 + reg_gain};
@@ -2240,7 +2222,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 adtg_new[16] = (struct adtg_new) {6, 0x8888, 60 + reg_gain};
             }
             
-            if (bitdepth == 0x4)
+            if (bitdepth == 0x2)
             {
                 /* 12bit roundtrip only not applied here with following set ups */
                 adtg_new[13] = (struct adtg_new) {6, 0x8882, 250 + reg_gain};
@@ -2553,29 +2535,11 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
             switch (reg)
             {
                     /* correct liveview brightness */
-                case 0xC0F42744: return 0x6060606;
-            }
-        }
-        
-        if (bitdepth == 0x2)
-        {
-            switch (reg)
-            {
-                    /* correct liveview brightness */
-                case 0xC0F42744: return 0x5050505;
-            }
-        }
-        
-        if (bitdepth == 0x3)
-        {
-            switch (reg)
-            {
-                    /* correct liveview brightness */
                 case 0xC0F42744: return 0x4040404;
             }
         }
         
-        if (bitdepth == 0x4)
+        if (bitdepth == 0x2)
         {
             switch (reg)
             {
@@ -2605,23 +2569,12 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
     
     if (!RECORDING && (is_EOSM || is_100D || is_6D || is_5D3))
     {
-        
         if (bitdepth == 0x1)
-        {
-            EngDrvOutLV(0xc0f0815c, 0x3);
-        }
-        
-        if (bitdepth == 0x2)
-        {
-            EngDrvOutLV(0xc0f0815c, 0x4);
-        }
-        
-        if (bitdepth == 0x3)
         {
             EngDrvOutLV(0xc0f0815c, 0x5);
         }
         
-        if (bitdepth == 0x4)
+        if (bitdepth == 0x2)
         {
             EngDrvOutLV(0xc0f0815c, 0x6);
         }
@@ -4158,14 +4111,14 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
         {
                 /* 2.39:1 or 2.35:1 */
             case 0xC0F06804:
-                return bitdepth == 0x4 ? 0x6d701e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
+                return bitdepth == 0x2 ? 0x6d701e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
             case 0xC0F0713c:
-                return bitdepth == 0x4 ? 0x6d7 + reg_713c: 0x79f + reg_713c;
+                return bitdepth == 0x2 ? 0x6d7 + reg_713c: 0x79f + reg_713c;
                 
-            case 0xC0F06824: return bitdepth == 0x4 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
-            case 0xC0F06828: return bitdepth == 0x4 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
-            case 0xC0F0682C: return bitdepth == 0x4 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
-            case 0xC0F06830: return bitdepth == 0x4 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
+            case 0xC0F06824: return bitdepth == 0x2 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
+            case 0xC0F06828: return bitdepth == 0x2 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
+            case 0xC0F0682C: return bitdepth == 0x2 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
+            case 0xC0F06830: return bitdepth == 0x2 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
                 
             case 0xC0F06014: return set_25fps == 0x1 ? 0x89e + reg_6014: 0x8a1 + reg_6014;
             case 0xC0F0600c: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);
@@ -4185,14 +4138,14 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
         {
                 
             case 0xC0F06804:
-                return bitdepth == 0x4 ? 0x73b01e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
+                return bitdepth == 0x2 ? 0x73b01e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
             case 0xC0F0713c:
-                return bitdepth == 0x4 ? 0x73b + reg_713c: 0x79f + reg_713c;
+                return bitdepth == 0x2 ? 0x73b + reg_713c: 0x79f + reg_713c;
                 
-            case 0xC0F06824: return bitdepth == 0x4 ? 0x738 + reg_6824: 0x79d + reg_6824;
-            case 0xC0F06828: return bitdepth == 0x4 ? 0x738 + reg_6824: 0x79d + reg_6824;
-            case 0xC0F0682C: return bitdepth == 0x4 ? 0x738 + reg_6824: 0x79d + reg_6824;
-            case 0xC0F06830: return bitdepth == 0x4 ? 0x738 + reg_6824: 0x79d + reg_6824;
+            case 0xC0F06824: return bitdepth == 0x2 ? 0x738 + reg_6824: 0x79d + reg_6824;
+            case 0xC0F06828: return bitdepth == 0x2 ? 0x738 + reg_6824: 0x79d + reg_6824;
+            case 0xC0F0682C: return bitdepth == 0x2 ? 0x738 + reg_6824: 0x79d + reg_6824;
+            case 0xC0F06830: return bitdepth == 0x2 ? 0x738 + reg_6824: 0x79d + reg_6824;
                 
             case 0xC0F06014: return set_25fps == 0x1 ? 0x89e + reg_6014: 0x8a1 + reg_6014;
             case 0xC0F0600c: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);
@@ -5334,9 +5287,9 @@ static struct menu_entry movie_menu_bitdepth[] =
     {
         .name   = "bitdepth",
         .priv   = &bitdepth,
-        .max    = 4,
-        .choices = CHOICES("OFF", "8 bit", "9 bit", "10 bit", "12 bit"),
-        .help   = "Recording bitdepth\n"
+        .max    = 2,
+        .choices = CHOICES("OFF", "10 bit", "12 bit"),
+        .help   = "Recording bitdepth (OFF = 14 bit)\n"
     },
 };
 
