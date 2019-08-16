@@ -5335,8 +5335,8 @@ static struct menu_entry movie_menu_bitdepth[] =
         .name   = "bitdepth",
         .priv   = &bitdepth,
         .max    = 4,
-        .choices = CHOICES("OFF", "8 bit", "9 bit", "10 bit", "12 bit"),
-        .help   = "Alter bitdepth\n"
+        .choices = CHOICES("14 bit", "8 bit", "9 bit", "10 bit", "12 bit"),
+        .help   = "Recording bitdepth\n"
     },
 };
 
