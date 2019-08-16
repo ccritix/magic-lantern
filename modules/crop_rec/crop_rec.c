@@ -5745,7 +5745,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             // Use INFO key to cycle LV as normal when not in the LV with ML overlays
             return 1;
         }
-        select_menu_by_name("Movie", 0);
+        select_menu_by_name("Movie", "presets");
         gui_open_menu();
         subby = 1;
     }
