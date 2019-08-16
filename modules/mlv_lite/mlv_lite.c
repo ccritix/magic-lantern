@@ -3999,6 +3999,7 @@ static struct menu_entry raw_video_menu[] =
                 .name = "Resolution Index",
                 .priv = &resolution_index_x,
                 .max = COUNT(resolution_presets_x) - 1,
+                .shidden = 1,
             },
             {
                 .name = "Aspect ratio",
