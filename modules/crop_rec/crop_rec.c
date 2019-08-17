@@ -6207,7 +6207,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
     
     /* refresh canon menu iso */
-    if ((!lv || gui_menu_shown()) && gain_buttons && gain)
+    if (gain_buttons && gain)
     {
         if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
         if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
