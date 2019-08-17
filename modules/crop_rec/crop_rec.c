@@ -581,9 +581,6 @@ static int gain = 0;
 static int subby = 0;
 static int release = 0;
 static int release_b = 0;
-//static int preset1 = 1;
-//static int preset2 = 1;
-//static int preset3 = 1;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -5296,8 +5293,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "startoff presets",
                 .priv   = &presets,
-                .max    = 6,
-                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop"),
+                .max    = 7,
+                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop", "default reset"),
                 .help   = "Select startoff preset(EOSM only)",
             },
             {
@@ -5968,6 +5965,35 @@ static int crop_rec_needs_lv_refresh()
                 ResumeLiveView();
                 set_lv_zoom(1);
                 presets = 0x0;
+                release = 0;
+                release_b = 0;
+                return 0;
+            }
+            
+            if (presets == 0x7)
+            {
+                NotifyBox(2000, "default reset");
+                crop_preset_index = 0;
+                bitdepth = 0x0;
+                zoomaid = 0x1;
+                x3crop = 0x0;
+                x3toggle = 0x2;
+                PauseLiveView();
+                ResumeLiveView();
+                presets = 0x0;
+                zoomaid = 1;
+                gain_buttons = 1;
+                isoauto = 0;
+                ratios = 3;
+                set_25fps = 0;
+                timelapse = 0;
+                slowshutter = 0;
+                HDR_iso_a = 0;
+                HDR_iso_b = 0;
+                menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+                menu_set_str_value_from_script("Movie", "shutter lock", "OFF", 1);
+                menu_set_str_value_from_script("Movie", "shutter fine-tuning", "OFF", 1);
+                menu_set_str_value_from_script("Movie", "fps override", "OFF", 1);
                 release = 0;
                 release_b = 0;
                 return 0;
