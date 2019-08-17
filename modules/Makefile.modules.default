@@ -9,4 +9,3 @@ ML_MODULES ?= \
 	crop_rec \
 	sd_uhs \
 	file_man \
-	adtg_gui \
