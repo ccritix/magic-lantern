@@ -6209,7 +6209,6 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     /* refresh canon menu iso */
     if (gain_buttons && gain)
     {
-                
         if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
         if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
         if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
