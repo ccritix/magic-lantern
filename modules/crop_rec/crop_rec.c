@@ -5735,7 +5735,7 @@ static struct menu_entry crop_rec_menu[] =
 
 static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
-    if (((key == MODULE_KEY_INFO && gain_buttons) || gui_menu_shown() || lv) && !RECORDING)
+    if ((gain_buttons && !RECORDING && is_movie_mode()) && (key == MODULE_KEY_INFO || (!lv && (key == MODULE_KEY_TOUCH_1_FINGER || key == MODULE_KEY_PRESS_SET)) || gui_menu_shown()))
     {
         gain = 1;
     }
@@ -6209,6 +6209,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     /* refresh canon menu iso */
     if (gain_buttons && gain)
     {
+                
         if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
         if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
         if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
@@ -6218,7 +6219,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         
         while (!lv)
         {
-            msleep(10);
+            msleep(100);
         }
         
         if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
