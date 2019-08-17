@@ -5735,25 +5735,25 @@ static struct menu_entry crop_rec_menu[] =
 
 static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
-    if ((key == MODULE_KEY_INFO && gain_buttons) || gui_menu_shown())
+    if (((key == MODULE_KEY_INFO && gain_buttons) || gui_menu_shown()) && !RECORDING)
     {
         gain = 1;
     }
     
     /* reset switch if not pushing SET */
-    if (release_b && (!gui_menu_shown() || key == MODULE_KEY_TOUCH_1_FINGER || key == MODULE_KEY_INFO || key == MODULE_KEY_PRESS_HALFSHUTTER))
+    if (release_b && !RECORDING && (!gui_menu_shown() || key == MODULE_KEY_TOUCH_1_FINGER || key == MODULE_KEY_INFO || key == MODULE_KEY_PRESS_HALFSHUTTER))
     {
         release_b = 0;
     }
     
     /* will release a chosen preset in crop_rec_polling_cbr */
-    if ((key == MODULE_KEY_PRESS_SET) && gui_menu_shown())
+    if ((key == MODULE_KEY_PRESS_SET) && gui_menu_shown() && !RECORDING)
     {
         release = 1;
     }
     
     /* selects Movie tab menu */
-    if (key == MODULE_KEY_TOUCH_1_FINGER && !gui_menu_shown() && is_movie_mode() && lv)
+    if (key == MODULE_KEY_TOUCH_1_FINGER && !gui_menu_shown() && is_movie_mode() && lv && !RECORDING)
     {
         if(lv_disp_mode != 0){
             // Use INFO key to cycle LV as normal when not in the LV with ML overlays
