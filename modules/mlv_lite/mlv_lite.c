@@ -3163,9 +3163,9 @@ if (cam_eos_m || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
 /* 12bit */
     if (shamem_read(0xc0f0815c) == 0x6) rawi_hdr.raw_info.white_level = 6000;
 /* 14bit */
-    /* due to iso_climb compromise needed */
-    if (shamem_read(0xc0f0815c) == 0x7) rawi_hdr.raw_info.white_level = 15200;
-   //if (shamem_read(0xc0f0815c) == 0x7) rawi_hdr.raw_info.white_level = (lens_info.raw_iso == ISO_100) ? 13400 : 15200;
+    /* iso_climb feature */
+    if (shamem_read(0xc0f0815c) == 0x7 && shamem_read(0xC0F0b12c) == 0x11) rawi_hdr.raw_info.white_level = 14000;
+    if (shamem_read(0xc0f0815c) == 0x7 && shamem_read(0xC0F0b12c) == 0x0) rawi_hdr.raw_info.white_level = 15200;
 
 /* Set corrected iso when selected max iso preset in crop_rec.c */
     if (lens_info.raw_iso == 0x0) 

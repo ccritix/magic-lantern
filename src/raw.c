@@ -287,9 +287,16 @@ if (!is_EOSM && !is_100D && !is_6D && !is_5D3)
 #if defined(CONFIG_100D) || defined(CONFIG_700D) || defined(CONFIG_EOSM) /* other models? */
     /* http://www.magiclantern.fm/forum/index.php?topic=16040.msg191131#msg191131 */
     /* 100 units below measured value = about 0.01 EV */
-    /* due to iso_climb routines this value has to be set to a compromise */
-     default_white = 15200;
-   // default_white = (lens_info.raw_iso == ISO_100) ? 13400 : 15200;
+    default_white = 15200;
+    if (shamem_read(0xC0F0b12c) == 0x11)
+    {
+    /* iso_climb routines */
+        default_white = 14000;
+    }
+    if (shamem_read(0xC0F0b12c) == 0x0)
+    {
+    default_white = (lens_info.raw_iso == ISO_100) ? 14000 : 15200;
+    }
 #endif
     
     return default_white;
@@ -1965,9 +1972,15 @@ int raw_lv_settings_still_valid()
 /* 12bit */
     if (shamem_read(0xc0f0815c) == 0x6) raw_info.white_level = 6000; 
 /* 14bit 4k timelapse only. Flag set in crop_rec.c */
-    /* due to iso_climb compromise needed */
-    if (shamem_read(0xc0f0815c) == 0x7) raw_info.white_level = 15200;
-
+    /* iso_climb feature */
+    if (shamem_read(0xc0f0815c) == 0x7 && shamem_read(0xC0F0b12c) == 0x11)
+    {
+        raw_info.white_level = 14000;
+    }
+    if (shamem_read(0xc0f0815c) == 0x7 && shamem_read(0xC0F0b12c) == 0x0)
+    {
+        raw_info.white_level = 15200;
+    }
     /* should be fast enough for vsync calls */
     if (!lv_raw_enabled) return 0;
     int w, h;
