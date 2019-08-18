@@ -2069,7 +2069,7 @@ if ((cam_eos_m || cam_100d) && crop_patch)
      ResumeLiveView();
 }
 
-/* replace bmp_off and bmp_on with below. Might work better regarding corrupted frames when using PREVIEW_ML */
+/* replace bmp_off and bmp_on with below. Might work better regarding corrupted frames when using PREVIEW_ML
     	    static bool once = false;
 
 if ((cam_eos_m || cam_100d) && get_halfshutter_pressed() && RECORDING && PREVIEW_ML && !kill_gd)
@@ -2090,6 +2090,7 @@ if ((cam_eos_m || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIE
             idle_globaldraw_en();
     }
 }
+*/
 
    if (prevmode == 1)
    {
@@ -4377,7 +4378,7 @@ static int raw_rec_should_preview(void)
       {
 /* Will maybe reduce corruption of frames by freezing liveview while in framing mode. To be tested */
 /* reg for eosm,650d,700d,100d */
-	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x4f0010)) // x3 digital zoom
+	if ((cam_100d && RAW_IS_RECORDING) && (shamem_read(0xc0f383d4) == 0x4f0010)) // x3 digital zoom
 	{
 	      EngDrvOutLV(0xc0f383d4, 0x4efffc);
 	      EngDrvOutLV(0xc0f383dc, 0x42401b2);
@@ -4388,7 +4389,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383d4, 0x152ff1f);
 	      EngDrvOutLV(0xc0f383dc, 0x423ffbe);
 	}
-*/
+
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x1d000e)) // mv1080p mode
 	{
 	      EngDrvOutLV(0xc0f383d4, 0x1cffaa);
@@ -4399,6 +4400,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383d4, 0x1bffaa);
               EngDrvOutLV(0xc0f383dc, 0x2d70160);
 	}
+*/
 /* only 6D */
 /* Levas reporting not getting any better recordings out of this. Let´s take it out for now
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0xa200bf)) // x5 zoom cam 6D
@@ -4407,7 +4409,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383dc, 0x39a004e);
 	}
 */
-        //if (RECORDING) bmp_on(); Testing idle_globaldraw_en(); instead in void FAST hack_liveview_vsync() function
+        if (RAW_IS_RECORDING) bmp_on();
 
        }
 
@@ -4432,7 +4434,7 @@ static int raw_rec_should_preview(void)
       if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d))
       {
 /* regs for eosm,650d,700d,100d */
-	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x4efffc)) // x3 digital zoom
+	if ((cam_100d && RAW_IS_RECORDING) && (shamem_read(0xc0f383d4) == 0x4efffc)) // x3 digital zoom
 	{
 	      EngDrvOutLV(0xc0f383d4, 0x4f0010);
 	      EngDrvOutLV(0xc0f383dc, 0x42401c6);
@@ -4443,7 +4445,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383d4, 0x15300af);
 	      EngDrvOutLV(0xc0f383dc, 0x40c01b7);
 	}
-*/
+
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x1cffaa)) // mv1080p mode
 	{
 	      EngDrvOutLV(0xc0f383d4, 0x1d000e);
@@ -4454,6 +4456,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383d4, 0x1c000e);
               EngDrvOutLV(0xc0f383dc, 0x2d701c4);
         }
+*/
 /* only 6D */
 /* Levas reporting not getting any better recordings out of this. Let´s take it out for now
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0xa1ff2f)) // x5 zoom cam 6D
@@ -4462,7 +4465,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383dc, 0x39a01de);
 	}
 */
-        //if (RECORDING) bmp_off(); Testing idle_globaldraw_dis(); instead in void FAST hack_liveview_vsync() function
+        if (RAW_IS_RECORDING) bmp_off();
 
        }
 

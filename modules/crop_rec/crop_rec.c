@@ -4113,7 +4113,9 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
             case 0xC0F06804:
                 return bitdepth == 0x2 ? 0x6d701e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
             case 0xC0F0713c:
-                return bitdepth == 0x2 ? 0x6d7 + reg_713c: 0x79f + reg_713c;
+                return bitdepth == 0x2 ? 0x6dd + reg_713c: 0x79f + reg_713c;
+            case 0xC0F07150:
+                return bitdepth == 0x2 ? 0x424 + reg_7150: 0x424 + reg_7150;
                 
             case 0xC0F06824: return bitdepth == 0x2 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
             case 0xC0F06828: return bitdepth == 0x2 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
@@ -4140,7 +4142,9 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
             case 0xC0F06804:
                 return bitdepth == 0x2 ? 0x73b01e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
             case 0xC0F0713c:
-                return bitdepth == 0x2 ? 0x73b + reg_713c: 0x79f + reg_713c;
+                return bitdepth == 0x2 ? 0x741 + reg_713c: 0x79f + reg_713c;
+            case 0xC0F07150:
+                return bitdepth == 0x2 ? 0x424 + reg_7150: 0x424 + reg_7150;
                 
             case 0xC0F06824: return bitdepth == 0x2 ? 0x738 + reg_6824: 0x79d + reg_6824;
             case 0xC0F06828: return bitdepth == 0x2 ? 0x738 + reg_6824: 0x79d + reg_6824;
@@ -5097,72 +5101,6 @@ PROP_HANDLER(PROP_LV_DISPSIZE)
 
 static MENU_UPDATE_FUNC(crop_update)
 {
-    if ((CROP_PRESET_MENU && lv) && !is_100D && !is_EOSM && !is_700D && !is_650D)
-    {
-        if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z ||
-            crop_preset == CROP_PRESET_CENTER_Z_700D ||
-            crop_preset == CROP_PRESET_CENTER_Z_650D )
-        {
-            if (lv_dispsize == 1)
-            {
-                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use this mode, exit ML menu & press the zoom button (set to x5/x10).");
-            }
-        }
-        else /* non-zoom modes */
-        {
-            if (!is_supported_mode())
-            {
-                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in 1080p and 720p video modes.");
-            }
-            else if (lv_dispsize != 1)
-            {
-                MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "To use this mode, exit ML menu and press the zoom button (set to x1).");
-            }
-            else if (!is_720p())
-            {
-                if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X ||
-                    CROP_PRESET_MENU == CROP_PRESET_3x3_1X_50p ||
-                    CROP_PRESET_MENU == CROP_PRESET_3x3_1X_60p ||
-                    CROP_PRESET_MENU == CROP_PRESET_3x3_1X_45p ||
-                    CROP_PRESET_MENU == CROP_PRESET_3x3_1X_48p)
-                {
-                    /* these presets only have effect in 720p mode */
-                    MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in the 720p 50/60 fps modes from Canon menu.");
-                    return;
-                }
-            }
-        }
-    }
-    
-    if ((CROP_PRESET_MENU && lv) && (is_EOSM))
-    {
-        
-        if ((lv_dispsize == 1) &&
-            ((CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM)
-             || (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM)
-             || (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM)
-             || (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM)
-             || (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
-             || (CROP_PRESET_MENU == CROP_PRESET_5K_3x1_EOSM)))
-        {
-            MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in x5 zoom");
-            return;
-        }
-        
-        if ((lv_dispsize > 1) &&
-            ((CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_EOSM)
-             || (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
-             || (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM)
-             || (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
-             || (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)
-             || (CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM)))
-        {
-            MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "This preset only works in x1 movie mode");
-            return;
-        }
-        
-    }
-    
     if ((CROP_PRESET_MENU && lv) && (is_100D))
     {
         
@@ -5293,9 +5231,9 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "startoff presets",
                 .priv   = &presets,
-                .max    = 7,
-                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop", "default reset"),
-                .help   = "Select startoff preset(EOSM only)",
+                .max    = 8,
+                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "4K anamorphic rewired 10bit", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop", "default reset"),
+                .help   = "2.39:1 ratio recommended for anamorphic and higher resolutions",
             },
             {
                 .name   = "x3crop",
@@ -5905,8 +5843,8 @@ static int crop_rec_needs_lv_refresh()
             
             if (presets == 0x3)
             {
-                NotifyBox(2000, "5K anamorphic 10bit");
-                crop_preset_index = 6;
+                NotifyBox(2000, "4K anamorphic rewired 10bit");
+                crop_preset_index = 5;
                 bitdepth = 0x1;
                 zoomaid = 0x1;
                 x3crop = 0x0;
@@ -5922,6 +5860,23 @@ static int crop_rec_needs_lv_refresh()
             
             if (presets == 0x4)
             {
+                NotifyBox(2000, "5K anamorphic 10bit");
+                crop_preset_index = 6;
+                bitdepth = 0x1;
+                zoomaid = 0x1;
+                x3crop = 0x0;
+                x3toggle = 0x2;
+                PauseLiveView();
+                ResumeLiveView();
+                set_lv_zoom(1);
+                presets = 0x0;
+                release = 0;
+                release_b = 0;
+                return 0;
+            }
+            
+            if (presets == 0x5)
+            {
                 NotifyBox(2000, "2.5K 10bit");
                 crop_preset_index = 2;
                 bitdepth = 0x1;
@@ -5936,7 +5891,7 @@ static int crop_rec_needs_lv_refresh()
                 return 0;
             }
             
-            if (presets == 0x5)
+            if (presets == 0x6)
             {
                 NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
                 crop_preset_index = 1;
@@ -5953,7 +5908,7 @@ static int crop_rec_needs_lv_refresh()
                 return 0;
             }
             
-            if (presets == 0x6)
+            if (presets == 0x7)
             {
                 NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
                 crop_preset_index = 1;
@@ -5970,7 +5925,7 @@ static int crop_rec_needs_lv_refresh()
                 return 0;
             }
             
-            if (presets == 0x7)
+            if (presets == 0x8)
             {
                 NotifyBox(2000, "default reset");
                 crop_preset_index = 0;
