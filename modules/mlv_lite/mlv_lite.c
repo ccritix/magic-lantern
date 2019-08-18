@@ -4409,7 +4409,8 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383dc, 0x39a004e);
 	}
 */
-        if (RAW_IS_RECORDING) bmp_on();
+        //pause it. Better recording performance
+        //if (RAW_IS_RECORDING) bmp_on();
 
        }
 
@@ -4464,8 +4465,8 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383d4, 0xa200bf);
 	      EngDrvOutLV(0xc0f383dc, 0x39a01de);
 	}
-*/
-        if (RAW_IS_RECORDING) bmp_off();
+*/      //pause it. Better recording performance
+        //if (RAW_IS_RECORDING) bmp_off();
 
        }
 

@@ -2532,29 +2532,19 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
     {
         if (bitdepth == 0x1)
         {
-            switch (reg)
-            {
-                    /* correct liveview brightness */
-                case 0xC0F42744: return 0x4040404;
-            }
+            EngDrvOutLV(0xC0F42744, 0x4040404);
         }
         
         if (bitdepth == 0x2)
         {
-            switch (reg)
-            {
-                    /* correct liveview brightness */
-                case 0xC0F42744: return 0x2020202;
-            }
+            EngDrvOutLV(0xC0F42744, 0x2020202);
         }
     }
     
     
-    if (RECORDING && bitdepth != 0x0 && (is_EOSM || is_100D))
+    if (CROP_PRESET_MENU != CROP_PRESET_3x3_mv1080_48fps_EOSM && CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && RECORDING && bitdepth != 0x0 && (is_EOSM || is_100D))
     {
         /* correcting black level a bit. Compensating greenish tint. Only affects preview, not recordings */
-        if (CROP_PRESET_MENU != CROP_PRESET_3x3_mv1080_48fps_EOSM)
-        {
             if (lens_info.raw_iso != 0x48 && lens_info.raw_iso_auto > 0x4e) /* iso 100 excluded, breaks */
             {
                 EngDrvOutLV(0xc0f37aec, 0x73ca + reg_bl);
@@ -2562,10 +2552,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
                 EngDrvOutLV(0xc0f37b04, 0x73ca + reg_bl);
                 EngDrvOutLV(0xc0f37ae0, 0x73ca + reg_bl);
             }
-            
-        }
-        
-    }
+     }
     
     if (!RECORDING && (is_EOSM || is_100D || is_6D || is_5D3))
     {
@@ -2595,13 +2582,13 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
         }
     }
     
-    if (is_EOSM)
+    if (is_EOSM && !RECORDING)
     {
-        switch (reg)
-        {
+       // switch (reg)
+       // {
                 /* not used but might be in the future */
-            case 0xC0F06800: return 0x10010 + reg_6800_width + (reg_6800_height << 16);
-        }
+       //     case 0xC0F06800: return 0x10010 + reg_6800_width + (reg_6800_height << 16);
+       // }
         
         /* HDR flag */
         if (HDR_iso_a != 0x0)
