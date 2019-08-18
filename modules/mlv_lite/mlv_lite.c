@@ -4548,19 +4548,18 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
         -1,
         -1,
         (need_for_speed) 
-	? RAW_PREVIEW_GRAY_ULTRA_FAST 
-	: ((cam_eos_m || cam_100d) && shamem_read(0xc0f0501c) != 0x28) ? RAW_PREVIEW_COLOR_HALFRES
-	: (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d) && RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST /* 1x3 binning mode test */
-        : RAW_PREVIEW_COLOR_HALFRES 
+	? RAW_PREVIEW_GRAY_ULTRA_FAST
+	: RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST /* 1x3 binning mode test */
+    : RAW_PREVIEW_COLOR_HALFRES
     );
 
     give_semaphore(settings_sem);
 
     /* be gentle with the CPU, save it for recording (especially if the buffer is almost full) */
     msleep(
-        (need_for_speed)
-            ? ((queued_frames > valid_slot_count / 1) ? (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d) ? 1200 : 1000 : (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d) ? 700 : 500)
-            : (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d) ? 70 : 50 /* 1x3 binning mode test */
+           (need_for_speed)
+           ? ((queued_frames > valid_slot_count / 2) ? 1200 : 700)
+           : 70
     );
 
     preview_dirty = 1;
