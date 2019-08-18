@@ -4113,7 +4113,7 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
             case 0xC0F06804:
                 return bitdepth == 0x2 ? 0x6d701e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
             case 0xC0F0713c:
-                return bitdepth == 0x2 ? 0x6dd + reg_713c: 0x79f + reg_713c;
+                return bitdepth == 0x2 ? 0x6d8 + reg_713c: 0x7a0 + reg_713c;
             case 0xC0F07150:
                 return bitdepth == 0x2 ? 0x424 + reg_7150: 0x424 + reg_7150;
                 
@@ -4142,9 +4142,7 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
             case 0xC0F06804:
                 return bitdepth == 0x2 ? 0x73b01e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
             case 0xC0F0713c:
-                return bitdepth == 0x2 ? 0x741 + reg_713c: 0x79f + reg_713c;
-            case 0xC0F07150:
-                return bitdepth == 0x2 ? 0x424 + reg_7150: 0x424 + reg_7150;
+                return bitdepth == 0x2 ? 0x73b + reg_713c: 0x79f + reg_713c;
                 
             case 0xC0F06824: return bitdepth == 0x2 ? 0x738 + reg_6824: 0x79d + reg_6824;
             case 0xC0F06828: return bitdepth == 0x2 ? 0x738 + reg_6824: 0x79d + reg_6824;
