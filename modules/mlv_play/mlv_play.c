@@ -470,7 +470,7 @@ static void mlv_play_delete_if_requested()
     {
         mlv_play_show_dlg(0, "Deleting...");
         int ok = mlv_play_delete();
-        mlv_play_show_dlg(3000, ok ? "Deleted." : "Delete failed.");
+        mlv_play_show_dlg(1000, ok ? "Deleted." : "Delete failed.");
         mlv_play_delete_requested = 0;
     }
 }
@@ -565,7 +565,7 @@ static uint32_t mlv_play_osd_delete_selected = 0;
 
 static void mlv_play_osd_delete(char *msg, uint32_t msg_len, uint32_t selected)
 {
-    uint32_t max_time = 5000;
+    uint32_t max_time = 2000;
 
     if(selected)
     {
