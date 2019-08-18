@@ -4098,12 +4098,13 @@ static inline uint32_t reg_override_3x1_mv720_50fps_eosm(uint32_t reg, uint32_t 
 static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32_t old_val)
 {
     
-    /* gets rid of the black border to the right. Connected to mlv_lite which takes over these regs while recording */
+    /* gets rid of the black border to the right. Connected to mlv_lite which takes over these regs while recording
     if (!RECORDING)
     {
         EngDrvOutLV(0xc0f383d4, 0x4f0010 + reg_83d4);
         EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
     }
+    */ //Disabled for now. Testing for corruption refinements 
     
     if (ratios == 0x1 || ratios == 0x2)
     {
@@ -4115,7 +4116,7 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
             case 0xC0F0713c:
                 return bitdepth == 0x2 ? 0x6d8 + reg_713c: 0x7a0 + reg_713c;
             case 0xC0F07150:
-                return bitdepth == 0x2 ? 0x424 + reg_7150: 0x424 + reg_7150;
+                return bitdepth == 0x2 ? 0x36c + reg_7150: 0x36c + reg_7150;
                 
             case 0xC0F06824: return bitdepth == 0x2 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
             case 0xC0F06828: return bitdepth == 0x2 ? 0x6d4 + reg_6824: 0x79d + reg_6824;
@@ -4143,6 +4144,8 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
                 return bitdepth == 0x2 ? 0x73b01e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
             case 0xC0F0713c:
                 return bitdepth == 0x2 ? 0x73b + reg_713c: 0x79f + reg_713c;
+            case 0xC0F07150:
+                return bitdepth == 0x2 ? 0x36c + reg_7150: 0x36c + reg_7150;
                 
             case 0xC0F06824: return bitdepth == 0x2 ? 0x738 + reg_6824: 0x79d + reg_6824;
             case 0xC0F06828: return bitdepth == 0x2 ? 0x738 + reg_6824: 0x79d + reg_6824;
