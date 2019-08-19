@@ -2522,7 +2522,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
     }
     
     /* reset registry. Used for dummy check in mlv_lite.c when using realtime preview */
-    if (!get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING)
+    if (!get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING && CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM)
     {
         EngDrvOutLV(0xc0f11a88, 0x0);
     }
@@ -4085,13 +4085,12 @@ static inline uint32_t reg_override_3x1_mv720_50fps_eosm(uint32_t reg, uint32_t 
 static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32_t old_val)
 {
     
-    /* gets rid of the black border to the right. Connected to mlv_lite which takes over these regs while recording
+    /* gets rid of the black border to the right. Connected to mlv_lite which takes over these regs while recording  */
     if (!RECORDING)
     {
         EngDrvOutLV(0xc0f383d4, 0x4f0010 + reg_83d4);
         EngDrvOutLV(0xc0f383dc, 0x42401c6 + reg_83dc);
     }
-    */ //Disabled for now. Testing for corruption refinements 
     
     if (ratios == 0x1 || ratios == 0x2)
     {
@@ -4101,12 +4100,12 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
             case 0xC0F06804:
                 return bitdepth == 0x2 ? 0x6d701e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
             case 0xC0F0713c:
-                return bitdepth == 0x2 ? 0x6d8 + reg_713c: 0x79f + reg_713c;
+                return bitdepth == 0x2 ? 0x6d8 + reg_713c: 0x7a0 + reg_713c;
                 
-            case 0xC0F06824: return bitdepth == 0x2 ? 0x5d4 + reg_6824: 0x69d + reg_6824;
-            case 0xC0F06828: return bitdepth == 0x2 ? 0x5d4 + reg_6824: 0x69d + reg_6824;
-            case 0xC0F0682C: return bitdepth == 0x2 ? 0x5d4 + reg_6824: 0x69d + reg_6824;
-            case 0xC0F06830: return bitdepth == 0x2 ? 0x5d4 + reg_6824: 0x69d + reg_6824;
+           // case 0xC0F06824: return bitdepth == 0x2 ? 0x5d4 + reg_6824: 0x69d + reg_6824;
+           // case 0xC0F06828: return bitdepth == 0x2 ? 0x5d4 + reg_6824: 0x69d + reg_6824;
+           // case 0xC0F0682C: return bitdepth == 0x2 ? 0x5d4 + reg_6824: 0x69d + reg_6824;
+           // case 0xC0F06830: return bitdepth == 0x2 ? 0x5d4 + reg_6824: 0x69d + reg_6824;
                 
             case 0xC0F06014: return set_25fps == 0x1 ? 0x89e + reg_6014: 0x8a1 + reg_6014;
             case 0xC0F0600c: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);
@@ -4128,12 +4127,12 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
             case 0xC0F06804:
                 return bitdepth == 0x2 ? 0x73b01e4 + reg_6804_width + (reg_6804_height << 16): 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
             case 0xC0F0713c:
-                return bitdepth == 0x2 ? 0x73b + reg_713c: 0x79f + reg_713c;
+                return bitdepth == 0x2 ? 0x73b + reg_713c: 0x7a0 + reg_713c;
                 
-            case 0xC0F06824: return bitdepth == 0x2 ? 0x638 + reg_6824: 0x69d + reg_6824;
-            case 0xC0F06828: return bitdepth == 0x2 ? 0x638 + reg_6824: 0x69d + reg_6824;
-            case 0xC0F0682C: return bitdepth == 0x2 ? 0x638 + reg_6824: 0x69d + reg_6824;
-            case 0xC0F06830: return bitdepth == 0x2 ? 0x638 + reg_6824: 0x69d + reg_6824;
+            //case 0xC0F06824: return bitdepth == 0x2 ? 0x638 + reg_6824: 0x69d + reg_6824;
+            //case 0xC0F06828: return bitdepth == 0x2 ? 0x638 + reg_6824: 0x69d + reg_6824;
+            //case 0xC0F0682C: return bitdepth == 0x2 ? 0x638 + reg_6824: 0x69d + reg_6824;
+            //case 0xC0F06830: return bitdepth == 0x2 ? 0x638 + reg_6824: 0x69d + reg_6824;
                 
             case 0xC0F06014: return set_25fps == 0x1 ? 0x89e + reg_6014: 0x8a1 + reg_6014;
             case 0xC0F0600c: return set_25fps == 0x1 ? 0x25b025b - 24 + reg_6008 + (reg_6008 << 16): 0x25b025b + reg_6008 + (reg_6008 << 16);
@@ -5660,13 +5659,13 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     }
     
     /* reset switch if not pushing SET */
-    if (release_b && !RECORDING && (!gui_menu_shown() || key == MODULE_KEY_TOUCH_1_FINGER || key == MODULE_KEY_INFO || key == MODULE_KEY_PRESS_HALFSHUTTER))
+    if (release_b && !RECORDING && is_movie_mode() && (!gui_menu_shown() || key == MODULE_KEY_TOUCH_1_FINGER || key == MODULE_KEY_INFO || key == MODULE_KEY_PRESS_HALFSHUTTER))
     {
         release_b = 0;
     }
     
     /* will release a chosen preset in crop_rec_polling_cbr */
-    if ((key == MODULE_KEY_PRESS_SET) && gui_menu_shown() && !RECORDING)
+    if ((key == MODULE_KEY_PRESS_SET) && gui_menu_shown() && !RECORDING && is_movie_mode())
     {
         release = 1;
     }
@@ -6912,20 +6911,6 @@ static LVINFO_UPDATE_FUNC(crop_info)
     {
         snprintf(buffer, sizeof(buffer), "FullRes");
     }
-    
-    /* append info about current binning mode */
-    
-    if (raw_lv_is_enabled())
-    {
-        /* fixme: raw_capture_info is only updated when LV RAW is active */
-        
-        STR_APPEND("%s%dx%d",
-                   buffer[0] ? " " : "",
-                   raw_capture_info.binning_x + raw_capture_info.skipping_x,
-                   raw_capture_info.binning_y + raw_capture_info.skipping_y
-                   );
-    }
-    
 }
 
 static struct lvinfo_item info_items[] = {

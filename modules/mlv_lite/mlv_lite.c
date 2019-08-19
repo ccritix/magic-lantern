@@ -4378,7 +4378,7 @@ static int raw_rec_should_preview(void)
       {
 /* Will maybe reduce corruption of frames by freezing liveview while in framing mode. To be tested */
 /* reg for eosm,650d,700d,100d */
-	if ((cam_100d && RAW_IS_RECORDING) && (shamem_read(0xc0f383d4) == 0x4f0010)) // x3 digital zoom
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x4f0010)) // x3 digital zoom
 	{
 	      EngDrvOutLV(0xc0f383d4, 0x4efffc);
 	      EngDrvOutLV(0xc0f383dc, 0x42401b2);
@@ -4421,7 +4421,7 @@ static int raw_rec_should_preview(void)
         {
             autofocusing = 1;
         }
-        if (get_ms_clock() - last_hs_unpress > 500)
+        if (get_ms_clock() - last_hs_unpress > 800)
         {
      	    long_halfshutter_press = 1;
 /* when using x10toggle mode in crop_rec.c will disable framing preview temporarily*/
@@ -4432,10 +4432,10 @@ static int raw_rec_should_preview(void)
             if (shamem_read(0xc0f06804) == 0x2f701d4 && cam_eos_m) long_halfshutter_press = 0;
         }
 /* trying a fix for stuck real time preview(only affects framing) */
-      if ((PREVIEW_ML) && (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d))
+      if (PREVIEW_ML && (cam_eos_m || cam_100d || cam_650d || cam_700d || cam_6d))
       {
 /* regs for eosm,650d,700d,100d */
-	if ((cam_100d && RAW_IS_RECORDING) && (shamem_read(0xc0f383d4) == 0x4efffc)) // x3 digital zoom
+	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x4efffc)) // x3 digital zoom
 	{
 	      EngDrvOutLV(0xc0f383d4, 0x4f0010);
 	      EngDrvOutLV(0xc0f383dc, 0x42401c6);
