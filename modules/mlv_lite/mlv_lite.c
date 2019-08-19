@@ -4488,7 +4488,7 @@ static int raw_rec_should_preview(void)
     {
         return long_halfshutter_press;
     }
-    else if (PREVIEW_ML && !get_halfshutter_pressed())
+    else if (PREVIEW_ML && !get_halfshutter_pressed() && is_movie_mode())
     {
         return !long_halfshutter_press;
     }
