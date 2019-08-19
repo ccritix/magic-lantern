@@ -36,6 +36,7 @@ static int is_100D = 0;
 static int is_EOSM = 0;
 static int is_basic = 0;
 static const int iso_steps_count = 6;
+static int photoreturn = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
@@ -502,9 +503,12 @@ static int is_720p()
 static int is_supported_mode()
 {
     if (!lv) return 0;
-    
     /* no more crashes when selecing photo mode */
-    if (!is_movie_mode()) return 0;
+    if (!is_movie_mode())
+    {
+        photoreturn = 1;
+        return 0;
+    }
     
     /* workaround getting below cams working with focus aid */
     static int last_hs_aid = 0;
@@ -5785,6 +5789,10 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 
 static int crop_rec_needs_lv_refresh()
 {
+    
+    /* We don´t want this when in photo mode I assume */
+    if (!is_movie_mode()) return 0;
+    
     if (!lv)
     {
         return 0;
@@ -5937,9 +5945,6 @@ static int crop_rec_needs_lv_refresh()
                 return 0;
             }
         }
-    
-    /* We don´t want this when in photo mode I assume */
-    if (!is_movie_mode()) return 0;
     
     /* let´s automate liveview start off setting */
     if ((CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
@@ -6130,6 +6135,16 @@ static void set_zoom(int zoom)
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
+    /* a bit buggy but better when changing back from photo mode into movie mode */
+    if (photoreturn)
+    {
+        if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
+        {
+            movie_crop_hack_enable();
+        }
+        photoreturn = 0;
+    }
+    
     /* connected to MODULE_KEY_TOUCH_1_FINGER for entering Movie tab menu */
     if (gui_menu_shown() && subby)
     {
