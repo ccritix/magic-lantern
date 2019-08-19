@@ -2688,7 +2688,7 @@ static LVINFO_UPDATE_FUNC(picq_update)
         if (is_movie_mode())
         {
             /* todo: icon? */
-            snprintf(buffer, sizeof(buffer), "RAW");
+            snprintf(buffer, sizeof(buffer), "Immortal");
         }
         item->color_fg = raw_lv == 1 ? COLOR_GREEN1 : COLOR_GRAY(20);
     }
