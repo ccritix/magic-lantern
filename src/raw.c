@@ -638,7 +638,7 @@ static int raw_lv_get_resolution(int* width, int* height)
         if (shamem_read(0xC0f0b13c) == 0xd)
         {
             /* anamorphic rewired EOSM */
-            *height = 1950;
+            *height = 1920;
         }
 
     }

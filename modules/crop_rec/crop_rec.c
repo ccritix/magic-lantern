@@ -940,13 +940,13 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
             if (ratios == 0x1)
             {
                 skip_bottom = 54;
-                skip_right = 186;
-                skip_left = 190;
+                skip_right = 200;
+                skip_left = 202;
                 if (bitdepth == 0x2)
                 {
                     skip_bottom = 254;
-                    skip_right = 266;
-                    skip_left = 270;
+                    skip_right = 280;
+                    skip_left = 282;
                 }
                 break;
             }
@@ -954,26 +954,26 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
             if (ratios == 0x2)
             {
                 skip_bottom = 20;
-                skip_right = 186;
-                skip_left = 190;
+                skip_right = 200;
+                skip_left = 202;
                 if (bitdepth == 0x2)
                 {
                     skip_bottom = 224;
-                    skip_right = 266;
-                    skip_left = 270;
+                    skip_right = 280;
+                    skip_left = 282;
                 }
                 break;
             }
             if (ratios == 0x3)
             {
                 skip_bottom = 20;
-                skip_right = 370;
-                skip_left = 374;
+                skip_right = 380;
+                skip_left = 384;
                 if (bitdepth == 0x2)
                 {
                     skip_bottom = 124;
-                    skip_right = 398;
-                    skip_left = 402;
+                    skip_right = 420;
+                    skip_left = 414;
                 }
                 break;
                 
@@ -4102,9 +4102,9 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
         {
                 /* 2.39:1 or 2.35:1 */
             case 0xC0F06804:
-                return 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
+                return 0x78101e4 + reg_6804_width + (reg_6804_height << 16);
             case 0xC0F0713c:
-                return 0x79f + reg_713c;
+                return 0x781 + reg_713c;
                 
            // case 0xC0F06824: return bitdepth == 0x2 ? 0x5d4 + reg_6824: 0x69d + reg_6824;
            // case 0xC0F06828: return bitdepth == 0x2 ? 0x5d4 + reg_6824: 0x69d + reg_6824;
@@ -4129,9 +4129,9 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
         {
                 
             case 0xC0F06804:
-                return 0x79f01e4 + reg_6804_width + (reg_6804_height << 16);
+                return 0x78101e4 + reg_6804_width + (reg_6804_height << 16);
             case 0xC0F0713c:
-                return 0x79f + reg_713c;
+                return 0x781 + reg_713c;
                 
             //case 0xC0F06824: return bitdepth == 0x2 ? 0x638 + reg_6824: 0x69d + reg_6824;
             //case 0xC0F06828: return bitdepth == 0x2 ? 0x638 + reg_6824: 0x69d + reg_6824;
