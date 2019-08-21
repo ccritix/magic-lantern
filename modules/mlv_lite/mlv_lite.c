@@ -2104,7 +2104,7 @@ if ((cam_eos_m || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIE
 	if (shamem_read(0xC0F06804) == 0x4a601e4) preview_mode = 1;
      /* anamorphic,4k,3k,2k, 2.35:1, 16:9, 4:3 framing */
 	if (shamem_read(0xC0F06804) == 0x4a701d4) preview_mode = 1;
-	if (shamem_read(0xC0F06804) == 0x78101d4) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x79f01d4) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x7ef01d4) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x88501c2) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x2e30504) preview_mode = 2;
@@ -2118,7 +2118,7 @@ if ((cam_eos_m || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIE
 	if (shamem_read(0xC0F06804) == 0x5a70298) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x4550298) preview_mode = 2;
      /* anamorphic rewired mode eosm */
-	if (shamem_read(0xC0F06804) == 0x79f01e4) preview_mode = 2;
+	if (shamem_read(0xC0F06804) == 0x78101e4) preview_mode = 2;
 /* auto set preview modes by reading registers eosm for now */
      /* HDR flag. Skip for now. Getting overly complicated */
 	// if (shamem_read(0xc0f0b12c) != 0x0 && shamem_read(0xc0f0b12c) != 0x7 && 
