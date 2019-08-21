@@ -316,6 +316,12 @@ static int is_supported_mode()
         return 0;
     }
     
+    /* activates when raw video is set to off */
+    if (!raw_lv_is_enabled() && is_movie_mode())
+    {
+        return 0;
+    }
+    
     /* workaround getting below cams working with focus aid */
     static int last_hs_aid = 0;
     if (!get_halfshutter_pressed()) last_hs_aid = get_ms_clock();
@@ -5001,13 +5007,46 @@ static void set_zoom(int zoom)
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
     /* a bit buggy but better when changing back from photo mode into movie mode */
-    if (photoreturn)
+    if (photoreturn && raw_lv_is_enabled())
     {
         if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
         {
             movie_crop_hack_enable();
         }
         photoreturn = 0;
+    }
+    
+    /* activates when raw video is set to off */
+    if (!raw_lv_is_enabled() && is_movie_mode())
+    {
+        if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
+        {
+            movie_crop_hack_disable();
+        }
+        
+        subby = 0;
+        photoreturn = 1;
+        
+        static int photo = 0;
+        
+        if (get_halfshutter_pressed())
+        {
+            set_lv_zoom(10);
+            photo = 1;
+            while (get_halfshutter_pressed())
+            {
+                msleep(10);
+            }
+        }
+        
+        if (!get_halfshutter_pressed() && photo)
+        {
+            set_lv_zoom(1);
+            photo = 0;
+            return 0;
+        }
+        
+        return 0;
     }
     
     /* connected to MODULE_KEY_TOUCH_1_FINGER for entering Movie tab menu */
@@ -5666,6 +5705,11 @@ static LVINFO_UPDATE_FUNC(crop_info)
     if (CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM)
     {
         snprintf(buffer, sizeof(buffer), "3x3 720p");
+    }
+    
+    if (!raw_lv_is_enabled() && is_movie_mode())
+    {
+        snprintf(buffer, sizeof(buffer), "H264 MOV");
     }
 }
 

@@ -2979,7 +2979,11 @@ void process_frame(int next_fullsize_buffer_pos)
 static REQUIRES(LiveViewTask)
 unsigned int FAST raw_rec_vsync_cbr(unsigned int unused)
 {
-    if (!raw_video_enabled) return 0;
+    if (!raw_video_enabled)
+    {
+        crop_patch = 0;
+        return 0;
+    }
     if (!compress_mq) return 0;
     if (!is_movie_mode()) return 0;
 
@@ -4580,7 +4584,7 @@ static struct lvinfo_item info_items[] = {
 static unsigned int raw_rec_init()
 {
     // Always start with RAW enabled after reboot, also when it was turned off last time
-    raw_video_enabled = 1;
+    //raw_video_enabled = 1;
     cam_eos_m = is_camera("EOSM", "2.0.2");
     cam_5d2   = is_camera("5D2",  "2.1.2");
     cam_50d   = is_camera("50D",  "1.0.9");
