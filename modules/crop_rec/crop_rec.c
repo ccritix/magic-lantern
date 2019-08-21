@@ -37,7 +37,7 @@ static int photoreturn = 0;
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 0);
-static CONFIG_INT("crop.ratios", ratios, 3);
+static CONFIG_INT("crop.ratios", ratios, 1);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
 static CONFIG_INT("crop.zoomaid", zoomaid, 1);
 static CONFIG_INT("crop.x3toggle", x3toggle, 2);
