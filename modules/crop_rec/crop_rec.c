@@ -51,9 +51,6 @@ static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 static CONFIG_INT("crop.presets", presets, 0);
 
-/* must be assigned in crop_rec_init */
-// static int last_crop_preset_index = 0;
-
 enum crop_preset {
     CROP_PRESET_3X,
     CROP_PRESET_3X_TALL,
@@ -5883,47 +5880,6 @@ static unsigned int crop_rec_init()
         memcpy(default_timerA, (int[]) {  528,  640,  528,  640,  528,  716,  546,  640,  546 }, 36);
         memcpy(default_timerB, (int[]) { 2527, 2000, 2022, 1000, 1011, 1491, 2444, 2000, 1955 }, 36);
         /* or 2528        2023        1012        2445        1956 */
-    }
-    
-    /* FPS in x5 zoom may be model-dependent; assume exact */
-    default_fps_1k[5] = (uint64_t) fps_main_clock * 1000ULL / default_timerA[5] / default_timerB[5];
-    
-    printf("[crop_rec] checking FPS timer values...\n");
-    for (int i = 0; i < COUNT(default_fps_1k); i++)
-    {
-        if (default_timerA[i])
-        {
-            int fps_i = (uint64_t) fps_main_clock * 1000ULL / default_timerA[i] / default_timerB[i];
-            if (fps_i == default_fps_1k[i])
-            {
-                printf("%d) %s%d.%03d: A=%d B=%d (exact)\n", i, FMT_FIXEDPOINT3(default_fps_1k[i]), default_timerA[i], default_timerB[i]);
-                
-                if (i == 5 && default_fps_1k[i] != 29970)
-                {
-                    printf("-> unusual FPS in x5 zoom\n", i);
-                }
-            }
-            else
-            {
-                int fps_p = (uint64_t) fps_main_clock * 1000ULL / default_timerA[i] / (default_timerB[i] + 1);
-                if (fps_i > default_fps_1k[i] && fps_p < default_fps_1k[i])
-                {
-                    printf("%d) %s%d.%03d: A=%d B=%d/%d (averaged)\n", i, FMT_FIXEDPOINT3(default_fps_1k[i]), default_timerA[i], default_timerB[i], default_timerB[i] + 1);
-                }
-                else
-                {
-                    printf("%d) %s%d.%03d: A=%d B=%d (%s%d.%03d ?!?)\n", i, FMT_FIXEDPOINT3(default_fps_1k[i]), default_timerA[i], default_timerB[i], FMT_FIXEDPOINT3(fps_i));
-                    return CBR_RET_ERROR;
-                }
-                
-                /* assume 25p is exact on all models */
-                if (i == 1)
-                {
-                    printf("-> 25p check error\n");
-                    return CBR_RET_ERROR;
-                }
-            }
-        }
     }
     
     menu_add("Movie", movie_menu_ratio, COUNT(movie_menu_ratio));
