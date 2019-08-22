@@ -4865,6 +4865,8 @@ static int crop_rec_needs_lv_refresh()
             gui_open_menu();
             msleep(300);
             gui_stop_menu();
+            PauseLiveView();
+            ResumeLiveView();
             set_lv_zoom(1);
             presets = 0x0;
             release = 0;
