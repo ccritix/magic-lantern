@@ -33,6 +33,7 @@ static int is_100D = 0;
 static int is_EOSM = 0;
 static const int iso_steps_count = 6;
 static int photoreturn = 0;
+//static int h264 = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
@@ -78,6 +79,7 @@ enum crop_preset {
     CROP_PRESET_4K_100D,
     CROP_PRESET_4K_3x1_100D,
     CROP_PRESET_5K_3x1_100D,
+    CROP_PRESET_H264,
     CROP_PRESET_3x3_mv1080_EOSM,
     CROP_PRESET_mcm_mv1080_EOSM,
     CROP_PRESET_3x3_mv1080_48fps_EOSM,
@@ -225,6 +227,7 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_4K_EOSM,
     CROP_PRESET_anamorphic_rewired_EOSM,
     CROP_PRESET_anamorphic_EOSM,
+    CROP_PRESET_H264,
     // CROP_PRESET_4K_3x1_EOSM,
     // CROP_PRESET_5K_3x1_EOSM,
     // CROP_PRESET_4K_5x1_EOSM,
@@ -242,6 +245,7 @@ static const char * crop_choices_eosm[] = {
     "4K 4080x3000",
     "4K anamorphic rewired",
     "5K anamorphic",
+    //"h264",
     // "4K 3x1 24fps",
     // "5K 3x1 24fps",
     // "4K 5x1 24fps",
@@ -263,6 +267,7 @@ static const char crop_choices_help2_eosm[] =
 "1:1 4K x5crop, framing preview\n"
 "1x3 binning modes(anamorphic)\n"
 "1x3 binning modes(anamorphic)\n";
+//"h264 MOV)\n"
 // "3:1 4K x5crop, framing preview\n"
 // "3:1 5K x5crop, framing preview\n"
 // "5:1 4K crop squeeze, preview broken\n"
@@ -316,8 +321,8 @@ static int is_supported_mode()
         return 0;
     }
     
-    /* activates when raw video is set to off */
-    if (!raw_lv_is_enabled() && is_movie_mode())
+    /* h264 preset */
+    if (CROP_PRESET_MENU == CROP_PRESET_H264)
     {
         return 0;
     }
@@ -1783,7 +1788,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[1] = (struct adtg_new) {6, blanking_reg_nozoom, shutter_blanking};
         
         /* always disable Movie crop mode if using crop_rec presets, except for mcm mode, Only eosm and 100D */
-        if (is_EOSM || is_100D)
+        if ((is_EOSM || is_100D) && CROP_PRESET_MENU != CROP_PRESET_H264)
         {
             /* always disable Movie crop mode if using crop_rec presets, except for mcm mode */
             if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
@@ -4099,8 +4104,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "startoff presets",
                 .priv   = &presets,
-                .max    = 8,
-                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "4K anamorphic rewired 10bit", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop", "default reset"),
+                .max    = 9,
+                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "4K anamorphic rewired 10bit", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop", "default reset", "h264"),
                 .help   = "2.39:1 ratio recommended for anamorphic and higher resolutions",
             },
             {
@@ -4587,6 +4592,20 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         return 0;
     }
     
+    /* h264 */
+    if (key == MODULE_KEY_PRESS_SET && lv && !gui_menu_shown() && !RECORDING && is_movie_mode() && CROP_PRESET_MENU == CROP_PRESET_H264)
+    {
+        subby = 0;
+        if (!video_mode_crop)
+        {
+            movie_crop_hack_enable();
+        }
+        if (video_mode_crop)
+        {
+            movie_crop_hack_disable();
+        }
+    }
+    
     /* iso climbing feature */
     if ((isopatch && lv && !gui_menu_shown() && is_movie_mode()) &&
         (((is_EOSM && (key == MODULE_KEY_PRESS_DOWN || key == MODULE_KEY_PRESS_UP)) || (is_5D3 && key == MODULE_KEY_INFO) ||
@@ -4678,6 +4697,7 @@ static int crop_rec_needs_lv_refresh()
     {
         return 0;
     }
+    
     /* startoff presets(experimental) */
     if (is_EOSM && presets != 0x0 && !RECORDING)
     {
@@ -4689,8 +4709,10 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
+            movie_crop_hack_enable();
             PauseLiveView();
             ResumeLiveView();
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -4705,8 +4727,10 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x1;
             x3toggle = 0x2;
+            movie_crop_hack_enable();
             PauseLiveView();
             ResumeLiveView();
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -4721,9 +4745,11 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
+            movie_crop_hack_enable();
             PauseLiveView();
             ResumeLiveView();
             set_lv_zoom(1);
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -4741,6 +4767,7 @@ static int crop_rec_needs_lv_refresh()
             PauseLiveView();
             ResumeLiveView();
             set_lv_zoom(1);
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -4757,6 +4784,7 @@ static int crop_rec_needs_lv_refresh()
             x3toggle = 0x2;
             PauseLiveView();
             ResumeLiveView();
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -4773,6 +4801,7 @@ static int crop_rec_needs_lv_refresh()
             x3toggle = 0x2;
             PauseLiveView();
             ResumeLiveView();
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             set_lv_zoom(1);
             presets = 0x0;
             release = 0;
@@ -4791,6 +4820,7 @@ static int crop_rec_needs_lv_refresh()
             PauseLiveView();
             ResumeLiveView();
             set_lv_zoom(1);
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -4811,7 +4841,7 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 1;
             gain_buttons = 1;
             isoauto = 0;
-            ratios = 3;
+            ratios = 1;
             set_25fps = 0;
             timelapse = 0;
             slowshutter = 0;
@@ -4821,6 +4851,22 @@ static int crop_rec_needs_lv_refresh()
             menu_set_str_value_from_script("Movie", "shutter lock", "OFF", 1);
             menu_set_str_value_from_script("Movie", "shutter fine-tuning", "OFF", 1);
             menu_set_str_value_from_script("Movie", "fps override", "OFF", 1);
+            release = 0;
+            release_b = 0;
+            return 0;
+        }
+        
+        if (presets == 0x9)
+        {
+            NotifyBox(2000, "h264");
+            crop_preset_index = 7;
+            menu_set_str_value_from_script("Movie", "raw video", "OFF", 1);
+            movie_crop_hack_disable();
+            gui_open_menu();
+            msleep(300);
+            gui_stop_menu();
+            set_lv_zoom(1);
+            presets = 0x0;
             release = 0;
             release_b = 0;
             return 0;
@@ -5007,46 +5053,13 @@ static void set_zoom(int zoom)
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
     /* a bit buggy but better when changing back from photo mode into movie mode */
-    if (photoreturn && raw_lv_is_enabled())
+    if (photoreturn)
     {
         if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
         {
             movie_crop_hack_enable();
         }
         photoreturn = 0;
-    }
-    
-    /* activates when raw video is set to off */
-    if (!raw_lv_is_enabled() && is_movie_mode())
-    {
-        if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
-        {
-            movie_crop_hack_disable();
-        }
-        
-        subby = 0;
-        photoreturn = 1;
-        
-        static int photo = 0;
-        
-        if (get_halfshutter_pressed())
-        {
-            set_lv_zoom(10);
-            photo = 1;
-            while (get_halfshutter_pressed())
-            {
-                msleep(10);
-            }
-        }
-        
-        if (!get_halfshutter_pressed() && photo)
-        {
-            set_lv_zoom(1);
-            photo = 0;
-            return 0;
-        }
-        
-        return 0;
     }
     
     /* connected to MODULE_KEY_TOUCH_1_FINGER for entering Movie tab menu */

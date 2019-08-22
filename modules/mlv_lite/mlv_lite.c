@@ -2117,6 +2117,10 @@ if ((cam_eos_m || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIE
 	if (shamem_read(0xC0F06804) == 0x44c0298) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x5a70298) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x4550298) preview_mode = 2;
+    /* 4k modes */
+    if (shamem_read(0xC0F06804) == 0x6cb041e) preview_mode = 2;
+    if (shamem_read(0xC0F06804) == 0x6e9041e) preview_mode = 2;
+    if (shamem_read(0xC0F06804) == 0x917041e) preview_mode = 2;
      /* anamorphic rewired mode eosm */
 	if (shamem_read(0xC0F06804) == 0x78101e4) preview_mode = 2;
 /* auto set preview modes by reading registers eosm for now */
