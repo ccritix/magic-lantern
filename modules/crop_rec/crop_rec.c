@@ -4100,8 +4100,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "startoff presets",
                 .priv   = &presets,
-                .max    = 9,
-                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "mv1080p MCM rewire 14bit x3crop", "4K anamorphic rewired 10bit", "5K anamorphic 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "mv1080p 10bit 45/48/50fps x3crop", "default reset", "h264"),
+                .max    = 6,
+                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "4K anamorphic rewired 10bit", "2.5K 10bit", "mv1080p 10bit 45/48/50fps", "default reset", "h264"),
                 .help   = "2.39:1 ratio recommended for anamorphic and higher resolutions",
             },
             {
@@ -4717,24 +4717,6 @@ static int crop_rec_needs_lv_refresh()
         
         if (presets == 0x2)
         {
-            NotifyBox(2000, "mv1080p MCM rewire 14bit x3crop");
-            crop_preset_index = 0;
-            bitdepth = 0x0;
-            zoomaid = 0x1;
-            x3crop = 0x1;
-            x3toggle = 0x2;
-            movie_crop_hack_enable();
-            PauseLiveView();
-            ResumeLiveView();
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
-            presets = 0x0;
-            release = 0;
-            release_b = 0;
-            return 0;
-        }
-        
-        if (presets == 0x3)
-        {
             NotifyBox(2000, "4K anamorphic rewired 10bit");
             crop_preset_index = 5;
             bitdepth = 0x1;
@@ -4751,26 +4733,8 @@ static int crop_rec_needs_lv_refresh()
             release_b = 0;
             return 0;
         }
-        
-        if (presets == 0x4)
-        {
-            NotifyBox(2000, "5K anamorphic 10bit");
-            crop_preset_index = 6;
-            bitdepth = 0x1;
-            zoomaid = 0x1;
-            x3crop = 0x0;
-            x3toggle = 0x2;
-            PauseLiveView();
-            ResumeLiveView();
-            set_lv_zoom(1);
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
-            presets = 0x0;
-            release = 0;
-            release_b = 0;
-            return 0;
-        }
-        
-        if (presets == 0x5)
+
+        if (presets == 0x3)
         {
             NotifyBox(2000, "2.5K 10bit");
             crop_preset_index = 2;
@@ -4788,7 +4752,7 @@ static int crop_rec_needs_lv_refresh()
             return 0;
         }
         
-        if (presets == 0x6)
+        if (presets == 0x4)
         {
             NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
             crop_preset_index = 1;
@@ -4806,25 +4770,7 @@ static int crop_rec_needs_lv_refresh()
             return 0;
         }
         
-        if (presets == 0x7)
-        {
-            NotifyBox(2000, "mv1080p 10bit 45/48/50fps x3crop");
-            crop_preset_index = 1;
-            bitdepth = 0x1;
-            zoomaid = 0x1;
-            x3crop = 0x1;
-            x3toggle = 0x2;
-            PauseLiveView();
-            ResumeLiveView();
-            set_lv_zoom(1);
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
-            presets = 0x0;
-            release = 0;
-            release_b = 0;
-            return 0;
-        }
-        
-        if (presets == 0x8)
+        if (presets == 0x5)
         {
             NotifyBox(2000, "default reset");
             crop_preset_index = 0;
@@ -4853,7 +4799,7 @@ static int crop_rec_needs_lv_refresh()
             return 0;
         }
         
-        if (presets == 0x9)
+        if (presets == 0x6)
         {
             NotifyBox(2000, "h264");
             crop_preset_index = 7;
@@ -5871,6 +5817,7 @@ static unsigned int crop_rec_init()
         if (iso_climb == 0x4) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
         if (iso_climb == 0x5) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
         if (iso_climb == 0x6) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+        
     }
     
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
