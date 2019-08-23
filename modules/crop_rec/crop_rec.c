@@ -1788,7 +1788,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[1] = (struct adtg_new) {6, blanking_reg_nozoom, shutter_blanking};
         
         /* always disable Movie crop mode if using crop_rec presets, except for mcm mode, Only eosm and 100D */
-        if ((is_EOSM || is_100D) && CROP_PRESET_MENU != CROP_PRESET_H264)
+        if ((is_EOSM || is_100D) && CROP_PRESET_MENU != CROP_PRESET_H264 && !RECORDING)
         {
             /* always disable Movie crop mode if using crop_rec presets, except for mcm mode */
             if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
@@ -1801,6 +1801,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             }
             
         }
+        
         /* Correct analog gain pushed autoiso wise otherwise. Only 14bit while recording or below applies */
         if (isoauto != 0x0 && bitdepth == 0x0 && !is_5D3)
         {
@@ -4684,7 +4685,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 
 static int crop_rec_needs_lv_refresh()
 {
-    
+
     /* We don´t want this when in photo mode I assume */
     if (!is_movie_mode()) return 0;
     
@@ -4779,6 +4780,7 @@ static int crop_rec_needs_lv_refresh()
             x3toggle = 0x2;
             PauseLiveView();
             ResumeLiveView();
+            set_lv_zoom(5);
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             release = 0;
@@ -5291,8 +5293,6 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                 return 0;
             }
             
-            crop_patch2 = 1;
-            
             /* update iso or x10 zoom wil rely on underlying iso */
             if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
             if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
@@ -5334,11 +5334,15 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             {
                 msleep(10);
             }
+            
+            /* will stop from hang */
+            display_on();
+            ResumeLiveView();
+            crop_patch2 = 1;
         }
         
         if (!get_halfshutter_pressed() && crop_patch2)
         {
-            crop_patch2 = 0;
             if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
                 CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
             {
@@ -5375,6 +5379,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                 PauseLiveView();
                 ResumeLiveView();
             }
+            crop_patch2 = 0;
         }
     
     if (x3toggle != 0x1 || x3toggle != 0x2 || zoomaid != 0x0) crop_patch = 0; //disable patch while off
