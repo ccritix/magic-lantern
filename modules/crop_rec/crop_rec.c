@@ -2064,8 +2064,6 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 /* changing bits */
 static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
-    static int last_hs_unpress = 0;
-    
     if (((zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING && !is_5D3) &&
         (CROP_PRESET_MENU != CROP_PRESET_CENTER_Z_EOSM &&
          CROP_PRESET_MENU != CROP_PRESET_3x3_1X_EOSM &&
@@ -2074,15 +2072,12 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
          CROP_PRESET_MENU != CROP_PRESET_4K_EOSM))
     {
         /* 100D is a buggy mf! */
-        if (!get_halfshutter_pressed() && !is_100D) last_hs_unpress = get_ms_clock();
         
         /* x10crop preview hack */
-        if (get_ms_clock() - last_hs_unpress > 200 && get_halfshutter_pressed())
+        if (get_halfshutter_pressed())
         {
             /* checking passed 1500ms for when in canon menu. get_ms_clock() seems to be counting with no reset while in canon menu */
-            if (!is_100D && (get_ms_clock() - last_hs_unpress < 1500)) crop_preset = CROP_PRESET_x10_EOSM;
-            /* not working on 100D because of double refresh stuff */
-            if (is_100D) crop_preset = CROP_PRESET_x10_EOSM;
+            crop_preset = CROP_PRESET_x10_EOSM;
         }
     }
     
@@ -5284,22 +5279,11 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         once = false;
     }
     
-    if (!crop_patch2 && get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2) && !is_5D3)
-    {
-        
-        /* dark mode */
-        if (zoomaid == 0x2) NotifyBox(3000, "dark mode");
-        
         /* zoomaid */
-        if (get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2))
+        if (get_halfshutter_pressed() && !is_5D3 && !crop_patch2 && (zoomaid == 0x1 || zoomaid == 0x2))
         {
-            /* update iso or x10 zoom wil rely on underlying iso */
-            if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
-            if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
-            if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
-            if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
-            if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
-            if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+            /* dark mode */
+            if (zoomaid == 0x2) NotifyBox(3000, "dark mode");
             
             /* disable for now. Not working the same as for non rewired mode */
             if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM && zoomaid == 0x0)
@@ -5308,6 +5292,15 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             }
             
             crop_patch2 = 1;
+            
+            /* update iso or x10 zoom wil rely on underlying iso */
+            if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
+            if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
+            if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
+            if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
+            if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
+            if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+            
             if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
                 CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
             {
@@ -5383,8 +5376,6 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                 ResumeLiveView();
             }
         }
-    }
-    
     
     if (x3toggle != 0x1 || x3toggle != 0x2 || zoomaid != 0x0) crop_patch = 0; //disable patch while off
     
