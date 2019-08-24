@@ -33,7 +33,6 @@ static int is_100D = 0;
 static int is_EOSM = 0;
 static const int iso_steps_count = 6;
 static int photoreturn = 0;
-//static int h264 = 0;
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
@@ -2075,7 +2074,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
         /* 100D is a buggy mf! */
         
         /* x10crop preview hack */
-        if (get_halfshutter_pressed())
+        if (get_halfshutter_pressed() && !gui_menu_shown())
         {
             /* checking passed 1500ms for when in canon menu. get_ms_clock() seems to be counting with no reset while in canon menu */
             crop_preset = CROP_PRESET_x10_EOSM;
@@ -5228,7 +5227,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     }
     
         /* zoomaid */
-        if (get_halfshutter_pressed() && !is_5D3 && !crop_patch2 && (zoomaid == 0x1 || zoomaid == 0x2))
+        if (get_halfshutter_pressed() && !gui_menu_shown() && !is_5D3 && !crop_patch2 && (zoomaid == 0x1 || zoomaid == 0x2))
         {
             /* dark mode */
             if (zoomaid == 0x2) NotifyBox(3000, "dark mode");
@@ -5674,6 +5673,11 @@ static LVINFO_UPDATE_FUNC(crop_info)
     if (!raw_lv_is_enabled() && is_movie_mode())
     {
         snprintf(buffer, sizeof(buffer), "H264 MOV");
+    }
+    
+    if (is_EOSM)
+    {
+        item->color_fg = COLOR_GREEN1;
     }
 }
 

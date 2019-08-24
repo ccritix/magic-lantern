@@ -2690,7 +2690,7 @@ static LVINFO_UPDATE_FUNC(picq_update)
             /* todo: icon? */
             snprintf(buffer, sizeof(buffer), "Immortal");
         }
-        item->color_fg = raw_lv == 1 ? COLOR_GREEN1 : COLOR_GRAY(20);
+        item->color_fg = COLOR_GREEN1;
     }
 }
 
