@@ -4596,6 +4596,18 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         }
     }
     
+    /* working with zoomaid h264 */
+    if (get_halfshutter_pressed() && CROP_PRESET_MENU == CROP_PRESET_H264 && lv && !gui_menu_shown() && !RECORDING && is_movie_mode() && video_mode_crop)
+    {
+            movie_crop_hack_disable();
+            while (get_halfshutter_pressed())
+            {
+                msleep(10);
+            }
+            msleep(100);
+            movie_crop_hack_enable();
+    }
+    
     /* iso climbing feature */
     if ((isopatch && lv && !gui_menu_shown() && is_movie_mode()) &&
         (((is_EOSM && (key == MODULE_KEY_PRESS_DOWN || key == MODULE_KEY_PRESS_UP)) || (is_5D3 && key == MODULE_KEY_INFO) ||
