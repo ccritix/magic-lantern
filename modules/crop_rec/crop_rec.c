@@ -320,12 +320,6 @@ static int is_supported_mode()
         return 0;
     }
     
-    /* h264 preset */
-    if (CROP_PRESET_MENU == CROP_PRESET_H264)
-    {
-        return 0;
-    }
-    
     /* workaround getting below cams working with focus aid */
     static int last_hs_aid = 0;
     if (!get_halfshutter_pressed()) last_hs_aid = get_ms_clock();
@@ -414,14 +408,15 @@ static inline int get_video_mode_index()
         return 2;
     }
     
-    // if (is_EOSM) Hard to say why this is needed. Fps seems correct without it
-    // {
-    //     if (lv_dispsize == 1 && !RECORDING_H264)
-    //     {
-    //         /* EOS M stays in 720p30 during standby (same timer values as with 1080p30) */
-    //         return 2;
-    //     }
-    // }
+    /* shutter blanking now works all over the preset line */
+    if (is_EOSM && (crop_preset != CROP_PRESET_mcm_mv1080_EOSM && crop_preset != CROP_PRESET_anamorphic_rewired_EOSM && crop_preset != CROP_PRESET_anamorphic_rewired_100D))
+    {
+        if (lv_dispsize == 1 && !RECORDING_H264)
+         {
+             /* EOS M stays in 720p30 during standby (same timer values as with 1080p30) */
+             return 2;
+         }
+     }
     
     if (video_mode_crop)
     {
@@ -5120,15 +5115,42 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     }
     
     static int once1 = 1;
-    if (once1 && (zoomaid == 0x1 || zoomaid == 0x2) && !is_movie_mode())
+    if (once1 && (zoomaid == 0x1 || zoomaid == 0x2 || gain_buttons) && !is_movie_mode())
     {
         once1 = 0;
-        NotifyBox(4000, "Crop mode x10 halfshutter focus aid active");
+        if (zoomaid == 0x1 || zoomaid == 0x2) NotifyBox(4000, "Crop mode x10 halfshutter focus aid active");
+        
+        /* update iso values in photo mode */
+        if (gain_buttons)
+        {
+        if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
+        if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
+        if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
+        if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
+        if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
+        if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+        }
     }
+
     /* reset this notification once back in movie mode */
     if (is_movie_mode())
     {
         once1 = 1;
+    }
+    
+    /* update iso going from photo back to movie mode */
+    if ((gain_buttons) && !is_movie_mode())
+    {
+        if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
+        if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
+        if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
+        if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
+        if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
+        if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
+        if (lens_info.raw_iso == 0x78)
+        {
+            iso_climb = 0x6;
+        }
     }
     
     /* We don´t want this when in photo mode I assume */
@@ -5822,6 +5844,21 @@ static unsigned int crop_rec_init()
         if (iso_climb == 0x5) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
         if (iso_climb == 0x6) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
         
+        /* working h264 */
+        if (crop_preset_index == 7)
+        {
+            if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
+            if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
+            if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
+            if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
+            if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
+            if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
+            if (lens_info.raw_iso == 0x78)
+            {
+                menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+                iso_climb = 0x6;
+            }
+        }
     }
     
     if (is_camera("5D3",  "1.1.3") || is_camera("5D3", "1.2.3"))
