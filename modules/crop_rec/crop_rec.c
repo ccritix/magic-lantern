@@ -4797,6 +4797,7 @@ static int crop_rec_needs_lv_refresh()
         {
             NotifyBox(2000, "h264");
             crop_preset_index = 7;
+            bitdepth = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "OFF", 1);
             movie_crop_hack_disable();
             gui_open_menu();
