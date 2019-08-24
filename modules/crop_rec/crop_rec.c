@@ -409,7 +409,7 @@ static inline int get_video_mode_index()
     }
     
     /* shutter blanking now works all over the preset line */
-    if (is_EOSM && (crop_preset != CROP_PRESET_mcm_mv1080_EOSM && crop_preset != CROP_PRESET_anamorphic_rewired_EOSM && crop_preset != CROP_PRESET_anamorphic_rewired_100D))
+    if (is_EOSM && (crop_preset != CROP_PRESET_mcm_mv1080_EOSM && crop_preset != CROP_PRESET_anamorphic_rewired_EOSM && crop_preset != CROP_PRESET_anamorphic_rewired_100D && !video_mode_crop))
     {
         if (lv_dispsize == 1 && !RECORDING_H264)
          {
