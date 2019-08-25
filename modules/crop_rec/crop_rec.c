@@ -4782,7 +4782,7 @@ static int crop_rec_needs_lv_refresh()
         
         if (presets == 0x5)
         {
-            NotifyBox(2000, "mv1080p 10bit 45/48/50fps");
+            NotifyBox(2000, "mv1080p 45/48/50fps 10bit");
             crop_preset_index = 1;
             bitdepth = 0x1;
             zoomaid = 0x1;
