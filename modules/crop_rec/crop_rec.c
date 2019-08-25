@@ -316,6 +316,10 @@ static int is_supported_mode()
     /* no more crashes when selecing photo mode */
     if (!is_movie_mode())
     {
+        if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
+        {
+            menu_set_str_value_from_script("Movie", "raw video", "OFF", 1);
+        }
         photoreturn = 1;
         return 0;
     }
@@ -5055,16 +5059,6 @@ static void iso3()
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
-    /* a bit buggy but better when changing back from photo mode into movie mode */
-    if (photoreturn)
-    {
-        if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
-        {
-            movie_crop_hack_enable();
-        }
-        photoreturn = 0;
-    }
-    
     /* connected to MODULE_KEY_TOUCH_1_FINGER for entering Movie tab menu */
     if (gui_menu_shown() && subby)
     {
@@ -5700,6 +5694,13 @@ static LVINFO_UPDATE_FUNC(crop_info)
     if (is_EOSM)
     {
         item->color_fg = COLOR_GREEN1;
+    }
+    
+    /* a bit buggy but better when changing back from photo mode into movie mode */
+    if (photoreturn && is_movie_mode() && (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM || CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM))
+    {
+        menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+        photoreturn = 0;
     }
 }
 
