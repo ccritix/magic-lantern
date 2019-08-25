@@ -5000,6 +5000,57 @@ static void set_zoom(int zoom)
     prop_request_change_wait(PROP_LV_DISPSIZE, &zoom, 4, 1000);
 }
 
+static void iso()
+{
+    if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
+    if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
+    if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
+    if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
+    if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
+    if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+    
+    while (!lv)
+    {
+        msleep(100);
+    }
+    
+    if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
+    if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
+    if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
+    if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
+    if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
+    if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
+    if (lens_info.raw_iso == 0x78)
+    {
+        menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+        iso_climb = 0x6;
+    }
+}
+
+static void iso2()
+{
+    if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
+    if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
+    if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
+    if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
+    if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
+    if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+}
+
+static void iso3()
+{
+    if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
+    if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
+    if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
+    if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
+    if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
+    if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
+    if (lens_info.raw_iso == 0x78)
+    {
+        iso_climb = 0x6;
+    }
+}
+
 
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
@@ -5057,30 +5108,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     /* refresh canon menu iso */
     if (gain_buttons && gain)
     {
-        if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
-        if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
-        if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
-        if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
-        if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
-        if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
-        
-        while (!lv)
-        {
-            msleep(100);
-        }
-        
-        if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
-        if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
-        if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
-        if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
-        if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
-        if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
-        if (lens_info.raw_iso == 0x78)
-        {
-            menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
-            iso_climb = 0x6;
-        }
-        
+        iso();
         gain = 0;
     }
     
@@ -5136,12 +5164,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         /* update iso values in photo mode */
         if (gain_buttons)
         {
-        if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
-        if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
-        if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
-        if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
-        if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
-        if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+            iso2();
         }
     }
 
@@ -5154,16 +5177,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     /* update iso going from photo back to movie mode */
     if ((gain_buttons) && !is_movie_mode())
     {
-        if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
-        if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
-        if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
-        if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
-        if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
-        if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
-        if (lens_info.raw_iso == 0x78)
-        {
-            iso_climb = 0x6;
-        }
+        iso3();
     }
     
     /* We don´t want this when in photo mode I assume */
@@ -5274,12 +5288,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             }
             
             /* update iso or x10 zoom wil rely on underlying iso */
-            if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
-            if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
-            if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
-            if (iso_climb == 0x4 && lens_info.raw_iso != 0x60) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
-            if (iso_climb == 0x5 && lens_info.raw_iso != 0x68) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
-            if (iso_climb == 0x6 && lens_info.raw_iso != 0x70) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+            iso2();
             
             if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
                 CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
@@ -5850,27 +5859,12 @@ static unsigned int crop_rec_init()
     
     if (gain_buttons)
     {
-        if (iso_climb == 0x1) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
-        if (iso_climb == 0x2) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
-        if (iso_climb == 0x3) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
-        if (iso_climb == 0x4) menu_set_str_value_from_script("Expo", "ISO", "800", 1);
-        if (iso_climb == 0x5) menu_set_str_value_from_script("Expo", "ISO", "1600", 1);
-        if (iso_climb == 0x6) menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
+        iso2();
         
         /* working h264 */
         if (crop_preset_index == 7)
         {
-            if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
-            if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
-            if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
-            if (lens_info.raw_iso == 0x60) iso_climb = 0x4;
-            if (lens_info.raw_iso == 0x68) iso_climb = 0x5;
-            if (lens_info.raw_iso == 0x70) iso_climb = 0x6;
-            if (lens_info.raw_iso == 0x78)
-            {
-                menu_set_str_value_from_script("Expo", "ISO", "3200", 1);
-                iso_climb = 0x6;
-            }
+            iso3();
         }
     }
     
