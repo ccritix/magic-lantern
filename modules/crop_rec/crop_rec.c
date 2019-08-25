@@ -5082,29 +5082,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         SetGUIRequestMode(0);
         msleep(300);
     }
-    
-    /*
-     if(crop_preset_index != last_crop_preset_index){
-     // Apply best bitrate
-     if(is_EOSM) {
-     if(crop_preset_index == 0) {
-     // mv1080p MCM rewire 14bit
-     bitdepth = 0;
-     } else {
-     // Others 10 bit
-     bitdepth = 3;
-     }
-     }
-     
-     // Apply max resolution
-     menu_set_value_from_script("raw video", "Resolution Index", 11);
-     
-     last_crop_preset_index = crop_preset_index;
-     }
-     */
-    
-    //NotifyBox(2000, "lens_info.raw_iso_auto 0x%x", lens_info.raw_iso_auto);
-    
+        
     /* refresh canon menu iso */
     if (gain_buttons && gain)
     {
