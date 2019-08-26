@@ -33,6 +33,10 @@ static int is_100D = 0;
 static int is_EOSM = 0;
 static const int iso_steps_count = 6;
 static int photoreturn = 0;
+static int dualiso = 0;
+
+/* turn off gain buttons when dualiso is set */
+int dual_iso_is_enabled();
 
 static CONFIG_INT("crop.preset", crop_preset_index, 0);
 static CONFIG_INT("crop.shutter_range", shutter_range, 0);
@@ -4695,7 +4699,6 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
 
 static int crop_rec_needs_lv_refresh()
 {
-
     /* We don´t want this when in photo mode I assume */
     if (!is_movie_mode()) return 0;
     
@@ -5077,6 +5080,21 @@ static void iso3()
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
+    /* turn off gain buttons when dualiso is set */
+    if (dual_iso_is_enabled() && !dualiso)
+    {
+        NotifyBox(2000, "dualiso enabled, turning OFF gain buttons");
+        gain_buttons = 0;
+        dualiso = 1;
+    }
+    
+    if (!dual_iso_is_enabled() && dualiso)
+    {
+        NotifyBox(2000, "dualiso disabled, turning ON gain buttons");
+        gain_buttons = 1;
+        dualiso = 0;
+    }
+    
     /* connected to MODULE_KEY_TOUCH_1_FINGER for entering Movie tab menu */
     if (gui_menu_shown() && subby)
     {
