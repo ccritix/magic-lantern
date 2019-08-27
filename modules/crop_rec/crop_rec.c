@@ -3540,6 +3540,8 @@ static inline uint32_t reg_override_mcm_mv1080_eosm(uint32_t reg, uint32_t old_v
 
 static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_val)
 {
+    /* helps when selecting a new preset */
+    if (gui_menu_shown() && !RECORDING) *(volatile uint32_t*)0xC0F06014 = 0x643;
     
     if (!is_720p() && !is_EOSM)
     {
