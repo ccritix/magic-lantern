@@ -50,6 +50,7 @@ static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
 static CONFIG_INT("crop.HDR_iso_b", HDR_iso_b, 0);
 static CONFIG_INT("crop.isoauto", isoauto, 0);
 static CONFIG_INT("crop.gain_buttons", gain_buttons, 1);
+static CONFIG_INT("crop.dropdown", dropdown, 1);
 static CONFIG_INT("crop.iso_climb", iso_climb, 1);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
@@ -4040,6 +4041,14 @@ static struct menu_entry custom_buttons_menu[] =
                 .help   = "Press up/down to change exposure with aperture and ISO (eosm).",
                 .help2  = "INFO(5D3) or SET(100d) button 100-3200 iso.\n"
             },
+            {
+                .name   = "dropdown list",
+                .priv   = &dropdown,
+                .max    = 2,
+                .choices = CHOICES("OFF", "tap display", "INFO"),
+                .help   = "tap display for fast access to startoff drop down list(default)",
+                .help2  = "INFO button instead of tap display(loupe users)\n"
+            },
             MENU_EOL,
         },
     }
@@ -4559,7 +4568,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     }
     
     /* selects Movie tab menu */
-    if (key == MODULE_KEY_TOUCH_1_FINGER && !gui_menu_shown() && is_movie_mode() && lv && !RECORDING)
+    if (((dropdown == 0x1 && key == MODULE_KEY_TOUCH_1_FINGER) || (dropdown == 0x2 && key == MODULE_KEY_INFO)) && (!gui_menu_shown() && is_movie_mode() && lv && !RECORDING))
     {
         if(lv_disp_mode != 0){
             // Use INFO key to cycle LV as normal when not in the LV with ML overlays
@@ -4814,6 +4823,7 @@ static int crop_rec_needs_lv_refresh()
             presets = 0x0;
             zoomaid = 1;
             gain_buttons = 1;
+            dropdown = 1;
             isoauto = 0;
             ratios = 1;
             set_25fps = 0;
@@ -5986,6 +5996,7 @@ MODULE_CONFIG(HDR_iso_a)
 MODULE_CONFIG(HDR_iso_b)
 MODULE_CONFIG(isoauto)
 MODULE_CONFIG(gain_buttons)
+MODULE_CONFIG(dropdown)
 MODULE_CONFIG(iso_climb)
 MODULE_CONFIG(timelapse)
 MODULE_CONFIG(slowshutter)
