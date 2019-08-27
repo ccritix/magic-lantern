@@ -5286,6 +5286,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         /* zoomaid */
         if (get_halfshutter_pressed() && !gui_menu_shown() && !is_5D3 && !crop_patch2 && (zoomaid == 0x1 || zoomaid == 0x2))
         {
+            crop_patch2 = 1;
             /* dark mode */
             if (zoomaid == 0x2) NotifyBox(3000, "dark mode");
             
@@ -5335,7 +5336,6 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             /* will stop from hang */
             display_on();
             ResumeLiveView();
-            crop_patch2 = 1;
         }
         
         if (!get_halfshutter_pressed() && crop_patch2)
