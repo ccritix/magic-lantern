@@ -4048,7 +4048,7 @@ static struct menu_entry custom_buttons_menu[] =
                 .priv   = &dropdown,
                 .max    = 2,
                 .choices = CHOICES("OFF", "tap display", "INFO"),
-                .help   = "tap display for fast access to startoff drop down list(default)",
+                .help   = "tap display for fast access to startoff dropdown list(default)",
                 .help2  = "INFO button instead of tap display(loupe users)\n"
             },
             MENU_EOL,
