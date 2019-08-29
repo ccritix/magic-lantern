@@ -5308,8 +5308,8 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                 return 0;
             }
             
-            /* update iso or x10 zoom wil rely on underlying iso */
-            iso2();
+            /* update iso or x10 zoom will rely on underlying iso */
+            if (!isoauto) iso2();
             
             if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
                 CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
@@ -5334,20 +5334,24 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             {
                 if (crop_preset == CROP_PRESET_x10_EOSM) movie_crop_hack_disable();
                 /* fixes interference with autoiso(replacing PauseLiveView();) */
-                display_off();
-                msleep(300);
-                display_on();
-                ResumeLiveView();
+                if (isoauto)
+                {
+                    display_off();
+                    msleep(300);
+                    display_on();
+                    ResumeLiveView();
+                }
+                else
+                {
+                    PauseLiveView();
+                    ResumeLiveView();
+                }
                 if (zoomaid == 0x1 || zoomaid == 0x2) set_lv_zoom(10);
             }
             while (get_halfshutter_pressed())
             {
                 msleep(10);
             }
-            
-            /* will stop from hang */
-            display_on();
-            ResumeLiveView();
         }
         
         if (!get_halfshutter_pressed() && crop_patch2)
