@@ -5112,6 +5112,14 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         isoauto = 0;
     }
     
+    if (isoauto && autoiso && !gui_menu_shown() && is_movie_mode() && lv_dispsize == 5)
+    {
+        NotifyBox(2000, "gain buttons turned to ON(x5 zoom)");
+        gain_buttons = 1;
+        isoauto = 0;
+        iso();
+    }
+    
     /* turn off gain buttons when dualiso is set */
     if (dual_iso_is_enabled() && !dualiso)
     {
@@ -5316,7 +5324,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     }
     
         /* zoomaid */
-        if (get_halfshutter_pressed() && crop_preset == CROP_PRESET_x10_EOSM && !gui_menu_shown() && !is_5D3 && !crop_patch2 && (zoomaid == 0x1 || zoomaid == 0x2))
+        if (get_halfshutter_pressed() && (crop_preset == CROP_PRESET_x10_EOSM || lv_dispsize == 5) && !gui_menu_shown() && !is_5D3 && !crop_patch2 && (zoomaid == 0x1 || zoomaid == 0x2))
         {
             crop_patch2 = 1;
             /* dark mode */
