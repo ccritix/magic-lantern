@@ -2069,6 +2069,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 /* changing bits */
 static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
+    static int last_hs_unpress = 0;
+    
     if (((zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING && !is_5D3) &&
         (CROP_PRESET_MENU != CROP_PRESET_CENTER_Z_EOSM &&
          CROP_PRESET_MENU != CROP_PRESET_3x3_1X_EOSM &&
@@ -2077,12 +2079,13 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
          CROP_PRESET_MENU != CROP_PRESET_4K_EOSM))
     {
         /* 100D is a buggy mf! */
+        if (!get_halfshutter_pressed()) last_hs_unpress = get_ms_clock();
         
         /* x10crop preview hack */
-        if (get_halfshutter_pressed() && !gui_menu_shown())
+        if (get_ms_clock() - last_hs_unpress > 200 && get_halfshutter_pressed())
         {
             /* checking passed 1500ms for when in canon menu. get_ms_clock() seems to be counting with no reset while in canon menu */
-            crop_preset = CROP_PRESET_x10_EOSM;
+            if ((get_ms_clock() - last_hs_unpress < 1500)) crop_preset = CROP_PRESET_x10_EOSM;
         }
     }
     
@@ -5313,7 +5316,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     }
     
         /* zoomaid */
-        if (get_halfshutter_pressed() && !gui_menu_shown() && !is_5D3 && !crop_patch2 && (zoomaid == 0x1 || zoomaid == 0x2))
+        if (get_halfshutter_pressed() && crop_preset == CROP_PRESET_x10_EOSM && !gui_menu_shown() && !is_5D3 && !crop_patch2 && (zoomaid == 0x1 || zoomaid == 0x2))
         {
             crop_patch2 = 1;
             /* dark mode */
