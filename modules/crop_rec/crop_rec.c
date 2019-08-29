@@ -5334,24 +5334,18 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             {
                 if (crop_preset == CROP_PRESET_x10_EOSM) movie_crop_hack_disable();
                 /* fixes interference with autoiso(replacing PauseLiveView();) */
-                if (isoauto)
-                {
                     display_off();
                     msleep(300);
                     display_on();
                     ResumeLiveView();
-                }
-                else
-                {
-                    PauseLiveView();
-                    ResumeLiveView();
-                }
                 if (zoomaid == 0x1 || zoomaid == 0x2) set_lv_zoom(10);
             }
             while (get_halfshutter_pressed())
             {
                 msleep(10);
             }
+            display_on();
+            ResumeLiveView();
         }
         
         if (!get_halfshutter_pressed() && crop_patch2)
