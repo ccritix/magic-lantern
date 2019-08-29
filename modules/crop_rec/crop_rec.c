@@ -332,7 +332,7 @@ static int is_supported_mode()
     /* workaround getting below cams working with focus aid */
     static int last_hs_aid = 0;
     if (!get_halfshutter_pressed()) last_hs_aid = get_ms_clock();
-        if (get_ms_clock() - last_hs_aid > 300 && get_halfshutter_pressed() && (is_5D3) && !RECORDING && (zoomaid == 0x1 || zoomaid == 0x2)) return 0;
+        if (get_ms_clock() - last_hs_aid > 300 && get_halfshutter_pressed() && !RECORDING && (zoomaid == 0x1 || zoomaid == 0x2)) return 0;
     
     switch (crop_preset)
     {
@@ -5329,7 +5329,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     }
     
         /* zoomaid */
-        if (get_halfshutter_pressed() && (crop_preset == CROP_PRESET_x10_EOSM || lv_dispsize == 5) && !gui_menu_shown() && !is_5D3 && !crop_patch2 && (zoomaid == 0x1 || zoomaid == 0x2))
+        if (get_halfshutter_pressed() && !gui_menu_shown() && !is_5D3 && !crop_patch2 && (zoomaid == 0x1 || zoomaid == 0x2))
         {
             crop_patch2 = 1;
             /* dark mode */
