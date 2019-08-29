@@ -4837,10 +4837,15 @@ static int crop_rec_needs_lv_refresh()
             slowshutter = 0;
             HDR_iso_a = 0;
             HDR_iso_b = 0;
+            gui_stop_menu(); // Close ML menu before applying to make sure all is set properly
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             menu_set_str_value_from_script("Movie", "shutter lock", "OFF", 1);
             menu_set_str_value_from_script("Movie", "shutter fine-tuning", "OFF", 1);
             menu_set_str_value_from_script("Movie", "fps override", "OFF", 1);
+            menu_set_value_from_script("raw video", "Resolution Index", 11);
+            menu_set_str_value_from_script("raw video", "Crop rec preview", "auto mode", 1);
+            menu_set_str_value_from_script("raw video", "Aspect ratio", "1:2", 17);
+            menu_set_str_value_from_script("Sound recording", "Enable sound", "ON", 1);
             release = 0;
             release_b = 0;
             return 0;

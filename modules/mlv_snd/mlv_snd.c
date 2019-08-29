@@ -710,7 +710,7 @@ static unsigned int mlv_snd_init()
     {
         menu_add("raw video", mlv_snd_menu, COUNT(mlv_snd_menu));
     }
-    else if (menu_get_value_from_script("Movie", "RAW video (MLV)") != INT_MIN)
+    else if (menu_get_value_from_script("Movie", "raw video (MLV)") != INT_MIN)
     {
         menu_add("raw video (MLV)", mlv_snd_menu, COUNT(mlv_snd_menu));
     }
