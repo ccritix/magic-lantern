@@ -5093,7 +5093,7 @@ static void iso3()
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
-    if (isoauto && !autoiso && !gui_menu_shown())
+    if (isoauto && !autoiso && !gui_menu_shown() && is_movie_mode())
     {
         if (gain_buttons) NotifyBox(2000, "gain buttons turned to OFF(autoiso)");
         autoiso = 1;
@@ -5101,7 +5101,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         menu_set_str_value_from_script("Expo", "ISO", "Auto", 1);
     }
     
-    if ((lens_info.raw_iso != 0x0 || !isoauto || gain_buttons) && autoiso && !gui_menu_shown())
+    if ((lens_info.raw_iso != 0x0 || !isoauto || gain_buttons) && autoiso && !gui_menu_shown() && is_movie_mode())
     {
         //reset
         if (isoauto) NotifyBox(2000, "max iso is now turned to OFF");
