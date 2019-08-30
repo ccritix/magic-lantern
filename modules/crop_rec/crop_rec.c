@@ -4581,6 +4581,13 @@ static struct menu_entry crop_rec_menu[] =
 
 static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
+    if (!RECORDING && key == MODULE_KEY_TOUCH_1_FINGER && lv_dispsize == 10)
+    {
+        /* touch display while in x10 zoom to get into x1 and be able to take a photo for instance */
+        set_lv_zoom(1);
+        return 0;
+    }
+    
     if ((gain_buttons && !RECORDING && is_movie_mode()) && (key == MODULE_KEY_INFO || (!lv && (key == MODULE_KEY_TOUCH_1_FINGER || key == MODULE_KEY_PRESS_SET)) || gui_menu_shown()))
     {
         gain = 1;

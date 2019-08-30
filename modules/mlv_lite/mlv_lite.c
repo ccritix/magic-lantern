@@ -4435,6 +4435,8 @@ static int raw_rec_should_preview(void)
             if (shamem_read(0xc0f383d4) == 0x4f0010 && cam_eos_m) long_halfshutter_press = 0;
 /* 48fps mode in crop_rec.c. Affects 2.39:1 and 2.35:1 */
             if (shamem_read(0xc0f06804) == 0x2f701d4 && cam_eos_m) long_halfshutter_press = 0;
+/* when touching display while in x10 zoomaid mode */
+            if (shamem_read(0xc0f06804) == 0x4a601d4 && cam_eos_m) long_halfshutter_press = 0;
         }
 /* trying a fix for stuck real time preview(only affects framing) */
       if (PREVIEW_ML && (cam_eos_m || cam_100d))
