@@ -4832,6 +4832,7 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
+            set_lv_zoom(1);
             movie_crop_hack_enable();
             PauseLiveView();
             ResumeLiveView();
@@ -4923,6 +4924,7 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
+            set_lv_zoom(1);
             presets = 0x0;
             zoomaid = 1;
             gain_buttons = 1;
@@ -4935,6 +4937,7 @@ static int crop_rec_needs_lv_refresh()
             HDR_iso_a = 0;
             HDR_iso_b = 0;
             gui_stop_menu(); // Close ML menu before applying to make sure all is set properly
+            msleep(100);
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             menu_set_str_value_from_script("Movie", "shutter lock", "OFF", 1);
             menu_set_str_value_from_script("Movie", "shutter fine-tuning", "OFF", 1);
@@ -4943,6 +4946,7 @@ static int crop_rec_needs_lv_refresh()
             menu_set_str_value_from_script("raw video", "Crop rec preview", "auto mode", 1);
             menu_set_str_value_from_script("raw video", "Aspect ratio", "1:2", 17);
             menu_set_str_value_from_script("Sound recording", "Enable sound", "ON", 1);
+            msleep(200);
             PauseLiveView();
             ResumeLiveView();
             release = 0;
