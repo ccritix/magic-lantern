@@ -1279,7 +1279,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;
                 
             case CROP_PRESET_4K_EOSM:
-                cmos_new[5] = 0x14f;            /* vertical (first|last) */
+                cmos_new[5] = 0x140;            /* vertical (first|last) */
                 cmos_new[7] = 0xf20;
                 if (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9)
                 {
