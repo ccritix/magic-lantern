@@ -4598,17 +4598,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             NotifyBox(2000, "4K anamorphic rewired 10bit");
             crop_preset_index = 5;
             bitdepth = 0x1;
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
-            while (get_halfshutter_pressed())
-            {
-                msleep(10);
-            }
-            if (!zoomaid)
-            {
-            PauseLiveView();
-            ResumeLiveView();
-            }
             return 0;
         }
         
@@ -4617,19 +4607,19 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             NotifyBox(2000, "2.5K 10bit");
             crop_preset_index = 2;
             bitdepth = 0x1;
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
-            while (get_halfshutter_pressed())
-            {
-                msleep(10);
-            }
-            if (!zoomaid)
-            {
-                PauseLiveView();
-                ResumeLiveView();
-            }
-            set_lv_zoom(5);
             return 0;
+        }
+        /* only after halfshutter is released */
+        while (get_halfshutter_pressed())
+        {
+            msleep(10);
+        }
+        if (crop_preset_index == 2) set_lv_zoom(5);
+        if (!zoomaid)
+        {
+            PauseLiveView();
+            ResumeLiveView();
         }
     }
     
@@ -4642,18 +4632,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             NotifyBox(2000, "mv1080p 45/48/50fps 10bit");
             crop_preset_index = 1;
             bitdepth = 0x1;
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
-            while (get_halfshutter_pressed())
-            {
-                msleep(10);
-            }
-            if (!zoomaid)
-            {
-                PauseLiveView();
-                ResumeLiveView();
-            }
-            set_lv_zoom(1);
             return 0;
         }
         /* reset to mcm rewired or jump straight to... */
@@ -4662,18 +4641,20 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             NotifyBox(2000, "mv1080p MCM rewire 14bit");
             crop_preset_index = 0;
             bitdepth = 0x0;
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
-            while (get_halfshutter_pressed())
-            {
-                msleep(10);
-            }
-            if (!zoomaid)
-            {
-                PauseLiveView();
-                ResumeLiveView();
-            }
             return 0;
+        }
+        
+        /* only after halfshutter is released */
+        while (get_halfshutter_pressed())
+        {
+            msleep(10);
+        }
+        if (crop_preset_index == 1) set_lv_zoom(1);
+        if (!zoomaid)
+        {
+            PauseLiveView();
+            ResumeLiveView();
         }
     }
     
