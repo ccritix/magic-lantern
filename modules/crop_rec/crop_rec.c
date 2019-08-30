@@ -4581,11 +4581,88 @@ static struct menu_entry crop_rec_menu[] =
 
 static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
-    if (!RECORDING && key == MODULE_KEY_TOUCH_1_FINGER && lv_dispsize == 10)
+    
+    /* photo mode */
+    if (!RECORDING && key == MODULE_KEY_TOUCH_1_FINGER && lv_dispsize == 10 && !is_movie_mode() && !gui_menu_shown())
     {
         /* touch display while in x10 zoom to get into x1 and be able to take a photo for instance */
         set_lv_zoom(1);
         return 0;
+    }
+    
+    /* presets shortcuts */
+    if (!RECORDING && key == MODULE_KEY_TOUCH_1_FINGER && get_halfshutter_pressed() && is_movie_mode() && !gui_menu_shown())
+    {
+        if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM)
+        {
+            NotifyBox(2000, "4K anamorphic rewired 10bit");
+            crop_preset_index = 5;
+            while (get_halfshutter_pressed())
+            {
+                msleep(10);
+            }
+            if (!zoomaid)
+            {
+            PauseLiveView();
+            ResumeLiveView();
+            }
+            return 0;
+        }
+        
+        if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)
+        {
+            NotifyBox(2000, "2.5K 10bit");
+            crop_preset_index = 2;
+            while (get_halfshutter_pressed())
+            {
+                msleep(10);
+            }
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
+            set_lv_zoom(5);
+            return 0;
+        }
+    }
+    
+    /* presets shortcuts */
+    if (!RECORDING && key == MODULE_KEY_PRESS_SET && get_halfshutter_pressed() && is_movie_mode() && !gui_menu_shown())
+    {
+        /* reset to mcm rewired or head to 48fps mode... */
+        if (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
+        {
+            NotifyBox(2000, "mv1080p 45/48/50fps 10bit");
+            crop_preset_index = 1;
+            while (get_halfshutter_pressed())
+            {
+                msleep(10);
+            }
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
+            set_lv_zoom(1);
+            return 0;
+        }
+        /* reset to mcm rewired or jump straight to... */
+        if (CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM)
+        {
+            NotifyBox(2000, "mv1080p MCM rewire 14bit");
+            crop_preset_index = 0;
+            while (get_halfshutter_pressed())
+            {
+                msleep(10);
+            }
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
+            return 0;
+        }
     }
     
     if ((gain_buttons && !RECORDING && is_movie_mode()) && (key == MODULE_KEY_INFO || (!lv && (key == MODULE_KEY_TOUCH_1_FINGER || key == MODULE_KEY_PRESS_SET)) || gui_menu_shown()))
@@ -5415,9 +5492,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
                 CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
             {
-                if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM ||
-                    CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM ||
-                    CROP_PRESET_MENU == CROP_PRESET_2K_EOSM ||
+                if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_3K_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
                 {
@@ -5429,13 +5504,10 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                 }
                 else
                 {
-                    info_led_on();
-                    gui_uilock(UILOCK_EVERYTHING);
-                    int old_zoom = lv_dispsize;
-                    set_zoom(lv_dispsize == 1 ? 5 : 1);
-                    set_zoom(old_zoom);
-                    gui_uilock(UILOCK_NONE);
-                    info_led_off();
+                    display_off();
+                    msleep(300);
+                    display_on();
+                    ResumeLiveView();
                     set_lv_zoom(1);
                 }
             }
