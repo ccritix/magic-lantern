@@ -615,6 +615,31 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
             }
             break;
             
+        case CROP_PRESET_4K_EOSM:
+
+            if (ratios == 0x1)
+            {
+                skip_left       = 72;
+                skip_right      = 0;
+                skip_top        = 662;
+                skip_bottom     = 0;
+            }
+            if (ratios == 0x2)
+            {
+                skip_left       = 72;
+                skip_right      = 0;
+                skip_top        = 634;
+                skip_bottom     = 0;
+            }
+            if (ratios == 0x3)
+            {
+                skip_left       = 72;
+                skip_right      = 0;
+                skip_top        = 500;
+                skip_bottom     = 0;
+            }
+            break;
+            
         case CROP_PRESET_3x3_mv1080_EOSM:
             /* set ratio preset */
             if (ratios == 0x1)
@@ -1254,7 +1279,7 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;
                 
             case CROP_PRESET_4K_EOSM:
-                cmos_new[5] = 0x200;            /* vertical (first|last) */
+                cmos_new[5] = 0x14f;            /* vertical (first|last) */
                 cmos_new[7] = 0xf20;
                 if (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9)
                 {
@@ -3229,12 +3254,12 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
             ((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x2) ? 0x86504fe + reg_6804_width + (reg_6804_height << 16):
             ((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x3) ? 0xb0f04fe + reg_6804_width + (reg_6804_height << 16):
             ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x0) ? 0xbd7041e + reg_6804_width + (reg_6804_height << 16):
-            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x1) ? 0x6cb041e + reg_6804_width + (reg_6804_height << 16):
-            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x2) ? 0x6e9041e + reg_6804_width + (reg_6804_height << 16):
-            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x3) ? 0x917041e + reg_6804_width + (reg_6804_height << 16):
-            (ratios == 0x1) ? 0x6cb041e + reg_6804_width + (reg_6804_height << 16):
-            (ratios == 0x2) ? 0x6e9041e + reg_6804_width + (reg_6804_height << 16):
-            (ratios == 0x3) ? 0x917041e + reg_6804_width + (reg_6804_height << 16): 0xbd7041e + reg_6804_width + (reg_6804_height << 16);
+            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x1) ? 0x942041e + reg_6804_width + (reg_6804_height << 16):
+            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x2) ? 0x942041e + reg_6804_width + (reg_6804_height << 16):
+            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x3) ? 0xaed041e + reg_6804_width + (reg_6804_height << 16):
+            (ratios == 0x1) ? 0x942041e + reg_6804_width + (reg_6804_height << 16):
+            (ratios == 0x2) ? 0x942041e + reg_6804_width + (reg_6804_height << 16):
+            (ratios == 0x3) ? 0xaed041e + reg_6804_width + (reg_6804_height << 16): 0xbd7041e + reg_6804_width + (reg_6804_height << 16);
             
         case 0xC0F06824: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56a: 0x4ca;
         case 0xC0F06828: return (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0x56a: 0x4ca;
@@ -3255,7 +3280,8 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
             ((RECORDING && timelapse == 0x8 && slowshutter == 0x1) || (timelapse == 0x8 && slowshutter == 0x0)) ? 0x58f7:
             ((RECORDING && timelapse == 0x9 && slowshutter == 0x1) || (timelapse == 0x9 && slowshutter == 0x0)) ? 0x2c7f:
             (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0xcb7 + reg_6014:
-            (ratios == 0x1 || ratios == 0x2) ? 0xc71 + reg_6014:
+            (ratios == 0x1 || ratios == 0x2) ? 0xdff + reg_6014:
+            (ratios == 0x3) ? 0x12a9 + reg_6014:
             (ratios == 0x0) ? 0x1665 + reg_6014: 0xfff + reg_6014;
             
         case 0xC0F0713c: return ((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x0) ? 0xbd7 + reg_713c :
@@ -3263,10 +3289,10 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
             ((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x2) ? 0x865 + reg_713c :
             ((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x3) ? 0xb0f + reg_713c :
             ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x0) ? 0xbd7 + reg_713c :
-            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x1) ? 0x6cb + reg_713c :
-            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x2) ? 0x6e9 + reg_713c :
-            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x3) ? 0x917 + reg_713c :
-            (ratios == 0x1) ? 0x6cb: (ratios == 0x2) ? 0x6e9: (ratios == 0x3) ? 0x917: 0xbd7;
+            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x1) ? 0x942 + reg_713c :
+            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x2) ? 0x942 + reg_713c :
+            ((timelapse == 0x1 || timelapse == 0x2 || timelapse == 0x3 || timelapse == 0x4 || timelapse == 05 || timelapse == 0x6) && ratios == 0x3) ? 0xaed + reg_713c :
+            (ratios == 0x1) ? 0x942: (ratios == 0x2) ? 0x942: (ratios == 0x3) ? 0xaed: 0xbd7;
     }
     
     /* 4k timelapse function */
