@@ -5381,6 +5381,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             {
                 if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM ||
+                    CROP_PRESET_MENU == CROP_PRESET_2K_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_3K_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
                 {
@@ -5414,12 +5415,16 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
                 CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
             {
-                if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM ||
-                    CROP_PRESET_MENU == CROP_PRESET_3x3_1X_EOSM ||
+                if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM ||
+                    CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_2K_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_3K_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
                 {
+                    display_off();
+                    msleep(300);
+                    display_on();
+                    ResumeLiveView();
                     set_lv_zoom(5);
                 }
                 else
