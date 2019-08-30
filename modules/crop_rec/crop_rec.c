@@ -4946,7 +4946,7 @@ static int crop_rec_needs_lv_refresh()
             menu_set_str_value_from_script("raw video", "Crop rec preview", "auto mode", 1);
             menu_set_str_value_from_script("raw video", "Aspect ratio", "1:2", 17);
             menu_set_str_value_from_script("Sound recording", "Enable sound", "ON", 1);
-            msleep(200);
+            msleep(100);
             PauseLiveView();
             ResumeLiveView();
             release = 0;
@@ -5497,7 +5497,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                     CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
                 {
                     display_off();
-                    msleep(300);
+                    msleep(400);
                     display_on();
                     ResumeLiveView();
                     set_lv_zoom(5);
@@ -5505,7 +5505,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                 else
                 {
                     display_off();
-                    msleep(300);
+                    msleep(400);
                     display_on();
                     ResumeLiveView();
                     set_lv_zoom(1);
