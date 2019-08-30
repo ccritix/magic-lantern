@@ -2118,9 +2118,8 @@ if ((cam_eos_m || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIE
 	if (shamem_read(0xC0F06804) == 0x5a70298) preview_mode = 2;
 	if (shamem_read(0xC0F06804) == 0x4550298) preview_mode = 2;
     /* 4k modes */
-    if (shamem_read(0xC0F06804) == 0x6cb041e) preview_mode = 2;
-    if (shamem_read(0xC0F06804) == 0x6e9041e) preview_mode = 2;
-    if (shamem_read(0xC0F06804) == 0x917041e) preview_mode = 2;
+    if (shamem_read(0xC0F06804) == 0x942041e) preview_mode = 2;
+    if (shamem_read(0xC0F06804) == 0xaed041e) preview_mode = 2;
      /* anamorphic rewired mode eosm */
 	if (shamem_read(0xC0F06804) == 0x78101e4) preview_mode = 2;
 /* auto set preview modes by reading registers eosm for now */
@@ -2142,9 +2141,8 @@ if ((cam_eos_m || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIE
              if (shamem_read(0xC0F06804) == 0x84104fe) *(volatile uint32_t*)0xC0F06804 = 0x84104fe;
              if (shamem_read(0xC0F06804) == 0x86504fe) *(volatile uint32_t*)0xC0F06804 = 0x86504fe; 
              if (shamem_read(0xC0F06804) == 0xb0f04fe) *(volatile uint32_t*)0xC0F06804 = 0xb0f04fe; 
-             if (shamem_read(0xC0F06804) == 0x6cb041e) *(volatile uint32_t*)0xC0F06804 = 0x6cb041e; 
-             if (shamem_read(0xC0F06804) == 0x6e9041e) *(volatile uint32_t*)0xC0F06804 = 0x6e9041e; 
-             if (shamem_read(0xC0F06804) == 0x917041e) *(volatile uint32_t*)0xC0F06804 = 0x917041e; 
+             if (shamem_read(0xC0F06804) == 0x942041e) *(volatile uint32_t*)0xC0F06804 = 0x942041e;
+             if (shamem_read(0xC0F06804) == 0xaed041e) *(volatile uint32_t*)0xC0F06804 = 0xaed041e;
              if (shamem_read(0xC0F06804) == 0xbd7041e) *(volatile uint32_t*)0xC0F06804 = 0xbd7041e; 
 /* 100D reset regs / Needs more tests, not working atm.	*/
              if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x5b90319;
@@ -2168,9 +2166,8 @@ if ((cam_eos_m || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIE
              if (shamem_read(0xC0F06804) == 0x84104fe) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
              if (shamem_read(0xC0F06804) == 0x86504fe) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
              if (shamem_read(0xC0F06804) == 0xb0f04fe) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0x6cb041e) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0x6e9041e) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0x917041e) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
+             if (shamem_read(0xC0F06804) == 0x942041e) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
+             if (shamem_read(0xC0F06804) == 0xaed041e) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
              if (shamem_read(0xC0F06804) == 0xbd7041e) *(volatile uint32_t*)0xC0F06804 = 0x4540298; 
 /* 100D 3k, 4k. Registry from crop_rec.c / Needs more tests, not working atm. */
              if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x45802a1;

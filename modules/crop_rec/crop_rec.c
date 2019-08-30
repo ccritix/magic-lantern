@@ -4849,8 +4849,6 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
-            PauseLiveView();
-            ResumeLiveView();
             presets = 0x0;
             zoomaid = 1;
             gain_buttons = 1;
@@ -4871,6 +4869,8 @@ static int crop_rec_needs_lv_refresh()
             menu_set_str_value_from_script("raw video", "Crop rec preview", "auto mode", 1);
             menu_set_str_value_from_script("raw video", "Aspect ratio", "1:2", 17);
             menu_set_str_value_from_script("Sound recording", "Enable sound", "ON", 1);
+            PauseLiveView();
+            ResumeLiveView();
             release = 0;
             release_b = 0;
             return 0;
