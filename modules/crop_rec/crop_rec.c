@@ -4595,7 +4595,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     {
         if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM)
         {
-            NotifyBox(2000, "4K anamorphic rewired 10bit");
+            NotifyBox(1000, "4K anamorphic rewired 10bit");
             crop_preset_index = 5;
             bitdepth = 0x1;
             presets = 0x0;
@@ -4609,7 +4609,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         
         if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)
         {
-            NotifyBox(2000, "2.5K 10bit");
+            NotifyBox(1000, "2.5K 10bit");
             crop_preset_index = 2;
             bitdepth = 0x1;
             presets = 0x0;
@@ -4628,7 +4628,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         /* reset to mcm rewired or head to 48fps mode... */
         if (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
         {
-            NotifyBox(2000, "mv1080p 45/48/50fps 10bit");
+            NotifyBox(1000, "mv1080p 45/48/50fps 10bit");
             crop_preset_index = 1;
             bitdepth = 0x1;
             presets = 0x0;
@@ -4642,7 +4642,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         /* reset to mcm rewired or jump straight to... */
         if (CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM)
         {
-            NotifyBox(2000, "mv1080p MCM rewire 14bit");
+            NotifyBox(1000, "mv1080p MCM rewire 14bit");
             crop_preset_index = 0;
             bitdepth = 0x0;
             presets = 0x0;
@@ -4832,11 +4832,12 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(150);
             set_lv_zoom(1);
             movie_crop_hack_enable();
             PauseLiveView();
             ResumeLiveView();
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -4851,11 +4852,12 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(150);
+            set_lv_zoom(1);
             movie_crop_hack_enable();
             PauseLiveView();
             ResumeLiveView();
-            set_lv_zoom(1);
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -4870,10 +4872,11 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(150);
+            set_lv_zoom(1);
             PauseLiveView();
             ResumeLiveView();
-            set_lv_zoom(1);
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -4888,10 +4891,11 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(150);
+            set_lv_zoom(5);
             PauseLiveView();
             ResumeLiveView();
-            set_lv_zoom(5);
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -4906,10 +4910,11 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(150);
+            set_lv_zoom(1);
             PauseLiveView();
             ResumeLiveView();
-            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
-            set_lv_zoom(1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -4924,7 +4929,6 @@ static int crop_rec_needs_lv_refresh()
             zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
-            set_lv_zoom(1);
             presets = 0x0;
             zoomaid = 1;
             gain_buttons = 1;
@@ -4947,6 +4951,7 @@ static int crop_rec_needs_lv_refresh()
             menu_set_str_value_from_script("raw video", "Aspect ratio", "1:2", 17);
             menu_set_str_value_from_script("Sound recording", "Enable sound", "ON", 1);
             msleep(100);
+            set_lv_zoom(1);
             PauseLiveView();
             ResumeLiveView();
             release = 0;
@@ -4960,13 +4965,14 @@ static int crop_rec_needs_lv_refresh()
             crop_preset_index = 7;
             bitdepth = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "OFF", 1);
+            msleep(100);
             movie_crop_hack_disable();
             gui_open_menu();
-            msleep(300);
+            msleep(200);
+            set_lv_zoom(1);
             gui_stop_menu();
             PauseLiveView();
             ResumeLiveView();
-            set_lv_zoom(1);
             presets = 0x0;
             release = 0;
             release_b = 0;
@@ -5488,6 +5494,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             if (crop_preset_index == 1) set_lv_zoom(1);
             if (crop_preset_index == 2) set_lv_zoom(5);
             if (crop_preset_index == 3) set_lv_zoom(1);
+            SetGUIRequestMode(0);
             
             if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
                 CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
