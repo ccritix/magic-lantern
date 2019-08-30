@@ -3281,7 +3281,6 @@ static inline uint32_t reg_override_4K_eosm(uint32_t reg, uint32_t old_val)
             ((RECORDING && timelapse == 0x9 && slowshutter == 0x1) || (timelapse == 0x9 && slowshutter == 0x0)) ? 0x2c7f:
             (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) ? 0xcb7 + reg_6014:
             (ratios == 0x1 || ratios == 0x2) ? 0xdff + reg_6014:
-            (ratios == 0x3) ? 0x12a9 + reg_6014:
             (ratios == 0x0) ? 0x1665 + reg_6014: 0xfff + reg_6014;
             
         case 0xC0F0713c: return ((timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9) && ratios == 0x0) ? 0xbd7 + reg_713c :
