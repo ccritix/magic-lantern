@@ -36,8 +36,8 @@ msleep(1000)
 end
 
 -- enable sound
-menu.set("Sound recording", "Enable sound", "ON")
-if menu.get("Sound recording", "Enable sound", "") ~= "ON" then
+menu.set("sound recording", "Enable sound", "ON")
+if menu.get("sound recording", "Enable sound", "") ~= "ON" then
 display.notify_box("enable mlv_snd.mo and mlv_lite.mo")
 msleep(2000)
 display.notify_box("enable mlv_snd.mo and mlv_lite.mo")
