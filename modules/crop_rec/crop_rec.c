@@ -5480,8 +5480,10 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         if (!get_halfshutter_pressed() && crop_patch2)
         {
             /* connected to short cut preset buttons */
+            if (crop_preset_index == 0) set_lv_zoom(1);
             if (crop_preset_index == 1) set_lv_zoom(1);
             if (crop_preset_index == 2) set_lv_zoom(5);
+            if (crop_preset_index == 3) set_lv_zoom(1);
             
             if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
                 CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
