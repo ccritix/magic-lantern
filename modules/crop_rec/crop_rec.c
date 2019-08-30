@@ -4598,9 +4598,6 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             NotifyBox(2000, "4K anamorphic rewired 10bit");
             crop_preset_index = 5;
             bitdepth = 0x1;
-            zoomaid = 0x1;
-            x3crop = 0x0;
-            x3toggle = 0x2;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             while (get_halfshutter_pressed())
@@ -4620,9 +4617,6 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             NotifyBox(2000, "2.5K 10bit");
             crop_preset_index = 2;
             bitdepth = 0x1;
-            zoomaid = 0x1;
-            x3crop = 0x0;
-            x3toggle = 0x2;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             while (get_halfshutter_pressed())
@@ -4648,9 +4642,6 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             NotifyBox(2000, "mv1080p 45/48/50fps 10bit");
             crop_preset_index = 1;
             bitdepth = 0x1;
-            zoomaid = 0x1;
-            x3crop = 0x0;
-            x3toggle = 0x2;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             while (get_halfshutter_pressed())
@@ -4671,9 +4662,6 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             NotifyBox(2000, "mv1080p MCM rewire 14bit");
             crop_preset_index = 0;
             bitdepth = 0x0;
-            zoomaid = 0x1;
-            x3crop = 0x0;
-            x3toggle = 0x2;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             presets = 0x0;
             while (get_halfshutter_pressed())
