@@ -4599,6 +4599,11 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             crop_preset_index = 5;
             bitdepth = 0x1;
             presets = 0x0;
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
             return 0;
         }
         
@@ -4608,17 +4613,12 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             crop_preset_index = 2;
             bitdepth = 0x1;
             presets = 0x0;
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
             return 0;
-        }
-        /* only after halfshutter is released */
-        while (get_halfshutter_pressed())
-        {
-            msleep(10);
-        }
-        if (!zoomaid)
-        {
-            PauseLiveView();
-            ResumeLiveView();
         }
     }
     
@@ -4632,6 +4632,11 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             crop_preset_index = 1;
             bitdepth = 0x1;
             presets = 0x0;
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
             return 0;
         }
         /* reset to mcm rewired or jump straight to... */
@@ -4641,18 +4646,12 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             crop_preset_index = 0;
             bitdepth = 0x0;
             presets = 0x0;
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
             return 0;
-        }
-        
-        /* only after halfshutter is released */
-        while (get_halfshutter_pressed())
-        {
-            msleep(10);
-        }
-        if (!zoomaid)
-        {
-            PauseLiveView();
-            ResumeLiveView();
         }
     }
     
