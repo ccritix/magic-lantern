@@ -4707,6 +4707,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     /* selects Movie tab menu */
     if (((dropdown == 0x1 && key == MODULE_KEY_TOUCH_1_FINGER) || (dropdown == 0x2 && key == MODULE_KEY_INFO)) && (!gui_menu_shown() && is_movie_mode() && lv && !RECORDING))
     {
+        msleep(100);
         if(lv_disp_mode != 0){
             // Use INFO key to cycle LV as normal when not in the LV with ML overlays
             return 1;
