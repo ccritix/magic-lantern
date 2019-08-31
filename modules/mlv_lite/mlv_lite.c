@@ -4415,7 +4415,7 @@ static int raw_rec_should_preview(void)
 	}
 */
         //pause it. Better recording performance
-        //if (RAW_IS_RECORDING) bmp_on();
+        if (RAW_IS_RECORDING) bmp_on();
 
        }
 
@@ -4473,7 +4473,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383dc, 0x39a01de);
 	}
 */      //pause it. Better recording performance
-        //if (RAW_IS_RECORDING) bmp_off();
+        if (RAW_IS_RECORDING) bmp_off();
 
        }
 

@@ -3158,8 +3158,8 @@ static inline uint32_t reg_override_2K_eosm(uint32_t reg, uint32_t old_val)
         {
             case 0xC0F06804: return 0x44c0298 + reg_6804_width + (reg_6804_height << 16); /* 2520x1072  x5 Mode; */
                 
-            case 0xC0F0713c: return 0x44c + reg_713c;
-            case 0xC0F07150: return 0x435 + reg_7150;
+            case 0xC0F0713c: return 0x455 + reg_713c;
+            case 0xC0F07150: return 0x428 + reg_7150;
             case 0xC0F06014: return set_25fps == 0x1 ? 0x747 - 76 + reg_6014: 0x747 + reg_6014;
                 
                 /* reset dummy reg in raw.c */
