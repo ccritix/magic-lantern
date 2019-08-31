@@ -4593,12 +4593,36 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     /* presets shortcuts */
     if (!RECORDING && key == MODULE_KEY_TOUCH_1_FINGER && get_halfshutter_pressed() && is_movie_mode() && !gui_menu_shown())
     {
-        if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM)
+        static int pre1 = 0;
+        static int pre2 = 0;
+        static int pre3 = 0;
+        /* reset to mcm rewired or jump straight to... */
+        if (!pre1)
         {
+            pre1 = 1;
+            NotifyBox(1000, "mv1080p MCM rewire 14bit");
+            crop_preset_index = 0;
+            bitdepth = 0x0;
+            presets = 0x0;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(100);
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
+            return 0;
+        }
+            
+        if (!pre2 && pre1)
+        {
+            pre2 = 1;
             NotifyBox(1000, "4K anamorphic rewired 10bit");
             crop_preset_index = 5;
             bitdepth = 0x1;
             presets = 0x0;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(100);
             if (!zoomaid)
             {
                 PauseLiveView();
@@ -4607,12 +4631,16 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             return 0;
         }
         
-        if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM)
+        if (!pre3 && pre2 && pre1)
         {
+            pre2 = 0;
+            pre1 = 0;
             NotifyBox(1000, "2.5K 10bit");
             crop_preset_index = 2;
             bitdepth = 0x1;
             presets = 0x0;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(100);
             if (!zoomaid)
             {
                 PauseLiveView();
@@ -4626,12 +4654,14 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     if (!RECORDING && key == MODULE_KEY_PRESS_SET && get_halfshutter_pressed() && is_movie_mode() && !gui_menu_shown())
     {
         /* reset to mcm rewired or head to 48fps mode... */
-        if (CROP_PRESET_MENU == CROP_PRESET_mcm_mv1080_EOSM)
+        if (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM)
         {
-            NotifyBox(1000, "mv1080p 45/48/50fps 10bit");
-            crop_preset_index = 1;
+            NotifyBox(1000, "4K 4080x3000");
+            crop_preset_index = 4;
             bitdepth = 0x1;
             presets = 0x0;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(100);
             if (!zoomaid)
             {
                 PauseLiveView();
@@ -4640,12 +4670,14 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             return 0;
         }
         /* reset to mcm rewired or jump straight to... */
-        if (CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM)
+        if (CROP_PRESET_MENU != CROP_PRESET_3K_EOSM)
         {
-            NotifyBox(1000, "mv1080p MCM rewire 14bit");
-            crop_preset_index = 0;
-            bitdepth = 0x0;
+            NotifyBox(1000, "3K 3032x1436");
+            crop_preset_index = 3;
+            bitdepth = 0x1;
             presets = 0x0;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(100);
             if (!zoomaid)
             {
                 PauseLiveView();
