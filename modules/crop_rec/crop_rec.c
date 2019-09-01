@@ -329,10 +329,10 @@ static int is_supported_mode()
         return 0;
     }
     
-    if ((CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) && is_movie_mode() && get_halfshutter_pressed())
+    if ((CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) && is_movie_mode() && get_halfshutter_pressed() && !timelapse && !RECORDING)
     {
         /* dark mode */
-        if (zoomaid == 0x2 && !timelapse)
+        if (zoomaid == 0x2)
         {
             *(volatile uint32_t*)0xc0f06014 = 0xfff;
             *(volatile uint32_t*)0xc0f140c0 = 0xb0;
@@ -1282,6 +1282,10 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;
                 
             case CROP_PRESET_3K_EOSM:
+                if (get_halfshutter_pressed() && gain_buttons && !RECORDING && is_movie_mode())
+                {
+                    return;
+                }
                 cmos_new[5] = 0x280;             /* vertical (first|last) */
                 cmos_new[7] = 0xaa9;            /* horizontal offset (mask 0xFF0) */
                 if (ratios == 0x3)
@@ -1292,6 +1296,10 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 break;
                 
             case CROP_PRESET_4K_EOSM:
+                if (get_halfshutter_pressed() && gain_buttons && !RECORDING && is_movie_mode())
+                {
+                    return;
+                }
                 cmos_new[5] = 0x140;            /* vertical (first|last) */
                 cmos_new[7] = 0xf20;
                 if (timelapse == 0x7 || timelapse == 0x8 || timelapse == 0x9)
