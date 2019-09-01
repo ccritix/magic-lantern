@@ -4697,7 +4697,6 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             crop_preset_index = 4;
             timelapse = 0;
             slowshutter = 0;
-            bitdepth = 0x1;
             presets = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             msleep(100);
@@ -4714,7 +4713,6 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             preb = 1;
             NotifyBox(1000, "3K 3032x1436");
             crop_preset_index = 3;
-            bitdepth = 0x1;
             presets = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             msleep(100);
