@@ -635,7 +635,9 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
             break;
             
         case CROP_PRESET_4K_EOSM:
-
+        //skip this for 5k presets
+        if (timelapse != 0x7 && timelapse != 0x8 && timelapse != 0x9)
+        {
             if (ratios == 0x1)
             {
                 skip_left       = 72;
@@ -657,6 +659,7 @@ static inline void FAST calc_skip_offsets(int * p_skip_left, int * p_skip_right,
                 skip_top        = 500;
                 skip_bottom     = 0;
             }
+        }
             break;
             
         case CROP_PRESET_3x3_mv1080_EOSM:
@@ -4684,6 +4687,8 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         static int preb = 0;
         static int prec = 0;
         static int pred = 0;
+        static int pree = 0;
+        static int pref = 0;
         /* reset to mcm rewired or head to 48fps mode... */
         if (!prea)
         {
@@ -4740,12 +4745,50 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         
         if (!pred && prec && preb && prea)
         {
-            prec = 0;
-            preb = 0;
-            prea = 0;
+            pred = 1;
             NotifyBox(1000, "4k timelape 1fps slowshutter");
             crop_preset_index = 4;
             timelapse = 2;
+            slowshutter = 1;
+            presets = 0x0;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(100);
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
+            return 0;
+        }
+        
+        if (!pree && pred && prec && preb && prea)
+        {
+            pree = 1;
+            NotifyBox(1000, "5k timelape 1fps");
+            crop_preset_index = 4;
+            timelapse = 8;
+            slowshutter = 0;
+            presets = 0x0;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(100);
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
+            return 0;
+        }
+        
+        if (!pref && pree && pred && prec && preb && prea)
+        {
+            pree = 0;
+            pred = 0;
+            prec = 0;
+            preb = 0;
+            prea = 0;
+            NotifyBox(1000, "5k timelape 1fps slowshutter");
+            crop_preset_index = 4;
+            timelapse = 8;
             slowshutter = 1;
             presets = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
