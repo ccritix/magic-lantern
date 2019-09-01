@@ -340,6 +340,13 @@ static int is_supported_mode()
         return 0;
     }
     
+    if (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM && is_movie_mode() && get_halfshutter_pressed() && timelapse && !RECORDING && !slowshutter)
+    {
+
+        *(volatile uint32_t*)0xc0f06014 = 0xcb7;
+        return 0;
+    }
+    
     /* workaround getting below cams working with focus aid */
     static int last_hs_aid = 0;
     if (!get_halfshutter_pressed()) last_hs_aid = get_ms_clock();
