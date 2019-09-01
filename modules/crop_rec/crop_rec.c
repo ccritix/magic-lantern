@@ -403,6 +403,7 @@ static int subby = 0;
 static int release = 0;
 static int release_b = 0;
 static int autoiso = 0;
+static int isouse = 0;
 
 /* helper to allow indexing various properties of Canon's video modes */
 static inline int get_video_mode_index()
@@ -5202,6 +5203,13 @@ static void iso()
 
 static void iso2()
 {
+    //explain why iso is stuck
+    if (lv_disp_mode != 0 && lv_dispsize == 5 && !isouse)
+    {
+        isouse = 1;
+        NotifyBox(3000, "use gain buttons for iso changes");
+    }
+    
     if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
     if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
     if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
@@ -5228,6 +5236,18 @@ static void iso3()
 /* when closing ML menu, check whether we need to refresh the LiveView */
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
+    //safety check for when in x5zoom and iso changed from canon menu while liveview open
+    if (lv_disp_mode != 0 && lv_dispsize == 5 && gain_buttons)
+    {
+        iso2();
+    }
+    
+    if (lv_disp_mode == 0 && lv_dispsize == 5 && gain_buttons)
+    {
+        //reset explain box here
+        isouse = 0;
+    }
+
     if (isoauto && !autoiso && !gui_menu_shown() && is_movie_mode())
     {
         if (gain_buttons) NotifyBox(2000, "gain buttons turned to OFF(autoiso)");
