@@ -329,6 +329,18 @@ static int is_supported_mode()
         return 0;
     }
     
+    if ((CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) && is_movie_mode() && get_halfshutter_pressed())
+    {
+        /* dark mode */
+        if (zoomaid == 0x2 && !timelapse)
+        {
+            *(volatile uint32_t*)0xc0f06014 = 0xfff;
+            *(volatile uint32_t*)0xc0f140c0 = 0xb0;
+        }
+        return 0;
+    }
+
+    
     /* workaround getting below cams working with focus aid */
     static int last_hs_aid = 0;
     if (!get_halfshutter_pressed()) last_hs_aid = get_ms_clock();
