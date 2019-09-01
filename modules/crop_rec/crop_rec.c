@@ -339,7 +339,6 @@ static int is_supported_mode()
         }
         return 0;
     }
-
     
     /* workaround getting below cams working with focus aid */
     static int last_hs_aid = 0;
@@ -4674,11 +4673,18 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     /* presets shortcuts */
     if (!RECORDING && key == MODULE_KEY_PRESS_SET && get_halfshutter_pressed() && is_movie_mode() && !gui_menu_shown())
     {
+        static int prea = 0;
+        static int preb = 0;
+        static int prec = 0;
+        static int pred = 0;
         /* reset to mcm rewired or head to 48fps mode... */
-        if (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM)
+        if (!prea)
         {
+            prea = 1;
             NotifyBox(1000, "4K 4080x3000");
             crop_preset_index = 4;
+            timelapse = 0;
+            slowshutter = 0;
             bitdepth = 0x1;
             presets = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
@@ -4691,11 +4697,49 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             return 0;
         }
         /* reset to mcm rewired or jump straight to... */
-        if (CROP_PRESET_MENU != CROP_PRESET_3K_EOSM)
+        if (!preb && prea)
         {
+            preb = 1;
             NotifyBox(1000, "3K 3032x1436");
             crop_preset_index = 3;
             bitdepth = 0x1;
+            presets = 0x0;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(100);
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
+            return 0;
+        }
+        
+        if (!prec && preb && prea)
+        {
+            prec = 1;
+            NotifyBox(1000, "4k timelape 1fps");
+            crop_preset_index = 4;
+            timelapse = 2;
+            presets = 0x0;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(100);
+            if (!zoomaid)
+            {
+                PauseLiveView();
+                ResumeLiveView();
+            }
+            return 0;
+        }
+        
+        if (!pred && prec && preb && prea)
+        {
+            prec = 0;
+            preb = 0;
+            prea = 0;
+            NotifyBox(1000, "4k timelape 1fps slowshutter");
+            crop_preset_index = 4;
+            timelapse = 2;
+            slowshutter = 1;
             presets = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             msleep(100);
@@ -6082,6 +6126,14 @@ static unsigned int crop_rec_init()
     
     is_digic4 = is_camera("DIGIC", "4");
     is_digic5 = is_camera("DIGIC", "5");
+    
+    if (crop_preset_index == 4 && is_movie_mode() && timelapse && !slowshutter)
+    {
+        NotifyBox(3000, "timelapse disabled upon restart");
+        timelapse = 0;
+        slowshutter = 0;
+        msleep(2000);
+    }
     
     if (gain_buttons)
     {
