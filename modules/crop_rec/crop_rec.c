@@ -1847,7 +1847,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
         adtg_new[1] = (struct adtg_new) {6, blanking_reg_nozoom, shutter_blanking};
         
         /* always disable Movie crop mode if using crop_rec presets, except for mcm mode, Only eosm and 100D */
-        if ((is_EOSM || is_100D) && CROP_PRESET_MENU != CROP_PRESET_H264 && !RECORDING)
+        if ((is_EOSM || is_100D) && CROP_PRESET_MENU != CROP_PRESET_H264 && !RECORDING && lv)
         {
             /* always disable Movie crop mode if using crop_rec presets, except for mcm mode */
             if ((crop_preset == CROP_PRESET_mcm_mv1080_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_EOSM) || (crop_preset == CROP_PRESET_anamorphic_rewired_100D))
@@ -4825,7 +4825,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             // Use INFO key to cycle LV as normal when not in the LV with ML overlays
             return 1;
         }
-        select_menu_by_name("Movie", "presets");
+        select_menu_by_name("presets", "startoff presets");
         gui_open_menu();
         subby = 1;
     }
@@ -5637,7 +5637,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             ResumeLiveView();
         }
         
-        if (!get_halfshutter_pressed() && crop_patch2)
+        if (!get_halfshutter_pressed() && crop_patch2 && lv)
         {
             /* connected to short cut preset buttons */
             if (crop_preset_index == 1) set_lv_zoom(1);
