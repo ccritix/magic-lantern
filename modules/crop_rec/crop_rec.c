@@ -4519,6 +4519,7 @@ static struct menu_entry crop_rec_menu[] =
                 .help  = "skip bottom",
                 .advanced = 1,
             },
+            /*
             {
                 .name       = "Shutter range",
                 .priv       = &shutter_range,
@@ -4529,6 +4530,7 @@ static struct menu_entry crop_rec_menu[] =
                 "Full range: from 1/FPS to minimum exposure time allowed by hardware.",
                 .advanced = 1,
             },
+             */
             {
                 .name   = "reg_bl",
                 .priv   = &reg_bl,
