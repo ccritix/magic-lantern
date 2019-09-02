@@ -606,7 +606,7 @@ static int raw_lv_get_resolution(int* width, int* height)
 #ifdef CONFIG_EOSM
     /* EOS M exception */
     /* http://www.magiclantern.fm/forum/index.php?topic=16608.msg176023#msg176023 */
-    if (lv_dispsize == 1 && !RECORDING_H264 && shamem_read(0xC0f0b13c) != 0x10) /* for 1x3 binning */
+    if (lv_dispsize == 1 && !RECORDING_H264 && shamem_read(0xC0f0b13c) != 0x10 && shamem_read(0xC0f0b13c) != 0x11)
 
     {    
             *height = 727; 

@@ -3774,6 +3774,11 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
 
 static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_val)
 {
+    switch (reg)
+    {
+            //reset dummy reg in raw.c
+            case 0xC0f0b13c: return 0x11;
+    }
     
     if (ratios == 0x1 || ratios == 0x2)
     {
@@ -3788,10 +3793,6 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
                 
             case 0xC0F0713c: return 0x797 + reg_713c;
             case 0xC0F07150: return 0x791 + reg_7150;
-                
-                /* dummy reg for height modes eosm in raw.c */
-            case 0xC0f0b13c: return 0xd;
-                
         }
         
     }
@@ -3809,9 +3810,6 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
                 
             case 0xC0F0713c: return 0x7ef + reg_713c;
             case 0xC0F07150: return 0x7dd + reg_7150;
-                
-                /* dummy reg for height modes eosm in raw.c */
-            case 0xC0f0b13c: return 0xd;
         }
         
     }
@@ -3829,9 +3827,6 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
                 
             case 0xC0F0713c: return 0x885 + reg_713c;
             case 0xC0F07150: return 0x880 + reg_7150;
-                
-                /* dummy reg for height modes eosm in raw.c */
-            case 0xC0f0b13c: return 0xd;
         }
         
     }
