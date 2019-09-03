@@ -340,6 +340,12 @@ static int is_supported_mode()
         return 0;
     }
     
+    //sticky push feature
+    if (zoomaid == 0x3 && lv_dispsize == 10 && !get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) && is_movie_mode())
+    {
+        return 0;
+    }
+    
     if (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM && is_movie_mode() && get_halfshutter_pressed() && timelapse && !RECORDING && !slowshutter)
     {
 
@@ -350,7 +356,7 @@ static int is_supported_mode()
     /* workaround getting below cams working with focus aid */
     static int last_hs_aid = 0;
     if (!get_halfshutter_pressed()) last_hs_aid = get_ms_clock();
-                if (get_ms_clock() - last_hs_aid > 300 && get_halfshutter_pressed() && (is_5D3) && !RECORDING && (zoomaid == 0x1 || zoomaid == 0x2)) return 0;
+                if (get_ms_clock() - last_hs_aid > 300 && get_halfshutter_pressed() && (is_5D3) && !RECORDING && zoomaid) return 0;
     
     switch (crop_preset)
     {
@@ -2126,7 +2132,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
     static int last_hs_unpress = 0;
     
-    if (((zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING && !is_5D3) &&
+    if ((zoomaid && !RECORDING && !is_5D3) &&
         (CROP_PRESET_MENU != CROP_PRESET_CENTER_Z_EOSM &&
          CROP_PRESET_MENU != CROP_PRESET_3x3_1X_EOSM &&
          CROP_PRESET_MENU != CROP_PRESET_2K_EOSM &&
@@ -2145,7 +2151,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
     }
     
     /* reset registry. Used for dummy check in mlv_lite.c when using realtime preview */
-    if (!get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING && CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM)
+    if (!get_halfshutter_pressed() && zoomaid && !RECORDING && CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM)
     {
         EngDrvOutLV(0xc0f11a88, 0x0);
     }
@@ -3221,7 +3227,7 @@ static inline uint32_t reg_override_3K_eosm(uint32_t reg, uint32_t old_val)
         switch (reg)
         {
             case 0xC0F06804: return 0x5b90318 + reg_6804_width + (reg_6804_height << 16); // 3032x1436  x5 Mode;
-            case 0xC0F06014: return (get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2) && !RECORDING) ? 0x839: 0x62c + reg_6014;
+            case 0xC0F06014: return (get_halfshutter_pressed() && zoomaid && !RECORDING) ? 0x839: 0x62c + reg_6014;
             case 0xC0F0713c: return 0x5b9 + reg_713c;
             case 0xC0F06824: return 0x3ca;
             case 0xC0F06828: return 0x3ca;
@@ -4084,8 +4090,8 @@ static struct menu_entry custom_buttons_menu[] =
             {
                 .name   = "focus aid",
                 .priv   = &zoomaid,
-                .max    = 2,
-                .choices = CHOICES("OFF", "default mode", "dark mode"),
+                .max    = 3,
+                .choices = CHOICES("OFF", "default mode", "dark mode", "sticky push"),
                 .help   = "x10 zoom when pressing halfshutter(all presets, manual focus)",
                 .help2   = "Will brighten liveview(slower fps)\n"
             },
@@ -4608,7 +4614,6 @@ static struct menu_entry crop_rec_menu[] =
 
 static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
-    
     /* photo mode */
     if (!RECORDING && key == MODULE_KEY_TOUCH_1_FINGER && lv_dispsize == 10 && !is_movie_mode() && !gui_menu_shown())
     {
@@ -4616,19 +4621,20 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         set_lv_zoom(1);
         return 0;
     }
+
+    static int pre1 = 0;
+    static int pre2 = 0;
+    static int pre3 = 0;
     
     /* presets shortcuts */
-    if (!RECORDING && key == MODULE_KEY_TOUCH_1_FINGER && get_halfshutter_pressed() && is_movie_mode() && !gui_menu_shown())
+    if (!RECORDING && key == MODULE_KEY_TOUCH_1_FINGER && lv_dispsize == 10 && is_movie_mode() && !gui_menu_shown())
     {
-        static int pre1 = 0;
-        static int pre2 = 0;
-        static int pre3 = 0;
         /* reset to mcm rewired or jump straight to... */
-        if (!pre1)
+        if (!pre1 || (pre3 && !pre2 && !pre1))
         {
             pre1 = 1;
+            pre3 = 0;
             NotifyBox(1000, "mv1080p MCM rewire 14bit");
-            crop_preset_index = 0;
             bitdepth = 0x0;
             presets = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
@@ -4645,7 +4651,6 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         {
             pre2 = 1;
             NotifyBox(1000, "4K anamorphic rewired 10bit");
-            crop_preset_index = 5;
             bitdepth = 0x1;
             presets = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
@@ -4660,10 +4665,10 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         
         if (!pre3 && pre2 && pre1)
         {
+            pre3 = 1;
             pre2 = 0;
             pre1 = 0;
             NotifyBox(1000, "2.5K 10bit");
-            crop_preset_index = 2;
             bitdepth = 0x1;
             presets = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
@@ -4677,8 +4682,22 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         }
     }
     
+    //move down indexing here after selecting one or registry will mess up liveview while scrolling with focus aid sticky push feature
+    while ((pre1 || pre2 || pre3) && lv_dispsize == 10 && get_halfshutter_pressed() && !gui_menu_shown())
+    {
+        if (pre1 && !pre2 && !pre3) crop_preset_index = 0;
+        if (pre2 && pre1 && !pre3) crop_preset_index = 5;
+        if (pre3 && !pre1 && !pre2) crop_preset_index = 2;
+        if (crop_preset_index == 0) set_lv_zoom(1);
+        if (crop_preset_index == 5) set_lv_zoom(1);
+        if (crop_preset_index == 2) set_lv_zoom(5);
+        pre3 = 0;
+        pre2 = 0;
+        pre1 = 0;
+    }
+    
     /* presets shortcuts */
-    if (!RECORDING && key == MODULE_KEY_PRESS_SET && get_halfshutter_pressed() && is_movie_mode() && !gui_menu_shown())
+    if (!RECORDING && key == MODULE_KEY_PRESS_SET && lv_dispsize == 10 && is_movie_mode() && !gui_menu_shown())
     {
         static int prea = 0;
         static int preb = 0;
@@ -4754,6 +4773,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
                 ResumeLiveView();
             }
             return 0;
+            set_lv_zoom(1);
         }
         
         if (!pree && pred && prec && preb && prea)
@@ -4815,7 +4835,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     }
     
     /* selects Movie tab menu */
-    if (((dropdown == 0x1 && key == MODULE_KEY_TOUCH_1_FINGER) || (dropdown == 0x2 && key == MODULE_KEY_INFO)) && (!gui_menu_shown() && is_movie_mode() && lv && !RECORDING))
+    if (((dropdown == 0x1 && key == MODULE_KEY_TOUCH_1_FINGER) || (dropdown == 0x2 && key == MODULE_KEY_INFO)) && (!gui_menu_shown() && is_movie_mode() && lv && !RECORDING && lv_dispsize != 10))
     {
         msleep(100);
         if(lv_disp_mode != 0){
@@ -5439,7 +5459,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     }
     
     /* For when in photo mode and enabled x10 zoom mode */
-    if (((zoomaid == 0x1 || zoomaid == 0x2) && !is_movie_mode()) || (is_5D3 && (!RECORDING && (zoomaid == 0x1 || zoomaid == 0x2))))
+    if ((zoomaid && !is_movie_mode()) || (is_5D3 && (!RECORDING && zoomaid)))
     {
         static int last_hs_photo = 0;
         static int photo = 0;
@@ -5465,10 +5485,10 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     }
     
     static int once1 = 1;
-    if (once1 && (zoomaid == 0x1 || zoomaid == 0x2 || gain_buttons) && !is_movie_mode())
+    if (once1 && (zoomaid || gain_buttons) && !is_movie_mode())
     {
         once1 = 0;
-        if (zoomaid == 0x1 || zoomaid == 0x2) NotifyBox(4000, "Crop mode x10 halfshutter focus aid active");
+        if (zoomaid) NotifyBox(4000, "Crop mode x10 halfshutter focus aid active");
         
         /* update iso values in photo mode */
         if (gain_buttons)
@@ -5585,7 +5605,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     }
     
         /* zoomaid */
-        if (get_halfshutter_pressed() && !gui_menu_shown() && !is_5D3 && !crop_patch2 && (zoomaid == 0x1 || zoomaid == 0x2))
+        if (get_halfshutter_pressed() && !gui_menu_shown() && !is_5D3 && !crop_patch2 && zoomaid)
         {
             crop_patch2 = 1;
             /* dark mode */
@@ -5614,7 +5634,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                     display_on();
                     ResumeLiveView();
                 }
-                if ((zoomaid == 0x1 || zoomaid == 0x2)) set_lv_zoom(10);
+                if (zoomaid) set_lv_zoom(10);
             }
             else
             {
@@ -5624,16 +5644,27 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                     msleep(300);
                     display_on();
                     ResumeLiveView();
-                if (zoomaid == 0x1 || zoomaid == 0x2) set_lv_zoom(10);
+                if (zoomaid) set_lv_zoom(10);
             }
             while (get_halfshutter_pressed())
             {
                 msleep(10);
             }
         }
+    
+    //sticky push feature
+    while (lv_dispsize == 10 && !get_halfshutter_pressed() && zoomaid == 0x3)
+    {
+        msleep(10);
+    }
         
-        if (!get_halfshutter_pressed() && crop_patch2)
+        if (((!get_halfshutter_pressed() && zoomaid != 0x3) || (get_halfshutter_pressed() && zoomaid == 0x3)) && crop_patch2)
         {
+            //sticky push feature
+            while (get_halfshutter_pressed() && zoomaid == 0x3)
+            {
+                msleep(10);
+            }
             /* connected to short cut preset buttons */
             if (crop_preset_index == 1) set_lv_zoom(1);
             if (crop_preset_index == 2) set_lv_zoom(5);
@@ -5674,6 +5705,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                 PauseLiveView();
                 ResumeLiveView();
             }
+            
             crop_patch2 = 0;
         }
     
@@ -5688,7 +5720,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             NotifyBox(2000, "x3crop NOT compatible with x3toggle"); //disable patch while off
         }
         
-        if ((x3toggle == 0x1 || x3toggle == 0x2) && (zoomaid == 0x1 || zoomaid == 0x2))
+        if ((x3toggle == 0x1 || x3toggle == 0x2) && zoomaid)
         {
             x3crop = 0;
             x3toggle = 0;
