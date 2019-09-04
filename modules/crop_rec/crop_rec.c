@@ -329,7 +329,7 @@ static int is_supported_mode()
         return 0;
     }
     
-    if ((CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) && is_movie_mode() && get_halfshutter_pressed() && !RECORDING)
+    if ((CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) && is_movie_mode() && get_halfshutter_pressed() && !RECORDING && ((timelapse && !slowshutter) || !timelapse))
     {
         /* dark mode */
         if (zoomaid == 0x2)
