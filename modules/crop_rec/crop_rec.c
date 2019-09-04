@@ -225,7 +225,7 @@ static enum crop_preset crop_presets_eosm[] = {
     CROP_PRESET_3x3_mv1080_48fps_EOSM,
     //CROP_PRESET_3x3_mv1080_EOSM,
     //CROP_PRESET_3x1_mv720_50fps_EOSM,
-    //CROP_PRESET_CENTER_Z_EOSM,
+    CROP_PRESET_CENTER_Z_EOSM,
     CROP_PRESET_2K_EOSM,
     CROP_PRESET_3K_EOSM,
     CROP_PRESET_4K_EOSM,
@@ -243,7 +243,7 @@ static const char * crop_choices_eosm[] = {
     "mv1080p 1736x976 46/48fps",
     //"mv1080p 1736x1158",
     //"mv720p 1736x694 50fps",
-    //"2.5K 1:1 centered",
+    "2.5K 1:1 centered",
     "2.5K 2520x1418",
     "3K 3032x1436",
     "4K 4080x3000",
@@ -265,7 +265,7 @@ static const char crop_choices_help2_eosm[] =
 "mv1080p 46/48 fps\n"
 //"mv1080p bypass mv720p idle mode\n"
 //"mv720p 50fps 16:9\n"
-//"1:1 x5 zoom mode(centered raw, cropped preview)\n"
+"1:1 x5 zoom mode(centered raw, cropped preview)\n"
 "1:1 2K x5crop, real time preview\n"
 "1:1 3K x5crop, framing preview\n"
 "1:1 4K x5crop, framing preview\n"
@@ -329,7 +329,7 @@ static int is_supported_mode()
         return 0;
     }
     
-    if ((CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) && is_movie_mode() && get_halfshutter_pressed() && !timelapse && !RECORDING)
+    if ((CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) && is_movie_mode() && get_halfshutter_pressed() && !RECORDING)
     {
         /* dark mode */
         if (zoomaid == 0x2)
@@ -341,7 +341,7 @@ static int is_supported_mode()
     }
     
     //sticky push feature
-    if (zoomaid == 0x3 && lv_dispsize == 10 && !get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) && is_movie_mode())
+    if (zoomaid == 0x3 && lv_dispsize == 10 && !get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) && is_movie_mode())
     {
         return 0;
     }
@@ -5134,6 +5134,7 @@ static int crop_rec_needs_lv_refresh()
         (CROP_PRESET_MENU == CROP_PRESET_3K_100D) ||
         (CROP_PRESET_MENU == CROP_PRESET_4K_100D) ||
         (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) ||
+        (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
         (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) ||
         (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) ||
         (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) ||
@@ -5622,6 +5623,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             {
                 if (CROP_PRESET_MENU == CROP_PRESET_3x3_mv1080_48fps_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_anamorphic_EOSM ||
+                    CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_2K_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_3K_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
@@ -5672,6 +5674,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             {
                 if (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_3K_EOSM ||
+                    CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM ||
                     CROP_PRESET_MENU == CROP_PRESET_4K_EOSM)
                 {
                     display_off();
@@ -5779,6 +5782,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
          (CROP_PRESET_MENU == CROP_PRESET_3K_100D) ||
          (CROP_PRESET_MENU == CROP_PRESET_4K_100D) ||
          (CROP_PRESET_MENU == CROP_PRESET_2K_EOSM) ||
+         (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) ||
          (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM) ||
          (CROP_PRESET_MENU == CROP_PRESET_4K_EOSM) ||
          (CROP_PRESET_MENU == CROP_PRESET_4K_3x1_EOSM) ||
@@ -5971,6 +5975,11 @@ static LVINFO_UPDATE_FUNC(crop_info)
         {
             snprintf(buffer, sizeof(buffer), "2K");
         }
+    }
+    
+    if (CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM)
+    {
+            snprintf(buffer, sizeof(buffer), "2.5K centered");
     }
     
     if (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM)

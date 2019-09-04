@@ -2121,6 +2121,7 @@ if ((cam_eos_m || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIE
     if (shamem_read(0xC0F06804) == 0x84104fe) preview_mode = 2;
     if (shamem_read(0xC0F06804) == 0x86504fe) preview_mode = 2;
     if (shamem_read(0xC0F06804) == 0xb0f04fe) preview_mode = 2;
+    if (shamem_read(0xC0F06804) == 0xbd704fe) preview_mode = 2;
     /* 4k modes */
     if (shamem_read(0xC0F06804) == 0x942041e) preview_mode = 2;
     if (shamem_read(0xC0F06804) == 0xaed041e) preview_mode = 2;
