@@ -5366,7 +5366,7 @@ static void iso3()
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
     //safety check for when in x5zoom and iso changed from canon menu while liveview open
-    if (lv_disp_mode != 0 && lv_dispsize == 5 && gain_buttons)
+    if ((lv_disp_mode != 0 && lv_dispsize == 5 && gain_buttons) || (get_halfshutter_pressed() && !gui_menu_shown() && !is_5D3 && !crop_patch2 && zoomaid))
     {
         iso2();
     }
@@ -5643,8 +5643,6 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                     ResumeLiveView();
                 if (zoomaid) set_lv_zoom(10);
             }
-            /* update iso or x10 zoom will rely on underlying iso */
-            if (!isoauto) iso2();
             while (get_halfshutter_pressed())
             {
                 msleep(10);
