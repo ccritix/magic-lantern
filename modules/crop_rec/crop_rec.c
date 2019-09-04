@@ -4683,14 +4683,14 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     }
     
     //move down indexing here after selecting one or registry will mess up liveview while scrolling with focus aid sticky push feature
-    while ((pre1 || pre2 || pre3) && lv_dispsize == 10 && get_halfshutter_pressed() && !gui_menu_shown())
+    while (((get_halfshutter_pressed() && zoomaid == 0x3) || (!get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2))) && (pre1 || pre2 || pre3) && lv_dispsize == 10 && !gui_menu_shown())
     {
         if (pre1 && !pre2 && !pre3) crop_preset_index = 0;
-        if (pre2 && pre1 && !pre3) crop_preset_index = 5;
-        if (pre3 && !pre1 && !pre2) crop_preset_index = 2;
+        if (pre2 && pre1 && !pre3) crop_preset_index = 6;
+        if (pre3 && !pre1 && !pre2) crop_preset_index = 3;
         if (crop_preset_index == 0) set_lv_zoom(1);
-        if (crop_preset_index == 5) set_lv_zoom(1);
-        if (crop_preset_index == 2) set_lv_zoom(5);
+        if (crop_preset_index == 6) set_lv_zoom(1);
+        if (crop_preset_index == 3) set_lv_zoom(5);
         pre3 = 0;
         pre2 = 0;
         pre1 = 0;
@@ -4710,7 +4710,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         {
             prea = 1;
             NotifyBox(1000, "4K 4080x3000");
-            crop_preset_index = 4;
+            crop_preset_index = 5;
             timelapse = 0;
             slowshutter = 0;
             presets = 0x0;
@@ -4728,7 +4728,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         {
             preb = 1;
             NotifyBox(1000, "3K 3032x1436");
-            crop_preset_index = 3;
+            crop_preset_index = 4;
             presets = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             msleep(100);
@@ -4744,7 +4744,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         {
             prec = 1;
             NotifyBox(1000, "4k timelape 1fps");
-            crop_preset_index = 4;
+            crop_preset_index = 5;
             timelapse = 2;
             presets = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
@@ -4761,7 +4761,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         {
             pred = 1;
             NotifyBox(1000, "4k timelape 1fps slowshutter");
-            crop_preset_index = 4;
+            crop_preset_index = 5;
             timelapse = 2;
             slowshutter = 1;
             presets = 0x0;
@@ -4780,7 +4780,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         {
             pree = 1;
             NotifyBox(1000, "5k timelape 1fps");
-            crop_preset_index = 4;
+            crop_preset_index = 5;
             timelapse = 8;
             slowshutter = 0;
             presets = 0x0;
@@ -4802,7 +4802,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
             preb = 0;
             prea = 0;
             NotifyBox(1000, "5k timelape 1fps slowshutter");
-            crop_preset_index = 4;
+            crop_preset_index = 5;
             timelapse = 8;
             slowshutter = 1;
             presets = 0x0;
@@ -5007,7 +5007,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x2)
         {
             NotifyBox(2000, "4K anamorphic rewired 10bit");
-            crop_preset_index = 5;
+            crop_preset_index = 6;
             bitdepth = 0x1;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             msleep(150);
@@ -5024,7 +5024,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x3)
         {
             NotifyBox(2000, "5K anamorphic 10bit");
-            crop_preset_index = 6;
+            crop_preset_index = 7;
             bitdepth = 0x1;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             msleep(150);
@@ -5040,7 +5040,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x4)
         {
             NotifyBox(2000, "2.5K 10bit");
-            crop_preset_index = 2;
+            crop_preset_index = 3;
             bitdepth = 0x1;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             msleep(150);
@@ -5110,7 +5110,7 @@ static int crop_rec_needs_lv_refresh()
         if (presets == 0x7)
         {
             NotifyBox(2000, "h264 8bit");
-            crop_preset_index = 7;
+            crop_preset_index = 8;
             bitdepth = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "OFF", 1);
             msleep(100);
@@ -5666,8 +5666,8 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             }
             /* connected to short cut preset buttons */
             if (crop_preset_index == 1) set_lv_zoom(1);
-            if (crop_preset_index == 2) set_lv_zoom(5);
-            if (crop_preset_index == 3) set_lv_zoom(1);
+            if (crop_preset_index == 3) set_lv_zoom(5);
+            if (crop_preset_index == 4) set_lv_zoom(1);
             
             if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
                 CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
@@ -6208,7 +6208,7 @@ static unsigned int crop_rec_init()
     is_digic4 = is_camera("DIGIC", "4");
     is_digic5 = is_camera("DIGIC", "5");
     
-    if (crop_preset_index == 4 && is_movie_mode() && timelapse && !slowshutter)
+    if (crop_preset_index == 5 && is_movie_mode() && timelapse && !slowshutter)
     {
         NotifyBox(3000, "timelapse disabled upon restart");
         timelapse = 0;
@@ -6221,7 +6221,7 @@ static unsigned int crop_rec_init()
         iso2();
         
         /* working h264 */
-        if (crop_preset_index == 7)
+        if (crop_preset_index == 8)
         {
             iso3();
         }
