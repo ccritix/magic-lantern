@@ -5616,10 +5616,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             {
                 return 0;
             }
-            
-            /* update iso or x10 zoom will rely on underlying iso */
-            if (!isoauto) iso2();
-            
+
             if (CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_EOSM && CROP_PRESET_MENU != CROP_PRESET_mcm_mv1080_EOSM &&
                 CROP_PRESET_MENU != CROP_PRESET_anamorphic_rewired_100D)
             {
@@ -5646,6 +5643,8 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                     ResumeLiveView();
                 if (zoomaid) set_lv_zoom(10);
             }
+            /* update iso or x10 zoom will rely on underlying iso */
+            if (!isoauto) iso2();
             while (get_halfshutter_pressed())
             {
                 msleep(10);
