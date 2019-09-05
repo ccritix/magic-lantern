@@ -4640,6 +4640,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
                 PauseLiveView();
                 ResumeLiveView();
             }
+            crop_preset_index = 0;
             return 0;
         }
             
@@ -4656,6 +4657,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
                 PauseLiveView();
                 ResumeLiveView();
             }
+            crop_preset_index = 6;
             return 0;
         }
         
@@ -4674,11 +4676,13 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
                 PauseLiveView();
                 ResumeLiveView();
             }
+            crop_preset_index = 3;
             return 0;
         }
     }
     
     //move down indexing here after selecting one or registry will mess up liveview while scrolling with focus aid sticky push feature
+    /*
     while (((get_halfshutter_pressed() && zoomaid == 0x3) || (!get_halfshutter_pressed() && (zoomaid == 0x1 || zoomaid == 0x2))) && (pre1 || pre2 || pre3) && lv_dispsize == 10 && !gui_menu_shown())
     {
         if (pre1 && !pre2 && !pre3) crop_preset_index = 0;
@@ -4691,6 +4695,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         pre2 = 0;
         pre1 = 0;
     }
+     */
     
     /* presets shortcuts */
     if (!RECORDING && key == MODULE_KEY_PRESS_SET && lv_dispsize == 10 && is_movie_mode() && !gui_menu_shown())
