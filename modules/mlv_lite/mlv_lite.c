@@ -2062,12 +2062,17 @@ else
 }
 */
 
-if ((cam_eos_m || cam_100d) && crop_patch) 
+if ((cam_eos_m || cam_100d) && crop_patch && lv_dispsize != 10)
 {
      crop_patch = 0;
      PauseLiveView(); 
      ResumeLiveView();
 }
+    
+    if (lv_dispsize == 10 && cam_eos_m)
+    {
+        crop_patch = 1;
+    }
 
 /* replace bmp_off and bmp_on with below. Might work better regarding corrupted frames when using PREVIEW_ML
     	    static bool once = false;
