@@ -5695,8 +5695,8 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         }
     
     //make sure it´s reset if not pushing halfshutter long enough
-    crop_patch2 = 0;
-    
+    if (zoomaid && crop_patch2) crop_patch2 = 0;
+        
     if (x3toggle != 0x1 || x3toggle != 0x2 || zoomaid != 0x0) crop_patch = 0; //disable patch while off
     
     /* toggle between x3crop and x1 zoom in mv1080p modes. Only 5D3 for now. EOSM instead remaps trash can button */
