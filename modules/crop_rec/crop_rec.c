@@ -4133,7 +4133,7 @@ static struct menu_entry max_iso_menu[] =
 static struct menu_entry shutter_range_menu[] =
 {
     {
-    .name       = "Shutter range",
+    .name       = "shutter range",
     .priv       = &shutter_range,
     .max        = 1,
     .choices    = CHOICES("OFF", "Full range"),
