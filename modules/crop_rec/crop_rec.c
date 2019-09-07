@@ -353,6 +353,12 @@ static int is_supported_mode()
         return 0;
     }
     
+    //To be able taking photos while in movie mode. Will not work with isoauto or sticky push
+    if (get_halfshutter_pressed() && lv_dispsize == 10 && is_movie_mode() && !isoauto && zoomaid != 3)
+    {
+        return 0;
+    }
+    
     /* workaround getting below cams working with focus aid */
     static int last_hs_aid = 0;
     if (!get_halfshutter_pressed()) last_hs_aid = get_ms_clock();
@@ -2131,7 +2137,7 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
     
-    if ((zoomaid && !RECORDING && !is_5D3) &&
+    if ((zoomaid && !RECORDING && !is_5D3 && lv && !gui_menu_shown()) &&
         (CROP_PRESET_MENU != CROP_PRESET_CENTER_Z_EOSM &&
          CROP_PRESET_MENU != CROP_PRESET_3x3_1X_EOSM &&
          CROP_PRESET_MENU != CROP_PRESET_2K_EOSM &&
@@ -4623,7 +4629,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
     static int pre3 = 0;
     
     /* presets shortcuts */
-    if (!RECORDING && key == MODULE_KEY_TOUCH_1_FINGER && lv_dispsize == 10 && is_movie_mode() && !gui_menu_shown())
+    if (!RECORDING && key == MODULE_KEY_TOUCH_1_FINGER && lv_dispsize == 10 && is_movie_mode() && !gui_menu_shown() && lv)
     {
         /* reset to mcm rewired or jump straight to... */
         if (!pre1 || (pre3 && !pre2 && !pre1))
@@ -4698,7 +4704,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
      */
     
     /* presets shortcuts */
-    if (!RECORDING && key == MODULE_KEY_PRESS_SET && lv_dispsize == 10 && is_movie_mode() && !gui_menu_shown())
+    if (!RECORDING && key == MODULE_KEY_PRESS_SET && lv_dispsize == 10 && is_movie_mode() && !gui_menu_shown() && lv)
     {
         static int prea = 0;
         static int preb = 0;
@@ -5352,7 +5358,7 @@ static void iso3()
 static unsigned int crop_rec_polling_cbr(unsigned int unused)
 {
     //safety check for when in x5zoom and iso changed from canon menu while liveview open
-    if ((lv_disp_mode != 0 && lv_dispsize == 5 && gain_buttons) || (get_halfshutter_pressed() && !gui_menu_shown() && !is_5D3 && !crop_patch2 && zoomaid))
+    if ((!isoauto && lv_disp_mode != 0 && lv_dispsize == 5 && gain_buttons) || (!isoauto && get_halfshutter_pressed() && !gui_menu_shown() && !is_5D3 && !crop_patch2 && zoomaid))
     {
         iso2();
     }
