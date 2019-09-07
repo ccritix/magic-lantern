@@ -4130,6 +4130,20 @@ static struct menu_entry max_iso_menu[] =
     },
 };
 
+static struct menu_entry shutter_range_menu[] =
+{
+    {
+    .name       = "Shutter range",
+    .priv       = &shutter_range,
+    .max        = 1,
+    .choices    = CHOICES("OFF", "Full range"),
+    .help       = "Choose the available shutter speed range:",
+    .help2      = "OFF: default range used by Canon in selected video mode.\n"
+    "Full range: from 1/FPS to minimum exposure time allowed by hardware.",
+    .advanced = 1,
+    },
+};
+
 static struct menu_entry movie_menu_ratio[] =
 {
     {
@@ -4520,16 +4534,6 @@ static struct menu_entry crop_rec_menu[] =
                 .max    = 1000,
                 .unit   = UNIT_DEC,
                 .help  = "skip bottom",
-                .advanced = 1,
-            },
-            {
-                .name       = "Shutter range",
-                .priv       = &shutter_range,
-                .max        = 1,
-                .choices    = CHOICES("Original", "Full range"),
-                .help       = "Choose the available shutter speed range:",
-                .help2      = "Original: default range used by Canon in selected video mode.\n"
-                "Full range: from 1/FPS to minimum exposure time allowed by hardware.",
                 .advanced = 1,
             },
             {
@@ -6295,6 +6299,7 @@ static unsigned int crop_rec_init()
     menu_add("Movie", movie_menu_set_25fps, COUNT(movie_menu_set_25fps));
     menu_add("Movie", crop_rec_menu, COUNT(crop_rec_menu));
     menu_add("Movie", max_iso_menu, COUNT(max_iso_menu));
+    menu_add("Movie", shutter_range_menu, COUNT(shutter_range_menu));
     menu_add("Movie", custom_buttons_menu, COUNT(custom_buttons_menu));
     lvinfo_add_items (info_items, COUNT(info_items));
     

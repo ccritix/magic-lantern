@@ -53,6 +53,10 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .placeholder = 1,
     },
     {
+        .name = "Shutter range",
+        .placeholder = 1,
+    },
+    {
         .name = "shutter lock",
         .placeholder = 1,
     },
