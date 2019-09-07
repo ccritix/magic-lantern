@@ -4185,7 +4185,7 @@ static struct menu_entry raw_video_menu[] =
 static REQUIRES(GuiMainTask)
 unsigned int raw_rec_keypress_cbr(unsigned int key)
 {
-    if (lv_dispsize == 10) return 0;
+    if (lv_dispsize == 10 && key == MODULE_KEY_REC) return 0;
     
     if (!raw_video_enabled)
         return 1;
