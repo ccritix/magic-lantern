@@ -2136,7 +2136,8 @@ static void FAST adtg_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
 /* changing bits */
 static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
 {
-    
+    static int last_hs_unpress = 0;
+
     if ((zoomaid && !RECORDING && !is_5D3 && lv && !gui_menu_shown()) &&
         (CROP_PRESET_MENU != CROP_PRESET_CENTER_Z_EOSM &&
          CROP_PRESET_MENU != CROP_PRESET_3x3_1X_EOSM &&
@@ -2144,8 +2145,10 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
          CROP_PRESET_MENU != CROP_PRESET_3K_EOSM &&
          CROP_PRESET_MENU != CROP_PRESET_4K_EOSM))
     {
+        
+        if (!get_halfshutter_pressed()) last_hs_unpress = get_ms_clock();
         /* x10crop preview hack */
-        if (get_halfshutter_pressed() && !crop_patch2)
+        if (get_ms_clock() - last_hs_unpress > 200 && get_halfshutter_pressed() && !crop_patch2)
         {
         /* checking passed 1500ms for when in canon menu. get_ms_clock() seems to be counting with no reset while in canon menu */
            crop_preset = CROP_PRESET_x10_EOSM;
@@ -5299,6 +5302,8 @@ static void set_zoom(int zoom)
 
 static void iso()
 {
+    if (RECORDING) return;
+    
     if (iso_climb == 0x1 && lens_info.raw_iso != 0x48) menu_set_str_value_from_script("Expo", "ISO", "100", 1);
     if (iso_climb == 0x2 && lens_info.raw_iso != 0x50) menu_set_str_value_from_script("Expo", "ISO", "200", 1);
     if (iso_climb == 0x3 && lens_info.raw_iso != 0x58) menu_set_str_value_from_script("Expo", "ISO", "400", 1);
@@ -5326,6 +5331,7 @@ static void iso()
 
 static void iso2()
 {
+    if (RECORDING) return;
     //explain why iso is stuck
     if (lv_disp_mode != 0 && lv_dispsize == 5 && !isouse)
     {
@@ -5343,6 +5349,8 @@ static void iso2()
 
 static void iso3()
 {
+    if (RECORDING) return;
+    
     if (lens_info.raw_iso == 0x48) iso_climb = 0x1;
     if (lens_info.raw_iso == 0x50) iso_climb = 0x2;
     if (lens_info.raw_iso == 0x58) iso_climb = 0x3;
