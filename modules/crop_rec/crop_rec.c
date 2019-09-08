@@ -43,7 +43,7 @@ static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 1);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
-static CONFIG_INT("crop.zoomaid", zoomaid, 1);
+static CONFIG_INT("crop.zoomaid", zoomaid, 3);
 static CONFIG_INT("crop.x3toggle", x3toggle, 2);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
@@ -5071,7 +5071,7 @@ static int crop_rec_needs_lv_refresh()
             x3crop = 0x0;
             x3toggle = 0x2;
             presets = 0x0;
-            zoomaid = 1;
+            zoomaid = 3;
             gain_buttons = 1;
             dropdown = 1;
             isoauto = 0;
