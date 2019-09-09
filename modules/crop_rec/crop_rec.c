@@ -318,6 +318,7 @@ static int is_720p()
 static int is_supported_mode()
 {
     if (!lv) return 0;
+    
     /* no more crashes when selecing photo mode */
     if (!is_movie_mode())
     {
@@ -363,6 +364,7 @@ static int is_supported_mode()
     static int last_hs_aid = 0;
     if (!get_halfshutter_pressed()) last_hs_aid = get_ms_clock();
                 if (get_ms_clock() - last_hs_aid > 300 && get_halfshutter_pressed() && (is_5D3) && !RECORDING && zoomaid) return 0;
+    
     
     switch (crop_preset)
     {
@@ -2148,7 +2150,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
         
         if (!get_halfshutter_pressed()) last_hs_unpress = get_ms_clock();
         /* x10crop preview hack */
-        if (get_ms_clock() - last_hs_unpress > 200 && get_halfshutter_pressed() && !crop_patch2)
+        if (get_ms_clock() - last_hs_unpress > 100 && get_halfshutter_pressed() && !crop_patch2)
         {
         /* checking passed 1500ms for when in canon menu. get_ms_clock() seems to be counting with no reset while in canon menu */
             if (get_ms_clock() - last_hs_unpress < 1500) crop_preset = CROP_PRESET_x10_EOSM;
@@ -5606,6 +5608,12 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         once = false;
     }
     
+    static int last_hs_unpresss = 0;
+    static int reset = 0;
+        
+    if (!get_halfshutter_pressed()) last_hs_unpresss = get_ms_clock();
+    if (get_ms_clock() - last_hs_unpresss > 100 && get_halfshutter_pressed() && zoomaid)
+    {
         /* zoomaid */
         if (get_halfshutter_pressed() && !gui_menu_shown() && !is_5D3 && !crop_patch2 && zoomaid)
         {
@@ -5646,16 +5654,22 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
                 if (zoomaid) set_lv_zoom(10);
             }
             crop_patch2 = 1;
+            //reset if active, see below
+            if (reset)
+            {
+                module_send_keypress(MODULE_KEY_UNPRESS_HALFSHUTTER);
+                reset = 0;
+            }
             while (get_halfshutter_pressed())
             {
-                msleep(10);
+                msleep(5);
             }
         }
     
     //sticky push feature
     while (lv_dispsize == 10 && !get_halfshutter_pressed() && zoomaid == 0x3)
     {
-        msleep(10);
+        msleep(5);
     }
         
         if (((!get_halfshutter_pressed() && zoomaid != 0x3) || (get_halfshutter_pressed() && zoomaid == 0x3)) && crop_patch2)
@@ -5663,7 +5677,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             //sticky push feature
             while (get_halfshutter_pressed() && zoomaid == 0x3)
             {
-                msleep(10);
+                msleep(5);
             }
             /* connected to short cut preset buttons */
             if (crop_preset_index == 1) set_lv_zoom(1);
@@ -5709,10 +5723,26 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
             
             crop_patch2 = 0;
         }
+    }
+ 
+    //make sure it´s reset if not pushing halfshutter long enough
+    if (zoomaid && shamem_read(0xc0f06804) == 0x4a601d4)
+    {
+        PauseLiveView();
+        ResumeLiveView();
+    }
     
     //make sure it´s reset if not pushing halfshutter long enough
-    if (zoomaid && crop_patch2) crop_patch2 = 0;
-        
+    if (zoomaid && crop_patch2)
+    {
+        crop_patch2 = 0;
+        reset = 1;
+        set_lv_zoom(1);
+        PauseLiveView();
+        ResumeLiveView();
+        module_send_keypress(MODULE_KEY_PRESS_HALFSHUTTER);
+    }
+    
     if (x3toggle != 0x1 || x3toggle != 0x2 || zoomaid != 0x0) crop_patch = 0; //disable patch while off
     
     /* toggle between x3crop and x1 zoom in mv1080p modes. Only 5D3 for now. EOSM instead remaps trash can button */
