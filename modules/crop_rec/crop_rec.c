@@ -2151,7 +2151,7 @@ static inline uint32_t reg_override_bits(uint32_t reg, uint32_t old_val)
         if (get_ms_clock() - last_hs_unpress > 200 && get_halfshutter_pressed() && !crop_patch2)
         {
         /* checking passed 1500ms for when in canon menu. get_ms_clock() seems to be counting with no reset while in canon menu */
-           crop_preset = CROP_PRESET_x10_EOSM;
+            if (get_ms_clock() - last_hs_unpress < 1500) crop_preset = CROP_PRESET_x10_EOSM;
         }
     }
     
