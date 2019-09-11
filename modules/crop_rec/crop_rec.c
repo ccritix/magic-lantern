@@ -5726,7 +5726,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     }
  
     //make sure it´s reset if not pushing halfshutter long enough
-    if (zoomaid && shamem_read(0xc0f06804) == 0x4a601d4)
+    if (zoomaid && shamem_read(0xc0f06804) == 0x4a601d4 && CROP_PRESET_MENU != CROP_PRESET_H264)
     {
         PauseLiveView();
         ResumeLiveView();
