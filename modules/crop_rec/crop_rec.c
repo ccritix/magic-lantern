@@ -5672,7 +5672,7 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         msleep(5);
     }
         
-        if (((!get_halfshutter_pressed() && zoomaid != 0x3) || (get_halfshutter_pressed() && zoomaid == 0x3)) && crop_patch2)
+        if (((!get_halfshutter_pressed() && (zoomaid != 0x3 || (crop_preset_index == 8 && video_mode_crop))) || (get_halfshutter_pressed() && zoomaid == 0x3)) && crop_patch2)
         {
             //sticky push feature
             while (get_halfshutter_pressed() && zoomaid == 0x3)
@@ -5726,14 +5726,14 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
     }
  
     //make sure it´s reset if not pushing halfshutter long enough
-    if (zoomaid && shamem_read(0xc0f06804) == 0x4a601d4 && CROP_PRESET_MENU != CROP_PRESET_H264)
+    if (zoomaid && shamem_read(0xc0f06804) == 0x4a601d4 && crop_preset_index != 8)
     {
         PauseLiveView();
         ResumeLiveView();
     }
     
     //make sure it´s reset if not pushing halfshutter long enough
-    if (zoomaid && crop_patch2)
+    if (zoomaid && crop_patch2 && crop_preset_index != 8)
     {
         crop_patch2 = 0;
         reset = 1;
