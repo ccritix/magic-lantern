@@ -4194,8 +4194,8 @@ static struct menu_entry crop_rec_menu[] =
             {
                 .name   = "startoff presets",
                 .priv   = &presets,
-                .max    = 6,
-                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "4K anamorphic rewired 10bit", "2.5K 10bit", "mv1080p 45/48/50fps 10bit", "default reset", "h264 8bit"),
+                .max    = 8,
+                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "4K anamorphic rewired 10bit", "2.5K 10bit", "mv1080p 45/48/50fps 10bit", "x3 crop mode 14bit", "x3 crop mode 45/48/50fps 10bit", "h264 8bit", "default reset"),
                 .help   = "2.39:1 ratio recommended for anamorphic and higher resolutions",
             },
             {
@@ -5005,6 +5005,7 @@ static int crop_rec_needs_lv_refresh()
         {
             NotifyBox(2000, "mv1080p MCM rewire 14bit");
             crop_preset_index = 0;
+            x3crop = 0x0;
             bitdepth = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             msleep(150);
@@ -5022,6 +5023,7 @@ static int crop_rec_needs_lv_refresh()
         {
             NotifyBox(2000, "4K anamorphic rewired 10bit");
             crop_preset_index = 6;
+            x3crop = 0x0;
             bitdepth = 0x1;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             msleep(150);
@@ -5039,6 +5041,7 @@ static int crop_rec_needs_lv_refresh()
         {
             NotifyBox(2000, "2.5K 10bit");
             crop_preset_index = 3;
+            x3crop = 0x0;
             bitdepth = 0x1;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             msleep(150);
@@ -5055,6 +5058,7 @@ static int crop_rec_needs_lv_refresh()
         {
             NotifyBox(2000, "mv1080p 45/48/50fps 10bit");
             crop_preset_index = 1;
+            x3crop = 0x0;
             bitdepth = 0x1;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
             msleep(150);
@@ -5068,6 +5072,62 @@ static int crop_rec_needs_lv_refresh()
         }
         
         if (presets == 0x5)
+        {
+            NotifyBox(2000, "x3 crop mode 14bit");
+            crop_preset_index = 0;
+            x3crop = 0x1;
+            bitdepth = 0x0;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(150);
+            set_lv_zoom(1);
+            movie_crop_hack_enable();
+            PauseLiveView();
+            ResumeLiveView();
+            presets = 0x0;
+            release = 0;
+            release_b = 0;
+            return 0;
+        }
+        
+        if (presets == 0x6)
+        {
+            NotifyBox(2000, "x3 crop mode 45/48/50fps 10bit");
+            crop_preset_index = 1;
+            x3crop = 0x1;
+            bitdepth = 0x1;
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            msleep(150);
+            set_lv_zoom(1);
+            PauseLiveView();
+            ResumeLiveView();
+            presets = 0x0;
+            release = 0;
+            release_b = 0;
+            return 0;
+        }
+        
+        if (presets == 0x7)
+        {
+            NotifyBox(2000, "h264 8bit");
+            crop_preset_index = 8;
+            x3crop = 0x0;
+            bitdepth = 0x0;
+            menu_set_str_value_from_script("Movie", "raw video", "OFF", 1);
+            msleep(100);
+            movie_crop_hack_disable();
+            gui_open_menu();
+            msleep(200);
+            set_lv_zoom(1);
+            gui_stop_menu();
+            PauseLiveView();
+            ResumeLiveView();
+            presets = 0x0;
+            release = 0;
+            release_b = 0;
+            return 0;
+        }
+        
+        if (presets == 0x8)
         {
             NotifyBox(2000, "default reset");
             crop_preset_index = 0;
@@ -5100,26 +5160,6 @@ static int crop_rec_needs_lv_refresh()
             set_lv_zoom(1);
             PauseLiveView();
             ResumeLiveView();
-            release = 0;
-            release_b = 0;
-            return 0;
-        }
-        
-        if (presets == 0x6)
-        {
-            NotifyBox(2000, "h264 8bit");
-            crop_preset_index = 8;
-            bitdepth = 0x0;
-            menu_set_str_value_from_script("Movie", "raw video", "OFF", 1);
-            msleep(100);
-            movie_crop_hack_disable();
-            gui_open_menu();
-            msleep(200);
-            set_lv_zoom(1);
-            gui_stop_menu();
-            PauseLiveView();
-            ResumeLiveView();
-            presets = 0x0;
             release = 0;
             release_b = 0;
             return 0;
