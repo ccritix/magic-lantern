@@ -247,7 +247,7 @@ static const char * crop_choices_eosm[] = {
     "2.5K 2520x1418",
     "3K 3032x1436",
     "4K 4080x3000",
-    "4K anamorphic rewired",
+    "5K anamorphic rewired",
     "5K anamorphic",
     //"h264",
     // "4K 3x1 24fps",
@@ -4199,7 +4199,7 @@ static struct menu_entry crop_rec_menu[] =
                 .name   = "startoff presets",
                 .priv   = &presets,
                 .max    = 8,
-                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "4K anamorphic rewired 10bit", "2.5K 10bit", "mv1080p 45/48/50fps 10bit", "x3 crop mode 14bit", "x3 crop mode 45/48/50fps 10bit", "h264 8bit", "default reset"),
+                .choices = CHOICES("None selected", "mv1080p MCM rewire 14bit", "5K anamorphic rewired 10bit", "2.5K 10bit", "mv1080p 45/48/50fps 10bit", "x3 crop mode 14bit", "x3 crop mode 45/48/50fps 10bit", "h264 8bit", "default reset"),
                 .help   = "2.39:1 ratio recommended for anamorphic and higher resolutions",
             },
             {
@@ -4664,7 +4664,7 @@ static unsigned int crop_rec_keypress_cbr(unsigned int key)
         if (!pre2 && pre1)
         {
             pre2 = 1;
-            NotifyBox(1000, "4K anamorphic rewired 10bit");
+            NotifyBox(1000, "5K anamorphic rewired 10bit");
             bitdepth = 0x1;
             presets = 0x0;
             menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
@@ -5025,7 +5025,7 @@ static int crop_rec_needs_lv_refresh()
         
         if (presets == 0x2)
         {
-            NotifyBox(2000, "4K anamorphic rewired 10bit");
+            NotifyBox(2000, "5K anamorphic rewired 10bit");
             crop_preset_index = 6;
             x3crop = 0x0;
             bitdepth = 0x1;
@@ -6034,7 +6034,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
         snprintf(buffer, sizeof(buffer), "5K anamorphic");
         if (ratios == 0x1 || ratios == 0x2)
         {
-            snprintf(buffer, sizeof(buffer), "4.5K anamorphic");
+            snprintf(buffer, sizeof(buffer), "5K anamorphic");
         }
         if (ratios == 0x3)
         {
