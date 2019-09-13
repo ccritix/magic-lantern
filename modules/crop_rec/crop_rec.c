@@ -1378,12 +1378,14 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
                 
             case CROP_PRESET_anamorphic_rewired_EOSM:
                 cmos_new[5] = 0x20;
-                cmos_new[7] = 0x2c4;
+                if (ratios) cmos_new[7] = 0x2c4;
+                if (!ratios) cmos_new[7] = 0xf20;
                 break;
                 
             case CROP_PRESET_anamorphic_EOSM:
                 cmos_new[5] = 0x20;
-                cmos_new[7] = 0x2c4;
+                if (ratios) cmos_new[7] = 0x2c4;
+                if (!ratios) cmos_new[7] = 0xf20;
                 break;
                 
             case CROP_PRESET_x10_EOSM:
@@ -3756,7 +3758,8 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
         }
         
     }
-    else
+    
+    if (ratios == 0x3)
     {
         /* 16:9 */
         switch (reg)
@@ -3780,8 +3783,29 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
                 /* dummy reg for height modes eosm in raw.c */
             case 0xC0f0b13c: return 0xd;
         }
-        
     }
+    
+    if (!ratios)
+    {
+        /* full readout */
+        switch (reg)
+        {
+                
+            case 0xC0F06804: return 0xbd301e4 + reg_6804_width + (reg_6804_height << 16);
+                
+            case 0xC0F06014: return 0xeed + reg_6014;
+            case 0xC0F0600c: return 0x2550255 + reg_6008 + (reg_6008 << 16);
+            case 0xC0F06008: return 0x2550255 + reg_6008 + (reg_6008 << 16);
+            case 0xC0F06010: return 0x255 + reg_6008;
+                
+            case 0xC0F0713c: return 0xbd3 + reg_713c;
+            case 0xC0F07150: return 0xbc3 + reg_7150;
+                
+                /* dummy reg for height modes eosm in raw.c */
+            case 0xC0f0b13c: return 0x11;
+        }
+    }
+    
     return reg_override_bits(reg, old_val);
 }
 
@@ -3831,15 +3855,15 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
     {
         switch (reg)
         {
-            case 0xC0F06804: return 0x88501c2 + reg_6804_width + (reg_6804_height << 16);
+            case 0xC0F06804: return 0xbeb01d4 + reg_6804_width + (reg_6804_height << 16);
+              
+            case 0xC0F06014: return 0xeed + reg_6014;
+            case 0xC0F0600c: return 0x2550255 + reg_6008 + (reg_6008 << 16);
+            case 0xC0F06008: return 0x2550255 + reg_6008 + (reg_6008 << 16);
+            case 0xC0F06010: return 0x255 + reg_6008;
                 
-            case 0xC0F06014: return 0x99d + reg_6014;
-            case 0xC0F0600c: return 0x21d021d + reg_6008 + (reg_6008 << 16);
-            case 0xC0F06008: return 0x21d021d + reg_6008 + (reg_6008 << 16);
-            case 0xC0F06010: return 0x21d + reg_6008;
-                
-            case 0xC0F0713c: return 0x885 + reg_713c;
-            case 0xC0F07150: return 0x880 + reg_7150;
+            case 0xC0F0713c: return 0xbeb + reg_713c;
+            case 0xC0F07150: return 0xbdb + reg_7150;
         }
         
     }
