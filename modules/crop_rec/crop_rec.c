@@ -3793,7 +3793,7 @@ static inline uint32_t reg_override_anamorphic_rewired_eosm(uint32_t reg, uint32
                 
             case 0xC0F06804: return 0xbd301e4 + reg_6804_width + (reg_6804_height << 16);
                 
-            case 0xC0F06014: return 0xeed + reg_6014;
+            case 0xC0F06014: return bitdepth != 0x1 ? 0xeed + 637 + reg_6014: 0xeed + reg_6014;
             case 0xC0F0600c: return 0x2550255 + reg_6008 + (reg_6008 << 16);
             case 0xC0F06008: return 0x2550255 + reg_6008 + (reg_6008 << 16);
             case 0xC0F06010: return 0x255 + reg_6008;
@@ -3857,7 +3857,7 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
         {
             case 0xC0F06804: return 0xbeb01d4 + reg_6804_width + (reg_6804_height << 16);
               
-            case 0xC0F06014: return 0xeed + reg_6014;
+            case 0xC0F06014: return bitdepth != 0x1 ? 0xeed + 637 + reg_6014: 0xeed + reg_6014;
             case 0xC0F0600c: return 0x2550255 + reg_6008 + (reg_6008 << 16);
             case 0xC0F06008: return 0x2550255 + reg_6008 + (reg_6008 << 16);
             case 0xC0F06010: return 0x255 + reg_6008;
