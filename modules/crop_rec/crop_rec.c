@@ -43,7 +43,7 @@ static CONFIG_INT("crop.shutter_range", shutter_range, 0);
 static CONFIG_INT("crop.bitdepth", bitdepth, 0);
 static CONFIG_INT("crop.ratios", ratios, 1);
 static CONFIG_INT("crop.x3crop", x3crop, 0);
-static CONFIG_INT("crop.zoomaid", zoomaid, 3);
+static CONFIG_INT("crop.zoomaid", zoomaid, 2);
 static CONFIG_INT("crop.x3toggle", x3toggle, 2);
 static CONFIG_INT("crop.set_25fps", set_25fps, 0);
 static CONFIG_INT("crop.HDR_iso_a", HDR_iso_a, 0);
@@ -332,17 +332,11 @@ static int is_supported_mode()
     
     if ((CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) && is_movie_mode() && get_halfshutter_pressed() && !RECORDING && ((timelapse && !slowshutter) || !timelapse))
     {
-        /* dark mode */
-        if (zoomaid == 0x2)
-        {
-            *(volatile uint32_t*)0xc0f06014 = 0xfff;
-            *(volatile uint32_t*)0xc0f140c0 = 0xb0;
-        }
         return 0;
     }
     
     //sticky push feature
-    if (zoomaid == 0x3 && lv_dispsize == 10 && !get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) && is_movie_mode())
+    if (zoomaid == 0x2 && lv_dispsize == 10 && !get_halfshutter_pressed() && (CROP_PRESET_MENU == CROP_PRESET_3K_EOSM || CROP_PRESET_MENU == CROP_PRESET_4K_EOSM || CROP_PRESET_MENU == CROP_PRESET_2K_EOSM || CROP_PRESET_MENU == CROP_PRESET_CENTER_Z_EOSM) && is_movie_mode())
     {
         return 0;
     }
@@ -355,7 +349,7 @@ static int is_supported_mode()
     }
     
     //To be able taking photos while in movie mode. Will not work with isoauto or sticky push
-    if (get_halfshutter_pressed() && lv_dispsize == 10 && is_movie_mode() && !isoauto && zoomaid != 3)
+    if (get_halfshutter_pressed() && lv_dispsize == 10 && is_movie_mode() && !isoauto && zoomaid != 2)
     {
         return 0;
     }
@@ -3871,19 +3865,6 @@ static inline uint32_t reg_override_anamorphic_eosm(uint32_t reg, uint32_t old_v
     return reg_override_bits(reg, old_val);
 }
 
-static inline uint32_t reg_override_x10_eosm(uint32_t reg, uint32_t old_val)
-{
-    
-    /* dark mode */
-    if (zoomaid == 0x2)
-    {
-        *(volatile uint32_t*)0xc0f06014 = 0xc71;
-        *(volatile uint32_t*)0xc0f140c0 = 0xb0;
-    }
-    
-    return 0;
-}
-
 static inline uint32_t reg_override_zoom_fps(uint32_t reg, uint32_t old_val)
 {
     /* attempt to reconfigure the x5 zoom at the FPS selected in Canon menu */
@@ -3949,7 +3930,6 @@ static void * get_engio_reg_override_func()
     (crop_preset == CROP_PRESET_anamorphic_EOSM) ? reg_override_anamorphic_eosm        :
     (crop_preset == CROP_PRESET_3x3_1X_EOSM)    ? reg_override_mv1080_mv720p  :
     (crop_preset == CROP_PRESET_3x3_1X_100D)    ? reg_override_mv1080_mv720p  :
-    (crop_preset == CROP_PRESET_x10_EOSM)    ? reg_override_x10_eosm  :
     0                       ;
     return reg_override_func;
 }
@@ -4121,10 +4101,10 @@ static struct menu_entry custom_buttons_menu[] =
             {
                 .name   = "focus aid",
                 .priv   = &zoomaid,
-                .max    = 3,
-                .choices = CHOICES("OFF", "default mode", "dark mode", "sticky push"),
+                .max    = 2,
+                .choices = CHOICES("OFF", "default mode", "sticky push"),
                 .help   = "x10 zoom when pressing halfshutter(all presets, manual focus)",
-                .help2   = "Will brighten liveview(slower fps)\n"
+                .help2   = "x10 zoom will stick. Push again for releasing\n"
             },
             {
                 .name   = "gain",
@@ -5156,11 +5136,10 @@ static int crop_rec_needs_lv_refresh()
             NotifyBox(2000, "default reset");
             crop_preset_index = 0;
             bitdepth = 0x0;
-            zoomaid = 0x1;
             x3crop = 0x0;
             x3toggle = 0x2;
             presets = 0x0;
-            zoomaid = 3;
+            zoomaid = 0x2;
             gain_buttons = 1;
             dropdown = 1;
             isoauto = 0;
@@ -5681,8 +5660,6 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         /* zoomaid */
         if (get_halfshutter_pressed() && !gui_menu_shown() && !is_5D3 && !crop_patch2 && zoomaid)
         {
-            /* dark mode */
-            if (zoomaid == 0x2) NotifyBox(3000, "dark mode");
             
             /* disable for now. Not working the same as for non rewired mode */
             if (CROP_PRESET_MENU == CROP_PRESET_anamorphic_rewired_EOSM && zoomaid == 0x0)
@@ -5731,15 +5708,15 @@ static unsigned int crop_rec_polling_cbr(unsigned int unused)
         }
     
     //sticky push feature
-    while (lv_dispsize == 10 && !get_halfshutter_pressed() && zoomaid == 0x3)
+    while (lv_dispsize == 10 && !get_halfshutter_pressed() && zoomaid == 0x2)
     {
         msleep(5);
     }
         
-        if (((!get_halfshutter_pressed() && (zoomaid != 0x3 || (crop_preset_index == 8 && video_mode_crop))) || (get_halfshutter_pressed() && zoomaid == 0x3)) && crop_patch2)
+        if (((!get_halfshutter_pressed() && (zoomaid != 0x2 || (crop_preset_index == 8 && video_mode_crop))) || (get_halfshutter_pressed() && zoomaid == 0x2)) && crop_patch2)
         {
             //sticky push feature
-            while (get_halfshutter_pressed() && zoomaid == 0x3)
+            while (get_halfshutter_pressed() && zoomaid == 0x2)
             {
                 msleep(5);
             }
