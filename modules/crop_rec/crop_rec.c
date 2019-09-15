@@ -4129,7 +4129,7 @@ static struct menu_entry custom_buttons_menu[] =
                 .max    = 1,
                 .choices = CHOICES("OFF", "INFO"),
                 .help   = "Push INFO to toggle between Real-time/framing",
-                .help2  = "May interfer with drop down list if also set to INFO\n"
+                .help2  = "May interfer with dropdown list if also set to INFO\n"
             },
             MENU_EOL,
         },
