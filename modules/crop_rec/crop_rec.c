@@ -55,6 +55,7 @@ static CONFIG_INT("crop.iso_climb", iso_climb, 1);
 static CONFIG_INT("crop.timelapse", timelapse, 0);
 static CONFIG_INT("crop.slowshutter", slowshutter, 0);
 static CONFIG_INT("crop.presets", presets, 0);
+static CONFIG_INT("crop.presets", previews, 0);
 
 enum crop_preset {
     CROP_PRESET_3X,
@@ -4122,6 +4123,14 @@ static struct menu_entry custom_buttons_menu[] =
                 .help   = "tap display for fast access to startoff dropdown list(default)",
                 .help2  = "INFO button instead of tap display(loupe users)\n"
             },
+            {
+                .name   = "preview modes",
+                .priv   = &previews,
+                .max    = 1,
+                .choices = CHOICES("OFF", "INFO"),
+                .help   = "Push INFO to toggle between Real-time/framing",
+                .help2  = "May interfer with drop down list if also set to INFO\n"
+            },
             MENU_EOL,
         },
     }
@@ -4627,6 +4636,24 @@ static struct menu_entry crop_rec_menu[] =
 
 static unsigned int crop_rec_keypress_cbr(unsigned int key)
 {
+    static int prevmode = 0;
+    if (!RECORDING && lv && is_movie_mode() && !gui_menu_shown() && key == MODULE_KEY_INFO && previews)
+    {
+        menu_set_str_value_from_script("raw video", "Crop rec preview", "OFF", 1);
+        if (prevmode)
+        {
+            prevmode = 0;
+            NotifyBox(1000, "Real-time");
+            menu_set_value_from_script("raw video", "Preview", 1);
+        }
+        else
+        {
+            prevmode = 1;
+            NotifyBox(1000, "framing");
+            menu_set_value_from_script("raw video", "Preview", 2);
+        }
+            return 0;
+    }
     /* photo mode */
     if (!RECORDING && key == MODULE_KEY_TOUCH_1_FINGER && lv_dispsize == 10 && !is_movie_mode() && !gui_menu_shown())
     {
@@ -5141,6 +5168,7 @@ static int crop_rec_needs_lv_refresh()
             presets = 0x0;
             zoomaid = 0x2;
             gain_buttons = 1;
+            previews = 0;
             dropdown = 1;
             isoauto = 0;
             ratios = 1;
@@ -6412,6 +6440,7 @@ MODULE_CONFIG(timelapse)
 MODULE_CONFIG(slowshutter)
 MODULE_CONFIG(x3toggle)
 MODULE_CONFIG(zoomaid)
+MODULE_CONFIG(previews)
 MODULE_CONFIGS_END()
 
 MODULE_CBRS_START()
