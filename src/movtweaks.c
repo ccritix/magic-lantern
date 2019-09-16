@@ -245,7 +245,7 @@ void force_liveview()
 void close_liveview()
 {
     if (lv)
-#ifdef CONFIG_EOSM
+#if defined(CONFIG_EOSM) || defined(CONFIG_EOSM2)
     {
         /* To shut off LiveView switch to the info screen */
         SetGUIRequestMode(21);

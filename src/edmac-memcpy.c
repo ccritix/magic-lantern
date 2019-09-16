@@ -24,6 +24,9 @@ uint32_t edmac_read_chan = 0x19;
 uint32_t edmac_write_chan = 0x13;
 //~ r 2 3 5 7 8 9 10 11-13
 //~ w 3 4 6 10 11-15
+#elif defined(CONFIG_EOSM2) // starting with same values used for similar cameras
+uint32_t edmac_read_chan = 0x19;  /* Read:  0x0A 0x0B 0x0D 0x19 0x1A 0x1B 0x1C 0x1D */
+uint32_t edmac_write_chan = 0x13; /* Write: 0x03 0x04 0x06 0x13 0x14 0x15 0x16 */
 #elif defined(CONFIG_60D)
 uint32_t edmac_read_chan = 0x19;  /* free indices: 2, 3, 4, 5, 6, 7, 8, 9 */
 uint32_t edmac_write_chan = 0x06; /* 1, 4, 6, 10 */
@@ -363,7 +366,7 @@ static void edmac_slurp_complete_cbr (void* ctx)
 void edmac_raw_slurp(void* dst, int w, int h)
 {
     /* see wiki, register map, EDMAC what the flags mean. they are for setting up copy block size */
-#if defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM) || defined(CONFIG_100D)
+#if defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM2) || defined(CONFIG_EOSM) || defined(CONFIG_100D)
     uint32_t dmaFlags = EDMAC_2_BYTES_PER_TRANSFER;
 #elif defined(CONFIG_6D)
     uint32_t dmaFlags = EDMAC_4_BYTES_PER_TRANSFER;

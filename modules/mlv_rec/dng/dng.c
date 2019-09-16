@@ -84,6 +84,7 @@ static int check_mv720_vs_croprec720(struct frame_info * frame_info)
     {
         /* focus pixel affected cameras */
         case 0x80000331: // EOSM
+        case 0x80000355: // EOSM2
         case 0x80000346: // 100D
         case 0x80000301: // 650D
         case 0x80000326: // 700D

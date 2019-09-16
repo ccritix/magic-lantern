@@ -147,6 +147,19 @@ int lossless_init()
         TTL_Finish      = (void *) 0xFF429328;  /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
     }
 
+   if (is_camera("EOSM2", "1.0.3"))
+    {
+        /* ProcessTwoInTwoOutJpegath, EOSM2 1.0.3 */
+        TTL_SetArgs     = (void *) 0xFF37A8FC;      /* fills TTJ_Args struct; PictureSize(Mem1ToRaw) */
+        TTL_Prepare     = (void *) 0xFF44A064;      /* called right after ProcessTwoInTwoOutJpegath(R) Start(%d); */
+                                                    /* calls [TTJ] GetPathResources and sets up the encoder for RAW */
+        TTL_RegisterCBR = (void *) 0xFF449048;      /* RegisterTwoInTwoOutJpegPathCompleteCBR */
+        TTL_SetFlags    = (void *) 0xFF379274;      /* called next, with PictureType as arguments */
+        TTL_Start       = (void *) 0xFF44A10C;      /* called next; starts the EDmac transfers */
+        TTL_Stop        = (void *) 0xFF449294;      /* called right after sssStopMem1ToRawPath */
+        TTL_Finish      = (void *) 0xFF44A17C;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
+    }
+
     if (is_camera("100D", "1.0.1"))
     {
         /* ProcessTwoInTwoOutJpegath, 100D 1.0.1 */
@@ -188,7 +201,7 @@ int lossless_init()
 
     lossless_sem = create_named_semaphore(0, 0);
     
-    if (is_camera("700D", "*") || is_camera("650D", "*") || is_camera("EOSM", "*") || is_camera("100D", "*"))
+    if (is_camera("700D", "*") || is_camera("650D", "*") || is_camera("EOSM", "*")  || is_camera("EOSM2", "*") || is_camera("100D", "*"))
     {
         uint32_t resources[] = {
             0x00000 | edmac_channel_to_index(edmac_write_chan),
@@ -515,6 +528,13 @@ static void decompress_init()
         Setup_DecodeLosslessRawPath = (void *) 0xFF42DBD0;
         Start_DecodeLosslessPath    = (void *) 0xFF42DC98;
         Cleanup_DecodeLosslessPath  = (void *) 0xFF42DDFC;
+    }
+
+   if (is_camera("EOSM2", "1.0.3"))
+    {
+        Setup_DecodeLosslessRawPath = (void *) 0xFF44D5A0;
+        Start_DecodeLosslessPath    = (void *) 0xFF44D668;
+        Cleanup_DecodeLosslessPath  = (void *) 0xFF44D7CC;
     }
 
     if (is_camera("100D", "1.0.1"))

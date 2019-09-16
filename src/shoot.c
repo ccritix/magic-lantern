@@ -83,7 +83,7 @@ int display_idle()
     extern thunk ShootOlcApp_handler;
     if (lv) return liveview_display_idle();
     else return
-#ifndef CONFIG_EOSM
+#if !defined(CONFIG_EOSM) || !defined(CONFIG_ESOM2)
     gui_state == GUISTATE_IDLE &&
 #endif
     !gui_menu_shown() &&
@@ -6430,7 +6430,7 @@ shoot_task( void* unused )
             #endif
 
 #ifdef FEATURE_AUDIO_REMOTE_SHOT
-#if defined(CONFIG_7D) || defined(CONFIG_6D) || defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM) || defined(CONFIG_100D) || defined(CONFIG_70D)
+#if defined(CONFIG_7D) || defined(CONFIG_6D) || defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_EOSM2) || defined(CONFIG_EOSM) || defined(CONFIG_100D) || defined(CONFIG_70D)
             /* experimental for 7D now, has to be made generic */
             static int last_audio_release_running = 0;
             

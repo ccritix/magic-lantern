@@ -267,6 +267,7 @@ static inline void interpolate_around(uint16_t * image_data, int i, int w, int *
 /* focus pixel helper enums */
 enum pattern { PATTERN_NONE = 0,
                PATTERN_EOSM = 331,
+               PATTERN_EOSM2 = 355,
                PATTERN_650D = 301,
                PATTERN_700D = 326,
                PATTERN_100D = 346
@@ -502,6 +503,7 @@ static void fpm_mv1080crop(struct pixel_map * map, int pattern, int32_t raw_widt
         switch(pattern)
         {
             case PATTERN_EOSM:
+	    case PATTERN_EOSM2:
             case PATTERN_650D:
             case PATTERN_700D:
                 if(((y + 7) % y_rep) == 0 ) shift = 19;
@@ -560,6 +562,7 @@ static void fpm_zoom(struct pixel_map * map, int pattern, int32_t raw_width)
         switch(pattern)
         {
             case PATTERN_EOSM:
+            case PATTERN_EOSM2:
             case PATTERN_650D:
             case PATTERN_700D:
                 if(((y + 7) % y_rep) == 0) shift = 19;
@@ -608,6 +611,7 @@ static void fpm_crop_rec(struct pixel_map * map, int pattern, int32_t raw_width)
     switch(pattern)
     {
         case PATTERN_EOSM:
+        case PATTERN_EOSM2:
         case PATTERN_650D:
         {
             // first pass is like fpm_mv720
@@ -753,6 +757,7 @@ static void fpm_mv1080crop_u_shifted(struct pixel_map * map, int pattern, int32_
         switch(pattern)
         {
             case PATTERN_EOSM:
+            case PATTERN_EOSM2:
             case PATTERN_650D:
             case PATTERN_700D:
                 if(((y + 7) % y_rep) == 0 ) shift = 2;
@@ -808,6 +813,7 @@ static void fpm_mv1080crop_u(struct pixel_map * map, int pattern, int32_t raw_wi
         switch(pattern)
         {
             case PATTERN_EOSM:
+            case PATTERN_EOSM2:
             case PATTERN_650D:
             case PATTERN_700D:
                 if(((y + 7) % y_rep) == 0 ) shift = 3;
@@ -870,6 +876,7 @@ static void fpm_zoom_u(struct pixel_map * map, int pattern, int32_t raw_width)
         switch(pattern)
         {
             case PATTERN_EOSM:
+            case PATTERN_EOSM2:
             case PATTERN_650D:
             case PATTERN_700D:
                 if(((y + 7) % y_rep) == 0) shift = 3;
@@ -955,6 +962,9 @@ static int fpm_get_pattern(uint32_t camera_model)
     {
         case 0x80000331:
             return PATTERN_EOSM;
+
+        case 0x80000355:
+            return PATTERN_EOSM2;
 
         case 0x80000346:
             return PATTERN_100D;

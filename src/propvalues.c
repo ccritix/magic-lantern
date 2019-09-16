@@ -286,6 +286,30 @@ PROP_HANDLER(PROP_HOUTPUT_TYPE)
 
 }
 #endif
+#ifndef CONFIG_EOSM2 //~ we update lv_disp_mode from 
+PROP_HANDLER(PROP_HOUTPUT_TYPE)
+{
+    #if defined(CONFIG_5D3)
+    /* 1 when Canon overlays are present on the built-in LCD, 0 when they are not present (so we can display our overlays) */
+    /* 2 on external monitor with mirroring enabled; however, you can't tell when Canon overlays are present (FIXME) */
+    /* todo: check whether this snippet is portable */
+    lv_disp_mode = (uint8_t)buf[1] & 1;
+    hdmi_mirroring = buf[1] & 2;
+    hdmi_vars_update();
+    #elif defined(EVF_STATE) || defined(CONFIG_50D)
+    lv_disp_mode = (uint8_t)buf[1];
+    #else
+    lv_disp_mode = (uint8_t)buf[0];
+    #endif
+
+    #ifdef CONFIG_5D2 // PROP_HOUTPUT_TYPE not reported correctly?
+    lv_disp_mode = (MEM(0x34894 + 0x48) != 3); // AJ_LDR_0x34894_guess_HDMI_disp_type_related_0x48
+    #endif
+
+}
+#endif
+
+
 
 #if defined(CONFIG_NO_AUTO_ISO_LIMITS)
 int auto_iso_range = 0x4868; // no auto ISO in Canon menus; considering it fixed 100-1600.

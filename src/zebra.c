@@ -2117,7 +2117,7 @@ static MENU_UPDATE_FUNC(zoom_overlay_display)
     if (display_broken_for_mz())
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "After using display filters, go outside LiveView and back.");
     #endif
-    #if !defined(CONFIG_6D) && !defined(CONFIG_5D3) && !defined(CONFIG_EOSM)
+    #if !defined(CONFIG_6D) && !defined(CONFIG_5D3) && !defined(CONFIG_EOSM) && !defined(CONFIG_EOSM2)
     else if (is_movie_mode() && video_mode_fps > 30)
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Magic Zoom does not work well in current video mode");
     #endif
@@ -3365,7 +3365,7 @@ static void draw_zoom_overlay(int dirty)
     uint16_t*       hdr = (uint16_t*) hd->vram;
 
     // select buffer where MZ should be written (camera-specific, guesswork)
-    #if defined(CONFIG_5D2) || defined(CONFIG_EOSM) || defined(CONFIG_50D)
+    #if defined(CONFIG_5D2) || defined(CONFIG_EOSM) || defined(CONFIG_EOSM2) || defined(CONFIG_50D)
     //warning FIXME: this method uses busy waiting, which causes high CPU usage and overheating when using Magic Zoom
     void busy_vsync(int hd, int timeout_ms)
     {
@@ -3387,7 +3387,7 @@ static void draw_zoom_overlay(int dirty)
     busy_vsync(0, 20);
     #endif
 
-    #if defined(CONFIG_DIGIC_V) && ! defined(CONFIG_EOSM)
+    #if defined(CONFIG_DIGIC_V) && (! defined(CONFIG_EOSM) || ! defined(CONFIG_EOSM2))
     lvr = CACHEABLE(YUV422_LV_BUFFER_DISPLAY_ADDR);
     if (
         lvr != CACHEABLE(YUV422_LV_BUFFER_1) && 

@@ -88,6 +88,7 @@ extern WEAK_FUNC(ret_0) void mlv_play_file(char *filename);
 
 /* camera-specific tricks */
 static int cam_eos_m = 0;
+static int cam_eos_m2 = 0;
 static int cam_5d2 = 0;
 static int cam_50d = 0;
 static int cam_500d = 0;
@@ -726,7 +727,7 @@ void update_resolution_params()
         /* assume the compressed output will not exceed uncompressed frame size */
         /* max frame size for the lossless routine also has unusual alignment requirements */
 /* is this working with reduced gain presets in crop_rec.c for 100d and eosm? Let´s try it out */
-        if ((max_frame_size > 10*1024*1024) || (cam_eos_m || cam_100d))
+        if ((max_frame_size > 10*1024*1024) || (cam_eos_m || cam_eos_m2 || cam_100d))
         {
             /* at very high resolutions, restricting compressed frame size to 85%
              * (relative to uncompressed size) will help allocating more buffers */
@@ -1055,6 +1056,7 @@ static MENU_UPDATE_FUNC(raw_main_update)
         int crop_factor = calc_crop_factor();
 /* exclude eosm. Too many inconsistencies due to crop_rec preset */
         if (crop_factor && !cam_eos_m) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
+        if (crop_factor && !cam_eos_m2) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
     }
 
     write_speed_update(entry, info);
@@ -1098,6 +1100,7 @@ static MENU_UPDATE_FUNC(resolution_update)
     int crop_factor = calc_crop_factor();
 /* exclude eosm. Too many inconsistencies due to crop_rec preset */
     if (crop_factor && !cam_eos_m) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
+    if (crop_factor && !cam_eos_m2) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
 
     int selected_x = resolution_presets_x[resolution_index_x] + res_x_fine;
     
@@ -2062,7 +2065,7 @@ else
 }
 */
 
-if ((cam_eos_m || cam_100d) && crop_patch && lv_dispsize != 10)
+if ((cam_eos_m || cam_eos_m2 || cam_100d) && crop_patch && lv_dispsize != 10)
 {
      crop_patch = 0;
      PauseLiveView(); 
@@ -2073,11 +2076,15 @@ if ((cam_eos_m || cam_100d) && crop_patch && lv_dispsize != 10)
     {
         crop_patch = 1;
     }
+    if (lv_dispsize == 10 && cam_eos_m2)
+    {
+        crop_patch = 1;
+    }
 
 /* replace bmp_off and bmp_on with below. Might work better regarding corrupted frames when using PREVIEW_ML
     	    static bool once = false;
 
-if ((cam_eos_m || cam_100d) && get_halfshutter_pressed() && RECORDING && PREVIEW_ML && !kill_gd)
+if ((cam_eos_m || cam_eos_m2 || cam_100d) && get_halfshutter_pressed() && RECORDING && PREVIEW_ML && !kill_gd)
 { 
     if (once == false)
     {
@@ -2087,7 +2094,7 @@ if ((cam_eos_m || cam_100d) && get_halfshutter_pressed() && RECORDING && PREVIEW
     }
 }
 
-if ((cam_eos_m || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIEW_ML && !kill_gd)
+if ((cam_eos_m || cam_eos_m2 || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIEW_ML && !kill_gd)
 { 
     if (once == true)
     {
@@ -2140,7 +2147,7 @@ if ((cam_eos_m || cam_100d) && !get_halfshutter_pressed() && RECORDING && PREVIE
     }
 
 /* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */
-  if ((cam_eos_m || cam_100d) && RAW_IS_IDLE && PREVIEW_ML)
+  if ((cam_eos_m || cam_eos_m2 || cam_100d) && RAW_IS_IDLE && PREVIEW_ML)
   {
 
 /* EOSM reset regs */ 	
@@ -2242,7 +2249,7 @@ void hack_liveview(int unhack)
         }
 
         /* disable auto exposure and auto white balance */
-	if (((cam_eos_m || cam_100d) && small_hacks == 0x1) || (!cam_eos_m && !cam_100d))
+	if (((cam_eos_m || cam_eos_m2 || cam_100d) && small_hacks == 0x1) || (!cam_eos_m && !cam_eos_m2 && !cam_100d))
 	{
         call("aewb_enableaewb", unhack ? 1 : 0);  /* for new cameras */
         call("lv_ae",           unhack ? 1 : 0);  /* for old cameras */
@@ -2260,6 +2267,7 @@ void hack_liveview(int unhack)
             cam_650d ? 0xFF527E38 :
             cam_6d   ? 0xFF52C684 :
             cam_eos_m ? 0xFF539C1C :
+            cam_eos_m2 ? 0xFF6C4118 :
             cam_700d ? 0xFF52BB60 :
             cam_7d  ? 0xFF345788 :
             cam_60d ? 0xff36fa3c :
@@ -3124,7 +3132,7 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     file_hdr.audioFrameCount = 0;
     file_hdr.sourceFpsNom = fps_get_current_x1000();
 /* 4k timelapse function in crop_rec.c */
-  if (cam_eos_m || cam_100d)
+  if (cam_eos_m || cam_eos_m2 || cam_100d)
   {
     file_hdr.sourceFpsNom = shamem_read(0xc0f0501c) == 0x20 ? 400: shamem_read(0xc0f0501c) == 0x21 ? 1000: shamem_read(0xc0f0501c) == 0x22 ? 2000: 
 			    shamem_read(0xc0f0501c) == 0x23 ? 3000: shamem_read(0xc0f0501c) == 0x24 ? 4000: shamem_read(0xc0f0501c) == 0x25 ? 5000: fps_get_current_x1000();
@@ -3167,7 +3175,7 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     rawi_hdr.raw_info.white_level = (white14 + bpp_scaling/2) / bpp_scaling;
 
 /* round trip analog gain bits reduction. Only EOSM for now. Setting registry flag. Hopefully not affection output. Connected with raw_lv_settings_still_valid() in raw.c */
-if (cam_eos_m || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
+if (cam_eos_m || cam_eos_m2 || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
 {
 /* 8bit */
     if (shamem_read(0xc0f0815c) == 0x3) rawi_hdr.raw_info.white_level = 2250;
@@ -4390,7 +4398,7 @@ static int raw_rec_should_preview(void)
         long_halfshutter_press = 0;
         last_hs_unpress = get_ms_clock();
 /* trying a fix for stuck real time preview(only affects framing) */
-      if ((PREVIEW_ML && !kill_gd) && (cam_eos_m || cam_100d))
+      if ((PREVIEW_ML && !kill_gd) && (cam_eos_m || cam_eos_m2 || cam_100d))
       {
 /* Will maybe reduce corruption of frames by freezing liveview while in framing mode. To be tested */
 /* reg for eosm,650d,700d,100d */
@@ -4444,13 +4452,16 @@ static int raw_rec_should_preview(void)
             if (shamem_read(0xc0f11a88) == 0x1) long_halfshutter_press = 0;
 /* let´s disable framing in realtime preview while using mcm rewired mode with eosm */
             if (shamem_read(0xc0f383d4) == 0x4f0010 && cam_eos_m) long_halfshutter_press = 0;
+            if (shamem_read(0xc0f383d4) == 0x4f0010 && cam_eos_m2) long_halfshutter_press = 0;
 /* 48fps mode in crop_rec.c. Affects 2.39:1 and 2.35:1 */
             if (shamem_read(0xc0f06804) == 0x2f701d4 && cam_eos_m) long_halfshutter_press = 0;
+            if (shamem_read(0xc0f06804) == 0x2f701d4 && cam_eos_m2) long_halfshutter_press = 0;
 /* when touching display while in x10 zoomaid mode */
             if (shamem_read(0xc0f06804) == 0x4a601d4 && cam_eos_m) long_halfshutter_press = 0;
+            if (shamem_read(0xc0f06804) == 0x4a601d4 && cam_eos_m2) long_halfshutter_press = 0;
         }
 /* trying a fix for stuck real time preview(only affects framing) */
-      if (PREVIEW_ML && (cam_eos_m || cam_100d))
+      if (PREVIEW_ML && (cam_eos_m || cam_eos_m2 || cam_100d))
       {
 /* regs for eosm,650d,700d,100d */
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x4efffc)) // x3 digital zoom
@@ -4600,6 +4611,7 @@ static unsigned int raw_rec_init()
     // Always start with RAW enabled after reboot, also when it was turned off last time
     //raw_video_enabled = 1;
     cam_eos_m = is_camera("EOSM", "2.0.2");
+    cam_eos_m2= is_camera("EOSM2","1.0.3"); 
     cam_5d2   = is_camera("5D2",  "2.1.2");
     cam_50d   = is_camera("50D",  "1.0.9");
     cam_550d  = is_camera("550D", "1.0.9");

@@ -239,6 +239,11 @@ static void fps_read_current_timer_values();
     #define FPS_TIMER_A_MIN (ZOOM ? 676 : MV1080CROP ? 572 : 520)
     #undef FPS_TIMER_B_MIN
     #define FPS_TIMER_B_MIN (ZOOM || MV1080 || MV1080CROP ? 1230 : MV720 || (lv && lv_dispsize==1 && !is_movie_mode()) ? 990 : 1970)
+#elif defined(CONFIG_EOSM2) // using 100D values for now
+    #define TG_FREQ_BASE 32000000
+    #define FPS_TIMER_A_MIN (ZOOM ? 676 : MV1080CROP ? 540 : 520)
+    #undef FPS_TIMER_B_MIN
+    #define FPS_TIMER_B_MIN (ZOOM || MV1080 || MV1080CROP ? 1288 : MV720 || (lv && lv_dispsize==1 && !is_movie_mode()) ? 990 : 1970)
 #elif defined(CONFIG_6D)
     #define TG_FREQ_BASE 25600000
     #define FPS_TIMER_A_MIN (fps_timer_a_orig - (ZOOM ? 22 : MV720 ? 10 : 34) ) //, ZOOM ? 708 : 512)
@@ -2117,7 +2122,7 @@ void set_frame_iso(int iso)
 
 int can_set_frame_iso()
 {
-    #ifdef CONFIG_EOSM
+    #if defined(CONFIG_EOSM) || defined(CONFIG_EOSM2)
     if (!RECORDING_H264) return 0;  /* EOS-M is stubborn, http://www.magiclantern.fm/forum/index.php?topic=5200.msg104816#msg104816 */
     #endif
     
@@ -2155,7 +2160,7 @@ void set_frame_shutter(int shutter_reciprocal)
 
 int can_set_frame_shutter_timer()
 {
-    #ifdef CONFIG_EOSM
+    #if defined(CONFIG_EOSM) || defined(CONFIG_EOSM2)
     if (!RECORDING_H264) return 0;  /* EOS-M is stubborn, http://www.magiclantern.fm/forum/index.php?topic=5200.msg104816#msg104816 */
     #endif
 

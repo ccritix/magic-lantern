@@ -934,7 +934,7 @@ lens_take_picture(
     // in some cases, the MLU setting is ignored; if ML can't detect this properly, this call will actually take a picture
     // if it happens (e.g. with LV active, but camera in QR mode), that's it, we won't try taking another one
     // side effects should be minimal
-#if defined(CONFIG_EOSM)
+#if (defined(CONFIG_EOSM) || defined(CONFIG_EOSM2))
     call("Release"); //EOSM is mirrorless no need to check for MLU
     goto end;
 #else
@@ -2803,7 +2803,7 @@ static LVINFO_UPDATE_FUNC(mode_update)
     LVINFO_BUFFER(8);
     snprintf(buffer, sizeof(buffer), get_shootmode_name_short(shooting_mode_custom));
 /* hijacking left bottom corner eosm bits showing from crop rec */
-#if defined(CONFIG_EOSM) || defined(CONFIG_5D3) || defined(CONFIG_100D) || defined(CONFIG_6D)
+#if defined(CONFIG_EOSM) || defined(CONFIG_EOSM2) || defined(CONFIG_5D3) || defined(CONFIG_100D) || defined(CONFIG_6D)
 					snprintf(buffer, sizeof(buffer), "14bit");
     if (shamem_read(0xc0f0815c) == 0x3) snprintf(buffer, sizeof(buffer), "8bit");
     if (shamem_read(0xc0f0815c) == 0x4) snprintf(buffer, sizeof(buffer), "9bit");

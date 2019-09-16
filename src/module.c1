@@ -40,6 +40,8 @@ CONFIG_INT("module.console", module_console_enabled, 0);
 CONFIG_INT("module.ignore_crashes", module_ignore_crashes, 0);
 char *module_lockfile = MODULE_PATH"LOADING.LCK";
 
+char *core_modules[] = {"mlv_lite", "crop_rec", "mlv_play", "mlv_snd", "sd_uhs", "lua", "file_man", "dual_iso", "silent"};
+
 static struct msg_queue * module_mq = 0;
 // #define MSG_MODULE_LOAD_ALL 1
 // #define MSG_MODULE_UNLOAD_ALL 2
@@ -264,11 +266,21 @@ static void _module_load_all(uint32_t list_only)
             /* check for a .en file that tells the module is enabled */
             char enable_file[FIO_MAX_PATH_LENGTH];
             snprintf(enable_file, sizeof(enable_file), "%s%s.en", get_config_dir(), module_list[module_cnt].name);
+
+            unsigned int core_modules_count = COUNT(core_modules);
+            unsigned int index_in_core_modules;
+            for(index_in_core_modules = 0; index_in_core_modules < core_modules_count; ++index_in_core_modules) {
+                if (strcmp(core_modules[index_in_core_modules], module_list[module_cnt].name) == 0) {
+                    module_list[module_cnt].is_core = 1;
+                    break;
+                }
+            }
             
-            /* if enable-file is nonexistent, dont load module */
-            if(!config_flag_file_setting_load(enable_file))
+            /* if enable-file is nonexistent, dont load module, unless it's a core module */
+            if(!config_flag_file_setting_load(enable_file) && index_in_core_modules >= core_modules_count)
             {
                 module_list[module_cnt].enabled = 0;
+                module_list[module_cnt].is_core = 0;
                 snprintf(module_list[module_cnt].status, sizeof(module_list[module_cnt].status), "OFF");
                 snprintf(module_list[module_cnt].long_status, sizeof(module_list[module_cnt].long_status), "Module disabled");
                 //printf("  [i] %s\n", module_list[module_cnt].long_status);
@@ -542,6 +554,7 @@ static void _module_load_all(uint32_t list_only)
     #else
     module_state = state;
     #endif
+
     
     printf("Modules loaded\n");
 }
@@ -1206,7 +1219,12 @@ static void module_menu_update()
         {
             ASSERT(mod_number == (int) entry->priv);
 
-            if(module_list[mod_number].valid)
+             // Don't show core modules, they are not optional in this build
+            if(module_list[mod_number].is_core == 1)
+            {
+                MENU_SET_SHIDDEN(1);
+            }
+            else if(module_list[mod_number].valid)
             {
                 MENU_SET_SHIDDEN(0);
             }

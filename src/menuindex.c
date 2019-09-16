@@ -51,6 +51,9 @@ static struct menu_entry help_menus[] = {
         #elif defined(CONFIG_EOSM)
         .name = "Tap or press PLAY",
         .choices = CHOICES("Open submenu (Q)"),
+        #elif defined(CONFIG_EOSM2)
+        .name = "Tap or press PLAY",
+        .choices = CHOICES("Open submenu (Q)"),
         #elif defined(CONFIG_100D)
         .name = "Press Av / PLAY",
         .choices = CHOICES("Open submenu (Q)"),

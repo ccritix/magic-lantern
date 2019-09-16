@@ -50,6 +50,10 @@
 #include "fw-signature.h"
 #endif
 
+#if defined(CONFIG_EOSM2)
+#include "patch.h"
+#endif
+
 /** These are called when new tasks are created */
 static void my_task_dispatch_hook(struct context **, struct task *, struct task *);
 static int my_init_task(int a, int b, int c, int d);
@@ -713,6 +717,30 @@ init_task_func init_task_patched(int a, int b, int c, int d)
     // change end limit from 0xd00000 to 0xc70000 => reserve 576K for ML
     *addr_AllocMem_end = MOV_R1_0xC70000_INSTR;
     ml_reserved_mem = 0xD00000 - RESTARTSTART;
+    #elif defined(CONFIG_EOSM2)
+    /* R0: 0x44C000 (start address, easier to patch, change to 0x4E0000 => reserve 592K for ML) */
+    /* R1: 0xD3C000 [6D, 700D] / 0xC3C000 [100D] / 0xD6C000 [EOSM] / 0xC2A000 [EOSM2] (end address, unchanged) */
+    addr_AllocMem_end[1] = MOV_R0_0x4E0000_INSTR;
+    ml_reserved_mem = 0x4E0000 - RESTARTSTART;
+    /**********************************************************************
+    Why we need to patch:
+    https://www.magiclantern.fm/forum/index.php?topic=15895.msg197669#msg197669
+    ***********************************************************************/
+    patch_instruction(0xFF2C6C40, 0xE1800002, 0xE0800002, "engio");
+    patch_instruction(0xFF2C6CD8, 0xE1800001, 0xE0800001, "engio");
+    patch_instruction(0xFF2C6D30, 0xE1822001, 0xE0822001, "engio");
+    patch_instruction(0xFF2C6D3C, 0xE1811005, 0xE0811005, "engio");
+    patch_instruction(0xFF2C6DA4, 0xE1807001, 0xE0807001, "engio");
+    patch_instruction(0xFF2C6F64, 0x1181100C, 0x1081100C, "engio");
+    patch_instruction(0xFF2C6F94, 0xE1800002, 0xE0800002, "engio");
+    patch_instruction(0xFF2C6FC4, 0xE1811002, 0xE0811002, "engio");
+    patch_instruction(0xFF2C6FD0, 0xE1822004, 0xE0822004, "engio");
+    patch_instruction(0xFF2C6FF4, 0xE1800003, 0xE0800003, "engio");
+    #elif defined(CONFIG_550D) || defined(CONFIG_600D)
+    // change end limit from 0xd00000 to 0xc70000 => reserve 576K for ML
+    *addr_AllocMem_end = MOV_R1_0xC70000_INSTR;
+    ml_reserved_mem = 0xD00000 - RESTARTSTART;
+    
     #else
     // change end limit from 0xd00000 to 0xc80000 => reserve 512K for ML
     *addr_AllocMem_end = MOV_R1_0xC80000_INSTR;
