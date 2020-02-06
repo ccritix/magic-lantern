@@ -6040,6 +6040,14 @@ static unsigned int adtg_gui_init()
         ENGIO_WRITE_FUNC = 0xFF2C19AC;  // from stubs
         ENG_DRV_OUT_FUNC = 0xFF2C1694;
     }
+    else if (is_camera("EOSM", "2.0.3")) // from 1%
+    {
+        ADTG_WRITE_FUNC = 0x2986C;
+        CMOS_WRITE_FUNC = 0x2998C;
+        ENGIO_WRITE_FUNC = 0xff2c1a5c;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xff2c1744;
+    }
+
     else if (is_camera("600D", "1.0.2")) // from 1% TL 2.0
     {
         ADTG_WRITE_FUNC = 0xFF2DCEF4; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"

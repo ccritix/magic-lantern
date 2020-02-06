@@ -157,7 +157,7 @@ void set_shooting_mode(int m)
     ml_changing_shooting_mode = 0;
 }
 
-static CONFIG_INT("movie.restart", movie_restart,0);
+static CONFIG_INT("movie.restart", movie_restart,1);
 static CONFIG_INT("movie.rec-key", movie_rec_key, 0);
 static CONFIG_INT("movie.rec-key-action", movie_rec_key_action, 0);
 static CONFIG_INT("movie.rec-key-long", movie_rec_key_long, 0);
@@ -959,7 +959,7 @@ static struct menu_entry custom_buttons_menu[] =
 };
 #endif
 
-#if defined(FEATURE_SHUTTER_LOCK) && !defined(FEATURE_MOVIE_RESTART) && !defined(FEATURE_REC_NOTIFY) && !defined(FEATURE_FORCE_LIVEVIEW)
+#if defined(FEATURE_SHUTTER_LOCK) && defined(FEATURE_MOVIE_RESTART) && !defined(FEATURE_REC_NOTIFY) && !defined(FEATURE_FORCE_LIVEVIEW)
 static struct menu_entry movie_tweaks_menus[] =
 {
     {

@@ -103,13 +103,13 @@
 
 /** Movie menu **/
     #define FEATURE_RAW_VIDEO_ONLY
-    // #define FEATURE_NITRATE
+    #define FEATURE_NITRATE
     //~ #define FEATURE_NITRATE_WAV_RECORD // not user-proof at all
     //~ #define FEATURE_VIDEO_HACKS // for experts only
 
     // #define FEATURE_REC_INDICATOR
     // #define FEATURE_MOVIE_LOGGING
-    // #define FEATURE_MOVIE_RESTART
+     #define FEATURE_MOVIE_RESTART
     // #define FEATURE_REC_NOTIFY
     //~ #define FEATURE_REC_NOTIFY_BEEP // this may interfere with sound recording, so only enable it where we know it works
     // #define FEATURE_MOVIE_REC_KEY
@@ -128,7 +128,7 @@
     //~ #define FEATURE_FPS_WAV_RECORD
 
 #ifdef CONFIG_FRAME_ISO_OVERRIDE
-    //~ #define FEATURE_HDR_VIDEO
+    #define FEATURE_HDR_VIDEO
     //~ #define FEATURE_HDR_EXTENDED // for experts only
 #endif
 

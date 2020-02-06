@@ -49,11 +49,11 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .placeholder = 1,
     },
     {
-        .name = "max iso",
+        .name = "white balance",
         .placeholder = 1,
     },
     {
-        .name = "shutter range",
+        .name = "fps override",
         .placeholder = 1,
     },
     {
@@ -65,7 +65,11 @@ static struct menu_entry movie_menu_raw_toggle[] =
         .placeholder = 1,
     },
     {
-        .name = "fps override",
+        .name = "shutter range",
+        .placeholder = 1,
+    },
+    {
+        .name = "sound recording",
         .placeholder = 1,
     },
     {

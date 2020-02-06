@@ -2798,20 +2798,6 @@ static LVINFO_UPDATE_FUNC(free_space_update)
     );
 }
 
-static LVINFO_UPDATE_FUNC(mode_update)
-{
-    LVINFO_BUFFER(8);
-    snprintf(buffer, sizeof(buffer), get_shootmode_name_short(shooting_mode_custom));
-/* hijacking left bottom corner eosm bits showing from crop rec */
-#if defined(CONFIG_EOSM) || defined(CONFIG_5D3) || defined(CONFIG_100D) || defined(CONFIG_6D)
-					snprintf(buffer, sizeof(buffer), "14bit");
-    if (shamem_read(0xc0f0815c) == 0x3) snprintf(buffer, sizeof(buffer), "8bit");
-    if (shamem_read(0xc0f0815c) == 0x4) snprintf(buffer, sizeof(buffer), "9bit");
-    if (shamem_read(0xc0f0815c) == 0x5) snprintf(buffer, sizeof(buffer), "10bit");
-    if (shamem_read(0xc0f0815c) == 0x6) snprintf(buffer, sizeof(buffer), "12bit");
-#endif
-}
-
 static LVINFO_UPDATE_FUNC(focal_len_update)
 {
     LVINFO_BUFFER(16);
@@ -3202,14 +3188,6 @@ static struct lvinfo_item info_items[] = {
         .name = "Free space",
         .which_bar = LV_TOP_BAR_ONLY,
         .update = free_space_update,
-    },
-    /* Bottom bar */
-    {
-        .name = "Mode",
-        .which_bar = LV_BOTTOM_BAR_ONLY,
-        .update = mode_update,
-        .priority = 1,
-        .preferred_position = -128,
     },
     {
         .name = "Focal len",

@@ -1768,6 +1768,17 @@ static void module_load_task(void* unused)
                 FIO_CloseFile(handle);
             }
             
+            /* autoload tlapse lua script on install. Not clean as disabling don´t work directly on testing first restart. Seems related to MENU.CFG not being created on first start */
+            char config_file[0x80];
+            snprintf(config_file, sizeof(config_file), "%sfirst", get_config_dir());
+            int first_run = config_flag_file_setting_load(config_file);
+            
+            if(!first_run)
+            {
+                FILE *file = FIO_CreateFile( "ML/SETTINGS/TLAPSE.LEN" );
+                FILE *file2 = FIO_CreateFile( "ML/SETTINGS/FIRST" );
+            }
+            
             /* now load modules */
             _module_load_all(0);
             module_menu_update();

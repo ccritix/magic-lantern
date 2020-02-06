@@ -62,6 +62,7 @@ EXTLD(video_bmp);
 static int video_enabled_dummy = 0;
 extern int WEAK_FUNC(video_enabled_dummy) raw_video_enabled;
 extern int WEAK_FUNC(video_enabled_dummy) mlv_video_enabled;
+extern WEAK_FUNC(ret_0) unsigned int movie_crop_hack_disable();
 
 static char *movie_filename_dummy = "";
 extern char *WEAK_FUNC(movie_filename_dummy) raw_movie_filename;
@@ -76,6 +77,9 @@ static int frame_count = 0;
 static int frame_size = 0;
 static int bits_per_pixel = 0;
 static unsigned int fps1000 = 0; /* used for RAW playback */
+static int anamorphic = 0;
+static int active_x = 0;
+static int active_y = 0;
 
 static volatile uint32_t mlv_play_render_abort = 0;
 static volatile uint32_t mlv_play_rendering = 0;
@@ -470,7 +474,7 @@ static void mlv_play_delete_if_requested()
     {
         mlv_play_show_dlg(0, "Deleting...");
         int ok = mlv_play_delete();
-        mlv_play_show_dlg(1000, ok ? "Deleted." : "Delete failed.");
+        mlv_play_show_dlg(3000, ok ? "Deleted." : "Delete failed.");
         mlv_play_delete_requested = 0;
     }
 }
@@ -565,7 +569,7 @@ static uint32_t mlv_play_osd_delete_selected = 0;
 
 static void mlv_play_osd_delete(char *msg, uint32_t msg_len, uint32_t selected)
 {
-    uint32_t max_time = 2000;
+    uint32_t max_time = 5000;
 
     if(selected)
     {
@@ -1452,10 +1456,19 @@ static void mlv_play_render_frame(frame_buf_t *buffer)
     raw_info.black_level = buffer->blackLevel;
     raw_info.white_level = buffer->whiteLevel;
     raw_set_geometry(buffer->xRes, buffer->yRes, 0, 0, 0, 0);
-
-    /* fixme: read aspect ratio from metadata */
-    raw_force_aspect_ratio(1, 1);
     
+    /* fixme: read aspect ratio from metadata */
+    //raw_force_aspect_ratio(1, 1);
+    
+    if (anamorphic)
+    {
+        raw_force_aspect_ratio(3, 1);
+    }
+    else
+    {
+        raw_force_aspect_ratio(1, 1);
+    }
+        
     if(raw_twk_available())
     {
         raw_twk_render_ex(buffer->frameBufferAligned, buffer->xRes, buffer->yRes, buffer->bitDepth, mlv_play_quality, buffer->blackLevel);
@@ -1527,8 +1540,8 @@ static void mlv_play_render_task(uint32_t priv)
             msg_queue_post(mlv_play_queue_empty, (uint32_t) buffer);
             break;
         }
-
-        mlv_play_render_frame(buffer);
+        
+              mlv_play_render_frame(buffer);
         
         /* if info display is requested, paint it. todo: thats OSD stuff, so it should be removed from here */
         if(mlv_play_info)
@@ -1924,6 +1937,19 @@ static void mlv_play_mlv(char *filename, FILE **chunk_files, uint32_t chunk_coun
                     msg_queue_post(mlv_play_queue_empty, (uint32_t) buffer);
                 }
                 break;
+            }
+            
+            /* check for anamorphic recordings */
+            active_y = rawi_block.raw_info.active_area.y2;
+            active_x = rawi_block.raw_info.active_area.x2;
+
+            if (active_y > active_x)
+            {
+                 anamorphic = 1;
+            }
+            else
+            {
+                 anamorphic = 0;
             }
             
             /* check if the queued buffer has the correct size */
@@ -2718,6 +2744,8 @@ cleanup:
     raw_info.black_level = old_black_level;
     raw_info.white_level = old_white_level;
     raw_info.bits_per_pixel = old_bits_per_pixel;
+    /* might help from getting black screen after previewing on eosm. Probably valid for 100D too */
+    movie_crop_hack_disable();
 }
 
 
