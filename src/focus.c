@@ -262,7 +262,7 @@ display_lens_hyperfocal()
     y += 10;
     y += height;
 
-    if (!lens_info.name[0])
+    if (!lens_info.lens_exists)
     {
         y += height;
         bmp_printf( font, x, y,
@@ -278,16 +278,7 @@ display_lens_hyperfocal()
         lens_info.aperture / 10,
         lens_info.aperture % 10
     );
-    
-    if (!lv)
-    {
-        y += height;
-        bmp_printf( font, x, y,
-            "Focus distance info is only available in LiveView."
-        );
-        return;
-    }
-    
+
     if (!lens_info.focus_dist)
     {
         y += height;
@@ -997,7 +988,7 @@ PROP_HANDLER(PROP_LV_FOCUS_DATA)
     focus_mag_a = buf[2];
     focus_mag_b = buf[3];
     focus_mag_c = buf[4];
-    #if defined(CONFIG_600D) || defined(CONFIG_1100D)
+    #if defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_100D)
     int focus_mag = focus_mag_c;
     #else
     int focus_mag = focus_mag_a + focus_mag_b;
@@ -1050,7 +1041,7 @@ TASK_CREATE( "focus_misc_task", focus_misc_task, 0, 0x1e, 0x1000 );
 static MENU_UPDATE_FUNC(trap_focus_display)
 {
     int t = CURRENT_VALUE;
-    if (!lv && !lens_info.name[0])
+    if (!lv && !lens_info.lens_exists)
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Trap focus outside LiveView requires a chipped lens");
     if (t == 2 && cfn_get_af_button_assignment() != AF_BTN_HALFSHUTTER)
         MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Assign AF button to half-shutter from CFn!");
@@ -1145,7 +1136,7 @@ static struct menu_entry focus_menu[] = {
         .update    = focus_show_a,
         .select_Q    = focus_reset_a,
         .icon_type = IT_BOOL,
-        .edit_mode = EM_MANY_VALUES_LV,
+        .edit_mode = EM_SHOW_LIVEVIEW,
         .help = "[Q]: fix here rack end point. SET+L/R: start point.",
         .depends_on = DEP_LIVEVIEW | DEP_AUTOFOCUS,
     },

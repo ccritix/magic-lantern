@@ -407,8 +407,8 @@ int FIO_CreateDirectory(const char * dirname)
 }
 
 #if defined(CONFIG_FIO_RENAMEFILE_WORKS)
-int _FIO_RenameFile(char *src,char *dst);
-int FIO_RenameFile(char *src,char *dst)
+int _FIO_RenameFile(const char * src, const char * dst);
+int FIO_RenameFile(const char * src, const char * dst)
 {
     char newSrc[FIO_MAX_PATH_LENGTH];
     char newDst[FIO_MAX_PATH_LENGTH];
@@ -417,7 +417,7 @@ int FIO_RenameFile(char *src,char *dst)
     return _FIO_RenameFile(newSrc, newDst);
 }
 #else
-int FIO_RenameFile(char* src, char* dst)
+int FIO_RenameFile(const char * src, const char * dst)
 {
     // FIO_RenameFile not known, or doesn't work
     // emulate it by copy + erase (poor man's rename :P )
@@ -572,7 +572,7 @@ FILE* FIO_CreateFileOrAppend(const char* name)
     return f;
 }
 
-int FIO_CopyFile(char *src,char *dst)
+int FIO_CopyFile(const char * src, const char * dst)
 {
     FILE* f = FIO_OpenFile(src, O_RDONLY | O_SYNC);
     if (!f) return -1;
@@ -611,7 +611,7 @@ int FIO_CopyFile(char *src,char *dst)
     return 0;
 }
 
-int FIO_MoveFile(char *src,char *dst)
+int FIO_MoveFile(const char * src, const char * dst)
 {
     int err = FIO_CopyFile(src,dst);
     if (!err)
@@ -740,6 +740,29 @@ malloc_fail:
 getfilesize_fail:
     DEBUG("failed");
     return NULL;
+}
+
+// sometimes gcc likes very much the default fprintf and uses that one
+// => renamed to my_fprintf to force it to use this one
+int
+my_fprintf(
+    FILE *          file,
+    const char *        fmt,
+    ...
+)
+{
+    va_list         ap;
+    int len = 0;
+    
+    const int maxlen = 512;
+    char buf[maxlen];
+
+    va_start( ap, fmt );
+    len = vsnprintf( buf, maxlen-1, fmt, ap );
+    va_end( ap );
+    FIO_WriteFile( file, buf, len );
+    
+    return len;
 }
 
 #ifdef CONFIG_DUAL_SLOT

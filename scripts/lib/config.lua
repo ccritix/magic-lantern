@@ -10,6 +10,16 @@ config = {}
 config.configs = {}
 config.__index = config
 
+--[[---------------------------------------------------------------------------
+Create a new config instance, filename will be determined automagically
+@param default the default data values
+@function create
+]]
+function config.create(default)
+    --determine the config filename automatically based on the script's filename
+    return create_internal(default, debug.getinfo(2,"S").short_src)
+end
+
 local create_internal = function(default,thisfile)
     local cfg = {}
     assert(thisfile ~= nil, "Could not determine script filename")
@@ -30,16 +40,6 @@ local create_internal = function(default,thisfile)
         end
     end
     return cfg
-end
-
---[[---------------------------------------------------------------------------
-Create a new config instance, filename will be determined automagically
-@param default the default data values
-@function create
-]]
-function config.create(default)
-    --determine the config filename automatically based on the script's filename
-    return create_internal(default, debug.getinfo(2,"S").short_src)
 end
 
 --[[---------------------------------------------------------------------------
@@ -130,7 +130,7 @@ end
 --private
 function config.serialize(f,o)
     if type(o) == "number" then
-        f:write(tostring(o))
+        f:write(o)
     elseif type(o) == "string" then
         f:write(string.format("%q", o))
     elseif type(o) == "table" then
