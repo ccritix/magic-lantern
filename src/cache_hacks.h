@@ -208,10 +208,16 @@ static void cache_get_content(uint32_t segment, uint32_t index, uint32_t word, u
 }
 
 /* check if given address is already used or if it is usable for patching */
-static uint32_t cache_is_patchable(uint32_t address, uint32_t type)
+/* optional: get current cached value */
+static uint32_t cache_is_patchable(uint32_t address, uint32_t type, uint32_t* current_value)
 {
     uint32_t stored_tag_index = 0;
     uint32_t stored_data = 0;
+    
+    if (current_value)
+    {
+        *current_value = 0xFFFFFFFF;
+    }
     
     cache_get_content(0, (address & CACHE_INDEX_ADDRMASK(type))>>CACHE_INDEX_TAGOFFSET(type), (address & CACHE_WORD_ADDRMASK(type))>>CACHE_WORD_TAGOFFSET(type), type, &stored_tag_index, &stored_data);
     
@@ -219,6 +225,11 @@ static uint32_t cache_is_patchable(uint32_t address, uint32_t type)
     if((stored_tag_index & 0x10) == 0)
     {
         return 1;
+    }
+
+    if (current_value)
+    {
+        *current_value = stored_data;
     }
     
     /* now check if the TAG RAM content matches with what we expect and valid bit is set */
