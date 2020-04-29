@@ -3839,7 +3839,8 @@ static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_va
             case 0xC0f0b13c: return 0xb;
         }
     }
-    
+
+    //too tired now but let´s differ x3crop some. Not used too often
     if ((ratios == 0x1 || ratios == 0x2) && x3crop)
     {
         switch (reg)
@@ -3849,7 +3850,7 @@ static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_va
             case 0xC0F07150: return 0x2fa + reg_7150;
                 
                 /* 48/50fps. 50 if set_25fps is on */
-            case 0xC0F06014: return set_25fps == 0x1 ? 0x4c9 + reg_6014: 0x4ca + reg_6014;
+            case 0xC0F06014: return set_25fps == 0x1 ? 0x4e2 + reg_6014: 0x4e3 + reg_6014;
             case 0xC0F0600c: return set_25fps == 0x1 ? 0x2090209 + reg_6008 + (reg_6008 << 16): 0x21f021f + reg_6008 + (reg_6008 << 16);
             case 0xC0F06008: return set_25fps == 0x1 ? 0x2090209 + reg_6008 + (reg_6008 << 16): 0x21f021f + reg_6008 + (reg_6008 << 16);
             case 0xC0F06010: return set_25fps == 0x1 ? 0x209 + reg_6008: 0x21f + reg_6008;
@@ -3859,7 +3860,6 @@ static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_va
         }
     }
     
-    //too tired now but let´s differ x3crop some. Not used too often
     if ((ratios == 0x1 || ratios == 0x2) && !x3crop)
     {
         switch (reg)
@@ -6590,6 +6590,7 @@ static LVINFO_UPDATE_FUNC(crop_info)
         if (ratios == 0x1 || ratios == 0x2) snprintf(buffer, sizeof(buffer), "HD 1080p 48fps");
         if (ratios == 0x3) snprintf(buffer, sizeof(buffer), "HD 1080p 45fps");
         if ((ratios == 0x1 || ratios == 0x2) && set_25fps == 0x1) snprintf(buffer, sizeof(buffer), "HD 1080p 50fps");
+        if ((ratios == 0x1 || ratios == 0x2) && x3crop) snprintf(buffer, sizeof(buffer), "HD 1080p 47fps");
     }
     
     if (CROP_PRESET_MENU == CROP_PRESET_3x1_mv720_50fps_EOSM)
