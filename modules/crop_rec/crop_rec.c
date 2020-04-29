@@ -1403,8 +1403,8 @@ static void FAST cmos_hook(uint32_t* regs, uint32_t* stack, uint32_t pc)
             case CROP_PRESET_3x3_mv1080_48fps_EOSM:
                 if (x3crop == 0x1 || crop_patch)
                 {
-                    cmos_new[5] = 0x400;
-                    cmos_new[7] = 0x6;
+                    cmos_new[5] = 0x380;
+                    cmos_new[7] = 0xa06;
                 }
                 break;
                 
@@ -3840,7 +3840,27 @@ static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_va
         }
     }
     
-    if (ratios == 0x1 || ratios == 0x2)
+    if ((ratios == 0x1 || ratios == 0x2) && x3crop)
+    {
+        switch (reg)
+        {
+            case 0xC0F06804: return 0x2f701d4 + reg_6804_width + (reg_6804_height << 16);
+            case 0xC0F0713c: return 0x33d + reg_713c;
+            case 0xC0F07150: return 0x2fa + reg_7150;
+                
+                /* 48/50fps. 50 if set_25fps is on */
+            case 0xC0F06014: return set_25fps == 0x1 ? 0x4c9 + reg_6014: 0x4ca + reg_6014;
+            case 0xC0F0600c: return set_25fps == 0x1 ? 0x2090209 + reg_6008 + (reg_6008 << 16): 0x21f021f + reg_6008 + (reg_6008 << 16);
+            case 0xC0F06008: return set_25fps == 0x1 ? 0x2090209 + reg_6008 + (reg_6008 << 16): 0x21f021f + reg_6008 + (reg_6008 << 16);
+            case 0xC0F06010: return set_25fps == 0x1 ? 0x209 + reg_6008: 0x21f + reg_6008;
+                
+                /* dummy reg for height modes eosm in raw.c */
+            case 0xC0f0b13c: return 0xe;
+        }
+    }
+    
+    //too tired now but let´s differ x3crop some. Not used too often
+    if ((ratios == 0x1 || ratios == 0x2) && !x3crop)
     {
         switch (reg)
         {
@@ -3858,6 +3878,7 @@ static inline uint32_t reg_override_3x3_48fps_eosm(uint32_t reg, uint32_t old_va
             case 0xC0f0b13c: return 0xe;
         }
     }
+    
     
     if (ratios == 0x3)
     {

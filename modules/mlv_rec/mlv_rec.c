@@ -4328,7 +4328,7 @@ static unsigned int raw_rec_init()
     /* default free text string is empty */
     strcpy(raw_tag_str, "");
 
-    cam_eos_m = is_camera("EOSM", "2.0.2");
+    cam_eos_m = is_camera("EOSM", "2.0.3");
     cam_5d2   = is_camera("5D2",  "2.1.2");
     cam_50d   = is_camera("50D",  "1.0.9");
     cam_550d  = is_camera("550D", "1.0.9");
