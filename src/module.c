@@ -12,6 +12,9 @@
 #include "lens.h"
 #include "ml-cbr.h"
 
+//used for custom mode folder tree upon install
+extern WEAK_FUNC(ret_0) unsigned int config_preset_scan();
+
 #ifndef CONFIG_MODULES_MODEL_SYM
 #error Not defined file name with symbols
 #endif
@@ -1766,6 +1769,40 @@ static void module_load_task(void* unused)
             {
                 FIO_WriteFile(handle, lockstr, strlen(lockstr));
                 FIO_CloseFile(handle);
+            }
+            
+            /* autoload tlapse lua script on install. Not clean as disabling don´t work directly on testing first restart. Seems related to MENU.CFG not being created on first start */
+            char config_file[0x80];
+            snprintf(config_file, sizeof(config_file), "%sfirst", get_config_dir());
+            int first_run = config_flag_file_setting_load(config_file);
+            
+            if(!first_run)
+            {
+                FILE *file = FIO_CreateFile( "ML/SETTINGS/TLAPSE.LEN" );
+                FILE *file2 = FIO_CreateFile( "ML/SETTINGS/FIRST" );
+                //throw in custom folder here for now
+                static char* CM1;
+                static char* CM2;
+                static char* CM3;
+                static char* CM4;
+                static char* CM5;
+                char preset_dir1[0x80];
+                char preset_dir2[0x80];
+                char preset_dir3[0x80];
+                char preset_dir4[0x80];
+                char preset_dir5[0x80];
+                snprintf(preset_dir1, sizeof(preset_dir1), "ML/SETTINGS/CM1", CM1);
+                snprintf(preset_dir2, sizeof(preset_dir2), "ML/SETTINGS/CM2", CM2);
+                snprintf(preset_dir3, sizeof(preset_dir3), "ML/SETTINGS/CM3", CM3);
+                snprintf(preset_dir4, sizeof(preset_dir4), "ML/SETTINGS/CM4", CM4);
+                snprintf(preset_dir5, sizeof(preset_dir5), "ML/SETTINGS/CM5", CM5);
+                if (!is_dir(preset_dir1)) { FIO_CreateDirectory(preset_dir1); }
+                if (!is_dir(preset_dir2)) { FIO_CreateDirectory(preset_dir2); }
+                if (!is_dir(preset_dir3)) { FIO_CreateDirectory(preset_dir3); }
+                if (!is_dir(preset_dir4)) { FIO_CreateDirectory(preset_dir4); }
+                if (!is_dir(preset_dir5)) { FIO_CreateDirectory(preset_dir5); }
+                config_load();
+                config_preset_scan();
             }
             
             /* now load modules */

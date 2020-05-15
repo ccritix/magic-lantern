@@ -1968,25 +1968,6 @@ int _raw_lv_get_iso_post_gain()
 
 int raw_lv_settings_still_valid()
 {
-
-/* 8bit */
-    if (shamem_read(0xc0f0815c) == 0x3) raw_info.white_level = 2250;
-/* 9bit */
-    if (shamem_read(0xc0f0815c) == 0x4) raw_info.white_level = 2550; 
-/* 10bit */
-    if (shamem_read(0xc0f0815c) == 0x5) raw_info.white_level = (lens_info.raw_iso == ISO_100) ? 2840 : 2890;
-/* 12bit */
-    if (shamem_read(0xc0f0815c) == 0x6) raw_info.white_level = 6000; 
-/* 14bit 4k timelapse only. Flag set in crop_rec.c */
-    /* iso_climb feature */
-    if (shamem_read(0xc0f0815c) == 0x7 && shamem_read(0xC0F0b12c) == 0x11)
-    {
-        raw_info.white_level = 14000;
-    }
-    if (shamem_read(0xc0f0815c) == 0x7 && shamem_read(0xC0F0b12c) == 0x0)
-    {
-        raw_info.white_level = 15200;
-    }
     /* should be fast enough for vsync calls */
     if (!lv_raw_enabled) return 0;
     int w, h;

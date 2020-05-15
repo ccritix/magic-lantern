@@ -2326,12 +2326,14 @@ static int check_default_warnings(struct menu_entry * entry, char* warning)
         if (entry->parent && IS_ML_PTR(entry->parent->priv) &&  /* does it have a parent with a valid priv field? */
             entry->parent->priv != entry->priv)         /* priv different from our own? (cannot depend on itself) */
         {
-            if (!MENU_INT(entry->parent))   /* is the master menu entry disabled? if so, gray out the entire submenu */
+            /*
+            if (!MENU_INT(entry->parent))    is the master menu entry disabled? if so, gray out the entire submenu
             {
                 int is_plural = entry->parent->name[strlen(entry->parent->name)-1] == 's';
                 snprintf(warning, MENU_MAX_WARNING_LEN, "%s %s disabled.", entry->parent->name, is_plural ? "are" : "is");
                 return MENU_WARN_NOT_WORKING;
             }
+            */
         }
     }
     

@@ -127,9 +127,9 @@ ML_SRC_OBJS = \
 	exmem.o \
 	bmp.o \
 	rbf_font.o \
-	config.o \
 	stdio.o \
 	movie_menu_raw_only.o \
+	config.o \
 	$(ML_BITRATE_OBJ) \
 	lcdsensor.o \
 	tweaks.o \

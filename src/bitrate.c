@@ -605,7 +605,7 @@ static struct lvinfo_item info_item[] = {
 static void bitrate_init()
 {
     lvinfo_add_item(info_item);
-    menu_add( "Movie", mov_menus, COUNT(mov_menus) );
+    menu_add( "Shoot", mov_menus, COUNT(mov_menus) );
     menu_add( "Movie Tweaks", mov_tweak_menus, COUNT(mov_tweak_menus) );
     #ifdef FEATURE_NITRATE_WAV_RECORD
     menu_add( "Audio", wav_menus, COUNT(wav_menus) );

@@ -1942,6 +1942,7 @@ void kelvin_n_gm_auto()
     {
         kelvin_auto_flag = 1;
         wbs_gm_auto_flag = 1;
+        if (raw_lv_is_enabled() && is_movie_mode()) wbs_gm_auto_flag = 0;
     }
 }
 
@@ -4151,6 +4152,93 @@ extern int digic_black_level;
 extern MENU_UPDATE_FUNC(digic_black_print);
 
 extern int digic_shadow_lift;
+
+static struct menu_entry expo_menusmovie[] = {
+#ifdef FEATURE_WHITE_BALANCE
+    {
+        .name = "white balance",
+        .update    = kelvin_wbs_display,
+        .select     = kelvin_toggle,
+        .help  = "Adjust Kelvin white balance and GM/BA WBShift.",
+        .help2 = "Advanced: WBShift, RGB multipliers, Push-button WB...",
+        .edit_mode = EM_SHOW_LIVEVIEW,
+        .submenu_width = 700,
+        .children =  (struct menu_entry[]) {
+            {
+                .name = "White Balance",
+                .update    = kelvin_display,
+                .select     = kelvin_toggle,
+                .help = "Adjust Kelvin white balance.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            {
+                .name = "WBShift G/M",
+                .update = wbs_gm_display,
+                .select = wbs_gm_toggle,
+                .min = -9,
+                .max = 9,
+                .icon_type = IT_PERCENT_OFF,
+                .help = "Green-Magenta white balance shift, for fluorescent lights.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            {
+                .name = "WBShift B/A",
+                .update = wbs_ba_display,
+                .select = wbs_ba_toggle,
+                .min = -9,
+                .max = 9,
+                .icon_type = IT_PERCENT_OFF,
+                .help = "Blue-Amber WBShift; 1 unit = 5 mireks on Kelvin axis.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            {
+                .name = "R multiplier",
+                .priv = (void *)(1),
+                .update = wb_custom_gain_display,
+                .select = wb_custom_gain_toggle,
+                .icon_type = IT_PERCENT,
+                .help = "RED channel multiplier, for custom white balance.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            {
+                .name = "G multiplier",
+                .priv = (void *)(2),
+                .update = wb_custom_gain_display,
+                .select = wb_custom_gain_toggle,
+                .icon_type = IT_PERCENT,
+                .help = "GREEN channel multiplier, for custom white balance.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            {
+                .name = "B multiplier",
+                .priv = (void *)(3),
+                .update = wb_custom_gain_display,
+                .select = wb_custom_gain_toggle,
+                .icon_type = IT_PERCENT,
+                .help = "BLUE channel multiplier, for custom white balance.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            /*{
+             .name = "Auto adjust Kelvin",
+             .select = kelvin_auto,
+             .help = "LiveView: adjust Kelvin value once for the current scene."
+             },
+             {
+             .name = "Auto adjust Green-Magenta",
+             .select = wbs_gm_auto,
+             .help = "LiveView: adjust Green-Magenta once for the current scene."
+             },*/
+            {
+                .name = "Auto adjust Kelvin + G/M",
+                .select = kelvin_n_gm_auto,
+                .help = "LiveView: adjust Kelvin and G-M once (Push-button WB).",
+                .depends_on = DEP_LIVEVIEW,
+            },
+            MENU_EOL
+        },
+    },
+#endif
+};
 
 static struct menu_entry expo_menus[] = {
     #ifdef FEATURE_WHITE_BALANCE
@@ -6499,6 +6587,7 @@ static void shoot_init()
 
     menu_add( "Shoot", shoot_menus, COUNT(shoot_menus) );
     menu_add( "Expo", expo_menus, COUNT(expo_menus) );
+    menu_add( "Movie", expo_menusmovie, COUNT(expo_menusmovie) );
     
     //~ menu_add( "Tweaks", vid_menus, COUNT(vid_menus) );
 

@@ -117,6 +117,7 @@ static void sd_overclock_task()
 static unsigned int sd_uhs_init()
 {
     if ((!is_camera("EOSM", "2.0.2")) && 
+	(!is_camera("EOSM", "2.0.3")) && 
 	(!is_camera("EOSM2", "1.0.3")) && 
 	(!is_camera("700D", "1.1.5")) && 
 	(!is_camera("100D", "1.0.1")) && 
@@ -127,13 +128,14 @@ static unsigned int sd_uhs_init()
     	NotifyBox(2000, "sd_uhs.mo is not supported for your camera");
     }
 
-    if (is_camera("EOSM", "2.0.2"))
+
+    if (is_camera("EOSM", "2.0.3"))
     {
-        sd_setup_mode       = 0xFF338D40;
-        sd_setup_mode_in    = 0xFF338DC8;
+        sd_setup_mode       = 0xff338df0;
+        sd_setup_mode_in    = 0xff338e78;
         sd_setup_mode_reg   = 1;
-        sd_set_function     = 0xFF63EF60;
-        SD_ReConfiguration  = (void *) 0xFF641314;
+        sd_set_function     = 0xff63f014;
+        SD_ReConfiguration  = (void *) 0xff6413c8;
     	sd_overclock_task();
     }
 
