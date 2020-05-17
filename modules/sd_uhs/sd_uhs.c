@@ -128,6 +128,15 @@ static unsigned int sd_uhs_init()
     	NotifyBox(2000, "sd_uhs.mo is not supported for your camera");
     }
 
+    if (is_camera("EOSM", "2.0.2"))
+    {
+        sd_setup_mode       = 0xFF338D40;
+        sd_setup_mode_in    = 0xFF338DC8;
+        sd_setup_mode_reg   = 1;
+        sd_set_function     = 0xFF63EF60;
+        SD_ReConfiguration  = (void *) 0xFF641314;
+    	sd_overclock_task();
+    }
 
     if (is_camera("EOSM", "2.0.3"))
     {

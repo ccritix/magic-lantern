@@ -154,7 +154,7 @@ int lossless_init()
                                                 /* calls [TTJ] GetPathResources and sets up the encoder for RAW */
         TTL_RegisterCBR = (void *) 0xff4282a4;  /* RegisterTwoInTwoOutJpegPathCompleteCBR */
         TTL_SetFlags    = (void *) 0xff36d1d4;  /* called next, with PictureType as arguments */
-        TTL_Start       = (void *) 0xff429330;  /* called next; starts the EDmac transfers */
+        TTL_Start       = (void *) 0xff429368;  /* called next; starts the EDmac transfers */
         TTL_Stop        = (void *) 0xff4284f0;  /* called right after sssStopMem1ToRawPath */
         TTL_Finish      = (void *) 0xff4293d8;  /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
     }
@@ -527,6 +527,12 @@ static void decompress_init()
         Setup_DecodeLosslessRawPath = (void *) 0xFF42DBD0;
         Start_DecodeLosslessPath    = (void *) 0xFF42DC98;
         Cleanup_DecodeLosslessPath  = (void *) 0xFF42DDFC;
+    }
+    if (is_camera("EOSM", "2.0.3"))
+    {
+        Setup_DecodeLosslessRawPath = (void *) 0xFF42DC80;
+        Start_DecodeLosslessPath    = (void *) 0xFF42DD48;
+        Cleanup_DecodeLosslessPath  = (void *) 0xFF42DEAC;
     }
 
     if (is_camera("100D", "1.0.1"))

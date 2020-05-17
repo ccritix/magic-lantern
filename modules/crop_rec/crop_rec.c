@@ -6803,6 +6803,25 @@ static unsigned int crop_rec_init()
         memcpy(default_timerA, (int[]) {  440,  480,  440,  480,  440,  518 }, 24);
         memcpy(default_timerB, (int[]) { 2275, 2000, 1820, 1000,  910, 1556 }, 24);
     }
+    else if (is_camera("EOSM", "2.0.2"))
+    {
+        CMOS_WRITE = 0x2998C;
+        MEM_CMOS_WRITE = 0xE92D41F0;
+        
+        ADTG_WRITE = 0x2986C;
+        MEM_ADTG_WRITE = 0xE92D43F8;
+        
+        ENGIO_WRITE = 0xFF2C19AC;
+        MEM_ENGIO_WRITE = 0xE51FC15C;
+        
+        is_EOSM = 1;
+        crop_presets                = crop_presets_eosm;
+        crop_rec_menu[0].choices    = crop_choices_eosm;
+        crop_rec_menu[0].max        = COUNT(crop_choices_eosm) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_eosm;
+        crop_rec_menu[0].help2      = crop_choices_help2_eosm;
+    }
+
     else if (is_camera("EOSM", "2.0.3"))
     {
         CMOS_WRITE = 0x2998C;
@@ -6813,7 +6832,7 @@ static unsigned int crop_rec_init()
         
         ENGIO_WRITE = 0xff2c1a5c;
         MEM_ENGIO_WRITE = 0xE51FC15C;
-        
+
         is_EOSM = 1;
         crop_presets                = crop_presets_eosm;
         crop_rec_menu[0].choices    = crop_choices_eosm;
