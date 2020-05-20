@@ -503,7 +503,6 @@ static void fpm_mv1080crop(struct pixel_map * map, int pattern, int32_t raw_widt
         switch(pattern)
         {
             case PATTERN_EOSM:
-	    case PATTERN_EOSM2:
             case PATTERN_650D:
             case PATTERN_700D:
                 if(((y + 7) % y_rep) == 0 ) shift = 19;
@@ -522,6 +521,7 @@ static void fpm_mv1080crop(struct pixel_map * map, int pattern, int32_t raw_widt
                 break;
 
             case PATTERN_100D:
+            case PATTERN_EOSM2:
                 if(((y + 2) % y_rep) == 0 ) shift = 0;
                 else if(((y + 5) % y_rep) == 0 ) shift = 1;
                 else if(((y + 6) % y_rep) == 0 ) shift = 6;
@@ -562,7 +562,6 @@ static void fpm_zoom(struct pixel_map * map, int pattern, int32_t raw_width)
         switch(pattern)
         {
             case PATTERN_EOSM:
-            case PATTERN_EOSM2:
             case PATTERN_650D:
             case PATTERN_700D:
                 if(((y + 7) % y_rep) == 0) shift = 19;
@@ -581,6 +580,7 @@ static void fpm_zoom(struct pixel_map * map, int pattern, int32_t raw_width)
                 break;
 
             case PATTERN_100D:
+            case PATTERN_EOSM2:
                 if(((y + 2) % y_rep) == 0) shift = 0;
                 else if(((y + 5) % y_rep) == 0) shift = 1;
                 else if(((y + 6) % y_rep) == 0) shift = 6;
@@ -611,7 +611,6 @@ static void fpm_crop_rec(struct pixel_map * map, int pattern, int32_t raw_width)
     switch(pattern)
     {
         case PATTERN_EOSM:
-        case PATTERN_EOSM2:
         case PATTERN_650D:
         {
             // first pass is like fpm_mv720
@@ -626,6 +625,7 @@ static void fpm_crop_rec(struct pixel_map * map, int pattern, int32_t raw_width)
         }
 
         case PATTERN_100D:
+        case PATTERN_EOSM2:
         {
             // first pass is like fpm_mv720
             fpm_mv720(map, pattern, raw_width);
@@ -757,7 +757,6 @@ static void fpm_mv1080crop_u_shifted(struct pixel_map * map, int pattern, int32_
         switch(pattern)
         {
             case PATTERN_EOSM:
-            case PATTERN_EOSM2:
             case PATTERN_650D:
             case PATTERN_700D:
                 if(((y + 7) % y_rep) == 0 ) shift = 2;
@@ -776,6 +775,7 @@ static void fpm_mv1080crop_u_shifted(struct pixel_map * map, int pattern, int32_
                 break;
 
             case PATTERN_100D:
+            case PATTERN_EOSM2:
                 if(((y + 2) % y_rep) == 0 ) shift = 11;
                 else if(((y + 5) % y_rep) == 0 ) shift = 0;
                 else if(((y + 6) % y_rep) == 0 ) shift = 5;
@@ -813,7 +813,6 @@ static void fpm_mv1080crop_u(struct pixel_map * map, int pattern, int32_t raw_wi
         switch(pattern)
         {
             case PATTERN_EOSM:
-            case PATTERN_EOSM2:
             case PATTERN_650D:
             case PATTERN_700D:
                 if(((y + 7) % y_rep) == 0 ) shift = 3;
@@ -832,6 +831,7 @@ static void fpm_mv1080crop_u(struct pixel_map * map, int pattern, int32_t raw_wi
                 break;
 
             case PATTERN_100D:
+            case PATTERN_EOSM2:
                 if(((y + 2) % y_rep) == 0 ) shift = 0;
                 else if(((y + 5) % y_rep) == 0 ) shift = 1;
                 else if(((y + 6) % y_rep) == 0 ) shift = 6;
@@ -876,7 +876,6 @@ static void fpm_zoom_u(struct pixel_map * map, int pattern, int32_t raw_width)
         switch(pattern)
         {
             case PATTERN_EOSM:
-            case PATTERN_EOSM2:
             case PATTERN_650D:
             case PATTERN_700D:
                 if(((y + 7) % y_rep) == 0) shift = 3;
@@ -895,6 +894,7 @@ static void fpm_zoom_u(struct pixel_map * map, int pattern, int32_t raw_width)
                 break;
 
             case PATTERN_100D:
+            case PATTERN_EOSM2:
                 if(((y + 2) % y_rep) == 0) shift = 0;
                 else if(((y + 5) % y_rep) == 0) shift = 1;
                 else if(((y + 6) % y_rep) == 0) shift = 6;

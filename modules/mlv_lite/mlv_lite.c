@@ -85,6 +85,14 @@ static GUARDED_BY(GuiMainTask) int show_edmac = 0;
 
 /* from mlv_play module */
 extern WEAK_FUNC(ret_0) void mlv_play_file(char *filename);
+extern WEAK_FUNC(ret_0) unsigned int movie_crop_hack_disable();
+
+//dummy enabler crop rec
+static int bits = 0; /* coming from crop_rec.c */
+extern int WEAK_FUNC(bits) bitdepth;
+#define OUTPUT_10BIT (bitdepth == 1)
+#define OUTPUT_12BIT (bitdepth == 2)
+#define OUTPUT_14BIT (bitdepth == 0)
 
 /* camera-specific tricks */
 static int cam_eos_m = 0;
@@ -727,7 +735,7 @@ void update_resolution_params()
         /* assume the compressed output will not exceed uncompressed frame size */
         /* max frame size for the lossless routine also has unusual alignment requirements */
 /* is this working with reduced gain presets in crop_rec.c for 100d and eosm? Let´s try it out */
-        if ((max_frame_size > 10*1024*1024) || (cam_eos_m || cam_eos_m2 || cam_100d))
+        if ((max_frame_size > 10*1024*1024) || (cam_eos_m || cam_100d))
         {
             /* at very high resolutions, restricting compressed frame size to 85%
              * (relative to uncompressed size) will help allocating more buffers */
@@ -1056,7 +1064,6 @@ static MENU_UPDATE_FUNC(raw_main_update)
         int crop_factor = calc_crop_factor();
 /* exclude eosm. Too many inconsistencies due to crop_rec preset */
         if (crop_factor && !cam_eos_m) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
-        if (crop_factor && !cam_eos_m2) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
     }
 
     write_speed_update(entry, info);
@@ -1100,7 +1107,6 @@ static MENU_UPDATE_FUNC(resolution_update)
     int crop_factor = calc_crop_factor();
 /* exclude eosm. Too many inconsistencies due to crop_rec preset */
     if (crop_factor && !cam_eos_m) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
-    if (crop_factor && !cam_eos_m2) MENU_SET_RINFO("%s%d.%02dx", FMT_FIXEDPOINT2( crop_factor ));
 
     int selected_x = resolution_presets_x[resolution_index_x] + res_x_fine;
     
@@ -1265,7 +1271,7 @@ static MENU_UPDATE_FUNC(pre_recording_update)
     {
         MENU_SET_VALUE("1 frame");
         MENU_SET_ENABLED(1);
-        MENU_SET_WARNING(MENU_WARN_INFO, "Half-shutter trigger uses pre-recording internally.");
+        MENU_SET_WARNING(MENU_WARN_INFO, "SET or Half-shutter trigger pre-recording.");
     }
 
     int slot_count = valid_slot_count;
@@ -2065,18 +2071,17 @@ else
 }
 */
 
-if ((cam_eos_m || cam_eos_m2 || cam_100d) && crop_patch && lv_dispsize != 10)
+
+if ((cam_eos_m || cam_100d) && crop_patch && lv_dispsize != 10)
 {
      crop_patch = 0;
      PauseLiveView(); 
      ResumeLiveView();
+    /* disabling early settles regs for mlv_play, well needs testing for reliabilty */
+     movie_crop_hack_disable();
 }
     
-    if (lv_dispsize == 10 && cam_eos_m)
-    {
-        crop_patch = 1;
-    }
-    if (lv_dispsize == 10 && cam_eos_m2)
+    if (lv_dispsize == 10 && cam_eos_m )
     {
         crop_patch = 1;
     }
@@ -2103,101 +2108,6 @@ if ((cam_eos_m || cam_eos_m2 || cam_100d) && !get_halfshutter_pressed() && RECOR
     }
 }
 */
-
-   if (prevmode == 1)
-   {
-     /* 48 fps 2.35:1, 16:9, 4:3 real-time */
-	if (shamem_read(0xC0F06804) == 0x2f701d4) preview_mode = 1; 
-	if (shamem_read(0xC0F06804) == 0x2d701d4) preview_mode = 1;
-	if (shamem_read(0xC0F06804) == 0x3ef01d4) preview_mode = 1;
-	if (shamem_read(0xC0F06804) == 0x42401e4) preview_mode = 1;
-     /* eosm mcm rewired 2.35:1, 16:9 and 4:3 */
-	if (shamem_read(0xC0F06804) == 0x45601e4) preview_mode = 1;
-	if (shamem_read(0xC0F06804) == 0x4a601e4) preview_mode = 1;
-     /* anamorphic,4k,3k,2k, 2.35:1, 16:9, 4:3 framing */
-	if (shamem_read(0xC0F06804) == 0x4a701d4) preview_mode = 1;
-	if (shamem_read(0xC0F06804) == 0x79f01d4) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0x7ef01d4) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0xbeb01d4) preview_mode = 2;
-    if (shamem_read(0xC0F06804) == 0xbd301e4) preview_mode = 2;   
-	if (shamem_read(0xC0F06804) == 0x2e30504) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0x30f040a) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0x6c3040a) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0xa1c0412) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0x2e30504) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0x5190310) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0x5b90318) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0x44c0298) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0x5a70298) preview_mode = 2;
-	if (shamem_read(0xC0F06804) == 0x4550298) preview_mode = 2;
-    //5k
-    if (shamem_read(0xC0F06804) == 0x84104fe) preview_mode = 2;
-    if (shamem_read(0xC0F06804) == 0x86504fe) preview_mode = 2;
-    if (shamem_read(0xC0F06804) == 0xb0f04fe) preview_mode = 2;
-    if (shamem_read(0xC0F06804) == 0xbd704fe) preview_mode = 2;
-    /* 4k modes */
-    if (shamem_read(0xC0F06804) == 0x942041e) preview_mode = 2;
-    if (shamem_read(0xC0F06804) == 0xaed041e) preview_mode = 2;
-     /* anamorphic rewired mode eosm */
-	if (shamem_read(0xC0F06804) == 0x78101e4) preview_mode = 2;
-/* auto set preview modes by reading registers eosm for now */
-     /* HDR flag. Skip for now. Getting overly complicated */
-	// if (shamem_read(0xc0f0b12c) != 0x0 && shamem_read(0xc0f0b12c) != 0x7 && 
-	//    shamem_read(0xc0f0b12c) != 0x8 && shamem_read(0xc0f0b12c) != 0x9) preview_mode = 1;
-    }
-
-/* temp hack reg so it can preview in real time while preview usually gets scrambled. Only while raw is idle */
-  if ((cam_eos_m || cam_eos_m2 || cam_100d) && RAW_IS_IDLE && PREVIEW_ML)
-  {
-
-/* EOSM reset regs */ 	
-             if (shamem_read(0xC0F06804) == 0x5190310) *(volatile uint32_t*)0xC0F06804 = 0x5190310;
-             if (shamem_read(0xC0F06804) == 0x5b90318) *(volatile uint32_t*)0xC0F06804 = 0x5b90318;
-             if (shamem_read(0xC0F06804) == 0x6b50310) *(volatile uint32_t*)0xC0F06804 = 0x6b50310;
-             if (shamem_read(0xC0F06804) == 0xbd704fe) *(volatile uint32_t*)0xC0F06804 = 0xbd704fe;
-             if (shamem_read(0xC0F06804) == 0x84104fe) *(volatile uint32_t*)0xC0F06804 = 0x84104fe;
-             if (shamem_read(0xC0F06804) == 0x86504fe) *(volatile uint32_t*)0xC0F06804 = 0x86504fe; 
-             if (shamem_read(0xC0F06804) == 0xb0f04fe) *(volatile uint32_t*)0xC0F06804 = 0xb0f04fe; 
-             if (shamem_read(0xC0F06804) == 0x942041e) *(volatile uint32_t*)0xC0F06804 = 0x942041e;
-             if (shamem_read(0xC0F06804) == 0xaed041e) *(volatile uint32_t*)0xC0F06804 = 0xaed041e;
-             if (shamem_read(0xC0F06804) == 0xbd7041e) *(volatile uint32_t*)0xC0F06804 = 0xbd7041e; 
-/* 100D reset regs / Needs more tests, not working atm.	*/
-             if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x5b90319;
-             if (shamem_read(0xC0F06804) == 0xbd90427) *(volatile uint32_t*)0xC0F06804 = 0xbd90427;
-             if (shamem_read(0xC0F06804) == 0xbd904ff) *(volatile uint32_t*)0xC0F06804 = 0xbd904ff; 
-             if (shamem_read(0xC0F06804) == 0x83504ff) *(volatile uint32_t*)0xC0F06804 = 0x83504ff; 
-             if (shamem_read(0xC0F06804) == 0x85904ff) *(volatile uint32_t*)0xC0F06804 = 0x85904ff; 
-             if (shamem_read(0xC0F06804) == 0xaff04ff) *(volatile uint32_t*)0xC0F06804 = 0xaff04ff; 
-             if (shamem_read(0xC0F06804) == 0x6cb0427) *(volatile uint32_t*)0xC0F06804 = 0x6cb0427; 
-             if (shamem_read(0xC0F06804) == 0x6e90427) *(volatile uint32_t*)0xC0F06804 = 0x6e90427; 
-             if (shamem_read(0xC0F06804) == 0x9170427) *(volatile uint32_t*)0xC0F06804 = 0x9170427; 
-
-     if (get_halfshutter_pressed())
-     { 
-/* EOSM 3k, 4k, anamorphic. Registry from crop_rec.c */  
-             if (shamem_read(0xC0F06804) == 0x5190310) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0x5b90318) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0x6b50310) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0xbd704fe) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0x84104fe) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0x86504fe) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0xb0f04fe) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0x942041e) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0xaed041e) *(volatile uint32_t*)0xC0F06804 = 0x4540298;
-             if (shamem_read(0xC0F06804) == 0xbd7041e) *(volatile uint32_t*)0xC0F06804 = 0x4540298; 
-/* 100D 3k, 4k. Registry from crop_rec.c / Needs more tests, not working atm. */
-             if (shamem_read(0xC0F06804) == 0x5b90319) *(volatile uint32_t*)0xC0F06804 = 0x45802a1;
-             if (shamem_read(0xC0F06804) == 0xbd90427) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
-             if (shamem_read(0xC0F06804) == 0xbd904ff) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
-             if (shamem_read(0xC0F06804) == 0x83504ff) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
-             if (shamem_read(0xC0F06804) == 0x85904ff) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
-             if (shamem_read(0xC0F06804) == 0xaff04ff) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
-             if (shamem_read(0xC0F06804) == 0x6cb0427) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
-             if (shamem_read(0xC0F06804) == 0x6e90427) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
-             if (shamem_read(0xC0F06804) == 0x9170427) *(volatile uint32_t*)0xC0F06804 = 0x45802a1; 
-     }
-  }
-
     
     if (RAW_IS_RECORDING && PREVIEW_HACKED && frame_count == 0)
     {
@@ -2221,7 +2131,7 @@ static REQUIRES(RawRecTask)
 void hack_liveview(int unhack)
 {
 /* auto sets kill global draw on faster fps (EOSM) in real time preview mode */
-    if (kill_gd || (preview_mode == 1 && (shamem_read(0xC0F06804) == 0x2f701d4 || shamem_read(0xC0F06804) == 0x3ef01d4)))
+    if (kill_gd || (preview_mode == 1 && (shamem_read(0xC0F06804) == 0x2f701d4)))
     {
         if (!unhack)
         {
@@ -2249,7 +2159,7 @@ void hack_liveview(int unhack)
         }
 
         /* disable auto exposure and auto white balance */
-	if (((cam_eos_m || cam_eos_m2 || cam_100d) && small_hacks == 0x1) || (!cam_eos_m && !cam_eos_m2 && !cam_100d))
+	if (((cam_eos_m || cam_100d) && small_hacks == 0x1) || (!cam_eos_m && !cam_100d))
 	{
         call("aewb_enableaewb", unhack ? 1 : 0);  /* for new cameras */
         call("lv_ae",           unhack ? 1 : 0);  /* for old cameras */
@@ -2266,7 +2176,7 @@ void hack_liveview(int unhack)
             cam_600d ? 0xFF37AA18 :
             cam_650d ? 0xFF527E38 :
             cam_6d   ? 0xFF52C684 :
-            cam_eos_m ? 0xFF539C1C :
+            cam_eos_m ? 0xff539ccc :
             cam_eos_m2 ? 0xFF6C4118 :
             cam_700d ? 0xFF52BB60 :
             cam_7d  ? 0xFF345788 :
@@ -2607,7 +2517,7 @@ void FAST pre_record_vsync_step()
 
             pre_record_queue_frames();
     
-            if (rec_trigger != REC_TRIGGER_HALFSHUTTER_PRE_ONLY)
+            if (rec_trigger != REC_TRIGGER_HALFSHUTTER_PRE_ONLY || get_halfshutter_pressed())
             {
                 /* done, from now on we can just record normally */
                 raw_recording_state = RAW_RECORDING;
@@ -2683,7 +2593,11 @@ static uint32_t edmac_start_clock = 0;
 
 /* from edmac-memcpy.c */
 extern uint32_t edmac_read_chan;
-extern uint32_t raw_write_chan;
+
+
+
+
+//extern uint32_t raw_write_chan;
 
 static uint32_t edmac_read_base;
 static uint32_t edmac_wraw_base;
@@ -2737,7 +2651,7 @@ static void edmac_start_spy()
     /* read from raw buffer is done on edmac_read_chan (edmac-memcpy) or 8 (5D3 lossless) */
     /* write to raw buffer is always done on raw_write_chan (EDMAC_RAW_SLURP) */
     edmac_read_base = edmac_get_base(OUTPUT_COMPRESSION ? 8 : edmac_read_chan);
-    edmac_wraw_base = edmac_get_base(raw_write_chan);
+   // edmac_wraw_base = edmac_get_base(raw_write_chan);
     edmac_frame_duration = 1e9 / fps_get_current_x1000();
     if (show_edmac && !edmac_spy_active && !RAW_IS_IDLE)
     {
@@ -3132,7 +3046,7 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     file_hdr.audioFrameCount = 0;
     file_hdr.sourceFpsNom = fps_get_current_x1000();
 /* 4k timelapse function in crop_rec.c */
-  if (cam_eos_m || cam_eos_m2 || cam_100d)
+  if (cam_eos_m || cam_100d)
   {
     file_hdr.sourceFpsNom = shamem_read(0xc0f0501c) == 0x20 ? 400: shamem_read(0xc0f0501c) == 0x21 ? 1000: shamem_read(0xc0f0501c) == 0x22 ? 2000: 
 			    shamem_read(0xc0f0501c) == 0x23 ? 3000: shamem_read(0xc0f0501c) == 0x24 ? 4000: shamem_read(0xc0f0501c) == 0x25 ? 5000: fps_get_current_x1000();
@@ -3175,20 +3089,23 @@ void init_mlv_chunk_headers(struct raw_info * raw_info)
     rawi_hdr.raw_info.white_level = (white14 + bpp_scaling/2) / bpp_scaling;
 
 /* round trip analog gain bits reduction. Only EOSM for now. Setting registry flag. Hopefully not affection output. Connected with raw_lv_settings_still_valid() in raw.c */
-if (cam_eos_m || cam_eos_m2 || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
+if (cam_eos_m || cam_100d || cam_6d || cam_5d3_113 || cam_5d3_123)
 {
-/* 8bit */
-    if (shamem_read(0xc0f0815c) == 0x3) rawi_hdr.raw_info.white_level = 2250;
-/* 9bit */
-    if (shamem_read(0xc0f0815c) == 0x4) rawi_hdr.raw_info.white_level = 2550; 
 /* 10bit */
-    if (shamem_read(0xc0f0815c) == 0x5) rawi_hdr.raw_info.white_level = (lens_info.raw_iso == ISO_100) ? 2840 : 2890;
+    if (OUTPUT_10BIT) rawi_hdr.raw_info.white_level = (lens_info.raw_iso == ISO_100) ? 2840 : 2890;
 /* 12bit */
-    if (shamem_read(0xc0f0815c) == 0x6) rawi_hdr.raw_info.white_level = 6000;
+    if (OUTPUT_12BIT) rawi_hdr.raw_info.white_level = 6000;
 /* 14bit */
     /* iso_climb feature */
-    if (shamem_read(0xc0f0815c) == 0x7 && shamem_read(0xC0F0b12c) == 0x11) rawi_hdr.raw_info.white_level = 14000;
-    if (shamem_read(0xc0f0815c) == 0x7 && shamem_read(0xC0F0b12c) == 0x0) rawi_hdr.raw_info.white_level = 15200;
+    if (OUTPUT_14BIT && shamem_read(0xC0F0b12c) == 0x11) rawi_hdr.raw_info.white_level = 14000;
+    if (OUTPUT_14BIT && shamem_read(0xC0F0b12c) == 0x0) rawi_hdr.raw_info.white_level = 15200;
+
+
+
+
+
+
+
 
 /* Set corrected iso when selected max iso preset in crop_rec.c */
     if (lens_info.raw_iso == 0x0) 
@@ -4100,7 +4017,7 @@ static struct menu_entry raw_video_menu[] =
                 .help2   = "Disabled (press REC as usual).\n"
                            "Press half-shutter to start/pause recording within the current clip.\n"
                            "Press and hold the shutter halfway to record (e.g. for short events).\n"
-                           "Half-shutter to save only the pre-recorded frames (at least 1 frame).\n",
+                           "Push SET or half-shutter to save only the pre-recorded frames (at least 1 frame).\n",
             },
             {
                 .name = "Movie Restart",
@@ -4253,7 +4170,7 @@ unsigned int raw_rec_keypress_cbr(unsigned int key)
     /* half-shutter trigger keys */
     if (RAW_IS_RECORDING)
     {
-        if (key == MODULE_KEY_PRESS_HALFSHUTTER)
+        if (key == MODULE_KEY_PRESS_SET || key == MODULE_KEY_PRESS_HALFSHUTTER)
         {
             switch (rec_trigger)
             {
@@ -4277,6 +4194,7 @@ unsigned int raw_rec_keypress_cbr(unsigned int key)
             switch (rec_trigger)
             {
                 case REC_TRIGGER_HALFSHUTTER_HOLD:
+                case REC_TRIGGER_HALFSHUTTER_PRE_ONLY:
                     pre_record_triggered = 0;
                     break;
             }
@@ -4375,6 +4293,13 @@ static int raw_rec_should_preview(void)
 
     /* some modes have Canon preview totally broken */
     int preview_broken = (lv_dispsize == 1 && raw_active_width > 2000);
+    
+    /* automate framing or realtime preview while selecting a new preset */
+    if (prevmode)
+    {
+        if ((raw_active_height > 1300 || raw_active_width > 1800) && RAW_IS_IDLE) preview_mode = 2;
+        if (raw_active_height < 1300 && raw_active_width < 1800 && RAW_IS_IDLE) preview_mode = 1;
+    }
 
     int prefer_framing_preview = 
         (res_x < max_res_x * 80/100) ? 1 :  /* prefer correct framing instead of large black bars */
@@ -4392,13 +4317,13 @@ static int raw_rec_should_preview(void)
     raw_set_preview_rect(skip_x, skip_y, res_x, res_y, 1);
     raw_force_aspect_ratio(0, 0); */
 
-    if (!get_halfshutter_pressed())
+    if (!get_halfshutter_pressed() || rec_trigger == 3)
     {
         autofocusing = 0;
         long_halfshutter_press = 0;
         last_hs_unpress = get_ms_clock();
 /* trying a fix for stuck real time preview(only affects framing) */
-      if ((PREVIEW_ML && !kill_gd) && (cam_eos_m || cam_eos_m2 || cam_100d))
+      if ((PREVIEW_ML && !kill_gd) && (cam_eos_m || cam_100d))
       {
 /* Will maybe reduce corruption of frames by freezing liveview while in framing mode. To be tested */
 /* reg for eosm,650d,700d,100d */
@@ -4452,16 +4377,13 @@ static int raw_rec_should_preview(void)
             if (shamem_read(0xc0f11a88) == 0x1) long_halfshutter_press = 0;
 /* let´s disable framing in realtime preview while using mcm rewired mode with eosm */
             if (shamem_read(0xc0f383d4) == 0x4f0010 && cam_eos_m) long_halfshutter_press = 0;
-            if (shamem_read(0xc0f383d4) == 0x4f0010 && cam_eos_m2) long_halfshutter_press = 0;
 /* 48fps mode in crop_rec.c. Affects 2.39:1 and 2.35:1 */
             if (shamem_read(0xc0f06804) == 0x2f701d4 && cam_eos_m) long_halfshutter_press = 0;
-            if (shamem_read(0xc0f06804) == 0x2f701d4 && cam_eos_m2) long_halfshutter_press = 0;
 /* when touching display while in x10 zoomaid mode */
             if (shamem_read(0xc0f06804) == 0x4a601d4 && cam_eos_m) long_halfshutter_press = 0;
-            if (shamem_read(0xc0f06804) == 0x4a601d4 && cam_eos_m2) long_halfshutter_press = 0;
         }
 /* trying a fix for stuck real time preview(only affects framing) */
-      if (PREVIEW_ML && (cam_eos_m || cam_eos_m2 || cam_100d))
+      if (PREVIEW_ML && (cam_eos_m || cam_100d))
       {
 /* regs for eosm,650d,700d,100d */
 	if (RAW_IS_RECORDING && (shamem_read(0xc0f383d4) == 0x4efffc)) // x3 digital zoom
@@ -4495,7 +4417,7 @@ static int raw_rec_should_preview(void)
 	      EngDrvOutLV(0xc0f383dc, 0x39a01de);
 	}
 */      //pause it. Better recording performance
-        if (RAW_IS_RECORDING) bmp_off();
+        if (RAW_IS_RECORDING && rec_trigger != 3) bmp_off();
 
        }
 
@@ -4518,6 +4440,10 @@ static int raw_rec_should_preview(void)
         return long_halfshutter_press;
     }
     else if (PREVIEW_ML && !get_halfshutter_pressed())
+    {
+        return !long_halfshutter_press;
+    }
+    else if (PREVIEW_ML && rec_trigger == 3 && get_halfshutter_pressed())
     {
         return !long_halfshutter_press;
     }
@@ -4578,7 +4504,7 @@ unsigned int raw_rec_update_preview(unsigned int ctx)
         -1,
         (need_for_speed) 
 	? RAW_PREVIEW_GRAY_ULTRA_FAST
-	: RAW_IS_RECORDING ? RAW_PREVIEW_GRAY_ULTRA_FAST /* 1x3 binning mode test */
+	: (RAW_IS_RECORDING && rec_trigger != 3) || (rec_trigger == 3 && get_halfshutter_pressed()) ? RAW_PREVIEW_GRAY_ULTRA_FAST /* 1x3 binning mode test */
     : RAW_PREVIEW_COLOR_HALFRES
     );
 
@@ -4610,8 +4536,8 @@ static unsigned int raw_rec_init()
 {
     // Always start with RAW enabled after reboot, also when it was turned off last time
     //raw_video_enabled = 1;
-    cam_eos_m = is_camera("EOSM", "2.0.2");
-    cam_eos_m2= is_camera("EOSM2","1.0.3"); 
+    cam_eos_m = is_camera("EOSM", "2.0.3");
+    cam_eos_m2= is_camera("EOSM2","1.0.3");
     cam_5d2   = is_camera("5D2",  "2.1.2");
     cam_50d   = is_camera("50D",  "1.0.9");
     cam_550d  = is_camera("550D", "1.0.9");

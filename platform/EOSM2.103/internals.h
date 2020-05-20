@@ -146,10 +146,10 @@
 #define CONFIG_MENU_TIMEOUT_FIX
 
 /** this method bypasses Canon's lv_save_raw and slurps the raw data directly from connection #0 */
-#define CONFIG_EDMAC_RAW_SLURP
+// #define CONFIG_EDMAC_RAW_SLURP
 
 /** Long-pressing SET/Q opens submenus */
-//#define CONFIG_LONG_PRESS_SET_MENU
+#define CONFIG_LONG_PRESS_SET_MENU
 
 /** This camera loads ML into the AllocateMemory pool **/
 #define CONFIG_ALLOCATE_MEMORY_POOL

@@ -12,6 +12,9 @@
 #include "lens.h"
 #include "ml-cbr.h"
 
+//used for custom mode folder tree upon install
+extern WEAK_FUNC(ret_0) unsigned int config_preset_scan();
+
 #ifndef CONFIG_MODULES_MODEL_SYM
 #error Not defined file name with symbols
 #endif
@@ -39,6 +42,9 @@ CONFIG_INT("module.autoload", module_autoload_disabled, 0);
 CONFIG_INT("module.console", module_console_enabled, 0);
 CONFIG_INT("module.ignore_crashes", module_ignore_crashes, 0);
 char *module_lockfile = MODULE_PATH"LOADING.LCK";
+
+//char *core_modules[] = {"mlv_lite", "crop_rec", "mlv_play", "mlv_snd", "sd_uhs", "lua", "file_man", "dual_iso", "silent"};
+char *core_modules[] = {};
 
 static struct msg_queue * module_mq = 0;
 // #define MSG_MODULE_LOAD_ALL 1
@@ -264,11 +270,21 @@ static void _module_load_all(uint32_t list_only)
             /* check for a .en file that tells the module is enabled */
             char enable_file[FIO_MAX_PATH_LENGTH];
             snprintf(enable_file, sizeof(enable_file), "%s%s.en", get_config_dir(), module_list[module_cnt].name);
+
+            unsigned int core_modules_count = COUNT(core_modules);
+            unsigned int index_in_core_modules;
+            for(index_in_core_modules = 0; index_in_core_modules < core_modules_count; ++index_in_core_modules) {
+                if (strcmp(core_modules[index_in_core_modules], module_list[module_cnt].name) == 0) {
+                    module_list[module_cnt].is_core = 1;
+                    break;
+                }
+            }
             
-            /* if enable-file is nonexistent, dont load module */
-            if(!config_flag_file_setting_load(enable_file))
+            /* if enable-file is nonexistent, dont load module, unless it's a core module */
+            if(!config_flag_file_setting_load(enable_file) && index_in_core_modules >= core_modules_count)
             {
                 module_list[module_cnt].enabled = 0;
+                module_list[module_cnt].is_core = 0;
                 snprintf(module_list[module_cnt].status, sizeof(module_list[module_cnt].status), "OFF");
                 snprintf(module_list[module_cnt].long_status, sizeof(module_list[module_cnt].long_status), "Module disabled");
                 //printf("  [i] %s\n", module_list[module_cnt].long_status);
@@ -542,6 +558,7 @@ static void _module_load_all(uint32_t list_only)
     #else
     module_state = state;
     #endif
+
     
     printf("Modules loaded\n");
 }
@@ -1206,7 +1223,12 @@ static void module_menu_update()
         {
             ASSERT(mod_number == (int) entry->priv);
 
-            if(module_list[mod_number].valid)
+             // Don't show core modules, they are not optional in this build
+            if(module_list[mod_number].is_core == 1)
+            {
+                MENU_SET_SHIDDEN(1);
+            }
+            else if(module_list[mod_number].valid)
             {
                 MENU_SET_SHIDDEN(0);
             }
@@ -1748,6 +1770,40 @@ static void module_load_task(void* unused)
             {
                 FIO_WriteFile(handle, lockstr, strlen(lockstr));
                 FIO_CloseFile(handle);
+            }
+            
+            /* autoload tlapse lua script on install. Not clean as disabling don´t work directly on testing first restart. Seems related to MENU.CFG not being created on first start */
+            char config_file[0x80];
+            snprintf(config_file, sizeof(config_file), "%sfirst", get_config_dir());
+            int first_run = config_flag_file_setting_load(config_file);
+            
+            if(!first_run)
+            {
+                FILE *file = FIO_CreateFile( "ML/SETTINGS/TLAPSE.LEN" );
+                FILE *file2 = FIO_CreateFile( "ML/SETTINGS/FIRST" );
+                //throw in custom folder here for now
+                static char* CM1;
+                static char* CM2;
+                static char* CM3;
+                static char* CM4;
+                static char* CM5;
+                char preset_dir1[0x80];
+                char preset_dir2[0x80];
+                char preset_dir3[0x80];
+                char preset_dir4[0x80];
+                char preset_dir5[0x80];
+                snprintf(preset_dir1, sizeof(preset_dir1), "ML/SETTINGS/CM1", CM1);
+                snprintf(preset_dir2, sizeof(preset_dir2), "ML/SETTINGS/CM2", CM2);
+                snprintf(preset_dir3, sizeof(preset_dir3), "ML/SETTINGS/CM3", CM3);
+                snprintf(preset_dir4, sizeof(preset_dir4), "ML/SETTINGS/CM4", CM4);
+                snprintf(preset_dir5, sizeof(preset_dir5), "ML/SETTINGS/CM5", CM5);
+                if (!is_dir(preset_dir1)) { FIO_CreateDirectory(preset_dir1); }
+                if (!is_dir(preset_dir2)) { FIO_CreateDirectory(preset_dir2); }
+                if (!is_dir(preset_dir3)) { FIO_CreateDirectory(preset_dir3); }
+                if (!is_dir(preset_dir4)) { FIO_CreateDirectory(preset_dir4); }
+                if (!is_dir(preset_dir5)) { FIO_CreateDirectory(preset_dir5); }
+                config_load();
+                config_preset_scan();
             }
             
             /* now load modules */

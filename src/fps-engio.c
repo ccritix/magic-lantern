@@ -1397,7 +1397,7 @@ static MENU_UPDATE_FUNC(fps_const_expo_update)
 static struct menu_entry fps_menu[] = {
     #ifdef FEATURE_FPS_OVERRIDE
     {
-        .name = "fps override", 
+        .name = "FPS override", 
         .priv = &fps_override,
         .select = fps_enable_disable,
         .update = fps_print,

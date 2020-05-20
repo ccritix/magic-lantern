@@ -585,10 +585,9 @@ static const char* config_preset_file =
     "ML/SETTINGS/CURRENT.SET";    /* contains the name of current preset */
 static int config_preset_index = 0;         /* preset being used right now */
 static int config_new_preset_index = 0;     /* preset that will be used after restart */
-static int config_preset_num = 3;           /* total presets available */
+static int config_preset_num = 2;           /* total presets available */
 static char* config_preset_choices[16] = {  /* preset names (reusable as menu choices) */
     "OFF",
-    "Startup mode",
     "Startup key",
     "Preset 1   ",
     "Preset 2   ",
@@ -680,8 +679,6 @@ static MENU_SELECT_FUNC(config_preset_toggle)
         if (f)
         {
             if (config_new_preset_index == 1)
-                my_fprintf(f, "Startup mode");
-            else if (config_new_preset_index == 2)
                 my_fprintf(f, "Startup key");
             else
                 my_fprintf(f, "%s", config_preset_choices[config_new_preset_index]);
@@ -700,28 +697,7 @@ static MENU_UPDATE_FUNC(config_preset_update)
         MENU_SET_RINFO(current_preset_name);
     }
 
-    if (config_new_preset_index == 1) /* startup shooting mode */
-    {
-        char current_mode_name[9];
-        snprintf(current_mode_name, sizeof(current_mode_name), "%s", (char*) get_shootmode_name(shooting_mode_custom));
-        if (streq(config_selected_by_mode, current_mode_name))
-        {
-            MENU_SET_HELP("Config preset is selected by startup mode (on the mode dial).");
-        }
-        else
-        {
-            MENU_SET_RINFO("%s->%s", current_preset_name, current_mode_name);
-            if (config_selected_by_mode[0])
-            {
-                MENU_SET_HELP("Camera was started in %s; restart to load the config for %s.", config_selected_by_mode, current_mode_name);
-            }
-            else
-            {
-                MENU_SET_HELP("Restart to load the config for %s mode.", current_mode_name);
-            }
-        }
-    }
-    else if (config_new_preset_index == 2) /* startup key */
+    if (config_new_preset_index == 1) /* startup key */
     {
         MENU_SET_HELP("At startup, press&hold MENU/PLAY/"INFO_BTN_NAME" to select the cfg preset.");
     }
@@ -774,15 +750,10 @@ static char* config_choose_startup_preset()
     char* preset_name = (char*) read_entire_file(config_preset_file, &size);
     if (preset_name)
     {
-        if (streq(preset_name, "Startup mode"))
+        if (streq(preset_name, "Startup key"))
         {
             /* will handle later */
             config_preset_index = config_new_preset_index = 1;
-        }
-        else if (streq(preset_name, "Startup key"))
-        {
-            /* will handle later */
-            config_preset_index = config_new_preset_index = 2;
         }
         else
         {
@@ -801,10 +772,10 @@ static char* config_choose_startup_preset()
     /* scan the preset files and populate the menu */
     config_preset_scan();
 
-    /* special cases: key pressed at startup, or startup mode */
+    /* special cases: key pressed at startup*/
 
     /* key pressed at startup */
-    if (config_preset_index == 2)
+    if (config_preset_index == 1)
     {
         if (config_selected_by_key[0])
         {
@@ -823,23 +794,6 @@ static char* config_choose_startup_preset()
     }
     else config_selected_by_key[0] = 0;
 
-    /* startup shooting mode (if selected in menu) */
-    if (config_preset_index == 1)
-    {
-        snprintf(config_selected_by_mode, sizeof(config_selected_by_mode), "%s", get_shootmode_name(shooting_mode_custom));
-        char preset_dir[0x80];
-        snprintf(preset_dir, sizeof(preset_dir), "ML/SETTINGS/%s.MOD", config_selected_by_mode);
-        if (!is_dir(preset_dir)) { FIO_CreateDirectory(preset_dir); }
-        if (is_dir(preset_dir))
-        {
-            /* success */
-            snprintf(config_dir, sizeof(config_dir), "%s/", preset_dir);
-            return config_selected_by_mode;
-        }
-        /* didn't work */
-        return 0;
-    }
-
     /* lookup the current preset in menu */
     for (int i = 0; i < config_preset_num; i++)
     {
@@ -853,7 +807,6 @@ static char* config_choose_startup_preset()
     /* using default config */
     return 0;
 }
-
 
 /* initialized and used in boot-hack.c */
 int _set_at_startup = 0;
@@ -920,6 +873,20 @@ static struct menu_entry cfg_menus[] = {
 };
 #endif
 
+static struct menu_entry cfg_menusmovie[] =
+{
+    {
+        .name = "custom modes",
+        .priv = &config_new_preset_index,
+        .min = 0,
+        .max = 6,
+        .choices = (const char **) config_preset_choices,
+        .select = config_preset_toggle,
+        .update = config_preset_update,
+        .help = "Choose a configuration preset and start customize(restart needed)."
+    },
+};
+
 /* called at startup, after init_func's */
 void config_load()
 {
@@ -978,6 +945,7 @@ static void config_menu_init()
 {
 #ifdef CONFIG_CONFIG_FILE
     menu_add( "Prefs", cfg_menus, COUNT(cfg_menus) );
+    menu_add( "Movie", cfg_menusmovie, COUNT(cfg_menusmovie) );
     config_save_sem = create_named_semaphore("config_save_sem",1);
 #endif
 }

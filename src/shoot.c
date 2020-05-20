@@ -83,10 +83,10 @@ int display_idle()
     extern thunk ShootOlcApp_handler;
     if (lv) return liveview_display_idle();
     else return
-#if !defined(CONFIG_EOSM) || !defined(CONFIG_ESOM2)
-    gui_state == GUISTATE_IDLE &&
-#endif
-    !gui_menu_shown() &&
+        #if !defined(CONFIG_EOSM) || !defined(CONFIG_ESOM2)
+        gui_state == GUISTATE_IDLE &&
+        #endif
+        !gui_menu_shown() &&
         ((!DISPLAY_IS_ON && CURRENT_GUI_MODE == 0) || (intptr_t)get_current_dialog_handler() == (intptr_t)&ShootOlcApp_handler);
 }
 
@@ -686,12 +686,12 @@ PROP_HANDLER(PROP_LV_DISPSIZE)
     /* note: 0x81 is a special screen before zooming in, on newer cameras */
     int zoom = buf[0];
     int new_zoom = zoom;
-    
+
     ASSERT(zoom == 1 || zoom == 0x81 || zoom == 5 || zoom == 10);
     zoom_sharpen_step();
-    
+
     if (zoom == 1) zoom_was_triggered_by_halfshutter = 0;
-    
+
 #ifdef FEATURE_LV_ZOOM_SETTINGS
 #ifdef CONFIG_ZOOM_X1
     /* FIXME: this duplicates functionality in handle_zoom_x5_x10
@@ -699,22 +699,22 @@ PROP_HANDLER(PROP_LV_DISPSIZE)
      * for touch-screen controls, this works reasonably well,
      * but still stays in the disabled zoom mode for a split-second */
     if (RECORDING) return;
-    
+
     if (zoom_disable_x1 && zoom == 0x81)
     {
         new_zoom = (zoom_disable_x5 ? 10 : 5);
     }
-    
+
     if (zoom_disable_x5 && zoom == 5)
     {
         new_zoom = 10;
     }
-    
+
     if (zoom_disable_x10 && zoom == 10)
     {
         new_zoom = 1;
     }
-    
+
     if (new_zoom != zoom)
     {
         prop_request_change(PROP_LV_DISPSIZE, &new_zoom, 4);
@@ -1942,6 +1942,7 @@ void kelvin_n_gm_auto()
     {
         kelvin_auto_flag = 1;
         wbs_gm_auto_flag = 1;
+        if (raw_lv_is_enabled() && is_movie_mode()) wbs_gm_auto_flag = 0;
     }
 }
 
@@ -2459,7 +2460,7 @@ static void zoom_halfshutter_step()
 #ifdef CONFIG_LIVEVIEW
     if (!lv) return;
     if (RECORDING) return;
-    
+
     if (!is_manual_focus())
     {
         /* AF enabled? we should not interrupt it while autofocusing */
@@ -2470,14 +2471,14 @@ static void zoom_halfshutter_step()
         int hs = get_halfshutter_pressed();
         int hs_just_pressed = hs && !prev_hs;
         prev_hs = hs;
-        
+
         if (hs_just_pressed)
         {
             /* half-shutter pressed, expect AF to start soon */
             press_timestamp = get_ms_clock();
             return;
         }
-        
+
         if (lv_focus_status != 1)
         {
             /* autofocusing */
@@ -2486,26 +2487,26 @@ static void zoom_halfshutter_step()
             press_timestamp = 0;
             return;
         }
-        
+
         if (press_timestamp && get_ms_clock() - press_timestamp < 700)
         {
             /* too early to tell whether AF started or not */
             return;
         }
-        
+
         if (!hs)
         {
             info_led_off();
             autofocused = 0;
         }
-        
+
         if (autofocused)
         {
             /* once it autofocused, we can no longer switch to x5 zoom (why, Canon?) */
             return;
         }
     }
-    
+
     if (zoom_halfshutter)
     {
         int hs = get_halfshutter_pressed();
@@ -2595,7 +2596,7 @@ int handle_zoom_x5_x10(struct event * event)
     #ifdef CONFIG_600D
     if (get_disp_pressed()) return 1;
     #endif
-    
+
     if (event->param == BGMT_PRESS_ZOOM_IN && liveview_display_idle() && !gui_menu_shown())
     {
         set_lv_zoom(lv_dispsize > 1 ? 1 : zoom_disable_x5 ? 10 : 5);
@@ -4151,6 +4152,93 @@ extern int digic_black_level;
 extern MENU_UPDATE_FUNC(digic_black_print);
 
 extern int digic_shadow_lift;
+
+static struct menu_entry expo_menusmovie[] = {
+#ifdef FEATURE_WHITE_BALANCE
+    {
+        .name = "white balance",
+        .update    = kelvin_wbs_display,
+        .select     = kelvin_toggle,
+        .help  = "Adjust Kelvin white balance and GM/BA WBShift.",
+        .help2 = "Advanced: WBShift, RGB multipliers, Push-button WB...",
+        .edit_mode = EM_SHOW_LIVEVIEW,
+        .submenu_width = 700,
+        .children =  (struct menu_entry[]) {
+            {
+                .name = "White Balance",
+                .update    = kelvin_display,
+                .select     = kelvin_toggle,
+                .help = "Adjust Kelvin white balance.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            {
+                .name = "WBShift G/M",
+                .update = wbs_gm_display,
+                .select = wbs_gm_toggle,
+                .min = -9,
+                .max = 9,
+                .icon_type = IT_PERCENT_OFF,
+                .help = "Green-Magenta white balance shift, for fluorescent lights.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            {
+                .name = "WBShift B/A",
+                .update = wbs_ba_display,
+                .select = wbs_ba_toggle,
+                .min = -9,
+                .max = 9,
+                .icon_type = IT_PERCENT_OFF,
+                .help = "Blue-Amber WBShift; 1 unit = 5 mireks on Kelvin axis.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            {
+                .name = "R multiplier",
+                .priv = (void *)(1),
+                .update = wb_custom_gain_display,
+                .select = wb_custom_gain_toggle,
+                .icon_type = IT_PERCENT,
+                .help = "RED channel multiplier, for custom white balance.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            {
+                .name = "G multiplier",
+                .priv = (void *)(2),
+                .update = wb_custom_gain_display,
+                .select = wb_custom_gain_toggle,
+                .icon_type = IT_PERCENT,
+                .help = "GREEN channel multiplier, for custom white balance.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            {
+                .name = "B multiplier",
+                .priv = (void *)(3),
+                .update = wb_custom_gain_display,
+                .select = wb_custom_gain_toggle,
+                .icon_type = IT_PERCENT,
+                .help = "BLUE channel multiplier, for custom white balance.",
+                .edit_mode = EM_SHOW_LIVEVIEW,
+            },
+            /*{
+             .name = "Auto adjust Kelvin",
+             .select = kelvin_auto,
+             .help = "LiveView: adjust Kelvin value once for the current scene."
+             },
+             {
+             .name = "Auto adjust Green-Magenta",
+             .select = wbs_gm_auto,
+             .help = "LiveView: adjust Green-Magenta once for the current scene."
+             },*/
+            {
+                .name = "Auto adjust Kelvin + G/M",
+                .select = kelvin_n_gm_auto,
+                .help = "LiveView: adjust Kelvin and G-M once (Push-button WB).",
+                .depends_on = DEP_LIVEVIEW,
+            },
+            MENU_EOL
+        },
+    },
+#endif
+};
 
 static struct menu_entry expo_menus[] = {
     #ifdef FEATURE_WHITE_BALANCE
@@ -6499,6 +6587,7 @@ static void shoot_init()
 
     menu_add( "Shoot", shoot_menus, COUNT(shoot_menus) );
     menu_add( "Expo", expo_menus, COUNT(expo_menus) );
+    menu_add( "Movie", expo_menusmovie, COUNT(expo_menusmovie) );
     
     //~ menu_add( "Tweaks", vid_menus, COUNT(vid_menus) );
 

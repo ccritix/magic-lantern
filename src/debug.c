@@ -323,8 +323,10 @@ void scan_A5A5()
 
 static void run_test()
 {
-    printf("Gotcha!\n");
-    ASSERT(0);
+    msleep(2000);
+info_led_on();
+raw_lv_request();
+
 }
 
 static void unmount_sd_card()
@@ -584,6 +586,20 @@ debug_loop_task( void* unused ) // screenshot, draw_prop
         #ifdef FEATURE_SCREENSHOT
         if (screenshot_sec)
         {
+            static int valid = 0;
+            if (screenshot_sec == 1 && valid)
+            {
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            valid = 0;
+            msleep(100);
+            }
+            if (screenshot_sec == 3 && raw_lv_is_enabled())
+            {
+                valid = 1;
+                menu_set_str_value_from_script("Movie", "raw video", "OFF", 1);
+                msleep(100);
+            }
+            
             info_led_blink(1, 20, 1000-20-200);
             screenshot_sec--;
             if (!screenshot_sec)

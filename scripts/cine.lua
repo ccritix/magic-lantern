@@ -8,7 +8,7 @@ console.hide()
 menu.close()
 
 -- end this script if not eosm/700d/100D/650D
-if camera.model_short ~= "EOSM" and camera.model_short ~= "700D" and camera.model_short ~= "100D" and camera.model_short ~= "650D" and camera.model_short ~= "5D3" then
+if camera.model_short ~= "EOSM" and camera.model_short ~= "EOSM2" and camera.model_short ~= "700D" and camera.model_short ~= "100D" and camera.model_short ~= "650D" and camera.model_short ~= "5D3" then
  display.notify_box("Script not working on this cam")
  menu.set("cinema 2:39.1", "Autorun", "OFF")
  msleep(2000)
@@ -47,6 +47,9 @@ end
 
 -- crop mode
 if camera.model_short == "EOSM" then
+  menu.set("Movie", "presets", "5K anamorphic rewired")
+end
+if camera.model_short == "EOSM2" then
   menu.set("Movie", "presets", "5K anamorphic rewired")
 end
 if camera.model_short == "100D" then

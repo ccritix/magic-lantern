@@ -203,7 +203,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_PHOTO_EDMAC 0xc0f04208
 #endif
 
-#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM)|| defined(CONFIG_EOSM2) || defined(CONFIG_650D) || defined(CONFIG_70D) || defined(CONFIG_100D)
+#ifdef CONFIG_DIGIC_V
 #define RAW_PHOTO_EDMAC 0xc0f04008
 #endif
 
@@ -290,8 +290,10 @@ if (!is_EOSM && !is_EOSM2 && !is_100D && !is_6D && !is_5D3)
         }
 }
     
-#if defined(CONFIG_100D) || defined(CONFIG_700D) || defined(CONFIG_EOSM) || defined(CONFIG_EOSM2) /* other models? */
-    /* http://www.magiclantern.fm/forum/index.php?topic=16040.msg191131#msg191131 */
+//#if defined(CONFIG_100D) || defined(CONFIG_700D) || defined(CONFIG_EOSM) /* other models? */
+
+#if defined(CONFIG_DIGIC_V) && !defined(CONFIG_5D3) /* making assumptions - the 5D3 doesn't need this?  */
+     /* http://www.magiclantern.fm/forum/index.php?topic=16040.msg191131#msg191131 */
     /* 100 units below measured value = about 0.01 EV */
     default_white = 15200;
     if (shamem_read(0xC0F0b12c) == 0x11)
@@ -601,7 +603,7 @@ static int raw_lv_get_resolution(int* width, int* height)
      * 100D/M2 report exact value (matches EDMAC), but this results in hiccups in x5 zoom
      *      these hiccups disappear when using height-1 or lower
      *      (100D 720p: top=28 active=696 y2=724 above=727 adjusted=726)
-     * EOSM/700D/650D needs to add 1 to match EDMAC - no hiccups reported
+     * EOSM/700D/650D needs to add 1 to match EDMAC - no hiccups reported -- EOSM2 needs this too?
      *      however, height+1 would give 3 invalid lines at the bottom
      *      (650D 720p: top=28 active=696 y2=724 above=726 adjusted=725)
      * see also https://a1ex.magiclantern.fm/bleeding-edge/raw/raw_res.txt */
@@ -1014,7 +1016,12 @@ int raw_update_params_work()
         skip_top = 54;
         #endif 
 
-        #if defined(CONFIG_650D) || defined(CONFIG_EOSM) || defined(CONFIG_EOSM2) || defined(CONFIG_700D) || defined(CONFIG_100D)
+        #if defined(CONFIG_650D) || defined(CONFIG_EOSM) || defined(CONFIG_700D) || defined(CONFIG_100D)
+        skip_left = 72;
+        skip_top = 52;
+        #endif
+
+        #if defined(CONFIG_EOSM2)
         skip_left = 72;
         skip_top = 52;
         #endif
@@ -1980,25 +1987,6 @@ int _raw_lv_get_iso_post_gain()
 
 int raw_lv_settings_still_valid()
 {
-
-/* 8bit */
-    if (shamem_read(0xc0f0815c) == 0x3) raw_info.white_level = 2250;
-/* 9bit */
-    if (shamem_read(0xc0f0815c) == 0x4) raw_info.white_level = 2550; 
-/* 10bit */
-    if (shamem_read(0xc0f0815c) == 0x5) raw_info.white_level = (lens_info.raw_iso == ISO_100) ? 2840 : 2890;
-/* 12bit */
-    if (shamem_read(0xc0f0815c) == 0x6) raw_info.white_level = 6000; 
-/* 14bit 4k timelapse only. Flag set in crop_rec.c */
-    /* iso_climb feature */
-    if (shamem_read(0xc0f0815c) == 0x7 && shamem_read(0xC0F0b12c) == 0x11)
-    {
-        raw_info.white_level = 14000;
-    }
-    if (shamem_read(0xc0f0815c) == 0x7 && shamem_read(0xC0F0b12c) == 0x0)
-    {
-        raw_info.white_level = 15200;
-    }
     /* should be fast enough for vsync calls */
     if (!lv_raw_enabled) return 0;
     int w, h;

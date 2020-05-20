@@ -146,7 +146,18 @@ int lossless_init()
         TTL_Stop        = (void *) 0xFF428440;  /* called right after sssStopMem1ToRawPath */
         TTL_Finish      = (void *) 0xFF429328;  /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
     }
-
+    if (is_camera("EOSM", "2.0.3"))
+    {
+        /* ProcessTwoInTwoOutJpegath, EOSM 2.0.3 */
+        TTL_SetArgs     = (void *) 0xff361548;  /* fills TTJ_Args struct; PictureSize(Mem1ToRaw) */
+        TTL_Prepare     = (void *) 0xff4292c0;  /* called right after ProcessTwoInTwoOutJpegath(R) Start(%d); */
+                                                /* calls [TTJ] GetPathResources and sets up the encoder for RAW */
+        TTL_RegisterCBR = (void *) 0xff4282a4;  /* RegisterTwoInTwoOutJpegPathCompleteCBR */
+        TTL_SetFlags    = (void *) 0xff36d1d4;  /* called next, with PictureType as arguments */
+        TTL_Start       = (void *) 0xff429368;  /* called next; starts the EDmac transfers */
+        TTL_Stop        = (void *) 0xff4284f0;  /* called right after sssStopMem1ToRawPath */
+        TTL_Finish      = (void *) 0xff4293d8;  /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
+    }
    if (is_camera("EOSM2", "1.0.3"))
     {
         /* ProcessTwoInTwoOutJpegath, EOSM2 1.0.3 */
@@ -158,6 +169,15 @@ int lossless_init()
         TTL_Start       = (void *) 0xFF44A10C;      /* called next; starts the EDmac transfers */
         TTL_Stop        = (void *) 0xFF449294;      /* called right after sssStopMem1ToRawPath */
         TTL_Finish      = (void *) 0xFF44A17C;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
+
+//        TTL_SetArgs     = (void *) 0xff37a9ac;      /* fills TTJ_Args struct; PictureSize(Mem1ToRaw) */
+//        TTL_Prepare     = (void *) 0xff5ff1bc;      /* called right after ProcessTwoInTwoOutJpegath(R) Start(%d); */
+                                                    /* calls [TTJ] GetPathResources and sets up the encoder for RAW */
+//        TTL_RegisterCBR = (void *) 0xff462ee4;      /* RegisterTwoInTwoOutJpegPathCompleteCBR */
+//        TTL_SetFlags    = (void *) 0xffd59ad4;      /* called next, with PictureType as arguments */
+//        TTL_Start       = (void *) 0xff5ff24c;      /* called next; starts the EDmac transfers */
+//        TTL_Stop        = (void *) 0xff5fe490;      /* called right after sssStopMem1ToRawPath */
+//        TTL_Finish      = (void *) 0xff5ff2d0;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
     }
 
     if (is_camera("100D", "1.0.1"))
@@ -201,7 +221,7 @@ int lossless_init()
 
     lossless_sem = create_named_semaphore(0, 0);
     
-    if (is_camera("700D", "*") || is_camera("650D", "*") || is_camera("EOSM", "*")  || is_camera("EOSM2", "*") || is_camera("100D", "*"))
+    if (is_camera("700D", "*") || is_camera("650D", "*") || is_camera("EOSM2", "*") || is_camera("EOSM", "*") || is_camera("100D", "*"))
     {
         uint32_t resources[] = {
             0x00000 | edmac_channel_to_index(edmac_write_chan),
@@ -528,6 +548,12 @@ static void decompress_init()
         Setup_DecodeLosslessRawPath = (void *) 0xFF42DBD0;
         Start_DecodeLosslessPath    = (void *) 0xFF42DC98;
         Cleanup_DecodeLosslessPath  = (void *) 0xFF42DDFC;
+    }
+    if (is_camera("EOSM", "2.0.3"))
+    {
+        Setup_DecodeLosslessRawPath = (void *) 0xFF42DC80;
+        Start_DecodeLosslessPath    = (void *) 0xFF42DD48;
+        Cleanup_DecodeLosslessPath  = (void *) 0xFF42DEAC;
     }
 
    if (is_camera("EOSM2", "1.0.3"))

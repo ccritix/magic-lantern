@@ -844,7 +844,7 @@ void digic_iso_step()
         {
             /* don't touch settings that may alter the raw buffer */
             /* just set the ISO boost register */
-            total_movie_gain *= _raw_lv_get_iso_post_gain();
+           // total_movie_gain *= _raw_lv_get_iso_post_gain();
 
             if (total_movie_gain != 1024)
             {
@@ -988,7 +988,7 @@ static struct menu_entry lv_img_menu[] = {
             
             #ifdef FEATURE_SHUTTER_FINE_TUNING
             {
-                .name = "shutter fine-tuning", 
+                .name = "Shutter fine-tuning", 
                 .priv = &shutter_finetune,
                 .update = shutter_finetune_display,
                 .min = -500,

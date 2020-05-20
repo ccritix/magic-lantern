@@ -946,7 +946,7 @@ waveform_draw_image(
 )
 {
     if (!waveform) return;
-    
+
     if (!PLAY_OR_QR_MODE)
     {
         if (!lv_luma_is_accurate()) return;
@@ -3387,7 +3387,7 @@ static void draw_zoom_overlay(int dirty)
     busy_vsync(0, 20);
     #endif
 
-    #if defined(CONFIG_DIGIC_V) && (! defined(CONFIG_EOSM) || ! defined(CONFIG_EOSM2))
+    #if defined(CONFIG_DIGIC_V) && ! defined(CONFIG_EOSM) && ! defined(CONFIG_EOSM2)
     lvr = CACHEABLE(YUV422_LV_BUFFER_DISPLAY_ADDR);
     if (
         lvr != CACHEABLE(YUV422_LV_BUFFER_1) && 
@@ -3760,7 +3760,7 @@ void draw_histogram_and_waveform(int allow_play)
     if (is_zoom_mode_so_no_zebras()) return;
         
 #ifdef FEATURE_WAVEFORM
-    if(waveform_draw)
+    if (waveform_draw)
     {
         #ifdef CONFIG_4_3_SCREEN
         if (PLAY_OR_QR_MODE && WAVEFORM_FACTOR == 1)

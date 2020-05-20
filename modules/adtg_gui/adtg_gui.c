@@ -6040,6 +6040,13 @@ static unsigned int adtg_gui_init()
         ENGIO_WRITE_FUNC = 0xFF2C19AC;  // from stubs
         ENG_DRV_OUT_FUNC = 0xFF2C1694;
     }
+    else if (is_camera("EOSM", "2.0.3")) // from 1%
+    {
+        ADTG_WRITE_FUNC = 0x2986C;
+        CMOS_WRITE_FUNC = 0x2998C;
+        ENGIO_WRITE_FUNC = 0xff2c1a5c;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xff2c1744;
+    }
     else if (is_camera("EOSM2", "1.0.3"))
     {
         ADTG_WRITE_FUNC = 0x42E30; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx:%lx]" FFD60618 - RAM_OFFSET

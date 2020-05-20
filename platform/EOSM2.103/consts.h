@@ -232,6 +232,7 @@
 //#define TOUCH_XY_RAW2 (TOUCH_XY_RAW1+4)
 //#define TOUCH_MULTI 0x4D810   //~ found these with memspy. look for addresses changing with screen touches.
 //--------------
+//#define HIJACK_TOUCH_CBR_PTR 0x4D3F8
 
 // EOSM and 700D has this but 650D and 100D does not - need to keep searching for it
 //#define HIJACK_TOUCH_CBR_PTR 0x4D3F8

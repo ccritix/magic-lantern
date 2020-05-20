@@ -9,5 +9,5 @@
 
 /** Unused **/
 // #define INPUT_SET_IMAGE_VRAM_PARAMETER_MUTE_FLIP_CBR ??
-
+// #define INPUT_SET_IMAGE_VRAM_PARAMETER_MUTE_FLIP_CBR 26
 #endif // __platform_state_object_h

@@ -1807,7 +1807,7 @@ static void hack_liveview(int32_t unhack)
             cam_600d ? 0xFF37AA18 :
             cam_650d ? 0xFF527E38 :
             cam_6d   ? 0xFF52C684 :
-            cam_eos_m ? 0xFF539C1C :
+            cam_eos_m ? 0xff539ccc :
             cam_eos_m2 ? 0xFF6C4118 :
             cam_700d ? 0xFF52BB60 :
             cam_7d  ? 0xFF345788 :
@@ -4330,7 +4330,7 @@ static unsigned int raw_rec_init()
     /* default free text string is empty */
     strcpy(raw_tag_str, "");
 
-    cam_eos_m = is_camera("EOSM", "2.0.2");
+    cam_eos_m = is_camera("EOSM", "2.0.3");
     cam_eos_m2= is_camera("EOSM2","1.0.3");
     cam_5d2   = is_camera("5D2",  "2.1.2");
     cam_50d   = is_camera("50D",  "1.0.9");

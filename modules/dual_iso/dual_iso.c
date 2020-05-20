@@ -973,6 +973,40 @@ static unsigned int isoless_init()
         CMOS_FLAG_BITS = 2;
         CMOS_EXPECTED_FLAG = 3;
     }
+    else if (is_camera("EOSM", "2.0.3"))
+    {
+        is_eosm = 1;    
+        
+        /*   00 0803 40502516 */
+		/*   00 0827 40502538 */
+		/*   00 084B 4050255A */
+		/*   00 086F 4050257C */
+		/*   00 0893 4050259E */
+		/*   00 08B7 405025C0 */
+
+
+        FRAME_CMOS_ISO_START = 0x40482516;
+        FRAME_CMOS_ISO_COUNT =          6; // from ISO 100 to 3200
+        FRAME_CMOS_ISO_SIZE  =         34;
+
+
+        /*
+        00 0803 4050124C
+        00 0827 4050125C
+        00 084B 4050126C
+        00 086F 4050127C
+        00 0893 4050128C
+        00 08B7 4050129C
+        */
+
+        PHOTO_CMOS_ISO_START = 0x4048124C;
+        PHOTO_CMOS_ISO_COUNT =          6; // from ISO 100 to 3200
+        PHOTO_CMOS_ISO_SIZE  =         16;
+
+        CMOS_ISO_BITS = 3;
+        CMOS_FLAG_BITS = 2;
+        CMOS_EXPECTED_FLAG = 3;
+    }
     else if (is_camera("EOSM2", "1.0.3")) // WIP found movie mode but photo mode is taken from EOSM
     {
         is_eosm2 = 1;
