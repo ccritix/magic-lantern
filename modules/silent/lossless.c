@@ -169,15 +169,18 @@ int lossless_init()
         TTL_Start       = (void *) 0xFF44A10C;      /* called next; starts the EDmac transfers */
         TTL_Stop        = (void *) 0xFF449294;      /* called right after sssStopMem1ToRawPath */
         TTL_Finish      = (void *) 0xFF44A17C;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
-
-//        TTL_SetArgs     = (void *) 0xff37a9ac;      /* fills TTJ_Args struct; PictureSize(Mem1ToRaw) */
-//        TTL_Prepare     = (void *) 0xff5ff1bc;      /* called right after ProcessTwoInTwoOutJpegath(R) Start(%d); */
+    }
+   if (is_camera("EOSM2", "1.0.4"))
+    {
+        /* ProcessTwoInTwoOutJpegath, EOSM2 1.0.4 */
+        TTL_SetArgs     = (void *) 0xff37a910;      /* fills TTJ_Args struct; PictureSize(Mem1ToRaw) */
+        TTL_Prepare     = (void *) 0xff44a078;      /* called right after ProcessTwoInTwoOutJpegath(R) Start(%d); */
                                                     /* calls [TTJ] GetPathResources and sets up the encoder for RAW */
-//        TTL_RegisterCBR = (void *) 0xff462ee4;      /* RegisterTwoInTwoOutJpegPathCompleteCBR */
-//        TTL_SetFlags    = (void *) 0xffd59ad4;      /* called next, with PictureType as arguments */
-//        TTL_Start       = (void *) 0xff5ff24c;      /* called next; starts the EDmac transfers */
-//        TTL_Stop        = (void *) 0xff5fe490;      /* called right after sssStopMem1ToRawPath */
-//        TTL_Finish      = (void *) 0xff5ff2d0;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
+        TTL_RegisterCBR = (void *) 0xff44905c;      /* RegisterTwoInTwoOutJpegPathCompleteCBR */
+        TTL_SetFlags    = (void *) 0xff379288;      /* called next, with PictureType as arguments */
+        TTL_Start       = (void *) 0xff44a120;      /* called next; starts the EDmac transfers */
+        TTL_Stop        = (void *) 0xff4492a8;      /* called right after sssStopMem1ToRawPath */
+        TTL_Finish      = (void *) 0xff44a190;      /* called next; calls UnlockEngineResources and returns output size from JpCoreCompleteCBR */
     }
 
     if (is_camera("100D", "1.0.1"))

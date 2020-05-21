@@ -1023,6 +1023,22 @@ static unsigned int isoless_init()
         CMOS_FLAG_BITS = 2;
         CMOS_EXPECTED_FLAG = 3;
     }
+    else if (is_camera("EOSM2", "1.0.4")) // WIP found movie mode but photo mode is taken from EOSM
+    {
+        is_eosm2 = 1;
+
+        FRAME_CMOS_ISO_START = 0x416D93F0; // CMOS register 0000 - for LiveView, ISO 100
+        FRAME_CMOS_ISO_COUNT =          6; // from ISO 100 to 3200
+        FRAME_CMOS_ISO_SIZE  =         34; // distance between ISO 100 and ISO 200 addresses, in bytes
+
+        PHOTO_CMOS_ISO_START = 0x416D70E0; // CMOS register 0000 - for photo mode, ISO 100
+        PHOTO_CMOS_ISO_COUNT =          6; // from ISO 100 to 3200
+        PHOTO_CMOS_ISO_SIZE  =         16; // distance between ISO 100 and ISO 200 addresses, in bytes
+
+        CMOS_ISO_BITS = 3;
+        CMOS_FLAG_BITS = 2;
+        CMOS_EXPECTED_FLAG = 3;
+    }
     else if (is_camera("1100D", "1.0.5"))
     {
         is_1100d = 1;

@@ -6054,6 +6054,13 @@ static unsigned int adtg_gui_init()
         ENGIO_WRITE_FUNC = 0xFF2C6F44;  // from stubs
         ENG_DRV_OUT_FUNC = 0xFF2C6C2C;
     }
+    else if (is_camera("EOSM2", "1.0.4"))
+    {
+        ADTG_WRITE_FUNC = 0x42E30; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx:%lx]" ffd60624 - ffd1d7f4 - RAM_OFFSET
+        CMOS_WRITE_FUNC = 0x432A4; //"[REG] ############ Start CMOS"             ffd60a98 - ffd1d7f4 - RAM_OFFSET
+        ENGIO_WRITE_FUNC = 0xff2c6f58;  // from stubs
+        ENG_DRV_OUT_FUNC = 0xff2c6c40;
+    }
     else if (is_camera("600D", "1.0.2")) // from 1% TL 2.0
     {
         ADTG_WRITE_FUNC = 0xFF2DCEF4; //"[REG] @@@@@@@@@@@@ Start ADTG[CS:%lx]"

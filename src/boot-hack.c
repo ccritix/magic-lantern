@@ -726,16 +726,17 @@ init_task_func init_task_patched(int a, int b, int c, int d)
     Why we need to patch:
     https://www.magiclantern.fm/forum/index.php?topic=15895.msg197669#msg197669
     ***********************************************************************/
-    patch_instruction(0xFF2C6C40, 0xE1800002, 0xE0800002, "engio");
-    patch_instruction(0xFF2C6CD8, 0xE1800001, 0xE0800001, "engio");
-    patch_instruction(0xFF2C6D30, 0xE1822001, 0xE0822001, "engio");
-    patch_instruction(0xFF2C6D3C, 0xE1811005, 0xE0811005, "engio");
-    patch_instruction(0xFF2C6DA4, 0xE1807001, 0xE0807001, "engio");
-    patch_instruction(0xFF2C6F64, 0x1181100C, 0x1081100C, "engio");
-    patch_instruction(0xFF2C6F94, 0xE1800002, 0xE0800002, "engio");
-    patch_instruction(0xFF2C6FC4, 0xE1811002, 0xE0811002, "engio");
-    patch_instruction(0xFF2C6FD0, 0xE1822004, 0xE0822004, "engio");
-    patch_instruction(0xFF2C6FF4, 0xE1800003, 0xE0800003, "engio");
+    patch_instruction(0xff2c6c54, 0xE1800002, 0xE0800002, "engio");
+    patch_instruction(0xff2c6cec, 0xE1800001, 0xE0800001, "engio");
+    patch_instruction(0xff2c6d44, 0xE1822001, 0xE0822001, "engio");
+    patch_instruction(0xff2c6d50, 0xE1811005, 0xE0811005, "engio");
+    patch_instruction(0xff2c6db8, 0xE1807001, 0xE0807001, "engio");
+    patch_instruction(0xff2c6f78, 0x1181100C, 0x1081100C, "engio");
+    patch_instruction(0xff2c6fa8, 0xE1800002, 0xE0800002, "engio");
+    patch_instruction(0xff2c6fd8, 0xE1811002, 0xE0811002, "engio");
+    patch_instruction(0xff2c6fe4, 0xE1822004, 0xE0822004, "engio");
+    patch_instruction(0xff2c7008, 0xE1800003, 0xE0800003, "engio");
+
     #elif defined(CONFIG_550D) || defined(CONFIG_600D)
     // change end limit from 0xd00000 to 0xc70000 => reserve 576K for ML
     *addr_AllocMem_end = MOV_R1_0xC70000_INSTR;
