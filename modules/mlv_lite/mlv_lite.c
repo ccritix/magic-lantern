@@ -2177,7 +2177,7 @@ void hack_liveview(int unhack)
             cam_650d ? 0xFF527E38 :
             cam_6d   ? 0xFF52C684 :
             cam_eos_m ? 0xff539ccc :
-            cam_eos_m2 ? 0xFF6C4118 :
+            cam_eos_m2 ? 0xff6c412c :
             cam_700d ? 0xFF52BB60 :
             cam_7d  ? 0xFF345788 :
             cam_60d ? 0xff36fa3c :
