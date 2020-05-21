@@ -10,3 +10,4 @@ ML_MODULES ?= \
 	sd_uhs \
 	file_man \
 	adtg_gui \
+	adtg_log \

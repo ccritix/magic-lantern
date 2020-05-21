@@ -1050,6 +1050,13 @@ static unsigned int iocrypt_init()
         iodev_ctx = 0xF4DF8;
         iodev_ctx_size = 0x20;
     }
+    else if(is_camera("EOSM2", "1.0.4"))
+    {
+        trace_write(iocrypt_trace_ctx, "io_crypt: Detected EOSM2 1.0.4");
+        iodev_table = 0xC2468;
+        iodev_ctx = 0xF4DF8;
+        iodev_ctx_size = 0x20;
+    }
     else if(is_camera("6D", "1.1.6"))
     {
         iodev_table = 0x9DF18;
