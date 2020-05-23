@@ -7919,11 +7919,11 @@ static unsigned int crop_rec_init()
         MEM_ENGIO_WRITE = 0xe51fc15c;
 
         is_EOSM = 1;
-        crop_presets                = crop_presets_eosm;
-        crop_rec_menu[0].choices    = crop_choices_eosm;
-        crop_rec_menu[0].max        = COUNT(crop_choices_eosm) - 1;
-        crop_rec_menu[0].help       = crop_choices_help_eosm;
-        crop_rec_menu[0].help2      = crop_choices_help2_eosm;
+        crop_presets                = crop_presets_eosm2;
+        crop_rec_menu[0].choices    = crop_choices_eosm2;
+        crop_rec_menu[0].max        = COUNT(crop_choices_eosm2) - 1;
+        crop_rec_menu[0].help       = crop_choices_help_eosm2;
+        crop_rec_menu[0].help2      = crop_choices_help2_eosm2;
     }
     else if (is_camera("100D", "1.0.1"))
     {
