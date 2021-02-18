@@ -40,7 +40,7 @@ NSTUB( ROMBASEADDR, firmware_entry )                        // 0xFE0C0000
 NSTUB(0xFE0C3A24,  cstart)                                  //
 NSTUB(   0x29898,  bzero32)                                 // called by cstart() rom
 NSTUB(    0x5254,  create_init_task)                        // must be called from ram
-NSTUB(0xFE1296C8,  init_task)                               // passed as arg to create_init_task, look for dmSetup
+NSTUB(0xFE1296C8,  init_task)                               // passed as arg to create_init_task, look for dmSetup 
 NSTUB(   0x67430,  additional_version)
 
 /** File I/O **/
@@ -245,7 +245,7 @@ NSTUB(0xFE127EC4, _FreeMemory)
 NSTUB(0xFE2C2528, _alloc_dma_memory)
 NSTUB(0xFE2C6C04, _free)
 NSTUB(0xFE2C2564, _free_dma_memory)
-NSTUB(0xFE2C6BAC, _malloc)                                  // maybe it's better to use Allocate/Free?
+NSTUB(0xFE2C6BAC, _malloc)                                  // maybe its better to use Allocate/Free?
 // NSTUB(    ???,  free_dma_memory)                         /* present on 7D_MASTER.203 */
 
 /** Message queues **/
@@ -314,6 +314,9 @@ NSTUB(0xFE114B20,  EnableImagePhysicalScreenParameter)      /* present on 7D.203
 // NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
+
+NSTUB(0xfe0d48b4,  TryReceiveMessageQueue)
+
 
 /** Unused stubs or porting notes **/
 // NSTUB( 0xFF34B724, AJ_guess_LED_OFF )
