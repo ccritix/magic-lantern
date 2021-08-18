@@ -17,19 +17,10 @@
 #define HIJACK_CACHE_HACK_INITTASK_ADDR  0xFE0C3B20
 
 #define HIJACK_INSTR_BL_CSTART  0xFE0C0638
-#define HIJACK_INSTR_BSS_END 0xFE0C3B14
+#define HIJACK_INSTR_BSS_END 0xFE0C3B10
 #define HIJACK_FIXBR_BZERO32 0xFE0C3A58
 #define HIJACK_FIXBR_CREATE_ITASK 0xFE0C3AF8
 #define HIJACK_INSTR_MY_ITASK 0xFE0C3B20
-
-// Used in boot-hack.c with CONFIG_ALLOCATE_MEMORY_POOL
-//#define ROM_ITASK_START 0xFE1296C8
-//#define ROM_ITASK_END 0xFE1296C8//0xfe129bd8 // 0xFE1298A0 //fe12b8bc FE1298A0
-//#define ROM_CREATETASK_MAIN_START 0xfe0c1b60 
-//#define ROM_CREATETASK_MAIN_END 0xfe0c1eb0
-//#define ROM_ALLOCMEM_END 0xfe0c1b74
-//#define ROM_ALLOCMEM_INIT 0xfe0c1b7c //(ROM_ALLOCMEM_END + 8) 
-//#define ROM_B_CREATETASK_MAIN 0xfe129760
 
 /* new-style DryOS hooks? */
 //#define HIJACK_TASK_ADDR 0x31170
@@ -168,6 +159,12 @@
 #define DISPLAY_CLOCK_POS_X 440
 #define DISPLAY_CLOCK_POS_Y 410
 
+#define DISPLAY_DATE_POS_X 440
+#define DISPLAY_DATE_POS_Y 450
+
+#define DISPLAY_BATTERY_POS_X 400
+#define DISPLAY_BATTERY_POS_Y 450
+
 // position for displaying K icon in photo info display
 #define WB_K_ICON_POS_X 192
 #define WB_K_ICON_POS_Y 226
@@ -261,9 +258,17 @@
 #define FRAME_SHUTTER (*(uint8_t*)(VIDEO_PARAMETERS_SRC_3+0xa))
 #define FRAME_BV ((int)FRAME_SHUTTER + (int)FRAME_APERTURE - (int)FRAME_ISO)
 
+#define FRAME_SHUTTER_BLANKING_ZOOM   (*(uint16_t*)0x40481B20) // ADTG register 805f
+#define FRAME_SHUTTER_BLANKING_NOZOOM (*(uint16_t*)0x40481B24) // ADTG register 8061
+#define FRAME_SHUTTER_BLANKING_READ   (lv_dispsize > 1 ? FRAME_SHUTTER_BLANKING_NOZOOM : FRAME_SHUTTER_BLANKING_ZOOM) /* when reading, use the other mode, as it contains the original value (not overriden) */
+#define FRAME_SHUTTER_BLANKING_WRITE  (lv_dispsize > 1 ? &FRAME_SHUTTER_BLANKING_ZOOM : &FRAME_SHUTTER_BLANKING_NOZOOM)
+#define LV_DISP_MODE (MEM(0x89BAC + 0x7C) != 3)
+
 // see "Malloc Information"
 #define MALLOC_STRUCT 0x671A8
 #define MALLOC_FREE_MEMORY (MEM(MALLOC_STRUCT + 8) - MEM(MALLOC_STRUCT + 0x1C)) // "Total Size" - "Allocated Size"
+#define SRM_BUFFER_SIZE 0x1f68000 //0x14E8000   /* print it from srm_malloc_cbr */
+
 
 // for bulb ramping calibration: delay between two exposure readings (increase it if brightness updates slowly)
 // if not defined, default is 500
@@ -271,6 +276,8 @@
 
 //~ max volume supported for beeps
 #define ASIF_MAX_VOL 5
+// look for "JudgeBottomInfoDispTimerState(%d)"
+#define JUDGE_BOTTOM_INFO_DISP_TIMER_STATE	0x3fe5c
 
 // temperature convertion from raw-temperature to celsius
 // http://www.magiclantern.fm/forum/index.php?topic=9673.0

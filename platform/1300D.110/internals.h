@@ -4,13 +4,15 @@
 
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
 /** The 1300D port is very early, so I think we should not enable properties. **/
-#undef CONFIG_PROP_REQUEST_CHANGE
-//#define CONFIG_PROP_REQUEST_CHANGE
+//#undef CONFIG_PROP_REQUEST_CHANGE
+#define CONFIG_PROP_REQUEST_CHANGE
 #define FEATURE_EXPO_OVERRIDE
 /** 
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 
  * They might slow down Canon code, so here you can disable all of them (useful for debugging or early ports) 
  */
+/** No additional_version stub on this DryOS version **/
+#define CONFIG_NO_ADDITIONAL_VERSION
 #define CONFIG_STATE_OBJECT_HOOKS
 
 /** This camera runs DryOS **/
@@ -68,6 +70,7 @@
 
 /** We can't control audio settings from ML **/
 //~ #define CONFIG_AUDIO_CONTROLS
+#undef CONFIG_AUDIO_CONTROLS
 
 /** Zoom button can be used while recording (for Magic Zoom) **/
 /* to be checked */
@@ -94,7 +97,7 @@
 #define CONFIG_EXPSIM
 
 /** We can playback sounds via ASIF DMA **/
-#define CONFIG_BEEP
+#undef CONFIG_BEEP
 
 /** This camera has trouble saving Kelvin and/or WBShift in movie mode, so ML has to do this instead **/
 /* to be checked */
@@ -139,7 +142,7 @@
 #define CONFIG_MENU_WITH_AV
 
 /** We don't have access to Raw data (yet) */
-//~ #define CONFIG_RAW_LIVEVIEW
+#define CONFIG_RAW_LIVEVIEW
 #define CONFIG_RAW_PHOTO
 
 
@@ -152,3 +155,6 @@
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
 /** FIXME: long calls during relocation **/
 //~ #define CONFIG_LVAPP_HACK_RELOC
+
+/** this method bypasses Canon's lv_save_raw and slurps the raw data directly from connection #0 */
+#define CONFIG_EDMAC_RAW_SLURP
