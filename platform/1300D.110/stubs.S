@@ -70,11 +70,11 @@ NSTUB(0xFE151800,  gui_massive_event_loop)                  // GUI_Control_Post
 NSTUB(0xFE2EB7F8,  GUI_SetLvMode)                           /* present on 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  GUI_SetMovieSize_a)                      /* present on 50D.109 */
 // NSTUB(    ???,  GUI_SetMovieSize_b)                      /* present on 50D.109 */
-// NSTUB(0xFE2EBA2C,  Gui_SetSoundRecord)                   /* present on 6D.113, 5D2.212 */
+NSTUB(0xFE2EBA2C,  Gui_SetSoundRecord)                   /* present on 6D.113, 5D2.212 */
 
 /** ASIF **/
 // TODO:
- NSTUB(0XFE108E44,  PowerAudioOutput)                       /* not found */
+NSTUB(0xFE11D1CC,  PowerAudioOutput)                       /* not found  old FE108E44*/
 NSTUB(0xFE11B938,  SetAudioVolumeOut)
 NSTUB(0xFE106A98,  SetNextASIFADCBuffer)
 NSTUB(0xFE106C80,  SetNextASIFDACBuffer)
@@ -83,8 +83,8 @@ NSTUB(0xFE105F7C,  StartASIFDMAADC)
 NSTUB(0xFE106350,  StartASIFDMADAC)
 NSTUB(0xFE1065D0,  StopASIFDMADAC)
 NSTUB(0xFE11CD04,  PowerMicAmp)                             /* present on 650D.104, EOSM.202, 700D.113 */
-// NSTUB(    ???,  SetASIFMode)                             /* present on 700D.113 */
-NSTUB(0xFE108E10,  SetAudioVolumeIn)                        /* present on 6D.113 */
+NSTUB(0xfe1066f8,  SetASIFMode)                             /* present on 700D.113 */
+//NSTUB(0xFE108E10,  SetAudioVolumeIn)                        /* present on 6D.113 */
 NSTUB(0xFE108A70,  SoundDevActiveIn)                        /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
 NSTUB(0xFE108CC8,  SoundDevShutDownIn)                      /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
 NSTUB(0xFE106228,  StopASIFDMAADC)                          /* present on 7D.203, 6D.113, EOSM.202 */
@@ -169,9 +169,8 @@ NSTUB(0xFE2EB038,  GUI_SetRollingPitchingLevelStatus)
 
 /** Engio **/
 NSTUB(0xFE29F844, _EngDrvOut)
-NSTUB(0xFE29FBF0, _engio_write)
-NSTUB(0xFE29F734,  shamem_read)                             // AJ_0x8FB0_engio_struct_n_R0_manipulation_to_get_ptr
-// NSTUB(    ???,  EngDrvOut)                               /* present on 7D_MASTER.203 */
+NSTUB(0xFE29F7F0, _engio_write)
+NSTUB(0xFE29F838,  shamem_read)                             // AJ_0x8FB0_engio_struct_n_R0_manipulation_to_get_ptr
 
 /** Eventprocs (call by name) **/
 NSTUB(0xFE120288,  call)
@@ -289,9 +288,16 @@ NSTUB(    0x3270,  take_semaphore)
 
 /** Task info **/
 NSTUB(   0x358E8,  task_max)
-NSTUB(0xFE2C2ED0,  is_taskid_valid)                         // AJ_task_trampoline_related_p10
+NSTUB(0x4080,  get_task_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
+NSTUB(0x24c4,  _get_task_info_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
 NSTUB(   0x31170,  current_task)
 NSTUB(     0x640,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
+
+/* wifi for test */
+//NSTUB(0xfe43005d, nif_setup)
+//NSTUB(0xfe42fd45, rt_edit)
+//NSTUB(0xfe443964, wlanconnect)
+//NSTUB(0xfe42d990, wlanconnect)
 
 /** Task sleep **/
 NSTUB(    0x3780,  msleep)                                  // called from EV_GETDONE_CACHE param 0x64
