@@ -6,7 +6,7 @@
 #include "vram.h"
 #include "bmp.h"
 #include "font_direct.h"
-
+#include "boot-hack.h"
 
 #if 0
 /* ROM dumper */

@@ -5,5 +5,11 @@
 #define INPUT_ENABLE_IMAGE_PHYSICAL_SCREEN_PARAMETER 20
 #define EVF_STATE (*(struct state_object **)0x37930)
 #define MOVREC_STATE (*(struct state_object **)0x38744)
+#define SSS_STATE (*(struct state_object **)0x4018C)
+#define INPUT_SET_IMAGE_VRAM_PARAMETER_MUTE_FLIP_CBR 26
+
+
+
+
 
 #endif // __platform_state_object_h
