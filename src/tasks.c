@@ -16,34 +16,9 @@
 #include "config.h"
 #include "lens.h"
 
-extern int is_taskid_valid(int, int, void*);
-
 int ml_shutdown_requested = 0;
 
-char* get_current_task_name()
-{
-    /* DryOS: right before interrupt_active we have a counter showing the interrupt nesting level */
-    uint32_t interrupt_level = MEM((uintptr_t)&current_interrupt - 4);
-
-    if (!interrupt_level)
-    {
-        return current_task->name;
-    }
-    else
-    {
-        static char isr[] = "**INT-00h**";
-        int i = current_interrupt >> 2;
-        int i0 = (i & 0xF);
-        int i1 = (i >> 4) & 0xF;
-        int i2 = (i >> 8) & 0xF;
-        isr[5] = i2 ? '0' + i2 : '-';
-        isr[6] = i1 < 10 ? '0' + i1 : 'A' + i1 - 10;
-        isr[7] = i0 < 10 ? '0' + i0 : 'A' + i0 - 10;
-        return isr;
-    }
-}
-
-char* get_task_name_from_id(int id)
+const char * get_task_name_from_id(int id)
 {
 #if defined(CONFIG_VXWORKS)
 return "?";
@@ -57,7 +32,7 @@ return "?";
     int c = id & 0xFF;
 
     struct task_attr_str task_attr;
-    int r = is_taskid_valid(1, c, &task_attr); // ok
+    int r = get_task_info_by_id(c, &task_attr); // ok
     if (r==0) {
       if (task_attr.name!=0) name=task_attr.name;
       else name="?";
@@ -105,7 +80,7 @@ void task_update_loads() // called every second from clock_task
                 int cpu_percent = show_cpu_usage_flag == 2 ? tskmon_task_loads[i].absolute : tskmon_task_loads[i].relative;
                 if (cpu_percent)
                 {
-                    char* name = "";
+                    const char * name = "";
                     
                     if(i < TSKMON_MAX_TASKS-1)
                     {
@@ -168,7 +143,7 @@ int task_check_stack()
     #elif !defined(CONFIG_VXWORKS)
     */
     
-    int r = is_taskid_valid(1, id, &task_attr);
+    int r = get_task_info_by_id(id, &task_attr);
     if (r == 0)
     {
         int free = task_attr.size - task_attr.used;
@@ -272,27 +247,26 @@ MENU_UPDATE_FUNC(tasks_print)
         );
     y += font_med.height;
 
-    task_id = 1;
-    
     int total_tasks = 0;
-    for (task_id=1; task_id<=(int)task_max; task_id++)
+
+    for (task_id = 1; task_id <= (int)task_max; task_id++)
     {
-        r = is_taskid_valid(1, task_id, &task_attr); // ok
-        if (r==0)
+	r = get_task_info_by_id(task_id, &task_attr);
+    if (r == 0)
         {
             total_tasks++;
 
-            if (task_attr.name!=0)
+            if (task_attr.name != NULL)
             {
-                name=task_attr.name;
+                name = task_attr.name;
             }
             else
             {
-                name="?";
+                name = "?";
             }
 
-            // Canon tasks are named in uppercase (exception: idle); ML tasks are named in lowercase.
-            int is_canon_task = (name[0]  < 'a' || name[0] > 'z' || streq(name, "idle") ||  streq(name, "systemtask"));
+            // Canon tasks are named in uppercase (exceptions: idle, init, init1); ML tasks are named in lowercase.
+            int is_canon_task = (name[0] < 'a' || name[0] > 'z' || streq(name, "idle") || streq(name, "systemtask"));
             if((tasks_show_flags & 1) != is_canon_task)
             {
                 continue;
@@ -343,7 +317,7 @@ MENU_UPDATE_FUNC(tasks_print)
                 task_id, short_name, task_attr.pri, task_attr.wait_id, mem_percent, 0, task_attr.state);
             #endif
 
-            #if defined(CONFIG_60D) || defined(CONFIG_7D) || defined(CONFIG_DIGIC_V)
+            #if defined(CONFIG_60D) || defined(CONFIG_7D) || defined(CONFIG_DIGIC_V) || defined(CONFIG_1300D)
             y += font_small.height - ((tasks_show_flags & 1) ? 1 : 0); // too many tasks - they don't fit on the screen :)
             #else
             y += font_small.height;
@@ -354,7 +328,10 @@ MENU_UPDATE_FUNC(tasks_print)
                 y = 10 + font_med.height;
             }
         }
+
+
     }
+
     bmp_printf(
         FONT(FONT_MED, COLOR_GRAY(30), COLOR_BLACK), 
         720 - font_med.width * 9, 5, 
@@ -368,6 +345,16 @@ MENU_UPDATE_FUNC(tasks_print)
 #include "gps.h"
 #endif
 
+static void leds_on()
+{
+    _card_led_on();
+    info_led_on();
+    delayed_call(20, leds_on, 0);
+}
+
+/* to refactor with CBR */
+extern int module_shutdown();
+
 static void ml_shutdown()
 {
     check_pre_shutdown_flag();
@@ -376,26 +363,44 @@ static void ml_shutdown()
 #endif
     ml_shutdown_requested = 1;
     
-    info_led_on();
-    _card_led_on();
     restore_af_button_assignment_at_shutdown();
 #ifdef FEATURE_GPS_TWEAKS
     gps_tweaks_shutdown_hook();
 #endif    
     config_save_at_shutdown();
 #if defined(CONFIG_MODULES)
-    /* to refactor with CBR */
-    extern int module_shutdown();
     module_shutdown();
 #endif
-    info_led_on();
-    _card_led_on();
 }
 
 PROP_HANDLER(PROP_TERMINATE_SHUT_REQ)
 {
-    //bmp_printf(FONT_MED, 0, 0, "SHUT REQ %d ", buf[0]);
-    if (buf[0] == 0)  ml_shutdown();
+    /* 0=request, 3=execute, 4=cancel */
+    /* 3 appears too late for saving config files */
+    if (buf[0] == 0)
+    {
+        /* keep the LEDs on until shutdown completes */
+        delayed_call(20, leds_on, 0);
+
+        ml_shutdown();
+    }
+}
+
+PROP_HANDLER(PROP_ABORT)
+{
+    /* emergency stop - do not save properties */
+    /* -1 = init, 1 = trigger */
+
+    if (buf[0] == 1)
+    {
+        /* keep the LEDs on until shutdown completes */
+        delayed_call(20, leds_on, 0);
+
+        #if defined(CONFIG_MODULES)
+        /* if no hard crash, load the modules after taking the battery out */
+        module_shutdown();
+        #endif
+    }
 }
 
 #if 0
