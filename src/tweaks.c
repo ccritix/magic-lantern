@@ -2649,7 +2649,7 @@ static void alter_bitmap_palette(int dim_factor, int grayscale, int u_shift, int
     for (int i = 0; i < 255; i++)
     {
         if (i==0 || i==3 || i==0x14) continue; // don't alter transparent entries
-
+        if (i == FAST_ZEBRA_GRID_COLOR) continue;   // don't alter fast zebra color either
         int orig_palette_entry = LCD_Palette[3*i + 2];
         //~ bmp_printf(FONT_LARGE,0,0,"%x ", orig_palette_entry);
         //~ msleep(300);
@@ -2820,8 +2820,8 @@ static CONFIG_INT("anamorphic.preview", anamorphic_preview, 0);
 
 #ifdef FEATURE_ANAMORPHIC_PREVIEW
 
-static int anamorphic_ratio_num[10] = {5, 4, 7, 3, 5, 9, 2};
-static int anamorphic_ratio_den[10] = {4, 3, 5, 2, 3, 5, 1};
+static int anamorphic_ratio_num[10] = {5, 4, 7, 3, 5, 9, 2, 3};
+static int anamorphic_ratio_den[10] = {4, 3, 5, 2, 3, 5, 1, 1};
 
 static MENU_UPDATE_FUNC(anamorphic_preview_display)
 {
@@ -3373,7 +3373,7 @@ void display_filter_step(int k)
 #endif
 
 #ifdef CONFIG_KILL_FLICKER
-CONFIG_INT("kill.canon.gui", kill_canon_gui_mode, 1);
+CONFIG_INT("kill.canon.gui", kill_canon_gui_mode, 0);
 #endif
 
 extern int clearscreen;
@@ -3387,6 +3387,16 @@ extern MENU_UPDATE_FUNC(display_gain_print);
 extern int display_gain_menu_index;
 
 static struct menu_entry display_menus[] = {
+    #ifdef CONFIG_KILL_FLICKER
+        {
+            .name       = "Kill Canon GUI",
+            .priv       = &kill_canon_gui_mode,
+            .max        = 1,
+            .choices    = CHOICES("OFF", "ON"),
+            .depends_on = DEP_GLOBAL_DRAW,
+            .help = "Workarounds for disabling Canon graphics elements."
+        },
+    #endif
             #ifdef FEATURE_DIGIC_FOCUS_PEAKING
             {
                 .name = "LV DIGIC peaking",
@@ -3533,8 +3543,8 @@ static struct menu_entry display_menus[] = {
         .name = "Anamorphic",
         .priv     = &anamorphic_preview,
         .update = anamorphic_preview_display, 
-        .max = 7,
-        .choices = (const char *[]) {"OFF", "5:4 (1.25)", "4:3 (1.33)", "7:5 (1.4)", "3:2 (1.5)", "5:3 (1.66)", "9:5 (1.8)", "2:1"},
+        .max = 8,
+        .choices = (const char *[]) {"OFF", "5:4 (1.25)", "4:3 (1.33)", "7:5 (1.4)", "3:2 (1.5)", "5:3 (1.66)", "9:5 (1.8)", "2:1", "3:1"},
         .help = "Stretches LiveView image vertically, for anamorphic lenses.",
         .depends_on = DEP_LIVEVIEW | DEP_GLOBAL_DRAW,
 /*
@@ -3557,16 +3567,6 @@ static struct menu_entry display_menus[] = {
         .submenu_width = 710,
         .help = "Screen orientation, position fine-tuning...",
         .children =  (struct menu_entry[]) {
-            #ifdef CONFIG_KILL_FLICKER
-                {
-                    .name       = "Kill Canon GUI",
-                    .priv       = &kill_canon_gui_mode,
-                    .max        = 2,
-                    .choices    = CHOICES("OFF", "Idle/Menus", "Idle/Menus+Keys"),
-                    .depends_on = DEP_GLOBAL_DRAW,
-                    .help = "Workarounds for disabling Canon graphics elements."
-                },
-            #endif
             #ifdef FEATURE_SCREEN_LAYOUT
                 {
                     .name = "Screen Layout",

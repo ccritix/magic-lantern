@@ -12,6 +12,9 @@
 #include "lens.h"
 #include "ml-cbr.h"
 
+//used for custom mode folder tree upon install
+extern WEAK_FUNC(ret_0) unsigned int config_preset_scan();
+
 #ifndef CONFIG_MODULES_MODEL_SYM
 #error Not defined file name with symbols
 #endif
@@ -39,6 +42,8 @@ CONFIG_INT("module.autoload", module_autoload_disabled, 0);
 CONFIG_INT("module.console", module_console_enabled, 0);
 CONFIG_INT("module.ignore_crashes", module_ignore_crashes, 0);
 char *module_lockfile = MODULE_PATH"LOADING.LCK";
+
+char *core_modules[] = {};
 
 static struct msg_queue * module_mq = 0;
 // #define MSG_MODULE_LOAD_ALL 1
@@ -264,11 +269,21 @@ static void _module_load_all(uint32_t list_only)
             /* check for a .en file that tells the module is enabled */
             char enable_file[FIO_MAX_PATH_LENGTH];
             snprintf(enable_file, sizeof(enable_file), "%s%s.en", get_config_dir(), module_list[module_cnt].name);
+
+            unsigned int core_modules_count = COUNT(core_modules);
+            unsigned int index_in_core_modules;
+            for(index_in_core_modules = 0; index_in_core_modules < core_modules_count; ++index_in_core_modules) {
+                if (strcmp(core_modules[index_in_core_modules], module_list[module_cnt].name) == 0) {
+                    module_list[module_cnt].is_core = 1;
+                    break;
+                }
+            }
             
-            /* if enable-file is nonexistent, dont load module */
-            if(!config_flag_file_setting_load(enable_file))
+            /* if enable-file is nonexistent, dont load module, unless it's a core module */
+            if(!config_flag_file_setting_load(enable_file) && index_in_core_modules >= core_modules_count)
             {
                 module_list[module_cnt].enabled = 0;
+                module_list[module_cnt].is_core = 0;
                 snprintf(module_list[module_cnt].status, sizeof(module_list[module_cnt].status), "OFF");
                 snprintf(module_list[module_cnt].long_status, sizeof(module_list[module_cnt].long_status), "Module disabled");
                 //printf("  [i] %s\n", module_list[module_cnt].long_status);

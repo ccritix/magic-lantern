@@ -36,6 +36,7 @@
 #define RESTARTSTART_5D2 0x4E000
 #define RESTARTSTART_1100 0xC80100
 #define RESTARTSTART_1200 0xC80100
+#define RESTARTSTART_1300 0xC80100
 
 /* we need this ASM block to be the first thing in the file */
 #pragma GCC optimize ("-fno-reorder-functions")
@@ -100,6 +101,8 @@ extern uint8_t blob_start_1100;
 extern uint8_t blob_end_1100;
 extern uint8_t blob_start_1200;
 extern uint8_t blob_end_1200;
+extern uint8_t blob_start_1300;
+extern uint8_t blob_end_1300;
 void* blob_start = 0;
 void* blob_end = 0;
 void* RESTARTSTART = 0;
@@ -161,6 +164,13 @@ static int guess_firmware_version()
             RESTARTSTART = (void*)RESTARTSTART_1200;
             *(int*)0xC0220130 = 0x46;  // SD card LED on
             return 1;
+        case SIG_1300D_110:
+            blob_start = &blob_start_1300;
+            blob_end = &blob_end_1300;
+            RESTARTSTART = (void*)RESTARTSTART_1300;
+            *(int*)0xC0220130 = 0x46;  // SD card LED on
+            return 1;
+
         default:
             fail();
     }
@@ -219,13 +229,19 @@ asm(
     ".align 12\n"
     "blob_end_1100:"
     ".globl blob_end_1100\n"
-
     ".globl blob_start_1200\n"
     "blob_start_1200:\n"
     ".incbin \"../1200D.102/magiclantern.bin\"\n" // 
     ".align 12\n"
     "blob_end_1200:"
     ".globl blob_end_1200\n"
+
+    ".globl blob_start_1300\n"
+    "blob_start_1300:\n"
+    ".incbin \"../1300D.110/magiclantern.bin\"\n" // 
+    ".align 12\n"
+    "blob_end_1300:"
+    ".globl blob_end_1300\n"
 );
 
 

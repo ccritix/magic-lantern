@@ -45,7 +45,7 @@
 
 /** Expo menu **/
 
-    #define FEATURE_EXPO_ISO_DIGIC
+    // #define FEATURE_EXPO_ISO_DIGIC
 
 #ifdef CONFIG_PROP_REQUEST_CHANGE
     #define FEATURE_WHITE_BALANCE
@@ -102,16 +102,17 @@
 #endif
 
 /** Movie menu **/
+    #define FEATURE_RAW_VIDEO_ONLY
     #define FEATURE_NITRATE
     //~ #define FEATURE_NITRATE_WAV_RECORD // not user-proof at all
     //~ #define FEATURE_VIDEO_HACKS // for experts only
 
-    #define FEATURE_REC_INDICATOR
-    #define FEATURE_MOVIE_LOGGING
-    #define FEATURE_MOVIE_RESTART
-    #define FEATURE_REC_NOTIFY
+    // #define FEATURE_REC_INDICATOR
+    // #define FEATURE_MOVIE_LOGGING
+     #define FEATURE_MOVIE_RESTART
+    // #define FEATURE_REC_NOTIFY
     //~ #define FEATURE_REC_NOTIFY_BEEP // this may interfere with sound recording, so only enable it where we know it works
-    #define FEATURE_MOVIE_REC_KEY
+    // #define FEATURE_MOVIE_REC_KEY
     #define FEATURE_FORCE_LIVEVIEW
 
 #ifdef CONFIG_PROP_REQUEST_CHANGE
@@ -119,7 +120,7 @@
 #endif
 
 #ifdef CONFIG_FRAME_ISO_OVERRIDE
-    #define FEATURE_GRADUAL_EXPOSURE
+    // #define FEATURE_GRADUAL_EXPOSURE
 #endif
 
     #define FEATURE_FPS_OVERRIDE
@@ -131,9 +132,9 @@
     //~ #define FEATURE_HDR_EXTENDED // for experts only
 #endif
 
-    #define FEATURE_IMAGE_EFFECTS
+    // #define FEATURE_IMAGE_EFFECTS
 
-    #define FEATURE_VIGNETTING_CORRECTION
+    // #define FEATURE_VIGNETTING_CORRECTION
 
 #ifdef CONFIG_FRAME_SHUTTER_OVERRIDE
     #define FEATURE_SHUTTER_FINE_TUNING

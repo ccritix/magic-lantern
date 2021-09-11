@@ -40,7 +40,7 @@ NSTUB( ROMBASEADDR, firmware_entry )                        // 0xFE0C0000
 NSTUB(0xFE0C3A24,  cstart)                                  //
 NSTUB(   0x29898,  bzero32)                                 // called by cstart() rom
 NSTUB(    0x5254,  create_init_task)                        // must be called from ram
-NSTUB(0xFE1296C8,  init_task)                               // passed as arg to create_init_task, look for dmSetup 
+NSTUB(0xFE1296C8,  init_task)                               // passed as arg to create_init_task, look for dmSetup
 NSTUB(   0x67430,  additional_version)
 
 /** File I/O **/
@@ -74,26 +74,27 @@ NSTUB(0xFE2EBA2C,  Gui_SetSoundRecord)                   /* present on 6D.113, 5
 
 /** ASIF **/
 // TODO:
-NSTUB(0xFE11D1CC,  PowerAudioOutput)                       /* not found  old FE108E44*/
-NSTUB(0xFE11B938,  SetAudioVolumeOut)
-NSTUB(0xFE106A98,  SetNextASIFADCBuffer)
-NSTUB(0xFE106C80,  SetNextASIFDACBuffer)
-NSTUB(0xFE11C690,  SetSamplingRate)
-NSTUB(0xFE105F7C,  StartASIFDMAADC)
-NSTUB(0xFE106350,  StartASIFDMADAC)
-NSTUB(0xFE1065D0,  StopASIFDMADAC)
-NSTUB(0xFE11CD04,  PowerMicAmp)                             /* present on 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xfe11d1cc,  PowerAudioOutput)                       /* not found  old FE108E44*/
+NSTUB(0xFE11B938,  SetAudioVolumeOut)  //FE11B938
+NSTUB(0xFE106A98,  SetNextASIFADCBuffer) //ok
+NSTUB(0xFE106C80,  SetNextASIFDACBuffer) //ok
+NSTUB(0xFE11C690,  SetSamplingRate) //FE11C690
+NSTUB(0xFE105F7C,  StartASIFDMAADC) //ok
+NSTUB(0xFE106350,  StartASIFDMADAC) //ok
+NSTUB(0xfe1065d0,  StopASIFDMADAC) //FE1065D0
+NSTUB(0xfe11cd04,  PowerMicAmp) //FE11CD04                            /* present on 650D.104, EOSM.202, 700D.113 */
 NSTUB(0xfe1066f8,  SetASIFMode)                             /* present on 700D.113 */
-//NSTUB(0xFE108E10,  SetAudioVolumeIn)                        /* present on 6D.113 */
-NSTUB(0xFE108A70,  SoundDevActiveIn)                        /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
-NSTUB(0xFE108CC8,  SoundDevShutDownIn)                      /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
-NSTUB(0xFE106228,  StopASIFDMAADC)                          /* present on 7D.203, 6D.113, EOSM.202 */
+//NSTUB(0xFE108E10,  SetAudioVolumeIn) //?                       /* present on 6D.113 */
+NSTUB(0xFE108A70,  SoundDevActiveIn) //ok                       /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xFE108CC8,  SoundDevShutDownIn)//ok                      /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xFE106228,  StopASIFDMAADC) //ok                          /* present on 7D.203, 6D.113, EOSM.202 */
+
 
 /** Audio **/
 NSTUB(    0x31604,  sounddev)                               // in sounddev_task
 // TODO: Not found direct write it looks like its some kind of serial connection now
- NSTUB(0xFE2B3A3C, _audio_ic_read)
- NSTUB(0xFE2B36D4, _audio_ic_write) // posible sub_FE2B3A18
+NSTUB(0xFE2B3A3C, _audio_ic_read) // FE2B3A3C
+NSTUB(0xFE2B36D4, _audio_ic_write) // posible sub_FE2B3A18
 NSTUB(0xFE8C32CC,  audio_thresholds)                        // find "ALV_Initialize", then pointer to "AudioLevel", thresholds are following array of 41 values
 NSTUB(0xFE108A70,  sounddev_active_in)                      // "SoundDevActiveIn"
 NSTUB(0xFE108660,  sounddev_task)                           // "[SND] _SoundDeviceTask"
@@ -124,6 +125,7 @@ NSTUB(0xFE1244E0,  dma_memcpy)
 NSTUB(   0x31BF4,  dm_names)                                // in DebugMsg, before the 1st loop target
 NSTUB(0xFE11F394,  DryosDebugMsg)
 NSTUB(0xFE11F6FC,  dm_set_store_level)                      // called by "dmstore"
+NSTUB(0xFE11F694,  dm_set_print_level)
 
 /** Dialog API **/
 NSTUB(0xFE3F0A44,  dialog_redraw)
@@ -168,9 +170,14 @@ NSTUB(0xFE29EA88,  UnregisterEDmacPopCBR)
 NSTUB(0xFE2EB038,  GUI_SetRollingPitchingLevelStatus)
 
 /** Engio **/
-NSTUB(0xFE29F844, _EngDrvOut)
-NSTUB(0xFE29F7F0, _engio_write)
-NSTUB(0xFE29F838,  shamem_read)                             // AJ_0x8FB0_engio_struct_n_R0_manipulation_to_get_ptr
+NSTUB(0xfe29f844, _EngDrvOut)
+NSTUB(0xFE29FBF0, _engio_write)
+NSTUB(0xFE29FC98,  shamem_read) //0xfe29f838
+
+/* orig  */
+//NSTUB(0xFE29F844, _EngDrvOut)
+//NSTUB(0xFE29FBF0, _engio_write) 
+//NSTUB(0xFE29F734,  shamem_read)                             // AJ_0x8FB0_engio_struct_n_R0_manipulation_to_get_ptr
 
 /** Eventprocs (call by name) **/
 NSTUB(0xFE120288,  call)
@@ -249,7 +256,7 @@ NSTUB(0xFE2C6BAC, _malloc)                                  // maybe its better 
 
 /** Message queues **/
 NSTUB(    0x7868,  msg_queue_count)
-NSTUB(    0x7480,  msg_queue_create)                        // CreateMessageQueue
+NSTUB(    0x7480,  msg_queue_create)                        // CreateMessageQueue 7480
 NSTUB(    0x7814,  msg_queue_post)
 NSTUB(    0x75D0,  msg_queue_receive)
 
@@ -288,16 +295,23 @@ NSTUB(    0x3270,  take_semaphore)
 
 /** Task info **/
 NSTUB(   0x358E8,  task_max)
+//NSTUB(0xfea95880,  get_task_info_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
+
 NSTUB(0x4080,  get_task_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
 NSTUB(0x24c4,  _get_task_info_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
+//THUMB_FN(0xfcb46b2c,  _get_task_info_by_id) 
+//NSTUB(0xfEa95880,  is_taskid_valid)                         // AJ_task_trampoline_related_p10 FE2C2ED0
+NSTUB(    0x24c4,  is_taskid_valid)                         // AJ_task_trampoline_related_p10 FE2C2ED0
 NSTUB(   0x31170,  current_task)
 NSTUB(     0x640,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
 
-/* wifi for test */
-//NSTUB(0xfe43005d, nif_setup)
-//NSTUB(0xfe42fd45, rt_edit)
-//NSTUB(0xfe443964, wlanconnect)
+/* wifi  */
+NSTUB(0xfe43005d, nif_setup) //fe43005c
+NSTUB(0xfe42fd45, rt_edit)
+NSTUB(0xfe443964, wlanconnect)
 //NSTUB(0xfe42d990, wlanconnect)
+// wlan init FUN_fa443a7c ???
+
 
 /** Task sleep **/
 NSTUB(    0x3780,  msleep)                                  // called from EV_GETDONE_CACHE param 0x64

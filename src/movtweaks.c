@@ -157,7 +157,7 @@ void set_shooting_mode(int m)
     ml_changing_shooting_mode = 0;
 }
 
-static CONFIG_INT("movie.restart", movie_restart,0);
+static CONFIG_INT("movie.restart", movie_restart,1);
 static CONFIG_INT("movie.rec-key", movie_rec_key, 0);
 static CONFIG_INT("movie.rec-key-action", movie_rec_key_action, 0);
 static CONFIG_INT("movie.rec-key-long", movie_rec_key_long, 0);
@@ -277,7 +277,7 @@ shutter_lock_print(
     bmp_printf(
         selected ? MENU_FONT_SEL : MENU_FONT,
         x, y,
-        "Shutter Lock  : %s",
+        "shutter lock  : %s",
         shutter_lock ? "ON" : "OFF"
     );
 }
@@ -431,7 +431,7 @@ void movtweak_step()
         #endif
 }
 
-static CONFIG_INT("screen_layout.lcd", screen_layout_lcd, SCREENLAYOUT_3_2_or_4_3);
+static CONFIG_INT("screen_layout.lcd", screen_layout_lcd, 3);
 static CONFIG_INT("screen_layout.ext", screen_layout_ext, SCREENLAYOUT_16_10);
 int* get_screen_layout_ptr() { return EXT_MONITOR_CONNECTED ? &screen_layout_ext : &screen_layout_lcd; }
 int get_screen_layout() 
@@ -948,7 +948,63 @@ static struct menu_entry mov_menus[] = {
     #endif
 };
 
-static struct menu_entry movie_tweaks_menus[] = {
+static MENU_UPDATE_FUNC(depends_on_rec_key_update)
+{
+    if(!movie_rec_key){
+        MENU_SET_WARNING(MENU_WARN_NOT_WORKING, "Depends on REC key being set.");
+    }
+}
+
+#ifdef FEATURE_MOVIE_REC_KEY
+static struct menu_entry custom_buttons_menu[] =
+{
+    {
+        .name = "REC key",
+        .priv = &movie_rec_key, 
+        .max = 1,
+        .icon_type = IT_BOOL,
+        .choices = CHOICES("OFF", "HalfShutter"),
+        .help = "Start recording by pressing shutter halfway. Wired remote.",
+        .depends_on = DEP_MOVIE_MODE,
+    },
+    {
+        .name = "REC key Require long press",
+        .priv = &movie_rec_key_long,
+        .max = 1,
+        .icon_type = IT_BOOL,
+        .choices = CHOICES("OFF", "ON (1s)"),
+        .help = "If ON, you have to hold half-shutter pressed for 1 second.",
+        .depends_on = DEP_MOVIE_MODE,
+        .update = depends_on_rec_key_update,
+    },
+    {
+        .name = "REC key Allowed actions",
+        .priv = &movie_rec_key_action,
+        .max = 2,
+        .icon_type = IT_DICE,
+        .choices = CHOICES("Start/Stop", "Start only", "Stop only"),
+        .help = "Select actions for half-shutter.",
+        .depends_on = DEP_MOVIE_MODE,
+        .update = depends_on_rec_key_update,
+    },
+};
+#endif
+
+#if defined(FEATURE_SHUTTER_LOCK) && defined(FEATURE_MOVIE_RESTART) && !defined(FEATURE_REC_NOTIFY) && !defined(FEATURE_FORCE_LIVEVIEW)
+static struct menu_entry movie_tweaks_menus[] =
+{
+    {
+        .name = "shutter lock",
+        .priv = &shutter_lock,
+        .max = 1,
+        .help   = "Lock shutter value in movie mode (change from Expo only).",
+        .help2  = "Tip: it prevents you from changing it by mistake.",
+        .depends_on = DEP_MOVIE_MODE,
+    },
+};
+#else
+static struct menu_entry movie_tweaks_menus[] =
+{
     {
         .name = "Movie Tweaks",
         .select = menu_open_submenu,
@@ -1002,7 +1058,7 @@ static struct menu_entry movie_tweaks_menus[] = {
                 #endif
                 #ifdef FEATURE_SHUTTER_LOCK
                 {
-                    .name = "Shutter Lock",
+                    .name = "shutter lock",
                     .priv = &shutter_lock,
                     .max = 1,
                     .help   = "Lock shutter value in movie mode (change from Expo only).",
@@ -1015,6 +1071,9 @@ static struct menu_entry movie_tweaks_menus[] = {
         }
     },
 };
+#endif
+
+
 
 #ifdef FEATURE_EXPO_OVERRIDE
 struct menu_entry expo_override_menus[] = {
@@ -1033,6 +1092,9 @@ struct menu_entry expo_override_menus[] = {
 
 void movie_tweak_menu_init()
 {
+    #ifdef FEATURE_MOVIE_REC_KEY
+    menu_add( "Customized Buttons", custom_buttons_menu, COUNT(custom_buttons_menu) );
+    #endif
     menu_add( "Movie", movie_tweaks_menus, COUNT(movie_tweaks_menus) );
 }
 static void movtweak_init()

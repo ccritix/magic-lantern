@@ -157,10 +157,10 @@
 
 // position for displaying clock outside LV
 #define DISPLAY_CLOCK_POS_X 440
-#define DISPLAY_CLOCK_POS_Y 410
+#define DISPLAY_CLOCK_POS_Y 400
 
-#define DISPLAY_DATE_POS_X 440
-#define DISPLAY_DATE_POS_Y 450
+#define DISPLAY_DATE_POS_X 425
+#define DISPLAY_DATE_POS_Y 430
 
 #define DISPLAY_BATTERY_POS_X 400
 #define DISPLAY_BATTERY_POS_Y 450

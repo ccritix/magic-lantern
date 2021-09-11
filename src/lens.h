@@ -95,7 +95,7 @@ extern struct lens_info lens_info;
 
 #define DOF_DIFFRACTION_LIMIT_REACHED 1
 
-#if defined(CONFIG_6D) || defined(CONFIG_5D3_123) || defined(CONFIG_100D)
+#if defined(CONFIG_6D) || defined(CONFIG_5D3_123) || defined(CONFIG_100D) || defined(CONFIG_1300D)
 struct prop_lv_lens
 {  
         uint32_t                lens_rotation; // Identical Doesn't Change
@@ -200,7 +200,7 @@ struct prop_picstyle_settings
         int32_t         color_tone; // -4..4
         uint32_t        off_0x10;   // deadbeaf?!
         uint32_t        off_0x14;   // deadbeaf?!
-} __attribute__((aligned,packed));  
+} __attribute__((packed));  
 
 SIZE_CHECK_STRUCT( prop_picstyle_settings, 0x18 );
 

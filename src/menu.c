@@ -40,6 +40,10 @@
 #include "lvinfo.h"
 #include "powersave.h"
 
+extern uint32_t ml_refresh_display_needed;
+
+
+
 #define CONFIG_MENU_ICONS
 //~ #define CONFIG_MENU_DIM_HACKS
 #undef SUBMENU_DEBUG_JUNKIE
@@ -203,7 +207,8 @@ int get_menu_edit_mode() { return edit_mode; }
 
 //~ static CONFIG_INT("menu.transparent", semitransparent, 0);
 
-static CONFIG_INT("menu.first", menu_first_by_icon, ICON_i);
+//static CONFIG_INT("menu.first", menu_first_by_icon, ICON_i);
+static CONFIG_INT("menu.first", menu_first_by_icon, ICON_ML_INFO);
 
 void menu_set_dirty() { menu_damage = 1; }
 
@@ -1000,8 +1005,8 @@ menu_find_by_id(
 }
 */
 
-static struct menu *
-menu_find_by_name_internal(
+static REQUIRES(menu_sem)
+struct menu * menu_find_by_name_internal(
     const char *        name,
     int icon
 )
@@ -1053,8 +1058,8 @@ menu_find_by_name_internal(
     return new_menu;
 }
 
-static struct menu * 
-menu_find_by_name(
+static EXCLUDES(menu_sem)
+struct menu * menu_find_by_name(
     const char *        name,
     int icon
 )
@@ -1256,8 +1261,8 @@ menu_update_placeholder(struct menu * menu, struct menu_entry * new_entry)
 }
 
 
-static void
-menu_add_internal(
+static REQUIRES(menu_sem)
+void menu_add_internal(
     const char *        name,
     struct menu_entry * new_entry,
     int                 count
@@ -1388,8 +1393,8 @@ menu_add_internal(
     }
 }
 
-void 
-menu_add(
+EXCLUDES(menu_sem)
+void menu_add(
     const char *        name,
     struct menu_entry * new_entry,
     int                 count
@@ -1448,8 +1453,8 @@ static void menu_remove_entry(struct menu * menu, struct menu_entry * entry)
     }
 }
 
-void
-menu_remove(
+EXCLUDES(menu_sem)
+void menu_remove(
     const char *        name,
     struct menu_entry * old_entry,
     int         count
@@ -1500,7 +1505,8 @@ static float usage_counter_thr_sub = 0;
 static float usage_counter_max = 0;
 
 /* normalize the usage counters so the next increment is 1.0 */
-static void menu_normalize_usage_counters(void)
+static EXCLUDES(menu_sem)
+void menu_normalize_usage_counters(void)
 {
     take_semaphore(menu_sem, 0);
 
@@ -1574,7 +1580,8 @@ end:
     give_semaphore(menu_sem);
 }
 
-static void menu_usage_counters_update_threshold(int num, int only_submenu_entries, int only_nonsubmenu_entries)
+static EXCLUDES(menu_sem)
+void menu_usage_counters_update_threshold(int num, int only_submenu_entries, int only_nonsubmenu_entries)
 {
     take_semaphore(menu_sem, 0);
 
@@ -2167,7 +2174,8 @@ static void menu_draw_icon(int x, int y, int type, intptr_t arg, int warn)
             //~ else dice_icon(x, y, i-1, N-1, COLOR_GREEN1, 50);
             if (i == 0) //maru(x, y, color_off);
                 slider(x, y, i-1, N-1, color_off, color_off);
-            else slider(x, y, i-1, N-1, color_slider_off_fg, color_slider_bg); return;
+            else
+                slider(x, y, i-1, N-1, color_slider_off_fg, color_slider_bg);
 
             return;
         }
@@ -3913,8 +3921,8 @@ show_vscroll(struct menu * parent){
     }
 }
 
-static void
-menus_display(
+static EXCLUDES(menu_sem)
+void menus_display(
     struct menu *       menu,
     int         orig_x,
     int         y
@@ -4122,9 +4130,10 @@ static int submenu_default_height(int count)
     /* body + titlebar + padding - smaller padding for large submenus */
 }
 static void
-submenu_display(struct menu * submenu)
+submenu_display(struct menu *submenu)
 {
-    if (!submenu) return;
+    if (!submenu)
+        return;
 
     int count = get_menu_visible_count(submenu);
     int h = submenu->submenu_height ? submenu->submenu_height : submenu_default_height(count);
@@ -4138,11 +4147,11 @@ submenu_display(struct menu * submenu)
         int num_choices = submenu->children[0].max - submenu->children[0].min;
         if (CAN_HAVE_PICKBOX(submenu->children))
         {
-            h = MAX(h, submenu_default_height(num_choices)+7);
+            h = MAX(h, submenu_default_height(num_choices) + 7);
         }
     }
     
-    w = MIN(w, 720-10);
+    w = MIN(w, 720 - 10);
     
     g_submenu_width = w;
     int bx = (720 - w)/2;
@@ -4156,13 +4165,13 @@ submenu_display(struct menu * submenu)
             (!menu_lv_transparent_mode && !edit_mode)
         )
     {
-        w = 720-2*bx;
+        w = 720 - 2 * bx;
         bmp_fill(MENU_BG_COLOR_HEADER_FOOTER,  bx,  by, w, 40);
         bmp_fill(COLOR_BLACK,  bx,  by + 40, w, h-40);
-        bmp_printf(FONT(FONT_CANON, COLOR_WHITE, NO_BG_ERASE),  bx + 15,  by+2, "%s", submenu->name);
+        bmp_printf(FONT(FONT_CANON, COLOR_WHITE, NO_BG_ERASE),  bx + 15,  by + 2, "%s", submenu->name);
 
         for (int i = 0; i < 5; i++)
-            bmp_draw_rect(45,  bx-i,  by-i, w+i*2, h+i*2);
+            bmp_draw_rect(45,  bx - i,  by - i, w + i * 2, h + i * 2);
 
 /* gradient experiments
         for (int i = 0; i < 3; i++)
@@ -4178,7 +4187,7 @@ submenu_display(struct menu * submenu)
             bmp_draw_rect(COLOR_BLACK,  bx-i,  by-i, w+i*2, h+i*2);
 */            
 
-        submenu_key_hint(720-bx-45, by+5, COLOR_WHITE, MENU_BG_COLOR_HEADER_FOOTER, ICON_ML_Q_BACK);
+        submenu_key_hint(720 - bx - 45, by + 5, COLOR_WHITE, MENU_BG_COLOR_HEADER_FOOTER, ICON_ML_Q_BACK);
     }
                                                    /* titlebar + padding difference for large submenus */
     menu_display(submenu,  bx + SUBMENU_OFFSET,  by + 40 + (count > 7 ? 10 : 25), edit_mode ? 1 : 0);
@@ -4285,8 +4294,8 @@ menu_entry_customize_toggle(
     menu_make_sure_selection_is_valid();
 }
 
-static void
-menu_entry_select(
+static EXCLUDES(menu_sem)
+void menu_entry_select(
     struct menu *   menu,
     int mode // 0 = increment, 1 = decrement, 2 = Q, 3 = SET
 )
@@ -4455,8 +4464,8 @@ menu_entry_select(
 }
 
 /** Scroll side to side in the list of menus */
-static void
-menu_move(
+static EXCLUDES(menu_sem)
+void menu_move(
     struct menu *       menu,
     int         direction
 )
@@ -4507,8 +4516,8 @@ menu_move(
 
 
 /** Scroll up or down in the currently displayed menu */
-static void
-menu_entry_move(
+static EXCLUDES(menu_sem)
+void menu_entry_move(
     struct menu *       menu,
     int         direction
 )
@@ -4763,6 +4772,7 @@ menu_redraw_do()
     #ifdef CONFIG_VXWORKS   
     set_ml_palette();    
     #endif
+    ml_refresh_display_needed = 1;
 }
 
 void menu_benchmark()
@@ -4770,12 +4780,14 @@ void menu_benchmark()
     SetGUIRequestMode(1);
     msleep(1000);
     int t0 = get_ms_clock();
+
     for (int i = 0; i < 500; i++)
     {
         menu_redraw_do();
         bmp_printf(FONT_MED, 0, 0, "%d%% ", i/5);
     }
     int t1 = get_ms_clock();
+
     clrscr();
     NotifyBox(20000, "Elapsed time: %d ms", t1 - t0);
 }
@@ -4807,18 +4819,33 @@ static int menu_ensure_canon_dialog()
     return 1;
 }
 
-static struct msg_queue * menu_redraw_queue = 0;
+static struct msg_queue *menu_redraw_queue = 0;
 
 static void
 menu_redraw_task()
 {
+    DryosDebugMsg(0, 15, "starting menu_redraw_task");
     menu_redraw_queue = (struct msg_queue *) msg_queue_create("menu_redraw_mq", 1);
     TASK_LOOP
     {
         /* this loop will only receive redraw messages */
         int msg;
         int err = msg_queue_receive(menu_redraw_queue, (struct event**)&msg, 500);
-        if (err) continue;
+        if (err) {
+            //DryosDebugMsg(0, 15, "err from queue, continuing anyway: 0x%x", err);
+            //SJE FIXME - we see 0x9 errors.
+            // There looks to be only one path where msg_queue_receive() returns 9,
+            // might be useful to understand the cause
+            continue;
+        }
+        else {
+            //DryosDebugMsg(0, 15, "no err from queue");
+
+            // SJE this is a handy place to put checks you want to run periodically
+            //bmp_fill(COLOR_RED, 280, 280, 40, 40);
+            //DryosDebugMsg(0, 15, "*fec8: 0x%x", *(int *)0xfec8);
+            //clrscr();
+        }
         
         if (gui_menu_shown())
         {
@@ -4826,6 +4853,7 @@ menu_redraw_task()
             {
                 /* close menu on half-shutter */
                 /* (the event is not always caught by the key handler) */
+                DryosDebugMsg(0, 15, "halfshutter, skipping, menu_redraw_do");
                 gui_stop_menu();
                 continue;
             }
@@ -4835,6 +4863,7 @@ menu_redraw_task()
             if (!menu_ensure_canon_dialog())
             {
                 /* didn't work, close ML menu */
+                DryosDebugMsg(0, 15, "canon dialog, skipping, menu_redraw_do");
                 gui_stop_menu();
                 continue;
             }
@@ -4852,19 +4881,28 @@ TASK_CREATE( "menu_redraw_task", menu_redraw_task, 0, 0x1a, 0x8000 );
 void
 menu_redraw()
 {
-    if (!DISPLAY_IS_ON) return;
-    if (ml_shutdown_requested) return;
-    if (menu_help_active) bmp_draw_request_stop();
-    if (menu_redraw_queue) msg_queue_post(menu_redraw_queue, MENU_REDRAW);
+    if (!DISPLAY_IS_ON)
+        return;
+    if (ml_shutdown_requested)
+        return;
+    if (menu_help_active)
+        bmp_draw_request_stop();
+    if (menu_redraw_queue)
+        msg_queue_post(menu_redraw_queue, MENU_REDRAW);
 }
 
 static void
 menu_redraw_full()
 {
-    if (!DISPLAY_IS_ON) return;
-    if (ml_shutdown_requested) return;
-    if (menu_help_active) bmp_draw_request_stop();
-    if (menu_redraw_queue) msg_queue_post(menu_redraw_queue, MENU_REDRAW);
+    if (!DISPLAY_IS_ON)
+        return;
+    if (ml_shutdown_requested)
+        return;
+    if (menu_help_active)
+        bmp_draw_request_stop();
+    if (menu_redraw_queue) {
+        msg_queue_post(menu_redraw_queue, MENU_REDRAW);
+    }
 }
 
 
@@ -5014,16 +5052,22 @@ handle_ml_menu_keys(struct event * event)
     if (menu_shown || arrow_keys_shortcuts_active())
         handle_ml_menu_keyrepeat(event);
 
-    if (!menu_shown) return 1;
+    if (!menu_shown)
+        return 1;
     if (!DISPLAY_IS_ON)
-        if (event->param != BGMT_PRESS_HALFSHUTTER) return 1;
+    {
+        if (event->param != BGMT_PRESS_HALFSHUTTER)
+            return 1;
+    }
 
     // on some cameras, scroll events may arrive grouped; we can't handle it, so split into individual events
-    if (handle_scrollwheel_fast_clicks(event)==0) return 0;
+    if (handle_scrollwheel_fast_clicks(event)==0)
+        return 0;
 
     // rack focus may override some menu keys
-    if (handle_rack_focus_menu_overrides(event)==0) return 0;
-    
+    if (handle_rack_focus_menu_overrides(event)==0)
+        return 0;
+
     if (beta_should_warn())
     {
         if (event->param == BGMT_PRESS_SET ||
@@ -5055,7 +5099,8 @@ handle_ml_menu_keys(struct event * event)
     
     int button_code = event->param;
 #if defined(CONFIG_60D) || defined(CONFIG_600D) || defined(CONFIG_7D) // Q not working while recording, use INFO instead
-    if (button_code == BGMT_INFO && RECORDING) button_code = BGMT_Q;
+    if (button_code == BGMT_INFO && RECORDING)
+        button_code = BGMT_Q;
 #endif
 
     int menu_needs_full_redraw = 0; // if true, do not allow quick redraws
@@ -5102,12 +5147,15 @@ handle_ml_menu_keys(struct event * event)
     
     #if !defined(CONFIG_500D) && !defined(CONFIG_5DC) // LV is Q
     case BGMT_LV:
-        if (!lv) return 1;
-        // else fallthru
+        if (!lv)
+            return 1;
     #endif
+    // fall through
     case BGMT_PRESS_ZOOM_IN:
-        if (lv) menu_lv_transparent_mode = !menu_lv_transparent_mode;
-        else edit_mode = !edit_mode;
+        if (lv)
+            menu_lv_transparent_mode = !menu_lv_transparent_mode;
+        else
+            edit_mode = !edit_mode;
         menu_damage = 1;
         menu_help_active = 0;
         break;
@@ -5118,18 +5166,25 @@ handle_ml_menu_keys(struct event * event)
             struct menu_entry * entry = get_selected_menu_entry(menu);
             if(entry && uses_caret_editing(entry))
             {
-                menu_entry_select( menu, 0 );
+                menu_entry_select(menu, 0);
                 break;
             }
         }
+    // fall through
     case BGMT_WHEEL_UP:
-        if (menu_help_active) { menu_help_prev_page(); break; }
+        if (menu_help_active)
+        {
+            menu_help_prev_page();
+            break;
+        }
 
         if (edit_mode && !menu_lv_transparent_mode)
-            menu_entry_select( menu, 1 );
+        {
+            menu_entry_select(menu, 1);
+        }
         else
         {
-            menu_entry_move( menu, -1 );
+            menu_entry_move(menu, -1);
             if (menu_lv_transparent_mode) menu_needs_full_redraw = 1;
         }
 
@@ -5141,18 +5196,25 @@ handle_ml_menu_keys(struct event * event)
             struct menu_entry * entry = get_selected_menu_entry(menu);
             if(entry && uses_caret_editing(entry))
             {
-                menu_entry_select( menu, 1 );
+                menu_entry_select(menu, 1);
                 break;
             }
         }
+    // fall through
     case BGMT_WHEEL_DOWN:
-        if (menu_help_active) { menu_help_next_page(); break; }
+        if (menu_help_active)
+        {
+            menu_help_next_page();
+            break;
+        }
         
         if (edit_mode && !menu_lv_transparent_mode)
-            menu_entry_select( menu, 0 );
+        {
+            menu_entry_select(menu, 0);
+        }
         else
         {
-            menu_entry_move( menu, 1 );
+            menu_entry_move(menu, 1);
             if (menu_lv_transparent_mode) menu_needs_full_redraw = 1;
         }
 
@@ -5169,11 +5231,24 @@ handle_ml_menu_keys(struct event * event)
                 break;
             }
         }
+    // fall through
     case BGMT_WHEEL_RIGHT:
         menu_damage = 1;
-        if (menu_help_active) { menu_help_next_page(); break; }
-        if (SUBMENU_OR_EDIT || menu_lv_transparent_mode) menu_entry_select( menu, 0 );
-        else { menu_move( menu, 1 ); menu_lv_transparent_mode = 0; menu_needs_full_redraw = 1; }
+        if (menu_help_active)
+        {
+            menu_help_next_page();
+            break;
+        }
+        if (SUBMENU_OR_EDIT || menu_lv_transparent_mode)
+        {
+            menu_entry_select(menu, 0);
+        }
+        else
+        {
+            menu_move(menu, 1);
+            menu_lv_transparent_mode = 0;
+            menu_needs_full_redraw = 1;
+        }
         //~ menu_hidden_should_display_help = 0;
         break;
 
@@ -5188,11 +5263,24 @@ handle_ml_menu_keys(struct event * event)
                 break;
             }
         }
+    // fall through
     case BGMT_WHEEL_LEFT:
         menu_damage = 1;
-        if (menu_help_active) { menu_help_prev_page(); break; }
-        if (SUBMENU_OR_EDIT || menu_lv_transparent_mode) menu_entry_select( menu, 1 );
-        else { menu_move( menu, -1 ); menu_lv_transparent_mode = 0;  menu_needs_full_redraw = 1; }
+        if (menu_help_active)
+        {
+            menu_help_prev_page();
+            break;
+        }
+        if (SUBMENU_OR_EDIT || menu_lv_transparent_mode)
+        {
+            menu_entry_select(menu, 1);
+        }
+        else
+        {
+            menu_move(menu, -1);
+            menu_lv_transparent_mode = 0;
+            menu_needs_full_redraw = 1;
+        }
         //~ menu_hidden_should_display_help = 0;
         break;
 
@@ -5263,7 +5351,8 @@ handle_ml_menu_keys(struct event * event)
         break;
 
     default:
-        /*DebugMsg( DM_MAGIC, 3, "%s: unknown event %08x? %08x %08x %x08",
+        // SJE enable this until we get things working
+     /*   DebugMsg( DM_MAGIC, 3, "%s: unknown event %08x? %08x %08x %x08",
             __func__,
             event,
             arg2,
@@ -5279,11 +5368,14 @@ handle_ml_menu_keys(struct event * event)
     // if submenu mode was changed, force a full redraw
     static int prev_menu_mode = 0;
     int menu_mode = submenu_level | edit_mode*2 | menu_lv_transparent_mode*4 | customize_mode*8 | junkie_mode*16;
-    if (menu_mode != prev_menu_mode) menu_needs_full_redraw = 1;
+    if (menu_mode != prev_menu_mode)
+        menu_needs_full_redraw = 1;
     prev_menu_mode = menu_mode;
     
-    if (menu_needs_full_redraw) menu_redraw_full();
-    else menu_redraw();
+    if (menu_needs_full_redraw)
+        menu_redraw_full();
+    else
+        menu_redraw();
     keyrepeat_ack(button_code);
     hist_countdown = 3;
     return 0;
@@ -5297,6 +5389,7 @@ menu_init( void )
     menus = NULL;
     menu_sem = create_named_semaphore( "menus", 1 );
     gui_sem = create_named_semaphore( "gui", 0 );
+    DryosDebugMsg(0, 15, "created gui_sem in menu_init()");
     menu_redraw_sem = create_named_semaphore( "menu_r", 1);
 
     menu_find_by_name( "Audio",     ICON_ML_AUDIO   );
@@ -5313,7 +5406,7 @@ menu_init( void )
     menu_find_by_name( "Debug",     ICON_ML_DEBUG   );
     menu_find_by_name( "Help",      ICON_ML_INFO    );
 
-    struct menu * m = menu_find_by_name( "Modules", 0 );
+    struct menu *m = menu_find_by_name( "Modules", 0 );
     ASSERT(m);
     m->split_pos = -11;
     m->no_name_lookup = 1;
@@ -5443,8 +5536,10 @@ static void close_canon_menu()
 
 static void menu_open() 
 { 
-    if (menu_shown) return;
+    if (menu_shown)
+        return;
 
+    DryosDebugMsg(0, 15, "in menu_open");
     
     // start in my menu, if configured
     /*
@@ -5458,7 +5553,8 @@ static void menu_open()
 
 #ifdef CONFIG_5DC
     //~ forces the 5dc screen to turn on for ML menu.
-    if (!DISPLAY_IS_ON) fake_simple_button(BGMT_MENU);
+    if (!DISPLAY_IS_ON)
+        fake_simple_button(BGMT_MENU);
     msleep(50);
 #endif
     
@@ -5470,19 +5566,23 @@ static void menu_open()
     keyrepeat = 0;
     menu_shown = 1;
     //~ menu_hidden_should_display_help = 0;
-    if (lv) menu_zebras_mirror_dirty = 1;
+    if (lv)
+        menu_zebras_mirror_dirty = 1;
 
     piggyback_canon_menu();
     canon_gui_disable_front_buffer(0);
-    if (lv && EXT_MONITOR_CONNECTED) clrscr();
+    if (lv && EXT_MONITOR_CONNECTED)
+        clrscr();
 
     CancelDateTimer();
 
     menu_redraw_full();
 }
+
 static void menu_close() 
 { 
-    if (!menu_shown) return;
+    if (!menu_shown)
+        return;
     menu_shown = false;
 
     customize_mode = 0;
@@ -5494,7 +5594,11 @@ static void menu_close()
     close_canon_menu();
     canon_gui_enable_front_buffer(0);
     redraw();
-    if (lv) bmp_on();
+    if (lv)
+        bmp_on();
+
+    // SJE test, prevent drawing over Canon after leaving ML menu
+ //   ml_refresh_display_needed = 0;
 }
 
 /*
@@ -5518,8 +5622,11 @@ static void
 menu_task( void* unused )
 {
     extern int ml_started;
-    while (!ml_started) msleep(100);
+    while (!ml_started)
+        msleep(100);
     
+  //  extern int ml_gui_initialized;
+
     debug_menu_init();
     
     int initial_mode = 0; // shooting mode when menu was opened (if changed, menu should close)
@@ -5563,7 +5670,11 @@ menu_task( void* unused )
                     keyrep_countdown--;
                     if (keyrep_countdown <= 0) {
                         keyrep_ack = 0;
+          //              #ifndef CONFIG_DIGIC_78
+         //               //SJE FIXME - find out why this doesn't work, it repeats
+          //              // until another key is pressed
                         fake_simple_button(keyrepeat);
+          //              #endif
                     }
                 }
                 continue;
@@ -5594,6 +5705,7 @@ menu_task( void* unused )
                  * or on request (menu_damage) */
                 if ((!menu_help_active && !menu_lv_transparent_mode) || menu_damage) {
                     menu_redraw();
+              //      ml_refresh_display_needed = 1;
                 }
             }
             else
@@ -5694,7 +5806,8 @@ void select_menu(char* name, int entry_index)
     //~ menu_damage = 1;
 }
 
-static void select_menu_recursive(struct menu * selected_menu, const char * entry_name)
+static REQUIRES(menu_sem)
+void select_menu_recursive(struct menu * selected_menu, const char * entry_name)
 {
     printf("select_menu %s -> %s\n", selected_menu->name, entry_name);
 
@@ -5749,6 +5862,7 @@ static void select_menu_recursive(struct menu * selected_menu, const char * entr
     }
 }
 
+EXCLUDES(menu_sem)
 void select_menu_by_name(char* name, const char* entry_name)
 {
     take_semaphore(menu_sem, 0);
@@ -5823,7 +5937,8 @@ static struct menu_entry * entry_find_by_name(const char* menu_name, const char*
     return ans;
 }
 
-static void select_menu_by_icon(int icon)
+static EXCLUDES(menu_sem)
+void select_menu_by_icon(int icon)
 {
     take_semaphore(menu_sem, 0);
     for (struct menu * menu = menus; menu; menu = menu->next)
@@ -5851,7 +5966,6 @@ menu_help_go_to_selected_entry(
     struct menu_entry * entry = get_selected_menu_entry(menu);
     if (!entry) return;
     menu_help_go_to_label((char*) entry->name, 0);
-    give_semaphore(menu_sem);
 }
 
 static void menu_show_version(void)
@@ -5951,11 +6065,6 @@ static void longpress_check(int timer, void * opaque)
     }
     else if (longpress->count < 15 && !longpress->pressed)
     {
-        if (!gui_menu_shown())
-        {
-            return;
-        }
-
         if (!longpress->short_cbr || longpress->short_cbr())
         {
             /* optional short press ( < 300 ms) */
@@ -6003,14 +6112,15 @@ static struct longpress erase_longpress = {
     .long_btn_press     = BGMT_TRASH,           /* long press (500ms) opens ML menu */
     .short_btn_press    = BGMT_PRESS_DOWN,      /* short press => do a regular "down/erase" */
     .short_btn_unpress  = BGMT_UNPRESS_DOWN,
-    .pos_x = 680,   /* in LiveView */
-    .pos_y = 350,   /* above ExpSim */
+    .pos_x = 670,   /* in LiveView */
+    .pos_y = 343,   /* above ExpSim */
 };
 #endif
 
 #ifdef BGMT_Q_SET
 static struct longpress qset_longpress = {
     .long_btn_press     = BGMT_Q_SET,           /* long press opens Q-menu */
+    .long_btn_unpress   = BGMT_UNPRESS_SET,     /* hack: Q-menu will disable the "unpress SET" event */
     .short_btn_press    = BGMT_PRESS_SET,       /* short press => fake SET button (centering AF Frame in LV etc...) */
     .short_btn_unpress  = BGMT_UNPRESS_SET,
     .pos_x = 670,   /* outside ML menu, on the Q screen */
@@ -6029,6 +6139,11 @@ int handle_ml_menu_erase(struct event * event)
         #endif
        0)
     {
+        #if defined(CONFIG_QEMU) && (defined(CONFIG_EOSM) || defined(CONFIG_EOSM2))
+        /* allow opening ML menu from anywhere, since the emulation doesn't enter LiveView */
+        int gui_state = GUISTATE_IDLE;
+        #endif
+
         if (gui_state == GUISTATE_IDLE || (gui_menu_shown() && !beta_should_warn()))
         {
             give_semaphore( gui_sem );
@@ -6350,7 +6465,7 @@ static void menu_reload_flags(char* filename)
     free(buf);
 }
 
-#define CFG_APPEND(fmt, ...) ({ cfglen += snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); })
+#define CFG_APPEND(fmt, ...) do { cfglen += snprintf(cfg + cfglen, CFG_SIZE - cfglen, fmt, ## __VA_ARGS__); } while(0)
 #define CFG_SIZE (256*1024)
 
 static int menu_save_unloaded_flags(char* filename, char * cfg, int cfglen)
@@ -6506,6 +6621,7 @@ static char* menu_get_str_value_from_script_do(const char* name, const char* ent
 }
 
 /* requires passing a pointer to a local struct menu_display_info for thread safety */
+EXCLUDES(menu_sem)
 char* menu_get_str_value_from_script(const char* name, const char* entry_name, struct menu_display_info * info)
 {
     take_semaphore(menu_sem, 0);
@@ -6514,6 +6630,7 @@ char* menu_get_str_value_from_script(const char* name, const char* entry_name, s
     return ans;
 }
 
+EXCLUDES(menu_sem)
 int menu_set_str_value_from_script(const char* name, const char* entry_name, char* value, int value_int)
 {
     struct menu_entry * entry = entry_find_by_name(name, entry_name);
@@ -6773,6 +6890,9 @@ struct cbr
 
 static void task_without_powersave(struct cbr * cbr)
 {
+    printf("[cristi] In task_without_powersave: cbr->argument = %u \n", cbr->argument);
+//    printf("[cristi] In task_without_powersave: cbr->user_routine(cbr->argument) = %s \n", cbr->user_routine(cbr->argument) );
+
     powersave_prohibit();
     cbr->user_routine(cbr->argument);
     free(cbr);
@@ -6787,7 +6907,10 @@ void run_in_separate_task(void* routine, int argument)
     struct cbr * cbr = malloc(sizeof(struct cbr));
     cbr->user_routine = routine;
     cbr->argument = argument;
+    printf("[cristi] Inainte de task create routine %x \n", routine);
+    printf("[cristi] Inainte de task create run_test %x \n", argument);
     task_create("run_test", 0x1a, 0x8000, task_without_powersave, cbr);
+    printf("[cristi] Dupa  task create run_test %s \n", cbr->argument);
 }
 
 /* fixme: may be slow on large menus */

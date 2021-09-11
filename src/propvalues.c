@@ -16,6 +16,7 @@ char camera_model[32];
 uint32_t camera_model_id = 0;
 char firmware_version[32];
 char camera_serial[32];
+char camera_serial_2[64];
 
 /* is_camera("5D3", "1.2.3") - will check for a specific camera / firmware version */
 /* is_camera("5D3", "*") - will accept all firmware versions */
@@ -65,6 +66,10 @@ PROP_HANDLER(PROP_CAM_MODEL)
     snprintf(camera_model, sizeof(camera_model), (const char *)buf);
 }
 
+
+volatile int serial_number_buf = 0;
+volatile int serial_number_len = 0;
+
 PROP_HANDLER(PROP_BODY_ID)
 {
     /* different camera serial lengths */
@@ -80,6 +85,8 @@ PROP_HANDLER(PROP_BODY_ID)
     {
         snprintf(camera_serial, sizeof(camera_serial), "(unknown len %d)", len);
     }
+    serial_number_buf = buf;
+    serial_number_len = len;
 }
 
 PROP_HANDLER(PROP_FIRMWARE_VER)
@@ -97,7 +104,7 @@ volatile PROP_INT(PROP_AF_MODE, af_mode);
 volatile PROP_INT(PROP_METERING_MODE, metering_mode);
 volatile PROP_INT(PROP_DRIVE, drive_mode);
 volatile PROP_INT(PROP_STROBO_FIRING, strobo_firing);
-volatile PROP_INT(PROP_LVAF_MODE, lvaf_mode);
+volatile PROP_INT(PROP_LIVE_VIEW_AF_SYSTEM, lv_af_mode);
 volatile PROP_INT(PROP_IMAGE_REVIEW_TIME, image_review_time);
 volatile PROP_INT(PROP_MIRROR_DOWN, mirror_down);
 volatile PROP_INT(PROP_LCD_BRIGHTNESS, backlight_level);
@@ -111,6 +118,8 @@ volatile PROP_INT(PROP_AUTO_POWEROFF_TIME, auto_power_off_time)
 volatile PROP_INT(PROP_VIDEO_SYSTEM, video_system_pal);
 volatile PROP_INT(PROP_LV_FOCUS_STATUS, lv_focus_status);
 volatile PROP_INT(PROP_ICU_UILOCK, icu_uilock);
+volatile PROP_INT(PROP_CONTINUOUS_AF, continuous_af_photo);
+volatile PROP_INT(PROP_MOVIE_SERVO_AF, continuous_af_movie);
 
 #ifdef CONFIG_NO_DEDICATED_MOVIE_MODE
 int ae_mode_movie = 1;
@@ -308,7 +317,7 @@ PROP_HANDLER( PROP_COPYRIGHT_STRING )
 char* get_video_mode_name(int include_fps)
 {
     static char zoom_msg[12];
-    snprintf(zoom_msg, sizeof(zoom_msg), "ZOOM-X%d", lv_dispsize);
+    snprintf(zoom_msg, sizeof(zoom_msg), "ZOOM-X%d", lv_dispsize & 0xF);
     
     char* video_mode = 
         is_pure_play_photo_mode()                   ? "PLAY-PH"  :      /* Playback, reviewing a picture */

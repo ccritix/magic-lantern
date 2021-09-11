@@ -184,6 +184,7 @@ typedef struct
     int valid;
     int enabled;
     int error;
+    int is_core;
 } module_entry_t;
 
 
@@ -245,7 +246,7 @@ typedef struct
                                                                     .property        = id, \
                                                                     .property_length = 0, \
                                                                 }; \
-                                                                void prefix##modname##_##id( \
+                                                                void REQUIRES(PropMgrTask) prefix##modname##_##id( \
                                                                         unsigned int property, \
                                                                         void *       token, \
                                                                         uint32_t *   buf, \

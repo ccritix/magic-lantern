@@ -218,7 +218,8 @@ static struct mem_allocator allocators[] = {
         .is_preferred_for_temporary_space = 2,  /* prefer not to use it, use shoot_malloc if you can */
 
         /* only use it for huge buffers */
-        .minimum_alloc_size = 20 * 1024 * 1024,
+//        .preferred_min_alloc_size = 20 * 1024 * 1024,
+        .minimum_alloc_size = 25 * 1024 * 1024,
     },
 #endif
 #endif  /* CONFIG_INSTALLER */
@@ -981,7 +982,7 @@ static void guess_free_mem_task(void* priv, int delta)
     max_shoot_malloc_mem = 0;
     max_shoot_malloc_frag_mem = 0;
 
-    bin_search(1, 1024, stack_size_crit);
+    bin_search(1, 256, stack_size_crit);
 
     /* we won't keep these things allocated much, so we can pause malloc activity while running this (just so nothing will fail) */
     /* note: we use the _underlined routines here, but please don't do that in user code */

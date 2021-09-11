@@ -328,10 +328,7 @@ MENU_UPDATE_FUNC(tasks_print)
                 y = 10 + font_med.height;
             }
         }
-
-
     }
-
     bmp_printf(
         FONT(FONT_MED, COLOR_GRAY(30), COLOR_BLACK), 
         720 - font_med.width * 9, 5, 

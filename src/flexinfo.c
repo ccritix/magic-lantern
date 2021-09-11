@@ -91,7 +91,7 @@ extern int menu_redraw_blocked;
  
 info_elem_t info_config_dynamic[FLEXINFO_DYNAMIC_ENTRIES];
 
-//#define i_want_to_test_flexinfo_bars 1
+#define i_want_to_test_flexinfo_bars 0
 
 info_elem_t info_config_liveview[] =
 {
@@ -384,7 +384,7 @@ info_elem_t info_config_photo[] =
     { .text =   { { INFO_TYPE_TEXT,   { 685, 459, 2, .name = "GB",  .user_disable = 0, }}, "GB",  COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM } },
 #endif
 
-#if defined(CONFIG_600D) || defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_1100D)
+#if defined(CONFIG_600D) || defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_1100D) || defined(CONFIG_1300D)
     /* entry 1, max AUTO ISO */
     { .string = { { INFO_TYPE_STRING, { MAX_ISO_POS_X, MAX_ISO_POS_Y, 2, .name = "Max ISO Range"  }}, INFO_STRING_ISO_MAX, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM_SHADOW } },
 
@@ -394,6 +394,11 @@ info_elem_t info_config_photo[] =
 
     /* entry 4, MLU string */
     { .string = { { INFO_TYPE_STRING, { MLU_STATUS_POS_X, MLU_STATUS_POS_Y, 2, .name = "MLU" }}, INFO_STRING_MLU, COLOR_FG_NONLV, INFO_COL_FIELD, INFO_FONT_SMALL } },
+    /* entry 4, battery_icon referenced as anchor */
+    { .battery_icon = { { INFO_TYPE_BATTERY_ICON, { DISPLAY_BATTERY_POS_X, DISPLAY_BATTERY_POS_Y, 2, .name = "Battery Icon" }}, DISPLAY_BATTERY_LEVEL_2, DISPLAY_BATTERY_LEVEL_1 } },
+    { .battery_perf = { { INFO_TYPE_BATTERY_PERF, { 100, 2, 3, INFO_ANCHOR_LEFT | INFO_ANCHOR_TOP, 4 }}, /* 0=vert,1=horizontal */ 0, /* x size */ 8, /* y size */ 8 } },
+    { .string = { { INFO_TYPE_STRING, { 8, 3, 2, INFO_ANCHOR_HCENTER | INFO_ANCHOR_BOTTOM, 4, INFO_ANCHOR_HCENTER | INFO_ANCHOR_TOP }}, INFO_STRING_BATTERY_PCT, COLOR_YELLOW, INFO_COL_FIELD, INFO_FONT_MEDIUM } },
+    { .string = { { INFO_TYPE_STRING, { -20, 2, 2, INFO_ANCHOR_LEFT | INFO_ANCHOR_TOP, 4 }}, INFO_STRING_BATTERY_ID, COLOR_YELLOW, INFO_COL_FIELD, INFO_FONT_LARGE } },
 
     /* entry 5, HDR bracketing status */
     { .string = { { INFO_TYPE_STRING, { HDR_STATUS_POS_X, HDR_STATUS_POS_Y, 2, .name = "HDR" }}, INFO_STRING_HDR, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM_SHADOW } },
@@ -405,11 +410,23 @@ info_elem_t info_config_photo[] =
 
     /* header (optional) */
     { .string = { { INFO_TYPE_STRING, { 28, 2, 2, .name = "Lens", .user_disable = 0 }}, INFO_STRING_LENS, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM } },
-    { .string = { { INFO_TYPE_STRING, { 710, 2, 2, .name = "Date", .user_disable = 0, .anchor_flags_self = INFO_ANCHOR_RIGHT }}, INFO_STRING_CAM_DATE, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM } },
+//    { .string = { { INFO_TYPE_STRING, { 710, 2, 2, .name = "Date", .user_disable = 0, .anchor_flags_self = INFO_ANCHOR_RIGHT }}, INFO_STRING_CAM_DATE, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM } },
     /* footer (optional) */
     { .string = { { INFO_TYPE_STRING, { DISPLAY_CLOCK_POS_X, DISPLAY_CLOCK_POS_Y, 2, .name = "Time" }}, INFO_STRING_TIME, COLOR_FG_NONLV, INFO_COL_PEEK, INFO_FONT_LARGE } },
-    { .string = { { INFO_TYPE_STRING, { 28, 459, 2, .name = "Build", .user_disable = 0 }}, INFO_STRING_BUILD, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM_SHADOW } },
-    { .string = { { INFO_TYPE_STRING, { 693, 459, 2, .name = "Copyright", .user_disable = 0, .anchor_flags_self = INFO_ANCHOR_RIGHT }}, INFO_STRING_COPYRIGHT, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM_SHADOW } },
+    { .string = { { INFO_TYPE_STRING, { DISPLAY_DATE_POS_X, DISPLAY_DATE_POS_Y, 2, .name = "Date" }}, INFO_STRING_CAM_DATE, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM } },
+
+/*    { .string = { { INFO_TYPE_STRING, { 28, 459, 2, .name = "Build", .user_disable = 0 }}, INFO_STRING_BUILD, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM_SHADOW } },
+/*    { .string = { { INFO_TYPE_STRING, { 693, 459, 2, .name = "Copyright", .user_disable = 0, .anchor_flags_self = INFO_ANCHOR_RIGHT }}, INFO_STRING_COPYRIGHT, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM_SHADOW } },
+
+/* entry 8-11, free space & photos left*/
+
+    { .string = { { INFO_TYPE_STRING, { 625, 455, 2, .name = "Space GB", .user_disable = 0, .anchor_flags_self = INFO_ANCHOR_RIGHT }}, INFO_STRING_FREE_GB_FLOAT, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM } },
+    { .text =   { { INFO_TYPE_TEXT,   { 640, 455, 2, .name = "GB",  .user_disable = 0, }}, "GB",  COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM } },
+
+/*    { .string = { { INFO_TYPE_STRING, { 580, 457, 2, .anchor_flags_self = (INFO_ANCHOR_VCENTER|INFO_ANCHOR_HCENTER), .name = "Space GB" }}, INFO_STRING_FREE_GB_FLOAT, COLOR_FG_NONLV, INFO_COL_PEEK, INFO_FONT_LARGE } },
+    { .text =   { { INFO_TYPE_TEXT,   { 2, 0, 3, (INFO_ANCHOR_VCENTER|INFO_ANCHOR_RIGHT), 10, (INFO_ANCHOR_VCENTER|INFO_ANCHOR_LEFT), .name = "GB" }}, "GB", COLOR_FG_NONLV, INFO_COL_PEEK, INFO_FONT_LARGE } },
+
+ */ 
 #endif
 
     { .type = INFO_TYPE_END },
@@ -888,7 +905,7 @@ uint32_t info_xml_parse_icon(info_elem_t *config, char *config_str)
 
 uint32_t info_load_config(char *filename)
 {
-	uint32_t allocated_elements = 32;
+    uint32_t allocated_elements = 32;
     uint32_t size = 0;
     uint32_t done = 0;
     uint32_t config_string_pos = 0;
@@ -899,20 +916,20 @@ uint32_t info_load_config(char *filename)
     if( FIO_GetFileSize( filename, &size ) != 0 )
     {
         return 1;
-	}
+    }
 
-	char *xml_config = fio_malloc(size + 1);
+    char *xml_config = fio_malloc(size + 1);
     xml_config[size] = '\0';
-	if (!xml_config)
-	{
+    if (!xml_config)
+    {
         return 1;
-	}
+    }
 
-	if ((unsigned)read_file(filename, xml_config, size)!=size)
-	{
+    if ((unsigned)read_file(filename, xml_config, size)!=size)
+    {
         fio_free(xml_config);
         return 1;
-	}
+    }
 
     /* read first xml token */
     if(info_xml_get_element(xml_config, &config_string_pos, xml_element, sizeof(xml_element)))
@@ -1633,10 +1650,10 @@ uint32_t info_get_string(char *buffer, uint32_t maxsize, uint32_t string_type)
         }
         case INFO_STRING_TEMPERATURE:
         {
-	    #ifdef EFIC_CELSIUS
+        #ifdef EFIC_CELSIUS
             snprintf(buffer, maxsize, "%d", EFIC_CELSIUS);
             break;
-	    #endif
+        #endif
         }
         case INFO_STRING_WBMODE:
         {
@@ -3160,18 +3177,19 @@ MENU_SELECT_FUNC(info_menu_reset_select)
 }
 
 static struct menu_entry info_menus[] = {
-    {
+   {
         .name = "FlexInfo Settings",
-        .select = menu_open_submenu,
+        .select   = menu_open_submenu,
         .submenu_width = 700,
         .children =  (struct menu_entry[]) {
-            {
+   	    {
                 .name = "Show boundaries",
-                .priv = &(info_config[0].config.show_boundaries),
-                .max = 1,
-                .help = "Enable boundary display for all elements.",
+           //     .priv = &(info_config[0].config.show_boundaries),
+           //     .max = 1,
+           //     .help = "Enable boundary display for all elements.",
             },
-            {
+
+         {
                 .name = "Use canon screen for edit",
                 .priv = &info_screen_required,
                 .min = 0,
@@ -3203,10 +3221,12 @@ static struct menu_entry info_menus[] = {
                 .select = info_menu_reset_select,
                 .help = "Reset menu settings",
             },*/
-            MENU_EOL,
-        }
+            MENU_EOL
+        },
     }
 };
+
+
 
 static void info_edit_task()
 {

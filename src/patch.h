@@ -33,11 +33,17 @@
 #define E_PATCH_CACHE_COLLISION     0x10
 #define E_PATCH_CACHE_ERROR         0x20
 #define E_PATCH_REG_NOT_FOUND       0x40
+#define E_PATCH_JUMP_RANGE_ERROR    0x80
 
 #define E_UNPATCH_OK                0
 #define E_UNPATCH_NOT_PATCHED       0x10000
 #define E_UNPATCH_OVERWRITTEN       0x20000
 #define E_UNPATCH_REG_NOT_FOUND     0x80000
+
+#define JUMP_BL 0
+#define JUMP_B  1
+
+
 
 /****************
  * Data patches *
@@ -126,6 +132,15 @@ int patch_instruction(
 );
 
 /* to undo, use unpatch_memory(addr) */
+#ifdef CONFIG_1300D
+/* use this patch on 1300D for hijacking function calls, to escape the 32MB relative jump limitations */
+int patch_instruction_jump(
+    uintptr_t rom_func_addr,
+    uintptr_t new_func_addr,
+    uint32_t jump_type,
+    const char * description
+);
+#endif
 
 
 /*****************

@@ -300,18 +300,13 @@ int update_bgmt_av_status(struct event * event) {
     if(event->obj == NULL) return -1;
     int gmt_int_ev_obj = *(int*)(event->obj);
     switch(shooting_mode) {
+        case SHOOTMODE_MOVIE:
         case SHOOTMODE_P:
         case SHOOTMODE_ADEP:
-        #ifdef CONFIG_1100D
-        case SHOOTMODE_MOVIE:
-        #endif
             if(gmt_int_ev_obj == 0x3010040) return 1;
             if(gmt_int_ev_obj == 0x1010040) return 0;
             break;
         case SHOOTMODE_M:
-        #ifdef CONFIG_1200D
-        case SHOOTMODE_MOVIE:
-        #endif
             if(gmt_int_ev_obj == 0x1010006) return 1;
             if(gmt_int_ev_obj == 0x3010006) return 0;
             break;
@@ -449,8 +444,6 @@ int handle_common_events_by_feature(struct event * event)
         event->param == GMT_GUICMD_LOCK_OFF)
     {
         pre_shutdown_requested = 4;
-        info_led_on(); _card_led_on();
-        config_save_at_shutdown();
         info_led_on(); _card_led_on();
         return 1;
     }
@@ -781,14 +774,14 @@ void exit_play_qr_menu_mode()
         wait_lv_frames(1);
     }
 
-    /* wait for any remaining GUI stuff to settle */
-    for (int i = 0; i < 10 && !display_idle(); i++)
+    /* wait for display to come up, up to 1 second */
+    for (int i = 0; i < 10 && !DISPLAY_IS_ON; i++)
     {
         msleep(100);
     }
 
-    /* also wait for display to come up, up to 1 second */
-    for (int i = 0; i < 10 && !DISPLAY_IS_ON; i++)
+    /* wait for any remaining GUI stuff to settle, up to 2 seconds */
+    for (int i = 0; i < 20 && !display_idle(); i++)
     {
         msleep(100);
     }

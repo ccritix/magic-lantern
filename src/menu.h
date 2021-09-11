@@ -107,7 +107,7 @@ struct menu_display_info
                                 } while(0)
 
 #define MENU_SET_ENABLED(val)   info->enabled = (val) // whether the feature is ON or OFF
-#define MENU_SET_ICON(ico, arg)  ({ info->icon = (ico); info->icon_arg = (arg); })
+#define MENU_SET_ICON(ico, arg)  do { info->icon = (ico); info->icon_arg = (arg); } while(0)
 
 struct menu_entry;
 struct menu_display_info;
@@ -362,6 +362,9 @@ extern MENU_UPDATE_FUNC(menu_advanced_update);
 //~ #else
 //~ #define MENU_WARNING_COLOR 254
 //~ #endif
+
+// Allow access to menu
+struct menu * menu_get_root();
 
 /* post a redraw event to menu task */
 void menu_redraw();

@@ -30,6 +30,7 @@
 #include "imgconv.h"
 #include "console.h"
 #include "fps.h"
+#include "platform/state-object.h"
 
 #undef RAW_DEBUG        /* define it to help with porting */
 #undef RAW_DEBUG_DUMP   /* if you want to save the raw image buffer and the DNG from here */
@@ -118,6 +119,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_650D
 #define DEFAULT_RAW_BUFFER MEM(0x25B00 + 0x3C)
+#define DEFAULT_RAW_BUFFER_SIZE (0x47F00000 - 0x46798080)
 #endif
 
 #ifdef CONFIG_700D
@@ -132,12 +134,22 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 
 #ifdef CONFIG_6D
 #define DEFAULT_RAW_BUFFER MEM(0x76d6c + 0x2C)
+#define DEFAULT_RAW_BUFFER_SIZE (0x4CFF0000 - 0x4B328000)
+#endif
+
+#ifdef CONFIG_70D
+#define DEFAULT_RAW_BUFFER MEM(0x7CFEC + 0x30)
 #endif
 
 #ifdef CONFIG_100D
 #define DEFAULT_RAW_BUFFER MEM(0x6733C + 0x40)
+#define DEFAULT_RAW_BUFFER_SIZE (0x46CC0000 - 0x46798100)
 #endif
 
+#ifdef CONFIG_1300D
+#define DEFAULT_RAW_BUFFER MEM(MEM(0x4C64))     /* how much do we have allocated? */
+#define DEFAULT_RAW_BUFFER_SIZE 8*1024*1024     /* is this really overwritten by other code? needs some investigation */
+#endif
 #ifdef CONFIG_1100D
 #define DEFAULT_RAW_BUFFER MEM(MEM(0x4C64))     /* how much do we have allocated? */
 #define DEFAULT_RAW_BUFFER_SIZE 8*1024*1024     /* is this really overwritten by other code? needs some investigation */
@@ -148,6 +160,12 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #warning FIXME: using dummy DEFAULT_RAW_BUFFER_SIZE
 #define DEFAULT_RAW_BUFFER_SIZE (9*1024*1024)
 #endif
+
+/* for higher resolutions we'll allocate a new buffer, as needed */
+/* all cameras using CONFIG_EDMAC_RAW_SLURP should be able to handle this */
+/* SRM_BUFFER_SIZE matches the full-res image size, as 14-bit uncompressed (actually a bit larger, but not much) */
+#define CONFIG_ALLOCATE_RAW_LV_BUFFER
+#define RAW_LV_BUFFER_ALLOC_SIZE (SRM_BUFFER_SIZE - 0x1000)
 
 
 #else // "Traditional" RAW LV buffer detection (no CONFIG_EDMAC_RAW_SLURP)
@@ -161,17 +179,24 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_LV_EDMAC 0xC0F04508
 #endif
 
-#if defined(CONFIG_500D) || defined(CONFIG_550D) || defined(CONFIG_7D) || defined(CONFIG_1300D) || defined(CONFIG_4000D)
+#if defined(CONFIG_500D) || defined(CONFIG_550D) || defined(CONFIG_7D)
 #define RAW_LV_EDMAC 0xC0F26008
 #endif
 
-#if defined(CONFIG_DIGIC_V) || defined(CONFIG_600D) || defined(CONFIG_60D) || defined(CONFIG_1200D)
+#if defined(CONFIG_DIGIC_V) || defined(CONFIG_600D) || defined(CONFIG_60D)
 /* probably all new cameras use this address */
 #define RAW_LV_EDMAC 0xC0F26208
 #endif
 
 #endif  /* no CONFIG_EDMAC_RAW_SLURP */
+#if defined(CONFIG_500D) || defined(CONFIG_550D) || defined(CONFIG_7D) 
+#define RAW_LV_EDMAC 0xC0F26008
+#endif
 
+#if defined(CONFIG_DIGIC_V) || defined(CONFIG_600D) || defined(CONFIG_60D) || defined(CONFIG_1200D) || defined(CONFIG_1300D)
+/* probably all new cameras use this address */
+#define RAW_LV_EDMAC 0xC0F26208
+#endif  /* no CONFIG_EDMAC_RAW_SLURP */
 /**
  * Photo-mode raw buffer address
  * To find it, lookup CCDWriteEDmacCompleteCBR in ASM code, and find the corresponding EDMAC channnel.
@@ -188,11 +213,11 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
  * and http://a1ex.bitbucket.org/ML/states/ for state diagrams.
  */
 
-#if defined(CONFIG_5D2) || defined(CONFIG_50D) || defined(CONFIG_60D) || defined(CONFIG_550D) || defined(CONFIG_500D) || defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_1200D) || defined(CONFIG_7D)
+#if defined(CONFIG_5D2) || defined(CONFIG_50D) || defined(CONFIG_60D) || defined(CONFIG_550D) || defined(CONFIG_500D) || defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_1200D) || defined(CONFIG_7D) || defined(CONFIG_1300D) || defined(CONFIG_4000D)
 #define RAW_PHOTO_EDMAC 0xc0f04208
 #endif
 
-#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_70D) || defined(CONFIG_100D) || defined(CONFIG_1300D) || defined(CONFIG_4000D)
+#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_70D) || defined(CONFIG_100D) 
 #define RAW_PHOTO_EDMAC 0xc0f04008
 #endif
 
@@ -213,6 +238,11 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define PREFERRED_RAW_TYPE 0x5          /* DIGIC 4: CCD */
 #endif
 
+#define SHAD_GAIN_REGISTER 0xC0F08030
+
+static int lv_raw_type = PREFERRED_RAW_TYPE;
+static int lv_raw_gain = 0;
+
 /** 
  * White level
  * 
@@ -224,6 +254,80 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
  */
 #define WHITE_LEVEL 16200
 
+static int is_EOSM = 0;
+static int is_100D = 0;
+static int is_5D3 = 0;
+static int is_6D = 0;
+
+static int get_default_white_level()
+{
+
+        int default_white = WHITE_LEVEL;
+
+if (!is_EOSM && !is_100D && !is_6D && !is_5D3)
+{
+        if (shamem_read(0xC0F42744) == 0x6060606)
+        {	
+	    /* 8bit by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = 2250);   
+        }
+
+        if (shamem_read(0xC0F42744) == 0x5050505)
+        {	
+	    /* 9bit by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = 2550);   
+        }
+
+/* used for 4k timelapse function */
+        if (shamem_read(0xC0F42744) == 0x3030303)
+        {	
+	    /* 12bit kind of by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = (lens_info.raw_iso == ISO_100) ? 4940 : 5000);   
+        }
+
+        if (shamem_read(0xC0F42744) == 0x4040404)
+        {	
+	    /* 10bit by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = (lens_info.raw_iso == ISO_100) ? 2840 : 2890);   
+        }
+
+        if (shamem_read(0xC0F42744) == 0x2020202)
+        {	
+	    /* 12bit by checking pushed liveview gain register set in crop_rec.c */
+            int default_white = WHITE_LEVEL;
+            return (default_white = 6000);   
+        }
+}
+    
+#if defined(CONFIG_100D) || defined(CONFIG_700D) || defined(CONFIG_EOSM) /* other models? */
+    /* http://www.magiclantern.fm/forum/index.php?topic=16040.msg191131#msg191131 */
+    /* 100 units below measured value = about 0.01 EV */
+    default_white = 15200;
+    if (shamem_read(0xC0F0b12c) == 0x11)
+    {
+    /* iso_climb routines */
+        default_white = 14000;
+    }
+    if (shamem_read(0xC0F0b12c) == 0x0)
+    {
+    default_white = (lens_info.raw_iso == ISO_100) ? 14000 : 15200;
+    }
+#endif
+    
+    return default_white;
+}
+
+/**
+ * Hardcode black level on models where it's fixed.
+ * Will only be used if autodetection gives a close result.
+ */
+#if defined(EVF_STATE)  /* 60D and newer */
+#define BLACK_LEVEL 2047
+#endif
 
 /**
  * Color matrix should be copied from DCRAW.
@@ -349,19 +453,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
      -819, 10000,     1944, 10000,    5931, 10000
 #endif
 
-#ifdef CONFIG_4000D
-	// PLACEHOLDER DATA FROM 600D TO BUILD HELLOWORLD
-        //~ { "Canon EOS 1300D", 0, 0x3510,
-        //~ { 6461,-907,-882,-4300,12184,2378,-819,1944,5931 } },
-    #define CAM_COLORMATRIX1                       \
-      6461, 10000,     -907, 10000,    -882, 10000,\
-    -4300, 10000,    12184, 10000,    2378, 10000, \
-     -819, 10000,     1944, 10000,    5931, 10000
-#endif
-
-
-
-struct raw_info raw_info = {
+struct raw_info GUARDED_BY(raw_sem) raw_info = {
     .api_version = 1,
     .bits_per_pixel = 14,
     .black_level = 1024,
@@ -438,9 +530,7 @@ static int dynamic_ranges[] = {1099, 1098, 1082, 1025, 965, 877, 784}; // No ISO
 static int dynamic_ranges[] = {1112, 1080, 1038, 984, 917, 834, 733, 655};
 #endif
 
-#ifdef CONFIG_4000D
-static int dynamic_ranges[] = {1112, 1080, 1038, 984, 917, 834, 733, 655};
-#endif
+
 
 #ifdef CONFIG_650D
 static int dynamic_ranges[] = {1062, 1047, 1021, 963,  888, 804, 695, 623, 548};
@@ -470,6 +560,10 @@ static int dynamic_ranges[] = {1060, 1063, 1037, 982, 901, 831, 718, 622, 536};
 static int dynamic_ranges[] = {1112, 1108, 1076, 1010, 902, 826, 709, 622};
 #endif
 
+#ifdef CONFIG_70D
+static int dynamic_ranges[] = {1091, 1070, 1046, 986, 915, 837, 746, 655, 555};
+#endif
+
 static int autodetect_black_level(int* black_mean, int* black_stdev);
 static int compute_dynamic_range(int black_mean, int black_stdev, int white_level);
 static int autodetect_white_level(int initial_guess);
@@ -490,9 +584,9 @@ static int raw_lv_buffer_size = 0;
 static void* raw_get_default_lv_buffer()
 {
 #if !defined(CONFIG_EDMAC_RAW_SLURP)
-    return (void*) shamem_read(RAW_LV_EDMAC);
+    return CACHEABLE(shamem_read(RAW_LV_EDMAC));
 #else
-    return raw_lv_buffer;
+    return CACHEABLE(raw_lv_buffer);
 #endif
 }
 /* returns 1 on success */
@@ -530,21 +624,62 @@ static int raw_lv_get_resolution(int* width, int* height)
     *width  = ((bot_right & 0xFFFF) - (top_left & 0xFFFF)) * column_factor;
     *height = (bot_right >> 16)     - (top_left >> 16);
 
-    /* height may be a little different; 5D3 needs to subtract 1,
-     * EOS M needs to add 1, 100D usually gives exact value
-     * is it really important to have exact height?
-     * for some raw types, yes! */
+    /* height may be a little different
+     * 5D3 needs to subtract 1 to match EDMAC; without height-1, raw type DEFCORRE
+     *      (8..12-bit lossless) will only work every other frame (also OK at lower heights)
+     * 100D/M2 report exact value (matches EDMAC), but this results in hiccups in x5 zoom
+     *      these hiccups disappear when using height-1 or lower
+     *      (100D 720p: top=28 active=696 y2=724 above=727 adjusted=726)
+     * EOSM/700D/650D needs to add 1 to match EDMAC - no hiccups reported
+     *      however, height+1 would give 3 invalid lines at the bottom
+     *      (650D 720p: top=28 active=696 y2=724 above=726 adjusted=725)
+     * see also https://a1ex.magiclantern.fm/bleeding-edge/raw/raw_res.txt */
 
-#ifdef CONFIG_5D3
+#if defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_EOSM)
+    /* required to squeeze 1080p in x5 zoom */
+    (*height)++;
+#elif defined(CONFIG_DIGIC_V)
     (*height)--;
 #endif
 
 #ifdef CONFIG_EOSM
     /* EOS M exception */
     /* http://www.magiclantern.fm/forum/index.php?topic=16608.msg176023#msg176023 */
-    if (lv_dispsize == 1 && !video_mode_crop && !RECORDING_H264)
-    {
-        *height = 727;
+    if (lv_dispsize == 1 && !RECORDING_H264 && shamem_read(0xC0f0b13c) != 0x10 && shamem_read(0xC0f0b13c) != 0x11)
+
+    {    
+            *height = 727; 
+
+        if (shamem_read(0xC0f0b13c) == 0xa)
+        {	
+        /* mv1080p mode crop_rec.c */
+            *height = 1188;
+        }
+
+        if (shamem_read(0xC0f0b13c) == 0xb)
+        {	
+        /* mv1080p 45fps */
+            *height = 1006;
+        }
+
+        if (shamem_read(0xC0f0b13c) == 0xc)
+        {	
+        /* mv1080p 46fps fullwidth */
+            *height = 769;
+        }
+
+        if (shamem_read(0xC0f0b13c) == 0xe)
+        {	
+        /* mv1080p 46fps */
+            *height = 759;
+        }
+        
+        if (shamem_read(0xC0f0b13c) == 0xd)
+        {
+            /* anamorphic rewired EOSM */
+            *height = 1920;
+        }
+
     }
 #endif
 
@@ -655,7 +790,8 @@ static void raw_lv_realloc_buffer()
 #endif  /* CONFIG_EDMAC_RAW_SLURP */
 #endif /* CONFIG_RAW_LIVEVIEW */
 
-static int raw_update_params_work()
+static REQUIRES(raw_sem)
+int raw_update_params_work()
 {
     #ifdef RAW_DEBUG
     console_show();
@@ -787,24 +923,23 @@ static int raw_update_params_work()
         skip_top    =  26;
         skip_left   =  zoom ? 64: 74;
         skip_right  = 0;
-        skip_bottom = 0;
         #endif
 
-        #if defined(CONFIG_650D) || defined(CONFIG_EOSM)
-        #warning FIXME: are these values correct for 720p and crop modes?
-        skip_top    = 28;
-        skip_left   = 74;
-        skip_right  = 0;
-        skip_bottom = 6;
-        #endif
-
-        // 650D and EOSM probably need to fit into this
-        // http://www.magiclantern.fm/forum/index.php?topic=16608.msg174241#msg174241
-        #if defined(CONFIG_700D) || defined(CONFIG_100D)
+        #if defined(CONFIG_EOSM) || defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_100D)
         skip_top    = 28;
         skip_left   = 72;
         skip_right  = 0;
-        skip_bottom = zoom ? 0 : mv1080crop ? 0 : 4;
+        #ifdef CONFIG_100D
+        /* 720p: H=727-1, last valid line at y=723, 2 white lines at bottom */
+        /* VRAM dumps, please: http://www.magiclantern.fm/forum/index.php?topic=12375.0 */
+        skip_bottom = zoom ? 0 : mv1080crop ? 0 : mv720 ? 2 : 0;
+        #else
+        /* 720p: H=726+1, last valid line at y=723, 3 white lines at bottom */
+        /* 1080p: H=1189+1, 2 white lines at bottom */
+        /* x5 zoom: H=1107+1, no bad lines at bottom; 1108-28=1080 */
+        /* 1080 crop: H=1059+1, no bad lines at bottom */
+        skip_bottom = zoom ? 0 : mv1080crop ? 0 : mv720 ? 3 : 2;
+        #endif
         #endif
 
         #ifdef CONFIG_7D
@@ -819,7 +954,14 @@ static int raw_update_params_work()
         skip_right  = zoom ? 0 : 4;
         skip_bottom = zoom ? 4 : 0;
         #endif
-		
+
+        #ifdef CONFIG_1300D
+        skip_top    = 28;
+        skip_left   = zoom ? 0 : 154;
+        skip_right  = zoom ? 0 : 4;
+        skip_bottom = zoom ? 4 : 0;
+        #endif
+
         dbg_printf("LV raw buffer: %x (%dx%d)\n", raw_info.buffer, width, height);
         dbg_printf("Skip left:%d right:%d top:%d bottom:%d\n", skip_left, skip_right, skip_top, skip_bottom);
 #else
@@ -847,7 +989,8 @@ static int raw_update_params_work()
         /* autodetect image size from EDMAC */
         width  = shamem_read(RAW_PHOTO_EDMAC + 8) * 8 / 14; /* size B */
         height = shamem_read(RAW_PHOTO_EDMAC + 4) + 1;     /* size N */
-        
+        height &= ~1; /* force it to be always even - https://www.magiclantern.fm/forum/index.php?topic=19300.msg196786#msg196786 */
+
         /* in photo mode, raw buffer size is from ~12 Mpix (1100D) to ~24 Mpix (5D3) */
         /* (this EDMAC may be reused for something else, usually smaller, or with a different size encoding - refuse to run if this happens) */
         if ((width & 0xFFFFE000) || (height & 0xFFFFE000) || (width*height < 10e6) || (width*height > 30e6))
@@ -885,7 +1028,7 @@ static int raw_update_params_work()
         height--;
         #endif
 
-        #if defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_600D) || defined(CONFIG_1200D)
+        #if defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_600D) || defined(CONFIG_1200D) || defined(CONFIG_1300D)
         skip_left = 142;
         skip_top = 52;
         #endif
@@ -941,7 +1084,7 @@ static int raw_update_params_work()
     skip_left   &= ~1;
     skip_right  &= ~1;
     skip_top    &= ~1;
-    skip_bottom &= ~1;
+    //skip_bottom &= ~1;
 
     if (width != raw_info.width || height != raw_info.height)
     {
@@ -1017,11 +1160,13 @@ static int raw_update_params_work()
         prev_delta_y = delta_y;
     }
 #endif
-    
+
     /* black and white autodetection are time-consuming */
     /* only refresh once per second or if dirty, but never while recording */
     static int bw_aux = INT_MIN;
-    int recompute_black_and_white = NOT_RECORDING && 
+    int recompute_black_and_white = 
+        NOT_RECORDING &&
+        raw_info.bits_per_pixel == 14 &&
         (raw_info.black_level == 0 || dirty || should_run_polling_action(1000, &bw_aux));
 
     if (dirty)
@@ -1036,11 +1181,20 @@ static int raw_update_params_work()
         return 1;
     }
 
-    int black_mean, black_stdev_x100;
-    raw_info.white_level = WHITE_LEVEL;
-    
+    raw_info.white_level = get_default_white_level();
+
+    ASSERT(raw_info.bits_per_pixel == 14);
+    int black_mean = 0, black_stdev_x100 = 0;
     int ok = autodetect_black_level(&black_mean, &black_stdev_x100);
-    
+
+    #ifdef BLACK_LEVEL
+    if (ABS(black_mean - BLACK_LEVEL) < 64)
+    {
+        /* if we know the exact value, nail it down */
+        black_mean = BLACK_LEVEL;
+    }
+    #endif
+
     if (!ok)
     {
         /* return failure, and make sure the black level is recomputed at next call */
@@ -1079,31 +1233,14 @@ static int raw_update_params_work()
 
     if (!lv)
     {
-        /* at ISO 160, 320 etc, the white level is decreased by -1/3 EV */
-        /* in LiveView, it doesn't change */
-        int iso = 0;
-        if (!iso) iso = lens_info.raw_iso;
-        if (!iso) iso = lens_info.raw_iso_auto;
-        static int last_iso = 0;
-        if (!iso) iso = last_iso;
-        last_iso = iso;
-        if (!iso)
-        {
-            dbg_printf("ISO error\n");
-            return 0;
-        }
-        int iso_rounded = COERCE((iso + 3) / 8 * 8, 72, 200);
-        float iso_digital = (iso - iso_rounded) / 8.0f;
-        
-        if (iso_digital <= 0)
-        {
-            raw_info.white_level -= raw_info.black_level;
-            raw_info.white_level *= powf(2, iso_digital);
-            raw_info.white_level += raw_info.black_level;
-        }
-
-        raw_info.white_level = autodetect_white_level(raw_info.white_level);
+        /* start at Canon's white level, and autodetect from there
+         * Canon's guess may be up to 0.38 EV below the true value - or maybe more?
+         * http://www.magiclantern.fm/forum/index.php?topic=20579.msg190437#msg190437
+         */
+        int canon_white = shamem_read(0xC0F12054) >> 16;
+        raw_info.white_level = autodetect_white_level(canon_white);
         raw_info.dynamic_range = compute_dynamic_range(black_mean, black_stdev_x100, raw_info.white_level);
+        printf("White level: %d -> %d\n", canon_white, raw_info.white_level);
     }
 #ifdef CONFIG_RAW_LIVEVIEW
     else if (!is_movie_mode())
@@ -1114,7 +1251,7 @@ static int raw_update_params_work()
          * so we do this by compensating the white level manually
          * warning: this may exceed 16383!
          */
-        int shad_gain = shamem_read(0xc0f08030);
+        int shad_gain = shamem_read(SHAD_GAIN_REGISTER);
         
         raw_info.white_level -= raw_info.black_level;
         raw_info.white_level = raw_info.white_level * 3444 / shad_gain; /* 0.25 EV correction, so LiveView matches CR2 exposure */
@@ -1195,7 +1332,13 @@ int raw_update_params()
         /* let's try again */
         ans = raw_update_params_once();
     }
-    
+
+    if (raw_info.bits_per_pixel != 14)
+    {
+        /* hack: this will disable all overlays at bit depths other than 14 */
+        return 0;
+    }
+
     return ans;
 }
 
@@ -1232,11 +1375,14 @@ void raw_set_preview_rect(int x, int y, int w, int h, int obey_info_bars)
     lv2raw.ty = y - LV2RAW_DY(y0_lv);
 }
 
-void raw_set_geometry(int width, int height, int skip_left, int skip_right, int skip_top, int skip_bottom)
+/* fixme: external calls to this are not exactly thread safe
+ * and they can be overwritten any time by raw_update_params */
+void REQUIRES(raw_sem)
+raw_set_geometry(int width, int height, int skip_left, int skip_right, int skip_top, int skip_bottom)
 {
     raw_info.width = width;
     raw_info.height = height;
-    raw_info.pitch = raw_info.width * 14 / 8;
+    raw_info.pitch = raw_info.width * raw_info.bits_per_pixel / 8;
     raw_info.frame_size = raw_info.height * raw_info.pitch;
     raw_info.active_area.x1 = skip_left;
     raw_info.active_area.y1 = skip_top;
@@ -1637,8 +1783,11 @@ static int autodetect_black_level(int* black_mean, int* black_stdev_x100)
     int stdev1 = 0;
     int mean2 = 0;
     int stdev2 = 0;
-        
-    if (raw_info.active_area.x1 > 50) /* use the left black bar for black calibration */
+     
+    if ((raw_info.active_area.x1 > 50) && (shamem_read(0xC0f0b13c) != 0xd) && (shamem_read(0xC0f0b13c) != 0x11) &&
+(shamem_read(0xC0f0b13c) != 0xe) && (shamem_read(0xC0f0b13c) != 0xd) && (shamem_read(0xC0f06804) != 0x5a70298) && 
+(shamem_read(0xC0f0b13c) != 0xb) && (shamem_read(0xc0f0713c) != 0x456) && (shamem_read(0xC0f06804) != 0x4550298) &&
+(shamem_read(0xC0f06804) != 0x93a011b) && (shamem_read(0xC0f06804) != 0x8d6011b)) /* use the left black bar for black calibration, shamem exception anamorphic and high speed frame rates crop rec.c */
     {
         autodetect_black_level_calc(
             16, raw_info.active_area.x1 - 16,
@@ -1696,14 +1845,25 @@ static int autodetect_black_level(int* black_mean, int* black_stdev_x100)
 
 static int autodetect_white_level(int initial_guess)
 {
-    int white = initial_guess - 3000;
-    int max = white + 500;
-    int confirms = 0;
+    qprintf("[WL] initial guess: %d\n", initial_guess);
+    int white = initial_guess;
 
-    //~ bmp_printf(FONT_MED, 50, 50, "White...");
+    /* build a temporary 9-bit histogram, binning every 2^5 = 32 levels */
+    /* the clipping may not be harsh (especially at long exposures)
+     * if we reduce the bit depth, the clipping point will span
+     * only one or two levels - easier to detect */
+    const int bin = 5;
+    int * hist = malloc((16384 >> bin) * sizeof(hist[0]));
+    if (!hist)
+    {
+        /* oops */
+        ASSERT(0);
+        return initial_guess;
+    }
+    memset(hist, 0, (16384 >> bin) * sizeof(hist[0]));
 
     int raw_height = raw_info.active_area.y2 - raw_info.active_area.y1;
-    for (int y = raw_info.active_area.y1 + raw_height/10; y < raw_info.active_area.y2 - raw_height/10; y += 5)
+    for (int y = raw_info.active_area.y1 + raw_height/10; y < raw_info.active_area.y2 - raw_height/10; y += 3)
     {
         int pitch = raw_info.width/8*14;
         int row = (intptr_t) raw_info.buffer + y * pitch;
@@ -1711,26 +1871,45 @@ static int autodetect_white_level(int initial_guess)
         int row_crop_start = row + raw_info.active_area.x1/8*14 + skip_5p;
         int row_crop_end = row + raw_info.active_area.x2/8*14 - skip_5p;
         
-        for (struct raw_pixblock * p = (void*)row_crop_start; (void*)p < (void*)row_crop_end; p += 5)
+        for (struct raw_pixblock * p = (void*)row_crop_start; (void*)p < (void*)row_crop_end; p += 3)
         {
-            if (p->a > max)
-            {
-                max = p->a;
-                confirms = 1;
-            }
-            else if (p->a == max)
-            {
-                confirms++;
-                if (confirms > 5)
-                {
-                    white = max - 500;
-                }
-            }
+            /* a is red or green, b is green or blue */
+            int a = p->a;
+            int b = p->h;
+            hist[a >> bin]++;
+            hist[b >> bin]++;
         }
     }
 
-    //~ bmp_printf(FONT_MED, 50, 50, "White: %d ", white);
+    int acc = 0;
+    for (int i = (16384 >> bin) - 1; i >= MAX(initial_guess >> bin, 5); i--)
+    {
+        qprintf("[WL] %d: %d\n", i << bin, hist[i]);
+        /* the peak should be much bigger than what's after it,
+         * and at least 10 overexposed pixels */
+        if (hist[i] + hist[i-1] > 10 + acc * 100)
+        {
+            qprintf("[WL] peak at %d:%d (count=%d+%d above=%d left=%d,%d,%d)\n", i << bin, (i+1) << bin, hist[i-1], hist[i], acc, hist[i-2], hist[i-3], hist[i-4]);
+            /* the peak should also be much bigger than what's before it */
+            if (hist[i-2] + hist[i-3] + hist[i-4] < (hist[i] + hist[i-1]) / 10)
+            {
+                qprintf("[WL] peak confirmed.\n");
+                white = (i - 3) << bin;
+                break;
+            }
+        }
 
+        if (acc == 0 && hist[i] != 0)
+        {
+            /* if we are not going to find a peak,
+             * assume the image is not overexposed */
+            white = (i + 1) << bin;
+        }
+
+        acc += hist[i];
+    }
+
+    free(hist);
     return white;
 }
 
@@ -1750,7 +1929,7 @@ static int compute_dynamic_range(int black_mean, int black_stdev_x100, int white
     int mean = black_mean * 100;
     int stdev = black_stdev_x100;
     bmp_printf(FONT_MED, 50, 100, "mean=%d.%02d stdev=%d.%02d white=%d", mean/100, mean%100, stdev/100, stdev%100, white_level);
-    white_level = autodetect_white_level(15000);
+    white_level = autodetect_white_level(12000);
 #endif
 
     int dr = (int)roundf((log2f(white_level - black_mean) - log2f(black_stdev_x100 / 100.0)) * 100);
@@ -1785,8 +1964,6 @@ void FAST raw_lv_redirect_edmac(void* ptr)
 
 #ifdef CONFIG_EDMAC_RAW_SLURP
 
-static int lv_raw_type = PREFERRED_RAW_TYPE;
-
 void FAST raw_lv_vsync()
 {
     /* where should we save the raw data? */
@@ -1797,12 +1974,20 @@ void FAST raw_lv_vsync()
         /* this needs to be set for every single frame */
         EngDrvOut(RAW_TYPE_REGISTER, lv_raw_type);
 
+        if (lv_raw_gain)
+        {
+            /* optional - adjust digital gain */
+            /* fixme: hardcoded for 5D3 */
+            EngDrvOut(RAW_TYPE_REGISTER, 0x12);
+            EngDrvOut(SHAD_GAIN_REGISTER, lv_raw_gain);
+        }
+
         /* pull the raw data into "buf" */
         int width, height;
         int ok = raw_lv_get_resolution(&width, &height);
         if (ok)
         {
-            int pitch = width * 14/8;
+            int pitch = width * raw_info.bits_per_pixel / 8;
             if (raw_lv_buffer_size >= pitch * height)
             {
                 edmac_raw_slurp(CACHEABLE(buf), pitch, height);
@@ -1812,6 +1997,18 @@ void FAST raw_lv_vsync()
     
     /* overriding the buffer is only valid for one frame */
     redirected_raw_buffer = 0;
+}
+
+/* integer gain used to fix the image darkening caused by lv_raw_gain */
+/* this gain must not (!) change the raw data */
+int _raw_lv_get_iso_post_gain()
+{
+    if (lv_raw_gain)
+    {
+        return 4096 / lv_raw_gain;
+    }
+
+    return 1;
 }
 
 #endif
@@ -1867,18 +2064,27 @@ static void FAST raw_preview_color_work(void* raw_buffer, void* lv_buffer, int y
         return;
     }
 
+    /* scale useful range (black...white) to 0...1023 or less */
+    int black = raw_info.black_level;
+    int white = raw_info.white_level;
+    int div = 0;
+    while (((white-black) >> div) >= 1024)
+    {
+        div++;
+    }
+
     /* white balance 2,1,2 => use two gamma curves to simplify code */
     uint8_t gamma_rb[1024];
     uint8_t gamma_g[1024];
-    
+
     for (int i = 0; i < 1024; i++)
     {
         /* only show 10 bits */
-        int black = (raw_info.black_level>>4);
-        int g_rb = (i > black) ? (log2f(i - black) + 1) * 255 / 10 : 0;
-        int g_g  = (i > black) ? (log2f(i - black)) * 255 / 10 : 0;
-        gamma_rb[i] = COERCE(g_rb * g_rb / 255, 0, 255); /* idk, looks better this way */
-        gamma_g[i]  = COERCE(g_g  * g_g  / 255, 0, 255); /* (it's like a nonlinear curve applied on top of log) */
+        int g_rb = COERCE(raw_to_ev((i << div) + black) + 11, 0, 10) * 255 / 10;
+        int g_g  = COERCE(raw_to_ev((i << div) + black) + 10, 0, 10) * 255 / 10;
+        /* gamma 2 */
+        gamma_rb[i] = COERCE(g_rb * g_rb / 255, 0, 255);
+        gamma_g[i]  = COERCE(g_g  * g_g  / 255, 0, 255);
     }
     
     int x1 = COERCE(RAW2LV_X(preview_rect_x), 0, vram_lv.width);
@@ -1924,31 +2130,33 @@ static void FAST raw_preview_color_work(void* raw_buffer, void* lv_buffer, int y
             switch (xr%8)
             {
                 case 0:
-                    r = PA >> 4;
-                    g = (PB + QA) >> 5;
-                    b = QB >> 4;
+                    r = PA;
+                    g = (PB + QA) >> 1;
+                    b = QB;
                     break;
                 case 2:
-                    r = PC >> 4;
-                    g = (PD + QC) >> 5;
-                    b = QD >> 4;
+                    r = PC;
+                    g = (PD + QC) >> 1;
+                    b = QD;
                     break;
                 case 4:
-                    r = PE >> 4;
-                    g = (PF + QE) >> 5;
-                    b = QF >> 4;
+                    r = PE;
+                    g = (PF + QE) >> 1;
+                    b = QF;
                     break;
                 case 6:
-                    r = PG >> 4;
-                    g = (PH + QG) >> 5;
-                    b = QH >> 4;
+                    r = PG;
+                    g = (PH + QG) >> 1;
+                    b = QH;
                     break;
                 default:
                     r = g = b = 0;
             }
-            r = gamma_rb[r];
-            g = gamma_g [g];
-            b = gamma_rb[b];
+            
+            /* div is chosen so that ((white-black) >> div) < 1024 */
+            r = gamma_rb[COERCE(r - black, 0, white-black) >> div];
+            g = gamma_g [COERCE(g - black, 0, white-black) >> div];
+            b = gamma_rb[COERCE(b - black, 0, white-black) >> div];
             
             uint32_t yuv = rgb2yuv422(r,g,b);
             lv32[LV(x,y)/4] = yuv;
@@ -1976,12 +2184,22 @@ static void FAST raw_preview_fast_work(void* raw_buffer, void* lv_buffer, int y1
         return;
     }
 
+    /* scale useful range (black...white) to 0...1023 or less */
+    int black = raw_info.black_level;
+    int white = raw_info.white_level;
+    int div = 0;
+    while (((white-black) >> div) >= 1024)
+    {
+        div++;
+    }
+
     uint8_t gamma[1024];
     
     for (int i = 0; i < 1024; i++)
     {
-        int g = (i > (raw_info.black_level>>4)) ? log2f(i - (raw_info.black_level>>4)) * 255 / 10 : 0;
-        gamma[i] = g * g / 255; /* idk, looks better this way */
+        /* only show 10 bits */
+        int g = COERCE(raw_to_ev((i << div) + black) + 10, 0, 10) * 255 / 10;
+        gamma[i] = g * g / 255; /* gamma 2 */
     }
     
     int x1 = COERCE(RAW2LV_X(preview_rect_x), 0, vram_lv.width);
@@ -2020,7 +2238,7 @@ static void FAST raw_preview_fast_work(void* raw_buffer, void* lv_buffer, int y1
             int xr = lv2rx[x];
             struct raw_pixblock * p = row + (xr/8);
             int c = p->a;
-            uint64_t Y = gamma[c >> 4];
+            uint64_t Y = gamma[COERCE(c - black, 0, white-black) >> div];
             Y = (Y << 8) | (Y << 24) | (Y << 40) | (Y << 56);
             int idx = LV(x,y)/8;
             lv64[idx] = Y;
@@ -2032,6 +2250,9 @@ static void FAST raw_preview_fast_work(void* raw_buffer, void* lv_buffer, int y1
 
 void FAST raw_preview_fast_ex(void* raw_buffer, void* lv_buffer, int y1, int y2, int quality)
 {
+    if (raw_info.bits_per_pixel != 14)
+        return;
+
     yuv422_buffer_check();
 
     if (raw_buffer == (void*)-1)
@@ -2114,6 +2335,7 @@ static void raw_lv_enable()
 
 static void raw_lv_disable()
 {
+    ASSERT(!lv_raw_gain);
     lv_raw_enabled = 0;
     raw_info.buffer = 0;
 
@@ -2133,7 +2355,8 @@ int raw_lv_is_enabled()
 
 static int raw_lv_request_count = 0;
 
-static void raw_lv_update()
+static REQUIRES(raw_sem)
+void raw_lv_update()
 {
     int new_state = raw_lv_request_count > 0;
     if (new_state && !lv_raw_enabled)
@@ -2181,6 +2404,7 @@ static void raw_lv_update()
     }
 }
 
+EXCLUDES(raw_sem)
 void raw_lv_request()
 {
     /* refresh VRAM parameters */
@@ -2188,14 +2412,19 @@ void raw_lv_request()
     /* (get_yuv422_vram will only call BMP_LOCK if it has to refresh something, that is, once in a blue moon) */
     BMP_LOCK( get_yuv422_vram(); )
 
-    /* this one should be called only in LiveView */
-    ASSERT(lv);
-    
+    /* this one should be called only in LiveView
+     * but race conditions are not our friends...
+     * in this case, the caller is expected to call raw_lv_release,
+     * which should clean up stuff, if any */
+    //ASSERT(lv);
+
     take_semaphore(raw_sem, 0);
     raw_lv_request_count++;
-    raw_lv_update();
+    if (lv) raw_lv_update();
     give_semaphore(raw_sem);
 }
+
+EXCLUDES(raw_sem)
 void raw_lv_release()
 {
     take_semaphore(raw_sem, 0);
@@ -2204,22 +2433,83 @@ void raw_lv_release()
     raw_lv_update();
     give_semaphore(raw_sem);
 }
+
+void raw_lv_request_bpp(int bpp)
+{
+    take_semaphore(raw_sem, 0);
+
+    /* raw bit depth setup is done from PACK32_MODE register (mask 0x131) */
+    const uint32_t PACK32_MODE = 0xC0F08094;
+    enum {
+        MODE_16BIT = 0x130,
+        MODE_14BIT = 0x030,
+        MODE_12BIT = 0x010,
+        MODE_10BIT = 0x000,
+    };
+    const uint32_t modes[] = { MODE_10BIT, MODE_12BIT, MODE_14BIT, MODE_16BIT};
+
+    int bpp_index = COERCE((bpp-10)/2, 0, COUNT(modes));
+
+    if (shamem_read(PACK32_MODE) == modes[bpp_index])
+    {
+        /* no change needed */
+        ASSERT(raw_info.bits_per_pixel == bpp);
+    }
+    else
+    {
+        EngDrvOut(PACK32_MODE, modes[bpp_index]);
+        raw_info.bits_per_pixel = bpp;
+        raw_info.pitch = raw_info.width * raw_info.bits_per_pixel / 8;
+        raw_info.frame_size = raw_info.pitch * raw_info.height;
+        /* fixme: after switching bit depth, EDMAC needs 1-2 frames to settle */
+        wait_lv_frames(2);
+    }
+
+    give_semaphore(raw_sem);
+}
+
+void raw_lv_request_digital_gain(int gain)
+{
+    take_semaphore(raw_sem, 0);
+
+    ASSERT(lv_raw_enabled);
+
+    if (gain)
+    {
+        lv_raw_gain = gain;
+        raw_info.white_level = get_default_white_level();
+        raw_info.black_level = BLACK_LEVEL;
+    }
+    else
+    {
+        lv_raw_gain = 0;
+        raw_info.white_level = get_default_white_level();
+        /* fixme: what to do with black level? */
+    }
+    
+    give_semaphore(raw_sem);
+}
+
 #endif
 
 /* may not be correct on 4:3 screens */
-void raw_force_aspect_ratio_1to1()
+/* ratios are optional - if zero, they are taken from raw_capture_info */
+void raw_force_aspect_ratio(int rx, int ry)
 {
-    if (lv2raw.sy < lv2raw.sx) /* image too tall */
+    if (rx == 0) rx = raw_capture_info.binning_x + raw_capture_info.skipping_x;
+    if (ry == 0) ry = raw_capture_info.binning_y + raw_capture_info.skipping_y;
+
+    if (lv2raw.sy*ry < lv2raw.sx*rx) /* image too tall */
     {
-        lv2raw.sy = lv2raw.sx;
+        lv2raw.sy = lv2raw.sx*rx/ry;
         int height = RAW2LV_DY(preview_rect_h);
         int offset = (BM2LV_DY(os.y_ex) - height) / 2;
         int skip_top = preview_rect_y;
         lv2raw.ty = skip_top - LV2RAW_DY(os.y0) - LV2RAW_DY(offset);
     }
-    else if (lv2raw.sx < lv2raw.sy) /* image too wide */
+    else if (lv2raw.sx*rx < lv2raw.sy*ry) /* image too wide */
     {
-        lv2raw.sx = lv2raw.sy;
+        lv2raw.sx = lv2raw.sy*ry/rx;
         int width = RAW2LV_DX(preview_rect_w);
         int offset = (vram_lv.width - width) / 2;
         int skip_left = preview_rect_x;
@@ -2284,7 +2574,10 @@ int can_use_raw_overlays()
     
 #ifdef CONFIG_RAW_LIVEVIEW
     if (lv && raw_lv_is_enabled())
-        return 1;
+    {
+        /* currently, raw overlays only work with 14 bits per pixel */
+        return raw_info.bits_per_pixel == 14;
+    }
 #endif
     
     return 0;
@@ -2372,7 +2665,8 @@ static struct menu_entry debug_menus[] = {
     {
         .name = "LV raw type",
         .priv = &lv_raw_type,
-        .max = 64,
+        .max  = 0xFFFF,
+        .unit = UNIT_HEX,
         .help = "Choose what type of raw stream we should use in LiveView.",
         .help2 = "See lv_af_raw, lv_rshd_raw, lv_set_raw, KindOfCraw...",
     },

@@ -6,6 +6,10 @@
 #include "dryos.h"
 #include "boot.h"
 
+#include "cache_hacks.h"
+#include "bmp.h"                /* for BMP_VRAM_SIZE */
+
+
 /** These are called when new tasks are created */
 static int my_init_task(int a, int b, int c, int d);
 

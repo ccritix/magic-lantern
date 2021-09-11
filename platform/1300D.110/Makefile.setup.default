@@ -6,3 +6,4 @@ ML_AF_PATTERNS_OBJ = n
 
 # 1300D_101.sym is to long
 ML_MODULES_SYM_NAME=t6_$(FW_VERSION).sym
+

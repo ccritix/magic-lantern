@@ -49,7 +49,7 @@ uint32_t edmac_write_chan = 0x04;
 #elif defined(CONFIG_1200D)
 uint32_t edmac_read_chan = 0x19;
 uint32_t edmac_write_chan = 0x04;
-#elif defined(CONFIG_1300D) || defined(CONFIG_4000D)
+#elif defined(CONFIG_1300D)
 uint32_t edmac_read_chan = 0x19;
 uint32_t edmac_write_chan = 0x04;
 #else
@@ -89,7 +89,7 @@ static void edmac_memcpy_init()
     ASSERT(resLock);
 
     /* just to make sure we have this stub */
-    static int AbortEDmac_check __attribute__((used)) = &AbortEDmac;
+   //cristi static int AbortEDmac_check __attribute__((used)) = &AbortEDmac;
 }
 
 INIT_FUNC("edmac_memcpy", edmac_memcpy_init);

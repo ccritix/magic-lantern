@@ -19,9 +19,9 @@
 #include "dryos.h"
 #include "bmp.h"
 
-#if !(defined(CONFIG_DIGIC_V)) // Digic V have this stuff in RAM already
+//#if !(defined(CONFIG_DIGIC_V)) // Digic V have this stuff in RAM already
 #include "cache_hacks.h"
-#endif
+//#endif
 
 unsigned int BUF_SIZE = (1024*1024);
 static char* buf = 0;
@@ -79,6 +79,7 @@ void debug_intercept()
         NotifyBox(2000, "Saved %d bytes.", len);
         len = 0;
     }
-    beep();
+  //  beep();
+
 }
 

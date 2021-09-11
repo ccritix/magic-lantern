@@ -89,6 +89,7 @@
 static int bmp_idle_flag = 0;
 
 void bmp_draw_to_idle(int value) { bmp_idle_flag = value; }
+uint32_t ml_refresh_display_needed = 0;
 
 /** Returns a pointer to currently selected BMP vram (real or mirror) */
 uint8_t * bmp_vram(void)
@@ -965,7 +966,9 @@ int bfnt_draw_char(int c, int px, int py, int fg, int bg)
 {
     if (!bfnt_ok())
     {
+        #ifndef PYCPARSER   /* circular dependency */
         bmp_printf(FONT_SMALL, 0, 0, "font addr bad");
+        #endif
         return 0;
     }
 

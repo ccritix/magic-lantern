@@ -60,7 +60,7 @@ static CONFIG_INT("movie.log", movie_log, 0);
 #ifdef CONFIG_FULLFRAME
 #define SENSORCROPFACTOR 10
 #define crop_info 0
-#elif defined(CONFIG_600D)
+#elif defined(CONFIG_600D) || defined(CONFIG_70D)
 static PROP_INT(PROP_DIGITAL_ZOOM_RATIO, digital_zoom_ratio);
 #define DIGITAL_ZOOM ((is_movie_mode() && video_mode_crop && video_mode_resolution == 0) ? digital_zoom_ratio : 100)
 #define SENSORCROPFACTOR (16 * DIGITAL_ZOOM / 100)
@@ -442,9 +442,13 @@ static int round_nicely(int x, int digits)
 const char * lens_format_shutter_reciprocal(int shutter_reciprocal_x1000, int digits)
 {
     static char shutter[32];
-    if (shutter_reciprocal_x1000 == 0)
+    if (shutter_reciprocal_x1000 <= 0)
     {
         snprintf(shutter, sizeof(shutter), "N/A");
+    }
+    else if (shutter_reciprocal_x1000 == INT_MAX)
+    {
+        snprintf(shutter, sizeof(shutter), "0.0");
     }
     else if (shutter_reciprocal_x1000 >= 10000000)
     {
@@ -576,6 +580,12 @@ static volatile int lv_focus_requests = 0;
 static volatile int lv_focus_done = 1;
 static volatile int lv_focus_error = 0;
 
+// 70D focus features don't play well with this and
+// soft limit is reached very quickly
+// see http://www.magiclantern.fm/forum/index.php?topic=14309.msg152551#msg152551
+// skipping the check helps but for e.g. focus stacking is still buggy
+// and takes 1 behind and 1 before all others afterwards are before at the same
+// position no matter what's set in menu
 PROP_HANDLER( PROP_LV_FOCUS_DONE )
 {
     /* turn off the LED we enabled in lens_focus */
@@ -2678,7 +2688,7 @@ static LVINFO_UPDATE_FUNC(picq_update)
         if (is_movie_mode())
         {
             /* todo: icon? */
-            snprintf(buffer, sizeof(buffer), "RAW");
+            snprintf(buffer, sizeof(buffer), "Immortal");
         }
         item->color_fg = raw_lv == 1 ? COLOR_GREEN1 : COLOR_GRAY(20);
     }
@@ -2756,7 +2766,8 @@ static LVINFO_UPDATE_FUNC(fps_update)
 
     if (is_movie_mode())
     {
-        int f = fps_get_current_x1000();
+        int f = shamem_read(0xc0f0501c) == 0x20 ? 400: shamem_read(0xc0f0501c) == 0x21 ? 1000: shamem_read(0xc0f0501c) == 0x22 ? 2000: 
+			    shamem_read(0xc0f0501c) == 0x23 ? 3000: shamem_read(0xc0f0501c) == 0x24 ? 4000: shamem_read(0xc0f0501c) == 0x25 ? 5000: fps_get_current_x1000();
         snprintf(buffer, sizeof(buffer), 
             "%2d.%03d", 
             f / 1000, f % 1000
@@ -2785,12 +2796,6 @@ static LVINFO_UPDATE_FUNC(free_space_update)
         fsg,
         fsgf
     );
-}
-
-static LVINFO_UPDATE_FUNC(mode_update)
-{
-    LVINFO_BUFFER(8);
-    snprintf(buffer, sizeof(buffer), get_shootmode_name_short(shooting_mode_custom));
 }
 
 static LVINFO_UPDATE_FUNC(focal_len_update)
@@ -2927,14 +2932,51 @@ static LVINFO_UPDATE_FUNC(iso_update)
         }
         
         int iso = raw2iso(iso_equiv_raw);
-        
-        if (iso > 1600)
-        {
-            /* think twice before increasing ISO above this value */
-            item->color_fg = COLOR_ORANGE;
-        }
-        
-        STR_APPEND(buffer, "%d", iso);
+    
+/* restricting autoiso for eom, 100D and 5D3. Switch in crop_rec.c */
+		if (shamem_read(0xC0F0b12c) == 0x7 && lens_info.raw_iso_auto > 0x5d) 
+		{
+			STR_APPEND(buffer, "400+");
+		}
+		else if (shamem_read(0xC0F0b12c) == 0x8 && lens_info.raw_iso_auto > 0x63) 
+		{
+			STR_APPEND(buffer, "800+");
+		}
+		else if (shamem_read(0xC0F0b12c) == 0x9 && lens_info.raw_iso_auto > 0x6d) 
+		{
+			STR_APPEND(buffer, "1600+");
+		}
+
+/* isoclimb preset crop_rec.c */
+		else if (shamem_read(0xC0F0b12c) == 0x11) 
+		{
+			STR_APPEND(buffer, "100"); 
+		}
+		else if (shamem_read(0xC0F0b12c) == 0x12) 
+		{
+			STR_APPEND(buffer, "200"); 
+		}
+		else if (shamem_read(0xC0F0b12c) == 0x13) 
+		{	
+			STR_APPEND(buffer, "400"); 
+		}
+		else if (shamem_read(0xC0F0b12c) == 0x14) 
+		{
+			STR_APPEND(buffer, "800");  
+		}
+		else if (shamem_read(0xC0F0b12c) == 0x15) 
+		{
+			STR_APPEND(buffer, "1600"); 
+    		}	
+		else if (shamem_read(0xC0F0b12c) == 0x16) 
+		{	
+			STR_APPEND(buffer, "3200"); 
+		}
+		else
+		{
+			STR_APPEND(buffer, "%d", iso);
+		}
+
     }
     else /* photo mode */
     {
@@ -3146,14 +3188,6 @@ static struct lvinfo_item info_items[] = {
         .name = "Free space",
         .which_bar = LV_TOP_BAR_ONLY,
         .update = free_space_update,
-    },
-    /* Bottom bar */
-    {
-        .name = "Mode",
-        .which_bar = LV_BOTTOM_BAR_ONLY,
-        .update = mode_update,
-        .priority = 1,
-        .preferred_position = -128,
     },
     {
         .name = "Focal len",

@@ -41,8 +41,12 @@ void audio_reg_dump_once();
 #include "edmac-memcpy.h"
 #endif
 
+char camera_serial[32];
+
 extern int config_autosave;
 extern void config_autosave_toggle(void* unused, int delta);
+//cristi
+extern void powersave_prolong();
 
 static struct semaphore * beep_sem = 0;
 
@@ -128,7 +132,8 @@ static void dump_rom_task(void* priv, int unused)
     if (f)
     {
         bmp_printf(FONT_LARGE, 0, 60, "Writing ROM0");
-        FIO_WriteFile(f, (void*) 0xF0000000, 0x01000000);
+        FIO_WriteFile(f, (void*) 0x01000000, 0x02000000);
+//        FIO_WriteFile(f, (void*) 0xF0000000, 0x02000000);
         FIO_CloseFile(f);
     }
     msleep(200);
@@ -137,7 +142,8 @@ static void dump_rom_task(void* priv, int unused)
     if (f)
     {
         bmp_printf(FONT_LARGE, 0, 60, "Writing ROM1");
-        FIO_WriteFile(f, (void*) 0xF8000000, 0x01000000);
+//        FIO_WriteFile(f, (void*) 0x01000000, 0x02000000);
+        FIO_WriteFile(f, (void*) 0xF8000000, 0x02000000);
         FIO_CloseFile(f);
     }
     msleep(200);
@@ -273,11 +279,289 @@ void guimode_test()
     }
 }
 #endif
-
+static uint32_t count=0;
+#include "patch.h"
+#ifdef CONFIG_DEBUG_INTERCEPT
+static void run_test1()
+{
+    msleep(1000);
+    SetGUIRequestMode(GUIMODE_PLAY); // go to PLAY mode
+    msleep(1000);
+    debug_intercept();     // start logging
+    SetGUIRequestMode(0);  // back to LiveView
+    msleep(1000);
+    debug_intercept();     // stop logging
+}
+#else
 static void run_test()
 {
-}
+	printf("Execut Test\n");
+//	extern void _test_sn12();
+//	_test_sn12();
 
+//void (*savecamsetprop)() = (void*)0xfe2be2e4;fe02006c
+//void (*savecamsetprop_cmd)() = (void*)0xfe0c5758; //ff019a74;
+//void (*savelenstofile_cmd)() = (void*)0xfe0c5d24; //ff01a744;
+//void (*savefixtofile_cmd)() = (void*)0xfe0c5cb8; //ff01a604;
+//void (*saveringtofile_cmd)() = (void*)0xfe0c5c4c; //ff01a598;
+//void (*saverasentofile_cmd)() = (void*)0xfe0c5b2c; //ff01a52c;
+//void (*savetunetofile_cmd)() = (void*)0xfe0c5d90; //ff01a7b0;
+//extern void savelenstofile_cmd();
+//extern void savecamsetprop_cmd();
+//extern void savefixtofile_cmd();
+//extern void saveringtofile_cmd();
+//extern void saverasentofile_cmd();
+//extern void savetunetofile_cmd();
+//printf("[CMD] Run savecamsetprop\n"); savecamsetprop();printf("\n\n");
+
+//printf("[CMD] Run savelenstofile_cmd\n"); savelenstofile_cmd();printf("\n\n");
+//printf("[CMD] Run savecamsetprop_cmd\n"); savecamsetprop_cmd();printf("\n\n");
+//printf("[CMD] Run savefixtofile_cmd\n"); savefixtofile_cmd();printf("\n\n");
+//printf("[CMD] Run saveringtofile_cmd\n"); saveringtofile_cmd();printf("\n\n");
+//printf("[CMD] Run saverasentofile_cmd\n"); saverasentofile_cmd();printf("\n\n");
+//printf("[CMD] Run savetunetofile_cmd\n"); savetunetofile_cmd();printf("\n\n");
+
+//void (*factory_menu)() = (void*)0xfe02006c; //FACTORY ADJUSTMENT MENU 
+//printf("[CMD] Run factory_menu\n"); factory_menu();printf("\n\n");
+
+//void (*ROMUTILITY)() = (void*)0xfe0111f0; //FROMUTILITY MENU
+//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
+
+//void (*ROMUTILITY)() = (void*)0xfe7582b8; //SET MENU
+//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
+
+//void (*ROMUTILITY)() = (void*)0xfe7582f8; //PRINT DEVICE CONFIGURATION MENU
+//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
+
+//void (*ROMUTILITY)() = (void*)0xfe758500; //SET DEVICE CONFIGURATION MENU 
+//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
+
+//void (*ROMUTILITY)() = (void*)0xfe758538; //PRINT MENU
+//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
+
+//void (*ROMUTILITY)() = (void*)0xfe758538; //PRINT MENU
+//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
+
+
+printf("Done\n");
+
+}
+static void run_test1()
+{
+    msleep(2000);
+
+    console_show();
+    msleep(1000);
+    
+    /* let's see how much RAM we can get */
+    struct memSuite * suite = srm_malloc_suite(0);
+    struct memChunk * chunk = GetFirstChunkFromSuite(suite);
+    printf("hSuite %x (%dx%s)\n", suite, suite->num_chunks, format_memory_size(chunk->size));
+    
+    printf("You should not be able to take pictures,\n");
+    printf("but autofocus should work.\n");
+
+    info_led_on();
+    for (int i = 10; i >= 0; i--)
+    {
+        msleep(1000);
+        printf("%d...", i);
+    }
+    printf("\b\b\n");
+    info_led_off();
+    
+    srm_free_suite(suite);
+    msleep(1000);
+
+    printf("Now try taking some pictures during the test.\n");
+    
+    /* we must be able to allocate at least two 25MB buffers on top of what you can get from shoot_malloc */
+    /* 50D/500D have 27M, 5D3 has 40 */
+    for (int i = 0; i < 1000; i++)
+    {
+        void* buf1 = srm_malloc(25*1024*1024);
+        printf("srm_malloc(25M) => %x\n", buf1);
+        
+        void* buf2 = srm_malloc(25*1024*1024);
+        printf("srm_malloc(25M) => %x\n", buf2);
+
+        /* we must be able to free them in any order, even if the backend doesn't allow that */
+        if (rand()%2)
+        {
+            free(buf1);
+            free(buf2);
+        }
+        else
+        {
+            free(buf2);
+            free(buf1);
+        }
+
+        if (i == 0)
+        {
+            /* delay the first iteration, so you can see what's going on */
+            /* also save a screenshot */
+            msleep(5000);
+            take_screenshot(0, SCREENSHOT_BMP);
+        }
+        
+        if (!buf1 || !buf2)
+        {
+            /* allocation failed? wait before retrying */
+            msleep(1000);
+        }
+    }
+    
+    return;
+        
+    /* todo: cleanup the following tests and move them in the mem_chk module */
+    
+    /* allocate up to 50000 small blocks of RAM, 32K each */
+    int N = 50000;
+    int blocksize = 32*1024;
+    void** ptr = malloc(N * sizeof(ptr[0]));
+    if (ptr)
+    {
+        for (int i = 0; i < N; i++)
+        {
+            ptr[i] = 0;
+        }
+
+        for (int i = 0; i < N; i++)
+        {
+            ptr[i] = malloc(blocksize);
+            bmp_printf(FONT_MONO_20, 0, 0, "alloc %d %8x (total %s)", i, ptr[i], format_memory_size(i * blocksize));
+            if (ptr[i]) memset(ptr[i], rand(), blocksize);
+            else break;
+        }
+        
+        for (int i = 0; i < N; i++)
+        {
+            if (ptr[i])
+            {
+                bmp_printf(FONT_MONO_20, 0, 20, "free %x   ", ptr[i]);
+                free(ptr[i]);
+            }
+        }
+    }
+    free(ptr);
+    return;
+    
+    /* check for memory leaks */
+    for (int i = 0; i < 1000; i++)
+    {
+        printf("%d/1000\n", i);
+        
+        /* with this large size, the backend will use fio_malloc, which returns uncacheable pointers */
+        void* p = malloc(16*1024*1024 + 64);
+        
+        if (!p)
+        {
+            printf("malloc err\n");
+            continue;
+        }
+        
+        /* however, user code should not care about this; we have requested a plain old cacheable pointer; did we get one? */
+        ASSERT(p == CACHEABLE(p));
+        
+        /* do something with our memory */
+        memset(p, 1234, 1234);
+        msleep(20);
+        
+        /* done, now free it */
+        /* the backend should put back the uncacheable flag (if handled incorrectly, there may be memory leaks) */
+        free(p);
+        msleep(20);
+    }
+    return;
+
+   //~ bfnt_test();
+#ifdef FEATURE_SHOW_SIGNATURE
+    console_show();
+    printf("FW Signature: 0x%08x", compute_signature((int*)SIG_START, SIG_LEN));
+    msleep(1000);
+    return;
+#endif
+
+    #ifdef CONFIG_EDMAC_MEMCPY
+    msleep(2000);
+
+    uint8_t* real = bmp_vram_real();
+    uint8_t* idle = bmp_vram_idle();
+    int xPos = 0;
+    int xOff = 2;
+    int yPos = 0;
+
+    edmac_memcpy_res_lock();
+    edmac_copy_rectangle_adv(BMP_VRAM_START(idle), BMP_VRAM_START(real), 960, 120, 50, 960, 120, 50, 720, 440);
+    while(true)
+    {
+        edmac_copy_rectangle_adv(BMP_VRAM_START(real), BMP_VRAM_START(idle), 960, 120, 50, 960, 120+xPos, 50+yPos, 720-xPos, 440-yPos);
+        xPos += xOff;
+
+        if(xPos >= 100 || xPos <= -100)
+        {
+            xOff *= -1;
+        }
+    }
+    edmac_memcpy_res_unlock();
+    return;
+    #endif
+
+    call("lv_save_raw", 1);
+    call("aewb_enableaewb", 0);
+    return;
+
+#if 0
+    void exmem_test();
+
+    exmem_test();
+    return;
+#endif
+
+#ifdef CONFIG_MODULES
+    console_show();
+
+    printf("Loading modules...\n");
+    msleep(1000);
+    module_load_all();
+    return;
+
+    printf("\n");
+
+    printf("Testing TCC executable...\n");
+    printf(" [i] this may take some time\n");
+    msleep(1000);
+
+    for(int try = 0; try < 100; try++)
+    {
+        void *module = NULL;
+        uint32_t ret = 0;
+
+        module = module_load(MODULE_PATH"libtcc.mex");
+        if(module)
+        {
+            ret = module_exec(module, "tcc_new", 0);
+            if(!(ret & 0x40000000))
+            {
+                printf("tcc_new() returned: 0x%08X\n", ret);
+            }
+            else
+            {
+                module_exec(module, "tcc_delete", 1, ret);
+            }
+            module_unload(module);
+        }
+        else
+        {
+            printf(" [E] load failed\n");
+        }
+    }
+
+    printf("Done!\n");
+#endif
+}
+#endif
 static void unmount_sd_card()
 {
     extern void FSUunMountDevice(int drive);
@@ -532,6 +816,20 @@ debug_loop_task( void* unused ) // screenshot, draw_prop
         #ifdef FEATURE_SCREENSHOT
         if (screenshot_sec)
         {
+            static int valid = 0;
+            if (screenshot_sec == 1 && valid)
+            {
+            menu_set_str_value_from_script("Movie", "raw video", "ON", 1);
+            valid = 0;
+            msleep(100);
+            }
+            if (screenshot_sec == 3 && raw_lv_is_enabled())
+            {
+                valid = 1;
+                menu_set_str_value_from_script("Movie", "raw video", "OFF", 1);
+                msleep(100);
+            }
+            
             info_led_blink(1, 20, 1000-20-200);
             screenshot_sec--;
             if (!screenshot_sec)
@@ -603,6 +901,64 @@ static MENU_UPDATE_FUNC(shuttercount_display)
     {
         MENU_SET_WARNING(MENU_WARN_INFO, "You may get around %d.", CANON_SHUTTER_RATING);
     }
+}
+static MENU_UPDATE_FUNC(serialnumber_display)
+{
+//	printf("LEN: %s \n", serialnumber_display);
+	if(serial_number_len == 8)
+    {
+
+        snprintf(camera_serial, sizeof(camera_serial), "%X%08X", (uint32_t)(*((uint64_t*)serial_number_buf) & 0xFFFFFFFF), (uint32_t) (*((uint64_t*)serial_number_buf) >> 32));
+    }
+    else if(serial_number_len == 4)
+    {
+        snprintf(camera_serial, sizeof(camera_serial), "%08X", *((uint32_t*)serial_number_buf));
+    }
+    else
+    {
+        snprintf(camera_serial, sizeof(camera_serial), "(unknown len %d)", serial_number_len);
+    }
+	//uint64_t number =0;
+	//uint64_t number1 =0;
+	//char number2;
+	
+	//number = (uint32_t)(*((uint64_t*)serial_number_buf) & 0xFFFFFFFF);
+	//number1 = (uint32_t) (*((uint64_t*)serial_number_buf) >> 32);
+	// bmp_printf(FONT_LARGE, 0, 0, "SN: %X", number);
+	// bmp_printf(FONT_LARGE, 0, 30, "SN: %X", number1);
+	// bmp_printf(FONT_LARGE, 0, 60, "SN: %X", serial_number_buf);
+	//number2= strcat(number, number1);
+	//console_show();
+	//printf("Afisez SN:  %X%08X   ->   %d\n", (uint32_t)(*((uint64_t*)serial_number_buf) & 0xFFFFFFFF), (uint32_t) (*((uint64_t*)serial_number_buf) >> 32),number2);
+   //char camera_serial[32]="10B";
+   int len = strlen(camera_serial);
+   char rr[64];
+   long long int temp = 0;
+   long long decimal = 0, base = 1;
+   int i = 0, val;
+
+    char *ptr;
+    long long ret;
+    char sn_high[32];
+    snprintf(sn_high, sizeof(sn_high), "%X", (uint32_t)(*((uint64_t*)serial_number_buf) & 0xFFFFFFFF));
+    char sn_low[32];
+    snprintf(sn_low, sizeof(sn_low), "%08X", (uint32_t)(*((uint64_t*)serial_number_buf) >> 32));
+    //printf("cs_high:  %s\n", cs_high);
+    //printf("cs_low:  %s\n", cs_low);
+    ret=(*((uint64_t*)sn_high) << 32);
+    snprintf(sn_low, sizeof(sn_low), "%d", (uint32_t)(ret));
+    ret =  ret | *((uint64_t*)sn_low);// | cs_low;
+    snprintf(sn_low, sizeof(sn_low), "%d", (uint64_t)(ret));
+    //snprintf(rr, sizeof(rr), "%d", (ret) );
+    len = strlen(sn_low);
+    printf("sn_low:  %d\n", len);
+    //nprintf(rr, sizeof(rr), "%x ", ret);
+    //printf("SN:  %d\n", len);
+   // decimal=0;
+	MENU_SET_VALUE(
+        "%s", camera_serial
+    );
+
 }
 #endif
 
@@ -876,12 +1232,13 @@ static struct menu_entry debug_menus[] = {
         .select      = run_in_separate_task,
         .help = "Log DebugMessages"
     },
-    {
+/*    {
         .name        = "TryPostEvent Log",
         .priv        = j_tp_intercept,
         .select      = run_in_separate_task,
         .help = "Log TryPostEvents"
     },
+     * */
 #endif
 #ifdef FEATURE_SHOW_TASKS
     {
@@ -947,6 +1304,13 @@ static struct menu_entry debug_menus[] = {
         .update = shuttercount_display,
         .icon_type = IT_ALWAYS_ON,
         .help = "Number of pics taken + number of LiveView actuations",
+        //.essential = FOR_MOVIE | FOR_PHOTO,
+    },
+    {
+        .name = "Serial Number:",
+        .update = serialnumber_display,
+        .icon_type = IT_ALWAYS_ON,
+        .help = "Show Serial Number",
         //.essential = FOR_MOVIE | FOR_PHOTO,
     },
 #endif

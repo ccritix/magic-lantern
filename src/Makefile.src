@@ -68,6 +68,13 @@ else ifndef ML_ENTRY_OBJ
 ML_ENTRY_OBJ = entry.o
 endif
 
+ifeq ($(CONFIG_DEBUG_INTERCEPT),y)
+CFLAGS += -DCONFIG_DEBUG_INTERCEPT
+ifndef ML_DM_SPY_OBJ
+ML_DM_SPY_OBJ = dm-spy.o
+endif       
+endif
+
 ifndef ML_BOOT_OBJ
 ML_BOOT_OBJ = boot-d45.o
 endif
@@ -75,6 +82,12 @@ endif
 ifndef ML_MINIMAL_OBJ
 ML_MINIMAL_OBJ = minimal.o
 endif
+
+ifeq ($(CONFIG_GDBSTUB),y)
+CFLAGS += -DCONFIG_GDB -DCONFIG_GDBSTUB
+endif
+
+
 
 ifeq ($(ML_SRC_PROFILE),minimal)
 ML_OBJS-y = \
@@ -187,7 +200,9 @@ ML_SRC_OBJS = \
 	chdk-dng.o \
 	edmac-memcpy.o \
 	patch.o \
-
+	wifi.o \
+        $(ML_DM_SPY_OBJ) \
+	
 
 ML_OBJS-y += $(ML_SRC_OBJS)
 

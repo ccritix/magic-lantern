@@ -137,7 +137,6 @@ void vram_params_set_dirty()
 }
 
 static uint32_t hd_size = 0;
-
 static void vram_params_update_if_dirty()
 {
     #ifdef REG_EDMAC_WRITE_LV_ADDR
@@ -154,8 +153,8 @@ static void vram_params_update_if_dirty()
         BMP_LOCK( 
             if (vram_params_dirty)
             {
-                _update_vram_params(); 
-                vram_params_dirty = 0;
+                 _update_vram_params(); 
+                 vram_params_dirty = 0; 
             }
         )
     }
@@ -509,6 +508,12 @@ int first_video_clip = 1;
 
 struct vram_info * get_yuv422_vram()
 {
+    // SJE FIXME quick hack to diagnose crash in take_screenshot(),
+    // I think YUV422_LV_BUFFER_1 or similar are junk values
+    #if defined(CONFIG_200D) || defined(CONFIG_R) || defined(CONFIG_EOSRP)
+    return NULL;
+    #endif
+
     vram_params_update_if_dirty();
     
     if (digic_zoom_overlay_enabled()) // compute histograms and such on full-screen image

@@ -75,6 +75,18 @@ static int num_patches = 0;
 static struct matrix_patch matrix_patches[MAX_MATRIX_PATCHES] = {{0}};
 static int num_matrix_patches = 0;
 
+#ifdef CONFIG_1300D
+// see patch_instruction_jump
+uint32_t *patch_jump_vector;
+const uint32_t patch_jump_size = 64*3;
+typedef struct {
+    uint32_t ins_trampoline;// trampoline instruction = LDR PC, [PC,#-4]
+    uint32_t new_func_addr; // trampoline address
+    uint32_t rom_func_addr; // for later identification
+} jump_vector;
+jump_vector *jump_vectors;
+#endif
+
 /* at startup we don't have malloc, so we allocate it statically */
 static union logging_hook_code logging_hooks[MAX_LOGGING_HOOKS];
 
@@ -86,6 +98,7 @@ static union logging_hook_code logging_hooks[MAX_LOGGING_HOOKS];
 static char last_error[70];
 
 static void check_cache_lock_still_needed();
+static int check_jump_range(uint32_t pc, uint32_t dest);
 
 /* re-apply the ROM (cache) patches */
 /* call this after you have flushed the caches, for example */
@@ -138,7 +151,11 @@ int _patch_sync_caches(int also_data)
     else
     {
         dbg_printf("Flushing ICache...\n");
+        #ifdef CONFIG_200D
+        // 200D doesn't have this, find something appropriate
+        #else
         _flush_i_cache();
+        #endif
     }
     
     if (locked)
@@ -460,6 +477,7 @@ int unpatch_memory(uintptr_t _addr)
     uint32_t old_int = cli();
 
     dbg_printf("unpatch_memory(%x)\n", addr);
+    printf("unpatch_memory(%x)\n", addr);
 
     /* find the patch in our data structure */
     int p = -1;
@@ -510,6 +528,18 @@ int unpatch_memory(uintptr_t _addr)
             memset(&logging_hooks[i], 0, sizeof(union logging_hook_code));
         }
     }
+#ifdef CONFIG_1300D
+   // check is this patch was an double jump 
+   for (uint32_t i=0;i<patch_jump_size/sizeof(jump_vector);i++) 
+   {
+     if (jump_vectors[i].rom_func_addr == addr)
+     {
+       jump_vectors[i].ins_trampoline = 0x0;
+       jump_vectors[i].new_func_addr = 0x0;
+       jump_vectors[i].rom_func_addr = 0x0;
+     }
+   }
+#endif
 
     if (IS_ROM_PTR(addr))
     {
@@ -531,6 +561,8 @@ end:
         snprintf(last_error, sizeof(last_error), "Unpatch error at %x (%s)", addr, error_msg(err));
         puts(last_error);
     }
+
+
     sei(old_int);
     return err;
 }
@@ -544,6 +576,84 @@ int patch_memory(
 {
     return patch_memory_work(addr, old_value, new_value, 0, description);
 }
+#ifdef CONFIG_1300D
+
+
+#define JUMP_BL 0
+#define JUMP_B  1
+
+int patch_instruction_jump(
+    uintptr_t rom_func_addr,
+    uintptr_t new_func_addr,
+    uint32_t jump_type,
+    const char * description)
+{
+    uint32_t instr;
+    // Use relative, if possible
+    if (check_jump_range((uint32_t)rom_func_addr,new_func_addr))
+    {
+      if (jump_type == JUMP_B)
+        instr = B_INSTR((uint32_t)rom_func_addr,(uint32_t)new_func_addr);
+      else if (jump_type == JUMP_BL)
+        instr = BL_INSTR((uint32_t)rom_func_addr,(uint32_t)new_func_addr);
+
+      return patch_memory_work((uint32_t)rom_func_addr, MEM(rom_func_addr), instr, 1, description);
+    }
+    // relative plus aboslute trampoline jump
+    else 
+    {
+      uint32_t i;
+
+      printf("patch trampoline\n");
+
+      for (i=0;i<patch_jump_size/sizeof(jump_vector);i++) 
+      {
+         // already present ?
+         if (jump_vectors[i].rom_func_addr == (uint32_t)rom_func_addr)
+           return E_PATCH_UNKNOWN_ERROR;
+      }
+
+      // find first free index
+      for (i=0;i<patch_jump_size/sizeof(jump_vector);i++) 
+      {
+        if (jump_vectors[i].ins_trampoline == 0x0)
+          break;
+      }
+
+      uint32_t addr = (uint32_t)&jump_vectors[i].ins_trampoline;
+      if (i==patch_jump_size/sizeof(jump_vector)) // no more free
+        return E_PATCH_TOO_MANY_PATCHES;
+
+      printf("Info from %lx to %lx, jump_vectors %lx\n",(uint32_t)rom_func_addr,addr,jump_vectors);
+
+      // verify that we can jump into vector (from ROM position into RAM vector)
+      if (!check_jump_range((uint32_t)rom_func_addr,addr))
+        return E_PATCH_JUMP_RANGE_ERROR;
+
+
+      jump_vectors[i].ins_trampoline = 0xe51ff004; /* LDR   PC, [PC,#-4] */
+      jump_vectors[i].new_func_addr = new_func_addr;
+      jump_vectors[i].rom_func_addr = (uint32_t)rom_func_addr; // save identification for unpatching
+
+      sync_caches();
+
+      // finalized and install 1nd relative jump in ROM
+      if (jump_type == JUMP_BL)
+        instr = BL_INSTR((uint32_t)rom_func_addr,(uint32_t)addr);
+      else if (jump_type == JUMP_B)
+        instr = B_INSTR((uint32_t)rom_func_addr,(uint32_t)addr);
+
+      int ret = patch_memory_work(rom_func_addr, MEM(rom_func_addr), instr, 1, description);
+      if (ret != E_PATCH_OK) 
+	{
+	    return ret;
+	}
+      return E_PATCH_OK;
+    }
+
+  return E_PATCH_UNKNOWN_ERROR;
+}
+#endif
 
 int patch_instruction(
     uintptr_t addr,
@@ -1338,6 +1448,20 @@ static struct menu_entry patch_menu[] =
 static void patch_simple_init()
 {
     menu_add("Debug", patch_menu, COUNT(patch_menu));
+
+
+#ifdef CONFIG_1300D
+    // memset jump_vector
+    memset(patch_jump_vector,0,patch_jump_size);
+
+    // align jump_vector
+    if (((uint32_t)patch_jump_vector) % 4 !=0)
+      patch_jump_vector = (uint32_t *)((((uint32_t)patch_jump_vector)+4) & ~3);
+
+    // initialize jumpvectors
+    jump_vectors = (jump_vector *)patch_jump_vector;
+#endif
+
 }
 
 INIT_FUNC("patch", patch_simple_init);

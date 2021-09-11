@@ -17,7 +17,7 @@
 
 #ifdef CONFIG_FRAME_SHUTTER_OVERRIDE
 /* todo: refactor it with a menu that actually makes sense */
-//~ #define FEATURE_HDR_EXTENDED
+#define FEATURE_HDR_EXTENDED
 #endif
 
 #ifdef FEATURE_HDR_EXTENDED
@@ -481,7 +481,7 @@ static void iso_test()
 
 static void hdr_init()
 {
-    menu_add( "Movie", hdr_menu, COUNT(hdr_menu) );
+    menu_add( "Shoot", hdr_menu, COUNT(hdr_menu) );
 
     #ifdef CONFIG_FRAME_ISO_OVERRIDE_ANALOG_ONLY
     // round to nearest full-stop ISO (these cameras can't change the digital component)
