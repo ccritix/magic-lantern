@@ -1,6 +1,9 @@
 #ifndef _battery_h_
 #define _battery_h_
 
+/* return battery serial in hex */
+int GetBatterySerial();
+
 /* return battery level in percentage (0-100) */
 int GetBatteryLevel();
 

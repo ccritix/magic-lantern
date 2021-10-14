@@ -66,6 +66,10 @@ PROP_HANDLER(PROP_BATTERY_HISTORY) // also in memory address 7D.203: 7AFC0, leng
     }
 }
 
+int GetBatterySerial()
+{
+	return bat_info.serial;
+}
 int GetBatteryLevel()
 {
     return bat_info.level;
@@ -129,6 +133,8 @@ MENU_UPDATE_FUNC(batt_display)
     int l = GetBatteryLevel();
     int r = GetBatteryTimeRemaining();
     int d = GetBatteryDrainRate();
+    uint32_t s = GetBatterySerial();
+
     MENU_SET_VALUE(
         "%d%%, %dh%02dm, %d%%/h",
         l, 0, 
