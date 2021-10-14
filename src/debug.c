@@ -293,60 +293,8 @@ static void run_test1()
     debug_intercept();     // stop logging
 }
 #else
+
 static void run_test()
-{
-	printf("Execut Test\n");
-//	extern void _test_sn12();
-//	_test_sn12();
-
-//void (*savecamsetprop)() = (void*)0xfe2be2e4;fe02006c
-//void (*savecamsetprop_cmd)() = (void*)0xfe0c5758; //ff019a74;
-//void (*savelenstofile_cmd)() = (void*)0xfe0c5d24; //ff01a744;
-//void (*savefixtofile_cmd)() = (void*)0xfe0c5cb8; //ff01a604;
-//void (*saveringtofile_cmd)() = (void*)0xfe0c5c4c; //ff01a598;
-//void (*saverasentofile_cmd)() = (void*)0xfe0c5b2c; //ff01a52c;
-//void (*savetunetofile_cmd)() = (void*)0xfe0c5d90; //ff01a7b0;
-//extern void savelenstofile_cmd();
-//extern void savecamsetprop_cmd();
-//extern void savefixtofile_cmd();
-//extern void saveringtofile_cmd();
-//extern void saverasentofile_cmd();
-//extern void savetunetofile_cmd();
-//printf("[CMD] Run savecamsetprop\n"); savecamsetprop();printf("\n\n");
-
-//printf("[CMD] Run savelenstofile_cmd\n"); savelenstofile_cmd();printf("\n\n");
-//printf("[CMD] Run savecamsetprop_cmd\n"); savecamsetprop_cmd();printf("\n\n");
-//printf("[CMD] Run savefixtofile_cmd\n"); savefixtofile_cmd();printf("\n\n");
-//printf("[CMD] Run saveringtofile_cmd\n"); saveringtofile_cmd();printf("\n\n");
-//printf("[CMD] Run saverasentofile_cmd\n"); saverasentofile_cmd();printf("\n\n");
-//printf("[CMD] Run savetunetofile_cmd\n"); savetunetofile_cmd();printf("\n\n");
-
-//void (*factory_menu)() = (void*)0xfe02006c; //FACTORY ADJUSTMENT MENU 
-//printf("[CMD] Run factory_menu\n"); factory_menu();printf("\n\n");
-
-//void (*ROMUTILITY)() = (void*)0xfe0111f0; //FROMUTILITY MENU
-//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
-
-//void (*ROMUTILITY)() = (void*)0xfe7582b8; //SET MENU
-//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
-
-//void (*ROMUTILITY)() = (void*)0xfe7582f8; //PRINT DEVICE CONFIGURATION MENU
-//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
-
-//void (*ROMUTILITY)() = (void*)0xfe758500; //SET DEVICE CONFIGURATION MENU 
-//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
-
-//void (*ROMUTILITY)() = (void*)0xfe758538; //PRINT MENU
-//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
-
-//void (*ROMUTILITY)() = (void*)0xfe758538; //PRINT MENU
-//printf("[CMD] Run ROMUTILITY\n"); ROMUTILITY();printf("\n\n");
-
-
-printf("Done\n");
-
-}
-static void run_test1()
 {
     msleep(2000);
 
@@ -918,43 +866,7 @@ static MENU_UPDATE_FUNC(serialnumber_display)
     {
         snprintf(camera_serial, sizeof(camera_serial), "(unknown len %d)", serial_number_len);
     }
-	//uint64_t number =0;
-	//uint64_t number1 =0;
-	//char number2;
-	
-	//number = (uint32_t)(*((uint64_t*)serial_number_buf) & 0xFFFFFFFF);
-	//number1 = (uint32_t) (*((uint64_t*)serial_number_buf) >> 32);
-	// bmp_printf(FONT_LARGE, 0, 0, "SN: %X", number);
-	// bmp_printf(FONT_LARGE, 0, 30, "SN: %X", number1);
-	// bmp_printf(FONT_LARGE, 0, 60, "SN: %X", serial_number_buf);
-	//number2= strcat(number, number1);
-	//console_show();
-	//printf("Afisez SN:  %X%08X   ->   %d\n", (uint32_t)(*((uint64_t*)serial_number_buf) & 0xFFFFFFFF), (uint32_t) (*((uint64_t*)serial_number_buf) >> 32),number2);
-   //char camera_serial[32]="10B";
-   int len = strlen(camera_serial);
-   char rr[64];
-   long long int temp = 0;
-   long long decimal = 0, base = 1;
-   int i = 0, val;
 
-    char *ptr;
-    long long ret;
-    char sn_high[32];
-    snprintf(sn_high, sizeof(sn_high), "%X", (uint32_t)(*((uint64_t*)serial_number_buf) & 0xFFFFFFFF));
-    char sn_low[32];
-    snprintf(sn_low, sizeof(sn_low), "%08X", (uint32_t)(*((uint64_t*)serial_number_buf) >> 32));
-    //printf("cs_high:  %s\n", cs_high);
-    //printf("cs_low:  %s\n", cs_low);
-    ret=(*((uint64_t*)sn_high) << 32);
-    snprintf(sn_low, sizeof(sn_low), "%d", (uint32_t)(ret));
-    ret =  ret | *((uint64_t*)sn_low);// | cs_low;
-    snprintf(sn_low, sizeof(sn_low), "%d", (uint64_t)(ret));
-    //snprintf(rr, sizeof(rr), "%d", (ret) );
-    len = strlen(sn_low);
-    printf("sn_low:  %d\n", len);
-    //nprintf(rr, sizeof(rr), "%x ", ret);
-    //printf("SN:  %d\n", len);
-   // decimal=0;
 	MENU_SET_VALUE(
         "%s", camera_serial
     );
