@@ -1223,7 +1223,8 @@ static MENU_UPDATE_FUNC(meminfo_display)
 
             if (ABS(ml_used_mem - ml_reserved_mem) < 1024)
             {
-                MENU_SET_VALUE("%s", format_memory_size(ml_used_mem));
+                MENU_SET_VALUE("%s of ",format_memory_size(ml_used_mem));
+                MENU_APPEND_VALUE("%s", format_memory_size(ml_reserved_mem));
             }
             else
             {
