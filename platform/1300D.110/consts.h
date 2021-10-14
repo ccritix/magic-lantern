@@ -162,8 +162,8 @@
 #define DISPLAY_DATE_POS_X 425
 #define DISPLAY_DATE_POS_Y 430
 
-#define DISPLAY_BATTERY_POS_X 400
-#define DISPLAY_BATTERY_POS_Y 450
+#define DISPLAY_BATTERY_POS_X 350
+#define DISPLAY_BATTERY_POS_Y 400
 
 // position for displaying K icon in photo info display
 #define WB_K_ICON_POS_X 192
@@ -185,7 +185,10 @@
 
 // In bindGUIEventFromGUICBR, look for "LV Set" => arg0 = 8
 // Next, in SetGUIRequestMode, look at what code calls NotifyGUIEvent(8, something)
-#define GUIMODE_ML_MENU (RECORDING ? 0 : lv ? 68 : 2)
+//#define GUIMODE_ML_MENU (RECORDING ? 0 : lv ? 68 : 2)
+// skip RECORDING variant for now
+#define GUIMODE_ML_MENU (lv ? 68 : 2)
+
 
 #define NUM_PICSTYLES 10
 
@@ -248,7 +251,7 @@
 #define Q_BTN_NAME (RECORDING ? "INFO" : "[Q]")
 #define ARROW_MODE_TOGGLE_KEY ""
 
-#define DISPLAY_STATEOBJ (*(struct state_object **)0x318B8)
+#define DISPLAY_STATEOBJ (*(struct state_object **)0x318B8)  //0x31818+0xa0
 #define DISPLAY_IS_ON (DISPLAY_STATEOBJ->current_state != 0)
 
 #define VIDEO_PARAMETERS_SRC_3 0x6A95C 
@@ -262,7 +265,7 @@
 #define FRAME_SHUTTER_BLANKING_NOZOOM (*(uint16_t*)0x40481B24) // ADTG register 8061
 #define FRAME_SHUTTER_BLANKING_READ   (lv_dispsize > 1 ? FRAME_SHUTTER_BLANKING_NOZOOM : FRAME_SHUTTER_BLANKING_ZOOM) /* when reading, use the other mode, as it contains the original value (not overriden) */
 #define FRAME_SHUTTER_BLANKING_WRITE  (lv_dispsize > 1 ? &FRAME_SHUTTER_BLANKING_ZOOM : &FRAME_SHUTTER_BLANKING_NOZOOM)
-#define LV_DISP_MODE (MEM(0x89BAC + 0x7C) != 3)
+//#define LV_DISP_MODE (MEM(0x67548 + 0x24) != 3) //on EOSM is (MEM(0x89BAC + 0x7C) != 3)// 00067548
 
 // see "Malloc Information"
 #define MALLOC_STRUCT 0x671A8
