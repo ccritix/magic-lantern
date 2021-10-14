@@ -5,21 +5,16 @@
 
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
 /** The 1300D port is very early, so I think we should not enable properties. **/
-//#undef CONFIG_PROP_REQUEST_CHANGE
 #define CONFIG_PROP_REQUEST_CHANGE
 
-//cristi#define FEATURE_EXPO_OVERRIDE
-//#undef FEATURE_EXPO_OVERRIDE
 /** 
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 
  * They might slow down Canon code, so here you can disable all of them (useful for debugging or early ports) 
  */
-//cristi
 /** No additional_version stub on this DryOS version **/
 #define CONFIG_NO_ADDITIONAL_VERSION
 
 #define CONFIG_STATE_OBJECT_HOOKS
-//#undef CONFIG_STATE_OBJECT_HOOKS
 
 /** This camera runs DryOS **/
 //~ #define CONFIG_VXWORKS
@@ -34,9 +29,7 @@
 //~ #define CONFIG_FULLFRAME
 
 /** This camera has LiveView and can record video **/
-//#define CONFIG_LIVEVIEW
 #define CONFIG_LIVEVIEW
-
 #define CONFIG_MOVIE
 
 /** This camera has a 4:3 screen, 720x480 **/
@@ -78,7 +71,6 @@
 
 /** We can't control audio settings from ML **/
 //~ #define CONFIG_AUDIO_CONTROLS
-#undef CONFIG_AUDIO_CONTROLS
 
 /** Zoom button can be used while recording (for Magic Zoom) **/
 /* to be checked */
@@ -142,7 +134,7 @@
 //~ #define CONFIG_FPS_TIMER_A_ONLY
 
 /** FPS override: Canon changes FPS registers often; we need to undo their changes asap */
-//cristi
+
 #define CONFIG_FPS_AGGRESSIVE_UPDATE
 
 /** This camera has a mono microphone input, so we should display only one audio meter **/
@@ -161,7 +153,7 @@
 //#define CONFIG_LVAPP_HACK_DEBUGMSG
 
 /** Workaround for menu timeout in LiveView */
-//cristi
+
 #define CONFIG_MENU_TIMEOUT_FIX
 
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
