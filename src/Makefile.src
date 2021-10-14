@@ -200,9 +200,7 @@ ML_SRC_OBJS = \
 	chdk-dng.o \
 	edmac-memcpy.o \
 	patch.o \
-	wifi.o \
-        $(ML_DM_SPY_OBJ) \
-	
+
 
 ML_OBJS-y += $(ML_SRC_OBJS)
 
