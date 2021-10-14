@@ -45,7 +45,7 @@
 
 /** Expo menu **/
 
-    // #define FEATURE_EXPO_ISO_DIGIC
+    #define FEATURE_EXPO_ISO_DIGIC
 
 #ifdef CONFIG_PROP_REQUEST_CHANGE
     #define FEATURE_WHITE_BALANCE
@@ -107,12 +107,12 @@
     //~ #define FEATURE_NITRATE_WAV_RECORD // not user-proof at all
     //~ #define FEATURE_VIDEO_HACKS // for experts only
 
-    // #define FEATURE_REC_INDICATOR
-    // #define FEATURE_MOVIE_LOGGING
-     #define FEATURE_MOVIE_RESTART
-    // #define FEATURE_REC_NOTIFY
+    #define FEATURE_REC_INDICATOR
+    #define FEATURE_MOVIE_LOGGING
+    #define FEATURE_MOVIE_RESTART
+    #define FEATURE_REC_NOTIFY
     //~ #define FEATURE_REC_NOTIFY_BEEP // this may interfere with sound recording, so only enable it where we know it works
-    // #define FEATURE_MOVIE_REC_KEY
+    #define FEATURE_MOVIE_REC_KEY
     #define FEATURE_FORCE_LIVEVIEW
 
 #ifdef CONFIG_PROP_REQUEST_CHANGE
