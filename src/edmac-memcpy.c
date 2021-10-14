@@ -89,7 +89,7 @@ static void edmac_memcpy_init()
     ASSERT(resLock);
 
     /* just to make sure we have this stub */
-   //cristi static int AbortEDmac_check __attribute__((used)) = &AbortEDmac;
+   static int AbortEDmac_check __attribute__((used)) = &AbortEDmac;
 }
 
 INIT_FUNC("edmac_memcpy", edmac_memcpy_init);
