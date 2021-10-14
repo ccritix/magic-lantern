@@ -48,8 +48,7 @@ TARGET_COMPILER ?= arm-gcc
 CFLAGS =
 
 ifeq ($(TARGET_COMPILER), arm-gcc)
-	CFLAGS += -Os -march=armv5te \
-				-D__ARM__
+	CFLAGS += -Os -march=$(PLATFORM_ARCH) -D__ARM__
 endif
 
 CFLAGS +=\
