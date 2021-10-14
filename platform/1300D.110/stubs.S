@@ -132,7 +132,7 @@ NSTUB(0xFE3F0A44,  dialog_redraw)
 NSTUB(0xFE2F8BF8,  dialog_set_property_str)
 
 /** Dialog handlers **/
-NSTUB(0xFE5ACCEC,  ErrCardForLVApp_handler)                 // LiveViewErrorApp, as in 60D
+NSTUB(0xfe5ac378,  ErrCardForLVApp_handler)                 // LiveViewErrorApp, as in 60D
 NSTUB(0xFE45573C,  ErrForCamera_handler)                    // ERR70, ERR80 etc (DlgErrForCamera.c, AJ_DIALOG.HANDLER_DlgErrForCamera.c)
 NSTUB(0xFE488590,  HideUnaviFeedBack_maybe)                 // look for StartUnaviFeedBackTimer
 NSTUB(0xFE48D148,  LiveViewApp_handler)
@@ -306,11 +306,18 @@ NSTUB(   0x31170,  current_task)
 NSTUB(     0x640,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
 
 /* wifi  */
-NSTUB(0xfe43005d, nif_setup) //fe43005c
-NSTUB(0xfe42fd45, rt_edit)
-NSTUB(0xfe443964, wlanconnect)
-//NSTUB(0xfe42d990, wlanconnect)
-// wlan init FUN_fa443a7c ???
+NSTUB(0xFE43005C, nif_setup) 
+NSTUB(0xFE42fd44, rt_edit)
+NSTUB(0xFE443964, wlanconnect)
+
+NSTUB(0x000140CC, _socket_create)  
+NSTUB(0x000142BC, _socket_bind)  
+NSTUB(0x000143B0, _socket_connect) 
+NSTUB(0x00014334, _socket_listen)
+NSTUB(0x00014468, _socket_accept)
+NSTUB(0x00014670, _socket_recv)
+NSTUB(0x00014920, _socket_send)
+NSTUB(0x00014DE4, _socket_setsockopt)
 
 
 /** Task sleep **/
