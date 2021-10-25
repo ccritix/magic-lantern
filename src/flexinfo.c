@@ -3221,8 +3221,8 @@ static struct menu_entry info_menus[] = {
                 .select = info_menu_reset_select,
                 .help = "Reset menu settings",
             },*/
-            MENU_EOL
-        },
+            MENU_EOL,
+        }
     }
 };
 

@@ -12,7 +12,7 @@
     //~ #define CONFIG_EARLY_PORT
 
     /** Load fonts and print Hello World (disable CONFIG_EARLY_PORT); will not start any other ML tasks, handlers etc. */
-// #define CONFIG_HELLO_WORLD
+    //~ #define CONFIG_HELLO_WORLD
     
     /** Create a developer FIR for enabling the bootflag and dumping the ROM. */
     //~ #define CONFIG_DUMPER_BOOTFLAG
