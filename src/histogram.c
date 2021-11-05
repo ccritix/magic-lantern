@@ -284,9 +284,9 @@ void hist_draw_image(
             int bg = (hist_log ? COLOR_WHITE : COLOR_BLACK);
             if (histogram.is_rgb)
             {
-                unsigned int over_r = histogram.hist_r[i];
-                unsigned int over_g = histogram.hist_g[i];
-                unsigned int over_b = histogram.hist_b[i];
+                unsigned int over_r = histogram.hist_r[i] + histogram.hist_r[i-1];
+                unsigned int over_g = histogram.hist_g[i] + histogram.hist_g[i-1];
+                unsigned int over_b = histogram.hist_b[i] + histogram.hist_b[i-1];
 
                 if (over_r > thr) hist_dot(x_origin + HIST_WIDTH/2 - 25, yw, COLOR_RED,        bg, hist_dot_radius(over_r, histogram.total_px), hist_dot_label(over_r, histogram.total_px));
                 if (over_g > thr) hist_dot(x_origin + HIST_WIDTH/2     , yw, COLOR_GREEN1,     bg, hist_dot_radius(over_g, histogram.total_px), hist_dot_label(over_g, histogram.total_px));
