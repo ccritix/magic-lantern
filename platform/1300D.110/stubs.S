@@ -75,15 +75,15 @@ NSTUB(0xFE2EBA2C,  Gui_SetSoundRecord)                   /* present on 6D.113, 5
 /** ASIF **/
 // TODO:
 NSTUB(0xfe11d1cc,  PowerAudioOutput)                       /* not found  old FE108E44*/
-NSTUB(0xFE11B938,  SetAudioVolumeOut)  //FE11B938
-NSTUB(0xFE106A98,  SetNextASIFADCBuffer) //ok
-NSTUB(0xFE106C80,  SetNextASIFDACBuffer) //ok
-NSTUB(0xFE11C690,  SetSamplingRate) //FE11C690
-NSTUB(0xFE105F7C,  StartASIFDMAADC) //ok
-NSTUB(0xFE106350,  StartASIFDMADAC) //ok
-NSTUB(0xfe1065d0,  StopASIFDMADAC) //FE1065D0
-NSTUB(0xfe11cd04,  PowerMicAmp) //FE11CD04                            /* present on 650D.104, EOSM.202, 700D.113 */
-NSTUB(0xfe1066f8,  SetASIFMode)                             /* present on 700D.113 */
+NSTUB(0xFE11B938,  SetAudioVolumeOut) 
+NSTUB(0xFE106A98,  SetNextASIFADCBuffer) 
+NSTUB(0xFE106C80,  SetNextASIFDACBuffer) 
+NSTUB(0xFE11C690,  SetSamplingRate) 
+NSTUB(0xFE105F7C,  StartASIFDMAADC) 
+NSTUB(0xFE106350,  StartASIFDMADAC) 
+NSTUB(0xFE1065D0,  StopASIFDMADAC) 
+NSTUB(0xFE11CD04,  PowerMicAmp)                           /* present on 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xFE1066F8,  SetASIFMode)                             /* present on 700D.113 */
 //NSTUB(0xFE108E10,  SetAudioVolumeIn) //?                       /* present on 6D.113 */
 NSTUB(0xFE108A70,  SoundDevActiveIn) //ok                       /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
 NSTUB(0xFE108CC8,  SoundDevShutDownIn)//ok                      /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
@@ -132,7 +132,7 @@ NSTUB(0xFE3F0A44,  dialog_redraw)
 NSTUB(0xFE2F8BF8,  dialog_set_property_str)
 
 /** Dialog handlers **/
-NSTUB(0xfe5ac378,  ErrCardForLVApp_handler)                 // LiveViewErrorApp, as in 60D
+NSTUB(0xFE5AC378,  ErrCardForLVApp_handler)                 // LiveViewErrorApp, as in 60D
 NSTUB(0xFE45573C,  ErrForCamera_handler)                    // ERR70, ERR80 etc (DlgErrForCamera.c, AJ_DIALOG.HANDLER_DlgErrForCamera.c)
 NSTUB(0xFE488590,  HideUnaviFeedBack_maybe)                 // look for StartUnaviFeedBackTimer
 NSTUB(0xFE48D148,  LiveViewApp_handler)
@@ -172,7 +172,8 @@ NSTUB(0xFE2EB038,  GUI_SetRollingPitchingLevelStatus)
 /** Engio **/
 NSTUB(0xfe29f844, _EngDrvOut)
 NSTUB(0xFE29FBF0, _engio_write)
-NSTUB(0xFE29FC98,  shamem_read) //0xfe29f838
+//NSTUB(0xFE29FC98,  shamem_read) //0xfe29f838
+NSTUB(0xFE29F734,  shamem_read)
 
 /* orig  */
 //NSTUB(0xFE29F844, _EngDrvOut)

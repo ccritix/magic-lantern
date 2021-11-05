@@ -21,6 +21,7 @@
 
 /** This camera has a DIGIC IV chip */
 //#define CONFIG_DIGIC_IV
+#define CONFIG_KILL_FLICKER
 
 /** This camera uses new-style DryOS task hooks */
 #define CONFIG_NEW_DRYOS_TASK_HOOKS
@@ -119,7 +120,8 @@
 /** We can display some extra info in photo mode (not LiveView) **/
 #define CONFIG_PHOTO_MODE_INFO_DISPLAY
 
-/** Show 4 char if camera support only 3 in photo mode (not LiveView) **/
+/** No additional_version stub on this DryOS version **/
+#define CONFIG_NO_ADDITIONAL_VERSION
 
 /** FIO_RenameFile works **/
 #define CONFIG_FIO_RENAMEFILE_WORKS

@@ -102,7 +102,7 @@
 #endif
 
 /** Movie menu **/
-    #define FEATURE_RAW_VIDEO_ONLY
+//    #define FEATURE_RAW_VIDEO_ONLY
     #define FEATURE_NITRATE
     //~ #define FEATURE_NITRATE_WAV_RECORD // not user-proof at all
     //~ #define FEATURE_VIDEO_HACKS // for experts only
@@ -120,7 +120,7 @@
 #endif
 
 #ifdef CONFIG_FRAME_ISO_OVERRIDE
-    // #define FEATURE_GRADUAL_EXPOSURE
+    #define FEATURE_GRADUAL_EXPOSURE
 #endif
 
     #define FEATURE_FPS_OVERRIDE

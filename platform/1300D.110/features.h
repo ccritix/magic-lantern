@@ -10,9 +10,9 @@
 #undef FEATURE_VOICE_TAGS // Just to be sure
 //#undef FEATURE_SHUTTER_FINE_TUNING //It works! Timer values are not applied until you press record (this is normal for EOSM)
 
-////#undef FEATURE_DIGITAL_ZOOM_SHORTCUT
-////#undef FEATURE_LV_3RD_PARTY_FLASH
-////#undef FEATURE_EYEFI_TRICKS
+//#undef FEATURE_DIGITAL_ZOOM_SHORTCUT
+//#undef FEATURE_LV_3RD_PARTY_FLASH
+//#undef FEATURE_EYEFI_TRICKS
 //#define FEATURE_DIGITAL_ZOOM_SHORTCUT
 //#define FEATURE_LV_3RD_PARTY_FLASH
 ////#define FEATURE_FLASH_TWEAKS
@@ -49,9 +49,9 @@
 //#undef FEATURE_SHOW_CPU_USAGE
 //#undef FEATURE_SHOW_GUI_EVENTS
 
-#undef FEATURE_SHOW_IMAGE_BUFFERS_INFO
-#undef FEATURE_SHOW_EDMAC_INFO
-
+//#undef FEATURE_SHOW_IMAGE_BUFFERS_INFO
+#define FEATURE_SHOW_EDMAC_INFO
+#define FEATURE_SHOW_SIGNATURE
 #undef CONFIG_TSKMON
 
 //#define CONFIG_PTP
@@ -75,7 +75,7 @@
 #undef FEATURE_ARROW_SHORTCUTS
 #undef FEATURE_MAGIC_ZOOM_FULL_SCREEN // https://bitbucket.org/hudson/magic-lantern/issue/2272/full-screen-magic-zoom-is-garbled-on-700d
 
-#define FEATURE_EYEFI_TRICKS
+//#define FEATURE_EYEFI_TRICKS
 //#define FEATURE_JUNKIE_MENU
 
 #undef FEATURE_HEADPHONE_MONITORING

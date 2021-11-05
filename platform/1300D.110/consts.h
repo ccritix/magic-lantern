@@ -49,7 +49,8 @@
 #define MOV_OPT_STEP 5
 #define MOV_GOP_OPT_STEP 5
 
- #define AUDIO_MONITORING_HEADPHONES_CONNECTED (!((*(int*)0xc0220070) & 1))
+ //#define AUDIO_MONITORING_HEADPHONES_CONNECTED (!((*(int*)0xc0220070) & 1))
+ #define AUDIO_MONITORING_HEADPHONES_CONNECTED 0
 //#define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0x1a8c // this prop_deliver performs the action for Video Connect and Video Disconnect  // not present on 1300D (see FE0C69C8: taskHotPlug)
 //#define HOTPLUG_VIDEO_OUT_STATUS_ADDR 0x1ac4 // passed as 2nd arg to prop_deliver; 1 = display connected, 0 = not, other values disable this event (trick)  // not present on 1300D (see FE0C69C8: taskHotPlug)
 
@@ -62,7 +63,7 @@
  #define REG_EDMAC_WRITE_LV_ADDR 0xc0f04308 // SDRAM address of LV buffer (aka VRAM)
  #define REG_EDMAC_WRITE_HD_ADDR 0xc0f04208 // SDRAM address of HD buffer (aka YUV)
 
-#define YUV422_LV_BUFFER_DISPLAY_ADDR (*(uint32_t*)0x318C8)
+#define YUV422_LV_BUFFER_DISPLAY_ADDR (*(uint32_t*)0x318C8)  // 0x31818+0xB0
 #define YUV422_HD_BUFFER_DMA_ADDR (shamem_read(REG_EDMAC_WRITE_HD_ADDR))
 
 // changes during record
@@ -96,7 +97,7 @@
 #define SHOOTING_MODE (*(int*)0x3592C)
 #define UNAVI_FEEDBACK_TIMER_ACTIVE (MEM(0x3FE14) != 0x17) // dec CancelUnaviFeedBackTimer
 
- #define COLOR_FG_NONLV 80
+
 
 
 
@@ -105,7 +106,11 @@
  #define AE_STATE (*(int8_t*)(0x3AA80 + 0x1C))
  #define AE_VALUE (*(int8_t*)(0x3AA80 + 0x1D))
 
-#define CURRENT_GUI_MODE (*(int*)0x36560) // GUIMode_maybe
+#define CURRENT_GUI_MODE (*(int*)0x36560) // GUIMode_maybe 00036518 + 48
+    
+	// from a screenshot
+#define COLOR_FG_NONLV 80
+//#define COLOR_FG_NONLV 1
 #define GUIMODE_WB 5
 #define GUIMODE_FOCUS_MODE 9
 #define GUIMODE_DRIVE_MODE 8
