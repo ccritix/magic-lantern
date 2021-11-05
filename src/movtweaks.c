@@ -431,7 +431,8 @@ void movtweak_step()
         #endif
 }
 
-static CONFIG_INT("screen_layout.lcd", screen_layout_lcd, 3);
+//static CONFIG_INT("screen_layout.lcd", screen_layout_lcd, 3);
+static CONFIG_INT("screen_layout.lcd", screen_layout_lcd, SCREENLAYOUT_3_2_or_4_3);
 static CONFIG_INT("screen_layout.ext", screen_layout_ext, SCREENLAYOUT_16_10);
 int* get_screen_layout_ptr() { return EXT_MONITOR_CONNECTED ? &screen_layout_ext : &screen_layout_lcd; }
 int get_screen_layout() 
