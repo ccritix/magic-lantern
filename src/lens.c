@@ -42,6 +42,7 @@
 #include "picstyle.h"
 #include "focus.h"
 #include "lvinfo.h"
+#include "string.h"
 #include "powersave.h"
 
 // for movie logging
@@ -1634,7 +1635,7 @@ lens_set_kelvin(int k)
 
     prop_request_change(PROP_WB_MODE_LV, &mode, 4);
     prop_request_change(PROP_WB_KELVIN_LV, &k, 4);
-    prop_request_change(PROP_WB_MODE_PH, &mode, 4);
+//    prop_request_change(PROP_WB_MODE_PH, &mode, 4);
     prop_request_change(PROP_WB_KELVIN_PH, &k, 4);
     msleep(20);
 }
