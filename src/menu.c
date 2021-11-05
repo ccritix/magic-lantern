@@ -6890,9 +6890,6 @@ struct cbr
 
 static void task_without_powersave(struct cbr * cbr)
 {
-    printf("[cristi] In task_without_powersave: cbr->argument = %u \n", cbr->argument);
-//    printf("[cristi] In task_without_powersave: cbr->user_routine(cbr->argument) = %s \n", cbr->user_routine(cbr->argument) );
-
     powersave_prohibit();
     cbr->user_routine(cbr->argument);
     free(cbr);
@@ -6907,10 +6904,7 @@ void run_in_separate_task(void* routine, int argument)
     struct cbr * cbr = malloc(sizeof(struct cbr));
     cbr->user_routine = routine;
     cbr->argument = argument;
-    printf("[cristi] Inainte de task create routine %x \n", routine);
-    printf("[cristi] Inainte de task create run_test %x \n", argument);
     task_create("run_test", 0x1a, 0x8000, task_without_powersave, cbr);
-    printf("[cristi] Dupa  task create run_test %s \n", cbr->argument);
 }
 
 /* fixme: may be slow on large menus */
