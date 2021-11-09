@@ -4831,21 +4831,7 @@ menu_redraw_task()
         /* this loop will only receive redraw messages */
         int msg;
         int err = msg_queue_receive(menu_redraw_queue, (struct event**)&msg, 500);
-        if (err) {
-            //DryosDebugMsg(0, 15, "err from queue, continuing anyway: 0x%x", err);
-            //SJE FIXME - we see 0x9 errors.
-            // There looks to be only one path where msg_queue_receive() returns 9,
-            // might be useful to understand the cause
-            continue;
-        }
-        else {
-            //DryosDebugMsg(0, 15, "no err from queue");
-
-            // SJE this is a handy place to put checks you want to run periodically
-            //bmp_fill(COLOR_RED, 280, 280, 40, 40);
-            //DryosDebugMsg(0, 15, "*fec8: 0x%x", *(int *)0xfec8);
-            //clrscr();
-        }
+        if (err) continue;
         
         if (gui_menu_shown())
         {
