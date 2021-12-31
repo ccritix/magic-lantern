@@ -44,52 +44,53 @@ NSTUB(0xfe2a44a0,  FIO_FindNextEx)                          //
 NSTUB(0xfe2a335c, _FIO_ReadFile)                            //
 NSTUB(0xfe2a340c,  FIO_SeekSkipFile)                        // same as SeekFile
 NSTUB(0xfe2a34fc, _FIO_WriteFile)                           //
-NSTUB(0xFE2A4C3C, _FIO_CreateDirectory)                     //
-NSTUB(0xFE2A4058, _FIO_CreateFile)                          //
-NSTUB(0xFE2A51FC, _FIO_FindFirstEx)                         //
-NSTUB(0xFE2A4578, _FIO_GetFileSize)                         //
-NSTUB(0xFE2A3F9C, _FIO_OpenFile)                            //
-NSTUB(0xFE2A4104, _FIO_RemoveFile)                          //
-NSTUB(0xFE2A4A74, _FIO_RenameFile)
+NSTUB(0xfe2a3dec, _FIO_CreateDirectory)                     //
+NSTUB(0xfe2a3208, _FIO_CreateFile)                          //
+NSTUB(0xfe2a43ac, _FIO_FindFirstEx)                         //
+NSTUB(0xfe2a3728, _FIO_GetFileSize)                         //
+NSTUB(0xfe2a314c, _FIO_OpenFile)                            //
+NSTUB(0xfe2a32b4, _FIO_RemoveFile)                          //
+NSTUB(0xfe2a3c24, _FIO_RenameFile)
 
 /** GUI **/
 NSTUB(   0x3136C,  gui_main_struct)                         // in gui_main_task
-NSTUB(   0x3DA5C,  gui_task_list)
-NSTUB(0xFE0CCA48,  GUI_ChangeMode)
-NSTUB(0xFE0CC88C,  GUI_Control)
-NSTUB(0xFE14EF88,  SetGUIRequestMode)
-NSTUB(0xFE0CCEFC,  gui_init_end)                            // EndGuiInit
-NSTUB(0xFE0CC4BC,  gui_main_task)                           // message at 0x30, counter at 0x0c
-NSTUB(0xFE151800,  gui_massive_event_loop)                  // GUI_Control_Post
-NSTUB(0xFE2EB7F8,  GUI_SetLvMode)                           /* present on 500D.111, 50D.109, 5D2.212 */
+NSTUB(   0x3d8c0,  gui_task_list)
+NSTUB(0xfe0cca74,  GUI_ChangeMode)
+NSTUB(0xfe0cc8b8,  GUI_Control)
+NSTUB(0xfe14d5b4,  SetGUIRequestMode)
+NSTUB(0xfe0ccf28,  gui_init_end)                            // EndGuiInit
+NSTUB(0xfe0cc4e8,  gui_main_task)                           // message at 0x30, counter at 0x0c
+NSTUB(0xfe14fe2c,  gui_massive_event_loop)                  // GUI_Control_Post
+NSTUB(0xfe2eac48,  GUI_SetLvMode)                           /* present on 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  GUI_SetMovieSize_a)                      /* present on 50D.109 */
 // NSTUB(    ???,  GUI_SetMovieSize_b)                      /* present on 50D.109 */
-NSTUB(0xFE2EBA2C,  Gui_SetSoundRecord)                   /* present on 6D.113, 5D2.212 */
+NSTUB(0xfe2eae7c,  Gui_SetSoundRecord)                      /* present on 6D.113, 5D2.212 */
 
 /** ASIF **/
 // TODO:
-NSTUB(0xfe11d1cc,  PowerAudioOutput)          //ok             /* not found  old FE108E44*/
-NSTUB(0xFE11B938,  SetAudioVolumeOut) 		//ok	
-NSTUB(0xFE106A98,  SetNextASIFADCBuffer) 
-NSTUB(0xFE106C80,  SetNextASIFDACBuffer) 
-NSTUB(0xFE11C690,  SetSamplingRate) 
-NSTUB(0xFE105F7C,  StartASIFDMAADC) 
-NSTUB(0xFE106350,  StartASIFDMADAC) 
-NSTUB(0xFE1065D0,  StopASIFDMADAC) 
-NSTUB(0xFE11CD04,  PowerMicAmp)                           /* present on 650D.104, EOSM.202, 700D.113 */
-NSTUB(0xFE1066F8,  SetASIFMode)                             /* present on 700D.113 , On 1300D not used*/
-//NSTUB(0xFE108E10,  SetAudioVolumeIn) //?                       /* present on 6D.113 */
-NSTUB(0xFE108A70,  SoundDevActiveIn) //ok                       /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
-NSTUB(0xFE108CC8,  SoundDevShutDownIn)//ok                      /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
-NSTUB(0xFE106228,  StopASIFDMAADC) //ok                          /* present on 7D.203, 6D.113, EOSM.202 */
+NSTUB(0xfe11d200,  PowerAudioOutput)                       /* not found  old FE108E44*/
+NSTUB(0xfe11b96c,  SetAudioVolumeOut) 			
+NSTUB(0xfe106ac4,  SetNextASIFADCBuffer) 
+NSTUB(0xfe106cb0,  SetNextASIFDACBuffer) 
+NSTUB(0xfe11c6c4,  SetSamplingRate) 
+NSTUB(0xfe105fac,  StartASIFDMAADC) 
+NSTUB(0xfe106380,  StartASIFDMADAC) 
+NSTUB(0xfe106600,  StopASIFDMADAC) 
+NSTUB(0xfe11cd38,  PowerMicAmp)                             /* present on 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xfe106728,  SetASIFMode)                             /* present on 700D.113 , On 1300D not used*/
+//NSTUB(0xFE108E10,  SetAudioVolumeIn)                        /* present on 6D.113 */
+NSTUB(0xfe108aa0,  SoundDevActiveIn)                        /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xfe108cf8,  SoundDevShutDownIn)                      /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xfe106258,  StopASIFDMAADC)                          /* present on 7D.203, 6D.113, EOSM.202 */
 
 
 /** Audio **/
 NSTUB(    0x31604,  sounddev)                               // in sounddev_task
 // TODO: Not found direct write it looks like its some kind of serial connection now
 
-NSTUB(0xFE2B3A3C, _audio_ic_read) // FE2B3A3C 0xFE2B3A3C
-NSTUB(0xFE2B36D4, _audio_ic_write) // posible sub_FE2B3A18
+NSTUB(0xfe2b2d5c, _audio_ic_read)
+NSTUB(0xfe2b29f4, _audio_ic_write)
+
 NSTUB(0xFE8C32CC,  audio_thresholds)                        // find "ALV_Initialize", then pointer to "AudioLevel", thresholds are following array of 41 values
 NSTUB(0xFE108A70,  sounddev_active_in)                      // "SoundDevActiveIn"
 NSTUB(0xFE108660,  sounddev_task)                           // "[SND] _SoundDeviceTask"
