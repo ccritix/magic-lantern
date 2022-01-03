@@ -14,7 +14,7 @@
 #define HIJACK_CACHE_HACK_BSS_END_INSTR  0xE3A01732 // should be the correct INSTRUCTION MOV R1, 0xc80000
 #define HIJACK_CACHE_HACK_INITTASK_ADDR  0xfe0c3b34
 
-#define HIJACK_INSTR_BL_CSTART  0xFE0C0638
+#define HIJACK_INSTR_BL_CSTART  0xfe0c0638
 #define HIJACK_INSTR_BSS_END 0xfe0c3b24
 #define HIJACK_FIXBR_BZERO32 0xfe0c3a6c
 #define HIJACK_FIXBR_CREATE_ITASK 0xfe0c3b0c
@@ -90,7 +90,7 @@
  #define AE_STATE (*(int8_t*)(0x3AA80 + 0x1C))
  #define AE_VALUE (*(int8_t*)(0x3AA80 + 0x1D))
 
-#define CURRENT_GUI_MODE (*(int*)0x36560) // ok GUIMode_maybe 00036478 + 48
+#define CURRENT_GUI_MODE (*(int*)0x36560) // ok GUIMode_maybe 0x36478 + 0x48
     	// from a screenshot
 #define COLOR_FG_NONLV 80
 //#define COLOR_FG_NONLV 1
