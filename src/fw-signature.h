@@ -22,6 +22,8 @@
 #define SIG_1300D_110 0x3d8461b5 // from FE0C0000 (atypical)
 #define SIG_1300D_120 0x378b58db // from FE0C0000 (atypical)
 //#define SIG_1300D_110 0x37874414 // from FE0C0000 (atypical)
+#define SIG_2000D_110 0x70ca4ca6 // from FE0C0000 (atypical)
+
 #define SIG_6D_116   0x11cb1ed2 // from FF0C0000
 #define SIG_5D3_113  0x2e2f65f5 // from FF0C0000
 #define SIG_EOSM_202 0x2D7c6dcf // from FF0C0000
