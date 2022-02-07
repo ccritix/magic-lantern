@@ -132,16 +132,6 @@ int patch_instruction(
 );
 
 /* to undo, use unpatch_memory(addr) */
-#ifdef CONFIG_1300D
-/* use this patch on 1300D for hijacking function calls, to escape the 32MB relative jump limitations */
-int patch_instruction_jump(
-    uintptr_t rom_func_addr,
-    uintptr_t new_func_addr,
-    uint32_t jump_type,
-    const char * description
-);
-#endif
-
 
 /*****************
  * Logging hooks *
@@ -166,6 +156,17 @@ typedef void (*patch_hook_function_cbr)(uint32_t* regs, uint32_t* stack, uint32_
 
 /* to be called only from a patch_hook_function_cbr */
 #define PATCH_HOOK_CALLER() (regs[13]-4)    /* regs[13] contains LR, not SP */
+#ifdef CONFIG_1300D
+/* use this patch on 1300D for hijacking function calls, to escape the 32MB relative jump limitations */
+int patch_instruction_jump(
+    uintptr_t rom_func_addr,
+    uintptr_t new_func_addr,
+    uint32_t jump_type,
+    const char * description
+);
+
+
+#endif
 
 int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function_cbr logging_function, const char * description);
 

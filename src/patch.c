@@ -90,6 +90,56 @@ jump_vector *jump_vectors;
 /* at startup we don't have malloc, so we allocate it statically */
 static union logging_hook_code logging_hooks[MAX_LOGGING_HOOKS];
 
+
+/**
+ * Logging hooks
+ * =============
+ */
+#define REG_PC      15
+#define LOAD_MASK   0x0C000000
+#define LOAD_INSTR  0x04000000
+
+static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc, uint32_t fixup)
+{
+    uint32_t instr = MEM(pc);
+    uint32_t load = instr & LOAD_MASK;
+
+    // Check for load from %pc
+    if( load == LOAD_INSTR )
+    {
+        uint32_t reg_base   = (instr >> 16) & 0xF;
+        int32_t offset      = (instr >>  0) & 0xFFF;
+
+        if( reg_base != REG_PC )
+            return instr;
+
+        // Check direction bit and flip the sign
+        if( (instr & (1<<23)) == 0 )
+            offset = -offset;
+
+        // Compute the destination, including the change in pc
+        uint32_t dest       = pc + offset + 8;
+
+        // Find the data that is being used and
+        // compute a new offset so that it can be
+        // accessed from the relocated space.
+        uint32_t data = MEM(dest);
+        int32_t new_offset = fixup - new_pc - 8;
+
+        uint32_t new_instr = 0
+            | ( 1<<23 )                 /* our fixup is always forward */
+            | ( instr & ~0xFFF )        /* copy old instruction, without offset */
+            | ( new_offset & 0xFFF )    /* replace offset */
+            ;
+
+        // Copy the data to the offset location
+        MEM(fixup) = data;
+        return new_instr;
+    }
+    
+    return instr;
+}
+
 /**
  * Common routines
  * ===============
@@ -484,8 +534,28 @@ int unpatch_memory(uintptr_t _addr)
             p = i;
             break;
         }
+#ifdef CONFIG_1300D
+		else
+		{
+			int logging_slot = -1;
+			for (int ii = 0; ii < COUNT(logging_hooks); ii++)
+			{
+				if (logging_hooks[ii].addr != 0)
+				{
+					union logging_hook_code * hook = &logging_hooks[ii];
+					if (patches[i].addr == &hook->jump_back)
+					{
+							unpatch_memory(patches[i].addr);
+							break;
+					}
+				}
+			}
+			p = i;
+			break;
+		}
+#endif
     }
-    
+
     if (p < 0)
     {
         /* patch not found, let's look it up in the matrix patches */
@@ -572,84 +642,7 @@ int patch_memory(
 {
     return patch_memory_work(addr, old_value, new_value, 0, description);
 }
-#ifdef CONFIG_1300D
 
-
-#define JUMP_BL 0
-#define JUMP_B  1
-
-int patch_instruction_jump(
-    uintptr_t rom_func_addr,
-    uintptr_t new_func_addr,
-    uint32_t jump_type,
-    const char * description)
-{
-    uint32_t instr;
-    // Use relative, if possible
-    if (check_jump_range((uint32_t)rom_func_addr,new_func_addr))
-    {
-      if (jump_type == JUMP_B)
-        instr = B_INSTR((uint32_t)rom_func_addr,(uint32_t)new_func_addr);
-      else if (jump_type == JUMP_BL)
-        instr = BL_INSTR((uint32_t)rom_func_addr,(uint32_t)new_func_addr);
-
-      return patch_memory_work((uint32_t)rom_func_addr, MEM(rom_func_addr), instr, 1, description);
-    }
-    // relative plus aboslute trampoline jump
-    else 
-    {
-      uint32_t i;
-
-      printf("patch trampoline\n");
-
-      for (i=0;i<patch_jump_size/sizeof(jump_vector);i++) 
-      {
-         // already present ?
-         if (jump_vectors[i].rom_func_addr == (uint32_t)rom_func_addr)
-           return E_PATCH_UNKNOWN_ERROR;
-      }
-
-      // find first free index
-      for (i=0;i<patch_jump_size/sizeof(jump_vector);i++) 
-      {
-        if (jump_vectors[i].ins_trampoline == 0x0)
-          break;
-      }
-
-      uint32_t addr = (uint32_t)&jump_vectors[i].ins_trampoline;
-      if (i==patch_jump_size/sizeof(jump_vector)) // no more free
-        return E_PATCH_TOO_MANY_PATCHES;
-
-      printf("Info from %lx to %lx, jump_vectors %lx\n",(uint32_t)rom_func_addr,addr,jump_vectors);
-
-      // verify that we can jump into vector (from ROM position into RAM vector)
-      if (!check_jump_range((uint32_t)rom_func_addr,addr))
-        return E_PATCH_JUMP_RANGE_ERROR;
-
-
-      jump_vectors[i].ins_trampoline = 0xe51ff004; /* LDR   PC, [PC,#-4] */
-      jump_vectors[i].new_func_addr = new_func_addr;
-      jump_vectors[i].rom_func_addr = (uint32_t)rom_func_addr; // save identification for unpatching
-
-      sync_caches();
-
-      // finalized and install 1nd relative jump in ROM
-      if (jump_type == JUMP_BL)
-        instr = BL_INSTR((uint32_t)rom_func_addr,(uint32_t)addr);
-      else if (jump_type == JUMP_B)
-        instr = B_INSTR((uint32_t)rom_func_addr,(uint32_t)addr);
-
-      int ret = patch_memory_work(rom_func_addr, MEM(rom_func_addr), instr, 1, description);
-      if (ret != E_PATCH_OK) 
-	{
-	    return ret;
-	}
-      return E_PATCH_OK;
-    }
-
-  return E_PATCH_UNKNOWN_ERROR;
-}
-#endif
 
 int patch_instruction(
     uintptr_t addr,
@@ -964,54 +957,7 @@ int patch_memory_array(
     return patch_memory_matrix(addr, num_items, item_size, 1, 0, check_mask, check_value, patch_mask, patch_scaling, patch_offset, backup_storage, description);
 }
 
-/**
- * Logging hooks
- * =============
- */
-#define REG_PC      15
-#define LOAD_MASK   0x0C000000
-#define LOAD_INSTR  0x04000000
 
-static uint32_t reloc_instr(uint32_t pc, uint32_t new_pc, uint32_t fixup)
-{
-    uint32_t instr = MEM(pc);
-    uint32_t load = instr & LOAD_MASK;
-
-    // Check for load from %pc
-    if( load == LOAD_INSTR )
-    {
-        uint32_t reg_base   = (instr >> 16) & 0xF;
-        int32_t offset      = (instr >>  0) & 0xFFF;
-
-        if( reg_base != REG_PC )
-            return instr;
-
-        // Check direction bit and flip the sign
-        if( (instr & (1<<23)) == 0 )
-            offset = -offset;
-
-        // Compute the destination, including the change in pc
-        uint32_t dest       = pc + offset + 8;
-
-        // Find the data that is being used and
-        // compute a new offset so that it can be
-        // accessed from the relocated space.
-        uint32_t data = MEM(dest);
-        int32_t new_offset = fixup - new_pc - 8;
-
-        uint32_t new_instr = 0
-            | ( 1<<23 )                 /* our fixup is always forward */
-            | ( instr & ~0xFFF )        /* copy old instruction, without offset */
-            | ( new_offset & 0xFFF )    /* replace offset */
-            ;
-
-        // Copy the data to the offset location
-        MEM(fixup) = data;
-        return new_instr;
-    }
-    
-    return instr;
-}
 
 static int check_jump_range(uint32_t pc, uint32_t dest)
 {
@@ -1057,7 +1003,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
     }
     
     union logging_hook_code * hook = &logging_hooks[logging_slot];
-    
+#ifndef CONFIG_1300D
     /* check the jumps we are going to use */
     /* fixme: use long jumps? */
     if (!check_jump_range((uint32_t) &hook->reloc_insn, (uint32_t) addr + 4) ||
@@ -1068,7 +1014,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
         err = E_PATCH_UNKNOWN_ERROR;
         goto end;
     }
-    
+#endif
     /* create the logging code */
     *hook = (union logging_hook_code) { .code = {
         0xe92d5fff,     /* STMFD  SP!, {R0-R12,LR}  ; save all regs to stack */
@@ -1082,7 +1028,7 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
         0xe8bd0001,     /* LDMFD  SP!, {R0}         ; restore CPSR */
         0xe128f000,     /* MSR    CPSR_f, R0        ; (flags only) from stack */
         0xe8bd5fff,     /* LDMFD  SP!, {R0-R12,LR}  ; restore regs */
-        reloc_instr(                                
+        reloc_instr(
             addr,                           /*      ; relocate the original instruction */
             (uint32_t) &hook->reloc_insn,   /*      ; from the patched address */
             (uint32_t) &hook->fixup         /*      ; (it might need a fixup) */
@@ -1095,13 +1041,31 @@ int patch_hook_function(uintptr_t addr, uint32_t orig_instr, patch_hook_function
 
     /* since we have modified some code in RAM, sync the caches */
     sync_caches();
-    
-    /* patch the original instruction to jump to the logging code */
-    err = patch_instruction(addr, orig_instr, B_INSTR(addr, hook), description);
-    
+
+
+#ifdef CONFIG_1300D
+    /* Make the hooking code "jump_back" to use double jumping  */
+    err = patch_instruction_jump(&hook->jump_back,addr+4, 1, description);
     if (err)
     {
         /* something went wrong? */
+        puts("Patching went wrong (1)");
+        memset(hook, 0, sizeof(union logging_hook_code));
+        goto end;
+    }
+
+    err = patch_instruction_jump(addr, hook, 1, description);
+#else
+   err = patch_instruction(addr, orig_instr, B_INSTR(addr, hook), description);
+#endif
+
+    /* patch the original instruction to jump to the logging code */
+
+
+    if (err)
+    {
+        /* something went wrong? */
+        puts("Patching went wrong (2)");
         memset(hook, 0, sizeof(union logging_hook_code));
         goto end;
     }
@@ -1110,6 +1074,90 @@ end:
     sei(old_int);
     return err;
 }
+
+#ifdef CONFIG_1300D
+
+#define JUMP_BL 0
+#define JUMP_B  1
+
+int patch_instruction_jump(
+    uintptr_t rom_func_addr,
+    uintptr_t new_func_addr,
+    uint32_t jump_type,
+    const char * description)
+{
+    uint32_t instr;
+    // Use relative, if possible
+    if (check_jump_range((uint32_t)rom_func_addr,new_func_addr))
+    {
+      DryosDebugMsg(0, 15, "[***] Use relative");
+      if (jump_type == JUMP_B)
+        instr = B_INSTR((uint32_t)rom_func_addr,(uint32_t)new_func_addr);
+      else if (jump_type == JUMP_BL)
+        instr = BL_INSTR((uint32_t)rom_func_addr,(uint32_t)new_func_addr);
+
+      return patch_memory_work((uint32_t)rom_func_addr, MEM(rom_func_addr), instr, 1, description);
+    }
+    // relative plus aboslute trampoline jump
+    else 
+    {
+      uint32_t i;
+	  DryosDebugMsg(0, 15, "[***] Use trampoline");
+
+      printf("patch trampoline\n");
+
+      for (i=0;i<patch_jump_size/sizeof(jump_vector);i++) 
+      {
+         // already present ?
+         DryosDebugMsg(0, 15, "jump.vectors[%x].rom_func_addr = %x", i, rom_func_addr);
+         if (jump_vectors[i].rom_func_addr == (uint32_t)rom_func_addr)
+           return E_PATCH_UNKNOWN_ERROR;
+      }
+
+      // find first free index
+      for (i=0;i<patch_jump_size/sizeof(jump_vector);i++) 
+      {
+      	DryosDebugMsg(0, 15, "[***] exit jump_vectors[i].ins_trampoline == 0x0");
+        if (jump_vectors[i].ins_trampoline == 0x0)
+          break;
+      }
+
+      uint32_t addr = (uint32_t)&jump_vectors[i].ins_trampoline;
+      if (i==patch_jump_size/sizeof(jump_vector)) // no more free
+        return E_PATCH_TOO_MANY_PATCHES;
+
+      printf("Info from %lx to %lx, jump_vectors %lx\n",(uint32_t)rom_func_addr,addr,jump_vectors);
+      DryosDebugMsg(0, 15, "[***] Info from %lx to %lx, jump_vectors %lx\n",(uint32_t)rom_func_addr,addr,jump_vectors);
+
+      // verify that we can jump into vector (from ROM position into RAM vector)
+      if (!check_jump_range((uint32_t)rom_func_addr,addr))
+        return E_PATCH_JUMP_RANGE_ERROR;
+
+
+      jump_vectors[i].ins_trampoline = 0xe51ff004; /* LDR   PC, [PC,#-4] */
+      jump_vectors[i].new_func_addr = new_func_addr;
+      jump_vectors[i].rom_func_addr = (uint32_t)rom_func_addr; // save identification for unpatching
+
+      sync_caches();
+
+      // finalized and install 1nd relative jump in ROM
+      if (jump_type == JUMP_BL)
+        instr = BL_INSTR((uint32_t)rom_func_addr,(uint32_t)addr);
+      else if (jump_type == JUMP_B)
+        instr = B_INSTR((uint32_t)rom_func_addr,(uint32_t)addr);
+	  DryosDebugMsg(0, 15, "[***] Patch %x to %lx,  %lx -> %lx\n",(uint32_t)rom_func_addr, MEM(rom_func_addr), instr);
+
+      int ret = patch_memory_work(rom_func_addr, MEM(rom_func_addr), instr, 1, description);
+      if (ret != E_PATCH_OK) 
+	{
+	    return ret;
+	}
+      return E_PATCH_OK;
+    }
+
+  return E_PATCH_UNKNOWN_ERROR;
+}
+#endif
 
 /**
  * GUI code
