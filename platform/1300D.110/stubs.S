@@ -299,7 +299,7 @@ NSTUB(   0x358E8,  task_max)
 //NSTUB(0xfea95880,  get_task_info_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
 
 NSTUB(0x4080,  get_task_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
-NSTUB(0x24c4,  _get_task_info_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
+NSTUB(0x24C4,  _get_task_info_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
 //THUMB_FN(0xfcb46b2c,  _get_task_info_by_id) 
 //NSTUB(0xfEa95880,  is_taskid_valid)                         // AJ_task_trampoline_related_p10 FE2C2ED0
 NSTUB(    0x24c4,  is_taskid_valid)                         // AJ_task_trampoline_related_p10 FE2C2ED0

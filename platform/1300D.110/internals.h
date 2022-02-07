@@ -20,8 +20,8 @@
 //~ #define CONFIG_VXWORKS
 
 /** This camera has a DIGIC IV chip */
-//#define CONFIG_DIGIC_IV
-#define CONFIG_KILL_FLICKER
+//~#define CONFIG_DIGIC_IV
+//~#define CONFIG_KILL_FLICKER
 
 /** This camera uses new-style DryOS task hooks */
 #define CONFIG_NEW_DRYOS_TASK_HOOKS
@@ -152,11 +152,11 @@
 
 /** Hide Canon bottom bar from DebugMsg hook */
 //cristi
-//#define CONFIG_LVAPP_HACK_DEBUGMSG
+//~#define CONFIG_LVAPP_HACK_DEBUGMSG
 
 /** Workaround for menu timeout in LiveView */
-
-#define CONFIG_MENU_TIMEOUT_FIX
+// not work on 1300D 
+//#define CONFIG_MENU_TIMEOUT_FIX
 
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
 /** FIXME: long calls during relocation **/
