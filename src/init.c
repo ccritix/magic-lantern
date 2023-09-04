@@ -519,6 +519,9 @@ const char* get_assert_msg() { return assert_msg; }
 
 static int my_assert_handler(char* msg, char* file, int line, int arg4)
 {
+    if (msg == NULL)
+	msg = "nullptr";
+
     uint32_t lr = read_lr();
 
     int len = snprintf(assert_msg, sizeof(assert_msg), 

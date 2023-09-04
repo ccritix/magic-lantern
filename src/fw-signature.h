@@ -18,8 +18,8 @@
 #define SIG_7D_MASTER_203 0x640BF4D1 // from FF010000
 #define SIG_1100D_105 0x46de7624 // from FF010000
 #define SIG_1200D_102 0xba19c526 // from FF0C0000
-//#define SIG_1300D_110 0xcd1249b3 // from FE0C0000 (atypical)
-#define SIG_1300D_110 0x3d8461b5 // from FE0C0000 (atypical)
+//#define SIG_1300D_110 0xcd1249b3 // from FE0C0000 (atypical) bad, for testing
+#define SIG_1300D_110 0x3d8461b5 // from FE0C0000 (atypical) good
 #define SIG_1300D_120 0x378b58db // from FE0C0000 (atypical)
 //#define SIG_1300D_110 0x37874414 // from FE0C0000 (atypical)
 #define SIG_2000D_110 0x70ca4ca6 // from FE0C0000 (atypical)
