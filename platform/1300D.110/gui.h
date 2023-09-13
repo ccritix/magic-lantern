@@ -34,8 +34,8 @@
 
 // AV / AE COMP button 
 /// See gui.c for the actual press/unpress handling
- #define BGMT_AV (event->type == 0 && event->param == 0x61 && ( \
-			(is_movie_mode() && event->arg == 0xa) || \
+#define BGMT_AV (event->type == 0 && event->param == 0x61 && ( \
+			(is_movie_mode() && (event->arg == 0xe || event->arg == 0xa)) || \
 			(shooting_mode == SHOOTMODE_P && event->arg == 0xa) || \
 			(shooting_mode == SHOOTMODE_ADEP && event->arg == 0xa) || \
 			(shooting_mode == SHOOTMODE_AV && event->arg == 0xf) || \
@@ -52,11 +52,15 @@
 #define BGMT_WHEEL_DOWN 0x1
 
 #define GMT_OLC_INFO_CHANGED 0x61 // backtrace copyOlcDataToStorage call in IDLEHandler
- #define GMT_LOCAL_DIALOG_REFRESH_LV 0x34 // event type = 2, gui code = 0x100000a1 in 600d // not present on 1300D
+#define GMT_LOCAL_DIALOG_REFRESH_LV 0x34 // event type = 2, gui code = 0x100000a1 in 600d // not present on 1300D
 
 // needed for correct shutdown from powersave modes
-#define GMT_GUICMD_START_AS_CHECK 0x59
-#define GMT_GUICMD_OPEN_SLOT_COVER 0x55
-#define GMT_GUICMD_LOCK_OFF 0x53
+//#define GMT_GUICMD_START_AS_CHECK 0x59
+//#define GMT_GUICMD_OPEN_SLOT_COVER 0x55
+//#define GMT_GUICMD_LOCK_OFF 0x53
+
+#define GMT_GUICMD_START_AS_CHECK 89
+#define GMT_GUICMD_OPEN_SLOT_COVER 85
+#define GMT_GUICMD_LOCK_OFF 83
 
 #endif

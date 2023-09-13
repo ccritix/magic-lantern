@@ -12,11 +12,25 @@
 #include <config.h>
 #include <lvinfo.h>
 #include <timer.h>
-
+#include <gui-common.h>
 #if defined(FEATURE_AF_PATTERNS)
 #include <af_patterns.h>
 #endif
+#if defined(CONFIG_LVAPP_HACK_RELOC) || defined(CONFIG_LVAPP_HACK_DEBUGMSG)
+#define CONFIG_LVAPP_HACK
+#endif
 
+static int bottom_bar_dirty = 0;
+//static int last_time_active = 0;
+
+//int is_canon_bottom_bar_dirty() { return bottom_bar_dirty; }
+//int get_last_time_active() { return last_time_active; }
+
+// disable Canon bottom bar
+
+#if defined(CONFIG_LVAPP_HACK_DEBUGMSG) || defined(CONFIG_LVAPP_HACK)
+static int bottom_bar_hack = 0;
+#endif
 /* misc hacks, to be cleaned up */
 #if defined(CONFIG_DEBUGMSG_HACK)
 
@@ -91,8 +105,8 @@ int handle_common_events_startup(struct event * event)
 
     extern int ml_started;
     if (!ml_started)    {
-#if defined(CONFIG_EOSM) || defined(CONFIG_100D) // these have a combined Q/SET button, SET button event is not sent properly
-        if (event->param == BGMT_INFO) { _disable_ml_startup(); return 0;} // don't load ML
+#if defined(BGMT_Q_SET) // combined Q/SET button?
+        if (event->param == BGMT_Q_SET) { _disable_ml_startup(); return 0;} // don't load ML
 #else
         if (event->param == BGMT_PRESS_SET) { _disable_ml_startup(); return 0;} // don't load ML
 #endif
@@ -214,13 +228,13 @@ int handle_av_short_for_menu(struct event* event) {
      * even if the button is held
      */ 
     if(bgmt_av_status == 1) { // AV PRESSED
-        t_press = get_ms_clock_value();
+        t_press = get_ms_clock();
         dt = t_press - t_unpress; // Time elapsed since the button was unpressed
         if(dt < 200) { // Ignore if happened less than 200ms ago (anti-bump)
             t_press = 0; 
         } 
     } else if (bgmt_av_status == 0) { // AV UNPRESSED
-        t_unpress = get_ms_clock_value();
+        t_unpress = get_ms_clock();
         dt = t_unpress - t_press; // Time elapsed since the AV button was pressed
         if (dt < 500 && is_idle) { // 500ms  -> short press
             fake_simple_button(BGMT_TRASH);
@@ -496,7 +510,7 @@ int detect_double_click(int key, int pressed_code, int unpressed_code)
     if (key == pressed_code && !last_was_pressed)
     {
         last_was_pressed = 1;
-        int t = get_ms_clock_value();
+        int t = get_ms_clock();
         tp1 = tu1;
         tu1 = tp2;
         tp2 = t;
@@ -504,7 +518,7 @@ int detect_double_click(int key, int pressed_code, int unpressed_code)
     else if (key == unpressed_code && last_was_pressed)
     {
         last_was_pressed = 0;
-        int tu2 = get_ms_clock_value();
+        int tu2 = get_ms_clock();
         int p1 = tu1 - tp1;
         int u1 = tp2 - tu1;
         int p2 = tu2 - tp2;

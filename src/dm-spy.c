@@ -38,6 +38,11 @@
 #define BUF_SIZE_MALLOC (128*1024)
 #endif
 
+/* very little memory available */
+#if defined(CONFIG_1300D)
+#define BUF_SIZE_MALLOC (128*1024)
+#endif
+
 /* plenty of memory available */
 #if defined(CONFIG_5D2) || defined(CONFIG_5D3) || defined(CONFIG_50D) || defined(CONFIG_500D) || defined(CONFIG_700D) || defined(CONFIG_650D) || defined(CONFIG_100D) || defined(CONFIG_70D)
 #define BUF_SIZE_MALLOC (2048*1024)
@@ -52,8 +57,8 @@ static char * volatile buf = 0;
 static volatile int buf_size = 0;
 static volatile int len = 0;
 
-extern void dm_spy_extra_install();
-extern void dm_spy_extra_uninstall();
+//extern void dm_spy_extra_install();
+//extern void dm_spy_extra_uninstall();
 
 /* log simple strings without formatting
  * useful when we don't have snprintf / enough stack / whatever) */
@@ -278,12 +283,12 @@ void debug_intercept()
         buf = staticbuf;
         buf_size = BUF_SIZE_STATIC;
 
-        dm_spy_extra_install();
+//        dm_spy_extra_install();
         #ifdef CONFIG_MMIO_TRACE
         io_trace_install();
         #endif
 
-        patch_instruction(
+        patch_hook_function(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
             MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
             B_INSTR(DebugMsg_addr, my_DebugMsg),        /* replace all calls to DebugMsg with our own function (no need to call the original) */
@@ -295,7 +300,7 @@ void debug_intercept()
         #ifdef CONFIG_MMIO_TRACE
         io_trace_uninstall();
         #endif
-        dm_spy_extra_uninstall();
+//        dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
         
         #ifdef CONFIG_DEBUG_INTERCEPT_STARTUP_BLINK
@@ -324,12 +329,12 @@ void debug_intercept()
         buf = malloc(BUF_SIZE_MALLOC);                  /* allocate memory for our logs (it's huge) */
         buf_size = BUF_SIZE_MALLOC;
         
-        dm_spy_extra_install();
+   //     dm_spy_extra_install();
         #ifdef CONFIG_MMIO_TRACE
         io_trace_install();
         #endif
 
-        int err = patch_instruction(
+        int err = patch_hook_function(
             DebugMsg_addr,                              /* hook on the first instruction in DebugMsg */
             MEM(DebugMsg_addr),                         /* do not do any checks; on 5D2 it would be e92d000f, not sure if portable */
             B_INSTR(DebugMsg_addr, my_DebugMsg),        /* replace all calls to DebugMsg with our own function (no need to call the original) */
@@ -350,10 +355,10 @@ void debug_intercept()
         #ifdef CONFIG_MMIO_TRACE
         io_trace_uninstall();
         #endif
-        dm_spy_extra_uninstall();
+      //  dm_spy_extra_uninstall();
         unpatch_memory(DebugMsg_addr);
         buf[len] = 0;
-        clean_d_cache();
+        _clean_d_cache();
         char log_filename[100];
         get_numbered_file_name("dm-%04d.log", 9999, log_filename, sizeof(log_filename));
         dump_seg(buf, len, log_filename);

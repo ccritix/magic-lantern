@@ -388,7 +388,7 @@ info_elem_t info_config_photo[] =
     { .text =   { { INFO_TYPE_TEXT,   { 685, 459, 2, .name = "GB",  .user_disable = 0, }}, "GB",  COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM } },
 #endif
 
-#if defined(CONFIG_600D) || defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_1100D)
+#if defined(CONFIG_600D) || defined(CONFIG_650D) || defined(CONFIG_700D) || defined(CONFIG_1100D) || defined(CONFIG_1300D)
     /* entry 1, max AUTO ISO */
     { .string = { { INFO_TYPE_STRING, { MAX_ISO_POS_X, MAX_ISO_POS_Y, 2, .name = "Max ISO Range"  }}, INFO_STRING_ISO_MAX, COLOR_FG_NONLV, INFO_COL_BG, INFO_FONT_MEDIUM_SHADOW } },
 

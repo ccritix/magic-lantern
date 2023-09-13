@@ -30,6 +30,7 @@
 #include "imgconv.h"
 #include "console.h"
 #include "fps.h"
+#include "platform/state-object.h"
 
 #undef RAW_DEBUG        /* define it to help with porting */
 #undef RAW_DEBUG_DUMP   /* if you want to save the raw image buffer and the DNG from here */
@@ -48,13 +49,13 @@ static struct semaphore * raw_sem = 0;
 /* whether to recompute all the raw parameters (1), or just use cached values(0) */
 static int dirty = 0;
  
-/* if get_ms_clock_value() is less than this, assume the raw data is invalid */
+/* if get_ms_clock() is less than this, assume the raw data is invalid */
 static int next_retry_lv = 0;
 
 /* mark the raw data dirty for the next few ms (raw_update_params_once will return failure, to allow the backend to settle) */
 static void raw_set_dirty_with_timeout(int timeout_ms)
 {
-    next_retry_lv = get_ms_clock_value() + timeout_ms;
+    next_retry_lv = get_ms_clock() + timeout_ms;
     dirty = 1;
 }
 
@@ -141,6 +142,11 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define DEFAULT_RAW_BUFFER MEM(0x6733C + 0x40)
 #endif
 
+#ifdef CONFIG_1300D
+#define DEFAULT_RAW_BUFFER MEM(MEM(0x37930 + 0x30))     /*0xfe1a3d6c how much do we have allocated? */
+#define DEFAULT_RAW_BUFFER_SIZE 8*1024*1024     /* is this really overwritten by other code? needs some investigation */
+#endif
+
 #else
 
 /* with Canon lv_save_raw, just read it from EDMAC */
@@ -172,7 +178,7 @@ static int (*dual_iso_get_dr_improvement)() = MODULE_FUNCTION(dual_iso_get_dr_im
 #define RAW_PHOTO_EDMAC 0xc0f04208
 #endif
 
-#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_70D) || defined(CONFIG_100D) || defined(CONFIG_1300D)
+#if defined(CONFIG_5D3) || defined(CONFIG_700D) || defined(CONFIG_6D) || defined(CONFIG_EOSM) || defined(CONFIG_650D) || defined(CONFIG_70D) || defined(CONFIG_100D)
 #define RAW_PHOTO_EDMAC 0xc0f04008
 #endif
 
@@ -545,7 +551,7 @@ static int raw_update_params_work()
             return 0;
         }
 
-        if (get_ms_clock_value() < next_retry_lv)
+        if (get_ms_clock() < next_retry_lv)
         {
             /* LiveView raw data is invalid, wait a bit and request a retry */
             dbg_printf("LV raw invalid\n");
@@ -663,6 +669,13 @@ static int raw_update_params_work()
         skip_left   = 144; // 146 could work, too
         skip_right  = zoom ? 0 : 8;
         #endif
+
+        #ifdef CONFIG_1300D
+        skip_top    = 28;
+        skip_left   = zoom ? 0 : 154;
+        skip_right  = zoom ? 0 : 4;
+        skip_bottom = zoom ? 4 : 0;
+        #endif
 		
         dbg_printf("LV raw buffer: %x (%dx%d)\n", raw_info.buffer, width, height);
         dbg_printf("Skip left:%d right:%d top:%d bottom:%d\n", skip_left, skip_right, skip_top, skip_bottom);
@@ -729,7 +742,7 @@ static int raw_update_params_work()
         height--;
         #endif
 
-        #if defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_600D)
+        #if defined(CONFIG_550D) || defined(CONFIG_60D) || defined(CONFIG_600D) || defined(CONFIG_1200D) || defined(CONFIG_1300D)
         skip_left = 142;
         skip_top = 52;
         #endif
@@ -1033,7 +1046,7 @@ int raw_update_params()
         wait_lv_frames(1);
         
         /* if LV raw settings are marked as "dirty", retrying without waiting will fail for sure */
-        while (get_ms_clock_value() < next_retry_lv)
+        while (get_ms_clock() < next_retry_lv)
         {
             msleep(10);
         }

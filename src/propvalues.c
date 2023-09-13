@@ -8,20 +8,56 @@
 #define _DONT_INCLUDE_PROPVALUES_
 #include "property.h"
 #include "shoot.h"
+#include "zebra.h"
+#include <platform/state-object.h>
 
 char __camera_model_short[8] = CAMERA_MODEL;
 char camera_model[32];
 uint32_t camera_model_id = 0;
 char firmware_version[32];
 char camera_serial[32];
+char camera_serial_2[64];
 
 /* is_camera("5D3", "1.2.3") - will check for a specific camera / firmware version */
 /* is_camera("5D3", "*") - will accept all firmware versions */
-int is_camera(const char * model, const char * firmware)
+/* is_camera("DIGIC", "5") - will accept all DIGIC 5 models */
+/* todo: possibly other classifications? */
+int is_camera(const char * model, const char * version)
 {
+    if (streq(model, "DIGIC"))
+    {
+        if (streq(version, "*"))
+        {
+            /* only DIGIC models supported */
+            return 1;
+        }
+
+        if (strlen(version) != 1)
+        {
+            /* only one-digit DIGIC version check is currently supported, i.e. no 4+ or similar */
+            return 0;
+        }
+
+        #ifdef CONFIG_VXWORKS
+        return version[0] == '3';
+        #endif
+        #ifdef CONFIG_DIGIC_V
+        return version[0] == '5';
+        #endif
+        #ifdef CONFIG_DIGIC_VI
+        return version[0] == '6';
+        #endif
+        #ifdef CONFIG_DIGIC_VII
+        return version[0] == '7';
+        #endif
+        //#ifdef CONFIG_DIGIC_IV - fixme
+        return version[0] == '4';
+        //#endif
+    }
+
     return 
-        streq(__camera_model_short, model) &&                           /* check camera model */
-        (streq(firmware_version, firmware) || streq(firmware, "*"));    /* check firmware version */
+        streq(__camera_model_short, model) &&                         /* check camera model */
+        (streq(firmware_version, version) || streq(version, "*"));    /* check firmware version */
 }
 
 PROP_HANDLER(PROP_CAM_MODEL)
@@ -29,6 +65,10 @@ PROP_HANDLER(PROP_CAM_MODEL)
     memcpy((char *)&camera_model_id, (void*)buf + 32, 4);
     snprintf(camera_model, sizeof(camera_model), (const char *)buf);
 }
+
+
+volatile int serial_number_buf = 0;
+volatile int serial_number_len = 0;
 
 PROP_HANDLER(PROP_BODY_ID)
 {
@@ -45,6 +85,8 @@ PROP_HANDLER(PROP_BODY_ID)
     {
         snprintf(camera_serial, sizeof(camera_serial), "(unknown len %d)", len);
     }
+    serial_number_buf = buf;
+    serial_number_len = len;
 }
 
 PROP_HANDLER(PROP_FIRMWARE_VER)
@@ -62,6 +104,7 @@ volatile PROP_INT(PROP_AF_MODE, af_mode);
 volatile PROP_INT(PROP_METERING_MODE, metering_mode);
 volatile PROP_INT(PROP_DRIVE, drive_mode);
 volatile PROP_INT(PROP_STROBO_FIRING, strobo_firing);
+volatile PROP_INT(PROP_LIVE_VIEW_AF_SYSTEM, lv_af_mode);
 volatile PROP_INT(PROP_LVAF_MODE, lvaf_mode);
 volatile PROP_INT(PROP_IMAGE_REVIEW_TIME, image_review_time);
 volatile PROP_INT(PROP_MIRROR_DOWN, mirror_down);
@@ -76,6 +119,8 @@ volatile PROP_INT(PROP_AUTO_POWEROFF_TIME, auto_power_off_time)
 volatile PROP_INT(PROP_VIDEO_SYSTEM, video_system_pal);
 volatile PROP_INT(PROP_LV_FOCUS_STATUS, lv_focus_status);
 volatile PROP_INT(PROP_ICU_UILOCK, icu_uilock);
+volatile PROP_INT(PROP_CONTINUOUS_AF, continuous_af_photo);
+volatile PROP_INT(PROP_MOVIE_SERVO_AF, continuous_af_movie);
 
 #ifdef CONFIG_NO_DEDICATED_MOVIE_MODE
 int ae_mode_movie = 1;
@@ -237,7 +282,7 @@ PROP_HANDLER(PROP_HOUTPUT_TYPE)
     lv_disp_mode = (uint8_t)buf[1] & 1;
     hdmi_mirroring = buf[1] & 2;
     hdmi_vars_update();
-    #elif defined(CONFIG_60D) || defined(CONFIG_600D) || defined(CONFIG_1100D) || defined(CONFIG_50D) || defined(CONFIG_DIGIC_V)
+    #elif defined(EVF_STATE) || defined(CONFIG_50D)
     lv_disp_mode = (uint8_t)buf[1];
     #else
     lv_disp_mode = (uint8_t)buf[0];
@@ -273,15 +318,17 @@ PROP_HANDLER( PROP_COPYRIGHT_STRING )
 char* get_video_mode_name(int include_fps)
 {
     static char zoom_msg[12];
-    snprintf(zoom_msg, sizeof(zoom_msg), "ZOOM-X%d", lv_dispsize);
+    snprintf(zoom_msg, sizeof(zoom_msg), "ZOOM-X%d", lv_dispsize & 0xF);
     
     char* video_mode = 
         is_pure_play_photo_mode()                   ? "PLAY-PH"  :      /* Playback, reviewing a picture */
         is_pure_play_movie_mode()                   ? "PLAY-MV"  :      /* Playback, reviewing a video */
         is_play_mode()                              ? "PLAY-UNK" :
         lv && lv_dispsize!=1                        ? zoom_msg   :      /* Some zoom in LiveView */
+        LV_PAUSED                                   ? "PAUSED-LV":      /* Paused LiveView (similar to playback, used by ML for powersaving, FRSP, various experiments...) */
         lv && lv_dispsize==1 && !is_movie_mode()    ? "PH-LV"    :      /* Photo LiveView */
         !is_movie_mode() && QR_MODE                 ? "PH-QR"    :      /* Photo QuickReview (right after taking a picture) */
+        !is_movie_mode() && display_idle()          ? "PH-NOLV"  :      /* Regular photo mode outside LV (ready to take a picture) */
         !is_movie_mode()                            ? "PH-UNK"   :
         video_mode_resolution == 0 && !video_mode_crop && !RECORDING_H264 ? "MV-1080"  :    /* Movie 1080p, standby */
         video_mode_resolution == 1 && !video_mode_crop && !RECORDING_H264 ? "MV-720"   :    /* Movie 720p, standby */

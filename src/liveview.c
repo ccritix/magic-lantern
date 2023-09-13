@@ -22,7 +22,11 @@ static void liveviewapp_patch()
 {
     if (!patched)
     {
+	#if defined(1300D)
+        int err = patch_hook_function(	
+	#else	
         int err = patch_instruction(
+	#endif
             addr,
             MEM(addr),
             MOV_R0_0_INSTR,

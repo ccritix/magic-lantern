@@ -1,23 +1,27 @@
 /**
  * Camera internals for 1300D 1.1.0
  */
+#define CONFIG_DIGIC_IV
 
 /** Properties are persistent (saved in NVRAM) => a mistake can cause permanent damage. Undefine this for new ports. */
 /** The 1300D port is very early, so I think we should not enable properties. **/
-//#undef CONFIG_PROP_REQUEST_CHANGE
 #define CONFIG_PROP_REQUEST_CHANGE
 
 /** 
  * State object hooks are pieces of code that run in Canon tasks (state objects). See state-object.c . 
  * They might slow down Canon code, so here you can disable all of them (useful for debugging or early ports) 
  */
+/** No additional_version stub on this DryOS version **/
+#define CONFIG_NO_ADDITIONAL_VERSION
+
 #define CONFIG_STATE_OBJECT_HOOKS
 
 /** This camera runs DryOS **/
 //~ #define CONFIG_VXWORKS
 
 /** This camera has a DIGIC IV chip */
-//#define CONFIG_DIGIC_IV
+//~#define CONFIG_DIGIC_IV
+//~#define CONFIG_KILL_FLICKER
 
 /** This camera uses new-style DryOS task hooks */
 #define CONFIG_NEW_DRYOS_TASK_HOOKS
@@ -58,7 +62,7 @@
 //~ #define CONFIG_VARIANGLE_DISPLAY
 
 /** Battery does not report exact percentage **/
-//~ #define CONFIG_BATTERY_INFO
+//#define CONFIG_BATTERY_INFO
 
 /** We can do bulb exposures **/
 #define CONFIG_BULB
@@ -94,7 +98,8 @@
 #define CONFIG_EXPSIM
 
 /** We can playback sounds via ASIF DMA **/
-#define CONFIG_BEEP
+//#define CONFIG_BEEP
+#undef CONFIG_BEEP
 
 /** This camera has trouble saving Kelvin and/or WBShift in movie mode, so ML has to do this instead **/
 /* to be checked */
@@ -115,7 +120,8 @@
 /** We can display some extra info in photo mode (not LiveView) **/
 #define CONFIG_PHOTO_MODE_INFO_DISPLAY
 
-/** Show 4 char if camera support only 3 in photo mode (not LiveView) **/
+/** No additional_version stub on this DryOS version **/
+#define CONFIG_NO_ADDITIONAL_VERSION
 
 /** FIO_RenameFile works **/
 #define CONFIG_FIO_RENAMEFILE_WORKS
@@ -130,7 +136,8 @@
 //~ #define CONFIG_FPS_TIMER_A_ONLY
 
 /** FPS override: Canon changes FPS registers often; we need to undo their changes asap */
-//~ #define CONFIG_FPS_AGGRESSIVE_UPDATE
+
+#define CONFIG_FPS_AGGRESSIVE_UPDATE
 
 /** This camera has a mono microphone input, so we should display only one audio meter **/
 #define CONFIG_MONO_MIC
@@ -144,13 +151,16 @@
 
 
 /** Hide Canon bottom bar from DebugMsg hook */
-//~ #define CONFIG_LVAPP_HACK_DEBUGMSG
+//cristi
+//~#define CONFIG_LVAPP_HACK_DEBUGMSG
 
 /** Workaround for menu timeout in LiveView */
-//~ #define CONFIG_MENU_TIMEOUT_FIX
+// not work on 1300D 
+//#define CONFIG_MENU_TIMEOUT_FIX
 
 /** Use a patched LiveViewApp dialog hander to hide Canon bottom bar */
 /** FIXME: long calls during relocation **/
 //~ #define CONFIG_LVAPP_HACK_RELOC
 
-//#define CONFIG_HELLO_WORLD
+/** this method bypasses Canon's lv_save_raw and slurps the raw data directly from connection #0 */
+#define CONFIG_EDMAC_RAW_SLURP

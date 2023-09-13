@@ -33,7 +33,10 @@
 #include "property.h"
 #include "consts.h"
 #include "tskmon.h"
-#include "timer.h"
+
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+#include "dm-spy.h"
+#endif
 
 #include "boot-hack.h"
 #include "ml-cbr.h"
@@ -47,9 +50,30 @@
 #include "fw-signature.h"
 #endif
 
+enum boot_drive { DRIVE_CF, DRIVE_SD };
+static int (*boot_open_write)(int drive, const char * filename, void * addr, uint32_t size) = 0;
+static int ml_loaded_as_thumb = 0;
+static void fail()
+{
+    qprintf("\n");
+    qprint(" You may now remove the battery.\n");
+
+    while (1)
+    {
+        //blink(20);
+	info_led_blink(3, 500, 500);
+    }
+}
+uint32_t is_digic78()
+{
+    /* either DIGIC 7 or 8 */
+    return ml_loaded_as_thumb;
+}
+
 static int _hold_your_horses = 1; // 0 after config is read
 int ml_started = 0; // 1 after ML is fully loaded
 int ml_gui_initialized = 0; // 1 after gui_main_task is started 
+struct task *first_task = 0; // first item in the array of task structs
 
 /**
  * Called by DryOS when it is dispatching (or creating?)
@@ -57,9 +81,9 @@ int ml_gui_initialized = 0; // 1 after gui_main_task is started
  */
 static void
 my_task_dispatch_hook(
-        struct context ** p_context_old,    /* on new DryOS (6D+), this argument is different (small number, unknown meaning) */
-        struct task * prev_task_unused,     /* only present on new DryOS */
-        struct task * next_task_new         /* only present on new DryOS; old versions use HIJACK_TASK_ADDR */
+        struct context **p_context_old,    /* on new DryOS (6D+), this argument is different (small number, unknown meaning) */
+        struct task *prev_task_unused,     /* only present on new DryOS */
+        struct task *next_task_new         /* only present on new DryOS; old versions use HIJACK_TASK_ADDR */
 )
 {
     struct task * next_task = 
@@ -96,13 +120,13 @@ my_task_dispatch_hook(
 #ifdef CONFIG_NEW_DRYOS_TASK_HOOKS
     /* on new DryOS, first argument is not context; get it from the task structure */
     /* this also works for some models with old-style DryOS, but not all */
-    struct context * context = next_task->context;
+    struct context *context = next_task->context;
 #else
     /* on old DryOS, context is passed as argument
      * on some models (not all!), it can be found in the task structure as well */
-    struct context * context = p_context_old ? (*p_context_old) : 0;
+    struct context *context = p_context_old ? (*p_context_old) : 0;
 #endif
-
+    
     if (!context)
         return;
     
@@ -117,7 +141,7 @@ my_task_dispatch_hook(
     }
 
     // Do nothing unless a new task is starting via the trampoile
-    if( context->pc != (uint32_t) task_trampoline )
+    if(context->pc != (uint32_t)task_trampoline)
         return;
 
     thunk entry = (thunk) next_task->entry;
@@ -127,7 +151,7 @@ my_task_dispatch_hook(
     // Search the task_mappings array for a matching entry point
     extern struct task_mapping _task_overrides_start[];
     extern struct task_mapping _task_overrides_end[];
-    struct task_mapping * mapping = _task_overrides_start;
+    struct task_mapping *mapping = _task_overrides_start;
 
     for( ; mapping < _task_overrides_end ; mapping++ )
     {
@@ -190,8 +214,12 @@ void _disable_ml_startup() {
 }
 
 #if defined(CONFIG_AUTOBACKUP_ROM)
-
-#define BACKUP_BLOCKSIZE 0x00100000
+static int normal_font = FONT_LARGE;
+static int error_font = FONT(FONT_LARGE, COLOR_RED, COLOR_BLACK);
+static int warning_font = FONT(FONT_LARGE, COLOR_YELLOW, COLOR_BLACK);
+static int y = 200;
+static int FH = 50; /* font height */
+#define BACKUP_BLOCKSIZE 0x00010000
 
 static void backup_region(char *file, uint32_t base, uint32_t length)
 {
@@ -236,14 +264,66 @@ static void backup_region(char *file, uint32_t base, uint32_t length)
 
 static void backup_rom_task()
 {
-    backup_region("ML/LOGS/ROM1.BIN", 0xF8000000, 0x01000000);
-    backup_region("ML/LOGS/ROM0.BIN", 0xF0000000, 0x01000000);
+    bmp_printf(FONT_LARGE, 50, 200, "Backup ROM1...");
+    backup_region("ML/LOGS/ROM1.BIN", 0x01000000, 0x02000000);
+    bmp_printf(FONT_LARGE, 50, 200, "Backup ROM0...");
+    backup_region("ML/LOGS/ROM0.BIN", 0x01000000, 0x02000000);
+    bmp_printf(FONT_LARGE, 50, 200, "DONE!              ");
 }
 #endif
 
 #ifdef CONFIG_HELLO_WORLD
+static int normal_font = FONT_LARGE;
+static int error_font = FONT(FONT_LARGE, COLOR_RED, COLOR_BLACK);
+static int warning_font = FONT(FONT_LARGE, COLOR_YELLOW, COLOR_BLACK);
+static int y = 200;
+static int FH = 50; /* font height */
+#define BACKUP_BLOCKSIZE 0x00010000
+
+static void backup_region(char *file, uint32_t base, uint32_t length)
+{
+    FILE *handle = NULL;
+    uint32_t size = 0;
+    uint32_t pos = 0;
+    
+    /* already backed up that region? */
+    if((FIO_GetFileSize( file, &size ) == 0) && (size == length) )
+    {
+        return;
+    }
+    
+    /* no, create file and store data */
+    void* buf = malloc(BACKUP_BLOCKSIZE);
+    if (!buf) return;
+
+    handle = FIO_CreateFile(file);
+    if (handle)
+    {
+      while(pos < length)
+      {
+         uint32_t blocksize = BACKUP_BLOCKSIZE;
+        
+          if(length - pos < blocksize)
+          {
+              blocksize = length - pos;
+          }
+          
+          /* copy to RAM before saving, because ROM is slow and may interfere with LiveView */
+          memcpy(buf, &((uint8_t*)base)[pos], blocksize);
+          
+          FIO_WriteFile(handle, buf, blocksize);
+          pos += blocksize;
+      }
+      FIO_CloseFile(handle);
+    }
+    
+    free(buf);
+}
+
+
 static void hello_world()
 {
+    backup_region("ML/LOGS/ROM_REG.BIN", 0xfeb40000, 0x00010000);
     qprintf("HELLO WORLD\n");
     uint32_t sig = compute_signature((void*)SIG_START, SIG_LEN);
     while(1)
@@ -253,6 +333,7 @@ static void hello_world()
         info_led_blink(1, 500, 500);
         qprintf("firmware signature = 0x%x\n", sig);
     }
+
 }
 #endif
 
@@ -279,12 +360,12 @@ static void dumper_bootflag()
     // do not try to enable bootflag in LiveView, or during sensor cleaning (it will fail while writing to ROM)
     // no check is done here, other than a large delay and doing this while in Canon menu
     // todo: check whether the issue is still present with interrupts disabled
-    bmp_printf(FONT_LARGE, 50, 200, "EnableBootDisk...");
+    bmp_printf(FONT_LARGE, 50, 300, "EnableBootDisk...");
     uint32_t old = cli();
     call("EnableBootDisk");
     sei(old);
 
-    bmp_printf(FONT_LARGE, 50, 250, ":)");
+    bmp_printf(FONT_LARGE, 50, 350, ":)");
 }
 #endif
 
@@ -341,6 +422,15 @@ static void my_big_init_task()
     }
 
     _load_fonts();
+
+    // SJE not sure on best place to do this.  Before HELLO_WORLD is nice
+    // if possible, needs to be after DryOS inits task scheduler.  I assume
+    // that has happened but don't know how to check.
+    //
+    // DryOS keeps task structs in an array, the first task is created
+    // very early and never removed (the "idle" task).  TaskId is index
+    // into the array, so we can find first item knowing any other.
+    first_task = current_task->self - ((current_task->taskId & 0xffff) - 1);
 
 #ifdef CONFIG_HELLO_WORLD
     hello_world();
@@ -401,7 +491,20 @@ static void my_big_init_task()
     
     msleep(500);
     ml_started = 1;
+#ifdef CONFIG_DEBUG_INTERCEPT_STARTUP
+    info_led_blink(20,500,500);
+    debug_intercept();
+#endif
+//    extern void run_patch_test(void);
+//    run_patch_test();
+
 }
+
+
+
+static uint32_t jump;
+
+
 
 /** Blocks execution until config is read */
 void hold_your_horses()
@@ -422,6 +525,10 @@ const char* get_assert_msg() { return assert_msg; }
 
 static int my_assert_handler(char* msg, char* file, int line, int arg4)
 {
+//https://github.com/reticulatedpines/magiclantern_simplified/pull/99/commits/cbb5784dbfea388244701f8bdecf7ad700354cf3
+    if (msg == NULL)
+	msg = "nullptr";
+
     uint32_t lr = read_lr();
 
     int len = snprintf(assert_msg, sizeof(assert_msg), 
@@ -511,12 +618,14 @@ void boot_post_init_task(void)
 #endif
 
     // wait for firmware to initialize
-    while (!bmp_vram_raw()) msleep(100);
+    while (!bmp_vram_raw())
+        msleep(100);
     
     // wait for overriden gui_main_task (but use a timeout so it doesn't break if you disable that for debugging)
     for (int i = 0; i < 50; i++)
     {
-        if (ml_gui_initialized) break;
+        if (ml_gui_initialized)
+            break;
         msleep(50);
     }
     msleep(50);
@@ -525,5 +634,4 @@ void boot_post_init_task(void)
 
     return;
 }
-
 

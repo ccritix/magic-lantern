@@ -11,6 +11,8 @@
 #include "disp_direct.h"
 #include "compiler.h"
 #include "consts.h"
+#include <string.h>
+#include <qemu-util.h>
 
 #define MEM(x) (*(volatile uint32_t *)(x))
 
@@ -107,7 +109,11 @@ static uint32_t find_func_called_before_string_ref(char* ref_string)
     uint32_t answer = 0;
     
     /* only scan the bootloader area */
-    for (uint32_t i = 0xFFFE0000; i < 0xFFFFFFF0; i += 4 )
+    #if defined(CONFIG_1300D)
+    	for (uint32_t i = 0xFE000000; i < 0xFF000000; i += 4 )
+    #else
+    	for (uint32_t i = 0xFFFE0000; i < 0xFFFFFFF0; i += 4 )
+    #endif
     {
         uint32_t this = MEM(i);
         uint32_t next = MEM(i+4);
@@ -125,7 +131,11 @@ static uint32_t find_func_called_before_string_ref(char* ref_string)
                 uint32_t func_offset = (this & 0x00FFFFFF) << 2;
                 uint32_t pc = i;
                 uint32_t func_addr = pc + func_offset + 8;
-                if (func_addr > 0xFFFE0000)
+		#if defined(CONFIG_1300D)
+                if (func_addr > 0xFE000000)
+		#else
+		if (func_addr > 0xFFFE0000)
+		#endif
                 {
                     /* looks ok? */
                     answer = func_addr;

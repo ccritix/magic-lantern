@@ -45,6 +45,7 @@
 
 #define FPS_REGISTER_A 0xC0F06008
 #define FPS_REGISTER_B 0xC0F06014
+#define FPS_REGISTER_B_DUAL_PIXEL 0xC0F06024
 #define FPS_REGISTER_CONFIRM_CHANGES 0xC0F06000
 
 #define PACK(lo, hi) ((lo) & 0x0000FFFF) | (((hi) & 0x0000FFFF) << 16)
@@ -52,6 +53,7 @@
 #define FPS_REGISTER_A_VALUE ((int) shamem_read(FPS_REGISTER_A))
 #define FPS_REGISTER_A_DEFAULT_VALUE ((int) shamem_read(FPS_REGISTER_A+4))
 #define FPS_REGISTER_B_VALUE ((int) shamem_read(FPS_REGISTER_B))
+#define FPS_REGISTER_B_DUAL_PIXEL_VALUE ((int) shamem_read(FPS_REGISTER_B_DUAL_PIXEL))
 
 #ifdef CONFIG_7D
 uint32_t *buf = NULL;
@@ -296,6 +298,24 @@ static void fps_read_current_timer_values();
     #define FPS_TIMER_B_MIN 1050
     #define SENSOR_TIMING_TABLE MEM(0xce98)
     #define VIDEO_PARAMETERS_SRC_3 0x70C0C
+#elif defined(CONFIG_1200D)
+    #define NEW_FPS_METHOD 1
+    #define SENSOR_TIMING_TABLE MEM(0xC470)
+    #define VIDEO_PARAMETERS_SRC_3 0x72944
+    #define TG_FREQ_BASE 28800000
+    #undef FPS_TIMER_A_MIN
+    #define FPS_TIMER_A_MIN (ZOOM ? 734 : MV1080 ? 546 :576)
+    #undef FPS_TIMER_B_MIN
+    #define FPS_TIMER_B_MIN (ZOOM ? 1312 : MV480 ? 2000 : MV720 ? 1000 : 2200)
+#elif defined(CONFIG_1300D) || defined(CONFIG_4000D)
+//    #define NEW_FPS_METHOD 1
+//    #define SENSOR_TIMING_TABLE MEM(0x4015C)
+//    #define VIDEO_PARAMETERS_SRC_3 0x6A95C
+    #define TG_FREQ_BASE 28800000
+    #undef FPS_TIMER_A_MIN
+    #define FPS_TIMER_A_MIN (ZOOM ? 734 : MV1080 ? 546 :576)
+    #undef FPS_TIMER_B_MIN
+    #define FPS_TIMER_B_MIN (ZOOM ? 1312 : MV480 ? 2000 : MV720 ? 1000 : 2200)
 #elif defined(CONFIG_5D3)
     #define NEW_FPS_METHOD 1
     #ifdef CONFIG_5D3_123
@@ -732,6 +752,7 @@ static void fps_setup_timerB(int fps_x1000)
         timerB -= 1;
         written_value_b = PACK(timerB, fps_reg_b_orig);
         EngDrvOutFPS(FPS_REGISTER_B, written_value_b);
+	EngDrvOutFPS(FPS_REGISTER_B_DUAL_PIXEL, written_value_b);
         fps_needs_updating = 0;
     #if defined(NEW_FPS_METHOD)
     }
@@ -780,7 +801,7 @@ static void calc_rolling_shutter(int * line_ns, int * frame_us, int * frame_perc
 static MENU_UPDATE_FUNC(fps_print)
 {
     static int last_inactive = 0;
-    int t = get_ms_clock_value_fast();
+    int t = get_ms_clock();
 
     int frame_readout_time_percent;
     calc_rolling_shutter(0, 0, &frame_readout_time_percent, 0, 0);
@@ -963,10 +984,10 @@ static void flip_zoom_twostage(int stage)
                 f0 = video_mode[2];
                 video_mode[2] = 
                     f0 == 24 ? 25 : 
-#ifndef CONFIG_1100D
-                    f0 == 25 ? 24 : 
-#else
+#if defined(CONFIG_1100D) || defined(CONFIG_1200D) || defined(CONFIG_1300D)
                     f0 == 25 ? 30 :
+#else
+                    f0 == 25 ? 24 :
 #endif
                     f0 == 30 ? 25 : 
                     f0 == 50 ? 60 :
@@ -1032,6 +1053,7 @@ static void fps_register_reset()
         written_value_b = 0;
         EngDrvOutFPS(FPS_REGISTER_A, fps_reg_a_orig);
         EngDrvOutFPS(FPS_REGISTER_B, fps_reg_b_orig);
+	EngDrvOutFPS(FPS_REGISTER_B_DUAL_PIXEL, fps_reg_b_orig);
         EngDrvOutFPS(FPS_REGISTER_CONFIRM_CHANGES, 1);
     }
 }
@@ -1635,6 +1657,7 @@ void fps_update_timers_from_evfstate()
     {
         EngDrvOutLV(FPS_REGISTER_A, fps_timerA_override);
         EngDrvOutLV(FPS_REGISTER_B, fps_timerB_override);
+	EngDrvOutLV(FPS_REGISTER_B_DUAL_PIXEL, fps_timerB_override);
         EngDrvOutLV(FPS_REGISTER_CONFIRM_CHANGES, 1);
     }
     fps_timers_updated = 1;

@@ -308,17 +308,15 @@ static int uninstall();
 //~ Called from my_init_task
 static void install_task();
 
-/** Initial task setup.
- *
- * This is called instead of the task at 0xFF811DBC.
- * It does all of the stuff to bring up the debug manager,
- * the terminal drivers, stdio, stdlib and armlib.
- */
-int my_init_task(int a, int b, int c, int d)
+/* called before Canon's init_task */
+void boot_pre_init_task(void)
 {
-    // Call their init task
-    int ans = init_task(a,b,c,d);
-    
+    /* nothing to do */
+}
+
+/* called right after Canon's init_task, while their initialization continues in background */
+void boot_post_init_task(void)
+{
 #if !defined(CONFIG_NO_ADDITIONAL_VERSION)
     // Re-write the version string.
     // Don't use strcpy() so that this can be done
@@ -333,7 +331,8 @@ int my_init_task(int a, int b, int c, int d)
     msleep(3000);
     
     task_create("install_task", 0x1b, 0x4000, install_task, 0);
-    return ans;
+//    return ans;
+    return;
 }
 
 /* for printing messages */
@@ -583,7 +582,7 @@ void bvram_mirror_init(){};
 int display_is_on_550D = 0;
 int get_display_is_on_550D() { return display_is_on_550D; }
 void config_save(){};
-int get_ms_clock_value() { return 0; }
+int get_ms_clock() { return 0; }
 char * get_task_name_from_id(int id) { return ""; }
 void beep() {} ;
 uint32_t ml_used_mem = 0;

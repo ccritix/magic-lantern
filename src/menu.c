@@ -22,6 +22,7 @@
  */
 
 #include "dryos.h"
+#include "math.h"
 #include "version.h"
 #include "bmp.h"
 #include "gui.h"
@@ -38,6 +39,10 @@
 #include "debug.h"
 #include "lvinfo.h"
 #include "powersave.h"
+
+extern uint32_t ml_refresh_display_needed;
+
+
 
 #define CONFIG_MENU_ICONS
 //~ #define CONFIG_MENU_DIM_HACKS
@@ -71,6 +76,10 @@ static int my_menu_dirty = 0;
 #define MOD_MENU_NAME "Modified"
 static struct menu * mod_menu;
 static int mod_menu_dirty = 1;
+
+/* menu is checked for duplicate entries after adding new items */
+static void check_duplicate_entries();
+static int duplicate_check_dirty = 1;
 
 //for vscroll
 #define MENU_LEN 11
@@ -118,7 +127,15 @@ static int caret_position = 0;
 #define SUBMENU_OR_EDIT (submenu_level || edit_mode)
 #define EDIT_OR_TRANSPARENT (edit_mode || menu_lv_transparent_mode)
 
+/* fixme: better solution? */
+static struct menu_entry * entry_being_updated = 0;
+static int entry_removed_itself = 0;
+
+#ifdef FEATURE_JUNKIE_MENU
 static CONFIG_INT("menu.junkie", junkie_mode, 0);
+#else
+#define junkie_mode 0   /* let the compiler optimize out this code */
+#endif
 //~ static CONFIG_INT("menu.set", set_action, 2);
 //~ static CONFIG_INT("menu.start.my", start_in_my_menu, 0);
 
@@ -641,7 +658,7 @@ static void menu_numeric_toggle_fast(int* val, int delta, int min, int max, int 
     
     static int prev_t = 0;
     static int prev_delta = 1000;
-    int t = get_ms_clock_value();
+    int t = get_ms_clock();
     
     if(is_time)
         menu_numeric_toggle_time(val, delta, min, max);
@@ -4174,19 +4191,22 @@ menu_redraw_do()
     #ifdef CONFIG_VXWORKS   
     set_ml_palette();    
     #endif
+    ml_refresh_display_needed = 1;
 }
 
 void menu_benchmark()
 {
     SetGUIRequestMode(1);
     msleep(1000);
-    int t0 = get_ms_clock_value();
+    int t0 = get_ms_clock();
+
     for (int i = 0; i < 500; i++)
     {
         menu_redraw_do();
         bmp_printf(FONT_MED, 0, 0, "%d%% ", i/5);
     }
-    int t1 = get_ms_clock_value();
+    int t1 = get_ms_clock();
+
     clrscr();
     NotifyBox(20000, "Elapsed time: %d ms", t1 - t0);
 }
@@ -4217,6 +4237,7 @@ static struct msg_queue * menu_redraw_queue = 0;
 static void
 menu_redraw_task()
 {
+    DryosDebugMsg(0, 15, "[***] starting menu_redraw_task");
     menu_redraw_queue = (struct msg_queue *) msg_queue_create("menu_redraw_mq", 1);
     TASK_LOOP
     {
@@ -4231,6 +4252,7 @@ menu_redraw_task()
             {
                 /* close menu on half-shutter */
                 /* (the event is not always caught by the key handler) */
+                DryosDebugMsg(0, 15, "halfshutter, skipping, menu_redraw_do");
                 gui_stop_menu();
                 continue;
             }
@@ -4240,6 +4262,7 @@ menu_redraw_task()
             if (!menu_ensure_canon_dialog())
             {
                 /* didn't work, close ML menu */
+                DryosDebugMsg(0, 15, "canon dialog, skipping, menu_redraw_do");
                 gui_stop_menu();
                 continue;
             }
@@ -4461,14 +4484,15 @@ handle_ml_menu_keys(struct event * event)
         }
         else
         {
-            // double click will go to "extra junkie" mode (nothing hidden)
-            static int last_t = 0;
-            int t = get_ms_clock_value();
-            if (t > last_t && t < last_t + 300)
-                junkie_mode = !junkie_mode*2;
-            else
-                junkie_mode = !junkie_mode;
-            last_t = t;
+            #ifdef FEATURE_JUNKIE_MENU
+            // each MENU press adjusts number of Junkie items
+            // (off, 10, 20); 3 = show all (unused)
+            junkie_mode = MOD(junkie_mode+1, 3);
+            my_menu_dirty = 1;
+            #else
+            // close ML menu
+            give_semaphore(gui_sem);
+            #endif
         }
         break;
     }
@@ -4700,6 +4724,7 @@ menu_init( void )
     menus = NULL;
     menu_sem = create_named_semaphore( "menus", 1 );
     gui_sem = create_named_semaphore( "gui", 0 );
+    DryosDebugMsg(0, 15, "[***] created gui_sem in menu_init()");
     menu_redraw_sem = create_named_semaphore( "menu_r", 1);
 
     struct menu * m = NULL;
@@ -4840,6 +4865,7 @@ static void menu_open()
 { 
     if (menu_shown) return;
 
+    DryosDebugMsg(0, 15, "[***] Sunt in menu_open");
     
     // start in my menu, if configured
     /*
@@ -5771,7 +5797,7 @@ int menu_set_value_from_script(const char* name, const char* entry_name, int val
 int menu_request_image_backend()
 {
     static int last_guimode_request = 0;
-    int t = get_ms_clock_value();
+    int t = get_ms_clock();
     
     if (CURRENT_GUI_MODE != GUIMODE_PLAY)
     {

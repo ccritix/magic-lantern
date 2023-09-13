@@ -22,15 +22,6 @@
 #define HIJACK_FIXBR_CREATE_ITASK 0xFE0C3AF8
 #define HIJACK_INSTR_MY_ITASK 0xFE0C3B20
 
-// Used in boot-hack.c with CONFIG_ALLOCATE_MEMORY_POOL
-#define ROM_ITASK_START 0xFE1296C8
-#define ROM_ITASK_END 0xFE1296C8//0xfe129bd8 // 0xFE1298A0 //fe12b8bc FE1298A0
-#define ROM_CREATETASK_MAIN_START 0xfe0c1b60 
-#define ROM_CREATETASK_MAIN_END 0xfe0c1eb0
-#define ROM_ALLOCMEM_END 0xfe0c1b74
-#define ROM_ALLOCMEM_INIT 0xfe0c1b7c //(ROM_ALLOCMEM_END + 8) 
-#define ROM_B_CREATETASK_MAIN 0xfe129760
-
 /* new-style DryOS hooks? */
 //#define HIJACK_TASK_ADDR 0x31170
 
@@ -58,7 +49,8 @@
 #define MOV_OPT_STEP 5
 #define MOV_GOP_OPT_STEP 5
 
- #define AUDIO_MONITORING_HEADPHONES_CONNECTED (!((*(int*)0xc0220070) & 1))
+ //#define AUDIO_MONITORING_HEADPHONES_CONNECTED (!((*(int*)0xc0220070) & 1))
+ #define AUDIO_MONITORING_HEADPHONES_CONNECTED 0
 //#define HOTPLUG_VIDEO_OUT_PROP_DELIVER_ADDR 0x1a8c // this prop_deliver performs the action for Video Connect and Video Disconnect  // not present on 1300D (see FE0C69C8: taskHotPlug)
 //#define HOTPLUG_VIDEO_OUT_STATUS_ADDR 0x1ac4 // passed as 2nd arg to prop_deliver; 1 = display connected, 0 = not, other values disable this event (trick)  // not present on 1300D (see FE0C69C8: taskHotPlug)
 
@@ -71,7 +63,7 @@
  #define REG_EDMAC_WRITE_LV_ADDR 0xc0f04308 // SDRAM address of LV buffer (aka VRAM)
  #define REG_EDMAC_WRITE_HD_ADDR 0xc0f04208 // SDRAM address of HD buffer (aka YUV)
 
-#define YUV422_LV_BUFFER_DISPLAY_ADDR (*(uint32_t*)0x318C8)
+#define YUV422_LV_BUFFER_DISPLAY_ADDR (*(uint32_t*)0x318C8)  // 0x31818+0xB0
 #define YUV422_HD_BUFFER_DMA_ADDR (shamem_read(REG_EDMAC_WRITE_HD_ADDR))
 
 // changes during record
@@ -105,7 +97,7 @@
 #define SHOOTING_MODE (*(int*)0x3592C)
 #define UNAVI_FEEDBACK_TIMER_ACTIVE (MEM(0x3FE14) != 0x17) // dec CancelUnaviFeedBackTimer
 
- #define COLOR_FG_NONLV 80
+
 
 
 
@@ -114,7 +106,11 @@
  #define AE_STATE (*(int8_t*)(0x3AA80 + 0x1C))
  #define AE_VALUE (*(int8_t*)(0x3AA80 + 0x1D))
 
-#define CURRENT_GUI_MODE (*(int*)0x36560) // GUIMode_maybe
+#define CURRENT_GUI_MODE (*(int*)0x36560) // GUIMode_maybe 00036518 + 48
+    
+	// from a screenshot
+#define COLOR_FG_NONLV 80
+//#define COLOR_FG_NONLV 1
 #define GUIMODE_WB 5
 #define GUIMODE_FOCUS_MODE 9
 #define GUIMODE_DRIVE_MODE 8
@@ -166,7 +162,13 @@
 
 // position for displaying clock outside LV
 #define DISPLAY_CLOCK_POS_X 440
-#define DISPLAY_CLOCK_POS_Y 410
+#define DISPLAY_CLOCK_POS_Y 400
+
+#define DISPLAY_DATE_POS_X 425
+#define DISPLAY_DATE_POS_Y 430
+
+#define DISPLAY_BATTERY_POS_X 350
+#define DISPLAY_BATTERY_POS_Y 400
 
 // position for displaying K icon in photo info display
 #define WB_K_ICON_POS_X 192
@@ -188,7 +190,10 @@
 
 // In bindGUIEventFromGUICBR, look for "LV Set" => arg0 = 8
 // Next, in SetGUIRequestMode, look at what code calls NotifyGUIEvent(8, something)
-#define GUIMODE_ML_MENU (RECORDING ? 0 : lv ? 68 : 2)
+//#define GUIMODE_ML_MENU (RECORDING ? 0 : lv ? 68 : 2)
+// skip RECORDING variant for now
+#define GUIMODE_ML_MENU (lv ? 68 : 2)
+
 
 #define NUM_PICSTYLES 10
 
@@ -251,7 +256,7 @@
 #define Q_BTN_NAME (RECORDING ? "INFO" : "[Q]")
 #define ARROW_MODE_TOGGLE_KEY ""
 
-#define DISPLAY_STATEOBJ (*(struct state_object **)0x318B8)
+#define DISPLAY_STATEOBJ (*(struct state_object **)0x318B8)  //0x31818+0xa0
 #define DISPLAY_IS_ON (DISPLAY_STATEOBJ->current_state != 0)
 
 #define VIDEO_PARAMETERS_SRC_3 0x6A95C 
@@ -261,9 +266,17 @@
 #define FRAME_SHUTTER (*(uint8_t*)(VIDEO_PARAMETERS_SRC_3+0xa))
 #define FRAME_BV ((int)FRAME_SHUTTER + (int)FRAME_APERTURE - (int)FRAME_ISO)
 
+#define FRAME_SHUTTER_BLANKING_ZOOM   (*(uint16_t*)0x40481B20) // ADTG register 805f
+#define FRAME_SHUTTER_BLANKING_NOZOOM (*(uint16_t*)0x40481B24) // ADTG register 8061
+#define FRAME_SHUTTER_BLANKING_READ   (lv_dispsize > 1 ? FRAME_SHUTTER_BLANKING_NOZOOM : FRAME_SHUTTER_BLANKING_ZOOM) /* when reading, use the other mode, as it contains the original value (not overriden) */
+#define FRAME_SHUTTER_BLANKING_WRITE  (lv_dispsize > 1 ? &FRAME_SHUTTER_BLANKING_ZOOM : &FRAME_SHUTTER_BLANKING_NOZOOM)
+//#define LV_DISP_MODE (MEM(0x67548 + 0x24) != 3) //on EOSM is (MEM(0x89BAC + 0x7C) != 3)// 00067548
+
 // see "Malloc Information"
 #define MALLOC_STRUCT 0x671A8
 #define MALLOC_FREE_MEMORY (MEM(MALLOC_STRUCT + 8) - MEM(MALLOC_STRUCT + 0x1C)) // "Total Size" - "Allocated Size"
+#define SRM_BUFFER_SIZE 0x1f68000 //0x14E8000   /* print it from srm_malloc_cbr */
+
 
 // for bulb ramping calibration: delay between two exposure readings (increase it if brightness updates slowly)
 // if not defined, default is 500
@@ -271,7 +284,9 @@
 
 //~ max volume supported for beeps
 #define ASIF_MAX_VOL 5
+// look for "JudgeBottomInfoDispTimerState(%d)"
+#define JUDGE_BOTTOM_INFO_DISP_TIMER_STATE	0x3fe5c
 
 // temperature convertion from raw-temperature to celsius
 // http://www.magiclantern.fm/forum/index.php?topic=9673.0
-#define EFIC_CELSIUS ((int)efic_temp * 60 / 100 - 65)
+#define EFIC_CELSIUS ((int)efic_temp * 55 / 100 - 68)

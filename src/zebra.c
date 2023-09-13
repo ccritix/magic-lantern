@@ -52,6 +52,8 @@
 #include "lcdsensor.h"
 #endif
 
+extern uint32_t ml_refresh_display_needed;
+
 #if defined(FEATURE_RAW_HISTOGRAM) || defined(FEATURE_RAW_ZEBRAS) || defined(FEATURE_RAW_SPOTMETER)
 #define FEATURE_RAW_OVERLAYS
 #endif
@@ -3673,7 +3675,7 @@ BMP_LOCK(
     bvram_mirror_clear(); // may remain filled with playback zebras 
 )
 
-    clean_d_cache(); // to avoid display artifacts
+    sync_caches(); // to avoid display artifacts
 
     info_led_off();
     overlays_playback_running = 0;

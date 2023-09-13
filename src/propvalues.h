@@ -32,6 +32,8 @@ extern char camera_serial[32];
 #define MODEL_EOS_700D   0x80000326
 #define MODEL_EOS_M      0x80000331
 #define MODEL_EOS_100D   0x80000346
+#define MODEL_EOS_1300D  0x80000404
+#define MODEL_EOS_2000D  0x80000417
 
 #ifndef _DONT_INCLUDE_PROPVALUES_
 extern int lv; // TRUE when LiveView is active
@@ -79,6 +81,9 @@ extern int dofpreview;
 extern int display_sensor;
 extern int shutter_count;
 extern int shutter_count_plus_lv_actuations;
+extern int serial_number;
+extern int serial_number_len;
+extern int serial_number_buf;
 extern int ae_mode_movie;
 extern int ext_monitor_hdmi;
 extern int _ext_monitor_rca;

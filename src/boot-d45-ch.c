@@ -23,6 +23,8 @@ copy_and_restart( )
     zero_bss();
 
     /* make sure we have the first segment locked in d/i cache for patching */    
+_clean_d_cache();
+_flush_caches();
     cache_lock();
 
     /* patch init code to start our init task instead of canons default */
@@ -39,9 +41,6 @@ copy_and_restart( )
         ;
 }
 
-/* qprintf should be fine from now on; undefine the "guard" definition */
-#undef qprintf
-
 /* Called before Canon's init_task */
 static void local_pre_init_task()
 {
@@ -57,7 +56,9 @@ static void local_pre_init_task()
     /* RAM for ML is the difference minus BVRAM that is placed right behind ML */
     ml_reserved_mem = orig_length - new_length - BMP_VRAM_SIZE - 0x200;
 
-    qprintf("[BOOT] reserving memory from RscMgr: %X -> %X.\n", orig_length, new_length);
+    qprint("[BOOT] reserving memory from RscMgr: ");
+    qprintn(orig_length); qprint(" -> "); qprintn(mew_length); qprint("\n");
+
     
 #else  
     uint32_t orig_instr = MEM(HIJACK_CACHE_HACK_BSS_END_ADDR);
@@ -88,7 +89,9 @@ static void local_pre_init_task()
         uint32_t new_end = ROR(new_immed_8, 2 * new_rotate_imm);
         
         ml_reserved_mem = orig_end - new_end;
-        qprintf("[BOOT] changing AllocMem end address: %X -> %X.\n", orig_end, new_end);
+        qprint("[BOOT] changing AllocMem end address: ");
+        qprintn(orig_end); qprint(" -> "); qprintn(new_end); qprint("\n");
+
 
         /* now patch init task and continue execution */
         qdisas(HIJACK_CACHE_HACK_BSS_END_ADDR);
@@ -100,7 +103,9 @@ static void local_pre_init_task()
     else
     {
         /* we are not sure if this is a instruction, so patch data cache also */
-        qprintf("[BOOT] reserving memory: %X -> %X.\n", MEM(HIJACK_CACHE_HACK_BSS_END_ADDR), new_instr);
+        qprint("[BOOT] reserving memory: ");
+        qprintn(MEM(HIJACK_CACHE_HACK_BSS_END_ADDR)); qprint(" -> "); qprintn(new_instr); qprint("\n");
+
         cache_fake(HIJACK_CACHE_HACK_BSS_END_ADDR, new_instr, TYPE_ICACHE);
         cache_fake(HIJACK_CACHE_HACK_BSS_END_ADDR, new_instr, TYPE_DCACHE);
     }
@@ -110,6 +115,6 @@ static void local_pre_init_task()
 /* Called after Canon's init_task */
 static void local_post_init_task(void)
 {
-    qprintf("[BOOT] uninstalling cache hacks...\n");
+    qprint("[BOOT] uninstalling cache hacks...\n");
     cache_unlock();
 }

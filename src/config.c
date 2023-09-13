@@ -851,7 +851,6 @@ static char* config_choose_startup_preset()
     return 0;
 }
 
-
 /* initialized and used in boot-hack.c */
 int _set_at_startup = 0;
 
@@ -871,17 +870,6 @@ static struct menu_entry cfg_menus[] = {
     .submenu_width = 710,
     .help = "Config auto save, manual save, restore defaults...",
     .children =  (struct menu_entry[]) {
-        {
-            .name       = "SET at startup",
-            .priv       = &_set_at_startup,
-            .max        = 1,
-            .choices    = CHOICES("Bypass loading ML", "Required to load ML"),
-            .select     = set_at_startup_toggle,
-            .icon_type  = IT_BOOL,
-            .help       = "[GLOBAL] If you hold the SET button pressed at camera startup:",
-            .help2      = "Do not load ML if you start the camera with SET pressed (default)\n"
-                          "Load ML only if SET is pressed at startup (optional)"
-        },
         {
             .name = "Config preset",
             .priv = &config_new_preset_index,

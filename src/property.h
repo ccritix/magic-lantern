@@ -79,6 +79,7 @@
 #define PROP_LV_FOCUS           0x80050001 // only works in liveview mode; LVCAF_LensDriveStart
 #define PROP_LV_FOCUS_DONE      0x80050002 // output when focus motor is done?
 #define PROP_LV_FOCUS_STOP      0x80050003 // LVCAF_LensDriveStop
+#define PROP_LV_AF_RESULT       0x80050029 // 0 = OK, 1 = couldn't focus; triggered at the end of AF operation
 #define PROP_LV_FOCUS_BAD       0x80050029 // true if camera couldn't focus?
 #define PROP_LV_FOCUS_STATE     0x80050009 // 1 OK, 101 bad, 201 not done?
 #define PROP_LV_FOCUS_STATUS    0x80050023 // 1 = idle, 3 = focusing in LiveView
@@ -441,6 +442,9 @@
     #define PROP_CLUSTER_SIZE_C      0x02010008
     #define PROP_FREE_SPACE_C        0x0201000b
     #define PROP_CARD_RECORD_C       0x8003000d
+
+    #define PROP_FILE_NUMBERING_MODE        0x02040001
+    #define PROP_NUMBER_OF_CONTINUOUS_MODE  0x02040008
 #endif
 
 #define PROP_USER_FILE_PREFIX  0x02050004
@@ -495,11 +499,18 @@
 #define PROP_ICU_AUTO_POWEROFF  0x80030024
 #define PROP_AUTO_POWEROFF_TIME 0x80000024
 #define PROP_TERMINATE_SHUT_REQ 0x80010001
+#define PROP_ABORT              0x80010002 // when opening the battery door
 #define PROP_REBOOT             0x80010003 // used by firmware update code
 
 #define PROP_DIGITAL_ZOOM_RATIO 0x8005002f
 
 #define PROP_INFO_BUTTON_FUNCTION 0x02070006
+
+#define PROP_LIVE_VIEW_AF_SYSTEM        0x8004001D // 0 = quick AF, 1 = live mode, 2 = face detect, 3 = multi
+#define PROP_CONTINUOUS_AF              0x80040040 // bool, new models only, photo mode only
+#define PROP_MOVIE_SERVO_AF             0x80000042 // PROP_CONTINUOUS_AF_MODE, bool, new models only
+#define PROP_MOVIE_SERVO_AF_VALID       0x80000043 // PROP_CONTINUOUS_AF_VALID, to MPU only?
+#define PROP_SHUTTER_AF_DURING_RECORD   0x8000003C // PROP_MOVIE_REC_AF
 
 #define PROP_CONTINUOUS_AF_MODE 0x80000042
 #define PROP_CONTINUOUS_AF_VALID 0x80000043 //also toggles servo
@@ -583,7 +594,7 @@ int prop_request_change_wait(unsigned property, const void* addr, size_t len, in
 
 extern void
 prop_deliver(
-        uint32_t        prop,
+        uint32_t *      prop,
         void *          buf,
         size_t          len,
         uint32_t        mzb

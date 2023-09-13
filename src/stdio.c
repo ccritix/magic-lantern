@@ -15,6 +15,9 @@
 int
 streq( const char * a, const char * b )
 {
+    ASSERT(a);
+    ASSERT(b);
+
     while( *a && *b )
         if( *a++ != *b++ )
             return 0;

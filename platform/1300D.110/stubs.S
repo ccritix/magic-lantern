@@ -70,30 +70,31 @@ NSTUB(0xFE151800,  gui_massive_event_loop)                  // GUI_Control_Post
 NSTUB(0xFE2EB7F8,  GUI_SetLvMode)                           /* present on 500D.111, 50D.109, 5D2.212 */
 // NSTUB(    ???,  GUI_SetMovieSize_a)                      /* present on 50D.109 */
 // NSTUB(    ???,  GUI_SetMovieSize_b)                      /* present on 50D.109 */
-// NSTUB(0xFE2EBA2C,  Gui_SetSoundRecord)                   /* present on 6D.113, 5D2.212 */
+NSTUB(0xFE2EBA2C,  Gui_SetSoundRecord)                   /* present on 6D.113, 5D2.212 */
 
 /** ASIF **/
 // TODO:
- NSTUB(0XFE108E44,  PowerAudioOutput)                       /* not found */
-NSTUB(0xFE11B938,  SetAudioVolumeOut)
-NSTUB(0xFE106A98,  SetNextASIFADCBuffer)
-NSTUB(0xFE106C80,  SetNextASIFDACBuffer)
-NSTUB(0xFE11C690,  SetSamplingRate)
-NSTUB(0xFE105F7C,  StartASIFDMAADC)
-NSTUB(0xFE106350,  StartASIFDMADAC)
-NSTUB(0xFE1065D0,  StopASIFDMADAC)
-NSTUB(0xFE11CD04,  PowerMicAmp)                             /* present on 650D.104, EOSM.202, 700D.113 */
-// NSTUB(    ???,  SetASIFMode)                             /* present on 700D.113 */
-NSTUB(0xFE108E10,  SetAudioVolumeIn)                        /* present on 6D.113 */
-NSTUB(0xFE108A70,  SoundDevActiveIn)                        /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
-NSTUB(0xFE108CC8,  SoundDevShutDownIn)                      /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
-NSTUB(0xFE106228,  StopASIFDMAADC)                          /* present on 7D.203, 6D.113, EOSM.202 */
+NSTUB(0xfe11d1cc,  PowerAudioOutput)                       /* not found  old FE108E44*/
+NSTUB(0xFE11B938,  SetAudioVolumeOut) 
+NSTUB(0xFE106A98,  SetNextASIFADCBuffer) 
+NSTUB(0xFE106C80,  SetNextASIFDACBuffer) 
+NSTUB(0xFE11C690,  SetSamplingRate) 
+NSTUB(0xFE105F7C,  StartASIFDMAADC) 
+NSTUB(0xFE106350,  StartASIFDMADAC) 
+NSTUB(0xFE1065D0,  StopASIFDMADAC) 
+NSTUB(0xFE11CD04,  PowerMicAmp)                           /* present on 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xFE1066F8,  SetASIFMode)                             /* present on 700D.113 */
+//NSTUB(0xFE108E10,  SetAudioVolumeIn) //?                       /* present on 6D.113 */
+NSTUB(0xFE108A70,  SoundDevActiveIn) //ok                       /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xFE108CC8,  SoundDevShutDownIn)//ok                      /* present on 7D.203, 6D.113, 650D.104, EOSM.202, 700D.113 */
+NSTUB(0xFE106228,  StopASIFDMAADC) //ok                          /* present on 7D.203, 6D.113, EOSM.202 */
+
 
 /** Audio **/
 NSTUB(    0x31604,  sounddev)                               // in sounddev_task
 // TODO: Not found direct write it looks like its some kind of serial connection now
- NSTUB(0xFE2B3A3C, _audio_ic_read)
- NSTUB(0xFE2B36D4, _audio_ic_write) // posible sub_FE2B3A18
+NSTUB(0xFE2B3A3C, _audio_ic_read) // FE2B3A3C
+NSTUB(0xFE2B36D4, _audio_ic_write) // posible sub_FE2B3A18
 NSTUB(0xFE8C32CC,  audio_thresholds)                        // find "ALV_Initialize", then pointer to "AudioLevel", thresholds are following array of 41 values
 NSTUB(0xFE108A70,  sounddev_active_in)                      // "SoundDevActiveIn"
 NSTUB(0xFE108660,  sounddev_task)                           // "[SND] _SoundDeviceTask"
@@ -124,13 +125,14 @@ NSTUB(0xFE1244E0,  dma_memcpy)
 NSTUB(   0x31BF4,  dm_names)                                // in DebugMsg, before the 1st loop target
 NSTUB(0xFE11F394,  DryosDebugMsg)
 NSTUB(0xFE11F6FC,  dm_set_store_level)                      // called by "dmstore"
+NSTUB(0xFE11F694,  dm_set_print_level)
 
 /** Dialog API **/
 NSTUB(0xFE3F0A44,  dialog_redraw)
 NSTUB(0xFE2F8BF8,  dialog_set_property_str)
 
 /** Dialog handlers **/
-NSTUB(0xFE5ACCEC,  ErrCardForLVApp_handler)                 // LiveViewErrorApp, as in 60D
+NSTUB(0xFE5AC378,  ErrCardForLVApp_handler)                 // LiveViewErrorApp, as in 60D
 NSTUB(0xFE45573C,  ErrForCamera_handler)                    // ERR70, ERR80 etc (DlgErrForCamera.c, AJ_DIALOG.HANDLER_DlgErrForCamera.c)
 NSTUB(0xFE488590,  HideUnaviFeedBack_maybe)                 // look for StartUnaviFeedBackTimer
 NSTUB(0xFE48D148,  LiveViewApp_handler)
@@ -168,10 +170,15 @@ NSTUB(0xFE29EA88,  UnregisterEDmacPopCBR)
 NSTUB(0xFE2EB038,  GUI_SetRollingPitchingLevelStatus)
 
 /** Engio **/
-NSTUB(0xFE29F844, _EngDrvOut)
+NSTUB(0xfe29f844, _EngDrvOut)
 NSTUB(0xFE29FBF0, _engio_write)
-NSTUB(0xFE29F734,  shamem_read)                             // AJ_0x8FB0_engio_struct_n_R0_manipulation_to_get_ptr
-// NSTUB(    ???,  EngDrvOut)                               /* present on 7D_MASTER.203 */
+//NSTUB(0xFE29FC98,  shamem_read) //0xfe29f838
+NSTUB(0xFE29F734,  shamem_read)
+
+/* orig  */
+//NSTUB(0xFE29F844, _EngDrvOut)
+//NSTUB(0xFE29FBF0, _engio_write) 
+//NSTUB(0xFE29F734,  shamem_read)                             // AJ_0x8FB0_engio_struct_n_R0_manipulation_to_get_ptr
 
 /** Eventprocs (call by name) **/
 NSTUB(0xFE120288,  call)
@@ -245,12 +252,12 @@ NSTUB(0xFE127EC4, _FreeMemory)
 NSTUB(0xFE2C2528, _alloc_dma_memory)
 NSTUB(0xFE2C6C04, _free)
 NSTUB(0xFE2C2564, _free_dma_memory)
-NSTUB(0xFE2C6BAC, _malloc)                                  // maybe it's better to use Allocate/Free?
+NSTUB(0xFE2C6BAC, _malloc)                                  // maybe its better to use Allocate/Free?
 // NSTUB(    ???,  free_dma_memory)                         /* present on 7D_MASTER.203 */
 
 /** Message queues **/
 NSTUB(    0x7868,  msg_queue_count)
-NSTUB(    0x7480,  msg_queue_create)                        // CreateMessageQueue
+NSTUB(    0x7480,  msg_queue_create)                        // CreateMessageQueue 7480
 NSTUB(    0x7814,  msg_queue_post)
 NSTUB(    0x75D0,  msg_queue_receive)
 
@@ -289,9 +296,30 @@ NSTUB(    0x3270,  take_semaphore)
 
 /** Task info **/
 NSTUB(   0x358E8,  task_max)
-NSTUB(0xFE2C2ED0,  is_taskid_valid)                         // AJ_task_trampoline_related_p10
+//NSTUB(0xfea95880,  get_task_info_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
+
+NSTUB(0x4080,  get_task_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
+NSTUB(0x24C4,  _get_task_info_by_id)                         // AJ_task_trampoline_related_p10 FE2C2ED0 
+//THUMB_FN(0xfcb46b2c,  _get_task_info_by_id) 
+//NSTUB(0xfEa95880,  is_taskid_valid)                         // AJ_task_trampoline_related_p10 FE2C2ED0
+NSTUB(    0x24c4,  is_taskid_valid)                         // AJ_task_trampoline_related_p10 FE2C2ED0
 NSTUB(   0x31170,  current_task)
 NSTUB(     0x640,  current_interrupt)                       // in interrupt handler (0x18), where MEM(C0201004) is stored
+
+/* wifi  */
+NSTUB(0xFE43005C, nif_setup) 
+NSTUB(0xFE42fd44, rt_edit)
+NSTUB(0xFE443964, wlanconnect)
+
+NSTUB(0x000140CC, _socket_create)  
+NSTUB(0x000142BC, _socket_bind)  
+NSTUB(0x000143B0, _socket_connect) 
+NSTUB(0x00014334, _socket_listen)
+NSTUB(0x00014468, _socket_accept)
+NSTUB(0x00014670, _socket_recv)
+NSTUB(0x00014920, _socket_send)
+NSTUB(0x00014DE4, _socket_setsockopt)
+
 
 /** Task sleep **/
 NSTUB(    0x3780,  msleep)                                  // called from EV_GETDONE_CACHE param 0x64
@@ -314,6 +342,9 @@ NSTUB(0xFE114B20,  EnableImagePhysicalScreenParameter)      /* present on 7D.203
 // NSTUB(    ???,  FSUunMountDevice)                        /* present on 5D3.113 */
 // NSTUB(    ???,  PtpDps_remote_release_SW1_SW2_worker)    /* present on 7D.203, 5D2.212 */
 // NSTUB(    ???,  memcpy)                                  /* present on 7D_MASTER.203 */
+
+NSTUB(0xfe0d48b4,  TryReceiveMessageQueue)
+
 
 /** Unused stubs or porting notes **/
 // NSTUB( 0xFF34B724, AJ_guess_LED_OFF )

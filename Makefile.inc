@@ -82,7 +82,8 @@ prepare_zip: FORCE
 	mkdir -p $(INSTALL_DIR)
 
 # zip.txt must be the first item on the list!
-magiclantern-$(VERSION).zip: install installer_check installdoc minimal_check
+#magiclantern-$(VERSION).zip: install installer_check installdoc
+magiclantern-$(VERSION).zip: install 
 	-$(call rm_files, $@)
 	chmod -x $(INSTALL_DIR)/autoexec.bin
 	cd $(INSTALL_DIR); zip -z ../$@ < \

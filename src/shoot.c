@@ -259,17 +259,36 @@ int get_bulb_shutter_raw_equiv()
     return shutterf_to_raw(bulb_duration);
 }
 
-static void seconds_clock_update();
+static inline void seconds_clock_update();
 
 static volatile int seconds_clock = 0;
 static volatile int miliseconds_clock = 0;
 static volatile uint64_t microseconds_clock = 0;
 
-int get_seconds_clock() { return seconds_clock; }
-int get_ms_clock_value() { seconds_clock_update(); return miliseconds_clock; }
-uint64_t get_us_clock_value() { seconds_clock_update(); return microseconds_clock; }
+int get_seconds_clock()
+{
+    seconds_clock_update();
 
-int get_ms_clock_value_fast() { return miliseconds_clock; } // fast, but less accurate
+    /* derived from microseconds_clock */
+    int seconds_clock = microseconds_clock / 1000000;   /* overflow after 68 years */
+    return seconds_clock;
+}
+
+int get_ms_clock()
+{
+    seconds_clock_update();
+
+    /* derived from microseconds_clock */
+    int miliseconds_clock = microseconds_clock / 1000;  /* overflow after 24 days */
+
+    return miliseconds_clock;
+}
+
+uint64_t get_us_clock()
+{
+    seconds_clock_update();
+    return microseconds_clock;
+}
 
 
 /**
@@ -299,6 +318,8 @@ int get_ms_clock_value_fast() { return miliseconds_clock; } // fast, but less ac
  */
 int should_run_polling_action(int period_ms, int* last_updated_time)
 {
+    int miliseconds_clock = get_ms_clock();
+
     if (miliseconds_clock >= (*last_updated_time) + period_ms)
     {
         *last_updated_time = miliseconds_clock;
@@ -2853,7 +2874,7 @@ bulb_take_pic(int duration)
     
     SW1(1,300);
     
-    int t_start = get_ms_clock_value();
+    int t_start = get_ms_clock();
     int t_end = t_start + duration;
     SW2(1, initial_delay);
     
@@ -2863,13 +2884,13 @@ bulb_take_pic(int duration)
     
     //~ msleep(duration);
     //int d = duration/1000;
-    while (get_ms_clock_value() <= t_end - 1500)
+    while (get_ms_clock() <= t_end - 1500)
     {
         msleep(100);
 
         // number of seconds that passed
         static int prev_s = 0;
-        int s = (get_ms_clock_value() - t_start) / 1000;
+        int s = (get_ms_clock() - t_start) / 1000;
         if (s == prev_s) continue;
         prev_s = s;
         
@@ -2945,7 +2966,7 @@ bulb_take_pic(int duration)
         }
     }
     
-    while (get_ms_clock_value() < t_end && !job_state_ready_to_take_pic())
+    while (get_ms_clock() < t_end && !job_state_ready_to_take_pic())
         msleep(MIN_MSLEEP);
     
     //~ NotifyBox(3000, "BulbEnd");

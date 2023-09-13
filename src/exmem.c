@@ -4,9 +4,31 @@
 #include "bmp.h"
 #include "property.h"
 #include "lens.h"
+#include "raw.h"
 
 extern void* _malloc(size_t size);
 extern void _free(void* ptr);
+
+/* semaphore from mem.c, used for these routines as well */
+extern struct semaphore * mem_sem;
+
+/* the CBRs are called from Canon's RscMgr task */
+THREAD_ROLE(RscMgr);
+
+/* semaphore routines used more like event flags or message queues
+ * (not checked for thread safety)
+ */
+static inline NO_THREAD_SAFETY_ANALYSIS
+int take_semaphore_nc(struct semaphore * sem, int timeout)
+{
+    return take_semaphore(sem, timeout);
+}
+
+static inline NO_THREAD_SAFETY_ANALYSIS
+int give_semaphore_nc(struct semaphore * sem)
+{
+    return give_semaphore(sem);
+}
 
 // experimental memory allocation from shooting buffer (~160MB on 5D2)
 

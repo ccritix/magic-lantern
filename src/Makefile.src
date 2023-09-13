@@ -19,13 +19,6 @@ CFLAGS += \
 	-DCONFIG_FW_VERSION=$(FW_VERSION) \
 	-DCURRENT_CAMERA_SIGNATURE=SIG_$(MODEL)_$(FW_VERSION)
 
-ifeq ($(ML_BOOT_HACK_OBJ), n)
-ML_BOOT_HACK_OBJ =
-else ifndef ML_BOOT_HACK_OBJ
-ML_BOOT_HACK_OBJ = boot-hack.o
-endif
-
-
 ifeq ($(ML_INIT_OBJ), n)
 ML_INIT_OBJ =
 else ifndef ML_INIT_OBJ
@@ -79,17 +72,12 @@ ifndef ML_BOOT_OBJ
 ML_BOOT_OBJ = boot-d45.o
 endif
 
-ifndef ML_MINIMAL_OBJ
-ML_MINIMAL_OBJ = minimal.o
-endif
 
 ifeq ($(ML_SRC_PROFILE),minimal)
 ML_OBJS-y = \
 	magiclantern.lds \
 	$(ML_ENTRY_OBJ) \
-	$(ML_BOOT_OBJ) \
-	$(ML_MINIMAL_OBJ) \
-	cache.o \
+	minimal.o \
 	font_direct.o \
 	$(PLATFORM_DIR)/stubs.o
 
@@ -97,6 +85,7 @@ else ifeq ($(ML_SRC_PROFILE),installer)
 ML_INSTALLER_OBJS = \
 	magiclantern.lds \
 	$(ML_ENTRY_OBJ) \
+	$(ML_BOOT_OBJ) \
 	$(ML_BOOT_OBJ) \
 	$(PLATFORM_DIR)/stubs.o \
 	installer.o \
@@ -110,7 +99,6 @@ ML_INSTALLER_OBJS = \
 	bootflags.o \
 	mem.o \
 	util.o \
-	cache.o \
 
 ML_OBJS-y += $(ML_INSTALLER_OBJS)
 
@@ -350,7 +338,8 @@ version.o: $(PLATFORM_DIR)/version.c
 
 $(PLATFORM_DIR)/version.c: FORCE
 	$(call build,"VERSION",echo "const char build_version[] = \"$(VERSION)\";") > $@
-	@echo 'const char build_id[] = "'`hg id`'";' >> $@
+#	@echo 'const char build_id[] = "'`hg id`'";' >> $@
+	@echo 'const char build_id[] = "'NO_HG'";' >> $@
 	@echo 'const char build_date[] ="'`$(DATE) "+%Y-%m-%d %H:%M:%S %Z"`'";' >> $@
 	@echo 'const char build_user[] = "'`whoami`@`hostname`'";'  >> $@
 
@@ -363,11 +352,11 @@ $(PLATFORM_DIR)/version.bin: FORCE
 	@echo 'Magic Lantern $(VERSION)' >> $@
 	@echo 'Camera   : $(MODEL)' >> $@
 	@echo 'Firmware : $(FW_VERSION)' >> $@
-	@echo 'Changeset: '`hg id` >> $@
+#	@echo 'Changeset: '`hg id` >> $@
 	@echo 'Built on : '`date -u "+%Y-%m-%d %H:%M:%S"`' by '`whoami`@`hostname` >> $@
 	@echo '' >> $@
-	@hg diff $(SRC_DIR)/ >> $@
-	@hg diff $(PLATFORM_DIR)/ >> $@
+#	@hg diff $(SRC_DIR)/ >> $@
+#	@hg diff $(PLATFORM_DIR)/ >> $@
 	@echo '' >> $@
 	@echo '' >> $@
 	@(cat $(TOP_DIR)/Makefile.user 2>/dev/null) | grep -E "^ *(CONFIG_|[A-Z0-9_]*VERSION)" >> $@ || true

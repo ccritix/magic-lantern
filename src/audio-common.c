@@ -76,7 +76,7 @@ struct gain_struct
 };
 
 static struct gain_struct gain = {
-    .sem                    = (void*) 1,
+    .sem                    = (void*) 0,
 };
 
 static CONFIG_INT( "audio.lovl",       lovl,           0 );
