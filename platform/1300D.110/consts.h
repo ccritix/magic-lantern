@@ -4,9 +4,9 @@
 
 #define CANON_SHUTTER_RATING 100000
 
-#define CARD_LED_ADDRESS 0xC0220134 // http://magiclantern.wikia.com/wiki/Led_addresses
-#define LEDON 0x46
-#define LEDOFF 0x44
+#define CARD_LED_ADDRESS 0xc022d1e0 // http://magiclantern.wikia.com/wiki/Led_addresses
+#define LEDON 0x93d800
+#define LEDOFF 0x83dc00
 
 
 
